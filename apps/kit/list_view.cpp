@@ -86,6 +86,16 @@ int ListView::rowAt(draw::Point pt) const {
     return i < count_ ? i : -1;
 }
 
+int ListView::columnAt(draw::Point pt) const {
+    if (cols_.empty() || pt.y < 0 || pt.y >= headerH() || pt.x < 0 || pt.x >= rowsRight()) return -1;
+    const draw::Rect row{0, 0, rowsRight(), headerH()};
+    for (size_t k = 0; k < cols_.size(); ++k) {
+        const draw::Rect cr = colRect(row, k);
+        if (pt.x >= cr.left && pt.x < cr.right) return int(k);
+    }
+    return -1;
+}
+
 // The rows' edge and the bar's place follow the size and the content; the scroll position stays in range.
 void ListView::layout() {
     top_ = std::clamp(top_, 0, maxTop());

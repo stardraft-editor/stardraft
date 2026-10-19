@@ -320,7 +320,7 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.size = unitPropsDialogSetup(s.dlg, *s.unit), s.view = &s.dlg;
         return true;
     }
-    if (name == "unitslist" && !ed.units().empty()) {  // the window with the Units list (View > Units list): the first selected unit
+    if ((name == "unitslist" || name.rfind("unitslist:", 0) == 0) && !ed.units().empty()) {  // the window with the Units list (View > Units list): the first selected unit
         const int u = ed.selection().empty() ? 0 : ed.selection().front();
         if (!ed.isSelected(u)) ed.select(u, false);
         const Unit first = ed.units()[size_t(u)];
@@ -330,6 +330,13 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
             if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);
         };
         unitPropsDialogSetup(s.dlg, *s.unit);
+        // unitslist:<column>[:desc]: the list sorted by a column first (a snapshot of the order a header click gives).
+        if (name.size() > 10) {
+            const std::string opt = name.substr(10);
+            static const char* const cols[5] = {"type", "owner", "x", "y", "index"};
+            for (int k = 0; k < 5; ++k)
+                if (opt.rfind(cols[k], 0) == 0) s.unit->setSort(k, opt.find(":desc") != std::string::npos);
+        }
         s.size = unitWindowDefaultSize(), s.view = &s.dlg;  // (the window's default size, as a run opens it)
         return true;
     }

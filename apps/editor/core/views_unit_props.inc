@@ -60,7 +60,12 @@ constexpr int kButtonsGap = 24;                             // Edit unit type to
 struct UnitRowsView final : stardraft::kit::ListView {
     std::function<bool(const draw::KeyEvent&)> keyHook;  // true: the key is taken
     bool plainPick = false;                                // the last press was a plain click
+    std::function<void(int)> onHeader;  // a click on a header cell: its column
     bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && onHeader) {
+            const int col = columnAt(e.pt);
+            if (col >= 0) return onHeader(col), true;
+        }
         if (e.kind == draw::MouseKind::Down && e.button == 0) plainPick = !(e.mods & (draw::kCtrl | draw::kShift));
         return stardraft::kit::ListView::mouse(e);
     }
@@ -81,14 +86,13 @@ public:
         search_.setPlaceholder(std::wstring(tr(L"Search the units")));
         search_.onChange = [this] { rebuild(); };
         list_.setMode(stardraft::kit::SelectMode::Multiple);
-        list_.setColumns({{std::wstring(tr(L"No.")), 34, stardraft::kit::ColAlign::Right}, {std::wstring(tr(L"Type")), 0, stardraft::kit::ColAlign::Left},
-                          {std::wstring(tr(L"Owner")), 70, stardraft::kit::ColAlign::Left}, {std::wstring(tr(L"X")), 52, stardraft::kit::ColAlign::Right},
-                          {std::wstring(tr(L"Y")), 52, stardraft::kit::ColAlign::Right}});
+        setHeaders();
         list_.cell = [this](int row, size_t k) {
             if (row < 0 || row >= int(rows_.size()) || rows_[size_t(row)] >= int(ed_->units().size())) return std::wstring();
             return unitsListCell(*ed_, rows_[size_t(row)], k);
         };
         list_.onSelect = [this] { picked(); };
+        list_.onHeader = [this](int col) { sortBy(col); };
         list_.onActivate = [this](int row) {
             if (row < 0 || row >= int(rows_.size())) return;
             selectFromList();
@@ -242,6 +246,57 @@ public:
     }
 
 private:
+    // The header: the five columns, the sorted one with its arrow. The list is in the index's order at first.
+    void setHeaders() {
+        static const wchar_t* const names[5] = {L"Unit type", L"Owner", L"X", L"Y", L"Index"};
+        static const int widths[5] = {0, 70, 52, 52, 46};
+        static const stardraft::kit::ColAlign aligns[5] = {stardraft::kit::ColAlign::Left, stardraft::kit::ColAlign::Left,
+                                                           stardraft::kit::ColAlign::Right, stardraft::kit::ColAlign::Right,
+                                                           stardraft::kit::ColAlign::Right};
+        std::vector<stardraft::kit::Column> cols;
+        for (int k = 0; k < 5; ++k) {
+            std::wstring name(tr(names[k]));
+            if (k == sortCol_) name += sortDesc_ ? L" \u25BC" : L" \u25B2";
+            cols.push_back({name, widths[k], aligns[k]});
+        }
+        list_.setColumns(cols);
+    }
+public:
+    // The order as a click on a header gives it (the snapshots: --dialog unitslist:<column>[:desc]).
+    void setSort(int col, bool desc) { sortCol_ = col, sortDesc_ = desc, setHeaders(), rebuild(); }
+
+private:
+    // A click on a header: the list is sorted by its column; the same column again turns the order.
+    void sortBy(int col) {
+        if (col == sortCol_) sortDesc_ = !sortDesc_;
+        else sortCol_ = col, sortDesc_ = false;
+        setHeaders();
+        rebuild();
+    }
+    // The rows' order: by the sorted column (ties keep the index's order).
+    void sortRows() {
+        const Editor& ed = *ed_;
+        const bool desc = sortDesc_;
+        std::stable_sort(rows_.begin(), rows_.end(), [&](int a, int b) {
+            const Unit& ua = ed.units()[size_t(a)];
+            const Unit& ub = ed.units()[size_t(b)];
+            bool less = false, equal = false;
+            switch (sortCol_) {
+            case 0: {
+                const std::wstring na = unitDisplayName(ua.type), nb = unitDisplayName(ub.type);
+                less = na < nb, equal = na == nb;
+                break;
+            }
+            case 1: less = ua.owner < ub.owner, equal = ua.owner == ub.owner; break;
+            case 2: less = ua.x < ub.x, equal = ua.x == ub.x; break;
+            case 3: less = ua.y < ub.y, equal = ua.y == ub.y; break;
+            default: less = a < b, equal = a == b; break;
+            }
+            if (equal) return a < b;
+            return desc ? !less : less;
+        });
+    }
+
     // The rows for the map now and the search (again when either changed).
     void rebuild() { rev_ = ~uint64_t(0), sync(); }
     void sync() {
@@ -249,6 +304,7 @@ private:
         if (rev == rev_ && ed_->units().size() == seen_) return;
         rev_ = rev, seen_ = ed_->units().size();
         rows_ = unitsListRows(*ed_, search_.text());
+        sortRows();
         list_.setCount(int(rows_.size()));
         list_.clearSelection();
         for (int r = 0; r < int(rows_.size()); ++r)
@@ -332,6 +388,8 @@ private:
     size_t seen_ = 0;
     bool focusSearch_ = true, focused_ = false;
     int next_ = -1;                     // the unit a pick shows next
+    int sortCol_ = 4;                   // the rows' order: the column (4: the index, the map's order), and descending
+    bool sortDesc_ = false;
 };
 
 // Runs Unit properties from `from` (the program's anchor view) for `units`, showing `first` (the double-clicked unit)
