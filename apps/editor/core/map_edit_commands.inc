@@ -111,9 +111,12 @@ void pasteMapCopy(AppState& app) {
         // The group's middle at the mouse; each copy keeps its place in it and snaps as a location does (Options > Locations).
         // Each copy has its size, name, inversion and elevations; the copies are one undo step and are selected.
         app.ed->beginStroke();
+        int gl = INT_MAX, gt = INT_MAX;  // the group's corner: snapped once, the copies keep their offsets from it
+        for (const AppState::LocationClip& c : app.locationClips) gl = std::min(gl, c.rect.left), gt = std::min(gt, c.rect.top);
+        const int baseX = int(snapRound(wx + gl, app.locationGrid)), baseY = int(snapRound(wy + gt, app.locationGrid));
         std::vector<int> made;
         for (const AppState::LocationClip& c : app.locationClips) {
-            const int left = int(snapRound(wx + c.rect.left, app.locationGrid)), top = int(snapRound(wy + c.rect.top, app.locationGrid));
+            const int left = baseX + c.rect.left - gl, top = baseY + c.rect.top - gt;
             const Rect r{left, top, left + c.rect.right - c.rect.left, top + c.rect.bottom - c.rect.top};
             const int i = app.ed->createLocation(r, c.inverted != 0, c.inverted, c.name + " copy", c.elevation);
             if (i >= 0) made.push_back(i);

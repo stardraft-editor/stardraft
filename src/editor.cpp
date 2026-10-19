@@ -111,7 +111,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     undo_.clear();
     redo_.clear();
     selection_.clear();
-    selectedLocation_ = -1;
+    selectLocation(-1);
     reload();
     step("terrain, tileset, units");
     if (tileset_.groups.empty()) {
@@ -151,7 +151,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     undo_.clear();
     redo_.clear();
     selection_.clear();
-    selectedLocation_ = -1;
+    selectLocation(-1);
     reload();
     open_ = !tileset_.groups.empty();
     // The terrain core makes the tiles as StarEdit's new map does (unless a rect no tile fits: then they stay).
@@ -539,7 +539,7 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py) cons
     // flips a pasted copy both ways.
     for (int k = 1; k < turns_; ++k) {
         const auto [x, y] = turnPoint(px, py, k);
-        add(x, y, turns_ == 2, turns_ == 2);
+        add(x, y, 2 * k == turns_, 2 * k == turns_);
     }
     // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
     // How each flips a pasted copy.
@@ -1747,7 +1747,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
                 stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, d.owner, false);
             }
     selection_.clear();
-    selectedLocation_ = -1;
+    selectLocation(-1);
     reload();
     commit(true);
     return true;
@@ -2700,7 +2700,7 @@ int Editor::createLocation(const Rect& rect, bool inverted, int axes, const std:
         l.elevation = uint16_t(excluded & LocationElevation::All);
         strings_.write(chk_);
         writeLocations(chk_, locations_);
-        selectedLocation_ = i;
+        selectLocation(i);
         commit(false);
         return i;
     }
@@ -3283,8 +3283,9 @@ std::pair<int, int> Editor::moveLocations(const std::vector<int>& locs, int dx, 
         const Rect r = locationRect(i);
         left = std::min(left, r.left), top = std::min(top, r.top), right = std::max(right, r.right), bottom = std::max(bottom, r.bottom);
     }
-    dx = std::max(std::min(dx, width_ * 32 - right), -left);
-    dy = std::max(std::min(dy, height_ * 32 - bottom), -top);
+    // (a group that already sticks out of the map may move back in, but not further out)
+    dx = dx > 0 ? std::min(dx, std::max(0, width_ * 32 - right)) : std::max(dx, std::min(0, -left));
+    dy = dy > 0 ? std::min(dy, std::max(0, height_ * 32 - bottom)) : std::max(dy, std::min(0, -top));
     if (!dx && !dy) return {0, 0};
     beginEdit();
     for (int i : used) {  // (both edges move: an inverted location stays inverted)

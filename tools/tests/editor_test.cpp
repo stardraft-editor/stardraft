@@ -1330,6 +1330,9 @@ static void locationGroupTest(const GameData& data) {
           "location group: delete removes all the selected locations");
     ed.undo();
     CHECK(ed.locationUsed(a) && ed.locationUsed(b) && ed.locationUsed(c), "location group: one undo brings them all back");
+    const int d = ed.createLocation(Rect{100, 1000, 160, 1060});  // a new location is the selection (not the old group)
+    CHECK(ed.selectedLocations().size() == 1 && ed.isLocationSelected(d) && ed.selectedLocation() == d,
+          "location group: a new location replaces the selection");
 }
 
 // The turns (feedback #111): n copies of a point, equally spaced round the map's middle; with a mirror, the mirror's copies
