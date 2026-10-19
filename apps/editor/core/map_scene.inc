@@ -840,6 +840,10 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
             for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
+    } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles.scatter)) {  // the stamp at the mouse
+        int sx, sy;
+        tilesStampOrigin(cx, cy, sx, sy);
+        for (const auto& t : tilesStampCells(sx, sy)) add(t.x, t.y, t.value);
     } else if (tool == TBrush || tool == TSpray) {
         if (gTiles.picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles.picked))) return;
         if (app.brushShape != Brush::Square) {  // the Circle and the Diamond: their outline on the tile edges (#135, #136)

@@ -360,7 +360,24 @@ void tilesSetFilter(int index) {
     tilesRebuild();
 }
 
-// The box: the tiles whose cells it touches, added to the ones selected before it.
+// The stamp: the grid's slots in rows r0 to r1 and columns c0 to c1, as the grid shows them (tiles_edit.inc). Fewer
+// than 2 tiles: no stamp.
+void tilesMakeStamp(int r0, int r1, int c0, int c1) {
+    gTiles.stamp.clear(), gTiles.stampW = gTiles.stampH = 0;
+    int n = 0;
+    std::vector<uint16_t> stamp;
+    for (int r = r0; r <= r1; ++r)
+        for (int c = c0; c <= c1; ++c) {
+            const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
+            const uint16_t v = k < gTiles.values.size() ? gTiles.values[k] : kTilesNone;
+            stamp.push_back(v == kTilesNone ? uint16_t(0xFFFF) : v);
+            n += v != kTilesNone;
+        }
+    if (n < 2) return;
+    gTiles.stamp = std::move(stamp), gTiles.stampW = c1 - c0 + 1, gTiles.stampH = r1 - r0 + 1;
+}
+
+// The box: the tiles whose cells it touches, added to the ones selected before it (Ctrl; else they are the stamp).
 void TilesGridView::boxSelect() {
     const int x0 = std::min(gTiles.boxFrom.x, gTiles.boxTo.x), x1 = std::max(gTiles.boxFrom.x, gTiles.boxTo.x);
     const int y0 = std::min(gTiles.boxFrom.y, gTiles.boxTo.y), y1 = std::max(gTiles.boxFrom.y, gTiles.boxTo.y);
@@ -374,6 +391,8 @@ void TilesGridView::boxSelect() {
                 chosen.push_back(gTiles.values[k]);
         }
     if (chosen.empty()) return;
+    if (gTiles.boxBase.empty()) tilesMakeStamp(r0, r1, c0, c1);
+    else gTiles.stamp.clear();
     gTiles.chosen = chosen;
     gTiles.picked = chosen.back();
     invalidate();
@@ -469,6 +488,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
                 if (from < n && to < n) {
                     const int c0 = std::min(from % kTilesPerRow, to % kTilesPerRow), c1 = std::max(from % kTilesPerRow, to % kTilesPerRow);
                     const int r0 = std::min(from, to) / kTilesPerRow, r1 = std::max(from, to) / kTilesPerRow;
+                    if (!ctrl) tilesMakeStamp(r0, r1, c0, c1);
                     for (int r = r0; r <= r1; ++r)
                         for (int c = c0; c <= c1; ++c) {
                             const int k = r * kTilesPerRow + c;
@@ -484,8 +504,10 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
                 gTiles.chosen.push_back(uint16_t(v));
             }
             if (!shift) gTiles.anchor = v;
+            if (ctrl) gTiles.stamp.clear();  // (Ctrl: a set of tiles, placed at random)
             gTiles.picked = gTiles.chosen.back();
-            setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
+            if (tilesStampOn()) tilesStampChosen();
+            else setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             invalidate();
             appState().dirty = true;
         } else if (v >= 0) {
@@ -510,7 +532,8 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         if (e.button == 0 && gTiles.boxing) {
             gTiles.boxing = false;
             if (draw::Host* h = host()) h->capture(*this, false);
-            if (gTiles.boxed && gTiles.chosen.size() > 1)
+            if (gTiles.boxed && tilesStampOn()) tilesStampChosen();
+            else if (gTiles.boxed && gTiles.chosen.size() > 1)
                 setMessage(L"Selected " + std::to_wstring(gTiles.chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
             invalidate();
         }
