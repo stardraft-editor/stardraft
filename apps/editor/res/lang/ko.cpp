@@ -2386,6 +2386,7 @@ constexpr UiText kRows[] = {
     {L"Forward: the page after (Alt+Right)", L"\uC55E\uC73C\uB85C: \uB2E4\uC74C \uD398\uC774\uC9C0 (Alt+Right)"},
     {L"&Import a project (experimental)\u2026", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30(\uC2E4\uD5D8 \uB2E8\uACC4)(&I)\u2026"},
     {L"E&xtra large", L"\uC544\uC8FC \uD06C\uAC8C(&X)"},
+    {L". This build cannot send it: attach report.txt to a report on GitHub or Discord.", L". \uC774 \uBE4C\uB4DC\uB294 \uBCF4\uACE0\uC11C\uB97C \uBCF4\uB0BC \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: report.txt\uB97C GitHub \uB610\uB294 Discord\uC758 \uBCF4\uACE0\uC11C\uC5D0 \uCCA8\uBD80\uD558\uC138\uC694."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

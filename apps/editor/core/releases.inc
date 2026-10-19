@@ -501,6 +501,10 @@ inline std::string crashHeader(const std::string& build, const std::wstring& gpu
 
 // What the crashed program says: `mode` is Options > Crash reports (0 ask at the next start, 1 send, 2 do not send).
 inline std::wstring crashStoppedText(const fs::path& dir, int mode) {
+    // A build with no token (made from the source, as the Flatpak) sends nothing and asks nothing (Discord feedback #102).
+    if (issueToken().empty())
+        return L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
+               L". This build cannot send it: attach report.txt to a report on GitHub or Discord.";
     if (mode == 1) return L"StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.";
     return L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
            (mode == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if you want to send the crash report.");
