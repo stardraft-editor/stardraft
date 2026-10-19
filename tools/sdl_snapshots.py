@@ -364,6 +364,8 @@ CASES += [
 # nothing. (--rclick runs after the inputs, so it cannot set this up.)
 CASES += [
     ("map-palette-second-pick", ["--click", "196,509", "--click", "700,500"], "map"),
+    # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
+    ("map-palette-xlarge", ["--mode", "doodads", "--palview", "xlarge"], "map"),
 ]
 # The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
