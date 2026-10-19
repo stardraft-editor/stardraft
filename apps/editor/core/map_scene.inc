@@ -621,7 +621,7 @@ render::Scene buildScene() {
         // every symmetric position. A half-size brush sets a single corner; it shows a half diamond.
         if (currentTool() == TBrush || currentTool() == TSpray) {
             std::set<std::pair<int, int>> set;
-            for (auto [px, py] : ed.symmetricPoints(int(wx), int(wy)))
+            for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
                 for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);
             diamondOutline(s, set, currentTool() == TSpray ? 0xFFD040E0u : 0xFFFFFFF0u);
         }

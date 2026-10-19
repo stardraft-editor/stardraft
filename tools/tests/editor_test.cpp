@@ -1181,6 +1181,100 @@ static void mapRevealerTest(const GameData& data) {
     ed.clearSelection();
 }
 
+// The terrain symmetry (feedback #134): a stroke with each mirror and turn leaves the ISOM corners symmetric. Left/right,
+// top/bottom and the half turn are exact on any even-sized map. The diagonals and the quarter turns are exact where the
+// corner grid is square (width = 2 x height in tiles: 256 x 128 here); on a 128 x 128 map they land on the nearest
+// diamond, so that map is checked for the exact ones only.
+static void mirrorTest(const GameData& data) {
+    std::string err;
+    const IsomTerrainTable* table = IsomTerrainTable::forEra(0);
+    uint16_t water = 0;
+    for (uint16_t t = 1; t < 64 && !water; ++t)
+        if (table->isTerrain(t) && table->terrainName(t) == std::string("Water")) water = t;
+    // which: the corner-grid map the mirror or turn applies (0 left/right, 1 top/bottom, 2 half turn, 3 diagonal, 4 the
+    // other diagonal, 5 quarter turn).
+    struct Case {
+        const char* name;
+        int mask, which;
+    };
+    const Case cases[] = {{"left/right", Mirror::LeftRight, 0},     {"top/bottom", Mirror::TopBottom, 1},
+                          {"half turn", Mirror::Rotate180, 2},      {"diagonal", Mirror::Diagonal, 3},
+                          {"other diagonal", Mirror::AntiDiagonal, 4}, {"quarter turn", Mirror::Rotate90, 5}};
+    // A stroke at the center: a brush the mirrors copy onto itself paints the same diamonds with a mirror as without one
+    // (the copies would paint more if the copies rounded apart at the center).
+    auto centerCount = [&](int mask) {
+        Editor ed(data);
+        std::string e;
+        ed.newMap(128, 128, 0, 1, e);
+        ed.setMirrors(mask);
+        ed.paintBrush(128 * 16, 128 * 16, water, Brush{Brush::Diamond, 3});
+        int n = 0;
+        for (int y = 0; y <= 128; ++y)
+            for (int x = 0; x <= 64; ++x)
+                if (((x + y) & 1) && ed.terrainAt(x * 64, y * 32) == water) ++n;
+        return n;
+    };
+    const int plain = centerCount(0);
+    for (int mask : {int(Mirror::LeftRight), int(Mirror::TopBottom), int(Mirror::Rotate180)}) {
+        const int n = centerCount(mask);
+        std::printf("      center stroke, mask %d: %d corners (plain %d)\n", mask, n, plain);
+        CHECK(n == plain, "mirror: a center stroke with a mirror paints what it paints without one");
+    }
+    for (int big = 0; big < 2; ++big) {
+        const int tw = big ? 256 : 128, th = 128;  // tiles
+        for (const Case& c : cases) {
+            Editor ed(data);
+            if (!ed.newMap(tw, th, 0, 1, err)) {
+                CHECK(false, "mirror: a new map");
+                return;
+            }
+            ed.setMirrors(c.mask);
+            ed.beginTerrainStroke();
+            ed.paintBrush(1000, 900, water, Brush{Brush::Diamond, 3});
+            ed.paintBrush(1500, 2300, water, Brush{Brush::Circle, 2});
+            ed.paintBrush(tw * 16 - 20, th * 16 + 10, water, Brush{Brush::Diamond, 4});  // at the center
+            ed.paintBrush(tw * 16 + 5, th * 16 - 40, water, Brush{Brush::Diamond, 3});
+            std::mt19937 rng(7);  // more strokes at random pixels, near the center too (the copies round differently there)
+            for (int i = 0; i < 60; ++i) {
+                const int px = int(rng() % (tw * 32)), py = int(rng() % (th * 32));
+                const int size = 1 + int(rng() % 5);
+                // (a Circle's copies are rounded to the pixel: under the diagonals a copy can differ by one corner on a tie,
+                // so the diagonals and the quarter turn take StarEdit's diamonds only)
+                const bool circle = c.which <= 2 && rng() % 3 == 0;
+                ed.paintBrush(px, py, water, circle ? Brush{Brush::Circle, float(size) + 0.5f} : Brush{Brush::Diamond, float(size)});
+            }
+            ed.endTerrainStroke();
+            const int U = tw / 2, V = th;  // the corner grid: x in [0, U], y in [0, V], x + y odd
+            int diff = 0, total = 0, painted = 0;
+            for (int y = 0; y <= V; ++y)
+                for (int x = 0; x <= U; ++x) {
+                    if (!((x + y) & 1)) continue;
+                    const uint16_t t = ed.terrainAt(x * 64, y * 32);
+                    painted += t == water;
+                    int mx = x, my = y;
+                    switch (c.which) {
+                    case 0: mx = U - x; break;
+                    case 1: my = V - y; break;
+                    case 2: mx = U - x, my = V - y; break;
+                    case 3: mx = y, my = x; break;
+                    case 4: mx = U - y, my = V - x; break;
+                    case 5: mx = U - y, my = x; break;
+                    }
+                    diff += t != ed.terrainAt(mx * 64, my * 32);
+                    ++total;
+                }
+            std::printf("      %dx%d %s: %d of %d corners differ from their mirror image (%d painted)\n", tw, th, c.name, diff, total,
+                        painted);
+            // (on the 128 x 128 map the diagonals and the quarter turn have no exact copy: the count is printed only)
+            if (!big && c.which >= 3) continue;
+            CHECK(diff == 0 && ed.invalidTerrain() == 0 && painted > 0,
+                  (std::string("mirror: ") + c.name + " keeps the corners symmetric on " + std::to_string(tw) + " x " +
+                   std::to_string(th))
+                      .c_str());
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: editor_test <install dir> <map> <scratch dir>\n");
@@ -1194,6 +1288,11 @@ int main(int argc, char** argv) {
     }
     if (argc > 4 && std::string(argv[4]) == "sounds") {  // only the sound file checks
         soundFileSteps(data, argv[2]);
+        return failures ? 1 : 0;
+    }
+    if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
+        mirrorTest(data);
+        std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
     if (argc > 4 && std::string(argv[4]) == "terrain") {  // only the brush and doodad checks (GitHub #143, ramps)
@@ -2294,6 +2393,7 @@ int main(int argc, char** argv) {
     mapRevealerTest(data);
     unitOrderTest(data);
     linkTest(data);
+    mirrorTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

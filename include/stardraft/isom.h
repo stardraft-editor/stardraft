@@ -69,6 +69,11 @@ std::vector<std::pair<int, int>> starEditBrushDiamonds(int x, int y, int extent)
 // wherever the brush is. (Half a diamond, one corner, is the 0.5 brush: not StarEdit's.)
 std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent);
 
+// The lattice point StarEdit's brush of this extent is centered on at a map pixel (see starEditBrushAt): a diamond
+// (x + y even) for an odd extent, a corner for an even one. Mirrors of this point are exact for the mirrors that keep
+// the lattice (the terrain brush mirrors from it, so the copies stay on the lattice).
+std::pair<int, int> starEditCenter(int px, int py, int extent);
+
 // A corner of the diamond grid (rect-grid point with x + y odd) and the terrain it should have.
 struct CornerValue {
     int x = 0, y = 0;
