@@ -2386,6 +2386,7 @@ constexpr UiText kRows[] = {
     {L"Forward: the page after (Alt+Right)", L"\u524D\u8FDB\uFF1A\u4E0B\u4E00\u9875 (Alt+Right)"},
     {L"&Import a project (experimental)\u2026", L"\u5BFC\u5165\u9879\u76EE(\u5B9E\u9A8C\u6027)(&I)\u2026"},
     {L"E&xtra large", L"\u7279\u5927(&X)"},
+    {L". This build cannot send it: attach report.txt to a report on GitHub or Discord.", L"\u3002\u6B64\u7248\u672C\u65E0\u6CD5\u53D1\u9001:\u8BF7\u5C06 report.txt \u9644\u52A0\u5230 GitHub \u6216 Discord \u4E0A\u7684\u62A5\u544A\u4E2D\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

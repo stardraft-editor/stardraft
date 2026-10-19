@@ -2386,6 +2386,7 @@ constexpr UiText kRows[] = {
     {L"Forward: the page after (Alt+Right)", L"Adelante: la p\u00E1gina siguiente (Alt+Right)"},
     {L"&Import a project (experimental)\u2026", L"&Importar un proyecto (experimental)\u2026"},
     {L"E&xtra large", L"E&xtra grande"},
+    {L". This build cannot send it: attach report.txt to a report on GitHub or Discord.", L". Esta versi\u00F3n no puede enviarlo: adjunte report.txt a un informe en GitHub o Discord."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
