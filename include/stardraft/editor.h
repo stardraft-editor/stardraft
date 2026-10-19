@@ -60,6 +60,9 @@ struct Rect {
 // Mirror modes applied to editing operations (map-pixel positions are mirrored; isometric
 // terrain stays valid because every result goes through the terrain correction engine).
 enum class Symmetry { None, Horizontal, Vertical, Both, Rotate180, Diagonal, AntiDiagonal, Rotate4 };
+
+// The Map Revealer unit (units.dat id 101; Edit > Tools > Place map revealers).
+constexpr uint16_t kMapRevealerUnit = 101;
 // Mirrors and turns that combine (as PUDForge's): each edit is repeated at every place the chosen ones give together
 // (the group they make; at most 8 places). Left/right and top/bottom together are "both" (and so 180 too).
 namespace Mirror {
@@ -299,6 +302,17 @@ public:
     // `spacingTiles` tiles where one fits its tiles and its terrain (doodadScatterFits) and overlaps no doodad. One undo
     // step; returns how many.
     int decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTiles, uint32_t seed, const std::vector<Rect>& avoid = {});
+    // Map Revealers (Discord feedback #125; unit kMapRevealerUnit): one for each player in `owners` (0 to 7) at the middle
+    // of each square of `spacingTiles` tiles over the whole map (the squares' centers, clamped to the map). A place where
+    // that player has a revealer already is skipped. Revealers have no placement rules: they go where the grid puts them
+    // (unit limit aside). Does not change the selection. One undo step; returns how many were placed.
+    int placeMapRevealers(const std::vector<uint8_t>& owners, int spacingTiles);
+    // Removes every Map Revealer, of every player (the selection keeps the other units). One undo step; returns how many.
+    int removeMapRevealers();
+    // View > Layers > Map revealers off: the revealers are not picked (unitAt, unitsAt, selectRect, selectAll) while hidden.
+    void setMapRevealersHidden(bool hidden) { revealersHidden_ = hidden; }
+    // Whether unit `i` can be picked: false for a hidden map revealer. The map keeps it either way.
+    bool pickable(int unit) const { return !(revealersHidden_ && units_[size_t(unit)].type == kMapRevealerUnit); }
     // Options > Doodads > Move to the nearest place where it fits: the center (px) nearest (x, y), within `radiusTiles`
     // tiles, where doodad `id` fits (on the map, not on another doodad, dddata.bin when `checkTerrain`), or nullopt.
     std::optional<std::pair<int, int>> nearestDoodadFit(uint16_t id, int x, int y, bool checkTerrain, int radiusTiles = 8) const;
@@ -613,6 +627,7 @@ private:
     DoodadTypes doodadTypes_;
     UnitSprites unitSprites_;
     bool allowIllegalUnits_ = false;
+    bool revealersHidden_ = false;
     int unitLimit_ = 0;
     bool allowStacking_ = false;
     bool resourceDistance_ = true;

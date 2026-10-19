@@ -92,6 +92,7 @@
 #include "triggers_values.inc"  // the Triggers pane's values: which pop-out each one opens, Tab, the value block's menu
 #include "views_unit_props.inc"
 #include "views_location_props.inc"
+#include "views_revealers_dialog.inc"  // Edit > Tools > Place map revealers: the players' dialog (Discord feedback #125)
 #include "views_text_prompt.inc"
 #include "views_map_menu.inc"
 #include "views_quick_pick.inc"

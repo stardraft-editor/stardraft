@@ -2387,6 +2387,15 @@ constexpr UiText kRows[] = {
     {L"&Import a project (experimental)\u2026", L"&Importar un proyecto (experimental)\u2026"},
     {L"E&xtra large", L"E&xtra grande"},
     {L". This build cannot send it: attach report.txt to a report on GitHub or Discord.", L". Esta versi\u00F3n no puede enviarlo: adjunte report.txt a un informe en GitHub o Discord."},
+    {L"Map &revealers", L"Reveladores del mapa (&R)"},
+    {L"Place &map revealers\u2026", L"Colocar reveladores del mapa (&M)\u2026"},
+    {L"&Remove all map revealers", L"&Quitar todos los reveladores del mapa"},
+    {L"Place map revealers", L"Colocar reveladores del mapa"},
+    {L"One map revealer on each square of 8 x 8 tiles.", L"Un revelador del mapa en cada cuadro de 8 x 8 casillas."},
+    {L"Map revealers show", L"Los reveladores del mapa se muestran"},
+    {L"Map revealers are hidden (View > Layers shows them again)", L"Los reveladores del mapa est\u00E1n ocultos (Ver > Capas los muestra otra vez)"},
+    {L"Nothing placed: each chosen player has a map revealer on every square", L"Nada colocado: cada jugador elegido ya tiene un revelador en cada cuadro"},
+    {L"There are no map revealers on the map", L"No hay reveladores en el mapa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

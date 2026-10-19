@@ -2385,3 +2385,12 @@ Forward: the page after (Alt+Right)	앞으로: 다음 페이지 (Alt+Right)
 &Import a project (experimental)…	프로젝트 가져오기(실험 단계)(&I)…
 E&xtra large	아주 크게(&X)
 . This build cannot send it: attach report.txt to a report on GitHub or Discord.	. 이 빌드는 보고서를 보낼 수 없습니다: report.txt를 GitHub 또는 Discord의 보고서에 첨부하세요.
+Map &revealers	맵 리비일러(&R)
+Place &map revealers…	맵 리비일러 배치(&M)…
+&Remove all map revealers	맵 리비일러 모두 제거(&R)
+Place map revealers	맵 리비일러 배치
+One map revealer on each square of 8 x 8 tiles.	8 x 8 타일 칸마다 맵 리비일러 하나씩
+Map revealers show	맵 리비일러를 표시합니다
+Map revealers are hidden (View > Layers shows them again)	맵 리비일러를 숨겼습니다 (보기 > 레이어에서 다시 표시)
+Nothing placed: each chosen player has a map revealer on every square	배치하지 않음: 고른 플레이어마다 모든 칸에 맵 리비일러가 이미 있습니다
+There are no map revealers on the map	맵에 맵 리비일러가 없습니다

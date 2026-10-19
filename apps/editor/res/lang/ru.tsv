@@ -2385,3 +2385,12 @@ Forward: the page after (Alt+Right)	Вперёд: следующая стран�
 &Import a project (experimental)…	&Импортировать проект (экспериментально)…
 E&xtra large	&Очень крупно
 . This build cannot send it: attach report.txt to a report on GitHub or Discord.	. Эта сборка не может его отправить: приложите report.txt к сообщению на GitHub или в Discord.
+Map &revealers	Открыватели карты (&R)
+Place &map revealers…	Разместить открыватели карты (&M)…
+&Remove all map revealers	&Удалить все открыватели карты
+Place map revealers	Разместить открыватели карты
+One map revealer on each square of 8 x 8 tiles.	Один открыватель карты на каждый квадрат 8 x 8 клеток.
+Map revealers show	Открыватели карты показываются
+Map revealers are hidden (View > Layers shows them again)	Открыватели карты скрыты (Вид > Слои показывает их снова)
+Nothing placed: each chosen player has a map revealer on every square	Ничего не размещено: у каждого выбранного игрока уже есть открыватель в каждом квадрате
+There are no map revealers on the map	На карте нет открывателей карты

@@ -2387,6 +2387,15 @@ constexpr UiText kRows[] = {
     {L"&Import a project (experimental)\u2026", L"\uD504\uB85C\uC81D\uD2B8 \uAC00\uC838\uC624\uAE30(\uC2E4\uD5D8 \uB2E8\uACC4)(&I)\u2026"},
     {L"E&xtra large", L"\uC544\uC8FC \uD06C\uAC8C(&X)"},
     {L". This build cannot send it: attach report.txt to a report on GitHub or Discord.", L". \uC774 \uBE4C\uB4DC\uB294 \uBCF4\uACE0\uC11C\uB97C \uBCF4\uB0BC \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: report.txt\uB97C GitHub \uB610\uB294 Discord\uC758 \uBCF4\uACE0\uC11C\uC5D0 \uCCA8\uBD80\uD558\uC138\uC694."},
+    {L"Map &revealers", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC(&R)"},
+    {L"Place &map revealers\u2026", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uBC30\uCE58(&M)\u2026"},
+    {L"&Remove all map revealers", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uBAA8\uB450 \uC81C\uAC70(&R)"},
+    {L"Place map revealers", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uBC30\uCE58"},
+    {L"One map revealer on each square of 8 x 8 tiles.", L"8 x 8 \uD0C0\uC77C \uCE78\uB9C8\uB2E4 \uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uD558\uB098\uC529"},
+    {L"Map revealers show", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4"},
+    {L"Map revealers are hidden (View > Layers shows them again)", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC\uB97C \uC228\uACBC\uC2B5\uB2C8\uB2E4 (\uBCF4\uAE30 > \uB808\uC774\uC5B4\uC5D0\uC11C \uB2E4\uC2DC \uD45C\uC2DC)"},
+    {L"Nothing placed: each chosen player has a map revealer on every square", L"\uBC30\uCE58\uD558\uC9C0 \uC54A\uC74C: \uACE0\uB978 \uD50C\uB808\uC774\uC5B4\uB9C8\uB2E4 \uBAA8\uB4E0 \uCE78\uC5D0 \uB9F5 \uB9AC\uBE44\uC77C\uB7EC\uAC00 \uC774\uBBF8 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"There are no map revealers on the map", L"\uB9F5\uC5D0 \uB9F5 \uB9AC\uBE44\uC77C\uB7EC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

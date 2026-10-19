@@ -2385,3 +2385,12 @@ Forward: the page after (Alt+Right)	Adelante: la página siguiente (Alt+Right)
 &Import a project (experimental)…	&Importar un proyecto (experimental)…
 E&xtra large	E&xtra grande
 . This build cannot send it: attach report.txt to a report on GitHub or Discord.	. Esta versión no puede enviarlo: adjunte report.txt a un informe en GitHub o Discord.
+Map &revealers	Reveladores del mapa (&R)
+Place &map revealers…	Colocar reveladores del mapa (&M)…
+&Remove all map revealers	&Quitar todos los reveladores del mapa
+Place map revealers	Colocar reveladores del mapa
+One map revealer on each square of 8 x 8 tiles.	Un revelador del mapa en cada cuadro de 8 x 8 casillas.
+Map revealers show	Los reveladores del mapa se muestran
+Map revealers are hidden (View > Layers shows them again)	Los reveladores del mapa están ocultos (Ver > Capas los muestra otra vez)
+Nothing placed: each chosen player has a map revealer on every square	Nada colocado: cada jugador elegido ya tiene un revelador en cada cuadro
+There are no map revealers on the map	No hay reveladores en el mapa

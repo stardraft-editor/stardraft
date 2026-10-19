@@ -52,6 +52,37 @@ void decorateTerrain(int spacing) {
     app.dirty = true;
     setMessage(n ? L"Placed " + std::to_wstring(n) + L" doodads where they fit the terrain" : std::wstring(tr(L"No doodad fits the terrain there")));
 }
+// View > Layers > Map revealers (Discord feedback #125): the Map Revealer units are drawn and picked, or not (they stay in
+// the map). The editor's picking follows it (Editor::setMapRevealersHidden).
+void toggleRevealers() {
+    gLayers.revealers = !gLayers.revealers;
+    if (AppState& app = shellState(); app.ed) app.ed->setMapRevealersHidden(!gLayers.revealers);
+    setMessage(gLayers.revealers ? std::wstring(tr(L"Map revealers show")) : std::wstring(tr(L"Map revealers are hidden (View > Layers shows them again)")));
+    shellMenusChanged();
+    shellState().dirty = true;
+}
+
+// Edit > Tools > Place map revealers: the players' dialog (the host: showMapRevealersDialog, sdl_map_dialogs.inc), then a
+// revealer for each chosen player on each square of 8 tiles over the map (Editor::placeMapRevealers). One undo step.
+bool showMapRevealersDialog(std::vector<uint8_t>& owners);
+void placeMapRevealersCommand() {
+    AppState& app = shellState();
+    if (!app.ed || !app.ed->isOpen()) return;
+    std::vector<uint8_t> owners;
+    if (!showMapRevealersDialog(owners)) return;
+    const int n = app.ed->placeMapRevealers(owners, 8);
+    app.dirty = true;
+    setMessage(n ? L"Placed " + std::to_wstring(n) + L" map revealers" : std::wstring(tr(L"Nothing placed: each chosen player has a map revealer on every square")));
+}
+
+// Edit > Tools > Remove all map revealers: every Map Revealer, of every player. One undo step.
+void removeMapRevealersCommand() {
+    AppState& app = shellState();
+    if (!app.ed || !app.ed->isOpen()) return;
+    const int n = app.ed->removeMapRevealers();
+    app.dirty = true;
+    setMessage(n ? L"Removed " + std::to_wstring(n) + L" map revealers" : std::wstring(tr(L"There are no map revealers on the map")));
+}
 extern bool gShowFog;
 enum class TerrainFlagsView;  // View > Overlays > Terrain flags (core/terrain_flags_layer.inc)
 TerrainFlagsView terrainFlagsView();
@@ -209,6 +240,7 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 1, "view.layer.doodads", L"&Doodads", "View/Layers", L"", [] { toggleLayer(1); }, [] { return gLayers.doodads; });
     addCommand(ID_LAYER + 2, "view.layer.sprites", L"&Sprites", "View/Layers", L"", [] { toggleLayer(2); }, [] { return gLayers.sprites; });
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
+    addCommand(ID_LAYER_REVEALERS, "view.layer.revealers", L"Map &revealers", "View/Layers", L"", [] { toggleRevealers(); }, [] { return gLayers.revealers; });
     addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
     addCommand(ID_LAYER + 5, "view.pathing.regions", L"Pathing shows the &regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
                [] { return !pathingLayerAreas(); }, true);
@@ -239,6 +271,8 @@ void registerMapCommands() {
             addCommand(ID_DECORATE + k, levels[k].id, levels[k].label, "Edit/Decorate", L"", [spacing] { decorateTerrain(spacing); });
         }
     }
+    addCommand(ID_REVEAL_PLACE, "edit.revealers.place", L"Place &map revealers\x2026", "Edit/Tools", L"", [] { placeMapRevealersCommand(); });
+    addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
     // View: the camera. + and - are the map view's own keys (they also work with the number pad).
     addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"+", [] {
