@@ -250,8 +250,7 @@ bool floatingPanelSet(Mode m, bool on);  // (sdl_palette_panels.inc: the active 
 void shellFloatPalette(Mode m, bool on) {
     gFloatPalLines = true;
     FloatPalette& p = gFloatPal[int(m)];
-    if (m != Mode::Locations) {  // (a palette window of the active tab; the program keeps that it floats, in every tab)
-        if (p.floating != on) p.floating = on, saveDock();
+    if (m != Mode::Locations) {  // (a palette window of the active tab: each map's own, kept with the map's panels)
         if (!floatingPanelSet(m, on)) return;
         if (gRoot) gRoot->relayout();
         shellMenusChanged();

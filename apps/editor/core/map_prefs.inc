@@ -60,3 +60,17 @@ bool setDoodadPinsNow(const std::vector<uint16_t>& pins, std::string& error) {
     if (!s.set("DoodadPins", list)) return error = s.lastError(), false;
     return true;
 }
+
+// The Terrain tool strip's Isometric or Rectangle as the map was left (none kept: Isometric).
+bool mapTerrainRectNow() {
+    const fs::path f = activeMapPrefsFile();
+    std::error_code ec;
+    if (f.empty() || !fs::exists(f, ec)) return false;
+    return stardraft::Settings(f).number("TerrainRect").value_or(0) != 0;
+}
+void setMapTerrainRect(bool rect) {
+    const fs::path f = activeMapPrefsFile();
+    std::error_code ec;
+    if (f.empty() || (!rect && !fs::exists(f, ec))) return;  // (Isometric and no file: nothing to keep)
+    stardraft::Settings(f).set("TerrainRect", int64_t(rect ? 1 : 0));
+}

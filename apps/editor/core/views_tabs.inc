@@ -74,6 +74,7 @@ void stashActive() {
     d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
     d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel;
     d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
+    d.terrainRect = app.terrainRect;
     d.ed = std::move(app.ed);
 }
 // Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
@@ -104,6 +105,7 @@ void activateDoc(int i) {
     shellRelayout();  // the minimap takes this map's shape
     app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel;
     app.pasting = d.pasting, app.terrainPasting = d.terrainPasting;
+    app.terrainRect = d.terrainRect;  // (showActive's setMode: the Tiles grid or the terrains)
     showActive();
     if (gWorkspace != Workspace::Map) setWorkspace(d.page ? Workspace::Map : gWorkspace);  // a map tab falls back to Map; a project reloads
     shellInvalidateWorkspaceBar();
