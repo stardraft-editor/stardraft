@@ -383,6 +383,10 @@ CASES += [
     # Each docked side shows its mode's tools (Terrain left, Units right): in Units mode, a click on the Terrain side's
     # Spray (153,459) makes Terrain the mode with Spray as its tool.
     ("map-strip-other-side", ["--mode", "units", "--click", "153,459"], "map"),
+    # Several locations: three made; a click selects one, Ctrl+click and Shift+click add two; a drag moves the three; Ctrl+C,
+    # Ctrl+V pastes three copies (selected); Del deletes them (one undo step: Ctrl+Z gives them back); Ctrl+A selects
+    # every location, Esc none; in the list a click selects one and Ctrl+click adds one.
+    ("map-location-multi", ["--script", "{script:locmulti}"], "map"),
     # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
     ("map-palette-xlarge", ["--mode", "doodads", "--palview", "xlarge"], "map"),
 ]
@@ -1240,6 +1244,9 @@ stats
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
+    "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
+                "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nkey Del\n"
+                "key Ctrl+Z\nkey Ctrl+A\nkey Esc\nclick 200,495\nclick 200,525:Ctrl\n",
     "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,323\ntype plat\nclick 490,436\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
@@ -3556,6 +3563,23 @@ def check_strip_other_side(output):
     ])
 
 
+def check_location_multi(output):
+    """Locations select, move, copy and delete together; the map and the list show the same selection."""
+    return expect(output, 16, [
+        ("a click on Location 2 did not select it alone", lambda s: s[3]["locsel"] == "1"),
+        ("Ctrl+click on Location 3 did not add it", lambda s: s[4]["locsel"] == "1,2"),
+        ("Shift+click on Location 4 did not add it", lambda s: s[5]["locsel"] == "1,2,3"),
+        ("the drag did not move the selected locations", lambda s: s[6]["locsel"] == "1,2,3" and s[6]["location"] != s[5]["location"]),
+        ("the paste did not make three selected copies", lambda s: s[9]["locations"] == "7" and s[9]["locsel"] == "4,5,6"),
+        ("Del did not delete the three copies", lambda s: s[10]["locations"] == "4" and s[10]["locsel"] == "-"),
+        ("one Ctrl+Z did not give the three back", lambda s: s[11]["locations"] == "7"),
+        ("Ctrl+A did not select every location", lambda s: s[12]["locsel"] == "0,1,2,3,4,5,6"),
+        ("Esc did not clear the selection", lambda s: s[13]["locsel"] == "-"),
+        ("a click in the list did not select its location", lambda s: s[14]["locsel"] == "0" and s[14]["listsel"] == "0"),
+        ("Ctrl+click in the list did not add its location", lambda s: s[15]["locsel"] == "0,1" and s[15]["listsel"] == "0,1"),
+    ])
+
+
 def check_palette_float_shared(output):
     """The side bar's search goes to the unit palette's window as it floats, and the window's back as it docks."""
     if 'search="marine"' not in output.split("command view.floatPalette.units", 1)[-1].split("panel search", 1)[0]:
@@ -3607,7 +3631,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-shared": check_palette_float_shared, "map-palette-float-keys": check_palette_keys,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-shared": check_palette_float_shared, "map-location-multi": check_location_multi, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,

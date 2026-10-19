@@ -669,7 +669,7 @@ bool SDLCALL palettePanelsPress(void*, SDL_Event* e) {
             if (picks) setMode(v.mode);
             return true;
         }
-    if (gFloatPalOpen && gState.mode != Mode::Locations && at(gFloatPalView, pt) && pt.y >= gFloatPalView.titleH) setMode(Mode::Locations);
+    // (The location list's window: its pick makes Locations the mode, locationListPicked.)
     return true;
 }
 void palettePanelsSetup() {

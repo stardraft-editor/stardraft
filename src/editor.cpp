@@ -2669,7 +2669,7 @@ int Editor::createLocation(const Rect& rect, bool inverted, int axes, const std:
         l.elevation = uint16_t(excluded & LocationElevation::All);
         strings_.write(chk_);
         writeLocations(chk_, locations_);
-        selectedLocation_ = i;
+        selectLocation(i);
         commit(false);
         return i;
     }
@@ -3223,8 +3223,40 @@ void Editor::deleteLocation(int i) {
     locations_[i] = Location{};
     strings_.write(chk_);
     writeLocations(chk_, locations_);
-    if (selectedLocation_ == i) selectedLocation_ = -1;
+    removeLocationSelection(i);
     commit(false);
+}
+
+std::vector<int> Editor::selectedLocations() const {
+    std::vector<int> out;
+    if (!locationUsed(selectedLocation_)) return out;
+    for (int i : selectedLocations_)
+        if (locationUsed(i) && std::find(out.begin(), out.end(), i) == out.end()) out.push_back(i);
+    if (std::find(out.begin(), out.end(), selectedLocation_) == out.end()) out.push_back(selectedLocation_);
+    return out;
+}
+
+bool Editor::locationSelected(int i) const {
+    const std::vector<int> sel = selectedLocations();
+    return std::find(sel.begin(), sel.end(), i) != sel.end();
+}
+
+void Editor::addLocationSelection(int i) {
+    if (!locationUsed(i)) return;
+    selectedLocations_ = selectedLocations();  // (none while no location is selected)
+    if (std::find(selectedLocations_.begin(), selectedLocations_.end(), i) == selectedLocations_.end()) selectedLocations_.push_back(i);
+    selectedLocation_ = i;
+}
+
+void Editor::removeLocationSelection(int i) {
+    std::erase(selectedLocations_, i);
+    if (selectedLocation_ != i) return;
+    selectedLocation_ = -1;
+    for (auto it = selectedLocations_.rbegin(); it != selectedLocations_.rend(); ++it)
+        if (locationUsed(*it)) {
+            selectedLocation_ = *it;
+            break;
+        }
 }
 
 }  // namespace stardraft

@@ -79,17 +79,35 @@ void shellLogError(const std::wstring& line) {
 }
 bool shellHasStatusBar() { return true; }
 int shellSpriteCount() { return gRenderer ? gRenderer->stats().sprites : 0; }
-// The Locations list (sdl_panels.inc): its rows are the rebuildList's, its selection is the core's picks.
+// The Locations list (sdl_panels.inc): its rows are the rebuildList's in Locations, its selection is the core's picks.
+// In another mode it lists the locations still (the location list's window shows it): the other mode's list is not it.
 void shellListSelect(int i) {
+    if (gState.mode != Mode::Locations) return;
     if (i >= 0) gLocList.selectOnly(i);
     else gLocList.clearSelection();
 }
 void shellListFill(const std::vector<std::wstring>& rows) {
-    gListRows = rows;
-    gLocList.setCount(int(rows.size()));
+    if (gState.mode == Mode::Locations) gListRows = rows, gLocItems = gState.items;
+    else locationListRows(gState, gLocItems, gListRows);
+    gLocList.setCount(int(gListRows.size()));
     gLocList.invalidate();
 }
 std::vector<int> shellListSelection() { return gLocList.selection(); }
+void shellLocationListSync() {
+    if (!gState.ed) return;
+    std::vector<int> rows;
+    int cursor = -1;
+    for (int l : gState.ed->selectedLocations())
+        if (const auto it = std::find(gLocItems.begin(), gLocItems.end(), l); it != gLocItems.end())
+            (l == gState.ed->selectedLocation() ? cursor : rows.emplace_back()) = int(it - gLocItems.begin());
+    if (cursor >= 0) rows.push_back(cursor);
+    std::vector<int> want = rows;
+    std::sort(want.begin(), want.end());
+    if (want == gLocList.selection()) return;
+    gLocList.clearSelection();
+    for (int r : rows) gLocList.toggle(r);
+    if (!rows.empty()) gLocList.ensureVisible(rows.back());
+}
 // The Locations filter's text (the palette's own search is not the list's filter).
 std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
