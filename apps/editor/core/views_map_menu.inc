@@ -190,7 +190,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     item(ID_EDIT_DELETE, L"&Delete", L"Del", has && !terrain);
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", L"", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
-    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles.picked >= 0);  // (#114)
+    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles->picked >= 0);  // (#114)
     m.push_back(menuSeparator());
     item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).

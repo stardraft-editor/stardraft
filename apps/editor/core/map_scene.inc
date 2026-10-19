@@ -849,12 +849,12 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
             for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
-    } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles.scatter)) {  // the stamp at the mouse
+    } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles->scatter)) {  // the stamp at the mouse
         int sx, sy;
         tilesStampOrigin(cx, cy, sx, sy);
         for (const auto& t : tilesStampCells(sx, sy)) add(t.x, t.y, t.value);
     } else if (tool == TBrush || tool == TSpray) {
-        if (gTiles.picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles.picked))) return;
+        if (gTiles->picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles->picked))) return;
         if (app.brushShape != Brush::Square) {  // the Circle and the Diamond: their outline on the tile edges (#135, #136)
             std::vector<std::pair<int, int>> tiles;
             for (auto [x, y] : tilesFootprint(cx, cy))
@@ -866,7 +866,7 @@ void tilesScene(render::Scene& s, float wx, float wy) {
             return;
         }
         for (auto [x, y] : tilesFootprint(cx, cy))
-            if (tool == TBrush) add(x, y, uint16_t(gTiles.picked));
+            if (tool == TBrush) add(x, y, uint16_t(gTiles->picked));
             else x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);  // the spray: its area only
     } else {
         return;

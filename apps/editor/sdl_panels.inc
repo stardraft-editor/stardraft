@@ -16,9 +16,10 @@ Mode gPal3Mode = Mode::Terrain;                      // ... and the mode it show
 // active one, its list is the main palette's, and the item is picked there. (The picks are the active mode's: the other
 // lists show none.)
 void pickLocationElsewhere(int v, bool add);
-void pickInOtherMode(Mode m, int v, bool add) {
-    if (m == Mode::Locations) return pickLocationElsewhere(v, add);
-    if (gState.mode != m) setMode(m);
+// A pick in another mode's list in the side bar: its panel (the side bar's of that mode) is the active one, and picks.
+void pickInOtherMode(PanelState* panel, int v, bool add) {
+    if (panel && panel->mode == Mode::Locations) return pickLocationElsewhere(v, add);
+    if (panel) activatePanel(panel);
     pickUnit(gState, v, add);
 }
 
@@ -132,7 +133,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             const Mode fm = Mode(id - ID_VIEW_FLOATPAL);
             return shellPost([fm] { shellFloatPalette(fm, !paletteFloats(fm)); });
         }
-        if (panel && !panel->floating) {  // a panel's own view and order (a mode's floating palette: the mode's, below)
+        if (panel) {  // a panel's own view and order (each panel's own: panel_state.inc)
             if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) return p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
             if (applyPaletteViewCommand(mode, id, panel->view, panel->sort)) palettePanelRebuild(*panel);
             return;
@@ -143,7 +144,6 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             return;
         }
         if (applyPaletteViewCommand(mode, id)) {
-            palettePanelsViewOf(mode);  // (the mode's floating palette shows the mode's view and order)
             if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) shellPaletteRebuilt();  // (the rows in the new order)
             gPalList.layout(), gPal2List.layout(), gPal3List.layout();  // (each palette shows the view of its mode)
             shellSettingsChanged();
@@ -307,7 +307,7 @@ void initPanels() {
     };
     gPal2List.picked = [](int row, unsigned mods) {
         const int v = gPal2List.rows[size_t(row)].value;
-        pickInOtherMode(gPal2Mode, v, (mods & draw::kCtrl) != 0);
+        pickInOtherMode(gPal2List.state, v, (mods & draw::kCtrl) != 0);
         gPal2List.invalidate();
         invalidateMapView();
         shellFocusView();
@@ -316,7 +316,7 @@ void initPanels() {
     gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
     gPal3List.picked = [](int row, unsigned mods) {
         const int v = gPal3List.rows[size_t(row)].value;
-        pickInOtherMode(gPal3Mode, v, (mods & draw::kCtrl) != 0);
+        pickInOtherMode(gPal3List.state, v, (mods & draw::kCtrl) != 0);
         gPal3List.invalidate();
         invalidateMapView();
         shellFocusView();
