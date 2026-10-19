@@ -95,6 +95,7 @@ struct Dock {
     int volume = 100;                                  // every sound StarDraft plays, percent (Program options, an SFX entry)
     int unitNames = 2;  // how lists name a unit with a custom name: 0 game, 1 game (custom), 2 custom (game), 3 custom
     int logH = 220;     // the open Log's height, 96-dpi pixels; drag its top edge
+    int minimapH = 0;   // the minimap's height, 96-dpi pixels; drag its bottom edge (0: the map's shape, at most half the side)
     int gridW = 32, gridH = 32, gridX = 0, gridY = 0;  // the map grid: cell size and offset, map pixels (View > Grid size)
 };
 constexpr int kMinSideW = 200, kMaxSideW = 640;
