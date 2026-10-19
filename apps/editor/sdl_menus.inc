@@ -363,8 +363,9 @@ void sdlWindowRightClick(draw::View& root, draw::Point at, const std::wstring& t
     draw::Point local;
     for (draw::View* v = root.viewAt(at, local); v; v = v->parent())
         if (dynamic_cast<kit::TextField*>(v)) return;
-    std::vector<kit::MenuItem> items;  // a floating palette's window: Dock in the side bar first
+    std::vector<kit::MenuItem> items;  // a floating palette's window: Dock in the side bar first (as the side bar's Make floating)
     if (&root == static_cast<draw::View*>(&gFloatPalView) && gFloatPalOpen) items.push_back(sdlPaletteFloatItem(gFloatPalMode));
+    if (auto* pv = dynamic_cast<PalettePanelView*>(&root); pv && pv->floating) items.push_back(sdlPaletteFloatItem(pv->mode));
     sdlPopupMenu(root, at, std::move(items), sdlFeedbackOn(root, at, title.empty() ? std::wstring() : std::wstring(shellTr(title.c_str()))));
 }
 

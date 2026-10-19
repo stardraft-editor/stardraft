@@ -74,6 +74,22 @@ void palettePanelsRebuild() {
     for (auto& p : gPanels)
         if (p->open) palettePanelRebuild(*p->view);
 }
+// The mode's view and order changed (the View menu of the side bar's palette or of the mode's floating palette): the
+// mode's floating palettes show them.
+void palettePanelsViewOf(Mode m) {
+    for (auto& p : gPanels)
+        if (p->view->floating && p->view->mode == m) {
+            p->view->view = gViewByMode[int(m)], p->view->sort = gSortByMode[int(m)];
+            if (p->open) palettePanelRebuild(*p->view), p->view->list.layout();
+        }
+}
+// A palette window's text field has the keyboard (its search box, the Tiles panel's search in Terrain's window): the
+// map's one-letter keys wait, as for the side bar's search box (MainView::key).
+bool palettePanelsTyping() {
+    for (auto& p : gPanels)
+        if (p->open && MainView::typingFocusIn(*p->view)) return true;
+    return false;
+}
 void palettePanelsOwner(int i) {
     for (auto& p : gPanels)
         if (p->open) p->view->owner.setValue(i), p->view->list.invalidate();  // (the units' pictures are the player's)
@@ -143,6 +159,7 @@ void palettePanelClose(PalettePanelView& v) {
     for (auto it = gPanels.begin(); it != gPanels.end(); ++it)
         if ((*it)->view.get() == &v) {
             const bool floating = v.floating;
+            if (floating && gFloatPal[int(v.mode)].floating) gFloatPal[int(v.mode)].floating = false, saveDock();  // (its close box: docked)
             panelSaveToDocked(v, true);  // (a floating palette: the side bar's palette goes on from where it was)
             tilesPanelBack(v);
             palettePanelHide(**it);
@@ -197,6 +214,16 @@ void palettePanelsLoad(int doc);  // (below: the map's own file's panels, once a
 void palettePanelsSave();
 
 // Shows the panels of the active tab in the Map workspace and hides the others; forgets those of closed tabs.
+// Each mode's palette floats or not in every tab alike, as the location list's window (gFloatPal[m].floating, in the
+// settings): the active tab gets the mode's floating palette, or lets it go. True: a change (the layout is made again).
+PanelWindow* floatingPanelOf(int doc, Mode m);
+bool floatingPanelsFollow() {
+    if (!gRoot || gWorkspace != Workspace::Map || !gRoot->map.shown() || !docOpen()) return false;
+    bool changed = false;
+    for (Mode m : kPanelModes)
+        if (gFloatPal[int(m)].floating != (floatingPanelOf(activeDocKey(), m) != nullptr)) changed |= floatingPanelSet(m, gFloatPal[int(m)].floating);
+    return changed;
+}
 void palettePanelsSync() {
     std::erase_if(gPanels, [](const std::unique_ptr<PanelWindow>& p) {
         for (const Doc& d : gDocs)
@@ -216,6 +243,7 @@ void palettePanelsSync() {
 // Each turn of the event loop: each open panel's place as the user moves it (kept inside the main window), and the
 // active tab's panels in its map's own file when they changed.
 void sdlPalettePanelsFrame() {
+    if (floatingPanelsFollow() && gRoot) gRoot->relayout(), shellMenusChanged();
     palettePanelsSync();
     palettePanelsSave();
     if (gFloatPalSaveAt && SDL_GetTicks() >= gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
@@ -285,6 +313,8 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             if (SDL_Window* sw = gHost ? gHost->sdlWindow(o) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(o.name.c_str())).c_str());
         }
         if (pv->floating) {  // (the panel's mode is the one to work in: the side bar and the menus follow)
+            gFloatPal[int(from)].floating = other != nullptr, gFloatPal[int(to)].floating = true;
+            saveDock();
             setMode(to);
             if (gRoot) gRoot->relayout();
             shellMenusChanged();
@@ -632,17 +662,27 @@ void palettePanelsToolsChanged() {
 // first, before the press goes to the view under it: what it does is always in the active mode (the panel shows it: its
 // strip's line in the accent, the tools not dimmed). An event watch: it runs as the event comes, before it is handled.
 bool SDLCALL palettePanelsPress(void*, SDL_Event* e) {
-    if (e->type != SDL_EVENT_MOUSE_BUTTON_DOWN || !gHost) return true;
-    auto mine = [e](const draw::View& v) {
+    // Only a left press on what picks: the list (its picks make the mode active too) and Rectangle mode's Tiles panel, as
+    // in the side bar's other lists. A right click (a menu), the scroll bar, the boxes and the title strip leave the mode
+    // as it is (a mode change lets go of the selection).
+    if (e->type != SDL_EVENT_MOUSE_BUTTON_DOWN || e->button.button != SDL_BUTTON_LEFT || !gHost) return true;
+    auto at = [e](const draw::View& v, draw::Point& pt) {
         SDL_Window* w = gHost->sdlWindow(v);
-        return w && SDL_GetWindowID(w) == e->button.windowID;
+        if (!w || SDL_GetWindowID(w) != e->button.windowID) return false;
+        const float d = SDL_GetWindowPixelDensity(w);
+        pt = {int(e->button.x * d), int(e->button.y * d)};
+        return true;
     };
+    draw::Point pt;
     for (auto& p : gPanels)
-        if (p->open && p->view->floating && p->view->mode != gState.mode && mine(*p->view)) {
-            setMode(p->view->mode);
+        if (p->open && p->view->floating && p->view->mode != gState.mode && at(*p->view, pt)) {
+            PalettePanelView& v = *p->view;
+            const bool picks = (v.alt && v.altShown && v.alt->frame().contains(pt)) ||
+                               (v.list.shown() && v.list.frame().contains(pt) && pt.x < v.list.frame().right - scale(14));  // (not its bar)
+            if (picks) setMode(v.mode);
             return true;
         }
-    if (gFloatPalOpen && gState.mode != Mode::Locations && mine(gFloatPalView)) setMode(Mode::Locations);
+    if (gFloatPalOpen && gState.mode != Mode::Locations && at(gFloatPalView, pt) && pt.y >= gFloatPalView.titleH) setMode(Mode::Locations);
     return true;
 }
 void palettePanelsSetup() {

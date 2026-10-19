@@ -69,7 +69,7 @@ std::wstring accessFree(std::wstring s);  // (sdl_menus.inc)
 kit::MenuItem sdlPaletteFloatItem(Mode m) {
     kit::MenuItem it;
     it.label = accessFree(floatPaletteMenuLabel(m));
-    it.run = [m] { shellFloatPalette(m, !gFloatPal[int(m)].floating); };
+    it.run = [m] { shellFloatPalette(m, !paletteFloats(m)); };
     return it;
 }
 
@@ -250,7 +250,8 @@ bool floatingPanelSet(Mode m, bool on);  // (sdl_palette_panels.inc: the active 
 void shellFloatPalette(Mode m, bool on) {
     gFloatPalLines = true;
     FloatPalette& p = gFloatPal[int(m)];
-    if (m != Mode::Locations) {  // (a palette of the active tab's own, kept with the map's panels; gFloatPal: its place)
+    if (m != Mode::Locations) {  // (a palette window of the active tab; the program keeps that it floats, in every tab)
+        if (p.floating != on) p.floating = on, saveDock();
         if (!floatingPanelSet(m, on)) return;
         if (gRoot) gRoot->relayout();
         shellMenusChanged();
@@ -305,11 +306,8 @@ void sdlFloatPaletteSetup() {
             gFloatPalView.place();
         });
     };
-    // The duplicate box: a panel like the floating palette (its mode, view and order), by its window.
-    gFloatPalView.onDuplicate = [] {
-        const Mode m = gFloatPalMode;
-        shellPost([m] { palettePanelNew(m, gViewByMode[int(m)], gSortByMode[int(m)], &gFloatPalView); });
-    };
+    // (No duplicate box: the window is the location list's, and the locations have no palette panels.)
+    gFloatPalView.onDuplicate = nullptr;
     for (const FloatPalette& p : gFloatPal)
         if (p.floating) gFloatPalLines = true;
     if (!gRoot) return;

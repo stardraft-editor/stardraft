@@ -112,6 +112,7 @@ std::map<Workspace, draw::View*> gWorkspaceViews;
 struct MainView;
 bool sdlMapPageTyping();  // a field of the open map page has the keyboard (sdl_map_pages.inc)
 bool sdlQuickPickTyping();  // the quick picker is open: its field types (sdl_map_dialogs.inc)
+bool palettePanelsTyping();  // a palette window's text field has the keyboard (sdl_palette_panels.inc)
 void registerWorkspaceView(Workspace w, draw::View& v);
 
 // The context menus (sdl_menus.inc): the palette's View menu opens one too.
@@ -389,7 +390,8 @@ struct MainView final : draw::View {
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
         const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() || sdlQuickPickTyping() ||
-                            typingFocusIn(*this);  // (a kit text field of a view: the New page, Program options)
+                            typingFocusIn(*this) ||  // (a kit text field of a view: the New page, Program options)
+                            palettePanelsTyping();   // (a palette window's search box, as the side bar's)
         // The focused Triggers pane types too: a letter or a digit opens its block picker (from the text event), so the
         // map's keys (the player 1 to 0, the tools V B A F, Q) do not run (Windows: editFocus for the pane).
         if ((typing || trigPaneFocused()) && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
@@ -658,17 +660,22 @@ struct MainView final : draw::View {
         };
         side(gOwnerBox, oneRow(L.owner), owners && here);       // (a closed owner list is one row high)
         side(gSectionDropSdl, oneRow(L.sectionBox), sections && here);
-        side(gTilesPanel, tilesSlot, tiles && !floated);
+        // Rectangle mode with Terrain's list in the side bar but not active (the other side's list, or the active side's
+        // while the active mode floats): its list is the Tiles panel, as Terrain's floating window shows it in every mode.
+        const bool tiles2 = !tiles && mapWs && gState.terrainRect && !paletteFloats(Mode::Terrain) && L.palette2.visible && L.secondMode == Mode::Terrain;
+        const bool tiles3 = !tiles && !tiles2 && mapWs && gState.terrainRect && !paletteFloats(Mode::Terrain) && L.palette3.visible && L.thirdMode == Mode::Terrain;
+        if (tiles2 || tiles3) gTilesShown = true;
+        side(gTilesPanel, tiles2 ? L.palette2 : tiles3 ? L.palette3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
         side(gSearchSdl, L.search, !locs && here && !tiles);
         side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
         side(gPalList, L.palette, !locs && here && !tiles);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
-        apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
+        apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2);
         gToolStripView2.fixed = L.secondMode, gToolStripView3.fixed = L.thirdMode;
         apply(gToolStripView2, L.tool2, L.tool2.visible && mapWs);
         apply(gToolStripView3, L.tool3, L.tool3.visible && mapWs);
-        apply(gPal3List, L.palette3, L.palette3.visible && mapWs);
+        apply(gPal3List, L.palette3, L.palette3.visible && mapWs && !tiles3);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;

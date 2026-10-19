@@ -104,6 +104,7 @@ bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rec
 // The View menu (core/palette_view.inc: paletteMenuModel) of the palette `pal` at `at` of `from`: on its item of `row`
 // (-1: none), a doodad of a project gets Pin to the top or Unpin first. A view item changes the view of the palette's
 // mode (saved in the settings), a section scrolls the list to it.
+void palettePanelsViewOf(Mode m);  // (sdl_palette_panels.inc)
 void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row, PalettePanelView* panel) {
     const int value = row >= 0 && row < int(pal.rows.size()) ? pal.rows[size_t(row)].value : -1;
     const Mode mode = pal.mode;
@@ -126,7 +127,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             const Mode fm = Mode(id - ID_VIEW_FLOATPAL);
             return shellPost([fm] { shellFloatPalette(fm, !paletteFloats(fm)); });
         }
-        if (panel) {  // the panel's own view and order
+        if (panel && !panel->floating) {  // a panel's own view and order (a mode's floating palette: the mode's, below)
             if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) return p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
             if (applyPaletteViewCommand(mode, id, panel->view, panel->sort)) palettePanelRebuild(*panel);
             return;
@@ -137,6 +138,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             return;
         }
         if (applyPaletteViewCommand(mode, id)) {
+            palettePanelsViewOf(mode);  // (the mode's floating palette shows the mode's view and order)
             if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) shellPaletteRebuilt();  // (the rows in the new order)
             gPalList.layout(), gPal2List.layout(), gPal3List.layout();  // (each palette shows the view of its mode)
             shellSettingsChanged();
