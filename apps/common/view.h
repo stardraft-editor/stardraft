@@ -98,6 +98,8 @@ struct WindowSpec {
     Rect at;  // where, in the coordinates of the view that opens it (Dialog: only the size; the host centers it)
     std::wstring title;
     bool workArea = false;  // Dialog: centered on the work area of the screen (else on the window that opens it)
+    bool resizable = false;  // Dialog: the window can be resized (its content is laid out again)
+    bool placed = false;     // Dialog: at `at`'s left and top in screen points (else centered)
 };
 
 class Host {

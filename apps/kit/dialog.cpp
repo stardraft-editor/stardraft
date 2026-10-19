@@ -77,7 +77,8 @@ const DialogButton* Dialog::find(bool cancel) const {
 int Dialog::run(draw::View& from, const std::wstring& title, draw::Point size) {
     done_ = false, result_ = kDialogClosed;
     from_ = &from;
-    if (draw::Host* h = from.host()) h->runModal(from, *this, draw::WindowSpec{draw::WindowKind::Dialog, Rect{0, 0, size.x, size.y}, title, workArea_});
+    const Rect at = placed_ ? Rect{place_.x, place_.y, place_.x + size.x, place_.y + size.y} : Rect{0, 0, size.x, size.y};
+    if (draw::Host* h = from.host()) h->runModal(from, *this, draw::WindowSpec{draw::WindowKind::Dialog, at, title, workArea_, resizable_, placed_});
     if (done_) return result_;
     const DialogButton* c = find(true);
     return c ? c->result : kDialogClosed;
@@ -86,6 +87,7 @@ int Dialog::run(draw::View& from, const std::wstring& title, draw::Point size) {
 void Dialog::close(int r) {
     if (done_) return;
     done_ = true, result_ = r;
+    if (closing) closing();
     draw::Host* h = host();
     if (!h && from_) h = from_->host();
     if (h) h->closeWindow(*this);

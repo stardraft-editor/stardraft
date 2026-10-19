@@ -19,6 +19,25 @@ bool prompt(const wchar_t* title, std::wstring& text) {
 void dataGoTo(const std::string& dat, int e);  // (sdl_data.inc: the entry in its tab)
 
 // Unit properties of unit `index` (and the rest of the selection, when it is part of it), as on Windows.
+// The Unit properties window's default size: 1000 x 640 points (a list with several columns and many rows), never larger
+// than the main window. (The size of the last window is kept: unitWindowSaved.)
+draw::Point unitWindowDefaultSize() {
+    const int w = gRoot && gRoot->width() > 0 ? gRoot->width() : scale(1000), h = gRoot && gRoot->height() > 0 ? gRoot->height() : scale(640);
+    return draw::Point{std::min(scale(1000), w), std::min(scale(640), h)};
+}
+
+// When the Unit properties window closes: its place and size are kept in the settings (the next one opens there).
+void unitWindowSaved(const UnitPropsView* v) {
+    if (!v || !gHost) return;
+    SDL_Window* w = gHost->sdlWindow(*v);
+    if (!w) return;
+    int x = 0, y = 0, pw = 0, ph = 0;
+    SDL_GetWindowPosition(w, &x, &y), SDL_GetWindowSizeInPixels(w, &pw, &ph);
+    if (pw <= 0 || ph <= 0) return;
+    gDock.unitWinX = x, gDock.unitWinY = y, gDock.unitWinW = pw, gDock.unitWinH = ph;
+    saveDock();
+}
+
 void showUnitProperties(int index) {
     if (!gRoot || !gState.ed || index < 0 || index >= int(gState.ed->units().size())) return;
     // The window has the Units list (core/units_list.inc): a pick, Delete, undo or redo shows the window again (for the
@@ -33,9 +52,14 @@ void showUnitProperties(int index) {
         const int type = first.type, owner = first.owner;
         const bool project = activeProject() != nullptr;
         int next = -1;
+        UnitPropsWindow win;  // (resizable: its place and size as the settings keep them; the default size otherwise)
+        win.placed = gDock.unitWinW > 0;
+        win.place = draw::Point{gDock.unitWinX, gDock.unitWinY};
+        win.size = gDock.unitWinW > 0 ? draw::Point{gDock.unitWinW, gDock.unitWinH} : unitWindowDefaultSize();
+        win.closing = [&shown] { unitWindowSaved(shown); };
         const int r = runUnitPropsDialog(*gRoot, ed, units, first, draw::Image{}, project, shown, [type, owner](draw::Canvas& c, draw::Rect box) {
             if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);  // (the palette's picture)
-        }, &next);
+        }, &next, &win);
         if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
             if (project) setWorkspace(Workspace::Data), dataGoTo("units", type);
             else sdlMapDataShowUnit(type);
@@ -305,7 +329,8 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.unit->paintIcon = [type, owner](draw::Canvas& c, draw::Rect box) {
             if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);
         };
-        s.size = unitPropsDialogSetup(s.dlg, *s.unit), s.view = &s.dlg;
+        unitPropsDialogSetup(s.dlg, *s.unit);
+        s.size = unitWindowDefaultSize(), s.view = &s.dlg;  // (the window's default size, as a run opens it)
         return true;
     }
     int loc = kAnywhereLocation;

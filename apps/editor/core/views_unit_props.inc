@@ -204,39 +204,41 @@ public:
         // The unit's picture and name over the fields.
         sync();
         if (focusSearch_ && !focused_ && host()) focused_ = true, search_.field().focus();  // the search has the keyboard: type to find a unit
-        const draw::Rect pic{scale(kRightX), scale(kPad), scale(kRightX + kIcon), scale(kPad + kIcon)};
+        const int rightPx = width() - scale(kContentW);  // (the fields' column: at the right edge, as resized lays it out)
+        const draw::Rect pic{rightPx, scale(kPad), rightPx + scale(kIcon), scale(kPad + kIcon)};
         if (icon_) c.fitted(icon_, pic);
         else if (paintIcon) paintIcon(c, pic);  // (a host whose pictures are its own pixels: the SDL program)
         const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
-        c.text({scale(kRightX + kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
+        c.text({rightPx + scale(kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
         c.setFont(of);
         const std::wstring sub = count_ > 1 ? std::to_wstring(count_) + tr(L" units selected. Changes apply to all of them.")
                                             : tr(L"Unit ") + std::to_wstring(first_.type) + tr(L"  \x00B7  serial ") + std::to_wstring(first_.serial);
-        c.text({scale(kRightX + kTextX), scale(kSubY), scale(2000), scale(kSubB)}, sub, kDim, draw::kLeft);
+        c.text({rightPx + scale(kTextX), scale(kSubY), scale(2000), scale(kSubB)}, sub, kDim, draw::kLeft);
     }
 
     void resized() override {
         using namespace unitPropsLayout;
-        const int x0 = kRightX, x1 = kRightX + kColW;
+        // The fields keep their width at the right edge; the Units list takes the rest of the window.
+        const int rightPx = width() - scale(kContentW);
+        auto put = [&](draw::View& v, int x, int y, int w, int h) { v.setFrame({rightPx + scale(x), scale(y), rightPx + scale(x + w), scale(y + h)}); };
         auto row = [](int k) { return kTop + k * (kRowH + kGap); };
-        auto put = [](draw::View& v, int x, int y, int w, int h) { v.setFrame({scale(x), scale(y), scale(x + w), scale(y + h)}); };
-        // The Units list: the search box, then the rows to the bottom of the content.
-        put(search_, 0, kPad, kListW, kRowH);
-        put(list_, 0, kPad + kRowH + kGap, kListW, contentHeight() - (kPad + kRowH + kGap));
+        const int listW = std::max(scale(120), rightPx - scale(kListGap));
+        search_.setFrame({0, scale(kPad), listW, scale(kPad + kRowH)});
+        list_.setFrame({0, scale(kPad + kRowH + kGap), listW, std::max(scale(80), height() - scale(kPad + kRowH + kGap))});  // (the rows fill the window down to the buttons)
         auto pair = [&](int li, stardraft::kit::TextField& f, int x, int y) { put(labels_[li], x, y, kLabelW - 8, kRowH), put(f, x + kLabelW, y, kBoxW, kRowH); };
-        put(labels_[0], x0, row(0), kLabelW - 8, kRowH);
-        put(owner_, x0 + kLabelW, row(0), kColW + kBoxW, kRowH);
-        pair(1, hp_, x0, row(1)), pair(2, resources_, x1, row(1));
-        pair(3, shields_, x0, row(2)), pair(4, hangar_, x1, row(2));
-        pair(5, energy_, x0, row(3));
-        pair(6, x_, x0, row(4)), pair(7, y_, x1, row(4));
+        put(labels_[0], 0, row(0), kLabelW - 8, kRowH);
+        put(owner_, kLabelW, row(0), kColW + kBoxW, kRowH);
+        pair(1, hp_, 0, row(1)), pair(2, resources_, kColW, row(1));
+        pair(3, shields_, 0, row(2)), pair(4, hangar_, kColW, row(2));
+        pair(5, energy_, 0, row(3));
+        pair(6, x_, 0, row(4)), pair(7, y_, kColW, row(4));
         int shown = 0;
         for (int b = 0; b < 5; ++b) {
             if (!state_[b]) continue;
-            put(*state_[b], x0 + (shown % 3) * kStateStepX, kStatesY + (shown / 3) * kStateStepY, kStateW, kRowH);
+            put(*state_[b], (shown % 3) * kStateStepX, kStatesY + (shown / 3) * kStateStepY, kStateW, kRowH);
             ++shown;
         }
-        put(type_, x0, typeY(), kContentW, kButtonH);
+        put(type_, 0, typeY(), kContentW, kButtonH);
     }
 
 private:
@@ -350,12 +352,27 @@ inline draw::Point unitPropsDialogSetup(stardraft::kit::Dialog& dlg, UnitPropsVi
     return draw::Point{scale(kRightX + kContentW + 2 * kPad), scale(h)};
 }
 
+// The window's place and size (kept between the openings: resizable, at `place` in screen points when `placed`, `size` in
+// pixels when it is set). `closing` runs when the window closes, before it goes.
+struct UnitPropsWindow {
+    bool placed = false;
+    draw::Point place{}, size{};
+    std::function<void()> closing;
+};
+
 inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<int>& units, const Unit& first, draw::Image icon, bool project,
-                              UnitPropsView*& shown, std::function<void(draw::Canvas&, draw::Rect)> paintIcon = {}, int* next = nullptr) {
+                              UnitPropsView*& shown, std::function<void(draw::Canvas&, draw::Rect)> paintIcon = {}, int* next = nullptr,
+                              const UnitPropsWindow* win = nullptr) {
     UnitPropsView view(ed, first, units, icon, project);
     view.paintIcon = std::move(paintIcon);
     stardraft::kit::Dialog dlg;
-    const draw::Point size = unitPropsDialogSetup(dlg, view);
+    draw::Point size = unitPropsDialogSetup(dlg, view);
+    if (win) {
+        dlg.setResizable(true);
+        if (win->placed) dlg.setPlace(win->place);
+        if (win->size.x > 0 && win->size.y > 0) size = win->size;
+        dlg.closing = win->closing;
+    }
     shown = &view;
     const int r = dlg.run(from, tr(L"Unit properties"), size);
     shown = nullptr;
