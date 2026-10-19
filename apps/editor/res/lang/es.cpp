@@ -2417,6 +2417,9 @@ constexpr UiText kRows[] = {
     {L"Place the missing start locations?", L"\u00BFColocar las posiciones de inicio que faltan?"},
     {L"No start location fits the map", L"Ninguna posici\u00F3n de inicio cabe en el mapa"},
     {L"Did not build the map", L"No se compil\u00F3 el mapa"},
+    {L"Brush: the ", L"Pincel: los "},
+    {L" tiles you copied (", L" mosaicos (copiados: "},
+    {L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random", L" mosaicos). Haga clic para colocarlos; arrastre para repetirlos. Mantenga May\u00FAs para colocarlos al azar."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

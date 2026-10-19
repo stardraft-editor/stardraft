@@ -166,7 +166,7 @@ void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain && app.terrainRect) {
         const Rect& r = app.terrainSel;
         if (app.hasTerrainSel && app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape()))
-            setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) + L" tiles");
+            tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
         else
             setMessage(L"First, select an area with the Select / copy tool");
     } else if (app.mode == Mode::Terrain) {

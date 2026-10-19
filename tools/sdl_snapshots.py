@@ -494,6 +494,9 @@ CASES += [
     ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
     ("map-terrain-select-circle", ["--mode", "terrain", "--wheel", "90,485,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
     ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
+    ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "271,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
+                             "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),
     # Terrain select (V): a drag selects, Copy, Paste: the copy follows the mouse; a click puts it; Undo; Cut; Undo.
     ("map-terrain-paste", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--key", "Ctrl+C", "--key", "Ctrl+V",
                            "--move", "900,800", "--click", "900,800", "--key", "Ctrl+Z", "--key", "Esc", "--key", "V",
