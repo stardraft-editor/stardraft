@@ -1,0 +1,8 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-units-list-nydus-linked"]}
+  ],
+  "shots": [
+    {"run": 0, "from": "map-units-list-nydus-linked.png", "to": "unit-properties.png", "crop": [0, 0, 1000, 640], "alt": "Unit properties: the list of the map's units and the unit's properties"}
+  ]
+}
