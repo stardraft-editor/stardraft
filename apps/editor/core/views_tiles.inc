@@ -477,6 +477,14 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
     case draw::MouseKind::Down:
     case draw::MouseKind::DoubleClick: {
         if (e.button != 0) return e.button == 1;
+        if (appState().mode != Mode::Terrain) {  // (the list of Terrain's in another mode: a pick goes to Terrain, as a palette's)
+            const int v = hit(e.pt.x, e.pt.y);
+            if (v < 0) return true;
+            setMode(Mode::Terrain);
+            tilesPick(v, false);
+            shellFocusView();
+            return true;
+        }
         const bool ctrl = (e.mods & draw::kCtrl) != 0, shift = (e.mods & draw::kShift) != 0;
         const int v = hit(e.pt.x, e.pt.y);
         if (v >= 0 && (ctrl || shift) && gTiles.picked >= 0) {  // several tiles, for Spray (#81)
