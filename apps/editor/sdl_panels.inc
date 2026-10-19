@@ -213,6 +213,30 @@ void rebuildOtherRows(PalettePanel& list, Mode m) {
     list.setRows(std::move(rows), m, pinned);
 }
 void rebuildSecondRows() { rebuildOtherRows(gPal2List, gPal2Mode); }
+
+// A mode's palette state in the side bar (its scroll, search and section) of tab `tab`: the side bar's boxes while its
+// palette has that mode's rows, else the mode's memory. A mode's floating palette is that palette in a window: it shows
+// and sets the same state (sdl_palette_panels.inc), so it is the same in the window and in the side bar.
+PaletteMemory dockedPaletteGet(int tab, Mode m) {
+    if (gPalRowsMode == int(m) && gPalRowsTab == tab) return {gPalList.scrollTop(), gSearchSdl.text(), gPalSection};
+    return gPalMemoryByTab[tab][size_t(m)];
+}
+void dockedPaletteSet(int tab, Mode m, const PaletteMemory& s) {
+    if (!(gPalRowsMode == int(m) && gPalRowsTab == tab)) {
+        gPalMemoryByTab[tab][size_t(m)] = s;
+        return;
+    }
+    gPalSection = s.section;
+    if (gSearchSdl.text() != s.search) {
+        gPalRestoring = true;
+        gSearchSdl.setText(s.search);
+        gPalRestoring = false;
+    }
+    const auto it = std::find(gSectionNames.begin(), gSectionNames.end(), gPalSection);
+    if (gSectionMode == m) gSectionDropSdl.dropdown().setValue(it == gSectionNames.end() ? 0 : int(1 + (it - gSectionNames.begin())));
+    if (gState.mode == m && activeDocKey() == tab) rebuildPaletteRows();
+    gPalList.scrollTo(s.scroll);
+}
 void rebuildThirdRows() { rebuildOtherRows(gPal3List, gPal3Mode); }
 
 // The views' wiring, once (MainView's constructor): the rows, the look, the changes that rebuild them.

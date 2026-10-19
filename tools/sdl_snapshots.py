@@ -370,6 +370,9 @@ CASES += [
     # Several units in the floating unit palette, as in the side bar's: Ctrl+click adds the SCV to the Marine, Shift+click
     # picks every unit from the SCV to the Siege Tank (Tank Mode).
     ("map-palette-float-multi", ["--mode", "units", "--script", "{script:floatpalmulti}"], "map"),
+    # A mode's floating palette is the side bar's palette in a window: the search typed in the side bar is the window's
+    # when it floats, and the window's comes back to the side bar when it docks.
+    ("map-palette-float-shared", ["--mode", "units", "--script", "{script:floatpalshared}"], "map"),
 ]
 # The second palette (GitHub #151, Discord #122): in the default layout Units is active and the left side shows the Terrain
 # list (the other side's, the second palette). A pick in that list (Platform, 196,640, under that mode's tools) goes to Terrain, which becomes the
@@ -1229,6 +1232,8 @@ stats
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
     # Locations mode with the location list floating, and back in Units mode)
+    "floatpalshared": "click 1420,280\ntype marine\ncommand view.floatPalette.units\nwait 0\npanel search goliath\n"
+                      "command view.floatPalette.units\nwait 0\n",
     "floatpalmulti": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 1100,500:Ctrl\nclick 1100,560:Shift\n",
     "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 600,500\n"
                      "command view.floatPalette.locations\nmode locations\nmode units\n",
@@ -3551,6 +3556,15 @@ def check_strip_other_side(output):
     ])
 
 
+def check_palette_float_shared(output):
+    """The side bar's search goes to the unit palette's window as it floats, and the window's back as it docks."""
+    if 'search="marine"' not in output.split("command view.floatPalette.units", 1)[-1].split("panel search", 1)[0]:
+        return "the floating unit palette did not show the side bar's search (marine)"
+    if not re.search(r'palette: docked units, in the side bar, search="goliath"', output.rsplit("wait 0", 1)[-1]):
+        return "the side bar's palette did not show the window's search (goliath) after it docked"
+    return None
+
+
 def check_palette_float_multi(output):
     """Ctrl+click and Shift+click in the floating unit palette pick several units (the side bar's palette does)."""
     if "click 1100,500:Ctrl: " not in output or "Placing Terran SCV and 1 more" not in output:
@@ -3593,7 +3607,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-keys": check_palette_keys,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-shared": check_palette_float_shared, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
