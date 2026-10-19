@@ -2,6 +2,22 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1.2
+
+### Map
+
+- Unit properties: the window is larger, and you can change its size. It opens at its last place and size.
+- Unit properties: the list of the map's units has the columns Unit type, Owner, X, Y and Index. Click a column to sort
+  by it, and click it again to sort the other way.
+- Unit properties: drag units in the list to change their order (their index) in the map, while the list is sorted by
+  Index.
+- Unit properties: Unit ID changes the type of the unit. Burrowed, Hallucinated, Cloaked and Lifted are beside
+  Invincible; a state that the unit cannot have is not available.
+- Unit properties: Link selected units links two Nydus Canals, or an add-on and its building. Jump to linked unit shows
+  the linked unit.
+
+  ![Unit properties: the list of the map's units and the unit's properties](images/0.6.1.2/unit-properties.png)
+
 ## 0.6.1.1
 
 ### Map
