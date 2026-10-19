@@ -1,0 +1,11 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-units-list", "map-dialog-revealers", "map-revealers-place", "map-palette-xlarge"]}
+  ],
+  "shots": [
+    {"run": 0, "from": "map-units-list.png", "to": "units-list.png", "crop": [0, 0, 812, 364], "alt": "Unit properties with the list of the map's units"},
+    {"run": 0, "from": "map-dialog-revealers.png", "to": "place-revealers.png", "crop": [0, 0, 392, 284], "alt": "Place map revealers"},
+    {"run": 0, "from": "map-revealers-place.png", "to": "revealers.png", "crop": [64, 98, 1196, 860], "alt": "Map revealers on a grid"},
+    {"run": 0, "from": "map-palette-xlarge.png", "to": "palette-extra-large.png", "crop": [64, 98, 600, 860], "alt": "The palette's Extra large view"}
+  ]
+}
