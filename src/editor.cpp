@@ -1930,6 +1930,13 @@ int Editor::placeMapRevealers(const std::vector<uint8_t>& owners, int spacingTil
     return int(added.size());
 }
 
+void Editor::setMapRevealersHidden(bool hidden) {
+    if (revealersHidden_ == hidden) return;
+    revealersHidden_ = hidden;
+    if (hidden) selection_.erase(std::remove_if(selection_.begin(), selection_.end(), [this](int i) { return !pickable(i); }), selection_.end());
+    revision_ = nextRevision();
+}
+
 int Editor::removeMapRevealers() {
     std::vector<int> newIndex(units_.size(), -1);  // each unit's index after the removal (-1: removed)
     int kept = 0, removed = 0;

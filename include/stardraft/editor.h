@@ -310,7 +310,8 @@ public:
     // Removes every Map Revealer, of every player (the selection keeps the other units). One undo step; returns how many.
     int removeMapRevealers();
     // View > Layers > Map revealers off: the revealers are not picked (unitAt, unitsAt, selectRect, selectAll) while hidden.
-    void setMapRevealersHidden(bool hidden) { revealersHidden_ = hidden; }
+    // (Hiding them drops the revealers from the selection; a change is a new revision, so the lists are made again.)
+    void setMapRevealersHidden(bool hidden);
     // Whether unit `i` can be picked: false for a hidden map revealer. The map keeps it either way.
     bool pickable(int unit) const { return !(revealersHidden_ && units_[size_t(unit)].type == kMapRevealerUnit); }
     // Options > Doodads > Move to the nearest place where it fits: the center (px) nearest (x, y), within `radiusTiles`
