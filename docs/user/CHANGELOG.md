@@ -2,6 +2,33 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1.1
+
+### Map
+
+- Unit properties: a list of every unit of the map at the left, with its number, type, owner and place, and a search.
+  Click a unit to see its properties and its place on the map. Delete deletes the selected units. View > Units list
+  opens it.
+
+  ![Unit properties with the list of the map's units](images/0.6.1.1/units-list.png)
+- Edit > Tools > Place map revealers: one map revealer on each square of 8 x 8 tiles, for the players that you select.
+  Edit > Tools > Remove all map revealers removes them. View > Layers > Map revealers hides them on the map.
+
+  ![Place map revealers](images/0.6.1.1/place-revealers.png)
+
+  ![Map revealers on a grid](images/0.6.1.1/revealers.png)
+- The palette's View menu: Extra large, twice the normal size, so that you can tell the ramps and other doodads apart.
+
+  ![The palette's Extra large view](images/0.6.1.1/palette-extra-large.png)
+- Doodads mode: with a doodad picked, Alt+wheel picks the next or previous doodad of the palette.
+
+### Fixes
+
+- A palette that you moved to the other side bar picks again: before, units could not be placed and terrain could not
+  be painted from it.
+- A build that cannot send crash reports (as the Flatpak) tells you where the report is, and to attach it to a report
+  on GitHub or Discord.
+
 ## 0.6.1
 
 ### New
