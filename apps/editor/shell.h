@@ -121,6 +121,9 @@ void shellOwnerSelect(int i);
 void shellPaletteChanged();
 // The palette's list scrolls so the row of `value` shows (a key picked it: Terrain mode's 1 to 0).
 void shellPaletteReveal(int value);
+// The pick goes to the palette's next item (dir 1) or the one before it (-1), in the list's own order (Alt + wheel on
+// the map in Doodads mode). False: the palette has no pick of the active mode.
+bool shellPaletteStep(int dir);
 // The palette's unit entries are made again (the mode or the list changed).
 void shellPaletteRebuilt();
 // The translation of an English text for the UI (ui_text.h's tr).
