@@ -400,7 +400,7 @@ CASES += [
     ("map-location-multi", ["--script", "{script:locmulti}"], "map"),
     # Each panel is its own (its pick, tools, brush, Isometric or Rectangle): a new Terrain panel's Rectangle (1231,196)
     # and its bigger brush (1157,254) are its own (the side bar's Terrain stays Isometric, size 2); a pick in the side bar's
-    # list (Dirt, 200,622) makes the side bar's panel the active one and is its own; the window's + makes the window the
+    # list (Dirt, 200,652) makes the side bar's panel the active one and is its own; the window's + makes the window the
     # active one again; U, then T, goes back to the Terrain panel used last (the window).
     ("map-panels-own", ["--script", "{script:panelsown}"], "map"),
     # Floating moves the side bar's panel into its window (its Rectangle and size 3), and docking moves the window's back
@@ -1249,27 +1249,27 @@ stats
     "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
-    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,482\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
-                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,356\n",
+    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,512\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
+                "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,412\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
     # Locations mode with the location list floating, and back in Units mode)
-    "floatpalshared": "click 1420,280\ntype marine\ncommand view.floatPalette.units\nwait 0\npanel search goliath\n"
+    "floatpalshared": "click 1420,310\ntype marine\ncommand view.floatPalette.units\nwait 0\npanel search goliath\n"
                       "command view.floatPalette.units\nwait 0\n",
-    "floatpalmulti": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 1100,500:Ctrl\nclick 1100,560:Shift\n",
-    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 600,500\n"
+    "floatpalmulti": "command view.floatPalette.units\nwait 0\nclick 1100,472\nclick 1100,530:Ctrl\nclick 1100,590:Shift\n",
+    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,472\nclick 600,500\n"
                      "command view.floatPalette.locations\nmode locations\nmode units\n",
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
-    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1231,196\nclick 1157,254\nclick 200,622\nclick 1157,254\nkey U\nkey T\n",
+    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1231,196\nclick 1157,254\nclick 200,652\nclick 1157,254\nkey U\nkey T\n",
     "panelsfloat": "mode terrain\nclick 271,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
                    "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
                 "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nkey Del\n"
                 "key Ctrl+Z\nkey Ctrl+A\nkey Esc\nclick 200,495\nclick 200,525:Ctrl\n",
-    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,323\ntype plat\nclick 490,436\nkey F\npalette scale 150\n",
+    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,353\ntype plat\nclick 490,466\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -3481,7 +3481,7 @@ def check_palette_float(output):
     """Floating: the window, a pick in it (High Platform, the brush), U and T from it, Dock, the close button, Rectangle
     mode's tiles in it and a tile picked there."""
     s = palette_steps(output)
-    want = ["wait 0", "click 510,482", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,356"]
+    want = ["wait 0", "click 510,512", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,412"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -3510,7 +3510,7 @@ def check_palette_keys(output):
     """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
     the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
     s = palette_steps(output)
-    want = ["wait 0", "click 400,323", "type plat", "click 490,436", "key F", "palette scale 150"]
+    want = ["wait 0", "click 400,353", "type plat", "click 490,466", "key F", "palette scale 150"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -3634,7 +3634,7 @@ def check_palette_float_shared(output):
 
 def check_palette_float_multi(output):
     """Ctrl+click and Shift+click in the floating unit palette pick several units (the side bar's palette does)."""
-    if "click 1100,500:Ctrl: " not in output or "Placing Terran SCV and 1 more" not in output:
+    if "click 1100,530:Ctrl: " not in output or "Placing Terran SCV and 1 more" not in output:
         return "Ctrl+click in the floating unit palette did not add the SCV to the pick"
     if "Selected 3 units" not in output:
         return "Shift+click in the floating unit palette did not pick the units from the SCV to the Siege Tank"
@@ -3646,7 +3646,7 @@ def check_palette_units(output):
     picks the Marine and a click on the map places one; the location list floats too: Locations mode shows its window,
     Units mode the unit palette's window again."""
     s = palette_steps(output)
-    want = ["wait 0", "click 1100,442", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
+    want = ["wait 0", "click 1100,472", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
