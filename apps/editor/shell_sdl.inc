@@ -95,7 +95,7 @@ std::wstring shellFilterText() { return gFilterSdl.text(); }
 bool shellViewShown() { return gRoot != nullptr; }
 void palettePanelsToolsChanged();  // (sdl_palette_panels.inc: the floating panels' strips)
 void shellToolsChanged() {
-    gToolStripView.invalidate();
+    gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
     palettePanelsToolsChanged();
 }
 // A menu of `items` at `at` of `from` that waits for the pick (the Windows paintedMenu with TPM_RETURNCMD): the item's

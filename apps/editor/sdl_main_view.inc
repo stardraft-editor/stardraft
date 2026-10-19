@@ -350,6 +350,8 @@ struct MainView final : draw::View {
         add(map, draw::Rect(0, 0, 0, 0));
         add(minimap, draw::Rect(0, 0, 0, 0));
         add(gToolStripView, draw::Rect(0, 0, 0, 0));  // the tool strip (core/views_toolstrip.inc)
+        add(gToolStripView2, draw::Rect(0, 0, 0, 0));  // the other side's mode's strip
+        add(gToolStripView3, draw::Rect(0, 0, 0, 0));
         add(modes, draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[0], draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[1], draw::Rect(0, 0, 0, 0));
@@ -428,7 +430,7 @@ struct MainView final : draw::View {
         if (splitMouse(e)) return true;
         if (e.kind != draw::MouseKind::Up || e.button != 1) return false;
         auto over = [&](const draw::View& v) { return v.shown() && v.frame().contains(e.pt); };
-        const bool mini = over(minimap), tools = !mini && (over(gToolStripView) || over(modes));
+        const bool mini = over(minimap), tools = !mini && (over(gToolStripView) || over(gToolStripView2) || over(gToolStripView3) || over(modes));
         if (!mini && !tools) {
             // Nothing took the right click: a menu with only Report feedback (the Windows feedbackAfterRightClick), when
             // no menu opened for it (a view's menu may open after the event: the check waits for that); on a mode's
@@ -584,6 +586,7 @@ struct MainView final : draw::View {
         const bool mapWs = gWorkspace == Workspace::Map && mapOpen && !newShown && !startShown;
         in.mapWs = mapWs;
         in.toolStrip = [](int width) { return toolStripHeight(width, false); };
+        in.toolStripOf = [](int width, Mode m) { return toolStripHeight(width, m); };
         in.modeBarH = 0, in.modeBar = modeBarRect();  // (the modes are in the top bar)
         in.mapOpen = mapOpen;
         if (in.mapOpen) in.mapW = gState.ed->width(), in.mapH = gState.ed->height();
@@ -662,6 +665,9 @@ struct MainView final : draw::View {
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs);
+        gToolStripView2.fixed = L.secondMode, gToolStripView3.fixed = L.thirdMode;
+        apply(gToolStripView2, L.tool2, L.tool2.visible && mapWs);
+        apply(gToolStripView3, L.tool3, L.tool3.visible && mapWs);
         apply(gPal3List, L.palette3, L.palette3.visible && mapWs);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);

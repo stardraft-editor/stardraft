@@ -190,15 +190,22 @@ void stripToolByKey(int key) {
 
 // A mode's floating panel draws its mode's strip while another mode is active: the app's mode is that mode for the call
 // (nothing else changes; the mode's tools, sizes and options are kept by mode).
+// (The mode's own density and symmetry come with it, as setMode swaps them in.)
 struct StripModeScope {
     AppState& app;
     Mode saved;
     bool on;
+    int density = 0, mirrors = 0;
     explicit StripModeScope(std::optional<Mode> m) : app(appState()), saved(app.mode), on(m && *m != app.mode) {
-        if (on) app.mode = *m;
+        if (!on) return;
+        density = app.sprayDensity, app.sprayDensity = app.densityByMode[int(*m)];
+        if (app.ed) mirrors = app.ed->mirrors(), app.ed->setMirrors(app.symmetryByMode[int(*m)]);
+        app.mode = *m;
     }
     ~StripModeScope() {
-        if (on) app.mode = saved;
+        if (!on) return;
+        app.mode = saved, app.sprayDensity = density;
+        if (app.ed) app.ed->setMirrors(mirrors);
     }
 };
 
@@ -554,7 +561,19 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         gStripInUse = this;
-        if (fixed && e.kind == draw::MouseKind::Down && appState().mode != *fixed) setMode(*fixed);  // (its mode first)
+        const bool overNumber = std::any_of(numbers_.begin(), numbers_.end(), [&](const auto& n) { return n.first.contains(e.pt); });
+        if (fixed && (e.kind == draw::MouseKind::Down || (e.kind == draw::MouseKind::Wheel && overNumber)) && appState().mode != *fixed) {  // (its mode first)
+            // The press makes the mode active, which may move this strip (the side bar's strips follow the active mode):
+            // the pressed box does its work now (the release would find another strip under the mouse).
+            const int k = e.kind == draw::MouseKind::Down && e.button == 0 ? indexAt(e.pt) : -1;
+            const std::function<void()> click = k >= 0 ? hits_[size_t(k)].click : nullptr;
+            setMode(*fixed);
+            if (k >= 0) {
+                if (click) click();
+                invalidate();
+                return true;
+            }
+        }
         StripModeScope scope(fixed);
         switch (e.kind) {
         case draw::MouseKind::Move: {
@@ -664,3 +683,6 @@ private:
 
 ToolStripView gToolStripView;  // the strip (its window shows it: main.cpp, sdl_main_view.inc)
 ToolStripView* gStripInUse = &gToolStripView;
+// The side bar's other strips (sdl_main_view.inc): the other side's mode's tools, and the tools of the list that shows
+// in the active side while the active mode is in a window of its own.
+ToolStripView gToolStripView2, gToolStripView3;
