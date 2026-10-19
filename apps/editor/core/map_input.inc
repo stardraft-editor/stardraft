@@ -35,6 +35,8 @@ void dragMoveDelta(float wx, float wy, float& dx, float& dy);
 Rect terrainSelectRect(float wx, float wy);
 bool moveSelectedDoodads(int dx, int dy, std::string& why);
 int locationEdgesAt(float wx, float wy);
+AppState::LocationCopy locationCopyOf(const Editor& ed, int l);
+void moveSelectedLocations(int dx, int dy);
 bool placePaletteUnit(float wx, float wy, bool correct);
 bool strokePlace(float x, float y);
 std::wstring entryName(const std::string& dat, int v);
@@ -200,9 +202,7 @@ bool pipette(AppState& app, float wx, float wy) {
         return false;
     case Mode::Locations:
         if (const int l = ed.locationAt(int(wx), int(wy)); l >= 0) {
-            app.locationClip = ed.locationRect(l), app.locationClipName = ed.locationName(l), app.locationClipInverted = ed.locationInvertedAxes(l),
-            app.locationClipElevation = ed.locationElevation(l);
-            app.hasLocationClip = true;
+            app.locationClip = {locationCopyOf(ed, l)};
             setMessage(app, L"Copied " + widen(ed.locationName(l)) + L": Ctrl+V pastes a copy where the mouse is");
             return true;
         }
@@ -462,15 +462,22 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     case Mode::Locations: {
         int edges = locationEdgesAt(wx, wy);
         int inside = ed.locationAt(int(wx), int(wy));
-        if (edges) {
+        // Ctrl or Shift on a location: a click takes it in or out of the selection, a drag makes an inverted location.
+        const bool adds = (mods & (draw::kShift | draw::kCtrl)) != 0;
+        app.locToggle = -1;
+        if (edges && !adds) {
             app.drag = Drag::LocResize;
             app.locEdges = edges;
             app.locStart = ed.locationRect(ed.selectedLocation());
-        } else if (inside >= 0 && !shift) {
-            ed.selectLocation(inside);
+        } else if (inside >= 0 && adds) {
+            app.locToggle = inside;
+            app.drag = Drag::LocCreate;
+        } else if (inside >= 0) {
+            // One of the selected: they all move with it (it is the selected one: its edges resize). Else it alone.
+            if (ed.locationSelected(inside)) ed.addLocationSelection(inside);
+            else ed.selectLocation(inside);
             app.locStart = ed.locationRect(inside);
             app.drag = Drag::LocMove;
-            setListSel(int(std::find(app.items.begin(), app.items.end(), inside) - app.items.begin()));
         } else {
             app.drag = Drag::LocCreate;
         }
@@ -637,12 +644,25 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             int i = ed.createLocation(r, inverted);
             if (i >= 0) rebuildList(app), setMessage(app, L"Created " + widen(ed.locationName(i)) + (inverted ? L" (inverted: it holds air units only)" : L""));
             else setMessage(app, L"Could not create the location: all location slots are in use");
+        } else if (app.locToggle >= 0 && ed.locationUsed(app.locToggle)) {
+            const int l = app.locToggle;
+            if (ed.locationSelected(l)) ed.removeLocationSelection(l);
+            else ed.addLocationSelection(l);
+            const size_t n = ed.selectedLocations().size();
+            setMessage(app, widen(ed.locationName(l)) + (ed.locationSelected(l) ? L" is selected" : L" is not selected") +
+                                (n > 1 ? L" (" + std::to_wstring(n) + L" locations selected)" : L""));
         } else {
             ed.selectLocation(-1);
         }
+        app.locToggle = -1;
         break;
     }
-    case Drag::LocMove:
+    case Drag::LocMove:  // the selected locations, by the selected one's way (snapped)
+        if (app.dragMoved) {
+            const Rect to = previewLocationRect(wx, wy);
+            moveSelectedLocations(to.left - app.locStart.left, to.top - app.locStart.top);
+        }
+        break;
     case Drag::LocResize:
         if (app.dragMoved) ed.setLocationRect(ed.selectedLocation(), previewLocationRect(wx, wy));
         break;

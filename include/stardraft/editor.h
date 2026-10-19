@@ -433,8 +433,15 @@ public:
     };
     bool editLocation(int i, const LocationEdit& edit, std::string* error = nullptr);
     void deleteLocation(int i);
+    // The selected location (-1: none): its edges resize, its properties open. selectLocation: it alone.
     int selectedLocation() const { return selectedLocation_; }
-    void selectLocation(int i) { selectedLocation_ = i; }
+    void selectLocation(int i) { selectedLocation_ = i, selectedLocations_.assign(i >= 0 ? 1 : 0, i); }
+    // Several selected (they move, copy and delete together): each used one, the selected location among them; none
+    // while no location is selected.
+    std::vector<int> selectedLocations() const;
+    bool locationSelected(int i) const;
+    void addLocationSelection(int i);     // i too, as the selected location
+    void removeLocationSelection(int i);  // (the selected location: another of them, or none)
 
     // --- Players and forces ---------------------------------------------------------------------
     // Players 1-8 (index 0-7): who controls the slot (OWNR, mirrored to IOWN), the race (SIDE) and the
@@ -664,6 +671,7 @@ private:
 
     std::vector<int> selection_;
     int selectedLocation_ = -1;
+    std::vector<int> selectedLocations_;  // (selectedLocations)
     std::vector<Unit> clipboard_;
     // Undo history: snapshots that share every section unchanged since the previous snapshot, so a
     // step costs only what it changed. Kept up to kUndoSteps steps or kUndoBytes of section data.

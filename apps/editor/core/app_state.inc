@@ -41,11 +41,15 @@ struct AppState {
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;
     bool pastingItems = false;                 // Doodads or Sprites: the copy follows the mouse; a click places it
-    Rect locationClip{};                       // a location's size and name
-    int locationClipInverted = 0;              // ... and its inverted axes (1 left/right, 2 top/bottom)
-    std::string locationClipName;
-    uint16_t locationClipElevation = 0;        // ... and the elevations it leaves out (MRGN flags)
-    bool hasLocationClip = false;
+    // The copied locations: each one's edges, inverted axes (1 left/right, 2 top/bottom), name and the elevations it
+    // leaves out (MRGN flags).
+    struct LocationCopy {
+        Rect rect{};
+        int inverted = 0;
+        std::string name;
+        uint16_t elevation = 0;
+    };
+    std::vector<LocationCopy> locationClip;
     bool allowStacking = false;     // Options: units may overlap
     bool resourceDistance = true;   // Options: town halls and resources keep 3 tiles apart
     bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)
@@ -71,6 +75,7 @@ struct AppState {
     int dragSX = 0, dragSY = 0;    // screen point where the drag started
     bool dragMoved = false;
     int locEdges = 0;  // 1 left, 2 top, 4 right, 8 bottom
+    int locToggle = -1;  // Ctrl or Shift pressed on this location: a click takes it in or out of the selection
     bool pasting = false;  // paste mode: the clipboard follows the cursor until a click places it
     Rect locStart;
     bool dirty = true;

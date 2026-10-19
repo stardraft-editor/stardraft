@@ -163,7 +163,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const int h3 = tools3 ? in.toolStripOf(inner, third) : 0;
     L.tool3 = S(sx + pad, ty, inner, std::max(1, h3), tools3, tools3);
     if (tools3) ty += h3 + pad;
-    const bool show3 = floated && !mine.empty() && in.mapWs && third != Mode::Locations;
+    const bool show3 = floated && !mine.empty() && in.mapWs;  // (Locations: its locations, by name)
     L.palette3Changed = third != in.pal3Mode || show3 != in.pal3Shown;
     L.palette3 = S(sx + pad, ty, inner, std::max(1, h - ty - pad), in.hasPal3 && show3, show3);
 
@@ -179,7 +179,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const int h2 = tools2 ? in.toolStripOf(ow - 2 * pad, second) : 0;
     L.tool2 = S(ox + pad, oy, ow - 2 * pad, std::max(1, h2), tools2, tools2);
     if (tools2) oy += h2 + pad;
-    const bool show = secondShown && in.mapWs && second != Mode::Locations;
+    const bool show = secondShown && in.mapWs;  // (Locations: its locations, by name)
     L.palette2Changed = second != in.pal2Mode || show != in.pal2Shown;
     L.palette2 = S(ox + pad, oy, ow - 2 * pad, std::max(1, h - oy - pad), in.hasPal2 && show, show);
 

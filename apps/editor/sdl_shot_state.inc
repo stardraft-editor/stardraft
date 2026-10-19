@@ -155,6 +155,13 @@ std::string shotMapState() {
     // The selected location's edges as it has them (an inverted one: left more than right, or top more than bottom), and
     // Location properties' type line while it is open.
     s += " edges=" + (loc >= 0 && ed.locationUsed(loc) ? box(ed.locationEdges(loc)) : std::string("-"));
+    // The selected locations (several: they move, copy and delete together) and the location list's selected rows.
+    auto ints = [](const std::vector<int>& v) {
+        std::string t;
+        for (int i : v) t += (t.empty() ? "" : ",") + std::to_string(i);
+        return t.empty() ? std::string("-") : t;
+    };
+    s += " locsel=" + ints(ed.selectedLocations()) + " listsel=" + ints(shellListSelection());
     if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText())) + " locedges=" + narrow(gLocPropsShown->edgesText());
     float wx = 0, wy = 0;
     toWorld(app.mouseX, app.mouseY, wx, wy);

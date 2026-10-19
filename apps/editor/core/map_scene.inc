@@ -31,7 +31,9 @@ void mapFrameDone(AppState& app) {
         app.editorRev = app.ed->revision();
         updateTitle();
         if (app.mode == Mode::Locations) rebuildList(app);
+        else shellOtherLocationRows();  // (a side's list of the locations)
     }
+    shellLocationListSync();  // (the location list shows the map's selected locations)
     updateStatus();
 }
 
@@ -410,18 +412,25 @@ render::Scene buildScene() {
     // Locations.
     if (app.showLocations || app.mode == Mode::Locations) {
         bool active = app.mode == Mode::Locations;
+        // A move: each selected location by the selected one's way; a resize: the selected one.
+        int moveX = 0, moveY = 0;
+        if (app.drag == Drag::LocMove && ed.locationUsed(ed.selectedLocation())) {
+            const Rect to = previewLocationRect(wx, wy);
+            moveX = to.left - app.locStart.left, moveY = to.top - app.locStart.top;
+        }
         for (int i = 0; i < ed.locationCount(); ++i) {
             if (!ed.locationUsed(i)) continue;
             Rect r = ed.locationRect(i);
-            bool sel = active && ed.selectedLocation() == i;
-            if (sel && (app.drag == Drag::LocMove || app.drag == Drag::LocResize)) r = previewLocationRect(wx, wy);
+            const bool sel = active && ed.locationSelected(i), main = sel && ed.selectedLocation() == i;
+            if (sel && app.drag == Drag::LocMove) r = {r.left + moveX, r.top + moveY, r.right + moveX, r.bottom + moveY};
+            if (main && app.drag == Drag::LocResize) r = previewLocationRect(wx, wy);
             const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
             s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
             outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
             std::string name = narrow(widen(ed.locationName(i)));
             if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
             s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
-            if (sel)
+            if (main)  // (the edges of the selected one resize)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
                     float h = 4 / app.zoom;

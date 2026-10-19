@@ -186,6 +186,41 @@ Rect terrainSelectRect(float wx, float wy) {
     return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
 }
 
+// Several locations selected (Editor::selectedLocations): they move, copy and delete together, each one undo step.
+AppState::LocationCopy locationCopyOf(const Editor& ed, int l) {
+    return {ed.locationRect(l), ed.locationInvertedAxes(l), ed.locationName(l), ed.locationElevation(l)};
+}
+std::wstring locationsText(const Editor& ed, const std::vector<int>& locs) {
+    return locs.size() == 1 ? widen(ed.locationName(locs[0])) : std::to_wstring(locs.size()) + L" locations";
+}
+void rebuildList(AppState& app);
+void moveSelectedLocations(int dx, int dy) {
+    AppState& app = appState();
+    Editor& ed = *app.ed;
+    const std::vector<int> locs = ed.selectedLocations();
+    if (locs.empty() || (!dx && !dy)) return;
+    ed.beginStroke();
+    for (int l : locs) {
+        if (l == kAnywhereLocation) continue;  // (always the whole map)
+        const Rect r = ed.locationRect(l);
+        ed.setLocationRect(l, {r.left + dx, r.top + dy, r.right + dx, r.bottom + dy});
+    }
+    ed.endStroke();
+    if (locs.size() > 1) setMessage(L"Moved " + locationsText(ed, locs));
+}
+void deleteSelectedLocations() {
+    AppState& app = appState();
+    Editor& ed = *app.ed;
+    const std::vector<int> locs = ed.selectedLocations();
+    if (locs.empty()) return setMessage(L"First, select a location");
+    const std::wstring what = locationsText(ed, locs);
+    ed.beginStroke();
+    for (int l : locs) ed.deleteLocation(l);
+    ed.endStroke();
+    rebuildList(app);
+    setMessage(L"Deleted " + what);
+}
+
 int locationEdgesAt(float wx, float wy) {
     Editor& ed = *appState().ed;
     int i = ed.selectedLocation();

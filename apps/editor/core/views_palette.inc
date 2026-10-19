@@ -99,8 +99,10 @@ struct PaletteGridView : draw::View {
                 c.fill({t.left + c.measure(tr(e.label)) + scale(8), mid, r.right - scale(6), mid + 1}, kBorder);
                 continue;
             }
-            const bool isPick = units && e.value == pick;
-            const bool isChosen = units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end();
+            const bool locs = mode == Mode::Locations;  // (a side's list of the locations: the selected ones)
+            const bool isPick = (units && e.value == pick) || (locs && e.value == app.ed->selectedLocation());
+            const bool isChosen = (units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end()) ||
+                                  (locs && app.ed->locationSelected(e.value));
             const bool isSecond = units && !second && mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // Shift's
             if (isPick || isChosen || isSecond || int(i) == hover_) {
                 const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};

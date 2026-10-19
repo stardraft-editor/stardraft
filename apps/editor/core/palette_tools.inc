@@ -106,6 +106,27 @@ void updateStatus() { updateStatus(appState()); }
 
 // The palette list allows multi-select (for sprays); the "current" entry is the caret.
 void setListSel(int i) { shellListSelect(i); }
+// The Locations list's rows in any mode (the location list's window shows them while another mode is active): the
+// used locations the filter keeps, as rebuildList lists them in Locations.
+bool listFilterKeeps(const std::wstring& label, std::wstring filter) {
+    if (filter.empty()) return true;
+    std::transform(filter.begin(), filter.end(), filter.begin(), ::towlower);
+    auto squash = [](std::wstring t) {
+        t.erase(std::remove(t.begin(), t.end(), L' '), t.end());
+        return t;
+    };
+    std::wstring low = label;
+    std::transform(low.begin(), low.end(), low.begin(), ::towlower);
+    return low.find(filter) != std::wstring::npos || squash(low).find(squash(filter)) != std::wstring::npos;
+}
+void locationListRows(const AppState& app, std::vector<int>& items, std::vector<std::wstring>& rows) {
+    items.clear(), rows.clear();
+    if (!app.ed || !app.ed->isOpen()) return;
+    const std::wstring filter = shellFilterText();
+    for (int i = 0; i < app.ed->locationCount(); ++i)
+        if (app.ed->locationUsed(i))
+            if (std::wstring label = widen(app.ed->locationName(i)); listFilterKeeps(label, filter)) items.push_back(i), rows.push_back(std::move(label));
+}
 
 // Compact tag from units.dat's StarEdit group flags: race (T/Z/P, N neutral, I independent) and
 // kind (U unit, B building, H hero, O other), e.g. "T U" for Terran units.
