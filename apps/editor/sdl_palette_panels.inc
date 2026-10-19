@@ -355,7 +355,7 @@ std::vector<std::string> palettePanelsText(int doc) {
     for (const auto& p : gPanels) {
         if (p->doc != doc) continue;
         const PalettePanelView& v = *p->view;
-        const int bits = int(v.view.grid) | int(v.view.sprites) << 1 | int(v.view.large) << 2;
+        const int bits = int(v.view.grid) | int(v.view.sprites) << 1 | int(v.view.large) << 2 | int(v.view.xl) << 3;
         const int full = v.collapsed ? p->fullH : 0;
         char head[160];
         std::snprintf(head, sizeof head, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", int(v.mode), int(v.sort), bits, int(v.collapsed), int(p->at.left / k),
@@ -384,7 +384,7 @@ void palettePanelsLoad(int doc) {
         const int mode = std::atoi(part[0].c_str());
         if (std::find(std::begin(kPanelModes), std::end(kPanelModes), Mode(mode)) == std::end(kPanelModes)) continue;
         const int bits = std::atoi(part[2].c_str());
-        PaletteView view{(bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0};
+        PaletteView view{(bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0, (bits & 8) != 0};
         auto p = palettePanelMake(Mode(mode), view, PaletteSort(std::clamp(std::atoi(part[1].c_str()), 0, 2)), doc);
         const int x = std::atoi(part[4].c_str()), y = std::atoi(part[5].c_str());
         const int w = std::max(kFloatPalMinW, std::atoi(part[6].c_str())), h = std::max(1, std::atoi(part[7].c_str()));

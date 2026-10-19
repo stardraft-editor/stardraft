@@ -815,8 +815,8 @@ void sdlPaletteViewShot(const std::string& spec) {
     std::stringstream in(spec);
     for (std::string w; std::getline(in, w, ',');) {
         const int id = w == "list" ? ID_PAL_LIST : w == "icons" ? ID_PAL_ICONS : w == "sprites" ? ID_PAL_SPRITES : w == "normal" ? ID_PAL_NORMAL
-                                                                                                  : w == "large" ? ID_PAL_LARGE : 0;
-        if (!applyPaletteViewCommand(gState.mode, id)) std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal or large\n", w.c_str());
+                                                                                                  : w == "large" ? ID_PAL_LARGE : w == "xlarge" ? ID_PAL_XLARGE : 0;
+        if (!applyPaletteViewCommand(gState.mode, id)) std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal, large or xlarge\n", w.c_str());
     }
     shellPaletteRebuilt();
 }

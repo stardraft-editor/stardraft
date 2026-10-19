@@ -7,6 +7,7 @@
 
 struct PaletteView {
     bool grid = false, sprites = false, large = false;
+    bool xl = false;  // Extra large (with large): twice the normal size, to tell pictures such as ramps apart
 };
 // List or grid (units: icons or sprites) and size, per mode: terrain a large list (its swatches show more), doodads and
 // sprites a large grid (their pictures say more than their names).
@@ -26,16 +27,20 @@ void setPaletteSortBits(int v) {
     for (int m = 0; m < kModeCount; ++m) gSortByMode[m] = PaletteSort(std::clamp((v >> (m * 2)) & 3, 0, 2));
 }
 
-// The views of each mode as one number (3 bits a mode: grid, sprites, large), as the settings file keeps them.
+// The views of each mode as one number (3 bits a mode: grid, sprites, large; then a bit a mode from bit 15: extra
+// large), as the settings file keeps them.
 int paletteViewBits() {
     int bits = 0;
-    for (int m = 0; m < kModeCount; ++m) bits |= (int(gViewByMode[m].grid) | int(gViewByMode[m].sprites) << 1 | int(gViewByMode[m].large) << 2) << (m * 3);
+    for (int m = 0; m < kModeCount; ++m) {
+        bits |= (int(gViewByMode[m].grid) | int(gViewByMode[m].sprites) << 1 | int(gViewByMode[m].large) << 2) << (m * 3);
+        bits |= int(gViewByMode[m].xl) << (15 + m);
+    }
     return bits;
 }
 void setPaletteViewBits(int v) {
     for (int m = 0; m < kModeCount; ++m) {
         const int b = v >> (m * 3);
-        gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0};
+        gViewByMode[m] = {(b & 1) != 0, (b & 2) != 0, (b & 4) != 0, (b & 4) != 0 && (v >> (15 + m) & 1) != 0};
     }
 }
 
@@ -45,7 +50,7 @@ bool applyPaletteViewCommand(Mode mode, int id, PaletteView& v, PaletteSort& sor
     if (id == ID_PAL_LIST) v.grid = v.sprites = false;
     else if (id == ID_PAL_ICONS) v.grid = true, v.sprites = false;
     else if (id == ID_PAL_SPRITES) v.grid = v.sprites = true;
-    else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE) v.large = id == ID_PAL_LARGE;
+    else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) v.large = id != ID_PAL_NORMAL, v.xl = id == ID_PAL_XLARGE;
     else if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) sort = PaletteSort(id - ID_PAL_SORT_CATEGORY);
     else return false;
     if (mode != Mode::Units) v.sprites = false;
@@ -100,7 +105,8 @@ MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<st
     }
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, !v.large));
-    m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, v.large));
+    m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, v.large && !v.xl));
+    m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, v.xl));
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_SORT_CATEGORY, L"Sort by &category", {}, false, sort == PaletteSort::Category));
     m.push_back(menuItem(ID_PAL_SORT_NAME, L"Sort by na&me", {}, false, sort == PaletteSort::Name));
@@ -204,8 +210,8 @@ void doodadPinToggle(int value) {
 // is a row in a list, or a cell in a grid (as many columns as fit; the cells share the width, so a resize moves them at
 // once, not a column at a time). Returns the content's height.
 int paletteLayout(const std::vector<PaletteRow>& rows, const PaletteView& v, int width, std::vector<stardraft::draw::Rect>& out) {
-    const int w = width, pad = scale(4), headerH = scale(26), rowH = v.large ? scale(46) : scale(30);
-    const int cell = scale((v.sprites ? 56 : 44) * (v.large ? 3 : 2) / 2), cols = std::max(1, (w - 2 * pad) / cell);
+    const int w = width, pad = scale(4), headerH = scale(26), rowH = v.xl ? scale(62) : v.large ? scale(46) : scale(30);
+    const int cell = scale((v.sprites ? 56 : 44) * (v.xl ? 4 : v.large ? 3 : 2) / 2), cols = std::max(1, (w - 2 * pad) / cell);
     const int cw = std::max(cell, (w - 2 * pad) / cols);
     out.assign(rows.size(), {});
     int y = 0, col = 0;
