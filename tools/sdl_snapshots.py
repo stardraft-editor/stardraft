@@ -292,6 +292,9 @@ CASES += [
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
     ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
+    # View > Units list: the side bar's list of the units (Units mode), and the search and a pick of a unit with Delete.
+    ("map-units-list", ["--command", "view.unitsList"], "map"),
+    ("map-units-list-pick", ["--script", "{script:unitslist}"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
     ("map-pathing-check", ["--script", "{script:pathingcheck}"], "map"),
@@ -945,6 +948,15 @@ SCRIPTS = {
     # Edit > Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
     "revealers": """command edit.revealers.place
 key Enter
+""",
+    # View > Units list: the search types "mineral" (the rows that match), a click on the first row selects that unit (the
+    # view goes to it) and Delete deletes it (the map has one unit less); Ctrl+Z gives it back (the list follows).
+    "unitslist": """command view.unitsList
+click 1420,281
+type mineral
+click 1400,340
+key Del
+key Ctrl+Z
 """,
     "revealersHidden": """command edit.revealers.place
 key Enter
@@ -3529,6 +3541,8 @@ def check_palette_units(output):
 
 CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
           "map-revealers-hidden": lambda o: None if "command view.layer.revealers: ran (yes)" in o else "the layer command did not run",
+          "map-units-list-pick": lambda o: None if "units=57" in o and re.findall(r"units=(\d+)", o)[-1] == "58"
+          else "the picked unit was not deleted, or Ctrl+Z did not give it back (units 57, then 58 expected)",
           "map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o and "Fog of war: " in o else "the fog did not show",
           **{"map-terrain-flags-" + v: (lambda o, v=v: check_terrain_flags(o, v)) for v in ("walkable", "height", "blocksview", "buildable")},
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),

@@ -2396,6 +2396,13 @@ constexpr UiText kRows[] = {
     {L"Map revealers are hidden (View > Layers shows them again)", L"\u5730\u56FE\u63ED\u793A\u5668\u5DF2\u9690\u85CF\uFF08\u89C6\u56FE > \u56FE\u5C42\u53EF\u518D\u6B21\u663E\u793A\uFF09"},
     {L"Nothing placed: each chosen player has a map revealer on every square", L"\u672A\u653E\u7F6E\uFF1A\u6240\u9009\u73A9\u5BB6\u7684\u6BCF\u4E2A\u65B9\u683C\u90FD\u5DF2\u6709\u5730\u56FE\u63ED\u793A\u5668"},
     {L"There are no map revealers on the map", L"\u5730\u56FE\u4E0A\u6CA1\u6709\u5730\u56FE\u63ED\u793A\u5668"},
+    {L"&Units list", L"\u5355\u4F4D\u5217\u8868(&U)"},
+    {L"Search the units", L"\u641C\u7D22\u5355\u4F4D"},
+    {L"No.", L"\u7F16\u53F7"},
+    {L"X", L"X"},
+    {L"Y", L"Y"},
+    {L"The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.", L"\u5355\u4F4D\u5217\u8868\u663E\u793A\u5728\u4FA7\u8FB9\u680F\u4E2D\u3002\u5355\u51FB\u9009\u62E9\u5355\u4F4D\uFF1BDelete \u5220\u9664\u6240\u9009\u5355\u4F4D\u3002"},
+    {L"The palette shows in the side bar again", L"\u4FA7\u8FB9\u680F\u91CD\u65B0\u663E\u793A\u8C03\u8272\u677F"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

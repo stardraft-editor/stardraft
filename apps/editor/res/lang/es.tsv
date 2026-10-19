@@ -2394,3 +2394,10 @@ Map revealers show	Los reveladores del mapa se muestran
 Map revealers are hidden (View > Layers shows them again)	Los reveladores del mapa están ocultos (Ver > Capas los muestra otra vez)
 Nothing placed: each chosen player has a map revealer on every square	Nada colocado: cada jugador elegido ya tiene un revelador en cada cuadro
 There are no map revealers on the map	No hay reveladores en el mapa
+&Units list	Lista de &unidades
+Search the units	Buscar unidades
+No.	Nº
+X	X
+Y	Y
+The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.	La lista de unidades se muestra en la barra lateral. Un clic selecciona una unidad; Supr borra las unidades seleccionadas.
+The palette shows in the side bar again	La paleta vuelve a mostrarse en la barra lateral

@@ -2394,3 +2394,10 @@ Map revealers show	显示地图揭示器
 Map revealers are hidden (View > Layers shows them again)	地图揭示器已隐藏（视图 > 图层可再次显示）
 Nothing placed: each chosen player has a map revealer on every square	未放置：所选玩家的每个方格都已有地图揭示器
 There are no map revealers on the map	地图上没有地图揭示器
+&Units list	单位列表(&U)
+Search the units	搜索单位
+No.	编号
+X	X
+Y	Y
+The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.	单位列表显示在侧边栏中。单击选择单位；Delete 删除所选单位。
+The palette shows in the side bar again	侧边栏重新显示调色板
