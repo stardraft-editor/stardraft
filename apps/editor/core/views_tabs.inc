@@ -85,6 +85,7 @@ void showActive() {
     app.ed->setResourceDistance(app.resourceDistance);
     setBuildingSnap(app.snapBuildings);  // Options > Units > Snap buildings to tile edges
     app.ed->setMirrors(app.symmetryByMode[int(app.mode)]);
+    app.ed->setTurns(app.turnsByMode[int(app.mode)]);
     app.terrainRev = 0;
     shellRendererSources();  // the host's renderer shows this editor's sources (quality, sprites, tileset)
     setMode(app.mode);

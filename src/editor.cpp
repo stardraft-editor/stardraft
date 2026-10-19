@@ -484,54 +484,75 @@ void Editor::endStroke() { endStrokeStep(); }
 
 std::pair<int, int> Editor::mirror(int px, int py, int which) const {
     const int W = width_ * 32, H = height_ * 32;
-    const double nx = double(px) / W, ny = double(py) / H;
     switch (which) {
-    case 0: return {W - px, py};                                       // left/right
-    case 1: return {px, H - py};                                       // top/bottom
-    case 2: return {W - px, H - py};                                   // 180
-    case 3: return {int(std::lround(ny * W)), int(std::lround(nx * H))};             // diagonal
-    case 4: return {int(std::lround((1 - ny) * W)), int(std::lround((1 - nx) * H))}; // anti-diagonal
-    case 5: return {int(std::lround((1 - ny) * W)), int(std::lround(nx * H))};       // rotate 90
-    case 6: return {int(std::lround(ny * W)), int(std::lround((1 - nx) * H))};       // rotate 270
+    case 0: return {W - px, py};  // left/right
+    case 1: return {px, H - py};  // top/bottom
+    case 3: return {int(std::lround(double(py) / H * W)), int(std::lround(double(px) / W * H))};                  // diagonal
+    case 4: return {int(std::lround((1 - double(py) / H) * W)), int(std::lround((1 - double(px) / W) * H))};    // other diagonal
     }
     return {px, py};
 }
 
+std::pair<int, int> Editor::turnPoint(int px, int py, int k) const {
+    constexpr double kTau = 6.283185307179586;
+    const double W = width_ * 32.0, H = height_ * 32.0;
+    const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a);
+    const double u = px / W - 0.5, v = py / H - 0.5;  // from the middle, in the map's proportions
+    return {int(std::lround((0.5 + u * c - v * s) * W)), int(std::lround((0.5 + u * s + v * c) * H))};
+}
+
 void Editor::setSymmetry(Symmetry s) {
-    static const int masks[] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::LeftRight | Mirror::TopBottom, Mirror::Rotate180,
-                                Mirror::Diagonal, Mirror::AntiDiagonal, Mirror::Rotate90};
+    static const int masks[] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::LeftRight | Mirror::TopBottom, 0,
+                                Mirror::Diagonal, Mirror::AntiDiagonal, 0};
+    static const int turns[] = {1, 1, 1, 1, 2, 1, 1, 4};
     mirrors_ = masks[int(s)];
+    turns_ = turns[int(s)];
 }
 
 Symmetry Editor::symmetry() const {
+    if (!mirrors_ && turns_ == 2) return Symmetry::Rotate180;
+    if (!mirrors_ && turns_ == 4) return Symmetry::Rotate4;
     switch (mirrors_) {
     case 0: return Symmetry::None;
     case Mirror::LeftRight: return Symmetry::Horizontal;
     case Mirror::TopBottom: return Symmetry::Vertical;
-    case Mirror::Rotate180: return Symmetry::Rotate180;
     case Mirror::Diagonal: return Symmetry::Diagonal;
     case Mirror::AntiDiagonal: return Symmetry::AntiDiagonal;
-    case Mirror::Rotate90: return Symmetry::Rotate4;
     default: return Symmetry::Both;  // a mix
     }
 }
 
 // The places a point repeats at: the point, then every place the chosen mirrors and turns reach from it and from
-// each other (their group), at most 8. Each carries whether it is mirrored across a vertical or horizontal axis.
+// each other (their group), at most kMaxSymmetricPlaces. A place outside the map is left out. Each carries whether
+// it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
 std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py) const {
     std::vector<SymmetricPlace> out{{px, py, false, false}};
-    // Mirror:: flag -> mirror(); and how it flips a pasted copy.
+    const int W = width_ * 32, H = height_ * 32;
+    // A place is added when it is inside the map and no place is there yet (1 px).
+    auto add = [&](int x, int y, bool fx, bool fy) {
+        if (x < 0 || y < 0 || x > W || y > H || out.size() >= kMaxSymmetricPlaces) return;
+        for (const SymmetricPlace& p : out)
+            if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
+        out.push_back({x, y, fx, fy});
+    };
+    // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half turn
+    // flips a pasted copy both ways.
+    for (int k = 1; k < turns_; ++k) {
+        const auto [x, y] = turnPoint(px, py, k);
+        add(x, y, turns_ == 2, turns_ == 2);
+    }
+    // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
+    // How each flips a pasted copy.
     static const struct {
         int flag, which;
         bool fx, fy;
-    } gens[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Rotate180, 2, true, true},
-                {Mirror::Diagonal, 3, false, false}, {Mirror::AntiDiagonal, 4, false, false}, {Mirror::Rotate90, 5, false, false}};
-    for (size_t k = 0; k < out.size() && out.size() < 8; ++k)
-        for (const auto& g : gens) {
-            if (!(mirrors_ & g.flag)) continue;
-            const auto [x, y] = mirror(out[k].x, out[k].y, g.which);
-            const bool seen = std::any_of(out.begin(), out.end(), [&](const SymmetricPlace& p) { return std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1; });
-            if (!seen && out.size() < 8) out.push_back({x, y, out[k].flipX != g.fx, out[k].flipY != g.fy});
+    } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Diagonal, 3, false, false},
+                     {Mirror::AntiDiagonal, 4, false, false}};
+    for (size_t k = 0; k < out.size(); ++k)
+        for (const auto& m : mirrorsOf) {
+            if (!(mirrors_ & m.flag)) continue;
+            const auto [x, y] = mirror(out[k].x, out[k].y, m.which);
+            add(x, y, out[k].flipX != m.fx, out[k].flipY != m.fy);
         }
     return out;
 }

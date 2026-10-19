@@ -1195,18 +1195,19 @@ static void mirrorTest(const GameData& data) {
     // other diagonal, 5 quarter turn).
     struct Case {
         const char* name;
-        int mask, which;
+        int mask, turns, which;
     };
-    const Case cases[] = {{"left/right", Mirror::LeftRight, 0},     {"top/bottom", Mirror::TopBottom, 1},
-                          {"half turn", Mirror::Rotate180, 2},      {"diagonal", Mirror::Diagonal, 3},
-                          {"other diagonal", Mirror::AntiDiagonal, 4}, {"quarter turn", Mirror::Rotate90, 5}};
+    const Case cases[] = {{"left/right", Mirror::LeftRight, 1, 0},     {"top/bottom", Mirror::TopBottom, 1, 1},
+                          {"half turn", 0, 2, 2},                      {"diagonal", Mirror::Diagonal, 1, 3},
+                          {"other diagonal", Mirror::AntiDiagonal, 1, 4}, {"quarter turn", 0, 4, 5}};
     // A stroke at the center: a brush the mirrors copy onto itself paints the same diamonds with a mirror as without one
     // (the copies would paint more if the copies rounded apart at the center).
-    auto centerCount = [&](int mask) {
+    auto centerCount = [&](int mask, int turns) {
         Editor ed(data);
         std::string e;
         ed.newMap(128, 128, 0, 1, e);
         ed.setMirrors(mask);
+        ed.setTurns(turns);
         ed.paintBrush(128 * 16, 128 * 16, water, Brush{Brush::Diamond, 3});
         int n = 0;
         for (int y = 0; y <= 128; ++y)
@@ -1214,10 +1215,10 @@ static void mirrorTest(const GameData& data) {
                 if (((x + y) & 1) && ed.terrainAt(x * 64, y * 32) == water) ++n;
         return n;
     };
-    const int plain = centerCount(0);
-    for (int mask : {int(Mirror::LeftRight), int(Mirror::TopBottom), int(Mirror::Rotate180)}) {
-        const int n = centerCount(mask);
-        std::printf("      center stroke, mask %d: %d corners (plain %d)\n", mask, n, plain);
+    const int plain = centerCount(0, 1);
+    for (auto [mask, turns] : {std::pair{int(Mirror::LeftRight), 1}, {int(Mirror::TopBottom), 1}, {0, 2}}) {
+        const int n = centerCount(mask, turns);
+        std::printf("      center stroke, mirrors %d, turns %d: %d corners (plain %d)\n", mask, turns, n, plain);
         CHECK(n == plain, "mirror: a center stroke with a mirror paints what it paints without one");
     }
     for (int big = 0; big < 2; ++big) {
@@ -1229,6 +1230,7 @@ static void mirrorTest(const GameData& data) {
                 return;
             }
             ed.setMirrors(c.mask);
+            ed.setTurns(c.turns);
             ed.beginTerrainStroke();
             ed.paintBrush(1000, 900, water, Brush{Brush::Diamond, 3});
             ed.paintBrush(1500, 2300, water, Brush{Brush::Circle, 2});
@@ -1330,6 +1332,32 @@ static void locationGroupTest(const GameData& data) {
     CHECK(ed.locationUsed(a) && ed.locationUsed(b) && ed.locationUsed(c), "location group: one undo brings them all back");
 }
 
+// The turns (feedback #111): n copies of a point, equally spaced round the map's middle; with a mirror, the mirror's copies
+// join the group (3 turns and a left/right mirror: six places).
+static void turnCountTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "turns: a new 64 x 64 map");
+        return;
+    }
+    const int cx = 64 * 16, cy = 64 * 16;  // the middle of the 2048 x 2048 px map
+    for (int n : {1, 2, 3, 4, 5, 8}) {
+        ed.setMirrors(0);
+        ed.setTurns(n);
+        const auto pts = ed.symmetricPoints(cx + 300, cy);
+        bool onCircle = int(pts.size()) == n;
+        for (const auto& [x, y] : pts) onCircle = onCircle && std::abs(std::hypot(x - cx, y - cy) - 300.0) <= 2.0;
+        CHECK(onCircle, ("turns: " + std::to_string(n) + " copies, equally spaced on the circle round the middle").c_str());
+    }
+    ed.setMirrors(Mirror::LeftRight);
+    ed.setTurns(3);
+    CHECK(ed.symmetricPoints(cx + 300, cy).size() == 6, "turns: 3 turns with a left/right mirror make six places");
+    ed.setMirrors(0);
+    ed.setTurns(99);
+    CHECK(ed.turns() == kMaxTurns, "turns: the number is kept to 1 to 8");
+}
+
 int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: editor_test <install dir> <map> <scratch dir>\n");
@@ -1347,6 +1375,7 @@ int main(int argc, char** argv) {
     }
     if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
         mirrorTest(data);
+        turnCountTest(data);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
@@ -2454,6 +2483,7 @@ int main(int argc, char** argv) {
     unitOrderTest(data);
     linkTest(data);
     mirrorTest(data);
+    turnCountTest(data);
     locationGroupTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 

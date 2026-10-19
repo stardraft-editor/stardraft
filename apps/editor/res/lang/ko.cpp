@@ -2409,6 +2409,8 @@ constexpr UiText kRows[] = {
     {L"Link selected units", L"\uC120\uD0DD\uD55C \uC720\uB2DB \uC5F0\uACB0"},
     {L"Jump to linked unit", L"\uC5F0\uACB0\uB41C \uC720\uB2DB\uC73C\uB85C \uC774\uB3D9"},
     {L" locations", L" \uC704\uCE58"},
+    {L"Turns", L"\uD68C\uC804 \uC218"},
+    {L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a square map).", L"\uD68C\uC804: \uBCF5\uC0AC\uBCF8\uC740 \uC9C0\uB3C4 \uC911\uC559\uC744 \uC911\uC2EC\uC73C\uB85C \uAC19\uC740 \uAC04\uACA9\uC73C\uB85C \uB3D5\uB2C8\uB2E4. 1: \uC5C6\uC74C, 2: \uBC18 \uBC14\uD034, 4: 4\uBD84\uC758 1 \uBC14\uD034, 1~8. \uC22B\uC790\uB97C \uD074\uB9AD\uD558\uC5EC \uC785\uB825\uD569\uB2C8\uB2E4. - \uC640 + \uBC0F \uB9C8\uC6B0\uC2A4 \uD720\uB85C \uBC14\uAFC9\uB2C8\uB2E4. \uB4F1\uCD95 \uC9C0\uD615\uC5D0\uC11C\uB294 \uB2E4\uC774\uC544\uBAAC\uB4DC\uB97C \uADF8\uB300\uB85C \uC720\uC9C0\uD558\uB294 \uD68C\uC804(2, \uC815\uC0AC\uAC01\uD615 \uC9C0\uB3C4\uC758 4)\uC744 \uC81C\uC678\uD558\uBA74 \uBCF5\uC0AC\uBCF8\uC740 \uAC00\uC7A5 \uAC00\uAE4C\uC6B4 \uB2E4\uC774\uC544\uBAAC\uB4DC\uC5D0 \uB193\uC785\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

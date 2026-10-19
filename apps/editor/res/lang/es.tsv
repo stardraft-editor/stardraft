@@ -2407,3 +2407,5 @@ Lifted	Elevada
 Link selected units	Enlazar las unidades seleccionadas
 Jump to linked unit	Ir a la unidad enlazada
  locations	 ubicaciones
+Turns	Giros
+Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a square map).	Giros: las copias giran alrededor del centro del mapa a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian. En terreno isométrico, cada copia va al rombo más cercano, salvo los giros que mantienen los rombos (2, y 4 en un mapa cuadrado).
