@@ -24,11 +24,12 @@ TriggerMapInfo trigMapInfo();
 void trigKeepCodeMap(const EudProject& pr, const TriggerSet& set, const std::vector<TriggerCodeLine>& lines);
 
 // The map's playability as one message ("" when StarCraft can start it).
-std::wstring playabilityText() {
+// (startLocations false: the start location problems are left out; the save question has asked about them.)
+std::wstring playabilityText(bool startLocations = true) {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return L"";
     std::wstring text;
-    for (const auto& p : app.ed->playabilityProblems()) text += L"\x2022 " + widen(p) + L"\r\n";
+    for (const auto& p : app.ed->playabilityProblems(startLocations)) text += L"\x2022 " + widen(p) + L"\r\n";
     return text;
 }
 
@@ -294,7 +295,12 @@ void compileProject() {
         setMessage(L"A build is already running");
         return;
     }
-    if (const std::wstring problems = playabilityText(); !problems.empty()) {
+    // The map's save below: a map without start locations asks first (Place them, Save anyway, Cancel).
+    if (!confirmStartLocations()) {
+        setMessage(tr(L"Did not build the map"));
+        return;
+    }
+    if (const std::wstring problems = playabilityText(false); !problems.empty()) {
         if (gSelfTest || !shellAskYesNo(buildAnywayQuestion(problems), L"Build", L"&Build", L"Do &not build")) {
             setMessage(L"Did not build the map: " + problems.substr(2, problems.find(L"\r\n") - 2));
             return;

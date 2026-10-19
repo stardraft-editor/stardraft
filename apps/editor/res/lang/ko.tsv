@@ -2409,3 +2409,9 @@ Jump to linked unit	연결된 유닛으로 이동
  locations	 위치
 Turns	회전 수
 Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	회전: 복사본은 지도 중앙을 중심으로 같은 간격으로 돕니다. 1: 없음, 2: 반 바퀴, 4: 4분의 1 바퀴, 1~8. 숫자를 클릭하여 입력합니다. - 와 + 및 마우스 휠로 바꿉니다. 등축 지형에서는 다이아몬드를 그대로 유지하는 회전(2, 가로가 세로의 두 배인 지도의 4)을 제외하면 복사본은 가장 가까운 다이아몬드에 놓입니다.
+Start locations	시작 위치
+&Place them	배치(&P)
+&Save anyway	그래도 저장(&S)
+Place the missing start locations?	없는 시작 위치를 배치할까요?
+No start location fits the map	맵에 맞는 시작 위치를 놓을 곳이 없습니다
+Did not build the map	맵을 빌드하지 못했습니다

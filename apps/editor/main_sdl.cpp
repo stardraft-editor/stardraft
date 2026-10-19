@@ -449,6 +449,7 @@ int main(int argc, char** argv) {
         else if (a == "--type") inputArgs.emplace_back('t', next());  // text typed into the view with the focus (a search box, a number), for a snapshot
         else if (a == "--mapimage") gShotMapImages.push_back(next());  // the first options of the next Export map image dialog (sdl_map_image.inc), for a snapshot
         else if (a == "--pick") gShotPicks.push_back(next());  // a path, or cancel: the answer of the next file or folder dialog (none shows; the output says what it asked), for a snapshot
+        else if (a == "--box") gShotBoxes.push_back(std::atoi(next().c_str()));  // n: the answer of the next message box, its button n from 0 (sdl_menus.inc: sdlShotBox), for a snapshot
         else if (a == "--ime") inputArgs.emplace_back('i', next());  // text[@caret]: an input method's composition (not committed; empty: it ends) in the view with the focus, for a snapshot
         else if (a == "--wheel") inputArgs.emplace_back('h', next());  // x,y,dx,dy[:precise][:mods][:Repeat<n>]: the wheel there (dy notches away from the user), or a trackpad's scroll (precise), for a snapshot
         else if (a == "--pinch") inputArgs.emplace_back('p', next());  // x,y,scale[:Alt]: a trackpad's pinch there (scale more than 1: the fingers move apart; Alt: the brush's size), for a snapshot
@@ -460,6 +461,7 @@ int main(int argc, char** argv) {
         else if (!a.empty() && a[0] != '-') mapArg = a;
     }
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true, gShotDialogs = true;  // (a snapshot shows no file dialog: --pick answers)
+    if (!gShotBoxes.empty()) msgbox::hostBox() = sdlShotBox;
     if (gNoActivate) gSilent = true, gNoBoxes = true;  // (a test: no sound, the default settings, no question waits)
     // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types.
     const bool testRun = gSilent;
@@ -807,6 +809,14 @@ int main(int argc, char** argv) {
                 if (problems.empty()) problems = L"\x2022 At least one player must be human\r\n";  // (a map that StarCraft starts: a sample problem)
                 messageShot.b = dialogArg == "message:build" ? sdlYesNoBox(buildAnywayQuestion(problems), L"&Build", L"Do &not build")
                                                              : sdlTrigDeleteBox(L"Delete the trigger \"Spawn the waves\"?");
+                const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
+                width = sz.x, height = sz.y;
+            } else if (dialogArg == "message:start") {  // the start locations question before a save (confirmStartLocations)
+                shown = &messageShot;
+                std::vector<std::string> problems = appState().ed ? appState().ed->startLocationProblems() : std::vector<std::string>{};
+                if (problems.empty()) problems = {"Player 1 owns units but has no start location"};  // (a map that has them: a sample)
+                messageShot.b = msgbox::makeBox(startLocationsQuestion(problems),
+                                                {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Question);
                 const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
                 width = sz.x, height = sz.y;
             } else if (dialogArg == "error") {  // an error box (shellErrorBox: the error icon and OK)

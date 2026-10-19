@@ -1037,6 +1037,17 @@ bool sdlShotDeferredAnswer() {
 // filters and where it starts.
 bool gShotDialogs = false;
 std::deque<std::string> gShotPicks;
+// --box <n> in a snapshot: the answer of the next message box (its button n, from 0; the output says which button it took).
+// A box with no answer left is shown as before (its keys do not reach it in a snapshot: it closes with its cancel button).
+std::deque<int> gShotBoxes;
+int sdlShotBox(draw::View&, const std::wstring& caption, const msgbox::Box& box) {
+    if (gShotBoxes.empty()) return -1;
+    int k = gShotBoxes.front();
+    gShotBoxes.pop_front();
+    if (k < 0 || k >= int(box.buttons.size())) k = box.cancel;
+    std::printf("box: \"%s\": %s\n", narrow(caption).c_str(), narrow(box.buttons[size_t(k)].name).c_str());
+    return k;
+}
 
 // Where a file or folder dialog starts, as SDL takes it (UTF-8): `folder`, or the nearest folder above it that is there
 // (Windows' dialog does not open in a folder that is not there), with a separator at its end (a folder: SDL's dialogs on
@@ -1148,6 +1159,10 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
         return;
     }
     typingFlush();  // a text being typed (a map page's field, the Briefing's text) is saved too
+    if (!confirmStartLocations()) {  // a map StarCraft cannot start for want of start locations: Place them, Save anyway or Cancel
+        if (done) done(false);
+        return;
+    }
     if (isUnsavedProject(activeProject())) {
         const bool ok = sdlSaveUnsavedProject();
         if (done) done(ok);
