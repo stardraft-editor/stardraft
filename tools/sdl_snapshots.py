@@ -369,11 +369,14 @@ CASES += [
     ("map-palette-float-units", ["--mode", "units", "--script", "{script:floatpalunits}"], "map"),
 ]
 # The second palette (GitHub #151, Discord #122): in the default layout Units is active and the left side shows the Terrain
-# list (the other side's, the second palette). A pick in that list (Platform, 196,509) goes to Terrain, which becomes the
+# list (the other side's, the second palette). A pick in that list (Platform, 196,640, under that mode's tools) goes to Terrain, which becomes the
 # active mode, and the map click (700,500) paints with it. The pick used to be undone at once, so the map click changed
 # nothing. (--rclick runs after the inputs, so it cannot set this up.)
 CASES += [
-    ("map-palette-second-pick", ["--click", "196,509", "--click", "700,500"], "map"),
+    ("map-palette-second-pick", ["--click", "196,640", "--click", "700,500"], "map"),
+    # Each docked side shows its mode's tools (Terrain left, Units right): in Units mode, a click on the Terrain side's
+    # Spray (153,459) makes Terrain the mode with Spray as its tool.
+    ("map-strip-other-side", ["--mode", "units", "--click", "153,459"], "map"),
     # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
     ("map-palette-xlarge", ["--mode", "doodads", "--palview", "xlarge"], "map"),
 ]
@@ -3536,6 +3539,14 @@ def check_palette_second_pick(output):
     ])
 
 
+def check_strip_other_side(output):
+    """A click on the other side's tool strip: its mode is active, with the tool clicked (Terrain's Spray: 1)."""
+    return expect(output, 1, [
+        ("the click on the other side's tools did not make Terrain the mode", lambda s: s[0]["mode"] == "Terrain"),
+        ("the click on the other side's Spray did not pick Spray", lambda s: s[0]["tool"] == "1"),
+    ])
+
+
 def check_palette_units(output):
     """The unit palette in its window (with the owner and section boxes: as wide as the side bar or more); a pick in it
     picks the Marine and a click on the map places one; the location list floats too: Locations mode shows its window,
@@ -3569,7 +3580,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-palette-float-keys": check_palette_keys,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,

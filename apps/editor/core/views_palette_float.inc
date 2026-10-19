@@ -234,8 +234,7 @@ struct FloatPaletteView final : PanelStripView {
         activeLine = toolsMode && *toolsMode == appState().mode;
         paintStrip(c);
     }
-    void paintOver(draw::Canvas& c) override {  // (another mode is active: the tools are dimmed)
-        if (toolsMode && *toolsMode != appState().mode && tools.shown()) c.fill(tools.frame(), kBg, 150);
+    void paintOver(draw::Canvas& c) override {  // (another mode active: its tools show as they are; a press makes it active)
         paintFrame(c);
     }
     std::wstring feedbackName(draw::Point) override { return L"the floating window of the " + name; }
@@ -349,10 +348,9 @@ struct PalettePanelView final : PanelStripView {
         activeLine = floating && mode == appState().mode;
         paintStrip(c);
     }
-    // Another mode is active: the tools are dimmed (they show the mode's tool, not the active one's; a press makes the
-    // mode active), and the strip's line is the accent's only while this mode is active.
+    // Another mode is active: the tools show the mode's tool as they are (a press makes the mode active); the strip's
+    // line is the accent's only while this mode is active.
     void paintOver(draw::Canvas& c) override {
-        if (floating && !collapsed && tools.shown() && mode != appState().mode) c.fill(tools.frame(), kBg, 150);
         paintFrame(c);
     }
     std::wstring feedbackName(draw::Point) override { return L"a palette panel (" + name + L")"; }
