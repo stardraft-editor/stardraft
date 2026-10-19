@@ -168,6 +168,34 @@ void tilesStampChosen() {
     appState().dirty = true;
 }
 
+// Ctrl+C of a box in Rectangle mode: the copied tiles are the stamp, as a box over the grid makes it (the Brush places
+// them; a copy's null cells are left out). Discord feedback #49.
+void tilesStampFromCopy() {
+    const Editor& ed = *appState().ed;
+    const int w = ed.tileClipboardWidth(), h = ed.tileClipboardHeight();
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;
+    gTiles->chosen.clear();
+    int n = 0;
+    for (uint16_t v : ed.tileClipboard()) {
+        gTiles->stamp.push_back(v);
+        if (v == 0xFFFF) continue;
+        ++n;
+        if (std::find(gTiles->chosen.begin(), gTiles->chosen.end(), v) == gTiles->chosen.end()) gTiles->chosen.push_back(v);
+    }
+    if (n == 0) {
+        gTiles->stamp.clear();
+        setMessage(L"Copied " + std::to_wstring(w) + L" x " + std::to_wstring(h) + L" tiles");
+        return;
+    }
+    gTiles->stampW = w, gTiles->stampH = h;
+    gTiles->picked = gTiles->anchor = gTiles->chosen.back();
+    tilesToBrush();
+    setMessage(tr(L"Brush: the ") + std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L" tiles you copied (") + std::to_wstring(n) +
+               tr(L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random"));
+    appState().dirty = true;
+    tilesPanelRepaint();
+}
+
 void tilesPick(int value, bool fromMap) {
     gTiles->picked = value;
     gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;

@@ -2415,3 +2415,6 @@ Start locations	起始位置
 Place the missing start locations?	放置缺少的起始位置吗？
 No start location fits the map	地图上没有能放置起始位置的地方
 Did not build the map	未能构建地图
+Brush: the 	笔刷：
+ tiles you copied (	 个图块（已复制：
+ tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 个图块）。点击放置；拖动以重复放置。按住 Shift 可随机放置。

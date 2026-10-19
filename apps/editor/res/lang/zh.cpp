@@ -2417,6 +2417,9 @@ constexpr UiText kRows[] = {
     {L"Place the missing start locations?", L"\u653E\u7F6E\u7F3A\u5C11\u7684\u8D77\u59CB\u4F4D\u7F6E\u5417\uFF1F"},
     {L"No start location fits the map", L"\u5730\u56FE\u4E0A\u6CA1\u6709\u80FD\u653E\u7F6E\u8D77\u59CB\u4F4D\u7F6E\u7684\u5730\u65B9"},
     {L"Did not build the map", L"\u672A\u80FD\u6784\u5EFA\u5730\u56FE"},
+    {L"Brush: the ", L"\u7B14\u5237\uFF1A"},
+    {L" tiles you copied (", L" \u4E2A\u56FE\u5757\uFF08\u5DF2\u590D\u5236\uFF1A"},
+    {L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random", L" \u4E2A\u56FE\u5757\uFF09\u3002\u70B9\u51FB\u653E\u7F6E\uFF1B\u62D6\u52A8\u4EE5\u91CD\u590D\u653E\u7F6E\u3002\u6309\u4F4F Shift \u53EF\u968F\u673A\u653E\u7F6E\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

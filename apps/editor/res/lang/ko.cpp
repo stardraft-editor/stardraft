@@ -2417,6 +2417,9 @@ constexpr UiText kRows[] = {
     {L"Place the missing start locations?", L"\uC5C6\uB294 \uC2DC\uC791 \uC704\uCE58\uB97C \uBC30\uCE58\uD560\uAE4C\uC694?"},
     {L"No start location fits the map", L"\uB9F5\uC5D0 \uB9DE\uB294 \uC2DC\uC791 \uC704\uCE58\uB97C \uB193\uC744 \uACF3\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
     {L"Did not build the map", L"\uB9F5\uC744 \uBE4C\uB4DC\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Brush: the ", L"\uBE0C\uB7EC\uC2DC: "},
+    {L" tiles you copied (", L" \uD0C0\uC77C (\uBCF5\uC0AC\uD55C \uD0C0\uC77C "},
+    {L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random", L"\uAC1C). \uD074\uB9AD\uD558\uC5EC \uBC30\uCE58\uD569\uB2C8\uB2E4. \uB04C\uC5B4\uC11C \uBC18\uBCF5\uD569\uB2C8\uB2E4. Shift\uB97C \uB204\uB974\uBA74 \uBB34\uC791\uC704\uB85C \uBC30\uCE58\uD569\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
