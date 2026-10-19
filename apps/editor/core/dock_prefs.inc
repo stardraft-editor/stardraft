@@ -103,6 +103,8 @@ void loadDock() {
     number(L"GridWidth", gDock.gridW, 1, 8192), number(L"GridHeight", gDock.gridH, 1, 8192);
     number(L"GridX", gDock.gridX, 0, 8191), number(L"GridY", gDock.gridY, 0, 8191);
     number(L"TriggerZoom", gDock.triggerZoom, 70, 200);
+    number(L"UnitWinX", gDock.unitWinX, -20000, 20000), number(L"UnitWinY", gDock.unitWinY, -20000, 20000);
+    number(L"UnitWinW", gDock.unitWinW, 0, 16000), number(L"UnitWinH", gDock.unitWinH, 0, 16000);
     for (int m = 0; m < kModeCount; ++m) gFloatPal[m] = floatPaletteLoad(prefs::store(), Mode(m));
 }
 
@@ -120,6 +122,7 @@ void saveDock() {
     put(L"TriggerCode", gDock.triggerCode);
     put(L"ScriptPreview", gDock.scriptPreview);
     put(L"TriggerZoom", gDock.triggerZoom);
+    put(L"UnitWinX", gDock.unitWinX), put(L"UnitWinY", gDock.unitWinY), put(L"UnitWinW", gDock.unitWinW), put(L"UnitWinH", gDock.unitWinH);
     for (int m = 0; m < kModeCount; ++m) floatPaletteSave(prefs::store(), Mode(m), gFloatPal[m]);
 }
 

@@ -787,15 +787,20 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         // A dialog: a window of its own, centered on its opener.
         std::wstring shownTitle;  // (uiText)
         sdl = SDL_CreateWindow(utf8Text(uiText(spec.title, shownTitle)).c_str(), 1, 1, SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN |
+                                                                                        (spec.resizable ? SDL_WINDOW_RESIZABLE : 0) |
                                                                                         (noActivate_ ? SDL_WINDOW_NOT_FOCUSABLE : 0));
         if (!sdl) return;
         sizeInPixels(sdl, width, height);
         SDL_SetWindowParent(sdl, parent->sdl);
-        int px = 0, py = 0, pwl = 0, phl = 0, dw = 0, dh = 0;
-        SDL_GetWindowPosition(parent->sdl, &px, &py);
-        SDL_GetWindowSize(parent->sdl, &pwl, &phl);
-        SDL_GetWindowSize(sdl, &dw, &dh);
-        SDL_SetWindowPosition(sdl, px + (pwl - dw) / 2, py + (phl - dh) / 2);
+        if (spec.placed) {  // where it was last time (the host's own screen points)
+            SDL_SetWindowPosition(sdl, spec.at.left, spec.at.top);
+        } else {
+            int px = 0, py = 0, pwl = 0, phl = 0, dw = 0, dh = 0;
+            SDL_GetWindowPosition(parent->sdl, &px, &py);
+            SDL_GetWindowSize(parent->sdl, &pwl, &phl);
+            SDL_GetWindowSize(sdl, &dw, &dh);
+            SDL_SetWindowPosition(sdl, px + (pwl - dw) / 2, py + (phl - dh) / 2);
+        }
     } else if (spec.kind == WindowKind::Tool) {
         // A tool window: a window of its own over its opener (a utility window: no task bar button), at `spec.at` in
         // the opener's view; the user moves it and changes its size.

@@ -91,6 +91,7 @@ struct Dock {
     bool triggerCode = false;                          // the Triggers workspace's code pane is shown
     bool scriptPreview = false;                        // the Project page's preview of the selected script is shown
     int triggerZoom = 100;                             // the trigger pane's size, percent (Ctrl+mouse wheel)
+    int unitWinX = 0, unitWinY = 0, unitWinW = 0, unitWinH = 0;  // the Unit properties window: its place (screen points) and size (pixels); W 0: none kept
     int volume = 100;                                  // every sound StarDraft plays, percent (Program options, an SFX entry)
     int unitNames = 2;  // how lists name a unit with a custom name: 0 game, 1 game (custom), 2 custom (game), 3 custom
     int logH = 220;     // the open Log's height, 96-dpi pixels; drag its top edge

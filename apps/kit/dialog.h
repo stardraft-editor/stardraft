@@ -49,6 +49,11 @@ public:
     void setInsets(const DialogInsets& in) { insets_ = in; }
     // The window is centered on the work area of the screen (DS_CENTER), not on the window that opens it.
     void setCenterOnWorkArea(bool on) { workArea_ = on; }
+    // The window can be resized (its content is laid out again), and opens at `at` (screen points) when placed.
+    void setResizable(bool on) { resizable_ = on; }
+    void setPlace(draw::Point at) { placed_ = true, place_ = at; }
+    // Called when the dialog closes, before its window goes (the host can still read the window's place and size).
+    std::function<void()> closing;
 
     // Shows the dialog in a window `size` big (x: width, y: height) that `from` opens, and returns when it closes:
     // the result of the button that closed it; a close without a button (the window's close box) gives the cancel
@@ -81,7 +86,8 @@ private:
     std::vector<std::unique_ptr<Button>> buttons_;
     std::vector<int> widths_;
     DialogInsets insets_;
-    bool workArea_ = false;
+    bool workArea_ = false, resizable_ = false, placed_ = false;
+    draw::Point place_{};
     std::function<bool(int)> allow_;
     draw::View* from_ = nullptr;  // the view that opened the window (its host closes it)
     bool done_ = false;
