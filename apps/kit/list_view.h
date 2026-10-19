@@ -84,6 +84,8 @@ public:
     void ensureVisible(int i);
     // The row at `pt` (the list's coordinates), -1 for none (the header, below the last row, the scroll bar).
     int rowAt(draw::Point pt) const;
+    // The column of the header at `pt` (the list's coordinates), -1 when the point is not on a header cell.
+    int columnAt(draw::Point pt) const;
     // Row `i`'s rectangle in the list's coordinates (its place when scrolled to; may be outside the list).
     draw::Rect rowRect(int i) const;
     // The scroll bar (for tests and for callers that want its state).

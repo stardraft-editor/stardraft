@@ -295,6 +295,9 @@ CASES += [
     # View > Units list: the Unit properties window with the list in its left column (the first unit, its picture and fields
     # on the right), and the pick, Delete and undo of the list (the script).
     ("map-units-list", ["--dialog", "unitslist"], "map"),
+    # The same window sorted by a header (a click gives the same order): by owner, and by index descending.
+    ("map-units-list-owner", ["--dialog", "unitslist:owner"], "map"),
+    ("map-units-list-index-desc", ["--dialog", "unitslist:index:desc"], "map"),
     ("map-units-list-pick", ["--script", "{script:unitslist}"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.

@@ -35,15 +35,16 @@ std::vector<int> unitsListRows(const Editor& ed, const std::wstring& search) {
     return rows;
 }
 
-// The text of a list cell: the number (the unit's place in the map's units, from 1), the type, the owner, x and y.
+// The text of a list cell: the unit type, the owner, x, y and the index (the unit's place in the map's UNIT section, from 0,
+// as StarEdit and SCMDraft number them).
 std::wstring unitsListCell(const Editor& ed, int unit, size_t column) {
     const Unit& u = ed.units()[size_t(unit)];
     switch (column) {
-    case 0: return std::to_wstring(unit + 1);
-    case 1: return unitDisplayName(u.type);
-    case 2: return unitsListOwner(u.owner);
-    case 3: return std::to_wstring(u.x);
-    default: return std::to_wstring(u.y);
+    case 0: return unitDisplayName(u.type);
+    case 1: return unitsListOwner(u.owner);
+    case 2: return std::to_wstring(u.x);
+    case 3: return std::to_wstring(u.y);
+    default: return std::to_wstring(unit);
     }
 }
 

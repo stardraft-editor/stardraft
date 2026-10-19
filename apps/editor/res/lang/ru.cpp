@@ -2402,6 +2402,8 @@ constexpr UiText kRows[] = {
     {L"X", L"X"},
     {L"Y", L"Y"},
     {L"The map has no units", L"\u041D\u0430 \u043A\u0430\u0440\u0442\u0435 \u043D\u0435\u0442 \u044E\u043D\u0438\u0442\u043E\u0432"},
+    {L"Unit type", L"\u0422\u0438\u043F \u044E\u043D\u0438\u0442\u0430"},
+    {L"Index", L"\u0418\u043D\u0434\u0435\u043A\u0441"},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }
