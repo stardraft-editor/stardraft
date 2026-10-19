@@ -177,7 +177,7 @@ MenuModel mapMenuModel(float wx, float wy) {
             setListSel(int(std::find(app.items.begin(), app.items.end(), loc) - app.items.begin()));
         }
         gMapMenuLocation = loc;
-        has = ed.selectedLocation() >= 0, canPaste = app.hasLocationClip;
+        has = ed.selectedLocation() >= 0, canPaste = !app.locationClips.empty();
         break;
     }
     case Mode::Terrain: has = app.hasTerrainSel, canPaste = ed.hasTileClipboard() || ed.hasTerrainClipboard(); break;  // either copy (#83)

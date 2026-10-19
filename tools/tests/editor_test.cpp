@@ -1275,6 +1275,61 @@ static void mirrorTest(const GameData& data) {
     }
 }
 
+// Locations as a group (feedback #135): the selected locations move together by one offset, one undo step; the group stops
+// at the map's edge as a whole; the delete removes them all, one undo step; a box picks the locations it touches.
+static void locationGroupTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "location group: a new 64 x 64 map");
+        return;
+    }
+    auto same = [](const Rect& a, const Rect& b) { return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom; };
+    const int a = ed.createLocation(Rect{64, 64, 128, 128}), b = ed.createLocation(Rect{256, 64, 320, 128});
+    const int c = ed.createLocation(Rect{512, 512, 600, 600}, true, 3);  // (an inverted one: it stays inverted)
+    CHECK(a >= 0 && b >= 0 && c >= 0, "location group: three locations");
+    ed.selectLocation(a);
+    ed.toggleLocationSelected(b);
+    CHECK(ed.selectedLocations().size() == 2 && ed.isLocationSelected(a) && ed.isLocationSelected(b) && !ed.isLocationSelected(c) &&
+              ed.selectedLocation() == b,
+          "location group: Shift or Ctrl picks add to the selection; the last one picked is the selected one");
+    ed.toggleLocationSelected(b);
+    CHECK(ed.selectedLocations().size() == 1 && ed.selectedLocation() == a, "location group: a second pick takes the location out");
+    ed.toggleLocationSelected(b);
+    auto [dx, dy] = ed.moveLocations(ed.selectedLocations(), 32, 16);
+    CHECK(dx == 32 && dy == 16 && same(ed.locationRect(a), Rect{96, 80, 160, 144}) && same(ed.locationRect(b), Rect{288, 80, 352, 144}) &&
+              same(ed.locationRect(c), Rect{512, 512, 600, 600}),
+          "location group: both move by the same offset, the third stays");
+    ed.undo();
+    CHECK(same(ed.locationRect(a), Rect{64, 64, 128, 128}) && same(ed.locationRect(b), Rect{256, 64, 320, 128}),
+          "location group: one undo takes the group move back");
+    ed.redo();
+    CHECK(same(ed.locationRect(b), Rect{288, 80, 352, 144}), "location group: redo gives the move again");
+    ed.undo();
+    auto [ex, ey] = ed.moveLocations(ed.selectedLocations(), 100000, 0);
+    CHECK(ex == 2048 - 320 && ey == 0 && same(ed.locationRect(b), Rect{1984, 64, 2048, 128}) && same(ed.locationRect(a), Rect{1792, 64, 1856, 128}),
+          "location group: the group stops at the map's right edge as a whole");
+    ed.undo();
+    auto [wx, wy] = ed.moveLocations(ed.selectedLocations(), -100000, 0);
+    CHECK(wx == -64 && same(ed.locationRect(a), Rect{0, 64, 64, 128}), "location group: and at the left edge");
+    ed.undo();
+    ed.selectLocation(c);
+    ed.toggleLocationSelected(a);
+    ed.moveLocations(ed.selectedLocations(), 0, 32);
+    CHECK(ed.locationInverted(c) && ed.locationInvertedAxes(c) == 3 && same(ed.locationRect(c), Rect{512, 544, 600, 632}),
+          "location group: an inverted location moves as it is");
+    ed.undo();
+    ed.selectLocationsIn(Rect{0, 0, 400, 200}, false);
+    CHECK(ed.selectedLocations().size() == 2 && ed.isLocationSelected(a) && ed.isLocationSelected(b), "location group: a box picks the locations it touches");
+    ed.selectLocationsIn(Rect{500, 500, 700, 700}, true);
+    CHECK(ed.selectedLocations().size() == 3 && ed.isLocationSelected(c), "location group: a box with Shift adds to the selection");
+    ed.deleteLocations(ed.selectedLocations());
+    CHECK(!ed.locationUsed(a) && !ed.locationUsed(b) && !ed.locationUsed(c) && ed.selectedLocations().empty() && ed.selectedLocation() == -1,
+          "location group: delete removes all the selected locations");
+    ed.undo();
+    CHECK(ed.locationUsed(a) && ed.locationUsed(b) && ed.locationUsed(c), "location group: one undo brings them all back");
+}
+
 int main(int argc, char** argv) {
     if (argc < 4) {
         std::fprintf(stderr, "usage: editor_test <install dir> <map> <scratch dir>\n");
@@ -1292,6 +1347,11 @@ int main(int argc, char** argv) {
     }
     if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
         mirrorTest(data);
+        std::printf("\n%d failures\n", failures);
+        return failures ? 1 : 0;
+    }
+    if (argc > 4 && std::string(argv[4]) == "locations") {  // only the location group checks (feedback #135)
+        locationGroupTest(data);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
@@ -2394,6 +2454,7 @@ int main(int argc, char** argv) {
     unitOrderTest(data);
     linkTest(data);
     mirrorTest(data);
+    locationGroupTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);

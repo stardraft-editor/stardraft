@@ -200,9 +200,7 @@ bool pipette(AppState& app, float wx, float wy) {
         return false;
     case Mode::Locations:
         if (const int l = ed.locationAt(int(wx), int(wy)); l >= 0) {
-            app.locationClip = ed.locationRect(l), app.locationClipName = ed.locationName(l), app.locationClipInverted = ed.locationInvertedAxes(l),
-            app.locationClipElevation = ed.locationElevation(l);
-            app.hasLocationClip = true;
+            app.locationClips = locationClipsOf(ed.isLocationSelected(l) ? ed.selectedLocations() : std::vector<int>{l});
             setMessage(app, L"Copied " + widen(ed.locationName(l)) + L": Ctrl+V pastes a copy where the mouse is");
             return true;
         }
@@ -462,14 +460,28 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     case Mode::Locations: {
         int edges = locationEdgesAt(wx, wy);
         int inside = ed.locationAt(int(wx), int(wy));
-        if (edges) {
+        if (mods & draw::kAlt) {  // a box on empty ground (or over locations) selects several
+            app.drag = Drag::BoxSelect;
+        } else if (edges && !shift && !(mods & draw::kCtrl)) {
             app.drag = Drag::LocResize;
             app.locEdges = edges;
             app.locStart = ed.locationRect(ed.selectedLocation());
-        } else if (inside >= 0 && !shift) {
-            ed.selectLocation(inside);
+            ed.beginStroke();  // the resize: one undo step
+        } else if (inside >= 0 && (shift || (mods & draw::kCtrl))) {  // added to the selection, or taken out of it
+            ed.toggleLocationSelected(inside);
+            if (ed.isLocationSelected(inside)) {
+                app.locStart = ed.locationRect(inside);
+                app.drag = Drag::LocMove;
+                ed.beginStroke();
+            } else {
+                app.drag = Drag::None;
+            }
+            setMessage(app, std::to_wstring(ed.selectedLocations().size()) + L" selected: drag to move, Delete removes, Ctrl+C copies");
+        } else if (inside >= 0) {
+            ed.focusLocation(inside);  // (a location of the selection stays in it: the group moves)
             app.locStart = ed.locationRect(inside);
             app.drag = Drag::LocMove;
+            ed.beginStroke();  // the move: one undo step
             setListSel(int(std::find(app.items.begin(), app.items.end(), inside) - app.items.begin()));
         } else {
             app.drag = Drag::LocCreate;
@@ -575,6 +587,9 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
                 if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && std::find(sel.begin(), sel.end(), i) == sel.end()) sel.push_back(i);
             }
             setMessage(app, L"Selected " + std::to_wstring(sel.size()) + (app.mode == Mode::Doodads ? L" doodads" : L" sprites"));
+        } else if (app.mode == Mode::Locations) {
+            ed.selectLocationsIn({int(app.dragWX), int(app.dragWY), int(wx), int(wy)}, shift || (mods & draw::kCtrl));
+            setMessage(app, std::to_wstring(ed.selectedLocations().size()) + L" selected: drag to move, Delete removes, Ctrl+C copies");
         } else {
             ed.selectRect({int(app.dragWX), int(app.dragWY), int(wx), int(wy)}, shift || (mods & draw::kCtrl));
         }
@@ -644,7 +659,13 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     }
     case Drag::LocMove:
     case Drag::LocResize:
-        if (app.dragMoved) ed.setLocationRect(ed.selectedLocation(), previewLocationRect(wx, wy));
+        if (app.dragMoved && app.drag == Drag::LocMove && ed.selectedLocations().size() > 1) {  // the group: the offset of the dragged one
+            const Rect p = previewLocationRect(wx, wy);
+            ed.moveLocations(ed.selectedLocations(), p.left - app.locStart.left, p.top - app.locStart.top);
+        } else if (app.dragMoved) {
+            ed.setLocationRect(ed.selectedLocation(), previewLocationRect(wx, wy));
+        }
+        ed.endStroke();  // the move or resize: one undo step (begun at the press)
         break;
     case Drag::MoveDoodad:
         if (app.dragMoved && !app.selDoodads.empty()) {
@@ -721,7 +742,8 @@ void trigCancelUnitPick();
 bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
     bool stroke = false;
-    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint)) {
+    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
+                   app.drag == Drag::LocMove || app.drag == Drag::LocResize)) {
         sprayHoldStop();
         app.ed->endStroke();  // the press so far is one undo step; later edits are steps of their own
         app.drag = Drag::None;

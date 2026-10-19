@@ -3226,14 +3226,70 @@ bool Editor::editLocation(int i, const LocationEdit& edit, std::string* error) {
     return true;
 }
 
-void Editor::deleteLocation(int i) {
+void Editor::deleteLocation(int i) { deleteLocations({i}); }
+
+bool Editor::isLocationSelected(int i) const {
+    return std::find(locationSel_.begin(), locationSel_.end(), i) != locationSel_.end();
+}
+
+void Editor::toggleLocationSelected(int i) {
     if (!locationUsed(i)) return;
+    const auto it = std::find(locationSel_.begin(), locationSel_.end(), i);
+    if (it != locationSel_.end()) locationSel_.erase(it);
+    else locationSel_.push_back(i);
+    selectedLocation_ = locationSel_.empty() ? -1 : locationSel_.back();
+}
+
+void Editor::focusLocation(int i) {
+    if (isLocationSelected(i)) selectedLocation_ = i;
+    else selectLocation(i);
+}
+
+void Editor::selectLocationsIn(const Rect& box, bool add) {
+    if (!add) selectLocation(-1);
+    const Rect b = box.normalized();
+    for (int i = 0; i < locationCount(); ++i)
+        if (locationUsed(i) && !isLocationSelected(i) && locationRect(i).intersects(b)) locationSel_.push_back(i), selectedLocation_ = i;
+}
+
+std::pair<int, int> Editor::moveLocations(const std::vector<int>& locs, int dx, int dy) {
+    std::vector<int> used;
+    for (int i : locs)
+        if (locationUsed(i) && std::find(used.begin(), used.end(), i) == used.end()) used.push_back(i);
+    if (used.empty()) return {0, 0};
+    int left = INT_MAX, top = INT_MAX, right = INT_MIN, bottom = INT_MIN;  // the group's box
+    for (int i : used) {
+        const Rect r = locationRect(i);
+        left = std::min(left, r.left), top = std::min(top, r.top), right = std::max(right, r.right), bottom = std::max(bottom, r.bottom);
+    }
+    dx = std::max(std::min(dx, width_ * 32 - right), -left);
+    dy = std::max(std::min(dy, height_ * 32 - bottom), -top);
+    if (!dx && !dy) return {0, 0};
     beginEdit();
-    if (locations_[i].nameString) strings_.set(locations_[i].nameString, "");
-    locations_[i] = Location{};
+    for (int i : used) {  // (both edges move: an inverted location stays inverted)
+        Location& l = locations_[size_t(i)];
+        l.left = uint32_t(int(l.left) + dx), l.right = uint32_t(int(l.right) + dx);
+        l.top = uint32_t(int(l.top) + dy), l.bottom = uint32_t(int(l.bottom) + dy);
+    }
+    writeLocations(chk_, locations_);
+    commit(false);
+    return {dx, dy};
+}
+
+void Editor::deleteLocations(std::vector<int> locs) {
+    std::vector<int> used;
+    for (int i : locs)
+        if (locationUsed(i) && std::find(used.begin(), used.end(), i) == used.end()) used.push_back(i);
+    if (used.empty()) return;
+    beginEdit();
+    for (int i : used) {
+        if (locations_[size_t(i)].nameString) strings_.set(locations_[size_t(i)].nameString, "");
+        locations_[size_t(i)] = Location{};
+    }
     strings_.write(chk_);
     writeLocations(chk_, locations_);
-    if (selectedLocation_ == i) selectedLocation_ = -1;
+    std::erase_if(locationSel_, [&](int i) { return !locationUsed(i); });
+    if (!locationUsed(selectedLocation_)) selectedLocation_ = locationSel_.empty() ? -1 : locationSel_.back();
     commit(false);
 }
 
