@@ -37,8 +37,14 @@ NSEventModifierFlags maskOf(unsigned mods) {
 - (void)popupPick:(id)sender;
 @end
 
+static bool keyOfWindowMenu(id sender);  // (below: the delegate)
+
 @implementation StarDraftMenuTarget
 - (void)pick:(id)sender {
+    // A key of the program's menus (keysOff) is the window's: its key handler runs the command (where no text field
+    // types). macOS may still match the key to the menu item (as Edit > Undo for Command+Z): that pick does nothing, or
+    // the command ran twice (two undo steps for one key). A pick with the mouse runs.
+    if (keyOfWindowMenu(sender)) return;
     if (gPick) gPick(int([sender tag]));
 }
 - (void)popupPick:(id)sender {
@@ -71,6 +77,13 @@ NSEventModifierFlags maskOf(unsigned mods) {
     if (self.popup) gPopupHighlight = item && [item isEnabled] && ![item hasSubmenu] ? [item tag] : INT_MIN;
 }
 @end
+
+// A pick that a key made, of an item of the program's menus (keysOff: the window runs their keys).
+static bool keyOfWindowMenu(id sender) {
+    if ([[NSApp currentEvent] type] != NSEventTypeKeyDown || ![sender isKindOfClass:[NSMenuItem class]]) return false;
+    id d = [[sender menu] delegate];
+    return [d isKindOfClass:[StarDraftMenuDelegate class]] && static_cast<StarDraftMenuDelegate*>(d).keysOff;
+}
 
 namespace {
 StarDraftMenuTarget* gTarget = nil;  // (kept for the program's life: a menu item does not keep its target)
