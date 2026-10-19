@@ -309,6 +309,10 @@ public:
     int placeMapRevealers(const std::vector<uint8_t>& owners, int spacingTiles);
     // Removes every Map Revealer, of every player (the selection keeps the other units). One undo step; returns how many.
     int removeMapRevealers();
+    // Moves units to another place in the map's UNIT order (the index, which the game and the triggers use): the units
+    // `indices` keep their order among themselves and go before unit `target` (the unit there now; units().size(): to the
+    // end). The selection stays on the same units. One undo step; 0 (nothing changed, no step) when the order stays.
+    int moveUnits(const std::vector<int>& indices, int target);
     // View > Layers > Map revealers off: the revealers are not picked (unitAt, unitsAt, selectRect, selectAll) while hidden.
     // (Hiding them drops the revealers from the selection; a change is a new revision, so the lists are made again.)
     void setMapRevealersHidden(bool hidden);

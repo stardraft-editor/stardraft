@@ -1069,6 +1069,40 @@ static void soundFileSteps(const GameData& data, const char* map) {
 // Map revealers (Discord feedback #125; Edit > Tools): players 1 and 2 on a new 64 x 64 map get a revealer at the middle of
 // each 8-tile square (64 each), a second run adds none, one undo step each for place and remove all, and a hidden
 // revealer is not picked.
+// Units order (Discord feedback #126; the Units list's drags): Editor::moveUnits keeps the moved units' order among
+// themselves, puts them before the target unit, keeps the selection on the same units, and is one undo step (or none).
+static void unitOrderTest(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(64, 64, 0, 1, err) || ed.placeMapRevealers({0}, 16) != 16) {  // sixteen units, in a fixed order
+        CHECK(false, "unit order: sixteen units on a new map");
+        return;
+    }
+    auto serials = [&]() {
+        std::vector<uint32_t> out;
+        for (const Unit& u : ed.units()) out.push_back(u.serial);
+        return out;
+    };
+    const std::vector<uint32_t> s0 = serials();
+    ed.select(5, false), ed.select(9, true);  // the selection: the units with serials s0[5] and s0[9]
+    const uint32_t sel5 = s0[5], sel9 = s0[9];
+    CHECK(ed.moveUnits({2, 3}, 0) == 2, "unit order: two units move before the first");
+    std::vector<uint32_t> want = {s0[2], s0[3], s0[0], s0[1]};
+    want.insert(want.end(), s0.begin() + 4, s0.end());
+    CHECK(serials() == want, "unit order: the moved units keep their order, the others theirs");
+    CHECK(ed.selection().size() == 2 && ed.units()[size_t(ed.selection()[0])].serial == sel5 && ed.units()[size_t(ed.selection()[1])].serial == sel9,
+          "unit order: the selection stays on the same units");
+    ed.undo();
+    CHECK(serials() == s0, "unit order: one undo gives the order back");
+    CHECK(ed.moveUnits({1}, int(ed.units().size())) == 1 && ed.units().back().serial == s0[1], "unit order: a unit moves to the end");
+    ed.undo();
+    CHECK(serials() == s0, "unit order: the move to the end is undone");
+    CHECK(ed.moveUnits({4}, 4) == 0 && ed.moveUnits({4, 5}, 5) == 0 && serials() == s0, "unit order: a move that keeps the order changes nothing");
+    CHECK(ed.moveUnits({0, 15}, 8) == 2 && serials() != s0, "unit order: two units move to the middle");
+    ed.undo();
+    CHECK(serials() == s0, "unit order: one undo again");
+}
+
 static void mapRevealerTest(const GameData& data) {
     Editor ed(data);
     std::string err;
@@ -2231,6 +2265,7 @@ int main(int argc, char** argv) {
     importTest(data, argv[2], fs::path(argv[3]));
     generatorRulesTest(data);
     mapRevealerTest(data);
+    unitOrderTest(data);
     classicTriggersTest(data, argv[2], fs::path(argv[3]));
 
     std::printf("\n%d failures\n", failures);
