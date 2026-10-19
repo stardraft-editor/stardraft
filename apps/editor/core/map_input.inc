@@ -807,7 +807,8 @@ void mapPanBy(AppState& app, float dx, float dy) {
 // tells them apart: on Windows and Linux each scroll is a wheel's, also a smooth wheel's fractions of a notch);
 // `horizontal`: a wheel's sideways steps (a tilt wheel). The rules:
 //  - Alt + wheel: the active brush one size up or down (mapBrushWheel); a trackpad's scroll and a smooth wheel's
-//    fractions step once per notch.
+//    fractions step once per notch. In Doodads mode with a doodad picked and no spray: the palette's next or previous
+//    doodad (Discord feedback #119).
 //  - Ctrl (Cmd on macOS) + wheel or scroll: the zoom at the mouse (a trackpad's: smoothly; Windows sends a touchpad's
 //    pinch as Ctrl + wheel).
 //  - A mouse wheel: the zoom at the mouse (a sideways tilt does nothing).
@@ -815,6 +816,16 @@ void mapPanBy(AppState& app, float dx, float dy) {
 // True: the map took it.
 bool mapWheel(AppState& app, float x, float y, float notches, float panX, float panY, bool precise, bool horizontal, bool ctrl, bool alt) {
     static float brushSteps = 0;  // a trackpad's or a smooth wheel's fractions until a whole step
+    if (alt && app.mode == Mode::Doodads && !objectSprayOn() && app.palette >= 0 && !horizontal && notches != 0) {
+        static float steps = 0;
+        steps += notches;
+        while (std::fabs(steps) >= 1) {
+            const bool up = steps > 0;
+            steps += up ? -1.0f : 1.0f;
+            shellPaletteStep(up ? -1 : 1);  // (the wheel away: the one before, as a list scrolls)
+        }
+        return true;
+    }
     if (alt) {
         if (!precise && notches == std::trunc(notches)) {
             if (!horizontal && notches != 0 && mapBrushWheel(app, notches > 0)) return true;

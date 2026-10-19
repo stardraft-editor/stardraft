@@ -60,6 +60,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Esc | Cancel what is under way: a paste, a drag, a selection |
 | R, Shift+R | Turn the terrain that is about to be pasted, the other way |
 | Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain |
+| Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad |
 
 The mouse: the wheel zooms the map at the mouse; a trackpad scrolls it with two fingers and zooms with a pinch; the
 middle button held pans it (Options > Middle mouse click and hold).

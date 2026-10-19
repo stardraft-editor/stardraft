@@ -137,6 +137,21 @@ int shellContextMenu(const std::vector<std::wstring>& items) {
 }
 void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
 void shellPaletteReveal(int value) { gPalList.reveal(value); }
+bool shellPaletteStep(int dir) {
+    if (gPalList.mode != gState.mode || gState.palette < 0) return false;
+    const std::vector<PaletteRow>& rows = gPalList.rows;
+    const int n = int(rows.size());
+    int at = -1;
+    for (int i = gPalList.pinned ? gPalList.pinned + 1 : 0; i < n && at < 0; ++i)  // (its place in the list, not its pinned copy)
+        if (rows[size_t(i)].value == gState.palette) at = i;
+    if (at < 0) return false;
+    int i = at + dir;
+    while (i >= 0 && i < n && rows[size_t(i)].value < 0) i += dir;  // (past the headings)
+    if (i < 0 || i >= n) return true;  // (the first or the last: it stays)
+    pickUnit(gState, rows[size_t(i)].value, false);
+    gPalList.reveal(rows[size_t(i)].value);
+    return true;
+}
 void shellPaletteChanged() {
     gPalList.invalidate();
     gPal2List.invalidate();
