@@ -259,7 +259,10 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         const int value = pv->list.rows[size_t(row)].value;
         if (value < 0) return;
         if (gState.mode != pv->mode) setMode(pv->mode);
-        pickUnit(gState, value, (mods & draw::kCtrl) != 0);
+        // Ctrl adds to the pick; Shift picks every item from the last pick (as the side bar's palette).
+        const bool ctrl = (mods & draw::kCtrl) != 0;
+        if (!((mods & draw::kShift) && paletteShiftPick(gState, pv->list.rows, row, ctrl))) pickUnit(gState, value, ctrl);
+        pv->list.second = false, pv->list.chosen = &shellPaletteChosen();  // (its mode is the active one now: its picks show)
         shellPaletteChanged();
         invalidateMapView();
         shellFocusView();
