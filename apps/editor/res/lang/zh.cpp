@@ -2404,6 +2404,8 @@ constexpr UiText kRows[] = {
     {L"The map has no units", L"\u5730\u56FE\u4E0A\u6CA1\u6709\u5355\u4F4D"},
     {L"Unit type", L"\u5355\u4F4D\u7C7B\u578B"},
     {L"Index", L"\u7D22\u5F15"},
+    {L"Unit ID", L"\u5355\u4F4D ID"},
+    {L"Lifted", L"\u5347\u8D77"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
