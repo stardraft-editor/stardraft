@@ -10,11 +10,12 @@ constexpr int kUnitPropsOk = 1, kUnitPropsCancel = 2, kUnitPropsEditType = 3;
 // (Delete, undo, redo: the window again, at the map's first unit).
 constexpr int kUnitPropsPick = 4, kUnitPropsRefresh = 5;
 
-const wchar_t* const kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"In transit", L"Hallucinated", L"Invincible"};
+const wchar_t* const kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"Lifted", L"Hallucinated", L"Invincible"};
 
 // What the fields hold when OK is clicked (the values as typed, before the limits).
 struct UnitPropsValues {
     uint32_t owner = 0, hp = 0, shields = 0, energy = 0, resources = 0, hangar = 0, x = 0, y = 0;
+    uint32_t unitType = 0;  // the unit ID (the type): the units become this type when it differs from the shown one
     uint16_t setBits = 0, clearBits = 0;  // the state flags turned on and off
 };
 
@@ -23,6 +24,13 @@ struct UnitPropsValues {
 inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit& was, const UnitPropsValues& v) {
     const uint32_t hp = std::min(v.hp, 100u), sh = std::min(v.shields, 100u), en = std::min(v.energy, 100u), hang = std::min(v.hangar, 65535u);
     const bool single = units.size() == 1;
+    ed.beginStroke();  // (the type, then the values: one undo step)
+    if (v.unitType != was.type && v.unitType < ed.unitTypes().size()) {  // the units of each type they have now become the new type
+        std::vector<uint16_t> from;
+        for (int i : units)
+            if (std::find(from.begin(), from.end(), ed.units()[size_t(i)].type) == from.end()) from.push_back(ed.units()[size_t(i)].type);
+        for (uint16_t t : from) ed.replaceUnits(t, uint16_t(v.unitType), true);
+    }
     ed.updateUnits(units, [&](Unit& u) {
         if (v.owner != was.owner && (u.validProps & UnitProp::Owner)) u.owner = uint8_t(v.owner);
         if (hp != was.hitPoints && (u.validProps & UnitProp::HitPoints)) u.hitPoints = uint8_t(hp);
@@ -33,6 +41,7 @@ inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit
         u.state = uint16_t((u.state | (v.setBits & u.validState)) & ~v.clearBits);
         if (single) u.x = uint16_t(std::min(v.x, 65535u)), u.y = uint16_t(std::min(v.y, 65535u));
     });
+    ed.endStroke();
 }
 
 // The layout is the old window's, in pixels at 100 %, from the window's client area (the content view starts 16 px in
@@ -47,7 +56,7 @@ constexpr int kIcon = 40;                                   // the picture's box
 constexpr int kTextX = kIcon + 12;                          // the name and the line under it (from the content's left)
 constexpr int kNameY = kPad - 2, kNameB = kPad + 24, kSubY = kPad + 22, kSubB = kPad + 42;
 constexpr int kStatesY = kTop + 4 * (kRowH + kGap) + kRowH + kGap + 6;  // the state check boxes, 3 to a row
-constexpr int kStateStepX = 150, kStateW = 145, kStateStepY = kRowH + 2;
+constexpr int kStateStepX = 150, kStateColX = 232, kStateW = 200, kStateStepY = kRowH + 2;
 constexpr int kContentW = kColW + kLabelW + kBoxW;          // 464: the window is 496 px wide inside
 constexpr int kListW = 300, kListGap = 16;                  // the Units list: the left column; the fields start after it
 constexpr int kRightX = kListW + kListGap;                  // the fields' column (and the picture, the name) from the left
@@ -184,13 +193,13 @@ public:
         label(labels_[5], L"Energy %"), number(energy_, u.energy, u.validProps & UnitProp::Energy);
         label(labels_[6], L"X (pixels)"), number(x_, u.x, single);
         label(labels_[7], L"Y (pixels)"), number(y_, u.y, single);
-        for (int b = 0; b < 5; ++b) {  // only the states this unit can have
-            if (!((u.validState >> b) & 1)) continue;
+        label(labels_[8], L"Unit ID"), number(unitId_, u.type, true);
+        for (int b = 0; b < 5; ++b) {  // every state; the ones this unit cannot have are greyed (the valid states of the game)
             auto cb = std::make_unique<stardraft::kit::CheckBox>(tr(kUnitStateNames[b]), ((u.state >> b) & 1) != 0);
             cb->setPlainLabel(true);  // (a native check box's label is the text color)
+            cb->setEnabled(((u.validState >> b) & 1) != 0);
             add(*cb, {0, 0, 0, 0});
             state_[b] = std::move(cb);
-            ++shown_;
         }
         // The unit's type: in a project, open it in the Data workspace; on a classic map, on the Map data page (its unit
         // settings: hit points, costs, names).
@@ -219,7 +228,7 @@ public:
         UnitPropsValues v;
         v.owner = uint32_t(std::max(0, owner_.value()));
         v.hp = num(hp_), v.shields = num(shields_), v.energy = num(energy_), v.resources = num(resources_), v.hangar = num(hangar_);
-        v.x = num(x_), v.y = num(y_);
+        v.x = num(x_), v.y = num(y_), v.unitType = num(unitId_);
         for (int b = 0; b < 5; ++b) {
             if (!state_[b]) continue;
             const bool on = state_[b]->on(), wasOn = (first_.state >> b) & 1;
@@ -245,8 +254,8 @@ public:
             return v.visible() && pt.x >= f.left && pt.x < f.right && pt.y >= f.top && pt.y < f.bottom;
         };
         if (in(owner_)) return owner_.value() >= 0 && owner_.value() < int(owner_.items().size()) ? owner_.items()[size_t(owner_.value())].label : L"";
-        const stardraft::kit::TextField* fields[8] = {nullptr, &hp_, &resources_, &shields_, &hangar_, &energy_, &x_, &y_};
-        for (int k = 0; k < 8; ++k)
+        const stardraft::kit::TextField* fields[9] = {nullptr, &hp_, &resources_, &shields_, &hangar_, &energy_, &x_, &y_, &unitId_};
+        for (int k = 0; k < 9; ++k)
             if (in(labels_[k]) || (fields[k] && in(*fields[k]))) return labels_[k].text();
         for (const auto& s : state_)
             if (s && in(*s)) return s->label();
@@ -288,12 +297,10 @@ public:
         pair(3, shields_, 0, row(2)), pair(4, hangar_, kColW, row(2));
         pair(5, energy_, 0, row(3));
         pair(6, x_, 0, row(4)), pair(7, y_, kColW, row(4));
-        int shown = 0;
-        for (int b = 0; b < 5; ++b) {
-            if (!state_[b]) continue;
-            put(*state_[b], (shown % 3) * kStateStepX, kStatesY + (shown / 3) * kStateStepY, kStateW, kRowH);
-            ++shown;
-        }
+        pair(8, unitId_, kColW, row(3));
+        // The states: Invincible and Burrowed at the left, Hallucinated, Cloaked and Lifted at the right (SCMDraft's order).
+        static const int stateCol[5] = {1, 0, 1, 1, 0}, stateRow[5] = {1, 1, 2, 0, 0};  // (by the state bit: Cloaked, Burrowed, Lifted, Hallucinated, Invincible)
+        for (int b = 0; b < 5; ++b) put(*state_[b], stateCol[b] * kStateColX, kStatesY + stateRow[b] * kStateStepY, kStateW, kRowH);
         put(type_, 0, typeY(), kContentW, kButtonH);
     }
 
@@ -423,7 +430,7 @@ private:
 
     int typeY() const {
         using namespace unitPropsLayout;
-        return kStatesY + ((shown_ + 2) / 3) * kStateStepY + kGap;
+        return kStatesY + 3 * kStateStepY + kGap;
     }
 
     Unit first_;
@@ -436,9 +443,9 @@ public:
 
 private:
     stardraft::kit::Dialog* dlg_ = nullptr;
-    stardraft::kit::Label labels_[8];
+    stardraft::kit::Label labels_[9];
     stardraft::kit::Dropdown owner_;
-    stardraft::kit::TextField hp_, resources_, shields_, hangar_, energy_, x_, y_;
+    stardraft::kit::TextField hp_, resources_, shields_, hangar_, energy_, x_, y_, unitId_;
     std::unique_ptr<stardraft::kit::CheckBox> state_[5];
     int shown_ = 0;
     stardraft::kit::Button type_;

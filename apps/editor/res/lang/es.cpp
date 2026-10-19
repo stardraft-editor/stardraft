@@ -2404,6 +2404,8 @@ constexpr UiText kRows[] = {
     {L"The map has no units", L"El mapa no tiene unidades"},
     {L"Unit type", L"Tipo de unidad"},
     {L"Index", L"\u00CDndice"},
+    {L"Unit ID", L"ID de unidad"},
+    {L"Lifted", L"Elevada"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
