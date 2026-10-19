@@ -9,28 +9,16 @@ Mode gPanelTab[2] = {Mode::Terrain, Mode::Units};    // the tab each side shows
 Mode gLastOnSide[2] = {Mode::Terrain, Mode::Units};  // the mode last used on each side (left, right)
 bool gPal2Shown = false;                             // the second palette (the other side) was shown
 Mode gPal2Mode = Mode::Units;                        // ... and the mode it showed
-std::vector<int> gPal2Chosen;                        // the second palette's picks (its own list, as the Win32 program's)
 bool gPal3Shown = false;                             // the third palette (the active side's, while the active mode floats)
 Mode gPal3Mode = Mode::Terrain;                      // ... and the mode it showed
-std::vector<int> gPal3Chosen;                        // ... and its picks
 
-// The second palette's pick runs in its mode with its own picks, and the left palette's mode and pick stay (the Win32
-// program's SecondPaletteScope): the mode and the picks are swapped for the call. The third palette's the same way.
-struct SecondPaletteScope {
-    Mode& mode;
-    std::vector<int>& chosen;
-    int savedPalette;
-    SecondPaletteScope(Mode& m, std::vector<int>& c) : mode(m), chosen(c), savedPalette(gState.palette) {
-        std::swap(gState.mode, mode);
-        std::swap(shellPaletteChosen(), chosen);
-        gState.palette = -1;
-    }
-    ~SecondPaletteScope() {
-        std::swap(gState.mode, mode);
-        std::swap(shellPaletteChosen(), chosen);
-        gState.palette = savedPalette;
-    }
-};
+// A pick in the second or the third palette goes to its mode first (the Win32 program's secondPick): that mode becomes the
+// active one, its list is the main palette's, and the item is picked there. (The picks are the active mode's: the other
+// lists show none.)
+void pickInOtherMode(Mode m, int v, bool add) {
+    if (gState.mode != m) setMode(m);
+    pickUnit(gState, v, add);
+}
 
 std::vector<std::wstring> gListRows;  // the Locations list's rows (rebuildList fills them)
 std::vector<std::wstring> gSectionNames;  // the section box's sections, after its "All ..." entry
@@ -235,12 +223,10 @@ void initPanels() {
     gLocList.setRowHeight(30);
     gPal2List.second = gPal3List.second = true;
     gPalList.chosen = &shellPaletteChosen();
-    gPal2List.chosen = &gPal2Chosen;
-    gPal3List.chosen = &gPal3Chosen;
     gPalList.picture = gPal2List.picture = gPal3List.picture = panelPicture;
     // A click picks the item (Ctrl adds to the pick; Shift picks every item from the last pick, as on Windows); the second
-    // palette picks in its own mode with its own picks (SecondPaletteScope). The keyboard goes to the map after it
-    // (Windows: SetFocus on the view), so the map's keys and undo run.
+    // and the third palette pick in their own mode (pickInOtherMode). The keyboard goes to the map after a pick (Windows:
+    // SetFocus on the view), so the map's keys and undo run.
     gPalList.picked = [](int row, unsigned mods) {
         const int v = gPalList.rows[size_t(row)].value;
         const bool ctrl = (mods & draw::kCtrl) != 0;
@@ -250,10 +236,7 @@ void initPanels() {
     };
     gPal2List.picked = [](int row, unsigned mods) {
         const int v = gPal2List.rows[size_t(row)].value;
-        {
-            SecondPaletteScope scope(gPal2Mode, gPal2Chosen);
-            pickUnit(gState, v, (mods & draw::kCtrl) != 0);
-        }
+        pickInOtherMode(gPal2Mode, v, (mods & draw::kCtrl) != 0);
         gPal2List.invalidate();
         invalidateMapView();
         shellFocusView();
@@ -262,10 +245,7 @@ void initPanels() {
     gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
     gPal3List.picked = [](int row, unsigned mods) {
         const int v = gPal3List.rows[size_t(row)].value;
-        {
-            SecondPaletteScope scope(gPal3Mode, gPal3Chosen);
-            pickUnit(gState, v, (mods & draw::kCtrl) != 0);
-        }
+        pickInOtherMode(gPal3Mode, v, (mods & draw::kCtrl) != 0);
         gPal3List.invalidate();
         invalidateMapView();
         shellFocusView();

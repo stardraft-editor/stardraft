@@ -349,6 +349,13 @@ CASES += [
                                     "--script", "{script:floatpaltwo}"], "map"),
     ("map-palette-float-units", ["--mode", "units", "--script", "{script:floatpalunits}"], "map"),
 ]
+# The second palette (GitHub #151, Discord #122): in the default layout Units is active and the left side shows the Terrain
+# list (the other side's, the second palette). A pick in that list (Platform, 196,509) goes to Terrain, which becomes the
+# active mode, and the map click (700,500) paints with it. The pick used to be undone at once, so the map click changed
+# nothing. (--rclick runs after the inputs, so it cannot set this up.)
+CASES += [
+    ("map-palette-second-pick", ["--click", "196,509", "--click", "700,500"], "map"),
+]
 # The map steps of the old Windows self-test with the mouse and the keys. After each input line a second
 # line ("  state: map: <tileset> <size>; name=value ...") says the mode, the player, the sprites, the selected doodad,
 # the locations, the paste, the terrain (a hash of its tiles, the tile under the mouse, the terrain selection) and the
@@ -3474,6 +3481,15 @@ def check_palette_settings(output):
     return None
 
 
+def check_palette_second_pick(output):
+    """A pick in the second palette (the other side's Terrain list) goes to Terrain and picks: a pick, then a paint on the map."""
+    return expect(output, 2, [
+        ("the pick in the second palette did not make Terrain the mode", lambda s: s[0]["mode"] == "Terrain"),
+        ("the pick in the second palette was undone (no pick)", lambda s: int(s[0]["palette"]) > 0),
+        ("the map click after it did not paint with the pick", lambda s: s[1]["terrain"] != s[0]["terrain"]),
+    ])
+
+
 def check_palette_units(output):
     """The unit palette in its window (with the owner and section boxes: as wide as the side bar or more); a pick in it
     picks the Marine and a click on the map places one; the location list floats too: Locations mode shows its window,
@@ -3503,7 +3519,7 @@ CHECKS = {"map-view-fog": lambda o: None if "command view.fog: ran (yes)" in o a
           "map-pathing-layer": lambda o: check_pathing_layer(o, False), "map-pathing-areas": lambda o: check_pathing_layer(o, True),
           "map-pathing-check": check_pathing_check, "map-pathing-fix": check_pathing_fix,
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
-          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-float-keys": check_palette_keys,
+          "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
           "map-stack-pipette": check_stack_pipette,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
