@@ -766,13 +766,13 @@ std::vector<std::pair<int, int>> starEditBrushDiamonds(int x, int y, int extent)
     return out;
 }
 
-std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent) {
+std::pair<int, int> starEditCenter(int px, int py, int extent) {
     extent = std::max(extent, 1);
     // The nearest grid point (64 px across, 32 down; with the diamond distance, rounding each axis is nearest).
     int x = int(std::lround(px / 64.0)), y = int(std::lround(py / 32.0));
     if (extent % 2 == 1) {  // centered on a diamond: the nearest one
         diamondAtPixel(px, py, x, y);
-        return starEditBrushDiamonds(x, y, extent);
+        return {x, y};
     }
     if (!((x + y) & 1)) {  // centered on a corner; a diamond is nearest: the nearest of its four corners
         double best = 1e9;
@@ -783,6 +783,13 @@ std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent) {
         }
         x = bx, y = by;
     }
+    return {x, y};
+}
+
+std::vector<std::pair<int, int>> starEditBrushAt(int px, int py, int extent) {
+    extent = std::max(extent, 1);
+    const auto [x, y] = starEditCenter(px, py, extent);
+    if (extent % 2 == 1) return starEditBrushDiamonds(x, y, extent);
     // (an even block of starEditBrushDiamonds around diamond (x, y - 1) has its middle at the corner (x, y))
     return starEditBrushDiamonds(x, y - 1, extent);
 }

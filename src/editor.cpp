@@ -542,6 +542,16 @@ std::vector<std::pair<int, int>> Editor::symmetricPoints(int px, int py) const {
     return out;
 }
 
+// The points a terrain brush paints at. StarEdit's brush is first centered on its lattice point (a diamond or a corner),
+// so the mirror images are lattice points too and copy the brush exactly; the other brushes mirror the pointer itself.
+std::vector<std::pair<int, int>> Editor::terrainSymmetricPoints(int px, int py, const Brush& brush) const {
+    if (brush.starEdit()) {
+        const auto [x, y] = starEditCenter(px, py, int(brush.size));
+        px = x * 64, py = y * 32;
+    }
+    return symmetricPoints(px, py);
+}
+
 // --- Terrain tools -------------------------------------------------------------------------------
 
 // Units in `area` (pixels) that are placeable now; a terrain edit there removes the ones it rules out
@@ -1108,7 +1118,7 @@ bool Editor::terrainCoreOn() {
 bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
     // Each symmetric point's block of diamonds (starEditBrushAt).
     std::vector<std::vector<std::pair<int, int>>> blocks;
-    for (auto [x, y] : symmetricPoints(px, py)) {
+    for (auto [x, y] : terrainSymmetricPoints(px, py, Brush{Brush::Diamond, float(extent)})) {
         auto block = starEditBrushAt(x, y, extent);
         if (block.empty()) return false;
         if (std::find(blocks.begin(), blocks.end(), block) == blocks.end()) blocks.push_back(std::move(block));
@@ -1125,7 +1135,7 @@ bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
         },
         [&] {  // (the old engine: the same diamonds' corners; the brush's tiles replace the placed tiles, GitHub #143)
             std::vector<CornerValue> corners;
-            for (auto [x, y] : symmetricPoints(px, py))
+            for (auto [x, y] : terrainSymmetricPoints(px, py, Brush{Brush::Diamond, float(extent)}))
                 for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, float(extent)})) corners.push_back({cx, cy, terrain});
             return applyOld(corners, x0 - reach, y0 - reach, x1 + reach, y1 + reach, true);
         },
@@ -1143,7 +1153,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
         ok = applyCoreBrush(px, py, terrain, int(brush.size));
     } else {
         std::vector<CornerValue> corners;
-        for (auto [x, y] : symmetricPoints(px, py))
+        for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
             for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
         ok = applyTerrain(corners, true);
     }
@@ -1153,7 +1163,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
 
 bool Editor::brushAllTerrain(int px, int py, const Brush& brush, uint16_t terrain) const {
     if (!isomOk_) return false;
-    for (auto [x, y] : symmetricPoints(px, py))
+    for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
         for (auto [cx, cy] : isom_.brushCorners(x, y, brush))
             if (isom_.isCorner(cx, cy) && isom_.terrainAt(cx, cy) != terrain) return false;
     return true;
@@ -1178,7 +1188,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
     };
     // Rects under the brush (a corner touches the rects around it).
     std::set<std::pair<int, int>> rects;
-    for (auto [x, y] : symmetricPoints(px, py))
+    for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
         for (auto [cx, cy] : isom_.brushCorners(x, y, brush))
             for (int ry = cy - 1; ry <= cy; ++ry)
                 for (int rx = cx - 1; rx <= cx; ++rx)

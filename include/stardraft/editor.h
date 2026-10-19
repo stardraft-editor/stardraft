@@ -213,6 +213,8 @@ public:
     int mirrors() const { return mirrors_; }
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
+    // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
+    std::vector<std::pair<int, int>> terrainSymmetricPoints(int px, int py, const Brush& brush) const;
 
     // --- Units ----------------------------------------------------------------------------------
     PlacementContext placementContext(const std::vector<Unit>* units = nullptr) const;

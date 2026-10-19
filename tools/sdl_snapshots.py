@@ -99,6 +99,10 @@ CASES += [("map-ws-" + w, ["--workspace", w], "map") for w in WORKSPACES]
 CASES += [("map-mode-" + m, ["--mode", m], "map") for m in MODES]
 CASES += [
     ("map-terrain-rect", ["--rect"], "map"),
+    # The terrain brush with a top and bottom mirror (the mirror row's second button; feedback #134): two strokes, each
+    # with its copy, and the mirror's axis across the map.
+    ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
+                           "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
