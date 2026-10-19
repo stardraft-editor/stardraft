@@ -42,6 +42,7 @@ struct TilesView {
         std::wstring label;
         int kind = 0;
         uint16_t terrain = 0;
+        uint16_t other = 0;  // kind 7: the other terrain; kind 8: the doodads' group (its string)
     };
     std::vector<Filter> filters;
     int filter = 0;  // the filters' index that the grid shows

@@ -296,25 +296,52 @@ void tilesPanelShowAllFilter() { gTilesPanel->filter().setValue(0); }
 // The search box's text (its change rebuilds the grid).
 void tilesSetSearch(const std::wstring& t) { gTilesPanel->search().setText(t); }
 
-// The filter box for the map's tileset: all tiles, each terrain type of Isometric mode that has tiles, the doodads'
-// tiles, the null tiles. The choice stays when its name is in the new list too.
+// The filter box for the map's tileset: all tiles, the favorites; each terrain type of Isometric mode that has tiles,
+// with its sub-categories under it (that terrain alone, then its edges with each other terrain); the doodads' tiles,
+// with each doodad group under them; the null tiles. The choice stays when its name is in the new list too. A panel
+// that took another's tiles fills its own box.
+bool tilesInFilter(uint16_t v);
 void tilesFillFilters() {
     AppState& app = appState();
-    if (!app.ed || !app.ed->isOpen() || gTiles->filtersEra == app.ed->era()) return;
-    gTiles->filtersEra = app.ed->era();
+    if (!app.ed || !app.ed->isOpen()) return;
+    if (gTiles->filtersEra == app.ed->era() && gTilesPanel->filter().items().size() == gTiles->filters.size()) return;
     const std::wstring was = gTiles->filter < int(gTiles->filters.size()) ? gTiles->filters[size_t(gTiles->filter)].label : L"";
-    gTiles->filters.clear();
-    gTiles->filters.push_back({L"All tiles", 0, 0});
-    gTiles->filters.push_back({L"All tiles but the null tiles", 4, 0});  // (feedback #49)
-    gTiles->filters.push_back({L"Favorites", 5, 0});
-    const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
-    const auto& gs = app.ed->tileGroups();
-    if (t)
-        for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-            if (t->isTerrain(i) && std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) { return e.terrains[0] == i || e.terrains[1] == i; }))
-                gTiles->filters.push_back({widen(t->terrainName(i)), 1, i});
-    if (std::any_of(gs.begin(), gs.end(), [](const Editor::TileGroupEntry& e) { return e.doodad >= 0; })) gTiles->filters.push_back({L"Doodad tiles", 2, 0});
-    gTiles->filters.push_back({L"Null tiles", 3, 0});
+    if (gTiles->filtersEra != app.ed->era()) {
+        gTiles->filtersEra = app.ed->era();
+        auto& fs = gTiles->filters;
+        fs.clear();
+        fs.push_back({L"All tiles", 0, 0});
+        fs.push_back({L"All tiles but the null tiles", 4, 0});  // (feedback #49)
+        fs.push_back({L"Favorites", 5, 0});
+        const std::wstring sub = L"\x2003\x2003";  // (a sub-category: under its category)
+        const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
+        const auto& gs = app.ed->tileGroups();
+        if (t)
+            for (uint16_t i = 1; i <= t->terrainCount(); ++i) {
+                if (!t->isTerrain(i) || !std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) { return e.terrains[0] == i || e.terrains[1] == i; }))
+                    continue;
+                const std::wstring name = widen(t->terrainName(i));
+                fs.push_back({name, 1, i});
+                if (std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) { return e.terrains[0] == i && (!e.terrains[1] || e.terrains[1] == i); }))
+                    fs.push_back({sub + name + L" alone", 6, i});
+                for (uint16_t j = 1; j <= t->terrainCount(); ++j)  // its edges with each other terrain
+                    if (j != i && std::any_of(gs.begin(), gs.end(), [&](const Editor::TileGroupEntry& e) {
+                            return (e.terrains[0] == i && e.terrains[1] == j) || (e.terrains[0] == j && e.terrains[1] == i);
+                        }))
+                        fs.push_back({sub + name + L" / " + widen(t->terrainName(j)), 7, i, j});
+            }
+        if (std::any_of(gs.begin(), gs.end(), [](const Editor::TileGroupEntry& e) { return e.doodad >= 0; })) {
+            fs.push_back({L"Doodad tiles", 2, 0});
+            std::vector<uint16_t> seen;  // each doodad group, in the tileset's order
+            for (const auto& e : gs) {
+                const DoodadType* d = e.doodad >= 0 ? app.ed->doodadTypes().find(uint16_t(e.doodad)) : nullptr;
+                if (!d || !d->groupString || std::find(seen.begin(), seen.end(), d->groupString) != seen.end()) continue;
+                seen.push_back(d->groupString);
+                fs.push_back({sub + L"Doodads: " + widen(app.ed->unitTypes().statText(d->groupString - 1u)), 8, 0, d->groupString});
+            }
+        }
+        fs.push_back({L"Null tiles", 3, 0});
+    }
     gTiles->filter = 0;
     std::vector<stardraft::kit::DropdownItem> items;
     for (size_t i = 0; i < gTiles->filters.size(); ++i) {
@@ -338,6 +365,13 @@ bool tilesInFilter(uint16_t v) {
     const Editor::TileGroupEntry* e = tilesEntryOfGroup(v >> 4);
     if (!e) return false;
     if (f.kind == 2) return e->doodad >= 0;
+    if (f.kind == 8) {  // a doodad group
+        const DoodadType* d = e->doodad >= 0 ? appState().ed->doodadTypes().find(uint16_t(e->doodad)) : nullptr;
+        return d && d->groupString == f.other;
+    }
+    if (f.kind == 6) return e->terrains[0] == f.terrain && (!e->terrains[1] || e->terrains[1] == f.terrain);  // the terrain alone
+    if (f.kind == 7)  // its edge with the other terrain
+        return (e->terrains[0] == f.terrain && e->terrains[1] == f.other) || (e->terrains[0] == f.other && e->terrains[1] == f.terrain);
     return e->terrains[0] == f.terrain || e->terrains[1] == f.terrain;
 }
 
