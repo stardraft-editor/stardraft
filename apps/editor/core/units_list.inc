@@ -1,11 +1,7 @@
-// The Units list (View > Units list; Discord feedback #126; portable, core.inc): every unit of the map with its number,
-// its type, its owner and its place (x and y in pixels), and a search by type or owner. While it is on, it is in the side
-// bar of the Units mode in place of the palette (the program's panel: sdl_panels.inc). A click selects the unit and the
-// view goes to it; Delete deletes the selected units (the map's command); the rows follow the map's changes. The units
-// that cannot be picked (a map revealer while its layer is hidden) are not listed, as on the map.
-
-bool gUnitsListOn = false;  // View > Units list: the Units mode's side bar shows the list
-bool unitsListOn() { return gUnitsListOn; }
+// The Units list (View > Units list; Discord feedback #126; portable, core.inc): the list of the map's units in the left
+// column of the Unit properties window (views_unit_props.inc), with a search by type or owner. A pick selects the unit on
+// the map, the view goes to it and the window shows that unit. Delete deletes the selected units, Ctrl+Z and Ctrl+Y do
+// the map's undo and redo, and the list follows the map. View > Units list opens the window (showUnitsList).
 
 // The owner's name in the list: Player 1 to Player 12, the twelfth being the neutral player (owner 11: Neutral).
 std::wstring unitsListOwner(int owner) {
@@ -51,7 +47,7 @@ std::wstring unitsListCell(const Editor& ed, int unit, size_t column) {
     }
 }
 
-// Centers the map view on unit `unit` (a click in the list).
+// Centers the map view on unit `unit` (a pick in the list).
 void unitsListCenter(int unit) {
     AppState& app = shellState();
     if (!app.ed || unit < 0 || unit >= int(app.ed->units().size())) return;
@@ -62,13 +58,15 @@ void unitsListCenter(int unit) {
     app.dirty = true;
 }
 
-// View > Units list: on, the Units mode is the active one (its side bar has the list); off, the palette shows again.
-void toggleUnitsList() {
-    gUnitsListOn = !gUnitsListOn;
-    if (gUnitsListOn) setMode(Mode::Units);
-    setMessage(gUnitsListOn ? std::wstring(tr(L"The units list shows in the side bar. A click selects a unit; Delete deletes the selected units."))
-                            : std::wstring(tr(L"The palette shows in the side bar again")));
-    shellRelayout();  // (the side bar takes the list's place, or the palette's)
-    shellMenusChanged();
-    shellState().dirty = true;
+// The Unit properties window of unit `index` (the host: sdl_map_dialogs.inc; it selects the unit and returns when the
+// window is closed for good).
+void showUnitProperties(int index);
+
+// View > Units list: the Unit properties window with the list (its first selected unit, else the first unit).
+void showUnitsList() {
+    AppState& app = shellState();
+    if (!app.ed || !app.ed->isOpen()) return;
+    const Editor& ed = *app.ed;
+    if (ed.units().empty()) return setMessage(std::wstring(tr(L"The map has no units")));
+    showUnitProperties(ed.selection().empty() ? 0 : ed.selection().front());
 }

@@ -2401,8 +2401,7 @@ constexpr UiText kRows[] = {
     {L"No.", L"N\u00BA"},
     {L"X", L"X"},
     {L"Y", L"Y"},
-    {L"The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.", L"La lista de unidades se muestra en la barra lateral. Un clic selecciona una unidad; Supr borra las unidades seleccionadas."},
-    {L"The palette shows in the side bar again", L"La paleta vuelve a mostrarse en la barra lateral"},
+    {L"The map has no units", L"El mapa no tiene unidades"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

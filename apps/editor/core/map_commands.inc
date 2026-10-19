@@ -88,8 +88,7 @@ enum class TerrainFlagsView;  // View > Overlays > Terrain flags (core/terrain_f
 TerrainFlagsView terrainFlagsView();
 void terrainFlagsSet(TerrainFlagsView v);
 void pathingCheckCommand();
-bool unitsListOn();   // View > Units list (core/units_list.inc)
-void toggleUnitsList();
+void showUnitsList();   // View > Units list: the Unit properties window with the list (core/units_list.inc)
 
 void toggleLayer(int k) {
     bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
@@ -235,7 +234,7 @@ void registerMapCommands() {
         saveDock(), shellRelayout(), shellMenusChanged();
         setMessage(gDock.minimapHidden ? L"The minimap is hidden (View > Show minimap shows it again)" : L"The minimap shows");
     }, [] { return !gDock.minimapHidden; });
-    addCommand(ID_VIEW_UNITLIST, "view.unitsList", L"&Units list", "View", L"", [] { toggleUnitsList(); }, [] { return unitsListOn(); });
+    addCommand(ID_VIEW_UNITLIST, "view.unitsList", L"&Units list", "View", L"", [] { showUnitsList(); });
     for (const Mode m : kModeOrder)  // View > Floating palettes: an item for each mode's palette
         addCommand(ID_VIEW_FLOATPAL + int(m), kFloatPalNames[int(m)].command, kFloatPalNames[int(m)].menu, "View/Floating palettes", L"",
                    [m] { shellFloatPalette(m, !paletteFloats(m)); }, [m] { return paletteFloats(m); });
