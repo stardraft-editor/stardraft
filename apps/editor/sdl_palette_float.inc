@@ -338,7 +338,8 @@ void sdlFloatPaletteLine() {
     if (!paletteFloats(a)) {
         bool inSide = gRoot != nullptr;
         for (draw::View* v : floatPaletteViews(floatPaletteParts(a))) inSide = inSide && v->parent() == gRoot;
-        return void(std::printf("  palette: docked %s, %s; pick=%d; floating=%s\n", name.c_str(), inSide ? "in the side bar" : "not in the side bar (WRONG)",
+        return void(std::printf("  palette: docked %s, %s, search=\"%s\" section=\"%s\"; pick=%d; floating=%s\n", name.c_str(),
+                                inSide ? "in the side bar" : "not in the side bar (WRONG)", narrow(gSearchSdl.text()).c_str(), narrow(gPalSection).c_str(),
                                 gState.palette, floating.c_str()));
     }
     if (a != Mode::Locations) return void(std::printf("  palette: floating %s, %s; pick=%d; floating=%s\n", name.c_str(), floatingPanelLine(a).c_str(), gState.palette, floating.c_str()));

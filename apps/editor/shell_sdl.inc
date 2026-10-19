@@ -135,8 +135,17 @@ int shellContextMenu(const std::vector<std::wstring>& items) {
     if (!gRoot || !gHost) return 0;
     return sdlMenuPick(*gRoot, gHost->mouse(*gRoot), items, -1, true) + 1;
 }
-void shellOwnerSelect(int i) { gOwnerBox.setValue(i); }  // (the owner dropdown shows player i; no change is sent)
-void shellPaletteReveal(int value) { gPalList.reveal(value); }
+void palettePanelsOwner(int i);
+void palettePanelsReveal(int value);
+// (the owner dropdowns show player i, the side bar's and the palette windows'; no change is sent)
+void shellOwnerSelect(int i) {
+    gOwnerBox.setValue(i);
+    palettePanelsOwner(i);
+}
+void shellPaletteReveal(int value) {
+    gPalList.reveal(value);
+    palettePanelsReveal(value);  // (the active mode's palette windows too)
+}
 bool shellPaletteStep(int dir) {
     if (gPalList.mode != gState.mode || gState.palette < 0) return false;
     const std::vector<PaletteRow>& rows = gPalList.rows;
@@ -149,7 +158,7 @@ bool shellPaletteStep(int dir) {
     while (i >= 0 && i < n && rows[size_t(i)].value < 0) i += dir;  // (past the headings)
     if (i < 0 || i >= n) return true;  // (the first or the last: it stays)
     pickUnit(gState, rows[size_t(i)].value, false);
-    gPalList.reveal(rows[size_t(i)].value);
+    shellPaletteReveal(rows[size_t(i)].value);
     return true;
 }
 void shellPaletteChanged() {

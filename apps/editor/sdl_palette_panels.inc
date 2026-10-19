@@ -15,6 +15,27 @@ struct PanelWindow {
 std::vector<std::unique_ptr<PanelWindow>> gPanels;
 std::vector<int> gPanelNoPicks;  // (a panel of another mode than the active one shows no picks)
 
+// A mode's floating palette shows the side bar's state of its mode (its section, search and scroll: dockedPaletteGet)
+// and sets it as it changes, so that the window and the side bar are one palette.
+bool gPanelLoading = false;  // (the state is being set in the panel: its boxes' changes are not the user's)
+void palettePanelRebuild(PalettePanelView& v);
+PanelWindow* palettePanelOf(const PalettePanelView& v);
+void panelSaveToDocked(PalettePanelView& v, bool scroll) {
+    PanelWindow* p = palettePanelOf(v);
+    if (!p || !v.floating || gPanelLoading) return;
+    dockedPaletteSet(p->doc, v.mode, {scroll ? v.list.scrollTop() : 0, v.search.text(), v.section});
+}
+void panelLoadFromDocked(PalettePanelView& v, int doc) {
+    if (!v.floating) return;
+    const PaletteMemory s = dockedPaletteGet(doc, v.mode);
+    gPanelLoading = true;
+    v.section = s.section;
+    if (v.search.text() != s.search) v.search.setText(s.search);
+    gPanelLoading = false;
+    palettePanelRebuild(v);
+    v.list.scrollTo(s.scroll);
+}
+
 // The panel types, in the type box's order.
 constexpr Mode kPanelModes[] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites};
 
@@ -52,6 +73,14 @@ void palettePanelRebuild(PalettePanelView& v) {
 void palettePanelsRebuild() {
     for (auto& p : gPanels)
         if (p->open) palettePanelRebuild(*p->view);
+}
+void palettePanelsOwner(int i) {
+    for (auto& p : gPanels)
+        if (p->open) p->view->owner.setValue(i), p->view->list.invalidate();  // (the units' pictures are the player's)
+}
+void palettePanelsReveal(int value) {
+    for (auto& p : gPanels)
+        if (p->open && p->view->mode == gState.mode) p->view->list.reveal(value);
 }
 void palettePanelsChanged() {  // (the picks changed: shellPaletteChanged)
     for (auto& p : gPanels)
@@ -114,6 +143,7 @@ void palettePanelClose(PalettePanelView& v) {
     for (auto it = gPanels.begin(); it != gPanels.end(); ++it)
         if ((*it)->view.get() == &v) {
             const bool floating = v.floating;
+            panelSaveToDocked(v, true);  // (a floating palette: the side bar's palette goes on from where it was)
             tilesPanelBack(v);
             palettePanelHide(**it);
             gPanels.erase(it);
@@ -233,13 +263,15 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         if (pv->floating)
             for (auto& q : gPanels)
                 if (q->view.get() != pv && q->doc == activeDocKey() && q->view->floating && q->view->mode == to) other = q.get();
-        if (pv->floating) tilesPanelBack(*pv);
+        if (pv->floating) tilesPanelBack(*pv), panelSaveToDocked(*pv, true);
+        if (other) panelSaveToDocked(*other->view, true);
         pv->mode = to;
         pv->section.clear();
         if (pv->mode != Mode::Units) pv->view.sprites = false;
         if (pv->floating) pv->view = gViewByMode[int(to)], pv->sort = gSortByMode[int(to)];
         pv->list.scrollTo(0);
         palettePanelRebuild(*pv);
+        if (pv->floating) panelLoadFromDocked(*pv, palettePanelOf(*pv)->doc);
         if (SDL_Window* sw = gHost ? gHost->sdlWindow(*pv) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(pv->name.c_str())).c_str());
         if (other) {
             PalettePanelView& o = *other->view;
@@ -249,6 +281,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             o.view = gViewByMode[int(from)], o.sort = gSortByMode[int(from)];
             o.list.scrollTo(0);
             palettePanelRebuild(o);
+            panelLoadFromDocked(o, other->doc);
             if (SDL_Window* sw = gHost ? gHost->sdlWindow(o) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(o.name.c_str())).c_str());
         }
         if (pv->floating) {  // (the panel's mode is the one to work in: the side bar and the menus follow)
@@ -258,8 +291,10 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         }
     };
     v.search.onChange = [pv] {
+        if (gPanelLoading) return;
         pv->list.scrollTo(0);
         palettePanelRebuild(*pv);
+        panelSaveToDocked(*pv, false);
     };
     std::vector<kit::DropdownItem> owners;  // the players, as the side bar's owner box
     for (int i = 0; i < 12; ++i) owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L"")});
@@ -273,6 +308,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         pv->section = i <= 0 || i > int(names.size()) ? std::wstring() : names[size_t(i - 1)];
         pv->list.scrollTo(0);
         palettePanelRebuild(*pv);
+        panelSaveToDocked(*pv, false);
     };
     v.onView = [pv] { paletteMenuSdl(pv->list, pv->viewButton, {0, pv->viewButton.height()}, -1, pv); };
     v.onCollapse = [pv] { shellPost([pv] { palettePanelCollapse(*pv, !pv->collapsed); }); };
@@ -532,6 +568,7 @@ bool floatingPanelSet(Mode m, bool on) {
     p->view->floating = true;
     p->at = floatingPanelPlace(m);
     gPanels.push_back(std::move(p));
+    panelLoadFromDocked(*gPanels.back()->view, doc);  // (the side bar's section, search and scroll of the mode)
     palettePanelOpen(*gPanels.back());
     return true;
 }
