@@ -6,6 +6,9 @@
 
 // The dialog's results (what its buttons return). Edit unit type applies the edits too.
 constexpr int kUnitPropsOk = 1, kUnitPropsCancel = 2, kUnitPropsEditType = 3;
+// The list's results (Discord feedback #126): a pick (the window shows the picked unit next) and a change of the map
+// (Delete, undo, redo: the window again, at the map's first unit).
+constexpr int kUnitPropsPick = 4, kUnitPropsRefresh = 5;
 
 const wchar_t* const kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"In transit", L"Hallucinated", L"Invincible"};
 
@@ -46,15 +49,55 @@ constexpr int kNameY = kPad - 2, kNameB = kPad + 24, kSubY = kPad + 22, kSubB = 
 constexpr int kStatesY = kTop + 4 * (kRowH + kGap) + kRowH + kGap + 6;  // the state check boxes, 3 to a row
 constexpr int kStateStepX = 150, kStateW = 145, kStateStepY = kRowH + 2;
 constexpr int kContentW = kColW + kLabelW + kBoxW;          // 464: the window is 496 px wide inside
+constexpr int kListW = 300, kListGap = 16;                  // the Units list: the left column; the fields start after it
+constexpr int kRightX = kListW + kListGap;                  // the fields' column (and the picture, the name) from the left
 constexpr int kButtonH = 28;                                // ui::kButtonH: Edit unit type, OK and Cancel
 constexpr int kButtonsGap = 24;                             // Edit unit type to OK and Cancel
 }  // namespace unitPropsLayout
 
+// The Units list's rows (Discord feedback #126): a plain click or Enter picks a row (the window shows that unit next),
+// Ctrl or Shift with a click only changes the selection. Delete, Ctrl+Z and Ctrl+Y go to the view (listKey).
+struct UnitRowsView final : stardraft::kit::ListView {
+    std::function<bool(const draw::KeyEvent&)> keyHook;  // true: the key is taken
+    bool plainPick = false;                                // the last press was a plain click
+    bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind == draw::MouseKind::Down && e.button == 0) plainPick = !(e.mods & (draw::kCtrl | draw::kShift));
+        return stardraft::kit::ListView::mouse(e);
+    }
+    bool key(const draw::KeyEvent& e) override {
+        plainPick = false;
+        if (keyHook && keyHook(e)) return true;
+        return stardraft::kit::ListView::key(e);
+    }
+};
+
 class UnitPropsView final : public draw::View {
 public:
-    UnitPropsView(const Unit& first, const std::vector<int>& units, draw::Image icon, bool project) : first_(first), count_(units.size()), icon_(icon) {
+    UnitPropsView(Editor& ed, const Unit& first, const std::vector<int>& units, draw::Image icon, bool project) : first_(first), count_(units.size()), icon_(icon) {
         using stardraft::kit::LabelTone;
+        ed_ = &ed;
         const Unit& u = first;
+        // The Units list (the left column): the search box over the rows, a row for each unit of the map.
+        search_.setPlaceholder(std::wstring(tr(L"Search the units")));
+        search_.onChange = [this] { rebuild(); };
+        list_.setMode(stardraft::kit::SelectMode::Multiple);
+        list_.setColumns({{std::wstring(tr(L"No.")), 34, stardraft::kit::ColAlign::Right}, {std::wstring(tr(L"Type")), 0, stardraft::kit::ColAlign::Left},
+                          {std::wstring(tr(L"Owner")), 70, stardraft::kit::ColAlign::Left}, {std::wstring(tr(L"X")), 52, stardraft::kit::ColAlign::Right},
+                          {std::wstring(tr(L"Y")), 52, stardraft::kit::ColAlign::Right}});
+        list_.cell = [this](int row, size_t k) {
+            if (row < 0 || row >= int(rows_.size()) || rows_[size_t(row)] >= int(ed_->units().size())) return std::wstring();
+            return unitsListCell(*ed_, rows_[size_t(row)], k);
+        };
+        list_.onSelect = [this] { picked(); };
+        list_.onActivate = [this](int row) {
+            if (row < 0 || row >= int(rows_.size())) return;
+            selectFromList();
+            unitsListCenter(rows_[size_t(row)]);
+            pickAt(row);
+        };
+        list_.keyHook = [this](const draw::KeyEvent& e) { return listKey(e); };
+        add(search_, {0, 0, 0, 0});
+        add(list_, {0, 0, 0, 0});
         auto label = [&](stardraft::kit::Label& l, const wchar_t* t) {
             l.setText(tr(t)), l.setTone(LabelTone::Dim);  // (the native labels were the dim color)
             add(l, {0, 0, 0, 0});
@@ -111,6 +154,9 @@ public:
         return typeY() + kButtonH;
     }
 
+    // The unit a pick asked the window to show next (kUnitPropsPick).
+    int nextUnit() const { return next_; }
+
     // What the fields hold (a call after OK).
     UnitPropsValues values() const {
         auto num = [](const stardraft::kit::TextField& f) { return uint32_t(std::wcstoul(f.text().c_str(), nullptr, 10)); };
@@ -156,22 +202,27 @@ public:
         using namespace unitPropsLayout;
         c.fill({0, 0, width(), height()}, kBg);
         // The unit's picture and name over the fields.
-        const draw::Rect pic{0, scale(kPad), scale(kIcon), scale(kPad + kIcon)};
+        sync();
+        if (focusSearch_ && !focused_ && host()) focused_ = true, search_.field().focus();  // the search has the keyboard: type to find a unit
+        const draw::Rect pic{scale(kRightX), scale(kPad), scale(kRightX + kIcon), scale(kPad + kIcon)};
         if (icon_) c.fitted(icon_, pic);
         else if (paintIcon) paintIcon(c, pic);  // (a host whose pictures are its own pixels: the SDL program)
         const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
-        c.text({scale(kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
+        c.text({scale(kRightX + kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
         c.setFont(of);
         const std::wstring sub = count_ > 1 ? std::to_wstring(count_) + tr(L" units selected. Changes apply to all of them.")
                                             : tr(L"Unit ") + std::to_wstring(first_.type) + tr(L"  \x00B7  serial ") + std::to_wstring(first_.serial);
-        c.text({scale(kTextX), scale(kSubY), scale(2000), scale(kSubB)}, sub, kDim, draw::kLeft);
+        c.text({scale(kRightX + kTextX), scale(kSubY), scale(2000), scale(kSubB)}, sub, kDim, draw::kLeft);
     }
 
     void resized() override {
         using namespace unitPropsLayout;
-        const int x0 = 0, x1 = kColW;
+        const int x0 = kRightX, x1 = kRightX + kColW;
         auto row = [](int k) { return kTop + k * (kRowH + kGap); };
         auto put = [](draw::View& v, int x, int y, int w, int h) { v.setFrame({scale(x), scale(y), scale(x + w), scale(y + h)}); };
+        // The Units list: the search box, then the rows to the bottom of the content.
+        put(search_, 0, kPad, kListW, kRowH);
+        put(list_, 0, kPad + kRowH + kGap, kListW, contentHeight() - (kPad + kRowH + kGap));
         auto pair = [&](int li, stardraft::kit::TextField& f, int x, int y) { put(labels_[li], x, y, kLabelW - 8, kRowH), put(f, x + kLabelW, y, kBoxW, kRowH); };
         put(labels_[0], x0, row(0), kLabelW - 8, kRowH);
         put(owner_, x0 + kLabelW, row(0), kColW + kBoxW, kRowH);
@@ -189,6 +240,67 @@ public:
     }
 
 private:
+    // The rows for the map now and the search (again when either changed).
+    void rebuild() { rev_ = ~uint64_t(0), sync(); }
+    void sync() {
+        const uint64_t rev = ed_->revision();
+        if (rev == rev_ && ed_->units().size() == seen_) return;
+        rev_ = rev, seen_ = ed_->units().size();
+        rows_ = unitsListRows(*ed_, search_.text());
+        list_.setCount(int(rows_.size()));
+        list_.clearSelection();
+        for (int r = 0; r < int(rows_.size()); ++r)
+            if (ed_->isSelected(rows_[size_t(r)])) list_.toggle(r);
+        list_.invalidate();
+    }
+    // The map's selection is the list's picked rows; the units the list does not show (the search hides them) keep theirs.
+    void selectFromList() {
+        std::vector<int> keep;
+        for (int u : ed_->selection())
+            if (std::find(rows_.begin(), rows_.end(), u) == rows_.end()) keep.push_back(u);
+        ed_->clearSelection();
+        for (int u : keep) ed_->select(u, true);
+        for (int r = 0; r < int(rows_.size()); ++r)
+            if (list_.isSelected(r)) ed_->select(rows_[size_t(r)], true);
+    }
+    void closeWith(int result) {
+        if (dlg_) dlg_->close(result);
+    }
+    // A pick: the window closes and opens again with the picked unit (its edits are not kept).
+    void pickAt(int row) {
+        next_ = rows_[size_t(row)];
+        closeWith(kUnitPropsPick);
+    }
+    // A selection change in the list: the map's selection follows and the view goes to the cursor's unit; a plain click picks.
+    void picked() {
+        selectFromList();
+        const int cur = list_.cursor();
+        if (cur < 0 || cur >= int(rows_.size())) return;
+        unitsListCenter(rows_[size_t(cur)]);
+        if (list_.plainPick) list_.plainPick = false, pickAt(cur);
+    }
+    // Delete deletes the selected units; Ctrl+Z and Ctrl+Y are the map's undo and redo. Then the window opens again.
+    void deleteSelected() {
+        selectFromList();
+        if (ed_->selection().empty()) return;
+        ed_->deleteSelection();
+        closeWith(kUnitPropsRefresh);
+    }
+    void undoRedo(bool redo) {
+        if (redo ? !ed_->canRedo() : !ed_->canUndo()) return;
+        if (redo) ed_->redo();
+        else ed_->undo();
+        closeWith(kUnitPropsRefresh);
+    }
+    bool listKey(const draw::KeyEvent& e) {
+        if (!e.down) return false;
+        if (e.key == draw::Key::Delete && !e.mods) return deleteSelected(), true;
+        const bool ctrl = (e.mods & draw::kCtrl) != 0;
+        if (ctrl && int(e.key) == 'Z') return undoRedo(false), true;
+        if (ctrl && int(e.key) == 'Y') return undoRedo(true), true;
+        return false;
+    }
+
     int typeY() const {
         using namespace unitPropsLayout;
         return kStatesY + ((shown_ + 2) / 3) * kStateStepY + kGap;
@@ -210,6 +322,14 @@ private:
     std::unique_ptr<stardraft::kit::CheckBox> state_[5];
     int shown_ = 0;
     stardraft::kit::Button type_;
+    Editor* ed_ = nullptr;
+    SearchBox search_;
+    UnitRowsView list_;
+    std::vector<int> rows_;             // the unit of each row
+    uint64_t rev_ = ~uint64_t(0);       // the map's revision and units' count the rows are of
+    size_t seen_ = 0;
+    bool focusSearch_ = true, focused_ = false;
+    int next_ = -1;                     // the unit a pick shows next
 };
 
 // Runs Unit properties from `from` (the program's anchor view) for `units`, showing `first` (the double-clicked unit)
@@ -227,18 +347,19 @@ inline draw::Point unitPropsDialogSetup(stardraft::kit::Dialog& dlg, UnitPropsVi
     dlg.setButtons(std::move(buttons));
     dlg.setInsets({kPad, 0, kPad, kPad, kButtonsGap, 8});  // the content from the top edge (it places the picture at kPad)
     const int h = view.contentHeight() + kButtonsGap + kButtonH + kPad;
-    return draw::Point{scale(kContentW + 2 * kPad), scale(h)};
+    return draw::Point{scale(kRightX + kContentW + 2 * kPad), scale(h)};
 }
 
 inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<int>& units, const Unit& first, draw::Image icon, bool project,
-                              UnitPropsView*& shown, std::function<void(draw::Canvas&, draw::Rect)> paintIcon = {}) {
-    UnitPropsView view(first, units, icon, project);
+                              UnitPropsView*& shown, std::function<void(draw::Canvas&, draw::Rect)> paintIcon = {}, int* next = nullptr) {
+    UnitPropsView view(ed, first, units, icon, project);
     view.paintIcon = std::move(paintIcon);
     stardraft::kit::Dialog dlg;
     const draw::Point size = unitPropsDialogSetup(dlg, view);
     shown = &view;
     const int r = dlg.run(from, tr(L"Unit properties"), size);
     shown = nullptr;
+    if (r == kUnitPropsPick && next) *next = view.nextUnit();
     if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(ed, units, first, view.values());
     return r;
 }

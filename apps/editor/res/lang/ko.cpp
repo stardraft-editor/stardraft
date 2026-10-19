@@ -2401,8 +2401,7 @@ constexpr UiText kRows[] = {
     {L"No.", L"\uBC88\uD638"},
     {L"X", L"X"},
     {L"Y", L"Y"},
-    {L"The units list shows in the side bar. A click selects a unit; Delete deletes the selected units.", L"\uC720\uB2DB \uBAA9\uB85D\uC774 \uC0AC\uC774\uB4DC \uBC14\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4. \uC720\uB2DB\uC744 \uD074\uB9AD\uD558\uBA74 \uC120\uD0DD\uB418\uACE0, Delete\uB294 \uC120\uD0DD\uD55C \uC720\uB2DB\uC744 \uC9C0\uC6C1\uB2C8\uB2E4."},
-    {L"The palette shows in the side bar again", L"\uD314\uB808\uD2B8\uAC00 \uC0AC\uC774\uB4DC \uBC14\uC5D0 \uB2E4\uC2DC \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"The map has no units", L"\uB9F5\uC5D0 \uC720\uB2DB\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

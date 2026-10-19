@@ -90,10 +90,10 @@
 #include "views_triggers_help.inc"  // the block help page, the code pane, the build errors' line map
 #include "views_value_pop.inc"
 #include "triggers_values.inc"  // the Triggers pane's values: which pop-out each one opens, Tab, the value block's menu
+#include "units_list.inc"  // View > Units list: the units of the map, in the left column of the Unit properties window (Discord feedback #126)
 #include "views_unit_props.inc"
 #include "views_location_props.inc"
 #include "views_revealers_dialog.inc"  // Edit > Tools > Place map revealers: the players' dialog (Discord feedback #125)
-#include "units_list.inc"  // View > Units list: the units of the map, in the Units mode's side bar (Discord feedback #126)
 #include "views_text_prompt.inc"
 #include "views_map_menu.inc"
 #include "views_quick_pick.inc"

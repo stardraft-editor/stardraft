@@ -21,23 +21,38 @@ void dataGoTo(const std::string& dat, int e);  // (sdl_data.inc: the entry in it
 // Unit properties of unit `index` (and the rest of the selection, when it is part of it), as on Windows.
 void showUnitProperties(int index) {
     if (!gRoot || !gState.ed || index < 0 || index >= int(gState.ed->units().size())) return;
-    if (!gState.ed->isSelected(index)) gState.ed->clearSelection(), gState.ed->select(index, false);
-    const std::vector<int> units = gState.ed->selection();
-    const Unit first = gState.ed->units()[size_t(index)];
-    gState.dirty = true;
-    UnitPropsView* shown = nullptr;
-    const int type = first.type, owner = first.owner;
-    const bool project = activeProject() != nullptr;
-    const int r = runUnitPropsDialog(*gRoot, *gState.ed, units, first, draw::Image{}, project, shown, [type, owner](draw::Canvas& c, draw::Rect box) {
-        if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);  // (the palette's picture)
-    });
-    if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
-        if (project) setWorkspace(Workspace::Data), dataGoTo("units", type);
-        else sdlMapDataShowUnit(type);
+    // The window has the Units list (core/units_list.inc): a pick, Delete, undo or redo shows the window again (for the
+    // picked unit, or else the map's first unit), until it is closed for good.
+    for (;;) {
+        Editor& ed = *gState.ed;
+        if (!ed.isSelected(index)) ed.clearSelection(), ed.select(index, false);
+        const std::vector<int> units = ed.selection();
+        const Unit first = ed.units()[size_t(index)];
+        gState.dirty = true;
+        UnitPropsView* shown = nullptr;
+        const int type = first.type, owner = first.owner;
+        const bool project = activeProject() != nullptr;
+        int next = -1;
+        const int r = runUnitPropsDialog(*gRoot, ed, units, first, draw::Image{}, project, shown, [type, owner](draw::Canvas& c, draw::Rect box) {
+            if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);  // (the palette's picture)
+        }, &next);
+        if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
+            if (project) setWorkspace(Workspace::Data), dataGoTo("units", type);
+            else sdlMapDataShowUnit(type);
+        }
+        updateTitle();
+        gState.dirty = true;
+        invalidateMapView();
+        if (r == kUnitPropsPick && next >= 0 && next < int(gState.ed->units().size())) {
+            index = next;
+            continue;
+        }
+        if (r == kUnitPropsRefresh && !gState.ed->units().empty()) {
+            index = 0;
+            continue;
+        }
+        break;
     }
-    updateTitle();
-    gState.dirty = true;
-    invalidateMapView();
 }
 
 // Location properties of location `loc` (it is selected first), as on Windows.
@@ -273,7 +288,19 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
     Editor& ed = *gState.ed;
     if (name == "unitprops" && !ed.units().empty()) {
         const Unit first = ed.units()[0];
-        s.unit = std::make_unique<UnitPropsView>(first, std::vector<int>{0}, draw::Image{}, activeProject() != nullptr);
+        s.unit = std::make_unique<UnitPropsView>(ed, first, std::vector<int>{0}, draw::Image{}, activeProject() != nullptr);
+        const int type = first.type, owner = first.owner;
+        s.unit->paintIcon = [type, owner](draw::Canvas& c, draw::Rect box) {
+            if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);
+        };
+        s.size = unitPropsDialogSetup(s.dlg, *s.unit), s.view = &s.dlg;
+        return true;
+    }
+    if (name == "unitslist" && !ed.units().empty()) {  // the window with the Units list (View > Units list): the first selected unit
+        const int u = ed.selection().empty() ? 0 : ed.selection().front();
+        if (!ed.isSelected(u)) ed.select(u, false);
+        const Unit first = ed.units()[size_t(u)];
+        s.unit = std::make_unique<UnitPropsView>(ed, first, std::vector<int>{u}, draw::Image{}, activeProject() != nullptr);
         const int type = first.type, owner = first.owner;
         s.unit->paintIcon = [type, owner](draw::Canvas& c, draw::Rect box) {
             if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);

@@ -292,8 +292,9 @@ CASES += [
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
     ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
-    # View > Units list: the side bar's list of the units (Units mode), and the search and a pick of a unit with Delete.
-    ("map-units-list", ["--command", "view.unitsList"], "map"),
+    # View > Units list: the Unit properties window with the list in its left column (the first unit, its picture and fields
+    # on the right), and the pick, Delete and undo of the list (the script).
+    ("map-units-list", ["--dialog", "unitslist"], "map"),
     ("map-units-list-pick", ["--script", "{script:unitslist}"], "map"),
     # Scenario > Check pathing: the list of the problems (each "pathing" line says the layer, the regions and the check);
     # Enter picks the first one: the layer shows, the problem has its mark in the middle of the view.
@@ -949,13 +950,17 @@ SCRIPTS = {
     "revealers": """command edit.revealers.place
 key Enter
 """,
-    # View > Units list: the search types "mineral" (the rows that match), a click on the first row selects that unit (the
-    # view goes to it) and Delete deletes it (the map has one unit less); Ctrl+Z gives it back (the list follows).
+    # View > Units list: the search types "mineral" (the rows that match), a pick (Enter on the first row) shows that unit
+    # again in the window, Delete deletes it (the map has one unit less, and the window shows the map again), and Ctrl+Z
+    # gives it back.
     "unitslist": """command view.unitsList
-click 1420,281
 type mineral
-click 1400,340
+key Tab
+key Down
+key Enter
+key Tab
 key Del
+key Tab
 key Ctrl+Z
 """,
     "revealersHidden": """command edit.revealers.place
