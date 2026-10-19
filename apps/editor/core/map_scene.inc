@@ -843,6 +843,11 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         cells.push_back({y * ed.width() + x, v});
         x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     };
+    // The mirrors' images of the brush's tiles (tilesMirrored): ghosts too, outside the brush's frame.
+    auto addMirrors = [&](const std::vector<Editor::TileAt>& brush) {
+        const std::vector<Editor::TileAt> all = tilesMirrored(brush);
+        for (size_t i = brush.size(); i < all.size(); ++i) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
+    };
     const int tool = currentTool();
     if (tool == TSelect) {
         if (!app.terrainPasting || !ed.hasTileClipboard()) return;
@@ -852,22 +857,28 @@ void tilesScene(render::Scene& s, float wx, float wy) {
     } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles->scatter)) {  // the stamp at the mouse
         int sx, sy;
         tilesStampOrigin(cx, cy, sx, sy);
-        for (const auto& t : tilesStampCells(sx, sy)) add(t.x, t.y, t.value);
+        const std::vector<Editor::TileAt> stamp = tilesStampCells(sx, sy);
+        for (const auto& t : stamp) add(t.x, t.y, t.value);
+        addMirrors(stamp);
     } else if (tool == TBrush || tool == TSpray) {
         if (gTiles->picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles->picked))) return;
         if (app.brushShape != Brush::Square) {  // the Circle and the Diamond: their outline on the tile edges (#135, #136)
             std::vector<std::pair<int, int>> tiles;
+            std::vector<Editor::TileAt> foot;
             for (auto [x, y] : tilesFootprint(cx, cy))
-                if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) tiles.push_back({x, y});
+                if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) foot.push_back({x, y, 0});
+            for (const auto& t : tilesMirrored(foot)) tiles.push_back({t.x, t.y});  // (and the mirrors' images)
             ghostTiles.clear();
             const size_t before = s.rects.size();
             tileOutline(s, tiles, tool == TSpray ? 0xFFD040E0u : 0x40FF40FFu);
             gTilesPreview.lines = s.rects.size() - before;
             return;
         }
+        std::vector<Editor::TileAt> foot;
         for (auto [x, y] : tilesFootprint(cx, cy))
-            if (tool == TBrush) add(x, y, uint16_t(gTiles->picked));
+            if (tool == TBrush) add(x, y, uint16_t(gTiles->picked)), foot.push_back({x, y, uint16_t(gTiles->picked)});
             else x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);  // the spray: its area only
+        addMirrors(foot);
     } else {
         return;
     }

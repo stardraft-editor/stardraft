@@ -210,6 +210,29 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
     ty = std::clamp(int(std::floor(wy / 32)), 0, std::max(0, int(appState().ed->height()) - 1));
 }
 
+// The tool strip's mirrors in Rectangle mode, as Isometric's brush has them: each tile is placed at the mirror images of
+// its middle too (the same tile: a tile is not turned). The tiles themselves first, then their images where no tile of
+// the stroke is.
+std::vector<Editor::TileAt> tilesMirrored(const std::vector<Editor::TileAt>& cells) {
+    const Editor& ed = *appState().ed;
+    if (!ed.mirrors()) return cells;
+    std::vector<Editor::TileAt> out = cells;
+    std::set<std::pair<int, int>> taken;
+    for (const auto& c : cells) taken.insert({c.x, c.y});
+    for (const auto& c : cells)
+        for (auto [px, py] : ed.symmetricPoints(c.x * 32 + 16, c.y * 32 + 16)) {
+            const int x = int(std::floor(px / 32.0)), y = int(std::floor(py / 32.0));
+            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second) out.push_back({x, y, c.value});
+        }
+    return out;
+}
+int tilesPut(const std::vector<Editor::TileAt>& cells) { return appState().ed->placeTileValues(tilesMirrored(cells)); }
+int tilesPutCells(const std::vector<std::pair<int, int>>& cells, uint16_t value) {
+    std::vector<Editor::TileAt> v;
+    for (const auto& [x, y] : cells) v.push_back({x, y, value});
+    return tilesPut(v);
+}
+
 // The tiles a brush of the tool strip's size and shape covers around tile (cx, cy): size 0.5 and 1 one tile, then a
 // "radius" of size - 1 tiles; diamond, square or circle.
 // The brush's tiles: size n is n tiles across (size 2: 2 x 2 tiles; GitHub feedback #121), around the tile at the mouse
@@ -268,7 +291,7 @@ void tilesSprayAt(float wx, float wy) {
         const auto [x, y] = foot[rng() % foot.size()];
         cells.push_back({x, y, v});
     }
-    gTilesStrokePlaced += appState().ed->placeTileValues(cells);
+    gTilesStrokePlaced += tilesPut(cells);
 }
 
 // The picked tile in `cells` (one undo step); with several tiles picked (Shift+click in the list), each cell gets one of
@@ -282,13 +305,13 @@ int tilesPlaceRandom(const std::vector<std::pair<int, int>>& cells, int ox = 0, 
         for (const auto& [x, y] : cells)
             if (const uint16_t v = tilesStampAt(x, y); v != 0xFFFF) values.push_back({x, y, v});
     } else if (gTiles->chosen.size() < 2) {
-        return ed.placeTileCells(cells, uint16_t(gTiles->picked));
+        return tilesPutCells(cells, uint16_t(gTiles->picked));
     }
     std::mt19937 rng(appState().spraySeed++);
     if (!tilesStampOn())
         for (const auto& [x, y] : cells) values.push_back({x, y, gTiles->chosen[rng() % gTiles->chosen.size()]});
     ed.beginStroke();
-    const int n = ed.placeTileValues(values);
+    const int n = tilesPut(values);
     ed.endStroke();
     return n;
 }
@@ -349,7 +372,7 @@ int tilesBrushAt(int tx, int ty) {
     if (tilesStampOn() && !gTiles->scatter) {  // the stamp: its block of the pattern at the mouse
         int x0, y0;
         tilesStampOrigin(tx, ty, x0, y0);
-        return appState().ed->placeTileValues(tilesStampCells(x0, y0));
+        return tilesPut(tilesStampCells(x0, y0));
     }
     if (tilesStampOn()) {  // Shift: the stamp's tiles at random in the footprint
         std::mt19937 rng(appState().spraySeed++);
@@ -358,13 +381,13 @@ int tilesBrushAt(int tx, int ty) {
             if (v != 0xFFFF) any.push_back(v);
         std::vector<Editor::TileAt> cells;
         for (const auto& [x, y] : tilesFootprint(tx, ty)) cells.push_back({x, y, any[rng() % any.size()]});
-        return appState().ed->placeTileValues(cells);
+        return tilesPut(cells);
     }
-    if (gTiles->chosen.size() < 2) return appState().ed->placeTileCells(tilesFootprint(tx, ty), uint16_t(gTiles->picked));
+    if (gTiles->chosen.size() < 2) return tilesPutCells(tilesFootprint(tx, ty), uint16_t(gTiles->picked));
     std::mt19937 rng(appState().spraySeed++);
     std::vector<Editor::TileAt> cells;
     for (const auto& [x, y] : tilesFootprint(tx, ty)) cells.push_back({x, y, gTiles->chosen[rng() % gTiles->chosen.size()]});
-    return appState().ed->placeTileValues(cells);
+    return tilesPut(cells);
 }
 
 // A click on the map in Rectangle mode. Select: a rectangle of tiles, or a paste of the copied tiles. Ctrl: pick the
@@ -440,7 +463,7 @@ void tilesMouseMove(float wx, float wy) {
             const int x = gTiles->lastX + (tx - gTiles->lastX) * i / steps, y = gTiles->lastY + (ty - gTiles->lastY) * i / steps;
             int x0, y0;
             tilesStampOrigin(x, y, x0, y0);
-            if (x0 != bx || y0 != by) bx = x0, by = y0, gTilesStrokePlaced += appState().ed->placeTileValues(tilesStampCells(x0, y0));
+            if (x0 != bx || y0 != by) bx = x0, by = y0, gTilesStrokePlaced += tilesPut(tilesStampCells(x0, y0));
         }
     } else {
         gTilesStrokePlaced += tilesBrushAt(tx, ty);
