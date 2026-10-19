@@ -95,6 +95,7 @@ void loadDock() {
     auto number = [](const wchar_t* name, int& v, int lo, int hi) { prefs::number(std::wstring(L"Layout/") + name, v, lo, hi); };
     number(L"LeftWidth", gDock.leftW, kMinSideW, kMaxSideW), number(L"RightWidth", gDock.rightW, kMinSideW, kMaxSideW);
     number(L"DataListWidth", gDock.dataListW, kMinSideW, kMaxSideW);
+    number(L"MinimapHeight", gDock.minimapH, 0, 4000);
     get(L"TriggerCode", gDock.triggerCode);
     number(L"UnitNames", gDock.unitNames, 0, 3);
     number(L"Volume", gDock.volume, 0, 100);
@@ -117,6 +118,7 @@ void saveDock() {
     put(L"Volume", gDock.volume);
     for (int i = 0; i < kModeCount; ++i) put(kDockSideNames[i], gDock.toolsRight[i]);
     put(L"LeftWidth", gDock.leftW), put(L"RightWidth", gDock.rightW), put(L"DataListWidth", gDock.dataListW);
+    put(L"MinimapHeight", gDock.minimapH);
     put(L"LogHeight", gDock.logH);
     put(L"GridWidth", gDock.gridW), put(L"GridHeight", gDock.gridH), put(L"GridX", gDock.gridX), put(L"GridY", gDock.gridY);
     put(L"TriggerCode", gDock.triggerCode);

@@ -28,6 +28,7 @@ struct LayoutInput {
     bool toolsRight[kModeCount] = {false, true, false, false, false};  // the dock: each mode's tools side (true: right)
     bool minimapRight = false, minimapHidden = false;
     int leftW = 280, rightW = 280;                       // the side widths (96-dpi pixels)
+    int minimapH = 0;                                    // the minimap's height (96-dpi pixels; 0: the map's shape)
     Mode lastOnSide[2] = {Mode::Terrain, Mode::Units};   // the mode last used on each side (left, right)
     bool mapOpen = false;          // a map is open
     int mapW = 0, mapH = 0;        // its size in tiles (mapW 0: no shape for the minimap)
@@ -49,7 +50,7 @@ struct MainLayout {
     PaneSlot panelTabActive, tool, owner, sectionBox, search, viewBtn, filter, palette, list;
     PaneSlot panelTabOther, palette2, palette3, view;
     PaneSlot tool2, tool3;  // the other side's mode's tools over its list, and the third list's mode's tools
-    RECT splitters[2] = {};
+    RECT splitters[3] = {};  // the left side's edge, the right side's, the minimap's bottom edge
     RECT dockRects[2] = {};
     Mode panelTab[2] = {Mode::Terrain, Mode::Units};  // the tab each side shows
     Mode secondMode = Mode::Units;                    // the mode of the other side's list
@@ -127,9 +128,13 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     int mini = miniW;
     if (in.mapOpen && in.mapW) mini = miniW * in.mapH / in.mapW;
     mini = std::clamp(mini, sc(40), std::max(sc(40), (h - mtop) / 2));
+    // Its height as dragged (its bottom edge): from a strip to most of the side (the minimap letterboxes the map).
+    if (in.minimapH > 0) mini = std::clamp(sc(in.minimapH), sc(40), std::max(sc(40), (h - mtop) * 3 / 4));
     const int miniX = miniRight ? rx : lx;
     if (!miniShown) mini = -pad;  // (no room for it: the panel starts at the top)
     L.minimap = S(miniX + pad, mtop + pad, miniW, mini, miniShown, miniShown && in.mapWs);
+    // Its bottom edge: the gap under it, dragged up or down.
+    L.splitters[2] = miniShown ? RECT{miniX + pad, mtop + pad + mini, miniX + pad + miniW, mtop + pad + mini + pad} : RECT{};
     L.modeBar = S(in.modeBar.left, in.modeBar.top, in.modeBar.right - in.modeBar.left, in.modeBar.bottom - in.modeBar.top, true, true);
 
     // The active mode's side: its tabs, then its tools (icons), its options, its list.
