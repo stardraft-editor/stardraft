@@ -433,7 +433,7 @@ CASES += [
     ("map-doodad-ghost", ["--mode", "doodads", "--click", "115,600", "--key", "+", "--key", "+", "--move", "830,520",
                           "--move", "405,627"], "map"),
     # Sprites: a palette pick, a click places the sprite, Esc, a click selects it, Undo removes it.
-    ("map-sprite-place", ["--mode", "sprites", "--click", "115,600", "--click", "560,690", "--key", "Esc", "--click", "560,690",
+    ("map-sprite-place", ["--mode", "sprites", "--click", "115,661", "--click", "560,690", "--key", "Esc", "--click", "560,690",
                           "--key", "Ctrl+Z"], "map"),
     # Locations: a drag makes one, a drag of its right edge makes it wider, F2 opens the prompt (Rename location): the
     # name typed over the old one (selected when the prompt opens) and Enter rename it; three Undos take the name, the
