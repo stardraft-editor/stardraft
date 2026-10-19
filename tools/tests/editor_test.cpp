@@ -890,6 +890,42 @@ static void brushOverPlacedTiles(const GameData& data, const char* map) {
     CHECK(e.terrain().tiles == placed, "placed tiles: a fill with the terrain under them changes no tile");
 }
 
+// A doodad that terrain painted over takes away comes back with an undo, as the terrain under it does (the owner's
+// steps: a new Badlands map, a Dirt doodad on the dirt, grass painted over it, Undo).
+static void doodadBackOnUndo(const GameData& data) {
+    Editor e(data);
+    std::string err;
+    if (!e.newMap(64, 64, 0, 1, err)) {
+        CHECK(false, "doodad undo: a new Badlands map");
+        return;
+    }
+    const int px = 32 * 32, py = 32 * 32;
+    bool placed = false;
+    uint16_t id = 0;
+    for (const DoodadType& t : e.doodadTypes().all()) {
+        if (!t.groupString || e.unitTypes().statText(t.groupString - 1u) != "Dirt") continue;
+        if (e.placeDoodad(t.id, px, py, true)) {
+            placed = true, id = t.id;
+            break;
+        }
+    }
+    CHECK(placed && e.doodads().size() == 1, "doodad undo: a Dirt doodad placed on the dirt");
+    if (!placed) return;
+    const std::vector<uint16_t> withDoodad = e.terrain().tiles;
+    const IsomTerrainTable* tt = IsomTerrainTable::forEra(e.era());
+    uint16_t grass = 0;
+    for (uint16_t i = 1; tt && i <= tt->terrainCount(); ++i)
+        if (tt->isTerrain(i) && tt->terrainName(i) == "Grass") grass = i;
+    e.beginTerrainStroke();
+    e.paintBrush(px, py, grass, Brush{Brush::Diamond, 4.0f});
+    e.endTerrainStroke();
+    std::printf("      doodad %u; after the grass: %zu doodads\n", id, e.doodads().size());
+    CHECK(e.doodads().empty(), "doodad undo: grass painted over the doodad takes it away");
+    e.undo();
+    CHECK(e.doodads().size() == 1, "doodad undo: Undo gives the doodad back");
+    CHECK(e.terrain().tiles == withDoodad, "doodad undo: Undo gives its tiles back");
+}
+
 // Ramps (and other doodads) stay when terrain is painted near them, as in StarEdit: a doodad goes only when the terrain
 // under its tiles no longer fits it (the owner's note: ramps went too often). A Blizzard map with ramps on cliffs:
 // (4)Lost Civilization (jungle), doodad 1 (a ramp of the Cliff group, 4 x 4 tiles).
@@ -1199,6 +1235,7 @@ int main(int argc, char** argv) {
     if (argc > 4 && std::string(argv[4]) == "terrain") {  // only the brush and doodad checks (GitHub #143, ramps)
         brushOverPlacedTiles(data, argv[2]);
         rampsStay(data, argv[1]);
+        doodadBackOnUndo(data);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
