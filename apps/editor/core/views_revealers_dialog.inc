@@ -1,4 +1,4 @@
-// Place map revealers (Edit > Tools; Discord feedback #125; portable, core.inc): the players that get a map revealer, each
+// Place map revealers (Tools; Discord feedback #125; portable, core.inc): the players that get a map revealer, each
 // (Player 1 to Player 8), or All players, in a kit Dialog (Host::runModal). OK is on while a player is chosen. The host
 // (sdl_map_dialogs.inc: showMapRevealersDialog) runs it; the command places the revealers (placeMapRevealersCommand).
 

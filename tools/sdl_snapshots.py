@@ -303,7 +303,7 @@ CASES += [
     ("map-terrain-flags-height", ["--command", "view.flags.height"], "map"),
     ("map-terrain-flags-blocksview", ["--command", "view.flags.blocksview", "--key", "+", "--key", "+"], "map"),
     ("map-terrain-flags-buildable", ["--command", "view.flags.buildable"], "map"),
-    # Edit > Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
+    # Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
     # (they show on the map), then View > Layers > Map revealers: the layer is hidden and the revealers are not drawn.
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
@@ -1226,7 +1226,7 @@ wheel 832,500,0,-1:Alt
 rect off
 rect
 """,
-    # Edit > Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
+    # Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
     "revealers": """command edit.revealers.place
 key Enter
 """,
@@ -3026,7 +3026,7 @@ def check_menubar(output):
         if not lines[0].startswith("the window's (shown)"):
             return f"not the window's menu bar: {lines[0]}"
         need = ["File > Save [Ctrl+S]", "File > Save as… [Ctrl+Shift+S]", "File > Exit", "Edit > Undo [Ctrl+Z]",
-                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Edit > Tools > Check that StarCraft can start the map"]
+                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Tools > Check that StarCraft can start the map"]
         never = ["Window > ", "Scenario > "]
         tip = "Zoom in (Ctrl+Plus); Ctrl+Shift+S; Ctrl+click; Alt+drag; Del"
     for t in tops:

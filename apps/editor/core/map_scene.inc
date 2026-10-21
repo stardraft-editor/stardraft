@@ -340,6 +340,10 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     return s.rects.size() - from;
 }
 
+// A live game shows in place of the map's units and sprites while it runs (experimental: Tools > Simulate,
+// sdl_simulation.inc): it adds its images to the scene. nullptr: the map's own.
+void (*gLiveScene)(render::Scene& s) = nullptr;
+
 render::Scene buildScene() {
     AppState& app = shellState();
     syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
@@ -378,7 +382,7 @@ render::Scene buildScene() {
     if (gLayers.doodads != gLayers.sprites)
         for (const Doodad& dd : ed.doodads())
             if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
-    for (const MapSprite& m : ed.sprites()) {
+    for (const MapSprite& m : gLiveScene ? std::vector<MapSprite>{} : ed.sprites()) {
         if (!gLayers.doodads || !gLayers.sprites) {
             const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
             if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
@@ -405,7 +409,7 @@ render::Scene buildScene() {
             if (!moving[i]) others.push_back(units[i]);
     }
     ed.setMapRevealersHidden(!gLayers.revealers);  // (the layer's state: the revealers are not picked while hidden)
-    for (size_t i = 0; i < units.size() && gLayers.units; ++i) {
+    for (size_t i = 0; i < units.size() && gLayers.units && !gLiveScene; ++i) {
         if (!gLayers.revealers && units[i].type == kMapRevealerUnit) continue;
         bool sel = (moveDX || moveDY) && moving[i];
         bool red = false;
@@ -421,6 +425,7 @@ render::Scene buildScene() {
         addUnitSprites(s, units[i], 0, 0, 1, false, true);
     }
     std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
+    if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)
 
     // Locations.
     if (app.showLocations || app.mode == Mode::Locations) {

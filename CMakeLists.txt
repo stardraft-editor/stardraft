@@ -229,11 +229,24 @@ target_link_libraries(commands_test PRIVATE stardraft)
 add_executable(help_test tools/tests/help_test.cpp)
 target_link_libraries(help_test PRIVATE stardraft)
 
+# Experimental (branch experimental-simulation): the simulation of mining and combat (docs/dev/SIMULATION.md), which
+# Edit > Tools > Simulate (sdl_simulation.inc) and the command line's simulate-* commands run, and its test against the
+# reference results.
+add_library(stardraft_sim STATIC tools/sim/engine.cpp tools/sim/data.cpp tools/sim/mining.cpp tools/sim/combat.cpp
+    tools/sim/rules.cpp)
+target_include_directories(stardraft_sim PUBLIC tools/sim)
+target_link_libraries(stardraft_sim PUBLIC stardraft)
+add_executable(sim_test tools/tests/sim_test.cpp)
+target_link_libraries(sim_test PRIVATE stardraft_sim)
+
 # The editor without a window, for scripts and agents (docs/dev/CLI.md). It needs no GPU and no SDL.
 add_executable(stardraft_cli apps/cli/main.cpp $<$<BOOL:${WIN32}>:apps/common/install_win32.cpp>)
 set_target_properties(stardraft_cli PROPERTIES OUTPUT_NAME stardraft-cli)
 target_include_directories(stardraft_cli PRIVATE src apps/common)
 target_link_libraries(stardraft_cli PRIVATE stardraft)
+# simulate-mining, simulate-combat (apps/cli/simulate.inc; experimental)
+target_compile_definitions(stardraft_cli PRIVATE STARDRAFT_SIMULATION)
+target_link_libraries(stardraft_cli PRIVATE stardraft_sim)
 if(MSVC)
     target_compile_options(stardraft_cli PRIVATE /W4 /utf-8)
     target_link_options(stardraft_cli PRIVATE /ENTRY:wmainCRTStartup)
@@ -530,6 +543,9 @@ if(STARDRAFT_RENDERER)
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
+    # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)
+    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_SIMULATION)
+    target_link_libraries(${sdlEditor} PRIVATE stardraft_sim)
     if(WIN32)
         # The program's icons (the window, the taskbar, Explorer), its manifest (per monitor DPI, UTF-8, long paths), its
         # version resource, and its files: the icon atlases, the app icon and Noto Sans (the Latin font when Segoe UI is

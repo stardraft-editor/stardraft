@@ -42,8 +42,9 @@ public:
     static constexpr int kWaitMs = 500;  // (Windows' double-click time by default)
     static constexpr int kBelow = 21;    // the tip's top below the pointer's hot spot (at 100 %; the arrow's height)
 
-    // The mouse is at `pt` in `root` (a window's root view), on a part with the tip `t` (empty: none).
-    void moved(draw::View& root, draw::Point pt, std::wstring t) {
+    // The mouse is at `pt` in `root` (a window's root view), on a part with the tip `t` (empty: none). `waitMs`: a
+    // shorter wait for a part whose tip is its purpose (an info icon); -1: the usual wait.
+    void moved(draw::View& root, draw::Point pt, std::wstring t, int waitMs = -1) {
         if (&root != owner_) hide(), cancel(), text_.clear(), popped_ = false, owner_ = &root;
         at_ = pt;
         if (t == text_) return;  // the same part (or still none): the tip stays, or its wait goes on
@@ -52,7 +53,8 @@ public:
         text_ = std::move(t), popped_ = false;
         if (text_.empty()) return cancel();
         const bool recent = std::chrono::steady_clock::now() - hiddenAt_ < std::chrono::milliseconds(kWaitMs);
-        start(was || recent ? std::max(1, kWaitMs / 10) : kWaitMs);
+        const int wait = waitMs >= 0 ? waitMs : kWaitMs;
+        start(was || recent ? std::max(1, std::min(wait, kWaitMs / 10)) : wait);
     }
     // The tip of `root` goes and waits for the next move (a press, a wheel turn, a key, the mouse left; the window
     // closed: then `root` is forgotten).

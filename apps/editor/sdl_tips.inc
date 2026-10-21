@@ -5,5 +5,5 @@
 HoverTipper gHoverTips;
 void sdlHover(draw::View& root, draw::Point pt, const std::wstring& tip, bool reset) {
     if (reset) gHoverTips.reset(root);
-    else gHoverTips.moved(root, pt, tip);
+    else gHoverTips.moved(root, pt, tip, simTipIsQuick(tip) ? 80 : -1);
 }

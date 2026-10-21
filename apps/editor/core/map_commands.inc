@@ -62,9 +62,13 @@ void toggleRevealers() {
     shellState().dirty = true;
 }
 
-// Edit > Tools > Place map revealers: the players' dialog (the host: showMapRevealersDialog, sdl_map_dialogs.inc), then a
+// Tools > Place map revealers: the players' dialog (the host: showMapRevealersDialog, sdl_map_dialogs.inc), then a
 // revealer for each chosen player on each square of 8 tiles over the map (Editor::placeMapRevealers). One undo step.
 bool showMapRevealersDialog(std::vector<uint8_t>& owners);
+#ifdef STARDRAFT_SIMULATION
+void simulateMiningCommand();  // (sdl_simulation.inc)
+void simulateCombatCommand();
+#endif
 void placeMapRevealersCommand() {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -75,7 +79,7 @@ void placeMapRevealersCommand() {
     setMessage(n ? L"Placed " + std::to_wstring(n) + L" map revealers" : std::wstring(tr(L"Nothing placed: each chosen player has a map revealer on every square")));
 }
 
-// Edit > Tools > Remove all map revealers: every Map Revealer, of every player. One undo step.
+// Tools > Remove all map revealers: every Map Revealer, of every player. One undo step.
 void removeMapRevealersCommand() {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -302,6 +306,10 @@ void registerMapCommands() {
         }
     }
     addCommand(ID_REVEAL_PLACE, "edit.revealers.place", L"Place &map revealers\x2026", "Edit/Tools", L"", [] { placeMapRevealersCommand(); });
+#ifdef STARDRAFT_SIMULATION  // (experimental: sdl_simulation.inc)
+    addCommand(ID_SIM_MINING, "edit.simulate.mining", L"Simulate &mining", "Edit/Tools", L"Ctrl+Alt+M", [] { simulateMiningCommand(); });
+    addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
+#endif
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
     // View: the camera. + and - are the map view's own keys (they also work with the number pad).
