@@ -220,6 +220,48 @@ struct TabsView final : stardraft::draw::View {
         }
         gNewTabHit = {x, 0, x + scale(30), h};
         c.text(gNewTabHit, L"+", kDim, center);
+        if (keys.shows(*this, itemCount())) paintFocusOutline(c, itemRect(keys.at));
+    }
+
+    // The keyboard: Tab goes through each tab and its x, then the +; Left and Right too. Enter and Space activate the
+    // tab, close it (its x) or open the New page (the +).
+    ItemFocus keys;
+    int itemCount() const { return int(gTabHits.size()) * 2 + 1; }
+    stardraft::draw::Rect itemRect(int k) const {
+        if (k >= int(gTabHits.size()) * 2) return stardraft::draw::Rect(gNewTabHit);
+        const TabHit& t = gTabHits[size_t(k / 2)];
+        return stardraft::draw::Rect(k % 2 ? t.close : t.tab);
+    }
+    bool focusable() const override { return true; }
+    bool focusOnClick() const override { return false; }  // (a press gives the keyboard to the map: pressAt)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool back) override { keys.enter(back, itemCount()), invalidate(); }
+    bool tabWithin(bool back) override { return keys.step(back, itemCount()) && (invalidate(), true); }
+    bool key(const stardraft::draw::KeyEvent& e) override {
+        const int k = keys.index(itemCount());
+        if (k < 0) return false;
+        if (pressKey(e)) {
+            const int i = k / 2;
+            keys.keys = true;
+            if (k >= int(gTabHits.size()) * 2) pressFromKeys([] { shellPostCommand(ID_FILE_NEW); });
+            else if (k % 2) pressFromKeys([i] { closeDoc(i); });
+            else pressFromKeys([i] { activateDoc(i); });
+            keys.at = std::min(keys.at, int(gDocs.size()) * 2);  // (a closed tab: its strip is shorter after the repaint)
+            invalidate();
+            return true;
+        }
+        if (e.down && !e.mods && (e.key == stardraft::draw::Key::Left || e.key == stardraft::draw::Key::Right)) {
+            keys.move(e.key == stardraft::draw::Key::Left ? -1 : 1, itemCount());
+            invalidate();
+            return true;
+        }
+        return false;
+    }
+    std::wstring focusedItem() const override {
+        const int k = keys.index(itemCount());
+        if (k < 0) return {};
+        if (k >= int(gTabHits.size()) * 2 || k / 2 >= int(gDocs.size())) return L"New";
+        return (k % 2 ? L"Close " : L"") + docTitle(k / 2);
     }
     bool mouse(const stardraft::draw::MouseEvent& e) override {
         using stardraft::draw::MouseKind;
@@ -258,6 +300,7 @@ struct TabsView final : stardraft::draw::View {
         case MouseKind::Down:
         case MouseKind::DoubleClick:  // (the old tab strip had no double clicks: a second press is a press)
             if (e.button != 0) return false;
+            keys.pressed();
             if (PtInRect(&gNewTabHit, pt)) {
                 shellPostCommand(ID_FILE_NEW);  // the New page: a map or a project
                 return true;

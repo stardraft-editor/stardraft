@@ -111,7 +111,7 @@ public:
     bool focusable() const override { return tabStop_; }
     bool typesText() const override { return true; }
     void focusChanged(bool has) override;
-    void tabbedTo() override;
+    void tabbedTo(bool back) override;
     void captureLost() override;
 
 private:

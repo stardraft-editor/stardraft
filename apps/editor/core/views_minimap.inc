@@ -112,12 +112,36 @@ struct MinimapView final : stardraft::draw::View {
         const RECT v = minimapView(r, sc);
         c.fill(v, kAccent, 36);
         c.frame(v, kAccentBright);
+        if (keyFocus && hasFocus()) paintFocusOutline(c, all);
     }
+
+    // The keyboard: one Tab stop; the arrow keys move the map's view a quarter of its size.
+    bool keyFocus = false;  // the focus came from Tab: the outline shows
+    bool focusable() const override { return shellState().ed && shellState().ed->isOpen(); }
+    bool focusOnClick() const override { return false; }  // (a click leaves the keyboard where it is)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool) override { keyFocus = true, invalidate(); }
+    bool key(const stardraft::draw::KeyEvent& e) override {
+        using stardraft::draw::Key;
+        AppState& app = shellState();
+        if (!e.down || e.mods || !app.ed || app.zoom <= 0) return false;
+        const int dx = e.key == Key::Left ? -1 : e.key == Key::Right ? 1 : 0, dy = e.key == Key::Up ? -1 : e.key == Key::Down ? 1 : 0;
+        if (!dx && !dy) return false;
+        int vw, vh;
+        viewSize(vw, vh);
+        app.camX += float(dx * vw) / 4.0f / app.zoom, app.camY += float(dy * vh) / 4.0f / app.zoom;
+        clampCamera();
+        app.dirty = true;
+        invalidate();
+        return true;
+    }
+    std::wstring focusedItem() const override { return keyFocus ? L"Minimap" : L""; }
     bool mouse(const stardraft::draw::MouseEvent& e) override {
         using stardraft::draw::MouseKind;
         if (e.button != 0 && (e.kind == MouseKind::Down || e.kind == MouseKind::Up)) return false;  // (right click: the dock menu)
         switch (e.kind) {
         case MouseKind::Down:
+            keyFocus = false;
             dragging = true;
             if (auto* h = host()) h->capture(*this, true);
             minimapJump(e.pt.x, e.pt.y);

@@ -126,6 +126,7 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     else if (name == "End") out = draw::Key::End;
     else if (name == "Enter") out = draw::Key::Enter;
     else if (name == "Esc") out = draw::Key::Escape;
+    else if (name == "Space") out = draw::Key::Space;
     else if (name == "Left") out = draw::Key::Left;  // (the arrows: --key in a snapshot)
     else if (name == "Right") out = draw::Key::Right;
     else if (name == "Up") out = draw::Key::Up;
@@ -560,6 +561,21 @@ void sdlFocusLine() {
         kind = "check box", text = narrow(cb->label());
     } else if (dynamic_cast<const kit::Dropdown*>(f)) {
         kind = "dropdown";
+    } else {  // a view with parts of its own: which view, and the part with the focus (View::focusedItem)
+        if (dynamic_cast<const kit::MenuBar*>(f)) kind = "menu bar";
+        else if (dynamic_cast<const TopBarView*>(f)) kind = "top bar";
+        else if (dynamic_cast<const ModeBarView*>(f)) kind = "modes";
+        else if (dynamic_cast<const TabsView*>(f)) kind = "tabs";
+        else if (dynamic_cast<const RailView*>(f)) kind = "rail";
+        else if (dynamic_cast<const PanelTabsView*>(f)) kind = "panel tabs";
+        else if (dynamic_cast<const ToolStripView*>(f)) kind = "tool strip";
+        else if (dynamic_cast<const PaletteGridView*>(f)) kind = "palette";
+        else if (dynamic_cast<const MinimapView*>(f)) kind = "minimap";
+        else if (dynamic_cast<const MapView*>(f)) kind = "map";
+        else if (dynamic_cast<const LogPaneView*>(f)) kind = "log";
+        else if (dynamic_cast<const msgbox::MessageView*>(f)) kind = "message box";
+        else if (dynamic_cast<const PartStop*>(f)) kind = "part";
+        text = narrow(f->focusedItem());
     }
     std::string shown;  // (one line: a line end as \n)
     for (const char ch : text)
@@ -592,6 +608,7 @@ void sdlPressKey(const std::string& chord) {
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
     draw::Point size;
     draw::View& target = sdlShotTarget(size);
+    gHost->snapshotLayout(target);  // (a window that an input opened has painted before a key comes, as on the screen)
     gHost->snapshotKey(target, size.x, size.y, e);  // (the view with the focus first, then its parents: the window's keys)
     runPosted();
     sdlInputLine("key " + chord);

@@ -68,6 +68,36 @@ struct PanelTabsView final : stardraft::draw::View {
             tabs.push_back({r, m});
         }
         c.fill({0, rc.bottom - 1, rc.right, rc.bottom}, kBorder);
+        if (keys.shows(*this, int(tabs.size()))) paintFocusOutline(c, tabs[size_t(keys.at)].r);
+    }
+
+    // The keyboard: Tab goes through the tabs (Left and Right too); Enter and Space show the tab's panel (its mode).
+    ItemFocus keys;
+    bool focusable() const override { return !tabs.empty(); }
+    bool focusOnClick() const override { return false; }  // (a click gives the keyboard to the map)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool back) override { keys.enter(back, int(tabs.size())), invalidate(); }
+    bool tabWithin(bool back) override { return keys.step(back, int(tabs.size())) && (invalidate(), true); }
+    bool key(const stardraft::draw::KeyEvent& e) override {
+        const int k = keys.index(int(tabs.size()));
+        if (k < 0) return false;
+        if (pressKey(e)) {
+            const Mode m = tabs[size_t(k)].m;
+            keys.keys = true;
+            pressFromKeys([m] { setMode(m); });
+            invalidate();
+            return true;
+        }
+        if (e.down && !e.mods && (e.key == stardraft::draw::Key::Left || e.key == stardraft::draw::Key::Right)) {
+            keys.move(e.key == stardraft::draw::Key::Left ? -1 : 1, int(tabs.size()));
+            invalidate();
+            return true;
+        }
+        return false;
+    }
+    std::wstring focusedItem() const override {
+        const int k = keys.index(int(tabs.size()));
+        return k < 0 ? std::wstring() : std::wstring(kModeNames[int(tabs[size_t(k)].m)]);
     }
     bool mouse(const MouseEvent& e) override {
         switch (e.kind) {
@@ -80,6 +110,7 @@ struct PanelTabsView final : stardraft::draw::View {
         case MouseKind::Down:
         case MouseKind::DoubleClick: {  // (the class has CS_DBLCLKS: a second click comes as a double click)
             if (e.button != 0) return false;
+            keys.pressed();
             const int k = tabAt(e.pt);
             if (k >= 0) {
                 const Mode m = tabs[size_t(k)].m;

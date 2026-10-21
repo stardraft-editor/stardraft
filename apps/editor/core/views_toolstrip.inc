@@ -44,7 +44,16 @@ struct StripHit {
 class StripNumberField final : public stardraft::kit::TextField {
 public:
     std::function<void(int)> onStep;  // +1 or -1
+    // Space pressed the value part (Tab's focus, item_focus.inc) and the field took the keyboard: the space that the
+    // same key types next is not typed into the number.
+    bool dropSpace = false;
+    using TextField::text;  // (the field's text())
+    bool text(const draw::TextEvent& e) override {
+        if (std::exchange(dropSpace, false) && e.utf8 == " ") return true;
+        return TextField::text(e);
+    }
     bool key(const draw::KeyEvent& e) override {
+        if (e.down && e.key != draw::Key::Space) dropSpace = false;
         if (e.down && (e.key == draw::Key::Up || e.key == draw::Key::Down) && onStep) {
             onStep(e.key == draw::Key::Up ? 1 : -1);
             return true;
@@ -530,6 +539,37 @@ public:
         c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.
         (void)H;
+        if (keys_.shows(*this, int(hits_.size()))) paintFocusOutline(c, hits_[size_t(keys_.at)].r);    }
+
+    // The keyboard: Tab goes through the strip's parts in their order (Left and Right too); Enter and Space press the
+    // part with the focus (a number's value: it can be typed then).
+    bool focusable() const override { return !hits_.empty(); }
+    bool focusOnClick() const override { return false; }  // (a click leaves the keyboard where it is)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool back) override { keys_.enter(back, int(hits_.size())), invalidate(); }
+    bool tabWithin(bool back) override { return keys_.step(back, int(hits_.size())) && (invalidate(), true); }
+    bool key(const draw::KeyEvent& e) override {
+        const int k = keys_.index(int(hits_.size()));
+        if (k < 0 || !hasFocus()) return false;  // (not a key of the number field)
+        if (pressKey(e)) {
+            const std::function<void()> click = hits_[size_t(k)].click;  // (the click may repaint, which clears the hits)
+            if (state && state != gActivePanel) activatePanel(state);
+            PanelScope scope(state);
+            keys_.keys = true;
+            pressFromKeys(click);
+            invalidate();
+            return true;
+        }
+        if (e.down && !e.mods && (e.key == draw::Key::Left || e.key == draw::Key::Right)) {
+            keys_.move(e.key == draw::Key::Left ? -1 : 1, int(hits_.size()));
+            invalidate();
+            return true;
+        }
+        return false;
+    }
+    std::wstring focusedItem() const override {
+        const int k = keys_.index(int(hits_.size()));
+        return k < 0 ? std::wstring() : hits_[size_t(k)].tip;
     }
 
     bool mouse(const draw::MouseEvent& e) override {
@@ -564,6 +604,7 @@ public:
             return false;
         case draw::MouseKind::Down: {
             if (e.button != 0) return false;
+            keys_.pressed();
             if (editing_ >= 0) {  // a click elsewhere ends the typing (it is kept)
                 endEdit(true);
                 shellFocusView();
@@ -630,6 +671,7 @@ private:
         field_.setText(stripNumberText(which));
         field_.model().selectAll();
         field_.setVisible(true);
+        field_.dropSpace = keyPressRuns();
         field_.focus();
         shellToolsChanged();
     }
@@ -648,6 +690,7 @@ private:
     StripNumberField field_;
     std::vector<StripHit> hits_;
     std::vector<std::pair<draw::Rect, int>> numbers_;  // the number boxes (for the wheel)
+    ItemFocus keys_;     // the part with the keyboard focus (an index into hits_)
     int editing_ = -1;   // the number box being typed into
     int pressed_ = -1;   // the hit the mouse is down on
     draw::Point hover_;  // the pointer, as last moved

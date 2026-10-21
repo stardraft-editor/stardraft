@@ -2,6 +2,9 @@
 // click area, as ui_kit.inc's Surface does for a Win32 window. A view keeps a Surface, calls begin() before its paint,
 // paints with the functions below, and gives the Surface its mouse events, its cursor and its tips. Under the mouse:
 // the part the mouse is on (a new part repaints the view). A part with a drag takes the mouse until it goes up.
+// The keyboard (item_focus.inc): the parts with a click are the view's Tab stops, in the order they are added (add them
+// in the order of the screen). The view gives the Surface its keys, its tabbedTo and tabWithin, and calls paintFocus
+// after its paint: Enter and Space click the part with the focus, Left and Right move the focus, an outline shows it.
 
 namespace kitui {
 
@@ -30,10 +33,62 @@ public:
     Reorder reorder;
     std::map<std::string, std::vector<draw::Rect>> reorderRows;  // this paint's rows of each list
 
+    ItemFocus focus;  // the part with the keyboard focus: an index into stops()
+
     void begin() { hits.clear(); }
     void add(Hit h) { hits.push_back(std::move(h)); }
     // Whether the mouse is in `r` (as the view saw it last).
     bool hot(draw::Rect r) const { return in_ && r.contains(mouse_); }
+
+    // The Tab stops: the hits with a click, in their order (as the last paint added them).
+    std::vector<const Hit*> stops() const {
+        std::vector<const Hit*> out;
+        for (const Hit& h : hits)
+            if (h.click && !h.r.empty()) out.push_back(&h);
+        return out;
+    }
+    int stopCount() const { return int(stops().size()); }
+    // The part with the focus (null: none).
+    const Hit* focused() const {
+        const auto s = stops();
+        const int i = focus.index(int(s.size()));
+        return i >= 0 ? s[size_t(i)] : nullptr;
+    }
+    // Tab gave `v` the focus: its first part (back: its last).
+    void tabbedTo(draw::View& v, bool back) {
+        focus.enter(back, stopCount());
+        v.invalidate();
+    }
+    // Tab in `v`: its next part (back: the one before). false: none (the focus leaves the view).
+    bool tabWithin(draw::View& v, bool back) {
+        if (!focus.step(back, stopCount())) return false;
+        v.invalidate();
+        return true;
+    }
+    // The keys of `v` while it has the focus: Enter and Space click the part with the focus; Left and Right move it.
+    bool key(draw::View& v, const draw::KeyEvent& e) {
+        if (pressKey(e)) {
+            const Hit* h = focused();
+            if (!h) return false;
+            const std::function<void()> click = h->click;  // (the click may repaint, which clears the hits)
+            focus.keys = true;
+            pressFromKeys(click);
+            v.invalidate();
+            return true;
+        }
+        if (e.down && !e.mods && (e.key == draw::Key::Left || e.key == draw::Key::Right) && focused()) {
+            focus.move(e.key == draw::Key::Left ? -1 : 1, stopCount());
+            v.invalidate();
+            return true;
+        }
+        return false;
+    }
+    // After the view's paint: the outline on the part with the focus (when the focus came from the keyboard).
+    void paintFocus(draw::Canvas& c, const draw::View& v) const {
+        if (!focus.keys || !v.hasFocus())
+            return;
+        if (const Hit* h = focused()) paintFocusOutline(c, h->r);
+    }
 
     // The view's mouse events: true when used. `v` is the view (its host takes the capture during a drag).
     bool mouse(draw::View& v, const draw::MouseEvent& e) {
@@ -64,6 +119,10 @@ public:
             mouse_ = e.pt, in_ = true;
             v.focus();
             const Hit* h = at(e.pt);
+            focus.pressed();  // (no outline after a click; Tab goes on from the part clicked)
+            const auto s = stops();
+            for (size_t i = 0; i < s.size(); ++i)
+                if (s[i] == h) focus.at = int(i);
             if (h && h->drag) {  // a drag: until the mouse goes up (a click if it does not move)
                 grab_.drag = h->drag, grab_.click = h->click, grab_.release = h->release, grab_.down = true, grab_.moved = false;
                 if (v.host()) v.host()->capture(v, true);

@@ -8,6 +8,7 @@
 void command(int id);
 bool commandEnabled(int id);  // the command's menu item is enabled now (the icons are gray when it is not)
 bool topBarModesShown();      // the modes' control shows in the bar now (Build goes after it then)
+bool modeBarTabIn(bool back);  // Tab gives the modes' control the focus: its first mode (back: its last)
 
 int topBarHeight() { return scale(40); }
 
@@ -70,35 +71,6 @@ struct TopBarView final : stardraft::draw::View {
         }
         // The right end: Build (a project; its icon and name), then Report feedback in the corner.
         const Font ui = c.font({draw::Face::Ui, 0});  // the UI font (the message font)
-        const int rx = w - scale(8);
-        // The icon and its label "Report feedback" (GitHub feedback #96).
-        const Font ofb = c.setFont(ui);
-        const std::wstring fbText = L"Report feedback";
-        const int fbw = b + c.measure(fbText) + scale(12);
-        const RECT fb{rx - fbw, y, rx, y + b};
-        const bool fhot = surface.hot(fb);
-        if (fhot) kitpaint::drawBox(c, fb, kCtlHot, draw::kNone);
-        c.icon({fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, int(UiIcon::Feedback), fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
-        c.text({fb.left + b - scale(2), y, fb.right - scale(6), y + b}, fbText, fhot ? kText : kDim, kMiddle);
-        c.setFont(ofb);
-        surface.add({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", draw::Cursor::Hand});
-        // Update, before it: a newer release is out (the update check at start and each hour found it). Tinted with the
-        // accent; a click shows its release notes, with Install.
-        updateRc = {};
-        if (const std::optional<releases::Release>& up = releases::available()) {
-            const Font ofu = c.setFont(ui);
-            const std::wstring label = topBarUpdateLabel();
-            const int bh = scale(stardraft::kit::kButtonH), uy = (h - bh) / 2;
-            const int uw = scale(12) + scale(16) + scale(8) + c.measure(label) + scale(14);
-            const RECT ub{fb.left - scale(8) - uw, uy, fb.left - scale(8), uy + bh};
-            const bool uhot = surface.hot(ub);
-            kitpaint::drawBox(c, ub, uhot ? kSelHot : kSel, kAccentLine);
-            c.icon({ub.left + scale(12), ub.top, ub.left + scale(12) + scale(16), ub.bottom}, int(UiIcon::Update), kAccentBright, scale(16));
-            c.text({ub.left + scale(12) + scale(16) + scale(8), ub.top, ub.right, ub.bottom}, label, kOnText, kMiddle);
-            c.setFont(ofu);
-            surface.add({ub, nullptr, [] { command(ID_UPDATE_NOTES); }, topBarUpdateTip(*up), draw::Cursor::Hand});
-            updateRc = ub;
-        }
         if (activeProject()) {
             const std::wstring text = gBuilding ? L"Building" : L"Build";
             const Font of2 = c.setFont(ui);
@@ -141,7 +113,38 @@ struct TopBarView final : stardraft::draw::View {
                             : L"Debug mode: Build adds index checks and the trace for epTrace (Project page > Build)",
                          draw::Cursor::Hand});
         }
+        const int rx = w - scale(8);
+        // The icon and its label "Report feedback" (GitHub feedback #96).
+        const Font ofb = c.setFont(ui);
+        const std::wstring fbText = L"Report feedback";
+        const int fbw = b + c.measure(fbText) + scale(12);
+        const RECT fb{rx - fbw, y, rx, y + b};
+        const bool fhot = surface.hot(fb);
+        if (fhot) kitpaint::drawBox(c, fb, kCtlHot, draw::kNone);
+        c.icon({fb.left + scale(4), y, fb.left + scale(4) + b - scale(8), y + b}, int(UiIcon::Feedback), fhot ? kFeedback : kDim, scale(16));  // quiet; its color under the mouse
+        c.text({fb.left + b - scale(2), y, fb.right - scale(6), y + b}, fbText, fhot ? kText : kDim, kMiddle);
+        c.setFont(ofb);
+        surface.add({fb, nullptr, [] { command(ID_HELP_FEEDBACK); }, L"Report feedback: what works, what does not, ideas", draw::Cursor::Hand});
+        // Update, before it: a newer release is out (the update check at start and each hour found it). Tinted with the
+        // accent; a click shows its release notes, with Install.
+        updateRc = {};
+        if (const std::optional<releases::Release>& up = releases::available()) {
+            const Font ofu = c.setFont(ui);
+            const std::wstring label = topBarUpdateLabel();
+            const int bh = scale(stardraft::kit::kButtonH), uy = (h - bh) / 2;
+            const int uw = scale(12) + scale(16) + scale(8) + c.measure(label) + scale(14);
+            const RECT ub{fb.left - scale(8) - uw, uy, fb.left - scale(8), uy + bh};
+            const bool uhot = surface.hot(ub);
+            kitpaint::drawBox(c, ub, uhot ? kSelHot : kSel, kAccentLine);
+            c.icon({ub.left + scale(12), ub.top, ub.left + scale(12) + scale(16), ub.bottom}, int(UiIcon::Update), kAccentBright, scale(16));
+            c.text({ub.left + scale(12) + scale(16) + scale(8), ub.top, ub.right, ub.bottom}, label, kOnText, kMiddle);
+            c.setFont(ofu);
+            surface.add({ub, nullptr, [] { command(ID_UPDATE_NOTES); }, topBarUpdateTip(*up), draw::Cursor::Hand});
+            updateRc = ub;
+            std::swap(surface.hits[surface.hits.size() - 2], surface.hits.back());  // (Tab: Update, then Report feedback)
+        }
         c.fill({0, h - 1, w, h}, kBorder);  // the line under the bar
+        surface.paintFocus(c, *this);
     }
     bool mouse(const stardraft::draw::MouseEvent& e) override {
         // The bar has the focus while the part runs (a press); the release gives it to the map view.
@@ -151,6 +154,47 @@ struct TopBarView final : stardraft::draw::View {
             return true;
         }
         return surface.mouse(*this, e);
+    }
+
+    // The keyboard: Tab goes through the icons, the modes (their own view, between the icons and Build), Build, Debug
+    // mode, Update and Report feedback; Enter and Space press the part with the focus.
+    bool focusable() const override { return surface.stopCount() > 0; }
+    bool focusOnClick() const override { return false; }  // (a press focuses the bar until the release: mouse)
+    void focusChanged(bool) override { invalidate(); }
+    bool key(const stardraft::draw::KeyEvent& e) override { return surface.key(*this, e); }
+    std::wstring focusedItem() const override {
+        const kitui::Hit* h = surface.focused();
+        return h ? h->tip : std::wstring();
+    }
+    // Whether stop `i` is before the modes (they show between the icons and Build).
+    bool beforeModes(int i) const {
+        const auto s = surface.stops();
+        return i >= 0 && i < int(s.size()) && s[size_t(i)]->r.left < int(topBarModesRect().left);
+    }
+    void tabbedTo(bool back) override {
+        surface.tabbedTo(*this, back);
+        if (!back && topBarModesShown() && !beforeModes(0)) modeBarTabIn(false);  // (no icon is usable: the modes first)
+    }
+    bool tabWithin(bool back) override {
+        const int n = surface.stopCount(), i = surface.focus.index(n), j = i + (back ? -1 : 1);
+        if (i < 0) return false;
+        // Across the modes: they take the focus.
+        if (topBarModesShown() && (back ? !beforeModes(i) && (j < 0 || beforeModes(j)) : beforeModes(i) && (j >= n || !beforeModes(j))))
+            return modeBarTabIn(back), true;
+        return surface.tabWithin(*this, back);
+    }
+    // The modes give the focus back (Tab after the last mode, Shift+Tab before the first): the first part after them
+    // (back: the last part before them). false: there is none.
+    bool focusBesideModes(bool back) {
+        const int n = surface.stopCount();
+        int k = -1;
+        for (int i = 0; i < n; ++i)
+            if (back ? beforeModes(i) : !beforeModes(i) && k < 0) k = i;
+        if (k < 0) return false;
+        focus();
+        surface.focus.at = k, surface.focus.keys = true;
+        invalidate();
+        return true;
     }
     stardraft::draw::Cursor cursor(stardraft::draw::Point p) override { return surface.cursor(p); }
     std::wstring tip(stardraft::draw::Point p) override { return surface.tip(p); }

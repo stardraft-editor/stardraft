@@ -114,6 +114,7 @@ struct RailView final : stardraft::draw::View {
             gWsHits.push_back({r, it.id, std::wstring(tr(it.tip)) + (n <= 9 ? L" (Ctrl+" + std::to_wstring(n) + L")" : L"")});
             y += itemH + scale(4);
         }
+        if (keys.shows(*this, int(gWsHits.size()))) paintFocusOutline(c, stardraft::draw::Rect(gWsHits[size_t(keys.at)].r));
     }
     bool mouse(const stardraft::draw::MouseEvent& e) override {
         using stardraft::draw::MouseKind;
@@ -130,6 +131,9 @@ struct RailView final : stardraft::draw::View {
             return true;
         }
         case MouseKind::Leave: gWsHot = -1, invalidate(); return true;
+        case MouseKind::Down:
+            if (e.button == 0) keys.pressed();  // (no outline after a click)
+            return false;
         case MouseKind::Up:
             if (e.button != 0) return false;
             for (const auto& h : gWsHits)
@@ -145,6 +149,34 @@ struct RailView final : stardraft::draw::View {
         for (const auto& h : gWsHits)
             if (PtInRect(&h.r, POINT{p.x, p.y})) return h.name;
         return {};
+    }
+    // The keyboard: Tab goes through the items, top down (Up and Down too); Enter and Space open the item.
+    ItemFocus keys;
+    bool focusable() const override { return !gWsHits.empty(); }
+    bool focusOnClick() const override { return false; }  // (a click leaves the keyboard where it is)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool back) override { keys.enter(back, int(gWsHits.size())), invalidate(); }
+    bool tabWithin(bool back) override { return keys.step(back, int(gWsHits.size())) && (invalidate(), true); }
+    bool key(const stardraft::draw::KeyEvent& e) override {
+        const int k = keys.index(int(gWsHits.size()));
+        if (k < 0) return false;
+        if (pressKey(e)) {
+            const int id = gWsHits[size_t(k)].id;
+            keys.keys = true;
+            pressFromKeys([id] { command(id); });
+            invalidate();
+            return true;
+        }
+        if (e.down && !e.mods && (e.key == stardraft::draw::Key::Up || e.key == stardraft::draw::Key::Down)) {
+            keys.move(e.key == stardraft::draw::Key::Up ? -1 : 1, int(gWsHits.size()));
+            invalidate();
+            return true;
+        }
+        return false;
+    }
+    std::wstring focusedItem() const override {
+        const int k = keys.index(int(gWsHits.size()));
+        return k < 0 ? std::wstring() : gWsHits[size_t(k)].name;
     }
     // The rail's labels: the UI font at 5/6 of its height.
     static int railLabelHeight() { return shellUiFontLfHeight() * 5 / 6; }

@@ -104,6 +104,8 @@ public:
     draw::Cursor cursor(draw::Point) override { return draw::Cursor::Hand; }
     bool focusable() const override { return true; }
     void focusChanged(bool has) override;
+    void tabbedTo(bool back) override;
+    std::wstring focusedItem() const override;
     ~MenuBar() override;
 
 private:
@@ -117,6 +119,7 @@ private:
     bool measured_ = false;            // names_ and layouts_ are up to date (see setMenus and paint)
     float measuredScale_ = 0;          // the display scale they were measured at
     int open_ = -1, hot_ = -1, hover_ = -1;
+    bool keys_ = false;                // the keyboard moved the focus to hot_ (its outline shows; not after a click)
     int closedAt_ = -1;                // a click outside closed the menu at this name: its press does not open it again
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // what the menus' callbacks check before they touch us
 };

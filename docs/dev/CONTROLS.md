@@ -95,6 +95,15 @@ a title. Numbers in fields are right-aligned in the monospace font (the Data for
 | Pop-out | `ui::popupFrame` | The list picker (and its multi-pick mode), the quick picker, the value pop-out, the button pop-out: rounded corners and a border from Windows 11. |
 | Painted page | `ui::Surface` | A page drawn with the kit: click areas, drags, hover repaint, cursors, tooltips, right-click menus (`DataWidgetHit::context`: the row's menu) (Files, the Project page, the gallery, Classic triggers). |
 
+**The keyboard focus.** Tab and Shift+Tab go to each part that a click uses, in the order of the screen. In the main
+window: the menu bar, the top bar (its icons, the modes, Build, Debug mode, Update, Report feedback), the document tabs
+(each tab, its x, the +), the rail, the left side bar from the top down (the minimap, the panel tabs, the tool strip, the
+boxes, the list), the map, the right side bar, the Log's bar. Enter and Space press the part with the focus; the arrow
+keys move in a strip or a list; Esc gives the keyboard back to the map. A part that a view paints itself shows the focus
+with a 2 px accent outline (`core/item_focus.inc`: `ItemFocus`, `PartStop`; `kitui::Surface` gives its click areas the
+same keys). The outline shows only when the keyboard moved the focus, not after a click. Each new view with click areas
+of its own does the same: `View::tabbedTo`, `tabWithin`, `focusOnClick` (`apps/common/view.h`).
+
 ## The rail and the map pages
 
 The rail (`paintWsBar`) is down the left edge, under the tabs. At the top: the workspaces of the tab's mode (a
