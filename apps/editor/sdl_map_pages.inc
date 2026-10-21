@@ -127,10 +127,10 @@ void sdlPropsInfo(MapPropsValues& d) {
     std::wstring t;
     const Editor& ed = *gState.ed;
     if (d.w != ed.width() || d.h != ed.height())
-        t += L"The map becomes " + std::to_wstring(d.w) + L" x " + std::to_wstring(d.h) + L" tiles. StarCraft 2 deletes the parts of the map outside the new size.\r\n";
+        t += L"The map becomes " + std::to_wstring(d.w) + L" x " + std::to_wstring(d.h) + L" tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n";
     if (d.era != int(ed.era()))
         t += L"Each terrain becomes the " + std::wstring(kTilesetNames[d.era & 7]) +
-             L" terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarCraft 2 deletes the doodads, because each tileset has its own doodads.\r\n";
+             L" terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n";
     d.infoText = t;
     sdlPropsInvalidate();
 }
