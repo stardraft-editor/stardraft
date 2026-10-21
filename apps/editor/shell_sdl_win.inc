@@ -308,7 +308,18 @@ bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
 // The title bars follow the theme: the windows open now, and each dialog window before it shows (sdlSetLook calls it
 // again when the theme changes).
 void sdlTitleBarsDark(bool dark) { winsdl::titleBarsDark(dark); }
-void sdlTitleBarOfNewWindow(SDL_Window* w) { winsdl::titleBarDark(w, !gLightTheme); }
+// A new window: its title bar in the theme; a menu or a pop-out (no title bar) gets the small rounded corners of the
+// system's menus (Windows 11; an older Windows keeps square corners).
+void sdlTitleBarOfNewWindow(SDL_Window* w) {
+    if (w && (SDL_GetWindowFlags(w) & SDL_WINDOW_POPUP_MENU)) {
+        if (HWND hwnd = winsdl::windowHandle(w)) {
+            const int roundSmall = 3;  // DWMWCP_ROUNDSMALL
+            DwmSetWindowAttribute(hwnd, 33 /* DWMWA_WINDOW_CORNER_PREFERENCE */, &roundSmall, sizeof roundSmall);
+        }
+        return;
+    }
+    winsdl::titleBarDark(w, !gLightTheme);
+}
 // After the window shows (not in a test run): the title bar in the theme, the reports of a crash, the file types.
 void sdlWindowsShown(bool testRun) {
     winsdl::titleBarsDark(!gLightTheme);
