@@ -243,7 +243,7 @@ void registerMapCommands() {
     addCommand(ID_VIEW_CARBOT, "view.carbot", L"&Carbot (cartooned)", "View", L"", [] { setGraphics(GraphicsQuality::HD, true); }, [] { return shellState().carbot; },
                true);
     // View: what shows
-    addCommand(ID_VIEW_LOCATIONS, "view.locations", L"Show &locations", "View", L"", [] {
+    addCommand(ID_VIEW_LOCATIONS, "view.locations", L"Show &locations in all modes", "View", L"", [] {
         extern int gLayerShows;
         shellState().showLocations = !shellState().showLocations;
         if (shellState().showLocations) ++gLayerShows;
