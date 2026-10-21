@@ -126,6 +126,46 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     return true;
 }
 
+bool Editor::openChk(const Chk& chk, std::string& error) {
+    finishFiles();
+    uint16_t w = 0, h = 0;
+    if (!readDimensions(chk, w, h) || !w || !h) return error = "map has no valid DIM section", false;
+    if (!unitDataLoaded_) {
+        if (!types_.load(data_, error) || !unitSprites_.load(data_, error)) return false;
+        unitDataLoaded_ = true;
+    }
+    chk_ = chk;
+    files_.clear();
+    filesError_.clear();
+    asArchive_ = true;
+    path_.clear();
+    undo_.clear();
+    redo_.clear();
+    selection_.clear();
+    selectLocation(-1);
+    reload();
+    if (tileset_.groups.empty()) {
+        error = "could not load tileset " + std::string(tilesetName(era_));
+        if (!tilesetError_.empty()) error += ": " + tilesetError_;
+        return open_ = false;
+    }
+    open_ = true;
+    modified_ = false;
+    state_ = savedState_ = nextRevision();
+    return true;
+}
+
+bool Editor::takeScenario(const Editor& edited) {
+    if (!edited.open_ || &edited == this) return false;
+    beginEdit();
+    chk_ = edited.chk_;
+    selection_.clear();
+    selectLocation(-1);
+    reload();
+    commit(true);
+    return true;
+}
+
 void Editor::finishFiles() const {
     if (!pendingFiles_.valid()) return;
     try {
@@ -1651,6 +1691,12 @@ std::vector<uint16_t> Editor::tilesetTerrainMap(uint16_t from, uint16_t to, uint
     return out;
 }
 
+void Editor::resizeShift(int& shiftX, int& shiftY) {
+    const int dx = shiftX >= 0 ? shiftX / 2 : -((-shiftX + 1) / 2);
+    if ((dx + shiftY) & 1) shiftY -= 1;
+    shiftX = dx * 2;
+}
+
 bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error) {
     if (!isomOk_) return error = "the map's terrain has no ISOM data, so StarDraft cannot rebuild it", false;
     if (width < 16 || height < 16 || width > 256 || height > 256) return error = "the size must be 16 to 256 tiles", false;
@@ -1659,8 +1705,8 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     if (!oldTable || !newTable) return error = "unknown tileset", false;
     if (!newTable->isTerrain(fill)) return error = "the fill terrain is not one of the tileset's", false;
     // The shift in corners: x in 64 px steps, y in 32 px steps, and x + y even so corners stay corners.
-    int dx = shiftX >= 0 ? shiftX / 2 : -((-shiftX + 1) / 2), dy = shiftY;
-    if ((dx + dy) & 1) dy -= 1;
+    resizeShift(shiftX, shiftY);
+    const int dx = shiftX / 2, dy = shiftY;
     const int px = dx * 64, py = dy * 32;
     // Each old terrain: the new tileset's terrain of the same name, else of the same role (terrainRole), else the fill.
     std::vector<uint16_t> mapTo(oldTable->terrainCount() + 1u, fill);

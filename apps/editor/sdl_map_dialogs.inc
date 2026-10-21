@@ -302,7 +302,7 @@ void showQuickPickerSdl(bool replace, bool open) {
 
 // A dialog's view as the snapshot shows it: the dialog (its content and its buttons) at its own size, without a window.
 // unitprops: the first unit of the map; locprops: the first location in use (else Anywhere); prompt: Rename location
-// with the location's name; quick: the quick picker of the mode (--mode).
+// with the location's name; quick: the quick picker of the mode (--mode); resize: Crop or extend at the map's size.
 struct MapDialogShot {
     std::unique_ptr<UnitPropsView> unit;
     std::unique_ptr<LocationPropsView> loc;
@@ -310,9 +310,13 @@ struct MapDialogShot {
     std::unique_ptr<MapImageView> image;  // mapimage: File > Export map image (core/map_image.inc)
     std::unique_ptr<MapImageProgressView> progress;  // mapimage-progress: its progress window, at part 3 of 16
     std::unique_ptr<RevealersView> revealers;        // revealers: Edit > Tools > Place map revealers
+    std::unique_ptr<ResizeView> resize;              // resize: Map properties > Crop or extend (the map's size, no offset)
     stardraft::kit::Dialog dlg;
     draw::View* view = nullptr;
     draw::Point size;
+    ~MapDialogShot() {
+        if (resize && gResizeShown == resize.get()) gResizeShown = nullptr;
+    }
 };
 bool mapDialogShot(const std::string& name, MapDialogShot& s) {
     if (!gState.ed || !gState.ed->isOpen()) return false;
@@ -386,6 +390,14 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.size = revealersDialogSetup(s.dlg, *s.revealers), s.view = &s.dlg;
         return true;
     }
+    if (name == "resize") {
+        ResizeValues v;
+        v.w = ed.width(), v.h = ed.height(), v.fill = mapPropsFirstTerrain(ed.era());
+        s.resize = std::make_unique<ResizeView>(ed, v);
+        s.size = resizeDialogSetup(s.dlg, *s.resize), s.view = &s.dlg;
+        gResizeShown = s.resize.get();  // (the ui line; the snapshot's views go at its end)
+        return true;
+    }
     if (name == "mapimage") {
         Rect sel{};
         s.image = std::make_unique<MapImageView>(gMapImageLast, shellMapImageHd(), mapImageSelection(sel));
@@ -405,4 +417,47 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         return true;
     }
     return false;
+}
+
+// --check resize (after the inputs): Crop or extend. The dialog that shows (--dialog resize): its values and its
+// preview. After its OK (Map properties > Crop or extend, then the change): the map's size, whether the preview at OK
+// is the minimap of the map after the change (each tile's color), and whether the units that stay are the units from
+// before the change moved by the offset (and only those).
+void sdlResizeCheck() {
+    if (const ResizeView* v = gResizeShown) {
+        const ResizeValues& r = v->values();
+        const ResizePreview& p = v->preview();
+        std::printf("resize: dialog %d x %d, offset %d,%d; preview %d x %d%s\n", r.w, r.h, r.shiftX, r.shiftY, p.w, p.h,
+                    !p.made ? " (WRONG: not made)" : p.v == r ? "" : " (WRONG: of other values)");
+    }
+    if (!gResizeRecord.made) {
+        if (!gResizeShown) std::printf("resize: no change made\n");
+        return;
+    }
+    if (!gState.ed) return;
+    const Editor& ed = *gState.ed;
+    const ResizeRecord& rec = gResizeRecord;
+    rebuildMinimapTerrain();  // (the minimap's colors of the map now)
+    const bool samePicture = rec.preview.w == ed.width() && rec.preview.h == ed.height() && rec.preview.colors == gState.miniTerrain;
+    if (!samePicture) {  // (which tiles: the first that differs)
+        size_t differ = 0, first = 0;
+        for (size_t i = 0; i < rec.preview.colors.size() && i < gState.miniTerrain.size(); ++i)
+            if (rec.preview.colors[i] != gState.miniTerrain[i] && !differ++) first = i;
+        std::printf("resize: %zu of %zu tiles differ, the first at %zu,%zu; the tiles (MTXM) %s\n", differ, gState.miniTerrain.size(),
+                    first % std::max<size_t>(1, ed.width()), first / std::max<size_t>(1, ed.width()),
+                    rec.preview.tiles == ed.terrain().tiles ? "are the same" : "differ");
+    }
+    std::vector<std::tuple<uint16_t, uint8_t, int, int>> want, have;
+    const int mw = ed.width() * 32, mh = ed.height() * 32;
+    for (const Unit& u : rec.unitsBefore) {
+        const int x = u.x + rec.shiftPxX, y = u.y + rec.shiftPxY;
+        if (x >= 0 && y >= 0 && x < mw && y < mh) want.emplace_back(u.type, u.owner, x, y);
+    }
+    for (const Unit& u : ed.units()) have.emplace_back(u.type, u.owner, int(u.x), int(u.y));
+    std::sort(want.begin(), want.end()), std::sort(have.begin(), have.end());
+    std::printf("resize: map %d x %d (was %d x %d), preview %d x %d; the preview is the minimap after the change: %s; the map is the "
+                "preview's copy: %s\n", ed.width(), ed.height(), rec.oldW, rec.oldH, rec.preview.w, rec.preview.h,
+                samePicture ? "yes" : "no (WRONG)", rec.fromCopy ? "yes" : "no (WRONG)");
+    std::printf("resize: units %zu before, %zu after, %zu expected, moved by %d,%d px: %s\n", rec.unitsBefore.size(), have.size(), want.size(),
+                rec.shiftPxX, rec.shiftPxY, want == have ? "yes" : "no (WRONG)");
 }

@@ -1,5 +1,6 @@
 #include "stardraft/isom_core.h"
 
+#include <algorithm>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -225,6 +226,18 @@ bool IsomCore::fill(uint16_t fill) {
 bool IsomCore::resize(uint16_t width, uint16_t height, int xOffset, int yOffset, uint16_t fill) {
     Impl& m = *impl_;
     if (!m.cache || !width || !height || !m.terrainType(fill)) return false;
+    // IsomTerrain's resize (Sc::BoundingBox) keeps the old map's right and bottom parts only as far as the new size's
+    // edges when the offset is 0 or less: with a positive offset, the parts that then go past the new edges are cut
+    // first (a resize to a smaller map with no offset). No part of the old map in the new one: false.
+    const int oldW = m.map.tileWidth, oldH = m.map.tileHeight;
+    if (xOffset <= -oldW || yOffset <= -oldH || xOffset >= int(width) || yOffset >= int(height)) return false;
+    const int keepW = xOffset > 0 ? std::min(oldW, int(width) - xOffset) : oldW, keepH = yOffset > 0 ? std::min(oldH, int(height) - yOffset) : oldH;
+    if ((keepW < oldW || keepH < oldH) && !resizeKept(uint16_t(keepW), uint16_t(keepH), 0, 0, fill)) return false;
+    return resizeKept(width, height, xOffset, yOffset, fill);
+}
+
+bool IsomCore::resizeKept(uint16_t width, uint16_t height, int xOffset, int yOffset, uint16_t fill) {
+    Impl& m = *impl_;
     const ScMap& src = m.map;
     ScMap dest{};
     dest.tileset = src.tileset, dest.tileWidth = width, dest.tileHeight = height;

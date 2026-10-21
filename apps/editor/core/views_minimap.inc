@@ -18,29 +18,57 @@ void minimapRect(RECT& r, float& scalePx) {
     r = {(c.right - w) / 2, (c.bottom - h) / 2, (c.right - w) / 2 + w, (c.bottom - h) / 2 + h};
 }
 
+// The units' dots on the minimap: the players' colors (Player 1 to Player 12).
+const COLORREF kMinimapPlayerColors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),  RGB(44, 180, 148),  RGB(136, 64, 156),
+                                           RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
+                                           RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
+
+// The minimap's color of each megatile of `ts` (0x00RRGGBB): the mean of its 32 x 32 pixels.
+std::vector<uint32_t> megatileColors(const Tileset& ts) {
+    std::vector<uint32_t> out(ts.megatiles.size(), 0);
+    for (size_t m = 0; m < ts.megatiles.size(); ++m) {
+        uint32_t sum[3] = {0, 0, 0};
+        for (uint32_t ref : ts.megatiles[m]) {
+            size_t mini = ref >> 1;
+            if (mini >= ts.minitiles.size()) continue;
+            for (uint8_t idx : ts.minitiles[mini]) sum[0] += ts.palette[idx].r, sum[1] += ts.palette[idx].g, sum[2] += ts.palette[idx].b;
+        }
+        out[m] = (sum[0] / 1024) << 16 | (sum[1] / 1024) << 8 | (sum[2] / 1024);
+    }
+    return out;
+}
+
+// The minimap's color of each tile of `t` (0x00RRGGBB, row by row), with the megatile colors of `ts`.
+std::vector<uint32_t> minimapTileColors(const Tileset& ts, const std::vector<uint32_t>& colors, const TerrainLayer& t) {
+    std::vector<uint32_t> out(t.tiles.size(), 0);
+    for (size_t i = 0; i < t.tiles.size(); ++i) {
+        const int m = ts.megatileFor(t.tiles[i]);
+        out[i] = m >= 0 && size_t(m) < colors.size() ? colors[size_t(m)] : 0;
+    }
+    return out;
+}
+
+// Colors (0x00RRGGBB) as a bitmap's pixels.
+void minimapPixels(stardraft::draw::Bitmap& b, const std::vector<uint32_t>& colors, int w, int h) {
+    b.resize(w, h);
+    b.opaque = true;
+    uint32_t* px = b.pixels();
+    for (size_t i = 0; i < colors.size() && i < size_t(w) * size_t(h); ++i) {
+        const uint32_t v = colors[i];
+        px[i] = 0xFF000000u | (v & 0xFFu) << 16 | (v & 0xFF00u) | (v >> 16 & 0xFFu);
+    }
+    b.changed();
+}
+
 void rebuildMinimapTerrain() {
     AppState& app = shellState();
     Editor& ed = *app.ed;
     const Tileset& ts = ed.tileset();
     if (app.megatileColorsFor != &ts || app.megatileColorsEra != app.ed->era()) {
-        app.megatileColor.assign(ts.megatiles.size(), 0);
-        for (size_t m = 0; m < ts.megatiles.size(); ++m) {
-            uint32_t sum[3] = {0, 0, 0};
-            for (uint32_t ref : ts.megatiles[m]) {
-                size_t mini = ref >> 1;
-                if (mini >= ts.minitiles.size()) continue;
-                for (uint8_t idx : ts.minitiles[mini]) sum[0] += ts.palette[idx].r, sum[1] += ts.palette[idx].g, sum[2] += ts.palette[idx].b;
-            }
-            app.megatileColor[m] = (sum[0] / 1024) << 16 | (sum[1] / 1024) << 8 | (sum[2] / 1024);
-        }
+        app.megatileColor = megatileColors(ts);
         app.megatileColorsFor = &ts, app.megatileColorsEra = app.ed->era();
     }
-    const TerrainLayer& t = ed.terrain();
-    app.miniTerrain.resize(t.tiles.size());
-    for (size_t i = 0; i < t.tiles.size(); ++i) {
-        int m = ts.megatileFor(t.tiles[i]);
-        app.miniTerrain[i] = m >= 0 && size_t(m) < app.megatileColor.size() ? app.megatileColor[m] : 0;
-    }
+    app.miniTerrain = minimapTileColors(ts, app.megatileColor, ed.terrain());
     app.miniTerrainRev = ed.terrainRevision();
 }
 
@@ -84,14 +112,7 @@ struct MinimapView final : stardraft::draw::View {
         if (app.miniTerrainRev != ed.terrainRevision() || app.megatileColorsFor != &ed.tileset() || app.megatileColorsEra != ed.era())
             rebuildMinimapTerrain();
         if (terrainRev != app.miniTerrainRev || terrain.width() != ed.width() || terrain.height() != ed.height()) {
-            terrain.resize(ed.width(), ed.height());
-            terrain.opaque = true;
-            uint32_t* px = terrain.pixels();
-            for (size_t i = 0; i < app.miniTerrain.size() && i < size_t(ed.width()) * ed.height(); ++i) {
-                const uint32_t v = app.miniTerrain[i];  // 0x00RRGGBB
-                px[i] = 0xFF000000u | (v & 0xFFu) << 16 | (v & 0xFF00u) | (v >> 16 & 0xFFu);
-            }
-            terrain.changed();
+            minimapPixels(terrain, app.miniTerrain, ed.width(), ed.height());
             terrainRev = app.miniTerrainRev;
         }
         RECT r;
@@ -99,14 +120,11 @@ struct MinimapView final : stardraft::draw::View {
         minimapRect(r, sc);
         c.bitmap(terrain, {0, 0, terrain.width(), terrain.height()}, r, true);
         // Units as player-colored dots.
-        static const COLORREF colors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),   RGB(44, 180, 148), RGB(136, 64, 156),
-                                            RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
-                                            RGB(8, 128, 8),   RGB(252, 252, 124), RGB(236, 196, 176), RGB(64, 104, 212)};
         for (const Unit& u : ed.units()) {
             const int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
             int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
             d = std::clamp(d, 2, 6);
-            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, colors[std::min<int>(u.owner, 11)]);
+            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, kMinimapPlayerColors[std::min<int>(u.owner, 11)]);
         }
         // The current view: a light tint, the line in the accent.
         const RECT v = minimapView(r, sc);
