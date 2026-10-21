@@ -2,6 +2,23 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1.5
+
+### Map
+
+- Copy terrain or tiles in one map and paste them in another open map of the same tileset (Ctrl+C, then Ctrl+V in
+  the other map's tab).
+
+  ![Terrain copied from another map, pasted](images/0.6.1.5/paste-other-map.png)
+- Isometric and Rectangle each have their own brush size. A change of the size in one does not change the other.
+
+### Fixes
+
+- Quick picker: you can type in its search box again.
+- Middle mouse button (Pan map): the map starts to move as soon as you move the mouse, with no jump and no delay.
+- Map properties: the text under Change the size and tileset names StarDraft 2, not StarCraft 2. StarDraft 2
+  deletes the parts of the map outside the new size; the game does not change your map.
+
 ## 0.6.1.4
 
 ### Map
