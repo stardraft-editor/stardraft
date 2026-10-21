@@ -193,7 +193,14 @@ int Panel::rowAt(Point p) const {
 void Panel::paint(Canvas& c) {
     const Theme& th = theme();
     const Font of = c.setFont(c.font(draw::FontDesc{}));
+#if defined(_WIN32)
+    // Windows: a square panel; the system rounds the window's corners as it rounds its own menus (Windows 11), and
+    // Windows 10 menus are square.
+    c.fill({0, 0, width(), height()}, th.bg);
+    c.frame({0, 0, width(), height()}, th.border);
+#else
     c.roundBox({0, 0, width(), height()}, th.bg, th.border, px(kPanelRadius));
+#endif
     for (int i = 0; i < int(items_.size()); ++i) {
         const MenuItem& it = items_[size_t(i)];
         const Rect r = row(i);
@@ -515,10 +522,13 @@ bool MenuBar::openByLetter(int letter) {
 
 bool MenuBar::mouse(const draw::MouseEvent& e) {
     switch (e.kind) {
-    case MouseKind::Move:
+    case MouseKind::Move: {
         closedAt_ = -1;
-        if (const int i = nameAt(e.pt); i != hover_) hover_ = i, invalidate();
+        const int i = nameAt(e.pt);
+        if (i != hover_) hover_ = i, invalidate();
+        if (open_ >= 0 && i >= 0 && i != open_) openMenu(i, false);  // (a menu is open: the one under the mouse opens)
         return true;
+    }
     case MouseKind::Leave:
         if (hover_ >= 0) hover_ = -1, invalidate();
         return true;
