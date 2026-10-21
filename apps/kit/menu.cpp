@@ -284,7 +284,7 @@ void Panel::openSub(int i, bool byKeys) {
     Panel* raw = sub.get();
     chain_.owned.push_back(std::move(sub));
     chain_.live.push_back(raw);
-    const int top = row(i).top - px(kPad), left = width() + px(2);
+    const int top = row(i).top - px(kPad), left = width() - px(3);  // (on the parent's edge, as the system's)
     chain_.host.openWindow(*this, *raw, WindowSpec{WindowKind::Menu, Rect{left, top, left + sl.size.x, top + sl.size.y}, L""}, nullptr);
     if (byKeys) raw->highlightFirst();
     chain_.host.focus(*raw);
