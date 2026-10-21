@@ -141,6 +141,7 @@ draw::Image sdlDataImage(DataPicture p) {
 
 // A sound of the image player's script (the core's gImagePlayer, when its sounds are on), as the Windows program's
 // sfxPlayOnce: each sound decoded once, at most 8 at a time; a test run plays nothing (openPlaybackSdl).
+bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm);
 void sfxPlayOnce(int sfx) {
     static std::vector<SDL_AudioStream*> playing;
     for (auto it = playing.begin(); it != playing.end();)
@@ -154,16 +155,8 @@ void sfxPlayOnce(int sfx) {
     static std::map<int, Decoded> decoded;
     auto it = decoded.find(sfx);
     if (it == decoded.end()) {
-        const std::wstring path = sfxPath(sfx);
-        Bytes wav;
-        std::string err;
-        if (path.empty() || !gState.data.readFile("sound\\" + narrow(path), wav, err)) return;
         Decoded d;
-        Uint8* buf = nullptr;
-        Uint32 len = 0;
-        if (!SDL_LoadWAV_IO(SDL_IOFromConstMem(wav.data(), wav.size()), true, &d.spec, &buf, &len)) return;
-        d.pcm.assign(buf, buf + len);
-        SDL_free(buf);
+        if (!sdlSfxLoad(sfx, d.spec, d.pcm)) return;
         if (decoded.size() > 64) decoded.clear();
         it = decoded.emplace(sfx, std::move(d)).first;
     }
@@ -175,17 +168,15 @@ void sfxPlayOnce(int sfx) {
     }
 }
 
-// An SFX data entry's sound, as the Windows program's sfxLoad: its file under sound\ in the game's data, decoded.
+// An SFX data entry's sound, as the Windows program's sfxLoad: its file under sound\ in the game's data, decoded
+// (Remastered's sounds are Ogg Vorbis under their .wav names; 1.16.1's are WAV).
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm) {
     const std::wstring path = sfxPath(sfx);
-    Bytes wav;
+    Bytes file;
     std::string err;
-    if (path.empty() || !gState.data.readFile("sound\\" + narrow(path), wav, err)) return false;
-    Uint8* buf = nullptr;
-    Uint32 len = 0;
-    if (!SDL_LoadWAV_IO(SDL_IOFromConstMem(wav.data(), wav.size()), true, &spec, &buf, &len)) return false;
-    pcm.assign(buf, buf + len);
-    SDL_free(buf);
+    SdlSound d;
+    if (path.empty() || !gState.data.readFile("sound\\" + narrow(path), file, err) || !decodeSdlSound(file, d)) return false;
+    spec = d.spec, pcm = std::move(d.pcm);
     return true;
 }
 
