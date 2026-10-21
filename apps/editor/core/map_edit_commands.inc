@@ -533,7 +533,7 @@ bool mapMenuGrayed(int id) {
             return false;
         const bool open = app.ed && app.ed->isOpen();
         // Every kind of copy (a gray item also stops Ctrl+V): units, terrain, tiles, locations, doodads, sprites (#83).
-        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || gTerrainCopy.any || !app.locationClip.empty() ||
+        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || (gTerrainCopy.any && app.mode == Mode::Terrain) || !app.locationClip.empty() ||
                           !app.doodadClip.empty() || !app.spriteClip.empty()));
     }
     if (id == ID_OPT_DRAGBACK) return app.allowIllegalUnits;  // (not used when units go anywhere)
