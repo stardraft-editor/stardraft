@@ -105,8 +105,44 @@ bool takeTerrainCopy(Editor& ed) {
     return false;
 }
 
-// Edit > Paste in the active mode: doodads and sprites follow the mouse (click to place them), a location's copy goes at
-// the mouse (in the middle of the view when the mouse is not over the map), terrain and units follow the mouse.
+// A name for a pasted location: its name without a " copy<n>" ending, then " copy" and the lowest number that no
+// location has yet, so that each pasted location has its own name (Discord #dev feedback #152).
+std::string pastedLocationName(const Editor& ed, std::string name) {
+    if (const size_t at = name.rfind(" copy"); at != std::string::npos && name.find_first_not_of("0123456789", at + 5) == std::string::npos)
+        name.resize(at);
+    std::set<std::string> used;
+    for (int i = 0; i < ed.locationCount(); ++i)
+        if (ed.locationUsed(i)) used.insert(ed.locationName(i));
+    for (int n = 1;; ++n)
+        if (std::string s = name + " copy" + std::to_string(n); !used.count(s)) return s;
+}
+
+// Pasting locations: a click puts the copied locations with the copy's middle at the mouse. Each whole location (its
+// size, inversion and elevations, a name of its own); one undo step. The pasted ones are selected.
+void pasteLocationsAt(AppState& app, float wx, float wy) {
+    int dx, dy;
+    locationPasteShift(app, wx, wy, dx, dy);
+    std::vector<int> made;
+    app.ed->beginStroke();
+    for (const auto& c : app.locationClip) {
+        const Rect r{c.rect.left + dx, c.rect.top + dy, c.rect.right + dx, c.rect.bottom + dy};
+        const int i = app.ed->createLocation(r, c.inverted != 0, c.inverted, pastedLocationName(*app.ed, c.name), c.elevation);
+        if (i < 0) break;
+        made.push_back(i);
+    }
+    app.ed->endStroke();
+    app.ed->selectLocation(-1);
+    for (int i : made) app.ed->addLocationSelection(i);
+    rebuildList(app);
+    app.dirty = true;
+    if (made.empty()) return setMessage(L"All location slots are in use");
+    setMessage(L"Pasted " + locationsText(*app.ed, made) +
+               (made.size() < app.locationClip.size() ? L" (all location slots are in use: " + std::to_wstring(app.locationClip.size() - made.size()) + L" not pasted)"
+                                                       : L". To stop, right-click or press Esc."));
+}
+
+// Edit > Paste in the active mode: the copy follows the mouse (click to place it; again for more; right-click or Esc
+// stops).
 void pasteMapCopy(AppState& app) {
     if (app.ed && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {  // the copy follows the mouse: click to place it
         const bool dd = app.mode == Mode::Doodads;
@@ -120,41 +156,11 @@ void pasteMapCopy(AppState& app) {
         setMessage(L"Paste: click to place the copy, and again to place more. Right-click or Esc stops.");
         return;
     }
-    if (app.ed && app.mode == Mode::Locations) {  // a copy of the location, at the mouse
+    if (app.ed && app.mode == Mode::Locations) {  // the copy follows the mouse: click to paste it (Discord #dev feedback #151)
         if (app.locationClip.empty()) return setMessage(L"Nothing copied: select a location and press Ctrl+C");
-        // At the mouse; the mouse not over the map (Ctrl+V after a click in the list): in the middle of the view.
-        int mx = 0, my = 0;
-        if (!shellViewMouse(mx, my)) {
-            int vw = 0, vh = 0;
-            shellViewSize(vw, vh);
-            mx = vw / 2, my = vh / 2;
-        }
-        float wx, wy;
-        toWorld(mx, my, wx, wy);
-        // The copy's middle at the mouse (its top left snapped: Options > Locations snap), each location where it was in it.
-        Rect box = app.locationClip.front().rect;
-        for (const auto& c : app.locationClip)
-            box = {std::min(box.left, c.rect.left), std::min(box.top, c.rect.top), std::max(box.right, c.rect.right), std::max(box.bottom, c.rect.bottom)};
-        const int w = box.right - box.left, hgt = box.bottom - box.top;
-        const int left = int(snapRound(wx - w / 2.0f, app.locationGrid)), top = int(snapRound(wy - hgt / 2.0f, app.locationGrid));
-        const int dx = left - box.left, dy = top - box.top;
-        // Each whole location (its size, name, inversion and elevations); one undo step. The pasted ones are selected.
-        std::vector<int> made;
-        app.ed->beginStroke();
-        for (const auto& c : app.locationClip) {
-            const Rect r{c.rect.left + dx, c.rect.top + dy, c.rect.right + dx, c.rect.bottom + dy};
-            const int i = app.ed->createLocation(r, c.inverted != 0, c.inverted, c.name + " copy", c.elevation);
-            if (i < 0) break;
-            made.push_back(i);
-        }
-        app.ed->endStroke();
-        app.ed->selectLocation(-1);
-        for (int i : made) app.ed->addLocationSelection(i);
-        rebuildList(app);
+        app.pastingItems = true;
         app.dirty = true;
-        if (made.empty()) return setMessage(L"All location slots are in use");
-        setMessage(L"Pasted " + locationsText(*app.ed, made) +
-                   (made.size() < app.locationClip.size() ? L" (all location slots are in use: " + std::to_wstring(app.locationClip.size() - made.size()) + L" not pasted)" : L""));
+        setMessage(L"Paste: click to place the copy, and again to place more. Right-click or Esc stops.");
         return;
     }
     if (app.ed && app.mode == Mode::Terrain) {
