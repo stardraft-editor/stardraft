@@ -253,6 +253,13 @@ struct QuickPickSdl final : QuickPickHost {
     }
 };
 QuickPickSdl gQuickHostSdl;
+// The picker's pop-out at x, y: it takes the keys that come to the main window (Windows gives them there when a menu
+// opened it; macOS always does), so its search field types (GitHub #153).
+draw::WindowSpec quickPickSpec(int x, int y, draw::Point size) {
+    draw::WindowSpec spec{draw::WindowKind::Popup, draw::Rect(x, y, x + size.x, y + size.y), L""};
+    spec.takesKeys = true;
+    return spec;
+}
 // The quick picker's window is a pop-out that the system does not give the keyboard (macOS): its keys come to the main
 // window, where its letters are typing, not the menus' one-letter keys (S: Sprites mode).
 bool sdlQuickPickTyping() { return gQuickHostSdl.open; }
@@ -268,7 +275,7 @@ void showQuickPickerCustomSdl() {
     const int x = v.left + (v.width() - size.x) / 2, y = v.top + std::max(0, (v.height() - size.y) / 3);
     gQuickViewSdl.start(gQuickHostSdl, QuickPickKind::Custom, gState.mode, false, false, true);
     gQuickHostSdl.open = true;
-    gHost->openWindow(*gRoot, gQuickViewSdl, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(x, y, x + size.x, y + size.y), L""}, [] {
+    gHost->openWindow(*gRoot, gQuickViewSdl, quickPickSpec(x, y, size), [] {
         gQuickHostSdl.open = false;  // a click outside closed it
     });
     gQuickViewSdl.field().focus();
@@ -285,7 +292,7 @@ void showQuickPickerSdl(bool replace, bool open) {
     const bool data = !open && gWorkspace == Workspace::Data && activeProject();
     gQuickViewSdl.start(gQuickHostSdl, open ? QuickPickKind::Open : data ? QuickPickKind::Data : QuickPickKind::Map, gState.mode, replace, false, true);
     gQuickHostSdl.open = true;
-    gHost->openWindow(*gRoot, gQuickViewSdl, draw::WindowSpec{draw::WindowKind::Popup, draw::Rect(x, y, x + size.x, y + size.y), L""}, [] {
+    gHost->openWindow(*gRoot, gQuickViewSdl, quickPickSpec(x, y, size), [] {
         gQuickHostSdl.open = false;  // a click outside closed it
     });
     gQuickViewSdl.field().focus();  // (at once: the keys typed before its first paint are its own)

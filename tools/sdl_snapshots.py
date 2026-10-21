@@ -532,6 +532,9 @@ CASES += [
     # places a Marine there, as the press of a user's mouse does.
     ("map-quick-click", ["--mode", "units", "--key", "Q", "--type", "marine", "--click", "832,280", "--key", "Q",
                          "--click", "1200,850"], "map"),
+    # The quick picker's keys and typed text as Windows gives them (--keysfromopener: from the main window under the
+    # pop-out): "marine" filters its rows and Enter picks the Marine (GitHub #153).
+    ("map-quick-typing", ["--keysfromopener", "--mode", "units", "--key", "Q", "--type", "marine", "--key", "Enter"], "map"),
 ]
 # The wheel and a trackpad on the map (--wheel x,y,dx,dy[:precise][:mods], --pinch x,y,scale; in the window's pixels):
 # a wheel's notch zooms at the mouse (1.2 times). Only macOS tells a trackpad's two-finger scroll (precise) from a
@@ -1814,6 +1817,16 @@ def check_quick_click(output):
         ("Q did not open the picker again", lambda s: s[3]["quick"] == "open"),
         ("the click outside the picker did not close it", lambda s: s[4]["quick"] == "-"),
         ("the click outside the picker did not go to the map (no unit placed)", lambda s: s[4]["units"] == s[3]["units"] + 1),
+    ])
+
+
+def check_quick_typing(output):
+    """The quick picker types the keys that come to the main window under it (Windows), and Enter picks (GitHub #153)."""
+    return expect(output, 3, [
+        ("Q did not open the quick picker", lambda s: s[0]["quick"] == "open"),
+        ("the typed text did not filter the picker's rows",
+         lambda s: 0 < int(s[1]["quicktop"].split("/")[1]) < int(s[0]["quicktop"].split("/")[1])),
+        ("Enter did not pick a unit and close the picker", lambda s: s[2]["quick"] == "-" and s[2]["palette"] != "-1"),
     ])
 
 
@@ -3718,7 +3731,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
-          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click,
+          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,
