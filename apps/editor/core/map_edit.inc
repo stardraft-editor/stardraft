@@ -449,7 +449,7 @@ bool modeLayerHidden() {
     case Mode::Units: return !gLayers.units;
     case Mode::Doodads: return !gLayers.doodads;
     case Mode::Sprites: return !gLayers.sprites;
-    case Mode::Locations: return !appState().showLocations;
+    case Mode::Locations: return false;  // (Locations mode always shows them)
     }
     return false;
 }
