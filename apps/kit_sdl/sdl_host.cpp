@@ -51,6 +51,7 @@ struct SdlHost::Win {
     SDL_WindowID shotBase = 0;
     Rect shotAt;
     bool takesKeys = false;        // a pop-out that is not modal takes its opener's keys (WindowSpec::takesKeys)
+    Uint64 keysFrom = 0;           // ... those that came after it opened (SDL's time: the "q" of the Q that opened it does not)
     bool popup() const { return kind == WindowKind::Popup || kind == WindowKind::Menu; }
     bool transient() const { return kind != WindowKind::Dialog && kind != WindowKind::Tool; }
 };
@@ -784,7 +785,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         w->parent = parent->id;
         w->title = spec.title;
         w->typing = true;  // (as a window's: setTyping in openWindow)
-        w->takesKeys = spec.kind == WindowKind::Popup && spec.takesKeys;
+        w->takesKeys = spec.kind == WindowKind::Popup && spec.takesKeys, w->keysFrom = SDL_GetTicksNS();
         w->pw = std::max(1, spec.at.width()), w->ph = std::max(1, spec.at.height());
         if (spec.kind != WindowKind::Dialog) {  // a pop-out: at spec.at in the opener's view, over the opener's base window
             const Point o = from.origin();
@@ -859,7 +860,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     auto w = makeWin(sdl, content, spec.kind, std::move(closed));
     w->parent = parent->id;
     w->title = spec.title;
-    w->takesKeys = spec.kind == WindowKind::Popup && spec.takesKeys;
+    w->takesKeys = spec.kind == WindowKind::Popup && spec.takesKeys, w->keysFrom = SDL_GetTicksNS();
     if (!claim(*w)) {
         SDL_DestroyWindow(sdl);
         return;
@@ -1008,7 +1009,10 @@ void SdlHost::dispatch(const SDL_Event& e) {
     // A key, typed text or the input method's text while a modal pop-out is open over the window that SDL gives them
     // (Windows: a pop-out does not take the system's keyboard focus): the pop-out takes them (its search field types).
     if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP || e.type == SDL_EVENT_TEXT_INPUT || e.type == SDL_EVENT_TEXT_EDITING)
-        if (const SDL_WindowID to = keyWindow(wid); to != wid) {
+        // A key or text that SDL had before a pop-out that takes its opener's keys opened (Windows: the text of the key
+        // that opened it) stays with the opener. (A snapshot's events have no time.)
+        if (const SDL_WindowID to = keyWindow(wid);
+            to != wid && !(findWin(to)->takesKeys && e.common.timestamp && e.common.timestamp < findWin(to)->keysFrom)) {
             SDL_Event r = e;
             if (e.type == SDL_EVENT_TEXT_INPUT) r.text.windowID = to;
             else if (e.type == SDL_EVENT_TEXT_EDITING) r.edit.windowID = to;
