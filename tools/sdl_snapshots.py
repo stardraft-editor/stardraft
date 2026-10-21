@@ -303,6 +303,7 @@ CASES += [
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
     ("map-terrain-brush-sizes", ["--script", "{script:brushsizes}"], "map"),
+    ("map-terrain-paste-other-map", ["--script", "{script:terraincrossmap}"], "map"),
     ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
     # View > Units list: the Unit properties window with the list in its left column (the first unit, its picture and fields
     # on the right), and the pick, Delete and undo of the list (the script).
@@ -1020,6 +1021,19 @@ if sys.platform == "win32":
 # Options > Units > Can be on top of others, the Marine picked, three clicks at one point, Esc: a stack of three units.
 STACK_PLACE = "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nkey Esc\n"
 SCRIPTS = {
+    # Terrain copied in one map pastes in another map of the same tileset (GitHub #146): Orbital Relay (Space Platform)
+    # opens; Ctrl+V there pastes the first map's terrain (a map of another tileset: a message says why not), and a click
+    # puts it.
+    "terraincrossmap": """mode terrain
+key V
+drag 520,640-600,700
+key Ctrl+C
+open {install}/Maps/(4)Orbital Relay.scm
+mode terrain
+key Ctrl+V
+move 900,800
+click 900,800
+""",
     # Isometric and Rectangle each keep their own brush size (GitHub #155): Alt+wheel makes Isometric's 4; Rectangle's
     # is 2 and goes to 1; Isometric's is 4 again, then Rectangle's 1.
     "brushsizes": """mode terrain
@@ -1829,6 +1843,25 @@ def check_quick_click(output):
         ("the click outside the picker did not close it", lambda s: s[4]["quick"] == "-"),
         ("the click outside the picker did not go to the map (no unit placed)", lambda s: s[4]["units"] == s[3]["units"] + 1),
     ])
+
+
+def check_terrain_other_map(output):
+    """Terrain copied in one map pastes in a second map's tab (GitHub #146)."""
+    s = steps(output)
+    paste = [k for k, st in enumerate(s) if st["input"].startswith("key Ctrl+V")]
+    if not paste:
+        return "no Ctrl+V step"
+    k = paste[-1]
+    if "Orbital Relay" not in s[k].get("tab", ""):  # (the open replaces the unchanged first map: a new editor too)
+        return f"Ctrl+V was not in the second map's tab ({s[k].get('tabs')} {s[k].get('tab')})"
+    first = re.search(r"^Opened .*$", output, re.M)
+    if not first or "(platform)" not in first.group(0):  # (the first map is of another tileset: a message, no paste)
+        return None if re.search(r"^key Ctrl\+V: .*You can paste it only in a map of that tileset", output, re.M) else "no message for the other tileset"
+    if s[k].get("paste") != "terrain":
+        return "Ctrl+V in the second map did not start the paste of the first map's terrain"
+    if s[-1].get("terrain") == s[k].get("terrain"):
+        return "the click did not paste the terrain in the second map"
+    return None
 
 
 def check_brush_sizes(output):
@@ -3751,7 +3784,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
-          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes,
+          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-paste-other-map": check_terrain_other_map,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,

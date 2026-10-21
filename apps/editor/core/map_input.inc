@@ -773,12 +773,15 @@ bool mapCancelStep(AppState& app) {
     return stroke;
 }
 
+void shareTerrainCopy(const Editor& ed);  // (map_edit_commands.inc)
+
 // R (back: Shift+R) while terrain is about to be pasted: the copy turns clockwise (back: the other way). Tiles
 // (Rectangle) do not turn.
 void mapTurnPaste(AppState& app, bool back) {
     if (!app.terrainPasting || app.terrainRect || !app.ed || !app.ed->hasTerrainClipboard()) return;
     int dropped = 0;
     for (int k = back ? 3 : 1; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
+    shareTerrainCopy(*app.ed);
     setMessage(app, dropped ? L"Turned the terrain; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
                             : L"Turned the terrain (R turns clockwise, Shift+R turns back)");
 }
