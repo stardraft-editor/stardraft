@@ -179,9 +179,23 @@ public:
     // The window of the view got the keyboard focus with no view of it focused (Tab came in from another control):
     // the view takes it on its first (back: its last) focusable part.
     virtual void focusEntered(bool /*back*/) {}
-    // Tab (or Shift+Tab) gave the view the focus, after focusChanged: a one-line text field selects its text, so that
-    // what is typed takes its place (as a dialog's edit box on Windows and a text field on macOS).
-    virtual void tabbedTo() {}
+    // Tab (or Shift+Tab: back) gave the view the focus, after focusChanged: a one-line text field selects its text, so
+    // that what is typed takes its place (as a dialog's edit box on Windows and a text field on macOS); a view with items
+    // of its own (a tool bar's buttons) puts the focus on its first item (back: its last).
+    virtual void tabbedTo(bool /*back*/) {}
+    // Tab (or Shift+Tab: back) while the view has the focus, before the focus goes to the next view: a view with items of
+    // its own moves the focus to its next item (back: the item before) and returns true. false: there is no item after
+    // it (back: before it), and the focus goes to the next view. The view can also give the focus to another view and
+    // return true.
+    virtual bool tabWithin(bool /*back*/) { return false; }
+    // Whether a press on the view gives it the focus (Router::mouse). false: a press leaves the keyboard where it is (a
+    // tool bar's button); only Tab gives the view the focus.
+    virtual bool focusOnClick() const { return true; }
+    // The views that Tab goes through after this one, in order: its children (a window's root can put them in the order
+    // of the screen).
+    virtual std::vector<View*> tabChildren() const { return children_; }
+    // The name of the item with the focus in a view with items of its own (empty: none): for the tests' output.
+    virtual std::wstring focusedItem() const { return {}; }
     virtual void focusChanged(bool /*has*/) {}
     // The mouse capture left the view (it went to another view, the system took it, or the view let it go): the view
     // ends what the capture was for.
@@ -289,7 +303,7 @@ public:
     void focusChain(std::vector<View*>& out) {
         if (!visible_) return;
         if (focusable()) out.push_back(this);
-        for (View* ch : children_) ch->focusChain(out);
+        for (View* ch : tabChildren()) ch->focusChain(out);
     }
 
 private:
@@ -358,7 +372,7 @@ public:
         if (e.kind == MouseKind::Down || e.kind == MouseKind::DoubleClick)  // the focus: the first focusable view up from it
             for (View* f = v; f; f = f->parent())
                 if (f->focusable()) {
-                    f->focus();
+                    if (f->focusOnClick()) f->focus();
                     break;
                 }
         for (View* t = v; t; t = t->parent()) {  // the view, then its parents, each in its own coordinates
@@ -425,8 +439,9 @@ public:
         }
         return {};
     }
-    // Tab: the next (with Shift: the one before) focusable view.
+    // Tab: the next item of the focused view (View::tabWithin), else the next (with Shift: the one before) focusable view.
     bool tab(bool back) {
+        if (focused_ && focused_->tabWithin(back)) return true;
         std::vector<View*> chain;
         root_.focusChain(chain);
         if (chain.empty()) return false;
@@ -435,7 +450,7 @@ public:
         if (i == chain.size()) i = back ? 0 : chain.size() - 1;
         View* next = chain[back ? (i + chain.size() - 1) % chain.size() : (i + 1) % chain.size()];
         next->focus();
-        if (focused_ == next) next->tabbedTo();
+        if (focused_ == next) next->tabbedTo(back);
         return true;
     }
 

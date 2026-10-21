@@ -101,7 +101,21 @@ public:
         }
         const bool fresh = std::chrono::steady_clock::now() - s.latestAt < std::chrono::seconds(10);  // older: dim
         c.text({x, 0, w - scale(10), bar}, s.latest, s.latestError ? kBad : fresh ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+        if (keyFocus_ && hasFocus()) paintFocusOutline(c, {scale(2), scale(2), scale(80), bar - scale(2)});  // (the chevron and "Log")
     }
+
+    // The keyboard: the bar is one Tab stop; Enter and Space open or close the Log.
+    bool focusable() const override { return true; }
+    bool focusOnClick() const override { return false; }  // (a click leaves the keyboard where it is)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool) override { keyFocus_ = true, invalidate(); }
+    bool key(const draw::KeyEvent& e) override {
+        if (!hasFocus() || !pressKey(e)) return false;  // (not a key of the Log's text)
+        keyFocus_ = true;
+        pressFromKeys([this] { setExpanded(!expanded()); });
+        return true;
+    }
+    std::wstring focusedItem() const override { return keyFocus_ ? (expanded() ? L"Log (open)" : L"Log") : L""; }
     bool mouse(const draw::MouseEvent& e) override {
         LogState& s = logState();
         // The window's coordinates: the panel moves as it grows.
@@ -117,6 +131,7 @@ public:
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick:
             if (e.button != 0) return false;
+            keyFocus_ = false;
             if (s.expanded && e.pt.y < scale(5)) {  // the top edge: drag to change the height
                 s.sizing = true, s.grabY = y, s.grabH = height();
                 if (draw::Host* h = host()) h->capture(*this, true);
@@ -155,4 +170,5 @@ private:
     }
     stardraft::kit::TextField text_;
     int dimTimer_ = 0;
+    bool keyFocus_ = false;  // the focus came from Tab: the outline shows
 };

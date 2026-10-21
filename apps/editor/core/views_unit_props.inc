@@ -217,6 +217,16 @@ public:
         link_.setEnabled(false), jump_.setEnabled(false);  // (greyed until a link applies)
     }
 
+    // Tab's order: the Units list's column (its search box, its rows), then the properties row by row, each row left to
+    // right (the fields are added by kind, not in the order of the screen).
+    std::vector<draw::View*> tabChildren() const override {
+        std::vector<draw::View*> rest;
+        for (draw::View* c : children())
+            if (c != &search_ && c != &list_) rest.push_back(c);
+        rest = byScreen(std::move(rest));
+        rest.insert(rest.begin(), {const_cast<SearchBox*>(&search_), const_cast<UnitRowsView*>(&list_)});
+        return rest;
+    }
     // The dialog this view is in (Edit unit type closes it).
     void setDialog(stardraft::kit::Dialog* d) { dlg_ = d; }
 

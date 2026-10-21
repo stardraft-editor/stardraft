@@ -56,9 +56,10 @@ CASES += [
     ("start-noinstall", ["--noinstall"], ""),
     ("start-noinstall-nodata", ["--noinstall", "--pickinstall", "{root}"], ""),
     ("start-noinstall-pick", ["--noinstall", "--pickinstall", "found"], "data"),
-    # The banner's Browse is a Tab stop: Tab goes through the cards and Browse, Shift+Tab back; Left and Right from
+    # The banner's Browse is a Tab stop: Tab comes to the page after the window's bars (the menu bar, the top bar, the
+    # tabs, the rail), goes through Browse and the cards and on to the Log's bar; Shift+Tab back; Left and Right from
     # Browse go to a card (each --key line says where the page's keys are).
-    ("start-noinstall-keys", ["--noinstall"] + [a for k in ["Tab"] * 5 + ["Shift+Tab"] * 3 + ["Right", "Shift+Tab", "Left"]
+    ("start-noinstall-keys", ["--noinstall"] + [a for k in ["Tab"] * 10 + ["Shift+Tab"] * 4 + ["Tab", "Right", "Shift+Tab", "Left"]
                                                 for a in ("--key", k)], ""),
     # Scale 2 (a Retina display of macOS, or 200 % on Windows): the small text (the rail's labels, captions, table
     # headers) is two thirds of the UI text, as at scale 1.
@@ -696,9 +697,36 @@ CASES += [
                               "--key", "Ctrl+Shift+S", "--pick", "{kodir}/\ubcd1\ubaa9 \uc9c0\ub3c4", "--key", "Ctrl+W",
                               "--key", "Ctrl+O", "--pick", "{kodir}/\ubcd1\ubaa9 \uc9c0\ub3c4.scx", "--check", "names"], "map"),
     # Unit properties (a double click on the unit): Tab into a number selects it, so that 50 takes its place; Tab and
-    # Shift+Tab go through the fields in order.
-    ("map-dialog-tab", ["--mode", "units", "--click", "825,128:Double", "--key", "Tab", "--type", "50", "--key", "Tab",
+    # Shift+Tab go through the fields in order. (The first Tab goes from the Units list's search box to its rows.)
+    ("map-dialog-tab", ["--mode", "units", "--click", "825,128:Double", "--key", "Tab", "--key", "Tab", "--type", "50", "--key", "Tab",
                         "--key", "Shift+Tab", "--key", "Escape"], "map"),
+    # The main window's Tab order (CHECKS: check_main_tab): from the map, Tab goes round the whole window (the menu bar,
+    # the top bar's parts and the modes, the tabs, the rail, the left side bar, the map, the right side bar, the Log's
+    # bar) and back to the map; Shift+Tab goes the same way back; Esc on a part gives the keyboard to the map.
+    ("map-tab-focus", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 80 + ["--key", "Shift+Tab"] * 80 +
+     ["--key", "Tab", "--key", "Tab", "--key", "Esc"], "map"),
+    # Enter and Space press the part with the focus, and the focus stays on it: Tab from the map to the modes in the top
+    # bar (27 stops in Units mode), Enter picks Terrain; Shift+Tab to the top bar's Quick search, Space opens the quick
+    # picker, Esc closes it, and Esc on Quick search gives the keyboard to the map (CHECKS: check_tab_press).
+    ("map-tab-press", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 27 + ["--key", "Enter", "--key", "Shift+Tab",
+                       "--key", "Space", "--key", "Esc", "--key", "Esc"], "map"),
+    # The save question (msgbox::ask: Save, Do not save, Cancel) after a change and Ctrl+W: Tab and Shift+Tab move the
+    # focus between the buttons, round again at the ends; Enter presses Cancel (the tab stays); the second time, Tab to
+    # Do not save and Space close the tab (CHECKS: check_message_tab).
+    ("map-message-tab", ["--mode", "units", "--click", "825,128", "--key", "Del", "--key", "Ctrl+W", "--key", "Tab", "--key", "Tab",
+                         "--key", "Tab", "--key", "Shift+Tab", "--key", "Enter", "--key", "Ctrl+W", "--key", "Tab", "--key", "Space"], "map"),
+    # The dialogs: Tab goes round all their controls and comes back to the first; Shift+Tab goes back (CHECKS:
+    # check_dialog_cycle). Unit properties, Location properties, the text prompt (F2: Rename location), Program
+    # options (Ctrl+,) and Report feedback (Tab from the map to the top bar's Report feedback, then Enter).
+    ("map-unitprops-cycle", ["--mode", "units", "--click", "825,128:Double"] + ["--key", "Tab"] * 40 + ["--key", "Shift+Tab"] * 3 +
+     ["--key", "Esc"], "map"),
+    ("map-locprops-cycle", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "Enter"] + ["--key", "Tab"] * 40 +
+     ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
+    ("map-prompt-cycle", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "F2"] + ["--key", "Tab"] * 8 +
+     ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
+    ("map-options-cycle", ["--key", "Ctrl+,"] + ["--key", "Tab"] * 60 + ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
+    ("map-feedback-cycle", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 32 + ["--key", "Enter"] +
+     ["--key", "Tab"] * 10 + ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
     # The Triggers tree takes typed letters (type-ahead) after a text field of the window had the keyboard: New trigger
     # (its name's field), Enter, then "o" goes to On every trigger cycle.
     ("data-tree-typeahead", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169",
@@ -959,9 +987,116 @@ def check_korean_save(output):
     return None
 
 
+# The kinds of the main window's views in Tab's order from the menu bar, in Units mode (side bars: Terrain at the left,
+# Units at the right). A view with parts of its own is one entry for all its parts.
+MAIN_TAB_KINDS = ["menu bar", "top bar", "modes", "top bar", "tabs", "rail", "minimap", "panel tabs", "tool strip", "palette", "map",
+                  "panel tabs", "tool strip", "dropdown", "text field", "button", "palette", "log"]
+
+
+def check_main_tab(output):
+    """Tab goes round the main window in the order of the screen (MAIN_TAB_KINDS) and back to the map; Shift+Tab goes
+    the same way back; Esc on a part gives the keyboard to the map."""
+    got = [(inp, kind, text) for inp, kind, text, _, _ in focus_lines(output)]
+    fwd = [(k, t) for i, k, t in got if i.startswith("key Tab")][:80]
+    back = [(k, t) for i, k, t in got if i.startswith("key Shift+Tab")]
+    if len(fwd) != 80 or len(back) != 80:
+        return f"{len(fwd)} Tab and {len(back)} Shift+Tab focus lines, not 80 each"
+    if ("map", "Map") not in fwd:
+        return f"Tab did not come back to the map: {fwd}"
+    cycle = [("map", "Map")] + fwd[:fwd.index(("map", "Map"))]
+    for i, item in enumerate(fwd):  # (round again after the map)
+        if item != cycle[(i + 1) % len(cycle)]:
+            return f"Tab {i + 1}: {item}, not {cycle[(i + 1) % len(cycle)]} (the second time round)"
+    pos = 80 % len(cycle)
+    for i, item in enumerate(back):
+        pos = (pos - 1) % len(cycle)
+        if item != cycle[pos]:
+            return f"Shift+Tab {i + 1}: {item}, not {cycle[pos]}"
+    start = next((i for i, (k, _) in enumerate(cycle) if k == "menu bar"), None)
+    if start is None:
+        return "Tab did not go to the menu bar"
+    kinds = []
+    for k, _ in cycle[start:] + cycle[:start]:
+        if not kinds or kinds[-1] != k:
+            kinds.append(k)
+    if kinds != MAIN_TAB_KINDS:
+        return f"the order is {kinds}, not {MAIN_TAB_KINDS}"
+    if got[-1][0] != "key Esc" or got[-1][1] != "map":
+        return f"Esc: {got[-1]} (not the map)"
+    return None
+
+
+def check_tab_press(output):
+    """Enter on the mode Terrain picks it and the focus stays there; Space on Quick search opens the quick picker; Esc
+    gives the keyboard to the map."""
+    got = focus_lines(output)
+    enter = next((g for g in got if g[0] == "key Enter"), None)
+    if not enter or enter[1] != "modes" or enter[2] != "Terrain":
+        return f"Enter: {enter} (not on the mode Terrain)"
+    if not re.search(r"^key Enter:.*\n  state: [^\n]*mode=Terrain", output, re.M):
+        return "Enter on Terrain did not pick Terrain mode"
+    back = next((g for g in got if g[0] == "key Shift+Tab"), None)
+    if not back or back[1] != "top bar" or not back[2].startswith("Quick search"):
+        return f"Shift+Tab: {back} (not on Quick search)"
+    space = next((g for g in got if g[0] == "key Space"), None)
+    if not space or space[1] != "text field":
+        return f"Space on Quick search: {space} (the quick picker's search field does not have the keyboard)"
+    if got[-1][0] != "key Esc" or got[-1][1] != "map":
+        return f"Esc: {got[-1]} (not the map)"
+    return None
+
+
+def check_message_tab(output):
+    """The save question's buttons: Tab and Shift+Tab move the focus round them; Enter on Cancel keeps the tab; Space
+    on Do not save closes it."""
+    got = [(i, k, t) for i, k, t, _, _ in focus_lines(output)]
+    want = [("key Tab", "message box", "Do not save"), ("key Tab", "message box", "Cancel"), ("key Tab", "message box", "Save"),
+            ("key Shift+Tab", "message box", "Cancel"), ("key Tab", "message box", "Do not save")]
+    boxed = [g for g in got if g[1] == "message box"]
+    if boxed != want:
+        return f"the message box's focus: {boxed}, not {want}"
+    if len(re.findall(r"^question: Save changes to the map\?", output, re.M)) != 2:
+        return "Ctrl+W did not ask two times (Enter on Cancel did not keep the tab)"
+    tabs, after = [], False  # (the tabs in the lines of each Ctrl+W)
+    for line in output.splitlines():
+        if line.startswith("key "):
+            after = line.startswith("key Ctrl+W:")
+        m = re.search(r" tabs=(\S+)", line) if after and line.startswith("  ui: ") else None
+        if m:
+            tabs.append(m.group(1))
+    if len(tabs) < 2 or tabs[0] != "1/1" or tabs[-1] != "0/0":
+        return f"the tabs after each Ctrl+W: {tabs} (not 1/1, then 0/0)"
+    return None
+
+
+def check_dialog_cycle(want, skip=0):
+    """A check: Tab goes round the dialog's controls (the same ones each time round, those of `want` among them) and
+    Shift+Tab goes back through them. `skip`: the focus lines before the dialog opens (in the main window)."""
+    def check(output):
+        got = [(i, k, t) for i, k, t, _, _ in focus_lines(output)][skip:]
+        fwd = [(k, t) for i, k, t in got if i == "key Tab"]
+        back = [(k, t) for i, k, t in got if i == "key Shift+Tab"]
+        if not fwd:
+            return "no focus lines for Tab"
+        n = next((n for n in range(1, len(fwd)) if all(fwd[k] == fwd[k % n] for k in range(len(fwd)))), None)
+        if n is None or len(fwd) < 2 * n:
+            return f"Tab did not go round the dialog twice: {fwd}"
+        cycle = fwd[:n]
+        missing = [w for w in want if not any(t == w or t.startswith(w + " ") for _, t in cycle)]
+        if missing:
+            return f"Tab does not stop on {missing}: {cycle}"
+        pos = (len(fwd) - 1) % n
+        for k, item in enumerate(back):
+            pos = (pos - 1) % n
+            if item != cycle[pos]:
+                return f"Shift+Tab {k + 1}: {item}, not {cycle[pos]}"
+        return None
+    return check
+
+
 def check_dialog_tab(output):
     """Tab into a number selects it; the typed number takes its place; Tab and Shift+Tab select the next and the one before."""
-    got = focus_lines(output)
+    got = focus_lines(output)[1:]  # (after the Tab to the Units list's rows)
     if len(got) < 4:
         return f"{len(got)} focus lines: {got}"
     (_, k1, t1, s1, _), (_, k2, t2, s2, _), (_, k3, t3, s3, _), (_, k4, t4, s4, _) = got[:4]
@@ -2617,25 +2752,14 @@ def check_banner(shown, note, data):
 
 
 def check_start_keys(output):
-    """None when the start page's keys went as the rule says (from each card or Browse: Tab, Shift+Tab, Left, Right),
-    and Browse was reached with Tab and with Shift+Tab."""
+    """None when the start page's keys went as the rule says: Tab comes to Browse after the window's bars (the menu
+    bar, the top bar's three parts, the tabs' +, the rail's Help), goes through the cards and leaves the page after the
+    second card; Shift+Tab comes back to the second card and leaves the page after Browse; Left and Right go to a card."""
     steps = re.findall(r"^key (\S+): start page: keys on (.+?)\r?$", output, re.M)
-    if len(steps) != 11:
-        return f"{len(steps)} key lines, not 11"
-    rule = {("card 0", "Tab"): "card 1", ("card 1", "Tab"): "Browse", ("Browse", "Tab"): "card 0",
-            ("card 0", "Shift+Tab"): "Browse", ("card 1", "Shift+Tab"): "card 0", ("Browse", "Shift+Tab"): "card 1",
-            ("card 0", "Right"): "card 1", ("card 1", "Right"): "card 1", ("Browse", "Right"): "card 1",
-            ("card 0", "Left"): "card 0", ("card 1", "Left"): "card 0", ("Browse", "Left"): "card 0"}
-    was, reached = "none", set()
-    for key, now in steps:
-        want = rule.get((was, key))
-        if want and now != want:
-            return f"{key} on {was} went to {now}, not {want}"
-        if want == "Browse":
-            reached.add(key)
-        was = now
-    if reached != {"Tab", "Shift+Tab"}:
-        return f"Browse was reached only with {sorted(reached)}"
+    want = ["none"] * 6 + ["Browse", "card 0", "card 1", "none", "card 1", "card 0", "Browse", "none", "Browse", "card 1", "card 0", "card 0"]
+    got = [now for _, now in steps]
+    if got != want:
+        return f"the page's keys went to {got}, not {want}"
     return None
 
 
@@ -3835,6 +3959,13 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_release,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
+          "map-tab-focus": check_main_tab, "map-tab-press": check_tab_press, "map-message-tab": check_message_tab,
+          "map-unitprops-cycle": check_dialog_cycle(["Invincible", "OK", "Cancel"]),
+          "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "OK", "Cancel"]),
+          "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
+          "map-options-cycle": check_dialog_cycle(["Dark", "Accent color", "Animate units", "Open the last project on start",
+                                                   "Look for updates", "Previews", "Default", "Close"]),
+          "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
           "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
           "text-input-cjk": check_text_cjk, "script-nodata": check_soak_nodata,

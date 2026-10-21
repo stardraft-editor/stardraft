@@ -105,7 +105,15 @@ public:
         if (shown) host()->timer(0, shown);
     }
 
+    // The box is the window's one Tab stop (its own keys move the focus between its buttons): the window's Tab gives it
+    // the keyboard when no view has it.
+    bool focusable() const override { return true; }
+
     void paint(draw::Canvas& c) override {
+        // The keyboard: the first paint takes it too (resized can come before the window is the host's, when the focus
+        // cannot go to the box yet).
+        if (!started_ && host() && width() > 0) resized();
+        if (!painted_ && host()) painted_ = true, focus();
         if (!laidOut_) layout(c);
         c.fill({0, 0, width(), height()}, kBg);
         const bool alt = host() && (host()->modifiers() & draw::kAlt) != 0;
@@ -123,7 +131,20 @@ public:
             const kitpaint::ButtonState s = int(k) == b.down && b.down == b.hot ? kitpaint::ButtonState::Down : int(k) == b.hot ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal;
             kitpaint::drawButtonFace(c, bt.rc, L"", tone, s);
             c.text(bt.rc, bt.name, kitpaint::toneText(tone), draw::kCenter | draw::kMiddle | (alt ? draw::kPrefix : draw::kPrefixHidden));
+            if (int(k) == b.focus && hasFocus()) {  // the button with the keyboard focus: the outline around it
+                const int o = std::max(1, scale(2)) + 1;
+                paintFocusOutline(c, {bt.rc.left - o, bt.rc.top - o, bt.rc.right + o, bt.rc.bottom + o});
+            }
         }
+    }
+    void focusChanged(bool) override { invalidate(); }
+    // The button with the focus, without its "&" (the tests' output).
+    std::wstring focusedItem() const override {
+        if (b.focus < 0 || b.focus >= int(b.buttons.size())) return {};
+        std::wstring n;
+        for (const wchar_t ch : b.buttons[size_t(b.focus)].name)
+            if (ch != L'&') n += ch;
+        return n;
     }
 
     bool mouse(const draw::MouseEvent& e) override {
@@ -218,7 +239,7 @@ private:
     }
 
     stardraft::kit::Dialog* dlg_ = nullptr;
-    bool laidOut_ = false, started_ = false;
+    bool laidOut_ = false, started_ = false, painted_ = false;
 };
 
 // The host's own message box (macOS: an alert sheet on the window, sdl_window.inc): it shows `box` from `from` and

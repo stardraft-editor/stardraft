@@ -42,6 +42,19 @@ public:
             host_.close();
         };
         add(send_, {0, 0, 0, 0}), add(cancel_, {0, 0, 0, 0});
+        // The links are Tab stops too (Enter and Space open them), in the order of the screen: tabChildren.
+        discordStop_.press = [this] { host_.openDiscord(); };
+        discordStop_.name = L"Open the Discord server";
+        issueStop_.press = [this] {
+            if (!page_.empty()) host_.openIssue(page_);
+        };
+        issueStop_.name = L"Open it on GitHub";
+        add(discordStop_, {0, 0, 0, 0}), add(issueStop_, {0, 0, 0, 0});
+        issueStop_.setVisible(false);
+    }
+    std::vector<draw::View*> tabChildren() const override {
+        auto* self = const_cast<FeedbackView*>(this);
+        return {&self->text_, &self->issueStop_, &self->discordStop_, &self->send_, &self->cancel_};
     }
 
     // The text the user typed (the self-test reads it), and the state of the dialog.
@@ -138,6 +151,13 @@ private:
     int spin_ = 0;
     int spinTimer_ = -1;
     draw::Rect discordRect_{}, issueRect_{}, statusRect_{};
+    PartStop discordStop_, issueStop_;  // the links' Tab stops (item_focus.inc)
+    // A link's stop at its place (only when it moved: a frame change paints again).
+    static void placeStop(PartStop& s, draw::Rect r, bool shown) {
+        if (s.visible() != shown) s.setVisible(shown);
+        const draw::Rect f = s.frame();
+        if (shown && (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom)) s.setFrame(r);
+    }
 };
 
 void FeedbackView::paint(draw::Canvas& c) {
@@ -191,6 +211,8 @@ void FeedbackView::paint(draw::Canvas& c) {
     const std::wstring discord = tr(L"Open the Discord server");
     discordRect_ = {pad, y, pad + c.measure(discord) + scale(4), y + scale(20)};
     c.text(discordRect_, discord, kAccent, draw::kMiddle);
+    placeStop(discordStop_, discordRect_, true);
+    placeStop(issueStop_, issueRect_, !issueRect_.empty() && !page_.empty());
     y += scale(20) + scale(20);
     // Send and Cancel, at the right edge: Cancel last, Send one gap to its left.
     const int cw = cancel_.preferredWidth(c), sw = send_.preferredWidth(c), gap = scale(stardraft::kit::kButtonGap);
