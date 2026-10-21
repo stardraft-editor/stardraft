@@ -100,6 +100,9 @@ struct WindowSpec {
     bool workArea = false;  // Dialog: centered on the work area of the screen (else on the window that opens it)
     bool resizable = false;  // Dialog: the window can be resized (its content is laid out again)
     bool placed = false;     // Dialog: at `at`'s left and top in screen points (else centered)
+    // Popup that is not modal: it takes the keys and the typed text that come to the window it is opened from (its
+    // search field types; Windows can give a pop-out's keys to the window under it).
+    bool takesKeys = false;
 };
 
 class Host {

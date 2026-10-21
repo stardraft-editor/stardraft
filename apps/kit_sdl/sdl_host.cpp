@@ -50,6 +50,7 @@ struct SdlHost::Win {
     // place there, in the base's pixels, as the screen shows a pop-out over its window. 0: not a pop-out (a base).
     SDL_WindowID shotBase = 0;
     Rect shotAt;
+    bool takesKeys = false;        // a pop-out that is not modal takes its opener's keys (WindowSpec::takesKeys)
     bool popup() const { return kind == WindowKind::Popup || kind == WindowKind::Menu; }
     bool transient() const { return kind != WindowKind::Dialog && kind != WindowKind::Tool; }
 };
@@ -713,7 +714,12 @@ bool SdlHost::inModal(SDL_WindowID id) const {
 
 SDL_WindowID SdlHost::keyWindow(SDL_WindowID id) const {
     const Win* m = modal_ ? findWin(modal_) : nullptr;
-    if (!m || !m->popup() || id == modal_) return id;
+    if (!m) {  // a pop-out that is not modal and takes its opener's keys (the quick picker): the newest one opened from `id`
+        for (auto it = wins_.rbegin(); it != wins_.rend(); ++it)
+            if ((*it)->takesKeys && ((*it)->parent == id || ((*it)->shotBase && (*it)->shotBase == id))) return (*it)->id;
+        return id;
+    }
+    if (!m->popup() || id == modal_) return id;
     for (const Win* p = m; p && p->popup(); p = findWin(p->parent))  // (the pop-outs it opens from, then their window)
         if (p->parent == id || (p->shotBase && p->shotBase == id)) return modal_;  // (a snapshot's pop-out: its base)
     return id;
@@ -778,6 +784,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         w->parent = parent->id;
         w->title = spec.title;
         w->typing = true;  // (as a window's: setTyping in openWindow)
+        w->takesKeys = spec.kind == WindowKind::Popup && spec.takesKeys;
         w->pw = std::max(1, spec.at.width()), w->ph = std::max(1, spec.at.height());
         if (spec.kind != WindowKind::Dialog) {  // a pop-out: at spec.at in the opener's view, over the opener's base window
             const Point o = from.origin();
@@ -852,6 +859,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     auto w = makeWin(sdl, content, spec.kind, std::move(closed));
     w->parent = parent->id;
     w->title = spec.title;
+    w->takesKeys = spec.kind == WindowKind::Popup && spec.takesKeys;
     if (!claim(*w)) {
         SDL_DestroyWindow(sdl);
         return;

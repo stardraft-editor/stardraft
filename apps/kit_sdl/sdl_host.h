@@ -207,7 +207,8 @@ private:
     bool inModal(SDL_WindowID id) const;  // the window is the modal dialog or opened from it
     // The window that takes a key or typed text that SDL gives window `id` (the window with the system's keyboard
     // focus): the modal pop-out when it opens over `id` (Windows keeps the keyboard focus on the window under a
-    // pop-out: SDL gives the pop-out's keys and text to that window), else `id`.
+    // pop-out: SDL gives the pop-out's keys and text to that window); with no modal window, the newest pop-out opened
+    // from `id` that takes its opener's keys (WindowSpec::takesKeys: the quick picker); else `id`.
     SDL_WindowID keyWindow(SDL_WindowID id) const;
     // Where the input method shows its text for window `w`: the window with the system's keyboard focus when `w` is a
     // pop-out over it, with `r` (logical points of `w`) moved into it.
