@@ -11,6 +11,7 @@ struct PanelState {
     std::vector<int> chosen;          // (shellPaletteChosen)
     int owner = 0;
     float brushSize = 2, brushHeight = 0;
+    float otherBrushSize = 2, otherBrushHeight = 0;  // (AppState's: the other terrain tools' brush)
     Brush::Shape brushShape = Brush::Diamond;
     int tool = 0;                     // (AppState::toolByMode of its mode)
     int density = 10;
@@ -30,6 +31,7 @@ void panelStore(PanelState& s) {
     const AppState& a = appState();
     s.palette = a.palette, s.palette2 = a.palette2, s.chosen = shellPaletteChosen(), s.owner = a.playerOwner;
     s.brushSize = a.brushSize, s.brushHeight = a.brushHeight, s.brushShape = a.brushShape;
+    s.otherBrushSize = a.otherBrushSize, s.otherBrushHeight = a.otherBrushHeight;
     s.tool = a.toolByMode[int(s.mode)], s.density = a.sprayDensity, s.terrainRect = a.terrainRect;
     if (a.ed) s.mirrors = a.ed->mirrors(), s.turns = a.ed->turns();
 }
@@ -38,6 +40,7 @@ void panelLoad(const PanelState& s) {
     a.mode = s.mode;
     a.palette = s.palette, a.palette2 = s.palette2, shellPaletteChosen() = s.chosen, a.playerOwner = s.owner;
     a.brushSize = s.brushSize, a.brushHeight = s.brushHeight, a.brushShape = s.brushShape;
+    a.otherBrushSize = s.otherBrushSize, a.otherBrushHeight = s.otherBrushHeight;
     a.toolByMode[int(s.mode)] = s.tool, a.sprayDensity = s.density, a.terrainRect = s.terrainRect;
     if (a.ed) a.ed->setMirrors(s.mirrors), a.ed->setTurns(s.turns);
     if (s.tiles && s.tilesGrid && s.tilesPanel) gTiles = s.tiles, gTilesGrid = s.tilesGrid, gTilesPanel = s.tilesPanel;
@@ -77,6 +80,7 @@ PanelState panelNew(Mode m) {
     PanelState s;
     s.mode = m, s.owner = a.playerOwner;
     s.brushSize = 2, s.brushHeight = 0, s.brushShape = a.brushShape;
+    s.otherBrushSize = 2, s.otherBrushHeight = 0;
     s.density = m == Mode::Terrain ? 5 : 10;
     return s;
 }
@@ -200,12 +204,14 @@ void panelsShowTab() {
 }
 
 // A panel's state in the map's own file (map_prefs.inc): its mode, tool, brush size, height and shape, density, mirrors,
-// Isometric or Rectangle, player, pick, second terrain and tile, tab-separated.
+// Isometric or Rectangle, player, pick, second terrain and tile, and the other terrain tools' brush size and height,
+// tab-separated.
 std::string panelStateText(PanelState& s) {
     panelFresh(s);
-    char b[160];
-    std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape), s.density,
-                  s.mirrors, int(s.terrainRect), s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1);
+    char b[192];
+    std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
+                  s.density, s.mirrors, int(s.terrainRect), s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
+                  s.otherBrushHeight);
     return b;
 }
 // Back from the text (from part `at` of the line's tab-separated parts): false when it is not a state of mode `m`.
@@ -219,6 +225,9 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.owner = std::clamp(num(8), 0, 11), s.palette = num(9), s.palette2 = num(10);
     s.chosen.clear();
     if (s.tiles) s.tiles->picked = num(11);
+    if (part.size() >= at + 14)  // (a file of an older version: the other terrain tools' brush as it was)
+        s.otherBrushSize = std::clamp(float(std::atof(part[at + 12].c_str())), 0.5f, 32.0f),
+        s.otherBrushHeight = std::clamp(float(std::atof(part[at + 13].c_str())), 0.0f, 32.0f);
     return true;
 }
 // The tab's panels came from its file after the tab showed: the active one's state is the app state's again.

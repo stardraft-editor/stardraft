@@ -20,6 +20,9 @@ struct AppState {
     int playerOwner = 0;
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
+    // Terrain: the brush size and height of the other terrain tools (Rectangle's while Isometric is on, and the
+    // reverse). Each keeps its own (GitHub #155).
+    float otherBrushSize = 2, otherBrushHeight = 0;
     Brush::Shape brushShape = Brush::Diamond;
     int toolByMode[kModeCount] = {};
     int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)

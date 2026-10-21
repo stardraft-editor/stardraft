@@ -302,6 +302,7 @@ CASES += [
     # (they show on the map), then View > Layers > Map revealers: the layer is hidden and the revealers are not drawn.
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
+    ("map-terrain-brush-sizes", ["--script", "{script:brushsizes}"], "map"),
     ("map-revealers-hidden", ["--script", "{script:revealersHidden}"], "map"),
     # View > Units list: the Unit properties window with the list in its left column (the first unit, its picture and fields
     # on the right), and the pick, Delete and undo of the list (the script).
@@ -1019,6 +1020,16 @@ if sys.platform == "win32":
 # Options > Units > Can be on top of others, the Marine picked, three clicks at one point, Esc: a stack of three units.
 STACK_PLACE = "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nkey Esc\n"
 SCRIPTS = {
+    # Isometric and Rectangle each keep their own brush size (GitHub #155): Alt+wheel makes Isometric's 4; Rectangle's
+    # is 2 and goes to 1; Isometric's is 4 again, then Rectangle's 1.
+    "brushsizes": """mode terrain
+wheel 832,500,0,1:Alt
+wheel 832,500,0,1:Alt
+rect
+wheel 832,500,0,-1:Alt
+rect off
+rect
+""",
     # Edit > Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
     "revealers": """command edit.revealers.place
 key Enter
@@ -1818,6 +1829,15 @@ def check_quick_click(output):
         ("the click outside the picker did not close it", lambda s: s[4]["quick"] == "-"),
         ("the click outside the picker did not go to the map (no unit placed)", lambda s: s[4]["units"] == s[3]["units"] + 1),
     ])
+
+
+def check_brush_sizes(output):
+    """Isometric and Rectangle each keep their own brush size (GitHub #155)."""
+    sizes = re.findall(r" brush=(\S+)", output)
+    want = ["3x3", "4x4", "2x1", "1x1", "4x4", "1x1"]  # (Rectangle's diamond: half as high)
+    if sizes[-6:] != want:
+        return f"the brush sizes are {sizes[-6:]}, not {want}"
+    return None
 
 
 def check_quick_typing(output):
@@ -3731,7 +3751,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
           "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
-          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing,
+          "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
           "data-triggers-edits": check_trigger_edits, "map-classictrig-edits": check_classic_edits, "map-classictrig-quickadd": check_classic_quickadd, "map-classictrig-find": check_classic_find,

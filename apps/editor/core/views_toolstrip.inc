@@ -78,6 +78,7 @@ void setTerrainRect(bool rect) {
     AppState& app = appState();
     if (app.terrainRect == rect) return;
     app.terrainRect = rect;
+    std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
     app.terrainPasting = false;
     if (shellViewShown()) shellRelayout();  // the strip's height (no mirrors in Rectangle)
     fillToolCombo(app);  // tilesSync: the Tiles grid or the terrain palette
