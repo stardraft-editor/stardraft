@@ -589,13 +589,26 @@ public:
     uint64_t undoStateId(size_t k) const { return !k ? state_ : k <= undo_.size() ? undo_[undo_.size() - k].state : 0; }
     uint64_t redoStateId(size_t k) const { return !k ? state_ : k <= redo_.size() ? redo_[redo_.size() - k].state : 0; }
 
-private:
     struct TerrainClip {
         std::vector<CornerValue> corners;  // relative to (0, 0) = the copied area's first corner
         std::vector<Unit> units;           // positions relative to the corner origin in pixels
         std::vector<Doodad> doodads;       // likewise
         int width = 0, height = 0;         // pixels
     };
+    struct TileClip {
+        int width = 0, height = 0;     // tiles
+        std::vector<uint16_t> values;  // row by row
+    };
+    // The terrain and tile clipboards (copyTerrain, copyTiles) as one value: a copy in one map pastes in another map of
+    // the same tileset (GitHub #146).
+    struct TerrainCopies {
+        TerrainClip terrain;
+        TileClip tiles;
+    };
+    TerrainCopies terrainCopies() const { return {terrainClip_, tileClip_}; }
+    void setTerrainCopies(const TerrainCopies& c) { terrainClip_ = c.terrain, tileClip_ = c.tiles; }
+
+private:
     // engine + store + commit; overPlaced: the tiles placed in Rectangle mode in the rects of the corners are made again
     // (the brush: GitHub #143)
     bool applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced = false);
@@ -619,10 +632,7 @@ private:
     // true turn; on another the copies stay in the map's box).
     std::pair<int, int> turnPoint(int px, int py, int k) const;
     TerrainClip terrainClip_;
-    struct TileClip {
-        int width = 0, height = 0;     // tiles
-        std::vector<uint16_t> values;  // row by row
-    } tileClip_;
+    TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
     struct SymmetricPlace {

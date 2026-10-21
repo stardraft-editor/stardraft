@@ -85,6 +85,26 @@ bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
     return true;
 }
 
+// The terrain or tiles copied last, in any map (Copy, Cut, R in Terrain mode): a paste in another map of the same tileset
+// pastes them too (GitHub #146). One copy for all maps, as the system's clipboard.
+struct SharedTerrainCopy {
+    Editor::TerrainCopies copies;
+    uint16_t era = 0;
+    bool any = false;
+};
+SharedTerrainCopy gTerrainCopy;
+extern const wchar_t* kTilesetNames[8];  // (palette_items.inc)
+// After a copy (or a turn of it) in `ed`: it is the copy of all maps.
+void shareTerrainCopy(const Editor& ed) { gTerrainCopy = {ed.terrainCopies(), ed.era(), true}; }
+// The copy of all maps into `ed` (a map that shows, or a paste): nothing when it is of another tileset. True when the
+// copy is of another tileset.
+bool takeTerrainCopy(Editor& ed) {
+    if (!gTerrainCopy.any) return false;
+    if (gTerrainCopy.era != ed.era()) return ed.setTerrainCopies({}), true;
+    ed.setTerrainCopies(gTerrainCopy.copies);
+    return false;
+}
+
 // Edit > Paste in the active mode: doodads and sprites follow the mouse (click to place them), a location's copy goes at
 // the mouse (in the middle of the view when the mouse is not over the map), terrain and units follow the mouse.
 void pasteMapCopy(AppState& app) {
@@ -140,7 +160,11 @@ void pasteMapCopy(AppState& app) {
     if (app.ed && app.mode == Mode::Terrain) {
         // The copy of the other terrain mode (tiles copied in Rectangle, terrain in Isometric): to that mode, then paste
         // it (GitHub feedback #83: Ctrl+V did nothing).
+        const bool otherTileset = takeTerrainCopy(*app.ed);  // (the copy of another map)
         if (app.terrainRect ? !app.ed->hasTileClipboard() : !app.ed->hasTerrainClipboard()) {
+            if (otherTileset)
+                return setMessage(L"The copied terrain is " + std::wstring(kTilesetNames[gTerrainCopy.era & 7]) +
+                                  L" terrain. You can paste it only in a map of that tileset");
             if (!(app.terrainRect ? app.ed->hasTerrainClipboard() : app.ed->hasTileClipboard()))
                 return setMessage(L"Nothing copied: select terrain with the Select / copy tool and press Ctrl+C");
             setTerrainRect(!app.terrainRect);
@@ -166,12 +190,12 @@ void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain && app.terrainRect) {
         const Rect& r = app.terrainSel;
         if (app.hasTerrainSel && app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape()))
-            tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
+            shareTerrainCopy(*app.ed), tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
         else
             setMessage(L"First, select an area with the Select / copy tool");
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
-            setMessage(L"Copied the terrain selection");
+            shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
         else
             setMessage(L"First, select an area with the Select / copy tool");
     } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
@@ -221,6 +245,7 @@ void cutMapSelection(AppState& app) {
     const bool copied = app.terrainRect ? app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape())
                                         : app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
     if (!copied) return setMessage(L"Nothing to cut there: make the selection larger");  // (a small diamond with no corner)
+    shareTerrainCopy(*app.ed);
     app.ed->beginStroke();  // the units and the tiles: one undo step
     if (app.copyUnitsWithTerrain && !app.terrainRect) {  // the copied units go too (air units: the null tiles would not remove them)
         app.ed->clearSelection();
@@ -508,7 +533,7 @@ bool mapMenuGrayed(int id) {
             return false;
         const bool open = app.ed && app.ed->isOpen();
         // Every kind of copy (a gray item also stops Ctrl+V): units, terrain, tiles, locations, doodads, sprites (#83).
-        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || !app.locationClip.empty() ||
+        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || gTerrainCopy.any || !app.locationClip.empty() ||
                           !app.doodadClip.empty() || !app.spriteClip.empty()));
     }
     if (id == ID_OPT_DRAGBACK) return app.allowIllegalUnits;  // (not used when units go anywhere)
