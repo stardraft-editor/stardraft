@@ -1,0 +1,8 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Space Madness.scm", "cases": ["map-terrain-paste-other-map"]}
+  ],
+  "shots": [
+    {"run": 0, "from": "map-terrain-paste-other-map.png", "to": "paste-other-map.png", "crop": [0, 64, 1320, 936], "alt": "Terrain copied from another map, pasted"}
+  ]
+}
