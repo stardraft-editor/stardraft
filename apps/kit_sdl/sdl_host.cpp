@@ -866,7 +866,7 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         return;
     }
     if (spec.kind == WindowKind::Dialog || spec.kind == WindowKind::Popup || spec.kind == WindowKind::Tool) setTyping(*w, true);  // (a menu's keys are keys)
-    if ((spec.kind == WindowKind::Dialog || spec.kind == WindowKind::Tool) && windowMade_) windowMade_(sdl);
+    if (spec.kind != WindowKind::Tooltip && windowMade_) windowMade_(sdl);  // (the title bar; a menu's corners)
     if (spec.kind == WindowKind::Tool) {
         // A tool window does not take the keyboard when it shows (the user's keys stay in the window they type in).
         const char* was = SDL_GetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN);
