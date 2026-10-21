@@ -704,7 +704,7 @@ int main(int argc, char** argv) {
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "resize";
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
@@ -840,6 +840,10 @@ int main(int argc, char** argv) {
             ti.width = uint32_t(width), ti.height = uint32_t(height), ti.layer_count_or_depth = 1, ti.num_levels = 1;
             SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &ti);
             if (!tex) return std::fprintf(stderr, "snapshot texture: %s\n", SDL_GetError()), 1;
+            if (shown != &root) {  // a dialog's view takes the inputs (sdl_menus.inc), as the window over the main window
+                gShotView = shown, gShotViewSize = {width, height};
+                host.snapshotInput(*shown, width, height, {});
+            }
             startLap("to the first frame");
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             startLap("first frame");
@@ -905,6 +909,7 @@ int main(int argc, char** argv) {
             if (hasCheck("menus")) sdlMenuCheck();
             if (hasCheck("names")) sdlNamesCheck();  // (after the inputs: a map saved and opened again)
             if (hasCheck("dataform")) sdlDataFormCheck();  // (the last paint's parts)
+            if (hasCheck("resize")) sdlResizeCheck();  // (Crop or extend: its dialog, or the change its OK made)
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");
@@ -913,6 +918,7 @@ int main(int argc, char** argv) {
             SDL_WaitForGPUIdle(device);
             SDL_ReleaseGPUTexture(device, tex);
             gPopShot.frame.reset();  // (before the root view goes)
+            gShotView = nullptr;
         } else {
             // The first size is already in the display's free area (fitMainWindow sets the size in points next): macOS
             // takes a window as large as the free area as zoomed, and SDL keeps that first size as the window's own

@@ -504,6 +504,16 @@ public:
     // diamonds need. A new tileset takes for each terrain the one of the same name, else `fill`; it also fills new
     // ground. Doodads that the new tileset does not have go. Returns false (nothing changed) on error.
     bool resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error);
+    // The shift (tiles) that resizeMap uses for (shiftX, shiftY): shiftX even (rounded down), and shiftY one less when
+    // (shiftX / 2 + shiftY) is odd.
+    static void resizeShift(int& shiftX, int& shiftY);
+    // The map of a scenario in memory (no file, no archive files, no undo steps): a copy of a map to try an edit on (the
+    // resize preview of Map properties). False with `error` as open().
+    bool openChk(const Chk& chk, std::string& error);
+    // The scenario of `edited` (a copy of this map from openChk that an edit changed: the resize preview of Map
+    // properties) in place of this map's, as one undo step, so the map is the copy tile for tile (the terrain core
+    // selects some tiles at random). The archive's other files stay. False when `edited` is not open.
+    bool takeScenario(const Editor& edited);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
     // Adds (or replaces) a file in the map archive, such as a briefing's sound; saved with the map. One undo step.

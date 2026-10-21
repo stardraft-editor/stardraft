@@ -636,6 +636,23 @@ CASES += [
     # the Strings tab's text (a game text field) and the Data list's search box.
     ("map-props-caret", ["--check", "caret", "--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox",
                          "--click", "420,300", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
+    # Crop or extend (Map properties; Discord feedback #140; core/views_resize.inc): the map's picture with the crop
+    # rectangle (--dialog resize: the dialog is the picture and takes the inputs). The bottom right handle dragged to the
+    # right (the size snaps to 192 x 128), then the rectangle dragged up and to the left (the offset snaps to one that
+    # the resize uses); the preview in the rectangle is of the values that show (--check resize).
+    ("map-dialog-resize", ["--dialog", "resize", "--check", "resize"], "map"),
+    ("map-dialog-resize-drag", ["--dialog", "resize", "--drag", "499,498-700,480", "--drag", "300,300-200,200", "--check", "resize"], "map"),
+    # The keys: Tab to the picture, the arrow keys move the rectangle (2 tiles), Tab to the X offset, -32 typed, Tab
+    # through the fields to the buttons.
+    ("map-dialog-resize-keys", ["--dialog", "resize", "--key", "Tab", "--key", "Right", "--key", "Right", "--key", "Down", "--key", "Tab",
+                                "--key", "Tab", "--key", "Tab", "--key", "Ctrl+A", "--type", "-32", "--key", "Tab", "--key", "Tab", "--key", "Tab",
+                                "--key", "Tab", "--check", "resize"], "map"),
+    # Crop or extend from the page (its button beside the size), the same drags, Left, then Enter (Change the size):
+    # the map is 192 x 128, the units that stay moved by the offset, and the preview at OK is the minimap of the map
+    # after the change. Then Ctrl+Z takes the change back in one step.
+    ("map-resize-apply", ["--workspace", "props", "--click", "494,424", "--drag", "499,498-700,480", "--drag", "300,300-200,200",
+                          "--key", "Left", "--key", "Enter", "--check", "resize"], "map"),
+    ("map-resize-undo", ["--workspace", "props", "--click", "494,424", "--drag", "499,498-700,480", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
     ("data-text-caret", ["--check", "caret", "--newproject", "{newdir}", "--workspace", "data", "--data", "strings:5", "--click", "800,360",
                          "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox", "--click", "190,152", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "data"),
     # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
@@ -3502,6 +3519,94 @@ def expect_ui(count, rules):
     return check
 
 
+RESIZE_DIALOG = re.compile(r"^resize: dialog (\d+) x (\d+), offset (-?\d+),(-?\d+); preview (\d+) x (\d+)\r?$", re.M)
+
+
+def resize_values(output):
+    """Crop or extend's values after each input: [(input, (w, h, x, y), preview size)] from the ui lines' resize=..."""
+    out = []
+    for what, ui in ui_lines(output):
+        m = re.match(r"(\d+)x(\d+)@(-?\d+),(-?\d+)$", ui.get("resize", ""))
+        if m:
+            out.append((what, tuple(int(v) for v in m.groups()), ui.get("preview")))
+    return out
+
+
+def resize_shift_ok(x, y):
+    """The offset is one that the resize uses (Editor::resizeShift): x even, x / 2 + y even."""
+    return x % 2 == 0 and (x // 2 + y) % 2 == 0
+
+
+def check_resize_dialog(output):
+    """None when the dialog shows the map's size (128 x 128, no offset) and the preview of it."""
+    m = RESIZE_DIALOG.search(output)
+    if not m:
+        return "no resize line (or a WRONG one)"
+    if m.groups() != ("128", "128", "0", "0", "128", "128"):
+        return f"the dialog shows {m.group(0)}"
+    return None
+
+
+def check_resize_drag(output):
+    """None when the handle's drag gave 192 x 128 at offset 0,0, the move kept the size and gave an offset that the
+    resize uses (up and to the left: the content moves right and down), and the last preview is of the last values."""
+    v = resize_values(output)
+    if len(v) != 2:
+        return f"{len(v)} inputs with Crop or extend's values, not 2: {v}"
+    if v[0][1] != (192, 128, 0, 0) or v[0][2] != "192x128":
+        return f"after the handle's drag: {v[0]}"
+    w, h, x, y = v[1][1]
+    if (w, h) != (192, 128) or x <= 0 or y <= 0 or not resize_shift_ok(x, y):
+        return f"after the move: {v[1]}"
+    m = RESIZE_DIALOG.search(output)
+    if not m or tuple(int(g) for g in m.groups()) != (w, h, x, y, w, h):
+        return "the last preview is not of the last values"
+    return None
+
+
+def check_resize_keys(output):
+    """None when Right, Right, Down moved the rectangle by 2 tiles each (the offsets that the resize uses), -32 typed in X
+    gave X -32, and Tab went from the picture through the fields to the buttons."""
+    v = [vals for _, vals, _ in resize_values(output)]
+    if len(v) != 13:
+        return f"{len(v)} inputs with Crop or extend's values, not 13"
+    want = [(0, 0), (-2, -1), (-4, 0), (-4, -2)]
+    if [(x, y) for _, _, x, y in v[:4]] != want:
+        return f"the arrow keys gave {[(x, y) for _, _, x, y in v[:4]]}, not {want}"
+    if (v[8][2], v[8][3]) != (-32, -2):
+        return f"after -32 typed: {v[8]}"
+    focus = re.findall(r"^  focus: (\w+(?: field)?) at", output, re.M)
+    want_focus = ["view", "view", "view", "view", "dropdown", "dropdown", "text field", "text field", "text field", "text field",
+                  "dropdown", "dropdown", "button"]
+    if focus != want_focus:
+        return f"the focus went {focus}"
+    return None
+
+
+def check_resize_apply(output):
+    """None when the change made the map 192 x 128, the preview at OK is the map's minimap after it (the map is the
+    preview's copy), and the units that stay are the units from before moved by the offset."""
+    if not re.search(r"^resize: map 192 x 128 \(was 128 x 128\), preview 192 x 128; the preview is the minimap after the change: yes; "
+                     r"the map is the preview's copy: yes", output, re.M):
+        return "the map or its picture is not the preview's"
+    m = re.search(r"^resize: units (\d+) before, (\d+) after, (\d+) expected, moved by (-?\d+),(-?\d+) px: yes", output, re.M)
+    if not m:
+        return "the units are not the units from before moved by the offset"
+    if int(m.group(2)) >= int(m.group(1)) or m.group(4) == "0":
+        return f"no unit went, or no offset: {m.group(0)}"
+    return None
+
+
+def check_resize_undo(output):
+    """None when Enter made the map 192 x 128 and one Ctrl+Z made it 128 x 128 again."""
+    sizes = {what: ui.get("size") for what, ui in ui_lines(output)}
+    if sizes.get("click 494,424") != "192x128":
+        return f"after Change the size: {sizes.get('click 494,424')}"
+    if sizes.get("key Ctrl+Z") != "128x128":
+        return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"
+    return None
+
+
 def check_building_snap(snapped):
     """None when the Command Center that was placed, then dragged, is on the tile grid (`snapped`) or off it each time."""
     def on_grid(st):
@@ -3972,6 +4077,8 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-quit-tabs": check_quit_tabs, "map-save-typing": check_save_typing, "map-briefing-quit": check_briefing_quit,
           "map-program-files": check_program_files, "map-saveas-tab": check_saveas_tab, "map-undo-midstroke": check_undo_midstroke,
           "map-undo-saved": check_undo_saved, "map-undo-selection": check_undo_selection, "map-props-typing-undo": check_props_typing_undo,
+          "map-dialog-resize": check_resize_dialog, "map-dialog-resize-drag": check_resize_drag, "map-dialog-resize-keys": check_resize_keys,
+          "map-resize-apply": check_resize_apply, "map-resize-undo": check_resize_undo,
           "data-map-undo": check_data_map_undo, "data-map-undo-history": check_data_map_history, "data-value-insert": check_value_insert, "update-release-older": check_release_older,
           "update-release-token": check_release_token, "html-view": check_html_view, "html-view-light": check_html_view,
           "changelog": check_changelog, "changelog-light": check_changelog, "changelog-offline": check_changelog_offline,

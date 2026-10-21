@@ -55,7 +55,7 @@ public:
     // ScmDraft's resize (StarEdit's): the map becomes width x height tiles, the old terrain moved by (xOffset, yOffset)
     // tiles (xOffset even: whole rects), the new area filled with `fill` (an ISOM solid value) and the edges between
     // them made as ScmDraft makes them; the tiles that stay on the map keep theirs. Same tileset only. False when
-    // `fill` is no brush of the tileset.
+    // `fill` is no brush of the tileset, or no part of the old map is in the new one.
     bool resize(uint16_t width, uint16_t height, int xOffset, int yOffset, uint16_t fill);
 
     // Writes DIM, ISOM, TILE and MTXM to `chk` (ISOM without the core's editing flags).
@@ -72,6 +72,8 @@ public:
     bool loaded() const;
 
 private:
+    // IsomTerrain's resize as it is: the old map's part that it keeps must end at the new edges or before them.
+    bool resizeKept(uint16_t width, uint16_t height, int xOffset, int yOffset, uint16_t fill);
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

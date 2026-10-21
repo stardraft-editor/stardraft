@@ -526,7 +526,13 @@ void sdlInputLine(const std::string& what);
 
 // The window that takes a snapshot's keys and text now (SdlHost::snapshotTop): a dialog or pop-out that an input
 // opened, else the main window. (The mouse: SdlHost::snapshotMouse finds the window under the point.)
+// A dialog's view that is the picture (--dialog: main_sdl.cpp sets it): the snapshot's inputs go to it, not to the
+// window under it.
+draw::View* gShotView = nullptr;
+draw::Point gShotViewSize;
+draw::View& sdlShotRoot() { return gShotView ? *gShotView : *gRoot; }
 draw::View& sdlShotTarget(draw::Point& size) {
+    if (gShotView) return size = gShotViewSize, gHost ? gHost->snapshotTop(*gShotView, size) : *gShotView;
     size = {gRoot->width(), gRoot->height()};
     return gHost ? gHost->snapshotTop(*gRoot, size) : *gRoot;
 }
@@ -792,7 +798,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         e.button.button = right ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT, e.button.down = down, e.button.clicks = clicks, e.button.x = x, e.button.y = y;
         events.push_back(e);
     };
-    gHost->snapshotLayout(*gRoot);  // (the window paints between a user's inputs: the views are placed, a page's fields too)
+    gHost->snapshotLayout(sdlShotRoot());  // (the window paints between a user's inputs: the views are placed, a page's fields too)
     move(float(x0), float(y0), false);
     if (!moveOnly) {
         button(true, float(x0), float(y0), firstClicks);
@@ -825,7 +831,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
     const SDL_Keymod before = SDL_GetModState();
     SDL_SetModState(held);
     if (menuPick != -2) kit::Menu::setTestHook(sdlMenuShot), gMenuShotPick = menuPick;  // (Menu<n>: the menu's item n runs)
-    gHost->snapshotMouse(*gRoot, events);
+    gHost->snapshotMouse(sdlShotRoot(), events);
     SDL_SetModState(before);
     runPosted();
     if (menuPick != -2) gMenuShotPick = -2;
@@ -899,7 +905,7 @@ void sdlWheelShot(const std::string& spec) {
 #endif
     gHost->setPreciseScrollHook([precise] { return precise; });
     gHost->setMacScrollTest(mac);
-    for (int k = 0; k < repeat; ++k) gHost->snapshotMouse(*gRoot, events);
+    for (int k = 0; k < repeat; ++k) gHost->snapshotMouse(sdlShotRoot(), events);
     gHost->setMacScrollTest(false);
     gHost->setPreciseScrollHook(nullptr);
     SDL_SetModState(before);
@@ -941,7 +947,7 @@ void sdlGestureShot(const std::string& spec, bool smartZoom) {
     events[0].motion.x = x, events[0].motion.y = y;
     events[1] = kit_sdl::SdlHost::gestureEvent(smartZoom ? draw::MouseKind::SmartZoom : draw::MouseKind::Swipe, d == "left" ? -1 : d == "right" ? 1 : 0);
     const SdlCamera was = sdlCamera();
-    gHost->snapshotMouse(*gRoot, events);
+    gHost->snapshotMouse(sdlShotRoot(), events);
     runPosted();
     sdlInputLine(name + spec);
     sdlCameraLine(name + spec, was, x, y);
@@ -965,7 +971,7 @@ void sdlPinchShot(const std::string& spec) {
     const SdlCamera was = sdlCamera();
     const SDL_Keymod before = SDL_GetModState();
     if (!mods.empty()) SDL_SetModState(SDL_Keymod(before | SDL_KMOD_LALT));
-    gHost->snapshotMouse(*gRoot, events);
+    gHost->snapshotMouse(sdlShotRoot(), events);
     SDL_SetModState(before);
     runPosted();
     sdlInputLine("pinch " + spec);

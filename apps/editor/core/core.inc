@@ -75,6 +75,7 @@
 #include "views_project.inc"
 #include "views_map_pages.inc"
 #include "views_map_props.inc"
+#include "views_resize.inc"  // Map properties > Crop or extend: the new size and offset on a picture of the map (its preview)
 #include "views_players.inc"
 #include "views_classic_settings.inc"
 #include "views_classic_triggers.inc"
