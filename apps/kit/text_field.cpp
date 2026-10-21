@@ -845,7 +845,7 @@ void TextField::focusChanged(bool has) {
 }
 
 // One line: its text is selected (what is typed takes its place). Several lines keep the caret.
-void TextField::tabbedTo() {
+void TextField::tabbedTo(bool) {
     if (multiline() || model_.text().empty()) return;
     model_.selectAll();
     goalX_ = -1;

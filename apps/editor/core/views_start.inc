@@ -31,12 +31,12 @@ public:
     bool focusable() const override { return false; }
 };
 
-// The banner's Browse: a Tab stop (the page's Tab goes from the cards to it and back), with the focus ring of the
-// other buttons; Enter or Space runs it.
+// The banner's Browse: a stop of the page's Tab (the page moves the focus to it and from it: it is not a stop of the
+// window's Tab of its own), with the focus ring of the other buttons; Enter or Space runs it.
 class StartBrowse final : public stardraft::kit::Button {
 public:
     using stardraft::kit::Button::Button;
-    bool focusable() const override { return visible() && enabled(); }
+    bool focusable() const override { return false; }
     void focusChanged(bool) override { invalidate(); }
     bool key(const draw::KeyEvent& e) override { return visible() && stardraft::kit::Button::key(e); }
 };
@@ -89,6 +89,13 @@ public:
 
     // The card the keyboard is on (0 or 1); Left, Right and Tab move it, Enter and Space open it (Tab also goes to the
     // banner's Browse, when it is shown).
+    // Tab came to the page: Browse, else the first card (back: the second card).
+    void tabbedTo(bool back) override {
+        if (back) card_ = 1;
+        else if (browse_.visible() && browse_.enabled()) browse_.focus();
+        else card_ = 0;
+        invalidate();
+    }
     void setCard(int k) {
         if (card_ != k) card_ = k, invalidate();
     }
@@ -289,23 +296,25 @@ public:
         }
     }
 
-    // The keys: the cards. Left and Right move the card, Tab moves it to the other one, Enter and Space open it. With
-    // the banner, Tab goes through Browse, the first card and the second card (Shift+Tab: back); Browse takes Enter
-    // and Space itself.
+    // The keys: the cards. Left and Right move the card, Enter and Space open it. Tab goes through the banner's Browse
+    // (when it shows), the first card and the second card, then on to the window's next control (Shift+Tab: back);
+    // Browse takes Enter and Space itself.
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
         const bool banner = browse_.visible(), onBrowse = banner && browse_.hasFocus();
         if (e.key == draw::Key::Left || e.key == draw::Key::Right) {
             card_ = e.key == draw::Key::Left ? 0 : 1;
             if (onBrowse) focus();
-        } else if (e.key == draw::Key::Tab) {
+        } else if (e.key == draw::Key::Tab && !(e.mods & (draw::kCtrl | draw::kAlt))) {
             const bool back = (e.mods & draw::kShift) != 0;
-            if (onBrowse) {
-                card_ = back ? 1 : 0;
+            if (onBrowse) {  // Browse is the first stop
                 focus();
-            } else if (banner && card_ == (back ? 0 : 1)) {
+                if (back) return false;  // (the window's Tab goes on from the page)
+                card_ = 0;
+            } else if (back ? card_ == 0 : card_ == 1) {  // past the last card (back: the first)
+                if (!(back && banner)) return false;
                 browse_.focus();
-            } else card_ = 1 - card_;
+            } else card_ = back ? 0 : 1;
         } else if (e.key == draw::Key::Enter || e.key == draw::Key::Space) {
             if (onCard) onCard(card_);
             return true;

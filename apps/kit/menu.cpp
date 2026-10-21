@@ -473,8 +473,20 @@ void MenuBar::paint(Canvas& c) {
         if (isOpen) c.roundBox(r, th.sel, th.accentLine, px(kRadius));
         else if (i == hover_ || (i == hot_ && hasFocus())) c.roundBox(r, th.ctlHot, draw::kNone, px(kRadius));
         c.text(r, menus_[size_t(i)].label, isOpen ? th.accent : th.text, draw::kMiddle | draw::kCenter);
+        if (i == hot_ && keys_ && hasFocus() && !isOpen) c.roundBox(r, draw::kNone, th.accent, px(kRadius), std::max(1, int(px(2))));  // the keyboard's focus
     }
     c.setFont(of);
+}
+
+// Tab came to the bar: the focus is on its first menu's name (Left and Right go to the others, Enter opens it).
+void MenuBar::tabbedTo(bool) {
+    if (menus_.empty()) return;
+    hot_ = 0, keys_ = true;
+    invalidate();
+}
+
+std::wstring MenuBar::focusedItem() const {
+    return hot_ >= 0 && hot_ < int(menus_.size()) && hasFocus() ? menus_[size_t(hot_)].label : std::wstring();
 }
 
 void MenuBar::openMenu(int i, bool byKeys) {
@@ -524,6 +536,7 @@ bool MenuBar::mouse(const draw::MouseEvent& e) {
         return true;
     case MouseKind::Down: {
         if (e.button != 0) return false;
+        keys_ = false;
         const int i = nameAt(e.pt);
         if (i < 0) return true;
         const bool closedHere = i == closedAt_;  // the click that closed this menu does not open it again
@@ -547,6 +560,7 @@ bool MenuBar::key(const KeyEvent& e) {
     const int n = int(menus_.size());
     if (e.mods & draw::kAlt) return isLetter(int(e.key)) && openByLetter(int(e.key));  // the menu whose name starts with it
     if (e.mods & (draw::kCtrl | draw::kSuper)) return false;
+    if (e.key == Key::Left || e.key == Key::Right) keys_ = true;
     switch (e.key) {
     case Key::Right:
         hot_ = hot_ < 0 ? 0 : (hot_ + 1) % n;

@@ -15,6 +15,7 @@
 #include "app_state.inc"
 #include "palette_tools.inc"
 #include "kit_paint.inc"
+#include "item_focus.inc"  // the keyboard focus on a view's own parts: Tab between them, Enter and Space, the outline
 #include "documents.inc"
 #include "layout.inc"
 #include "menu_model.inc"

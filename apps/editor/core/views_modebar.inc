@@ -3,6 +3,9 @@
 
 // Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 void setMode(Mode m);
+// The modes give the focus back to the top bar (sdl_main_view.inc): its first part after them (back: its last part
+// before them), else the view after the bar (back: before it).
+void topBarBesideModes(bool back);
 
 // The box's corner radius: the kit's kRadius (main.cpp's ui namespace).
 constexpr int kModeBoxRadius = 4;
@@ -68,6 +71,7 @@ struct ModeBarView final : stardraft::draw::View {
             focus();  // as the old button: the press takes the focus (a tool-strip number box saves before the mode changes)
             held = segmentAt(e.pt);
             if (held < 0) return false;
+            keys.at = held, keys.pressed();  // (Tab goes on from the mode clicked, with no outline)
             inside = true;
             if (stardraft::draw::Host* h = host()) h->capture(*this, true);
             invalidate();
@@ -101,4 +105,43 @@ struct ModeBarView final : stardraft::draw::View {
         return k < 0 ? std::wstring() : std::wstring(kModeNames[int(kModeOrder[k])]);
     }
     bool hoverTip() const override { return true; }
+
+    // The keyboard: the top bar gives the modes the focus with Tab (they are not a Tab stop of their own: the bar's
+    // parts are before and after them; topBarBesideModes gives the focus back). Left and Right move the focus, Enter and
+    // Space pick the mode.
+    ItemFocus keys;
+    void enter(bool back) {
+        focus();
+        keys.enter(back, kModeCount);
+        invalidate();
+    }
+    bool tabWithin(bool back) override {
+        if (keys.step(back, kModeCount)) return invalidate(), true;
+        topBarBesideModes(back);
+        return true;
+    }
+    bool key(const stardraft::draw::KeyEvent& e) override {
+        const int k = keys.index(kModeCount);
+        if (k < 0) return false;
+        if (pressKey(e)) {
+            keys.keys = true;
+            pressFromKeys([k] { setMode(Mode(int(kModeOrder[k]))); });
+            invalidate();
+            return true;
+        }
+        if (e.down && !e.mods && (e.key == stardraft::draw::Key::Left || e.key == stardraft::draw::Key::Right)) {
+            keys.move(e.key == stardraft::draw::Key::Left ? -1 : 1, kModeCount);
+            invalidate();
+            return true;
+        }
+        return false;
+    }
+    void focusChanged(bool) override { invalidate(); }
+    void paintOver(Canvas& c) override {
+        if (keys.shows(*this, kModeCount)) paintFocusOutline(c, stardraft::draw::Rect(segmentRect(keys.at)));
+    }
+    std::wstring focusedItem() const override {
+        const int k = keys.index(kModeCount);
+        return k < 0 ? std::wstring() : std::wstring(kModeNames[int(kModeOrder[k])]);
+    }
 };

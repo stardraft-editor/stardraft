@@ -137,6 +137,18 @@ public:
         slider_.setRange(0, 100), slider_.setStep(1);
         slider_.onChange = [this](int v) { host_.setVolume(v), invalidate(); };
         add(slider_, {0, 0, 0, 0}), slider_.setVisible(false);
+        // The accent's swatches: one Tab stop (item_focus.inc); Left and Right pick the color before or after.
+        accentStop_.name = L"Accent color";
+        accentStop_.step = [this](int d) {
+            if (!accents_.empty()) host_.setAccent(std::clamp(accentChosen_ + d, 0, int(accents_.size()) - 1));
+            invalidate();
+        };
+        accentStop_.outline = [this] {
+            if (accentChosen_ < 0 || accentChosen_ >= int(accentRects_.size())) return draw::Rect{0, 0, accentStop_.width(), accentStop_.height()};
+            const draw::Rect r = accentRects_[size_t(accentChosen_)], f = accentStop_.frame();
+            return draw::Rect{r.left - f.left - scale(3), r.top - f.top - scale(3), r.right - f.left + scale(3), r.bottom - f.top + scale(3)};
+        };
+        add(accentStop_, {0, 0, 0, 0}), accentStop_.setVisible(false);
         for (int k = 0; k < 2; ++k) {
             limit_[k].setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });
             limit_[k].setMaxLength(5);
@@ -222,11 +234,46 @@ public:
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
+        if (e.key == draw::Key::Tab && !(e.mods & (draw::kCtrl | draw::kAlt))) return tabScroll((e.mods & draw::kShift) != 0);
         if (e.key == draw::Key::Escape || e.key == draw::Key::Enter) return host_.close(), true;
         // A Settings window (macOS): Cmd+W closes it, as each window there.
         if (tab_ >= 0 && e.key == static_cast<draw::Key>('W') && (e.mods & draw::kSuper)) return host_.close(), true;
         return false;
     }
+    // Tab through the options in the order of the rows, also to the ones that are scrolled out of view: the content
+    // scrolls to show the next one (the window's Tab knows only the shown ones). After the last option: Close (the
+    // window's Tab); from Close: the first option (Shift+Tab: the last). false: the window's Tab does it.
+    bool tabScroll(bool back) {
+        const int n = int(tabOrder_.size());
+        if (n == 0) return false;
+        int i = -1;
+        for (int k = 0; k < n; ++k)
+            if (focusIn(*tabOrder_[size_t(k)].first)) i = k;
+        int j;
+        if (i >= 0) j = i + (back ? -1 : 1);
+        else if (close_.hasFocus()) j = back ? n - 1 : 0;
+        else return false;
+        while (j >= 0 && j < n && !tabOrder_[size_t(j)].first->focusable()) j += back ? -1 : 1;  // (a read-only path, a gray button)
+        if (j < 0 || j >= n) return false;
+        auto [v, r] = tabOrder_[size_t(j)];
+        const int pad = scale(stardraft::kit::kDialogPad);
+        if (j == 0) scrollTo(0);  // (the first option: the top of the content, its heading too)
+        else if (r.top < 0) scrollTo(scroll_ + r.top - pad);
+        else if (r.bottom > contentBottom_) scrollTo(scroll_ + r.bottom - contentBottom_ + pad);
+        if (!v->visible()) v->setVisible(true);  // (the next paint places it where the scroll shows it)
+        v->focus();
+        if (v->hasFocus()) v->tabbedTo(back);
+        invalidate();
+        return true;
+    }
+    static bool focusIn(const draw::View& v) {
+        if (v.hasFocus()) return true;
+        for (const draw::View* c : v.children())
+            if (focusIn(*c)) return true;
+        return false;
+    }
+    // Tab's order: the rows top down, each left to right (the children are placed in rows by paint).
+    std::vector<draw::View*> tabChildren() const override { return byScreen(children()); }
     std::wstring tip(draw::Point pt) override {
         const int i = accentAt(pt);
         return i >= 0 && i < int(accents_.size()) ? accents_[size_t(i)].name + (i == defaultAccent_ ? L" (default)" : L"") : std::wstring();
@@ -266,6 +313,7 @@ private:
     // footer is not drawn over). A child that is not placed in a paint is hidden at its end.
     void place(draw::View& v, draw::Rect r, bool show, int bottom = -1) {
         placed_.push_back(&v);
+        if (show && &v != &close_) tabOrder_.push_back({&v, r});
         const bool vis = show && r.top >= 0 && r.bottom <= (bottom < 0 ? contentBottom_ : bottom);
         if (v.visible() != vis) v.setVisible(vis);
         if (vis && (v.frame().left != r.left || v.frame().top != r.top || v.frame().right != r.right || v.frame().bottom != r.bottom)) v.setFrame(r);
@@ -288,6 +336,9 @@ private:
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
     int hoverAccent_ = -1;
+    int accentChosen_ = -1;  // the chosen accent, at the last paint
+    PartStop accentStop_;    // the swatches' Tab stop
+    std::vector<std::pair<draw::View*, draw::Rect>> tabOrder_;  // the options shown in this paint, in order, and their places
     int defaultAccent_ = 0;
     int systemThemeShown_ = -1;  // (the Theme buttons' tips were set for systemTheme)
     int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1;  // the segmented choices' Primary buttons (sync)
@@ -414,6 +465,7 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_[part] = cr;
     };
     placed_.clear();
+    tabOrder_.clear();
     c.pushClip({0, 0, W, contentBottom_});  // the content scrolls above the footer
 
     // Appearance.
@@ -453,6 +505,9 @@ void OptionsView::paint(draw::Canvas& c) {
                 accentRects_.push_back(sw);
                 parts_["accent." + std::to_string(i)] = sw;
             }
+            accentChosen_ = v.accent;
+            if (!accentRects_.empty())  // (a stop over the swatches and the ring's room around them)
+                place(accentStop_, {accentRects_.front().left - scale(4), top - scale(4), accentRects_.back().right + scale(4), top + s + scale(4)}, true);
             if (v.accent >= 0 && v.accent < int(v.accents.size()))
                 note(fx + int(v.accents.size()) * (s + scale(8)) + scale(4), y + (rowH - scale(20)) / 2, v.accents[size_t(v.accent)].name);
         }
@@ -585,6 +640,10 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["close"] = r;
     }
     hideUnplaced();
+    std::stable_sort(tabOrder_.begin(), tabOrder_.end(), [](const auto& a, const auto& b) {  // (in a row: left to right)
+        const int ma = a.second.top + a.second.bottom, mb = b.second.top + b.second.bottom;
+        return ma != mb ? ma < mb : a.second.left < b.second.left;
+    });
     c.setFont(of);
     if (tabbed && height_ != tabHeight_) {
         tabHeight_ = height_;

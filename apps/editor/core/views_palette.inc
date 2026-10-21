@@ -140,6 +140,11 @@ struct PaletteGridView : draw::View {
         }
         if (app.ed && rows.empty())  // nothing agrees with the search: only None, dim, where the first row goes
             c.text({scale(6), 0, width() - scale(6), scale(30)}, L"None", kDim, draw::kMiddle);
+        if (keys_.keys && hasFocus() && isItem(keys_.at)) {  // the item with the keyboard focus
+            draw::Rect r = rects_[size_t(keys_.at)];
+            r.top -= scroll_, r.bottom -= scroll_;
+            paintFocusOutline(c, {r.left + 1, r.top + 1, r.right - 1, r.bottom - 1});
+        }
         c.popClip();
         if (const int fh = paletteFooterHeight(v)) {  // grid: the hovered (or picked) item's name
             draw::Rect f{0, viewH, width(), viewH + fh};
@@ -170,6 +175,8 @@ struct PaletteGridView : draw::View {
         case draw::MouseKind::DoubleClick: {
             if (e.button != 0) return e.button == 1;
             const int h = rowAt(e.pt);
+            keys_.pressed();
+            if (h >= 0) keys_.at = h;
             if (h >= 0 && picked) picked(h, e.mods);
             invalidate();
             return true;
@@ -186,8 +193,84 @@ struct PaletteGridView : draw::View {
         return h >= 0 ? rows[size_t(h)].label : std::wstring();
     }
 
+    // The keyboard: the list is one Tab stop. Tab puts the focus on the picked item (else the first); the arrow keys
+    // move it (in a grid, Up and Down go to the item above and below), Home and End to the first and the last item, and
+    // Enter and Space pick the item, as a click does.
+    bool focusable() const override {
+        for (const PaletteRow& r : rows)
+            if (r.value >= 0) return true;
+        return false;
+    }
+    bool focusOnClick() const override { return false; }  // (a pick leaves the keyboard on the map)
+    void focusChanged(bool) override { invalidate(); }
+    void tabbedTo(bool) override {
+        const PanelScope scope(state);
+        const AppState& app = shellState();
+        const bool showsPick = !(second && !state);  // (the second palette shows no pick of its own)
+        int first = -1, pick = -1;
+        for (int i = 0; i < int(rows.size()); ++i)
+            if (isItem(i)) {
+                if (first < 0) first = i;
+                if (pick < 0 && showsPick && rows[size_t(i)].value == app.palette) pick = i;
+            }
+        keys_.at = pick >= 0 ? pick : first, keys_.keys = true;
+        showFocused();
+    }
+    bool key(const draw::KeyEvent& e) override {
+        if (!isItem(keys_.at)) return false;
+        if (pressKey(e)) {
+            const int row = keys_.at;
+            keys_.keys = true;
+            if (picked) pressFromKeys([this, row] { picked(row, 0); });
+            invalidate();
+            return true;
+        }
+        if (!e.down || (e.mods & (draw::kCtrl | draw::kAlt | draw::kSuper))) return false;
+        int next = -1;
+        switch (e.key) {
+        case draw::Key::Left:
+        case draw::Key::Right: next = itemAfter(keys_.at, e.key == draw::Key::Left ? -1 : 1); break;
+        case draw::Key::Up:
+        case draw::Key::Down: next = itemBelow(keys_.at, e.key == draw::Key::Up); break;
+        case draw::Key::Home: next = itemAfter(-1, 1); break;
+        case draw::Key::End: next = itemAfter(int(rows.size()), -1); break;
+        default: return false;
+        }
+        if (next >= 0) keys_.at = next, keys_.keys = true, showFocused();
+        return true;
+    }
+    std::wstring focusedItem() const override { return isItem(keys_.at) ? rows[size_t(keys_.at)].label : std::wstring(); }
+
 private:
     int px(int v100) const { return scale(v100); }
+    bool isItem(int i) const { return i >= 0 && i < int(rows.size()) && i < int(rects_.size()) && rows[size_t(i)].value >= 0; }
+    // The next item after row `i` (dir -1: before it), or -1.
+    int itemAfter(int i, int dir) const {
+        for (int k = i + dir; k >= 0 && k < int(rows.size()); k += dir)
+            if (isItem(k)) return k;
+        return -1;
+    }
+    // The item in the line above row `i` (else below it) nearest to it from left to right, or -1.
+    int itemBelow(int i, bool above) const {
+        const draw::Rect at = rects_[size_t(i)];
+        const int cx = (at.left + at.right) / 2;
+        int best = -1, bestTop = 0, bestDx = 0;
+        for (int k = 0; k < int(rows.size()); ++k) {
+            if (!isItem(k)) continue;
+            const draw::Rect r = rects_[size_t(k)];
+            if (above ? r.top >= at.top : r.top <= at.top) continue;
+            const int dx = std::abs((r.left + r.right) / 2 - cx);
+            const bool nearer = best < 0 || (above ? r.top > bestTop : r.top < bestTop) || (r.top == bestTop && dx < bestDx);
+            if (nearer) best = k, bestTop = r.top, bestDx = dx;
+        }
+        return best;
+    }
+    // The item with the focus scrolls into view.
+    void showFocused() {
+        if (isItem(keys_.at)) reveal(rows[size_t(keys_.at)].value);
+        invalidate();
+    }
+    ItemFocus keys_;  // the item with the keyboard focus (an index into rows)
     kit::ScrollBar bar_{kit::Axis::Vertical};
     std::vector<draw::Rect> rects_;
     int scroll_ = 0, contentH_ = 0, hover_ = -1;

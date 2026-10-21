@@ -156,11 +156,25 @@ struct MapView final : draw::View {
         const std::wstring text = open() ? std::wstring(L"") : gDataOk ? shellTr(L"No map is open. Start with a map file: stardraft_editor <map>") : widen(gDataError);
         if (!text.empty()) c.text(all, text, kDim, draw::kCenter | draw::kMiddle | draw::kWrap);
     }
+    // The keyboard: the map is a Tab stop between the side bars (its own keys: the letters, the arrows, Esc). When Tab
+    // gave it the focus, an outline in the accent shows it, until the next click.
+    bool tabbed = false;
+    bool focusable() const override { return open(); }
+    void tabbedTo(bool) override { tabbed = true, invalidate(); }
+    void focusChanged(bool has) override {
+        if (!has) tabbed = false;
+        invalidate();
+    }
+    void paintOver(draw::Canvas& c) override {
+        if (tabbed && hasFocus()) paintFocusOutline(c, {0, 0, width(), height()});
+    }
+    std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick: {
-            focus();  // the map takes the keyboard back from a text field or a list (the map is not focusable itself)
+            focus();  // the map takes the keyboard back from a text field or a list
+            if (tabbed) tabbed = false, invalidate();  // (the outline of Tab goes)
             if (e.button == 2) {  // middle: drag or pan the map (Options > Middle mouse click and hold)
                 if (panning) return true;  // (a press goes on)
                 bool drags = false;
@@ -390,6 +404,46 @@ struct MainView final : draw::View {
     }
 
     void resized() override { relayout(); }
+
+    // Tab's order follows the screen: the menu bar, the top bar (with the modes in it: TopBarView), the document tabs,
+    // the workspace rail, the left side bar from the top down, the map (or the workspace's view), the right side bar from
+    // the top down, then the Log's bar. (The status bar has nothing to click.)
+    std::vector<View*> tabChildren() const override {
+        std::vector<View*> first{const_cast<kit::MenuBar*>(&menus), const_cast<TopBarView*>(&topBar), const_cast<TabsView*>(&tabs),
+                                 const_cast<RailView*>(&rail)};
+        std::vector<View*> rest;
+        for (View* c : children())
+            if (std::find(first.begin(), first.end(), c) == first.end() && c != &modes && c != &gLogPane && c != &status && c != &pie) rest.push_back(c);
+        // The middle: the views left of the map (the left side bar), the map's column, the views right of it.
+        const draw::Rect m = map.shown() ? map.frame() : draw::Rect(0, 0, width(), height());
+        auto column = [&](const View* v) {
+            const draw::Rect f = v->frame();
+            return f.right <= m.left + 1 ? 0 : f.left >= m.right - 1 ? 2 : 1;
+        };
+        std::stable_sort(rest.begin(), rest.end(), [&](const View* a, const View* b) {
+            const int ca = column(a), cb = column(b);
+            if (ca != cb) return ca < cb;
+            return a->frame().top < b->frame().top;
+        });
+        first.insert(first.end(), rest.begin(), rest.end());
+        first.push_back(&gLogPane);
+        first.push_back(const_cast<StatusView*>(&status));
+        return first;
+    }
+    // Tab from `v` to the next view of the order (back: the view before it), as the router's Tab: the modes give the
+    // focus on when the top bar has no part after them.
+    void tabFrom(View& v, bool back) {
+        std::vector<View*> chain;
+        focusChain(chain);
+        if (chain.empty()) return;
+        size_t i = 0;
+        while (i < chain.size() && chain[i] != &v) ++i;
+        if (i == chain.size()) i = 0;
+        View* next = chain[back ? (i + chain.size() - 1) % chain.size() : (i + 1) % chain.size()];
+        next->focus();
+        if (next->hasFocus()) next->tabbedTo(back);
+    }
+
     // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
     // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
     bool key(const draw::KeyEvent& e) override {
@@ -408,6 +462,12 @@ struct MainView final : draw::View {
         // Esc with the New page (Cancel) or the start page over the open map (File > New): the page closes. (A field of the
         // New page that has the keyboard gives Esc to the page: core/views_new_page.inc.)
         if (e.down && !e.repeat && e.key == draw::Key::Escape && !e.mods && newPageEscape()) return true;
+        // Esc on a control of the window that does not use it (a tool bar's button, a tab, a list): the keyboard goes
+        // back to the map.
+        if (e.down && !e.repeat && e.key == draw::Key::Escape && !e.mods && map.shown() && !map.hasFocus() && hasFocusIn(*this) && !hasFocus()) {
+            map.focus();
+            return true;
+        }
         // Space on the map in Terrain mode: the pie palette while it is held (the Windows map's VK_SPACE, also with Shift);
         // its repeats do nothing more, and letting go paints with the slice's terrain, with any keys held. When the program
         // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
@@ -783,6 +843,16 @@ void tilesSync() {
 
 // The modes' control shows in the top tool bar (Build goes after it then: core/views_topbar.inc).
 bool topBarModesShown() { return gRoot && gRoot->modes.shown(); }
+// Tab between the top bar's parts and the modes in it (core/views_topbar.inc, core/views_modebar.inc).
+bool modeBarTabIn(bool back) {
+    if (!topBarModesShown()) return false;
+    gRoot->modes.enter(back);
+    return true;
+}
+void topBarBesideModes(bool back) {
+    if (!gRoot) return;
+    if (!gRoot->topBar.focusBesideModes(back)) gRoot->tabFrom(gRoot->topBar, back);
+}
 
 void invalidateMapView() {
     if (gRoot) gRoot->map.invalidate();
