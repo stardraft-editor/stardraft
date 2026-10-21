@@ -137,6 +137,8 @@ struct MapView final : draw::View {
     bool panning = false;
     bool panDrags = false;  // (this press: Drag map)
     bool leftUpInPan = false;  // the left button went up during the pan: its drag ends with the pan
+    bool panMoved = false;     // (Pan map: the last step moved the map)
+    int panFrames = 0;         // (Pan map: the frames that the mouse's moves asked for; --midpan reads it)
     draw::Point anchor;  // where the middle button went down
     std::chrono::steady_clock::time_point panLast;  // (Pan map: the time of the last step)
     static inline int middleDragTest = -1;  // (--midpan: 0 Pan map, 1 Drag map, in place of the setting)
@@ -164,7 +166,7 @@ struct MapView final : draw::View {
                 bool drags = false;
                 if (middleDragTest >= 0) drags = middleDragTest == 1;
                 else prefs::flag(L"MiddleDrag", drags);
-                panning = true, panDrags = drags, last = anchor = e.pt;
+                panning = true, panDrags = drags, panMoved = false, last = anchor = e.pt;
                 panLast = std::chrono::steady_clock::now();
                 if (gState.drag == Drag::None) gState.drag = drags ? Drag::Pan : Drag::AutoPan;  // (the right button's menu waits, as on Windows)
                 if (draw::Host* h = host()) h->capture(*this, true);
@@ -203,6 +205,7 @@ struct MapView final : draw::View {
                     invalidate();
                 }
                 last = e.pt;  // (Pan map: panStep moves toward it)
+                if (!panDrags) ++panFrames, invalidate();  // (Pan map: the frames step the pan; with no frame the map stands still)
                 return true;
             }
             if (!open()) return false;
@@ -278,7 +281,10 @@ struct MapView final : draw::View {
         if (dt < 0) dt = std::chrono::duration<float>(now - panLast).count();
         panLast = now;
         if (!panning || panDrags || !open()) return;
-        if (middlePanStep(gState, float(last.x - anchor.x), float(last.y - anchor.y), dt)) clampCamera(), updateStatus(), invalidate();
+        // The first step after the map stood still: one frame's time at most (not the time since the last frame: the
+        // map jumped when the pan began; GitHub #154).
+        panMoved = middlePanStep(gState, float(last.x - anchor.x), float(last.y - anchor.y), panMoved ? dt : std::min(dt, 1.0f / 60));
+        if (panMoved) clampCamera(), updateStatus(), invalidate();
     }
     // The mouse capture went away during a press (the window lost the focus: Alt+Tab, another program; the host's
     // SDL_EVENT_WINDOW_FOCUS_LOST): the stroke, the drag or the pan ends at once where the mouse was last, as one undo
@@ -830,6 +836,23 @@ void sdlMidPanCheck() {
     const bool goesOn = gState.camX > x1 && x1 > x0 && std::abs(gState.camY - y0) < 0.01f;
     mouse(draw::MouseKind::Down, 500, 1), mouse(draw::MouseKind::Up, 500, 1);  // a right click during it: no menu, the press goes on
     const bool rightKeeps = map.panning && gState.drag == Drag::AutoPan;
+    // The pan begins at once and smoothly (GitHub #154): a move out of the dead zone asks for a frame (the frames step
+    // the pan), and the first step after the map stood still is one frame's time at most (552 px/s: 9.2 px).
+    mouse(draw::MouseKind::Up, 500);
+    center();
+    const float s0 = gState.camX;
+    mouse(draw::MouseKind::Down, 400), mouse(draw::MouseKind::Move, 404);
+    map.panStep(0.05f);  // (in the dead zone: the map stands still)
+    const bool deadStill = gState.camX == s0;
+    const int asked = map.panFrames;
+    mouse(draw::MouseKind::Move, 500);
+    const bool frameAsked = map.panFrames > asked;
+    map.panStep(0.1f);
+    const float firstStep = gState.camX - s0;
+    std::printf("midpan: Pan map: a move out of the dead zone asks for a frame %s, the map stands still in it %s, the first step is one frame's "
+                "time %s (%.1f px)\n",
+                frameAsked ? "yes" : "(WRONG)", deadStill ? "yes" : "(WRONG)", firstStep > 0 && firstStep < 9.5f ? "yes" : "(WRONG)",
+                double(firstStep));
     mouse(draw::MouseKind::Down, 500, 0), mouse(draw::MouseKind::Up, 500, 0);  // a left click during it: no drag starts
     const bool leftKeeps = map.panning && gState.drag == Drag::AutoPan;
     mouse(draw::MouseKind::Up, 500);
