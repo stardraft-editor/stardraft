@@ -256,6 +256,10 @@ CASES += [("map-mapdata", ["--workspace", "classic"], "map"),
 # The cursors (the system's cursor is not in a picture): --cursors writes the map view's and a text field's cursors at
 # some points to the case's .txt (lines "cursor: ...", each with "(yes)" or "(WRONG)").
 CASES += [("map-cursors", ["--mode", "units", "--cursors"], "map")]
+# Locations: Copy, Paste: the copy follows the mouse and each click puts one, with a name of its own (" copy1", then
+# " copy2"); the paste stays on (Discord #dev feedback #151, #152).
+CASES += [("map-locations-paste", ["--mode", "locations", "--drag", "480,280-560,340", "--key", "Ctrl+C", "--key", "Ctrl+V",
+                                   "--click", "700,300", "--click", "700,450", "--move", "850,600"], "map")]
 # Options > Middle mouse click and hold: --midpan writes to the .txt whether Pan map moves the map toward the mouse while
 # the button is held and Drag map makes it follow the mouse ("(WRONG)" when not).
 CASES += [("map-midpan", ["--midpan"], "map")]
@@ -2817,6 +2821,20 @@ def per_system(mac, other):
     return mac if sys.platform == "darwin" else other
 
 
+def check_locations_paste(output):
+    """None when each click of a location paste made a copy with a name of its own and the paste stayed on."""
+    clicks = [l for l in output.splitlines() if l.startswith("click ")]
+    if len(clicks) != 2:
+        return f"{len(clicks)} click lines, not 2"
+    for c, name in zip(clicks, ["Location 2 copy1", "Location 2 copy2"]):
+        if "Pasted " + name not in c:
+            return f"not pasted as {name}: {c}"
+    states = [l for l in output.splitlines() if "paste=" in l]
+    if not states or "paste=items" not in states[-1]:
+        return "the paste did not stay on after the clicks"
+    return None
+
+
 def check_menubar(output):
     """None when --check menus printed the menu bar of this system: macOS the system's (the application menu, the
     Window menu, the Cmd keys, the Mac symbols in tooltips), elsewhere the window's (the Ctrl keys)."""
@@ -3808,7 +3826,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
                                          check_zoom_at("wheel 700,500,1,-1.5:precise", 1.2 ** -1.5)),
           "map-trackpad-ctrl-zoom": per_system(check_zoom_at("wheel 700,500,0,2:precise:Ctrl", 1.2 ** 0.5),
                                                check_zoom_at("wheel 700,500,0,2:precise:Ctrl", 1.44)),
-          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "map-brush-pinch": check_brush_pinch, "start-menubar": check_menubar,
+          "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "map-brush-pinch": check_brush_pinch, "start-menubar": check_menubar, "map-locations-paste": check_locations_paste,
           "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),

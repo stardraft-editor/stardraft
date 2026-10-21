@@ -440,6 +440,12 @@ render::Scene buildScene() {
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
+        if (active && app.pastingItems) {  // the copy being pasted, where a click puts it
+            int dx, dy;
+            locationPasteShift(app, wx, wy, dx, dy);
+            for (const auto& c : app.locationClip)
+                outline(s, {c.rect.left + dx, c.rect.top + dy, c.rect.right + dx, c.rect.bottom + dy}, 0x40FF40FFu, 2);
+        }
         if (app.drag == Drag::LocCreate)  // Ctrl or Shift: it is made inverted (red)
             outline(s, previewLocationRect(wx, wy), shellCtrlOrShiftDown() ? 0xFF5050FFu : 0xFFD040FFu, 2);
     }

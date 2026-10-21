@@ -460,6 +460,11 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         }
         break;
     case Mode::Locations: {
+        if (app.pastingItems) {  // (the copy stays on the mouse: click again to paste again; right-click or Esc stops)
+            void pasteLocationsAt(AppState & app, float wx, float wy);
+            pasteLocationsAt(app, wx, wy);
+            break;
+        }
         int edges = locationEdgesAt(wx, wy);
         int inside = ed.locationAt(int(wx), int(wy));
         // Ctrl or Shift on a location: a click takes it in or out of the selection, a drag makes an inverted location.

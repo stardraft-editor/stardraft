@@ -111,6 +111,18 @@ void snapUnitPoint(float& x, float& y) { x = snapToCell(x, appState().unitGrid),
 
 float snapUnitDelta(float d) { return snapRound(d, appState().unitGrid); }
 
+// Pasting locations: how far the copied locations move so that the copy's middle is at the mouse (its top left snapped:
+// Options > Locations snap), each location where it was in the copy.
+void locationPasteShift(const AppState& app, float wx, float wy, int& dx, int& dy) {
+    dx = dy = 0;
+    if (app.locationClip.empty()) return;
+    Rect box = app.locationClip.front().rect;
+    for (const auto& c : app.locationClip)
+        box = {std::min(box.left, c.rect.left), std::min(box.top, c.rect.top), std::max(box.right, c.rect.right), std::max(box.bottom, c.rect.bottom)};
+    const int w = box.right - box.left, hgt = box.bottom - box.top;
+    dx = int(snapRound(wx - w / 2.0f, app.locationGrid)) - box.left, dy = int(snapRound(wy - hgt / 2.0f, app.locationGrid)) - box.top;
+}
+
 // Would the selected units all be placeable moved by (dx, dy)?
 bool selectionFitsAt(float dx, float dy) {
     Editor& ed = *appState().ed;
