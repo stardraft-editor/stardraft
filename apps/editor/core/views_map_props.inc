@@ -1,6 +1,7 @@
 // The Map properties page (portable, core.inc): the map's title and description (the program's game text editors, in the
 // boxes this view gives them), the tileset, the size, where the map's content goes and the new ground (kit dropdowns),
-// and the two buttons under them, "Change the size and tileset" and "Reset", with the text that says what they do. The
+// and the two buttons under them, "Change the size and tileset" and "Reset", with the text that says what they do; "Crop
+// or extend" beside the size opens the size on a picture of the map (views_resize.inc). The
 // players and forces under the page are another view (map_pages.inc). The values are the page's working copy
 // (MapPropsValues); the program puts a change into the map (MapPropsHost), and the page shows what the copy holds.
 
@@ -36,6 +37,7 @@ public:
     virtual void changed() = 0;
     virtual void applyTerrain() = 0;  // "Change the size and tileset"
     virtual void reset() = 0;         // "Reset": the map's values again
+    virtual void cropOrExtend() = 0;  // "Crop or extend": the size and the offset on a picture of the map (a dialog)
     // The height of a game text editor (its box of boxH, and its tools under it) at boxW.
     virtual int textHeight(bool description, int boxW, int boxH) = 0;
     // The page's content is w x h (the program sizes the window it is in).
@@ -65,7 +67,12 @@ public:
         change_.onClick = [this] { host_.applyTerrain(); };
         reset_.setText(L"Reset"), reset_.setTip(L"Discard the changes that are not applied and show the map's values");
         reset_.onClick = [this] { host_.reset(); };
-        for (stardraft::kit::Dropdown* d : {&tileset_, &wDrop_, &hDrop_, &anchor_, &fill_}) add(*d, {0, 0, 0, 0});
+        crop_.setText(L"Crop or extend\x2026");
+        crop_.setTip(L"Change the size on a picture of the map: drag the edges of a rectangle (one undo step)");
+        crop_.onClick = [this] { host_.cropOrExtend(); };
+        for (stardraft::kit::Dropdown* d : {&tileset_, &wDrop_, &hDrop_}) add(*d, {0, 0, 0, 0});
+        add(crop_, {0, 0, 0, 0});  // (Tab: after the size)
+        for (stardraft::kit::Dropdown* d : {&anchor_, &fill_}) add(*d, {0, 0, 0, 0});
         add(change_, {0, 0, 0, 0}), add(reset_, {0, 0, 0, 0});
         syncControls();
     }
@@ -105,6 +112,8 @@ public:
         place(wDrop_, {l.x1, l.sizeY, l.x1 + sw, l.sizeY + l.rowH});
         c.text({l.x1 + sw, l.sizeY, l.x1 + sw + scale(24), l.sizeY + l.rowH}, L"x", kDim, draw::kMiddle | draw::kCenter);
         place(hDrop_, {l.x1 + sw + scale(24), l.sizeY, l.x1 + sw + scale(24) + sw, l.sizeY + l.rowH});
+        const int cropX = l.x1 + sw + scale(24) + sw + scale(16);
+        place(crop_, {cropX, l.sizeY, cropX + crop_.preferredWidth(c), l.sizeY + l.rowH});
         place(anchor_, {l.x1, l.anchorY, right, l.anchorY + l.rowH});
         place(fill_, {l.x1, l.fillY, right, l.fillY + l.rowH});
         // The buttons, then what they do (only the size and the tileset wait for them).
@@ -191,7 +200,7 @@ private:
     MapPropsHost& host_;
     MapPropsValues& v_;
     stardraft::kit::Dropdown tileset_, wDrop_, hDrop_, anchor_, fill_;
-    stardraft::kit::Button change_, reset_;
+    stardraft::kit::Button change_, reset_, crop_;
     std::vector<int> wVals_, hVals_;  // the value of each item of the size dropdowns
     std::vector<uint16_t> fillIds_;   // the terrain of each item of New ground
     int wOdd_ = -1, hOdd_ = -1, fillEra_ = -1;

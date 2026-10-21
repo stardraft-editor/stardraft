@@ -298,7 +298,13 @@ std::string sdlShotUi() {
         for (int i = 0; i < gState.ed->locationCount(); ++i) locs += gState.ed->locationUsed(i);
         s += " units=" + std::to_string(gState.ed->units().size()) + " doodads=" + std::to_string(gState.ed->doodads().size()) +
              " locations=" + std::to_string(locs) + " sel=" + std::to_string(gState.ed->selection().size()) + "," +
-             std::to_string(gState.selDoodads.size()) + "," + std::to_string(gState.selSprites.size());
+             std::to_string(gState.selDoodads.size()) + "," + std::to_string(gState.selSprites.size()) +
+             " size=" + std::to_string(gState.ed->width()) + "x" + std::to_string(gState.ed->height());
+    }
+    if (const ResizeView* rv = gResizeShown) {  // Crop or extend shows: its values and its preview's
+        const ResizeValues& v = rv->values();
+        s += " resize=" + std::to_string(v.w) + "x" + std::to_string(v.h) + "@" + std::to_string(v.shiftX) + "," + std::to_string(v.shiftY) +
+             " preview=" + (rv->preview().made ? std::to_string(rv->preview().w) + "x" + std::to_string(rv->preview().h) : std::string("none"));
     }
     // The Edit commands' state (the menu items and the top bar's buttons: 1 enabled, 0 gray), and the quick picker.
     static const std::pair<const char*, int> kEdit[] = {{"cut", ID_EDIT_CUT},       {"copy", ID_EDIT_COPY},     {"paste", ID_EDIT_PASTE},
