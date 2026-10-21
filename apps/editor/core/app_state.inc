@@ -57,7 +57,7 @@ struct AppState {
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
     float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
-    bool correction = false, doodadCheck = true, showLocations = true;  // units: Place only where it fits (the default)
+    bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
     // Options > Units, Sprites, Locations: the snap grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a quarter tile).
