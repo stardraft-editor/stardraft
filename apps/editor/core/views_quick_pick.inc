@@ -81,6 +81,7 @@ std::vector<PaletteUnit> quickPickTileGroups() {
 std::vector<PaletteUnit> quickPickItems() {
     AppState& app = appState();
     if (app.mode == Mode::Units) return paletteUnits(app);
+    if (tilesOn() && gTiles->stamps) return quickPickStamps();  // Custom: the custom terrain of the tileset (core/stamps.inc)
     if (tilesOn()) return quickPickTileGroups();
     if (app.mode != Mode::Locations) return paletteItems(app);
     std::vector<PaletteUnit> out;
@@ -212,6 +213,10 @@ void quickPickRun(QuickPickKind kind, bool replace, int v) {
     }
     if (v < 0 || !app.ed) return;
     if (replace) return replaceSelectionWith(v);
+    if (tilesOn() && gTiles->stamps) {  // Custom: it is the Brush's stamp, as a click in the Custom list makes it
+        if (v < int(stampsList().size())) stampsUse(stampsList()[size_t(v)]);
+        return;
+    }
     if (tilesOn()) {  // Rectangle: the group's tile is picked, as a click in the Tiles list picks it, and the list shows it
         tilesPick(v, false);
         tilesReveal(v);
@@ -238,6 +243,7 @@ std::wstring quickPickCue(QuickPickKind kind, bool replace, Mode mode) {
     if (kind == QuickPickKind::Open) return tr(L"Go to an open tab, or open a recent project or map");
     if (kind == QuickPickKind::Data) return L"Go to a .dat entry";
     if (kind == QuickPickKind::Custom) return gQuickCustom.cue;
+    if (!replace && mode == Mode::Terrain && tilesOn() && gTiles->stamps) return tr(L"Place custom terrain");
     if (!replace && mode == Mode::Terrain && tilesOn()) return tr(L"Place a tile");
     return replace ? replaceCues[int(mode)] : cues[int(mode)];
 }

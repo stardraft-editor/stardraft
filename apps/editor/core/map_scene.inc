@@ -310,6 +310,15 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     Editor& ed = *app.ed;
     const bool dragging = app.mode == Mode::Terrain && app.drag == Drag::TerrainSelect;
     const size_t from = s.rects.size();
+    const bool combining = dragging && app.terrainRect && app.terrainSelOp;  // Shift or Ctrl: the selection and the drag's box
+    if (app.mode == Mode::Terrain && app.hasTerrainSel && (combining || (!dragging && !app.terrainSelMask.empty()))) {
+        tileOutline(s, terrainSelTiles(), 0xFFD040FFu);  // the outline of the selected tiles (any shape, in parts)
+        if (!combining) return s.rects.size() - from;
+    }
+    if (combining) {  // the drag's box: green adds, red takes out
+        outline(s, terrainSelectRect(wx, wy), app.terrainSelOp == 1 ? 0x40FF40FFu : 0xFF5050FFu, 1.5f);
+        return s.rects.size() - from;
+    }
     if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
         const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
         if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);

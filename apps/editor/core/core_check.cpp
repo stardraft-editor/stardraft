@@ -87,6 +87,7 @@
 #include "stardraft/tileset.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"
+#include "stardraft/terrain_stamp.h"
 #include "stardraft/triggers.h"
 
 using namespace stardraft;

@@ -198,6 +198,56 @@ Rect terrainSelectRect(float wx, float wy) {
     return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
 }
 
+// Is tile (tx, ty) in the terrain selection? Its mask (Rectangle and Stamps: tiles added with Shift and taken out with
+// Ctrl), else the tiles whose middle is in its shape.
+bool terrainSelHas(int tx, int ty) {
+    const AppState& app = appState();
+    const Rect& r = app.terrainSel;
+    if (!app.hasTerrainSel) return false;
+    if (app.terrainSelMask.empty()) return Editor::inSelectShape(r, selectShape(), tx * 32 + 16, ty * 32 + 16);  // (Isometric's box is in pixels)
+    if (tx * 32 < r.left || ty * 32 < r.top || tx * 32 >= r.right || ty * 32 >= r.bottom) return false;
+    const int w = (r.right - r.left) / 32, x = tx - r.left / 32, y = ty - r.top / 32;
+    const size_t i = size_t(y) * size_t(w) + size_t(x);
+    return i < app.terrainSelMask.size() && app.terrainSelMask[i];
+}
+// The tiles in the terrain selection, row by row.
+std::vector<std::pair<int, int>> terrainSelTiles() {
+    const AppState& app = appState();
+    std::vector<std::pair<int, int>> out;
+    if (!app.hasTerrainSel || !app.ed) return out;
+    const Rect& r = app.terrainSel;
+    for (int y = std::max(0, r.top / 32); y <= std::min(int(app.ed->height()) - 1, (r.bottom - 1) / 32); ++y)
+        for (int x = std::max(0, r.left / 32); x <= std::min(int(app.ed->width()) - 1, (r.right - 1) / 32); ++x)
+            if (terrainSelHas(x, y)) out.push_back({x, y});
+    return out;
+}
+// The terrain selection becomes these tiles (a mask over their box; none: no selection).
+void setTerrainSelTiles(const std::vector<std::pair<int, int>>& tiles) {
+    AppState& app = appState();
+    app.terrainSelMask.clear();
+    app.hasTerrainSel = !tiles.empty();
+    if (tiles.empty()) return void(app.terrainSel = {});
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+    const int w = x1 - x0 + 1;
+    app.terrainSel = {x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
+    app.terrainSelMask.assign(size_t(w) * size_t(y1 - y0 + 1), 0);
+    for (const auto& [x, y] : tiles) app.terrainSelMask[size_t(y - y0) * size_t(w) + size_t(x - x0)] = 1;
+}
+// Shift (add) or Ctrl (take out) with the Select tool in Rectangle and Stamps: the tiles of the drag's rectangle `r`
+// (in its shape) go into the selection or out of it.
+void terrainSelCombine(const Rect& r, bool add) {
+    std::vector<std::pair<int, int>> tiles = terrainSelTiles();
+    std::set<std::pair<int, int>> in(tiles.begin(), tiles.end());
+    for (int y = r.top / 32; y * 32 < r.bottom; ++y)
+        for (int x = r.left / 32; x * 32 < r.right; ++x)
+            if (Editor::inSelectShape(r, selectShape(), x * 32 + 16, y * 32 + 16)) {
+                if (add) in.insert({x, y});
+                else in.erase({x, y});
+            }
+    setTerrainSelTiles(std::vector<std::pair<int, int>>(in.begin(), in.end()));
+}
+
 // Several locations selected (Editor::selectedLocations): they move, copy and delete together, each one undo step.
 AppState::LocationCopy locationCopyOf(const Editor& ed, int l) {
     return {ed.locationRect(l), ed.locationInvertedAxes(l), ed.locationName(l), ed.locationElevation(l)};

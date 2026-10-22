@@ -48,6 +48,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>  // (core/stamps.inc: the time custom terrain is saved)
 #include <deque>
 #include <filesystem>
 #include <fstream>
@@ -136,6 +137,7 @@
 #include "stardraft/settings.h"
 #include "stardraft/terrain.h"
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
+#include "stardraft/terrain_stamp.h"  // the user's terrain stamps (core/stamps.inc)
 #include "stardraft/tileset.h"
 #include "stardraft/triggers.h"  // the Triggers workspace's model (core/views_triggers_tree.inc)
 #include "stardraft/units.h"
@@ -356,7 +358,7 @@ int main(int argc, char** argv) {
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
-    bool rectArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
+    bool rectArg = false, customArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
     std::string palViewArg;  // --palview: the palette's view items (list, icons, sprites, normal, large), comma separated
@@ -411,6 +413,7 @@ int main(int argc, char** argv) {
         else if (a == "--newpage") newPageArg = next();  // classic or eud: the New page's choices, for a snapshot
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
+        else if (a == "--custom") customArg = true;  // Terrain mode's Custom (the Custom list), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
         else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log; a snapshot waits for its end
@@ -427,6 +430,7 @@ int main(int argc, char** argv) {
         else if (a == "--silent") gSilent = true;
         else if (a == "--fail-device") gFailDeviceArg = true;  // the graphics device is not made, as on a computer without one (a test)
         else if (a == "--settings") gSettingsFileArg = widen(next()), settingsArg = true;  // a settings file: the run reads it as a start reads the user's (a snapshot saves nothing in it), for a snapshot
+        else if (a == "--stamps") gStampsFolderArg = widen(next());  // a folder: the custom terrain's folder of this run (shell_sdl.inc: shellStampsFolder), for a test
         else if (a == "--legacyhive") gLegacyHiveArg = widen(next());  // Windows: a registry file in place of HKCU for the settings of the builds before the settings file (with --settings), for a snapshot
         else if (a == "--keysfromopener") gKeysFromOpener = true;  // a snapshot: a pop-out's keys come from the window under it (as on Windows)
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
@@ -442,7 +446,7 @@ int main(int argc, char** argv) {
         else if (a == "--check") checkArgs.push_back(next());  // a check's name (checkArgs): its lines after the snapshot
         else if (a == "--release") sdlSetReleaseFixture(next());  // GitHub's answer for the newest release in a file, in place of GitHub's (sdl_updates.inc)
         else if (a == "--key") inputArgs.emplace_back('k', next());  // a key (Ctrl+A, 5, Ctrl+2: Ctrl is Cmd on macOS) pressed in the window, for a snapshot
-        else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt; tile<k>: the middle of the Tiles list's k-th slot), for a snapshot
+        else if (a == "--click") inputArgs.emplace_back('c', next());  // x,y[:mods]: a left click there (window pixels; mods Shift+Ctrl+Alt; tile<k>: the middle of the Tiles list's k-th slot; custom=<name>: the Custom list's row of that name), for a snapshot
         else if (a == "--drag") inputArgs.emplace_back('d', next());  // x0,y0-x1,y1[:mods]: a left drag from the first point to the second, for a snapshot
         else if (a == "--lostdrag") inputArgs.emplace_back('l', next());  // x0,y0-x1,y1[:mods]: a left drag, then the window loses the focus before the release (Alt+Tab), for a snapshot
         else if (a == "--move") inputArgs.emplace_back('m', next());  // x,y: the mouse moves there (no button), for a snapshot
@@ -686,6 +690,7 @@ int main(int argc, char** argv) {
             std::printf("drop: %s\n", narrow(gState.message).c_str());
         }
         if (rectArg) setMode(Mode::Terrain), setTerrainRect(true);
+        if (customArg) setMode(Mode::Terrain), setTerrainKind(2);
         if (!palViewArg.empty()) sdlPaletteViewShot(palViewArg);  // (not saved: a snapshot saves no settings)
         if (previewArg && !gProj.sections.empty()) triggersRefresh(gProj.sections.back());  // the last script in the preview (as scriptpreview:)
         if (!dataArg.empty()) sdlDataSelect(dataArg);
