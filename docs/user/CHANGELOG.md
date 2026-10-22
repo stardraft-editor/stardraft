@@ -2,6 +2,36 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.6.1.6
+
+### Map
+
+- Map properties > Crop or extend: change the map's size on a picture of the map, as with an image editor's crop
+  tool. Drag the edges and corners of the rectangle to change the size, or drag the rectangle to move the map in it.
+  Drag past the map's edges to make the map larger. The picture shows the map as it will be, with the new ground at
+  the edges; the parts that go are dim. The size and offset fields stay, and the arrow keys move the rectangle.
+
+  ![Crop or extend: the map's new size on a picture of the map](images/0.6.1.6/crop-or-extend.png)
+- Locations: Paste (Ctrl+V) puts the copy on the mouse, as in the other modes. Each click places it again;
+  right-click or Esc stops. Each pasted location gets a name of its own (" copy1", " copy2" and so on).
+
+  ![Pasted locations, each with a name of its own; the copy follows the mouse](images/0.6.1.6/paste-locations.png)
+- Locations show only in Locations mode by default. View > Show locations in all modes shows them in the other modes
+  too.
+
+### The program
+
+- Keyboard: Tab and Shift+Tab go through all parts of the main window that you can click, in screen order: the menu
+  bar, the top bar, the tabs, the rail, the side bars, the map and the Log. Enter or Space presses the part, and Esc
+  gives the keyboard back to the map. An outline shows the part after Tab. Tab also goes through all controls of the
+  dialogs and of the "Save changes to the map?" question.
+- Menus on Windows look like the system's menus. While a menu is open, move the mouse over another menu's name to
+  open that menu. Submenus open next to their menu.
+
+### Fixes
+
+- Data > SFX data: the sounds play with StarCraft: Remastered's data too.
+
 ## 0.6.1.5
 
 ### Map
