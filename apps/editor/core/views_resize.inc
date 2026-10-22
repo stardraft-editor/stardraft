@@ -314,17 +314,16 @@ public:
 
 private:
     static std::wstring hintText() {
-        return L"Drag an edge or a corner of the rectangle to change the size. Drag in the rectangle to move it. The arrow keys "
-               L"move it in steps of 2 tiles (the terrain's diamonds are 2 tiles wide).";
+        return L"\x2022 Drag an edge or corner: size\r\n\x2022 Drag inside: move\r\n\x2022 Arrow keys: move 2 tiles";
     }
-    // What the change does, under the fields (the counts are the preview's).
+    // What the change does, under the fields, as short facts (the counts are the preview's).
     void info() {
         std::wstring t;
         if (!changed()) {
-            t = L"The map keeps its size.";
+            t = L"\x2022 No change";
         } else {
-            t = L"The map becomes " + std::to_wstring(v_.w) + L" x " + std::to_wstring(v_.h) + L" tiles (now " + std::to_wstring(oldW_) +
-                L" x " + std::to_wstring(oldH_) + L"). StarDraft 2 deletes the parts of the map outside the new size.";
+            t = L"\x2022 " + std::to_wstring(oldW_) + L" x " + std::to_wstring(oldH_) + L" \x2192 " + std::to_wstring(v_.w) + L" x " +
+                std::to_wstring(v_.h) + L" tiles";
             if (preview_.made) {
                 const size_t units = ed_.units().size() - std::min(ed_.units().size(), preview_.units);
                 const size_t doodads = ed_.doodads().size() - std::min(ed_.doodads().size(), preview_.doodads);
@@ -335,14 +334,13 @@ private:
                 };
                 count(units, L"unit", L"units"), count(doodads, L"doodad", L"doodads"), count(sprites, L"sprite", L"sprites");
                 if (!parts.empty()) {
-                    t += L" Outside the new size: ";
-                    for (size_t i = 0; i < parts.size(); ++i) t += (i ? (i + 1 == parts.size() ? L" and " : L", ") : L"") + parts[i];
-                    t += L" (dim in the picture).";
+                    t += L"\r\n\x2022 Deleted: ";
+                    for (size_t i = 0; i < parts.size(); ++i) t += (i ? L", " : L"") + parts[i];
                 }
             }
-            t += L" The locations move with the map and stop at its new edges.";
+            t += L"\r\n\x2022 Locations move with the map";
         }
-        if (!preview_.error.empty()) t += L"\r\n\r\nStarDraft 2 cannot make this change: " + widen(preview_.error) + L".";
+        if (!preview_.error.empty()) t += L"\r\n\x2022 Not possible: " + widen(preview_.error);
         infoText_ = t;
     }
     // The fields show the values (`all`: also the offset field that the user types in).
