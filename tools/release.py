@@ -24,7 +24,7 @@ CI uses these (they need only Python and git):
                                 --images: the version's picture files, one on each line (the Discord post).
     discord <version> --title <t> --url <u> [--channel all|updates|general] [--screenshots-only]
                                 The Discord post (CI): in each channel with a webhook (DISCORD_RELEASE_WEBHOOK,
-                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>", then the version's section as
+                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>" (in #updates after the @New Release ping), then the version's section as
                                 Discord text (one or more messages), then each screenshot as a message of its own with
                                 its text (a link alone shows neither). --screenshots-only: the screenshots alone.
     discord-text <version>      The section as the Discord messages have it (to check it).
@@ -328,8 +328,13 @@ def cmd_discord_text(args):
         sys.stdout.buffer.write((f"--- message {i + 1} ({len(m)} characters)\n{m}\n").encode("utf-8"))
 
 
-def discord_send(hook, content, file=None):
-    """One webhook message: its text, and a picture file as its attachment. Waits when Discord says to (429)."""
+# The Discord role that a new release pings ("@New Release": people take it to hear of releases).
+DISCORD_RELEASE_ROLE = "1562910841257332786"
+
+
+def discord_send(hook, content, file=None, ping_role=None):
+    """One webhook message: its text, and a picture file as its attachment. Waits when Discord says to (429).
+    ping_role: a role id that the message may ping (the text has its mention); no other mention pings."""
     import urllib.error
     import urllib.request
     boundary = "----stardraft" + str(int(time.time() * 1000))
@@ -337,7 +342,7 @@ def discord_send(hook, content, file=None):
     def part(headers, data):
         return (f"--{boundary}\r\n" + "".join(f"{h}\r\n" for h in headers) + "\r\n").encode() + data + b"\r\n"
     body += part(['Content-Disposition: form-data; name="payload_json"', "Content-Type: application/json"],
-                 json.dumps({"content": content}).encode("utf-8"))
+                 json.dumps({"content": content, "allowed_mentions": {"roles": [ping_role] if ping_role else []}}).encode("utf-8"))
     if file:
         body += part([f'Content-Disposition: form-data; name="files[0]"; filename="{Path(file).name}"', "Content-Type: image/png"],
                      Path(file).read_bytes())
@@ -381,7 +386,10 @@ def cmd_discord(args):
     for name, hook in hooks:
         try:
             if not only_shots:
-                discord_send(hook, f"**{title}** is out: {url}")
+                if name == "updates":  # (one ping for a release: in #updates)
+                    discord_send(hook, f"<@&{DISCORD_RELEASE_ROLE}> **{title}** is out: {url}", ping_role=DISCORD_RELEASE_ROLE)
+                else:
+                    discord_send(hook, f"**{title}** is out: {url}")
                 for text in discord_text(lines):  # (the changelog, as Discord shows text)
                     time.sleep(1)
                     discord_send(hook, text)
