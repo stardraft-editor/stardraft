@@ -258,7 +258,7 @@ KIT_TEST(menu_hover_opens_submenu_after_a_delay) {
     CHECK(host.windows.size() == 1);  // not yet: the mouse has to rest there
     host.runTimers();
     CHECK(host.windows.size() == 2);
-    CHECK(host.windows[1].spec.at.left == 202);  // to the right of the menu, two pixels apart
+    CHECK(host.windows[1].spec.at.left == 197);  // on the menu's right edge, 3 pixels over it
     win(host, 0).mouse(ev(MouseKind::Move, 20, 50));  // on Edit, a command: the submenu closes at once
     CHECK(host.windows.size() == 1);
     host.runTimers();
@@ -382,7 +382,11 @@ KIT_TEST(menu_paints_labels_icons_checks_and_chevrons) {
     CHECK(countOps(p, "icon ", " 76 0x") == 1);  // the check mark of Save
     CHECK(countOps(p, "polyline ", "0x") == 1);  // the chevron of Recent
     CHECK(countOps(p, "fill ", "0x") >= 1);      // the separator's line
+#if defined(_WIN32)
+    CHECK(countOps(p, "fill 0,0,", "0x202020") == 1);  // the panel's ground (square: the system rounds the window)
+#else
     CHECK(countOps(p, "roundBox 0,0,", "0x202020") == 1);  // the panel's ground
+#endif
     CHECK(p.drew("'Print' 0x605a5a"));           // a disabled item is faint
     CHECK(p.drew("'Open' 0xe0e0e0"));
     host.runTimers();
