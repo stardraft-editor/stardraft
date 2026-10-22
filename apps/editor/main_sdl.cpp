@@ -923,6 +923,7 @@ int main(int argc, char** argv) {
             SDL_WaitForGPUIdle(device);
             SDL_ReleaseGPUTexture(device, tex);
             gPopShot.frame.reset();  // (before the root view goes)
+            if (gShotView) host.snapshotInputEnd();  // (a dialog's window for its inputs goes before its view; also with no inputs)
             gShotView = nullptr;
         } else {
             // The first size is already in the display's free area (fitMainWindow sets the size in points next): macOS
