@@ -1,9 +1,11 @@
 {
   "runs": [
-    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-dialog-resize-drag", "map-locations-paste"]}
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-dialog-resize-drag", "map-locations-paste", "map-custom-terrain", "map-custom-select-shot"]}
   ],
   "shots": [
     {"run": 0, "from": "map-dialog-resize-drag.png", "to": "crop-or-extend.png", "alt": "Crop or extend: the map's new size on a picture of the map"},
-    {"run": 0, "from": "map-locations-paste.png", "to": "paste-locations.png", "crop": [344, 96, 656, 560], "alt": "Pasted locations, each with a name of its own; the copy follows the mouse"}
+    {"run": 0, "from": "map-locations-paste.png", "to": "paste-locations.png", "crop": [344, 96, 656, 560], "alt": "Pasted locations, each with a name of its own; the copy follows the mouse"},
+    {"run": 0, "from": "map-custom-terrain.png", "to": "custom-terrain.png", "crop": [64, 400, 700, 400], "alt": "Custom terrain: the saved pieces under their headings, one on the mouse"},
+    {"run": 0, "from": "map-custom-select-shot.png", "to": "save-custom-terrain.png", "crop": [520, 420, 500, 390], "alt": "A selection of tiles and Save as custom terrain in its menu"}
   ]
 }

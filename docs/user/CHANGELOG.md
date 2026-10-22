@@ -4,12 +4,24 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 
 ## 0.6.1.6
 
+### New
+
+- Custom terrain: save your own pieces of terrain and place them again, as doodads. Terrain > Custom lists the pieces
+  of the map's tileset, with a picture of each. A "_" in a name makes a heading ("Jungle_Bridges_Left": Left under
+  Bridges under Jungle). Sort by name or newest first. Click a piece, then click on the map to place it; drag to place
+  it again; right-click or Esc stops. Q finds them too.
+
+  ![Custom terrain: the saved pieces under their headings, one on the mouse](images/0.6.1.6/custom-terrain.png)
+- To save a piece: select tiles (Shift+drag adds tiles, Ctrl+drag removes tiles), right-click, Save as custom terrain.
+  Right-click a piece in the list to rename or delete it.
+
+  ![A selection of tiles and Save as custom terrain in its menu](images/0.6.1.6/save-custom-terrain.png)
+
 ### Map
 
 - Map properties > Crop or extend: change the map's size on a picture of the map, as with an image editor's crop
-  tool. Drag the edges and corners of the rectangle to change the size, or drag the rectangle to move the map in it.
-  Drag past the map's edges to make the map larger. The picture shows the map as it will be, with the new ground at
-  the edges; the parts that go are dim. The size and offset fields stay, and the arrow keys move the rectangle.
+  tool. Drag the edges and corners to change the size; drag inside to move the map; drag past the edges to make the
+  map larger. The picture shows the map as it will be, with the new ground at the edges; the parts that go are dim.
 
   ![Crop or extend: the map's new size on a picture of the map](images/0.6.1.6/crop-or-extend.png)
 - Locations: Paste (Ctrl+V) puts the copy on the mouse, as in the other modes. Each click places it again;
