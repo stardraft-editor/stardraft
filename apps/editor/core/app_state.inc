@@ -33,6 +33,10 @@ struct AppState {
     bool terrainRect = false;  // the Terrain tool strip's Rectangle: the tools work on tiles as they are (tiles_view.inc)
     bool hasTerrainSel = false;
     Rect terrainSel;
+    // Rectangle and Stamps: a selection of tiles that need not be one rectangle (Shift adds tiles, Ctrl takes them out):
+    // which tiles of terrainSel (its box, in tiles, row by row) are in it. Empty: the tiles of terrainSel's shape.
+    std::vector<uint8_t> terrainSelMask;
+    int terrainSelOp = 0;  // the selection's drag under way: 0 a new selection, 1 adds its tiles (Shift), 2 takes them out (Ctrl)
     bool terrainPasting = false;
     bool copyUnitsWithTerrain = true, copyDoodadsWithTerrain = true;
     bool locationWrap = false;  // a location's name in lines that fit in it (Options > Locations)

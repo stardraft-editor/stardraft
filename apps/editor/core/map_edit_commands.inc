@@ -191,11 +191,27 @@ void pasteMapCopy(AppState& app) {
                L" units: click to place them, and again to place more. Right-click or Esc stops.");
 }
 
+// Rectangle's copy of the terrain selection (the tile clipboard): the tiles of its box, those outside its shape or (a
+// selection made with Shift and Ctrl) its mask left out. False: nothing to copy.
+bool copySelectedTiles(Editor& ed) {
+    const AppState& app = appState();
+    const Rect& r = app.terrainSel;
+    const bool masked = !app.terrainSelMask.empty();
+    if (!app.hasTerrainSel || !ed.copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, masked ? Editor::SelectShape::Rect : selectShape()))
+        return false;
+    if (!masked) return true;
+    Editor::TerrainCopies c = ed.terrainCopies();  // (each of its tiles: the map's tile it came from, as copyTiles clamps the box)
+    const int x0 = std::max(0, r.left / 32), y0 = std::max(0, r.top / 32), w = c.tiles.width;
+    for (size_t i = 0; i < c.tiles.values.size() && w > 0; ++i)
+        if (!terrainSelHas(x0 + int(i % size_t(w)), y0 + int(i / size_t(w)))) c.tiles.values[i] = 0xFFFF;
+    ed.setTerrainCopies(c);
+    return true;
+}
+
 // Edit > Copy in the active mode (the terrain selection, the tiles, the doodads, the sprites, the location or the units).
 void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain && app.terrainRect) {
-        const Rect& r = app.terrainSel;
-        if (app.hasTerrainSel && app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape()))
+        if (copySelectedTiles(*app.ed))
             shareTerrainCopy(*app.ed), tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
         else
             setMessage(L"First, select an area with the Select / copy tool");
@@ -248,8 +264,7 @@ void cutMapSelection(AppState& app) {
     if (!app.hasTerrainSel) return setMessage(L"First, select an area with the Select tool");
     // Terrain: copy it, then null tiles in its place (black; nothing can walk or build there).
     const Rect& r = app.terrainSel;
-    const bool copied = app.terrainRect ? app.ed->copyTiles(r.left / 32, r.top / 32, (r.right - 1) / 32, (r.bottom - 1) / 32, selectShape())
-                                        : app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
+    const bool copied = app.terrainRect ? copySelectedTiles(*app.ed) : app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
     if (!copied) return setMessage(L"Nothing to cut there: make the selection larger");  // (a small diamond with no corner)
     shareTerrainCopy(*app.ed);
     app.ed->beginStroke();  // the units and the tiles: one undo step
@@ -259,10 +274,7 @@ void cutMapSelection(AppState& app) {
             if (Editor::inSelectShape(r, selectShape(), app.ed->units()[size_t(i)].x, app.ed->units()[size_t(i)].y)) app.ed->select(i, true);
         app.ed->deleteSelection();
     }
-    std::vector<std::pair<int, int>> cells;  // the tiles whose middle is in the selection's shape
-    for (int ty = r.top / 32; ty <= (r.bottom - 1) / 32; ++ty)
-        for (int tx = r.left / 32; tx <= (r.right - 1) / 32; ++tx)
-            if (Editor::inSelectShape(r, selectShape(), tx * 32 + 16, ty * 32 + 16)) cells.push_back({tx, ty});
+    const std::vector<std::pair<int, int>> cells = terrainSelTiles();  // the tiles whose middle is in the selection's shape (or its mask)
     const int n = app.ed->placeTileCells(cells, 0);  // tile 0: the null tile
     app.ed->endStroke();
     app.ed->takeUnitsRemovedByTerrain();  // (the next paint's message counts only what it removes)

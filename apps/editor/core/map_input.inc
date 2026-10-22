@@ -173,6 +173,7 @@ bool pipette(AppState& app, float wx, float wy) {
     switch (app.mode) {
     case Mode::Terrain:
         if (app.terrainRect) {
+            if (gTiles->stamps) return false;  // (Custom: the list has no tiles to pick)
             const int tx = int(wx) / 32, ty = int(wy) / 32;
             if (tx < 0 || ty < 0 || tx >= ed.width() || ty >= ed.height()) return false;
             const int v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
@@ -267,6 +268,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         return;
     }
     app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
+    app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
     bool shift = mods & draw::kShift, ctrl = mods & draw::kCtrl;
     switch (app.mode) {
     case Mode::Units: {
@@ -640,9 +642,19 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         break;
     case Drag::Tiles: tilesMouseUp(wx, wy); break;
     case Drag::TerrainSelect: {
+        if (app.terrainRect && app.terrainSelOp) {  // Shift: the tiles go into the selection; Ctrl: out of it (a click: one tile)
+            terrainSelCombine(terrainSelectRect(wx, wy), app.terrainSelOp == 1);
+            app.terrainSelOp = 0;
+            const size_t n = terrainSelTiles().size();
+            setMessage(app, n ? L"Selected " + std::to_wstring(n) + (n == 1 ? L" tile" : L" tiles") +
+                                    L". Shift+drag adds tiles. Ctrl+drag removes tiles. To save the tiles as custom terrain, right-click the selection."
+                              : std::wstring(L"Cleared the terrain selection"));
+            break;
+        }
         const Rect r = app.terrainRect && !app.dragMoved ? Rect{} : terrainSelectRect(wx, wy);  // Rectangle: a click clears it
         app.hasTerrainSel = r.right - r.left >= 32 && r.bottom - r.top >= 32;
         app.terrainSel = r;
+        app.terrainSelMask.clear();
         if (app.terrainRect && app.hasTerrainSel)
             setMessage(app, L"Selected " + std::to_wstring((r.right - r.left) / 32) + L" x " + std::to_wstring((r.bottom - r.top) / 32) +
                        L" tiles. Press Ctrl+C to copy them.");

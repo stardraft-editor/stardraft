@@ -72,7 +72,7 @@ void stashActive() {
     mapPageClose();
     Doc& d = gDocs[size_t(gActive)];
     d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
-    d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel;
+    d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel, d.terrainSelMask = app.terrainSelMask;
     d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
     panelsStash();  // (its active panel keeps its state for when the tab is back: panel_state.inc)
     d.ed = std::move(app.ed);
@@ -105,7 +105,7 @@ void activateDoc(int i) {
     if (app.ed) takeTerrainCopy(*app.ed);  // the terrain copied last, in another map too (GitHub #146)
     app.camX = d.camX, app.camY = d.camY, app.zoom = d.zoom;
     shellRelayout();  // the minimap takes this map's shape
-    app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel;
+    app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel, app.terrainSelMask = d.terrainSelMask;
     app.pasting = d.pasting, app.terrainPasting = d.terrainPasting;
     showActive();
     if (gWorkspace != Workspace::Map) setWorkspace(d.page ? Workspace::Map : gWorkspace);  // a map tab falls back to Map; a project reloads

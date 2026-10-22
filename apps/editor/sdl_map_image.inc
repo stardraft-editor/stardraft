@@ -195,7 +195,7 @@ void sdlExportMapImage() {
             else if (t.rfind("sel=", 0) == 0) {
                 int v[4] = {0, 0, 0, 0};
                 std::sscanf(t.c_str() + 4, "%d:%d:%d:%d", &v[0], &v[1], &v[2], &v[3]);
-                gState.terrainSel = {v[0] * 32, v[1] * 32, v[2] * 32, v[3] * 32}, gState.hasTerrainSel = true;
+                gState.terrainSel = {v[0] * 32, v[1] * 32, v[2] * 32, v[3] * 32}, gState.hasTerrainSel = true, gState.terrainSelMask.clear();
             }
         }
         gMapImageLast = o;

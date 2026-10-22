@@ -113,6 +113,7 @@ add_library(stardraft
     src/campaign.cpp
     src/project_import.cpp
     src/terrain_gen.cpp
+    src/terrain_stamp.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp

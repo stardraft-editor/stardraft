@@ -218,6 +218,11 @@ struct QuickPickSdl final : QuickPickHost {
     bool open = false;
     bool drawPicture(draw::Canvas& c, QuickPickKind kind, Mode mode, const PaletteUnit& u, draw::Rect box) override {
         if (kind == QuickPickKind::Data) return false;
+        if (mode == Mode::Terrain && tilesOn() && gTiles->stamps) {  // Custom: the picture of the custom terrain, as its list shows it
+            if (u.value < 0 || u.value >= int(stampsList().size())) return false;
+            stampsDrawPicture(c, stampsList()[size_t(u.value)], box);
+            return true;
+        }
         if (mode == Mode::Terrain && tilesOn()) {  // Rectangle: the row's tile, as the Tiles list shows it
             draw::Rect src;
             draw::Bitmap& t = tilesPixels(uint16_t(u.value), src);

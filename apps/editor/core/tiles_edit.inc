@@ -27,6 +27,11 @@ struct TilesView {
     std::vector<uint16_t> stamp;
     int stampW = 0, stampH = 0, stampX = 0, stampY = 0;
     bool scatter = false;  // the Brush stroke under way: Shift was held at its press
+    // Custom terrain (the tool strip's Custom, core/stamps.inc): the panel shows the user's custom terrain in place of
+    // the grid (Rectangle's tools on the map), and the stamp is the custom terrain of this name (empty: not one).
+    bool stamps = false;
+    std::wstring stampName;
+    int stampEra = -1;  // (its tileset)
     int lastX = 0, lastY = 0;  // the Brush stroke's last tile
     int hover = -1;         // the tile value under the mouse in the list
     // A box dragged over the grid selects the tiles in it (GitHub feedback #110): from the press, in content pixels
@@ -114,7 +119,7 @@ std::wstring tilesValueLabel(int value) {
     return note.empty() ? s : s + L"  \x00B7  " + note;
 }
 
-bool tilesStampOn() { return gTiles->stamp.size() > 1; }
+bool tilesStampOn() { return gTiles->stamp.size() > 1 || (!gTiles->stamp.empty() && !gTiles->stampName.empty()); }
 
 // From Select, a pick in the grid starts placing: the Brush.
 void tilesToBrush() {
@@ -173,7 +178,7 @@ void tilesStampChosen() {
 void tilesStampFromCopy() {
     const Editor& ed = *appState().ed;
     const int w = ed.tileClipboardWidth(), h = ed.tileClipboardHeight();
-    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
     gTiles->chosen.clear();
     int n = 0;
     for (uint16_t v : ed.tileClipboard()) {
@@ -198,7 +203,7 @@ void tilesStampFromCopy() {
 
 void tilesPick(int value, bool fromMap) {
     gTiles->picked = value;
-    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
     if (!fromMap && value >= 0) tilesToBrush();
     gTiles->anchor = value;
     gTiles->chosen.clear();
@@ -359,7 +364,7 @@ void tilesFill(int tx, int ty, bool every) {
             x1 = std::min(w - 1, (appState().terrainSel.right - 1) / 32), y1 = std::min(h - 1, (appState().terrainSel.bottom - 1) / 32);
         for (int y = y0; y <= y1; ++y)
             for (int x = x0; x <= x1; ++x)
-                if (t[size_t(y) * w + x] == from && (!appState().hasTerrainSel || Editor::inSelectShape(appState().terrainSel, selectShape(), x * 32 + 16, y * 32 + 16)))
+                if (t[size_t(y) * w + x] == from && (!appState().hasTerrainSel || terrainSelHas(x, y)))
                     cells.push_back({x, y});  // (in the selection's shape)
     } else {
         std::vector<uint8_t> seen(size_t(w) * h, 0);
@@ -385,11 +390,7 @@ void tilesFill(int tx, int ty, bool every) {
 void tilesFillSelection() {
     if (!appState().ed || !appState().hasTerrainSel || gTiles->picked < 0) return;
     Editor& ed = *appState().ed;
-    const int w = ed.width(), h = ed.height();
-    std::vector<std::pair<int, int>> cells;
-    for (int y = std::max(0, appState().terrainSel.top / 32); y <= std::min(h - 1, (appState().terrainSel.bottom - 1) / 32); ++y)
-        for (int x = std::max(0, appState().terrainSel.left / 32); x <= std::min(w - 1, (appState().terrainSel.right - 1) / 32); ++x)
-            if (Editor::inSelectShape(appState().terrainSel, selectShape(), x * 32 + 16, y * 32 + 16)) cells.push_back({x, y});
+    const std::vector<std::pair<int, int>> cells = terrainSelTiles();  // (in its shape, or its mask)
     ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
     tilesPlacedMessage(tilesPlaceRandom(cells, std::max(0, appState().terrainSel.left / 32), std::max(0, appState().terrainSel.top / 32)), L"Filled the selection:");
 }
@@ -435,11 +436,13 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
             // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
             appState().drag = Drag::None;
         } else {
+            // Shift adds the drag's tiles to the selection, Ctrl takes them out (they need not touch): a stamp of any shape.
+            appState().terrainSelOp = (mods & draw::kShift) ? 1 : (mods & draw::kCtrl) ? 2 : 0;
             appState().drag = Drag::TerrainSelect;
         }
         return true;
     }
-    if (mods & draw::kCtrl) {
+    if ((mods & draw::kCtrl) && !gTiles->stamps) {  // (Custom: the list has no tiles to pick)
         const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
         tilesPick(v, true);
         tilesReveal(v);
@@ -447,12 +450,12 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         return true;
     }
     if (gTiles->picked < 0) {
-        setMessage(L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
+        setMessage(gTiles->stamps ? L"First, select custom terrain in the Custom list"
+                                  : L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
         appState().drag = Drag::None;
         return true;
     }
-    if (tool == TFill && !(mods & draw::kShift) && appState().hasTerrainSel &&
-        Editor::inSelectShape(appState().terrainSel, selectShape(), int(wx), int(wy))) {  // in the selection: all of it
+    if (tool == TFill && !(mods & draw::kShift) && terrainSelHas(tx, ty)) {  // in the selection: all of it
         tilesFillSelection();
         appState().drag = Drag::None;
         return true;

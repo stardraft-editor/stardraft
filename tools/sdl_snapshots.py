@@ -414,9 +414,9 @@ CASES += [
     # (its Isometric).
     ("map-panels-float", ["--script", "{script:panelsfloat}"], "map"),
     # Release pictures (0.6.1.3): a Tiles stamp over the map; Rectangle mode's left-right mirror; a taller minimap.
-    ("map-tiles-stamp-shot", ["--mode", "terrain", "--click", "271,427", "--wait", "300", "--drag", "75,700-160,760", "--move", "700,400",
+    ("map-tiles-stamp-shot", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--drag", "75,700-160,760", "--move", "700,400",
                               "--wait", "200"], "map"),
-    ("map-rect-mirror-shot", ["--mode", "terrain", "--click", "271,427", "--wait", "300", "--click", "115,521", "--click", "100,720",
+    ("map-rect-mirror-shot", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--click", "115,521", "--click", "100,720",
                               "--move", "600,400", "--wait", "200"], "map"),
     ("map-minimap-taller", ["--drag", "200,374-200,540", "--wait", "200"], "map"),
     # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
@@ -462,10 +462,10 @@ CASES += [
     # that frame (freedinframe), and the list keeps the pictures of a few tile groups, not of all.
     ("map-terrain-rect-scroll", ["--rect"] + ["--wheel", "200,750,0,-20"] * 100 + ["--wheel", "200,750,0,200"] * 10, "map"),
     # The isometric brush over tiles placed in Rectangle mode (GitHub #143): a click paints Solar Array, a tile of the
-    # Tiles list is placed there (Rectangle at 271,427), then the same click paints Solar Array again (Isometric at
+    # Tiles list is placed there (Rectangle at 202,427), then the same click paints Solar Array again (Isometric at
     # 135,427; the ISOM does not change): a tile of the brush's group is there again, not the placed one.
     ("map-terrain-brush-over-tiles", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--click", "560,690",
-                                      "--move", "560,690", "--click", "271,427", "--click", "tile16", "--key", "B",
+                                      "--move", "560,690", "--click", "202,427", "--click", "tile16", "--key", "B",
                                       "--click", "560,690", "--click", "135,427", "--click", "202,759", "--key", "B",
                                       "--click", "560,690"], "map"),
     # The quick picker (Q) in Rectangle mode (GitHub #141): its rows are the tile groups, found as the Tiles list's
@@ -487,7 +487,7 @@ CASES += [
     # The Diamond keeps the map's diamond shape (GitHub #138): two clicks on the height's up arrow change nothing (a
     # message says why), the size's up arrow makes it 3 x 3 (diamonds, Isometric), and in Rectangle it is 3 x 2 tiles.
     ("map-brush-diamond-locked", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
-                                  "--click", "271,427"], "map"),
+                                  "--click", "202,427"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
     # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
     # it was: its tiles and a box.
@@ -502,8 +502,34 @@ CASES += [
     ("map-terrain-select-circle", ["--mode", "terrain", "--wheel", "90,485,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
     ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
     # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
-    ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "271,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
+    ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
                              "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),
+    # Custom terrain (Terrain's Custom; the files in a new folder: --stamps, never the user's): the square shape, Select
+    # (V), a drag selects 7 x 4 tiles, Shift+click adds a tile apart from them, Ctrl+click takes one out of them; a right
+    # click on the selection > Save as custom terrain (item 7) and the name typed; the same name again: Replace? (--box
+    # 0: Replace); two more in the group Test and one with no group; Cut makes null tiles where a click on Left of the
+    # Custom list then places it (exactly its 28 tiles: its box is 13 x 10), Ctrl+Z takes it back; Q finds "bridges
+    # right"; Rename (item 0) of Plain; Delete (item 1) of Test_Ramp (--box 0: Delete): its file is gone.
+    ("map-custom-terrain", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
+                            "--click", "600,700:Shift", "--click", "540,650:Ctrl",
+                            "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter",
+                            "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter", "--box", "0",
+                            "--click", "540,655:Menu7", "--type", "Test_Bridges_Right", "--key", "Enter",
+                            "--click", "540,655:Menu7", "--type", "Test_Ramp", "--key", "Enter",
+                            "--click", "540,655:Menu7", "--type", "Plain", "--key", "Enter",
+                            "--drag", "840,760-960,850", "--key", "Ctrl+X", "--click", "custom=Test_Bridges_Left", "--click", "900,800",
+                            "--key", "Ctrl+Z", "--key", "Esc", "--key", "Q", "--type", "bridges right", "--key", "Enter",
+                            "--click", "custom=Plain:Menu0", "--type", "Renamed", "--key", "Enter",
+                            "--click", "custom=Test_Ramp:Menu1", "--box", "0", "--move", "700,500", "--wait", "200"], "map"),
+    # Release picture: a selection of any shape (a drag, a Shift+drag apart from it, a Ctrl+drag out of it) and its menu
+    # with Save as custom terrain.
+    ("map-custom-select-shot", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "600,440-690,500",
+                                "--drag", "540,470-590,530:Shift", "--drag", "630,460-650,480:Ctrl", "--rclick", "685,445"], "map"),
+    # The Custom list shows only the custom terrain of the map's tileset: saved on Bottleneck (Space Platform), none in
+    # Volcanis (Ash World) after Ctrl+O; with none, the list says how to make it.
+    ("map-custom-other-tileset", ["--custom", "--stamps", "{newdir}", "--key", "V", "--drag", "520,640-560,660",
+                                  "--click", "540,655:Menu7", "--type", "Platform_Piece", "--key", "Enter",
+                                  "--key", "Ctrl+O", "--pick", "{install}/Maps/(2)Volcanis.scm", "--click", "293,427"], "map"),
     # Units: the placement preview at the left-right mirror image too (Discord feedback #133).
     ("map-units-mirror-ghost", ["--mode", "units", "--click", "1371,187", "--click", "1386,579", "--wheel", "831,525,0,-4", "--move", "700,500",
                                 "--wait", "200"], "map"),
@@ -1473,7 +1499,7 @@ stats
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
     "panelsown": "mode terrain\npanel new\nwait 0\nclick 1231,196\nclick 1157,254\nclick 200,652\nclick 1157,254\nkey U\nkey T\n",
-    "panelsfloat": "mode terrain\nclick 271,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
+    "panelsfloat": "mode terrain\nclick 202,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
                    "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
                 "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nkey Del\n"
@@ -4258,7 +4284,68 @@ def check_converted(want):
     return check
 
 
+def custom_steps(output):
+    """Each input and its state line's fields, in order: [(input, {name: value})]."""
+    return [(inp, dict((k, v.strip('"')) for k, v in STATE_FIELD.findall(st))) for inp, st in states(output)]
+
+
+def check_custom_terrain(output):
+    """map-custom-terrain: the selection with Shift and Ctrl, Save as custom terrain and its Replace question, the list's
+    groups, the placing of exactly its tiles, Undo, the quick picker, Rename and Delete (the files on the disk)."""
+    steps = custom_steps(output)
+    if len(steps) < 30:
+        return f"{len(steps)} input lines, not 30 or more (the program stopped?)"
+    by = lambda name, k=0: [f for i, f in steps if i == name][k]
+    drag, shift, ctrl = by("drag 520,640-560,660"), by("click 600,700:Shift"), by("click 540,650:Ctrl")
+    if drag.get("kind") != "custom":
+        return f"the strip's choice is {drag.get('kind')}, not custom"
+    n = int(drag.get("tselcount", 0))
+    if n != 28 or int(shift.get("tselcount", 0)) != n + 1 or int(ctrl.get("tselcount", 0)) != n:
+        return f"the selection: {n} tiles, after Shift+click {shift.get('tselcount')}, after Ctrl+click {ctrl.get('tselcount')} (not 28, 29, 28)"
+    saves = [f for i, f in steps if i == "click 540,655:Menu7"]
+    if len(saves) != 5 or saves[0].get("customfiles") != "Test_Bridges_Left:28":
+        return f"the first save: files {saves[0].get('customfiles') if saves else '-'}, not Test_Bridges_Left:28"
+    if 'box: "Save as custom terrain": &Replace' not in output or saves[1].get("customfiles") != "Test_Bridges_Left:28":
+        return "the second save of the same name did not ask Replace? (or it made a second file)"
+    rows = "Plain=Plain|#Test|Ramp=Test_Ramp|##Bridges|Left=Test_Bridges_Left|Right=Test_Bridges_Right"
+    if saves[4].get("customrows") != rows or saves[4].get("customshown") != "yes":
+        return f"the list's rows: {saves[4].get('customrows')} (shown: {saves[4].get('customshown')}), not {rows}"
+    cut, pick, place, undo = by("key Ctrl+X"), by("click custom=Test_Bridges_Left"), by("click 900,800"), by("key Ctrl+Z")
+    if pick.get("custombrush") != "Test_Bridges_Left" or "(13 x 10, 28 tiles)" not in output:
+        return f"a click on Left: the brush is {pick.get('custombrush')}, not Test_Bridges_Left of 13 x 10 with 28 tiles"
+    if not re.search(r"^click 900,800: .*: Placed 28 tiles\r?$", output, re.M) or place.get("terrain") == cut.get("terrain"):
+        return "the click did not place exactly the 28 tiles of the custom terrain (on null tiles: each one changes)"
+    if undo.get("terrain") != cut.get("terrain"):
+        return "Ctrl+Z did not take the placed tiles back"
+    quick = [f for i, f in steps if i == "key Enter"][5]
+    if quick.get("custombrush") != "Test_Bridges_Right":
+        return f"the quick picker's pick: {quick.get('custombrush')}, not Test_Bridges_Right"
+    renamed, deleted = by("click custom=Plain:Menu0"), by("click custom=Test_Ramp:Menu1")
+    if renamed.get("customfiles") != "Renamed:28|Test_Bridges_Left:28|Test_Bridges_Right:28|Test_Ramp:28":
+        return f"after Rename: files {renamed.get('customfiles')}"
+    if 'box: "Delete custom terrain": &Delete' not in output:
+        return "Delete did not ask first"
+    if deleted.get("customfiles") != "Renamed:28|Test_Bridges_Left:28|Test_Bridges_Right:28" or "Ramp" in deleted.get("customrows", ""):
+        return f"after Delete: files {deleted.get('customfiles')}, rows {deleted.get('customrows')} (Test_Ramp is there)"
+    return None
+
+
+def check_custom_other_tileset(output):
+    """map-custom-other-tileset: the custom terrain saved on Space Platform is not in Ash World's list (nor its files)."""
+    steps = custom_steps(output)
+    saved = [f for i, f in steps if i == "click 540,655:Menu7"]
+    if not saved or not saved[0].get("customfiles", "").startswith("Platform_Piece:") or saved[0].get("customrows") != "#Platform|Piece=Platform_Piece":
+        return f"the save on Bottleneck: files {saved[0].get('customfiles') if saved else '-'}, rows {saved[0].get('customrows') if saved else '-'}"
+    last = steps[-1][1]
+    if not last.get("map", "").startswith("Ash World") and "map: Ash World" not in output:
+        return "Volcanis (Ash World) did not open"
+    if last.get("customfiles") or last.get("customrows") or last.get("kind") != "custom" or last.get("customshown") != "yes":
+        return f"Ash World's Custom list: rows {last.get('customrows')!r}, files {last.get('customfiles')!r}, kind {last.get('kind')} (not empty)"
+    return None
+
+
 CHECKS.update({
+    "map-custom-terrain": check_custom_terrain, "map-custom-other-tileset": check_custom_other_tileset,
     "help-index": check_help_page("index", "", "StarDraft 2 help"),
     "help-page": check_help_page("units-dat", "hit-points", "Units (units.dat)"),
     "help-light": check_help_page("getting-started", "", "Getting started"),

@@ -231,6 +231,23 @@ std::string shotMapState() {
     s += " tilegrid=" + std::to_string(gTilesGrid->width()) + ":";
     for (int i = 0; i <= 16; ++i) s += (i ? "," : "") + std::to_string(tilesEdge(i));
     s += " tileslots=" + std::to_string(gTiles->values.size());
+    // Custom (core/stamps.inc): the choice of the strip, the tiles selected (Shift and Ctrl make any shape), the Brush's
+    // custom terrain, the files of the tileset in the folder (names, | between them: read from the disk now), the list's
+    // rows as it shows them (# a group, ## a sub-group, then the items), and whether the panel shows the list.
+    static const char* const kKinds[3] = {"iso", "rect", "custom"};
+    s += std::string(" kind=") + kKinds[terrainKind()] + " tselcount=" + std::to_string(terrainSelTiles().size());
+    s += " custombrush=" + (gTiles->stampName.empty() ? std::string("-") : quoted(narrow(gTiles->stampName)));
+    {
+        std::string files, rows;
+        for (const TerrainStamp& st : terrainStamps(shellStampsFolder(), uint16_t(ed.era() & 7)))
+            files += (files.empty() ? "" : "|") + st.name + ":" + std::to_string(st.count());
+        const auto& list = stampsList();
+        for (const StampRow& r : stampsRows())
+            rows += (rows.empty() ? "" : "|") + (r.heading ? std::string(size_t(r.depth + 1), '#') + narrow(r.label)
+                                                           : narrow(r.label) + (r.index >= 0 && r.index < int(list.size()) ? "=" + list[size_t(r.index)].name : ""));
+        s += " customfiles=" + quoted(files) + " customrows=" + quoted(rows);
+        s += std::string(" customshown=") + (gTilesPanel->stamps().shown() ? "yes" : "no");
+    }
     // The panels (panel_state.inc): the active one (the side bar's of a mode, or the n-th palette window's), and each one's
     // own Isometric or Rectangle, brush size, tool and pick: "side" the side bar's Terrain panel, then each window's.
     std::string active = "-";
