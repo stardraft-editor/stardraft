@@ -209,6 +209,8 @@ public:
     bool wheeling = false;
 };
 
+#include "views_stamps.inc"  // the Custom list, which the panel shows in place of its grid while its Custom is on
+
 class TilesPanelView final : public draw::View {
 public:
     TilesPanelView() {
@@ -229,7 +231,22 @@ public:
             const TilesScope scope = here();
             tilesScrollTo(pos);
         };
+        add(stamps_, {0, 0, 0, 0});
+        stamps_.setVisible(false);
     }
+    // Custom on (its tiles' stamps): the Custom list takes the whole panel, else the filter, the search and the grid.
+    void syncStamps() {
+        const bool on = data && data->stamps;
+        stamps_.data = data, stamps_.panel = this, stamps_.grid = grid_, stamps_.state = grid_ ? grid_->state : nullptr;
+        if (stamps_.visible() != on) {
+            filter_.setVisible(!on), search_.setVisible(!on), bar_.setVisible(!on), stamps_.setVisible(on);
+            if (grid_) grid_->setVisible(!on);
+            stamps_.changed();
+        }
+        const draw::Rect f = stamps_.frame();
+        if (f.left || f.top || f.right != width() || f.bottom != height()) stamps_.setFrame({0, 0, width(), height()});
+    }
+    StampsListView& stamps() { return stamps_; }
     TilesView* data = &gTilesDocked;  // its tiles: its grid's too (bind)
     TilesScope here() { return {data, grid_, this}; }
     // Its tiles become `d`'s: the grid's, the search box's text and the filter box's choice.
@@ -245,6 +262,7 @@ public:
         if (search_.text() != d->search) search_.setText(d->search);
         d->layoutW = -1;  // (its grid's width: built again)
         if (grid_) grid_->invalidate();
+        syncStamps();
     }
     // The grid's scroll bar follows the grid (its paint calls this): its range, page and place.
     void syncBar() {
@@ -254,7 +272,7 @@ public:
     SearchBox& search() { return search_; }
     stardraft::kit::Dropdown& filter() { return filter_; }
     // The SDL program: the grid is a child of the panel, under the search box (the Win32 program places its window there).
-    void holdGrid(TilesGridView& g) { grid_ = &g, g.panel = this, g.data = data, add(g, gridRect()); }
+    void holdGrid(TilesGridView& g) { grid_ = &g, g.panel = this, g.data = data, add(g, gridRect()), syncStamps(); }
     // Where the grid goes: under the filter box and the search box, to the panel's bottom; its scroll bar at its right.
     draw::Rect gridRect() const {
         const int y = 2 * (scale(24) + scale(6));
@@ -268,8 +286,12 @@ public:
         if (grid_) grid_->setFrame(gridRect());
         const draw::Rect g = gridRect();
         bar_.setFrame({g.right, g.top, width(), std::max(g.top, g.bottom - tilesFooterH())});  // (beside the tiles, above the footer)
+        syncStamps();
     }
-    void paint(draw::Canvas& c) override { c.fill({0, 0, width(), height()}, kBg); }
+    void paint(draw::Canvas& c) override {
+        syncStamps();  // (Custom on or off in its panel)
+        c.fill({0, 0, width(), height()}, kBg);
+    }
     std::wstring feedbackName(draw::Point) override { return L"the Tiles list"; }
 
     static constexpr int kFilterH = 23;  // the native drop-down list was 23 px high (its height follows the UI font)
@@ -279,6 +301,7 @@ private:
     SearchBox search_;
     stardraft::kit::ScrollBar bar_;  // the grid's scroll bar (the wheel scrolls the grid too)
     TilesGridView* grid_ = nullptr;
+    StampsListView stamps_;  // the Custom list (Custom on)
 };
 
 // The side bar's Tiles list (the active map tab's docked Terrain panel's tiles); a palette panel has its own.
@@ -291,6 +314,11 @@ void tilesDockBind(TilesView* d, PanelState* s) { gTilesDockPanel.bind(d), gTile
 
 // The panel's side of the tile logic (tiles_edit.inc calls these).
 void tilesPanelRepaint() { gTilesGrid->invalidate(); }
+// Custom on or off in the active panel: its panel shows the Custom list or the grid.
+void stampsPanelSync() {
+    gTilesPanel->syncStamps();
+    gTilesPanel->invalidate();
+}
 void tilesPanelClearSearch() { gTilesPanel->search().setText(L""); }
 void tilesPanelShowAllFilter() { gTilesPanel->filter().setValue(0); }
 // The search box's text (its change rebuilds the grid).
@@ -455,7 +483,7 @@ void tilesSetFilter(int index) {
 // The stamp: the grid's slots in rows r0 to r1 and columns c0 to c1, as the grid shows them (tiles_edit.inc). Fewer
 // than 2 tiles: no stamp.
 void tilesMakeStamp(int r0, int r1, int c0, int c1) {
-    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0;
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
     int n = 0;
     std::vector<uint16_t> stamp;
     for (int r = r0; r <= r1; ++r)

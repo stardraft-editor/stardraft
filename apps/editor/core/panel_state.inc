@@ -180,6 +180,7 @@ void activatePanel(PanelState* p) {
         if (gActivePanel) panelStore(*gActivePanel);
         gActivePanel = p;
         panelLoad(*p);
+        if (p->mode == Mode::Terrain && !app.terrainRect && !app.terrainSelMask.empty()) app.hasTerrainSel = false, app.terrainSelMask.clear();  // (Isometric has no selection of any shape)
     }
     DockedPanels& d = dockedPanelsOf(activeDocKey());
     d.lastOfMode[size_t(p->mode)] = p;
@@ -210,7 +211,7 @@ std::string panelStateText(PanelState& s) {
     panelFresh(s);
     char b[192];
     std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
-                  s.density, s.mirrors, int(s.terrainRect), s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
+                  s.density, s.mirrors, int(s.terrainRect) + int(s.terrainRect && s.tiles && s.tiles->stamps), s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
                   s.otherBrushHeight);
     return b;
 }
@@ -224,7 +225,7 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & Mirror::All, s.terrainRect = num(7) != 0;
     s.owner = std::clamp(num(8), 0, 11), s.palette = num(9), s.palette2 = num(10);
     s.chosen.clear();
-    if (s.tiles) s.tiles->picked = num(11);
+    if (s.tiles) s.tiles->picked = num(11), s.tiles->stamps = num(7) == 2;  // (2: Custom)
     if (part.size() >= at + 14)  // (a file of an older version: the other terrain tools' brush as it was)
         s.otherBrushSize = std::clamp(float(std::atof(part[at + 12].c_str())), 0.5f, 32.0f),
         s.otherBrushHeight = std::clamp(float(std::atof(part[at + 13].c_str())), 0.0f, 32.0f);

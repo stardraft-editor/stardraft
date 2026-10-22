@@ -59,7 +59,7 @@ void locationMenuPick(int loc, int pick) {
 // already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
-       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK };
+       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
 float gMapMenuWX = 0, gMapMenuWY = 0;  // the map point that the menu opened on
 size_t gMapMenuStack = 0;              // the units at that point (Units mode)
@@ -191,6 +191,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", L"", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
     if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles->picked >= 0);  // (#114)
+    if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
     m.push_back(menuSeparator());
     item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
@@ -219,6 +220,7 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
     else if (pick == ID_MAPMENU_REPLACE) shellShowQuickPicker(true, false);
     else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
+    else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
     else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
         // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.

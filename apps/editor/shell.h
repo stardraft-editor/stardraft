@@ -250,3 +250,7 @@ void shellLogNewBuild();
 // --- Program options and feedback (core/feedback_send.inc) ---
 // The folder where feedback waits to go and the list of the sent feedback is (Windows: %LOCALAPPDATA%\StarDraft\feedback).
 std::filesystem::path shellFeedbackFolder();
+// The folder of the user's custom terrain (core/stamps.inc: one file each, in a folder for each tileset): StarDraft's
+// "stamps" folder beside the settings file (Linux: in the data folder). STARDRAFT_STAMPS_DIR or --stamps gives another
+// folder; a test or snapshot run without either uses a new folder of its own, never the user's.
+std::filesystem::path shellStampsFolder();

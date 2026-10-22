@@ -268,6 +268,11 @@ File associations stay in the registry. A snapshot reads a settings file as a st
 on Windows the registry of the builds before the file from a registry file of its own with `--legacyhive <file>`;
 `--check settings` prints what it read (`tools/sdl_snapshots.py`: the `update-*` cases).
 
+The user's custom terrain (Terrain mode's Custom: `apps/editor/core/stamps.inc`) is one file each, in
+`stamps\<tileset>\` beside the settings file (Linux: `$XDG_DATA_HOME/StarDraft/stamps`); `include/stardraft/terrain_stamp.h`
+has the file's format. `STARDRAFT_STAMPS_DIR` or `--stamps <folder>` gives another folder; a test or snapshot run without
+them uses a new folder in the temporary folder, never the user's.
+
 ## Crash reports, feedback and updates
 
 All three use GitHub, with the token in the repository secret `STARDRAFT_ISSUES_TOKEN`: a fine-grained token for

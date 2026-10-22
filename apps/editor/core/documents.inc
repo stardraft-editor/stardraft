@@ -28,6 +28,7 @@ struct Doc {
     float camX = 0, camY = 0, zoom = 1;
     bool hasTerrainSel = false, pasting = false, terrainPasting = false;
     Rect terrainSel{};
+    std::vector<uint8_t> terrainSelMask;
     int untitled = 1;  // "Untitled N" until saved
     std::shared_ptr<EudProject> project;  // set when the map was opened as (or made into) an EUD project
     int page = 0;  // a page and not a document yet (new_page.inc): kPageNew, kPageStart; `ed` is a small blank map until then
@@ -341,6 +342,7 @@ void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank) {
     gDocs[size_t(gActive)].page = std::exchange(gNewDocPage, 0);
     if (app.ed->path().empty() && (!reuse || page) && !gDocs[size_t(gActive)].page) gDocs[size_t(gActive)].untitled = ++gUntitledCount;
     app.hasTerrainSel = app.pasting = app.terrainPasting = false;
+    app.terrainSelMask.clear();
     startMark("open: add the tab");
     shellRelayout();  // the minimap takes this map's shape
     startMark("open: layout");

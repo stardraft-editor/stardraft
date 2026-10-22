@@ -758,6 +758,11 @@ void sdlMouseShot(const std::string& spec, char kind) {
         if (tilesSlotCenter(std::atoi(at.c_str() + 4), x0, y0)) got = 2;
         else return void(std::printf("%s%s: the Tiles list does not show that slot (WRONG)\n", name.c_str(), spec.c_str()));
     }
+    if (!drag && at.rfind("custom=", 0) == 0 && gRoot && gHost) {  // custom=<name>: the middle of that row of the Custom list (an item, or a heading's groups)
+        gHost->snapshotLayout(*gRoot);
+        if (gTilesPanel->stamps().itemCenter(widen(at.substr(7)), x0, y0)) got = 2;
+        else return void(std::printf("%s%s: the Custom list does not show that row (WRONG)\n", name.c_str(), spec.c_str()));
+    }
     if (!gRoot || !gHost || got != (drag ? 4 : 2))
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
     if (!drag) x1 = x0, y1 = y0;

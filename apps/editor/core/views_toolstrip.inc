@@ -83,20 +83,40 @@ bool stripHasMirrors() {
 
 // The Terrain tool strip's Isometric | Rectangle: what the terrain tools work on (ISOM terrains, or tiles as they are).
 // Each map's own: its file keeps it (a new map starts in Isometric).
-void setTerrainRect(bool rect) {
+// The third choice, Custom: Rectangle's tools on the map, and the panel shows the user's custom terrain (core/stamps.inc)
+// in place of the Tiles grid (TilesView::stamps). 0 Isometric, 1 Rectangle, 2 Custom.
+int terrainKind() { return !appState().terrainRect ? 0 : gTiles->stamps ? 2 : 1; }
+void stampsPanelSync();  // (views_stamps.inc: the active panel shows its list or its grid)
+void setTerrainKind(int kind) {
     AppState& app = appState();
-    if (app.terrainRect == rect) return;
-    app.terrainRect = rect;
-    std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
+    const int was = terrainKind();
+    if (was == kind) return;
+    const bool rect = kind != 0;
+    if ((was == 2) != (kind == 2)) {  // to Custom or from it: the tile or the custom terrain picked before goes
+        if (kind == 2 || !gTiles->stampName.empty()) {
+            gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
+            gTiles->chosen.clear(), gTiles->picked = gTiles->anchor = -1;
+        }
+        gTiles->stamps = kind == 2;
+    }
+    if (!rect && !app.terrainSelMask.empty()) app.hasTerrainSel = false, app.terrainSelMask.clear();  // (Isometric has no such selection)
+    if (app.terrainRect != rect) {
+        app.terrainRect = rect;
+        std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
+    }
     app.terrainPasting = false;
+    stampsPanelSync();
     if (shellViewShown()) shellRelayout();  // the strip's height (no mirrors in Rectangle)
     fillToolCombo(app);  // tilesSync: the Tiles grid or the terrain palette
     updateStatus();
-    setMessage(rect ? L"Rectangle: the tools place tiles as they are. Select a tile in the Tiles list."
-                    : L"Isometric: the tools paint terrains and correct the edges between them");
+    setMessage(kind == 2 ? L"Custom: the tools place your custom terrain. Select custom terrain in the list."
+               : rect    ? L"Rectangle: the tools place tiles as they are. Select a tile in the Tiles list."
+                         : L"Isometric: the tools paint terrains and correct the edges between them");
     shellToolsChanged();
     app.dirty = true;
 }
+// Isometric or Rectangle (from Custom, Rectangle's tools stay: Custom).
+void setTerrainRect(bool rect) { setTerrainKind(!rect ? 0 : appState().terrainRect ? terrainKind() : 1); }
 
 std::wstring stripNumberText(int which) {
     const AppState& app = appState();
@@ -339,21 +359,21 @@ public:
         auto addHit = [&](draw::Rect r, std::function<void()> click, std::wstring tip) {
             addHitC(r, std::move(click), std::move(tip), draw::Cursor::Hand);
         };
-        // Terrain: Isometric or Rectangle, a segmented choice over the tools.
+        // Terrain: Isometric, Rectangle or Custom, a segmented choice over the tools.
         if (app.mode == Mode::Terrain) {
-            const int sh = scale(26), half = (W - scale(4)) / 2;
+            const int sh = scale(26), sg = scale(4), third = (W - 2 * sg) / 3;
             static const struct {
                 const wchar_t* name;
-                bool rect;
                 const wchar_t* tip;
-            } segs[2] = {{L"Isometric", false, L"Isometric: paint terrains, with the edges corrected"},
-                         {L"Rectangle", true, L"Rectangle: place tiles as they are (no terrain correction)"}};
-            for (int k = 0; k < 2; ++k) {
-                const draw::Rect r{k ? half + scale(4) : 0, y, k ? W : half, y + sh};
-                const bool on = app.terrainRect == segs[k].rect, rect = segs[k].rect;
-                buttonFace(c, r, segs[k].name, on, hot(r));
-                addHit(r, [rect] {
-                    setTerrainRect(rect);
+            } segs[3] = {{L"Isometric", L"Isometric: paint terrains, with the edges corrected"},
+                         {L"Rectangle", L"Rectangle: place tiles as they are (no terrain correction)"},
+                         {L"Custom", L"Custom: place your custom terrain (tiles that you saved from a map)"}};
+            const int kind = terrainKind();
+            for (int k = 0; k < 3; ++k) {
+                const draw::Rect r{k * (third + sg), y, k == 2 ? W : k * (third + sg) + third, y + sh};
+                buttonFace(c, r, segs[k].name, kind == k, hot(r));
+                addHit(r, [k] {
+                    setTerrainKind(k);
                     shellFocusView();
                 }, segs[k].tip);
             }

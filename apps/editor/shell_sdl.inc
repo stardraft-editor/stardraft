@@ -748,3 +748,21 @@ fs::path shellFeedbackFolder() {
 #endif
     return shellSettingsFile().parent_path() / "feedback";
 }
+fs::path gStampsFolderArg;  // --stamps <folder> (main_sdl.cpp): this run's custom terrain folder
+fs::path shellStampsFolder() {
+    if (!gStampsFolderArg.empty()) return gStampsFolderArg;
+    if (fs::path dir = envPath("STARDRAFT_STAMPS_DIR"); !dir.empty()) return dir;
+    if (gSilent || gSelfTest || gSettingsOff) {  // a test: a new folder of this run (it reads and changes nothing of the user's)
+        static const fs::path own = [] {
+            std::error_code ec;
+            const fs::path base = fs::temp_directory_path(ec);
+            const auto t = std::chrono::steady_clock::now().time_since_epoch().count();
+            return base.empty() ? fs::path() : base / ("stardraft-stamps-" + std::to_string(static_cast<unsigned long long>(t)));
+        }();
+        return own;
+    }
+#if defined(STARDRAFT_XDG)
+    if (const fs::path d = stardraft::xdg::dataHome(); !d.empty() && !SDL_getenv("STARDRAFT_SETTINGS")) return d / "StarDraft" / "stamps";
+#endif
+    return shellSettingsFile().parent_path() / "stamps";
+}
