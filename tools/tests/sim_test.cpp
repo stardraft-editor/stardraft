@@ -1027,6 +1027,58 @@ bool runVolleyCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// The map's upgrades (rules.ini's upgrade effects): a Zergling with Metabolic Boost and Adrenal Glands reaches a
+// Marine sooner and hits it more often than one without. Both live through the test (much HP).
+bool runUpgradeCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    const int kZergling = 37, kMarine = 0, kZergPlayer = 1;
+    const int upgrades[] = {t.roles[kZergling].speedUpgrade, t.roles[kZergling].cooldownUpgrade};
+    struct Run {
+        int firstHit = -1, hits = 0, topSpeed = 0;
+    };
+    auto run = [&](bool upgraded) {
+        sim::MapInfo m = map;
+        m.upgrades.assign(12 * 61, 0);
+        if (upgraded)
+            for (int u : upgrades)
+                if (u >= 0 && u < 61) m.upgrades[size_t(kZergPlayer * 61 + u)] = 1;
+        sim::World w(t, m);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.x = 3808;
+        o.y = 2384;
+        o.gap = 320;
+        o.players[1] = kZergPlayer;
+        o.a = {{kMarine, 1}};
+        o.b = {{kZergling, 1}};
+        Run r;
+        std::string error;
+        if (!sim::setupCombat(w, o, error)) return r;
+        for (sim::Unit& u : w.units) u.hp = 100000 << 8;
+        int before = -1;
+        for (int f = 0; f < 400; ++f) {
+            w.step();
+            for (const sim::Unit& u : w.units) {
+                if (u.type == kZergling) r.topSpeed = std::max(r.topSpeed, u.speed);
+                if (u.type != kMarine) continue;
+                if (before >= 0 && u.hp < before) {
+                    if (r.firstHit < 0) r.firstHit = f;
+                    ++r.hits;
+                }
+                before = u.hp;
+            }
+        }
+        return r;
+    };
+    Run plain = run(false), fast = run(true);
+    bool ok = upgrades[0] >= 0 && upgrades[1] >= 0 && plain.firstHit >= 0 && fast.firstHit >= 0 &&
+              fast.topSpeed > plain.topSpeed && fast.firstHit < plain.firstHit && fast.hits > plain.hits;
+    std::printf("Upgrades: Zergling vs Marine without / with Metabolic Boost and Adrenal Glands: top speed %.2f / %.2f "
+                "px a frame, first hit at frame %d / %d, %d / %d hits in 400 frames: %s\n",
+                plain.topSpeed / 256.0, fast.topSpeed / 256.0, plain.firstHit, fast.firstHit, plain.hits, fast.hits,
+                ok ? "OK" : "FAIL");
+    return ok;
+}
+
 // Fights of several players (CombatOptions::byPlayer): allies never attack each other, and the result lists the
 // teams and the one left. `groups`: (unit type, player, count, x, y) of placed units, 20 px apart.
 bool runTeamFight(const sim::Tables& t, const sim::MapInfo& map, const char* name,
@@ -1562,6 +1614,7 @@ int main(int argc, char** argv) {
         }
         if (!runImageCheck(tables, map)) ++failures;
         if (!runVolleyCheck(tables, map)) ++failures;
+        if (!runUpgradeCheck(tables, map)) ++failures;
         if (!runHiddenImageCheck(tables, map)) ++failures;
         if (!runPassiveCheck(tables, map)) ++failures;
         if (!runStalemateCheck(tables, map)) ++failures;

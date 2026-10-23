@@ -28,7 +28,12 @@ struct GameRules {
     std::vector<int> bounceDivisor, damageFactor;  // (damageFactor: 5 damage types x 4 sizes)
     std::vector<int> splashDivisor, cooldownJitter;  // (splash: inner, medium, outer; jitter: values, first)
     // regeneration and energy
-    int regenHp = 0, regenShields = 0, regenEnergy = 0, maxEnergy = 0;
+    int regenHp = 0, regenShields = 0, regenEnergy = 0, maxEnergy = 0, startEnergy = 0;
+    // upgrades (upgrades.dat numbers; each list: groups of numbers, see rules.ini)
+    std::vector<int> speedUpgrade, speedAlways, speedUpgradeFactor, rangeUpgrade, cooldownUpgrade, armorUpgrade;
+    std::vector<int> scarabsUpgrade, interceptorsUpgrade, projectileLimit;
+    int speedUpgradeMin = 0, speedUpgradeAccel = 0, speedUpgradeTurn = 0, cooldownUpgradeDivisor = 0;
+    int shieldArmorUpgrade = 0, energyUpgrade = 0, maxEnergyUpgraded = 0, startEnergyUpgraded = 0;
     // movement
     int stuckRetry = 0, stuckRetryEnd = 0, stuckGiveUp = 0, stuckYield = 0, stuckHold = 0, stuckFresh = 0;
     int straightReach = 0, pathAgeForRepath = 0, waypointPass = 0;
@@ -78,10 +83,20 @@ struct UnitRole {
     int startDelay = 0;                 // file: frames before its first order (the Archon)
     int capacity = 0;                   // file: Scarabs or Interceptors it holds
     int gasImage = -1;                  // file: a worker's image for carried gas (images.dat)
+    // file: upgrades (upgrades.dat numbers; -1: none)
+    int speedUpgrade = -1;              // raises its speed, acceleration and turn rate
+    bool speedAlways = false;           // has the speed upgrade without it (the Lurker)
+    int rangeUpgrade = -1, rangeBonus = 0;  // raises its weapon range, by so many pixels
+    bool rangeAirOnly = false;          // only its air weapon's range (the Goliath)
+    int cooldownUpgrade = -1;           // divides its cooldown (Adrenal Glands)
+    int armorUpgradeExtra = -1, armorExtra = 0;  // adds armor (Chitinous Plating)
+    int capacityUpgrade = -1, capacityUpgraded = 0;  // raises the Scarabs or Interceptors it holds, to so many
+    int energyUpgrade = -1;             // raises its energy (a healer: Caduceus Reactor)
 };
 // A weapon's role.
 struct WeaponRole {
     bool lineHits = false;  // data: weapons.dat behaviour "go to max range": it hits along its line (Lurker spines)
+    int activeLimit = 0;    // file: at most so many of its projectiles at once (Halo Rockets); 0: no limit
 };
 
 void deriveRoles(Tables& t);  // (rules.cpp: fills t.roles and t.weaponRoles from the data and t.rules)

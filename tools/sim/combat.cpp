@@ -30,6 +30,14 @@ int World::weaponDamage(int weapon, int owner) const {
     return (wd.damage + wd.bonus * std::min(level(owner, wd.upgrade), 100)) << 8;
 }
 
+// The range a unit's upgrade adds to a weapon of its (rules.ini rangeUpgrade).
+int World::rangeBonus(const Unit& u, int weapon) const {
+    const UnitRole& r = role(u.type);
+    if (r.rangeUpgrade < 0 || !level(u.owner, r.rangeUpgrade)) return 0;
+    if (r.rangeAirOnly && weapon >= 0 && weapon != weaponUnit(u.type).airWeapon) return 0;
+    return r.rangeBonus;
+}
+
 const UnitData& World::weaponUnit(int type) const {
     const UnitData& d = t.units[size_t(type)];
     if (d.groundWeapon != kNoWeapon || d.airWeapon != kNoWeapon) return d;
@@ -84,8 +92,7 @@ bool World::inRange(const Unit& a, const Unit& b) const {
     const WeaponData& wd = t.weapons[size_t(w)];
     int g = gap(a, b);
     bool launcher = role(a.type).launchesScarabs || role(a.type).launchesInterceptors;
-    int range = launcher ? t.units[size_t(a.type)].acquire * 32
-                                                  : wd.maxRange;
+    int range = launcher ? t.units[size_t(a.type)].acquire * 32 : wd.maxRange + rangeBonus(a, w);
     // The moving-target margin: a moving attacker with braking movement (type 0) adds its halt
     // distance, unless the target moves the same way.
     const FlingyData& f = t.flingy[size_t(t.units[size_t(a.type)].flingy)];
@@ -121,6 +128,8 @@ int World::acquire(int i, bool draw) {
             int m = t.weapons[size_t(w)].minRange;
             if (m > 0 && (minRange == 0 || m < minRange)) minRange = m;
         }
+    // (a range upgrade adds its pixels after the larger of the two)
+    range += std::max(rangeBonus(u, d.groundWeapon), rangeBonus(u, d.airWeapon));
     int best = -1, bestPriority = 99, bestDist = 0;
     std::vector<int> bucket;  // (all of the best priority)
     forNear(u.x - range - 160, u.y - range - 160, u.x + range + 160, u.y + range + 160, [&](int j) {
@@ -623,6 +632,8 @@ void World::startAttack(int i, const Unit& target, const WeaponData& wd, bool tu
     u.repeatAttack = true;
     spinSource = -1;  // (the first bullet of an attack draws its side)
     int cooldown = wd.cooldown;
+    if (role(u.type).cooldownUpgrade >= 0 && level(u.owner, role(u.type).cooldownUpgrade))
+        cooldown /= t.rules.cooldownUpgradeDivisor;
     u.cooldown = std::max(0, cooldown + random() % t.rules.cooldownJitter[0] + t.rules.cooldownJitter[1]);
     if (firstShot[u.side] < 0) firstShot[u.side] = frame;
     bool air = (t.units[size_t(target.type)].flags & kFlyer) != 0;
@@ -673,6 +684,11 @@ void World::fire(int i, int weapon, bool melee, int forward) {
     // One bullet, or two when the weapon's bullet count (weapons.dat damage factor) is 2: each its own flight and hit
     // with the full damage.
     for (int n = 0; n < std::max(1, wd.factor); ++n) {
+        int limit = t.weaponRoles[size_t(weapon)].activeLimit;
+        if (limit > 0 && std::count_if(bullets.begin(), bullets.end(), [&](const Bullet& o) {
+                return o.alive && o.weapon == weapon;
+            }) >= limit)
+            return;  // (at most so many of them at once)
         Bullet c = b;
         if (wd.spin) {  // the heading offset: the same unit's next bullet takes the other side
             int side = spinSource == i ? -spinSide : (random() & 1) ? 1 : -1;
@@ -897,7 +913,7 @@ bool World::splash(Bullet& b, int amount) {
     return true;
 }
 
-// The damage pipeline, in fixed point (8 fractional bits). No upgrades, acid spores, matrix.
+// The damage pipeline, in fixed point (8 fractional bits). No acid spores, no matrix.
 void World::damage(int target, int source, int weapon, int amount, int divisor) {
     Unit& v = units[size_t(target)];
     const UnitData& d = t.units[size_t(v.type)];
@@ -906,10 +922,16 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
     int dmg = std::max(amount / divisor, t.rules.minDamage);
     int shieldDamage = 0;
     if (d.hasShields && v.shields >= 256) {
+        if (wd.damageType != kDamageIgnoreArmor) {  // (the shield armor upgrade)
+            dmg -= level(v.owner, t.rules.shieldArmorUpgrade) * 256;
+            if (dmg <= 0) dmg = t.rules.minDamage;
+        }
         shieldDamage = std::min(dmg, v.shields);
         dmg -= shieldDamage;
     }
-    int armor = d.armor + level(v.owner, d.armorUpgrade);
+    const UnitRole& r = role(v.type);
+    int armor = d.armor + level(v.owner, d.armorUpgrade) +
+                (r.armorUpgradeExtra >= 0 && level(v.owner, r.armorUpgradeExtra) ? r.armorExtra : 0);
     if (wd.damageType != kDamageIgnoreArmor) dmg = dmg > armor * 256 ? dmg - armor * 256 : 0;
     dmg = dmg * t.rules.damage(std::min(wd.damageType, 4), std::min(d.size, 3)) / 256;
     if (shieldDamage == 0 && dmg < t.rules.minDamage) dmg = t.rules.minDamage;  // (armor never stops a hit)
@@ -988,9 +1010,11 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
         u.heading = u.velDir = face(type);
         if (r.attacksBurrowed) u.burrowing = true;
         if (r.spiderMine) u.timer = t.rules.mineArm;  // (a mine arms first)
-        if (r.launchesScarabs) u.scarabs = r.capacity;
+        bool more = r.capacityUpgrade >= 0 && w.level(owner, r.capacityUpgrade);
+        if (r.launchesScarabs) u.scarabs = more ? r.capacityUpgraded : r.capacity;
+        if (r.energyUpgrade >= 0 && w.level(owner, r.energyUpgrade)) u.energy = t.rules.startEnergyUpgraded << 8;
         if (r.launchesInterceptors)
-            for (int n = 0; n < r.capacity; ++n) {
+            for (int n = 0; n < (more ? r.capacityUpgraded : r.capacity); ++n) {
                 Unit& f = w.units[size_t(w.add(t.interceptorType, owner, x, y))];
                 f.heading = f.velDir = face(t.interceptorType);
                 f.side = side;

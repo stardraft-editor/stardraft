@@ -355,6 +355,9 @@ public:
     int weaponFor(const Unit& a, const Unit& b) const;
     int level(int owner, int upgrade) const;
     int weaponDamage(int weapon, int owner) const;  // (8 fractional bits)
+    int rangeBonus(const Unit& u, int weapon) const;
+    bool speedUpgraded(const Unit& u) const;
+    int upgradedSpeed(int speed, bool top) const;
     int haltDistance(const Unit& u) const;
     bool hasWeapon(const Unit& u) const;
     const UnitData& weaponUnit(int type) const;  // its own data, or its turret's (or the Reaver's Scarab)

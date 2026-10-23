@@ -86,13 +86,14 @@ or Interceptors, the Spider Mine and the Medic's heal; from weapons.dat the proj
 the target, go to the maximum range: a line of hits, suicide); from flingy.dat the movement kinds; from sprites.dat
 which sprites are drawn; from iscript.bin the attack moments. `rules.ini` holds the rest: the numbers of the game's own
 orders, the units a Reaver and a Carrier make and how many they hold, the Lurker (attacks only burrowed), the Zergling's
-every-frame orders, the Archon's start delay, the carried-gas images, and the game's timings, distances and amounts
-(order tick, target search, the minimum damage, priorities, call for help, bounces, damage factors, splash rings,
-regeneration, collision limits, the Medic, Scarab, Interceptor and Spider Mine numbers, mining). A rule had to earn its
-place: each of the others was taken out when it changed neither set's 20-seed means by more than 0.1 percentage point
-nor any winner or check (the upgrade effects, flying repulse, the Halo Rockets' limit, the detector buildings' 7 tiles,
-the cooldown limits and others). The engine's own numbers (fixed point, grid cells, search budgets, the stalemate) stay
-in the engine.
+every-frame orders, the Archon's start delay, the carried-gas images, the upgrade effects, the Lurker's raised speed,
+the Halo Rockets' limit, and the game's timings, distances and amounts (order tick, target search, the minimum damage,
+priorities, call for help, bounces, damage factors, splash rings, regeneration, collision limits, the Medic, Scarab,
+Interceptor and Spider Mine numbers, mining). A rule had to earn its place: each of the others was taken out when it
+changed neither set's 20-seed means by more than 0.1 percentage point nor any winner or check (flying repulse, the
+detector buildings' 7 tiles, the cooldown limits and others); the upgrade effects, the start energy and the Halo
+Rockets' limit stay, because maps start with upgrades that the test fights do not use. The engine's own numbers (fixed
+point, grid cells, search budgets, the stalemate) stay in the engine.
 
 ## Results
 
@@ -245,10 +246,12 @@ What is simplified or missing, and what it changes:
   Battlecruiser dies (reference: both live, 679 HP).
 - **Lurkers and Vultures** (91 / 113 and 250 / 271 frames): in the reference the last Marine walks past the burrowed
   Lurkers and dies at frame 113; the Vultures' first moves depend on their random headings.
-- **Upgrades.** The map's start levels (PUPx, or UPGR) count for armor and weapons (units.dat's and weapons.dat's
-  upgrades: damage bonus × level). The other upgrades' effects (speed, range, cooldown, extra armor, capacity, energy,
-  shield armor) are not modelled: no test fight uses them, so they did not earn a rule. The researched techs (PTEx, or
-  PTEC) are read but nothing uses them yet (no spells).
+- **Upgrades.** The map's start levels (PUPx, or UPGR) count: armor and weapons (units.dat's and weapons.dat's
+  upgrades: damage bonus × level), and from rules.ini's `[upgrades]` the 9 speed upgrades (+1/2 speed for
+  script-moved units too: an assumption), the 4 range upgrades (Charon Boosters: the Goliath's air weapon only),
+  Adrenal Glands, Chitinous Plating, Reaver and Carrier Capacity, Caduceus Reactor and Plasma Shields. sim_test's
+  upgrade check covers them (a Zergling with Metabolic Boost and Adrenal Glands). The researched techs (PTEx, or
+  PTEC) are read but nothing uses them yet (no spells). The other energy reactors are not applied.
 - **Paths** (compact). A ground unit's box never goes onto an unwalkable minitile. Regions are
   rectangles of one class (at most 8 by 7 tiles, 3:1), without expansion and merging; the long path goes
   over their centres (toward the centre two regions ahead), each leg an A* over the minitiles, each with the place

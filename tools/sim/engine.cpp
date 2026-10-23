@@ -117,7 +117,7 @@ int World::add(int type, int owner, int x, int y) {
         startAnim(u.turret, kAnimInit);
     }
     if (role(type).launchesScarabs) u.scarabs = role(type).capacity;  // (a Reaver: its Scarabs)
-    if (d.flags & kSpellcaster) u.energy = t.rules.maxEnergy << 8;  // (spellcasters such as the Medic: full)
+    if (d.flags & kSpellcaster) u.energy = t.rules.startEnergy << 8;  // (spellcasters such as the Medic)
     units.push_back(u);
     return int(units.size()) - 1;
 }
@@ -657,8 +657,11 @@ bool World::move(Unit& u, bool last) {
     int savedHeading = u.heading, savedVelDir = u.velDir, savedSpeed = u.speed;
     const FlingyData& f = t.flingy[size_t(t.units[u.type].flingy)];
     bool scripted = f.control == kControlScript;
-    int top = f.topSpeed, accel = f.accel;
-    int turn = f.turn / (scripted ? 1 : t.rules.velocityTurnDivisor);
+    const bool fast = speedUpgraded(u);
+    const int top = fast ? upgradedSpeed(f.topSpeed, true) : f.topSpeed;
+    const int accel = fast ? f.accel * t.rules.speedUpgradeAccel : f.accel;
+    const int fullTurn = fast ? f.turn * t.rules.speedUpgradeTurn : f.turn;
+    int turn = fullTurn / (scripted ? 1 : t.rules.velocityTurnDivisor);
     if (u.burrowing) {  // (it only turns)
         if (u.x != u.aimX || u.y != u.aimY)
             u.heading = u.velDir = turnToward(u.heading, direction(u.aimX - u.x, u.aimY - u.y), f.turn);
@@ -700,7 +703,7 @@ bool World::move(Unit& u, bool last) {
     else if (u.x != u.aimX || u.y != u.aimY)
         desired = direction(u.aimX - u.x, u.aimY - u.y);
     u.velDir = turnToward(u.velDir, desired, f.turn ? turn : 256);  // (no turn rate, such as a Spider Mine: at once)
-    u.heading = turnToward(u.heading, desired, f.turn ? f.turn : 256);  // (the full rate)
+    u.heading = turnToward(u.heading, desired, f.turn ? fullTurn : 256);  // (the full rate)
     if (atTarget || u.repeatAttack) {  // (a braking unit only slows down, to 0)
         u.speed = scripted || u.speed - accel < 0 ? 0 : u.speed - accel;
         return false;
@@ -1089,7 +1092,7 @@ void World::runAnim(Anim& a, int unit, int bullet) {
             }
             break;
         case 0x29:  // move (control 2 units)
-            if (u) u->speed = arg << 8;
+            if (u) u->speed = speedUpgraded(*u) ? upgradedSpeed(arg << 8, false) : arg << 8;  // (no minimum)
             break;
         case 0x2A: if (u) u->repeatAttack = false; break;  // gotorepeatattk
         case 0x30:  // ignorerest (an attack script that has no gotorepeatattk, the Firebat's, ends its attack here)
@@ -1105,11 +1108,27 @@ void World::runAnim(Anim& a, int unit, int bullet) {
 }
 
 
-// The distance a unit needs to stop from its speed now (8 fractional bits); 0 for units moved by their script.
+// The distance a unit needs to stop from its speed now (8 fractional bits), with its speed upgrade; 0 for units
+// moved by their script.
 int World::haltDistance(const Unit& u) const {
     const FlingyData& f = t.flingy[size_t(t.units[u.type].flingy)];
     if (f.control == kControlScript) return 0;
-    return u.speed == f.topSpeed ? f.halt : u.speed * u.speed / std::max(1, 2 * f.accel);
+    bool fast = speedUpgraded(u);
+    int top = fast ? upgradedSpeed(f.topSpeed, true) : f.topSpeed;
+    int accel = fast ? f.accel * t.rules.speedUpgradeAccel : f.accel;
+    return u.speed == top && accel == f.accel ? f.halt : u.speed * u.speed / std::max(1, 2 * accel);
+}
+
+// Whether a unit has its speed upgrade (rules.ini speedUpgrade; speedAlways: without the upgrade).
+bool World::speedUpgraded(const Unit& u) const {
+    const UnitRole& r = role(u.type);
+    return r.speedAlways || (r.speedUpgrade >= 0 && level(u.owner, r.speedUpgrade) > 0);
+}
+
+// A speed (8 fractional bits) with the speed upgrade: rules.ini's factor (a top speed: at least its minimum).
+int World::upgradedSpeed(int speed, bool top) const {
+    const std::vector<int>& f = t.rules.speedUpgradeFactor;
+    return top ? std::max(speed * f[0] / f[1], t.rules.speedUpgradeMin) : speed * f[0] / f[1];
 }
 
 void World::buildGrid() {
@@ -1167,7 +1186,9 @@ void World::step() {
         if ((d.flags & kRegenerates) && u.hp < d.hp) u.hp = std::min(d.hp, u.hp + t.rules.regenHp);
         if (d.hasShields && u.shields < d.shields << 8)
             u.shields = std::min(d.shields << 8, u.shields + t.rules.regenShields);
-        const int maxEnergy = t.rules.maxEnergy << 8;
+        const UnitRole& r = role(u.type);
+        bool more = r.energyUpgrade >= 0 && level(u.owner, r.energyUpgrade);
+        const int maxEnergy = (more ? t.rules.maxEnergyUpgraded : t.rules.maxEnergy) << 8;
         if ((d.flags & kSpellcaster) && u.energy < maxEnergy)
             u.energy = std::min(maxEnergy, u.energy + t.rules.regenEnergy);
         if (u.order >= MoveToMinerals && u.order <= ReturnGas)

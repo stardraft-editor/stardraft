@@ -21,7 +21,8 @@ struct Number {
 struct List {
     const char* name;
     std::vector<int> GameRules::* values;
-    size_t count;  // 0: any number of values
+    size_t count;      // exactly so many values; 0: any number
+    size_t group = 1;  // (count 0) groups of so many values
 };
 #define SIM_NUMBER(n) {#n, &GameRules::n}
 const Number kNumbers[] = {
@@ -47,12 +48,26 @@ const Number kNumbers[] = {
     SIM_NUMBER(clusterGap), SIM_NUMBER(resourceNearBase), SIM_NUMBER(depotNear), SIM_NUMBER(scarabDetonate),
     SIM_NUMBER(velocityTurnDivisor), SIM_NUMBER(waypointPass), SIM_NUMBER(healEnergyDivisor),
     SIM_NUMBER(interceptorSpreadRange), SIM_NUMBER(interceptorLaunchHp), SIM_NUMBER(frameMs), SIM_NUMBER(startMinerals),
-    SIM_NUMBER(gasWorkersMax), SIM_NUMBER(minDamage), SIM_NUMBER(otherFieldRange),
+    SIM_NUMBER(gasWorkersMax), SIM_NUMBER(minDamage), SIM_NUMBER(otherFieldRange), SIM_NUMBER(startEnergy),
+    SIM_NUMBER(speedUpgradeMin), SIM_NUMBER(speedUpgradeAccel), SIM_NUMBER(speedUpgradeTurn),
+    SIM_NUMBER(cooldownUpgradeDivisor), SIM_NUMBER(shieldArmorUpgrade), SIM_NUMBER(energyUpgrade),
+    SIM_NUMBER(maxEnergyUpgraded), SIM_NUMBER(startEnergyUpgraded),
 };
 #undef SIM_NUMBER
 const List kLists[] = {
-    {"attacksBurrowed", &GameRules::attacksBurrowed, 0}, {"ordersEveryFrame", &GameRules::ordersEveryFrame, 0},
-    {"startDelay", &GameRules::startDelay, 0},           {"gasImage", &GameRules::gasImage, 0},
+    {"attacksBurrowed", &GameRules::attacksBurrowed, 0},
+    {"ordersEveryFrame", &GameRules::ordersEveryFrame, 0},
+    {"startDelay", &GameRules::startDelay, 0, 2},
+    {"gasImage", &GameRules::gasImage, 0, 2},
+    {"speedUpgrade", &GameRules::speedUpgrade, 0, 2},
+    {"speedAlways", &GameRules::speedAlways, 0},
+    {"speedUpgradeFactor", &GameRules::speedUpgradeFactor, 2},
+    {"rangeUpgrade", &GameRules::rangeUpgrade, 0, 4},
+    {"cooldownUpgrade", &GameRules::cooldownUpgrade, 0, 2},
+    {"armorUpgrade", &GameRules::armorUpgrade, 0, 3},
+    {"scarabsUpgrade", &GameRules::scarabsUpgrade, 2},
+    {"interceptorsUpgrade", &GameRules::interceptorsUpgrade, 2},
+    {"projectileLimit", &GameRules::projectileLimit, 0, 2},
     {"bounceDivisor", &GameRules::bounceDivisor, 0},     {"damageFactor", &GameRules::damageFactor, 20},
     {"interceptorSpread", &GameRules::interceptorSpread, 3}, {"splashDivisor", &GameRules::splashDivisor, 3},
     {"cooldownJitter", &GameRules::cooldownJitter, 2},
@@ -108,6 +123,8 @@ bool readRules(const std::string& text, GameRules& rules, std::string& error) {
             if (key == kLists[k].name) {
                 if (kLists[k].count && values.size() != kLists[k].count)
                     return fail(key + " takes " + std::to_string(kLists[k].count) + " numbers");
+                if (values.size() % kLists[k].group)
+                    return fail(key + " takes groups of " + std::to_string(kLists[k].group) + " numbers");
                 rules.*kLists[k].values = values;
                 known = seen[std::size(kNumbers) + k] = true;
             }
@@ -135,8 +152,8 @@ bool readRules(const std::string& text, GameRules& rules, std::string& error) {
         error = "rules.ini: bounceDivisor, splashDivisor and cooldownJitter's first value must be more than 0";
         return false;
     }
-    if (rules.startDelay.size() % 2 || rules.gasImage.size() % 2) {
-        error = "rules.ini: startDelay and gasImage take pairs of numbers";
+    if (rules.speedUpgradeFactor[1] <= 0 || rules.cooldownUpgradeDivisor <= 0) {
+        error = "rules.ini: speedUpgradeFactor's second value and cooldownUpgradeDivisor must be more than 0";
         return false;
     }
     return true;
@@ -163,6 +180,11 @@ void deriveRoles(Tables& t) {
         r.interceptor = d.attackOrder == rules.orderInterceptor;
         r.spiderMine = d.idleOrder == rules.orderMine;
         r.healer = d.attackOrder == rules.orderHeal;
+        if (r.launchesScarabs)
+            r.capacityUpgrade = rules.scarabsUpgrade[0], r.capacityUpgraded = rules.scarabsUpgrade[1];
+        if (r.launchesInterceptors)
+            r.capacityUpgrade = rules.interceptorsUpgrade[0], r.capacityUpgraded = rules.interceptorsUpgrade[1];
+        if (r.healer) r.energyUpgrade = rules.energyUpgrade;
     }
     // Resources and markers (data): a geyser is a neutral resource container of a race refinery's size (a race's
     // resource container that is not a depot); mineral fields are the other neutral resource containers that are not in
@@ -211,8 +233,33 @@ void deriveRoles(Tables& t) {
     for (size_t k = 0; k + 1 < rules.gasImage.size(); k += 2)
         if (valid(rules.gasImage[k])) t.roles[size_t(rules.gasImage[k])].gasImage = rules.gasImage[k + 1];
 
+    // Upgrades: which units each changes, and how (upgrades.dat has no effects).
+    for (size_t k = 0; k + 1 < rules.speedUpgrade.size(); k += 2)
+        if (valid(rules.speedUpgrade[k]))
+            t.roles[size_t(rules.speedUpgrade[k])].speedUpgrade = rules.speedUpgrade[k + 1];
+    for (int type : rules.speedAlways)
+        if (valid(type)) t.roles[size_t(type)].speedAlways = true;
+    for (size_t k = 0; k + 3 < rules.rangeUpgrade.size(); k += 4)
+        if (valid(rules.rangeUpgrade[k])) {
+            UnitRole& r = t.roles[size_t(rules.rangeUpgrade[k])];
+            r.rangeUpgrade = rules.rangeUpgrade[k + 1];
+            r.rangeBonus = rules.rangeUpgrade[k + 2];
+            r.rangeAirOnly = rules.rangeUpgrade[k + 3] != 0;
+        }
+    for (size_t k = 0; k + 1 < rules.cooldownUpgrade.size(); k += 2)
+        if (valid(rules.cooldownUpgrade[k]))
+            t.roles[size_t(rules.cooldownUpgrade[k])].cooldownUpgrade = rules.cooldownUpgrade[k + 1];
+    for (size_t k = 0; k + 2 < rules.armorUpgrade.size(); k += 3)
+        if (valid(rules.armorUpgrade[k])) {
+            t.roles[size_t(rules.armorUpgrade[k])].armorUpgradeExtra = rules.armorUpgrade[k + 1];
+            t.roles[size_t(rules.armorUpgrade[k])].armorExtra = rules.armorUpgrade[k + 2];
+        }
+
     t.weaponRoles.assign(t.weapons.size(), WeaponRole());
     for (size_t i = 0; i < t.weapons.size(); ++i) t.weaponRoles[i].lineHits = t.weapons[i].behaviour == kToMaxRange;
+    for (size_t k = 0; k + 1 < rules.projectileLimit.size(); k += 2)
+        if (rules.projectileLimit[k] >= 0 && rules.projectileLimit[k] < int(t.weapons.size()))
+            t.weaponRoles[size_t(rules.projectileLimit[k])].activeLimit = rules.projectileLimit[k + 1];
 }
 
 }  // namespace sim
