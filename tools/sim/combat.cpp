@@ -591,7 +591,7 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
                 continue;
             }
             int player = std::clamp(p.side, 0, 7);
-            int side = w.unitFreeForAll ? fighters++ : o.byPlayer ? std::clamp(o.team[player], 0, 7) : p.side ? 1 : 0;
+            int side = w.unitFreeForAll ? fighters++ : o.byPlayer ? std::max(o.team[player], 0) : p.side ? 1 : 0;
             int x = p.x, y = p.y;  // (units on one another: the nearest free spot; a building stands where it is)
             if (!(t.units[size_t(p.unitType)].flags & kBuilding)) w.freeSpot(p.unitType, x, y);
             w.units[size_t(create(p.unitType, side, x, y, o.byPlayer ? player : -1))].placedIndex = int(k);
@@ -873,8 +873,7 @@ CombatResult combatResultOf(const World& w) {
     for (const Unit& u : w.units)
         if (u.alive && !u.fighter && !u.neutral && u.placedIndex >= 0) last = u.placedIndex, ++count;
     r.winnerUnit = count == 1 && !r.timedOut && !r.stalemate ? last : -1;
-    if (w.unitFreeForAll) {
-        r.winner = -1;
+    if (w.unitFreeForAll && r.winnerUnit >= 0) {  // (else: the one player with units left, as for teams)
         for (const Unit& u : w.units)
             if (r.winnerUnit >= 0 && u.alive && !u.fighter && !u.neutral && u.placedIndex == r.winnerUnit)
                 r.winner = u.owner;
