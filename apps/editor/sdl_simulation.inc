@@ -464,17 +464,22 @@ void simEnd() {
             if (b.runs.empty()) continue;
             const sim::MiningRun& r = b.runs[0];
             const std::wstring base = L"Base " + std::to_wstring(k + 1);
-            rows.push_back({base + (b.startLocation ? L" (start)" : L""), std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
+            const wchar_t* race = r.race == sim::Zerg ? L"Zerg" : r.race == sim::Protoss ? L"Protoss" : L"Terran";
+            rows.push_back({base + (b.startLocation ? L" (start)" : L""), race, std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
                             std::to_wstring(b.fields.size()), simNum(r.mineralsPerMinute), simNum(r.gasPerMinute)});
             minerals += r.mineralsPerMinute, gas += r.gasPerMinute;
             tripHead.push_back(base);
             runs.push_back(&r);
         }
-        if (rows.size() > 1) rows.push_back({L"=All", L"", L"", simNum(minerals), simNum(gas)});
+        if (rows.size() > 1) rows.push_back({L"=All", L"", L"", L"", simNum(minerals), simNum(gas)});
         gSim.endText = gSim.result = simNum(minerals) + L" minerals a minute";
         gSimTitle = L"Mining: " + simNum(minerals) + L" minerals and " + simNum(gas) + L" gas a minute";
-        gSimLine = std::to_wstring(gSim.workers) + L" workers on minerals and 3 on gas at each base, 3 game minutes at Fastest";
-        d.table({L"Base", L"Tile", L"Fields", L"Minerals a minute", L"Gas a minute"}, rows, 2);
+        int gasWorkers = 3, minutes = 3;
+        prefs::number(L"SimGasWorkers", gasWorkers, 0, 3), prefs::number(L"SimMinutes", minutes, 1, 60);
+        gSimLine = std::to_wstring(gSim.workers) + L" workers on minerals and " +
+                   (gasWorkers ? std::to_wstring(gasWorkers) + L" on gas" : std::wstring(L"none on gas")) + L" at each base, " +
+                   std::to_wstring(minutes) + (minutes == 1 ? L" game minute" : L" game minutes") + L" at Fastest";
+        d.table({L"Base", L"Race", L"Tile", L"Fields", L"Minerals a minute", L"Gas a minute"}, rows, 3);
         size_t most = 0;
         for (const sim::MiningRun* r : runs) most = std::max(most, r->tripFrames.size());
         if (most) {
