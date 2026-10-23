@@ -20,6 +20,7 @@
 #include <vector>
 
 void sfxPlayOnce(int sfx);  // (sdl_data.inc)
+void simulateCombatOf(std::set<int> selected);  // (below: a fight of these units)
 bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm);
 namespace {
 
@@ -102,6 +103,27 @@ std::wstring simClock(int frames) {  // game time at Fastest, m:ss
     std::swprintf(b, 32, L"%d:%02d", s / 60, s % 60);
     return b;
 }
+
+// The alliances of a combat (Program options' SimAlliances; the bar's gear): who fights whom.
+enum SimAlliances { kComputersAllied = 0, kMapForces = 1, kHumansVsComputers = 2, kFreeForAll = 3 };
+constexpr int kTeamComputers = 8, kTeamHumans = 9, kTeamForce = 10;  // (team numbers; a force: kTeamForce + 0 to 3)
+int simAlliances() {
+    int a = kComputersAllied;
+    prefs::number(L"SimAlliances", a, 0, 3);
+    return a;
+}
+// A player's team for the alliances `a`: its own number (alone), the computers' or the humans' team, or its force's.
+int simTeamOf(const Editor& ed, int player, int a) {
+    const Editor::Controller who = ed.player(player).controller;
+    switch (a) {
+    case kMapForces: return kTeamForce + std::clamp(ed.player(player).force, 0, 3);
+    case kHumansVsComputers: return who == Editor::Controller::Computer ? kTeamComputers : kTeamHumans;
+    case kFreeForAll: return player;
+    default: return who == Editor::Controller::Computer ? kTeamComputers : player;
+    }
+}
+
+std::set<int> gSimCombatSelection;  // the units that fought last (the gear starts the fight again with them)
 
 // Skip to the end runs the game on a thread of its own, as fast as the computer can: the window shows the last
 // picture and a spinner meanwhile, and touches the engine only through these (simSkipFrame: the game's frame).
@@ -353,7 +375,13 @@ void simEnd() {
         auto teamName = [](const sim::CombatSide& t) {
             std::wstring n;
             for (int p : t.players) n += (n.empty() ? L"" : L", ") + std::to_wstring(p + 1);
-            if (t.team == 8) return (t.players.size() > 1 ? L"Computers (players " : L"Computer (player ") + n + L")";
+            const std::wstring of = (t.players.size() > 1 ? L" (players " : L" (player ") + n + L")";
+            if (t.team == kTeamComputers) return (t.players.size() > 1 ? L"Computers" : L"Computer") + of;
+            if (t.team == kTeamHumans) return L"Humans" + of;
+            if (t.team >= kTeamForce && t.team < kTeamForce + 4) {
+                std::string fn = gState.ed ? gState.ed->force(t.team - kTeamForce).name : std::string();
+                return (fn.empty() ? L"Force " + std::to_wstring(t.team - kTeamForce + 1) : widen(fn)) + of;
+            }
             return L"Player " + n;
         };
         const sim::CombatSide* won = nullptr;
@@ -400,8 +428,11 @@ void simEnd() {
                 d.para(std::to_wstring(s.unreachable) + (s.unreachable == 1 ? L" unit was" : L" units were") +
                        L" out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)", true);
         }
-        d.para(L"Fastest, no upgrades or research; the computer players are allies, each other player fights alone; each "
-               L"unit attacks the enemies it can reach until none are left, for 10 game minutes at most.", true);
+        const int al = simAlliances();
+        const std::wstring who = al == kMapForces ? L"the map's forces fight each other" : al == kHumansVsComputers ? L"the human players fight the computer players"
+                               : al == kFreeForAll ? L"each player fights alone" : L"the computer players are allies, each other player fights alone";
+        d.para(L"Fastest, with the map's upgrades; " + who + L"; each unit attacks the enemies it can reach until none are left, for 10 "
+               L"game minutes at most.", true);
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
     } else if (gSim.combat) {
         const sim::CombatResult r = e.combatResult();
@@ -737,7 +768,7 @@ SimBarLayout simLayout(draw::Rect r) {
         l.minus = left(l.second, ib);  // -
     }
     draw::Rect firstButton = gSim.done ? l.third : l.minus;
-    if (!gSim.combat) l.gear = left(firstButton, ib), firstButton = l.gear;  // (mining: its settings)
+    l.gear = left(firstButton, ib), firstButton = l.gear;  // (the settings: mining's workers and gas, a combat's alliances)
     l.feedback = left(firstButton, ib), firstButton = l.feedback;           // Report feedback
     l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};  // the info icon
     l.text = {l.chip.right + scale(6), y, firstButton.left - scale(8), y + h};
@@ -844,7 +875,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
     };
     iconButton(2, l.third, UiIcon::ToStart);
     iconButton(8, l.feedback, UiIcon::Feedback);
-    if (!gSim.combat) iconButton(7, l.gear, UiIcon::Settings);
+    iconButton(7, l.gear, UiIcon::Settings);
     if (gSim.done) {
         textButton(1, l.second, L"Report", true);
     } else {
@@ -888,6 +919,32 @@ std::wstring simDiagnostics() {
     }
     if (!e.liveError().empty()) t += L"\nError: " + widen(e.liveError());
     return t;
+}
+
+// The combat's settings (the bar's gear): who fights whom; a pick saves it and starts the fight again with the same
+// units.
+void simCombatSettingsMenu() {
+    if (!gRoot || !gHost) return;
+    const int now = simAlliances();
+    std::vector<stardraft::kit::MenuItem> items;
+    items.push_back(stardraft::kit::MenuItem{}), items.back().label = L"Who fights whom", items.back().enabled = false;
+    items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
+    const std::pair<int, const wchar_t*> kinds[] = {{kComputersAllied, L"Computers together, each human alone"},
+                                                    {kHumansVsComputers, L"Humans against computers"},
+                                                    {kMapForces, L"The map's forces"},
+                                                    {kFreeForAll, L"Free for all"}};
+    for (const auto& [value, label] : kinds) {
+        items.push_back(stardraft::kit::MenuItem{});
+        items.back().label = label, items.back().checked = value == now;
+        const int v = value;
+        items.back().run = [v] {
+            prefs::setNumber(L"SimAlliances", v);
+            shellPost([] { simulateCombatOf(gSimCombatSelection); });  // (again, the same units)
+        };
+    }
+    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
 }
 
 // The mining's settings (the bar's gear): the workers on minerals and on gas at each base, as Program options has them;
@@ -935,7 +992,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         return true;
     }
     const int over = e.kind == draw::MouseKind::Leave ? -1 : hit(l.first) ? 0 : (gSim.done && hit(l.second)) ? 1 : hit(l.third) ? 2 : hit(l.chip) ? 3
-                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : (!gSim.combat && hit(l.gear)) ? 7 : hit(l.feedback) ? 8 : -1;
+                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : hit(l.gear) ? 7 : hit(l.feedback) ? 8 : -1;
     if (over != gSim.hot) gSim.hot = over, simRedraw();
     if (e.kind == draw::MouseKind::Up && e.button == 0 && gSim.pressed >= 0) {
         const int was = gSim.pressed;
@@ -947,7 +1004,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         else if (was == 1) shellPost([] { simShowReport(); });
         else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
         else if (was == 6) simSkipToEnd();
-        else if (was == 7) shellPost([] { simMiningSettingsMenu(); });
+        else if (was == 7) shellPost([] { gSim.combat ? simCombatSettingsMenu() : simMiningSettingsMenu(); });
         else if (was == 8) shellPost([] { showFeedbackFilledSdl(L"the simulation", simDiagnostics()); });
         return true;
     }
@@ -978,7 +1035,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";
     if (in(l.skip)) return L"Skip to the end";
-    if (!gSim.combat && in(l.gear)) return L"Workers and gas";
+    if (in(l.gear)) return gSim.combat ? L"Who fights whom" : L"Workers and gas";
     if (in(l.feedback)) return L"Report feedback on the simulation";
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
     if (in(l.first)) return gSim.done ? L"Close" : L"Cancel the simulation";
@@ -1057,14 +1114,17 @@ void simulateMiningCommand() {
 // the way; they are not attacked).
 void simulateCombatCommand() {
     if (!gState.ed || !gState.ed->isOpen()) return;
+    simulateCombatOf(std::set<int>(gState.ed->selection().begin(), gState.ed->selection().end()));
+}
+void simulateCombatOf(std::set<int> selected) {
+    if (!gState.ed || !gState.ed->isOpen()) return;
     const Editor& ed = *gState.ed;
     std::vector<int> owners;
     sim::CombatOptions o;
     o.byPlayer = true;
     o.frames = 10 * 60 * 1000 / 42;  // (a safety cap: the fight ends when no team can reach an enemy)
-    constexpr int kComputers = 8;  // (the computers' team)
+    const int alliances = simAlliances();
     std::set<int> teams;
-    const std::set<int> selected(ed.selection().begin(), ed.selection().end());
     for (size_t i = 0; i < ed.units().size(); ++i) {
         const Unit& u = ed.units()[i];
         // (Start Locations and map revealers are not units in the game)
@@ -1077,13 +1137,13 @@ void simulateCombatCommand() {
         o.placed.push_back(p);
         if (!fights) continue;
         if (std::find(owners.begin(), owners.end(), int(u.owner)) == owners.end()) owners.push_back(u.owner);
-        o.team[u.owner] = who == Editor::Controller::Computer ? kComputers : int(u.owner);
+        o.team[u.owner] = simTeamOf(ed, u.owner, alliances);
         teams.insert(o.team[u.owner]);
     }
     if (teams.size() < 2) {
         if (gRoot)
             msgbox::ask(*gRoot, L"Simulate combat",
-                        L"Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The computer players are allies.",
+                        L"Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.",
                         {L"OK"}, msgbox::Icon::Info);
         return;
     }
@@ -1092,6 +1152,7 @@ void simulateCombatCommand() {
     std::map<int, std::wstring> names;
     for (const sim::PlacedUnit& p : o.placed) names[p.unitType] = widen(ed.unitTypes().statText(uint32_t(p.unitType)));
     if (!simBegin(true, [o](std::string& err) { return simEngine().startCombat(o, err); })) return;
+    gSimCombatSelection = std::move(selected);
     gState.ed->clearSelection();  // (the map's selection does not show over the fight)
     gSim.players[0] = owners[0], gSim.players[1] = owners[1], gSim.unitNames = names, gSim.speed = 1;
 }
