@@ -9,7 +9,9 @@
 #include "../../tools/sim/sim.h"
 #include "../../tools/sim/sim_data.h"
 
+#include <atomic>
 #include <chrono>
+#include <thread>
 #include <cmath>
 #include <algorithm>
 #include <map>
@@ -101,12 +103,37 @@ std::wstring simClock(int frames) {  // game time at Fastest, m:ss
     return b;
 }
 
+// Skip to the end runs the game on a thread of its own, as fast as the computer can: the window shows the last
+// picture and a spinner meanwhile, and touches the engine only through these (simSkipFrame: the game's frame).
+std::thread gSimSkipThread;
+std::atomic<bool> gSimSkipStop{false}, gSimSkipEnded{false};
+std::atomic<int> gSimSkipFrame{0};
+bool simSkipRunning() { return gSimSkipThread.joinable(); }
+bool simSkipJoin();
+struct SimSkipAtExit {  // (the program ends during a skip: the thread stops first, before the engine goes)
+    ~SimSkipAtExit() { simSkipJoin(); }
+} gSimSkipAtExit;
+// Ends the skip's thread (stopped when it still runs); true when it ran to the game's end.
+bool simSkipJoin() {
+    if (!gSimSkipThread.joinable()) return false;
+    gSimSkipStop = true;
+    gSimSkipThread.join();
+    gSimSkipStop = false;
+    return gSimSkipEnded.exchange(false);
+}
+
+// The live game's images as the last frame before a skip had them (the engine is the skip's thread's meanwhile).
+std::vector<sim::LiveImage> gSimLastImages;
+const std::vector<sim::LiveImage>& simImages() {
+    if (!simSkipRunning()) gSimLastImages.clear(), simEngine().images(gSimLastImages);
+    return gSimLastImages;
+}
+
 // The live game's images in place of the map's units and sprites (core/map_scene.inc: gLiveScene).
 void simScene(render::Scene& s) {
     if (!gState.ed) return;
     UnitSprites& sp = gState.ed->unitSprites();
-    std::vector<sim::LiveImage> images;
-    simEngine().images(images);
+    const std::vector<sim::LiveImage>& images = simImages();
     for (const sim::LiveImage& li : images) {
         render::SpriteDraw d;
         d.image = li.image, d.frame = li.frame, d.flip = li.flip;
@@ -135,9 +162,7 @@ void simScene(render::Scene& s) {
 // The minimap's dots of the live game: each sprite's main image (not shadows, overlays, or the remnants under the
 // units).
 bool simMinimap(std::vector<MinimapDot>& dots) {
-    static std::vector<sim::LiveImage> images;
-    images.clear();
-    simEngine().images(images);
+    const std::vector<sim::LiveImage>& images = simImages();
     UnitSprites& sp = gState.ed->unitSprites();
     for (const sim::LiveImage& li : images)
         if (li.order == 0 && li.sortY > li.y - 60000 && !sp.isShadow(li.image)) dots.push_back({li.x, li.y, li.owner, li.air ? 24 : 32});
@@ -525,6 +550,7 @@ void simRelease() {
 
 // Cancel, Close or Esc: the map's own units again.
 void simClose() {
+    simSkipJoin();
     if (gSim_) simEngine().stop();
     gLiveScene = nullptr, gLiveMinimap = nullptr;
     gSim = LiveSim{};
@@ -658,6 +684,7 @@ void simSounds(bool play) {
 // The game at `frame` (Restart: 0; the timeline): the game again from the start, run at once to that frame (the
 // game is the same each time it runs). Forward: only the frames between.
 void simSeek(int frame) {
+    simSkipJoin();
     gSim.skipping = false;
     if (!gSim.shown || !gSim.start) return;
     sim::Simulator& e = simEngine();
@@ -728,8 +755,22 @@ void simStepSpeed(int dir) {
 
 // Skip to the end: the rest of the game runs at once (no sounds), then the result and its report show.
 void simSkipToEnd() {
-    if (!gSim.shown || gSim.done) return;
-    gSim.skipping = true;  // (simFrame runs the game in slices; at the end the report shows)
+    if (!gSim.shown || gSim.done || simSkipRunning()) return;
+    gSim.skipping = true;  // (simFrame waits for the thread; at the end the report shows)
+    simImages();           // (the picture to show meanwhile)
+    gSimSkipFrame = simEngine().frame();
+    gSimSkipEnded = false;
+    gSimSkipThread = std::thread([] {
+        sim::Simulator& e = simEngine();
+        while (!gSimSkipStop) {
+            const bool more = e.step(240);
+            gSimSkipFrame = e.frame();
+            if (!more) {
+                gSimSkipEnded = true;
+                return;
+            }
+        }
+    });
     simRedraw();
 }
 
@@ -749,7 +790,8 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         c.text(l.text, gSim.result, kText, draw::kMiddle | draw::kEllipsis);
     } else {
         const std::wstring what = gSim.combat ? L"Combat" : L"Mining";
-        const std::wstring time = gSim.combat ? simClock(e.frame()) : simClock(e.frame()) + L" / " + simClock(e.lastFrame());
+        const int frame = simSkipRunning() ? gSimSkipFrame.load() : e.frame();
+        const std::wstring time = gSim.combat ? simClock(frame) : simClock(frame) + L" / " + simClock(e.lastFrame());
         const int ww = c.measure(what);
         c.text(l.text, what, kText, draw::kMiddle);
         const draw::Rect tr{l.text.left + ww + scale(8), l.text.top, l.text.right, l.text.bottom};
@@ -771,7 +813,8 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         const float rr = float((l.track.bottom - l.track.top) / 2);
         c.roundBox(l.track, kBorder, draw::kNone, rr);
         const int last = std::max(1, e.lastFrame());
-        const int fill = l.track.left + int(int64_t(l.track.right - l.track.left) * std::min(e.frame(), last) / last);
+        const int now = simSkipRunning() ? gSimSkipFrame.load() : e.frame();
+        const int fill = l.track.left + int(int64_t(l.track.right - l.track.left) * std::min(now, last) / last);
         if (fill > l.track.left) c.roundBox({l.track.left, l.track.top, fill, l.track.bottom}, kAccent, draw::kNone, rr);
     }
     // The buttons: a fill under the mouse, darker while pressed (as the kit's bare buttons); Report is the primary.
@@ -883,8 +926,7 @@ void simFrame() {
     sim::Simulator& e = simEngine();
     bool ran = false, ended = false;
     if (gSim.skipping) {
-        while (!ended && clock::now() < budget) ended = !e.step(30), ran = true;
-        simSounds(false);
+        if (gSimSkipEnded) ended = simSkipJoin(), simSounds(false);
     } else {
         gSim.due += std::min(ms, 250.0) * gSim.speed / 42.0;
         while (gSim.due >= 1 && !ended && clock::now() < budget) {
