@@ -297,6 +297,13 @@ public:
         int spent = 0;        // (the minitiles expanded by the searches of this frame)
     };
     mutable Search search;
+    struct ShortBuffers {  // (the short path's work space, kept between searches)
+        std::vector<int> cost, from;
+        std::vector<signed char> open;
+        std::vector<std::array<int, 4>> obstacles;
+        std::vector<std::pair<int, int>> heap;
+    };
+    ShortBuffers shortBuffers;
     // The living units by place (proximity.h): a unit's cells change when it is made, moves across a cell edge or dies.
     UnitGrid unitGrid;
     void regrid(int unit);  // (after a unit's place changed)

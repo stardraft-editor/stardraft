@@ -797,7 +797,8 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
     ++shortSearches;
     const UnitData& d = t.units[u.type];
     // (the obstacles as the boxes where the unit's centre may not be: their boxes grown by its own)
-    std::vector<std::array<int, 4>> obstacles;
+    std::vector<std::array<int, 4>>& obstacles = shortBuffers.obstacles;  // (kept between searches: no allocation)
+    obstacles.clear();
     forNear(square(u.x, u.y, 128 + 96), [&](int j) {
         const Unit& o = units[size_t(j)];
         if (&o == &u || !o.alive || o.hidden || o.burrowed || !collides(u, o)) return;
@@ -825,16 +826,34 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
     auto px = [&](int c) { return u.x + (c % N - R) * 8; };
     auto py = [&](int c) { return u.y + (c / N - R) * 8; };
     auto estimate = [&](int c) { return octagonalLength(gx - px(c), gy - py(c)) * 10 / 8; };
-    std::vector<int> cost(N * N, -1), from(N * N, -1);
-    std::vector<signed char> open(N * N, -1);  // (-1: not seen, 1: free, 0: blocked)
+    std::vector<int>& cost = shortBuffers.cost;
+    std::vector<int>& from = shortBuffers.from;
+    std::vector<signed char>& open = shortBuffers.open;  // (-1: not seen, 1: free, 0: blocked)
+    cost.assign(N * N, -1);
+    from.assign(N * N, -1);
+    open.assign(N * N, -1);
+    // (the cells whose place is in an obstacle: blocked at once, so a cell's test is only its ground)
+    auto floorDiv = [](int a) { return a >= 0 ? a / 8 : -((-a + 7) / 8); };
+    for (const auto& o : obstacles) {
+        int cx0 = std::max(0, R - floorDiv(u.x - o[0])), cx1 = std::min(N - 1, R + floorDiv(o[2] - u.x));
+        int cy0 = std::max(0, R - floorDiv(u.y - o[1])), cy1 = std::min(N - 1, R + floorDiv(o[3] - u.y));
+        for (int cy = cy0; cy <= cy1; ++cy)
+            for (int cx = cx0; cx <= cx1; ++cx) open[size_t(cy * N + cx)] = 0;
+    }
     using Node = std::pair<int, int>;
-    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
+    std::vector<Node>& heap = shortBuffers.heap;  // (a priority queue: the lowest estimate first)
+    heap.clear();
+    auto push = [&](Node n) {
+        heap.push_back(n);
+        std::push_heap(heap.begin(), heap.end(), std::greater<Node>());
+    };
     int start = R * N + R, best = start, bestEstimate = estimate(start);
     cost[size_t(start)] = 0;
-    queue.push({bestEstimate, start});
-    for (int expanded = 0; !queue.empty() && expanded < 250; ++expanded) {
-        int c = queue.top().second;
-        queue.pop();
+    push({bestEstimate, start});
+    for (int expanded = 0; !heap.empty() && expanded < 250; ++expanded) {
+        std::pop_heap(heap.begin(), heap.end(), std::greater<Node>());
+        int c = heap.back().second;
+        heap.pop_back();
         int e = estimate(c);
         if (e < bestEstimate) {
             best = c;
@@ -847,7 +866,10 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
                 int nx = cx + dx, ny = cy + dy, n = ny * N + nx;
                 if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
                 auto isFree = [&](int k) {
-                    if (open[size_t(k)] < 0) open[size_t(k)] = free(px(k), py(k)) ? 1 : 0;
+                    if (open[size_t(k)] < 0) {
+                        const int x = px(k), y = py(k);
+                        open[size_t(k)] = map.boxWalkable(x - d.left, y - d.up, x + d.right, y + d.down) ? 1 : 0;
+                    }
                     return open[size_t(k)] == 1;
                 };
                 if (!isFree(n) || (dx && dy && (!isFree(cy * N + nx) || !isFree(ny * N + cx)))) continue;
@@ -855,7 +877,7 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
                 if (cost[size_t(n)] >= 0 && cost[size_t(n)] <= nc) continue;
                 cost[size_t(n)] = nc;
                 from[size_t(n)] = c;
-                queue.push({nc + estimate(n), n});
+                push({nc + estimate(n), n});
             }
     }
     if (best == start) return false;
