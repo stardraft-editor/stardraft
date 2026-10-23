@@ -111,6 +111,7 @@ std::vector<uint8_t> startCreep(int width, int height, const std::vector<uint8_t
                 if (inside(x, y)) occupant[at(x, y)] = int(k);
     }
     std::vector<uint8_t> seen(n, 0);
+    std::vector<size_t> marked;
     for (size_t k = 0; k < buildings.size(); ++k) {
         const CreepBuilding& b = buildings[k];
         const TileRect r = footprintOf(b);
@@ -121,13 +122,15 @@ std::vector<uint8_t> startCreep(int width, int height, const std::vector<uint8_t
                     if (inside(x, y) && carriers[at(x, y)]) creep[at(x, y)] = 1;
             continue;
         }
-        std::fill(seen.begin(), seen.end(), uint8_t(0));
+        for (size_t i : marked) seen[i] = 0;  // (the last maker's marks only)
+        marked.clear();
         std::deque<std::pair<int, int>> open;
         for (int y = r.y; y < r.y + r.h; ++y)
             for (int x = r.x; x < r.x + r.w; ++x)
                 if (inside(x, y)) {
                     creep[at(x, y)] = 1;
                     seen[at(x, y)] = 1;
+                    marked.push_back(at(x, y));
                     open.push_back({x, y});
                 }
         while (!open.empty()) {
@@ -138,6 +141,7 @@ std::vector<uint8_t> startCreep(int width, int height, const std::vector<uint8_t
                     const int nx = x + dx, ny = y + dy;
                     if ((!dx && !dy) || !inside(nx, ny) || seen[at(nx, ny)]) continue;
                     seen[at(nx, ny)] = 1;
+                    marked.push_back(at(nx, ny));
                     const int other = occupant[at(nx, ny)];
                     if (!inCreepArea(b.x, b.y, nx, ny) || !carriers[at(nx, ny)] || (other >= 0 && other != int(k)))
                         continue;

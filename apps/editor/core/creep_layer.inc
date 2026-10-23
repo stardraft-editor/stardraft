@@ -1,11 +1,12 @@
 // View > Layers > Creep (core.inc): the creep that the map's Zerg buildings have at the start of a game (stardraft/
 // creep.h: the creep makers' areas, the footprints of the buildings that require creep, the map's own creep tiles),
 // drawn as the game draws it: each creep tile is a tile of the tileset's creep group, its variant drawn once a
-// session. Made again only when the map changes (Editor::revision); `creepRevision` changes when the creep does.
+// session. Made again only when the terrain or a building changes (not a selection); `creepRevision` changes when
+// the creep does.
 
 struct CreepLayer {
     const void* editor = nullptr;
-    uint64_t revision = ~0ull;
+    uint64_t terrain = ~0ull, buildings = 0;  // (the terrain's revision, the buildings' key)
     std::vector<uint8_t> creep, variants;
     uint64_t changes = 0;  // (the creep changed: the renderer's terrain again)
     uint32_t seed = 0;
@@ -14,9 +15,14 @@ struct CreepLayer {
 // The map's start creep (1: creep), one per tile; made again when the map changed.
 const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     CreepLayer& c = gCreep;
-    if (c.editor == &ed && c.revision == ed.revision()) return c.creep;
+    uint64_t key = 1469598103934665603ull;  // (the buildings' types and places: FNV-1a)
+    for (const Unit& u : ed.units())
+        if (u.type < ed.unitTypes().size() && ed.unitTypes()[u.type].is(UnitFlag::Building))
+            for (uint64_t v : {uint64_t(u.type), uint64_t(u.x), uint64_t(u.y)}) key = (key ^ v) * 1099511628211ull;
+    if (c.editor == &ed && c.terrain == ed.terrainRevision() && c.buildings == key) return c.creep;
     c.editor = &ed;
-    c.revision = ed.revision();
+    c.terrain = ed.terrainRevision();
+    c.buildings = key;
     const TerrainLayer& terrain = ed.terrain();
     std::vector<uint8_t> creep = startCreep(ed.tileset(), terrain, ed.units(), ed.unitTypes());
     const size_t n = creep.size();
