@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "stardraft/chk.h"
+#include "stardraft/creep.h"
 #include "world.h"
 
 namespace sim {
@@ -277,6 +278,8 @@ bool MapInfo::load(const std::vector<uint8_t>& bytes, const Tables& t, std::stri
     Reader rc{cv5}, rv{vf4}, rm{mtxm};
     walk.assign(size_t(width) * 4 * height * 4, 0);
     std::vector<int> cls(size_t(width) * height, 0);  // (the tile's class from its 16 minitiles)
+    std::vector<uint8_t> unbuildable(size_t(width) * height, 0), partly(size_t(width) * height, 0);
+    paintedCreep.assign(size_t(width) * height, 0);
     for (int ty = 0; ty < height; ++ty)
         for (int tx = 0; tx < width; ++tx) {
             int v = rm.u16(size_t(ty * width + tx) * 2);
@@ -291,7 +294,13 @@ bool MapInfo::load(const std::vector<uint8_t>& bytes, const Tables& t, std::stri
                     high += (f >> 2) & 1;
                 }
             cls[size_t(ty * width + tx)] = walkable <= 12 ? 0 : high >= 12 ? 3 : middle + high >= 12 ? 2 : 1;
+            unbuildable[size_t(ty * width + tx)] = (rc.u8(size_t(v >> 4) * 52 + 2) & 0x80) != 0;
+            partly[size_t(ty * width + tx)] = walkable > 0 && walkable < 16;
+            paintedCreep[size_t(ty * width + tx)] = (v >> 4) == stardraft::kCreepGroup;
         }
+    // (creep: the tiles that can carry it, creep.h; the map's edges are unbuildable)
+    stardraft::unbuildableMapEdges(width, height, unbuildable);
+    creepCarriers = stardraft::creepCarriers(width, height, unbuildable, partly);
     // Regions: from the top left, each unassigned tile starts a rectangle of its class, up to 8 tiles wide and 7 tall
     // (3:1 at most); then the walkable neighbours (orthogonal) and the groups (a flood fill).
     tileRegion.assign(size_t(width) * height, -1);

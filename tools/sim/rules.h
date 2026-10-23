@@ -27,6 +27,8 @@ struct GameRules {
     int scarabDetonate = 0, velocityTurnDivisor = 0, minDamage = 0, bulletNear = 0, bulletTurnDivisor = 0;
     int bulletElevationAbove = 0, elevationLowest = 0, elevationHighest = 0;  // (drawing layers)
     int damageFirstImage = 0, damageSecondImage = 0;  // (a damage overlay's image: these + its slot)
+    int creepGrowFrames = 0, creepRecedeDelay = 0;
+    std::vector<int> creepRecedeSteps;  // (pairs: up to so many receding tiles, the frames between two removals)
     std::vector<int> bulletTurnMargin;  // (turn frames = diff x [0] / rate; room: turn frames x [1] / [2] pixels)
     std::vector<int> bounceDivisor, damageFactor;  // (damageFactor: 5 damage types x 4 sizes)
     std::vector<int> splashDivisor, cooldownJitter;  // (splash: inner, medium, outer; jitter: values, first)

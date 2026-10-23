@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "stardraft/creep.h"
 #include "world.h"
 
 namespace sim {
@@ -517,6 +518,7 @@ void World::kill(int i, bool credit) {
     u.alive = false;
     u.hp = 0;
     regrid(i);
+    if (stardraft::makesCreep(uint16_t(u.type))) creepMakerDied(i);  // (its creep recedes: creep.cpp)
     if (credit && u.lastAttacker >= 0) ++units[size_t(u.lastAttacker)].kills;
 }
 
@@ -657,6 +659,7 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
         w.setOrder(u, u.building && !w.hasWeapon(u) ? Idle : AttackMove);  // (a building that cannot attack: a target)
         u.timer = 0;
     }
+    w.startCreep();
     return true;
 }
 

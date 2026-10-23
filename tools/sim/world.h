@@ -22,6 +22,7 @@ enum : uint32_t {
     kBuilding = 0x1, kFlyer = 0x4, kWorker = 0x8, kHero = 0x40, kRegenerates = 0x80, kTwoInOneEgg = 0x400,
     kDepot = 0x1000, kResource = 0x2000, kRobotic = 0x4000, kDetector = 0x8000, kOrganic = 0x10000,
     kSpellcaster = 0x200000, kCloaked = 0x400000, kInvincible = 0x20000000, kMechanical = 0x40000000,
+    kRequiresCreep = 0x20000, kCreepMargin = 0x80000000,  // (creep: needs it under it; a margin when finished)
 };
 // units.dat StarEdit group flags.
 enum : int {
@@ -124,6 +125,7 @@ struct MapInfo {
     std::vector<uint8_t> upgrades;  // each player's start level of each upgrade (12 x 61), from PUPx or UPGR
     std::vector<uint8_t> techs;     // each player's researched techs (12 x 44), from PTEx or PTEC
     std::vector<uint8_t> sides;     // each player's race (SIDE: 0 Zerg, 1 Terran, 2 Protoss, 5 picked, 6 random)
+    std::vector<uint8_t> creepCarriers, paintedCreep;  // per tile: it can carry creep; the map's own creep tile
 
     bool load(const std::vector<uint8_t>& chk, const Tables& t, std::string& error);
     bool walkable(int px, int py) const;
@@ -255,6 +257,20 @@ public:
                    int follow = -1, int dx = 0, int dy = 0);
     int bulletElevation(const Bullet& b) const;
     void gatherPicture(int unit, int weapon);
+    // Creep (creep.cpp): per tile 1 with creep; `creepChanges` counts its changes.
+    std::vector<uint8_t> creep;
+    uint64_t creepChanges = 0;
+    uint32_t creepSeed = 1;
+    std::vector<int> creepGrowth;  // (by unit: frames to its next creep tile)
+    std::vector<int> receding;     // (the tiles whose creep recedes)
+    int recedeFrom = 0, recedeWait = 0;
+    void startCreep();
+    void creepComplete(int unit);
+    void creepStep();
+    void creepMakerDied(int unit);
+    int recedeStep(int count) const;
+    int creepRandom();
+    uint8_t creepNeighbours(int x, int y) const;
     void damageOverlays(int unit);
     void placeDamageOverlay(int unit, int slot, bool second);
     int damageCount = 0;  // (the damage overlays placed: their order)

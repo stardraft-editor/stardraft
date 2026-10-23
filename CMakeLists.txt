@@ -237,7 +237,7 @@ target_link_libraries(help_test PRIVATE stardraft)
 # reference results.
 add_library(stardraft_sim STATIC tools/sim/engine.cpp tools/sim/data.cpp tools/sim/mining.cpp tools/sim/combat.cpp
     tools/sim/rules.cpp tools/sim/proximity.cpp tools/sim/orders.cpp
-    tools/sim/movement.cpp)
+    tools/sim/movement.cpp tools/sim/creep.cpp)
 target_include_directories(stardraft_sim PUBLIC tools/sim PRIVATE ${CMAKE_BINARY_DIR}/generated)
 # (tools/sim/rules.ini, the game's rules that no data file holds, built into the program as a string)
 file(READ ${CMAKE_SOURCE_DIR}/tools/sim/rules.ini STARDRAFT_SIM_RULES)

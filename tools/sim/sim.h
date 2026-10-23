@@ -169,6 +169,10 @@ public:
     // Fast forward (Skip to the end): only what the results depend on, no pictures or sounds; the same results.
     // After it, images() gives the units at their frames; the effects of the skipped frames are not there.
     virtual void setFastForward(bool on) { (void)on; }
+    // The live game's creep: per tile (the map's width x height) 1 with creep; nullptr: no game. `creepChanges`
+    // changes when it does.
+    virtual const std::vector<uint8_t>* creep() const { return nullptr; }
+    virtual uint64_t creepChanges() const { return 0; }
     virtual CombatResult combatResult() const = 0;
     virtual std::vector<MiningBase> miningResult() const = 0;
     virtual std::vector<PlayerState> players() const = 0;  // (mining and Run the map)

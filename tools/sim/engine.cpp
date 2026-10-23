@@ -376,6 +376,7 @@ void World::step() {
     bullets.erase(std::remove_if(bullets.begin(), bullets.end(), [](const Bullet& b) { return !b.alive; }),
                   bullets.end());
     if (combat && allTeams) trackProgress();
+    creepStep();  // (creep.cpp)
     for (size_t k = 0; k < effects.size(); ++k) effectStep(k);
     effects.erase(std::remove_if(effects.begin(), effects.end(), [](const Effect& e) { return e.done; }),
                   effects.end());
@@ -743,6 +744,8 @@ public:
     }
 
     bool live() const override { return world_ != nullptr; }
+    const std::vector<uint8_t>* creep() const override { return world_ ? &world_->creep : nullptr; }
+    uint64_t creepChanges() const override { return world_ ? world_->creepChanges : 0; }
     void setFastForward(bool on) override {
         fastForward_ = on;
         if (world_) world_->setFastForward(on);

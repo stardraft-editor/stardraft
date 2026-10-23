@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "sim.h"
+#include "stardraft/creep.h"
 #include "stardraft/game_data.h"
 #include "stardraft/map_file.h"
 #include "world.h"
@@ -1378,6 +1379,68 @@ bool runUnitFreeForAllCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Creep in the live game (creep rules): a Hatchery that finishes gets its footprint and margin (36 tiles on open
+// ground), then a tile every 16 frames (frames 1, 17, 33, ...) up to its whole area; killed, its creep recedes from 9
+// frames later, a tile every 10 frames (up to 256 receding tiles), until none is left.
+bool runCreepCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    // (a place on open ground: the whole area of 200 tiles)
+    int hx = -1, hy = -1;
+    for (int y = 6; y < map.height - 8 && hx < 0; y += 2)
+        for (int x = 10; x < map.width - 12 && hx < 0; x += 2) {
+            stardraft::CreepBuilding b;
+            b.x = x * 32 + 64, b.y = y * 32 + 48, b.placeW = 128, b.placeH = 96, b.maker = true;
+            int n = 0;
+            for (uint8_t c : stardraft::startCreep(map.width, map.height, map.creepCarriers, {b})) n += c;
+            if (n == 200) hx = b.x, hy = b.y;
+        }
+    sim::World w(t, map);
+    w.seed = 42;
+    sim::CombatOptions o;
+    o.byPlayer = true;
+    o.placed = {{131, 1, hx, hy}, {109, 2, hx < 1000 ? hx + 1600 : 200, 200}};  // (a Supply Depot far away: no fight)
+    std::string error;
+    if (!sim::setupCombat(w, o, error)) return false;
+    int hatchery = -1;
+    for (size_t i = 0; i < w.units.size(); ++i)
+        if (w.units[i].type == 131) hatchery = int(i);
+    auto count = [&] {
+        int n = 0;
+        for (uint8_t c : w.creep) n += c;
+        return n;
+    };
+    const int start = count();
+    std::fill(w.creep.begin(), w.creep.end(), uint8_t(0));
+    w.creepComplete(hatchery);
+    const int margin = count(), from = w.frame;
+    int added = 0, offBeat = 0, last = margin;
+    for (int f = 0; f < 3200; ++f) {
+        w.step();
+        const int now = count();
+        if (now > last) {
+            added += now - last;
+            offBeat += (w.frame - from - 1) % 16 != 0;
+        }
+        last = now;
+    }
+    const bool grew = margin == 36 && last == start && offBeat == 0 && added == start - margin;
+    std::printf("Creep: a Hatchery's start creep %d tiles; finished: %d (footprint and margin), then %d tiles, each on "
+                "frame 1 + 16k: %s\n", start, margin, added, grew ? "OK" : "FAIL");
+    const int killed = w.frame;
+    w.kill(hatchery, false);
+    std::vector<int> removals;
+    for (int f = 0; f < 2400 && count() > 0; ++f) {
+        const int before = count();
+        w.step();
+        if (count() < before) removals.push_back(w.frame - killed);
+    }
+    bool receded = count() == 0 && !removals.empty() && removals[0] == 9;
+    for (size_t k = 1; k < removals.size(); ++k) receded = receded && removals[k] - removals[k - 1] == 10;
+    std::printf("Creep: the Hatchery killed: %zu tiles removed, the first %d frames later, one every 10 frames, the "
+                "last at %d: %s\n", removals.size(), removals.empty() ? -1 : removals[0],
+                removals.empty() ? -1 : removals.back(), receded ? "OK" : "FAIL");
+    return grew && receded;
+}
+
 // Fast forward (Skip to the end): the same game with and without the pictures and sounds. Fight 1, fight 8, a
 // 400-unit fight of 4 players and a mining run: the same end frame and the same HP + shields (minerals) every 24
 // frames; after fast forward, images() gives each living unit its image and no effect sprite.
@@ -2143,6 +2206,7 @@ int main(int argc, char** argv) {
         if (!runGatherPictureCheck(tables, map)) ++failures;
         if (!runDamageOverlayCheck(tables, map)) ++failures;
         if (!runUnitFreeForAllCheck(tables, map)) ++failures;
+        if (!runCreepCheck(tables, map)) ++failures;
         if (!runSoundCheck(tables, map)) ++failures;
         runDefenceFights(tables, map);
         {  // (players 0, 1 and 2: 1 and 2 allied; then each player alone)

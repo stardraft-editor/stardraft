@@ -190,6 +190,18 @@ the parent image's attack overlay .lo file at its frame, x mirrored with it). An
 above its parent image, one made by imgul just under it (the Archon: Energy, Being, attack overlay, Swirl).
 setfldirect in an overlay's script (the Being's Init) is not applied: pictures do not change the game.
 
+**Creep.** A game starts with the creep of the map's buildings (stardraft/creep.h: each creep maker's area of 320 x 200
+pixels reached from its footprint over tiles that can carry creep, the footprints of the buildings that require creep,
+the map's own creep tiles). A working creep maker adds one tile every `creepGrowFrames` (16): the tile of its area with
+the most creep neighbours (ties: a random one). A maker finished in the game (`World::creepComplete`) first gets its
+footprint and, with units.dat's flag 0x80000000, a margin of 2 tiles left and right and 1 above and below without the
+corners. When a maker dies, the creep of its area and footprint that no other living Zerg building keeps (a maker's
+area, a building's footprint) recedes from `creepRecedeDelay` (9) frames later: one tile at a time, the one with the
+fewest creep neighbours, every 10 frames up to 256 receding tiles (fewer frames for more: `creepRecedeSteps`). Creep
+changes nothing in the play here and draws its own random numbers. `Simulator::creep` gives it per tile and
+`creepChanges` counts its changes. sim_test's creep check: a finished Hatchery grows 164 tiles on frames 1 + 16k, and
+its 200 tiles recede from 9 frames after its death, the last at 1999 frames (as the rules measure).
+
 **Damage overlays.** A building whose main image has a damage overlay list (images.dat's Damage Overlay: a .lof file
 with the places of 22 slots for each GRP frame, (127, 127) for a slot it does not use) shows fire or blood as its hit
 points fall (shields do not count). With n slots in use (frame 0) it has S = 2n steps, at the hit-point fractions

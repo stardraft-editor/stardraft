@@ -216,6 +216,7 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
         }
     }
     w.trips.assign(w.units.size(), {});
+    w.startCreep();
 }
 
 MiningRun miningRun(const World& w, int player, Race race, int workers, const MiningOptions& o) {
