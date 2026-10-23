@@ -87,12 +87,12 @@ the target, go to the maximum range: a line of hits, suicide); from flingy.dat t
 which sprites are drawn; from iscript.bin the attack moments. `rules.ini` holds the rest: the numbers of the game's own
 orders, the units a Reaver and a Carrier make and how many they hold, the Lurker (attacks only burrowed), the Zergling's
 every-frame orders, the Archon's start delay, the carried-gas images, and the game's timings, distances and amounts
-(order tick, target search, priorities, call for help, bounces, damage factors, splash rings, regeneration, collision
-limits, the Medic, Scarab, Interceptor and Spider Mine numbers, mining). A rule had to earn its place: each of the
-others was taken out when it changed neither set's 20-seed means by more than 0.1 percentage point nor any winner or
-check (the upgrade effects, flying repulse, the Halo Rockets' limit, the detector buildings' 7 tiles, the minimum
-damage, the cooldown limits and others). The engine's own numbers (fixed point, grid cells, search budgets, the
-stalemate) stay in the engine.
+(order tick, target search, the minimum damage, priorities, call for help, bounces, damage factors, splash rings,
+regeneration, collision limits, the Medic, Scarab, Interceptor and Spider Mine numbers, mining). A rule had to earn its
+place: each of the others was taken out when it changed neither set's 20-seed means by more than 0.1 percentage point
+nor any winner or check (the upgrade effects, flying repulse, the Halo Rockets' limit, the detector buildings' 7 tiles,
+the cooldown limits and others). The engine's own numbers (fixed point, grid cells, search budgets, the stalemate) stay
+in the engine.
 
 ## Results
 

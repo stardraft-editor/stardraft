@@ -371,7 +371,7 @@ void World::miningOrder(int i) {
             return;
         }
         if (!gasOrder && units[size_t(u.field)].holder >= 0 && units[size_t(u.field)].holder != i) {
-            int other = findField(256, true);
+            int other = findField(t.rules.otherFieldRange, true);
             if (other >= 0) {
                 u.field = other;
                 goTo(other);

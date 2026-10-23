@@ -47,7 +47,7 @@ const Number kNumbers[] = {
     SIM_NUMBER(clusterGap), SIM_NUMBER(resourceNearBase), SIM_NUMBER(depotNear), SIM_NUMBER(scarabDetonate),
     SIM_NUMBER(velocityTurnDivisor), SIM_NUMBER(waypointPass), SIM_NUMBER(healEnergyDivisor),
     SIM_NUMBER(interceptorSpreadRange), SIM_NUMBER(interceptorLaunchHp), SIM_NUMBER(frameMs), SIM_NUMBER(startMinerals),
-    SIM_NUMBER(gasWorkersMax),
+    SIM_NUMBER(gasWorkersMax), SIM_NUMBER(minDamage), SIM_NUMBER(otherFieldRange),
 };
 #undef SIM_NUMBER
 const List kLists[] = {
@@ -69,7 +69,7 @@ const char* defaultRules() { return kDefault; }
 bool readRules(const std::string& text, GameRules& rules, std::string& error) {
     rules = GameRules();
     std::vector<bool> seen(std::size(kNumbers) + std::size(kLists), false);
-    std::istringstream in(text);
+    std::istringstream in(text.compare(0, 3, "\xEF\xBB\xBF") ? text : text.substr(3));  // (a UTF-8 mark)
     std::string line;
     for (int n = 1; std::getline(in, line); ++n) {
         line = line.substr(0, line.find('#'));
@@ -119,6 +119,26 @@ bool readRules(const std::string& text, GameRules& rules, std::string& error) {
                     (k < std::size(kNumbers) ? kNumbers[k].name : kLists[k - std::size(kNumbers)].name);
             return false;
         }
+    // Values that the engine divides by, and lists that it reads by position.
+    for (const char* name : {"orderTick", "persistHitFrames", "scarabDetonate", "velocityTurnDivisor",
+                             "healEnergyDivisor"})
+        for (const Number& k : kNumbers)
+            if (std::string(name) == k.name && rules.*k.value <= 0) {
+                error = std::string("rules.ini: ") + name + " must be more than 0";
+                return false;
+            }
+    auto positive = [](const std::vector<int>& v) {
+        return std::all_of(v.begin(), v.end(), [](int x) { return x > 0; });
+    };
+    if (rules.bounceDivisor.empty() || !positive(rules.bounceDivisor) || !positive(rules.splashDivisor) ||
+        rules.cooldownJitter[0] <= 0) {
+        error = "rules.ini: bounceDivisor, splashDivisor and cooldownJitter's first value must be more than 0";
+        return false;
+    }
+    if (rules.startDelay.size() % 2 || rules.gasImage.size() % 2) {
+        error = "rules.ini: startDelay and gasImage take pairs of numbers";
+        return false;
+    }
     return true;
 }
 

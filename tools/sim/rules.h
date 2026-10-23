@@ -24,7 +24,7 @@ struct GameRules {
     int priorityBuilding = 0, priorityLow = 0, sameWayTolerance = 0, callForHelp = 0;
     // attacks
     int bounces = 0, bounceSearch = 0, launchWaitMax = 0, persistHitFrames = 0, lineHitRepeat = 0;
-    int scarabDetonate = 0, velocityTurnDivisor = 0;
+    int scarabDetonate = 0, velocityTurnDivisor = 0, minDamage = 0;
     std::vector<int> bounceDivisor, damageFactor;  // (damageFactor: 5 damage types x 4 sizes)
     std::vector<int> splashDivisor, cooldownJitter;  // (splash: inner, medium, outer; jitter: values, first)
     // regeneration and energy
@@ -48,11 +48,12 @@ struct GameRules {
     int miningFrames = 0, gasFrames = 0, miningReach = 0, mineralLoad = 0, mineralImage = 0, mineralFull = 0;
     int mineralHalf = 0, mineralLow = 0, baseSearchTiles = 0, baseResourceGap = 0, fieldRange = 0, clusterGap = 0;
     int resourceNearBase = 0, depotNear = 0, frameMs = 0, startMinerals = 0, gasWorkersMax = 0;
+    int otherFieldRange = 0;
 
     int damage(int type, int size) const { return damageFactor[size_t(type * 4 + size)]; }
 };
 
-// Reads rules.ini's text; false (with the line) when a value is missing, unknown or not a number.
+// Reads rules.ini's text; false (with the line) when a value is missing, unknown, not a number or out of range.
 bool readRules(const std::string& text, GameRules& rules, std::string& error);
 const char* defaultRules();  // (rules.ini as built into the program)
 

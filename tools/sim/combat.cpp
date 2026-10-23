@@ -623,7 +623,7 @@ void World::startAttack(int i, const Unit& target, const WeaponData& wd, bool tu
     u.repeatAttack = true;
     spinSource = -1;  // (the first bullet of an attack draws its side)
     int cooldown = wd.cooldown;
-    u.cooldown = cooldown + random() % t.rules.cooldownJitter[0] + t.rules.cooldownJitter[1];
+    u.cooldown = std::max(0, cooldown + random() % t.rules.cooldownJitter[0] + t.rules.cooldownJitter[1]);
     if (firstShot[u.side] < 0) firstShot[u.side] = frame;
     bool air = (t.units[size_t(target.type)].flags & kFlyer) != 0;
     Anim& anim = turret ? u.turret : u.anim;
@@ -903,7 +903,7 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
     const UnitData& d = t.units[size_t(v.type)];
     if (!v.alive || v.neutral || (d.flags & kInvincible)) return;  // (the map's own units take no damage)
     const WeaponData& wd = t.weapons[size_t(weapon)];
-    int dmg = amount / divisor;
+    int dmg = std::max(amount / divisor, t.rules.minDamage);
     int shieldDamage = 0;
     if (d.hasShields && v.shields >= 256) {
         shieldDamage = std::min(dmg, v.shields);
@@ -912,6 +912,7 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
     int armor = d.armor + level(v.owner, d.armorUpgrade);
     if (wd.damageType != kDamageIgnoreArmor) dmg = dmg > armor * 256 ? dmg - armor * 256 : 0;
     dmg = dmg * t.rules.damage(std::min(wd.damageType, 4), std::min(d.size, 3)) / 256;
+    if (shieldDamage == 0 && dmg < t.rules.minDamage) dmg = t.rules.minDamage;  // (armor never stops a hit)
     v.damageTaken += shieldDamage + std::min(dmg, v.hp);
     if (shieldDamage + dmg > 0) {  // (damage: the fight goes on, and both may walk again)
         lastProgress = lastDamage = frame;

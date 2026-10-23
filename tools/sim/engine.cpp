@@ -701,7 +701,7 @@ bool World::move(Unit& u, bool last) {
         desired = direction(u.aimX - u.x, u.aimY - u.y);
     u.velDir = turnToward(u.velDir, desired, f.turn ? turn : 256);  // (no turn rate, such as a Spider Mine: at once)
     u.heading = turnToward(u.heading, desired, f.turn ? f.turn : 256);  // (the full rate)
-    if (atTarget || u.repeatAttack) {  // (a braking unit only slows down; below 0.75 px a frame it stops)
+    if (atTarget || u.repeatAttack) {  // (a braking unit only slows down, to 0)
         u.speed = scripted || u.speed - accel < 0 ? 0 : u.speed - accel;
         return false;
     }
