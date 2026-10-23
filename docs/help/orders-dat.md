@@ -3,53 +3,51 @@
 orders.dat has one entry for each order (189 entries). An order is what a unit does now: move, attack, gather, build,
 cast a spell, and more. A unit's idle and attack orders are in [units.dat](units-dat.md#comp-ai-idle).
 
+The descriptions are from the StarCraft DAT page of Darkened Fantasies (game version 1.16.1)
+(<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>).
+
 ### Label
 
-The order's name.
-
-The game does not use this value.
+Unused. References a stat_txt.tbl string index for the order name.
 
 - Raw value: a stat_txt.tbl string.
 
 ### Use weapon targeting
 
-Yes: the order obeys the target rules of the weapon in the Targeting field.
+The order will abide by the targeting rules set for the specified weapon ID by the [Targeting](#targeting) field.
 
 - Raw value: 0 (no) or 1 (yes).
 
 ### Can be interrupted
 
-Yes: a different order can remove this order from the unit's list of orders (the Shift list).
+If set, the order can be removed from the shift-key queue by another order.
 
 - Raw value: 0 (no) or 1 (yes).
 
 ### Can be queued
 
-Yes: a player can add the order to the unit's list of orders (with Shift).
+If set, the order can be added to the shift-key queue.
 
 - Raw value: 0 (no) or 1 (yes).
 
 ### Targeting
 
-The weapon whose targets the order uses (for example a spell's weapon).
+Darkened Fantasies name: Weapon.
 
-The game uses the properties of this weapon for different purposes in orders that have a target.
+[Weapons.dat](weapons-dat.md) index for various purposes related to the weapon's properties, with targeting orders.
 
 - Raw value: a [weapons.dat](weapons-dat.md) entry. 130 is none.
 
 ### Energy
 
-The technology whose energy the order uses.
-
-The energy cost of this technology is the energy that the unit uses for the order.
+[Techdata.dat](techdata-dat.md) index to determine the energy cost to perform the order.
 
 - Raw value: a [techdata.dat](techdata-dat.md) entry. 44 is none.
 
 ### Animation
 
-The animation of the unit's script that the order plays (for example the attack or the cast animation).
-
-The game uses this value only for these spell orders:
+Iscript animation that will be played when performing the order. Effective only for the following spellcasting
+abilities:
 
 | Order | Name |
 | --- | --- |
@@ -74,96 +72,101 @@ The game uses this value only for these spell orders:
 
 ### Highlight
 
-The button that shows as active while the unit does the order.
+Frame index within cmdicons.grp that will appear highlighted while performing the order.
 
 - Raw value: an icon (cmdicons.grp frame). 65535 is none.
 
 ### Obscured order
 
-The order that the unit does when it cannot see its target.
+Darkened Fantasies name: Obscured.
 
-When the target is a fog sprite, the unit does this order after the target becomes visible again. The game uses this
-value only for these orders:
+When targeting a fog sprite, this is the orders.dat index for the order to be performed once the target becomes
+revealed. Effective only for the following orders:
 
 | Order | Name |
 | --- | --- |
-| 9 | Attack Obscured |
-| 28 | Use Ability (Infest 2) |
-| 35 | Repair Obscured |
-| 54 | Attack Obscured (Carrier) |
-| 60 | Attack Obscured (Reaver) |
-| 80 | Move to Harvest Obscured |
+| 009 | Attack Obscured |
+| 028 | Use Ability (infest 2) |
+| 035 | Repair Obscured |
+| 054 | Attack Obscured (carrier) |
+| 060 | Attack Obscured (reaver) |
+| 080 | Move to Harvest Obscured |
 | 114 | Cast Yamato Gun Obscured |
 
 - Raw value: an orders.dat entry.
 
 ### Unknown2
 
-In version 1.16.1, the game does not use this field.
+Unused.
 
 - Raw value: a number.
 
 ### Unknown3
 
-In version 1.16.1, the game does not use this field.
+Unused.
 
 - Raw value: a number.
 
 ### Unknown4
 
-The Darkened Fantasies page names this field "Subunit Inheritance". Yes (1): when the base unit does this order, its
-subunit (for example a turret) also does it.
+Darkened Fantasies name: Subunit Inheritance.
+
+If set, when the base unit performs this order, the subunit also will.
 
 - Raw value: a number.
 
 ### Unknown5
 
-In version 1.16.1, the game does not use this field.
+Unused.
 
 - Raw value: a number.
 
 ### Unknown7
 
-The Darkened Fantasies page names this field "Can Be Lifted". It applies only to orders that have a target unit. Yes
-(1): the order clears the "Lifted" movement flag (0x20) of the unit.
+Darkened Fantasies name: Can Be Lifted.
+
+Specific to orders that target a unit. If set, the "Lifted" (0x20) CUnit movement flag will be cleared.
 
 - Raw value: a number.
 
 ### Unknown9
 
-The Darkened Fantasies page names this field "Disabling Keeps Target". Yes (1): the unit keeps its target when
-Lockdown, Stasis Field or Maelstrom stops it.
+Darkened Fantasies name: Disabling Keeps Target.
+
+When the unit becomes frozen by Lockdown, Stasis, or Maelstrom, the targeted unit will not be lost.
 
 - Raw value: a number.
 
 ### Unknown10
 
-The Darkened Fantasies page names this field "Can Be Obstructed". It applies only to orders that target a unit with a
-mouse click. Yes (1): when the fog of war hides the target, the unit moves to it. The unit moves until it sees the
-target and the target is in weapon range.
+Darkened Fantasies name: Can Be Obstructed.
+
+Specific to orders that target a unit via mouse click. If set, the attacker will move towards the target if it becomes
+obscured by the fog of war until it is back in sight and weapon range.
 
 - Raw value: a number.
 
 ### Unknown11
 
-The Darkened Fantasies page names this field "Fleeable". Yes (1): the unit runs away from an attacker that it cannot
-attack. This applies only to a unit that has these conditions:
+Darkened Fantasies name: Fleeable.
 
-- The unit has the "Reacts" status flag (0x20000).
-- The unit is not under Dark Swarm.
-- The unit is not a computer guard unit that is away from its post.
+If set, the unit will flee from an attacker it cannot retaliate against. Applies only to units that have the "Reacts"
+(0x20000) CUnit status flag set, which are not under Dark Swarm, and are not computer guard units that are not at
+their post.
 
 - Raw value: a number.
 
 ### Unknown12
 
-In version 1.16.1, the game does not use this field.
+Unused.
 
 - Raw value: a number.
 
 ### Unknown17
 
-The Darkened Fantasies page names this field "DatReqs Index". The game sets this value itself. Keep it at 65535.
+Darkened Fantasies name: DatReqs Index.
+
+Intended to be set internally by the game, and should be left as 65535.
 
 - Raw value: a number.
 
@@ -175,4 +178,5 @@ The Darkened Fantasies page names this field "DatReqs Index". The game sets this
   MIT license, LeeJungHun).
 - The fields that a map can change: the EUD Book (<https://armoha.github.io/eud-book/>), the community's book about
   the game's memory and data.
-- The StarDraft 2 developers wrote this page in their own words, from these sources and from the game's data.
+- The field descriptions are from the StarCraft DAT page of Darkened Fantasies. The rest of this page is from these
+  other sources and from the game's data.

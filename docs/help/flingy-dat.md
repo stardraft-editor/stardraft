@@ -4,61 +4,66 @@ flingy.dat has one entry for each kind of movement (209 entries). A unit uses an
 [units.dat](units-dat.md#graphics), and a weapon's missile through its graphics field in
 [weapons.dat](weapons-dat.md#graphics). For the units of the values, see [Values and units](values-and-units.md).
 
+The descriptions are from the StarCraft DAT page of Darkened Fantasies (game version 1.16.1):
+<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>.
+
 ### Sprite
 
-The sprite that moves: [sprites.dat](sprites-dat.md).
+[Sprites.dat](sprites-dat.md) index for the entity's sprite.
 
 - Raw value: a sprites.dat entry.
 
 ### Speed
 
-The top speed. When the unit gets to this speed, it stops its acceleration.
+Speed at which acceleration will cease (the source calls it Top Speed). A top speed of 256 is equal to 1 pixel per
+logical step, which is also equal to a movement of 1 in Iscript.
 
-- Raw value: 1/256 pixels per frame. A raw speed of 1024 is 4 pixels each frame. A raw speed of 256 is 1 pixel each
-  frame, the same distance as a "move 1" in the iscript.
+- Raw value: 1/256 pixels per frame. A raw speed of 1024 is 4 pixels each frame.
 - The form shows: pixels each second at Fastest (raw x 24 / 256).
 
 ### Acceleration
 
-How fast the unit gets to its top speed: the speed that it adds each frame.
+Amount by which speed is incremented per logical step until Top Speed is reached. It is also the amount by which speed
+is decremented when decelerating until speed is 0. If the destination has been reached before the entity has fully
+decelerated, the unit will stop instantly.
 
 - Raw value: 1/256 pixels per frame, each frame.
-- The unit also uses this value to decrease its speed when it stops.
-- If the unit gets to its destination before it stops fully, it stops immediately.
 - The form shows: pixels each second, each second, at Fastest (raw x 24 x 24 / 256).
 
 ### Halt distance
 
-The distance that the unit needs to stop from its top speed. At this distance from the destination, the unit starts to
-decrease its speed.
+Distance at which the entity will begin decelerating when moving at top speed. A value of 256 is equal to a distance of
+1 pixel. The value used by most units in the stock game is Top Speed * Top Speed / (Acceleration * 2), rounded to the
+nearest integer. This is the formula the game uses to calculate the halt distance when the unit is not moving at top
+speed.
 
 - Raw value: 1/256 pixels.
-- Most units in the game have this value: speed x speed / (acceleration x 2), rounded to the nearest integer.
-- When the unit does not move at its top speed, the game calculates the distance with the same formula. It then does
-  not use this field.
 - The form shows: pixels (raw / 256).
 
 ### Turn radius
 
-How fast the unit turns.
+Maximum amount of angles the entity can turn per logical step (the source calls it Turn Rate). 256 angles make up 360
+degrees, and a turn rate of at least 127 will provide instantaneous 180-degree turns.
 
-- Raw value: 1/256 of a full turn each frame. This is the largest angle that the unit can turn in one frame.
-- A value of 127 or more lets the unit turn 180 degrees immediately.
+- Raw value: 1/256 of a full turn each frame.
 - The form shows: degrees each second at Fastest (raw x 360 / 256 x 24).
 
 ### Movement control
 
-What moves the unit: the values of this entry (flingy.dat), the animation script (iscript), or the values of this
-entry with the weapon's movement.
+Defines whether the entity will use Flingy physics or Iscript animation for movement. Iscript movement is achieved with
+the move opcode, which advances the entity by a specified amount of pixels. Flingy movement calculates the entity's
+velocity each frame based on the Top Speed, Acceleration, and Halt Distance.
 
 - Raw value: a choice (the form names each one).
-- With flingy.dat control, the game calculates the speed each frame from the speed, acceleration and halt distance.
-- With iscript.bin control, the "move" command of the iscript moves the unit a number of pixels.
-- Do not use values above 2. The result is not known.
+
+- 0 Flingy control (the form calls it flingy.dat control)
+- 1 Flingy control without deceleration (the form calls it Partially mobile, weapon)
+- 2 Iscript control (the form calls it iscript.bin control)
+- Other values have undefined behavior.
 
 ### Unused
 
-The game does not use this field.
+Unused.
 
 - Raw value: a number.
 
@@ -70,4 +75,5 @@ The game does not use this field.
   MIT license, LeeJungHun).
 - The fields that a map can change, and the units of the values: the EUD Book (<https://armoha.github.io/eud-book/>),
   the community's book about the game's memory and data.
-- The StarDraft 2 developers wrote this page in their own words, from these sources and from the game's data.
+- The field descriptions are from the Darkened Fantasies page. The rest of this page is from the other sources and from
+  the game's data.

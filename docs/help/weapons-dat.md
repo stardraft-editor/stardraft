@@ -4,99 +4,90 @@ weapons.dat has one entry for each weapon (130 entries). A unit uses a weapon th
 weapon fields in [units.dat](units-dat.md#ground-weapon); spells and some orders use weapons too. For the units of the
 values, see [Values and units](values-and-units.md).
 
+The descriptions are from the StarCraft DAT page of Darkened Fantasies (game version 1.16.1):
+<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>.
+
 ## Damage
 
 ### Damage amount
 
-The damage of one hit at upgrade level 0.
+Base damage of the weapon.
 
 - Raw value: damage points.
 - The damage of one hit at an upgrade level: damage amount + (damage bonus x upgrade level).
 
 ### Damage bonus
 
-The damage that each level of the damage upgrade adds.
+Bonus amount of damage per upgrade level.
 
 - Raw value: damage points.
 
 ### Damage upgrade
 
-The upgrade that gives the weapon more damage.
+[Upgrades.dat](upgrades-dat.md) index that will increase the weapon's damage.
 
 - Raw value: an [upgrades.dat](upgrades-dat.md) entry.
 
 ### Damage factor
 
-The number of times that the damage goes on the target for each hit (for example 2 for a weapon that fires two
-missiles at the same time).
+If set to 2, the weapon will attack twice per use. Any other value only multiplies the displayed damage stat.
 
 - Raw value: a number.
 
 ### Weapon type
 
-The type of the damage. Explosive damage does 50% to small units and 75% to medium units. Concussive damage does 50% to
-medium units and 25% to large units. Normal damage does the full damage to all sizes. Ignore armor does not use the
-target's armor.
+The damage type of the weapon.
 
 - Raw value: a choice: independent, explosive, concussive, normal or ignore armor.
 
-| Value | Type | Small | Medium | Large |
-|---|---|---|---|---|
-| 0 | Independent | 0% | 0% | 0% |
-| 1 | Explosive | 50% | 75% | 100% |
-| 2 | Concussive | 100% | 50% | 25% |
-| 3 | Normal | 100% | 100% | 100% |
-| 4 | Ignore armor | 100% | 100% | 100% |
-
-- All types do 0% damage to units with the size "independent".
-- Ignore armor does not use the target's armor. It also does not use the target's shield upgrades.
-- Do not use values above 4. The game then reads data outside its table, and the result is not known.
+- 0 None (the form calls it Independent): deals 0% damage to all sizes. All other damage types also deal 0% to None
+  unit size.
+- 1 Explosive: deals 50% to Small, 75% to Medium, and 100% to Large.
+- 2 Concussive: deals 100% to Small, 50% to Medium, and 25% to Large.
+- 3 Normal: deals 100% to Small, Medium, and Large.
+- 4 Ignore Armor: same as Normal but damage is not reduced by armor (including shields upgrades).
+- Other values are undefined and will result in out-of-bounds array access.
 
 ### Explosion type
 
-How the weapon gives its damage: to one target, in an area (splash), to enemies only, or a special effect (for example
-Lockdown, Ensnare or Plague).
+Defines how the weapon affects the target on hit.
 
 - Raw value: a choice (the form names each one).
 
-The values and what they do in version 1.16.1 (times are at Fastest):
-
 | Value | Name | What it does |
 |---|---|---|
-| 0 | None | Nothing occurs to the target. The SCV and the Probe use it when they mine. |
-| 1 | Normal hit | The target gets the full damage. If the missile misses, the target gets no damage. |
-| 2 | Splash (radial) | All units near the hit get splash damage. The splash ranges set the distances. |
-| 3 | Splash (enemy) | Same as splash (radial), but the units of the attacking player get no damage. |
-| 4 | Lockdown | The target cannot move or act for approximately 44 seconds. |
-| 5 | Nuclear missile | Same as splash (radial). The damage is one third of the unit's hit points, with a minimum of 500. If the unit has shields, the game adds its shields to its hit points. |
-| 6 | Parasite | The game puts a parasite on the target. |
-| 7 | Broodlings | The target dies, and two Broodlings appear on its position. The Broodlings stay for 1800 frames. |
-| 8 | EMP shockwave | All units near the hit lose all their shields and energy. The area is a rectangle. The inner splash range sets its size. |
-| 9 | Irradiate | The target gets radiation for 8 x the Irradiate weapon's cooldown. Each 8 frames, the radiation does the Irradiate weapon's damage divided by its cooldown. |
-| 10 | Ensnare | All units in a 128 x 128 pixel rectangle around the hit move more slowly for approximately 24 seconds. Burrowed units are not affected. |
-| 11 | Plague | All units in a 128 x 128 pixel rectangle around the hit get Plague for approximately 24 seconds. Each 8 frames, Plague does 1/71 of the Plague weapon's damage. Burrowed units are not affected. |
-| 12 | Stasis field | All units in a 96 x 96 pixel rectangle around the hit cannot move or act, and cannot get damage, for approximately 44 seconds. Buildings and burrowed units are not affected. |
-| 13 | Dark swarm | A Dark Swarm appears on the hit. It stays for 900 frames. |
-| 14 | Consume | The target dies, and the attacker gets 50 energy. |
-| 15 | Yamato gun | Same as normal hit, but the target gets the full damage also when the missile misses. |
-| 16 | Restoration | The target loses these effects: Parasite, Optical Flare, Ensnare, Plague, Irradiate, Lockdown, Maelstrom and acid spores. |
-| 17 | Disruption web | A Disruption Web appears on the hit. It stays for 360 frames. |
-| 18 | Corrosive acid | The target gets damage. All units in a 128 x 128 pixel rectangle around the hit get 1 acid spore for approximately 50 seconds. |
-| 19 | Mind control | Only the order can use this value. With a missile, the game can crash. |
-| 20 | Feedback | Only the order can use this value. With a missile, the game can crash. |
-| 21 | Optical flare | The target becomes blind. |
-| 22 | Maelstrom | All organic units in a 96 x 96 pixel rectangle around the hit cannot move or act for approximately 7 seconds. Buildings and burrowed units are not affected. |
-| 23 | Unused | The game does not use this value. It can cause a crash. |
-| 24 | Splash (air) | Damage to air units around the target. See below. |
+| 0 | None | No effect on target. Used for the weapon uses from SCVs and Probes while mining. |
+| 1 | Normal Hit | Deals full damage to the target, or none if the bullet misses. |
+| 2 | Splash (Radial) | Deals splash damage to all vulnerable units around the point of impact, as defined by the weapon's splash radii. |
+| 3 | Splash (Enemy) | Same as above, but doesn't damage the player's own units. |
+| 4 | Lockdown | Freezes the unit for 1044 +/- 4 ticks (~43.848s on fastest). |
+| 5 | Nuclear Missile | Same as Splash (Radial), but deals damage equal to a third of the unit's Hit Points (plus Shield Points if Has Shields is set), down to a minimum of 500. |
+| 6 | Parasite | Marks the unit with parasite. |
+| 7 | Broodlings | Instantly kills the target and creates two Broodlings at its position, with a Removal Timer of 1800. |
+| 8 | EMP Shockwave | Sets shields and energy to 0 for all vulnerable units around the point of impact, within a rectangular area defined by the weapon's Inner Splash radius. |
+| 9 | Irradiate | Irradiates the target for a duration equal to 8 times the cooldown of irradiate +/- 4 ticks, and deals damage equal to irradiate's weapon damage divided by the cooldown of irradiate every 8th tick. |
+| 10 | Ensnare | Slows down all vulnerable non-burrowed units within a 128x128 pixels rectangle around the point of impact, for a duration of 71 +/- 4 ticks (~23.856s on fastest). |
+| 11 | Plague | Plagues all vulnerable non-burrowed units within a 128x128 pixels rectangle around the point of impact, for a duration of 71 +/- 4 ticks (~23.856s on fastest), and deals damage equal to plague's weapon damage times 256 divided by 71, every 8th tick. |
+| 12 | Stasis Field | Freezes all vulnerable non-building non-burrowed units within a 96x96 pixels rectangle around the point of impact for 1044 +/- 4 ticks (~43.848s on fastest), and makes them invulnerable for the duration. |
+| 13 | Dark Swarm | Creates a Dark Swarm at the point of impact, with a Removal Timer of 900. |
+| 14 | Consume | Instantly kills the target and gives +50 energy to the attacker. |
+| 15 | Yamato Gun | Same as Normal Hit, but deals full damage even if the bullet misses the target. |
+| 16 | Restoration | Removes parasite, blindness, ensnare, plague, irradiate, lockdown, maelstrom, and acid spores from the target. |
+| 17 | Disruption Web | Creates a Disruption Web at the point of impact, with a Removal Timer of 360. |
+| 18 | Corrosive Acid | Deals damage to the target, and adds 1 point of acid spores to all vulnerable units within a 128x128 pixels rectangle around the point of impact, for a duration of 150 +/- 4 ticks (~50.4s on fastest). |
+| 19 | Mind Control | Intended to be used directly by the order, and results in an error if used with a bullet. |
+| 20 | Feedback | Same as above. |
+| 21 | Optical Flare | Marks the unit with blindness. |
+| 22 | Maelstrom | Freezes all vulnerable organic non-building non-burrowed units within a 96x96 pixels rectangle around the point of impact for 22 +/- 4 ticks (~7.392s on fastest). |
+| 23 | Unknown (Crash) (the form calls it Unused) | Unused. |
+| 24 | Splash (Air) | Deals full damage to the targeted unit if it's the only one found within the Outer Splash radius. Otherwise, deals full damage to one random vulnerable unit within the Outer Splash radius, and all other air units that are not Interceptors and are not the player's own are dealt reduced damage according to the Middle Splash and Outer Splash radii. |
 
-- Splash (air): if the target is the only unit in the outer splash range, it gets the full damage. If not, one random
-  unit in the outer splash range gets the full damage. The other air units in the range get less damage, by the medium
-  and outer splash ranges. Interceptors and the units of the attacking player get no damage.
-- All effects go only to units that can get damage.
+- The Middle Splash radius is the [Medium splash range](#medium-splash-range) on the form. The Removal Timer of a
+  bullet is its [Remove after](#remove-after) field.
 
 ### Weapon cooldown
 
-The time between two attacks: the number of frames before the weapon can attack again.
+How many logical frames before the weapon can be used again.
 
 - Raw value: frames.
 - The form shows: seconds at Fastest (raw / 24).
@@ -105,131 +96,130 @@ The time between two attacks: the number of frames before the weapon can attack 
 
 ### Minimum range
 
-The smallest distance at which the weapon can attack (the Siege Tank in siege mode has one). The unit cannot attack
-a target that is nearer than this distance.
+Minimum range, in pixels, at which the weapon may be used (the Siege Tank in siege mode has one).
 
 - Raw value: pixels.
 - The form shows: tiles (raw / 32).
 
 ### Maximum range
 
-The largest distance at which the weapon can attack.
+Maximum range, in pixels, at which the weapon may be used.
 
 - Raw value: pixels. A Marine's weapon has 128 (4 tiles).
 - The form shows: tiles (raw / 32).
 
 ### Inner splash range
 
-For splash damage: the units in this distance from the hit get the full damage.
+Radii in pixels where weapons of "splash" type will deal decreasing amount of damage to units found within. Inner
+Splash deals 100% damage, Middle Splash (the form calls it Medium splash range) deals 50% damage, and Outer Splash deals
+25% damage.
 
 - Raw value: pixels.
-- The explosion type EMP shockwave also uses this field. It sets the size of the rectangle that loses shields and
+- The explosion type EMP Shockwave also uses this field. It sets the size of the rectangle that loses shields and
   energy.
 - The form shows: tiles (raw / 32).
 
 ### Medium splash range
 
-For splash damage: the units in this distance from the hit get 50% of the damage.
+Radii in pixels where weapons of "splash" type will deal decreasing amount of damage to units found within. Inner
+Splash deals 100% damage, Middle Splash (the form calls it Medium splash range) deals 50% damage, and Outer Splash deals
+25% damage.
 
 - Raw value: pixels.
 - The form shows: tiles (raw / 32).
 
 ### Outer splash range
 
-For splash damage: the units in this distance from the hit get 25% of the damage.
+Radii in pixels where weapons of "splash" type will deal decreasing amount of damage to units found within. Inner
+Splash deals 100% damage, Middle Splash (the form calls it Medium splash range) deals 50% damage, and Outer Splash deals
+25% damage.
 
 - Raw value: pixels.
 - The form shows: tiles (raw / 32).
 
 ### Target flags
 
-The targets that the weapon can attack: air, ground, mechanical, organic, not buildings, not robotic, terrain, organic
-or mechanical, and own units.
+Defines what the weapon can be used on.
 
 - Raw value: a set of flags.
 
 | Flag | Name | Meaning |
 |---|---|---|
-| 0x0001 | Air | The weapon can attack air units. |
-| 0x0002 | Ground | The weapon can attack ground units. |
-| 0x0004 | Mechanical | The target must be mechanical. |
-| 0x0008 | Organic | The target must be organic. |
-| 0x0010 | Non-building | The weapon cannot attack buildings. |
-| 0x0020 | Non-robotic | The weapon cannot attack robotic units. |
-| 0x0040 | Terrain | The weapon can attack a position on the terrain. |
-| 0x0080 | Organic or mechanical | The target must be organic or mechanical. |
-| 0x0100 | Own | The target must be a unit of the same player. |
-
-- If you set Mechanical and Organic, the target must be mechanical and organic. If you set only "Organic or
-  mechanical", the target can be one or the other.
+| 0x0001 | Air | Can target air units. |
+| 0x0002 | Ground | Can target ground units. |
+| 0x0004 | Mechanical | Must target a mechanical unit. |
+| 0x0008 | Organic | Must target an organic unit. |
+| 0x0010 | Non-Building | Cannot target buildings. |
+| 0x0020 | Non-Robotic | Cannot target robotic units. |
+| 0x0040 | Terrain | Can target terrain. |
+| 0x0080 | Organic or Mechanical (the form calls it Org. or Mech.) | Must target a mechanical OR organic unit. Note that ticking both Mechanical and Organic flags requires the target to be both types, whereas this flag only requires the target to be either one. |
+| 0x0100 | Own | Must target a player's own units. |
 
 ### Attack angle
 
-The unit attacks only when it faces its target within this angle.
+Widest angle from which a weapon may be used, where 0 is directly in front, and 128+ is all-around.
 
-- Raw value: 1/256 of a full turn. The value 0 means directly to the front. A value of 128 or more lets the unit attack
-  in all directions.
+- Raw value: 1/256 of a full turn.
 - The form shows: degrees (raw x 360 / 256).
 
 ## The missile
 
 ### Graphics
 
-The movement entry of the weapon's missile or effect: [flingy.dat](flingy-dat.md).
+[Flingy.dat](flingy-dat.md) index for the bullet's flingy property.
 
 - Raw value: a flingy.dat entry.
 
 ### Weapon behavior
 
-How the missile moves: it flies to the target, it appears on the target, it bounces between targets (the Mutalisk), or
-it goes down from above (Psionic Storm), and more.
+Defines how the weapon behaves when used.
 
 - Raw value: a choice (the form names each one).
 
 | Value | Name | What it does |
 |---|---|---|
-| 0 | Fly and do not follow target | The missile flies to the position where the target was when the unit fired (the Vulture). |
-| 1 | Fly and follow target | The missile follows the target until it hits (the Dragoon). |
-| 2 | Appear on target unit | The missile hits the target immediately (the Marine). |
-| 3 | Persist on target site | The missile appears on the target and stays. It does damage each 8 frames until the "Remove after" time ends. It plays the SpecialState2 animation of the iscript (Psionic Storm). |
-| 4 | Appear on target site | Same as value 2. |
-| 5 | Appear on attacker | The missile hits immediately on the attacker (the Infested Terran). |
-| 6 | Attack and self-destruct | Same as value 5. The game also removes the attacker, with no death animation (the Scourge). |
-| 7 | Bounce | The missile bounces a maximum of 2 times. Each bounce goes to a unit in a 192 x 192 pixel rectangle around the unit that it hit (the Mutalisk). |
-| 8 | Attack target area | Same as value 1, but each attack aims at a different position near the target, from a fixed list (the Valkyrie). |
-| 9 | Go to maximum range | The missile flies to the point at the weapon's maximum range, on the line from the attacker through the target (the Lurker). |
+| 0 | Fly and Don't Follow Target | Bullet aims at the point where the target was when fired at. (e.g. Vulture) |
+| 1 | Fly and Follow Target | Bullet homes in on the target until it hits it. (e.g. Dragoon) |
+| 2 | Appear on Target Unit | Bullet instantly hits on top of the target. (e.g. Gauss Rifle) |
+| 3 | Persist on Target Site | Bullet appears on top of the target and deals damage every 8th tick until Removal Timer (the form calls it [Remove after](#remove-after)) runs out. Plays the SpecialState2 Iscript animation. (e.g. Psi Storm) |
+| 4 | Appear on Target Site | Identical to Appear on Target Unit. |
+| 5 | Appear on Attacker | Bullet instantly hits on top of the attacker. (e.g. Infested Terran) |
+| 6 | Attack and Self-Destruct | Same as above, but the attacker is also removed without a death animation. (e.g. Scourge) |
+| 7 | Bounce | Bullet will bounce up to 2 times, each time on a vulnerable unit within a 192x192 pixels rectangle around the currently hit unit. (e.g. Mutalisk) |
+| 8 | Attack Target 3x3 Area (the form calls it Attack target area) | Same as Fly and Follow Target, but each use of the weapon cycles through a list of predefined offset points, which are set relative to the target. (e.g. Valkyrie) |
+| 9 | Go to Max. Range (the form calls it Go to maximum range) | Bullet aims at the point that is at the weapon's Max Range, aligned with the attacker and target. (e.g. Lurker) |
 
 ### Remove after
 
-The time that the missile stays before the game removes it. If the missile does not hit its target in this time, it
-explodes.
+Lifetime of the bullet in logical frames, until which it will explode if it hasn't hit its target (the source calls
+it Removal Timer).
 
 - Raw value: frames.
 - The form shows: seconds at Fastest (raw / 24).
 
 ### Launch spin
 
-The angle from the unit's direction at which the missile leaves the unit (the missiles of the Wraith and the Valkyrie
-turn out to the sides).
+Angle at which the bullet will be created, where 128 is equal to 180 degrees (the missiles of the Wraith and the
+Valkyrie turn out to the sides).
 
 - Raw value: 1/256 of a full turn.
 - The form shows: degrees (raw x 360 / 256).
 
 ### Forward offset
 
-Where the missile starts: its distance in front of the unit.
+Distance ahead of the unit, in pixels, at which the bullet will be created.
 
 - Raw value: pixels.
 
 ### Upward offset
 
-Where the missile starts: its height above the unit. The missile can also start below the unit.
+Distance above/below the unit, in pixels, at which the bullet will be created (the source calls it Vertical Offset).
 
 - Raw value: pixels.
 
 ### Unused
 
-The game does not use this field. Its value is a [techdata.dat](techdata-dat.md) entry.
+Unused. References a [techdata.dat](techdata-dat.md) index (the source calls it Tech).
 
 - Raw value: a number.
 
@@ -237,19 +227,19 @@ The game does not use this field. Its value is a [techdata.dat](techdata-dat.md)
 
 ### Label
 
-The weapon's name in the console.
+Stat_txt.tbl string index for the weapon name in the console unit status area.
 
 - Raw value: a stat_txt.tbl string.
 
 ### Target error message
 
-The message when the target is not a target that the weapon can attack.
+Stat_txt.tbl string index for the error message shown when used on an invalid target.
 
 - Raw value: a stat_txt.tbl string.
 
 ### Icon
 
-The weapon's icon in the console.
+Frame index within cmdicons.grp for the weapon's icon in the console unit status area.
 
 - Raw value: an icon (cmdicons.grp frame).
 
@@ -261,4 +251,5 @@ The weapon's icon in the console.
   MIT license, LeeJungHun).
 - The fields that a map can change, and the units of the values: the EUD Book (<https://armoha.github.io/eud-book/>),
   the community's book about the game's memory and data.
-- The StarDraft 2 developers wrote this page in their own words, from these sources and from the game's data.
+- The field descriptions are from the Darkened Fantasies page. The rest of this page is from the other sources and from
+  the game's data.
