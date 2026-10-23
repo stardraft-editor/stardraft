@@ -140,6 +140,7 @@ bool simSkipJoin() {
     if (!gSimSkipThread.joinable()) return false;
     gSimSkipStop = true;
     gSimSkipThread.join();
+    if (gSim_) simEngine().setFastForward(false);  // (the pictures and sounds again)
     gSimSkipStop = false;
     return gSimSkipEnded.exchange(false);
 }
@@ -802,6 +803,7 @@ void simSkipToEnd() {
     simImages();           // (the picture to show meanwhile)
     gSimSkipFrame = simEngine().frame();
     gSimSkipEnded = false;
+    simEngine().setFastForward(true);  // (no pictures or sounds while it skips: the play is the same)
     gSimSkipThread = std::thread([] {
         sim::Simulator& e = simEngine();
         while (!gSimSkipStop) {
