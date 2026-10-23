@@ -190,6 +190,19 @@ the parent image's attack overlay .lo file at its frame, x mirrored with it). An
 above its parent image, one made by imgul just under it (the Archon: Energy, Being, attack overlay, Swirl).
 setfldirect in an overlay's script (the Being's Init) is not applied: pictures do not change the game.
 
+**Damage overlays.** A building whose main image has a damage overlay list (images.dat's Damage Overlay: a .lof file
+with the places of 22 slots for each GRP frame, (127, 127) for a slot it does not use) shows fire or blood as its hit
+points fall (shields do not count). With n slots in use (frame 0) it has S = 2n steps, at the hit-point fractions
+1 - 2k / (3 (S + 1)), k = 1 .. S. A step down turns the first-set overlay into the second set on its slot, or with
+none adds a first-set one on a random slot (1 to n, then the first slot from there without a second-set one); a step
+up turns the newest second-set overlay back, or with none removes the newest first-set one. Slot s shows image
+450 + s (first set) or 472 + s (second set: rules.ini `damageFirstImage`, `damageSecondImage`, as images.dat has no
+link from a slot to its image). An overlay is placed at its slot's place in the building's frame at that moment (x
+mirrored with the frame) and stays there, over the building's other images, newer ones on top, and runs its own
+script; it goes with the building's death. The random slot comes from the pictures' own random numbers, not the
+game's (pictures do not change the results). Not in fast forward: the overlays catch up after it. sim_test's damage
+overlay check: a Barracks and a Hatchery, hit points down and up in 1/16 steps.
+
 sim_test's Archon images check: the Archon's and the Dark Archon's Energy, Being and Swirl in that order, in their
 frame ranges, and the Archon's attack overlay at its .lo offset.
 

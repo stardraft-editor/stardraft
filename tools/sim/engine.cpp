@@ -349,6 +349,7 @@ void World::step() {
         if (v.alive && !combat && !fastForward && role(v.type).mineralField)  // (a mineral field: its picture)
             runAnim(v.anim, int(i), -1);
         if (v.alive && combat && v.building && !v.neutral) runAnim(v.anim, int(i), -1);  // (a defence: it fires)
+        if (v.alive && v.building) damageOverlays(int(i));
         if (!v.alive || v.building) continue;
         bool moving = v.x != v.moveX || v.y != v.moveY;
         // A script-moved unit that starts from rest: its walk script starts a frame later, and its first movement
@@ -389,9 +390,95 @@ void World::gatherPicture(int unit, int weapon) {
     const Unit& f = units[size_t(u.field)];
     bool appear = wd.behaviour == kAppearOnTarget || wd.behaviour == kAppearOnSite || wd.behaviour == kPersistOnSite;
     int x = appear ? f.x : u.x + dirX(u.heading) * wd.forward / 256;
-    int y = appear ? f.y : u.y + dirY(u.heading) * wd.forward / 256;
+    int y = appear ? f.y : u.y + dirY(u.heading) * wd.forward / 256 - wd.upward;
     addEffect(t.flingyImage(wd.flingy), x, y, u.owner, u.heading,
               t.units[size_t(u.type)].elevation + t.rules.bulletElevationAbove, false, kAnimInit);
+}
+
+int World::effectRandom() {
+    effectSeed = effectSeed * 22695477u + 1u;
+    return int((effectSeed >> 16) & 0x7fff);
+}
+
+// A building's damage overlays (fire, blood) by its hit points (damage-overlays rules): with n slots in its list (frame
+// 0), S = 2n steps at the hit-point fractions 1 - 2k / (3 (S + 1)), k = 1 .. S. A step down turns the first-set overlay
+// into the second set on its slot, or with none adds a first-set one on a random slot (1 to n, then the first slot from
+// there that holds no second-set one); a step up turns the newest second-set overlay back, or with none removes the
+// newest first-set one. Shields do not count. Pictures only: not in fast forward (it catches up after).
+void World::damageOverlays(int unit) {
+    Unit& u = units[size_t(unit)];
+    const UnitData& d = t.units[size_t(u.type)];
+    int image = t.flingyImage(d.flingy);
+    if (fastForward || image < 0 || size_t(image) >= t.damageOffsets.size() || t.damageOffsets[size_t(image)].empty())
+        return;
+    std::vector<int> used;
+    const auto& first = t.damageOffsets[size_t(image)][0];
+    for (size_t s = 0; s < first.size(); ++s)
+        if (first[s] != std::make_pair(127, 127)) used.push_back(int(s));
+    if (used.empty() || d.hp <= 0) return;
+    const long long steps = 2 * static_cast<long long>(used.size()), denom = 3 * (steps + 1);
+    int target = 0;
+    for (long long k = 1; k <= steps; ++k)
+        if (static_cast<long long>(u.hp) * denom < static_cast<long long>(d.hp) * (denom - 2 * k)) target = int(k);
+    auto newest = [&](bool second) {
+        int best = -1;
+        for (size_t e = 0; e < effects.size(); ++e)
+            if (effects[e].follow == unit && effects[e].damageSlot >= 0 && effects[e].damageSecond == second &&
+                (best < 0 || effects[e].damageOrder > effects[size_t(best)].damageOrder))
+                best = int(e);
+        return best;
+    };
+    auto take = [&](int e) {
+        int slot = effects[size_t(e)].damageSlot;
+        effects.erase(effects.begin() + e);
+        return slot;
+    };
+    while (u.damageStep < target) {  // (down)
+        int f = newest(false);
+        if (f >= 0) {
+            placeDamageOverlay(unit, take(f), true);
+        } else {
+            int n = int(used.size()), r = effectRandom() % n;
+            for (int j = 0; j < n; ++j) {
+                int slot = used[size_t((r + j) % n)];
+                bool second = false;
+                for (const Effect& e : effects) second = second || (e.follow == unit && e.damageSlot == slot);
+                if (!second) {
+                    placeDamageOverlay(unit, slot, false);
+                    break;
+                }
+            }
+        }
+        ++u.damageStep;
+    }
+    while (u.damageStep > target) {  // (up: repair, regeneration)
+        int s = newest(true);
+        if (s >= 0) placeDamageOverlay(unit, take(s), false);
+        else if (int f = newest(false); f >= 0) take(f);
+        --u.damageStep;
+    }
+}
+
+// A damage overlay on its slot: at the slot's place in the building's frame now (x mirrored with it), over the
+// building's other images, newer ones on top; it runs its own script.
+void World::placeDamageOverlay(int unit, int slot, bool second) {
+    const Unit& u = units[size_t(unit)];
+    int image = t.flingyImage(t.units[size_t(u.type)].flingy);
+    bool flip = false;
+    int frame = grpFrame(image, u.anim.frame, u.heading, &flip);
+    const auto& lo = t.damageOffsets[size_t(image)];
+    const auto& places = lo[size_t(std::clamp(frame, 0, int(lo.size()) - 1))];
+    if (size_t(slot) >= places.size()) return;
+    int dx = flip ? -places[size_t(slot)].first : places[size_t(slot)].first, dy = places[size_t(slot)].second;
+    size_t before = effects.size();
+    addEffect((second ? t.rules.damageSecondImage : t.rules.damageFirstImage) + slot, u.x + dx, u.y + dy, u.owner,
+              u.heading, t.units[size_t(u.type)].elevation, false, kAnimInit, unit, dx, dy);
+    if (effects.size() == before) return;
+    Effect& e = effects.back();
+    e.damageSlot = slot;
+    e.damageSecond = second;
+    e.damageOrder = ++damageCount;
+    e.layer = 1000 + damageCount;  // (over all of the building's overlays)
 }
 
 // A projectile's elevation: its unit's, and rules.ini's levels above it.
@@ -450,10 +537,7 @@ void World::effectStep(size_t k) {
     }
     const std::vector<uint8_t>& s = t.iscript;
     auto u16 = [&](int o) { return o + 1 < int(s.size()) ? s[size_t(o)] | s[size_t(o + 1)] << 8 : 0; };
-    auto draw = [&]() {
-        effectSeed = effectSeed * 22695477u + 1u;
-        return int((effectSeed >> 16) & 0x7fff);
-    };
+    auto draw = [&]() { return effectRandom(); };
     for (int guard = 0; guard < 256; ++guard) {
         Effect& e = effects[k];
         int pc = e.anim.pc, len = t.opLength(pc);

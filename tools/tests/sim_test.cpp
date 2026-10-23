@@ -1280,6 +1280,62 @@ bool runGatherPictureCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Damage overlays: a Barracks and a Hatchery whose hit points fall in 1/16 steps and rise again. Falling to step k
+// (the edges 1 - 2k / (3 (S + 1)), S = 2 x slots): ceil(k / 2) overlays, floor(k / 2) of the second set (472 + slot,
+// the others 450 + slot). Rising from the bottom: the second-set ones turn back first (max(0, k - n) left), then the
+// first-set ones go (min(k, n) in all). Each at its slot's place from the .lof; none at full hit points.
+bool runDamageOverlayCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    bool ok = true;
+    for (int type : {111, 131}) {
+        sim::World w(t, map);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.byPlayer = true;
+        o.placed = {{type, 1, 3808, 2384}, {0, 2, 3000, 2384}};
+        std::string error;
+        if (!sim::setupCombat(w, o, error)) return false;
+        int id = -1;
+        for (size_t i = 0; i < w.units.size(); ++i)
+            if (w.units[i].type == type) id = int(i);
+        const sim::UnitData& d = t.units[size_t(type)];
+        int image = t.flingyImage(d.flingy);
+        const auto& lo = t.damageOffsets[size_t(image)];
+        int n = 0;
+        for (const auto& p : lo[0]) n += p != std::make_pair(127, 127);
+        const int steps = 2 * n;
+        int checks = 0, wrong = 0, most = 0;
+        auto check = [&](int hp, bool down) {
+            w.units[size_t(id)].hp = hp;
+            w.step();
+            int k = 0;
+            for (int e = 1; e <= steps; ++e)
+                if (static_cast<long long>(hp) * 3 * (steps + 1) <
+                    static_cast<long long>(d.hp) * (3 * (steps + 1) - 2 * e))
+                    k = e;
+            int first = 0, second = 0;
+            for (const sim::World::Effect& e : w.effects) {
+                if (e.follow != id || e.damageSlot < 0) continue;
+                (e.damageSecond ? second : first)++;
+                const auto& place = lo[0][size_t(e.damageSlot)];
+                bool at = e.dx == place.first && e.dy == place.second;
+                bool image = e.image == (e.damageSecond ? 472 : 450) + e.damageSlot;
+                wrong += !at || !image;
+            }
+            int all = down ? (k + 1) / 2 : std::min(k, n), big = down ? k / 2 : std::max(0, k - n);
+            wrong += first + second != all || second != big;
+            most = std::max(most, first + second);
+            ++checks;
+        };
+        for (int s = 16; s >= 1; --s) check(d.hp * s / 16, true);
+        for (int s = 1; s <= 16; ++s) check(d.hp * s / 16, false);
+        bool good = wrong == 0 && most == n;
+        std::printf("Damage overlays: unit %d (%d slots): %d hit-point steps down and up, at most %d overlays, %d "
+                    "wrong: %s\n", type, n, checks, most, wrong, good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
 // Fast forward (Skip to the end): the same game with and without the pictures and sounds. Fight 1, fight 8, a
 // 400-unit fight of 4 players and a mining run: the same end frame and the same HP + shields (minerals) every 24
 // frames; after fast forward, images() gives each living unit its image and no effect sprite.
@@ -2043,6 +2099,7 @@ int main(int argc, char** argv) {
         if (!runFastForwardCheck(tables, map, install, reader)) ++failures;
         if (!runMiningCollisionCheck(tables, install)) ++failures;
         if (!runGatherPictureCheck(tables, map)) ++failures;
+        if (!runDamageOverlayCheck(tables, map)) ++failures;
         if (!runSoundCheck(tables, map)) ++failures;
         runDefenceFights(tables, map);
         {  // (players 0, 1 and 2: 1 and 2 allied; then each player alone)

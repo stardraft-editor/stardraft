@@ -88,6 +88,9 @@ struct Tables {
     // Each image's attack overlay list (images.dat, its .lo file), by GRP frame, the offsets of each overlay: where
     // imgoluselo and imguluselo put an image. Not there: none.
     std::vector<std::vector<std::vector<std::pair<int, int>>>> attackOffsets;
+    // Each image's damage overlay list (images.dat, its .lof file), by GRP frame: the places of its 22 slots,
+    // (127, 127) for a slot it does not use.
+    std::vector<std::vector<std::vector<std::pair<int, int>>>> damageOffsets;
     std::vector<uint8_t> iscript;
     std::vector<std::pair<int, int>> scripts;  // (iscript id, offset of its header)
     FileReader read;
@@ -181,6 +184,7 @@ struct Unit {
     int scarabs = 0;                          // (a Reaver's)
     int parent = -1;                          // (an Interceptor's Carrier)
     int movedFrame = -1, burrowStep = 0, startWait = 0, dieAt = -1;
+    int damageStep = 0;  // (a building: the damage overlay steps it shows)
     int id = 0;
     bool fighter = false, burrowing = false, burrowed = false, neutral = false;  // (neutral: the map's own units)
     std::vector<std::pair<int, int>> path;     // the waypoints around unwalkable ground (the last: the move target)
@@ -224,6 +228,8 @@ public:
         // overlay just above or under it)
         double layer = 0;
         int depth = 0;
+        int damageSlot = -1, damageOrder = 0;  // (a damage overlay: its slot, and when it was placed)
+        bool damageSecond = false;             // (of the second set: the larger flame)
     };
     std::vector<Effect> effects;
     uint32_t effectSeed = 1;  // (their own random numbers: they never change the game's)
@@ -245,6 +251,10 @@ public:
                    int follow = -1, int dx = 0, int dy = 0);
     int bulletElevation(const Bullet& b) const;
     void gatherPicture(int unit, int weapon);
+    void damageOverlays(int unit);
+    void placeDamageOverlay(int unit, int slot, bool second);
+    int damageCount = 0;  // (the damage overlays placed: their order)
+    int effectRandom();   // (the pictures' own random numbers: they never change the game)
     int spriteElevation(int op, int parent) const;
     void animate(int unit, int anim);  // a unit's main image and its overlays start an animation
     void effectStep(size_t k);

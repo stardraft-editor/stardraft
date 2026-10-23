@@ -168,8 +168,11 @@ bool Tables::load(const FileReader& reader, std::string& error) {
             }
         };
         attackOffsets.assign(999, {});
+        damageOffsets.assign(999, {});
         for (int i = 0; i < 999; ++i)
             if (int entry = ri.u32(17982 + size_t(i) * 4)) readLo(entry, attackOffsets[size_t(i)]);
+        for (int i = 0; i < 999; ++i)  // (the damage overlay lists: a building's fire or blood places)
+            if (int entry = ri.u32(21978 + size_t(i) * 4)) readLo(entry, damageOffsets[size_t(i)]);
         for (int worker = 0; worker < int(units.size()); ++worker) {  // (the workers: SCV, Drone, Probe)
             if (!(units[size_t(worker)].flags & kWorker)) continue;
             int image = flingyImage(units[size_t(worker)].flingy);
