@@ -116,9 +116,11 @@ MenuModel buildMenuModel() {
         menuCommand(tools, "edit.revealers.place");
         menuCommand(tools, "edit.revealers.removeAll");
 #ifdef STARDRAFT_SIMULATION
-        tools.push_back(menuSeparator());  // (experimental: the game simulated)
-        menuCommand(tools, "edit.simulate.mining");
-        menuCommand(tools, "edit.simulate.combat");
+        if (simulationEnabled()) {  // (experimental, Program options > Simulation: off by default)
+            tools.push_back(menuSeparator());
+            menuCommand(tools, "edit.simulate.mining");
+            menuCommand(tools, "edit.simulate.combat");
+        }
 #endif
     }
     // The View menu in groups: the graphics, the grid, what shows on the map (overlays, layers), the zoom, the panels,

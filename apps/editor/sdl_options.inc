@@ -233,6 +233,7 @@ public:
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
         prefs::number(L"SimWorkers", v.simWorkers, 1, 60), prefs::number(L"SimGasWorkers", v.simGas, 0, 3);
+        v.simEnabled = simulationEnabled();
         prefs::number(L"SimMinutes", v.simMinutes, 1, 60), prefs::number(L"SimRaces", v.simRace, 0, 3);
 #ifndef _WIN32
         v.mapsRow = false;  // (the file association is Windows only)
@@ -273,9 +274,10 @@ void OptionsProgramSdl::setUnitLimit(int k, int value) {
 }
 // Simulate mining's settings (Tools > Simulate mining reads them when it starts).
 void OptionsProgramSdl::setSimulation(int which, int value) {
-    static const wchar_t* const names[4] = {L"SimWorkers", L"SimGasWorkers", L"SimMinutes", L"SimRaces"};
-    if (which < 0 || which > 3) return;
+    static const wchar_t* const names[5] = {L"SimWorkers", L"SimGasWorkers", L"SimMinutes", L"SimRaces", L"SimEnabled"};
+    if (which < 0 || which > 4) return;
     prefs::setNumber(names[which], value);
+    if (which == 4) shellMenusChanged();  // (Tools > Simulate shows or goes)
     gOptionsView.invalidate();
 }
 void OptionsProgramSdl::setVolume(int value) {
