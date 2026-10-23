@@ -87,6 +87,7 @@ add_library(stardraft
     src/msqc.cpp
     src/map_file.cpp
     src/game_data.cpp
+    src/creep.cpp
     src/tileset.cpp
     src/terrain.cpp
     src/isom.cpp
@@ -226,6 +227,8 @@ add_executable(settings_test tools/tests/settings_test.cpp)
 target_link_libraries(settings_test PRIVATE stardraft)
 add_executable(commands_test tools/tests/commands_test.cpp)
 target_link_libraries(commands_test PRIVATE stardraft)
+add_executable(creep_test tools/tests/creep_test.cpp)
+target_link_libraries(creep_test PRIVATE stardraft)
 add_executable(help_test tools/tests/help_test.cpp)
 target_link_libraries(help_test PRIVATE stardraft)
 

@@ -94,6 +94,8 @@ void terrainFlagsSet(TerrainFlagsView v);
 void pathingCheckCommand();
 void showUnitsList();   // View > Units list: the Unit properties window with the list (core/units_list.inc)
 
+void toggleCreep();  // View > Layers > Creep (core/creep_layer.inc)
+
 void toggleLayer(int k) {
     bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
     static const wchar_t* const names[4] = {L"Terrain", L"Doodads", L"Sprites", L"Units"};
@@ -275,6 +277,7 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 2, "view.layer.sprites", L"&Sprites", "View/Layers", L"", [] { toggleLayer(2); }, [] { return gLayers.sprites; });
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
     addCommand(ID_LAYER_REVEALERS, "view.layer.revealers", L"Map &revealers", "View/Layers", L"", [] { toggleRevealers(); }, [] { return gLayers.revealers; });
+    addCommand(ID_LAYER_CREEP, "view.layer.creep", L"&Creep", "View/Layers", L"", [] { toggleCreep(); }, [] { return gLayers.creep; });
     addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
     addCommand(ID_LAYER + 5, "view.pathing.regions", L"Pathing shows the &regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
                [] { return !pathingLayerAreas(); }, true);

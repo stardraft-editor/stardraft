@@ -70,12 +70,16 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     Editor& ed = *gState.ed;
     clampCamera();
     // The terrain when it changed, or a layer (View > Layers: no terrain, or no doodads' tiles) went on or off.
+    // (and the creep when it changed: View > Layers > Creep, core/creep_layer.inc)
     static MapLayers uploaded;
-    if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain || uploaded.doodads != gLayers.doodads) {
+    static uint64_t uploadedCreep = 0;
+    const uint64_t creepRev = creepRevision(ed);
+    if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
+        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev) {
         gRenderer->setSources(&gState.data, &ed.unitSprites(), &ed.tileset(), ed.era());
-        if (gLayers.terrain && gLayers.doodads) gRenderer->updateTerrain(ed.terrain());
+        if (gLayers.terrain && gLayers.doodads && !gLayers.creep) gRenderer->updateTerrain(ed.terrain());
         else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
-        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers;
+        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev;
     }
     // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
     uint32_t team[12];

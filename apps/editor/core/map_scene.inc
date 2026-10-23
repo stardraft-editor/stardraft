@@ -13,10 +13,12 @@ void applyProjectGraphics(UnitSprites& sp);  // the project's graphics edits on 
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
 // View > Layers: the terrain the renderer gets when a layer is off: no terrain (black), or the terrain without the
-// doodads' tiles (StarEdit's copy, TILE).
+// doodads' tiles (StarEdit's copy, TILE); with the start creep's tiles (Creep: core/creep_layer.inc).
 TerrainLayer terrainWithLayers(const Editor& ed) {
-    TerrainLayer t = gLayers.terrain ? readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM") : ed.terrain();
+    TerrainLayer t = !gLayers.terrain || gLayers.doodads ? ed.terrain()
+                                                         : readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM");
     if (!gLayers.terrain) std::fill(t.tiles.begin(), t.tiles.end(), uint16_t(0));
+    addCreepTiles(ed, t);
     return t;
 }
 
