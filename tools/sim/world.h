@@ -315,6 +315,11 @@ public:
     int gap(const Unit& a, const Unit& b) const;
     int pointGap(const Unit& v, int x, int y) const;
     bool overlaps(int type, int x, int y, const Unit& o) const;
+    bool collides(const Unit& u, const Unit& o) const;
+    bool onBuilding(const Box& box) const;  // (mining: the box touches a building's, not a mineral field's)
+    mutable std::vector<uint8_t> buildingMask;  // (mining: the minitiles that buildings cover)
+    mutable std::vector<Box> buildingBoxes;
+    mutable bool buildingMaskReady = false;
     // The order tick: false on the frames in between; true every 9th frame. A new order runs at once; after that the
     // unit's order runs on its own phase of the 9 (fixed for its life, from its number), so that not all units act on
     // the same frame.

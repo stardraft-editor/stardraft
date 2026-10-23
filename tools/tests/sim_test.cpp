@@ -1202,6 +1202,50 @@ bool runBuildingFight(const sim::Tables& t, const sim::MapInfo& map, const char*
     return ok;
 }
 
+// Mining workers and buildings: a gathering worker collides with buildings (units.dat's building flag), never with
+// other workers; it passes the mineral fields (as the mining reference measures). In a live mining run with gas, no
+// visible worker's box overlaps the box of a depot, a refinery or another building in any frame.
+bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& install) {
+    stardraft::Bytes chk;
+    std::string error;
+    sim::MapInfo orbital;
+    if (!stardraft::readMapChk(install / "Maps" / "(4)Orbital Relay.scm", chk, error) || !orbital.load(chk, t, error)) {
+        std::printf("Mining collisions: %s: FAIL\n", error.c_str());
+        return false;
+    }
+    sim::MiningOptions mo;
+    mo.gas = true;
+    mo.gasWorkers = 3;
+    std::vector<sim::MiningBase> bases = sim::miningBases(t, orbital, mo);
+    std::vector<sim::Race> races = sim::baseRaces(t, orbital, bases, mo);
+    sim::World w(t, orbital);
+    sim::setupMining(w, bases, races, 12, mo);
+    int frames = 0, overlaps = 0, worst = -1;
+    for (int f = 0; f < 3000; ++f) {
+        w.step();
+        bool any = false;
+        for (const sim::Unit& u : w.units) {
+            if (!u.alive || u.hidden || !(w.t.units[size_t(u.type)].flags & sim::kWorker)) continue;
+            for (const sim::Unit& b : w.units)
+                if (b.alive && (w.t.units[size_t(b.type)].flags & sim::kBuilding) &&
+                    !w.t.roles[size_t(b.type)].mineralField && w.overlaps(u.type, u.x, u.y, b)) {
+                    any = true;
+                    if (worst < 0) {
+                        worst = w.frame;
+                        std::printf("  (frame %d: worker %d at (%d, %d) order %d in unit type %d at (%d, %d))\n",
+                                    w.frame, u.type, u.x, u.y, int(u.order), b.type, b.x, b.y);
+                    }
+                }
+        }
+        ++frames;
+        overlaps += any;
+    }
+    bool ok = overlaps == 0;
+    std::printf("Mining collisions: (4)Orbital Relay.scm, 12 workers and 3 on gas a base, %d frames: %d with a worker "
+                "inside a building's box (first at %d): %s\n", frames, overlaps, worst, ok ? "OK" : "FAIL");
+    return ok;
+}
+
 // Fast forward (Skip to the end): the same game with and without the pictures and sounds. Fight 1, fight 8, a
 // 400-unit fight of 4 players and a mining run: the same end frame and the same HP + shields (minerals) every 24
 // frames; after fast forward, images() gives each living unit its image and no effect sprite.
@@ -1963,6 +2007,7 @@ int main(int argc, char** argv) {
         if (!runSeekChecks(tables, map, install)) ++failures;
         if (!runPerf(tables, map, install, reader)) ++failures;
         if (!runFastForwardCheck(tables, map, install, reader)) ++failures;
+        if (!runMiningCollisionCheck(tables, install)) ++failures;
         if (!runSoundCheck(tables, map)) ++failures;
         runDefenceFights(tables, map);
         {  // (players 0, 1 and 2: 1 and 2 allied; then each player alone)

@@ -108,9 +108,39 @@ void World::freeSpot(int type, int& x, int& y, const Unit* self) const {
     }
 }
 
+// Whether a unit's box fits at a place: on walkable ground, and in mining off every building's box but the mineral
+// fields' (a gathering worker collides with buildings only; the fields: as the mining reference measures).
 bool World::fits(int type, int x, int y) const {
     const UnitData& d = t.units[size_t(type)];
-    return map.boxWalkable(x - d.left, y - d.up, x + d.right, y + d.down);
+    if (!map.boxWalkable(x - d.left, y - d.up, x + d.right, y + d.down)) return false;
+    return combat || !onBuilding(boxAt(type, x, y));
+}
+
+// Mining's buildings never move: their boxes and a mask of the 8-pixel minitiles they cover, made at the first test
+// (and again after a building changes: regrid).
+bool World::onBuilding(const Box& box) const {
+    const int columns = map.width * 4, rows = map.height * 4;
+    if (!buildingMaskReady) {
+        buildingMask.assign(size_t(columns) * size_t(rows), 0);
+        buildingBoxes.clear();
+        for (const Unit& o : units)
+            if (o.alive && (t.units[o.type].flags & kBuilding) && !role(o.type).mineralField) {
+                Box b = boxOf(o);
+                buildingBoxes.push_back(b);
+                for (int my = std::max(0, b.top / 8); my <= std::min(rows - 1, b.bottom / 8); ++my)
+                    for (int mx = std::max(0, b.left / 8); mx <= std::min(columns - 1, b.right / 8); ++mx)
+                        buildingMask[size_t(my) * size_t(columns) + size_t(mx)] = 1;
+            }
+        buildingMaskReady = true;
+    }
+    bool marked = false;
+    for (int my = std::max(0, box.top / 8); my <= std::min(rows - 1, box.bottom / 8) && !marked; ++my)
+        for (int mx = std::max(0, box.left / 8); mx <= std::min(columns - 1, box.right / 8) && !marked; ++mx)
+            marked = buildingMask[size_t(my) * size_t(columns) + size_t(mx)] != 0;
+    if (!marked) return false;
+    for (const Box& b : buildingBoxes)
+        if (boxesTouch(box, b)) return true;
+    return false;
 }
 
 // Whether a unit's box stays on walkable minitiles along a straight walk (every 4 pixels).
@@ -770,7 +800,7 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
     std::vector<std::array<int, 4>> obstacles;
     forNear(square(u.x, u.y, 128 + 96), [&](int j) {
         const Unit& o = units[size_t(j)];
-        if (&o == &u || !o.alive || o.hidden || o.burrowed || (t.units[o.type].flags & kFlyer)) return;
+        if (&o == &u || !o.alive || o.hidden || o.burrowed || !collides(u, o)) return;
         if (!withinSquare(o.x, o.y, u.x, u.y, 128 + 96)) return;  // (outside the search's reach)
         bool rest = o.x == o.moveX && o.y == o.moveY;
         if (!(rest || movers || o.id == consider) || overlaps(u.type, u.x, u.y, o)) return;
@@ -849,6 +879,14 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
     return true;
 }
 
+// Whether a ground unit collides with another: in a fight with every ground unit; a gathering worker (mining) only
+// with buildings (units.dat's building flag), never with other workers.
+bool World::collides(const Unit& u, const Unit& o) const {
+    const uint32_t flags = t.units[o.type].flags;
+    if (flags & kFlyer) return false;
+    return combat || (flags & kBuilding);
+}
+
 // The largest ground unit whose box the unit's box would overlap at (x, y), and does not overlap now; -1: none.
 int World::blocker(const Unit& u, int x, int y) const {
     int best = -1, bestArea = 0;
@@ -856,8 +894,8 @@ int World::blocker(const Unit& u, int x, int y) const {
         const Unit& o = units[size_t(j)];
         if (&o == &u || !o.alive || o.hidden || o.burrowed) return;
         if (role(o.type).spiderMine && o.state >= 1 && o.state <= 3) return;  // (a Spider Mine burrowing: no collision)
+        if (!collides(u, o)) return;
         const UnitData& od = t.units[o.type];
-        if (od.flags & kFlyer) return;
         int area = (od.left + od.right + 1) * (od.up + od.down + 1);
         if ((area > bestArea || (area == bestArea && j < best)) && overlaps(u.type, x, y, o) &&
             !overlaps(u.type, u.x, u.y, o)) {  // (the largest; of equal ones, the first in the list)

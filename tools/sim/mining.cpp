@@ -272,10 +272,35 @@ bool World::resourceValid(const Unit& u, int f) const {
                                 : isMinerals(t, type);
 }
 
-// To the point where the worker touches the resource, facing it.
+// To the point where the worker touches the resource (or depot), facing it: the nearest point of its box grown by the
+// worker's own where the worker fits (off the other buildings); none: the nearest point.
 void World::goToResource(Unit& u, int f) {
     int x, y;
     depotBorder(u, units[size_t(f)], x, y);
+    if (!fits(u.type, x, y)) {
+        const Unit& b = units[size_t(f)];
+        const UnitData &dw = t.units[u.type], &db = t.units[b.type];
+        int l = b.x - db.left - dw.right - 1, r = b.x + db.right + dw.left + 1;
+        int top = b.y - db.up - dw.down - 1, bottom = b.y + db.down + dw.up + 1;
+        double best = -1;
+        const int cx = x, cy = y;  // (the point where it would touch the box on its straight way)
+        auto consider = [&](int px, int py) {
+            double d = exactDistance(px, py, cx, cy);
+            if ((best < 0 || d < best) && fits(u.type, px, py)) {
+                best = d;
+                x = px;
+                y = py;
+            }
+        };
+        for (int px = l; px <= r; px += 4) {
+            consider(px, top);
+            consider(px, bottom);
+        }
+        for (int py = top; py <= bottom; py += 4) {
+            consider(l, py);
+            consider(r, py);
+        }
+    }
     setMove(u, x, y);
     u.aimX = units[size_t(f)].x;
     u.aimY = units[size_t(f)].y;

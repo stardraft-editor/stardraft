@@ -72,6 +72,7 @@ int World::pointGap(const Unit& v, int x, int y) const { return sim::pointGap(bo
 
 void World::regrid(int unit) {
     const Unit& u = units[size_t(unit)];
+    if (u.building) buildingMaskReady = false;  // (mining's building mask: made again)
     if (u.alive) unitGrid.place(unit, boxOf(u));
     else unitGrid.remove(unit);
 }
