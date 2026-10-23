@@ -128,13 +128,19 @@ public:
         int noProperty = 0;        // kept: their values need more unit properties than `freeProperties`
         int properties = 0;        // the unit properties that the code uses
         std::string code;          // generated/remake.eps (empty when it makes no units)
+        std::string table;         // generated/remake_units.py: the units' records, which remake.eps imports
     };
-    // The plan for the units of `units` (the map's UNIT section) whose type is in `types`. The code makes each with
-    // CreateUnitWithProperties, with a unit property for its hit points, shields, energy, resources, hangar and states
-    // (cloaked, burrowed, lifted, hallucination, invincible); a unit with the default values gets none. Units with values
-    // that need more than `freeProperties` different properties stay in the map.
+    // The plan for the units of `units` (the map's UNIT section) whose type is in `types`. The code is a table, one
+    // record for each unit (its place, type, owner and property set; in a Python module, so that it is only data), and
+    // one loop over it: the code does not grow with the units. Each different set of values (hit points, shields, energy, resources, hangar, and the states cloaked,
+    // burrowed, lifted, hallucination, invincible) is a unit property, one case of CreateUnitWithProperties in the loop;
+    // a unit with the default values gets CreateUnit. Units with values that need more than `freeProperties` different
+    // properties stay in the map.
     static RemakePlan planRemake(const std::vector<Unit>& units, const UnitTypes& unitTypes, const std::vector<uint16_t>& types,
                                  int freeProperties = kUnitProperties);
+    // Writes the plan's code (generated/remake.eps and its table, generated/remake_units.py), or removes both when it
+    // makes no units.
+    bool writeRemakeCode(const RemakePlan& plan, std::string& error);
     // The map that euddraft gets: the project's map without the UNIT entries `leaveOut` (UNIT indexes), written to
     // buildMap(); the .eds's input is then that map. Empty `leaveOut`: the .eds's input is the project's map, and an
     // old build map goes.

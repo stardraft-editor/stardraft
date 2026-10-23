@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <fstream>
 #include <iterator>
 #include <map>
@@ -465,8 +466,9 @@ EudProject::RemakePlan EudProject::planRemake(const std::vector<Unit>& units, co
     std::set<uint32_t> linkedSerials;
     for (const Unit& u : units)
         if (u.relatedSerial) linkedSerials.insert(u.relatedSerial);
-    std::map<std::string, int> properties;  // a property's arguments, and its number
-    std::ostringstream body;
+    std::map<std::string, int> properties;  // a property's arguments, and its set number (1, 2, ...)
+    std::vector<const std::string*> sets;   // the sets' arguments, by number - 1
+    std::ostringstream table;
     for (size_t i = 0; i < units.size(); ++i) {
         const Unit& u = units[i];
         if (u.type >= remake.size() || !remake[u.type] || u.owner > 11) continue;
@@ -502,18 +504,18 @@ EudProject::RemakePlan EudProject::planRemake(const std::vector<Unit>& units, co
                 ++plan.noProperty;
                 continue;
             }
-            properties.emplace(args, int(properties.size()));
+            const auto at = properties.emplace(args, int(properties.size()) + 1).first;
+            sets.push_back(&at->first);
         }
         plan.made.push_back(i);
-        const std::string player = "P" + std::to_string(u.owner + 1);
-        // The game makes no preplaced units for a slot of players 1 to 8 that nobody plays.
-        const bool slot = u.owner < 8;
-        const char* in = slot ? "        " : "    ";
-        if (slot) body << "    if (playerexist(" << player << ")) {\n";
-        body << in << "setloc(1, " << u.x << ", " << u.y << ", " << u.x << ", " << u.y << ");  // UNIT " << i << ": " << ut.name << "\n";
-        if (args.empty()) body << in << "CreateUnit(1, " << u.type << ", 1, " << player << ");\n";
-        else body << in << "CreateUnitWithProperties(1, " << u.type << ", 1, " << player << ", UnitProperty(" << args << "));\n";
-        if (slot) body << "    }\n";
+        // A record: x | y << 16, then type | player << 16 | property set << 24 (0: no set).
+        const unsigned set = args.empty() ? 0u : unsigned(properties[args]);
+        char record[64];
+        std::snprintf(record, sizeof record, "    0x%08X, 0x%08X,", unsigned(u.x) | unsigned(u.y) << 16, unsigned(u.type) | unsigned(u.owner) << 16 | set << 24);
+        std::string name = ut.name;  // (a comment: printable ASCII only)
+        for (char& ch : name)
+            if ((unsigned char)ch < 0x20 || (unsigned char)ch > 0x7E) ch = '?';
+        table << record << "  # UNIT " << i << ": " << name << "\n";
     }
     plan.properties = int(properties.size());
     if (plan.made.empty()) return plan;
@@ -522,7 +524,9 @@ EudProject::RemakePlan EudProject::planRemake(const std::vector<Unit>& units, co
          "// graphics. Build takes each preplaced unit that the edits give other graphics out of the map that euddraft gets,\n"
          "// and this code makes it at the start, in the map's UNIT order, on its place, for its owner and with its values\n"
          "// (Project page, \"New graphics for preplaced units\"). Do not edit: it is rewritten on every build.\n\n"
+         "import remake_units;  // the table of the units (remake_units.py: data only)\n\n"
          "function onPluginStart() {\n"
+         "    const units = remake_units.units;\n"
          "    // Location 1 goes to each unit's place, then back to its place.\n"
          "    const left = dwread(0x58DC60);\n"
          "    const top = dwread(0x58DC64);\n"
@@ -530,12 +534,49 @@ EudProject::RemakePlan EudProject::planRemake(const std::vector<Unit>& units, co
          "    const bottom = dwread(0x58DC6C);\n"
          "    const flags = dwread(0x58DC70);  // its elevation flags (high word): none, so that it has units of each height\n"
          "    SetMemoryX(0x58DC70, SetTo, 0, 0xFFFF0000);\n"
-      << body.str()
-      << "    setloc(1, left, top, right, bottom);\n"
+         "    for (var i = 0; i < "
+      << plan.made.size()
+      << "; i++) {\n"
+         "        const x, y = dwbreak(units[2 * i])[[0, 1]];\n"
+         "        const type, player, property = dwbreak(units[2 * i + 1])[[0, 4, 5]];\n"
+         "        // The game makes no preplaced units for a slot of players 1 to 8 that nobody plays.\n"
+         "        if (player < 8 && !playerexist(player)) continue;\n"
+         "        setloc(1, x, y, x, y);\n";
+    if (sets.empty()) {
+        o << "        CreateUnit(1, type, 1, player);\n";
+    } else {
+        // CreateUnitWithProperties takes its property set when the map is built: one case for each set.
+        o << "        switch (property) {\n"
+             "        case 0: CreateUnit(1, type, 1, player); break;\n";
+        for (size_t k = 0; k < sets.size(); ++k)
+            o << "        case " << k + 1 << ": CreateUnitWithProperties(1, type, 1, player, UnitProperty(" << *sets[k] << ")); break;\n";
+        o << "        }\n";
+    }
+    o << "    }\n"
+         "    setloc(1, left, top, right, bottom);\n"
          "    SetMemory(0x58DC70, SetTo, flags);\n"
          "}\n";
     plan.code = o.str();
+    // The table in a Python module: plain data in the map (in epScript, each value of a list is an object of its own).
+    plan.table = "# Generated by StarDraft with remake.eps: the preplaced units that it makes, in the map's UNIT order, two values\n"
+                 "# each: x | y << 16, then type | player << 16 | property set << 24 (0: none; n: case n in remake.eps). Do not edit.\n"
+                 "from eudplib import EUDArray\n\n"
+                 "units = EUDArray([\n" +
+                 table.str() + "])\n";
     return plan;
+}
+
+bool EudProject::writeRemakeCode(const RemakePlan& plan, std::string& error) {
+    std::error_code ec;
+    const fs::path table = folder() / "generated" / "remake_units.py";
+    // Python's cache of the table goes: it knows a change by the file's time in seconds and its size, and a table with
+    // other values has the same size.
+    for (auto it = fs::directory_iterator(folder() / "generated" / "__pycache__", ec); !ec && it != fs::directory_iterator(); it.increment(ec))
+        if (it->path().filename().string().rfind("remake_units.", 0) == 0) fs::remove(it->path(), ec);
+    ec.clear();
+    if (plan.code.empty()) fs::remove(table, ec);
+    else if (fs::create_directories(table.parent_path(), ec), !writeFile(table, plan.table, error)) return false;
+    return writeGeneratedScript("remake.eps", plan.code, error);
 }
 
 bool EudProject::writeBuildMap(const std::vector<size_t>& leaveOut, std::string& error) {

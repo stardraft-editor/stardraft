@@ -314,37 +314,51 @@ int main(int argc, char** argv) {
               "the plan: 8 units made, 1 in a transport and 2 linked stay (" + std::to_string(plan.made.size()) + ", " + std::to_string(plan.loaded) +
                   ", " + std::to_string(plan.linked) + ")");
         check(plan.properties == 6, "one unit property for each different set of values (" + std::to_string(plan.properties) + ")");
-        // A unit of players 1 to 8: only when the player is in the game.
-        auto lines = [&](size_t i, const std::string& create) {
+        // The code: a table with one record for each unit, in the UNIT order (x | y << 16, then type | player << 16 |
+        // property set << 24), and one loop with one case for each property set.
+        auto record = [&](size_t i, unsigned set) {
             const Unit& u = remakeUnits[i];
-            const std::string in = u.owner < 8 ? "        " : "    ";
-            const std::string body = in + "setloc(1, " + std::to_string(u.x) + ", " + std::to_string(u.y) + ", " + std::to_string(u.x) + ", " +
-                                     std::to_string(u.y) + ");  // UNIT " + std::to_string(i) + ": " + types[u.type].name + "\n" + in + create + "\n";
-            return u.owner < 8 ? "    if (playerexist(P" + std::to_string(u.owner + 1) + ")) {\n" + body + "    }\n" : body;
+            char r[64];
+            std::snprintf(r, sizeof r, "    0x%08X, 0x%08X,", unsigned(u.x) | unsigned(u.y) << 16, unsigned(u.type) | unsigned(u.owner) << 16 | set << 24);
+            return std::string(r) + "  # UNIT " + std::to_string(i) + ": " + types[u.type].name + "\n";
         };
         const std::string& c = plan.code;
-        const std::vector<std::string> creates = {
-            "CreateUnit(1, 0, 1, P1);",
-            "CreateUnitWithProperties(1, 0, 1, P2, UnitProperty(hitpoint=50));",
-            "CreateUnitWithProperties(1, 0, 1, P1, UnitProperty(hitpoint=50));",
-            "CreateUnitWithProperties(1, 1, 1, P1, UnitProperty(energy=30, cloaked=True));",
-            "CreateUnitWithProperties(1, 0, 1, P3, UnitProperty(hallucinated=True, invincible=True));",
-            "CreateUnitWithProperties(1, 176, 1, P12, UnitProperty(resource=777));",
-            "CreateUnitWithProperties(1, 106, 1, P1, UnitProperty(intransit=True));",
-            "CreateUnitWithProperties(1, 72, 1, P4, UnitProperty(shield=25, hanger=4));",
-        };
+        const std::string& t = plan.table;
+        const std::vector<unsigned> setOf = {0, 1, 1, 2, 3, 4, 5, 6};  // the property set of each unit of `want`
         size_t pos = 0;
         bool inOrder = true;
         for (size_t k = 0; k < want.size(); ++k) {
-            const std::string w = lines(want[k], creates[k]);
-            const size_t found = c.find(w, pos);
+            const std::string w = record(want[k], setOf[k]);
+            const size_t found = t.find(w, pos);
             if (found == std::string::npos) std::printf("      missing, in order: %s", w.c_str());
             inOrder &= found != std::string::npos;
             pos = found == std::string::npos ? pos : found + w.size();
         }
-        size_t creations = 0;
-        for (size_t f = c.find(" CreateUnit"); f != std::string::npos; f = c.find(" CreateUnit", f + 1)) ++creations;
-        check(inOrder && creations == want.size(), "the code makes each unit once, in the UNIT order, on its place, with its values");
+        size_t records = 0;
+        for (size_t f = t.find("  # UNIT "); f != std::string::npos; f = t.find("  # UNIT ", f + 1)) ++records;
+        check(inOrder && records == want.size() && c.find("UNIT") == c.find("UNIT order") && c.find("import remake_units;") != std::string::npos,
+              "the table (a Python module that the code imports) has one record for each unit, in the UNIT order, with its place, type, owner and set");
+        const std::vector<std::string> cases = {
+            "        case 0: CreateUnit(1, type, 1, player); break;\n",
+            "        case 1: CreateUnitWithProperties(1, type, 1, player, UnitProperty(hitpoint=50)); break;\n",
+            "        case 2: CreateUnitWithProperties(1, type, 1, player, UnitProperty(energy=30, cloaked=True)); break;\n",
+            "        case 3: CreateUnitWithProperties(1, type, 1, player, UnitProperty(hallucinated=True, invincible=True)); break;\n",
+            "        case 4: CreateUnitWithProperties(1, type, 1, player, UnitProperty(resource=777)); break;\n",
+            "        case 5: CreateUnitWithProperties(1, type, 1, player, UnitProperty(intransit=True)); break;\n",
+            "        case 6: CreateUnitWithProperties(1, type, 1, player, UnitProperty(shield=25, hanger=4)); break;\n",
+        };
+        bool allCases = true;
+        for (const std::string& k : cases) allCases &= c.find(k) != std::string::npos;
+        size_t creates = 0, loops = 0;
+        for (size_t f = c.find(" CreateUnit"); f != std::string::npos; f = c.find(" CreateUnit", f + 1)) ++creates;
+        for (size_t f = c.find("for ("); f != std::string::npos; f = c.find("for (", f + 1)) ++loops;
+        check(allCases && creates == cases.size() && loops == 1 && c.find("for (var i = 0; i < 8; i++)") != std::string::npos &&
+                  c.find("if (player < 8 && !playerexist(player)) continue;") != std::string::npos,
+              "one loop over the table: one case for each property set, the units of empty slots left out");
+        const EudProject::RemakePlan plain = EudProject::planRemake({remakeUnits[0]}, types, changed);
+        check(plain.made.size() == 1 && plain.code.find("switch") == std::string::npos &&
+                  plain.code.find("        CreateUnit(1, type, 1, player);\n") != std::string::npos,
+              "no property sets: CreateUnit with no switch");
         check(c.find("EUDLoopCUnit") == std::string::npos && c.find("RemoveUnit") == std::string::npos, "no search for units at the start");
         const EudProject::RemakePlan tight = EudProject::planRemake(remakeUnits, types, changed, 2);
         check(tight.properties == 2 && tight.noProperty == 4 && tight.made.size() == 4,
@@ -364,7 +378,7 @@ int main(int argc, char** argv) {
         const EudProject::RemakePlan whole = EudProject::planRemake(all, types, changed);
         check(whole.made.size() >= own.made.size() && whole.made.back() == before.size() + 9, "the whole map's plan has these units too");
         check(pr.writeBuildMap(whole.made, err) && fs::exists(pr.buildMap()), "the build map is written" + err);
-        check(pr.writeGeneratedScript("remake.eps", whole.code, err), "remake.eps written");
+        check(pr.writeRemakeCode(whole, err) && fs::exists(pr.folder() / "generated" / "remake_units.py"), "remake.eps and its table written");
         Bytes built;
         check(readMapChk(pr.buildMap(), built, err), "the build map reads");
         const std::vector<Unit> left = readUnits(Chk::parse(built));
