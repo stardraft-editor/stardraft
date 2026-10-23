@@ -710,10 +710,10 @@ void simSeek(int frame) {
 // Restart, Skip to the end and Cancel (at the end: Restart, Report and Close). Mining has a thin timeline along the
 // pill's bottom edge: how far the game is, of its longest time; a click or a drag goes to that time.
 // The buttons' ids (gSim.hot, gSim.pressed): 0 Cancel/Close, 1 the speed/Report, 2 Restart, 3 the info icon, 4 -, 5 +,
-// 6 Skip to the end, 7 the mining's settings.
+// 6 Skip to the end, 7 the mining's settings, 8 Report feedback.
 constexpr float kSimSpeeds[] = {0.25f, 0.5f, 1, 2, 4, 8, 16, 32, 64};
 struct SimBarLayout {
-    draw::Rect bar, chip, text, first, second, third, minus, plus, skip, gear, track, trackHit;
+    draw::Rect bar, chip, text, first, second, third, minus, plus, skip, gear, feedback, track, trackHit;
 };
 SimBarLayout simLayout(draw::Rect r) {
     SimBarLayout l;
@@ -734,6 +734,7 @@ SimBarLayout simLayout(draw::Rect r) {
     }
     draw::Rect firstButton = gSim.done ? l.third : l.minus;
     if (!gSim.combat) l.gear = left(firstButton, ib), firstButton = l.gear;  // (mining: its settings)
+    l.feedback = left(firstButton, ib), firstButton = l.feedback;           // Report feedback
     l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};  // the info icon
     l.text = {l.chip.right + scale(6), y, firstButton.left - scale(8), y + h};
     if (gSim.combat) return l;  // (a combat has no timeline: it goes on until no side can fight)
@@ -838,6 +839,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         c.text(b, label, primary ? draw::rgb(255, 255, 255) : lit ? kText : kDim, draw::kCenter | draw::kMiddle);
     };
     iconButton(2, l.third, UiIcon::ToStart);
+    iconButton(8, l.feedback, UiIcon::Feedback);
     if (!gSim.combat) iconButton(7, l.gear, UiIcon::Settings);
     if (gSim.done) {
         textButton(1, l.second, L"Report", true);
@@ -848,6 +850,40 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         iconButton(6, l.skip, UiIcon::ToEnd);
     }
     iconButton(0, l.first, UiIcon::Close);
+}
+
+// The bar's Report feedback: the text box starts with short facts about the game (under a line, so the user writes
+// above them): what runs, the game time and speed, the map, the units alive of each side, the result or an error.
+void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text);  // (sdl_options.inc)
+std::wstring simDiagnostics() {
+    sim::Simulator& e = simEngine();
+    const int frame = simSkipRunning() ? gSimSkipFrame.load() : e.frame();
+    std::wstring t = L"\n\n---\n";
+    t += gSim.combat ? L"Combat" : L"Mining";
+    t += L", " + simClock(frame) + L" (frame " + std::to_wstring(frame) + L"), " + simSpeedText(gSim.speed);
+    if (gSim.done) t += L", ended: " + gSim.result;
+    if (simSkipRunning()) t += L", skipping";
+    if (const Editor* ed = gState.ed.get())
+        t += L"\nMap: " + std::to_wstring(ed->width()) + L" x " + std::to_wstring(ed->height()) + L", " + kTilesetNames[ed->era() & 7] +
+             L", " + std::to_wstring(ed->units().size()) + L" units";
+    if (!simSkipRunning()) {
+        if (gSim.combat) {
+            const sim::CombatResult r = e.combatResult();
+            for (const sim::CombatSide& s : r.teams) {
+                std::wstring players;
+                for (int pl : s.players) players += (players.empty() ? L"" : L",") + std::to_wstring(pl + 1);
+                t += L"\nPlayer " + players + L": " + std::to_wstring(s.alive) + L" of " + std::to_wstring(s.units) + L" alive";
+                if (s.unreachable) t += L", " + std::to_wstring(s.unreachable) + L" out of reach";
+            }
+            if (r.stalemate) t += L"\nDraw";
+        } else {
+            int workers = 9, gas = 3;
+            prefs::number(L"SimWorkers", workers, 1, 60), prefs::number(L"SimGasWorkers", gas, 0, 3);
+            t += L"\n" + std::to_wstring(gSim.bases) + L" bases, " + std::to_wstring(workers) + L" workers, " + std::to_wstring(gas) + L" on gas";
+        }
+    }
+    if (!e.liveError().empty()) t += L"\nError: " + widen(e.liveError());
+    return t;
 }
 
 // The mining's settings (the bar's gear): the workers on minerals and on gas at each base, as Program options has them;
@@ -895,7 +931,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         return true;
     }
     const int over = e.kind == draw::MouseKind::Leave ? -1 : hit(l.first) ? 0 : (gSim.done && hit(l.second)) ? 1 : hit(l.third) ? 2 : hit(l.chip) ? 3
-                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : (!gSim.combat && hit(l.gear)) ? 7 : -1;
+                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : (!gSim.combat && hit(l.gear)) ? 7 : hit(l.feedback) ? 8 : -1;
     if (over != gSim.hot) gSim.hot = over, simRedraw();
     if (e.kind == draw::MouseKind::Up && e.button == 0 && gSim.pressed >= 0) {
         const int was = gSim.pressed;
@@ -908,6 +944,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
         else if (was == 6) simSkipToEnd();
         else if (was == 7) shellPost([] { simMiningSettingsMenu(); });
+        else if (was == 8) shellPost([] { showFeedbackFilledSdl(L"the simulation", simDiagnostics()); });
         return true;
     }
     const bool in = hit(l.bar);
@@ -938,6 +975,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.plus)) return L"Faster";
     if (in(l.skip)) return L"Skip to the end";
     if (!gSim.combat && in(l.gear)) return L"Workers and gas";
+    if (in(l.feedback)) return L"Report feedback on the simulation";
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
     if (in(l.first)) return gSim.done ? L"Close" : L"Cancel the simulation";
     return {};
