@@ -543,6 +543,63 @@ bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
     return true;
 }
 
+// The live game's sound player: at most 32 sounds at a time, at most 3 of one sound, and one sound does not start again
+// within 60 ms (a crowd's attacks are not a wall of noise). Each sound plays in stereo, panned by `pan` (-1 left, 1
+// right) with an equal-power law, at `gain` times the program's volume. The decoded sounds are kept (as mono floats).
+void simPlaySound(int sfx, float pan, float gain) {
+    struct Voice {
+        SDL_AudioStream* stream;
+        int sfx;
+    };
+    struct Mono {
+        int freq = 0;
+        std::vector<float> samples;
+    };
+    static std::vector<Voice> voices;
+    static std::map<int, Mono> decoded;
+    static std::map<int, Uint64> lastStart;
+    for (auto it = voices.begin(); it != voices.end();)
+        if (SDL_GetAudioStreamQueued(it->stream) <= 0) SDL_DestroyAudioStream(it->stream), it = voices.erase(it);
+        else ++it;
+    if (voices.size() >= 32) return;
+    if (std::count_if(voices.begin(), voices.end(), [&](const Voice& v) { return v.sfx == sfx; }) >= 3) return;
+    const Uint64 now = SDL_GetTicks();
+    if (auto l = lastStart.find(sfx); l != lastStart.end() && now - l->second < 60) return;
+    auto it = decoded.find(sfx);
+    if (it == decoded.end()) {
+        Mono m;
+        SDL_AudioSpec spec{};
+        std::vector<Uint8> pcm;
+        if (sdlSfxLoad(sfx, spec, pcm)) {
+            const SDL_AudioSpec mono{SDL_AUDIO_F32, 1, spec.freq};
+            Uint8* out = nullptr;
+            int len = 0;
+            if (SDL_ConvertAudioSamples(&spec, pcm.data(), int(pcm.size()), &mono, &out, &len)) {
+                m.freq = spec.freq;
+                m.samples.assign(reinterpret_cast<float*>(out), reinterpret_cast<float*>(out) + size_t(len) / sizeof(float));
+                SDL_free(out);
+            }
+        }
+        if (decoded.size() > 128) decoded.clear();
+        it = decoded.emplace(sfx, std::move(m)).first;
+    }
+    const Mono& m = it->second;
+    if (m.samples.empty()) return;
+    const SDL_AudioSpec stereo{SDL_AUDIO_F32, 2, m.freq};
+    SDL_AudioStream* s = openPlaybackSdl(&stereo);
+    if (!s) return;
+    const float a = (std::clamp(pan, -1.0f, 1.0f) + 1) * 0.785398f / 2;  // (0 to pi/2)
+    const float left = std::cos(a), right = std::sin(a);
+    std::vector<float> lr(m.samples.size() * 2);
+    for (size_t i = 0; i < m.samples.size(); ++i) lr[2 * i] = m.samples[i] * left, lr[2 * i + 1] = m.samples[i] * right;
+    SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * std::clamp(gain, 0.0f, 1.0f));
+    SDL_PutAudioStreamData(s, lr.data(), int(lr.size() * sizeof(float)));
+    SDL_FlushAudioStream(s);
+    SDL_ResumeAudioStreamDevice(s);
+    voices.push_back({s, sfx});
+    lastStart[sfx] = now;
+}
+
 // The game's sounds (attacks, deaths, hits) that are in the view or near it, at the program's volume (Program options;
 // at 0 none play, and a test run plays nothing); at most 8 at a time (sfxPlayOnce). A seek drops the sounds it went past.
 void simSounds(bool play) {
@@ -559,10 +616,16 @@ void simSounds(bool play) {
     shellViewSize(vw, vh);
     float x0, y0, x1, y1;
     toWorld(0, 0, x0, y0), toWorld(vw, vh, x1, y1);
-    const float margin = 64;
+    const float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = std::max(1.0f, (x1 - x0) / 2), hh = std::max(1.0f, (y1 - y0) / 2);
     std::set<int> heard;  // (one of each sound a frame)
-    for (const sim::LiveSound& s : sounds)
-        if (s.x >= x0 - margin && s.x <= x1 + margin && s.y >= y0 - margin && s.y <= y1 + margin && heard.insert(s.sfx).second) sfxPlayOnce(s.sfx);
+    for (const sim::LiveSound& s : sounds) {
+        // Where it is from the view's middle (1: the view's edge): left or right of the middle, louder near it, quieter
+        // outside the view, none beyond half a view out.
+        const float dx = (float(s.x) - cx) / hw, dy = (float(s.y) - cy) / hh, d = std::max(std::fabs(dx), std::fabs(dy));
+        if (d > 1.5f || !heard.insert(s.sfx).second) continue;
+        const float gain = (d <= 1 ? 1.0f - 0.35f * d : 0.65f * (1.5f - d) / 0.5f);
+        simPlaySound(s.sfx, std::clamp(dx, -1.0f, 1.0f) * 0.8f, gain);
+    }
 }
 
 // The game at `frame` (Restart: 0; the timeline): the game again from the start, run at once to that frame (the
