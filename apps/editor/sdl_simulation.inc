@@ -543,13 +543,16 @@ bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
     return true;
 }
 
-// The live game's sound player: at most 32 sounds at a time, at most 3 of one sound, and one sound does not start again
-// within 60 ms (a crowd's attacks are not a wall of noise). Each sound plays in stereo, panned by `pan` (-1 left, 1
-// right) with an equal-power law, at `gain` times the program's volume. The decoded sounds are kept (as mono floats).
-void simPlaySound(int sfx, float pan, float gain) {
+// The live game's sound player: at most 64 sounds at a time, at most 3 of one sound, and one sound does not start again
+// within 60 ms (a crowd's attacks are not a wall of noise). The sounds near the view's middle come first: with 64
+// playing, a nearer sound stops the farthest one. Each sound plays in stereo, panned by `pan` (-1 left, 1 right) with an
+// equal-power law, at `gain` times the program's volume; `dist` is its distance from the view's middle (1: the view's
+// edge). The decoded sounds are kept (as mono floats).
+void simPlaySound(int sfx, float pan, float gain, float dist) {
     struct Voice {
         SDL_AudioStream* stream;
         int sfx;
+        float dist;
     };
     struct Mono {
         int freq = 0;
@@ -561,8 +564,13 @@ void simPlaySound(int sfx, float pan, float gain) {
     for (auto it = voices.begin(); it != voices.end();)
         if (SDL_GetAudioStreamQueued(it->stream) <= 0) SDL_DestroyAudioStream(it->stream), it = voices.erase(it);
         else ++it;
-    if (voices.size() >= 32) return;
     if (std::count_if(voices.begin(), voices.end(), [&](const Voice& v) { return v.sfx == sfx; }) >= 3) return;
+    if (voices.size() >= 64) {  // (full: the farthest sound gives way to a nearer one)
+        auto farthest = std::max_element(voices.begin(), voices.end(), [](const Voice& a, const Voice& b) { return a.dist < b.dist; });
+        if (farthest->dist <= dist) return;
+        SDL_DestroyAudioStream(farthest->stream);
+        voices.erase(farthest);
+    }
     const Uint64 now = SDL_GetTicks();
     if (auto l = lastStart.find(sfx); l != lastStart.end() && now - l->second < 60) return;
     auto it = decoded.find(sfx);
@@ -596,7 +604,7 @@ void simPlaySound(int sfx, float pan, float gain) {
     SDL_PutAudioStreamData(s, lr.data(), int(lr.size() * sizeof(float)));
     SDL_FlushAudioStream(s);
     SDL_ResumeAudioStreamDevice(s);
-    voices.push_back({s, sfx});
+    voices.push_back({s, sfx, dist});
     lastStart[sfx] = now;
 }
 
@@ -617,14 +625,23 @@ void simSounds(bool play) {
     float x0, y0, x1, y1;
     toWorld(0, 0, x0, y0), toWorld(vw, vh, x1, y1);
     const float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = std::max(1.0f, (x1 - x0) / 2), hh = std::max(1.0f, (y1 - y0) / 2);
-    std::set<int> heard;  // (one of each sound a frame)
+    // Where each is from the view's middle (1: the view's edge): left or right of the middle, louder near it, quieter
+    // outside the view, none beyond half a view out. The nearest first.
+    struct Heard {
+        int sfx;
+        float dx, d;
+    };
+    std::vector<Heard> close;
     for (const sim::LiveSound& s : sounds) {
-        // Where it is from the view's middle (1: the view's edge): left or right of the middle, louder near it, quieter
-        // outside the view, none beyond half a view out.
         const float dx = (float(s.x) - cx) / hw, dy = (float(s.y) - cy) / hh, d = std::max(std::fabs(dx), std::fabs(dy));
-        if (d > 1.5f || !heard.insert(s.sfx).second) continue;
-        const float gain = (d <= 1 ? 1.0f - 0.35f * d : 0.65f * (1.5f - d) / 0.5f);
-        simPlaySound(s.sfx, std::clamp(dx, -1.0f, 1.0f) * 0.8f, gain);
+        if (d <= 1.5f) close.push_back({s.sfx, dx, d});
+    }
+    std::stable_sort(close.begin(), close.end(), [](const Heard& a, const Heard& b) { return a.d < b.d; });
+    std::set<int> heard;  // (one of each sound a frame: the nearest)
+    for (const Heard& h : close) {
+        if (!heard.insert(h.sfx).second) continue;
+        const float gain = (h.d <= 1 ? 1.0f - 0.35f * h.d : 0.65f * (1.5f - h.d) / 0.5f);
+        simPlaySound(h.sfx, std::clamp(h.dx, -1.0f, 1.0f) * 0.8f, gain, h.d);
     }
 }
 
