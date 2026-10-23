@@ -112,7 +112,15 @@ void simScene(render::Scene& s) {
         d.owner = uint8_t(std::clamp(li.owner, 0, 11));
         d.air = li.air;
         d.hasSortY = true, d.sortY = float(li.sortY);
-        d.depthBias = li.order * 0.0001f;
+        // The drawing order is the game's: by elevation level (0 to 19: remnants, ground units, their hits above them,
+        // air units), then by place within a level. The renderer's depth (renderer.cpp: by air and sortY, less the
+        // bias) gets the bias that gives depth = 0.95 - 0.045 x elevation - 0.04 x (the place down the map, 0 to 1).
+        {
+            const float yn = std::clamp(float(li.sortY) / float(std::max(1, gState.ed->height() * 32)), 0.0f, 1.0f);
+            const float base = li.air ? 0.2f - 0.15f * yn : 0.95f - 0.7f * yn;
+            const float want = 0.95f - 0.045f * float(std::clamp(li.elevation, 0, 19)) - 0.04f * yn;
+            d.depthBias = base - want + li.order * 0.0001f;
+        }
         d.shadow = sp.isShadow(li.image);
         d.glow = sp.drawFunction(li.image) == 9;
         // A sprite's main image with what its script puts under and over it (the shadow, lights), as the map draws its
