@@ -30,7 +30,7 @@ struct LiveSim {
     bool shown = false;  // the bar shows: a game runs, or ended and shows its end
     bool combat = false, done = false;
     const Editor* ed = nullptr;  // the map it runs on (another tab, or the map closed: it ends)
-    int speed = 1;               // the game's speed times this: 1, 2, 4, 8, 16
+    float speed = 1;             // the game's speed times this (kSimSpeeds)
     std::chrono::steady_clock::time_point last;
     double due = 0;  // frames due (parts of a frame)
     int players[2] = {0, 1};
@@ -663,27 +663,66 @@ void simSeek(int frame) {
 }
 
 // The bar: a compact pill at the top middle of the map. At the left an info icon (its tooltip: what the simulation
-// is), then what runs and the game time (at the end the result); at the right the buttons: Restart, the speed (at the
-// end Report) and Cancel (at the end Close). Mining has a thin timeline along the pill's bottom edge: how far the game
-// is, of its longest time; a click or a drag goes to that time.
+// is), then what runs and the game time (at the end the result); at the right the buttons: the speed with - and +,
+// Restart, Skip to the end and Cancel (at the end: Restart, Report and Close). Mining has a thin timeline along the
+// pill's bottom edge: how far the game is, of its longest time; a click or a drag goes to that time.
+// The buttons' ids (gSim.hot, gSim.pressed): 0 Cancel/Close, 1 the speed/Report, 2 Restart, 3 the info icon, 4 -, 5 +,
+// 6 Skip to the end.
+constexpr float kSimSpeeds[] = {0.25f, 0.5f, 1, 2, 4, 8, 16, 32, 64};
 struct SimBarLayout {
-    draw::Rect bar, chip, text, first, second, third, track, trackHit;
+    draw::Rect bar, chip, text, first, second, third, minus, plus, skip, track, trackHit;
 };
 SimBarLayout simLayout(draw::Rect r) {
     SimBarLayout l;
-    const int h = scale(40), pad = scale(5), ib = h - 2 * pad, tw = scale(gSim.done ? 64 : 44);
-    const int w = std::min(int(r.right - r.left) - scale(16), scale(gSim.done ? 460 : 400)), x = (r.left + r.right - w) / 2, y = r.top + scale(10);
+    const int h = scale(40), pad = scale(5), ib = h - 2 * pad, gap = scale(2), tw = scale(gSim.done ? 64 : 46);
+    const int w = std::min(int(r.right - r.left) - scale(16), scale(gSim.done ? 460 : 480)), x = (r.left + r.right - w) / 2, y = r.top + scale(10);
+    auto left = [&](draw::Rect of, int width) { return draw::Rect{of.left - gap - width, y + pad, of.left - gap, y + pad + ib}; };
     l.bar = {x, y, x + w, y + h};
-    l.first = {l.bar.right - pad - ib, y + pad, l.bar.right - pad, y + pad + ib};                  // Cancel / Close (an icon)
-    l.second = {l.first.left - scale(4) - tw, y + pad, l.first.left - scale(4), y + pad + ib};    // the speed / Report (words)
-    l.third = {l.second.left - scale(4) - ib, y + pad, l.second.left - scale(4), y + pad + ib};   // Restart (an icon)
-    l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};                                        // the info icon
-    l.text = {l.chip.right + scale(6), y, l.third.left - scale(8), y + h};
+    l.first = {l.bar.right - pad - ib, y + pad, l.bar.right - pad, y + pad + ib};  // Cancel / Close
+    if (gSim.done) {
+        l.second = left(l.first, tw);  // Report
+        l.third = left(l.second, ib);  // Restart
+    } else {
+        l.skip = left(l.first, ib);    // Skip to the end
+        l.third = left(l.skip, ib);    // Restart
+        l.plus = left(l.third, ib);    // +
+        l.second = left(l.plus, tw);   // the speed
+        l.minus = left(l.second, ib);  // -
+    }
+    const draw::Rect firstButton = gSim.done ? l.third : l.minus;
+    l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};  // the info icon
+    l.text = {l.chip.right + scale(6), y, firstButton.left - scale(8), y + h};
     if (gSim.combat) return l;  // (a combat has no timeline: it goes on until no side can fight)
     const int inset = h / 2;
     l.track = {x + inset, l.bar.bottom - scale(4), l.bar.right - inset, l.bar.bottom - scale(2)};
     l.trackHit = {l.track.left - scale(6), l.bar.bottom - scale(9), l.track.right + scale(6), l.bar.bottom + scale(3)};
     return l;
+}
+
+// The speed as the bar shows it: 0.25x, 0.5x, 1x, 2x ...
+std::wstring simSpeedText(float s) {
+    std::wstring t = s == 0.25f ? L"0.25" : s == 0.5f ? L"0.5" : std::to_wstring(int(s));
+    return t + L"\x00D7";
+}
+
+// The next speed down (-1) or up (+1).
+void simStepSpeed(int dir) {
+    const size_t n = std::size(kSimSpeeds);
+    size_t at = 0;
+    while (at + 1 < n && kSimSpeeds[at] < gSim.speed) ++at;
+    if (dir < 0 && at > 0) --at;
+    if (dir > 0 && at + 1 < n) ++at;
+    gSim.speed = kSimSpeeds[at];
+}
+
+// Skip to the end: the rest of the game runs at once (no sounds), then the result and its report show.
+void simSkipToEnd() {
+    if (!gSim.shown || gSim.done) return;
+    sim::Simulator& e = simEngine();
+    for (int n = 0; n < 100000 && e.step(600); ++n) {}
+    simSounds(false);
+    simEnd();
+    shellPost([] { simShowReport(); });
 }
 
 }  // namespace
@@ -730,8 +769,14 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         c.text(b, label, primary ? draw::rgb(255, 255, 255) : lit ? kText : kDim, draw::kCenter | draw::kMiddle);
     };
     iconButton(2, l.third, UiIcon::ToStart);
-    if (gSim.done) textButton(1, l.second, L"Report", true);
-    else textButton(1, l.second, std::to_wstring(gSim.speed) + L"\x00D7", false);
+    if (gSim.done) {
+        textButton(1, l.second, L"Report", true);
+    } else {
+        textButton(4, l.minus, L"\x2212", false);
+        c.text(l.second, simSpeedText(gSim.speed), kText, draw::kCenter | draw::kMiddle);
+        textButton(5, l.plus, L"+", false);
+        iconButton(6, l.skip, UiIcon::ToEnd);
+    }
     iconButton(0, l.first, UiIcon::Close);
 }
 
@@ -749,22 +794,19 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         if (e.kind == draw::MouseKind::Up && e.button == 0) gSim.seeking = false;
         return true;
     }
-    const int over = e.kind == draw::MouseKind::Leave ? -1 : hit(l.first) ? 0 : hit(l.second) ? 1 : hit(l.third) ? 2 : hit(l.chip) ? 3 : -1;
+    const int over = e.kind == draw::MouseKind::Leave ? -1 : hit(l.first) ? 0 : (gSim.done && hit(l.second)) ? 1 : hit(l.third) ? 2 : hit(l.chip) ? 3
+                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : -1;
     if (over != gSim.hot) gSim.hot = over, simRedraw();
     if (e.kind == draw::MouseKind::Up && e.button == 0 && gSim.pressed >= 0) {
         const int was = gSim.pressed;
         gSim.pressed = -1;
         simRedraw();
         if (was != over || was == 3) return true;  // (let go elsewhere, or on the info icon: nothing)
-        if (was == 2) {
-            simSeek(0);
-        } else if (was == 0) {
-            simClose();
-        } else if (gSim.done) {
-            shellPost([] { simShowReport(); });
-        } else {
-            gSim.speed = gSim.speed >= 16 ? 1 : gSim.speed * 2;
-        }
+        if (was == 2) simSeek(0);
+        else if (was == 0) simClose();
+        else if (was == 1) shellPost([] { simShowReport(); });
+        else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
+        else if (was == 6) simSkipToEnd();
         return true;
     }
     const bool in = hit(l.bar);
@@ -790,7 +832,10 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     auto in = [&](draw::Rect b) { return pt.x >= b.left && pt.x < b.right && pt.y >= b.top && pt.y < b.bottom; };
     if (in(l.chip)) return kSimInfoTip;
     if (in(l.third)) return L"Restart";
-    if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed (click for the next speed)";
+    if (in(l.minus)) return L"Slower";
+    if (in(l.plus)) return L"Faster";
+    if (in(l.skip)) return L"Skip to the end";
+    if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
     if (in(l.first)) return gSim.done ? L"Close" : L"Cancel the simulation";
     return {};
 }
@@ -820,7 +865,7 @@ void simFrame() {
 // Tools > Simulate mining: at each start location, placed resource depot and group of mineral fields (at most 8), the
 // workers of Program options > Simulation (default 9 on minerals and 3 on gas), 30 seconds, then the measured game
 // minutes (default 3); the races as in the map (a random race for Random and a race picked in the lobby) or one race.
-// At 4 times the game's speed (the bar changes it).
+// At the game's speed (the bar's - and + change it).
 void simulateMiningCommand() {
     int workers = 9, gas = 3, minutes = 3, races = 0;
     prefs::number(L"SimWorkers", workers, 1, 60), prefs::number(L"SimGasWorkers", gas, 0, 3);
@@ -834,7 +879,7 @@ void simulateMiningCommand() {
     o.mapRaces = races == 0;
     o.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count());  // (Random: another race each time)
     if (!simBegin(false, [o](std::string& err) { return simEngine().startMining(o, err); })) return;
-    gSim.speed = 4, gSim.workers = workers, gSim.bases = int(simEngine().miningResult().size());
+    gSim.speed = 1, gSim.workers = workers, gSim.bases = int(simEngine().miningResult().size());
 }
 
 // Tools > Simulate combat of the selected units: the selected units of all players fight where they stand (each unit
