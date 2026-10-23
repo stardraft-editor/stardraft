@@ -1875,13 +1875,15 @@ list (or player array)	목록 (또는 플레이어 배열)
 New graphics for preplaced units: 	새 그래픽(배치된 유닛): 
  unit is	개 유닛이
  units are	개 유닛이
- made again at the start	 시작할 때 다시 만들어집니다
+ made at the start from the map's data	 시작할 때 맵의 데이터로 만들어집니다
  preplaced unit keeps	개 배치된 유닛이
  preplaced units keep	개 배치된 유닛이
- the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	 이전 그래픽을 유지합니다: 새 유닛은 은폐, 잠복, 이륙, 탑승 상태이거나 환영이거나, 애드온 또는 땅굴 망과 연결되거나, 요격기나 스캐럽을 가질 수 없습니다.
- of the units that are made again stands	개의 다시 만들어지는 유닛이
- of the units that are made again stand	개의 다시 만들어지는 유닛이
- where the game cannot put a unit. The game puts it near its place, or does not make it again.	 게임이 유닛을 놓을 수 없는 곳에 있습니다. 게임은 유닛을 그 근처에 놓거나, 다시 만들지 않습니다.
+ the old graphics: a unit in a transport stays in the map.	 이전 그래픽을 유지합니다: 수송선 안의 유닛은 맵에 남습니다.
+ the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.	 이전 그래픽을 유지합니다: 애드온 또는 땅굴 망과 연결된 유닛은 맵에 남습니다.
+ the old graphics: the map has no free unit property (of 64) for their values.	 이전 그래픽을 유지합니다: 맵에 그 값을 위한 빈 유닛 속성(64개 중)이 없습니다.
+ of the units that the map makes stands	개의 맵이 만드는 유닛이
+ of the units that the map makes stand	개의 맵이 만드는 유닛이
+ where the game cannot put a unit. The game puts it near its place, or does not make it.	 게임이 유닛을 놓을 수 없는 곳에 있습니다. 게임은 유닛을 그 근처에 놓거나, 만들지 않습니다.
 The project 	프로젝트 
  is open already	이(가) 이미 열려 있습니다
 All location slots are in use	모든 위치 슬롯을 사용 중입니다
@@ -2003,7 +2005,7 @@ The text with its codes as <XX> ("<<" is a "<")	코드를 <XX>로 표시한 텍�
 New graphics for preplaced units	배치된 유닛의 새 그래픽
 New graphics for preplaced units off	배치된 유닛의 새 그래픽 끔
 New graphics for preplaced units on	배치된 유닛의 새 그래픽 켬
-The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	게임은 .dat 편집보다 먼저 배치된 유닛을 만들므로, 그 유닛은 이전 그래픽을 유지합니다. 이 옵션을 켜면 맵은 편집으로 그래픽이 바뀐 배치된 유닛을 제거하고, 시작할 때 같은 자리에 다시 만듭니다. 맵 보기는 이 유닛을 새 그래픽으로 표시합니다. 게임이 유닛을 놓을 수 없는 곳(다른 유닛 위나 설 수 없는 땅)에 있는 유닛은 근처로 옮겨지거나, 게임이 다시 만들지 않습니다.
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, Build takes each preplaced unit that the edits give other graphics out of the built map, and the map makes it at the start, on its place and with its values. The project's map does not change. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it.	게임은 .dat 편집보다 먼저 배치된 유닛을 만들므로, 그 유닛은 이전 그래픽을 유지합니다. 이 옵션을 켜면 빌드는 편집으로 그래픽이 바뀐 배치된 유닛을 빌드된 맵에서 빼고, 맵은 시작할 때 그 유닛을 같은 자리에 같은 값으로 만듭니다. 프로젝트의 맵은 바뀌지 않습니다. 맵 보기는 이 유닛을 새 그래픽으로 표시합니다. 게임이 유닛을 놓을 수 없는 곳(다른 유닛 위나 설 수 없는 땅)에 있는 유닛은 근처로 옮겨지거나, 게임이 만들지 않습니다.
 StarDraft 2 map	StarDraft 2 맵
 . The old program is 	. 이전 프로그램: 
 ). Type it as a number	). 숫자로 입력하십시오

@@ -154,7 +154,8 @@ bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* n
 
 // --- New graphics for preplaced units (Project page, R8) -------------------------------------------------------------
 // The game makes the preplaced units before the .dat edits run, so they keep the game's graphics. With the option on,
-// Build adds code that makes them again, and the map shows them with the edited graphics.
+// Build takes these units out of the map that euddraft gets and adds code that makes them at the start with the values
+// from the map, and the map view shows them with the edited graphics.
 
 // The project's units.dat, flingy.dat, sprites.dat and images.dat edits on `sp`.
 void applyProjectGraphics(UnitSprites& sp) {
@@ -190,55 +191,130 @@ std::vector<uint16_t> remakeUnitTypes() {
     return types;
 }
 
-// generated/remake.eps, or none when the option is off. `notes` gets how many units the code makes again, and how many
-// stand where the game cannot put them.
-bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>& notes) {
+// The unit properties (UPRP) that the remake code can use: the map has 64, and its triggers use some. The map's UPUS
+// marks the ones of its classic triggers; each CreateUnitWithProperties or UnitProperty in the project's code (the
+// triggers' code, the scripts, the .eps and .py files beside them and in the scripts folder, which scripts can import)
+// can take one.
+int freeUnitProperties(const EudProject& pr) {
     AppState& app = appState();
-    std::vector<EudProject::RemakeType> list;
+    int used = 0;
+    if (const auto* upus = app.ed->chk().find("UPUS"))
+        for (size_t i = 0; i < upus->data.size() && i < size_t(EudProject::kUnitProperties); ++i) used += upus->data[i] != 0;
+    auto occurrences = [](const std::string& text, const char* word) {
+        int n = 0;
+        for (size_t at = text.find(word); at != std::string::npos; at = text.find(word, at + 1)) ++n;
+        return n;
+    };
+    std::set<fs::path> files;
+    for (const std::string& s : pr.scripts()) files.insert(pr.scriptFile(s).lexically_normal());
+    // The files beside each script (an import names a module in its folder), and all of the project's scripts folder.
+    std::set<fs::path> folders = {pr.folder() / "scripts"};
+    for (const fs::path& f : files) folders.insert(f.parent_path());
+    std::error_code ec;
+    auto add = [&](const fs::path& f) {
+        if (f.extension() == ".eps" || f.extension() == ".py") files.insert(f.lexically_normal());
+    };
+    for (const fs::path& dir : folders) {
+        const bool all = dir == pr.folder() / "scripts";
+        if (all) {
+            for (auto it = fs::recursive_directory_iterator(dir, fs::directory_options::skip_permission_denied, ec);
+                 !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
+                const std::string name = it->path().filename().string();
+                if (it->is_directory(ec) && (name == "__epspy__" || name == "__pycache__")) it.disable_recursion_pending();
+                else add(it->path());
+            }
+        } else {
+            for (auto it = fs::directory_iterator(dir, ec); !ec && it != fs::directory_iterator(); it.increment(ec)) add(it->path());
+        }
+        ec.clear();
+    }
+    const fs::path remake = (pr.folder() / "generated" / "remake.eps").lexically_normal();
+    for (const fs::path& file : files) {
+        if (file == remake || (file.extension() != ".eps" && file.extension() != ".py")) continue;
+        std::ifstream f(file, std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        used += std::max(occurrences(text, "CreateUnitWithProperties"), occurrences(text, "UnitProperty("));
+    }
+    return std::max(0, EudProject::kUnitProperties - used);
+}
+
+// The free unit properties of the last Build of the active project (the map view reads them, and does not read the
+// project's files again on each change of the map); -1: not known yet.
+int gRemakeFreeProperties = -1;
+const EudProject* gRemakeFreePropertiesFor = nullptr;
+
+// For the map view: whether the remake code makes the unit `u` of the open map (the plan that Build makes), so that it
+// shows the edited graphics. A unit that is not in the map's list (a preview) asks remakeKeeps.
+bool remakeMakesUnit(const Unit& u) {
+    AppState& app = appState();
+    static const Editor* forEd = nullptr;
+    static const EudProject* forProject = nullptr;
+    static uint64_t forRevision = 0;
+    static int forEdits = -1, forFree = -1;
+    static std::vector<bool> made;
+    const EudProject* pr = activeProject();
+    if (!app.ed || !pr) return false;
+    const auto& units = app.ed->units();
+    const auto& types = app.ed->unitTypes();
+    const Unit* in = &u;
+    if (units.empty() || &u < units.data() || &u >= units.data() + units.size()) {
+        // A copy (a unit that is being moved): the map's unit with its serial and type.
+        auto it = std::find_if(units.begin(), units.end(), [&](const Unit& m) { return m.serial == u.serial && m.type == u.type; });
+        if (it == units.end()) return !EudProject::remakeKeeps(u, u.type < types.size() && types[u.type].is(UnitFlag::Building));
+        in = &*it;
+    }
+    if (gRemakeFreePropertiesFor != pr) gRemakeFreeProperties = freeUnitProperties(*pr), gRemakeFreePropertiesFor = pr;
+    if (forEd != app.ed.get() || forProject != pr || forRevision != app.ed->revision() || forEdits != dataState().edits ||
+        forFree != gRemakeFreeProperties || made.size() != units.size()) {
+        forEd = app.ed.get(), forProject = pr, forRevision = app.ed->revision(), forFree = gRemakeFreeProperties;
+        const std::vector<uint16_t> changed = remakeUnitTypes();  // (it loads the project's data: the edits' count after it)
+        forEdits = dataState().edits;
+        made.assign(units.size(), false);
+        for (size_t i : EudProject::planRemake(units, types, changed, gRemakeFreeProperties).made) made[i] = true;
+    }
+    return made[size_t(in - units.data())];
+}
+
+// generated/remake.eps, or none when the option is off. `leaveOut` gets the UNIT indexes of the units that the code
+// makes (the map that euddraft gets leaves them out: writeBuildMap). `notes` gets how many units the code makes, how
+// many keep the old graphics and why, and how many stand where the game cannot put them.
+bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>& notes, std::vector<size_t>& leaveOut) {
+    AppState& app = appState();
+    leaveOut.clear();
+    EudProject::RemakePlan plan;
     if (pr.remakeUnits() && app.ed) {
         const auto& types = app.ed->unitTypes();
         const auto& units = app.ed->units();
-        const auto nydus = types.findByName("Zerg Nydus Canal");
-        std::set<uint16_t> changed, hangars;
-        for (const Unit& u : units)
-            if (u.validProps & UnitProp::Hangar) hangars.insert(u.type);
-        for (uint16_t t : remakeUnitTypes())
-            if (t < types.size()) {
-                changed.insert(t);
-                const UnitType& ut = types[t];
-                list.push_back({t, ut.name, ut.is(UnitFlag::Building), ut.is(UnitFlag::ResourceContainer), ut.is(UnitFlag::Addon), nydus && *nydus == t,
-                                hangars.count(t) != 0, ut.is(UnitFlag::Cloakable)});
-            }
+        gRemakeFreeProperties = freeUnitProperties(pr), gRemakeFreePropertiesFor = &pr;
+        plan = EudProject::planRemake(units, types, remakeUnitTypes(), gRemakeFreeProperties);
+        leaveOut = plan.made;
         // The game puts a unit only where it fits: a ground unit on walkable ground (a building on buildable ground), and
         // not on other ground units. Air units can be on top of each other.
         PlacementContext ctx = app.ed->placementContext();
         ctx.stacking = false;
-        int count = 0, kept = 0, blocked = 0;
-        for (size_t i = 0; i < units.size(); ++i) {
+        int blocked = 0;
+        for (size_t i : plan.made) {
             const Unit& u = units[i];
-            if (!changed.count(u.type)) continue;
-            if (EudProject::remakeKeeps(u)) {
-                ++kept;
-                continue;
-            }
-            ++count;
             const UnitType& ut = types[u.type];
             if (ut.is(UnitFlag::Flyer) && !ut.is(UnitFlag::Building)) continue;
             const auto issues = checkPlacement(ctx, u, int(i));
             blocked += std::any_of(issues.begin(), issues.end(), [](PlacementIssue p) { return p != PlacementIssue::NearResources; });
         }
+        const int count = int(plan.made.size());
         if (count)
             notes.push_back(tr(L"New graphics for preplaced units: ") + std::to_wstring(count) + tr(count == 1 ? L" unit is" : L" units are") +
-                            tr(L" made again at the start"));
-        if (kept)
-            notes.push_back(std::to_wstring(kept) + tr(kept == 1 ? L" preplaced unit keeps" : L" preplaced units keep") +
-                            tr(L" the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a "
-                               L"Nydus Canal, or have interceptors or scarabs."));
+                            tr(L" made at the start from the map's data"));
+        auto kept = [&](int n, const wchar_t* why) {
+            if (n) notes.push_back(std::to_wstring(n) + tr(n == 1 ? L" preplaced unit keeps" : L" preplaced units keep") + tr(why));
+        };
+        kept(plan.loaded, L" the old graphics: a unit in a transport stays in the map.");
+        kept(plan.linked, L" the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.");
+        kept(plan.noProperty, L" the old graphics: the map has no free unit property (of 64) for their values.");
         if (blocked)
-            notes.push_back(std::to_wstring(blocked) + tr(blocked == 1 ? L" of the units that are made again stands" : L" of the units that are made again stand") +
-                            tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it again."));
+            notes.push_back(std::to_wstring(blocked) + tr(blocked == 1 ? L" of the units that the map makes stands" : L" of the units that the map makes stand") +
+                            tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it."));
     }
-    return pr.writeGeneratedScript("remake.eps", EudProject::remakeUnitsScript(list), err);
+    return pr.writeGeneratedScript("remake.eps", plan.code, err);
 }
 
 // --- The build -------------------------------------------------------------------------------------------------------
@@ -324,13 +400,20 @@ void compileProject() {
         return;
     }
     std::vector<std::wstring> remakeNotes;
-    if (!writeRemakeCode(*pr, err, remakeNotes)) {
+    std::vector<size_t> leaveOut;
+    if (!writeRemakeCode(*pr, err, remakeNotes, leaveOut)) {
         shellLogError(widen(err));
         buildStatus(L"Did not build the map: " + widen(err));
         return;
     }
     if ((app.ed->modified() || app.ed->path() != pr->inputMap()) && !app.ed->save(pr->inputMap(), err)) {
         shellErrorBox(widen(err), L"Could not save the project's map");
+        return;
+    }
+    // The map that euddraft gets: the project's map without the units that the remake code makes.
+    if (!pr->writeBuildMap(leaveOut, err)) {
+        shellLogError(widen(err));
+        buildStatus(L"Did not build the map: " + widen(err));
         return;
     }
     updateTitle();

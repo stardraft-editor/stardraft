@@ -33,11 +33,15 @@ Accelerated improvements, and the missing features based on early user feedback.
   The game makes preplaced units before the map's data edits run. These units keep the game's graphics. Make them
   again at map start.
 
-  Status (2026-10-18): on main. The Project page option "New graphics for preplaced units" makes the units again at map
-  start and shows them with the new graphics on the map. Open questions:
-  - Check in the game that the units are made again with the new graphics, on their places, with their values.
-  - Units that a new unit cannot copy keep the old graphics: cloaked, burrowed, lifted, loaded, hallucinations, units
-    linked to an add-on or a Nydus Canal, and units with interceptors or scarabs. Is that acceptable?
+  Status (2026-10-23): on main. The Project page option "New graphics for preplaced units" shows the units with the new
+  graphics on the map. Build takes these units out of the map that euddraft gets (the project's map does not change),
+  and the map's code makes them at the start, in their order, from the map's data: owner, place, hit points, shields,
+  energy, resources, hangar, and the states cloaked, burrowed, lifted, hallucination and invincible (one unit property
+  for each different set of values). Units in a transport and units linked to an add-on or a Nydus Canal stay in the
+  map with the old graphics. Open questions:
+  - Check in the game that the units are made with the new graphics, on their places, with their values (also cloaked,
+    burrowed, lifted, hallucinations and hangars).
+  - Units that the game cannot put on their place (on other units) move near it. Is that acceptable?
 - [ ] **R2 Terrain rendering accuracy.** *Tag:* Terrain.
   All tilesets look the same in StarDraft 2 as in the game, in HD, SD and Carbot.
 

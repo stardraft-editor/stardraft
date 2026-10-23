@@ -29,6 +29,7 @@
 namespace stardraft {
 
 struct Unit;
+class UnitTypes;
 
 class EudProject {
 public:
@@ -103,32 +104,42 @@ public:
     // traceReport() when it closes (eptrace.h). Call save() to keep a change.
     bool traceBuild() const;
     void setTraceBuild(bool on);
-    // New graphics for preplaced units ("remake: 1" in [project]; not written to the .eds): the map's code removes each
-    // preplaced unit that the .dat edits give other graphics, and makes it again at the start, so that it shows them
-    // (remakeUnitsScript). Call save() to keep a change.
+    // New graphics for preplaced units ("remake: 1" in [project]; not written to the .eds): the game makes the preplaced
+    // units before the .dat edits run, so they keep the old graphics. With this option, Build takes each preplaced unit
+    // that the edits give other graphics out of the map that euddraft gets (writeBuildMap), and the map's code makes it
+    // at the start, in the UNIT order, on its place, for its owner and with its values (planRemake). The project's map
+    // does not change. Call save() to keep a change.
     bool remakeUnits() const;
     void setRemakeUnits(bool on);
     // The doodads pinned to the top of the Doodads palette, in the order they were pinned ("doodadpins: 12,45" in
     // [project]; not written to the .eds). Call save() to keep a change.
     std::vector<uint16_t> doodadPins() const;
     void setDoodadPins(const std::vector<uint16_t>& ids);
-    // The code for that: each unit of `types` removed and made again on its place with the same owner, hit points,
-    // shields, energy, resources and invincibility. The units that a new unit cannot copy stay as they are: not
-    // finished, burrowed, loaded, hallucinations, lifted buildings, cloaked units, units with an add-on, an attached
-    // add-on, a linked Nydus Canal, and units with interceptors or scarabs. Empty for no types.
-    struct RemakeType {
-        uint16_t type = 0;
-        std::string name;
-        bool building = false;   // stays when it is lifted or has an add-on
-        bool resources = false;  // a mineral field or a geyser: its resources go to the new unit
-        bool addon = false;      // stays when it is attached
-        bool nydus = false;      // a Nydus Canal: stays when it has an exit
-        bool hangar = false;     // stays when it has interceptors or scarabs
-        bool cloakable = false;  // stays when it is cloaked
+    // Whether a preplaced unit stays in the map (with the old graphics), by what the map's UNIT section says of it: a unit
+    // in a transport (in transit, not a building), and a unit linked to an add-on or a Nydus Canal. `building`: its
+    // type is a building (a lifted building is in transit too, and the code makes it).
+    static bool remakeKeeps(const Unit& unit, bool building);
+    // A unit property (UPRP) for each different set of values: a map has 64, for its triggers and for this code.
+    static constexpr int kUnitProperties = 64;
+    struct RemakePlan {
+        std::vector<size_t> made;  // the UNIT indexes of the units that the code makes (writeBuildMap leaves them out)
+        int loaded = 0;            // kept: in a transport
+        int linked = 0;            // kept: linked to an add-on or a Nydus Canal (or the other unit of the link)
+        int noProperty = 0;        // kept: their values need more unit properties than `freeProperties`
+        int properties = 0;        // the unit properties that the code uses
+        std::string code;          // generated/remake.eps (empty when it makes no units)
     };
-    // Whether a preplaced unit stays (see above), by what the map's UNIT section says of it.
-    static bool remakeKeeps(const Unit& unit);
-    static std::string remakeUnitsScript(const std::vector<RemakeType>& types);
+    // The plan for the units of `units` (the map's UNIT section) whose type is in `types`. The code makes each with
+    // CreateUnitWithProperties, with a unit property for its hit points, shields, energy, resources, hangar and states
+    // (cloaked, burrowed, lifted, hallucination, invincible); a unit with the default values gets none. Units with values
+    // that need more than `freeProperties` different properties stay in the map.
+    static RemakePlan planRemake(const std::vector<Unit>& units, const UnitTypes& unitTypes, const std::vector<uint16_t>& types,
+                                 int freeProperties = kUnitProperties);
+    // The map that euddraft gets: the project's map without the UNIT entries `leaveOut` (UNIT indexes), written to
+    // buildMap(); the .eds's input is then that map. Empty `leaveOut`: the .eds's input is the project's map, and an
+    // old build map goes.
+    bool writeBuildMap(const std::vector<size_t>& leaveOut, std::string& error);
+    std::filesystem::path buildMap() const { return folder() / "generated" / inputMap().filename(); }
     std::filesystem::path traceMap() const { return std::filesystem::path(outputMap()) += ".epmap"; }
     std::filesystem::path traceReport() const { return traceMap() += ".prof"; }
     // A euddraft plugin with no settings or a few ([unlimiter], [noAirCollision], [bgmplayer], [dataDumper]): whether
@@ -165,6 +176,7 @@ public:
                                   const std::function<void(const std::string&)>& onLine = {}) const;
 
 private:
+    bool useBuildMap_ = false;  // the .eds's input is buildMap() (writeBuildMap)
     std::string mainValue(const std::string& key) const;
     bool read(const std::filesystem::path& file, bool eds, std::string& error);
     std::string text(bool eds) const;

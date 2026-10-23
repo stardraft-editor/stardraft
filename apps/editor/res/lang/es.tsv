@@ -1874,13 +1874,15 @@ list (or player array)	lista (o matriz por jugador)
 New graphics for preplaced units: 	Gráficos nuevos para unidades colocadas: 
  unit is	 unidad se
  units are	 unidades se
- made again at the start	 vuelven a crear al inicio
+ made at the start from the map's data	 crean al inicio con los datos del mapa
  preplaced unit keeps	 unidad colocada mantiene
  preplaced units keep	 unidades colocadas mantienen
- the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	 los gráficos antiguos: una unidad nueva no puede estar camuflada, enterrada, despegada, cargada, ser una alucinación, estar enlazada a un anexo o a un Canal Nydus, ni tener interceptores o escarabajos.
- of the units that are made again stands	 de las unidades que se vuelven a crear está
- of the units that are made again stand	 de las unidades que se vuelven a crear están
- where the game cannot put a unit. The game puts it near its place, or does not make it again.	 donde el juego no puede poner una unidad. El juego la pone cerca de su lugar, o no la vuelve a crear.
+ the old graphics: a unit in a transport stays in the map.	 los gráficos antiguos: una unidad en un transporte se queda en el mapa.
+ the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.	 los gráficos antiguos: una unidad unida a un acople o a un Canal Nydus se queda en el mapa.
+ the old graphics: the map has no free unit property (of 64) for their values.	 los gráficos antiguos: el mapa no tiene una propiedad de unidad libre (de 64) para sus valores.
+ of the units that the map makes stands	 de las unidades que crea el mapa está
+ of the units that the map makes stand	 de las unidades que crea el mapa están
+ where the game cannot put a unit. The game puts it near its place, or does not make it.	 donde el juego no puede poner una unidad. El juego la pone cerca de su lugar, o no la crea.
 The project 	El proyecto 
  is open already	 ya está abierto
 All location slots are in use	Todas las ranuras de ubicación están en uso
@@ -2003,7 +2005,7 @@ The text with its codes as <XX> ("<<" is a "<")	El texto con sus códigos como <
 New graphics for preplaced units	Gráficos nuevos para unidades colocadas
 New graphics for preplaced units off	Gráficos nuevos para unidades colocadas desactivados
 New graphics for preplaced units on	Gráficos nuevos para unidades colocadas activados
-The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	El juego crea las unidades colocadas antes de las ediciones de .dat, así que mantienen los gráficos antiguos. Con esta opción, el mapa quita cada unidad colocada a la que las ediciones dan otros gráficos, y la vuelve a crear en su lugar al inicio. La vista del mapa muestra estas unidades con los gráficos nuevos. Una unidad donde el juego no puede poner una unidad (sobre otras unidades o en un terreno donde no puede estar) se mueve cerca de su lugar, o el juego no la vuelve a crear.
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, Build takes each preplaced unit that the edits give other graphics out of the built map, and the map makes it at the start, on its place and with its values. The project's map does not change. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it.	El juego crea las unidades colocadas antes de las ediciones de .dat, así que mantienen los gráficos antiguos. Con esta opción, Compilar quita del mapa compilado cada unidad colocada a la que las ediciones dan otros gráficos, y el mapa la crea al inicio, en su lugar y con sus valores. El mapa del proyecto no cambia. La vista del mapa muestra estas unidades con los gráficos nuevos. Una unidad donde el juego no puede poner una unidad (sobre otras unidades o en un terreno donde no puede estar) se mueve cerca de su lugar, o el juego no la crea.
 StarDraft 2 map	Mapa de StarDraft 2
 . The old program is 	. El programa antiguo es 
 ). Type it as a number	). Escríbalo como un número

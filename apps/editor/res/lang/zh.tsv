@@ -1873,13 +1873,15 @@ list (or player array)	列表（或玩家数组）
 New graphics for preplaced units: 	预放置单位的新图形：
  unit is	 个单位
  units are	 个单位
- made again at the start	在开始时重新创建
+ made at the start from the map's data	在开始时按地图数据创建
  preplaced unit keeps	 个预放置单位保留
  preplaced units keep	 个预放置单位保留
- the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	旧图形：新单位不能隐形、潜地、升空、装载、作为幻象、连接到附加建筑或虫道，也不能带有截击机或圣甲虫。
- of the units that are made again stands	 个重新创建的单位位于
- of the units that are made again stand	 个重新创建的单位位于
- where the game cannot put a unit. The game puts it near its place, or does not make it again.	游戏无法放置单位的位置。游戏会把它放在附近，或不再创建它。
+ the old graphics: a unit in a transport stays in the map.	旧图形：运输单位中的单位留在地图中。
+ the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.	旧图形：与附加建筑或虫道相连的单位留在地图中。
+ the old graphics: the map has no free unit property (of 64) for their values.	旧图形：地图没有可用于其数值的空闲单位属性（共 64 个）。
+ of the units that the map makes stands	 个地图创建的单位位于
+ of the units that the map makes stand	 个地图创建的单位位于
+ where the game cannot put a unit. The game puts it near its place, or does not make it.	游戏无法放置单位的位置。游戏会把它放在附近，或不创建它。
 The project 	项目
  is open already	 已打开
 All location slots are in use	所有位置槽都已使用
@@ -2003,7 +2005,7 @@ The text with its codes as <XX> ("<<" is a "<")	以 <XX> 显示代码的文本�
 New graphics for preplaced units	预放置单位的新图形
 New graphics for preplaced units off	预放置单位的新图形：关
 New graphics for preplaced units on	预放置单位的新图形：开
-The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	游戏会在 .dat 编辑之前创建预放置单位，所以它们保留旧图形。启用此选项后，地图会移除编辑后图形改变的每个预放置单位，并在开始时在原位重新创建。地图视图以新图形显示这些单位。位于游戏无法放置单位之处（其他单位上或无法站立的地面上）的单位会移到附近，或游戏不再创建它。
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, Build takes each preplaced unit that the edits give other graphics out of the built map, and the map makes it at the start, on its place and with its values. The project's map does not change. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it.	游戏会在 .dat 编辑之前创建预放置单位，所以它们保留旧图形。启用此选项后，构建会从构建的地图中移除编辑后图形改变的每个预放置单位，地图会在开始时在原位以其数值创建它。项目的地图不会改变。地图视图以新图形显示这些单位。位于游戏无法放置单位之处（其他单位上或无法站立的地面上）的单位会移到附近，或游戏不创建它。
 StarDraft 2 map	StarDraft 2 地图
 . The old program is 	。旧程序是
 ). Type it as a number	）。请以数字输入
