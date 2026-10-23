@@ -105,11 +105,11 @@ std::wstring simClock(int frames) {  // game time at Fastest, m:ss
 }
 
 // The alliances of a combat (Program options' SimAlliances; the bar's gear): who fights whom.
-enum SimAlliances { kComputersAllied = 0, kMapForces = 1, kHumansVsComputers = 2, kFreeForAll = 3 };
+enum SimAlliances { kComputersAllied = 0, kMapForces = 1, kHumansVsComputers = 2, kFreeForAll = 3, kUnitFreeForAll = 4 };
 constexpr int kTeamComputers = 8, kTeamHumans = 9, kTeamForce = 10;  // (team numbers; a force: kTeamForce + 0 to 3)
 int simAlliances() {
     int a = kComputersAllied;
-    prefs::number(L"SimAlliances", a, 0, 3);
+    prefs::number(L"SimAlliances", a, 0, 4);
     return a;
 }
 // A player's team for the alliances `a`: its own number (alone), the computers' or the humans' team, or its force's.
@@ -124,6 +124,7 @@ int simTeamOf(const Editor& ed, int player, int a) {
 }
 
 std::set<int> gSimCombatSelection;  // the units that fought last (the gear starts the fight again with them)
+std::vector<std::pair<int, int>> gSimCombatPlaced;  // the fight's placed units (type, player): the last unit standing
 
 // Skip to the end runs the game on a thread of its own, as fast as the computer can: the window shows the last
 // picture and a spinner meanwhile, and touches the engine only through these (simSkipFrame: the game's frame).
@@ -390,6 +391,12 @@ void simEnd() {
             if (t.team == r.winner) won = &t;
         std::wstring winner = won ? teamName(*won) + L" wins" : r.stalemate ? L"Draw: Units cannot reach each other" : r.timedOut ? L"No winner: 10 game minutes went by" : L"No winner";
         if (won && r.helpless >= 0) winner += L" (the others have only units that cannot attack)";
+        if (simAlliances() == kUnitFreeForAll && r.winnerUnit >= 0 && size_t(r.winnerUnit) < gSimCombatPlaced.size()) {
+            const auto [type, owner] = gSimCombatPlaced[size_t(r.winnerUnit)];
+            const auto nm = gSim.unitNames.find(type);
+            winner = (nm != gSim.unitNames.end() ? nm->second : L"Unit " + std::to_wstring(type)) + L" of player " + std::to_wstring(owner + 1) +
+                     L" is the last unit standing";
+        }
         int unreachable = 0;
         for (const sim::CombatSide& t : r.teams) unreachable += t.unreachable;
         if (!won && !r.timedOut && !r.stalemate && unreachable)
@@ -430,7 +437,8 @@ void simEnd() {
                        L" out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)", true);
         }
         const int al = simAlliances();
-        const std::wstring who = al == kMapForces ? L"the map's forces fight each other" : al == kHumansVsComputers ? L"the human players fight the computer players"
+        const std::wstring who = al == kUnitFreeForAll ? L"every unit fights every other unit" : al == kMapForces ? L"the map's forces fight each other"
+                               : al == kHumansVsComputers ? L"the human players fight the computer players"
                                : al == kFreeForAll ? L"each player fights alone" : L"the computer players are allies, each other player fights alone";
         d.para(L"Fastest, with the map's upgrades; " + who + L"; each unit attacks the enemies it can reach until none are left, for 10 "
                L"game minutes at most.", true);
@@ -934,7 +942,8 @@ void simCombatSettingsMenu() {
     const std::pair<int, const wchar_t*> kinds[] = {{kComputersAllied, L"Computers together, each human alone"},
                                                     {kHumansVsComputers, L"Humans against computers"},
                                                     {kMapForces, L"The map's forces"},
-                                                    {kFreeForAll, L"Free for all"}};
+                                                    {kFreeForAll, L"Free for all"},
+                                                    {kUnitFreeForAll, L"Every unit against every other"}};
     for (const auto& [value, label] : kinds) {
         items.push_back(stardraft::kit::MenuItem{});
         items.back().label = label, items.back().checked = value == now;
@@ -1124,6 +1133,7 @@ void simulateCombatOf(std::set<int> selected) {
     std::vector<int> owners;
     sim::CombatOptions o;
     o.byPlayer = true;
+    o.unitFreeForAll = simAlliances() == kUnitFreeForAll;
     o.frames = 10 * 60 * 1000 / 42;  // (a safety cap: the fight ends when no team can reach an enemy)
     const int alliances = simAlliances();
     std::set<int> teams;
@@ -1141,6 +1151,7 @@ void simulateCombatOf(std::set<int> selected) {
         if (std::find(owners.begin(), owners.end(), int(u.owner)) == owners.end()) owners.push_back(u.owner);
         o.team[u.owner] = simTeamOf(ed, u.owner, alliances);
         teams.insert(o.team[u.owner]);
+        if (o.unitFreeForAll) teams.insert(1000 + int(i));  // (each unit its own side)
     }
     if (teams.size() < 2) {
         if (gRoot)
@@ -1155,6 +1166,8 @@ void simulateCombatOf(std::set<int> selected) {
     for (const sim::PlacedUnit& p : o.placed) names[p.unitType] = widen(ed.unitTypes().statText(uint32_t(p.unitType)));
     if (!simBegin(true, [o](std::string& err) { return simEngine().startCombat(o, err); })) return;
     gSimCombatSelection = std::move(selected);
+    gSimCombatPlaced.clear();
+    for (const sim::PlacedUnit& pu : o.placed) gSimCombatPlaced.push_back({pu.unitType, pu.side});
     gState.ed->clearSelection();  // (the map's selection does not show over the fight)
     gSim.players[0] = owners[0], gSim.players[1] = owners[1], gSim.unitNames = names, gSim.speed = 1;
 }
