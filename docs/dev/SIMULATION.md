@@ -171,6 +171,17 @@ level, the layer the editor draws by (lower levels first, then by `sortY` within
   highest level (`elevationHighest`: 19), lowsprul the lowest (`elevationLowest`: 0: remnants under all); an image
   that a script makes (imgol, imgul) is part of its parent's sprite and has its level.
 
+Script instructions for pictures: nobrkcodestart and nobrkcodeend (a new animation, such as the Archon's walking
+during its Init, waits until the end of that part, so the Init's imgol of the Being and the Swirl runs);
+tmprmgraphicstart and tmprmgraphicend (the image is not drawn between them: the Swirl's first frames);
+trgtrangecondjmp (the jump when the unit's target is within the range); imgoluselo and imguluselo (the place from
+the parent image's attack overlay .lo file at its frame, x mirrored with it). An overlay made by imgol is drawn just
+above its parent image, one made by imgul just under it (the Archon: Energy, Being, attack overlay, Swirl).
+setfldirect in an overlay's script (the Being's Init) is not applied: pictures do not change the game.
+
+sim_test's Archon images check: the Archon's and the Dark Archon's Energy, Being and Swirl in that order, in their
+frame ranges, and the Archon's attack overlay at its .lo offset.
+
 sim_test's drawing layers check: in fight 1 and the Siege Tank fight, each hit image (a weapon's own image and the
 sprites its script makes above it) has a level above the ground units'.
 

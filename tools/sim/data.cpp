@@ -153,6 +153,23 @@ bool Tables::load(const FileReader& reader, std::string& error) {
             }
             imageFrames[size_t(i)] = known->second;
         }
+        // An .lo file: by frame, the offsets of each of its overlays.
+        auto readLo = [&](int entry, std::vector<std::vector<std::pair<int, int>>>& out) {
+            std::string name = tblName(entry);
+            if (name.empty() || !reader(name, lo) || lo.size() < 8) return;
+            Reader rl{lo};
+            int count = std::min(rl.u32(0), int(lo.size() - 8) / 4), each = std::clamp(rl.u32(4), 0, 64);
+            for (int frame = 0; frame < count; ++frame) {
+                size_t at = size_t(rl.u32(8 + size_t(frame) * 4));
+                std::vector<std::pair<int, int>> offsets;
+                for (int k = 0; k < each && at + size_t(k) * 2 + 1 < lo.size(); ++k)
+                    offsets.push_back({int8_t(rl.u8(at + size_t(k) * 2)), int8_t(rl.u8(at + size_t(k) * 2 + 1))});
+                out.push_back(offsets);
+            }
+        };
+        attackOffsets.assign(999, {});
+        for (int i = 0; i < 999; ++i)
+            if (int entry = ri.u32(17982 + size_t(i) * 4)) readLo(entry, attackOffsets[size_t(i)]);
         for (int worker = 0; worker < int(units.size()); ++worker) {  // (the workers: SCV, Drone, Probe)
             if (!(units[size_t(worker)].flags & kWorker)) continue;
             int image = flingyImage(units[size_t(worker)].flingy);

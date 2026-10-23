@@ -1044,8 +1044,10 @@ bool runElevationCheck(const sim::Tables& t, const sim::MapInfo& map) {
             int pc = todo.back();
             todo.pop_back();
             while (pc > 0 && seen.insert(pc).second) {
-                int len = t.opLength(pc), op = s[size_t(pc)];
-                if (len < 0 || op == 0x16 || op == 0x36) break;
+                int len = t.opLength(pc);
+                if (len < 0) break;
+                int op = s[size_t(pc)];
+                if (op == 0x16 || op == 0x36) break;
                 if ((op == 0x0F || op == 0x10 || op == 0x42) && u16(pc + 1) < int(t.spriteImage.size()))
                     out.insert(t.spriteImage[size_t(u16(pc + 1))]);
                 if (op == 0x07) {
@@ -1089,6 +1091,73 @@ bool runElevationCheck(const sim::Tables& t, const sim::MapInfo& map) {
         bool good = seen > 0 && low == 0;
         std::printf("Drawing layers: %s: %d hit images, %d at or under the ground units' elevation %d: %s\n", s.name,
                     seen, low, ground, good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
+// The Archon's images (its scripts): the Energy with the Being over it and the Swirl over both (Init's imgol 135,
+// imgol 136, after its nobrkcodeend), each in its frame range: Energy 0 to 26, Being's idle and walking sets 170 to
+// 221 and its attack sets 0 to 153 (+ 16 directions), Swirl 0 to 14; the attack overlay (imgoluselo 549) at its
+// .lo offset while the target is farther than 48 pixels. The Dark Archon: Energy, Being, Swirl.
+bool runArchonImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    struct Kind {
+        int unit, energy, being, swirl, overlay;
+    };
+    bool ok = true;
+    for (const Kind& k : {Kind{68, 134, 135, 136, 549}, Kind{63, 925, 926, 927, -1}}) {
+        sim::World w(t, map);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.x = 3808;
+        o.y = 2384;
+        o.gap = 700;
+        o.players[1] = 1;
+        o.a = {{k.unit, 1}};
+        o.b = {{39, 1}};  // (an Ultralisk: large, so the Archon attacks from beyond 48 pixels)
+        std::string error;
+        if (!sim::setupCombat(w, o, error)) return false;
+        for (sim::Unit& u : w.units) u.hp = 100000 << 8;
+        int id = -1;
+        for (size_t i = 0; i < w.units.size(); ++i)
+            if (w.units[i].type == k.unit && id < 0) id = int(i);
+        int complete = 0, wrongOrder = 0, wrongFrame = 0, walkSet = 0, attackSet = 0, overlay = 0, frames = 240;
+        for (int f = 0; f < frames; ++f) {
+            w.step();
+            std::vector<sim::LiveImage> images;
+            w.images(images);
+            int at[3] = {-1, -1, -1};
+            for (size_t n = 0; n < images.size(); ++n) {
+                const sim::LiveImage& li = images[n];
+                if (li.owner != w.units[size_t(id)].owner || std::abs(li.x - w.units[size_t(id)].x) > 64 ||
+                    std::abs(li.y - w.units[size_t(id)].y) > 64)
+                    continue;
+                if (li.image == k.energy) {
+                    at[0] = int(n);
+                    wrongFrame += li.frame < 0 || li.frame > 26;
+                } else if (li.image == k.being) {
+                    at[1] = int(n);
+                    wrongFrame += li.frame < 0 || li.frame >= t.imageFrames[size_t(k.being)];
+                    if (k.overlay >= 0) (li.frame >= 170 ? walkSet : attackSet)++;
+                } else if (li.image == k.swirl) {
+                    at[2] = int(n);
+                    wrongFrame += li.frame < 0 || li.frame > 14;
+                } else if (li.image == k.overlay) {
+                    overlay += li.x != w.units[size_t(id)].x || li.y != w.units[size_t(id)].y;  // (its .lo offset)
+                }
+            }
+            if (at[0] >= 0 && at[1] >= 0 && at[2] >= 0) {
+                ++complete;
+                wrongOrder += !(at[0] < at[1] && at[1] < at[2]);
+            }
+        }
+        bool good = complete >= frames - 30 && wrongOrder == 0 && wrongFrame == 0 &&
+                    (k.overlay < 0 || (walkSet > 0 && attackSet > 0 && overlay > 0));
+        std::printf("Archon images: unit %d: Energy, Being and Swirl in %d of %d frames (%d in the wrong order), %d "
+                    "frames out of range; Being's walking sets %d, attack sets %d frames; attack overlay at its offset "
+                    "%d frames: %s\n",
+                    k.unit, complete, frames, wrongOrder, wrongFrame, walkSet, attackSet, overlay,
+                    good ? "OK" : "FAIL");
         ok = ok && good;
     }
     return ok;
@@ -1782,6 +1851,7 @@ int main(int argc, char** argv) {
         if (!runVolleyCheck(tables, map)) ++failures;
         if (!runMissileFlightCheck(tables, map)) ++failures;
         if (!runElevationCheck(tables, map)) ++failures;
+        if (!runArchonImageCheck(tables, map)) ++failures;
         if (!runDeathImageCheck(tables, map)) ++failures;
         if (!runUpgradeCheck(tables, map)) ++failures;
         if (!runHiddenImageCheck(tables, map)) ++failures;

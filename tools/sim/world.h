@@ -84,6 +84,9 @@ struct Tables {
     // The workers' main images: the first offset of their special overlay list (images.dat, its .lo file), by
     // frame: where a carried resource is drawn.
     std::vector<std::pair<int, std::vector<std::pair<int, int>>>> carryOffsets;
+    // Each image's attack overlay list (images.dat, its .lo file), by GRP frame, the offsets of each overlay: where
+    // imgoluselo and imguluselo put an image. Not there: none.
+    std::vector<std::vector<std::vector<std::pair<int, int>>>> attackOffsets;
     std::vector<uint8_t> iscript;
     std::vector<std::pair<int, int>> scripts;  // (iscript id, offset of its header)
     FileReader read;
@@ -131,6 +134,9 @@ enum Order : uint8_t {
 struct Anim {
     int header = -1, pc = 0, wait = 0, frame = 0, ret = 0;
     bool paused = true;
+    bool noBreak = false;  // (between nobrkcodestart and nobrkcodeend: a new animation waits for the end)
+    bool hidden = false;   // (between tmprmgraphicstart and tmprmgraphicend: not drawn)
+    int pending = -1;      // (that animation)
 };
 
 struct Unit {
@@ -211,6 +217,10 @@ public:
         int image = 0, x = 0, y = 0, owner = 0, heading = 0, elevation = 0;
         bool under = false, done = false;
         int follow = -1, dx = 0, dy = 0;  // (an overlay of a living unit: its unit and its offset)
+        // (an overlay: its place among its unit's images, the main image 0, those under it below 0; an overlay's own
+        // overlay just above or under it)
+        double layer = 0;
+        int depth = 0;
     };
     std::vector<Effect> effects;
     uint32_t effectSeed = 1;  // (their own random numbers: they never change the game's)
@@ -297,6 +307,10 @@ public:
     void stopMove(Unit& u);
     void setOrder(Unit& u, Order o);
     void startAnim(Anim& a, int anim);
+    bool noBreak(Anim& a, int op);
+    int grpFrame(int image, int frame, int heading, bool* flip = nullptr) const;
+    std::pair<int, int> loOffset(int parent, int frame, int heading, int overlay) const;
+    bool targetWithin(int unit, int range) const;
     void images(std::vector<LiveImage>& out) const;
     int gap(const Unit& a, const Unit& b) const;
     int pointGap(const Unit& v, int x, int y) const;

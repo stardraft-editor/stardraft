@@ -988,9 +988,62 @@ void World::animate(int unit, int anim) {
 void World::startAnim(Anim& a, int anim) {
     int pc = t.animOffset(a.header, anim);
     if (!pc) return;
+    if (a.noBreak && !a.paused && anim != kAnimDeath) {  // (a part that must not break: the animation waits)
+        a.pending = anim;
+        return;
+    }
     a.pc = pc;
     a.wait = 0;
     a.paused = false;
+    a.noBreak = false;
+    a.pending = -1;
+}
+
+// The GRP frame of an image's frame set at a heading: a turning image's set holds 17 directions (the others mirrored);
+// a set that the GRP has no room for (a death animation's frames after the last full set) is one frame.
+int World::grpFrame(int image, int frame, int heading, bool* flip) const {
+    if (flip) *flip = false;
+    if (image < 0 || size_t(image) >= t.imageTurns.size()) return frame;
+    int frames = size_t(image) < t.imageFrames.size() ? t.imageFrames[size_t(image)] : 0;
+    if (!t.imageTurns[size_t(image)] || (frames > 0 && frame + 17 > frames)) return frame;
+    int d = ((heading + 4) >> 3) & 31;
+    if (flip) *flip = d > 16;
+    return frame + (d > 16 ? 32 - d : d);
+}
+
+// imgoluselo and imguluselo: the place of an overlay from the parent image's attack overlay list at its frame (x
+// mirrored with the frame); not there: (0, 0).
+std::pair<int, int> World::loOffset(int parent, int frame, int heading, int overlay) const {
+    if (parent < 0 || size_t(parent) >= t.attackOffsets.size()) return {0, 0};
+    const auto& lo = t.attackOffsets[size_t(parent)];
+    bool flip = false;
+    int f = grpFrame(parent, frame, heading, &flip);
+    if (f < 0 || f >= int(lo.size()) || overlay >= int(lo[size_t(f)].size())) return {0, 0};
+    auto [x, y] = lo[size_t(f)][size_t(overlay)];
+    return {flip ? -x : x, y};
+}
+
+// trgtrangecondjmp: whether the unit's target is within the range (pixels).
+bool World::targetWithin(int unit, int range) const {
+    if (unit < 0 || units[size_t(unit)].target < 0) return false;
+    const Unit& u = units[size_t(unit)];
+    const Unit& v = units[size_t(u.target)];
+    return v.alive && octagonalLength(v.x - u.x, v.y - u.y) <= range;
+}
+
+// nobrkcodestart and nobrkcodeend: the start and the end of a part that a new animation does not break; at the end,
+// the animation that waited starts.
+bool World::noBreak(Anim& a, int op) {
+    if (op == 0x2E) {
+        a.noBreak = true;
+        return false;
+    }
+    a.noBreak = false;
+    int anim = a.pending;
+    a.pending = -1;
+    if (anim < 0) return false;
+    startAnim(a, anim);
+    return true;
 }
 
 // One frame of an image's iscript: the instructions up to the next wait. Instructions that only draw (overlays,
@@ -1074,17 +1127,26 @@ void World::runAnim(Anim& a, int unit, int bullet) {
             if (u && &a == &u->anim) {  // (the main image's: overlays stay with the unit, sprites go their own way)
                 int op = s[size_t(pc)];
                 int id = op == 0x3D ? t.flingyImage(t.units[size_t(u->type)].flingy) + 1 : u16(pc + 1);
-                bool lo = op == 0x0D || op == 0x0E;  // (offsets from a .lo file: not read, 0)
-                int dx = op == 0x3D ? int8_t(s[size_t(pc) + 1]) : lo ? 0 : int8_t(s[size_t(pc) + 3]);
-                int dy = op == 0x3D ? int8_t(s[size_t(pc) + 2]) : lo ? 0 : int8_t(s[size_t(pc) + 4]);
+                bool lo = op == 0x0D || op == 0x0E;  // (offsets from the image's attack overlay list)
+                auto at = lo ? loOffset(t.flingyImage(t.units[size_t(u->type)].flingy), a.frame, u->heading,
+                                        s[size_t(pc) + 3])
+                             : std::pair<int, int>{0, 0};
+                int dx = op == 0x3D ? int8_t(s[size_t(pc) + 1]) : lo ? at.first : int8_t(s[size_t(pc) + 3]);
+                int dy = op == 0x3D ? int8_t(s[size_t(pc) + 2]) : lo ? at.second : int8_t(s[size_t(pc) + 4]);
                 bool sprite = op >= 0x0F && op != 0x3D;
                 // (a sprite the game never draws: none)
                 bool shown = !sprite || (id < int(t.spriteImage.size()) && t.spriteVisible[size_t(id)]);
                 int image = !shown ? -1 : sprite ? t.spriteImage[size_t(id)] : id;
                 bool under = op == 0x09 || op == 0x0E || op == 0x3D || op == 0x11 || op == 0x14 || op == 0x42;
                 int level = t.units[size_t(u->type)].elevation;
+                size_t before = effects.size();
+                int above = 0, below = 0;  // (the unit's overlays so far)
+                for (const Effect& e : effects)
+                    if (e.follow == unit && e.depth == 0) (e.layer < 0 ? below : above)++;
                 addEffect(image, u->x + dx, u->y + dy, u->owner, u->heading,
                           sprite ? spriteElevation(op, level) : level, under, 0, sprite ? -1 : unit, dx, dy);
+                if (!sprite && effects.size() > before)  // (imgol: above the images so far; imgul: under them)
+                    effects.back().layer = under ? -(below + 1) : above + 1;
             }
             break;
         case 0x24:                                         // sigorder: a projectile's launch
@@ -1104,6 +1166,10 @@ void World::runAnim(Anim& a, int unit, int bullet) {
             return;
         case 0x35: a.ret = a.pc; a.pc = u16(pc + 1); break;  // call
         case 0x36: a.pc = a.ret; break;                      // return
+        case 0x2E: case 0x2F: noBreak(a, s[size_t(pc)]); break;  // nobrkcodestart, nobrkcodeend
+        case 0x32: a.hidden = true; break;                       // tmprmgraphicstart
+        case 0x33: a.hidden = false; break;                      // tmprmgraphicend
+        case 0x3A: if (targetWithin(unit, u16(pc + 1))) a.pc = u16(pc + 3); break;  // trgtrangecondjmp
         default: break;
         }
     }
@@ -1309,8 +1375,16 @@ void World::effectStep(size_t k) {
         case 0x1A: sound(u16(pc + 1) + draw() % std::max(1, u16(pc + 3) - u16(pc + 1) + 1), e.x, e.y, e.owner); break;
         case 0x35: e.anim.ret = e.anim.pc; e.anim.pc = u16(pc + 1); break;
         case 0x36: e.anim.pc = e.anim.ret; break;
-        case 0x08: case 0x09: case 0x0F: case 0x10: case 0x11: case 0x14: case 0x42: {
-            int id = u16(pc + 1), dx = int8_t(s[size_t(pc) + 3]), dy = int8_t(s[size_t(pc) + 4]);
+        case 0x2E: case 0x2F: noBreak(e.anim, op); break;
+        case 0x32: e.anim.hidden = true; break;
+        case 0x33: e.anim.hidden = false; break;
+        case 0x3A: if (targetWithin(e.follow, u16(pc + 1))) e.anim.pc = u16(pc + 3); break;
+        case 0x08: case 0x09: case 0x0D: case 0x0E: case 0x0F: case 0x10: case 0x11: case 0x14: case 0x42: {
+            bool lo = op == 0x0D || op == 0x0E;  // (imgoluselo, imguluselo: offsets from the attack overlay list)
+            auto at = lo ? loOffset(e.image, e.anim.frame, e.heading, s[size_t(pc) + 3]) : std::pair<int, int>{0, 0};
+            int id = u16(pc + 1), dx = lo ? at.first : int8_t(s[size_t(pc) + 3]);
+            int dy = lo ? at.second : int8_t(s[size_t(pc) + 4]);
+            if (lo) op = op == 0x0D ? 0x08 : 0x09;  // (then as imgol, imgul)
             // (a sprite the game never draws: none)
             bool shown = op <= 0x09 || (id < int(t.spriteImage.size()) && t.spriteVisible[size_t(id)]);
             int image = !shown ? -1 : op <= 0x09 ? id : t.spriteImage[size_t(id)];
@@ -1318,9 +1392,16 @@ void World::effectStep(size_t k) {
             Effect copy = e;  // (the vector may grow)
             bool attached = copy.follow >= 0 && op <= 0x09;  // (an image of the same sprite: it stays with the unit)
             int level = op <= 0x09 ? copy.elevation : spriteElevation(op, copy.elevation);  // (an image: its sprite's)
+            size_t before = effects.size();
             addEffect(image, copy.x + dx, copy.y + dy, copy.owner, copy.heading, level, under, 0,
                       attached ? copy.follow : -1,
                       copy.dx + dx, copy.dy + dy);
+            if (attached && effects.size() > before) {  // (just above or under its parent image)
+                Effect& child = effects.back();
+                child.depth = copy.depth + 1;
+                child.layer = copy.layer + (op == 0x09 ? -1 : 1) * std::ldexp(1.0, -child.depth);
+                child.under = child.layer < 0;
+            }
             break;
         }
         default: break;
@@ -1331,19 +1412,11 @@ void World::effectStep(size_t k) {
 
 void World::images(std::vector<LiveImage>& out) const {
     auto add = [&](int image, const Anim& a, int heading, int x, int y, int owner, bool air, int elevation) {
-        if (image < 0) return false;
+        if (image < 0 || a.hidden) return false;
         LiveImage li;
         li.image = image;
         li.elevation = elevation;
-        li.frame = a.frame;
-        // A turning image's frame set holds 17 directions; a set that the GRP has no room for (a death animation's
-        // frames after the last full set) is one frame.
-        int frames = size_t(image) < t.imageFrames.size() ? t.imageFrames[size_t(image)] : 0;
-        if (t.imageTurns[size_t(image)] && (frames == 0 || a.frame + 17 <= frames)) {
-            int d = ((heading + 4) >> 3) & 31;
-            li.flip = d > 16;
-            li.frame += li.flip ? 32 - d : d;
-        }
+        li.frame = grpFrame(image, a.frame, heading, &li.flip);
         li.x = x;
         li.y = y;
         li.owner = owner;
@@ -1358,24 +1431,32 @@ void World::images(std::vector<LiveImage>& out) const {
         int image = t.flingyImage(d.flingy);
         int self = int(&u - units.data()), order = 0;
         const int level = d.elevation;  // (its overlays, load and turret: the same sprite's level)
-        for (const Effect& e : effects)  // (its overlays under it, then it, then those above: in their order)
-            if (e.follow == self && e.under && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false, level))
-                out.back().order = order++;
-        if (add(image, u.anim, u.heading, u.x, u.y, u.owner, (d.flags & kFlyer) != 0, level))
-            out.back().order = order++;
+        // Its overlays by their place: those under it, then it, then those above (equal places: in their order).
+        std::vector<const Effect*> overlays;
         for (const Effect& e : effects)
-            if (e.follow == self && !e.under && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false, level))
+            if (e.follow == self) overlays.push_back(&e);
+        std::stable_sort(overlays.begin(), overlays.end(),
+                         [](const Effect* a, const Effect* b) { return a->layer < b->layer; });
+        for (const Effect* e : overlays)
+            if (e->layer < 0 && add(e->image, e->anim, e->heading, e->x, e->y, e->owner, false, level))
                 out.back().order = order++;
-        if (u.carry > 0 && image >= 0) {  // A worker's load: above it, at its overlay offset.
+        bool drawn = add(image, u.anim, u.heading, u.x, u.y, u.owner, (d.flags & kFlyer) != 0, level);
+        if (drawn) out.back().order = order++;
+        size_t mainAt = out.size() - 1;
+        for (const Effect* e : overlays)
+            if (e->layer >= 0 && add(e->image, e->anim, e->heading, e->x, e->y, e->owner, false, level))
+                out.back().order = order++;
+        if (u.carry > 0 && drawn) {  // A worker's load: above it, at its overlay offset.
             int gas = role(u.type).gasImage;  // (by worker: the full gas image)
             int carried = u.carryGas && gas >= 0 ? gas : t.rules.mineralImage;
-            LiveImage li = out.back();
+            const LiveImage main = out[mainAt];
+            LiveImage li = main;
             li.image = carried + (u.carry < t.rules.mineralLoad ? 1 : 0);
             if (u.carryGas) li.frame = 0;  // (gas: a fixed frame; minerals: the worker's)
             for (const auto& [img, frames] : t.carryOffsets)
-                if (img == image && out.back().frame < int(frames.size())) {
-                    li.x += (li.flip ? -1 : 1) * frames[size_t(out.back().frame)].first;
-                    li.y += frames[size_t(out.back().frame)].second;
+                if (img == image && main.frame < int(frames.size())) {
+                    li.x += (li.flip ? -1 : 1) * frames[size_t(main.frame)].first;
+                    li.y += frames[size_t(main.frame)].second;
                 }
             li.order = 1;
             out.push_back(li);
