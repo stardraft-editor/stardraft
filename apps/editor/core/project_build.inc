@@ -314,7 +314,7 @@ bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>
             notes.push_back(std::to_wstring(blocked) + tr(blocked == 1 ? L" of the units that the map makes stands" : L" of the units that the map makes stand") +
                             tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it."));
     }
-    return pr.writeGeneratedScript("remake.eps", plan.code, err);
+    return pr.writeRemakeCode(plan, err);
 }
 
 // --- The build -------------------------------------------------------------------------------------------------------
