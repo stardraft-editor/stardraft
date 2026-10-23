@@ -111,10 +111,12 @@ void addImage(render::Scene& s, const render::SpriteDraw& d) {
 }
 
 // New graphics for preplaced units (R8): while the option is on, the map shows the units with the edited graphics,
-// but a unit that the map's code does not make again (EudProject::remakeKeeps) keeps the game's graphics. Per unit
-// type, the game's image and subunit image; empty while the option is off (syncMapUnitGraphics).
+// but a unit that stays in the map that euddraft gets (the units that Build's plan does not make: remakeMakesUnit)
+// keeps the game's graphics. Per unit type, the game's image and subunit image; empty while the option is off
+// (syncMapUnitGraphics).
 std::vector<int> gGameUnitImage, gGameSubunitImage;
-bool keepsGameGraphics(const Unit& u) { return u.type < gGameUnitImage.size() && EudProject::remakeKeeps(u); }
+bool remakeMakesUnit(const Unit& u);  // core/project_build.inc
+bool keepsGameGraphics(const Unit& u) { return u.type < gGameUnitImage.size() && !remakeMakesUnit(u); }
 int mapUnitImage(UnitSprites& sp, const Unit& u) { return keepsGameGraphics(u) ? gGameUnitImage[u.type] : sp.imageFor(u.type); }
 int mapSubunitImage(UnitSprites& sp, const Unit& u) { return keepsGameGraphics(u) ? gGameSubunitImage[u.type] : sp.subunitImage(u.type); }
 
@@ -139,7 +141,9 @@ constexpr uint64_t kTickMs = 42;
 UnitAnim& unitAnim(const Unit& u) {
     AppState& app = shellState();
     UnitSprites& sp = app.ed->unitSprites();
-    auto [it, fresh] = gAnims.try_emplace(uint64_t(u.serial) << 16 | u.type);
+    // (the key has the graphics too: a unit that the remake plan makes or keeps after another unit's change gets the
+    // animation of its new image)
+    auto [it, fresh] = gAnims.try_emplace(uint64_t(keepsGameGraphics(u)) << 63 | uint64_t(u.serial) << 16 | u.type);
     if (fresh) {
         const bool building = u.type < app.ed->unitTypes().size() && app.ed->unitTypes()[u.type].is(UnitFlag::Building);
         const int image = mapUnitImage(sp, u), sub = mapSubunitImage(sp, u);

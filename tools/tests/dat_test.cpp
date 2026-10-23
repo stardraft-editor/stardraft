@@ -13,8 +13,10 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"
+#include "stardraft/map_file.h"
 #include "stardraft/units.h"
 #include "stardraft/wireframes.h"
+#include "raw_mpq.h"
 
 using namespace stardraft;
 namespace fs = std::filesystem;
@@ -264,9 +266,138 @@ int main(int argc, char** argv) {
         check(r2.loadEdits(pr.folder() / "dat" / "requirements.json", err) && r2.list(0, 0) == marine && r2.changedCount() == 1, "requirements read back");
         check(b2.loadEdits(pr.folder() / "dat" / "buttons.json", err) && b2.set(7) == scv && b2.unitSet(0) == 7 && b2.changedCount() == 2, "button sets read back");
     }
+    // New graphics for preplaced units (R8): the build's map leaves out the units that the remake code makes, and the
+    // code makes each with its values. The project's map keeps them.
+    std::vector<Unit> before, remakeUnits;
+    std::vector<uint32_t> madeSerials, keptSerials;
+    {
+        std::vector<ArchiveFile> files;
+        Bytes raw;
+        check(readMapFiles(pr.inputMap(), files, err), "the project's map reads" + err);
+        for (const ArchiveFile& f : files)
+            if (f.name == kChkArchivePath) raw = f.data;
+        Chk chk = Chk::parse(raw);
+        before = readUnits(chk);
+        SerialCounter serials(before);
+        const uint16_t marine = 0, ghost = 1, carrier = 72, cc = 106, comsat = 107, mineral = 176, firebat = 32;
+        auto add = [&](uint16_t type, uint8_t owner, auto&& change) {
+            Unit u = makeUnit(types[type], owner, uint16_t(200 + 40 * (remakeUnits.size() % 10)), uint16_t(200 + 40 * (remakeUnits.size() / 10)));
+            u.serial = serials.take();
+            change(u);
+            remakeUnits.push_back(u);
+        };
+        add(marine, 0, [](Unit&) {});                                                              // 0: no property
+        add(marine, 1, [](Unit& u) { u.hitPoints = 50; });                                         // 1: hitpoint=50
+        add(marine, 0, [](Unit& u) { u.hitPoints = 50; });                                         // 2: the same property
+        add(ghost, 0, [](Unit& u) { u.energy = 30, u.validState |= UnitState::Cloaked, u.state |= UnitState::Cloaked; });  // 3
+        add(marine, 0, [](Unit& u) { u.state |= UnitState::InTransit, u.validState |= UnitState::InTransit; });  // 4: in a transport: stays
+        add(marine, 2, [](Unit& u) {
+            u.validState |= UnitState::Hallucinated | UnitState::Invincible, u.state |= UnitState::Hallucinated | UnitState::Invincible;
+        });  // 5
+        add(mineral, 11, [](Unit& u) { u.resources = 777; });                                      // 6
+        add(firebat, 0, [](Unit&) {});                                                             // 7: its graphics do not change
+        add(cc, 0, [](Unit& u) { u.validState |= UnitState::InTransit, u.state |= UnitState::InTransit; });  // 8: lifted
+        add(carrier, 3, [](Unit& u) { u.hangar = 4, u.shields = 25; });                           // 9
+        add(cc, 0, [&](Unit& u) { u.relatedSerial = u.serial + 1, u.links = UnitLink::Addon; });  // 10: linked: stays
+        add(comsat, 0, [](Unit& u) { u.links = UnitLink::Addon; });                                // 11: its add-on: stays
+        std::vector<Unit> all = before;
+        all.insert(all.end(), remakeUnits.begin(), remakeUnits.end());
+        writeUnits(chk, all);
+        check(writeMap(pr.inputMap(), chk.serialize(), files, err), "the units are in the project's map" + err);
+
+        const std::vector<uint16_t> changed = {marine, ghost, carrier, cc, comsat, mineral};
+        // The plan for these units alone (the map's own units can be of these types too: minerals).
+        const EudProject::RemakePlan own = EudProject::planRemake(remakeUnits, types, changed);
+        const std::vector<size_t> want = {0, 1, 2, 3, 5, 6, 8, 9};
+        const EudProject::RemakePlan& plan = own;
+        check(plan.made == want && plan.loaded == 1 && plan.linked == 2 && plan.noProperty == 0,
+              "the plan: 8 units made, 1 in a transport and 2 linked stay (" + std::to_string(plan.made.size()) + ", " + std::to_string(plan.loaded) +
+                  ", " + std::to_string(plan.linked) + ")");
+        check(plan.properties == 6, "one unit property for each different set of values (" + std::to_string(plan.properties) + ")");
+        // A unit of players 1 to 8: only when the player is in the game.
+        auto lines = [&](size_t i, const std::string& create) {
+            const Unit& u = remakeUnits[i];
+            const std::string in = u.owner < 8 ? "        " : "    ";
+            const std::string body = in + "setloc(1, " + std::to_string(u.x) + ", " + std::to_string(u.y) + ", " + std::to_string(u.x) + ", " +
+                                     std::to_string(u.y) + ");  // UNIT " + std::to_string(i) + ": " + types[u.type].name + "\n" + in + create + "\n";
+            return u.owner < 8 ? "    if (playerexist(P" + std::to_string(u.owner + 1) + ")) {\n" + body + "    }\n" : body;
+        };
+        const std::string& c = plan.code;
+        const std::vector<std::string> creates = {
+            "CreateUnit(1, 0, 1, P1);",
+            "CreateUnitWithProperties(1, 0, 1, P2, UnitProperty(hitpoint=50));",
+            "CreateUnitWithProperties(1, 0, 1, P1, UnitProperty(hitpoint=50));",
+            "CreateUnitWithProperties(1, 1, 1, P1, UnitProperty(energy=30, cloaked=True));",
+            "CreateUnitWithProperties(1, 0, 1, P3, UnitProperty(hallucinated=True, invincible=True));",
+            "CreateUnitWithProperties(1, 176, 1, P12, UnitProperty(resource=777));",
+            "CreateUnitWithProperties(1, 106, 1, P1, UnitProperty(intransit=True));",
+            "CreateUnitWithProperties(1, 72, 1, P4, UnitProperty(shield=25, hanger=4));",
+        };
+        size_t pos = 0;
+        bool inOrder = true;
+        for (size_t k = 0; k < want.size(); ++k) {
+            const std::string w = lines(want[k], creates[k]);
+            const size_t found = c.find(w, pos);
+            if (found == std::string::npos) std::printf("      missing, in order: %s", w.c_str());
+            inOrder &= found != std::string::npos;
+            pos = found == std::string::npos ? pos : found + w.size();
+        }
+        size_t creations = 0;
+        for (size_t f = c.find(" CreateUnit"); f != std::string::npos; f = c.find(" CreateUnit", f + 1)) ++creations;
+        check(inOrder && creations == want.size(), "the code makes each unit once, in the UNIT order, on its place, with its values");
+        check(c.find("EUDLoopCUnit") == std::string::npos && c.find("RemoveUnit") == std::string::npos, "no search for units at the start");
+        const EudProject::RemakePlan tight = EudProject::planRemake(remakeUnits, types, changed, 2);
+        check(tight.properties == 2 && tight.noProperty == 4 && tight.made.size() == 4,
+              "two free unit properties: the units that need another one stay (" + std::to_string(tight.noProperty) + ")");
+        check(EudProject::planRemake(all, types, {}).code.empty(), "no types: no code");
+
+        // The option off: the .eds names the project's map, and no build map.
+        check(pr.writeBuildMap({}, err) && !fs::exists(pr.buildMap()), "nothing to leave out: no build map");
+        check(pr.writeEds(err) && [&] {
+            std::ifstream f(pr.edsFile());
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str().find("input: " + pr.inputMap().filename().string()) != std::string::npos;
+        }(), "and the .eds's input is the project's map");
+
+        // The whole map: its own units of these types are made too.
+        const EudProject::RemakePlan whole = EudProject::planRemake(all, types, changed);
+        check(whole.made.size() >= own.made.size() && whole.made.back() == before.size() + 9, "the whole map's plan has these units too");
+        check(pr.writeBuildMap(whole.made, err) && fs::exists(pr.buildMap()), "the build map is written" + err);
+        check(pr.writeGeneratedScript("remake.eps", whole.code, err), "remake.eps written");
+        Bytes built;
+        check(readMapChk(pr.buildMap(), built, err), "the build map reads");
+        const std::vector<Unit> left = readUnits(Chk::parse(built));
+        for (size_t i : whole.made) madeSerials.push_back(all[i].serial);
+        for (size_t i = 0; i < all.size(); ++i)
+            if (std::find(whole.made.begin(), whole.made.end(), i) == whole.made.end()) keptSerials.push_back(all[i].serial);
+        bool same = left.size() == keptSerials.size();
+        for (size_t i = 0; same && i < left.size(); ++i) same = left[i].serial == keptSerials[i];
+        check(same, "the build map has the other units, in their order (" + std::to_string(left.size()) + " of " + std::to_string(all.size()) + ")");
+        Bytes projectChk;
+        check(readMapChk(pr.inputMap(), projectChk, err) && readUnits(Chk::parse(projectChk)).size() == all.size(), "the project's map keeps all its units");
+        std::printf("%s", own.code.c_str());
+        check(pr.writeEds(err) && [&] {
+            std::ifstream f(pr.edsFile());
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str().find("input: generated/" + pr.inputMap().filename().string()) != std::string::npos;
+        }(), "the .eds's input is the build map");
+        // A build that does not write the build map (the project opened again): no remake code, else the units are
+        // there twice.
+        EudProject reopened;
+        check(reopened.open(pr.file(), err) && reopened.writeEds(err) && [&] {
+            std::ifstream f(reopened.edsFile());
+            std::stringstream ss;
+            ss << f.rdbuf();
+            return ss.str().find("[generated/remake.eps]") == std::string::npos && ss.str().find("input: generated/") == std::string::npos;
+        }(), "without the build map: the .eds has no remake code");
+    }
+
     std::ifstream eds(pr.file());
     std::stringstream edsText;
     edsText << eds.rdbuf();
+    eds.close();  // (Windows: an open file cannot be replaced, and a save below replaces it)
     const std::string e = edsText.str();
     check(e.find("[generated/units.eps]") != std::string::npos && e.find("[generated/units.eps]") < e.find("[scripts/main.eps]"),
           "the .eds runs the generated code before the scripts");
@@ -274,6 +405,17 @@ int main(int argc, char** argv) {
         if (l.find("rror") != std::string::npos || l.find("Saving") != std::string::npos) std::printf("      | %s\n", l.c_str());
     });
     check(r.ok && fs::exists(pr.outputMap()), "euddraft builds the map with the edits");
+    {
+        Bytes out;
+        check(rawmpq::readChk(pr.outputMap(), out), "the built map reads");
+        const std::vector<Unit> outUnits = readUnits(Chk::parse(out));
+        bool none = true, all = true;
+        for (const Unit& u : outUnits) none &= std::find(madeSerials.begin(), madeSerials.end(), u.serial) == madeSerials.end();
+        for (uint32_t s : keptSerials)
+            all &= std::any_of(outUnits.begin(), outUnits.end(), [&](const Unit& u) { return u.serial == s; });
+        check(none && all && outUnits.size() == keptSerials.size(),
+              "the built map's UNIT section: without the units that the code makes, with the others (" + std::to_string(outUnits.size()) + ")");
+    }
     // Removing the edits takes the generated code out again.
     units.reset(hp, 0), units.reset(size, 0);
     EudProject again;

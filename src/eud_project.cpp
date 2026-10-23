@@ -2,11 +2,16 @@
 #include "stardraft/triggers.h"
 
 #include "stardraft/dat_edit.h"
+#include "stardraft/map_file.h"
 #include "stardraft/units.h"
 #include "file_write.h"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
+#include <iterator>
+#include <map>
+#include <set>
 #include <sstream>
 
 namespace fs = std::filesystem;
@@ -159,6 +164,9 @@ std::string EudProject::text(bool eds) const {
     std::ostringstream o;
     if (!eds) o << "# StarDraft project. Build writes " << name_ << ".eds for euddraft from this file.\r\n\r\n";
     for (size_t i = 0; i < sections_.size(); ++i) {
+        // The remake code makes units that only the build map leaves out: with the project's map (a build that did not
+        // write the build map, such as euddraft_tool's), the units would be there twice.
+        if (eds && !useBuildMap_ && sections_[i].name == "generated/remake.eps") continue;
         if (i) o << "\r\n";
         if (i == 0 && !eds) {
             o << "[project]\r\nname: " << name_ << "\r\n";
@@ -175,6 +183,11 @@ std::string EudProject::text(bool eds) const {
         for (const auto& l : sections_[i].lines) {
             if (freezeOff && isFreezeLine(l)) continue;
             std::string k, v;
+            // The map that Build made for euddraft (writeBuildMap): the .eds's input.
+            if (eds && i == 0 && useBuildMap_ && splitLine(l, k, v) && k == "input") {
+                o << "input: " << generic(buildMap().lexically_relative(folder())) << "\r\n";
+                continue;
+            }
             if (eds && i == 0 && splitLine(l, k, v) && (k == "debug" || k == "trace" || k == "remake" || k == "doodadpins")) continue;  // StarDraft's own settings: not for euddraft
             o << l << "\r\n";
         }
@@ -437,89 +450,143 @@ void EudProject::setDoodadPins(const std::vector<uint16_t>& ids) {
     lines.push_back(line);
 }
 
-std::string EudProject::remakeUnitsScript(const std::vector<RemakeType>& types) {
-    if (types.empty()) return "";
+bool EudProject::remakeKeeps(const Unit& u, bool building) {
+    const bool inTransport = (u.state & u.validState & UnitState::InTransit) && !building;
+    return inTransport || u.relatedSerial || (u.links & (UnitLink::Nydus | UnitLink::Addon));
+}
+
+EudProject::RemakePlan EudProject::planRemake(const std::vector<Unit>& units, const UnitTypes& unitTypes, const std::vector<uint16_t>& types,
+                                              int freeProperties) {
+    RemakePlan plan;
+    std::vector<bool> remake(unitTypes.size());
+    for (uint16_t t : types)
+        if (t < remake.size()) remake[t] = true;
+    // The other unit of a link (an add-on's building, a Nydus Canal's exit) stays too: the link names its serial.
+    std::set<uint32_t> linkedSerials;
+    for (const Unit& u : units)
+        if (u.relatedSerial) linkedSerials.insert(u.relatedSerial);
+    std::map<std::string, int> properties;  // a property's arguments, and its number
+    std::ostringstream body;
+    for (size_t i = 0; i < units.size(); ++i) {
+        const Unit& u = units[i];
+        if (u.type >= remake.size() || !remake[u.type] || u.owner > 11) continue;
+        const UnitType& ut = unitTypes[u.type];
+        if (remakeKeeps(u, ut.is(UnitFlag::Building))) {
+            ++((u.state & u.validState & UnitState::InTransit) && !ut.is(UnitFlag::Building) ? plan.loaded : plan.linked);
+            continue;
+        }
+        if (linkedSerials.count(u.serial)) {
+            ++plan.linked;
+            continue;
+        }
+        // The values that differ from those of a new unit (a property field that is not set: full hit points, shields
+        // and energy, no states). A mineral field or a geyser always gets its resources.
+        std::string args;
+        auto add = [&](const std::string& a) { args += (args.empty() ? "" : ", ") + a; };
+        auto percent = [&](uint16_t prop, uint8_t value, const char* name) {
+            if ((u.validProps & prop) && value != 100) add(std::string(name) + "=" + std::to_string(std::min<int>(value, 100)));
+        };
+        percent(UnitProp::HitPoints, u.hitPoints, "hitpoint");
+        percent(UnitProp::Shields, u.shields, "shield");
+        percent(UnitProp::Energy, u.energy, "energy");
+        if ((u.validProps & UnitProp::Resources) && ut.is(UnitFlag::ResourceContainer)) add("resource=" + std::to_string(u.resources));
+        if ((u.validProps & UnitProp::Hangar) && u.hangar) add("hanger=" + std::to_string(u.hangar));
+        const uint16_t states = u.state & u.validState;
+        if (states & UnitState::Cloaked) add("cloaked=True");
+        if (states & UnitState::Burrowed) add("burrowed=True");
+        if (states & UnitState::InTransit) add("intransit=True");  // a lifted building
+        if (states & UnitState::Hallucinated) add("hallucinated=True");
+        if (states & UnitState::Invincible) add("invincible=True");
+        if (!args.empty() && !properties.count(args)) {
+            if (int(properties.size()) >= freeProperties) {
+                ++plan.noProperty;
+                continue;
+            }
+            properties.emplace(args, int(properties.size()));
+        }
+        plan.made.push_back(i);
+        const std::string player = "P" + std::to_string(u.owner + 1);
+        // The game makes no preplaced units for a slot of players 1 to 8 that nobody plays.
+        const bool slot = u.owner < 8;
+        const char* in = slot ? "        " : "    ";
+        if (slot) body << "    if (playerexist(" << player << ")) {\n";
+        body << in << "setloc(1, " << u.x << ", " << u.y << ", " << u.x << ", " << u.y << ");  // UNIT " << i << ": " << ut.name << "\n";
+        if (args.empty()) body << in << "CreateUnit(1, " << u.type << ", 1, " << player << ");\n";
+        else body << in << "CreateUnitWithProperties(1, " << u.type << ", 1, " << player << ", UnitProperty(" << args << "));\n";
+        if (slot) body << "    }\n";
+    }
+    plan.properties = int(properties.size());
+    if (plan.made.empty()) return plan;
     std::ostringstream o;
     o << "// Generated by StarDraft: the game makes the preplaced units before the .dat edits run, so they keep the old\n"
-         "// graphics. This code removes each preplaced unit that the edits give other graphics, and makes it again on its\n"
-         "// place (Project page, \"New graphics for preplaced units\"). Do not edit: it is rewritten on every build.\n\n"
+         "// graphics. Build takes each preplaced unit that the edits give other graphics out of the map that euddraft gets,\n"
+         "// and this code makes it at the start, in the map's UNIT order, on its place, for its owner and with its values\n"
+         "// (Project page, \"New graphics for preplaced units\"). Do not edit: it is rewritten on every build.\n\n"
          "function onPluginStart() {\n"
-         "    // The unit types to make again (1), and what to check before: 2 a building (lifted, or with an add-on),\n"
-         "    // 8 an add-on (attached), 16 a Nydus Canal (with an exit), 32 a hangar (with interceptors or scarabs), 64 a\n"
-         "    // unit that can cloak (cloaked). 4: the resources go to the new unit.\n"
-         "    const remake = EUDArray(228);\n";
-    for (const RemakeType& t : types) {
-        const int kind = 1 | (t.building ? 2 : 0) | (t.resources ? 4 : 0) | (t.addon ? 8 : 0) | (t.nydus ? 16 : 0) | (t.hangar ? 32 : 0) |
-                         (t.cloakable ? 64 : 0);
-        o << "    remake[" << t.type << "] = " << kind << ";  // " << t.name << "\n";
-    }
-    o << "\n"
-         "    // First the list of units: the new units go into the same list. The units that a new unit cannot copy stay.\n"
-         "    const units = EUDArray(1700);\n"
-         "    const serials = EUDArray(1700);\n"
-         "    var count = 0;\n"
-         "    foreach (cu : EUDLoopCUnit()) {\n"
-         "        const kind = remake[cu.unitType];\n"
-         "        if (kind == 0) continue;\n"
-         "        if (!cu.check_status_flag(0x1)) continue;  // not finished\n"
-         "        // Burrowed, in a bunker, in a transport, a hallucination.\n"
-         "        if (cu.check_status_flag(0x10) || cu.check_status_flag(0x20) || cu.check_status_flag(0x40) || cu.check_status_flag(0x40000000)) continue;\n"
-         "        if ((kind & 2) != 0 && (cu.check_status_flag(0x4) || dwread(cu.ptr + 0xC0) != 0)) continue;  // lifted, or its add-on\n"
-         "        if ((kind & 8) != 0 && dwread(cu.ptr + 0x80) != 0) continue;  // the building of the add-on\n"
-         "        if ((kind & 16) != 0 && dwread(cu.ptr + 0xD0) != 0) continue;  // the exit of the Nydus Canal\n"
-         "        if ((kind & 32) != 0 && (cu.inHangarCount != 0 || cu.outHangarCount != 0)) continue;\n"
-         "        if ((kind & 64) != 0 && cu.check_status_flag(0x100)) continue;  // cloaked\n"
-         "        units[count] = cu.ptr;\n"
-         "        serials[count] = cu.uniquenessIdentifier;\n"
-         "        count += 1;\n"
-         "    }\n"
-         "\n"
-         "    // Location 1 goes to each unit, then back to its place.\n"
+         "    // Location 1 goes to each unit's place, then back to its place.\n"
          "    const left = dwread(0x58DC60);\n"
          "    const top = dwread(0x58DC64);\n"
          "    const right = dwread(0x58DC68);\n"
          "    const bottom = dwread(0x58DC6C);\n"
          "    const flags = dwread(0x58DC70);  // its elevation flags (high word): none, so that it has units of each height\n"
          "    SetMemoryX(0x58DC70, SetTo, 0, 0xFFFF0000);\n"
-         "    for (var i = 0; i < count; i++) {\n"
-         "        const cu = CUnit.from_ptr(units[i]);\n"
-         "        if (cu.uniquenessIdentifier != serials[i]) continue;  // not the same unit now\n"
-         "        const type = cu.unitType;\n"
-         "        const owner = cu.owner;\n"
-         "        const kind = remake[type];\n"
-         "        const hp = cu.hp;\n"
-         "        const shield = cu.shield;\n"
-         "        const energy = cu.energy;\n"
-         "        var resources = 0;\n"
-         "        if ((kind & 4) != 0) resources = cu.resourceAmount;\n"
-         "        var invincible = 0;\n"
-         "        if (cu.check_status_flag(0x04000000)) invincible = 1;\n"
-         "        const x = cu.posX;\n"
-         "        const y = cu.posY;\n"
-         "        setloc(1, x - 1, y - 1, x + 1, y + 1);\n"
-         "        // Player 12 gets the unit for a moment, so that the action removes this unit and not another one on the\n"
-         "        // same place.\n"
-         "        cu.cgive(P12);\n"
-         "        RemoveUnitAt(1, type, 1, P12);\n"
-         "        const next = dwread(0x628438);  // the place of the next new unit\n"
-         "        CreateUnit(1, type, 1, owner);\n"
-         "        if (dwread(0x628438) == next) continue;  // the game could not put the unit there\n"
-         "        const made = CUnit.from_ptr(next);\n"
-         "        made.hp = hp;\n"
-         "        made.shield = shield;\n"
-         "        made.energy = energy;\n"
-         "        if ((kind & 4) != 0) made.resourceAmount = resources;\n"
-         "        if (invincible == 1) made.set_status_flag(0x04000000);\n"
-         "    }\n"
-         "    setloc(1, left, top, right, bottom);\n"
+      << body.str()
+      << "    setloc(1, left, top, right, bottom);\n"
          "    SetMemory(0x58DC70, SetTo, flags);\n"
          "}\n";
-    return o.str();
+    plan.code = o.str();
+    return plan;
 }
 
-bool EudProject::remakeKeeps(const Unit& u) {
-    const uint16_t keep = UnitState::Cloaked | UnitState::Burrowed | UnitState::InTransit | UnitState::Hallucinated;
-    return (u.state & u.validState & keep) || u.relatedSerial || ((u.validProps & UnitProp::Hangar) && u.hangar);
+bool EudProject::writeBuildMap(const std::vector<size_t>& leaveOut, std::string& error) {
+    std::error_code ec;
+    useBuildMap_ = false;
+    const fs::path out = buildMap(), in = inputMap();
+    // A project's map in generated/ would be the build map itself: never removed or written over.
+    if (out.lexically_normal() == in.lexically_normal() || fs::equivalent(out, in, ec)) {
+        if (leaveOut.empty()) return true;
+        return error = "the project's map " + in.string() + " is in the generated folder. Move it out of that folder, then build again", false;
+    }
+    if (leaveOut.empty()) {
+        fs::remove(out, ec);
+        return true;
+    }
+    std::string ext = in.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    const bool archive = ext != ".chk";
+    std::vector<ArchiveFile> files;
+    Bytes raw;
+    if (archive) {
+        if (!readMapFiles(in, files, error)) return error = in.string() + ": " + error, false;
+        const std::string chkName = kChkArchivePath;
+        for (const ArchiveFile& f : files)
+            if (f.name.size() == chkName.size() && std::equal(f.name.begin(), f.name.end(), chkName.begin(), [](char a, char b) {
+                    return std::tolower((unsigned char)a) == std::tolower((unsigned char)b);
+                }))
+                raw = f.data;
+    } else {
+        std::ifstream f(in, std::ios::binary);
+        raw.assign(std::istreambuf_iterator<char>(f), {});
+    }
+    if (raw.empty()) return error = in.string() + " has no scenario.chk", false;
+    Chk chk = Chk::parse(raw);
+    const std::vector<Unit> units = readUnits(chk);
+    std::vector<bool> drop(units.size());
+    for (size_t i : leaveOut) {
+        if (i >= units.size()) return error = in.string() + " has fewer units than the map that Build saved", false;
+        drop[i] = true;
+    }
+    std::vector<Unit> keep;
+    for (size_t i = 0; i < units.size(); ++i)
+        if (!drop[i]) keep.push_back(units[i]);
+    writeUnits(chk, keep);
+    fs::create_directories(out.parent_path(), ec);
+    const Bytes bytes = chk.serialize();
+    if (archive ? !writeMap(out, bytes, files, error)
+                : !writeFile(out, std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), error))
+        return false;
+    useBuildMap_ = true;
+    return true;
 }
 
 bool EudProject::plugin(const std::string& name) const {

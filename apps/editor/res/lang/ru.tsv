@@ -1875,13 +1875,15 @@ list (or player array)	список (или массив игроков)
 New graphics for preplaced units: 	Новая графика для расставленных юнитов: 
  unit is	 юнит
  units are	 юнитов
- made again at the start	 создаются заново в начале
+ made at the start from the map's data	 создаются в начале по данным карты
  preplaced unit keeps	 расставленный юнит сохраняет
  preplaced units keep	 расставленных юнитов сохраняют
- the old graphics: a new unit cannot be cloaked, burrowed, lifted, loaded, a hallucination, linked to an add-on or a Nydus Canal, or have interceptors or scarabs.	 старую графику: новый юнит не может быть невидимым, закопанным, поднятым, загруженным, галлюцинацией, связанным с пристройкой или Нидус-каналом, или иметь перехватчики или скарабеев.
- of the units that are made again stands	 из создаваемых заново юнитов стоит
- of the units that are made again stand	 из создаваемых заново юнитов стоят
- where the game cannot put a unit. The game puts it near its place, or does not make it again.	 там, где игра не может поставить юнит. Игра ставит его рядом или не создаёт заново.
+ the old graphics: a unit in a transport stays in the map.	 старую графику: юнит в транспорте остаётся в карте.
+ the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.	 старую графику: юнит, связанный с пристройкой или каналом Нидус, остаётся в карте.
+ the old graphics: the map has no free unit property (of 64) for their values.	 старую графику: в карте нет свободного свойства юнита (из 64) для их значений.
+ of the units that the map makes stands	 из юнитов, которые создаёт карта, стоит
+ of the units that the map makes stand	 из юнитов, которые создаёт карта, стоят
+ where the game cannot put a unit. The game puts it near its place, or does not make it.	 там, где игра не может поставить юнит. Игра ставит его рядом или не создаёт его.
 The project 	Проект 
  is open already	 уже открыт
 All location slots are in use	Все слоты локаций заняты
@@ -2003,7 +2005,7 @@ The text with its codes as <XX> ("<<" is a "<")	Текст с кодами в в
 New graphics for preplaced units	Новая графика для расставленных юнитов
 New graphics for preplaced units off	Новая графика для расставленных юнитов выключена
 New graphics for preplaced units on	Новая графика для расставленных юнитов включена
-The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it again.	Игра создаёт расставленные юниты до правок .dat, поэтому у них остаётся старая графика. С этим параметром карта удаляет каждый расставленный юнит, которому правки дают другую графику, и создаёт его заново на том же месте в начале. Вид карты показывает эти юниты с новой графикой. Юнит в месте, куда игра не может поставить юнит (на других юнитах или на земле, где он не может стоять), перемещается рядом, или игра не создаёт его заново.
+The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, Build takes each preplaced unit that the edits give other graphics out of the built map, and the map makes it at the start, on its place and with its values. The project's map does not change. The map view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or the game does not make it.	Игра создаёт расставленные юниты до правок .dat, поэтому у них остаётся старая графика. С этим параметром сборка убирает из собранной карты каждый расставленный юнит, которому правки дают другую графику, и карта создаёт его в начале на том же месте и с теми же значениями. Карта проекта не меняется. Вид карты показывает эти юниты с новой графикой. Юнит в месте, куда игра не может поставить юнит (на других юнитах или на земле, где он не может стоять), перемещается рядом, или игра не создаёт его.
 StarDraft 2 map	Карта StarDraft 2
 . The old program is 	. Старая программа: 
 ). Type it as a number	). Введите его как число

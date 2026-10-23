@@ -207,7 +207,7 @@ target_link_libraries(trigger_test PRIVATE stardraft)
 target_compile_definitions(trigger_test PRIVATE STARDRAFT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 add_executable(dat_test tools/tests/dat_test.cpp)
-target_link_libraries(dat_test PRIVATE stardraft)
+target_link_libraries(dat_test PRIVATE stardraft storm)  # storm: reading the protected maps euddraft writes
 
 add_executable(portrait_test tools/tests/portrait_test.cpp)
 target_include_directories(portrait_test PRIVATE ${stb_SOURCE_DIR})

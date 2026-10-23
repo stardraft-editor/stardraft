@@ -411,10 +411,11 @@ int ProjectPageView::paintBuild(draw::Canvas& c, int y, int x0, int labelW, int 
         {BO::MoreUnits, L"More units and sprites", L"Room for more sprites, images, bullets and orders (euddraft's unlimiter)"},
         {BO::NoAirCollision, L"Air units do not push apart", L"Air units can stay on top of each other (euddraft's noAirCollision)"},
         {BO::RemakeUnits, L"New graphics for preplaced units",
-         L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, the map "
-         L"removes each preplaced unit that the edits give other graphics, and makes it again on its place at the start. The map "
-         L"view shows these units with the new graphics. A unit where the game cannot put a unit (on other units, or on ground "
-         L"that it cannot stand on) moves near its place, or the game does not make it again."},
+         L"The game makes the preplaced units before the .dat edits, so they keep the old graphics. With this option, Build takes "
+         L"each preplaced unit that the edits give other graphics out of the built map, and the map makes it at the start, on its "
+         L"place and with its values. The project's map does not change. The map view shows these units with the new graphics. A "
+         L"unit where the game cannot put a unit (on other units, or on ground that it cannot stand on) moves near its place, or "
+         L"the game does not make it."},
         {BO::DebugBuild, L"Debug build",
          L"The triggers check each list index that the game calculates. An index out of range shows a message on the screen, and the "
          L"triggers use the first item. Turn it off for the map that you release."},
