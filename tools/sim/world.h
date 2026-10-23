@@ -168,7 +168,7 @@ struct Unit {
     int scarabs = 0;                          // (a Reaver's)
     int parent = -1;                          // (an Interceptor's Carrier)
     int movedFrame = -1, burrowStep = 0, startWait = 0, dieAt = -1;
-    int id = 0, repulseDir = 0, repulseSide = 0, repulseTimer = -1;  // (flyers)
+    int id = 0;
     bool fighter = false, burrowing = false, burrowed = false, neutral = false;  // (neutral: the map's own units)
     std::vector<std::pair<int, int>> path;     // the waypoints around unwalkable ground (the last: the move target)
     int pathX = -1, pathY = -1;                // the goal the path was made for
@@ -349,8 +349,6 @@ public:
     int weaponFor(const Unit& a, const Unit& b) const;
     int level(int owner, int upgrade) const;
     int weaponDamage(int weapon, int owner) const;  // (8 fractional bits)
-    int rangeBonus(const Unit& u, int weapon) const;
-    bool speedUpgraded(const Unit& u) const;
     int haltDistance(const Unit& u) const;
     bool hasWeapon(const Unit& u) const;
     const UnitData& weaponUnit(int type) const;  // its own data, or its turret's (or the Reaver's Scarab)
@@ -364,7 +362,6 @@ public:
 private:
     bool move(Unit& u, bool last);  // true: held by a unit that moves later this frame (try again)
     int blocker(const Unit& u, int x, int y) const;
-    void repulse();
     void react(Unit& u, const Unit& c, int tx, int ty);
     bool shortPath(Unit& u, int consider, bool movers);
     void runAnim(Anim& a, int unit, int bullet);

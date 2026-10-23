@@ -32,29 +32,19 @@ struct UnitRole {
     bool mineralField = false;          // data: a neutral resource container, not a geyser, not in the buildings group
     bool geyser = false;                // data: a neutral resource container of a race refinery's size
     int startDelay = 0;                 // table: frames before its first order (the Archon)
-    int speedUpgrade = -1;              // table: the upgrade that raises its speed (kAlways: always raised)
-    int rangeUpgrade = -1, rangeBonus = 0;  // table: the upgrade that raises its weapon range, and by how much
-    bool rangeAirOnly = false;              // table: only its air weapon (the Goliath's Charon Boosters)
-    int cooldownUpgrade = -1;           // table: the upgrade that halves its cooldown (Adrenal Glands)
-    int armorUpgradeExtra = -1, armorExtra = 0;  // table: an upgrade with extra armor (Chitinous Plating: +2)
-    int capacityUpgrade = -1, capacity = 0, capacityUpgraded = 0;  // table: Scarabs or Interceptors it holds
-    int energyUpgrade = -1;             // table: the upgrade that raises its maximum energy (Caduceus Reactor)
+    int capacity = 0;                   // table: Scarabs or Interceptors it holds
     int gasImage = -1;                  // table: a worker's image for carried gas (images.dat)
 };
 // A weapon's role.
 struct WeaponRole {
     bool lineHits = false;  // data: weapons.dat behaviour "go to max range": it hits along its line (Lurker spines)
-    int activeLimit = 0;    // table: at most this many of its projectiles at once (Halo Rockets: 80); 0: no limit
 };
 
 void deriveRoles(Tables& t);  // (rules.cpp: fills t.roles and t.weaponRoles from the data and the table)
 
 namespace rules {
 
-constexpr int kAlways = 1000;  // (a UnitRole upgrade that needs no upgrade)
 
-// Upgrades (upgrades.dat numbers) with an effect on all of a player's units of a kind.
-constexpr int kShieldArmorUpgrade = 15;  // Plasma Shields: shield armor
 
 // Orders and targets.
 constexpr int kOrderTick = 9;                // an order runs every 9 frames
@@ -66,13 +56,8 @@ constexpr int kPriorityBuilding = 4;
 constexpr int kPriorityLow = 5;
 constexpr int kSameWayTolerance = 32;        // (direction steps) a target moving the same way: no moving margin
 constexpr int kCallForHelp = 96;             // allies within 96 pixels of a hit unit take its attacker as target
-constexpr int kBuildingDetectRange = 7 * 32;  // a detector building sees cloaked units 7 tiles away
 
 // Attacks.
-constexpr int kCooldownMin = 5, kCooldownMax = 250;  // the cooldown's range, then a random -1 to +2
-constexpr int kSuicideDeathDelay = 3;        // a suicide unit is gone 3 frames after it fires
-constexpr int kMissOffset = 30;              // a missed projectile lands 30 pixels short
-constexpr int kMaxRangeExtra = 20;           // "go to max range" projectiles fly 20 pixels past the range
 constexpr int kBounces = 3;                  // a bouncing glaive: 3 hits, damage / 1, / 3, / 9
 constexpr int kBounceDivisor[3] = {1, 3, 9};
 constexpr int kBounceSearch = 96;            // its next target: within 96 pixels
@@ -84,26 +69,18 @@ constexpr int kLineHitRepeat = 32;           // a line hit hits each target once
 constexpr int kDamageFactor[5][4] = {{0, 0, 0, 0}, {0, 128, 192, 256}, {0, 256, 128, 64}, {256, 256, 256, 256},
                                      {256, 256, 256, 256}};
 constexpr int kDamageTypeIgnoreArmor = 4;
-constexpr int kMinDamage = 128;              // at least half a point (8 fractional bits) when no shields took it
 
 // Regeneration, energy (8 fractional bits a frame).
 constexpr int kRegenHp = 4, kRegenShields = 7, kRegenEnergy = 8;
-constexpr int kStartEnergy = 50, kMaxEnergy = 200, kMaxEnergyUpgraded = 250;
-constexpr int kStartEnergyUpgraded = 62;     // a Medic made with Caduceus Reactor (a quarter of 250)
+constexpr int kMaxEnergy = 200;
 
 // Movement.
-constexpr int kSpeedUpgradeMin = 853;        // a raised speed: +1/2, but at least 3 1/3 pixels a frame
-constexpr int kStopSpeed = 192;              // a braking unit stops below 0.75 pixels a frame
-constexpr int kBurrowFacing = 96;            // a unit turns to this heading to burrow
 constexpr int kRandomDirection = 32;         // units.dat direction 32: a random heading at creation
-constexpr int kTurnFramesNear = 32;          // (pixels) the frames-to-turn test applies within 32 pixels
 // The collision reaction: the block counter's limits.
 constexpr int kStuckRetry = 10, kStuckRetryEnd = 20, kStuckGiveUp = 30, kStuckYield = 25, kStuckHold = 50;
 constexpr int kStuckFresh = 2;               // a blocker that has been blocked at most 2 times: one waits for it
 constexpr int kStraightReach = 192;          // a straight walk in a fight goes at most 192 pixels along its axis
 constexpr int kPathAgeForRepath = 7;         // a new path waits until the old one is 7 frames old
-// Flying repulse.
-constexpr int kRepulseCell = 48, kRepulseFrames = 7, kRepulseOffset = 32, kRepulseStop = 24;
 
 // Medic.
 constexpr int kHealSearch = 160, kHealGap = 30, kHealMax = 200;  // (heal: 8 fractional bits; costs half in energy)

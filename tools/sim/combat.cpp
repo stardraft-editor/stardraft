@@ -30,13 +30,6 @@ int World::weaponDamage(int weapon, int owner) const {
     return (wd.damage + wd.bonus * std::min(level(owner, wd.upgrade), 100)) << 8;
 }
 
-int World::rangeBonus(const Unit& u, int weapon) const {
-    const UnitRole& r = role(u.type);
-    if (r.rangeUpgrade < 0 || !level(u.owner, r.rangeUpgrade)) return 0;
-    if (r.rangeAirOnly && weapon >= 0 && weapon != weaponUnit(u.type).airWeapon) return 0;
-    return r.rangeBonus;
-}
-
 const UnitData& World::weaponUnit(int type) const {
     const UnitData& d = t.units[size_t(type)];
     if (d.groundWeapon != kNoWeapon || d.airWeapon != kNoWeapon) return d;
@@ -73,13 +66,13 @@ bool World::canAttack(const Unit& a, const Unit& b) const {
 }
 
 // Cloaking: a Dark Templar, an Observer or a burrowed unit is seen by a side only while one of
-// its finished detectors is in range of it (box gap): buildings 7 tiles, the others their sight range.
+// its finished detectors is in range of it (box gap): its sight range.
 bool World::detected(const Unit& v, int side) const {
     if (!v.burrowed && !(t.units[size_t(v.type)].flags & kCloaked)) return true;
     for (const Unit& d : units) {
         const UnitData& dd = t.units[size_t(d.type)];
         if (!d.alive || d.hidden || d.side != side || !(dd.flags & kDetector) || &d == &v) continue;
-        if (gap(d, v) <= (d.building ? rules::kBuildingDetectRange : dd.sight * 32)) return true;
+        if (gap(d, v) <= dd.sight * 32) return true;
     }
     return false;
 }
@@ -92,7 +85,7 @@ bool World::inRange(const Unit& a, const Unit& b) const {
     int g = gap(a, b);
     bool launcher = role(a.type).launchesScarabs || role(a.type).launchesInterceptors;
     int range = launcher ? t.units[size_t(a.type)].acquire * 32
-                                                  : wd.maxRange + rangeBonus(a, w);
+                                                  : wd.maxRange;
     // The moving-target margin: a moving attacker with braking movement (type 0) adds its halt
     // distance, unless the target moves the same way.
     const FlingyData& f = t.flingy[size_t(t.units[size_t(a.type)].flingy)];
@@ -128,8 +121,6 @@ int World::acquire(int i, bool draw) {
             int m = t.weapons[size_t(w)].minRange;
             if (m > 0 && (minRange == 0 || m < minRange)) minRange = m;
         }
-    // (a range upgrade adds its tiles after the larger of the two)
-    range += std::max(rangeBonus(u, d.groundWeapon), rangeBonus(u, d.airWeapon));
     int best = -1, bestPriority = 99, bestDist = 0;
     std::vector<int> bucket;  // (all of the best priority)
     forNear(u.x - range - 160, u.y - range - 160, u.x + range + 160, u.y + range + 160, [&](int j) {
@@ -342,16 +333,14 @@ void World::combatOrder(int i) {
             return;
         }
     }
-    if (u.burrowing) {  // Burrow, on the order tick: stop, turn to the burrow facing, then its script
+    if (u.burrowing) {  // Burrow, on the order tick: stop, then its script
         if (!tick(u)) return;
         if (u.burrowStep == 0) {
             stopMove(u);
             u.burrowStep = 1;
         } else if (u.burrowStep == 1) {
-            u.aimX = u.x + dirX(rules::kBurrowFacing) / 8;
-            u.aimY = u.y + dirY(rules::kBurrowFacing) / 8;
             u.burrowStep = 2;
-        } else if (u.burrowStep == 2 && u.heading == rules::kBurrowFacing) {
+        } else if (u.burrowStep == 2) {
             animate(i, kAnimBurrow);
             u.burrowStep = 3;
         }
@@ -632,8 +621,7 @@ void World::startAttack(int i, const Unit& target, const WeaponData& wd, bool tu
     u.repeatAttack = true;
     spinSource = -1;  // (the first bullet of an attack draws its side)
     int cooldown = wd.cooldown;
-    if (role(u.type).cooldownUpgrade >= 0 && level(u.owner, role(u.type).cooldownUpgrade)) cooldown /= 2;
-    u.cooldown = std::clamp(cooldown, rules::kCooldownMin, rules::kCooldownMax) + (random() & 3) - 1;
+    u.cooldown = cooldown + (random() & 3) - 1;
     if (firstShot[u.side] < 0) firstShot[u.side] = frame;
     bool air = (t.units[size_t(target.type)].flags & kFlyer) != 0;
     Anim& anim = turret ? u.turret : u.anim;
@@ -676,18 +664,13 @@ void World::fire(int i, int weapon, bool melee, int forward) {
         b.anim.header = t.scriptHeader(t.flingyImage(wd.flingy));
         startAnim(b.anim, kAnimInit);
         bullets.push_back(b);
-        units[size_t(i)].dieAt = frame + rules::kSuicideDeathDelay;  // (it is gone a little later)
+        units[size_t(i)].dieAt = frame;  // (it is gone now)
         return;
     }
     if (forward < 0) forward = wd.forward;
     // One bullet, or two when the weapon's bullet count (weapons.dat damage factor) is 2: each its own flight and hit
     // with the full damage.
     for (int n = 0; n < std::max(1, wd.factor); ++n) {
-        int limit = t.weaponRoles[size_t(weapon)].activeLimit;
-        if (limit > 0 && std::count_if(bullets.begin(), bullets.end(), [&](const Bullet& o) {
-                return o.alive && o.weapon == weapon;
-            }) >= limit)
-            return;  // (at most so many of them at once)
         Bullet c = b;
         if (wd.spin) {  // the heading offset: the same unit's next bullet takes the other side
             int side = spinSource == i ? -spinSide : (random() & 1) ? 1 : -1;
@@ -701,18 +684,12 @@ void World::fire(int i, int weapon, bool melee, int forward) {
         c.x = appear ? target.x : u.x + dirX(u.heading) * forward / 256;
         c.y = appear ? target.y : u.y + dirY(u.heading) * forward / 256 - wd.upward;
         bool aimed = wd.behaviour <= kAppearOnTarget || wd.behaviour == kAppearOnSite || wd.behaviour == kBounce;
-        if (aimed && (random() & 0xff) <= 0) {  // the miss roll: the dodge chance is 0 on open, even ground
-            c.missed = true;
-            int& mx = appear ? c.x : c.tx;
-            int& my = appear ? c.y : c.ty;
-            mx -= dirX(c.heading) * rules::kMissOffset / 256;
-            my -= dirY(c.heading) * rules::kMissOffset / 256;
-        }
+        if (aimed && (random() & 0xff) <= 0) c.missed = true;  // the miss roll: the dodge chance is 0 on open ground
         c.ex = c.x << 8;
         c.ey = c.y << 8;
-        if (wd.behaviour == kToMaxRange) {  // (it flies out to its maximum range and a little more)
-            c.tx = c.x + dirX(c.heading) * (wd.maxRange + rules::kMaxRangeExtra) / 256;
-            c.ty = c.y + dirY(c.heading) * (wd.maxRange + rules::kMaxRangeExtra) / 256;
+        if (wd.behaviour == kToMaxRange) {  // (it flies out to its maximum range)
+            c.tx = c.x + dirX(c.heading) * wd.maxRange / 256;
+            c.ty = c.y + dirY(c.heading) * wd.maxRange / 256;
         }
         c.life = wd.removeAfter;
         c.bounces = wd.behaviour == kBounce ? rules::kBounces : 0;
@@ -789,22 +766,15 @@ void World::bulletStep(int index) {
         b.tx = units[size_t(b.target)].x;
         b.ty = units[size_t(b.target)].y;
     }
-    // The flight with its flingy data (as movement types 0 and 1 without braking): the velocity
-    // direction turns by half the turn rate, the picture by the full rate; it speeds up when it goes the right way or
-    // is 32 pixels or more away; the last step lands it on its target.
+    // The flight with its flingy data: the velocity direction turns by half the turn rate, the picture by the full
+    // rate; it speeds up to its top speed; the last step lands it on its target.
     const FlingyData& f = t.flingy[size_t(wd.flingy)];
     double fx = double((b.tx << 8) - b.ex), fy = double((b.ty << 8) - b.ey);
     int dist = int(std::sqrt(fx * fx + fy * fy));
     int desired = dist > 0 ? direction(b.tx - b.x, b.ty - b.y) : b.velDir;
     b.velDir = turnToward(b.velDir, desired, f.turn ? std::max(1, f.turn / 2) : 256);
     b.heading = turnToward(b.heading, desired, f.turn ? f.turn : 256);
-    bool accelerate = b.velDir == desired || dist >= rules::kTurnFramesNear * 256;
-    if (!accelerate) {  // (near and turning: on when the frames to turn allow it)
-        int r = std::max(1, f.turn / 2), diff = std::abs(int(int8_t(uint8_t(desired - b.velDir))));
-        int turnFrames = (2 * diff + r - 1) / r;
-        accelerate = turnFrames * 3 / 2 <= dist >> 8;
-    }
-    b.speed = std::clamp(b.speed + (accelerate ? std::max(f.accel, 1) : -f.accel), 0, f.topSpeed);
+    b.speed = std::clamp(b.speed + std::max(f.accel, 1), 0, f.topSpeed);
     if (b.speed >= dist || f.topSpeed <= 0) {
         b.ex = b.tx << 8;
         b.ey = b.ty << 8;
@@ -928,22 +898,15 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
     const UnitData& d = t.units[size_t(v.type)];
     if (!v.alive || v.neutral || (d.flags & kInvincible)) return;  // (the map's own units take no damage)
     const WeaponData& wd = t.weapons[size_t(weapon)];
-    int dmg = std::max(amount / divisor, rules::kMinDamage);
+    int dmg = amount / divisor;
     int shieldDamage = 0;
     if (d.hasShields && v.shields >= 256) {
-        if (wd.damageType != rules::kDamageTypeIgnoreArmor) {  // (Plasma Shields: shield armor)
-            dmg -= level(v.owner, rules::kShieldArmorUpgrade) * 256;
-            if (dmg <= 0) dmg = rules::kMinDamage;
-        }
         shieldDamage = std::min(dmg, v.shields);
         dmg -= shieldDamage;
     }
-    const UnitRole& r = role(v.type);
-    int armor = d.armor + level(v.owner, d.armorUpgrade) +
-                (r.armorUpgradeExtra >= 0 && level(v.owner, r.armorUpgradeExtra) ? r.armorExtra : 0);
+    int armor = d.armor + level(v.owner, d.armorUpgrade);
     if (wd.damageType != rules::kDamageTypeIgnoreArmor) dmg = dmg > armor * 256 ? dmg - armor * 256 : 0;
     dmg = dmg * rules::kDamageFactor[std::min(wd.damageType, 4)][std::min(d.size, 3)] / 256;
-    if (shieldDamage == 0 && dmg < rules::kMinDamage) dmg = rules::kMinDamage;
     v.damageTaken += shieldDamage + std::min(dmg, v.hp);
     if (shieldDamage + dmg > 0) {  // (damage: the fight goes on, and both may walk again)
         lastProgress = lastDamage = frame;
@@ -1019,11 +982,9 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
         u.heading = u.velDir = face(type);
         if (r.attacksBurrowed) u.burrowing = true;
         if (r.spiderMine) u.timer = rules::kMineArm;  // (a mine arms first)
-        bool more = r.capacityUpgrade >= 0 && w.level(owner, r.capacityUpgrade);
-        if (r.launchesScarabs) u.scarabs = more ? r.capacityUpgraded : r.capacity;
-        if (r.energyUpgrade >= 0 && w.level(owner, r.energyUpgrade)) u.energy = rules::kStartEnergyUpgraded << 8;
+        if (r.launchesScarabs) u.scarabs = r.capacity;
         if (r.launchesInterceptors)
-            for (int n = 0; n < (more ? r.capacityUpgraded : r.capacity); ++n) {
+            for (int n = 0; n < r.capacity; ++n) {
                 Unit& f = w.units[size_t(w.add(t.interceptorType, owner, x, y))];
                 f.heading = f.velDir = face(t.interceptorType);
                 f.side = side;

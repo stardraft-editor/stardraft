@@ -12,20 +12,7 @@ namespace sim {
 namespace {
 
 // units.dat ids of the table below.
-enum : int {
-    kMarine = 0, kVulture = 2, kGoliath = 3, kScv = 7, kZergling = 37, kHydralisk = 38, kUltralisk = 39, kDrone = 41,
-    kOverlord = 42, kProbe = 64, kZealot = 65, kDragoon = 66, kArchon = 68, kShuttle = 69, kScout = 70, kObserver = 84,
-    kInterceptor = 73, kScarab = 85, kLurker = 103,
-};
-// upgrades.dat ids.
-enum : int {
-    kU238Shells = 16, kIonThrusters = 17, kPneumatizedCarapace = 26, kMetabolicBoost = 27, kAdrenalGlands = 28,
-    kMuscularAugments = 29, kGroovedSpines = 30, kSingularityCharge = 33, kLegEnhancements = 34, kReaverCapacity = 36,
-    kGraviticDrive = 37, kGraviticBoosters = 39, kGraviticThrusters = 42, kCarrierCapacity = 43, kCaduceusReactor = 51,
-    kChitinousPlating = 52, kAnabolicSynthesis = 53, kCharonBoosters = 54,
-};
-// weapons.dat ids.
-enum : int { kHaloRockets = 103 };
+enum : int { kScv = 7, kZergling = 37, kDrone = 41, kProbe = 64, kArchon = 68, kInterceptor = 73, kScarab = 85, kLurker = 103 };
 // orders.dat ids: the game's own orders that units.dat gives some units (their code is the game's, not in a file).
 enum : int {
     kOrderReaverAttack = 59, kOrderCarrierAttack = 53, kOrderInterceptor = 64, kOrderScarab = 65, kOrderMine = 20,
@@ -57,21 +44,16 @@ void deriveRoles(Tables& t) {
         UnitRole& r = t.roles[i];
         if (d.attackOrder == kOrderReaverAttack) {
             r.launchesScarabs = true;
-            r.capacityUpgrade = kReaverCapacity;
             r.capacity = 5;
-            r.capacityUpgraded = 10;
         }
         if (d.attackOrder == kOrderCarrierAttack) {
             r.launchesInterceptors = true;
-            r.capacityUpgrade = kCarrierCapacity;
             r.capacity = 4;
-            r.capacityUpgraded = 8;
         }
         r.scarab = d.attackOrder == kOrderScarab;
         r.interceptor = d.attackOrder == kOrderInterceptor;
         r.spiderMine = d.idleOrder == kOrderMine;
         r.healer = d.attackOrder == kOrderHeal;
-        if (r.healer) r.energyUpgrade = kCaduceusReactor;  // (table: Caduceus Reactor raises its energy)
     }
     // Resources and markers (data): a geyser is a neutral resource container of a race refinery's size (a race's
     // resource container that is not a depot); mineral fields are the other neutral resource containers that are not in
@@ -97,7 +79,6 @@ void deriveRoles(Tables& t) {
     t.scarabType = kScarab;
     t.interceptorType = kInterceptor;
     role(kLurker).attacksBurrowed = true;   // (table: no file says it has its weapon only while burrowed)
-    role(kLurker).speedUpgrade = rules::kAlways;  // (table: it moves as if upgraded)
     role(kZergling).ordersEveryFrame = true;  // (table: a rule of the game's code for the Zergling)
     // Each race's depot, worker and refinery (data): the first unit of the race with the flag, no hero; a refinery is
     // a resource container building of a geyser's size.
@@ -115,23 +96,6 @@ void deriveRoles(Tables& t) {
             t.refineryOf[race] = i;
     }
     role(kArchon).startDelay = 17;          // (it starts 17 frames after it is made: its merge)
-    // Upgrades: which unit each changes, and how (upgrades.dat has no effects).
-    const int speed[][2] = {{kVulture, kIonThrusters},       {kOverlord, kPneumatizedCarapace},
-                            {kZergling, kMetabolicBoost},    {kHydralisk, kMuscularAugments},
-                            {kZealot, kLegEnhancements},     {kScout, kGraviticThrusters},
-                            {kShuttle, kGraviticDrive},      {kObserver, kGraviticBoosters},
-                            {kUltralisk, kAnabolicSynthesis}};
-    for (const auto& s : speed) role(s[0]).speedUpgrade = s[1];
-    const int range[][3] = {{kMarine, kU238Shells, 32}, {kHydralisk, kGroovedSpines, 32},
-                            {kDragoon, kSingularityCharge, 64}, {kGoliath, kCharonBoosters, 96}};
-    for (const auto& s : range) {
-        role(s[0]).rangeUpgrade = s[1];
-        role(s[0]).rangeBonus = s[2];
-    }
-    role(kGoliath).rangeAirOnly = true;
-    role(kZergling).cooldownUpgrade = kAdrenalGlands;
-    role(kUltralisk).armorUpgradeExtra = kChitinousPlating;
-    role(kUltralisk).armorExtra = 2;
     // (the images of carried gas are not linked to the workers in any file)
     role(kScv).gasImage = 403;
     role(kProbe).gasImage = 399;
@@ -140,7 +104,6 @@ void deriveRoles(Tables& t) {
     t.weaponRoles.assign(t.weapons.size(), WeaponRole());
     for (size_t i = 0; i < t.weapons.size(); ++i)
         t.weaponRoles[i].lineHits = t.weapons[i].behaviour == kBehaviourMaxRange;
-    t.weaponRoles[kHaloRockets].activeLimit = 80;  // (a limit of the game's, not in weapons.dat)
 }
 
 }  // namespace sim

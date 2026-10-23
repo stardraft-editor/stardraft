@@ -117,7 +117,7 @@ int World::add(int type, int owner, int x, int y) {
         startAnim(u.turret, kAnimInit);
     }
     if (role(type).launchesScarabs) u.scarabs = role(type).capacity;  // (a Reaver: its Scarabs)
-    if (d.flags & kSpellcaster) u.energy = rules::kStartEnergy << 8;  // (spellcasters such as the Medic: an assumption)
+    if (d.flags & kSpellcaster) u.energy = rules::kMaxEnergy << 8;  // (spellcasters such as the Medic: full)
     units.push_back(u);
     return int(units.size()) - 1;
 }
@@ -657,10 +657,8 @@ bool World::move(Unit& u, bool last) {
     int savedHeading = u.heading, savedVelDir = u.velDir, savedSpeed = u.speed;
     const FlingyData& f = t.flingy[size_t(t.units[u.type].flingy)];
     bool scripted = f.control == kControlScript;
-    bool fast = speedUpgraded(u);
-    int top = fast ? std::max(f.topSpeed + f.topSpeed / 2, rules::kSpeedUpgradeMin) : f.topSpeed;
-    int accel = fast ? f.accel * 2 : f.accel;
-    int turn = (fast ? f.turn * 2 : f.turn) / (scripted ? 1 : 2);
+    int top = f.topSpeed, accel = f.accel;
+    int turn = f.turn / (scripted ? 1 : 2);
     if (u.burrowing) {  // (it only turns)
         if (u.x != u.aimX || u.y != u.aimY)
             u.heading = u.velDir = turnToward(u.heading, direction(u.aimX - u.x, u.aimY - u.y), f.turn);
@@ -701,9 +699,9 @@ bool World::move(Unit& u, bool last) {
     else if (u.x != u.aimX || u.y != u.aimY)
         desired = direction(u.aimX - u.x, u.aimY - u.y);
     u.velDir = turnToward(u.velDir, desired, f.turn ? turn : 256);  // (no turn rate, such as a Spider Mine: at once)
-    u.heading = turnToward(u.heading, desired, f.turn ? (fast ? f.turn * 2 : f.turn) : 256);  // (the full rate)
+    u.heading = turnToward(u.heading, desired, f.turn ? f.turn : 256);  // (the full rate)
     if (atTarget || u.repeatAttack) {  // (a braking unit only slows down; below 0.75 px a frame it stops)
-        u.speed = scripted || u.speed - accel < rules::kStopSpeed ? 0 : u.speed - accel;
+        u.speed = scripted || u.speed - accel < 0 ? 0 : u.speed - accel;
         return false;
     }
     double fx = double((tx << 8) - u.ex), fy = double((ty << 8) - u.ey);
@@ -1090,7 +1088,7 @@ void World::runAnim(Anim& a, int unit, int bullet) {
             }
             break;
         case 0x29:  // move (control 2 units)
-            if (u) u->speed = speedUpgraded(*u) ? (arg << 8) * 3 / 2 : arg << 8;  // (the speed upgrade: +1/2)
+            if (u) u->speed = arg << 8;
             break;
         case 0x2A: if (u) u->repeatAttack = false; break;  // gotorepeatattk
         case 0x30:  // ignorerest (an attack script that has no gotorepeatattk, the Firebat's, ends its attack here)
@@ -1106,70 +1104,11 @@ void World::runAnim(Anim& a, int unit, int bullet) {
 }
 
 
-// Flying repulse (without the small nudge table): a flyer in a cell with other flyers drifts half a pixel a frame in
-// its own repulse direction (more at its move target), re-aimed every few frames to some steps off its target's
-// direction; near its move target it stops there.
-void World::repulse() {
-    const int size = rules::kRepulseCell;
-    int cols = map.width * 32 / size + 1;
-    std::vector<int> count(size_t(cols * (map.height * 32 / size + 1)), 0);
-    int rows = map.height * 32 / size + 1;
-    auto cell = [&](const Unit& u) {
-        return size_t(std::clamp(u.y / size, 0, rows - 1) * cols + std::clamp(u.x / size, 0, cols - 1));
-    };
-    auto flyer = [&](const Unit& u) {
-        return u.alive && !u.hidden && !u.fighter && !u.neutral && !u.building &&
-               (t.units[size_t(u.type)].flags & kFlyer);
-    };
-    for (const Unit& u : units)
-        if (flyer(u)) ++count[cell(u)];
-    for (Unit& u : units) {
-        if (!flyer(u) || count[cell(u)] <= 1 || u.repeatAttack) continue;
-        if (u.repulseTimer < 0) {  // (its first crowded cell: one draw)
-            int r = random();
-            u.repulseDir = r & 255;
-            u.repulseSide = (r >> 12) & 1;
-            u.repulseTimer = 0;
-        }
-        bool atTarget = u.x == u.moveX && u.y == u.moveY;
-        if (u.repulseTimer > 0) {
-            --u.repulseTimer;
-        } else {
-            u.repulseTimer = rules::kRepulseFrames;
-            if (!atTarget) {
-                int off = rules::kRepulseOffset + (u.id * 7 + frame) % rules::kRepulseOffset;
-                u.repulseDir = (direction(u.moveX - u.x, u.moveY - u.y) + (u.repulseSide ? off : -off)) & 255;
-            }
-        }
-        int rx = dirX(u.repulseDir) / 2, ry = dirY(u.repulseDir) / 2;
-        if (atTarget) {
-            rx = rx * (count[cell(u)] / 4 + 1) / 2;
-            ry = ry * (count[cell(u)] / 4 + 1) / 2;
-        }
-        u.ex = std::clamp(u.ex + rx, 0, (map.width * 32 - 1) << 8);
-        u.ey = std::clamp(u.ey + ry, 0, (map.height * 32 - 1) << 8);
-        u.x = (u.ex + 128) >> 8;
-        u.y = (u.ey + 128) >> 8;
-        if (std::max(std::abs(u.moveX - u.x), std::abs(u.moveY - u.y)) < rules::kRepulseStop) stopMove(u);
-    }
-}
-
-// The distance a unit needs to stop from its speed now (8 fractional bits), with its speed
-// upgrade; 0 for units moved by their script.
+// The distance a unit needs to stop from its speed now (8 fractional bits); 0 for units moved by their script.
 int World::haltDistance(const Unit& u) const {
     const FlingyData& f = t.flingy[size_t(t.units[u.type].flingy)];
     if (f.control == kControlScript) return 0;
-    bool fast = speedUpgraded(u);
-    int top = fast ? std::max(f.topSpeed + f.topSpeed / 2, rules::kSpeedUpgradeMin) : f.topSpeed;
-    int accel = fast ? f.accel * 2 : f.accel;
-    return u.speed == top && accel == f.accel ? f.halt : u.speed * u.speed / std::max(1, 2 * accel);
-}
-
-// Whether a unit has its speed upgrade: +1/2 top speed (at least 3 1/3 px a frame), double
-// acceleration and turn rate. Lurkers always have it.
-bool World::speedUpgraded(const Unit& u) const {
-    int upgrade = role(u.type).speedUpgrade;
-    return upgrade == rules::kAlways || (upgrade >= 0 && level(u.owner, upgrade) > 0);
+    return u.speed == f.topSpeed ? f.halt : u.speed * u.speed / std::max(1, 2 * f.accel);
 }
 
 void World::buildGrid() {
@@ -1213,7 +1152,6 @@ void World::step() {
     for (Unit& u : units)
         if (move(u, false)) later.push_back(&u);
     for (Unit* u : later) move(*u, true);
-    if (combat) repulse();
     if (combat) buildGrid();
     for (size_t i = 0; i < units.size(); ++i) {
         Unit& u = units[i];
@@ -1228,9 +1166,7 @@ void World::step() {
         if ((d.flags & kRegenerates) && u.hp < d.hp) u.hp = std::min(d.hp, u.hp + rules::kRegenHp);
         if (d.hasShields && u.shields < d.shields << 8)
             u.shields = std::min(d.shields << 8, u.shields + rules::kRegenShields);
-        const UnitRole& r = role(u.type);
-        bool more = r.energyUpgrade >= 0 && level(u.owner, r.energyUpgrade);  // (Caduceus Reactor)
-        int maxEnergy = (more ? rules::kMaxEnergyUpgraded : rules::kMaxEnergy) << 8;
+        const int maxEnergy = rules::kMaxEnergy << 8;
         if ((d.flags & kSpellcaster) && u.energy < maxEnergy)
             u.energy = std::min(maxEnergy, u.energy + rules::kRegenEnergy);
         if (u.order >= MoveToMinerals && u.order <= ReturnGas)
