@@ -1327,6 +1327,9 @@ bool runDamageOverlayCheck(const sim::Tables& t, const sim::MapInfo& map) {
             ++checks;
         };
         for (int s = 16; s >= 1; --s) check(d.hp * s / 16, true);
+        w.setFastForward(true);  // (fast forward clears the pictures: they come again after it)
+        w.setFastForward(false);
+        check(d.hp / 16, true);
         for (int s = 1; s <= 16; ++s) check(d.hp * s / 16, false);
         bool good = wrong == 0 && most == n;
         std::printf("Damage overlays: unit %d (%d slots): %d hit-point steps down and up, at most %d overlays, %d "

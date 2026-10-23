@@ -91,6 +91,7 @@ struct Tables {
     // Each image's damage overlay list (images.dat, its .lof file), by GRP frame: the places of its 22 slots,
     // (127, 127) for a slot it does not use.
     std::vector<std::vector<std::vector<std::pair<int, int>>>> damageOffsets;
+    std::vector<std::vector<int>> damageSlots;  // (each image's slots in use, frame 0)
     std::vector<uint8_t> iscript;
     std::vector<std::pair<int, int>> scripts;  // (iscript id, offset of its header)
     FileReader read;
@@ -239,7 +240,9 @@ public:
     bool fastForward = false;
     void setFastForward(bool on) {
         fastForward = on;
-        if (on) effects.clear();
+        if (!on) return;
+        effects.clear();
+        for (Unit& u : units) u.damageStep = 0;  // (its damage overlays are gone: they come again after it)
     }
     std::vector<LiveSound> sounds;
     void sound(int sfx, int x, int y, int owner) {

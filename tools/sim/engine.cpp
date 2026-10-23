@@ -409,12 +409,8 @@ void World::damageOverlays(int unit) {
     Unit& u = units[size_t(unit)];
     const UnitData& d = t.units[size_t(u.type)];
     int image = t.flingyImage(d.flingy);
-    if (fastForward || image < 0 || size_t(image) >= t.damageOffsets.size() || t.damageOffsets[size_t(image)].empty())
-        return;
-    std::vector<int> used;
-    const auto& first = t.damageOffsets[size_t(image)][0];
-    for (size_t s = 0; s < first.size(); ++s)
-        if (first[s] != std::make_pair(127, 127)) used.push_back(int(s));
+    if (fastForward || image < 0 || size_t(image) >= t.damageSlots.size()) return;
+    const std::vector<int>& used = t.damageSlots[size_t(image)];
     if (used.empty() || d.hp <= 0) return;
     const long long steps = 2 * static_cast<long long>(used.size()), denom = 3 * (steps + 1);
     int target = 0;
