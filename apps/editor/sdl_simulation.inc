@@ -705,10 +705,10 @@ void simSeek(int frame) {
 // Restart, Skip to the end and Cancel (at the end: Restart, Report and Close). Mining has a thin timeline along the
 // pill's bottom edge: how far the game is, of its longest time; a click or a drag goes to that time.
 // The buttons' ids (gSim.hot, gSim.pressed): 0 Cancel/Close, 1 the speed/Report, 2 Restart, 3 the info icon, 4 -, 5 +,
-// 6 Skip to the end.
+// 6 Skip to the end, 7 the mining's settings.
 constexpr float kSimSpeeds[] = {0.25f, 0.5f, 1, 2, 4, 8, 16, 32, 64};
 struct SimBarLayout {
-    draw::Rect bar, chip, text, first, second, third, minus, plus, skip, track, trackHit;
+    draw::Rect bar, chip, text, first, second, third, minus, plus, skip, gear, track, trackHit;
 };
 SimBarLayout simLayout(draw::Rect r) {
     SimBarLayout l;
@@ -727,7 +727,8 @@ SimBarLayout simLayout(draw::Rect r) {
         l.second = left(l.plus, tw);   // the speed
         l.minus = left(l.second, ib);  // -
     }
-    const draw::Rect firstButton = gSim.done ? l.third : l.minus;
+    draw::Rect firstButton = gSim.done ? l.third : l.minus;
+    if (!gSim.combat) l.gear = left(firstButton, ib), firstButton = l.gear;  // (mining: its settings)
     l.chip = {x + pad, y + pad, x + pad + ib, y + pad + ib};  // the info icon
     l.text = {l.chip.right + scale(6), y, firstButton.left - scale(8), y + h};
     if (gSim.combat) return l;  // (a combat has no timeline: it goes on until no side can fight)
@@ -832,6 +833,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         c.text(b, label, primary ? draw::rgb(255, 255, 255) : lit ? kText : kDim, draw::kCenter | draw::kMiddle);
     };
     iconButton(2, l.third, UiIcon::ToStart);
+    if (!gSim.combat) iconButton(7, l.gear, UiIcon::Settings);
     if (gSim.done) {
         textButton(1, l.second, L"Report", true);
     } else {
@@ -841,6 +843,36 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         iconButton(6, l.skip, UiIcon::ToEnd);
     }
     iconButton(0, l.first, UiIcon::Close);
+}
+
+// The mining's settings (the bar's gear): the workers on minerals and on gas at each base, as Program options has them;
+// a pick saves it and starts the mining again with it.
+void simulateMiningCommand();
+void simMiningSettingsMenu() {
+    if (!gRoot || !gHost) return;
+    int workers = 9, gas = 3;
+    prefs::number(L"SimWorkers", workers, 1, 60), prefs::number(L"SimGasWorkers", gas, 0, 3);
+    std::vector<stardraft::kit::MenuItem> items;
+    auto header = [&](const std::wstring& t) {
+        if (!items.empty()) items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
+        items.push_back(stardraft::kit::MenuItem{}), items.back().label = t, items.back().enabled = false;
+    };
+    auto choice = [&](const std::wstring& t, bool on, const wchar_t* key, int value) {
+        items.push_back(stardraft::kit::MenuItem{});
+        items.back().label = t, items.back().checked = on;
+        items.back().run = [key, value] {
+            prefs::setNumber(key, value);
+            shellPost([] { simulateMiningCommand(); });  // (again with the new settings)
+        };
+    };
+    header(L"Workers on minerals");
+    for (int n : {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30}) choice(std::to_wstring(n), n == workers, L"SimWorkers", n);
+    header(L"Gas");
+    choice(L"No gas", gas == 0, L"SimGasWorkers", 0);
+    for (int n = 1; n <= 3; ++n) choice(std::to_wstring(n) + (n == 1 ? L" worker" : L" workers"), n == gas, L"SimGasWorkers", n);
+    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), {});
 }
 
 bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
@@ -858,7 +890,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         return true;
     }
     const int over = e.kind == draw::MouseKind::Leave ? -1 : hit(l.first) ? 0 : (gSim.done && hit(l.second)) ? 1 : hit(l.third) ? 2 : hit(l.chip) ? 3
-                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : -1;
+                     : hit(l.minus) ? 4 : hit(l.plus) ? 5 : hit(l.skip) ? 6 : (!gSim.combat && hit(l.gear)) ? 7 : -1;
     if (over != gSim.hot) gSim.hot = over, simRedraw();
     if (e.kind == draw::MouseKind::Up && e.button == 0 && gSim.pressed >= 0) {
         const int was = gSim.pressed;
@@ -870,6 +902,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         else if (was == 1) shellPost([] { simShowReport(); });
         else if (was == 4 || was == 5) simStepSpeed(was == 4 ? -1 : 1), simRedraw();
         else if (was == 6) simSkipToEnd();
+        else if (was == 7) shellPost([] { simMiningSettingsMenu(); });
         return true;
     }
     const bool in = hit(l.bar);
@@ -899,6 +932,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";
     if (in(l.skip)) return L"Skip to the end";
+    if (!gSim.combat && in(l.gear)) return L"Workers and gas";
     if (in(l.second)) return gSim.done ? L"Show the report" : L"Speed";
     if (in(l.first)) return gSim.done ? L"Close" : L"Cancel the simulation";
     return {};

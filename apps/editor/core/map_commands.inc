@@ -307,7 +307,7 @@ void registerMapCommands() {
     }
     addCommand(ID_REVEAL_PLACE, "edit.revealers.place", L"Place &map revealers\x2026", "Edit/Tools", L"", [] { placeMapRevealersCommand(); });
 #ifdef STARDRAFT_SIMULATION  // (experimental: sdl_simulation.inc)
-    addCommand(ID_SIM_MINING, "edit.simulate.mining", L"Simulate &mining", "Edit/Tools", L"Ctrl+Alt+M", [] { simulateMiningCommand(); });
+    addCommand(ID_SIM_MINING, "edit.simulate.mining", L"Simulate melee &mining", "Edit/Tools", L"Ctrl+Alt+M", [] { simulateMiningCommand(); });
     addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
 #endif
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
