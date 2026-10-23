@@ -62,8 +62,8 @@ int main() {
     const HelpTopic t = helpSplitTopic("units-dat#hit-points");
     check(t.page == "units-dat" && t.anchor == "hit-points", "a topic splits into its page and anchor");
 
-    // Each field of the eight .dat files has its place on its page (F1 on the Data form).
-    for (const char* dat : {"units", "weapons", "flingy", "sprites", "images", "upgrades", "techdata", "orders"}) {
+    // Each field of the .dat files that have a page has its place on its page (F1 on the Data form).
+    for (const char* dat : {"units", "weapons", "flingy", "sprites", "images", "upgrades", "techdata", "orders", "sfxdata", "portdata"}) {
         const DatSchema* s = DatSchema::find(dat);
         check(s != nullptr, std::string("the schema of ") + dat + ".dat");
         if (!s) continue;
@@ -79,7 +79,7 @@ int main() {
     }
     const HelpTopic research = helpFieldTopic("techdata", "Resarch Time");
     check(research.page == "techdata-dat" && research.anchor == "research-time", "techdata's Resarch Time opens #research-time");
-    check(helpFieldTopic("sfxdata", "Sound File").empty(), "a .dat with no page: no topic");
+    check(helpFieldTopic("mapdata", "Mission Dir").empty(), "a .dat with no page: no topic");
 
     // The search.
     std::vector<HelpHit> hits = helpSearch("hit points");

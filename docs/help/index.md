@@ -26,6 +26,8 @@ in the game, how the game keeps its value (the raw value), and the value in a un
 - [Upgrades (upgrades.dat)](upgrades-dat.md): costs and research time of each level.
 - [Technologies (techdata.dat)](techdata-dat.md): costs, research time and energy.
 - [Orders (orders.dat)](orders-dat.md): what each order does and how it targets.
+- [Sounds (sfxdata.dat)](sfxdata-dat.md): the file, priority, flags and volume of each sound.
+- [Portraits (portdata.dat)](portdata-dat.md): the animation files of each portrait and how the game selects them.
 
 ## Feedback
 
