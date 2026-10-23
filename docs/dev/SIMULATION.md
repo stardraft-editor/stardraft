@@ -161,7 +161,18 @@ wide as its box.
 one), each playing its own script, and its turret; a new animation of the unit (walking, attack, death) starts in its
 overlays too. Shadows are left to the editor. A dying unit's images play their Death animations, and the images and
 sprites their scripts make (remnants, explosions) play until their end, the under kinds under the living units. These
-pictures draw their own random numbers and have no part in the game.
+pictures draw their own random numbers and have no part in the game. Each `LiveImage` has its sprite's `elevation`
+level, the layer the editor draws by (lower levels first, then by `sortY` within one level):
+
+- a unit, its overlays, turret and load: units.dat's Elevation Level (ground units 4, for example);
+- a projectile and its hit: the level of the unit that fired it + `bulletElevationAbove` (rules.ini: 1), so hits
+  are drawn on top of the ground units;
+- a sprite that a script makes: sprol and grdsprol one level above its parent, sprul one below, highsprol the
+  highest level (`elevationHighest`: 19), lowsprul the lowest (`elevationLowest`: 0: remnants under all); an image
+  that a script makes (imgol, imgul) is part of its parent's sprite and has its level.
+
+sim_test's drawing layers check: in fight 1 and the Siege Tank fight, each hit image (a weapon's own image and the
+sprites its script makes above it) has a level above the ground units'.
 
 **Players and teams**: with `byPlayer`, placed units fight by player; players of one team (`team[8]`) are allies,
 all others enemies; each unit attack-moves to the middle of its enemies; the result lists the teams and the winner.

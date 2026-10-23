@@ -51,6 +51,7 @@ bool Tables::load(const FileReader& reader, std::string& error) {
         d.flingy = ru.u8(i);
         d.direction = ru.u8(0x8C4 + i);
         d.sight = ru.u8(0x1FEC + i);
+        d.elevation = ru.u8(0xFE4 + i);
         d.subunit = ru.u16(0xE4 + i * 2);
         d.hasShields = ru.u8(0x9A8 + i) != 0;
         d.shields = ru.u16(0xA8C + i * 2);

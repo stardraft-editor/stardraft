@@ -1068,7 +1068,8 @@ void World::runAnim(Anim& a, int unit, int bullet) {
                 bool under = s[size_t(pc)] == 0x11 || s[size_t(pc)] == 0x14 || s[size_t(pc)] == 0x42;
                 if (shown)
                     addEffect(t.spriteImage[size_t(id)], b.x + int8_t(s[size_t(pc) + 3]),
-                              b.y + int8_t(s[size_t(pc) + 4]), b.owner, b.heading, under, 0, -1, 0, 0);
+                              b.y + int8_t(s[size_t(pc) + 4]), b.owner, b.heading,
+                              spriteElevation(s[size_t(pc)], bulletElevation(b)), under, 0, -1, 0, 0);
             }
             if (u && &a == &u->anim) {  // (the main image's: overlays stay with the unit, sprites go their own way)
                 int op = s[size_t(pc)];
@@ -1081,7 +1082,9 @@ void World::runAnim(Anim& a, int unit, int bullet) {
                 bool shown = !sprite || (id < int(t.spriteImage.size()) && t.spriteVisible[size_t(id)]);
                 int image = !shown ? -1 : sprite ? t.spriteImage[size_t(id)] : id;
                 bool under = op == 0x09 || op == 0x0E || op == 0x3D || op == 0x11 || op == 0x14 || op == 0x42;
-                addEffect(image, u->x + dx, u->y + dy, u->owner, u->heading, under, 0, sprite ? -1 : unit, dx, dy);
+                int level = t.units[size_t(u->type)].elevation;
+                addEffect(image, u->x + dx, u->y + dy, u->owner, u->heading,
+                          sprite ? spriteElevation(op, level) : level, under, 0, sprite ? -1 : unit, dx, dy);
             }
             break;
         case 0x24:                                         // sigorder: a projectile's launch
@@ -1229,8 +1232,25 @@ void World::step() {
                   effects.end());
 }
 
-void World::addEffect(int image, int x, int y, int owner, int heading, bool under, int anim, int follow, int dx,
-                      int dy) {
+// A projectile's elevation: its unit's, and rules.ini's levels above it.
+int World::bulletElevation(const Bullet& b) const {
+    int source = b.source >= 0 ? t.units[size_t(units[size_t(b.source)].type)].elevation : 0;
+    return source + t.rules.bulletElevationAbove;
+}
+
+// The elevation of a sprite that a script makes, by its opcode: sprol and grdsprol one level above its parent,
+// sprul one below, highsprol the highest level, lowsprul the lowest (rules.ini).
+int World::spriteElevation(int op, int parent) const {
+    switch (op) {
+    case 0x10: return t.rules.elevationHighest;
+    case 0x11: return t.rules.elevationLowest;
+    case 0x14: return std::max(t.rules.elevationLowest, parent - 1);
+    default: return std::min(t.rules.elevationHighest, parent + 1);
+    }
+}
+
+void World::addEffect(int image, int x, int y, int owner, int heading, int elevation, bool under, int anim, int follow,
+                      int dx, int dy) {
     // (no shadows, and no image at all)
     if (image < 0 || (image < int(t.imageDraw.size()) && t.imageDraw[size_t(image)] == kDrawShadow)) return;
     Effect e;
@@ -1242,6 +1262,7 @@ void World::addEffect(int image, int x, int y, int owner, int heading, bool unde
     e.y = y;
     e.owner = owner;
     e.heading = heading;
+    e.elevation = elevation;
     e.under = under;
     e.anim.header = t.scriptHeader(image);
     if (image < 0 || !t.animOffset(e.anim.header, anim)) return;
@@ -1296,7 +1317,9 @@ void World::effectStep(size_t k) {
             bool under = op == 0x09 || op == 0x11 || op == 0x14 || op == 0x42 || e.under;
             Effect copy = e;  // (the vector may grow)
             bool attached = copy.follow >= 0 && op <= 0x09;  // (an image of the same sprite: it stays with the unit)
-            addEffect(image, copy.x + dx, copy.y + dy, copy.owner, copy.heading, under, 0, attached ? copy.follow : -1,
+            int level = op <= 0x09 ? copy.elevation : spriteElevation(op, copy.elevation);  // (an image: its sprite's)
+            addEffect(image, copy.x + dx, copy.y + dy, copy.owner, copy.heading, level, under, 0,
+                      attached ? copy.follow : -1,
                       copy.dx + dx, copy.dy + dy);
             break;
         }
@@ -1307,10 +1330,11 @@ void World::effectStep(size_t k) {
 }
 
 void World::images(std::vector<LiveImage>& out) const {
-    auto add = [&](int image, const Anim& a, int heading, int x, int y, int owner, bool air) {
+    auto add = [&](int image, const Anim& a, int heading, int x, int y, int owner, bool air, int elevation) {
         if (image < 0) return false;
         LiveImage li;
         li.image = image;
+        li.elevation = elevation;
         li.frame = a.frame;
         // A turning image's frame set holds 17 directions; a set that the GRP has no room for (a death animation's
         // frames after the last full set) is one frame.
@@ -1333,12 +1357,14 @@ void World::images(std::vector<LiveImage>& out) const {
         const UnitData& d = t.units[u.type];
         int image = t.flingyImage(d.flingy);
         int self = int(&u - units.data()), order = 0;
+        const int level = d.elevation;  // (its overlays, load and turret: the same sprite's level)
         for (const Effect& e : effects)  // (its overlays under it, then it, then those above: in their order)
-            if (e.follow == self && e.under && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false))
+            if (e.follow == self && e.under && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false, level))
                 out.back().order = order++;
-        if (add(image, u.anim, u.heading, u.x, u.y, u.owner, (d.flags & kFlyer) != 0)) out.back().order = order++;
+        if (add(image, u.anim, u.heading, u.x, u.y, u.owner, (d.flags & kFlyer) != 0, level))
+            out.back().order = order++;
         for (const Effect& e : effects)
-            if (e.follow == self && !e.under && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false))
+            if (e.follow == self && !e.under && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false, level))
                 out.back().order = order++;
         if (u.carry > 0 && image >= 0) {  // A worker's load: above it, at its overlay offset.
             int gas = role(u.type).gasImage;  // (by worker: the full gas image)
@@ -1355,17 +1381,19 @@ void World::images(std::vector<LiveImage>& out) const {
             out.push_back(li);
         }
         if (d.subunit != kNoUnit) {
-            if (add(t.flingyImage(t.units[size_t(d.subunit)].flingy), u.turret, u.heading, u.x, u.y, u.owner, false))
+            if (add(t.flingyImage(t.units[size_t(d.subunit)].flingy), u.turret, u.heading, u.x, u.y, u.owner, false,
+                    level))
                 out.back().order = 1;
         }
     }
     for (const Bullet& b : bullets) {  // (not a projectile whose sprite the game never draws: flame, spines, Scourge)
-        if (b.body >= 0 && !b.arrived) add(b.body, b.anim, b.heading, b.x, b.y, b.owner, false);  // (a Scarab)
+        const int level = bulletElevation(b);
+        if (b.body >= 0 && !b.arrived) add(b.body, b.anim, b.heading, b.x, b.y, b.owner, false, level);  // (a Scarab)
         else if (b.body < 0 && t.flingyVisible(t.weapons[size_t(b.weapon)].flingy))
-            add(t.flingyImage(t.weapons[size_t(b.weapon)].flingy), b.anim, b.heading, b.x, b.y, b.owner, false);
+            add(t.flingyImage(t.weapons[size_t(b.weapon)].flingy), b.anim, b.heading, b.x, b.y, b.owner, false, level);
     }
     for (const Effect& e : effects)  // (remnants under the living units: sortY far up)
-        if (e.follow < 0 && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false) && e.under)
+        if (e.follow < 0 && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false, e.elevation) && e.under)
             out.back().sortY = e.y - 65536;
 }
 

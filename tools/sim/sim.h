@@ -111,7 +111,8 @@ struct LiveImage {
     bool flip = false;
     int x = 0, y = 0;
     int owner = 0;
-    int sortY = 0;        // its sprite's place (the drawing order)
+    int elevation = 0;    // its sprite's elevation level (the drawing layer: lower ones first)
+    int sortY = 0;        // its sprite's place (the drawing order within one elevation)
     bool air = false;     // its sprite flies
     int order = 0;        // its place among its sprite's images (0: the bottom one)
 };

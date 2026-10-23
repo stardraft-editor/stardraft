@@ -50,6 +50,7 @@ enum : int { kControlBraking = 0, kControlScript = 2 };
 struct UnitData {
     int direction = 0;  // (units.dat: the heading at creation / 8; 32: random)
     int sight = 0;      // (tiles: a mobile detector's range)
+    int elevation = 0;  // (its sprite's elevation level)
     int armorUpgrade = 0, flingy = 0, subunit = kNoUnit, hp = 0, shields = 0, group = 0;
     int groundWeapon = kNoWeapon, airWeapon = kNoWeapon, acquire = 0;
     bool hasShields = false;
@@ -207,7 +208,7 @@ public:
     // explosions), each playing its own script until its end (iscript.bin). `under`: drawn under the living units.
     struct Effect {
         Anim anim;
-        int image = 0, x = 0, y = 0, owner = 0, heading = 0;
+        int image = 0, x = 0, y = 0, owner = 0, heading = 0, elevation = 0;
         bool under = false, done = false;
         int follow = -1, dx = 0, dy = 0;  // (an overlay of a living unit: its unit and its offset)
     };
@@ -220,8 +221,10 @@ public:
         if (sounds.size() >= 4096) sounds.erase(sounds.begin(), sounds.begin() + 2048);  // (none taken: the newest)
         sounds.push_back({sfx, x, y, owner});
     }
-    void addEffect(int image, int x, int y, int owner, int heading, bool under, int anim, int follow = -1,
-                   int dx = 0, int dy = 0);
+    void addEffect(int image, int x, int y, int owner, int heading, int elevation, bool under, int anim,
+                   int follow = -1, int dx = 0, int dy = 0);
+    int bulletElevation(const Bullet& b) const;
+    int spriteElevation(int op, int parent) const;
     void animate(int unit, int anim);  // a unit's main image and its overlays start an animation
     void effectStep(size_t k);
     int frame = 0;

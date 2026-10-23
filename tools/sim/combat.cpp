@@ -977,7 +977,8 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
 void World::kill(int i, bool credit) {
     Unit& u = units[size_t(i)];
     if (u.alive && !u.hidden && !u.neutral)  // (its death animation, a picture only)
-        addEffect(t.flingyImage(t.units[size_t(u.type)].flingy), u.x, u.y, u.owner, u.heading, false, kAnimDeath);
+        addEffect(t.flingyImage(t.units[size_t(u.type)].flingy), u.x, u.y, u.owner, u.heading,
+                  t.units[size_t(u.type)].elevation, false, kAnimDeath);
     for (Effect& e : effects)  // (its overlays: their own death, else they go)
         if (e.follow == i) {
             e.follow = -1;

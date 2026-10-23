@@ -19,6 +19,7 @@
 #include <cstring>
 #include <filesystem>
 #include <functional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -1027,6 +1028,72 @@ bool runVolleyCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Drawing layers: the hit images (a projectile's own image and the sprites its script makes above it: sprol,
+// highsprol, grdsprol) have an elevation above the ground units', in fight 1 and the Siege Tank fight.
+bool runElevationCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    // The images that a script makes as sprites above it, all its animations (gotos, calls and jumps followed).
+    auto spritesAbove = [&](int image, std::set<int>& out) {
+        const std::vector<uint8_t>& s = t.iscript;
+        auto u16 = [&](int o) { return o + 1 < int(s.size()) ? s[size_t(o)] | s[size_t(o + 1)] << 8 : 0; };
+        int header = t.scriptHeader(image);
+        std::vector<int> todo;
+        for (int anim = 0; anim < 30; ++anim)
+            if (int pc = t.animOffset(header, anim)) todo.push_back(pc);
+        std::set<int> seen;
+        while (!todo.empty()) {
+            int pc = todo.back();
+            todo.pop_back();
+            while (pc > 0 && seen.insert(pc).second) {
+                int len = t.opLength(pc), op = s[size_t(pc)];
+                if (len < 0 || op == 0x16 || op == 0x36) break;
+                if ((op == 0x0F || op == 0x10 || op == 0x42) && u16(pc + 1) < int(t.spriteImage.size()))
+                    out.insert(t.spriteImage[size_t(u16(pc + 1))]);
+                if (op == 0x07) {
+                    pc = u16(pc + 1);
+                    continue;
+                }
+                if (op == 0x35) todo.push_back(u16(pc + 1));
+                if (op == 0x1E) todo.push_back(u16(pc + 2));
+                pc += len;
+            }
+        }
+    };
+    bool ok = true;
+    for (const Scenario& s : kScenarios) {
+        if (&s != &kScenarios[0] && std::string(s.name).find("Siege Tank") == std::string::npos) continue;
+        std::set<int> hits;
+        for (const auto* army : {&s.a, &s.b})
+            for (const sim::Army& army1 : *army)
+                for (int unit : {army1.unitType, t.units[size_t(army1.unitType)].subunit}) {
+                    if (unit == sim::kNoUnit) continue;
+                    for (int w : {t.units[size_t(unit)].groundWeapon, t.units[size_t(unit)].airWeapon}) {
+                        if (w == sim::kNoWeapon) continue;
+                        int image = t.flingyImage(t.weapons[size_t(w)].flingy);
+                        hits.insert(image);
+                        spritesAbove(image, hits);
+                    }
+                }
+        int seen = 0, low = 0, ground = 0;
+        runFight(t, map, s, 42, [&](const sim::World& w) {
+            std::vector<sim::LiveImage> images;
+            w.images(images);
+            for (const sim::Unit& u : w.units)
+                if (u.alive && !(t.units[size_t(u.type)].flags & sim::kFlyer))
+                    ground = std::max(ground, t.units[size_t(u.type)].elevation);
+            for (const sim::LiveImage& li : images) {
+                if (!hits.count(li.image)) continue;
+                ++seen;
+                if (li.elevation <= ground) ++low;
+            }
+        });
+        bool good = seen > 0 && low == 0;
+        std::printf("Drawing layers: %s: %d hit images, %d at or under the ground units' elevation %d: %s\n", s.name,
+                    seen, low, ground, good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
 // Death animations: after a unit dies, its death images show for some frames, each frame in its GRP (a death
 // animation's frames have no directions: Zealot, Dragoon, Marine, Zergling).
 bool runDeathImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
@@ -1714,6 +1781,7 @@ int main(int argc, char** argv) {
         if (!runImageCheck(tables, map)) ++failures;
         if (!runVolleyCheck(tables, map)) ++failures;
         if (!runMissileFlightCheck(tables, map)) ++failures;
+        if (!runElevationCheck(tables, map)) ++failures;
         if (!runDeathImageCheck(tables, map)) ++failures;
         if (!runUpgradeCheck(tables, map)) ++failures;
         if (!runHiddenImageCheck(tables, map)) ++failures;
