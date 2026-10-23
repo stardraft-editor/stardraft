@@ -191,6 +191,7 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
             if (refinery >= 0) {
                 Unit& r = w.units[size_t(refinery)];
                 r.type = t.refineryOf[race];
+                w.regrid(refinery);  // (its box changed)
                 r.owner = owner;
                 r.anim.header = t.scriptHeader(t.flingyImage(t.units[r.type].flingy));
                 w.startAnim(r.anim, kAnimInit);
