@@ -15,9 +15,9 @@ The checks (a problem: exit 1 and no output):
     there;
   - the index (index.md) links to each page;
   - each page other than the index has the heading "Sources and credits";
-  - each field of units.dat, weapons.dat, flingy.dat, sprites.dat, images.dat, upgrades.dat, techdata.dat and
-    orders.dat (src/data/dat_schema.inc) has a heading on its page (<dat>-dat.md), with the id that the program
-    opens on F1 (include/stardraft/help.h: helpFieldTopic).
+  - each field of units.dat, weapons.dat, flingy.dat, sprites.dat, images.dat, upgrades.dat, techdata.dat,
+    orders.dat, sfxdata.dat and portdata.dat (src/data/dat_schema.inc) has a heading on its page (<dat>-dat.md), with
+    the id that the program opens on F1 (include/stardraft/help.h: helpFieldTopic).
 
 The Markdown: headings (#, ##, ###, with "{#id}" at the end for an id of your own; else the id is made from the text),
 paragraphs, lists (- and 1.), tables (| a | b |), code blocks (```), > quotes, ---, and in a line `code`, **bold**,
@@ -37,7 +37,7 @@ HELP = os.path.join(ROOT, "docs", "help")
 SCHEMA = os.path.join(ROOT, "src", "data", "dat_schema.inc")
 ONLINE = "https://stardraft-editor.github.io/stardraft/help/"
 REPO = "https://github.com/stardraft-editor/stardraft"
-DATS = ["units", "weapons", "flingy", "sprites", "images", "upgrades", "techdata", "orders"]
+DATS = ["units", "weapons", "flingy", "sprites", "images", "upgrades", "techdata", "orders", "sfxdata", "portdata"]
 
 
 def anchor(text):
