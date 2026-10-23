@@ -28,6 +28,8 @@ enum : int {
     kGroupNeutral = 0x80,
 };
 enum : int { kNoWeapon = 130, kNoUnit = 228, kNeutralPlayer = 11 };
+enum : int { kDirectionRandom = 32 };      // (units.dat direction: a random one)
+enum : int { kDamageIgnoreArmor = 4 };     // (weapons.dat damage type)
 // iscript.bin animations of a header, by their number.
 enum : int {
     kAnimInit = 0, kAnimDeath = 1, kAnimGroundAttack = 5, kAnimAirAttack = 6, kAnimGroundAttackToIdle = 8,
@@ -70,6 +72,7 @@ struct Tables {
     std::vector<UnitData> units;
     std::vector<WeaponData> weapons;
     std::vector<FlingyData> flingy;
+    GameRules rules;                    // (rules.ini)
     std::vector<UnitRole> roles;        // (rules.cpp)
     std::vector<WeaponRole> weaponRoles;
     int scarabType = 0, interceptorType = 0;  // (the unit types whose weapons Reavers and Carriers use)
@@ -190,7 +193,9 @@ struct Bullet {
 // One game: its units and projectiles, a frame at a time.
 class World {
 public:
-    World(const Tables& tables, const MapInfo& mapInfo) : t(tables), map(mapInfo) {}
+    World(const Tables& tables, const MapInfo& mapInfo) : t(tables), map(mapInfo) {
+        for (Player& p : players) p.minerals = t.rules.startMinerals;
+    }
 
     const Tables& t;
     const MapInfo& map;
@@ -225,7 +230,7 @@ public:
 
     // Mining: each player's resources (by player number).
     struct Player {
-        int minerals = 50, gas = 0, gathered = 0, gatheredGas = 0, measuredFrom = -1, mineralsAtMeasure = 0,
+        int minerals = 0, gas = 0, gathered = 0, gatheredGas = 0, measuredFrom = -1, mineralsAtMeasure = 0,
             gasAtMeasure = 0;
     };
     Player players[12];
@@ -302,8 +307,9 @@ public:
         }
         // (in a fight: the unit's number mod 9, so units made one after another act on frames one after another; in
         // mining: a hash of the number, as the workers of a base are made in a row)
-        uint32_t phase = combat ? uint32_t(u.id) % 9 : (uint32_t(u.id) * 2654435761u >> 16) % 9;
-        u.poll = 8 - int((uint32_t(frame) + phase) % 9);  // (the next frame f with (f + phase) % 9 == 0)
+        const uint32_t tick = uint32_t(t.rules.orderTick);
+        uint32_t phase = combat ? uint32_t(u.id) % tick : (uint32_t(u.id) * 2654435761u >> 16) % tick;
+        u.poll = int(tick) - 1 - int((uint32_t(frame) + phase) % tick);  // (the next frame f: (f + phase) % tick == 0)
         return true;
     }
 

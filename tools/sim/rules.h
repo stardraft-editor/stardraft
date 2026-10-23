@@ -1,122 +1,88 @@
-// The game's rules in one place: what the simulation knows of the game beyond its data files. Each unit type's role
-// comes from units.dat where the file says it (flags, groups, weapons, subunits), and from the table in rules.cpp
-// only where no file says it. The numbers below are the game's timings, distances and amounts; the engine's own
-// numbers (fixed point, grid cells, search budgets) stay in the engine.
+// The game's rules: each unit type's role, from the game's data files where they say it, and the values that no data
+// file holds, read from tools/sim/rules.ini (built into the program; a project can give its own "sim/rules.ini").
+// The code holds no game values: only the names of the file's values. The engine's own numbers (fixed point, grid
+// cells, search budgets) stay in the engine.
 #pragma once
 
-#include <array>
-#include <cstdint>
+#include <string>
 #include <vector>
 
 namespace sim {
 
 struct Tables;
 
-// A unit type's role. "data": from units.dat; "table": from rules.cpp (no file says it).
+// The values of rules.ini, by the names it uses.
+struct GameRules {
+    // orders.dat numbers of the game's own orders
+    int orderReaverAttack = 0, orderCarrierAttack = 0, orderInterceptor = 0, orderScarab = 0, orderMine = 0;
+    int orderHeal = 0;
+    // units.dat numbers and unit values
+    int scarabUnit = 0, interceptorUnit = 0, scarabsHeld = 0, interceptorsHeld = 0;
+    std::vector<int> attacksBurrowed, ordersEveryFrame, startDelay, gasImage;  // (startDelay, gasImage: unit, value)
+    // orders and targets
+    int orderTick = 0, targetSearchFrames = 0, priorityNoAttackArmed = 0, priorityWorker = 0, priorityMover = 0;
+    int priorityBuilding = 0, priorityLow = 0, sameWayTolerance = 0, callForHelp = 0;
+    // attacks
+    int bounces = 0, bounceSearch = 0, launchWaitMax = 0, persistHitFrames = 0, lineHitRepeat = 0;
+    int scarabDetonate = 0, velocityTurnDivisor = 0;
+    std::vector<int> bounceDivisor, damageFactor;  // (damageFactor: 5 damage types x 4 sizes)
+    std::vector<int> splashDivisor, cooldownJitter;  // (splash: inner, medium, outer; jitter: values, first)
+    // regeneration and energy
+    int regenHp = 0, regenShields = 0, regenEnergy = 0, maxEnergy = 0;
+    // movement
+    int stuckRetry = 0, stuckRetryEnd = 0, stuckGiveUp = 0, stuckYield = 0, stuckHold = 0, stuckFresh = 0;
+    int straightReach = 0, pathAgeForRepath = 0, waypointPass = 0;
+    // Medic
+    int healSearch = 0, healGap = 0, healMax = 0, healEnergyDivisor = 0;
+    // Reaver and Scarab
+    int scarabForward = 0, scarabLock = 0, scarabStand = 0, scarabSpeed = 0, scarabArmFrames = 0;
+    int scarabBlastDelay = 0, scarabLife = 0;
+    // Carrier and Interceptor
+    int interceptorLaunch = 0, interceptorWait = 0, interceptorLeash = 0, interceptorNear = 0, interceptorDock = 0;
+    int interceptorLowShields = 0, interceptorSpreadRange = 0, interceptorLaunchHp = 0;
+    std::vector<int> interceptorSpread;
+    // Spider Mine
+    int mineArm = 0, mineBurrow = 0, mineUnburrow = 0, mineFuse = 0, mineFuseStill = 0, mineChase = 0;
+    int mineFuseRange = 0, mineBlastDelay = 0;
+    // mining
+    int miningFrames = 0, gasFrames = 0, miningReach = 0, mineralLoad = 0, mineralImage = 0, mineralFull = 0;
+    int mineralHalf = 0, mineralLow = 0, baseSearchTiles = 0, baseResourceGap = 0, fieldRange = 0, clusterGap = 0;
+    int resourceNearBase = 0, depotNear = 0, frameMs = 0, startMinerals = 0, gasWorkersMax = 0;
+
+    int damage(int type, int size) const { return damageFactor[size_t(type * 4 + size)]; }
+};
+
+// Reads rules.ini's text; false (with the line) when a value is missing, unknown or not a number.
+bool readRules(const std::string& text, GameRules& rules, std::string& error);
+const char* defaultRules();  // (rules.ini as built into the program)
+
+// A unit type's role. "data": from units.dat; "file": from rules.ini.
 struct UnitRole {
     int race = -1;              // data: 0 Zerg, 1 Terran, 2 Protoss (StarEdit group flags); -1: none
-    bool defence = false;       // data: a building with a weapon of its own (Missile Turret, Spore and Sunken Colony,
-                                // Photon Cannon)
+    bool defence = false;       // data: a building with a weapon of its own
     bool critter = false;       // data: a neutral unit that is not a building and has no weapon
     bool lowPriority = false;   // data: a race's unit that is neither a man nor a building (larva, egg): targeted last
     bool halfCost = false;      // data: two units from one egg (Zergling, Scourge): each costs half
-    bool launchesScarabs = false;       // data: its attack order is the Reaver's (Reaver, Warbringer)
-    bool launchesInterceptors = false;  // data: its attack order is the Carrier's (Carrier, Gantrithor)
-    bool scarab = false;                // data: the Scarab's own order (its weapon is the Reaver's)
-    bool interceptor = false;           // data: the Interceptor's own order (its weapon is the Carrier's)
-    bool spiderMine = false;            // data: its idle order is the mine's (arms, burrows, chases, explodes)
-    bool attacksBurrowed = false;       // table: the Lurker (burrows at once, attacks only burrowed, no turning)
-    bool healer = false;                // data: its attack order is the heal (the Medic)
-    bool ordersEveryFrame = false;      // table: the Zergling (its order runs every frame while it can attack)
-    bool startLocation = false;         // data: a neutral depot with no resources (the start location marker)
+    bool launchesScarabs = false;       // data: its attack order is the Reaver's
+    bool launchesInterceptors = false;  // data: its attack order is the Carrier's
+    bool scarab = false;                // data: the Scarab's own order
+    bool interceptor = false;           // data: the Interceptor's own order
+    bool spiderMine = false;            // data: its idle order is the mine's
+    bool healer = false;                // data: its attack order is the heal
+    bool startLocation = false;         // data: a neutral depot with no resources
     bool mineralField = false;          // data: a neutral resource container, not a geyser, not in the buildings group
     bool geyser = false;                // data: a neutral resource container of a race refinery's size
-    int startDelay = 0;                 // table: frames before its first order (the Archon)
-    int capacity = 0;                   // table: Scarabs or Interceptors it holds
-    int gasImage = -1;                  // table: a worker's image for carried gas (images.dat)
+    bool attacksBurrowed = false;       // file: burrows at once, attacks only burrowed, no turning (the Lurker)
+    bool ordersEveryFrame = false;      // file: its order runs every frame while it can attack (the Zergling)
+    int startDelay = 0;                 // file: frames before its first order (the Archon)
+    int capacity = 0;                   // file: Scarabs or Interceptors it holds
+    int gasImage = -1;                  // file: a worker's image for carried gas (images.dat)
 };
 // A weapon's role.
 struct WeaponRole {
     bool lineHits = false;  // data: weapons.dat behaviour "go to max range": it hits along its line (Lurker spines)
 };
 
-void deriveRoles(Tables& t);  // (rules.cpp: fills t.roles and t.weaponRoles from the data and the table)
+void deriveRoles(Tables& t);  // (rules.cpp: fills t.roles and t.weaponRoles from the data and t.rules)
 
-namespace rules {
-
-
-
-// Orders and targets.
-constexpr int kOrderTick = 9;                // an order runs every 9 frames
-constexpr int kTargetSearchFrames = 15;      // attack move and guard: a look for targets every 15 frames
-constexpr int kPriorityNoAttackArmed = 2;    // target priorities: 0 best; a unit that cannot hit the attacker but
-constexpr int kPriorityWorker = 2;           // can hit something 2; a worker 2; one that can move 3; a building 4;
-constexpr int kPriorityMover = 3;            // larvae and eggs 5
-constexpr int kPriorityBuilding = 4;
-constexpr int kPriorityLow = 5;
-constexpr int kSameWayTolerance = 32;        // (direction steps) a target moving the same way: no moving margin
-constexpr int kCallForHelp = 96;             // allies within 96 pixels of a hit unit take its attacker as target
-
-// Attacks.
-constexpr int kBounces = 3;                  // a bouncing glaive: 3 hits, damage / 1, / 3, / 9
-constexpr int kBounceDivisor[3] = {1, 3, 9};
-constexpr int kBounceSearch = 96;            // its next target: within 96 pixels
-constexpr int kLaunchWaitMax = 10;           // a projectile that gets no launch signal flies after 10 frames
-constexpr int kPersistHitFrames = 7;         // damage over time: a hit every 7 frames
-constexpr int kLineHitRepeat = 32;           // a line hit hits each target once in 32 frames
-// Damage factor (of 256) by damage type (independent, explosive, concussive, normal, ignore armor) and unit size
-// (independent, small, medium, large).
-constexpr int kDamageFactor[5][4] = {{0, 0, 0, 0}, {0, 128, 192, 256}, {0, 256, 128, 64}, {256, 256, 256, 256},
-                                     {256, 256, 256, 256}};
-constexpr int kDamageTypeIgnoreArmor = 4;
-
-// Regeneration, energy (8 fractional bits a frame).
-constexpr int kRegenHp = 4, kRegenShields = 7, kRegenEnergy = 8;
-constexpr int kMaxEnergy = 200;
-
-// Movement.
-constexpr int kRandomDirection = 32;         // units.dat direction 32: a random heading at creation
-// The collision reaction: the block counter's limits.
-constexpr int kStuckRetry = 10, kStuckRetryEnd = 20, kStuckGiveUp = 30, kStuckYield = 25, kStuckHold = 50;
-constexpr int kStuckFresh = 2;               // a blocker that has been blocked at most 2 times: one waits for it
-constexpr int kStraightReach = 192;          // a straight walk in a fight goes at most 192 pixels along its axis
-constexpr int kPathAgeForRepath = 7;         // a new path waits until the old one is 7 frames old
-
-// Medic.
-constexpr int kHealSearch = 160, kHealGap = 30, kHealMax = 200;  // (heal: 8 fractional bits; costs half in energy)
-
-// Archon, Reaver and Scarab.
-constexpr int kScarabForward = 25;           // a Scarab is let out 25 pixels ahead of its Reaver
-constexpr int kScarabLock = 60;              // the next Scarab 60 frames later
-constexpr int kScarabStand = 5;              // it moves from its 5th frame (after 3 frames at rest)
-constexpr int kScarabSpeed = 16;             // pixels a frame
-constexpr int kScarabArmFrames = 3;          // it can explode from its 3rd frame
-constexpr int kScarabBlastDelay = 4;         // its blast lands 4 frames after it explodes
-constexpr int kScarabLife = 90;
-
-// Carrier and Interceptor.
-constexpr int kInterceptorLaunch = 7;        // one Interceptor out every 7 frames
-constexpr int kInterceptorWait = 15;         // a launched Interceptor waits 15 frames before it attacks
-constexpr int kInterceptorLeash = 64;        // it returns beyond its Carrier's range + 64 pixels
-constexpr int kInterceptorNear = 50, kInterceptorDock = 10;
-constexpr int kInterceptorLowShields = 4;   // it returns with less than a quarter of its shields
-constexpr int kInterceptorSpread[3] = {3, 1, 2};  // its random points around the target: 3, 1, then 2 x -127..128
-
-// Spider Mine.
-constexpr int kMineArm = 63;                 // it arms 60 frames, then 3
-constexpr int kMineBurrow = 9, kMineUnburrow = 18, kMineFuse = 5, kMineFuseStill = 9;
-constexpr int kMineChase = 576, kMineFuseRange = 30;
-constexpr int kMineBlastDelay = 6;
-
-// Mining.
-constexpr int kMiningFrames = 75;            // a worker mines minerals 75 frames
-constexpr int kGasFrames = 37;               // and is inside a refinery 37 frames
-constexpr int kMiningReach = 10;             // it mines within 10 pixels of the field
-constexpr int kMineralLoad = 8;             // minerals carried in one trip (and gas)
-constexpr int kMineralImage = 397;           // images.dat: the carried mineral chunk (+1: the small one)
-constexpr int kMineralFull = 750, kMineralHalf = 500, kMineralLow = 250;  // a field's picture by its amount
-constexpr int kBaseSearchTiles = 14, kBaseResourceGap = 96, kFieldRange = 384, kClusterGap = 192;
-constexpr int kResourceNearBase = 640, kDepotNear = 64;
-
-}  // namespace rules
 }  // namespace sim

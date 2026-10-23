@@ -21,14 +21,15 @@ the reference results; "Known gaps" lists these choices.
 | `sim.h` | The interface (the editor's): the options, the results, `Simulator`. |
 | `world.h` | The inside: the data tables, the map, units, projectiles, and `World` (one game, a frame at a time). |
 | `data.cpp` | Reads the .dat files, iscript.bin, and the map (DIM, ERA, MTXM with the tileset's CV5 and VF4 for walkable ground, UNIT). |
-| `engine.cpp` | Movement (flingy speed, acceleration, halt distance, turn rate; units with flingy control 2 move by their walking script's `move` instructions), paths around unwalkable ground, ground collision and flying repulse in fights, the iscript interpreter, placement, the images the editor draws, the frame loop, and the `Simulator`. |
+| `engine.cpp` | Movement (flingy speed, acceleration, halt distance, turn rate; units with flingy control 2 move by their walking script's `move` instructions), paths around unwalkable ground, ground collision in fights, the iscript interpreter, placement, the images the editor draws, the frame loop, and the `Simulator`. |
 | `mining.cpp` | The bases of a map, the melee start at each, the gather orders, the measures. |
 | `combat.cpp` | The armies, the attack orders, targets, firing, projectiles, splash, damage, Medic healing, the special units, the result. |
-| `rules.h`, `rules.cpp` | All the game knowledge beyond the data files: each unit type's role and the game's timings, distances and amounts. |
+| `rules.ini` | The game's rules that no data file holds: the game's own order numbers, unit roles, timings, distances and amounts (built into the program; a project can give its own `sim/rules.ini`). |
+| `rules.h`, `rules.cpp` | Reads `rules.ini`, and gives each unit type and weapon its role from the data files and `rules.ini`. |
 | `tools/tests/sim_test.cpp` | The test against the reference results. |
 
 The game frame: movement for all units (as if at the same time: a unit held by one that moves later
-in the frame tries again after it), flying repulse, then for each unit its timers (cooldowns, shield, Zerg and energy
+in the frame tries again after it), then for each unit its timers (cooldowns, shield, Zerg and energy
 regeneration), its order and its animation step, then the projectiles. Orders run on a 9-frame tick, at once for a new
 order and then on the unit's own phase (Zerglings every frame while they can attack). Random
 numbers come from the game's 32-bit linear congruential stream (seed 42), and the scripts draw them where the rules
@@ -61,7 +62,7 @@ times, so 8 rockets). Each projectile has its own flight and hit with the full w
 is 2 hits of 14. A weapon with a launch spin (heading offset) sends its projectile out to one side:
 the first of an attack takes a random side, the next of the same unit the other side. Flying
 projectiles move with their flingy data as units of movement type 1 do: the direction of travel
-turns by half the turn rate, so two missiles curve out apart and in to the target. At most 80 Halo Rockets fly.
+turns by half the turn rate, so two missiles curve out apart and in to the target.
 
 **The map's settings.** The .dat files come through `init` (the editor gives the map's unit settings and a project's
 edited .dat files there). From the map's CHK the engine reads each player's upgrade start levels (PUPx, or UPGR) and
@@ -73,20 +74,25 @@ facing (17 frames, flipped for the other side). A sprite that sprites.dat marks 
 projectiles of the Firebat, the Scarab, the Scourge and the Lurker (the Scarab is drawn with its own image, the
 Lurker's spines with the sprites its projectile's script makes). `startMap` is not in the simulation yet.
 
-**Game knowledge in one place.** The engine refers to unit types only by their roles (`UnitRole`, `WeaponRole`) and to
-the game's numbers only by name (`rules::`). A file's value always wins: no table entry overrides what a data file says.
-From units.dat: the races, the workers, the depots and refineries of each race, the static defences (buildings with a
-weapon), the detectors, cloaked units, spellcasters (energy), regeneration, the units targeted last (a race's units that
-are neither men nor buildings: larvae, eggs), half cost (two from one egg), the neutral non-combatants (critters,
-power-ups), the mineral fields, geysers and start locations (neutral resource containers by size and group, a neutral
-depot), and through its orders the units that launch Scarabs or Interceptors, the Scarab, the Interceptor, the Spider
-Mine and the Medic's heal; from weapons.dat the projectile kinds (follow, bounce, appear on the target, go to the
-maximum range: a line of hits, suicide); from flingy.dat the movement kinds; from sprites.dat which sprites are drawn;
-from iscript.bin the attack moments. The table in `rules.cpp` keeps only what no file says, each entry with its reason:
-how many Scarabs or Interceptors a unit holds, the Lurker (attacks only burrowed, moves as if upgraded), the Zergling's
-every-frame orders, the Archon's start delay, the upgrades' effects (speed, range, cooldown, armor, capacity, energy:
-upgrades.dat has none), the carried-gas images, and the Halo Rockets' limit. The engine's own numbers (fixed point, grid
-cells, search budgets, the stalemate) stay in the engine.
+**Game knowledge in one place.** The code holds no game values: the engine refers to unit types only by their roles
+(`UnitRole`, `WeaponRole`), and to the game's numbers only by the names of `tools/sim/rules.ini`, which the program
+reads at start (built into the program; a project can give its own `sim/rules.ini`, so a mod can change them). A data
+file's value always wins. From units.dat: the races, the workers, the depots and refineries of each race, the static
+defences (buildings with a weapon), the detectors and their range (sight), cloaked units, spellcasters (energy),
+regeneration, the units targeted last (a race's units that are neither men nor buildings: larvae, eggs), half cost (two
+from one egg), the neutral non-combatants (critters, power-ups), the mineral fields, geysers and start locations
+(neutral resource containers by size and group, a neutral depot), and through its orders the units that launch Scarabs
+or Interceptors, the Spider Mine and the Medic's heal; from weapons.dat the projectile kinds (follow, bounce, appear on
+the target, go to the maximum range: a line of hits, suicide); from flingy.dat the movement kinds; from sprites.dat
+which sprites are drawn; from iscript.bin the attack moments. `rules.ini` holds the rest: the numbers of the game's own
+orders, the units a Reaver and a Carrier make and how many they hold, the Lurker (attacks only burrowed), the Zergling's
+every-frame orders, the Archon's start delay, the carried-gas images, and the game's timings, distances and amounts
+(order tick, target search, priorities, call for help, bounces, damage factors, splash rings, regeneration, collision
+limits, the Medic, Scarab, Interceptor and Spider Mine numbers, mining). A rule had to earn its place: each of the
+others was taken out when it changed neither set's 20-seed means by more than 0.1 percentage point nor any winner or
+check (the upgrade effects, flying repulse, the Halo Rockets' limit, the detector buildings' 7 tiles, the minimum
+damage, the cooldown limits and others). The engine's own numbers (fixed point, grid cells, search budgets, the
+stalemate) stay in the engine.
 
 ## Results
 
@@ -239,11 +245,10 @@ What is simplified or missing, and what it changes:
   Battlecruiser dies (reference: both live, 679 HP).
 - **Lurkers and Vultures** (91 / 113 and 250 / 271 frames): in the reference the last Marine walks past the burrowed
   Lurkers and dies at frame 113; the Vultures' first moves depend on their random headings.
-- **Upgrades.** The map's start levels (PUPx, or UPGR) count: armor, weapons (damage bonus × level), Plasma Shields,
-  U-238 Shells, Grooved Spines, Singularity Charge, Charon Boosters, the speed upgrades (+1/2 speed for script-moved
-  units too: an assumption), Adrenal Glands, Chitinous Plating, Reaver and Carrier Capacity, Caduceus Reactor. The
-  researched techs (PTEx, or PTEC) are read but nothing uses them yet (no spells; Stim Packs would need a player to use
-  them). The other energy reactors are not applied.
+- **Upgrades.** The map's start levels (PUPx, or UPGR) count for armor and weapons (units.dat's and weapons.dat's
+  upgrades: damage bonus × level). The other upgrades' effects (speed, range, cooldown, extra armor, capacity, energy,
+  shield armor) are not modelled: no test fight uses them, so they did not earn a rule. The researched techs (PTEx, or
+  PTEC) are read but nothing uses them yet (no spells).
 - **Paths** (compact). A ground unit's box never goes onto an unwalkable minitile. Regions are
   rectangles of one class (at most 8 by 7 tiles, 3:1), without expansion and merging; the long path goes
   over their centres (toward the centre two regions ahead), each leg an A* over the minitiles, each with the place

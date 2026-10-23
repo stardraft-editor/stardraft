@@ -117,7 +117,7 @@ int World::add(int type, int owner, int x, int y) {
         startAnim(u.turret, kAnimInit);
     }
     if (role(type).launchesScarabs) u.scarabs = role(type).capacity;  // (a Reaver: its Scarabs)
-    if (d.flags & kSpellcaster) u.energy = rules::kMaxEnergy << 8;  // (spellcasters such as the Medic: full)
+    if (d.flags & kSpellcaster) u.energy = t.rules.maxEnergy << 8;  // (spellcasters such as the Medic: full)
     units.push_back(u);
     return int(units.size()) - 1;
 }
@@ -621,10 +621,10 @@ void World::setMove(Unit& u, int x, int y) {
             return;
         }
         findPath(u, x, y);
-    } else if (combat && std::max(std::abs(x - u.x), std::abs(y - u.y)) > rules::kStraightReach) {
+    } else if (combat && std::max(std::abs(x - u.x), std::abs(y - u.y)) > t.rules.straightReach) {
         // (the short path's reach: at most 192 pixels along the main axis, then a new path from there)
         bool alongX = std::abs(x - u.x) >= std::abs(y - u.y);
-        const int reach = rules::kStraightReach;
+        const int reach = t.rules.straightReach;
         int lx = alongX ? u.x + (x > u.x ? reach : -reach) : u.x, ly = alongX ? u.y : u.y + (y > u.y ? reach : -reach);
         if (lineClear(u.type, u.x, u.y, lx, ly) && lineClear(u.type, lx, ly, x, y)) u.path = {{lx, ly}, {x, y}};
     }
@@ -658,14 +658,14 @@ bool World::move(Unit& u, bool last) {
     const FlingyData& f = t.flingy[size_t(t.units[u.type].flingy)];
     bool scripted = f.control == kControlScript;
     int top = f.topSpeed, accel = f.accel;
-    int turn = f.turn / (scripted ? 1 : 2);
+    int turn = f.turn / (scripted ? 1 : t.rules.velocityTurnDivisor);
     if (u.burrowing) {  // (it only turns)
         if (u.x != u.aimX || u.y != u.aimY)
             u.heading = u.velDir = turnToward(u.heading, direction(u.aimX - u.x, u.aimY - u.y), f.turn);
         return false;
     }
     if (u.retry) {  // (a failed path: the block counter goes from 10 to 20, then a new search; none: immovable)
-        if (++u.stuck < rules::kStuckRetryEnd) return false;
+        if (++u.stuck < t.rules.stuckRetryEnd) return false;
         u.retry = false;
         if (!shortPath(u, -1, false)) {
             u.frozenX = u.moveX;
@@ -678,7 +678,8 @@ bool World::move(Unit& u, bool last) {
     // walk straight on to the next)
     while (!u.path.empty() && ((u.x == u.path.front().first && u.y == u.path.front().second) ||
                                (!scripted && u.path.size() > 1 &&
-                                octagonalLength(u.path.front().first - u.x, u.path.front().second - u.y) <= 16 &&
+                                octagonalLength(u.path.front().first - u.x, u.path.front().second - u.y) <=
+                                    t.rules.waypointPass &&
                                 lineClear(u.type, u.x, u.y, u.path[1].first, u.path[1].second))))
         u.path.erase(u.path.begin());
     if (u.path.empty() && u.partial) {  // (the next part of a long path; it waits for its turn)
@@ -744,7 +745,7 @@ bool World::move(Unit& u, bool last) {
         }
         if (!fits(u.type, nx, ny) || (nx == u.x && ny == u.y)) {
             u.speed = 0;
-            if (++u.stuck > rules::kStuckGiveUp) {
+            if (++u.stuck > t.rules.stuckGiveUp) {
                 stopMove(u);
             } else if (u.pathFrame != frame && searchBudgetLeft()) {
                 u.pathFrame = frame;
@@ -810,7 +811,7 @@ void World::react(Unit& u, const Unit& c, int tx, int ty) {
         outcome = Settle;  // (it touches its target)
     } else if (at(u.moveX, u.moveY, c, c.x, c.y)) {  // (C stands on its destination; else on to C)
         b1 = true;
-        if (c.stuck >= rules::kStuckGiveUp || at(u.moveX, u.moveY, c, c.moveX, c.moveY))
+        if (c.stuck >= t.rules.stuckGiveUp || at(u.moveX, u.moveY, c, c.moveX, c.moveY))
             outcome = target ? Repath : Freeze;
     } else if (!at(tx, ty, c, c.x, c.y)) {  // (C is not on its next step)
         const UnitData &d = t.units[u.type], &cd = t.units[c.type];
@@ -823,19 +824,19 @@ void World::react(Unit& u, const Unit& c, int tx, int ty) {
                     : side == 1 ? h <= 128
                     : side == 2 ? h >= 64 && h <= 192
                                 : h == 0 || h >= 128;
-        outcome = cMoving && (away || c.stuck <= rules::kStuckFresh) ? Yield : StopRepath;
+        outcome = cMoving && (away || c.stuck <= t.rules.stuckFresh) ? Yield : StopRepath;
     }
-    if (!outcome && !b1 && (c.stuck >= rules::kStuckGiveUp || at(tx, ty, c, c.moveX, c.moveY))) outcome = Repath;
+    if (!outcome && !b1 && (c.stuck >= t.rules.stuckGiveUp || at(tx, ty, c, c.moveX, c.moveY))) outcome = Repath;
     if (!outcome) {  // (C's heading snapped to a side, against the direction to C)
         int snapped = ((c.heading + 32) & 255) / 64 * 64;
         int diff = std::abs(int(int8_t(uint8_t(snapped - direction(c.x - u.x, c.y - u.y)))));
         outcome = diff > 64 ? RepathAll : Yield;
     }
-    if (outcome == Yield && u.stuck >= rules::kStuckYield) outcome = random() & 1 ? StopRepath : RepathAll;
+    if (outcome == Yield && u.stuck >= t.rules.stuckYield) outcome = random() & 1 ? StopRepath : RepathAll;
     // (the new paths wait until the path is 7 frames old; 50: a cap, so that a unit whose target walks is not held
     // forever)
-    if (outcome >= Repath && outcome <= StopRepath && frame - u.pathFrame < rules::kPathAgeForRepath &&
-        u.stuck < rules::kStuckHold)
+    if (outcome >= Repath && outcome <= StopRepath && frame - u.pathFrame < t.rules.pathAgeForRepath &&
+        u.stuck < t.rules.stuckHold)
         return;
     switch (outcome) {
     case Settle:
@@ -856,7 +857,7 @@ void World::react(Unit& u, const Unit& c, int tx, int ty) {
         if (u.x == u.moveX && u.y == u.moveY) return;
         if (!shortPath(u, int(&c - units.data()), false)) {
             u.retry = true;
-            u.stuck = rules::kStuckRetry;
+            u.stuck = t.rules.stuckRetry;
         }
     }
 }
@@ -1163,12 +1164,12 @@ void World::step() {
         if (u.timer > 0) --u.timer;
         if (u.cooldown > 0) --u.cooldown;
         const UnitData& d = t.units[u.type];
-        if ((d.flags & kRegenerates) && u.hp < d.hp) u.hp = std::min(d.hp, u.hp + rules::kRegenHp);
+        if ((d.flags & kRegenerates) && u.hp < d.hp) u.hp = std::min(d.hp, u.hp + t.rules.regenHp);
         if (d.hasShields && u.shields < d.shields << 8)
-            u.shields = std::min(d.shields << 8, u.shields + rules::kRegenShields);
-        const int maxEnergy = rules::kMaxEnergy << 8;
+            u.shields = std::min(d.shields << 8, u.shields + t.rules.regenShields);
+        const int maxEnergy = t.rules.maxEnergy << 8;
         if ((d.flags & kSpellcaster) && u.energy < maxEnergy)
-            u.energy = std::min(maxEnergy, u.energy + rules::kRegenEnergy);
+            u.energy = std::min(maxEnergy, u.energy + t.rules.regenEnergy);
         if (u.order >= MoveToMinerals && u.order <= ReturnGas)
             miningOrder(int(i));
         else if (combat)
@@ -1317,9 +1318,9 @@ void World::images(std::vector<LiveImage>& out) const {
                 out.back().order = order++;
         if (u.carry > 0 && image >= 0) {  // A worker's load: above it, at its overlay offset.
             int gas = role(u.type).gasImage;  // (by worker: the full gas image)
-            int carried = u.carryGas && gas >= 0 ? gas : rules::kMineralImage;
+            int carried = u.carryGas && gas >= 0 ? gas : t.rules.mineralImage;
             LiveImage li = out.back();
-            li.image = carried + (u.carry < rules::kMineralLoad ? 1 : 0);
+            li.image = carried + (u.carry < t.rules.mineralLoad ? 1 : 0);
             if (u.carryGas) li.frame = 0;  // (gas: a fixed frame; minerals: the worker's)
             for (const auto& [img, frames] : t.carryOffsets)
                 if (img == image && out.back().frame < int(frames.size())) {

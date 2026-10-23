@@ -91,7 +91,7 @@ bool World::inRange(const Unit& a, const Unit& b) const {
     const FlingyData& f = t.flingy[size_t(t.units[size_t(a.type)].flingy)];
     bool moving = a.x != a.moveX || a.y != a.moveY, targetMoving = b.x != b.moveX || b.y != b.moveY;
     if (moving && f.control == kControlBraking && a.speed > 0 &&
-        !(targetMoving && std::abs(int(int8_t(uint8_t(a.velDir - b.velDir)))) <= rules::kSameWayTolerance))
+        !(targetMoving && std::abs(int(int8_t(uint8_t(a.velDir - b.velDir)))) <= t.rules.sameWayTolerance))
         range += haltDistance(a) >> 8;
     return g <= range && (wd.minRange == 0 || g > wd.minRange);
 }
@@ -100,12 +100,12 @@ bool World::inRange(const Unit& a, const Unit& b) const {
 int World::priority(int attacker, int candidate) const {
     const Unit &a = units[size_t(attacker)], &v = units[size_t(candidate)];
     const UnitData& d = t.units[size_t(v.type)];
-    if (role(v.type).lowPriority) return rules::kPriorityLow;
-    if (d.flags & kWorker) return rules::kPriorityWorker;
+    if (role(v.type).lowPriority) return t.rules.priorityLow;
+    if (d.flags & kWorker) return t.rules.priorityWorker;
     if (!canAttack(v, a))
-        return hasWeapon(v)  ? rules::kPriorityNoAttackArmed
-               : v.building  ? rules::kPriorityBuilding
-                             : rules::kPriorityMover;
+        return hasWeapon(v)  ? t.rules.priorityNoAttackArmed
+               : v.building  ? t.rules.priorityBuilding
+                             : t.rules.priorityMover;
     return 0;
 }
 
@@ -160,12 +160,12 @@ void World::medic(int i) {
     };
     if (!ok(m.healTarget)) m.healTarget = -1;
     if (m.healTarget < 0 && m.timer == 0) {
-        m.timer = rules::kTargetSearchFrames;
+        m.timer = t.rules.targetSearchFrames;
         double best = 0;
         for (size_t j = 0; j < units.size(); ++j) {
             const Unit& v = units[j];
-            if (!ok(int(j)) || v.healedFrame == frame || std::abs(v.x - m.x) > rules::kHealSearch ||
-                std::abs(v.y - m.y) > rules::kHealSearch)
+            if (!ok(int(j)) || v.healedFrame == frame || std::abs(v.x - m.x) > t.rules.healSearch ||
+                std::abs(v.y - m.y) > t.rules.healSearch)
                 continue;
             double d = std::hypot(double(v.x - m.x), double(v.y - m.y));
             if (m.healTarget < 0 || d < best) {
@@ -180,7 +180,7 @@ void World::medic(int i) {
         return;
     }
     Unit& v = units[size_t(m.healTarget)];
-    if (gap(m, v) > rules::kHealGap) {
+    if (gap(m, v) > t.rules.healGap) {
         setMove(m, v.x, v.y);
         return;
     }
@@ -188,7 +188,8 @@ void World::medic(int i) {
     m.aimX = v.x;
     m.aimY = v.y;
     if (v.healedFrame == frame) return;
-    int amount = std::min(t.units[size_t(v.type)].hp - v.hp, rules::kHealMax), cost = amount / 2;
+    int amount = std::min(t.units[size_t(v.type)].hp - v.hp, t.rules.healMax);
+    int cost = amount / t.rules.healEnergyDivisor;
     if (m.energy < cost) return;
     v.hp += amount;
     m.energy -= cost;
@@ -259,7 +260,7 @@ void World::combatOrder(int i) {
         case 0:  // arming (60 frames, then 3), then the burrow (9 frames)
             if (u.timer == 0) {
                 u.state = 1;
-                u.timer = rules::kMineBurrow;
+                u.timer = t.rules.mineBurrow;
             }
             return;
         case 1:
@@ -285,7 +286,7 @@ void World::combatOrder(int i) {
             if (best >= 0) {
                 u.target = best;
                 u.state = 3;
-                u.timer = rules::kMineUnburrow;  // (the unburrow: its burrowed flag goes after it)
+                u.timer = t.rules.mineUnburrow;  // (the unburrow: its burrowed flag goes after it)
             }
             return;
         }
@@ -294,21 +295,21 @@ void World::combatOrder(int i) {
             u.burrowed = false;
             if (!target) {  // (its target gone: it burrows again)
                 u.state = 0;
-                u.timer = rules::kMineBurrow;
+                u.timer = t.rules.mineBurrow;
                 return;
             }
             u.state = 4;
             u.burrowStep = 0;  // (whether it has moved)
             [[fallthrough]];
         case 4:  // the chase: straight at it while within reach; near it, the fuse
-            if (!target || dist > rules::kMineChase) {
+            if (!target || dist > t.rules.mineChase) {
                 stopMove(u);
                 u.state = 1;
-                u.timer = rules::kMineBurrow;
-            } else if (dist <= rules::kMineFuseRange) {
+                u.timer = t.rules.mineBurrow;
+            } else if (dist <= t.rules.mineFuseRange) {
                 stopMove(u);
                 u.state = 5;
-                u.timer = u.burrowStep ? rules::kMineFuse : rules::kMineFuseStill;
+                u.timer = u.burrowStep ? t.rules.mineFuse : t.rules.mineFuseStill;
             } else {
                 setMove(u, target->x, target->y);
                 u.burrowStep = 1;
@@ -327,7 +328,7 @@ void World::combatOrder(int i) {
             b.ex = b.x << 8;
             b.ey = b.y << 8;
             b.scarab = b.arrived = b.launched = true;  // (the delayed blast of the Scarab's kind)
-            b.life = rules::kMineBlastDelay;
+            b.life = t.rules.mineBlastDelay;
             bullets.push_back(b);
             kill(i, false);
             return;
@@ -359,23 +360,24 @@ void World::combatOrder(int i) {
             u.target = c.target;
             targetOk = true;
         }
-        bool low = u.shields * rules::kInterceptorLowShields < t.units[size_t(u.type)].shields * 256;
+        bool low = u.shields * t.rules.interceptorLowShields < t.units[size_t(u.type)].shields * 256;
         if (u.state != 9 && (low || !targetOk ||
                              gap(c, units[size_t(u.target)]) >
-                                 t.units[size_t(c.type)].acquire * 32 + rules::kInterceptorLeash))
+                                 t.units[size_t(c.type)].acquire * 32 + t.rules.interceptorLeash))
             u.state = 9;  // (back to the Carrier)
         auto near = [&](const Unit& g, int scale) {
-            int x = g.x + random(-127, 128) * scale, y = g.y + random(-127, 128) * scale;
+            const int spread = t.rules.interceptorSpreadRange;
+            int x = g.x + random(1 - spread, spread) * scale, y = g.y + random(1 - spread, spread) * scale;
             if (x < 0 || x >= map.width * 32) x = 2 * g.x - x;
             if (y < 0 || y >= map.height * 32) y = 2 * g.y - y;
             setMove(u, x, y);
         };
         auto reached = [&] {
-            return std::hypot(double(u.moveX - u.x), double(u.moveY - u.y)) <= rules::kInterceptorNear;
+            return std::hypot(double(u.moveX - u.x), double(u.moveY - u.y)) <= t.rules.interceptorNear;
         };
         if (u.state == 9) {
             setMove(u, c.x, c.y);
-            if (gap(u, c) <= rules::kInterceptorDock) {  // (docked)
+            if (gap(u, c) <= t.rules.interceptorDock) {  // (docked)
                 u.hidden = true;
                 stopMove(u);
                 u.order = Idle;
@@ -385,8 +387,8 @@ void World::combatOrder(int i) {
         }
         const Unit& g = units[size_t(u.target)];
         if (u.state == 0) {  // launch: to a point near the target, then a wait
-            near(g, rules::kInterceptorSpread[0]);
-            u.timer = rules::kInterceptorWait;
+            near(g, t.rules.interceptorSpread[0]);
+            u.timer = t.rules.interceptorWait;
             u.state = 1;
         } else if (u.state == 1) {
             if (u.timer == 0) u.state = 3;
@@ -398,14 +400,14 @@ void World::combatOrder(int i) {
                 error <= t.weapons[size_t(w)].angle)
                 startAttack(i, g, t.weapons[size_t(w)], false);
             if (u.state == 3) {
-                if (gap(u, g) <= rules::kInterceptorNear) {
-                    near(g, rules::kInterceptorSpread[1]);
+                if (gap(u, g) <= t.rules.interceptorNear) {
+                    near(g, t.rules.interceptorSpread[1]);
                     u.state = 4;
                 } else {
                     setMove(u, g.x, g.y);
                 }
             } else if (u.state == 4 && reached()) {
-                near(g, rules::kInterceptorSpread[2]);
+                near(g, t.rules.interceptorSpread[2]);
                 u.state = 5;
             } else if (u.state == 5 && reached()) {
                 setMove(u, g.x, g.y);
@@ -440,7 +442,7 @@ void World::combatOrder(int i) {
         if (valid(u.autoTarget)) {
             attack(u.autoTarget, Idle);
         } else if (u.timer == 0) {
-            u.timer = rules::kTargetSearchFrames;
+            u.timer = t.rules.targetSearchFrames;
             int target = acquire(i);
             if (target >= 0) attack(target, Idle);
             else if (seek && (frame + i) % kSeekIdleEvery == 0) {  // (search and destroy: the nearest enemy)
@@ -455,7 +457,7 @@ void World::combatOrder(int i) {
         return;
     case AttackMove: {
         if (u.timer == 0 && hasWeapon(u)) {
-            u.timer = rules::kTargetSearchFrames;
+            u.timer = t.rules.targetSearchFrames;
             // (attack-move acquisition takes the nearest and draws nothing, also for a Carrier or a Reaver)
             int target = acquire(i, false);
             if (target >= 0) {
@@ -554,7 +556,7 @@ void World::combatOrder(int i) {
                 if (!f.hidden && f.state != 9) f.target = current;  // (the ones out take its target)
                 if (f.hidden && (!best || f.hp > best->hp)) best = &f;
             }
-            if (u.timer == 0 && best && best->hp * 2 >= t.units[size_t(best->type)].hp) {
+            if (u.timer == 0 && best && best->hp * t.rules.interceptorLaunchHp >= t.units[size_t(best->type)].hp) {
                 Unit& f = *best;
                 f.hidden = false;
                 f.x = f.moveX = u.x;
@@ -565,7 +567,7 @@ void World::combatOrder(int i) {
                 f.target = current;
                 setOrder(f, AttackUnit);
                 f.state = 0;
-                u.timer = rules::kInterceptorLaunch;
+                u.timer = t.rules.interceptorLaunch;
                 gridUnits = 0;  // (it moved to the Carrier: the rest of this frame searches all units)
             }
             return;
@@ -585,8 +587,8 @@ void World::combatOrder(int i) {
             b.side = u.side;
             b.source = i;
             b.target = current;
-            b.x = b.tx = u.x + dirX(u.heading) * rules::kScarabForward / 256;
-            b.y = b.ty = u.y + dirY(u.heading) * rules::kScarabForward / 256;
+            b.x = b.tx = u.x + dirX(u.heading) * t.rules.scarabForward / 256;
+            b.y = b.ty = u.y + dirY(u.heading) * t.rules.scarabForward / 256;
             b.ex = b.x << 8;
             b.ey = b.y << 8;
             b.heading = u.heading;
@@ -594,7 +596,7 @@ void World::combatOrder(int i) {
             b.anim.header = t.scriptHeader(b.body);
             startAnim(b.anim, kAnimWalking);  // (its walking, for the image)
             bullets.push_back(b);
-            u.timer = rules::kScarabLock;
+            u.timer = t.rules.scarabLock;
             --u.scarabs;
             if (firstShot[u.side] < 0) firstShot[u.side] = frame;
             return;
@@ -621,7 +623,7 @@ void World::startAttack(int i, const Unit& target, const WeaponData& wd, bool tu
     u.repeatAttack = true;
     spinSource = -1;  // (the first bullet of an attack draws its side)
     int cooldown = wd.cooldown;
-    u.cooldown = cooldown + (random() & 3) - 1;
+    u.cooldown = cooldown + random() % t.rules.cooldownJitter[0] + t.rules.cooldownJitter[1];
     if (firstShot[u.side] < 0) firstShot[u.side] = frame;
     bool air = (t.units[size_t(target.type)].flags & kFlyer) != 0;
     Anim& anim = turret ? u.turret : u.anim;
@@ -692,7 +694,7 @@ void World::fire(int i, int weapon, bool melee, int forward) {
             c.ty = c.y + dirY(c.heading) * wd.maxRange / 256;
         }
         c.life = wd.removeAfter;
-        c.bounces = wd.behaviour == kBounce ? rules::kBounces : 0;
+        c.bounces = wd.behaviour == kBounce ? t.rules.bounces : 0;
         c.arrived = !(wd.behaviour <= kFlyFollow || wd.behaviour >= kBounce);
         c.anim.header = t.scriptHeader(t.flingyImage(wd.flingy));
         startAnim(c.anim, kAnimInit);
@@ -722,25 +724,25 @@ void World::bulletStep(int index) {
             b.ty = units[size_t(b.target)].y;
         }
         ++b.age;
-        if (b.age >= rules::kScarabStand) {  // (it stands after its release, then goes straight at its speed)
+        if (b.age >= t.rules.scarabStand) {  // (it stands after its release, then goes straight at its speed)
             int dist = octagonalLength(b.tx - b.x, b.ty - b.y);
             b.heading = direction(b.tx - b.x, b.ty - b.y);
-            if (dist <= rules::kScarabSpeed) {
+            if (dist <= t.rules.scarabSpeed) {
                 b.x = b.tx;
                 b.y = b.ty;
             } else {
                 double l = std::hypot(double(b.tx - b.x), double(b.ty - b.y));
-                b.x += int(std::lround((b.tx - b.x) * rules::kScarabSpeed / l));
-                b.y += int(std::lround((b.ty - b.y) * rules::kScarabSpeed / l));
+                b.x += int(std::lround((b.tx - b.x) * t.rules.scarabSpeed / l));
+                b.y += int(std::lround((b.ty - b.y) * t.rules.scarabSpeed / l));
             }
         }
         // (from its second step, within half its inner splash radius of the target, or at its last place, it explodes)
-        bool close = targetAlive ? pointGap(units[size_t(b.target)], b.x, b.y) <= wd.inner / 2
+        bool close = targetAlive ? pointGap(units[size_t(b.target)], b.x, b.y) <= wd.inner / t.rules.scarabDetonate
                                  : b.x == b.tx && b.y == b.ty;
-        if (b.age >= rules::kScarabArmFrames && close) {
+        if (b.age >= t.rules.scarabArmFrames && close) {
             b.arrived = true;
-            b.life = rules::kScarabBlastDelay;
-        } else if (b.age >= rules::kScarabLife) {
+            b.life = t.rules.scarabBlastDelay;
+        } else if (b.age >= t.rules.scarabLife) {
             b.alive = false;
         }
         return;
@@ -748,7 +750,7 @@ void World::bulletStep(int index) {
     if (wd.behaviour == kPersistOnSite) {  // (damage over time: a hit every few frames)
         if (--b.life <= 0) {
             b.alive = false;
-        } else if (b.life % rules::kPersistHitFrames == 0) {
+        } else if (b.life % t.rules.persistHitFrames == 0) {
             b.hit = false;
             bulletHit(b);
         }
@@ -761,7 +763,7 @@ void World::bulletStep(int index) {
         }
         return;
     }
-    if (!b.launched && ++b.age < rules::kLaunchWaitMax) return;
+    if (!b.launched && ++b.age < t.rules.launchWaitMax) return;
     if ((wd.behaviour == kFlyFollow || wd.behaviour == kBounce) && !b.missed && targetAlive) {
         b.tx = units[size_t(b.target)].x;
         b.ty = units[size_t(b.target)].y;
@@ -772,7 +774,7 @@ void World::bulletStep(int index) {
     double fx = double((b.tx << 8) - b.ex), fy = double((b.ty << 8) - b.ey);
     int dist = int(std::sqrt(fx * fx + fy * fy));
     int desired = dist > 0 ? direction(b.tx - b.x, b.ty - b.y) : b.velDir;
-    b.velDir = turnToward(b.velDir, desired, f.turn ? std::max(1, f.turn / 2) : 256);
+    b.velDir = turnToward(b.velDir, desired, f.turn ? std::max(1, f.turn / t.rules.velocityTurnDivisor) : 256);
     b.heading = turnToward(b.heading, desired, f.turn ? f.turn : 256);
     b.speed = std::clamp(b.speed + std::max(f.accel, 1), 0, f.topSpeed);
     if (b.speed >= dist || f.topSpeed <= 0) {
@@ -791,12 +793,13 @@ void World::bulletStep(int index) {
         --b.bounces;
         if (!b.missed && targetAlive)
             damage(b.target, b.source, b.weapon, weaponDamage(b.weapon, b.owner),
-                   rules::kBounceDivisor[std::clamp(rules::kBounces - 1 - b.bounces, 0, 2)]);
+                   t.rules.bounceDivisor[size_t(std::clamp(t.rules.bounces - 1 - b.bounces, 0,
+                                                           int(t.rules.bounceDivisor.size()) - 1))]);
         if (b.bounces > 0) {
             for (size_t j = 0; j < units.size(); ++j) {
                 const Unit& v = units[j];
                 if (int(j) == b.target || int(j) == b.previous || !v.alive || v.hidden || v.side == b.side ||
-                    std::abs(v.x - b.x) > rules::kBounceSearch || std::abs(v.y - b.y) > rules::kBounceSearch)
+                    std::abs(v.x - b.x) > t.rules.bounceSearch || std::abs(v.y - b.y) > t.rules.bounceSearch)
                     continue;
                 bool air = (t.units[size_t(v.type)].flags & kFlyer) != 0;
                 if (!(wd.targetFlags & (air ? 1 : 2))) continue;
@@ -835,7 +838,7 @@ void World::bulletHit(Bullet& b) {
         b.hitY = b.y;
         spineHits.erase(std::remove_if(spineHits.begin(), spineHits.end(),
                                        [&](const std::array<int, 3>& h) {
-                                           return h[0] <= frame - rules::kLineHitRepeat;
+                                           return h[0] <= frame - t.rules.lineHitRepeat;
                                        }),
                         spineHits.end());
         for (size_t j = 0; j < units.size(); ++j) {
@@ -874,7 +877,8 @@ bool World::splash(Bullet& b, int amount) {
         int g = pointGap(v, b.x, b.y);
         if (g <= wd.outer) hits.push_back({int(j), g});
     }
-    auto divisor = [&](int g) { return g <= wd.inner ? 1 : g <= wd.medium ? 2 : 4; };
+    const std::vector<int>& rings = t.rules.splashDivisor;
+    auto divisor = [&](int g) { return g <= wd.inner ? rings[0] : g <= wd.medium ? rings[1] : rings[2]; };
     if (wd.explosion != kAirSplash) {
         for (auto [j, g] : hits)  // (a burrowed unit: the inner ring only)
             if (!units[size_t(j)].burrowed || g <= wd.inner) damage(j, b.source, b.weapon, amount, divisor(g));
@@ -888,7 +892,8 @@ bool World::splash(Bullet& b, int amount) {
     if (pick < 0 && !hits.empty()) pick = hits[hits.size() == 1 ? 0 : size_t(random()) % hits.size()].first;
     if (pick >= 0) damage(pick, b.source, b.weapon, amount, 1);
     for (auto [j, g] : hits)  // (no Interceptor)
-        if (j != b.target && !units[size_t(j)].fighter) damage(j, b.source, b.weapon, amount, std::max(2, divisor(g)));
+        if (j != b.target && !units[size_t(j)].fighter)
+            damage(j, b.source, b.weapon, amount, std::max(rings[1], divisor(g)));
     return true;
 }
 
@@ -905,8 +910,8 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
         dmg -= shieldDamage;
     }
     int armor = d.armor + level(v.owner, d.armorUpgrade);
-    if (wd.damageType != rules::kDamageTypeIgnoreArmor) dmg = dmg > armor * 256 ? dmg - armor * 256 : 0;
-    dmg = dmg * rules::kDamageFactor[std::min(wd.damageType, 4)][std::min(d.size, 3)] / 256;
+    if (wd.damageType != kDamageIgnoreArmor) dmg = dmg > armor * 256 ? dmg - armor * 256 : 0;
+    dmg = dmg * t.rules.damage(std::min(wd.damageType, 4), std::min(d.size, 3)) / 256;
     v.damageTaken += shieldDamage + std::min(dmg, v.hp);
     if (shieldDamage + dmg > 0) {  // (damage: the fight goes on, and both may walk again)
         lastProgress = lastDamage = frame;
@@ -920,7 +925,7 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
         int attacker = units[size_t(source)].fighter ? units[size_t(source)].parent : source;
         const Unit& s = units[size_t(attacker)];
         std::vector<int> near;
-        const int help = rules::kCallForHelp;
+        const int help = t.rules.callForHelp;
         forNear(v.x - help, v.y - help, v.x + help, v.y + help, [&](int j) { near.push_back(j); });
         for (int jj : near) {
             Unit& a = units[size_t(jj)];
@@ -971,7 +976,7 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
     // The heading at creation: 8 x units.dat's direction; its "random" value: 8 x a random 0 to 31.
     auto face = [&](int type) {
         int d = t.units[size_t(type)].direction;
-        return (d == rules::kRandomDirection ? w.random() & 31 : d) * 8 & 255;
+        return (d == kDirectionRandom ? w.random() & 31 : d) * 8 & 255;
     };
     auto create = [&](int type, int side, int x, int y, int owner = -1) {
         int id = w.add(type, owner >= 0 ? owner : o.players[side], x, y);
@@ -981,7 +986,7 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
         u.side = side;
         u.heading = u.velDir = face(type);
         if (r.attacksBurrowed) u.burrowing = true;
-        if (r.spiderMine) u.timer = rules::kMineArm;  // (a mine arms first)
+        if (r.spiderMine) u.timer = t.rules.mineArm;  // (a mine arms first)
         if (r.launchesScarabs) u.scarabs = r.capacity;
         if (r.launchesInterceptors)
             for (int n = 0; n < r.capacity; ++n) {

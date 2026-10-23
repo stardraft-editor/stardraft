@@ -1,8 +1,10 @@
-// The unit and weapon roles: from units.dat and weapons.dat where they say it, and from the table below where no file
-// does (each entry with its reason).
+// The game's rules: reading rules.ini, and each unit type's and weapon's role from the data files and the rules.
 #include "rules.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -11,20 +13,119 @@
 namespace sim {
 namespace {
 
-// units.dat ids of the table below.
-enum : int { kScv = 7, kZergling = 37, kDrone = 41, kProbe = 64, kArchon = 68, kInterceptor = 73, kScarab = 85, kLurker = 103 };
-// orders.dat ids: the game's own orders that units.dat gives some units (their code is the game's, not in a file).
-enum : int {
-    kOrderReaverAttack = 59, kOrderCarrierAttack = 53, kOrderInterceptor = 64, kOrderScarab = 65, kOrderMine = 20,
-    kOrderHeal = 175,
+// rules.ini's names, and where each value goes.
+struct Number {
+    const char* name;
+    int GameRules::* value;
 };
-// weapons.dat behaviour "go to max range".
-enum : int { kBehaviourMaxRange = 9 };
+struct List {
+    const char* name;
+    std::vector<int> GameRules::* values;
+    size_t count;  // 0: any number of values
+};
+#define SIM_NUMBER(n) {#n, &GameRules::n}
+const Number kNumbers[] = {
+    SIM_NUMBER(orderReaverAttack), SIM_NUMBER(orderCarrierAttack), SIM_NUMBER(orderInterceptor),
+    SIM_NUMBER(orderScarab),
+    SIM_NUMBER(orderMine), SIM_NUMBER(orderHeal), SIM_NUMBER(scarabUnit), SIM_NUMBER(interceptorUnit),
+    SIM_NUMBER(scarabsHeld), SIM_NUMBER(interceptorsHeld), SIM_NUMBER(orderTick), SIM_NUMBER(targetSearchFrames),
+    SIM_NUMBER(priorityNoAttackArmed), SIM_NUMBER(priorityWorker), SIM_NUMBER(priorityMover),
+    SIM_NUMBER(priorityBuilding), SIM_NUMBER(priorityLow), SIM_NUMBER(sameWayTolerance), SIM_NUMBER(callForHelp),
+    SIM_NUMBER(bounces), SIM_NUMBER(bounceSearch), SIM_NUMBER(launchWaitMax), SIM_NUMBER(persistHitFrames),
+    SIM_NUMBER(lineHitRepeat), SIM_NUMBER(regenHp), SIM_NUMBER(regenShields), SIM_NUMBER(regenEnergy),
+    SIM_NUMBER(maxEnergy), SIM_NUMBER(stuckRetry), SIM_NUMBER(stuckRetryEnd), SIM_NUMBER(stuckGiveUp),
+    SIM_NUMBER(stuckYield), SIM_NUMBER(stuckHold), SIM_NUMBER(stuckFresh), SIM_NUMBER(straightReach),
+    SIM_NUMBER(pathAgeForRepath), SIM_NUMBER(healSearch), SIM_NUMBER(healGap), SIM_NUMBER(healMax),
+    SIM_NUMBER(scarabForward), SIM_NUMBER(scarabLock), SIM_NUMBER(scarabStand), SIM_NUMBER(scarabSpeed),
+    SIM_NUMBER(scarabArmFrames), SIM_NUMBER(scarabBlastDelay), SIM_NUMBER(scarabLife), SIM_NUMBER(interceptorLaunch),
+    SIM_NUMBER(interceptorWait), SIM_NUMBER(interceptorLeash), SIM_NUMBER(interceptorNear), SIM_NUMBER(interceptorDock),
+    SIM_NUMBER(interceptorLowShields), SIM_NUMBER(mineArm), SIM_NUMBER(mineBurrow), SIM_NUMBER(mineUnburrow),
+    SIM_NUMBER(mineFuse), SIM_NUMBER(mineFuseStill), SIM_NUMBER(mineChase), SIM_NUMBER(mineFuseRange),
+    SIM_NUMBER(mineBlastDelay), SIM_NUMBER(miningFrames), SIM_NUMBER(gasFrames), SIM_NUMBER(miningReach),
+    SIM_NUMBER(mineralLoad), SIM_NUMBER(mineralImage), SIM_NUMBER(mineralFull), SIM_NUMBER(mineralHalf),
+    SIM_NUMBER(mineralLow), SIM_NUMBER(baseSearchTiles), SIM_NUMBER(baseResourceGap), SIM_NUMBER(fieldRange),
+    SIM_NUMBER(clusterGap), SIM_NUMBER(resourceNearBase), SIM_NUMBER(depotNear), SIM_NUMBER(scarabDetonate),
+    SIM_NUMBER(velocityTurnDivisor), SIM_NUMBER(waypointPass), SIM_NUMBER(healEnergyDivisor),
+    SIM_NUMBER(interceptorSpreadRange), SIM_NUMBER(interceptorLaunchHp), SIM_NUMBER(frameMs), SIM_NUMBER(startMinerals),
+    SIM_NUMBER(gasWorkersMax),
+};
+#undef SIM_NUMBER
+const List kLists[] = {
+    {"attacksBurrowed", &GameRules::attacksBurrowed, 0}, {"ordersEveryFrame", &GameRules::ordersEveryFrame, 0},
+    {"startDelay", &GameRules::startDelay, 0},           {"gasImage", &GameRules::gasImage, 0},
+    {"bounceDivisor", &GameRules::bounceDivisor, 0},     {"damageFactor", &GameRules::damageFactor, 20},
+    {"interceptorSpread", &GameRules::interceptorSpread, 3}, {"splashDivisor", &GameRules::splashDivisor, 3},
+    {"cooldownJitter", &GameRules::cooldownJitter, 2},
+};
+
+const char kDefault[] =
+#include "sim_rules_ini.inc"
+    ;
 
 }  // namespace
 
+const char* defaultRules() { return kDefault; }
+
+bool readRules(const std::string& text, GameRules& rules, std::string& error) {
+    rules = GameRules();
+    std::vector<bool> seen(std::size(kNumbers) + std::size(kLists), false);
+    std::istringstream in(text);
+    std::string line;
+    for (int n = 1; std::getline(in, line); ++n) {
+        line = line.substr(0, line.find('#'));
+        size_t eq = line.find('=');
+        auto trim = [](std::string s) {
+            while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();
+            size_t b = 0;
+            while (b < s.size() && std::isspace(static_cast<unsigned char>(s[b]))) ++b;
+            return s.substr(b);
+        };
+        std::string key = trim(line.substr(0, eq == std::string::npos ? line.size() : eq));
+        if (key.empty() || key[0] == '[') continue;  // (an empty line, a comment or a section)
+        auto fail = [&](const std::string& why) {
+            error = "rules.ini line " + std::to_string(n) + ": " + why;
+            return false;
+        };
+        if (eq == std::string::npos) return fail("no \"=\"");
+        std::vector<int> values;
+        std::string value = line.substr(eq + 1);
+        std::replace(value.begin(), value.end(), ',', ' ');
+        std::istringstream vs(value);
+        for (std::string word; vs >> word;) {
+            char* end = nullptr;
+            long v = std::strtol(word.c_str(), &end, 10);
+            if (*end) return fail("\"" + word + "\" is not a number");
+            values.push_back(int(v));
+        }
+        bool known = false;
+        for (size_t k = 0; k < std::size(kNumbers) && !known; ++k)
+            if (key == kNumbers[k].name) {
+                if (values.size() != 1) return fail(key + " takes one number");
+                rules.*kNumbers[k].value = values[0];
+                known = seen[k] = true;
+            }
+        for (size_t k = 0; k < std::size(kLists) && !known; ++k)
+            if (key == kLists[k].name) {
+                if (kLists[k].count && values.size() != kLists[k].count)
+                    return fail(key + " takes " + std::to_string(kLists[k].count) + " numbers");
+                rules.*kLists[k].values = values;
+                known = seen[std::size(kNumbers) + k] = true;
+            }
+        if (!known) return fail("unknown name \"" + key + "\"");
+    }
+    for (size_t k = 0; k < seen.size(); ++k)
+        if (!seen[k]) {
+            error = std::string("rules.ini: no value for ") +
+                    (k < std::size(kNumbers) ? kNumbers[k].name : kLists[k - std::size(kNumbers)].name);
+            return false;
+        }
+    return true;
+}
+
 void deriveRoles(Tables& t) {
+    const GameRules& rules = t.rules;
     t.roles.assign(t.units.size(), UnitRole());
+    auto valid = [&](int type) { return type >= 0 && type < int(t.units.size()); };
     for (size_t i = 0; i < t.units.size(); ++i) {
         const UnitData& d = t.units[i];
         UnitRole& r = t.roles[i];
@@ -34,26 +135,14 @@ void deriveRoles(Tables& t) {
         r.critter = (d.group & kGroupNeutral) && !(d.group & kGroupBuilding) && !(d.flags & kBuilding) && !weapon;
         r.lowPriority = r.race >= 0 && !(d.group & (kGroupMen | kGroupBuilding)) && !(d.flags & kBuilding);
         r.halfCost = (d.flags & kTwoInOneEgg) != 0;
-    }
-    auto role = [&](int type) -> UnitRole& { return t.roles[size_t(type)]; };
-    // From units.dat's orders (data): the units whose attack is the Reaver's or the Carrier's launch, the Scarab and
-    // the Interceptor (their own orders), the Spider Mine (its idle order is the mine's) and the Medic (its attack is
-    // the heal). How many Scarabs or Interceptors a unit holds is in no file.
-    for (size_t i = 0; i < t.units.size(); ++i) {
-        const UnitData& d = t.units[i];
-        UnitRole& r = t.roles[i];
-        if (d.attackOrder == kOrderReaverAttack) {
-            r.launchesScarabs = true;
-            r.capacity = 5;
-        }
-        if (d.attackOrder == kOrderCarrierAttack) {
-            r.launchesInterceptors = true;
-            r.capacity = 4;
-        }
-        r.scarab = d.attackOrder == kOrderScarab;
-        r.interceptor = d.attackOrder == kOrderInterceptor;
-        r.spiderMine = d.idleOrder == kOrderMine;
-        r.healer = d.attackOrder == kOrderHeal;
+        // (units.dat's orders: the game's own orders that rules.ini names)
+        r.launchesScarabs = d.attackOrder == rules.orderReaverAttack;
+        r.launchesInterceptors = d.attackOrder == rules.orderCarrierAttack;
+        r.capacity = r.launchesScarabs ? rules.scarabsHeld : r.launchesInterceptors ? rules.interceptorsHeld : 0;
+        r.scarab = d.attackOrder == rules.orderScarab;
+        r.interceptor = d.attackOrder == rules.orderInterceptor;
+        r.spiderMine = d.idleOrder == rules.orderMine;
+        r.healer = d.attackOrder == rules.orderHeal;
     }
     // Resources and markers (data): a geyser is a neutral resource container of a race refinery's size (a race's
     // resource container that is not a depot); mineral fields are the other neutral resource containers that are not in
@@ -75,11 +164,6 @@ void deriveRoles(Tables& t) {
         }
         r.startLocation = (d.flags & kDepot) && !(d.flags & kResource);
     }
-    // (table: the units a Reaver and a Carrier make are fixed in the game's code, not in a file)
-    t.scarabType = kScarab;
-    t.interceptorType = kInterceptor;
-    role(kLurker).attacksBurrowed = true;   // (table: no file says it has its weapon only while burrowed)
-    role(kZergling).ordersEveryFrame = true;  // (table: a rule of the game's code for the Zergling)
     // Each race's depot, worker and refinery (data): the first unit of the race with the flag, no hero; a refinery is
     // a resource container building of a geyser's size.
     int geyserW = -1, geyserH = -1;
@@ -95,15 +179,20 @@ void deriveRoles(Tables& t) {
         if ((d.flags & kResource) && (d.flags & kBuilding) && d.placeW == geyserW && d.placeH == geyserH)
             t.refineryOf[race] = i;
     }
-    role(kArchon).startDelay = 17;          // (it starts 17 frames after it is made: its merge)
-    // (the images of carried gas are not linked to the workers in any file)
-    role(kScv).gasImage = 403;
-    role(kProbe).gasImage = 399;
-    role(kDrone).gasImage = 401;
+    // From rules.ini: the units a Reaver and a Carrier make, and the roles no data file says.
+    t.scarabType = valid(rules.scarabUnit) ? rules.scarabUnit : 0;
+    t.interceptorType = valid(rules.interceptorUnit) ? rules.interceptorUnit : 0;
+    for (int type : rules.attacksBurrowed)
+        if (valid(type)) t.roles[size_t(type)].attacksBurrowed = true;
+    for (int type : rules.ordersEveryFrame)
+        if (valid(type)) t.roles[size_t(type)].ordersEveryFrame = true;
+    for (size_t k = 0; k + 1 < rules.startDelay.size(); k += 2)
+        if (valid(rules.startDelay[k])) t.roles[size_t(rules.startDelay[k])].startDelay = rules.startDelay[k + 1];
+    for (size_t k = 0; k + 1 < rules.gasImage.size(); k += 2)
+        if (valid(rules.gasImage[k])) t.roles[size_t(rules.gasImage[k])].gasImage = rules.gasImage[k + 1];
 
     t.weaponRoles.assign(t.weapons.size(), WeaponRole());
-    for (size_t i = 0; i < t.weapons.size(); ++i)
-        t.weaponRoles[i].lineHits = t.weapons[i].behaviour == kBehaviourMaxRange;
+    for (size_t i = 0; i < t.weapons.size(); ++i) t.weaponRoles[i].lineHits = t.weapons[i].behaviour == kToMaxRange;
 }
 
 }  // namespace sim

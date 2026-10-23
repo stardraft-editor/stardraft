@@ -153,6 +153,10 @@ bool Tables::load(const FileReader& reader, std::string& error) {
         if (id == 0xFFFF) break;
         scripts.push_back({id, rsc.u16(o + 2)});
     }
+    // The game's rules that no data file holds: a project's sim/rules.ini, else the program's own.
+    std::vector<uint8_t> own;
+    std::string text = read("sim/rules.ini", own) ? std::string(own.begin(), own.end()) : std::string(defaultRules());
+    if (!readRules(text, rules, error)) return false;
     deriveRoles(*this);
     return true;
 }

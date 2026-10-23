@@ -42,7 +42,7 @@ bool clusterSpot(const Tables& t, const MapInfo& map, const std::vector<MapInfo:
     cx /= double(group.size());
     cy /= double(group.size());
     double best = -1;
-    const int span = rules::kBaseSearchTiles;
+    const int span = t.rules.baseSearchTiles;
     for (int ty = int(cy) / 32 - span; ty <= int(cy) / 32 + span; ++ty)
         for (int tx = int(cx) / 32 - span; tx <= int(cx) / 32 + span; ++tx) {
             int x = tx * 32 + cc.placeW / 2, y = ty * 32 + cc.placeH / 2;
@@ -53,7 +53,7 @@ bool clusterSpot(const Tables& t, const MapInfo& map, const std::vector<MapInfo:
             for (auto& r : map.units)
                 if ((isMinerals(t, r.type) || isGeyser(t, r.type)) &&
                     boxGap(x, y, cc.placeW, cc.placeH, r.x, r.y, t.units[r.type].placeW, t.units[r.type].placeH) <
-                        rules::kBaseResourceGap)
+                        t.rules.baseResourceGap)
                     clear = false;
             if (!clear) continue;
             double score = 0;
@@ -80,7 +80,7 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
         if (o.startLocations && isStart(t, p.type)) bases.push_back({p.x, p.y, true, {}, {}});
     for (auto& p : map.units)
         if (o.placedDepots && !isStart(t, p.type) && (t.units[p.type].flags & kDepot) &&
-            !baseNear(p.x, p.y, rules::kDepotNear))
+            !baseNear(p.x, p.y, t.rules.depotNear))
             bases.push_back({p.x, p.y, false, {}, {}});
     for (auto& [x, y] : o.bases) bases.push_back({x, y, false, {}, {}});
     std::vector<MapInfo::Placed> fields;
@@ -91,15 +91,15 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
         std::vector<int> group(fields.size(), -1);
         int groups = 0;
         for (size_t i = 0; i < fields.size(); ++i) {
-            if (group[i] >= 0 || baseNear(fields[i].x, fields[i].y, rules::kFieldRange)) continue;
+            if (group[i] >= 0 || baseNear(fields[i].x, fields[i].y, t.rules.fieldRange)) continue;
             std::vector<size_t> open = {i};
             group[i] = groups;
             while (!open.empty()) {
                 size_t a = open.back();
                 open.pop_back();
                 for (size_t b = 0; b < fields.size(); ++b)
-                    if (group[b] < 0 && !baseNear(fields[b].x, fields[b].y, rules::kFieldRange) &&
-                        dist(fields[a].x, fields[a].y, fields[b].x, fields[b].y) <= rules::kClusterGap) {
+                    if (group[b] < 0 && !baseNear(fields[b].x, fields[b].y, t.rules.fieldRange) &&
+                        dist(fields[a].x, fields[a].y, fields[b].x, fields[b].y) <= t.rules.clusterGap) {
                         group[b] = groups;
                         open.push_back(b);
                     }
@@ -118,7 +118,7 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
     for (auto& f : fields) {
         int best = -1;
         for (size_t b = 0; b < bases.size(); ++b)
-            if (dist(bases[b].x, bases[b].y, f.x, f.y) <= rules::kFieldRange &&
+            if (dist(bases[b].x, bases[b].y, f.x, f.y) <= t.rules.fieldRange &&
                 (best < 0 || dist(bases[b].x, bases[b].y, f.x, f.y) < dist(bases[best].x, bases[best].y, f.x, f.y)))
                 best = int(b);
         if (best >= 0) bases[best].fields.push_back({f.x, f.y});
@@ -164,7 +164,7 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
     for (auto& p : w.map.units) {
         if (!isMinerals(t, p.type) && !isGeyser(t, p.type)) continue;
         bool baseNear = false;
-        for (auto& b : bases) baseNear = baseNear || dist(b.x, b.y, p.x, p.y) <= rules::kResourceNearBase;
+        for (auto& b : bases) baseNear = baseNear || dist(b.x, b.y, p.x, p.y) <= t.rules.resourceNearBase;
         if (baseNear) w.units[size_t(w.add(p.type, kNeutralPlayer, p.x, p.y))].resources = p.resources;
     }
     w.baseFields.assign(bases.size(), {});
@@ -184,7 +184,7 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
         if (o.gas) {
             for (size_t i = 0; i < w.units.size(); ++i)
                 if (isGeyser(t, w.units[i].type) &&
-                    dist(w.units[i].x, w.units[i].y, dx, dy) <= rules::kResourceNearBase &&
+                    dist(w.units[i].x, w.units[i].y, dx, dy) <= t.rules.resourceNearBase &&
                     (refinery < 0 || dist(w.units[i].x, w.units[i].y, dx, dy) <
                                          dist(w.units[refinery].x, w.units[refinery].y, dx, dy)))
                     refinery = int(i);
@@ -196,7 +196,7 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
                 w.startAnim(r.anim, kAnimInit);
             }
         }
-        int gasWorkers = refinery >= 0 ? std::clamp(o.gasWorkers, 1, 3) : 0;
+        int gasWorkers = refinery >= 0 ? std::clamp(o.gasWorkers, 1, t.rules.gasWorkersMax) : 0;
         for (int n = 0; n < workers + gasWorkers; ++n) {
             int x = b.x, y = b.y;
             w.freeSpot(t.workerOf[race], x, y);
@@ -222,7 +222,8 @@ MiningRun miningRun(const World& w, int player, Race race, int workers, const Mi
     r.race = race;
     r.workers = workers;
     const World::Player& p = w.players[player];
-    double minutes = (std::min(w.frame, o.warmupFrames + o.frames) - o.warmupFrames) * 42.0 / 60000.0;
+    double minutes =
+        (std::min(w.frame, o.warmupFrames + o.frames) - o.warmupFrames) * double(w.t.rules.frameMs) / 60000.0;
     if (p.measuredFrom >= 0 && minutes > 0) {
         r.mineralsPerMinute = (p.gathered - p.mineralsAtMeasure) / minutes;
         r.gasPerMinute = (p.gatheredGas - p.gasAtMeasure) / minutes;
@@ -245,7 +246,7 @@ PlayerState playerState(const World& w, int player) {
     s.gatheredGas = p.gatheredGas;
     for (const Unit& u : w.units)
         if (u.alive && u.owner == player && (w.t.units[u.type].flags & kWorker)) ++s.workers;
-    double minutes = (w.frame - w.measureFrom) * 42.0 / 60000.0;
+    double minutes = (w.frame - w.measureFrom) * double(w.t.rules.frameMs) / 60000.0;
     if (p.measuredFrom >= 0 && minutes > 0) {
         s.mineralsPerMinute = (p.gathered - p.mineralsAtMeasure) / minutes;
         s.gasPerMinute = (p.gatheredGas - p.gasAtMeasure) / minutes;
@@ -319,13 +320,13 @@ void World::miningOrder(int i) {
     };
     auto extract = [&](int fi) {
         Unit& f = units[size_t(fi)];
-        int take = std::min(rules::kMineralLoad, f.resources);
+        int take = std::min(t.rules.mineralLoad, f.resources);
         f.resources -= take;
         // (its picture by the amount left: Working to Idle, Almost Built, Special State 2, 1)
         if (isMinerals(t, f.type))
-            startAnim(f.anim, f.resources >= rules::kMineralFull   ? kAnimWorkingToIdle
-                              : f.resources >= rules::kMineralHalf ? kAnimAlmostBuilt
-                              : f.resources >= rules::kMineralLow  ? kAnimSpecial2
+            startAnim(f.anim, f.resources >= t.rules.mineralFull   ? kAnimWorkingToIdle
+                              : f.resources >= t.rules.mineralHalf ? kAnimAlmostBuilt
+                              : f.resources >= t.rules.mineralLow  ? kAnimSpecial2
                                                                     : kAnimSpecial1);
         u.carry = take;
         u.carryGas = !isMinerals(t, f.type);
@@ -350,7 +351,7 @@ void World::miningOrder(int i) {
             return;
         }
         if (u.state == 0) {
-            if (!valid(u.field)) u.field = gasOrder ? -1 : findField(rules::kFieldRange, false);
+            if (!valid(u.field)) u.field = gasOrder ? -1 : findField(t.rules.fieldRange, false);
             if (u.field < 0) {
                 stopMove(u);
                 setOrder(u, Idle);
@@ -365,7 +366,7 @@ void World::miningOrder(int i) {
             return;
         }
         if (u.state == 1) {
-            if (gap(u, units[size_t(u.field)]) > rules::kMiningReach && !atTarget()) return;
+            if (gap(u, units[size_t(u.field)]) > t.rules.miningReach && !atTarget()) return;
             u.state = 3;  // (the arrival is its own state, on the next poll)
             return;
         }
@@ -399,7 +400,7 @@ void World::miningOrder(int i) {
             if ((u.x == u.aimX && u.y == u.aimY) || u.heading == direction(u.aimX - u.x, u.aimY - u.y)) {
                 animate(i, kAnimAlmostBuilt);  // (the mining pose)
                 u.walkingAnim = 2;
-                u.timer = rules::kMiningFrames;
+                u.timer = t.rules.miningFrames;
                 u.state = 5;
             }
             return;
@@ -413,7 +414,7 @@ void World::miningOrder(int i) {
     case HarvestGas:
         if (u.state == 0) {
             u.hidden = true;
-            u.timer = rules::kGasFrames;
+            u.timer = t.rules.gasFrames;
             u.state = 5;
             return;
         }
@@ -444,7 +445,7 @@ void World::miningOrder(int i) {
         if (u.state == 0) {
             int depot = nearestDepot();
             if (depot < 0) {
-                u.poll = rules::kMiningFrames;  // (no depot: it waits)
+                u.poll = t.rules.miningFrames;  // (no depot: it waits)
                 return;
             }
             int x, y;
