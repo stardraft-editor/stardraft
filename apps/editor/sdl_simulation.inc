@@ -964,6 +964,7 @@ void simulateMiningCommand() {
     o.mapRaces = races == 0;
     o.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count());  // (Random: another race each time)
     if (!simBegin(false, [o](std::string& err) { return simEngine().startMining(o, err); })) return;
+    gState.ed->clearSelection();  // (the map's selection does not show over the game)
     gSim.speed = 1, gSim.workers = workers, gSim.bases = int(simEngine().miningResult().size());
 }
 
