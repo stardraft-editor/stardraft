@@ -3,10 +3,13 @@
 sfxdata.dat has one entry for each sound (1144 entries), for example a unit's answer when you select it. Other .dat
 files use these entries: for example, the sounds of a unit in [units.dat](units-dat.md#ready-sound).
 
+The descriptions are from the StarCraft DAT page of Darkened Fantasies (game version 1.16.1):
+<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>.
+
 ### Sound File
 
-The sound's file: a string in sfxdata.tbl with the path and the name of the WAV file. The path starts in the `sound\`
-folder of the game's data. The value 0 gives the sound no file.
+Sfxdata.tbl string index for the WAV path and filename, in the MPQ `sound\` directory. The value 0 gives the sound no
+file.
 
 The game loads a sound when it plays the sound for the first time. A sound with the Preload flag (see
 [Flags](#flags)) loads before the map's code starts. Thus a change to the file of such a sound has no effect.
@@ -15,26 +18,27 @@ The game loads a sound when it plays the sound for the first time. A sound with 
 
 ### Priority
 
-The importance of the sound when all sound channels are in use. A sound with a lower value cannot stop a sound with a
-higher value.
+When all sound channels are full, sounds with a higher priority value will not be preempted by those with a lower
+value.
 
 - Raw value: a number (0 to 255).
 
 ### Flags
 
-How the game loads and plays the sound. The names of our flags are different from the names on the StarCraft DAT page
-of Darkened Fantasies. This table shows the two names of each flag.
+The sound's Properties flags:
 
-| Value | Our name | Its name in the source | What it does |
-| --- | --- | --- | --- |
-| 0x01 | Preload | Permanently Loaded | The game loads the sound before the map starts and keeps it in memory. |
-| 0x02 | Unit Speech | Unit Response | The sound obeys the game's sound settings (Unit Speech, Unit Acknowledgements and Building Sounds). When the applicable setting is off, the sound does not play. |
-| 0x04 | Unused (0x04) | Recently Used | The game sets and clears this flag itself, when it loads and frees the sound. |
-| 0x08 | Unused (0x08) | Buffer Creation Queued | The game sets and clears this flag itself, while it loads the sound. If the .dat file sets it, the sound never loads and never plays. |
-| 0x10 | One At A Time | One At A Time | The sound does not play while the same sound plays. |
-| 0x20 | Never Preempt | Never Preempt | When all sound channels are in use, no other sound can stop this sound. The priority has no effect. |
-| 0x40 | Unused (0x40) | (no name) | The game does not use this flag. |
-| 0x80 | Unused (0x80) | (no name) | The game does not use this flag. |
+- 0x01 Permanently Loaded (the form: Preload): The sound will never be freed from memory.
+- 0x02 Unit Response (the form: Unit Speech): Depending on the sound event, it will not play if either the "Unit
+  Speech", "Unit Acknowledgements", or "Building Sounds" settings are turned off.
+- 0x04 Recently Used (the form: Unused (0x04)): Managed by the game internally. Set when the game demands the sound to
+  be played (is queued to be loaded in memory), and cleared on the first attempt to be freed from memory. The sound
+  will be freed from memory on the next attempt if the flag remains cleared.
+- 0x08 Buffer Creation Queued (the form: Unused (0x08)): Managed by the game internally. Set when the sound is queued
+  to be loaded in memory, and cleared when the sound thread has loaded the sound. If this flag is manually set in the
+  DAT file, the sound will never be loaded or played.
+- 0x10 One At A Time: The sound will not play while an instance of this sound is already playing.
+- 0x20 Never Preempt: When all sound channels are full, the sound will never be cut off regardless of priority value.
+- 0x40 and 0x80 (the form: Unused (0x40), Unused (0x80)): the game does not use these flags.
 
 Our names "Unused (0x04)" and "Unused (0x08)" are not fully correct: the game uses these flags, but only for its own
 work. Do not set them. A set 0x08 flag makes the sound silent.
@@ -43,27 +47,20 @@ work. Do not set them. A set 0x08 flag makes the sound silent.
 
 ### Length Adjust
 
-A change to the time that the talking portrait shows when the sound plays in a transmission. Transmissions are, for
-example, the advisor's messages and the error message when you cannot put a building in a place. The game starts from
-the length of the sound and adds this value.
+Portrait Duration: adjusts the speaking portrait time during transmissions (advisor alerts, building placement error,
+etc.), which is based on the sound length.
 
-- Raw value: a 16-bit number. In version 1.16.1, the game reads it as a signed number (-32768 to 32767).
+- Raw value: a signed 16-bit number (-32768 to 32767).
 
 ### Minimum Volume
 
-The lowest volume of the sound, as a percentage, when the sound comes from a place far from the screen.
+Defines the minimum volume percentage the sound will be played at when heard from a distance.
 
-In version 1.16.1, the game calculates the volume of a sound as follows:
+Volume strength is 99 - (99 * dist / 512), with dist being the sum distance from both nearest X and Y screen borders
+when the sound origin is out of view (otherwise 0). The "Mute Unit Speech" trigger action divides the result by 5. If
+the final volume strength is 10 or lower, the sound will not play.
 
-1. If the place of the sound is on the screen, the distance is 0. Else the distance is the horizontal distance plus the
-   vertical distance from the nearest edge of the screen, in pixels.
-2. The volume is 99 - (99 x distance / 512).
-3. The trigger action "Mute Unit Speech" divides the volume by 5.
-4. If the volume is 10 or less, the sound does not play.
-
-This field sets the lowest volume that the distance can give the sound.
-
-- Raw value: a percentage. In version 1.16.1, the game reads it as a signed 8-bit number (-128 to 127).
+- Raw value: a percentage, a signed 8-bit number (-128 to 127).
 
 ## Sources and credits
 
@@ -71,4 +68,5 @@ This field sets the lowest volume that the distance can give the sound.
   (<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>).
 - The fields, their names and their places in the game's memory: EUD Editor 2 (<https://github.com/Buizz/EUDEditor>,
   MIT license, LeeJungHun).
-- The StarDraft 2 developers wrote this page in their own words, from these sources and from the game's data.
+- The field descriptions are from the StarCraft DAT page of Darkened Fantasies. The rest of this page is from the other
+  sources and from the game's data.

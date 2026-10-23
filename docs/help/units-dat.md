@@ -4,121 +4,125 @@ units.dat has one entry for each unit type (228 entries: 0 is the Terran Marine)
 in the game, its raw value, and the value that the Data form shows after the box. For the units of the values, see
 [Values and units](values-and-units.md).
 
+The descriptions are from the StarCraft DAT page of Darkened Fantasies (game version 1.16.1):
+<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>.
+
 ## Graphics and parts
 
 ### Graphics
 
-The movement entry of the unit: [flingy.dat](flingy-dat.md). It sets the unit's sprite, speed and turn speed.
+[Flingy.dat](flingy-dat.md) index for the unit's flingy property.
 
 - Raw value: a flingy.dat entry.
 
 ### Subunit 1
 
-A second unit that the game attaches to this unit, for example the turret of a Siege Tank or a Goliath. The subunit
-turns and attacks with its own weapons.
+Units.dat index for the unit to be used as a turret.
 
 - Raw value: a units.dat entry. 228 is none.
 
 ### Subunit 2
 
-A second subunit. No unit of the game uses it. In version 1.16.1, the game does not read this field.
+Unused. No unit of the game uses it.
 
 - Raw value: a units.dat entry. 228 is none.
 
 ### Infestation
 
-The unit that this building becomes when a Queen infests it (the Terran Command Center becomes the Infested Command
-Center). Only buildings (entries 106 to 201) have this field.
+Units.dat index for the unit to transform into after being infested.
+
+This field only has 96 entries, pertaining to unit IDs 106-201.
 
 - Raw value: a units.dat entry.
 
 ### Construction animation
 
-The image that shows while the unit is built, for example the Terran construction frame. Zerg and Terran buildings
-use it while they are built. Zerg units use it for their birth animation. The game also uses it for the overlay after
-an infestation.
+[Images.dat](images-dat.md) index for the image used for the generic construction graphic for Zerg and Terran
+structures being built, the Zerg birth animation, and the overlay created after infestation.
 
-- Raw value: an [images.dat](images-dat.md) entry.
+- Raw value: an images.dat entry.
 
 ### Unit direction
 
-The direction that the unit faces when it is made. The Siege Tank's base and turret also turn to this direction
-before the tank changes its mode.
+The visual direction the unit will be facing when created, and the direction the siege tank base and turret will face
+before switching mode.
+
+A valid range of 0 to 31 for a specific direction, and 32 for a random direction. 0-16 are the angles matching the GRP
+frameset angles (clockwise turntable), and 17-31 are the mirrored angles of angles 1-15. Values above 32 will wrap
+around, but only 32 will give a random direction.
 
 - Raw value: one of 32 directions (0 is up; the numbers go clockwise). 32 is a random direction.
-- Values 0 to 16 use the frames of the unit's GRP file. Values 17 to 31 use the mirrored frames of values 15 to 1.
-- The game wraps values above 32 to the range 0 to 31. Only the value 32 gives a random direction.
 
 ### Elevation level
 
-The layer that the game draws the unit in. A unit with a higher value shows on top of a unit with a lower value. Air
-units have high values.
+Z-sorting for the unit's sprite, determining which unit appears above or below others. Other criteria come into play
+for sprites on the same elevation level, which can be described as:
+
+```
+(Sprite Index) | (isSubunit << 13) | ((Elevation <= 4 ? (Sprite PosY) : 0) << 14) | (Elevation << 27)
+```
 
 - Raw value: a number from 0 to 19.
 
-In version 1.16.1, the game sorts the sprites with this key. A sprite with a higher key shows on top:
-
-```
-key = (sprite index) | (is subunit << 13) | ((elevation <= 4 ? sprite Y position : 0) << 14) | (elevation << 27)
-```
-
 ### StarEdit placement box width
 
-The width of the box that the map editor uses to place the unit. The box has the unit at its center. The game also
-uses this box, mostly to place buildings.
+Width of a rectangle centered on the unit, used mostly for building placement.
 
 - Raw value: pixels.
 
 ### StarEdit placement box height
 
-The height of the box that the map editor uses to place the unit. The box has the unit at its center.
+Height of a rectangle centered on the unit, used mostly for building placement.
 
 - Raw value: pixels.
 
 ### Addon horizontal (X) position
 
-For an add-on (for example a Comsat Station): where the add-on is, from the building it attaches to. The position is
-from the upper-left corner of that building. Only entries 106 to 201 have this field.
+X position of the unit as an add-on, in pixels, relative to the upper-left corner of the building it connects to.
+
+This field only has 96 entries, pertaining to unit IDs 106-201.
 
 - Raw value: pixels.
 
 ### Addon vertical (Y) position
 
-For an add-on: where the add-on is, from the building it attaches to. The position is from the upper-left corner of
-that building. Only entries 106 to 201 have this field.
+Y position of the unit as an add-on, in pixels, relative to the upper-left corner of the building it connects to.
+
+This field only has 96 entries, pertaining to unit IDs 106-201.
 
 - Raw value: pixels.
 
 ### Unit size left
 
-The unit's box for collision and for clicks: its distance from the unit's center to its left side. The box can have
-sides of different lengths, but the unit's center point does not move.
+Distance in pixels of the left rectangle edge around the unit, shaping its collision box (the four Unit size fields
+are the Unit Dimensions). While the collision box may be asymmetrical, it does not change the position of the unit's
+center point.
 
 - Raw value: pixels.
 
 ### Unit size up
 
-The unit's box: its distance from the center to its top.
+Distance in pixels of the top rectangle edge around the unit, shaping its collision box.
 
 - Raw value: pixels.
 
 ### Unit size right
 
-The unit's box: its distance from the center to its right side. Each unit has a size of 1 x 1 pixel without the box.
-Thus, the right side of the box is 1 pixel more than this value.
+Distance in pixels of the right rectangle edge around the unit, shaping its collision box. Units inherently have a
+size of 1x1, so consider 1 pixel to be added to the right and bottom lengths.
 
 - Raw value: pixels.
 
 ### Unit size down
 
-The unit's box: its distance from the center to its bottom. Each unit has a size of 1 x 1 pixel without the box.
-Thus, the bottom of the box is 1 pixel more than this value.
+Distance in pixels of the bottom rectangle edge around the unit, shaping its collision box. Units inherently have a
+size of 1x1, so consider 1 pixel to be added to the right and bottom lengths.
 
 - Raw value: pixels.
 
 ### Portrait
 
-The portrait that the console shows when the unit is selected.
+[Portdata.dat](portdata-dat.md) index for the unit's portrait. A value of 65535 is defined as having no portrait.
 
 - Raw value: a portdata.dat entry. 65535 is no portrait.
 
@@ -126,248 +130,247 @@ The portrait that the console shows when the unit is selected.
 
 ### Shield enable
 
-Yes: the unit has shields (Protoss units).
+If set, the unit will use shield points (the source calls it Has Shields).
 
 - Raw value: 0 (no) or 1 (yes).
 
 ### Shield amount
 
-The most shield points that the unit can have.
+How much shields the unit has.
 
 - Raw value: shield points.
 
 ### Hit points
 
-The most hit points that the unit can have.
+How much health the unit has. 256 is equal to 1 full point.
 
 - Raw value: 1/256 hit points. A Marine has 40 hit points: the raw value is 10240.
 - The form shows: hit points (raw / 256).
 
 ### Armor
 
-The armor of the unit at upgrade level 0. The game removes this amount from the damage of each hit. When the armor is
-more than the damage, the unit still gets half a hit point of damage.
+Base armor level. Damage taken by the unit is reduced by armor points. In the event that armor exceeds the damage
+received, units cannot take less than half a point of damage.
 
 - Raw value: armor points.
 
 ### Armor upgrade
 
-The upgrade that gives the unit more armor. Each level adds 1 armor.
+[Upgrades.dat](upgrades-dat.md) index that will increase the unit's armor.
 
-- Raw value: an [upgrades.dat](upgrades-dat.md) entry.
+- Raw value: an upgrades.dat entry.
 
 ### Unit size
 
-The size of the unit: Independent, Small, Medium or Large. The weapon type (explosive, concussive) does more or less
-damage to each size.
+Modifies the amount of damage taken by certain weapon types.
 
 - Raw value: 0 (independent), 1 (small), 2 (medium) or 3 (large).
 
-| Value | Size | Damage that the unit gets |
+| Value | Size | Damage taken |
 | --- | --- | --- |
-| 0 | Independent | 0% from all weapons |
-| 1 | Small | 50% from explosive weapons |
-| 2 | Medium | 75% from explosive weapons, 50% from concussive weapons |
-| 3 | Large | 25% from concussive weapons |
+| 0 | None (the form calls it Independent) | Takes 0% damage from all sources. |
+| 1 | Small | Takes 50% damage from Explosive. |
+| 2 | Medium | Takes 75% damage from Explosive and 50% from Concussive. |
+| 3 | Large | Takes 25% damage from Concussive. |
+| Other | | Other values are undefined and will result in out-of-bounds array access. |
 
-The unit gets 100% from all other weapon types. Do not use other values: the game reads data outside its table.
+The unit takes 100% damage from all other weapon types.
 
 ## Weapons and AI
 
 ### Ground weapon
 
-The weapon that the unit uses against ground units.
+[Weapons.dat](weapons-dat.md) index for the ground attack.
 
-- Raw value: a [weapons.dat](weapons-dat.md) entry. 130 is none.
+- Raw value: a weapons.dat entry. 130 is none.
 
 ### Max ground hits
 
-The number of hits that the console shows for the ground weapon (for example "x2"). The hits that an attack really
-does come from the unit's animation script.
+Used only by StarEdit. The console shows it as the number of hits of the ground weapon (for example "x2"); the hits
+that an attack really does come from the unit's animation script.
 
 - Raw value: hits.
 
 ### Air weapon
 
-The weapon that the unit uses against air units.
+[Weapons.dat](weapons-dat.md) index for the air attack.
 
-- Raw value: a [weapons.dat](weapons-dat.md) entry. 130 is none.
+- Raw value: a weapons.dat entry. 130 is none.
 
 ### Max air hits
 
-The number of hits that the console shows for the air weapon.
+Used only by StarEdit. The console shows it as the number of hits of the air weapon.
 
 - Raw value: hits.
 
 ### Target acquisition range
 
-The distance at which the unit finds targets by itself. When it is smaller than the weapon's range, the unit attacks
-only the targets that come near. When the value is 0, the game uses the maximum range of the ground weapon, in tiles.
-When the unit has no ground weapon, the game uses the range of the air weapon.
+Radius in tiles (32 pixels) at which an enemy unit will be automatically acquired. If this value is 0, the ground
+weapon's Max Range in tiles will be used, or that of the air weapon if no ground weapon is specified.
 
 - Raw value: tiles.
 - The form shows: pixels (raw x 32).
 
 ### Sight range
 
-The distance that the unit sees. The game removes the fog of war in this radius around the unit.
+Radius in tiles (32 pixels) that the fog will be revealed around the unit.
+
+Values above 11 will crash the game unless more sight ranges have been modded in.
 
 - Raw value: tiles.
 - The form shows: pixels (raw x 32).
-- A value above 11 causes the game to crash, unless a mod adds more sight ranges.
 
 ### Comp AI idle
 
-The order that the unit gets when the game makes it, or when its owner changes, if a computer player has it.
+[Orders.dat](orders-dat.md) entry: the order to be performed when the unit is initially created or changes ownership,
+if owned by a Computer player (the source calls it Computer Idle Order).
 
-- Raw value: an [orders.dat](orders-dat.md) entry.
+- Raw value: an orders.dat entry.
 
 ### Human AI idle
 
-The order that the unit gets when the game makes it, or when its owner changes, if a human player has it.
+[Orders.dat](orders-dat.md) entry: the order to be performed when the unit is initially created or changes ownership,
+if the unit is (generally) owned by a Human player (the source calls it Human Idle Order).
 
-- Raw value: an [orders.dat](orders-dat.md) entry.
+- Raw value: an orders.dat entry.
 
 ### Return to idle
 
-The order that the unit does after it completes an order.
+[Orders.dat](orders-dat.md) entry: the order to be performed when the unit is made to become idle.
 
-- Raw value: an [orders.dat](orders-dat.md) entry.
+- Raw value: an orders.dat entry.
 
 ### Attack unit
 
-The order that the unit does when it attacks a unit.
+[Orders.dat](orders-dat.md) entry: the order to be performed when using Attack on a unit.
 
-- Raw value: an [orders.dat](orders-dat.md) entry.
+- Raw value: an orders.dat entry.
 
 ### Attack move
 
-The order that the unit does for an attack move (Attack on the ground).
+[Orders.dat](orders-dat.md) entry: the order to be performed when using Attack on the ground.
 
-- Raw value: an [orders.dat](orders-dat.md) entry.
+- Raw value: an orders.dat entry.
 
 ### Right-click action
 
-What a right click does with the unit selected: move, attack, or nothing.
-
 - Raw value: a choice (the form names each one).
 
-| Value | Right click |
+| Value | Right-click action |
 | --- | --- |
-| 0 | No commands; the unit attacks automatically |
-| 1 | Normal movement and normal attack |
-| 2 | Normal movement, no attack; a rally point for a building |
-| 3 | No movement, normal attack |
+| 0 | No Commands/Auto Attack |
+| 1 | Normal Movement/Normal Attack |
+| 2 | Normal Movement/No Attack/Rally |
+| 3 | No Movement/Normal Attack |
 | 4 | Harvest |
-| 5 | Harvest, repair, and SCV build |
-| Other | Nothing, but the game shows the click indicator |
+| 5 | Harvest/Repair/SCV Build |
+| Other | Nothing (with indicator) |
 
 ### AI internal
 
-Flags for the computer player's scripts.
+The AI Action Flags.
 
 - Raw value: a set of flags.
-- 0x01: the computer player does not send the unit on a Strategic Suicide Mission.
-- 0x02: the computer player does not use the unit as a guard.
+- 0x01: Unit will not be included in Strategic Suicide Mission.
+- 0x02: Unit will not be assigned as a guard by Computer players.
 
 ## Flags
 
 ### Special ability flags
 
-The unit's properties, one flag each: building, add-on, flyer, worker, hero, detector, organic, mechanical, robotic,
-burrowable, spellcaster and more. Many rules of the game use these flags, for example which spells can hit the unit.
+The general attributes of the unit (the source calls them Base Properties), some of which have too many effects for an
+exhaustive list here.
 
 - Raw value: a set of 32 flags.
 
-The flags in version 1.16.1 (the name is the name in the form):
+The flags (where the form uses another name, it is in parentheses):
 
-- 0x00000001 Building: weapons and other rules use the unit as a building. A Dark Swarm does not protect it.
-- 0x00000002 Addon: the unit can attach to a parent building.
-- 0x00000004 Flyer: weapons use the unit as an air unit. The unit does not use the ground paths.
-- 0x00000008 Worker: the unit can mine resources and carry power-ups. The computer player uses it as a worker in its
-  bases.
-- 0x00000010 Subunit: the unit is a turret on a base unit.
-- 0x00000020 Flying Building: the unit can lift off and land.
-- 0x00000040 Hero: the unit can use all technologies and upgrades. Spawn Broodling, Yamato Gun, Plague, Feedback and
-  Mind Control cannot hit it. Its wireframe in a group or transport has a white border.
-- 0x00000080 Regenerates HP: the unit slowly gets back its hit points.
-- 0x00000100 Animated Idle(?): a click on the unit's overlays also selects the unit. Without this flag, only the main
-  image gets the click.
-- 0x00000200 Cloakable: the unit can cloak and decloak.
-- 0x00000400 Two Units in 1 Egg: a Zerg egg makes two of these units. The console shows twice the supply cost.
-- 0x00000800 Single Entity: the player cannot select the unit in a group. Right-click commands ignore it.
-- 0x00001000 Resource Depot: workers bring resources back to the unit. The computer player uses it as the center of a
-  base.
-- 0x00002000 Resource Container: the computer player uses the unit as a resource. Resource depots cannot be near it.
-  Harvest orders can target it, but the game sets which units give resources.
-- 0x00004000 Robotic Unit: weapons use the unit as robotic.
-- 0x00008000 Detector: the unit shows cloaked units in its sight range (a building: in 7 tiles). The console shows
-  "Detector".
-- 0x00010000 Organic Unit: weapons use the unit as organic.
-- 0x00020000 Requires Creep: a building must be on creep.
-- 0x00040000 Unused(?): the game does not use this flag.
-- 0x00080000 Requires Psi: a building must be in a psi field. Outside the field, the building has no power.
-- 0x00100000 Burrowable: the unit can burrow and unburrow.
-- 0x00200000 Spellcaster: the unit has energy. The console shows its energy bar and value.
-- 0x00400000 Permanent Cloak: the unit is always cloaked, at no cost.
-- 0x00800000 Pickup Item(?): the game does not use this flag.
-- 0x01000000 Ignore Supply Check: the unit can be made when the player does not have sufficient supply.
-- 0x02000000 Use Medium Overlays: the game adds 1 to the images.dat entry of the effect overlays (usually the medium
-  image).
-- 0x04000000 Use Large Overlays: the game adds 2 to the images.dat entry of the effect overlays (usually the large
-  image). When both overlay flags are set, Use Medium Overlays is used.
-- 0x08000000 Battle Reactions: the unit chases enemies in its target acquisition range. When it cannot attack, it
-  runs away if its order has the "Fleeable" flag.
-- 0x10000000 Full Auto-Attack: the unit attacks enemies in all directions automatically. Without this flag, the enemy
-  must be in the weapon's attack angle, in front of the unit.
-- 0x20000000 Invincible: the unit cannot be a target and gets no damage.
-- 0x40000000 Mechanical Unit: weapons use the unit as mechanical.
-- 0x80000000 Produces Units(?): the building makes creep in a larger area when it is built, made or moved. Only the
-  Hatchery, Lair, Hive, Creep Colony, Sunken Colony and Spore Colony use this flag.
+- 0x00000001 Building: Considered to be a building for weapon targeting and other various behaviors. Also does not
+  take cover from Dark Swarm.
+- 0x00000002 Addon: Allows the unit to connect to a parent building.
+- 0x00000004 Flyer: Considered an "air" unit for weapon targeting, and does not use terrain pathfinding.
+- 0x00000008 Worker: Considered to be a worker for AI town management, and can mine resources and carry powerups.
+- 0x00000010 Subunit: Considered to be a turret attached to a base unit.
+- 0x00000020 Flying Building: Allows the unit to use the lift-off and landing abilities.
+- 0x00000040 Hero: The unit has unrestricted tech and upgrade usage, and prevents the unit from being targeted by
+  Spawn Broodling, Yamato Gun, Plague, Feedback, and Mind Control. Also gives the group-selection and transport
+  wireframes a white border.
+- 0x00000080 Regenerate (the form calls it Regenerates HP): Health will be slowly replenished if below max.
+- 0x00000100 Has Overlay (the form calls it Animated Idle(?)): If set, clickable overlays are included in
+  click-through detection. Otherwise, only the main graphic is checked.
+- 0x00000200 Cloakable: Allows the unit to use the cloaking and decloaking abilities.
+- 0x00000400 Paired Spawn (the form calls it Two Units in 1 Egg): Sets the unit to be duplicated when birthing from
+  Zerg eggs, and the displayed supply cost is doubled.
+- 0x00000800 Single Entity: Cannot be group-selected, and is ignored by contextual right-click commands.
+- 0x00001000 Resource Depot: Considered to be a town center for returning resources to, and AI town management.
+- 0x00002000 Resource Container: Considered to be a resource node for AI town management, and prevents Resource Depots
+  from being located near the unit. Can also be targeted by Harvest orders, although which units can actually be
+  harvested from is hardcoded.
+- 0x00004000 Robotic (the form calls it Robotic Unit): Considered a "robotic" unit for weapon targeting.
+- 0x00008000 Detector: Reveals cloaked units within its sight range, or within 7 tiles if a building. Will display
+  the "Detector" status.
+- 0x00010000 Organic (the form calls it Organic Unit): Considered an "organic" unit for weapon targeting.
+- 0x00020000 Requires Creep: If a building, cannot be placed off the creep.
+- 0x00040000 Unused (the form calls it Unused(?)).
+- 0x00080000 Requires Psi: If a building, cannot be placed outside of the psi field, and will become unpowered if no
+  longer in it.
+- 0x00100000 Burrowable: Allows the unit to use the burrow and unburrow abilities.
+- 0x00200000 Spellcaster: Considered to be a spellcaster, and displays the energy bar and counter.
+- 0x00400000 Permanently Cloaked (the form calls it Permanent Cloak): Unit is cloaked for free.
+- 0x00800000 Unused (the form calls it Pickup Item(?)).
+- 0x01000000 Ignore Supply Check: Training/construction will not be blocked if there isn't enough available supply.
+- 0x02000000 Use Medium Overlays: +1 is added to the specified effect overlay Image ID, which is typically the
+  "medium" graphic.
+- 0x04000000 Use Large Overlays: +2 is added to the specified effect overlay Image ID, which is typically the "large"
+  graphic. Use Medium Overlays takes precedence if both flags are set.
+- 0x08000000 Battle Reactions: Will react to enemies by chasing after them if they enter within the Target
+  Acquisition Range, or by fleeing from them if it cannot retaliate and the order being performed has the Fleeable
+  flag set.
+- 0x10000000 Full Auto-Attack: If not set, the unit will only auto-attack an enemy if it is in front, within its
+  weapon's Attack Angle.
+- 0x20000000 Invincible: Cannot be targeted or receive damage.
+- 0x40000000 Mechanical (the form calls it Mechanical Unit): Considered a "mechanical" unit for weapon targeting.
+- 0x80000000 Wide Starting Creep (the form calls it Produces Units(?)): If set, creep appears in a wider area around
+  the building when built, created, or moved. This flag only works for Hatchery, Lair, Hive, Creep Colony, Sunken
+  Colony, and Spore Colony due to hardcode.
 
 ### Unknown (old movement)
 
-Flags that the community does not fully know. The form names them as the community does.
+The Movement Flags. The form names the flags as the community does.
+
+Relatively unused. It is set to 64 (0x40) for sunken colony, 65 (0x41) for ground units, 193 (0xC1) for ground
+hovering units, 197 (0xC5) for air units and powerups, and 0 for non-flying buildings and anything else.
+
+However the only significance it has in the game is whether it is equal to 193 (0xC1) or not; if it is, the unit
+cannot be targeted by spider mines and the unit will be moved by 7 pixels upwards when birthing from a Zerg egg. The
+flag 0x80 (Mine-safe) alone does nothing.
 
 - Raw value: a set of flags.
-
-The game data uses these values:
-
-| Value | Units |
-| --- | --- |
-| 0x00 | Buildings on the ground and all other units |
-| 0x40 | Sunken Colony |
-| 0x41 | Ground units |
-| 0xC1 | Ground units that hover |
-| 0xC5 | Air units and power-ups |
-
-In version 1.16.1, only the full value 0xC1 has an effect. The flag 0x80 (Mine-safe) alone does nothing. A unit with 0xC1 is not a target for Spider Mines. When it
-comes out of a Zerg egg, the game moves it 7 pixels up.
 
 ### Staredit group flags
 
-How the map editor groups the unit: its race, and whether it is a unit, a building or neutral. The race flags also
-set which supply the unit uses and some texts of the race. Triggers use the other flags.
+The Group Flags. The race flags determine which supply type the unit will use and some race-specific text, among some
+other things. The other flags generally are for the purpose of triggers.
 
 - Raw value: a set of flags.
-- 0x01 Zerg: the unit can go into a Nydus Canal. A building can be on creep.
-- 0x02 Terran: the unit can go into a Bunker and shows its rank. A building burns down below 33% of its hit points.
-- 0x04 Protoss: a Shield Battery can recharge the unit's shields.
+- 0x01 Zerg: Allows units to enter Nydus Canals, and buildings to be placed on creep.
+- 0x02 Terran: Allows units to enter Bunkers, show unit rank, and buildings will burn down when below 33% health.
+- 0x04 Protoss: Allows units to have their shields recharged by Shield Batteries.
 - 0x08 Men.
 - 0x10 Building.
 - 0x20 Factory.
-- 0x40 Independent: the game does not use this flag.
-- 0x80 Neutral: the game keeps a preplaced unit with this flag in game types other than Use Map Settings.
+- 0x40 Independent: Unused.
+- 0x80 Neutral: Preplaced units will not be removed in non-UMS game modes.
 
 ### Staredit availability flags
 
-Where the map editor shows the unit, for example in the unit list or only in the triggers. Only the first two flags
-have an effect in the game.
+The usage of these flags is mostly related to StarEdit, with only the first two having in-game behavior.
 
 - Raw value: a set of flags.
-- 0x0001 Non-Neutral: when the unit does not have the Building flag, the game adds it to the vision check. The game
-  uses this check to find desyncs in multiplayer games.
-- 0x0002 Unit Listing&Palette: the "Create Unit" and "Create Unit With Properties" trigger actions can make the unit.
+- 0x0001 Non-Neutral: If the unit doesn't have the Building flag (in Special ability flags) set, it will be included
+  in the vision hash (multiplayer game desync detection).
+- 0x0002 Unit Listing&Palette: The unit can be created by the "Create Unit" and "Create Unit With Properties" trigger
+  actions.
 - 0x0004 Mission Briefing.
 - 0x0008 Player Settings.
 - 0x0010 All Races.
@@ -379,7 +382,7 @@ have an effect in the game.
 
 ### Broodwar unit flag
 
-Yes: the unit is only in Brood War. The game does not use this value.
+Unused in the game.
 
 - Raw value: 0 (no) or 1 (yes).
 
@@ -387,43 +390,48 @@ Yes: the unit is only in Brood War. The game does not use this value.
 
 ### Ready sound
 
-The sound when the unit is complete. Only entries 0 to 105 have this field.
+[Sfxdata.dat](sfxdata-dat.md) index for the sound played when the unit finishes training. Only entries 0 to 105 have
+this field.
 
 - Raw value: a sfxdata.dat entry.
 
 ### What sound start
 
-The first of the sounds when a player selects the unit.
+First [sfxdata.dat](sfxdata-dat.md) index of the range for the sounds played when the unit is selected.
 
 - Raw value: a sfxdata.dat entry.
 
 ### What sound end
 
-The last of the sounds when a player selects the unit.
+Last [sfxdata.dat](sfxdata-dat.md) index of the range for the sounds played when the unit is selected.
 
 - Raw value: a sfxdata.dat entry.
 
 ### Piss sound start
 
-The first of the sounds when a player clicks the unit many times. Only entries 0 to 105 have this field.
+First [sfxdata.dat](sfxdata-dat.md) index of the range for the sounds played when the unit is being excessively
+selected (the source calls it Annoyed Start). Only entries 0 to 105 have this field.
 
 - Raw value: a sfxdata.dat entry.
 
 ### Piss sound end
 
-The last of the sounds when a player clicks the unit many times. Only entries 0 to 105 have this field.
+Last [sfxdata.dat](sfxdata-dat.md) index of the range for the sounds played when the unit is being excessively
+selected (the source calls it Annoyed End). Only entries 0 to 105 have this field.
 
 - Raw value: a sfxdata.dat entry.
 
 ### Yes sound start
 
-The first of the sounds when the unit gets an order. Only entries 0 to 105 have this field.
+First [sfxdata.dat](sfxdata-dat.md) index of the range for the sounds played when the unit is ordered. Only entries 0
+to 105 have this field.
 
 - Raw value: a sfxdata.dat entry.
 
 ### Yes sound end
 
-The last of the sounds when the unit gets an order. Only entries 0 to 105 have this field.
+Last [sfxdata.dat](sfxdata-dat.md) index of the range for the sounds played when the unit is ordered. Only entries 0
+to 105 have this field.
 
 - Raw value: a sfxdata.dat entry.
 
@@ -431,34 +439,41 @@ The last of the sounds when the unit gets an order. Only entries 0 to 105 have t
 
 ### Mineral cost
 
-The minerals that the unit costs.
+Mineral cost to be trained/constructed.
 
 - Raw value: minerals.
 
 ### Vespene cost
 
-The vespene gas that the unit costs.
+Vespene cost to be trained/constructed.
 
 - Raw value: vespene gas.
 
 ### Build time
 
-The time to make the unit. One frame is 42 milliseconds at Fastest speed.
+Training/construction time in logical frames. 1 is equal to 42 milliseconds at fastest game speed.
+
+A value of 0 will crash the game.
 
 - Raw value: frames.
 - The form shows: seconds at Fastest (raw / 24).
-- A value of 0 causes the game to crash.
 
 ### Supply provided
 
-The supply that the unit gives (a Supply Depot, an Overlord, a Pylon).
+How much supply the unit adds to the total supply pool.
+
+A value of 1 is equal to half a supply point in-game (e.g. Zerglings and Scourge), whereas 2 is one full supply point.
+Meaning even numbers are integral supply points, and odd numbers are so-and-a-half points.
 
 - Raw value: half supply. A Supply Depot gives 8 supply: the raw value is 16.
 - The form shows: supply (raw / 2).
 
 ### Supply required
 
-The supply that the unit takes.
+How much the unit uses from the available supply pool.
+
+A value of 1 is equal to half a supply point in-game (e.g. Zerglings and Scourge), whereas 2 is one full supply point.
+Meaning even numbers are integral supply points, and odd numbers are so-and-a-half points.
 
 - Raw value: half supply. A Marine takes 1 supply: the raw value is 2. A Zergling takes half a supply: the raw value
   is 1.
@@ -466,27 +481,25 @@ The supply that the unit takes.
 
 ### Space required
 
-The space that the unit takes in a transport (a Marine takes 1, a Siege Tank takes 4).
+How much room the unit takes up when entering a transport (a Marine takes 1, a Siege Tank takes 4).
 
 - Raw value: transport slots.
 
 ### Space provided
 
-The space that a transport has (a Dropship has 8).
+How much room the unit has to carry other units (a Dropship has 8).
 
 - Raw value: transport slots.
 
 ### Build score
 
-The points that a player gets for each of these units that the player makes. The score triggers and the score screen
-at the end of the game use these points.
+The score points given for training the unit, for the purpose of the Score triggers and the post-game scoreboard.
 
 - Raw value: points.
 
 ### Destroy score
 
-The points that a player gets for each of these units that the player destroys. The score triggers and the score
-screen at the end of the game use these points.
+The score points given for killing the unit, for the purpose of the Score triggers and the post-game scoreboard.
 
 - Raw value: points.
 
@@ -494,21 +507,22 @@ screen at the end of the game use these points.
 
 ### Rank/sublabel
 
-The title under the unit's name in the console, for example a hero's rank. Only Terran units show this title. When
-a player selects many units, the unit with the highest rank gives the portrait and the sounds.
+The unit with the highest rank will have its portrait and unit responses used when multiple units are selected.
+
+Also the string index within stat_txt.tbl to be displayed under the unit name if the unit is Terran.
 
 - Raw value: a rank number (0 is none). The game reads the title from stat_txt.tbl.
 
 ### Unit map string
 
-A string of the map that names the unit. 0 is the default name. The game uses the string only when the map has at
-least that number of strings. Usually, the game sets this value itself: keep the value 0.
+Intended to be set internally by the game, and should be left as 0. If not, the unit name will use the specified
+string index from the map, provided it contains at least that many strings.
 
 - Raw value: a string number.
 
 ### Unknown1
 
-The Darkened Fantasies page names this field "DatReqs Index". The game sets the value itself. Keep the value 65535.
+The DatReqs Index. Intended to be set internally by the game, and should be left as 65535.
 
 - Raw value: a number.
 
@@ -520,4 +534,5 @@ The Darkened Fantasies page names this field "DatReqs Index". The game sets the 
   MIT license, LeeJungHun).
 - The fields that a map can change, and the units of the values: the EUD Book (<https://armoha.github.io/eud-book/>),
   the community's book about the game's memory and data.
-- The StarDraft 2 developers wrote this page in their own words, from these sources and from the game's data.
+- The field descriptions are from the StarCraft DAT page of Darkened Fantasies. The rest of this page is from the other
+  sources and from the game's data.

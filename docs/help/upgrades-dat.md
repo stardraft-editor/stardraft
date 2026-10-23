@@ -4,79 +4,80 @@ upgrades.dat has one entry for each upgrade (61 entries), for example Terran Inf
 than one level. The cost and the time of a level are the base value plus the factor for each level after the first:
 level n costs base + factor x (n - 1). For the units of the values, see [Values and units](values-and-units.md).
 
+The descriptions are from the StarCraft DAT page of Darkened Fantasies (game version 1.16.1):
+<https://www.darkenedfantasies.com/resources/?i=sc_fmt_dat>.
+
 ### Mineral cost base
 
-The minerals of the first level.
+The initial mineral cost (Ore Cost).
 
 - Raw value: minerals.
 
 ### Mineral cost factor
 
-The minerals that each level after the first adds to the cost.
+By how much the mineral cost will increase per level (Ore Cost Factor).
 
 - Raw value: minerals.
 
 ### Vespene cost base
 
-The vespene gas of the first level.
+The initial vespene cost (Gas Cost).
 
 - Raw value: vespene gas.
 
 ### Vespene cost factor
 
-The vespene gas that each level after the first adds to the cost.
+By how much the vespene cost will increase per level (Gas Cost Factor).
 
 - Raw value: vespene gas.
 
 ### Research time base
 
-The time to research the first level.
+Research time in logical frames. 1 is equal to 42 milliseconds at fastest game speed.
 
-- Raw value: frames. One frame is approximately 42 milliseconds at the Fastest game speed.
+- Raw value: frames.
 - The form shows: seconds at Fastest (raw / 24).
 
 ### Research time factor
 
-The time that each level after the first adds.
+By how long the time cost will increase per level.
 
 - Raw value: frames.
 - The form shows: seconds at Fastest (raw / 24).
 
 ### Max. repeats
 
-The number of levels: how many times a player can research the upgrade. The map's settings (Upgrades) can set a
-smaller maximum for each player.
+How many times the upgrade can be researched. The map's settings (Upgrades) can set a smaller maximum for each player.
 
 - Raw value: levels.
 
 ### Icon
 
-The upgrade's icon in the console and on its button in the command card.
+Frame index within cmdicons.grp for the command card button.
 
 - Raw value: an icon (a frame of cmdicons.grp).
 
 ### Label
 
-The upgrade's name. The tooltip of the upgrade's button shows this text.
+Stat_txt.tbl string index for the command card tooltip.
 
 - Raw value: a stat_txt.tbl string.
 
 ### Race
 
-The race of the upgrade. Only the map editor (StarEdit) uses this value. The game does not use it.
+Used only by StarEdit.
 
 - Raw value: a choice: Zerg, Terran, Protoss or neutral.
 
 ### Broodwar flag
 
-Yes: the upgrade is only in Brood War. The game does not use this value.
+Unused in the game (BroodWar).
 
 - Raw value: 0 (no) or 1 (yes).
 
 ### Unknown6
 
-In version 1.16.1, this field is the upgrade's place in the list of research requirements (the community calls it
-"DatReqs Index"). The game sets this value itself. Keep the value 65535.
+DatReqs Index: intended to be set internally by the game, and should be left as 65535.
 
 - Raw value: a number.
 
@@ -88,4 +89,5 @@ In version 1.16.1, this field is the upgrade's place in the list of research req
   MIT license, LeeJungHun).
 - The fields that a map can change, and the units of the values: the EUD Book (<https://armoha.github.io/eud-book/>),
   the community's book about the game's memory and data.
-- The StarDraft 2 developers wrote this page in their own words, from these sources and from the game's data.
+- The field descriptions are from the StarCraft DAT page of Darkened Fantasies. The rest of this page is from the other
+  sources and from the game's data.
