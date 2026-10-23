@@ -587,8 +587,8 @@ bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
 // The live game's sound player: at most 64 sounds at a time, at most 3 of one sound, and one sound does not start again
 // within 60 ms (a crowd's attacks are not a wall of noise). The sounds near the view's middle come first: with 64
 // playing, a nearer sound stops the farthest one. Each sound plays in stereo, panned by `pan` (-1 left, 1 right) with an
-// equal-power law, at `gain` times the program's volume; `dist` is its distance from the view's middle (1: the view's
-// edge). The decoded sounds are kept (as mono floats).
+// equal-power law, at `gain` times the program's volume; `dist` is its distance from the listening camera (map pixels).
+// The decoded sounds are kept (as mono floats).
 void simPlaySound(int sfx, float pan, float gain, float dist) {
     struct Voice {
         SDL_AudioStream* stream;
@@ -665,24 +665,28 @@ void simSounds(bool play) {
     shellViewSize(vw, vh);
     float x0, y0, x1, y1;
     toWorld(0, 0, x0, y0), toWorld(vw, vh, x1, y1);
-    const float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = std::max(1.0f, (x1 - x0) / 2), hh = std::max(1.0f, (y1 - y0) / 2);
-    // Where each is from the view's middle (1: the view's edge): left or right of the middle, louder near it, quieter
-    // outside the view, none beyond half a view out. The nearest first.
+    const float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = std::max(1.0f, (x1 - x0) / 2);
+    // The listener is a camera above the view's middle, as high as the view is zoomed out: its height is 320 map pixels
+    // at 100% (4 x that at 25%). A sound's distance is from the camera, in map pixels: full volume within 320, none
+    // from 2400 on, a straight fall between. So zoomed out everything is quieter and far sounds go first; zoomed in
+    // the units near the middle are loud. Left or right of the middle pans it (by the view's half width, at least
+    // 400 pixels). The nearest first.
+    const float height = 320.0f / std::max(0.05f, gState.zoom), nearDist = 320, farDist = 2400;
     struct Heard {
         int sfx;
-        float dx, d;
+        float pan, dist;
     };
     std::vector<Heard> close;
     for (const sim::LiveSound& s : sounds) {
-        const float dx = (float(s.x) - cx) / hw, dy = (float(s.y) - cy) / hh, d = std::max(std::fabs(dx), std::fabs(dy));
-        if (d <= 1.5f) close.push_back({s.sfx, dx, d});
+        const float dx = float(s.x) - cx, dy = float(s.y) - cy, dist = std::sqrt(dx * dx + dy * dy + height * height);
+        if (dist < farDist) close.push_back({s.sfx, std::clamp(dx / std::max(hw, 400.0f), -1.0f, 1.0f) * 0.8f, dist});
     }
-    std::stable_sort(close.begin(), close.end(), [](const Heard& a, const Heard& b) { return a.d < b.d; });
+    std::stable_sort(close.begin(), close.end(), [](const Heard& a, const Heard& b) { return a.dist < b.dist; });
     std::set<int> heard;  // (one of each sound a frame: the nearest)
     for (const Heard& h : close) {
         if (!heard.insert(h.sfx).second) continue;
-        const float gain = (h.d <= 1 ? 1.0f - 0.35f * h.d : 0.65f * (1.5f - h.d) / 0.5f);
-        simPlaySound(h.sfx, std::clamp(h.dx, -1.0f, 1.0f) * 0.8f, gain, h.d);
+        const float gain = std::clamp((farDist - h.dist) / (farDist - nearDist), 0.0f, 1.0f);
+        if (gain > 0.03f) simPlaySound(h.sfx, h.pan, gain, h.dist);
     }
 }
 
