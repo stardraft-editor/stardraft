@@ -132,12 +132,12 @@ int World::acquire(int i, bool draw) {
     range += std::max(rangeBonus(u, d.groundWeapon), rangeBonus(u, d.airWeapon));
     int best = -1, bestPriority = 99, bestDist = 0;
     std::vector<int> bucket;  // (all of the best priority)
-    forNear(u.x - range - 160, u.y - range - 160, u.x + range + 160, u.y + range + 160, [&](int j) {
+    forNear(within(boxOf(u), range), [&](int j) {
         const Unit& v = units[size_t(j)];
         if (!canAttack(u, v)) return;
         int g = gap(u, v);
         if (g > range || g < minRange) return;
-        int p = priority(i, j), dist = octagonalLength(v.x - u.x, v.y - u.y);
+        int p = priority(i, j), dist = centreDistance(u.x, u.y, v.x, v.y);
         if (p < bestPriority) bucket.clear();
         if (p <= bestPriority) bucket.push_back(j);
         // (the nearest; of equal ones, the first in the list)
@@ -171,14 +171,12 @@ void World::medic(int i) {
     if (m.healTarget < 0 && m.timer == 0) {
         m.timer = t.rules.targetSearchFrames;
         double best = 0;
-        for (size_t j = 0; j < units.size(); ++j) {
-            const Unit& v = units[j];
-            if (!ok(int(j)) || v.healedFrame == frame || std::abs(v.x - m.x) > t.rules.healSearch ||
-                std::abs(v.y - m.y) > t.rules.healSearch)
-                continue;
-            double d = std::hypot(double(v.x - m.x), double(v.y - m.y));
+        for (int j : nearUnits(square(m.x, m.y, t.rules.healSearch))) {
+            const Unit& v = units[size_t(j)];
+            if (!ok(j) || v.healedFrame == frame || !withinSquare(v.x, v.y, m.x, m.y, t.rules.healSearch)) continue;
+            double d = exactDistance(v.x, v.y, m.x, m.y);
             if (m.healTarget < 0 || d < best) {
-                m.healTarget = int(j);
+                m.healTarget = j;
                 best = d;
             }
         }
@@ -217,7 +215,8 @@ void World::outlineSpot(const Unit& u, const Unit& target, int& x, int& y) const
     int l = target.x - td.left - d.right - 1, r = target.x + td.right + d.left + 1;
     int top = target.y - td.up - d.down - 1, bottom = target.y + td.down + d.up + 1;
     std::vector<int> nearby;
-    forNear(l - 192, top - 192, r + 192, bottom + 192, [&](int j) { nearby.push_back(j); });
+    // (the units that a spot on the outline could touch)
+    forNear(Box{l - d.left, top - d.up, r + d.right, bottom + d.down}, [&](int j) { nearby.push_back(j); });
     auto taken = [&](int px, int py) {
         if (!map.boxWalkable(px - d.left, py - d.up, px + d.right, py + d.down)) return true;
         for (int jj : nearby) {
@@ -232,7 +231,7 @@ void World::outlineSpot(const Unit& u, const Unit& target, int& x, int& y) const
     };
     double best = -1;
     auto consider = [&](int px, int py) {
-        double dist = std::hypot(double(px - u.x), double(py - u.y));
+        double dist = exactDistance(px, py, u.x, u.y);
         if ((best < 0 || dist < best) && !taken(px, py)) {
             best = dist;
             x = px;
@@ -264,7 +263,7 @@ void World::combatOrder(int i) {
     if (role(u.type).spiderMine) {  // A Spider Mine, every frame: its phases in u.state.
         const UnitData& d = t.units[size_t(u.type)];
         Unit* target = u.target >= 0 && canAttack(u, units[size_t(u.target)]) ? &units[size_t(u.target)] : nullptr;
-        int dist = target ? octagonalLength(target->x - u.x, target->y - u.y) : 0;
+        int dist = target ? centreDistance(u.x, u.y, target->x, target->y) : 0;
         switch (u.state) {
         case 0:  // arming (60 frames, then 3), then the burrow (9 frames)
             if (u.timer == 0) {
@@ -283,10 +282,10 @@ void World::combatOrder(int i) {
                 const Unit& v = units[j];
                 uint32_t f = t.units[size_t(v.type)].flags;
                 if (!v.alive || v.hidden || v.neutral || v.side == u.side || v.building ||
-                    (f & (kFlyer | kInvincible)) || std::abs(v.x - u.x) > reach || std::abs(v.y - u.y) > reach ||
+                    (f & (kFlyer | kInvincible)) || !withinSquare(v.x, v.y, u.x, u.y, reach) ||
                     !detected(v, u.side))
                     continue;
-                int n = octagonalLength(v.x - u.x, v.y - u.y);
+                int n = centreDistance(u.x, u.y, v.x, v.y);
                 if (best < 0 || n < bestDist) {
                     best = int(j);
                     bestDist = n;
@@ -382,7 +381,7 @@ void World::combatOrder(int i) {
             setMove(u, x, y);
         };
         auto reached = [&] {
-            return std::hypot(double(u.moveX - u.x), double(u.moveY - u.y)) <= t.rules.interceptorNear;
+            return exactDistance(u.moveX, u.moveY, u.x, u.y) <= t.rules.interceptorNear;
         };
         if (u.state == 9) {
             setMove(u, c.x, c.y);
@@ -572,12 +571,12 @@ void World::combatOrder(int i) {
                 f.y = f.moveY = u.y;
                 f.ex = f.x << 8;
                 f.ey = f.y << 8;
+                regrid(int(&f - units.data()));
                 f.shields = t.units[size_t(f.type)].shields << 8;
                 f.target = current;
                 setOrder(f, AttackUnit);
                 f.state = 0;
                 u.timer = t.rules.interceptorLaunch;
-                gridUnits = 0;  // (it moved to the Carrier: the rest of this frame searches all units)
             }
             return;
         }
@@ -741,13 +740,13 @@ void World::bulletStep(int index) {
         }
         ++b.age;
         if (b.age >= t.rules.scarabStand) {  // (it stands after its release, then goes straight at its speed)
-            int dist = octagonalLength(b.tx - b.x, b.ty - b.y);
+            int dist = centreDistance(b.x, b.y, b.tx, b.ty);
             b.heading = direction(b.tx - b.x, b.ty - b.y);
             if (dist <= t.rules.scarabSpeed) {
                 b.x = b.tx;
                 b.y = b.ty;
             } else {
-                double l = std::hypot(double(b.tx - b.x), double(b.ty - b.y));
+                double l = exactDistance(b.tx, b.ty, b.x, b.y);
                 b.x += int(std::lround((b.tx - b.x) * t.rules.scarabSpeed / l));
                 b.y += int(std::lround((b.ty - b.y) * t.rules.scarabSpeed / l));
             }
@@ -824,7 +823,7 @@ void World::bulletStep(int index) {
             for (size_t j = 0; j < units.size(); ++j) {
                 const Unit& v = units[j];
                 if (int(j) == b.target || int(j) == b.previous || !v.alive || v.hidden || v.side == b.side ||
-                    std::abs(v.x - b.x) > t.rules.bounceSearch || std::abs(v.y - b.y) > t.rules.bounceSearch)
+                    !withinSquare(v.x, v.y, b.x, b.y, t.rules.bounceSearch))
                     continue;
                 bool air = (t.units[size_t(v.type)].flags & kFlyer) != 0;
                 if (!(wd.targetFlags & (air ? 1 : 2))) continue;
@@ -870,8 +869,8 @@ void World::bulletHit(Bullet& b) {
             const Unit& v = units[j];
             const UnitData& d = t.units[size_t(v.type)];
             if (!v.alive || v.hidden || v.side == b.side || (d.flags & kFlyer)) continue;
-            if (std::abs(v.x - b.x) > std::abs(b.x - x0) + 160 || std::abs(v.y - b.y) > std::abs(b.y - y0) + 160 ||
-                !nearLine(v))
+            const int ax = std::abs(b.x - x0) + 160, ay = std::abs(b.y - y0) + 160;  // (around the line's step)
+            if (!pointIn(Box{b.x - ax, b.y - ay, b.x + ax, b.y + ay}, v.x, v.y) || !nearLine(v))
                 continue;
             if (std::any_of(spineHits.begin(), spineHits.end(),
                             [&](const std::array<int, 3>& h) { return h[1] == b.source && h[2] == int(j); }))
@@ -892,7 +891,7 @@ bool World::splash(Bullet& b, int amount) {
     const WeaponData& wd = t.weapons[size_t(b.weapon)];
     if (wd.explosion != kRadialSplash && wd.explosion != kEnemySplash && wd.explosion != kAirSplash) return false;
     std::vector<std::pair<int, int>> hits;  // (unit, gap)
-    for (int jj : nearUnits(b.x - wd.outer - 160, b.y - wd.outer - 160, b.x + wd.outer + 160, b.y + wd.outer + 160)) {
+    for (int jj : nearUnits(within(Box{b.x, b.y, b.x, b.y}, wd.outer))) {
         size_t j = size_t(jj);
         const Unit& v = units[j];
         if (!v.alive || v.hidden || v.neutral || int(j) == b.source || (b.missed && int(j) == b.target)) continue;
@@ -958,10 +957,10 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
         const Unit& s = units[size_t(attacker)];
         std::vector<int> near;
         const int help = t.rules.callForHelp;
-        forNear(v.x - help, v.y - help, v.x + help, v.y + help, [&](int j) { near.push_back(j); });
+        forNear(square(v.x, v.y, help), [&](int j) { near.push_back(j); });
         for (int jj : near) {
             Unit& a = units[size_t(jj)];
-            if (!a.alive || a.owner != v.owner || std::abs(a.x - v.x) > help || std::abs(a.y - v.y) > help) continue;
+            if (!a.alive || a.owner != v.owner || !withinSquare(a.x, a.y, v.x, v.y, help)) continue;
             if ((t.units[size_t(a.type)].flags & kWorker) || !canAttack(a, s)) continue;
             bool keep = a.autoTarget >= 0 && canAttack(a, units[size_t(a.autoTarget)]) &&
                         !(inRange(a, s) && !inRange(a, units[size_t(a.autoTarget)]));
@@ -987,6 +986,7 @@ void World::kill(int i, bool credit) {
         }
     u.alive = false;
     u.hp = 0;
+    regrid(i);
     if (credit && u.lastAttacker >= 0) ++units[size_t(u.lastAttacker)].kills;
 }
 
@@ -1142,7 +1142,7 @@ int World::nearestEnemy(const Unit& a) const {
         if (!v.alive || v.hidden || v.neutral || v.fighter || v.side == a.side || !couldHit(a, v) ||
             !detected(v, a.side) || !reaches(a, v))
             continue;
-        int d = octagonalLength(v.x - a.x, v.y - a.y);
+        int d = centreDistance(a.x, a.y, v.x, v.y);
         if (best < 0 || d < bestDist) {
             best = int(j);
             bestDist = d;
@@ -1163,7 +1163,7 @@ void World::trackProgress() {
             continue;
         int e = nearestEnemy(u);
         if (e < 0) continue;
-        int d = octagonalLength(units[size_t(e)].x - u.x, units[size_t(e)].y - u.y);
+        int d = centreDistance(u.x, u.y, units[size_t(e)].x, units[size_t(e)].y);
         if (u.progressTarget < 0 || !units[size_t(u.progressTarget)].alive) {
             u.progressBest = d;
         } else if (d + 8 <= u.progressBest) {

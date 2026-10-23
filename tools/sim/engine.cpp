@@ -56,39 +56,30 @@ int direction(int dx, int dy) {
     return int(std::lround(a * 128.0 / 3.14159265358979323846)) & 255;
 }
 
-int octagonalLength(int dx, int dy) {
-    int a = std::abs(dx), b = std::abs(dy);
-    if (a < b) std::swap(a, b);
-    if (a / 4 < b) return a - a / 16 + b * 3 / 8 - a / 64 + b * 3 / 256;
-    return a;
-}
-
 int World::random() {
     seed = seed * 22695477u + 1u;
     return int((seed >> 16) & 0x7fff);
 }
 
-int World::gap(const Unit& a, const Unit& b) const {
-    const UnitData &da = t.units[a.type], &db = t.units[b.type];
-    int al = a.x - da.left, ar = a.x + da.right + 1, au = a.y - da.up, ad = a.y + da.down + 1;
-    int bl = b.x - db.left, br = b.x + db.right + 1, bu = b.y - db.up, bd = b.y + db.down + 1;
-    int gx = std::max({0, al - br, bl - ar}), gy = std::max({0, au - bd, bu - ad});
-    return octagonalLength(gx, gy);
+// A unit's box: its units.dat box (a building's too, not its placement footprint).
+Box World::boxAt(int type, int x, int y) const {
+    const UnitData& d = t.units[size_t(type)];
+    return boxAround(x, y, d.left, d.up, d.right, d.down);
 }
+Box World::boxOf(const Unit& u) const { return boxAt(u.type, u.x, u.y); }
 
-// Whether a unit of a type at (x, y) and another unit overlap (their units.dat boxes, touching counts; a building's
-// too, not its placement footprint: units walk in the gaps that its box leaves).
-bool World::overlaps(int type, int x, int y, const Unit& o) const {
-    const UnitData &d = t.units[size_t(type)], &od = t.units[size_t(o.type)];
-    int ol = od.left, orr = od.right, ou = od.up, odn = od.down;
-    return x - d.left <= o.x + orr && o.x - ol <= x + d.right && y - d.up <= o.y + odn && o.y - ou <= y + d.down;
-}
+int World::gap(const Unit& a, const Unit& b) const { return boxGap(boxOf(a), boxOf(b)); }
 
-// The gap from a point to a unit's box.
-int World::pointGap(const Unit& v, int x, int y) const {
-    const UnitData& d = t.units[size_t(v.type)];
-    return octagonalLength(std::max({0, (v.x - d.left) - x, x - (v.x + d.right + 1)}),
-                           std::max({0, (v.y - d.up) - y, y - (v.y + d.down + 1)}));
+// Whether a unit of a type at (x, y) and another unit overlap (touching counts; units walk in the gaps that a
+// building's box leaves).
+bool World::overlaps(int type, int x, int y, const Unit& o) const { return boxesTouch(boxAt(type, x, y), boxOf(o)); }
+
+int World::pointGap(const Unit& v, int x, int y) const { return sim::pointGap(boxOf(v), x, y); }
+
+void World::regrid(int unit) {
+    const Unit& u = units[size_t(unit)];
+    if (u.alive) unitGrid.place(unit, boxOf(u));
+    else unitGrid.remove(unit);
 }
 
 int World::add(int type, int owner, int x, int y) {
@@ -113,6 +104,7 @@ int World::add(int type, int owner, int x, int y) {
     if (role(type).launchesScarabs) u.scarabs = role(type).capacity;  // (a Reaver: its Scarabs)
     if (d.flags & kSpellcaster) u.energy = t.rules.startEnergy << 8;  // (spellcasters such as the Medic)
     units.push_back(u);
+    regrid(int(units.size()) - 1);
     return int(units.size()) - 1;
 }
 
@@ -457,7 +449,7 @@ void World::findPath(Unit& u, int x, int y) {
         auto dist = [&](int a, int b) {
             auto [ax, ay] = pos(a);
             auto [bx, by] = pos(b);
-            return std::hypot(double(ax - bx), double(ay - by));
+            return exactDistance(ax, ay, bx, by);
         };
         using Node = std::pair<double, int>;
         std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open;
@@ -520,7 +512,7 @@ void World::findPath(Unit& u, int x, int y) {
         u.cutY = py;
         u.nextSearch = u.fails ? frame + (24 << (u.fails - 1)) : frame;
     };
-    auto gap = [&](int px, int py) { return octagonalLength(px - goalX, py - goalY); };
+    auto gap = [&](int px, int py) { return centreDistance(px, py, goalX, goalY); };
     if (!reached && !cached && !away && search.capped && !toCutPlace) {
         // (the search stopped at its cap: the unit walks to the place where the search would go on, and searches on
         // from there; with no wait while each part gets it nearer)
@@ -615,7 +607,7 @@ void World::setMove(Unit& u, int x, int y) {
             return;
         }
         findPath(u, x, y);
-    } else if (combat && std::max(std::abs(x - u.x), std::abs(y - u.y)) > t.rules.straightReach) {
+    } else if (combat && !withinSquare(x, y, u.x, u.y, t.rules.straightReach)) {
         // (the short path's reach: at most 192 pixels along the main axis, then a new path from there)
         bool alongX = std::abs(x - u.x) >= std::abs(y - u.y);
         const int reach = t.rules.straightReach;
@@ -676,7 +668,7 @@ bool World::move(Unit& u, bool last) {
     // walk straight on to the next)
     while (!u.path.empty() && ((u.x == u.path.front().first && u.y == u.path.front().second) ||
                                (!scripted && u.path.size() > 1 &&
-                                octagonalLength(u.path.front().first - u.x, u.path.front().second - u.y) <=
+                                centreDistance(u.x, u.y, u.path.front().first, u.path.front().second) <=
                                     t.rules.waypointPass &&
                                 lineClear(u.type, u.x, u.y, u.path[1].first, u.path[1].second))))
         u.path.erase(u.path.begin());
@@ -787,6 +779,7 @@ bool World::move(Unit& u, bool last) {
     u.ey = ey;
     u.x = nx;
     u.y = ny;
+    regrid(int(&u - units.data()));
     return false;
 }
 
@@ -869,10 +862,10 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
     const UnitData& d = t.units[u.type];
     // (the obstacles as the boxes where the unit's centre may not be: their boxes grown by its own)
     std::vector<std::array<int, 4>> obstacles;
-    forNear(u.x - 224, u.y - 224, u.x + 224, u.y + 224, [&](int j) {
+    forNear(square(u.x, u.y, 128 + 96), [&](int j) {
         const Unit& o = units[size_t(j)];
         if (&o == &u || !o.alive || o.hidden || o.burrowed || (t.units[o.type].flags & kFlyer)) return;
-        if (std::abs(o.x - u.x) > 128 + 96 || std::abs(o.y - u.y) > 128 + 96) return;  // (outside the search's reach)
+        if (!withinSquare(o.x, o.y, u.x, u.y, 128 + 96)) return;  // (outside the search's reach)
         bool rest = o.x == o.moveX && o.y == o.moveY;
         if (!(rest || movers || o.id == consider) || overlaps(u.type, u.x, u.y, o)) return;
         const UnitData& od = t.units[o.type];
@@ -953,7 +946,7 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
 // The largest ground unit whose box the unit's box would overlap at (x, y), and does not overlap now; -1: none.
 int World::blocker(const Unit& u, int x, int y) const {
     int best = -1, bestArea = 0;
-    forNear(x - 192, y - 192, x + 192, y + 192, [&](int j) {  // (boxes and a frame's moves)
+    forNear(boxAt(u.type, x, y), [&](int j) {  // (the boxes it would touch there)
         const Unit& o = units[size_t(j)];
         if (&o == &u || !o.alive || o.hidden || o.burrowed) return;
         if (role(o.type).spiderMine && o.state >= 1 && o.state <= 3) return;  // (a Spider Mine burrowing: no collision)
@@ -1018,7 +1011,7 @@ bool World::targetWithin(int unit, int range) const {
     if (unit < 0 || units[size_t(unit)].target < 0) return false;
     const Unit& u = units[size_t(unit)];
     const Unit& v = units[size_t(u.target)];
-    return v.alive && octagonalLength(v.x - u.x, v.y - u.y) <= range;
+    return v.alive && centreDistance(u.x, u.y, v.x, v.y) <= range;
 }
 
 // nobrkcodestart and nobrkcodeend: the start and the end of a part that a new animation does not break; at the end,
@@ -1190,33 +1183,6 @@ int World::upgradedSpeed(int speed, bool top) const {
     return top ? std::max(speed * f[0] / f[1], t.rules.speedUpgradeMin) : speed * f[0] / f[1];
 }
 
-void World::buildGrid() {
-    int gw = (map.width * 32 + 63) / 64, gh = (map.height * 32 + 63) / 64;
-    grid.assign(size_t(gw) * gh, {});
-    for (size_t i = 0; i < units.size(); ++i) {
-        const Unit& u = units[i];
-        if (!u.alive) continue;
-        int cx = std::clamp(u.x / 64, 0, gw - 1), cy = std::clamp(u.y / 64, 0, gh - 1);
-        grid[size_t(cy * gw + cx)].push_back(int(i));
-    }
-    gridUnits = units.size();
-}
-
-std::vector<int> World::nearUnits(int x0, int y0, int x1, int y1) const {
-    std::vector<int> out;
-    if (gridUnits != units.size() || grid.empty()) {  // (no grid yet: all)
-        out.resize(units.size());
-        for (size_t i = 0; i < units.size(); ++i) out[i] = int(i);
-        return out;
-    }
-    int gw = (map.width * 32 + 63) / 64, gh = (map.height * 32 + 63) / 64;
-    for (int cy = std::clamp(y0 / 64, 0, gh - 1); cy <= std::clamp(y1 / 64, 0, gh - 1); ++cy)
-        for (int cx = std::clamp(x0 / 64, 0, gw - 1); cx <= std::clamp(x1 / 64, 0, gw - 1); ++cx)
-            out.insert(out.end(), grid[size_t(cy * gw + cx)].begin(), grid[size_t(cy * gw + cx)].end());
-    std::sort(out.begin(), out.end());
-    return out;
-}
-
 void World::step() {
     ++frame;
     if (frame == std::max(measureFrom, 1))  // (mining: the end of the warm-up)
@@ -1226,12 +1192,10 @@ void World::step() {
             p.gasAtMeasure = p.gatheredGas;
         }
     // Movement as if at the same time: a unit held by one that has not moved yet this frame tries again after all.
-    if (combat) buildGrid();
     std::vector<Unit*> later;
     for (Unit& u : units)
         if (move(u, false)) later.push_back(&u);
     for (Unit* u : later) move(*u, true);
-    if (combat) buildGrid();
     for (size_t i = 0; i < units.size(); ++i) {
         Unit& u = units[i];
         if (!u.alive) continue;

@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "proximity.h"
 #include "rules.h"
 #include "sim.h"
 
@@ -203,6 +204,7 @@ struct Bullet {
 class World {
 public:
     World(const Tables& tables, const MapInfo& mapInfo) : t(tables), map(mapInfo) {
+        unitGrid.reset(map.width * 32, map.height * 32);
         for (Player& p : players) p.minerals = t.rules.startMinerals;
     }
 
@@ -287,24 +289,14 @@ public:
         int spent = 0;        // (the minitiles expanded by the searches of this frame)
     };
     mutable Search search;
-    // A grid of 64-pixel cells with the units in each (made at the start of a frame and after its movement): the
-    // units near a box, in their list order, so a search near a unit gives what a search over all of them gives.
-    std::vector<std::vector<int>> grid;
-    size_t gridUnits = 0;
-    void buildGrid();
-    std::vector<int> nearUnits(int x0, int y0, int x1, int y1) const;
-    template <class F> void forNear(int x0, int y0, int x1, int y1, F f) const {  // (in no order)
-        if (gridUnits != units.size() || grid.empty()) {
-            for (size_t i = 0; i < units.size(); ++i) f(int(i));
-            return;
-        }
-        int gw = (map.width * 32 + 63) / 64, gh = (map.height * 32 + 63) / 64;
-        auto cell = [](int v, int n) { return v / 64 < 0 ? 0 : v / 64 >= n ? n - 1 : v / 64; };
-        int cx0 = cell(x0, gw), cx1 = cell(x1, gw), cy0 = cell(y0, gh), cy1 = cell(y1, gh);
-        for (int cy = cy0; cy <= cy1; ++cy)
-            for (int cx = cx0; cx <= cx1; ++cx)
-                for (int j : grid[size_t(cy * gw + cx)]) f(j);
-    }
+    // The living units by place (proximity.h): a unit's cells change when it is made, moves across a cell edge or dies.
+    UnitGrid unitGrid;
+    void regrid(int unit);  // (after a unit's place changed)
+    Box boxOf(const Unit& u) const;
+    Box boxAt(int type, int x, int y) const;
+    // The units near an area (a superset of those whose box meets it), in their list order.
+    std::vector<int> nearUnits(const Box& area) const { return unitGrid.query(area); }
+    template <class F> void forNear(const Box& area, F f) const { unitGrid.forEach(area, f); }
     void stopMove(Unit& u);
     void setOrder(Unit& u, Order o);
     void startAnim(Anim& a, int anim);
@@ -410,7 +402,6 @@ bool combatOver(World& w, int lastFrame);
 CombatResult combatResultOf(const World& w);
 
 int direction(int dx, int dy);             // 0: up, 64: right (256 a turn)
-int octagonalLength(int dx, int dy);       // the game's approximate length
 int dirX(int dir);                         // the unit vector of a direction (8 fractional bits)
 int dirY(int dir);
 int turnToward(int from, int to, int rate);  // a direction turned toward another by at most rate

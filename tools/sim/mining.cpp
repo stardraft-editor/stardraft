@@ -16,7 +16,7 @@ bool isMinerals(const Tables& t, int type) { return t.roles[size_t(type)].minera
 bool isGeyser(const Tables& t, int type) { return t.roles[size_t(type)].geyser; }
 bool isStart(const Tables& t, int type) { return t.roles[size_t(type)].startLocation; }
 
-double dist(int ax, int ay, int bx, int by) { return std::hypot(double(ax - bx), double(ay - by)); }
+double dist(int ax, int ay, int bx, int by) { return exactDistance(ax, ay, bx, by); }
 
 // A depot on the tile grid at a place.
 std::pair<int, int> depotSpot(const Tables& t, int type, int x, int y) {
@@ -25,11 +25,11 @@ std::pair<int, int> depotSpot(const Tables& t, int type, int x, int y) {
     return {snap(x, d.placeW / 2), snap(y, d.placeH / 2)};
 }
 
-// The gap between two placement boxes (centre and size).
-int boxGap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh) {
-    int gx = std::max({0, (ax - aw / 2) - (bx + bw / 2), (bx - bw / 2) - (ax + aw / 2)});
-    int gy = std::max({0, (ay - ah / 2) - (by + bh / 2), (by - bh / 2) - (ay + ah / 2)});
-    return std::max(gx, gy);
+// The gap between two placement boxes (centre and size), along the farther axis.
+int placementGap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh) {
+    Box a{ax - aw / 2, ay - ah / 2, ax + aw / 2 - 1, ay + ah / 2 - 1};
+    Box b{bx - bw / 2, by - bh / 2, bx + bw / 2 - 1, by + bh / 2 - 1};
+    return axisGap(a, b);
 }
 
 // A Command Center spot for a group of mineral fields: on the tile grid, on walkable ground, not within 3 tiles of a
@@ -52,7 +52,7 @@ bool clusterSpot(const Tables& t, const MapInfo& map, const std::vector<MapInfo:
             bool clear = true;
             for (auto& r : map.units)
                 if ((isMinerals(t, r.type) || isGeyser(t, r.type)) &&
-                    boxGap(x, y, cc.placeW, cc.placeH, r.x, r.y, t.units[r.type].placeW, t.units[r.type].placeH) <
+                    placementGap(x, y, cc.placeW, cc.placeH, r.x, r.y, t.units[r.type].placeW, t.units[r.type].placeH) <
                         t.rules.baseResourceGap)
                     clear = false;
             if (!clear) continue;
@@ -330,7 +330,10 @@ void World::miningOrder(int i) {
                                                                     : kAnimSpecial1);
         u.carry = take;
         u.carryGas = !isMinerals(t, f.type);
-        if (isMinerals(t, f.type) && f.resources == 0) f.alive = false;
+        if (isMinerals(t, f.type) && f.resources == 0) {
+            f.alive = false;
+            regrid(u.field);
+        }
     };
     auto atTarget = [&] { return u.x == u.moveX && u.y == u.moveY; };
     auto nearestDepot = [&] {
@@ -427,6 +430,7 @@ void World::miningOrder(int i) {
             probe.x = r.x + dirX(dir) * 4;
             probe.y = r.y + dirY(dir) * 4;
             depotBorder(probe, r, u.x, u.y);
+            regrid(i);
             u.ex = u.x << 8;
             u.ey = u.y << 8;
             stopMove(u);

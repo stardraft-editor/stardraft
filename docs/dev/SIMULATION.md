@@ -24,6 +24,7 @@ the reference results; "Known gaps" lists these choices.
 | `engine.cpp` | Movement (flingy speed, acceleration, halt distance, turn rate; units with flingy control 2 move by their walking script's `move` instructions), paths around unwalkable ground, ground collision in fights, the iscript interpreter, placement, the images the editor draws, the frame loop, and the `Simulator`. |
 | `mining.cpp` | The bases of a map, the melee start at each, the gather orders, the measures. |
 | `combat.cpp` | The armies, the attack orders, targets, firing, projectiles, splash, damage, Medic healing, the special units, the result. |
+| `proximity.h`, `proximity.cpp` | The distances of the game's rules (box gap, point gap, touching, centre distance, straight distance, square reach) that every "in range", "near" and "touching" test uses, and the grid of the units by place: each unit is in the 64-pixel cells its box covers, updated only when it is made, crosses a cell edge or dies; a query gives the units near an area in their list order. |
 | `rules.ini` | The game's rules that no data file holds: the game's own order numbers, unit roles, timings, distances and amounts (built into the program; a project can give its own `sim/rules.ini`). |
 | `rules.h`, `rules.cpp` | Reads `rules.ini`, and gives each unit type and weapon its role from the data files and `rules.ini`. |
 | `tools/tests/sim_test.cpp` | The test against the reference results. |
