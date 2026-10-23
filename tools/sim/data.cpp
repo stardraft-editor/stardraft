@@ -129,15 +129,35 @@ bool Tables::load(const FileReader& reader, std::string& error) {
     std::vector<uint8_t> tbl, lo;
     if (reader("arr/images.tbl", tbl) && tbl.size() >= 2) {
         Reader rt{tbl};
+        auto tblName = [&](int entry) {  // (an images.tbl entry, 1 the first: a path under unit/)
+            std::string name = "unit/";
+            if (entry <= 0 || entry > rt.u16(0)) return std::string();
+            for (size_t o = size_t(rt.u16(size_t(entry) * 2)); o < tbl.size() && tbl[o]; ++o)
+                name += tbl[o] == '\\' ? '/' : char(tbl[o]);
+            return name;
+        };
+        // The frames of each turning image's GRP (its header's first value), each GRP read once.
+        imageFrames.assign(999, 0);
+        std::vector<std::pair<int, int>> grpFrames;  // (images.tbl entry, frames)
+        for (int i = 0; i < 999; ++i) {
+            if (!imageTurns[size_t(i)]) continue;
+            int entry = ri.u32(size_t(i) * 4);
+            auto known = std::find_if(grpFrames.begin(), grpFrames.end(), [&](auto& g) { return g.first == entry; });
+            if (known == grpFrames.end()) {
+                std::vector<uint8_t> grp;
+                std::string name = tblName(entry);
+                int n = !name.empty() && reader(name, grp) && grp.size() >= 2 ? grp[0] | grp[1] << 8 : 0;
+                grpFrames.push_back({entry, n});
+                known = grpFrames.end() - 1;
+            }
+            imageFrames[size_t(i)] = known->second;
+        }
         for (int worker = 0; worker < int(units.size()); ++worker) {  // (the workers: SCV, Drone, Probe)
             if (!(units[size_t(worker)].flags & kWorker)) continue;
             int image = flingyImage(units[size_t(worker)].flingy);
             int entry = image >= 0 ? ri.u32(0x6576 + size_t(image) * 4) : 0;  // (Special Overlay: an images.tbl entry)
-            if (entry <= 0 || entry > rt.u16(0)) continue;
-            std::string name = "unit/";
-            for (size_t o = size_t(rt.u16(size_t(entry) * 2)); o < tbl.size() && tbl[o]; ++o)
-                name += tbl[o] == '\\' ? '/' : char(tbl[o]);
-            if (!reader(name, lo) || lo.size() < 8) continue;
+            std::string name = tblName(entry);
+            if (name.empty() || !reader(name, lo) || lo.size() < 8) continue;
             Reader rl{lo};
             std::vector<std::pair<int, int>> frames;
             for (int frame = 0; frame < std::min(rl.u32(0), int(lo.size() - 8) / 4); ++frame) {

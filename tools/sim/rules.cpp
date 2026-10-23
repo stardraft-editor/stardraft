@@ -49,6 +49,7 @@ const Number kNumbers[] = {
     SIM_NUMBER(velocityTurnDivisor), SIM_NUMBER(waypointPass), SIM_NUMBER(healEnergyDivisor),
     SIM_NUMBER(interceptorSpreadRange), SIM_NUMBER(interceptorLaunchHp), SIM_NUMBER(frameMs), SIM_NUMBER(startMinerals),
     SIM_NUMBER(gasWorkersMax), SIM_NUMBER(minDamage), SIM_NUMBER(otherFieldRange), SIM_NUMBER(startEnergy),
+    SIM_NUMBER(bulletNear), SIM_NUMBER(bulletTurnDivisor),
     SIM_NUMBER(speedUpgradeMin), SIM_NUMBER(speedUpgradeAccel), SIM_NUMBER(speedUpgradeTurn),
     SIM_NUMBER(cooldownUpgradeDivisor), SIM_NUMBER(shieldArmorUpgrade), SIM_NUMBER(energyUpgrade),
     SIM_NUMBER(maxEnergyUpgraded), SIM_NUMBER(startEnergyUpgraded),
@@ -71,6 +72,7 @@ const List kLists[] = {
     {"bounceDivisor", &GameRules::bounceDivisor, 0},     {"damageFactor", &GameRules::damageFactor, 20},
     {"interceptorSpread", &GameRules::interceptorSpread, 3}, {"splashDivisor", &GameRules::splashDivisor, 3},
     {"cooldownJitter", &GameRules::cooldownJitter, 2},
+    {"bulletTurnMargin", &GameRules::bulletTurnMargin, 3},
 };
 
 const char kDefault[] =
@@ -138,7 +140,7 @@ bool readRules(const std::string& text, GameRules& rules, std::string& error) {
         }
     // Values that the engine divides by, and lists that it reads by position.
     for (const char* name : {"orderTick", "persistHitFrames", "scarabDetonate", "velocityTurnDivisor",
-                             "healEnergyDivisor"})
+                             "bulletTurnDivisor", "healEnergyDivisor"})
         for (const Number& k : kNumbers)
             if (std::string(name) == k.name && rules.*k.value <= 0) {
                 error = std::string("rules.ini: ") + name + " must be more than 0";
@@ -152,8 +154,9 @@ bool readRules(const std::string& text, GameRules& rules, std::string& error) {
         error = "rules.ini: bounceDivisor, splashDivisor and cooldownJitter's first value must be more than 0";
         return false;
     }
-    if (rules.speedUpgradeFactor[1] <= 0 || rules.cooldownUpgradeDivisor <= 0) {
-        error = "rules.ini: speedUpgradeFactor's second value and cooldownUpgradeDivisor must be more than 0";
+    if (rules.speedUpgradeFactor[1] <= 0 || rules.cooldownUpgradeDivisor <= 0 || rules.bulletTurnMargin[2] <= 0) {
+        error = "rules.ini: speedUpgradeFactor's and bulletTurnMargin's last values and cooldownUpgradeDivisor "
+                "must be more than 0";
         return false;
     }
     return true;

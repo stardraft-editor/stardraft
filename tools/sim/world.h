@@ -79,6 +79,7 @@ struct Tables {
     int depotOf[3] = {}, workerOf[3] = {}, refineryOf[3] = {};  // (by race: Zerg, Terran, Protoss)
     std::vector<int> spriteImage, imageTurns, imageIscript, imageDraw;  // (draw function 10: a shadow)
     std::vector<bool> spriteVisible;  // (sprites.dat "is visible": the game draws the sprite)
+    std::vector<int> imageFrames;     // the frames in a turning image's GRP (0: not known)
     // The workers' main images: the first offset of their special overlay list (images.dat, its .lo file), by
     // frame: where a carried resource is drawn.
     std::vector<std::pair<int, std::vector<std::pair<int, int>>>> carryOffsets;

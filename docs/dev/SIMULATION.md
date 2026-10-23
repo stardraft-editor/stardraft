@@ -61,8 +61,11 @@ when weapons.dat's damage factor is 2 (the Scout's and the Goliath's air missile
 times, so 8 rockets). Each projectile has its own flight and hit with the full weapon damage, so the data's "14 x 2"
 is 2 hits of 14. A weapon with a launch spin (heading offset) sends its projectile out to one side:
 the first of an attack takes a random side, the next of the same unit the other side. Flying
-projectiles move with their flingy data as units of movement type 1 do: the direction of travel
-turns by half the turn rate, so two missiles curve out apart and in to the target.
+projectiles move with their flingy data: the direction of travel turns by the full turn rate, so two missiles
+curve out a little apart and in to the target; near the target (32 pixels) a projectile that still turns speeds up
+only when it has room to turn, else it slows down, so it never circles round the target. A turning image's frame set
+holds 17 directions; a set that its GRP has no room for (the death frames of a Zealot, Marine or Dragoon) is one
+frame.
 
 **The map's settings.** The .dat files come through `init` (the editor gives the map's unit settings and a project's
 edited .dat files there). From the map's CHK the engine reads each player's upgrade start levels (PUPx, or UPGR) and

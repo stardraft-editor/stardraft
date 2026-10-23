@@ -1027,6 +1027,103 @@ bool runVolleyCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Death animations: after a unit dies, its death images show for some frames, each frame in its GRP (a death
+// animation's frames have no directions: Zealot, Dragoon, Marine, Zergling).
+bool runDeathImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    bool ok = true;
+    for (int type : {65, 66, 0, 37}) {
+        sim::World w(t, map);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.x = 3808;
+        o.y = 2384;
+        o.gap = 2000;  // (no fight: only the death)
+        o.players[1] = 1;
+        o.a = {{type, 1}};
+        o.b = {{0, 1}};
+        std::string error;
+        if (!sim::setupCombat(w, o, error)) return false;
+        int id = -1;
+        for (size_t i = 0; i < w.units.size(); ++i)
+            if (w.units[i].type == type) id = int(i);
+        if (id < 0) return false;
+        w.units[size_t(id)].heading = 128;  // (facing down: the largest direction offset)
+        w.step();
+        w.kill(id);
+        int shown = 0, wrong = 0;
+        for (int f = 0; f < 30; ++f) {
+            w.step();
+            std::vector<sim::LiveImage> images;
+            w.images(images);
+            bool any = false;
+            for (const sim::LiveImage& li : images) {
+                const sim::Unit& dead = w.units[size_t(id)];
+                if (std::abs(li.x - dead.x) > 32 || std::abs(li.y - dead.y) > 32) continue;
+                int frames = size_t(li.image) < t.imageFrames.size() ? t.imageFrames[size_t(li.image)] : 0;
+                if (frames > 0 && li.frame >= frames) ++wrong;
+                else any = true;
+            }
+            shown += any;
+        }
+        bool good = shown >= 10 && wrong == 0;
+        std::printf("Death images: unit %d: death images in %d of 30 frames, %d frames outside their GRP: %s\n", type,
+                    shown, wrong, good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
+// Missile flights: a Scout's two missiles curve out a little and home in on a Mutalisk (no circling round it). No
+// missile is farther than the weapon's range + 64 pixels from the target or 48 pixels from the line Scout to target,
+// and they fly at most 25 frames each on average.
+bool runMissileFlightCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    const int kScout = 70, kMutalisk = 43;
+    sim::World w(t, map);
+    w.seed = 42;
+    sim::CombatOptions o;
+    o.x = 3808;
+    o.y = 2384;
+    o.players[1] = 1;
+    o.a = {{kScout, 1}};
+    o.b = {{kMutalisk, 1}};
+    std::string error;
+    if (!sim::setupCombat(w, o, error)) return false;
+    for (sim::Unit& u : w.units) u.hp = 100000 << 8;
+    const int weapon = t.units[kScout].airWeapon;
+    const int bound = t.weapons[size_t(weapon)].maxRange + 64;
+    int scout = -1;
+    for (size_t j = 0; j < w.units.size(); ++j)
+        if (w.units[j].type == kScout) scout = int(j);
+    if (scout < 0) return false;
+    int fired = 0, flightFrames = 0, far = 0, offLine = 0, lastCooldown = 0;
+    double worst = 0;
+    for (int f = 0; f < 300; ++f) {
+        w.step();
+        const int cooldown = w.units[size_t(scout)].cooldown;
+        if (cooldown > lastCooldown && f < 260) fired += std::max(1, t.weapons[size_t(weapon)].factor);  // (an attack)
+        lastCooldown = cooldown;
+        for (const sim::Bullet& b : w.bullets) {
+            if (b.weapon != weapon || !b.alive || !b.launched || b.arrived) continue;
+            ++flightFrames;
+            const sim::Unit& s = w.units[size_t(b.source)];
+            const sim::Unit& v = w.units[size_t(b.target)];
+            double dt = std::hypot(double(v.x - b.x), double(v.y - b.y));
+            if (dt > bound) ++far;
+            // (the distance from the segment Scout to target)
+            double lx = v.x - s.x, ly = v.y - s.y, l2 = lx * lx + ly * ly;
+            double u = l2 > 0 ? std::clamp(((b.x - s.x) * lx + (b.y - s.y) * ly) / l2, 0.0, 1.0) : 0;
+            double off = std::hypot(s.x + u * lx - b.x, s.y + u * ly - b.y);
+            worst = std::max(worst, off);
+            if (off > 48) ++offLine;
+        }
+    }
+    bool ok = fired > 0 && far == 0 && offLine == 0 && flightFrames <= fired * 25;
+    std::printf("Missile flights: Scout vs Mutalisk: %d missiles, %d flight frames (at most %d), %d frames beyond %d "
+                "px of the target, %d off the line (widest %.0f px): %s\n",
+                fired, flightFrames, fired * 25, far, bound, offLine, worst, ok ? "OK" : "FAIL");
+    return ok;
+}
+
 // The map's upgrades (rules.ini's upgrade effects): a Zergling with Metabolic Boost and Adrenal Glands reaches a
 // Marine sooner and hits it more often than one without. Both live through the test (much HP).
 bool runUpgradeCheck(const sim::Tables& t, const sim::MapInfo& map) {
@@ -1614,6 +1711,8 @@ int main(int argc, char** argv) {
         }
         if (!runImageCheck(tables, map)) ++failures;
         if (!runVolleyCheck(tables, map)) ++failures;
+        if (!runMissileFlightCheck(tables, map)) ++failures;
+        if (!runDeathImageCheck(tables, map)) ++failures;
         if (!runUpgradeCheck(tables, map)) ++failures;
         if (!runHiddenImageCheck(tables, map)) ++failures;
         if (!runPassiveCheck(tables, map)) ++failures;

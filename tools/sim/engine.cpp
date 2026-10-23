@@ -1312,7 +1312,10 @@ void World::images(std::vector<LiveImage>& out) const {
         LiveImage li;
         li.image = image;
         li.frame = a.frame;
-        if (t.imageTurns[size_t(image)]) {
+        // A turning image's frame set holds 17 directions; a set that the GRP has no room for (a death animation's
+        // frames after the last full set) is one frame.
+        int frames = size_t(image) < t.imageFrames.size() ? t.imageFrames[size_t(image)] : 0;
+        if (t.imageTurns[size_t(image)] && (frames == 0 || a.frame + 17 <= frames)) {
             int d = ((heading + 4) >> 3) & 31;
             li.flip = d > 16;
             li.frame += li.flip ? 32 - d : d;

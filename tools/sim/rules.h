@@ -24,7 +24,8 @@ struct GameRules {
     int priorityBuilding = 0, priorityLow = 0, sameWayTolerance = 0, callForHelp = 0;
     // attacks
     int bounces = 0, bounceSearch = 0, launchWaitMax = 0, persistHitFrames = 0, lineHitRepeat = 0;
-    int scarabDetonate = 0, velocityTurnDivisor = 0, minDamage = 0;
+    int scarabDetonate = 0, velocityTurnDivisor = 0, minDamage = 0, bulletNear = 0, bulletTurnDivisor = 0;
+    std::vector<int> bulletTurnMargin;  // (turn frames = diff x [0] / rate; room: turn frames x [1] / [2] pixels)
     std::vector<int> bounceDivisor, damageFactor;  // (damageFactor: 5 damage types x 4 sizes)
     std::vector<int> splashDivisor, cooldownJitter;  // (splash: inner, medium, outer; jitter: values, first)
     // regeneration and energy

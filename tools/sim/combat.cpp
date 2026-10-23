@@ -785,14 +785,23 @@ void World::bulletStep(int index) {
         b.ty = units[size_t(b.target)].y;
     }
     // The flight with its flingy data: the velocity direction turns by half the turn rate, the picture by the full
-    // rate; it speeds up to its top speed; the last step lands it on its target.
+    // rate; it speeds up when it goes the right way or is far away, and near its target while it still turns only when
+    // it has room to turn (else it slows down: no circling round the target); the last step lands it on its target.
     const FlingyData& f = t.flingy[size_t(wd.flingy)];
     double fx = double((b.tx << 8) - b.ex), fy = double((b.ty << 8) - b.ey);
     int dist = int(std::sqrt(fx * fx + fy * fy));
     int desired = dist > 0 ? direction(b.tx - b.x, b.ty - b.y) : b.velDir;
-    b.velDir = turnToward(b.velDir, desired, f.turn ? std::max(1, f.turn / t.rules.velocityTurnDivisor) : 256);
+    b.velDir = turnToward(b.velDir, desired, f.turn ? std::max(1, f.turn / t.rules.bulletTurnDivisor) : 256);
     b.heading = turnToward(b.heading, desired, f.turn ? f.turn : 256);
-    b.speed = std::clamp(b.speed + std::max(f.accel, 1), 0, f.topSpeed);
+    bool accelerate = b.velDir == desired || dist >= t.rules.bulletNear * 256;
+    if (!accelerate) {
+        const std::vector<int>& m = t.rules.bulletTurnMargin;
+        int r = std::max(1, f.turn / t.rules.bulletTurnDivisor);
+        int diff = std::abs(int(int8_t(uint8_t(desired - b.velDir))));
+        int turnFrames = (m[0] * diff + r - 1) / r;
+        accelerate = turnFrames * m[1] / m[2] <= dist >> 8;
+    }
+    b.speed = std::clamp(b.speed + (accelerate ? std::max(f.accel, 1) : -f.accel), 0, f.topSpeed);
     if (b.speed >= dist || f.topSpeed <= 0) {
         b.ex = b.tx << 8;
         b.ey = b.ty << 8;
