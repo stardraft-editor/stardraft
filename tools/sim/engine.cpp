@@ -1332,7 +1332,9 @@ void World::effectStep(size_t k) {
         case 0x36: e.anim.pc = e.anim.ret; break;
         case 0x08: case 0x09: case 0x0F: case 0x10: case 0x11: case 0x14: case 0x42: {
             int id = u16(pc + 1), dx = int8_t(s[size_t(pc) + 3]), dy = int8_t(s[size_t(pc) + 4]);
-            int image = op <= 0x09 ? id : id < int(t.spriteImage.size()) ? t.spriteImage[size_t(id)] : -1;
+            // (a sprite the game never draws: none)
+            bool shown = op <= 0x09 || (id < int(t.spriteImage.size()) && t.spriteVisible[size_t(id)]);
+            int image = !shown ? -1 : op <= 0x09 ? id : t.spriteImage[size_t(id)];
             bool under = op == 0x09 || op == 0x11 || op == 0x14 || op == 0x42 || e.under;
             Effect copy = e;  // (the vector may grow)
             bool attached = copy.follow >= 0 && op <= 0x09;  // (an image of the same sprite: it stays with the unit)

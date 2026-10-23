@@ -15,7 +15,7 @@ namespace {
 enum : int {
     kMarine = 0, kVulture = 2, kGoliath = 3, kScv = 7, kZergling = 37, kHydralisk = 38, kUltralisk = 39, kDrone = 41,
     kOverlord = 42, kProbe = 64, kZealot = 65, kDragoon = 66, kArchon = 68, kShuttle = 69, kScout = 70, kObserver = 84,
-    kLurker = 103,
+    kInterceptor = 73, kScarab = 85, kLurker = 103,
 };
 // upgrades.dat ids.
 enum : int {
@@ -67,14 +67,8 @@ void deriveRoles(Tables& t) {
             r.capacity = 4;
             r.capacityUpgraded = 8;
         }
-        if (d.attackOrder == kOrderScarab && !r.scarab) {
-            r.scarab = true;
-            if (!t.scarabType) t.scarabType = int(i);
-        }
-        if (d.attackOrder == kOrderInterceptor && !r.interceptor) {
-            r.interceptor = true;
-            if (!t.interceptorType) t.interceptorType = int(i);
-        }
+        r.scarab = d.attackOrder == kOrderScarab;
+        r.interceptor = d.attackOrder == kOrderInterceptor;
         r.spiderMine = d.idleOrder == kOrderMine;
         r.healer = d.attackOrder == kOrderHeal;
         if (r.healer) r.energyUpgrade = kCaduceusReactor;  // (table: Caduceus Reactor raises its energy)
@@ -99,6 +93,9 @@ void deriveRoles(Tables& t) {
         }
         r.startLocation = (d.flags & kDepot) && !(d.flags & kResource);
     }
+    // (table: the units a Reaver and a Carrier make are fixed in the game's code, not in a file)
+    t.scarabType = kScarab;
+    t.interceptorType = kInterceptor;
     role(kLurker).attacksBurrowed = true;   // (table: no file says it has its weapon only while burrowed)
     role(kLurker).speedUpgrade = rules::kAlways;  // (table: it moves as if upgraded)
     role(kZergling).ordersEveryFrame = true;  // (table: a rule of the game's code for the Zergling)

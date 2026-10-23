@@ -933,9 +933,6 @@ bool runStalemateCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
-// Weapons with two bullets an attack (weapons.dat damage factor 2): a Scout's air attack on a Mutalisk, 300 frames
-// (the Mutalisk cannot die). Each attack shows two missile images at different places, and each missile takes the
-// data's damage (its type against the size, less the armor).
 // No image the game never draws: the projectiles of the Firebat, the Reaver, the Scourge and the Lurker have sprites
 // that sprites.dat marks as not visible (a white circle in the editor if drawn). Fights of these units: no image of
 // such a sprite in images(), and the Scarab drawn with its own image.
@@ -969,6 +966,9 @@ bool runHiddenImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Weapons with two bullets an attack (weapons.dat damage factor 2): a Scout's air attack on a Mutalisk, 300 frames
+// (the Mutalisk cannot die). Each attack shows two missile images at different places, and each missile takes the
+// data's damage (its type against the size, less the armor).
 bool runVolleyCheck(const sim::Tables& t, const sim::MapInfo& map) {
     const int kScout = 70, kMutalisk = 43;
     sim::World w(t, map);
