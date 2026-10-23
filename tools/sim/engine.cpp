@@ -342,7 +342,8 @@ void World::step() {
         else if (combat)
             combatOrder(int(i));
         Unit& v = units[i];
-        if (v.alive && !combat && role(v.type).mineralField) runAnim(v.anim, int(i), -1);  // (a mineral field)
+        if (v.alive && !combat && !fastForward && role(v.type).mineralField)  // (a mineral field: its picture)
+            runAnim(v.anim, int(i), -1);
         if (v.alive && combat && v.building && !v.neutral) runAnim(v.anim, int(i), -1);  // (a defence: it fires)
         if (!v.alive || v.building) continue;
         bool moving = v.x != v.moveX || v.y != v.moveY;
@@ -394,6 +395,7 @@ int World::spriteElevation(int op, int parent) const {
 
 void World::addEffect(int image, int x, int y, int owner, int heading, int elevation, bool under, int anim, int follow,
                       int dx, int dy) {
+    if (fastForward) return;  // (pictures only)
     // (no shadows, and no image at all)
     if (image < 0 || (image < int(t.imageDraw.size()) && t.imageDraw[size_t(image)] == kDrawShadow)) return;
     Effect e;
@@ -607,6 +609,7 @@ public:
         stop();
         world_ = std::make_unique<World>(tables_, map_);
         world_->recordSounds = true;
+        world_->setFastForward(fastForward_);
         if (!setupCombat(*world_, o, error)) {
             world_.reset();
             return false;
@@ -628,6 +631,7 @@ public:
         miningOptions_ = o;
         world_ = std::make_unique<World>(tables_, map_);
         world_->recordSounds = true;
+        world_->setFastForward(fastForward_);
         liveRaces_ = baseRaces(tables_, map_, liveBases_, o);
         setupMining(*world_, liveBases_, liveRaces_, o.workers.empty() ? 9 : o.workers[0], o);
         combat_ = false;
@@ -641,6 +645,10 @@ public:
     }
 
     bool live() const override { return world_ != nullptr; }
+    void setFastForward(bool on) override {
+        fastForward_ = on;
+        if (world_) world_->setFastForward(on);
+    }
     bool step(int frames) override {
         if (!world_ || done_) return false;
         for (int i = 0; i < frames && !done_; ++i) {
@@ -703,6 +711,7 @@ private:
     MapInfo map_;
     bool ready_ = false, hasMap_ = false, combat_ = false, done_ = false;
     std::unique_ptr<World> world_;
+    bool fastForward_ = false;
     std::vector<MiningBase> liveBases_;
     std::vector<Race> liveRaces_;
     MiningOptions miningOptions_;

@@ -228,9 +228,16 @@ public:
     std::vector<Effect> effects;
     uint32_t effectSeed = 1;  // (their own random numbers: they never change the game's)
     bool recordSounds = false;     // (a live game: the scripts' sounds are kept for takeSounds)
+    // Fast forward: no sounds, no effect sprites (overlays, remnants, death pictures), no mineral field pictures;
+    // only what the play depends on. The results are the same.
+    bool fastForward = false;
+    void setFastForward(bool on) {
+        fastForward = on;
+        if (on) effects.clear();
+    }
     std::vector<LiveSound> sounds;
     void sound(int sfx, int x, int y, int owner) {
-        if (!recordSounds || sfx <= 0 || sfx >= 1144) return;
+        if (!recordSounds || fastForward || sfx <= 0 || sfx >= 1144) return;
         if (sounds.size() >= 4096) sounds.erase(sounds.begin(), sounds.begin() + 2048);  // (none taken: the newest)
         sounds.push_back({sfx, x, y, owner});
     }

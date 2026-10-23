@@ -1202,6 +1202,97 @@ bool runBuildingFight(const sim::Tables& t, const sim::MapInfo& map, const char*
     return ok;
 }
 
+// Fast forward (Skip to the end): the same game with and without the pictures and sounds. Fight 1, fight 8, a
+// 400-unit fight of 4 players and a mining run: the same end frame and the same HP + shields (minerals) every 24
+// frames; after fast forward, images() gives each living unit its image and no effect sprite.
+bool runFastForwardCheck(const sim::Tables& t, const sim::MapInfo& map, const std::filesystem::path& install,
+                         const sim::FileReader& reader) {
+    auto series = [&](sim::World& w, bool fast, int lastFrame) {
+        w.setFastForward(fast);
+        std::vector<long long> out;
+        while (!sim::combatOver(w, lastFrame)) {
+            if (w.frame % 24 == 0) {
+                long long sum = 0;
+                for (const sim::Unit& u : w.units) sum += u.alive ? u.hp + u.shields + 7 * (&u - w.units.data()) : 0;
+                out.push_back(sum);
+            }
+            w.step();
+        }
+        out.push_back(w.frame);
+        return out;
+    };
+    auto fight = [&](const Scenario& s, bool fast) {
+        sim::World w(t, map);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.a = s.a;
+        o.b = s.b;
+        o.players[1] = 1;
+        o.x = 3808;
+        o.y = 2384;
+        std::string error;
+        sim::setupCombat(w, o, error);
+        return series(w, fast, o.frames);
+    };
+    auto many = [&](bool fast, bool& sane) {
+        sim::World w(t, map);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.byPlayer = true;
+        const int kinds[4] = {37, 0, 65, 38};
+        const int at[4][2] = {{3560, 2200}, {3950, 2200}, {3560, 2560}, {3950, 2560}};
+        for (int pl = 0; pl < 4; ++pl)
+            for (int n = 0; n < 100; ++n)
+                o.placed.push_back({kinds[pl], pl, at[pl][0] + n % 10 * 18, at[pl][1] + n / 10 * 18});
+        std::string error;
+        sim::setupCombat(w, o, error);
+        w.setFastForward(fast);
+        for (int f = 0; f < 300; ++f) w.step();  // (then the pictures again: the units' images, no effects)
+        w.setFastForward(false);
+        std::vector<sim::LiveImage> images;
+        w.images(images);
+        int alive = 0;
+        for (const sim::Unit& u : w.units) alive += u.alive && !u.hidden;
+        sane = int(images.size()) >= alive && (!fast || w.effects.empty());
+        return series(w, false, o.frames);
+    };
+    bool ok = true;
+    for (int k : {0, 7}) {
+        bool same = fight(kScenarios[k], false) == fight(kScenarios[k], true);
+        std::printf("Fast forward: fight %d (%s): %s\n", k + 1, kScenarios[k].name, same ? "the same: OK" : "FAIL");
+        ok = ok && same;
+    }
+    bool sane = false, saneOff = false;
+    bool same = many(false, saneOff) == many(true, sane);
+    std::printf("Fast forward: 400 units of 4 players (300 frames fast, then the pictures): %s; images after it %s\n",
+                same ? "the same" : "different", sane ? "sane" : "not sane");
+    ok = ok && same && sane;
+    // A mining run: the minerals of each player every 24 frames.
+    auto mining = [&](bool fast) {
+        std::vector<long long> out;
+        auto sim = sim::createSimulator();
+        stardraft::Bytes chk;
+        std::string error;
+        sim::MiningOptions mo;
+        mo.workers = {12};
+        const std::filesystem::path orbital = install / "Maps" / "(4)Orbital Relay.scm";
+        if (!sim->init(reader, error) || !stardraft::readMapChk(orbital, chk, error) ||
+            !sim->setMap(chk, error) || !sim->startMining(mo, error))
+            return out;
+        sim->setFastForward(fast);
+        for (int f = 0; f < 100; ++f) {
+            sim->step(24);
+            for (const sim::PlayerState& p : sim->players()) out.push_back(p.minerals * 1000 + p.gas);
+        }
+        return out;
+    };
+    std::vector<long long> slow = mining(false);
+    bool sameMining = !slow.empty() && slow == mining(true);
+    std::printf("Fast forward: mining, (4)Orbital Relay.scm, 12 workers a base, 2400 frames: %s\n",
+                sameMining ? "the same: OK" : "FAIL");
+    return ok && sameMining;
+}
+
 // Death animations: after a unit dies, its death images show for some frames, each frame in its GRP (a death
 // animation's frames have no directions: Zealot, Dragoon, Marine, Zergling).
 bool runDeathImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
@@ -1871,6 +1962,7 @@ int main(int argc, char** argv) {
         if (!runCorridorCheck(tables)) ++failures;
         if (!runSeekChecks(tables, map, install)) ++failures;
         if (!runPerf(tables, map, install, reader)) ++failures;
+        if (!runFastForwardCheck(tables, map, install, reader)) ++failures;
         if (!runSoundCheck(tables, map)) ++failures;
         runDefenceFights(tables, map);
         {  // (players 0, 1 and 2: 1 and 2 allied; then each player alone)

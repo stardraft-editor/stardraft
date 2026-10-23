@@ -161,6 +161,9 @@ public:
     virtual const std::string& liveError() const = 0;
     virtual void images(std::vector<LiveImage>& out) const = 0;
     virtual std::vector<LiveSound> takeSounds() { return {}; }  // the sounds since the last call
+    // Fast forward (Skip to the end): only what the results depend on, no pictures or sounds; the same results.
+    // After it, images() gives the units at their frames; the effects of the skipped frames are not there.
+    virtual void setFastForward(bool on) { (void)on; }
     virtual CombatResult combatResult() const = 0;
     virtual std::vector<MiningBase> miningResult() const = 0;
     virtual std::vector<PlayerState> players() const = 0;  // (mining and Run the map)
