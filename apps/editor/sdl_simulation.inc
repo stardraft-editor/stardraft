@@ -185,6 +185,23 @@ void simScene(render::Scene& s) {
 
 // The minimap's dots of the live game: each sprite's main image (not shadows, overlays, or the remnants under the
 // units).
+// The live game's creep for the map's Creep layer (core/creep_layer.inc: gLiveCreep): a copy, kept while a skip runs
+// (the engine is the skip's thread's then).
+std::vector<uint8_t> gSimCreep;
+uint64_t gSimCreepChanges = ~0ull;
+const std::vector<uint8_t>* simCreep(uint64_t& changes) {
+    if (!simSkipRunning() && gSim_) {
+        const uint64_t now = simEngine().creepChanges();
+        if (now != gSimCreepChanges) {
+            const std::vector<uint8_t>* c = simEngine().creep();
+            gSimCreep = c ? *c : std::vector<uint8_t>{};
+            gSimCreepChanges = now;
+        }
+    }
+    changes = gSimCreepChanges;
+    return gSimCreep.empty() ? nullptr : &gSimCreep;
+}
+
 bool simMinimap(std::vector<MinimapDot>& dots) {
     const std::vector<sim::LiveImage>& images = simImages();
     UnitSprites& sp = gState.ed->unitSprites();
@@ -597,7 +614,8 @@ void simRelease() {
 void simClose() {
     simSkipJoin();
     if (gSim_) simEngine().stop();
-    gLiveScene = nullptr, gLiveMinimap = nullptr;
+    gLiveScene = nullptr, gLiveMinimap = nullptr, gLiveCreep = nullptr;
+    gSimCreep.clear(), gSimCreepChanges = ~0ull;
     gSim = LiveSim{};
     simRelease();
     simRedraw();
@@ -617,7 +635,8 @@ bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
     gSim.shown = true, gSim.combat = combat, gSim.done = false, gSim.ed = gState.ed.get();
     gSim.chk = std::move(chk), gSim.start = start;
     gSim.last = std::chrono::steady_clock::now(), gSim.due = 0;
-    gLiveScene = simScene, gLiveMinimap = simMinimap;
+    gLiveScene = simScene, gLiveMinimap = simMinimap, gLiveCreep = simCreep;
+    gSimCreep.clear(), gSimCreepChanges = ~0ull;
     if (gRoot) gRoot->map.focus();  // (a search box of a panel lets go of the keyboard)
     simHold();
     simRedraw();

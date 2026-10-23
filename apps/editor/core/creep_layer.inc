@@ -38,9 +38,15 @@ const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     return c.creep;
 }
 
+// A live game (Tools > Simulate) shows its own creep in place of the start creep: its creep per tile and a count of its
+// changes (null: no game; sdl_simulation.inc).
+const std::vector<uint8_t>* (*gLiveCreep)(uint64_t& changes) = nullptr;
+
 // The number of creep changes: the renderer's terrain is uploaded again when it differs.
 uint64_t creepRevision(const Editor& ed) {
     if (!gLayers.creep || !ed.isOpen()) return 0;
+    uint64_t live = 0;
+    if (gLiveCreep && gLiveCreep(live)) return (uint64_t(1) << 62) + live;  // (the game's creep: its own count)
     mapCreep(ed);
     return gCreep.changes;
 }
@@ -48,8 +54,11 @@ uint64_t creepRevision(const Editor& ed) {
 // The terrain with the start creep's tiles (View > Layers > Creep on, and the terrain shows).
 void addCreepTiles(const Editor& ed, TerrainLayer& terrain) {
     if (!gLayers.creep || !gLayers.terrain || !ed.isOpen()) return;
-    const std::vector<uint8_t>& creep = mapCreep(ed);
-    if (creep.size() == terrain.tiles.size()) applyCreep(terrain, creep, gCreep.variants);
+    uint64_t live = 0;
+    const std::vector<uint8_t>* game = gLiveCreep ? gLiveCreep(live) : nullptr;
+    const std::vector<uint8_t>& creep = game ? *game : mapCreep(ed);
+    if (gCreep.variants.size() != creep.size()) mapCreep(ed);  // (the variants, once a session)
+    if (creep.size() == terrain.tiles.size() && gCreep.variants.size() == creep.size()) applyCreep(terrain, creep, gCreep.variants);
 }
 
 // The number of creep tiles in the terrain the map shows (the snapshot tests' check).
