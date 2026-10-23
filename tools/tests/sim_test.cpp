@@ -1065,7 +1065,9 @@ bool runDeathImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
             }
             shown += any;
         }
-        bool good = shown >= 10 && wrong == 0;
+        const int image = t.flingyImage(t.units[size_t(type)].flingy);
+        bool known = size_t(image) < t.imageFrames.size() && t.imageFrames[size_t(image)] > 0;  // (its GRP was read)
+        bool good = known && shown >= 10 && wrong == 0;
         std::printf("Death images: unit %d: death images in %d of 30 frames, %d frames outside their GRP: %s\n", type,
                     shown, wrong, good ? "OK" : "FAIL");
         ok = ok && good;
