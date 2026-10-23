@@ -436,8 +436,9 @@ void World::findPath(Unit& u, int x, int y) {
     // not change, so the search need not cover all the ground again). (By region, not by group: a group can hold
     // places a big unit's box cannot get between.)
     int from = regionAt(fx, fy);
-    long long key = (long long(u.type) << 52) | (long long(from & 0xfffff) << 32) |
-                    (long long(std::clamp(y / 8, 0, map.height * 4 - 1)) * map.width * 4 +
+    using Key = long long;  // (a one-word type for the casts: GCC and Clang take no "long long(x)")
+    long long key = (Key(u.type) << 52) | (Key(from & 0xfffff) << 32) |
+                    (Key(std::clamp(y / 8, 0, map.height * 4 - 1)) * map.width * 4 +
                      std::clamp(x / 8, 0, map.width * 4 - 1));
     auto known = cutCache.find(key);
     bool cached = known != cutCache.end() && !away;

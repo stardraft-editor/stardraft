@@ -2,6 +2,7 @@
 // from each working creep maker and its recession when a maker dies. Creep changes nothing in the play here; it draws
 // its own random numbers.
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 

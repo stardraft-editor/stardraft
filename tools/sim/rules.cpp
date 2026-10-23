@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <iterator>
 #include <sstream>
 #include <utility>
 #include <vector>
