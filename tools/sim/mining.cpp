@@ -263,229 +263,248 @@ void World::depotBorder(const Unit& w, const Unit& b, int& x, int& y) const {
     y = std::clamp(w.y, b.y - db.up - dw.down - 1, b.y + db.down + dw.up + 1);
 }
 
+// Whether a resource is still one that the worker's order gathers (a refinery for gas, a mineral field).
+bool World::resourceValid(const Unit& u, int f) const {
+    if (f < 0 || !units[size_t(f)].alive) return false;
+    int type = units[size_t(f)].type;
+    return u.order >= MoveToGas ? t.refineryOf[0] == type || t.refineryOf[1] == type || t.refineryOf[2] == type
+                                : isMinerals(t, type);
+}
+
+// To the point where the worker touches the resource, facing it.
+void World::goToResource(Unit& u, int f) {
+    int x, y;
+    depotBorder(u, units[size_t(f)], x, y);
+    setMove(u, x, y);
+    u.aimX = units[size_t(f)].x;
+    u.aimY = units[size_t(f)].y;
+}
+
+// The nearest mineral field within the range, not the worker's own (freeOnly: one that no worker mines); -1: none.
+int World::findField(const Unit& u, int range, bool freeOnly) const {
+    int best = -1;
+    double bestDist = 0;
+    for (size_t j = 0; j < units.size(); ++j) {
+        const Unit& f = units[j];
+        if (!f.alive || !isMinerals(t, f.type) || int(j) == u.field || (freeOnly && f.holder >= 0)) continue;
+        double d = exactDistance(u.x, u.y, f.x, f.y);
+        if (d <= range && (best < 0 || d < bestDist)) best = int(j), bestDist = d;
+    }
+    return best;
+}
+
+// The claim: the free resource is the worker's; else it waits in the resource's queue.
+void World::claimResource(int w) {
+    Unit& c = units[size_t(w)];
+    Unit& f = units[size_t(c.field)];
+    c.state = 2;
+    if (f.holder < 0) {
+        f.holder = w;
+        setOrder(c, c.order == WaitForGas ? HarvestGas : MiningMinerals);
+    } else if (std::find(f.queue.begin(), f.queue.end(), w) == f.queue.end()) {
+        f.queue.push_back(w);
+    }
+}
+
+// The resource is free again: the first worker of its queue that still waits for it claims it.
+void World::releaseResource(int fi) {
+    Unit& f = units[size_t(fi)];
+    f.holder = -1;
+    while (!f.queue.empty()) {
+        int next = f.queue.front();
+        f.queue.erase(f.queue.begin());
+        Unit& n = units[size_t(next)];
+        if (n.alive && n.field == fi && (n.order == WaitForMinerals || n.order == WaitForGas)) {
+            claimResource(next);
+            break;
+        }
+    }
+}
+
+// The worker takes its load from the resource; a mineral field shows the amount left, and an empty one is gone.
+void World::extract(Unit& u, int fi) {
+    Unit& f = units[size_t(fi)];
+    int take = std::min(t.rules.mineralLoad, f.resources);
+    f.resources -= take;
+    // (its picture by the amount left: Working to Idle, Almost Built, Special State 2, 1)
+    if (isMinerals(t, f.type))
+        startAnim(f.anim, f.resources >= t.rules.mineralFull   ? kAnimWorkingToIdle
+                          : f.resources >= t.rules.mineralHalf ? kAnimAlmostBuilt
+                          : f.resources >= t.rules.mineralLow  ? kAnimSpecial2
+                                                                : kAnimSpecial1);
+    u.carry = take;
+    u.carryGas = !isMinerals(t, f.type);
+    if (isMinerals(t, f.type) && f.resources == 0) {
+        f.alive = false;
+        regrid(fi);
+    }
+}
+
+// The worker's owner's nearest depot; -1: none.
+int World::nearestDepot(const Unit& u) const {
+    int best = -1;
+    for (size_t j = 0; j < units.size(); ++j)
+        if (units[j].alive && units[j].owner == u.owner && (t.units[units[j].type].flags & kDepot) &&
+            (best < 0 || exactDistance(u.x, u.y, units[j].x, units[j].y) <
+                             exactDistance(u.x, u.y, units[size_t(best)].x, units[size_t(best)].y)))
+            best = int(j);
+    return best;
+}
+
 void World::miningOrder(int i) {
     Unit& u = units[size_t(i)];
     if (u.order != HarvestGas) {  // (the 9-frame poll; the hidden gas order runs every frame)
         if (!tick(u)) return;
     }
-    bool gasOrder = u.order >= MoveToGas;
-    auto valid = [&](int f) {
-        return f >= 0 && units[size_t(f)].alive &&
-               (gasOrder ? t.refineryOf[0] == units[size_t(f)].type || t.refineryOf[1] == units[size_t(f)].type ||
-                               t.refineryOf[2] == units[size_t(f)].type
-                         : isMinerals(t, units[size_t(f)].type));
-    };
-    auto goTo = [&](int f) {
-        int x, y;
-        depotBorder(u, units[size_t(f)], x, y);
-        setMove(u, x, y);
-        u.aimX = units[size_t(f)].x;
-        u.aimY = units[size_t(f)].y;
-    };
-    auto findField = [&](int range, bool freeOnly) {
-        int best = -1;
-        double bestDist = 0;
-        for (size_t j = 0; j < units.size(); ++j) {
-            const Unit& f = units[j];
-            if (!f.alive || !isMinerals(t, f.type) || int(j) == u.field || (freeOnly && f.holder >= 0)) continue;
-            double d = dist(u.x, u.y, f.x, f.y);
-            if (d <= range && (best < 0 || d < bestDist)) best = int(j), bestDist = d;
-        }
-        return best;
-    };
-    // The claim: the free resource is the worker's; else it waits in the resource's queue.
-    auto claim = [&](int w) {
-        Unit& c = units[size_t(w)];
-        Unit& f = units[size_t(c.field)];
-        c.state = 2;
-        if (f.holder < 0) {
-            f.holder = w;
-            setOrder(c, c.order == WaitForGas ? HarvestGas : MiningMinerals);
-        } else if (std::find(f.queue.begin(), f.queue.end(), w) == f.queue.end()) {
-            f.queue.push_back(w);
-        }
-    };
-    auto release = [&](int fi) {
-        Unit& f = units[size_t(fi)];
-        f.holder = -1;
-        while (!f.queue.empty()) {
-            int next = f.queue.front();
-            f.queue.erase(f.queue.begin());
-            Unit& n = units[size_t(next)];
-            if (n.alive && n.field == fi && (n.order == WaitForMinerals || n.order == WaitForGas)) {
-                claim(next);
-                break;
-            }
-        }
-    };
-    auto extract = [&](int fi) {
-        Unit& f = units[size_t(fi)];
-        int take = std::min(t.rules.mineralLoad, f.resources);
-        f.resources -= take;
-        // (its picture by the amount left: Working to Idle, Almost Built, Special State 2, 1)
-        if (isMinerals(t, f.type))
-            startAnim(f.anim, f.resources >= t.rules.mineralFull   ? kAnimWorkingToIdle
-                              : f.resources >= t.rules.mineralHalf ? kAnimAlmostBuilt
-                              : f.resources >= t.rules.mineralLow  ? kAnimSpecial2
-                                                                    : kAnimSpecial1);
-        u.carry = take;
-        u.carryGas = !isMinerals(t, f.type);
-        if (isMinerals(t, f.type) && f.resources == 0) {
-            f.alive = false;
-            regrid(u.field);
-        }
-    };
-    auto atTarget = [&] { return u.x == u.moveX && u.y == u.moveY; };
-    auto nearestDepot = [&] {
-        int best = -1;
-        for (size_t j = 0; j < units.size(); ++j)
-            if (units[j].alive && units[j].owner == u.owner && (t.units[units[j].type].flags & kDepot) &&
-                (best < 0 || dist(u.x, u.y, units[j].x, units[j].y) <
-                                 dist(u.x, u.y, units[size_t(best)].x, units[size_t(best)].y)))
-                best = int(j);
-        return best;
-    };
-
     switch (u.order) {
     case MoveToMinerals:
-    case MoveToGas:
-        if (u.order == MoveToMinerals && u.carry && u.carryGas) {
+    case MoveToGas: moveToResource(i); return;
+    case WaitForMinerals:
+    case WaitForGas:
+        if (!resourceValid(u, u.field)) {
+            setOrder(u, u.order >= MoveToGas ? MoveToGas : MoveToMinerals);
+            return;
+        }
+        if (u.state == 0) claimResource(i);
+        return;
+    case MiningMinerals: mineMinerals(i); return;
+    case HarvestGas: harvestGas(i); return;
+    case ReturnMinerals:
+    case ReturnGas: returnCargo(i); return;
+    default: return;
+    }
+}
+
+// Move to Minerals, Move to Gas: to the resource (another field when its own is held), then wait for it there.
+void World::moveToResource(int i) {
+    Unit& u = units[size_t(i)];
+    bool gasOrder = u.order >= MoveToGas;
+    if (u.order == MoveToMinerals && u.carry && u.carryGas) {
+        setOrder(u, Idle);
+        return;
+    }
+    if (u.state == 0) {
+        if (!resourceValid(u, u.field)) u.field = gasOrder ? -1 : findField(u, t.rules.fieldRange, false);
+        if (u.field < 0) {
+            stopMove(u);
             setOrder(u, Idle);
             return;
         }
-        if (u.state == 0) {
-            if (!valid(u.field)) u.field = gasOrder ? -1 : findField(t.rules.fieldRange, false);
-            if (u.field < 0) {
-                stopMove(u);
-                setOrder(u, Idle);
-                return;
-            }
-            goTo(u.field);
-            u.state = 1;
-            return;
-        }
-        if (!valid(u.field)) {
-            u.state = 0;
-            return;
-        }
-        if (u.state == 1) {
-            if (gap(u, units[size_t(u.field)]) > t.rules.miningReach && !atTarget()) return;
-            u.state = 3;  // (the arrival is its own state, on the next poll)
-            return;
-        }
-        if (!gasOrder && units[size_t(u.field)].holder >= 0 && units[size_t(u.field)].holder != i) {
-            int other = findField(t.rules.otherFieldRange, true);
-            if (other >= 0) {
-                u.field = other;
-                goTo(other);
-                u.state = 1;
-                return;
-            }
-        }
-        if (u.carry) setOrder(u, gasOrder ? ReturnGas : ReturnMinerals);
-        else setOrder(u, gasOrder ? WaitForGas : WaitForMinerals);
-        return;
-    case WaitForMinerals:
-    case WaitForGas:
-        if (!valid(u.field)) {
-            setOrder(u, gasOrder ? MoveToGas : MoveToMinerals);
-            return;
-        }
-        if (u.state == 0) claim(i);
-        return;
-    case MiningMinerals:
-        if (!valid(u.field)) {
-            if (u.field >= 0) release(u.field);
-            setOrder(u, MoveToMinerals);
-            return;
-        }
-        if (u.state == 0) {
-            if ((u.x == u.aimX && u.y == u.aimY) || u.heading == direction(u.aimX - u.x, u.aimY - u.y)) {
-                animate(i, kAnimAlmostBuilt);  // (the mining pose)
-                u.walkingAnim = 2;
-                u.timer = t.rules.miningFrames;
-                u.state = 5;
-            }
-            return;
-        }
-        if (u.timer > 0) return;
-        animate(i, kAnimGroundAttackToIdle);
-        extract(u.field);
-        release(u.field);
-        setOrder(u, ReturnMinerals);
-        return;
-    case HarvestGas:
-        if (u.state == 0) {
-            u.hidden = true;
-            u.timer = t.rules.gasFrames;
-            u.state = 5;
-            return;
-        }
-        if (u.timer > 0) return;
-        {
-            const Unit& r = units[size_t(u.field)];
-            int depot = nearestDepot();
-            int dir = depot >= 0 ? direction(units[size_t(depot)].x - r.x, units[size_t(depot)].y - r.y) : 128;
-            Unit probe = u;
-            probe.x = r.x + dirX(dir) * 4;
-            probe.y = r.y + dirY(dir) * 4;
-            depotBorder(probe, r, u.x, u.y);
-            regrid(i);
-            u.ex = u.x << 8;
-            u.ey = u.y << 8;
-            stopMove(u);
-            u.hidden = false;
-        }
-        extract(u.field);
-        release(u.field);
-        setOrder(u, ReturnGas);
-        return;
-    case ReturnMinerals:
-    case ReturnGas:
-        if (!u.carry) {
-            setOrder(u, gasOrder ? MoveToGas : MoveToMinerals);
-            return;
-        }
-        if (u.state == 0) {
-            int depot = nearestDepot();
-            if (depot < 0) {
-                u.poll = t.rules.miningFrames;  // (no depot: it waits)
-                return;
-            }
-            int x, y;
-            depotBorder(u, units[size_t(depot)], x, y);
-            setMove(u, x, y);
-            u.aimX = units[size_t(depot)].x;
-            u.aimY = units[size_t(depot)].y;
-            u.state = 1;
-            return;
-        }
-        if (!atTarget()) return;
-        if (u.state == 1) {  // (blocked by the depot it touches, it takes the depot again: one poll more)
-            u.state = 2;
-            return;
-        }
-        {
-            Player& p = players[u.owner];
-            if (u.carryGas) {
-                p.gas += u.carry;
-                p.gatheredGas += u.carry;
-            } else {
-                p.minerals += u.carry;
-                p.gathered += u.carry;
-                if (u.lastDelivery >= measureFrom && u.field >= 0 && size_t(u.field) < trips.size()) {
-                    trips[size_t(u.field)].sum += frame - u.lastDelivery;
-                    ++trips[size_t(u.field)].count;
-                }
-                u.lastDelivery = frame;
-            }
-            u.carry = 0;
-        }
-        setOrder(u, gasOrder ? MoveToGas : MoveToMinerals);
-        return;
-    default:
+        goToResource(u, u.field);
+        u.state = 1;
         return;
     }
+    if (!resourceValid(u, u.field)) {
+        u.state = 0;
+        return;
+    }
+    if (u.state == 1) {
+        if (gap(u, units[size_t(u.field)]) > t.rules.miningReach && !(u.x == u.moveX && u.y == u.moveY)) return;
+        u.state = 3;  // (the arrival is its own state, on the next poll)
+        return;
+    }
+    if (!gasOrder && units[size_t(u.field)].holder >= 0 && units[size_t(u.field)].holder != i) {
+        int other = findField(u, t.rules.otherFieldRange, true);
+        if (other >= 0) {
+            u.field = other;
+            goToResource(u, other);
+            u.state = 1;
+            return;
+        }
+    }
+    if (u.carry) setOrder(u, gasOrder ? ReturnGas : ReturnMinerals);
+    else setOrder(u, gasOrder ? WaitForGas : WaitForMinerals);
+}
+
+// Mining Minerals: it turns to the field, mines, takes its load and frees the field.
+void World::mineMinerals(int i) {
+    Unit& u = units[size_t(i)];
+    if (!resourceValid(u, u.field)) {
+        if (u.field >= 0) releaseResource(u.field);
+        setOrder(u, MoveToMinerals);
+        return;
+    }
+    if (u.state == 0) {
+        if ((u.x == u.aimX && u.y == u.aimY) || u.heading == direction(u.aimX - u.x, u.aimY - u.y)) {
+            animate(i, kAnimAlmostBuilt);  // (the mining pose)
+            u.walkingAnim = 2;
+            u.timer = t.rules.miningFrames;
+            u.state = 5;
+        }
+        return;
+    }
+    if (u.timer > 0) return;
+    animate(i, kAnimGroundAttackToIdle);
+    extract(u, u.field);
+    releaseResource(u.field);
+    setOrder(u, ReturnMinerals);
+}
+
+// Harvest Gas: inside the refinery a while, then out on the side of the nearest depot with its load.
+void World::harvestGas(int i) {
+    Unit& u = units[size_t(i)];
+    if (u.state == 0) {
+        u.hidden = true;
+        u.timer = t.rules.gasFrames;
+        u.state = 5;
+        return;
+    }
+    if (u.timer > 0) return;
+    const Unit& r = units[size_t(u.field)];
+    int depot = nearestDepot(u);
+    int dir = depot >= 0 ? direction(units[size_t(depot)].x - r.x, units[size_t(depot)].y - r.y) : 128;
+    Unit probe = u;
+    probe.x = r.x + dirX(dir) * 4;
+    probe.y = r.y + dirY(dir) * 4;
+    depotBorder(probe, r, u.x, u.y);
+    regrid(i);
+    u.ex = u.x << 8;
+    u.ey = u.y << 8;
+    stopMove(u);
+    u.hidden = false;
+    extract(u, u.field);
+    releaseResource(u.field);
+    setOrder(u, ReturnGas);
+}
+
+// Return Minerals, Return Gas: to the nearest depot, where the load counts for its owner.
+void World::returnCargo(int i) {
+    Unit& u = units[size_t(i)];
+    bool gasOrder = u.order >= MoveToGas;
+    if (!u.carry) {
+        setOrder(u, gasOrder ? MoveToGas : MoveToMinerals);
+        return;
+    }
+    if (u.state == 0) {
+        int depot = nearestDepot(u);
+        if (depot < 0) {
+            u.poll = t.rules.miningFrames;  // (no depot: it waits)
+            return;
+        }
+        goToResource(u, depot);
+        u.state = 1;
+        return;
+    }
+    if (!(u.x == u.moveX && u.y == u.moveY)) return;
+    if (u.state == 1) {  // (blocked by the depot it touches, it takes the depot again: one poll more)
+        u.state = 2;
+        return;
+    }
+    Player& p = players[u.owner];
+    if (u.carryGas) {
+        p.gas += u.carry;
+        p.gatheredGas += u.carry;
+    } else {
+        p.minerals += u.carry;
+        p.gathered += u.carry;
+        if (u.lastDelivery >= measureFrom && u.field >= 0 && size_t(u.field) < trips.size()) {
+            trips[size_t(u.field)].sum += frame - u.lastDelivery;
+            ++trips[size_t(u.field)].count;
+        }
+        u.lastDelivery = frame;
+    }
+    u.carry = 0;
+    setOrder(u, gasOrder ? MoveToGas : MoveToMinerals);
 }
 
 }  // namespace sim

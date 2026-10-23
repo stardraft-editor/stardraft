@@ -326,10 +326,31 @@ public:
 
     // Mining (mining.cpp).
     void miningOrder(int i);
+    // (mining orders, one by state, and their parts)
+    void moveToResource(int i);
+    void mineMinerals(int i);
+    void harvestGas(int i);
+    void returnCargo(int i);
+    bool resourceValid(const Unit& u, int f) const;
+    void goToResource(Unit& u, int f);
+    int findField(const Unit& u, int range, bool freeOnly) const;
+    void claimResource(int w);
+    void releaseResource(int fi);
+    void extract(Unit& u, int fi);
+    int nearestDepot(const Unit& u) const;
     void depotBorder(const Unit& w, const Unit& b, int& x, int& y) const;
 
     // Combat (combat.cpp).
     void combatOrder(int i);
+    // (combat orders, one by order and kind of unit: orders.cpp)
+    void spiderMineOrder(int i);
+    void burrowOrder(int i);
+    void interceptorOrder(int i);
+    void guardOrder(int i);
+    void attackMoveOrder(int i);
+    void attackUnitOrder(int i);
+    void launchInterceptor(int i, int current);
+    void launchScarab(int i, int current);
     void fire(int i, int weapon, bool melee, int forward = -1);
     void bulletStep(int b);
     void bulletHit(Bullet& b);
