@@ -12,11 +12,32 @@ struct CreepLayer {
     uint32_t seed = 0;
 } gCreep;
 
-// The map's start creep (1: creep), one per tile; made again when the map changed.
+// The map's start creep (1: creep), one per tile; made again when the map changed. While the selected units are
+// dragged (Units mode), it is made with them where the drag puts them (snapped as they will be dropped), so a
+// Hatchery's creep goes with it.
 const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     CreepLayer& c = gCreep;
+    const AppState& app = appState();
+    std::vector<Unit> dragged;
+    if (app.ed.get() == &ed && app.drag == Drag::MoveUnits && app.dragMoved) {
+        float wx, wy, fx, fy;
+        toWorld(app.mouseX, app.mouseY, wx, wy);
+        dragMoveDelta(wx, wy, fx, fy);
+        const int dx = int(std::lround(fx)), dy = int(std::lround(fy));
+        if (dx || dy) {
+            dragged = ed.units();
+            for (int i : ed.selection())
+                if (i >= 0 && size_t(i) < dragged.size()) {
+                    Unit& u = dragged[size_t(i)];
+                    u.x = uint16_t(std::clamp(int(u.x) + dx, 0, ed.width() * 32 - 1));
+                    u.y = uint16_t(std::clamp(int(u.y) + dy, 0, ed.height() * 32 - 1));
+                    if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
+                }
+        }
+    }
+    const std::vector<Unit>& units = dragged.empty() ? ed.units() : dragged;
     uint64_t key = 1469598103934665603ull;  // (the buildings' types and places: FNV-1a)
-    for (const Unit& u : ed.units())
+    for (const Unit& u : units)
         if (u.type < ed.unitTypes().size() && ed.unitTypes()[u.type].is(UnitFlag::Building))
             for (uint64_t v : {uint64_t(u.type), uint64_t(u.x), uint64_t(u.y)}) key = (key ^ v) * 1099511628211ull;
     if (c.editor == &ed && c.terrain == ed.terrainRevision() && c.buildings == key) return c.creep;
@@ -24,7 +45,7 @@ const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     c.terrain = ed.terrainRevision();
     c.buildings = key;
     const TerrainLayer& terrain = ed.terrain();
-    std::vector<uint8_t> creep = startCreep(ed.tileset(), terrain, ed.units(), ed.unitTypes());
+    std::vector<uint8_t> creep = startCreep(ed.tileset(), terrain, units, ed.unitTypes());
     const size_t n = creep.size();
     if (c.variants.size() != n) {  // (the variants: once a session, for a map of this size)
         if (!c.seed) c.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
