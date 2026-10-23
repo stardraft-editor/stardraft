@@ -1339,6 +1339,45 @@ bool runDamageOverlayCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Unit free for all: every fighting unit is an enemy of every other one, also of its own player's. 6 Zerglings of one
+// player kill each other down to one; 4 Marines and 4 Zerglings of two players end with one unit left. The result
+// gives the last unit's index in `placed`, its player as the winner, and one team by player.
+bool runUnitFreeForAllCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    bool ok = true;
+    struct Case {
+        const char* name;
+        std::vector<std::array<int, 5>> groups;  // (type, player, count, x, y)
+        int players;
+    };
+    for (const Case& c : {Case{"6 Zergling of one player", {{37, 1, 6, 3760, 2360}}, 1},
+                          Case{"4 Marine (P0) + 4 Zergling (P1)",
+                               {{0, 0, 4, 3700, 2360}, {37, 1, 4, 3820, 2360}}, 2}}) {
+        sim::World w(t, map);
+        w.seed = 42;
+        sim::CombatOptions o;
+        o.byPlayer = true;
+        o.unitFreeForAll = true;
+        for (const auto& g : c.groups)
+            for (int n = 0; n < g[2]; ++n) o.placed.push_back({g[0], g[1], g[3] + n % 4 * 24, g[4] + n / 4 * 24});
+        o.frames = 6000;
+        std::string error;
+        if (!sim::setupCombat(w, o, error)) {
+            std::printf("Unit free for all: %s: %s: FAIL\n", c.name, error.c_str());
+            return false;
+        }
+        while (!sim::combatOver(w, o.frames)) w.step();
+        sim::CombatResult r = sim::combatResultOf(w);
+        int alive = 0;
+        for (const sim::Unit& u : w.units) alive += u.alive && !u.neutral && !u.fighter;
+        bool good = alive == 1 && r.winnerUnit >= 0 && r.winnerUnit < int(o.placed.size()) &&
+                    r.winner == o.placed[size_t(r.winnerUnit)].side && int(r.teams.size()) == c.players;
+        std::printf("Unit free for all: %s: %d left at frame %d, the last unit placed %d, winner player %d, %zu teams: "
+                    "%s\n", c.name, alive, r.frames, r.winnerUnit, r.winner, r.teams.size(), good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
 // Fast forward (Skip to the end): the same game with and without the pictures and sounds. Fight 1, fight 8, a
 // 400-unit fight of 4 players and a mining run: the same end frame and the same HP + shields (minerals) every 24
 // frames; after fast forward, images() gives each living unit its image and no effect sprite.
@@ -2103,6 +2142,7 @@ int main(int argc, char** argv) {
         if (!runMiningCollisionCheck(tables, install)) ++failures;
         if (!runGatherPictureCheck(tables, map)) ++failures;
         if (!runDamageOverlayCheck(tables, map)) ++failures;
+        if (!runUnitFreeForAllCheck(tables, map)) ++failures;
         if (!runSoundCheck(tables, map)) ++failures;
         runDefenceFights(tables, map);
         {  // (players 0, 1 and 2: 1 and 2 allied; then each player alone)

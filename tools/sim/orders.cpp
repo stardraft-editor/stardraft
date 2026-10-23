@@ -332,7 +332,7 @@ void World::attackUnitOrder(int i) {
             setMove(u, target.x, target.y);
             u.poll = 0;
         } else {
-            if (firstShot[u.side] < 0) firstShot[u.side] = frame;
+            if (u.side < 8 && firstShot[u.side] < 0) firstShot[u.side] = frame;
             fire(i, weapon, false);
         }
         return;
@@ -426,7 +426,7 @@ void World::launchScarab(int i, int current) {
     bullets.push_back(b);
     u.timer = t.rules.scarabLock;
     --u.scarabs;
-    if (firstShot[u.side] < 0) firstShot[u.side] = frame;
+    if (u.side < 8 && firstShot[u.side] < 0) firstShot[u.side] = frame;
 }
 
 // A Medic's order: on its order tick it heals its target by at most 200 raw within a

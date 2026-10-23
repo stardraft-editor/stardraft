@@ -163,7 +163,7 @@ void World::startAttack(int i, const Unit& target, const WeaponData& wd, bool tu
     if (role(u.type).cooldownUpgrade >= 0 && level(u.owner, role(u.type).cooldownUpgrade))
         cooldown /= t.rules.cooldownUpgradeDivisor;
     u.cooldown = std::max(0, cooldown + random() % t.rules.cooldownJitter[0] + t.rules.cooldownJitter[1]);
-    if (firstShot[u.side] < 0) firstShot[u.side] = frame;
+    if (u.side < 8 && firstShot[u.side] < 0) firstShot[u.side] = frame;
     bool air = (t.units[size_t(target.type)].flags & kFlyer) != 0;
     Anim& anim = turret ? u.turret : u.anim;
     int attackAnim = air ? kAnimAirAttack : kAnimGroundAttack;
@@ -489,14 +489,15 @@ void World::damage(int target, int source, int weapon, int amount, int divisor) 
         forNear(square(v.x, v.y, help), [&](int j) { near.push_back(j); });
         for (int jj : near) {
             Unit& a = units[size_t(jj)];
-            if (!a.alive || a.owner != v.owner || !withinSquare(a.x, a.y, v.x, v.y, help)) continue;
+            bool ally = unitFreeForAll ? a.side == v.side : a.owner == v.owner;  // (free for all: none but itself)
+            if (!a.alive || !ally || !withinSquare(a.x, a.y, v.x, v.y, help)) continue;
             if ((t.units[size_t(a.type)].flags & kWorker) || !canAttack(a, s)) continue;
             bool keep = a.autoTarget >= 0 && canAttack(a, units[size_t(a.autoTarget)]) &&
                         !(inRange(a, s) && !inRange(a, units[size_t(a.autoTarget)]));
             if (!keep) a.autoTarget = attacker;
         }
     }
-    if ((shieldDamage > 0 || dmg > 0) && firstDamage[v.side] < 0) firstDamage[v.side] = frame;
+    if ((shieldDamage > 0 || dmg > 0) && v.side < 8 && firstDamage[v.side] < 0) firstDamage[v.side] = frame;
     if (dmg >= v.hp) kill(target);
     else v.hp -= dmg;
     v.shields -= shieldDamage;
@@ -573,8 +574,11 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
             n.neutral = true;
             n.side = 99;  // (no team)
         }
+    w.unitFreeForAll = o.byPlayer && o.unitFreeForAll;
     if (!o.placed.empty()) {
-        for (const PlacedUnit& p : o.placed) {
+        int fighters = 0;  // (free for all: each unit its own side)
+        for (size_t k = 0; k < o.placed.size(); ++k) {
+            const PlacedUnit& p = o.placed[k];
             if (p.unitType < 0 || p.unitType >= int(t.units.size())) return validType(-1);
             // (no unit is removed: resources, invincible units, critters, the neutral player's units and the passive
             // ones stay where they are as the map's own units; every other building of a player is a target)
@@ -587,10 +591,10 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
                 continue;
             }
             int player = std::clamp(p.side, 0, 7);
-            int side = o.byPlayer ? std::clamp(o.team[player], 0, 7) : p.side ? 1 : 0;
+            int side = w.unitFreeForAll ? fighters++ : o.byPlayer ? std::clamp(o.team[player], 0, 7) : p.side ? 1 : 0;
             int x = p.x, y = p.y;  // (units on one another: the nearest free spot; a building stands where it is)
             if (!(t.units[size_t(p.unitType)].flags & kBuilding)) w.freeSpot(p.unitType, x, y);
-            create(p.unitType, side, x, y, o.byPlayer ? player : -1);
+            w.units[size_t(create(p.unitType, side, x, y, o.byPlayer ? player : -1))].placedIndex = int(k);
         }
     } else {
         std::vector<int> armies[2];
@@ -627,7 +631,10 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
             }
     }
     // Both sides attack-move to the other's centre (placed units: to the middle of all their enemies).
-    long long sum[8][3] = {};
+    int sideCount = 0;
+    for (const Unit& u : w.units)
+        if (!u.fighter && !u.neutral) sideCount = std::max(sideCount, u.side + 1);
+    std::vector<std::array<long long, 3>> sum(size_t(sideCount), std::array<long long, 3>{});
     for (const Unit& u : w.units) {
         if (u.fighter || u.neutral) continue;
         sum[u.side][0] += u.x;
@@ -643,8 +650,8 @@ bool setupCombat(World& w, const CombatOptions& o, std::string& error) {
     for (Unit& u : w.units) {
         if (u.fighter || u.neutral) continue;
         long long ex = 0, ey = 0, en = 0;  // (its enemies' middle)
-        for (int s = 0; s < 8; ++s)
-            if (s != u.side) ex += sum[s][0], ey += sum[s][1], en += sum[s][2];
+        for (int s = 0; s < sideCount; ++s)
+            if (s != u.side) ex += sum[size_t(s)][0], ey += sum[size_t(s)][1], en += sum[size_t(s)][2];
         u.amX = o.placed.empty() ? centres[1 - u.side][0] : int(ex / en);
         u.amY = o.placed.empty() ? centres[1 - u.side][1] : int(ey / en);
         w.setOrder(u, u.building && !w.hasWeapon(u) ? Idle : AttackMove);  // (a building that cannot attack: a target)
@@ -720,15 +727,19 @@ void World::trackProgress() {
 }
 
 bool combatOver(World& w, int lastFrame) {
-    int alive[8] = {}, attackers[8] = {}, teams = 0, attacking = 0;
+    int sideCount = 8;
+    for (const Unit& u : w.units)
+        if (!u.fighter && !u.neutral) sideCount = std::max(sideCount, u.side + 1);
+    std::vector<int> alive(size_t(sideCount), 0), attackers(size_t(sideCount), 0);
+    int teams = 0, attacking = 0;
     for (const Unit& u : w.units)
         if (u.alive && !u.fighter && !u.neutral) {
-            ++alive[u.side];
-            if (w.hasWeapon(u)) ++attackers[u.side];
+            ++alive[size_t(u.side)];
+            if (w.hasWeapon(u)) ++attackers[size_t(u.side)];
         }
-    for (int s = 0; s < 8; ++s) {
-        teams += alive[s] ? 1 : 0;
-        attacking += alive[s] && attackers[s] ? 1 : 0;
+    for (int s = 0; s < sideCount; ++s) {
+        teams += alive[size_t(s)] ? 1 : 0;
+        attacking += alive[size_t(s)] && attackers[size_t(s)] ? 1 : 0;
     }
     if (teams <= 1) return true;
     if (w.allTeams) {  // (all players: it goes on while some team can attack an enemy)
@@ -750,8 +761,8 @@ bool combatOver(World& w, int lastFrame) {
         return true;
     }
     if (teams == 2)  // (two sides: one that cannot attack ends it)
-        for (int s = 0; s < 8; ++s)
-            if (alive[s] && !attackers[s]) {
+        for (int s = 0; s < sideCount; ++s)
+            if (alive[size_t(s)] && !attackers[size_t(s)]) {
                 w.helpless = s;
                 return true;
             }
@@ -772,10 +783,11 @@ CombatResult combatResultOf(const World& w) {
     auto whole = [](int v) { return (v + 255) / 256; };
     for (const Unit& u : w.units) {
         if (u.fighter || u.neutral) continue;  // (Interceptors and the map's own units are not units of a side)
-        auto team = std::find_if(r.teams.begin(), r.teams.end(), [&](const CombatSide& s) { return s.team == u.side; });
+        const int key = w.unitFreeForAll ? u.owner : u.side;  // (free for all: the teams by player)
+        auto team = std::find_if(r.teams.begin(), r.teams.end(), [&](const CombatSide& s) { return s.team == key; });
         if (team == r.teams.end()) {
             r.teams.push_back(CombatSide());
-            r.teams.back().team = u.side;
+            r.teams.back().team = key;
             team = r.teams.end() - 1;
         }
         if (std::find(team->players.begin(), team->players.end(), u.owner) == team->players.end())
@@ -850,12 +862,23 @@ CombatResult combatResultOf(const World& w) {
             }
         if (got) continue;
         for (CombatSide& c : r.teams)
-            if (c.team == v.side) ++c.unreachable;
+            if (c.team == (w.unitFreeForAll ? v.owner : v.side)) ++c.unreachable;
         if (v.side == 0) ++r.a.unreachable;
         if (v.side == 1) ++r.b.unreachable;
     }
-    if (w.helpless >= 0 && r.teams.size() == 2)  // (two sides: the other one wins)
+    if (w.helpless >= 0 && r.teams.size() == 2 && !w.unitFreeForAll)  // (two sides: the other one wins)
         r.winner = r.teams[0].team == w.helpless ? r.teams[1].team : r.teams[0].team;
+    // The last unit left (placed units): its index in `placed`; free for all: its player is the winner.
+    int last = -1, count = 0;
+    for (const Unit& u : w.units)
+        if (u.alive && !u.fighter && !u.neutral && u.placedIndex >= 0) last = u.placedIndex, ++count;
+    r.winnerUnit = count == 1 && !r.timedOut && !r.stalemate ? last : -1;
+    if (w.unitFreeForAll) {
+        r.winner = -1;
+        for (const Unit& u : w.units)
+            if (r.winnerUnit >= 0 && u.alive && !u.fighter && !u.neutral && u.placedIndex == r.winnerUnit)
+                r.winner = u.owner;
+    }
     return r;
 }
 

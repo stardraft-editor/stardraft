@@ -63,6 +63,10 @@ struct CombatOptions {
     // Placed units by player: PlacedUnit::side is the player; players of the same team are allies, all others enemies.
     bool byPlayer = false;
     int team[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+    // Unit free for all (byPlayer): every fighting placed unit is its own team, an enemy of every other one, also of
+    // its own player's (no allies; a unit sees cloaked units only with its own detection). The images keep the
+    // players' colours; the result's teams are still one by player.
+    bool unitFreeForAll = false;
     int x = -1, y = -1;              // the middle of the fight (map pixels); -1: the map's middle
     int gap = 256;                   // the distance between the two armies at the start (pixels)
     int frames = 2857;               // the most game frames (2 minutes at Fastest)
@@ -96,6 +100,7 @@ struct CombatResult {
     CombatSide a, b;    // (the two sides; byPlayer: not filled)
     std::vector<CombatSide> teams;  // each team that had units
     int winner = -1;                // the team left with units; -1: none (or the time ran out)
+    int winnerUnit = -1;            // (placed units) the index in `placed` of the last unit left; -1: none
 };
 
 // A sound of the live game (sfxdata.dat id) where the game would play it: from the scripts (attacks, deaths, hits).

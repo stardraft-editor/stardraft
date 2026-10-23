@@ -186,6 +186,7 @@ struct Unit {
     int parent = -1;                          // (an Interceptor's Carrier)
     int movedFrame = -1, burrowStep = 0, startWait = 0, dieAt = -1;
     int damageStep = 0;  // (a building: the damage overlay steps it shows)
+    int placedIndex = -1;  // (a placed fighting unit: its index in CombatOptions::placed)
     int id = 0;
     bool fighter = false, burrowing = false, burrowed = false, neutral = false;  // (neutral: the map's own units)
     std::vector<std::pair<int, int>> path;     // the waypoints around unwalkable ground (the last: the move target)
@@ -405,7 +406,8 @@ public:
     bool seek = false;      // (placed units: search and destroy; each unit goes on to the nearest enemy)
     bool reaches(const Unit& a, const Unit& v) const;  // a can get at v: it flies, or v is in its walkable group
     int nearestEnemy(const Unit& a) const;  // the nearest enemy a can attack and reach; -1: none
-    int firstShot[8] = {-1, -1, -1, -1, -1, -1, -1, -1};  // (the frames, by side or team)
+    int firstShot[8] = {-1, -1, -1, -1, -1, -1, -1, -1};  // (the frames, by side or team: the first 8)
+    bool unitFreeForAll = false;  // (CombatOptions::unitFreeForAll: each unit its own side)
     int firstDamage[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
     std::vector<std::array<int, 3>> spineHits;                 // (frame, Lurker, target)
     int spinSource = -1, spinSide = 0;  // the last bullet with a heading offset: its unit and side

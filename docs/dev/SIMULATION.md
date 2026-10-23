@@ -209,9 +209,13 @@ frame ranges, and the Archon's attack overlay at its .lo offset.
 sim_test's drawing layers check: in fight 1 and the Siege Tank fight, each hit image (a weapon's own image and the
 sprites its script makes above it) has a level above the ground units'.
 
-**Players and teams**: with `byPlayer`, placed units fight by player; players of one team (`team[8]`) are allies,
-all others enemies; each unit attack-moves to the middle of its enemies; the result lists the teams and the winner.
-The two-side mode (armies a and b, or placed units of side 0 and 1) is as before.
+**Players and teams**: with `byPlayer`, placed units fight by player; players of one team (`team[8]`) are allies, all
+others enemies; each unit attack-moves to the middle of its enemies; the result lists the teams and the winner. The
+two-side mode (armies a and b, or placed units of side 0 and 1) is as before. With `unitFreeForAll` (and `byPlayer`),
+every fighting placed unit is its own team: an enemy of every other one, also of its own player's units, with no allies
+(no call for help from another unit; it sees cloaked units only with its own detection). The images keep the players'
+colours, the result's teams are still one by player, the winner is the player of the last unit left, and `winnerUnit` is
+that unit's index in `placed` (also in other fights of placed units with one unit left; -1: none).
 
 **Units in a fight**: no placed unit is removed. Every unit and building of a fighting player takes part; units that
 cannot attack stand where they are, as targets. A building stands where placed; units collide with its units.dat box,
