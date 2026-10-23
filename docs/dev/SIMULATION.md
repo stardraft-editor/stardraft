@@ -190,15 +190,17 @@ all others enemies; each unit attack-moves to the middle of its enemies; the res
 The two-side mode (armies a and b, or placed units of side 0 and 1) is as before.
 
 **Units in a fight**: no placed unit is removed. Every unit and building of a fighting player takes part; units that
-cannot attack stand where they are, as targets. A building stands where placed, its placement box is its footprint for
-movement, and it is a target with the last priority of the units that cannot attack (all buildings are complete; Zerg
-buildings need no creep). Only the four static defences attack. Resources, invincible units, critters, units of the
-players 9 to 12 and the units with `PlacedUnit::passive` (the map's units that are not selected) stay as the map's own
-units: they block movement and are drawn, but they are never a target, never attack, take no damage or splash, and are
-not in the result. The army mode (`a` and `b`) accepts only units and the four defences. The static defences (Missile
-Turret, Spore Colony, Sunken Colony, Photon Cannon) stand where placed, look for a target every frame with no facing
-test, fire from their scripts and detect (not the Sunken); their placement box is their footprint for movement; Cannons
-count as powered. Placed units that stand on one another go to the nearest free spots.
+cannot attack stand where they are, as targets. A building stands where placed; units collide with its units.dat box,
+not its placement box (they walk in the gaps that its box leaves and reach it in melee range), and it is a target with
+the last priority of the units that cannot attack (all buildings are complete; Zerg buildings need no creep). Only the
+four static defences attack. Resources, invincible units, critters, units of the players 9 to 12 and the units with
+`PlacedUnit::passive` (the map's units that are not selected) stay as the map's own units: they block movement and are
+drawn, but they are never a target, never attack, take no damage or splash, and are not in the result. The army mode
+(`a` and `b`) accepts only units and the four defences. The static defences (Missile Turret, Spore Colony, Sunken
+Colony, Photon Cannon) stand where placed, look for a target every frame with no facing test, fire from their scripts
+and detect (not the Sunken); Cannons count as powered. A unit that finds no way to its move target stays where it is and
+tries again after `frozenFrames` (rules.ini: 24), so a unit held behind others goes round them when a place at its
+target is free. Placed units that stand on one another go to the nearest free spots.
 
 **Search and destroy** (placed units, both modes): a unit with no target that has reached its point, or every 24 frames
 while it attack-moves, goes on to the nearest enemy it can attack and get at (ground units: in its walkable group;

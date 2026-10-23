@@ -163,7 +163,8 @@ struct Unit {
     int energy = 0, healTarget = -1, healedFrame = -1;  // (a Medic's energy: 8 fractional bits)
     int stuck = 0;                            // the block counter
     int pathFrame = -100;                     // (the frame its path was made)
-    int frozenX = -1, frozenY = -1;           // (immovable: the move target it does not take again)
+    int frozenX = -1, frozenY = -1;           // (immovable: the move target it does not take again,
+    int frozenUntil = 0;                      // until this frame)
     bool retry = false;                       // (a failed path: it waits, then searches again)
     bool cut = false;                         // (its path goal cannot be reached: it goes to the nearest place)
     bool partial = false;                     // (its path goes part of the way: the rest when it is walked)
@@ -314,7 +315,7 @@ public:
     void images(std::vector<LiveImage>& out) const;
     int gap(const Unit& a, const Unit& b) const;
     int pointGap(const Unit& v, int x, int y) const;
-    bool overlaps(int type, int x, int y, const Unit& o, bool footprint = false) const;
+    bool overlaps(int type, int x, int y, const Unit& o) const;
     // The order tick: false on the frames in between; true every 9th frame. A new order runs at once; after that the
     // unit's order runs on its own phase of the 9 (fixed for its life, from its number), so that not all units act on
     // the same frame.

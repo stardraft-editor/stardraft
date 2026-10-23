@@ -1163,6 +1163,38 @@ bool runArchonImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
     return ok;
 }
 
+// Attacks on buildings: melee and ranged units reach a building's box (they collide with its units.dat box, not its
+// placement footprint) and kill it, and no attacker stands idle (no attack, no move) for more than 30 frames while
+// an enemy is left. `groups`: (unit type, player, count, x, y) of placed units, 24 px apart; players 1 and 2.
+bool runBuildingFight(const sim::Tables& t, const sim::MapInfo& map, const char* name,
+                      const std::vector<std::array<int, 5>>& groups) {
+    sim::World w(t, map);
+    w.seed = 42;
+    sim::CombatOptions o;
+    o.byPlayer = true;
+    for (const auto& g : groups)
+        for (int n = 0; n < g[2]; ++n) o.placed.push_back({g[0], g[1], g[3] + n % 4 * 24, g[4] + n / 4 * 24});
+    std::string error;
+    if (!sim::setupCombat(w, o, error)) return false;
+    std::vector<int> idle(w.units.size(), 0);
+    int longest = 0;
+    while (!sim::combatOver(w, 3000)) {
+        w.step();
+        for (size_t i = 0; i < w.units.size() && i < idle.size(); ++i) {
+            const sim::Unit& u = w.units[i];
+            if (!u.alive || u.building || u.owner != 1) continue;
+            idle[i] = u.cooldown > 0 || u.repeatAttack || u.speed > 0 ? 0 : idle[i] + 1;
+            longest = std::max(longest, idle[i]);
+        }
+    }
+    int left = 0;
+    for (const sim::Unit& u : w.units) left += u.alive && u.owner == 2;
+    bool ok = left == 0 && longest <= 30;
+    std::printf("Buildings: %s: %s at frame %d, longest idle %d frames: %s\n", name,
+                left ? "the building lives" : "the building dies", w.frame, longest, ok ? "OK" : "FAIL");
+    return ok;
+}
+
 // Death animations: after a unit dies, its death images show for some frames, each frame in its GRP (a death
 // animation's frames have no directions: Zealot, Dragoon, Marine, Zergling).
 bool runDeathImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
@@ -1852,6 +1884,20 @@ int main(int argc, char** argv) {
         if (!runMissileFlightCheck(tables, map)) ++failures;
         if (!runElevationCheck(tables, map)) ++failures;
         if (!runArchonImageCheck(tables, map)) ++failures;
+        // (Zealots, Zerglings and Marines on buildings: 2 Photon Cannons, a Sunken Colony, a Nexus, a Command Center)
+        if (!runBuildingFight(tables, map, "6 Zealot vs 2 Photon Cannon",
+                              {{65, 1, 6, 3600, 2350}, {162, 2, 1, 3850, 2330}, {162, 2, 1, 3850, 2400}}))
+            ++failures;
+        if (!runBuildingFight(tables, map, "8 Zergling vs Sunken Colony",
+                              {{37, 1, 8, 3600, 2350}, {146, 2, 1, 3850, 2350}}))
+            ++failures;
+        if (!runBuildingFight(tables, map, "12 Zealot vs Nexus", {{65, 1, 12, 3600, 2350}, {154, 2, 1, 3880, 2350}}))
+            ++failures;
+        if (!runBuildingFight(tables, map, "12 Zergling vs Command Center",
+                              {{37, 1, 12, 3600, 2350}, {106, 2, 1, 3880, 2350}}))
+            ++failures;
+        if (!runBuildingFight(tables, map, "5 Zealot vs Bunker", {{65, 1, 5, 3600, 2350}, {125, 2, 1, 3850, 2350}}))
+            ++failures;
         if (!runDeathImageCheck(tables, map)) ++failures;
         if (!runUpgradeCheck(tables, map)) ++failures;
         if (!runHiddenImageCheck(tables, map)) ++failures;

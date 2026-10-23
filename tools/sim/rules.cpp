@@ -36,6 +36,7 @@ const Number kNumbers[] = {
     SIM_NUMBER(lineHitRepeat), SIM_NUMBER(regenHp), SIM_NUMBER(regenShields), SIM_NUMBER(regenEnergy),
     SIM_NUMBER(maxEnergy), SIM_NUMBER(stuckRetry), SIM_NUMBER(stuckRetryEnd), SIM_NUMBER(stuckGiveUp),
     SIM_NUMBER(stuckYield), SIM_NUMBER(stuckHold), SIM_NUMBER(stuckFresh), SIM_NUMBER(straightReach),
+    SIM_NUMBER(frozenFrames),
     SIM_NUMBER(pathAgeForRepath), SIM_NUMBER(healSearch), SIM_NUMBER(healGap), SIM_NUMBER(healMax),
     SIM_NUMBER(scarabForward), SIM_NUMBER(scarabLock), SIM_NUMBER(scarabStand), SIM_NUMBER(scarabSpeed),
     SIM_NUMBER(scarabArmFrames), SIM_NUMBER(scarabBlastDelay), SIM_NUMBER(scarabLife), SIM_NUMBER(interceptorLaunch),

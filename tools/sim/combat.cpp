@@ -225,7 +225,7 @@ void World::outlineSpot(const Unit& u, const Unit& target, int& x, int& y) const
             if (&o == &u || &o == &target || !o.alive || o.hidden || o.burrowed) continue;
             const UnitData& od = t.units[size_t(o.type)];
             if ((od.flags & kFlyer) || o.x != o.moveX || o.y != o.moveY) continue;
-            if (overlaps(u.type, px, py, o, true))
+            if (overlaps(u.type, px, py, o))
                 return true;
         }
         return false;

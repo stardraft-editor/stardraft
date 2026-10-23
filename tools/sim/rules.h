@@ -38,7 +38,7 @@ struct GameRules {
     int shieldArmorUpgrade = 0, energyUpgrade = 0, maxEnergyUpgraded = 0, startEnergyUpgraded = 0;
     // movement
     int stuckRetry = 0, stuckRetryEnd = 0, stuckGiveUp = 0, stuckYield = 0, stuckHold = 0, stuckFresh = 0;
-    int straightReach = 0, pathAgeForRepath = 0, waypointPass = 0;
+    int straightReach = 0, pathAgeForRepath = 0, waypointPass = 0, frozenFrames = 0;
     // Medic
     int healSearch = 0, healGap = 0, healMax = 0, healEnergyDivisor = 0;
     // Reaver and Scarab

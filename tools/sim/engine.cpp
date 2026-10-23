@@ -76,17 +76,11 @@ int World::gap(const Unit& a, const Unit& b) const {
     return octagonalLength(gx, gy);
 }
 
-// Whether a unit of a type at (x, y) and another unit overlap (inner boxes, touching counts).
-// (footprint: a building's placement box, its footprint for movement)
-bool World::overlaps(int type, int x, int y, const Unit& o, bool footprint) const {
+// Whether a unit of a type at (x, y) and another unit overlap (their units.dat boxes, touching counts; a building's
+// too, not its placement footprint: units walk in the gaps that its box leaves).
+bool World::overlaps(int type, int x, int y, const Unit& o) const {
     const UnitData &d = t.units[size_t(type)], &od = t.units[size_t(o.type)];
     int ol = od.left, orr = od.right, ou = od.up, odn = od.down;
-    if (footprint && o.building && od.placeW > 0) {
-        ol = od.placeW / 2;
-        orr = od.placeW - ol - 1;
-        ou = od.placeH / 2;
-        odn = od.placeH - ou - 1;
-    }
     return x - d.left <= o.x + orr && o.x - ol <= x + d.right && y - d.up <= o.y + odn && o.y - ou <= y + d.down;
 }
 
@@ -568,7 +562,7 @@ bool World::searchBudgetLeft() const {
 void World::setMove(Unit& u, int x, int y) {
     x = std::clamp(x, 0, map.width * 32 - 1);
     y = std::clamp(y, 0, map.height * 32 - 1);
-    if (x == u.frozenX && y == u.frozenY) return;  // (immovable)
+    if (x == u.frozenX && y == u.frozenY && frame < u.frozenUntil) return;  // (immovable, for a while)
     // (a goal it cannot reach, or one within a tile of it: it stays at the nearest place)
     // (a goal it could not reach a short time ago: on to the place it reached then, with no new search; after the wait,
     // a new search)
@@ -673,6 +667,7 @@ bool World::move(Unit& u, bool last) {
         if (!shortPath(u, -1, false)) {
             u.frozenX = u.moveX;
             u.frozenY = u.moveY;
+            u.frozenUntil = frame + t.rules.frozenFrames;
             stopMove(u);
         }
         return false;
@@ -804,7 +799,7 @@ void World::react(Unit& u, const Unit& c, int tx, int ty) {
         Unit p = o;
         p.x = ox;
         p.y = oy;
-        return overlaps(u.type, x, y, p, true);
+        return overlaps(u.type, x, y, p);
     };
     const Unit* target = u.order == AttackUnit && u.target >= 0 ? &units[size_t(u.target)] : nullptr;
     bool cMoving = c.x != c.moveX || c.y != c.moveY;
@@ -847,6 +842,7 @@ void World::react(Unit& u, const Unit& c, int tx, int ty) {
         if (outcome == Freeze) {
             u.frozenX = u.moveX;
             u.frozenY = u.moveY;
+            u.frozenUntil = frame + t.rules.frozenFrames;
         }
         stopMove(u);
         u.stuck = 0;
@@ -878,15 +874,9 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
         if (&o == &u || !o.alive || o.hidden || o.burrowed || (t.units[o.type].flags & kFlyer)) return;
         if (std::abs(o.x - u.x) > 128 + 96 || std::abs(o.y - u.y) > 128 + 96) return;  // (outside the search's reach)
         bool rest = o.x == o.moveX && o.y == o.moveY;
-        if (!(rest || movers || o.id == consider) || overlaps(u.type, u.x, u.y, o, true)) return;
+        if (!(rest || movers || o.id == consider) || overlaps(u.type, u.x, u.y, o)) return;
         const UnitData& od = t.units[o.type];
         int ol = od.left, orr = od.right, ou = od.up, odn = od.down;
-        if (o.building && od.placeW > 0) {
-            ol = od.placeW / 2;
-            orr = od.placeW - ol - 1;
-            ou = od.placeH / 2;
-            odn = od.placeH - ou - 1;
-        }
         obstacles.push_back({o.x - ol - d.right, o.y - ou - d.down, o.x + orr + d.left, o.y + odn + d.up});
     });
     auto free = [&](int x, int y) {
@@ -963,15 +953,15 @@ bool World::shortPath(Unit& u, int consider, bool movers) {
 // The largest ground unit whose box the unit's box would overlap at (x, y), and does not overlap now; -1: none.
 int World::blocker(const Unit& u, int x, int y) const {
     int best = -1, bestArea = 0;
-    forNear(x - 192, y - 192, x + 192, y + 192, [&](int j) {  // (boxes, footprints and a frame's moves)
+    forNear(x - 192, y - 192, x + 192, y + 192, [&](int j) {  // (boxes and a frame's moves)
         const Unit& o = units[size_t(j)];
         if (&o == &u || !o.alive || o.hidden || o.burrowed) return;
         if (role(o.type).spiderMine && o.state >= 1 && o.state <= 3) return;  // (a Spider Mine burrowing: no collision)
         const UnitData& od = t.units[o.type];
         if (od.flags & kFlyer) return;
         int area = (od.left + od.right + 1) * (od.up + od.down + 1);
-        if ((area > bestArea || (area == bestArea && j < best)) && overlaps(u.type, x, y, o, true) &&
-            !overlaps(u.type, u.x, u.y, o, true)) {  // (the largest; of equal ones, the first in the list)
+        if ((area > bestArea || (area == bestArea && j < best)) && overlaps(u.type, x, y, o) &&
+            !overlaps(u.type, u.x, u.y, o)) {  // (the largest; of equal ones, the first in the list)
             best = j;
             bestArea = area;
         }
