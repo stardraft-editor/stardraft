@@ -1246,6 +1246,40 @@ bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& 
     return ok;
 }
 
+// Gathering pictures and sounds: a mining worker plays its mining animation (Almost Built) while it mines; the SCV's
+// and the Probe's use their harvest weapon (its picture at the field, with sparks), and all three play their sounds.
+bool runGatherPictureCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    bool ok = true;
+    for (sim::Race race : {sim::Terran, sim::Protoss, sim::Zerg}) {
+        sim::MiningOptions mo;
+        mo.races = {race};
+        std::vector<sim::MiningBase> bases = sim::miningBases(t, map, mo);
+        bases.resize(1);
+        std::vector<sim::Race> races = sim::baseRaces(t, map, bases, mo);
+        sim::World w(t, map);
+        w.recordSounds = true;
+        sim::setupMining(w, bases, races, 9, mo);
+        std::vector<int> mainImages;
+        for (const sim::UnitData& d : t.units) mainImages.push_back(t.flingyImage(d.flingy));
+        int pictures = 0, sounds = 0;
+        for (int f = 0; f < 900; ++f) {
+            w.step();
+            std::vector<sim::LiveImage> images;
+            w.images(images);
+            for (const sim::LiveImage& li : images)  // (a picture that is no unit's own)
+                pictures += std::find(mainImages.begin(), mainImages.end(), li.image) == mainImages.end() &&
+                            li.image != t.rules.mineralImage && li.image != t.rules.mineralImage + 1;
+        }
+        sounds = int(w.sounds.size());
+        bool good = sounds > 0 && (race == sim::Zerg || pictures > 0);  // (the Drone's work has no picture of its own)
+        const char* name = race == sim::Terran ? "SCV" : race == sim::Protoss ? "Probe" : "Drone";
+        std::printf("Gathering pictures: %ss mining 900 frames: %d effect images drawn, %d sounds: %s\n", name,
+                    pictures, sounds, good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
 // Fast forward (Skip to the end): the same game with and without the pictures and sounds. Fight 1, fight 8, a
 // 400-unit fight of 4 players and a mining run: the same end frame and the same HP + shields (minerals) every 24
 // frames; after fast forward, images() gives each living unit its image and no effect sprite.
@@ -2008,6 +2042,7 @@ int main(int argc, char** argv) {
         if (!runPerf(tables, map, install, reader)) ++failures;
         if (!runFastForwardCheck(tables, map, install, reader)) ++failures;
         if (!runMiningCollisionCheck(tables, install)) ++failures;
+        if (!runGatherPictureCheck(tables, map)) ++failures;
         if (!runSoundCheck(tables, map)) ++failures;
         runDefenceFights(tables, map);
         {  // (players 0, 1 and 2: 1 and 2 allied; then each player alone)

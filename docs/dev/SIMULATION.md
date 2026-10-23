@@ -48,11 +48,14 @@ warm-up: minerals and gas a minute (at Fastest, 42 ms a frame) and each field's 
 With `mapRaces`, a start location's base takes its player's race from the map's SIDE section (a race picked in the
 lobby or Random: a random race from `seed`); the other bases take `races[0]`. A run of 60 minutes with 60 workers at
 both start locations of (2)Bottleneck.scm takes about 0.3 s (`sim_test`).
-Gathering workers pass each other and the mineral fields, but never walk into the box of a depot, a refinery or any
-other building: the terrain test, the paths and the steps treat those boxes as unwalkable (a mask of the minitiles
-they cover, as mining's buildings never move), and a worker goes to the nearest point where it touches its field or
-depot and fits. (mining.md has the fields block workers too, as buildings; with that, the mining measures went from a
-mean difference of 4.0% to 5.8%, so the fields stay passable until the stop point at a field is measured.)
+A mining worker plays its mining animation (Almost Built) while it mines and Ground Attack to Idle at the end; the
+weapon that the SCV's and the Probe's script uses there (useweapon) gives its projectile's picture at the field, with
+its sprites and sounds, and no hit (the Drone's has only its sounds). Gathering workers pass each other and the mineral
+fields, but never walk into the box of a depot, a refinery or any other building: the terrain test, the paths and the
+steps treat those boxes as unwalkable (a mask of the minitiles they cover, as mining's buildings never move), and a
+worker goes to the nearest point where it touches its field or depot and fits. (mining.md has the fields block workers
+too, as buildings; with that, the mining measures went from a mean difference of 4.0% to 5.8%, so the fields stay
+passable until the stop point at a field is measured.)
 
 **Combat.** As in the reference: each side's centre is `gap / 2` left and right of (`x`, `y`) (or the map's middle),
 moved to the nearest walkable point; each side's units start there, placed in order by the free-spot search

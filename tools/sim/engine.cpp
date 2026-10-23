@@ -241,7 +241,10 @@ void World::runAnim(Anim& a, int unit, int bullet) {
         case 0x26:  // attack
             if (u && u->target >= 0) fire(unit, weaponFor(*u, units[size_t(u->target)]), false);
             break;
-        case 0x28: if (u) fire(unit, arg, false); break;   // useweapon
+        case 0x28:  // useweapon (a gathering worker's: the picture of its work at its resource)
+            if (u && u->order == MiningMinerals) gatherPicture(unit, arg);
+            else if (u) fire(unit, arg, false);
+            break;
         case 0x08: case 0x09: case 0x0D: case 0x0E: case 0x3D:  // imgol, imgul, imgoluselo, imguluselo, imgulnextid
         case 0x0F: case 0x10: case 0x11: case 0x14: case 0x42:  // sprol, highsprol, lowsprul, sprul, grdsprol
             if (bullet >= 0 && s[size_t(pc)] >= 0x0F && s[size_t(pc)] != 0x3D) {  // (a projectile's sprite: the spines)
@@ -375,6 +378,20 @@ void World::step() {
     for (size_t k = 0; k < effects.size(); ++k) effectStep(k);
     effects.erase(std::remove_if(effects.begin(), effects.end(), [](const Effect& e) { return e.done; }),
                   effects.end());
+}
+
+// The weapon that a gathering worker's script uses (the SCV's and the Probe's harvest weapons): its projectile's
+// picture at the worker's resource, with its script's sprites and sounds; no hit, no game random number.
+void World::gatherPicture(int unit, int weapon) {
+    const Unit& u = units[size_t(unit)];
+    if (weapon < 0 || weapon >= kNoWeapon || u.field < 0 || !t.flingyVisible(t.weapons[size_t(weapon)].flingy)) return;
+    const WeaponData& wd = t.weapons[size_t(weapon)];
+    const Unit& f = units[size_t(u.field)];
+    bool appear = wd.behaviour == kAppearOnTarget || wd.behaviour == kAppearOnSite || wd.behaviour == kPersistOnSite;
+    int x = appear ? f.x : u.x + dirX(u.heading) * wd.forward / 256;
+    int y = appear ? f.y : u.y + dirY(u.heading) * wd.forward / 256;
+    addEffect(t.flingyImage(wd.flingy), x, y, u.owner, u.heading,
+              t.units[size_t(u.type)].elevation + t.rules.bulletElevationAbove, false, kAnimInit);
 }
 
 // A projectile's elevation: its unit's, and rules.ini's levels above it.

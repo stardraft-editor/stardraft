@@ -244,6 +244,7 @@ public:
     void addEffect(int image, int x, int y, int owner, int heading, int elevation, bool under, int anim,
                    int follow = -1, int dx = 0, int dy = 0);
     int bulletElevation(const Bullet& b) const;
+    void gatherPicture(int unit, int weapon);
     int spriteElevation(int op, int parent) const;
     void animate(int unit, int anim);  // a unit's main image and its overlays start an animation
     void effectStep(size_t k);
