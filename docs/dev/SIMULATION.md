@@ -250,8 +250,9 @@ What is simplified or missing, and what it changes:
   upgrades: damage bonus × level), and from rules.ini's `[upgrades]` the 9 speed upgrades (+1/2 speed for
   script-moved units too: an assumption), the 4 range upgrades (Charon Boosters: the Goliath's air weapon only),
   Adrenal Glands, Chitinous Plating, Reaver and Carrier Capacity, Caduceus Reactor and Plasma Shields. sim_test's
-  upgrade check covers them (a Zergling with Metabolic Boost and Adrenal Glands). The researched techs (PTEx, or
-  PTEC) are read but nothing uses them yet (no spells). The other energy reactors are not applied.
+  upgrade check covers the speed and cooldown upgrades (a Zergling with Metabolic Boost and Adrenal Glands); a fight
+  with the Marines' +3 weapons, +3 armor and U-238 Shells covers weapons, armor and range. The researched techs (PTEx,
+  or PTEC) are read but nothing uses them yet (no spells). The other energy reactors are not applied.
 - **Paths** (compact). A ground unit's box never goes onto an unwalkable minitile. Regions are
   rectangles of one class (at most 8 by 7 tiles, 3:1), without expansion and merging; the long path goes
   over their centres (toward the centre two regions ahead), each leg an A* over the minitiles, each with the place
