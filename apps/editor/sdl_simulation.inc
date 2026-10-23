@@ -31,6 +31,8 @@ struct LiveSim {
     bool combat = false, done = false;
     const Editor* ed = nullptr;  // the map it runs on (another tab, or the map closed: it ends)
     float speed = 1;             // the game's speed times this (kSimSpeeds)
+    bool skipping = false;       // Skip to the end: the game runs as fast as it can, a few milliseconds a window frame
+    bool behind = false;         // the game cannot keep up with the speed (the bar shows the spinner)
     std::chrono::steady_clock::time_point last;
     double due = 0;  // frames due (parts of a frame)
     int players[2] = {0, 1};
@@ -656,6 +658,7 @@ void simSounds(bool play) {
 // The game at `frame` (Restart: 0; the timeline): the game again from the start, run at once to that frame (the
 // game is the same each time it runs). Forward: only the frames between.
 void simSeek(int frame) {
+    gSim.skipping = false;
     if (!gSim.shown || !gSim.start) return;
     sim::Simulator& e = simEngine();
     frame = std::max(0, frame);
@@ -726,11 +729,8 @@ void simStepSpeed(int dir) {
 // Skip to the end: the rest of the game runs at once (no sounds), then the result and its report show.
 void simSkipToEnd() {
     if (!gSim.shown || gSim.done) return;
-    sim::Simulator& e = simEngine();
-    for (int n = 0; n < 100000 && e.step(600); ++n) {}
-    simSounds(false);
-    simEnd();
-    shellPost([] { simShowReport(); });
+    gSim.skipping = true;  // (simFrame runs the game in slices; at the end the report shows)
+    simRedraw();
 }
 
 }  // namespace
@@ -752,7 +752,19 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         const std::wstring time = gSim.combat ? simClock(e.frame()) : simClock(e.frame()) + L" / " + simClock(e.lastFrame());
         const int ww = c.measure(what);
         c.text(l.text, what, kText, draw::kMiddle);
-        c.text({l.text.left + ww + scale(8), l.text.top, l.text.right, l.text.bottom}, time, kDim, draw::kMiddle | draw::kEllipsis);
+        const draw::Rect tr{l.text.left + ww + scale(8), l.text.top, l.text.right, l.text.bottom};
+        c.text(tr, time, kDim, draw::kMiddle | draw::kEllipsis);
+        if (gSim.skipping || gSim.behind) {  // a spinner: 8 dots round, one bright, turning
+            const int cx = tr.left + c.measure(time) + scale(16), cy = (tr.top + tr.bottom) / 2, rad = scale(6), dot = std::max(2, scale(2));
+            const int lead = int(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() / 90 % 8);
+            for (int k = 0; k < 8; ++k) {
+                const float a = float(k) * 0.785398f;
+                const int px = cx + int(std::lround(rad * std::cos(a))), py = cy + int(std::lround(rad * std::sin(a)));
+                const int age = (lead - k + 8) % 8;
+                c.fill({px - dot / 2, py - dot / 2, px - dot / 2 + dot, py - dot / 2 + dot}, age == 0 ? kAccent : kDim, uint8_t(age == 0 ? 255 : 230 - age * 25));
+            }
+            if (gSim.skipping) c.text({cx + rad + scale(8), tr.top, tr.right, tr.bottom}, L"Skip to the end", kDim, draw::kMiddle | draw::kEllipsis);
+        }
     }
     // The timeline (mining), along the bottom edge.
     if (!gSim.combat) {
@@ -819,7 +831,8 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
     }
     const bool in = hit(l.bar);
     if (!in) return false;
-    if (e.kind != draw::MouseKind::Down || e.button != 0) return true;  // (the bar takes the mouse; a press does what it does)
+    // (the bar takes the mouse; a press does what it does; a quick second click is a press too, not a double click)
+    if ((e.kind != draw::MouseKind::Down && e.kind != draw::MouseKind::DoubleClick) || e.button != 0) return true;
     if (!gSim.combat && hit(l.trackHit)) {
         gSim.seeking = true;
         seekAt();
@@ -862,11 +875,33 @@ void simFrame() {
     gSim.last = now;
     simHold();  // (the shields follow the panels: a window resized, a panel opened)
     if (gSim.done) return;
-    gSim.due += std::min(ms, 250.0) * gSim.speed / 42.0;  // Fastest: 42 ms a frame
-    const int n = int(gSim.due);
-    gSim.due -= n;
-    if (n > 0 && !simEngine().step(n)) simEnd();
-    if (n > 0) simSounds(true);
+    // The game's frames due (Fastest: 42 ms a frame, times the speed), run in small steps for at most 12 ms of each
+    // window frame, so the program stays usable at any speed: the frames that do not fit are dropped (the game goes
+    // slower than the speed, and the bar's spinner says so). Skip to the end: as many as fit, until the end.
+    using clock = std::chrono::steady_clock;
+    const auto budget = now + std::chrono::milliseconds(12);
+    sim::Simulator& e = simEngine();
+    bool ran = false, ended = false;
+    if (gSim.skipping) {
+        while (!ended && clock::now() < budget) ended = !e.step(30), ran = true;
+        simSounds(false);
+    } else {
+        gSim.due += std::min(ms, 250.0) * gSim.speed / 42.0;
+        while (gSim.due >= 1 && !ended && clock::now() < budget) {
+            const int n = std::min(int(gSim.due), 8);
+            gSim.due -= n, ran = true;
+            ended = !e.step(n);
+        }
+        gSim.behind = gSim.due >= 8;
+        gSim.due = std::min(gSim.due, 1.0);  // (what did not fit is dropped: no backlog)
+        if (ran) simSounds(true);
+    }
+    if (ended) {
+        const bool skipped = gSim.skipping;
+        gSim.skipping = gSim.behind = false;
+        simEnd();
+        if (skipped) shellPost([] { simShowReport(); });
+    }
     simRedraw();  // (the next frame: the game goes on)
 }
 
