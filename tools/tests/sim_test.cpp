@@ -936,6 +936,39 @@ bool runStalemateCheck(const sim::Tables& t, const sim::MapInfo& map) {
 // Weapons with two bullets an attack (weapons.dat damage factor 2): a Scout's air attack on a Mutalisk, 300 frames
 // (the Mutalisk cannot die). Each attack shows two missile images at different places, and each missile takes the
 // data's damage (its type against the size, less the armor).
+// No image the game never draws: the projectiles of the Firebat, the Reaver, the Scourge and the Lurker have sprites
+// that sprites.dat marks as not visible (a white circle in the editor if drawn). Fights of these units: no image of
+// such a sprite in images(), and the Scarab drawn with its own image.
+bool runHiddenImageCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    std::vector<bool> hidden(t.imageDraw.size(), false), shown(t.imageDraw.size(), false);
+    for (size_t s = 0; s < t.spriteImage.size(); ++s) {
+        int image = t.spriteImage[s];
+        if (image < 0 || image >= int(hidden.size())) continue;
+        (t.spriteVisible[s] ? shown : hidden)[size_t(image)] = true;
+    }
+    int scarabImage = t.flingyImage(t.units[size_t(t.scarabType)].flingy), emitted = 0, scarabs = 0, fights = 0;
+    const int kinds[][2] = {{32, 37}, {83, 37}, {47, 12}, {103, 0}};  // (Firebat, Reaver, Scourge, Lurker vs ...)
+    for (const auto& k : kinds) {
+        Scenario s{"hidden images", {{k[0], 4}}, {{k[1], 8}}, '-', 0, 0, 0, 0, 0, 0, 0, {}, {}};
+        runFight(t, map, s, 42, [&](const sim::World& w) {
+            std::vector<sim::LiveImage> images;
+            w.images(images);
+            for (const sim::LiveImage& li : images) {
+                if (li.image >= 0 && li.image < int(hidden.size()) && hidden[size_t(li.image)] &&
+                    !shown[size_t(li.image)])
+                    ++emitted;
+                if (li.image == scarabImage) ++scarabs;
+            }
+        });
+        ++fights;
+    }
+    bool ok = emitted == 0 && scarabs > 0;
+    std::printf("Hidden images: %d fights (Firebat, Reaver, Scourge, Lurker): %d images of sprites the game does not "
+                "draw, the Scarab drawn %d times: %s\n",
+                fights, emitted, scarabs, ok ? "OK" : "FAIL");
+    return ok;
+}
+
 bool runVolleyCheck(const sim::Tables& t, const sim::MapInfo& map) {
     const int kScout = 70, kMutalisk = 43;
     sim::World w(t, map);
@@ -1529,6 +1562,7 @@ int main(int argc, char** argv) {
         }
         if (!runImageCheck(tables, map)) ++failures;
         if (!runVolleyCheck(tables, map)) ++failures;
+        if (!runHiddenImageCheck(tables, map)) ++failures;
         if (!runPassiveCheck(tables, map)) ++failures;
         if (!runStalemateCheck(tables, map)) ++failures;
         if (!runSearchTiming(tables, install)) ++failures;

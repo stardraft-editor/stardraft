@@ -72,6 +72,8 @@ bool Tables::load(const FileReader& reader, std::string& error) {
         d.gas = ru.u16(0x3BD4 + i * 2);
         d.supply = ru.u8(0x42F4 + i);
         d.group = ru.u8(0x412C + i);
+        d.idleOrder = ru.u8(0x1290 + i);
+        d.attackOrder = ru.u8(0x153C + i);
     }
     weapons.resize(130);
     for (int i = 0; i < 130; ++i) {
@@ -108,7 +110,13 @@ bool Tables::load(const FileReader& reader, std::string& error) {
         d.control = rf.u8(0xB6E + i);
     }
     spriteImage.resize(517);
-    for (int i = 0; i < 517; ++i) spriteImage[i] = rs.u16(i * 2);
+    spriteVisible.resize(517);
+    // (sprites.dat: the image of each sprite; then, after the health bars and an unknown byte, whether the game draws
+    // it at all: an invisible sprite, such as some weapons' projectiles, is never drawn)
+    for (int i = 0; i < 517; ++i) {
+        spriteImage[i] = rs.u16(i * 2);
+        spriteVisible[i] = s.size() >= 2455 ? rs.u8(1938 + i) != 0 : true;
+    }
     imageTurns.resize(999);
     imageDraw.resize(999);
     imageIscript.resize(999);
@@ -159,6 +167,12 @@ bool Tables::firesFromScript(int header, int anim) const {
         pc = op == 0x07 || op == 0x35 ? (iscript[size_t(pc) + 1] | iscript[size_t(pc) + 2] << 8) : pc + len;
     }
     return pc == 0;  // (no animation: not this rule)
+}
+
+bool Tables::flingyVisible(int flingyId) const {
+    if (flingyId < 0 || flingyId >= int(flingy.size())) return false;
+    int sprite = flingy[flingyId].sprite;
+    return sprite < int(spriteVisible.size()) && spriteVisible[size_t(sprite)];
 }
 
 int Tables::flingyImage(int flingyId) const {

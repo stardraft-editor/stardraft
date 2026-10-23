@@ -2,6 +2,10 @@
 // does (each entry with its reason).
 #include "rules.h"
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
 #include "world.h"
 
 namespace sim {
@@ -9,11 +13,9 @@ namespace {
 
 // units.dat ids of the table below.
 enum : int {
-    kMarine = 0, kGoliath = 3, kVulture = 2, kSpiderMine = 13, kMedic = 34, kZergling = 37, kHydralisk = 38,
-    kUltralisk = 39, kDrone = 41, kOverlord = 42, kProbe = 64, kZealot = 65, kDragoon = 66, kArchon = 68, kShuttle = 69,
-    kScout = 70, kCarrier = 72, kInterceptor = 73, kWarbringer = 81, kGantrithor = 82, kReaver = 83, kObserver = 84,
-    kScarab = 85, kLurker = 103, kMineralsFirst = 176, kMineralsLast = 178, kGeyser = 188, kStartLocation = 214,
-    kScv = 7,
+    kMarine = 0, kVulture = 2, kGoliath = 3, kScv = 7, kZergling = 37, kHydralisk = 38, kUltralisk = 39, kDrone = 41,
+    kOverlord = 42, kProbe = 64, kZealot = 65, kDragoon = 66, kArchon = 68, kShuttle = 69, kScout = 70, kObserver = 84,
+    kLurker = 103,
 };
 // upgrades.dat ids.
 enum : int {
@@ -24,6 +26,11 @@ enum : int {
 };
 // weapons.dat ids.
 enum : int { kHaloRockets = 103 };
+// orders.dat ids: the game's own orders that units.dat gives some units (their code is the game's, not in a file).
+enum : int {
+    kOrderReaverAttack = 59, kOrderCarrierAttack = 53, kOrderInterceptor = 64, kOrderScarab = 65, kOrderMine = 20,
+    kOrderHeal = 175,
+};
 // weapons.dat behaviour "go to max range".
 enum : int { kBehaviourMaxRange = 9 };
 
@@ -42,36 +49,64 @@ void deriveRoles(Tables& t) {
         r.halfCost = (d.flags & kTwoInOneEgg) != 0;
     }
     auto role = [&](int type) -> UnitRole& { return t.roles[size_t(type)]; };
-    // (no file says which units hold Scarabs or Interceptors, nor how many)
-    for (int type : {kReaver, kWarbringer}) {
-        role(type).launchesScarabs = true;
-        role(type).capacityUpgrade = kReaverCapacity;
-        role(type).capacity = 5;
-        role(type).capacityUpgraded = 10;
+    // From units.dat's orders (data): the units whose attack is the Reaver's or the Carrier's launch, the Scarab and
+    // the Interceptor (their own orders), the Spider Mine (its idle order is the mine's) and the Medic (its attack is
+    // the heal). How many Scarabs or Interceptors a unit holds is in no file.
+    for (size_t i = 0; i < t.units.size(); ++i) {
+        const UnitData& d = t.units[i];
+        UnitRole& r = t.roles[i];
+        if (d.attackOrder == kOrderReaverAttack) {
+            r.launchesScarabs = true;
+            r.capacityUpgrade = kReaverCapacity;
+            r.capacity = 5;
+            r.capacityUpgraded = 10;
+        }
+        if (d.attackOrder == kOrderCarrierAttack) {
+            r.launchesInterceptors = true;
+            r.capacityUpgrade = kCarrierCapacity;
+            r.capacity = 4;
+            r.capacityUpgraded = 8;
+        }
+        if (d.attackOrder == kOrderScarab && !r.scarab) {
+            r.scarab = true;
+            if (!t.scarabType) t.scarabType = int(i);
+        }
+        if (d.attackOrder == kOrderInterceptor && !r.interceptor) {
+            r.interceptor = true;
+            if (!t.interceptorType) t.interceptorType = int(i);
+        }
+        r.spiderMine = d.idleOrder == kOrderMine;
+        r.healer = d.attackOrder == kOrderHeal;
+        if (r.healer) r.energyUpgrade = kCaduceusReactor;  // (table: Caduceus Reactor raises its energy)
     }
-    for (int type : {kCarrier, kGantrithor}) {
-        role(type).launchesInterceptors = true;
-        role(type).capacityUpgrade = kCarrierCapacity;
-        role(type).capacity = 4;
-        role(type).capacityUpgraded = 8;
+    // Resources and markers (data): a geyser is a neutral resource container of a race refinery's size (a race's
+    // resource container that is not a depot); mineral fields are the other neutral resource containers that are not in
+    // the buildings group; a start location is a neutral depot that holds no resources.
+    auto neutral = [&](size_t i) { return t.roles[i].race < 0; };
+    std::vector<std::pair<int, int>> refinerySizes;
+    for (size_t i = 0; i < t.units.size(); ++i) {
+        const UnitData& d = t.units[i];
+        if (!neutral(i) && (d.flags & kResource) && !(d.flags & kDepot)) refinerySizes.push_back({d.placeW, d.placeH});
     }
-    role(kScarab).scarab = true;            // (the Reaver's weapon is the Scarab's)
-    role(kInterceptor).interceptor = true;  // (the Carrier's weapon is the Interceptor's)
-    t.scarabType = kScarab;
-    t.interceptorType = kInterceptor;
-    role(kSpiderMine).spiderMine = true;    // (its arming, burrow, chase and fuse are its own)
-    role(kLurker).attacksBurrowed = true;   // (it has its weapon only while burrowed)
-    role(kLurker).speedUpgrade = rules::kAlways;  // (it moves as if upgraded)
-    role(kMedic).healer = true;             // (healing is a tech, not a weapon)
-    role(kZergling).ordersEveryFrame = true;  // (a rule of the game's for the Zergling)
-    role(kMedic).energyUpgrade = kCaduceusReactor;
-    role(kOverlord).notDetector = true;     // (units.dat flags it as a detector; it does not detect)
-    role(kStartLocation).startLocation = true;  // (a marker of the map)
-    for (int type = kMineralsFirst; type <= kMineralsLast; ++type) role(type).mineralField = true;  // (minerals and
-    role(kGeyser).geyser = true;                                                                    // gas look alike)
+    for (size_t i = 0; i < t.units.size(); ++i) {
+        const UnitData& d = t.units[i];
+        UnitRole& r = t.roles[i];
+        if (!neutral(i)) continue;
+        if (d.flags & kResource) {
+            r.geyser = std::find(refinerySizes.begin(), refinerySizes.end(), std::make_pair(d.placeW, d.placeH)) !=
+                       refinerySizes.end();
+            r.mineralField = !r.geyser && !(d.group & kGroupBuilding);
+        }
+        r.startLocation = (d.flags & kDepot) && !(d.flags & kResource);
+    }
+    role(kLurker).attacksBurrowed = true;   // (table: no file says it has its weapon only while burrowed)
+    role(kLurker).speedUpgrade = rules::kAlways;  // (table: it moves as if upgraded)
+    role(kZergling).ordersEveryFrame = true;  // (table: a rule of the game's code for the Zergling)
     // Each race's depot, worker and refinery (data): the first unit of the race with the flag, no hero; a refinery is
-    // a resource container building of the geyser's size.
-    const UnitData& geyser = t.units[kGeyser];
+    // a resource container building of a geyser's size.
+    int geyserW = -1, geyserH = -1;
+    for (size_t i = 0; i < t.units.size(); ++i)
+        if (t.roles[i].geyser) geyserW = t.units[i].placeW, geyserH = t.units[i].placeH;
     for (int race = 0; race < 3; ++race) t.depotOf[race] = t.workerOf[race] = t.refineryOf[race] = 0;
     for (int i = int(t.units.size()) - 1; i >= 0; --i) {
         const UnitData& d = t.units[size_t(i)];
@@ -79,7 +114,7 @@ void deriveRoles(Tables& t) {
         if (race < 0 || (d.flags & kHero)) continue;
         if ((d.flags & kDepot) && (d.flags & kBuilding)) t.depotOf[race] = i;
         if (d.flags & kWorker) t.workerOf[race] = i;
-        if ((d.flags & kResource) && (d.flags & kBuilding) && d.placeW == geyser.placeW && d.placeH == geyser.placeH)
+        if ((d.flags & kResource) && (d.flags & kBuilding) && d.placeW == geyserW && d.placeH == geyserH)
             t.refineryOf[race] = i;
     }
     role(kArchon).startDelay = 17;          // (it starts 17 frames after it is made: its merge)

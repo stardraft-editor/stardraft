@@ -78,9 +78,7 @@ bool World::detected(const Unit& v, int side) const {
     if (!v.burrowed && !(t.units[size_t(v.type)].flags & kCloaked)) return true;
     for (const Unit& d : units) {
         const UnitData& dd = t.units[size_t(d.type)];
-        // (the Overlord has the detector flag, but it is not a detector)
-        if (!d.alive || d.hidden || d.side != side || !(dd.flags & kDetector) || role(d.type).notDetector || &d == &v)
-            continue;
+        if (!d.alive || d.hidden || d.side != side || !(dd.flags & kDetector) || &d == &v) continue;
         if (gap(d, v) <= (d.building ? rules::kBuildingDetectRange : dd.sight * 32)) return true;
     }
     return false;
@@ -603,7 +601,8 @@ void World::combatOrder(int i) {
             b.ex = b.x << 8;
             b.ey = b.y << 8;
             b.heading = u.heading;
-            b.anim.header = t.scriptHeader(t.flingyImage(scarab.flingy));
+            b.body = t.flingyImage(scarab.flingy);
+            b.anim.header = t.scriptHeader(b.body);
             startAnim(b.anim, kAnimWalking);  // (its walking, for the image)
             bullets.push_back(b);
             u.timer = rules::kScarabLock;

@@ -54,6 +54,7 @@ struct UnitData {
     uint32_t flags = 0;
     int size = 0, armor = 0, left = 0, up = 0, right = 0, down = 0, placeW = 0, placeH = 0;
     int minerals = 0, gas = 0, supply = 0;
+    int idleOrder = 0, attackOrder = 0;  // (units.dat: its computer idle order and its attack-unit order)
 };
 struct WeaponData {
     int flingy = 0, targetFlags = 0, minRange = 0, maxRange = 0, damageType = 0, behaviour = 0, removeAfter = 0;
@@ -74,6 +75,7 @@ struct Tables {
     int scarabType = 0, interceptorType = 0;  // (the unit types whose weapons Reavers and Carriers use)
     int depotOf[3] = {}, workerOf[3] = {}, refineryOf[3] = {};  // (by race: Zerg, Terran, Protoss)
     std::vector<int> spriteImage, imageTurns, imageIscript, imageDraw;  // (draw function 10: a shadow)
+    std::vector<bool> spriteVisible;  // (sprites.dat "is visible": the game draws the sprite)
     // The workers' main images: the first offset of their special overlay list (images.dat, its .lo file), by
     // frame: where a carried resource is drawn.
     std::vector<std::pair<int, std::vector<std::pair<int, int>>>> carryOffsets;
@@ -83,6 +85,7 @@ struct Tables {
 
     bool load(const FileReader& reader, std::string& error);
     int flingyImage(int flingyId) const;
+    bool flingyVisible(int flingyId) const;  // (its sprite is drawn by the game: sprites.dat "is visible")
     int scriptHeader(int image) const;  // -1: none
     int animOffset(int header, int anim) const;  // 0: the script has no such animation
     int opLength(int pc) const;                  // the bytes of the iscript instruction at pc, -1: unknown
@@ -180,6 +183,7 @@ struct Bullet {
     bool alive = true, missed = false, hit = false, arrived = false, launched = false, scarab = false;
     int age = 0, bounces = 0, previous = -1;
     int hitX = -1, hitY = -1;  // (a line of hits: where the last hit was)
+    int body = -1;             // (a Scarab: its own image while it flies, as the weapon's sprite is not drawn)
     Anim anim;
 };
 

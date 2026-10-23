@@ -20,18 +20,17 @@ struct UnitRole {
     bool critter = false;       // data: a neutral unit that is not a building and has no weapon
     bool lowPriority = false;   // data: a race's unit that is neither a man nor a building (larva, egg): targeted last
     bool halfCost = false;      // data: two units from one egg (Zergling, Scourge): each costs half
-    bool launchesScarabs = false;       // table: Reaver, Warbringer
-    bool launchesInterceptors = false;  // table: Carrier, Gantrithor
-    bool scarab = false;                // table: the Scarab (its weapon is the Reaver's)
-    bool interceptor = false;           // table: the Interceptor (its weapon is the Carrier's)
-    bool spiderMine = false;            // table: the Spider Mine (arms, burrows, chases, explodes)
+    bool launchesScarabs = false;       // data: its attack order is the Reaver's (Reaver, Warbringer)
+    bool launchesInterceptors = false;  // data: its attack order is the Carrier's (Carrier, Gantrithor)
+    bool scarab = false;                // data: the Scarab's own order (its weapon is the Reaver's)
+    bool interceptor = false;           // data: the Interceptor's own order (its weapon is the Carrier's)
+    bool spiderMine = false;            // data: its idle order is the mine's (arms, burrows, chases, explodes)
     bool attacksBurrowed = false;       // table: the Lurker (burrows at once, attacks only burrowed, no turning)
-    bool healer = false;                // table: the Medic (heals instead of attacking)
+    bool healer = false;                // data: its attack order is the heal (the Medic)
     bool ordersEveryFrame = false;      // table: the Zergling (its order runs every frame while it can attack)
-    bool notDetector = false;           // table: the Overlord (units.dat calls it a detector; it does not detect)
-    bool startLocation = false;         // table: the start location marker
-    bool mineralField = false;          // table: mineral fields (units.dat does not tell minerals from gas)
-    bool geyser = false;                // table: the Vespene Geyser
+    bool startLocation = false;         // data: a neutral depot with no resources (the start location marker)
+    bool mineralField = false;          // data: a neutral resource container, not a geyser, not in the buildings group
+    bool geyser = false;                // data: a neutral resource container of a race refinery's size
     int startDelay = 0;                 // table: frames before its first order (the Archon)
     int speedUpgrade = -1;              // table: the upgrade that raises its speed (kAlways: always raised)
     int rangeUpgrade = -1, rangeBonus = 0;  // table: the upgrade that raises its weapon range, and by how much

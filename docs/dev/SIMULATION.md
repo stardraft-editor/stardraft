@@ -69,21 +69,24 @@ researched techs (PTEx, or PTEC); the upgrades count in fights (see "Known gaps"
 
 **Live games.** `startMining` (a player at each base, at most 8) and `startCombat` run a frame at a time with `step`;
 `images` gives each unit's and projectile's main image (turrets too) with its GRP frame: the script's frame plus the
-facing (17 frames, flipped for the other side). `startMap` is not in the simulation yet.
+facing (17 frames, flipped for the other side). A sprite that sprites.dat marks as not visible is never given: the
+projectiles of the Firebat, the Scarab, the Scourge and the Lurker (the Scarab is drawn with its own image, the
+Lurker's spines with the sprites its projectile's script makes). `startMap` is not in the simulation yet.
 
 **Game knowledge in one place.** The engine refers to unit types only by their roles (`UnitRole`, `WeaponRole`) and to
-the game's numbers only by name (`rules::`). A role comes from the data where a file says it: units.dat flags and
-StarEdit groups give the races, the workers, the depots and refineries of each race, the static defences (buildings
-with a weapon), the units targeted last (a race's units that are neither men nor buildings: larvae, eggs), the units
-that come two from one egg (half cost), the non-combatants of the neutral player (critters, power-ups), the
-spellcasters (energy) and regeneration; weapons.dat behaviours give the projectile kinds (follow, bounce, appear on the
-target, go to the maximum range: a line of hits, suicide); flingy.dat gives the movement kinds; iscript.bin the attack
-moments. The table in `rules.cpp` keeps only what no file says, each entry with its reason: which units hold Scarabs
-or Interceptors and how many, the Spider Mine, the Lurker (attacks only burrowed), the Medic (heals), the Overlord
-(flagged as a detector but not one), the start location, which resources are minerals and which gas, the Archon's
-start delay, the Zergling's every-frame orders, the upgrades' effects (speed, range, cooldown, armor, capacity,
-energy: upgrades.dat has none), the carried-gas images, and the Halo Rockets' limit. The engine's own numbers (fixed
-point, grid cells, search budgets, the stalemate) stay in the engine.
+the game's numbers only by name (`rules::`). A file's value always wins: no table entry overrides what a data file says.
+From units.dat: the races, the workers, the depots and refineries of each race, the static defences (buildings with a
+weapon), the detectors, cloaked units, spellcasters (energy), regeneration, the units targeted last (a race's units that
+are neither men nor buildings: larvae, eggs), half cost (two from one egg), the neutral non-combatants (critters,
+power-ups), the mineral fields, geysers and start locations (neutral resource containers by size and group, a neutral
+depot), and through its orders the units that launch Scarabs or Interceptors, the Scarab, the Interceptor, the Spider
+Mine and the Medic's heal; from weapons.dat the projectile kinds (follow, bounce, appear on the target, go to the
+maximum range: a line of hits, suicide); from flingy.dat the movement kinds; from sprites.dat which sprites are drawn;
+from iscript.bin the attack moments. The table in `rules.cpp` keeps only what no file says, each entry with its reason:
+how many Scarabs or Interceptors a unit holds, the Lurker (attacks only burrowed, moves as if upgraded), the Zergling's
+every-frame orders, the Archon's start delay, the upgrades' effects (speed, range, cooldown, armor, capacity, energy:
+upgrades.dat has none), the carried-gas images, and the Halo Rockets' limit. The engine's own numbers (fixed point, grid
+cells, search budgets, the stalemate) stay in the engine.
 
 ## Results
 

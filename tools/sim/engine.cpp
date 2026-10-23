@@ -1059,6 +1059,15 @@ void World::runAnim(Anim& a, int unit, int bullet) {
         case 0x28: if (u) fire(unit, arg, false); break;   // useweapon
         case 0x08: case 0x09: case 0x0D: case 0x0E: case 0x3D:  // imgol, imgul, imgoluselo, imguluselo, imgulnextid
         case 0x0F: case 0x10: case 0x11: case 0x14: case 0x42:  // sprol, highsprol, lowsprul, sprul, grdsprol
+            if (bullet >= 0 && s[size_t(pc)] >= 0x0F && s[size_t(pc)] != 0x3D) {  // (a projectile's sprite: the spines)
+                int id = u16(pc + 1);
+                const Bullet& b = bullets[size_t(bullet)];
+                bool shown = id < int(t.spriteImage.size()) && t.spriteVisible[size_t(id)];
+                bool under = s[size_t(pc)] == 0x11 || s[size_t(pc)] == 0x14 || s[size_t(pc)] == 0x42;
+                if (shown)
+                    addEffect(t.spriteImage[size_t(id)], b.x + int8_t(s[size_t(pc) + 3]),
+                              b.y + int8_t(s[size_t(pc) + 4]), b.owner, b.heading, under, 0, -1, 0, 0);
+            }
             if (u && &a == &u->anim) {  // (the main image's: overlays stay with the unit, sprites go their own way)
                 int op = s[size_t(pc)];
                 int id = op == 0x3D ? t.flingyImage(t.units[size_t(u->type)].flingy) + 1 : u16(pc + 1);
@@ -1066,7 +1075,9 @@ void World::runAnim(Anim& a, int unit, int bullet) {
                 int dx = op == 0x3D ? int8_t(s[size_t(pc) + 1]) : lo ? 0 : int8_t(s[size_t(pc) + 3]);
                 int dy = op == 0x3D ? int8_t(s[size_t(pc) + 2]) : lo ? 0 : int8_t(s[size_t(pc) + 4]);
                 bool sprite = op >= 0x0F && op != 0x3D;
-                int image = sprite ? (id < int(t.spriteImage.size()) ? t.spriteImage[size_t(id)] : -1) : id;
+                // (a sprite the game never draws: none)
+                bool shown = !sprite || (id < int(t.spriteImage.size()) && t.spriteVisible[size_t(id)]);
+                int image = !shown ? -1 : sprite ? t.spriteImage[size_t(id)] : id;
                 bool under = op == 0x09 || op == 0x0E || op == 0x3D || op == 0x11 || op == 0x14 || op == 0x42;
                 addEffect(image, u->x + dx, u->y + dy, u->owner, u->heading, under, 0, sprite ? -1 : unit, dx, dy);
             }
@@ -1262,8 +1273,8 @@ void World::step() {
 
 void World::addEffect(int image, int x, int y, int owner, int heading, bool under, int anim, int follow, int dx,
                       int dy) {
-    // (no shadows)
-    if (image >= 0 && image < int(t.imageDraw.size()) && t.imageDraw[size_t(image)] == kDrawShadow) return;
+    // (no shadows, and no image at all)
+    if (image < 0 || (image < int(t.imageDraw.size()) && t.imageDraw[size_t(image)] == kDrawShadow)) return;
     Effect e;
     e.follow = follow;
     e.dx = dx;
@@ -1385,8 +1396,11 @@ void World::images(std::vector<LiveImage>& out) const {
                 out.back().order = 1;
         }
     }
-    for (const Bullet& b : bullets)
-        add(t.flingyImage(t.weapons[size_t(b.weapon)].flingy), b.anim, b.heading, b.x, b.y, b.owner, false);
+    for (const Bullet& b : bullets) {  // (not a projectile whose sprite the game never draws: flame, spines, Scourge)
+        if (b.body >= 0 && !b.arrived) add(b.body, b.anim, b.heading, b.x, b.y, b.owner, false);  // (a Scarab)
+        else if (b.body < 0 && t.flingyVisible(t.weapons[size_t(b.weapon)].flingy))
+            add(t.flingyImage(t.weapons[size_t(b.weapon)].flingy), b.anim, b.heading, b.x, b.y, b.owner, false);
+    }
     for (const Effect& e : effects)  // (remnants under the living units: sortY far up)
         if (e.follow < 0 && add(e.image, e.anim, e.heading, e.x, e.y, e.owner, false) && e.under)
             out.back().sortY = e.y - 65536;
