@@ -3072,7 +3072,7 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 4 items: \"General\" \"Map\" \"Start\" \"Folders\"; selected"]
+             "settings: toolbar style preference; 5 items: \"General\" \"Map\" \"Start\" \"Folders\" \"Simulation\"; selected"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"
