@@ -753,10 +753,10 @@ bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
     return true;
 }
 
-// The live game's sound player: at most 64 sounds at a time, at most 3 of one sound, and one sound does not start again
-// within 60 ms (a crowd's attacks are not a wall of noise). The sounds near the view's middle come first: with 64
+// The live game's sound player: at most 12 sounds at a time, at most 2 of one sound, and one sound does not start again
+// within 90 ms (a crowd's attacks are not a wall of noise). The sounds near the view's middle come first: with 12
 // playing, a nearer sound stops the farthest one. Each sound plays in stereo, panned by `pan` (-1 left, 1 right) with an
-// equal-power law, at `gain` times the program's volume; `dist` is its distance from the listening camera (map pixels).
+// equal-power law, at `gain` times the program's volume; `dist` is how far from the view's middle it is (the farthest gives way).
 // The decoded sounds are kept (as mono floats).
 struct SimVoice {
     SDL_AudioStream* stream;
@@ -768,7 +768,7 @@ void simStopSounds() {
     for (const SimVoice& v : gSimVoices) SDL_DestroyAudioStream(v.stream);
     gSimVoices.clear();
 }
-void simPlaySound(int sfx, float pan, float gain, float dist) {
+bool simPlaySound(int sfx, float pan, float gain, float dist) {
     using Voice = SimVoice;
     std::vector<Voice>& voices = gSimVoices;
     struct Mono {
@@ -780,12 +780,12 @@ void simPlaySound(int sfx, float pan, float gain, float dist) {
     for (auto it = voices.begin(); it != voices.end();)
         if (SDL_GetAudioStreamQueued(it->stream) <= 0) SDL_DestroyAudioStream(it->stream), it = voices.erase(it);
         else ++it;
-    if (std::count_if(voices.begin(), voices.end(), [&](const Voice& v) { return v.sfx == sfx; }) >= 3) return;
+    if (std::count_if(voices.begin(), voices.end(), [&](const Voice& v) { return v.sfx == sfx; }) >= 2) return false;
     const Uint64 now = SDL_GetTicks();
-    if (auto l = lastStart.find(sfx); l != lastStart.end() && now - l->second < 60) return;
-    if (voices.size() >= 64) {  // (full: the farthest sound gives way to a nearer one)
+    if (auto l = lastStart.find(sfx); l != lastStart.end() && now - l->second < 90) return false;
+    if (voices.size() >= 12) {  // (full: the farthest sound gives way to a nearer one)
         auto farthest = std::max_element(voices.begin(), voices.end(), [](const Voice& a, const Voice& b) { return a.dist < b.dist; });
-        if (farthest->dist <= dist) return;
+        if (farthest->dist <= dist) return false;
         SDL_DestroyAudioStream(farthest->stream);
         voices.erase(farthest);
     }
@@ -808,20 +808,23 @@ void simPlaySound(int sfx, float pan, float gain, float dist) {
         it = decoded.emplace(sfx, std::move(m)).first;
     }
     const Mono& m = it->second;
-    if (m.samples.empty()) return;
+    if (m.samples.empty()) return false;
     const SDL_AudioSpec stereo{SDL_AUDIO_F32, 2, m.freq};
     SDL_AudioStream* s = openPlaybackSdl(&stereo);
-    if (!s) return;
+    if (!s) return false;
     const float a = (std::clamp(pan, -1.0f, 1.0f) + 1) * 0.785398f / 2;  // (0 to pi/2)
     const float left = std::cos(a), right = std::sin(a);
     std::vector<float> lr(m.samples.size() * 2);
     for (size_t i = 0; i < m.samples.size(); ++i) lr[2 * i] = m.samples[i] * left, lr[2 * i + 1] = m.samples[i] * right;
-    SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * std::clamp(gain, 0.0f, 1.0f));
+    // A crowd is quieter: with more than 4 sounds playing, each one at 2 / sqrt(the count) (the sum stays even).
+    const float crowd = voices.size() >= 4 ? 2.0f / std::sqrt(float(voices.size() + 1)) : 1.0f;
+    SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * std::clamp(gain, 0.0f, 1.0f) * crowd);
     SDL_PutAudioStreamData(s, lr.data(), int(lr.size() * sizeof(float)));
     SDL_FlushAudioStream(s);
     SDL_ResumeAudioStreamDevice(s);
     voices.push_back({s, sfx, dist});
     lastStart[sfx] = now;
+    return true;
 }
 
 // The game's sounds (attacks, deaths, hits) that are in the view or near it, at the program's volume (Program options;
@@ -840,7 +843,7 @@ void simSounds(bool play) {
     shellViewSize(vw, vh);
     float x0, y0, x1, y1;
     toWorld(0, 0, x0, y0), toWorld(vw, vh, x1, y1);
-    const float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = std::max(1.0f, (x1 - x0) / 2);
+    const float cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hw = std::max(1.0f, (x1 - x0) / 2), hh = std::max(1.0f, (y1 - y0) / 2);
     // The listener is a camera above the view's middle, as high as the view is zoomed out: its height is 320 map pixels
     // at 100% (4 x that at 25%). A sound's distance is from the camera, in map pixels: full volume within 320, none
     // from 2400 on, a straight fall between. So zoomed out everything is quieter and far sounds go first; zoomed in
@@ -849,19 +852,25 @@ void simSounds(bool play) {
     const float height = 320.0f / std::max(0.05f, gState.zoom), nearDist = 320, farDist = 2400;
     struct Heard {
         int sfx;
-        float pan, dist;
+        float pan, dist, screen;
     };
+    // Only the sounds on the screen play, and the middle of the screen counts most: full volume within a quarter of
+    // the way to the screen's edge, none at the edge (by the view's ellipse).
     std::vector<Heard> close;
     for (const sim::LiveSound& s : sounds) {
         const float dx = float(s.x) - cx, dy = float(s.y) - cy, dist = std::sqrt(dx * dx + dy * dy + height * height);
-        if (dist < farDist) close.push_back({s.sfx, std::clamp(dx / std::max(hw, 400.0f), -1.0f, 1.0f) * 0.8f, dist});
+        const float onScreen = std::sqrt((dx / hw) * (dx / hw) + (dy / hh) * (dy / hh));  // 0 the middle, 1 the edge
+        if (dist < farDist && onScreen < 1) close.push_back({s.sfx, std::clamp(dx / std::max(hw, 400.0f), -1.0f, 1.0f) * 0.8f, dist, onScreen});
     }
-    std::stable_sort(close.begin(), close.end(), [](const Heard& a, const Heard& b) { return a.dist < b.dist; });
-    std::set<int> heard;  // (one of each sound a frame: the nearest)
+    std::stable_sort(close.begin(), close.end(), [](const Heard& a, const Heard& b) { return a.screen < b.screen; });
+    std::set<int> heard;  // (one of each sound a frame: the one nearest the middle)
+    int started = 0;
     for (const Heard& h : close) {
+        if (started >= 4) break;  // (at most 4 new sounds a frame)
         if (!heard.insert(h.sfx).second) continue;
-        const float gain = std::clamp((farDist - h.dist) / (farDist - nearDist), 0.0f, 1.0f);
-        if (gain > 0.03f) simPlaySound(h.sfx, h.pan, gain, h.dist);
+        const float middle = std::clamp((1.0f - h.screen) / 0.75f, 0.0f, 1.0f);
+        const float gain = middle * std::clamp((farDist - h.dist) / (farDist - nearDist), 0.0f, 1.0f);
+        if (gain > 0.05f) started += simPlaySound(h.sfx, h.pan, gain, h.screen) ? 1 : 0;
     }
 }
 
