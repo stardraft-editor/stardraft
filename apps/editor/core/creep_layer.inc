@@ -171,7 +171,10 @@ bool creepCheck(const std::string& what, std::string& out) {
     int tiles = 0;
     for (uint16_t t : shown.tiles) tiles += (t >> 4) == kCreepGroup;
     const int made = creepTilesShown(ed);
-    out = "creep: a Hatchery " + std::string(placed.placed ? "placed" : "not placed (WRONG)") + " at (" +
+    std::string why;
+    for (PlacementIssue i : placed.issues) why += std::string(why.empty() ? " (" : ", ") + placementIssueName(i);
+    if (!why.empty()) why += ")";
+    out = "creep: a Hatchery " + std::string(placed.placed ? "placed" : "not placed (WRONG)") + why + " at (" +
           std::to_string(placed.unit.x) + ", " + std::to_string(placed.unit.y) + "); " + std::to_string(tiles) +
           " creep tiles in the terrain the map shows, " + std::to_string(made) + " from the creep rules" +
           (tiles >= made && made >= 12 ? " (yes)" : " (WRONG)") + "\n";
