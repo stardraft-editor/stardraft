@@ -437,7 +437,7 @@ def cmd_discord(args):
             if not only_shots:
                 links = discord_links(lines)
                 head = f"**{title}** is out: {url}" + ("".join("\n" + l for l in links) if links else "")
-                if long:
+                if long and os.environ.get("DISCORD_BOT_TOKEN"):
                     head += "\nThe full notes are in the thread."
                 if name == "updates":  # (one ping for a release: in #updates)
                     first = discord_send(hook, f"<@&{DISCORD_RELEASE_ROLE}> " + head, ping_role=DISCORD_RELEASE_ROLE)
