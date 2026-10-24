@@ -128,7 +128,8 @@ public:
                  {{L"Buizz", L"https://github.com/Buizz"}, {L"EUD Editor 3", L"https://github.com/Buizz/EUD-Editor-3"}});
         // Not a Blizzard product, and it needs the game's files.
         y += scale(10);
-        centered(L"StarDraft 2 is not associated with Blizzard Entertainment.", smallText, kDim, scale(22));
+        centered(L"StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.", smallText, kDim, scale(22));
+        centered(L"StarCraft is a trademark of Blizzard Entertainment.", smallText, kDim, scale(22));
         centered(L"It needs an installation of StarCraft to work.", smallText, kDim, scale(22));
         y += scale(14);
 

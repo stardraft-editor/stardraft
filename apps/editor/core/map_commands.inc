@@ -62,9 +62,13 @@ void toggleRevealers() {
     shellState().dirty = true;
 }
 
-// Edit > Tools > Place map revealers: the players' dialog (the host: showMapRevealersDialog, sdl_map_dialogs.inc), then a
+// Tools > Place map revealers: the players' dialog (the host: showMapRevealersDialog, sdl_map_dialogs.inc), then a
 // revealer for each chosen player on each square of 8 tiles over the map (Editor::placeMapRevealers). One undo step.
 bool showMapRevealersDialog(std::vector<uint8_t>& owners);
+#ifdef STARDRAFT_SIMULATION
+void simulateMiningCommand();  // (sdl_simulation.inc)
+void simulateCombatCommand();
+#endif
 void placeMapRevealersCommand() {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -75,7 +79,7 @@ void placeMapRevealersCommand() {
     setMessage(n ? L"Placed " + std::to_wstring(n) + L" map revealers" : std::wstring(tr(L"Nothing placed: each chosen player has a map revealer on every square")));
 }
 
-// Edit > Tools > Remove all map revealers: every Map Revealer, of every player. One undo step.
+// Tools > Remove all map revealers: every Map Revealer, of every player. One undo step.
 void removeMapRevealersCommand() {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -89,6 +93,8 @@ TerrainFlagsView terrainFlagsView();
 void terrainFlagsSet(TerrainFlagsView v);
 void pathingCheckCommand();
 void showUnitsList();   // View > Units list: the Unit properties window with the list (core/units_list.inc)
+
+void toggleCreep();  // View > Layers > Creep (core/creep_layer.inc)
 
 void toggleLayer(int k) {
     bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
@@ -271,6 +277,7 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 2, "view.layer.sprites", L"&Sprites", "View/Layers", L"", [] { toggleLayer(2); }, [] { return gLayers.sprites; });
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
     addCommand(ID_LAYER_REVEALERS, "view.layer.revealers", L"Map &revealers", "View/Layers", L"", [] { toggleRevealers(); }, [] { return gLayers.revealers; });
+    addCommand(ID_LAYER_CREEP, "view.layer.creep", L"&Creep", "View/Layers", L"", [] { toggleCreep(); }, [] { return gLayers.creep; });
     addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
     addCommand(ID_LAYER + 5, "view.pathing.regions", L"Pathing shows the &regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
                [] { return !pathingLayerAreas(); }, true);
@@ -302,6 +309,10 @@ void registerMapCommands() {
         }
     }
     addCommand(ID_REVEAL_PLACE, "edit.revealers.place", L"Place &map revealers\x2026", "Edit/Tools", L"", [] { placeMapRevealersCommand(); });
+#ifdef STARDRAFT_SIMULATION  // (experimental: sdl_simulation.inc)
+    addCommand(ID_SIM_MINING, "edit.simulate.mining", L"Simulate melee &mining", "Edit/Tools", L"Ctrl+Alt+M", [] { simulateMiningCommand(); });
+    addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
+#endif
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
     // View: the camera. + and - are the map view's own keys (they also work with the number pad).

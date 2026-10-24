@@ -547,11 +547,31 @@ uint8_t UnitSprites::remap(uint8_t idx, uint8_t owner) const {
     return idx;
 }
 
+int UnitSprites::extraImage(const std::string& path) {
+    for (size_t i = 0; i < extraPaths_.size(); ++i)
+        if (extraPaths_[i] == path) return kExtraImages + int(i);
+    extraPaths_.push_back(path);
+    return kExtraImages + int(extraPaths_.size() - 1);
+}
+
+const std::string* UnitSprites::extraPath(int image) const {
+    if (image < kExtraImages || size_t(image - kExtraImages) >= extraPaths_.size()) return nullptr;
+    return &extraPaths_[size_t(image - kExtraImages)];
+}
+
 const Grp* UnitSprites::grp(int image) {
-    if (image < 0 || size_t(image) >= imageGrp_.size()) return nullptr;
+    const std::string* extra = extraPath(image);
+    if (!extra && (image < 0 || size_t(image) >= imageGrp_.size())) return nullptr;
     auto it = grps_.find(image);
     if (it != grps_.end()) return it->second.get();
     std::unique_ptr<Grp> g;
+    if (extra) {
+        Bytes raw;
+        std::string err;
+        g = std::make_unique<Grp>();
+        if (!data_ || !data_->readFile(*extra, raw, err) || !g->parse(raw)) g.reset();
+        return (grps_[image] = std::move(g)).get();
+    }
     uint32_t idx = imageGrp_[image];
     if (idx && idx - 1 < imagePaths_.size()) {
         Bytes raw;

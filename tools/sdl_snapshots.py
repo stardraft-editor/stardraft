@@ -156,6 +156,9 @@ CASES += [
     ("check-bundle", ["--check", "bundle"], ""),
     ("map-check-preview", ["--check", "preview:{newdir}"], "map"),
     ("map-check-spotlight", ["--check", "spotlight"], "map"),
+    # View > Layers > Creep: a Hatchery near the map's middle gets the creep of the creep rules, the map view's terrain has
+    # its creep tiles and its scene the creep edges, one on each tile next to creep (core/creep_layer.inc).
+    ("map-creep", ["--check", "creep"], "map"),
     # The free desktops (Linux, sdl_xdg.inc): the app id (the .desktop file's name, also SDL's), the XDG folders, what
     # the desktop has (the session bus, the portal, the notification server) and the recently used files' entry of the
     # map, written two times into {newdir} (one entry, its count 2). Elsewhere one line says that it is Linux only.
@@ -303,7 +306,7 @@ CASES += [
     ("map-terrain-flags-height", ["--command", "view.flags.height"], "map"),
     ("map-terrain-flags-blocksview", ["--command", "view.flags.blocksview", "--key", "+", "--key", "+"], "map"),
     ("map-terrain-flags-buildable", ["--command", "view.flags.buildable"], "map"),
-    # Edit > Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
+    # Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
     # (they show on the map), then View > Layers > Map revealers: the layer is hidden and the revealers are not drawn.
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
@@ -1226,7 +1229,7 @@ wheel 832,500,0,-1:Alt
 rect off
 rect
 """,
-    # Edit > Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
+    # Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
     "revealers": """command edit.revealers.place
 key Enter
 """,
@@ -3026,7 +3029,7 @@ def check_menubar(output):
         if not lines[0].startswith("the window's (shown)"):
             return f"not the window's menu bar: {lines[0]}"
         need = ["File > Save [Ctrl+S]", "File > Save as… [Ctrl+Shift+S]", "File > Exit", "Edit > Undo [Ctrl+Z]",
-                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Edit > Tools > Check that StarCraft can start the map"]
+                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Tools > Check that StarCraft can start the map"]
         never = ["Window > ", "Scenario > "]
         tip = "Zoom in (Ctrl+Plus); Ctrl+Shift+S; Ctrl+click; Alt+drag; Del"
     for t in tops:
@@ -3069,7 +3072,7 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 4 items: \"General\" \"Map\" \"Start\" \"Folders\"; selected"]
+             "settings: toolbar style preference; 5 items: \"General\" \"Map\" \"Start\" \"Folders\" \"Simulation\"; selected"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"
@@ -4030,6 +4033,9 @@ def check_palette_units(output):
 
 
 CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
+          "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
+                                  else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)
+                                  else "the creep edges are not one on each tile next to creep"),
           "map-revealers-hidden": lambda o: None if "command view.layer.revealers: ran (yes)" in o else "the layer command did not run",
           "map-units-list-pick": lambda o: None if "units=57" in o and re.findall(r"units=(\d+)", o)[-1] == "58"
           else "the picked unit was not deleted, or Ctrl+Z did not give it back (units 57, then 58 expected)",
