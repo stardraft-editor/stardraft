@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <tuple>
 
 #include "stardraft/game_data.h"
 #include "stardraft/sprites.h"
@@ -81,7 +82,12 @@ struct SolidUniforms {
     float viewport[2], firstRect, pad;
 };
 struct GpuInstance {
-    float pos[2], size[2], uv[4], color[4], depth, flags, pad[2];
+    float pos[2], size[2], uv[4], color[4], depth, flags, level, pad;
+    float warpUv[4], warpLim[4];  // the warp texture (draw function 12): its uv at the quad's corners, its frame's uv
+};
+static_assert(sizeof(GpuInstance) == 96, "sprite.hlsl reads instances 96 bytes apart");
+struct SpriteFragUniforms {
+    float targetSize[2], zoom, sdArt;
 };
 struct GpuRect {
     float rect[4], color[4], line[4];  // line[0]: thickness, 0 for a rectangle
@@ -124,6 +130,11 @@ struct Renderer::Impl {
     int offscreenW = 0, offscreenH = 0;
     SDL_GPUTexture* depth = nullptr;
     uint32_t depthW = 0, depthH = 0;
+    // The picture before the sprites that bend what is under them (cloaks, the EMP shockwave): made only for a scene
+    // that has such sprites; those sprites then read it.
+    SDL_GPUTexture* backdrop = nullptr;
+    uint32_t backdropW = 0, backdropH = 0;
+    SDL_GPUTextureFormat backdropFormat = SDL_GPU_TEXTUREFORMAT_INVALID;
 
     SDL_GPUGraphicsPipeline* terrainPipe = nullptr;
     SDL_GPUGraphicsPipeline* spritePipe = nullptr;
@@ -188,6 +199,7 @@ struct Renderer::Impl {
     void buildSdAtlas();
     bool buildHdAtlas();
     void ensureDepth(uint32_t w, uint32_t h);
+    bool ensureBackdrop(uint32_t w, uint32_t h);
     bool ensureBuffer(SDL_GPUBuffer*& buf, uint32_t& cap, uint32_t bytes);
     bool ensureUpload(uint32_t bytes);
     ImageTex* image(int id, Clock::time_point frameStart, bool& pending);
@@ -269,7 +281,7 @@ bool Renderer::Impl::createPipelines(std::string& err) {
     SDL_GPUShader* tvs = shader(STARDRAFT_SHADER(terrain_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 0, 0);
     SDL_GPUShader* tps = shader(STARDRAFT_SHADER(terrain_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 2, 0, 1);
     SDL_GPUShader* svs = shader(STARDRAFT_SHADER(sprite_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 1, 1);
-    SDL_GPUShader* sps = shader(STARDRAFT_SHADER(sprite_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 2, 0, 0);
+    SDL_GPUShader* sps = shader(STARDRAFT_SHADER(sprite_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 3, 0, 1);
     SDL_GPUShader* rvs = shader(STARDRAFT_SHADER(solid_vs), SDL_GPU_SHADERSTAGE_VERTEX, "VSMain", 0, 1, 1);
     SDL_GPUShader* rps = shader(STARDRAFT_SHADER(solid_ps), SDL_GPU_SHADERSTAGE_FRAGMENT, "PSMain", 0, 0, 0);
     if (!tvs || !tps || !svs || !sps || !rvs || !rps) {
@@ -398,7 +410,7 @@ void Renderer::shutdown() {
     if (!r.device) return;
     SDL_WaitForGPUIdle(r.device);
     r.freeImages();
-    for (SDL_GPUTexture* t : {r.offscreen, r.depth, r.blackTex, r.tileIndex, r.hdAtlas, r.hdDown, r.sdAtlas})
+    for (SDL_GPUTexture* t : {r.offscreen, r.depth, r.backdrop, r.blackTex, r.tileIndex, r.hdAtlas, r.hdDown, r.sdAtlas})
         if (t) SDL_ReleaseGPUTexture(r.device, t);
     for (SDL_GPUBuffer* b : {r.instanceBuf, r.rectBuf})
         if (b) SDL_ReleaseGPUBuffer(r.device, b);
@@ -613,6 +625,14 @@ void Renderer::Impl::ensureDepth(uint32_t w, uint32_t h) {
     depthW = w, depthH = h;
 }
 
+bool Renderer::Impl::ensureBackdrop(uint32_t w, uint32_t h) {
+    if (backdrop && backdropW == w && backdropH == h && backdropFormat == colorFormat) return true;
+    if (backdrop) SDL_ReleaseGPUTexture(device, backdrop);
+    backdrop = createTexture(colorFormat, w, h, 1, SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER);
+    backdropW = w, backdropH = h, backdropFormat = colorFormat;
+    return backdrop != nullptr;
+}
+
 bool Renderer::Impl::ensureBuffer(SDL_GPUBuffer*& buf, uint32_t& cap, uint32_t bytes) {
     if (buf && cap >= bytes) return true;
     if (buf) SDL_ReleaseGPUBuffer(device, buf);
@@ -734,17 +754,27 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
     struct Raw {
         ImageTex* tex;
-        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows
+        ImageTex* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
+        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows, 3 those that bend what is under them
         GpuInstance in;
     };
     std::vector<Raw> raw;
     raw.reserve(scene.sprites.size());
     const float viewL = cam.x, viewT = cam.y, viewR = cam.x + w / cam.zoom, viewB = cam.y + h / cam.zoom;
     for (const SpriteDraw& s : scene.sprites) {
+        const int df = s.drawFunction;
+        if (df == 11) continue;  // the health bar: not part of the picture
         bool pending = false;
         ImageTex* t = image(s.image, frameStart, pending);
         if (pending) ++stats.imagesPending;
         if (!t || t->frames.empty()) continue;
+        // The Warp Texture image (images.dat 210) for draw function 12.
+        ImageTex* warp = nullptr;
+        if (df == 12) {
+            warp = image(210, frameStart, pending);
+            if (pending) ++stats.imagesPending;
+            if (!warp || warp->frames.empty()) continue;
+        }
         const ImageTex::Frame& f = t->frames[size_t(s.frame) < t->frames.size() ? s.frame : 0];
         // On the map's pixel grid, as the game draws: whole-pixel origin and integer box halves, so no
         // sprite lands between pixels (visible with nearest-neighbour sampling).
@@ -762,27 +792,51 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         in.color[0] = rgb[0], in.color[1] = rgb[1], in.color[2] = rgb[2], in.color[3] = s.alpha;
         float yn = std::clamp((s.hasSortY ? s.sortY : s.y) / mapPxH, 0.0f, 1.0f);
         in.depth = std::clamp((s.air ? 0.2f - 0.15f * yn : 0.95f - 0.7f * yn) - s.depthBias, 0.0f, 1.0f);
-        if (s.shadow) in.depth = 0.99f;  // on the ground: never covers a unit
+        const bool shadow = s.shadow || df == 10, glow = s.glow || df == 9;
+        if (shadow) in.depth = 0.99f;  // on the ground: never covers a unit
         if (s.ground) {
             in.depth = 0.985f;  // over shadows, under every unit
             in.color[0] = 0.2f, in.color[1] = 1.0f, in.color[2] = 0.2f;  // the game's selection green
         }
         if (s.terrain) in.depth = 0.995f;  // on the terrain, under shadows
-        in.flags = float((s.shadow ? 1 : 0) | (s.tintRed ? 2 : 0) | (s.ground ? 4 : 0) | (s.glow ? 8 : 0));
-        raw.push_back({t, s.terrain ? 0 : s.glow ? 2 : 1, in});
+        // The draw functions that change how it looks (as data_pictures.inc's compositeLookHd draws them).
+        const bool cloak = df >= 2 && df <= 7, emp = df == 8;
+        int look = 0;
+        if (!shadow && !glow && !s.ground && !s.terrain) {
+            look = cloak ? 16 : emp ? 32 : df == 12 ? 64 : df == 16 ? 128 : df == 17 ? 256 : 0;
+            // Cloaking and decloaking go through 0..8 (1: cloaked); 3 and 6 are cloaked.
+            if (cloak) in.level = df == 3 || df == 6 || s.level < 0 ? 1.0f : std::clamp(s.level, 0, 8) / 8.0f;
+            // The warp flash: white at 48, then less as it goes to 63.
+            if (df == 17) in.level = 1.0f - std::clamp(((s.level < 0 ? 48 : s.level) - 48) / 15.0f, 0.0f, 1.0f);
+            if (df == 12) {
+                // The Warp Texture's frame (the level) at the same place as the sprite's frame: from its top-left.
+                const ImageTex::Frame& wf = warp->frames[size_t(std::clamp(s.level, 0, int(warp->frames.size()) - 1))];
+                const float perX = wf.w > 0 ? (wf.u1 - wf.u0) / wf.w : 1, perY = wf.h > 0 ? (wf.v1 - wf.v0) / wf.h : 1;
+                in.warpUv[0] = wf.u0 / warp->texW, in.warpUv[1] = wf.v0 / warp->texH;
+                in.warpUv[2] = (wf.u0 + f.w * perX) / warp->texW, in.warpUv[3] = (wf.v0 + f.h * perY) / warp->texH;
+                in.warpLim[0] = wf.u0 / warp->texW, in.warpLim[1] = wf.v0 / warp->texH;
+                in.warpLim[2] = wf.u1 / warp->texW, in.warpLim[3] = wf.v1 / warp->texH;
+            }
+        }
+        if (look != 64) warp = nullptr;
+        in.flags = float((shadow ? 1 : 0) | (s.tintRed ? 2 : 0) | (s.ground ? 4 : 0) | (glow ? 8 : 0) | look);
+        raw.push_back({t, warp, s.terrain ? 0 : glow ? 2 : (look == 16 || look == 32) ? 3 : 1, in});
     }
     // The terrain's sprites first (else the depth that they write would hide the shadows and circles over them), then
-    // the others, then glows in their own batches (additive pipeline).
-    std::map<std::pair<int, ImageTex*>, std::vector<GpuInstance>> buckets;
-    for (auto& [t, order, in] : raw) buckets[{order, t}].push_back(in);
+    // the others, then glows in their own batches (additive pipeline), then the sprites that bend what is under them
+    // (cloaks, the EMP shockwave): they read the picture of all the others.
+    std::map<std::tuple<int, ImageTex*, ImageTex*>, std::vector<GpuInstance>> buckets;
+    for (auto& [t, warp, order, in] : raw) buckets[{order, t, warp}].push_back(in);
     std::vector<GpuInstance> instances;
     instances.reserve(raw.size());
-    struct Batch { ImageTex* tex; uint32_t first, count; bool glow; };
+    struct Batch { ImageTex* tex; ImageTex* warp; uint32_t first, count; int order; };
     std::vector<Batch> batches;
     for (auto& [key, list] : buckets) {
-        batches.push_back({key.second, uint32_t(instances.size()), uint32_t(list.size()), key.first == 2});
+        batches.push_back({std::get<1>(key), std::get<2>(key), uint32_t(instances.size()), uint32_t(list.size()), std::get<0>(key)});
         instances.insert(instances.end(), list.begin(), list.end());
     }
+    // Only a scene with such sprites draws into the backdrop first (and then copies it to the target).
+    const bool bends = !batches.empty() && batches.back().order == 3 && ensureBackdrop(w, h);
     stats.sprites = int(instances.size());
 
     // Overlays -> screen-space rects (outlines become 4 thin rects, text becomes glyph quads).
@@ -888,7 +942,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     }
 
     SDL_GPUColorTargetInfo ct{};
-    ct.texture = target;
+    ct.texture = bends ? backdrop : target;
     ct.clear_color = {0.07f, 0.07f, 0.08f, 1};
     ct.load_op = SDL_GPU_LOADOP_CLEAR;
     ct.store_op = SDL_GPU_STOREOP_STORE;
@@ -896,7 +950,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     dt.texture = depth;
     dt.clear_depth = 1;
     dt.load_op = SDL_GPU_LOADOP_CLEAR;
-    dt.store_op = SDL_GPU_STOREOP_DONT_CARE;
+    dt.store_op = bends ? SDL_GPU_STOREOP_STORE : SDL_GPU_STOREOP_DONT_CARE;
     dt.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
     dt.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
     SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, &ct, 1, &dt);
@@ -929,15 +983,20 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         ++stats.drawCalls;
     }
 
-    if (!batches.empty()) {
-        SDL_BindGPUGraphicsPipeline(pass, spritePipe);
-        SDL_BindGPUVertexStorageBuffers(pass, 0, &instanceBuf, 1);
-        bool glowBound = false;
+    // The sprite batches of these orders; `under`: the picture under them (the backdrop), else none.
+    SpriteFragUniforms fu{};
+    fu.targetSize[0] = float(w), fu.targetSize[1] = float(h), fu.zoom = cam.zoom;
+    fu.sdArt = artQuality() == GraphicsQuality::SD ? 1.0f : 0.0f;
+    auto drawSprites = [&](int fromOrder, int toOrder, SDL_GPUTexture* under) {
+        SDL_GPUGraphicsPipeline* bound = nullptr;
         for (const Batch& b : batches) {
-            if (b.glow && !glowBound) {
-                SDL_BindGPUGraphicsPipeline(pass, glowPipe);
+            if (b.order < fromOrder || b.order > toOrder) continue;
+            SDL_GPUGraphicsPipeline* pipe = b.order == 2 ? glowPipe : spritePipe;
+            if (pipe != bound) {
+                SDL_BindGPUGraphicsPipeline(pass, pipe);
                 SDL_BindGPUVertexStorageBuffers(pass, 0, &instanceBuf, 1);
-                glowBound = true;
+                SDL_PushGPUFragmentUniformData(cmd, 0, &fu, sizeof fu);
+                bound = pipe;
             }
             SpriteUniforms u{};
             u.camera[0] = cam.x, u.camera[1] = cam.y, u.zoom = cam.zoom, u.firstInstance = float(b.first);
@@ -945,12 +1004,30 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             SDL_PushGPUVertexUniformData(cmd, 0, &u, sizeof u);
             // Nearest-neighbour unless zoomed out (sprite textures have no mipmaps).
             SDL_GPUSampler* spriteSampler = cam.zoom >= 0.5f ? pointClamp : linearClamp;
-            SDL_GPUTextureSamplerBinding tb[2] = {{b.tex->diffuse, spriteSampler}, {b.tex->mask ? b.tex->mask : blackTex, spriteSampler}};
-            SDL_BindGPUFragmentSamplers(pass, 0, tb, 2);
+            SDL_GPUTexture* second = b.warp ? b.warp->diffuse : b.tex->mask ? b.tex->mask : blackTex;
+            SDL_GPUTextureSamplerBinding tb[3] = {{b.tex->diffuse, spriteSampler}, {second, spriteSampler}, {under ? under : blackTex, pointClamp}};
+            SDL_BindGPUFragmentSamplers(pass, 0, tb, 3);
             SDL_DrawGPUPrimitives(pass, 6, b.count, 0, 0);
             ++stats.drawCalls;
         }
+    };
+    drawSprites(0, 2, nullptr);
+    if (bends) {
+        // The picture so far goes to the target, and the sprites that bend what is under them read it there.
+        SDL_EndGPURenderPass(pass);
+        SDL_GPUBlitInfo blit{};
+        blit.source.texture = backdrop, blit.source.w = w, blit.source.h = h;
+        blit.destination.texture = target, blit.destination.w = w, blit.destination.h = h;
+        blit.load_op = SDL_GPU_LOADOP_LOAD;
+        blit.filter = SDL_GPU_FILTER_NEAREST;
+        SDL_BlitGPUTexture(cmd, &blit);
+        ct.texture = target;
+        ct.load_op = SDL_GPU_LOADOP_LOAD;
+        dt.load_op = SDL_GPU_LOADOP_LOAD;
+        dt.store_op = SDL_GPU_STOREOP_DONT_CARE;
+        pass = SDL_BeginGPURenderPass(cmd, &ct, 1, &dt);
     }
+    drawSprites(3, 3, bends ? backdrop : nullptr);
 
     if (!rects.empty()) {
         SDL_BindGPUGraphicsPipeline(pass, solidPipe);

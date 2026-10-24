@@ -178,8 +178,10 @@ void simScene(render::Scene& s) {
             const float want = 0.95f - 0.045f * float(std::clamp(li.elevation, 0, 19)) - 0.04f * yn;
             d.depthBias = base - want + li.order * 0.0001f;
         }
-        d.shadow = sp.isShadow(li.image);
-        d.glow = sp.drawFunction(li.image) == 9;
+        // The image's draw function: images.dat's (LiveImage does not give the one the game has now, as a unit's cloak).
+        d.drawFunction = sp.drawFunction(li.image);
+        d.shadow = d.drawFunction == 10;
+        d.glow = d.drawFunction == 9;
         // A sprite's main image with what its script puts under and over it (the shadow, lights), as the map draws its
         // own units (core/map_scene.inc: addImage); the other images of the sprite (a turret) as they come.
         if (li.order == 0 && !d.shadow) addImage(s, d);
