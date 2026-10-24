@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 
 #include "byteio.h"
 #include "tbl.h"
@@ -172,6 +173,10 @@ bool UnitTypes::load(const GameData& data, std::string& error) {
             t.addonY = int16_t(readU16(dat, kAddonPosition + 4 * size_t(i - kFirstAddonEntry) + 2));
         }
     }
+    boxReach_ = 0;
+    for (const UnitType& t : types_)
+        boxReach_ = std::max({boxReach_, int(t.placementWidth), int(t.placementHeight), int(t.sizeLeft), int(t.sizeUp), int(t.sizeRight) + 1,
+                              int(t.sizeDown) + 1});
     return true;
 }
 
@@ -333,9 +338,13 @@ void collectIssues(const PlacementContext& ctx, const Unit& unit, int self, bool
     }
 
     if (ctx.units) {
+        // A unit this far away (or farther) in x or y cannot block it: each box reaches at most boxReach from its unit,
+        // and the resource distance grows a box by 96.
+        const int apart = 2 * ctx.types->boxReach() + 96;
         for (size_t i = 0; i < ctx.units->size(); ++i) {
             if (int(i) == self) continue;
             const Unit& o = (*ctx.units)[i];
+            if (std::abs(int(o.x) - int(unit.x)) >= apart || std::abs(int(o.y) - int(unit.y)) >= apart) continue;
             if (o.type >= ctx.types->size()) continue;
             const UnitType& ot = (*ctx.types)[o.type];
             const bool otherFlyer = isAir(ot, o);
