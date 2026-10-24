@@ -32,6 +32,7 @@ struct SpriteDraw {
     bool tintRed = false; // highlight (e.g. a placement that is not allowed)
     bool ground = false;  // drawn on the ground under every unit, above shadows (selection circles)
     bool glow = false;    // additive-looking glow (images.dat draw function 9): brightness is its opacity
+    bool terrain = false; // part of the terrain (the creep edges): drawn first, under every other sprite
 };
 
 struct RectDraw {

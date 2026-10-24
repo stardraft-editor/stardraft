@@ -377,6 +377,7 @@ render::Scene buildScene() {
     addTerrainFlagsLayer(s);  // (View > Overlays > Terrain flags: core/terrain_flags_layer.inc)
     addPathingLayer(s);
     addPathOverlays(s);
+    addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
 
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
     // the sprites.

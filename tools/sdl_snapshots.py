@@ -156,8 +156,8 @@ CASES += [
     ("check-bundle", ["--check", "bundle"], ""),
     ("map-check-preview", ["--check", "preview:{newdir}"], "map"),
     ("map-check-spotlight", ["--check", "spotlight"], "map"),
-    # View > Layers > Creep: a Hatchery near the map's middle gets the creep of the creep rules, and the map view's terrain
-    # has its creep tiles (core/creep_layer.inc).
+    # View > Layers > Creep: a Hatchery near the map's middle gets the creep of the creep rules, the map view's terrain has
+    # its creep tiles and its scene the creep edges, one on each tile next to creep (core/creep_layer.inc).
     ("map-creep", ["--check", "creep"], "map"),
     # The free desktops (Linux, sdl_xdg.inc): the app id (the .desktop file's name, also SDL's), the XDG folders, what
     # the desktop has (the session bus, the portal, the notification server) and the recently used files' entry of the
@@ -4033,7 +4033,9 @@ def check_palette_units(output):
 
 
 CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
-          "map-creep": lambda o: None if re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o) else "no creep tiles under the Hatchery",
+          "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
+                                  else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)
+                                  else "the creep edges are not one on each tile next to creep"),
           "map-revealers-hidden": lambda o: None if "command view.layer.revealers: ran (yes)" in o else "the layer command did not run",
           "map-units-list-pick": lambda o: None if "units=57" in o and re.findall(r"units=(\d+)", o)[-1] == "58"
           else "the picked unit was not deleted, or Ctrl+Z did not give it back (units 57, then 58 expected)",
