@@ -159,6 +159,10 @@ CASES += [
     # View > Layers > Creep: a Hatchery near the map's middle gets the creep of the creep rules, the map view's terrain has
     # its creep tiles and its scene the creep edges, one on each tile next to creep (core/creep_layer.inc).
     ("map-creep", ["--check", "creep"], "map"),
+    # The images.dat draw functions on the map (renderer.cpp, shaders/sprite.hlsl): a Dragoon with each of 0 to 17 over the
+    # map's terrain, in SD, HD2 and HD; each line says how it looks against the usual Dragoon and the bare terrain, and the
+    # pictures go to {newdir}/drawfuncs-<sd|hd2|hd>.png (apps/editor/sdl_map_image.inc: sdlDrawFuncsCheck).
+    ("map-drawfuncs", ["--check", "drawfuncs:{newdir}"], "map"),
     # The free desktops (Linux, sdl_xdg.inc): the app id (the .desktop file's name, also SDL's), the XDG folders, what
     # the desktop has (the session bus, the portal, the notification server) and the recently used files' entry of the
     # map, written two times into {newdir} (one entry, its count 2). Elsewhere one line says that it is Linux only.
@@ -4053,6 +4057,8 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
                                   else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)
                                   else "the creep edges are not one on each tile next to creep"),
+          "map-drawfuncs": lambda o: (next((l for l in o.splitlines() if l.startswith("drawfuncs") and "(WRONG)" in l), None)
+                                      or (None if len(re.findall(r"^drawfuncs \w+: \d+ .*\(yes\)", o, re.M)) >= 18 else "no draw function lines")),
           "map-revealers-hidden": lambda o: None if "command view.layer.revealers: ran (yes)" in o else "the layer command did not run",
           "map-units-list-pick": lambda o: None if "units=57" in o and re.findall(r"units=(\d+)", o)[-1] == "58"
           else "the picked unit was not deleted, or Ctrl+Z did not give it back (units 57, then 58 expected)",
