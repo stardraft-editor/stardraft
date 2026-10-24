@@ -209,10 +209,13 @@ SdlMemory sdlMemory() {
     return m;
 }
 
-// The frames of the session (main_sdl.cpp times each frame after an input): since the last stats line.
+// The frames of the session (main_sdl.cpp times each frame after an input): since the last stats line. And the inputs
+// before them: the time each input took (its edit, its command), without its input lines (gInputLineMs).
 struct SdlSoakFrames {
     int count = 0;
     double total = 0, max = 0;
+    int inputs = 0;
+    double inputTotal = 0, inputMax = 0;
     int steps = 0, loop = 0;
     bool firstFrame = false;  // a map opened: the next frame is its first
 } gSoakFrames;
@@ -222,6 +225,12 @@ void sdlSoakFrame(double ms) {
         std::printf("first frame: %.1f ms (%d images still loading)\n", ms, gRenderer ? gRenderer->stats().imagesPending : 0);
     ++gSoakFrames.count, gSoakFrames.total += ms;
     gSoakFrames.max = std::max(gSoakFrames.max, ms);
+}
+
+// An input of the session took `ms` (its input lines not counted).
+void sdlSoakInput(double ms) {
+    ++gSoakFrames.inputs, gSoakFrames.inputTotal += ms;
+    gSoakFrames.inputMax = std::max(gSoakFrames.inputMax, ms);
 }
 
 uint64_t sdlMapHash(const Editor& ed) {
@@ -236,12 +245,20 @@ void sdlUndoCheck() {
     if (!gState.ed || !gState.ed->isOpen()) return void(std::printf("undocheck: no map\n"));
     if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);  // (Undo in another workspace is that workspace's)
     Editor& ed = *gState.ed;
+    const auto t0 = std::chrono::steady_clock::now();  // (the time of the undos and redos; the map's hashes apart)
+    double hashMs = 0;
+    auto hash = [&] {
+        const auto h0 = std::chrono::steady_clock::now();
+        const uint64_t h = sdlMapHash(ed);
+        hashMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - h0).count();
+        return h;
+    };
     const size_t undoBefore = ed.undoSteps(), redoBefore = ed.redoSteps();
-    std::vector<uint64_t> hashes{sdlMapHash(ed)};  // hashes[i]: the map after i undos
+    std::vector<uint64_t> hashes{hash()};  // hashes[i]: the map after i undos
     while (hashes.size() <= 40 && ed.canUndo()) {
         command(ID_EDIT_UNDO);
         runPosted();
-        hashes.push_back(sdlMapHash(ed));
+        hashes.push_back(hash());
     }
     const size_t undone = hashes.size() - 1;
     std::string problem;
@@ -250,13 +267,15 @@ void sdlUndoCheck() {
     for (size_t j = 1; j <= undone && problem.empty(); ++j) {
         command(ID_EDIT_REDO);
         runPosted();
-        if (sdlMapHash(ed) != hashes[undone - j]) problem = "redo " + std::to_string(j) + " of " + std::to_string(undone) + " gives another map";
+        if (hash() != hashes[undone - j]) problem = "redo " + std::to_string(j) + " of " + std::to_string(undone) + " gives another map";
     }
     if (problem.empty() && (ed.undoSteps() != undoBefore || ed.redoSteps() != redoBefore))
         problem = "the undo steps at the end are " + std::to_string(ed.undoSteps()) + " and " + std::to_string(ed.redoSteps()) + ", not " +
                   std::to_string(undoBefore) + " and " + std::to_string(redoBefore);
     std::printf("undocheck: %zu steps undone and redone, %zu undo steps: %s\n", undone, ed.undoSteps(),
                 problem.empty() ? "the same map (yes)" : (problem + " (WRONG)").c_str());
+    std::printf("undocheck: %.1f ms (%.1f ms of it the map's hashes)\n",
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(), hashMs);
 }
 
 void sdlSoakStats() {
@@ -271,10 +290,12 @@ void sdlSoakStats() {
     size_t bitmapBytes = 0;
     kit_sdl::bitmapTextureStats(bitmaps, bitmapBytes);
     std::printf("stats: loop %d, step %d: working set %.1f MB (peak %.1f), private %.1f MB, GPU %.1f MB (shared %.1f), %d bitmaps %.1f MB; %zu tabs; %s; "
-                "frames %d, %.1f ms on average, %.1f ms at most\n",
+                "frames %d, %.1f ms on average, %.1f ms at most; inputs %d, %.1f ms on average, %.1f ms at most\n",
                 gSoakFrames.loop, gSoakFrames.steps, m.workingSet, m.peak, m.privateBytes, m.gpuLocal, m.gpuShared, bitmaps,
-                double(bitmapBytes) / (1024.0 * 1024.0), gDocs.size(), map.c_str(), gSoakFrames.count, avg, gSoakFrames.max);
+                double(bitmapBytes) / (1024.0 * 1024.0), gDocs.size(), map.c_str(), gSoakFrames.count, avg, gSoakFrames.max,
+                gSoakFrames.inputs, gSoakFrames.inputs ? gSoakFrames.inputTotal / gSoakFrames.inputs : 0.0, gSoakFrames.inputMax);
     gSoakFrames.count = 0, gSoakFrames.total = 0, gSoakFrames.max = 0;
+    gSoakFrames.inputs = 0, gSoakFrames.inputTotal = 0, gSoakFrames.inputMax = 0;
 }
 
 // A session verb of the script (sdlShotInputNext); false: not one of them.
