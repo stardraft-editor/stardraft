@@ -194,6 +194,15 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     d.frame = sp.defaultFrame(u.type, d.image, d.flip);
     UnitAnim* anim = animate && app.animate ? &unitAnim(u) : nullptr;
     if (anim && anim->main.running()) d.frame = sp.animatedFrame(u.type, d.image, anim->main.frame(), d.flip);
+    // A mineral field (176 to 178) shows how much is left, as in the game: full from 750, fewer crystals below that
+    // (at 500 and at 250 when the picture has 4 frames; at 250 when it has 3).
+    if (u.type >= 176 && u.type <= 178 && (u.validProps & UnitProp::Resources)) {
+        const Grp* g = sp.grp(d.image);
+        const int n = g ? std::max(1, int(g->frames.size())) : 1;
+        const uint32_t r = u.resources;
+        const int f = r >= 750 ? 0 : n >= 4 ? (r >= 500 ? 1 : r >= 250 ? 2 : 3) : (r >= 250 ? 1 : 2);
+        d.frame = std::min(f, n - 1), d.flip = false;
+    }
     d.x = u.x + dx, d.y = u.y + dy;
     d.owner = uint8_t(std::min<int>(u.owner, 11));
     d.alpha = alpha;
