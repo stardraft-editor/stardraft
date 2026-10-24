@@ -1194,6 +1194,7 @@ bool simKey(const draw::KeyEvent& e) {
     return true;
 }
 
+bool gSimShotStepping = false;  // (--script's simstep: only it runs the game's frames, for even pictures)
 void simFrame() {
     if (!gSim.shown) return;
     if (gState.ed.get() != gSim.ed) return simClose();  // (another tab, or the map closed)
@@ -1201,7 +1202,7 @@ void simFrame() {
     const double ms = std::chrono::duration<double, std::milli>(now - gSim.last).count();
     gSim.last = now;
     simHold();  // (the shields follow the panels: a window resized, a panel opened)
-    if (gSim.done) return;
+    if (gSim.done || gSimShotStepping) return;
     // The game's frames due (Fastest: 42 ms a frame, times the speed), run in small steps for at most 12 ms of each
     // window frame, so the program stays usable at any speed: the frames that do not fit are dropped (the game goes
     // slower than the speed, and the bar's spinner says so). Skip to the end: as many as fit, until the end.
@@ -1313,6 +1314,7 @@ void simulateCombatOf(std::set<int> selected) {
 int simStepForShot(int frames) {
     if (!gSim.shown || !gSim_) return -1;
     simSkipJoin();
+    gSimShotStepping = true;
     sim::Simulator& e = simEngine();
     for (int n = 0; n < frames && !gSim.done; n += 60)
         if (!e.step(std::min(60, frames - n))) simEnd();

@@ -14,6 +14,7 @@
 //   minimap            the minimap's terrain is made again: a line with its time
 //   simstep <frames>   the simulation that shows (Tools > Simulate) runs that many game frames at once (pictures of a
 //                      game in progress): a line with the game's frame
+//   frame <file>       the picture of the frame after this line goes to that PNG file (videos: one line for each frame)
 //   stats              a line with the memory (the working set, the GPU's, the bitmaps with a texture), the undo
 //                      steps and the frame times since the last stats line
 //   history            a line with the workspace's undo history (Edit > Undo history): the steps done (their names,
@@ -26,6 +27,7 @@
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
 
 int simStepForShot(int frames);  // (sdl_simulation.inc: simstep)
+std::string gShotFrameFile;      // frame <file>: the picture of the frame after this input goes there (main_sdl.cpp)
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).
 const char* const kWorkspaceNames[] = {"map",    "data",     "triggers",        "assets",  "project",
@@ -86,7 +88,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}};
+        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -342,6 +344,9 @@ bool sdlScriptStep(char kind, const std::string& value) {
         gSoakFrames.firstFrame = true;
         return true;
     }
+    case 'Y':
+        gShotFrameFile = value;
+        return true;
     case 'X': {
         std::printf("simstep: frame %d\n", simStepForShot(std::atoi(value.c_str())));
         return true;

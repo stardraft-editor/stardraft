@@ -879,6 +879,10 @@ int main(int argc, char** argv) {
                     const auto t0 = std::chrono::steady_clock::now();
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                     sdlSoakFrame(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());  // (--script stats)
+                    if (!gShotFrameFile.empty()) {  // (--script's frame <file>: this frame's picture)
+                        if (!writeSnapshot(device, tex, width, height, gShotFrameFile)) std::printf("frame: could not write %s\n", gShotFrameFile.c_str());
+                        gShotFrameFile.clear();
+                    }
                 }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 host.setSnapshotModalHook(nullptr);
