@@ -1308,6 +1308,20 @@ void simulateCombatOf(std::set<int> selected) {
     gSim.players[0] = owners[0], gSim.players[1] = owners[1], gSim.unitNames = names, gSim.speed = 1;
 }
 
+// --script's simstep <frames> (a snapshot): the game that shows runs that many frames at once; its frame after them (-1:
+// no game).
+int simStepForShot(int frames) {
+    if (!gSim.shown || !gSim_) return -1;
+    simSkipJoin();
+    sim::Simulator& e = simEngine();
+    for (int n = 0; n < frames && !gSim.done; n += 60)
+        if (!e.step(std::min(60, frames - n))) simEnd();
+    simSounds(false);
+    gSim.last = std::chrono::steady_clock::now(), gSim.due = 0;
+    simRedraw();
+    return e.frame();
+}
+
 // --dialog simreport:mining or simreport:combat (a snapshot): that simulation of the map runs to its end at once (combat:
 // the units of the map's first two players), and its report's window is the picture.
 draw::View* sdlSimReportShot(const std::string& arg, int& w, int& h) {
@@ -1338,6 +1352,7 @@ draw::View* sdlSimReportShot(const std::string& arg, int& w, int& h) {
 #else  // (no simulation in this build)
 
 bool simBarShown() { return false; }
+int simStepForShot(int) { return -1; }
 void simPaintBar(draw::Canvas&, draw::Rect) {}
 bool simBarMouse(const draw::MouseEvent&, draw::Rect) { return false; }
 std::wstring simBarTip(draw::Point, draw::Rect) { return {}; }
