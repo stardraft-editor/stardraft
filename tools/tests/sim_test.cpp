@@ -1254,7 +1254,7 @@ bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& 
 }
 
 // Gathering sparks: the picture of a mining worker's harvest weapon (the SCV's Fusion Cutter, the Probe's Particle
-// Beam) sits on the field it mines: within the field's box or on its edge (at most 2 pixels out), in the live images.
+// Beam) sits at the centre of the field it mines (at most 2 pixels off), in the live images.
 bool runGatherSparkCheck(const sim::Tables& t, const sim::MapInfo& map) {
     bool ok = true;
     for (sim::Race race : {sim::Terran, sim::Protoss}) {
@@ -1272,11 +1272,11 @@ bool runGatherSparkCheck(const sim::Tables& t, const sim::MapInfo& map) {
             w.step();
             for (const sim::World::Effect& e : w.effects) {
                 if (e.image != spark || e.follow >= 0) continue;
-                // (its gap to the nearest mineral field)
+                // (its distance to the nearest mineral field's centre)
                 int gap = -1;
                 for (const sim::Unit& v : w.units)
                     if (v.alive && t.roles[size_t(v.type)].mineralField) {
-                        const int g = w.pointGap(v, e.x, e.y);
+                        const int g = std::max(std::abs(v.x - e.x), std::abs(v.y - e.y));
                         if (gap < 0 || g < gap) gap = g;
                     }
                 if (gap < 0) continue;
@@ -1286,7 +1286,7 @@ bool runGatherSparkCheck(const sim::Tables& t, const sim::MapInfo& map) {
             }
         }
         const bool good = sparks > 0 && off == 0;
-        std::printf("Gathering sparks: %s: %d spark frames, %d off their field (the farthest %d px out): %s\n",
+        std::printf("Gathering sparks: %s: %d spark frames, %d off their field's centre (the farthest %d px off): %s\n",
                     race == sim::Terran ? "SCVs" : "Probes", sparks, off, worst, good ? "OK" : "FAIL");
         ok = ok && good;
     }

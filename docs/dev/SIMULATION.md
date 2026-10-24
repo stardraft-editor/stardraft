@@ -49,13 +49,13 @@ With `mapRaces`, a start location's base takes its player's race from the map's 
 lobby or Random: a random race from `seed`); the other bases take `races[0]`. A run of 60 minutes with 60 workers at
 both start locations of (2)Bottleneck.scm takes about 0.3 s (`sim_test`).
 A mining worker plays its mining animation (Almost Built) while it mines and Ground Attack to Idle at the end; the
-weapon that the SCV's and the Probe's script uses there (useweapon) gives its projectile's picture on the field, at the
-point of the field's box nearest the worker (its edge facing the worker), with its sprites and sounds, and no hit (the
-Drone's has only its sounds). Gathering workers pass each other but never walk into a building's box, the mineral
-fields' too (mining.md, mining-contact.md): the terrain test, the paths and the steps treat those boxes as unwalkable
-(by tile, the boxes that cover it, as mining's buildings never move; a walk found once is taken again). A worker walks
-straight toward its field's (or depot's) centre and stops at the first touch of a box on the way; when that place is
-more than `miningReach` (10) pixels from its target, it goes to the nearest place on the target's outline where it fits.
+weapon that the SCV's and the Probe's script uses there (useweapon) gives its projectile's picture at the centre of the
+field it mines, with its sprites and sounds, and no hit (the Drone's has only its sounds). Gathering workers pass each
+other but never walk into a building's box, the mineral fields' too (mining.md, mining-contact.md): the terrain test,
+the paths and the steps treat those boxes as unwalkable (by tile, the boxes that cover it, as mining's buildings never
+move; a walk found once is taken again). A worker walks straight toward its field's (or depot's) centre and stops at the
+first touch of a box on the way; when that place is more than `miningReach` (10) pixels from its target, it goes to the
+nearest place on the target's outline where it fits.
 
 **Combat.** As in the reference: each side's centre is `gap / 2` left and right of (`x`, `y`) (or the map's middle),
 moved to the nearest walkable point; each side's units start there, placed in order by the free-spot search
