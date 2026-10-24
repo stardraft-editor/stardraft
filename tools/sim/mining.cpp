@@ -273,8 +273,9 @@ bool World::resourceValid(const Unit& u, int f) const {
                                 : isMinerals(t, type);
 }
 
-// To the point where the worker touches the resource (or depot), facing it: the nearest point of its box grown by the
-// worker's own where the worker fits (off the other buildings); none: the nearest point.
+// To the resource (or depot), facing it (mining-contact.md): the worker walks straight toward its centre and stops at
+// the first touch of a box on the way; a resource from there within miningReach (a depot: touched) is reached, else
+// the nearest point of the target's outline (its box grown by the worker's) where the worker fits.
 void World::goToResource(Unit& u, int f) {
     const Unit& target = units[size_t(f)];
     // (its straight walk toward the centre: the last place before the first touch of a box in the way)
@@ -286,7 +287,8 @@ void World::goToResource(Unit& u, int f) {
         x = px;
         y = py;
     }
-    if (boxGap(boxAt(u.type, x, y), boxOf(target)) > t.rules.miningReach) {
+    const int reach = (t.units[size_t(target.type)].flags & kDepot) ? 0 : t.rules.miningReach;  // (a depot: touched)
+    if (boxGap(boxAt(u.type, x, y), boxOf(target)) > reach) {
         const Unit& b = units[size_t(f)];
         const UnitData &dw = t.units[u.type], &db = t.units[b.type];
         int l = b.x - db.left - dw.right - 1, r = b.x + db.right + dw.left + 1;

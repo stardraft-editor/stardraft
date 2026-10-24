@@ -1203,9 +1203,9 @@ bool runBuildingFight(const sim::Tables& t, const sim::MapInfo& map, const char*
     return ok;
 }
 
-// Mining workers and buildings: a gathering worker collides with buildings (units.dat's building flag), never with
-// other workers; it passes the mineral fields (as the mining reference measures). In a live mining run with gas, no
-// visible worker's box overlaps the box of a depot, a refinery or another building in any frame.
+// Mining workers and buildings: a gathering worker collides with buildings (units.dat's building flag, mineral fields
+// too), never with other workers. In a live mining run with gas, no visible worker's box overlaps a building's box in
+// any frame; and the run with the walks kept (World::walks) is the same as with each walk searched again.
 bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& install) {
     stardraft::Bytes chk;
     std::string error;
@@ -1219,17 +1219,22 @@ bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& 
     mo.gasWorkers = 3;
     std::vector<sim::MiningBase> bases = sim::miningBases(t, orbital, mo);
     std::vector<sim::Race> races = sim::baseRaces(t, orbital, bases, mo);
-    sim::World w(t, orbital);
+    sim::World w(t, orbital), fresh(t, orbital);  // (fresh: each walk searched again)
     sim::setupMining(w, bases, races, 12, mo);
-    int frames = 0, overlaps = 0, worst = -1;
+    sim::setupMining(fresh, bases, races, 12, mo);
+    fresh.keepWalks = false;
+    int frames = 0, overlaps = 0, worst = -1, differ = 0;
     for (int f = 0; f < 3000; ++f) {
         w.step();
+        fresh.step();
+        for (size_t i = 0; i < w.units.size() && i < fresh.units.size(); ++i)
+            differ += w.units[i].x != fresh.units[i].x || w.units[i].y != fresh.units[i].y;
         bool any = false;
         for (const sim::Unit& u : w.units) {
             if (!u.alive || u.hidden || !(w.t.units[size_t(u.type)].flags & sim::kWorker)) continue;
             for (const sim::Unit& b : w.units)
                 if (b.alive && (w.t.units[size_t(b.type)].flags & sim::kBuilding) &&
-                    !w.t.roles[size_t(b.type)].mineralField && w.overlaps(u.type, u.x, u.y, b)) {
+                    w.overlaps(u.type, u.x, u.y, b)) {
                     any = true;
                     if (worst < 0) {
                         worst = w.frame;
@@ -1241,9 +1246,10 @@ bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& 
         ++frames;
         overlaps += any;
     }
-    bool ok = overlaps == 0;
+    bool ok = overlaps == 0 && differ == 0;
     std::printf("Mining collisions: (4)Orbital Relay.scm, 12 workers and 3 on gas a base, %d frames: %d with a worker "
-                "inside a building's box (first at %d): %s\n", frames, overlaps, worst, ok ? "OK" : "FAIL");
+                "inside a building's box (first at %d); kept walks against new searches: %d places differ: %s\n",
+                frames, overlaps, worst, differ, ok ? "OK" : "FAIL");
     return ok;
 }
 

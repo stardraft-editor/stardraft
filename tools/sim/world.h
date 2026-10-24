@@ -331,6 +331,7 @@ public:
         std::vector<std::pair<int, int>> path;
     };
     mutable std::unordered_map<WalkKey, Walk, WalkHash> walks;
+    bool keepWalks = true;  // (off: each walk searched again: sim_test compares)
     // The minitile search's buffers, kept between searches: a cell's values count only when its stamp is this
     // search's (so nothing is cleared); per cell: cost, from, place, corner, whether the box fits, and the straight
     // steps to its 8 neighbours already tested (and their results).
@@ -376,7 +377,7 @@ public:
     int pointGap(const Unit& v, int x, int y) const;
     bool overlaps(int type, int x, int y, const Unit& o) const;
     bool collides(const Unit& u, const Unit& o) const;
-    bool onBuilding(const Box& box) const;  // (mining: the box touches a building's, not a mineral field's)
+    bool onBuilding(const Box& box) const;  // (mining: the box touches a building's, a mineral field's too)
     mutable std::vector<std::vector<int>> buildingTiles;  // (mining: by tile, the buildings whose box covers it)
     mutable std::vector<Box> buildingBoxes;
     mutable bool buildingMaskReady = false;

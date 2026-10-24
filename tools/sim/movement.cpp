@@ -108,8 +108,8 @@ void World::freeSpot(int type, int& x, int& y, const Unit* self) const {
     }
 }
 
-// Whether a unit's box fits at a place: on walkable ground, and in mining off every building's box but the mineral
-// fields' (a gathering worker collides with buildings only; the fields: as the mining reference measures).
+// Whether a unit's box fits at a place: on walkable ground, and in mining off every building's box, the mineral fields'
+// too (a gathering worker collides with buildings only).
 bool World::fits(int type, int x, int y) const {
     const UnitData& d = t.units[size_t(type)];
     if (!map.boxWalkable(x - d.left, y - d.up, x + d.right, y + d.down)) return false;
@@ -155,7 +155,7 @@ bool World::lineClear(int type, int x0, int y0, int x1, int y1) const {
 // it cannot reach: the reachable place nearest to it (false).
 // In mining (no unit moves a building) a walk that was found once is taken again.
 bool World::gridPath(int type, int fx, int fy, int x, int y, std::vector<std::pair<int, int>>& out) const {
-    if (combat) return gridSearch(type, fx, fy, x, y, out);
+    if (combat || !keepWalks) return gridSearch(type, fx, fy, x, y, out);
     const WalkKey key{type, fx, fy, x, y};
     if (auto known = walks.find(key); known != walks.end()) {  // (the search adds its points to `out`)
         out.insert(out.end(), known->second.path.begin(), known->second.path.end());

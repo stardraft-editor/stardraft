@@ -72,7 +72,12 @@ int World::pointGap(const Unit& v, int x, int y) const { return sim::pointGap(bo
 
 void World::regrid(int unit) {
     const Unit& u = units[size_t(unit)];
-    if (u.building) buildingMaskReady = false, walks.clear();  // (mining's building boxes and walks: made again)
+    if (u.building && !combat) {  // (mining's building boxes and walks, and its places that cannot be reached: again)
+        buildingMaskReady = false;
+        walks.clear();
+        cutCache.clear();
+    }
+    if (u.building && combat) buildingMaskReady = false;
     if (u.alive) unitGrid.place(unit, boxOf(u));
     else unitGrid.remove(unit);
 }
