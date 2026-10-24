@@ -27,11 +27,14 @@ Accelerated improvements, and the missing features based on early user feedback.
   that the map shows.
 
   Done (2026-10-18): the Tiles grid draws each tile in the map's art, SD, HD or Carbot (tilesPixels in views_tiles.inc).
-- [ ] **R8 Preplaced unit graphics.** *Tag:* EUD.
+- [x] **R8 Preplaced unit graphics.** *Tag:* EUD.
   Preplaced units show the graphics from the map's data edits.
 
   The game makes preplaced units before the map's data edits run. These units keep the game's graphics. Make them
   again at map start.
+
+  Done (2026-10-24): released in 0.7. Units of a type above 227 and units on or past the map's edge also stay in the
+  map with the old graphics (Create Unit cannot make them as the map does).
 
   Status (2026-10-23): on main. The Project page option "New graphics for preplaced units" shows the units with the new
   graphics on the map. Build takes these units out of the map that euddraft gets (the project's map does not change),
@@ -299,6 +302,11 @@ Exploring how to enable the next evolution of StarCraft creations.
 
   To balance custom units and economies, mappers must play test games in StarCraft. It needs a simulation of the game
   itself, so it waits for that.
+
+  Status (2026-10-25): a first, experimental part is in 0.7: Tools > Simulate melee mining (each base's minerals and
+  gas a minute) and Simulate combat (the selected units fight; who wins, the losses and the trade), shown live on the
+  map with speed controls, also with an EUD project's .dat edits. Still to do: moving units and giving them orders by
+  hand, the resources, supply and unit counts over time, and a log of the events.
 - [ ] **R45 Map publishing.** *Tag:* Capability.
   Upload a map to [scmscx.com](https://scmscx.com) from StarDraft 2.
 
