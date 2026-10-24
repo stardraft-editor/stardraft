@@ -2526,3 +2526,4 @@ Mining: %ls minerals and %ls gas a minute	채취: 분당 미네랄 %ls, 가스 %
 The simulation cannot start: %ls	시뮬레이션을 시작할 수 없습니다: %ls
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2는 팬이 만든 도구입니다. Blizzard Entertainment가 만들거나 승인하거나 보증하지 않았습니다.
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft는 Blizzard Entertainment의 상표입니다.
+stored as %u (1/256 hit points)	%u로 저장됨 (1/256 체력)

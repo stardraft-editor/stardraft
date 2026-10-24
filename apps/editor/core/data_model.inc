@@ -308,6 +308,11 @@ std::wstring fieldNote(const DatField& f, uint32_t v) {
     if (f.name == "Label" && shellState().ed) return v ? L"\x201C" + statString(int(v)) + L"\x201D" : L"None";
     // A raw value in a unit that is difficult to read: the value in an easier unit (stardraft/dat_units.h; its help page
     // says the same), "= 15 s (fastest)".
+    if (fieldShownScale(f) > 1) {  // (the box shows hit points)
+        wchar_t b[96];
+        std::swprintf(b, 96, tr(L"stored as %u (1/256 hit points)"), unsigned(v));
+        return b;
+    }
     if (const DatTable* t = curTable()) return widen(datConvertedText(t->schema().name, f.name, v));
     return L"";
 }

@@ -525,7 +525,7 @@ inline void DataFormView::press(draw::Point pt, bool right) {
         else if (h.bit == -5) setValue(*f, v ? 0 : 1);
         else if (h.bit == -6 || h.bit == -7) {  // a number's arrows: one up or down (Shift: 10)
             host_.commitEdit();
-            const int64_t step = (host() && (host()->modifiers() & draw::kShift) ? 10 : 1) * (h.bit == -6 ? 1 : -1);
+            const int64_t step = (host() && (host()->modifiers() & draw::kShift) ? 10 : 1) * (h.bit == -6 ? 1 : -1) * int64_t(fieldShownScale(*f));
             setValue(*f, uint32_t(std::clamp<int64_t>(int64_t(table->value(*f, host_.entry())) + step, 0, int64_t(f->maxValue()))));
         } else if (h.bit >= 0) setValue(*f, v ^ (1u << h.bit));
         else if (h.bit == -2) host_.goTo(f->ref, int(v));
@@ -586,7 +586,7 @@ inline void DataFormView::wheel(const draw::MouseEvent& e) {
                 const DatField* f = field(h.field);
                 const DatTable* t = host_.table();
                 if (!f || !t || !fieldIsNumber(t->schema().name, *f)) continue;
-                const int64_t step = ((e.mods & draw::kShift) ? 10 : 1) * (delta > 0 ? 1 : -1);
+                const int64_t step = ((e.mods & draw::kShift) ? 10 : 1) * (delta > 0 ? 1 : -1) * int64_t(fieldShownScale(*f));
                 setValue(*f, uint32_t(std::clamp<int64_t>(int64_t(t->value(*f, host_.entry())) + step, 0, int64_t(f->maxValue()))));
                 return;
             }

@@ -2526,3 +2526,4 @@ Mining: %ls minerals and %ls gas a minute	Добыча: %ls минералов �
 The simulation cannot start: %ls	Не удалось запустить моделирование: %ls
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 — инструмент, созданный фанатами. Blizzard Entertainment не создавала, не одобряла и не поддерживает его.
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft — товарный знак Blizzard Entertainment.
+stored as %u (1/256 hit points)	хранится как %u (1/256 очка здоровья)

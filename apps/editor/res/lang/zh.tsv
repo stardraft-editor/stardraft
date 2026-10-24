@@ -2526,3 +2526,4 @@ Mining: %ls minerals and %ls gas a minute	采矿: 每分钟矿物 %ls，瓦斯 %
 The simulation cannot start: %ls	无法开始模拟: %ls
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 是爱好者制作的工具，并非由 Blizzard Entertainment 制作、批准或认可。
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft 是 Blizzard Entertainment 的商标。
+stored as %u (1/256 hit points)	存储为 %u（1/256 生命值）

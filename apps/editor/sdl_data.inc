@@ -68,7 +68,7 @@ bool sdlDataCommitEdit() {
     sdlDataHide(gSdlDataEntry);
     if (!f) return true;
     uint32_t v = 0;
-    const DataEntryRead r = dataReadEntry(text, f->maxValue(), v);
+    const DataEntryRead r = dataReadEntry(text, f->maxValue(), v, fieldShownScale(*f));
     if (r == DataEntryRead::Empty) return true;
     if (r == DataEntryRead::NotNumber) {
         setMessage(L"Not a number: " + text);
