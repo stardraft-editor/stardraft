@@ -388,14 +388,13 @@ void World::step() {
 }
 
 // The weapon that a gathering worker's script uses (the SCV's and the Probe's harvest weapons): its projectile's
-// picture on the field the worker mines, at the point of the field's box nearest the worker (its edge facing the
-// worker), with its script's sprites and sounds; no hit, no game random number.
+// picture at the centre of the resource the worker mines, with its script's sprites and sounds; no hit, no game random
+// number.
 void World::gatherPicture(int unit, int weapon) {
     const Unit& u = units[size_t(unit)];
     if (weapon < 0 || weapon >= kNoWeapon || u.field < 0 || !t.flingyVisible(t.weapons[size_t(weapon)].flingy)) return;
     const WeaponData& wd = t.weapons[size_t(weapon)];
-    const Box field = boxOf(units[size_t(u.field)]);
-    const int x = std::clamp(u.x, field.left, field.right), y = std::clamp(u.y, field.top, field.bottom);
+    const int x = units[size_t(u.field)].x, y = units[size_t(u.field)].y;
     addEffect(t.flingyImage(wd.flingy), x, y, u.owner, u.heading,
               t.units[size_t(u.type)].elevation + t.rules.bulletElevationAbove, false, kAnimInit);
 }
