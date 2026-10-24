@@ -167,7 +167,7 @@ def check_section(version, problems, warnings):
                 warnings.append(f"the picture {r} is not in images/{version}/")
             else:  # publish commits only images/<version>/: CI would not find it
                 problems.append(f"the picture {r} is not committed and not in images/{version}/")
-        elif not re.fullmatch(r"[a-z0-9-]+\.png", Path(r).name):
+        elif not re.fullmatch(r"[a-z0-9-]+\.(png|mp4)", Path(r).name):
             warnings.append(f"picture name {Path(r).name}: use small letters, digits and - (.png)")
     folder = IMAGES / version
     if folder.is_dir():
@@ -260,12 +260,13 @@ def cmd_notes(args):
 
 
 def image_alts(lines):
-    """The pictures of a section with their text: [(path, alt)], in their order, each one once."""
+    """The pictures of a section with their text: [(path, alt)], in their order, each one once. A video is a link
+    to an .mp4 ("[Video: what it shows](images/<version>/name.mp4)"): it goes to Discord as a picture does."""
     seen, out = set(), []
-    for m in re.finditer(r"!\[([^\]]*)\]\((images/[^)\s]+)\)", "\n".join(lines)):
-        if m.group(2) not in seen:
-            seen.add(m.group(2))
-            out.append((m.group(2), m.group(1)))
+    for m in re.finditer(r"(!?)\[([^\]]*)\]\((images/[^)\s]+)\)", "\n".join(lines)):
+        if (m.group(1) or m.group(3).endswith(".mp4")) and m.group(3) not in seen:
+            seen.add(m.group(3))
+            out.append((m.group(3), m.group(2)))
     return out
 
 
@@ -278,7 +279,7 @@ def discord_text(lines):
     out = []
     for raw in lines:
         line = raw.rstrip()
-        if line.lstrip().startswith("!["):
+        if line.lstrip().startswith("![") or line.lstrip().startswith("[Video"):
             continue
         if line.startswith("### "):
             out += ["", "**" + line[4:].strip() + "**"]
@@ -344,7 +345,8 @@ def discord_send(hook, content, file=None, ping_role=None):
     body += part(['Content-Disposition: form-data; name="payload_json"', "Content-Type: application/json"],
                  json.dumps({"content": content, "allowed_mentions": {"roles": [ping_role] if ping_role else []}}).encode("utf-8"))
     if file:
-        body += part([f'Content-Disposition: form-data; name="files[0]"; filename="{Path(file).name}"', "Content-Type: image/png"],
+        kind = "video/mp4" if Path(file).suffix == ".mp4" else "image/png"
+        body += part([f'Content-Disposition: form-data; name="files[0]"; filename="{Path(file).name}"', f"Content-Type: {kind}"],
                      Path(file).read_bytes())
     body += f"--{boundary}--\r\n".encode()
     for attempt in range(5):
