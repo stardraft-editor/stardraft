@@ -81,9 +81,16 @@ uint32_t playerRgba(int owner, uint8_t alpha) {
 }
 
 // One image plus the overlays its iscript puts underneath it (shadows).
-void addImage(render::Scene& s, const render::SpriteDraw& d) {
+void addImage(render::Scene& s, const render::SpriteDraw& in) {
     AppState& app = shellState();
     UnitSprites& sp = app.ed->unitSprites();
+    // The image's own draw function (images.dat, also as the project's .dat edits set it): a shadow (10) is drawn as a
+    // shadow, a glow (9) adds its light, the cloaked ones (2 to 7) are see-through.
+    render::SpriteDraw d = in;
+    const int df = sp.drawFunction(d.image);
+    if (df == 10) d.shadow = true, d.air = false;
+    else if (df == 9) d.glow = true;
+    else if (df >= 2 && df <= 7) d.alpha *= 0.45f;
     s.sprites.push_back(d);
     // Overlays its script puts on top (glows, lights): their own resting frame, or the parent's facing.
     for (const ImageScript::Overlay& o : sp.script(d.image).over) {
