@@ -42,7 +42,6 @@ struct OptionsValues {
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
     int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
-    bool simEnabled = false;  // Tools > Simulate shows (experimental; off by default)
 };
 
 // The program's part of the options window (options_window.inc): the values, the commands and the pickers.
@@ -166,10 +165,6 @@ public:
             simDrop(simMinutes_, m, 2, optionsview::kSimMinutes);
             simDrop(simRace_, r, 3, nullptr);
         }
-        simEnable_.setLabel(L"Tools > Simulate melee mining and combat (experimental)");
-        simEnable_.setTip(L"An early preview. The simulation might not fully match the game yet.");
-        simEnable_.onChange = [this](bool on) { host_.setSimulation(4, on ? 1 : 0); };
-        add(simEnable_, {0, 0, 0, 0}), simEnable_.setVisible(false);
         slider_.setRange(0, 100), slider_.setStep(1);
         slider_.onChange = [this](int v) { host_.setVolume(v), invalidate(); };
         add(slider_, {0, 0, 0, 0}), slider_.setVisible(false);
@@ -367,7 +362,6 @@ private:
     stardraft::kit::CheckBox animate_, lastProject_, updates_, previews_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
-    stardraft::kit::CheckBox simEnable_;
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], folder_, install_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
@@ -440,7 +434,6 @@ void OptionsView::sync(const OptionsValues& v) {
             if (values[i] == value) at = int(i);
         if (d.value() != at) d.setValue(at);
     };
-    simEnable_.setOn(v.simEnabled);
     pick(simWorkers_, optionsview::kSimWorkers, std::size(optionsview::kSimWorkers), v.simWorkers);
     pick(simGas_, optionsview::kSimGas, std::size(optionsview::kSimGas), v.simGas);
     pick(simMinutes_, optionsview::kSimMinutes, std::size(optionsview::kSimMinutes), v.simMinutes);
@@ -615,9 +608,6 @@ void OptionsView::paint(draw::Canvas& c) {
 
     // Simulate mining (experimental: Tools > Simulate mining).
     if (shown & optionsview::kSimulation) {
-        header(L"Simulation");
-        checkRow(y, simEnable_, "sim.enabled");
-        y += rowH;
         header(L"Simulate mining");
         const std::pair<const wchar_t*, std::pair<stardraft::kit::Dropdown*, const char*>> rows[] = {
             {L"Workers on minerals at each base", {&simWorkers_, "sim.workers"}},

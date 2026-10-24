@@ -287,7 +287,6 @@ bool simLocksCommand(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if (simBarShown() && simLocksCommand(id)) return false;
-    if ((id == ID_SIM_MINING || id == ID_SIM_COMBAT) && !simulationEnabled() && !gSilent) return false;  // (Program options > Simulation; tests: on)
     if (mapCommand(id) && !docOpen()) return false;
     if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
     // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
