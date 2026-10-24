@@ -4192,7 +4192,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
 
 
 HELP_PAGES = ["index", "getting-started", "values-and-units", "keyboard-shortcuts", "trigger-checks", "units-dat", "weapons-dat", "flingy-dat",
-              "sprites-dat", "images-dat", "upgrades-dat", "techdata-dat", "orders-dat", "credits"]  # (docs/help/index.md's order)
+              "sprites-dat", "images-dat", "upgrades-dat", "techdata-dat", "orders-dat", "sfxdata-dat", "portdata-dat", "credits"]  # (docs/help/index.md's order)
 
 
 def help_lines(output):
