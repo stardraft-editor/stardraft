@@ -2422,6 +2422,7 @@ constexpr UiText kRows[] = {
     {L"Brush: the ", L"Pincel: los "},
     {L" tiles you copied (", L" mosaicos (copiados: "},
     {L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random", L" mosaicos). Haga clic para colocarlos; arrastre para repetirlos. Mantenga May\u00FAs para colocarlos al azar."},
+    {L"%ls of Player %d", L"%ls del jugador %d"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
