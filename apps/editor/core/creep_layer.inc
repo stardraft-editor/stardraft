@@ -10,6 +10,7 @@ struct CreepLayer {
     std::vector<uint8_t> creep, variants;
     uint64_t changes = 0;  // (the creep changed: the renderer's terrain again)
     uint32_t seed = 0;
+    int variantsWidth = 0;
 } gCreep;
 
 // The map's start creep (1: creep), one per tile; made again when the map changed. While the selected units are
@@ -47,10 +48,16 @@ const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     const TerrainLayer& terrain = ed.terrain();
     std::vector<uint8_t> creep = startCreep(ed.tileset(), terrain, units, ed.unitTypes());
     const size_t n = creep.size();
-    if (c.variants.size() != n) {  // (the variants: once a session, for a map of this size)
-        if (!c.seed) c.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
-        c.variants.resize(n);
-        for (uint8_t& v : c.variants) v = uint8_t(creepVariant(c.seed));
+    if (c.variants.size() != n || c.variantsWidth != int(ed.width())) {  // (the variants: drawn once a session, 256x256)
+        static std::vector<uint8_t> all;
+        if (all.empty()) {
+            if (!c.seed) c.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
+            all.resize(256 * 256);
+            for (uint8_t& v : all) v = uint8_t(creepVariant(c.seed));
+        }
+        const int w = std::max(1, int(ed.width()));
+        c.variants.resize(n), c.variantsWidth = int(ed.width());
+        for (size_t i = 0; i < n; ++i) c.variants[i] = all[(i / size_t(w) % 256) * 256 + i % size_t(w) % 256];
     }
     if (creep != c.creep) {
         c.creep = std::move(creep);

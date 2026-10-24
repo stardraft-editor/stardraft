@@ -275,14 +275,6 @@ struct SimDoc {
 class SimReportView final : public draw::View {
 public:
     SimReportView() {
-        html_.setExtraCss(
-            "body { padding: " + std::to_string(stardraft::kit::kDialogPad) + "px " + std::to_string(stardraft::kit::kDialogPad + 4) +
-            "px; }\n"
-            "h3 { margin: 18px 0 8px 0; } h3:first-child { margin-top: 0; }\n"
-            "th { text-align: left; white-space: nowrap; } td { white-space: nowrap; }\n"
-            "th.n, td.n { text-align: right; }\n"
-                        "p.dim { color: " +
-            dimCss() + "; }\n");
         scroll_.setContent(&html_);
         add(scroll_, {});
         copy_.setText(L"Copy");
@@ -301,6 +293,14 @@ public:
 
     void set(const std::wstring& title, const std::wstring& line, const SimDoc& doc) {
         title_ = title, line_ = line, text_ = title + L"\r\n" + line + L"\r\n\r\n" + doc.text;
+        html_.setExtraCss(  // (here, not at the start: the theme's gray can change)
+            "body { padding: " + std::to_string(stardraft::kit::kDialogPad) + "px " + std::to_string(stardraft::kit::kDialogPad + 4) +
+            "px; }\n"
+            "h3 { margin: 18px 0 8px 0; } h3:first-child { margin-top: 0; }\n"
+            "th { text-align: left; white-space: nowrap; } td { white-space: nowrap; }\n"
+            "th.n, td.n { text-align: right; }\n"
+            "p.dim { color: " +
+            dimCss() + "; }\n");
         html_.setHtml("<html><body>" + doc.html + "</body></html>", std::string());
         scroll_.setOffset(0, 0);
         relayout();
@@ -387,6 +387,7 @@ void simEnd() {
         gSimDoc.para(gSim.endText);
         gSim.result = L"Stopped";
         gSim.report = gSim.endText;
+        if (gSimReport.open) gSimReport.set(gSimTitle, gSimLine, gSimDoc);
         return simRedraw();
     }
     if (gSim.combat && !e.combatResult().teams.empty()) {
@@ -611,8 +612,10 @@ void simRelease() {
 }
 
 // Cancel, Close or Esc: the map's own units again.
+void simStopSounds();
 void simClose() {
     simSkipJoin();
+    simStopSounds();
     if (gSim_) simEngine().stop();
     gLiveScene = nullptr, gLiveMinimap = nullptr, gLiveCreep = nullptr;
     gSimCreep.clear(), gSimCreepChanges = ~0ull;
@@ -648,31 +651,37 @@ bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
 // playing, a nearer sound stops the farthest one. Each sound plays in stereo, panned by `pan` (-1 left, 1 right) with an
 // equal-power law, at `gain` times the program's volume; `dist` is its distance from the listening camera (map pixels).
 // The decoded sounds are kept (as mono floats).
+struct SimVoice {
+    SDL_AudioStream* stream;
+    int sfx;
+    float dist;
+};
+std::vector<SimVoice> gSimVoices;
+void simStopSounds() {
+    for (const SimVoice& v : gSimVoices) SDL_DestroyAudioStream(v.stream);
+    gSimVoices.clear();
+}
 void simPlaySound(int sfx, float pan, float gain, float dist) {
-    struct Voice {
-        SDL_AudioStream* stream;
-        int sfx;
-        float dist;
-    };
+    using Voice = SimVoice;
+    std::vector<Voice>& voices = gSimVoices;
     struct Mono {
         int freq = 0;
         std::vector<float> samples;
     };
-    static std::vector<Voice> voices;
     static std::map<int, Mono> decoded;
     static std::map<int, Uint64> lastStart;
     for (auto it = voices.begin(); it != voices.end();)
         if (SDL_GetAudioStreamQueued(it->stream) <= 0) SDL_DestroyAudioStream(it->stream), it = voices.erase(it);
         else ++it;
     if (std::count_if(voices.begin(), voices.end(), [&](const Voice& v) { return v.sfx == sfx; }) >= 3) return;
+    const Uint64 now = SDL_GetTicks();
+    if (auto l = lastStart.find(sfx); l != lastStart.end() && now - l->second < 60) return;
     if (voices.size() >= 64) {  // (full: the farthest sound gives way to a nearer one)
         auto farthest = std::max_element(voices.begin(), voices.end(), [](const Voice& a, const Voice& b) { return a.dist < b.dist; });
         if (farthest->dist <= dist) return;
         SDL_DestroyAudioStream(farthest->stream);
         voices.erase(farthest);
     }
-    const Uint64 now = SDL_GetTicks();
-    if (auto l = lastStart.find(sfx); l != lastStart.end() && now - l->second < 60) return;
     auto it = decoded.find(sfx);
     if (it == decoded.end()) {
         Mono m;
@@ -946,7 +955,7 @@ std::wstring simDiagnostics() {
             t += L"\n" + std::to_wstring(gSim.bases) + L" bases, " + std::to_wstring(workers) + L" workers, " + std::to_wstring(gas) + L" on gas";
         }
     }
-    if (!e.liveError().empty()) t += L"\nError: " + widen(e.liveError());
+    if (!simSkipRunning() && !e.liveError().empty()) t += L"\nError: " + widen(e.liveError());
     return t;
 }
 
@@ -1014,8 +1023,10 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
     auto seekAt = [&] {
         const int w = std::max(1, int(l.track.right - l.track.left));
         const int x = std::clamp(int(e.pt.x - l.track.left), 0, w);
+        simSkipJoin();
         simSeek(int(int64_t(simEngine().lastFrame()) * x / w));
     };
+    if (gSim.seeking && !(SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK)) gSim.seeking = false;  // (let go elsewhere)
     if (gSim.seeking) {
         if (e.kind == draw::MouseKind::Move) seekAt();
         if (e.kind == draw::MouseKind::Up && e.button == 0) gSim.seeking = false;
@@ -1172,7 +1183,7 @@ void simulateCombatOf(std::set<int> selected) {
         teams.insert(o.team[u.owner]);
         if (o.unitFreeForAll) teams.insert(1000 + int(i));  // (each unit its own side)
     }
-    if (teams.size() < 2) {
+    if (teams.size() < 2 || (o.unitFreeForAll && o.placed.size() < 2)) {
         if (gRoot)
             msgbox::ask(*gRoot, L"Simulate combat",
                         L"Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.",
@@ -1180,6 +1191,7 @@ void simulateCombatOf(std::set<int> selected) {
         return;
     }
     std::sort(owners.begin(), owners.end());
+    if (owners.size() < 2) owners.push_back(owners.front());  // (every unit against every other: one player's units)
     o.players[0] = owners[0], o.players[1] = owners[1];
     std::map<int, std::wstring> names;
     for (const sim::PlacedUnit& p : o.placed) names[p.unitType] = widen(ed.unitTypes().statText(uint32_t(p.unitType)));
