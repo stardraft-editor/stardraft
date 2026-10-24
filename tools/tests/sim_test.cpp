@@ -1253,6 +1253,55 @@ bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& 
     return ok;
 }
 
+// Mineral fields by amount: in the live images a field shows the frame of its amount left (its GRP's frames: 4 frames:
+// from 750 frame 0, from 500 1, from 250 2, below 3; 3 frames: from 750 0, from 250 1, below 2), and a field mined to
+// 0 is gone.
+bool runMineralFrameCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    sim::MiningOptions mo;
+    mo.races = {sim::Terran};
+    std::vector<sim::MiningBase> bases = sim::miningBases(t, map, mo);
+    bases.resize(1);
+    std::vector<sim::Race> races = sim::baseRaces(t, map, bases, mo);
+    sim::World w(t, map);
+    sim::setupMining(w, bases, races, 9, mo);
+    int field = -1;
+    for (size_t i = 0; i < w.units.size() && field < 0; ++i)
+        if (t.roles[size_t(w.units[i].type)].mineralField) field = int(i);
+    if (field < 0) return false;
+    const int image = t.flingyImage(t.units[size_t(w.units[size_t(field)].type)].flingy);
+    const int frames = t.imageFrames[size_t(image)];
+    auto shown = [&]() {
+        std::vector<sim::LiveImage> images;
+        w.images(images);
+        for (const sim::LiveImage& li : images)
+            if (li.image == image && li.x == w.units[size_t(field)].x && li.y == w.units[size_t(field)].y)
+                return li.frame;
+        return -1;
+    };
+    int wrong = 0;
+    std::string seen;
+    for (int amount : {1500, 750, 749, 500, 499, 250, 249, 8}) {
+        w.units[size_t(field)].resources = amount;
+        w.step();
+        const int want = frames >= 4 ? (amount >= 750 ? 0 : amount >= 500 ? 1 : amount >= 250 ? 2 : 3)
+                                     : (amount >= 750 ? 0 : amount >= 250 ? 1 : 2);
+        const int got = shown();
+        wrong += got != want;
+        seen += (seen.empty() ? "" : ", ") + std::to_string(amount) + ": " + std::to_string(got);
+    }
+    // (mined to 0: gone)
+    int left = 0;
+    for (int f = 0; f < 2000 && w.units[size_t(field)].alive; ++f) {
+        w.units[size_t(field)].resources = std::min(w.units[size_t(field)].resources, 8);
+        w.step();
+    }
+    left = w.units[size_t(field)].alive ? 1 : 0;
+    const bool ok = frames >= 3 && wrong == 0 && left == 0 && shown() < 0;
+    std::printf("Mineral fields by amount: image %d (%d frames), amount and frame %s; mined out: %s: %s\n", image,
+                frames, seen.c_str(), left ? "still there" : "gone", ok ? "OK" : "FAIL");
+    return ok;
+}
+
 // Gathering sparks: the picture of a mining worker's harvest weapon (the SCV's Fusion Cutter, the Probe's Particle
 // Beam) sits at the centre of the field it mines (at most 2 pixels off), in the live images.
 bool runGatherSparkCheck(const sim::Tables& t, const sim::MapInfo& map) {
@@ -2251,6 +2300,7 @@ int main(int argc, char** argv) {
         if (!runMiningCollisionCheck(tables, install)) ++failures;
         if (!runGatherPictureCheck(tables, map)) ++failures;
         if (!runGatherSparkCheck(tables, map)) ++failures;
+        if (!runMineralFrameCheck(tables, map)) ++failures;
         if (!runDamageOverlayCheck(tables, map)) ++failures;
         if (!runUnitFreeForAllCheck(tables, map)) ++failures;
         if (!runCreepCheck(tables, map)) ++failures;

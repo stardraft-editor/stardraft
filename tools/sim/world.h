@@ -275,7 +275,8 @@ public:
     void damageOverlays(int unit);
     void placeDamageOverlay(int unit, int slot, bool second);
     int damageCount = 0;  // (the damage overlays placed: their order)
-    int effectRandom();   // (the pictures' own random numbers: they never change the game)
+    int effectRandom();  // (the pictures' own random numbers: they never change the game)
+    int mineralFrame(const Unit& field, int image, int frame) const;  // (a mineral field's frame by its amount)
     int spriteElevation(int op, int parent) const;
     void animate(int unit, int anim);  // a unit's main image and its overlays start an animation
     void effectStep(size_t k);

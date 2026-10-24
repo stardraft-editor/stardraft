@@ -363,12 +363,7 @@ void World::extract(Unit& u, int fi) {
     Unit& f = units[size_t(fi)];
     int take = std::min(t.rules.mineralLoad, f.resources);
     f.resources -= take;
-    // (its picture by the amount left: Working to Idle, Almost Built, Special State 2, 1)
-    if (isMinerals(t, f.type))
-        startAnim(f.anim, f.resources >= t.rules.mineralFull   ? kAnimWorkingToIdle
-                          : f.resources >= t.rules.mineralHalf ? kAnimAlmostBuilt
-                          : f.resources >= t.rules.mineralLow  ? kAnimSpecial2
-                                                                : kAnimSpecial1);
+    // (its picture shows the amount left: World::mineralFrame)
     u.carry = take;
     u.carryGas = !isMinerals(t, f.type);
     if (isMinerals(t, f.type) && f.resources == 0) {

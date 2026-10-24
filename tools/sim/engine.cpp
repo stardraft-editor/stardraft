@@ -399,6 +399,21 @@ void World::gatherPicture(int unit, int weapon) {
               t.units[size_t(u.type)].elevation + t.rules.bulletElevationAbove, false, kAnimInit);
 }
 
+// A mineral field's frame by the amount left (its GRP's frames): 4 frames: from mineralFull (750) frame 0, from
+// mineralHalf (500) 1, from mineralLow (250) 2, below 3; 3 frames: from 750 frame 0, from 250 1, below 2. Other
+// counts: the script's frame.
+int World::mineralFrame(const Unit& field, int image, int frame) const {
+    const int frames = size_t(image) < t.imageFrames.size() ? t.imageFrames[size_t(image)] : 0;
+    const int amount = field.resources;
+    if (frames >= 4)
+        return amount >= t.rules.mineralFull   ? 0
+               : amount >= t.rules.mineralHalf ? 1
+               : amount >= t.rules.mineralLow  ? 2
+                                               : 3;
+    if (frames == 3) return amount >= t.rules.mineralFull ? 0 : amount >= t.rules.mineralLow ? 1 : 2;
+    return frame;
+}
+
 int World::effectRandom() {
     effectSeed = effectSeed * 22695477u + 1u;
     return int((effectSeed >> 16) & 0x7fff);
@@ -622,6 +637,7 @@ void World::images(std::vector<LiveImage>& out) const {
             if (e->layer < 0 && add(e->image, e->anim, e->heading, e->x, e->y, e->owner, false, level))
                 out.back().order = order++;
         bool drawn = add(image, u.anim, u.heading, u.x, u.y, u.owner, (d.flags & kFlyer) != 0, level);
+        if (drawn && role(u.type).mineralField) out.back().frame = mineralFrame(u, image, out.back().frame);
         if (drawn) out.back().order = order++;
         size_t mainAt = out.size() - 1;
         for (const Effect* e : overlays)

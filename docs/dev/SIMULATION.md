@@ -342,7 +342,8 @@ What is simplified or missing, and what it changes:
 - **Mining.** The arrival at a field and the delivery at a depot each take one more order poll; workers walk to the edge
   of the field or depot box.
 - **Images.** Each unit's main image (and its turret), with the script's frame and the facing, and a worker's load
-  above it (at its main image's special overlay offset); mineral fields by their amount left; no other
+  above it (at its main image's special overlay offset); mineral fields by their amount left (their GRP's frame: with 4
+  frames from 750 frame 0, from 500 1, from 250 2, below 3; with 3 frames from 750 0, from 250 1, below 2); no other
   overlays, shadows, death animations or remapping.
 - **Run the map** (`startMap`) is not in the simulation.
 
