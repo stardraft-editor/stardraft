@@ -2425,10 +2425,10 @@ Creep shows	El creep se muestra
 Creep is hidden (View > Layers shows it again)	El creep está oculto (Ver > Capas lo muestra de nuevo)
 &Creep	&Creep
 Simulate melee &mining	Simular &extracción cuerpo a cuerpo
+Simulate melee &mining (experimental)	Simular &extracción cuerpo a cuerpo (experimental)
 Simulate com&bat of the selected units	Simular el com&bate de las unidades seleccionadas
+Simulate com&bat of the selected units (experimental)	Simular el com&bate de las unidades seleccionadas (experimental)
 &Tools	&Herramientas
-Tools > Simulate melee mining and combat (experimental)	Herramientas > Simular extracción y combate cuerpo a cuerpo (experimental)
-An early preview. The simulation might not fully match the game yet.	Una vista previa temprana. La simulación puede que aún no coincida del todo con el juego.
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Simulación experimental; puede que aún no coincida del todo con el juego. Es una simulación propia de StarDraft, no el motor del juego.
 Simulation	Simulación
 Simulate mining	Simular extracción

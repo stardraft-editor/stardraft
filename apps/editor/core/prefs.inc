@@ -115,10 +115,3 @@ void remove(const std::wstring& name) {
 }
 
 }  // namespace prefs
-
-// Program options > Simulation: Tools > Simulate shows (experimental; off by default).
-inline bool simulationEnabled() {
-    int on = 0;
-    prefs::number(L"SimEnabled", on, 0, 1);
-    return on != 0;
-}

@@ -2425,10 +2425,10 @@ Creep shows	점막이 표시됩니다
 Creep is hidden (View > Layers shows it again)	점막이 숨겨졌습니다 (보기 > 레이어에서 다시 표시)
 &Creep	점막(&C)
 Simulate melee &mining	근접 채취 시뮬레이션(&M)
+Simulate melee &mining (experimental)	근접 채취 시뮬레이션(&M) (실험적)
 Simulate com&bat of the selected units	선택한 유닛의 전투 시뮬레이션(&B)
+Simulate com&bat of the selected units (experimental)	선택한 유닛의 전투 시뮬레이션(&B) (실험적)
 &Tools	도구(&T)
-Tools > Simulate melee mining and combat (experimental)	도구 > 근접 채취 및 전투 시뮬레이션 (실험적)
-An early preview. The simulation might not fully match the game yet.	초기 미리보기입니다. 시뮬레이션이 아직 게임과 완전히 같지 않을 수 있습니다.
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	실험적 시뮬레이션입니다. 아직 게임과 완전히 같지 않을 수 있습니다. 게임의 엔진이 아닌 StarDraft 자체 시뮬레이션입니다.
 Simulation	시뮬레이션
 Simulate mining	채취 시뮬레이션

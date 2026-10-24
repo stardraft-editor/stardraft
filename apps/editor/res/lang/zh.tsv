@@ -2425,10 +2425,10 @@ Creep shows	显示菌毯
 Creep is hidden (View > Layers shows it again)	菌毯已隐藏（“视图 > 图层”可再次显示）
 &Creep	&菌毯
 Simulate melee &mining	模拟近战&采矿
+Simulate melee &mining (experimental)	模拟近战&采矿（实验性）
 Simulate com&bat of the selected units	模拟所选单位的战斗(&B)
+Simulate com&bat of the selected units (experimental)	模拟所选单位的战斗(&B)（实验性）
 &Tools	工具(&T)
-Tools > Simulate melee mining and combat (experimental)	工具 > 模拟近战采矿和战斗（实验性）
-An early preview. The simulation might not fully match the game yet.	早期预览版。模拟可能尚未与游戏完全一致。
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
 Simulation	模拟
 Simulate mining	模拟采矿

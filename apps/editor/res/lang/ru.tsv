@@ -2425,10 +2425,10 @@ Creep shows	Слизь показана
 Creep is hidden (View > Layers shows it again)	Слизь скрыта (Вид > Слои снова её показывают)
 &Creep	&Слизь
 Simulate melee &mining	Моделировать ближнюю &добычу
+Simulate melee &mining (experimental)	Моделировать ближнюю &добычу (экспериментально)
 Simulate com&bat of the selected units	Моделировать &бой выбранных юнитов
+Simulate com&bat of the selected units (experimental)	Моделировать &бой выбранных юнитов (экспериментально)
 &Tools	&Инструменты
-Tools > Simulate melee mining and combat (experimental)	Инструменты > Моделировать ближнюю добычу и бой (экспериментально)
-An early preview. The simulation might not fully match the game yet.	Ранняя предварительная версия. Моделирование пока может не полностью совпадать с игрой.
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Экспериментальное моделирование, пока может не полностью совпадать с игрой. Это собственная симуляция StarDraft, а не движок игры.
 Simulation	Моделирование
 Simulate mining	Моделировать добычу
