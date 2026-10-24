@@ -1,5 +1,5 @@
 # SHA-256 of each shader (LF line ends) that the headers in this folder were made from (tools/gen_shaders.py).
 0153a2be6fed8dc7826e8ba5c5e8df9fecc4aa72dfe507ee49502670619f3fe9  terrain.hlsl
-aa7383cbfac2fc53bed34c4efec9d792a6295c5d7891ab578e41e7cc0569aa0d  sprite.hlsl
+e0a2b50137631e30ff6c40912e8830c2e79668529c54c36f3dee11e7b3d1e346  sprite.hlsl
 d2499238a795602dc36052c5e60bbfeae6bc54c963214cbc59f0041d8e60e828  solid.hlsl
 e957585819aca6d1be4f5c4668945200504ab9abb62234ffce33a99ba6c38d22  downsample.hlsl
