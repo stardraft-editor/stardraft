@@ -2420,3 +2420,65 @@ Did not build the map	맵을 빌드하지 못했습니다
 Brush: the 	브러시: 
  tiles you copied (	 타일 (복사한 타일 
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	개). 클릭하여 배치합니다. 끌어서 반복합니다. Shift를 누르면 무작위로 배치합니다.
+Creep shows	점막이 표시됩니다
+Creep is hidden (View > Layers shows it again)	점막이 숨겨졌습니다 (보기 > 레이어에서 다시 표시)
+&Creep	점막(&C)
+Simulate melee &mining	근접 채취 시뮬레이션(&M)
+Simulate com&bat of the selected units	선택한 유닛의 전투 시뮬레이션(&B)
+&Tools	도구(&T)
+Tools > Simulate melee mining and combat (experimental)	도구 > 근접 채취 및 전투 시뮬레이션 (실험적)
+An early preview. The simulation might not fully match the game yet.	초기 미리보기입니다. 시뮬레이션이 아직 게임과 완전히 같지 않을 수 있습니다.
+Experimental simulation, might not fully match the game yet.	실험적 시뮬레이션입니다. 아직 게임과 완전히 같지 않을 수 있습니다.
+Simulation	시뮬레이션
+Simulate mining	채취 시뮬레이션
+Simulate combat	전투 시뮬레이션
+Workers on minerals at each base	기지마다 미네랄에서 채취하는 일꾼 수
+Workers on minerals	미네랄의 일꾼
+Workers on gas	가스에서 채취하는 일꾼 수
+Workers and gas	일꾼과 가스
+Measured game time	측정하는 게임 시간
+Races	종족
+As in the map (Random: a random race)	맵에 따름 (무작위: 임의의 종족)
+0 (no refinery)	0 (정제소 없음)
+The first 30 game seconds are not measured: the workers get to their fields.	처음 30 게임 초는 측정하지 않습니다. 일꾼이 자원 지점에 도착합니다.
+Simulation report	시뮬레이션 보고서
+Copy the report as text (its tables with tabs, for a spreadsheet)	보고서를 텍스트로 복사합니다 (표는 탭으로 구분, 스프레드시트용)
+Copied the simulation's report	시뮬레이션 보고서를 복사했습니다
+The simulation stopped	시뮬레이션이 멈췄습니다
+The simulation engine is not in this build yet.	이 빌드에는 아직 시뮬레이션 엔진이 없습니다.
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	서로 적인 두 플레이어의 유닛을 선택한 뒤 다시 시도하십시오 (유닛 모드: 상자를 끌거나 Ctrl+클릭). 막대의 설정에서 동맹을 정합니다.
+Stopped	멈춤
+Draw: Units cannot reach each other	무승부: 유닛끼리 서로 닿을 수 없습니다
+No winner	승자 없음
+No winner: 10 game minutes went by	승자 없음: 게임 10분이 지났습니다
+No winner: 2 game minutes went by	승자 없음: 게임 2분이 지났습니다
+No winner: both sides died	승자 없음: 양쪽 모두 전멸했습니다
+Neither side lost a unit	양쪽 모두 유닛을 잃지 않았습니다
+Alive	생존
+Kills	처치
+Lost (minerals + gas)	손실 (미네랄 + 가스)
+Field	지점
+Fields	자원 지점 수
+Base	기지
+Tile	타일
+Minerals a minute	분당 미네랄
+Gas a minute	분당 가스
+Round trip of each field, nearest first (frames)	각 자원 지점의 왕복 (가까운 순, 프레임)
+Mining	채취
+Combat	전투
+Skip to the end	끝까지 건너뛰기
+Restart	다시 시작
+Slower	느리게
+Faster	빠르게
+Speed	속도
+Show the report	보고서 보기
+Cancel the simulation	시뮬레이션 취소
+Report feedback on the simulation	시뮬레이션에 대한 피드백 보내기
+Who fights whom	누가 누구와 싸우는지
+Computers together, each human alone	컴퓨터끼리는 동맹, 사람은 각자 따로
+Humans against computers	사람 대 컴퓨터
+The map's forces	맵의 세력
+Free for all	자유 전투
+Every unit against every other	모든 유닛이 서로 대결
+No gas	가스 없음
+All	모두

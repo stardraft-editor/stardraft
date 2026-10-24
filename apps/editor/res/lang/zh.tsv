@@ -2420,3 +2420,65 @@ Did not build the map	未能构建地图
 Brush: the 	笔刷：
  tiles you copied (	 个图块（已复制：
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 个图块）。点击放置；拖动以重复放置。按住 Shift 可随机放置。
+Creep shows	显示菌毯
+Creep is hidden (View > Layers shows it again)	菌毯已隐藏（“视图 > 图层”可再次显示）
+&Creep	&菌毯
+Simulate melee &mining	模拟近战&采矿
+Simulate com&bat of the selected units	模拟所选单位的战斗(&B)
+&Tools	工具(&T)
+Tools > Simulate melee mining and combat (experimental)	工具 > 模拟近战采矿和战斗（实验性）
+An early preview. The simulation might not fully match the game yet.	早期预览版。模拟可能尚未与游戏完全一致。
+Experimental simulation, might not fully match the game yet.	实验性模拟，可能尚未与游戏完全一致。
+Simulation	模拟
+Simulate mining	模拟采矿
+Simulate combat	模拟战斗
+Workers on minerals at each base	每个基地矿物上的工人数
+Workers on minerals	矿物上的工人
+Workers on gas	瓦斯上的工人数
+Workers and gas	工人与瓦斯
+Measured game time	计时的游戏时长
+Races	种族
+As in the map (Random: a random race)	与地图相同（随机：随机种族）
+0 (no refinery)	0（无精炼厂）
+The first 30 game seconds are not measured: the workers get to their fields.	前 30 个游戏秒不计入测量：工人会先走到各自的矿区。
+Simulation report	模拟报告
+Copy the report as text (its tables with tabs, for a spreadsheet)	将报告复制为文本（表格用制表符分隔，便于粘贴到电子表格）
+Copied the simulation's report	已复制模拟报告
+The simulation stopped	模拟已停止
+The simulation engine is not in this build yet.	此版本尚未包含模拟引擎。
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	请选中两名互为敌人的玩家的单位（在“单位”模式下：拖出框选，或按住 Ctrl 点击），然后重试。工具栏的设置决定谁是盟友。
+Stopped	已停止
+Draw: Units cannot reach each other	平局：单位之间无法互相接触
+No winner	没有胜者
+No winner: 10 game minutes went by	没有胜者：已过去 10 游戏分钟
+No winner: 2 game minutes went by	没有胜者：已过去 2 游戏分钟
+No winner: both sides died	没有胜者：双方都已灭亡
+Neither side lost a unit	双方都没有损失单位
+Alive	存活
+Kills	击杀
+Lost (minerals + gas)	损失（矿物 + 瓦斯）
+Field	矿区
+Fields	矿区数
+Base	基地
+Tile	格子
+Minerals a minute	每分钟矿物
+Gas a minute	每分钟瓦斯
+Round trip of each field, nearest first (frames)	每个矿区的往返时间，从近到远（帧）
+Mining	采矿
+Combat	战斗
+Skip to the end	跳到结束
+Restart	重新开始
+Slower	减速
+Faster	加速
+Speed	速度
+Show the report	查看报告
+Cancel the simulation	取消模拟
+Report feedback on the simulation	发送关于模拟的反馈
+Who fights whom	谁与谁作战
+Computers together, each human alone	电脑结盟，每名人类各自为战
+Humans against computers	人类对抗电脑
+The map's forces	地图的势力
+Free for all	混战
+Every unit against every other	每个单位对抗其他所有单位
+No gas	无瓦斯
+All	全部

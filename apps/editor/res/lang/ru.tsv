@@ -2420,3 +2420,65 @@ Did not build the map	Карта не собрана
 Brush: the 	Кисть: 
  tiles you copied (	 тайлов (скопировано: 
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 тайлов). Щёлкните, чтобы разместить; перетащите, чтобы повторить. Удерживайте Shift, чтобы разместить случайно.
+Creep shows	Слизь показана
+Creep is hidden (View > Layers shows it again)	Слизь скрыта (Вид > Слои снова её показывают)
+&Creep	&Слизь
+Simulate melee &mining	Моделировать ближнюю &добычу
+Simulate com&bat of the selected units	Моделировать &бой выбранных юнитов
+&Tools	&Инструменты
+Tools > Simulate melee mining and combat (experimental)	Инструменты > Моделировать ближнюю добычу и бой (экспериментально)
+An early preview. The simulation might not fully match the game yet.	Ранняя предварительная версия. Моделирование пока может не полностью совпадать с игрой.
+Experimental simulation, might not fully match the game yet.	Экспериментальное моделирование, пока может не полностью совпадать с игрой.
+Simulation	Моделирование
+Simulate mining	Моделировать добычу
+Simulate combat	Моделировать бой
+Workers on minerals at each base	Рабочие на минералах на каждой базе
+Workers on minerals	Рабочие на минералах
+Workers on gas	Рабочие на газе
+Workers and gas	Рабочие и газ
+Measured game time	Измеряемое игровое время
+Races	Расы
+As in the map (Random: a random race)	Как на карте (Случайная: случайная раса)
+0 (no refinery)	0 (без экстрактора)
+The first 30 game seconds are not measured: the workers get to their fields.	Первые 30 игровых секунд не измеряются: рабочие доходят до своих месторождений.
+Simulation report	Отчёт о моделировании
+Copy the report as text (its tables with tabs, for a spreadsheet)	Копировать отчёт как текст (таблицы с табуляцией, для электронной таблицы)
+Copied the simulation's report	Отчёт о моделировании скопирован
+The simulation stopped	Моделирование остановлено
+The simulation engine is not in this build yet.	Движка моделирования в этой сборке пока нет.
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	Выделите юниты двух враждующих игроков (в режиме Юниты: протащите рамку или Ctrl+щелчок) и попробуйте снова. В настройках панели задаётся, кто союзники.
+Stopped	Остановлено
+Draw: Units cannot reach each other	Ничья: юниты не могут достать друг друга
+No winner	Победителя нет
+No winner: 10 game minutes went by	Победителя нет: прошло 10 игровых минут
+No winner: 2 game minutes went by	Победителя нет: прошло 2 игровые минуты
+No winner: both sides died	Победителя нет: обе стороны погибли
+Neither side lost a unit	Ни одна сторона не потеряла ни одного юнита
+Alive	Живы
+Kills	Убийства
+Lost (minerals + gas)	Потеряно (минералы + газ)
+Field	Месторождение
+Fields	Месторождения
+Base	База
+Tile	Тайл
+Minerals a minute	Минералы в минуту
+Gas a minute	Газ в минуту
+Round trip of each field, nearest first (frames)	Путь туда и обратно до каждого месторождения, сначала ближайшие (кадры)
+Mining	Добыча
+Combat	Бой
+Skip to the end	Перейти к концу
+Restart	Заново
+Slower	Медленнее
+Faster	Быстрее
+Speed	Скорость
+Show the report	Показать отчёт
+Cancel the simulation	Отменить моделирование
+Report feedback on the simulation	Отправить отзыв о моделировании
+Who fights whom	Кто с кем сражается
+Computers together, each human alone	Компьютеры вместе, каждый человек сам по себе
+Humans against computers	Люди против компьютеров
+The map's forces	Силы карты
+Free for all	Каждый сам за себя
+Every unit against every other	Каждый юнит против каждого
+No gas	Без газа
+All	Все

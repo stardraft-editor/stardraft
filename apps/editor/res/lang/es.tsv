@@ -2420,3 +2420,65 @@ Did not build the map	No se compiló el mapa
 Brush: the 	Pincel: los 
  tiles you copied (	 mosaicos (copiados: 
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 mosaicos). Haga clic para colocarlos; arrastre para repetirlos. Mantenga Mayús para colocarlos al azar.
+Creep shows	El creep se muestra
+Creep is hidden (View > Layers shows it again)	El creep está oculto (Ver > Capas lo muestra de nuevo)
+&Creep	&Creep
+Simulate melee &mining	Simular &extracción cuerpo a cuerpo
+Simulate com&bat of the selected units	Simular el com&bate de las unidades seleccionadas
+&Tools	&Herramientas
+Tools > Simulate melee mining and combat (experimental)	Herramientas > Simular extracción y combate cuerpo a cuerpo (experimental)
+An early preview. The simulation might not fully match the game yet.	Una vista previa temprana. La simulación puede que aún no coincida del todo con el juego.
+Experimental simulation, might not fully match the game yet.	Simulación experimental; puede que aún no coincida del todo con el juego.
+Simulation	Simulación
+Simulate mining	Simular extracción
+Simulate combat	Simular combate
+Workers on minerals at each base	Trabajadores en minerales en cada base
+Workers on minerals	Trabajadores en minerales
+Workers on gas	Trabajadores en gas
+Workers and gas	Trabajadores y gas
+Measured game time	Tiempo de juego medido
+Races	Razas
+As in the map (Random: a random race)	Como en el mapa (Aleatoria: una raza al azar)
+0 (no refinery)	0 (sin refinería)
+The first 30 game seconds are not measured: the workers get to their fields.	Los primeros 30 segundos de juego no se miden: los trabajadores llegan a sus campos.
+Simulation report	Informe de la simulación
+Copy the report as text (its tables with tabs, for a spreadsheet)	Copiar el informe como texto (sus tablas con tabulaciones, para una hoja de cálculo)
+Copied the simulation's report	Se copió el informe de la simulación
+The simulation stopped	La simulación se detuvo
+The simulation engine is not in this build yet.	El motor de simulación todavía no está en esta versión.
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	Seleccione las unidades de dos jugadores enemigos (en modo Unidades: arrastre un recuadro o use Ctrl+clic) y vuelva a intentarlo. La barra de ajustes indica quiénes son aliados.
+Stopped	Detenida
+Draw: Units cannot reach each other	Empate: las unidades no pueden alcanzarse
+No winner	Sin ganador
+No winner: 10 game minutes went by	Sin ganador: pasaron 10 minutos de juego
+No winner: 2 game minutes went by	Sin ganador: pasaron 2 minutos de juego
+No winner: both sides died	Sin ganador: ambos bandos murieron
+Neither side lost a unit	Ninguno de los dos bandos perdió una unidad
+Alive	Vivas
+Kills	Bajas
+Lost (minerals + gas)	Perdido (minerales + gas)
+Field	Campo
+Fields	Campos de recursos
+Base	Base
+Tile	Casilla
+Minerals a minute	Minerales por minuto
+Gas a minute	Gas por minuto
+Round trip of each field, nearest first (frames)	Ida y vuelta a cada campo, del más cercano (fotogramas)
+Mining	Extracción
+Combat	Combate
+Skip to the end	Ir al final
+Restart	Reiniciar
+Slower	Más lento
+Faster	Más rápido
+Speed	Velocidad
+Show the report	Ver el informe
+Cancel the simulation	Cancelar la simulación
+Report feedback on the simulation	Enviar comentarios sobre la simulación
+Who fights whom	Quién lucha contra quién
+Computers together, each human alone	Computadoras juntas, cada humano solo
+Humans against computers	Humanos contra computadoras
+The map's forces	Las fuerzas del mapa
+Free for all	Todos contra todos
+Every unit against every other	Cada unidad contra todas las demás
+No gas	Sin gas
+All	Todos
