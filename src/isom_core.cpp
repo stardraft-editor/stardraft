@@ -48,16 +48,20 @@ const Sc::Terrain_::Tiles* tablesFor(const Tileset& tileset) {
     }
     const uint16_t era = uint16_t(tileset.era & 7);
     std::lock_guard<std::mutex> lock(m);
-    lastEra = era, lastGroups = tileset.groups;
+    const Sc::Terrain_::Tiles* made = nullptr;
     auto key = std::make_pair(era, std::move(cv5));
     auto it = cache.find(key);
-    if (it != cache.end()) return last = it->second.get();
-    auto tiles = std::make_unique<Sc::Terrain_::Tiles>();
-    const size_t n = key.second.size() / sizeof(Sc::Isom::TileGroup);
-    tiles->tileGroups.resize(n);
-    if (n) std::memcpy(tiles->tileGroups.data(), key.second.data(), key.second.size());
-    tiles->loadIsom(era);
-    return last = cache.emplace(std::move(key), std::move(tiles)).first->second.get();
+    if (it != cache.end()) made = it->second.get();
+    else {
+        auto tiles = std::make_unique<Sc::Terrain_::Tiles>();
+        const size_t n = key.second.size() / sizeof(Sc::Isom::TileGroup);
+        tiles->tileGroups.resize(n);
+        if (n) std::memcpy(tiles->tileGroups.data(), key.second.data(), key.second.size());
+        tiles->loadIsom(era);
+        made = cache.emplace(std::move(key), std::move(tiles)).first->second.get();
+    }
+    lastEra = era, lastGroups = tileset.groups, last = made;  // (after the tables exist: a failed make keeps the last pair)
+    return made;
 }
 
 // ScMap's own steps of placeIsomTerrain are private; paintDiamonds runs them for any set of diamonds. IsomApi.h stays
