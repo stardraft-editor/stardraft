@@ -2482,3 +2482,44 @@ Free for all	Todos contra todos
 Every unit against every other	Cada unidad contra todas las demás
 No gas	Sin gas
 All	Todos
+%d of %d	%d de %d
+Unit %d	Unidad %d
+Player %d	Jugador %d
+The simulation stopped: %ls	La simulación se detuvo: %ls
+Computers (players %ls)	Computadoras (jugadores %ls)
+Computer (player %ls)	Computadora (jugador %ls)
+Humans (players %ls)	Humanos (jugadores %ls)
+Humans (player %ls)	Humanos (jugador %ls)
+Force %d	Fuerza %d
+%ls (players %ls)	%ls (jugadores %ls)
+%ls (player %ls)	%ls (jugador %ls)
+Player %ls	Jugador %ls
+%ls wins	%ls gana
+%ls (the others have only units that cannot attack)	%ls (los demás solo tienen unidades que no pueden atacar)
+%ls of player %d is the last unit standing	%ls, la última unidad en pie del jugador %d
+No winner: %d unit is out of reach of their enemies	Sin ganador: %d unidad está fuera del alcance de sus enemigos
+No winner: %d units are out of reach of their enemies	Sin ganador: %d unidades están fuera del alcance de sus enemigos
+%ls after %ls game seconds	%ls tras %ls segundos de juego
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	Perdido (minerales + gas): %ls
+=All	=Total
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d unidad quedó fuera de alcance: ningún enemigo pudo llegar a ella ni atacarla (una isla, solo armas aéreas o terrestres, o camuflada)
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d unidades quedaron fuera de alcance: ningún enemigo pudo llegar a ellas ni atacarlas (una isla, solo armas aéreas o terrestres, o camufladas)
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Más rápido, con las mejoras del mapa; cada unidad lucha contra todas las demás; cada unidad ataca a los enemigos a su alcance hasta que no quede ninguno, durante 10 minutos de juego como máximo.
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Más rápido, con las mejoras del mapa; las fuerzas del mapa luchan entre sí; cada unidad ataca a los enemigos a su alcance hasta que no quede ninguno, durante 10 minutos de juego como máximo.
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Más rápido, con las mejoras del mapa; los jugadores humanos luchan contra los de computadora; cada unidad ataca a los enemigos a su alcance hasta que no quede ninguno, durante 10 minutos de juego como máximo.
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Más rápido, con las mejoras del mapa; cada jugador lucha solo; cada unidad ataca a los enemigos a su alcance hasta que no quede ninguno, durante 10 minutos de juego como máximo.
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Más rápido, con las mejoras del mapa; las computadoras son aliadas, cada otro jugador lucha solo; cada unidad ataca a los enemigos a su alcance hasta que no quede ninguno, durante 10 minutos de juego como máximo.
+%ls lost nothing	%ls sin pérdidas
+%ls traded %ls to 1	%ls intercambió %ls a 1
+%ls wins (%ls has only units that cannot attack)	%ls gana (%ls solo tiene unidades que no pueden atacar)
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	Más rápido, sin mejoras ni investigación; cada bando ataca el centro del otro, durante 2 minutos de juego como máximo.
+Base %d	Base %d
+Base %d (start)	Base %d (inicial)
+%ls minerals a minute	%ls minerales por minuto
+Mining: %ls minerals and %ls gas a minute	Extracción: %ls minerales y %ls de gas por minuto
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	%d obreros en minerales y %d en gas en cada base, %d minuto de juego a la máxima velocidad
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	%d obreros en minerales y %d en gas en cada base, %d minutos de juego a la máxima velocidad
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	%d obreros en minerales y ninguno en gas en cada base, %d minuto de juego a la máxima velocidad
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	%d obreros en minerales y ninguno en gas en cada base, %d minutos de juego a la máxima velocidad
+The simulation cannot start: %ls	La simulación no puede empezar: %ls

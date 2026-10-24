@@ -2482,3 +2482,44 @@ Free for all	混战
 Every unit against every other	每个单位对抗其他所有单位
 No gas	无瓦斯
 All	全部
+%d of %d	%d / %d
+Unit %d	单位 %d
+Player %d	玩家 %d
+The simulation stopped: %ls	模拟已停止: %ls
+Computers (players %ls)	电脑 (玩家 %ls)
+Computer (player %ls)	电脑 (玩家 %ls)
+Humans (players %ls)	人类 (玩家 %ls)
+Humans (player %ls)	人类 (玩家 %ls)
+Force %d	队伍 %d
+%ls (players %ls)	%ls (玩家 %ls)
+%ls (player %ls)	%ls (玩家 %ls)
+Player %ls	玩家 %ls
+%ls wins	%ls 获胜
+%ls (the others have only units that cannot attack)	%ls (其余玩家只剩无法攻击的单位)
+%ls of player %d is the last unit standing	%ls，玩家 %d 最后剩下的单位
+No winner: %d unit is out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
+No winner: %d units are out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
+%ls after %ls game seconds	%ls，共 %ls 游戏秒
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	损失（矿物 + 瓦斯）：%ls
+=All	=总计
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d 个单位超出攻击范围: 没有敌人能接近或攻击它（孤岛、只有空中或地面武器、或隐形）
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d 个单位超出攻击范围: 没有敌人能接近或攻击它们（孤岛、只有空中或地面武器、或隐形）
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；每个单位与其他所有单位交战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；地图的势力之间互相交战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；人类玩家对战电脑玩家；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；每个玩家单独作战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；电脑玩家结盟，其他每个玩家单独作战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+%ls lost nothing	%ls 没有损失
+%ls traded %ls to 1	%ls 以 %ls 比 1 交换
+%ls wins (%ls has only units that cannot attack)	%ls 获胜（%ls 只剩无法攻击的单位）
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	最快，无升级或研究；双方各自向对方的中央攻击移动，最多 2 游戏分钟。
+Base %d	基地 %d
+Base %d (start)	基地 %d（起始）
+%ls minerals a minute	每分钟 %ls 矿物
+Mining: %ls minerals and %ls gas a minute	采矿: 每分钟矿物 %ls，瓦斯 %ls
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	每个基地 %d 名工人采矿、%d 名采瓦斯，最快速度 %d 游戏分钟
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	每个基地 %d 名工人采矿、%d 名采瓦斯，最快速度 %d 游戏分钟
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	每个基地 %d 名工人采矿、不采瓦斯，最快速度 %d 游戏分钟
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	每个基地 %d 名工人采矿、不采瓦斯，最快速度 %d 游戏分钟
+The simulation cannot start: %ls	无法开始模拟: %ls

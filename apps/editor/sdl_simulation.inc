@@ -85,7 +85,11 @@ bool simReady() {
         },
         err);
     if (!ok) {
-        if (gRoot) msgbox::ask(*gRoot, L"Simulation", L"The simulation cannot start: " + widen(err), {L"OK"}, msgbox::Icon::Error);
+        if (gRoot) {
+            wchar_t text[1024];
+            std::swprintf(text, 1024, tr(L"The simulation cannot start: %ls"), widen(err).c_str());
+            msgbox::ask(*gRoot, tr(L"Simulation"), text, {tr(L"OK")}, msgbox::Icon::Error);
+        }
         return false;
     }
     gSimReady = true;
@@ -374,7 +378,37 @@ void simShowReport() {
     gHost->openWindow(*gRoot, gSimReport, spec, [] { gSimReport.open = false; });
 }
 
-std::wstring simOf(int part, int all) { return std::to_wstring(part) + L" of " + std::to_wstring(all); }
+// The report's texts. Each is a whole sentence or label, a printf template passed through tr (so that a translation can
+// put its values in its own order); the values that are data (unit names, force names, players' numbers) are passed in.
+std::wstring simOf(int part, int all) {
+    wchar_t b[64];
+    std::swprintf(b, 64, tr(L"%d of %d"), part, all);
+    return b;
+}
+std::wstring simUnitName(int type) {
+    const auto n = gSim.unitNames.find(type);
+    if (n != gSim.unitNames.end()) return n->second;
+    wchar_t b[64];
+    std::swprintf(b, 64, tr(L"Unit %d"), type);
+    return b;
+}
+// The name of a player (0-based index in the engine, shown from 1).
+std::wstring simPlayer(int player) {
+    wchar_t b[64];
+    std::swprintf(b, 64, tr(L"Player %d"), player + 1);
+    return b;
+}
+std::wstring simWins(const std::wstring& who) {
+    wchar_t b[1024];
+    std::swprintf(b, 1024, tr(L"%ls wins"), who.c_str());
+    return b;
+}
+// The result and its time: "<result> after <seconds> game seconds".
+std::wstring simAfter(const std::wstring& result, const std::wstring& secs) {
+    wchar_t b[1024];
+    std::swprintf(b, 1024, tr(L"%ls after %ls game seconds"), result.c_str(), secs.c_str());
+    return b;
+}
 
 // The end: the result in the bar, the report for Report.
 void simEnd() {
@@ -382,105 +416,158 @@ void simEnd() {
     gSim.done = true;
     gSimDoc = SimDoc{};
     if (!e.liveError().empty()) {
-        gSim.endText = L"The simulation stopped: " + widen(e.liveError());
-        gSimTitle = L"The simulation stopped", gSimLine = widen(e.liveError());
+        const std::wstring err = widen(e.liveError());
+        wchar_t b[1024];
+        std::swprintf(b, 1024, tr(L"The simulation stopped: %ls"), err.c_str());
+        gSim.endText = b;
+        gSimTitle = tr(L"The simulation stopped");
+        gSimLine = err;
         gSimDoc.para(gSim.endText);
-        gSim.result = L"Stopped";
+        gSim.result = tr(L"Stopped");
         gSim.report = gSim.endText;
         if (gSimReport.open) gSimReport.set(gSimTitle, gSimLine, gSimDoc);
         return simRedraw();
     }
     if (gSim.combat && !e.combatResult().teams.empty()) {
         const sim::CombatResult r = e.combatResult();
-        auto teamName = [](const sim::CombatSide& t) {
+        auto teamName = [](const sim::CombatSide& t) -> std::wstring {
             std::wstring n;
             for (int p : t.players) n += (n.empty() ? L"" : L", ") + std::to_wstring(p + 1);
-            const std::wstring of = (t.players.size() > 1 ? L" (players " : L" (player ") + n + L")";
-            if (t.team == kTeamComputers) return (t.players.size() > 1 ? L"Computers" : L"Computer") + of;
-            if (t.team == kTeamHumans) return L"Humans" + of;
-            if (t.team >= kTeamForce && t.team < kTeamForce + 4) {
-                std::string fn = gState.ed ? gState.ed->force(t.team - kTeamForce).name : std::string();
-                return (fn.empty() ? L"Force " + std::to_wstring(t.team - kTeamForce + 1) : widen(fn)) + of;
+            const bool many = t.players.size() > 1;
+            wchar_t b[256];
+            if (t.team == kTeamComputers) {
+                if (many) std::swprintf(b, 256, tr(L"Computers (players %ls)"), n.c_str());
+                else std::swprintf(b, 256, tr(L"Computer (player %ls)"), n.c_str());
+            } else if (t.team == kTeamHumans) {
+                if (many) std::swprintf(b, 256, tr(L"Humans (players %ls)"), n.c_str());
+                else std::swprintf(b, 256, tr(L"Humans (player %ls)"), n.c_str());
+            } else if (t.team >= kTeamForce && t.team < kTeamForce + 4) {
+                const std::string fn = gState.ed ? gState.ed->force(t.team - kTeamForce).name : std::string();
+                std::wstring label;
+                if (fn.empty()) {
+                    wchar_t f[64];
+                    std::swprintf(f, 64, tr(L"Force %d"), t.team - kTeamForce + 1);
+                    label = f;
+                } else {
+                    label = widen(fn);  // (the force's name, from the map)
+                }
+                if (many) std::swprintf(b, 256, tr(L"%ls (players %ls)"), label.c_str(), n.c_str());
+                else std::swprintf(b, 256, tr(L"%ls (player %ls)"), label.c_str(), n.c_str());
+            } else {
+                std::swprintf(b, 256, tr(L"Player %ls"), n.c_str());
             }
-            return L"Player " + n;
+            return b;
         };
         const sim::CombatSide* won = nullptr;
         for (const sim::CombatSide& t : r.teams)
             if (t.team == r.winner) won = &t;
-        std::wstring winner = won ? teamName(*won) + L" wins" : r.stalemate ? L"Draw: Units cannot reach each other" : r.timedOut ? L"No winner: 10 game minutes went by" : L"No winner";
-        if (won && r.helpless >= 0) winner += L" (the others have only units that cannot attack)";
+        std::wstring winner;
+        if (won) winner = simWins(teamName(*won));
+        else if (r.stalemate) winner = tr(L"Draw: Units cannot reach each other");
+        else if (r.timedOut) winner = tr(L"No winner: 10 game minutes went by");
+        else winner = tr(L"No winner");
+        if (won && r.helpless >= 0) {
+            wchar_t b[1024];
+            std::swprintf(b, 1024, tr(L"%ls (the others have only units that cannot attack)"), winner.c_str());
+            winner = b;
+        }
         if (simAlliances() == kUnitFreeForAll && r.winnerUnit >= 0 && size_t(r.winnerUnit) < gSimCombatPlaced.size()) {
             const auto [type, owner] = gSimCombatPlaced[size_t(r.winnerUnit)];
-            const auto nm = gSim.unitNames.find(type);
-            winner = (nm != gSim.unitNames.end() ? nm->second : L"Unit " + std::to_wstring(type)) + L" of player " + std::to_wstring(owner + 1) +
-                     L" is the last unit standing";
+            wchar_t b[1024];
+            std::swprintf(b, 1024, tr(L"%ls of player %d is the last unit standing"), simUnitName(type).c_str(), int(owner) + 1);
+            winner = b;
         }
         int unreachable = 0;
         for (const sim::CombatSide& t : r.teams) unreachable += t.unreachable;
-        if (!won && !r.timedOut && !r.stalemate && unreachable)
-            winner = L"No winner: " + std::to_wstring(unreachable) + (unreachable == 1 ? L" unit is" : L" units are") + L" out of reach of their enemies";
-        gSim.endText = winner + L" after " + simNum(r.frames * 0.042, 1) + L" game seconds";
-        gSim.result = won ? teamName(*won) + L" wins" : winner;
-        auto name = [&](int type) {
-            const auto n = gSim.unitNames.find(type);
-            return n != gSim.unitNames.end() ? n->second : L"Unit " + std::to_wstring(type);
-        };
+        if (!won && !r.timedOut && !r.stalemate && unreachable) {
+            wchar_t b[1024];
+            if (unreachable == 1) std::swprintf(b, 1024, tr(L"No winner: %d unit is out of reach of their enemies"), unreachable);
+            else std::swprintf(b, 1024, tr(L"No winner: %d units are out of reach of their enemies"), unreachable);
+            winner = b;
+        }
+        gSim.endText = simAfter(winner, simNum(r.frames * 0.042, 1));
+        gSim.result = won ? simWins(teamName(*won)) : winner;
         std::wstring lost;
-        for (const sim::CombatSide& t : r.teams)
-            lost += (lost.empty() ? L"Lost (minerals + gas): " : L"; ") + teamName(t) + L" " + std::to_wstring(t.mineralsLost + t.gasLost);
+        for (const sim::CombatSide& t : r.teams) {
+            wchar_t b[256];
+            std::swprintf(b, 256, tr(L"%ls %d"), teamName(t).c_str(), int(t.mineralsLost + t.gasLost));
+            lost += (lost.empty() ? L"" : L"; ") + std::wstring(b);
+        }
+        {
+            wchar_t b[1024];
+            std::swprintf(b, 1024, tr(L"Lost (minerals + gas): %ls"), lost.c_str());
+            lost = b;
+        }
         gSimTitle = gSim.endText;
         gSimLine = lost;
         SimDoc& d = gSimDoc;
         for (const sim::CombatSide& s : r.teams) {
             bool sh = false;
             for (const sim::UnitTypeStats& u : s.types) sh = sh || u.maxShields;
-            std::vector<std::wstring> head = {L"Unit", L"Alive", L"Kills", L"Hit points"};
-            if (sh) head.push_back(L"Shields");
-            head.push_back(L"Lost (minerals + gas)");
+            std::vector<std::wstring> head = {tr(L"Unit"), tr(L"Alive"), tr(L"Kills"), tr(L"Hit points")};
+            if (sh) head.push_back(tr(L"Shields"));
+            head.push_back(tr(L"Lost (minerals + gas)"));
             std::vector<std::vector<std::wstring>> rows;
             for (const sim::UnitTypeStats& u : s.types) {
-                std::vector<std::wstring> row = {name(u.unitType), simOf(u.alive, u.started), std::to_wstring(u.kills), simOf(u.hp, u.maxHp)};
+                std::vector<std::wstring> row = {simUnitName(u.unitType), simOf(u.alive, u.started), std::to_wstring(u.kills), simOf(u.hp, u.maxHp)};
                 if (sh) row.push_back(u.maxShields ? simOf(u.shields, u.maxShields) : std::wstring(L"\x2013"));
                 row.push_back(std::to_wstring((u.started - u.alive) * (u.mineralCost + u.gasCost)));
                 rows.push_back(row);
             }
-            std::vector<std::wstring> total = {L"=All", simOf(s.alive, s.units), std::to_wstring(s.kills), simOf(s.hp, s.startHp)};
+            std::vector<std::wstring> total = {tr(L"=All"), simOf(s.alive, s.units), std::to_wstring(s.kills), simOf(s.hp, s.startHp)};
             if (sh) total.push_back(simOf(s.shields, s.startShields));
             total.push_back(std::to_wstring(s.mineralsLost + s.gasLost));
             rows.push_back(total);
             d.heading(teamName(s), s.players.empty() ? -1 : s.players.front());
             d.table(head, rows);
-            if (s.unreachable)
-                d.para(std::to_wstring(s.unreachable) + (s.unreachable == 1 ? L" unit was" : L" units were") +
-                       L" out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)", true);
+            if (s.unreachable) {
+                wchar_t b[1024];
+                if (s.unreachable == 1)
+                    std::swprintf(b, 1024, tr(L"%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)"), int(s.unreachable));
+                else
+                    std::swprintf(b, 1024, tr(L"%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)"), int(s.unreachable));
+                d.para(b, true);
+            }
         }
+        // (the whole paragraph is a template for each alliance, so that a translation can say it in its own way)
         const int al = simAlliances();
-        const std::wstring who = al == kUnitFreeForAll ? L"every unit fights every other unit" : al == kMapForces ? L"the map's forces fight each other"
-                               : al == kHumansVsComputers ? L"the human players fight the computer players"
-                               : al == kFreeForAll ? L"each player fights alone" : L"the computer players are allies, each other player fights alone";
-        d.para(L"Fastest, with the map's upgrades; " + who + L"; each unit attacks the enemies it can reach until none are left, for 10 "
-               L"game minutes at most.", true);
+        std::wstring who;
+        if (al == kUnitFreeForAll) who = tr(L"Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.");
+        else if (al == kMapForces) who = tr(L"Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.");
+        else if (al == kHumansVsComputers) who = tr(L"Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.");
+        else if (al == kFreeForAll) who = tr(L"Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.");
+        else who = tr(L"Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.");
+        d.para(who, true);
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
     } else if (gSim.combat) {
         const sim::CombatResult r = e.combatResult();
-        const std::wstring a = L"Player " + std::to_wstring(gSim.players[0] + 1), b = L"Player " + std::to_wstring(gSim.players[1] + 1);
-        std::wstring winner = r.a.alive && !r.b.alive ? a + L" wins" : r.b.alive && !r.a.alive ? b + L" wins"
-                              : r.timedOut                                ? L"No winner: 2 game minutes went by"
-                                                                          : L"No winner: both sides died";
-        if (r.helpless >= 0) winner = (r.helpless ? a : b) + L" wins (" + (r.helpless ? b : a) + L" has only units that cannot attack)";
-        gSim.endText = winner + L" after " + simNum(r.frames * 0.042, 1) + L" game seconds";
-        auto name = [&](int type) {
-            const auto n = gSim.unitNames.find(type);
-            return n != gSim.unitNames.end() ? n->second : L"Unit " + std::to_wstring(type);
-        };
+        const std::wstring a = simPlayer(gSim.players[0]), b = simPlayer(gSim.players[1]);
+        std::wstring winner = r.a.alive && !r.b.alive ? simWins(a) : r.b.alive && !r.a.alive ? simWins(b)
+                              : r.timedOut                                ? tr(L"No winner: 2 game minutes went by")
+                                                                          : tr(L"No winner: both sides died");
+        if (r.helpless >= 0) {
+            wchar_t t[1024];
+            std::swprintf(t, 1024, tr(L"%ls wins (%ls has only units that cannot attack)"), (r.helpless ? a : b).c_str(), (r.helpless ? b : a).c_str());
+            winner = t;
+        }
+        gSim.endText = simAfter(winner, simNum(r.frames * 0.042, 1));
         const int valueA = r.a.mineralsLost + r.a.gasLost, valueB = r.b.mineralsLost + r.b.gasLost;
         // (what each side lost is in its table: the line has only the trade)
-        std::wstring trade = !valueA && !valueB ? L"Neither side lost a unit"
-                             : !valueA          ? a + L" lost nothing"
-                             : !valueB          ? b + L" lost nothing"
-                             : valueA <= valueB ? a + L" traded " + simNum(double(valueB) / valueA, 1) + L" to 1"
-                                                : b + L" traded " + simNum(double(valueA) / valueB, 1) + L" to 1";
-        gSim.result = r.helpless >= 0 ? (r.helpless ? a : b) + L" wins" : winner;
+        std::wstring trade;
+        wchar_t t[256];
+        if (!valueA && !valueB) {
+            trade = tr(L"Neither side lost a unit");
+        } else if (!valueA || !valueB) {
+            std::swprintf(t, 256, tr(L"%ls lost nothing"), (!valueA ? a : b).c_str());
+            trade = t;
+        } else if (valueA <= valueB) {
+            std::swprintf(t, 256, tr(L"%ls traded %ls to 1"), a.c_str(), simNum(double(valueB) / valueA, 1).c_str());
+            trade = t;
+        } else {
+            std::swprintf(t, 256, tr(L"%ls traded %ls to 1"), b.c_str(), simNum(double(valueA) / valueB, 1).c_str());
+            trade = t;
+        }
+        gSim.result = r.helpless >= 0 ? simWins(r.helpless ? a : b) : winner;
         gSimTitle = gSim.endText;
         gSimLine = trade;
         SimDoc& d = gSimDoc;
@@ -488,17 +575,17 @@ void simEnd() {
         auto side = [&](const std::wstring& who, int player, const sim::CombatSide& s) {
             bool sh = false;
             for (const sim::UnitTypeStats& u : s.types) sh = sh || u.maxShields;
-            std::vector<std::wstring> head = {L"Unit", L"Alive", L"Kills", L"Hit points"};
-            if (sh) head.push_back(L"Shields");
-            head.push_back(L"Lost (minerals + gas)");
+            std::vector<std::wstring> head = {tr(L"Unit"), tr(L"Alive"), tr(L"Kills"), tr(L"Hit points")};
+            if (sh) head.push_back(tr(L"Shields"));
+            head.push_back(tr(L"Lost (minerals + gas)"));
             std::vector<std::vector<std::wstring>> rows;
             for (const sim::UnitTypeStats& u : s.types) {
-                std::vector<std::wstring> row = {name(u.unitType), simOf(u.alive, u.started), std::to_wstring(u.kills), simOf(u.hp, u.maxHp)};
+                std::vector<std::wstring> row = {simUnitName(u.unitType), simOf(u.alive, u.started), std::to_wstring(u.kills), simOf(u.hp, u.maxHp)};
                 if (sh) row.push_back(u.maxShields ? simOf(u.shields, u.maxShields) : std::wstring(L"\x2013"));
                 row.push_back(std::to_wstring((u.started - u.alive) * (u.mineralCost + u.gasCost)));
                 rows.push_back(row);
             }
-            std::vector<std::wstring> total = {L"=All", simOf(s.alive, s.units), std::to_wstring(s.kills), simOf(s.hp, s.startHp)};
+            std::vector<std::wstring> total = {tr(L"=All"), simOf(s.alive, s.units), std::to_wstring(s.kills), simOf(s.hp, s.startHp)};
             if (sh) total.push_back(simOf(s.shields, s.startShields));
             total.push_back(std::to_wstring(s.mineralsLost + s.gasLost));
             rows.push_back(total);
@@ -507,37 +594,55 @@ void simEnd() {
         };
         side(a, gSim.players[0], r.a);
         side(b, gSim.players[1], r.b);
-        d.para(L"Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.", true);
+        d.para(tr(L"Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most."), true);
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;
     } else {
         const std::vector<sim::MiningBase> bases = e.miningResult();
         std::wstring summary;
         SimDoc& d = gSimDoc;
         std::vector<std::vector<std::wstring>> rows;
-        std::vector<std::wstring> tripHead = {L"Field"};
+        std::vector<std::wstring> tripHead = {tr(L"Field")};
         std::vector<const sim::MiningRun*> runs;
         double minerals = 0, gas = 0;
+        wchar_t txt[1024];
         for (size_t k = 0; k < bases.size(); ++k) {
             const sim::MiningBase& b = bases[k];
             if (b.runs.empty()) continue;
             const sim::MiningRun& r = b.runs[0];
-            const std::wstring base = L"Base " + std::to_wstring(k + 1);
-            const wchar_t* race = r.race == sim::Zerg ? L"Zerg" : r.race == sim::Protoss ? L"Protoss" : L"Terran";
-            rows.push_back({base + (b.startLocation ? L" (start)" : L""), race, std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
+            std::swprintf(txt, 1024, tr(L"Base %d"), int(k) + 1);
+            const std::wstring base = txt;
+            std::wstring label = base;
+            if (b.startLocation) {
+                std::swprintf(txt, 1024, tr(L"Base %d (start)"), int(k) + 1);
+                label = txt;
+            }
+            const wchar_t* race = r.race == sim::Zerg ? tr(L"Zerg") : r.race == sim::Protoss ? tr(L"Protoss") : tr(L"Terran");
+            rows.push_back({label, race, std::to_wstring(b.x / 32) + L", " + std::to_wstring(b.y / 32),
                             std::to_wstring(b.fields.size()), simNum(r.mineralsPerMinute), simNum(r.gasPerMinute)});
             minerals += r.mineralsPerMinute, gas += r.gasPerMinute;
             tripHead.push_back(base);
             runs.push_back(&r);
         }
-        if (rows.size() > 1) rows.push_back({L"=All", L"", L"", L"", simNum(minerals), simNum(gas)});
-        gSim.endText = gSim.result = simNum(minerals) + L" minerals a minute";
-        gSimTitle = L"Mining: " + simNum(minerals) + L" minerals and " + simNum(gas) + L" gas a minute";
+        if (rows.size() > 1) rows.push_back({tr(L"=All"), L"", L"", L"", simNum(minerals), simNum(gas)});
+        std::swprintf(txt, 1024, tr(L"%ls minerals a minute"), simNum(minerals).c_str());
+        gSim.endText = gSim.result = txt;
+        std::swprintf(txt, 1024, tr(L"Mining: %ls minerals and %ls gas a minute"), simNum(minerals).c_str(), simNum(gas).c_str());
+        gSimTitle = txt;
         int gasWorkers = 3, minutes = 3;
         prefs::number(L"SimGasWorkers", gasWorkers, 0, 3), prefs::number(L"SimMinutes", minutes, 1, 60);
-        gSimLine = std::to_wstring(gSim.workers) + L" workers on minerals and " +
-                   (gasWorkers ? std::to_wstring(gasWorkers) + L" on gas" : std::wstring(L"none on gas")) + L" at each base, " +
-                   std::to_wstring(minutes) + (minutes == 1 ? L" game minute" : L" game minutes") + L" at Fastest";
-        d.table({L"Base", L"Race", L"Tile", L"Fields", L"Minerals a minute", L"Gas a minute"}, rows, 3);
+        if (gasWorkers) {
+            if (minutes == 1)
+                std::swprintf(txt, 1024, tr(L"%d workers on minerals and %d on gas at each base, %d game minute at Fastest"), int(gSim.workers), gasWorkers, minutes);
+            else
+                std::swprintf(txt, 1024, tr(L"%d workers on minerals and %d on gas at each base, %d game minutes at Fastest"), int(gSim.workers), gasWorkers, minutes);
+        } else {
+            if (minutes == 1)
+                std::swprintf(txt, 1024, tr(L"%d workers on minerals and none on gas at each base, %d game minute at Fastest"), int(gSim.workers), minutes);
+            else
+                std::swprintf(txt, 1024, tr(L"%d workers on minerals and none on gas at each base, %d game minutes at Fastest"), int(gSim.workers), minutes);
+        }
+        gSimLine = txt;
+        d.table({tr(L"Base"), tr(L"Race"), tr(L"Tile"), tr(L"Fields"), tr(L"Minerals a minute"), tr(L"Gas a minute")}, rows, 3);
         size_t most = 0;
         for (const sim::MiningRun* r : runs) most = std::max(most, r->tripFrames.size());
         if (most) {
@@ -548,7 +653,7 @@ void simEnd() {
                     row.push_back(f < r->tripFrames.size() && r->tripFrames[f] > 0 ? simNum(r->tripFrames[f]) : std::wstring(L"\x2013"));
                 trips.push_back(row);
             }
-            d.heading(L"Round trip of each field, nearest first (frames)");
+            d.heading(tr(L"Round trip of each field, nearest first (frames)"));
             d.table(tripHead, trips);
         }
         gSim.report = gSimTitle + L"\r\n" + gSimLine + L"\r\n" + d.text;

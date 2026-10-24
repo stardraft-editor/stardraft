@@ -2482,3 +2482,44 @@ Free for all	Каждый сам за себя
 Every unit against every other	Каждый юнит против каждого
 No gas	Без газа
 All	Все
+%d of %d	%d из %d
+Unit %d	Юнит %d
+Player %d	Игрок %d
+The simulation stopped: %ls	Моделирование остановлено: %ls
+Computers (players %ls)	Компьютеры (игроки %ls)
+Computer (player %ls)	Компьютер (игрок %ls)
+Humans (players %ls)	Люди (игроки %ls)
+Humans (player %ls)	Люди (игрок %ls)
+Force %d	Команда %d
+%ls (players %ls)	%ls (игроки %ls)
+%ls (player %ls)	%ls (игрок %ls)
+Player %ls	Игрок %ls
+%ls wins	%ls побеждает
+%ls (the others have only units that cannot attack)	%ls (остальные имеют только юниты, которые не могут атаковать)
+%ls of player %d is the last unit standing	%ls, последний уцелевший юнит игрока %d
+No winner: %d unit is out of reach of their enemies	Победителя нет: %d юнит вне досягаемости врагов
+No winner: %d units are out of reach of their enemies	Победителя нет: %d юнитов вне досягаемости врагов
+%ls after %ls game seconds	%ls, за %ls игровых секунд
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	Потеряно (минералы + газ): %ls
+=All	=Всего
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d юнит вне досягаемости: ни один враг не смог подойти к нему и атаковать его (остров, только воздушное или наземное оружие, или невидимость)
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d юнитов вне досягаемости: ни один враг не смог подойти к ним и атаковать их (остров, только воздушное или наземное оружие, или невидимость)
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; каждый юнит сражается с каждым другим; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; силы карты сражаются друг с другом; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; люди сражаются с компьютерными игроками; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; каждый игрок сражается сам за себя; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; компьютерные игроки союзники, каждый другой игрок сражается сам за себя; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+%ls lost nothing	%ls без потерь
+%ls traded %ls to 1	%ls обменял %ls к 1
+%ls wins (%ls has only units that cannot attack)	%ls побеждает (у %ls остались только юниты, которые не могут атаковать)
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	Быстрее всего, без улучшений и исследований; каждая сторона атакует середину противника, но не более 2 игровых минут.
+Base %d	База %d
+Base %d (start)	База %d (стартовая)
+%ls minerals a minute	%ls минералов в минуту
+Mining: %ls minerals and %ls gas a minute	Добыча: %ls минералов и %ls газа в минуту
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	%d рабочих на минералах и %d на газе на каждой базе, %d игровая минута на максимальной скорости
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	%d рабочих на минералах и %d на газе на каждой базе, %d игровых минут на максимальной скорости
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	%d рабочих на минералах и без газа на каждой базе, %d игровая минута на максимальной скорости
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	%d рабочих на минералах и без газа на каждой базе, %d игровых минут на максимальной скорости
+The simulation cannot start: %ls	Не удалось запустить моделирование: %ls

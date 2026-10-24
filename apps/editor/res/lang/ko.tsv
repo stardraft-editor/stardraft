@@ -2482,3 +2482,44 @@ Free for all	자유 전투
 Every unit against every other	모든 유닛이 서로 대결
 No gas	가스 없음
 All	모두
+%d of %d	%d / %d
+Unit %d	유닛 %d
+Player %d	플레이어 %d
+The simulation stopped: %ls	시뮬레이션이 멈췄습니다: %ls
+Computers (players %ls)	컴퓨터 (플레이어 %ls)
+Computer (player %ls)	컴퓨터 (플레이어 %ls)
+Humans (players %ls)	사람 (플레이어 %ls)
+Humans (player %ls)	사람 (플레이어 %ls)
+Force %d	포스 %d
+%ls (players %ls)	%ls (플레이어 %ls)
+%ls (player %ls)	%ls (플레이어 %ls)
+Player %ls	플레이어 %ls
+%ls wins	%ls 승리
+%ls (the others have only units that cannot attack)	%ls (나머지는 공격할 수 없는 유닛만 남았습니다)
+%ls of player %d is the last unit standing	%ls, 플레이어 %d의 마지막 생존 유닛
+No winner: %d unit is out of reach of their enemies	승자 없음: 적이 닿을 수 없는 유닛이 %d개 있습니다
+No winner: %d units are out of reach of their enemies	승자 없음: 적이 닿을 수 없는 유닛이 %d개 있습니다
+%ls after %ls game seconds	%ls, %ls 게임 초 뒤
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	손실 (미네랄 + 가스): %ls
+=All	=모두
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	유닛 %d개가 닿을 수 없었습니다: 적이 다가가 공격할 수 없었습니다 (섬, 공중 또는 지상 무기만 있거나, 은폐 상태)
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	유닛 %d개가 닿을 수 없었습니다: 적이 다가가 공격할 수 없었습니다 (섬, 공중 또는 지상 무기만 있거나, 은폐 상태)
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 모든 유닛이 다른 모든 유닛과 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 맵의 포스끼리 서로 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 사람 플레이어 대 컴퓨터 플레이어; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 각 플레이어는 혼자 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 컴퓨터 플레이어끼리는 동맹, 다른 각 플레이어는 혼자 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+%ls lost nothing	%ls 손실 없음
+%ls traded %ls to 1	%ls 교환 비율 %ls 대 1
+%ls wins (%ls has only units that cannot attack)	%ls 승리 (%ls에는 공격할 수 없는 유닛만 남았습니다)
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	최고속, 업그레이드와 연구 없음; 각 쪽은 상대의 중앙으로 공격 이동하며, 최대 게임 2분 동안.
+Base %d	기지 %d
+Base %d (start)	기지 %d (시작)
+%ls minerals a minute	분당 %ls 미네랄
+Mining: %ls minerals and %ls gas a minute	채취: 분당 미네랄 %ls, 가스 %ls
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 %d명, 최고속으로 게임 %d분
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 %d명, 최고속으로 게임 %d분
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 없음, 최고속으로 게임 %d분
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 없음, 최고속으로 게임 %d분
+The simulation cannot start: %ls	시뮬레이션을 시작할 수 없습니다: %ls
