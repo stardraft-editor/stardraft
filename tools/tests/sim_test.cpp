@@ -1253,6 +1253,46 @@ bool runMiningCollisionCheck(const sim::Tables& t, const std::filesystem::path& 
     return ok;
 }
 
+// Gathering sparks: the picture of a mining worker's harvest weapon (the SCV's Fusion Cutter, the Probe's Particle
+// Beam) sits on the field it mines: within the field's box or on its edge (at most 2 pixels out), in the live images.
+bool runGatherSparkCheck(const sim::Tables& t, const sim::MapInfo& map) {
+    bool ok = true;
+    for (sim::Race race : {sim::Terran, sim::Protoss}) {
+        sim::MiningOptions mo;
+        mo.races = {race};
+        std::vector<sim::MiningBase> bases = sim::miningBases(t, map, mo);
+        bases.resize(1);
+        std::vector<sim::Race> races = sim::baseRaces(t, map, bases, mo);
+        sim::World w(t, map);
+        sim::setupMining(w, bases, races, 9, mo);
+        const int weapon = race == sim::Terran ? 14 : 63;  // (the harvest weapons that the workers' scripts use)
+        const int spark = t.flingyImage(t.weapons[size_t(weapon)].flingy);
+        int sparks = 0, off = 0, worst = 0;
+        for (int f = 0; f < 900; ++f) {
+            w.step();
+            for (const sim::World::Effect& e : w.effects) {
+                if (e.image != spark || e.follow >= 0) continue;
+                // (its gap to the nearest mineral field)
+                int gap = -1;
+                for (const sim::Unit& v : w.units)
+                    if (v.alive && t.roles[size_t(v.type)].mineralField) {
+                        const int g = w.pointGap(v, e.x, e.y);
+                        if (gap < 0 || g < gap) gap = g;
+                    }
+                if (gap < 0) continue;
+                ++sparks;
+                worst = std::max(worst, gap);
+                off += gap > 2;
+            }
+        }
+        const bool good = sparks > 0 && off == 0;
+        std::printf("Gathering sparks: %s: %d spark frames, %d off their field (the farthest %d px out): %s\n",
+                    race == sim::Terran ? "SCVs" : "Probes", sparks, off, worst, good ? "OK" : "FAIL");
+        ok = ok && good;
+    }
+    return ok;
+}
+
 // Gathering pictures and sounds: a mining worker plays its mining animation (Almost Built) while it mines; the SCV's
 // and the Probe's use their harvest weapon (its picture at the field, with sparks), and all three play their sounds.
 bool runGatherPictureCheck(const sim::Tables& t, const sim::MapInfo& map) {
@@ -2210,6 +2250,7 @@ int main(int argc, char** argv) {
         if (!runFastForwardCheck(tables, map, install, reader)) ++failures;
         if (!runMiningCollisionCheck(tables, install)) ++failures;
         if (!runGatherPictureCheck(tables, map)) ++failures;
+        if (!runGatherSparkCheck(tables, map)) ++failures;
         if (!runDamageOverlayCheck(tables, map)) ++failures;
         if (!runUnitFreeForAllCheck(tables, map)) ++failures;
         if (!runCreepCheck(tables, map)) ++failures;
