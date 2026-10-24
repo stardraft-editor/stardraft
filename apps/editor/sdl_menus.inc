@@ -677,7 +677,12 @@ void sdlImeText(const std::string& spec) {
 std::string sdlShotState();
 std::string sdlShotUi();
 draw::Point gShotMouse{-1, -1};  // where the last --click, --drag or --move left the mouse (the ui line's cursor)
+double gInputLineMs = 0;  // the time of the input lines (the stats line's inputs do not count it: sdl_soak.inc)
 void sdlInputLine(const std::string& what) {
+    struct Timed {  // (the time of this line, into gInputLineMs)
+        std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
+        ~Timed() { gInputLineMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(); }
+    } timed;
     if (!gState.ed || !gState.ed->isOpen()) {
         std::printf("%s: no map: %s\n", what.c_str(), narrow(gState.message).c_str());
     } else {

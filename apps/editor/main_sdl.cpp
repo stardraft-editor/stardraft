@@ -868,7 +868,12 @@ int main(int argc, char** argv) {
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 gShotInputs.assign(inputArgs.begin(), inputArgs.end());
                 host.setSnapshotModalHook([](draw::View&) { return sdlShotInputNext(); });
-                while (sdlShotInputNext()) {
+                for (;;) {
+                    // (each input's time without its input lines, for --script's stats)
+                    const double linesBefore = gInputLineMs;
+                    const auto i0 = std::chrono::steady_clock::now();
+                    if (!sdlShotInputNext()) break;
+                    sdlSoakInput(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - i0).count() - (gInputLineMs - linesBefore));
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
                     host.snapshotTimers(20);
                     const auto t0 = std::chrono::steady_clock::now();
