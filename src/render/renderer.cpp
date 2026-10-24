@@ -641,7 +641,13 @@ void Renderer::Impl::loadImage(int id, ImageTex& t) {
     t.loaded = true;
     std::string err;
     AnimImage a;
-    if (artQuality() != GraphicsQuality::SD && data && loadAnimImage(*data, id, artQuality(), a, err, carbot)) {
+    // An extra image (UnitSprites::extraImage: the creep edges): its HD art from its .dds.grp, or its GRP in SD.
+    const std::string* extra = unitSprites ? unitSprites->extraPath(id) : nullptr;
+    const Grp* extraSd = extra ? unitSprites->grp(id) : nullptr;
+    const bool hd = artQuality() != GraphicsQuality::SD && data &&
+                    (extra ? extraSd && loadHdGrp(*data, *extra, *extraSd, artQuality(), a, err, carbot)
+                           : loadAnimImage(*data, id, artQuality(), a, err, carbot));
+    if (hd) {
         auto fmt = [](const DdsTexture& d) {
             return d.format == DdsTexture::BC1 ? SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM : SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
         };
@@ -676,7 +682,7 @@ void Renderer::Impl::loadImage(int id, ImageTex& t) {
             for (int x = 0; x < fr.width; ++x) {
                 uint8_t idx = fr.pixels[size_t(y) * fr.width + x];
                 if (!idx) continue;
-                bool team = idx >= 8 && idx < 16;
+                bool team = !extra && idx >= 8 && idx < 16;
                 // Team pixels: white player's ramp gives a neutral grey the shader can tint. Glows: their
                 // colour over black from the tileset's remap table.
                 Rgb glow{};
@@ -726,7 +732,12 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     const float mapPxH = std::max<float>(mapH * 32.0f, 1);
 
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
-    std::vector<std::pair<ImageTex*, GpuInstance>> raw;
+    struct Raw {
+        ImageTex* tex;
+        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows
+        GpuInstance in;
+    };
+    std::vector<Raw> raw;
     raw.reserve(scene.sprites.size());
     const float viewL = cam.x, viewT = cam.y, viewR = cam.x + w / cam.zoom, viewB = cam.y + h / cam.zoom;
     for (const SpriteDraw& s : scene.sprites) {
@@ -756,18 +767,20 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             in.depth = 0.985f;  // over shadows, under every unit
             in.color[0] = 0.2f, in.color[1] = 1.0f, in.color[2] = 0.2f;  // the game's selection green
         }
+        if (s.terrain) in.depth = 0.995f;  // on the terrain, under shadows
         in.flags = float((s.shadow ? 1 : 0) | (s.tintRed ? 2 : 0) | (s.ground ? 4 : 0) | (s.glow ? 8 : 0));
-        raw.push_back({t, in});
+        raw.push_back({t, s.terrain ? 0 : s.glow ? 2 : 1, in});
     }
-    // Glows last, in their own batches (additive pipeline).
-    std::map<std::pair<bool, ImageTex*>, std::vector<GpuInstance>> buckets;
-    for (auto& [t, in] : raw) buckets[{(int(in.flags) & 8) != 0, t}].push_back(in);
+    // The terrain's sprites first (else the depth that they write would hide the shadows and circles over them), then
+    // the others, then glows in their own batches (additive pipeline).
+    std::map<std::pair<int, ImageTex*>, std::vector<GpuInstance>> buckets;
+    for (auto& [t, order, in] : raw) buckets[{order, t}].push_back(in);
     std::vector<GpuInstance> instances;
     instances.reserve(raw.size());
     struct Batch { ImageTex* tex; uint32_t first, count; bool glow; };
     std::vector<Batch> batches;
     for (auto& [key, list] : buckets) {
-        batches.push_back({key.second, uint32_t(instances.size()), uint32_t(list.size()), key.first});
+        batches.push_back({key.second, uint32_t(instances.size()), uint32_t(list.size()), key.first == 2});
         instances.insert(instances.end(), list.begin(), list.end());
     }
     stats.sprites = int(instances.size());

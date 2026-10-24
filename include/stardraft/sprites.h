@@ -268,6 +268,13 @@ public:
 
     // Classic GRP for an image (SD graphics), cached; nullptr if missing.
     const Grp* grp(int image);
+    // A GRP that no images.dat entry names (the tileset's creep edges, stardraft/creep.h): an image id after all of
+    // images.dat's (kExtraImages and up), so that grp() and the renderer load it like an image. Its pixels are the
+    // tileset's colors (no player color, no draw function). The same path gives the same id.
+    static constexpr int kExtraImages = 0x10000;
+    int extraImage(const std::string& path);
+    // The game data path of an extra image; nullptr for an images.dat image.
+    const std::string* extraPath(int image) const;
     // Palette index for a GRP pixel after player-color remapping.
     uint8_t remap(uint8_t index, uint8_t owner) const;
     // Init animation of an image (scripts\iscript.bin).
@@ -318,6 +325,7 @@ private:
     std::vector<std::string> imagePaths_;  // images.tbl
     std::vector<uint8_t> playerColors_;    // tunit.pcx: 8 palette indices per player
     std::map<int, std::unique_ptr<Grp>> grps_;
+    std::vector<std::string> extraPaths_;  // extra images (extraImage), from kExtraImages
     std::map<std::pair<uint16_t, uint8_t>, std::unique_ptr<Sprite>> sprites_;
     std::unique_ptr<Grp> cmdIcons_;
     std::vector<uint8_t> iconRgb_;  // 16 colors (ticon.pcx row 0), RGB
