@@ -24,9 +24,11 @@ CI uses these (they need only Python and git):
                                 --images: the version's picture files, one on each line (the Discord post).
     discord <version> --title <t> --url <u> [--channel all|updates|general] [--screenshots-only]
                                 The Discord post (CI): in each channel with a webhook (DISCORD_RELEASE_WEBHOOK,
-                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>" (in #updates after the @New Release ping), then the version's section as
-                                Discord text (one or more messages), then each screenshot as a message of its own with
-                                its text (a link alone shows neither). --screenshots-only: the screenshots alone.
+                                DISCORD_GENERAL_WEBHOOK), "**<title>** is out: <url>" (in #updates after the @New Release ping) with
+                                the section's video links, then the screenshots in one message (each with its text),
+                                then the version's section as Discord text: in a thread on the first message when it is
+                                more than one message long (the bot starts it: DISCORD_BOT_TOKEN; without it, in the
+                                channel), else in the channel. --screenshots-only: the screenshots alone.
     discord-text <version>      The section as the Discord messages have it (to check it).
     title <version>             "StarDraft 2 - v<version> (build <commit>)", the commit of HEAD (7 characters, as
                                 cmake/build_info.cmake writes it: Check for updates compares the two).
@@ -333,28 +335,38 @@ def cmd_discord_text(args):
 DISCORD_RELEASE_ROLE = "1562910841257332786"
 
 
-def discord_send(hook, content, file=None, ping_role=None):
-    """One webhook message: its text, and a picture file as its attachment. Waits when Discord says to (429).
-    ping_role: a role id that the message may ping (the text has its mention); no other mention pings."""
+def discord_send(hook, content, file=None, ping_role=None, files=None, thread_id=None):
+    """One webhook message: its text, and picture files as its attachments (`file`, or `files`: [(path, text)], at most
+    10, each with its text as the attachment's description). `thread_id`: into that thread. Waits when Discord says to
+    (429). ping_role: a role id that the message may ping (the text has its mention); no other mention pings. Returns
+    the message (its id and channel_id)."""
     import urllib.error
     import urllib.request
+    files = list(files or ([(file, "")] if file else []))[:10]
     boundary = "----stardraft" + str(int(time.time() * 1000))
     body = b""
     def part(headers, data):
         return (f"--{boundary}\r\n" + "".join(f"{h}\r\n" for h in headers) + "\r\n").encode() + data + b"\r\n"
+    payload = {"content": content, "allowed_mentions": {"roles": [ping_role] if ping_role else []}}
+    if files:
+        payload["attachments"] = [{"id": i, "filename": Path(f).name, "description": (t or "")[:1000]} for i, (f, t) in enumerate(files)]
     body += part(['Content-Disposition: form-data; name="payload_json"', "Content-Type: application/json"],
-                 json.dumps({"content": content, "allowed_mentions": {"roles": [ping_role] if ping_role else []}}).encode("utf-8"))
-    if file:
-        kind = "video/mp4" if Path(file).suffix == ".mp4" else "image/png"
-        body += part([f'Content-Disposition: form-data; name="files[0]"; filename="{Path(file).name}"', f"Content-Type: {kind}"],
-                     Path(file).read_bytes())
+                 json.dumps(payload).encode("utf-8"))
+    for i, (f, _) in enumerate(files):
+        kind = "video/mp4" if Path(f).suffix == ".mp4" else "image/png"
+        body += part([f'Content-Disposition: form-data; name="files[{i}]"; filename="{Path(f).name}"', f"Content-Type: {kind}"],
+                     Path(f).read_bytes())
     body += f"--{boundary}--\r\n".encode()
+    address = hook + ("&" if "?" in hook else "?") + "wait=true" + (f"&thread_id={thread_id}" if thread_id else "")
     for attempt in range(5):
-        req = urllib.request.Request(hook, data=body, method="POST",
+        req = urllib.request.Request(address, data=body, method="POST",
                                      headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "StarDraft release"})
         try:
-            with urllib.request.urlopen(req, timeout=60):
-                return
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                try:
+                    return json.loads(resp.read() or b"{}")
+                except ValueError:
+                    return {}
         except urllib.error.HTTPError as e:
             if e.code == 429 and attempt < 4:
                 try:
@@ -364,6 +376,38 @@ def discord_send(hook, content, file=None, ping_role=None):
                 time.sleep(min(30, wait + 0.5))
                 continue
             raise Fail(f"Discord: {e.code} {e.read()[:300]!r}")
+    return {}
+
+
+def discord_thread(message, name):
+    """A thread on a message that a webhook posted (the bot starts it: DISCORD_BOT_TOKEN); its id, or None when there
+    is no token or it did not go."""
+    import urllib.error
+    import urllib.request
+    token = os.environ.get("DISCORD_BOT_TOKEN")
+    if not token or not message.get("id") or not message.get("channel_id"):
+        return None
+    req = urllib.request.Request(f"https://discord.com/api/v10/channels/{message['channel_id']}/messages/{message['id']}/threads",
+                                 data=json.dumps({"name": name[:100], "auto_archive_duration": 10080}).encode(), method="POST",
+                                 headers={"Authorization": f"Bot {token}", "Content-Type": "application/json",
+                                          "User-Agent": "StarDraft release"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read() or b"{}").get("id")
+    except (urllib.error.HTTPError, urllib.error.URLError, ValueError) as e:
+        print(f"warning: no thread for the notes ({e}); they go in the channel")
+        return None
+
+
+def discord_links(lines):
+    """The section's lines with an address (a video): they go in the release's first message, where Discord shows
+    them (a link in a thread shows there only)."""
+    out = []
+    for m in discord_text(lines):
+        for l in m.splitlines():
+            if "https://" in l and "images/" not in l:
+                out.append(l)
+    return out
 
 
 def cmd_discord(args):
@@ -387,18 +431,29 @@ def cmd_discord(args):
     failed = []
     for name, hook in hooks:
         try:
+            texts = discord_text(lines)
+            long = len(texts) > 1  # (more than one message of text: the notes go in a thread)
+            first = {}
             if not only_shots:
+                links = discord_links(lines)
+                head = f"**{title}** is out: {url}" + ("".join("\n" + l for l in links) if links else "")
+                if long:
+                    head += "\nThe full notes are in the thread."
                 if name == "updates":  # (one ping for a release: in #updates)
-                    discord_send(hook, f"<@&{DISCORD_RELEASE_ROLE}> **{title}** is out: {url}", ping_role=DISCORD_RELEASE_ROLE)
+                    first = discord_send(hook, f"<@&{DISCORD_RELEASE_ROLE}> " + head, ping_role=DISCORD_RELEASE_ROLE)
                 else:
-                    discord_send(hook, f"**{title}** is out: {url}")
-                for text in discord_text(lines):  # (the changelog, as Discord shows text)
-                    time.sleep(1)
-                    discord_send(hook, text)
-            for f, alt in shots:  # (one message each: the pictures show in the channel, not only behind the link)
+                    first = discord_send(hook, head)
+            if shots:  # (the pictures in the channel, all in one message, each with its text)
                 time.sleep(1)
-                discord_send(hook, alt, f)
-            print(f"posted in {name}: {'' if only_shots else 'the release, the changelog and '}{len(shots)} screenshots")
+                discord_send(hook, "", files=shots)
+            where = "in the channel"
+            if not only_shots:
+                thread = discord_thread(first, f"What is new in {version}") if long else None
+                for text in texts:  # (the changelog, as Discord shows text)
+                    time.sleep(1)
+                    discord_send(hook, text, thread_id=thread)
+                where = "in a thread" if thread else "in the channel"
+            print(f"posted in {name}: {'' if only_shots else f'the release, the changelog ({where}) and '}{len(shots)} screenshots in one message")
         except Fail as e:
             failed.append(f"{name}: {e}")
     if failed:
