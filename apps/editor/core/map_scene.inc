@@ -84,13 +84,13 @@ uint32_t playerRgba(int owner, uint8_t alpha) {
 void addImage(render::Scene& s, const render::SpriteDraw& in) {
     AppState& app = shellState();
     UnitSprites& sp = app.ed->unitSprites();
-    // The image's own draw function (images.dat, also as the project's .dat edits set it): a shadow (10) is drawn as a
-    // shadow, a glow (9) adds its light, the cloaked ones (2 to 7) are see-through.
+    // The image's own draw function (images.dat, also as the project's .dat edits set it): the renderer draws it as the
+    // game does (a shadow, a glow, a cloak that bends what is under it, a hallucination...).
     render::SpriteDraw d = in;
     const int df = sp.drawFunction(d.image);
+    d.drawFunction = df;
     if (df == 10) d.shadow = true, d.air = false;
     else if (df == 9) d.glow = true;
-    else if (df >= 2 && df <= 7) d.alpha *= 0.45f;
     s.sprites.push_back(d);
     // Overlays its script puts on top (glows, lights): their own resting frame, or the parent's facing.
     for (const ImageScript::Overlay& o : sp.script(d.image).over) {
@@ -104,7 +104,8 @@ void addImage(render::Scene& s, const render::SpriteDraw& in) {
         ov.hasSortY = true, ov.sortY = d.hasSortY ? d.sortY : d.y;  // ordered with its sprite
         ov.depthBias = d.depthBias + 0.0002f;
         ov.shadow = false;
-        ov.glow = sp.drawFunction(o.image) == 9;
+        ov.drawFunction = sp.drawFunction(o.image);
+        ov.glow = ov.drawFunction == 9;
         s.sprites.push_back(ov);
     }
     for (const ImageScript::Overlay& o : sp.script(d.image).under) {
@@ -113,6 +114,8 @@ void addImage(render::Scene& s, const render::SpriteDraw& in) {
         sh.x = d.x + (d.flip ? -o.x : o.x), sh.y = d.y + o.y;
         sh.hasSortY = true, sh.sortY = d.hasSortY ? d.sortY : d.y;
         sh.shadow = sp.isShadow(o.image);
+        sh.drawFunction = sp.drawFunction(o.image);
+        sh.glow = sh.drawFunction == 9;
         sh.air = false;
         sh.tintRed = false;
         s.sprites.push_back(sh);
