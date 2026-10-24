@@ -138,11 +138,18 @@ bool Tables::load(const FileReader& reader, std::string& error) {
                 name += tbl[o] == '\\' ? '/' : char(tbl[o]);
             return name;
         };
-        // The frames of each turning image's GRP (its header's first value), each GRP read once.
+        // The frames of each turning image's GRP (its header's first value), and of each resource's (a mineral field
+        // shows its amount by frame), each GRP read once.
         imageFrames.assign(999, 0);
+        std::vector<uint8_t> resourceImage(999, 0);
+        for (const UnitData& d : units)
+            if (d.flags & kResource) {
+                int image = flingyImage(d.flingy);
+                if (image >= 0 && image < 999) resourceImage[size_t(image)] = 1;
+            }
         std::vector<std::pair<int, int>> grpFrames;  // (images.tbl entry, frames)
         for (int i = 0; i < 999; ++i) {
-            if (!imageTurns[size_t(i)]) continue;
+            if (!imageTurns[size_t(i)] && !resourceImage[size_t(i)]) continue;
             int entry = ri.u32(size_t(i) * 4);
             auto known = std::find_if(grpFrames.begin(), grpFrames.end(), [&](auto& g) { return g.first == entry; });
             if (known == grpFrames.end()) {
