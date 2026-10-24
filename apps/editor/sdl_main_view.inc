@@ -70,12 +70,16 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     Editor& ed = *gState.ed;
     clampCamera();
     // The terrain when it changed, or a layer (View > Layers: no terrain, or no doodads' tiles) went on or off.
+    // (and the creep when it changed: View > Layers > Creep, core/creep_layer.inc)
     static MapLayers uploaded;
-    if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain || uploaded.doodads != gLayers.doodads) {
+    static uint64_t uploadedCreep = 0;
+    const uint64_t creepRev = creepRevision(ed);
+    if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
+        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev) {
         gRenderer->setSources(&gState.data, &ed.unitSprites(), &ed.tileset(), ed.era());
-        if (gLayers.terrain && gLayers.doodads) gRenderer->updateTerrain(ed.terrain());
+        if (gLayers.terrain && gLayers.doodads && !gLayers.creep) gRenderer->updateTerrain(ed.terrain());
         else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
-        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers;
+        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev;
     }
     // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
     uint32_t team[12];
@@ -129,6 +133,15 @@ bool mapDoubleClickSdl(int x, int y);
 bool mapEnterSdl();
 void mapRightClickSdl(draw::View& map, draw::Point at);
 
+// A live game over the map (experimental: Tools > Simulate, sdl_simulation.inc): its bar at the top of the map
+// (what runs, the speed, Cancel), its keys (Esc), and a step of the game each frame.
+bool simBarShown();
+void simPaintBar(draw::Canvas& c, draw::Rect r);
+bool simBarMouse(const draw::MouseEvent& e, draw::Rect r);
+std::wstring simBarTip(draw::Point pt, draw::Rect r);
+bool simKey(const draw::KeyEvent& e);
+void simFrame();
+
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
     bool rightDown = false;  // the right button went down on the map: its release opens the map's menu
@@ -151,6 +164,7 @@ struct MapView final : draw::View {
         c.fill(all, kBg);
         if (open() && gMapTex && gMapW == width() && gMapH == height()) {
             c.externalImage(gMapTex, all);
+            if (simBarShown()) simPaintBar(c, all);
             return;
         }
         const std::wstring text = open() ? std::wstring(L"") : gDataOk ? shellTr(L"No map is open. Start with a map file: stardraft_editor <map>") : widen(gDataError);
@@ -170,6 +184,16 @@ struct MapView final : draw::View {
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
+        // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
+        if (simBarShown()) {
+            if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) return true;
+            const bool press = e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick || e.kind == draw::MouseKind::Up;
+            if (press && e.button != 2 && !(panning && e.kind == draw::MouseKind::Up)) return true;
+            if (e.kind == draw::MouseKind::Move && !panning) {
+                gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
+                return true;
+            }
+        }
         switch (e.kind) {
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick: {
@@ -282,6 +306,9 @@ struct MapView final : draw::View {
         default: return false;
         }
     }
+    // While a live game shows: the tooltip of its bar's "Approximation" chip (how close the simulation is to the game).
+    std::wstring tip(draw::Point pt) override { return simBarTip(pt, draw::Rect(0, 0, width(), height())); }
+    bool hoverTip() const override { return simBarShown(); }
     // The core's cursor (core/map_input.inc: the move cursor over a selected unit, doodad or sprite and while it moves,
     // the resize cursors on the selected location's edges and corners), as the Windows map view's mapCursorAt.
     draw::Cursor cursor(draw::Point pt) override {
@@ -447,6 +474,8 @@ struct MainView final : draw::View {
     // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
     // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
     bool key(const draw::KeyEvent& e) override {
+        if (simKey(e)) return true;  // (Esc ends a live game)
+        if (simBarShown()) return shortcutRun(e);  // (a live game: the menus' keys only, not the map's)
         const int k = int(e.key);
         const bool typed = (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9');
         const bool typing = gSearchSdl.field().hasFocus() || gFilterSdl.field().hasFocus() || gFilesPage.typing() || sdlMapPageTyping() || sdlQuickPickTyping() ||
@@ -990,6 +1019,8 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
+    if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
+    simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
     if (gWorkspace == Workspace::Map) drawMapFrame(cmd, w, h);  // (the other workspaces hide the map: no frame)
 }

@@ -80,6 +80,8 @@ bool middlePanStep(AppState& app, float dx, float dy, float dt) {
 // A fit asked for while the map view had no size yet (a map opened before the window exists): the host fits the map
 // when the view has its size.
 bool gFitPending = false;
+// The same for a unit to put in the middle of the view (unitsListCenter; the creep check's picture); -1: none.
+int gCenterUnitPending = -1;
 
 // The whole map in the view: the zoom that fits it (at most 4 times), its middle in the view's middle.
 void fitMap() {

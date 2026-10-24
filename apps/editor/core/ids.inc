@@ -55,8 +55,10 @@ enum : int {
     ID_VIEW_FLOATPAL = 1020,  // + int(Mode): View > Floating palettes (Roadmap R40: a mode's palette in a window of its own)
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units, 4 pathing; 5, 6 pathing shows the regions, the connected areas
     ID_DECORATE = 1040,  // + Edit > Decorate the terrain: 0 a few, 1 some, 2 many doodads (roadmap R37)
+    ID_LAYER_CREEP = 989,  // View > Layers > Creep (the start creep of the map's Zerg buildings: core/creep_layer.inc)
     ID_LAYER_REVEALERS = 988,  // View > Layers > Map revealers (the map's Map Revealer units: drawn and picked, or not)
-    ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Edit > Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
+    ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
+    ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)
     ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
     ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable

@@ -136,6 +136,7 @@
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/terrain.h"
+#include "stardraft/creep.h"
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/terrain_stamp.h"  // the user's terrain stamps (core/stamps.inc)
 #include "stardraft/tileset.h"
@@ -181,6 +182,7 @@ bool gKeysFromOpener = false;
 #include "sdl_window.inc"  // the main window as the system's document window, the system's look (mac_window.h)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
+#include "sdl_simulation.inc"  // Tools > Simulate mining and combat: a live game run by StarDraft's simulation (experimental)
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
@@ -710,7 +712,7 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "resize";
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -769,6 +771,7 @@ int main(int argc, char** argv) {
             else if (valueShot) shown = valueShot.get();
             else if (draw::View* notes = sdlChangelogShot(dialogArg, width, height)) shown = notes;  // html:<file>, changelog, changelog:offline (sdl_updates.inc)
             else if (draw::View* help = sdlHelpShot(dialogArg, width, height)) shown = help;  // help[:<topic>], help:search:<words> (sdl_help.inc)
+            else if (draw::View* report = sdlSimReportShot(dialogArg, width, height)) shown = report;  // simreport:mining|combat (sdl_simulation.inc)
             else if (dialogArg.rfind("campaign:", 0) == 0) {  // campaign:<folder>: the Campaign window of that campaign (core/views_campaign.inc)
                 std::string cerr;
                 gCampaignOpen = gCampaign.load(fs::path(widen(dialogArg.substr(9))), cerr);

@@ -155,7 +155,7 @@ struct Args {
 
 // The options that take no value.
 bool isFlag(const std::string& name) {
-    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths"})
+    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths", "gas"})
         if (name == f) return true;
     return false;
 }
@@ -1589,6 +1589,10 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 
 }  // namespace
 
+#ifdef STARDRAFT_SIMULATION
+#include "simulate.inc"  // simulate-mining, simulate-combat (experimental)
+#endif
+
 static int run(std::vector<std::string> argv) {
     Session s;
     for (size_t i = 1; i < argv.size(); ++i) {
@@ -1638,6 +1642,10 @@ static int run(std::vector<std::string> argv) {
             else if (c == "save") result = cmdSave(s);
             else if (c == "close") result = cmdClose(s);
             else if (c == "render") result = cmdRender(s);
+#ifdef STARDRAFT_SIMULATION
+            else if (c == "simulate-mining") result = cmdSimulateMining(s);
+            else if (c == "simulate-combat") result = cmdSimulateCombat(s);
+#endif
             else fail("unknown command \"" + c + "\" (stardraft-cli help)");
         }
     } catch (const std::exception& e) {
