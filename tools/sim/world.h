@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -309,6 +310,27 @@ public:
     bool lineClear(int type, int x0, int y0, int x1, int y1) const;
     void findPath(Unit& u, int x, int y);
     bool gridPath(int type, int fx, int fy, int x, int y, std::vector<std::pair<int, int>>& out) const;
+    bool gridSearch(int type, int fx, int fy, int x, int y, std::vector<std::pair<int, int>>& out) const;
+    // (mining: the walks over the terrain already found, by unit type, start and goal; buildings never move there)
+    struct WalkKey {
+        int type, fx, fy, x, y;
+        bool operator==(const WalkKey& o) const {
+            return type == o.type && fx == o.fx && fy == o.fy && x == o.x && y == o.y;
+        }
+    };
+    struct WalkHash {
+        size_t operator()(const WalkKey& k) const {
+            uint64_t h = 1469598103934665603ull;
+            for (int v : {k.type, k.fx, k.fy, k.x, k.y}) h = (h ^ uint64_t(uint32_t(v))) * 1099511628211ull;
+            return size_t(h);
+        }
+    };
+    struct Walk {
+        bool reached = false, capped = false;
+        int spent = 0;  // (the search's work: it counts against the frame's budget as before)
+        std::vector<std::pair<int, int>> path;
+    };
+    mutable std::unordered_map<WalkKey, Walk, WalkHash> walks;
     // The minitile search's buffers, kept between searches: a cell's values count only when its stamp is this
     // search's (so nothing is cleared); per cell: cost, from, place, corner, whether the box fits, and the straight
     // steps to its 8 neighbours already tested (and their results).
@@ -355,7 +377,7 @@ public:
     bool overlaps(int type, int x, int y, const Unit& o) const;
     bool collides(const Unit& u, const Unit& o) const;
     bool onBuilding(const Box& box) const;  // (mining: the box touches a building's, not a mineral field's)
-    mutable std::vector<uint8_t> buildingMask;  // (mining: the minitiles that buildings cover)
+    mutable std::vector<std::vector<int>> buildingTiles;  // (mining: by tile, the buildings whose box covers it)
     mutable std::vector<Box> buildingBoxes;
     mutable bool buildingMaskReady = false;
     // The order tick: false on the frames in between; true every 9th frame. A new order runs at once; after that the

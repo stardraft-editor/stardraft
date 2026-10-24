@@ -276,9 +276,17 @@ bool World::resourceValid(const Unit& u, int f) const {
 // To the point where the worker touches the resource (or depot), facing it: the nearest point of its box grown by the
 // worker's own where the worker fits (off the other buildings); none: the nearest point.
 void World::goToResource(Unit& u, int f) {
-    int x, y;
-    depotBorder(u, units[size_t(f)], x, y);
-    if (!fits(u.type, x, y)) {
+    const Unit& target = units[size_t(f)];
+    // (its straight walk toward the centre: the last place before the first touch of a box in the way)
+    int x = u.x, y = u.y;
+    const int dx = target.x - u.x, dy = target.y - u.y, steps = std::max(std::abs(dx), std::abs(dy));
+    for (int i = 1; i <= steps; ++i) {
+        int px = u.x + dx * i / steps, py = u.y + dy * i / steps;
+        if (!fits(u.type, px, py)) break;
+        x = px;
+        y = py;
+    }
+    if (boxGap(boxAt(u.type, x, y), boxOf(target)) > t.rules.miningReach) {
         const Unit& b = units[size_t(f)];
         const UnitData &dw = t.units[u.type], &db = t.units[b.type];
         int l = b.x - db.left - dw.right - 1, r = b.x + db.right + dw.left + 1;

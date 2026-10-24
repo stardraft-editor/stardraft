@@ -50,12 +50,12 @@ lobby or Random: a random race from `seed`); the other bases take `races[0]`. A 
 both start locations of (2)Bottleneck.scm takes about 0.3 s (`sim_test`).
 A mining worker plays its mining animation (Almost Built) while it mines and Ground Attack to Idle at the end; the
 weapon that the SCV's and the Probe's script uses there (useweapon) gives its projectile's picture at the field, with
-its sprites and sounds, and no hit (the Drone's has only its sounds). Gathering workers pass each other and the mineral
-fields, but never walk into the box of a depot, a refinery or any other building: the terrain test, the paths and the
-steps treat those boxes as unwalkable (a mask of the minitiles they cover, as mining's buildings never move), and a
-worker goes to the nearest point where it touches its field or depot and fits. (mining.md has the fields block workers
-too, as buildings; with that, the mining measures went from a mean difference of 4.0% to 5.8%, so the fields stay
-passable until the stop point at a field is measured.)
+its sprites and sounds, and no hit (the Drone's has only its sounds). Gathering workers pass each other but never walk
+into a building's box, the mineral fields' too (mining.md, mining-contact.md): the terrain test, the paths and the steps
+treat those boxes as unwalkable (by tile, the boxes that cover it, as mining's buildings never move; a walk found once
+is taken again). A worker walks straight toward its field's (or depot's) centre and stops at the first touch of a box on
+the way; when that place is more than `miningReach` (10) pixels from its target, it goes to the nearest place on the
+target's outline where it fits.
 
 **Combat.** As in the reference: each side's centre is `gap / 2` left and right of (`x`, `y`) (or the map's middle),
 moved to the nearest walkable point; each side's units start there, placed in order by the free-spot search

@@ -116,30 +116,28 @@ bool World::fits(int type, int x, int y) const {
     return combat || !onBuilding(boxAt(type, x, y));
 }
 
-// Mining's buildings never move: their boxes and a mask of the 8-pixel minitiles they cover, made at the first test
+// Mining's buildings never move: their boxes and, by tile, the boxes that cover it, made at the first test
 // (and again after a building changes: regrid).
 bool World::onBuilding(const Box& box) const {
-    const int columns = map.width * 4, rows = map.height * 4;
-    if (!buildingMaskReady) {
-        buildingMask.assign(size_t(columns) * size_t(rows), 0);
+    const int columns = map.width, rows = map.height;
+    if (!buildingMaskReady) {  // (each tile: the buildings whose box covers some of it)
+        buildingTiles.assign(size_t(columns) * size_t(rows), {});
         buildingBoxes.clear();
         for (const Unit& o : units)
-            if (o.alive && (t.units[o.type].flags & kBuilding) && !role(o.type).mineralField) {
-                Box b = boxOf(o);
+            if (o.alive && (t.units[o.type].flags & kBuilding)) {
+                const Box b = boxOf(o);
+                const int k = int(buildingBoxes.size());
                 buildingBoxes.push_back(b);
-                for (int my = std::max(0, b.top / 8); my <= std::min(rows - 1, b.bottom / 8); ++my)
-                    for (int mx = std::max(0, b.left / 8); mx <= std::min(columns - 1, b.right / 8); ++mx)
-                        buildingMask[size_t(my) * size_t(columns) + size_t(mx)] = 1;
+                for (int ty = std::max(0, b.top / 32); ty <= std::min(rows - 1, b.bottom / 32); ++ty)
+                    for (int tx = std::max(0, b.left / 32); tx <= std::min(columns - 1, b.right / 32); ++tx)
+                        buildingTiles[size_t(ty) * size_t(columns) + size_t(tx)].push_back(k);
             }
         buildingMaskReady = true;
     }
-    bool marked = false;
-    for (int my = std::max(0, box.top / 8); my <= std::min(rows - 1, box.bottom / 8) && !marked; ++my)
-        for (int mx = std::max(0, box.left / 8); mx <= std::min(columns - 1, box.right / 8) && !marked; ++mx)
-            marked = buildingMask[size_t(my) * size_t(columns) + size_t(mx)] != 0;
-    if (!marked) return false;
-    for (const Box& b : buildingBoxes)
-        if (boxesTouch(box, b)) return true;
+    for (int ty = std::max(0, box.top / 32); ty <= std::min(rows - 1, box.bottom / 32); ++ty)
+        for (int tx = std::max(0, box.left / 32); tx <= std::min(columns - 1, box.right / 32); ++tx)
+            for (int k : buildingTiles[size_t(ty) * size_t(columns) + size_t(tx)])
+                if (boxesTouch(box, buildingBoxes[size_t(k)])) return true;
     return false;
 }
 
@@ -155,7 +153,25 @@ bool World::lineClear(int type, int x0, int y0, int x1, int y1) const {
 // its centre where the unit's box fits (so a corridor just as wide as the box works, also round a bend), steps
 // between neighbours where the box fits all the way; then only the waypoints that a straight walk cannot skip. A goal
 // it cannot reach: the reachable place nearest to it (false).
+// In mining (no unit moves a building) a walk that was found once is taken again.
 bool World::gridPath(int type, int fx, int fy, int x, int y, std::vector<std::pair<int, int>>& out) const {
+    if (combat) return gridSearch(type, fx, fy, x, y, out);
+    const WalkKey key{type, fx, fy, x, y};
+    if (auto known = walks.find(key); known != walks.end()) {  // (the search adds its points to `out`)
+        out.insert(out.end(), known->second.path.begin(), known->second.path.end());
+        search.capped = known->second.capped;
+        search.spent += known->second.spent;
+        return known->second.reached;
+    }
+    const int before = search.spent;
+    const size_t had = out.size();
+    const bool reached = gridSearch(type, fx, fy, x, y, out);
+    walks.emplace(key, Walk{reached, search.capped, search.spent - before,
+                            std::vector<std::pair<int, int>>(out.begin() + std::ptrdiff_t(had), out.end())});
+    return reached;
+}
+
+bool World::gridSearch(int type, int fx, int fy, int x, int y, std::vector<std::pair<int, int>>& out) const {
     int w = map.width * 4, h = map.height * 4;
     auto cell = [&](int px, int py) { return std::clamp(py / 8, 0, h - 1) * w + std::clamp(px / 8, 0, w - 1); };
     int start = cell(fx, fy), goal = cell(x, y);
