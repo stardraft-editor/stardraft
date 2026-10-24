@@ -4,6 +4,7 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <type_traits>
 #include <unordered_map>
 
 #include "IsomApi.h"  // third_party/IsomTerrain/IsomTerrain (unchanged; its includes are StarDraft's stand-ins beside it)
@@ -22,6 +23,18 @@ static_assert(sizeof(Sc::Isom::TileGroup) == 52, "a CV5 group is 52 bytes");
 const Sc::Terrain_::Tiles* tablesFor(const Tileset& tileset) {
     static std::mutex m;
     static std::map<std::pair<uint16_t, std::vector<uint8_t>>, std::unique_ptr<Sc::Terrain_::Tiles>> cache;
+    // The tables of the last call, with its era and groups: an edit asks for them many times (each rect it tiles), and
+    // the groups compare much faster than they make the key. (TileGroup has no padding: its bytes are its fields.)
+    static_assert(sizeof(TileGroup) == sizeof(Sc::Isom::TileGroup) && std::is_trivially_copyable_v<TileGroup>, "TileGroup is CV5's 52 bytes");
+    static uint16_t lastEra = 0xFFFF;
+    static std::vector<TileGroup> lastGroups;
+    static const Sc::Terrain_::Tiles* last = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(m);
+        if (last && lastEra == uint16_t(tileset.era & 7) && lastGroups.size() == tileset.groups.size() &&
+            (lastGroups.empty() || std::memcmp(lastGroups.data(), tileset.groups.data(), lastGroups.size() * sizeof(TileGroup)) == 0))
+            return last;
+    }
     std::vector<uint8_t> cv5(tileset.groups.size() * sizeof(Sc::Isom::TileGroup));
     for (size_t i = 0; i < tileset.groups.size(); ++i) {
         const TileGroup& g = tileset.groups[i];
@@ -35,15 +48,16 @@ const Sc::Terrain_::Tiles* tablesFor(const Tileset& tileset) {
     }
     const uint16_t era = uint16_t(tileset.era & 7);
     std::lock_guard<std::mutex> lock(m);
+    lastEra = era, lastGroups = tileset.groups;
     auto key = std::make_pair(era, std::move(cv5));
     auto it = cache.find(key);
-    if (it != cache.end()) return it->second.get();
+    if (it != cache.end()) return last = it->second.get();
     auto tiles = std::make_unique<Sc::Terrain_::Tiles>();
     const size_t n = key.second.size() / sizeof(Sc::Isom::TileGroup);
     tiles->tileGroups.resize(n);
     if (n) std::memcpy(tiles->tileGroups.data(), key.second.data(), key.second.size());
     tiles->loadIsom(era);
-    return cache.emplace(std::move(key), std::move(tiles)).first->second.get();
+    return last = cache.emplace(std::move(key), std::move(tiles)).first->second.get();
 }
 
 // ScMap's own steps of placeIsomTerrain are private; paintDiamonds runs them for any set of diamonds. IsomApi.h stays
