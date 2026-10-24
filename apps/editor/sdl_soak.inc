@@ -12,6 +12,8 @@
 //   undocheck          all the undo steps (at most 40) are undone and redone: each redo gives the map as it was
 //                      before the undo of that step, and the end is the map of the start (else a WRONG line)
 //   minimap            the minimap's terrain is made again: a line with its time
+//   simstep <frames>   the simulation that shows (Tools > Simulate) runs that many game frames at once (pictures of a
+//                      game in progress): a line with the game's frame
 //   stats              a line with the memory (the working set, the GPU's, the bitmaps with a texture), the undo
 //                      steps and the frame times since the last stats line
 //   history            a line with the workspace's undo history (Edit > Undo history): the steps done (their names,
@@ -22,6 +24,8 @@
 //                      panel's duplicate box), "sort category|name|number", "type terrain|units|doodads|sprites",
 //                      "search <text>", "close" (the last panel's close box), "list"; then a line with the panels
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
+
+int simStepForShot(int frames);  // (sdl_simulation.inc: simstep)
 
 // The workspaces' names, in the order of the Workspace enum (--workspace, the script's workspace verb).
 const char* const kWorkspaceNames[] = {"map",    "data",     "triggers",        "assets",  "project",
@@ -82,7 +86,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}};
+        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -336,6 +340,10 @@ bool sdlScriptStep(char kind, const std::string& value) {
         std::printf("open: %.1f ms\n", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
         sdlInputLine("open " + value);
         gSoakFrames.firstFrame = true;
+        return true;
+    }
+    case 'X': {
+        std::printf("simstep: frame %d\n", simStepForShot(std::atoi(value.c_str())));
         return true;
     }
     case 'P': {
