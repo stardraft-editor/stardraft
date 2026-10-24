@@ -294,6 +294,9 @@ public:
     bool canPaste() const { return !clipboard_.empty(); }
     int paste(int x, int y, bool correct = true);
     const std::vector<Unit>& clipboard() const { return clipboard_; }  // positions relative to group center
+    // The copied units go to `owner` when pasted (those that can have an owner: not resources or critters). Returns how
+    // many of them changed; the map does not change.
+    int setClipboardOwner(uint8_t owner);
 
     // --- Doodads --------------------------------------------------------------------------------
     // Place doodad `id` centered near (x, y) (snapped to tiles). `checkTerrain` enforces dddata.bin.

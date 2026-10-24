@@ -1902,6 +1902,13 @@ std::optional<Unit> Editor::fitted(Unit u, bool correct, const std::vector<Unit>
     return u;
 }
 
+int Editor::setClipboardOwner(uint8_t owner) {
+    int n = 0;
+    for (Unit& u : clipboard_)
+        if (u.owner != owner && u.type < types_.size() && (types_[u.type].availability & UnitAvail::NonNeutral)) u.owner = owner, ++n;
+    return n;
+}
+
 int Editor::setSelectionOwner(uint8_t owner) {
     std::vector<int> targets;
     for (int i : selection_)

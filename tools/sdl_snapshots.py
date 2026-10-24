@@ -553,6 +553,9 @@ CASES += [
     ("map-paste-ghost-red", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "450,450"], "map"),
     ("map-paste-placed", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "700,650",
                           "--click", "700,650", "--key", "Ctrl+Z"], "map"),
+    # Paste: Ctrl+V lets the selection go; 3 gives the copy to Player 3 before it is placed.
+    ("map-paste-owner", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--key", "3",
+                         "--move", "700,650", "--click", "700,650"], "map"),
     # The player keys: 3 picks the placement's player; a Marine placed is player 3's; Esc and a click select it; 5 gives
     # it to player 5 and 0 to player 10 (the placement's player stays 3); with the Marine picked again, 7 is the
     # placement's player and the selected Marine stays player 10's.
@@ -1984,6 +1987,20 @@ def check_paste_placed(output):
         ("the click did not place the copy", lambda s: s[4]["units"] == s[0]["units"] + s[0]["selected"]),
         ("Undo did not take the copy back", lambda s: s[5]["units"] == s[0]["units"]),
     ])
+
+
+def check_paste_owner(output):
+    """None when Ctrl+V let the selection go, 3 gave the copy to Player 3 and a click placed it."""
+    s = steps(output)
+    if len(s) != 6:
+        return f"{len(s)} inputs with a state line, not 6"
+    if not s[0]["selected"] or s[2]["selected"]:
+        return f"selected {s[0]['selected']} at the drag, {s[2]['selected']} after Ctrl+V (not 0)"
+    if "Paste 6 units for Player 3" not in "\n".join(l for l in output.splitlines() if l.startswith("key 3:")):
+        return "3 did not give the copy to Player 3"
+    if s[5]["units"] != s[0]["units"] + s[0]["selected"]:
+        return "the click did not place the copy"
+    return None
 
 
 def check_terrain_keys(output):
@@ -4062,7 +4079,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-tiles-select-circle": check_select_shape("circle"),
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
-          "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
+          "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed, "map-paste-owner": check_paste_owner,
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-paste-other-map": check_terrain_other_map,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
