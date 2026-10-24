@@ -2420,3 +2420,4 @@ Did not build the map	맵을 빌드하지 못했습니다
 Brush: the 	브러시: 
  tiles you copied (	 타일 (복사한 타일 
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	개). 클릭하여 배치합니다. 끌어서 반복합니다. Shift를 누르면 무작위로 배치합니다.
+%ls of Player %d	%ls (플레이어 %d)

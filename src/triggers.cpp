@@ -1285,6 +1285,18 @@ bool variableValue(const std::string& type) {
 }
 }  // namespace
 
+// A unit type slot's variable (GitHub #140): a number variable or a constant, or one player's item of a player array that
+// holds unit types ("heroType[2]": Player 3's).
+template <class Vars>
+static bool unitTypeVariableText(const Vars& vars, const std::string& v) {
+    const size_t b = v.find('[');
+    const auto it = vars.find(b == std::string::npos ? v : v.substr(0, b));
+    if (it == vars.end()) return false;
+    const TriggerVariable& var = it->second->variable;
+    if (b == std::string::npos) return var.kind == TriggerVariable::Kind::Number || var.kind == TriggerVariable::Kind::Constant;
+    return v.back() == ']' && var.kind == TriggerVariable::Kind::PerPlayer && var.holds == "UnitType";
+}
+
 int TriggerSet::upgradeNames(const TriggerMapInfo& map) {
     if (!map.known) return 0;
     int n = 0;
@@ -1301,6 +1313,7 @@ int TriggerSet::upgradeNames(const TriggerMapInfo& map) {
                     const TriggerType* t = triggerType(d->params[i].type);
                     std::string& v = c.args[i];
                     if (!t || v.empty() || std::isdigit(static_cast<unsigned char>(v[0])) || perPlayer(v)) continue;
+                    if ((t->picker == TriggerPicker::UnitType || t->picker == TriggerPicker::UnitFilter) && unitTypeVariableText(vars, v)) continue;
                     if (t->picker == TriggerPicker::UnitType || t->picker == TriggerPicker::UnitFilter) {
                         if (auto g = groups.find(v); g != groups.end()) v = g->second, ++n;
                         else
@@ -1344,6 +1357,8 @@ int TriggerSet::renameVariable(const std::string& fromRef, const std::string& to
                              vt && (vt->picker == TriggerPicker::UnitType || vt->picker == TriggerPicker::UnitFilter || vt->picker == TriggerPicker::Location) &&
                              c.args[i] == from)
                         c.args[i] = to, ++n;  // a per-player variable as a unit type or a location (GH#108)
+                    else if (vt && (vt->picker == TriggerPicker::UnitType || vt->picker == TriggerPicker::UnitFilter) && c.args[i].rfind(from + "[", 0) == 0)
+                        c.args[i] = to + c.args[i].substr(from.size()), ++n;  // one player's item of a player array (GitHub #140)
                     else if (const TriggerType* t = triggerType(d->params[i].type); t && t->picker == TriggerPicker::Code)
                         n += replaceIdent(c.args[i], fromCode, toCode) + replaceIdent(c.args[i], fromCode + "_gen", toCode + "_gen");
                 }
@@ -1756,6 +1771,16 @@ struct Gen {
             }
             const int id = unitId(v);  // a name: files from before version 3
             if (id < 0) {
+                // A number variable or a player array's item (hero[2]: Player 3's) that holds a unit type (GitHub #140).
+                if (unitTypeVariableText(vars, v))
+                    if (const TriggerExprResult r = gx(v); r.ok) {
+                        if (!r.constant) return r.code;
+                        if (t->picker == TriggerPicker::UnitType && r.value >= 229 && r.value <= 232)
+                            issue(TriggerIssue::Level::Error, &c, i, "This is a group of units. Select one unit type");
+                        else if (map.known && (r.value < 0 || r.value >= (long long)map.unitNames.size()))
+                            issue(TriggerIssue::Level::Error, &c, i, "There is no unit type " + std::to_string(r.value));
+                        return unitCode(int(r.value));
+                    }
                 if (map.known) issue(TriggerIssue::Level::Error, &c, i, "There is no unit type with the name " + v);
                 return quote(v);
             }

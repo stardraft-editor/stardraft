@@ -2422,6 +2422,7 @@ constexpr UiText kRows[] = {
     {L"Brush: the ", L"\u7B14\u5237\uFF1A"},
     {L" tiles you copied (", L" \u4E2A\u56FE\u5757\uFF08\u5DF2\u590D\u5236\uFF1A"},
     {L" tiles). Click to place them; drag to repeat them. Hold Shift to place them at random", L" \u4E2A\u56FE\u5757\uFF09\u3002\u70B9\u51FB\u653E\u7F6E\uFF1B\u62D6\u52A8\u4EE5\u91CD\u590D\u653E\u7F6E\u3002\u6309\u4F4F Shift \u53EF\u968F\u673A\u653E\u7F6E\u3002"},
+    {L"%ls of Player %d", L"%ls\uFF08\u73A9\u5BB6 %d\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

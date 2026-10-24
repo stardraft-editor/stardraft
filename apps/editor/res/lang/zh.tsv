@@ -2420,3 +2420,4 @@ Did not build the map	未能构建地图
 Brush: the 	笔刷：
  tiles you copied (	 个图块（已复制：
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 个图块）。点击放置；拖动以重复放置。按住 Shift 可随机放置。
+%ls of Player %d	%ls（玩家 %d）
