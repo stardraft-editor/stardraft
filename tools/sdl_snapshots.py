@@ -2188,13 +2188,13 @@ def check_data_edits(output):
     s = [st for _, st in states(output)]
     if len(s) != 10:
         return f"{len(s)} input lines, not 10"
-    want = [(2, "Hit Points=50 "), (3, "Shield Enable=1 "), (6, "Unit Size=2 ")]  # (the picker's inputs come before its click)
+    want = [(2, "Hit Points=12800 "), (3, "Shield Enable=1 "), (6, "Unit Size=2 ")]  # (the picker's inputs come before its click)
     for i, text in want:
         if text not in s[i]:
             return f"input {i + 1}: {s[i]} (no {text.strip()})"
     if "Unit Size=" in s[7] or "Shield Enable=" not in s[7]:
         return f"the first Undo: {s[7]}"
-    if "Shield Enable=" in s[8] or "Hit Points=50 " not in s[8]:
+    if "Shield Enable=" in s[8] or "Hit Points=12800 " not in s[8]:
         return f"the second Undo: {s[8]}"
     if "no changed values; 0 undo steps, 3 redo steps" not in s[9]:
         return f"the third Undo: {s[9]}"
@@ -4384,7 +4384,7 @@ CHECKS.update({
     "data-triggers-not": lambda o: None if "1 conditions: cond.not(){cond.always()}" in o else "NOT did not put the condition in a Not block",
     "data-help-f1": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
     "data-help-icon": check_help_page("units-dat", "hit-points", "Units (units.dat)", opened=1),
-    "data-form-units-converted": check_converted({"Hit Points": (10240, "= 40 hit points"), "Build Time": (360, "= 15 s (fastest)"),
+    "data-form-units-converted": check_converted({"Hit Points": (10240, "stored as 10240 (1/256 hit points)"), "Build Time": (360, "= 15 s (fastest)"),
                                                   "Sight Range": (7, "= 224 pixels"), "Supply Required": (2, "= 1 supply")}),
     "data-form-flingy-converted": check_converted({"Speed": (1707, "= 160.031 pixels/s (fastest)"), "Halt Distance": (13616, "= 53.188 pixels"),
                                                    "Turn Radius": (40, "= 1350 degrees/s (fastest)")}),

@@ -2528,6 +2528,7 @@ constexpr UiText kRows[] = {
     {L"The simulation cannot start: %ls", L"La simulaci\u00F3n no puede empezar: %ls"},
     {L"StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.", L"StarDraft 2 es una herramienta hecha por fans. Blizzard Entertainment no la cre\u00F3, aprob\u00F3 ni respalda."},
     {L"StarCraft is a trademark of Blizzard Entertainment.", L"StarCraft es una marca comercial de Blizzard Entertainment."},
+    {L"stored as %u (1/256 hit points)", L"guardado como %u (1/256 de punto de vida)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

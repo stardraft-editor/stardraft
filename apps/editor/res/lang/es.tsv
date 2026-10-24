@@ -2526,3 +2526,4 @@ Mining: %ls minerals and %ls gas a minute	Extracción: %ls minerales y %ls de ga
 The simulation cannot start: %ls	La simulación no puede empezar: %ls
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 es una herramienta hecha por fans. Blizzard Entertainment no la creó, aprobó ni respalda.
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft es una marca comercial de Blizzard Entertainment.
+stored as %u (1/256 hit points)	guardado como %u (1/256 de punto de vida)

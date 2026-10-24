@@ -2528,6 +2528,7 @@ constexpr UiText kRows[] = {
     {L"The simulation cannot start: %ls", L"\u65E0\u6CD5\u5F00\u59CB\u6A21\u62DF: %ls"},
     {L"StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.", L"StarDraft 2 \u662F\u7231\u597D\u8005\u5236\u4F5C\u7684\u5DE5\u5177\uFF0C\u5E76\u975E\u7531 Blizzard Entertainment \u5236\u4F5C\u3001\u6279\u51C6\u6216\u8BA4\u53EF\u3002"},
     {L"StarCraft is a trademark of Blizzard Entertainment.", L"StarCraft \u662F Blizzard Entertainment \u7684\u5546\u6807\u3002"},
+    {L"stored as %u (1/256 hit points)", L"\u5B58\u50A8\u4E3A %u\uFF081/256 \u751F\u547D\u503C\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
