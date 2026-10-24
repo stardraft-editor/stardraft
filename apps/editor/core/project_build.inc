@@ -270,7 +270,7 @@ bool remakeMakesUnit(const Unit& u) {
         const std::vector<uint16_t> changed = remakeUnitTypes();  // (it loads the project's data: the edits' count after it)
         forEdits = dataState().edits;
         made.assign(units.size(), false);
-        for (size_t i : EudProject::planRemake(units, types, changed, gRemakeFreeProperties).made) made[i] = true;
+        for (size_t i : EudProject::planRemake(units, types, changed, gRemakeFreeProperties, app.ed->width(), app.ed->height()).made) made[i] = true;
     }
     return made[size_t(in - units.data())];
 }
@@ -286,7 +286,7 @@ bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>
         const auto& types = app.ed->unitTypes();
         const auto& units = app.ed->units();
         gRemakeFreeProperties = freeUnitProperties(pr), gRemakeFreePropertiesFor = &pr;
-        plan = EudProject::planRemake(units, types, remakeUnitTypes(), gRemakeFreeProperties);
+        plan = EudProject::planRemake(units, types, remakeUnitTypes(), gRemakeFreeProperties, app.ed->width(), app.ed->height());
         leaveOut = plan.made;
         // The game puts a unit only where it fits: a ground unit on walkable ground (a building on buildable ground), and
         // not on other ground units. Air units can be on top of each other.
@@ -310,6 +310,8 @@ bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>
         kept(plan.loaded, L" the old graphics: a unit in a transport stays in the map.");
         kept(plan.linked, L" the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.");
         kept(plan.noProperty, L" the old graphics: the map has no free unit property (of 64) for their values.");
+        kept(plan.codeUnit, L" the old graphics: Create Unit cannot make a unit of a type above 227 reliably.");
+        kept(plan.edge, L" the old graphics: a unit on or past the map's edge stays in the map (Create Unit moves it or does not make it).");
         if (blocked)
             notes.push_back(std::to_wstring(blocked) + tr(blocked == 1 ? L" of the units that the map makes stands" : L" of the units that the map makes stand") +
                             tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it."));

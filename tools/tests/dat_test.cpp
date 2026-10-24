@@ -314,12 +314,12 @@ int main(int argc, char** argv) {
               "the plan: 8 units made, 1 in a transport and 2 linked stay (" + std::to_string(plan.made.size()) + ", " + std::to_string(plan.loaded) +
                   ", " + std::to_string(plan.linked) + ")");
         check(plan.properties == 6, "one unit property for each different set of values (" + std::to_string(plan.properties) + ")");
-        // The code: a table with one record for each unit, in the UNIT order (x | y << 16, then type | player << 16 |
-        // property set << 24), and one loop with one case for each property set.
+        // The code: a table with one record for each unit, in the UNIT order (x | y << 16, then type | player << 8 |
+        // property set << 16, read with bit masks), and one loop with one case for each property set.
         auto record = [&](size_t i, unsigned set) {
             const Unit& u = remakeUnits[i];
             char r[64];
-            std::snprintf(r, sizeof r, "    0x%08X, 0x%08X,", unsigned(u.x) | unsigned(u.y) << 16, unsigned(u.type) | unsigned(u.owner) << 16 | set << 24);
+            std::snprintf(r, sizeof r, "    0x%08X, 0x%08X,", unsigned(u.x) | unsigned(u.y) << 16, unsigned(u.type) | unsigned(u.owner) << 8 | set << 16);
             return std::string(r) + "  # UNIT " + std::to_string(i) + ": " + types[u.type].name + "\n";
         };
         const std::string& c = plan.code;
@@ -364,6 +364,15 @@ int main(int argc, char** argv) {
         check(tight.properties == 2 && tight.noProperty == 4 && tight.made.size() == 4,
               "two free unit properties: the units that need another one stay (" + std::to_string(tight.noProperty) + ")");
         check(EudProject::planRemake(all, types, {}).code.empty(), "no types: no code");
+        check(c.find("dwbreak") == std::string::npos && c.find("const type = what & 0xFF;") != std::string::npos && c.find("const player = (what >> 8) & 0xFF;") != std::string::npos,
+              "the records are read with bit masks (no dwbreak)");
+        {  // At the map's edge: they stay in the map (GitHub commit review)
+            std::vector<Unit> edgeUnits = {remakeUnits[0], remakeUnits[0], remakeUnits[0]};
+            edgeUnits[1].x = 4;                  // its box past the left edge
+            edgeUnits[2].y = uint16_t(64 * 32 - 2);  // past the bottom edge of a 64 x 64 map
+            const EudProject::RemakePlan e = EudProject::planRemake(edgeUnits, types, changed, EudProject::kUnitProperties, 64, 64);
+            check(e.made == std::vector<size_t>{0} && e.edge == 2, "units on or past the map's edge stay (" + std::to_string(e.edge) + ")");
+        }
 
         // The option off: the .eds names the project's map, and no build map.
         check(pr.writeBuildMap({}, err) && !fs::exists(pr.buildMap()), "nothing to leave out: no build map");
