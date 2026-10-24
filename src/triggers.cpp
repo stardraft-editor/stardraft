@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -2999,6 +3001,53 @@ std::string TriggerSet::helperLibrary() {
     return out;
 }
 
+// TrgUnit($U("Terran Marine")) reads as TrgUnit("Terran Marine"), Weapon(EncodeWeapon("Gauss Rifle")) as
+// Weapon("Gauss Rifle"): these take the name itself (after the line map: no line changes). For each kind, from the
+// start: each TrgUnit($U(" that is not the end of a longer name loses its $U(, and the first quote and two closing
+// parentheses after it (in the code as it is then) lose one parenthesis; the pass ends at one without them after it.
+// Each change only takes characters out, so a pass marks them and copies the code once at its end (a change in place
+// moved all the code after it: slow on large trigger sets). The parts searched for have no parenthesis that closes,
+// so no mark falls in one; the closing quote and parentheses are found among the characters that are left.
+static void unwrapNameCalls(std::string& code) {
+    for (const auto& [type, encode] : {std::pair{"TrgUnit", "$U"}, std::pair{"Weapon", "EncodeWeapon"}, std::pair{"Flingy", "EncodeFlingy"},
+                                       std::pair{"Upgrade", "EncodeUpgrade"}, std::pair{"Tech", "EncodeTech"}}) {
+        const std::string from = std::string(type) + "(" + encode + "(\"";
+        const size_t encodeAt = std::char_traits<char>::length(type) + 1, encodeLength = std::char_traits<char>::length(encode) + 1;
+        std::vector<uint8_t> gone;  // (1: taken out; made at the first change)
+        auto left = [&](size_t i) { return gone.empty() || !gone[i]; };
+        for (size_t at = 0; (at = code.find(from, at)) != std::string::npos;) {
+            size_t before = at;  // (the character before it among those left)
+            while (before > 0 && !left(before - 1)) --before;
+            if (before > 0 && (std::isalnum(static_cast<unsigned char>(code[before - 1])) || code[before - 1] == '_')) {  // (part of a longer name)
+                at += from.size();
+                continue;
+            }
+            // The first quote and two closing parentheses after it among the characters left: the second parenthesis goes.
+            size_t close = std::string::npos;
+            int matched = 0;  // (of ", ), ) in a row)
+            for (size_t i = at + from.size(); i < code.size(); ++i) {
+                if (!left(i)) continue;
+                const char ch = code[i];
+                matched = ch == '"' ? 1 : (ch == ')' && matched >= 1) ? matched + 1 : 0;
+                if (matched == 3) {
+                    close = i;
+                    break;
+                }
+            }
+            if (close == std::string::npos) break;
+            if (gone.empty()) gone.assign(code.size(), 0);
+            gone[close] = 1;
+            std::fill(gone.begin() + std::ptrdiff_t(at + encodeAt), gone.begin() + std::ptrdiff_t(at + encodeAt + encodeLength), uint8_t(1));
+            at += from.size();
+        }
+        if (gone.empty()) continue;
+        size_t n = 0;
+        for (size_t i = 0; i < code.size(); ++i)
+            if (!gone[i]) code[n++] = code[i];
+        code.resize(n);
+    }
+}
+
 std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerIssue>& issues, const TriggerBuildOptions& options,
                                  std::vector<TriggerCodeLine>* lines) const {
     Gen g{map, issues};
@@ -3293,22 +3342,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
     const bool mouse = (functions + calls[1] + calls[2]).find("msqc_Mouse") != std::string::npos;
     out += "function afterTriggerExec() {\n" + std::string(mouse ? "    msqc_keepMouse();\n" : "") + g.perCycle + calls[2] + "}\n";
     std::string code = stripMarks(out, g.marks, lines);
-    // TrgUnit($U("Terran Marine")) reads as TrgUnit("Terran Marine"), Weapon(EncodeWeapon("Gauss Rifle")) as
-    // Weapon("Gauss Rifle"): these take the name itself (after the line map: no line changes).
-    for (const auto& [type, encode] : {std::pair{"TrgUnit", "$U"}, std::pair{"Weapon", "EncodeWeapon"}, std::pair{"Flingy", "EncodeFlingy"},
-                                       std::pair{"Upgrade", "EncodeUpgrade"}, std::pair{"Tech", "EncodeTech"}}) {
-        const std::string from = std::string(type) + "(" + encode + "(\"", to = std::string(type) + "(\"";
-        for (size_t at = 0; (at = code.find(from, at)) != std::string::npos;) {
-            if (at > 0 && (std::isalnum(static_cast<unsigned char>(code[at - 1])) || code[at - 1] == '_')) {  // (part of a longer name)
-                at += from.size();
-                continue;
-            }
-            const size_t close = code.find("\"))", at + from.size());
-            if (close == std::string::npos) break;
-            code.replace(close, 3, "\")"), code.replace(at, from.size(), to);
-            at += to.size();
-        }
-    }
+    unwrapNameCalls(code);
     return code;
 }
 
