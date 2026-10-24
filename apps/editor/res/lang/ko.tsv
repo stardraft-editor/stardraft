@@ -2428,7 +2428,7 @@ Simulate com&bat of the selected units	선택한 유닛의 전투 시뮬레이�
 &Tools	도구(&T)
 Tools > Simulate melee mining and combat (experimental)	도구 > 근접 채취 및 전투 시뮬레이션 (실험적)
 An early preview. The simulation might not fully match the game yet.	초기 미리보기입니다. 시뮬레이션이 아직 게임과 완전히 같지 않을 수 있습니다.
-Experimental simulation, might not fully match the game yet.	실험적 시뮬레이션입니다. 아직 게임과 완전히 같지 않을 수 있습니다.
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	실험적 시뮬레이션입니다. 아직 게임과 완전히 같지 않을 수 있습니다. 게임의 엔진이 아닌 StarDraft 자체 시뮬레이션입니다.
 Simulation	시뮬레이션
 Simulate mining	채취 시뮬레이션
 Simulate combat	전투 시뮬레이션
@@ -2523,3 +2523,5 @@ Mining: %ls minerals and %ls gas a minute	채취: 분당 미네랄 %ls, 가스 %
 %d workers on minerals and none on gas at each base, %d game minute at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 없음, 최고속으로 게임 %d분
 %d workers on minerals and none on gas at each base, %d game minutes at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 없음, 최고속으로 게임 %d분
 The simulation cannot start: %ls	시뮬레이션을 시작할 수 없습니다: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2는 팬이 만든 도구입니다. Blizzard Entertainment가 만들거나 승인하거나 보증하지 않았습니다.
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft는 Blizzard Entertainment의 상표입니다.

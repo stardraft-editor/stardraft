@@ -2428,7 +2428,7 @@ Simulate com&bat of the selected units	Моделировать &бой выбр
 &Tools	&Инструменты
 Tools > Simulate melee mining and combat (experimental)	Инструменты > Моделировать ближнюю добычу и бой (экспериментально)
 An early preview. The simulation might not fully match the game yet.	Ранняя предварительная версия. Моделирование пока может не полностью совпадать с игрой.
-Experimental simulation, might not fully match the game yet.	Экспериментальное моделирование, пока может не полностью совпадать с игрой.
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Экспериментальное моделирование, пока может не полностью совпадать с игрой. Это собственная симуляция StarDraft, а не движок игры.
 Simulation	Моделирование
 Simulate mining	Моделировать добычу
 Simulate combat	Моделировать бой
@@ -2523,3 +2523,5 @@ Mining: %ls minerals and %ls gas a minute	Добыча: %ls минералов �
 %d workers on minerals and none on gas at each base, %d game minute at Fastest	%d рабочих на минералах и без газа на каждой базе, %d игровая минута на максимальной скорости
 %d workers on minerals and none on gas at each base, %d game minutes at Fastest	%d рабочих на минералах и без газа на каждой базе, %d игровых минут на максимальной скорости
 The simulation cannot start: %ls	Не удалось запустить моделирование: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 — инструмент, созданный фанатами. Blizzard Entertainment не создавала, не одобряла и не поддерживает его.
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft — товарный знак Blizzard Entertainment.

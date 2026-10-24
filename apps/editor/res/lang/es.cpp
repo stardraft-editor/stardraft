@@ -2430,7 +2430,7 @@ constexpr UiText kRows[] = {
     {L"&Tools", L"&Herramientas"},
     {L"Tools > Simulate melee mining and combat (experimental)", L"Herramientas > Simular extracci\u00F3n y combate cuerpo a cuerpo (experimental)"},
     {L"An early preview. The simulation might not fully match the game yet.", L"Una vista previa temprana. La simulaci\u00F3n puede que a\u00FAn no coincida del todo con el juego."},
-    {L"Experimental simulation, might not fully match the game yet.", L"Simulaci\u00F3n experimental; puede que a\u00FAn no coincida del todo con el juego."},
+    {L"Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.", L"Simulaci\u00F3n experimental; puede que a\u00FAn no coincida del todo con el juego. Es una simulaci\u00F3n propia de StarDraft, no el motor del juego."},
     {L"Simulation", L"Simulaci\u00F3n"},
     {L"Simulate mining", L"Simular extracci\u00F3n"},
     {L"Simulate combat", L"Simular combate"},
@@ -2525,6 +2525,8 @@ constexpr UiText kRows[] = {
     {L"%d workers on minerals and none on gas at each base, %d game minute at Fastest", L"%d obreros en minerales y ninguno en gas en cada base, %d minuto de juego a la m\u00E1xima velocidad"},
     {L"%d workers on minerals and none on gas at each base, %d game minutes at Fastest", L"%d obreros en minerales y ninguno en gas en cada base, %d minutos de juego a la m\u00E1xima velocidad"},
     {L"The simulation cannot start: %ls", L"La simulaci\u00F3n no puede empezar: %ls"},
+    {L"StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.", L"StarDraft 2 es una herramienta hecha por fans. Blizzard Entertainment no la cre\u00F3, aprob\u00F3 ni respalda."},
+    {L"StarCraft is a trademark of Blizzard Entertainment.", L"StarCraft es una marca comercial de Blizzard Entertainment."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -2428,7 +2428,7 @@ Simulate com&bat of the selected units	Simular el com&bate de las unidades selec
 &Tools	&Herramientas
 Tools > Simulate melee mining and combat (experimental)	Herramientas > Simular extracción y combate cuerpo a cuerpo (experimental)
 An early preview. The simulation might not fully match the game yet.	Una vista previa temprana. La simulación puede que aún no coincida del todo con el juego.
-Experimental simulation, might not fully match the game yet.	Simulación experimental; puede que aún no coincida del todo con el juego.
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Simulación experimental; puede que aún no coincida del todo con el juego. Es una simulación propia de StarDraft, no el motor del juego.
 Simulation	Simulación
 Simulate mining	Simular extracción
 Simulate combat	Simular combate
@@ -2523,3 +2523,5 @@ Mining: %ls minerals and %ls gas a minute	Extracción: %ls minerales y %ls de ga
 %d workers on minerals and none on gas at each base, %d game minute at Fastest	%d obreros en minerales y ninguno en gas en cada base, %d minuto de juego a la máxima velocidad
 %d workers on minerals and none on gas at each base, %d game minutes at Fastest	%d obreros en minerales y ninguno en gas en cada base, %d minutos de juego a la máxima velocidad
 The simulation cannot start: %ls	La simulación no puede empezar: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 es una herramienta hecha por fans. Blizzard Entertainment no la creó, aprobó ni respalda.
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft es una marca comercial de Blizzard Entertainment.

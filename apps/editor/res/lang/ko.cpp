@@ -2430,7 +2430,7 @@ constexpr UiText kRows[] = {
     {L"&Tools", L"\uB3C4\uAD6C(&T)"},
     {L"Tools > Simulate melee mining and combat (experimental)", L"\uB3C4\uAD6C > \uADFC\uC811 \uCC44\uCDE8 \uBC0F \uC804\uD22C \uC2DC\uBBAC\uB808\uC774\uC158 (\uC2E4\uD5D8\uC801)"},
     {L"An early preview. The simulation might not fully match the game yet.", L"\uCD08\uAE30 \uBBF8\uB9AC\uBCF4\uAE30\uC785\uB2C8\uB2E4. \uC2DC\uBBAC\uB808\uC774\uC158\uC774 \uC544\uC9C1 \uAC8C\uC784\uACFC \uC644\uC804\uD788 \uAC19\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4."},
-    {L"Experimental simulation, might not fully match the game yet.", L"\uC2E4\uD5D8\uC801 \uC2DC\uBBAC\uB808\uC774\uC158\uC785\uB2C8\uB2E4. \uC544\uC9C1 \uAC8C\uC784\uACFC \uC644\uC804\uD788 \uAC19\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4."},
+    {L"Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.", L"\uC2E4\uD5D8\uC801 \uC2DC\uBBAC\uB808\uC774\uC158\uC785\uB2C8\uB2E4. \uC544\uC9C1 \uAC8C\uC784\uACFC \uC644\uC804\uD788 \uAC19\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uAC8C\uC784\uC758 \uC5D4\uC9C4\uC774 \uC544\uB2CC StarDraft \uC790\uCCB4 \uC2DC\uBBAC\uB808\uC774\uC158\uC785\uB2C8\uB2E4."},
     {L"Simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158"},
     {L"Simulate mining", L"\uCC44\uCDE8 \uC2DC\uBBAC\uB808\uC774\uC158"},
     {L"Simulate combat", L"\uC804\uD22C \uC2DC\uBBAC\uB808\uC774\uC158"},
@@ -2525,6 +2525,8 @@ constexpr UiText kRows[] = {
     {L"%d workers on minerals and none on gas at each base, %d game minute at Fastest", L"\uAE30\uC9C0\uB9C8\uB2E4 \uBBF8\uB124\uB784 \uC77C\uAFBC %d\uBA85, \uAC00\uC2A4 \uC77C\uAFBC \uC5C6\uC74C, \uCD5C\uACE0\uC18D\uC73C\uB85C \uAC8C\uC784 %d\uBD84"},
     {L"%d workers on minerals and none on gas at each base, %d game minutes at Fastest", L"\uAE30\uC9C0\uB9C8\uB2E4 \uBBF8\uB124\uB784 \uC77C\uAFBC %d\uBA85, \uAC00\uC2A4 \uC77C\uAFBC \uC5C6\uC74C, \uCD5C\uACE0\uC18D\uC73C\uB85C \uAC8C\uC784 %d\uBD84"},
     {L"The simulation cannot start: %ls", L"\uC2DC\uBBAC\uB808\uC774\uC158\uC744 \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: %ls"},
+    {L"StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.", L"StarDraft 2\uB294 \uD32C\uC774 \uB9CC\uB4E0 \uB3C4\uAD6C\uC785\uB2C8\uB2E4. Blizzard Entertainment\uAC00 \uB9CC\uB4E4\uAC70\uB098 \uC2B9\uC778\uD558\uAC70\uB098 \uBCF4\uC99D\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."},
+    {L"StarCraft is a trademark of Blizzard Entertainment.", L"StarCraft\uB294 Blizzard Entertainment\uC758 \uC0C1\uD45C\uC785\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

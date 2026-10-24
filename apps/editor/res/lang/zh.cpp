@@ -2430,7 +2430,7 @@ constexpr UiText kRows[] = {
     {L"&Tools", L"\u5DE5\u5177(&T)"},
     {L"Tools > Simulate melee mining and combat (experimental)", L"\u5DE5\u5177 > \u6A21\u62DF\u8FD1\u6218\u91C7\u77FF\u548C\u6218\u6597\uFF08\u5B9E\u9A8C\u6027\uFF09"},
     {L"An early preview. The simulation might not fully match the game yet.", L"\u65E9\u671F\u9884\u89C8\u7248\u3002\u6A21\u62DF\u53EF\u80FD\u5C1A\u672A\u4E0E\u6E38\u620F\u5B8C\u5168\u4E00\u81F4\u3002"},
-    {L"Experimental simulation, might not fully match the game yet.", L"\u5B9E\u9A8C\u6027\u6A21\u62DF\uFF0C\u53EF\u80FD\u5C1A\u672A\u4E0E\u6E38\u620F\u5B8C\u5168\u4E00\u81F4\u3002"},
+    {L"Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.", L"\u5B9E\u9A8C\u6027\u6A21\u62DF\uFF0C\u53EF\u80FD\u5C1A\u672A\u4E0E\u6E38\u620F\u5B8C\u5168\u4E00\u81F4\u3002\u8FD9\u662F StarDraft \u81EA\u5DF1\u7684\u6A21\u62DF\uFF0C\u800C\u4E0D\u662F\u6E38\u620F\u5F15\u64CE\u3002"},
     {L"Simulation", L"\u6A21\u62DF"},
     {L"Simulate mining", L"\u6A21\u62DF\u91C7\u77FF"},
     {L"Simulate combat", L"\u6A21\u62DF\u6218\u6597"},
@@ -2525,6 +2525,8 @@ constexpr UiText kRows[] = {
     {L"%d workers on minerals and none on gas at each base, %d game minute at Fastest", L"\u6BCF\u4E2A\u57FA\u5730 %d \u540D\u5DE5\u4EBA\u91C7\u77FF\u3001\u4E0D\u91C7\u74E6\u65AF\uFF0C\u6700\u5FEB\u901F\u5EA6 %d \u6E38\u620F\u5206\u949F"},
     {L"%d workers on minerals and none on gas at each base, %d game minutes at Fastest", L"\u6BCF\u4E2A\u57FA\u5730 %d \u540D\u5DE5\u4EBA\u91C7\u77FF\u3001\u4E0D\u91C7\u74E6\u65AF\uFF0C\u6700\u5FEB\u901F\u5EA6 %d \u6E38\u620F\u5206\u949F"},
     {L"The simulation cannot start: %ls", L"\u65E0\u6CD5\u5F00\u59CB\u6A21\u62DF: %ls"},
+    {L"StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.", L"StarDraft 2 \u662F\u7231\u597D\u8005\u5236\u4F5C\u7684\u5DE5\u5177\uFF0C\u5E76\u975E\u7531 Blizzard Entertainment \u5236\u4F5C\u3001\u6279\u51C6\u6216\u8BA4\u53EF\u3002"},
+    {L"StarCraft is a trademark of Blizzard Entertainment.", L"StarCraft \u662F Blizzard Entertainment \u7684\u5546\u6807\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

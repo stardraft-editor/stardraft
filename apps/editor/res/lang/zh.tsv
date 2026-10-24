@@ -2428,7 +2428,7 @@ Simulate com&bat of the selected units	模拟所选单位的战斗(&B)
 &Tools	工具(&T)
 Tools > Simulate melee mining and combat (experimental)	工具 > 模拟近战采矿和战斗（实验性）
 An early preview. The simulation might not fully match the game yet.	早期预览版。模拟可能尚未与游戏完全一致。
-Experimental simulation, might not fully match the game yet.	实验性模拟，可能尚未与游戏完全一致。
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
 Simulation	模拟
 Simulate mining	模拟采矿
 Simulate combat	模拟战斗
@@ -2523,3 +2523,5 @@ Mining: %ls minerals and %ls gas a minute	采矿: 每分钟矿物 %ls，瓦斯 %
 %d workers on minerals and none on gas at each base, %d game minute at Fastest	每个基地 %d 名工人采矿、不采瓦斯，最快速度 %d 游戏分钟
 %d workers on minerals and none on gas at each base, %d game minutes at Fastest	每个基地 %d 名工人采矿、不采瓦斯，最快速度 %d 游戏分钟
 The simulation cannot start: %ls	无法开始模拟: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 是爱好者制作的工具，并非由 Blizzard Entertainment 制作、批准或认可。
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft 是 Blizzard Entertainment 的商标。
