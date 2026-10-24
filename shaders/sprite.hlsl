@@ -95,6 +95,9 @@ float3 under(float4 pos, float dx) {
     return backdrop.SampleLevel(backdropSampler, at, 0).rgb;
 }
 
+// A placement that is not allowed: tinted red.
+float3 tint(float3 rgb, uint flags) { return flags & 2 ? lerp(rgb, float3(1, 0.15, 0.1), 0.6) : rgb; }
+
 float4 PSMain(VSOut i) : SV_Target {
     float4 c = diffuse.Sample(diffuseSampler, i.uv);
     uint flags = (uint)i.flags;
@@ -106,7 +109,7 @@ float4 PSMain(VSOut i) : SV_Target {
     if (flags & 32) {
         // EMP shockwave: the pixel shows what is (r, g, b average, as much as the sprite covers) * 8 to the right.
         if (c.a < 0.004) discard;
-        return float4(under(i.pos, (c.r + c.g + c.b) / 3 * c.a * 8), i.color.a);
+        return float4(tint(under(i.pos, (c.r + c.g + c.b) / 3 * c.a * 8), flags), i.color.a);
     }
     if (c.a < 0.4) discard;  // alpha test so the depth buffer orders overlapping sprites
     if (flags & 1) return float4(0, 0, 0, 0.5 * i.color.a);  // shadow
@@ -123,15 +126,15 @@ float4 PSMain(VSOut i) : SV_Target {
             // than the level show as they are.
             float3 p = c.rgb * 255;
             float bright = floor((p.r * 28 + p.g * 77 + p.b * 151 + 4096) / 8192);
-            if (bright > t * 8) return float4(rgb, i.color.a);
-            return float4(lerp(rgb, under(i.pos, 0), 0.5), i.color.a);
+            if (bright > t * 8) return float4(tint(rgb, flags), i.color.a);
+            return float4(tint(lerp(rgb, under(i.pos, 0), 0.5), flags), i.color.a);
         }
         // HD: what is under it, (brightness + 1/16) * 8 to the right where the sprite is there too; else right under it.
         float b = luminance(rgb);
         float dx = (b + 0.0625) * 8;
         float4 there = diffuse.SampleLevel(diffuseSampler, i.uv + float2(dx * i.info.y, 0), 0);
         bool alsoCloaked = b > 0 && i.local.x + dx < i.info.x && there.a >= 0.4 && luminance(there.rgb) > 0;
-        return float4(lerp(rgb, under(i.pos, alsoCloaked ? dx : 0), t), i.color.a);
+        return float4(tint(lerp(rgb, under(i.pos, alsoCloaked ? dx : 0), t), flags), i.color.a);
     }
     if (flags & 64) {
         // Warp texture: the sprite's shape, filled with the Warp Texture image's frame at the same place.
@@ -141,6 +144,5 @@ float4 PSMain(VSOut i) : SV_Target {
     }
     if (flags & 128) rgb = min(float3(1, 1, 1), float3(0.75, 1.125, 2.65) * luminance(rgb));  // hallucination
     if (flags & 256) rgb = lerp(rgb, float3(1, 1, 1), i.info.z);                               // warp flash
-    if (flags & 2) rgb = lerp(rgb, float3(1, 0.15, 0.1), 0.6);  // invalid placement
-    return float4(rgb, c.a * i.color.a);
+    return float4(tint(rgb, flags), c.a * i.color.a);
 }

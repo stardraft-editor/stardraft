@@ -823,8 +823,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         raw.push_back({t, warp, s.terrain ? 0 : glow ? 2 : (look == 16 || look == 32) ? 3 : 1, in});
     }
     // The terrain's sprites first (else the depth that they write would hide the shadows and circles over them), then
-    // the others, then glows in their own batches (additive pipeline), then the sprites that bend what is under them
-    // (cloaks, the EMP shockwave): they read the picture of all the others.
+    // the others, then the sprites that bend what is under them (cloaks, the EMP shockwave: they read the picture of the
+    // others), then glows in their own batches (additive pipeline; drawn last, as they write no depth).
     std::map<std::tuple<int, ImageTex*, ImageTex*>, std::vector<GpuInstance>> buckets;
     for (auto& [t, warp, order, in] : raw) buckets[{order, t, warp}].push_back(in);
     std::vector<GpuInstance> instances;
@@ -1011,7 +1011,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             ++stats.drawCalls;
         }
     };
-    drawSprites(0, 2, nullptr);
+    drawSprites(0, 1, nullptr);
     if (bends) {
         // The picture so far goes to the target, and the sprites that bend what is under them read it there.
         SDL_EndGPURenderPass(pass);
@@ -1028,6 +1028,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         pass = SDL_BeginGPURenderPass(cmd, &ct, 1, &dt);
     }
     drawSprites(3, 3, bends ? backdrop : nullptr);
+    drawSprites(2, 2, nullptr);  // (the glows last: a cloak drawn after a glow in front of it would cover the glow)
 
     if (!rects.empty()) {
         SDL_BindGPUGraphicsPipeline(pass, solidPipe);
