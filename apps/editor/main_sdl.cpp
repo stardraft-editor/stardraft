@@ -711,7 +711,7 @@ int main(int argc, char** argv) {
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "resize";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "resize" || c.rfind("drawfuncs:", 0) == 0;
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
@@ -927,6 +927,8 @@ int main(int argc, char** argv) {
             if (hasCheck("names")) sdlNamesCheck();  // (after the inputs: a map saved and opened again)
             if (hasCheck("dataform")) sdlDataFormCheck();  // (the last paint's parts)
             if (hasCheck("resize")) sdlResizeCheck();  // (Crop or extend: its dialog, or the change its OK made)
+            for (const std::string& c : checkArgs)  // (the map's renderer, after the picture: sdl_map_image.inc)
+                if (c.rfind("drawfuncs:", 0) == 0) sdlDrawFuncsCheck(c.substr(10));
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");
