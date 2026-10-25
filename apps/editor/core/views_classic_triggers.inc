@@ -925,11 +925,10 @@ private:
         c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
     }
     void addRow(draw::Canvas& c, draw::Rect r, const std::wstring& text, std::function<void()> click, const std::wstring& tip, bool enabled) {
-        const bool over = enabled && hot(r);
-        c.roundBox(r, over ? kRowHot : draw::kNone, over ? kBorderHot : kBorder, float(scale(6)));
-        const int is = scale(16);
+        const bool over = enabled && hot(r);  // (a link: no box; its icon and text light up under the mouse)
+        const int is = scale(14);
         const draw::Color col = !enabled ? kFaint : over ? kAccent : kDim;
-        const draw::Rect ir{r.left + scale(10), (r.top + r.bottom - is) / 2, r.left + scale(10) + is, (r.top + r.bottom + is) / 2};
+        const draw::Rect ir{r.left + scale(4), (r.top + r.bottom - is) / 2, r.left + scale(4) + is, (r.top + r.bottom + is) / 2};
         c.icon(ir, int(UiIcon::Add), col, is);
         c.text({ir.right + scale(8), r.top, r.right - scale(8), r.bottom}, text, col, draw::kMiddle | draw::kEllipsis);
         hit(r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
@@ -968,9 +967,8 @@ private:
     // A section heading (its name and a line to the right edge); returns the y under it.
     static int sectionHeader(draw::Canvas& c, int y, int w, const wchar_t* name) {
         const int rowH = scale(stardraft::kit::kRowH);
-        c.text({0, y, w, y + rowH}, name, kText, draw::kMiddle);
-        c.fill({0, y + rowH - 1, w, y + rowH}, kBorder);
-        return y + rowH + scale(6);
+        c.text({0, y, w, y + rowH}, name, kDim, draw::kMiddle);  // (quiet: dim, no rule)
+        return y + rowH;
     }
     // A glyph of the Segoe MDL2 glyph font, centered in its box.
     static void glyphText(draw::Canvas& c, draw::Rect r, const wchar_t* g, draw::Color col, int px) {
@@ -1225,8 +1223,9 @@ public:
         std::function<void()> comment;  // the trigger's comment (roadmap R62)
     };
     explicit CtHeadView(Callbacks cb)
-        : turnOff(L"Turn off", stardraft::kit::Tone::Normal, std::move(cb.turnOff)),
-          deleteTrig(L"Delete the trigger", stardraft::kit::Tone::Normal, std::move(cb.deleteTrig)),
+        : turnOff(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Power)), stardraft::kit::IconStyle::Bare, L"Turn off the trigger", std::move(cb.turnOff)),
+          deleteTrig(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Delete)), stardraft::kit::IconStyle::Bare, L"Delete the trigger", std::move(cb.deleteTrig),
+                     stardraft::kit::Tone::Danger),
           comment(L"", std::move(cb.comment), stardraft::kit::Tone::Quiet) {
         title.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});  // the page's title font (ui::titleFont: 1.5 times the UI size)
         title.setText(L"None");
@@ -1244,7 +1243,7 @@ public:
     }
 
     stardraft::kit::Label title, count;
-    stardraft::kit::Button turnOff, deleteTrig;
+    stardraft::kit::IconButton turnOff, deleteTrig;  // (icons: the page's quieter look)
     stardraft::kit::Link comment;  // the trigger's comment: Add a comment, or its text (a click edits it)
     stardraft::kit::Dropdown players;  // the players, comma-separated; a click opens their list (ctPlayersClick)
 

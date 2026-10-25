@@ -309,6 +309,7 @@ void SdlCtPageHost::filled() {
     if (!gSdlTrigPage) return;
     const CtModel& m = gSdlTrigPage->model();
     gSdlTrigPage->side().setCount(std::to_wstring(m.shown.size()) + L" of " + std::to_wstring(m.trig.triggers.size()));
+    gSdlTrigPage->side().search.setPlaceholder(L"Search " + std::to_wstring(m.trig.triggers.size()) + (m.trig.triggers.size() == 1 ? L" trigger" : L" triggers"));
     gSdlTrigPage->invalidateLists();
 }
 void SdlCtPageHost::selectTrigger(int i) {
