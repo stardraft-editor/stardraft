@@ -971,15 +971,16 @@ public:
     void resized() override {
         using namespace ctLayoutPx;
         const int W = width(), rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH);
-        search.setFrame({0, 0, std::max(0, W - scale(kSearchCut)), rowH});
-        filter.setFrame({scale(kFilterLabelW), step, W, step + rowH});
+        (void)step;  // (one row: the search, then the filter at its right)
+        const int fw = std::min(scale(130), W / 2);
+        search.setFrame({0, 0, std::max(0, W - fw - scale(6)), rowH});
+        filter.setFrame({W - fw, 0, W, rowH});
     }
     void paint(draw::Canvas& c) override {
         using namespace ctLayoutPx;
         const int W = width(), rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH);
         c.fill({0, 0, W, height()}, kBg);
-        c.text({W - scale(kCountW), scale(kCountDown), W, scale(kCountDown) + rowH}, count_, kDim, draw::kRight | draw::kMiddle | draw::kEllipsis);
-        c.text({0, step, scale(kFilterLabelW), step + rowH}, L"Show the triggers of", kDim, draw::kMiddle | draw::kEllipsis);
+        (void)W, (void)rowH, (void)step;  // (the search and the filter fill the row: the count is the search box's tip)
     }
 
 private:
@@ -1206,7 +1207,7 @@ inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContent
     (void)entriesContentH;
     CtPageRects L;
     const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
-    const int colGap = scale(16);
+    const int colGap = scale(12);
     const int headH = scale(40) + step;
     L.needH = std::max(pad + headH + gap + scale(160) + pad, pad + editorH + pad);
     const int leftW = std::clamp(W * 22 / 100, scale(240), scale(380));
@@ -1217,8 +1218,8 @@ inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContent
     L.rightW = midW;
     // Left: the search and the filter, the list, the note.
     int y = pad;
-    L.side = {pad, y, pad + leftW, y + step + rowH};
-    y += 2 * step;
+    L.side = {pad, y, pad + leftW, y + rowH};
+    y += step;
     const int noteH = noteShown ? scale(44) : 0;
     const int listBottom = H - pad - (noteShown ? noteH + gap : 0);
     L.list = {pad, y, pad + leftW, std::max(y, listBottom)};
@@ -1264,7 +1265,7 @@ inline void ctEditComment(CtPageHost& h) {
 // The head's parts in the head (its coordinates, from 0) at the right column's width `rightW`.
 inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     const int rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
-    const int delW = scale(120), turnW = scale(84);
+    const int delW = scale(stardraft::kit::kIconBox), turnW = scale(stardraft::kit::kIconBox);
     const int headW = rightW - delW - turnW - 3 * gap;
     auto put = [](draw::View& v, int px, int py, int w, int hh) { v.setFrame({px, py, px + std::max(0, w), py + std::max(0, hh)}); };
     // (the title, the count, the comment: the comment keeps at least 160 px, the count gives way first)
@@ -1283,11 +1284,12 @@ inline void ctUpdateHead(CtHeadView& h, const CtModel& m) {
     const ClassicTrigger* t = ctModelSelected(m);
     h.title.setText(t ? tr(L"Trigger ") + std::to_wstring(m.sel + 1) : std::wstring(L"None"));
     h.count.setText(!t ? std::wstring() : widen(std::string(t->disabled() ? "Turned off, " : "") + std::to_string(t->actionCount()) + (t->actionCount() == 1 ? " action" : " actions")));
-    h.turnOff.setText(t && t->disabled() ? L"Turn on" : L"Turn off");
+    h.turnOff.setOn(t && t->disabled());
+    h.turnOff.setTip(t && t->disabled() ? L"Turn on the trigger" : L"Turn off the trigger");
     const std::string comment = t ? ctCommentText(m, *t) : std::string();
     h.comment.setText(!t ? std::wstring() : comment.empty() ? std::wstring(tr(L"Add a comment")) : widen(comment));
     h.comment.setTip(tr(L"The trigger's comment: the text of its Comment action"));
-    for (stardraft::kit::Button* b : {&h.turnOff, &h.deleteTrig}) b->setEnabled(t != nullptr);
+    for (stardraft::kit::IconButton* b : {&h.turnOff, &h.deleteTrig}) b->setEnabled(t != nullptr);
 }
 // The head's Players field for the selected trigger: its players, comma-separated.
 inline void ctShowPlayers(CtHeadView& h, const CtModel& m, const ClassicNames& n) {

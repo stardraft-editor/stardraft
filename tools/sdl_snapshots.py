@@ -712,7 +712,7 @@ CASES += [
     ("data-triggers-quickadd", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
                                 "--click", "900,700", "--type", "q", "--type", "game speed", "--key", "Enter"], "data"),
     # The Classic triggers page: Add a trigger, Turn off, Undo (the page reads the map again after a moment).
-    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "928,184", "--key", "Ctrl+Z",
+    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "150,219", "--click", "1058,184", "--key", "Ctrl+Z",
                                "--wait", "400"], "map"),
     # The Files workspace: the search box of the game's sounds, "marine" typed.
     ("map-files-search", ["--workspace", "files", "--click", "240,289", "--type", "marine"], "map"),
