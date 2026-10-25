@@ -180,8 +180,10 @@ public:
     CtEditorView& editor() { return editor_; }
     CtEditorView& editorView() { return editor_; }
     int menuWidth() const { return menuW_; }
-    int preferredWidth() const { return scale(960); }
-    int preferredHeight() const { return ctPageLayout(width(), height(), true, 0, 0).needH; }
+    int preferredWidth() const { return ctPageMinWidth(); }
+    int preferredHeight() const {
+        return ctPageLayout(width(), height(), true, 0, ctEditorHeight(m_, scale(stardraft::kit::kFormRowH), scale(8))).needH;
+    }
     unsigned mods() const { return host() ? host()->modifiers() : 0; }
 
     void invalidateLists() {

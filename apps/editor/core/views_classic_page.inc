@@ -185,11 +185,8 @@ inline int ctEditorHeight(CtModel& m, int step, int gap) {
     const ClassicCondition* c = ctModelCondition(m);
     const ClassicAction* a = ctModelAction(m);
     const ClassicDef* def = c ? classicConditionDef(c->type) : a && a->type != kClassicBlockType ? classicActionDef(a->type) : nullptr;
-    int plain = 0, texts = 0;
-    if (def)
-        for (const ClassicParam& p : def->params) (p.kind == ClassicKind::Text ? texts : plain)++;
-    const int rows = (plain + 1) / 2 + texts;
-    return step * (1 + std::max(1, rows)) + gap;
+    const int rows = def ? int(def->params.size()) : 0;
+    return step * (2 + std::max(1, rows)) + gap;  // (the title, the type and its buttons, a row per value: the right column's)
 }
 
 // Sets value `i` of the selected entry.
@@ -1201,6 +1198,10 @@ struct CtPageRects {
     draw::Rect side, list, note, head, entries, editor;
     int rightW = 0, needH = 0;  // rightW: the head's width (the middle column)
 };
+// The least width the three columns take (a narrower page is made this wide, and its view scrolls).
+inline int ctPageMinWidth() {
+    return 2 * scale(stardraft::kit::kDialogPad) + scale(240) + scale(16) + scale(420) + scale(16) + scale(360);
+}
 inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContentH, int editorH) {
     (void)entriesContentH;
     CtPageRects L;
@@ -1266,9 +1267,12 @@ inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     const int delW = scale(120), turnW = scale(84);
     const int headW = rightW - delW - turnW - 3 * gap;
     auto put = [](draw::View& v, int px, int py, int w, int hh) { v.setFrame({px, py, px + std::max(0, w), py + std::max(0, hh)}); };
-    put(hv.title, 0, 0, std::min(headW, scale(110)), scale(28));
-    put(hv.count, scale(110), scale(6), std::min(scale(110), std::max(0, headW - scale(110))), rowH);
-    put(hv.comment, scale(225), scale(6), std::max(0, headW - scale(225)), rowH);
+    // (the title, the count, the comment: the comment keeps at least 160 px, the count gives way first)
+    const int titleW = std::min(headW, scale(110)), rest = std::max(0, headW - titleW);
+    const int commentW = std::max(std::min(rest, scale(160)), rest - scale(115)), countW = std::max(0, rest - commentW - scale(5));
+    put(hv.title, 0, 0, titleW, scale(28));
+    put(hv.count, titleW, scale(6), countW, rowH);
+    put(hv.comment, titleW + countW + (countW ? scale(5) : 0), scale(6), commentW, rowH);
     put(hv.deleteTrig, rightW - delW, scale(2), delW, rowH);
     put(hv.turnOff, rightW - delW - gap - turnW, scale(2), turnW, rowH);
     // The players: one field under the header, as wide as the head (at most 600 px).
