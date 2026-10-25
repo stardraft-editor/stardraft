@@ -170,7 +170,7 @@ CASES += [
     ("map-classictrig-find", ["--workspace", "classictriggers", "--click", "260,182", "--type", "zzz", "--click", "300,650", "--key", "Ctrl+Shift+F",
                               "--type", "always", "--key", "Enter"], "map"),
     # The trigger's comment (roadmap R62): Add a comment in the head, a text, Ctrl+Enter: a Comment action with it.
-    ("map-classictrig-comment", ["--workspace", "classictriggers", "--click", "900,188", "--type", "Base defense", "--key", "Ctrl+Enter"], "map"),
+    ("map-classictrig-comment", ["--workspace", "classictriggers", "--click", "698,188", "--type", "Base defense", "--key", "Ctrl+Enter"], "map"),
     ("map-classictrig-quickadd", ["--workspace", "classictriggers", "--classictrig", "1:1:0", "--key", "Q", "--type", "play wav", "--key", "Enter"], "map"),
     # The Triggers workspace with a value's pop-out open (--trigpop n: value n of the block --trigsel selects; text: its text's words). The
     # trigger and block numbers are the first trigger of "On map start" (a text with values, the objectives' colors,
@@ -712,7 +712,7 @@ CASES += [
     ("data-triggers-quickadd", ["--newproject", "{newdir}", "--workspace", "triggers", "--trig", "1", "--click", "433,169", "--key", "Enter",
                                 "--click", "900,700", "--type", "q", "--type", "game speed", "--key", "Enter"], "data"),
     # The Classic triggers page: Add a trigger, Turn off, Undo (the page reads the map again after a moment).
-    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "1377,184", "--key", "Ctrl+Z",
+    ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "310,250", "--click", "928,184", "--key", "Ctrl+Z",
                                "--wait", "400"], "map"),
     # The Files workspace: the search box of the game's sounds, "marine" typed.
     ("map-files-search", ["--workspace", "files", "--click", "240,289", "--type", "marine"], "map"),

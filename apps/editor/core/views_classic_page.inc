@@ -1153,19 +1153,34 @@ private:
         using namespace ctLayoutPx;
         const int rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
         auto put = [](draw::View& v, int x, int y, int w, int hh) { v.setFrame({x, y, x + std::max(0, w), y + std::max(0, hh)}); };
-        put(title, 0, 0, scale(kEditTitleW), scale(kEditTitleH));
-        put(type, scale(kTypeX), scale(kTitleRowDown), scale(kTypeW), rowH);
-        put(disabled, scale(kTurnOffX), scale(kTitleRowDown), scale(kTurnOffW), rowH);
-        put(always, scale(kAlwaysX), scale(kTitleRowDown), scale(kAlwaysW), rowH);
-        const int labelW = scale(kValueLabelW), pickW = scale(kValueW), colW = labelW + pickW + scale(kValueColGap);
-        int col = 0, y = step + gap;
+        // Wide: the title, the type and the buttons in one row, the values in two columns. Narrow (the page's right
+        // column): the title, then the type and the buttons, then the values in one column as wide as the editor.
+        const bool wide = width() >= scale(kAlwaysX + kAlwaysW);
+        int y = step + gap;
+        if (wide) {
+            put(title, 0, 0, scale(kEditTitleW), scale(kEditTitleH));
+            put(type, scale(kTypeX), scale(kTitleRowDown), scale(kTypeW), rowH);
+            put(disabled, scale(kTurnOffX), scale(kTitleRowDown), scale(kTurnOffW), rowH);
+            put(always, scale(kAlwaysX), scale(kTitleRowDown), scale(kAlwaysW), rowH);
+        } else {
+            put(title, 0, 0, width(), scale(kEditTitleH));
+            const int turnW = scale(kTurnOffW - 20), alwaysW = scale(kAlwaysW - 20);
+            const int typeW = std::max(scale(120), width() - turnW - alwaysW - 2 * gap);
+            put(type, 0, step, typeW, rowH);
+            put(disabled, typeW + gap, step, turnW, rowH);
+            put(always, typeW + gap + turnW + gap, step, alwaysW, rowH);
+            if (type.visible()) y = 2 * step + gap;  // (no type: no row for it)
+        }
+        const int labelW = scale(wide ? kValueLabelW : kValueLabelW - 20);
+        const int pickW = wide ? scale(kValueW) : std::max(scale(120), width() - labelW), colW = labelW + pickW + scale(kValueColGap);
+        int col = 0;
         for (Value& v : values_) {
             if (v.text && col) col = 0, y += step;
             const int x = col * colW;
-            const int w = v.text ? std::min(width() - labelW - scale(kTextCut), scale(kTextMaxW)) : pickW;
+            const int w = v.text ? std::min(width() - labelW - (wide ? scale(kTextCut) : 0), scale(kTextMaxW)) : pickW;
             put(*v.label, x, y, labelW, rowH);
             put(*v.field, x + labelW, y, w, rowH);
-            if (++col == 2 || v.text) col = 0, y += step;
+            if (!wide || ++col == 2 || v.text) col = 0, y += step;
         }
         if (col) y += step;
         put(help, 0, y + gap, std::min(width(), scale(kTextMaxW) + labelW), std::max(0, height() - y - gap));  // (under the fields)
@@ -1178,20 +1193,27 @@ private:
 
 // --- The page's layout ------------------------------------------------------------------------------------------------
 
-// The page's parts at a size W x H (the native page's ctLayout): the left column (the side, the list, the note under it)
-// and the right one (the head, the entries, the editor under them). The entries take the height their rows need, up to
-// the room left. `needH`: the least height the parts take (a shorter page is made this tall, and its view scrolls).
+// The page's parts at a size W x H, in three columns: the left one (the side, the list, the note under it), the middle
+// one (the head, the entries) and the right one (the editor of the selected entry, from the top). The entries take the
+// middle column's height. `needH`: the least height the parts take (a shorter page is made this tall, and its view
+// scrolls). `entriesContentH` and `editorH`: the heights their contents need.
 struct CtPageRects {
     draw::Rect side, list, note, head, entries, editor;
-    int rightW = 0, needH = 0;
+    int rightW = 0, needH = 0;  // rightW: the head's width (the middle column)
 };
 inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContentH, int editorH) {
+    (void)entriesContentH;
     CtPageRects L;
     const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
-    L.needH = pad + scale(40) + 2 * step + gap + scale(120) + gap + step * 4 + gap + pad;
-    const int leftW = std::clamp(W * 3 / 10, scale(280), scale(460));
-    const int x0 = pad + leftW + scale(24), rightW = std::max(scale(600), W - x0 - pad);
-    L.rightW = rightW;
+    const int colGap = scale(16);
+    const int headH = scale(40) + step;
+    L.needH = std::max(pad + headH + gap + scale(160) + pad, pad + editorH + pad);
+    const int leftW = std::clamp(W * 22 / 100, scale(240), scale(380));
+    const int editW = std::clamp(W * 30 / 100, scale(360), scale(520));
+    const int x0 = pad + leftW + colGap;
+    const int midW = std::max(scale(420), W - x0 - colGap - editW - pad);
+    const int x1 = x0 + midW + colGap;
+    L.rightW = midW;
     // Left: the search and the filter, the list, the note.
     int y = pad;
     L.side = {pad, y, pad + leftW, y + step + rowH};
@@ -1200,15 +1222,12 @@ inline CtPageRects ctPageLayout(int W, int H, bool noteShown, int entriesContent
     const int listBottom = H - pad - (noteShown ? noteH + gap : 0);
     L.list = {pad, y, pad + leftW, std::max(y, listBottom)};
     L.note = {pad, listBottom + gap, pad + leftW, listBottom + gap + noteH};
-    // Right: the head (the header and the players), the entries, the editor.
-    const int headH = scale(40) + step;
-    L.head = {x0, pad, x0 + rightW, pad + headH};
+    // Middle: the head (the header and the players), the entries to the bottom.
+    L.head = {x0, pad, x0 + midW, pad + headH};
     y = pad + headH + gap;
-    const int room = H - pad - editorH - gap - y;
-    const int entriesH = std::clamp(entriesContentH, scale(120), std::max(scale(120), room));
-    L.entries = {x0, y, x0 + rightW, y + entriesH};
-    const int ey = y + entriesH + gap;
-    L.editor = {x0, ey, x0 + rightW, ey + editorH};
+    L.entries = {x0, y, x0 + midW, std::max(y + scale(160), H - pad)};
+    // Right: the editor, from the top to the bottom.
+    L.editor = {x1, pad, x1 + editW, std::max(pad + editorH, H - pad)};
     return L;
 }
 // The trigger's comment (roadmap R62): the text of its first Comment action, the game's own place for it (as StarEdit
@@ -1244,12 +1263,12 @@ inline void ctEditComment(CtPageHost& h) {
 // The head's parts in the head (its coordinates, from 0) at the right column's width `rightW`.
 inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     const int rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
-    const int delW = scale(150), turnW = scale(96);
+    const int delW = scale(120), turnW = scale(84);
     const int headW = rightW - delW - turnW - 3 * gap;
     auto put = [](draw::View& v, int px, int py, int w, int hh) { v.setFrame({px, py, px + std::max(0, w), py + std::max(0, hh)}); };
-    put(hv.title, 0, 0, std::min(headW, scale(150)), scale(28));
-    put(hv.count, scale(160), scale(6), std::min(scale(140), std::max(0, headW - scale(160))), rowH);
-    put(hv.comment, scale(310), scale(6), std::max(0, headW - scale(310)), rowH);
+    put(hv.title, 0, 0, std::min(headW, scale(110)), scale(28));
+    put(hv.count, scale(110), scale(6), std::min(scale(110), std::max(0, headW - scale(110))), rowH);
+    put(hv.comment, scale(225), scale(6), std::max(0, headW - scale(225)), rowH);
     put(hv.deleteTrig, rightW - delW, scale(2), delW, rowH);
     put(hv.turnOff, rightW - delW - gap - turnW, scale(2), turnW, rowH);
     // The players: one field under the header, as wide as the head (at most 600 px).

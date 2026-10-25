@@ -137,8 +137,8 @@ public:
 SdlCtPageHost gSdlTrigHost;
 CtPageList gSdlTrigList(gSdlTrigHost);  // the lists' program part (core/views_classic_page.inc)
 
-// The page: the side and the trigger list at the left (and the note under it), the selected trigger's head, its
-// conditions and actions and the editor at the right; placed by the core's layout (ctPageLayout), as the Windows page.
+// The page: the side and the trigger list at the left (and the note under it), the selected trigger's head and its
+// conditions and actions in the middle, the editor at the right; placed by the core's layout (ctPageLayout).
 class SdlClassicTrigPage final : public draw::View {
 public:
     explicit SdlClassicTrigPage(SdlClassicTrigModel& m)
