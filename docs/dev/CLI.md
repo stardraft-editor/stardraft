@@ -43,7 +43,7 @@ refuses: `save --force` writes over it, `save --to` writes another file.
 | `undo` / `redo <map> [--steps n]` | Go back or forward. |
 | `render <map> -o <png>` | See below. |
 | `add-file <map> <name> <file> [--remove]` | Puts a file (a sound, `sound\x.wav`) into the map, or takes one out. Not an undo step: it stays until `close`. |
-| `check <map \| project>` | The checks of a save and a build, with no change: the start locations that StarCraft needs and the playability; for a project also the scripts that are not there and the triggers' checker. `passed`, `problems` (each with its `kind`), `warnings`. |
+| `check <map \| project>` | The checks of a save and a build, with no change: the start locations that StarCraft needs and the playability; for a project also the scripts that are not there and the triggers' checker. `passed`, `problems` (each with its `kind`), `warnings` (also: start locations that cannot reach each other by ground). |
 | `save <map> [--to path] [--force] [--anyway]` | Writes .scm, .scx or .chk. Refused while start locations that StarCraft needs are missing (`--anyway` saves). |
 | `close <map> [--discard]` | Removes the working folder. Refused when changes are not saved. |
 | `ops` | The operations with their parameters. |
