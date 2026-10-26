@@ -65,6 +65,27 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 The mouse: the wheel zooms the map at the mouse; a trackpad scrolls it with two fingers and zooms with a pinch; the
 middle button held pans it (Options > Middle mouse click and hold).
 
+## Data workspace
+
+| Key | What it does |
+|---|---|
+| Ctrl+E | The Table view of the open .dat file, or the entry's form again (View > Data table) |
+| Ctrl+click, Shift+click | In the entry list: select more entries. The Table view then shows only them |
+| Shift+Up, Shift+Down, Ctrl+A | In the entry list: select more entries, or all of them |
+
+In the Table view:
+
+| Key | What it does |
+|---|---|
+| Arrows, Tab, Home, End, Page Up, Page Down | Move the active cell; with Shift, select the cells to it. Ctrl+arrow: the end of the row or column |
+| A letter or a digit, Enter, F2 | Type a value. Enter puts it into every selected cell |
+| Space | Toggle the selected check boxes. Ctrl+Space: select the column; Shift+Space: select the row |
+| Del | Reset the selected cells to the game's values |
+| Ctrl+C, Ctrl+V | Copy and paste cells, as tab-separated text (spreadsheets use it too) |
+| Ctrl+D | Copy the top cell of the selection into the cells under it |
+| Ctrl+A | Select all cells |
+| Alt+Down | Open the list of a dropdown's cell |
+
 ## Triggers workspace
 
 | Key | What it does |

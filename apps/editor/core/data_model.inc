@@ -11,6 +11,9 @@ struct DataModel {
     std::vector<int> tabEntry;                      // the entry each tab last had open
     const EudProject* project = nullptr;
     int entry = 0;
+    std::set<int> picked;  // the entries selected in the list (Ctrl and Shift add more); the Table view shows them when 2 or more
+    int pickAnchor = -1;   // the row Shift selects from (data_list.inc: dataListPick)
+    bool table = false;    // the Table view shows in place of the entry's form (.dat tabs only)
     std::vector<int> shown;  // entries in the list
     int listScroll = 0, formScroll = 0;  // (the form's height, click areas and section places are its view's)
     int edits = 0;      // goes up with each change (the references follow the values)
@@ -168,6 +171,7 @@ void dataLoadForProject() {
     const EudProject* pr = activeProject();
     if (pr == dataState().project && (!dataState().tables.empty() || !pr)) return;
     dataState().entry = 0, dataState().listScroll = dataState().formScroll = 0;
+    dataState().picked.clear(), dataState().pickAnchor = -1;  // (another project: none of its entries is selected)
     dataState().project = pr;
     dataState().tables.clear();
     dataState().tabEntry.assign(size_t(dataTabCount()), 0);
@@ -488,10 +492,12 @@ DataListProgram gDataListProgram;
 bool dataSaveChange() {
     DataModel& d = dataState();
     ++d.edits;
+    d.history.beginGroup();  // (the strings and the table: one undo step)
     bool ok = extrasSaved();
     std::string err;
     if (const DatTable* t = curTable(); t && d.project && !t->saveEdits(d.project->datFile(t->schema().name), err)) setMessage(widen(err)), ok = false;
     if (const DatTable* t = curTable()) d.history.recordTable(d.datTab, d.entry, t->bytes());
+    d.history.endGroup();
     return ok;
 }
 
