@@ -1620,7 +1620,14 @@ const char* kOps = R"OPS([
   {"op": "place_map_revealers", "params": {"players": "[1-8]", "spacing": "tiles between the revealers, default 8"}, "result": {"placed": "number"}},
   {"op": "remove_map_revealers", "result": {"removed": "number"}},
   {"op": "place_start_locations", "result": {"placed": "number: the start locations that StarCraft needs and the map lacks"}},
-  {"op": "link_units", "params": {"units": "[serial, serial]: two add-ons or a nydus pair"}}
+  {"op": "link_units", "params": {"units": "[serial, serial]: two add-ons or a nydus pair"}},
+  {"op": "copy_units", "params": {"units": "[serial]"}, "result": {"copied": "number"}},
+  {"op": "cut_units", "params": {"units": "[serial]"}, "result": {"cut": "number"}},
+  {"op": "paste_units", "params": {"x": "px (the group's center)", "y": "px", "player": "1-12: the owner of the pasted units (optional)", "correct": "bool, default true"}, "result": {"pasted": "number"}},
+  {"op": "duplicate_units", "params": {"units": "[serial] (optional: copied first)", "x": "px", "y": "px", "player": "optional", "correct": "bool, default true"}, "result": {"pasted": "number"}},
+  {"op": "copy_terrain", "params": {"area": "[left, top, right, bottom] px", "shape": "rect | diamond | ellipse", "units": "bool: the units in it too", "doodads": "bool: the doodads in it too"}},
+  {"op": "paste_terrain", "params": {"x": "px (the clipboard's top-left corner, snapped)", "y": "px", "correct": "bool, default true"}, "result": {"pasted": "bool"}},
+  {"op": "copy_players", "params": {"from": "a map file: its players and forces replace this map's"}}
 ])OPS";
 
 const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps without a window.
