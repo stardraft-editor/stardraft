@@ -162,6 +162,18 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
     }
     if (name == "remove_map_revealers") return r.add("removed", ed.removeMapRevealers());
     if (name == "place_start_locations") return r.add("placed", ed.placeStartLocations());
+    if (name == "copy_players") {  // the Players page's copy: the players and forces of another map (one undo step)
+        const std::string from = textOf(op, "from");
+        Editor other(ed.gameData());
+        std::string err;
+        if (!other.open(upath(from), err)) fail(err);
+        std::vector<Editor::Player> players;
+        std::vector<Editor::Force> forces;
+        for (int p = 0; p < 8; ++p) players.push_back(other.player(p));
+        for (int f = 0; f < 4; ++f) forces.push_back(other.force(f));
+        ed.setPlayersAndForces(players, forces);
+        return r.add("players", 8).add("forces", 4);
+    }
     if (name == "link_units") {
         const std::vector<int> u = unitIndices(ed, op);
         if (u.size() != 2) fail("link_units needs two units");
