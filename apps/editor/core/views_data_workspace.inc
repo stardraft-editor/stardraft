@@ -26,6 +26,10 @@ public:
     virtual int refsWidth() = 0;                   // the References panel's width in px (0: none)
     virtual void placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) = 0;  // the windows the program keeps (refs empty: none)
     virtual void filterChanged() = 0;              // the search text or the Changed toggle changed: the rows are made again
+    // Entry | Table at the right of the tabs: the entry's form, or the Table view of the .dat. -1: neither shows (a tab
+    // that is not a .dat file), 0 the form, 1 the table.
+    virtual int viewKind() { return -1; }
+    virtual void setViewKind(int) {}
     virtual void status(const std::wstring& text) = 0;
 };
 
@@ -44,6 +48,8 @@ private:
     int hot_ = -1;                                // the tab under the mouse
     std::vector<draw::Rect> boxes_;               // the tabs as the last paint drew them (the clicks use them)
     draw::Rect nav_[2];                           // the back and forward arrows, as the last paint drew them
+    draw::Rect kinds_[2];                         // Entry and Table, as the last paint drew them (empty: not shown)
+    draw::Point hotPt_{-1, -1};                   // the mouse (Entry and Table light under it)
 };
 
 void DataTabsView::paint(draw::Canvas& c) {
@@ -56,7 +62,10 @@ void DataTabsView::paint(draw::Canvas& c) {
     const int n = host_.tabCount();
     std::vector<DataTabText> texts;
     for (int i = 0; i < n; ++i) texts.push_back({c.measure(host_.tabTitle(i)), c.measure(std::to_wstring(host_.tabEntryCount(i)))});
-    const DataTabMetrics metrics{scale(8), scale(84), scale(22), scale(16) + scale(6), scale(26), scale(2)};
+    // Entry | Table before the arrows (a segmented choice: the chosen one Primary).
+    const int kind = host_.viewKind();
+    const int kindW = kind >= 0 ? std::max(c.measure(L"Entry"), c.measure(L"Table")) + scale(20) : 0;
+    const DataTabMetrics metrics{scale(8), scale(84) + (kind >= 0 ? 2 * kindW + scale(16) : 0), scale(22), scale(16) + scale(6), scale(26), scale(2)};
     const DataTabLayout layout = dataTabLayout(texts, w, metrics);
     const int cur = host_.currentTab();
     boxes_.clear();
@@ -82,6 +91,15 @@ void DataTabsView::paint(draw::Canvas& c) {
         boxes_.push_back(r);
     }
     for (int k = 0; k < 2; ++k) {
+        kinds_[k] = {};
+        if (kind < 0) continue;
+        const int right = w - scale(84) - (1 - k) * (kindW + scale(4));
+        kinds_[k] = {right - kindW, scale(6), right, top - scale(6)};
+        const bool hot = draw::Rect(kinds_[k]).contains(hotPt_);
+        kitpaint::drawButtonFace(c, kinds_[k], k ? L"Table" : L"Entry", k == kind ? kitpaint::Tone::Primary : kitpaint::Tone::Normal,
+                                 hot && k != kind ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
+    }
+    for (int k = 0; k < 2; ++k) {
         nav_[k] = {w - scale(68) + k * scale(32), scale(3), w - scale(40) + k * scale(32), top - scale(3)};
         const bool can = k == 0 ? host_.canBack() : host_.canForward();
         c.icon(nav_[k], int(k == 0 ? UiIcon::Back : UiIcon::Forward), can ? kText : kFaint, scale(16));
@@ -96,11 +114,14 @@ bool DataTabsView::mouse(const draw::MouseEvent& e) {
         int hot = -1;
         for (size_t i = 0; i < boxes_.size(); ++i)
             if (boxes_[i].contains(e.pt)) hot = int(i);
-        if (hot != hot_) hot_ = hot, invalidate();
+        const bool kindHot = kinds_[0].contains(e.pt) || kinds_[1].contains(e.pt), wasKindHot = kinds_[0].contains(hotPt_) || kinds_[1].contains(hotPt_);
+        hotPt_ = e.pt;
+        if (hot != hot_ || kindHot || wasKindHot) hot_ = hot, invalidate();
         return true;
     }
     case MouseKind::Leave:
-        if (hot_ != -1) hot_ = -1, invalidate();
+        hotPt_ = {-1, -1};
+        hot_ = -1, invalidate();
         return true;
     case MouseKind::Down:
     case MouseKind::DoubleClick:  // (the class has CS_DBLCLKS: a quick second press is a double click, and it is a press too)
@@ -108,6 +129,12 @@ bool DataTabsView::mouse(const draw::MouseEvent& e) {
         for (int k = 0; k < 2; ++k)
             if (nav_[k].contains(e.pt)) {
                 host_.travel(k == 0);
+                return true;
+            }
+        for (int k = 0; k < 2; ++k)
+            if (kinds_[k].contains(e.pt)) {
+                host_.setViewKind(k);
+                invalidate();
                 return true;
             }
         for (size_t i = 0; i < boxes_.size(); ++i)

@@ -66,7 +66,8 @@ bool projectOnlyCommand(int id) {
     case ID_WS_DATA:
     case ID_WS_TRIGGERS:
     case ID_WS_PROJECT:
-    case ID_VIEW_TRIGCODE: return true;
+    case ID_VIEW_TRIGCODE:
+    case ID_DATA_TABLE: return true;
     default: return false;
     }
 }
@@ -84,7 +85,7 @@ bool commandInMode(int id) {
 
 // The menu commands that updateMenus enables or grays by mode. A classic-only command goes here too.
 constexpr int kModeCommands[] = {ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS,
-                                 ID_WS_DATA,      ID_WS_TRIGGERS, ID_WS_PROJECT,     ID_VIEW_TRIGCODE, ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG};
+                                 ID_WS_DATA,      ID_WS_TRIGGERS, ID_WS_PROJECT,     ID_VIEW_TRIGCODE, ID_DATA_TABLE,   ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG};
 // Is the command enabled in a tab of that mode (the self-test checks the menus with it)?
 bool commandForMode(int id, bool project) { return classicOnlyCommand(id) ? !project : !projectOnlyCommand(id) || project; }
 

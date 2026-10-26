@@ -172,6 +172,7 @@ bool sdlOptionsCommand(int id);
 bool sdlUpdatesRuns(int id);  // (sdl_updates.inc: Look for updates on start, Crash reports, Maps)
 bool sdlHelpRuns(int id);  // (sdl_help.inc: Help > Documentation, F1)
 void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the Help workspace, or its window)
+void sdlDataTableCommand();  // (sdl_data.inc: View > Data table)
 void sdlHelpQuick();  // (sdl_help.inc: Q in the Help workspace)
 bool sdlRuns(int id) {
     if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
@@ -228,6 +229,7 @@ bool sdlRuns(int id) {
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT: return true;
     case ID_VIEW_TRIGCODE: return true;  // the Triggers workspace's code pane (sdl_triggers.inc)
+    case ID_DATA_TABLE: return true;  // the Data workspace's Table view (sdl_data.inc)
     case ID_QUICKOPEN:  // the core's commands (core/commands_core.inc, core/map_edit_commands.inc)
     case ID_FILE_CLOSE:
     case ID_FILE_CLOSEALL:
@@ -1357,6 +1359,9 @@ void commandSdl(int id) {
         return;
     case ID_VIEW_TRIGCODE:  // shows or hides the code pane
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
+        return;
+    case ID_DATA_TABLE:  // the Data workspace's Table view, or the entry's form again (sdl_data.inc)
+        if (activeProject()) sdlDataTableCommand();
         return;
     default:
         // (the workspaces in their order; a command this system does not run is gray in the menus, and its key does nothing)
