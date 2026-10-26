@@ -38,118 +38,19 @@ std::wstring buildAnywayQuestion(const std::wstring& problems) {
     return L"StarCraft will not start this map:\r\n\r\n" + problems + L"\r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?";
 }
 
-// Before a build: the triggers' code into generated/triggers.eps. False (with the problems in the log) when the
-// checker finds errors.
-bool writeTriggerCode(EudProject& pr, std::string& err) {
-    TriggerSet set;
-    if (gTE.project == &pr && !gTE.set.loadFailed) set = gTE.set;
-    else if (!set.load(triggersFile(pr), err)) return err += ". Repair the file, then build again.", false;
-    else if (gTE.project == &pr) {  // it did not load before and does now (repaired): the Triggers workspace takes it
-        gTE.set = set, gTE.sel.clear();
-        trigHistoryReset();
-        buildTriggersReloaded();
+// --- The build's files: the steps are in the library (include/stardraft/project_build.h) -----------------------------------
+// What the Data and the Triggers workspaces show, for the build: their tables, extras and triggers when they are the open
+// project's. `reread`: the open tables did not load, so the build reads the files again.
+stardraft::BuildOpen buildOpenFor(const EudProject& pr, bool& reread) {
+    stardraft::BuildOpen open;
+    reread = dataState().project == &pr && dataLoadFailed();
+    if (dataState().project == &pr && !dataState().tables.empty() && !reread) open.tables = &dataState().tables;
+    if (dataState().project == &pr && !extrasLoadFailed()) {
+        DataExtrasModel& x = dataExtras();
+        open.strings = &x.strings, open.reqs = &x.reqs, open.buttons = &x.buttons, open.looks = &x.looks;
     }
-    bool any = false;
-    std::function<void(const TriggerNode&)> walk = [&](const TriggerNode& n) {
-        any |= n.kind == TriggerNode::Kind::Trigger || n.kind == TriggerNode::Kind::Variable;
-        for (const auto& c : n.children) walk(c);
-    };
-    for (const auto& r : set.roots) walk(r);
-    // The [MSQC] section: the lines for the keys and buttons the triggers read; lines written by hand stay.
-    auto setInputs = [&](const std::string& code) {
-        std::vector<std::string> lines;
-        for (const auto& l : pr.sectionLines("MSQC"))
-            if (!msqcGeneratedLine(l)) lines.push_back(l);
-        for (const auto& l : msqcLinesFor(code)) lines.push_back(l);
-        const auto chat = triggerChatLines(code);
-        if (lines == pr.sectionLines("MSQC") && chat == pr.sectionLines("chatEvent")) return true;
-        pr.setSectionLines("MSQC", lines);
-        pr.setSectionLines("chatEvent", chat);
-        return pr.save(err);
-    };
-    if (!any) return pr.writeGeneratedScript("triggers.eps", "", err) && setInputs("");
-    std::vector<TriggerIssue> issues;
-    std::vector<TriggerCodeLine> lines;
-    const std::string code = set.generate(trigMapInfo(), issues, TriggerBuildOptions{pr.debugBuild()}, &lines);
-    trigKeepCodeMap(pr, set, lines);  // a euddraft error in a line selects its block
-    int errors = 0;
-    for (const auto& i : issues)
-        if (i.level == TriggerIssue::Level::Error) {
-            ++errors;
-            shellLogError(L"Trigger \"" + (i.node ? widen(i.node->name) : L"?") + L"\": " + widen(i.message));
-        }
-    if (errors) {
-        err = std::to_string(errors) + " problem(s) in the triggers (see the log; they are marked red in the Triggers workspace)";
-        return false;
-    }
-    return pr.writeGeneratedScript("triggers.eps", code, err) && setInputs(code);
-}
-
-// --- The data edits --------------------------------------------------------------------------------------------------
-
-// Before a build: the edits saved, and their code written (or taken out when there are none).
-bool writeExtrasEdits(EudProject& pr, std::string& err) {
-    DataExtrasModel& x = dataExtras();
-    StatTxt strings;
-    Requirements reqs;
-    ButtonSets buttons;
-    UnitLooks looks;
-    // Another project than the one the Data workspace shows, or a file of it did not load (it may be repaired now):
-    // from disk.
-    const bool open = dataState().project == &pr && !extrasLoadFailed();
-    if (!open) {
-        if (!strings.load(appState().data, err) || !strings.loadEdits(extrasFile(pr, kExtraStrings), err) || !reqs.loadEdits(extrasFile(pr, kExtraReqs), err) ||
-            !buttons.loadEdits(extrasFile(pr, kExtraButtons), err) || !looks.loadEdits(extrasFile(pr, kExtraLooks), err))
-            return false;
-    }
-    const StatTxt& s = open ? x.strings : strings;
-    const Requirements& r = open ? x.reqs : reqs;
-    const ButtonSets& b = open ? x.buttons : buttons;
-    const UnitLooks& lk = open ? x.looks : looks;
-    if (!s.saveEdits(extrasFile(pr, kExtraStrings), err) || !r.saveEdits(extrasFile(pr, kExtraReqs), err) || !b.saveEdits(extrasFile(pr, kExtraButtons), err) ||
-        !lk.saveEdits(extrasFile(pr, kExtraLooks), err))
-        return false;
-    const std::string sCode = s.editsScript(err);
-    if (!err.empty()) return false;
-    const std::string rCode = r.editsScript(err);
-    if (!err.empty()) return false;
-    return pr.writeGeneratedScript("strings.eps", sCode, err) && pr.writeGeneratedScript("requirements.eps", rCode, err) &&
-           pr.writeGeneratedScript("buttons.eps", b.editsScript(), err) && pr.writeGeneratedScript("unit_display.eps", lk.editsScript(), err);
-}
-
-// Before a build: every table's edits saved, and generated/<name>.eps written for each that has some.
-bool writeDatEdits(EudProject& pr, std::string& err, std::vector<std::string>* notes) {
-    DataModel& data = dataState();
-    std::vector<std::unique_ptr<DatTable>> loaded;
-    std::vector<std::unique_ptr<DatTable>>* tables = &data.tables;
-    // Not open here, or a file of the open project did not load (it may be repaired now): from disk.
-    const bool reread = data.project == &pr && dataLoadFailed();
-    if (data.project != &pr || data.tables.empty() || reread) loaded = loadDatTables(pr, err), err.clear(), tables = &loaded;
-    std::vector<const DatTable*> list;
-    std::vector<std::unique_ptr<DatTable>> retried;
-    for (size_t i = 0; i < tables->size(); ++i) {
-        const DatTable* t = (*tables)[i].get();
-        if (!t) {
-            // The game table did not load. Without project edits for it, nothing is lost; with edits, the build stops
-            // when it still does not load, as it would drop them.
-            const DatSchema& sc = DatSchema::all()[i];
-            std::error_code ec;
-            if (!std::filesystem::exists(pr.datFile(sc.name), ec)) continue;
-            auto r = std::make_unique<DatTable>();
-            if (!r->load(appState().data, sc, err) || !r->loadEdits(pr.datFile(sc.name), err)) return false;
-            t = retried.emplace_back(std::move(r)).get();
-        } else if (!t->saveEdits(pr.datFile(t->schema().name), err)) return false;
-        if (notes)
-            for (std::string& m : t->unappliedSoundFiles()) notes->push_back(std::move(m));
-        list.push_back(t);
-    }
-    const bool ok = pr.writeGenerated(list, err) && writeExtrasEdits(pr, err);
-    if (ok && reread) {  // the repaired files load now: the Data workspace takes them (now when it shows, else at its next show)
-        const int tab = data.datTab, entry = data.entry;
-        data.project = nullptr, data.tables.clear();
-        buildDataReloaded(tab, entry);
-    }
-    return ok;
+    if (gTE.project == &pr && !gTE.set.loadFailed) open.triggers = &gTE.set;
+    return open;
 }
 
 // --- New graphics for preplaced units (Project page, R8) -------------------------------------------------------------
@@ -170,72 +71,17 @@ void applyProjectGraphics(UnitSprites& sp) {
 
 // The unit types that the project's edits give other graphics (none without a project).
 std::vector<uint16_t> remakeUnitTypes() {
-    static std::unique_ptr<UnitSprites> game, edited;
     static std::vector<uint16_t> types;
     static int at = -1;
     static const EudProject* atProject = nullptr;
     const EudProject* pr = activeProject();
     if (!pr) return {};
     dataLoadForProject();
-    if (at == dataState().edits && atProject == pr && edited) return types;
-    std::string err;
-    if (!game) {
-        game = std::make_unique<UnitSprites>();
-        if (!game->load(appState().data, err)) return game.reset(), std::vector<uint16_t>{};
-    }
-    edited = std::make_unique<UnitSprites>();
-    if (!edited->load(appState().data, err)) return edited.reset(), std::vector<uint16_t>{};
-    applyProjectGraphics(*edited);
-    types = UnitSprites::changedUnitGraphics(*game, *edited);
+    if (at == dataState().edits && atProject == pr) return types;
+    bool reread = false;
+    types = stardraft::projectRemakeUnitTypes(appState().data, buildOpenFor(*pr, reread), *pr);
     at = dataState().edits, atProject = pr;
     return types;
-}
-
-// The unit properties (UPRP) that the remake code can use: the map has 64, and its triggers use some. The map's UPUS
-// marks the ones of its classic triggers; each CreateUnitWithProperties or UnitProperty in the project's code (the
-// triggers' code, the scripts, the .eps and .py files beside them and in the scripts folder, which scripts can import)
-// can take one.
-int freeUnitProperties(const EudProject& pr) {
-    AppState& app = appState();
-    int used = 0;
-    if (const auto* upus = app.ed->chk().find("UPUS"))
-        for (size_t i = 0; i < upus->data.size() && i < size_t(EudProject::kUnitProperties); ++i) used += upus->data[i] != 0;
-    auto occurrences = [](const std::string& text, const char* word) {
-        int n = 0;
-        for (size_t at = text.find(word); at != std::string::npos; at = text.find(word, at + 1)) ++n;
-        return n;
-    };
-    std::set<fs::path> files;
-    for (const std::string& s : pr.scripts()) files.insert(pr.scriptFile(s).lexically_normal());
-    // The files beside each script (an import names a module in its folder), and all of the project's scripts folder.
-    std::set<fs::path> folders = {pr.folder() / "scripts"};
-    for (const fs::path& f : files) folders.insert(f.parent_path());
-    std::error_code ec;
-    auto add = [&](const fs::path& f) {
-        if (f.extension() == ".eps" || f.extension() == ".py") files.insert(f.lexically_normal());
-    };
-    for (const fs::path& dir : folders) {
-        const bool all = dir == pr.folder() / "scripts";
-        if (all) {
-            for (auto it = fs::recursive_directory_iterator(dir, fs::directory_options::skip_permission_denied, ec);
-                 !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
-                const std::string name = it->path().filename().string();
-                if (it->is_directory(ec) && (name == "__epspy__" || name == "__pycache__")) it.disable_recursion_pending();
-                else add(it->path());
-            }
-        } else {
-            for (auto it = fs::directory_iterator(dir, ec); !ec && it != fs::directory_iterator(); it.increment(ec)) add(it->path());
-        }
-        ec.clear();
-    }
-    const fs::path remake = (pr.folder() / "generated" / "remake.eps").lexically_normal();
-    for (const fs::path& file : files) {
-        if (file == remake || (file.extension() != ".eps" && file.extension() != ".py")) continue;
-        std::ifstream f(file, std::ios::binary);
-        const std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-        used += std::max(occurrences(text, "CreateUnitWithProperties"), occurrences(text, "UnitProperty("));
-    }
-    return std::max(0, EudProject::kUnitProperties - used);
 }
 
 // The free unit properties of the last Build of the active project (the map view reads them, and does not read the
@@ -263,7 +109,7 @@ bool remakeMakesUnit(const Unit& u) {
         if (it == units.end()) return !EudProject::remakeKeeps(u, u.type < types.size() && types[u.type].is(UnitFlag::Building));
         in = &*it;
     }
-    if (gRemakeFreePropertiesFor != pr) gRemakeFreeProperties = freeUnitProperties(*pr), gRemakeFreePropertiesFor = pr;
+    if (gRemakeFreePropertiesFor != pr) gRemakeFreeProperties = stardraft::freeUnitProperties(*pr, *app.ed), gRemakeFreePropertiesFor = pr;
     if (forEd != app.ed.get() || forProject != pr || forRevision != app.ed->revision() || forEdits != dataState().edits ||
         forFree != gRemakeFreeProperties || made.size() != units.size()) {
         forEd = app.ed.get(), forProject = pr, forRevision = app.ed->revision(), forFree = gRemakeFreeProperties;
@@ -274,51 +120,6 @@ bool remakeMakesUnit(const Unit& u) {
     }
     return made[size_t(in - units.data())];
 }
-
-// generated/remake.eps, or none when the option is off. `leaveOut` gets the UNIT indexes of the units that the code
-// makes (the map that euddraft gets leaves them out: writeBuildMap). `notes` gets how many units the code makes, how
-// many keep the old graphics and why, and how many stand where the game cannot put them.
-bool writeRemakeCode(EudProject& pr, std::string& err, std::vector<std::wstring>& notes, std::vector<size_t>& leaveOut) {
-    AppState& app = appState();
-    leaveOut.clear();
-    EudProject::RemakePlan plan;
-    if (pr.remakeUnits() && app.ed) {
-        const auto& types = app.ed->unitTypes();
-        const auto& units = app.ed->units();
-        gRemakeFreeProperties = freeUnitProperties(pr), gRemakeFreePropertiesFor = &pr;
-        plan = EudProject::planRemake(units, types, remakeUnitTypes(), gRemakeFreeProperties, app.ed->width(), app.ed->height());
-        leaveOut = plan.made;
-        // The game puts a unit only where it fits: a ground unit on walkable ground (a building on buildable ground), and
-        // not on other ground units. Air units can be on top of each other.
-        PlacementContext ctx = app.ed->placementContext();
-        ctx.stacking = false;
-        int blocked = 0;
-        for (size_t i : plan.made) {
-            const Unit& u = units[i];
-            const UnitType& ut = types[u.type];
-            if (ut.is(UnitFlag::Flyer) && !ut.is(UnitFlag::Building)) continue;
-            const auto issues = checkPlacement(ctx, u, int(i));
-            blocked += std::any_of(issues.begin(), issues.end(), [](PlacementIssue p) { return p != PlacementIssue::NearResources; });
-        }
-        const int count = int(plan.made.size());
-        if (count)
-            notes.push_back(tr(L"New graphics for preplaced units: ") + std::to_wstring(count) + tr(count == 1 ? L" unit is" : L" units are") +
-                            tr(L" made at the start from the map's data"));
-        auto kept = [&](int n, const wchar_t* why) {
-            if (n) notes.push_back(std::to_wstring(n) + tr(n == 1 ? L" preplaced unit keeps" : L" preplaced units keep") + tr(why));
-        };
-        kept(plan.loaded, L" the old graphics: a unit in a transport stays in the map.");
-        kept(plan.linked, L" the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.");
-        kept(plan.noProperty, L" the old graphics: the map has no free unit property (of 64) for their values.");
-        kept(plan.codeUnit, L" the old graphics: Create Unit cannot make a unit of a type above 227 reliably.");
-        kept(plan.edge, L" the old graphics: a unit on or past the map's edge stays in the map (Create Unit moves it or does not make it).");
-        if (blocked)
-            notes.push_back(std::to_wstring(blocked) + tr(blocked == 1 ? L" of the units that the map makes stands" : L" of the units that the map makes stand") +
-                            tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it."));
-    }
-    return pr.writeRemakeCode(plan, err);
-}
-
 // --- The build -------------------------------------------------------------------------------------------------------
 
 // A line of the build's output that reports an error (euddraft's [Error], a Python traceback, "Error:").
@@ -358,6 +159,27 @@ void buildFinished(euddraft::BuildResult* r) {
     delete r;
 }
 
+// The remake code's notes for the Log: how many units the code makes, how many keep the old graphics and why, and how many
+// stand where the game cannot put them (the library's counts: stardraft::RemakeCounts).
+std::vector<std::wstring> remakeNotesOf(const stardraft::RemakeCounts& c) {
+    std::vector<std::wstring> notes;
+    if (c.made)
+        notes.push_back(tr(L"New graphics for preplaced units: ") + std::to_wstring(c.made) + tr(c.made == 1 ? L" unit is" : L" units are") +
+                        tr(L" made at the start from the map's data"));
+    auto kept = [&](int n, const wchar_t* why) {
+        if (n) notes.push_back(std::to_wstring(n) + tr(n == 1 ? L" preplaced unit keeps" : L" preplaced units keep") + tr(why));
+    };
+    kept(c.loaded, L" the old graphics: a unit in a transport stays in the map.");
+    kept(c.linked, L" the old graphics: a unit linked to an add-on or a Nydus Canal stays in the map.");
+    kept(c.noProperty, L" the old graphics: the map has no free unit property (of 64) for their values.");
+    kept(c.codeUnit, L" the old graphics: Create Unit cannot make a unit of a type above 227 reliably.");
+    kept(c.edge, L" the old graphics: a unit on or past the map's edge stays in the map (Create Unit moves it or does not make it).");
+    if (c.blocked)
+        notes.push_back(std::to_wstring(c.blocked) + tr(c.blocked == 1 ? L" of the units that the map makes stands" : L" of the units that the map makes stand") +
+                        tr(L" where the game cannot put a unit. The game puts it near its place, or does not make it."));
+    return notes;
+}
+
 // Build: save the map into the project, then run euddraft on a thread; its output streams into the Log.
 void compileProject() {
     AppState& app = appState();
@@ -390,39 +212,43 @@ void compileProject() {
         buildStatus(L"Did not build the map: " + widen(missing.front()) + L" is not found (see the Project page)");
         return;
     }
+    bool reread = false;
+    const stardraft::BuildOpen open = buildOpenFor(*pr, reread);
+    stardraft::BuildReport report;
     std::string err;
-    if (!writeTriggerCode(*pr, err)) {
+    const bool built = stardraft::prepareBuild(*pr, *app.ed, app.data, open, report, err);
+    if (report.codeGenerated) trigKeepCodeMap(*pr, report.triggerSet, report.triggerLines);  // (a euddraft error selects its block)
+    if (report.triggersFromFile && gTE.project == pr) {  // it did not load before and does now (repaired): the Triggers workspace takes it
+        gTE.set = report.triggerSet, gTE.sel.clear();
+        trigHistoryReset();
+        buildTriggersReloaded();
+    }
+    if (!built) {
+        if (report.failedStep == "dat") {
+            shellErrorBox(widen(err), L"Could not write the .dat edits");
+            return;
+        }
+        if (report.failedStep == "save") {
+            shellErrorBox(widen(err), L"Could not save the project's map");
+            return;
+        }
+        for (const std::string& m : report.triggerErrors) shellLogError(widen(m));  // the checker's problems, then the reason
         shellLogError(widen(err));
         buildStatus(L"Did not build the map: " + widen(err));
         return;
     }
-    std::vector<std::string> datNotes;  // logged as errors after the reset below
-    if (!writeDatEdits(*pr, err, &datNotes)) {
-        shellErrorBox(widen(err), L"Could not write the .dat edits");
-        return;
+    if (reread) {  // the repaired .dat files load now: the Data workspace takes them
+        const int tab = dataState().datTab, entry = dataState().entry;
+        dataState().project = nullptr, dataState().tables.clear();
+        buildDataReloaded(tab, entry);
     }
-    std::vector<std::wstring> remakeNotes;
-    std::vector<size_t> leaveOut;
-    if (!writeRemakeCode(*pr, err, remakeNotes, leaveOut)) {
-        shellLogError(widen(err));
-        buildStatus(L"Did not build the map: " + widen(err));
-        return;
-    }
-    if ((app.ed->modified() || app.ed->path() != pr->inputMap()) && !app.ed->save(pr->inputMap(), err)) {
-        shellErrorBox(widen(err), L"Could not save the project's map");
-        return;
-    }
-    // The map that euddraft gets: the project's map without the units that the remake code makes.
-    if (!pr->writeBuildMap(leaveOut, err)) {
-        shellLogError(widen(err));
-        buildStatus(L"Did not build the map: " + widen(err));
-        return;
-    }
+    if (report.remakeOn) gRemakeFreeProperties = report.freeProperties, gRemakeFreePropertiesFor = pr;
     updateTitle();
     shellLogNewBuild();  // a new build: the errors of the last one go (#85); the log keeps their lines
     shellLogLine(L"------------------------------------------------------------");  // (the log stays as it is: it opens by itself if the build fails)
-    for (const std::string& m : datNotes) shellLogError(widen(m));
-    for (const std::wstring& m : remakeNotes) shellLogLine(m);
+    for (const std::string& m : report.datNotes) shellLogError(widen(m));
+    if (report.remakeOn)
+        for (const std::wstring& m : remakeNotesOf(report.remake)) shellLogLine(m);
     buildLogAppend(L"Compiling " + pr->file().wstring());
     gTrigBuildError.clear();
     gBuilding = true;
@@ -436,7 +262,7 @@ void compileProject() {
                 if (gTrigBuildError.empty() && triggerErrorLine(line) > 0) gTrigBuildError = line;
             });
         };
-        auto* r = new euddraft::BuildResult(copy.compile({}, post));
+        auto* r = new euddraft::BuildResult(stardraft::compileBuild(copy, post));
         shellPost([r] { buildFinished(r); });
     }).detach();
 }
