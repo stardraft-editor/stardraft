@@ -19,7 +19,7 @@ for melee maps only; UMS maps have other rules.
 | `scripts/backing.py <map>` | The share of bases with a cliff, water or the map's edge behind the mineral line. |
 | `scripts/clutter.py <map>` | Small obstacles, tight ground, where the sprites are. |
 | `scripts/shapes.py` | Terrain shapes and helpers: `blob`, `worm`, `rect`, `fill`, `roughen`, `back`, `narrow_rects`, `open_doodads`. |
-| `examples/lagoon/` | A 1v1 Jungle map, 128x112: `terrain.py`, `build.py`, `bases.json`, pictures, `measure.txt`. |
+| `examples/lagoon/` | A 1v1 Jungle map, 128x112: `terrain.py`, `build.py`, `bases.json`, `measure.txt`. |
 | `examples/dusk/` | A 1v1 Twilight map, 112x128: the mains for a tileset whose ramps fit only lower edges. |
 
 The scripts find stardraft-cli in this checkout's `build/Release`, else `STARDRAFT_CLI`, else the PATH. They need
