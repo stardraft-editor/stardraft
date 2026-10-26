@@ -5,6 +5,8 @@
 // clipboard's and the CSV file's text. The view (views_data_table.inc) paints them; the program saves each change as one
 // undo step.
 
+bool dataTableViewOn() { return dataState().table; }
+
 enum class DataCellKind { Name, Number, Pick, Bool, Bit };
 
 struct DataTableColumn {

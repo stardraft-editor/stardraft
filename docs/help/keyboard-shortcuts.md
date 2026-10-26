@@ -69,7 +69,7 @@ middle button held pans it (Options > Middle mouse click and hold).
 
 | Key | What it does |
 |---|---|
-| Ctrl+E | The Table view of the open .dat file, or the entry's form again (View > Data table) |
+| Ctrl+E | The Table view of the open .dat file, or the entry's form again (View > Data > Entry view, Table view) |
 | Ctrl+click, Shift+click | In the entry list: select more entries. The Table view then shows only them |
 | Shift+Up, Shift+Down, Ctrl+A | In the entry list: select more entries, or all of them |
 
