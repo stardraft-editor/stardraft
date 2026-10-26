@@ -1661,6 +1661,9 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli project-apply <project> <ops>      add_script, link_script, remove_section, move_script, set_section,
                                                    set_plugin, set_flags, set_output (saved when all of them work)
   stardraft-cli project-build <project>            the Build: the generated files, the map, then euddraft (JSON result)
+  stardraft-cli project-triggers <project> [--path 2.0]  the EUD triggers (the blocks), or one node
+  stardraft-cli project-triggers-apply <project> <ops>   add_folder, add_trigger, add_variable, set_node, delete_node,
+                                                   move_node, add_block, set_block, delete_block (saved when all work)
   stardraft-cli project-data <project> [table | strings] [--entry n] [--index n]
                                                    the Data workspace: the tables, a table's fields or an entry's values
   stardraft-cli project-data-apply <project> <ops> set_field, reset_field, set_string, reset_string (all or none)
@@ -1680,6 +1683,7 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 
 #include "project.inc"
 #include "data.inc"
+#include "triggers.inc"
 
 // The options and the positional words of one command line (also of a serve request's "argv").
 static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
@@ -1716,6 +1720,8 @@ static Json execute(Session& s) {
     }
     if (c == "project-apply") return cmdProjectApply(s);
     if (c == "project-build") return cmdProjectBuild(s);
+    if (c == "project-triggers") return cmdProjectTriggers(s);
+    if (c == "project-triggers-apply") return cmdProjectTriggersApply(s);
     if (c == "project-data") return cmdProjectData(s);
     if (c == "project-data-apply") return cmdProjectDataApply(s);
     if (c == "campaign-new") return cmdCampaignNew(s.args);
