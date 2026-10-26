@@ -30,7 +30,9 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/dat_units.h"
 #include "stardraft/editor.h"
+#include "stardraft/campaign.h"
 #include "stardraft/eud_project.h"
+#include "stardraft/pathing_regions.h"
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
 #include "stardraft/map_file.h"
@@ -664,6 +666,7 @@ Editor::SelectShape selectShape(const Json& op) {
 
 #include "map_parts.inc"
 #include "map_more.inc"
+#include "tools.inc"
 
 // One operation; returns what it did (an object) or fails.
 Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai) {
@@ -1364,6 +1367,14 @@ Json cmdGet(Session& s) {
             o.add(p, a);
             continue;
         }
+        if (p == "pathing") {
+            o.add(p, pathingJson(ed));
+            continue;
+        }
+        if (p == "triggers" && s.args.has("find")) {  // the classic triggers that have the text
+            o.add(p, filterTriggers(getWhat(ed, p, step, false), s.args.get("find")));
+            continue;
+        }
         o.add(p, getWhat(ed, p, step, s.args.has("all")));
     }
     return o;
@@ -1696,6 +1707,9 @@ static Json execute(Session& s) {
     if (c == "project-apply") return cmdProjectApply(s);
     if (c == "project-data") return cmdProjectData(s);
     if (c == "project-data-apply") return cmdProjectDataApply(s);
+    if (c == "campaign-new") return cmdCampaignNew(s.args);
+    if (c == "campaign") return cmdCampaign(s.args);
+    if (c == "campaign-apply") return cmdCampaignApply(s.args);
     if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
     if (c == "open") return cmdOpen(s);
     if (c == "status") return cmdStatus(s);
