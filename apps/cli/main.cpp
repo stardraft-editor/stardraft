@@ -14,7 +14,9 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -25,6 +27,7 @@
 #include "stardraft/classic_settings.h"
 #include "stardraft/classic_triggers.h"
 #include "stardraft/dat_edit.h"
+#include "stardraft/dat_extras.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"
@@ -1621,6 +1624,9 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli project <project> [--section n]    the project's scripts, flags and sections (or one section's lines)
   stardraft-cli project-apply <project> <ops>      add_script, link_script, remove_section, move_script, set_section,
                                                    set_plugin, set_flags, set_output (saved when all of them work)
+  stardraft-cli project-data <project> [table | strings] [--entry n] [--index n]
+                                                   the Data workspace: the tables, a table's fields or an entry's values
+  stardraft-cli project-data-apply <project> <ops> set_field, reset_field, set_string, reset_string (all or none)
   stardraft-cli serve                       requests on stdin, one JSON line each: {"argv": [...], "ops": ...}
 
 Positions are map pixels (a tile is 32 px). Players are 1-12, forces 1-4, locations by their number.
@@ -1636,6 +1642,7 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 #endif
 
 #include "project.inc"
+#include "data.inc"
 
 // The options and the positional words of one command line (also of a serve request's "argv").
 static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
@@ -1671,6 +1678,8 @@ static Json execute(Session& s) {
         return cmdProject(s);
     }
     if (c == "project-apply") return cmdProjectApply(s);
+    if (c == "project-data") return cmdProjectData(s);
+    if (c == "project-data-apply") return cmdProjectDataApply(s);
     if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
     if (c == "open") return cmdOpen(s);
     if (c == "status") return cmdStatus(s);
