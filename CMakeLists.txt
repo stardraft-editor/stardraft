@@ -480,6 +480,25 @@ endif()
 if(NOT STARDRAFT_VERSION_NAME)
     set(STARDRAFT_VERSION_NAME "0.5 Alpha")
 endif()
+
+# stardraft-cli's version, commit and issues token (`stardraft-cli feedback` files an issue, as the editor's feedback),
+# its requests (http_win32.cpp, or http_curl.cpp: the curl program), and its skill: apps/cli/SKILL.md, which
+# `stardraft-cli skill` prints (generated/cli_skill.inc, made again when the file changes).
+file(READ ${CMAKE_SOURCE_DIR}/apps/cli/SKILL.md cliSkillHex HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," cliSkillHex "${cliSkillHex}")
+file(WRITE ${CMAKE_BINARY_DIR}/generated/cli_skill.inc.tmp "// Made by CMakeLists.txt from apps/cli/SKILL.md.\nstatic const unsigned char kCliSkill[] = {${cliSkillHex}};\n")
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/generated/cli_skill.inc.tmp
+                ${CMAKE_BINARY_DIR}/generated/cli_skill.inc)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/cli/SKILL.md)
+target_compile_definitions(stardraft_cli PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+target_include_directories(stardraft_cli PRIVATE ${CMAKE_BINARY_DIR}/generated)
+add_dependencies(stardraft_cli stardraft_build_info)
+if(WIN32)
+    target_sources(stardraft_cli PRIVATE apps/common/http_win32.cpp)
+    target_link_libraries(stardraft_cli PRIVATE winhttp)
+else()
+    target_sources(stardraft_cli PRIVATE apps/common/http_curl.cpp)
+endif()
 # A Windows program's version resource (Explorer: Properties > Details): apps/editor/res/version.rc.in, with the
 # numbers of the version name ("0.5 Alpha" is 0.5.0.0, "0.5.0.1" is 0.5.0.1).
 function(stardraft_version_rc target fileName description)
