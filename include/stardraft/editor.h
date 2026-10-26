@@ -266,6 +266,9 @@ public:
     // Spray `count` units of the given types (random pick) within `radius` px of (x, y); only spots
     // that pass checkPlacement are used. Honors symmetry. Returns units placed. One undo step.
     int sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x, int y, int radius, int count, uint32_t seed);
+    // Spray `count` sprites of the given kinds (random pick) at random points within `radius` px of (x, y), each point
+    // snapped to a grid of `grid` px (snapToCell). Only spots where the sprite can go are used. Returns sprites placed.
+    int spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid);
 
     // --- Selection ------------------------------------------------------------------------------
     const std::vector<int>& selection() const { return selection_; }
@@ -571,6 +574,11 @@ public:
     bool moveClassicTrigger(int from, int to);
     // The map's switch names (SWNM; "" for a switch without one) and sound files (the WAV list: string ids).
     std::string switchName(int index) const;
+    // Sets a switch's name (1-256 by index 0-255; "" takes it away). One undo step; false (nothing changed) when the
+    // name is the same.
+    bool setSwitchName(int index, const std::string& text);
+    // One text of the map string table (id 1 and up; `get strings`). One undo step; false when nothing changed.
+    bool setMapString(uint32_t id, const std::string& text);
     std::vector<uint32_t> soundStrings() const;
 
     // --- Undo -----------------------------------------------------------------------------------

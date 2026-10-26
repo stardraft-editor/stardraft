@@ -477,9 +477,12 @@ Json unitSettingsJson(const Editor& ed, bool all);
 Json upgradeSettingsJson(const Editor& ed, bool all);
 Json techSettingsJson(const Editor& ed, bool all);
 std::string entryLabel(const std::string& dat, int i);
+Json moreGet(const Editor& ed, const std::string& what, bool& known);  // (map_more.inc)
 
 Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
     if (what == "summary") return summary(ed);
+    bool more = false;
+    if (Json j = moreGet(ed, what, more); more) return j;
     Json a = jarr();
     if (what == "units") {
         for (size_t i = 0; i < ed.units().size(); ++i) {
@@ -655,11 +658,13 @@ Editor::SelectShape selectShape(const Json& op) {
 }
 
 #include "map_parts.inc"
+#include "map_more.inc"
 
 // One operation; returns what it did (an object) or fails.
 Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai) {
     const std::string name = op.str("op");
     if (std::optional<Json> done = applyMapPartOp(ed, name, op, ai)) return *done;
+    if (std::optional<Json> done = applyMoreOp(ed, name, op)) return *done;
     Obj r;
     if (name == "place_unit") {
         const uint16_t type = unitTypeId(ed, need(op, "type"), "type");
@@ -1372,6 +1377,20 @@ Json cmdApply(Session& s) {
     if (opt) {
         ed.setAllowIllegalUnits(opt->boolean("units_anywhere", false));
         ed.setAllowStacking(opt->boolean("stacking", false));
+        ed.setResourceDistance(opt->boolean("resource_distance", true));
+        // The symmetry of the edits (the editor's Symmetry tool): mirrors, and turns (1: none, 2: a half turn...).
+        int mirrors = 0;
+        if (const Json* m = opt->get("mirrors"))
+            for (const Json& v : m->items) {
+                const std::string n = lower(v.s);
+                if (n == "left_right") mirrors |= Mirror::LeftRight;
+                else if (n == "top_bottom") mirrors |= Mirror::TopBottom;
+                else if (n == "diagonal") mirrors |= Mirror::Diagonal;
+                else if (n == "anti_diagonal") mirrors |= Mirror::AntiDiagonal;
+                else fail("options.mirrors: left_right, top_bottom, diagonal or anti_diagonal");
+            }
+        ed.setMirrors(mirrors);
+        ed.setTurns(opt->integer("turns", 1));
     }
     const Bytes before = ed.chk().serialize();
     std::vector<ClassicAiScript> ai;  // (only trigger operations need them)
@@ -1554,7 +1573,23 @@ const char* kOps = R"OPS([
   {"op": "set_unit_settings", "params": {"unit": "type", "hit_points": "number", "shields": "number", "armor": "number", "build_time": "frames", "minerals": "number", "gas": "number", "name": "text (the unit's name in this map)", "use_default": "bool", "available": "bool (for all players)", "players": "{\"1\": true|false|null (null: the default), ...}"}},
   {"op": "set_upgrade_settings", "params": {"upgrade": "id or name", "minerals": "", "minerals_per_level": "", "gas": "", "gas_per_level": "", "time": "frames", "time_per_level": "", "use_default": "bool", "max_level": "number", "start_level": "number", "players": "{\"1\": {max_level, start_level} | null}"}},
   {"op": "set_tech_settings", "params": {"tech": "id or name", "minerals": "", "gas": "", "time": "frames", "energy": "", "use_default": "bool", "available": "bool", "researched": "bool", "players": "{\"1\": {available, researched} | null}"}},
-  {"op": "resize_map", "params": {"width": "tiles", "height": "tiles", "tileset": "badlands | platform | install | ashworld | jungle | desert | ice | twilight", "shift_x": "tiles", "shift_y": "tiles", "fill": "terrain for new ground"}}
+  {"op": "resize_map", "params": {"width": "tiles", "height": "tiles", "tileset": "badlands | platform | install | ashworld | jungle | desert | ice | twilight", "shift_x": "tiles", "shift_y": "tiles", "fill": "terrain for new ground"}},
+  {"op": "set_switch_name", "params": {"switch": "1-256", "name": "text (\"\" takes the name away)"}, "result": {"changed": "bool"}},
+  {"op": "set_string", "params": {"string": "id (get strings)", "text": "text"}, "result": {"changed": "bool"}},
+  {"op": "add_sound", "params": {"path": "sound\\x.wav: a game sound the map plays by its path"}, "result": {"added": "bool (false: a file of the map with that name, or it is listed)"}},
+  {"op": "remove_sound", "params": {"path": "as add_sound"}, "result": {"removed": "bool"}},
+  {"op": "decorate", "params": {"level": "few | some | many (default some), or spacing: tiles between the doodads", "doodads": "[doodad id] (default: the palette's doodads that take tiles)", "area": "[left, top, right, bottom] px (default: the map)", "seed": "number"}, "result": {"placed": "number"}},
+  {"op": "spray_units", "params": {"types": "[unit type]", "player": "1-12", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number"}, "result": {"placed": "number"}},
+  {"op": "spray_doodads", "params": {"doodads": "[doodad id]", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number", "check_terrain": "bool, default true"}, "result": {"placed": "number"}},
+  {"op": "spray_sprites", "params": {"sprites": "[sprites.dat id]", "player": "1-12", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number", "grid": "px snap of each sprite, 0: none"}, "result": {"placed": "number"}},
+  {"op": "spray_terrain", "params": {"terrain": "id or name", "x": "px", "y": "px", "brush": "as paint_terrain", "dabs": "number, default 1", "seed": "number"}},
+  {"op": "reroll_terrain", "params": {"x": "px", "y": "px", "brush": "as paint_terrain", "seed": "number"}, "result": {"changed": "number"}},
+  {"op": "replace_doodads", "params": {"doodads": "[index]", "to": "doodad id", "check_terrain": "bool, default true"}, "result": {"replaced": "number"}},
+  {"op": "replace_sprites", "params": {"sprites": "[index]", "to": "sprites.dat id"}, "result": {"replaced": "number"}},
+  {"op": "place_map_revealers", "params": {"players": "[1-8]", "spacing": "tiles between the revealers, default 8"}, "result": {"placed": "number"}},
+  {"op": "remove_map_revealers", "result": {"removed": "number"}},
+  {"op": "place_start_locations", "result": {"placed": "number: the start locations that StarCraft needs and the map lacks"}},
+  {"op": "link_units", "params": {"units": "[serial, serial]: two add-ons or a nydus pair"}}
 ])OPS";
 
 const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps without a window.
@@ -1566,7 +1601,8 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli get <map> [part...]         JSON: summary (default), units, doodads, sprites, locations, players,
                                             forces, terrain [--step px], terrains, unit-types, doodad-types,
                                             triggers, briefings, files, unit-settings, upgrade-settings,
-                                            tech-settings ([--all]: also those that use the game's values)
+                                            tech-settings ([--all]: also those that use the game's values),
+                                            switches, strings, sounds
   stardraft-cli apply <map> <ops>           apply operations (a file, - for stdin, or JSON text) as one undo step
                     [--expect <change>] [--dry-run] [--label <text>]
   stardraft-cli undo <map> [--steps n]      go back one step (or n)
@@ -1580,6 +1616,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
   stardraft-cli trigger-types               the trigger conditions and actions, with their parameters
+  stardraft-cli serve                       requests on stdin, one JSON line each: {"argv": [...], "ops": ...}
 
 Positions are map pixels (a tile is 32 px). Players are 1-12, forces 1-4, locations by their number.
 <map> is the map file, or its working folder. After `open`, get, apply and render work on the working copy.
@@ -1593,70 +1630,112 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 #include "simulate.inc"  // simulate-mining, simulate-combat (experimental)
 #endif
 
-static int run(std::vector<std::string> argv) {
-    Session s;
+// The options and the positional words of one command line (also of a serve request's "argv").
+static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
     for (size_t i = 1; i < argv.size(); ++i) {
         const std::string& a = argv[i];
         if (a.size() > 1 && a[0] == '-' && a != "-") {
             std::string name = a.substr(a[1] == '-' ? 2 : 1);
             if (const size_t eq = name.find('='); eq != std::string::npos) {
-                s.args.options[name.substr(0, eq)] = name.substr(eq + 1);
+                args.options[name.substr(0, eq)] = name.substr(eq + 1);
             } else if (isFlag(name)) {
-                s.args.options[name] = "";
+                args.options[name] = "";
             } else {
-                if (i + 1 >= argv.size()) {
-                    std::printf("%s\n", jsonText(Obj().add("ok", false).add("error", "--" + name + " needs a value")).c_str());
-                    return 2;
-                }
-                s.args.options[name] = argv[++i];
+                if (i + 1 >= argv.size()) fail("--" + name + " needs a value");
+                args.options[name] = argv[++i];
             }
-        } else if (s.args.command.empty()) {
-            s.args.command = a;
+        } else if (args.command.empty()) {
+            args.command = a;
         } else {
-            s.args.positional.push_back(a);
+            args.positional.push_back(a);
         }
+    }
+}
+
+// One command with its arguments in s.args: the JSON object it writes (throws CliError on an error).
+static Json execute(Session& s) {
+    const std::string& c = s.args.command;
+    s.timer.on = s.args.has("timing");
+    if (c == "ops") return Obj().add("ops", parseJson(kOps, "the operation list"));
+    if (c == "trigger-types") return triggerTypesJson();
+    if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
+    if (c == "open") return cmdOpen(s);
+    if (c == "status") return cmdStatus(s);
+    if (c == "new") return cmdNew(s);
+    if (c == "add-file") return cmdAddFile(s);
+    if (c == "import") return cmdImport(s);
+    if (c == "get") return cmdGet(s);
+    if (c == "apply") return cmdApply(s);
+    if (c == "undo") return cmdUndoRedo(s, true);
+    if (c == "redo") return cmdUndoRedo(s, false);
+    if (c == "save") return cmdSave(s);
+    if (c == "close") return cmdClose(s);
+    if (c == "render") return cmdRender(s);
+#ifdef STARDRAFT_SIMULATION
+    if (c == "simulate-mining") return cmdSimulateMining(s);
+    if (c == "simulate-combat") return cmdSimulateCombat(s);
+#endif
+    fail("unknown command \"" + c + "\" (stardraft-cli help)");
+}
+
+// The answer of a command: {"ok": true, ...} with the fields of its result.
+static Json answer(const Json& result) {
+    Obj out;
+    out.add("ok", true);
+    for (auto& f : result.fields) out.add(f.first, f.second);
+    return out;
+}
+static Json failure(const std::string& error) { return Obj().add("ok", false).add("error", error); }
+
+// serve: one JSON request per line on stdin, one JSON answer per line on stdout (docs/dev/CLI.md). A request is
+// {"argv": ["apply", "<map>"], "ops": <the operations, for apply>}: the command and its words as on the command line.
+// The game data stays open between the requests.
+static int serve(Session& s) {
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        if (line.find_first_not_of(" \t\r") == std::string::npos) continue;
+        Json out;
+        try {
+            const Json req = parseJson(line, "the request");
+            const Json* words = req.get("argv");
+            if (!words || words->type != Json::Type::Array || words->items.empty()) fail("a request needs \"argv\": [command, ...]");
+            std::vector<std::string> argv{"stardraft-cli"};
+            for (const Json& w : words->items) argv.push_back(w.s);
+            s.args = Args{};
+            parseCommandLine(argv, s.args);
+            if (s.args.command == "serve" || s.args.command == "help") fail("\"" + s.args.command + "\" is not a request");
+            if (const Json* ops = req.get("ops")) s.args.positional.push_back(jsonText(*ops));
+            out = answer(execute(s));
+        } catch (const std::exception& e) {
+            out = failure(e.what());
+        }
+        std::printf("%s\n", jsonText(out).c_str());
+        std::fflush(stdout);
+    }
+    return 0;
+}
+
+static int run(std::vector<std::string> argv) {
+    Session s;
+    try {
+        parseCommandLine(argv, s.args);
+    } catch (const std::exception& e) {
+        std::printf("%s\n", jsonText(failure(e.what())).c_str());
+        return 2;
     }
     const std::string& c = s.args.command;
     if (c.empty() || c == "help" || s.args.has("help")) {
         std::fputs(kUsage, stdout);
         return c.empty() ? 2 : 0;
     }
-    s.timer.on = s.args.has("timing");
-    Json result;
+    if (c == "serve") return serve(s);
     try {
-        if (c == "ops") {
-            result = Obj().add("ops", parseJson(kOps, "the operation list"));
-        } else if (c == "trigger-types") {
-            result = triggerTypesJson();
-        } else {
-            if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
-            if (c == "open") result = cmdOpen(s);
-            else if (c == "status") result = cmdStatus(s);
-            else if (c == "new") result = cmdNew(s);
-            else if (c == "add-file") result = cmdAddFile(s);
-            else if (c == "import") result = cmdImport(s);
-            else if (c == "get") result = cmdGet(s);
-            else if (c == "apply") result = cmdApply(s);
-            else if (c == "undo") result = cmdUndoRedo(s, true);
-            else if (c == "redo") result = cmdUndoRedo(s, false);
-            else if (c == "save") result = cmdSave(s);
-            else if (c == "close") result = cmdClose(s);
-            else if (c == "render") result = cmdRender(s);
-#ifdef STARDRAFT_SIMULATION
-            else if (c == "simulate-mining") result = cmdSimulateMining(s);
-            else if (c == "simulate-combat") result = cmdSimulateCombat(s);
-#endif
-            else fail("unknown command \"" + c + "\" (stardraft-cli help)");
-        }
+        std::printf("%s\n", jsonText(answer(execute(s))).c_str());
+        return 0;
     } catch (const std::exception& e) {
-        std::printf("%s\n", jsonText(Obj().add("ok", false).add("error", e.what())).c_str());
+        std::printf("%s\n", jsonText(failure(e.what())).c_str());
         return 1;
     }
-    Obj out;
-    out.add("ok", true);
-    for (auto& f : result.fields) out.add(f.first, f.second);
-    std::printf("%s\n", jsonText(out).c_str());
-    return 0;
 }
 
 #ifdef _WIN32

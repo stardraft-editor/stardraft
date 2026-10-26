@@ -1973,6 +1973,20 @@ int Editor::replaceUnits(uint16_t from, uint16_t to, bool selectionOnly) {
     return int(targets.size());
 }
 
+int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid) {
+    if (ids.empty() || count <= 0) return 0;
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<float> unit(0.0f, 1.0f);
+    const float r = float(radius);
+    int n = 0;
+    for (int k = 0; k < count; ++k) {
+        const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
+        const uint16_t id = ids[size_t(rng() % ids.size())];
+        n += placeSprite(id, int(snapToCell(x + d * std::cos(a), grid)), int(snapToCell(y + d * std::sin(a), grid)), owner);
+    }
+    return n;
+}
+
 int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x, int y, int radius, int count, uint32_t seed) {
     if (types.empty() || count <= 0) return 0;
     std::mt19937 rng(seed);
@@ -3104,6 +3118,36 @@ std::string Editor::switchName(int index) const {
     if (index < 0 || at + 4 > b.size()) return {};
     const uint32_t id = uint32_t(b[at] | b[at + 1] << 8 | b[at + 2] << 16 | uint32_t(b[at + 3]) << 24);
     return strings_.get(id);
+}
+
+bool Editor::setSwitchName(int index, const std::string& text) {
+    if (index < 0 || index >= 256 || switchName(index) == text) return false;
+    Bytes names = chk_.effective("SWNM");
+    names.resize(256 * 4, 0);
+    const size_t at = size_t(index) * 4;
+    beginEdit();
+    uint32_t id = uint32_t(names[at] | names[at + 1] << 8 | names[at + 2] << 16 | uint32_t(names[at + 3]) << 24);
+    if (text.empty()) {
+        id = 0;
+    } else if (id && id <= strings_.size()) {
+        strings_.set(id, text);  // (the name's own string, as the unit names are kept: setUnitSettings)
+    } else {
+        id = strings_.add(text);
+    }
+    for (int b = 0; b < 4; ++b) names[at + size_t(b)] = uint8_t(id >> (8 * b));
+    strings_.write(chk_);
+    chk_.set("SWNM", std::move(names));
+    commit(false);
+    return true;
+}
+
+bool Editor::setMapString(uint32_t id, const std::string& text) {
+    if (id < 1 || id > strings_.size() || strings_.get(id) == text) return false;
+    beginEdit();
+    strings_.set(id, text);
+    strings_.write(chk_);
+    commit(false);
+    return true;
 }
 
 std::vector<uint32_t> Editor::soundStrings() const {
