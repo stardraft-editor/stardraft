@@ -28,6 +28,7 @@
 #include "stardraft/classic_triggers.h"
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
+#include "stardraft/dat_units.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"

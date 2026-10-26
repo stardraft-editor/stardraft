@@ -184,6 +184,10 @@ fields (their size, their entries, their names when they are a choice, their ref
 --entry 0` gives an entry's values. `project-data <p> strings [--index n]` gives the stat_txt strings (the changed ones,
 or one).
 
+A value that the Data form shows in another unit has a `shown` text as well: hit points show in whole hit points (40 for
+the Marine, with decimals), as the editor does (`datShownScale` in `include/stardraft/dat_units.h`). A number given to
+`set_field` is in the shown unit; `"raw": true` takes the stored value (units.dat keeps 1/256 hit point).
+
 `project-data-apply <p> <ops>` takes `set_field` (`table`, `entry`, `field`, `value`: a number, or a choice's name),
 `reset_field` (`table`, `entry`, `field`), `set_string` (`index`, `text`) and `reset_string` (`index`). A value out of
 range, a bad name or a bad entry stops the command: nothing is saved. The files are the ones the editor reads

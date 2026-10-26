@@ -15,7 +15,7 @@ DataEntryRead dataReadEntry(const std::wstring& text, uint32_t maxValue, uint32_
         wchar_t* end = nullptr;
         const double d = std::wcstod(text.c_str(), &end);
         if (!end || *end != 0 || d < 0) return DataEntryRead::NotNumber;
-        value = uint32_t(std::min<double>(std::round(d * scale), maxValue));
+        value = stardraft::datRawFromShown(d, scale, maxValue);
         return DataEntryRead::Number;
     }
     wchar_t* end = nullptr;
