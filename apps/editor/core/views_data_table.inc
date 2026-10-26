@@ -27,6 +27,9 @@ public:
     virtual void exportCsv() = 0;
     virtual void status(const std::wstring& text) = 0;
     virtual bool travel(int button) = 0;               // the mouse's back (1) and forward (2) buttons
+    // The game text pop-out under `box` (the view's coordinates): the text with its colors (the palette's swatches, Preview
+    // and Raw). True with the new text.
+    virtual bool editGameText(draw::Rect box, const std::wstring& title, std::string& text) = 0;
     // A menu at `pt` (the view's coordinates); a pick runs `pick` with the item's id.
     virtual void menu(draw::Point pt, const MenuModel& items, std::function<void(int)> pick) = 0;
     // The multi-pick list under `pt`: `checked` in, the checks out; false when it was canceled.
@@ -58,11 +61,11 @@ public:
 
     // The metrics (scaled).
     static int barH() { return scale(44); }   // the bar at the top: the title, Import CSV, Export CSV
-    static int groupH() { return scale(20); }  // the headers' first row: the section (a flag's field)
-    static int headH() { return scale(26); }   // the headers' second row: the column's name
+    static int groupH() { return scale(24); }  // the headers' first row: the section (a flag's field)
+    static int headH() { return scale(28); }   // the headers' second row: the column's name
     static int rowH() { return scale(26); }
     static int idW() { return scale(52); }
-    static int footH() { return scale(26); }  // the status bar at the bottom: the active cell's raw value, the selection's sums
+    static int footH() { return scale(28); }  // the status bar at the bottom: the active cell's raw value, the selection's sums
 
     // The table's place in the view: under the bar and the headers, left of the vertical bar, over the horizontal bar.
     draw::Rect body() const {
@@ -154,6 +157,7 @@ private:
     void resetSelected();
     void fillDown();
     void openPick(int r, int c, const std::wstring& search = L"");
+    void editName(const std::string& start);  // a name or a string: the game text pop-out, with its colors
     void sortBy(int c, bool down);  // c < 0: the list's order again
     int dropIndex(int x) const;      // the column a moved column goes before, for the mouse at x
     void moveColumns(const std::vector<int>& cols, int before);
@@ -486,7 +490,7 @@ inline void DataTableView::paint(draw::Canvas& c) {
 
     // The headers: the groups (a section, a flag's field) over the column names; a selected column's name is lit.
     c.fill({0, barH(), b.right, b.top}, kPanel);
-    const draw::Font headFont = c.font(kitpaint::smallFontDesc());
+    const draw::Font headFont = uiFont;  // (the headers in the cells' size: one size in the whole table)
     for (int pass = 0; pass < 2; ++pass) {  // (the columns that scroll, then the frozen one over them)
         for (size_t k = pass ? 0 : 1; pass ? k < std::min<size_t>(1, cols_.size()) : k < cols_.size(); ++k) {
             const int x = colLeft(k), cw = colW(k);
@@ -796,6 +800,11 @@ inline void DataTableView::beginEdit(const std::wstring& start, bool selectAll) 
         if (const std::wstring why = dataCellLocked(*t, col, rows_[size_t(sel_.row)]); !why.empty()) return host_.status(why);
     }
     reveal(sel_.row, sel_.col);
+    if (col.kind == DataCellKind::Name) {  // (a game text: the pop-out with the colors; a typed letter starts a new text)
+        const int sid = dataNameString(dat_, rows_[size_t(sel_.row)]);
+        if (!sid) return host_.status(dataCellLocked(*t, col, rows_[size_t(sel_.row)]));
+        return editName(selectAll ? dataExtras().strings.text(sid - 1) : narrow(start));
+    }
     editing_ = true;
     const bool name = col.kind == DataCellKind::Name;
     entry_.field().setAlignRight(col.kind == DataCellKind::Number);
@@ -1136,7 +1145,7 @@ inline void DataTableView::paintFoot(draw::Canvas& c, const DatTable& t) {
             right += L"     Sum " + num(sum) + L"  \x00B7  Average " + num(sum / nums) + L"  \x00B7  Lowest " + num(lo) + L"  \x00B7  Highest " + num(hi);
         if (boxes) right += L"     " + std::to_wstring(on) + L" of " + std::to_wstring(boxes) + L" checked";
     }
-    const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+    const draw::Font of = c.setFont(c.font({draw::Face::Ui}));
     const int rw = right.empty() ? 0 : std::min(w / 2, c.measure(right) + scale(12));
     c.text({scale(12), top, w - rw - scale(16), h}, left, kDim, draw::kMiddle | draw::kEllipsis);
     if (rw) c.text({w - rw - scale(12), top, w - scale(12), h}, right, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
@@ -1203,5 +1212,30 @@ inline void DataTableView::moveColumns(const std::vector<int>& cols, int before)
     sel_.ranges = {{0, at, std::max(0, int(rows_.size()) - 1), at + int(moved.size()) - 1}};
     sel_.row = 0, sel_.col = sel_.anchorCol = at, sel_.anchorRow = 0;
     host_.status(moved.size() == 1 ? L"Moved the column" : L"Moved " + std::to_wstring(moved.size()) + L" columns");
+    invalidate();
+}
+
+// A name (a unit's) or a string: the game text pop-out under the active cell, with the palette's colors, Preview and
+// Raw. Its text goes into each selected cell of that kind; one undo step.
+inline void DataTableView::editName(const std::string& start) {
+    DatTable* t = host_.table();
+    if (!t) return;
+    std::string text = start;
+    const std::wstring title = dat_ == "strings" ? L"String " + std::to_wstring(rows_[size_t(sel_.row)]) : L"Name in the game";
+    if (!host_.editGameText(cellRect(sel_.row, sel_.col), title, text)) return;
+    int changed = 0, locked = 0;
+    for (const auto& [r, c] : sel_.cells()) {
+        if (cols_[size_t(c)].kind != DataCellKind::Name) continue;
+        const int sid = dataNameString(dat_, rows_[size_t(r)]);
+        if (!sid) {
+            ++locked;
+            continue;
+        }
+        if (dataExtras().strings.text(sid - 1) == text) continue;
+        dataExtras().strings.set(sid - 1, text);
+        ++changed;
+    }
+    report(L"Set", changed, 0, locked);
+    focus();
     invalidate();
 }

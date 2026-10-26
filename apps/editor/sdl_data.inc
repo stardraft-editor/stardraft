@@ -669,6 +669,9 @@ public:
     void status(const std::wstring& text) override { setMessage(text); }
     bool travel(int button) override { return sdlDataTravel(button == 1), true; }
     void menu(draw::Point pt, const MenuModel& items, std::function<void(int)> pick) override;
+    bool editGameText(draw::Rect box, const std::wstring& title, std::string& text) override {
+        return shellEditGameText(gSdlDataTable, box, title, text);
+    }
     bool pickMany(const std::wstring& title, std::vector<ListPickItem> items, std::set<std::string>& checked, draw::Point pt) override {
         ListPickView v(title, std::move(items), "");
         v.setMulti(checked, shellTr(L"Show"));
@@ -764,16 +767,11 @@ void SdlDataWorkspaceHost::setViewKind(int k) {
                        : shellTr(L"Opened the entry's form"));
     sdlDataRepaint();
 }
-// View > Data table (Ctrl+E): the Data workspace with its Table view; in it, the entry's form again.
-void sdlDataTableCommand() {
-    if (gWorkspace != Workspace::Data) {
-        setWorkspace(Workspace::Data);
-        if (!sdlDataTableTab(gSdlDataState.datTab)) sdlDataShowTab(0);
-        gSdlDataWorkspaceHost.setViewKind(1);
-        return;
-    }
+// View > Data > Entry view and Table view; Ctrl+E (view -1): the other one. Only in the Data workspace.
+void sdlDataTableCommand(int view) {
+    if (gWorkspace != Workspace::Data) return;  // (the menu grays it outside the Data workspace)
     if (!sdlDataTableTab(gSdlDataState.datTab)) return setMessage(shellTr(L"The Table view shows the .dat tabs and Strings"));
-    gSdlDataWorkspaceHost.setViewKind(gSdlDataState.table ? 0 : 1);
+    gSdlDataWorkspaceHost.setViewKind(view >= 0 ? view : gSdlDataState.table ? 0 : 1);
 }
 // The list's selection changed: the table's rows follow; the status says how many are selected.
 void sdlDataPicksChanged() {

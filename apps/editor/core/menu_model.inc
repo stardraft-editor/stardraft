@@ -171,8 +171,12 @@ MenuModel buildMenuModel() {
     }
     menuCommand(view, "view.unitsList");  // (the Units mode's side bar: the list of the units; Discord feedback #126)
     view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+L"));
-    view.push_back(menuItem(ID_VIEW_TRIGCODE, L"Trigger &code pane"));
-    view.push_back(menuItem(ID_DATA_TABLE, L"Data &table", L"Ctrl+E"));  // (the Data workspace: Entry | Table)
+    {  // each workspace's own views, in a submenu with its name (gray outside it)
+        MenuModel data{menuItem(ID_DATA_ENTRY, L"&Entry view"), menuItem(ID_DATA_TABLE, L"&Table view", L"Ctrl+E")};
+        view.push_back(menuPopup(L"&Data", data));
+        MenuModel triggers{menuItem(ID_VIEW_TRIGCODE, L"Trigger &code pane")};
+        view.push_back(menuPopup(L"T&riggers", triggers));
+    }
 #ifndef NDEBUG  // the control kit is for developers: only in debug builds (the kit: datashot opens it in any build)
     view.push_back(menuItem(ID_VIEW_KIT, L"Control &kit"));
 #endif
