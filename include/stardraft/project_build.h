@@ -46,7 +46,7 @@ struct BuildReport {
     std::string failedStep;                     // "triggers", "dat", "remake", "save" or "map" when prepareBuild failed
     std::vector<std::string> triggerErrors;     // "Trigger \"name\": message" for each error of the checker
     bool codeGenerated = false;                 // the triggers' code was made: triggerSet and triggerLines are set
-    TriggerSet triggerSet;                      // the triggers the code is made from
+    TriggerSet triggerSet;                      // the triggers the code is made from (triggerLines point into its nodes: keep the report where it is)
     std::vector<TriggerCodeLine> triggerLines;  // the generated code's lines and their blocks (the trigger code map)
     bool triggersFromFile = false;              // the triggers were read from triggers.json
     std::vector<std::string> datNotes;          // sounds of sfxdata.dat that the build does not apply

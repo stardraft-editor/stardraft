@@ -70,6 +70,31 @@ uint32_t namedValue(const Json& v, const char* what, size_t count, Named name) {
         if (lower(name(i)) == lower(v.s)) return uint32_t(i);
     fail(std::string(what) + ": no \"" + v.s + "\"");
 }
+// The index of a named value: its name, or a number that is in range (a number is never a name's index unless in range).
+template <class Named>
+int indexOf(const Json& v, const char* what, size_t count, Named name) {
+    if (v.type == Json::Type::Number) {
+        if (v.n < 0 || v.n >= double(count) || v.n != std::floor(v.n)) fail(std::string(what) + ": " + std::to_string(v.n) + " is not in 0-" + std::to_string(count - 1));
+        return int(v.n);
+    }
+    for (size_t i = 0; i < count; ++i)
+        if (lower(name(i)) == lower(v.s)) return int(i);
+    fail(std::string(what) + ": no \"" + v.s + "\"");
+}
+// A whole number of an op's field, in 0 to count - 1.
+int numIn(const Json& op, const char* k, int count) {
+    const double v = num(op, k);
+    if (v < 0 || v >= double(count) || v != std::floor(v)) fail(std::string("\"") + k + "\" must be 0-" + std::to_string(count - 1));
+    return int(v);
+}
+// A whole number of a command's option (--set n, --entry n), in 0 to count - 1.
+int optIn(const Session& s, const char* k, int count) {
+    const std::string text = s.args.get(k);
+    char* end = nullptr;
+    const long v = std::strtol(text.c_str(), &end, 10);
+    if (text.empty() || *end || v < 0 || v >= count) fail(std::string("--") + k + " must be 0-" + std::to_string(count - 1));
+    return int(v);
+}
 int optInt(const Json& j, const char* k, int def) {
     const Json* v = j.get(k);
     return v && v->type == Json::Type::Number ? int(v->n) : def;
@@ -124,8 +149,7 @@ void applyExtrasOp(DataEdits& d, const Json& op, bool& handled) {
     const std::string name = op.str("op");
     handled = true;
     if (name == "set_buttons" || name == "reset_buttons") {
-        const int set = int(num(op, "set"));
-        if (set < 0 || set >= ButtonSets::kSets) fail("\"set\" must be 0-" + std::to_string(ButtonSets::kSets - 1));
+        const int set = numIn(op, "set", ButtonSets::kSets);
         if (name == "reset_buttons") {
             d.buttons.reset(set);
         } else {
@@ -152,9 +176,8 @@ void applyExtrasOp(DataEdits& d, const Json& op, bool& handled) {
         }
         d.buttonsChanged = true;
     } else if (name == "set_requirements" || name == "reset_requirements") {
-        const int kind = int(namedValue(need(op, "kind"), "kind", Requirements::kKinds, [](size_t i) { return std::string(Requirements::kind(int(i)).name); }));
-        const int entry = int(num(op, "entry"));
-        if (entry < 0 || entry >= Requirements::kind(kind).entries) fail("no entry " + std::to_string(entry) + " in " + Requirements::kind(kind).name);
+        const int kind = indexOf(need(op, "kind"), "kind", Requirements::kKinds, [](size_t i) { return std::string(Requirements::kind(int(i)).name); });
+        const int entry = numIn(op, "entry", Requirements::kind(kind).entries);
         if (name == "reset_requirements") {
             d.reqs.reset(kind, entry);
         } else {
@@ -174,15 +197,14 @@ void applyExtrasOp(DataEdits& d, const Json& op, bool& handled) {
         }
         d.reqsChanged = true;
     } else if (name == "set_unit_look" || name == "reset_unit_look") {
-        const int unit = int(num(op, "unit"));
-        if (unit < 0 || unit >= UnitLooks::kUnits) fail("\"unit\" must be 0-" + std::to_string(UnitLooks::kUnits - 1));
+        const int unit = numIn(op, "unit", UnitLooks::kUnits);
         if (name == "reset_unit_look") {
             d.looks.set(unit, UnitLooks::Unit{});
         } else {
             UnitLooks::Unit x = d.looks.unit(unit);
             if (const Json* p = op.get("panel")) {  // a panel kind sets both functions
                 const auto kinds = UnitLooks::kinds();
-                const uint32_t k = namedValue(*p, "panel", kinds.size(), [&](size_t i) { return std::string(kinds[i].name); });
+                const int k = indexOf(*p, "panel", kinds.size(), [&](size_t i) { return std::string(kinds[i].name); });
                 x.status = kinds[k].status, x.display = kinds[k].display;
             }
             if (op.get("status")) x.status = uint32_t(num(op, "status"));
@@ -322,7 +344,7 @@ static Json cmdProjectData(Session& s) {
     const std::string what = s.args.positional[1];
     if (what == "strings") return datStringsJson(d, s);
     if (what == "buttons") {  // the button sets: one with --set n, else the changed ones
-        if (s.args.has("set")) return buttonsJson(d.buttons, int(std::strtol(s.args.get("set").c_str(), nullptr, 10)));
+        if (s.args.has("set")) return buttonsJson(d.buttons, optIn(s, "set", ButtonSets::kSets));
         Json a = jarr();
         for (int i = 0; i < ButtonSets::kSets; ++i)
             if (d.buttons.changed(i)) a.items.push_back(Obj().add("set", i).add("buttons", int(d.buttons.set(i).size())));
@@ -334,13 +356,13 @@ static Json cmdProjectData(Session& s) {
         for (int k = 0; s.args.has("kind") && k < Requirements::kKinds; ++k)
             if (lower(Requirements::kind(k).name) == lower(s.args.get("kind"))) kind = k;
         if (kind < 0) fail("requirements needs --kind (units, upgrades, research, tech use, orders)");
-        if (s.args.has("entry")) return requirementsJson(d.reqs, kind, int(std::strtol(s.args.get("entry").c_str(), nullptr, 10)));
+        if (s.args.has("entry")) return requirementsJson(d.reqs, kind, optIn(s, "entry", Requirements::kind(kind).entries));
         for (int e = 0; e < Requirements::kind(kind).entries; ++e)
             if (d.reqs.changed(kind, e)) a.items.push_back(Obj().add("entry", e));
         return Obj().add("kind", Requirements::kind(kind).name).add("changed_entries", a);
     }
     if (what == "unit-looks") {  // one unit with --unit n, else the changed units
-        if (s.args.has("unit")) return looksJson(d.looks, int(std::strtol(s.args.get("unit").c_str(), nullptr, 10)));
+        if (s.args.has("unit")) return looksJson(d.looks, optIn(s, "unit", UnitLooks::kUnits));
         Json a = jarr();
         for (int u = 0; u < UnitLooks::kUnits; ++u)
             if (d.looks.changed(u)) a.items.push_back(Obj().add("unit", u));

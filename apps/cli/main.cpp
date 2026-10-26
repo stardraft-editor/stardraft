@@ -486,7 +486,7 @@ Json unitSettingsJson(const Editor& ed, bool all);
 Json upgradeSettingsJson(const Editor& ed, bool all);
 Json techSettingsJson(const Editor& ed, bool all);
 std::string entryLabel(const std::string& dat, int i);
-Json moreGet(const Editor& ed, const std::string& what, bool& known, const std::vector<ArchiveFile>* files = nullptr);  // (map_more.inc)
+Json moreGet(const Editor& ed, const std::string& what, bool& known);  // (map_more.inc)
 
 Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
     if (what == "summary") return summary(ed);
@@ -1300,6 +1300,10 @@ std::vector<ArchiveFile> mapFiles(const Work& w) {
     return files;
 }
 
+// The editor's map archive holds the map's files for an open map (its working step is a bare scenario), so the editor's
+// sound logic sees them: the imported sounds are files of the map, not game sounds.
+void loadMapFiles(Editor& ed, const Work& w) { ed.setArchiveFiles(mapFiles(w)); }
+
 // import <project file> <parent folder> <name>: an EUD Editor 2 (.e2s) or euddraft (.eds, .edd) project into a new
 // StarDraft project (roadmap R52), and what did and did not come in.
 Json cmdImport(Session& s) {
@@ -1352,17 +1356,12 @@ Json cmdAddFile(Session& s) {
 Json cmdGet(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
     Editor& ed = s.load(t);
+    if (t.open) loadMapFiles(ed, loadWork(t));
     std::vector<std::string> parts(s.args.positional.begin() + 1, s.args.positional.end());
     if (parts.empty()) parts.push_back("summary");
     const int step = std::max(32, int(std::strtol(s.args.get("step", "128").c_str(), nullptr, 10)));
     Obj o = Obj(fileInfo(t));
     for (const std::string& p : parts) {
-        if (p == "sounds" && t.open) {  // the working step is a scenario only: the map's files come from the map file
-            bool known = false;
-            const std::vector<ArchiveFile> files = mapFiles(loadWork(t));
-            o.add(p, moreGet(ed, p, known, &files));
-            continue;
-        }
         if (p == "files" && t.open) {  // the working folder's, with the added ones
             Json a = jarr();
             for (const ArchiveFile& f : mapFiles(loadWork(t))) a.items.push_back(Obj().add("name", f.name).add("bytes", double(f.data.size())));
@@ -1403,6 +1402,7 @@ Json cmdApply(Session& s) {
     if (!ops || ops->type != Json::Type::Array) fail("the operations must be a list, or an object with \"ops\": [...]");
 
     Editor& ed = s.load(t);
+    if (t.open) loadMapFiles(ed, w);
     const Json* opt = doc.type == Json::Type::Object ? doc.get("options") : nullptr;
     if (opt) {
         ed.setAllowIllegalUnits(opt->boolean("units_anywhere", false));
@@ -1784,10 +1784,11 @@ static int serve(Session& s) {
                 s.args.positional.push_back(jsonText(*ops));
             }
             out = answer(execute(s));
-            if (s.dataOpen && !s.installKnown) s.installKnown = true, s.installWord = s.args.get("install");
         } catch (const std::exception& e) {
             out = failure(e.what());
         }
+        // The game data is open from this request's --install, also when the request then failed.
+        if (s.dataOpen && !s.installKnown) s.installKnown = true, s.installWord = s.args.get("install");
         std::printf("%s\n", jsonText(out).c_str());
         std::fflush(stdout);
     }
