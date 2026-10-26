@@ -129,7 +129,7 @@ public:
     }
 
 private:
-    enum class Drag { None, Cells, Columns, Rows, Width };
+    enum class Drag { None, Cells, Columns, Rows, Width, Move };
     // A place in the view: a cell, a column's header, a row's number, or a column's right edge in the headers.
     struct Hit {
         int row = -1, col = -1;
@@ -154,6 +154,9 @@ private:
     void resetSelected();
     void fillDown();
     void openPick(int r, int c, const std::wstring& search = L"");
+    void sortBy(int c, bool down);  // c < 0: the list's order again
+    int dropIndex(int x) const;      // the column a moved column goes before, for the mouse at x
+    void moveColumns(const std::vector<int>& cols, int before);
     void contextMenu(const Hit& hit, draw::Point pt);
     void pickColumns(draw::Point pt);
     void hideColumns(const std::vector<int>& cols);
@@ -169,13 +172,17 @@ private:
     std::string dat_;                   // the .dat the columns are of
     std::vector<DataTableColumn> cols_;  // the columns that show (the .dat's, less the hidden ones)
     int hiddenRev_ = -1;                // gDataTableHiddenRev when cols_ was made
-    std::vector<int> rows_;             // the rows as the last sync had them
-    std::map<std::string, int> widths_;  // a column's width that a drag of its edge set (its .dat and key), unscaled
+    std::vector<int> rows_;             // the rows as they show (sorted when a sort is on)
+    std::vector<int> hostRows_;         // the rows in the list's order, as the last sync had them
+    std::wstring sortKey_;              // the column the rows are sorted by (its CSV name; empty: the list's order)
+    bool sortDown_ = false;             // high to low
+    bool sortDue_ = false;              // the sort changed: the rows are sorted again at the next sync
     DataTableSelection sel_;
     int sx_ = 0, sy_ = 0;               // the scroll in pixels
     bool editing_ = false;
     Drag drag_ = Drag::None;
     int dragCol_ = -1, dragX_ = 0, dragW0_ = 0;
+    int dropAt_ = -1;  // a column's move: the column it goes before (cols_.size(): after the last one); -1 none yet
     Hit hot_;
     draw::Rect importBtn_, exportBtn_, columnsBtn_;
 };
@@ -183,31 +190,71 @@ private:
 inline void DataTableView::sync() {
     const DatTable* t = host_.table();
     const std::string dat = t ? t->schema().name : "";
+    if (t) dataTableLayout(dat);  // (another project: its layouts are read, and the revision goes up)
     if (dat != dat_ || hiddenRev_ != gDataTableHiddenRev) {
         if (dat != dat_) sel_ = {}, sx_ = 0, sy_ = 0;
         dat_ = dat, hiddenRev_ = gDataTableHiddenRev;
         cols_.clear();
         if (t) {
-            const std::set<std::wstring>& hidden = dataTableHidden(dat);
+            const DataTableLayout& l = dataTableLayout(dat);
             for (const DataTableColumn& col : dataTableColumns(t->schema()))
-                if (!hidden.count(dataColumnKey(t->schema(), col))) cols_.push_back(col);
+                if (!l.hidden.count(dataColumnKey(t->schema(), col))) cols_.push_back(col);
+            // The layout's order: the columns it names in its order, the others after them in the form's order; the name first.
+            if (!l.order.empty() && cols_.size() > 1) {
+                auto at = [&](const DataTableColumn& col) {
+                    const auto it = std::find(l.order.begin(), l.order.end(), dataColumnKey(t->schema(), col));
+                    return it == l.order.end() ? l.order.size() : size_t(it - l.order.begin());
+                };
+                std::stable_sort(cols_.begin() + 1, cols_.end(), [&](const DataTableColumn& a, const DataTableColumn& b) { return at(a) < at(b); });
+            }
+            if (sortKey_ != l.sortKey || sortDown_ != l.sortDown) sortKey_ = l.sortKey, sortDown_ = l.sortDown, sortDue_ = true;
         }
         sel_.clamp(int(rows_.size()), int(cols_.size()));
         if (editing_) cancelEdit();
     }
-    if (host_.rows() != rows_) {
+    if (host_.rows() != hostRows_ || sortDue_) {
         if (editing_) cancelEdit();
-        rows_ = host_.rows();
+        hostRows_ = host_.rows();
+        rows_ = hostRows_;
+        sortDue_ = false;
+        // The sort: by the column's value (a number as it is stored, a name as text); the cells that the entry does not use
+        // go last. Equal values keep the list's order. (An edit does not sort again: the rows stay where they are.)
+        const DataTableColumn* by = nullptr;
+        for (const auto& col : cols_)
+            if (t && !sortKey_.empty() && dataColumnKey(t->schema(), col) == sortKey_) by = &col;
+        if (by && t) {
+            const DataTableColumn col = *by;
+            const DatField* f = col.kind == DataCellKind::Name ? nullptr : dataSchemaField(t->schema(), col.field);
+            const int tab = datTabOf(t->schema().name);
+            auto key = [&](int e) -> std::pair<int, double> {  // (unused, value)
+                if (!f) return {0, 0};
+                if (!f->covers(e)) return {1, 0};
+                const uint32_t v = t->value(*f, e);
+                return {0, col.kind == DataCellKind::Bit ? double((v >> col.bit) & 1) : double(v)};
+            };
+            const bool down = sortDown_;
+            std::stable_sort(rows_.begin(), rows_.end(), [&](int a, int b) {
+                if (!f) {
+                    const std::wstring x = dataLower(tabEntryName(tab, a)), y = dataLower(tabEntryName(tab, b));
+                    return down ? y < x : x < y;
+                }
+                const auto ka = key(a), kb = key(b);
+                if (ka.first != kb.first) return ka.first < kb.first;
+                return down ? kb.second < ka.second : ka.second < kb.second;
+            });
+        }
         sel_.clamp(int(rows_.size()), int(cols_.size()));
     }
 }
 
 inline int DataTableView::colW(size_t k) const {
     const DataTableColumn& col = cols_[k];
-    const auto it = widths_.find(dat_ + "\n" + std::to_string(col.field) + "." + std::to_string(col.bit));
-    if (it != widths_.end()) return scale(it->second);
+    if (const DatTable* t = host_.table(); t && t->schema().name == dat_) {
+        const auto& widths = dataTableLayout(dat_).widths;
+        if (const auto it = widths.find(dataColumnKey(t->schema(), col)); it != widths.end()) return scale(it->second);
+    }
     switch (col.kind) {
-    case DataCellKind::Name: return scale(220);
+    case DataCellKind::Name: return scale(dat_ == "strings" ? 760 : 220);  // (a string's text: wide)
     case DataCellKind::Pick: return scale(180);
     case DataCellKind::Bool:
     case DataCellKind::Bit: return scale(72);
@@ -373,7 +420,7 @@ inline void DataTableView::paint(draw::Canvas& c) {
         c.fill({0, bh - 1, w, bh}, kBorder);
     }
     if (!tp) {
-        c.text({scale(18), barH() + scale(20), w - scale(18), h}, L"The Table view shows only the .dat tabs", kDim, draw::kWrap);
+        c.text({scale(18), barH() + scale(20), w - scale(18), h}, L"The Table view shows the .dat tabs and Strings", kDim, draw::kWrap);
         return;
     }
     const DatTable& t = *tp;
@@ -453,8 +500,11 @@ inline void DataTableView::paint(draw::Canvas& c) {
             c.setFont(headFont);
             const bool num = cols_[k].kind == DataCellKind::Number;
             const unsigned align = num ? draw::kRight : cols_[k].kind == DataCellKind::Bool || cols_[k].kind == DataCellKind::Bit ? draw::kCenter : draw::kLeft;
-            c.text({head.left + scale(6), head.top, head.right - scale(6), head.bottom}, dataColumnTitle(sch, cols_[k]), selCol ? kText : kDim,
-                   align | draw::kMiddle | draw::kEllipsis);
+            const bool sorted = !sortKey_.empty() && dataColumnKey(sch, cols_[k]) == sortKey_;
+            if (sorted)  // (the sort's arrow at the header's left: up low to high, down high to low)
+                kitpaint::drawGlyph(c, {head.left + scale(2), head.top, head.left + scale(14), head.bottom}, sortDown_ ? UiIcon::ChevronDown : UiIcon::ChevronUp, kAccent, 7);
+            c.text({head.left + scale(sorted ? 16 : 6), head.top, head.right - scale(6), head.bottom}, dataColumnTitle(sch, cols_[k]),
+                   sorted || selCol ? kText : kDim, align | draw::kMiddle | draw::kEllipsis);
             // The group's name over the first column of its run (the run's line at its left).
             const std::wstring group = dataColumnGroup(sch, cols_[k]);
             const bool starts = k <= 1 || group != dataColumnGroup(sch, cols_[k - 1]);
@@ -481,6 +531,10 @@ inline void DataTableView::paint(draw::Canvas& c) {
     if (rows_.empty())
         c.text({scale(18), b.top + scale(16), b.right - scale(18), b.bottom}, L"No entries. Clear the search box or the Changed filter of the list.", kDim, draw::kWrap);
 
+    if (drag_ == Drag::Move && dropAt_ >= 1) {  // (a column's move: a line where it goes)
+        const int x = dropAt_ < int(cols_.size()) ? colLeft(size_t(dropAt_)) : colLeft(cols_.size() - 1) + colW(cols_.size() - 1);
+        if (x >= fz - 1) c.fill({x - scale(1), barH(), x + scale(2), b.bottom}, kAccent);
+    }
     paintFoot(c, t);
     // The bars follow the table's size.
     vbar_.setRange(int(rows_.size()) * rh, b.height());
@@ -498,9 +552,14 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
         if (drag_ == Drag::Width) {
             const int nw = std::max(scale(36), dragW0_ + e.pt.x - dragX_);
             const DataTableColumn& col = cols_[size_t(dragCol_)];
-            widths_[dat_ + "\n" + std::to_string(col.field) + "." + std::to_string(col.bit)] = std::max(36, nw * 96 / std::max(1, scale(96)));
+            if (const DatTable* t = host_.table()) dataTableLayout(dat_).widths[dataColumnKey(t->schema(), col)] = std::max(36, nw * 96 / std::max(1, scale(96)));
             clampScroll();
             invalidate();
+            return true;
+        }
+        if (drag_ == Drag::Move) {
+            const int at = dropIndex(e.pt.x);
+            if (at != dropAt_) dropAt_ = at, invalidate();
             return true;
         }
         const Hit hit = hitAt(e.pt);
@@ -555,8 +614,23 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
         if (hit.header && hit.edge) {
             drag_ = Drag::Width, dragCol_ = hit.col, dragX_ = e.pt.x, dragW0_ = colW(size_t(hit.col));
         } else if (hit.header && hit.col >= 0) {
-            sel_.columns(hit.col, mods, int(rows_.size()));
-            drag_ = Drag::Columns;
+            if (e.kind == MouseKind::DoubleClick && !mods) {  // (a double click: ascending, then descending, then the default order)
+                const bool same = !sortKey_.empty() && dataColumnKey(host_.table()->schema(), cols_[size_t(hit.col)]) == sortKey_;
+                if (same && sortDown_) return sortBy(-1, false), true;
+                return sortBy(hit.col, same), true;
+            }
+            const std::vector<int> picked = selectedColumns(hit.col);
+            const bool whole = std::find(picked.begin(), picked.end(), hit.col) != picked.end() && sel_.has(0, hit.col) &&
+                               sel_.has(std::max(0, int(rows_.size()) - 1), hit.col) && rows_.size() > 0;
+            if (whole && !mods && hit.col > 0 && cols_[size_t(hit.col)].kind != DataCellKind::Name) {
+                drag_ = Drag::Move, dragCol_ = hit.col, dropAt_ = -1;  // (a selected column's header: drag it to its new place)
+            } else {
+                sel_.columns(hit.col, mods, int(rows_.size()));
+                drag_ = Drag::Columns;
+            }
+        } else if (hit.header && e.pt.x < idW()) {  // ("Entry": the list's order)
+            if (!sortKey_.empty()) sortBy(-1, false);
+            return true;
         } else if (hit.number) {
             if (e.kind == MouseKind::DoubleClick) return host_.open(rows_[size_t(hit.row)]), true;
             sel_.rows(hit.row, mods, int(cols_.size()));
@@ -584,8 +658,12 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
     }
     case MouseKind::Up:
         if (drag_ != Drag::None) {
-            drag_ = Drag::None;
+            const Drag was = std::exchange(drag_, Drag::None);
             if (draw::Host* h = host()) h->capture(*this, false);
+            if (was == Drag::Width) dataTableLayoutSave(dat_);  // (the width is kept in the project)
+            if (was == Drag::Move && dropAt_ >= 0) moveColumns(selectedColumns(dragCol_), dropAt_);
+            dropAt_ = -1;
+            invalidate();
         }
         return e.button == 0;
     default: return false;
@@ -595,6 +673,7 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
 inline draw::Cursor DataTableView::cursor(draw::Point pt) {
     const Hit hit = hitAt(pt);
     if (drag_ == Drag::Width || (hit.header && hit.edge)) return draw::Cursor::SizeWE;
+    if (drag_ == Drag::Move) return draw::Cursor::SizeAll;
     if (importBtn_.contains(pt) || exportBtn_.contains(pt) || columnsBtn_.contains(pt) || hit.check || hit.arrow) return draw::Cursor::Hand;
     return draw::Cursor::Arrow;
 }
@@ -610,7 +689,7 @@ inline std::wstring DataTableView::tip(draw::Point pt) {
     if (hit.header) {
         const std::wstring group = dataColumnGroup(t->schema(), col);
         return (group.empty() || col.kind != DataCellKind::Bit ? L"" : group + L": ") + dataColumnTitle(t->schema(), col) +
-               L"\nA click selects the column. A drag of its right edge changes its width. The right button hides it.";
+               L"\nA click selects the column, a drag of a selected column moves it. A double click sorts by it: ascending, descending, then the default order. A drag of its right edge changes its width. The right button hides it.";
     }
     if (hit.row < 0) return L"";
     const int e = rows_[size_t(hit.row)];
@@ -916,10 +995,19 @@ inline void DataTableView::contextMenu(const Hit& hit, draw::Point pt) {
         const bool nameOnly = hide.size() == 1 && cols_[size_t(hide[0])].kind == DataCellKind::Name;
         item(5, hide.size() > 1 ? L"&Hide " + std::to_wstring(hide.size()) + L" columns" : L"&Hide the column", L"", !nameOnly);
         item(6, L"&Show all columns", L"", !dataTableHidden(dat_).empty());
+        item(11, L"Hide all c&olumns", L"", cols_.size() > 1);
+        item(12, L"Default column o&rder", L"", !dataTableLayout(dat_).order.empty());
         item(7, L"C&olumns\x2026");
+        separator();
+        const bool sortedHere = !sortKey_.empty() && dataColumnKey(t->schema(), cols_[size_t(hit.col)]) == sortKey_;
+        MenuItem asc, desc, def;
+        asc.id = 8, asc.label = L"Sort &ascending", asc.checked = sortedHere && !sortDown_;
+        desc.id = 9, desc.label = L"Sort &descending", desc.checked = sortedHere && sortDown_;
+        def.id = 10, def.label = L"D&efault order", def.checked = sortKey_.empty();
+        m.push_back(asc), m.push_back(desc), m.push_back(def);
     }
-    const int openRow = hit.row;
-    host_.menu(pt, m, [this, hide, openRow, pt](int pick) {
+    const int openRow = hit.row, sortCol = hit.col;
+    host_.menu(pt, m, [this, hide, openRow, sortCol, pt](int pick) {
         if (pick == 1) resetSelected();
         else if (pick == 2) {
             if (draw::Host* h = host()) h->setClipboardText(narrow(copyText()));
@@ -932,6 +1020,18 @@ inline void DataTableView::contextMenu(const Hit& hit, draw::Point pt) {
             host_.status(L"Showed all columns");
             refresh();
         } else if (pick == 7) pickColumns(pt);
+        else if (pick == 8 || pick == 9) sortBy(sortCol, pick == 9);
+        else if (pick == 10) sortBy(-1, false);
+        else if (pick == 12) {
+            dataTableLayout(dat_).order.clear();
+            dataTableLayoutSave(dat_);
+            host_.status(L"Put the columns back in the default order");
+            refresh();
+        } else if (pick == 11) {
+            std::vector<int> all;
+            for (int k = 0; k < int(cols_.size()); ++k) all.push_back(k);
+            hideColumns(all);
+        }
     });
 }
 
@@ -953,7 +1053,8 @@ inline void DataTableView::pickColumns(draw::Point pt) {
     const DatTable* t = host_.table();
     if (!t) return;
     const DatSchema& sch = t->schema();
-    std::vector<ListPickItem> items;
+    // (All and None at the top: checked at OK, they show every column or none)
+    std::vector<ListPickItem> items{{L"All columns", L"", "\x01all"}, {L"None (only the name)", L"", "\x01none"}};
     std::set<std::string> checked;
     const std::set<std::wstring>& hidden = dataTableHidden(dat_);
     for (const DataTableColumn& col : dataTableColumns(sch)) {
@@ -962,13 +1063,15 @@ inline void DataTableView::pickColumns(draw::Point pt) {
         items.push_back({dataColumnTitle(sch, col), dataColumnGroup(sch, col), narrow(key)});
         if (!hidden.count(key)) checked.insert(narrow(key));
     }
+    const size_t fields = items.size() - 2;
     if (!host_.pickMany(L"Columns that show", std::move(items), checked, pt)) return;
+    const bool all = checked.count("\x01all") != 0, none = !all && checked.count("\x01none") != 0;
     std::set<std::wstring> now;
     for (const DataTableColumn& col : dataTableColumns(sch))
-        if (col.kind != DataCellKind::Name && !checked.count(narrow(dataColumnKey(sch, col)))) now.insert(dataColumnKey(sch, col));
-    const size_t shown = items.size() - now.size();
+        if (col.kind != DataCellKind::Name && !all && (none || !checked.count(narrow(dataColumnKey(sch, col))))) now.insert(dataColumnKey(sch, col));
+    const size_t shown = fields - now.size();
     dataTableSetHidden(dat_, std::move(now));
-    host_.status(L"Showed " + std::to_wstring(shown) + L" of " + std::to_wstring(items.size()) + L" columns");
+    host_.status(L"Showed " + std::to_wstring(shown) + L" of " + std::to_wstring(fields) + L" columns");
     refresh();
 }
 
@@ -1038,4 +1141,67 @@ inline void DataTableView::paintFoot(draw::Canvas& c, const DatTable& t) {
     c.text({scale(12), top, w - rw - scale(16), h}, left, kDim, draw::kMiddle | draw::kEllipsis);
     if (rw) c.text({w - rw - scale(12), top, w - scale(12), h}, right, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
     c.setFont(of);
+}
+
+// Sorts the rows by column c (down: high to low); c < 0: the list's order again. The selection goes to the first cell.
+inline void DataTableView::sortBy(int c, bool down) {
+    const DatTable* t = host_.table();
+    if (!t) return;
+    if (c >= 0 && c < int(cols_.size())) {
+        sortKey_ = dataColumnKey(t->schema(), cols_[size_t(c)]), sortDown_ = down;
+        host_.status(L"Sorted by " + dataColumnTitle(t->schema(), cols_[size_t(c)]) + (down ? L", descending" : L", ascending"));
+    } else {
+        sortKey_.clear(), sortDown_ = false;
+        host_.status(L"Sorted in the default order (the list's)");
+    }
+    sortDue_ = true;
+    DataTableLayout& l = dataTableLayout(dat_);
+    l.sortKey = sortKey_, l.sortDown = sortDown_;
+    dataTableLayoutSave(dat_);
+    sync();
+    const int col = sel_.col;
+    sel_ = {};
+    sel_.click(0, std::min(col, std::max(0, int(cols_.size()) - 1)), 0);
+    sy_ = 0;
+    invalidate();
+}
+
+// The column that a moved column goes before for the mouse at x: the nearest edge between two columns that scroll
+// (1: the first of them; cols_.size(): after the last).
+inline int DataTableView::dropIndex(int x) const {
+    int best = 1, bestD = INT_MAX;
+    for (size_t k = 1; k <= cols_.size(); ++k) {
+        const int edge = k < cols_.size() ? colLeft(k) : colLeft(k - 1) + colW(k - 1);
+        if (const int d = std::abs(x - edge); d < bestD) bestD = d, best = int(k);
+    }
+    return best;
+}
+
+// Moves the columns `cols` (indexes of cols_) before column `before`, in their order; the layout keeps the new order.
+inline void DataTableView::moveColumns(const std::vector<int>& cols, int before) {
+    const DatTable* t = host_.table();
+    if (!t || cols.empty()) return;
+    std::vector<DataTableColumn> moved, rest;
+    int at = 0;
+    for (int k = 0; k < int(cols_.size()); ++k) {
+        if (k == before) at = int(rest.size());
+        if (std::find(cols.begin(), cols.end(), k) != cols.end() && k > 0) moved.push_back(cols_[size_t(k)]);
+        else rest.push_back(cols_[size_t(k)]);
+    }
+    if (before >= int(cols_.size())) at = int(rest.size());
+    at = std::max(1, at);  // (the name stays first)
+    rest.insert(rest.begin() + at, moved.begin(), moved.end());
+    // The layout's order: the columns that show, then the hidden ones as they were.
+    DataTableLayout& l = dataTableLayout(dat_);
+    std::vector<std::wstring> order;
+    for (const auto& col : rest) order.push_back(dataColumnKey(t->schema(), col));
+    for (const DataTableColumn& col : dataTableColumns(t->schema()))
+        if (const std::wstring k = dataColumnKey(t->schema(), col); std::find(order.begin(), order.end(), k) == order.end()) order.push_back(k);
+    l.order = std::move(order);
+    dataTableLayoutSave(dat_);
+    sync();
+    sel_.ranges = {{0, at, std::max(0, int(rows_.size()) - 1), at + int(moved.size()) - 1}};
+    sel_.row = 0, sel_.col = sel_.anchorCol = at, sel_.anchorRow = 0;
+    host_.status(moved.size() == 1 ? L"Moved the column" : L"Moved " + std::to_wstring(moved.size()) + L" columns");
+    invalidate();
 }

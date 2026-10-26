@@ -31,6 +31,8 @@ extern DataNumberEntry gSdlDataEntry;
 extern DataTableView gSdlDataTable;
 void sdlDataRepaint();
 void sdlDataPicksChanged();
+// A tab that the Table view shows: each .dat, and Strings (not Buttons).
+bool sdlDataTableTab(int tab) { return !extraTab(tab) || tab == stringsTab(); }
 void sdlStringsCommit();
 void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the help window at a topic)
 bool gSdlDataRevealDue = false;  // the open entry's row is scrolled into the list's view at the next paint
@@ -358,7 +360,7 @@ public:
     void placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) override;
     void filterChanged() override { sdlDataRebuildList(); }
     void status(const std::wstring& text) override { setMessage(text); }
-    int viewKind() override { return extraTab(gSdlDataState.datTab) ? -1 : gSdlDataState.table ? 1 : 0; }
+    int viewKind() override { return !sdlDataTableTab(gSdlDataState.datTab) ? -1 : gSdlDataState.table ? 1 : 0; }
     void setViewKind(int k) override;
 };
 SdlDataWorkspaceHost gSdlDataWorkspaceHost;
@@ -623,7 +625,10 @@ void SdlDataFormHost::afterPaint(draw::Canvas&) { placeEntry(); }
 
 class SdlDataTableHost final : public DataTableViewHost {
 public:
-    DatTable* table() override { return extraTab(gSdlDataState.datTab) ? nullptr : curTable(); }
+    DatTable* table() override {
+        const int tab = gSdlDataState.datTab;
+        return tab == stringsTab() ? &dataStringsTable() : extraTab(tab) ? nullptr : curTable();
+    }
     // The list's selected entries in its order when there are 2 or more, else all its rows.
     const std::vector<int>& rows() override {
         const DataModel& d = gSdlDataState;
@@ -743,7 +748,7 @@ void SdlDataTableHost::importCsv() {
 // Entry | Table: the form, or the Table view of the .dat (it takes the References panel's place too).
 void SdlDataWorkspaceHost::setViewKind(int k) {
     DataModel& d = gSdlDataState;
-    if (extraTab(d.datTab)) return;
+    if (!sdlDataTableTab(d.datTab)) return;
     if ((k == 1) == d.table) {  // (already shown: it gets the keyboard)
         if (d.table) gSdlDataTable.focus();
         return;
@@ -763,11 +768,11 @@ void SdlDataWorkspaceHost::setViewKind(int k) {
 void sdlDataTableCommand() {
     if (gWorkspace != Workspace::Data) {
         setWorkspace(Workspace::Data);
-        if (extraTab(gSdlDataState.datTab)) sdlDataShowTab(0);
+        if (!sdlDataTableTab(gSdlDataState.datTab)) sdlDataShowTab(0);
         gSdlDataWorkspaceHost.setViewKind(1);
         return;
     }
-    if (extraTab(gSdlDataState.datTab)) return setMessage(shellTr(L"The Table view shows only the .dat tabs"));
+    if (!sdlDataTableTab(gSdlDataState.datTab)) return setMessage(shellTr(L"The Table view shows the .dat tabs and Strings"));
     gSdlDataWorkspaceHost.setViewKind(gSdlDataState.table ? 0 : 1);
 }
 // The list's selection changed: the table's rows follow; the status says how many are selected.
@@ -856,7 +861,7 @@ void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Re
     };
     place(gSdlData.listFrame, list);
     // The Table view: in the form's and the References panel's place.
-    if (gSdlDataState.table && !extraTab(gSdlDataState.datTab)) {
+    if (gSdlDataState.table && sdlDataTableTab(gSdlDataState.datTab)) {
         place(gSdlDataTable, {form.left, form.top, std::max(form.right, refs.right), form.bottom});
         gSdlDataTable.setVisible(true);
         if (gSdlData.formFrame.visible()) {
@@ -955,6 +960,11 @@ void sdlDataTableCheck() {
     const auto& cols = gSdlDataTable.columns();
     std::printf("data table: %zu rows, %zu columns, frame %d,%d,%d,%d\n", gSdlDataTableHost.rows().size(), cols.size(), gSdlDataTable.frame().left,
                 gSdlDataTable.frame().top, gSdlDataTable.frame().right, gSdlDataTable.frame().bottom);
+    if (const DatTable* t = gSdlDataTableHost.table()) {  // (the first columns, in the order they show)
+        std::string names;
+        for (size_t k = 0; k < cols.size() && k < 6; ++k) names += (k ? ", " : "") + narrow(dataColumnTitle(t->schema(), cols[k]));
+        std::printf("data table: columns %s\n", names.c_str());
+    }
     const DataTableSelection& s = gSdlDataTable.selection();
     std::printf("data table: active cell %d,%d; %zu cells selected\n", s.row, s.col, s.cells().size());
     std::string text = narrow(gSdlDataTable.selectionText());

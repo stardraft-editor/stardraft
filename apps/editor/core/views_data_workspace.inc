@@ -42,6 +42,12 @@ public:
 
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
+    bool hoverTip() const override { return true; }
+    std::wstring tip(draw::Point pt) override {
+        if (kinds_[0].contains(pt)) return L"Entry: the form of the open entry (Ctrl+E)";
+        if (kinds_[1].contains(pt)) return L"Table: the entries as rows and their values as columns (Ctrl+E)";
+        return {};
+    }
 
 private:
     DataWorkspaceHost& host_;
@@ -62,9 +68,9 @@ void DataTabsView::paint(draw::Canvas& c) {
     const int n = host_.tabCount();
     std::vector<DataTabText> texts;
     for (int i = 0; i < n; ++i) texts.push_back({c.measure(host_.tabTitle(i)), c.measure(std::to_wstring(host_.tabEntryCount(i)))});
-    // Entry | Table before the arrows (a segmented choice: the chosen one Primary).
+    // Entry | Table before the arrows: two icons (the form's lines, the table's grid), the chosen one lit.
     const int kind = host_.viewKind();
-    const int kindW = kind >= 0 ? std::max(c.measure(L"Entry"), c.measure(L"Table")) + scale(20) : 0;
+    const int kindW = kind >= 0 ? scale(28) : 0;
     const DataTabMetrics metrics{scale(8), scale(84) + (kind >= 0 ? 2 * kindW + scale(16) : 0), scale(22), scale(16) + scale(6), scale(26), scale(2)};
     const DataTabLayout layout = dataTabLayout(texts, w, metrics);
     const int cur = host_.currentTab();
@@ -94,10 +100,10 @@ void DataTabsView::paint(draw::Canvas& c) {
         kinds_[k] = {};
         if (kind < 0) continue;
         const int right = w - scale(84) - (1 - k) * (kindW + scale(4));
-        kinds_[k] = {right - kindW, scale(6), right, top - scale(6)};
-        const bool hot = draw::Rect(kinds_[k]).contains(hotPt_);
-        kitpaint::drawButtonFace(c, kinds_[k], k ? L"Table" : L"Entry", k == kind ? kitpaint::Tone::Primary : kitpaint::Tone::Normal,
-                                 hot && k != kind ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
+        kinds_[k] = {right - kindW, scale(4), right, top - scale(4)};
+        const bool hot = draw::Rect(kinds_[k]).contains(hotPt_), on = k == kind;
+        if (on || hot) c.roundBox(kinds_[k], on ? kSel : kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+        c.icon(kinds_[k], int(k ? UiIcon::Grid : UiIcon::AlignLeft), on ? kAccent : hot ? kText : kDim, scale(16));
     }
     for (int k = 0; k < 2; ++k) {
         nav_[k] = {w - scale(68) + k * scale(32), scale(3), w - scale(40) + k * scale(32), top - scale(3)};

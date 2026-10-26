@@ -43,7 +43,7 @@ std::vector<DataTableColumn> dataTableColumns(const DatSchema& sch) {
 // A column's name in its header ("Hit Points", a flag's name), and the name of its group above it (the section; a flag's
 // field).
 std::wstring dataColumnTitle(const DatSchema& sch, const DataTableColumn& col) {
-    if (col.kind == DataCellKind::Name) return L"Name";
+    if (col.kind == DataCellKind::Name) return sch.name == "strings" ? L"Text" : L"Name";
     const DatField* f = dataSchemaField(sch, col.field);
     if (!f) return L"";
     return col.kind == DataCellKind::Bit ? widen(f->flags[size_t(col.bit)]) : datLabel(f->name);
@@ -58,42 +58,101 @@ std::wstring dataColumnGroup(const DatSchema& sch, const DataTableColumn& col) {
 // A column's name in a CSV file: "name", the field's name in the schema, or "<field>: <flag>". (The schema's names, so
 // that a file reads again in another language.)
 std::wstring dataColumnKey(const DatSchema& sch, const DataTableColumn& col) {
-    if (col.kind == DataCellKind::Name) return L"name";
+    if (col.kind == DataCellKind::Name) return sch.name == "strings" ? L"text" : L"name";
     const DatField* f = dataSchemaField(sch, col.field);
     if (!f) return L"";
     return widen(f->name) + (col.kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(col.bit)]) : L"");
 }
 
-// The columns that the Table view hides, by .dat: their CSV names (dataColumnKey), for this user (the settings'
-// DataTableHidden/<dat>: the names separated by "|"). The name column always shows.
-std::map<std::string, std::set<std::wstring>> gDataTableHidden;
-int gDataTableHiddenRev = 0;  // goes up with each change (the view makes its columns again)
-std::set<std::wstring>& dataTableHidden(const std::string& dat) {
-    auto [it, fresh] = gDataTableHidden.try_emplace(dat);
-    if (fresh && !gSelfTest && !gSettingsOff) {  // (tests and snapshot runs: every column, as the defaults)
-        std::wstring text;
-        if (prefs::text(L"DataTableHidden/" + widen(dat), text)) {
-            std::wistringstream in(text);
-            for (std::wstring part; std::getline(in, part, L'|');)
-                if (!part.empty()) it->second.insert(part);
+// The Strings tab as a table: a schema with no fields (its one column is the text, the Name kind) and as many entries
+// as stat_txt.tbl has strings (they count from 1). The Table view shows it as it shows a .dat.
+DatTable& dataStringsTable() {
+    static DatSchema schema;
+    static DatTable table;
+    schema.name = "strings", schema.entries = dataExtras().strings.count() + 1;
+    table.setSchemaOnly(schema);
+    return table;
+}
+
+// The Table view's layout of each .dat, kept in the project (dat/table_view.json): the hidden columns, the columns'
+// order and widths, and the sort. A column is its CSV name (dataColumnKey). The name column always shows, first.
+struct DataTableLayout {
+    std::set<std::wstring> hidden;
+    std::vector<std::wstring> order;      // the columns in the order they show (empty: the form's order)
+    std::map<std::wstring, int> widths;   // a column's width that a drag set, in 96-dpi pixels
+    std::wstring sortKey;                 // the column the rows are sorted by (empty: the default order, the list's)
+    bool sortDown = false;                // descending
+};
+struct {
+    const EudProject* project = nullptr;
+    bool loaded = false;
+    std::map<std::string, DataTableLayout> dats;
+} gDataTableLayouts;
+int gDataTableHiddenRev = 0;  // goes up with each change and each load (the view makes its columns again)
+
+fs::path dataTableLayoutFile() {
+    const EudProject* pr = dataState().project;
+    return pr ? pr->folder() / "dat" / "table_view.json" : fs::path();
+}
+// The layout of a .dat (the project's file is read again when the project changes).
+DataTableLayout& dataTableLayout(const std::string& dat) {
+    auto& g = gDataTableLayouts;
+    if (!g.loaded || g.project != dataState().project) {
+        g.dats.clear(), g.loaded = true, g.project = dataState().project, ++gDataTableHiddenRev;
+        if (const fs::path f = dataTableLayoutFile(); !f.empty()) {
+            stardraft::Settings s(f);
+            for (const std::string& name : s.names()) {
+                const size_t dot = name.rfind('.');
+                if (dot == std::string::npos) continue;
+                DataTableLayout& l = g.dats[name.substr(0, dot)];
+                const std::string what = name.substr(dot + 1);
+                if (what == "sortDown") l.sortDown = s.number(name).value_or(0) != 0;
+                else if (what == "sort") l.sortKey = widen(s.text(name).value_or(""));
+                else if (const auto list = s.list(name))
+                    for (const std::string& v : *list) {
+                        if (what == "hidden") l.hidden.insert(widen(v));
+                        else if (what == "order") l.order.push_back(widen(v));
+                        else if (const size_t eq = v.rfind('='); what == "widths" && eq != std::string::npos)
+                            l.widths[widen(v.substr(0, eq))] = std::clamp(std::atoi(v.c_str() + eq + 1), 24, 4000);
+                    }
+            }
         }
     }
-    return it->second;
+    return g.dats[dat];
 }
-void dataTableSetHidden(const std::string& dat, std::set<std::wstring> keys) {
-    keys.erase(L"name");
-    dataTableHidden(dat) = std::move(keys);
+// Writes the layout of a .dat into the project's file (no project: it stays until the program ends).
+void dataTableLayoutSave(const std::string& dat) {
     ++gDataTableHiddenRev;
-    if (gSelfTest || gSettingsOff) return;  // (tests and snapshot runs leave the user's settings alone)
-    std::wstring text;
-    for (const auto& k : dataTableHidden(dat)) text += (text.empty() ? L"" : L"|") + k;
-    prefs::setText(L"DataTableHidden/" + widen(dat), text);
+    const fs::path f = dataTableLayoutFile();
+    if (f.empty()) return;
+    const DataTableLayout& l = dataTableLayout(dat);
+    std::error_code ec;
+    fs::create_directories(f.parent_path(), ec);
+    stardraft::Settings s(f);
+    std::vector<std::string> hidden, order, widths;
+    for (const auto& k : l.hidden) hidden.push_back(narrow(k));
+    for (const auto& k : l.order) order.push_back(narrow(k));
+    for (const auto& [k, w] : l.widths) widths.push_back(narrow(k) + "=" + std::to_string(w));
+    bool ok = true;
+    auto put = [&](const std::string& what, bool has, stardraft::Settings::Value v) { ok &= has ? s.set(dat + "." + what, std::move(v)) : (!s.has(dat + "." + what) || s.remove(dat + "." + what)); };
+    put("hidden", !hidden.empty(), hidden);
+    put("order", !order.empty(), order);
+    put("widths", !widths.empty(), widths);
+    put("sort", !l.sortKey.empty(), narrow(l.sortKey));
+    put("sortDown", l.sortDown, int64_t(1));
+    if (!ok) setMessage(L"Could not save the table's layout: " + widen(s.lastError()));
+}
+std::set<std::wstring>& dataTableHidden(const std::string& dat) { return dataTableLayout(dat).hidden; }
+void dataTableSetHidden(const std::string& dat, std::set<std::wstring> keys) {
+    keys.erase(L"name"), keys.erase(L"text");
+    dataTableHidden(dat) = std::move(keys);
+    dataTableLayoutSave(dat);
 }
 
 // The stat_txt.tbl string (1-based) that a Name cell changes: a unit's name (0: none, the name is not text to change).
 // Other .dat files take their names from the game's lists or share their Label strings, so their names stay as they are.
 int dataNameString(const std::string& dat, int e) {
-    const int sid = dat == "units" ? entryNameString(dat, e) : 0;
+    const int sid = dat == "strings" ? e : dat == "units" ? entryNameString(dat, e) : 0;  // (a string: its own text)
     return sid > 0 && sid <= dataExtras().strings.count() ? sid : 0;
 }
 
