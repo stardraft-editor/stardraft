@@ -201,11 +201,28 @@ static Json cmdProjectBuild(Session& s) {
 
 // The problems that a map's checks list: the start locations that StarCraft needs (the editor's question before a save),
 // then the rest of the playability (players, humans).
-static void mapProblems(const Editor& ed, Json& problems) {
+static void mapProblems(const Editor& ed, Json& problems, Json& warnings) {
     auto add = [&](const std::string& kind, const std::string& text) { problems.items.push_back(Obj().add("kind", kind).add("problem", text)); };
     const std::vector<std::string> start = ed.startLocationProblems();
     for (const std::string& p : start) add("start_locations", p);
     for (const std::string& p : ed.playabilityProblems(false)) add("playability", p);
+    // A warning (island maps are made so): start locations that cannot reach each other by ground (not in one connected
+    // area of the game's regions).
+    constexpr uint16_t kStartLocation = 214;
+    std::vector<const Unit*> starts;
+    for (const Unit& u : ed.units())
+        if (u.type == kStartLocation && u.owner < 8) starts.push_back(&u);
+    if (starts.size() < 2) return;
+    const PathingRegions regions = computePathingRegions(ed.terrain(), ed.tileset());
+    auto groupOf = [&](const Unit& u) {
+        const int r = regions.regionAt(u.x / 8, u.y / 8);
+        return r >= 0 && size_t(r) < regions.regions.size() && regions.regions[size_t(r)].walkable() ? regions.regions[size_t(r)].group : -1;
+    };
+    const int first = groupOf(*starts[0]);
+    for (size_t i = 1; i < starts.size(); ++i)
+        if (groupOf(*starts[i]) != first || first < 0)
+            warnings.items.push_back(Obj().add("kind", "pathing").add("problem", "Player " + std::to_string(starts[i]->owner + 1) +
+                "'s start location cannot reach player " + std::to_string(starts[0]->owner + 1) + "'s by ground"));
 }
 
 // check <map | project>: the checks of a save and a build, with no change: for a map, its start locations and
@@ -220,7 +237,7 @@ static Json cmdCheck(Session& s) {
     const bool project = ext == ".stardraft" || ext == ".eds" || (fs::is_directory(path, ec) && fs::exists(path / "project.stardraft", ec));
     Json problems = jarr(), warnings = jarr();
     if (!project) {
-        mapProblems(s.load(resolve(word)), problems);
+        mapProblems(s.load(resolve(word)), problems, warnings);
         return Obj().add("passed", problems.items.empty()).add("problems", problems).add("warnings", warnings);
     }
     EudProject pr = openProject(word);
@@ -229,7 +246,7 @@ static Json cmdCheck(Session& s) {
     Editor ed(s.data);
     std::string err;
     if (!ed.open(pr.inputMap(), err)) fail(err);
-    mapProblems(ed, problems);
+    mapProblems(ed, problems, warnings);
     TriggerSet set;
     if (fs::exists(stardraft::triggersFileOf(pr), ec) && !set.load(stardraft::triggersFileOf(pr), err)) {
         problems.items.push_back(Obj().add("kind", "triggers").add("problem", "the triggers file does not load: " + err));
