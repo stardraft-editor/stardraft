@@ -26,6 +26,7 @@
 #include "stardraft/classic_triggers.h"
 #include "stardraft/dat_edit.h"
 #include "stardraft/editor.h"
+#include "stardraft/eud_project.h"
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
 #include "stardraft/map_file.h"
@@ -1616,6 +1617,10 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
   stardraft-cli trigger-types               the trigger conditions and actions, with their parameters
+  stardraft-cli project-new <folder> <name> <map>  an EUD project (its map is copied in)
+  stardraft-cli project <project> [--section n]    the project's scripts, flags and sections (or one section's lines)
+  stardraft-cli project-apply <project> <ops>      add_script, link_script, remove_section, move_script, set_section,
+                                                   set_plugin, set_flags, set_output (saved when all of them work)
   stardraft-cli serve                       requests on stdin, one JSON line each: {"argv": [...], "ops": ...}
 
 Positions are map pixels (a tile is 32 px). Players are 1-12, forces 1-4, locations by their number.
@@ -1629,6 +1634,8 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 #ifdef STARDRAFT_SIMULATION
 #include "simulate.inc"  // simulate-mining, simulate-combat (experimental)
 #endif
+
+#include "project.inc"
 
 // The options and the positional words of one command line (also of a serve request's "argv").
 static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
@@ -1658,6 +1665,12 @@ static Json execute(Session& s) {
     s.timer.on = s.args.has("timing");
     if (c == "ops") return Obj().add("ops", parseJson(kOps, "the operation list"));
     if (c == "trigger-types") return triggerTypesJson();
+    if (c == "project-new") return cmdProjectNew(s);
+    if (c == "project") {
+        if (s.args.positional.empty()) fail("project needs a project (stardraft-cli help)");
+        return cmdProject(s);
+    }
+    if (c == "project-apply") return cmdProjectApply(s);
     if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
     if (c == "open") return cmdOpen(s);
     if (c == "status") return cmdStatus(s);
