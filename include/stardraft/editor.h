@@ -167,7 +167,7 @@ public:
     // options as placing does: with "units anywhere" they go where they were copied to; else each unit that does
     // not fit moves to the nearest spot where it fits (`correct`) or is not pasted.
     bool pasteTerrain(int px, int py, bool correct = true);
-    uint16_t terrainAt(int px, int py) const;  // terrain of the corner nearest a map pixel
+    uint16_t terrainAt(int px, int py) const;  // terrain of the corner nearest a map pixel (0: the ISOM did not load)
     int invalidTerrain() const { return isom_.invalidDiamonds(); }  // should always be 0
     std::vector<std::pair<int, int>> brushCorners(int px, int py, const Brush& b) const { return isom_.brushCorners(px, py, b); }
 
@@ -403,7 +403,8 @@ public:
     bool doodadOverlaps(const DoodadType& t, int tileX, int tileY) const;
     // Scattered doodads (Spray, Decorate) only where they belong: besides doodadFits, the cells that need no tile group
     // have the doodad's own terrain under them (the terrains of the groups its other cells need, or an edge between
-    // them); a doodad that needs none lies on one terrain (no edge). `terrains`: tileGroupTerrains of the tileset.
+    // them); a doodad that needs none lies on one terrain (no edge): the one its palette group is named after, when
+    // there is one. `terrains`: tileGroupTerrains of the tileset.
     // `under`: the terrain without doodads (TILE, else MTXM).
     bool doodadScatterFits(const DoodadType& t, int tileX, int tileY, const std::vector<std::array<uint16_t, 2>>& terrains,
                            const TerrainLayer& under) const;

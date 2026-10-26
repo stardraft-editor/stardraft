@@ -1201,6 +1201,7 @@ void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
 }
 
 uint16_t Editor::terrainAt(int px, int py) const {
+    if (!isomOk_) return 0;  // (an ISOM that did not load has no corners)
     int x, y;
     isom_.cornerAtPixel(px, py, x, y);
     return isom_.terrainAt(x, y);
@@ -2527,6 +2528,14 @@ bool Editor::doodadScatterFits(const DoodadType& t, int tx, int ty, const std::v
                 if (k && std::find(home.begin(), home.end(), k) == home.end()) home.push_back(k);
     const bool needsNone = std::all_of(t.required.begin(), t.required.end(), [](uint16_t g) { return g == 0; });
     if (!needsNone && home.empty()) return true;  // (groups of no known terrain: dddata.bin alone decides)
+    // A doodad that needs no group: the terrain that its palette group is named after, when there is one (Jungle's
+    // "Jungle" grass on Jungle, not on Water); else the terrain under its first cell.
+    if (needsNone && t.groupString)
+        if (const IsomTerrainTable* table = IsomTerrainTable::forEra(era_)) {
+            const std::string& group = types_.statText(t.groupString - 1);
+            for (uint16_t i = 1; i <= table->terrainCount() && home.empty(); ++i)
+                if (table->isTerrain(i) && group == table->terrainName(i)) home.push_back(i);
+        }
     for (int r = 0; r < t.height; ++r)
         for (int c = 0; c < t.width; ++c) {
             const size_t cell = size_t(r) * t.width + size_t(c);

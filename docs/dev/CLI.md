@@ -38,7 +38,7 @@ refuses: `save --force` writes over it, `save --to` writes another file.
 | `open <map> [--reopen]` | Makes the working folder. `--reopen` starts again from the map file. |
 | `new <map> [--size w,h] [--tileset name] [--terrain name]` | Writes a new map file (default 128x128 badlands). |
 | `status <map>` | The change number, the undo and redo steps, the history. |
-| `get <map> [part...]` | `summary` (default), `units`, `doodads`, `sprites`, `locations`, `players`, `forces`, `terrain [--step px]`, `terrains`, `unit-types`, `doodad-types`, `triggers`, `briefings`, `files`, `unit-settings`, `upgrade-settings`, `tech-settings` (`--all`: also the entries that use the game's values), `switches`, `strings`, `sounds`. |
+| `get <map> [part...]` | `summary` (default), `units`, `doodads`, `sprites`, `locations`, `players`, `forces`, `terrain [--step px]`, `terrains`, `unit-types`, `doodad-types`, `triggers`, `briefings`, `files`, `unit-settings`, `upgrade-settings`, `tech-settings` (`--all`: also the entries that use the game's values), `switches`, `strings`, `sounds`, `pathing`, `distances` (the ground distances from each start location to the others and to each base), `walk` (one character per minitile: `0`, `1`, `2` walkable low, middle or high ground, `#` not walkable, `x` under a building or a resource). |
 | `apply <map> <ops> [--expect n] [--dry-run] [--label text]` | The operations from a file, from stdin (`-`) or as JSON text. All of them, or none. |
 | `undo` / `redo <map> [--steps n]` | Go back or forward. |
 | `render <map> -o <png>` | See below. |
@@ -155,8 +155,11 @@ Each spray takes its random seed (`seed`), so a script gives the same result eac
 - `spray_doodads` (`doodads`, `x`, `y`, `radius`, `count`, `check_terrain`) and `spray_sprites` (`sprites`, `player`, `x`,
   `y`, `radius`, `count`, `grid`): the same for doodads and sprites. `grid` is the snap of each sprite in px (0: none).
 - `spray_terrain` (`terrain`, `x`, `y`, `brush`, `dabs`) and `reroll_terrain` (`x`, `y`, `brush`): the terrain tools.
-- `decorate` (`level`: `few`, `some` or `many`, or `spacing` in tiles; `doodads`, `area`): doodads where they fit the
+- `decorate` (`level`: `few`, `some` or `many`, or the tiles between the doodads as a number or as `spacing`; `doodads`, `area`; `clear_bases`, default true: none within 256 px (each way) of a start location, a mineral field or a geyser; `keep_clear`: areas that no doodad covers): doodads where they fit the
   terrain. Without `doodads`, the palette's doodads that take tiles are used.
+- `place_base` (`x`, `y`: the town hall's center; `side`: `left`, `right`, `top` or `bottom`, default left; `minerals`, default 8; `geysers`, 0-2, default 1; `player`: also a start location): the resources of a base, by the rules of the staredit.net Melee Mapping Guide: the fields as near as StarCraft lets them (3 tiles from the town hall), the geyser above the town hall (beside a row of fields: at its left), in each mirror image too ("balanced gas > symmetrical gas"). At the left or the right, the fields make the arc of the ladder maps' mains (2017-2024), the same way up in each mirror image; the geyser is 176 px above the town hall's center. Fields above or below the town hall give a warning. With symmetry, each mirror image is a base of its own (its side turned with it), and its start location goes to the next player that has none. A player that has a start location already gets no second one (an error).
+- `fix_pockets` (`closed_passages`, default false): the pockets of the pathing check (ground that no unit can get to) become ground that is not walkable, tile by tile (as the editor's "Apply the fix", which does one tile). A tile under a doodad stays, and so does a pocket with a unit within 32 px (a turret's platform, a pen, a lone base). With `closed_passages`, also the closed passages where it is safe: no unit within 32 px, those that touch 256 minitiles at most in all, and the op fails if a way from a start location to another one or to a resource gets longer (the regions are emulated: a closed passage can be a real way). The result gives what is left (`left`), and the units and doodads that no longer fit (`units_removed`, `doodads_removed`).
+- `place_ramp` (`x`, `y`: a point on a cliff edge; `radius`, default 256 px; `doodads`: the ids to try): the doodad near the point that fits the cliff and joins the ground on its two sides. Of those, the widest near the point. It fails when none joins the ground.
 - `replace_doodads` (`doodads`: indices, `to`: doodad id), `replace_sprites` (`sprites`: indices, `to`: sprite id).
 
 ## Map revealers, start locations and links
@@ -253,7 +256,7 @@ commands `core/map_commands.inc`, the pages `sdl_map_pages.inc`, `sdl_briefing.i
 | Units | place, move, delete, set hit points, shields, energy, resources, hangar; player; spray; replace type; link add-ons | Yes (`place_unit`, `move_units`, `set_units`, `spray_units`, `replace_units`, `link_units`) |
 | Units: copy, paste, duplicate, cut | Yes | Yes (`copy_units`, `cut_units`, `paste_units`, `duplicate_units`); the clipboard lasts for one `apply` |
 | Doodads and sprites: copy, paste | Yes | Part: doodads with `copy_terrain` (`doodads: true`); a sprite clipboard is not in the library: place the sprites again |
-| Doodads | place, spray, replace, move, delete, check terrain, decorate | Yes (`place_doodad`, `move_doodad`, `delete_doodads`, `spray_doodads`, `replace_doodads`, `decorate`) |
+| Doodads | place, spray, replace, move, delete, check terrain, decorate | Yes (`place_doodad`, `move_doodad`, `delete_doodads`, `spray_doodads`, `replace_doodads`, `decorate`, `place_ramp`, `place_base`) |
 | Sprites | place, move, delete, spray, replace | Yes (`place_sprite`, `move_sprite`, `delete_sprites`, `spray_sprites`, `replace_sprites`) |
 | Terrain | paint (brush), spray, fill, replace, tiles, reroll | Yes (`paint_terrain`, `paint_area`, `fill_terrain`, `replace_terrain`, `place_tiles`, `spray_terrain`, `reroll_terrain`) |
 | Terrain copy: units and doodads in a copy | options | Yes (`copy_terrain` with `units` and `doodads`; `paste_terrain`) |
@@ -272,7 +275,8 @@ commands `core/map_commands.inc`, the pages `sdl_map_pages.inc`, `sdl_briefing.i
 | Undo and redo | history, jump to a step | Yes (`undo --steps`, `redo --steps`); the history: `status` |
 | Render, export image | picture of the map | Yes (`render`) |
 | Check that StarCraft can start the map | problems list | Part: `summary` lists the problems |
-| Pathing check (nooks and crannies) | report | Yes (`get pathing`: the problems, their boxes and the pocket fixes; the editor's list and its fix on the map are the editor's) |
+| Pathing check (nooks and crannies) | report, fix one pocket tile | Yes (`get pathing`: the problems, their boxes and the pocket fixes; `fix_pockets`: all the pockets; the editor's list is the editor's) |
+| Ground distances (start locations, bases) | none | Yes (`get distances`: from each start location to the others and to each group of resources, along the walkable ground) |
 | Simulate mining, combat (experimental) | tools | Part: `simulate-mining`, `simulate-combat` (when built with STARDRAFT_SIMULATION) |
 | Campaign: new, open, show, add a map | File menu | Yes (`campaign-new`, `campaign`, `campaign-apply`: `add_map`, `set_name`); remove a map: No (the library has no remove) |
 | EUD projects: new, open, import, make from map | File and Project menus | Yes (`project-new`, `project`, `import`); "make a project from a map": `project-new` copies the map |

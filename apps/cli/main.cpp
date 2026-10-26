@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <queue>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -34,6 +35,7 @@
 #include "stardraft/eud_project.h"
 #include "stardraft/euddraft.h"
 #include "stardraft/project_build.h"
+#include "stardraft/pathing.h"
 #include "stardraft/pathing_regions.h"
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
@@ -580,6 +582,7 @@ Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
                 a.items.push_back(Obj().add("id", int(t.id)).add("name", doodadName(ed, t)).add("width", int(t.width)).add("height", int(t.height)));
     } else if (what == "terrain") {
         // The terrain (ISOM id) at every `step` px, row by row: a coarse picture of the ground.
+        if (!ed.canPaintTerrain()) fail("the terrain of this map cannot be read (it has no valid ISOM)");
         Json rows = jarr();
         for (int y = 0; y < ed.height() * 32; y += step) {
             Json row = jarr();
@@ -1389,6 +1392,14 @@ Json cmdGet(Session& s) {
             o.add(p, pathingJson(ed));
             continue;
         }
+        if (p == "distances") {
+            o.add(p, distancesJson(ed));
+            continue;
+        }
+        if (p == "walk") {
+            o.add(p, walkJson(ed));
+            continue;
+        }
         if (p == "triggers" && s.args.has("find")) {  // the classic triggers that have the text
             o.add(p, filterTriggers(getWhat(ed, p, step, false), s.args.get("find")));
             continue;
@@ -1619,6 +1630,7 @@ const char* kOps = R"OPS([
   {"op": "fill_terrain", "params": {"terrain": "id or name", "x": "px", "y": "px"}},
   {"op": "replace_terrain", "params": {"from": "terrain", "to": "terrain", "area": "[left, top, right, bottom] px (default: the whole map)", "shape": "rect | diamond | ellipse"}},
   {"op": "place_tiles", "params": {"tiles": "[x0, y0, x1, y1] in tiles, inclusive", "value": "tile value (group << 4 | subtile)"}},
+  {"op": "fix_pockets", "params": {"closed_passages": "bool, default false: also the closed passages where it is safe (no unit near, 256 minitiles at most; the op fails if a way from a start location to another one or to a resource gets longer)"}, "result": {"changed": "tiles whose walkable minitiles of a pocket (or closed passage) are not walkable now", "left": "pockets (and closed passages, with closed_passages) left: get <map> pathing", "tiles_left": "tiles that were not fixed (under a doodad, or no tile fits)", "units_removed": "number", "doodads_removed": "number"}},
   {"op": "create_location", "params": {"area": "[left, top, right, bottom] px", "name": "text"}, "result": {"location": "its number"}},
   {"op": "set_location", "params": {"location": "number", "name": "text", "area": "[left, top, right, bottom] px", "excluded_elevations": "bits: 1 low, 2 medium, 4 high ground, 8 low, 16 medium, 32 high air"}},
   {"op": "delete_location", "params": {"location": "number"}},
@@ -1640,12 +1652,14 @@ const char* kOps = R"OPS([
   {"op": "set_string", "params": {"string": "id (get strings)", "text": "text"}, "result": {"changed": "bool"}},
   {"op": "add_sound", "params": {"path": "sound\\x.wav: a game sound the map plays by its path"}, "result": {"added": "bool (false: a file of the map with that name, or it is listed)"}},
   {"op": "remove_sound", "params": {"path": "as add_sound"}, "result": {"removed": "bool"}},
-  {"op": "decorate", "params": {"level": "few | some | many (default some), or spacing: tiles between the doodads", "doodads": "[doodad id] (default: the palette's doodads that take tiles)", "area": "[left, top, right, bottom] px (default: the map)", "seed": "number"}, "result": {"placed": "number"}},
+  {"op": "decorate", "params": {"level": "few | some | many (default some), or a number: the tiles between the doodads", "spacing": "tiles between the doodads (as a number for level)", "doodads": "[doodad id] (default: the palette's doodads that take tiles)", "area": "[left, top, right, bottom] px (default: the map)", "seed": "number", "clear_bases": "bool, default true: none within 256 px (each way) of a start location, mineral field or geyser", "keep_clear": "[[left, top, right, bottom], ...] px: no doodad covers them"}, "result": {"placed": "number"}},
   {"op": "spray_units", "params": {"types": "[unit type]", "player": "1-12", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number"}, "result": {"placed": "number"}},
   {"op": "spray_doodads", "params": {"doodads": "[doodad id]", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number", "check_terrain": "bool, default true"}, "result": {"placed": "number"}},
   {"op": "spray_sprites", "params": {"sprites": "[sprites.dat id]", "player": "1-12", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number", "grid": "px snap of each sprite, 0: none"}, "result": {"placed": "number"}},
   {"op": "spray_terrain", "params": {"terrain": "id or name", "x": "px", "y": "px", "brush": "as paint_terrain", "dabs": "number, default 1", "seed": "number"}},
   {"op": "reroll_terrain", "params": {"x": "px", "y": "px", "brush": "as paint_terrain", "seed": "number"}, "result": {"changed": "number"}},
+  {"op": "place_base", "params": {"x": "px: the town hall's center", "y": "px", "side": "left | right | top | bottom: where the mineral fields go (default left)", "minerals": "number of mineral fields, default 8", "geysers": "0-2, default 1", "player": "1-8: also a start location at (x, y) (optional)"}, "result": {"units": "[{serial, type, x, y}]", "placed": "number, with the mirror images"}},
+  {"op": "place_ramp", "params": {"x": "px: a point on a cliff edge between high and low ground", "y": "px", "radius": "px to look in, default 256", "doodads": "[doodad id] (default: all that fit)"}, "result": {"doodad": "the ramp's doodad id", "x": "px (center)", "y": "px", "index": "the new doodad's index", "area": "its tiles, px"}},
   {"op": "replace_doodads", "params": {"doodads": "[index]", "to": "doodad id", "check_terrain": "bool, default true"}, "result": {"replaced": "number"}},
   {"op": "replace_sprites", "params": {"sprites": "[index]", "to": "sprites.dat id"}, "result": {"replaced": "number"}},
   {"op": "place_map_revealers", "params": {"players": "[1-8]", "spacing": "tiles between the revealers, default 8"}, "result": {"placed": "number"}},
@@ -1669,9 +1683,9 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli status <map>                the working folder: change number, undo and redo steps, history
   stardraft-cli get <map> [part...]         JSON: summary (default), units, doodads, sprites, locations, players,
                                             forces, terrain [--step px], terrains, unit-types, doodad-types,
-                                            triggers, briefings, files, unit-settings, upgrade-settings,
+                                            triggers, briefings, files, unit-settings, upgrade-settings, distances,
                                             tech-settings ([--all]: also those that use the game's values),
-                                            switches, strings, sounds
+                                            switches, strings, sounds, pathing, walk (the ground per minitile)
   stardraft-cli apply <map> <ops>           apply operations (a file, - for stdin, or JSON text) as one undo step
                     [--expect <change>] [--dry-run] [--label <text>]
   stardraft-cli undo <map> [--steps n]      go back one step (or n)
