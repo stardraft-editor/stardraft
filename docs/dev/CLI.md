@@ -184,6 +184,18 @@ fields (their size, their entries, their names when they are a choice, their ref
 --entry 0` gives an entry's values. `project-data <p> strings [--index n]` gives the stat_txt strings (the changed ones,
 or one).
 
+The buttons, requirements and unit looks (their project files: `dat/buttons.json`, `dat/requirements.json`,
+`dat/unit_display.json`):
+
+- `project-data <p> buttons [--set n]`: the sets that changed, or one set's buttons (`condition` and `action` by name, or
+  by the game's address when the name is unknown). `set_buttons` (`set`, `buttons`: `[{pos, icon, condition, action,
+  condition_arg, action_arg, enabled_string, disabled_string}]`) replaces a whole set; `reset_buttons` (`set`).
+- `project-data <p> requirements --kind <kind> [--entry n]`: the entries that changed, or one entry's ops. `set_requirements`
+  (`kind`, `entry`, `used`, `ops`: `[{op, arg}]`; an op is a name, a number (below 256: a unit) or `"end"`); `reset_requirements`.
+- `project-data <p> unit-looks [--unit n]`: the units that changed, or one unit's panel functions and wireframes.
+  `set_unit_look` (`unit`, `panel` (a kind's name, which sets both functions), `status`, `display`, `wireframe`,
+  `group_wireframe`, `transport_wireframe`; -1 wireframe: the unit's own); `reset_unit_look`.
+
 A value that the Data form shows in another unit has a `shown` text as well: hit points show in whole hit points (40 for
 the Marine, with decimals), as the editor does (`datShownScale` in `include/stardraft/dat_units.h`). A number given to
 `set_field` is in the shown unit; `"raw": true` takes the stored value (units.dat keeps 1/256 hit point).

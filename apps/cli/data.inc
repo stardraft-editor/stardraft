@@ -29,7 +29,18 @@ struct DataEdits {
         if (!strings.load(data, err)) fail(err);
         if (!strings.loadEdits(stringsFile(pr), err)) fail(err);
         if (!unitTypes.load(data, err)) fail(err);
+        if (!buttons.loadEdits(extrasPath(pr, "buttons.json"), err) || !reqs.loadEdits(extrasPath(pr, "requirements.json"), err) ||
+            !looks.loadEdits(extrasPath(pr, "unit_display.json"), err))
+            fail(err);
     }
+
+    static fs::path extrasPath(const EudProject& pr, const char* name) { return pr.folder() / "dat" / name; }
+
+    // The buttons, requirements and unit looks (dat_extras.h): their project files, the same as the editor's.
+    ButtonSets buttons;
+    Requirements reqs;
+    UnitLooks looks;
+    bool buttonsChanged = false, reqsChanged = false, looksChanged = false;
 
     DatTable& table(const std::string& name) {
         for (auto& t : tables)
@@ -43,8 +54,149 @@ struct DataEdits {
         for (auto& t : tables)
             if (changedTables.count(t->schema().name) && !t->saveEdits(pr.datFile(t->schema().name), err)) fail(err);
         if (stringsChanged && !strings.saveEdits(stringsFile(pr), err)) fail(err);
+        if (buttonsChanged && !buttons.saveEdits(extrasPath(pr, "buttons.json"), err)) fail(err);
+        if (reqsChanged && !reqs.saveEdits(extrasPath(pr, "requirements.json"), err)) fail(err);
+        if (looksChanged && !looks.saveEdits(extrasPath(pr, "unit_display.json"), err)) fail(err);
     }
 };
+
+// --- Buttons, requirements and unit looks (dat_extras.h) -------------------------------------------------------------
+
+// A value of a named list (a button's condition or action, a requirement's op, a panel kind): its name or its number.
+template <class Named>
+uint32_t namedValue(const Json& v, const char* what, size_t count, Named name) {
+    if (v.type == Json::Type::Number) return uint32_t(v.n);
+    for (size_t i = 0; i < count; ++i)
+        if (lower(name(i)) == lower(v.s)) return uint32_t(i);
+    fail(std::string(what) + ": no \"" + v.s + "\"");
+}
+int optInt(const Json& j, const char* k, int def) {
+    const Json* v = j.get(k);
+    return v && v->type == Json::Type::Number ? int(v->n) : def;
+}
+
+Json buttonsJson(const ButtonSets& b, int set) {
+    Json a = jarr();
+    for (const Button& x : b.set(set)) {
+        const ButtonFunctionDef* c = ButtonSets::condition(x.condition);
+        const ButtonFunctionDef* f = ButtonSets::action(x.action);
+        a.items.push_back(Obj()
+                              .add("pos", int(x.pos))
+                              .add("icon", int(x.icon))
+                              .add("condition", c ? std::string(c->name) : std::to_string(x.condition))
+                              .add("condition_arg", int(x.conditionArg))
+                              .add("action", f ? std::string(f->name) : std::to_string(x.action))
+                              .add("action_arg", int(x.actionArg))
+                              .add("enabled_string", int(x.enabledString))
+                              .add("disabled_string", int(x.disabledString)));
+    }
+    return Obj().add("set", set).add("changed", b.changed(set)).add("buttons", a);
+}
+
+Json requirementsJson(const Requirements& r, int kind, int entry) {
+    const Requirements::Kind& k = Requirements::kind(kind);
+    const RequirementList& l = r.list(kind, entry);
+    Json ops = jarr();
+    for (const RequirementOp& o : l.ops) {
+        const RequirementOpDef* d = o.op == 0xFFFF ? nullptr : Requirements::op(o.op);
+        ops.items.push_back(Obj().add("op", int(o.op)).add("name", o.op == 0xFFFF ? std::string("end") : d ? std::string(d->name) : std::string()).add("arg", int(o.arg)));
+    }
+    return Obj().add("kind", k.name).add("entry", entry).add("used", l.used).add("changed", r.changed(kind, entry)).add("ops", ops);
+}
+
+Json looksJson(const UnitLooks& u, int unit) {
+    const UnitLooks::Unit& x = u.unit(unit);
+    const uint32_t st = u.status(unit), di = u.display(unit);
+    const UnitPanelKind* kind = UnitLooks::kindOf(st, di);
+    return Obj()
+        .add("unit", unit)
+        .add("panel", kind ? std::string(kind->name) : std::string())
+        .add("status", double(st))
+        .add("display", double(di))
+        .add("wireframe", x.wireframe)
+        .add("group_wireframe", x.groupWireframe)
+        .add("transport_wireframe", x.transportWireframe)
+        .add("changed", u.changed(unit));
+}
+
+// The stored values of a unit's looks are kept with the game's values where the project has none (status 0).
+void applyExtrasOp(DataEdits& d, const Json& op, bool& handled) {
+    const std::string name = op.str("op");
+    handled = true;
+    if (name == "set_buttons" || name == "reset_buttons") {
+        const int set = int(num(op, "set"));
+        if (set < 0 || set >= ButtonSets::kSets) fail("\"set\" must be 0-" + std::to_string(ButtonSets::kSets - 1));
+        if (name == "reset_buttons") {
+            d.buttons.reset(set);
+        } else {
+            std::vector<Button> list;
+            for (const Json& j : arrayOf(op, "buttons")) {
+                Button b;
+                b.pos = uint16_t(optInt(j, "pos", 1));
+                b.icon = uint16_t(optInt(j, "icon", 0));
+                const Json* c = j.get("condition");
+                const Json* a = j.get("action");
+                if (!c || !a) fail("a button needs \"condition\" and \"action\"");
+                auto cn = [](size_t i) { return std::string(ButtonSets::conditions()[i].name); };
+                auto an = [](size_t i) { return std::string(ButtonSets::actions()[i].name); };
+                // (a name is looked up in the list; a number is the game's function address, as the .dat keeps it)
+                b.condition = c->type == Json::Type::Number ? uint32_t(c->n) : ButtonSets::conditions()[namedValue(*c, "condition", ButtonSets::conditions().size(), cn)].address;
+                b.action = a->type == Json::Type::Number ? uint32_t(a->n) : ButtonSets::actions()[namedValue(*a, "action", ButtonSets::actions().size(), an)].address;
+                b.conditionArg = uint16_t(optInt(j, "condition_arg", 0));
+                b.actionArg = uint16_t(optInt(j, "action_arg", 0));
+                b.enabledString = uint16_t(optInt(j, "enabled_string", 0));
+                b.disabledString = uint16_t(optInt(j, "disabled_string", 0));
+                list.push_back(b);
+            }
+            d.buttons.set(set, list);
+        }
+        d.buttonsChanged = true;
+    } else if (name == "set_requirements" || name == "reset_requirements") {
+        const int kind = int(namedValue(need(op, "kind"), "kind", Requirements::kKinds, [](size_t i) { return std::string(Requirements::kind(int(i)).name); }));
+        const int entry = int(num(op, "entry"));
+        if (entry < 0 || entry >= Requirements::kind(kind).entries) fail("no entry " + std::to_string(entry) + " in " + Requirements::kind(kind).name);
+        if (name == "reset_requirements") {
+            d.reqs.reset(kind, entry);
+        } else {
+            RequirementList l;
+            l.used = op.boolean("used", true);
+            const size_t opCount = Requirements::ops().size();
+            for (const Json& j : arrayOf(op, "ops")) {
+                RequirementOp o;
+                const Json* v = j.get("op");
+                if (!v) fail("an op needs \"op\"");
+                if (v->type == Json::Type::String && lower(v->s) == "end") o.op = 0xFFFF;
+                else o.op = uint16_t(namedValue(*v, "op", opCount, [](size_t i) { return std::string(Requirements::ops()[i].name); }));
+                o.arg = uint16_t(optInt(j, "arg", 0));
+                l.ops.push_back(o);
+            }
+            d.reqs.set(kind, entry, l);
+        }
+        d.reqsChanged = true;
+    } else if (name == "set_unit_look" || name == "reset_unit_look") {
+        const int unit = int(num(op, "unit"));
+        if (unit < 0 || unit >= UnitLooks::kUnits) fail("\"unit\" must be 0-" + std::to_string(UnitLooks::kUnits - 1));
+        if (name == "reset_unit_look") {
+            d.looks.set(unit, UnitLooks::Unit{});
+        } else {
+            UnitLooks::Unit x = d.looks.unit(unit);
+            if (const Json* p = op.get("panel")) {  // a panel kind sets both functions
+                const auto kinds = UnitLooks::kinds();
+                const uint32_t k = namedValue(*p, "panel", kinds.size(), [&](size_t i) { return std::string(kinds[i].name); });
+                x.status = kinds[k].status, x.display = kinds[k].display;
+            }
+            if (op.get("status")) x.status = uint32_t(num(op, "status"));
+            if (op.get("display")) x.display = uint32_t(num(op, "display"));
+            if (op.get("wireframe")) x.wireframe = int(num(op, "wireframe"));
+            if (op.get("group_wireframe")) x.groupWireframe = int(num(op, "group_wireframe"));
+            if (op.get("transport_wireframe")) x.transportWireframe = int(num(op, "transport_wireframe"));
+            d.looks.set(unit, x);
+        }
+        d.looksChanged = true;
+    } else {
+        handled = false;
+    }
+}
 
 // A field's value as the JSON gives it: its number, and its name when it is a choice.
 Json fieldValueJson(const DatField& f, uint32_t v) {
@@ -153,7 +305,9 @@ void applyDataOp(DataEdits& d, const Json& op) {
         else d.strings.set(i, textOf(op, "text"));
         d.stringsChanged = true;
     } else {
-        fail("unknown data op \"" + name + "\": set_field, reset_field, set_string, reset_string");
+        bool handled = false;
+        applyExtrasOp(d, op, handled);
+        if (!handled) fail("unknown data op \"" + name + "\": set_field, reset_field, set_string, reset_string, set_buttons, reset_buttons, set_requirements, reset_requirements, set_unit_look, reset_unit_look");
     }
 }
 
@@ -167,6 +321,31 @@ static Json cmdProjectData(Session& s) {
     if (s.args.positional.size() < 2) return Obj().add("project", ustr(pr.file())).add("tables", datTablesJson(d)).add("strings_changed", d.strings.changedCount());
     const std::string what = s.args.positional[1];
     if (what == "strings") return datStringsJson(d, s);
+    if (what == "buttons") {  // the button sets: one with --set n, else the changed ones
+        if (s.args.has("set")) return buttonsJson(d.buttons, int(std::strtol(s.args.get("set").c_str(), nullptr, 10)));
+        Json a = jarr();
+        for (int i = 0; i < ButtonSets::kSets; ++i)
+            if (d.buttons.changed(i)) a.items.push_back(Obj().add("set", i).add("buttons", int(d.buttons.set(i).size())));
+        return Obj().add("changed_sets", a);
+    }
+    if (what == "requirements") {  // one entry with --kind and --entry; else the changed entries of the kind
+        Json a = jarr();
+        int kind = -1;
+        for (int k = 0; s.args.has("kind") && k < Requirements::kKinds; ++k)
+            if (lower(Requirements::kind(k).name) == lower(s.args.get("kind"))) kind = k;
+        if (kind < 0) fail("requirements needs --kind (units, upgrades, research, tech use, orders)");
+        if (s.args.has("entry")) return requirementsJson(d.reqs, kind, int(std::strtol(s.args.get("entry").c_str(), nullptr, 10)));
+        for (int e = 0; e < Requirements::kind(kind).entries; ++e)
+            if (d.reqs.changed(kind, e)) a.items.push_back(Obj().add("entry", e));
+        return Obj().add("kind", Requirements::kind(kind).name).add("changed_entries", a);
+    }
+    if (what == "unit-looks") {  // one unit with --unit n, else the changed units
+        if (s.args.has("unit")) return looksJson(d.looks, int(std::strtol(s.args.get("unit").c_str(), nullptr, 10)));
+        Json a = jarr();
+        for (int u = 0; u < UnitLooks::kUnits; ++u)
+            if (d.looks.changed(u)) a.items.push_back(Obj().add("unit", u));
+        return Obj().add("changed_units", a);
+    }
     return datTableJson(d, what, s);
 }
 
