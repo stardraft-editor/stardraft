@@ -104,6 +104,7 @@ add_library(stardraft
     src/euddraft.cpp
     src/eptrace.cpp
     src/eud_project.cpp
+    src/project_build.cpp
     src/dat_edit.cpp
     src/dat_extras.cpp
     src/wireframes.cpp

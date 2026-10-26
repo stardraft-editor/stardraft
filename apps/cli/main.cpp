@@ -32,6 +32,8 @@
 #include "stardraft/editor.h"
 #include "stardraft/campaign.h"
 #include "stardraft/eud_project.h"
+#include "stardraft/euddraft.h"
+#include "stardraft/project_build.h"
 #include "stardraft/pathing_regions.h"
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
@@ -1658,6 +1660,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli project <project> [--section n]    the project's scripts, flags and sections (or one section's lines)
   stardraft-cli project-apply <project> <ops>      add_script, link_script, remove_section, move_script, set_section,
                                                    set_plugin, set_flags, set_output (saved when all of them work)
+  stardraft-cli project-build <project>            the Build: the generated files, the map, then euddraft (JSON result)
   stardraft-cli project-data <project> [table | strings] [--entry n] [--index n]
                                                    the Data workspace: the tables, a table's fields or an entry's values
   stardraft-cli project-data-apply <project> <ops> set_field, reset_field, set_string, reset_string (all or none)
@@ -1712,6 +1715,7 @@ static Json execute(Session& s) {
         return cmdProject(s);
     }
     if (c == "project-apply") return cmdProjectApply(s);
+    if (c == "project-build") return cmdProjectBuild(s);
     if (c == "project-data") return cmdProjectData(s);
     if (c == "project-data-apply") return cmdProjectDataApply(s);
     if (c == "campaign-new") return cmdCampaignNew(s.args);

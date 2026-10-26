@@ -135,3 +135,47 @@ static Json cmdProjectApply(Session& s) {
     if (!pr.save(err)) fail(err);
     return projectJson(pr);
 }
+
+// project-build <project>: the Build of the editor (File > Project > Build) without the window: the generated files and
+// the map that euddraft gets (stardraft::prepareBuild), then euddraft (stardraft::compileBuild). The map is the project's
+// own (map/<name>.scx); the Data workspace's and the triggers' files are read as they are on disk. It may take a while.
+// Its answer: whether it built, the output map, the euddraft log lines, the warnings (the map's playability: StarCraft may
+// refuse the map) and the remake counts.
+static Json cmdProjectBuild(Session& s) {
+    if (s.args.positional.empty()) fail("usage: stardraft-cli project-build <project>");
+    EudProject pr = openProject(s.args.positional[0]);
+    if (!s.dataOpen) openGameData(s.data, s.args.get("install")), s.dataOpen = true;
+    if (const auto missing = pr.missingScripts(); !missing.empty()) fail(pr.missingScriptText(missing.front()));
+    Editor ed(s.data);
+    std::string err;
+    if (!ed.open(pr.inputMap(), err)) fail(err);
+    Json warnings = jarr();
+    for (const std::string& p : ed.playabilityProblems(true)) warnings.items.push_back(jstr(p));
+    stardraft::BuildReport report;
+    if (!stardraft::prepareBuild(pr, ed, s.data, stardraft::BuildOpen{}, report, err)) {
+        std::string detail = report.failedStep + ": " + err;
+        for (const std::string& m : report.triggerErrors) detail += "; " + m;
+        fail("the build stopped before euddraft (" + detail + ")");
+    }
+    Json log = jarr();
+    const euddraft::BuildResult r = stardraft::compileBuild(pr, [&](const std::string& line) { log.items.push_back(jstr(line)); });
+    Json errors = jarr();
+    for (const std::string& e : r.errors) errors.items.push_back(jstr(e));
+    const Json remake = Obj()
+                            .add("on", report.remakeOn)
+                            .add("units_made", report.remake.made)
+                            .add("kept_loaded", report.remake.loaded)
+                            .add("kept_linked", report.remake.linked)
+                            .add("kept_no_property", report.remake.noProperty)
+                            .add("kept_code_unit", report.remake.codeUnit)
+                            .add("kept_edge", report.remake.edge)
+                            .add("blocked", report.remake.blocked);
+    return Obj()
+        .add("built", r.ok)
+        .add("output", ustr(pr.outputMap()))
+        .add("exit_code", r.exitCode)
+        .add("errors", errors)
+        .add("warnings", warnings)
+        .add("remake", remake)
+        .add("log", log);
+}
