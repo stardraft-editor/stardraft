@@ -3,7 +3,7 @@
 // the map's right-click menu (core/views_map_menu.inc) as a kit Menu. The Windows hosts are main.cpp's showUnitProperties,
 // showLocationEdit, prompt and mapMenu. Included by main_sdl.cpp after sdl_options.inc.
 
-// Edit > Tools > Place map revealers: the players' dialog over the window (core/views_revealers_dialog.inc). True with the
+// Tools > Place map revealers: the players' dialog over the window (core/views_revealers_dialog.inc). True with the
 // chosen players in `owners`.
 bool showMapRevealersDialog(std::vector<uint8_t>& owners) {
     return gRoot && runRevealersDialog(*gRoot, owners);
@@ -314,7 +314,7 @@ struct MapDialogShot {
     std::unique_ptr<TextPromptView> prompt;
     std::unique_ptr<MapImageView> image;  // mapimage: File > Export map image (core/map_image.inc)
     std::unique_ptr<MapImageProgressView> progress;  // mapimage-progress: its progress window, at part 3 of 16
-    std::unique_ptr<RevealersView> revealers;        // revealers: Edit > Tools > Place map revealers
+    std::unique_ptr<RevealersView> revealers;        // revealers: Tools > Place map revealers
     std::unique_ptr<ResizeView> resize;              // resize: Map properties > Crop or extend (the map's size, no offset)
     stardraft::kit::Dialog dlg;
     draw::View* view = nullptr;

@@ -11,6 +11,7 @@ struct PaletteArt {
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
     HdTiles hdTiles;              // HD2 (or Carbot) megatiles, for terrain and doodad pictures
     bool hdTilesLoaded = false;
+    int hdTilesEra = -1, hdTilesMode = -1;  // (the era and mode of hdTiles: another map of that tileset uses them too)
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
 };
 PaletteArt gPaletteArt;
@@ -47,7 +48,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
                         }
                 }
         }
-        gPaletteArt.hdTilesLoaded = false;
+        // (the HD tiles come from the game data by the era and mode only: a tab of another map of the same tileset keeps them)
+        if (gPaletteArt.hdTilesEra != int(ed.era()) || gPaletteArt.hdTilesMode != mode) gPaletteArt.hdTilesLoaded = false;
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
     if (!unitKind) sprite = false;
@@ -63,7 +65,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     } else if (!unitKind) {
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
-            gPaletteArt.hdTilesLoaded = true;
+            gPaletteArt.hdTilesLoaded = true, gPaletteArt.hdTilesEra = int(ed.era()), gPaletteArt.hdTilesMode = mode;
             if (!loadHdTiles(gState.data, ed.era(), GraphicsQuality::HD2, gPaletteArt.hdTiles, err, mode == 2))
                 gPaletteArt.hdTiles = {};
         }

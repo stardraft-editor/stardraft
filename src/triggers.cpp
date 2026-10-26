@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -1285,6 +1287,18 @@ bool variableValue(const std::string& type) {
 }
 }  // namespace
 
+// A unit type slot's variable (GitHub #140): a number variable or a constant, or one player's item of a player array that
+// holds unit types ("heroType[2]": Player 3's).
+template <class Vars>
+static bool unitTypeVariableText(const Vars& vars, const std::string& v) {
+    const size_t b = v.find('[');
+    const auto it = vars.find(b == std::string::npos ? v : v.substr(0, b));
+    if (it == vars.end()) return false;
+    const TriggerVariable& var = it->second->variable;
+    if (b == std::string::npos) return var.kind == TriggerVariable::Kind::Number || var.kind == TriggerVariable::Kind::Constant;
+    return v.back() == ']' && var.kind == TriggerVariable::Kind::PerPlayer && var.holds == "UnitType";
+}
+
 int TriggerSet::upgradeNames(const TriggerMapInfo& map) {
     if (!map.known) return 0;
     int n = 0;
@@ -1301,6 +1315,7 @@ int TriggerSet::upgradeNames(const TriggerMapInfo& map) {
                     const TriggerType* t = triggerType(d->params[i].type);
                     std::string& v = c.args[i];
                     if (!t || v.empty() || std::isdigit(static_cast<unsigned char>(v[0])) || perPlayer(v)) continue;
+                    if ((t->picker == TriggerPicker::UnitType || t->picker == TriggerPicker::UnitFilter) && unitTypeVariableText(vars, v)) continue;
                     if (t->picker == TriggerPicker::UnitType || t->picker == TriggerPicker::UnitFilter) {
                         if (auto g = groups.find(v); g != groups.end()) v = g->second, ++n;
                         else
@@ -1344,6 +1359,8 @@ int TriggerSet::renameVariable(const std::string& fromRef, const std::string& to
                              vt && (vt->picker == TriggerPicker::UnitType || vt->picker == TriggerPicker::UnitFilter || vt->picker == TriggerPicker::Location) &&
                              c.args[i] == from)
                         c.args[i] = to, ++n;  // a per-player variable as a unit type or a location (GH#108)
+                    else if (vt && (vt->picker == TriggerPicker::UnitType || vt->picker == TriggerPicker::UnitFilter) && c.args[i].rfind(from + "[", 0) == 0)
+                        c.args[i] = to + c.args[i].substr(from.size()), ++n;  // one player's item of a player array (GitHub #140)
                     else if (const TriggerType* t = triggerType(d->params[i].type); t && t->picker == TriggerPicker::Code)
                         n += replaceIdent(c.args[i], fromCode, toCode) + replaceIdent(c.args[i], fromCode + "_gen", toCode + "_gen");
                 }
@@ -1756,6 +1773,16 @@ struct Gen {
             }
             const int id = unitId(v);  // a name: files from before version 3
             if (id < 0) {
+                // A number variable or a player array's item (hero[2]: Player 3's) that holds a unit type (GitHub #140).
+                if (unitTypeVariableText(vars, v))
+                    if (const TriggerExprResult r = gx(v); r.ok) {
+                        if (!r.constant) return r.code;
+                        if (t->picker == TriggerPicker::UnitType && r.value >= 229 && r.value <= 232)
+                            issue(TriggerIssue::Level::Error, &c, i, "This is a group of units. Select one unit type");
+                        else if (map.known && (r.value < 0 || r.value >= (long long)map.unitNames.size()))
+                            issue(TriggerIssue::Level::Error, &c, i, "There is no unit type " + std::to_string(r.value));
+                        return unitCode(int(r.value));
+                    }
                 if (map.known) issue(TriggerIssue::Level::Error, &c, i, "There is no unit type with the name " + v);
                 return quote(v);
             }
@@ -2974,6 +3001,53 @@ std::string TriggerSet::helperLibrary() {
     return out;
 }
 
+// TrgUnit($U("Terran Marine")) reads as TrgUnit("Terran Marine"), Weapon(EncodeWeapon("Gauss Rifle")) as
+// Weapon("Gauss Rifle"): these take the name itself (after the line map: no line changes). For each kind, from the
+// start: each TrgUnit($U(" that is not the end of a longer name loses its $U(, and the first quote and two closing
+// parentheses after it (in the code as it is then) lose one parenthesis; the pass ends at one without them after it.
+// Each change only takes characters out, so a pass marks them and copies the code once at its end (a change in place
+// moved all the code after it: slow on large trigger sets). The parts searched for have no parenthesis that closes,
+// so no mark falls in one; the closing quote and parentheses are found among the characters that are left.
+static void unwrapNameCalls(std::string& code) {
+    for (const auto& [type, encode] : {std::pair{"TrgUnit", "$U"}, std::pair{"Weapon", "EncodeWeapon"}, std::pair{"Flingy", "EncodeFlingy"},
+                                       std::pair{"Upgrade", "EncodeUpgrade"}, std::pair{"Tech", "EncodeTech"}}) {
+        const std::string from = std::string(type) + "(" + encode + "(\"";
+        const size_t encodeAt = std::char_traits<char>::length(type) + 1, encodeLength = std::char_traits<char>::length(encode) + 1;
+        std::vector<uint8_t> gone;  // (1: taken out; made at the first change)
+        auto left = [&](size_t i) { return gone.empty() || !gone[i]; };
+        for (size_t at = 0; (at = code.find(from, at)) != std::string::npos;) {
+            size_t before = at;  // (the character before it among those left)
+            while (before > 0 && !left(before - 1)) --before;
+            if (before > 0 && (std::isalnum(static_cast<unsigned char>(code[before - 1])) || code[before - 1] == '_')) {  // (part of a longer name)
+                at += from.size();
+                continue;
+            }
+            // The first quote and two closing parentheses after it among the characters left: the second parenthesis goes.
+            size_t close = std::string::npos;
+            int matched = 0;  // (of ", ), ) in a row)
+            for (size_t i = at + from.size(); i < code.size(); ++i) {
+                if (!left(i)) continue;
+                const char ch = code[i];
+                matched = ch == '"' ? 1 : (ch == ')' && matched >= 1) ? matched + 1 : 0;
+                if (matched == 3) {
+                    close = i;
+                    break;
+                }
+            }
+            if (close == std::string::npos) break;
+            if (gone.empty()) gone.assign(code.size(), 0);
+            gone[close] = 1;
+            std::fill(gone.begin() + std::ptrdiff_t(at + encodeAt), gone.begin() + std::ptrdiff_t(at + encodeAt + encodeLength), uint8_t(1));
+            at += from.size();
+        }
+        if (gone.empty()) continue;
+        size_t n = 0;
+        for (size_t i = 0; i < code.size(); ++i)
+            if (!gone[i]) code[n++] = code[i];
+        code.resize(n);
+    }
+}
+
 std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerIssue>& issues, const TriggerBuildOptions& options,
                                  std::vector<TriggerCodeLine>* lines) const {
     Gen g{map, issues};
@@ -3268,22 +3342,7 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
     const bool mouse = (functions + calls[1] + calls[2]).find("msqc_Mouse") != std::string::npos;
     out += "function afterTriggerExec() {\n" + std::string(mouse ? "    msqc_keepMouse();\n" : "") + g.perCycle + calls[2] + "}\n";
     std::string code = stripMarks(out, g.marks, lines);
-    // TrgUnit($U("Terran Marine")) reads as TrgUnit("Terran Marine"), Weapon(EncodeWeapon("Gauss Rifle")) as
-    // Weapon("Gauss Rifle"): these take the name itself (after the line map: no line changes).
-    for (const auto& [type, encode] : {std::pair{"TrgUnit", "$U"}, std::pair{"Weapon", "EncodeWeapon"}, std::pair{"Flingy", "EncodeFlingy"},
-                                       std::pair{"Upgrade", "EncodeUpgrade"}, std::pair{"Tech", "EncodeTech"}}) {
-        const std::string from = std::string(type) + "(" + encode + "(\"", to = std::string(type) + "(\"";
-        for (size_t at = 0; (at = code.find(from, at)) != std::string::npos;) {
-            if (at > 0 && (std::isalnum(static_cast<unsigned char>(code[at - 1])) || code[at - 1] == '_')) {  // (part of a longer name)
-                at += from.size();
-                continue;
-            }
-            const size_t close = code.find("\"))", at + from.size());
-            if (close == std::string::npos) break;
-            code.replace(close, 3, "\")"), code.replace(at, from.size(), to);
-            at += to.size();
-        }
-    }
+    unwrapNameCalls(code);
     return code;
 }
 

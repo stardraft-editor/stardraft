@@ -185,6 +185,7 @@ void pasteMapCopy(AppState& app) {
     }
     if (!app.ed || !app.ed->canPaste()) return;
     if (app.mode != Mode::Units) return;  // the units' copy pastes in Units
+    app.ed->clearSelection();  // (the selection goes: the copy follows the mouse; 1 to 9 give it to a player)
     app.pasting = true;
     app.dirty = true;
     setMessage(L"Paste " + std::to_wstring(app.ed->clipboard().size()) +
@@ -309,6 +310,17 @@ bool commandMapEdit(AppState& app, int id) {
             return true;  // (fewer terrains listed: the key does nothing)
         }
         const bool placing = app.palette >= 0;
+        if (app.ed && app.mode == Mode::Units && app.pasting) {  // pasting units: the copy goes to that player
+            const size_t copied = app.ed->clipboard().size();
+            app.ed->setClipboardOwner(uint8_t(player));
+            size_t owned = 0;
+            for (const Unit& u : app.ed->clipboard()) owned += u.owner == player;
+            setMessage(L"Paste " + std::to_wstring(copied) + L" units for Player " + std::to_wstring(player + 1) +
+                       (owned < copied ? L" (resources and critters stay neutral)" : L"") +
+                       L": click to place them, and again to place more. Right-click or Esc stops.");
+            app.dirty = true;
+            return true;
+        }
         if (app.ed && app.mode == Mode::Units && !placing && !app.ed->selection().empty()) {
             const size_t selected = app.ed->selection().size();
             const int n = app.ed->setSelectionOwner(uint8_t(player));

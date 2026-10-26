@@ -104,8 +104,9 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
-    {  // Tools: the checks of the map, and doodads where they fit (roadmap R37)
-        MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
+    // The Tools menu: the checks of the map, doodads where they fit (roadmap R37), the map revealers and the simulation.
+    MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
+    {
         menuCommand(tools, "scen.checkPathing");
         tools.push_back(menuSeparator());
         MenuModel decorate;
@@ -114,8 +115,11 @@ MenuModel buildMenuModel() {
         tools.push_back(menuSeparator());  // the map revealers (Discord feedback #125)
         menuCommand(tools, "edit.revealers.place");
         menuCommand(tools, "edit.revealers.removeAll");
-        edit.push_back(menuSeparator());
-        edit.push_back(menuPopup(L"T&ools", tools));
+#ifdef STARDRAFT_SIMULATION
+        tools.push_back(menuSeparator());  // (experimental: the game simulated)
+        menuCommand(tools, "edit.simulate.mining");
+        menuCommand(tools, "edit.simulate.combat");
+#endif
     }
     // The View menu in groups: the graphics, the grid, what shows on the map (overlays, layers), the zoom, the panels,
     // the workspaces.
@@ -184,7 +188,7 @@ MenuModel buildMenuModel() {
     MenuModel mode;
     menuCommands(mode, "Mode");
     // (No Scenario menu: Map properties, Players and forces, Map data and Classic triggers are the side bar's items
-    // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Edit > Tools.)
+    // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Tools.)
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
     auto snapItems = [](int first) {
@@ -241,7 +245,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_HELP_UPDATES, L"Check for &updates"),
                    menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
     return MenuModel{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
-                     menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
+                     menuPopup(L"&Tools", tools), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
 }
 
 // The dock menu of the minimap (mini) or of the active mode's toolbar (a right click on it): its name (grayed), then

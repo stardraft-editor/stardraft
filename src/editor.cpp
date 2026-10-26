@@ -618,21 +618,55 @@ std::vector<std::pair<int, int>> Editor::terrainSymmetricPoints(int px, int py, 
 
 // Units in `area` (pixels) that are placeable now; a terrain edit there removes the ones it rules out
 // (see pruneUnits). Empty when illegal placement is allowed.
+// The units whose places are in `area` grown by `grow` pixels (each side), with their indices in `all` (in order). A
+// placement check of a unit sees only the units within twice UnitTypes::boxReach and the resource distance of it
+// (checkPlacement): the units near the ones checked are all it needs.
+struct NearUnits {
+    std::vector<Unit> units;
+    std::vector<int> index;
+    int self(int i) const {  // (a unit's index among them; -1: not one of them)
+        const auto it = std::lower_bound(index.begin(), index.end(), i);
+        return it != index.end() && *it == i ? int(it - index.begin()) : -1;
+    }
+};
+static NearUnits unitsNear(const std::vector<Unit>& all, const Rect& area, int grow) {
+    NearUnits n;
+    for (int i = 0; i < int(all.size()); ++i) {
+        const Unit& u = all[size_t(i)];
+        if (u.x >= area.left - grow && u.x <= area.right + grow && u.y >= area.top - grow && u.y <= area.bottom + grow)
+            n.units.push_back(u), n.index.push_back(i);
+    }
+    return n;
+}
+
 std::vector<int> Editor::placeableUnitsIn(const Rect& area) const {
     std::vector<int> out;
     if (allowIllegalUnits_ || units_.empty()) return out;
-    const PlacementContext ctx = placementContext();
+    // (a unit whose box is in the area has its place within boxReach of it; the units that can block it are within twice
+    // boxReach and the resource distance of that: units farther away are not checked)
+    const int reach = std::max(types_.boxReach(), 8);  // (8: the box of a unit of no type, unitBox)
+    const NearUnits near = unitsNear(units_, area, 3 * reach + 96 + 2);
+    PlacementContext ctx = placementContext();
+    ctx.units = &near.units;
     for (int i = 0; i < int(units_.size()); ++i)
-        if (unitBox(units_[i]).intersects(area) && checkPlacement(ctx, units_[i], i).empty()) out.push_back(i);
+        if (unitBox(units_[i]).intersects(area) && checkPlacement(ctx, units_[i], near.self(i)).empty()) out.push_back(i);
     return out;
 }
 
 void Editor::pruneUnits(const std::vector<int>& wasPlaceable) {
     if (wasPlaceable.empty()) return;
-    const PlacementContext ctx = placementContext();
+    // (only the units near the ones checked can block them, as in placeableUnitsIn)
+    Rect around{INT_MAX, INT_MAX, INT_MIN, INT_MIN};
+    for (int i : wasPlaceable) {
+        const Unit& u = units_[size_t(i)];
+        around = {std::min(around.left, int(u.x)), std::min(around.top, int(u.y)), std::max(around.right, int(u.x)), std::max(around.bottom, int(u.y))};
+    }
+    const NearUnits near = unitsNear(units_, around, 2 * types_.boxReach() + 96 + 2);
+    PlacementContext ctx = placementContext();
+    ctx.units = &near.units;
     std::vector<int> gone;
     for (int i : wasPlaceable)
-        if (!checkPlacement(ctx, units_[i], i).empty()) gone.push_back(i);
+        if (!checkPlacement(ctx, units_[i], near.self(i)).empty()) gone.push_back(i);
     if (gone.empty()) return;
     for (auto it = gone.rbegin(); it != gone.rend(); ++it) units_.erase(units_.begin() + *it);
     selection_.clear();
@@ -1868,6 +1902,13 @@ std::optional<Unit> Editor::fitted(Unit u, bool correct, const std::vector<Unit>
     return u;
 }
 
+int Editor::setClipboardOwner(uint8_t owner) {
+    int n = 0;
+    for (Unit& u : clipboard_)
+        if (u.owner != owner && u.type < types_.size() && (types_[u.type].availability & UnitAvail::NonNeutral)) u.owner = owner, ++n;
+    return n;
+}
+
 int Editor::setSelectionOwner(uint8_t owner) {
     std::vector<int> targets;
     for (int i : selection_)
@@ -1930,6 +1971,20 @@ int Editor::replaceUnits(uint16_t from, uint16_t to, bool selectionOnly) {
     writeUnits(chk_, units_);
     commit(false);
     return int(targets.size());
+}
+
+int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid) {
+    if (ids.empty() || count <= 0) return 0;
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<float> unit(0.0f, 1.0f);
+    const float r = float(radius);
+    int n = 0;
+    for (int k = 0; k < count; ++k) {
+        const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
+        const uint16_t id = ids[size_t(rng() % ids.size())];
+        n += placeSprite(id, int(snapToCell(x + d * std::cos(a), grid)), int(snapToCell(y + d * std::sin(a), grid)), owner);
+    }
+    return n;
 }
 
 int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x, int y, int radius, int count, uint32_t seed) {
@@ -3063,6 +3118,30 @@ std::string Editor::switchName(int index) const {
     if (index < 0 || at + 4 > b.size()) return {};
     const uint32_t id = uint32_t(b[at] | b[at + 1] << 8 | b[at + 2] << 16 | uint32_t(b[at + 3]) << 24);
     return strings_.get(id);
+}
+
+bool Editor::setSwitchName(int index, const std::string& text) {
+    if (index < 0 || index >= 256 || switchName(index) == text) return false;
+    Bytes names = chk_.effective("SWNM");
+    names.resize(256 * 4, 0);
+    const size_t at = size_t(index) * 4;
+    beginEdit();
+    // A new string each time: another switch or a trigger may use the old one (its id can be shared).
+    const uint32_t id = text.empty() ? 0 : strings_.add(text);
+    for (int b = 0; b < 4; ++b) names[at + size_t(b)] = uint8_t(id >> (8 * b));
+    strings_.write(chk_);
+    chk_.set("SWNM", std::move(names));
+    commit(false);
+    return true;
+}
+
+bool Editor::setMapString(uint32_t id, const std::string& text) {
+    if (id < 1 || id > strings_.size() || strings_.get(id) == text) return false;
+    beginEdit();
+    strings_.set(id, text);
+    strings_.write(chk_);
+    commit(false);
+    return true;
 }
 
 std::vector<uint32_t> Editor::soundStrings() const {

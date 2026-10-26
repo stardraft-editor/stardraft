@@ -4,7 +4,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
-#include <regex>
+#include <initializer_list>
 #include <set>
 
 namespace stardraft {
@@ -58,11 +58,32 @@ struct UsedInput {
     std::string kind, token;
     bool operator<(const UsedInput& o) const { return kind != o.kind ? kind < o.kind : token < o.token; }
 };
-std::set<UsedInput> usedInputs(const std::string& code) {
+// The names msqc_<kind>_<token> in the code, one of `kinds` each (the first that fits, then _ and the token's letters,
+// digits and _; with `paren`, a ( right after the token), left to right, each after the one before: as a regular
+// expression's matches, without one (std::regex took a large part of the check of a large trigger set).
+std::set<UsedInput> usedNames(const std::string& code, std::initializer_list<const char*> kinds, bool paren) {
     std::set<UsedInput> out;
-    static const std::regex re("msqc_(KeyDown|KeyUp|KeyPress|MouseDown|MouseUp|MousePress)_([A-Za-z0-9_]+)");
-    for (auto it = std::sregex_iterator(code.begin(), code.end(), re); it != std::sregex_iterator(); ++it) out.insert({(*it)[1], (*it)[2]});
+    auto tokenChar = [](char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'; };
+    for (size_t at = code.find("msqc_"); at != std::string::npos; at = code.find("msqc_", at)) {
+        const size_t k = at + 5;
+        bool found = false;
+        for (const char* kind : kinds) {
+            const size_t n = std::char_traits<char>::length(kind);
+            if (code.compare(k, n, kind) != 0 || k + n >= code.size() || code[k + n] != '_') continue;
+            size_t end = k + n + 1;
+            while (end < code.size() && tokenChar(code[end])) ++end;
+            if (end == k + n + 1 || (paren && (end >= code.size() || code[end] != '('))) continue;
+            out.insert({kind, code.substr(k + n + 1, end - (k + n + 1))});
+            at = end + (paren ? 1 : 0), found = true;
+            break;
+        }
+        if (!found) ++at;
+    }
     return out;
+}
+
+std::set<UsedInput> usedInputs(const std::string& code) {
+    return usedNames(code, {"KeyDown", "KeyUp", "KeyPress", "MouseDown", "MouseUp", "MousePress"}, false);
 }
 }  // namespace
 
@@ -70,12 +91,7 @@ namespace {
 bool usesMouse(const std::string& code) { return code.find("msqc_MouseXNow") != std::string::npos || code.find("msqc_MouseYNow") != std::string::npos; }
 
 // Keys and mouse buttons read on this computer only (msqc_Here_<token>, msqc_HereMouse_<L|R|M>): no network.
-std::set<UsedInput> usedHere(const std::string& code) {
-    std::set<UsedInput> out;
-    static const std::regex re("msqc_(Here|HereMouse)_([A-Za-z0-9_]+)\\(");
-    for (auto it = std::sregex_iterator(code.begin(), code.end(), re); it != std::sregex_iterator(); ++it) out.insert({(*it)[1], (*it)[2]});
-    return out;
-}
+std::set<UsedInput> usedHere(const std::string& code) { return usedNames(code, {"Here", "HereMouse"}, true); }
 }  // namespace
 
 int msqcVirtualKey(const std::string& name) {

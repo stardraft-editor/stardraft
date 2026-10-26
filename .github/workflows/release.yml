@@ -133,4 +133,5 @@ jobs:
           RELEASE_LINUX: ${{ vars.RELEASE_LINUX }}
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}  # a new release is posted in Discord (#updates)
           DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}  # and in #general (a webhook of that channel)
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}  # the bot starts the thread of long release notes (optional)
         run: ./tools/ci/release_make.ps1

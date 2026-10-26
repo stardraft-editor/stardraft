@@ -2420,3 +2420,110 @@ Did not build the map	맵을 빌드하지 못했습니다
 Brush: the 	브러시: 
  tiles you copied (	 타일 (복사한 타일 
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	개). 클릭하여 배치합니다. 끌어서 반복합니다. Shift를 누르면 무작위로 배치합니다.
+%ls of Player %d	%ls (플레이어 %d)
+Creep shows	점막이 표시됩니다
+Creep is hidden (View > Layers shows it again)	점막이 숨겨졌습니다 (보기 > 레이어에서 다시 표시)
+&Creep	점막(&C)
+Simulate melee &mining	근접 채취 시뮬레이션(&M)
+Simulate melee &mining (experimental)	근접 채취 시뮬레이션(&M) (실험적)
+Simulate com&bat of the selected units	선택한 유닛의 전투 시뮬레이션(&B)
+Simulate com&bat of the selected units (experimental)	선택한 유닛의 전투 시뮬레이션(&B) (실험적)
+&Tools	도구(&T)
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	실험적 시뮬레이션입니다. 아직 게임과 완전히 같지 않을 수 있습니다. 게임의 엔진이 아닌 StarDraft 자체 시뮬레이션입니다.
+Simulation	시뮬레이션
+Simulate mining	채취 시뮬레이션
+Simulate combat	전투 시뮬레이션
+Workers on minerals at each base	기지마다 미네랄에서 채취하는 일꾼 수
+Workers on minerals	미네랄의 일꾼
+Workers on gas	가스에서 채취하는 일꾼 수
+Workers and gas	일꾼과 가스
+Measured game time	측정하는 게임 시간
+Races	종족
+As in the map (Random: a random race)	맵에 따름 (무작위: 임의의 종족)
+0 (no refinery)	0 (정제소 없음)
+The first 30 game seconds are not measured: the workers get to their fields.	처음 30 게임 초는 측정하지 않습니다. 일꾼이 자원 지점에 도착합니다.
+Simulation report	시뮬레이션 보고서
+Copy the report as text (its tables with tabs, for a spreadsheet)	보고서를 텍스트로 복사합니다 (표는 탭으로 구분, 스프레드시트용)
+Copied the simulation's report	시뮬레이션 보고서를 복사했습니다
+The simulation stopped	시뮬레이션이 멈췄습니다
+The simulation engine is not in this build yet.	이 빌드에는 아직 시뮬레이션 엔진이 없습니다.
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	서로 적인 두 플레이어의 유닛을 선택한 뒤 다시 시도하십시오 (유닛 모드: 상자를 끌거나 Ctrl+클릭). 막대의 설정에서 동맹을 정합니다.
+Stopped	멈춤
+Draw: Units cannot reach each other	무승부: 유닛끼리 서로 닿을 수 없습니다
+No winner	승자 없음
+No winner: 10 game minutes went by	승자 없음: 게임 10분이 지났습니다
+No winner: 2 game minutes went by	승자 없음: 게임 2분이 지났습니다
+No winner: both sides died	승자 없음: 양쪽 모두 전멸했습니다
+Neither side lost a unit	양쪽 모두 유닛을 잃지 않았습니다
+Alive	생존
+Kills	처치
+Lost (minerals + gas)	손실 (미네랄 + 가스)
+Field	지점
+Fields	자원 지점 수
+Base	기지
+Tile	타일
+Minerals a minute	분당 미네랄
+Gas a minute	분당 가스
+Round trip of each field, nearest first (frames)	각 자원 지점의 왕복 (가까운 순, 프레임)
+Mining	채취
+Combat	전투
+Skip to the end	끝까지 건너뛰기
+Restart	다시 시작
+Slower	느리게
+Faster	빠르게
+Speed	속도
+Show the report	보고서 보기
+Cancel the simulation	시뮬레이션 취소
+Report feedback on the simulation	시뮬레이션에 대한 피드백 보내기
+Who fights whom	누가 누구와 싸우는지
+Computers together, each human alone	컴퓨터끼리는 동맹, 사람은 각자 따로
+Humans against computers	사람 대 컴퓨터
+The map's forces	맵의 세력
+Free for all	자유 전투
+Every unit against every other	모든 유닛이 서로 대결
+No gas	가스 없음
+All	모두
+%d of %d	%d / %d
+Unit %d	유닛 %d
+Player %d	플레이어 %d
+The simulation stopped: %ls	시뮬레이션이 멈췄습니다: %ls
+Computers (players %ls)	컴퓨터 (플레이어 %ls)
+Computer (player %ls)	컴퓨터 (플레이어 %ls)
+Humans (players %ls)	사람 (플레이어 %ls)
+Humans (player %ls)	사람 (플레이어 %ls)
+Force %d	포스 %d
+%ls (players %ls)	%ls (플레이어 %ls)
+%ls (player %ls)	%ls (플레이어 %ls)
+Player %ls	플레이어 %ls
+%ls wins	%ls 승리
+%ls (the others have only units that cannot attack)	%ls (나머지는 공격할 수 없는 유닛만 남았습니다)
+%ls of player %d is the last unit standing	%ls, 플레이어 %d의 마지막 생존 유닛
+No winner: %d unit is out of reach of their enemies	승자 없음: 적이 닿을 수 없는 유닛이 %d개 있습니다
+No winner: %d units are out of reach of their enemies	승자 없음: 적이 닿을 수 없는 유닛이 %d개 있습니다
+%ls after %ls game seconds	%ls, %ls 게임 초 뒤
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	손실 (미네랄 + 가스): %ls
+=All	=모두
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	유닛 %d개가 닿을 수 없었습니다: 적이 다가가 공격할 수 없었습니다 (섬, 공중 또는 지상 무기만 있거나, 은폐 상태)
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	유닛 %d개가 닿을 수 없었습니다: 적이 다가가 공격할 수 없었습니다 (섬, 공중 또는 지상 무기만 있거나, 은폐 상태)
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 모든 유닛이 다른 모든 유닛과 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 맵의 포스끼리 서로 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 사람 플레이어 대 컴퓨터 플레이어; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 각 플레이어는 혼자 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	최고속, 맵의 업그레이드 적용; 컴퓨터 플레이어끼리는 동맹, 다른 각 플레이어는 혼자 싸움; 각 유닛은 닿을 수 있는 적이 없어질 때까지 공격하며, 최대 게임 10분 동안.
+%ls lost nothing	%ls 손실 없음
+%ls traded %ls to 1	%ls 교환 비율 %ls 대 1
+%ls wins (%ls has only units that cannot attack)	%ls 승리 (%ls에는 공격할 수 없는 유닛만 남았습니다)
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	최고속, 업그레이드와 연구 없음; 각 쪽은 상대의 중앙으로 공격 이동하며, 최대 게임 2분 동안.
+Base %d	기지 %d
+Base %d (start)	기지 %d (시작)
+%ls minerals a minute	분당 %ls 미네랄
+Mining: %ls minerals and %ls gas a minute	채취: 분당 미네랄 %ls, 가스 %ls
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 %d명, 최고속으로 게임 %d분
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 %d명, 최고속으로 게임 %d분
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 없음, 최고속으로 게임 %d분
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	기지마다 미네랄 일꾼 %d명, 가스 일꾼 없음, 최고속으로 게임 %d분
+The simulation cannot start: %ls	시뮬레이션을 시작할 수 없습니다: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2는 팬이 만든 도구입니다. Blizzard Entertainment가 만들거나 승인하거나 보증하지 않았습니다.
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft는 Blizzard Entertainment의 상표입니다.
+stored as %u (1/256 hit points)	%u로 저장됨 (1/256 체력)

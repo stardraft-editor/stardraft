@@ -356,6 +356,12 @@ std::wstring trigValueText(const std::string& type, const std::string& v) {
             if (ed && id < int(ed->unitTypes().size())) return widen(ed->unitTypes()[uint16_t(id)].name);
             return L"unit type #" + widen(v);
         }
+        if (const size_t b = v.find('['); b != std::string::npos && v.back() == ']' && trigIsPerPlayer(v.substr(0, b), "UnitType") &&
+                                           trigIsNumberText(v.substr(b + 1, v.size() - b - 2))) {  // one player's value (GitHub #140)
+            wchar_t label[160];
+            std::swprintf(label, 160, tr(L"%ls of Player %d"), widen(v.substr(0, b)).c_str(), std::atoi(v.c_str() + b + 1) + 1);
+            return label;
+        }
         return v.empty() ? L"(unit type)" : widen(v) + (trigIsPerPlayer(v, "UnitType") ? tr(L" (the current player's)") : L"");
     case TriggerPicker::Location:
         if (trigIsNumberText(v)) {

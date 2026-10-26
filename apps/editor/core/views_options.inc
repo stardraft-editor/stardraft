@@ -39,6 +39,9 @@ struct OptionsValues {
     std::wstring projectsFolder;  // the working folder (the default one when none is set)
     std::wstring installInUse;    // the StarCraft folder in use ("": none)
     std::wstring installNext;     // the folder used from the next start ("": the same)
+    // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
+    // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
+    int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
 };
 
 // The program's part of the options window (options_window.inc): the values, the commands and the pickers.
@@ -56,6 +59,8 @@ public:
     virtual void setUnitNames(int i) = 0;
     virtual void setUnitLimit(int k, int v) = 0;
     virtual void setVolume(int v) = 0;
+    // Simulate mining's settings (which: 0 workers, 1 gas workers, 2 minutes, 3 races; OptionsValues::sim*).
+    virtual void setSimulation(int which, int value) { (void)which, (void)value; }
     // The working folder: a folder chosen by the user, or the default one.
     virtual void browseWorkingFolder() = 0;
     virtual void useDefaultWorkingFolder() = 0;
@@ -71,7 +76,7 @@ namespace optionsview {
 // some sections, in this order.
 enum Section : unsigned {
     kAppearance = 1u << 0, kMouse = 1u << 1, kUnitNames = 1u << 2, kUnitLimit = 1u << 3, kStart = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kAllSections = (1u << 8) - 1,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kAllSections = (1u << 9) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the toolbar item's label and the window's title
@@ -82,11 +87,18 @@ inline const Tab kTabs[] = {
     {L"Map", kUnitNames | kUnitLimit},
     {L"Start", kStart | kUpdates},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
+    {L"Simulation", kSimulation},
 };
 constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
 
 // The names of the unit name forms (the dropdown's items).
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
+
+// Simulate mining's choices: the values of each dropdown's items (races: the names).
+inline const int kSimWorkers[] = {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30};
+inline const int kSimGas[] = {0, 1, 2, 3};
+inline const int kSimMinutes[] = {1, 2, 3, 5, 10, 15, 20};
+const wchar_t* const kSimRaces[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 
 // The small font of the notes (the labels' size less a sixth).
 inline draw::Font notesFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
@@ -134,6 +146,25 @@ public:
         std::vector<stardraft::kit::DropdownItem> forms;
         for (const wchar_t* n : optionsview::kUnitNameForms) forms.push_back({n});
         unitNames_.setItems(forms);
+        // Simulate mining: a dropdown for each setting.
+        auto simDrop = [this](stardraft::kit::Dropdown& d, const std::vector<std::wstring>& names, int which, const int* values) {
+            std::vector<stardraft::kit::DropdownItem> items;
+            for (const auto& n : names) items.push_back({n});
+            d.setItems(items);
+            d.onChange = [this, which, values](int i) { host_.setSimulation(which, values ? values[i] : i); };
+            add(d, {0, 0, 0, 0}), d.setVisible(false);
+        };
+        {
+            std::vector<std::wstring> w, g, m, r;
+            for (int n : optionsview::kSimWorkers) w.push_back(std::to_wstring(n));
+            for (int n : optionsview::kSimGas) g.push_back(n ? std::to_wstring(n) : std::wstring(L"0 (no refinery)"));
+            for (int n : optionsview::kSimMinutes) m.push_back(std::to_wstring(n) + (n == 1 ? L" minute" : L" minutes"));
+            for (const wchar_t* n : optionsview::kSimRaces) r.push_back(n);
+            simDrop(simWorkers_, w, 0, optionsview::kSimWorkers);
+            simDrop(simGas_, g, 1, optionsview::kSimGas);
+            simDrop(simMinutes_, m, 2, optionsview::kSimMinutes);
+            simDrop(simRace_, r, 3, nullptr);
+        }
         slider_.setRange(0, 100), slider_.setStep(1);
         slider_.onChange = [this](int v) { host_.setVolume(v), invalidate(); };
         add(slider_, {0, 0, 0, 0}), slider_.setVisible(false);
@@ -330,6 +361,7 @@ private:
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
     stardraft::kit::CheckBox animate_, lastProject_, updates_, previews_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
+    stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], folder_, install_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
@@ -396,6 +428,16 @@ void OptionsView::sync(const OptionsValues& v) {
         if (!limit_[k].hasFocus() && limit_[k].text() != std::to_wstring(v.unitLimit[k])) limit_[k].setText(std::to_wstring(v.unitLimit[k]));
     }
     if (slider_.value() != v.volume) slider_.setValue(v.volume);
+    auto pick = [](stardraft::kit::Dropdown& d, const int* values, size_t n, int value) {
+        int at = -1;
+        for (size_t i = 0; i < n; ++i)
+            if (values[i] == value) at = int(i);
+        if (d.value() != at) d.setValue(at);
+    };
+    pick(simWorkers_, optionsview::kSimWorkers, std::size(optionsview::kSimWorkers), v.simWorkers);
+    pick(simGas_, optionsview::kSimGas, std::size(optionsview::kSimGas), v.simGas);
+    pick(simMinutes_, optionsview::kSimMinutes, std::size(optionsview::kSimMinutes), v.simMinutes);
+    if (simRace_.value() != v.simRace) simRace_.setValue(v.simRace);
     if (folder_.text() != v.projectsFolder) folder_.setText(v.projectsFolder);
     const std::wstring inst = v.installInUse.empty() ? std::wstring(L"\x2014") : v.installInUse;
     if (install_.text() != inst) install_.setText(inst);
@@ -561,6 +603,25 @@ void OptionsView::paint(draw::Canvas& c) {
             y += rowH;
         }
         note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
+        y += scale(20) + pad;
+    }
+
+    // Simulate mining (experimental: Tools > Simulate mining).
+    if (shown & optionsview::kSimulation) {
+        header(L"Simulate mining");
+        const std::pair<const wchar_t*, std::pair<stardraft::kit::Dropdown*, const char*>> rows[] = {
+            {L"Workers on minerals at each base", {&simWorkers_, "sim.workers"}},
+            {L"Workers on gas", {&simGas_, "sim.gas"}},
+            {L"Measured game time", {&simMinutes_, "sim.minutes"}},
+            {L"Races", {&simRace_, "sim.races"}}};
+        for (const auto& [name, drop] : rows) {
+            label(name);
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
+            place(*drop.first, box, true);
+            parts_[drop.second] = box;
+            y += rowH;
+        }
+        note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");
         y += scale(20) + pad;
     }
 

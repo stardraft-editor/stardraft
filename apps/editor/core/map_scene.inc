@@ -13,10 +13,12 @@ void applyProjectGraphics(UnitSprites& sp);  // the project's graphics edits on 
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
 // View > Layers: the terrain the renderer gets when a layer is off: no terrain (black), or the terrain without the
-// doodads' tiles (StarEdit's copy, TILE).
+// doodads' tiles (StarEdit's copy, TILE); with the start creep's tiles (Creep: core/creep_layer.inc).
 TerrainLayer terrainWithLayers(const Editor& ed) {
-    TerrainLayer t = gLayers.terrain ? readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM") : ed.terrain();
+    TerrainLayer t = !gLayers.terrain || gLayers.doodads ? ed.terrain()
+                                                         : readTerrain(ed.chk(), ed.chk().has("TILE") ? "TILE" : "MTXM");
     if (!gLayers.terrain) std::fill(t.tiles.begin(), t.tiles.end(), uint16_t(0));
+    addCreepTiles(ed, t);
     return t;
 }
 
@@ -79,9 +81,16 @@ uint32_t playerRgba(int owner, uint8_t alpha) {
 }
 
 // One image plus the overlays its iscript puts underneath it (shadows).
-void addImage(render::Scene& s, const render::SpriteDraw& d) {
+void addImage(render::Scene& s, const render::SpriteDraw& in) {
     AppState& app = shellState();
     UnitSprites& sp = app.ed->unitSprites();
+    // The image's own draw function (images.dat, also as the project's .dat edits set it): the renderer draws it as the
+    // game does (a shadow, a glow, a cloak that bends what is under it, a hallucination...).
+    render::SpriteDraw d = in;
+    const int df = sp.drawFunction(d.image);
+    d.drawFunction = df;
+    if (df == 10) d.shadow = true, d.air = false;
+    else if (df == 9) d.glow = true;
     s.sprites.push_back(d);
     // Overlays its script puts on top (glows, lights): their own resting frame, or the parent's facing.
     for (const ImageScript::Overlay& o : sp.script(d.image).over) {
@@ -95,7 +104,8 @@ void addImage(render::Scene& s, const render::SpriteDraw& d) {
         ov.hasSortY = true, ov.sortY = d.hasSortY ? d.sortY : d.y;  // ordered with its sprite
         ov.depthBias = d.depthBias + 0.0002f;
         ov.shadow = false;
-        ov.glow = sp.drawFunction(o.image) == 9;
+        ov.drawFunction = sp.drawFunction(o.image);
+        ov.glow = ov.drawFunction == 9;
         s.sprites.push_back(ov);
     }
     for (const ImageScript::Overlay& o : sp.script(d.image).under) {
@@ -104,6 +114,8 @@ void addImage(render::Scene& s, const render::SpriteDraw& d) {
         sh.x = d.x + (d.flip ? -o.x : o.x), sh.y = d.y + o.y;
         sh.hasSortY = true, sh.sortY = d.hasSortY ? d.sortY : d.y;
         sh.shadow = sp.isShadow(o.image);
+        sh.drawFunction = sp.drawFunction(o.image);
+        sh.glow = sh.drawFunction == 9;
         sh.air = false;
         sh.tintRed = false;
         s.sprites.push_back(sh);
@@ -182,6 +194,15 @@ void addUnitSprites(render::Scene& s, const Unit& u, float dx, float dy, float a
     d.frame = sp.defaultFrame(u.type, d.image, d.flip);
     UnitAnim* anim = animate && app.animate ? &unitAnim(u) : nullptr;
     if (anim && anim->main.running()) d.frame = sp.animatedFrame(u.type, d.image, anim->main.frame(), d.flip);
+    // A mineral field (176 to 178) shows how much is left, as in the game: full from 750, fewer crystals below that
+    // (at 500 and at 250 when the picture has 4 frames; at 250 when it has 3).
+    if (u.type >= 176 && u.type <= 178 && (u.validProps & UnitProp::Resources)) {
+        const Grp* g = sp.grp(d.image);
+        const int n = g ? std::max(1, int(g->frames.size())) : 1;
+        const uint32_t r = u.resources;
+        const int f = r >= 750 ? 0 : n >= 4 ? (r >= 500 ? 1 : r >= 250 ? 2 : 3) : (r >= 250 ? 1 : 2);
+        d.frame = std::min(f, n - 1), d.flip = false;
+    }
     d.x = u.x + dx, d.y = u.y + dy;
     d.owner = uint8_t(std::min<int>(u.owner, 11));
     d.alpha = alpha;
@@ -340,6 +361,10 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     return s.rects.size() - from;
 }
 
+// A live game shows in place of the map's units and sprites while it runs (experimental: Tools > Simulate,
+// sdl_simulation.inc): it adds its images to the scene. nullptr: the map's own.
+void (*gLiveScene)(render::Scene& s) = nullptr;
+
 render::Scene buildScene() {
     AppState& app = shellState();
     syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
@@ -371,6 +396,7 @@ render::Scene buildScene() {
     addTerrainFlagsLayer(s);  // (View > Overlays > Terrain flags: core/terrain_flags_layer.inc)
     addPathingLayer(s);
     addPathOverlays(s);
+    addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
 
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
@@ -378,7 +404,7 @@ render::Scene buildScene() {
     if (gLayers.doodads != gLayers.sprites)
         for (const Doodad& dd : ed.doodads())
             if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
-    for (const MapSprite& m : ed.sprites()) {
+    for (const MapSprite& m : gLiveScene ? std::vector<MapSprite>{} : ed.sprites()) {
         if (!gLayers.doodads || !gLayers.sprites) {
             const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
             if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
@@ -405,7 +431,7 @@ render::Scene buildScene() {
             if (!moving[i]) others.push_back(units[i]);
     }
     ed.setMapRevealersHidden(!gLayers.revealers);  // (the layer's state: the revealers are not picked while hidden)
-    for (size_t i = 0; i < units.size() && gLayers.units; ++i) {
+    for (size_t i = 0; i < units.size() && gLayers.units && !gLiveScene; ++i) {
         if (!gLayers.revealers && units[i].type == kMapRevealerUnit) continue;
         bool sel = (moveDX || moveDY) && moving[i];
         bool red = false;
@@ -421,6 +447,7 @@ render::Scene buildScene() {
         addUnitSprites(s, units[i], 0, 0, 1, false, true);
     }
     std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
+    if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)
 
     // Locations.
     if (app.showLocations || app.mode == Mode::Locations) {

@@ -660,7 +660,20 @@ std::wstring sfxPath(int sfx) {
             }
         }
     }
-    const int file = datValue("sfxdata", "Sound File", sfx);
+    // The Data workspace's table (a project's own values); before it is loaded (a map, the Data workspace not opened
+    // yet): the game's sfxdata.dat, whose first field is each entry's Sound File (4 bytes an entry).
+    int file = datValue("sfxdata", "Sound File", sfx, -1);
+    if (file < 0) {
+        static Bytes dat;
+        static bool datLoaded = false;
+        if (!datLoaded) {
+            datLoaded = true;
+            std::string err;
+            if (!shellState().data.readFile("arr\\sfxdata.dat", dat, err)) dat.clear();
+        }
+        const size_t at = size_t(std::max(sfx, 0)) * 4;
+        file = sfx >= 0 && at + 4 <= dat.size() ? int(dat[at] | dat[at + 1] << 8 | dat[at + 2] << 16 | uint32_t(dat[at + 3]) << 24) : 0;
+    }
     return file > 0 && size_t(file - 1) < tbl.size() ? widen(tbl[size_t(file - 1)]) : L"";
 }
 
