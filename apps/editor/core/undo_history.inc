@@ -203,10 +203,14 @@ UndoHistory workspaceHistory() {
         const DataEditHistory& d = dataState().history;
         const size_t players = dataMapStepsShown(false);
         if (players) h.done = mapHistory(*app.ed, players).done;
-        for (size_t i = d.undo.size(); i > 0 && h.done.size() < kHistoryShown; --i) h.done.push_back(dataStepName(d.undo[i - 1]));
+        // (a step of the same change as the one after it is not a row: Undo takes the change in one)
+        auto sameChange = [](const std::vector<DataEditStep>& v, size_t i) { return i < v.size() && v[i].group == v[i - 1].group; };
+        for (size_t i = d.undo.size(); i > 0 && h.done.size() < kHistoryShown; --i)
+            if (!sameChange(d.undo, i)) h.done.push_back(dataStepName(d.undo[i - 1]));
         h.more = players + d.undo.size() > h.done.size();
         if (const size_t again = dataMapStepsShown(true)) h.redo = mapHistory(*app.ed, again).redo;
-        for (size_t i = d.redo.size(); i > 0 && h.redo.size() < kHistoryShown; --i) h.redo.push_back(dataStepName(d.redo[i - 1]));
+        for (size_t i = d.redo.size(); i > 0 && h.redo.size() < kHistoryShown; --i)
+            if (!sameChange(d.redo, i)) h.redo.push_back(dataStepName(d.redo[i - 1]));
         return h;
     }
     return map ? mapHistory(*app.ed) : h;
