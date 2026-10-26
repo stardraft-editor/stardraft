@@ -476,19 +476,8 @@ int sprayAt(float wx, float wy) {
         return n;
     }
     if (appState().mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), appState().spraySeed++, appState().doodadCheck);
-    if (appState().mode == Mode::Sprites && !picks.empty()) {  // random sprites of the selected kinds in the circle
-        std::mt19937 rng(appState().spraySeed++);
-        std::uniform_real_distribution<float> unit(0.0f, 1.0f);
-        const float r = float(sprayRadius());
-        int n = 0;
-        for (int k = 0; k < sprayCount(); ++k) {
-            const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
-            const uint16_t id = picks[size_t(rng() % picks.size())];
-            n += ed.placeSprite(id, int(snapToCell(wx + d * std::cos(a), appState().spriteGrid)), int(snapToCell(wy + d * std::sin(a), appState().spriteGrid)),
-                                uint8_t(appState().playerOwner));
-        }
-        return n;
-    }
+    if (appState().mode == Mode::Sprites && !picks.empty())  // random sprites of the selected kinds in the circle
+        return ed.spraySprites(picks, uint8_t(appState().playerOwner), wx, wy, sprayRadius(), sprayCount(), appState().spraySeed++, appState().spriteGrid);
     return 0;
 }
 
