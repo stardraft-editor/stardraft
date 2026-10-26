@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
+#include <cstring>
 
 #include "stardraft/game_data.h"
 #include "vpx/vp8dx.h"
@@ -160,6 +161,7 @@ bool readPortraitFile(const GameData& data, const std::string& path, int index, 
     if (carbot) tries.push_back("Carbot\\" + name);
     tries.push_back(quality == GraphicsQuality::SD ? "SD\\" + name : quality == GraphicsQuality::HD2 ? "HD2\\" + name : name);
     tries.push_back(name);
+    tries.push_back(name.substr(0, name.size() - 5) + ".smk");  // (StarCraft 1.16.1, a mod's portraits)
     for (const auto& t : tries)
         if (data.readFile(t, out, error)) return true;
     return false;
@@ -168,7 +170,8 @@ bool readPortraitFile(const GameData& data, const std::string& path, int index, 
 bool loadPortrait(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, PortraitVideo& out,
                   std::string& error) {
     Bytes file;
-    return readPortraitFile(data, path, index, quality, carbot, file, error) && decodeWebm(file, out, error);
+    if (!readPortraitFile(data, path, index, quality, carbot, file, error)) return false;
+    return file.size() >= 3 && std::memcmp(file.data(), "SMK", 3) == 0 ? decodeSmacker(file, out, error) : decodeWebm(file, out, error);
 }
 
 }  // namespace stardraft

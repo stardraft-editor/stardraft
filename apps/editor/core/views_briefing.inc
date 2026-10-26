@@ -270,6 +270,7 @@ struct BriefWordSpec {
     std::wstring title;  // Time: the value pop-out's title
     std::wstring tip;
 };
+std::wstring briefPortraitName(int unit);  // (below)
 std::vector<BriefWordSpec> briefWords(const BriefingAction& a) {
     using K = BriefWordSpec::Kind;
     std::vector<BriefWordSpec> w;
@@ -309,7 +310,10 @@ std::vector<BriefWordSpec> briefWords(const BriefingAction& a) {
     case BriefingAction::Objectives: say(L"Set Mission Objectives for current player to:"), text(); break;
     case BriefingAction::ShowPortrait:
         say(L"Show portrait of");
-        w.push_back({K::Unit, entryName("units", a.unit), L"", L""});
+        if (const std::wstring p = briefPortraitName(a.unit); !p.empty())  // a mod's named portraits: the portrait, by its name
+            w.push_back({K::Unit, p, L"", L"The map stores a unit with this portrait: " + entryName("units", a.unit)});
+        else
+            w.push_back({K::Unit, entryName("units", a.unit), L"", L""});
         say(L"in slot"), slot(true), say(L".");
         break;
     case BriefingAction::HidePortrait: say(L"Hide portrait in slot"), slot(true), say(L"."); break;
@@ -356,26 +360,41 @@ inline bool briefMsOfSeconds(const std::string& typed, uint32_t& ms) {
 
 // --- Portraits: a unit's portrait videos (units.dat Portrait, then portdata.dat and portdata.tbl) ------------------
 
-// The portrait's path of a unit: "tmarine\tmafid".
+// The game data of the open map's tab (a Cosmonarchy map has the mod's).
+const GameData& briefGameData() {
+    const AppState& s = shellState();
+    return s.ed ? s.ed->gameData() : s.data;
+}
+// The portrait's path of a unit: "tmarine\tmafid". portdata.dat (or a mod's portdata.datex): the idle videos' file
+// numbers (u32, one per portrait), then the talking ones', then two bytes for each of them (12 bytes per portrait).
 std::string unitPortraitPath(int unit, bool talking) {
-    static Bytes unitsDat, portDat, portTbl;
-    static bool loaded = false;
-    if (!loaded) {
-        loaded = true;
+    struct Files {
+        Bytes port, tbl;
+    };
+    static std::map<const GameData*, Files> cache;
+    const GameData& data = briefGameData();
+    auto [it, fresh] = cache.try_emplace(&data);
+    const Bytes& portDat = it->second.port;
+    const Bytes& portTbl = it->second.tbl;
+    if (fresh) {
         std::string err;
-        shellState().data.readFile("arr\\units.dat", unitsDat, err);
-        shellState().data.readFile("arr\\portdata.dat", portDat, err);
-        shellState().data.readFile("arr\\portdata.tbl", portTbl, err);
+        if (!data.readFile("arr\\portdata.datex", it->second.port, err)) data.readFile("arr\\portdata.dat", it->second.port, err);
+        data.readFile("arr\\portdata.tbl", it->second.tbl, err);
     }
-    if (unit < 0 || unit >= 228 || unitsDat.size() < 14404 + 2 * 228 || portDat.size() < 220 * 4 || portTbl.size() < 2) return {};
-    int portrait = unitsDat[14404 + 2 * size_t(unit)] | unitsDat[14405 + 2 * size_t(unit)] << 8;
-    if (const DatTable* t = datTable(datTabOf("units")))
-        if (const DatField* f = datFieldNamed("units", "Portrait")) portrait = int(t->value(*f, unit));  // the project's, when it changes it
-    if (portrait < 0 || portrait >= 110) return {};
-    const int entry = portrait + (talking ? 110 : 0);
-    uint32_t file = uint32_t(portDat[4 * size_t(entry)] | portDat[4 * size_t(entry) + 1] << 8);
-    if (const DatTable* t = datTable(datTabOf("portdata")))
-        if (const DatField* f = datFieldNamed("portdata", "Portrait File")) file = t->value(*f, entry);  // the project's, when it changes it
+    const AppState& s = shellState();
+    if (!s.ed || unit < 0 || unit >= int(s.ed->unitTypes().size()) || portDat.size() < 12 || portTbl.size() < 2) return {};
+    int portrait = s.ed->unitTypes()[uint16_t(unit)].portrait;
+    // The project's .dat edits (its tables, when they are the open project's; never for a mod's data).
+    const bool edits = &data == &s.data && dataState().project && dataState().project == activeProject();
+    if (const DatTable* t = edits ? datTable(datTabOf("units")) : nullptr)
+        if (const DatField* f = datFieldNamed("units", "Portrait"); f && unit < 228) portrait = int(t->value(*f, unit));  // the project's, when it changes it
+    const int portraits = int(portDat.size() / 12);
+    if (portrait < 0 || portrait >= portraits) return {};
+    const int entry = portrait + (talking ? portraits : 0);
+    const size_t fo = 4 * size_t(entry);
+    uint32_t file = uint32_t(portDat[fo] | portDat[fo + 1] << 8 | portDat[fo + 2] << 16 | uint32_t(portDat[fo + 3]) << 24);
+    if (const DatTable* t = edits ? datTable(datTabOf("portdata")) : nullptr)
+        if (const DatField* f = datFieldNamed("portdata", "Portrait File"); f && entry < 220) file = t->value(*f, entry);  // the project's, when it changes it
     const size_t n = size_t(portTbl[0] | portTbl[1] << 8);
     if (!file || file > n) return {};
     const size_t o = size_t(portTbl[2 + 2 * (file - 1)] | portTbl[3 + 2 * (file - 1)] << 8);
@@ -383,14 +402,56 @@ std::string unitPortraitPath(int unit, bool talking) {
     for (size_t i = o; i < portTbl.size() && portTbl[i]; ++i) path += char(portTbl[i]);
     return path;
 }
-const PortraitVideo* unitPortrait(int unit, bool talking, int variant = 0) {
-    static std::map<std::tuple<int, bool, int, bool, int>, PortraitVideo> cache;
+// A mod's names of its portraits (arr\portdata.txt, one line per portrait: the labels of the mod's tools); none for the
+// game's data, whose briefings name the unit.
+const std::vector<std::wstring>& briefPortraitNames() {
+    static std::map<const GameData*, std::vector<std::wstring>> cache;
+    const GameData& data = briefGameData();
+    auto [it, fresh] = cache.try_emplace(&data);
+    if (fresh && &data != &shellState().data) {
+        Bytes b;
+        std::string err, line;
+        if (data.readFile("arr\\portdata.txt", b, err)) {
+            for (uint8_t c : b)
+                if (c == '\n') it->second.push_back(widen(line)), line.clear();
+                else if (c != '\r') line += char(c);
+            if (!line.empty()) it->second.push_back(widen(line));
+        }
+    }
+    return it->second;
+}
+std::wstring briefPortraitName(int unit) {
+    const std::vector<std::wstring>& names = briefPortraitNames();
     const AppState& s = shellState();
-    auto [it, fresh] = cache.try_emplace({unit, talking, int(s.quality), s.carbot, variant});
+    if (names.empty() || !s.ed || unit < 0 || unit >= int(s.ed->unitTypes().size())) return {};
+    const uint16_t p = s.ed->unitTypes()[uint16_t(unit)].portrait;
+    return p < names.size() ? names[p] : L"";
+}
+// The portraits a briefing can show, for the picker of a mod's named portraits: each portrait that a unit has, as the
+// first named unit with it (the map stores a unit), or `unit` when it has that portrait. Empty for the game's data.
+std::vector<ListPickItem> briefPortraitItems(int unit) {
+    std::vector<ListPickItem> items;
+    const std::vector<std::wstring>& names = briefPortraitNames();
+    const AppState& s = shellState();
+    if (names.empty() || !s.ed) return items;
+    const UnitTypes& types = s.ed->unitTypes();
+    std::map<uint16_t, int> first;
+    for (uint16_t u = 0; u < types.size(); ++u)
+        if (!types[u].name.empty()) first.emplace(types[u].portrait, u);
+    if (unit >= 0 && unit < int(types.size())) first[types[uint16_t(unit)].portrait] = unit;
+    for (const auto& [p, u] : first)
+        if (p < names.size())
+            items.push_back({names[p] + L"   #" + std::to_wstring(p), L"", std::to_string(u), "units", u});
+    return items;
+}
+const PortraitVideo* unitPortrait(int unit, bool talking, int variant = 0) {
+    static std::map<std::tuple<const GameData*, int, bool, int, bool, int>, PortraitVideo> cache;
+    const AppState& s = shellState();
+    auto [it, fresh] = cache.try_emplace({&briefGameData(), unit, talking, int(s.quality), s.carbot, variant});
     if (fresh) {
         const std::string path = unitPortraitPath(unit, talking);
         std::string err;
-        if (path.empty() || !loadPortrait(s.data, path, variant, s.quality, s.carbot, it->second, err)) it->second = {};
+        if (path.empty() || !loadPortrait(briefGameData(), path, variant, s.quality, s.carbot, it->second, err)) it->second = {};
     }
     return it->second.frames.empty() ? nullptr : &it->second;
 }

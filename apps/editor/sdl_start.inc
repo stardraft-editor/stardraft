@@ -46,6 +46,10 @@ void initStartPage() {
         gMenusDirty = true;
     };
     gStartView.onOpen = [] { command(ID_FILE_OPEN); };
+    gStartView.onCosmonarchy = [] { newCmbwMap(); };
+    bool cmbw = false;
+    prefs::flag(L"Cosmonarchy", cmbw), gStartView.cosmonarchy = cmbw;
+    gStartView.cosmonarchyOnly = cmbwMode();
     gStartView.dateOf = [](const fs::path& p) { return startDateSdl(p); };
     gStartView.scrollInfo = [](int, int, int) {};  // (the page scrolls with the wheel; the window has no bar yet)
 }

@@ -17,6 +17,7 @@
 #include "kit_paint.inc"
 #include "item_focus.inc"  // the keyboard focus on a view's own parts: Tab between them, Enter and Space, the outline
 #include "documents.inc"
+#include "cmbw.inc"  // Cosmonarchy BW maps: tabs with the mod's data (src/mods/cmbw.cpp)
 #include "layout.inc"
 #include "menu_model.inc"
 #include "commands_core.inc"
@@ -79,6 +80,7 @@
 #include "views_project.inc"
 #include "views_map_pages.inc"
 #include "views_map_props.inc"
+#include "views_est.inc"  // a Cosmonarchy map's establishing shot (Map properties' last part)
 #include "views_resize.inc"  // Map properties > Crop or extend: the new size and offset on a picture of the map (its preview)
 #include "views_players.inc"
 #include "views_classic_settings.inc"

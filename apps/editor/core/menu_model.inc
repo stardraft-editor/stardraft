@@ -91,6 +91,10 @@ MenuModel buildMenuModel() {
                    menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),
                    menuSeparator(),
                    menuItem(ID_FILE_EXIT, L"E&xit")};
+    if (cmbwMode()) {  // (Cosmonarchy BW mode: maps only; File > New makes a Cosmonarchy map, no projects)
+        std::erase_if(file, [&project](const MenuItem& it) { return it.kind == MenuItem::Kind::Popup && (it.recent == "projects" || it.items.size() == project.size()); });
+        if (!file.empty()) file.front().label = L"&New Cosmonarchy map";
+    }
     MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),
                    menuItem(ID_EDIT_REDO, L"&Redo", L"Ctrl+Y"),
                    menuItem(ID_EDIT_HISTORY, L"Undo &history\x2026", L"Ctrl+Shift+H"),

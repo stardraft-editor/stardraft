@@ -123,6 +123,13 @@ public:
 
     // --- Terrain --------------------------------------------------------------------------------
     bool canPaintTerrain() const { return isomOk_; }
+    // A terrain's name for the palette and messages: a mod terrain's, or the game terrain's (in a mod's tab "X (Y)", with
+    // the terrain it stands on, as the mod terrains are named).
+    std::string terrainName(uint16_t t) const {
+        if (const Tileset::ModTerrain* m = tileset_.modTerrain(t)) return m->name;
+        const IsomTerrainTable* table = modTable_ ? modTable_.get() : IsomTerrainTable::forEra(era_);
+        return table ? table->terrainName(t) : "";
+    }
     // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
     // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
     static bool terrainCoreOn();
@@ -168,6 +175,9 @@ public:
     // not fit moves to the nearest spot where it fits (`correct`) or is not pasted.
     bool pasteTerrain(int px, int py, bool correct = true);
     uint16_t terrainAt(int px, int py) const;  // terrain of the corner nearest a map pixel
+    // The terrain list's value of the terrain at a map pixel: terrainAt, or the mod terrain whose piece the tile there is
+    // (a mod terrain keeps its stand-in's ISOM: Tileset::modTerrains).
+    uint16_t paletteTerrainAt(int px, int py) const;
     int invalidTerrain() const { return isom_.invalidDiamonds(); }  // should always be 0
     std::vector<std::pair<int, int>> brushCorners(int px, int py, const Brush& b) const { return isom_.brushCorners(px, py, b); }
 
@@ -199,6 +209,9 @@ public:
         uint16_t value = 0;
     };
     int placeTileValues(const std::vector<TileAt>& cells);
+    // The tiles of tiles (tx0, ty0)-(tx1, ty1) (inclusive) made again from the ISOM, as its terrains give them (the
+    // tiles placed by hand there go: a Cosmonarchy doodad brush taken away). One undo step. False: nothing changed.
+    bool retileFromIsom(int tx0, int ty0, int tx1, int ty1);
     // The tile clipboard (Rectangle mode): the tiles of a rectangle (inclusive, in tiles) as they are.
     // (shape: the tiles whose middle is in it; the others are not pasted)
     bool copyTiles(int tx0, int ty0, int tx1, int ty1, SelectShape shape = SelectShape::Rect);
@@ -526,6 +539,7 @@ public:
     void setArchiveFile(const std::string& name, Bytes data);
     void setArchiveFiles(std::vector<ArchiveFile> files);  // likewise, all in one undo step
     bool removeArchiveFile(const std::string& name);      // one undo step
+    bool removeArchiveFiles(const std::vector<std::string>& names);  // the ones that are there, all in one undo step
     // A new path for a file; the briefings that play it use the new path. One undo step. False: no such file, or
     // a file of that path (in any case) is in the map already.
     bool renameArchiveFile(const std::string& from, const std::string& to);
@@ -644,6 +658,11 @@ private:
     // leaves a rect without a tile (IsomCore::untileable), `repair` makes the edit instead (the old engine).
     // (x0, y0)-(x1, y1): the edit's grid area.
     bool applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1);
+    void sprinkleModTiles(const TerrainLayer& before);
+    // A mod's terrains (Tileset::modTerrains): the game's terrain table with them (IsomTerrainTable::withExtras), for
+    // the old engine (the terrain core knows only the game's shapes); none: the game's table, and the core.
+    std::unique_ptr<IsomTerrainTable> modTable_;
+    bool useCore() const { return terrainCoreOn() && !modTable_; }
     // The old engine's part of an edit (IsomGrid::apply, then store): the corners and their grid area; overPlaced as
     // applyTerrain's.
     bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false);

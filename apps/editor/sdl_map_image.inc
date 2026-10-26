@@ -73,7 +73,7 @@ public:
         // The renderer's terrain: the map's, with or without the doodads' tiles; no doodad to place; each image loads
         // at once (a picture has no next frame). Again for each part: the map's own frames between the parts set theirs.
         Editor& ed = *gState.ed;
-        gRenderer->setSources(&gState.data, &ed.unitSprites(), &ed.tileset(), ed.era());
+        gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
         gRenderer->updateTerrain(terrain_);
         gRenderer->setTerrainPreview({});
         uint32_t team[12];

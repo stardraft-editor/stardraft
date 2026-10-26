@@ -98,8 +98,12 @@ void addImage(render::Scene& s, const render::SpriteDraw& in) {
         ov.image = o.image;
         // Overlays that turn face as the parent does; others show their own resting frame.
         const bool turns = sp.turns(o.image);
-        ov.frame = turns ? sp.script(o.image).initFrame / 17 * 17 + d.frame % 17 : sp.script(o.image).initFrame;
-        ov.flip = turns && d.flip;
+        // (the parent's direction from its frame in its facing set: 17 frames, the left side mirrored, or 32)
+        const int pset = sp.facingSet(d.image), idx = d.frame % pset, dir = pset == 32 || !d.flip ? idx : 32 - idx;
+        const int oset = sp.facingSet(o.image);
+        bool oflip = false;
+        ov.frame = turns ? sp.script(o.image).initFrame / oset * oset + sp.facingIndex(o.image, dir, oflip) : sp.script(o.image).initFrame;
+        ov.flip = turns && oflip;
         ov.x = d.x + (d.flip ? -o.x : o.x), ov.y = d.y + o.y;
         ov.hasSortY = true, ov.sortY = d.hasSortY ? d.sortY : d.y;  // ordered with its sprite
         ov.depthBias = d.depthBias + 0.0002f;
@@ -662,6 +666,9 @@ render::Scene buildScene() {
                 outline(s, {tx * 32, ty * 32, (tx + t->width) * 32, (ty + t->height) * 32}, ok ? 0x40FF40FFu : 0xFF4040FFu, 2);
             }
         };
+        for (const AppState::BrushAt& b : app.selBrushes)  // (the selected Cosmonarchy doodad brushes)
+            if (const TerrainStamp* st = brushDoodad(b.value))
+                outline(s, {b.tx * 32, b.ty * 32, (b.tx + st->width) * 32, (b.ty + st->height) * 32}, 0x40FF40FFu, 2);
         for (int i : app.selDoodads)
             if (i >= 0 && i < int(ed.doodads().size())) {
                 const Doodad& sd = ed.doodads()[size_t(i)];
@@ -670,12 +677,31 @@ render::Scene buildScene() {
                 if (app.drag == Drag::MoveDoodad && app.dragMoved) ghost(sd.id, int(sd.x) + int(wx - app.dragWX), int(sd.y) + int(wy - app.dragWY), true);
             }
         if (app.pastingItems)
-            for (const auto& it : app.doodadClip) ghost(it.id, int(wx) + it.x, int(wy) + it.y, true);
+            for (const auto& it : app.doodadClip)
+                if (const TerrainStamp* b = brushDoodad(it.id)) {  // (a Cosmonarchy doodad brush: its outline where it would go)
+                    int tx = 0, ty = 0;
+                    placeBrushDoodad(app, *b, wx + float(it.x), wy + float(it.y), &tx, &ty, false);
+                    outline(s, {tx * 32, ty * 32, (tx + b->width) * 32, (ty + b->height) * 32}, 0x40FF40FFu, 2);
+                } else
+                    ghost(it.id, int(wx) + it.x, int(wy) + it.y, true);
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
     } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn()) {
-        if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
+        if (const TerrainStamp* b = brushDoodad(app.palette)) {  // (a Cosmonarchy brush: its tiles where they would go)
+            int tx = 0, ty = 0;
+            placeBrushDoodad(app, *b, wx, wy, &tx, &ty, false);
+            std::vector<std::pair<int, uint16_t>> cells;
+            for (int y = 0; y < b->height; ++y)
+                for (int x = 0; x < b->width; ++x)
+                    if (b->has(x, y) && tx + x >= 0 && ty + y >= 0 && tx + x < ed.width() && ty + y < ed.height())
+                        cells.push_back({(ty + y) * ed.width() + tx + x, b->tiles[size_t(y) * b->width + x]});
+            ghostTiles = std::move(cells);
+            const Rect r{tx * 32, ty * 32, (tx + b->width) * 32, (ty + b->height) * 32};
+            const bool ok = !app.doodadCheck || brushDoodadFits(app, *b, tx, ty);  // (as a click places: green where it joins, red where not)
+            s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), ok ? 0x40FF4018u : 0xFF404040u, true});
+            outline(s, r, ok ? 0x40FF40FFu : 0xFF4040FFu, 1.5f);
+        } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
             Rect r{tx * 32, ty * 32, (tx + d->width) * 32, (ty + d->height) * 32};
@@ -779,14 +805,17 @@ std::vector<bool> sightMask(int range, int& size);
 void rangesScene(render::Scene& s, float dx, float dy) {
     AppState& app = shellState();
     if (!app.ed) return;
-    const DatTable* units = rangeTable("units");
-    const DatTable* weapons = rangeTable("weapons");
-    if (!units || !weapons) return;
-    const DatField *sight = units->field("Sight Range"), *acqF = units->field("Target Acquisition Range"), *ground = units->field("Ground Weapon"),
-                   *air = units->field("Air Weapon"), *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range"),
-                   *sl = units->field("Unit Size Left"), *su = units->field("Unit Size Up"), *sr = units->field("Unit Size Right"),
-                   *sd = units->field("Unit Size Down"), *flags = units->field("Special Ability Flags");
-    if (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd || !flags) return;
+    // (a Cosmonarchy tab reads the mod's tables, cmbw::unitRanges: the game's .dat tables need not load)
+    const bool mod = modTab();
+    const DatTable* units = mod ? nullptr : rangeTable("units");
+    const DatTable* weapons = mod ? nullptr : rangeTable("weapons");
+    if (!mod && (!units || !weapons)) return;
+    auto field = [](const DatTable* t, const char* name) { return t ? t->field(name) : nullptr; };
+    const DatField *sight = field(units, "Sight Range"), *acqF = field(units, "Target Acquisition Range"), *ground = field(units, "Ground Weapon"),
+                   *air = field(units, "Air Weapon"), *sub = field(units, "Subunit 1"), *range = field(weapons, "Maximum Range"),
+                   *sl = field(units, "Unit Size Left"), *su = field(units, "Unit Size Up"), *sr = field(units, "Unit Size Right"),
+                   *sd = field(units, "Unit Size Down"), *flags = field(units, "Special Ability Flags");
+    if (!mod && (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd || !flags)) return;
     auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
         if (r <= 0) return;
         const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r));
@@ -807,6 +836,15 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     Editor& ed = *app.ed;
     const auto& list = ed.units();
     const int mw = ed.width(), mh = ed.height();
+    // A Cosmonarchy tab: the mod's tables (all its units), and its height advantage: a ground unit's ground weapon and
+    // target acquisition reach further by the height of the tile it stands on (as against targets at height 0), so the
+    // ranges grow and shrink as a unit is dragged over higher and lower ground.
+    const TerrainLayer& mtxm = ed.terrain();
+    auto heightAt = [&](int x, int y) {
+        const int tx = x / 32, ty = y / 32;
+        if (tx < 0 || ty < 0 || tx >= mtxm.width || ty >= mtxm.height || size_t(ty) * mtxm.width + tx >= mtxm.tiles.size()) return 0;
+        return cmbw::tileHeight(ed.tileset(), mtxm.tiles[size_t(ty) * mtxm.width + tx]);
+    };
     std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
     std::vector<uint8_t> psi;   // the map's tiles in the psi field of a selected Pylon
     int shown = 0;
@@ -814,7 +852,8 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
         Unit u = list[size_t(i)];
         const int ut = u.type;
-        if (ut < 0 || ut >= 228) continue;
+        cmbw::UnitRanges mr;
+        if (ut < 0 || (mod ? !cmbw::unitRanges(ed.gameData(), uint16_t(ut), mr) : ut >= 228)) continue;
         if (dx || dy) {  // where the drag draws and drops it (buildScene, Editor::moveSelection)
             u.x = uint16_t(std::clamp(int(std::lround(u.x + dx)), 0, mw * 32 - 1));
             u.y = uint16_t(std::clamp(int(std::lround(u.y + dy)), 0, mh * 32 - 1));
@@ -822,7 +861,7 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         }
         const int cx = u.x, cy = u.y;
         // Sight: the tiles of the sight mask around the unit's tile.
-        if (const int tiles = int(units->value(*sight, ut)); tiles > 0) {
+        if (const int tiles = mod ? mr.sight : int(units->value(*sight, ut)); tiles > 0) {
             int n = 0;
             const auto mask = sightMask(tiles, n);
             const int tx0 = cx / 32 - n / 2, ty0 = cy / 32 - n / 2;
@@ -832,16 +871,30 @@ void rangesScene(render::Scene& s, float dx, float dy) {
                     if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
                         seen[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
         }
-        const RECT box{LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
-                       LONG(cy + int(units->value(*sd, ut)) + 1)};
-        const int acq = int(units->value(*acqF, ut)) * 32, g = weaponRange(ut, *ground), a = weaponRange(ut, *air);
+        RECT box{LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)};
+        if (mod) {  // (the tab's unit types: the mod's sizes)
+            if (size_t(ut) < ed.unitTypes().size()) {
+                const UnitType& t = ed.unitTypes()[size_t(ut)];
+                box = {LONG(cx - t.sizeLeft), LONG(cy - t.sizeUp), LONG(cx + t.sizeRight + 1), LONG(cy + t.sizeDown + 1)};
+            }
+        } else
+            box = {LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
+                   LONG(cy + int(units->value(*sd, ut)) + 1)};
+        int acq = 0, g = 0, a = 0;
+        if (mod) {
+            const int h = heightAt(cx, cy);
+            g = cmbw::cliffRange(mr.ground, h, mr.cliff), a = mr.air;
+            acq = (mr.seek + (mr.cliff && h > 0 && mr.ground > 32 ? h : 0)) * 32;
+        } else
+            acq = int(units->value(*acqF, ut)) * 32, g = weaponRange(ut, *ground), a = weaponRange(ut, *air);
         shape(box, acq, 0xF0B446D0u, 1, false);
         shape(box, g, 0xEB5A50F0u, 2, false);
         shape(box, a, 0x5AAAF0F0u, 2, a == g);  // the same range as the ground weapon: blue dashes over the red line
         // Detection (green): a detector finds cloaked and burrowed units in its sight range; a detector building only
         // in 7 tiles (the game's rule). The game measures it from the unit's center.
-        const uint32_t f = uint32_t(units->value(*flags, ut));
-        if (f & 0x8000u) shape({LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)}, (f & 1u) ? 7 * 32 : int(units->value(*sight, ut)) * 32, 0x50E070F0u, 2, true);
+        const uint32_t f = mod ? mr.flags : uint32_t(units->value(*flags, ut));
+        if (f & 0x8000u)
+            shape({LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)}, (f & 1u) ? 7 * 32 : (mod ? mr.sight : int(units->value(*sight, ut))) * 32, 0x50E070F0u, 2, true);
         // Psi field (purple): the tiles where a Pylon gives power, 16 by 10 tiles around its center (the game's mask).
         if (ut == 156) {
             static const char* const kPsi[10] = {"0000011111100000", "0011111111111100", "0111111111111110", "1111111111111111", "1111111111111111",

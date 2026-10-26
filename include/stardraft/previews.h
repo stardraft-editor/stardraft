@@ -26,5 +26,7 @@ Sprite mapTilesPicture(const Tileset& tileset, const std::vector<uint16_t>& tile
 
 // A doodad: its tiles (transparent where it has none) and its overlay sprite on top.
 Sprite doodadPicture(const DoodadType& doodad, const Tileset& tileset, UnitSprites& sprites, const HdTiles* hd = nullptr);
+// Tiles as a picture: `tiles` row by row, w x h (0xFFFF: no tile there, transparent).
+Sprite tilesSprite(const Tileset& ts, int w, int h, const std::vector<uint16_t>& tiles, const HdTiles* hd = nullptr);
 
 }  // namespace stardraft

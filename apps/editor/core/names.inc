@@ -42,10 +42,10 @@ std::wstring paletteItemNameOf(Mode mode, int v) {
     AppState& app = shellState();
     if (!app.ed || v < 0) return L"";
     if (mode == Mode::Terrain) {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
+        return widen(app.ed->terrainName(uint16_t(v)));
     }
     if (mode == Mode::Doodads) {
+        if (const TerrainStamp* b = brushDoodad(v)) return brushDoodadName(*b);
         const DoodadType* d = app.ed->doodadTypes().find(uint16_t(v));
         return d ? widen(app.ed->unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(v) : L"";
     }

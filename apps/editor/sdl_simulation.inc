@@ -732,12 +732,28 @@ void simClose() {
 }
 
 // A game starts: the map's copy (its unsaved edits too) into the simulation, then `start`.
+// A Cosmonarchy BW map as the simulation reads it (it has the game's units only): each of the mod's workers, resource
+// depots and resources as the game's unit of that role (cmbw::simUnits: Talos and Pilgrim as SCVs, Landlock as a Command
+// Center, Vespene Ridges as Vespene Geysers, ...), its other own units left out; the simulation runs them with the
+// game's values.
+Bytes simModChk(const Chk& map, const UnitTypes& types) {
+    Chk c = map;
+    if (const Section* u = c.find("UNIT")) c.set("UNIT", stardraft::cmbw::simUnits(u->data, types));
+    return c.serialize();
+}
+
 bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
     if (!gState.ed || !gState.ed->isOpen()) return false;
+    if (combat && modTab()) {  // (the mod's units fight with their own values, which the simulation does not have)
+        if (gRoot)
+            msgbox::ask(*gRoot, tr(L"Simulation"), tr(L"The combat simulation is not available for Cosmonarchy BW maps. The mining simulation is."),
+                        {tr(L"OK")}, msgbox::Icon::Info);
+        return false;
+    }
     if (gSim.shown) simClose();
     if (!simReady()) return false;
     std::string err;
-    Bytes chk = gState.ed->chk().serialize();
+    Bytes chk = modTab() ? simModChk(gState.ed->chk(), gState.ed->unitTypes()) : gState.ed->chk().serialize();
     if (!simEngine().setMap(chk, err) || !start(err)) {
         if (gRoot) msgbox::ask(*gRoot, L"Simulation", widen(err), {L"OK"}, msgbox::Icon::Error);
         return false;

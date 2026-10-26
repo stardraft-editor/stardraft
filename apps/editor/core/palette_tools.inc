@@ -1,3 +1,14 @@
+// Cosmonarchy's doodad brushes in the Doodads palette (core/cmbw.inc): values from kBrushDoodadBase.
+constexpr int kBrushDoodadBase = 40000;
+const TerrainStamp* brushDoodad(int value);
+int brushDoodadValue(const TerrainStamp* s);
+std::wstring brushDoodadName(const TerrainStamp& s);
+bool placeBrushDoodad(AppState& app, const TerrainStamp& s, float wx, float wy, int* tx = nullptr, int* ty = nullptr, bool place = true);
+bool brushDoodadFits(AppState& app, const TerrainStamp& s, int tx, int ty);
+bool brushDoodadAt(AppState& app, float wx, float wy, AppState::BrushAt& out);
+int deleteBrushDoodads(AppState& app);
+int moveBrushDoodads(AppState& app, float dx, float dy);
+
 // The editor's palette and tool state (portable, core.inc): the device scale, the status bar's texts and the messages,
 // the tool and brush of the active mode, the palette's entries and their list, and the player (owner) choice. The state
 // is the app's AppState (passed in as app); the lists, combo boxes, the log and the windows are the host's (shell.h).
@@ -148,12 +159,12 @@ std::wstring itemLabel(const AppState& app, int v) {
     Editor& ed = *app.ed;
     switch (app.mode) {
     case Mode::Terrain: {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
+        return widen(ed.terrainName(uint16_t(v)));
     }
     case Mode::Units:
         return v < 0 ? L"(Select / move)" : unitTag(ed.unitTypes()[uint16_t(v)]) + L"   " + unitShortName(ed.unitTypes()[uint16_t(v)]);
     case Mode::Doodads: {
+        if (const TerrainStamp* b = brushDoodad(v)) return brushDoodadName(*b);
         const DoodadType* d = ed.doodadTypes().find(uint16_t(v));
         if (!d) return L"";
         return widen(ed.unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(d->id) + L"  (" +
@@ -178,9 +189,11 @@ void rebuildList(AppState& app) {
         std::vector<int> all;
         switch (app.mode) {
         case Mode::Terrain:
-            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()); t && ed.canPaintTerrain())
+            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()); t && ed.canPaintTerrain()) {
                 for (uint16_t i = 1; i <= t->terrainCount(); ++i)
                     if (t->isTerrain(i)) all.push_back(i);
+                for (const Tileset::ModTerrain& m : ed.tileset().modTerrains) all.push_back(m.id);  // (a mod's own: Cosmonarchy tabs)
+            }
             break;
         case Mode::Units: break;  // in the unit palette (side bar)
         case Mode::Sprites: break;
@@ -261,6 +274,13 @@ bool spriteIsOverlay(const AppState& app, int i) {
 // it fits, or anywhere on the map (the terrain is not checked). True when it was placed.
 bool placePaletteDoodad(AppState& app, float wx, float wy, std::string& why) {
     Editor& ed = *app.ed;
+    if (const TerrainStamp* b = brushDoodad(app.palette)) {
+        int tx = 0, ty = 0;
+        placeBrushDoodad(app, *b, wx, wy, &tx, &ty, false);
+        if (app.doodadCheck && !brushDoodadFits(app, *b, tx, ty)) return why = "its edges do not join the tiles around it", false;
+        if (placeBrushDoodad(app, *b, wx, wy)) return true;
+        return why = "its tiles are there already", false;
+    }
     const uint16_t id = uint16_t(app.palette);
     if (ed.placeDoodad(id, int(wx), int(wy), app.doodadCheck, &why)) return true;
     if (!app.doodadNearest) return false;

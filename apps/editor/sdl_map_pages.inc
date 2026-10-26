@@ -291,7 +291,7 @@ std::wstring sdlClassicEntryName(int tab, int e) {
         const bool own = !gClassic->units.units[size_t(e)].useDefault;
         return formatUnitName(game, own ? gameTextPlain(gClassic->names[size_t(e)]) : L"");  // (its colors: in the name's editor)
     }
-    std::wstring n = entryName(tab == kClassicUpgrades ? "upgrades" : "techdata", e);
+    std::wstring n = classicDatName(tab == kClassicUpgrades ? "upgrades" : "techdata", e);
     return n.empty() ? L"(" + std::to_wstring(e) + L")" : n;
 }
 
@@ -496,6 +496,7 @@ struct SdlPageState {
     int reloadTimer = 0, typingTimer = 0;
     std::unique_ptr<SdlPropsView> props;
     std::unique_ptr<PlayersView> players;
+    std::unique_ptr<EstShotView> est;  // a Cosmonarchy map's establishing shot (Map properties' last part)
     std::unique_ptr<ClassicPageView> classic[kClassicTabCount];
     std::unique_ptr<SdlClassicTrigPage> classicTrig;
 };
@@ -582,6 +583,7 @@ bool sdlLoadKind(int kind, MapPageCopies& c) {
 void sdlDropViews() {
     gSdlPage.props.reset();  // (each view takes itself out of the scroll view)
     gSdlPage.players.reset();
+    gSdlPage.est.reset();
     for (auto& v : gSdlPage.classic) v.reset();
     gSdlPage.classicTrig.reset();
     gClassic = nullptr;
@@ -596,6 +598,7 @@ std::vector<draw::View*> sdlParts() {
     if (gSdlPage.kind == kSdlProps) {
         if (gSdlPage.props) out.push_back(gSdlPage.props.get());
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
+        if (gSdlPage.est) out.push_back(gSdlPage.est.get());
     } else if (gSdlPage.kind == kSdlPlayers) {
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
     } else if (gSdlPage.kind == kSdlClassic) {
@@ -617,17 +620,32 @@ int sdlPartTop(size_t k) {
 
 // --- The frame: the page's title and tabs (core/views_map_pages.inc) and the scroll view with the parts ----------------
 
+// Map data's tabs that show: a Cosmonarchy map has no upgrades (core/cmbw.inc: modTab).
+std::vector<int> sdlClassicTabsShown() {
+    std::vector<int> out;
+    for (int k = 0; k < kClassicTabCount; ++k)
+        if (!(k == kClassicUpgrades && modTab())) out.push_back(k);
+    return out;
+}
+
 class SdlPageFrameHost final : public MapPagesHost {
 public:
     std::wstring title() override { return gSdlPage.kind >= 0 ? kSdlTitles[gSdlPage.kind] : L""; }
     std::vector<Tab> tabs() override {
         std::vector<Tab> out;
         if (gSdlPage.kind == kSdlClassic)
-            for (int k = 0; k < kClassicTabCount; ++k) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
+            for (int k : sdlClassicTabsShown()) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
         return out;
     }
-    int tab() override { return gClassic ? gClassic->tab : 0; }
-    void showTab(int k) override { sdlShowTab(k); }
+    int tab() override {  // (the tab's place in the ones that show)
+        const std::vector<int> shown = sdlClassicTabsShown();
+        const auto it = std::find(shown.begin(), shown.end(), gClassic ? gClassic->tab : 0);
+        return it == shown.end() ? 0 : int(it - shown.begin());
+    }
+    void showTab(int k) override {
+        const std::vector<int> shown = sdlClassicTabsShown();
+        if (k >= 0 && k < int(shown.size())) sdlShowTab(shown[size_t(k)]);
+    }
     bool changed() override {
         const SdlCopy* c = sdlOpenCopy();
         return c && c->changed;
@@ -645,6 +663,11 @@ public:
         return {w, h};
     }
     void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need)
+        if (gSdlPage.kind == kSdlClassic && h != gClassicFitH) {  // Map data: its list goes down to the view's bottom
+            gClassicFitH = h;
+            for (auto& v : gSdlPage.classic)
+                if (v) v->invalidate();
+        }
         if (gSdlPage.kind != kSdlClassicTrig || !gSdlPage.classicTrig) return;
         // (the scroll view places the parts after this: a relayout here would call this again, without end)
         gSdlPage.classicTrig->setSize(std::max(w, gSdlPage.classicTrig->preferredWidth()), std::max(h, gSdlPage.classicTrig->preferredHeight()));
@@ -889,11 +912,16 @@ void sdlMapPageApply() {
 void sdlMapPageReload() {
     MapPageCopies* all = sdlOpenCopies();
     if (!all || gSdlPage.kind < 0) return;
+    // (the same page again: it stays where it was scrolled to, as after an edit of its establishing shot)
+    const int x = gSdlMapPages.scroll.scrollX(), y = gSdlMapPages.scroll.scrollY();
     gSdlPage.ready = false;
     sdlDropViews();
     sdlLoadKind(gSdlPage.kind, *all);
     if (gSdlPage.kind == kSdlProps) sdlLoadKind(kSdlPlayers, *all);  // (players and forces are on this page too)
     sdlMakeContent();
+    gSdlMapPages.scroll.scrollTo(x, y);
+    if (draw::Host* h = sdlPageHost())  // (and again once the page has laid out its parts: their heights may come later)
+        h->timer(30, [x, y] { gSdlMapPages.scroll.scrollTo(x, y); });
 }
 
 // The copy is old (the map changed from outside, an undo) and has no changes: the page reads the map again.
@@ -922,6 +950,10 @@ void sdlMakeContent() {
         auto& pl = sdlPlayersCopy(*all);
         gSdlPage.players = std::make_unique<PlayersView>(gSdlPlayersHost, *pl.d);
         scroll.add(*gSdlPage.players, draw::Rect(0, 0, gSdlPage.players->preferredWidth(), gSdlPage.players->preferredHeight()));
+        if (modTab()) {  // a Cosmonarchy map: its establishing shot (core/views_est.inc)
+            gSdlPage.est = std::make_unique<EstShotView>();
+            scroll.add(*gSdlPage.est, draw::Rect(0, 0, gSdlPage.est->preferredWidth(), gSdlPage.est->preferredHeight()));
+        }
         break;
     }
     case kSdlPlayers: {
@@ -965,6 +997,7 @@ void sdlMapDataShowUnit(int type) {
 void sdlShowTab(int k) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
     gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
+    if (gClassic->tab == kClassicUpgrades && modTab()) gClassic->tab = kClassicUnits;  // (not a Cosmonarchy map's)
     for (int t = 0; t < kClassicTabCount; ++t)
         if (gSdlPage.classic[t]) gSdlPage.classic[t]->setVisible(t == gClassic->tab);
     gSdlMapPages.invalidate();
@@ -981,6 +1014,36 @@ void classicCopySelected() {
 }
 void classicPasteSelected() {
     if (ClassicPageView* v = sdlClassicShownTab()) v->pasteSelected();
+}
+
+// Q on the Map data page (the Data workspace's Q): the quick picker with the entries of the three tabs; a pick shows its
+// tab and selects it.
+void sdlClassicQuick() {
+    if (!sdlClassicShownTab()) return;
+    gQuickCustom.cue = tr(L"Go to a unit, upgrade or technology");
+    gQuickCustom.exact = false;
+    gQuickCustom.icon = UiIcon::Search;
+    gQuickCustom.rows = [] {
+        std::vector<PaletteUnit> out;
+        for (int t : sdlClassicTabsShown())
+            for (int e = 0; e < classicEntryCount(t); ++e) {
+                if (t == kClassicUnits && gSdlClassicHost.unitGameName(e).empty()) continue;  // (a mod's free slots)
+                PaletteUnit u;
+                u.value = t * 10000 + e;
+                u.label = sdlClassicEntryName(t, e) + L"  #" + std::to_wstring(e);
+                u.section = tr(kClassicTabNames[t]);
+                u.hay = u.label + L" " + u.section;
+                std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
+                out.push_back(std::move(u));
+            }
+        return out;
+    };
+    gQuickCustom.run = [](int v) {
+        if (v < 0) return;
+        sdlShowTab(v / 10000);
+        if (ClassicPageView* p = sdlClassicShownTab()) p->goTo(v % 10000);
+    };
+    shellShowQuickPickerCustom();
 }
 
 // Closes the open page (its views go; its copy stays with the tab, and an edit is put into the map first).

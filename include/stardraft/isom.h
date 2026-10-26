@@ -15,9 +15,13 @@
 // * Slot bits 1-3 are positional edge ids; StarEdit writes them only for diamonds it
 //   updates (never-touched diamonds keep the initial `terrain << 4`).
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <map>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "stardraft/chk.h"
@@ -28,10 +32,47 @@ class IsomTerrainTable {
 public:
     struct Pair {
         uint16_t firstShape, a, b;
+        // A mod's border (withExtras): the game's terrains whose border has its layout (its template: the shapes of
+        // (ta, tb) for those of (a, b)), and its tile pieces (tag); a game border: 0.
+        uint16_t ta = 0, tb = 0, tag = 0;
+        bool twin = false;  // a mod terrain (a) beside a twin of its ground (b): a path takes it only from or to a
+    };
+    // A terrain of a mod (Tileset::modTerrains): its id (past the game's), the game terrain whose tiles its tiles take
+    // the place of (templ), the terrain it borders, its tile pieces (tag: 1 and up), its name, and the game terrain its
+    // ground is in its border's template (groundTempl: a terrain a level higher on the ground's place; 0: the ground).
+    struct Extra {
+        uint16_t id, templ, ground, tag;
+        std::string name;
+        uint16_t groundTempl = 0;
+        std::vector<uint16_t> twins;  // more terrains it borders as it does its ground (the same inside and height)
     };
 
     // Table for a tileset (all eight are known).
     static const IsomTerrainTable* forEra(uint16_t era);
+    // The game's table with the terrains of a mod: each takes the shapes from `firstValue` on (past the game's), its solid
+    // shape and then the 14 of its border with its ground. The terrain engine (IsomGrid) paints them as the game's.
+    static constexpr int kExtraSlots = 80;  // (the mod terrains of a tileset that withExtras makes room for before twins)
+    static std::unique_ptr<IsomTerrainTable> withExtras(const IsomTerrainTable& game, const std::vector<Extra>& extras, uint16_t firstValue);
+    bool hasExtras() const { return game_ != nullptr; }
+    // A mod terrain a level higher in it (its border's ground is another game terrain in the template).
+    bool hasLevels() const { return levels_; }
+    // A mod terrain's template terrain and tag (withExtras); false: not a mod terrain.
+    bool modTerrain(uint16_t id, uint16_t& templ, uint16_t& tag) const {
+        for (const auto& s : solids_)
+            if (s.id == id) return templ = s.templ, tag = s.tag, true;
+        return false;
+    }
+    // The first value past the table's shapes.
+    uint16_t shapeEnd() const;
+    // The game's shape whose tiles a mod's shape takes the place of (its template); a game shape: itself.
+    uint16_t templateShape(uint16_t shape) const;
+    // The game's shapes for an ISOM rect of the mod's (its left and right diamonds), and the tile pieces for it (tag, 0:
+    // the game's tiles). False: no game rect has the layout (two mod terrains in it, or a terrain that the two diamonds'
+    // templates make two).
+    bool templateRect(uint16_t left, uint16_t right, uint16_t& gameLeft, uint16_t& gameRight, uint16_t& tag) const;
+    // A rect with a diamond of a mod terrain's border whose ground is another game terrain in the template (a terrain a
+    // level higher): that ground (from), its template terrain (to) and the border's tag.
+    bool levelGround(uint16_t left, uint16_t right, uint16_t& from, uint16_t& to, uint16_t& tag) const;
 
     IsomTerrainTable(uint16_t firstTransition, std::vector<Pair> pairs, std::vector<const char*> names = {});
 
@@ -49,12 +90,24 @@ public:
     std::vector<uint16_t> path(uint16_t from, uint16_t to) const;
     // Steps between two terrains in the terrain tree (large if unreachable).
     int distance(uint16_t a, uint16_t b) const;
+    // The longest of the distances between two terrains (the tree's diameter): how far an edit's terrains can need to
+    // reach (IsomGrid::settleFrom stops past it).
+    int diameter() const;
 
 private:
+    struct Solid {
+        uint16_t id, shape, templ, tag;
+    };
+    int idCount() const { return game_ ? std::max<int>(firstTransition_, int(names_.size()) + 1) : firstTransition_; }
     uint16_t firstTransition_;
     std::vector<Pair> pairs_;
     std::vector<const char*> names_;
-    mutable std::vector<int> distances_;  // firstTransition_^2, filled on first use
+    mutable std::vector<int> distances_;  // idCount()^2, filled on first use
+    const IsomTerrainTable* game_ = nullptr;  // (withExtras: the game's table)
+    bool levels_ = false;                     // (withExtras: hasLevels)
+    std::vector<Solid> solids_;               // (withExtras: the mod's terrains' solid shapes)
+    std::vector<std::string> ownNames_;       // (withExtras: names_ points into it)
+    std::vector<std::string> gameNames_;      // (withExtras: the game terrains' names with their ground, names_ points into it)
 };
 
 // The diamond (rect-grid point with x + y even) nearest a map pixel: grid points are 64 px apart across, 32 down.
@@ -148,6 +201,12 @@ public:
     // The map's tileset: store's tiles and the checks of which tiles fit come from its CV5 (the terrain core's tables,
     // IsomTiles); none: no tiles can be made (store fails).
     void setTileset(const struct Tileset* tileset);
+    // The map's terrain table when it is not the game's (IsomTerrainTable::withExtras: a mod's terrains, whose tiles are
+    // the pieces of the tileset's modTerrains, tag 1 the first); none: the game's. The next load() takes it.
+    void setTable(const IsomTerrainTable* table) { ownTable_ = table; }
+    // tileFromIsom with the map's table: in the rect of a mod's terrain, the mod's pieces for the rect of its template
+    // (and the template's tiles) are from the ISOM too.
+    bool tileFromIsom(const Chk& chk, const struct TerrainLayer& tile, int tx, int ty) const;
 
     int rectCols() const { return rectCols_; }
     int rectRows() const { return rectRows_; }
@@ -179,7 +238,27 @@ private:
     bool stacksWithAbove(int rx, int ry) const;
     bool pushRect(int rx, int ry) { uint16_t t = sourceNear(rx, ry); return t && pushRectToward(rx, ry, t); }
     void encodeDirty();
-    void writeIsom(Chk& chk) const;
+    // `templates`: each mod shape as its template's (IsomTerrainTable::templateShape), for the terrain core.
+    void writeIsom(Chk& chk, bool templates = false) const;
+    // The tiles of `rects` from the copy of the map the terrain core made them on (`work`, the templates' tiles), with
+    // the mod's pieces for them in the rects of a mod's terrain.
+    void putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects) const;
+    // One of a rect's mod pieces (`h`: the place's hash): one that the mod's maps have beside the pieces already placed
+    // around it in `tile` (above, a row up to the left and to the right: Tileset::pieceNeighbors); fewer of those
+    // neighbors when none fits all, any piece when none fits one.
+    std::pair<uint16_t, uint16_t> pickPiece(const std::vector<std::pair<uint16_t, uint16_t>>& pieces, const TerrainLayer& tile, int rx, int ry,
+                                            uint32_t h) const;
+    // The game's shapes of a rect's template (its left and right diamond: IsomTerrainTable::templateRect; no rect of the
+    // game's: each diamond's own template); a game rect: its shapes. templateSlots: of rect (rx, ry) as its shapes are now.
+    std::pair<uint16_t, uint16_t> templatePair(uint16_t left, uint16_t right) const;
+    std::pair<uint16_t, uint16_t> templateSlots(int rx, int ry) const;
+    // Rect (rx, ry)'s template (templateRect); a rect of one terrain around the border of a mod terrain a level higher (two
+    // rects above and below, one beside) as that border's template ground (the game's walls go down over it). `ground`:
+    // in such rects and in that border's own, the ground whose own tiles go where the set has no piece (0: none).
+    // False: no rect of the game's.
+    bool rectTemplate(int rx, int ry, uint16_t& gameLeft, uint16_t& gameRight, uint16_t& tag, uint16_t* ground = nullptr) const;
+    // Whether slot k (left, top, right, bottom) of rect (rx, ry) holds its right diamond's shape (encodeDirty's slots).
+    static bool rightSlot(int rx, int ry, int k) { return k == 2 || (k == 1 && ((rx + ry) & 1)) || (k == 3 && !((rx + ry) & 1)); }
     // Rects (x, y) whose tile cannot stack under the tile above, within `area` (per-rect mask).
     std::vector<std::pair<int, int>> stackBreaks(const Chk& chk, const std::vector<uint8_t>& area) const;
     uint16_t lastTerrain_ = 0;
@@ -190,6 +269,28 @@ private:
     uint16_t sourceAt(int x, int y) const { return source_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)]; }
 
     const IsomTerrainTable* table_ = nullptr;
+    const IsomTerrainTable* diameterOf_ = nullptr;  // (settleFrom: the table whose diameter_ it is)
+    int diameter_ = 0;
+    int reachX0_ = 0, reachY0_ = 0, reachX1_ = -1, reachY1_ = -1;  // (the last edit's reach, corner coordinates: settleFrom, repairUntileable)
+    const IsomTerrainTable* ownTable_ = nullptr;  // (setTable)
+    // A mod's terrains: per tag, the game's left tile group -> the mod's pieces (left, right tile) for its rect; and the
+    // game's tile for each tile of a piece (the terrain core reads the stack connections of the tiles above).
+    std::vector<std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>>> pieces_;
+    std::unordered_map<uint16_t, uint16_t> gameTile_;
+    // A mod terrain a level higher: per rect, the border it is around (rectTemplate), made once for a pass over the map
+    // (LevelMask: writeIsom, stackBreaks, putPieces; the shapes do not change during one) instead of a search per rect.
+    struct LevelRect {
+        uint16_t from = 0, to = 0, tag = 0;
+    };
+    mutable std::vector<LevelRect> levelMask_;
+    struct LevelMask {
+        const IsomGrid& grid;
+        bool own = false;
+        explicit LevelMask(const IsomGrid& g);
+        ~LevelMask();
+    };
+    bool piecesOnly_ = false;  // (repairUntileable: rectTileable asks for the mod's piece too)
+    std::unordered_map<uint64_t, uint8_t> fixFailed_;  // (fixRectMinimal: calls that found nothing, by their rect and the corners around it; an edit clears it)
     const struct Tileset* tileset_ = nullptr;
     const class IsomTiles* tiles_ = nullptr;  // (tileset_'s)
     uint16_t era_ = 0;

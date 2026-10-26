@@ -167,6 +167,10 @@ struct Renderer::Impl {
     UnitSprites* unitSprites = nullptr;
     const Tileset* tileset = nullptr;
     uint16_t era = 0xFFFF, loadedEra = 0xFFFF;
+    // (the tileset the atlases were made from: another one of the same era, as a mod's, or one loaded again, makes them
+    // again; its address and size, since the editor loads a new tileset into the same object)
+    const Tileset* loadedTileset = nullptr;
+    size_t loadedTilesetSize = 0;
     GraphicsQuality quality = GraphicsQuality::HD2, loadedQuality = GraphicsQuality::SD;
     bool carbot = false, loadedCarbot = false;
     bool tilesetDirty = true;
@@ -551,8 +555,11 @@ bool Renderer::Impl::buildHdAtlas() {
 
 void Renderer::Impl::reloadTileset() {
     if (!tileset || !data || tileset->groups.empty()) return;
-    if (era != loadedEra) buildSdAtlas();
-    if (era != loadedEra || quality != loadedQuality || carbot != loadedCarbot) buildHdAtlas();
+    const size_t size = tileset->groups.size() * 1000003u + tileset->megatiles.size() * 1009u + tileset->minitiles.size();
+    const bool other = era != loadedEra || tileset != loadedTileset || size != loadedTilesetSize;
+    if (other) buildSdAtlas();
+    if (other || quality != loadedQuality || carbot != loadedCarbot) buildHdAtlas();
+    loadedTileset = tileset, loadedTilesetSize = size;
     if (quality != loadedQuality || carbot != loadedCarbot) freeImages();
     loadedEra = era;
     loadedQuality = quality;
@@ -581,7 +588,8 @@ void Renderer::setPlayerColors(const uint32_t rgb[12]) {
 
 void Renderer::setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era) {
     Impl& r = *impl_;
-    if (r.tileset != tileset || r.era != era) r.tilesetDirty = true;
+    const size_t size = tileset ? tileset->groups.size() * 1000003u + tileset->megatiles.size() * 1009u + tileset->minitiles.size() : 0;
+    if (r.tileset != tileset || r.era != era || (tileset && size != r.loadedTilesetSize)) r.tilesetDirty = true;
     if (r.unitSprites != sprites) r.freeImages();
     r.data = data, r.unitSprites = sprites, r.tileset = tileset, r.era = era;
 }

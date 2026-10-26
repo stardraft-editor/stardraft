@@ -76,7 +76,7 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     const uint64_t creepRev = creepRevision(ed);
     if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
         uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev) {
-        gRenderer->setSources(&gState.data, &ed.unitSprites(), &ed.tileset(), ed.era());
+        gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
         if (gLayers.terrain && gLayers.doodads && !gLayers.creep) gRenderer->updateTerrain(ed.terrain());
         else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
         gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev;

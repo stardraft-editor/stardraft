@@ -270,7 +270,8 @@ bool sameBatch(const std::shared_ptr<const ClassicBatch>& a, const std::shared_p
 bool operator==(const ClassicAction& a, const ClassicAction& b) {
     return a.location == b.location && a.text == b.text && a.wav == b.wav && a.time == b.time && a.player == b.player &&
            a.number == b.number && a.unit == b.unit && a.type == b.type && a.modifier == b.modifier && a.flags == b.flags &&
-           a.padding == b.padding && a.internal == b.internal && a.depth == b.depth && a.var == b.var && sameBatch(a.batch, b.batch);
+           a.padding == b.padding && a.internal == b.internal && a.depth == b.depth && a.var == b.var && sameBatch(a.batch, b.batch) &&
+           a.crig == b.crig;
 }
 
 ClassicField classicVarField(int k) {
@@ -692,6 +693,10 @@ std::string classicPlayerName(uint32_t g, const ClassicNames& names) {
     return "Player #" + number(g);
 }
 
+namespace {
+uint32_t gUnitTypeCount = 233;  // (classicSetUnitTypeCount)
+}
+
 std::string classicValueText(ClassicKind kind, uint32_t v, const ClassicNames& names) {
     auto choice = [&]() -> std::string {
         for (const ClassicChoice& c : classicChoices(kind))
@@ -706,7 +711,8 @@ std::string classicValueText(ClassicKind kind, uint32_t v, const ClassicNames& n
         if (v == 230) return "men";
         if (v == 231) return "buildings";
         if (v == 232) return "factories";
-        if (v < 228 && names.unit) return names.unit(v);
+        if ((v < 228 || (v > 232 && v < gUnitTypeCount)) && names.unit)  // (a mod's units past the groups)
+            if (std::string n = names.unit(v); !n.empty()) return n;
         return "unit #" + number(v);
     case K::Location:
         if (v == 0) return "no location";
@@ -776,18 +782,22 @@ std::string sentence(const ClassicCondition* c, const ClassicAction* a, const Cl
 }  // namespace
 
 std::string classicConditionText(const ClassicCondition& c, const ClassicNames& names) {
+    if (c.type == kClassicCrigType && c.crig) return c.crig->line;  // (a mod's script line: as it is written)
     return sentence(&c, nullptr, classicConditionDef(c.type), names, nullptr);
 }
 std::string classicActionText(const ClassicAction& a, const ClassicNames& names, const std::vector<const ClassicBatch*>* scope) {
+    if (a.type == kClassicCrigType && a.crig) return a.crig->line;
     return sentence(nullptr, &a, classicActionDef(a.type), names, scope);
 }
+
+void classicSetUnitTypeCount(uint32_t count) { gUnitTypeCount = std::max<uint32_t>(233, count); }
 
 bool classicEud(const ClassicCondition& c) {
     const ClassicDef* d = classicConditionDef(c.type);
     if (!d || c.internal == kMaskFlag) return true;
     for (const ClassicParam& p : d->params) {
         const uint32_t v = classicValue(c, p.field);
-        if ((p.kind == K::Player && v > 26) || (p.kind == K::Unit && v > 232)) return true;
+        if ((p.kind == K::Player && v > 26) || (p.kind == K::Unit && v >= gUnitTypeCount)) return true;
     }
     return false;
 }
@@ -796,7 +806,7 @@ bool classicEud(const ClassicAction& a) {
     if (!d || a.internal == kMaskFlag) return true;
     for (const ClassicParam& p : d->params) {
         const uint32_t v = classicValue(a, p.field);
-        if ((p.kind == K::Player && v > 26) || (p.kind == K::Unit && v > 232)) return true;
+        if ((p.kind == K::Player && v > 26) || (p.kind == K::Unit && v >= gUnitTypeCount)) return true;
     }
     return false;
 }

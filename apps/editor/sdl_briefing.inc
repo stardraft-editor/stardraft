@@ -80,7 +80,9 @@ public:
         // (the core message box, as the Windows program's MB_OKCANCEL | MB_ICONWARNING with the names Delete and Cancel)
         return gRoot && msgbox::ask(*gRoot, shellTr(title.c_str()), shellTr(text.c_str()), {shellTr(yes.c_str()), shellTr(L"Cancel")}, msgbox::Icon::Warning) == 0;
     }
-    draw::Bitmap* unitIcon(int unit) override { return unit >= 0 && unit < 228 ? paletteBitmap(Mode::Units, unit, 0) : nullptr; }
+    draw::Bitmap* unitIcon(int unit) override {
+        return gState.ed && unit >= 0 && unit < int(gState.ed->unitTypes().size()) ? paletteBitmap(Mode::Units, unit, 0) : nullptr;
+    }
 
 private:
     std::map<int, SDL_AudioStream*> voices_;

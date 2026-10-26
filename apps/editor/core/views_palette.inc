@@ -297,8 +297,7 @@ struct PieView : draw::View {
     }
     std::wstring terrainName(uint16_t t) const {
         const AppState& app = shellState();
-        const IsomTerrainTable* tt = app.ed ? IsomTerrainTable::forEra(app.ed->era()) : nullptr;
-        return tt ? widen(tt->terrainName(t)) : std::wstring();
+        return app.ed ? widen(app.ed->terrainName(t)) : std::wstring();
     }
     void paint(draw::Canvas& c) override {
         constexpr double kTurn = 2 * 3.14159265358979323846;

@@ -336,17 +336,17 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         if (!ed.canPaintTerrain()) break;
         if (ctrl) {
             // Eyedropper: pick the terrain under the cursor as the brush terrain.
-            uint16_t t = ed.terrainAt(int(wx), int(wy));
+            uint16_t t = ed.paletteTerrainAt(int(wx), int(wy));  // (a mod terrain's piece: that mod terrain)
             if (selectPalette(app, t) < 0 && shellClearFilter()) {  // hidden by the filter: clear it and look again
                 rebuildList(app);
                 selectPalette(app, t);
             }
-            const IsomTerrainTable* table = IsomTerrainTable::forEra(ed.era());
             // Placement: from Select (or a paste), the Brush paints with it; Spray, Fill and Replace keep their tool.
             if (currentTool(app) == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, app.terrainPasting = false;
             app.palette = t;
             fillToolCombo(app), updateStatus(app);
-            setMessage(app, L"Painting " + widen(table ? table->terrainName(t) : "") + L" (selected with Ctrl+click)");
+            setMessage(app, L"Painting " + widen(ed.terrainName(t)) +
+                                L" (selected with Ctrl+click)");
             app.drag = Drag::None;
             break;
         }
@@ -389,8 +389,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             uint16_t from = ed.terrainAt(int(wx), int(wy));
             const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
             int n = ed.replaceTerrain(from, t, area, int(selectShape(app)));  // (in the selection's shape)
-            const IsomTerrainTable* tt = IsomTerrainTable::forEra(ed.era());
-            setMessage(app, L"Replaced " + widen(tt ? tt->terrainName(from) : "") + L" with " + itemLabel(app, app.palette) + L" (" +
+            setMessage(app, L"Replaced " + widen(ed.terrainName(from)) + L" with " + itemLabel(app, app.palette) + L" (" +
                        std::to_wstring(n) + L" corners" + (area ? L", in selection)" : L")"));
         }
         break;
@@ -453,14 +452,40 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             app.lastPlaceX = wx, app.lastPlaceY = wy;
             app.drag = Drag::PlaceStroke;
         } else if (app.pastingItems) {
-            std::vector<Editor::ItemAt> items = app.doodadClip;
-            for (auto& it : items) it.x += int(wx), it.y += int(wy);
-            const int n = ed.placeDoodads(items, app.doodadCheck, app.doodadNearest);
-            setMessage(app, L"Pasted " + std::to_wstring(n) + L" of " + std::to_wstring(items.size()) + L" doodads (the others do not fit there)");
+            std::vector<Editor::ItemAt> items, brushes;  // (the copy's Cosmonarchy doodad brushes: their tiles, as a pick places them)
+            for (Editor::ItemAt it : app.doodadClip) {
+                it.x += int(wx), it.y += int(wy);
+                (brushDoodad(it.id) ? brushes : items).push_back(it);
+            }
+            int n = items.empty() ? 0 : ed.placeDoodads(items, app.doodadCheck, app.doodadNearest);
+            if (!brushes.empty()) {
+                ed.beginStroke();
+                for (const auto& it : brushes) {
+                    const TerrainStamp& b = *brushDoodad(it.id);
+                    int tx = 0, ty = 0;
+                    placeBrushDoodad(app, b, float(it.x), float(it.y), &tx, &ty, false);
+                    if (!app.doodadCheck || brushDoodadFits(app, b, tx, ty)) n += placeBrushDoodad(app, b, float(it.x), float(it.y), nullptr, nullptr, true);
+                }
+                ed.endStroke();
+            }
+            setMessage(app, L"Pasted " + std::to_wstring(n) + L" of " + std::to_wstring(app.doodadClip.size()) + L" doodads (the others do not fit there)");
             // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
         } else {
             // Nothing picked: select (Ctrl or Shift adds), drag to move, a drag on empty ground selects with a box.
-            selectItemAt(app, app.selDoodads, ed.doodadAt(int(wx), int(wy)), mods, Drag::MoveDoodad);
+            const int at = ed.doodadAt(int(wx), int(wy));
+            AppState::BrushAt brush;
+            const bool adding = (mods & (draw::kCtrl | draw::kShift)) != 0;
+            if (at < 0 && brushDoodadAt(app, wx, wy, brush)) {  // (a Cosmonarchy doodad brush: selected; a drag moves it, Delete takes it away)
+                const bool had = std::any_of(app.selBrushes.begin(), app.selBrushes.end(),
+                                             [&](const AppState::BrushAt& b) { return b.value == brush.value && b.tx == brush.tx && b.ty == brush.ty; });
+                if (!adding && !had) app.selBrushes.clear(), app.selDoodads.clear();
+                if (!had) app.selBrushes.push_back(brush);
+                if (const TerrainStamp* b = brushDoodad(brush.value)) setMessage(app, L"Selected " + brushDoodadName(*b) + L" (drag to move it, Delete takes it away)");
+                app.drag = Drag::MoveDoodad;
+                break;
+            }
+            if (!adding) app.selBrushes.clear();
+            selectItemAt(app, app.selDoodads, at, mods, Drag::MoveDoodad);
         }
         break;
     case Mode::Locations: {
@@ -695,6 +720,10 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         if (app.dragMoved) ed.setLocationRect(ed.selectedLocation(), previewLocationRect(wx, wy));
         break;
     case Drag::MoveDoodad:
+        if (app.dragMoved && !app.selBrushes.empty()) {  // (Cosmonarchy doodad brushes)
+            const int n = moveBrushDoodads(app, wx - app.dragWX, wy - app.dragWY);
+            setMessage(app, n ? L"Moved " + std::to_wstring(n) + (n == 1 ? L" doodad brush" : L" doodad brushes") : L"The doodad brushes stay: they do not join the tiles there");
+        }
         if (app.dragMoved && !app.selDoodads.empty()) {
             std::string why;
             const int n = int(app.selDoodads.size());
@@ -784,7 +813,7 @@ bool mapCancelStep(AppState& app) {
     } else if (app.ed) {
         app.ed->clearSelection();
         if (app.mode == Mode::Locations) app.ed->selectLocation(-1);
-        app.selDoodads.clear(), app.selSprites.clear();
+        app.selDoodads.clear(), app.selSprites.clear(), app.selBrushes.clear();
         setMessage(app, L"Cleared the selection");
     }
     app.drag = Drag::None;

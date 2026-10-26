@@ -7,6 +7,7 @@
 #include <shlobj.h>
 
 #include <filesystem>
+#include <algorithm>
 #include <random>
 #include <string>
 
@@ -32,6 +33,53 @@ inline void registerProjectFiles(const std::wstring& exe) {
     if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
 }
 
+#ifdef STARDRAFT_REBUILD_CMAKE
+// The newest change of the editor's sources (src, include, apps, shaders and CMakeLists.txt in the source folder).
+inline fs::file_time_type newestSource(const fs::path& root) {
+    std::error_code ec;
+    fs::file_time_type newest = fs::last_write_time(root / L"CMakeLists.txt", ec);
+    for (const wchar_t* dir : {L"src", L"include", L"apps", L"shaders"})
+        for (auto it = fs::recursive_directory_iterator(root / dir, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+            if (it->is_regular_file(ec)) newest = (std::max)(newest, it->last_write_time(ec));
+    return newest;
+}
+
+// Builds the editor when a source is newer than `exe` (an incremental build; a small window says so while it runs).
+// False when the build failed and the user does not want the last build.
+inline bool rebuildIfNeeded(const fs::path& exe) {
+    std::error_code ec;
+    const fs::path root = fs::path(STARDRAFT_REBUILD_SOURCE).make_preferred(), bin = fs::path(STARDRAFT_REBUILD_BINARY).make_preferred();
+    if (fs::exists(exe, ec) && newestSource(root) <= fs::last_write_time(exe, ec)) return true;
+    const fs::path log = bin / L"latest-build.log";
+    SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, TRUE};
+    HANDLE out = CreateFileW(log.c_str(), GENERIC_WRITE, FILE_SHARE_READ, &sa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    STARTUPINFOW si{sizeof si};
+    si.dwFlags = STARTF_USESTDHANDLES, si.hStdOutput = si.hStdError = out, si.hStdInput = nullptr;
+    PROCESS_INFORMATION pi{};
+    std::wstring cmd = L"\"" + fs::path(STARDRAFT_REBUILD_CMAKE).make_preferred().wstring() + L"\" --build \"" + bin.wstring() +
+                       L"\" --config Release --target stardraft_editor";
+    HWND note = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, L"STATIC", (L"Building " + exe.stem().wstring() + L"\x2026").c_str(),
+                                WS_POPUP | WS_VISIBLE | WS_BORDER | SS_CENTER | SS_CENTERIMAGE, GetSystemMetrics(SM_CXSCREEN) / 2 - 160,
+                                GetSystemMetrics(SM_CYSCREEN) / 2 - 30, 320, 60, nullptr, nullptr, nullptr, nullptr);
+    DWORD code = 1;
+    if (CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, bin.c_str(), &si, &pi)) {
+        while (MsgWaitForMultipleObjects(1, &pi.hProcess, FALSE, INFINITE, QS_ALLINPUT) != WAIT_OBJECT_0)
+            for (MSG m; PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE);) DispatchMessageW(&m);
+        GetExitCodeProcess(pi.hProcess, &code);
+        CloseHandle(pi.hThread), CloseHandle(pi.hProcess);
+    }
+    if (out != INVALID_HANDLE_VALUE) CloseHandle(out);
+    if (note) DestroyWindow(note);
+    if (code == 0) return true;
+    if (!fs::exists(exe, ec)) {
+        MessageBoxW(nullptr, (L"The build failed. See " + log.wstring()).c_str(), L"StarDraft-latest", MB_ICONERROR);
+        return false;
+    }
+    return MessageBoxW(nullptr, (L"The build failed (see " + log.wstring() + L").\n\nStart the last build?").c_str(), L"StarDraft-latest",
+                       MB_ICONWARNING | MB_YESNO) == IDYES;
+}
+#endif
+
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR args, int) {
     wchar_t self[MAX_PATH];
     GetModuleFileNameW(nullptr, self, MAX_PATH);
@@ -41,8 +89,16 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR args, int) {
     const fs::path here = fs::path(self).parent_path();
 #endif
     registerProjectFiles(self);  // projects open with the newest build
-    fs::path src = here / L"stardraft-testing.exe";
     std::error_code ec;
+#ifdef STARDRAFT_EDITOR_NAME
+    fs::path src = here / (std::wstring(STARDRAFT_EDITOR_NAME) + L".exe");  // this build folder's editor (STARDRAFT_EXE_NAME)
+#ifdef STARDRAFT_REBUILD_CMAKE
+    if (!rebuildIfNeeded(src)) return 1;
+#endif
+    if (!fs::exists(src, ec)) src = here / L"stardraft-testing.exe";
+#else
+    fs::path src = here / L"stardraft-testing.exe";
+#endif
     if (!fs::exists(src, ec)) src = here / L"stardraft.exe";
     if (!fs::exists(src, ec)) {
         MessageBoxW(nullptr, (L"No build of StarDraft is in " + here.wstring()).c_str(), L"StarDraft-latest", MB_ICONERROR);

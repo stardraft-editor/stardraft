@@ -33,6 +33,7 @@
 #include "mac_dock.h"  // the Dock, Finder and the Settings window (mac_dock.mm; on Windows and Linux they do nothing)
 #include "mac_dist.h"  // macOS: Quick Look's tile colors, the maps in Spotlight, --check bundle (mac_dist.mm; elsewhere nothing)
 #include "map_preview.h"  // apps/quicklook: a map's picture without a GPU (sdl_dist.inc: --check preview)
+#include <stb_image.h>  // (shell_sdl.inc shellDecodeImage: a PNG for an establishing shot)
 #if !defined(_WIN32) && !defined(__APPLE__)
 #define STARDRAFT_XDG 1  // Linux and the BSDs: the free desktops' parts (desktop_xdg.h; sdl_xdg.inc, sdl_window.inc)
 #include "desktop_xdg.h"
@@ -125,6 +126,7 @@
 #include "stardraft/project_build.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
+#include "stardraft/mods/cmbw.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
@@ -367,6 +369,7 @@ int main(int argc, char** argv) {
     std::string palViewArg;  // --palview: the palette's view items (list, icons, sprites, normal, large), comma separated
     bool pieArg = false;  // --pie: the pie palette open (Terrain mode), the mouse to the right of its middle
     std::uint32_t restartPid = 0;  // --restart <pid> (Program options > Language): the old program, which ends first
+    bool cmbwArg = false;  // --cmbw: a new Cosmonarchy BW map first (core/cmbw.inc; a map argument then opens in its data), for a snapshot
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
     bool midPanArg = false;  // --midpan: Options > Middle mouse click and hold (Pan map, Drag map), as text after the snapshot
     bool cursorsArg = false;  // --cursors: the cursors at some points, as text after the snapshot (sdl_cursor_check.inc)
@@ -443,6 +446,7 @@ int main(int argc, char** argv) {
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
+        else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
         else if (a == "--cursors") cursorsArg = true;  // the map view's and a text field's cursors as text, after the snapshot
@@ -665,6 +669,7 @@ int main(int argc, char** argv) {
         // undo) has the host, and the focus stays from one input to the next.
         if (!snapshot.empty() && !inputArgs.empty()) host.snapshotInput(root, width, height, {});
         if (!snapshot.empty()) sdlFloatPaletteSetup();  // (a snapshot with input: the floating palette's window shows over the root)
+        if (cmbwArg && mapArg.empty()) newCmbwMap();  // (with a map: it opens as a Cosmonarchy map, if it is one)
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
         if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)
@@ -712,7 +717,7 @@ int main(int argc, char** argv) {
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c.rfind("drawfuncs:", 0) == 0;
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c.rfind("drawfuncs:", 0) == 0;
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
@@ -929,6 +934,13 @@ int main(int argc, char** argv) {
             if (hasCheck("dataform")) sdlDataFormCheck();  // (the last paint's parts)
             if (hasCheck("datatable")) sdlDataTableCheck();
             if (hasCheck("resize")) sdlResizeCheck();  // (Crop or extend: its dialog, or the change its OK made)
+            if (hasCheck("classicrows")) sdlClassicRowsCheck();  // (the selected trigger's rows and the Comments they write)
+            if (hasCheck("players") && appState().ed && appState().ed->isOpen()) {  // (the map's races and the Players page's race list)
+                std::string races, list;
+                for (int p = 0; p < 8; ++p) races += (p ? "," : "") + std::to_string(int(appState().ed->player(p).race));
+                for (const auto& [race, name] : playerRaces()) list += (list.empty() ? "" : ",") + narrow(name);
+                std::printf("players: races=%s list=%s\n", races.c_str(), list.c_str());
+            }
             for (const std::string& c : checkArgs)  // (the map's renderer, after the picture: sdl_map_image.inc)
                 if (c.rfind("drawfuncs:", 0) == 0) sdlDrawFuncsCheck(c.substr(10));
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)

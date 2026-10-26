@@ -31,6 +31,8 @@ struct OptionsValues {
     int unitNames = 0;        // how lists name a unit with a custom name (0 to 3)
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
+    bool cmbw = false;        // Start > Show Cosmonarchy BW (the start page's button)
+    bool cmbwMode = false;    // Start > Cosmonarchy BW mode (core/cmbw.inc cmbwMode)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
@@ -128,13 +130,20 @@ public:
         animate_.onChange = [this](bool) { host_.command(ID_OPT_ANIMATE); };
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
+        cmbw_.setLabel(L"Show Cosmonarchy BW");
+        cmbw_.setTip(L"The start page shows Cosmonarchy map in place of Mod project: a map with the units of the Cosmonarchy BW mod");
+        cmbw_.onChange = [this](bool) { host_.command(ID_OPT_CMBW); };
+        cmbwMode_.setLabel(L"Cosmonarchy BW mode");
+        cmbwMode_.setTip(L"StarDraft makes and opens Cosmonarchy BW maps only: every map opens with the mod's units, and the start page and "
+                         L"File > New make Cosmonarchy maps (no classic maps or projects)");
+        cmbwMode_.onChange = [this](bool) { host_.command(ID_OPT_CMBW_MODE); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
+        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&cmbw_), static_cast<draw::View*>(&cmbwMode_), static_cast<draw::View*>(&updates_),
                         static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -359,7 +368,7 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox animate_, lastProject_, updates_, previews_;
+    stardraft::kit::CheckBox animate_, lastProject_, cmbw_, cmbwMode_, updates_, previews_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
@@ -408,7 +417,7 @@ void OptionsView::sync(const OptionsValues& v) {
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
     accents_ = v.accents;
-    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), cmbw_.setOn(v.cmbw), cmbwMode_.setOn(v.cmbwMode), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -629,6 +638,10 @@ void OptionsView::paint(draw::Canvas& c) {
     if (shown & optionsview::kStart) {
         header(L"Start");
         checkRow(y, lastProject_, "lastproject");
+        y += rowH;
+        checkRow(y, cmbw_, "cmbw");
+        y += rowH;
+        checkRow(y, cmbwMode_, "cmbwmode");
         y += rowH;
         // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
         label(L"Crash reports");

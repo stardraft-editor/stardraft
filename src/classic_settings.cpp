@@ -79,6 +79,7 @@ bool settingsBroodWar(const Chk& chk) {
 // --- Defaults ---------------------------------------------------------------------------------------------------
 
 bool SettingDefaults::load(const GameData& data, std::string& error) {
+    if (const UnitDataLoader* l = data.unitDataLoader(); l && l->settings) return l->settings(data, *this, error);
     Bytes ud, wd, gd, td;
     if (!data.readFile("arr\\units.dat", ud, error) || !data.readFile("arr\\weapons.dat", wd, error) ||
         !data.readFile("arr\\upgrades.dat", gd, error) || !data.readFile("arr\\techdata.dat", td, error))

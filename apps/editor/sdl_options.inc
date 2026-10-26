@@ -154,7 +154,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
-           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_CMBW || id == ID_OPT_CMBW_MODE;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -179,6 +179,19 @@ bool sdlOptionsCommand(int id) {
         prefs::flag(L"OpenLastProject", flag);
         prefs::setNumber(L"OpenLastProject", flag ? 0 : 1);
         setMessage(!flag ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
+        break;
+    case ID_OPT_CMBW:
+        prefs::flag(L"Cosmonarchy", flag);
+        prefs::setNumber(L"Cosmonarchy", flag ? 0 : 1);
+        gStartView.cosmonarchy = !flag, gStartView.invalidate();
+        setMessage(!flag ? L"The start page shows Cosmonarchy map" : L"The start page does not show Cosmonarchy BW");
+        break;
+    case ID_OPT_CMBW_MODE:
+        prefs::flag(L"CosmonarchyMode", flag);
+        prefs::setNumber(L"CosmonarchyMode", flag ? 0 : 1);
+        gStartView.cosmonarchyOnly = !flag, gStartView.invalidate();
+        gMenusDirty = true;
+        setMessage(!flag ? L"Cosmonarchy BW mode: maps open and are made as Cosmonarchy BW maps" : L"Cosmonarchy BW mode is off");
         break;
     default:  // Language: it applies at the next start (the texts are made then): restart now, or later
         gLanguage = kLanguageChoices[id - ID_OPT_LANG].code;
@@ -223,6 +236,10 @@ public:
         v.unitLimit[0] = gUnitLimitClassic, v.unitLimit[1] = gUnitLimitEud;
         flag = false;
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
+        flag = false;
+        prefs::flag(L"Cosmonarchy", flag), v.cmbw = flag;
+        flag = false;
+        prefs::flag(L"CosmonarchyMode", flag), v.cmbwMode = flag;
         flag = true;
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;
         v.previews = sdlUpdatePreviews();  // (sdl_updates.inc)

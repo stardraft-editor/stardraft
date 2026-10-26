@@ -11,6 +11,15 @@ constexpr int kUnitPropsOk = 1, kUnitPropsCancel = 2, kUnitPropsEditType = 3;
 constexpr int kUnitPropsPick = 4, kUnitPropsRefresh = 5;
 
 const wchar_t* const kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"Lifted", L"Hallucinated", L"Invincible"};
+// A Cosmonarchy map's (core/cmbw.inc: modTab): the mod gives the same flags other meanings (its preplaced units: the
+// flags that are on and valid), and sets hit points, shields and energy to 100 when it makes the unit.
+const wchar_t* const kModStateNames[5] = {L"AI layout", L"Resource area", L"Only for its race", L"Layout only (AI)", L"Main town (AI)"};
+const wchar_t* const kModStateTips[5] = {
+    L"Cloaked: the computer player uses the unit as a layout (where to build or guard); the unit is not made",
+    L"Burrowed: on a resource of player 12, the Hit points field is the number of its resource area",
+    L"Lifted: the unit is made only when its owner plays its race",
+    L"Hallucinated: the computer player keeps the layout but does not ask for the unit",
+    L"Invincible: the computer player's layout belongs to its main town"};
 
 // What the fields hold when OK is clicked (the values as typed, before the limits).
 struct UnitPropsValues {
@@ -21,7 +30,8 @@ struct UnitPropsValues {
 
 // Puts the values into `units`: only what changed from the shown values (`was`, the double-clicked unit) goes to the
 // units, so with several units selected the other values stay. The position changes only for one unit.
-inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit& was, const UnitPropsValues& v) {
+// `mod`: a Cosmonarchy map's flags (any unit can have them; a flag that is turned on is made valid too).
+inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit& was, const UnitPropsValues& v, bool mod = false) {
     const uint32_t hp = std::min(v.hp, 100u), sh = std::min(v.shields, 100u), en = std::min(v.energy, 100u), hang = std::min(v.hangar, 65535u);
     const bool single = units.size() == 1;
     ed.beginStroke();  // (the type, then the values: one undo step)
@@ -38,6 +48,7 @@ inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit
         if (en != was.energy && (u.validProps & UnitProp::Energy)) u.energy = uint8_t(en);
         if (v.resources != was.resources && (u.validProps & UnitProp::Resources)) u.resources = v.resources;
         if (hang != was.hangar && (u.validProps & UnitProp::Hangar)) u.hangar = uint16_t(hang);
+        if (mod) u.validState = uint16_t(u.validState | v.setBits);
         u.state = uint16_t((u.state | (v.setBits & u.validState)) & ~v.clearBits);
         if (single) u.x = uint16_t(std::min(v.x, 65535u)), u.y = uint16_t(std::min(v.y, 65535u));
     });
@@ -195,9 +206,11 @@ public:
         label(labels_[7], L"Y (pixels)"), number(y_, u.y, single);
         label(labels_[8], L"Unit ID"), number(unitId_, u.type, true);
         for (int b = 0; b < 5; ++b) {  // every state; the ones this unit cannot have are greyed (the valid states of the game)
-            auto cb = std::make_unique<stardraft::kit::CheckBox>(tr(kUnitStateNames[b]), ((u.state >> b) & 1) != 0);
+            const bool mod = modTab();
+            auto cb = std::make_unique<stardraft::kit::CheckBox>(tr(mod ? kModStateNames[b] : kUnitStateNames[b]), ((u.state >> b) & 1) != 0);
             cb->setPlainLabel(true);  // (a native check box's label is the text color)
-            cb->setEnabled(((u.validState >> b) & 1) != 0);
+            cb->setEnabled(mod || ((u.validState >> b) & 1) != 0);
+            if (mod) cb->setTip(tr(kModStateTips[b]));
             add(*cb, {0, 0, 0, 0});
             state_[b] = std::move(cb);
         }
@@ -564,6 +577,6 @@ inline int runUnitPropsDialog(draw::View& from, Editor& ed, const std::vector<in
     const int r = dlg.run(from, tr(L"Unit properties"), size);
     shown = nullptr;
     if (r == kUnitPropsPick && next) *next = view.nextUnit();
-    if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(ed, units, first, view.values());
+    if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(ed, units, first, view.values(), modTab());
     return r;
 }

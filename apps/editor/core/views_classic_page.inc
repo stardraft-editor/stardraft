@@ -82,6 +82,9 @@ inline std::vector<std::pair<uint32_t, std::wstring>> ctKindChoices(CtPageHost& 
         for (uint32_t g : {229u, 230u, 231u, 232u, 228u}) out.emplace_back(g, widen(classicValueText(k, g, n)));
         out[228].second[0] = towupper(out[228].second[0]);
         for (size_t i = 229; i < out.size(); ++i) out[i].second[0] = towupper(out[i].second[0]);
+        if (modTab())  // a Cosmonarchy map: its named units past the groups (the mod's triggers read them)
+            for (uint16_t u = 233; u < ed.unitTypes().size(); ++u)
+                if (!ed.unitTypes()[u].name.empty()) out.emplace_back(u, unitDisplayName(u));
         break;
     case ClassicKind::Location:
         for (int i = 0; i < ed.locationCount(); ++i)
@@ -180,13 +183,14 @@ inline std::wstring ctEntryTitle(CtModel& m, bool condition) {
     return s;
 }
 
+int ctCrigHeight(CtModel& m);  // (below: a Cosmonarchy map's Comment action, its CRIG rows; 0: none)
 // The editor's height: a title row and the rows of values (two values in a row; a text takes a row).
 inline int ctEditorHeight(CtModel& m, int step, int gap) {
     const ClassicCondition* c = ctModelCondition(m);
     const ClassicAction* a = ctModelAction(m);
     const ClassicDef* def = c ? classicConditionDef(c->type) : a && a->type != kClassicBlockType ? classicActionDef(a->type) : nullptr;
     const int rows = def ? int(def->params.size()) : 0;
-    return step * (2 + std::max(1, rows)) + gap;  // (the title, the type and its buttons, a row per value: the right column's)
+    return step * (2 + std::max(1, rows)) + gap + ctCrigHeight(m);  // (the title, the type and its buttons, a row per value: the right column's)
 }
 
 // Sets value `i` of the selected entry.
@@ -521,7 +525,30 @@ inline void ctPickValue(CtPageHost& h, int pi, const draw::View& from, draw::Poi
 }
 // A value of the selected entry was clicked (its chip in the entries, or its field in the editor): a list of choices
 // under it, or the value's pop-out (a number or a text).
+// The selected entry's Cosmonarchy command (CRIG), or nullptr.
+inline const ClassicCrig* ctModelCrig(CtModel& m) {
+    const ClassicCondition* c = ctModelCondition(m);
+    const ClassicAction* a = ctModelAction(m);
+    if (c && c->type == kClassicCrigType && c->crig) return c->crig.p.get();
+    if (a && a->type == kClassicCrigType && a->crig) return a->crig.p.get();
+    return nullptr;
+}
+// The selected Cosmonarchy command's new line (one undo step).
+inline void ctSetCrigLine(CtPageHost& h, const std::string& line) {
+    CtModel& m = h.model();
+    const ClassicCrig* old = ctModelCrig(m);
+    if (!old || old->line == line) return;
+    auto c = std::make_shared<ClassicCrig>(*old);
+    c->line = line;
+    if (ClassicCondition* k = ctModelCondition(m)) k->crig.p = c;
+    else if (ClassicAction* a = ctModelAction(m)) a->crig.p = c;
+    h.changed();
+}
+// A Cosmonarchy command's value chip (core/views_crigs.inc): its list or its typed value.
+inline void ctCrigArgClick(CtPageHost& h, int k, const draw::View& from, draw::Rect r);
+
 inline void ctValueClick(CtPageHost& h, int pi, const draw::View& from, draw::Rect r) {
+    if (ctModelCrig(h.model())) return ctCrigArgClick(h, pi, from, r);
     const ClassicDef* def = ctModelDef(h.model());
     if (!def || pi < 0 || pi >= int(def->params.size())) return;
     if (!ctPickerIsList(def->params[size_t(pi)].kind)) return ctValuePopout(h, pi);  // a number or a text: its pop-out
@@ -546,13 +573,42 @@ inline std::vector<ListPickItem> ctAddItems(int kind) {
             it.label = tr(L"For each ") + widen(k.name), it.section = L"Blocks", it.value = "block:" + std::to_string(int(k.kind));
             items.push_back(std::move(it));
         }
+    const bool crigs = modTab();  // (a Cosmonarchy map: its commands too, in sections of their own)
     for (const ClassicDef* def : kind ? classicActionDefs() : classicConditionDefs()) {
         ListPickItem it;
         it.label = widen(def->name), it.value = std::to_string(def->type);
-        if (blocks) it.section = L"Actions";
+        if (blocks || crigs) it.section = kind ? L"Actions" : L"Conditions";
         items.push_back(std::move(it));
     }
+    if (crigs) {
+        const auto& all = stardraft::cmbw::crigCommands();
+        for (const char* k : kind ? std::initializer_list<const char*>{"action", "local_action"} : std::initializer_list<const char*>{"condition"})
+            for (size_t i = 0; i < all.size(); ++i) {
+                if (all[i].kind != k) continue;
+                ListPickItem it;
+                it.label = widen(stardraft::cmbw::crigTitle(all[i]));
+                it.section = !kind ? tr(L"Trigger comment conditions") : all[i].kind == "local_action" ? tr(L"Trigger comment actions on each player's screen") : tr(L"Trigger comment actions");
+                it.value = "crig:" + std::to_string(i);
+                items.push_back(std::move(it));
+            }
+    }
     return items;
+}
+
+// A new Cosmonarchy command (CRIG `i`, crigCommands) at the end of the conditions or the actions.
+inline bool ctAddCrig(CtPageHost& h, int kind, size_t i) {
+    const auto& all = stardraft::cmbw::crigCommands();
+    if (i >= all.size()) return false;
+    auto c = std::make_shared<ClassicCrig>();
+    c->line = stardraft::cmbw::crigNewLine(all[i]);
+    if (!kind) {
+        ClassicCondition row;
+        row.type = kClassicCrigType, row.crig.p = c;
+        return ctInsertCondition(h, row, -1);
+    }
+    ClassicAction row;
+    row.type = kClassicCrigType, row.crig.p = c;
+    return ctInsertAction(h, row, -1);
 }
 
 // The block dialog's program part (core/views_classic_batch.inc has the dialog): the values' names, the kind's values
@@ -635,6 +691,10 @@ inline void ctAddClick(CtPageHost& h, int kind, const draw::View& from, draw::Re
     if (!h.pickOne(kind ? L"Search actions" : L"Search conditions", ctAddItems(kind), "", from, {link.left, link.bottom + scale(2)}, picked) || picked.empty())
         return;
     if (picked.rfind("block:", 0) == 0) return ctBatchClick(h, ClassicBatchKind(std::stoi(picked.substr(6))), -1);
+    if (picked.rfind("crig:", 0) == 0) {
+        ctAddCrig(h, kind, size_t(std::stoul(picked.substr(5))));
+        return;
+    }
     ctAddEntry(h, kind, uint8_t(std::stoi(picked)));
 }
 
@@ -1011,6 +1071,67 @@ inline std::wstring ctEntryHelp(bool condition, const std::string& name) {
     return best ? widen(best->docs) : std::wstring();
 }
 
+#include "views_crigs.inc"  // a Cosmonarchy map's trigger comment commands (CrigView, under a Comment action's fields)
+
+// The help of a Cosmonarchy command's row: what kind it is, how the mod reads it, and each value's kind.
+inline std::wstring ctCrigHelp(const ClassicCrig& row) {
+    const auto l = stardraft::cmbw::parseCrigLine(row.line);
+    if (!l.command) return tr(L"A line of the trigger's Comment that is not a command: kept as it is.");
+    const auto& c = *l.command;
+    static const std::map<std::string, const wchar_t*> kinds = {
+        {"area", L"a location"}, {"players", L"players (* all)"}, {"player", L"a player"}, {"units", L"unit types or a group (* all)"},
+        {"unit", L"a unit type"}, {"quota", L"a comparison and a number"}, {"timequota", L"a comparison and a time"}, {"equality", L"a comparison"},
+        {"time", L"a time (5s, 750ms)"}, {"seconds", L"seconds"}, {"number", L"a number"}, {"decimal", L"a decimal number"}, {"bool", L"true or false"},
+        {"text", L"a text in quotes"}, {"name", L"a name"}, {"position", L"a position"}, {"word", L"a word"}};
+    std::wstring s = c.kind == "condition"   ? tr(L"A trigger comment condition: the trigger runs while it is true.")
+                     : c.kind == "local_action" ? tr(L"A trigger comment action on each player's screen.")
+                                               : tr(L"A trigger comment action.");
+    if (const std::string help = stardraft::cmbw::crigHelp(c); !help.empty()) s += L" " + widen(help);
+    s += L" " + std::wstring(tr(L"The mod reads it from a line of the trigger's Comment:")) + L" " + widen((l.condition ? "condition " : "") + c.names.front());
+    for (const auto& a : c.args) s += L" " + widen(a.name) + (a.optional ? L"?" : L"");
+    for (const auto& a : c.args) {
+        const auto it = kinds.find(a.kind);
+        s += L"\n" + widen(a.name) + L": " + (it != kinds.end() ? std::wstring(tr(it->second)) : widen(a.kind)) +
+             (a.optional ? L" " + std::wstring(tr(L"(may be left out)")) : std::wstring());
+        const auto& words = stardraft::cmbw::crigWordChoices(c.names.front(), a.name);
+        if (!words.empty()) {
+            s += L": ";
+            for (size_t i = 0; i < words.size(); ++i) s += (i ? L", " : L"") + widen(words[i]);
+        }
+    }
+    if (c.readsMore) s += L"\n" + std::wstring(tr(L"It reads the rest of its line itself."));
+    s += L"\n" + std::wstring(tr(L"The commands run for the trigger's owners, after all its conditions are true. The game does not check them: a wrong "
+                                 L"number of values can stop the other commands of the comment. (From the mod's Scenario Setup page.)"));
+    return s;
+}
+
+// The height of a command row's help: a line for each of its lines (a long line wraps: about 100 letters a line).
+inline int ctCrigHelpHeight(const std::wstring& help) {
+    int lines = 0;
+    size_t start = 0;
+    while (start <= help.size()) {
+        const size_t end = std::min(help.find(L'\n', start), help.size());
+        lines += 1 + int((end - start) / 100);
+        start = end + 1;
+    }
+    return scale(18) * lines + scale(8);
+}
+
+inline int ctCrigHeight(CtModel& m) {
+    if (modTab() && ctModelCrig(m)) {  // (one row: its name, a row per value, the help under it; as CrigView::rowHeight)
+        int rows = 1;
+        const auto l = stardraft::cmbw::parseCrigLine(ctModelCrig(m)->line);
+        if (l.command) {
+            for (size_t k = 0; k < l.command->args.size(); ++k) rows += k < l.values.size() || !l.command->args[k].optional;
+            rows += !l.rest.empty() || l.command->readsMore;
+        }
+        return scale(16) + scale(stardraft::kit::kFormRowH) * (rows + 1) + scale(8) + ctCrigHelpHeight(ctCrigHelp(*ctModelCrig(m))) + scale(8);
+    }
+    const ClassicAction* a = ctModelAction(m);
+    if (!modTab() || !a || a->type != kCtCommentType || a->batch) return 0;
+    return scale(56) + CrigView::heightFor(a->text ? int(crigSplitLines(m.strings.get(a->text)).size()) : 0);
+}
+
 class CtEditorView final : public draw::View {
 public:
     struct Callbacks {
@@ -1039,12 +1160,15 @@ public:
         help.setTone(stardraft::kit::LabelTone::Dim);
         help.setWrap(true);
         add(help, {0, 0, 0, 0});
+        crig.setVisible(false);
+        add(crig, {0, 0, 0, 0});
     }
 
     stardraft::kit::Label title;
     stardraft::kit::Dropdown type;
     stardraft::kit::CheckBox disabled{L"Turn off"}, always{L"Always show"};
     stardraft::kit::Label help;  // what the selected condition or action does (ctEntryHelp)
+    CrigView crig;               // a Cosmonarchy map's Comment action: its commands (core/views_crigs.inc)
 
     // The field of parameter `param` (nullptr: none shows).
     CtPickButton* field(int param) {
@@ -1072,11 +1196,23 @@ public:
         ClassicAction* a = ctModelAction(m);
         // A block's row has no type and no values of its own: its title says what it repeats, and its controls are not shown.
         const bool block = a && a->type == kClassicBlockType && a->batch;
-        const bool any = (c || a) && !block;
+        const bool crigRow = modTab() && ctModelCrig(m);  // a Cosmonarchy command: its own editor (no game type, no fields)
+        const bool any = (c || a) && !block && !crigRow;
         title.setVisible(any || block);
         type.setVisible(any), disabled.setVisible(any);
         always.setVisible(a && !block && (a->type == 7 || a->type == 9));
         help.setText(L"");
+        crigRow_ = crigRow;
+        const bool crigs = crigRow || (modTab() && a && !block && a->type == kCtCommentType);
+        crig.setVisible(crigs);
+        crig.show(crigs ? &h : nullptr);
+        if (crigRow) {
+            title.setVisible(true);
+            title.setText(c ? tr(L"Trigger comment condition") : tr(L"Trigger comment action"));
+            help.setText(ctCrigHelp(*ctModelCrig(m)));
+            place();
+            return;
+        }
         if (block) {
             title.setText(widen(classicBatchText(*a->batch, h.names())));
             place();
@@ -1167,7 +1303,7 @@ private:
             put(type, 0, step, typeW, rowH);
             put(disabled, typeW + gap, step, turnW, rowH);
             put(always, typeW + gap + turnW + gap, step, alwaysW, rowH);
-            if (type.visible()) y = 2 * step + gap;  // (no type: no row for it)
+            if (type.visible()) y = 2 * step + gap;  // (a Cosmonarchy command's row has no type: no row for it)
         }
         const int labelW = scale(wide ? kValueLabelW : kValueLabelW - 20);
         const int pickW = wide ? scale(kValueW) : std::max(scale(120), width() - labelW), colW = labelW + pickW + scale(kValueColGap);
@@ -1181,10 +1317,22 @@ private:
             if (!wide || ++col == 2 || v.text) col = 0, y += step;
         }
         if (col) y += step;
+        if (crig.visible() && crigRow_) {  // (a Cosmonarchy command's row: its editor under the title, its help under it)
+            const int ch = crig.rowHeight();
+            put(crig, 0, y + gap, std::min(width(), scale(kTextMaxW) + labelW), ch);
+            put(help, 0, y + gap + ch + gap, std::min(width(), scale(kTextMaxW) + labelW), ctCrigHelpHeight(help.text()));
+            return;
+        }
+        if (crig.visible()) {  // (a Cosmonarchy comment: the help in two lines, then the commands)
+            put(help, 0, y + gap, std::min(width(), scale(kTextMaxW) + labelW), scale(48));
+            put(crig, 0, y + gap + scale(56), std::min(width(), scale(kTextMaxW) + labelW), CrigView::heightFor(crig.lineCount()));
+            return;
+        }
         put(help, 0, y + gap, std::min(width(), scale(kTextMaxW) + labelW), std::max(0, height() - y - gap));  // (under the fields)
     }
 
     Callbacks cb_;
+    bool crigRow_ = false;        // a Cosmonarchy command's row is shown (its editor only)
     std::vector<uint8_t> types_;  // the type of each item of `type`
     std::vector<Value> values_, retired_;
 };

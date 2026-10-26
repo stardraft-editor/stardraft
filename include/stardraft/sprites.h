@@ -169,6 +169,7 @@ private:
         bool queued = false;  // playAnim: the image is still to get the animation
         int ox = 0, oy = 0;
         size_t pc = 0, ret = 0;
+        const Bytes* code = nullptr;  // the iscript file that pc is in
         int wait = 0;
         int mod = 0, mod1 = 0, mod2 = 0;  // draw function and its state (OpenBW modifier, modifier_data1/2)
     };
@@ -206,6 +207,22 @@ public:
 
     bool load(const GameData& data, std::string& error);
 
+    // The tables that load() reads from the classic .dat files. A game with other files (a mod's .datex, src/mods)
+    // fills them itself and gives them to loadTables. Each table holds all entries of its file.
+    struct Tables {
+        std::vector<uint16_t> unitFlingy, unitSubunit;   // units.dat graphics and subunit 1
+        std::vector<uint8_t> unitDirection;              // units.dat initial direction
+        std::vector<uint16_t> flingySprite, spriteImage;  // flingy.dat sprite, sprites.dat image
+        std::vector<uint8_t> spriteSelCircle, spriteSelOffset;  // sprites.dat, by sprite id (the game uses them from 130)
+        std::vector<uint32_t> imageGrp;                  // images.dat GRP (1-based images.tbl index)
+        std::vector<uint8_t> imageTurns, imageDrawFn, imageRemap;
+        std::vector<int> imageScriptId;
+        std::vector<uint32_t> imageOverlays[6];          // attack, damage, special, landing dust, lift-off, shield
+        // The iscript files, in order (a script ID in two files: the first one's).
+        std::vector<std::string> iscriptFiles{"scripts\\iscript.bin"};
+    };
+    bool loadTables(const GameData& data, Tables tables, std::string& error);
+
     // Picture of `unitType` owned by `owner` (0..11), facing down-right, including its subunit
     // (e.g. tank turret). Uses `tileset`'s palette. Cached; nullptr if the unit has no graphics.
     const Sprite* unitSprite(uint16_t unitType, uint8_t owner, const Tileset& tileset);
@@ -237,10 +254,18 @@ public:
     int defaultFrame(uint16_t unitType, int image, bool& flip) const;
     // The same with the frame an ImageAnim shows: its frame plus the facing for turning images.
     int animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip) const;
-    // iscript.bin and where animation `anim` of an image's script starts in it (0 if it has none).
-    const Bytes& iscript() const { return iscript_; }
+    // Frames in one facing set of a turning image: 17 (up .. down on the right; the left side mirrored), or 32 (every
+    // direction, none mirrored: a mod's graphics whose scripts step their frames by 32, as Cosmonarchy's do).
+    int facingSet(int image) const;
+    // The frame in a facing set for direction `dir32` (0 up, 8 right, 16 down, clockwise), and whether to mirror it.
+    int facingIndex(int image, int dir32, bool& flip) const;
+    // iscript.bin and where animation `anim` of an image's script starts in it (0 if it has none). A game with
+    // more than one iscript file: iscript() is the first one, and scriptCode gives the file of an image's script.
+    const Bytes& iscript() const;
+    const Bytes& scriptCode(int image) const;
     size_t animOffset(int image, int anim) const;
     // The same for a script by its iscript ID (the game runs script 193 on a warping building).
+    const Bytes& scriptCodeById(int scriptId) const;
     size_t scriptAnimOffset(int scriptId, int anim) const;
     // The scripts iscript.bin has, by iscript ID; an image's iscript ID (images.dat, as edited).
     std::vector<uint16_t> scriptIds() const;
@@ -285,7 +310,7 @@ public:
 private:
     std::vector<uint32_t> imageOverlays_[6];  // images.dat lo files: attack, damage, special, landing dust, lift-off, shield
     mutable std::map<std::pair<int, int>, std::vector<std::vector<std::pair<int8_t, int8_t>>>> lo_;
-    void loadScripts(const GameData& data, const Bytes& images);
+    void loadScripts(const GameData& data, const std::vector<int>& scriptIds);
 public:
     // A project's edited sprites.dat and images.dat (whole files), as far as a map can change them in the game:
     // the image of each sprite, and each image's Iscript ID, Gfx Turns, Draw Function and Remapping. The GRP and
@@ -302,14 +327,15 @@ private:
 
 
     const GameData* data_ = nullptr;
-    std::vector<uint8_t> unitFlingy_;      // units.dat graphics
+    std::vector<uint16_t> unitFlingy_;     // units.dat graphics
     std::vector<uint16_t> unitSubunit_;    // units.dat subunit 1
     std::vector<uint8_t> unitDirection_;   // units.dat initial direction (32 = random)
     std::vector<uint16_t> flingySprite_;   // flingy.dat sprite
     std::vector<uint16_t> spriteImage_;    // sprites.dat image
-    std::vector<uint8_t> spriteSelCircle_, spriteSelOffset_;  // sprites.dat, sprites 130-516
+    std::vector<uint8_t> spriteSelCircle_, spriteSelOffset_;  // sprites.dat, by sprite id (used from 130)
     std::vector<uint32_t> imageGrp_;       // images.dat GRP (1-based images.tbl index)
     std::vector<uint8_t> imageTurns_;      // images.dat graphics turns
+    mutable std::vector<uint8_t> facingSet_;  // facingSet() of each image, found on first use (0: not yet)
     std::vector<uint8_t> imageDrawFn_;     // images.dat draw function
     std::vector<uint32_t> imageSpecial_;   // images.dat special overlay (1-based images.tbl index)
     std::vector<uint8_t> imageRemap_;      // images.dat remapping (1 ofire, 2 gfire, 3 bfire, 4 bexpl)
@@ -317,10 +343,15 @@ private:
     mutable std::map<std::pair<uint16_t, std::string>, std::vector<uint8_t>> tilesetTables_;  // (era, name) -> pcx
     mutable std::map<int, std::vector<std::pair<int8_t, int8_t>>> specialLo_;  // loaded .lol offsets
     std::vector<ImageScript> scripts_;     // per image
-    Bytes iscript_;                        // scripts\iscript.bin
-    size_t headerAnimOffset(size_t header, int anim) const;
-    std::vector<uint16_t> scriptHeader_;   // per image: its script header in iscript_ (0 = none)
-    std::map<uint16_t, uint16_t> scriptEntries_;  // iscript ID -> its header in iscript_
+    std::vector<std::string> iscriptFiles_;  // scripts\iscript.bin (a mod: more files)
+    std::vector<Bytes> iscripts_;          // their contents
+    size_t headerAnimOffset(const Bytes& code, size_t header, int anim) const;
+    struct ScriptAt {
+        uint8_t file = 0;     // index in iscripts_
+        uint32_t header = 0;  // the script header in that file (0 = none)
+    };
+    std::vector<ScriptAt> scriptHeader_;   // per image
+    std::map<uint16_t, ScriptAt> scriptEntries_;  // iscript ID -> its header
     std::vector<int> imageScriptId_;       // per image: its iscript ID (images.dat)
     std::vector<std::string> imagePaths_;  // images.tbl
     std::vector<uint8_t> playerColors_;    // tunit.pcx: 8 palette indices per player

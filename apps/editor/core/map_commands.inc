@@ -124,6 +124,7 @@ bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
     if (!app.ed) return err = "No map is open.", false;
     if (!app.ed->save(path, err)) return false;
+    cmbwRememberMap(path, app.ed->gameData());  // (a Cosmonarchy map opens as one again: cmbw.inc)
     updateTitle();
     if (!activeProject()) addRecent(gRecentMaps, path);
     setMessage(L"Saved " + path.filename().wstring());
@@ -147,7 +148,22 @@ std::wstring startLocationsQuestion(const std::vector<std::string>& problems) {
 // Before a save (File > Save, Save as, and the Build's save of the project's map): a map that StarCraft will not start for
 // want of start locations asks Place them (the missing start locations, as one undo step), Save anyway or Cancel. False when
 // the map is not to be saved.
+int shellAskTriggerComments(const std::wstring& text);
+// Before a save of a Cosmonarchy map: trigger comment lines the game skips (a command's name mistyped: cmbw::crigProblems)
+// ask Save anyway or Cancel. False when the map is not to be saved.
+bool confirmTriggerComments() {
+    AppState& app = shellState();
+    if (!app.ed || !app.ed->isOpen() || !modTab()) return true;
+    const std::vector<std::string> problems = stardraft::cmbw::crigProblems(app.ed->chk());
+    if (problems.empty()) return true;
+    const std::wstring nl = {wchar_t(13), wchar_t(10)}, bullet = std::wstring(1, wchar_t(0x2022)) + L" ";
+    std::wstring text = std::wstring(tr(L"Cosmonarchy BW skips these trigger comment lines:")) + nl + nl;
+    for (size_t i = 0; i < problems.size() && i < 12; ++i) text += bullet + widen(problems[i]) + nl;
+    if (problems.size() > 12) text += bullet + std::to_wstring(problems.size() - 12) + L" more" + nl;
+    return shellAskTriggerComments(text) == 0;
+}
 bool confirmStartLocations() {
+    if (!confirmTriggerComments()) return false;
     AppState& app = shellState();
     for (;;) {
         if (!app.ed || !app.ed->isOpen()) return true;

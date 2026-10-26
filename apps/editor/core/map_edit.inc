@@ -310,9 +310,11 @@ int locationEdgesAt(float wx, float wy) {
 }
 
 
-// Program options > Map unit limit, into the editor before units go into the map (standard maps; EUD projects).
+// Program options > Map unit limit, into the editor before units go into the map (standard maps; EUD projects); a
+// Cosmonarchy map: the mod's own limit (its DatExtend dat_limits.h: 4095 map units).
+bool modTab();
 int applyUnitLimit(Editor& ed) {
-    const int n = classicMode() ? gUnitLimitClassic : gUnitLimitEud;
+    const int n = modTab() ? 4095 : classicMode() ? gUnitLimitClassic : gUnitLimitEud;
     ed.setUnitLimit(n);
     return n;
 }
@@ -320,6 +322,7 @@ int applyUnitLimit(Editor& ed) {
 bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit(); }
 
 std::wstring unitLimitText(const Editor& ed) {
+    if (modTab()) return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit of Cosmonarchy BW";
     return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Program options > Map unit limit)";
 }
 
@@ -345,7 +348,8 @@ bool moveSelectedDoodads(int dx, int dy, std::string& why) {
 RECT strokeBox(float x, float y) {
     int w = 32, h = 32;
     if (appState().mode == Mode::Doodads) {
-        if (const DoodadType* d = appState().ed->doodadTypes().find(uint16_t(appState().palette))) w = std::max(1, int(d->width)) * 32, h = std::max(1, int(d->height)) * 32;
+        if (const TerrainStamp* b = brushDoodad(appState().palette)) w = b->width * 32, h = b->height * 32;
+        else if (const DoodadType* d = appState().ed->doodadTypes().find(uint16_t(appState().palette))) w = std::max(1, int(d->width)) * 32, h = std::max(1, int(d->height)) * 32;
     } else if (appState().mode == Mode::Sprites) {
         const int image = appState().ed->unitSprites().imageForSprite(uint16_t(appState().palette));
         if (const Grp* g = image >= 0 ? appState().ed->unitSprites().grp(image) : nullptr; g && g->width) w = std::max(16, int(g->width) / 2), h = std::max(16, int(g->height) / 2);
@@ -375,7 +379,12 @@ bool strokePlace(float x, float y) {
     if (appState().placedInStroke && IntersectRect(&overlap, &box, &appState().lastPlacedBox)) return false;  // still on the last one
     bool placed = false;
     if (appState().mode == Mode::Doodads) {
-        placed = ed.placeDoodad(uint16_t(appState().palette), int(x), int(y), appState().doodadCheck);
+        if (const TerrainStamp* b = brushDoodad(appState().palette)) {
+            int tx = 0, ty = 0;
+            placeBrushDoodad(appState(), *b, x, y, &tx, &ty, false);
+            placed = (!appState().doodadCheck || brushDoodadFits(appState(), *b, tx, ty)) && placeBrushDoodad(appState(), *b, x, y);
+        }
+        else placed = ed.placeDoodad(uint16_t(appState().palette), int(x), int(y), appState().doodadCheck);
         if (placed && paletteChosen().size() > 1) {  // several picked: each one placed is one of them, at random
             static std::mt19937 rng{std::random_device{}()};
             appState().palette = paletteChosen()[std::uniform_int_distribution<size_t>(0, paletteChosen().size() - 1)(rng)];
@@ -475,6 +484,7 @@ int sprayAt(float wx, float wy) {
         if (atUnitLimit(ed)) setMessage(unitLimitText(ed));
         return n;
     }
+    if (appState().mode == Mode::Doodads) std::erase_if(picks, [](uint16_t v) { return v >= kBrushDoodadBase; });  // (the game's doodads only)
     if (appState().mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), appState().spraySeed++, appState().doodadCheck);
     if (appState().mode == Mode::Sprites && !picks.empty())  // random sprites of the selected kinds in the circle
         return ed.spraySprites(picks, uint8_t(appState().playerOwner), wx, wy, sprayRadius(), sprayCount(), appState().spraySeed++, appState().spriteGrid);

@@ -9,6 +9,30 @@
 
 namespace stardraft {
 
+class GameData;
+class UnitTypes;
+class UnitSprites;
+struct SettingDefaults;
+struct Tileset;
+
+// Game files from somewhere other than a CASC storage: a StarCraft 1.16.1 game or a mod (src/mods).
+class FileSource {
+public:
+    virtual ~FileSource() = default;
+    virtual bool readFile(const std::string& name, Bytes& out, std::string& error) const = 0;
+    virtual bool hasFile(const std::string& name, uint64_t* size) const = 0;
+    virtual std::vector<std::string> listFiles() const = 0;
+};
+
+// A game whose unit data is not in the classic .dat files (a mod's .datex) loads it with these: UnitTypes::load and
+// UnitSprites::load call them.
+struct UnitDataLoader {
+    bool (*types)(const GameData& data, UnitTypes& out, std::string& error) = nullptr;
+    bool (*sprites)(const GameData& data, UnitSprites& out, std::string& error) = nullptr;
+    bool (*settings)(const GameData& data, SettingDefaults& out, std::string& error) = nullptr;  // SettingDefaults::load
+    void (*tileset)(Tileset& loaded) = nullptr;  // Tileset::load, after it read the files: what the mod adds
+};
+
 // Read-only access to StarCraft: Remastered game files stored in CASC
 // (the install folder containing .build.info, e.g. "...\Starcraft Remastered\StarCraft").
 class GameData {
@@ -19,7 +43,10 @@ public:
     GameData& operator=(const GameData&) = delete;
 
     bool open(const std::filesystem::path& installDir, std::string& error);
+    // Files from `source` in place of a CASC storage, and the game's own unit data loader (none: the .dat files).
+    void open(std::unique_ptr<FileSource> source, const UnitDataLoader* loader = nullptr);
     bool isOpen() const;
+    const UnitDataLoader* unitDataLoader() const;
 
     // Read a file by its CASC name, e.g. "tileset/badlands.cv5".
     bool readFile(const std::string& name, Bytes& out, std::string& error) const;

@@ -42,6 +42,10 @@ struct AppState {
     bool locationWrap = false;  // a location's name in lines that fit in it (Options > Locations)
     bool allowIllegalUnits = false;  // Options: units anywhere; terrain edits keep them
     std::vector<int> selDoodads, selSprites;  // the selected doodads and sprites (indexes into the Editor's lists)
+    struct BrushAt {
+        int value = -1, tx = 0, ty = 0;  // a Cosmonarchy doodad brush on the map: its palette value, its top left tile
+    };
+    std::vector<BrushAt> selBrushes;  // the selected doodad brushes (Doodads mode; core/cmbw.inc)
     // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;

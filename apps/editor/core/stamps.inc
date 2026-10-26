@@ -15,6 +15,7 @@ struct StampsCache {
     int era = -1;
     fs::path folder;
     bool stale = true;
+    bool mod = false;  // with a mod's brushes (a Cosmonarchy map)
 };
 StampsCache gStamps;
 // The list's order: 0 by name (A to Z), 1 the newest first (in the settings).
@@ -40,9 +41,12 @@ const std::vector<TerrainStamp>& stampsList() {
     if (!app.ed || !app.ed->isOpen()) return none;
     const int era = app.ed->era() & 7;
     const fs::path folder = shellStampsFolder();
-    if (gStamps.stale || gStamps.era != era || gStamps.folder != folder) {
+    const bool mod = modTab();
+    if (gStamps.stale || gStamps.era != era || gStamps.folder != folder || gStamps.mod != mod) {
         gStamps.list = terrainStamps(folder, uint16_t(era));
-        gStamps.era = era, gStamps.folder = folder, gStamps.stale = false;
+        if (mod)  // a Cosmonarchy map: the mod's brushes after the user's own (core/cmbw.inc)
+            for (const TerrainStamp& b : stardraft::cmbw::brushStamps(stardraft::cmbw::findInstall(), uint16_t(era))) gStamps.list.push_back(b);
+        gStamps.era = era, gStamps.folder = folder, gStamps.stale = false, gStamps.mod = mod;
     }
     return gStamps.list;
 }
@@ -186,6 +190,7 @@ void stampsDelete(const TerrainStamp& s) {
 
 // The menu of an item of the list (Rename, Delete, Show in folder).
 void stampsItemMenu(const TerrainStamp& s) {
+    if (s.file.empty()) return;  // (a mod's brush: not the user's file)
     const TerrainStamp copy = s;  // (a menu's run reads the list again)
     const int pick = shellContextMenu({tr(L"Rename\x2026"), tr(L"Delete\x2026"), tr(L"Show in folder")});
     if (pick == 1) stampsRename(copy);

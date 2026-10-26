@@ -175,7 +175,7 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
     const PaletteUnit* prev = nullptr;
     for (const PaletteUnit& u : units) {
         if (!shown(u)) continue;
-        if (!prev || prev->order != u.order) rows.push_back({-1, u.section});
+        if (!prev || prev->section != u.section) rows.push_back({-1, u.section});  // (a section's units can have orders of their own: a mod's)
         rows.push_back({u.value, u.label});
         prev = &u;
     }
@@ -278,5 +278,6 @@ std::vector<uint16_t> pieTerrains(const AppState& app) {
     if (const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era()))
         for (uint16_t i = 1; i <= t->terrainCount(); ++i)
             if (t->isTerrain(i)) items.push_back(i);
+    for (const Tileset::ModTerrain& m : app.ed->tileset().modTerrains) items.push_back(m.id);  // (a mod's own: Cosmonarchy tabs)
     return items;
 }

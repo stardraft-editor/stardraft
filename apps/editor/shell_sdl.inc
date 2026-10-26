@@ -245,6 +245,13 @@ int shellAskStartLocations(const std::wstring& text) {
     return msgbox::ask(*gRoot, shellTr(L"Start locations"), text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")},
                        msgbox::Icon::Question);
 }
+// The trigger comments question before a save of a Cosmonarchy map (map_commands.inc confirmTriggerComments): 0 Save
+// anyway, 1 Cancel.
+int shellAskTriggerComments(const std::wstring& text) {
+    if (!gRoot) return 0;
+    if (gShotDialogs) std::printf("question: Trigger comments (Cosmonarchy BW skips a line)%c", 10);
+    return msgbox::ask(*gRoot, shellTr(L"Trigger comments"), text, {shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Warning);
+}
 // Save after the question: a map with a file is saved there (true when it was written); an untitled map (or one in a
 // folder StarDraft cannot write to) asks for its file and stays open until it is saved (false: close it again then;
 // a quit goes on once it is saved). An unsaved project asks where it goes.
@@ -666,6 +673,22 @@ bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const
 bool shellEditGameText(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
     ValuePopSpec spec;
     spec.type = "Text", spec.colorsOnly = true, spec.title = title, spec.initial = text;
+    std::string out;
+    if (!shellEditValue(v, field, spec, out) || out == text) return false;
+    text = out;
+    return true;
+}
+bool shellDecodeImage(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba) {
+    int n = 0;
+    unsigned char* px = stbi_load_from_memory(file.data(), int(file.size()), &width, &height, &n, 4);
+    if (!px) return false;
+    rgba.assign(px, px + size_t(width) * size_t(height) * 4);
+    stbi_image_free(px);
+    return true;
+}
+bool shellEditPlainLines(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
+    ValuePopSpec spec;
+    spec.type = "Text", spec.code = true, spec.title = title, spec.initial = text;
     std::string out;
     if (!shellEditValue(v, field, spec, out) || out == text) return false;
     text = out;

@@ -233,6 +233,10 @@ void copyMapSelection(AppState& app) {
                 items.push_back({sp.id, sp.x, sp.y, sp.owner});
             }
         }
+        if (dd)  // (the selected Cosmonarchy doodad brushes: their value and their middle)
+            for (const AppState::BrushAt& b : app.selBrushes)
+                if (const TerrainStamp* st = brushDoodad(b.value))
+                    items.push_back({uint16_t(b.value), b.tx * 32 + st->width * 16, b.ty * 32 + st->height * 16, 0});
         if (items.empty()) return setMessage(dd ? L"First, select doodads" : L"First, select sprites");
         // From the middle of the group: a paste puts the middle at the mouse.
         int cx = 0, cy = 0;
@@ -396,6 +400,10 @@ bool commandMapEdit(AppState& app, int id) {
             if (app.ed->deleteSprites(app.selSprites)) setMessage(L"Deleted " + std::to_wstring(app.selSprites.size()) + L" sprites");
             app.selSprites.clear();
         } else if (app.mode == Mode::Doodads) {
+            if (!app.selBrushes.empty()) {  // (Cosmonarchy doodad brushes: the terrain's own tiles again)
+                const int n = deleteBrushDoodads(app);
+                setMessage(L"Took away " + std::to_wstring(n) + (n == 1 ? L" doodad brush" : L" doodad brushes"));
+            }
             if (app.ed->deleteDoodads(app.selDoodads)) setMessage(L"Deleted " + std::to_wstring(app.selDoodads.size()) + L" doodads");
             app.selDoodads.clear();
         } else app.ed->deleteSelection();

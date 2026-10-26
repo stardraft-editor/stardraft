@@ -22,6 +22,8 @@ std::string cascError(const std::string& what) {
 
 struct GameData::Impl {
     HANDLE storage = nullptr;
+    std::unique_ptr<FileSource> source;  // set: files from it, not CASC
+    const UnitDataLoader* loader = nullptr;
     ~Impl() {
         if (storage) CascCloseStorage(storage);
     }
@@ -31,6 +33,7 @@ GameData::GameData() : impl_(std::make_unique<Impl>()) {}
 GameData::~GameData() = default;
 
 bool GameData::open(const std::filesystem::path& installDir, std::string& error) {
+    impl_->source.reset(), impl_->loader = nullptr;
     if (impl_->storage) {
         CascCloseStorage(impl_->storage);
         impl_->storage = nullptr;
@@ -43,9 +46,17 @@ bool GameData::open(const std::filesystem::path& installDir, std::string& error)
     return true;
 }
 
-bool GameData::isOpen() const { return impl_->storage != nullptr; }
+void GameData::open(std::unique_ptr<FileSource> source, const UnitDataLoader* loader) {
+    if (impl_->storage) CascCloseStorage(impl_->storage), impl_->storage = nullptr;
+    impl_->source = std::move(source), impl_->loader = loader;
+}
+
+bool GameData::isOpen() const { return impl_->storage != nullptr || impl_->source; }
+
+const UnitDataLoader* GameData::unitDataLoader() const { return impl_->loader; }
 
 bool GameData::hasFile(const std::string& name, uint64_t* size) const {
+    if (impl_->source) return impl_->source->hasFile(name, size);
     HANDLE file = nullptr;
     if (!impl_->storage || !CascOpenFile(impl_->storage, name.c_str(), 0, CASC_OPEN_BY_NAME, &file)) return false;
     ULONGLONG n = 0;
@@ -56,6 +67,7 @@ bool GameData::hasFile(const std::string& name, uint64_t* size) const {
 }
 
 bool GameData::readFile(const std::string& name, Bytes& out, std::string& error) const {
+    if (impl_->source) return impl_->source->readFile(name, out, error);
     HANDLE file = nullptr;
     if (!CascOpenFile(impl_->storage, name.c_str(), 0, CASC_OPEN_BY_NAME, &file)) {
         error = cascError("CascOpenFile(" + name + ")");
@@ -79,6 +91,7 @@ bool GameData::readFile(const std::string& name, Bytes& out, std::string& error)
 }
 
 std::vector<std::string> GameData::listFiles() const {
+    if (impl_->source) return impl_->source->listFiles();
     std::vector<std::string> names;
     CASC_FIND_DATA fd;
     HANDLE find = CascFindFirstFile(impl_->storage, "*", &fd, nullptr);

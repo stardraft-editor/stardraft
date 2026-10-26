@@ -145,7 +145,7 @@ public:
     bool focusable() const override { return true; }
 
     void paint(draw::Canvas& c) override {
-        hits_.clear();
+        hits_.clear(), wheels_.clear();
         ensureWho();
         timeline_ = briefingTimeline(briefings(), player, playerForces(), &total_);
         const auto& rows = briefRows(who);
@@ -160,9 +160,18 @@ public:
     bool mouse(const draw::MouseEvent& e) override {
         mouse_ = e.pt;
         if (e.kind == draw::MouseKind::Wheel) {
+            // Over a value of a list: the item before or after. (Not while the wheel scrolls the list: a chip that the
+            // scroll brings under the still mouse is not changed; the mouse moves first.)
+            for (auto it = wheels_.rbegin(); it != wheels_.rend() && !listWheeling_; ++it)
+                if (it->first.contains(e.pt)) {
+                    const int steps = e.exact ? draw::exactSteps(e, float(scale(26)), valueWheelCarry_) : int(e.wheel);
+                    if (steps) it->second(steps > 0 ? -1 : 1);
+                    return true;
+                }
             const int rows = e.exact ? draw::exactSteps(e, float(scale(26)), wheelCarry_) : int(e.wheel) * 2;  // (exact: macOS's trackpad)
             if (rows < 0 && allShown_) return true;
             listScroll = std::max(0, listScroll - rows);
+            if (rows) listWheeling_ = true, wheelAt_ = e.pt;
             invalidate();
             return true;
         }
@@ -172,6 +181,7 @@ public:
             return true;
         }
         if (e.kind == draw::MouseKind::Move) {
+            if (listWheeling_ && (e.pt.x != wheelAt_.x || e.pt.y != wheelAt_.y)) listWheeling_ = false;
             if (grab_.down && grab_.drag) {
                 if (!grab_.moved && grab_.click) grab_.click();  // a row: select it first, then drag what is selected
                 grab_.moved = true, grab_.drag(e.pt);
@@ -651,6 +661,11 @@ private:
                         clickRow(i, UINT32_MAX);
                         openValue(w, a, r);
                     }, w.tip);
+                    if (w.kind == BriefWordSpec::Kind::Unit || w.kind == BriefWordSpec::Kind::Slot || w.kind == BriefWordSpec::Kind::Modifier)
+                        wheels_.push_back({r, [this, i, w, a](int step) {
+                                               clickRow(i, UINT32_MAX);
+                                               stepValue(w, a, step);
+                                           }});
                 }
                 if (icon) fittedBitmap(c, *icon, {r.left + padX - scale(1), r.top + scale(3), r.left + padX + scale(17), r.bottom - scale(3)});
                 c.text({r.left + padX + (icon ? scale(20) : 0), r.top, r.right - padX, r.bottom}, w.text, dim ? kFaint : chip ? kAccent : kText, draw::kMiddle);
@@ -752,6 +767,38 @@ private:
         dragTo_ = std::clamp(to, 0, int(gBriefRows.size()));
         invalidate();
     }
+    // The unit types a briefing can show (a mod's too: every named one), as the unit picker lists them.
+    static std::vector<ListPickItem> unitItems() {
+        std::vector<ListPickItem> items;
+        const AppState& s = shellState();
+        if (!s.ed) return items;
+        const UnitTypes& types = s.ed->unitTypes();
+        for (uint16_t u = 0; u < types.size(); ++u)
+            if (!types[u].name.empty()) items.push_back({entryName("units", u) + L"   #" + std::to_wstring(u), L"", std::to_string(u), "units", u});
+        return items;
+    }
+    // Show portrait's choices: a mod's named portraits (each as a unit that has it), else the unit types.
+    static std::vector<ListPickItem> unitChoices(int unit) {
+        std::vector<ListPickItem> items = briefPortraitItems(unit);
+        return items.empty() ? unitItems() : items;
+    }
+    // The wheel over a value chip of a list (unit, slot, transmission duration): the item before or after in its list.
+    void stepValue(const BriefWordSpec& w, const BriefingAction& a, int step) {
+        using K = BriefWordSpec::Kind;
+        const std::vector<ListPickItem> items = w.kind == K::Unit ? unitChoices(a.unit) : w.kind == K::Slot ? briefSlotItems() : briefModifierItems();
+        const std::string now = std::to_string(w.kind == K::Unit ? int(a.unit) : w.kind == K::Slot ? int(a.slot) : int(a.modifier));
+        int at = -1;
+        for (size_t k = 0; k < items.size(); ++k)
+            if (items[k].value == now) at = int(k);
+        const int to = std::clamp(at < 0 ? 0 : at + step, 0, int(items.size()) - 1);
+        if (items.empty() || to == at) return;
+        const int v = std::stoi(items[size_t(to)].value);
+        editSelected([&](BriefingAction& x) {
+            if (w.kind == K::Unit) x.unit = uint16_t(v);
+            else if (w.kind == K::Slot) x.slot = v;
+            else x.modifier = uint8_t(v);
+        });
+    }
     // A value chip's click: its picker under it (the text: the editor under the list gets the keyboard).
     void openValue(const BriefWordSpec& w, const BriefingAction& a, draw::Rect r) {
         using K = BriefWordSpec::Kind;
@@ -783,7 +830,7 @@ private:
             }
             break;
         case K::Unit:
-            if (pick(L"Search unit types", entryItems("units"), std::to_string(a.unit), at, got))
+            if (pick(briefPortraitNames().empty() ? L"Search unit types" : L"Search portraits", unitChoices(a.unit), std::to_string(a.unit), at, got))
                 editSelected([&](BriefingAction& x) { x.unit = uint16_t(std::stoi(got)); });
             break;
         case K::Modifier:
@@ -947,6 +994,11 @@ private:
     uint32_t total_ = 0;
     std::vector<Voice> voices_;
     std::vector<Hit> hits_;
+    // The values the wheel steps through (a chip of a list's values): its place, and the step (-1 the item before).
+    std::vector<std::pair<draw::Rect, std::function<void(int)>>> wheels_;
+    float valueWheelCarry_ = 0;
+    bool listWheeling_ = false;  // the wheel scrolled the list and the mouse has not moved since (at wheelAt_)
+    draw::Point wheelAt_{};
     struct {
         std::function<void(draw::Point)> drag;
         std::function<void()> click;

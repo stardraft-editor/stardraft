@@ -13,6 +13,16 @@ const std::pair<Editor::Race, const wchar_t*> kRaces[] = {{Editor::Race::Zerg, L
                                                          {Editor::Race::Protoss, L"Protoss"},
                                                          {Editor::Race::UserSelect, L"User select"},
                                                          {Editor::Race::Random, L"Random"}};
+// A Cosmonarchy map's races (core/cmbw.inc modTab): the game's and Askosi (race 69, which the mod's lobby and AI read).
+const std::vector<std::pair<Editor::Race, const wchar_t*>>& playerRaces() {
+    static const std::vector<std::pair<Editor::Race, const wchar_t*>> game(std::begin(kRaces), std::end(kRaces));
+    static const std::vector<std::pair<Editor::Race, const wchar_t*>> mod = [] {
+        auto v = game;
+        v.insert(v.begin() + 3, {Editor::Race(69), L"Askosi"});
+        return v;
+    }();
+    return modTab() ? mod : game;
+}
 const wchar_t* kForceFlagNames[4] = {L"Random starts", L"Allies", L"Allied victory", L"Shared vision"};
 
 // The rows of a player's color list: the game's 22 colors, then Random, Player's choice and Custom (an RGB of your choice).
@@ -66,11 +76,14 @@ public:
     PlayersView(PlayersHost& host, PlayersValues& v) : host_(host), v_(v) {
         std::vector<stardraft::kit::DropdownItem> ctrls, races;
         for (const auto& [e, n] : kControllers) ctrls.push_back({n, -1, -1});
-        for (const auto& [e, n] : kRaces) races.push_back({n, -1, -1});
+        races_ = playerRaces();
+        for (const auto& [e, n] : races_) races.push_back({n, -1, -1});
         for (int p = 0; p < 8; ++p) {
             controller_[p].setItems(ctrls), race_[p].setItems(races);
             controller_[p].onChange = [this, p](int i) { v_.players[size_t(p)].controller = kControllers[i].first, edited(); };
-            race_[p].onChange = [this, p](int i) { v_.players[size_t(p)].race = kRaces[i].first, edited(); };
+            race_[p].onChange = [this, p](int i) {
+                if (i >= 0 && i < int(races_.size())) v_.players[size_t(p)].race = races_[size_t(i)].first, edited();
+            };
             force_[p].onChange = [this, p](int i) { v_.players[size_t(p)].force = i, edited(); };
             color_[p].onChange = [this, p](int row) { colorPicked(p, row); };
             // Custom again (it is the color already): its picker opens again, as the old list's Custom row did.
@@ -229,7 +242,10 @@ private:
         for (int p = 0; p < 8; ++p) {
             const Editor::Player& pl = v_.players[size_t(p)];
             controller_[p].setValue(indexOf(kControllers, pl.controller));
-            race_[p].setValue(indexOf(kRaces, pl.race));
+            int race = -1;
+            for (size_t i = 0; i < races_.size(); ++i)
+                if (races_[i].first == pl.race) race = int(i);
+            race_[p].setValue(race);
             refill(force_[p], forceItems_[p], forces);
             force_[p].setValue(std::clamp(int(pl.force), 0, 3));
             refill(color_[p], colorItems_[p], colorItems(pl.color));
@@ -271,6 +287,7 @@ private:
     PlayersHost& host_;
     PlayersValues& v_;
     stardraft::kit::Dropdown controller_[8], race_[8], force_[8], color_[8];
+    std::vector<std::pair<Editor::Race, const wchar_t*>> races_;  // the race list's items (playerRaces: a Cosmonarchy map's has Askosi)
     stardraft::kit::TextField name_[4];
     stardraft::kit::CheckBox flag_[4][4];
     std::vector<stardraft::kit::DropdownItem> forceItems_[8], colorItems_[8];  // what each dropdown shows

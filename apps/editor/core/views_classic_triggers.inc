@@ -49,6 +49,10 @@ int ctVarDepthAt(const ClassicTrigger& t, int index, ClassicField f) {
     return v ? v - 1 : -1;
 }
 
+// A Cosmonarchy command's value (CRIG) as its chip shows it: a unit's or a player's name, the rest as written
+// (core/views_crigs.inc).
+inline std::wstring ctCrigValueText(const std::string& kind, const std::string& v);
+
 // The sentence of a condition or action (`t` and `index` give an action's trigger and row: its blocks' variables; null
 // for a condition). Each value is a chip; a sentence that starts with a value starts with a capital.
 template <class E>
@@ -58,6 +62,24 @@ std::vector<CtSegment> ctSentenceParts(const E& e, int kind, const ClassicTrigge
     auto word = [&out](std::wstring s) {
         if (!s.empty()) out.push_back({CtPart::Word, std::move(s), -1});
     };
+    if (e.type == kClassicCrigType && e.crig) {  // a Cosmonarchy command (CRIG): its name, then its values as chips
+        const auto l = stardraft::cmbw::parseCrigLine(e.crig->line);
+        if (!l.command) {  // a line that is not a command: kept as text
+            word(e.crig->line.empty() ? std::wstring(L"Comment: (an empty line)") : L"Comment: " + widen(e.crig->line));
+            return out;
+        }
+        word(widen(stardraft::cmbw::crigTitle(*l.command)) + (l.command->args.empty() ? L"" : L": "));
+        bool first = true;
+        for (size_t k = 0; k < l.command->args.size(); ++k) {
+            const bool given = k < l.values.size();
+            if (!given && l.command->args[k].optional) continue;
+            if (!first) word(L", ");
+            first = false;
+            out.push_back({CtPart::Chip, given ? ctCrigValueText(l.command->args[k].kind, l.values[k]) : std::wstring(L"?"), int(k)});
+        }
+        if (!l.rest.empty()) word(L" " + widen(l.rest));
+        return out;
+    }
     if constexpr (std::is_same_v<E, ClassicAction>) {
         if (e.type == kClassicBlockType) {  // a block: "For each unit in ..." (its chevron is painted by the list)
             word(widen(classicBatchText(*e.batch, env.names)));
@@ -185,8 +207,9 @@ inline int ctCommentEntry(const ClassicTrigger& t) {
 
 // A heading (roadmap R59): a trigger that holds only a comment (no condition but Always, one Comment action). The list
 // shows it as a heading, and a click on its arrow folds the triggers under it, up to the next heading. The game runs it
-// as any trigger (it does nothing).
+// as any trigger (it does nothing). Not in a Cosmonarchy map: its comments are commands the mod runs (CRIGs).
 inline bool ctIsHeading(const ClassicTrigger& t) {
+    if (modTab()) return false;
     if (t.actionCount() != 1 || t.actions[0].type != kCtCommentType || !t.actions[0].text) return false;
     for (int i = 0; i < t.conditionCount(); ++i)
         if (t.conditions[size_t(i)].type != 22) return false;  // (22: Always)
@@ -195,8 +218,21 @@ inline bool ctIsHeading(const ClassicTrigger& t) {
 
 // The text a search matches, in lower case: the trigger's sentences (its conditions and actions, names of units,
 // locations and switches) and the names of its players.
+// A Cosmonarchy command row's sentence as the rows say it ("Set race: Player 1, terran"), for Find and the search.
+inline std::wstring ctCrigReadable(const ClassicCrig& c) {
+    ClassicCondition k;  // (its parts: ctSentenceParts reads the line only)
+    k.type = kClassicCrigType, k.crig.p = std::make_shared<ClassicCrig>(c);
+    std::wstring s;
+    for (const CtSegment& g : ctSentenceParts(k, 0, nullptr, 0, CtSentenceEnv{})) s += g.text;
+    return s;
+}
+
 inline std::wstring ctSearchTextOf(const ClassicTrigger& t, const ClassicNames& n) {
     std::wstring s = ctTriggerLineOf(t, false, n) + L" " + ctTriggerLineOf(t, true, n);
+    for (int i = 0; i < t.conditionCount(); ++i)  // (a command row: its sentence too, beside its line)
+        if (t.conditions[size_t(i)].crig) s += L" " + ctCrigReadable(*t.conditions[size_t(i)].crig.p);
+    for (int i = 0; i < t.actionCount(); ++i)
+        if (t.actions[size_t(i)].crig) s += L" " + ctCrigReadable(*t.actions[size_t(i)].crig.p);
     for (int g = 0; g < kClassicGroups; ++g)
         if (t.players[size_t(g)]) s += L" " + widen(classicPlayerName(uint32_t(g), n));
     std::transform(s.begin(), s.end(), s.begin(), ::towlower);
@@ -310,6 +346,7 @@ inline ClassicTrigger* ctModelSelectedMut(CtModel& m) {
 inline void ctModelLoad(CtModel& m, Editor& ed) {
     m.strings = ed.strings();
     m.trig = classicCollapseBatches(ed.classicTriggers(), m.strings);
+    if (modTab()) m.trig = stardraft::cmbw::crigCollapse(m.trig, m.strings);  // (a Cosmonarchy map: its commands as rows)
     m.before = m.trig.triggers;
 }
 
@@ -525,14 +562,26 @@ inline int ctModelApply(CtModel& m, Editor& ed, std::wstring& message) {
         message = L"Could not set the classic triggers. A long trigger needs a switch that no trigger uses.";
         return kCtApplyRefused;
     }
-    // The strings this page made that no action uses now go again.
+    if (!stardraft::cmbw::crigFits(m.trig, m.strings)) {  // (a Cosmonarchy map: a Comment of commands takes a slot again)
+        message = L"Could not set the classic triggers. A trigger needs more than 64 actions once its Cosmonarchy commands are written.";
+        return kCtApplyRefused;
+    }
+    // The strings this page made that no action uses now go again (a Cosmonarchy command's row uses its Comment's).
     for (uint32_t id : m.ownStrings) {
         bool used = false;
-        for (const ClassicTrigger& t : m.trig.triggers)
-            for (int i = 0; i < t.actionCount() && !used; ++i) used = t.actions[size_t(i)].text == id;
+        for (const ClassicTrigger& t : m.trig.triggers) {
+            for (int i = 0; i < t.actionCount() && !used; ++i) used = t.actions[size_t(i)].text == id || (t.actions[size_t(i)].crig && t.actions[size_t(i)].crig->text == id);
+            for (int i = 0; i < t.conditionCount() && !used; ++i) used = t.conditions[size_t(i)].crig && t.conditions[size_t(i)].crig->text == id;
+        }
         if (!used) m.strings.set(id, "");
     }
-    const ClassicTriggers expanded = classicExpandBatches(m.trig, m.strings);  // the batches' triggers, as the game reads them
+    // The batches' triggers, as the game reads them. Command rows (Cosmonarchy) go back into Comments first, on any map
+    // (rows pasted into a standard map are Comments there); a Cosmonarchy map's page then reads them as the map opened
+    // again would.
+    ClassicTriggers reread;
+    const ClassicTriggers commands = stardraft::cmbw::crigExpand(m.trig, m.strings, &m.ownStrings, modTab() ? &reread : nullptr);
+    const ClassicTriggers expanded = classicExpandBatches(commands, m.strings);
+    if (modTab()) m.trig = std::move(reread);
     if (!ed.setClassicTriggers(expanded, &m.strings)) {
         message = L"Classic triggers: no change";
         return kCtApplyUnchanged;
@@ -558,7 +607,7 @@ inline bool ctPickerIsList(ClassicKind k) {
 
 inline bool ctIsChoiceOf(Editor& ed, const std::vector<ClassicAiScript>& ai, ClassicKind k, uint32_t v) {
     switch (k) {
-    case ClassicKind::Unit: return v <= 232;
+    case ClassicKind::Unit: return v <= 232 || (modTab() && v < ed.unitTypes().size() && !ed.unitTypes()[uint16_t(v)].name.empty());
     case ClassicKind::Location: {
         const int i = int(v) - 1;
         return v >= 1 && i < ed.locationCount() && (ed.locationUsed(i) || i == kAnywhereLocation);
@@ -1009,6 +1058,9 @@ private:
                     const ClassicParam& p = def->params[size_t(s.param)];
                     const int pi = s.param;
                     hit(r, [this, kind, index, pi, r] { host_.chipClick(kind, index, pi, r); }, host_.chipTip(p), draw::Cursor::Hand);
+                } else if (r.right > r.left && e.type == kClassicCrigType && s.param >= 0) {  // a Cosmonarchy command's value
+                    const int pi = s.param;
+                    hit(r, [this, kind, index, pi, r] { host_.chipClick(kind, index, pi, r); }, L"", draw::Cursor::Hand);
                 }
             }
         }

@@ -399,7 +399,7 @@ void FilesPage::paint(draw::Canvas& c) {
     y += rowH + scale(18);
 
     // The game's sounds: the search, then the list the search keeps.
-    y = sectionHeader(c, x0, colRight, y, rowH, L"Sounds of the game");
+    y = sectionHeader(c, x0, colRight, y, rowH, modTab() ? L"Sounds of Cosmonarchy BW and the game" : L"Sounds of the game");
     place(search_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
     y += scale(32);
     tableHeader(c, {x0, y, colRight, y + rowH}, cols);

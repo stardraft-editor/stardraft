@@ -175,6 +175,7 @@ void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the Help workspac
 void sdlDataTableCommand(int view = -1);  // (sdl_data.inc: View > Data: 0 the entry view, 1 the table view, -1 the other one)
 bool sdlDataTableTab(int tab);
 void sdlHelpQuick();  // (sdl_help.inc: Q in the Help workspace)
+void sdlClassicQuick();  // (sdl_map_pages.inc: Q on the Map data page)
 bool sdlRuns(int id) {
     if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
     switch (id) {
@@ -1325,6 +1326,7 @@ void commandSdl(int id) {
         if (gWorkspace == Workspace::Triggers) return trigQuickAdd();
         if (gWorkspace == Workspace::ClassicTriggers) return sdlClassicQuickAdd();
         if (gWorkspace == Workspace::Help) return sdlHelpQuick();
+        if (gWorkspace == Workspace::ClassicSettings) return sdlClassicQuick();  // (sdl_map_pages.inc)
         shellShowQuickPicker(false, false);
         return;
     case ID_HELP_ABOUT: showAboutSdl(); return;

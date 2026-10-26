@@ -22,9 +22,12 @@ struct PortraitVideo {
 // Decodes a WebM file's video track (VP8 or VP9; 4:2:0 YUV or 4:4:4 RGB).
 bool decodeWebm(std::span<const uint8_t> file, PortraitVideo& out, std::string& error);
 
+// Decodes a Smacker video's frames ("SMK2", "SMK4": StarCraft 1.16.1's portraits; no audio).
+bool decodeSmacker(std::span<const uint8_t> file, PortraitVideo& out, std::string& error);
+
 // A portrait from the game's files: `path` as portdata.tbl writes it ("tmarine\TMaFid0"), `index` its variant
 // (tmafid00, tmafid01, ...). `quality`: SD ("SD\portrait\..."), HD2 ("HD2\portrait\...") or HD ("portrait\...");
-// `carbot`: the Carbot skin's (falls back to the normal art).
+// `carbot`: the Carbot skin's (falls back to the normal art). StarCraft 1.16.1's files (a mod's): "portrait\...00.smk".
 bool loadPortrait(const GameData& data, const std::string& path, int index, GraphicsQuality quality, bool carbot, PortraitVideo& out,
                   std::string& error);
 // The same portrait's file only (not decoded): reading is quick, decoding (decodeWebm) is the slow part and can run on

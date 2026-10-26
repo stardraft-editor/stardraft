@@ -71,8 +71,10 @@
 #include "stardraft/creep.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
+#include "stardraft/project_build.h"  // the build's steps (core/project_build.inc, core/triggers_model.inc)
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
+#include "stardraft/mods/cmbw.h"
 #include "stardraft/pathing.h"
 #include "stardraft/pathing_regions.h"
 #include "stardraft/portraits.h"  // the briefing's portraits (core/views_briefing.inc)

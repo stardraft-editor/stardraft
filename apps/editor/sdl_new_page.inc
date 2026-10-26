@@ -106,6 +106,7 @@ bool NewHostSdl::make() {
 // EUD project) shows the New page with that kind's choices. Both show in the Map workspace; Create makes the map or the
 // project in a tab of its own (the open maps and projects stay).
 void openNewPageSdl(int kind) {
+    if (cmbwMode()) kind = -1;  // (Cosmonarchy BW mode: the start page, its Cosmonarchy map card)
     if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
     if (kind < 0) {
         gNewOpen = false, gStartOpen = true;

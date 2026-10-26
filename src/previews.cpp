@@ -1,6 +1,7 @@
 #include "stardraft/previews.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 #include "stardraft/doodads.h"
@@ -52,6 +53,25 @@ Sprite tilesPicture(const Tileset& ts, int w, int h, const std::vector<uint16_t>
 }  // namespace
 
 Sprite terrainPicture(const Tileset& ts, uint16_t terrain, const HdTiles* hd) {
+    // A mod's terrain (Tileset::modTerrains): its pieces for its stand-in's solid rects (its fill); a terrain of edges only:
+    // its first pieces (its edges).
+    if (const Tileset::ModTerrain* m = ts.modTerrain(terrain)) {
+        const int fill = solidTileGroup(ts, m->standIn, 0);
+        std::vector<std::array<uint16_t, 3>> use;
+        for (const auto& p : m->pieces)
+            if (int(p[0]) == fill) use.push_back(p);
+        if (use.empty())
+            for (size_t i = 0; i < m->pieces.size() && use.size() < 4; ++i) use.push_back(m->pieces[i]);
+        if (use.empty()) return terrainPicture(ts, m->standIn, hd);
+        const int w = 4, h = 2;
+        std::vector<uint16_t> tiles(size_t(w) * h);
+        for (int ty = 0; ty < h; ++ty)
+            for (int rx = 0; rx < w / 2; ++rx) {
+                const auto& p = use[size_t(rx + ty * 3) % use.size()];
+                tiles[size_t(ty) * w + 2 * rx] = p[1], tiles[size_t(ty) * w + 2 * rx + 1] = p[2];
+            }
+        return tilesPicture(ts, w, h, tiles, hd);
+    }
     // The solid group of each half of a rect (left, right), as the tile rules give them.
     int halves[2] = {solidTileGroup(ts, terrain, 0), solidTileGroup(ts, terrain, 1)};
     if (halves[0] < 0) return {};
@@ -114,5 +134,7 @@ Sprite doodadPicture(const DoodadType& d, const Tileset& ts, UnitSprites& sprite
     }
     return s;
 }
+
+Sprite tilesSprite(const Tileset& ts, int w, int h, const std::vector<uint16_t>& tiles, const HdTiles* hd) { return tilesPicture(ts, w, h, tiles, hd); }
 
 }  // namespace stardraft

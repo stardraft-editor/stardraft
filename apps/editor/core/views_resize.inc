@@ -195,7 +195,7 @@ public:
         anchor_.onChange = [this](int k) { set(anchorValues(k, v_.w, v_.h), true); };
         if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()))
             for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-                if (t->isTerrain(i)) fills.push_back({widen(t->terrainName(i)), -1, -1}), fillIds_.push_back(i);
+                if (t->isTerrain(i)) fills.push_back({widen(ed.terrainName(i)), -1, -1}), fillIds_.push_back(i);
         fill_.setItems(fills);
         fill_.onChange = [this](int i) {
             ResizeValues n = v_;
