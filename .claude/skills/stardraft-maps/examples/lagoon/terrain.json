@@ -1,0 +1,3991 @@
+[
+{
+"op": "set_scenario",
+"name": "Lagoon",
+"description": "1v1. Made with stardraft-cli to the measures and the looks of the ladder maps."
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+208,
+848
+],
+[
+528,
+848
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+80,
+880
+],
+[
+656,
+880
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-16,
+912
+],
+[
+752,
+912
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-80,
+944
+],
+[
+816,
+944
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-112,
+976
+],
+[
+848,
+976
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-176,
+1008
+],
+[
+912,
+1008
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-208,
+1040
+],
+[
+912,
+1040
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-208,
+1072
+],
+[
+944,
+1072
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-240,
+1104
+],
+[
+944,
+1104
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-240,
+1136
+],
+[
+976,
+1136
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-240,
+1168
+],
+[
+1008,
+1168
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-240,
+1200
+],
+[
+1008,
+1200
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-272,
+1232
+],
+[
+1040,
+1232
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-272,
+1264
+],
+[
+1072,
+1264
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-272,
+1296
+],
+[
+1104,
+1296
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-304,
+1328
+],
+[
+1136,
+1328
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-304,
+1360
+],
+[
+1168,
+1360
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-304,
+1392
+],
+[
+1168,
+1392
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-304,
+1424
+],
+[
+1168,
+1424
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-304,
+1456
+],
+[
+1168,
+1456
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-272,
+1488
+],
+[
+1168,
+1488
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-240,
+1520
+],
+[
+1136,
+1520
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-208,
+1552
+],
+[
+1104,
+1552
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-144,
+1584
+],
+[
+1072,
+1584
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+-80,
+1616
+],
+[
+1040,
+1616
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+16,
+1648
+],
+[
+1008,
+1648
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+80,
+1680
+],
+[
+944,
+1680
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+144,
+1712
+],
+[
+912,
+1712
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+240,
+1744
+],
+[
+848,
+1744
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+368,
+1776
+],
+[
+720,
+1776
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+1264,
+2128
+],
+[
+1488,
+2128
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+1200,
+2160
+],
+[
+1584,
+2160
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+1136,
+2192
+],
+[
+1680,
+2192
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+1040,
+2224
+],
+[
+1776,
+2224
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+944,
+2256
+],
+[
+1840,
+2256
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+816,
+2288
+],
+[
+1904,
+2288
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+752,
+2320
+],
+[
+1968,
+2320
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+688,
+2352
+],
+[
+2032,
+2352
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+688,
+2384
+],
+[
+2064,
+2384
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2416
+],
+[
+2096,
+2416
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2448
+],
+[
+2160,
+2448
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2480
+],
+[
+2192,
+2480
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2512
+],
+[
+2224,
+2512
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2544
+],
+[
+2256,
+2544
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2576
+],
+[
+2256,
+2576
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2608
+],
+[
+2256,
+2608
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2640
+],
+[
+2256,
+2640
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2672
+],
+[
+2256,
+2672
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2704
+],
+[
+2224,
+2704
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2736
+],
+[
+2192,
+2736
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2768
+],
+[
+2160,
+2768
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+656,
+2800
+],
+[
+2096,
+2800
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+688,
+2832
+],
+[
+2064,
+2832
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+720,
+2864
+],
+[
+2032,
+2864
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+752,
+2896
+],
+[
+2000,
+2896
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+816,
+2928
+],
+[
+1968,
+2928
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+880,
+2960
+],
+[
+1936,
+2960
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+944,
+2992
+],
+[
+1872,
+2992
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+1072,
+3024
+],
+[
+1264,
+3024
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+1680,
+3024
+],
+[
+1744,
+3024
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+656,
+-176
+],
+[
+752,
+-176
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+528,
+-144
+],
+[
+848,
+-144
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+176,
+-112
+],
+[
+880,
+-112
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+112,
+-80
+],
+[
+912,
+-80
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+80,
+-48
+],
+[
+944,
+-48
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+-16
+],
+[
+976,
+-16
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+16,
+16
+],
+[
+1008,
+16
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-16,
+48
+],
+[
+1008,
+48
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-80,
+80
+],
+[
+1040,
+80
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-112,
+112
+],
+[
+1040,
+112
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-144,
+144
+],
+[
+1072,
+144
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-176,
+176
+],
+[
+1072,
+176
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-176,
+208
+],
+[
+1072,
+208
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+240
+],
+[
+1072,
+240
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+272
+],
+[
+1072,
+272
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+304
+],
+[
+1072,
+304
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+336
+],
+[
+1040,
+336
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+368
+],
+[
+1040,
+368
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+400
+],
+[
+1040,
+400
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+432
+],
+[
+1008,
+432
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-208,
+464
+],
+[
+1008,
+464
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-176,
+496
+],
+[
+976,
+496
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-176,
+528
+],
+[
+976,
+528
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-176,
+560
+],
+[
+944,
+560
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-144,
+592
+],
+[
+944,
+592
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-144,
+624
+],
+[
+912,
+624
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-112,
+656
+],
+[
+912,
+656
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-112,
+688
+],
+[
+880,
+688
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-80,
+720
+],
+[
+816,
+720
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+-16,
+752
+],
+[
+784,
+752
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+784
+],
+[
+720,
+784
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+80,
+816
+],
+[
+656,
+816
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+144,
+848
+],
+[
+624,
+848
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+208,
+880
+],
+[
+560,
+880
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+240,
+912
+],
+[
+528,
+912
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+304,
+944
+],
+[
+464,
+944
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+16
+],
+[
+784,
+16
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+48
+],
+[
+784,
+48
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+80
+],
+[
+784,
+80
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+112
+],
+[
+784,
+112
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+144
+],
+[
+784,
+144
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+176
+],
+[
+784,
+176
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+208
+],
+[
+784,
+208
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+240
+],
+[
+784,
+240
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+272
+],
+[
+784,
+272
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+304
+],
+[
+784,
+304
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+336
+],
+[
+784,
+336
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+368
+],
+[
+784,
+368
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+400
+],
+[
+784,
+400
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+432
+],
+[
+784,
+432
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+464
+],
+[
+784,
+464
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+496
+],
+[
+784,
+496
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+528
+],
+[
+784,
+528
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+560
+],
+[
+784,
+560
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+592
+],
+[
+784,
+592
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+624
+],
+[
+784,
+624
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+656
+],
+[
+784,
+656
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+48,
+688
+],
+[
+784,
+688
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_area",
+"terrain": "High Dirt",
+"area": [
+384,
+704,
+960,
+896
+]
+},
+{
+"op": "paint_area",
+"terrain": "Dirt",
+"area": [
+384,
+896,
+960,
+1088
+]
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+656
+],
+[
+1264,
+656
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+688
+],
+[
+1296,
+688
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+720
+],
+[
+1296,
+720
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+752
+],
+[
+1328,
+752
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+784
+],
+[
+1328,
+784
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+816
+],
+[
+1328,
+816
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+848
+],
+[
+1360,
+848
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+880
+],
+[
+1360,
+880
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+912
+],
+[
+1360,
+912
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+944
+],
+[
+1360,
+944
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+976
+],
+[
+1360,
+976
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+1008
+],
+[
+1360,
+1008
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+1040
+],
+[
+1360,
+1040
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+1072
+],
+[
+1360,
+1072
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+1104
+],
+[
+1328,
+1104
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+1136
+],
+[
+1328,
+1136
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1168
+],
+[
+1328,
+1168
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1200
+],
+[
+1328,
+1200
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1232
+],
+[
+1360,
+1232
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1264
+],
+[
+1360,
+1264
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+976,
+1296
+],
+[
+1360,
+1296
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+976,
+1328
+],
+[
+1328,
+1328
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1360
+],
+[
+1328,
+1360
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1392
+],
+[
+1328,
+1392
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1008,
+1424
+],
+[
+1296,
+1424
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+1456
+],
+[
+1296,
+1456
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1040,
+1488
+],
+[
+1296,
+1488
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+1520
+],
+[
+1296,
+1520
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1072,
+1552
+],
+[
+1296,
+1552
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1104,
+1584
+],
+[
+1136,
+1584
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-112,
+1776
+],
+[
+48,
+1776
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-112,
+1808
+],
+[
+464,
+1808
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+1840
+],
+[
+560,
+1840
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+1872
+],
+[
+592,
+1872
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+1904
+],
+[
+592,
+1904
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+1936
+],
+[
+560,
+1936
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+1968
+],
+[
+144,
+1968
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+304,
+1968
+],
+[
+560,
+1968
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+2000
+],
+[
+48,
+2000
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+368,
+2000
+],
+[
+560,
+2000
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+-80,
+2032
+],
+[
+-16,
+2032
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+496,
+2032
+],
+[
+560,
+2032
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+2032,
+1552
+],
+[
+2128,
+1552
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+2000,
+1584
+],
+[
+2160,
+1584
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1968,
+1616
+],
+[
+2192,
+1616
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1968,
+1648
+],
+[
+2192,
+1648
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1936,
+1680
+],
+[
+2192,
+1680
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1936,
+1712
+],
+[
+2192,
+1712
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1904,
+1744
+],
+[
+2192,
+1744
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1904,
+1776
+],
+[
+2160,
+1776
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1872,
+1808
+],
+[
+2160,
+1808
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1872,
+1840
+],
+[
+2192,
+1840
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1904,
+1872
+],
+[
+2160,
+1872
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1904,
+1904
+],
+[
+2160,
+1904
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1936,
+1936
+],
+[
+2160,
+1936
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1936,
+1968
+],
+[
+2128,
+1968
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+1968,
+2000
+],
+[
+2128,
+2000
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Water",
+"points": [
+[
+2000,
+2032
+],
+[
+2096,
+2032
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+1296,
+2320
+],
+[
+1584,
+2320
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+976,
+2352
+],
+[
+1680,
+2352
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+912,
+2384
+],
+[
+1744,
+2384
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+912,
+2416
+],
+[
+1776,
+2416
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+880,
+2448
+],
+[
+1840,
+2448
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+880,
+2480
+],
+[
+1840,
+2480
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+880,
+2512
+],
+[
+1872,
+2512
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+880,
+2544
+],
+[
+1904,
+2544
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+848,
+2576
+],
+[
+1904,
+2576
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+848,
+2608
+],
+[
+1904,
+2608
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+848,
+2640
+],
+[
+1904,
+2640
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+816,
+2672
+],
+[
+1904,
+2672
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+848,
+2704
+],
+[
+1872,
+2704
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+848,
+2736
+],
+[
+1808,
+2736
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+880,
+2768
+],
+[
+1712,
+2768
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+912,
+2800
+],
+[
+1648,
+2800
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+944,
+2832
+],
+[
+1616,
+2832
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+1008,
+2864
+],
+[
+1552,
+2864
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+1072,
+2896
+],
+[
+1520,
+2896
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+1264,
+2928
+],
+[
+1456,
+2928
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_area",
+"terrain": "High Dirt",
+"area": [
+1152,
+2272,
+1664,
+2400
+]
+},
+{
+"op": "paint_area",
+"terrain": "Dirt",
+"area": [
+1152,
+2144,
+1664,
+2272
+]
+},
+{
+"op": "paint_area",
+"terrain": "High Dirt",
+"area": [
+1152,
+2784,
+1664,
+2912
+]
+},
+{
+"op": "paint_area",
+"terrain": "Dirt",
+"area": [
+1152,
+2912,
+1664,
+3040
+]
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+464,
+3056
+],
+[
+624,
+3056
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+368,
+3088
+],
+[
+752,
+3088
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+304,
+3120
+],
+[
+816,
+3120
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+304,
+3152
+],
+[
+816,
+3152
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+272,
+3184
+],
+[
+816,
+3184
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+240,
+3216
+],
+[
+816,
+3216
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+240,
+3248
+],
+[
+816,
+3248
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+240,
+3280
+],
+[
+816,
+3280
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+240,
+3312
+],
+[
+848,
+3312
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+336,
+3344
+],
+[
+848,
+3344
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+368,
+3376
+],
+[
+848,
+3376
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+400,
+3408
+],
+[
+816,
+3408
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+432,
+3440
+],
+[
+752,
+3440
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "Dirt",
+"points": [
+[
+496,
+3472
+],
+[
+720,
+3472
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+432,
+3152
+],
+[
+656,
+3152
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+432,
+3184
+],
+[
+720,
+3184
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+432,
+3216
+],
+[
+752,
+3216
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+400,
+3248
+],
+[
+752,
+3248
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+368,
+3280
+],
+[
+752,
+3280
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+400,
+3312
+],
+[
+720,
+3312
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+400,
+3344
+],
+[
+624,
+3344
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+},
+{
+"op": "paint_terrain",
+"terrain": "High Dirt",
+"points": [
+[
+432,
+3376
+],
+[
+592,
+3376
+]
+],
+"brush": {
+"shape": "diamond",
+"size": 1
+}
+}
+]

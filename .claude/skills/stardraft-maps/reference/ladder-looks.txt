@@ -1,0 +1,77 @@
+# The looks of the ladder maps (scripts/looks.py, 2017-2024; one line per map file). "terrains 1": the
+# terrain grid (ISOM) of that map did not load; leave it out.
+2023Season1\(4)Polypoid 1.75 jungle    terrains  6  biggest 0.31  changes 0.141  patches/1000   4.5  cliffs axis 0.31 diag 0.25  edges axis 0.34 diag 0.24  doodads/1000 0.6  sprites/1000 10.1
+2023Season1\(2)Neo Dark Orig twilight  terrains 11  biggest 0.23  changes 0.205  patches/1000   8.6  cliffs axis 0.27 diag 0.25  edges axis 0.30 diag 0.31  doodads/1000 15.3  sprites/1000 4.6
+Season 7\(2)MatchPoint1.3.sc platform  terrains  1  biggest 1.00  changes 0.000  patches/1000   0.1  cliffs axis 0.27 diag 0.39  edges axis 0.24 diag 0.38  doodads/1000 0.5  sprites/1000 0.8
+2019Season1\(4)Colosseum 2.0 desert    terrains  8  biggest 0.30  changes 0.200  patches/1000   9.6  cliffs axis 0.32 diag 0.23  edges axis 0.29 diag 0.28  doodads/1000 0.0  sprites/1000 2.7
+2024Season1\(4)Vermeer SE_2. jungle    terrains  7  biggest 0.42  changes 0.129  patches/1000   4.3  cliffs axis 0.33 diag 0.25  edges axis 0.36 diag 0.27  doodads/1000 17.6  sprites/1000 2.9
+2018Season1\(2)Heartbreak Ri jungle    terrains  5  biggest 0.37  changes 0.212  patches/1000  11.4  cliffs axis 0.28 diag 0.23  edges axis 0.28 diag 0.28  doodads/1000 18.3  sprites/1000 3.5
+2024Season1\(2)Blitz Y 1.0.s platform  terrains  8  biggest 0.34  changes 0.181  patches/1000   8.2  cliffs axis 0.00 diag 0.00  edges axis 0.30 diag 0.35  doodads/1000 16.4  sprites/1000 9.5
+FrontierLeague2018\(3)Transi platform  terrains  5  biggest 0.39  changes 0.206  patches/1000   5.9  cliffs axis 0.00 diag 0.00  edges axis 0.23 diag 0.37  doodads/1000 7.0  sprites/1000 2.3
+(4)Dire Straits.scm          jungle    terrains  3  biggest 0.39  changes 0.147  patches/1000   2.6  cliffs axis 0.00 diag 0.00  edges axis 0.25 diag 0.40  doodads/1000 0.4  sprites/1000 0.0
+2023Season1\(2)Invader1.0.sc platform  terrains  8  biggest 0.33  changes 0.132  patches/1000   5.1  cliffs axis 0.29 diag 0.37  edges axis 0.27 diag 0.32  doodads/1000 15.7  sprites/1000 1.7
+Season 11\(2)Butter 1.4.scx  desert    terrains  9  biggest 0.32  changes 0.179  patches/1000   7.1  cliffs axis 0.28 diag 0.26  edges axis 0.28 diag 0.28  doodads/1000 22.3  sprites/1000 6.8
+2019Season1\(4)Ground_Zero_2 ashworld  terrains  6  biggest 0.38  changes 0.133  patches/1000   5.4  cliffs axis 0.29 diag 0.35  edges axis 0.27 diag 0.38  doodads/1000 0.0  sprites/1000 0.9
+Season 10\(4)Largo_1.5.scx   badlands  terrains  6  biggest 0.34  changes 0.150  patches/1000   4.3  cliffs axis 0.28 diag 0.21  edges axis 0.28 diag 0.29  doodads/1000 17.0  sprites/1000 0.7
+Season 10\(4)GOOD NIGHT 1.31 platform  terrains  5  biggest 0.31  changes 0.152  patches/1000   5.8  cliffs axis 0.32 diag 0.36  edges axis 0.26 diag 0.31  doodads/1000 8.7  sprites/1000 8.7
+2019Season1\(3)Medusa 2.2_iC twilight  terrains  7  biggest 0.45  changes 0.207  patches/1000   9.3  cliffs axis 0.36 diag 0.19  edges axis 0.27 diag 0.31  doodads/1000 0.0  sprites/1000 2.5
+2018Season1\(4)CircuitBreake platform  terrains  7  biggest 0.45  changes 0.145  patches/1000   5.7  cliffs axis 0.26 diag 0.43  edges axis 0.23 diag 0.40  doodads/1000 0.0  sprites/1000 0.0
+Season 11\(2)Butter 2.0c.scx desert    terrains  9  biggest 0.32  changes 0.179  patches/1000   7.0  cliffs axis 0.28 diag 0.26  edges axis 0.29 diag 0.27  doodads/1000 22.5  sprites/1000 6.6
+Season 10\(4)Revolver1.0.scx platform  terrains  8  biggest 0.40  changes 0.126  patches/1000   4.2  cliffs axis 0.44 diag 0.26  edges axis 0.28 diag 0.30  doodads/1000 11.2  sprites/1000 2.1
+FrontierLeague2017\(2)Destin badlands  terrains  8  biggest 0.36  changes 0.209  patches/1000   9.0  cliffs axis 0.20 diag 0.32  edges axis 0.21 diag 0.40  doodads/1000 16.2  sprites/1000 0.6
+2018Season1\(4)Roadkill.scm  badlands  terrains  7  biggest 0.41  changes 0.205  patches/1000   7.0  cliffs axis 0.25 diag 0.24  edges axis 0.23 diag 0.32  doodads/1000 17.3  sprites/1000 1.1
+2024Season1\(4)Fighting_Spir jungle    terrains  8  biggest 0.34  changes 0.231  patches/1000  10.7  cliffs axis 0.21 diag 0.27  edges axis 0.28 diag 0.28  doodads/1000 34.1  sprites/1000 5.1
+Season 6\(2)Neo Bloody Ridge jungle    terrains  1  biggest 1.00  changes 0.000  patches/1000   0.1  cliffs axis 0.23 diag 0.29  edges axis 0.27 diag 0.29  doodads/1000 0.6  sprites/1000 2.9
+2018Season1\(2)Polaris Rhaps twilight  terrains  1  biggest 1.00  changes 0.000  patches/1000   0.1  cliffs axis 0.34 diag 0.21  edges axis 0.31 diag 0.28  doodads/1000 0.5  sprites/1000 3.1
+2019Season1\(2)Overwatch(n). twilight  terrains  8  biggest 0.39  changes 0.196  patches/1000   8.0  cliffs axis 0.32 diag 0.20  edges axis 0.28 diag 0.29  doodads/1000 12.8  sprites/1000 0.3
+2023Season1\(4)La Campanella twilight  terrains  7  biggest 0.44  changes 0.205  patches/1000  10.7  cliffs axis 0.34 diag 0.18  edges axis 0.43 diag 0.21  doodads/1000 10.4  sprites/1000 8.7
+Season 6\(4)Escalade1.0.scx  platform  terrains  6  biggest 0.43  changes 0.126  patches/1000   5.4  cliffs axis 0.55 diag 0.19  edges axis 0.28 diag 0.30  doodads/1000 7.0  sprites/1000 0.5
+Season 6\(4)LaMancha1.1.scx  desert    terrains  1  biggest 1.00  changes 0.000  patches/1000   0.1  cliffs axis 0.23 diag 0.29  edges axis 0.24 diag 0.33  doodads/1000 14.4  sprites/1000 2.7
+Season 8\(3)Plasma1.0.scx    badlands  terrains  5  biggest 0.48  changes 0.167  patches/1000  10.3  cliffs axis 0.30 diag 0.56  edges axis 0.30 diag 0.48  doodads/1000 11.7  sprites/1000 16.4
+2018Season1\(2)Blue Storm 1. twilight  terrains  9  biggest 0.28  changes 0.171  patches/1000   8.3  cliffs axis 0.30 diag 0.25  edges axis 0.33 diag 0.28  doodads/1000 0.0  sprites/1000 3.3
+2019Season2\(3)Power Bond.sc platform  terrains  6  biggest 0.46  changes 0.183  patches/1000   5.7  cliffs axis 0.00 diag 0.00  edges axis 0.26 diag 0.35  doodads/1000 10.4  sprites/1000 5.7
+2019Season2\(4)Gladiator1.1. twilight  terrains  1  biggest 1.00  changes 0.000  patches/1000   0.1  cliffs axis 0.36 diag 0.20  edges axis 0.32 diag 0.24  doodads/1000 0.4  sprites/1000 1.7
+2024Season1\(4)Radeon 1.0.sc platform  terrains  7  biggest 0.38  changes 0.200  patches/1000   8.1  cliffs axis 0.00 diag 0.00  edges axis 0.29 diag 0.31  doodads/1000 16.8  sprites/1000 1.8
+Season 11\(4)Metaverse 1.2.s platform  terrains  7  biggest 0.41  changes 0.161  patches/1000   4.3  cliffs axis 0.36 diag 0.30  edges axis 0.28 diag 0.32  doodads/1000 9.2  sprites/1000 2.6
+2024Season1\(4)TroySE2.0.scx desert    terrains  6  biggest 0.38  changes 0.193  patches/1000   9.9  cliffs axis 0.32 diag 0.29  edges axis 0.34 diag 0.28  doodads/1000 0.0  sprites/1000 4.6
+(6)Acropolis.scm             jungle    terrains  6  biggest 0.37  changes 0.140  patches/1000   2.2  cliffs axis 0.17 diag 0.60  edges axis 0.20 diag 0.53  doodads/1000 6.4  sprites/1000 3.5
+2023Season1\(3)Apocalypse_1. desert    terrains  7  biggest 0.35  changes 0.192  patches/1000   8.8  cliffs axis 0.32 diag 0.28  edges axis 0.32 diag 0.25  doodads/1000 8.6  sprites/1000 3.2
+FrontierLeague2017\(2)Match  platform  terrains  7  biggest 0.40  changes 0.162  patches/1000   7.6  cliffs axis 0.27 diag 0.39  edges axis 0.24 diag 0.38  doodads/1000 0.0  sprites/1000 0.7
+2018Season2\(4)In the Way of twilight  terrains  9  biggest 0.34  changes 0.229  patches/1000   9.8  cliffs axis 0.37 diag 0.20  edges axis 0.30 diag 0.26  doodads/1000 8.1  sprites/1000 1.3
+(4)Rivalry.scm               jungle    terrains  6  biggest 0.30  changes 0.165  patches/1000   4.3  cliffs axis 0.25 diag 0.38  edges axis 0.27 diag 0.40  doodads/1000 2.8  sprites/1000 1.2
+FrontierLeague2017\(3)Tau Cr ice       terrains  6  biggest 0.61  changes 0.194  patches/1000  10.9  cliffs axis 0.28 diag 0.23  edges axis 0.20 diag 0.39  doodads/1000 23.0  sprites/1000 2.8
+Season 9\(4)Ringing Bloom SE twilight  terrains  9  biggest 0.30  changes 0.233  patches/1000  12.3  cliffs axis 0.36 diag 0.21  edges axis 0.31 diag 0.28  doodads/1000 14.0  sprites/1000 2.9
+Season 5\(3)Whiteout1.2.scx  ice       terrains  8  biggest 0.43  changes 0.152  patches/1000   5.1  cliffs axis 0.29 diag 0.30  edges axis 0.29 diag 0.33  doodads/1000 63.8  sprites/1000 6.5
+2024Season1\(4)Citadel1.0.sc jungle    terrains  7  biggest 0.41  changes 0.189  patches/1000  10.1  cliffs axis 0.54 diag 0.12  edges axis 0.37 diag 0.27  doodads/1000 0.0  sprites/1000 4.0
+Season 5\(3)Neo_Sylphid_2.0. jungle    terrains  7  biggest 0.51  changes 0.174  patches/1000   6.2  cliffs axis 0.30 diag 0.18  edges axis 0.30 diag 0.32  doodads/1000 12.6  sprites/1000 9.8
+Season 11\(4)Allegro_1.1b.sc badlands  terrains  7  biggest 0.37  changes 0.157  patches/1000   5.6  cliffs axis 0.28 diag 0.21  edges axis 0.28 diag 0.29  doodads/1000 16.1  sprites/1000 0.5
+(6)Polaris Prime.scm         platform  terrains  6  biggest 0.39  changes 0.151  patches/1000   4.6  cliffs axis 0.00 diag 0.00  edges axis 0.10 diag 0.63  doodads/1000 6.8  sprites/1000 3.1
+Season 10\(3)Ascension_1.0.s twilight  terrains  9  biggest 0.30  changes 0.149  patches/1000   5.6  cliffs axis 0.34 diag 0.22  edges axis 0.32 diag 0.25  doodads/1000 15.5  sprites/1000 3.4
+(4)Lost Temple.scm           jungle    terrains  8  biggest 0.30  changes 0.153  patches/1000   4.9  cliffs axis 0.22 diag 0.32  edges axis 0.28 diag 0.33  doodads/1000 6.8  sprites/1000 3.3
+Season 11\(3)Neo_Sylphid_3.0 jungle    terrains  7  biggest 0.51  changes 0.174  patches/1000   6.2  cliffs axis 0.30 diag 0.18  edges axis 0.30 diag 0.32  doodads/1000 12.7  sprites/1000 9.9
+2019Season1\(2)Cross Game.sc ashworld  terrains  7  biggest 0.51  changes 0.144  patches/1000   6.1  cliffs axis 0.32 diag 0.26  edges axis 0.28 diag 0.30  doodads/1000 35.9  sprites/1000 2.2
+Season 10\(4)Polypoid 1.65.s jungle    terrains  6  biggest 0.31  changes 0.141  patches/1000   4.5  cliffs axis 0.31 diag 0.25  edges axis 0.34 diag 0.24  doodads/1000 0.6  sprites/1000 10.3
+2024Season1\(2)Neo Dark Orig twilight  terrains 11  biggest 0.23  changes 0.205  patches/1000   8.6  cliffs axis 0.27 diag 0.25  edges axis 0.30 diag 0.31  doodads/1000 15.3  sprites/1000 4.6
+Season 7\(2)Eclipse_1.05a.sc badlands  terrains  8  biggest 0.28  changes 0.126  patches/1000   4.4  cliffs axis 0.32 diag 0.29  edges axis 0.26 diag 0.32  doodads/1000 16.0  sprites/1000 1.8
+Season 6\(2)Hitchhiker 1.3[P ice       terrains  1  biggest 1.00  changes 0.000  patches/1000   0.1  cliffs axis 0.25 diag 0.28  edges axis 0.25 diag 0.36  doodads/1000 0.6  sprites/1000 4.2
+Season 11\(4)Nemesis1.0.scx  twilight  terrains  3  biggest 0.36  changes 0.082  patches/1000   1.3  cliffs axis 0.51 diag 0.20  edges axis 0.46 diag 0.21  doodads/1000 4.9  sprites/1000 5.6
+FrontierLeague2017\(3)Longin jungle    terrains  9  biggest 0.27  changes 0.240  patches/1000  10.6  cliffs axis 0.29 diag 0.22  edges axis 0.30 diag 0.26  doodads/1000 9.2  sprites/1000 2.1
+Season 8\(2)Eclipse_1.1.scx  badlands  terrains  8  biggest 0.28  changes 0.126  patches/1000   4.4  cliffs axis 0.32 diag 0.29  edges axis 0.26 diag 0.32  doodads/1000 16.0  sprites/1000 1.8
+2018Season1\(4)Fighting Spir jungle    terrains  8  biggest 0.34  changes 0.231  patches/1000  10.9  cliffs axis 0.21 diag 0.27  edges axis 0.28 diag 0.28  doodads/1000 60.5  sprites/1000 5.1
+2024Season1\(3)Apocalypse_1. desert    terrains  7  biggest 0.35  changes 0.192  patches/1000   8.8  cliffs axis 0.32 diag 0.28  edges axis 0.32 diag 0.25  doodads/1000 8.6  sprites/1000 3.2
+Season 7\(3)Reap the Storm.s platform  terrains  6  biggest 0.36  changes 0.166  patches/1000   6.2  cliffs axis 0.31 diag 0.37  edges axis 0.25 diag 0.34  doodads/1000 6.9  sprites/1000 4.0
+FrontierLeague2017\(4)Jade.s twilight  terrains  8  biggest 0.34  changes 0.210  patches/1000   8.4  cliffs axis 0.26 diag 0.25  edges axis 0.23 diag 0.30  doodads/1000 0.0  sprites/1000 0.6
+Season 9\(4)Shakuras_Temple1 twilight  terrains  6  biggest 0.30  changes 0.135  patches/1000   4.6  cliffs axis 0.30 diag 0.29  edges axis 0.31 diag 0.24  doodads/1000 13.9  sprites/1000 5.4
+Season 11\(4)Vermeer_1.3.scm jungle    terrains  7  biggest 0.42  changes 0.129  patches/1000   4.3  cliffs axis 0.33 diag 0.25  edges axis 0.36 diag 0.27  doodads/1000 18.1  sprites/1000 2.4
+Season 7\(4)Polypoid 1.32.sc jungle    terrains  6  biggest 0.31  changes 0.141  patches/1000   4.5  cliffs axis 0.30 diag 0.25  edges axis 0.33 diag 0.24  doodads/1000 0.1  sprites/1000 9.6
+(4)Ashrigo.scm               ashworld  terrains  5  biggest 0.46  changes 0.121  patches/1000   3.5  cliffs axis 0.26 diag 0.39  edges axis 0.24 diag 0.40  doodads/1000 5.6  sprites/1000 1.2
+Season 9\(4)Optimizer1.0.scx ice       terrains  6  biggest 0.51  changes 0.185  patches/1000   8.1  cliffs axis 0.39 diag 0.28  edges axis 0.40 diag 0.33  doodads/1000 24.2  sprites/1000 2.3
+2018Season2\(2)Benzene 1.1_i platform  terrains  6  biggest 0.33  changes 0.204  patches/1000   6.8  cliffs axis 0.00 diag 0.00  edges axis 0.22 diag 0.33  doodads/1000 0.0  sprites/1000 1.4
+Season 10\(2)Eclipse_1.2.scx badlands  terrains  8  biggest 0.28  changes 0.126  patches/1000   4.4  cliffs axis 0.32 diag 0.29  edges axis 0.26 diag 0.32  doodads/1000 16.0  sprites/1000 1.8
+2018Season1\(3)Aztec 2.1.scx jungle    terrains  8  biggest 0.30  changes 0.181  patches/1000   9.3  cliffs axis 0.25 diag 0.23  edges axis 0.27 diag 0.30  doodads/1000 0.0  sprites/1000 1.4
+Season 8\(4)Ringing Bloom 1. twilight  terrains  9  biggest 0.30  changes 0.233  patches/1000  12.3  cliffs axis 0.36 diag 0.21  edges axis 0.31 diag 0.28  doodads/1000 14.0  sprites/1000 2.9
+2019Season2\(4)BlockChainSE2 badlands  terrains  2  biggest 0.50  changes 0.070  patches/1000   2.3  cliffs axis 0.43 diag 0.32  edges axis 0.31 diag 0.41  doodads/1000 0.5  sprites/1000 2.7
+2019Season2\(2)Tres Pass.scx desert    terrains  4  biggest 0.61  changes 0.115  patches/1000   5.2  cliffs axis 0.30 diag 0.24  edges axis 0.32 diag 0.30  doodads/1000 2.5  sprites/1000 8.7
+2023Season1\(4)Tempest 1.1.s twilight  terrains  7  biggest 0.32  changes 0.200  patches/1000   8.3  cliffs axis 0.34 diag 0.24  edges axis 0.34 diag 0.23  doodads/1000 17.1  sprites/1000 1.3
+2023Season1\(4)Retro1.2.scx  badlands  terrains  6  biggest 0.31  changes 0.143  patches/1000   5.2  cliffs axis 0.33 diag 0.28  edges axis 0.28 diag 0.30  doodads/1000 25.3  sprites/1000 0.0
+(4)Proving Grounds.scm       jungle    terrains  7  biggest 0.34  changes 0.168  patches/1000   6.0  cliffs axis 0.22 diag 0.35  edges axis 0.26 diag 0.37  doodads/1000 15.7  sprites/1000 3.6

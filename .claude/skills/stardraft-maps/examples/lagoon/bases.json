@@ -1,0 +1,46 @@
+[
+ {
+  "op": "place_base",
+  "x": 288,
+  "y": 400,
+  "side": "left",
+  "minerals": 9,
+  "player": 1
+ },
+ {
+  "op": "place_base",
+  "x": 320,
+  "y": 1264,
+  "side": "left",
+  "minerals": 7
+ },
+ {
+  "op": "place_base",
+  "x": 320,
+  "y": 2352,
+  "side": "left",
+  "minerals": 7
+ },
+ {
+  "op": "place_base",
+  "x": 1792,
+  "y": 304,
+  "side": "right",
+  "minerals": 8
+ },
+ {
+  "op": "place_base",
+  "x": 1344,
+  "y": 3248,
+  "side": "left",
+  "minerals": 7,
+  "geysers": 0
+ },
+ {
+  "op": "place_base",
+  "x": 1472,
+  "y": 2592,
+  "side": "left",
+  "minerals": 7
+ }
+]
