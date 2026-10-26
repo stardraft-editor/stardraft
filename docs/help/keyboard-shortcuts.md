@@ -85,7 +85,9 @@ In the Table view:
 | Ctrl+D | Copy the top cell of the selection into the cells under it |
 | Ctrl+A | Select all cells |
 | Alt+Down, a letter | Open the list of a dropdown's cell; a letter searches it. Enter puts the value into each selected cell |
-| Right button | Reset the cells, copy or paste. On a column's header: hide the column, or Columns… to select the columns that show |
+| Right button | Reset the cells, copy or paste. On a column's header: hide the column, sort, or Columns… to select the columns that show |
+| Double click on a header | Sort by the column: ascending, then descending, then the default order |
+| Drag a selected column's header | Move the column. The project keeps the columns' order, widths, hidden columns and sort |
 
 ## Triggers workspace
 

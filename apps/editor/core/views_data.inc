@@ -53,7 +53,8 @@ DataTabLayout dataTabLayout(const std::vector<DataTabText>& tabs, int width, con
 std::wstring datTitle(const std::string& name) {
     static const std::map<std::string, std::wstring> titles = {
         {"units", L"Units"},     {"weapons", L"Weapons"},   {"flingy", L"Flingy"},     {"sprites", L"Sprites"},  {"images", L"Images"},
-        {"upgrades", L"Upgrades"}, {"techdata", L"Tech data"}, {"orders", L"Orders"}, {"sfxdata", L"SFX data"}, {"portdata", L"Port data"}};
+        {"upgrades", L"Upgrades"}, {"techdata", L"Tech data"}, {"orders", L"Orders"}, {"sfxdata", L"SFX data"}, {"portdata", L"Port data"},
+        {"strings", L"Strings"}};
     auto it = titles.find(name);
     return it != titles.end() ? it->second : widen(name);
 }

@@ -72,6 +72,9 @@ public:
     // The stock file from the game (arr\<name>.dat).
     bool load(const GameData& data, const DatSchema& schema, std::string& error);
     const DatSchema& schema() const { return *schema_; }
+    // A table of a schema with no fields and no values (the editor's Strings tab in its Table view: a row for each
+    // string, its text the one column).
+    void setSchemaOnly(const DatSchema& schema) { schema_ = &schema, stock_.clear(), data_.clear(); }
 
     uint32_t value(const DatField& f, int entry) const { return read(data_, f, entry); }
     uint32_t stock(const DatField& f, int entry) const { return read(stock_, f, entry); }
