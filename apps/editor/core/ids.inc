@@ -69,6 +69,7 @@ enum : int {
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
     ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
+    ID_DATA_TABLE = 1080,  // View > Data table (Ctrl+E): the Data workspace's Table view or the entry's form (core/views_data_table.inc)
 };
 // View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {

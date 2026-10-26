@@ -17,6 +17,12 @@ public:
     virtual std::wstring name(int e) = 0;          // the entry's name; empty when it has none
     virtual draw::Image icon(int e) = 0;           // the entry's icon (empty: none)
     virtual void select(int e) = 0;                // a row is clicked or the keys move the selection
+    // More than one entry: Ctrl+click adds or removes a row, Shift+click (Shift+Up, Shift+Down) takes the rows from the
+    // last one clicked, Ctrl+A takes every row (core/data_list.inc: dataListPick). The open entry is one of them.
+    virtual bool picked(int) { return false; }    // the row is selected (not only the open entry's)
+    virtual int pickedCount() { return 1; }
+    virtual void pick(int e, unsigned mods) { select(e), (void)mods; }
+    virtual void pickAll() {}
     virtual void menu(int e, draw::Point pt) = 0;  // the right button is released over an entry (pt: the list's coordinates)
     virtual bool travel(int button) = 0;           // the mouse's back (1) or forward (2) button
     virtual void open(int) {}                      // a row is double-clicked (SFX data: its sound plays or stops)
@@ -92,10 +98,10 @@ void DataListView::paint(draw::Canvas& c) {
     for (int i = first; i < n && (i * rh - scroll) < h; ++i) {
         const int u = rows[size_t(i)];
         const draw::Rect r{0, i * rh - scroll, w, (i + 1) * rh - scroll};
-        const bool on = u == open, hot = u == hover_;
-        if (on) {  // a selected row: its fill and a bar at the left (the list's accent)
-            c.fill(r, kSel);
-            c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
+        const bool on = u == open, also = !on && host_.picked(u), hot = u == hover_;
+        if (on || also) {  // a selected row: its fill; the open entry's has a bar at the left too (the list's accent)
+            c.fill(r, hot && also ? kSelHot : kSel);
+            if (on) c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
         } else if (hot) {
             c.fill(r, kRowHot);
         }
@@ -141,14 +147,16 @@ bool DataListView::mouse(const draw::MouseEvent& e) {
     case MouseKind::DoubleClick:  // (the second click on the row of the first: Router)
         if (e.button == 0) {
             const int u = rowAt(e.pt);
-            if (u >= 0) host_.select(u);
-            if (u >= 0 && e.kind == MouseKind::DoubleClick) host_.open(u);
+            const unsigned mods = e.mods & (draw::kCtrl | draw::kShift);
+            if (u >= 0 && mods) host_.pick(u, mods);
+            else if (u >= 0) host_.select(u);
+            if (u >= 0 && !mods && e.kind == MouseKind::DoubleClick) host_.open(u);
         }
         return true;
     case MouseKind::Up:  // an entry: copy, paste or reset its values (the menu)
         if (e.button != 1) return false;
         if (const int u = rowAt(e.pt); u >= 0) {
-            host_.select(u);
+            if (!host_.picked(u) || host_.pickedCount() < 2) host_.select(u);  // (a selected row keeps the others)
             host_.menu(u, e.pt);
         }
         return true;
@@ -158,6 +166,7 @@ bool DataListView::mouse(const draw::MouseEvent& e) {
 
 bool DataListView::key(const draw::KeyEvent& e) {
     if (!e.down) return false;
+    if (int(e.key) == 'A' && (e.mods & draw::kCtrl) && !(e.mods & (draw::kAlt | draw::kShift))) return host_.pickAll(), true;
     int step = 0;
     switch (e.key) {
     case draw::Key::Down: step = 1; break;
@@ -170,7 +179,9 @@ bool DataListView::key(const draw::KeyEvent& e) {
     if (rows.empty()) return true;
     const auto it = std::find(rows.begin(), rows.end(), host_.entry());
     const int i = it == rows.end() ? 0 : int(it - rows.begin());
-    host_.select(rows[size_t(std::clamp(i + step, 0, int(rows.size()) - 1))]);
+    const int to = rows[size_t(std::clamp(i + step, 0, int(rows.size()) - 1))];
+    if (e.mods & draw::kShift) host_.pick(to, draw::kShift);
+    else host_.select(to);
     return true;
 }
 

@@ -104,6 +104,26 @@ bool dataPinToggle(std::vector<int>& pins, int e) {
     return false;
 }
 
+// The list's selection after a click (or a key) on entry `u` with the modifiers `mods` (draw::Mods): Ctrl adds or
+// removes u, Shift takes the rows from the anchor to u in the list's order (Ctrl+Shift adds them), else u only. The
+// anchor is the row that a click without Shift selected last. `rows`: the list's rows, in order.
+void dataListPick(std::set<int>& picked, int& anchor, const std::vector<int>& rows, int u, unsigned mods) {
+    const bool ctrl = (mods & draw::kCtrl) != 0, shift = (mods & draw::kShift) != 0;
+    const auto at = [&](int e) { return int(std::find(rows.begin(), rows.end(), e) - rows.begin()); };
+    if (shift && anchor >= 0 && at(anchor) < int(rows.size()) && at(u) < int(rows.size())) {
+        if (!ctrl) picked.clear();
+        const int a = at(anchor), b = at(u);
+        for (int i = std::min(a, b); i <= std::max(a, b); ++i) picked.insert(rows[size_t(i)]);
+        return;
+    }
+    if (ctrl) {
+        if (!picked.erase(u)) picked.insert(u);
+    } else {
+        picked = {u};
+    }
+    anchor = u;
+}
+
 // The search box's cue banner for a tab.
 std::wstring dataSearchCue(const std::wstring& tabTitle) { return L"Search " + dataLower(tabTitle); }
 

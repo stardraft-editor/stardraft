@@ -73,6 +73,8 @@
 #include "views_files.inc"
 #include "views_data_refs.inc"
 #include "views_data_list.inc"
+#include "data_table.inc"  // the Data workspace's Table view: the columns, the cells, the selected cells, the clipboard and CSV text
+#include "views_data_table.inc"  // the Data workspace's Table view (an entry a row, a field a column)
 #include "views_data_workspace.inc"
 #include "views_project.inc"
 #include "views_map_pages.inc"

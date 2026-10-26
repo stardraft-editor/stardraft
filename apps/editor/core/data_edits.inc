@@ -8,6 +8,7 @@ struct DataEditStep {
     int tab = 0, entry = 0;
     Bytes before, after;
     int extra = 0;
+    int group = 0;  // the steps of one change (a table and its strings: the Table view's names) have one group; Undo takes them together
 };
 
 class DataEditHistory {
@@ -24,6 +25,14 @@ public:
         for (const auto& t : tables) saved.push_back(t ? t->bytes() : Bytes{});
     }
     bool canUndo(bool isRedo) const { return !(isRedo ? redo : undo).empty(); }
+    // The steps recorded between these two are one change (one group).
+    void beginGroup() { open_ = nextGroup_++; }
+    void endGroup() { open_ = 0; }
+    // The next step to undo (redo: to redo) is of `group` (it goes with the step just taken).
+    bool nextIn(bool isRedo, int group) const {
+        const auto& from = isRedo ? redo : undo;
+        return group && !from.empty() && from.back().group == group;
+    }
     // A table's change: when `now` differs from the table's saved bytes, a step (the saved bytes before, `now` after),
     // and `now` is the saved bytes. False: no change.
     bool recordTable(int tab, int entry, const Bytes& now) {
@@ -50,7 +59,9 @@ public:
     }
 
 private:
+    int nextGroup_ = 1, open_ = 0;
     void push(DataEditStep s) {
+        s.group = open_ ? open_ : nextGroup_++;
         undo.push_back(std::move(s));
         if (undo.size() > kMost) undo.erase(undo.begin());
         redo.clear();

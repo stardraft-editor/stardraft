@@ -28,7 +28,9 @@ extern DataListView gSdlDataList;
 extern DataFormView gSdlDataForm;
 extern DataRefsPage gSdlDataRefs;
 extern DataNumberEntry gSdlDataEntry;
+extern DataTableView gSdlDataTable;
 void sdlDataRepaint();
+void sdlDataPicksChanged();
 void sdlStringsCommit();
 void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the help window at a topic)
 bool gSdlDataRevealDue = false;  // the open entry's row is scrolled into the list's view at the next paint
@@ -60,6 +62,7 @@ void sdlDataHide(draw::View& v) {
 // The number entry's value goes in. False when the box held text that is not a number (the status says so).
 bool sdlDataCommitEdit() {
     sdlStringsCommit();  // (the Strings tab's editor: its text goes in too)
+    if (gSdlDataTable.editing()) gSdlDataTable.commitEdit(false);  // (the Table view's text box: before the rows change)
     DataModel& d = gSdlDataState;
     if (d.editing < 0) return true;
     const DatField* f = curField(d.editing);
@@ -78,11 +81,13 @@ bool sdlDataCommitEdit() {
     return true;
 }
 
-void sdlDataSelect(int u) {
+// Entry u opens. `keepPicks`: the list's other selected rows stay selected (else u is the only one).
+void sdlDataSelect(int u, bool keepPicks = false) {
     sdlDataCommitEdit();
     DataModel& d = gSdlDataState;
     dataPlaceRecord(d.datTab, u);  // (Back goes to the entry open before)
     d.entry = std::clamp(u, tabFirstEntry(d.datTab), std::max(tabFirstEntry(d.datTab), tabEntries(d.datTab) - 1));
+    if (!keepPicks) d.picked = {d.entry}, d.pickAnchor = d.entry;
     d.formScroll = 0, gSdlDataRefs.resetScroll();
     gSdlDataRevealDue = true;  // keep it in view in the list (at the next paint: the list has its size then)
     sdlDataRepaint();
@@ -283,11 +288,18 @@ bool sdlDataUndo(bool redo, const std::wstring& done) {
         setMessage(redo ? L"Nothing to redo" : L"Nothing to undo");
         return false;
     }
+    for (DataEditStep more; gSdlDataState.history.nextIn(redo, s.group);)  // (the other steps of the same change)
+        if (std::string e2; !dataApplyUndo(redo, more, e2)) break;
+        else if (err.empty()) err = e2;
     if (s.tab >= 0 && s.tab < dataTabCount()) {
+        const bool sameTab = s.tab == gSdlDataState.datTab;
+        const std::set<int> picked = gSdlDataState.picked;  // (an undo in the same tab keeps the list's selection: the Table's rows)
         gSdlDataState.tabEntry.resize(size_t(dataTabCount()), 0);
         gSdlDataState.tabEntry[size_t(s.tab)] = s.entry;  // (an extra's step too: its tab and entry are where it was made)
         sdlDataShowTab(s.tab);
-        sdlDataSelect(s.entry);
+        const bool keep = sameTab && picked.count(s.entry);
+        if (keep) gSdlDataState.picked = picked;
+        sdlDataSelect(s.entry, keep);
     }
     sdlDataRebuildList();
     setMessage(!err.empty() ? widen(err) : !done.empty() ? done : redo ? L"Redo" : L"Undo");
@@ -346,6 +358,8 @@ public:
     void placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) override;
     void filterChanged() override { sdlDataRebuildList(); }
     void status(const std::wstring& text) override { setMessage(text); }
+    int viewKind() override { return extraTab(gSdlDataState.datTab) ? -1 : gSdlDataState.table ? 1 : 0; }
+    void setViewKind(int k) override;
 };
 SdlDataWorkspaceHost gSdlDataWorkspaceHost;
 DataWorkspaceView gSdlDataWorkspace(gSdlDataWorkspaceHost);
@@ -361,6 +375,27 @@ public:
     std::wstring name(int e) override { return tabEntryName(gSdlDataState.datTab, e); }
     draw::Image icon(int e) override { return sdlDataImage(dataTabEntryPicture(gSdlDataState.datTab, e)); }
     void select(int e) override { sdlDataSelect(e); }
+    bool picked(int e) override { return gSdlDataState.picked.count(e) != 0; }
+    int pickedCount() override { return int(gSdlDataState.picked.size()); }
+    void pick(int e, unsigned mods) override {
+        DataModel& d = gSdlDataState;
+        if (d.picked.empty()) d.picked = {d.entry};
+        dataListPick(d.picked, d.pickAnchor, d.shown, e, mods);
+        if (d.picked.empty()) d.picked = {e};  // (Ctrl+click on the only one: it stays)
+        // (Ctrl+click took e out: the open entry is the selected row nearest to it)
+        int open = e;
+        if (!d.picked.count(e)) {
+            auto it = d.picked.lower_bound(e);
+            open = it != d.picked.end() ? *it : *d.picked.rbegin();
+        }
+        sdlDataSelect(open, true);
+        sdlDataPicksChanged();
+    }
+    void pickAll() override {
+        DataModel& d = gSdlDataState;
+        d.picked.insert(d.shown.begin(), d.shown.end());
+        sdlDataPicksChanged();
+    }
     void menu(int e, draw::Point pt) override;
     bool travel(int button) override { return sdlDataTravel(button == 1), true; }
     void open(int e) override;
@@ -583,6 +618,152 @@ SdlDataFormHost gSdlDataFormHost;
 DataFormView gSdlDataForm(gSdlDataFormHost);
 DataNumberEntry gSdlDataEntry;
 void SdlDataFormHost::afterPaint(draw::Canvas&) { placeEntry(); }
+
+// --- The Table view (core/views_data_table.inc): the open .dat with an entry a row ------------------------------------
+
+class SdlDataTableHost final : public DataTableViewHost {
+public:
+    DatTable* table() override { return extraTab(gSdlDataState.datTab) ? nullptr : curTable(); }
+    // The list's selected entries in its order when there are 2 or more, else all its rows.
+    const std::vector<int>& rows() override {
+        const DataModel& d = gSdlDataState;
+        rows_.clear();
+        if (!rowsPicked()) return rows_ = d.shown;
+        for (int e : d.shown)
+            if (d.picked.count(e)) rows_.push_back(e);
+        return rows_;
+    }
+    bool rowsPicked() override {
+        const DataModel& d = gSdlDataState;
+        int n = 0;
+        for (int e : d.shown) n += d.picked.count(e) != 0;
+        return n >= 2;
+    }
+    int openEntry() override { return gSdlDataState.entry; }
+    draw::Image icon(int e) override { return sdlDataImage(dataTabEntryPicture(gSdlDataState.datTab, e)); }
+    draw::Image refIcon(const std::string& dat, uint32_t v) override { return sdlDataImage(dataRefPicture(dat, v)); }
+    std::wstring note(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
+    std::vector<ListPickItem> dropdownItems(const DatField& f) override { return dataDropdownItems(f); }
+    bool choose(const DatField& f, uint32_t current, draw::Rect box, uint32_t& out) override {
+        std::string picked;
+        if (!sdlChoose(datLabel(f.name), dataDropdownItems(f), std::to_string(current), picked, box, &gSdlDataTable)) return false;
+        out = uint32_t(std::stoul(picked));
+        return true;
+    }
+    void saved(const std::wstring& what) override {
+        sdlDataSaved();
+        setMessage(what);
+        sdlDataRepaint();
+    }
+    void open(int e) override {  // a row's number: the entry's form (the list keeps its selection)
+        sdlDataSelect(e, gSdlDataState.picked.count(e) != 0);
+        gSdlDataWorkspaceHost.setViewKind(0);
+    }
+    void importCsv() override;
+    void exportCsv() override;
+    void status(const std::wstring& text) override { setMessage(text); }
+    bool travel(int button) override { return sdlDataTravel(button == 1), true; }
+
+private:
+    std::vector<int> rows_;
+};
+SdlDataTableHost gSdlDataTableHost;
+DataTableView gSdlDataTable(gSdlDataTableHost);
+
+// The project's folder (a CSV file's place at first), else the Documents folder.
+static fs::path sdlDataCsvFolder() {
+    const EudProject* pr = gSdlDataState.project;
+    return pr ? pr->folder() : shellDocumentsFolder();
+}
+
+void SdlDataTableHost::exportCsv() {
+    const DatTable* t = table();
+    if (!t) return;
+    ShellFilePick d;
+    d.title = shellTr(L"Export the table as a CSV file");
+    d.filters = {{L"CSV file (*.csv)", L"*.csv"}};
+    d.defaultExtension = L"csv", d.fileName = widen(t->schema().name) + L".csv", d.initialDir = sdlDataCsvFolder(), d.save = true;
+    const fs::path file = shellPickFile(d);
+    if (file.empty()) return;
+    const std::vector<int>& r = rows();
+    // (The byte order mark: spreadsheets then read the file as UTF-8.)
+    const std::string text = "\xEF\xBB\xBF" + narrow(dataGridText(dataTableGrid(*t, dataTableColumns(t->schema()), r), L','));
+    std::ofstream out(file, std::ios::binary);
+    if (!out.write(text.data(), std::streamsize(text.size()))) return shellErrorBox(L"Could not export the table to " + file.wstring(), shellTr(L"Export CSV"));
+    setMessage(shellTr(L"Exported ") + std::to_wstring(r.size()) + shellTr(L" rows to ") + file.filename().wstring());
+}
+
+void SdlDataTableHost::importCsv() {
+    DatTable* t = table();
+    if (!t) return;
+    ShellFilePick d;
+    d.title = shellTr(L"Import a CSV file into ") + widen(t->schema().name) + L".dat";
+    d.filters = {{L"CSV file (*.csv;*.tsv;*.txt)", L"*.csv;*.tsv;*.txt"}};
+    d.initialDir = sdlDataCsvFolder();
+    const fs::path file = shellPickFile(d);
+    if (file.empty()) return;
+    std::ifstream in(file, std::ios::binary);
+    if (!in) return shellErrorBox(L"Could not import the file " + file.wstring(), shellTr(L"Import CSV"));
+    const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const std::wstring text = dataFileText(bytes);
+    const DataImportResult res = dataTableImport(*t, dataGridRead(text, dataGridSeparator(text)));
+    if (!res.error.empty()) return shellErrorBox(res.error, shellTr(L"Import CSV"));
+    const std::wstring done = shellTr(L"Imported ") + std::to_wstring(res.changed) + (res.changed == 1 ? shellTr(L" value in ") : shellTr(L" values in ")) +
+                              std::to_wstring(res.entries) + (res.entries == 1 ? shellTr(L" entry") : shellTr(L" entries"));
+    if (res.changed) sdlDataSaved();  // (one undo step)
+    setMessage(done);
+    sdlDataRepaint();
+    std::wstring problems;
+    if (!res.unknown.empty()) {
+        problems += shellTr(L"Not imported, because ") + widen(t->schema().name) + L".dat " + shellTr(L"has no such columns:") + L"\n";
+        for (size_t i = 0; i < res.unknown.size() && i < 12; ++i) problems += L"  " + res.unknown[i] + L"\n";
+        if (res.unknown.size() > 12) problems += L"  ... (" + std::to_wstring(res.unknown.size() - 12) + L")\n";
+    }
+    auto count = [](int n, const wchar_t* one, const wchar_t* more) { return std::to_wstring(n) + shellTr(n == 1 ? one : more) + L"\n"; };
+    if (res.notValues) problems += count(res.notValues, L" cell is not a value of its column.", L" cells are not values of their columns.");
+    if (res.locked) problems += count(res.locked, L" cell cannot change (read only, or not used by the entry).", L" cells cannot change (read only, or not used by the entry).");
+    if (res.noEntry) problems += count(res.noEntry, L" row has an id that is not an entry.", L" rows have an id that is not an entry.");
+    if (!res.firstProblem.empty()) problems += L"\n" + shellTr(L"First cell not imported: ") + res.firstProblem;
+    if (!problems.empty()) shellWarningBox(done + L".\n\n" + problems, shellTr(L"Import CSV"));
+}
+
+// Entry | Table: the form, or the Table view of the .dat (it takes the References panel's place too).
+void SdlDataWorkspaceHost::setViewKind(int k) {
+    DataModel& d = gSdlDataState;
+    if (extraTab(d.datTab)) return;
+    if ((k == 1) == d.table) {  // (already shown: it gets the keyboard)
+        if (d.table) gSdlDataTable.focus();
+        return;
+    }
+    sdlDataCommitEdit();
+    if (gSdlDataTable.editing()) gSdlDataTable.commitEdit(false);
+    d.table = k == 1;
+    gSdlDataWorkspace.relayout();
+    gSdlDataTable.refresh();
+    if (d.table) gSdlDataTable.focus();
+    else static_cast<draw::View&>(gSdlDataForm).focus();
+    setMessage(d.table ? shellTr(L"Opened the Table view. Select 2 or more entries in the list to show only those.")
+                       : shellTr(L"Opened the entry's form"));
+    sdlDataRepaint();
+}
+// View > Data table (Ctrl+E): the Data workspace with its Table view; in it, the entry's form again.
+void sdlDataTableCommand() {
+    if (gWorkspace != Workspace::Data) {
+        setWorkspace(Workspace::Data);
+        if (extraTab(gSdlDataState.datTab)) sdlDataShowTab(0);
+        gSdlDataWorkspaceHost.setViewKind(1);
+        return;
+    }
+    if (extraTab(gSdlDataState.datTab)) return setMessage(shellTr(L"The Table view shows only the .dat tabs"));
+    gSdlDataWorkspaceHost.setViewKind(gSdlDataState.table ? 0 : 1);
+}
+// The list's selection changed: the table's rows follow; the status says how many are selected.
+void sdlDataPicksChanged() {
+    const size_t n = gSdlDataState.picked.size();
+    if (n > 1) setMessage(shellTr(L"Selected ") + std::to_wstring(n) + shellTr(L" entries") + (gSdlDataState.table ? L"" : shellTr(L" (Ctrl+E shows them in a table)")));
+    gSdlDataTable.refresh();
+    sdlDataRepaint();
+}
 void SdlDataFormHost::fieldMenu(const DatField& f, draw::Point p) {  // the field's menu (core/data_nav.inc), at the mouse
     if (!curTable()) return;
     const DatField* field = &f;  // (a field of the open table: it stays while the menu is open)
@@ -613,6 +794,8 @@ struct SdlDataView final : draw::View {
         add(listFrame, draw::Rect(0, 0, 0, 0));
         add(formFrame, draw::Rect(0, 0, 0, 0));
         add(refsFrame, draw::Rect(0, 0, 0, 0));
+        add(gSdlDataTable, draw::Rect(0, 0, 0, 0));
+        gSdlDataTable.setVisible(false);
         gSdlDataForm.add(gSdlDataEntry, draw::Rect(0, 0, 0, 0));
         gSdlDataEntry.setVisible(false);
         gSdlDataEntry.onCommit = [] {  // Enter: the value goes in, the form has the keys again
@@ -659,6 +842,21 @@ void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Re
         if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) v.setFrame(r);
     };
     place(gSdlData.listFrame, list);
+    // The Table view: in the form's and the References panel's place.
+    if (gSdlDataState.table && !extraTab(gSdlDataState.datTab)) {
+        place(gSdlDataTable, {form.left, form.top, std::max(form.right, refs.right), form.bottom});
+        gSdlDataTable.setVisible(true);
+        if (gSdlData.formFrame.visible()) {
+            const bool focused = sdlDataFocusIn(gSdlData.formFrame);  // (the keyboard goes to the table, not to the hidden form)
+            gSdlData.formFrame.setVisible(false);
+            if (focused) gSdlDataTable.focus();
+        }
+        gSdlData.refsFrame.setVisible(false);
+        return;
+    }
+    if (gSdlDataTable.visible()) sdlDataHide(gSdlDataTable);
+    gSdlData.formFrame.setVisible(true);
+    gSdlData.refsFrame.setVisible(true);
     place(gSdlData.formFrame, form);
     place(gSdlData.refsFrame, refs);
 }
@@ -669,6 +867,7 @@ void sdlDataRepaint() {
     gSdlDataForm.invalidate();
     gSdlDataRefs.invalidate();
     gSdlDataWorkspace.invalidate();
+    gSdlDataTable.invalidate();
 }
 
 // A tab with this project closed (forgetProject): the number entry goes, and the model drops the project's tables.
@@ -730,6 +929,25 @@ void sdlDataFormCheck() {
             std::printf("form value: %s raw %u, shown \"%s\"\n", name.c_str(), unsigned(t->value(*f, gSdlDataState.entry)), narrow(note).c_str());
     if (const draw::Rect hi = gSdlDataForm.helpIcon(); hi.right > hi.left)
         std::printf("form help icon: %d,%d,%d,%d (the field %s)\n", hi.left, hi.top, hi.right, hi.bottom, gSdlDataForm.helpField().c_str());
+}
+
+// --check datatable (after the snapshot): the Table view as the last paint had it: its rows and columns, the selected
+// cells and their text (as Ctrl+C copies it), the buttons' places, and the list's selected entries.
+void sdlDataTableCheck() {
+    DataModel& d = gSdlDataState;
+    std::printf("data table: %s, %s\n", d.table ? "shown" : "hidden", gSdlDataTable.visible() ? "visible" : "not visible");
+    std::string picked;
+    for (int e : d.picked) picked += (picked.empty() ? "" : ",") + std::to_string(e);
+    std::printf("data table: list selection %s (open %d)\n", picked.c_str(), d.entry);
+    const auto& cols = gSdlDataTable.columns();
+    std::printf("data table: %zu rows, %zu columns, frame %d,%d,%d,%d\n", gSdlDataTableHost.rows().size(), cols.size(), gSdlDataTable.frame().left,
+                gSdlDataTable.frame().top, gSdlDataTable.frame().right, gSdlDataTable.frame().bottom);
+    const DataTableSelection& s = gSdlDataTable.selection();
+    std::printf("data table: active cell %d,%d; %zu cells selected\n", s.row, s.col, s.cells().size());
+    std::string text = narrow(gSdlDataTable.selectionText());
+    for (char& ch : text)
+        if (ch == '\t') ch = '|';
+    std::printf("data table: selection text:\n%s", text.c_str());
 }
 
 void sdlDataSelect(const std::string& spec) {
