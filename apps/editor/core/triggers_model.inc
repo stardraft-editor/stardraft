@@ -47,31 +47,13 @@ void trigCopy(bool cut);
 void trigPaste();
 
 // triggersFile and trigMapInfo are defined here only (Build in the core uses them too; it must not define them again).
-std::filesystem::path triggersFile(const EudProject& pr) { return pr.folder() / "triggers.json"; }
+std::filesystem::path triggersFile(const EudProject& pr) { return stardraft::triggersFileOf(pr); }  // (project_build.h)
 
-// What the checker and the code need from the map: its locations, sounds, units and players.
+// What the checker and the code need from the map: its locations, sounds, units and players (the library's).
 TriggerMapInfo trigMapInfo() {
-    TriggerMapInfo m;
     AppState& st = appState();
-    if (!st.ed || !st.ed->isOpen()) return m;
-    Editor& ed = *st.ed;
-    m.known = true;
-    m.locations.resize(size_t(ed.locationCount()));
-    for (int i = 0; i < ed.locationCount(); ++i)
-        if (ed.locationUsed(i) || i == kAnywhereLocation) m.locations[size_t(i)] = ed.locationName(i);
-    for (const auto& f : ed.archiveFiles()) {
-        std::string lower = f.name;
-        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-        if (lower.size() > 4 && (lower.ends_with(".wav") || lower.ends_with(".ogg"))) m.sounds.push_back(f.name);
-    }
-    for (uint16_t i = 0; i < ed.unitTypes().size(); ++i) m.unitNames.push_back(ed.unitTypes()[i].name);
-    for (const auto& u : ed.units()) m.units.push_back({u.serial, u.type, u.owner, u.x, u.y});
-    for (int p = 0; p < 8; ++p) {
-        const auto pl = ed.player(p);
-        m.playerForce[p] = pl.force;
-        m.playerActive[p] = pl.controller == Editor::Controller::Human || pl.controller == Editor::Controller::Computer;
-    }
-    return m;
+    if (!st.ed || !st.ed->isOpen()) return TriggerMapInfo{};
+    return stardraft::triggerMapInfo(*st.ed);
 }
 
 void trigRecheck() { gTE.issues = gTE.set.check(trigMapInfo()); }

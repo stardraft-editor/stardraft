@@ -7,9 +7,17 @@
 // What the typed text is: nothing (the field keeps its value), a number, or text that is not a number.
 enum class DataEntryRead { Empty, Number, NotNumber };
 
-// Reads the typed text as a value of at most `maxValue`. Decimal, or hex with 0x (wcstoull's base 0).
-DataEntryRead dataReadEntry(const std::wstring& text, uint32_t maxValue, uint32_t& value) {
+// Reads the typed text as a value of at most `maxValue`. Decimal, or hex with 0x (wcstoull's base 0). With a `scale`
+// above 1 (fieldShownScale: hit points), the text is in the shown unit, with decimals, and the value is it times that.
+DataEntryRead dataReadEntry(const std::wstring& text, uint32_t maxValue, uint32_t& value, uint32_t scale = 1) {
     if (text.empty()) return DataEntryRead::Empty;
+    if (scale > 1) {  // a value in the shown unit (hit points), decimals too: as stored
+        wchar_t* end = nullptr;
+        const double d = std::wcstod(text.c_str(), &end);
+        if (!end || *end != 0 || d < 0) return DataEntryRead::NotNumber;
+        value = stardraft::datRawFromShown(d, scale, maxValue);
+        return DataEntryRead::Number;
+    }
     wchar_t* end = nullptr;
     const unsigned long long v = std::wcstoull(text.c_str(), &end, 0);
     if (!end || *end != 0) return DataEntryRead::NotNumber;

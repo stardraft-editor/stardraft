@@ -122,6 +122,7 @@
 #include "stardraft/project_import.h"
 #include "stardraft/editor.h"
 #include "stardraft/eud_project.h"
+#include "stardraft/project_build.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/hd_assets.h"
@@ -136,6 +137,7 @@
 #include "stardraft/scene.h"
 #include "stardraft/settings.h"
 #include "stardraft/terrain.h"
+#include "stardraft/creep.h"
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/terrain_stamp.h"  // the user's terrain stamps (core/stamps.inc)
 #include "stardraft/tileset.h"
@@ -181,6 +183,7 @@ bool gKeysFromOpener = false;
 #include "sdl_window.inc"  // the main window as the system's document window, the system's look (mac_window.h)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
+#include "sdl_simulation.inc"  // Tools > Simulate mining and combat: a live game run by StarDraft's simulation (experimental)
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
@@ -709,8 +712,8 @@ int main(int argc, char** argv) {
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "resize";
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "resize" || c.rfind("drawfuncs:", 0) == 0;
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -769,6 +772,7 @@ int main(int argc, char** argv) {
             else if (valueShot) shown = valueShot.get();
             else if (draw::View* notes = sdlChangelogShot(dialogArg, width, height)) shown = notes;  // html:<file>, changelog, changelog:offline (sdl_updates.inc)
             else if (draw::View* help = sdlHelpShot(dialogArg, width, height)) shown = help;  // help[:<topic>], help:search:<words> (sdl_help.inc)
+            else if (draw::View* report = sdlSimReportShot(dialogArg, width, height)) shown = report;  // simreport:mining|combat (sdl_simulation.inc)
             else if (dialogArg.rfind("campaign:", 0) == 0) {  // campaign:<folder>: the Campaign window of that campaign (core/views_campaign.inc)
                 std::string cerr;
                 gCampaignOpen = gCampaign.load(fs::path(widen(dialogArg.substr(9))), cerr);
@@ -865,12 +869,21 @@ int main(int argc, char** argv) {
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 gShotInputs.assign(inputArgs.begin(), inputArgs.end());
                 host.setSnapshotModalHook([](draw::View&) { return sdlShotInputNext(); });
-                while (sdlShotInputNext()) {
+                for (;;) {
+                    // (each input's time without its input lines, for --script's stats)
+                    const double linesBefore = gInputLineMs;
+                    const auto i0 = std::chrono::steady_clock::now();
+                    if (!sdlShotInputNext()) break;
+                    sdlSoakInput(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - i0).count() - (gInputLineMs - linesBefore));
                     // (a frame after each: the views lay out and the map's scene takes the change, as between a user's inputs)
                     host.snapshotTimers(20);
                     const auto t0 = std::chrono::steady_clock::now();
                     host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                     sdlSoakFrame(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());  // (--script stats)
+                    if (!gShotFrameFile.empty()) {  // (--script's frame <file>: this frame's picture)
+                        if (!writeSnapshot(device, tex, width, height, gShotFrameFile)) std::printf("frame: could not write %s\n", gShotFrameFile.c_str());
+                        gShotFrameFile.clear();
+                    }
                 }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 host.setSnapshotModalHook(nullptr);
@@ -915,6 +928,8 @@ int main(int argc, char** argv) {
             if (hasCheck("names")) sdlNamesCheck();  // (after the inputs: a map saved and opened again)
             if (hasCheck("dataform")) sdlDataFormCheck();  // (the last paint's parts)
             if (hasCheck("resize")) sdlResizeCheck();  // (Crop or extend: its dialog, or the change its OK made)
+            for (const std::string& c : checkArgs)  // (the map's renderer, after the picture: sdl_map_image.inc)
+                if (c.rfind("drawfuncs:", 0) == 0) sdlDrawFuncsCheck(c.substr(10));
             if (untitledArg) {  // (the project's folder goes: a snapshot leaves nothing)
                 const EudProject* pr = activeProject();
                 std::printf("untitled: an unsaved project %s (%s)\n", isUnsavedProject(pr) ? "yes" : "(WRONG)", pr ? narrow(pr->folder().filename().wstring()).c_str() : "none");

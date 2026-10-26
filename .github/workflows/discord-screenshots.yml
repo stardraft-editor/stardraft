@@ -31,6 +31,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           DISCORD_GENERAL_WEBHOOK: ${{ secrets.DISCORD_GENERAL_WEBHOOK }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}  # the bot starts the thread of long release notes (optional)
           VERSION: ${{ inputs.version }}
           CHANNEL: ${{ inputs.channel }}
           WHAT: ${{ inputs.what }}

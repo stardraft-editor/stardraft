@@ -1,5 +1,6 @@
 #include "stardraft/dat_units.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -60,6 +61,24 @@ std::string datConvertedText(const std::string& dat, const std::string& field, u
     while (!s.empty() && s.back() == '0') s.pop_back();
     if (!s.empty() && s.back() == '.') s.pop_back();
     return "= " + s + " " + u.unit;
+}
+
+uint32_t datShownScale(const DatField& field) { return field.flags.empty() && field.name == "Hit Points" ? 256 : 1; }
+
+std::string datShownText(uint32_t scale, uint32_t raw) {
+    if (scale <= 1) return std::to_string(raw);
+    if (raw % scale == 0) return std::to_string(raw / scale);
+    char b[32];
+    std::snprintf(b, sizeof b, "%.3f", double(raw) / scale);
+    std::string s = b;
+    while (!s.empty() && s.back() == '0') s.pop_back();
+    return s;
+}
+
+uint32_t datRawFromShown(double shown, uint32_t scale, uint32_t maxValue) {
+    if (shown < 0) return 0;
+    const double raw = std::round(shown * (scale > 1 ? scale : 1));
+    return uint32_t(std::min<double>(raw, maxValue));
 }
 
 }  // namespace stardraft

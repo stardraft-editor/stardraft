@@ -19,6 +19,13 @@ gets the newest one.
 
 To build StarDraft 2 from the source, see [docs/dev/DEVELOPING.md](docs/dev/DEVELOPING.md).
 
+## Not a Blizzard product
+
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it. StarCraft and
+StarCraft: Remastered are trademarks of Blizzard Entertainment. StarDraft 2 contains no files of the game: it reads
+them from your own installation. Its experimental simulation (Tools > Simulate) is StarDraft's own, written from
+the game's rules; it is not the game's engine.
+
 ## About the name
 
 The name is a homage to the original (and awesome) StarDraft by Camelot Systems from 1998 that pretty much started

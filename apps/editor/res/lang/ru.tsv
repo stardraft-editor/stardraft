@@ -2420,3 +2420,110 @@ Did not build the map	Карта не собрана
 Brush: the 	Кисть: 
  tiles you copied (	 тайлов (скопировано: 
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 тайлов). Щёлкните, чтобы разместить; перетащите, чтобы повторить. Удерживайте Shift, чтобы разместить случайно.
+%ls of Player %d	%ls игрока %d
+Creep shows	Слизь показана
+Creep is hidden (View > Layers shows it again)	Слизь скрыта (Вид > Слои снова её показывают)
+&Creep	&Слизь
+Simulate melee &mining	Моделировать ближнюю &добычу
+Simulate melee &mining (experimental)	Моделировать ближнюю &добычу (экспериментально)
+Simulate com&bat of the selected units	Моделировать &бой выбранных юнитов
+Simulate com&bat of the selected units (experimental)	Моделировать &бой выбранных юнитов (экспериментально)
+&Tools	&Инструменты
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Экспериментальное моделирование, пока может не полностью совпадать с игрой. Это собственная симуляция StarDraft, а не движок игры.
+Simulation	Моделирование
+Simulate mining	Моделировать добычу
+Simulate combat	Моделировать бой
+Workers on minerals at each base	Рабочие на минералах на каждой базе
+Workers on minerals	Рабочие на минералах
+Workers on gas	Рабочие на газе
+Workers and gas	Рабочие и газ
+Measured game time	Измеряемое игровое время
+Races	Расы
+As in the map (Random: a random race)	Как на карте (Случайная: случайная раса)
+0 (no refinery)	0 (без экстрактора)
+The first 30 game seconds are not measured: the workers get to their fields.	Первые 30 игровых секунд не измеряются: рабочие доходят до своих месторождений.
+Simulation report	Отчёт о моделировании
+Copy the report as text (its tables with tabs, for a spreadsheet)	Копировать отчёт как текст (таблицы с табуляцией, для электронной таблицы)
+Copied the simulation's report	Отчёт о моделировании скопирован
+The simulation stopped	Моделирование остановлено
+The simulation engine is not in this build yet.	Движка моделирования в этой сборке пока нет.
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	Выделите юниты двух враждующих игроков (в режиме Юниты: протащите рамку или Ctrl+щелчок) и попробуйте снова. В настройках панели задаётся, кто союзники.
+Stopped	Остановлено
+Draw: Units cannot reach each other	Ничья: юниты не могут достать друг друга
+No winner	Победителя нет
+No winner: 10 game minutes went by	Победителя нет: прошло 10 игровых минут
+No winner: 2 game minutes went by	Победителя нет: прошло 2 игровые минуты
+No winner: both sides died	Победителя нет: обе стороны погибли
+Neither side lost a unit	Ни одна сторона не потеряла ни одного юнита
+Alive	Живы
+Kills	Убийства
+Lost (minerals + gas)	Потеряно (минералы + газ)
+Field	Месторождение
+Fields	Месторождения
+Base	База
+Tile	Тайл
+Minerals a minute	Минералы в минуту
+Gas a minute	Газ в минуту
+Round trip of each field, nearest first (frames)	Путь туда и обратно до каждого месторождения, сначала ближайшие (кадры)
+Mining	Добыча
+Combat	Бой
+Skip to the end	Перейти к концу
+Restart	Заново
+Slower	Медленнее
+Faster	Быстрее
+Speed	Скорость
+Show the report	Показать отчёт
+Cancel the simulation	Отменить моделирование
+Report feedback on the simulation	Отправить отзыв о моделировании
+Who fights whom	Кто с кем сражается
+Computers together, each human alone	Компьютеры вместе, каждый человек сам по себе
+Humans against computers	Люди против компьютеров
+The map's forces	Силы карты
+Free for all	Каждый сам за себя
+Every unit against every other	Каждый юнит против каждого
+No gas	Без газа
+All	Все
+%d of %d	%d из %d
+Unit %d	Юнит %d
+Player %d	Игрок %d
+The simulation stopped: %ls	Моделирование остановлено: %ls
+Computers (players %ls)	Компьютеры (игроки %ls)
+Computer (player %ls)	Компьютер (игрок %ls)
+Humans (players %ls)	Люди (игроки %ls)
+Humans (player %ls)	Люди (игрок %ls)
+Force %d	Команда %d
+%ls (players %ls)	%ls (игроки %ls)
+%ls (player %ls)	%ls (игрок %ls)
+Player %ls	Игрок %ls
+%ls wins	%ls побеждает
+%ls (the others have only units that cannot attack)	%ls (остальные имеют только юниты, которые не могут атаковать)
+%ls of player %d is the last unit standing	%ls, последний уцелевший юнит игрока %d
+No winner: %d unit is out of reach of their enemies	Победителя нет: %d юнит вне досягаемости врагов
+No winner: %d units are out of reach of their enemies	Победителя нет: %d юнитов вне досягаемости врагов
+%ls after %ls game seconds	%ls, за %ls игровых секунд
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	Потеряно (минералы + газ): %ls
+=All	=Всего
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d юнит вне досягаемости: ни один враг не смог подойти к нему и атаковать его (остров, только воздушное или наземное оружие, или невидимость)
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d юнитов вне досягаемости: ни один враг не смог подойти к ним и атаковать их (остров, только воздушное или наземное оружие, или невидимость)
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; каждый юнит сражается с каждым другим; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; силы карты сражаются друг с другом; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; люди сражаются с компьютерными игроками; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; каждый игрок сражается сам за себя; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	Быстрее всего, с улучшениями карты; компьютерные игроки союзники, каждый другой игрок сражается сам за себя; каждый юнит атакует врагов, до которых может добраться, пока не останется ни одного, но не более 10 игровых минут.
+%ls lost nothing	%ls без потерь
+%ls traded %ls to 1	%ls обменял %ls к 1
+%ls wins (%ls has only units that cannot attack)	%ls побеждает (у %ls остались только юниты, которые не могут атаковать)
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	Быстрее всего, без улучшений и исследований; каждая сторона атакует середину противника, но не более 2 игровых минут.
+Base %d	База %d
+Base %d (start)	База %d (стартовая)
+%ls minerals a minute	%ls минералов в минуту
+Mining: %ls minerals and %ls gas a minute	Добыча: %ls минералов и %ls газа в минуту
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	%d рабочих на минералах и %d на газе на каждой базе, %d игровая минута на максимальной скорости
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	%d рабочих на минералах и %d на газе на каждой базе, %d игровых минут на максимальной скорости
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	%d рабочих на минералах и без газа на каждой базе, %d игровая минута на максимальной скорости
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	%d рабочих на минералах и без газа на каждой базе, %d игровых минут на максимальной скорости
+The simulation cannot start: %ls	Не удалось запустить моделирование: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 — инструмент, созданный фанатами. Blizzard Entertainment не создавала, не одобряла и не поддерживает его.
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft — товарный знак Blizzard Entertainment.
+stored as %u (1/256 hit points)	хранится как %u (1/256 очка здоровья)

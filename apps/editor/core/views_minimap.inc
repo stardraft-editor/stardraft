@@ -18,6 +18,13 @@ void minimapRect(RECT& r, float& scalePx) {
     r = {(c.right - w) / 2, (c.bottom - h) / 2, (c.right - w) / 2 + w, (c.bottom - h) / 2 + h};
 }
 
+// A live game (Tools > Simulate): its units as the minimap's dots in place of the map's (map pixels, player, size in
+// pixels); false: the map's units.
+struct MinimapDot {
+    int x = 0, y = 0, owner = 0, size = 32;
+};
+bool (*gLiveMinimap)(std::vector<MinimapDot>& dots) = nullptr;
+
 // The units' dots on the minimap: the players' colors (Player 1 to Player 12).
 const COLORREF kMinimapPlayerColors[12] = {RGB(244, 4, 4),   RGB(12, 72, 204),  RGB(44, 180, 148),  RGB(136, 64, 156),
                                            RGB(248, 140, 20), RGB(112, 48, 20),  RGB(204, 224, 208), RGB(252, 252, 56),
@@ -120,12 +127,17 @@ struct MinimapView final : stardraft::draw::View {
         minimapRect(r, sc);
         c.bitmap(terrain, {0, 0, terrain.width(), terrain.height()}, r, true);
         // Units as player-colored dots.
-        for (const Unit& u : ed.units()) {
-            const int x = r.left + int(u.x * sc), y = r.top + int(u.y * sc);
-            int d = std::max(2, int(ed.unitBox(u).right - ed.unitBox(u).left) * int(sc * 100) / 100);
-            d = std::clamp(d, 2, 6);
-            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, kMinimapPlayerColors[std::min<int>(u.owner, 11)]);
-        }
+        auto dot = [&](int ux, int uy, int size, int owner) {
+            const int x = r.left + int(ux * sc), y = r.top + int(uy * sc);
+            const int d = std::clamp(std::max(2, size * int(sc * 100) / 100), 2, 6);
+            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, kMinimapPlayerColors[std::clamp(owner, 0, 11)]);
+        };
+        static std::vector<MinimapDot> live;
+        live.clear();
+        if (gLiveMinimap && gLiveMinimap(live))
+            for (const MinimapDot& u : live) dot(u.x, u.y, u.size, u.owner);
+        else
+            for (const Unit& u : ed.units()) dot(u.x, u.y, int(ed.unitBox(u).right - ed.unitBox(u).left), u.owner);
         // The current view: a light tint, the line in the accent.
         const RECT v = minimapView(r, sc);
         c.fill(v, kAccent, 36);

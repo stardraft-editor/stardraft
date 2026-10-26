@@ -156,6 +156,13 @@ CASES += [
     ("check-bundle", ["--check", "bundle"], ""),
     ("map-check-preview", ["--check", "preview:{newdir}"], "map"),
     ("map-check-spotlight", ["--check", "spotlight"], "map"),
+    # View > Layers > Creep: a Hatchery near the map's middle gets the creep of the creep rules, the map view's terrain has
+    # its creep tiles and its scene the creep edges, one on each tile next to creep (core/creep_layer.inc).
+    ("map-creep", ["--check", "creep"], "map"),
+    # The images.dat draw functions on the map (renderer.cpp, shaders/sprite.hlsl): a Dragoon with each of 0 to 17 over the
+    # map's terrain, in SD, HD2 and HD; each line says how it looks against the usual Dragoon and the bare terrain, and the
+    # pictures go to {newdir}/drawfuncs-<sd|hd2|hd>.png (apps/editor/sdl_map_image.inc: sdlDrawFuncsCheck).
+    ("map-drawfuncs", ["--check", "drawfuncs:{newdir}"], "map"),
     # The free desktops (Linux, sdl_xdg.inc): the app id (the .desktop file's name, also SDL's), the XDG folders, what
     # the desktop has (the session bus, the portal, the notification server) and the recently used files' entry of the
     # map, written two times into {newdir} (one entry, its count 2). Elsewhere one line says that it is Linux only.
@@ -303,7 +310,7 @@ CASES += [
     ("map-terrain-flags-height", ["--command", "view.flags.height"], "map"),
     ("map-terrain-flags-blocksview", ["--command", "view.flags.blocksview", "--key", "+", "--key", "+"], "map"),
     ("map-terrain-flags-buildable", ["--command", "view.flags.buildable"], "map"),
-    # Edit > Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
+    # Tools > Place map revealers (the players' dialog, as it is shown), then the revealers placed for All players
     # (they show on the map), then View > Layers > Map revealers: the layer is hidden and the revealers are not drawn.
     ("map-dialog-revealers", ["--dialog", "revealers"], "map"),
     ("map-revealers-place", ["--script", "{script:revealers}"], "map"),
@@ -550,6 +557,9 @@ CASES += [
     ("map-paste-ghost-red", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "450,450"], "map"),
     ("map-paste-placed", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "700,650",
                           "--click", "700,650", "--key", "Ctrl+Z"], "map"),
+    # Paste: Ctrl+V lets the selection go; 3 gives the copy to Player 3 before it is placed.
+    ("map-paste-owner", ["--mode", "units", "--drag", "780,110-880,150", "--key", "Ctrl+C", "--key", "Ctrl+V", "--key", "3",
+                         "--move", "700,650", "--click", "700,650"], "map"),
     # The player keys: 3 picks the placement's player; a Marine placed is player 3's; Esc and a click select it; 5 gives
     # it to player 5 and 0 to player 10 (the placement's player stays 3); with the Marine picked again, 7 is the
     # placement's player and the selected Marine stays player 10's.
@@ -1226,7 +1236,7 @@ wheel 832,500,0,-1:Alt
 rect off
 rect
 """,
-    # Edit > Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
+    # Tools > Place map revealers: Enter places them for All players; then View > Layers > Map revealers hides them.
     "revealers": """command edit.revealers.place
 key Enter
 """,
@@ -1983,6 +1993,20 @@ def check_paste_placed(output):
     ])
 
 
+def check_paste_owner(output):
+    """None when Ctrl+V let the selection go, 3 gave the copy to Player 3 and a click placed it."""
+    s = steps(output)
+    if len(s) != 6:
+        return f"{len(s)} inputs with a state line, not 6"
+    if not s[0]["selected"] or s[2]["selected"]:
+        return f"selected {s[0]['selected']} at the drag, {s[2]['selected']} after Ctrl+V (not 0)"
+    if "Paste 6 units for Player 3" not in "\n".join(l for l in output.splitlines() if l.startswith("key 3:")):
+        return "3 did not give the copy to Player 3"
+    if s[5]["units"] != s[0]["units"] + s[0]["selected"]:
+        return "the click did not place the copy"
+    return None
+
+
 def check_terrain_keys(output):
     """None when 1, 3 and 0 in Terrain mode each picked another terrain (Painting ...) and the player stayed 1."""
     s = states(output)
@@ -2164,13 +2188,13 @@ def check_data_edits(output):
     s = [st for _, st in states(output)]
     if len(s) != 10:
         return f"{len(s)} input lines, not 10"
-    want = [(2, "Hit Points=50 "), (3, "Shield Enable=1 "), (6, "Unit Size=2 ")]  # (the picker's inputs come before its click)
+    want = [(2, "Hit Points=12800 "), (3, "Shield Enable=1 "), (6, "Unit Size=2 ")]  # (the picker's inputs come before its click)
     for i, text in want:
         if text not in s[i]:
             return f"input {i + 1}: {s[i]} (no {text.strip()})"
     if "Unit Size=" in s[7] or "Shield Enable=" not in s[7]:
         return f"the first Undo: {s[7]}"
-    if "Shield Enable=" in s[8] or "Hit Points=50 " not in s[8]:
+    if "Shield Enable=" in s[8] or "Hit Points=12800 " not in s[8]:
         return f"the second Undo: {s[8]}"
     if "no changed values; 0 undo steps, 3 redo steps" not in s[9]:
         return f"the third Undo: {s[9]}"
@@ -3026,7 +3050,7 @@ def check_menubar(output):
         if not lines[0].startswith("the window's (shown)"):
             return f"not the window's menu bar: {lines[0]}"
         need = ["File > Save [Ctrl+S]", "File > Save as… [Ctrl+Shift+S]", "File > Exit", "Edit > Undo [Ctrl+Z]",
-                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Edit > Tools > Check that StarCraft can start the map"]
+                "Edit > Redo [Ctrl+Y]", "Edit > Delete [Del]", "Tools > Check that StarCraft can start the map"]
         never = ["Window > ", "Scenario > "]
         tip = "Zoom in (Ctrl+Plus); Ctrl+Shift+S; Ctrl+click; Alt+drag; Del"
     for t in tops:
@@ -3069,7 +3093,7 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 4 items: \"General\" \"Map\" \"Start\" \"Folders\"; selected"]
+             "settings: toolbar style preference; 5 items: \"General\" \"Map\" \"Start\" \"Folders\" \"Simulation\"; selected"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"
@@ -4030,6 +4054,11 @@ def check_palette_units(output):
 
 
 CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place: ran (yes)" in o else "the place command did not run",
+          "map-creep": lambda o: ("no creep tiles under the Hatchery" if not re.search(r"creep: a Hatchery placed .*; (\d+) creep tiles.* \(yes\)", o)
+                                  else None if re.search(r"creep: [1-9]\d* edge sprites in the scene, \d+ tiles with an edge.* \(yes\)", o)
+                                  else "the creep edges are not one on each tile next to creep"),
+          "map-drawfuncs": lambda o: (next((l for l in o.splitlines() if l.startswith("drawfuncs") and "(WRONG)" in l), None)
+                                      or (None if len(re.findall(r"^drawfuncs \w+: \d+ .*\(yes\)", o, re.M)) >= 18 else "no draw function lines")),
           "map-revealers-hidden": lambda o: None if "command view.layer.revealers: ran (yes)" in o else "the layer command did not run",
           "map-units-list-pick": lambda o: None if "units=57" in o and re.findall(r"units=(\d+)", o)[-1] == "58"
           else "the picked unit was not deleted, or Ctrl+Z did not give it back (units 57, then 58 expected)",
@@ -4056,7 +4085,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-tiles-select-circle": check_select_shape("circle"),
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
-          "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed,
+          "map-paste-ghost-red": check_paste_ghost_red, "map-paste-placed": check_paste_placed, "map-paste-owner": check_paste_owner,
           "map-player-keys": check_player_keys, "map-terrain-keys": check_terrain_keys, "map-tabs": check_tabs, "map-quick-click": check_quick_click, "map-quick-typing": check_quick_typing, "map-terrain-brush-sizes": check_brush_sizes, "map-terrain-paste-other-map": check_terrain_other_map,
           "newpage-create": check_newpage_create, "data-form-edits": check_data_edits,
           "newpage-randomize-quick": check_newpage_randomize, "newpage-symmetry-dropdown": check_newpage_symmetry,
@@ -4192,7 +4221,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
 
 
 HELP_PAGES = ["index", "getting-started", "values-and-units", "keyboard-shortcuts", "trigger-checks", "units-dat", "weapons-dat", "flingy-dat",
-              "sprites-dat", "images-dat", "upgrades-dat", "techdata-dat", "orders-dat", "credits"]  # (docs/help/index.md's order)
+              "sprites-dat", "images-dat", "upgrades-dat", "techdata-dat", "orders-dat", "sfxdata-dat", "portdata-dat", "credits"]  # (docs/help/index.md's order)
 
 
 def help_lines(output):
@@ -4355,7 +4384,7 @@ CHECKS.update({
     "data-triggers-not": lambda o: None if "1 conditions: cond.not(){cond.always()}" in o else "NOT did not put the condition in a Not block",
     "data-help-f1": check_help_page("units-dat", "sight-range", "Units (units.dat)", opened=1),
     "data-help-icon": check_help_page("units-dat", "hit-points", "Units (units.dat)", opened=1),
-    "data-form-units-converted": check_converted({"Hit Points": (10240, "= 40 hit points"), "Build Time": (360, "= 15 s (fastest)"),
+    "data-form-units-converted": check_converted({"Hit Points": (10240, "stored as 10240 (1/256 hit points)"), "Build Time": (360, "= 15 s (fastest)"),
                                                   "Sight Range": (7, "= 224 pixels"), "Supply Required": (2, "= 1 supply")}),
     "data-form-flingy-converted": check_converted({"Speed": (1707, "= 160.031 pixels/s (fastest)"), "Halt Distance": (13616, "= 53.188 pixels"),
                                                    "Turn Radius": (40, "= 1350 degrees/s (fastest)")}),

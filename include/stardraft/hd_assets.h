@@ -56,6 +56,14 @@ struct HdTiles {
 };
 bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, HdTiles& out, std::string& error, bool carbot = false);
 
+// The HD or HD2 art of a GRP that no images.dat entry names (UnitSprites::extraImage: "tileset\<name>.grp", the creep
+// edges): "<path>.dds.grp" (or "HD2\..."; with `carbot`, the Carbot skin's first), one DDS a frame, its frames put into
+// one texture as an AnimImage. The file gives no frame offsets: each frame sits where the SD frame of `sd` (the same
+// GRP) sits, kept inside the box.
+struct Grp;
+bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
+               std::string& error, bool carbot = false);
+
 // Previews drawn without the GPU (src/hd_preview.cpp).
 // Decodes the region (x0, y0, w, h) of a block-compressed texture to RGBA (straight alpha).
 void decodeDds(const DdsTexture& tex, int x0, int y0, int w, int h, std::vector<uint8_t>& rgba);

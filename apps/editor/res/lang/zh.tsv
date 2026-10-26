@@ -2420,3 +2420,110 @@ Did not build the map	未能构建地图
 Brush: the 	笔刷：
  tiles you copied (	 个图块（已复制：
  tiles). Click to place them; drag to repeat them. Hold Shift to place them at random	 个图块）。点击放置；拖动以重复放置。按住 Shift 可随机放置。
+%ls of Player %d	%ls（玩家 %d）
+Creep shows	显示菌毯
+Creep is hidden (View > Layers shows it again)	菌毯已隐藏（“视图 > 图层”可再次显示）
+&Creep	&菌毯
+Simulate melee &mining	模拟近战&采矿
+Simulate melee &mining (experimental)	模拟近战&采矿（实验性）
+Simulate com&bat of the selected units	模拟所选单位的战斗(&B)
+Simulate com&bat of the selected units (experimental)	模拟所选单位的战斗(&B)（实验性）
+&Tools	工具(&T)
+Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
+Simulation	模拟
+Simulate mining	模拟采矿
+Simulate combat	模拟战斗
+Workers on minerals at each base	每个基地矿物上的工人数
+Workers on minerals	矿物上的工人
+Workers on gas	瓦斯上的工人数
+Workers and gas	工人与瓦斯
+Measured game time	计时的游戏时长
+Races	种族
+As in the map (Random: a random race)	与地图相同（随机：随机种族）
+0 (no refinery)	0（无精炼厂）
+The first 30 game seconds are not measured: the workers get to their fields.	前 30 个游戏秒不计入测量：工人会先走到各自的矿区。
+Simulation report	模拟报告
+Copy the report as text (its tables with tabs, for a spreadsheet)	将报告复制为文本（表格用制表符分隔，便于粘贴到电子表格）
+Copied the simulation's report	已复制模拟报告
+The simulation stopped	模拟已停止
+The simulation engine is not in this build yet.	此版本尚未包含模拟引擎。
+Select the units of two players that are enemies (in Units mode: drag a box, or Ctrl+click), then try again. The bar's settings say who are allies.	请选中两名互为敌人的玩家的单位（在“单位”模式下：拖出框选，或按住 Ctrl 点击），然后重试。工具栏的设置决定谁是盟友。
+Stopped	已停止
+Draw: Units cannot reach each other	平局：单位之间无法互相接触
+No winner	没有胜者
+No winner: 10 game minutes went by	没有胜者：已过去 10 游戏分钟
+No winner: 2 game minutes went by	没有胜者：已过去 2 游戏分钟
+No winner: both sides died	没有胜者：双方都已灭亡
+Neither side lost a unit	双方都没有损失单位
+Alive	存活
+Kills	击杀
+Lost (minerals + gas)	损失（矿物 + 瓦斯）
+Field	矿区
+Fields	矿区数
+Base	基地
+Tile	格子
+Minerals a minute	每分钟矿物
+Gas a minute	每分钟瓦斯
+Round trip of each field, nearest first (frames)	每个矿区的往返时间，从近到远（帧）
+Mining	采矿
+Combat	战斗
+Skip to the end	跳到结束
+Restart	重新开始
+Slower	减速
+Faster	加速
+Speed	速度
+Show the report	查看报告
+Cancel the simulation	取消模拟
+Report feedback on the simulation	发送关于模拟的反馈
+Who fights whom	谁与谁作战
+Computers together, each human alone	电脑结盟，每名人类各自为战
+Humans against computers	人类对抗电脑
+The map's forces	地图的势力
+Free for all	混战
+Every unit against every other	每个单位对抗其他所有单位
+No gas	无瓦斯
+All	全部
+%d of %d	%d / %d
+Unit %d	单位 %d
+Player %d	玩家 %d
+The simulation stopped: %ls	模拟已停止: %ls
+Computers (players %ls)	电脑 (玩家 %ls)
+Computer (player %ls)	电脑 (玩家 %ls)
+Humans (players %ls)	人类 (玩家 %ls)
+Humans (player %ls)	人类 (玩家 %ls)
+Force %d	队伍 %d
+%ls (players %ls)	%ls (玩家 %ls)
+%ls (player %ls)	%ls (玩家 %ls)
+Player %ls	玩家 %ls
+%ls wins	%ls 获胜
+%ls (the others have only units that cannot attack)	%ls (其余玩家只剩无法攻击的单位)
+%ls of player %d is the last unit standing	%ls，玩家 %d 最后剩下的单位
+No winner: %d unit is out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
+No winner: %d units are out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
+%ls after %ls game seconds	%ls，共 %ls 游戏秒
+%ls %d	%ls %d
+Lost (minerals + gas): %ls	损失（矿物 + 瓦斯）：%ls
+=All	=总计
+%d unit was out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d 个单位超出攻击范围: 没有敌人能接近或攻击它（孤岛、只有空中或地面武器、或隐形）
+%d units were out of reach: no enemy could get to it or attack it (an island, only air or ground weapons, or cloaked)	%d 个单位超出攻击范围: 没有敌人能接近或攻击它们（孤岛、只有空中或地面武器、或隐形）
+Fastest, with the map's upgrades; every unit fights every other unit; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；每个单位与其他所有单位交战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; the map's forces fight each other; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；地图的势力之间互相交战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; the human players fight the computer players; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；人类玩家对战电脑玩家；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; each player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；每个玩家单独作战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+Fastest, with the map's upgrades; the computer players are allies, each other player fights alone; each unit attacks the enemies it can reach until none are left, for 10 game minutes at most.	最快，使用地图的升级；电脑玩家结盟，其他每个玩家单独作战；每个单位攻击它能到达的敌人，直到没有敌人为止，最多 10 游戏分钟。
+%ls lost nothing	%ls 没有损失
+%ls traded %ls to 1	%ls 以 %ls 比 1 交换
+%ls wins (%ls has only units that cannot attack)	%ls 获胜（%ls 只剩无法攻击的单位）
+Fastest, no upgrades or research; each side attack-moves to the other's middle, for 2 game minutes at most.	最快，无升级或研究；双方各自向对方的中央攻击移动，最多 2 游戏分钟。
+Base %d	基地 %d
+Base %d (start)	基地 %d（起始）
+%ls minerals a minute	每分钟 %ls 矿物
+Mining: %ls minerals and %ls gas a minute	采矿: 每分钟矿物 %ls，瓦斯 %ls
+%d workers on minerals and %d on gas at each base, %d game minute at Fastest	每个基地 %d 名工人采矿、%d 名采瓦斯，最快速度 %d 游戏分钟
+%d workers on minerals and %d on gas at each base, %d game minutes at Fastest	每个基地 %d 名工人采矿、%d 名采瓦斯，最快速度 %d 游戏分钟
+%d workers on minerals and none on gas at each base, %d game minute at Fastest	每个基地 %d 名工人采矿、不采瓦斯，最快速度 %d 游戏分钟
+%d workers on minerals and none on gas at each base, %d game minutes at Fastest	每个基地 %d 名工人采矿、不采瓦斯，最快速度 %d 游戏分钟
+The simulation cannot start: %ls	无法开始模拟: %ls
+StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 是爱好者制作的工具，并非由 Blizzard Entertainment 制作、批准或认可。
+StarCraft is a trademark of Blizzard Entertainment.	StarCraft 是 Blizzard Entertainment 的商标。
+stored as %u (1/256 hit points)	存储为 %u（1/256 生命值）

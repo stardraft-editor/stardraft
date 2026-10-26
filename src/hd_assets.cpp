@@ -1,12 +1,13 @@
 #include "stardraft/hd_assets.h"
 
 #include <algorithm>
-
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
 #include "byteio.h"
 #include "stardraft/game_data.h"
+#include "stardraft/sprites.h"
 #include "stardraft/tileset.h"
 
 namespace stardraft {
@@ -151,6 +152,68 @@ bool loadHdTiles(const GameData& data, uint16_t era, GraphicsQuality quality, Hd
         }
         out.tiles.push_back(std::move(tex.data));
         p += 12 + size;
+    }
+    return true;
+}
+
+bool loadHdGrp(const GameData& data, const std::string& sdPath, const Grp& sd, GraphicsQuality quality, AnimImage& out,
+               std::string& error, bool carbot) {
+    if (sdPath.size() < 4 || sd.frames.empty()) return error = sdPath + ": no SD frames", false;
+    const std::string base = sdPath.substr(0, sdPath.size() - 4) + ".dds.grp";  // ("tileset\badlands.grp")
+    const std::string hd2 = quality == GraphicsQuality::HD2 ? "HD2\\" : "";
+    std::string name = hd2 + "Carbot\\" + base;
+    Bytes d;
+    if (!carbot || !data.readFile(name, d, error)) {
+        name = hd2 + base;
+        if (!data.readFile(name, d, error)) return false;
+    }
+    // u32 file size, u16 frame count, u16 version, then each frame: u32 0, u16 width, u16 height, u32 size, a DDS file.
+    if (d.size() < 8) return error = name + ": too small", false;
+    const uint16_t count = readU16(d, 4);
+    std::vector<DdsTexture> frames;
+    frames.reserve(count);
+    for (size_t i = 0, p = 8; i < count; ++i) {
+        const size_t size = p + 12 <= d.size() ? readU32(d, p + 8) : 0;
+        DdsTexture tex;
+        if (!size || p + 12 + size > d.size() || !tex.parse(std::span(d).subspan(p + 12, size)) ||
+            (!frames.empty() && tex.format != frames.front().format) || tex.width % 4 || tex.height % 4)
+            return error = name + ": bad frame " + std::to_string(i), false;
+        frames.push_back(std::move(tex));
+        p += 12 + size;
+    }
+    if (frames.size() < sd.frames.size()) return error = name + ": fewer frames than the SD GRP", false;  // (SD then)
+    // One texture: a cell for each frame, in rows; the blocks copied as they are (no decoding).
+    int cell = 4;
+    for (const DdsTexture& f : frames) cell = std::max({cell, f.width, f.height});
+    const int cols = int(std::ceil(std::sqrt(double(frames.size())))), rows = int((frames.size() + size_t(cols) - 1) / size_t(cols));
+    DdsTexture& tex = out.diffuse;
+    tex.format = frames.front().format;
+    tex.width = cols * cell, tex.height = rows * cell;
+    const size_t blockBytes = tex.blockBytes(), rowBytes = size_t(tex.width / 4) * blockBytes;
+    tex.data.assign(rowBytes * size_t(tex.height / 4), 0);  // (BC3: zero blocks are transparent)
+    if (tex.format == DdsTexture::BC1)  // (BC1: transparent blocks, two equal colors and every texel 3)
+        for (size_t b = 0; b < tex.data.size(); b += blockBytes) std::memset(&tex.data[b + 4], 0xFF, 4);
+    out.texScale = quality == GraphicsQuality::HD2 ? 0.5f : 1.0f;
+    const float full = 1.0f / out.texScale;  // full-HD pixels per texel
+    out.boxWidth = sd.width * 4, out.boxHeight = sd.height * 4;
+    out.boxGuessed = false;
+    out.teamColor = {};
+    out.frames.clear();
+    for (size_t i = 0; i < frames.size(); ++i) {
+        const DdsTexture& f = frames[i];
+        const int cx = int(i % size_t(cols)) * cell, cy = int(i / size_t(cols)) * cell;
+        const size_t frameRow = size_t(f.width / 4) * blockBytes;
+        for (int r = 0; r < f.height / 4; ++r)
+            std::memcpy(&tex.data[size_t(cy / 4 + r) * rowBytes + size_t(cx / 4) * blockBytes], &f.data[size_t(r) * frameRow], frameRow);
+        // A frame has no offset in the file: it sits where the SD frame sits, kept inside the box (an edge at the
+        // bottom or the right of a tile is drawn there).
+        AnimImage::Frame fr;
+        fr.x = uint16_t(cx * full), fr.y = uint16_t(cy * full);
+        fr.width = uint16_t(f.width * full), fr.height = uint16_t(f.height * full);
+        const Grp::Frame* s = i < sd.frames.size() ? &sd.frames[i] : nullptr;
+        fr.xOff = int16_t(std::clamp(s ? s->x * 4 : 0, 0, std::max(0, out.boxWidth - fr.width)));
+        fr.yOff = int16_t(std::clamp(s ? s->y * 4 : 0, 0, std::max(0, out.boxHeight - fr.height)));
+        out.frames.push_back(fr);
     }
     return true;
 }

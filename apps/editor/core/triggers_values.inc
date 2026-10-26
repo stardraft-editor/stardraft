@@ -232,6 +232,18 @@ void trigEditParam(TrigParamHit h) {
         if (type->picker == TriggerPicker::UnitFilter)
             for (int g = 229; g <= 232; ++g) items.push_back({trigUnitGroupName(g), L"Groups", std::to_string(g)});
         for (auto& it : trigPerPlayerItems("UnitType")) items.push_back(it);
+        // Each player's value of a player array of unit types, and the number variables (GitHub #140).
+        for (const auto& [name, node] : gTE.set.variables()) {
+            const auto k = node->variable.kind;
+            if (k == TriggerVariable::Kind::PerPlayer && node->variable.holds == "UnitType")
+                for (int p = 0; p < 8; ++p) {
+                    wchar_t label[160];
+                    std::swprintf(label, 160, tr(L"%ls of Player %d"), widen(name).c_str(), p + 1);
+                    items.push_back({label, L"Player arrays", name + "[" + std::to_string(p) + "]"});
+                }
+            else if (k == TriggerVariable::Kind::Number || k == TriggerVariable::Kind::Constant)
+                items.push_back({widen(name), L"Variables", name});
+        }
         for (const auto& u : paletteUnits(appState())) items.push_back({u.label, u.section, std::to_string(u.value), "units", u.value});
         got = trigPopList(L"Search unit types", items, value, at, picked);
         break;

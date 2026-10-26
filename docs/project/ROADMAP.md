@@ -27,11 +27,14 @@ Accelerated improvements, and the missing features based on early user feedback.
   that the map shows.
 
   Done (2026-10-18): the Tiles grid draws each tile in the map's art, SD, HD or Carbot (tilesPixels in views_tiles.inc).
-- [ ] **R8 Preplaced unit graphics.** *Tag:* EUD.
+- [x] **R8 Preplaced unit graphics.** *Tag:* EUD.
   Preplaced units show the graphics from the map's data edits.
 
   The game makes preplaced units before the map's data edits run. These units keep the game's graphics. Make them
   again at map start.
+
+  Done (2026-10-24): released in 0.7. Units of a type above 227 and units on or past the map's edge also stay in the
+  map with the old graphics (Create Unit cannot make them as the map does).
 
   Status (2026-10-23): on main. The Project page option "New graphics for preplaced units" shows the units with the new
   graphics on the map. Build takes these units out of the map that euddraft gets (the project's map does not change),
@@ -293,12 +296,22 @@ Exploring how to enable the next evolution of StarCraft creations.
 
   StarDraft 2 reads only the game's own files. Mappers cannot use the files of a mod. Modders are not a group in
   README.md yet.
-- [ ] **R41 Game simulation.** *Tag:* Capability.
+- [x] **R41 Game simulation.** *Tag:* Capability.
   Simulate the game in StarDraft 2, without StarCraft. Move units and tell them to stop or attack, and see who wins a
   fight. See the resources, the supply and the unit counts change over time, with a log of each event and its time.
 
   To balance custom units and economies, mappers must play test games in StarCraft. It needs a simulation of the game
   itself, so it waits for that.
+
+  Done (2026-10-25), the first version: released in 0.7 as experimental. Tools > Simulate melee mining (each base's
+  minerals and gas a minute) and Simulate combat (the selected units fight; who wins, the losses and the trade), shown
+  live on the map with speed controls, also with an EUD project's .dat edits. The rest is R64.
+- [ ] **R64 Simulation orders and timeline.** *Tag:* Capability.
+  Give the simulated units orders by hand (move, stop, attack), and see the resources, the supply and the unit counts
+  change over time, with a log of each event and its time.
+
+  The first simulation (R41) plays set situations only: melee mining, and a fight of the selected units. Mappers
+  cannot try their own plan, and they see the result only at the end.
 - [ ] **R45 Map publishing.** *Tag:* Capability.
   Upload a map to [scmscx.com](https://scmscx.com) from StarDraft 2.
 

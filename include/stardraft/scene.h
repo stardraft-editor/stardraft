@@ -32,6 +32,14 @@ struct SpriteDraw {
     bool tintRed = false; // highlight (e.g. a placement that is not allowed)
     bool ground = false;  // drawn on the ground under every unit, above shadows (selection circles)
     bool glow = false;    // additive-looking glow (images.dat draw function 9): brightness is its opacity
+    bool terrain = false; // part of the terrain (the creep edges): drawn first, under every other sprite
+    // The images.dat draw function, as the game draws it: 2-7 cloak (it bends what is under it), 8 EMP shockwave,
+    // 9 glow and 10 shadow (as `glow` and `shadow`), 11 not drawn (the health bar), 12 warp texture, 16 hallucination,
+    // 17 warp flash; the others as a usual image.
+    int drawFunction = 0;
+    // The draw function's state (the game's modifier data): cloaking and decloaking 0..8, the warp texture's frame,
+    // the warp flash 48..63. -1: the look of a still picture (cloaked, the first frame, the flash at its start).
+    int level = -1;
 };
 
 struct RectDraw {

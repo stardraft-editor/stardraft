@@ -58,7 +58,13 @@ std::wstring datTitle(const std::string& name) {
     return it != titles.end() ? it->second : widen(name);
 }
 
+// A field that the form shows and takes in the game's unit, not as the .dat stores it: hit points (units.dat keeps
+// 1/256 of a hit point). The stored values in one shown unit; 1: as stored.
+uint32_t fieldShownScale(const DatField& f) { return stardraft::datShownScale(f); }  // (dat_units.h: shared with the CLI)
+
 std::wstring fieldValueText(const DatField& f, uint32_t v) {
+    if (const uint32_t k = fieldShownScale(f); k > 1) return widen(stardraft::datShownText(k, v));  // whole ones, or with the part of one
+
     if (!f.flags.empty()) {
         wchar_t b[16];
         std::swprintf(b, 16, f.size == 4 ? L"0x%08X" : f.size == 2 ? L"0x%04X" : L"0x%02X", v);

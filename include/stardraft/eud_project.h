@@ -126,6 +126,8 @@ public:
         int loaded = 0;            // kept: in a transport
         int linked = 0;            // kept: linked to an add-on or a Nydus Canal (or the other unit of the link)
         int noProperty = 0;        // kept: their values need more unit properties than `freeProperties`
+        int codeUnit = 0;          // kept: a unit type above 227 (CreateUnit cannot make it reliably)
+        int edge = 0;              // kept: on or past the map's edge (CreateUnit moves it, fails, or the game stops)
         int properties = 0;        // the unit properties that the code uses
         std::string code;          // generated/remake.eps (empty when it makes no units)
         std::string table;         // generated/remake_units.py: the units' records, which remake.eps imports
@@ -135,9 +137,10 @@ public:
     // one loop over it: the code does not grow with the units. Each different set of values (hit points, shields, energy, resources, hangar, and the states cloaked,
     // burrowed, lifted, hallucination, invincible) is a unit property, one case of CreateUnitWithProperties in the loop;
     // a unit with the default values gets CreateUnit. Units with values that need more than `freeProperties` different
-    // properties stay in the map.
+    // properties stay in the map. So do units of a type above 227, and (with the map's size in tiles, not 0) units whose
+    // box (a building's: also its placement box) is on or past the map's edge.
     static RemakePlan planRemake(const std::vector<Unit>& units, const UnitTypes& unitTypes, const std::vector<uint16_t>& types,
-                                 int freeProperties = kUnitProperties);
+                                 int freeProperties = kUnitProperties, int mapWidth = 0, int mapHeight = 0);
     // Writes the plan's code (generated/remake.eps and its table, generated/remake_units.py), or removes both when it
     // makes no units.
     bool writeRemakeCode(const RemakePlan& plan, std::string& error);

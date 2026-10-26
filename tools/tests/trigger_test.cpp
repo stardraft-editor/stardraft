@@ -305,6 +305,7 @@ int main(int argc, char** argv) {
     TriggerNode spawnVar = TriggerSet::newVariable("spawnAt", TriggerVariable::Kind::PerPlayer);
     spawnVar.variable.holds = "Location", spawnVar.variable.playerValues = {"1", "1", "1", "1", "1", "1", "1", "1"};
     set.roots[0].children.push_back(spawnVar);
+    set.roots[0].children.push_back(TriggerSet::newVariable("pickType", TriggerVariable::Kind::Number));  // a unit type in a number (GitHub #140)
     {  // A text variable changed while the game runs (a StringBuffer), then shown inside a Display text.
         TriggerNode texts = TriggerSet::newTrigger("Texts");
         TriggerCall setT = make("act.text.set"), addT = make("act.text.add"), clearT = make("act.text.clear"), show = make("act.showtext");
@@ -516,6 +517,8 @@ int main(int argc, char** argv) {
     more.actions.push_back(block("act.lb.goalcontrol", {"Marines", "0", "20"}));
     more.actions.push_back(block("act.lb.goalcontrolat", {"Hill", "229", "64", "10"}));
     more.actions.push_back(block("act.createunit", {"1", "heroType", "spawnAt", "current"}));
+    more.actions.push_back(block("act.createunit", {"1", "heroType[2]", "spawnAt", "current"}));  // Player 3's (GitHub #140)
+    more.actions.push_back(block("act.createunit", {"1", "pickType", "spawnAt", "current"}));
     more.actions.push_back(block("act.lb.goalresources", {"Richest", "Ore", "5000"}));
     more.actions.push_back(block("act.nextscenario", {"Chapter 2"}));
     more.actions.push_back(block("act.wireframe", {"0", "37"}));
@@ -877,6 +880,8 @@ int main(int argc, char** argv) {
     check(code.find("PVariable(list($U(\"Terran Marine\"), $U(\"Zerg Zergling\"), $U(\"Protoss Zealot\"), 228, 228, 228, 228, 228))") != std::string::npos &&
               code.find("PVariable(list(1, 1, 1, 1, 1, 1, 1, 1))") != std::string::npos && code.find("[getcurpl()], ") != std::string::npos,
           "per player: unit types and locations with a default value for each player; a block takes the current player's");
+    check(code.find("CreateUnit(1, v_heroType[2], ") != std::string::npos && code.find("CreateUnit(1, v_pickType, ") != std::string::npos,
+          "a unit type from one player's value of a player array, and from a number variable (GitHub #140)");
     {  // and they come back from triggers.json
         TriggerSet back;
         std::string e2;

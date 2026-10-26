@@ -14,7 +14,9 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -25,7 +27,14 @@
 #include "stardraft/classic_settings.h"
 #include "stardraft/classic_triggers.h"
 #include "stardraft/dat_edit.h"
+#include "stardraft/dat_extras.h"
+#include "stardraft/dat_units.h"
 #include "stardraft/editor.h"
+#include "stardraft/campaign.h"
+#include "stardraft/eud_project.h"
+#include "stardraft/euddraft.h"
+#include "stardraft/project_build.h"
+#include "stardraft/pathing_regions.h"
 #include "stardraft/game_data.h"
 #include "stardraft/isom.h"
 #include "stardraft/map_file.h"
@@ -155,7 +164,7 @@ struct Args {
 
 // The options that take no value.
 bool isFlag(const std::string& name) {
-    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths"})
+    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths", "gas"})
         if (name == f) return true;
     return false;
 }
@@ -477,9 +486,12 @@ Json unitSettingsJson(const Editor& ed, bool all);
 Json upgradeSettingsJson(const Editor& ed, bool all);
 Json techSettingsJson(const Editor& ed, bool all);
 std::string entryLabel(const std::string& dat, int i);
+Json moreGet(const Editor& ed, const std::string& what, bool& known);  // (map_more.inc)
 
 Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
     if (what == "summary") return summary(ed);
+    bool more = false;
+    if (Json j = moreGet(ed, what, more); more) return j;
     Json a = jarr();
     if (what == "units") {
         for (size_t i = 0; i < ed.units().size(); ++i) {
@@ -655,11 +667,14 @@ Editor::SelectShape selectShape(const Json& op) {
 }
 
 #include "map_parts.inc"
+#include "map_more.inc"
+#include "tools.inc"
 
 // One operation; returns what it did (an object) or fails.
 Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai) {
     const std::string name = op.str("op");
     if (std::optional<Json> done = applyMapPartOp(ed, name, op, ai)) return *done;
+    if (std::optional<Json> done = applyMoreOp(ed, name, op)) return *done;
     Obj r;
     if (name == "place_unit") {
         const uint16_t type = unitTypeId(ed, need(op, "type"), "type");
@@ -734,7 +749,7 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
         return r.add("deleted", int(d.size()));
     }
     if (name == "place_sprite") {
-        if (!ed.placeSprite(uint16_t(num(op, "sprite")), int(num(op, "x")), int(num(op, "y")), uint8_t(player(op, "player", 12))))
+        if (!ed.placeSprite(spriteId(num(op, "sprite"), "sprite"),int(num(op, "x")), int(num(op, "y")), uint8_t(player(op, "player", 12))))
             fail("the sprite cannot go there");
         return r.add("index", int(ed.sprites().size()) - 1);
     }
@@ -1144,6 +1159,9 @@ struct Session {
     Timer timer;
     GameData data;
     bool dataOpen = false;
+    bool serving = false;        // serve: a request cannot read the ops from stdin (the next requests are on it)
+    std::string installWord;     // serve: the --install the game data was opened with (later requests must agree)
+    bool installKnown = false;
     std::unique_ptr<Editor> ed;
 
     // The map of a target as it is now: the working folder's current step when it is open, else the map file.
@@ -1282,6 +1300,10 @@ std::vector<ArchiveFile> mapFiles(const Work& w) {
     return files;
 }
 
+// The editor's map archive holds the map's files for an open map (its working step is a bare scenario), so the editor's
+// sound logic sees them: the imported sounds are files of the map, not game sounds.
+void loadMapFiles(Editor& ed, const Work& w) { ed.setArchiveFiles(mapFiles(w)); }
+
 // import <project file> <parent folder> <name>: an EUD Editor 2 (.e2s) or euddraft (.eds, .edd) project into a new
 // StarDraft project (roadmap R52), and what did and did not come in.
 Json cmdImport(Session& s) {
@@ -1334,6 +1356,7 @@ Json cmdAddFile(Session& s) {
 Json cmdGet(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
     Editor& ed = s.load(t);
+    if (t.open) loadMapFiles(ed, loadWork(t));
     std::vector<std::string> parts(s.args.positional.begin() + 1, s.args.positional.end());
     if (parts.empty()) parts.push_back("summary");
     const int step = std::max(32, int(std::strtol(s.args.get("step", "128").c_str(), nullptr, 10)));
@@ -1343,6 +1366,14 @@ Json cmdGet(Session& s) {
             Json a = jarr();
             for (const ArchiveFile& f : mapFiles(loadWork(t))) a.items.push_back(Obj().add("name", f.name).add("bytes", double(f.data.size())));
             o.add(p, a);
+            continue;
+        }
+        if (p == "pathing") {
+            o.add(p, pathingJson(ed));
+            continue;
+        }
+        if (p == "triggers" && s.args.has("find")) {  // the classic triggers that have the text
+            o.add(p, filterTriggers(getWhat(ed, p, step, false), s.args.get("find")));
             continue;
         }
         o.add(p, getWhat(ed, p, step, s.args.has("all")));
@@ -1360,7 +1391,10 @@ Json cmdApply(Session& s) {
     }
     const std::string src = s.args.positional[1];
     std::string text;
-    if (src == "-") text.assign(std::istreambuf_iterator<char>(std::cin), {});
+    if (src == "-") {
+        if (s.serving) fail("\"-\" (stdin) is not a source in a request: put the operations in \"ops\"");
+        text.assign(std::istreambuf_iterator<char>(std::cin), {});
+    }
     else if (!src.empty() && (src[0] == '[' || src[0] == '{')) text = src;
     else text = readText(upath(src));
     const Json doc = parseJson(text, "the operations");
@@ -1368,10 +1402,28 @@ Json cmdApply(Session& s) {
     if (!ops || ops->type != Json::Type::Array) fail("the operations must be a list, or an object with \"ops\": [...]");
 
     Editor& ed = s.load(t);
+    if (t.open) loadMapFiles(ed, w);
     const Json* opt = doc.type == Json::Type::Object ? doc.get("options") : nullptr;
     if (opt) {
         ed.setAllowIllegalUnits(opt->boolean("units_anywhere", false));
         ed.setAllowStacking(opt->boolean("stacking", false));
+        ed.setResourceDistance(opt->boolean("resource_distance", true));
+        // The symmetry of the edits (the editor's Symmetry tool): mirrors, and turns (1: none, 2: a half turn...).
+        int mirrors = 0;
+        if (const Json* m = opt->get("mirrors")) {
+            if (m->type != Json::Type::Array) fail("options.mirrors must be a list");
+            for (const Json& v : m->items) {
+                if (v.type != Json::Type::String) fail("options.mirrors: names, as left_right");
+                const std::string n = lower(v.s);
+                if (n == "left_right") mirrors |= Mirror::LeftRight;
+                else if (n == "top_bottom") mirrors |= Mirror::TopBottom;
+                else if (n == "diagonal") mirrors |= Mirror::Diagonal;
+                else if (n == "anti_diagonal") mirrors |= Mirror::AntiDiagonal;
+                else fail("options.mirrors: left_right, top_bottom, diagonal or anti_diagonal");
+            }
+        }
+        ed.setMirrors(mirrors);
+        ed.setTurns(opt->integer("turns", 1));
     }
     const Bytes before = ed.chk().serialize();
     std::vector<ClassicAiScript> ai;  // (only trigger operations need them)
@@ -1554,7 +1606,30 @@ const char* kOps = R"OPS([
   {"op": "set_unit_settings", "params": {"unit": "type", "hit_points": "number", "shields": "number", "armor": "number", "build_time": "frames", "minerals": "number", "gas": "number", "name": "text (the unit's name in this map)", "use_default": "bool", "available": "bool (for all players)", "players": "{\"1\": true|false|null (null: the default), ...}"}},
   {"op": "set_upgrade_settings", "params": {"upgrade": "id or name", "minerals": "", "minerals_per_level": "", "gas": "", "gas_per_level": "", "time": "frames", "time_per_level": "", "use_default": "bool", "max_level": "number", "start_level": "number", "players": "{\"1\": {max_level, start_level} | null}"}},
   {"op": "set_tech_settings", "params": {"tech": "id or name", "minerals": "", "gas": "", "time": "frames", "energy": "", "use_default": "bool", "available": "bool", "researched": "bool", "players": "{\"1\": {available, researched} | null}"}},
-  {"op": "resize_map", "params": {"width": "tiles", "height": "tiles", "tileset": "badlands | platform | install | ashworld | jungle | desert | ice | twilight", "shift_x": "tiles", "shift_y": "tiles", "fill": "terrain for new ground"}}
+  {"op": "resize_map", "params": {"width": "tiles", "height": "tiles", "tileset": "badlands | platform | install | ashworld | jungle | desert | ice | twilight", "shift_x": "tiles", "shift_y": "tiles", "fill": "terrain for new ground"}},
+  {"op": "set_switch_name", "params": {"switch": "1-256", "name": "text (\"\" takes the name away)"}, "result": {"changed": "bool"}},
+  {"op": "set_string", "params": {"string": "id (get strings)", "text": "text"}, "result": {"changed": "bool"}},
+  {"op": "add_sound", "params": {"path": "sound\\x.wav: a game sound the map plays by its path"}, "result": {"added": "bool (false: a file of the map with that name, or it is listed)"}},
+  {"op": "remove_sound", "params": {"path": "as add_sound"}, "result": {"removed": "bool"}},
+  {"op": "decorate", "params": {"level": "few | some | many (default some), or spacing: tiles between the doodads", "doodads": "[doodad id] (default: the palette's doodads that take tiles)", "area": "[left, top, right, bottom] px (default: the map)", "seed": "number"}, "result": {"placed": "number"}},
+  {"op": "spray_units", "params": {"types": "[unit type]", "player": "1-12", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number"}, "result": {"placed": "number"}},
+  {"op": "spray_doodads", "params": {"doodads": "[doodad id]", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number", "check_terrain": "bool, default true"}, "result": {"placed": "number"}},
+  {"op": "spray_sprites", "params": {"sprites": "[sprites.dat id]", "player": "1-12", "x": "px", "y": "px", "radius": "px", "count": "number", "seed": "number", "grid": "px snap of each sprite, 0: none"}, "result": {"placed": "number"}},
+  {"op": "spray_terrain", "params": {"terrain": "id or name", "x": "px", "y": "px", "brush": "as paint_terrain", "dabs": "number, default 1", "seed": "number"}},
+  {"op": "reroll_terrain", "params": {"x": "px", "y": "px", "brush": "as paint_terrain", "seed": "number"}, "result": {"changed": "number"}},
+  {"op": "replace_doodads", "params": {"doodads": "[index]", "to": "doodad id", "check_terrain": "bool, default true"}, "result": {"replaced": "number"}},
+  {"op": "replace_sprites", "params": {"sprites": "[index]", "to": "sprites.dat id"}, "result": {"replaced": "number"}},
+  {"op": "place_map_revealers", "params": {"players": "[1-8]", "spacing": "tiles between the revealers, default 8"}, "result": {"placed": "number"}},
+  {"op": "remove_map_revealers", "result": {"removed": "number"}},
+  {"op": "place_start_locations", "result": {"placed": "number: the start locations that StarCraft needs and the map lacks"}},
+  {"op": "link_units", "params": {"units": "[serial, serial]: two add-ons or a nydus pair"}},
+  {"op": "copy_units", "params": {"units": "[serial]"}, "result": {"copied": "number"}},
+  {"op": "cut_units", "params": {"units": "[serial]"}, "result": {"cut": "number"}},
+  {"op": "paste_units", "params": {"x": "px (the group's center)", "y": "px", "player": "1-12: the owner of the pasted units (optional)", "correct": "bool, default true"}, "result": {"pasted": "number"}},
+  {"op": "duplicate_units", "params": {"units": "[serial] (optional: copied first)", "x": "px", "y": "px", "player": "optional", "correct": "bool, default true"}, "result": {"pasted": "number"}},
+  {"op": "copy_terrain", "params": {"area": "[left, top, right, bottom] px", "shape": "rect | diamond | ellipse", "units": "bool: the units in it too", "doodads": "bool: the doodads in it too"}},
+  {"op": "paste_terrain", "params": {"x": "px (the clipboard's top-left corner, snapped)", "y": "px", "correct": "bool, default true"}, "result": {"pasted": "bool"}},
+  {"op": "copy_players", "params": {"from": "a map file: its players and forces replace this map's"}}
 ])OPS";
 
 const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps without a window.
@@ -1566,7 +1641,8 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli get <map> [part...]         JSON: summary (default), units, doodads, sprites, locations, players,
                                             forces, terrain [--step px], terrains, unit-types, doodad-types,
                                             triggers, briefings, files, unit-settings, upgrade-settings,
-                                            tech-settings ([--all]: also those that use the game's values)
+                                            tech-settings ([--all]: also those that use the game's values),
+                                            switches, strings, sounds
   stardraft-cli apply <map> <ops>           apply operations (a file, - for stdin, or JSON text) as one undo step
                     [--expect <change>] [--dry-run] [--label <text>]
   stardraft-cli undo <map> [--steps n]      go back one step (or n)
@@ -1580,6 +1656,18 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
   stardraft-cli trigger-types               the trigger conditions and actions, with their parameters
+  stardraft-cli project-new <folder> <name> <map>  an EUD project (its map is copied in)
+  stardraft-cli project <project> [--section n]    the project's scripts, flags and sections (or one section's lines)
+  stardraft-cli project-apply <project> <ops>      add_script, link_script, remove_section, move_script, set_section,
+                                                   set_plugin, set_flags, set_output (saved when all of them work)
+  stardraft-cli project-build <project>            the Build: the generated files, the map, then euddraft (JSON result)
+  stardraft-cli project-triggers <project> [--path 2.0]  the EUD triggers (the blocks), or one node
+  stardraft-cli project-triggers-apply <project> <ops>   add_folder, add_trigger, add_variable, set_node, delete_node,
+                                                   move_node, add_block, set_block, delete_block (saved when all work)
+  stardraft-cli project-data <project> [table | strings] [--entry n] [--index n]
+                                                   the Data workspace: the tables, a table's fields or an entry's values
+  stardraft-cli project-data-apply <project> <ops> set_field, reset_field, set_string, reset_string (all or none)
+  stardraft-cli serve                       requests on stdin, one JSON line each: {"argv": [...], "ops": ...}
 
 Positions are map pixels (a tile is 32 px). Players are 1-12, forces 1-4, locations by their number.
 <map> is the map file, or its working folder. After `open`, get, apply and render work on the working copy.
@@ -1589,66 +1677,145 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 
 }  // namespace
 
-static int run(std::vector<std::string> argv) {
-    Session s;
+#ifdef STARDRAFT_SIMULATION
+#include "simulate.inc"  // simulate-mining, simulate-combat (experimental)
+#endif
+
+#include "project.inc"
+#include "data.inc"
+#include "triggers.inc"
+
+// The options and the positional words of one command line (also of a serve request's "argv").
+static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
     for (size_t i = 1; i < argv.size(); ++i) {
         const std::string& a = argv[i];
         if (a.size() > 1 && a[0] == '-' && a != "-") {
             std::string name = a.substr(a[1] == '-' ? 2 : 1);
             if (const size_t eq = name.find('='); eq != std::string::npos) {
-                s.args.options[name.substr(0, eq)] = name.substr(eq + 1);
+                args.options[name.substr(0, eq)] = name.substr(eq + 1);
             } else if (isFlag(name)) {
-                s.args.options[name] = "";
+                args.options[name] = "";
             } else {
-                if (i + 1 >= argv.size()) {
-                    std::printf("%s\n", jsonText(Obj().add("ok", false).add("error", "--" + name + " needs a value")).c_str());
-                    return 2;
-                }
-                s.args.options[name] = argv[++i];
+                if (i + 1 >= argv.size()) fail("--" + name + " needs a value");
+                args.options[name] = argv[++i];
             }
-        } else if (s.args.command.empty()) {
-            s.args.command = a;
+        } else if (args.command.empty()) {
+            args.command = a;
         } else {
-            s.args.positional.push_back(a);
+            args.positional.push_back(a);
         }
+    }
+}
+
+// One command with its arguments in s.args: the JSON object it writes (throws CliError on an error).
+static Json execute(Session& s) {
+    const std::string& c = s.args.command;
+    s.timer.on = s.args.has("timing");
+    if (c == "ops") return Obj().add("ops", parseJson(kOps, "the operation list"));
+    if (c == "trigger-types") return triggerTypesJson();
+    if (c == "project-new") return cmdProjectNew(s);
+    if (c == "project") {
+        if (s.args.positional.empty()) fail("project needs a project (stardraft-cli help)");
+        return cmdProject(s);
+    }
+    if (c == "project-apply") return cmdProjectApply(s);
+    if (c == "project-build") return cmdProjectBuild(s);
+    if (c == "project-triggers") return cmdProjectTriggers(s);
+    if (c == "project-triggers-apply") return cmdProjectTriggersApply(s);
+    if (c == "project-data") return cmdProjectData(s);
+    if (c == "project-data-apply") return cmdProjectDataApply(s);
+    if (c == "campaign-new") return cmdCampaignNew(s.args);
+    if (c == "campaign") return cmdCampaign(s.args);
+    if (c == "campaign-apply") return cmdCampaignApply(s.args);
+    if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
+    if (c == "open") return cmdOpen(s);
+    if (c == "status") return cmdStatus(s);
+    if (c == "new") return cmdNew(s);
+    if (c == "add-file") return cmdAddFile(s);
+    if (c == "import") return cmdImport(s);
+    if (c == "get") return cmdGet(s);
+    if (c == "apply") return cmdApply(s);
+    if (c == "undo") return cmdUndoRedo(s, true);
+    if (c == "redo") return cmdUndoRedo(s, false);
+    if (c == "save") return cmdSave(s);
+    if (c == "close") return cmdClose(s);
+    if (c == "render") return cmdRender(s);
+#ifdef STARDRAFT_SIMULATION
+    if (c == "simulate-mining") return cmdSimulateMining(s);
+    if (c == "simulate-combat") return cmdSimulateCombat(s);
+#endif
+    fail("unknown command \"" + c + "\" (stardraft-cli help)");
+}
+
+// The answer of a command: {"ok": true, ...} with the fields of its result.
+static Json answer(const Json& result) {
+    Obj out;
+    out.add("ok", true);
+    for (auto& f : result.fields) out.add(f.first, f.second);
+    return out;
+}
+static Json failure(const std::string& error) { return Obj().add("ok", false).add("error", error); }
+
+// serve: one JSON request per line on stdin, one JSON answer per line on stdout (docs/dev/CLI.md). A request is
+// {"argv": ["apply", "<map>"], "ops": <the operations, for apply>}: the command and its words as on the command line.
+// The game data stays open between the requests.
+static int serve(Session& s) {
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        if (line.find_first_not_of(" \t\r") == std::string::npos) continue;
+        Json out;
+        try {
+            const Json req = parseJson(line, "the request");
+            const Json* words = req.get("argv");
+            if (!words || words->type != Json::Type::Array || words->items.empty()) fail("a request needs \"argv\": [command, ...]");
+            std::vector<std::string> argv{"stardraft-cli"};
+            for (const Json& w : words->items) {
+                if (w.type != Json::Type::String) fail("every word of \"argv\" must be a string (write numbers as text)");
+                argv.push_back(w.s);
+            }
+            s.args = Args{};
+            s.serving = true;
+            parseCommandLine(argv, s.args);
+            if (s.args.command == "serve" || s.args.command == "help") fail("\"" + s.args.command + "\" is not a request");
+            if (s.args.has("install") && s.installKnown && s.args.get("install") != s.installWord)
+                fail("the game data is open from another --install: start `serve` again for it");
+            if (const Json* ops = req.get("ops")) {
+                if (s.args.positional.size() != 1) fail("\"ops\" needs argv with the command and the map only");
+                s.args.positional.push_back(jsonText(*ops));
+            }
+            out = answer(execute(s));
+        } catch (const std::exception& e) {
+            out = failure(e.what());
+        }
+        // The game data is open from this request's --install, also when the request then failed.
+        if (s.dataOpen && !s.installKnown) s.installKnown = true, s.installWord = s.args.get("install");
+        std::printf("%s\n", jsonText(out).c_str());
+        std::fflush(stdout);
+    }
+    return 0;
+}
+
+static int run(std::vector<std::string> argv) {
+    Session s;
+    try {
+        parseCommandLine(argv, s.args);
+    } catch (const std::exception& e) {
+        std::printf("%s\n", jsonText(failure(e.what())).c_str());
+        return 2;
     }
     const std::string& c = s.args.command;
     if (c.empty() || c == "help" || s.args.has("help")) {
         std::fputs(kUsage, stdout);
         return c.empty() ? 2 : 0;
     }
-    s.timer.on = s.args.has("timing");
-    Json result;
+    if (c == "serve") return serve(s);
     try {
-        if (c == "ops") {
-            result = Obj().add("ops", parseJson(kOps, "the operation list"));
-        } else if (c == "trigger-types") {
-            result = triggerTypesJson();
-        } else {
-            if (s.args.positional.empty()) fail(c + " needs a map (stardraft-cli help)");
-            if (c == "open") result = cmdOpen(s);
-            else if (c == "status") result = cmdStatus(s);
-            else if (c == "new") result = cmdNew(s);
-            else if (c == "add-file") result = cmdAddFile(s);
-            else if (c == "import") result = cmdImport(s);
-            else if (c == "get") result = cmdGet(s);
-            else if (c == "apply") result = cmdApply(s);
-            else if (c == "undo") result = cmdUndoRedo(s, true);
-            else if (c == "redo") result = cmdUndoRedo(s, false);
-            else if (c == "save") result = cmdSave(s);
-            else if (c == "close") result = cmdClose(s);
-            else if (c == "render") result = cmdRender(s);
-            else fail("unknown command \"" + c + "\" (stardraft-cli help)");
-        }
+        std::printf("%s\n", jsonText(answer(execute(s))).c_str());
+        return 0;
     } catch (const std::exception& e) {
-        std::printf("%s\n", jsonText(Obj().add("ok", false).add("error", e.what())).c_str());
+        std::printf("%s\n", jsonText(failure(e.what())).c_str());
         return 1;
     }
-    Obj out;
-    out.add("ok", true);
-    for (auto& f : result.fields) out.add(f.first, f.second);
-    std::printf("%s\n", jsonText(out).c_str());
-    return 0;
 }
 
 #ifdef _WIN32

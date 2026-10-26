@@ -2,6 +2,73 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.7
+
+### New
+
+- The simulation is an experimental, early feature. It is StarDraft's own approximation of how StarCraft plays,
+  not the game itself, so its results can differ from the game. It will take more adjustments to get it right: when
+  something looks wrong, use Report feedback in the simulation's bar.
+- Simulate melee mining (experimental): Tools > Simulate melee mining plays a melee game on the map with workers at
+  each start location, and gives the minerals and gas a minute of each base, its race and each field's round trip.
+  The bar's gear sets the workers on minerals and on gas.
+
+  ![Simulate melee mining: a Zerg base with its workers, on creep](images/0.7/simulate-mining.png)
+- Simulate combat (experimental): select units in Units mode, then Tools > Simulate combat of the selected units.
+  The units fight on the map; the report gives the winner, the time, each side's losses and the trade. The bar's gear
+  sets who fights whom: the computers together, the map's forces, humans against computers, free for all, or every
+  unit against every other.
+
+  ![Simulate combat: Marines and Medics against Zealots and Dragoons, with the bar](images/0.7/simulate-combat.png)
+- While a simulation plays: speed from 0.25x to 64x, Skip to the end, Restart, the report, and Report feedback. Units,
+  attacks, hit effects, deaths, burning buildings and creep show as in the game, with the game's sounds.
+- In an EUD project, the simulation plays with the project's .dat edits: custom units, weapons and graphics fight and
+  mine as you set them up.
+- Video of the simulation, mining and combat, also with EUD changes: https://youtu.be/CVhCDOOUxCM
+
+  ![The report of Simulate melee mining: each base's minerals and gas a minute](images/0.7/simulation-report.png)
+
+### Map
+
+- View > Layers > Creep: the creep of the map's Zerg buildings, with the soft creep edges of the tileset, in SD, HD2,
+  HD and Carbot. The creep moves with a building while you drag it.
+
+  ![Creep around a Hatchery, with soft edges](images/0.7/creep.png)
+- Mineral fields show how much is left, as in the game: full from 750 minerals, fewer crystals below that.
+- Tools is a menu of its own: the map checks, doodads where they fit, the map revealers and the simulation.
+- Paste units (Ctrl+V): press 1 to 9 to give the copy to that player before you place it. Paste lets the selected
+  units go.
+
+### Triggers
+
+- The unit type of Create units (and the other blocks with a unit type) can come from a number variable, a constant,
+  or one player's value of a player array of unit types ("heroType of Player 3").
+
+### Data
+
+- New graphics for preplaced units (Project page): preplaced units whose graphics the .dat edits change are made
+  again at the start of the map, in their places, for their owners and with their values, so they show the new
+  graphics. Units in a transport, linked to an add-on or a Nydus Canal, of a type above 227, or on the map's edge keep
+  the old graphics; the Log says how many and why.
+- Hit points show and are typed in hit points (40 for the Marine), not in 1/256 of a hit point as units.dat
+  stores them. The arrows and the mouse wheel step one hit point.
+- The map shows each unit's image with the draw function that images.dat gives it, as the game draws it: cloaked,
+  cloaking and decloaking, EMP shockwave, glow, shadow, warp texture, hallucination and warp flash. A change in Data
+  shows on the map at once.
+
+  ![A Dragoon with each draw function, from 0 to 17](images/0.7/draw-functions.png)
+- Help: the .dat pages tell what more fields, flags and values do in the game, with new pages for sfxdata.dat and
+  portdata.dat (wording from the StarCraft DAT page of Darkened Fantasies, with credit).
+
+### The program
+
+- Terrain brush strokes on large maps with many units are about 3 times as fast (a 256x256 map with 5000 units:
+  11 ms a step instead of 39 ms).
+- Switching between map tabs of the same tileset, and opening a second map of that tileset, are about 2 times as fast.
+- The Triggers workspace opens and checks large trigger sets faster (1000 triggers: 0.1 s instead of 0.19 s).
+- About and the README say that StarDraft 2 is a fan-made tool, not made, approved or endorsed by Blizzard
+  Entertainment.
+
 ## 0.6.1.6
 
 ### New
