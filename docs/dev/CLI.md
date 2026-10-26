@@ -49,6 +49,9 @@ refuses: `save --force` writes over it, `save --to` writes another file.
 | `project-apply <project> <ops>` | Operations on the project file: all of them, or none. |
 | `project-data <project> [table \| strings] [--entry n] [--index n]` | The Data workspace: the tables, one table's fields, one entry's values, the strings. |
 | `project-data-apply <project> <ops>` | Field and string edits of the Data workspace: all of them, or none. |
+| `project-build <project>` | The Build: the generated files, the map, then euddraft. See [EUD projects](#eud-projects). |
+| `project-triggers <project> [--path p]` / `project-triggers-apply <project> <ops>` | The EUD triggers as JSON, and their edits. See [EUD triggers](#eud-triggers). |
+| `campaign-new <folder> <name>` / `campaign <folder>` / `campaign-apply <folder> <ops>` | A campaign: its maps, their order and its name. |
 | `serve` | Requests on stdin, one JSON answer per line. See [serve](#serve). |
 
 `<map>` is the map file or its working folder. Positions are map pixels (a tile is 32 px). Players are 1-12 (12:
@@ -175,7 +178,22 @@ anywhere on disk), `remove_section` (`section`), `move_script` (`section`, `delt
 `lines`), `set_plugin` (`section`, `on`), `set_flags` (`freeze`, `debug`, `trace`, `remake_units`: bools) and `set_output`
 (`path`). They are saved with the project file when all of them work.
 
-Not yet: Build. The editor's Build writes the trigger code, the Data code and the map with its own steps (see Parity).
+`project-build <project>` runs the Build: the generated files (the triggers' code, the .dat and extras code, the remake code),
+the map that euddraft gets, then euddraft. The answer has `built`, `output`, `errors`, `warnings`, `remake` and the `log`
+lines. It can take a while. The EUD triggers: see [EUD triggers](#eud-triggers).
+
+## EUD triggers
+
+`project-triggers <p>` gives the categories (0 Definitions, 1 On map start, 2 On every trigger cycle) with their folders,
+triggers and variables. A trigger has its `conditions` and `actions`, each a block: `{"block": "act.showtext", "args":
+{"text": "Hello"}, "enabled": true, "lists": [...]}`. The parameters are named as the block library names them. `--path 2.1`
+gives one node. The block ids are in the block library (`src/data/trigger_blocks.inc`).
+
+`project-triggers-apply <p> <ops>`: `add_folder` and `add_trigger` (`parent`: a category name or number, or a node path;
+`name`), `add_variable` (`kind`: number, flag, per player, array, unit, constant, text, unit group), `set_node` (`path` and
+the fields to change), `delete_node`, `move_node` (`path`, `parent`, `index`), `add_block` (`path`, `list`: conditions or
+actions, `index`, `block`, `in`), `set_block` and `delete_block` (`path`, `list`, `index`, `in`). `in` gives the way into a
+container: `[[list, index], ...]`.
 
 ## The Data workspace
 
@@ -223,18 +241,19 @@ commands `core/map_commands.inc`, the pages `sdl_map_pages.inc`, `sdl_briefing.i
 | Area | Editor | CLI |
 | --- | --- | --- |
 | Units | place, move, delete, set hit points, shields, energy, resources, hangar; player; spray; replace type; link add-ons | Yes (`place_unit`, `move_units`, `set_units`, `spray_units`, `replace_units`, `link_units`) |
-| Units: copy, paste, duplicate, cut, select all | Yes | No: the clipboard lives in one editor session; `serve` could keep it (next step) |
+| Units: copy, paste, duplicate, cut | Yes | Yes (`copy_units`, `cut_units`, `paste_units`, `duplicate_units`); the clipboard lasts for one `apply` |
+| Doodads and sprites: copy, paste | Yes | Part: doodads with `copy_terrain` (`doodads: true`); a sprite clipboard is not in the library: place the sprites again |
 | Doodads | place, spray, replace, move, delete, check terrain, decorate | Yes (`place_doodad`, `move_doodad`, `delete_doodads`, `spray_doodads`, `replace_doodads`, `decorate`) |
 | Sprites | place, move, delete, spray, replace | Yes (`place_sprite`, `move_sprite`, `delete_sprites`, `spray_sprites`, `replace_sprites`) |
 | Terrain | paint (brush), spray, fill, replace, tiles, reroll | Yes (`paint_terrain`, `paint_area`, `fill_terrain`, `replace_terrain`, `place_tiles`, `spray_terrain`, `reroll_terrain`) |
-| Terrain copy: units and doodads in a copy | options | No: part of copy and paste (see above) |
+| Terrain copy: units and doodads in a copy | options | Yes (`copy_terrain` with `units` and `doodads`; `paste_terrain`) |
 | Symmetry (mirrors, turns) | Symmetry tool | Yes (apply options) |
 | Locations | create, edit, name, elevations, delete | Yes (`create_location`, `set_location`, `delete_location`) |
 | Start locations | place, check before save | Part: `place_start_locations`; `save` does not ask |
-| Players and forces | controller, race, force, color, names, flags; copy all | Yes (`set_player`, `set_force`); copy all: No (set each player) |
+| Players and forces | controller, race, force, color, names, flags; copy all | Yes (`set_player`, `set_force`, `copy_players` from another map) |
 | Map properties | name, description, size, tileset, terrain map | Yes (`set_scenario`, `resize_map`) |
 | Map revealers | place, remove, show or hide | Part: place and remove; the hide flag is a view setting |
-| Classic triggers | add, edit, delete, move, find | Yes (add, set, delete, move); find: No |
+| Classic triggers | add, edit, delete, move, find | Yes (add, set, delete, move; `get triggers --find text`) |
 | Briefings | edit, sounds, portraits | Yes (`set_briefings`, `add_briefing`, `add-file`) |
 | Unit, upgrade, tech settings | edit per player | Yes (`set_unit_settings`, `set_upgrade_settings`, `set_tech_settings`) |
 | Switch names | (the editor shows them; it has no field to set them) | Yes (`set_switch_name`), a new library function |
@@ -243,21 +262,37 @@ commands `core/map_commands.inc`, the pages `sdl_map_pages.inc`, `sdl_briefing.i
 | Undo and redo | history, jump to a step | Yes (`undo --steps`, `redo --steps`); the history: `status` |
 | Render, export image | picture of the map | Yes (`render`) |
 | Check that StarCraft can start the map | problems list | Part: `summary` lists the problems |
-| Pathing check (nooks and crannies) | report | No: not done |
+| Pathing check (nooks and crannies) | report | Yes (`get pathing`: the problems, their boxes and the pocket fixes; the editor's list and its fix on the map are the editor's) |
 | Simulate mining, combat (experimental) | tools | Part: `simulate-mining`, `simulate-combat` (when built with STARDRAFT_SIMULATION) |
-| Campaign: new, open, show | File menu | No: not done (`campaign.h` is the library's) |
+| Campaign: new, open, show, add a map | File menu | Yes (`campaign-new`, `campaign`, `campaign-apply`: `add_map`, `set_name`); remove a map: No (the library has no remove) |
 | EUD projects: new, open, import, make from map | File and Project menus | Yes (`project-new`, `project`, `import`); "make a project from a map": `project-new` copies the map |
 | Project scripts: add, link, remove, move, plugins, flags | Project page | Yes (`project-apply`) |
-| Project build | Build (Ctrl+B) | No: the build writes the trigger code, the Data code and the map with the editor's steps (`apps/editor/core/project_build.inc`). Next: move those steps into the library |
-| EUD triggers (blocks) | Triggers workspace | No: needs the block model (`triggers.h`) in the CLI; next |
-| Data: unit, weapon, flingy, sprite, image and other .dat fields | Data workspace | Yes (`project-data`, `project-data-apply`) |
+| Project build | Build (Ctrl+B) | Yes (`project-build`: the same steps as the editor, then euddraft; the answer has the log). The editor's questions (start locations, the playability) are the editor's; the CLI reports the playability as warnings |
+| EUD triggers (blocks) | Triggers workspace | Yes (`project-triggers`, `project-triggers-apply`); the checker's problems are not listed by the CLI (the build reports them) |
+| Data: unit, weapon, flingy, sprite, image and other .dat fields | Data workspace | Yes (`project-data`, `project-data-apply`; hit points in whole hit points, as the editor shows them) |
 | Data: entries' names and choices | Data workspace | Part: choices by name; reference fields and flag names take numbers |
 | Data: strings (stat_txt) | Data strings | Yes (`project-data-apply`: `set_string`, `reset_string`) |
-| Data: buttons, requirements, unit looks | Data pages | No: the library has them (`dat_extras.h`); the same pattern as the fields. Next |
+| Data: buttons, requirements, unit looks | Data pages | Yes (`project-data` and `project-data-apply`: `set_buttons`, `set_requirements`, `set_unit_look`) |
 | Files workspace: maps, pictures | yes | Part: `add-file`, `files` |
 | Options, themes, language, help, updates, log, palette, workspace layout, zoom, grid, layers | UI | Out of scope: they are not map or project data |
 | Snap rules of the cursor (tiles, half and quarter tiles) | UI | Out of scope: the CLI takes exact positions |
 | Quick picker, search, drag and drop | UI | Out of scope |
 
-Moved into the library for this work: `Editor::spraySprites` (the sprite spray was page code in the editor,
-`core/map_edit.inc`; the editor calls it now, with the same steps).
+Moved from the editor into the library (the editor calls the library now, with the same steps):
+
+- `Editor::spraySprites`: the sprite spray (`core/map_edit.inc`).
+- `Editor::setSwitchName`, `Editor::setMapString`: new.
+- The shown hit points: `datShownScale`, `datShownText`, `datRawFromShown` (`dat_units.h`, from `core/views_data.inc` and
+  `views_data_entry.inc`).
+- The Build of a project: `prepareBuild`, `compileBuild`, `triggerMapInfo`, `freeUnitProperties`,
+  `projectRemakeUnitTypes` (`src/project_build.cpp`, `include/stardraft/project_build.h`; from `core/project_build.inc`
+  and `core/triggers_model.inc`). The editor keeps its questions, its log, its workspaces' reloads and the trigger code map.
+
+Not done, and why:
+
+- Sprite clipboard: the library has no sprite clipboard; a sprite is placed again with `place_sprite`.
+- Campaign: remove a map (the library has no remove).
+- The editor's Build questions (start locations, playability) are the editor's; `project-build` reports the playability.
+- The editor's GUI build was built, not run: the same steps as before, checked by the CLI build on a test project.
+- Triggers from the CLI: the checker's problems are not listed (`check` needs the map's data); the build reports them.
+- The remake plan and the new graphics work the same in the CLI; the CLI build was run on a project without them.
