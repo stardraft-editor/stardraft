@@ -194,7 +194,9 @@ range, a bad name or a bad entry stops the command: nothing is saved. The files 
 `serve` reads one request for each line on stdin and writes one JSON answer for each line on stdout. A request is
 `{"argv": ["get", "<map>", "units"]}`, the words of a command line (the options are words too: `["apply", "<map>",
 "--label", "text"]`). An `apply` takes its operations in the request: `{"argv": ["apply", "<map>"], "ops": [...]}`. The
-game data stays open between the requests. A bad request gives `{"ok": false, "error": ...}` and the next line is read.
+game data stays open between the requests, so a later request must name the same `--install` (or none) as the first one.
+A request cannot read its operations from stdin (`-`): it puts them in `"ops"`. A bad request gives `{"ok": false,
+"error": ...}` and the next line is read.
 
 ## Parity with the editor
 

@@ -64,39 +64,51 @@ static Json cmdProject(Session& s) {
 // are all or none).
 static void applyProjectOp(EudProject& pr, const Json& op) {
     const std::string name = op.str("op");
+    // A section name (a script's path, a plugin such as MSQC): it must be given.
+    auto sectionOf = [&]() {
+        const std::string s = textOf(op, "section");
+        if (s.empty()) fail("\"section\" cannot be empty");
+        return s;
+    };
     if (name == "add_script") {
-        const std::string path = op.str("path");
+        const std::string path = textOf(op, "path");
         if (path.empty()) fail("missing \"path\"");
         pr.addScript(path);
     } else if (name == "link_script") {
-        const std::string path = op.str("path");
+        const std::string path = textOf(op, "path");
         if (path.empty()) fail("missing \"path\"");
         const fs::path file = upath(path);
         std::error_code ec;
         if (!fs::is_regular_file(file, ec)) fail("no script file " + path);
         pr.linkScript(file);
     } else if (name == "remove_section") {
-        const std::string section = op.str("section");
+        const std::string section = sectionOf();
         if (!pr.removeSection(section)) fail("no section \"" + section + "\" to remove");
     } else if (name == "move_script") {
-        const std::string section = op.str("section");
+        const std::string section = sectionOf();
         const int delta = int(num(op, "delta"));
         if (delta != -1 && delta != 1) fail("\"delta\" must be -1 or 1");
         if (!pr.moveScript(section, delta)) fail("\"" + section + "\" cannot move that way");
     } else if (name == "set_section") {
+        const std::string section = sectionOf();
         std::vector<std::string> lines;
-        for (const Json& l : need(op, "lines").items) lines.push_back(l.s);
-        pr.setSectionLines(op.str("section"), lines);
+        for (const Json& l : arrayOf(op, "lines")) {
+            if (l.type != Json::Type::String) fail("\"lines\" must be text lines");
+            lines.push_back(l.s);
+        }
+        if (lines.empty()) fail("\"lines\" cannot be empty (remove_section takes a section away)");
+        pr.setSectionLines(section, lines);
     } else if (name == "set_plugin") {
-        pr.setPlugin(op.str("section"), op.boolean("on", true));
+        pr.setPlugin(sectionOf(), op.boolean("on", true));
     } else if (name == "set_flags") {
         if (op.get("freeze")) pr.setFreeze(op.boolean("freeze", true));
         if (op.get("debug")) pr.setDebugBuild(op.boolean("debug", false));
         if (op.get("trace")) pr.setTraceBuild(op.boolean("trace", false));
         if (op.get("remake_units")) pr.setRemakeUnits(op.boolean("remake_units", false));
     } else if (name == "set_output") {
-        if (op.str("path").empty()) fail("missing \"path\"");
-        pr.setOutputMap(upath(op.str("path")));
+        const std::string path = textOf(op, "path");
+        if (path.empty()) fail("missing \"path\"");
+        pr.setOutputMap(upath(path));
     } else {
         fail("unknown project op \"" + name + "\": add_script, link_script, remove_section, move_script, set_section, set_plugin, set_flags, set_output");
     }
@@ -107,6 +119,7 @@ static Json cmdProjectApply(Session& s) {
     EudProject pr = openProject(s.args.positional[0]);
     const std::string src = s.args.positional[1];
     const bool inlineText = !src.empty() && (src[0] == '[' || src[0] == '{');
+    if (src == "-" && s.serving) fail("\"-\" (stdin) is not a source in a request: put the operations in \"ops\"");
     std::string text = inlineText ? src : src == "-" ? std::string(std::istreambuf_iterator<char>(std::cin), {}) : readText(upath(src));
     const Json doc = parseJson(text, "the operations");
     const Json* ops = doc.type == Json::Type::Array ? &doc : doc.get("ops");
