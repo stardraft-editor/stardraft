@@ -6,7 +6,8 @@
 
 // `get` parts: switches (the names), strings (the map string table), sounds (the sound files the map names by path).
 // known: false when `what` is not one of them.
-Json moreGet(const Editor& ed, const std::string& what, bool& known) {
+// `files`: the map's files when the map is open (the working step is a scenario only): else the editor's own.
+Json moreGet(const Editor& ed, const std::string& what, bool& known, const std::vector<ArchiveFile>* files) {
     known = true;
     Json a = jarr();
     if (what == "switches") {
@@ -21,7 +22,7 @@ Json moreGet(const Editor& ed, const std::string& what, bool& known) {
         }
     } else if (what == "sounds") {
         for (const std::string& path : ed.soundReferences()) a.items.push_back(Obj().add("path", path).add("kind", "game"));
-        for (const ArchiveFile& f : ed.archiveFiles())
+        for (const ArchiveFile& f : files ? *files : ed.archiveFiles())
             if (lower(f.name).size() > 4 && lower(f.name).compare(lower(f.name).size() - 4, 4, ".wav") == 0)
                 a.items.push_back(Obj().add("path", f.name).add("kind", "file").add("bytes", double(f.data.size())));
     } else {
@@ -50,9 +51,28 @@ std::vector<uint16_t> decorateDoodads(const Editor& ed) {
     return ids;
 }
 
+// A text field: it must be given and be text. (An empty text is a value only when it is written as "".)
+std::string textOf(const Json& op, const char* k) {
+    const Json& v = need(op, k);
+    if (v.type != Json::Type::String) fail(std::string("\"") + k + "\" must be text");
+    return v.s;
+}
+// A list field: it must be given and be a list.
+const std::vector<Json>& arrayOf(const Json& op, const char* k) {
+    const Json& v = need(op, k);
+    if (v.type != Json::Type::Array) fail(std::string("\"") + k + "\" must be a list");
+    return v.items;
+}
+// A sprite id (sprites.dat, the kinds of sprites the map can hold).
+uint16_t spriteId(double v, const char* k) {
+    const DatSchema* sc = DatSchema::find("sprites");
+    if (v < 0 || !sc || v >= sc->entries) fail(std::string("\"") + k + "\": no sprite " + std::to_string(int(v)));
+    return uint16_t(v);
+}
+
 std::vector<uint16_t> idList(const Editor& ed, const Json& op, const char* k) {
     std::vector<uint16_t> ids;
-    for (const Json& v : need(op, k).items) ids.push_back(unitTypeId(ed, v, k));
+    for (const Json& v : arrayOf(op, k)) ids.push_back(unitTypeId(ed, v, k));
     return ids;
 }
 
@@ -71,21 +91,21 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
     if (name == "set_switch_name") {
         const int s = int(num(op, "switch"));
         if (s < 1 || s > 256) fail("\"switch\" must be 1-256");
-        return r.add("changed", ed.setSwitchName(s - 1, op.str("name")));
+        return r.add("changed", ed.setSwitchName(s - 1, textOf(op, "name")));
     }
     if (name == "set_string") {
         const uint32_t id = uint32_t(num(op, "string"));
         if (id < 1 || id > ed.strings().size()) fail("no map string " + std::to_string(id) + " (see `get strings`)");
-        return r.add("changed", ed.setMapString(id, op.str("text")));
+        return r.add("changed", ed.setMapString(id, textOf(op, "text")));
     }
     if (name == "add_sound") {
-        const std::string path = op.str("path");
+        const std::string path = textOf(op, "path");
         if (path.empty()) fail("missing \"path\"");
         const size_t before = ed.soundReferences().size();
         ed.addSoundReference(path);
         return r.add("added", ed.soundReferences().size() != before);  // (a file of the map is not added: it is there already)
     }
-    if (name == "remove_sound") return r.add("removed", ed.removeSoundReference(op.str("path")));
+    if (name == "remove_sound") return r.add("removed", ed.removeSoundReference(textOf(op, "path")));
     if (name == "decorate") {
         // Doodads where they fit the terrain, over the area (default: the map), with the given doodads (default: the palette's).
         const std::vector<uint16_t> ids = op.get("doodads") ? doodadIds(ed, op, "doodads") : decorateDoodads(ed);
@@ -106,7 +126,7 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
     }
     if (name == "spray_sprites") {
         std::vector<uint16_t> ids;
-        for (double v : nums(need(op, "sprites"), "sprites")) ids.push_back(uint16_t(v));
+        for (double v : nums(need(op, "sprites"), "sprites")) ids.push_back(spriteId(v, "sprites"));
         const int n = ed.spraySprites(ids, uint8_t(player(op, "player", 12)), float(num(op, "x")), float(num(op, "y")), int(num(op, "radius")),
                                       int(num(op, "count")), uint32_t(num(op, "seed", 1)), int(num(op, "grid", 0)));
         return r.add("placed", n);
@@ -130,7 +150,7 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
     }
     if (name == "replace_sprites") {
         const std::vector<int> s = indices(op, "sprites", ed.sprites().size());
-        return r.add("replaced", ed.replaceSprites(s, uint16_t(num(op, "to"))));
+        return r.add("replaced", ed.replaceSprites(s, spriteId(num(op, "to"), "to")));
     }
     if (name == "place_map_revealers") {
         std::vector<uint8_t> owners;

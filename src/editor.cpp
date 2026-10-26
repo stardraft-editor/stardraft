@@ -3126,14 +3126,8 @@ bool Editor::setSwitchName(int index, const std::string& text) {
     names.resize(256 * 4, 0);
     const size_t at = size_t(index) * 4;
     beginEdit();
-    uint32_t id = uint32_t(names[at] | names[at + 1] << 8 | names[at + 2] << 16 | uint32_t(names[at + 3]) << 24);
-    if (text.empty()) {
-        id = 0;
-    } else if (id && id <= strings_.size()) {
-        strings_.set(id, text);  // (the name's own string, as the unit names are kept: setUnitSettings)
-    } else {
-        id = strings_.add(text);
-    }
+    // A new string each time: another switch or a trigger may use the old one (its id can be shared).
+    const uint32_t id = text.empty() ? 0 : strings_.add(text);
     for (int b = 0; b < 4; ++b) names[at + size_t(b)] = uint8_t(id >> (8 * b));
     strings_.write(chk_);
     chk_.set("SWNM", std::move(names));

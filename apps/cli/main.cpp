@@ -481,7 +481,7 @@ Json unitSettingsJson(const Editor& ed, bool all);
 Json upgradeSettingsJson(const Editor& ed, bool all);
 Json techSettingsJson(const Editor& ed, bool all);
 std::string entryLabel(const std::string& dat, int i);
-Json moreGet(const Editor& ed, const std::string& what, bool& known);  // (map_more.inc)
+Json moreGet(const Editor& ed, const std::string& what, bool& known, const std::vector<ArchiveFile>* files = nullptr);  // (map_more.inc)
 
 Json getWhat(Editor& ed, const std::string& what, int step, bool all) {
     if (what == "summary") return summary(ed);
@@ -743,7 +743,7 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
         return r.add("deleted", int(d.size()));
     }
     if (name == "place_sprite") {
-        if (!ed.placeSprite(uint16_t(num(op, "sprite")), int(num(op, "x")), int(num(op, "y")), uint8_t(player(op, "player", 12))))
+        if (!ed.placeSprite(spriteId(num(op, "sprite"), "sprite"),int(num(op, "x")), int(num(op, "y")), uint8_t(player(op, "player", 12))))
             fail("the sprite cannot go there");
         return r.add("index", int(ed.sprites().size()) - 1);
     }
@@ -1153,6 +1153,9 @@ struct Session {
     Timer timer;
     GameData data;
     bool dataOpen = false;
+    bool serving = false;        // serve: a request cannot read the ops from stdin (the next requests are on it)
+    std::string installWord;     // serve: the --install the game data was opened with (later requests must agree)
+    bool installKnown = false;
     std::unique_ptr<Editor> ed;
 
     // The map of a target as it is now: the working folder's current step when it is open, else the map file.
@@ -1348,6 +1351,12 @@ Json cmdGet(Session& s) {
     const int step = std::max(32, int(std::strtol(s.args.get("step", "128").c_str(), nullptr, 10)));
     Obj o = Obj(fileInfo(t));
     for (const std::string& p : parts) {
+        if (p == "sounds" && t.open) {  // the working step is a scenario only: the map's files come from the map file
+            bool known = false;
+            const std::vector<ArchiveFile> files = mapFiles(loadWork(t));
+            o.add(p, moreGet(ed, p, known, &files));
+            continue;
+        }
         if (p == "files" && t.open) {  // the working folder's, with the added ones
             Json a = jarr();
             for (const ArchiveFile& f : mapFiles(loadWork(t))) a.items.push_back(Obj().add("name", f.name).add("bytes", double(f.data.size())));
@@ -1369,7 +1378,10 @@ Json cmdApply(Session& s) {
     }
     const std::string src = s.args.positional[1];
     std::string text;
-    if (src == "-") text.assign(std::istreambuf_iterator<char>(std::cin), {});
+    if (src == "-") {
+        if (s.serving) fail("\"-\" (stdin) is not a source in a request: put the operations in \"ops\"");
+        text.assign(std::istreambuf_iterator<char>(std::cin), {});
+    }
     else if (!src.empty() && (src[0] == '[' || src[0] == '{')) text = src;
     else text = readText(upath(src));
     const Json doc = parseJson(text, "the operations");
@@ -1384,8 +1396,10 @@ Json cmdApply(Session& s) {
         ed.setResourceDistance(opt->boolean("resource_distance", true));
         // The symmetry of the edits (the editor's Symmetry tool): mirrors, and turns (1: none, 2: a half turn...).
         int mirrors = 0;
-        if (const Json* m = opt->get("mirrors"))
+        if (const Json* m = opt->get("mirrors")) {
+            if (m->type != Json::Type::Array) fail("options.mirrors must be a list");
             for (const Json& v : m->items) {
+                if (v.type != Json::Type::String) fail("options.mirrors: names, as left_right");
                 const std::string n = lower(v.s);
                 if (n == "left_right") mirrors |= Mirror::LeftRight;
                 else if (n == "top_bottom") mirrors |= Mirror::TopBottom;
@@ -1393,6 +1407,7 @@ Json cmdApply(Session& s) {
                 else if (n == "anti_diagonal") mirrors |= Mirror::AntiDiagonal;
                 else fail("options.mirrors: left_right, top_bottom, diagonal or anti_diagonal");
             }
+        }
         ed.setMirrors(mirrors);
         ed.setTurns(opt->integer("turns", 1));
     }
@@ -1722,12 +1737,22 @@ static int serve(Session& s) {
             const Json* words = req.get("argv");
             if (!words || words->type != Json::Type::Array || words->items.empty()) fail("a request needs \"argv\": [command, ...]");
             std::vector<std::string> argv{"stardraft-cli"};
-            for (const Json& w : words->items) argv.push_back(w.s);
+            for (const Json& w : words->items) {
+                if (w.type != Json::Type::String) fail("every word of \"argv\" must be a string (write numbers as text)");
+                argv.push_back(w.s);
+            }
             s.args = Args{};
+            s.serving = true;
             parseCommandLine(argv, s.args);
             if (s.args.command == "serve" || s.args.command == "help") fail("\"" + s.args.command + "\" is not a request");
-            if (const Json* ops = req.get("ops")) s.args.positional.push_back(jsonText(*ops));
+            if (s.args.has("install") && s.installKnown && s.args.get("install") != s.installWord)
+                fail("the game data is open from another --install: start `serve` again for it");
+            if (const Json* ops = req.get("ops")) {
+                if (s.args.positional.size() != 1) fail("\"ops\" needs argv with the command and the map only");
+                s.args.positional.push_back(jsonText(*ops));
+            }
             out = answer(execute(s));
+            if (s.dataOpen && !s.installKnown) s.installKnown = true, s.installWord = s.args.get("install");
         } catch (const std::exception& e) {
             out = failure(e.what());
         }

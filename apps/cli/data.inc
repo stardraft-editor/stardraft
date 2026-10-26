@@ -146,7 +146,7 @@ void applyDataOp(DataEdits& d, const Json& op) {
         const int i = int(num(op, "index"));
         if (i < 0 || i >= d.strings.count()) fail("no string " + std::to_string(i));
         if (name == "reset_string") d.strings.reset(i);
-        else d.strings.set(i, op.str("text"));
+        else d.strings.set(i, textOf(op, "text"));
         d.stringsChanged = true;
     } else {
         fail("unknown data op \"" + name + "\": set_field, reset_field, set_string, reset_string");
@@ -172,6 +172,7 @@ static Json cmdProjectDataApply(Session& s) {
     if (!s.dataOpen) openGameData(s.data, s.args.get("install")), s.dataOpen = true;
     const std::string src = s.args.positional[1];
     const bool inlineText = !src.empty() && (src[0] == '[' || src[0] == '{');
+    if (src == "-" && s.serving) fail("\"-\" (stdin) is not a source in a request: put the operations in \"ops\"");
     const std::string text = inlineText ? src : src == "-" ? std::string(std::istreambuf_iterator<char>(std::cin), {}) : readText(upath(src));
     const Json doc = parseJson(text, "the operations");
     const Json* ops = doc.type == Json::Type::Array ? &doc : doc.get("ops");
