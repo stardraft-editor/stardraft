@@ -6,8 +6,9 @@
 
 // `get` parts: switches (the names), strings (the map string table), sounds (the sound files the map names by path).
 // known: false when `what` is not one of them.
-// `files`: the map's files when the map is open (the working step is a scenario only): else the editor's own.
-Json moreGet(const Editor& ed, const std::string& what, bool& known, const std::vector<ArchiveFile>* files) {
+// The sounds list the editor's own: its map archive holds the map's files (loadMapFiles for an open map), so a file of the
+// map is listed as a file, not also as a game sound.
+Json moreGet(const Editor& ed, const std::string& what, bool& known) {
     known = true;
     Json a = jarr();
     if (what == "switches") {
@@ -22,7 +23,7 @@ Json moreGet(const Editor& ed, const std::string& what, bool& known, const std::
         }
     } else if (what == "sounds") {
         for (const std::string& path : ed.soundReferences()) a.items.push_back(Obj().add("path", path).add("kind", "game"));
-        for (const ArchiveFile& f : files ? *files : ed.archiveFiles())
+        for (const ArchiveFile& f : ed.archiveFiles())
             if (lower(f.name).size() > 4 && lower(f.name).compare(lower(f.name).size() - 4, 4, ".wav") == 0)
                 a.items.push_back(Obj().add("path", f.name).add("kind", "file").add("bytes", double(f.data.size())));
     } else {
@@ -105,7 +106,12 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
         ed.addSoundReference(path);
         return r.add("added", ed.soundReferences().size() != before);  // (a file of the map is not added: it is there already)
     }
-    if (name == "remove_sound") return r.add("removed", ed.removeSoundReference(textOf(op, "path")));
+    if (name == "remove_sound") {
+        const std::string path = textOf(op, "path");
+        // A file of the map is not a game sound: its WAV entry goes with the file (add-file --remove).
+        if (ed.archiveFile(path)) fail("\"" + path + "\" is a file of the map: take it out with add-file --remove");
+        return r.add("removed", ed.removeSoundReference(path));
+    }
     if (name == "decorate") {
         // Doodads where they fit the terrain, over the area (default: the map), with the given doodads (default: the palette's).
         const std::vector<uint16_t> ids = op.get("doodads") ? doodadIds(ed, op, "doodads") : decorateDoodads(ed);

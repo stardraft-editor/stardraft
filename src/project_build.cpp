@@ -47,7 +47,10 @@ std::vector<std::unique_ptr<DatTable>> loadProjectTables(const GameData& data, c
 
 // The triggers as the build has them: the editor's (when given and loaded), else the file's (`report.triggersFromFile`).
 bool writeTriggerCode(EudProject& pr, const Editor& ed, const TriggerSet* inMemory, BuildReport& report, std::string& err) {
-    TriggerSet set;
+    // The set lives in the report: the code's lines point into its nodes, so it is generated from here and never copied
+    // afterwards (the editor's code map reads those pointers, with this set).
+    TriggerSet& set = report.triggerSet;
+    set = TriggerSet{};
     if (inMemory && !inMemory->loadFailed) set = *inMemory;
     else if (!set.load(triggersFileOf(pr), err)) return err += ". Repair the file, then build again.", false;
     else report.triggersFromFile = true;
@@ -74,7 +77,6 @@ bool writeTriggerCode(EudProject& pr, const Editor& ed, const TriggerSet* inMemo
     std::vector<TriggerCodeLine> lines;
     const std::string code = set.generate(triggerMapInfo(ed), issues, TriggerBuildOptions{pr.debugBuild()}, &lines);
     report.codeGenerated = true;
-    report.triggerSet = set;
     report.triggerLines = lines;  // (the caller keeps the code map: a euddraft error in a line selects its block)
     int errors = 0;
     for (const auto& i : issues)

@@ -94,7 +94,12 @@ Json cmdCampaignApply(const Args& args) {
             const std::string name = op.str("op");
             if (name == "add_map") {
                 if (op.str("file").empty()) fail("missing \"file\"");
-                if (!c.add(upath(op.str("file")))) fail("the map is in the campaign already, or not a file");
+                // A relative path is relative to the working directory, as the command line gives it: the campaign keeps
+                // the absolute one (and writes it relative to its folder when the map is inside it).
+                const fs::path file = fs::absolute(upath(op.str("file")));
+                std::error_code ec;
+                if (!fs::is_regular_file(file, ec)) fail("no map file " + ustr(file));
+                if (!c.add(file)) fail("the map is in the campaign already");
             } else if (name == "set_name") {
                 c.name = textOf(op, "name");
             } else {

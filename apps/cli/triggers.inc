@@ -98,13 +98,17 @@ std::vector<TriggerCall>& blockList(TriggerNode& node, const std::string& list, 
     if (!v) fail("list must be \"conditions\" or \"actions\"");
     if (in) {
         for (const Json& step : *in) {
-            if (step.items.size() != 2) fail("\"in\" steps are [list, index]");
-            const size_t at = size_t(step.items[1].n);
-            if (at >= v->size()) fail("\"in\": no block " + std::to_string(at));
-            TriggerCall& call = (*v)[at];
-            const size_t l = size_t(step.items[0].n);
-            if (call.lists.size() <= l) call.lists.resize(l + 1);
-            v = &call.lists[l];
+            if (step.items.size() != 2 || step.items[0].type != Json::Type::Number || step.items[1].type != Json::Type::Number)
+                fail("\"in\" steps are [list, index]");
+            const double at = step.items[1].n, l = step.items[0].n;
+            if (at < 0 || at >= double(v->size()) || at != std::floor(at)) fail("\"in\": no block " + std::to_string(long long(at)));
+            TriggerCall& call = (*v)[size_t(at)];
+            // The container's lists are the block library's (TriggerDef::lists): a list the block does not have is refused.
+            const TriggerDef* def = TriggerDef::find(call.def);
+            if (!def || l < 0 || l >= double(def->lists.size()) || l != std::floor(l))
+                fail("\"in\": block " + call.def + " has no list " + std::to_string(long long(l)));
+            if (call.lists.size() < def->lists.size()) call.lists.resize(def->lists.size());
+            v = &call.lists[size_t(l)];
         }
     }
     return *v;
