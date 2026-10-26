@@ -1,5 +1,5 @@
 # The release of a tag (.github/workflows/release.yml), from the files of the tested build: dl/stardraft.exe,
-# dl/stardraft.pdb, dl/dmg/*.dmg, dl/appimage/StarDraft-x86_64.AppImage. Run in the tag's checkout (tools/release.py
+# dl/stardraft-cli.exe, dl/stardraft.pdb, dl/dmg/*.dmg, dl/appimage/StarDraft-x86_64.AppImage. Run in the tag's checkout (tools/release.py
 # reads the changelog there).
 #   v<version>:                 the release "StarDraft 2 - v<version> (build <commit>)", marked Latest, and its Discord post.
 #   v<version>-preview.<n>:     a pre-release for early testers (Windows, macOS and Linux), never Latest, no Discord post.
@@ -22,7 +22,7 @@ if ($test) {
   $version = $tag.Substring(1)
 }
 $zip = "StarDraft-$version-win64.zip"
-Compress-Archive -Force -Path dl/stardraft.exe -DestinationPath $zip  # the program only (the notes are on the release page)
+Compress-Archive -Force -Path dl/stardraft.exe, dl/stardraft-cli.exe -DestinationPath $zip  # the programs only (the notes are on the release page)
 # The text: what is new in this version (its changelog section), then the base changelog (what StarDraft is and does,
 # how to start) for new visitors; picture paths become addresses at this tag. tools/release.py makes it, the same text
 # that `release.py notes <version>` shows before a release.

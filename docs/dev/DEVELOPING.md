@@ -304,7 +304,8 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   now); the new program waits for the old one to end and deletes `stardraft.exe.old`. A new program that does not
   start (a damaged download) goes, and the old one is in its place again. A release build also checks at start and
   says so in the status bar. An installed `stardraft.exe` of an older release (the Windows program before the SDL
-  one) gets the new program in this way, as the zip holds only `stardraft.exe`. `stardraft.exe --update-test <zip>
+  one) gets the new program in this way: the program in the zip is `stardraft.exe`. The zip also has
+  `stardraft-cli.exe`, which an update puts beside the program (`placeReleaseCli`). `stardraft.exe --update-test <zip>
   [options]` does the install with a zip on this computer (no network) in a copy of the program in a temporary
   folder: the zip's program starts with the options after the zip (`--snapshot <png> --check update`).
 
