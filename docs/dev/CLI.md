@@ -48,7 +48,7 @@ refuses: `save --force` writes over it, `save --to` writes another file.
 | `close <map> [--discard]` | Removes the working folder. Refused when changes are not saved. |
 | `ops` | The operations with their parameters. |
 | `skill` | The skill for AI agents (`apps/cli/SKILL.md`, in the program): how to work with the CLI. `stardraft-cli skill > SKILL.md` puts it where an agent reads skills. |
-| `feedback "<text>" [--file f] [--dry-run]` | Sends feedback to the developers as a GitHub issue (label `feedback`), with the version and the system; the user folder shows as `~`. `--dry-run` gives the text and sends nothing. A build with no issues token cannot send. |
+| `feedback "<text>" [--file f] [--dry-run]` | Sends feedback to the developers as a GitHub issue (label `feedback`), with the version and the system; the user folder shows as `~` (also as Git Bash and WSL write it). After `--` all words are text. `--dry-run` gives the text and sends nothing. A build with no issues token cannot send. |
 | `trigger-types` | The trigger conditions and actions with their parameters and values. |
 | `project-new <folder> <name> <map>` | A new EUD project; the map is copied in. See [EUD projects](#eud-projects). |
 | `project <project> [--section name]` | The project's scripts, plugins and flags; or the lines of one section. |

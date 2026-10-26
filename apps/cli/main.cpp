@@ -1719,9 +1719,12 @@ Every command writes one JSON object: {"ok": true, ...} or {"ok": false, "error"
 
 // The options and the positional words of one command line (also of a serve request's "argv").
 static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
+    bool words = false;  // after "--": all words are positional (a feedback text that starts with "-")
     for (size_t i = 1; i < argv.size(); ++i) {
         const std::string& a = argv[i];
-        if (a.size() > 1 && a[0] == '-' && a != "-") {
+        if (a == "--" && !words) {
+            words = true;
+        } else if (!words && a.size() > 1 && a[0] == '-' && a != "-") {
             std::string name = a.substr(a[1] == '-' ? 2 : 1);
             if (const size_t eq = name.find('='); eq != std::string::npos) {
                 args.options[name.substr(0, eq)] = name.substr(eq + 1);
@@ -1792,6 +1795,44 @@ static Json answer(const Json& result) {
 }
 static Json failure(const std::string& error) { return Obj().add("ok", false).add("error", error); }
 
+// The user folder (UTF-8: also a name that is not ASCII), or empty.
+static std::string userFolder() {
+#ifdef _WIN32
+    const wchar_t* w = _wgetenv(L"USERPROFILE");
+    return w ? ustr(fs::path(w)) : std::string();
+#else
+    const char* h = std::getenv("HOME");
+    return h ? std::string(h) : std::string();
+#endif
+}
+
+// The text with the user folder as ~, in each way that a path to it is written: C:\Users\name, C:/Users/name, Git
+// Bash's /c/Users/name, WSL's /mnt/c/Users/name; the letters in any case (Windows paths are not case-sensitive).
+static std::string withoutUserFolder(std::string text) {
+    const std::string home = userFolder();
+    if (home.size() <= 3) return text;
+    std::vector<std::string> forms;
+    std::string slash = home;
+    std::replace(slash.begin(), slash.end(), '\\', '/');
+    if (slash.size() > 2 && slash[1] == ':') {  // a drive: C:/Users/name
+        const std::string drive(1, char(std::tolower(static_cast<unsigned char>(slash[0]))));
+        forms.push_back("/mnt/" + drive + slash.substr(2));
+        forms.push_back("/" + drive + slash.substr(2));
+    }
+    forms.push_back(home);
+    forms.push_back(slash);
+    auto lowerAscii = [](std::string v) {
+        for (char& c : v)
+            if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
+        return v;
+    };
+    for (const std::string& f : forms) {
+        const std::string want = lowerAscii(f);
+        for (size_t at; (at = lowerAscii(text).find(want)) != std::string::npos;) text.replace(at, f.size(), "~");
+    }
+    return text;
+}
+
 // feedback "<text>" [--file f] [--dry-run]: files the text as a GitHub issue (label "feedback"), as the editor's
 // Report feedback does, with the version and the system. The user folder shows as ~. --dry-run gives the issue's text
 // and sends nothing.
@@ -1802,12 +1843,13 @@ static Json cmdFeedback(Session& s) {
     std::erase(text, '\r');
     while (!text.empty() && (text.back() == '\n' || text.back() == ' ')) text.pop_back();
     if (text.empty()) fail("usage: stardraft-cli feedback \"<text>\" (or --file <text file>)");
-    for (const char* var : {"USERPROFILE", "HOME"})
-        if (const char* home = std::getenv(var); home && std::strlen(home) > 3)
-            for (std::string h : {std::string(home), fs::path(home).generic_string()})
-                for (size_t at; (at = text.find(h)) != std::string::npos;) text.replace(at, h.size(), "~");
+    text = withoutUserFolder(text);
     std::string summary = text.substr(0, text.find('\n'));
-    if (summary.size() > 60) summary = summary.substr(0, 57) + "...";
+    if (summary.size() > 60) {  // (cut before a whole UTF-8 character: GitHub refuses a broken one)
+        size_t n = 57;
+        while (n > 0 && (static_cast<unsigned char>(summary[n]) & 0xC0) == 0x80) --n;
+        summary = summary.substr(0, n) + "...";
+    }
 #ifdef _WIN32
     const char* system = "Windows";
 #elif defined(__APPLE__)

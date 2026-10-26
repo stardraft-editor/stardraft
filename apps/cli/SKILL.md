@@ -74,4 +74,5 @@ units the editor shows), `check <project>`, then `project-build <project>`. A fa
 
 When stardraft-cli does not do what the user needs, or does it wrong, tell the user. With their consent, send it:
 `stardraft-cli feedback "<what you did, what happened, what you expected>"`. It becomes a GitHub issue for the
-developers. Do not put personal data, maps or file contents in it.
+developers. Do not put personal data, maps or file contents in it. A text that starts with "-" goes after `--`
+(`stardraft-cli feedback -- "--anyway ..."`), or in a file (`--file feedback.txt`).
