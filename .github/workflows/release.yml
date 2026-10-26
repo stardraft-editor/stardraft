@@ -1,7 +1,7 @@
 # The release of a tag, from the files that build.yml built and tested for the same commit:
 #   v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it, with main): the release
 #     "StarDraft 2 - v<version> (build <commit>)", marked Latest, with StarDraft-<version>-win64.zip (stardraft.exe
-#     only: its fonts and icons are in it, so an installed stardraft.exe, also the Windows program of an older release,
+#     and stardraft-cli.exe: the editor's fonts and icons are in it, so an installed stardraft.exe, also the Windows program of an older release,
 #     updates to it); its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base
 #     changelog (its last section, what StarDraft is) for new visitors; a post in Discord with the section's pictures.
 #     The macOS disk image (StarDraft-<version>-macos-arm64.dmg) goes on it when the repository variable RELEASE_MAC is
@@ -123,6 +123,7 @@ jobs:
           # The sha check, once more: the program names this commit (STARDRAFT_COMMIT, cmake/build_info.cmake).
           grep -a -q "${GITHUB_SHA:0:7}" dl/stardraft.exe || { echo "dl/stardraft.exe is not of ${GITHUB_SHA:0:7}"; exit 1; }
           python3 -I tools/ci/pdb_check.py dl/stardraft.exe dl/stardraft.pdb
+          test -f dl/stardraft-cli.exe || { echo "no dl/stardraft-cli.exe"; exit 1; }
 
       - name: Make the release
         shell: pwsh

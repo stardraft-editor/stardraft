@@ -131,18 +131,26 @@ jobs:
           if ($version) { $opts += "-DSTARDRAFT_VERSION_NAME=$version" }
           cmake -S . -B build @opts
 
+      # The editor and the command-line program (stardraft-cli.exe, docs/dev/CLI.md): a release has both.
       - name: Build
-        run: cmake --build build --config Release --target stardraft_editor --parallel
+        run: cmake --build build --config Release --target stardraft_editor stardraft_cli --parallel
+
+      # The command-line program starts and answers (no game data here: `ops` needs none).
+      - name: Check the command-line program
+        shell: bash
+        run: build/Release/stardraft-cli.exe ops | grep -q '"ok": *true'
 
       # stardraft.pdb is the one of this stardraft.exe (the same GUID and age): crash.dmp files open with it.
       - name: Check the symbols
         run: python -I tools/ci/pdb_check.py build/Release/stardraft.exe build/Release/stardraft.pdb
 
-      # The program only: a release is this file (its fonts and icons are in it).
+      # The programs: a release is these files (the editor's fonts and icons are in it).
       - uses: actions/upload-artifact@v4
         with:
           name: stardraft-${{ github.sha }}
-          path: build/Release/stardraft.exe
+          path: |
+            build/Release/stardraft.exe
+            build/Release/stardraft-cli.exe
           if-no-files-found: error
 
       # The symbols of this build: open a crash report's crash.dmp with them (Visual Studio or WinDbg).
@@ -204,7 +212,7 @@ jobs:
 
       - name: Pack the editor
         if: always()
-        run: Compress-Archive -Force -Path build/Release/stardraft.exe -DestinationPath stardraft-windows.zip
+        run: Compress-Archive -Force -Path build/Release/stardraft.exe, build/Release/stardraft-cli.exe -DestinationPath stardraft-windows.zip
 
       - uses: actions/upload-artifact@v4
         if: always()

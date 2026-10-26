@@ -364,12 +364,22 @@ inline bool releaseBuild() { return !issueToken().empty(); }
 
 // The program's file name in a release's download: stardraft.exe on Windows, stardraft on the other systems. On Windows
 // it is the SDL program; an installed Win32 stardraft.exe (a release before the switch) updates to it in the same way
-// (the zip holds stardraft.exe only, which has its fonts and icons in it: shell_sdl_win.inc, embeddedFile).
+// (the zip holds stardraft.exe, which has its fonts and icons in it: shell_sdl_win.inc, embeddedFile, and
+// stardraft-cli.exe: placeReleaseCli).
 inline std::wstring releaseProgramName() {
 #ifdef _WIN32
     return L"stardraft.exe";
 #else
     return L"stardraft";
+#endif
+}
+
+// The command-line program's file name (stardraft-cli.exe on Windows), beside the program in a release's download.
+inline std::wstring releaseCliName() {
+#ifdef _WIN32
+    return L"stardraft-cli.exe";
+#else
+    return L"stardraft-cli";
 #endif
 }
 
@@ -443,12 +453,24 @@ inline std::wstring placeRelease(const fs::path& self, const fs::path& fresh) {
     return {};
 }
 
+// After an update: the download's command-line program (stardraft-cli.exe) goes beside `self`, in place of the one that
+// is there (that one becomes stardraft-cli.exe.old, as the program). False when the download has none or it could not
+// be put there: the program is updated also then.
+inline bool placeReleaseCli(const fs::path& self, const fs::path& dir) {
+    std::error_code ec;
+    const fs::path fresh = dir / releaseCliName(), cli = self.parent_path() / releaseCliName();
+    if (!fs::exists(fresh, ec)) return false;
+    if (fs::exists(cli, ec)) return stardraft::platform::replaceProgram(cli, fresh) == stardraft::platform::Replace::Done;
+    fs::copy_file(fresh, cli, ec);
+    return !ec;
+}
+
 // Puts the new program in place of `self` and starts it (`start`): empty when the new program runs (this one then
 // ends), else the reason. A new program that does not start (a damaged download) goes, and the old program is in its
 // place again: this one goes on.
 inline std::wstring installRelease(const fs::path& self, const fs::path& fresh, const std::function<bool(const fs::path&)>& start) {
     if (const std::wstring failed = placeRelease(self, fresh); !failed.empty()) return failed;
-    if (start(self)) return {};
+    if (start(self)) return placeReleaseCli(self, fresh.parent_path()), std::wstring();
     if (stardraft::platform::restoreProgram(self)) return L"The new program did not start. StarDraft 2 did not change.";
     return tr(L"The new program did not start. The old program is ") + stardraft::platform::oldProgramFile(self).wstring() + L".";
 }
@@ -465,6 +487,7 @@ inline bool removeOldProgram(const fs::path& self) {
     const fs::path old = stardraft::platform::oldProgramFile(self);
     fs::remove(old, ec);
     fs::remove(stardraft::platform::failedProgramFile(self), ec);
+    fs::remove(stardraft::platform::oldProgramFile(self.parent_path() / releaseCliName()), ec);
     return !fs::exists(old, ec);
 }
 
