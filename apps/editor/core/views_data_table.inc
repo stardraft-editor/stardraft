@@ -18,14 +18,19 @@ public:
     virtual draw::Image refIcon(const std::string& dat, uint32_t v) = 0;
     virtual std::wstring note(const DatField& f, uint32_t v) = 0;  // the name of a dropdown's value
     virtual std::vector<ListPickItem> dropdownItems(const DatField& f) = 0;
-    // A dropdown's list under `box` (the view's coordinates) at the value `current`: true with the picked value.
-    virtual bool choose(const DatField& f, uint32_t current, draw::Rect box, uint32_t& out) = 0;
+    // A dropdown's list under `box` (the view's coordinates) at the value `current`, its search holding `search`: true
+    // with the picked value.
+    virtual bool choose(const DatField& f, uint32_t current, draw::Rect box, uint32_t& out, const std::wstring& search = L"") = 0;
     virtual void saved(const std::wstring& what) = 0;  // cells changed: the program saves them (one undo step) and says `what`
     virtual void open(int e) = 0;                      // a row's number double-clicked: the entry's form
     virtual void importCsv() = 0;
     virtual void exportCsv() = 0;
     virtual void status(const std::wstring& text) = 0;
     virtual bool travel(int button) = 0;               // the mouse's back (1) and forward (2) buttons
+    // A menu at `pt` (the view's coordinates); a pick runs `pick` with the item's id.
+    virtual void menu(draw::Point pt, const MenuModel& items, std::function<void(int)> pick) = 0;
+    // The multi-pick list under `pt`: `checked` in, the checks out; false when it was canceled.
+    virtual bool pickMany(const std::wstring& title, std::vector<ListPickItem> items, std::set<std::string>& checked, draw::Point pt) = 0;
 };
 
 class DataTableView final : public draw::View {
@@ -48,6 +53,7 @@ public:
             moveActive(0, back ? -1 : 1, false);
             focus();
         };
+        entry_.field().onChange = [this] { invalidate(); };  // (the other selected cells show the text as it is typed)
     }
 
     // The metrics (scaled).
@@ -56,11 +62,12 @@ public:
     static int headH() { return scale(26); }   // the headers' second row: the column's name
     static int rowH() { return scale(26); }
     static int idW() { return scale(52); }
+    static int footH() { return scale(26); }  // the status bar at the bottom: the active cell's raw value, the selection's sums
 
     // The table's place in the view: under the bar and the headers, left of the vertical bar, over the horizontal bar.
     draw::Rect body() const {
         const int sb = scale(stardraft::kit::kScrollBarW);
-        return {0, barH() + groupH() + headH(), std::max(0, width() - sb), std::max(0, height() - sb)};
+        return {0, barH() + groupH() + headH(), std::max(0, width() - sb), std::max(0, height() - sb - footH())};
     }
     // The text box is open on a cell (the keys are its own).
     bool editing() const { return editing_; }
@@ -82,8 +89,9 @@ public:
 
     void resized() override {
         const int sb = scale(stardraft::kit::kScrollBarW), top = barH() + groupH() + headH();
-        vbar_.setFrame({width() - sb, top, width(), std::max(top, height() - sb)});
-        hbar_.setFrame({0, height() - sb, std::max(0, width() - sb), height()});
+        const int foot = height() - footH();
+        vbar_.setFrame({width() - sb, top, width(), std::max(top, foot - sb)});
+        hbar_.setFrame({0, foot - sb, std::max(0, width() - sb), foot});
         placeEntry();
     }
     void paint(draw::Canvas& c) override;
@@ -145,16 +153,22 @@ private:
     void setChecks(bool on);
     void resetSelected();
     void fillDown();
-    void openPick(int r, int c);
+    void openPick(int r, int c, const std::wstring& search = L"");
+    void contextMenu(const Hit& hit, draw::Point pt);
+    void pickColumns(draw::Point pt);
+    void hideColumns(const std::vector<int>& cols);
+    std::vector<int> selectedColumns(int c) const;  // the columns that are selected whole, with c (else c only)
     std::wstring copyText();
     void report(const std::wstring& verb, int changed, int bad, int locked);
     void paintCell(draw::Canvas& c, const DatTable& t, const DataTableColumn& col, int e, draw::Rect r, bool hot);
+    void paintFoot(draw::Canvas& c, const DatTable& t);
 
     DataTableViewHost& host_;
     stardraft::kit::ScrollBar vbar_{stardraft::kit::Axis::Vertical}, hbar_{stardraft::kit::Axis::Horizontal};
     DataNumberEntry entry_;
     std::string dat_;                   // the .dat the columns are of
-    std::vector<DataTableColumn> cols_;
+    std::vector<DataTableColumn> cols_;  // the columns that show (the .dat's, less the hidden ones)
+    int hiddenRev_ = -1;                // gDataTableHiddenRev when cols_ was made
     std::vector<int> rows_;             // the rows as the last sync had them
     std::map<std::string, int> widths_;  // a column's width that a drag of its edge set (its .dat and key), unscaled
     DataTableSelection sel_;
@@ -163,16 +177,22 @@ private:
     Drag drag_ = Drag::None;
     int dragCol_ = -1, dragX_ = 0, dragW0_ = 0;
     Hit hot_;
-    draw::Rect importBtn_, exportBtn_;
+    draw::Rect importBtn_, exportBtn_, columnsBtn_;
 };
 
 inline void DataTableView::sync() {
     const DatTable* t = host_.table();
     const std::string dat = t ? t->schema().name : "";
-    if (dat != dat_) {
-        dat_ = dat;
-        cols_ = t ? dataTableColumns(t->schema()) : std::vector<DataTableColumn>{};
-        sel_ = {}, sx_ = 0, sy_ = 0;
+    if (dat != dat_ || hiddenRev_ != gDataTableHiddenRev) {
+        if (dat != dat_) sel_ = {}, sx_ = 0, sy_ = 0;
+        dat_ = dat, hiddenRev_ = gDataTableHiddenRev;
+        cols_.clear();
+        if (t) {
+            const std::set<std::wstring>& hidden = dataTableHidden(dat);
+            for (const DataTableColumn& col : dataTableColumns(t->schema()))
+                if (!hidden.count(dataColumnKey(t->schema(), col))) cols_.push_back(col);
+        }
+        sel_.clamp(int(rows_.size()), int(cols_.size()));
         if (editing_) cancelEdit();
     }
     if (host_.rows() != rows_) {
@@ -338,14 +358,17 @@ inline void DataTableView::paint(draw::Canvas& c) {
         exportBtn_ = {w - scale(12) - exportBtn_.width(), exportBtn_.top, w - scale(12), exportBtn_.bottom};
         importBtn_ = kitpaint::smallButtonRect(c, 0, 0, bh, L"Import CSV\x2026");
         importBtn_ = {exportBtn_.left - scale(8) - importBtn_.width(), importBtn_.top, exportBtn_.left - scale(8), importBtn_.bottom};
-        c.text({x0 + tw, 0, importBtn_.left - scale(12), bh}, line, kDim, draw::kMiddle | draw::kEllipsis);
+        columnsBtn_ = kitpaint::smallButtonRect(c, 0, 0, bh, L"Columns\x2026");
+        columnsBtn_ = {importBtn_.left - scale(8) - columnsBtn_.width(), columnsBtn_.top, importBtn_.left - scale(8), columnsBtn_.bottom};
+        c.text({x0 + tw, 0, columnsBtn_.left - scale(12), bh}, line, kDim, draw::kMiddle | draw::kEllipsis);
         if (tp) {
             draw::Host* hh = host();
             const draw::Point m = hh ? hh->mouse(*this) : draw::Point{-1, -1};
+            kitpaint::drawButtonFace(c, columnsBtn_, L"Columns\x2026", kitpaint::Tone::Normal, columnsBtn_.contains(m) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
             kitpaint::drawButtonFace(c, importBtn_, L"Import CSV\x2026", kitpaint::Tone::Normal, importBtn_.contains(m) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
             kitpaint::drawButtonFace(c, exportBtn_, L"Export CSV\x2026", kitpaint::Tone::Normal, exportBtn_.contains(m) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
         } else {
-            importBtn_ = exportBtn_ = {};
+            importBtn_ = exportBtn_ = columnsBtn_ = {};
         }
         c.fill({0, bh - 1, w, bh}, kBorder);
     }
@@ -376,7 +399,15 @@ inline void DataTableView::paint(draw::Canvas& c) {
             const draw::Rect cell{x, b.top + r * rh - sy_, x + cw, b.top + (r + 1) * rh - sy_};
             if (sel_.has(r, int(k))) c.fill(cell, focused ? kSel : kRowHot);
             const bool hot = cell.contains(mouse);
-            paintCell(c, t, cols_[k], rows_[size_t(r)], cell, hot);
+            if (editing_ && sel_.has(r, int(k)) && !(r == sel_.row && int(k) == sel_.col) && dataCellLocked(t, cols_[k], rows_[size_t(r)]).empty()) {
+                // (the text being typed, in each other selected cell: Enter puts it there)
+                const draw::Font of = c.setFont(c.font({cols_[k].kind == DataCellKind::Number ? draw::Face::Mono : draw::Face::Ui}));
+                c.text({cell.left + scale(6), cell.top, cell.right - scale(6), cell.bottom}, entry_.text(), kAccent,
+                       draw::kMiddle | draw::kEllipsis | (cols_[k].kind == DataCellKind::Number ? draw::kRight : draw::kLeft));
+                c.setFont(of);
+            } else {
+                paintCell(c, t, cols_[k], rows_[size_t(r)], cell, hot);
+            }
             c.fill({cell.left, cell.bottom - 1, cell.right, cell.bottom}, kBorder, 110);
             c.fill({cell.right - 1, cell.top, cell.right, cell.bottom}, kBorder, 110);
         }
@@ -450,6 +481,7 @@ inline void DataTableView::paint(draw::Canvas& c) {
     if (rows_.empty())
         c.text({scale(18), b.top + scale(16), b.right - scale(18), b.bottom}, L"No entries. Clear the search box or the Changed filter of the list.", kDim, draw::kWrap);
 
+    paintFoot(c, t);
     // The bars follow the table's size.
     vbar_.setRange(int(rows_.size()) * rh, b.height());
     vbar_.setPos(sy_);
@@ -501,13 +533,23 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
         if (e.button != 0 && e.button != 1) return false;
         if (editing_) commitEdit(false);
         focus();
+        if (e.button == 0 && columnsBtn_.contains(e.pt)) return pickColumns({columnsBtn_.left, columnsBtn_.bottom + scale(2)}), true;
         if (e.button == 0 && importBtn_.contains(e.pt)) return host_.importCsv(), true;
         if (e.button == 0 && exportBtn_.contains(e.pt)) return host_.exportCsv(), true;
         const Hit hit = hitAt(e.pt);
         const unsigned mods = e.mods & (draw::kCtrl | draw::kShift);
-        if (e.button == 1) {  // the right button: a cell outside the selection becomes the selection
-            if (hit.row >= 0 && hit.col >= 0 && !sel_.has(hit.row, hit.col)) sel_.click(hit.row, hit.col, 0);
+        if (e.button == 1) {  // the right button: what it is on becomes the selection (unless it is selected), then its menu
+            if (hit.header && hit.col >= 0) {
+                bool whole = false;
+                for (int c : selectedColumns(hit.col)) whole |= c == hit.col && selectedColumns(hit.col).size() > 1;
+                if (!whole) sel_.columns(hit.col, 0, int(rows_.size()));
+            } else if (hit.number && hit.row >= 0) {
+                if (!sel_.has(hit.row, 0)) sel_.rows(hit.row, 0, int(cols_.size()));
+            } else if (hit.row >= 0 && hit.col >= 0 && !sel_.has(hit.row, hit.col)) {
+                sel_.click(hit.row, hit.col, 0);
+            }
             invalidate();
+            if ((hit.header && hit.col >= 0) || hit.row >= 0) contextMenu(hit, e.pt);
             return true;
         }
         if (hit.header && hit.edge) {
@@ -527,6 +569,8 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
             else if (hit.arrow && !mods && e.kind == MouseKind::Down) openPick(hit.row, hit.col);
             else if (e.kind == MouseKind::DoubleClick && col.kind == DataCellKind::Name && !dataNameString(dat_, rows_[size_t(hit.row)]))
                 return host_.open(rows_[size_t(hit.row)]), true;
+            else if ((e.kind == MouseKind::DoubleClick || wasActive) && col.kind == DataCellKind::Pick && !mods)
+                openPick(hit.row, hit.col);
             else if ((e.kind == MouseKind::DoubleClick || wasActive) && col.kind != DataCellKind::Bool && col.kind != DataCellKind::Bit)
                 beginEdit(dataCellData(*host_.table(), col, rows_[size_t(hit.row)]), true);
             else drag_ = Drag::Cells;
@@ -551,13 +595,14 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
 inline draw::Cursor DataTableView::cursor(draw::Point pt) {
     const Hit hit = hitAt(pt);
     if (drag_ == Drag::Width || (hit.header && hit.edge)) return draw::Cursor::SizeWE;
-    if (importBtn_.contains(pt) || exportBtn_.contains(pt) || hit.check || hit.arrow) return draw::Cursor::Hand;
+    if (importBtn_.contains(pt) || exportBtn_.contains(pt) || columnsBtn_.contains(pt) || hit.check || hit.arrow) return draw::Cursor::Hand;
     return draw::Cursor::Arrow;
 }
 
 inline std::wstring DataTableView::tip(draw::Point pt) {
     if (importBtn_.contains(pt)) return L"Import the values of a CSV file into this .dat file. The \"id\" column gives the entries. The first row gives the columns.";
-    if (exportBtn_.contains(pt)) return L"Export the rows of the table, with all columns, as a CSV file";
+    if (exportBtn_.contains(pt)) return L"Export the rows and the columns that show as a CSV file";
+    if (columnsBtn_.contains(pt)) return L"Select the columns that show. A right click on a column's header can hide it.";
     const Hit hit = hitAt(pt);
     const DatTable* t = host_.table();
     if (!t || hit.col < 0) return L"";
@@ -565,7 +610,7 @@ inline std::wstring DataTableView::tip(draw::Point pt) {
     if (hit.header) {
         const std::wstring group = dataColumnGroup(t->schema(), col);
         return (group.empty() || col.kind != DataCellKind::Bit ? L"" : group + L": ") + dataColumnTitle(t->schema(), col) +
-               L"\nA click selects the column. A drag of its right edge changes its width.";
+               L"\nA click selects the column. A drag of its right edge changes its width. The right button hides it.";
     }
     if (hit.row < 0) return L"";
     const int e = rows_[size_t(hit.row)];
@@ -619,6 +664,7 @@ inline bool DataTableView::key(const draw::KeyEvent& e) {
             if (e.key == draw::Key::Enter) moveActive(shift ? -1 : 1, 0, false);
             return true;
         }
+        if (col.kind == DataCellKind::Pick) return openPick(sel_.row, sel_.col), true;
         beginEdit(dataCellData(*host_.table(), col, rows_[size_t(sel_.row)]), true);
         return true;
     }
@@ -657,6 +703,7 @@ inline bool DataTableView::text(const draw::TextEvent& e) {
         if (dataReadYesNo(w, yes)) setChecks(yes);
         return true;
     }
+    if (col.kind == DataCellKind::Pick) return openPick(sel_.row, sel_.col, w), true;  // (the list, searching for what is typed)
     beginEdit(w, false);
     return true;
 }
@@ -775,7 +822,7 @@ inline void DataTableView::fillDown() {
 }
 
 // A dropdown's list for the active cell: the picked value goes into every selected cell of the same field.
-inline void DataTableView::openPick(int r, int c) {
+inline void DataTableView::openPick(int r, int c, const std::wstring& search) {
     DatTable* t = host_.table();
     if (!t || r < 0 || c < 0 || cols_[size_t(c)].kind != DataCellKind::Pick) return;
     const DatField* f = dataSchemaField(t->schema(), cols_[size_t(c)].field);
@@ -783,7 +830,7 @@ inline void DataTableView::openPick(int r, int c) {
     if (!f || !f->covers(e)) return;
     if (const std::wstring why = dataCellLocked(*t, cols_[size_t(c)], e); !why.empty()) return host_.status(why);
     uint32_t v = 0;
-    if (!host_.choose(*f, t->value(*f, e), cellRect(r, c), v)) return;
+    if (!host_.choose(*f, t->value(*f, e), cellRect(r, c), v, search)) return;
     int changed = 0, locked = 0;
     for (const auto& [sr, sc] : sel_.cells()) {
         if (cols_[size_t(sc)].field != f->index) continue;
@@ -824,4 +871,171 @@ inline void DataTableView::paste(const std::wstring& text) {
     sel_.ranges = {{b.r0, b.c0, std::min(int(rows_.size()) - 1, b.r0 + int(grid.size()) - 1), std::min(int(cols_.size()) - 1, b.c0 + int(grid[0].size()) - 1)}};
     report(L"Pasted", changed, bad, locked);
     invalidate();
+}
+
+// The columns that are selected from the top row to the bottom one, with column c; c only when c is not one of them.
+inline std::vector<int> DataTableView::selectedColumns(int c) const {
+    std::set<int> out;
+    for (const auto& g : sel_.ranges)
+        if (g.top() == 0 && g.bottom() >= int(rows_.size()) - 1)
+            for (int k = g.left(); k <= g.right(); ++k) out.insert(k);
+    if (!out.count(c)) return {c};
+    return {out.begin(), out.end()};
+}
+
+// The right button's menu: Reset (the selected cells), Copy and Paste; on a row's number Open the entry; on a
+// column's header Hide, Show all columns and Columns.
+inline void DataTableView::contextMenu(const Hit& hit, draw::Point pt) {
+    const DatTable* t = host_.table();
+    if (!t || rows_.empty() || cols_.empty()) return;
+    MenuModel m;
+    auto item = [&m](int id, const std::wstring& label, const std::wstring& shortcut = L"", bool enabled = true) {
+        MenuItem it;
+        it.id = id, it.label = label, it.shortcut = shortcut, it.grayed = !enabled;
+        m.push_back(std::move(it));
+    };
+    auto separator = [&m] {
+        MenuItem it;
+        it.kind = MenuItem::Kind::Separator;
+        m.push_back(std::move(it));
+    };
+    bool changed = false;
+    const std::vector<std::pair<int, int>> cells = sel_.cells();
+    for (const auto& [r, c] : cells) changed |= dataCellChanged(*t, cols_[size_t(c)], rows_[size_t(r)]);
+    item(1, L"&Reset to the game's values", L"Del", changed);
+    separator();
+    item(2, L"&Copy", L"Ctrl+C");
+    item(3, L"&Paste", L"Ctrl+V");
+    const std::vector<int> hide = hit.header ? selectedColumns(hit.col) : std::vector<int>{};
+    if (hit.number) {
+        separator();
+        item(4, L"&Open the entry's form");
+    }
+    if (hit.header) {
+        separator();
+        const bool nameOnly = hide.size() == 1 && cols_[size_t(hide[0])].kind == DataCellKind::Name;
+        item(5, hide.size() > 1 ? L"&Hide " + std::to_wstring(hide.size()) + L" columns" : L"&Hide the column", L"", !nameOnly);
+        item(6, L"&Show all columns", L"", !dataTableHidden(dat_).empty());
+        item(7, L"C&olumns\x2026");
+    }
+    const int openRow = hit.row;
+    host_.menu(pt, m, [this, hide, openRow, pt](int pick) {
+        if (pick == 1) resetSelected();
+        else if (pick == 2) {
+            if (draw::Host* h = host()) h->setClipboardText(narrow(copyText()));
+        } else if (pick == 3) {
+            if (draw::Host* h = host()) paste(widen(h->clipboardText()));
+        } else if (pick == 4 && openRow >= 0 && openRow < int(rows_.size())) host_.open(rows_[size_t(openRow)]);
+        else if (pick == 5) hideColumns(hide);
+        else if (pick == 6) {
+            dataTableSetHidden(dat_, {});
+            host_.status(L"Showed all columns");
+            refresh();
+        } else if (pick == 7) pickColumns(pt);
+    });
+}
+
+inline void DataTableView::hideColumns(const std::vector<int>& cols) {
+    const DatTable* t = host_.table();
+    if (!t) return;
+    std::set<std::wstring> hidden = dataTableHidden(dat_);
+    int n = 0;
+    for (int c : cols)
+        if (c >= 0 && c < int(cols_.size()) && cols_[size_t(c)].kind != DataCellKind::Name) hidden.insert(dataColumnKey(t->schema(), cols_[size_t(c)])), ++n;
+    dataTableSetHidden(dat_, std::move(hidden));
+    host_.status(n == 1 ? L"Hid 1 column (Columns\x2026 shows it again)" : L"Hid " + std::to_wstring(n) + L" columns (Columns\x2026 shows them again)");
+    refresh();
+}
+
+// Columns…: the multi-pick of the .dat's columns (in sections: the field's section, a flag's field), the ones that show
+// checked.
+inline void DataTableView::pickColumns(draw::Point pt) {
+    const DatTable* t = host_.table();
+    if (!t) return;
+    const DatSchema& sch = t->schema();
+    std::vector<ListPickItem> items;
+    std::set<std::string> checked;
+    const std::set<std::wstring>& hidden = dataTableHidden(dat_);
+    for (const DataTableColumn& col : dataTableColumns(sch)) {
+        if (col.kind == DataCellKind::Name) continue;
+        const std::wstring key = dataColumnKey(sch, col);
+        items.push_back({dataColumnTitle(sch, col), dataColumnGroup(sch, col), narrow(key)});
+        if (!hidden.count(key)) checked.insert(narrow(key));
+    }
+    if (!host_.pickMany(L"Columns that show", std::move(items), checked, pt)) return;
+    std::set<std::wstring> now;
+    for (const DataTableColumn& col : dataTableColumns(sch))
+        if (col.kind != DataCellKind::Name && !checked.count(narrow(dataColumnKey(sch, col)))) now.insert(dataColumnKey(sch, col));
+    const size_t shown = items.size() - now.size();
+    dataTableSetHidden(dat_, std::move(now));
+    host_.status(L"Showed " + std::to_wstring(shown) + L" of " + std::to_wstring(items.size()) + L" columns");
+    refresh();
+}
+
+// The status bar under the table: at the left the active cell (its column, its entry, the value as the .dat stores
+// it, and what it means); at the right the selection: how many cells, rows and columns, and of the numbers among
+// them the sum, the average, the lowest and the highest (as the form shows them: hit points in hit points), or how
+// many check boxes are on.
+inline void DataTableView::paintFoot(draw::Canvas& c, const DatTable& t) {
+    const int w = width(), h = height(), top = h - footH();
+    c.fill({0, top, w, h}, kPanel);
+    c.fill({0, top, w, top + 1}, kBorder);
+    if (rows_.empty() || cols_.empty() || sel_.row >= int(rows_.size()) || sel_.col >= int(cols_.size())) return;
+    const DatSchema& sch = t.schema();
+    const DataTableColumn& col = cols_[size_t(sel_.col)];
+    const int e = rows_[size_t(sel_.row)];
+    std::wstring left = dataColumnTitle(sch, col) + L" of " + std::to_wstring(e);
+    if (const DatField* f = col.kind == DataCellKind::Name ? nullptr : dataSchemaField(sch, col.field); f && f->covers(e)) {
+        const uint32_t v = t.value(*f, e);
+        wchar_t hex[16];
+        std::swprintf(hex, 16, L"0x%X", v);
+        left += L":  raw " + std::to_wstring(v) + L" (" + hex + L")";
+        if (col.kind == DataCellKind::Bit) left += L", bit " + std::to_wstring(col.bit) + L" is " + (((v >> col.bit) & 1) ? L"on" : L"off");
+        else if (col.kind == DataCellKind::Number && fieldShownScale(*f) > 1) left += L" = " + fieldValueText(*f, v);
+        else if (col.kind == DataCellKind::Pick) left += L" = " + host_.note(*f, v);
+        if (t.changed(*f, e)) left += L"  \x00B7  game's " + std::to_wstring(t.stock(*f, e));
+    } else if (col.kind == DataCellKind::Name) {
+        left += L":  " + tabEntryName(datTabOf(sch.name), e);
+    } else {
+        left += L":  not used by this entry";
+    }
+    // The selection: its counts, then the sums of its numbers (or its check boxes).
+    const std::vector<std::pair<int, int>> cells = sel_.cells();
+    std::set<int> rowsSel, colsSel;
+    double sum = 0, lo = 0, hi = 0;
+    int nums = 0, boxes = 0, on = 0;
+    for (const auto& [r, k] : cells) {
+        rowsSel.insert(r), colsSel.insert(k);
+        const DataTableColumn& cc = cols_[size_t(k)];
+        const std::wstring v = dataCellData(t, cc, rows_[size_t(r)]);
+        if (v.empty() || cc.kind == DataCellKind::Name) continue;
+        if (cc.kind == DataCellKind::Bool || cc.kind == DataCellKind::Bit) {
+            ++boxes, on += v != L"0";
+            continue;
+        }
+        if (cc.kind == DataCellKind::Pick) continue;  // (a choice is not a quantity)
+        const double d = std::wcstod(v.c_str(), nullptr);
+        lo = nums ? std::min(lo, d) : d, hi = nums ? std::max(hi, d) : d, sum += d, ++nums;
+    }
+    auto num = [](double d) {
+        wchar_t b[32];
+        std::swprintf(b, 32, L"%.3f", d);
+        std::wstring s = b;
+        while (!s.empty() && s.back() == L'0') s.pop_back();
+        if (!s.empty() && s.back() == L'.') s.pop_back();
+        return s;
+    };
+    std::wstring right;
+    if (cells.size() > 1) {
+        right = std::to_wstring(cells.size()) + L" cells  \x00B7  " + std::to_wstring(rowsSel.size()) + (rowsSel.size() == 1 ? L" row" : L" rows") +
+                L"  \x00B7  " + std::to_wstring(colsSel.size()) + (colsSel.size() == 1 ? L" column" : L" columns");
+        if (nums > 1)
+            right += L"     Sum " + num(sum) + L"  \x00B7  Average " + num(sum / nums) + L"  \x00B7  Lowest " + num(lo) + L"  \x00B7  Highest " + num(hi);
+        if (boxes) right += L"     " + std::to_wstring(on) + L" of " + std::to_wstring(boxes) + L" checked";
+    }
+    const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+    const int rw = right.empty() ? 0 : std::min(w / 2, c.measure(right) + scale(12));
+    c.text({scale(12), top, w - rw - scale(16), h}, left, kDim, draw::kMiddle | draw::kEllipsis);
+    if (rw) c.text({w - rw - scale(12), top, w - scale(12), h}, right, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
+    c.setFont(of);
 }

@@ -25,9 +25,10 @@ void sdlExtrasChanged() {
 // The list picker (core/views_list_pick.inc, as the Windows program's showListPicker: the search, the sections and each
 // row's icon) under `box` of the form (or of `from`; empty: at the mouse): true with the item's value in `out`.
 bool sdlChoose(const std::wstring& prompt, const std::vector<ListPickItem>& items, const std::string& current, std::string& out, draw::Rect box = {},
-               const draw::View* from = nullptr) {
+               const draw::View* from = nullptr, const std::wstring& search = L"") {
     if (items.empty()) return false;
     ListPickView v(prompt, items, current);
+    if (!search.empty()) v.setSearch(search);  // (a letter typed in the Table view's cell: the list starts with it)
     v.iconOf = [](const ListPickItem& it) { return it.iconDat.empty() || it.icon < 0 ? draw::Image{} : sdlDataImage(dataRefPicture(it.iconDat, uint32_t(it.icon))); };
     const draw::View& form = from ? *from : static_cast<const draw::View&>(gSdlDataForm);
     draw::Point at{box.left, box.bottom + scale(2)};
