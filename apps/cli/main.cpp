@@ -1664,6 +1664,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
                     [--grid px] [--locations] [--no-units] [--no-sprites]
   stardraft-cli import <file> <folder> <name> an EUD Editor 2 (.e2s) or euddraft (.eds) project into a new project
   stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
+  stardraft-cli check <map | project>       the checks of a save and a build (start locations, scripts, triggers)
   stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx or .chk)
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
@@ -1732,6 +1733,7 @@ static Json execute(Session& s) {
     }
     if (c == "project-apply") return cmdProjectApply(s);
     if (c == "project-build") return cmdProjectBuild(s);
+    if (c == "check") return cmdCheck(s);
     if (c == "project-triggers") return cmdProjectTriggers(s);
     if (c == "project-triggers-apply") return cmdProjectTriggersApply(s);
     if (c == "project-data") return cmdProjectData(s);

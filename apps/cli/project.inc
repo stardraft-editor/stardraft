@@ -198,3 +198,47 @@ static Json cmdProjectBuild(Session& s) {
         .add("remake", remake)
         .add("log", log);
 }
+
+// The problems that a map's checks list: the start locations that StarCraft needs (the editor's question before a save),
+// then the rest of the playability (players, humans).
+static void mapProblems(const Editor& ed, Json& problems) {
+    auto add = [&](const std::string& kind, const std::string& text) { problems.items.push_back(Obj().add("kind", kind).add("problem", text)); };
+    const std::vector<std::string> start = ed.startLocationProblems();
+    for (const std::string& p : start) add("start_locations", p);
+    for (const std::string& p : ed.playabilityProblems(false)) add("playability", p);
+}
+
+// check <map | project>: the checks of a save and a build, with no change: for a map, its start locations and
+// playability; for a project, also its scripts that are not there and the triggers' checker (errors and warnings).
+// `passed` is false when a problem stops a save or a build (warnings do not).
+static Json cmdCheck(Session& s) {
+    if (s.args.positional.empty()) fail("usage: stardraft-cli check <map | project>");
+    const std::string word = s.args.positional[0];
+    const fs::path path = upath(word);
+    std::error_code ec;
+    const std::string ext = path.extension().string();
+    const bool project = ext == ".stardraft" || ext == ".eds" || (fs::is_directory(path, ec) && fs::exists(path / "project.stardraft", ec));
+    Json problems = jarr(), warnings = jarr();
+    if (!project) {
+        mapProblems(s.load(resolve(word)), problems);
+        return Obj().add("passed", problems.items.empty()).add("problems", problems).add("warnings", warnings);
+    }
+    EudProject pr = openProject(word);
+    if (!s.dataOpen) openGameData(s.data, s.args.get("install")), s.dataOpen = true;
+    for (const std::string& m : pr.missingScripts()) problems.items.push_back(Obj().add("kind", "script").add("problem", pr.missingScriptText(m)));
+    Editor ed(s.data);
+    std::string err;
+    if (!ed.open(pr.inputMap(), err)) fail(err);
+    mapProblems(ed, problems);
+    TriggerSet set;
+    if (fs::exists(stardraft::triggersFileOf(pr), ec) && !set.load(stardraft::triggersFileOf(pr), err)) {
+        problems.items.push_back(Obj().add("kind", "triggers").add("problem", "the triggers file does not load: " + err));
+    } else {
+        for (const TriggerIssue& i : set.check(stardraft::triggerMapInfo(ed))) {
+            if (i.level == TriggerIssue::Level::Info) continue;
+            const Json item = Obj().add("kind", "triggers").add("trigger", i.node ? i.node->name : std::string()).add("problem", i.message);
+            (i.level == TriggerIssue::Level::Error ? problems : warnings).items.push_back(item);
+        }
+    }
+    return Obj().add("project", ustr(pr.file())).add("passed", problems.items.empty()).add("problems", problems).add("warnings", warnings);
+}
