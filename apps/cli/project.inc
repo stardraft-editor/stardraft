@@ -154,6 +154,11 @@ static Json cmdProjectBuild(Session& s) {
     for (const std::string& p : ed.playabilityProblems(true)) warnings.items.push_back(jstr(p));
     stardraft::BuildReport report;
     if (!stardraft::prepareBuild(pr, ed, s.data, stardraft::BuildOpen{}, report, err)) {
+        if (!report.triggerErrors.empty()) {  // the triggers' checker found errors: the answer lists them
+            Json problems = jarr();
+            for (const std::string& m : report.triggerErrors) problems.items.push_back(jstr(m));
+            return Obj().add("built", false).add("error", err).add("trigger_problems", problems).add("warnings", warnings);
+        }
         std::string detail = report.failedStep + ": " + err;
         for (const std::string& m : report.triggerErrors) detail += "; " + m;
         fail("the build stopped before euddraft (" + detail + ")");

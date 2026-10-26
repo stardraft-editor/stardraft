@@ -1489,8 +1489,8 @@ void checkStartLocations(Session& s, const Editor& ed) {
 
 Json cmdSave(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
+    Work w = loadWork(t);  // (first: a map that is not open gives that error)
     checkStartLocations(s, s.load(t));
-    Work w = loadWork(t);
     const fs::path dst = s.args.has("to") ? fs::absolute(upath(s.args.get("to"))) : w.source;
     const bool toSource = samePath(dst, w.source);
     if (toSource && fileStamp(w.source) != w.stamp && !s.args.has("force"))

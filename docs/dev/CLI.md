@@ -186,7 +186,8 @@ anywhere on disk), `remove_section` (`section`), `move_script` (`section`, `delt
 the map that euddraft gets, then euddraft. The answer has `built`, `output`, `errors`, `warnings`, `remake` and the `log`
 lines. A failed build also has `script_error`: the .eps file, its module, the line and euddraft's message (a script of the
 project, a linked file or a file that a script imports; the triggers' code is `generated/triggers.eps`), as the editor
-selects it. `trigger_problems` lists the triggers' checker problems. It can take a while. The EUD triggers: see [EUD triggers](#eud-triggers).
+selects it. When the triggers' checker finds errors, the build stops before euddraft: `built` is false and
+`trigger_problems` lists them. `save` and `project-build` read the game data (the start locations check). It can take a while. The EUD triggers: see [EUD triggers](#eud-triggers).
 
 ## EUD triggers
 
