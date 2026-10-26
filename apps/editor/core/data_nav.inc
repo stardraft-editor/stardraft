@@ -55,6 +55,29 @@ void dataTogglePin(int e) {
     const std::wstring name = dataEntryName(gDataListProgram, tab, e);
     setMessage(pin ? tr(L"Pinned ") + name + tr(L" to the top of the list") : tr(L"Unpinned ") + name);
 }
+// The entries that the entry menu of `u` acts on: the list's selected entries when u is one of 2 or more (in the list's
+// order), else u.
+std::vector<int> dataMenuEntries(int u) {
+    const DataModel& d = dataState();
+    if (d.picked.size() < 2 || !d.picked.count(u)) return {u};
+    std::vector<int> out;
+    for (int e : d.shown)
+        if (d.picked.count(e)) out.push_back(e);
+    return out.empty() ? std::vector<int>{u} : out;
+}
+// Pin to the top for the menu of `u`: every selected entry. When all of them are pinned, they are unpinned; else the
+// ones that are not pinned are pinned, in the list's order.
+void dataTogglePins(int u) {
+    const std::vector<int> es = dataMenuEntries(u);
+    if (es.size() == 1) return dataTogglePin(es[0]);
+    const int tab = dataState().datTab;
+    bool all = true;
+    for (int e : es) all &= dataPinned(tab, e);
+    for (int e : es)
+        if (dataPinned(tab, e) == all) dataPinSave(tab, e);
+    dataRebuildList();
+    setMessage((all ? tr(L"Unpinned ") : tr(L"Pinned ")) + std::to_wstring(es.size()) + tr(L" entries") + (all ? L"" : tr(L" to the top of the list")));
+}
 // The open tab's list rows: the filter's, with the pins first (gDataPinnedShown: how many are pinned).
 std::vector<int> dataListShown(const std::wstring& search, bool changedOnly) {
     const DataListRows rows = dataListRows(gDataListProgram, dataState().datTab, search, changedOnly, dataPins(dataState().datTab));
@@ -227,14 +250,20 @@ MenuModel dataEntryMenuModel(int u) {
     separator();
     item(3, L"&Reset to the game's values", L"", changed);
     separator();
-    item(4, dataPinned(dataState().datTab, u) ? L"Un&pin" : L"&Pin to the top", L"", true);
+    {  // (the list's selected entries, when u is one of them)
+        const std::vector<int> es = dataMenuEntries(u);
+        bool all = true;
+        for (int e : es) all &= dataPinned(dataState().datTab, e);
+        const std::wstring n = es.size() > 1 ? L" " + std::to_wstring(es.size()) + tr(L" entries") : L"";
+        item(4, all ? L"Un&pin" + n : L"&Pin" + n + L" to the top", L"", true);
+    }
     return m;
 }
 void dataEntryMenuPick(int u, int pick) {
     if (pick == 1) dataCopyEntry(u);
     else if (pick == 2) dataPasteEntry(u);
     else if (pick == 3) dataResetEntry(u);
-    else if (pick == 4) dataTogglePin(u);
+    else if (pick == 4) dataTogglePins(u);
     else if (pick == 5) dataPasteAll(u);
 }
 

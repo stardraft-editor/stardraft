@@ -64,6 +64,32 @@ std::wstring dataColumnKey(const DatSchema& sch, const DataTableColumn& col) {
     return widen(f->name) + (col.kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(col.bit)]) : L"");
 }
 
+// The columns that the Table view hides, by .dat: their CSV names (dataColumnKey), for this user (the settings'
+// DataTableHidden/<dat>: the names separated by "|"). The name column always shows.
+std::map<std::string, std::set<std::wstring>> gDataTableHidden;
+int gDataTableHiddenRev = 0;  // goes up with each change (the view makes its columns again)
+std::set<std::wstring>& dataTableHidden(const std::string& dat) {
+    auto [it, fresh] = gDataTableHidden.try_emplace(dat);
+    if (fresh && !gSelfTest && !gSettingsOff) {  // (tests and snapshot runs: every column, as the defaults)
+        std::wstring text;
+        if (prefs::text(L"DataTableHidden/" + widen(dat), text)) {
+            std::wistringstream in(text);
+            for (std::wstring part; std::getline(in, part, L'|');)
+                if (!part.empty()) it->second.insert(part);
+        }
+    }
+    return it->second;
+}
+void dataTableSetHidden(const std::string& dat, std::set<std::wstring> keys) {
+    keys.erase(L"name");
+    dataTableHidden(dat) = std::move(keys);
+    ++gDataTableHiddenRev;
+    if (gSelfTest || gSettingsOff) return;  // (tests and snapshot runs leave the user's settings alone)
+    std::wstring text;
+    for (const auto& k : dataTableHidden(dat)) text += (text.empty() ? L"" : L"|") + k;
+    prefs::setText(L"DataTableHidden/" + widen(dat), text);
+}
+
 // The stat_txt.tbl string (1-based) that a Name cell changes: a unit's name (0: none, the name is not text to change).
 // Other .dat files take their names from the game's lists or share their Label strings, so their names stay as they are.
 int dataNameString(const std::string& dat, int e) {

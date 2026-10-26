@@ -644,9 +644,9 @@ public:
     draw::Image refIcon(const std::string& dat, uint32_t v) override { return sdlDataImage(dataRefPicture(dat, v)); }
     std::wstring note(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
     std::vector<ListPickItem> dropdownItems(const DatField& f) override { return dataDropdownItems(f); }
-    bool choose(const DatField& f, uint32_t current, draw::Rect box, uint32_t& out) override {
+    bool choose(const DatField& f, uint32_t current, draw::Rect box, uint32_t& out, const std::wstring& search) override {
         std::string picked;
-        if (!sdlChoose(datLabel(f.name), dataDropdownItems(f), std::to_string(current), picked, box, &gSdlDataTable)) return false;
+        if (!sdlChoose(datLabel(f.name), dataDropdownItems(f), std::to_string(current), picked, box, &gSdlDataTable, search)) return false;
         out = uint32_t(std::stoul(picked));
         return true;
     }
@@ -663,12 +663,25 @@ public:
     void exportCsv() override;
     void status(const std::wstring& text) override { setMessage(text); }
     bool travel(int button) override { return sdlDataTravel(button == 1), true; }
+    void menu(draw::Point pt, const MenuModel& items, std::function<void(int)> pick) override;
+    bool pickMany(const std::wstring& title, std::vector<ListPickItem> items, std::set<std::string>& checked, draw::Point pt) override {
+        ListPickView v(title, std::move(items), "");
+        v.setMulti(checked, shellTr(L"Show"));
+        const draw::Point o = gSdlDataTable.origin();
+        if (!runListPick(v, {o.x + pt.x, o.y + pt.y})) return false;
+        checked = v.checked();
+        return true;
+    }
 
 private:
     std::vector<int> rows_;
 };
 SdlDataTableHost gSdlDataTableHost;
 DataTableView gSdlDataTable(gSdlDataTableHost);
+void SdlDataTableHost::menu(draw::Point pt, const MenuModel& items, std::function<void(int)> pick) {
+    const DatTable* t = table();
+    sdlDataMenu(gSdlDataTable, pt, items, std::move(pick), t ? widen(t->schema().name) + L".dat table" : L"Data table");
+}
 
 // The project's folder (a CSV file's place at first), else the Documents folder.
 static fs::path sdlDataCsvFolder() {
@@ -687,7 +700,7 @@ void SdlDataTableHost::exportCsv() {
     if (file.empty()) return;
     const std::vector<int>& r = rows();
     // (The byte order mark: spreadsheets then read the file as UTF-8.)
-    const std::string text = "\xEF\xBB\xBF" + narrow(dataGridText(dataTableGrid(*t, dataTableColumns(t->schema()), r), L','));
+    const std::string text = "\xEF\xBB\xBF" + narrow(dataGridText(dataTableGrid(*t, gSdlDataTable.columns(), r), L','));
     std::ofstream out(file, std::ios::binary);
     if (!out.write(text.data(), std::streamsize(text.size()))) return shellErrorBox(L"Could not export the table to " + file.wstring(), shellTr(L"Export CSV"));
     setMessage(shellTr(L"Exported ") + std::to_wstring(r.size()) + shellTr(L" rows to ") + file.filename().wstring());

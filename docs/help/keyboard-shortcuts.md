@@ -84,7 +84,8 @@ In the Table view:
 | Ctrl+C, Ctrl+V | Copy and paste cells, as tab-separated text (spreadsheets use it too) |
 | Ctrl+D | Copy the top cell of the selection into the cells under it |
 | Ctrl+A | Select all cells |
-| Alt+Down | Open the list of a dropdown's cell |
+| Alt+Down, a letter | Open the list of a dropdown's cell; a letter searches it. Enter puts the value into each selected cell |
+| Right button | Reset the cells, copy or paste. On a column's header: hide the column, or Columns… to select the columns that show |
 
 ## Triggers workspace
 
