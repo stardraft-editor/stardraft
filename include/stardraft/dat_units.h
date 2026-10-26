@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <string>
 
+#include "stardraft/dat_edit.h"
+
 namespace stardraft {
 
 // The conversion of a field: shown = raw * factor, in `unit` ("" unit: the field has no conversion).
@@ -24,5 +26,14 @@ DatUnit datFieldUnit(const std::string& dat, const std::string& field);
 // The converted value as the Data form shows it after the raw value: "= 96 pixels/s (fastest)"; "" when the field has
 // no conversion. At most 3 decimals, with no zeros at the end.
 std::string datConvertedText(const std::string& dat, const std::string& field, uint32_t raw);
+
+// The shown value of a field, which can differ from the stored one: the shown value is raw / scale. Hit points (units.dat,
+// no flags) are shown in whole hit points: scale 256 (the stored value is 1/256 of a hit point). 1: shown as stored.
+uint32_t datShownScale(const DatField& field);
+// The shown value as text: a whole number, or with its part (at most 3 decimals, no zeros at the end).
+std::string datShownText(uint32_t scale, uint32_t raw);
+// The stored value of a shown value (`shown` in the shown unit, decimals too), rounded to the stored unit and at most
+// `maxValue`.
+uint32_t datRawFromShown(double shown, uint32_t scale, uint32_t maxValue);
 
 }  // namespace stardraft

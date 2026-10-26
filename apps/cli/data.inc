@@ -50,6 +50,7 @@ struct DataEdits {
 Json fieldValueJson(const DatField& f, uint32_t v) {
     Obj o;
     o.add("value", double(v));
+    if (const uint32_t k = datShownScale(f); k > 1) o.add("shown", datShownText(k, v));  // hit points: the editor's unit
     if (v < f.valueNames.size()) o.add("name", f.valueNames[v]);
     return o;
 }
@@ -131,8 +132,11 @@ void applyDataOp(DataEdits& d, const Json& op) {
             uint32_t v = 0;
             const Json& value = need(op, "value");
             if (value.type == Json::Type::Number) {
-                if (value.n < 0 || value.n > f->maxValue()) fail("\"" + f->name + "\" takes 0-" + std::to_string(f->maxValue()));
-                v = uint32_t(value.n);
+                // A number is in the shown unit (hit points, decimals too), as the Data form takes it; "raw": true
+                // gives the stored value (units.dat: 1/256 hit point).
+                const uint32_t k = op.boolean("raw", false) ? 1 : datShownScale(*f);
+                if (value.n < 0 || value.n > double(f->maxValue()) / k) fail("\"" + f->name + "\" takes 0-" + std::to_string(double(f->maxValue()) / k));
+                v = datRawFromShown(value.n, k, f->maxValue());
             } else {
                 bool found = false;
                 for (size_t k = 0; k < f->valueNames.size() && !found; ++k)

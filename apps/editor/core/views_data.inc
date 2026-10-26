@@ -60,17 +60,11 @@ std::wstring datTitle(const std::string& name) {
 
 // A field that the form shows and takes in the game's unit, not as the .dat stores it: hit points (units.dat keeps
 // 1/256 of a hit point). The stored values in one shown unit; 1: as stored.
-uint32_t fieldShownScale(const DatField& f) { return f.flags.empty() && f.name == "Hit Points" ? 256 : 1; }
+uint32_t fieldShownScale(const DatField& f) { return stardraft::datShownScale(f); }  // (dat_units.h: shared with the CLI)
 
 std::wstring fieldValueText(const DatField& f, uint32_t v) {
-    if (const uint32_t k = fieldShownScale(f); k > 1) {  // whole ones, or with the part of one (at most 3 decimals)
-        if (v % k == 0) return std::to_wstring(v / k);
-        wchar_t b[32];
-        std::swprintf(b, 32, L"%.3f", double(v) / k);
-        std::wstring s = b;
-        while (!s.empty() && s.back() == L'0') s.pop_back();
-        return s;
-    }
+    if (const uint32_t k = fieldShownScale(f); k > 1) return widen(stardraft::datShownText(k, v));  // whole ones, or with the part of one
+
     if (!f.flags.empty()) {
         wchar_t b[16];
         std::swprintf(b, 16, f.size == 4 ? L"0x%08X" : f.size == 2 ? L"0x%04X" : L"0x%02X", v);
