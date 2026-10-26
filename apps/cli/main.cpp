@@ -42,12 +42,29 @@
 #include "stardraft/terrain_gen.h"
 #include "stardraft/settings.h"
 #include "text_codec.h"
+#include "http.h"
+#if __has_include("build_info.h")
+#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake)
+#endif
+#include "cli_skill.inc"  // kCliSkill: apps/cli/SKILL.md (CMakeLists.txt)
+
+#ifndef STARDRAFT_VERSION_NAME
+#define STARDRAFT_VERSION_NAME "dev"
+#endif
+#ifndef STARDRAFT_COMMIT
+#define STARDRAFT_COMMIT "unknown"
+#endif
+#ifndef STARDRAFT_ISSUES_TOKEN
+#define STARDRAFT_ISSUES_TOKEN ""
+#endif
 
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 #endif
 
 namespace fs = std::filesystem;
@@ -1668,6 +1685,8 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
   stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx or .chk)
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
+  stardraft-cli skill                       the skill for AI agents (Markdown): how to use stardraft-cli
+  stardraft-cli feedback "<text>" [--dry-run]    send feedback to the developers (a GitHub issue)
   stardraft-cli trigger-types               the trigger conditions and actions, with their parameters
   stardraft-cli project-new <folder> <name> <map>  an EUD project (its map is copied in)
   stardraft-cli project <project> [--section n]    the project's scripts, flags and sections (or one section's lines)
@@ -1721,6 +1740,8 @@ static void parseCommandLine(const std::vector<std::string>& argv, Args& args) {
 }
 
 // One command with its arguments in s.args: the JSON object it writes (throws CliError on an error).
+static Json cmdFeedback(Session& s);
+
 static Json execute(Session& s) {
     const std::string& c = s.args.command;
     s.timer.on = s.args.has("timing");
@@ -1734,6 +1755,7 @@ static Json execute(Session& s) {
     if (c == "project-apply") return cmdProjectApply(s);
     if (c == "project-build") return cmdProjectBuild(s);
     if (c == "check") return cmdCheck(s);
+    if (c == "feedback") return cmdFeedback(s);
     if (c == "project-triggers") return cmdProjectTriggers(s);
     if (c == "project-triggers-apply") return cmdProjectTriggersApply(s);
     if (c == "project-data") return cmdProjectData(s);
@@ -1769,6 +1791,49 @@ static Json answer(const Json& result) {
     return out;
 }
 static Json failure(const std::string& error) { return Obj().add("ok", false).add("error", error); }
+
+// feedback "<text>" [--file f] [--dry-run]: files the text as a GitHub issue (label "feedback"), as the editor's
+// Report feedback does, with the version and the system. The user folder shows as ~. --dry-run gives the issue's text
+// and sends nothing.
+static Json cmdFeedback(Session& s) {
+    std::string text;
+    if (s.args.has("file")) text = readText(upath(s.args.get("file")));
+    for (const std::string& w : s.args.positional) text += (text.empty() ? "" : " ") + w;
+    std::erase(text, '\r');
+    while (!text.empty() && (text.back() == '\n' || text.back() == ' ')) text.pop_back();
+    if (text.empty()) fail("usage: stardraft-cli feedback \"<text>\" (or --file <text file>)");
+    for (const char* var : {"USERPROFILE", "HOME"})
+        if (const char* home = std::getenv(var); home && std::strlen(home) > 3)
+            for (std::string h : {std::string(home), fs::path(home).generic_string()})
+                for (size_t at; (at = text.find(h)) != std::string::npos;) text.replace(at, h.size(), "~");
+    std::string summary = text.substr(0, text.find('\n'));
+    if (summary.size() > 60) summary = summary.substr(0, 57) + "...";
+#ifdef _WIN32
+    const char* system = "Windows";
+#elif defined(__APPLE__)
+    const char* system = "macOS";
+#else
+    const char* system = "Linux";
+#endif
+    const std::string title = "Feedback on stardraft-cli: " + summary;
+    const std::string body = text + "\n\n---\nOn: stardraft-cli\nStarDraft " STARDRAFT_VERSION_NAME ", commit " STARDRAFT_COMMIT "\n" + system + "\n";
+    if (s.args.has("dry-run")) return Obj().add("sent", false).add("title", title).add("body", body);
+    std::string token = STARDRAFT_ISSUES_TOKEN;
+    if (token.empty())
+        if (const char* e = std::getenv("STARDRAFT_ISSUES_TOKEN")) token = e;
+    if (token.empty()) fail("this build cannot send feedback (it has no issues token): report it on GitHub or Discord");
+    stardraft::platform::HttpRequest q;
+    q.url = "https://api.github.com/repos/stardraft-editor/stardraft/issues", q.method = "POST", q.accept = "application/vnd.github+json";
+    q.token = token;
+    Json labels = jarr();
+    labels.items.push_back(jstr("feedback"));
+    q.body = jsonText(Obj().add("title", title).add("body", body).add("labels", labels));
+    std::string reply;
+    const stardraft::platform::HttpReply r = stardraft::platform::httpRequest(q, &reply);
+    if (r.status != 201 || !r.complete) fail("the feedback did not go (HTTP " + std::to_string(r.status) + "); try again later");
+    const Json issue = parseJson(reply, "GitHub's answer");
+    return Obj().add("sent", true).add("issue", issue.get("number") ? issue.get("number")->n : 0.0).add("url", issue.str("html_url"));
+}
 
 // serve: one JSON request per line on stdin, one JSON answer per line on stdout (docs/dev/CLI.md). A request is
 // {"argv": ["apply", "<map>"], "ops": <the operations, for apply>}: the command and its words as on the command line.
@@ -1821,6 +1886,13 @@ static int run(std::vector<std::string> argv) {
     if (c.empty() || c == "help" || s.args.has("help")) {
         std::fputs(kUsage, stdout);
         return c.empty() ? 2 : 0;
+    }
+    if (c == "skill") {  // the skill for agents (apps/cli/SKILL.md), as it is: `stardraft-cli skill > SKILL.md`
+#ifdef _WIN32
+        _setmode(_fileno(stdout), _O_BINARY);  // (its lines as they are: Windows adds no CR)
+#endif
+        std::fwrite(kCliSkill, 1, sizeof kCliSkill, stdout);
+        return 0;
     }
     if (c == "serve") return serve(s);
     try {
