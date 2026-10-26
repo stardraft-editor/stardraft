@@ -162,6 +162,42 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
     }
     if (name == "remove_map_revealers") return r.add("removed", ed.removeMapRevealers());
     if (name == "place_start_locations") return r.add("placed", ed.placeStartLocations());
+    // Copy, cut, paste and duplicate. The clipboard is the editor's own, kept for the rest of this apply: a copy op
+    // and the paste op that follows it in the same list use the same copy. Units: copy_units (units), cut_units (units:
+    // copied, then deleted), paste_units (x, y: the group's center; player: the owner of the pasted units; correct).
+    // duplicate_units: a copy pasted at (x, y). Terrain: copy_terrain (area, shape, units, doodads: the clipboard's
+    // ground and the units and doodads in it), paste_terrain (x, y, correct).
+    if (name == "copy_units" || name == "cut_units") {
+        const std::vector<int> u = unitIndices(ed, op);
+        if (u.empty()) fail("no units to copy");
+        selectUnits(ed, u);
+        ed.copySelection();
+        if (name == "cut_units") {
+            const int n = int(ed.selection().size());
+            ed.deleteSelection();
+            return r.add("cut", n);
+        }
+        return r.add("copied", int(u.size()));
+    }
+    if (name == "paste_units" || name == "duplicate_units") {
+        if (name == "duplicate_units" && op.get("units")) {  // (the units given are copied first)
+            selectUnits(ed, unitIndices(ed, op));
+            ed.copySelection();
+        }
+        if (!ed.canPaste()) fail("nothing is copied: copy_units or cut_units first");
+        if (op.get("player")) ed.setClipboardOwner(uint8_t(player(op, "player", 12)));
+        const int n = ed.paste(int(num(op, "x")), int(num(op, "y")), op.boolean("correct", true));
+        return r.add("pasted", n);
+    }
+    if (name == "copy_terrain") {
+        const Rect a = area(op, "area").normalized();
+        const bool ok = ed.copyTerrain(a, op.boolean("units", false), op.boolean("doodads", false), selectShape(op));
+        return r.add("copied", ok);
+    }
+    if (name == "paste_terrain") {
+        if (!ed.hasTerrainClipboard()) fail("no terrain is copied: copy_terrain first");
+        return r.add("pasted", ed.pasteTerrain(int(num(op, "x")), int(num(op, "y")), op.boolean("correct", true)));
+    }
     if (name == "copy_players") {  // the Players page's copy: the players and forces of another map (one undo step)
         const std::string from = textOf(op, "from");
         Editor other(ed.gameData());
