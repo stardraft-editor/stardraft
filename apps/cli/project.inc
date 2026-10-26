@@ -149,6 +149,7 @@ static Json cmdProjectBuild(Session& s) {
     Editor ed(s.data);
     std::string err;
     if (!ed.open(pr.inputMap(), err)) fail(err);
+    checkStartLocations(s, ed);
     Json warnings = jarr();
     for (const std::string& p : ed.playabilityProblems(true)) warnings.items.push_back(jstr(p));
     stardraft::BuildReport report;
@@ -161,6 +162,17 @@ static Json cmdProjectBuild(Session& s) {
     const euddraft::BuildResult r = stardraft::compileBuild(pr, [&](const std::string& line) { log.items.push_back(jstr(line)); });
     Json errors = jarr();
     for (const std::string& e : r.errors) errors.items.push_back(jstr(e));
+    // The script and the line that euddraft names (as the editor selects it): a file of the project, a linked file or one
+    // that a script imports. The triggers' generated code is generated/triggers.eps.
+    Json scriptError = Json();
+    if (!r.ok) {
+        std::string text;
+        for (const Json& l : log.items) text += l.s + "\n";
+        if (EudProject::ScriptError se; pr.scriptError(text, se))
+            scriptError = Obj().add("file", ustr(se.file)).add("module", se.module).add("line", se.line).add("message", se.message);
+    }
+    Json triggerProblems = jarr();
+    for (const std::string& m : report.triggerErrors) triggerProblems.items.push_back(jstr(m));
     const Json remake = Obj()
                             .add("on", report.remakeOn)
                             .add("units_made", report.remake.made)
@@ -175,6 +187,8 @@ static Json cmdProjectBuild(Session& s) {
         .add("output", ustr(pr.outputMap()))
         .add("exit_code", r.exitCode)
         .add("errors", errors)
+        .add("script_error", scriptError)
+        .add("trigger_problems", triggerProblems)
         .add("warnings", warnings)
         .add("remake", remake)
         .add("log", log);

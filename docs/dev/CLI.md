@@ -43,7 +43,7 @@ refuses: `save --force` writes over it, `save --to` writes another file.
 | `undo` / `redo <map> [--steps n]` | Go back or forward. |
 | `render <map> -o <png>` | See below. |
 | `add-file <map> <name> <file> [--remove]` | Puts a file (a sound, `sound\x.wav`) into the map, or takes one out. Not an undo step: it stays until `close`. |
-| `save <map> [--to path] [--force]` | Writes .scm, .scx or .chk. |
+| `save <map> [--to path] [--force] [--anyway]` | Writes .scm, .scx or .chk. Refused while start locations that StarCraft needs are missing (`--anyway` saves). |
 | `close <map> [--discard]` | Removes the working folder. Refused when changes are not saved. |
 | `ops` | The operations with their parameters. |
 | `trigger-types` | The trigger conditions and actions with their parameters and values. |
@@ -160,7 +160,8 @@ Each spray takes its random seed (`seed`), so a script gives the same result eac
 
 `place_map_revealers` (`players`: 1-8, `spacing` in tiles, default 8) and `remove_map_revealers`.
 `place_start_locations` places the start locations that StarCraft needs. `link_units` (`units`: two serials) links two
-add-ons or a Nydus pair. `save` does not place start locations: the editor asks before it saves, the CLI does not.
+add-ons or a Nydus pair. `save` and `project-build` refuse a map that StarCraft will not start for want of start locations
+(the editor asks Place them, Save anyway or Cancel): apply `place_start_locations` first, or give `--anyway`.
 
 ## Symmetry
 
@@ -183,7 +184,9 @@ anywhere on disk), `remove_section` (`section`), `move_script` (`section`, `delt
 
 `project-build <project>` runs the Build: the generated files (the triggers' code, the .dat and extras code, the remake code),
 the map that euddraft gets, then euddraft. The answer has `built`, `output`, `errors`, `warnings`, `remake` and the `log`
-lines. It can take a while. The EUD triggers: see [EUD triggers](#eud-triggers).
+lines. A failed build also has `script_error`: the .eps file, its module, the line and euddraft's message (a script of the
+project, a linked file or a file that a script imports; the triggers' code is `generated/triggers.eps`), as the editor
+selects it. `trigger_problems` lists the triggers' checker problems. It can take a while. The EUD triggers: see [EUD triggers](#eud-triggers).
 
 ## EUD triggers
 
@@ -252,7 +255,7 @@ commands `core/map_commands.inc`, the pages `sdl_map_pages.inc`, `sdl_briefing.i
 | Terrain copy: units and doodads in a copy | options | Yes (`copy_terrain` with `units` and `doodads`; `paste_terrain`) |
 | Symmetry (mirrors, turns) | Symmetry tool | Yes (apply options) |
 | Locations | create, edit, name, elevations, delete | Yes (`create_location`, `set_location`, `delete_location`) |
-| Start locations | place, check before save | Part: `place_start_locations`; `save` does not ask |
+| Start locations | place, check before save | Yes (`place_start_locations`; `save` and `project-build` refuse without them, `--anyway` saves) |
 | Players and forces | controller, race, force, color, names, flags; copy all | Yes (`set_player`, `set_force`, `copy_players` from another map) |
 | Map properties | name, description, size, tileset, terrain map | Yes (`set_scenario`, `resize_map`) |
 | Map revealers | place, remove, show or hide | Part: place and remove; the hide flag is a view setting |
@@ -295,7 +298,7 @@ Not done, and why:
 
 - Sprite clipboard: the library has no sprite clipboard; a sprite is placed again with `place_sprite`.
 - Campaign: remove a map (the library has no remove).
-- The editor's Build questions (start locations, playability) are the editor's; `project-build` reports the playability.
+- The editor's Build questions: `project-build` refuses without start locations (`--anyway`) and reports the playability.
 - The editor's GUI build was built, not run: the same steps as before, checked by the CLI build on a test project.
 - Triggers from the CLI: the checker's problems are not listed (`check` needs the map's data); the build reports them.
 - The remake plan and the new graphics work the same in the CLI; the CLI build was run on a project without them.

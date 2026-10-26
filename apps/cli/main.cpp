@@ -164,7 +164,7 @@ struct Args {
 
 // The options that take no value.
 bool isFlag(const std::string& name) {
-    for (const char* f : {"timing", "discard", "reopen", "force", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths", "gas"})
+    for (const char* f : {"timing", "discard", "reopen", "force", "anyway", "all", "remove", "dry-run", "locations", "no-units", "no-sprites", "help", "high-bases", "no-paths", "gas"})
         if (name == f) return true;
     return false;
 }
@@ -1476,8 +1476,20 @@ Json cmdUndoRedo(Session& s, bool undo) {
     return Obj().add("step", w.steps[w.step].what).add("change", double(w.change())).add("modified", w.modified());
 }
 
+// The start locations that StarCraft needs, before a save or a build (the editor asks Place them, Save anyway or Cancel):
+// refused while some are missing, unless `--anyway`.
+void checkStartLocations(Session& s, const Editor& ed) {
+    if (s.args.has("anyway")) return;
+    const std::vector<std::string> problems = ed.startLocationProblems();
+    if (problems.empty()) return;
+    std::string text = "StarCraft will not start this map:";
+    for (const std::string& p : problems) text += " " + p + ";";
+    fail(text + " add the op place_start_locations, or use --anyway");
+}
+
 Json cmdSave(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
+    checkStartLocations(s, s.load(t));
     Work w = loadWork(t);
     const fs::path dst = s.args.has("to") ? fs::absolute(upath(s.args.get("to"))) : w.source;
     const bool toSource = samePath(dst, w.source);
@@ -1652,7 +1664,7 @@ const char* kUsage = R"USAGE(stardraft-cli: edit StarCraft: Remastered maps with
                     [--grid px] [--locations] [--no-units] [--no-sprites]
   stardraft-cli import <file> <folder> <name> an EUD Editor 2 (.e2s) or euddraft (.eds) project into a new project
   stardraft-cli add-file <map> <name> <file> put a file (a sound: sound\\x.wav) into the map; --remove takes one out
-  stardraft-cli save <map> [--to <path>]    write the map (.scm, .scx or .chk)
+  stardraft-cli save <map> [--to <path>] [--anyway]    write the map (.scm, .scx or .chk)
   stardraft-cli close <map> [--discard]     remove the working folder
   stardraft-cli ops                         the operations that apply takes, with their parameters
   stardraft-cli trigger-types               the trigger conditions and actions, with their parameters
