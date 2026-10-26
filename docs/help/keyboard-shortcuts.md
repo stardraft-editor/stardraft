@@ -79,15 +79,20 @@ In the Table view:
 |---|---|
 | Arrows, Tab, Home, End, Page Up, Page Down | Move the active cell; with Shift, select the cells to it. Ctrl+arrow: the end of the row or column |
 | A letter or a digit, Enter, F2 | Type a value. Enter puts it into every selected cell |
+| +10, -10, \*1.5, /2, then Enter | Change each selected number by this step (hit points in hit points) |
 | Space | Toggle the selected check boxes. Ctrl+Space: select the column; Shift+Space: select the row |
 | Del | Reset the selected cells to the game's values |
 | Ctrl+C, Ctrl+V | Copy and paste cells, as tab-separated text (spreadsheets use it too) |
 | Ctrl+D | Copy the top cell of the selection into the cells under it |
+| Ctrl+R | Copy the left cell of the selection into the cells to its right |
 | Ctrl+A | Select all cells |
 | Alt+Down, a letter | Open the list of a dropdown's cell; a letter searches it. Enter puts the value into each selected cell |
 | Right button | Reset the cells, copy or paste. On a column's header: hide the column, sort, or Columns… to select the columns that show |
 | Double click on a header | Sort by the column: ascending, then descending, then the default order |
 | Drag a selected column's header | Move the column. The project keeps the columns' order, widths, hidden columns and sort |
+| Double click on a header's right edge | Fit the column's width to its text (all selected columns) |
+
+The box at the top filters the columns by name. **Changed** shows only the columns that have a value that is not the game's. The right button's **Copy with the column names** copies the ids and the CSV column names too. A flag field's columns show or hide together: **All N flags** in Columns…, or **Show all the flags of** and **Hide the flags of** on a flag column's header.
 
 ## Triggers workspace
 

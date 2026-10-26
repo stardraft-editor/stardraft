@@ -253,6 +253,40 @@ DataCellSet dataCellSet(DatTable& t, const DataTableColumn& col, int e, const st
     return t.value(f, e) == old ? DataCellSet::Same : DataCellSet::Changed;
 }
 
+// A step for the selected numbers, as it is typed: "+10", "-10", "*1.5" or "/2". True with its operator and its number.
+bool dataReadStep(const std::wstring& typed, wchar_t& op, double& n) {
+    const std::wstring text = dataTrim(typed);
+    if (text.size() < 2 || !std::wcschr(L"+-*/", text[0])) return false;
+    const std::wstring rest = dataTrim(text.substr(1));
+    wchar_t* end = nullptr;
+    n = std::wcstod(rest.c_str(), &end);
+    if (rest.empty() || !end || *end != 0 || !std::isfinite(n) || n < 0 || (text[0] == L'/' && n == 0)) return false;
+    op = text[0];
+    return true;
+}
+
+// A number cell changed by a step: its value (in the unit that the form shows, as hit points) plus, minus, times or
+// divided by n, rounded, from 0 to the field's highest value. A cell of another kind: NotValue. The caller saves.
+DataCellSet dataCellStep(DatTable& t, const DataTableColumn& col, int e, wchar_t op, double n) {
+    if (!dataCellLocked(t, col, e).empty()) return DataCellSet::Locked;
+    if (col.kind != DataCellKind::Number) return DataCellSet::NotValue;
+    const DatField& f = *dataSchemaField(t.schema(), col.field);
+    const uint32_t old = t.value(f, e), k = std::max<uint32_t>(1, fieldShownScale(f));
+    const double now = double(old) / k;
+    const double next = op == L'+' ? now + n : op == L'-' ? now - n : op == L'*' ? now * n : now / n;
+    const uint32_t v = stardraft::datRawFromShown(next, k, f.maxValue());
+    if (v == old) return DataCellSet::Same;
+    dataApplyValue(t, f, e, v);
+    return t.value(f, e) == old ? DataCellSet::Same : DataCellSet::Changed;
+}
+
+// A column has a value that is not the game's, in any entry.
+bool dataColumnChanged(const DatTable& t, const DataTableColumn& col) {
+    for (int e = 0; e < int(t.schema().entries); ++e)
+        if (dataCellChanged(t, col, e)) return true;
+    return false;
+}
+
 // Puts the game's value back into a cell (Delete). The caller saves the change.
 DataCellSet dataCellReset(DatTable& t, const DataTableColumn& col, int e) {
     if (!dataCellLocked(t, col, e).empty()) return DataCellSet::Locked;
