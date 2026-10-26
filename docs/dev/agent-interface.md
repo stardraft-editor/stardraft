@@ -1,6 +1,7 @@
 # An interface for agents (parked idea)
 
-State: an idea for later (2026-10-17). Nothing of it is made yet.
+State: an idea for later (2026-10-17). Done since then: the CLI's operations and `serve` (docs/dev/CLI.md, "Parity with
+the editor"). Not yet: the MCP server.
 
 ## The goal
 
