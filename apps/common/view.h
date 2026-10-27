@@ -384,10 +384,12 @@ public:
         return false;
     }
     // A press or a double click on view `v` at `local` (its own point): a double click is one only when the press
-    // before it was on the same view, with the same button, on the same item (View::sameItem); else it is a new press.
+    // before it was on the same view, with the same button, on the same item (View::sameItem), and was not the second
+    // click of a double click itself (three quick clicks: a double click and a press; four: two double clicks); else it
+    // is a new press.
     void pressedAt(View& v, const MouseEvent& e) {
         if (e.kind != MouseKind::Down && e.kind != MouseKind::DoubleClick) return;
-        doubleClick_ = e.kind == MouseKind::DoubleClick && pressed_ == &v && pressButton_ == e.button && v.sameItem(pressPt_, e.pt);
+        doubleClick_ = e.kind == MouseKind::DoubleClick && !doubleClick_ && pressed_ == &v && pressButton_ == e.button && v.sameItem(pressPt_, e.pt);
         pressed_ = &v, pressPt_ = e.pt, pressButton_ = e.button;
     }
     // A view gets the event. A double click (the system counts quick presses: the second and each next quick press is

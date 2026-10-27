@@ -1,13 +1,13 @@
 // The Data workspace's Table view: the model (portable, core.inc, after data_nav.inc). The entries are the rows and the
-// fields are the columns: the name, then each field in the form's order, a field of flags a column for each flag. A cell
-// is a number, a dropdown's value (a number to type, its name shown), a yes/no value or a flag (a check box), or the
-// unit's name (text). Here: the columns, a cell's text and how a typed text sets it, the selected cells, and the
-// clipboard's and the CSV file's text. The view (views_data_table.inc) paints them; the program saves each change as one
-// undo step.
+// fields are the columns: the name, then each field in the form's order. A field of flags is one column (the names of
+// its flags that are on), and each of its flags can also show as a column of its own. A cell is a number, a dropdown's
+// value (a number to type, its name shown), a yes/no value or a flag (a check box), a set of flags, or the unit's name
+// (text). Here: the columns, a cell's text and how a typed text sets it, the selected cells, and the clipboard's and the
+// CSV file's text. The view (views_data_table.inc) paints them; the program saves each change as one undo step.
 
 bool dataTableViewOn() { return dataState().table; }
 
-enum class DataCellKind { Name, Number, Pick, Bool, Bit };
+enum class DataCellKind { Name, Number, Pick, Bool, Bit, Flags };
 
 struct DataTableColumn {
     DataCellKind kind = DataCellKind::Number;
@@ -22,7 +22,7 @@ const DatField* dataSchemaField(const DatSchema& sch, int index) {
 }
 
 // The columns of a .dat: the name, then the fields as the form shows them (each section in the schema's order, each
-// section's fields in their order); a field of flags gives a column to each flag.
+// section's fields in their order); a field of flags gives its column, then a column to each flag.
 std::vector<DataTableColumn> dataTableColumns(const DatSchema& sch) {
     std::vector<DataTableColumn> out{{DataCellKind::Name, -1, -1}};
     for (int si = 0; si <= int(sch.sections.size()); ++si) {
@@ -32,6 +32,7 @@ std::vector<DataTableColumn> dataTableColumns(const DatSchema& sch) {
         std::sort(fields.begin(), fields.end(), [](const DatField* a, const DatField* b) { return a->order < b->order; });
         for (const DatField* f : fields) {
             if (!f->flags.empty()) {
+                out.push_back({DataCellKind::Flags, f->index, -1});
                 for (size_t b = 0; b < f->flags.size(); ++b) out.push_back({DataCellKind::Bit, f->index, int(b)});
             } else {
                 const DataCellKind k = fieldIsBool(sch.name, *f) ? DataCellKind::Bool : fieldIsDropdown(*f) ? DataCellKind::Pick : DataCellKind::Number;
@@ -57,13 +58,36 @@ std::wstring dataColumnGroup(const DatSchema& sch, const DataTableColumn& col) {
     if (col.kind == DataCellKind::Bit) return datLabel(f->name);
     return f->section < int(sch.sections.size()) ? datLabel(sch.sections[size_t(f->section)]) : L"Other";
 }
-// A column's name in a CSV file: "name", the field's name in the schema, or "<field>: <flag>". (The schema's names, so
-// that a file reads again in another language.)
+// A name as a column name: lower case, each run of letters and digits joined by "_" ("Hit Points" -> "hit_points").
+std::wstring dataSnakeName(const std::string& name) {
+    std::wstring out;
+    bool gap = false;
+    for (const char ch : name) {
+        const unsigned char c = static_cast<unsigned char>(ch);
+        if (std::isalnum(c)) {
+            if (gap && !out.empty()) out += L'_';
+            out += wchar_t(std::tolower(c)), gap = false;
+        } else {
+            gap = true;
+        }
+    }
+    return out;
+}
+// A column's name in a CSV file and in a copy with headers: "name", the field's name in the schema as hit_points, or
+// "<field>.<flag>". (The schema's names, not the shown ones: a file reads again in another language, and after a
+// column's shown name changes.) The table's layout keeps its columns by these names too.
 std::wstring dataColumnKey(const DatSchema& sch, const DataTableColumn& col) {
     if (col.kind == DataCellKind::Name) return sch.name == "strings" ? L"text" : L"name";
     const DatField* f = dataSchemaField(sch, col.field);
     if (!f) return L"";
-    return widen(f->name) + (col.kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(col.bit)]) : L"");
+    return dataSnakeName(f->name) + (col.kind == DataCellKind::Bit ? L"." + dataSnakeName(f->flags[size_t(col.bit)]) : L"");
+}
+// The names of the flags that are on in `v` ("Building, Flyer"), or "None".
+std::wstring dataFlagsText(const DatField& f, uint32_t v) {
+    std::wstring out;
+    for (size_t b = 0; b < f.flags.size() && b < 32; ++b)
+        if ((v >> b) & 1) out += (out.empty() ? L"" : L", ") + widen(f.flags[b]);
+    return out.empty() ? L"None" : out;
 }
 
 // The Strings tab as a table: a schema with no fields (its one column is the text, the Name kind) and as many entries
@@ -76,10 +100,12 @@ DatTable& dataStringsTable() {
     return table;
 }
 
-// The Table view's layout of each .dat, kept in the project (dat/table_view.json): the hidden columns, the columns'
-// order and widths, and the sort. A column is its CSV name (dataColumnKey). The name column always shows, first.
+// The Table view's layout of each .dat, kept in the project (dat/table_view.json): the hidden columns, the flags that
+// show as columns of their own, the columns' order and widths, and the sort. A column is its CSV name (dataColumnKey).
+// The name column always shows, first.
 struct DataTableLayout {
     std::set<std::wstring> hidden;
+    std::set<std::wstring> bits;          // the flags that show as columns (a flag's column shows only when it is here)
     std::vector<std::wstring> order;      // the columns in the order they show (empty: the form's order)
     std::map<std::wstring, int> widths;   // a column's width that a drag set, in 96-dpi pixels
     std::wstring sortKey;                 // the column the rows are sorted by (empty: the default order, the list's)
@@ -113,6 +139,7 @@ DataTableLayout& dataTableLayout(const std::string& dat) {
                 else if (const auto list = s.list(name))
                     for (const std::string& v : *list) {
                         if (what == "hidden") l.hidden.insert(widen(v));
+                        else if (what == "bits") l.bits.insert(widen(v));
                         else if (what == "order") l.order.push_back(widen(v));
                         else if (const size_t eq = v.rfind('='); what == "widths" && eq != std::string::npos)
                             l.widths[widen(v.substr(0, eq))] = std::clamp(std::atoi(v.c_str() + eq + 1), 24, 4000);
@@ -131,13 +158,15 @@ void dataTableLayoutSave(const std::string& dat) {
     std::error_code ec;
     fs::create_directories(f.parent_path(), ec);
     stardraft::Settings s(f);
-    std::vector<std::string> hidden, order, widths;
+    std::vector<std::string> hidden, bits, order, widths;
     for (const auto& k : l.hidden) hidden.push_back(narrow(k));
+    for (const auto& k : l.bits) bits.push_back(narrow(k));
     for (const auto& k : l.order) order.push_back(narrow(k));
     for (const auto& [k, w] : l.widths) widths.push_back(narrow(k) + "=" + std::to_string(w));
     bool ok = true;
     auto put = [&](const std::string& what, bool has, stardraft::Settings::Value v) { ok &= has ? s.set(dat + "." + what, std::move(v)) : (!s.has(dat + "." + what) || s.remove(dat + "." + what)); };
     put("hidden", !hidden.empty(), hidden);
+    put("bits", !bits.empty(), bits);
     put("order", !order.empty(), order);
     put("widths", !widths.empty(), widths);
     put("sort", !l.sortKey.empty(), narrow(l.sortKey));
@@ -149,6 +178,29 @@ void dataTableSetHidden(const std::string& dat, std::set<std::wstring> keys) {
     keys.erase(L"name"), keys.erase(L"text");
     dataTableHidden(dat) = std::move(keys);
     dataTableLayoutSave(dat);
+}
+// The column does not show: hidden, or a flag that is not one of the layout's flag columns. (The name always shows.)
+bool dataColumnHidden(const DataTableLayout& l, const DatSchema& sch, const DataTableColumn& col) {
+    if (col.kind == DataCellKind::Name) return false;
+    const std::wstring key = dataColumnKey(sch, col);
+    return col.kind == DataCellKind::Bit ? !l.bits.count(key) : l.hidden.count(key) != 0;
+}
+// Shows or hides a column (the caller saves the layout). A column that starts to show goes to the right end.
+void dataColumnSetShown(DataTableLayout& l, const DatSchema& sch, const DataTableColumn& col, bool show) {
+    if (col.kind == DataCellKind::Name || dataColumnHidden(l, sch, col) != show) return;
+    const std::wstring key = dataColumnKey(sch, col);
+    if (col.kind == DataCellKind::Bit) {
+        if (show) l.bits.insert(key);
+        else l.bits.erase(key);
+    } else {
+        if (show) l.hidden.erase(key);
+        else l.hidden.insert(key);
+    }
+    if (!show) return;
+    if (l.order.empty())  // (the form's order first, so that only this column moves)
+        for (const DataTableColumn& c : dataTableColumns(sch)) l.order.push_back(dataColumnKey(sch, c));
+    l.order.erase(std::remove(l.order.begin(), l.order.end(), key), l.order.end());
+    l.order.push_back(key);
 }
 
 // The stat_txt.tbl string (1-based) that a Name cell changes: a unit's name (0: none, the name is not text to change).
@@ -229,7 +281,26 @@ DataCellSet dataCellSet(DatTable& t, const DataTableColumn& col, int e, const st
     const DatField& f = *dataSchemaField(t.schema(), col.field);
     const uint32_t old = t.value(f, e);
     uint32_t v = old;
-    if (col.kind == DataCellKind::Bit || col.kind == DataCellKind::Bool) {
+    if (col.kind == DataCellKind::Flags) {
+        // A set of flags: its number (decimal, or hex with 0x), or the names of the flags that are on ("Building, Flyer"
+        // or "Building|Flyer"; "None": no flag), as the cell shows them.
+        if (dataReadEntry(text, f.maxValue(), v) != DataEntryRead::Number) {
+            v = 0;
+            if (dataLower(text) != L"none") {
+                size_t at = 0;
+                while (at <= text.size()) {
+                    const size_t end = text.find_first_of(L",|", at);
+                    const std::wstring part = dataLower(dataTrim(text.substr(at, end == std::wstring::npos ? std::wstring::npos : end - at)));
+                    bool found = part.empty();
+                    for (size_t b = 0; b < f.flags.size() && b < 32 && !found; ++b)
+                        if (dataLower(widen(f.flags[b])) == part) v |= 1u << b, found = true;
+                    if (!found) return DataCellSet::NotValue;
+                    if (end == std::wstring::npos) break;
+                    at = end + 1;
+                }
+            }
+        }
+    } else if (col.kind == DataCellKind::Bit || col.kind == DataCellKind::Bool) {
         bool yes = false;
         if (dataReadYesNo(text, yes)) v = col.kind == DataCellKind::Bit ? (old & ~(1u << col.bit)) | (uint32_t(yes) << col.bit) : uint32_t(yes);
         else if (col.kind != DataCellKind::Bool || dataReadEntry(text, f.maxValue(), v) != DataEntryRead::Number) return DataCellSet::NotValue;  // (a yes/no byte holds any number)
@@ -487,9 +558,38 @@ struct DataImportResult {
     std::wstring firstProblem;      // the first cell that did not go in: "Hit Points of 12: \"abc\" is not a value"
 };
 
-// Puts a CSV file's grid into the table: the rows by their "id", the columns by their names (the CSV names of
-// dataColumnKey, or the names in the Table's headers; any case). An empty cell changes nothing. The caller saves the
-// change (one undo step).
+// The column (an index of `cols`, the .dat's columns) that a column name gives: its CSV name (dataColumnKey), the
+// schema's name ("Hit Points", "<field>: <flag>", as older files have them) or the name in the Table's header; any case.
+// -1: none.
+int dataColumnNamed(const DatSchema& sch, const std::vector<DataTableColumn>& cols, const std::wstring& text) {
+    const std::wstring name = dataLower(dataTrim(text));
+    if (name.empty()) return -1;
+    for (size_t i = 0; i < cols.size(); ++i)
+        if (dataLower(dataColumnKey(sch, cols[i])) == name) return int(i);
+    for (size_t i = 0; i < cols.size(); ++i) {
+        const DatField* f = dataSchemaField(sch, cols[i].field);
+        const std::wstring schemaName = !f ? L"" : widen(f->name) + (cols[i].kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(cols[i].bit)]) : L"");
+        if ((!schemaName.empty() && dataLower(schemaName) == name) || dataLower(dataColumnTitle(sch, cols[i])) == name ||
+            (cols[i].kind == DataCellKind::Bit && dataLower(dataColumnGroup(sch, cols[i]) + L": " + dataColumnTitle(sch, cols[i])) == name))
+            return int(i);
+    }
+    return -1;
+}
+// The row is a row of column names: each of its cells is "id" or a column's name (dataColumnNamed), and one at least.
+bool dataGridIsHeader(const DatSchema& sch, const std::vector<std::wstring>& row) {
+    const std::vector<DataTableColumn> cols = dataTableColumns(sch);
+    int names = 0;
+    for (const std::wstring& cell : row) {
+        const std::wstring name = dataLower(dataTrim(cell));
+        if (name.empty()) continue;
+        if (name != L"id" && dataColumnNamed(sch, cols, name) < 0) return false;
+        ++names;
+    }
+    return names > 0;
+}
+
+// Puts a CSV file's grid into the table: the rows by their "id", the columns by their names (dataColumnNamed). An empty
+// cell changes nothing. The caller saves the change (one undo step).
 DataImportResult dataTableImport(DatTable& t, const DataGrid& grid) {
     DataImportResult res;
     const DatSchema& sch = t.schema();
@@ -504,10 +604,7 @@ DataImportResult dataTableImport(DatTable& t, const DataGrid& grid) {
             idCol = int(k);
             continue;
         }
-        for (size_t i = 0; i < cols.size() && colOf[k] < 0; ++i)
-            if (dataLower(dataColumnKey(sch, cols[i])) == name || dataLower(dataColumnTitle(sch, cols[i])) == name ||
-                (cols[i].kind == DataCellKind::Bit && dataLower(dataColumnGroup(sch, cols[i]) + L": " + dataColumnTitle(sch, cols[i])) == name))
-                colOf[k] = int(i);
+        colOf[k] = dataColumnNamed(sch, cols, name);
         if (colOf[k] < 0) res.unknown.push_back(dataTrim(grid[0][k]));
     }
     if (idCol < 0) return res.error = L"Could not import the file. It has no \"id\" column. The first row must give the column names, with \"id\" for the entry numbers.", res;

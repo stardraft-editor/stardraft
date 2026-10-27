@@ -672,9 +672,11 @@ public:
     bool editGameText(draw::Rect box, const std::wstring& title, std::string& text) override {
         return shellEditGameText(gSdlDataTable, box, title, text);
     }
-    bool pickMany(const std::wstring& title, std::vector<ListPickItem> items, std::set<std::string>& checked, draw::Point pt) override {
+    bool pickMany(const std::wstring& title, std::vector<ListPickItem> items, std::set<std::string>& checked, draw::Point pt,
+                  std::function<void(const std::string&, bool, std::set<std::string>&)> toggle) override {
         ListPickView v(title, std::move(items), "");
-        v.setMulti(checked, shellTr(L"Show"));
+        if (toggle) v.setLive(checked, shellTr(L"Close"), std::move(toggle));
+        else v.setMulti(checked, shellTr(L"OK"));
         const draw::Point o = gSdlDataTable.origin();
         if (!runListPick(v, {o.x + pt.x, o.y + pt.y})) return false;
         checked = v.checked();

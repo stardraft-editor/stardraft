@@ -138,6 +138,14 @@ public:
         add(cancel_, {0, 0, 0, 0});
         add(ok_, {0, 0, 0, 0});
     }
+    // The multi-pick that acts at each click: `toggle` gets the row's value and its new check, and can change the checks
+    // (rows that act on others). Its one button closes it (`doneText`); Esc and Enter close it too, as each click has
+    // acted already.
+    void setLive(std::set<std::string> checked, const std::wstring& doneText, std::function<void(const std::string&, bool, std::set<std::string>&)> toggle) {
+        setMulti(std::move(checked), doneText);
+        toggle_ = std::move(toggle);
+        cancel_.setVisible(false);
+    }
     // The icon of an item with one (iconDat and icon): the program's picture of that entry (empty: none).
     std::function<draw::Image(const ListPickItem&)> iconOf;
 
@@ -183,7 +191,9 @@ public:
         if (sel_ < 0 || sel_ >= int(rows_.shown.size()) || rows_.shown[size_t(sel_)] < 0) return;
         const std::string& value = items_[size_t(rows_.shown[size_t(sel_)])].value;
         if (multi_) {  // checks the row; the list stays open
-            if (!checked_.erase(value)) checked_.insert(value);
+            const bool on = !checked_.erase(value);
+            if (on) checked_.insert(value);
+            if (toggle_) toggle_(value, on, checked_);
             invalidate();
             return;
         }
@@ -261,7 +271,7 @@ public:
             if (multi_) finish(true);
             else choose();
             return true;
-        case Key::Escape: finish(false); return true;
+        case Key::Escape: finish(toggle_ != nullptr); return true;  // (a live pick: the clicks have acted)
         case Key::Space:  // a multi-pick: Space checks the row (in a single pick, Space is a space of the search)
             if (!multi_) return false;
             choose();
@@ -378,6 +388,7 @@ private:
     std::vector<ListPickItem> items_;
     std::string current_, result_;
     std::set<std::string> checked_;
+    std::function<void(const std::string&, bool, std::set<std::string>&)> toggle_;  // a live multi-pick: each click acts
     bool multi_ = false, done_ = false, picked_ = false, laid_ = false;
     int advance_ = 0;
     unsigned pickMods_ = 0;
