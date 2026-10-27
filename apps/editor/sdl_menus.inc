@@ -9,7 +9,6 @@
 
 // The menus are made again on the UI thread when the state changed (shellMenusChanged) and no menu is open.
 bool gMenusDirty = true;
-extern bool gSdlClassicTableOn;  // (sdl_map_pages.inc: Map data's Form | Table)
 void sdlClassicSetTable(bool on);
 // The shortcuts of the menu items (the menu model's keys), each with its command.
 struct Shortcut {
@@ -1365,7 +1364,7 @@ void commandSdl(int id) {
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
         return;
     case ID_DATA_TABLE:  // Ctrl+E: the Data workspace's Table view, or the entry's form again (sdl_data.inc); Map data's
-        if (gWorkspace == Workspace::ClassicSettings) sdlClassicSetTable(!gSdlClassicTableOn);
+        if (gWorkspace == Workspace::ClassicSettings) sdlClassicSetTable(!gClassicTableOn);
         else if (activeProject()) sdlDataTableCommand();
         return;
     case ID_DATA_ENTRY:

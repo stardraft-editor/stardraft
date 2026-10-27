@@ -155,8 +155,10 @@ DataTableLayout& dataTableLayout(const std::string& dat) {
     return g.dats[dat];
 }
 // Writes the layout of a .dat into the project's file (no project: it stays until the program ends).
+bool dataIsMapTable(const std::string& dat);
 void dataTableLayoutSave(const std::string& dat) {
     ++gDataTableHiddenRev;
+    if (dataIsMapTable(dat)) return;  // (a classic map's table: its layout stays while the program runs, not in a project)
     const fs::path f = dataTableLayoutFile();
     if (f.empty()) return;
     const DataTableLayout& l = dataTableLayout(dat);

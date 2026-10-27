@@ -132,6 +132,7 @@ public:
             return false;
         }
         if (e.kind == draw::MouseKind::Down && e.button == 0 && kind >= 0) {
+            focus();  // (the table takes the keyboard again when it shows)
             host_.setViewKind(kind);
             invalidate();
             return true;

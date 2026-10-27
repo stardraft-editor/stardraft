@@ -31,9 +31,15 @@ public:
     std::vector<ListPickItem> dropdownItems(const DatField&) override { return {}; }
     bool choose(const DatField&, uint32_t, draw::Rect, uint32_t&, const std::wstring&) override { return false; }
     void saved(const std::wstring& what) override {
-        if (gClassic && classicTableCommit(gClassic->tab)) gSdlClassicHost.changed();  // (into the map: one undo step)
         setMessage(what);
-        if (gSdlPage.classicTable) gSdlPage.classicTable->invalidate();
+        // (after the table's handler: the map's change can make the page's views again, an undo before it read again)
+        // The changes are taken now; an old copy (an undo just before) reads the map first, then they go in.
+        const int tab = gClassic ? gClassic->tab : 0;
+        shellPost([tab, edits = classicTableEdits(tab)] {
+            if (const SdlCopy* c = sdlOpenCopy(); c && gState.ed && c->revision != gState.ed->revision()) sdlMapPageReload();
+            if (gClassic && classicTableApply(tab, edits)) gSdlClassicHost.changed();  // (into the map: one undo step)
+            if (gSdlPage.classicTable) gSdlPage.classicTable->invalidate();
+        });
     }
     void open(int e) override {  // a row's number or name: the entry's form
         if (!gClassic) return;
@@ -77,4 +83,7 @@ private:
     std::vector<int> rows_;
 };
 SdlClassicTableHost gSdlClassicTableHost;
-DataTableViewHost& sdlClassicTableHost() { return gSdlClassicTableHost; }
+DataTableView& sdlClassicTableView() {
+    static DataTableView view(gSdlClassicTableHost);
+    return view;
+}

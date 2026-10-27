@@ -497,13 +497,13 @@ struct SdlPageState {
     std::unique_ptr<SdlPropsView> props;
     std::unique_ptr<PlayersView> players;
     std::unique_ptr<ClassicPageView> classic[kClassicTabCount];
-    std::unique_ptr<DataTableView> classicTable;  // Map data's Table view (sdl_classic_table.inc)
+    DataTableView* classicTable = nullptr;  // Map data's Table view (sdl_classic_table.inc: one view, kept with its selection and scroll when the page is made again)
     std::unique_ptr<SdlClassicTrigPage> classicTrig;
 };
 SdlPageState gSdlPage;
-DataTableViewHost& sdlClassicTableHost();  // (sdl_classic_table.inc)
-bool gSdlClassicTableOn = false;  // Map data shows the Table view (it stays while the program runs)
-bool sdlClassicTableShown() { return gSdlPage.kind == kSdlClassic && gSdlClassicTableOn && gSdlPage.classicTable; }
+DataTableView& sdlClassicTableView();  // (sdl_classic_table.inc)
+bool gSdlClassicTableFocus = false;  // the table had the keyboard when the page's views went (an undo: they are made again)
+bool sdlClassicTableShown() { return gSdlPage.kind == kSdlClassic && gClassicTableOn && gSdlPage.classicTable; }
 
 bool SdlClassicHost::editUnitName(int u, std::string& text, draw::Point at) {
     draw::View* page = gSdlPage.classic[kClassicUnits].get();
@@ -587,7 +587,11 @@ void sdlDropViews() {
     gSdlPage.props.reset();  // (each view takes itself out of the scroll view)
     gSdlPage.players.reset();
     for (auto& v : gSdlPage.classic) v.reset();
-    gSdlPage.classicTable.reset();
+    if (DataTableView* t = std::exchange(gSdlPage.classicTable, nullptr); t && t->parent()) {
+        gSdlClassicTableFocus = t->hasFocus() || t->editing();
+        t->cancelEdit();
+        t->parent()->remove(*t);
+    }
     gSdlPage.classicTrig.reset();
     gClassic = nullptr;
 }
@@ -605,7 +609,7 @@ std::vector<draw::View*> sdlParts() {
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
     } else if (gSdlPage.kind == kSdlClassic) {
         if (sdlClassicTableShown()) {
-            out.push_back(gSdlPage.classicTable.get());
+            out.push_back(gSdlPage.classicTable);
         } else {
             for (auto& v : gSdlPage.classic)
                 if (v) out.push_back(v.get());
@@ -666,7 +670,7 @@ public:
             parts[k]->setFrame({-x, top, -x + parts[k]->width(), top + parts[k]->height()});
         }
     }
-    int viewKind() override { return gSdlPage.kind == kSdlClassic ? (gSdlClassicTableOn ? 1 : 0) : -1; }
+    int viewKind() override { return gSdlPage.kind == kSdlClassic ? (gClassicTableOn ? 1 : 0) : -1; }
     void setViewKind(int k) override;
     static inline const wchar_t* const kSdlTitles[kSdlPageCount] = {L"Map properties", L"Players and forces", L"Data", L"Classic triggers"};
 };
@@ -955,9 +959,10 @@ void sdlMakeContent() {
             gSdlPage.classic[t] = std::make_unique<ClassicPageView>(gSdlClassicHost, *k.d, t);
             scroll.add(*gSdlPage.classic[t], draw::Rect(0, 0, gSdlPage.classic[t]->preferredWidth(), gSdlPage.classic[t]->preferredHeight()));
         }
-        gSdlPage.classicTable = std::make_unique<DataTableView>(sdlClassicTableHost());
+        gSdlPage.classicTable = &sdlClassicTableView();
         scroll.add(*gSdlPage.classicTable, draw::Rect(0, 0, 0, 0));
         sdlShowTab(gClassic->tab);
+        if (gClassicTableOn && std::exchange(gSdlClassicTableFocus, false)) gSdlPage.classicTable->focus();
         break;
     }
     }
@@ -971,7 +976,7 @@ void sdlMakeContent() {
 void sdlMapDataShowUnit(int type) {
     setWorkspace(Workspace::ClassicSettings);
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
-    gSdlClassicTableOn = false;  // (the unit's form)
+    gClassicTableOn = false;  // (the unit's form)
     sdlShowTab(kClassicUnits);
     if (gSdlPage.classic[kClassicUnits]) gSdlPage.classic[kClassicUnits]->select(type);
 }
@@ -981,9 +986,9 @@ void sdlShowTab(int k) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
     gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
     for (int t = 0; t < kClassicTabCount; ++t)
-        if (gSdlPage.classic[t]) gSdlPage.classic[t]->setVisible(!gSdlClassicTableOn && t == gClassic->tab);
+        if (gSdlPage.classic[t]) gSdlPage.classic[t]->setVisible(!gClassicTableOn && t == gClassic->tab);
     if (gSdlPage.classicTable) {
-        gSdlPage.classicTable->setVisible(gSdlClassicTableOn);
+        gSdlPage.classicTable->setVisible(gClassicTableOn);
         gSdlPage.classicTable->refresh();
     }
     sdlPageRelayoutParts();
@@ -992,9 +997,10 @@ void sdlShowTab(int k) {
 // Form | Table (the icons at the tabs' right, Ctrl+E): the selected entry's form, or the tab's Table view.
 void sdlClassicSetTable(bool on) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
-    gSdlClassicTableOn = on;
+    gClassicTableOn = on;
     sdlShowTab(gClassic->tab);
     if (on && gSdlPage.classicTable) gSdlPage.classicTable->focus();
+    else if (!on) gSdlMapPages.frame.focus();  // (the hidden table keeps no keys: a Delete there would change the map unseen)
     setMessage(on ? L"Opened the Table view: each entry of the tab is a row" : L"Opened the entry's form");
 }
 void SdlPageFrameHost::setViewKind(int k) { sdlClassicSetTable(k == 1); }

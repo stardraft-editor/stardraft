@@ -12,6 +12,7 @@ struct ClassicTableModel {
     bool made[kClassicTabCount] = {};  // the table has its schema and values
 };
 ClassicTableModel gClassicTable;
+bool gClassicTableOn = false;  // Map data shows the Table view (it stays while the program runs)
 ClassicHost* gClassicTableHost = nullptr;  // the page's host: the rows' names (the program sets it)
 
 const char* const kClassicTableNames[kClassicTabCount] = {"map units", "map upgrades", "map techs"};
@@ -67,28 +68,40 @@ DatTable* classicTable(int tab) {
     return &gClassicTable.table[tab];
 }
 
-// The table's changes into the working copy: each value that differs from the one the table was made with. True when
-// a value changed.
-bool classicTableCommit(int tab) {
-    if (!gClassic || tab < 0 || tab >= kClassicTabCount || !gClassicTable.made[tab]) return false;
+// A value the table changed: the entry, the value field, the new value.
+struct ClassicTableEdit {
+    int entry = 0, field = 0;
+    uint32_t value = 0;
+};
+// The table's changes: each value that differs from the one the table was made with.
+std::vector<ClassicTableEdit> classicTableEdits(int tab) {
+    std::vector<ClassicTableEdit> out;
+    if (!gClassic || tab < 0 || tab >= kClassicTabCount || !gClassicTable.made[tab]) return out;
     const DatSchema& s = gClassicTable.schema[tab];
-    const DatTable& t = gClassicTable.table[tab];
-    if (gClassicTable.built[tab].size() != s.fileSize) return false;
+    if (gClassicTable.built[tab].size() != s.fileSize) return out;
     DatTable before;
     before.setValues(s, {}, gClassicTable.built[tab]);
-    bool any = false;
-    for (int e = 0; e < s.entries; ++e) {
-        bool entry = false;
-        for (const DatField& f : s.fields) {
-            const uint32_t v = t.value(f, e);
-            if (v == before.value(f, e)) continue;
-            if (!entry && classicUseDefault(tab, e)) classicSetUseDefault(tab, e, false);  // (the game's values, then this one)
-            classicSetField(tab, e, f.index, v);
-            entry = any = true;
-        }
-        if (entry) classicFollowDefault(tab, e);
+    for (int e = 0; e < s.entries; ++e)
+        for (const DatField& f : s.fields)
+            if (const uint32_t v = gClassicTable.table[tab].value(f, e); v != before.value(f, e)) out.push_back({e, f.index, v});
+    return out;
+}
+// The changes into the working copy (an entry stops using the game's values, and uses them again when nothing
+// differs). True when there was a change. The table is made again from the working copy (a value it caps shows as it is).
+bool classicTableApply(int tab, const std::vector<ClassicTableEdit>& edits) {
+    if (!gClassic || tab < 0 || tab >= kClassicTabCount) return false;
+    const int n = classicEntryCount(tab);
+    int last = -1;
+    for (const ClassicTableEdit& d : edits) {
+        if (d.entry < 0 || d.entry >= n || d.field < 0 || d.field >= classicFieldCount(tab)) continue;
+        if (d.entry != last && last >= 0) classicFollowDefault(tab, last);
+        if (d.entry != last && classicUseDefault(tab, d.entry)) classicSetUseDefault(tab, d.entry, false);  // (the game's values, then this one)
+        classicSetField(tab, d.entry, d.field, d.value);
+        last = d.entry;
     }
-    return any;
+    if (last >= 0) classicFollowDefault(tab, last);
+    gClassicTable.made[tab] = false;
+    return last >= 0;
 }
 
 // A row's name: the page's (a unit's game name and its own name).

@@ -509,6 +509,7 @@ bool commandMapEdit(AppState& app, int id) {
 // The check of one of these menu items now: 1 checked, 0 not, -1 the item has no check here (the Options menu's snaps
 // and rules, the terrain copy, the names in locations, the grid's size, the pathing overlays).
 bool dataTableViewOn();  // (core/data_table.inc: the Data workspace shows its Table view)
+extern bool gClassicTableOn;  // (classic_table.inc: Map data's Form | Table)
 int mapMenuCheck(int id) {
     const AppState& app = shellState();
     auto snap = [](int first, int grid) { return first + snapChoice(grid); };
@@ -539,8 +540,8 @@ int mapMenuCheck(int id) {
     case ID_VIEW_WALK: return gPath.walk;
     case ID_VIEW_PATHS: return gPath.paths;
     case ID_VIEW_TOWNS: return gPath.towns;
-    case ID_DATA_TABLE: return dataTableViewOn();  // (View > Data: the one that shows)
-    case ID_DATA_ENTRY: return !dataTableViewOn();
+    case ID_DATA_TABLE: return gWorkspace == Workspace::ClassicSettings ? gClassicTableOn : dataTableViewOn();  // (View > Data: the one that shows; Map data's)
+    case ID_DATA_ENTRY: return gWorkspace == Workspace::ClassicSettings ? !gClassicTableOn : !dataTableViewOn();
     case ID_PATHSIZE_SMALL: return gPath.size == PathUnitSize::Small;
     case ID_PATHSIZE_MEDIUM: return gPath.size == PathUnitSize::Medium;
     case ID_PATHSIZE_LARGE: return gPath.size == PathUnitSize::Large;
