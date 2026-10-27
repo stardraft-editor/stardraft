@@ -1,18 +1,16 @@
 // The Data workspace's Table view: the model (portable, core.inc, after data_nav.inc). The entries are the rows and the
-// fields are the columns: the name, then each field in the form's order. A field of flags is one column (the names of
-// its flags that are on), and each of its flags can also show as a column of its own. A cell is a number, a dropdown's
-// value (a number to type, its name shown), a yes/no value or a flag (a check box), a set of flags, or the unit's name
-// (text). Here: the columns, a cell's text and how a typed text sets it, the selected cells, and the clipboard's and the
+// fields are the columns: the name, then each field in the form's order. A field of flags is one wide column: its
+// value in hex, then a check box for each flag. A cell is a number, a dropdown's value (a number to type, its name
+// shown), a yes/no value (a check box), a set of flags, or the unit's name (text). Here: the columns, a cell's text and how a typed text sets it, the selected cells, and the clipboard's and the
 // CSV file's text. The view (views_data_table.inc) paints them; the program saves each change as one undo step.
 
 bool dataTableViewOn() { return dataState().table; }
 
-enum class DataCellKind { Name, Number, Pick, Bool, Bit, Flags };
+enum class DataCellKind { Name, Number, Pick, Bool, Flags };
 
 struct DataTableColumn {
     DataCellKind kind = DataCellKind::Number;
     int field = -1;  // the field's index in its schema (-1: the name)
-    int bit = -1;    // a flag's bit (Bit only)
 };
 
 const DatField* dataSchemaField(const DatSchema& sch, int index) {
@@ -22,40 +20,36 @@ const DatField* dataSchemaField(const DatSchema& sch, int index) {
 }
 
 // The columns of a .dat: the name, then the fields as the form shows them (each section in the schema's order, each
-// section's fields in their order); a field of flags gives its column, then a column to each flag.
+// section's fields in their order); a field of flags is one column.
 std::vector<DataTableColumn> dataTableColumns(const DatSchema& sch) {
-    std::vector<DataTableColumn> out{{DataCellKind::Name, -1, -1}};
+    std::vector<DataTableColumn> out{{DataCellKind::Name, -1}};
     for (int si = 0; si <= int(sch.sections.size()); ++si) {
         std::vector<const DatField*> fields;
         for (const auto& f : sch.fields)
             if (f.section == si) fields.push_back(&f);
         std::sort(fields.begin(), fields.end(), [](const DatField* a, const DatField* b) { return a->order < b->order; });
         for (const DatField* f : fields) {
-            if (!f->flags.empty()) {
-                out.push_back({DataCellKind::Flags, f->index, -1});
-                for (size_t b = 0; b < f->flags.size(); ++b) out.push_back({DataCellKind::Bit, f->index, int(b)});
-            } else {
-                const DataCellKind k = fieldIsBool(sch.name, *f) ? DataCellKind::Bool : fieldIsDropdown(*f) ? DataCellKind::Pick : DataCellKind::Number;
-                out.push_back({k, f->index, -1});
-            }
+            const DataCellKind k = !f->flags.empty()            ? DataCellKind::Flags
+                                   : fieldIsBool(sch.name, *f) ? DataCellKind::Bool
+                                   : fieldIsDropdown(*f)       ? DataCellKind::Pick
+                                                               : DataCellKind::Number;
+            out.push_back({k, f->index});
         }
     }
     return out;
 }
 
-// A column's name in its header ("Hit Points", a flag's name), and the name of its group above it (the section; a flag's
-// field).
+// A column's name in its header ("Hit Points"), and the name of its group above it (the section).
 std::wstring dataColumnTitle(const DatSchema& sch, const DataTableColumn& col) {
     if (col.kind == DataCellKind::Name) return sch.name == "strings" ? L"Text" : L"Name";
     const DatField* f = dataSchemaField(sch, col.field);
     if (!f) return L"";
-    return col.kind == DataCellKind::Bit ? widen(f->flags[size_t(col.bit)]) : datLabel(f->name);
+    return datLabel(f->name);
 }
 std::wstring dataColumnGroup(const DatSchema& sch, const DataTableColumn& col) {
     if (col.kind == DataCellKind::Name) return L"";
     const DatField* f = dataSchemaField(sch, col.field);
     if (!f) return L"";
-    if (col.kind == DataCellKind::Bit) return datLabel(f->name);
     return f->section < int(sch.sections.size()) ? datLabel(sch.sections[size_t(f->section)]) : L"Other";
 }
 // A name as a column name: lower case, each run of letters and digits joined by "_" ("Hit Points" -> "hit_points").
@@ -73,14 +67,14 @@ std::wstring dataSnakeName(const std::string& name) {
     }
     return out;
 }
-// A column's name in a CSV file and in a copy with headers: "name", the field's name in the schema as hit_points, or
-// "<field>.<flag>". (The schema's names, not the shown ones: a file reads again in another language, and after a
+// A column's name in a CSV file and in a copy with headers: "name", or the field's name in the schema as hit_points.
+// (The schema's names, not the shown ones: a file reads again in another language, and after a
 // column's shown name changes.) The table's layout keeps its columns by these names too.
 std::wstring dataColumnKey(const DatSchema& sch, const DataTableColumn& col) {
     if (col.kind == DataCellKind::Name) return sch.name == "strings" ? L"text" : L"name";
     const DatField* f = dataSchemaField(sch, col.field);
     if (!f) return L"";
-    return dataSnakeName(f->name) + (col.kind == DataCellKind::Bit ? L"." + dataSnakeName(f->flags[size_t(col.bit)]) : L"");
+    return dataSnakeName(f->name);
 }
 // The bits of a flag field that have a name.
 uint32_t dataNamedFlags(const DatField& f) {
@@ -94,6 +88,12 @@ std::wstring dataFlagsText(const DatField& f, uint32_t v) {
         if ((v >> b) & 1) out += (out.empty() ? L"" : L", ") + widen(f.flags[b]);
     return out.empty() ? L"None" : out;
 }
+// A set of flags as its cell shows it: hex, with as many digits as the field holds ("0x00000105").
+std::wstring dataFlagsHex(const DatField& f, uint32_t v) {
+    wchar_t hex[16];
+    std::swprintf(hex, 16, L"0x%0*X", std::clamp(f.size, 1, 4) * 2, v);
+    return hex;
+}
 
 // The Strings tab as a table: a schema with no fields (its one column is the text, the Name kind) and as many entries
 // as stat_txt.tbl has strings (they count from 1). The Table view shows it as it shows a .dat.
@@ -105,12 +105,10 @@ DatTable& dataStringsTable() {
     return table;
 }
 
-// The Table view's layout of each .dat, kept in the project (dat/table_view.json): the hidden columns, the flags that
-// show as columns of their own, the columns' order and widths, and the sort. A column is its CSV name (dataColumnKey).
+// The Table view's layout of each .dat, kept in the project (dat/table_view.json): the hidden columns, the columns' order and widths, and the sort. A column is its CSV name (dataColumnKey).
 // The name column always shows, first.
 struct DataTableLayout {
     std::set<std::wstring> hidden;
-    std::set<std::wstring> bits;          // the flags that show as columns (a flag's column shows only when it is here)
     std::vector<std::wstring> order;      // the columns in the order they show (empty: the form's order)
     std::map<std::wstring, int> widths;   // a column's width that a drag set, in 96-dpi pixels
     std::wstring sortKey;                 // the column the rows are sorted by (empty: the default order, the list's)
@@ -144,7 +142,6 @@ DataTableLayout& dataTableLayout(const std::string& dat) {
                 else if (const auto list = s.list(name))
                     for (const std::string& v : *list) {
                         if (what == "hidden") l.hidden.insert(widen(v));
-                        else if (what == "bits") l.bits.insert(widen(v));
                         else if (what == "order") l.order.push_back(widen(v));
                         else if (const size_t eq = v.rfind('='); what == "widths" && eq != std::string::npos)
                             l.widths[widen(v.substr(0, eq))] = std::clamp(std::atoi(v.c_str() + eq + 1), 24, 4000);
@@ -165,15 +162,14 @@ void dataTableLayoutSave(const std::string& dat) {
     std::error_code ec;
     fs::create_directories(f.parent_path(), ec);
     stardraft::Settings s(f);
-    std::vector<std::string> hidden, bits, order, widths;
+    std::vector<std::string> hidden, order, widths;
     for (const auto& k : l.hidden) hidden.push_back(narrow(k));
-    for (const auto& k : l.bits) bits.push_back(narrow(k));
     for (const auto& k : l.order) order.push_back(narrow(k));
     for (const auto& [k, w] : l.widths) widths.push_back(narrow(k) + "=" + std::to_string(w));
     bool ok = true;
     auto put = [&](const std::string& what, bool has, stardraft::Settings::Value v) { ok &= has ? s.set(dat + "." + what, std::move(v)) : (!s.has(dat + "." + what) || s.remove(dat + "." + what)); };
     put("hidden", !hidden.empty(), hidden);
-    put("bits", !bits.empty(), bits);
+    put("bits", false, std::vector<std::string>{});  // (older layouts' flag columns: a field of flags is one column now)
     put("order", !order.empty(), order);
     put("widths", !widths.empty(), widths);
     put("sort", !l.sortKey.empty(), narrow(l.sortKey));
@@ -186,23 +182,16 @@ void dataTableSetHidden(const std::string& dat, std::set<std::wstring> keys) {
     dataTableHidden(dat) = std::move(keys);
     dataTableLayoutSave(dat);
 }
-// The column does not show: hidden, or a flag that is not one of the layout's flag columns. (The name always shows.)
+// The column does not show. (The name always shows.)
 bool dataColumnHidden(const DataTableLayout& l, const DatSchema& sch, const DataTableColumn& col) {
-    if (col.kind == DataCellKind::Name) return false;
-    const std::wstring key = dataColumnKey(sch, col);
-    return col.kind == DataCellKind::Bit ? !l.bits.count(key) : l.hidden.count(key) != 0;
+    return col.kind != DataCellKind::Name && l.hidden.count(dataColumnKey(sch, col)) != 0;
 }
 // Shows or hides a column (the caller saves the layout). A column that starts to show goes to the right end.
 void dataColumnSetShown(DataTableLayout& l, const DatSchema& sch, const DataTableColumn& col, bool show) {
     if (col.kind == DataCellKind::Name || dataColumnHidden(l, sch, col) != show) return;
     const std::wstring key = dataColumnKey(sch, col);
-    if (col.kind == DataCellKind::Bit) {
-        if (show) l.bits.insert(key);
-        else l.bits.erase(key);
-    } else {
-        if (show) l.hidden.erase(key);
-        else l.hidden.insert(key);
-    }
+    if (show) l.hidden.erase(key);
+    else l.hidden.insert(key);
     if (!show) return;
     if (l.order.empty())  // (the form's order first, so that only this column moves)
         for (const DataTableColumn& c : dataTableColumns(sch)) l.order.push_back(dataColumnKey(sch, c));
@@ -241,7 +230,7 @@ std::wstring dataCellLocked(const DatTable& t, const DataTableColumn& col, int e
 }
 
 // A cell's value as data: what the clipboard and a CSV file get, and what a typed text is compared with. A number in
-// the form's unit (hit points), a dropdown's number, 0 or 1 for a check box, the name. Empty: the entry does not use
+// the form's unit (hit points), a dropdown's number, 0 or 1 for a check box, a set of flags in hex, the name. Empty: the entry does not use
 // the field.
 std::wstring dataCellData(const DatTable& t, const DataTableColumn& col, int e) {
     if (col.kind == DataCellKind::Name) {
@@ -251,7 +240,7 @@ std::wstring dataCellData(const DatTable& t, const DataTableColumn& col, int e) 
     const DatField* f = dataSchemaField(t.schema(), col.field);
     if (!f || !f->covers(e)) return L"";
     const uint32_t v = t.value(*f, e);
-    if (col.kind == DataCellKind::Bit) return (v >> col.bit) & 1 ? L"1" : L"0";
+    if (col.kind == DataCellKind::Flags) return dataFlagsHex(*f, v);
     if (col.kind == DataCellKind::Number) return fieldValueText(*f, v);
     return std::to_wstring(v);
 }
@@ -264,7 +253,6 @@ bool dataCellChanged(const DatTable& t, const DataTableColumn& col, int e) {
     }
     const DatField* f = dataSchemaField(t.schema(), col.field);
     if (!f || !f->covers(e)) return false;
-    if (col.kind == DataCellKind::Bit) return ((t.value(*f, e) ^ t.stock(*f, e)) >> col.bit) & 1;
     return t.changed(*f, e);
 }
 
@@ -302,9 +290,13 @@ DataCellSet dataCellSet(DatTable& t, const DataTableColumn& col, int e, const st
     const uint32_t old = t.value(f, e);
     uint32_t v = old;
     if (col.kind == DataCellKind::Flags) {
-        // A set of flags: its number (decimal, or hex with 0x), or the names of the flags that are on ("Building, Flyer"
-        // or "Building|Flyer"; "None": no flag), as the cell shows them. (Names: the bits without a name stay as they are.)
-        if (dataReadEntry(text, f.maxValue(), v) != DataEntryRead::Number) {
+        // A set of flags: its number in hex, as the cell shows it (0x is not needed), or the names of the flags that are
+        // on ("Building, Flyer" or "Building|Flyer"; "None": no flag). (Names: the bits without a name stay as they are.)
+        const std::wstring digits = dataLower(text).rfind(L"0x", 0) == 0 ? text.substr(2) : text;
+        if (!digits.empty() && digits.size() <= 8 && digits.find_first_not_of(L"0123456789abcdefABCDEF") == std::wstring::npos) {
+            v = uint32_t(std::wcstoul(digits.c_str(), nullptr, 16));
+            if (v > f.maxValue()) return DataCellSet::NotValue;
+        } else {
             v = old & ~dataNamedFlags(f);
             if (dataLower(text) != L"none") {
                 size_t at = 0;
@@ -320,10 +312,10 @@ DataCellSet dataCellSet(DatTable& t, const DataTableColumn& col, int e, const st
                 }
             }
         }
-    } else if (col.kind == DataCellKind::Bit || col.kind == DataCellKind::Bool) {
+    } else if (col.kind == DataCellKind::Bool) {
         bool yes = false;
-        if (dataReadYesNo(text, yes)) v = col.kind == DataCellKind::Bit ? (old & ~(1u << col.bit)) | (uint32_t(yes) << col.bit) : uint32_t(yes);
-        else if (col.kind != DataCellKind::Bool || dataReadEntry(text, f.maxValue(), v) != DataEntryRead::Number) return DataCellSet::NotValue;  // (a yes/no byte holds any number)
+        if (dataReadYesNo(text, yes)) v = uint32_t(yes);
+        else if (dataReadEntry(text, f.maxValue(), v) != DataEntryRead::Number) return DataCellSet::NotValue;  // (a yes/no byte holds any number)
     } else if (dataReadEntry(text, f.maxValue(), v, fieldShownScale(f)) != DataEntryRead::Number) {
         if (col.kind != DataCellKind::Pick) return DataCellSet::NotValue;
         // A dropdown: the name of one of its values ("Terran Marine", without the "   #0" the list adds).
@@ -389,7 +381,7 @@ DataCellSet dataCellReset(DatTable& t, const DataTableColumn& col, int e) {
     }
     const DatField& f = *dataSchemaField(t.schema(), col.field);
     const uint32_t old = t.value(f, e), stock = t.stock(f, e);
-    const uint32_t v = col.kind == DataCellKind::Bit ? (old & ~(1u << col.bit)) | (stock & (1u << col.bit)) : stock;
+    const uint32_t v = stock;
     if (v == old) return DataCellSet::Same;
     t.set(f, e, v);
     return DataCellSet::Changed;
@@ -588,10 +580,8 @@ int dataColumnNamed(const DatSchema& sch, const std::vector<DataTableColumn>& co
         if (dataLower(dataColumnKey(sch, cols[i])) == name) return int(i);
     for (size_t i = 0; i < cols.size(); ++i) {
         const DatField* f = dataSchemaField(sch, cols[i].field);
-        const std::wstring schemaName = !f ? L"" : widen(f->name) + (cols[i].kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(cols[i].bit)]) : L"");
-        if ((!schemaName.empty() && dataLower(schemaName) == name) || dataLower(dataColumnTitle(sch, cols[i])) == name ||
-            (cols[i].kind == DataCellKind::Bit && dataLower(dataColumnGroup(sch, cols[i]) + L": " + dataColumnTitle(sch, cols[i])) == name))
-            return int(i);
+        const std::wstring schemaName = !f ? L"" : widen(f->name);
+        if ((!schemaName.empty() && dataLower(schemaName) == name) || dataLower(dataColumnTitle(sch, cols[i])) == name) return int(i);
     }
     return -1;
 }
@@ -607,7 +597,7 @@ bool dataGridIsHeader(const DatSchema& sch, const std::vector<std::wstring>& row
         bool known = name == L"id";
         for (size_t i = 0; i < cols.size() && !known; ++i) {
             const DatField* f = dataSchemaField(sch, cols[i].field);
-            const std::wstring schemaName = !f ? L"" : widen(f->name) + (cols[i].kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(cols[i].bit)]) : L"");
+            const std::wstring schemaName = !f ? L"" : widen(f->name);
             known = dataLower(dataColumnKey(sch, cols[i])) == name || (!schemaName.empty() && dataLower(schemaName) == name);
         }
         if (!known) return false;

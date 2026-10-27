@@ -24,7 +24,7 @@ The bar on the left side of the window has the workspaces of the open tab:
   edit.
 - **Data**: the game's data (.dat files) of an EUD project. See [the .dat pages](index.md#the-game-s-data-dat-files).
   Entry shows the form of one entry. Table (Ctrl+E) shows the .dat file (or Strings) as a table: a row for each entry, a column for
-  each value, and a check box column for each flag. Select entries in the list (Ctrl+click, Shift+click) to show only
+  each value. A flag field is one wide column: its value in hex, then a check box for each flag. Select entries in the list (Ctrl+click, Shift+click) to show only
   them. Select cells as in a spreadsheet, then type a value: it goes into each selected cell (type +10 or *1.5 to change each number by that step). The
   box at the top filters the columns by name, and Changed shows only the changed columns. Import CSV and Export CSV
   read and write the table as a CSV file: the "id" column gives the entries, and the first row gives the columns.
