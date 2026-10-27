@@ -267,7 +267,6 @@ inline void DataTableView::sync() {
         if (by && t) {
             const DataTableColumn col = *by;
             const DatField* f = col.kind == DataCellKind::Name ? nullptr : dataSchemaField(t->schema(), col.field);
-            const int tab = datTabOf(t->schema().name);
             auto key = [&](int e) -> std::pair<int, double> {  // (unused, value)
                 if (!f) return {0, 0};
                 if (!f->covers(e)) return {1, 0};
@@ -277,7 +276,7 @@ inline void DataTableView::sync() {
             const bool down = sortDown_;
             std::stable_sort(rows_.begin(), rows_.end(), [&](int a, int b) {
                 if (!f) {
-                    const std::wstring x = dataLower(tabEntryName(tab, a)), y = dataLower(tabEntryName(tab, b));
+                    const std::wstring x = dataLower(dataRowName(dat_, a)), y = dataLower(dataRowName(dat_, b));
                     return down ? y < x : x < y;
                 }
                 const auto ka = key(a), kb = key(b);
@@ -389,7 +388,7 @@ inline void DataTableView::paintCell(draw::Canvas& c, const DatTable& t, const D
         const draw::Image img = host_.icon(e);
         draw::Rect tr = in;
         if (img) c.fitted(img, {in.left, r.top + scale(3), in.left + rowH() - scale(6), r.bottom - scale(3)}), tr.left += rowH();
-        std::wstring name = tabEntryName(datTabOf(t.schema().name), e);
+        std::wstring name = dataRowName(t.schema().name, e);
         c.text(tr, name.empty() ? L"(unnamed)" : name, mod ? kGood : name.empty() ? kDim : kText, draw::kMiddle | draw::kEllipsis);
         return;
     }
@@ -450,7 +449,9 @@ inline void DataTableView::paint(draw::Canvas& c) {
     {
         const int bh = barH(), x0 = scale(12);
         const std::wstring rows = std::to_wstring(rows_.size()) + (rows_.size() == 1 ? L" row" : L" rows");
-        const std::wstring what = !tp ? L"" : host_.rowsPicked() ? L"the entries selected in the list" : L"all entries of the list (select 2 or more entries in the list to show only those)";
+        const std::wstring what = !tp ? L"" : host_.rowsPicked()                    ? L"the entries selected in the list"
+                                 : dataIsMapTable(tp->schema().name) ? L"all entries of the tab"
+                                                                     : L"all entries of the list (select 2 or more entries in the list to show only those)";
         c.text({x0, 0, w, bh}, tp ? datTitle(tp->schema().name) + L"   " : L"", kText, draw::kMiddle);
         const int tw = tp ? c.measure(datTitle(tp->schema().name) + L"   ") : 0;
         const std::wstring line = tp ? rows + L" \x00B7 " + what : L"";
@@ -781,7 +782,7 @@ inline std::wstring DataTableView::tip(draw::Point pt) {
         std::swprintf(hex, 16, L"0x%X", t->value(*f, e));
         return dataFlagsText(*f, t->value(*f, e)) + L"   " + hex;
     }
-    if (col.kind == DataCellKind::Name) return tabEntryName(datTabOf(t->schema().name), e);
+    if (col.kind == DataCellKind::Name) return dataRowName(t->schema().name, e);
     return L"";
 }
 
@@ -1035,10 +1036,13 @@ inline void DataTableView::openFlags(int r, int c) {
     if (!host_.pickMany(datLabel(f->name), std::move(items), checked, {cell.left, cell.bottom})) return;
     uint32_t next = 0;
     for (const std::string& b : checked) next |= 1u << std::stoi(b);
+    const uint32_t named = dataNamedFlags(*f);
     int changed = 0, locked = 0;
     for (const auto& [sr, sc] : sel_.cells()) {
         if (cols_[size_t(sc)].kind != DataCellKind::Flags || cols_[size_t(sc)].field != f->index) continue;
-        const DataCellSet s = dataCellSet(*t, cols_[size_t(sc)], rows_[size_t(sr)], std::to_wstring(next));
+        const int se = rows_[size_t(sr)];
+        const uint32_t keep = f->covers(se) ? t->value(*f, se) & ~named : 0;  // (each cell's bits without a name stay)
+        const DataCellSet s = dataCellSet(*t, cols_[size_t(sc)], se, std::to_wstring(keep | next));
         changed += s == DataCellSet::Changed, locked += s == DataCellSet::Locked;
     }
     report(L"Set", changed, 0, locked);
@@ -1084,7 +1088,7 @@ inline void DataTableView::paste(const std::wstring& text) {
     DataGrid grid = dataGridRead(text, L'\t');
     if (text.find(L'\t') == std::wstring::npos) {  // (no tab: a CSV text with its column names, if its first row has them)
         const DataGrid csv = dataGridRead(text, dataGridSeparator(text));
-        if (!csv.empty() && csv[0].size() > 1 && dataGridIsHeader(sch, csv[0])) grid = csv;
+        if (csv.size() > 1 && csv[0].size() > 1 && dataGridIsHeader(sch, csv[0])) grid = csv;
     }
     if (grid.empty()) return host_.status(L"The clipboard has no text to paste");
     if (grid.size() > 1 && dataGridIsHeader(sch, grid[0])) {
@@ -1328,7 +1332,7 @@ inline void DataTableView::paintFoot(draw::Canvas& c, const DatTable& t) {
         else if (col.kind == DataCellKind::Pick) left += L" = " + host_.note(*f, v);
         if (t.changed(*f, e)) left += L"  \x00B7  game's " + std::to_wstring(t.stock(*f, e));
     } else if (col.kind == DataCellKind::Name) {
-        left += L":  " + tabEntryName(datTabOf(sch.name), e);
+        left += L":  " + dataRowName(sch.name, e);
     } else {
         left += L":  not used by this entry";
     }
@@ -1477,7 +1481,6 @@ inline void DataTableView::fitColumns(draw::Canvas& c, const DatTable& t) {
     const draw::Font ui = c.font({draw::Face::Ui}), mono = c.font({draw::Face::Mono});
     const draw::Font was = c.setFont(ui);
     DataTableLayout& l = dataTableLayout(dat_);
-    const int tab = datTabOf(sch.name);
     for (int k : cols) {
         if (k < 0 || k >= int(cols_.size())) continue;
         const DataTableColumn& col = cols_[size_t(k)];
@@ -1487,7 +1490,7 @@ inline void DataTableView::fitColumns(draw::Canvas& c, const DatTable& t) {
         for (int e : rows_) {
             if (col.kind == DataCellKind::Name) {
                 c.setFont(ui);
-                w = std::max(w, c.measure(tabEntryName(tab, e)) + scale(12) + (dat_ == "strings" ? 0 : rowH()));
+                w = std::max(w, c.measure(dataRowName(dat_, e)) + scale(12) + (dat_ == "strings" ? 0 : rowH()));
             } else if (f && f->covers(e)) {
                 const uint32_t v = t.value(*f, e);
                 if (col.kind == DataCellKind::Pick) {

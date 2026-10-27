@@ -82,17 +82,16 @@ In the Table view:
 | +10, -10, \*1.5, /2, then Enter | Change each selected number by this step (hit points in hit points) |
 | Space | Toggle the selected check boxes. Ctrl+Space: select the column; Shift+Space: select the row |
 | Del | Reset the selected cells to the game's values |
-| Ctrl+C, Ctrl+V | Copy and paste cells, as tab-separated text (spreadsheets use it too) |
+| Ctrl+C, Ctrl+V | Copy and paste cells, as tab-separated text (spreadsheets use it too). A paste with a row of column names puts each column into the column it names |
 | Ctrl+D | Copy the top cell of the selection into the cells under it |
-| Ctrl+R | Copy the left cell of the selection into the cells to its right |
 | Ctrl+A | Select all cells |
-| Alt+Down, a letter | Open the list of a dropdown's cell; a letter searches it. Enter puts the value into each selected cell |
+| Alt+Down, a letter | Open the list of a dropdown's cell; a letter searches it. Enter puts the value into each selected cell. On a flag field's cell: the list of its flags |
 | Right button | Reset the cells, copy or paste. On a column's header: hide the column, sort, or Columns… to select the columns that show |
 | Double click on a header | Sort by the column: ascending, then descending, then the default order |
 | Drag a selected column's header | Move the column. The project keeps the columns' order, widths, hidden columns and sort |
 | Double click on a header's right edge | Fit the column's width to its text (all selected columns) |
 
-The box at the top filters the columns by name. **Changed** shows only the columns that have a value that is not the game's. The right button's **Copy with the column names** copies the ids and the CSV column names too. A flag field's columns show or hide together: **All N flags** in Columns…, or **Show all the flags of** and **Hide the flags of** on a flag column's header.
+The box at the top filters the columns by name. **Changed** shows only the columns that have a value that is not the game's. The right button's **Copy with headers** copies the ids and the column names (the field names, such as hit_points) too; **Copy as CSV** copies the same, separated by commas. A paste of these puts each value into its entry and its column, also when the columns show in another order. A flag field is one column: the names of its flags that are on. To show its flags as columns of their own, use **All N flags** in Columns…, or **Show all the flags of** on its header. In Columns…, each click shows or hides a column at once; a column that you show goes to the right end.
 
 ## Triggers workspace
 

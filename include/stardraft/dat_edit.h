@@ -75,6 +75,9 @@ public:
     // A table of a schema with no fields and no values (the editor's Strings tab in its Table view: a row for each
     // string, its text the one column).
     void setSchemaOnly(const DatSchema& schema) { schema_ = &schema, stock_.clear(), data_.clear(); }
+    // A table of values that are not a .dat file's (a classic map's unit, upgrade and tech settings in the Table view):
+    // `stock` the game's values, `data` the values now, both laid out as the schema's fields say.
+    void setValues(const DatSchema& schema, Bytes stock, Bytes data) { schema_ = &schema, stock_ = std::move(stock), data_ = std::move(data); }
 
     uint32_t value(const DatField& f, int entry) const { return read(data_, f, entry); }
     uint32_t stock(const DatField& f, int entry) const { return read(stock_, f, entry); }

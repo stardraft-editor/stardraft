@@ -82,6 +82,7 @@
 #include "views_resize.inc"  // Map properties > Crop or extend: the new size and offset on a picture of the map (its preview)
 #include "views_players.inc"
 #include "views_classic_settings.inc"
+#include "classic_table.inc"  // the Map data page's Table view: a classic map's settings as the Data workspace's table
 #include "views_classic_triggers.inc"
 #include "views_classic_batch.inc"
 #include "views_classic_value.inc"

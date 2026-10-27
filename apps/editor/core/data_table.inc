@@ -82,6 +82,11 @@ std::wstring dataColumnKey(const DatSchema& sch, const DataTableColumn& col) {
     if (!f) return L"";
     return dataSnakeName(f->name) + (col.kind == DataCellKind::Bit ? L"." + dataSnakeName(f->flags[size_t(col.bit)]) : L"");
 }
+// The bits of a flag field that have a name.
+uint32_t dataNamedFlags(const DatField& f) {
+    const size_t n = std::min<size_t>(f.flags.size(), 32);
+    return n >= 32 ? 0xFFFFFFFFu : (1u << n) - 1;
+}
 // The names of the flags that are on in `v` ("Building, Flyer"), or "None".
 std::wstring dataFlagsText(const DatField& f, uint32_t v) {
     std::wstring out;
@@ -203,6 +208,17 @@ void dataColumnSetShown(DataTableLayout& l, const DatSchema& sch, const DataTabl
     l.order.push_back(key);
 }
 
+// A table of a classic map's settings (the Map data page's Table view: classic_table.inc): its schema's name starts
+// with "map ". Its rows' names come from the Map data page.
+bool dataIsMapTable(const std::string& dat) { return dat.rfind("map ", 0) == 0; }
+std::wstring (*gDataMapRowName)(const std::string& dat, int e) = nullptr;  // (classic_table.inc)
+std::wstring (*gDataMapCellLocked)(const std::string& dat, int field, int e) = nullptr;  // why a map table's cell cannot change ("": it can)
+// A row's name as the Name column shows it.
+std::wstring dataRowName(const std::string& dat, int e) {
+    if (dataIsMapTable(dat)) return gDataMapRowName ? gDataMapRowName(dat, e) : L"";
+    return tabEntryName(datTabOf(dat), e);
+}
+
 // The stat_txt.tbl string (1-based) that a Name cell changes: a unit's name (0: none, the name is not text to change).
 // Other .dat files take their names from the game's lists or share their Label strings, so their names stay as they are.
 int dataNameString(const std::string& dat, int e) {
@@ -214,9 +230,11 @@ int dataNameString(const std::string& dat, int e) {
 std::wstring dataCellLocked(const DatTable& t, const DataTableColumn& col, int e) {
     const std::string& dat = t.schema().name;
     if (col.kind == DataCellKind::Name)
-        return dataNameString(dat, e) ? L"" : L"The name comes from the game's list. Change the Label value to change the text that the game shows.";
+        return dataNameString(dat, e) ? L"" : dataIsMapTable(dat) ? L"Rename a unit in its form (a double click on its name opens it)."
+                                                                  : L"The name comes from the game's list. Change the Label value to change the text that the game shows.";
     const DatField* f = dataSchemaField(t.schema(), col.field);
     if (!f || !f->covers(e)) return L"This entry does not use this value.";
+    if (dataIsMapTable(dat)) return gDataMapCellLocked ? gDataMapCellLocked(dat, f->index, e) : L"";  // (a map's settings: not the game's memory)
     return datFieldReadOnly(dat, *f, e);
 }
 
@@ -226,7 +244,7 @@ std::wstring dataCellLocked(const DatTable& t, const DataTableColumn& col, int e
 std::wstring dataCellData(const DatTable& t, const DataTableColumn& col, int e) {
     if (col.kind == DataCellKind::Name) {
         const int sid = dataNameString(t.schema().name, e);
-        return sid ? widen(StatTxt::escape(dataExtras().strings.text(sid - 1))) : tabEntryName(datTabOf(t.schema().name), e);
+        return sid ? widen(StatTxt::escape(dataExtras().strings.text(sid - 1))) : dataRowName(t.schema().name, e);
     }
     const DatField* f = dataSchemaField(t.schema(), col.field);
     if (!f || !f->covers(e)) return L"";
@@ -283,9 +301,9 @@ DataCellSet dataCellSet(DatTable& t, const DataTableColumn& col, int e, const st
     uint32_t v = old;
     if (col.kind == DataCellKind::Flags) {
         // A set of flags: its number (decimal, or hex with 0x), or the names of the flags that are on ("Building, Flyer"
-        // or "Building|Flyer"; "None": no flag), as the cell shows them.
+        // or "Building|Flyer"; "None": no flag), as the cell shows them. (Names: the bits without a name stay as they are.)
         if (dataReadEntry(text, f.maxValue(), v) != DataEntryRead::Number) {
-            v = 0;
+            v = old & ~dataNamedFlags(f);
             if (dataLower(text) != L"none") {
                 size_t at = 0;
                 while (at <= text.size()) {
@@ -576,13 +594,21 @@ int dataColumnNamed(const DatSchema& sch, const std::vector<DataTableColumn>& co
     return -1;
 }
 // The row is a row of column names: each of its cells is "id" or a column's name (dataColumnNamed), and one at least.
+// (A paste's header: only the CSV names, "id" and the schema's names count, not the shown titles. A value such as
+// "Building, Flyer", a flag field's cell, is not a header although "Building" is a flag column's title.)
 bool dataGridIsHeader(const DatSchema& sch, const std::vector<std::wstring>& row) {
     const std::vector<DataTableColumn> cols = dataTableColumns(sch);
     int names = 0;
     for (const std::wstring& cell : row) {
         const std::wstring name = dataLower(dataTrim(cell));
         if (name.empty()) continue;
-        if (name != L"id" && dataColumnNamed(sch, cols, name) < 0) return false;
+        bool known = name == L"id";
+        for (size_t i = 0; i < cols.size() && !known; ++i) {
+            const DatField* f = dataSchemaField(sch, cols[i].field);
+            const std::wstring schemaName = !f ? L"" : widen(f->name) + (cols[i].kind == DataCellKind::Bit ? L": " + widen(f->flags[size_t(cols[i].bit)]) : L"");
+            known = dataLower(dataColumnKey(sch, cols[i])) == name || (!schemaName.empty() && dataLower(schemaName) == name);
+        }
+        if (!known) return false;
         ++names;
     }
     return names > 0;
@@ -617,11 +643,17 @@ DataImportResult dataTableImport(DatTable& t, const DataGrid& grid) {
             continue;
         }
         bool any = false;
+        // (A cell with the entry's value as it was before the row goes in is not a change: a flag field's column and its
+        // flags' columns in one file then do not undo each other, whichever of them the user changed.)
+        std::vector<std::wstring> before(row.size());
+        for (size_t k = 0; k < row.size() && k < colOf.size(); ++k)
+            if (colOf[k] >= 0) before[k] = dataCellData(t, cols[size_t(colOf[k])], int(id));
         for (size_t k = 0; k < row.size() && k < colOf.size(); ++k) {
             if (colOf[k] < 0) continue;
             const DataTableColumn& col = cols[size_t(colOf[k])];
             // (A name the game's list gives, as an export writes it, is not a change.)
             if (col.kind == DataCellKind::Name && !dataNameString(sch.name, int(id))) continue;
+            if (dataTrim(row[k]) == dataTrim(before[k])) continue;
             const DataCellSet s = dataCellSet(t, col, int(id), row[k]);
             if (s == DataCellSet::Changed) ++res.changed, any = true;
             else if (s == DataCellSet::NotValue || s == DataCellSet::Locked) {

@@ -9,6 +9,8 @@
 
 // The menus are made again on the UI thread when the state changed (shellMenusChanged) and no menu is open.
 bool gMenusDirty = true;
+extern bool gSdlClassicTableOn;  // (sdl_map_pages.inc: Map data's Form | Table)
+void sdlClassicSetTable(bool on);
 // The shortcuts of the menu items (the menu model's keys), each with its command.
 struct Shortcut {
     stardraft::KeyChord chord;
@@ -230,8 +232,8 @@ bool sdlRuns(int id) {
     case ID_DOCK_TOOLS_LEFT:
     case ID_DOCK_TOOLS_RIGHT: return true;
     case ID_VIEW_TRIGCODE: return gWorkspace == Workspace::Triggers;  // the Triggers workspace's code pane (sdl_triggers.inc)
-    case ID_DATA_TABLE:  // the Data workspace's views (sdl_data.inc): on a tab that has the Table view
-    case ID_DATA_ENTRY: return gWorkspace == Workspace::Data && sdlDataTableTab(dataState().datTab);
+    case ID_DATA_TABLE:  // the Data workspace's views (sdl_data.inc): on a tab that has the Table view; Map data's (sdl_classic_table.inc)
+    case ID_DATA_ENTRY: return (gWorkspace == Workspace::Data && sdlDataTableTab(dataState().datTab)) || (gWorkspace == Workspace::ClassicSettings && gClassic);
     case ID_QUICKOPEN:  // the core's commands (core/commands_core.inc, core/map_edit_commands.inc)
     case ID_FILE_CLOSE:
     case ID_FILE_CLOSEALL:
@@ -1362,11 +1364,13 @@ void commandSdl(int id) {
     case ID_VIEW_TRIGCODE:  // shows or hides the code pane
         if (activeProject()) setWorkspace(Workspace::Triggers), showTriggerCode();
         return;
-    case ID_DATA_TABLE:  // Ctrl+E: the Data workspace's Table view, or the entry's form again (sdl_data.inc)
-        if (activeProject()) sdlDataTableCommand();
+    case ID_DATA_TABLE:  // Ctrl+E: the Data workspace's Table view, or the entry's form again (sdl_data.inc); Map data's
+        if (gWorkspace == Workspace::ClassicSettings) sdlClassicSetTable(!gSdlClassicTableOn);
+        else if (activeProject()) sdlDataTableCommand();
         return;
     case ID_DATA_ENTRY:
-        if (activeProject()) sdlDataTableCommand(0);
+        if (gWorkspace == Workspace::ClassicSettings) sdlClassicSetTable(false);
+        else if (activeProject()) sdlDataTableCommand(0);
         return;
     default:
         // (the workspaces in their order; a command this system does not run is gray in the menus, and its key does nothing)

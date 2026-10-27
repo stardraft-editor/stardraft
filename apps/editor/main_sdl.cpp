@@ -187,6 +187,7 @@ bool gKeysFromOpener = false;
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
+#include "sdl_classic_table.inc"  // Map data's Table view (the model is core/classic_table.inc)
 #include "sdl_tips.inc"  // the hover tooltips (core/views_tip.inc)
 #include "sdl_build.inc"  // Build's parts of this system (core/project_build.inc)
 #include "sdl_triggers.inc"  // the Triggers workspace (the tree, the pane and the block picker are core/views_triggers_*.inc; the model core/triggers_model.inc)

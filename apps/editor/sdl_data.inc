@@ -699,46 +699,43 @@ static fs::path sdlDataCsvFolder() {
     return pr ? pr->folder() : shellDocumentsFolder();
 }
 
-void SdlDataTableHost::exportCsv() {
-    const DatTable* t = table();
-    if (!t) return;
+// Export CSV of a table: the rows and the columns that show, into a file the user picks. `stem` is the file's name.
+void sdlTableExportCsv(const DatTable& t, const std::vector<DataTableColumn>& cols, const std::vector<int>& rows, const fs::path& folder, const std::wstring& stem) {
     ShellFilePick d;
     d.title = shellTr(L"Export the table as a CSV file");
     d.filters = {{L"CSV file (*.csv)", L"*.csv"}};
-    d.defaultExtension = L"csv", d.fileName = widen(t->schema().name) + L".csv", d.initialDir = sdlDataCsvFolder(), d.save = true;
+    d.defaultExtension = L"csv", d.fileName = stem + L".csv", d.initialDir = folder, d.save = true;
     const fs::path file = shellPickFile(d);
     if (file.empty()) return;
-    const std::vector<int>& r = rows();
     // (The byte order mark: spreadsheets then read the file as UTF-8.)
-    const std::string text = "\xEF\xBB\xBF" + narrow(dataGridText(dataTableGrid(*t, gSdlDataTable.columns(), r), L','));
+    const std::string text = "\xEF\xBB\xBF" + narrow(dataGridText(dataTableGrid(t, cols, rows), L','));
     std::ofstream out(file, std::ios::binary);
     if (!out.write(text.data(), std::streamsize(text.size()))) return shellErrorBox(L"Could not export the table to " + file.wstring(), shellTr(L"Export CSV"));
-    setMessage(shellTr(L"Exported ") + std::to_wstring(r.size()) + shellTr(L" rows to ") + file.filename().wstring());
+    setMessage(shellTr(L"Exported ") + std::to_wstring(rows.size()) + shellTr(L" rows to ") + file.filename().wstring());
 }
 
-void SdlDataTableHost::importCsv() {
-    DatTable* t = table();
-    if (!t) return;
+// Import CSV into a table: a file the user picks; `what` names the table in the messages ("units.dat"); `saved` runs
+// when values changed (one undo step).
+void sdlTableImportCsv(DatTable& t, const fs::path& folder, const std::wstring& what, const std::function<void()>& saved) {
     ShellFilePick d;
-    d.title = shellTr(L"Import a CSV file into ") + widen(t->schema().name) + L".dat";
+    d.title = shellTr(L"Import a CSV file into ") + what;
     d.filters = {{L"CSV file (*.csv;*.tsv;*.txt)", L"*.csv;*.tsv;*.txt"}};
-    d.initialDir = sdlDataCsvFolder();
+    d.initialDir = folder;
     const fs::path file = shellPickFile(d);
     if (file.empty()) return;
     std::ifstream in(file, std::ios::binary);
     if (!in) return shellErrorBox(L"Could not import the file " + file.wstring(), shellTr(L"Import CSV"));
     const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     const std::wstring text = dataFileText(bytes);
-    const DataImportResult res = dataTableImport(*t, dataGridRead(text, dataGridSeparator(text)));
+    const DataImportResult res = dataTableImport(t, dataGridRead(text, dataGridSeparator(text)));
     if (!res.error.empty()) return shellErrorBox(res.error, shellTr(L"Import CSV"));
     const std::wstring done = shellTr(L"Imported ") + std::to_wstring(res.changed) + (res.changed == 1 ? shellTr(L" value in ") : shellTr(L" values in ")) +
                               std::to_wstring(res.entries) + (res.entries == 1 ? shellTr(L" entry") : shellTr(L" entries"));
-    if (res.changed) sdlDataSaved();  // (one undo step)
+    if (res.changed) saved();
     setMessage(done);
-    sdlDataRepaint();
     std::wstring problems;
     if (!res.unknown.empty()) {
-        problems += shellTr(L"Not imported, because ") + widen(t->schema().name) + L".dat " + shellTr(L"has no such columns:") + L"\n";
+        problems += shellTr(L"Not imported, because ") + what + L" " + shellTr(L"has no such columns:") + L"\n";
         for (size_t i = 0; i < res.unknown.size() && i < 12; ++i) problems += L"  " + res.unknown[i] + L"\n";
         if (res.unknown.size() > 12) problems += L"  ... (" + std::to_wstring(res.unknown.size() - 12) + L")\n";
     }
@@ -748,6 +745,17 @@ void SdlDataTableHost::importCsv() {
     if (res.noEntry) problems += count(res.noEntry, L" row has an id that is not an entry.", L" rows have an id that is not an entry.");
     if (!res.firstProblem.empty()) problems += L"\n" + shellTr(L"First cell not imported: ") + res.firstProblem;
     if (!problems.empty()) shellWarningBox(done + L".\n\n" + problems, shellTr(L"Import CSV"));
+}
+
+void SdlDataTableHost::exportCsv() {
+    if (const DatTable* t = table()) sdlTableExportCsv(*t, gSdlDataTable.columns(), rows(), sdlDataCsvFolder(), widen(t->schema().name));
+}
+
+void SdlDataTableHost::importCsv() {
+    DatTable* t = table();
+    if (!t) return;
+    sdlTableImportCsv(*t, sdlDataCsvFolder(), widen(t->schema().name) + L".dat", [] { sdlDataSaved(); });  // (one undo step)
+    sdlDataRepaint();
 }
 
 // Entry | Table: the form, or the Table view of the .dat (it takes the References panel's place too).

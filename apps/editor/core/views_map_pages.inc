@@ -23,6 +23,10 @@ public:
     virtual draw::Point contentSize() = 0;
     virtual void fitContent(int w, int h) = 0;
     virtual void placeContent(int x, int y) = 0;
+    // Form | Table at the right of the tabs (Map data): the entry's form, or the Table view of the tab. -1: neither
+    // shows (a page without them), 0 the form, 1 the table.
+    virtual int viewKind() { return -1; }
+    virtual void setViewKind(int) {}
 };
 
 // The page's frame: the title and the tabs at the top, the bar at the bottom. The scroll view below it is another window.
@@ -81,6 +85,17 @@ public:
                 x = t.right + scale(4);
             }
         }
+        // Form | Table at the tabs' right: two icons (the form's lines, the table's grid), the chosen one lit.
+        const int kind = tabs.empty() ? -1 : host_.viewKind();
+        for (int k = 0; k < 2; ++k) {
+            kinds_[k] = {};
+            if (kind < 0) continue;
+            const int kw = scale(28), right = width() - pad - (1 - k) * (kw + scale(4)), top = scale(56) + scale(6);
+            kinds_[k] = {right - kw, top, right, headH - scale(6)};
+            const bool hot = hotKind_ == k, on = k == kind;
+            if (on || hot) c.roundBox(kinds_[k], on ? kSel : kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+            c.icon(kinds_[k], int(k ? UiIcon::Grid : UiIcon::AlignLeft), on ? kAccent : hot ? kText : kDim, scale(16));
+        }
         c.fill({0, headH - 1, width(), headH}, kBorder);
         // The bar: a line over it; what the page has; Apply and Revert at the right.
         if (!footH) {
@@ -108,13 +123,18 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Leave) {
-            if (hot_ >= 0) hot_ = -1, invalidate();
+            if (hot_ >= 0 || hotKind_ >= 0) hot_ = hotKind_ = -1, invalidate();
             return false;
         }
-        const int k = tabAt(e.pt);
+        const int k = tabAt(e.pt), kind = kindAt(e.pt);
         if (e.kind == draw::MouseKind::Move) {
-            if (k != hot_) hot_ = k, invalidate();
+            if (k != hot_ || kind != hotKind_) hot_ = k, hotKind_ = kind, invalidate();
             return false;
+        }
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && kind >= 0) {
+            host_.setViewKind(kind);
+            invalidate();
+            return true;
         }
         if (e.kind == draw::MouseKind::Down && e.button == 0) focus();  // the press takes the keyboard focus off the page's edits (the old frame window took it)
         if (e.kind == draw::MouseKind::Down && e.button == 0 && k >= 0) {
@@ -123,9 +143,19 @@ public:
         }
         return false;
     }
-    draw::Cursor cursor(draw::Point pt) override { return tabAt(pt) >= 0 ? draw::Cursor::Hand : draw::Cursor::Arrow; }
+    draw::Cursor cursor(draw::Point pt) override { return tabAt(pt) >= 0 || kindAt(pt) >= 0 ? draw::Cursor::Hand : draw::Cursor::Arrow; }
+    bool hoverTip() const override { return true; }
+    std::wstring tip(draw::Point pt) override {
+        const int k = kindAt(pt);
+        return k == 0 ? L"Form: the selected entry's values (Ctrl+E)" : k == 1 ? L"Table: every entry of the tab, a value a column (Ctrl+E)" : L"";
+    }
 
 private:
+    int kindAt(draw::Point pt) const {
+        for (int k = 0; k < 2; ++k)
+            if (kinds_[k].contains(pt)) return k;
+        return -1;
+    }
     int tabAt(draw::Point pt) const {
         for (size_t k = 0; k < tabRects_.size(); ++k)
             if (tabRects_[k].contains(pt)) return int(k);
@@ -136,6 +166,8 @@ private:
     stardraft::kit::Button apply_, revert_;
     std::vector<draw::Rect> tabRects_;  // the tabs as the last paint drew them
     int hot_ = -1;                      // the tab under the mouse
+    draw::Rect kinds_[2];               // Form and Table as the last paint drew them (empty: none)
+    int hotKind_ = -1;                  // Form or Table under the mouse
 };
 
 // The scroll view: the content (the program's windows, placed by the host) is scrolled when the page is smaller than it.

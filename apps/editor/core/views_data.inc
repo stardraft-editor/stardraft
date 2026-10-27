@@ -54,7 +54,7 @@ std::wstring datTitle(const std::string& name) {
     static const std::map<std::string, std::wstring> titles = {
         {"units", L"Units"},     {"weapons", L"Weapons"},   {"flingy", L"Flingy"},     {"sprites", L"Sprites"},  {"images", L"Images"},
         {"upgrades", L"Upgrades"}, {"techdata", L"Tech data"}, {"orders", L"Orders"}, {"sfxdata", L"SFX data"}, {"portdata", L"Port data"},
-        {"strings", L"Strings"}};
+        {"strings", L"Strings"}, {"map units", L"Unit settings"}, {"map upgrades", L"Upgrade settings"}, {"map techs", L"Tech settings"}};
     auto it = titles.find(name);
     return it != titles.end() ? it->second : widen(name);
 }

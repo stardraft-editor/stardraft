@@ -497,9 +497,13 @@ struct SdlPageState {
     std::unique_ptr<SdlPropsView> props;
     std::unique_ptr<PlayersView> players;
     std::unique_ptr<ClassicPageView> classic[kClassicTabCount];
+    std::unique_ptr<DataTableView> classicTable;  // Map data's Table view (sdl_classic_table.inc)
     std::unique_ptr<SdlClassicTrigPage> classicTrig;
 };
 SdlPageState gSdlPage;
+DataTableViewHost& sdlClassicTableHost();  // (sdl_classic_table.inc)
+bool gSdlClassicTableOn = false;  // Map data shows the Table view (it stays while the program runs)
+bool sdlClassicTableShown() { return gSdlPage.kind == kSdlClassic && gSdlClassicTableOn && gSdlPage.classicTable; }
 
 bool SdlClassicHost::editUnitName(int u, std::string& text, draw::Point at) {
     draw::View* page = gSdlPage.classic[kClassicUnits].get();
@@ -583,6 +587,7 @@ void sdlDropViews() {
     gSdlPage.props.reset();  // (each view takes itself out of the scroll view)
     gSdlPage.players.reset();
     for (auto& v : gSdlPage.classic) v.reset();
+    gSdlPage.classicTable.reset();
     gSdlPage.classicTrig.reset();
     gClassic = nullptr;
 }
@@ -599,8 +604,12 @@ std::vector<draw::View*> sdlParts() {
     } else if (gSdlPage.kind == kSdlPlayers) {
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
     } else if (gSdlPage.kind == kSdlClassic) {
-        for (auto& v : gSdlPage.classic)
-            if (v) out.push_back(v.get());
+        if (sdlClassicTableShown()) {
+            out.push_back(gSdlPage.classicTable.get());
+        } else {
+            for (auto& v : gSdlPage.classic)
+                if (v) out.push_back(v.get());
+        }
     } else if (gSdlPage.kind == kSdlClassicTrig) {
         if (gSdlPage.classicTrig) out.push_back(gSdlPage.classicTrig.get());
     }
@@ -644,7 +653,8 @@ public:
         }
         return {w, h};
     }
-    void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need)
+    void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need; Map data's table fills it)
+        if (sdlClassicTableShown()) return gSdlPage.classicTable->setSize(w, h);
         if (gSdlPage.kind != kSdlClassicTrig || !gSdlPage.classicTrig) return;
         // (the scroll view places the parts after this: a relayout here would call this again, without end)
         gSdlPage.classicTrig->setSize(std::max(w, gSdlPage.classicTrig->preferredWidth()), std::max(h, gSdlPage.classicTrig->preferredHeight()));
@@ -656,6 +666,8 @@ public:
             parts[k]->setFrame({-x, top, -x + parts[k]->width(), top + parts[k]->height()});
         }
     }
+    int viewKind() override { return gSdlPage.kind == kSdlClassic ? (gSdlClassicTableOn ? 1 : 0) : -1; }
+    void setViewKind(int k) override;
     static inline const wchar_t* const kSdlTitles[kSdlPageCount] = {L"Map properties", L"Players and forces", L"Data", L"Classic triggers"};
 };
 SdlPageFrameHost gSdlPageFrameHost;
@@ -943,6 +955,8 @@ void sdlMakeContent() {
             gSdlPage.classic[t] = std::make_unique<ClassicPageView>(gSdlClassicHost, *k.d, t);
             scroll.add(*gSdlPage.classic[t], draw::Rect(0, 0, gSdlPage.classic[t]->preferredWidth(), gSdlPage.classic[t]->preferredHeight()));
         }
+        gSdlPage.classicTable = std::make_unique<DataTableView>(sdlClassicTableHost());
+        scroll.add(*gSdlPage.classicTable, draw::Rect(0, 0, 0, 0));
         sdlShowTab(gClassic->tab);
         break;
     }
@@ -957,6 +971,7 @@ void sdlMakeContent() {
 void sdlMapDataShowUnit(int type) {
     setWorkspace(Workspace::ClassicSettings);
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    gSdlClassicTableOn = false;  // (the unit's form)
     sdlShowTab(kClassicUnits);
     if (gSdlPage.classic[kClassicUnits]) gSdlPage.classic[kClassicUnits]->select(type);
 }
@@ -966,9 +981,23 @@ void sdlShowTab(int k) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
     gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
     for (int t = 0; t < kClassicTabCount; ++t)
-        if (gSdlPage.classic[t]) gSdlPage.classic[t]->setVisible(t == gClassic->tab);
+        if (gSdlPage.classic[t]) gSdlPage.classic[t]->setVisible(!gSdlClassicTableOn && t == gClassic->tab);
+    if (gSdlPage.classicTable) {
+        gSdlPage.classicTable->setVisible(gSdlClassicTableOn);
+        gSdlPage.classicTable->refresh();
+    }
+    sdlPageRelayoutParts();
     gSdlMapPages.invalidate();
 }
+// Form | Table (the icons at the tabs' right, Ctrl+E): the selected entry's form, or the tab's Table view.
+void sdlClassicSetTable(bool on) {
+    if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    gSdlClassicTableOn = on;
+    sdlShowTab(gClassic->tab);
+    if (on && gSdlPage.classicTable) gSdlPage.classicTable->focus();
+    setMessage(on ? L"Opened the Table view: each entry of the tab is a row" : L"Opened the entry's form");
+}
+void SdlPageFrameHost::setViewKind(int k) { sdlClassicSetTable(k == 1); }
 
 // Edit > Copy and Edit > Paste on the Map data page (core/commands_core.inc): the selected entry's values of the tab that
 // shows (the page's own menu has them too).
