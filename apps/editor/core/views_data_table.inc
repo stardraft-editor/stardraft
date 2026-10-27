@@ -165,6 +165,7 @@ private:
     draw::Rect cellRect(int r, int c) const;
     void clampScroll();
     void reveal(int r, int c);
+    void revealColumn(int c);
     void moveActive(int dr, int dc, bool shift);
     void beginEdit(const std::wstring& start, bool selectAll);
     void placeEntry();
@@ -332,10 +333,14 @@ inline void DataTableView::reveal(int r, int c) {
     const int top = r * rowH();
     if (top < sy_) sy_ = top;
     if (top + rowH() > sy_ + b.height()) sy_ = top + rowH() - b.height();
-    if (c > 0) {
+    revealColumn(c);
+}
+// Scrolls sideways so that column c shows (the frozen name column always shows).
+inline void DataTableView::revealColumn(int c) {
+    if (c > 0 && c < int(cols_.size())) {
         int left = 0;
         for (int i = 1; i < c; ++i) left += colW(size_t(i));
-        const int room = b.width() - frozenW();
+        const int room = body().width() - frozenW();
         if (left < sx_) sx_ = left;
         if (left + colW(size_t(c)) > sx_ + room) sx_ = left + colW(size_t(c)) - room;
     }
@@ -1304,6 +1309,10 @@ inline void DataTableView::pickColumns(draw::Point pt) {
         now = checks();
         host_.status(what);
         refresh();
+        if (on && value != "\x01all")  // a column that shows: at the right end, scrolled to (it may be past the edge)
+            for (int c = 0; c < int(cols_.size()); ++c)
+                if (narrow(dataColumnKey(sch, cols_[size_t(c)])) == value || (cols_[size_t(c)].kind == DataCellKind::Bit && value == flagsKey(cols_[size_t(c)].field)))
+                    return revealColumn(c);
     };
     host_.pickMany(L"Columns that show", std::move(items), checked, pt, toggle);
 }

@@ -151,5 +151,19 @@ bool newPageEscape() {
 // The last tab closed (core/views_tabs.inc): the start page, as File > New (no map is open, so it shows).
 void openStartPage() { openNewPageSdl(-1); }
 
+// The tab strip's page tab (core/views_tabs.inc): the page that shows in the Map workspace (sdl_main_view.inc) is the
+// active tab, "Start" or the New page's kind.
+const wchar_t* gNewTitle();
+const wchar_t* shellPageTab() {
+    if (gWorkspace != Workspace::Map) return nullptr;
+    if (gNewOpen) return gNewTitle();
+    return gStartOpen || !(gState.ed && gState.ed->isOpen()) ? L"Start" : nullptr;
+}
+// Its x: the New page goes (as Cancel), or the start page over a map. With no map, the start page stays (no x).
+bool shellPageTabClosable() { return gNewOpen || (gState.ed && gState.ed->isOpen()); }
+void shellPageTabClose() {
+    if (!newPageEscape() && gNewOpen) gNewView.cancelPage();
+}
+
 // The tab's name: the kind (the document tabs name a page with it).
 const wchar_t* gNewTitle() { return gNewView.project ? L"New EUD project" : L"New classic project"; }

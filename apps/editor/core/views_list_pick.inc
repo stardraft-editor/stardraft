@@ -242,12 +242,12 @@ public:
             scrollTo(top_ - (e.exact ? draw::exactSteps(e, float(rowH()), wheelCarry_) : int(e.wheel * 3)));  // (3 rows a notch, as the list box)
             return true;
         }
-        // (A double click's second press only selects, as the native list's did: a multi-pick checks the row once.)
+        // (A multi-pick: each quick press checks or clears the row, a double click too. A pick of one closes at the first.)
         if (e.kind != MouseKind::Move && !(e.kind == MouseKind::Down && e.button == 0) && e.kind != MouseKind::DoubleClick) return false;
         const int i = rowAt(e.pt);
         if (i < 0) return e.kind != MouseKind::Move;
         if (i != sel_) setSel(i);  // the row under the mouse is the selected one
-        if (e.kind == MouseKind::Down) pickMods_ = e.mods, choose();
+        if (e.kind == MouseKind::Down || (multi_ && e.kind == MouseKind::DoubleClick && e.button == 0)) pickMods_ = e.mods, choose();
         return true;
     }
 

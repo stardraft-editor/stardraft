@@ -9,6 +9,11 @@ std::wstring docTitle(int i, bool withMode = true);
 void mapPageClose();  // map_pages.inc: the open map page goes (its working copy stays with its tab)
 void pageSync();
 void openStartPage();
+// The page that shows in the Map workspace in place of the map (the start page, the New page) has a tab of its own:
+// its title, or nullptr when no page shows; its x closes it (as Esc) when there is something under it.
+const wchar_t* shellPageTab();
+bool shellPageTabClosable();
+void shellPageTabClose();
 bool mapPagesConfirm();  // map_pages.inc: the map pages with changes that are not applied: apply them, or not
 bool docMapPagesChanged(int i);  // map_pages.inc: tab i's map pages have changes that are not applied
 void typingFlush();  // the texts being typed (a map page's field, the Briefing's text) go into their map now
@@ -45,7 +50,8 @@ struct TabHit {
 };
 std::vector<TabHit> gTabHits;  // laid out by the last paint
 RECT gNewTabHit{};
-int gTabHot = -1, gTabHotClose = -1;
+TabHit gPageTabHit{};  // the page's tab (shellPageTab), empty when no page shows
+int gTabHot = -1, gTabHotClose = -1;  // (the page's tab: gDocs.size())
 
 const Editor* docEditor(int i) { return i == gActive ? shellState().ed.get() : gDocs[size_t(i)].ed.get(); }
 
@@ -197,25 +203,32 @@ struct TabsView final : stardraft::draw::View {
         c.fill({0, 0, width(), h}, kBg);
         gTabHits.clear();
         int x = 0, pad = scale(10), closeW = scale(16);
-        for (int i = 0; i < int(gDocs.size()); ++i) {
-            std::wstring t = docTitle(i);
+        const wchar_t* page = shellPageTab();
+        gPageTabHit = {};
+        if ((page != nullptr) != hadPage_) gTabHot = gTabHotClose = -1, hadPage_ = page != nullptr;  // (the tabs moved)
+        for (int i = 0; i <= int(gDocs.size()); ++i) {
+            if (i == int(gDocs.size()) && !page) break;
+            const bool pageTab = i == int(gDocs.size());  // (the page's tab is the last, and the active one)
+            std::wstring t = pageTab ? std::wstring(page) : docTitle(i);
             const bool unsaved = t.rfind(L"* ", 0) == 0;  // unsaved: a dot where the close button is (the x under the mouse)
             if (unsaved) t.erase(0, 2);
             const int w = std::clamp(c.measure(t) + pad * 3 + closeW, scale(90), scale(260));
             const RECT r{x, 0, x + w, h};
-            const bool active = i == gActive;
+            const bool active = page ? pageTab : i == gActive;
             c.fill(r, active ? kCtl : (i == gTabHot ? kHot : kBg));
             if (active) c.fill({r.left, 0, r.right, scale(2)}, kAccent);
             c.text({r.left + pad, 0, r.right - pad - closeW, h}, t, active ? kText : kDim, ellipsis);
             const RECT cr{r.right - pad / 2 - closeW, (h - closeW) / 2, r.right - pad / 2, (h + closeW) / 2};
             if (i == gTabHotClose) c.fill(cr, kHot);
-            if (unsaved && i != gTabHot) {
+            if (pageTab && !shellPageTabClosable()) {
+            } else if (unsaved && i != gTabHot) {
                 const int d = scale(8), cx = (cr.left + cr.right) / 2, cy = (cr.top + cr.bottom) / 2;
                 c.ellipse({cx - d / 2, cy - d / 2, cx - d / 2 + d + 1, cy - d / 2 + d + 1}, active ? kText : kDim, stardraft::draw::kNone);
             } else {
                 c.text(cr, L"\x00D7", i == gTabHotClose ? kText : kDim, center);
             }
-            gTabHits.push_back({r, cr});
+            if (pageTab) gPageTabHit = {r, shellPageTabClosable() ? cr : RECT{}};
+            else gTabHits.push_back({r, cr});
             x += w + 1;
         }
         gNewTabHit = {x, 0, x + scale(30), h};
@@ -288,6 +301,7 @@ struct TabsView final : stardraft::draw::View {
                 if (PtInRect(&gTabHits[size_t(i)].close, pt)) hc = i;
                 if (PtInRect(&gTabHits[size_t(i)].tab, pt)) h = i;
             }
+            if (PtInRect(&gPageTabHit.close, pt)) hc = int(gDocs.size());
             if (h != gTabHot || hc != gTabHotClose) gTabHot = h, gTabHotClose = hc, invalidate();
             return true;
         }
@@ -303,6 +317,10 @@ struct TabsView final : stardraft::draw::View {
             keys.pressed();
             if (PtInRect(&gNewTabHit, pt)) {
                 shellPostCommand(ID_FILE_NEW);  // the New page: a map or a project
+                return true;
+            }
+            if (PtInRect(&gPageTabHit.close, pt)) {
+                shellPageTabClose();
                 return true;
             }
             pressAt(pt, false);
@@ -326,6 +344,7 @@ struct TabsView final : stardraft::draw::View {
     stardraft::draw::Cursor cursor(stardraft::draw::Point) override { return stardraft::draw::Cursor::Arrow; }
 
 private:
+    bool hadPage_ = false;  // the last paint had the page's tab
     // A two-finger scroll on the strip (its exact distance: MouseEvent::exact): once it went 50 px sideways (more than
     // up or down), one tab to that side (swipeTabs). The rest of that scroll and its momentum change no more tabs: a
     // new swipe starts after a pause of 0.3 s.
@@ -350,6 +369,7 @@ private:
             if (!PtInRect(&gTabHits[size_t(i)].tab, pt)) continue;
             if (middle || PtInRect(&gTabHits[size_t(i)].close, pt)) closeDoc(i);
             else {
+                if (shellPageTab() && shellPageTabClosable()) shellPageTabClose();  // a map's tab: the page goes, the map shows
                 activateDoc(i);
                 gTabDrag = i, gTabDragX = pt.x, gTabDragging = false;  // a drag sideways moves the tab
                 if (auto* h = host()) h->capture(*this, true);
