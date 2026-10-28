@@ -3,7 +3,7 @@
 
 void updateTitle() {
     AppState& app = shellState();
-    // The brand, the version and the game when it is a mod's (Program options > Mods > Game): "StarDraft 2 - v0.5.0.6",
+    // The brand, the version and the game when it is a mod's (Program options > Plugins > Cosmonarchy BW): "StarDraft 2 - v0.5.0.6",
     // "StarDraft 2 - v0.5.0.6 - Cosmonarchy BW".
     const std::wstring app_ = L"StarDraft 2 - v" + shellVersion() + (cmbwMode() ? L" - Cosmonarchy BW" : L"");
     std::wstring t = app_;

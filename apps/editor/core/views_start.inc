@@ -72,7 +72,7 @@ public:
     std::function<void(int)> onCard;
     std::function<void(bool, size_t)> onOpenRecent, onRemoveRecent;
     std::function<void()> onOpen;
-    // Program options > Mods > Game: Cosmonarchy: the Cosmonarchy map card alone (no classic map or projects).
+    // Program options > Plugins > Cosmonarchy BW loaded: the Cosmonarchy map card alone (no classic map or projects).
     bool cosmonarchyOnly = false;
     std::function<void()> onCosmonarchy;
     std::function<std::wstring(const fs::path&)> dateOf;

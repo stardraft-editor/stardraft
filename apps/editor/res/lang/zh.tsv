@@ -2593,3 +2593,7 @@ Units face down and right	单位朝向右下
 more	更多
 The rest of the command	命令的其余部分
 the values after these, as the command reads them	这些值之后的值，按命令读取的方式
+Plugins	插件
+Adjusts StarDraft to work with the CMBW environment when it is loaded	加载后，调整 StarDraft 以适配 CMBW 环境
+Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	已加载 Cosmonarchy BW 插件：地图以 Cosmonarchy BW 地图打开和创建（已打开的标签页不变）
+Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	已卸载 Cosmonarchy BW 插件：地图以 StarCraft: Brood War 地图打开和创建（已打开的标签页不变）

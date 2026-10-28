@@ -30,7 +30,7 @@ struct OptionsValues {
     int unitNames = 0;        // how lists name a unit with a custom name (0 to 3)
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
-    int gameMode = 0;         // Mods > Game: 0 Standard, 1 Cosmonarchy (core/cmbw.inc cmbwMode)
+    int gameMode = 0;         // Plugins > Cosmonarchy BW: 0 not loaded, 1 loaded (core/cmbw.inc cmbwMode)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
@@ -78,7 +78,7 @@ namespace optionsview {
 // The sections of the window, in their order (the headers), and the tabs: each tab shows some sections, in this order.
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kMods = 1u << 9,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kPlugins = 1u << 9,
     kKeyboard = 1u << 10, kAllSections = (1u << 11) - 1,
 };
 struct Tab {
@@ -89,15 +89,12 @@ inline const Tab kTabs[] = {
     {L"General", kStart | kAppearance},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
-    {L"Game", kMods},
+    {L"Plugins", kPlugins},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
     {L"Simulation", kSimulation},
 };
 constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
-
-// The games that maps open with (Mods > Game's items, in the order of ID_GAME_MODE + i: core/cmbw.inc gameMode).
-const wchar_t* const kGames[] = {L"Standard (StarCraft: Brood War)", L"Cosmonarchy BW"};
 
 // The names of the unit name forms (the dropdown's items).
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
@@ -130,29 +127,24 @@ public:
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
+        // Plugins: Cosmonarchy BW, loaded or not (Game Standard or Cosmonarchy: ID_GAME_MODE + 0 or 1, core/cmbw.inc gameMode)
+        cmbwPlugin_.setLabel(L"Cosmonarchy BW (CMBW)");
+        cmbwPlugin_.onChange = [this](bool on) { host_.command(ID_GAME_MODE + (on ? 1 : 0)); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
-                        static_cast<draw::View*>(&previews_)})
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&cmbwPlugin_),
+                        static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
         };
         unitNames_.onChange = [this](int i) { host_.setUnitNames(i); };
-        game_.onChange = [this](int i) { host_.command(ID_GAME_MODE + i); };
-        game_.wheelSteps = false;  // (the wheel scrolls the window: a game changes only by a pick)
         add(language_, {0, 0, 0, 0}), language_.setVisible(false);
         add(unitNames_, {0, 0, 0, 0}), unitNames_.setVisible(false);
-        add(game_, {0, 0, 0, 0}), game_.setVisible(false);
-        {
-            std::vector<stardraft::kit::DropdownItem> games;
-            for (const wchar_t* n : optionsview::kGames) games.push_back({n});
-            game_.setItems(games);
-        }
         std::vector<stardraft::kit::DropdownItem> forms;
         for (const wchar_t* n : optionsview::kUnitNameForms) forms.push_back({n});
         unitNames_.setItems(forms);
@@ -397,9 +389,9 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox lastProject_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, cmbwPlugin_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
-    stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1}, game_{{}, -1};
+    stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], folder_, install_, cmbw_;
@@ -448,7 +440,7 @@ void OptionsView::sync(const OptionsValues& v) {
         crashChosen_ = crash;
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
-    if (game_.value() != v.gameMode) game_.setValue(v.gameMode);
+    cmbwPlugin_.setOn(v.gameMode == 1);
     accents_ = v.accents;
     lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
@@ -741,21 +733,18 @@ void OptionsView::paint(draw::Canvas& c) {
         y += scale(20) + pad;
     }
 
-    // Mods: the game the maps open with (Standard or Cosmonarchy BW: the only switch for the mod's parts) and the mod's
-    // folder (core/cmbw.inc).
-    if (shown & optionsview::kMods) {
-        header(L"Mods");
-        label(L"Game");
-        {
-            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
-            place(game_, box, true);
-            parts_["game"] = box;
-        }
+    // Plugins: each one loaded or not, what it does under it, and its settings while it is loaded. Cosmonarchy BW (the
+    // only switch for the mod's parts: maps open and are made as the mod's) and the mod's folder (core/cmbw.inc).
+    if (shown & optionsview::kPlugins) {
+        header(L"Plugins");
+        checkRow(y, cmbwPlugin_, "plugin.cmbw");
         y += rowH;
+        note(x0 + scale(24), y - scale(4), L"Adjusts StarDraft to work with the CMBW environment when it is loaded");
+        y += scale(20);
         if (v.gameMode != 1) y += pad;  // (the section's end: no folder row below)
     }
-    if ((shown & optionsview::kMods) && v.gameMode == 1) {  // (the Cosmonarchy folder: only in that game)
-        label(L"Cosmonarchy folder");
+    if ((shown & optionsview::kPlugins) && v.gameMode == 1) {  // (the Cosmonarchy folder: only while it is loaded)
+        c.text({x0 + scale(24), y, x0 + labelW, y + rowH}, L"Cosmonarchy folder", kDim, draw::kMiddle | draw::kEllipsis);
         const int cw = cmbwBrowse_.preferredWidth(c);
         const draw::Rect cf{fx, fieldTop(y), colRight - cw - gap, fieldTop(y) + fieldH};
         place(cmbw_, cf, true);

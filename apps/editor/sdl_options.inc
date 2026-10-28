@@ -185,8 +185,8 @@ bool sdlOptionsCommand(int id) {
         setGameMode(id - ID_GAME_MODE);
         gStartView.cosmonarchyOnly = cmbwMode(), gStartView.invalidate();
         gMenusDirty = true;
-        setMessage(cmbwMode() ? L"Game: Cosmonarchy. Maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)"
-                              : L"Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)");
+        setMessage(cmbwMode() ? L"Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)"
+                              : L"Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)");
         break;
     default:  // Language: it applies at the next start (the texts are made then): restart now, or later
         gLanguage = kLanguageChoices[id - ID_OPT_LANG].code;

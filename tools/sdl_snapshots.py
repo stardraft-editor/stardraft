@@ -148,7 +148,7 @@ CASES += [
     ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x480"], ""),
     ("dialog-options-tab-keyboard", ["--dialog", "options:1", "--size", "720x480"], ""),
     ("dialog-options-tab-map", ["--dialog", "options:2", "--size", "720x480"], ""),
-    ("dialog-options-tab-game", ["--dialog", "options:3", "--size", "720x480"], ""),
+    ("dialog-options-tab-plugins", ["--dialog", "options:3", "--size", "720x480"], ""),
     ("dialog-options-tab-folders", ["--dialog", "options:4", "--size", "720x480", "--theme", "light"], ""),
     ("dialog-options-tab-updates", ["--dialog", "options:5", "--size", "720x480"], ""),
     # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
@@ -3144,7 +3144,7 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 7 items: \"General\" \"Mouse and keyboard\" \"Map\" \"Game\" \"Folders\" "
+             "settings: toolbar style preference; 7 items: \"General\" \"Mouse and keyboard\" \"Map\" \"Plugins\" \"Folders\" "
              "\"Updates\" \"Simulation\"; selected"]
     for w in wants:
         if w not in output:
@@ -4238,7 +4238,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
           "dialog-options-tab-keyboard": check_options_tab, "dialog-options-tab-folders": check_options_tab,
-          "dialog-options-tab-updates": check_options_tab, "dialog-options-tab-game": check_options_tab,
+          "dialog-options-tab-updates": check_options_tab, "dialog-options-tab-plugins": check_options_tab,
           "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_release,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,

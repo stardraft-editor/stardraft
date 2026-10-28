@@ -1,5 +1,5 @@
 // Cosmonarchy BW maps (portable, core.inc; src/mods/cmbw.cpp): a tab whose editor reads the mod's files in place of
-// the game's, so its palette has the mod's units and its map shows their graphics. Program options > Mods > Game: Standard
+// the game's, so its palette has the mod's units and its map shows their graphics. Program options > Plugins > Cosmonarchy BW: Standard
 // (the game's data, as always) or Cosmonarchy (every map opens and is made with the mod's data: gameDataForMap; the start
 // page and File > New make Cosmonarchy maps).
 

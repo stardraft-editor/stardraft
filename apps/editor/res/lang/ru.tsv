@@ -2593,3 +2593,7 @@ Units face down and right	Юниты смотрят вниз и вправо
 more	ещё
 The rest of the command	Остальная часть команды
 the values after these, as the command reads them	значения после этих, как их читает команда
+Plugins	Плагины
+Adjusts StarDraft to work with the CMBW environment when it is loaded	Настраивает StarDraft для работы со средой CMBW, когда загружен
+Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Плагин Cosmonarchy BW загружен: карты открываются и создаются как карты Cosmonarchy BW (открытые вкладки не меняются)
+Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Плагин Cosmonarchy BW выгружен: карты открываются и создаются как карты StarCraft: Brood War (открытые вкладки не меняются)
