@@ -87,7 +87,6 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Grid/Huge (128 pixels)", L"Ctrl+K, 5"},
         {L"View/Grid/Custom", L"Ctrl+K, 6"},
         {L"View/Overlays/Town areas", L"Ctrl+K, T"},
-        {L"View/Overlays/Fog of war of the selected player", L"Ctrl+K, F"},
         {L"View/Overlays/Pathing/Off", L"Ctrl+K, O"},
         {L"View/Overlays/Pathing/Regions", L"Ctrl+K, P"},
         {L"View/Overlays/Pathing/Connected areas", L"Ctrl+K, A"},

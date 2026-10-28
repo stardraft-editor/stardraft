@@ -167,7 +167,6 @@ Cosmonarchy BW mode.)
 | Ctrl+K, 5 | View > Grid > Huge (128 pixels) |
 | Ctrl+K, 6 | View > Grid > Custom |
 | Ctrl+K, T | View > Overlays > Town areas |
-| Ctrl+K, F | View > Overlays > Fog of war of the selected player |
 | Ctrl+K, O | View > Overlays > Pathing > Off |
 | Ctrl+K, P | View > Overlays > Pathing > Regions |
 | Ctrl+K, A | View > Overlays > Pathing > Connected areas |
