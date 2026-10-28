@@ -82,6 +82,25 @@ static void townHallDistance(const UnitTypes& types) {
         CHECK(issues(hall, geyser, 992, 1024) == "near_resources", ("town hall: a geyser 2 tiles from a " + name + " is refused").c_str());
         CHECK(issues(hall, geyser, 960, 1024).empty(), ("town hall: a geyser 3 tiles from a " + name + " is allowed").c_str());
     }
+    // The ring around a start location (box 960..1088 x 976..1072): minerals (64 x 32) touch its box grown by 3 tiles on
+    // each side and at the corners (a rectangle, not a circle), as StarEdit; 2 tiles in is refused.
+    const auto ring = one(start, 1024, 1024);
+    struct Spot {
+        int x, y;
+        bool allowed;
+        const char* where;
+    };
+    for (const Spot& s : {Spot{1024, 864, true, "above, 3 tiles"}, Spot{1024, 896, false, "above, 2 tiles"},
+                          Spot{1024, 1184, true, "below, 3 tiles"}, Spot{1024, 1152, false, "below, 2 tiles"},
+                          Spot{832, 1024, true, "left, 3 tiles"}, Spot{864, 1024, false, "left, 2 tiles"},
+                          Spot{1216, 1024, true, "right, 3 tiles"}, Spot{1184, 1024, false, "right, 2 tiles"},
+                          Spot{832, 864, true, "top left corner, 3 tiles each way"}, Spot{1216, 1184, true, "bottom right corner, 3 tiles each way"},
+                          Spot{864, 864, true, "above, 3 tiles up and 2 tiles left of the corner"},
+                          Spot{864, 896, false, "top left corner, 2 tiles each way"}}) {
+        const std::string got = issues(ring, mineral, s.x, s.y);
+        CHECK(s.allowed ? got.empty() : got == "near_resources",
+              (std::string("town hall: minerals ") + s.where + " from a start location are " + (s.allowed ? "allowed" : "refused")).c_str());
+    }
     // The start location has no collision.
     const auto spot = one(start, 1184, 1024);
     CHECK(issues(spot, marine, 1184, 1024).empty(), "start location: a marine on a start location is allowed");
