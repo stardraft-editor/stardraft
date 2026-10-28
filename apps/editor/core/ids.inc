@@ -73,7 +73,8 @@ enum : int {
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)
     ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
     ID_OVERLAYS_OFF = 1037,  // View > Overlays > Turn off all overlays (the ranges too)
-    ID_COMMANDS = 1038,      // View > Find a command (Ctrl+Shift+P: the menus' items in a searchable list, sdl_menus.inc)
+    ID_COMMANDS = 1038,      // View > Find a command (Ctrl+P: the menus' items in a searchable list, sdl_menus.inc)
+    ID_PIE_PALETTE = 1039,   // View > Terrain pie palette (Space held on the map; from the menu: until a click, sdl_main_view.inc)
     ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable
     ID_SCEN_PATHCHECK = 997,  // Scenario > Check pathing (core/pathing_layer.inc)
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)

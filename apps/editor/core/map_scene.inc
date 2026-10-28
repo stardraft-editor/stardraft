@@ -964,9 +964,24 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     };
     std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
     std::vector<uint8_t> psi;   // the map's tiles in the psi field of a selected Pylon
-    int shown = 0;
-    for (int i : ed.selection()) {
-        if (i < 0 || i >= int(list.size()) || ++shown > 64) continue;  // (a big selection: the first 64)
+    // A big selection: the ranges of the 64 selected units in the view (or near it: a range reaches into it) that are
+    // nearest its middle; each unit's shapes are many lines.
+    std::vector<std::pair<float, int>> closest;  // (distance to the view's middle, the unit)
+    {
+        int vw, vh;
+        viewSize(vw, vh);
+        const float x0 = app.camX, y0 = app.camY, x1 = x0 + float(vw) / app.zoom, y1 = y0 + float(vh) / app.zoom, reach = 20 * 32.0f;
+        const float mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+        for (int i : ed.selection()) {
+            if (i < 0 || i >= int(list.size())) continue;
+            const float x = list[size_t(i)].x + dx, y = list[size_t(i)].y + dy;
+            if (x < x0 - reach || x > x1 + reach || y < y0 - reach || y > y1 + reach) continue;
+            closest.push_back({(x - mx) * (x - mx) + (y - my) * (y - my), i});
+        }
+        std::sort(closest.begin(), closest.end());
+        if (closest.size() > 64) closest.resize(64);
+    }
+    for (const auto& [distance, i] : closest) {
         Unit u = list[size_t(i)];
         const int ut = u.type;
         cmbw::UnitRanges mr;

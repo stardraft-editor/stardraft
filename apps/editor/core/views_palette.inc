@@ -302,7 +302,9 @@ struct PieView : draw::View {
         const int h = sliceAt(p);
         if (h != hot) hot = h, invalidate();
     }
+    std::function<void()> onClick;  // a left click: the slice under it is picked (the ring opened from the menu)
     bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && onClick) return track(e.pt), onClick(), true;
         if (e.kind != draw::MouseKind::Move) return false;
         track(e.pt);
         return true;

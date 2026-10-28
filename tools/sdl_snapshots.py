@@ -3598,10 +3598,10 @@ CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "-
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
                                    "--key", "Ctrl+K", "--key", "T", "--key", "Ctrl+K", "--key", "R", "--key", "Ctrl+K", "--key", "O", "--check", "menus"], "map")]
-# Find a command (Ctrl+Shift+P): "connected areas" and Enter turn on View > Overlays > Pathing > Connected areas; the
+# Find a command (Ctrl+P): "connected areas" and Enter turn on View > Overlays > Pathing > Connected areas; the
 # list of "walk" with Walkable ground on (its check box on, the picture).
-CASES += [("map-find-command", ["--key", "Ctrl+Shift+P", "--type", "connected areas", "--key", "Enter", "--check", "menus"], "map"),
-          ("map-find-command-list", ["--size", "1400x900", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+Shift+P", "--type", "walk"], "map")]
+CASES += [("map-find-command", ["--key", "Ctrl+P", "--type", "connected areas", "--key", "Enter", "--check", "menus"], "map"),
+          ("map-find-command-list", ["--size", "1400x900", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+P", "--type", "walk"], "map")]
 
 
 def ui_lines(output):

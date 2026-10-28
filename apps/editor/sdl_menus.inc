@@ -227,6 +227,7 @@ bool sdlRuns(int id) {
     case ID_HELP_UPDATES:  // Check for updates (sdl_updates.inc)
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
     case ID_QUICKPICK:
+    case ID_PIE_PALETTE:
     case ID_COMMANDS: return true;
     case ID_CAMPAIGN_NEW:
     case ID_CAMPAIGN_OPEN:
@@ -475,7 +476,7 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
     return out;
 }
 
-// Find a command (Ctrl+Shift+P): each item of the menu bar in the quick picker's list, found by its name, its menus or its
+// Find a command (Ctrl+P): each item of the menu bar in the quick picker's list, found by its name, its menus or its
 // keys. Out of its menu a name can say too little: an item of a submenu ("Regions") or one whose name another item has
 // too ("Units": Mode, Layers, Workspaces) starts with its menu's name ("Pathing: Regions", "Mode: Units"), unless it has
 // it already ("Show grid"). Under it, the row's menus and keys; an option has a check box (on or off); an item that
@@ -1473,6 +1474,7 @@ void commandSdl(int id) {
         if (gWorkspace == Workspace::ClassicTriggers) sdlClassicAdd(id - ID_CT_ADD_TRIGGER);
         return;
     case ID_COMMANDS: return sdlFindCommand();
+    case ID_PIE_PALETTE: return sdlPieFromMenu();
     case ID_QUICKPICK:  // in the trigger editors: Quick add (core/views_trigger_quick.inc)
         if (gWorkspace == Workspace::Triggers) return trigQuickAdd();
         if (gWorkspace == Workspace::ClassicTriggers) return sdlClassicQuickAdd();

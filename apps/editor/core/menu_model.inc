@@ -288,7 +288,9 @@ MenuModel buildMenuModel() {
     for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
     view.push_back(menuSeparator());
     view.push_back(menuItem(ID_QUICKPICK, L"&Quick picker\x2026", L"Q"));
-    view.push_back(menuItem(ID_COMMANDS, L"Find a &command\x2026", L"Ctrl+Shift+P"));  // (each menu item, on or off: sdl_menus.inc)
+    // (Space is held on the map: the text says it, no key of the menu's)
+    view.push_back(menuItem(ID_PIE_PALETTE, L"Terrain &pie palette", L"Space (held)"));
+    view.push_back(menuItem(ID_COMMANDS, L"Find a &command\x2026", L"Ctrl+P"));  // (each menu item, on or off: sdl_menus.inc)
     view.push_back(menuSeparator());
     menuCommand(view, "view.minimap");
     {  // each mode's palette in a window of its own (Roadmap R40: core/dock_prefs.inc, kFloatPalNames)

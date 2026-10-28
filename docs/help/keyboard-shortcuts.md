@@ -34,7 +34,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | F2 | Rename: the selected location, or the selected trigger in the Triggers tree (macOS: also Return in the tree) |
 | Q | Quick picker: the mode's units, terrains, doodads, sprites or locations; in Data, any entry; in the trigger editors, Quick add; in Help, a search of the help |
 | Ctrl+Shift+F | Find in triggers (the Triggers workspace and Classic triggers) |
-| Ctrl+Shift+P | Find a command: each item of the menus in a searchable list, with its menu, its keys and whether it is on; Enter runs it |
+| Ctrl+P | Find a command: each item of the menus in a searchable list, with its menu, its keys and whether it is on; Enter runs it |
 
 ## Workspaces and pages
 
@@ -66,7 +66,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Enter | Properties of the selected location or unit |
 | Esc | Cancel what is under way: a paste, a drag, a selection |
 | R, Shift+R | Turn the terrain that is about to be pasted, the other way |
-| Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain |
+| Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice) |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad |
 
 The mouse: the wheel zooms the map at the mouse; a trackpad scrolls it with two fingers and zooms with a pinch; the

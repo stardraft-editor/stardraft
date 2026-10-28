@@ -18,6 +18,7 @@ std::string gDataError;      // why it is not (shown in the map view)
 unsigned gDpi = 96;          // the window's dpi (scale() gives device pixels for it)
 struct MainView;
 MainView* gRoot = nullptr;
+bool sdlPieClickAway();  // (the pie palette that shows: a click on the map closes it, below)
 bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map workspace with a map: MainView::relayout)
 
 // The map's texture: the renderer draws the open map into it each frame, and the map view shows it.
@@ -203,6 +204,7 @@ struct MapView final : draw::View {
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind == draw::MouseKind::Down && sdlPieClickAway()) return true;  // (a click away from the pie palette closes it)
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
             if (simBarMouse(e, draw::Rect(0, 0, width(), height()))) return true;
@@ -507,6 +509,12 @@ struct MainView final : draw::View {
         if ((typing || trigPaneFocused()) && typed && !(e.mods & (draw::kCtrl | draw::kAlt))) return false;
         // Enter on the map: the selected location's or unit's properties (the Windows map's key).
         if (e.down && !e.repeat && e.key == draw::Key::Enter && !e.mods && !typing && map.shown() && mapEnterSdl()) return true;
+        // Esc with the pie palette open (from the menu): it closes with no change.
+        if (e.down && e.key == draw::Key::Escape && pie.shown()) {
+            pie.setVisible(false);
+            invalidate();
+            return true;
+        }
         // Esc while a trigger waits for a unit picked on the map: back to the triggers (the Windows cancelStep).
         if (e.down && e.key == draw::Key::Escape && trigUnitPickActive()) return trigCancelUnitPick(), true;
         // Esc with the New page (Cancel) or the start page over the open map (File > New): the page closes. (A field of the
@@ -679,6 +687,7 @@ struct MainView final : draw::View {
     // The pie palette (core/palette_view.inc: pieTerrains): the ring in the middle of the map, its slice the one the
     // mouse points at. Nothing when the map has no terrain to paint (or the mode is not Terrain).
     void pieOpen() {
+        pie.onClick = [this] { pieRelease(); };  // (from the menu: a click picks; with Space held, a click picks too)
         pie.items = pieTerrains(gState);
         if (pie.items.empty() || !map.shown()) return;
         const draw::Rect m = map.frame();
@@ -931,6 +940,22 @@ void sdlPieShot() {
     std::string names;
     for (const uint16_t t : p.items) names += (names.empty() ? "" : "; ") + narrow(p.terrainName(t));
     std::printf("pie: terrains %s\n", names.c_str());
+}
+// View > Terrain pie palette: the ring that Space held opens, in Terrain mode, open until a click (on a slice: its
+// terrain; elsewhere: no change) or Esc.
+void sdlPieFromMenu() {
+    if (!gRoot || !gState.ed || !gState.ed->isOpen()) return;
+    setWorkspace(Workspace::Map);
+    if (gState.mode != Mode::Terrain) setMode(Mode::Terrain);
+    gRoot->relayout();
+    gRoot->pieOpen();
+    if (!gRoot->pie.shown()) setMessage(tr(L"The pie palette has no terrains for this tileset"));
+}
+bool sdlPieClickAway() {
+    if (!gRoot || !gRoot->pie.shown()) return false;
+    gRoot->pie.setVisible(false);
+    gRoot->invalidate();
+    return true;
 }
 void sdlPieShotRelease() {
     if (!gRoot || !gRoot->pie.shown()) return;
