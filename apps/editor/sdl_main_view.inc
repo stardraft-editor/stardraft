@@ -18,6 +18,7 @@ std::string gDataError;      // why it is not (shown in the map view)
 unsigned gDpi = 96;          // the window's dpi (scale() gives device pixels for it)
 struct MainView;
 MainView* gRoot = nullptr;
+LoadingView gLoadingView;  // the map's loading view (core/views_loading.inc): over the workspace while a map opens
 bool sdlPieClickAway();  // (the pie palette that shows: a click on the map closes it, below)
 bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map workspace with a map: MainView::relayout)
 
@@ -442,6 +443,7 @@ struct MainView final : draw::View {
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
         for (auto& [w, v] : gWorkspaceViews) add(*v, draw::Rect(0, 0, 0, 0));
+        add(gLoadingView, draw::Rect(0, 0, 0, 0));  // (over the workspace's views)
         add(pie, draw::Rect(0, 0, 0, 0));  // (the last child: over the map)
         pie.setVisible(false);
         pie.picture = [](uint16_t t, int tiles) { return pieBitmap(t, tiles); };
@@ -848,6 +850,7 @@ struct MainView final : draw::View {
         apply(gStartView, L.workspace, startShown);
         apply(gNewView, L.view, newShown);
         apply(notHere, L.workspace, !mapWs && !wsView && !startShown && !newShown);
+        apply(gLoadingView, L.workspace, gLoading.on);
         // A hidden pane keeps no keyboard: when a switch hid the focused one (a search box, the palette's list), the
         // window's root takes the focus, so the keys reach the menus and shortcuts, not a box nobody sees.
         for (View* c : children())
@@ -950,6 +953,13 @@ void sdlPieFromMenu() {
     gRoot->relayout();
     gRoot->pieOpen();
     if (!gRoot->pie.shown()) setMessage(tr(L"The pie palette has no terrains for this tileset"));
+}
+// The loading view's frame: the window laid out (the view shows while gLoading.on) and painted now.
+void shellLoadingFrame() {
+    if (!gRoot || !gHost) return;
+    gRoot->relayout();
+    gLoadingView.invalidate();
+    gHost->paintNow();
 }
 bool sdlPieClickAway() {
     if (!gRoot || !gRoot->pie.shown()) return false;

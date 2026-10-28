@@ -1002,10 +1002,15 @@ void SdlHost::destroyRetired() {
     retired_.clear();
 }
 
+void SdlHost::paintNow() {
+    SDL_PumpEvents();  // (the system sees the program answer; the events wait for the next turn of the loop)
+    renderDirty();
+}
+
 void SdlHost::renderDirty() {
     std::vector<Win*> todo;
     for (const auto& w : wins_)
-        if (w->dirty) todo.push_back(w.get());
+        if (w->dirty && w->sdl) todo.push_back(w.get());  // (a snapshot's windows have none: snapshot() paints them)
     if (todo.empty()) return;
     beginBitmapFrame();
     ImGuiIO& io = ImGui::GetIO();

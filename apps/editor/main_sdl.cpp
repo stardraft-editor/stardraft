@@ -370,6 +370,7 @@ int main(int argc, char** argv) {
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
     std::string palViewArg;  // --palview: the palette's view items (list, icons, sprites, normal, large), comma separated
     bool pieArg = false;  // --pie: the pie palette open (Terrain mode), the mouse to the right of its middle
+    bool loadingArg = false;  // --loading: the map's loading view as the open left it (its steps), for a snapshot
     std::uint32_t restartPid = 0;  // --restart <pid> (Program options > Language): the old program, which ends first
     bool cmbwArg = false;  // --cmbw: a new Cosmonarchy BW map first (core/cmbw.inc; a map argument then opens in its data), for a snapshot
     bool untitledArg = false;  // --untitled: a new unsaved project (as the Win32 program's screenshot run starts with), for a snapshot
@@ -446,6 +447,7 @@ int main(int argc, char** argv) {
         else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
         else if (a == "--wintest-fullscreen") gWinTestFull = true;  // with --wintest: full screen on and off too (sdl_window_test.inc)
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
+        else if (a == "--loading") loadingArg = true;  // the loading view of the map that opened, with its steps, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
         else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
@@ -868,6 +870,11 @@ int main(int argc, char** argv) {
                 host.snapshotInput(*shown, width, height, {});
             }
             startLap("to the first frame");
+            if (loadingArg) {  // (the open's steps stay in gLoading: the view shows them again)
+                gLoading.on = true;
+                root.relayout();
+                for (const std::wstring& l : gLoading.lines) std::printf("loading: %s\n", narrow(l).c_str());
+            }
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             startLap("first frame");
             if (!trigSelArg.empty()) sdlTrigFocusFirstValue();  // (the pane's hit areas are the first frame's)

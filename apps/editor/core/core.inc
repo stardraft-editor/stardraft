@@ -16,6 +16,7 @@
 #include "palette_tools.inc"
 #include "kit_paint.inc"
 #include "item_focus.inc"  // the keyboard focus on a view's own parts: Tab between them, Enter and Space, the outline
+#include "views_loading.inc"  // the map's loading view: the file, a progress bar and the steps (openMap)
 #include "documents.inc"
 #include "cmbw.inc"  // Cosmonarchy BW maps: tabs with the mod's data (src/mods/cmbw.cpp)
 #include "layout.inc"

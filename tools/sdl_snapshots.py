@@ -3598,9 +3598,11 @@ CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "-
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
                                    "--key", "Ctrl+K", "--key", "T", "--key", "Ctrl+K", "--key", "R", "--key", "Ctrl+K", "--key", "O", "--check", "menus"], "map")]
+# The map's loading view (--loading: as the open of the map left it): the file, the bar and each step with its time.
 # Find a command (Ctrl+P): "connected areas" and Enter turn on View > Overlays > Pathing > Connected areas; the
 # list of "walk" with Walkable ground on (its check box on, the picture).
 CASES += [("map-find-command", ["--key", "Ctrl+P", "--type", "connected areas", "--key", "Enter", "--check", "menus"], "map"),
+          ("map-loading-view", ["--loading"], "map"),
           ("map-find-command-list", ["--size", "1400x900", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+P", "--type", "walk"], "map")]
 
 
@@ -3747,6 +3749,13 @@ def check_overlay_toggles(output):
 def check_find_command(output):
     """None when Enter on the found Connected areas turned that pathing view on (its menu item is checked)."""
     return None if "View > Overlays > Pathing > Connected areas [Ctrl+K, A] (checked)" in output else "Connected areas is not on"
+
+
+def check_loading_view(output):
+    """None when the loading view lists the open's steps, from reading the scenario to the tab."""
+    steps = re.findall(r"^loading: (.+?)   \d+ ms\r?$", output, re.M)
+    want = ["Read the scenario", "Parse the scenario", "Unit types and sprites", "Terrain, tileset, units", "The tab, the minimap and the panels"]
+    return None if all(w in steps for w in want) else f"the steps: {steps}"
 
 
 def check_find_command_list(output):
@@ -4358,7 +4367,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
           "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key,
-          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list,
+          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),

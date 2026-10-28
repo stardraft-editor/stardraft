@@ -86,6 +86,8 @@ public:
     bool open(const std::filesystem::path& path, std::string& error);
     // How long the last open's steps took (ms), for measuring.
     const std::vector<std::pair<const char*, double>>& openSteps() const { return openSteps_; }
+    // Called after each step of open() with its name and time (ms): the program's loading view.
+    std::function<void(const char* step, double ms)> onOpenStep;
     // New map (see createNewScenario): `terrain` is the ISOM terrain id to fill with (1 = dirt
     // on badlands). The document has no path until it is saved.
     bool newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error);
