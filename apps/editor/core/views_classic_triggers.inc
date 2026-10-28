@@ -77,7 +77,12 @@ std::vector<CtSegment> ctSentenceParts(const E& e, int kind, const ClassicTrigge
             first = false;
             out.push_back({CtPart::Chip, given ? ctCrigValueText(stardraft::cmbw::crigArgKind(l.command->args[k]), l.values[k]) : std::wstring(L"?"), int(k)});
         }
-        if (!l.rest.empty()) word(L" " + widen(l.rest));
+        // (the rest of its line: a chip where the command reads more of it, or where the line has more; its param is the
+        // one after the values: ctCrigArgClick edits it)
+        if (!l.rest.empty() || l.command->readsMore) {
+            if (!first) word(L", ");
+            out.push_back({CtPart::Chip, l.rest.empty() ? std::wstring(tr(L"more")) + L"\x2026" : widen(l.rest), int(l.command->args.size())});
+        }
         return out;
     }
     if constexpr (std::is_same_v<E, ClassicAction>) {

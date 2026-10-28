@@ -1117,7 +1117,8 @@ inline std::wstring ctEntryHelp(bool condition, const std::string& name) {
 
 #include "views_crigs.inc"  // a Cosmonarchy map's trigger comment commands (CrigView, under a Comment action's fields)
 
-// The help of a Cosmonarchy command's row: what kind it is, how the mod reads it, and each value's kind.
+// The help of a Cosmonarchy command's row, in parts with a blank line between them: what kind it is and what it does; its
+// line in the trigger's Comment; its values, a line each (their kinds, their words); how the mod runs the commands.
 inline std::wstring ctCrigHelp(const ClassicCrig& row) {
     const auto l = stardraft::cmbw::parseCrigLine(row.line);
     if (!l.command) return tr(L"A line of the trigger's Comment that is not a command: kept as it is.");
@@ -1131,11 +1132,13 @@ inline std::wstring ctCrigHelp(const ClassicCrig& row) {
                      : c.kind == "local_action" ? tr(L"An action on each player's screen.")
                                                : std::wstring();
     if (const std::string help = stardraft::cmbw::crigHelp(c); !help.empty()) s += (s.empty() ? L"" : L" ") + widen(help);
-    s += L" " + std::wstring(tr(L"The mod reads it from a line of the trigger's Comment:")) + L" " + widen((l.condition ? "condition " : "") + c.names.front());
+    s += L"\n\n" + std::wstring(tr(L"The mod reads it from a line of the trigger's Comment:")) + L"\n    " + widen((l.condition ? "condition " : "") + c.names.front());
     for (const auto& a : c.args) s += L" " + widen(a.name) + (a.optional ? L"?" : L"");
+    if (c.readsMore) s += L" \x2026";
+    if (!c.args.empty() || c.readsMore) s += L"\n\n" + std::wstring(tr(L"Values"));
     for (const auto& a : c.args) {
         const auto it = kinds.find(a.kind);
-        s += L"\n" + widen(a.name) + L": " + (it != kinds.end() ? std::wstring(tr(it->second)) : widen(a.kind)) +
+        s += L"\n    " + widen(a.name) + L": " + (it != kinds.end() ? std::wstring(tr(it->second)) : widen(a.kind)) +
              (a.optional ? L" " + std::wstring(tr(L"(may be left out)")) : std::wstring());
         const auto& words = stardraft::cmbw::crigWordChoices(c.names.front(), a.name);
         if (!words.empty()) {
@@ -1143,19 +1146,19 @@ inline std::wstring ctCrigHelp(const ClassicCrig& row) {
             for (size_t i = 0; i < words.size(); ++i) s += (i ? L", " : L"") + widen(words[i]);
         }
     }
-    if (c.readsMore) s += L"\n" + std::wstring(tr(L"It reads the rest of its line itself."));
-    s += L"\n" + std::wstring(tr(L"The commands run for the trigger's owners, after all its conditions are true. The game does not check them: a wrong "
-                                 L"number of values can stop the other commands of the comment. (From the mod's Scenario Setup page.)"));
+    if (c.readsMore) s += L"\n    " + std::wstring(tr(L"more")) + L": " + std::wstring(tr(L"It reads the rest of its line itself."));
+    s += L"\n\n" + std::wstring(tr(L"The commands run for the trigger's owners, after all its conditions are true. The game does not check them: a wrong "
+                                   L"number of values can stop the other commands of the comment. (From the mod's Scenario Setup page.)"));
     return s;
 }
 
-// The height of a command row's help: a line for each of its lines (a long line wraps: about 100 letters a line).
+// The height of a command row's help: a line for each of its lines (a long line wraps: about 70 letters a line).
 inline int ctCrigHelpHeight(const std::wstring& help) {
     int lines = 0;
     size_t start = 0;
     while (start <= help.size()) {
         const size_t end = std::min(help.find(L'\n', start), help.size());
-        lines += 1 + int((end - start) / 100);
+        lines += 1 + int((end - start) / 70);
         start = end + 1;
     }
     return scale(18) * lines + scale(8);
@@ -1246,7 +1249,7 @@ public:
         title.setVisible(any || block);
         type.setVisible(any), disabled.setVisible(any);
         always.setVisible(a && !block && (a->type == 7 || a->type == 9));
-        help.setText(L"");
+        help.setText(L""), help.setTone(stardraft::kit::LabelTone::Dim);
         crigRow_ = crigRow;
         const bool crigs = crigRow || (modTab() && a && !block && a->type == kCtCommentType);
         crig.setVisible(crigs);
@@ -1254,6 +1257,7 @@ public:
         if (crigRow) {
             title.setVisible(true);
             title.setText(c ? tr(L"Condition") : tr(L"Action"));
+            help.setTone(stardraft::kit::LabelTone::Normal);  // (a long text: the dim color is hard to read)
             help.setText(ctCrigHelp(*ctModelCrig(m)));
             place();
             return;

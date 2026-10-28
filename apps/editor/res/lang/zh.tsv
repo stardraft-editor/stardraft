@@ -2590,3 +2590,5 @@ The selected terrain (tile x, y):	所选地形（图块 x, y）：
 &Randomize unit direction when placed	放置时随机单位朝向(&R)
 Units get a random direction when placed	放置时单位朝向随机
 Units face down and right	单位朝向右下
+more	更多
+The rest of the command	命令的其余部分

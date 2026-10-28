@@ -2592,6 +2592,8 @@ constexpr UiText kRows[] = {
     {L"&Randomize unit direction when placed", L"&Direcci\u00F3n aleatoria de las unidades al colocarlas"},
     {L"Units get a random direction when placed", L"Las unidades reciben una direcci\u00F3n aleatoria al colocarlas"},
     {L"Units face down and right", L"Las unidades miran hacia abajo a la derecha"},
+    {L"more", L"m\u00E1s"},
+    {L"The rest of the command", L"El resto del comando"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

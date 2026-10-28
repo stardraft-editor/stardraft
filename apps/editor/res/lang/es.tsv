@@ -2590,3 +2590,5 @@ The selected terrain (tile x, y):	El terreno seleccionado (casilla x, y):
 &Randomize unit direction when placed	&Dirección aleatoria de las unidades al colocarlas
 Units get a random direction when placed	Las unidades reciben una dirección aleatoria al colocarlas
 Units face down and right	Las unidades miran hacia abajo a la derecha
+more	más
+The rest of the command	El resto del comando

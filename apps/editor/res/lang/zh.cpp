@@ -2592,6 +2592,8 @@ constexpr UiText kRows[] = {
     {L"&Randomize unit direction when placed", L"\u653E\u7F6E\u65F6\u968F\u673A\u5355\u4F4D\u671D\u5411(&R)"},
     {L"Units get a random direction when placed", L"\u653E\u7F6E\u65F6\u5355\u4F4D\u671D\u5411\u968F\u673A"},
     {L"Units face down and right", L"\u5355\u4F4D\u671D\u5411\u53F3\u4E0B"},
+    {L"more", L"\u66F4\u591A"},
+    {L"The rest of the command", L"\u547D\u4EE4\u7684\u5176\u4F59\u90E8\u5206"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

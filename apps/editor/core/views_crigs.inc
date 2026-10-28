@@ -169,6 +169,12 @@ inline void ctCrigArgClick(CtPageHost& h, int k, const draw::View& from, draw::R
         if (h.editText(tr(L"Line of the comment"), tr(L"Line of the comment"), v)) ctSetCrigLine(h, v);
         return;
     }
+    if (k == int(l.command->args.size())) {  // (the chip after the values: the rest of the line)
+        std::string v = l.rest;
+        if (!h.editText(tr(L"The rest of the command"), tr(L"The rest of the command"), v)) return;
+        l.rest = v;
+        return ctSetCrigLine(h, stardraft::cmbw::crigLineText(l));
+    }
     if (crigEditValue(h, from, {r.left, r.bottom + scale(2)}, l, k)) ctSetCrigLine(h, stardraft::cmbw::crigLineText(l));
 }
 

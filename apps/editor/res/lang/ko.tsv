@@ -2590,3 +2590,5 @@ The selected terrain (tile x, y):	선택한 지형 (타일 x, y):
 &Randomize unit direction when placed	배치할 때 유닛 방향 무작위(&R)
 Units get a random direction when placed	배치할 때 유닛 방향이 무작위로 정해집니다
 Units face down and right	유닛이 오른쪽 아래를 봅니다
+more	나머지
+The rest of the command	명령의 나머지

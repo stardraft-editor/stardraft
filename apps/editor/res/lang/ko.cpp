@@ -2592,6 +2592,8 @@ constexpr UiText kRows[] = {
     {L"&Randomize unit direction when placed", L"\uBC30\uCE58\uD560 \uB54C \uC720\uB2DB \uBC29\uD5A5 \uBB34\uC791\uC704(&R)"},
     {L"Units get a random direction when placed", L"\uBC30\uCE58\uD560 \uB54C \uC720\uB2DB \uBC29\uD5A5\uC774 \uBB34\uC791\uC704\uB85C \uC815\uD574\uC9D1\uB2C8\uB2E4"},
     {L"Units face down and right", L"\uC720\uB2DB\uC774 \uC624\uB978\uCABD \uC544\uB798\uB97C \uBD05\uB2C8\uB2E4"},
+    {L"more", L"\uB098\uBA38\uC9C0"},
+    {L"The rest of the command", L"\uBA85\uB839\uC758 \uB098\uBA38\uC9C0"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
