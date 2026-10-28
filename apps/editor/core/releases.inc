@@ -55,6 +55,8 @@ const wchar_t* reportWorkspaceName(Workspace w) {
     return i >= 0 && i < int(sizeof names / sizeof names[0]) ? names[i] : L"Map";
 }
 
+std::string reportPluginsLine(bool tab);  // (core/cmbw.inc: every report has it)
+
 namespace releases {
 
 // The requests (apps/common/http.h); a test puts its own answers here (sdl_updates.inc: --check release-token).
@@ -519,7 +521,7 @@ inline std::wstring crashModeMessage(int mode) {
 // The report's first lines: the program, its build and commit, the system and the video card.
 inline std::string crashHeader(const std::string& build, const std::wstring& gpu) {
     return "StarDraft " STARDRAFT_VERSION_NAME ", " + build + ", commit " STARDRAFT_COMMIT "\n" + stardraft::platform::systemName() + ", video card: " +
-           narrow(gpu) + "\n";
+           narrow(gpu) + "\n" + reportPluginsLine(false) + "\n";
 }
 
 // What the crashed program says: `mode` is Options > Crash reports (0 ask at the next start, 1 send, 2 do not send).

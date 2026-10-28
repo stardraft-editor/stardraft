@@ -43,6 +43,7 @@
 #include "stardraft/project_import.h"
 #include "stardraft/terrain_gen.h"
 #include "stardraft/settings.h"
+#include "stardraft/mods/cmbw.h"  // (feedback: the plugin's install folder)
 #include "text_codec.h"
 #include "http.h"
 #if __has_include("build_info.h")
@@ -1847,9 +1848,34 @@ static std::string withoutUserFolder(std::string text) {
     return text;
 }
 
+// The editor's plugins, as its settings file has them (every report says them, as the editor's): Cosmonarchy BW loaded
+// or not (the setting GameMode; before it, CosmonarchyMode), with its install folder's name (not the whole path: it may
+// hold the user's name). The file: STARDRAFT_SETTINGS, else the editor's own place (apps/editor/shell_sdl.inc).
+static std::string feedbackPluginsLine() {
+    fs::path file;
+    if (const char* e = std::getenv("STARDRAFT_SETTINGS"); e && *e) file = fs::u8path(e);
+#ifdef _WIN32
+    else if (const char* a = std::getenv("APPDATA"); a && *a) file = fs::u8path(a) / "StarDraft" / "settings.json";
+#elif defined(__APPLE__)
+    else if (const char* h = std::getenv("HOME"); h && *h) file = fs::u8path(h) / "Library" / "Application Support" / "StarDraft" / "settings.json";
+#else
+    else if (const char* x = std::getenv("XDG_CONFIG_HOME"); x && *x) file = fs::u8path(x) / "StarDraft" / "settings.json";
+    else if (const char* h = std::getenv("HOME"); h && *h) file = fs::u8path(h) / ".config" / "StarDraft" / "settings.json";
+#endif
+    if (file.empty()) return "Plugins: not known (no settings file)";
+    const stardraft::Settings set(file);
+    const int64_t mode = set.number("GameMode").value_or(set.number("CosmonarchyMode").value_or(0));
+    if (mode != 1) return "Plugins: none loaded in the editor";
+    std::string line = "Plugins: Cosmonarchy BW (CMBW) loaded in the editor";
+    const std::string chosen = set.text("CosmonarchyFolder").value_or("");
+    const fs::path folder = !chosen.empty() ? fs::u8path(chosen) : stardraft::cmbw::findInstall();
+    if (!folder.empty()) line += ", its folder " + std::string(reinterpret_cast<const char*>(folder.filename().u8string().c_str()));
+    return line;
+}
+
 // feedback "<text>" [--file f] [--dry-run]: files the text as a GitHub issue (label "feedback"), as the editor's
-// Report feedback does, with the version and the system. The user folder shows as ~. --dry-run gives the issue's text
-// and sends nothing.
+// Report feedback does, with the version, the system and the editor's plugins. The user folder shows as ~. --dry-run
+// gives the issue's text and sends nothing.
 static Json cmdFeedback(Session& s) {
     std::string text;
     if (s.args.has("file")) text = readText(upath(s.args.get("file")));
@@ -1872,7 +1898,8 @@ static Json cmdFeedback(Session& s) {
     const char* system = "Linux";
 #endif
     const std::string title = "Feedback on stardraft-cli: " + summary;
-    const std::string body = text + "\n\n---\nOn: stardraft-cli\nStarDraft " STARDRAFT_VERSION_NAME ", commit " STARDRAFT_COMMIT "\n" + system + "\n";
+    const std::string body = text + "\n\n---\nOn: stardraft-cli\nStarDraft " STARDRAFT_VERSION_NAME ", commit " STARDRAFT_COMMIT "\n" + system + "\n" +
+                             feedbackPluginsLine() + "\n";
     if (s.args.has("dry-run")) return Obj().add("sent", false).add("title", title).add("body", body);
     std::string token = STARDRAFT_ISSUES_TOKEN;
     if (token.empty())

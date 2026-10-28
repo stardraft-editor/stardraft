@@ -542,6 +542,9 @@ std::string sdlCrashCheck() {
     prefs::number(L"CrashReports", mode, 0, 2);
     const fs::path folder = sdlCrashFolder();
     std::string out = "crashes: folder " + narrow(folder.wstring()) + ", crash reports " + std::to_string(mode) + "\n";
+    std::string header = releases::crashHeader("a build", L"a video card");  // (a report's first lines: its plugins too)
+    std::replace(header.begin(), header.end(), '\n', '|');
+    out += "crashes: a report's header: " + header + "\n";
     std::error_code ec;
     for (const auto& e : fs::directory_iterator(folder, ec)) {
         std::string state = "not sent";

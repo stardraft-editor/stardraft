@@ -1,7 +1,7 @@
 // Cosmonarchy BW maps (portable, core.inc; src/mods/cmbw.cpp): a tab whose editor reads the mod's files in place of
-// the game's, so its palette has the mod's units and its map shows their graphics. Program options > Plugins > Cosmonarchy BW: Standard
-// (the game's data, as always) or Cosmonarchy (every map opens and is made with the mod's data: gameDataForMap; the start
-// page and File > New make Cosmonarchy maps).
+// the game's, so its palette has the mod's units and its map shows their graphics. Program options > Plugins > Cosmonarchy
+// BW: not loaded (the game's data, as always) or loaded (every map opens and is made with the mod's data: gameDataForMap;
+// the start page and File > New make Cosmonarchy maps).
 
 bool gCmbwForced = false;  // (a snapshot's --cmbw: Cosmonarchy for the run)
 int gGameMode = -1;        // 0 Standard, 1 Cosmonarchy (the setting GameMode, read once: the checks run often); -1 not read yet
@@ -295,6 +295,16 @@ int moveBrushDoodads(AppState& app, float dx, float dy) {
 // Program options > Cosmonarchy folder: the mod's install that the data opened from (empty: not opened yet), and the one
 // chosen for the next start.
 fs::path gCmbwInUse, gCmbwNext;
+// The plugins line of every report (feedback, crash reports): the loaded plugins, Cosmonarchy BW with its install
+// folder's name (Prerelease or Release; not the whole path: it may hold the user's name); `tab`: also whether the
+// active tab is a Cosmonarchy BW map (not in a crash report: only settings are read there).
+std::string reportPluginsLine(bool tab) {
+    if (!cmbwMode()) return "Plugins: none loaded";
+    std::string s = "Plugins: Cosmonarchy BW (CMBW) loaded";
+    if (!gCmbwInUse.empty()) s += ", its folder " + gCmbwInUse.filename().string();
+    if (tab) s += modTab() ? "; this tab is a CMBW map" : "; this tab is not a CMBW map";
+    return s;
+}
 // The Cosmonarchy folder that the user chose (the setting CosmonarchyFolder): the mod's data opens from it, else from
 // the one under Program Files. At the start, before the mod's data opens.
 void cmbwUseFolderSetting() {
