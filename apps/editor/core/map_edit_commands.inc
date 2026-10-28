@@ -37,7 +37,10 @@ constexpr ProgramKey kProgramKeys[] = {
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
     {"Ctrl+6", ID_RAIL_KEY + 5},   {"Ctrl+7", ID_RAIL_KEY + 6},      {"Ctrl+8", ID_RAIL_KEY + 7},        {"Ctrl+9", ID_RAIL_KEY + 8},
-    {"Ctrl+B", ID_PROJ_COMPILE},   {"Ctrl+M", ID_VIEW_LOG},            {"F1", ID_HELP_CONTEXT},            {"Ctrl+E", ID_DATA_TABLE},
+    {"Ctrl+B", ID_PROJ_COMPILE},   {"F1", ID_HELP_CONTEXT},            {"Ctrl+E", ID_DATA_TABLE},
+#ifndef __APPLE__  // (macOS: Cmd+M is the system's Window > Minimize; View > Log has no key there)
+    {"Ctrl+M", ID_VIEW_LOG},
+#endif
     {"Ctrl+Alt+T", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Custom in turn)
 #ifdef __APPLE__  // macOS: Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
     {"Ctrl+Backspace", ID_EDIT_DELETE}, {"Ctrl+`", ID_TAB_NEXT},     {"Ctrl+Shift+`", ID_TAB_PREV},

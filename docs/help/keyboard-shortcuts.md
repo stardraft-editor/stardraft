@@ -40,7 +40,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Key | What it does |
 |---|---|
 | Ctrl+1 to Ctrl+9 | The side bar's items in their order: Map, Data, Triggers, Briefing, Assets, Properties (a project: then Project), and last Help. View > Workspaces lists them with their keys |
-| Ctrl+M | Show or hide the Log |
+| Ctrl+M | Show or hide the Log (not on macOS: there Cmd+M is Window > Minimize) |
 | F1 | Help on what has the keyboard: a Data field's page, a trigger check's part, else the contents |
 
 ## The map

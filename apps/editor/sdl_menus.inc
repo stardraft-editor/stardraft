@@ -101,6 +101,7 @@ std::wstring platformShortcut(int id, const std::wstring& s) {
     if (id == ID_EDIT_REDO) return L"Ctrl+Shift+Z";
     if (id == ID_EDIT_DELETE) return L"Ctrl+Backspace";
     if (id == ID_HELP_DOCS) return {};  // (F1 stays the views' key: the menu bar's key would take it before the Triggers pane's F1)
+    if (id == ID_VIEW_LOG) return {};   // (Cmd+M is the system's Window > Minimize)
 #else
     (void)id;
 #endif
