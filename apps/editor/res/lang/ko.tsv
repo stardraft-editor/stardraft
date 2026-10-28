@@ -1801,11 +1801,7 @@ Middle mouse click and hold drags the map	마우스 가운데 버튼을 누르�
 Middle mouse click and hold pans the map	마우스 가운데 버튼을 누르고 있으면 맵을 패닝합니다
 Mouse and keyboard	마우스 및 키보드
 Keyboard	키보드
-Single-key shortcuts	단일 키 단축키
-Each of these keys runs its command (default)	이 키들은 각각 해당 명령을 실행합니다 (기본값)
-The keys with no Ctrl or Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 to 0, + and -	Ctrl이나 Alt가 없는 키: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1~0, +, -
-Single-key shortcuts are on	단일 키 단축키가 켜졌습니다
-Single-key shortcuts are off	단일 키 단축키가 꺼졌습니다
+Soon you can change the shortcuts here	곧 여기에서 단축키를 바꿀 수 있습니다
 &Quick open…\tCtrl+Shift+O	빠른 열기(&Q)…\tCtrl+Shift+O
 Go to an open tab, or open a recent project or map	열린 탭으로 가거나 최근 프로젝트나 맵을 엽니다
 Open tab: project	열린 탭: 프로젝트

@@ -661,10 +661,7 @@ struct MainView final : draw::View {
             if (mapCancelStep(gState))
                 if (draw::Host* h = host()) h->capture(map, false);
             break;
-        case draw::Key('R'):
-            if (!gSingleKeys && !gState.terrainPasting) return false;  // (a single-key shortcut; a paste's R is its own key, as Esc)
-            mapTurnPaste(gState, shift);
-            break;
+        case draw::Key('R'): mapTurnPaste(gState, shift); break;
         case draw::Key::Left:
         case draw::Key::Right:
         case draw::Key::Up:

@@ -33,6 +33,7 @@ void TabStrip::setTabs(std::vector<Tab> tabs) {
 void TabStrip::setChanged(int i, bool changed) {
     if (i < 0 || i >= count() || tabs_[size_t(i)].changed == changed) return;
     tabs_[size_t(i)].changed = changed;
+    dirty_ = true;  // (a tab with no x gets the dot's room, or loses it)
     invalidate();
 }
 
@@ -49,8 +50,9 @@ void TabStrip::selectByUser(int i) {
 }
 
 // Each tab's width. Segmented: equal segments, a gap of 4 px between them (the gap is counted in the tab's width
-// except for the last). Tabs: as wide as the text needs (within a range); when they do not all fit, each is the same
-// narrower width (no scrolling: the tabs are narrow, but every one can be clicked).
+// except for the last). Tabs: as wide as the text needs (within a range; with `fitText`, a tab with no x and no dot
+// has no room for them and no minimum); when they do not all fit, each is the same narrower width (no scrolling: the
+// tabs are narrow, but every one can be clicked).
 void TabStrip::measureWidths(draw::Canvas& c) {
     const int n = count(), w = width();
     widths_.assign(size_t(n), 0);
@@ -66,8 +68,9 @@ void TabStrip::measureWidths(draw::Canvas& c) {
     for (int i = 0; i < n; ++i) {
         const Tab& t = tabs_[size_t(i)];
         const int text = t.text.empty() ? 0 : c.measure(t.text);
-        const int natural = text + px(kPad) * 3 + px(kCloseW) + (t.icon >= 0 ? px(kIconPx) + px(kIconGap) : 0);
-        widths_[size_t(i)] = std::clamp(natural, px(kMinTabW), px(kMaxTabW));
+        const bool fit = fitText && !t.closable && !t.changed;
+        const int natural = text + px(kPad) * 3 + (fit ? 0 : px(kCloseW)) + (t.icon >= 0 ? px(kIconPx) + px(kIconGap) : 0);
+        widths_[size_t(i)] = std::clamp(natural, fit ? 0 : px(kMinTabW), px(kMaxTabW));
         total += widths_[size_t(i)];
     }
     if (total > w)

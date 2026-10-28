@@ -385,7 +385,7 @@ public:
             const draw::Rect r{x, y, x + b, y + b};
             iconButtonFace(c, r, it.icon, on, hot(square(r)));
             addHit(square(r), [it] { pickStripTool(it); },
-                   key >= 0 && gSingleKeys ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAF"[key]) + L")" : std::wstring(it.tip));
+                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAF"[key]) + L")" : std::wstring(it.tip));
             next();
         }
         if (x > 0) x = 0, y += b + gap;

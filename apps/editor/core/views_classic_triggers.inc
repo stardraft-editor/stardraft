@@ -1026,11 +1026,11 @@ private:
         c.icon(ir, int(UiIcon::Add), col, is);
         const draw::Rect tr{ir.right + scale(8), r.top, r.right - scale(8), r.bottom};
         c.text(tr, text, col, draw::kMiddle | draw::kEllipsis);
-        if (keyName && enabled && gSingleKeys) {  // (its key, faint, after the text)
+        if (keyName && enabled) {  // (its key, faint, after the text)
             const int kx = tr.left + c.measure(text) + scale(10);
             if (kx + c.measure(keyName) < tr.right) c.text({kx, r.top, tr.right, r.bottom}, keyName, kFaint, draw::kMiddle);
         }
-        hit(r, enabled ? std::move(click) : nullptr, keyName ? keyTip(::tr(tip)) : tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
+        hit(r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
     }
     static draw::Rect squareOf(draw::Rect r) {
         const int w = r.width(), h = r.height(), s = std::min(w, h);

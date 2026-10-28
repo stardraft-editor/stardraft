@@ -618,10 +618,10 @@ int main(int argc, char** argv) {
             pickInstallArg = openInstall(installArg, ignored) ? narrow(gInstallInUse.wstring()) : std::string();
         }
         if (!pickInstallArg.empty()) installFolderPicked(pickInstallArg);  // (a snapshot: the folder as Browse's dialog gives it)
-        // The dock layout (core/dock_prefs.inc), the recent lists, the working folder, the unit limits and Single-key
-        // shortcuts in the settings, as the Win32 program at its start (snapshots: the defaults).
+        // The dock layout (core/dock_prefs.inc), the recent lists, the working folder and the unit limits in the
+        // settings, as the Win32 program at its start (snapshots: the defaults).
         // (--settings: a snapshot reads the file's, and still saves nothing)
-        if (!gSilent || settingsArg) loadDock(), loadRecentLists(), loadUnitLimits(), loadSingleKeys();
+        if (!gSilent || settingsArg) loadDock(), loadRecentLists(), loadUnitLimits();
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)

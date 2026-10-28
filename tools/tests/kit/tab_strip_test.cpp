@@ -232,6 +232,12 @@ KIT_TEST(tab_strip_text_centered_without_close) {
     // A tab with no x and no dot (a fixed page: Program options): its text in the middle of its whole box (90 px wide).
     CHECK(c.drew("text 10,0,80,30 'A' " + C(th.text) + " " + std::to_string(draw::kCenter | draw::kMiddle | draw::kEllipsis)));
     CHECK(c.drew("text 100,0,170,30 'B' " + C(th.dim) + " " + std::to_string(draw::kCenter | draw::kMiddle | draw::kEllipsis)));
+    // fitText: each tab is its text (7 px a letter here) and 30 px wide, with no minimum.
+    ts.fitText = true;
+    ts.setTabs({{L"A"}, {L"B"}});
+    c = host.paint();
+    CHECK(c.drew("text 10,0,27,30 'A' " + C(th.text)));
+    CHECK(c.drew("text 47,0,64,30 'B' " + C(th.dim)));
 }
 
 KIT_TEST(tab_strip_cursor_and_tip) {

@@ -11,16 +11,6 @@ void loadUnitLimits() {
     if (prefs::number(L"UnitLimitClassic", limit) && limit > 0) gUnitLimitClassic = int(std::min<int64_t>(limit, 65535));
     if (prefs::number(L"UnitLimitEud", limit) && limit > 0) gUnitLimitEud = int(std::min<int64_t>(limit, 65535));
 }
-// Program options > Mouse and keyboard > Single-key shortcuts: the shortcuts of one key with no Ctrl or Alt (T, G, V, Q,
-// 1, +, Shift+R) run, and the menus and tooltips show them. On by default (the setting SingleKeyShortcuts; not in tests).
-bool gSingleKeys = true;
-void loadSingleKeys() { prefs::flag(L"SingleKeyShortcuts", gSingleKeys); }
-// A tooltip with its single key at the end ("Quick search: ... (Q)"): without the key when single-key shortcuts are off.
-std::wstring keyTip(std::wstring tip) {
-    const size_t n = tip.size();
-    if (!gSingleKeys && n >= 4 && tip[n - 1] == L')' && tip[n - 3] == L'(' && tip[n - 4] == L' ') tip.resize(n - 4);
-    return tip;
-}
 bool classicMode();
 void updateStatus();
 std::vector<int> selectedPalette();

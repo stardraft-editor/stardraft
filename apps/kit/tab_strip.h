@@ -41,6 +41,8 @@ public:
     std::function<void(int from, int to)> onMove;
     // false: a drag does not move the tabs (a fixed set of pages: Program options).
     bool movable = true;
+    // true: a tab with no x and no dot is as wide as its text and padding (no minimum width): many short page names fit.
+    bool fitText = false;
 
     TabLook look() const { return look_; }
     void setLook(TabLook l) {

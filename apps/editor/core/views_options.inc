@@ -23,7 +23,6 @@ struct OptionsValues {
     bool systemTheme = false;  // the Theme row has Automatic: the system's theme (macOS); it is the default then
     bool themeAuto = false;    // the theme is the system's
     bool middleDrag = true;   // the middle button drags the map (else it pans it)
-    bool singleKeys = true;   // the shortcuts of one key with no Ctrl or Alt run (gSingleKeys)
     int volume = 0;           // every sound's volume, 0 to 100
     int language = 0;         // the chosen language (its choice index, ids.inc's ID_OPT_LANG + index)
     std::vector<std::pair<int, std::wstring>> languages;  // the choices offered: (choice index, name)
@@ -87,9 +86,10 @@ struct Tab {
     unsigned sections;
 };
 inline const Tab kTabs[] = {
-    {L"General", kStart | kAppearance | kMods},
+    {L"General", kStart | kAppearance},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
+    {L"Game", kMods},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
     {L"Simulation", kSimulation},
@@ -130,17 +130,14 @@ public:
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
-        singleKeys_.setLabel(L"Single-key shortcuts");
-        singleKeys_.setTip(L"Each of these keys runs its command (default)");
-        singleKeys_.onChange = [this](bool) { host_.command(ID_OPT_SINGLEKEYS); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&singleKeys_),
-                        static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
+                        static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
@@ -228,7 +225,7 @@ public:
         std::vector<stardraft::kit::Tab> tabs;
         for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
         strip_.setTabs(std::move(tabs));
-        strip_.movable = false;
+        strip_.movable = false, strip_.fitText = true;
         strip_.onSelect = [this](int i) { setTab(i); };
         add(strip_, {0, 0, 0, 0}), strip_.setVisible(false);
     }
@@ -400,7 +397,7 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox lastProject_, singleKeys_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1}, game_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
@@ -453,7 +450,7 @@ void OptionsView::sync(const OptionsValues& v) {
     }
     if (game_.value() != v.gameMode) game_.setValue(v.gameMode);
     accents_ = v.accents;
-    lastProject_.setOn(v.openLast), singleKeys_.setOn(v.singleKeys), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -641,12 +638,10 @@ void OptionsView::paint(draw::Canvas& c) {
         y += rowH + pad;
     }
 
-    // Keyboard: the shortcuts of one key with no Ctrl or Alt, on or off (gSingleKeys: the menus, the window's keys).
+    // Keyboard: the shortcuts cannot change yet (a note that they can soon).
     if (shown & optionsview::kKeyboard) {
         header(L"Keyboard");
-        checkRow(y, singleKeys_, "singlekeys");
-        y += rowH;
-        note(x0 + scale(24), y - scale(4), L"The keys with no Ctrl or Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 to 0, + and -");
+        note(x0, y, L"Soon you can change the shortcuts here");
         y += scale(20) + pad;
     }
 

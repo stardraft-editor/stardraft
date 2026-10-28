@@ -78,7 +78,6 @@ enum : int {
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
     ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
-    ID_OPT_SINGLEKEYS = 977,  // Program options > Single-key shortcuts: on (the default) or off (gSingleKeys)
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
     ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)

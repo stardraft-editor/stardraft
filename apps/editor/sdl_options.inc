@@ -154,8 +154,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
-           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_SINGLEKEYS || id == ID_OPT_LASTPROJECT || id == ID_GAME_MODE ||
-           id == ID_GAME_MODE + 1;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -175,13 +174,6 @@ bool sdlOptionsCommand(int id) {
     case ID_MIDDLE_MODE + 1:
         prefs::setNumber(L"MiddleDrag", id == ID_MIDDLE_MODE + 1 ? 1 : 0);
         setMessage(id == ID_MIDDLE_MODE + 1 ? L"Middle mouse click and hold drags the map" : L"Middle mouse click and hold pans the map");
-        break;
-    case ID_OPT_SINGLEKEYS:  // (the menus show the keys again, or not; the tooltips follow at their next paint)
-        gSingleKeys = !gSingleKeys;
-        prefs::setNumber(L"SingleKeyShortcuts", gSingleKeys ? 1 : 0);
-        gMenusDirty = true;
-        if (gRoot) gRoot->invalidate();
-        setMessage(gSingleKeys ? L"Single-key shortcuts are on" : L"Single-key shortcuts are off");
         break;
     case ID_OPT_LASTPROJECT:
         prefs::flag(L"OpenLastProject", flag);
@@ -231,7 +223,6 @@ public:
             v.systemTheme = true, v.themeAuto = gThemeAuto;
         }
         prefs::flag(L"MiddleDrag", flag), v.middleDrag = flag;
-        v.singleKeys = gSingleKeys;
         v.volume = gDock.volume;
         v.languages = languageChoicesOffered(L"Automatic (the language of the system)"), v.language = languageChoice();
         v.restartDue = sdlLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
@@ -357,7 +348,7 @@ void showOptionsSdl() {
     if (SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_RaiseWindow(w);
 #endif
     if (!gRoot || gOptionsOpen) return;
-    int h = std::min(scale(600), std::max(scale(300), gRoot->height() - scale(80)));
+    int h = std::min(scale(480), std::max(scale(300), gRoot->height() - scale(80)));  // (General, the tallest tab, fits)
     const wchar_t* title = L"Program options";
     gOptionsView.setTab(gSettingsTab);
 #ifdef __APPLE__

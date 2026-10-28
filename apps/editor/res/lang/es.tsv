@@ -1800,11 +1800,7 @@ Middle mouse click and hold drags the map	Mantener pulsado el botón central arr
 Middle mouse click and hold pans the map	Mantener pulsado el botón central desplaza el mapa
 Mouse and keyboard	Ratón y teclado
 Keyboard	Teclado
-Single-key shortcuts	Atajos de una tecla
-Each of these keys runs its command (default)	Cada una de estas teclas ejecuta su comando (predeterminado)
-The keys with no Ctrl or Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 to 0, + and -	Las teclas sin Ctrl ni Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 a 0, + y -
-Single-key shortcuts are on	Los atajos de una tecla están activados
-Single-key shortcuts are off	Los atajos de una tecla están desactivados
+Soon you can change the shortcuts here	Pronto podrá cambiar los atajos aquí
 &Quick open…\tCtrl+Shift+O	Apertura &rápida…\tCtrl+Shift+O
 Go to an open tab, or open a recent project or map	Ir a una pestaña abierta, o abrir un proyecto o mapa reciente
 Open tab: project	Pestaña abierta: proyecto
