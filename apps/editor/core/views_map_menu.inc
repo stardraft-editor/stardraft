@@ -221,7 +221,8 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
     if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles->picked >= 0);  // (#114)
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
-    if (terrain) item(ID_MAPMENU_COPYTILE, L"Copy tile &value", L"", true);  // (as the status bar shows it: tileValueText)
+    // (as the status bar shows it: tileValueText; with a selection, each of its tiles)
+    if (terrain) item(ID_MAPMENU_COPYTILE, has ? L"Copy tile &values" : L"Copy tile &value", L"", true);
     m.push_back(menuSeparator());
     item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
@@ -265,9 +266,19 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));
     else if (pick == ID_MAPMENU_COPYTILE && app.ed) {
-        const std::wstring t = tileValueText(*app.ed, gMapMenuWX, gMapMenuWY);
-        shellCopyText(t);
-        setMessage(tr(L"Copied: ") + t);
+        // A terrain selection: each of its tiles, a line each (its place, then its value), row by row; else the tile here.
+        const std::vector<std::pair<int, int>> sel = terrainSelTiles();
+        if (sel.empty()) {
+            const std::wstring t = tileValueText(*app.ed, gMapMenuWX, gMapMenuWY);
+            shellCopyText(t);
+            setMessage(tr(L"Copied: ") + t);
+        } else {
+            std::wstring t;
+            for (auto [x, y] : sel)
+                t += (t.empty() ? L"" : L"\n") + std::to_wstring(x) + L", " + std::to_wstring(y) + L": " + tileValueText(*app.ed, x * 32.0f + 16, y * 32.0f + 16);
+            shellCopyText(t);
+            setMessage(L"Copied the values of " + std::to_wstring(sel.size()) + (sel.size() == 1 ? L" tile" : L" tiles"));
+        }
     }
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
     else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {

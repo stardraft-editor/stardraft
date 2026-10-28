@@ -3589,6 +3589,9 @@ CASES += [
     ("map-building-snap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
                            "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
 ]
+# The map's menu over a terrain selection: Copy tile values (its 8th item) copies each selected tile, a line each with
+# its place (x, y: CV5 ...), and the status bar says how many.
+CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
 
 
 def ui_lines(output):
@@ -3707,6 +3710,15 @@ def check_resize_undo(output):
     if sizes.get("key Ctrl+Z") != "128x128":
         return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"
     return None
+
+
+def check_copy_tile_values(output):
+    """None when the copied text has a line (x, y: CV5 ...) for each tile that the status bar says it copied."""
+    m = re.search(r"Copied the values of (\d+) tiles", output)
+    lines = re.findall(r"^\d+, \d+: CV5 \d+\.\d+ ", output, re.M)
+    if not m:
+        return "no status Copied the values of N tiles"
+    return None if int(m.group(1)) == len(lines) > 1 else f"{len(lines)} lines, the status says {m.group(1)}"
 
 
 def check_building_snap(snapped):
@@ -4303,6 +4315,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
+          "map-copy-tile-values": check_copy_tile_values,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),

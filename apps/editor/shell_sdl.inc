@@ -171,6 +171,7 @@ void shellOwnerSelect(int i) {
 void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text);  // (sdl_options.inc)
 // The text on the system's clipboard (Copy tile value).
 void shellCopyText(const std::wstring& text) {
+    if (gSilent) std::printf("copied:%c%s%c", 10, narrow(text).c_str(), 10);  // (a test's output shows it)
     if (gHost) gHost->setClipboardText(narrow(text));
 }
 // Report feedback on `on`, the box holding `text` already (Report feedback on the selected terrain: its tiles).
