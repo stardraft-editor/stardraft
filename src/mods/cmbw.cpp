@@ -2244,7 +2244,7 @@ constexpr uint8_t kCommentType = 47, kDisabledFlag = 2;
 ClassicTrigger crigExpandOne(const ClassicTrigger& in, const StringTable& read, StringTable* strings, std::set<uint32_t>* own = nullptr,
                              size_t* actions = nullptr) {
     ClassicTrigger out = in;
-    out.actions = {};
+    out.actions.assign(size_t(kClassicActions), ClassicAction{});
     out.conditions = {};
     struct Line {
         int64_t at;  // a condition's line: its place in its Comment (-1: before the others, a new or a moved one)
@@ -2374,7 +2374,7 @@ bool hasCrigRows(const ClassicTrigger& t) {
 // A trigger's Comments of commands as rows (crigCollapse), or the trigger as it is.
 ClassicTrigger crigCollapseOne(const ClassicTrigger& t, const StringTable& strings) {
     ClassicTrigger rows = t;
-    rows.actions = {}, rows.conditions = {};
+    rows.conditions = {};
     std::vector<ClassicAction> acts;
     std::vector<ClassicCondition> conds;
     for (int i = 0; i < t.conditionCount(); ++i) conds.push_back(t.conditions[size_t(i)]);
@@ -2413,8 +2413,9 @@ ClassicTrigger crigCollapseOne(const ClassicTrigger& t, const StringTable& strin
         }
         ++group;
     }
-    if (!group || acts.size() > rows.actions.size() || conds.size() > rows.conditions.size()) return t;
-    for (size_t i = 0; i < acts.size(); ++i) rows.actions[i] = acts[i];
+    if (!group || conds.size() > rows.conditions.size()) return t;
+    acts.resize(std::max(acts.size(), size_t(kClassicActions)));  // (more than 64 rows: a mod's lines, fewer Comments)
+    rows.actions = std::move(acts);
     for (size_t i = 0; i < conds.size(); ++i) rows.conditions[i] = conds[i];
     return crigExpandOne(rows, strings, nullptr) == t ? rows : t;  // (else: comment mode)
 }
@@ -2434,12 +2435,22 @@ ClassicTriggers crigExpand(const ClassicTriggers& in, StringTable& strings, std:
 
 bool crigFits(const ClassicTriggers& t, const StringTable& strings) {
     for (const ClassicTrigger& tr : t.triggers) {
-        if (!hasCrigRows(tr)) continue;
+        if (!hasCrigRows(tr)) {  // (more than 64 rows: a trigger that had command rows)
+            if (tr.actionCount() > kClassicActions) return false;
+            continue;
+        }
         size_t actions = 0;
         crigExpandOne(tr, strings, nullptr, nullptr, &actions);
-        if (actions > tr.actions.size()) return false;
+        if (actions > size_t(kClassicActions)) return false;
     }
     return true;
+}
+
+int crigActionCount(const ClassicTrigger& t) {
+    if (!hasCrigRows(t)) return t.actionCount();
+    size_t actions = 0;
+    crigExpandOne(t, StringTable{}, nullptr, nullptr, &actions);
+    return int(actions);
 }
 
 ClassicTriggers crigCollapse(const ClassicTriggers& in, const StringTable& strings) {

@@ -306,16 +306,27 @@ inline void ctSetQuery(CtPageHost& h, const std::wstring& query) {
 
 // --- Conditions and actions: add, duplicate, delete, turn off, move --------------------------------------------------
 
+// (a trigger with a mod's command rows can have more than 64 rows: the list is full when their Comments would make more
+// than 64 actions; the trigger is as before then)
+inline bool ctTooLong(ClassicTrigger& t, const ClassicTrigger& before) {
+    if (stardraft::cmbw::crigActionCount(t) <= kClassicActions) return false;
+    t = before;
+    return true;
+}
 inline bool ctInsertCondition(CtPageHost& h, const ClassicCondition& c, int at) {
     ClassicTrigger* t = ctModelSelectedMut(h.model());
-    if (!t || !t->addCondition(c, at)) return false;
+    if (!t) return false;
+    const ClassicTrigger before = *t;
+    if (!t->addCondition(c, at) || ctTooLong(*t, before)) return false;
     h.selectEntry(0, at < 0 ? t->conditionCount() - 1 : at);
     h.changed();
     return true;
 }
 inline bool ctInsertAction(CtPageHost& h, const ClassicAction& a, int at) {
     ClassicTrigger* t = ctModelSelectedMut(h.model());
-    if (!t || !t->addAction(a, at)) return false;
+    if (!t) return false;
+    const ClassicTrigger before = *t;
+    if (!t->addAction(a, at) || ctTooLong(*t, before)) return false;
     h.model().collapsed.clear();  // the rows moved: the collapsed rows are not known any more
     h.selectEntry(1, at < 0 ? t->actionCount() - 1 : at);
     h.changed();
@@ -327,7 +338,8 @@ inline bool ctInsertRows(CtPageHost& h, const std::vector<ClassicAction>& rows, 
     ClassicTrigger* t = ctModelSelectedMut(h.model());
     if (!t) return false;
     const int place = at < 0 ? t->actionCount() : at;
-    if (!t->pasteRows(rows, place, depth)) return false;
+    const ClassicTrigger before = *t;
+    if (!t->pasteRows(rows, place, depth) || ctTooLong(*t, before)) return false;
     h.model().collapsed.clear();
     h.selectEntry(1, place);
     h.changed();
@@ -678,7 +690,7 @@ inline void ctBatchClick(CtPageHost& h, ClassicBatchKind kind, int editRow) {
     if (!t) return;
     const int row = editRow;
     const bool editing = row >= 0 && row < t->actionCount() && t->actions[size_t(row)].type == kClassicBlockType;
-    if (!editing && t->actionCount() >= kClassicActions) return h.message(L"A trigger has at most 64 actions");
+    if (!editing && stardraft::cmbw::crigActionCount(*t) >= kClassicActions) return h.message(L"A trigger has at most 64 actions");
     ClassicBatch b = editing ? *t->actions[size_t(row)].batch : ClassicBatch{};
     if (!editing) b.kind = kind, b.name = batchDefaultName(kind);
     CtBatchProgram program(h);

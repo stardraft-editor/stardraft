@@ -300,7 +300,8 @@ inline std::vector<int> ctShownTriggers(const std::vector<ClassicTrigger>& trigg
     return shown;
 }
 
-// The number of parts a trigger makes in the map: 1, or more when its blocks make more than 64 slots.
+// The number of parts a trigger makes in the map: 1, or more when its blocks make more than 64 slots (a mod's command
+// rows back in their Comments first, as they are written).
 inline int ctPartsOf(const ClassicTrigger& t) {
     bool blocks = false;
     for (int i = 0; i < t.actionCount() && !blocks; ++i) blocks = t.actions[size_t(i)].type == kClassicBlockType;
@@ -308,6 +309,7 @@ inline int ctPartsOf(const ClassicTrigger& t) {
     ClassicTriggers one;
     one.triggers.push_back(t);
     StringTable scratch;
+    one = stardraft::cmbw::crigExpand(one, scratch);
     return int(classicExpandBatches(one, scratch).triggers.size());
 }
 
@@ -584,13 +586,18 @@ inline bool ctModelChanged(const CtModel& m) { return m.trig.triggers != m.befor
 // changed), kCtApplyUnchanged (the map has these triggers already) or kCtApplySet; `message` says what happened.
 constexpr int kCtApplyRefused = 0, kCtApplyUnchanged = 1, kCtApplySet = 2;
 inline int ctModelApply(CtModel& m, Editor& ed, std::wstring& message) {
-    if (!classicCanExpand(m.trig)) {  // a long trigger needs a switch that no trigger uses
-        message = L"Could not set the classic triggers. A long trigger needs a switch that no trigger uses.";
+    if (!stardraft::cmbw::crigFits(m.trig, m.strings)) {  // (a Cosmonarchy map: a Comment of commands takes a slot again)
+        message = L"Could not set the classic triggers. A trigger needs more than 64 actions in the map.";
         return kCtApplyRefused;
     }
-    if (!stardraft::cmbw::crigFits(m.trig, m.strings)) {  // (a Cosmonarchy map: a Comment of commands takes a slot again)
-        message = L"Could not set the classic triggers. A trigger needs more than 64 actions once its Cosmonarchy commands are written.";
-        return kCtApplyRefused;
+    // A long trigger needs a switch that no trigger uses (a trial with a mod's command rows back in their Comments: they
+    // can make fewer long triggers).
+    if (!classicCanExpand(m.trig)) {
+        StringTable trial = m.strings;
+        if (!classicCanExpand(stardraft::cmbw::crigExpand(m.trig, trial))) {
+            message = L"Could not set the classic triggers. A long trigger needs a switch that no trigger uses.";
+            return kCtApplyRefused;
+        }
     }
     // The strings this page made that no action uses now go again (a Cosmonarchy command's row uses its Comment's).
     for (uint32_t id : m.ownStrings) {
@@ -823,7 +830,7 @@ public:
     // the top before a paint), or at the view's edge when the link is scrolled out of it.
     void addFromKey(int kind) const {
         const ClassicTrigger* t = host_.selectedTrigger();
-        if (!t || (kind ? t->actionCount() >= kClassicActions : t->conditionCount() >= kClassicConditions)) return;
+        if (!t || (kind ? stardraft::cmbw::crigActionCount(*t) >= kClassicActions : t->conditionCount() >= kClassicConditions)) return;
         draw::Rect r = addLink_[kind];
         if (r.width() <= 0) r = {scale(10), 0, width() - scale(10), scale(30)};
         const int dy = std::clamp(r.top, 0, std::max(0, height() - r.height())) - r.top;
@@ -1308,8 +1315,8 @@ private:
             dropLine(c, list);
             y += scale(4);
             if (t) {  // the add row: an action inside the selected block says which block
-                const int limit = kind ? kClassicActions : kClassicConditions;
-                const bool full = count >= limit;
+                // (a mod's command rows: full when their Comments would make 64 actions)
+                const bool full = kind ? stardraft::cmbw::crigActionCount(*t) >= kClassicActions : count >= kClassicConditions;
                 const draw::Rect lr{scale(10), y, w - scale(10), y + scale(30)};
                 std::wstring text = kind ? L"Add an action\x2026" : L"Add a condition\x2026";
                 std::wstring tip = full ? (kind ? L"A trigger has at most 64 actions" : L"A trigger has at most 16 conditions") : L"";

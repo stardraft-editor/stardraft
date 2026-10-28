@@ -62,33 +62,34 @@ void encode(const ClassicTrigger& in, uint8_t* t) {
     t[kFlagsAt + 4 + kClassicGroups] = in.currentAction;
 }
 
-template <class T, size_t N>
-int listCount(const std::array<T, N>& a) {
-    for (size_t i = 0; i < N; ++i)
+// (a list: the conditions' array or the actions' slots)
+template <class L>
+int listCount(const L& a) {
+    for (size_t i = 0; i < a.size(); ++i)
         if (a[i].type == 0) return int(i);
-    return int(N);
+    return int(a.size());
 }
-template <class T, size_t N>
-bool listAdd(std::array<T, N>& a, const T& v, int at) {
+template <class L, class T>
+bool listAdd(L& a, const T& v, int at) {
     const int n = listCount(a);
-    if (n >= int(N)) return false;
+    if (n >= int(a.size())) return false;
     if (at < 0 || at > n) at = n;
     for (int i = n; i > at; --i) a[size_t(i)] = a[size_t(i - 1)];
     a[size_t(at)] = v;
     return true;
 }
-template <class T, size_t N>
-void listRemove(std::array<T, N>& a, int at) {
+template <class L>
+void listRemove(L& a, int at) {
     const int n = listCount(a);
     if (at < 0 || at >= n) return;
     for (int i = at; i + 1 < n; ++i) a[size_t(i)] = a[size_t(i + 1)];
-    a[size_t(n - 1)] = T{};
+    a[size_t(n - 1)] = {};
 }
-template <class T, size_t N>
-void listMove(std::array<T, N>& a, int from, int to) {
+template <class L>
+void listMove(L& a, int from, int to) {
     const int n = listCount(a);
     if (from < 0 || from >= n || to < 0 || to >= n || from == to) return;
-    const T v = a[size_t(from)];
+    const auto v = a[size_t(from)];
     if (from < to)
         for (int i = from; i < to; ++i) a[size_t(i)] = a[size_t(i + 1)];
     else
@@ -292,6 +293,28 @@ bool classicVarAllowed(const ClassicAction& a, int k, ClassicBatchKind kind) {
     return std::any_of(d->params.begin(), d->params.end(), [&](const ClassicParam& p) { return p.field == f && p.kind == want; });
 }
 
+bool operator==(const ClassicTrigger& a, const ClassicTrigger& b) {
+    if (a.conditions != b.conditions || a.flags != b.flags || a.players != b.players || a.currentAction != b.currentAction ||
+        a.splitSwitch != b.splitSwitch)
+        return false;
+    static const ClassicAction none{};
+    for (size_t i = 0; i < std::max(a.actions.size(), b.actions.size()); ++i)
+        if (!((i < a.actions.size() ? a.actions[i] : none) == (i < b.actions.size() ? b.actions[i] : none))) return false;
+    return true;
+}
+
+namespace {
+// A mod's command row (one line of a Comment): a trigger with one can have more than 64 rows.
+bool hasCommandRow(const ClassicTrigger& t) {
+    return std::any_of(t.actions.begin(), t.actions.begin() + t.actionCount(), [](const ClassicAction& a) { return a.type == kClassicCrigType; });
+}
+// The rows, then the empty slots up to the game's 64.
+void fillRows(ClassicTrigger& t, std::vector<ClassicAction> rows) {
+    rows.resize(std::max(rows.size(), size_t(kClassicActions)));
+    t.actions = std::move(rows);
+}
+}  // namespace
+
 int ClassicTrigger::conditionCount() const { return listCount(conditions); }
 int ClassicTrigger::actionCount() const { return listCount(actions); }
 
@@ -308,6 +331,7 @@ int ClassicTrigger::blockEnd(int row) const {
 bool ClassicTrigger::addCondition(const ClassicCondition& c, int at) { return listAdd(conditions, c, at); }
 
 bool ClassicTrigger::addAction(const ClassicAction& a, int at) {
+    if (actionCount() >= int(actions.size()) && (a.type == kClassicCrigType || hasCommandRow(*this))) actions.emplace_back();
     if (!listAdd(actions, a, at)) return false;
     pruneBlocks();
     return true;
@@ -338,7 +362,7 @@ void ClassicTrigger::moveAction(int from, int to) {
     // A row that goes in front of a deeper row would take that row out of its block: the move is refused.
     if (to < int(left.size()) && left[size_t(to)].depth > part[0].depth) return;
     left.insert(left.begin() + to, part.begin(), part.end());
-    for (size_t i = 0; i < kClassicActions; ++i) actions[i] = i < left.size() ? left[i] : ClassicAction{};
+    fillRows(*this, std::move(left));
     pruneBlocks();
 }
 
@@ -388,7 +412,7 @@ bool ClassicTrigger::outdentAction(int i) {
     for (int k = 0; k < n; ++k)
         if (k < i || k >= e) left.push_back(actions[size_t(k)]);
     left.insert(left.begin() + (pe - (e - i)), part.begin(), part.end());
-    for (size_t k = 0; k < kClassicActions; ++k) actions[k] = k < left.size() ? left[k] : ClassicAction{};
+    fillRows(*this, std::move(left));
     pruneBlocks();
     return true;
 }
@@ -412,7 +436,8 @@ std::vector<ClassicAction> ClassicTrigger::subtreeRows(int row) const {
 
 bool ClassicTrigger::pasteRows(const std::vector<ClassicAction>& rows, int at, int depth) {
     const int n = actionCount();
-    if (rows.empty() || at < 0 || at > n || n + int(rows.size()) > kClassicActions) return false;
+    const bool commands = hasCommandRow(*this) || std::any_of(rows.begin(), rows.end(), [](const ClassicAction& a) { return a.type == kClassicCrigType; });
+    if (rows.empty() || at < 0 || at > n || (n + int(rows.size()) > kClassicActions && !commands)) return false;
     if (at < n && actions[size_t(at)].depth > depth) return false;  // that row would leave its block
     // The blocks open before `at`, by depth: open[j] is the block at depth j.
     std::vector<int> open;
@@ -445,7 +470,7 @@ bool ClassicTrigger::pasteRows(const std::vector<ClassicAction>& rows, int at, i
     }
     std::vector<ClassicAction> left(actions.begin(), actions.begin() + n);
     left.insert(left.begin() + at, add.begin(), add.end());
-    for (size_t i = 0; i < kClassicActions; ++i) actions[i] = i < left.size() ? left[i] : ClassicAction{};
+    fillRows(*this, std::move(left));
     pruneBlocks();
     return true;
 }
@@ -474,6 +499,7 @@ void ClassicTrigger::pruneBlocks() {
             else setClassicValue(a, classicVarField(k), 0);
         }
     }
+    while (actions.size() > size_t(kClassicActions) && actions.back().type == 0) actions.pop_back();
 }
 
 ClassicTrigger ClassicTrigger::make() {
@@ -1165,7 +1191,7 @@ bool readRows(const std::vector<ClassicAction>& slots, uint32_t text, std::vecto
 
 // Sets the working copy's rows from `rows`.
 void setRows(ClassicTrigger& t, const std::vector<ClassicAction>& rows) {
-    for (size_t i = 0; i < kClassicActions; ++i) t.actions[i] = i < rows.size() ? rows[i] : ClassicAction{};
+    fillRows(t, rows);
     t.pruneBlocks();
 }
 

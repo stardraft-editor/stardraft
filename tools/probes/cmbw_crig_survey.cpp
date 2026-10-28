@@ -20,7 +20,7 @@ using namespace stardraft;
 
 int main(int argc, char** argv) {
     if (argc < 2) return std::fprintf(stderr, "usage: cmbw_crig_survey <maps folder>\n"), 2;
-    int maps = 0, broken = 0, comments = 0, rows = 0, rowConds = 0, triggersCollapsed = 0, triggersKept = 0;
+    int maps = 0, broken = 0, comments = 0, rows = 0, rowConds = 0, triggersCollapsed = 0, triggersKept = 0, tooMany = 0;
     std::map<std::string, int> unknown;  // a line's first word that is not a command
     std::error_code ec;
     for (auto it = fs::recursive_directory_iterator(argv[1], ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
@@ -47,8 +47,22 @@ int main(int argc, char** argv) {
         }
         for (size_t i = 0; i < t.triggers.size(); ++i) {
             bool has = false, became = false;
+            int needActs = 0, needConds = t.triggers[i].conditionCount();  // (the rows if each Comment of commands that is on became rows)
             for (int k = 0; k < t.triggers[i].actionCount(); ++k) {
                 const ClassicAction& a = t.triggers[i].actions[size_t(k)];
+                bool cmd = false;
+                if (a.type == 47 && a.text && !(a.flags & 2)) {
+                    std::string text = strings.get(a.text), cur;
+                    std::vector<std::string> lines;
+                    for (char ch : text)
+                        if (ch == '\n') lines.push_back(cur), cur.clear();
+                        else if (ch != '\r') cur += ch;
+                    lines.push_back(cur);
+                    for (const std::string& l : lines) cmd = cmd || cmbw::parseCrigLine(l).command;
+                    if (cmd)
+                        for (const std::string& l : lines) ++(cmbw::parseCrigLine(l).condition ? needConds : needActs);
+                }
+                if (!cmd) ++needActs;
                 if (a.type != 47 || !a.text) continue;
                 ++comments;
                 std::string text = strings.get(a.text), cur;
@@ -69,7 +83,10 @@ int main(int argc, char** argv) {
                 became |= r, rows += r, rowConds += r;
             }
             if (became) ++triggersCollapsed;
-            else if (has && ++triggersKept <= 6) {
+            else if (has && (needActs > kClassicActions || needConds > kClassicConditions)) {
+                ++tooMany;
+                std::printf("too many rows (%s, trigger %zu): %d actions, %d conditions\n", p.filename().string().c_str(), i + 1, needActs, needConds);
+            } else if (has && ++triggersKept <= 6) {
                 std::printf("kept (%s, trigger %zu):", p.filename().string().c_str(), i);
                 for (int k = 0; k < t.triggers[i].actionCount(); ++k) {
                     const ClassicAction& a = t.triggers[i].actions[size_t(k)];
@@ -86,8 +103,9 @@ int main(int argc, char** argv) {
         }
     }
     std::printf("%d maps (%d not the same after the round trip); %d comments; %d triggers with command rows (%d rows, %d of them "
-                "conditions); %d triggers with commands kept as comments (a line that is not a command)\n",
-                maps, broken, comments, triggersCollapsed, rows, rowConds, triggersKept);
+                "conditions); %d triggers with commands kept as comments (a line that is not a command, or turned off); %d with "
+                "too many rows to fit\n",
+                maps, broken, comments, triggersCollapsed, rows, rowConds, triggersKept, tooMany);
     std::vector<std::pair<int, std::string>> top;
     for (const auto& [w, n] : unknown) top.push_back({n, w});
     std::sort(top.rbegin(), top.rend());

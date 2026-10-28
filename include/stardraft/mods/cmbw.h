@@ -175,8 +175,11 @@ std::vector<std::string> crigValueProblems(const Chk& chk, const CrigMapInfo& ma
 // A line that reads as a command but is a note ("Kill map revealers": its first word capitalized): its values are not
 // marked (the mod's maps have 60 such notes).
 bool crigLooksLikeNote(const std::string& line);
-// False when a trigger's rows need more than 64 actions written back (the page does not set the triggers then).
+// False when a trigger's rows need more than 64 actions written back, or a trigger without command rows has more than
+// 64 rows (it had some): the page does not set the triggers then.
 bool crigFits(const ClassicTriggers& t, const StringTable& strings);
+// The actions a trigger has once its command rows are Comments again (its action count when it has none).
+int crigActionCount(const ClassicTrigger& t);
 
 // An 8-bit PCX picture (the game's pictures: its palette at the end) as RGBA. False when it is not one.
 bool decodePcxRgba(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba);

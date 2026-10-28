@@ -118,7 +118,9 @@ bool classicVarAllowed(const ClassicAction& a, int k, ClassicBatchKind kind);
 
 struct ClassicTrigger {
     std::array<ClassicCondition, kClassicConditions> conditions{};
-    std::array<ClassicAction, kClassicActions> actions{};  // the working copy's rows (blocks with their children)
+    // The working copy's rows (blocks with their children): the game's 64 slots. A mod's command rows (one per line of its
+    // Comments) can make more; written back as Comments they must fit in 64 again (cmbw::crigFits).
+    std::vector<ClassicAction> actions = std::vector<ClassicAction>(size_t(kClassicActions));
     uint32_t flags = 0;  // bit 2 (4): preserve trigger; bit 3 (8): disabled (Turn off); the rest the game sets while it runs
     static constexpr uint32_t kDisabled = 8;
     bool disabled() const { return (flags & kDisabled) != 0; }
@@ -127,15 +129,16 @@ struct ClassicTrigger {
     uint8_t currentAction = 0;
     // Working copy only: the switch that links the parts when the trigger is split (-1: none; see classic_triggers.cpp).
     int splitSwitch = -1;
-    friend bool operator==(const ClassicTrigger&, const ClassicTrigger&) = default;
+    // (the empty slots after the last row do not count)
+    friend bool operator==(const ClassicTrigger& a, const ClassicTrigger& b);
 
     // How many conditions (actions) show: those before the first one of type 0.
     int conditionCount() const;
     int actionCount() const;
     // The row after a row's children: a block's end, else row + 1.
     int blockEnd(int row) const;
-    // Add (at the end of the list; false when it is full), remove (a block with its children), move a row with its
-    // children to a place of the list without them.
+    // Add (at the end of the list; false when it is full: 64 actions, more in a trigger with a mod's command rows), remove
+    // (a block with its children), move a row with its children to a place of the list without them.
     bool addCondition(const ClassicCondition& c, int at = -1);
     bool addAction(const ClassicAction& a, int at = -1);
     void removeCondition(int i);
@@ -152,10 +155,11 @@ struct ClassicTrigger {
     std::vector<ClassicAction> subtreeRows(int row) const;
     // Inserts rows (a subtree, its first row at its own depth) before place `at`, at depth `depth`. A variable that holds
     // a block inside the rows follows that block; one that holds a block outside them takes the deepest block above
-    // `at` of its kind, or none. False when the list would be full, `depth` is not inside the blocks above `at`, or the
-    // row at `at` is deeper than `depth` (it would leave its block).
+    // `at` of its kind, or none. False when the list would be full (64 actions, more with a mod's command rows), `depth`
+    // is not inside the blocks above `at`, or the row at `at` is deeper than `depth` (it would leave its block).
     bool pasteRows(const std::vector<ClassicAction>& rows, int at, int depth);
-    // Fixes the depths and removes the variables that no enclosing block holds (after an edit).
+    // Fixes the depths and removes the variables that no enclosing block holds (after an edit); the empty slots after the
+    // game's 64 go.
     void pruneBlocks();
     bool runsFor(int group) const { return group >= 0 && group < kClassicGroups && players[size_t(group)]; }
     static ClassicTrigger make();  // a new trigger: Always, no actions, for no player yet

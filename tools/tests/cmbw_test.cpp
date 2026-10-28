@@ -860,6 +860,32 @@ int main(int argc, char** argv) {
         cc.crig.p = cl;
         full.triggers[0].addCondition(cc);
         CHECK(!cmbw::crigFits(full, StringTable{}) && cmbw::crigFits(moved, StringTable{}), "a trigger that would need 65 actions does not fit");
+        // A Comment of 70 commands (a setup trigger): 70 rows, one Comment again when written; a row more fits too.
+        StringTable s6;
+        std::string many;
+        for (int i = 0; i < 70; ++i) many += (i ? "\r\n" : "") + std::string("var v") + std::to_string(i) + " = false";
+        ClassicTriggers big;
+        big.triggers.push_back(ClassicTrigger::make());
+        ClassicAction note = makeClassicAction(47);
+        note.text = s6.add(many);
+        big.triggers[0].addAction(note);
+        big.triggers[0].addAction(makeClassicAction(4));
+        const ClassicTriggers bigRows = cmbw::crigCollapse(big, s6);
+        ClassicTrigger grown = bigRows.triggers[0];
+        ClassicAction wait = makeClassicAction(4);
+        CHECK(grown.actionCount() == 71 && grown.actions[69].type == kClassicCrigType && cmbw::crigActionCount(grown) == 2 &&
+                  grown.addAction(wait) && grown.actionCount() == 72 && cmbw::crigActionCount(grown) == 3,
+              "a Comment of 70 commands is 70 rows (2 actions written), and an action can be added");
+        StringTable s7 = s6;
+        CHECK(cmbw::crigFits(bigRows, s6) && encodeClassicTriggers(cmbw::crigExpand(bigRows, s7)) == encodeClassicTriggers(big),
+              "70 command rows are written back as the same Comment");
+        grown.removeAction(71);
+        CHECK(grown == bigRows.triggers[0], "a trigger of more than 64 rows is the same again after an add and a remove");
+        // Its command rows replaced by 70 Waits: 71 rows and no command rows, which the map cannot hold.
+        ClassicTriggers plain = bigRows;
+        for (int i = 0; i < 70; ++i) plain.triggers[0].addAction(makeClassicAction(4), 0);
+        for (int i = 0; i < 70; ++i) plain.triggers[0].removeAction(70);
+        CHECK(plain.triggers[0].actionCount() == 71 && !cmbw::crigFits(plain, s6), "71 rows without command rows do not fit");
     }
 
     {
