@@ -65,7 +65,7 @@ std::vector<std::pair<int, std::wstring>> railMenuItems();  // (core/views_rail.
 
 // The two-key shortcuts of the menu items that have no key of their own (sdl_menus.inc: the first key, then the
 // second), by the item's menu path in English: Ctrl+K the View menu's, Ctrl+J the Options menu's, Ctrl+Shift+K the
-// others' (File, Tools, Cosmonarchy, Help).
+// others' (File, Tools, Help).
 void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
     static const std::map<std::wstring, std::wstring> kKeys = {
         {L"File/Project/Open project", L"Ctrl+Shift+K, O"},
@@ -126,8 +126,8 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"Tools/Decorate the terrain/Many doodads", L"Ctrl+Shift+K, 3"},
         {L"Tools/Place map revealers", L"Ctrl+Shift+K, R"},
         {L"Tools/Remove all map revealers", L"Ctrl+Shift+K, Shift+R"},
-        {L"Cosmonarchy/Try to repair the ISOM", L"Ctrl+Shift+K, Shift+I"},
-        {L"Cosmonarchy/Check the CRIG commands", L"Ctrl+Shift+K, Shift+C"},
+        {L"Tools/Cosmonarchy/Try to repair the ISOM", L"Ctrl+Shift+K, Shift+I"},
+        {L"Tools/Cosmonarchy/Check the CRIG commands", L"Ctrl+Shift+K, Shift+C"},
         {L"Options/Units/Do not snap", L"Ctrl+J, 1"},
         {L"Options/Units/Snap to tiles (32 px)", L"Ctrl+J, 2"},
         {L"Options/Units/Snap to half tiles (16 px)", L"Ctrl+J, 3"},
@@ -374,14 +374,15 @@ MenuModel buildMenuModel() {
                    menuItem(ID_HELP_WHATSNEW, L"&What is new"),
                    menuItem(ID_HELP_UPDATES, L"Check for &updates"),
                    menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
-    MenuModel bar{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
-                  menuPopup(L"&Tools", tools), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
-    if (cmbwMode()) {  // (Cosmonarchy BW mode: its own tools, after Tools)
+    if (cmbwMode()) {  // (Cosmonarchy BW mode: its own tools, a submenu at the end of Tools)
         MenuModel cosmonarchy;
         menuCommand(cosmonarchy, "edit.cmbw.repairIsom");
         menuCommand(cosmonarchy, "scen.cmbw.checkComments");
-        bar.insert(bar.begin() + 5, menuPopup(L"&Cosmonarchy", cosmonarchy));
+        tools.push_back(menuSeparator());
+        tools.push_back(menuPopup(L"&Cosmonarchy", cosmonarchy));
     }
+    MenuModel bar{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
+                  menuPopup(L"&Tools", tools), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
     assignMenuSequences(bar);
     return bar;
 }

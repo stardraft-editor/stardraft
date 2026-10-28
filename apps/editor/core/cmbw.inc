@@ -39,10 +39,10 @@ bool modTab() {
     return s.ed && s.ed->gameData().unitDataLoader() != nullptr;
 }
 
-// Cosmonarchy > Try to repair the ISOM (a Cosmonarchy tab): the map's ISOM made again from its tiles (Editor::repairIsomFromTiles),
+// Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy tab): the map's ISOM made again from its tiles (Editor::repairIsomFromTiles),
 // so that the brush paints where the mod's tools left the ISOM out of step with the tiles. One undo step; the tiles stay.
 void setMessage(const std::wstring& m);
-// Cosmonarchy > Check the CRIG commands (a Cosmonarchy tab: the mod's trigger script in the triggers' Comments): the lines the game skips (a command's name
+// Tools > Cosmonarchy > Check the CRIG commands (a Cosmonarchy tab: the mod's trigger script in the triggers' Comments): the lines the game skips (a command's name
 // mistyped: cmbw::crigProblems) and the values that the Classic triggers page marks (cmbw::crigValueProblems), all in
 // one list.
 void shellWarningBox(const std::wstring& text, const std::wstring& title);

@@ -149,7 +149,7 @@ apps/editor/core/map_commands.inc). Written for StarDraft 2.
 
 Each menu command that has no key of its own has two keys: press the first key, then the second key. After the
 first key, the status bar shows that StarDraft 2 waits for the second key. Esc cancels. The menus show these keys
-too, for example "Ctrl+K, G". (Cosmonarchy: only in Cosmonarchy BW mode.)
+too, for example "Ctrl+K, G". (Tools > Cosmonarchy: only in Cosmonarchy BW mode.)
 
 ### Ctrl+K: the View menu
 
@@ -230,7 +230,7 @@ too, for example "Ctrl+K, G". (Cosmonarchy: only in Cosmonarchy BW mode.)
 | Ctrl+J, U | Options > Terrain copy includes units |
 | Ctrl+J, O | Options > Terrain copy includes doodads |
 
-### Ctrl+Shift+K: the File, Tools, Cosmonarchy and Help menus
+### Ctrl+Shift+K: the File, Tools and Help menus
 
 | Keys | Menu command |
 |---|---|
@@ -248,8 +248,8 @@ too, for example "Ctrl+K, G". (Cosmonarchy: only in Cosmonarchy BW mode.)
 | Ctrl+Shift+K, 3 | Tools > Decorate the terrain > Many doodads |
 | Ctrl+Shift+K, R | Tools > Place map revealers |
 | Ctrl+Shift+K, Shift+R | Tools > Remove all map revealers |
-| Ctrl+Shift+K, Shift+I | Cosmonarchy > Try to repair the ISOM |
-| Ctrl+Shift+K, Shift+C | Cosmonarchy > Check the CRIG commands |
+| Ctrl+Shift+K, Shift+I | Tools > Cosmonarchy > Try to repair the ISOM |
+| Ctrl+Shift+K, Shift+C | Tools > Cosmonarchy > Check the CRIG commands |
 | Ctrl+Shift+K, Shift+F | Help > Report feedback |
 | Ctrl+Shift+K, G | Help > Report an issue on GitHub |
 | Ctrl+Shift+K, D | Help > Join Discord |

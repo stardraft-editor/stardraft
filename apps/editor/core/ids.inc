@@ -65,9 +65,9 @@ enum : int {
     ID_LAYER_REVEALERS = 988,  // View > Layers > Map revealers (the map's Map Revealer units: drawn and picked, or not)
     ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
-    ID_CMBW_REPAIRISOM = 1099,  // Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
+    ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_OPT_CMBWFOLDER = 1097,  // Program options > Cosmonarchy folder's Browse (Cosmonarchy only: shell_sdl.inc)
-    ID_CMBW_CHECKCOMMENTS = 1098,  // Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
+    ID_CMBW_CHECKCOMMENTS = 1098,  // Tools > Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)
     ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
     ID_TERRAIN_FLAGS_OFF = 1034,  // View > Overlays > Terrain flags > Off
