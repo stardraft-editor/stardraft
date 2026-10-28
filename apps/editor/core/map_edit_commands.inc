@@ -38,6 +38,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
     {"Ctrl+6", ID_RAIL_KEY + 5},   {"Ctrl+7", ID_RAIL_KEY + 6},      {"Ctrl+8", ID_RAIL_KEY + 7},        {"Ctrl+9", ID_RAIL_KEY + 8},
     {"Ctrl+B", ID_PROJ_COMPILE},   {"Ctrl+M", ID_VIEW_LOG},            {"F1", ID_HELP_CONTEXT},            {"Ctrl+E", ID_DATA_TABLE},
+    {"Ctrl+Alt+I", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Custom in turn)
 #ifdef __APPLE__  // macOS: Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
     {"Ctrl+Backspace", ID_EDIT_DELETE}, {"Ctrl+`", ID_TAB_NEXT},     {"Ctrl+Shift+`", ID_TAB_PREV},
 #endif
@@ -495,6 +496,10 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_TOOL_KEY + 1:
     case ID_TOOL_KEY + 2:
     case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
+    case ID_TERRAIN_KIND_NEXT:  // (from another mode: Terrain mode, its choice as it was)
+        if (app.mode != Mode::Terrain) setMode(Mode::Terrain);
+        else setTerrainKind((terrainKind() + 1) % 3);
+        break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
         std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +
                             std::to_wstring(gDock.gridY);

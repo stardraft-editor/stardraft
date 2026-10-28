@@ -801,8 +801,11 @@ Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	�
 Isometric: the tools paint terrains and correct the edges between them	Изометрия: инструменты рисуют местность и исправляют стыки между разными видами местности.
 Isometric	Изометрия
 Isometric: paint terrains, with the edges corrected	Изометрия: рисует местность с исправленными краями
+Isometric: paint terrains, with the edges corrected. Ctrl+Alt+I selects the next choice.	Изометрия: рисует местность с исправленными краями. Ctrl+Alt+I выбирает следующий вариант.
 Rectangle	Прямоугольник
 Rectangle: place tiles as they are (no terrain correction)	Прямоугольник: ставит тайлы как есть (без коррекции местности)
+Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+I selects the next choice.	Прямоугольник: ставит тайлы как есть, без коррекции местности. Ctrl+Alt+I выбирает следующий вариант.
+Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+I selects the next choice.	Свой: ставит ваш собственный рельеф, тайлы, сохранённые из карты. Ctrl+Alt+I выбирает следующий вариант.
 Select what to place in the list	Выберите в списке, что разместить
 Brush shape: diamond	Форма кисти: ромб
 Brush shape: square	Форма кисти: квадрат

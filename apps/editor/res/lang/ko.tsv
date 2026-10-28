@@ -836,8 +836,11 @@ Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	�
 Isometric: the tools paint terrains and correct the edges between them	아이소메트릭: 도구가 지형을 칠하고 지형 사이의 가장자리를 보정합니다
 Isometric	아이소메트릭
 Isometric: paint terrains, with the edges corrected	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다
+Isometric: paint terrains, with the edges corrected. Ctrl+Alt+I selects the next choice.	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다. Ctrl+Alt+I는 다음 선택을 고릅니다.
 Rectangle	사각형
 Rectangle: place tiles as they are (no terrain correction)	사각형: 타일을 그대로 배치합니다 (지형 보정 없음)
+Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+I selects the next choice.	사각형: 타일을 그대로 배치하며 지형 보정은 없습니다. Ctrl+Alt+I는 다음 선택을 고릅니다.
+Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+I selects the next choice.	사용자 지정: 맵에서 저장한 타일인 사용자 지정 지형을 배치합니다. Ctrl+Alt+I는 다음 선택을 고릅니다.
 Select what to place in the list	목록에서 배치할 것을 선택합니다
 Brush shape: diamond	브러시 모양: 마름모
 Brush shape: square	브러시 모양: 사각형

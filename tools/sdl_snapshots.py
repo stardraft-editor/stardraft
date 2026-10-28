@@ -3592,6 +3592,8 @@ CASES += [
 # The map's menu over a terrain selection: Copy tile values (its 8th item) copies each selected tile, a line each with
 # its place (x, y: CV5 ...), and the status bar says how many.
 CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
+# Ctrl+Alt+I: from Units mode Terrain mode, then Terrain mode's Rectangle, Custom and Isometric in turn.
+CASES += [("map-terrain-kind-key", ["--mode", "units"] + ["--key", "Ctrl+Alt+I"] * 4, "map")]
 
 
 def ui_lines(output):
@@ -3710,6 +3712,15 @@ def check_resize_undo(output):
     if sizes.get("key Ctrl+Z") != "128x128":
         return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"
     return None
+
+
+def check_terrain_kind_key(output):
+    """None when Ctrl+Alt+I went to Terrain mode, then to Rectangle, Custom and Isometric."""
+    s = states(output)
+    if len(s) != 4 or any(" mode=Terrain " not in st for _, st in s):
+        return f"not 4 inputs in Terrain mode: {[st[:60] for _, st in s]}"
+    got = [l.split(": ", 2)[-1][:9] for l in output.splitlines() if l.startswith("key Ctrl+Alt+I: ")][1:]
+    return None if got == ["Rectangle", "Custom: t", "Isometric"] else f"the status lines: {got}"
 
 
 def check_copy_tile_values(output):
@@ -4315,7 +4326,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
-          "map-copy-tile-values": check_copy_tile_values,
+          "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),
