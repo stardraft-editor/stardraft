@@ -1400,7 +1400,11 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                 // (no piece for the game's rect: its tiles, as inside a terrain of edges only; under a cliff a level
                 // higher: the ground's own tiles, not its template's)
                 if (auto it = by.find(uint16_t(l >> 4)); it != by.end() && !it->second.empty()) {
-                    const auto [pl, pr] = pickPiece(it->second, tile, rx, ry, h);
+                    // (under a piece of the same terrain: the next row of its block, one group down at the same subtiles,
+                    // when this rect has it: the rows of a wall stay one variant also where the maps give no rule)
+                    const uint16_t ul = top < ry ? tile.tiles[k - size_t(mapWidth_)] : 0, ur = top < ry ? tile.tiles[k + 1 - size_t(mapWidth_)] : 0;
+                    const auto next = std::find(it->second.begin(), it->second.end(), std::pair<uint16_t, uint16_t>{uint16_t(ul + 16), uint16_t(ur + 16)});
+                    const auto [pl, pr] = top < ry && next != it->second.end() ? *next : pickPiece(it->second, tile, rx, ry, h);
                     l = ml = pl, r = mr = pr;
                 } else if (uint16_t gt = 0, gtag = 0; ground && table_->modTerrain(ground, gt, gtag)) {  // (a mod terrain: its fill)
                     const int par = (rx + ry) & 1;
@@ -1492,6 +1496,12 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
                 }
                 const size_t k = size_t(ry) * mapWidth_ + 2 * rx;
                 if (tile.tiles[k] == 0 && tile.tiles[k + 1] == 1) continue;  // (the null tile: a gap in the set, kept in sight)
+                // (a row of a block's column, under its row above or over its row below: the wall stays one piece)
+                auto continues = [&](size_t upper, size_t lower) {
+                    return tile.tiles[lower] == uint16_t(tile.tiles[upper] + 16) && tile.tiles[lower + 1] == uint16_t(tile.tiles[upper + 1] + 16) &&
+                           tile.tiles[upper] >= 16;
+                };
+                if ((ry > 0 && continues(k - size_t(mapWidth_), k)) || (ry + 1 < mapHeight_ && continues(k, k + size_t(mapWidth_)))) continue;
                 const double now = seam(tile.tiles[k], tile.tiles[k + 1], 2 * rx, ry);
                 if (now < 28) continue;
                 // (the candidates: the terrain's pieces for game rects of this parity, so that a diagonal keeps its way; of
