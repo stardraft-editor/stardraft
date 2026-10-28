@@ -149,14 +149,15 @@ apps/editor/core/map_commands.inc). Written for StarDraft 2.
 
 Each menu command that has no key of its own has two keys: press the first key, then the second key. After the
 first key, the status bar shows that StarDraft 2 waits for the second key. Esc cancels. The menus show these keys
-too, for example "Ctrl+K, G". (Tools > Cosmonarchy: only in Cosmonarchy BW mode.)
+too, for example "Ctrl+K, G". The second key is always one letter or digit, with no Shift. (Tools > Cosmonarchy: only in
+Cosmonarchy BW mode.)
 
 ### Ctrl+K: the View menu
 
 | Keys | Menu command |
 |---|---|
 | Ctrl+K, H | View > Graphics > High definition (2x, default) |
-| Ctrl+K, Shift+H | View > Graphics > High definition (4x) |
+| Ctrl+K, K | View > Graphics > High definition (4x) |
 | Ctrl+K, S | View > Graphics > Standard definition |
 | Ctrl+K, C | View > Graphics > Carbot (cartooned) |
 | Ctrl+K, 1 | View > Grid > Fine (8 pixels) |
@@ -166,38 +167,44 @@ too, for example "Ctrl+K, G". (Tools > Cosmonarchy: only in Cosmonarchy BW mode.
 | Ctrl+K, 5 | View > Grid > Huge (128 pixels) |
 | Ctrl+K, 6 | View > Grid > Custom |
 | Ctrl+K, T | View > Overlays > Town areas |
-| Ctrl+K, Shift+P | View > Overlays > Pathing > Off |
+| Ctrl+K, F | View > Overlays > Fog of war of the selected player |
+| Ctrl+K, O | View > Overlays > Pathing > Off |
 | Ctrl+K, P | View > Overlays > Pathing > Regions |
 | Ctrl+K, A | View > Overlays > Pathing > Connected areas |
-| Ctrl+K, Shift+F | View > Overlays > Terrain flags > Off |
+| Ctrl+K, Z | View > Overlays > Terrain flags > Off |
 | Ctrl+K, W | View > Overlays > Terrain flags > Walkable ground |
 | Ctrl+K, E | View > Overlays > Terrain flags > Ground height |
 | Ctrl+K, B | View > Overlays > Terrain flags > Ground that blocks the line of sight |
-| Ctrl+K, Shift+B | View > Overlays > Terrain flags > Buildable ground |
+| Ctrl+K, G | View > Overlays > Terrain flags > Buildable ground |
 | Ctrl+K, R | View > Unit vision and ranges > All ranges |
 | Ctrl+K, V | View > Unit vision and ranges > Sight |
 | Ctrl+K, Q | View > Unit vision and ranges > Target acquisition |
-| Ctrl+K, Shift+G | View > Unit vision and ranges > Ground weapon |
-| Ctrl+K, Shift+A | View > Unit vision and ranges > Air weapon |
+| Ctrl+K, Y | View > Unit vision and ranges > Ground weapon |
+| Ctrl+K, J | View > Unit vision and ranges > Air weapon |
 | Ctrl+K, D | View > Unit vision and ranges > Detection |
 | Ctrl+K, I | View > Unit vision and ranges > Psi field |
-| Ctrl+K, Shift+T | View > Layers > Terrain |
-| Ctrl+K, Shift+D | View > Layers > Doodads |
-| Ctrl+K, Shift+S | View > Layers > Sprites |
-| Ctrl+K, Shift+U | View > Layers > Units |
-| Ctrl+K, Shift+M | View > Layers > Map revealers |
-| Ctrl+K, Shift+C | View > Layers > Creep |
-| Ctrl+K, L | View > Layers > Locations |
 | Ctrl+K, N | View > Animate units |
 | Ctrl+K, M | View > Show minimap |
-| Ctrl+K, 7 | View > Floating palettes > Terrain palette |
-| Ctrl+K, 8 | View > Floating palettes > Unit palette |
-| Ctrl+K, 9 | View > Floating palettes > Doodad palette |
-| Ctrl+K, 0 | View > Floating palettes > Sprite palette |
-| Ctrl+K, Shift+L | View > Floating palettes > Location list |
 | Ctrl+K, U | View > Units list |
-| Ctrl+K, Shift+E | View > Data > Entry view |
+| Ctrl+K, L | View > Data > Entry view |
 | Ctrl+K, X | View > Triggers > Trigger code pane |
+
+### Ctrl+Shift+L: View > Layers and View > Floating palettes
+
+| Keys | Menu command |
+|---|---|
+| Ctrl+Shift+L, T | View > Layers > Terrain |
+| Ctrl+Shift+L, D | View > Layers > Doodads |
+| Ctrl+Shift+L, S | View > Layers > Sprites |
+| Ctrl+Shift+L, U | View > Layers > Units |
+| Ctrl+Shift+L, R | View > Layers > Map revealers |
+| Ctrl+Shift+L, C | View > Layers > Creep |
+| Ctrl+Shift+L, L | View > Layers > Locations |
+| Ctrl+Shift+L, 1 | View > Floating palettes > Terrain palette |
+| Ctrl+Shift+L, 2 | View > Floating palettes > Unit palette |
+| Ctrl+Shift+L, 3 | View > Floating palettes > Doodad palette |
+| Ctrl+Shift+L, 4 | View > Floating palettes > Sprite palette |
+| Ctrl+Shift+L, 5 | View > Floating palettes > Location list |
 
 ### Ctrl+J: the Options menu
 
@@ -215,9 +222,9 @@ too, for example "Ctrl+K, G". (Tools > Cosmonarchy: only in Cosmonarchy BW mode.
 | Ctrl+J, R | Options > Units > Keep resources 3 tiles from town halls |
 | Ctrl+J, D | Options > Units > Randomize unit direction when placed |
 | Ctrl+J, G | Options > Units > Dragged units go back to the last place where they fit |
-| Ctrl+J, Shift+F | Options > Doodads > Place only where it fits |
-| Ctrl+J, Shift+N | Options > Doodads > Move to the nearest place where it fits |
-| Ctrl+J, Shift+A | Options > Doodads > Place anywhere |
+| Ctrl+J, P | Options > Doodads > Place only where it fits |
+| Ctrl+J, M | Options > Doodads > Move to the nearest place where it fits |
+| Ctrl+J, Y | Options > Doodads > Place anywhere |
 | Ctrl+J, 5 | Options > Sprites > Do not snap |
 | Ctrl+J, 6 | Options > Sprites > Snap to tiles (32 px) |
 | Ctrl+J, 7 | Options > Sprites > Snap to half tiles (16 px) |
@@ -247,13 +254,13 @@ too, for example "Ctrl+K, G". (Tools > Cosmonarchy: only in Cosmonarchy BW mode.
 | Ctrl+Shift+K, 2 | Tools > Decorate the terrain > Some doodads |
 | Ctrl+Shift+K, 3 | Tools > Decorate the terrain > Many doodads |
 | Ctrl+Shift+K, R | Tools > Place map revealers |
-| Ctrl+Shift+K, Shift+R | Tools > Remove all map revealers |
-| Ctrl+Shift+K, Shift+I | Tools > Cosmonarchy > Try to repair the ISOM |
-| Ctrl+Shift+K, Shift+C | Tools > Cosmonarchy > Check the CRIG commands |
-| Ctrl+Shift+K, Shift+F | Help > Report feedback |
+| Ctrl+Shift+K, E | Tools > Remove all map revealers |
+| Ctrl+Shift+K, Y | Tools > Cosmonarchy > Try to repair the ISOM |
+| Ctrl+Shift+K, K | Tools > Cosmonarchy > Check the CRIG commands |
+| Ctrl+Shift+K, B | Help > Report feedback |
 | Ctrl+Shift+K, G | Help > Report an issue on GitHub |
 | Ctrl+Shift+K, D | Help > Join Discord |
-| Ctrl+Shift+K, Shift+G | Help > StarDraft 2 on GitHub |
+| Ctrl+Shift+K, L | Help > StarDraft 2 on GitHub |
 | Ctrl+Shift+K, W | Help > What is new |
 | Ctrl+Shift+K, U | Help > Check for updates |
 | Ctrl+Shift+K, A | Help > About StarDraft 2 |

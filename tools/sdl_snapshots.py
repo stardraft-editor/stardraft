@@ -3106,6 +3106,13 @@ def check_menubar(output):
     for n in never:
         if any(l.startswith(n) for l in lines):
             return f"an item {n}, which should not be there"
+    # A two-key shortcut's second key is one letter or digit, with no Shift ("[Ctrl+K, G]").
+    for l in lines:
+        m = re.search(r"\[[^\]]*, ([^\]]*)\]", l)
+        if m and not (len(m.group(1)) == 1 and m.group(1).isalnum()):
+            return f"the second key of {l!r} is not one letter or digit"
+    if sys.platform != "darwin" and not any(l.startswith("View > Layers > Terrain [Ctrl+Shift+L, T]") for l in lines):
+        return "no item View > Layers > Terrain [Ctrl+Shift+L, T]"
     snap = [l for l in lines if l.startswith("Options > Units > Snap buildings to tile edges")]
     if not snap or "(checked)" not in snap[0]:
         return f"no checked item Options > Units > Snap buildings to tile edges: {snap}"
