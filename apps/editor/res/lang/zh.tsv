@@ -2592,3 +2592,4 @@ Units get a random direction when placed	放置时单位朝向随机
 Units face down and right	单位朝向右下
 more	更多
 The rest of the command	命令的其余部分
+the values after these, as the command reads them	这些值之后的值，按命令读取的方式

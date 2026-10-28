@@ -2594,6 +2594,7 @@ constexpr UiText kRows[] = {
     {L"Units face down and right", L"\uC720\uB2DB\uC774 \uC624\uB978\uCABD \uC544\uB798\uB97C \uBD05\uB2C8\uB2E4"},
     {L"more", L"\uB098\uBA38\uC9C0"},
     {L"The rest of the command", L"\uBA85\uB839\uC758 \uB098\uBA38\uC9C0"},
+    {L"the values after these, as the command reads them", L"\uC774 \uAC12\uB4E4 \uB4A4\uC758 \uAC12 (\uBA85\uB839\uC774 \uC77D\uB294 \uB300\uB85C)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

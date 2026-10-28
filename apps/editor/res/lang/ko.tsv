@@ -2592,3 +2592,4 @@ Units get a random direction when placed	배치할 때 유닛 방향이 무작�
 Units face down and right	유닛이 오른쪽 아래를 봅니다
 more	나머지
 The rest of the command	명령의 나머지
+the values after these, as the command reads them	이 값들 뒤의 값 (명령이 읽는 대로)

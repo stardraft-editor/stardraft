@@ -1117,8 +1117,8 @@ inline std::wstring ctEntryHelp(bool condition, const std::string& name) {
 
 #include "views_crigs.inc"  // a Cosmonarchy map's trigger comment commands (CrigView, under a Comment action's fields)
 
-// The help of a Cosmonarchy command's row, in parts with a blank line between them: what kind it is and what it does; its
-// line in the trigger's Comment; its values, a line each (their kinds, their words); how the mod runs the commands.
+// The help of a Cosmonarchy command's row: what kind it is and what it does (the mod's docs), then a blank line and its
+// values, a line each (their kinds, their words). (That the game keeps the commands in a Comment does not show.)
 inline std::wstring ctCrigHelp(const ClassicCrig& row) {
     const auto l = stardraft::cmbw::parseCrigLine(row.line);
     if (!l.command) return tr(L"A line of the trigger's Comment that is not a command: kept as it is.");
@@ -1132,10 +1132,7 @@ inline std::wstring ctCrigHelp(const ClassicCrig& row) {
                      : c.kind == "local_action" ? tr(L"An action on each player's screen.")
                                                : std::wstring();
     if (const std::string help = stardraft::cmbw::crigHelp(c); !help.empty()) s += (s.empty() ? L"" : L" ") + widen(help);
-    s += L"\n\n" + std::wstring(tr(L"The mod reads it from a line of the trigger's Comment:")) + L"\n    " + widen((l.condition ? "condition " : "") + c.names.front());
-    for (const auto& a : c.args) s += L" " + widen(a.name) + (a.optional ? L"?" : L"");
-    if (c.readsMore) s += L" \x2026";
-    if (!c.args.empty() || c.readsMore) s += L"\n\n" + std::wstring(tr(L"Values"));
+    if (!c.args.empty() || c.readsMore) s += (s.empty() ? L"" : L"\n\n") + std::wstring(tr(L"Values"));
     for (const auto& a : c.args) {
         const auto it = kinds.find(a.kind);
         s += L"\n    " + widen(a.name) + L": " + (it != kinds.end() ? std::wstring(tr(it->second)) : widen(a.kind)) +
@@ -1146,9 +1143,7 @@ inline std::wstring ctCrigHelp(const ClassicCrig& row) {
             for (size_t i = 0; i < words.size(); ++i) s += (i ? L", " : L"") + widen(words[i]);
         }
     }
-    if (c.readsMore) s += L"\n    " + std::wstring(tr(L"more")) + L": " + std::wstring(tr(L"It reads the rest of its line itself."));
-    s += L"\n\n" + std::wstring(tr(L"The commands run for the trigger's owners, after all its conditions are true. The game does not check them: a wrong "
-                                   L"number of values can stop the other commands of the comment. (From the mod's Scenario Setup page.)"));
+    if (c.readsMore) s += L"\n    " + std::wstring(tr(L"more")) + L": " + std::wstring(tr(L"the values after these, as the command reads them"));
     return s;
 }
 
