@@ -323,7 +323,7 @@ struct PieView : draw::View {
         // pieces along the arc. Every picture has one size on the screen (8 tiles of 32 px at 100 %), its middle at the
         // middle of its part's box.
         const int parts = std::max(2, int(96 / std::max(1, n)));
-        const float band = float(scale(18)), tilePx = float(scale(32));
+        const float band = std::max(float(scale(28)), (R - r0) / 4), tilePx = float(scale(32));  // (the ground's band: a quarter of the slice)
         struct Box {
             float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
         };
