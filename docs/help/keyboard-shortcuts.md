@@ -34,6 +34,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | F2 | Rename: the selected location, or the selected trigger in the Triggers tree (macOS: also Return in the tree) |
 | Q | Quick picker: the mode's units, terrains, doodads, sprites or locations; in Data, any entry; in the trigger editors, Quick add; in Help, a search of the help |
 | Ctrl+Shift+F | Find in triggers (the Triggers workspace and Classic triggers) |
+| Ctrl+Shift+P | Find a command: each item of the menus in a searchable list, with its menu, its keys and whether it is on; Enter runs it |
 
 ## Workspaces and pages
 
@@ -171,21 +172,20 @@ Cosmonarchy BW mode.)
 | Ctrl+K, 5 | View > Grid > Huge (128 pixels) |
 | Ctrl+K, 6 | View > Grid > Custom |
 | Ctrl+K, T | View > Overlays > Town areas |
-| Ctrl+K, O | View > Overlays > Pathing > Off |
 | Ctrl+K, P | View > Overlays > Pathing > Regions |
 | Ctrl+K, A | View > Overlays > Pathing > Connected areas |
-| Ctrl+K, Z | View > Overlays > Terrain flags > Off |
 | Ctrl+K, W | View > Overlays > Terrain flags > Walkable ground |
 | Ctrl+K, H | View > Overlays > Terrain flags > Ground height |
 | Ctrl+K, B | View > Overlays > Terrain flags > Ground that blocks the line of sight |
 | Ctrl+K, G | View > Overlays > Terrain flags > Buildable ground |
-| Ctrl+K, R | View > Unit vision and ranges > All ranges |
-| Ctrl+K, V | View > Unit vision and ranges > Sight |
-| Ctrl+K, Q | View > Unit vision and ranges > Target acquisition |
-| Ctrl+K, Y | View > Unit vision and ranges > Ground weapon |
-| Ctrl+K, J | View > Unit vision and ranges > Air weapon |
-| Ctrl+K, D | View > Unit vision and ranges > Detection |
-| Ctrl+K, I | View > Unit vision and ranges > Psi field |
+| Ctrl+K, R | View > Overlays > Unit vision and ranges > All ranges |
+| Ctrl+K, V | View > Overlays > Unit vision and ranges > Sight |
+| Ctrl+K, Q | View > Overlays > Unit vision and ranges > Target acquisition |
+| Ctrl+K, Y | View > Overlays > Unit vision and ranges > Ground weapon |
+| Ctrl+K, J | View > Overlays > Unit vision and ranges > Air weapon |
+| Ctrl+K, D | View > Overlays > Unit vision and ranges > Detection |
+| Ctrl+K, I | View > Overlays > Unit vision and ranges > Psi field |
+| Ctrl+K, O | View > Overlays > Turn all off |
 | Ctrl+K, N | View > Animate units |
 | Ctrl+K, M | View > Show minimap |
 | Ctrl+K, U | View > Units list |

@@ -226,7 +226,8 @@ bool sdlRuns(int id) {
     case ID_HELP_FEEDBACK:
     case ID_HELP_UPDATES:  // Check for updates (sdl_updates.inc)
     case ID_EDIT_RENAME:  // the location's rename and the quick picker (sdl_map_dialogs.inc)
-    case ID_QUICKPICK: return true;
+    case ID_QUICKPICK:
+    case ID_COMMANDS: return true;
     case ID_CAMPAIGN_NEW:
     case ID_CAMPAIGN_OPEN:
     case ID_CAMPAIGN_SHOW:
@@ -472,6 +473,58 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
         out.push_back(std::move(k));
     }
     return out;
+}
+
+// Find a command (Ctrl+Shift+P): each item of the menu bar in the quick picker's list, found by its name, its menus or its
+// keys. A row says its menus and keys under its name; an option has a check box (on or off); an item that cannot run now
+// is gray (picked, it says so). Enter runs the item as its menu item does.
+struct FindCommandRow {
+    int id;
+    std::wstring name;
+    bool enabled;
+};
+std::vector<FindCommandRow> gFindCommandRows;
+void sdlFindCommand() {
+    gQuickCustom.cue = tr(L"Find a command or an option");
+    gQuickCustom.exact = false;
+    gQuickCustom.icon = UiIcon::ChevronRight;  // (a command; an option has its check box)
+    gQuickCustom.rows = [] {
+        std::vector<PaletteUnit> out;
+        gFindCommandRows.clear();
+        std::function<void(const MenuModel&, const std::wstring&)> walk = [&](const MenuModel& items, const std::wstring& path) {
+            for (const MenuItem& it : items) {
+                if (it.kind == MenuItem::Kind::Popup) {
+                    if (it.recent.empty()) walk(it.items, (path.empty() ? L"" : path + L" > ") + accessFree(it.label));  // (not the recent files)
+                    continue;
+                }
+                if (it.kind != MenuItem::Kind::Command || !it.id || it.id == ID_COMMANDS) continue;
+                const stardraft::Command* tc = tableCommand(it.id);
+                const int check = mapMenuCheck(it.id);
+                const bool option = it.checked || (tc && tc->checked) || check >= 0;
+                const bool on = it.checked || (tc && tc->isChecked()) || check == 1;
+                const bool enabled = !it.grayed && sdlEnabled(it.id);
+                const std::wstring keys = shortcutText(platformShortcut(it.id, it.shortcut));
+                PaletteUnit u;
+                u.value = int(gFindCommandRows.size());
+                u.label = accessFree(it.label);
+                u.section = path + (keys.empty() ? L"" : L"   " + keys);
+                u.mark = uint8_t((option ? kQuickMarkOption : 0) | (on ? kQuickMarkOn : 0) | (enabled ? 0 : kQuickMarkGray));
+                u.hay = u.label + L" " + path + L" " + keys;
+                std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
+                gFindCommandRows.push_back({it.id, u.label, enabled});
+                out.push_back(std::move(u));
+            }
+        };
+        walk(buildMenuModel(), L"");
+        return out;
+    };
+    gQuickCustom.run = [](int v) {
+        if (v < 0 || v >= int(gFindCommandRows.size())) return;
+        const FindCommandRow& r = gFindCommandRows[size_t(v)];
+        if (!r.enabled || !sdlEnabled(r.id)) return setMessage(tr(L"Not available now: ") + r.name);
+        command(r.id);
+    };
+    shellShowQuickPickerCustom();
 }
 
 // The shortcuts of the model's commands (a popup's items too).
@@ -1394,6 +1447,7 @@ void commandSdl(int id) {
     case ID_CT_ADD_ACTION:
         if (gWorkspace == Workspace::ClassicTriggers) sdlClassicAdd(id - ID_CT_ADD_TRIGGER);
         return;
+    case ID_COMMANDS: return sdlFindCommand();
     case ID_QUICKPICK:  // in the trigger editors: Quick add (core/views_trigger_quick.inc)
         if (gWorkspace == Workspace::Triggers) return trigQuickAdd();
         if (gWorkspace == Workspace::ClassicTriggers) return sdlClassicQuickAdd();

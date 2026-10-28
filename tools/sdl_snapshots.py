@@ -3594,6 +3594,14 @@ CASES += [
 CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
 # Ctrl+Alt+T: in Units mode nothing; in Terrain mode Rectangle, Custom and Isometric in turn.
 CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
+# View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
+# Turn all off (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
+CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
+                                   "--key", "Ctrl+K", "--key", "T", "--key", "Ctrl+K", "--key", "R", "--key", "Ctrl+K", "--key", "O", "--check", "menus"], "map")]
+# Find a command (Ctrl+Shift+P): "connected areas" and Enter turn on View > Overlays > Pathing > Connected areas; the
+# list of "walk" with Walkable ground on (its check box on, the picture).
+CASES += [("map-find-command", ["--key", "Ctrl+Shift+P", "--type", "connected areas", "--key", "Enter", "--check", "menus"], "map"),
+          ("map-find-command-list", ["--size", "1400x900", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+Shift+P", "--type", "walk"], "map")]
 
 
 def ui_lines(output):
@@ -3721,6 +3729,29 @@ def check_terrain_kind_key(output):
         return f"not Units, then 4 inputs in Terrain mode: {[st[:60] for _, st in s]}"
     got = [l.split(": ", 2)[-1][:9] for l in output.splitlines() if l.startswith("key Ctrl+Alt+T: ")][1:]
     return None if got == ["Rectangle", "Custom: t", "Isometric"] else f"the status lines: {got}"
+
+
+def check_overlay_toggles(output):
+    """None when the second Ctrl+K, P and W hid the pathing and the terrain flags, and Turn all off left no overlay on."""
+    status = [l.split(": ", 2)[-1] for l in output.splitlines() if re.match(r"key [PWO]: ", l)]
+    if len(status) != 5:
+        return f"{len(status)} status lines of P, W and O: {status}"
+    if not status[1].startswith("Pathing is hidden") or not status[3].startswith("Terrain flags are hidden"):
+        return f"the second P and W did not hide their overlay: {status[1][:40]!r}, {status[3][:40]!r}"
+    on = [l for l in output.splitlines() if l.startswith("menubar: View > Overlays") and l.endswith("(checked)")]
+    if not status[4].startswith("All overlays are hidden") or on:
+        return f"Turn all off: {status[4][:40]!r}, still on: {on}"
+    return None
+
+
+def check_find_command(output):
+    """None when Enter on the found Connected areas turned that pathing view on (its menu item is checked)."""
+    return None if "View > Overlays > Pathing > Connected areas [Ctrl+K, A] (checked)" in output else "Connected areas is not on"
+
+
+def check_find_command_list(output):
+    """None when the list is open with the search typed."""
+    return None if " quick=open " in output and 'text field at 53,19 "walk"' in output else "the list is not open with walk"
 
 
 def check_copy_tile_values(output):
@@ -4327,6 +4358,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
           "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key,
+          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),

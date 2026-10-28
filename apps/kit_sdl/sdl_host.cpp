@@ -373,7 +373,7 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui::NewFrame();
     auto list = recordView(device_, root, w, h);
-    if (!shots_.empty()) {  // the menus opened in the snapshot's views, over the root at their places
+    if (!shots_.empty()) {  // the menus and pop-outs opened in the snapshot's views, over the root at their places
         ImguiCanvas canvas(*list, device_);
         for (const Shot& s : shots_) {
             canvas.pushView(s.at);
@@ -381,10 +381,11 @@ void SdlHost::snapshot(draw::View& root, SDL_GPUTexture* target, int w, int h, S
             canvas.popView();
         }
     }
-    if (const Win* base = rootWin(root); base && !base->sdl) {  // a snapshot's tool windows (a floating palette), over their opener
+    // A snapshot's tool windows (a floating palette) and pop-outs (the quick picker), over their opener.
+    if (const Win* base = rootWin(root); base && !base->sdl) {
         ImguiCanvas canvas(*list, device_);
         for (const auto& t : wins_)
-            if (!t->sdl && t->kind == WindowKind::Tool && t->shotBase == base->id) {
+            if (!t->sdl && (t->kind == WindowKind::Tool || t->kind == WindowKind::Popup) && t->shotBase == base->id) {
                 canvas.pushView(t->shotAt);
                 t->root->paintAll(canvas);
                 canvas.popView();
@@ -800,12 +801,12 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         return;
     }
     if (!parent || !parent->sdl) {
-        // A snapshot's views (attached to the host with no window): a menu shows over them in the picture, at its
-        // place, kept inside the root (as a menu is kept on the work area). (Not a pop-out: runModal's content goes
-        // when the call returns.)
+        // A snapshot's views (attached to the host with no window): a menu, a tool window or a pop-out (the quick
+        // picker) shows over them in the picture, at its place, kept inside the root (as a menu is kept on the work
+        // area). (runModal takes its content out again: it goes when the call returns.)
         const draw::View* top = &from;
         while (top->parent()) top = top->parent();
-        if (top->host() != this || (spec.kind != WindowKind::Menu && spec.kind != WindowKind::Tool)) return;
+        if (top->host() != this || (spec.kind != WindowKind::Menu && spec.kind != WindowKind::Tool && spec.kind != WindowKind::Popup)) return;
         const Point o = from.origin();
         const int w = std::max(1, spec.at.width()), h = std::max(1, spec.at.height());
         int x = o.x + spec.at.left, y = o.y + spec.at.top;
@@ -923,7 +924,11 @@ void SdlHost::runModal(draw::View& from, draw::View& content, const draw::Window
     if (s.kind != WindowKind::Popup) s.kind = WindowKind::Dialog;  // (a modal pop-out stays a pop-out)
     openWindow(from, content, s, nullptr);
     Win* w = rootWin(content);
-    if (!w) return;
+    if (!w) {  // (a snapshot's views with no window: a modal pop-out's content goes when the call returns, not in the picture)
+        for (size_t i = 0; i < shots_.size(); ++i)
+            if (shots_[i].content == &content) shots_.erase(shots_.begin() + std::ptrdiff_t(i--));
+        return;
+    }
     const SDL_WindowID id = w->id, outer = modal_;
     modal_ = id;
     if (!w->sdl) {  // a snapshot's: the hook gives the input, until the window closes or there is no more

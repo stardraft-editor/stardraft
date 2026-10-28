@@ -226,6 +226,8 @@ void mapRightClickSdl(draw::View& map, draw::Point at) {
 QuickPickView gQuickViewSdl;
 struct QuickPickSdl final : QuickPickHost {
     bool open = false;
+    draw::WindowSpec spec;  // the window's place (a snapshot's picture opens it there again: sdlQuickPickInputEnd)
+    QuickPickCustom custom;  // the open custom list's rows and pick (another list asked for while it is open: it stays)
     bool drawPicture(draw::Canvas& c, QuickPickKind kind, Mode mode, const PaletteUnit& u, draw::Rect box) override {
         if (kind == QuickPickKind::Data) return false;
         if (mode == Mode::Terrain && tilesOn() && gTiles->stamps) {  // Custom: the picture of the custom terrain, as its list shows it
@@ -273,7 +275,18 @@ QuickPickSdl gQuickHostSdl;
 draw::WindowSpec quickPickSpec(int x, int y, draw::Point size) {
     draw::WindowSpec spec{draw::WindowKind::Popup, draw::Rect(x, y, x + size.x, y + size.y), L""};
     spec.takesKeys = true;
+    gQuickHostSdl.spec = spec;
     return spec;
+}
+// The end of a snapshot's input closes the picker's window with the others (SdlHost::snapshotInputEnd): it opens again
+// as a picture over the root at its place, for the frames after the input (as the floating palette does). `was`: it was
+// open before.
+void sdlQuickPickInputEnd(kit_sdl::SdlHost& host, draw::View& root, bool was) {
+    if (!was || gQuickHostSdl.open || !gRoot || !gHost) return;
+    root.attach(&host);  // (the root's window went with the input: a picture over the root has it in the host)
+    gQuickHostSdl.open = true;
+    gHost->openWindow(*gRoot, gQuickViewSdl, gQuickHostSdl.spec, [] { gQuickHostSdl.open = false; });
+    root.attach(nullptr);  // (as after the input: the picture is painted without it)
 }
 // The quick picker's window is a pop-out that the system does not give the keyboard (macOS): its keys come to the main
 // window, where its letters are typing, not the menus' one-letter keys (S: Sprites mode).
@@ -284,7 +297,13 @@ bool sdlQuickPickTyping() { return gQuickHostSdl.open; }
 // The quick picker with gQuickCustom's rows (the trigger editors' Quick add and search), in the middle of the window.
 void showQuickPickerCustomSdl() {
     if (!gRoot || !gHost) return;
-    if (gQuickHostSdl.open) return;  // (already open: a key and its text both ask for it)
+    // (already open: a key and its text both ask for it, or another list does (macOS: the menu bar's Cmd+Shift+P while
+    // it types): the open list keeps its own rows and pick)
+    if (gQuickHostSdl.open) {
+        if (gQuickViewSdl.kind() == QuickPickKind::Custom) gQuickCustom = gQuickHostSdl.custom;
+        return;
+    }
+    gQuickHostSdl.custom = gQuickCustom;
     const draw::Point size = QuickPickView::windowSize();
     const draw::Rect v(0, 0, gRoot->width(), gRoot->height());
     const int x = v.left + (v.width() - size.x) / 2, y = v.top + std::max(0, (v.height() - size.y) / 3);

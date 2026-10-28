@@ -41,7 +41,9 @@ struct PaletteUnit {
     int value = 0, order = 0;
     int tier = 0;  // (a mod's unit: its tech tier, 0 none)
     std::wstring section, label, hay;
+    uint8_t mark = 0;  // a custom row's state (Find a command): kQuickMarkOption (a check box), kQuickMarkOn, kQuickMarkGray
 };
+constexpr uint8_t kQuickMarkOption = 1, kQuickMarkOn = 2, kQuickMarkGray = 4;
 
 std::vector<PaletteUnit> paletteUnits(AppState& app) {
     std::vector<PaletteUnit> out;

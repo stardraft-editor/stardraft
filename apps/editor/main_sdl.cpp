@@ -901,7 +901,9 @@ int main(int argc, char** argv) {
                 }
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
                 host.setSnapshotModalHook(nullptr);
+                const bool quick = sdlQuickPickTyping();
                 sdlFloatPaletteInputEnd(host, root);  // (host.snapshotInputEnd; the floating palette's window stays in the picture)
+                sdlQuickPickInputEnd(host, root, quick);  // (and the quick picker's)
             }
             if (!commandArgs.empty()) {  // the menu commands after the first frame, then a frame more
                 for (const std::string& c : commandArgs) sdlCommandShot(c);

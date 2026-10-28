@@ -485,8 +485,12 @@ private:
             const bool project = u.value < kRecentProjectRow ? u.value < int(gDocs.size()) && gDocs[size_t(u.value)].project != nullptr : u.value < kRecentMapRow;
             c.icon(box, int(u.value == kBrowseProjectRow ? UiIcon::Open : project ? UiIcon::Project : UiIcon::Map), u.value < kRecentProjectRow ? kText : kFaint,
                    scale(20));
+        } else if (kind_ == QuickPickKind::Custom && (u.mark & kQuickMarkOption)) {  // an option: its check box, on or off
+            const int s = scale(16);
+            const draw::Rect b{(box.left + box.right - s) / 2, (box.top + box.bottom - s) / 2, (box.left + box.right + s) / 2, (box.top + box.bottom + s) / 2};
+            kitpaint::drawCheckMark(c, b, (u.mark & kQuickMarkOn) != 0, false, !(u.mark & kQuickMarkGray));
         } else if (kind_ == QuickPickKind::Custom) {
-            c.icon(box, int(gQuickCustom.icon), kText, scale(20));
+            c.icon(box, int(gQuickCustom.icon), u.mark & kQuickMarkGray ? kFaint : kText, scale(20));
         } else if (!((kind_ == QuickPickKind::Data || mode_ != Mode::Locations) && host_->drawPicture(c, kind_, mode_, u, box))) {
             c.icon(box, int(mode_ == Mode::Locations && kind_ != QuickPickKind::Data ? UiIcon::Locations : UiIcon::Units), kFaint, scale(20));
         }
@@ -496,7 +500,7 @@ private:
         const draw::Font of = c.setFont(c.font({draw::Face::Ui, quickFontPx()}));
         const int nameH = c.metrics().height;
         if (nameH != lineHeight_) lineHeight_ = nameH, layoutField();  // (the field's height follows the font)
-        textRuns(c, u.label, x, mid - nameH + scale(2), kText);
+        textRuns(c, u.label, x, mid - nameH + scale(2), u.mark & kQuickMarkGray ? kFaint : kText);  // (gray: it cannot run now)
         // The group, under the name (the typed words found in it in the accent too: "zerg spec").
         c.setFont(smallFont(c));
         textRuns(c, u.section, x, mid + scale(2), kDim);

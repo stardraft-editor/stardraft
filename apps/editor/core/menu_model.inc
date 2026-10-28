@@ -87,21 +87,20 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Grid/Huge (128 pixels)", L"Ctrl+K, 5"},
         {L"View/Grid/Custom", L"Ctrl+K, 6"},
         {L"View/Overlays/Town areas", L"Ctrl+K, T"},
-        {L"View/Overlays/Pathing/Off", L"Ctrl+K, O"},
         {L"View/Overlays/Pathing/Regions", L"Ctrl+K, P"},
         {L"View/Overlays/Pathing/Connected areas", L"Ctrl+K, A"},
-        {L"View/Overlays/Terrain flags/Off", L"Ctrl+K, Z"},
         {L"View/Overlays/Terrain flags/Walkable ground", L"Ctrl+K, W"},
         {L"View/Overlays/Terrain flags/Ground height", L"Ctrl+K, H"},
         {L"View/Overlays/Terrain flags/Ground that blocks the line of sight", L"Ctrl+K, B"},
         {L"View/Overlays/Terrain flags/Buildable ground", L"Ctrl+K, G"},
-        {L"View/Unit vision and ranges/All ranges", L"Ctrl+K, R"},
-        {L"View/Unit vision and ranges/Sight", L"Ctrl+K, V"},
-        {L"View/Unit vision and ranges/Target acquisition", L"Ctrl+K, Q"},
-        {L"View/Unit vision and ranges/Ground weapon", L"Ctrl+K, Y"},
-        {L"View/Unit vision and ranges/Air weapon", L"Ctrl+K, J"},
-        {L"View/Unit vision and ranges/Detection", L"Ctrl+K, D"},
-        {L"View/Unit vision and ranges/Psi field", L"Ctrl+K, I"},
+        {L"View/Overlays/Unit vision and ranges/All ranges", L"Ctrl+K, R"},
+        {L"View/Overlays/Unit vision and ranges/Sight", L"Ctrl+K, V"},
+        {L"View/Overlays/Unit vision and ranges/Target acquisition", L"Ctrl+K, Q"},
+        {L"View/Overlays/Unit vision and ranges/Ground weapon", L"Ctrl+K, Y"},
+        {L"View/Overlays/Unit vision and ranges/Air weapon", L"Ctrl+K, J"},
+        {L"View/Overlays/Unit vision and ranges/Detection", L"Ctrl+K, D"},
+        {L"View/Overlays/Unit vision and ranges/Psi field", L"Ctrl+K, I"},
+        {L"View/Overlays/Turn all off", L"Ctrl+K, O"},
         {L"View/Layers/Terrain", L"Ctrl+Shift+L, T"},
         {L"View/Layers/Doodads", L"Ctrl+Shift+L, D"},
         {L"View/Layers/Sprites", L"Ctrl+Shift+L, S"},
@@ -254,9 +253,10 @@ MenuModel buildMenuModel() {
         view.push_back(menuPopup(L"&Grid", grid));
     }
     view.push_back(menuSeparator());
-    {  // what shows over the map: the town areas, the ranges, the pathing (core/pathing_layer.inc), the terrain flags
-       // (core/terrain_flags_layer.inc)
-        // (first the overlays that are on or off, then those with views: a submenu each, Off and the views)
+    {  // what shows over the map: the town areas, the pathing (core/pathing_layer.inc), the terrain flags
+       // (core/terrain_flags_layer.inc), the ranges of the selected units
+        // (first the overlays that are on or off, then those with views: a submenu each, whose item that is on turns off
+        // when it is clicked again; then Turn all off)
         MenuModel overlays;
         overlays.push_back(menuItem(ID_VIEW_TOWNS, L"Town a&reas"));
         menuCommands(overlays, "View/Fog");  // (core/fog_layer.inc)
@@ -266,14 +266,16 @@ MenuModel buildMenuModel() {
         overlays.push_back(menuPopup(L"&Pathing", pathing));
         menuCommands(flags, "View/Terrain flags");
         overlays.push_back(menuPopup(L"&Terrain flags", flags));
+        {  // the sight and the weapon ranges of the selected units (Units mode), all or each kind (GitHub feedback #109)
+            MenuModel ranges;
+            menuCommand(ranges, "view.ranges");
+            ranges.push_back(menuSeparator());
+            menuCommands(ranges, "View/Unit vision and ranges");
+            overlays.push_back(menuPopup(L"&Unit vision and ranges", ranges));
+        }
+        overlays.push_back(menuSeparator());
+        menuCommand(overlays, "view.overlays.off");
         view.push_back(menuPopup(L"&Overlays", overlays));
-    }
-    {  // the sight and the weapon ranges of the selected units (Units mode), all or each kind (GitHub feedback #109)
-        MenuModel ranges;
-        menuCommand(ranges, "view.ranges");
-        ranges.push_back(menuSeparator());
-        menuCommands(ranges, "View/Unit vision and ranges");
-        view.push_back(menuPopup(L"&Unit vision and ranges", ranges));
     }
     {  // the map's layers that show (GitHub feedback #117)
         MenuModel layers;
@@ -286,6 +288,7 @@ MenuModel buildMenuModel() {
     for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
     view.push_back(menuSeparator());
     view.push_back(menuItem(ID_QUICKPICK, L"&Quick picker\x2026", L"Q"));
+    view.push_back(menuItem(ID_COMMANDS, L"Find a &command\x2026", L"Ctrl+Shift+P"));  // (each menu item, on or off: sdl_menus.inc)
     view.push_back(menuSeparator());
     menuCommand(view, "view.minimap");
     {  // each mode's palette in a window of its own (Roadmap R40: core/dock_prefs.inc, kFloatPalNames)

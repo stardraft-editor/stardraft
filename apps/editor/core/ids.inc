@@ -72,8 +72,8 @@ enum : int {
     ID_CMBW_CHECKCOMMENTS = 1098,  // Tools > Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)
     ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
-    ID_TERRAIN_FLAGS_OFF = 1034,  // View > Overlays > Terrain flags > Off
-    ID_PATHING_OFF = 1036,        // View > Overlays > Pathing > Off
+    ID_OVERLAYS_OFF = 1037,  // View > Overlays > Turn all off (the overlays and the ranges)
+    ID_COMMANDS = 1038,      // View > Find a command (Ctrl+Shift+P: the menus' items in a searchable list, sdl_menus.inc)
     ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable
     ID_SCEN_PATHCHECK = 997,  // Scenario > Check pathing (core/pathing_layer.inc)
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
