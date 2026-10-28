@@ -11,7 +11,7 @@ texts follow.
 | `src/render/`, `shaders/` | The map view's renderer: SDL3 GPU (Direct3D 12 on Windows, Vulkan on Linux, Metal on macOS). HLSL, compiled to DXIL by `dxc` at build time; the SPIR-V and MSL in `shaders/gen/` are generated (see below). |
 | `apps/editor/` | The editor. `main_sdl.cpp` is the program (SDL3 on Windows, macOS and Linux); `shell_sdl.inc` and `shell_sdl_win.inc` (its Windows parts: the crash handler, the file types, the files built into the program) are the host's side of `shell.h`; the `sdl_*.inc` files are the windows, the panes and the dialogs. `core/` is the portable core (`core/core.inc`: the commands, the map's tools and every view, drawn on the Canvas of `apps/common/canvas.h`); `core/core_check.cpp` (target `editor_core_check`) compiles it with no Win32 headers. |
 | `src/data/` | Generated tables (see below). Do not edit them by hand. |
-| `tools/` | Tools (each a CMake target) and the UI text lint. `tools/tests/`: the test programs; `tools/probes/`: one-off programs from finding out how the game works. |
+| `tools/` | Tools (each a CMake target) and the UI text lint. `tools/tests/`: the test programs; `tools/probes/`: one-off programs from finding out how the game works; `tools/plugins/<plugin>/`: a plugin's scripts, probes and tests (`cmbw`: docs/dev/cmbw-terrains.md). |
 | `docs/` | `dev/`: this guide, the principles, the control kit. `project/`: the roadmap, how feedback is used. `user/`: the changelog. `help/`: the help pages (see "Help pages" below). |
 
 The library knows nothing about Windows; in the editor, only `shell_sdl_win.inc` and `apps/common`'s `*_win32.cpp`

@@ -1,4 +1,4 @@
-// Made by tools/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, new group, its terrain, the
+// Made by tools/plugins/cmbw/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, new group, its terrain, the
 // other terrain of a border (0: none)} (isometric terrain ids, isom.cpp IsomTerrainTable). Do not edit by hand.
 // (Its probe builds with -Dcmbw_probes=ON.)
 {0, 1665, 5, 8},

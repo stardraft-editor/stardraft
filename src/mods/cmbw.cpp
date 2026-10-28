@@ -219,8 +219,9 @@ std::pair<std::string, std::string> tblParts(const Bytes& tbl, size_t index, con
     return {a, next()};
 }
 
-// The units' places in the palette (tools/cmbw_units.py: the website's races, tiers and production groups; a placeholder
-// until the Cosmonarchy community has a source for it). Matched by name: the website's unit ids are not the game's.
+// The units' places in the palette (tools/plugins/cmbw/cmbw_units.py: the website's races, tiers and production groups;
+// a placeholder until the Cosmonarchy community has a source for it). Matched by name: the website's unit ids are not
+// the game's.
 struct UnitPlace {
     const char* name;  // "Terran Maverick"
     const char* race;
@@ -502,7 +503,8 @@ bool loadSettings(const GameData& data, SettingDefaults& out, std::string& error
 }
 
 // The terrains of the tile groups the mod's tilesets add (no isometric data in their .cv5), learned from the mod's maps
-// (tools/probes/cmbw_isom_learn.cpp): the Tiles list's terrain filter and the terrain checks then know them.
+// (tools/plugins/cmbw/probes/cmbw_isom_learn.cpp): the Tiles list's terrain filter and the terrain checks then know
+// them.
 struct GroupTerrain {
     uint8_t era;
     uint16_t group, terrain, other;
@@ -521,8 +523,9 @@ const GroupPiece kGroupPieces[] = {
 #include "cmbw_isom_pieces.inc"
 };
 
-// Which of the mod terrains' pieces stand beside each other on the mod's maps (tools/probes/cmbw_neighbors.cpp --inc),
-// packed: base-64 numbers of 5 bits a character (the probe's writeInc tells the form).
+// Which of the mod terrains' pieces stand beside each other on the mod's maps
+// (tools/plugins/cmbw/probes/cmbw_neighbors.cpp --inc), packed: base-64 numbers of 5 bits a character (the probe's
+// writeInc tells the form).
 const char* const kPieceNeighbors[] = {
 #include "cmbw_neighbors.inc"
 };
@@ -595,8 +598,8 @@ struct ModTerrainSet {
     const char* groundMod = nullptr;  // its ground a mod terrain before it (by name; groundTemplate 0: that one's template)
     uint16_t fillSubtiles = 0x3F;     // the fill groups' subtiles it takes (bit k: subtile k)
 };
-// The sets made from the maps (tools/probes/cmbw_auto_rows.cpp): each rect of a set's brushes as a piece for the game
-// rect the maps' ISOM has under it most; its border's two terrains its stand-in and its ground (src/mods/
+// The sets made from the maps (tools/plugins/cmbw/probes/cmbw_auto_rows.cpp): each rect of a set's brushes as a piece
+// for the game rect the maps' ISOM has under it most; its border's two terrains its stand-in and its ground (src/mods/
 // cmbw_auto_terrains.inc). They come after the hand-made rows of their tileset (kModTerrainSets).
 struct AutoPiece {
     uint16_t game, left, right;

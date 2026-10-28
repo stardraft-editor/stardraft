@@ -17,7 +17,7 @@ How it decides:
 - Each part is named by its two half-diamonds' corners and shown as the game's Badlands Asphalt on Dirt with the same
   corners (clear edges: a wireframe of the part); the set's piece where it has one.
 
-usage: python tools/cmbw_report.py --install <Cosmonarchy Prerelease> --bin <build/Release> --out <folder>
+usage: python tools/plugins/cmbw/cmbw_report.py --install <Cosmonarchy Prerelease> --bin <build/Release> --out <folder>
        [--maps <CMBW-maps folder>] [--raw <folder>] [--single <file.html>]
 Needs Pillow (the page's small pictures).
 """

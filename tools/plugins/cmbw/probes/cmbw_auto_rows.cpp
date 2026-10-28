@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
     }
     FILE* out = argc > 3 ? std::fopen(argv[3], "wb") : nullptr;
     if (out)
-        std::fprintf(out, "// Made by tools/probes/cmbw_auto_rows.cpp from the mod's maps and brush sets: the sets that are not hand-made rows of\n"
+        std::fprintf(out, "// Made by tools/plugins/cmbw/probes/cmbw_auto_rows.cpp from the mod's maps and brush sets: the sets that are not hand-made rows of\n"
                           "// kModTerrainSets. AUTO(tileset, \"name\", stand-in, ground, {{game left group, mod left tile, mod right tile}, ...}).\n"
                           "// Do not edit by hand.\n");
     int made = 0, all = 0;

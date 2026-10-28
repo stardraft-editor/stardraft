@@ -6,17 +6,17 @@ come with the install. What the install does not have is in tables made from oth
 
 1. The install: are its git checkouts (Prerelease, Release) at the newest commit of their repositories? The Fraud
    Launcher updates them (the install's folder is the administrators'); this script only says it.
-2. src/mods/cmbw_units.inc (the unit palette's races, tiers and groups) from the website's export: tools/cmbw_units.py,
-   with the install's patch notes (a unit that they call NEW is implemented).
-3. src/mods/cmbw_crigs.inc (the trigger comment commands) from Cosmonarchy-GPTP: tools/cmbw_crigs.py, on a clone in
-   build/cmbw/Cosmonarchy-GPTP (made or brought up to date here).
+2. src/mods/cmbw_units.inc (the unit palette's races, tiers and groups) from the website's export:
+   tools/plugins/cmbw/cmbw_units.py, with the install's patch notes (a unit that they call NEW is implemented).
+3. src/mods/cmbw_crigs.inc (the trigger comment commands) from Cosmonarchy-GPTP: tools/plugins/cmbw/cmbw_crigs.py, on a
+   clone in build/cmbw/Cosmonarchy-GPTP (made or brought up to date here).
 
 Then the changes: units added, removed or made implemented; commands added, removed or with other arguments; and the
 new commands that src/mods/cmbw_crig_docs.inc does not document (its help is written by hand).
 A table whose content is the same is not written again.
 
-usage: python -I tools/cmbw_update.py [<Cosmonarchy folder>]   (default: the editor's CosmonarchyFolder setting, else
-       C:/Program Files (x86)/Cosmonarchy)
+usage: python -I tools/plugins/cmbw/cmbw_update.py [<Cosmonarchy folder>]
+       (default: the editor's CosmonarchyFolder setting, else C:/Program Files (x86)/Cosmonarchy)
 """
 import json
 import os
@@ -24,7 +24,8 @@ import re
 import subprocess
 import sys
 
-ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.normpath(os.path.join(HERE, '..', '..', '..'))
 GPTP_URL = 'https://gitlab.com/the-no-frauds-club/tools/Cosmonarchy-GPTP.git'
 UNITS = os.path.join(ROOT, 'src', 'mods', 'cmbw_units.inc')
 CRIGS = os.path.join(ROOT, 'src', 'mods', 'cmbw_crigs.inc')
@@ -120,7 +121,7 @@ def update_units(folder):
         if os.path.isfile(f):
             notes += ['--notes', f]
     before = read(UNITS)
-    r = subprocess.run([sys.executable, '-I', os.path.join(ROOT, 'tools', 'cmbw_units.py')] + notes, capture_output=True, text=True)
+    r = subprocess.run([sys.executable, '-I', os.path.join(HERE, 'cmbw_units.py')] + notes, capture_output=True, text=True)
     if r.returncode:
         print('  failed:', r.stderr.strip().splitlines()[-1] if r.stderr.strip() else r.returncode)
         return
@@ -167,7 +168,7 @@ def update_crigs():
         return
     print('  Cosmonarchy-GPTP:', git(clone, 'log', '-1', '--format=%h %cs "%s"'))
     before = read(CRIGS)
-    r = subprocess.run([sys.executable, '-I', os.path.join(ROOT, 'tools', 'cmbw_crigs.py'), clone], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, '-I', os.path.join(HERE, 'cmbw_crigs.py'), clone], capture_output=True, text=True)
     if r.returncode:
         print('  failed:', r.stderr.strip().splitlines()[-1] if r.stderr.strip() else r.returncode)
         return

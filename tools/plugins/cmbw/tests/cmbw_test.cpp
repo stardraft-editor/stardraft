@@ -339,7 +339,7 @@ int main(int argc, char** argv) {
                 if (q.era == era && std::none_of(t.modTerrains.begin(), t.modTerrains.end(), [&](const auto& m) { return m.name == q.name; }))
                     ++moved, std::printf("      %s: pinned, but not made\n", q.name);
         }
-        CHECK(moved == 0 && unpinned == 0, "the mod terrains keep their ids (tools/tests/cmbw_pinned_ids.inc)");
+        CHECK(moved == 0 && unpinned == 0, "the mod terrains keep their ids (tools/plugins/cmbw/tests/cmbw_pinned_ids.inc)");
         CHECK(empty == 0, "each block of each mod terrain's set gives pieces");
         // The neighbor table is the one the maps give now (cmbw_neighbors --inc again after adding or changing terrains).
         const fs::path maps = fs::path(argv[1]).parent_path() / "Starcraft" / "Maps" / "CMBW-Root" / "CMBW-maps";

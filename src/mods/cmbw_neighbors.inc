@@ -1,4 +1,4 @@
-// Made by tools/probes/cmbw_neighbors.cpp from the mod's maps (CMBW-maps): which of the mod terrains' pieces stand
+// Made by tools/plugins/cmbw/probes/cmbw_neighbors.cpp from the mod's maps (CMBW-maps): which of the mod terrains' pieces stand
 // beside each other, packed (the probe's writeInc tells the form; lines, as one string literal may not be so
 // long). Do not edit by hand.
 // (Its probe builds with -Dcmbw_probes=ON.)

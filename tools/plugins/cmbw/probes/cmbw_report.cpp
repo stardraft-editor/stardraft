@@ -9,7 +9,7 @@
 //     the game's tile, the one the set would need a piece for). The editor puts the null tile there (black): the gap
 //     shows, for the mod's makers to fill;
 //   - painted border rects that kept the game's tile all the same ("kept").
-// All of it in <out>/report_<era>.json, for tools/cmbw_report.py.
+// All of it in <out>/report_<era>.json, for tools/plugins/cmbw/cmbw_report.py.
 // usage: cmbw_report <Cosmonarchy install> <map> <out folder>
 #include <algorithm>
 #include <array>
@@ -124,8 +124,9 @@ int main(int argc, char** argv) {
     // Where each part sits: `terrain` painted on `ground` in a big diamond, notches turned four ways, thin lines both ways,
     // one diamond and pairs touching or one apart; for each part's corners the first rect that has them: a crop of 10 x 7
     // tiles around it (<out>/<prefix>_<parity>_<left bits>_<right bits>.png; the rect at tile 4, 3 of it), for
-    // tools/cmbw_report.py. On Badlands the game's own Asphalt (5, a flat edge: "ctx_e") and High Dirt (2, a cliff: "ctx_c")
-    // on Dirt; for each terrain its own ("own_<era>_<n>") and its template's on its tileset ("tpl_<era>_<stand-in>_<ground>").
+    // tools/plugins/cmbw/cmbw_report.py. On Badlands the game's own Asphalt (5, a flat edge: "ctx_e") and High Dirt (2,
+    // a cliff: "ctx_c") on Dirt; for each terrain its own ("own_<era>_<n>") and its template's on its tileset
+    // ("tpl_<era>_<stand-in>_<ground>").
     auto examples = [&](uint16_t terrain, uint16_t ground, const std::string& prefix) {
         Editor e(data);
         if (!e.open(argv[2], err)) return;
@@ -319,8 +320,8 @@ int main(int argc, char** argv) {
     }
     json += kNl;
     // The game's own terrains of the tileset, each on the terrain next to it toward the first one, painted like the mod's
-    // (<out>/orig_<era>_<id>_...): a part a mod terrain lacks shows in the game terrain most like it (tools/cmbw_report.py
-    // picks it by name and kind).
+    // (<out>/orig_<era>_<id>_...): a part a mod terrain lacks shows in the game terrain most like it
+    // (tools/plugins/cmbw/cmbw_report.py picks it by name and kind).
     json += "], \"game\": [";
     bool firstGame = true;
     for (uint16_t g = 1; g <= game->terrainCount(); ++g) {

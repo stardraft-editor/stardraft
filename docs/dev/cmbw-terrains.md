@@ -9,10 +9,11 @@ mod's terrain edges. On a Cosmonarchy tab each usable set is a terrain of its ow
   the terrain core makes the tiles of a copy of the map with each rect's template, then IsomGrid::putPieces puts the
   set's pieces in. Classic tabs: no change.
 - The map file keeps the mod's values (SCMDraft does not know them; vanilla regions work as usual).
-- Tests: tools/tests/cmbw_test.cpp (needs the Cosmonarchy install; not in CI).
-- After a mod update: `python -I tools/cmbw_update.py` says whether the install is at the mod's newest commit, makes
-  the unit palette table (src/mods/cmbw_units.inc) and the trigger comment commands (src/mods/cmbw_crigs.inc) again, and
-  says what changed. The game data (units.dat, graphics, sounds) comes from the install itself; new brush sets: below.
+- Tests: tools/plugins/cmbw/tests/cmbw_test.cpp (needs the Cosmonarchy install; not in CI).
+- After a mod update: `python -I tools/plugins/cmbw/cmbw_update.py` says whether the install is at the mod's newest
+  commit, makes the unit palette table (src/mods/cmbw_units.inc) and the trigger comment commands
+  (src/mods/cmbw_crigs.inc) again, and says what changed. The game data (units.dat, graphics, sounds) comes from the
+  install itself; new brush sets: below.
 
 ## How to add a mod terrain
 
@@ -21,11 +22,11 @@ change is needed for the kinds below. Steps:
 
 1. List the tileset's sets: `cmbw_brushes <Prerelease> <era>` (era: 0 Badlands, 1 Platform, 2 Installation, 3 Ash World,
    4 Jungle, 5 Desert, 6 Ice, 7 Twilight). (Names: "dirt1/2/3" are Dirt, High Dirt and the third level.)
-2. Read a set's blocks: `cmbw_brushes <Prerelease> <era> "_<Set>_" x.png > b.txt`, then `python tools/cmbw_blocks.py b.txt`
-   (each block's groups per row and its variants' subtiles). Named sets: W/E north (2 rows), south,
-   outer (3 rows), inner (2 rows). Unnamed sets: the same blocks in their brushes' order. In the cmbw_brushes text a
-   brush's grid comes before its name line. A set can pack two blocks in one group (W in subtiles 0-4, E in 6-10:
-   the block's sub field), and a set's last brushes can be its fill.
+2. Read a set's blocks: `cmbw_brushes <Prerelease> <era> "_<Set>_" x.png > b.txt`, then `python
+   tools/plugins/cmbw/cmbw_blocks.py b.txt` (each block's groups per row and its variants' subtiles). Named sets: W/E
+   north (2 rows), south, outer (3 rows), inner (2 rows). Unnamed sets: the same blocks in their brushes' order. In the
+   cmbw_brushes text a brush's grid comes before its name line. A set can pack two blocks in one group (W in subtiles
+   0-4, E in 6-10: the block's sub field), and a set's last brushes can be its fill.
 3. Find the game's border with the same layout: `cmbw_rect_shapes <Prerelease> <era> <first> <last>` prints each game
    group's rects and corner terrains. Known templates:
    - Flat edges: Ash World Dirt/Lava 192-222 (+48: High Dirt/High Lava 240-270); jungle layout 228-258 (on High Dirt),
@@ -62,9 +63,9 @@ change is needed for the kinds below. Steps:
    It writes which of the mod terrains' edge and wall pieces stand beside each other on the maps (under, and a rect to
    the right a row down or up); the brush takes only pieces that the maps have beside the ones around them, so a
    wall's gates and panels come out as the maps have them (Tileset::pieceNeighbors, IsomGrid::pickPiece).
-9. A new terrain's line goes into tools/tests/cmbw_pinned_ids.inc (cmbw_test prints it). cmbw_test fails when a terrain's
-   id moves (saved maps keep the ids), when a block gives no pieces (the mod renumbered its groups?) and when the
-   neighbor table is not the one the maps give now.
+9. A new terrain's line goes into tools/plugins/cmbw/tests/cmbw_pinned_ids.inc (cmbw_test prints it). cmbw_test fails
+   when a terrain's id moves (saved maps keep the ids), when a block gives no pieces (the mod renumbered its groups?)
+   and when the neighbor table is not the one the maps give now.
 7. `cmbw_test <Prerelease> <map> <new empty folder>` on that tileset's map (each mod terrain: its own pieces only, saved
    with its own ISOM values), delete the folder after (a run writes about 1 GB). Commit.
 
@@ -73,16 +74,16 @@ The palette shows each mod terrain with its fill pieces (src/previews.cpp terrai
 ## After each update of the mod
 
 1. `cmbw_set_status <Prerelease> -1 <CMBW-maps>`: the brush sets that are no terrain yet ("-"). A new set: make its row
-   (the steps above), or add it to kLeftOut (tools/probes/cmbw_set_status.cpp) with the reason in its row's place in
-   src/mods/cmbw.cpp and in "Not added" below.
+   (the steps above), or add it to kLeftOut (tools/plugins/cmbw/probes/cmbw_set_status.cpp) with the reason in its row's
+   place in src/mods/cmbw.cpp and in "Not added" below.
 2. `cmbw_test` on each tileset's map and `cmbw_stroke_bench <Prerelease> <map> --all` (the slowest stroke beside each
    terrain).
-3. The report for the mod's team: `python tools/cmbw_report.py --install <Prerelease> --bin build/Release --out
-   <stardraft-editor.github.io>/cosmonarchy --raw <a new empty folder>`, then commit the folder in the website repository
-   (it is served at https://stardraft-editor.github.io/cosmonarchy/). For each terrain: the game border it is made as,
-   its required pieces (the rects most sets of that border have: edges, outer and inner corners) and the missing ones,
-   its variations, and the extra rects it lacks (thin, single and concave shapes: the game's tiles to draw); and the sets
-   that are no terrain yet. The probe behind it: tools/probes/cmbw_report.cpp.
+3. The report for the mod's team: `python tools/plugins/cmbw/cmbw_report.py --install <Prerelease> --bin build/Release
+   --out <stardraft-editor.github.io>/cosmonarchy --raw <a new empty folder>`, then commit the folder in the website
+   repository (it is served at https://stardraft-editor.github.io/cosmonarchy/). For each terrain: the game border it is
+   made as, its required pieces (the rects most sets of that border have: edges, outer and inner corners) and the
+   missing ones, its variations, and the extra rects it lacks (thin, single and concave shapes: the game's tiles to
+   draw); and the sets that are no terrain yet. The probe behind it: tools/plugins/cmbw/probes/cmbw_report.cpp.
 
 ## Done by tileset (update this list with each new terrain)
 Names: "X (Y)", the tile X on, above or at Y (the ground it stands on); in a Cosmonarchy tab the game's terrains too

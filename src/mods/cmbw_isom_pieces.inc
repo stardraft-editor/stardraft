@@ -1,4 +1,4 @@
-// Made by tools/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, the mod's left tile, its right
+// Made by tools/plugins/cmbw/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, the mod's left tile, its right
 // tile (tile values: group * 16 + subtile), the game's left tile group of the rect it is a piece for}. Do not edit by hand.
 // (Its probe builds with -Dcmbw_probes=ON.)
 {0, 26640, 26641, 364},

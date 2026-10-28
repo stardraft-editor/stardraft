@@ -61,7 +61,7 @@ int tileHeight(const Tileset& tileset, uint16_t tileValue);
 
 // Which of the mod terrains' edge and wall pieces stand beside each other on the maps in `mapsFolder` (each era's):
 // {era, a piece's left tile, its neighbor's left tile, the place (Tileset::pieceNeighbors)}, sorted. src/mods/
-// cmbw_neighbors.inc is this list (tools/probes/cmbw_neighbors.cpp --inc writes it).
+// cmbw_neighbors.inc is this list (tools/plugins/cmbw/probes/cmbw_neighbors.cpp --inc writes it).
 std::vector<std::array<uint16_t, 4>> learnPieceNeighbors(const GameData& data, const std::filesystem::path& mapsFolder);
 // The range a unit's weapon has on ground at `height` (tileHeight; above targets at height 0): a weapon of more than 32
 // px gains 32 px per level (the mod's cliff advantage).

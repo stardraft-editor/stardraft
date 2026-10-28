@@ -8,7 +8,8 @@
 // of the mod's for that rect: the brush can pick it.
 // usage: cmbw_isom_learn <maps folder> <mod tileset folder> [out .inc] [pieces out .inc] [pair votes out .txt]
 // The pair votes: every pair of the mod's tiles in a rect and the game rects (left groups) the maps' ISOM has there, with
-// their uses, no threshold: "tileset left right game uses" lines (tools/probes/cmbw_auto_rows.cpp reads them).
+// their uses, no threshold: "tileset left right game uses" lines (tools/plugins/cmbw/probes/cmbw_auto_rows.cpp reads
+// them).
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -127,7 +128,7 @@ int main(int argc, char** argv) {
     }
     FILE* out = argc > 3 ? std::fopen(argv[3], "wb") : nullptr;
     if (out)
-        std::fprintf(out, "// Made by tools/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, new group, its terrain, the\n"
+        std::fprintf(out, "// Made by tools/plugins/cmbw/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, new group, its terrain, the\n"
                           "// other terrain of a border (0: none)} (isometric terrain ids, isom.cpp IsomTerrainTable). Do not edit by hand.\n");
     for (int e = 0; e < 8; ++e) {
         int learned = 0, seen = 0, few = 0, mixed = 0;
@@ -161,7 +162,7 @@ int main(int argc, char** argv) {
     // 0 and 1 are a piece, 2 and 3 another). The look filter of the brush checks each against the game's piece.
     FILE* pieces = argc > 4 ? std::fopen(argv[4], "wb") : nullptr;
     if (pieces)
-        std::fprintf(pieces, "// Made by tools/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, the mod's left tile, its right\n"
+        std::fprintf(pieces, "// Made by tools/plugins/cmbw/probes/cmbw_isom_learn.cpp from the mod's maps (CMBW-maps): {tileset, the mod's left tile, its right\n"
                              "// tile (tile values: group * 16 + subtile), the game's left tile group of the rect it is a piece for}. Do not edit by hand.\n");
     for (int e = 0; e < 8; ++e) {
         const auto terrains = sets[size_t(e)].groups.empty() ? std::vector<std::array<uint16_t, 2>>{} : tileGroupTerrains(sets[size_t(e)]);

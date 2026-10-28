@@ -69,7 +69,7 @@ int writeInc(const char* folder, const char* out, const char* install) {
         } while (v);
     FILE* f = std::fopen(out, "wb");
     if (!f) return 1;
-    std::fprintf(f, "// Made by tools/probes/cmbw_neighbors.cpp from the mod's maps (CMBW-maps): which of the mod terrains' pieces stand\n"
+    std::fprintf(f, "// Made by tools/plugins/cmbw/probes/cmbw_neighbors.cpp from the mod's maps (CMBW-maps): which of the mod terrains' pieces stand\n"
                     "// beside each other, packed (the probe's writeInc tells the form; lines, as one string literal may not be so\n"
                     "// long). Do not edit by hand.\n"
                     "// (Its probe builds with -Dcmbw_probes=ON.)\n");
