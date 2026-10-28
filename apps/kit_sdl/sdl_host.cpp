@@ -808,7 +808,12 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
         if (top->host() != this || (spec.kind != WindowKind::Menu && spec.kind != WindowKind::Tool)) return;
         const Point o = from.origin();
         const int w = std::max(1, spec.at.width()), h = std::max(1, spec.at.height());
-        const int x = std::clamp(o.x + spec.at.left, 0, std::max(0, top->width() - w)), y = std::clamp(o.y + spec.at.top, 0, std::max(0, top->height() - h));
+        int x = o.x + spec.at.left, y = o.y + spec.at.top;
+        if (spec.kind == WindowKind::Menu) {  // (as on the screen: left of its point at the right edge, above it at the bottom)
+            if (x + w > top->width()) x -= w;
+            if (y + h > top->height()) y -= h;
+        }
+        x = std::clamp(x, 0, std::max(0, top->width() - w)), y = std::clamp(y, 0, std::max(0, top->height() - h));
         content.attach(this);
         content.setFrame(Rect(0, 0, w, h));
         shots_.push_back(Shot{&content, Rect(x, y, x + w, y + h)});
@@ -864,6 +869,21 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
                 if (px + x + lw > area.x + area.w) x = area.x + area.w - lw - px;
                 if (px + x < area.x) x = area.x - px;
                 if (py + y + lh > area.y + area.h) y -= lh + kPointer;
+                if (py + y < area.y) y = area.y - py;
+            }
+        } else if (spec.kind == WindowKind::Menu) {
+            // (a menu stays on the screen's work area: at the right edge it opens to the left of the mouse pointer, at the
+            // bottom above it; a submenu at the right edge opens on its parent menu's left side, at the bottom it moves up)
+            SDL_Rect area{};
+            int px = 0, py = 0;
+            SDL_GetWindowPosition(parent->sdl, &px, &py);
+            if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(parent->sdl), &area)) {
+                const int lw = std::max(1, toLogical(width, parent->density)), lh = std::max(1, toLogical(height, parent->density));
+                const bool sub = parent->kind == WindowKind::Menu;
+                if (px + x + lw > area.x + area.w) x = sub ? toLogical(o.x, parent->density) + 3 - lw : x - lw;
+                if (py + y + lh > area.y + area.h) y = sub ? area.y + area.h - lh - py : y - lh;
+                if (px + x + lw > area.x + area.w) x = area.x + area.w - lw - px;  // (still out: as far as it goes)
+                if (px + x < area.x) x = area.x - px;
                 if (py + y < area.y) y = area.y - py;
             }
         }
