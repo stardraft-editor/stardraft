@@ -83,11 +83,13 @@ add_library(stardraft
     src/classic_settings.cpp
     src/classic_triggers.cpp
     src/portraits.cpp
+    src/smacker.cpp
     src/briefing.cpp
     src/msqc.cpp
     src/map_file.cpp
     src/game_data.cpp
     src/creep.cpp
+    src/mods/cmbw.cpp
     src/tileset.cpp
     src/terrain.cpp
     src/isom.cpp
@@ -175,6 +177,8 @@ target_link_libraries(hd_test PRIVATE stardraft)
 
 add_executable(editor_test tools/tests/editor_test.cpp)
 target_link_libraries(editor_test PRIVATE stardraft)
+add_executable(cmbw_test tools/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
+target_link_libraries(cmbw_test PRIVATE stardraft)
 
 add_executable(classic_trigger_test tools/tests/classic_trigger_test.cpp)
 target_link_libraries(classic_trigger_test PRIVATE stardraft storm)  # storm: reading the protected maps euddraft writes
@@ -202,6 +206,108 @@ add_executable(preview_gallery tools/probes/preview_gallery.cpp)
 target_link_libraries(preview_gallery PRIVATE stardraft)
 add_executable(tbl_probe tools/probes/tbl_probe.cpp)
 target_link_libraries(tbl_probe PRIVATE stardraft)
+# The Cosmonarchy BW probes: studies of the mod's data and maps (terrain, scripts, CRIG commands, pictures), for
+# developers (tools/cmbw_report.py runs cmbw_report). -Dcmbw_probes=ON builds them.
+option(cmbw_probes "Build the Cosmonarchy BW probes (tools/probes/cmbw_*)" OFF)
+if(cmbw_probes)
+    add_executable(cmbw_tiles_probe tools/probes/cmbw_tiles_probe.cpp)  # how a mod's tilesets differ from the game's
+    target_link_libraries(cmbw_tiles_probe PRIVATE storm)
+    add_executable(cmbw_tiles_usage tools/probes/cmbw_tiles_usage.cpp)  # how much a mod's maps use its new tile groups
+    target_link_libraries(cmbw_tiles_usage PRIVATE stardraft)
+    add_executable(cmbw_isom_learn tools/probes/cmbw_isom_learn.cpp)  # isometric rules for a mod's new tile groups, from its maps
+    target_link_libraries(cmbw_isom_learn PRIVATE stardraft)
+    add_executable(cmbw_transitions tools/probes/cmbw_transitions.cpp)  # how a mod's maps build the game's terrain borders
+    target_link_libraries(cmbw_transitions PRIVATE stardraft)
+    add_executable(cmbw_pieces_sheet tools/probes/cmbw_pieces_sheet.cpp)  # the mod's pieces of one terrain border, as a picture
+    target_link_libraries(cmbw_pieces_sheet PRIVATE stardraft)
+    add_executable(cmbw_tile_dump tools/probes/cmbw_tile_dump.cpp)  # a map's tiles in an area, as group.subtile
+    target_link_libraries(cmbw_tile_dump PRIVATE stardraft)
+    add_executable(cmbw_terrain_set tools/probes/cmbw_terrain_set.cpp)  # the tiles a mod's maps use around a terrain of its own
+    target_link_libraries(cmbw_terrain_set PRIVATE stardraft)
+    add_executable(cmbw_brushes tools/probes/cmbw_brushes.cpp)  # the mod's SCMDraft brushes of a tileset
+    target_link_libraries(cmbw_brushes PRIVATE stardraft)
+    add_executable(cmbw_match tools/probes/cmbw_match.cpp)  # the mod's brush pieces matched to the game's isometric rects
+    target_link_libraries(cmbw_match PRIVATE stardraft)
+    add_executable(cmbw_paint_count tools/probes/cmbw_paint_count.cpp)  # which of a border's game rects the brush makes
+    target_link_libraries(cmbw_paint_count PRIVATE stardraft)
+    add_executable(cmbw_isom_testmaps tools/probes/cmbw_isom_testmaps.cpp)  # test maps of a mod terrain in the ISOM, for other editors
+    target_link_libraries(cmbw_isom_testmaps PRIVATE stardraft)
+    add_executable(cmbw_rect_shapes tools/probes/cmbw_rect_shapes.cpp)  # the isometric rects of a range of tile groups
+    target_link_libraries(cmbw_rect_shapes PRIVATE stardraft)
+    add_executable(cmbw_sheet tools/probes/cmbw_sheet.cpp)  # columns of game and mod rects side by side
+    target_link_libraries(cmbw_sheet PRIVATE stardraft)
+    add_executable(cmbw_crig_survey tools/probes/cmbw_crig_survey.cpp)  # CRIG rows over a folder of maps: the round trip and what stays a comment
+    target_link_libraries(cmbw_crig_survey PRIVATE stardraft)
+    add_executable(cmbw_twin tools/probes/cmbw_twin.cpp)  # the rects of one border that stand where another border's do
+    target_link_libraries(cmbw_twin PRIVATE stardraft)
+    add_executable(cmbw_map_eras tools/probes/cmbw_map_eras.cpp)  # a folder's maps by tileset
+    target_link_libraries(cmbw_map_eras PRIVATE stardraft)
+    add_executable(cmbw_showcase tools/probes/cmbw_showcase.cpp)  # a picture of a tileset's mod terrains together
+    target_link_libraries(cmbw_showcase PRIVATE stardraft)
+    add_executable(cmbw_paint_one tools/probes/cmbw_paint_one.cpp)  # one stroke of a mod terrain on its ground
+    target_link_libraries(cmbw_paint_one PRIVATE stardraft)
+    add_executable(cmbw_stroke_bench tools/probes/cmbw_stroke_bench.cpp)  # each mod terrain's strokes: times, corners changed far away
+    target_link_libraries(cmbw_stroke_bench PRIVATE stardraft)
+    add_executable(cmbw_two_strokes tools/probes/cmbw_two_strokes.cpp)  # two mod terrains painted beside each other, as a picture
+    target_link_libraries(cmbw_two_strokes PRIVATE stardraft)
+    add_executable(cmbw_resources tools/probes/cmbw_resources.cpp)  # the mod's resources, depots and workers, and a map's
+    target_link_libraries(cmbw_resources PRIVATE stardraft)
+    add_executable(cmbw_unit_list tools/probes/cmbw_unit_list.cpp)  # each mod unit's palette section
+    target_link_libraries(cmbw_unit_list PRIVATE stardraft)
+    add_executable(cmbw_list_time tools/probes/cmbw_list_time.cpp)  # how long the mod data lists its files
+    target_link_libraries(cmbw_list_time PRIVATE stardraft)
+    add_executable(cmbw_report tools/probes/cmbw_report.cpp)  # how each mod terrain is made and what its set lacks: the report for the mod team
+    target_link_libraries(cmbw_report PRIVATE stardraft)
+    add_executable(cmbw_crig_check tools/probes/cmbw_crig_check.cpp)  # the trigger comment command problems of every map
+    target_link_libraries(cmbw_crig_check PRIVATE stardraft)
+    add_executable(cmbw_crig_values tools/probes/cmbw_crig_values.cpp)  # the value problems the trigger page marks, on every map
+    target_link_libraries(cmbw_crig_values PRIVATE stardraft)
+    add_executable(cmbw_edge_sheet tools/probes/cmbw_edge_sheet.cpp)  # each mod terrain in an L, a thin line and one diamond: a sheet
+    target_link_libraries(cmbw_edge_sheet PRIVATE stardraft)
+    add_executable(cmbw_map_terrains tools/probes/cmbw_map_terrains.cpp)  # what terrains a map holds, as StarDraft opens it
+    target_link_libraries(cmbw_map_terrains PRIVATE stardraft)
+    add_executable(cmbw_cliffs tools/probes/cmbw_cliffs.cpp)  # game cliffs painted on a Cosmonarchy tab, the mod tiles in them
+    target_link_libraries(cmbw_cliffs PRIVATE stardraft)
+    add_executable(cmbw_group_maps tools/probes/cmbw_group_maps.cpp)  # which maps use a set's tile groups
+    target_link_libraries(cmbw_group_maps PRIVATE stardraft)
+    add_executable(cmbw_tile_at tools/probes/cmbw_tile_at.cpp)  # a map's tiles and ISOM terrains around a place
+    target_link_libraries(cmbw_tile_at PRIVATE stardraft)
+    add_executable(cmbw_map_diff tools/probes/cmbw_map_diff.cpp)  # the tiles another editor changed in a map
+    target_link_libraries(cmbw_map_diff PRIVATE stardraft)
+    add_executable(cmbw_variants tools/probes/cmbw_variants.cpp)  # a block's variants side by side
+    target_link_libraries(cmbw_variants PRIVATE stardraft)
+    add_executable(cmbw_neighbors tools/probes/cmbw_neighbors.cpp)  # which wall variants stand beside each other on the maps
+    target_link_libraries(cmbw_neighbors PRIVATE stardraft)
+    add_executable(cmbw_doodad_fit tools/probes/cmbw_doodad_fit.cpp)  # what the maps have beside the mod's doodad brushes
+    target_link_libraries(cmbw_doodad_fit PRIVATE stardraft)
+    add_executable(cmbw_set_status tools/probes/cmbw_set_status.cpp)  # which brush sets are terrains in the isometric list
+    target_link_libraries(cmbw_set_status PRIVATE stardraft)
+    add_executable(cmbw_auto_rows tools/probes/cmbw_auto_rows.cpp)  # which game rect each set's groups stand for on the maps
+    target_link_libraries(cmbw_auto_rows PRIVATE stardraft)
+    add_executable(cmbw_terrain_sheet tools/probes/cmbw_terrain_sheet.cpp)  # many mod terrains painted on one picture
+    target_link_libraries(cmbw_terrain_sheet PRIVATE stardraft)
+    add_executable(cmbw_seams tools/probes/cmbw_seams.cpp)  # how cleanly each mod terrain joins, against its stand-in
+    target_link_libraries(cmbw_seams PRIVATE stardraft)
+    add_executable(cmbw_group_twins tools/probes/cmbw_group_twins.cpp)  # the mod's groups the terrain engine can take for a game rect
+    target_link_libraries(cmbw_group_twins PRIVATE stardraft storm)
+    add_executable(cmbw_unit_script tools/probes/cmbw_unit_script.cpp)  # a mod unit's image, script, facings and their picture
+    target_link_libraries(cmbw_unit_script PRIVATE stardraft)
+    add_executable(cmbw_load_time tools/probes/cmbw_load_time.cpp)  # how long a map's unit pictures take to load, by part
+    target_link_libraries(cmbw_load_time PRIVATE stardraft)
+    add_executable(cmbw_image_scripts tools/probes/cmbw_image_scripts.cpp)  # each mod image's iscript ID
+    target_link_libraries(cmbw_image_scripts PRIVATE stardraft)
+endif()
+if(WIN32)
+    target_compile_definitions(cmbw_group_twins PRIVATE UNICODE _UNICODE)
+endif()
+add_executable(scmdbr_probe tools/probes/scmdbr_probe.cpp)  # what an SCMDraft brush file (.scmdbrh) holds
+target_link_libraries(scmdbr_probe PRIVATE storm)
+if(WIN32)
+    target_compile_definitions(scmdbr_probe PRIVATE UNICODE _UNICODE)
+endif()
+if(WIN32)
+    target_compile_definitions(cmbw_tiles_probe PRIVATE UNICODE _UNICODE)
+endif()
 add_executable(euddraft_tool tools/euddraft_tool.cpp)
 target_link_libraries(euddraft_tool PRIVATE stardraft)
 add_executable(trigger_test tools/tests/trigger_test.cpp)
@@ -761,6 +867,16 @@ if(WIN32 AND STARDRAFT_RENDERER)
     # It goes into the repository's root (not under build/), and finds the editor in the build folder.
     set_target_properties(stardraft_latest PROPERTIES OUTPUT_NAME StarDraft-latest RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}
                                                        RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_SOURCE_DIR} RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
-    target_compile_definitions(stardraft_latest PRIVATE STARDRAFT_BUILD_DIR=L"$<TARGET_FILE_DIR:stardraft_editor>")
+    target_compile_definitions(stardraft_latest PRIVATE STARDRAFT_BUILD_DIR=L"$<TARGET_FILE_DIR:stardraft_editor>" STARDRAFT_EDITOR_NAME=L"${STARDRAFT_EXE_NAME}")
+    # -DSTARDRAFT_LATEST_REBUILD=ON: it builds the editor first when a source is newer than the editor (a development checkout).
+    option(STARDRAFT_LATEST_REBUILD "StarDraft-latest.exe builds the editor first when its sources changed" OFF)
+    if(STARDRAFT_LATEST_REBUILD)
+        target_compile_definitions(stardraft_latest PRIVATE STARDRAFT_REBUILD_CMAKE=L"${CMAKE_COMMAND}" STARDRAFT_REBUILD_BINARY=L"${CMAKE_BINARY_DIR}"
+                                                           STARDRAFT_REBUILD_SOURCE=L"${CMAKE_SOURCE_DIR}")
+    endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
+add_executable(cmbw_place_audit tools/probes/cmbw_place_audit.cpp)
+target_link_libraries(cmbw_place_audit PRIVATE stardraft)
+add_executable(cmbw_ground_gaps tools/probes/cmbw_ground_gaps.cpp)  # grounds a mod terrain fits but cannot stand on
+target_link_libraries(cmbw_ground_gaps PRIVATE stardraft)

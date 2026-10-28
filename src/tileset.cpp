@@ -66,6 +66,8 @@ bool Tileset::load(const GameData& data, uint16_t era, std::string& error) {
         for (int k = 0; k < 16; ++k) minitileFlags[i][k] = readU16(vf4, i * 32 + 2 * k);
 
     for (int i = 0; i < 256; ++i) palette[i] = {wpe[i * 4], wpe[i * 4 + 1], wpe[i * 4 + 2]};
+    groupTerrains.clear(), groupPieces.clear(), modTerrains.clear(), pieceNeighbors.clear(), pieceNeighborTiles.clear();
+    if (const UnitDataLoader* mod = data.unitDataLoader(); mod && mod->tileset) mod->tileset(*this);
     return true;
 }
 

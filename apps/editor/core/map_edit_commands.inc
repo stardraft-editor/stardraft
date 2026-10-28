@@ -18,17 +18,26 @@ int snapChoice(int grid) {
 struct ProgramKey {
     const char* chord;  // "Ctrl+Shift+N", "V", "Ctrl+Tab" (Ctrl is Cmd on macOS)
     int id;
+    bool mapOnly = false;  // in the Map workspace only (elsewhere a later key of the chord runs: Ctrl+D's Duplicate)
 };
 constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+,", ID_OPT_WINDOW},     {"Ctrl+W", ID_FILE_CLOSE},        {"Ctrl+Shift+W", ID_FILE_CLOSEALL}, {"Ctrl+Tab", ID_TAB_NEXT},
+    {"Ctrl+Shift+T", ID_GO_TRIGGERS}, {"Ctrl+Shift+B", ID_GO_BRIEFING}, {"Ctrl+Shift+Enter", ID_GO_PROPS}, {"Ctrl+Shift+A", ID_GO_ASSETS},
+    {"Ctrl+Shift+D", ID_GO_DATA},
     {"Ctrl+Shift+Tab", ID_TAB_PREV}, {"Ctrl+N", ID_FILE_NEW},        {"Ctrl+Shift+N", ID_PROJ_NEW},      {"Ctrl+Shift+O", ID_QUICKOPEN},
     {"Ctrl+O", ID_FILE_OPEN},      {"Ctrl+S", ID_FILE_SAVE},         {"Ctrl+Shift+S", ID_FILE_SAVEAS},   {"Ctrl+Shift+E", ID_FILE_EXPORTIMAGE},   {"Ctrl+Z", ID_EDIT_UNDO},
     {"Ctrl+Y", ID_EDIT_REDO},      {"Ctrl+Shift+Z", ID_EDIT_REDO},   {"Ctrl+Shift+H", ID_EDIT_HISTORY},   {"Ctrl+X", ID_EDIT_CUT},            {"Ctrl+C", ID_EDIT_COPY},
-    {"Ctrl+D", ID_EDIT_DUPLICATE}, {"Ctrl+V", ID_EDIT_PASTE},        {"Ctrl+A", ID_EDIT_SELECTALL},      {"V", ID_TOOL_KEY},
+    {"Ctrl+D", ID_EDIT_DUPLICATE}, {"Ctrl+V", ID_EDIT_PASTE},        {"Ctrl+A", ID_EDIT_SELECTALL},
+    // SCMDraft's layer keys, in the Map workspace: Ctrl+T, G, L, U and R the modes (the letters alone too; Doodads on G, as
+    // Ctrl+D is Duplicate), Ctrl+F the fog of war (its command)
+    {"Ctrl+T", ID_MODE_TERRAIN, true}, {"Ctrl+G", ID_MODE_DOODADS, true}, {"Ctrl+L", ID_MODE_LOCATIONS, true},
+    {"Ctrl+U", ID_MODE_UNITS, true}, {"Ctrl+R", ID_MODE_SPRITES, true},
+    {"T", ID_CT_ADD_TRIGGER},      {"C", ID_CT_ADD_CONDITION},       {"A", ID_CT_ADD_ACTION},  // (before the tools' A: on the Classic triggers page only)
+    {"V", ID_TOOL_KEY},
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
     {"Ctrl+6", ID_RAIL_KEY + 5},   {"Ctrl+7", ID_RAIL_KEY + 6},      {"Ctrl+8", ID_RAIL_KEY + 7},        {"Ctrl+9", ID_RAIL_KEY + 8},
-    {"Ctrl+B", ID_PROJ_COMPILE},   {"Ctrl+L", ID_VIEW_LOG},            {"F1", ID_HELP_CONTEXT},            {"Ctrl+E", ID_DATA_TABLE},
+    {"Ctrl+B", ID_PROJ_COMPILE},   {"Ctrl+M", ID_VIEW_LOG},            {"F1", ID_HELP_CONTEXT},            {"Ctrl+E", ID_DATA_TABLE},
 #ifdef __APPLE__  // macOS: Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
     {"Ctrl+Backspace", ID_EDIT_DELETE}, {"Ctrl+`", ID_TAB_NEXT},     {"Ctrl+Shift+`", ID_TAB_PREV},
 #endif
@@ -82,6 +91,7 @@ bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
         gActive = -1;
         if (!gDocs.empty()) activateDoc(std::min(i, int(gDocs.size()) - 1));
     }
+    updateTitle();  // (no tab: the closed maps' names go from the title bar)
     return true;
 }
 
@@ -233,6 +243,10 @@ void copyMapSelection(AppState& app) {
                 items.push_back({sp.id, sp.x, sp.y, sp.owner});
             }
         }
+        if (dd)  // (the selected Cosmonarchy doodad brushes: their value and their middle)
+            for (const AppState::BrushAt& b : app.selBrushes)
+                if (const TerrainStamp* st = brushDoodad(b.value))
+                    items.push_back({uint16_t(b.value), b.tx * 32 + st->width * 16, b.ty * 32 + st->height * 16, 0});
         if (items.empty()) return setMessage(dd ? L"First, select doodads" : L"First, select sprites");
         // From the middle of the group: a paste puts the middle at the mouse.
         int cx = 0, cy = 0;
@@ -396,6 +410,10 @@ bool commandMapEdit(AppState& app, int id) {
             if (app.ed->deleteSprites(app.selSprites)) setMessage(L"Deleted " + std::to_wstring(app.selSprites.size()) + L" sprites");
             app.selSprites.clear();
         } else if (app.mode == Mode::Doodads) {
+            if (!app.selBrushes.empty()) {  // (Cosmonarchy doodad brushes: the terrain's own tiles again)
+                const int n = deleteBrushDoodads(app);
+                setMessage(L"Took away " + std::to_wstring(n) + (n == 1 ? L" doodad brush" : L" doodad brushes"));
+            }
             if (app.ed->deleteDoodads(app.selDoodads)) setMessage(L"Deleted " + std::to_wstring(app.selDoodads.size()) + L" doodads");
             app.selDoodads.clear();
         } else app.ed->deleteSelection();
@@ -425,6 +443,11 @@ bool commandMapEdit(AppState& app, int id) {
         app.snapBuildings = !app.snapBuildings;
         setBuildingSnap(app.snapBuildings);
         setMessage(app.snapBuildings ? L"Buildings: snap to tile edges" : L"Buildings: do not snap");
+        break;
+    case ID_OPT_RANDOMFACING:
+        app.randomFacing = !app.randomFacing;
+        shellForgetAnims();  // (the animations keep the direction they started with)
+        setMessage(app.randomFacing ? L"Units get a random direction when placed" : L"Units face down and right");
         break;
     case ID_OPT_RESDIST:
         app.resourceDistance = !app.resourceDistance;
@@ -532,6 +555,8 @@ int mapMenuCheck(int id) {
     case ID_DOODAD_ANYWHERE: return !app.doodadCheck;
     case ID_OPT_STACK: return app.allowStacking;
     case ID_OPT_RESDIST: return app.resourceDistance;
+    case ID_OPT_RANDOMFACING: return app.randomFacing;
+    case ID_OPT_ANIMATE: return app.animate;
     case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;
     case ID_EDIT_TERRAINUNITS: return app.copyUnitsWithTerrain;

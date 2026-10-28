@@ -152,7 +152,7 @@ bool sdlSfxLoad(int sfx, SDL_AudioSpec& spec, std::vector<Uint8>& pcm);
 void sfxPlayOnce(int sfx) {
     static std::vector<SDL_AudioStream*> playing;
     for (auto it = playing.begin(); it != playing.end();)
-        if (SDL_GetAudioStreamQueued(*it) <= 0) SDL_DestroyAudioStream(*it), it = playing.erase(it);
+        if (SDL_GetAudioStreamQueued(*it) <= 0) closeStreamSdl(*it), it = playing.erase(it);
         else ++it;
     if (playing.size() >= 8) return;
     struct Decoded {
@@ -170,7 +170,7 @@ void sfxPlayOnce(int sfx) {
     if (SDL_AudioStream* s = openPlaybackSdl(&it->second.spec)) {
         SDL_PutAudioStreamData(s, it->second.pcm.data(), int(it->second.pcm.size()));
         SDL_FlushAudioStream(s);
-        SDL_ResumeAudioStreamDevice(s);
+        playStreamSdl(s);
         playing.push_back(s);
     }
 }
@@ -195,14 +195,14 @@ struct SdlSfxSound {
     bool paused = false;
 } gSdlSfx;
 void sdlSfxStop() {
-    if (gSdlSfx.stream) SDL_DestroyAudioStream(gSdlSfx.stream);
+    closeStreamSdl(gSdlSfx.stream);
     gSdlSfx = {};
 }
 void sdlSfxToggle(int sfx) {
     ++gSoundAsks, gSoundAsked = "sfx " + std::to_string(sfx);  // (a snapshot's state line: a test run plays nothing)
     if (gSdlSfx.sfx == sfx && gSdlSfx.stream) {
         gSdlSfx.paused = !gSdlSfx.paused;
-        gSdlSfx.paused ? SDL_PauseAudioStreamDevice(gSdlSfx.stream) : SDL_ResumeAudioStreamDevice(gSdlSfx.stream);
+        if (!pauseStreamSdl(gSdlSfx.stream, gSdlSfx.paused)) gSdlSfx.paused = true;  // (this sound only; no device: it stays paused)
         return;
     }
     sdlSfxStop();
@@ -216,7 +216,7 @@ void sdlSfxToggle(int sfx) {
     }
     SDL_PutAudioStreamData(gSdlSfx.stream, pcm.data(), int(pcm.size()));
     SDL_FlushAudioStream(gSdlSfx.stream);
-    SDL_ResumeAudioStreamDevice(gSdlSfx.stream);
+    playStreamSdl(gSdlSfx.stream);
     gSdlSfx.sfx = sfx, gSdlSfx.total = int(pcm.size());
 }
 // The part played (0..1) and whether it plays now; a sound at its end stops (its button shows play again).

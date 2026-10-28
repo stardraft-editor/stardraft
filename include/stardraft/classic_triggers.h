@@ -50,6 +50,28 @@ struct ClassicBatch {
 
 // The row type of a block in the working copy (never written to a map).
 constexpr uint8_t kClassicBlockType = 0xFF;
+
+// A mod's script line kept in a Comment action (a Cosmonarchy CRIG: "set_race 1 askosi"), as its own condition or action
+// row in the working copy (never written to a map: the mod's module makes the rows from the Comments' lines and writes
+// them back, cmbw::crigCollapse and crigExpand).
+constexpr uint8_t kClassicCrigType = 0xFE;
+struct ClassicCrig {
+    std::string line;    // the command as the mod reads it
+    int group = -1;      // the trigger's Comment it came from (its n-th that became rows; -1: a new row)
+    int index = 0;       // its line in that Comment
+    int at = 0;          // that Comment's place among the action rows (for a Comment of conditions only)
+    uint32_t text = 0;   // that Comment's string id
+    uint8_t flags = 0;   // that Comment's flags
+    bool crlf = true;    // that Comment's lines end in CR LF (else LF)
+    friend bool operator==(const ClassicCrig&, const ClassicCrig&) = default;
+};
+// (equal when the lines are: a row and its copy, or a changed row changed back)
+struct ClassicCrigRef {
+    std::shared_ptr<const ClassicCrig> p;
+    explicit operator bool() const { return p != nullptr; }
+    const ClassicCrig* operator->() const { return p.get(); }
+    friend bool operator==(const ClassicCrigRef& a, const ClassicCrigRef& b) { return a.p == b.p || (a.p && b.p && *a.p == *b.p); }
+};
 // The fields of an action that can hold a batch's variable, in ClassicAction::var order: location, player, unit, number.
 constexpr int kClassicVarFields = 4;
 
@@ -63,6 +85,7 @@ struct ClassicCondition {
     uint8_t resource = 0;     // resource type, score type or switch number (0-255)
     uint8_t flags = 0;        // bit 1 (2): disabled; bit 4 (16): unit type used
     uint16_t internal = 0;    // 0x4353 ("SC"): a masked memory condition (EUD)
+    ClassicCrigRef crig;      // working copy only: a mod's script condition (type kClassicCrigType)
     friend bool operator==(const ClassicCondition&, const ClassicCondition&) = default;
 };
 
@@ -85,6 +108,7 @@ struct ClassicAction {
     std::array<uint8_t, kClassicVarFields> var{};
     // A block's row (type kClassicBlockType): its variable and values.
     std::shared_ptr<const ClassicBatch> batch;
+    ClassicCrigRef crig;  // a mod's script action's row (type kClassicCrigType)
 };
 bool operator==(const ClassicAction& a, const ClassicAction& b);
 
@@ -220,6 +244,9 @@ std::string classicActionText(const ClassicAction& a, const ClassicNames& names,
 std::string classicPlayerName(uint32_t group, const ClassicNames& names);
 
 // Is this a condition or action that only an EUD editor makes (a player or unit past the game's lists, a mask)?
+// A mod's unit types past the trigger groups (Cosmonarchy BW: ids 233 up to `count`) are unit types, not EUD values.
+// 233 (the default): the game's limit (units 0-227, no unit 228, the groups 229-232).
+void classicSetUnitTypeCount(uint32_t count);
 bool classicEud(const ClassicCondition& c);
 bool classicEud(const ClassicAction& a);
 

@@ -57,6 +57,10 @@ public:
     void setQuality(GraphicsQuality q);
     // The Cartooned (Carbot) skin for HD and HD2 art (falls back to the normal art where missing).
     void setCarbot(bool carbot);
+    // SD art: each player's units in the shades of its color's row of tunit.pcx (a mod's colors have shades that a tint
+    // of the grey ramp cannot give: Rainbow), not the grey ramp tinted by setPlayerColors.
+    // (a bit for each of the 12 owners: a player of a custom RGB color stays tinted, its color has no row)
+    void setExactTeamColors(uint16_t owners);
     GraphicsQuality quality() const;
     // False when the GPU cannot sample HD and HD2 art (BC1 and BC3 textures): the art is then SD at every quality.
     bool hdArt() const;

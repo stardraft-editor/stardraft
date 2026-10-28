@@ -10,7 +10,7 @@ void setMessage(const std::wstring& m);
 void startMark(const char* what);
 void updateTitle();
 void activateDoc(int i);
-void openMap(const std::wstring& path, bool switchToOpen = true);
+void openMap(const std::wstring& path, bool switchToOpen = true, bool project = false);
 int findOpenProject(const std::filesystem::path& folder);
 bool classicCommandInProject(int id);  // core/map_edit_commands.inc: the project's map has that classic data (L.4)
 
@@ -34,6 +34,7 @@ struct Doc {
     int page = 0;  // a page and not a document yet (new_page.inc): kPageNew, kPageStart; `ed` is a small blank map until then
     std::shared_ptr<MapPageCopies> mapPages;  // the map pages' working copies (map_pages.inc)
     int key = ++gDocKeys;  // the tab's own number while it is open (its place in gDocs changes): its palette panels
+    Workspace workspace = Workspace::Map;  // the workspace or map page the tab was on when it went to the back: it comes back to it
 };
 std::vector<Doc> gDocs;
 int gUntitledCount = 0;
@@ -114,7 +115,7 @@ void openProject(const std::filesystem::path& edsOrFolder) {
         return;
     }
     const size_t before = gDocs.size();
-    openMap(pr->inputMap().wstring(), false);  // a tab of its own, also when the map is open by itself
+    openMap(pr->inputMap().wstring(), false, true);  // a tab of its own, also when the map is open by itself
     if (gDocs.size() < before || gActive < 0 || !app.ed || app.ed->path() != pr->inputMap()) return;  // the map did not open
     gDocs[size_t(gActive)].project = pr;
     updateTitle();
@@ -194,9 +195,11 @@ int findOpenMap(const fs::path& path) {
 
 // Opens a map file in a tab (or the tab that has it open). Defined here so the open is the core's; the native parts are the host's.
 void activateDoc(int i);
+const GameData& gameDataForMap(const fs::path& path);  // (cmbw.inc)
 void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank);
 void setMessage(const std::wstring& m);
-void openMap(const std::wstring& path, bool switchToOpen) {
+// `project`: the map of a project, which always has the game's data (a Cosmonarchy map is never a project).
+void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     AppState& app = shellState();
     if (const int open = switchToOpen ? findOpenMap(path) : -1; open >= 0) {  // open already: go to its tab
         activateDoc(open);
@@ -204,7 +207,7 @@ void openMap(const std::wstring& path, bool switchToOpen) {
         setMessage(fs::path(path).filename().wstring() + L" is open already");
         return;
     }
-    auto ed = std::make_unique<Editor>(app.data);
+    auto ed = std::make_unique<Editor>(project ? app.data : gameDataForMap(fs::path(path)));
     std::string err;
     shellWaitCursor();
     if (!ed->open(fs::path(path), err)) {

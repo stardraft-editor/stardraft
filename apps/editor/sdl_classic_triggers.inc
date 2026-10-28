@@ -22,6 +22,7 @@ CtTextView* gSdlCtTextView = nullptr;        // the text pop-out while it is ope
 // The names the lists show and the search matches (the map's units, locations, switches and forces; the page's strings).
 ClassicNames sdlTrigNames(const SdlClassicTrigModel& m) {
     ClassicNames n;
+    classicSetUnitTypeCount(modTab() ? uint32_t(gState.ed->unitTypes().size()) : 233);  // (a Cosmonarchy map: its units past the groups)
     n.unit = [](uint32_t u) { return narrow(unitDisplayName(int(u))); };
     n.location = [](uint32_t l) {
         const int i = int(l) - 1;
@@ -259,8 +260,10 @@ private:
             ctShowPlayers(gSdlTrigPage->head(), gSdlTrigPage->model(), sdlTrigNames(gSdlTrigPage->model()));
             sdlMapPageChanged();
         };
-        cb.turnOff = [] {
-            ctModelToggleTriggers(gSdlTrigHost.model(), gSdlTrigHost);
+        cb.turnOff = [](bool on) {  // (the selected trigger, which the box shows: on or off as it is now)
+            CtModel& m = gSdlTrigHost.model();
+            if (const ClassicTrigger* t = ctModelSelected(m); t && t->disabled() == on) gSdlTrigList.toggleTrigger(m.sel);
+            ctUpdateHead(gSdlTrigPage->head(), m);
             sdlMapPageChanged();
         };
         cb.deleteTrig = [] {
@@ -285,6 +288,11 @@ private:
         };
         cb.value = [](int param, const draw::View& field) {
             ctValueClick(gSdlTrigHost, param, field, {0, 0, field.width(), field.height()});
+            sdlMapPageChanged();
+        };
+        cb.step = [](int param, int dir) {  // (the selected entry's value, as the wheel over its chip)
+            const CtModel& m = gSdlTrigHost.model();
+            ctStepValue(gSdlTrigHost, m.kind, m.entry, param, dir);
             sdlMapPageChanged();
         };
         return cb;
@@ -372,8 +380,54 @@ void sdlClassicTrigPopShot(const std::string& spec) {
     });
 }
 // Q on the Classic triggers page from the Edit menu: Quick add (core/views_trigger_quick.inc).
-void sdlClassicQuickAdd() { ctQuickAdd(gSdlTrigHost); }
-void sdlClassicFind() { ctFind(gSdlTrigHost); }  // Edit > Find in triggers (core/views_trigger_quick.inc)
+// (each needs the page: the workspace can be Classic triggers a moment without it, as a save question closes it)
+void sdlClassicQuickAdd() {
+    if (gSdlTrigPage) ctQuickAdd(gSdlTrigHost);
+}
+void sdlClassicFind() {  // Edit > Find in triggers (core/views_trigger_quick.inc)
+    if (gSdlTrigPage) ctFind(gSdlTrigHost);
+}
+// T, C or A on the page (`what` 0, 1, 2): Add a trigger, or the Add a condition or action link's picker.
+void sdlClassicAdd(int what) {
+    if (!gSdlTrigPage) return;
+    if (what == 0) gSdlTrigList.addTrigger();
+    else gSdlTrigList.addKey(what - 1);
+}
+
+// --check classicrows: the selected trigger's conditions and actions as their rows say them (a value chip in brackets),
+// and the TRIG the page would write (a Cosmonarchy map's command rows back in their Comments): each Comment's text.
+void sdlClassicRowsCheck() {
+    CtModel& m = gSdlTrigHost.model();
+    const ClassicTrigger* t = ctModelSelected(m);
+    if (!t) return (void)std::printf("classic rows: no trigger\n");
+    CtSentenceEnv env;
+    env.names = gSdlTrigHost.names();
+    env.chipText = [&env](const ClassicParam& p, uint32_t v) { return ctChipTextOf(p, v, env.names, true); };
+    auto say = [](const std::vector<CtSegment>& parts) {
+        std::wstring s;
+        for (const CtSegment& g : parts) s += g.part == CtPart::Chip ? L"[" + g.text + L"]" : g.text;
+        return narrow(s);
+    };
+    std::printf("classic rows: trigger %d\n", m.sel + 1);
+    for (int i = 0; i < t->conditionCount(); ++i)
+        std::printf("condition %d%s: %s\n", i, t->conditions[size_t(i)].type == kClassicCrigType ? " (CRIG)" : "",
+                    say(ctSentenceParts(t->conditions[size_t(i)], 0, nullptr, i, env)).c_str());
+    for (int i = 0; i < t->actionCount(); ++i)
+        std::printf("action %d%s: %s\n", i, t->actions[size_t(i)].type == kClassicCrigType ? " (CRIG)" : "",
+                    say(ctSentenceParts(t->actions[size_t(i)], 1, t, i, env)).c_str());
+    StringTable strings = m.strings;
+    ClassicTriggers one;
+    one.triggers.push_back(*t);
+    if (modTab()) one = stardraft::cmbw::crigExpand(one, strings);
+    for (int i = 0; i < one.triggers[0].actionCount(); ++i)
+        if (one.triggers[0].actions[size_t(i)].type == kCtCommentType) {
+            std::string text = strings.get(one.triggers[0].actions[size_t(i)].text);
+            for (char& ch : text)
+                if (ch == '\r') ch = ' ';
+                else if (ch == '\n') ch = '/';
+            std::printf("written comment %d: %s\n", i, text.c_str());
+        }
+}
 
 void sdlClassicTrigSelect(const std::string& spec) {
     int t = 0, kind = 0, entry = -1;

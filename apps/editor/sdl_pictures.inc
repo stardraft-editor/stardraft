@@ -7,6 +7,7 @@
 // stay (the mode is 0 for SD, 1 for HD2 and 2 for Carbot, as the Win32 palette's).
 struct PaletteArt {
     const Editor* ed = nullptr;
+    const GameData* data = nullptr;  // the game data the HD icons came from (a Cosmonarchy tab has its own)
     int era = -1, mode = -1;
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
     HdTiles hdTiles;              // HD2 (or Carbot) megatiles, for terrain and doodad pictures
@@ -30,10 +31,11 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     const bool unitKind = what == Mode::Units && !iconFrame;
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode) {
         gPaletteArt.bitmaps.clear();
-        if (gPaletteArt.mode != mode) {
+        if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
             gPaletteArt.hdIcons.clear();
+            gPaletteArt.data = &ed.gameData();
             std::string err;
-            if (mode) loadHdCommandIcons(gState.data, mode == 2, gPaletteArt.hdIcons, err);
+            if (mode) loadHdCommandIcons(ed.gameData(), mode == 2, gPaletteArt.hdIcons, err);
             if (mode == 1)  // the HD icons take the SD icon's color (ticon.pcx), scaled by their gray
                 if (const Sprite* sd = ed.unitSprites().commandIcon(0)) {
                     uint8_t tint[3] = {255, 255, 255};
@@ -53,7 +55,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
     if (!unitKind) sprite = false;
-    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? owner : 0, sprite);
+    // (a unit's picture is its player's color: the key has it, so a color changed on the Players page shows)
+    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? int(owner) << 24 | int(ed.playerRgb(owner) & 0xFFFFFF) : 0, sprite);
     if (auto it = gPaletteArt.bitmaps.find(key); it != gPaletteArt.bitmaps.end()) return it->second.get();
 
     // The picture: a sprite of the game data (straight alpha), cropped to its opaque pixels below.
@@ -66,11 +69,37 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
             gPaletteArt.hdTilesLoaded = true, gPaletteArt.hdTilesEra = int(ed.era()), gPaletteArt.hdTilesMode = mode;
-            if (!loadHdTiles(gState.data, ed.era(), GraphicsQuality::HD2, gPaletteArt.hdTiles, err, mode == 2))
+            if (!loadHdTiles(ed.gameData(), ed.era(), GraphicsQuality::HD2, gPaletteArt.hdTiles, err, mode == 2))
                 gPaletteArt.hdTiles = {};
         }
         const HdTiles* hd = mode && !gPaletteArt.hdTiles.tiles.empty() ? &gPaletteArt.hdTiles : nullptr;
-        if (what == Mode::Terrain) art = terrainPicture(ed.tileset(), uint16_t(value), hd);
+        if (what == Mode::Terrain) {
+            art = terrainPicture(ed.tileset(), uint16_t(value), hd);
+            // The terrain it stands on ("X (Y)": Y) as a small square at the bottom right, half the picture's height.
+            uint16_t ground = 0;
+            if (const Tileset::ModTerrain* m = ed.tileset().modTerrain(uint16_t(value))) ground = m->ground;
+            else if (const std::string n = ed.terrainName(uint16_t(value)); n.size() > 3 && n.back() == ')') {
+                const std::string y = n.substr(n.find(" (") + 2, n.size() - n.find(" (") - 3);
+                const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
+                for (uint16_t i = 1; t && i <= t->terrainCount() && !ground; ++i)
+                    if (t->isTerrain(i) && ed.terrainName(i) == y) ground = i;
+                if (!ground && t)  // (Y named with its own ground: "Dirt" is the main terrain)
+                    for (uint16_t i = 1; i <= t->terrainCount() && !ground; ++i)
+                        if (t->isTerrain(i) && ed.terrainName(i).rfind(y + " (", 0) == 0) ground = i;
+            }
+            if (ground && art.width && art.height >= 8) {
+                const Sprite g = terrainPicture(ed.tileset(), ground, hd);
+                const int side = art.height / 2, x0 = art.width - side, y0 = art.height - side;
+                for (int y = 0; y < side && g.width && g.height; ++y)
+                    for (int x = 0; x < side; ++x) {
+                        const bool frame = x == 0 || y == 0;
+                        const size_t d = (size_t(y0 + y) * art.width + x0 + x) * 4;
+                        const size_t s2 = (size_t(y * g.height / art.height) * g.width + x * g.height / art.height) * 4;
+                        for (int k = 0; k < 3; ++k) art.rgba[d + k] = frame ? 16 : g.rgba[s2 + k];
+                        art.rgba[d + 3] = 255;
+                    }
+            }
+        }
         else if (what == Mode::Sprites) {
             const int image = ed.unitSprites().imageForSprite(uint16_t(value));
             const Grp* g = image >= 0 ? ed.unitSprites().grp(image) : nullptr;
@@ -79,6 +108,10 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
                 art.rgba.assign(size_t(art.width) * size_t(art.height) * 4, 0);
                 ed.unitSprites().drawImage(art, image, 0, false, 0, ed.tileset());
             }
+        } else if (const TerrainStamp* b = brushDoodad(value)) {
+            std::vector<uint16_t> tiles(b->tiles.size());
+            for (size_t i = 0; i < tiles.size(); ++i) tiles[i] = i < b->mask.size() && b->mask[i] ? b->tiles[i] : uint16_t(0xFFFF);
+            art = tilesSprite(ed.tileset(), b->width, b->height, tiles, hd);
         } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(value))) art = doodadPicture(*d, ed.tileset(), ed.unitSprites(), hd);
         if (art.width) s = &art;
     } else {
@@ -88,7 +121,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         }
         if (!s && mode) {  // no icon: the unit's picture of the HD art
             std::string err;
-            if (hdUnitPicture(gState.data, ed.unitSprites(), uint16_t(value), ed.playerRgb(owner), mode == 2, art, err) && art.width) s = &art;
+            if (hdUnitPicture(ed.gameData(), ed.unitSprites(), uint16_t(value), ed.playerRgb(owner), mode == 2, art, err) && art.width) s = &art;
         }
         if (!s) s = ed.unitSprites().unitSprite(uint16_t(value), uint8_t(owner), ed.tileset());
     }

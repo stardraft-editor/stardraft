@@ -110,6 +110,11 @@ public:
     // left the window, the window lost the focus or closed.
     using HoverHook = std::function<void(draw::View& root, draw::Point pt, const std::wstring& tip, bool reset)>;
     void setHoverHook(HoverHook fn) { hover_ = std::move(fn); }
+    // A key before any view gets it (a two-key shortcut's second key): `fn` true takes it, and the text that the key
+    // types does not go to a text field either. A key event with no key (Key::None) says that the mouse was pressed or a
+    // window lost the keyboard: a key to come is no second key then.
+    using KeyFilter = std::function<bool(const draw::KeyEvent&)>;
+    void setKeyFilter(KeyFilter fn) { keyFilter_ = std::move(fn); }
     // A file dropped on a window, or (macOS) a file that Finder opens with the program, also at its start: `fn` gets its
     // path (UTF-8). Not while a modal dialog is open (runModal): the drop then does nothing.
     void setDropHook(std::function<void(const std::string& path)> fn) { drop_ = std::move(fn); }
@@ -244,6 +249,8 @@ private:
     long long presented_ = 0, missed_ = 0;  // presentedFrames, missedFrames
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook
+    KeyFilter keyFilter_;                // setKeyFilter
+    bool dropText_ = false;              // (a key that keyFilter_ took: the text it types goes nowhere)
     std::function<void(const std::string&)> drop_;  // setDropHook
     RightClickHook rightClick_;                     // setRightClickHook
     std::function<bool()> precise_;                 // setPreciseScrollHook

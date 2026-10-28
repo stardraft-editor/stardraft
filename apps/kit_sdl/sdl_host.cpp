@@ -445,6 +445,7 @@ void SdlHost::snapshotKey(draw::View& root, int w, int h, const draw::KeyEvent& 
     }
     if (!inModal(win->id)) return;  // (as dispatch: only the modal window and what it opened take input)
     if (k.down && k.key == Key::Escape && win->popup()) return dismiss(win->id);
+    if (keyFilter_ && keyFilter_(k)) return;
     win->router->key(k);
 }
 
@@ -850,7 +851,22 @@ void SdlHost::openWindow(draw::View& from, draw::View& content, const draw::Wind
     } else {
         // A pop-out, menu or tooltip: at `spec.at` in the opener's view, in the parent window's logical points.
         const Point o = from.origin();
-        const int x = toLogical(o.x + spec.at.left, parent->density), y = toLogical(o.y + spec.at.top, parent->density);
+        int x = toLogical(o.x + spec.at.left, parent->density), y = toLogical(o.y + spec.at.top, parent->density);
+        if (spec.kind == WindowKind::Tooltip) {
+            // (a tooltip stays on the screen's work area: left of its place at the right edge, above the mouse pointer at
+            // the bottom, as the system's tooltips do)
+            SDL_Rect area{};
+            int px = 0, py = 0;
+            SDL_GetWindowPosition(parent->sdl, &px, &py);
+            if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(parent->sdl), &area)) {
+                const int lw = std::max(1, toLogical(width, parent->density)), lh = std::max(1, toLogical(height, parent->density));
+                const int kPointer = 24;  // (the pointer's height and a gap: the tip's top is that far below the hot spot)
+                if (px + x + lw > area.x + area.w) x = area.x + area.w - lw - px;
+                if (px + x < area.x) x = area.x - px;
+                if (py + y + lh > area.y + area.h) y -= lh + kPointer;
+                if (py + y < area.y) y = area.y - py;
+            }
+        }
         const SDL_WindowFlags type = spec.kind == WindowKind::Tooltip ? SDL_WINDOW_TOOLTIP : SDL_WINDOW_POPUP_MENU;
         sdl = SDL_CreatePopupWindow(parent->sdl, x, y, std::max(1, toLogical(width, parent->density)),
                                     std::max(1, toLogical(height, parent->density)),
@@ -1065,6 +1081,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         for (const auto& w : wins_) w->dirty = true;
         return;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
+        if (keyFilter_) keyFilter_(KeyEvent{});  // (no second key: setKeyFilter)
         if (Win* w = findWin(wid); w && hover_ && w->kind != WindowKind::Tooltip) hover_(*w->root, {}, {}, true);
         // The window lost the keyboard focus during a press (Alt+Tab, another program or window took it): the view with
         // the mouse capture loses it now and ends what the press was for (a stroke on the map ends as one undo step), as
@@ -1112,6 +1129,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP: {
         if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN) dismissPopupsExcept(wid);  // a click outside a pop-out closes it
+        if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && keyFilter_) keyFilter_(KeyEvent{});  // (no second key: setKeyFilter)
         Win* w = findWin(wid);
         if (w && (e.button.button == SDL_BUTTON_X1 || e.button.button == SDL_BUTTON_X2)) {
             // The mouse's back and forward buttons, let go: the view under the mouse (or a view it is in) takes them.
@@ -1220,12 +1238,21 @@ void SdlHost::dispatch(const SDL_Event& e) {
             if (!f || !f->typesText()) k.key = Key::Delete, k.mods = 0;
         }
 #endif
+        if (k.down) dropText_ = false;
+        if (keyFilter_ && keyFilter_(k)) {
+            // (the text it types goes nowhere: only a key that types, with no Ctrl or Alt)
+            const int kk = int(k.key);
+            dropText_ = k.down && !(k.mods & (draw::kCtrl | draw::kAlt)) &&
+                        ((kk >= 32 && kk < 127) || (kk >= int(Key::Plus) && kk <= int(Key::Equals)));
+            return;
+        }
         w->router->key(k);
         return;
     }
     case SDL_EVENT_TEXT_INPUT: {
         Win* w = findWin(wid);
         if (!w || !w->typing) return;  // (SDL sends none then: a snapshot's window does the same)
+        if (std::exchange(dropText_, false)) return;  // (its key was a two-key shortcut's: setKeyFilter)
         if (w->composing) {  // the text is committed: the composition ends
             w->composing = false;
             w->router->compose(draw::CompositionEvent{});
@@ -1236,6 +1263,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
     case SDL_EVENT_TEXT_EDITING: {
         Win* w = findWin(wid);
         if (!w || !w->typing) return;
+        if (dropText_) return;  // (an input method's text of a two-key shortcut's second key: setKeyFilter)
         draw::CompositionEvent c;
         c.utf8 = e.edit.text ? e.edit.text : "";
         c.cursor = int(byteIndex(c.utf8, e.edit.start));

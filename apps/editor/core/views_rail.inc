@@ -178,6 +178,6 @@ struct RailView final : stardraft::draw::View {
         const int k = keys.index(int(gWsHits.size()));
         return k < 0 ? std::wstring() : gWsHits[size_t(k)].name;
     }
-    // The rail's labels: the UI font at 5/6 of its height.
-    static int railLabelHeight() { return shellUiFontLfHeight() * 5 / 6; }
+    // The rail's labels: the UI font at 11/12 of its height.
+    static int railLabelHeight() { return shellUiFontLfHeight() * 11 / 12; }
 };

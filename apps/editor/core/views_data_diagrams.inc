@@ -763,7 +763,7 @@ int paintIscriptUses(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
         std::set<std::pair<std::string, int>> seen;
         for (int a = 0; a < 28; ++a)
             if (const size_t start = sp.animOffset(image, a))
-                for (const auto& l : disassembleIscript(sp.iscript(), start, 400))
+                for (const auto& l : disassembleIscript(sp.scriptCode(image), start, 400))
                     for (const auto& arg : l.argv)
                         if (!arg.ref.empty() && arg.ref != "label" && seen.insert({arg.ref, arg.value}).second) cache.refs.push_back({arg.ref, arg.value});
         std::stable_sort(cache.refs.begin(), cache.refs.end(), [](const auto& p1, const auto& p2) { return p1.first < p2.first; });
@@ -805,6 +805,7 @@ int paintIscriptUses(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
 // "Follow" goes back to that after a label was clicked. Returns its height (0: none).
 struct IscriptListingState {
     size_t start = 0;
+    const Bytes* code = nullptr;  // the iscript file of the lines
     std::vector<IscriptLine> lines;
     int first = -1;  // the first line shown when it does not follow (-1: it follows)
     int shownFirst = 0, shown = 0;
@@ -818,7 +819,8 @@ int paintIscriptListing(draw::Canvas& c, DataPicturesHost& host, int image, int 
     IscriptListingState& g = gIscriptListing;
     const size_t start = sp.animOffset(image, gImagePlayer.anim);
     if (!start) return 0;
-    if (g.start != start || g.lines.empty()) g.start = start, g.lines = disassembleIscript(sp.iscript(), start, 400), g.first = -1;
+    if (g.start != start || g.code != &sp.scriptCode(image) || g.lines.empty())  // (a mod: the image's own iscript file)
+        g.start = start, g.code = &sp.scriptCode(image), g.lines = disassembleIscript(sp.scriptCode(image), start, 400), g.first = -1;
     const auto& lines = g.lines;
     const int id = sp.scriptId(image);  // the script's name over it: iscript ID and its name
     const auto names = DatSchema::entryNames("iscript");

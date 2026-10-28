@@ -77,6 +77,7 @@ void stashActive() {
     typingFlush();  // a text being typed goes into this tab's map before the tab goes to the back
     mapPageClose();
     Doc& d = gDocs[size_t(gActive)];
+    d.workspace = gWorkspace;
     d.camX = app.camX, d.camY = app.camY, d.zoom = app.zoom;
     d.hasTerrainSel = app.hasTerrainSel, d.terrainSel = app.terrainSel, d.terrainSelMask = app.terrainSelMask;
     d.pasting = app.pasting, d.terrainPasting = app.terrainPasting;
@@ -114,7 +115,9 @@ void activateDoc(int i) {
     app.hasTerrainSel = d.hasTerrainSel, app.terrainSel = d.terrainSel, app.terrainSelMask = d.terrainSelMask;
     app.pasting = d.pasting, app.terrainPasting = d.terrainPasting;
     showActive();
-    if (gWorkspace != Workspace::Map) setWorkspace(d.page ? Workspace::Map : gWorkspace);  // a map tab falls back to Map; a project reloads
+    // Each tab its own workspace or map page: the one it was on (a page tab: Map; one this tab has not: setWorkspace
+    // falls back to Map).
+    if (const Workspace w = d.page ? Workspace::Map : d.workspace; w != gWorkspace || w != Workspace::Map) setWorkspace(w);
     shellInvalidateWorkspaceBar();
     setMessage(L"Switched to " + docTitle(i));
 }
@@ -123,7 +126,8 @@ bool closeDoc(int i) {
     AppState& app = shellState();
     if (i < 0 || i >= int(gDocs.size())) return true;
     activateDoc(i);
-    if (!confirmDiscard()) return false;
+    if (!confirmDiscard()) return setWorkspace(gWorkspace), false;  // (canceled: the map page its question closed opens again)
+    const std::wstring closed = docTitle(i);
     mapPageClose();
     app.ed.reset();
     shellForgetAnims();  // they held that editor's sprites (a new editor can get the same address)
@@ -132,7 +136,13 @@ bool closeDoc(int i) {
     forgetProject(pr.get());
     dropUnsavedProject(pr);  // an unsaved project's folder goes with its tab
     gActive = -1;
-    if (gDocs.empty()) openStartPage();  // the last tab closed: the start page
+    if (gDocs.empty()) {  // the last tab closed: the start page, and no part of the closed map's status stays
+        for (std::wstring& part : app.statusText) part.clear();
+        shellStatusChanged();
+        openStartPage();
+        updateTitle();  // (the closed map's name goes from the title bar)
+        setMessage(L"Closed " + closed);
+    }
     else activateDoc(std::min(i, int(gDocs.size()) - 1));
     return true;
 }
@@ -153,9 +163,8 @@ bool docHasWork(int i) {
 // canceled (the tab that asked stays active, with its page). No tab closes, so a cancel loses nothing.
 bool confirmAllDocs() {
     typingFlush();
-    const Workspace was = gWorkspace;
-    auto stay = [was] {
-        if (gWorkspace == was) setWorkspace(was);  // (the save question closed the map page: it opens again)
+    auto stay = [] {
+        setWorkspace(gWorkspace);  // (the save question closed the map page: the tab that asked shows it again)
         return false;
     };
     const int first = gActive;

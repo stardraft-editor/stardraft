@@ -64,8 +64,13 @@ struct TilesArt {
     std::map<uint16_t, GroupPicture> pixels;
     uint32_t paints = 0;                // the grids' paints
     int pixelsMode = -1;                // the map's art: 0 SD, 1 HD, 2 Carbot
-    HdTiles hd;                         // HD2 or Carbot megatiles (pixelsMode 1, 2) of hdEra
-    int hdEra = -1, hdMode = -1;
+    // HD2 or Carbot megatiles (pixelsMode 1, 2) for each game data (a Cosmonarchy tab has its own; the game's stay
+    // loaded while one is open), with the era and mode they are of.
+    struct HdSlot {
+        HdTiles hd;
+        int era = -1, mode = -1;
+    };
+    std::map<const GameData*, HdSlot> hdByData;
     const Editor* forEd = nullptr;
     int forEra = -1;
 };
@@ -85,8 +90,8 @@ bool tilesOn() { return appState().ed && appState().ed->isOpen() && gWorkspace =
 std::wstring tilesTerrainNames(const Editor::TileGroupEntry& e) {
     const IsomTerrainTable* t = IsomTerrainTable::forEra(appState().ed->era());
     if (!t || !e.terrains[0]) return L"";
-    std::wstring s = widen(t->terrainName(e.terrains[0]));
-    if (e.terrains[1]) s += L" / " + widen(t->terrainName(e.terrains[1]));
+    std::wstring s = widen(appState().ed->terrainName(e.terrains[0]));
+    if (e.terrains[1]) s += L" / " + widen(appState().ed->terrainName(e.terrains[1]));
     return s;
 }
 

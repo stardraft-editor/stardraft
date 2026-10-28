@@ -35,6 +35,9 @@ public:
     std::function<void()> onOpen;
     // Enter opens the list (the default). Off: a closed list passes Enter on, as a Windows combo box does in a dialog.
     bool enterOpens = true;
+    // The mouse wheel over the closed field steps the value (the default). Off: the wheel goes on to the view under it (a
+    // choice that changes much, as Program options' Game, changes only by the list or the keys).
+    bool wheelSteps = true;
 
     // Replaces the items (the list closes; the value stays if it is still an item).
     void setItems(std::vector<DropdownItem> items);

@@ -18,6 +18,8 @@ enum : int {
     ID_QUICKPICK = 660,
     ID_QUICKOPEN = 661,
     ID_CAMPAIGN_NEW = 663, ID_CAMPAIGN_OPEN, ID_CAMPAIGN_SHOW,  // File > Campaign (roadmap R25: core/views_campaign.inc)
+    ID_GAME_MODE = 670,  // + 0 Standard, 1 Cosmonarchy: Program options > Mods > Game (core/cmbw.inc cmbwMode)
+    ID_CT_ADD_TRIGGER = 666, ID_CT_ADD_CONDITION, ID_CT_ADD_ACTION,  // T, C, A on the Classic triggers page: as its Add links
     ID_TRIG_FIND = 662,  // Edit > Find in triggers (Ctrl+Shift+F): the Triggers workspace and the Classic triggers page (roadmap R60)  // File > Quick open (Ctrl+Shift+O): an open tab, a recent project or map
     ID_PROJ_NEW = 700, ID_PROJ_OPEN, ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS, ID_PROJ_FROMMAP, ID_PROJ_IMPORT,
     ID_WS_MAP = 720, ID_WS_DATA, ID_WS_TRIGGERS, ID_WS_ASSETS, ID_WS_PROJECT, ID_WS_BRIEFING, ID_WS_FILES, ID_WS_HELP,
@@ -38,6 +40,7 @@ enum : int {
     ID_OPT_WINDOW,  // Options > Program options (the window with the program options)
     ID_OPT_SNAPBUILDINGS,  // Options > Units > Snap buildings to tile edges (a check item)
     ID_OPT_RESDIST,  // Options > Units > Keep resources 3 tiles from town halls (a check item; Discord feedback #97)
+    ID_OPT_RANDOMFACING,  // Options > Units > Randomize unit direction when placed (a check item)
     // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
     ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
@@ -46,11 +49,14 @@ enum : int {
     ID_PAL_SORT_CATEGORY = 625, ID_PAL_SORT_NAME, ID_PAL_SORT_NUMBER,  // the palette's View menu: its order (PaletteSort)
     ID_PAL_NEW_PANEL = 628, ID_PAL_CLOSE_PANEL,  // ... a palette panel like it (sdl_palette_panels.inc), a panel's Close
     ID_PAL_XLARGE = 630,  // ... Extra large (Discord feedback, GitHub #150)
+    ID_PAL_SORT_TIER = 631,  // ... Sort by tier (a mod's units with tiers: Cosmonarchy BW)
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
-    ID_VIEW_RANGES = 975,  // View > Show ranges of the selected units (GitHub feedback #109)
+    ID_VIEW_RANGES = 975,  // View > Ranges > All ranges (of the selected units: GitHub feedback #109)
+    ID_GO_TRIGGERS = 1100, ID_GO_BRIEFING, ID_GO_PROPS, ID_GO_ASSETS, ID_GO_DATA,  // Ctrl+Shift+T, B, Enter, A, D: the tab's page or workspace
+    ID_VIEW_RANGEKIND = 1090,  // + the kind (modes.inc: kRangeKinds): View > Ranges > Sight, Target acquisition, ...
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
     ID_VIEW_FLOATPAL = 1020,  // + int(Mode): View > Floating palettes (Roadmap R40: a mode's palette in a window of its own)
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units, 4 pathing; 5, 6 pathing shows the regions, the connected areas
@@ -59,8 +65,13 @@ enum : int {
     ID_LAYER_REVEALERS = 988,  // View > Layers > Map revealers (the map's Map Revealer units: drawn and picked, or not)
     ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
+    ID_CMBW_REPAIRISOM = 1099,  // Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
+    ID_OPT_CMBWFOLDER = 1097,  // Program options > Cosmonarchy folder's Browse (Cosmonarchy only: shell_sdl.inc)
+    ID_CMBW_CHECKCOMMENTS = 1098,  // Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)
     ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
+    ID_TERRAIN_FLAGS_OFF = 1034,  // View > Overlays > Terrain flags > Off
+    ID_PATHING_OFF = 1036,        // View > Overlays > Pathing > Off
     ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable
     ID_SCEN_PATHCHECK = 997,  // Scenario > Check pathing (core/pathing_layer.inc)
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)

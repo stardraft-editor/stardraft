@@ -56,6 +56,10 @@ public:
             }
             const Color fg = sel ? th.accent : th.text;
             if (it.icon >= 0) c.icon({r.left + px(6), r.top + px(4), r.left + px(22), r.bottom - px(4)}, it.icon, fg, px(16));
+            if (it.swatch != draw::kNone) {  // (a color list: the item's square, as on the closed field)
+                const int s = px(12), sx = r.left + px(10), sy = (r.top + r.bottom - s) / 2;
+                c.fill({sx, sy, sx + s, sy + s}, it.swatch);
+            }
             const bool hasNumber = it.number >= 0;
             c.text({r.left + px(32), r.top, r.right - (hasNumber ? px(56) : px(10)), r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
             if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(10), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
@@ -347,7 +351,7 @@ bool Dropdown::mouse(const MouseEvent& e) {
         return true;
     case MouseKind::DoubleClick: return enabled_;  // the press has opened (or closed) the list already
     case MouseKind::Wheel: {
-        if (!enabled_ || listOpen_ || items_.empty()) return false;
+        if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);
         while (wheelAcc_ <= -1) wheelAcc_ += 1, step(1);

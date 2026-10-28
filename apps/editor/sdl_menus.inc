@@ -16,6 +16,14 @@ struct Shortcut {
     int id = 0;
 };
 std::vector<Shortcut> gShortcuts;
+// The two-key shortcuts ("Ctrl+K, G": the first key, then the second), and the first key while the second is to come.
+struct SequenceShortcut {
+    stardraft::KeyChord first, second;
+    int id = 0;
+};
+std::vector<SequenceShortcut> gSequences;
+std::optional<stardraft::KeyChord> gSequenceFirst;
+std::wstring gSequenceFirstText;
 
 // The Ctrl of a shortcut: Cmd on macOS.
 #ifdef __APPLE__
@@ -166,6 +174,7 @@ void sdlShowUndoHistory();
 void sdlExportMapImage();  // (sdl_map_image.inc: File > Export map image)
 void sdlClassicQuickAdd();  // (sdl_classic_triggers.inc: Q on the Classic triggers page)
 void sdlClassicFind();
+void sdlClassicAdd(int what);  // (sdl_classic_triggers.inc: T, C, A)
 bool sdlOptionsRuns(int id);     // (sdl_options.inc: the Program options commands)
 bool sdlOptionsCommand(int id);
 
@@ -176,6 +185,7 @@ void sdlShowHelp(const std::string& topic);  // (sdl_help.inc: the Help workspac
 void sdlDataTableCommand(int view = -1);  // (sdl_data.inc: View > Data: 0 the entry view, 1 the table view, -1 the other one)
 bool sdlDataTableTab(int tab);
 void sdlHelpQuick();  // (sdl_help.inc: Q in the Help workspace)
+void sdlClassicQuick();  // (sdl_map_pages.inc: Q on the Map data page)
 bool sdlRuns(int id) {
     if (sdlOptionsRuns(id) || sdlUpdatesRuns(id) || sdlHelpRuns(id)) return true;
     switch (id) {
@@ -195,6 +205,11 @@ bool sdlRuns(int id) {
     case ID_WS_BRIEFING:
     case ID_WS_FILES:
     case ID_WS_HELP:
+    case ID_GO_TRIGGERS:  // Ctrl+Shift+T, B, Enter, A, D: the tab's triggers, briefing, properties, assets, data
+    case ID_GO_BRIEFING:
+    case ID_GO_PROPS:
+    case ID_GO_ASSETS:
+    case ID_GO_DATA:
     case ID_SCEN_PROPS:  // the map's pages: the rail and the menus open them as the workspaces do
     case ID_SCEN_PLAYERS:
     case ID_SCEN_CLASSIC:
@@ -216,6 +231,9 @@ bool sdlRuns(int id) {
     case ID_CAMPAIGN_SHOW:
     case ID_PROJ_IMPORT: return true;
     case ID_TRIG_FIND: return gWorkspace == Workspace::Triggers || gWorkspace == Workspace::ClassicTriggers;
+    case ID_CT_ADD_TRIGGER:
+    case ID_CT_ADD_CONDITION:
+    case ID_CT_ADD_ACTION: return gWorkspace == Workspace::ClassicTriggers;
     case ID_HELP_ABOUT:  // (sdl_options.inc) and the links
     case ID_VIEW_KIT:
     case ID_HELP_DISCORD:
@@ -223,6 +241,7 @@ bool sdlRuns(int id) {
     case ID_PROJ_COMPILE:  // Build (core/project_build.inc), the Log, the StarCraft folder and the shell's own commands below
     case ID_VIEW_LOG:
     case ID_OPT_INSTALL:
+    case ID_OPT_CMBWFOLDER:
     case ID_SCEN_CHECK:
     case ID_RECENT_CLEAR_MAPS:
     case ID_RECENT_CLEAR_PROJECTS:
@@ -253,6 +272,7 @@ bool sdlRuns(int id) {
     case ID_OPT_ILLEGAL:
     case ID_OPT_STACK:
     case ID_OPT_RESDIST:
+    case ID_OPT_RANDOMFACING:
     case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
     case ID_OPT_ANIMATE:
@@ -291,6 +311,8 @@ bool simLocksCommand(int id) {
 
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
+    if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
+    if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
     if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
@@ -457,6 +479,12 @@ void collectShortcuts(const MenuModel& items) {
         else if (it.kind == MenuItem::Kind::Command && !it.shortcut.empty()) {
             // The item's key, and this system's when it has another (macOS: Cmd+Delete as well as Del; none for a
             // key that the system has, Cmd+M).
+            if (const size_t comma = it.shortcut.find(L", "); comma != std::wstring::npos) {  // (two keys)
+                const auto a = stardraft::parseShortcut(narrow(it.shortcut.substr(0, comma)));
+                const auto b = stardraft::parseShortcut(narrow(it.shortcut.substr(comma + 2)));
+                if (a && b) gSequences.push_back({*a, *b, it.id});
+                continue;
+            }
             const std::wstring own = platformShortcut(it.id, it.shortcut);
             if (own.empty()) continue;
             if (const auto c = stardraft::parseShortcut(narrow(it.shortcut))) gShortcuts.push_back({*c, it.id});
@@ -474,7 +502,7 @@ void sdlNativeMenusPoll();
 void rebuildMenus() {
     if (!gRoot) return;
     const MenuModel model = buildMenuModel();
-    gShortcuts.clear();
+    gShortcuts.clear(), gSequences.clear();
     collectShortcuts(model);
     std::vector<kit::MenuGroup> groups;
     for (const MenuItem& top : model) groups.push_back(kit::MenuGroup{accessFree(top.label), toKit(top.items)});
@@ -501,7 +529,8 @@ bool shortcutRun(const draw::KeyEvent& e) {
     // The program's keys first (core/map_edit_commands.inc: Ctrl+2 is the side bar's second item, as on Windows), then
     // the menus' other keys.
     for (const ProgramKey& k : kProgramKeys)
-        if (const auto c = stardraft::parseShortcut(k.chord); c && chordIs(*c, e) && sdlEnabled(k.id)) {
+        if (const auto c = stardraft::parseShortcut(k.chord);
+            c && chordIs(*c, e) && (!k.mapOnly || gWorkspace == Workspace::Map) && sdlEnabled(k.id)) {
             command(k.id);
             return true;
         }
@@ -510,7 +539,34 @@ bool shortcutRun(const draw::KeyEvent& e) {
             command(s.id);
             return true;
         }
+    // The first key of a two-key shortcut: the second key comes to sequenceKey.
+    for (const SequenceShortcut& s : gSequences)
+        if (chordIs(s.first, e)) {
+            gSequenceFirst = s.first;
+            gSequenceFirstText = shortcutText(std::wstring(s.first.ctrl ? L"Ctrl+" : L"") + (s.first.shift ? L"Shift+" : L"") + (s.first.alt ? L"Alt+" : L"") + widen(s.first.key));
+            setMessage(gSequenceFirstText + L": " + std::wstring(shellTr(L"press the second key (Esc: none)")));
+            return true;
+        }
     return false;
+}
+
+// The second key of a two-key shortcut, before any view takes the key (a search box would type it): its command, or
+// nothing (Esc, or a key that no shortcut has). True when the key was the second key.
+bool sequenceKey(const draw::KeyEvent& e) {
+    if (!gSequenceFirst) return false;
+    if (e.key == draw::Key::None) return gSequenceFirst.reset(), setMessage(L""), false;  // (a press or a lost keyboard: SdlHost::setKeyFilter)
+    if (!e.down) return false;
+    if (e.repeat) return true;  // (the first key held: its repeats are no second key)
+    const stardraft::KeyChord first = *std::exchange(gSequenceFirst, std::nullopt);
+    if (e.key == draw::Key::Escape) return setMessage(L""), true;
+    for (const SequenceShortcut& s : gSequences)
+        if (s.first.key == first.key && s.first.ctrl == first.ctrl && s.first.shift == first.shift && s.first.alt == first.alt && chordIs(s.second, e)) {
+            if (sdlEnabled(s.id)) setMessage(L""), command(s.id);
+            else setMessage(gSequenceFirstText + L": " + std::wstring(shellTr(L"that command is not available here")));
+            return true;
+        }
+    setMessage(gSequenceFirstText + L": " + std::wstring(shellTr(L"no command has that second key")));
+    return true;
 }
 
 // A key pressed in the window (main_sdl.cpp's --key, for a snapshot): "Ctrl+A", "5", "Ctrl+Shift+Z" (Ctrl is Cmd on macOS).
@@ -742,6 +798,7 @@ bool sdlShotInputNext() {
     else if (kind == 'i') sdlImeText(value);
     else if (kind == 'w') {  // --wait ms: the program's timers that are due in that time run (a page that reads the map again)
         if (gHost) gHost->snapshotTimers(std::atoi(value.c_str()));
+        advanceAnimsFor(std::atoi(value.c_str()));  // (Animate units: the units' ticks of that time)
         runPosted();
         sdlInputLine("wait " + value);
     }
@@ -1008,7 +1065,7 @@ void sdlPinchShot(const std::string& spec) {
 // view.grid, view.ranges...) or one of the names below, as its menu item runs it. The output says whether the item is
 // enabled (a gray item: "(WRONG)").
 void sdlCommandShot(const std::string& name) {
-    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
+    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
@@ -1312,7 +1369,13 @@ void commandSdl(int id) {
     case ID_SCEN_PLAYERS: setWorkspace(Workspace::Players); return;
     case ID_SCEN_CLASSIC: setWorkspace(Workspace::ClassicSettings); return;
     case ID_SCEN_CLASSICTRIG: setWorkspace(Workspace::ClassicTriggers); return;
-    case ID_FILE_NEW: openNewPageSdl(-1); return;  // the start page
+    // The keys of the pages: a project's Triggers and Data workspaces, a classic map's Classic triggers and Map data pages.
+    case ID_GO_TRIGGERS: return command(activeProject() ? ID_WS_TRIGGERS : ID_SCEN_CLASSICTRIG);
+    case ID_GO_BRIEFING: return command(ID_WS_BRIEFING);
+    case ID_GO_PROPS: return command(ID_SCEN_PROPS);
+    case ID_GO_ASSETS: return command(ID_WS_ASSETS);
+    case ID_GO_DATA: return command(activeProject() ? ID_WS_DATA : ID_SCEN_CLASSIC);
+    case ID_FILE_NEW: openNewPageSdl(cmbwMode() ? 2 : -1); return;  // the start page (Cosmonarchy: the New page of a Cosmonarchy map)
     case ID_PROJ_NEW: openNewPageSdl(1); return;   // the New page, an EUD project's choices
     case ID_OPT_WINDOW: showOptionsSdl(); return;
     case ID_HELP_FEEDBACK: showFeedbackSdl(L"StarDraft 2"); return;
@@ -1322,10 +1385,16 @@ void commandSdl(int id) {
     case ID_TRIG_FIND:  // the Classic triggers page (the Triggers workspace's: core/commands_core.inc)
         if (gWorkspace == Workspace::ClassicTriggers) sdlClassicFind();
         return;
+    case ID_CT_ADD_TRIGGER:  // T, C, A on the Classic triggers page (sdl_classic_triggers.inc)
+    case ID_CT_ADD_CONDITION:
+    case ID_CT_ADD_ACTION:
+        if (gWorkspace == Workspace::ClassicTriggers) sdlClassicAdd(id - ID_CT_ADD_TRIGGER);
+        return;
     case ID_QUICKPICK:  // in the trigger editors: Quick add (core/views_trigger_quick.inc)
         if (gWorkspace == Workspace::Triggers) return trigQuickAdd();
         if (gWorkspace == Workspace::ClassicTriggers) return sdlClassicQuickAdd();
         if (gWorkspace == Workspace::Help) return sdlHelpQuick();
+        if (gWorkspace == Workspace::ClassicSettings) return sdlClassicQuick();  // (sdl_map_pages.inc)
         shellShowQuickPicker(false, false);
         return;
     case ID_HELP_ABOUT: showAboutSdl(); return;
@@ -1335,6 +1404,7 @@ void commandSdl(int id) {
     case ID_PROJ_COMPILE: compileProject(); return;
     case ID_VIEW_LOG: gLogPane.setExpanded(!gLogPane.expanded()); return;
     case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
+    case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
     case ID_SCEN_CHECK: {
         const std::wstring problems = playabilityText();
         if (problems.empty()) setMessage(L"StarCraft can start this map");

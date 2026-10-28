@@ -3,6 +3,7 @@
 // Unit graphics: classic GRP sprites resolved through units.dat -> flingy.dat -> sprites.dat ->
 // images.dat -> images.tbl, colored with the tileset palette and tunit.pcx player colors.
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -37,6 +38,8 @@ struct ImageScript {
     bool startFrameTile = false;
     int startFrameOn(int era) const { return startFrame + (startFrameTile ? (era & 7) : 0); }
     std::vector<Overlay> under, over;
+    // The direction (0 to 31) Init turns its sprite to (setfldirect: the Archon's energy faces 15), or -1.
+    int direction = -1;
 };
 
 // Classic StarCraft GRP: palette-indexed frames inside a fixed box (index 0 = transparent).
@@ -89,6 +92,8 @@ public:
     ImageAnim(const UnitSprites& sprites, int image, uint32_t seed, int anim = 0);
     // One game tick; true if the frame changed.
     bool tick();
+    // Goes on with animation `anim` of the image's script now (its frame, place and turns stay), if the script has it.
+    void play(const UnitSprites& sprites, int image, int anim);
     // The frame the script shows (for turning images the base of a 17-frame facing set).
     int frame() const { return frame_; }
     bool running() const { return !stopped_; }
@@ -98,12 +103,22 @@ public:
     // Whether the script attacked since the last call (domissiledmg, attackmelee, attackwith, attack, castspell,
     // useweapon).
     bool takeAttack() { return std::exchange(attacked_, false); }
+    // The image's place from its sprite (sethorpos, setvertpos, setpos: an air unit's hover).
+    int x() const { return ox_; }
+    int y() const { return oy_; }
+    // The direction (0 to 31) of a unit that faced `start` after the script's turns (turnccwise, turncwise, turn1cwise,
+    // turnrand, setfldirect: an idle that looks around).
+    int direction(int start) const { return ((setDir_ >= 0 ? setDir_ : start) + turn_) & 31; }
+    // Whether the script hides the image now (tmprmgraphicstart .. tmprmgraphicend: the Archon's flicker).
+    bool hidden() const { return hidden_; }
 private:
     std::vector<int> sounds_;
     bool attacked_ = false;
     const Bytes* code_ = nullptr;
     size_t pc_ = 0, ret_ = 0;
     int wait_ = 0, frame_ = 0;
+    int ox_ = 0, oy_ = 0, turn_ = 0, setDir_ = -1;
+    bool hidden_ = false;
     uint32_t rng_ = 1;
     bool stopped_ = true;
 };
@@ -169,6 +184,7 @@ private:
         bool queued = false;  // playAnim: the image is still to get the animation
         int ox = 0, oy = 0;
         size_t pc = 0, ret = 0;
+        const Bytes* code = nullptr;  // the iscript file that pc is in
         int wait = 0;
         int mod = 0, mod1 = 0, mod2 = 0;  // draw function and its state (OpenBW modifier, modifier_data1/2)
     };
@@ -206,6 +222,28 @@ public:
 
     bool load(const GameData& data, std::string& error);
 
+    // The tables that load() reads from the classic .dat files. A game with other files (a mod's .datex, src/mods)
+    // fills them itself and gives them to loadTables. Each table holds all entries of its file.
+    struct Tables {
+        std::vector<uint16_t> unitFlingy, unitSubunit;   // units.dat graphics and subunit 1
+        std::vector<uint8_t> unitDirection;              // units.dat initial direction
+        std::vector<uint16_t> flingySprite, spriteImage;  // flingy.dat sprite, sprites.dat image
+        std::vector<uint8_t> spriteSelCircle, spriteSelOffset;  // sprites.dat, by sprite id (the game uses them from 130)
+        std::vector<uint32_t> imageGrp;                  // images.dat GRP (1-based images.tbl index)
+        std::vector<uint8_t> imageTurns, imageDrawFn, imageRemap;
+        std::vector<int> imageScriptId;
+        std::vector<uint32_t> imageOverlays[6];          // attack, damage, special, landing dust, lift-off, shield
+        // The iscript files, in order (a script ID in two files: the first one's).
+        std::vector<std::string> iscriptFiles{"scripts\\iscript.bin"};
+        // An images.dat iscript ID's high 16 bits pick its file (its index in iscriptFiles), the low ones the script
+        // in it, as Cosmonarchy's images.datex does (0 general, 1 terran, ...). A script its file does not have (506
+        // of the mod's 5000 images, most general's 78, which only the terran and askosi files have): the first file's
+        // with that number whose Init plays only frames the image's GRP has, or none (the terran 78, the Maverick's,
+        // on the Parthenon's 21 frames).
+        bool scriptIdFile = false;
+    };
+    bool loadTables(const GameData& data, Tables tables, std::string& error);
+
     // Picture of `unitType` owned by `owner` (0..11), facing down-right, including its subunit
     // (e.g. tank turret). Uses `tileset`'s palette. Cached; nullptr if the unit has no graphics.
     const Sprite* unitSprite(uint16_t unitType, uint8_t owner, const Tileset& tileset);
@@ -234,16 +272,31 @@ public:
     int spriteImage(int sprite) const { return imageForSprite(uint16_t(sprite)); }
     // Frame to show a unit's image with (facing down-right for turning graphics), and whether
     // to mirror it horizontally.
-    int defaultFrame(uint16_t unitType, int image, bool& flip) const;
-    // The same with the frame an ImageAnim shows: its frame plus the facing for turning images.
-    int animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip) const;
-    // iscript.bin and where animation `anim` of an image's script starts in it (0 if it has none).
-    const Bytes& iscript() const { return iscript_; }
+    // `direction` (0 to 31): the facing to show when units.dat gives the unit type a random one (randomDirection);
+    // -1: down-right, as before.
+    int defaultFrame(uint16_t unitType, int image, bool& flip, int direction = -1) const;
+    // The direction (0 to 31) that defaultFrame shows the unit type in.
+    int facingDirection(uint16_t unitType, int direction = -1) const;
+    // Whether units.dat gives the unit type a random facing (its Unit Direction 32 or more), as most units have.
+    bool randomDirection(uint16_t unitType) const { return unitType < unitDirection_.size() && unitDirection_[unitType] >= 32; }
+    // The same with the frame an ImageAnim shows: its frame plus the facing for turning images; `turned` (0 to 31): the
+    // direction that its script turned the unit to (ImageAnim::direction), in place of defaultFrame's.
+    int animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip, int direction = -1, int turned = -1) const;
+    // Frames in one facing set of a turning image: 17 (up .. down on the right; the left side mirrored), or 32 (every
+    // direction, none mirrored: a mod's graphics whose scripts step their frames by 32, as Cosmonarchy's do).
+    int facingSet(int image) const;
+    // The frame in a facing set for direction `dir32` (0 up, 8 right, 16 down, clockwise), and whether to mirror it.
+    int facingIndex(int image, int dir32, bool& flip) const;
+    // iscript.bin and where animation `anim` of an image's script starts in it (0 if it has none). A game with
+    // more than one iscript file: iscript() is the first one, and scriptCode gives the file of an image's script.
+    const Bytes& iscript() const;
+    const Bytes& scriptCode(int image) const;
     size_t animOffset(int image, int anim) const;
     // The same for a script by its iscript ID (the game runs script 193 on a warping building).
+    const Bytes& scriptCodeById(int scriptId) const;
     size_t scriptAnimOffset(int scriptId, int anim) const;
     // The scripts iscript.bin has, by iscript ID; an image's iscript ID (images.dat, as edited).
-    std::vector<uint16_t> scriptIds() const;
+    std::vector<uint32_t> scriptIds() const;
     int scriptId(int image) const { return image >= 0 && size_t(image) < imageScriptId_.size() ? imageScriptId_[size_t(image)] : -1; }
     size_t initOffset(int image) const { return animOffset(image, 0); }
     int imageCount() const { return int(imageGrp_.size()); }
@@ -275,8 +328,17 @@ public:
     int extraImage(const std::string& path);
     // The game data path of an extra image; nullptr for an images.dat image.
     const std::string* extraPath(int image) const;
-    // Palette index for a GRP pixel after player-color remapping.
+    // Palette index for a GRP pixel after player-color remapping: the owner's color row (setColorRows), or row `row`.
     uint8_t remap(uint8_t index, uint8_t owner) const;
+    uint8_t remapRow(uint8_t index, int row) const;
+    int colorRow(uint8_t owner) const { return colorRow_[owner < 12 ? owner : 11]; }
+    // The tunit.pcx row (the color number in a map's COLR) each of the 12 players' units are drawn with (default:
+    // its own number). A mod's tunit.pcx has more rows (colorRowCount).
+    void setColorRows(const std::array<uint8_t, 12>& rows) { colorRow_ = rows; }
+    int colorRowCount() const { return int(playerColors_.size() / 8); }
+    // The minimap color of color number `row` in tileset `era` (tminimap.pcx: a row per tileset): a palette index, -1 if
+    // the game has no such file or row.
+    int minimapColor(int row, int era) const;
     // Init animation of an image (scripts\iscript.bin).
     const ImageScript& script(int image) const;
     // Images drawn with the shadow draw function (images.dat draw function 10).
@@ -285,7 +347,7 @@ public:
 private:
     std::vector<uint32_t> imageOverlays_[6];  // images.dat lo files: attack, damage, special, landing dust, lift-off, shield
     mutable std::map<std::pair<int, int>, std::vector<std::vector<std::pair<int8_t, int8_t>>>> lo_;
-    void loadScripts(const GameData& data, const Bytes& images);
+    void loadScripts(const GameData& data, const std::vector<int>& scriptIds);
 public:
     // A project's edited sprites.dat and images.dat (whole files), as far as a map can change them in the game:
     // the image of each sprite, and each image's Iscript ID, Gfx Turns, Draw Function and Remapping. The GRP and
@@ -302,14 +364,15 @@ private:
 
 
     const GameData* data_ = nullptr;
-    std::vector<uint8_t> unitFlingy_;      // units.dat graphics
+    std::vector<uint16_t> unitFlingy_;     // units.dat graphics
     std::vector<uint16_t> unitSubunit_;    // units.dat subunit 1
     std::vector<uint8_t> unitDirection_;   // units.dat initial direction (32 = random)
     std::vector<uint16_t> flingySprite_;   // flingy.dat sprite
     std::vector<uint16_t> spriteImage_;    // sprites.dat image
-    std::vector<uint8_t> spriteSelCircle_, spriteSelOffset_;  // sprites.dat, sprites 130-516
+    std::vector<uint8_t> spriteSelCircle_, spriteSelOffset_;  // sprites.dat, by sprite id (used from 130)
     std::vector<uint32_t> imageGrp_;       // images.dat GRP (1-based images.tbl index)
     std::vector<uint8_t> imageTurns_;      // images.dat graphics turns
+    mutable std::vector<uint8_t> facingSet_;  // facingSet() of each image, found on first use (0: not yet)
     std::vector<uint8_t> imageDrawFn_;     // images.dat draw function
     std::vector<uint32_t> imageSpecial_;   // images.dat special overlay (1-based images.tbl index)
     std::vector<uint8_t> imageRemap_;      // images.dat remapping (1 ofire, 2 gfire, 3 bfire, 4 bexpl)
@@ -317,16 +380,28 @@ private:
     mutable std::map<std::pair<uint16_t, std::string>, std::vector<uint8_t>> tilesetTables_;  // (era, name) -> pcx
     mutable std::map<int, std::vector<std::pair<int8_t, int8_t>>> specialLo_;  // loaded .lol offsets
     std::vector<ImageScript> scripts_;     // per image
-    Bytes iscript_;                        // scripts\iscript.bin
-    size_t headerAnimOffset(size_t header, int anim) const;
-    std::vector<uint16_t> scriptHeader_;   // per image: its script header in iscript_ (0 = none)
-    std::map<uint16_t, uint16_t> scriptEntries_;  // iscript ID -> its header in iscript_
+    std::vector<std::string> iscriptFiles_;  // scripts\iscript.bin (a mod: more files)
+    std::vector<Bytes> iscripts_;          // their contents
+    size_t headerAnimOffset(const Bytes& code, size_t header, int anim) const;
+    struct ScriptAt {
+        uint8_t file = 0;     // index in iscripts_
+        uint32_t header = 0;  // the script header in that file (0 = none)
+    };
+    std::vector<ScriptAt> scriptHeader_;   // per image
+    std::map<uint32_t, ScriptAt> scriptEntries_;  // (file << 16 | iscript ID) -> its header
+    std::map<uint16_t, ScriptAt> firstEntries_;   // iscript ID -> its header in the first file that has it
+    bool scriptIdFile_ = false;                   // Tables::scriptIdFile
+    const ScriptAt* findScript(int scriptId) const;
+    const ScriptAt* scriptThatFits(int image, uint16_t id);  // (Tables::scriptIdFile: a script ID its file does not have)
     std::vector<int> imageScriptId_;       // per image: its iscript ID (images.dat)
     std::vector<std::string> imagePaths_;  // images.tbl
-    std::vector<uint8_t> playerColors_;    // tunit.pcx: 8 palette indices per player
+    std::vector<uint8_t> playerColors_;    // tunit.pcx: 8 palette indices per color row
+    std::vector<uint8_t> minimapColors_;   // tminimap.pcx: a palette index per color row, a row of them per tileset
+    int minimapWidth_ = 0;
+    std::array<uint8_t, 12> colorRow_{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};  // per player: its tunit.pcx row
     std::map<int, std::unique_ptr<Grp>> grps_;
     std::vector<std::string> extraPaths_;  // extra images (extraImage), from kExtraImages
-    std::map<std::pair<uint16_t, uint8_t>, std::unique_ptr<Sprite>> sprites_;
+    std::map<std::pair<uint16_t, uint8_t>, std::unique_ptr<Sprite>> sprites_;  // (unit type, color row)
     std::unique_ptr<Grp> cmdIcons_;
     std::vector<uint8_t> iconRgb_;  // 16 colors (ticon.pcx row 0), RGB
     bool iconsTried_ = false;

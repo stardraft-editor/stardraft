@@ -510,6 +510,8 @@ Flingy	Flingy
 Upgrades	升级
 Tech data	科技数据
 Orders	命令
+on	开
+off	关
 SFX data	SFX 数据
 Port data	Port 数据
 Showing changed 	只显示已更改的 
@@ -1332,8 +1334,7 @@ Dark theme (default)	深色主题（默认）
 Light theme	浅色主题
 Accent color	强调色
  (default)	 （默认）
-Animate units	单位动画
-Units on the map play their animations	地图上的单位播放其动画
+A&nimate units	单位动画(&N)
 Custom names	自定义名称
 How lists name a unit that has a custom name in the map	列表中如何显示地图中已自定义名称的单位
 Open the last project on start	启动时打开上一个项目
@@ -1950,6 +1951,7 @@ Paste\tCtrl+V	粘贴\tCtrl+V
 Edit the block…	编辑块…
 Move out\tCtrl+Left	移出\tCtrl+Left
 Move in\tCtrl+Right	移入\tCtrl+Right
+Always: 	始终：
 Becomes 	在地图中变为
  triggers in the map. 	 个触发器。
 Off	关
@@ -2282,6 +2284,9 @@ Make floating	设为浮动
 Sort by &category	按类别排序(&C)
 Sort by na&me	按名称排序(&M)
 Sort by n&umber	按编号排序(&U)
+Sort by &tier	按等级排序(&T)
+Tier	等级
+No tier	无等级
 &New panel like this	新建类似面板(&N)
 &Close panel	关闭面板(&C)
 New palette panel: 	新的调色板面板：
@@ -2429,6 +2434,24 @@ Simulate melee &mining (experimental)	模拟近战&采矿（实验性）
 Simulate com&bat of the selected units	模拟所选单位的战斗(&B)
 Simulate com&bat of the selected units (experimental)	模拟所选单位的战斗(&B)（实验性）
 &Tools	工具(&T)
+press the second key (Esc: none)	请按第二个键（Esc：取消）
+that command is not available here	此命令在这里不可用
+no command has that second key	没有命令使用该第二个键
+&Cosmonarchy	Cosmonarchy(&C)
+Try to repair the &ISOM	尝试修复 ISOM(&I)
+&Check the CRIG commands	检查 CRIG 命令(&C)
+Check the CRIG commands	检查 CRIG 命令
+Standard (StarCraft: Brood War)	标准 (StarCraft: Brood War)
+Cosmonarchy BW	Cosmonarchy BW
+Mods	模组
+Cosmonarchy folder	Cosmonarchy 文件夹
+Select the Cosmonarchy BW folder	选择 Cosmonarchy BW 文件夹
+That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	该文件夹没有 Cosmonarchy BW 数据（mpq\arr\units.datex）。
+The Cosmonarchy folder is set	Cosmonarchy 文件夹已设置
+The Prerelease or Release folder	Prerelease 或 Release 文件夹
+The Prerelease or Release folder. A new folder is used from the next start	Prerelease 或 Release 文件夹。新文件夹从下次启动起使用
+The CRIG commands have no problems	CRIG 命令没有问题
+These CRIG commands in the trigger Comments have problems:	触发器注释中的这些 CRIG 命令有问题：
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
 Simulation	模拟
 Simulate mining	模拟采矿
@@ -2527,3 +2550,29 @@ The simulation cannot start: %ls	无法开始模拟: %ls
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 是爱好者制作的工具，并非由 Blizzard Entertainment 制作、批准或认可。
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft 是 Blizzard Entertainment 的商标。
 stored as %u (1/256 hit points)	存储为 %u（1/256 生命值）
+On	启用
+Turned off	已禁用
+On: the condition or action works in the game (off: it does nothing)	启用：条件或动作在游戏中生效（禁用：不起作用）
+Add a trigger after the selected one (T)	在所选触发器后添加触发器 (T)
+Add a condition (C)	添加条件 (C)
+Add an action (A)	添加动作 (A)
+Standard	标准
+Cosmonarchy	Cosmonarchy
+StarCraft: Brood War's maps and projects (default)	星际争霸：母巢之战的地图和项目（默认）
+Cosmonarchy BW: every map opens with the mod's units, and the start page and File > New make Cosmonarchy maps (no classic maps or projects)	Cosmonarchy BW：每张地图都使用模组的单位打开，开始页面和“文件 > 新建”创建 Cosmonarchy 地图（没有经典地图或项目）
+Game: Cosmonarchy. Maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	游戏：Cosmonarchy。地图以 Cosmonarchy BW 地图打开和创建（已打开的标签页保持不变）
+Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	游戏：标准。地图以星际争霸：母巢之战地图打开和创建（已打开的标签页保持不变）
+&Unit vision and ranges	单位视野和射程(&U)
+&Quick picker…\tQ	快速选择(&Q)…\tQ
+&Off	关闭(&O)
+&Regions	区域(&R)
+Connected &areas	连通区域(&A)
+Town a&reas	基地区域(&R)
+&Terrain flags	地形属性(&T)
+Copy tile &value	复制图块值(&V)
+Copied: 	已复制：
+Report feedback on the selected terrain…	对所选地形报告反馈…
+The selected terrain (tile x, y):	所选地形（图块 x, y）：
+&Randomize unit direction when placed	放置时随机单位朝向(&R)
+Units get a random direction when placed	放置时单位朝向随机
+Units face down and right	单位朝向右下

@@ -63,6 +63,116 @@ MenuItem menuPopup(std::wstring label, MenuModel items, std::string recent = {})
 
 std::vector<std::pair<int, std::wstring>> railMenuItems();  // (core/views_rail.inc: the side bar's items)
 
+// The two-key shortcuts of the menu items that have no key of their own (sdl_menus.inc: the first key, then the
+// second), by the item's menu path in English: Ctrl+K the View menu's, Ctrl+J the Options menu's, Ctrl+Shift+K the
+// others' (File, Tools, Cosmonarchy, Help).
+void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
+    static const std::map<std::wstring, std::wstring> kKeys = {
+        {L"File/Project/Open project", L"Ctrl+Shift+K, O"},
+        {L"File/Project/Make this map a project", L"Ctrl+Shift+K, M"},
+        {L"File/Project/Import a project (experimental)", L"Ctrl+Shift+K, I"},
+        {L"File/Project/Add script", L"Ctrl+Shift+K, S"},
+        {L"File/Project/Open project folder", L"Ctrl+Shift+K, F"},
+        {L"File/Project/Project settings", L"Ctrl+Shift+K, P"},
+        {L"File/Exit", L"Ctrl+Shift+K, X"},
+        {L"View/Graphics/High definition (2x, default)", L"Ctrl+K, H"},
+        {L"View/Graphics/High definition (4x)", L"Ctrl+K, Shift+H"},
+        {L"View/Graphics/Standard definition", L"Ctrl+K, S"},
+        {L"View/Graphics/Carbot (cartooned)", L"Ctrl+K, C"},
+        {L"View/Grid/Fine (8 pixels)", L"Ctrl+K, 1"},
+        {L"View/Grid/Small (16 pixels)", L"Ctrl+K, 2"},
+        {L"View/Grid/Normal (32 pixels)", L"Ctrl+K, 3"},
+        {L"View/Grid/Large (64 pixels)", L"Ctrl+K, 4"},
+        {L"View/Grid/Huge (128 pixels)", L"Ctrl+K, 5"},
+        {L"View/Grid/Custom", L"Ctrl+K, 6"},
+        {L"View/Overlays/Town areas", L"Ctrl+K, T"},
+        {L"View/Overlays/Fog of war of the selected player", L"Ctrl+K, F"},
+        {L"View/Overlays/Pathing/Off", L"Ctrl+K, Shift+P"},
+        {L"View/Overlays/Pathing/Regions", L"Ctrl+K, P"},
+        {L"View/Overlays/Pathing/Connected areas", L"Ctrl+K, A"},
+        {L"View/Overlays/Terrain flags/Off", L"Ctrl+K, Shift+F"},
+        {L"View/Overlays/Terrain flags/Walkable ground", L"Ctrl+K, W"},
+        {L"View/Overlays/Terrain flags/Ground height", L"Ctrl+K, E"},
+        {L"View/Overlays/Terrain flags/Ground that blocks the line of sight", L"Ctrl+K, B"},
+        {L"View/Overlays/Terrain flags/Buildable ground", L"Ctrl+K, Shift+B"},
+        {L"View/Unit vision and ranges/All ranges", L"Ctrl+K, R"},
+        {L"View/Unit vision and ranges/Sight", L"Ctrl+K, V"},
+        {L"View/Unit vision and ranges/Target acquisition", L"Ctrl+K, Q"},
+        {L"View/Unit vision and ranges/Ground weapon", L"Ctrl+K, Shift+G"},
+        {L"View/Unit vision and ranges/Air weapon", L"Ctrl+K, Shift+A"},
+        {L"View/Unit vision and ranges/Detection", L"Ctrl+K, D"},
+        {L"View/Unit vision and ranges/Psi field", L"Ctrl+K, I"},
+        {L"View/Layers/Terrain", L"Ctrl+K, Shift+T"},
+        {L"View/Layers/Doodads", L"Ctrl+K, Shift+D"},
+        {L"View/Layers/Sprites", L"Ctrl+K, Shift+S"},
+        {L"View/Layers/Units", L"Ctrl+K, Shift+U"},
+        {L"View/Layers/Map revealers", L"Ctrl+K, Shift+M"},
+        {L"View/Layers/Creep", L"Ctrl+K, Shift+C"},
+        {L"View/Layers/Locations", L"Ctrl+K, L"},
+        {L"View/Animate units", L"Ctrl+K, N"},
+        {L"View/Show minimap", L"Ctrl+K, M"},
+        {L"View/Floating palettes/Terrain palette", L"Ctrl+K, 7"},
+        {L"View/Floating palettes/Unit palette", L"Ctrl+K, 8"},
+        {L"View/Floating palettes/Doodad palette", L"Ctrl+K, 9"},
+        {L"View/Floating palettes/Sprite palette", L"Ctrl+K, 0"},
+        {L"View/Floating palettes/Location list", L"Ctrl+K, Shift+L"},
+        {L"View/Units list", L"Ctrl+K, U"},
+        {L"View/Data/Entry view", L"Ctrl+K, Shift+E"},
+        {L"View/Triggers/Trigger code pane", L"Ctrl+K, X"},
+        {L"Tools/Check that StarCraft can start the map", L"Ctrl+Shift+K, C"},
+        {L"Tools/Check pathing (nooks and crannies)", L"Ctrl+Shift+K, H"},
+        {L"Tools/Decorate the terrain/A few doodads", L"Ctrl+Shift+K, 1"},
+        {L"Tools/Decorate the terrain/Some doodads", L"Ctrl+Shift+K, 2"},
+        {L"Tools/Decorate the terrain/Many doodads", L"Ctrl+Shift+K, 3"},
+        {L"Tools/Place map revealers", L"Ctrl+Shift+K, R"},
+        {L"Tools/Remove all map revealers", L"Ctrl+Shift+K, Shift+R"},
+        {L"Cosmonarchy/Try to repair the ISOM", L"Ctrl+Shift+K, Shift+I"},
+        {L"Cosmonarchy/Check the CRIG commands", L"Ctrl+Shift+K, Shift+C"},
+        {L"Options/Units/Do not snap", L"Ctrl+J, 1"},
+        {L"Options/Units/Snap to tiles (32 px)", L"Ctrl+J, 2"},
+        {L"Options/Units/Snap to half tiles (16 px)", L"Ctrl+J, 3"},
+        {L"Options/Units/Snap to quarter tiles (8 px)", L"Ctrl+J, 4"},
+        {L"Options/Units/Snap buildings to tile edges", L"Ctrl+J, B"},
+        {L"Options/Units/Place only where it fits", L"Ctrl+J, F"},
+        {L"Options/Units/Move to the nearest place where it fits", L"Ctrl+J, N"},
+        {L"Options/Units/Place anywhere", L"Ctrl+J, A"},
+        {L"Options/Units/Can be on top of others", L"Ctrl+J, T"},
+        {L"Options/Units/Keep resources 3 tiles from town halls", L"Ctrl+J, R"},
+        {L"Options/Units/Randomize unit direction when placed", L"Ctrl+J, D"},
+        {L"Options/Units/Dragged units go back to the last place where they fit", L"Ctrl+J, G"},
+        {L"Options/Doodads/Place only where it fits", L"Ctrl+J, Shift+F"},
+        {L"Options/Doodads/Move to the nearest place where it fits", L"Ctrl+J, Shift+N"},
+        {L"Options/Doodads/Place anywhere", L"Ctrl+J, Shift+A"},
+        {L"Options/Sprites/Do not snap", L"Ctrl+J, 5"},
+        {L"Options/Sprites/Snap to tiles (32 px)", L"Ctrl+J, 6"},
+        {L"Options/Sprites/Snap to half tiles (16 px)", L"Ctrl+J, 7"},
+        {L"Options/Sprites/Snap to quarter tiles (8 px)", L"Ctrl+J, 8"},
+        {L"Options/Locations/Do not snap", L"Ctrl+J, Z"},
+        {L"Options/Locations/Snap to tiles (32 px)", L"Ctrl+J, X"},
+        {L"Options/Locations/Snap to half tiles (16 px)", L"Ctrl+J, C"},
+        {L"Options/Locations/Snap to quarter tiles (8 px)", L"Ctrl+J, V"},
+        {L"Options/Locations/Names in lines that fit in the location", L"Ctrl+J, L"},
+        {L"Options/Terrain copy includes units", L"Ctrl+J, U"},
+        {L"Options/Terrain copy includes doodads", L"Ctrl+J, O"},
+        {L"Help/Report feedback", L"Ctrl+Shift+K, Shift+F"},
+        {L"Help/Report an issue on GitHub", L"Ctrl+Shift+K, G"},
+        {L"Help/Join Discord", L"Ctrl+Shift+K, D"},
+        {L"Help/StarDraft 2 on GitHub", L"Ctrl+Shift+K, Shift+G"},
+        {L"Help/What is new", L"Ctrl+Shift+K, W"},
+        {L"Help/Check for updates", L"Ctrl+Shift+K, U"},
+        {L"Help/About StarDraft 2", L"Ctrl+Shift+K, A"},
+    };
+    for (MenuItem& it : items) {
+        std::wstring name;
+        for (wchar_t c : it.label)
+            if (c != L'&' && c != wchar_t(0x2026)) name += c;
+        const std::wstring at = path.empty() ? name : path + L"/" + name;
+        if (it.kind == MenuItem::Kind::Popup) assignMenuSequences(it.items, at);
+        else if (it.kind == MenuItem::Kind::Command && it.shortcut.empty())
+            if (auto k = kKeys.find(at); k != kKeys.end()) it.shortcut = k->second;
+    }
+}
+
 MenuModel buildMenuModel() {
     MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
                       menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
@@ -91,6 +201,10 @@ MenuModel buildMenuModel() {
                    menuItem(ID_FILE_CLOSEALL, L"Close a&ll", L"Ctrl+Shift+W"),
                    menuSeparator(),
                    menuItem(ID_FILE_EXIT, L"E&xit")};
+    if (cmbwMode()) {  // (Cosmonarchy BW mode: maps only; File > New makes a Cosmonarchy map, no projects)
+        std::erase_if(file, [&project](const MenuItem& it) { return it.kind == MenuItem::Kind::Popup && (it.recent == "projects" || it.items.size() == project.size()); });
+        if (!file.empty()) file.front().label = L"&New Cosmonarchy map";
+    }
     MenuModel edit{menuItem(ID_EDIT_UNDO, L"&Undo", L"Ctrl+Z"),
                    menuItem(ID_EDIT_REDO, L"&Redo", L"Ctrl+Y"),
                    menuItem(ID_EDIT_HISTORY, L"Undo &history\x2026", L"Ctrl+Shift+H"),
@@ -99,7 +213,6 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_COPY, L"&Copy", L"Ctrl+C"),
                    menuItem(ID_EDIT_PASTE, L"&Paste", L"Ctrl+V"),
                    menuItem(ID_EDIT_DUPLICATE, L"&Duplicate", L"Ctrl+D"),
-                   menuItem(ID_QUICKPICK, L"&Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)\x2026", L"Q"),
                    menuItem(ID_TRIG_FIND, L"&Find in triggers\x2026", L"Ctrl+Shift+F"),
                    menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
@@ -143,16 +256,24 @@ MenuModel buildMenuModel() {
     view.push_back(menuSeparator());
     {  // what shows over the map: the town areas, the ranges, the pathing (core/pathing_layer.inc), the terrain flags
        // (core/terrain_flags_layer.inc)
+        // (first the overlays that are on or off, then those with views: a submenu each, Off and the views)
         MenuModel overlays;
-        overlays.push_back(menuItem(ID_VIEW_TOWNS, L"Show town a&reas"));
-        menuCommand(overlays, "view.ranges");
-        overlays.push_back(menuSeparator());
-        menuCommands(overlays, "View/Pathing");
-        overlays.push_back(menuSeparator());
-        menuCommands(overlays, "View/Terrain flags");
-        overlays.push_back(menuSeparator());
+        overlays.push_back(menuItem(ID_VIEW_TOWNS, L"Town a&reas"));
         menuCommands(overlays, "View/Fog");  // (core/fog_layer.inc)
+        overlays.push_back(menuSeparator());
+        MenuModel pathing, flags;
+        menuCommands(pathing, "View/Pathing");
+        overlays.push_back(menuPopup(L"&Pathing", pathing));
+        menuCommands(flags, "View/Terrain flags");
+        overlays.push_back(menuPopup(L"&Terrain flags", flags));
         view.push_back(menuPopup(L"&Overlays", overlays));
+    }
+    {  // the sight and the weapon ranges of the selected units (Units mode), all or each kind (GitHub feedback #109)
+        MenuModel ranges;
+        menuCommand(ranges, "view.ranges");
+        ranges.push_back(menuSeparator());
+        menuCommands(ranges, "View/Unit vision and ranges");
+        view.push_back(menuPopup(L"&Unit vision and ranges", ranges));
     }
     {  // the map's layers that show (GitHub feedback #117)
         MenuModel layers;
@@ -160,8 +281,11 @@ MenuModel buildMenuModel() {
         layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
         view.push_back(menuPopup(L"La&yers", layers));
     }
+    view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
     view.push_back(menuSeparator());
     for (const char* id : {"view.zoomIn", "view.zoomOut", "view.actualSize", "view.fit"}) menuCommand(view, id);
+    view.push_back(menuSeparator());
+    view.push_back(menuItem(ID_QUICKPICK, L"&Quick picker\x2026", L"Q"));
     view.push_back(menuSeparator());
     menuCommand(view, "view.minimap");
     {  // each mode's palette in a window of its own (Roadmap R40: core/dock_prefs.inc, kFloatPalNames)
@@ -170,7 +294,7 @@ MenuModel buildMenuModel() {
         view.push_back(menuPopup(L"Floating &palettes", floating));
     }
     menuCommand(view, "view.unitsList");  // (the Units mode's side bar: the list of the units; Discord feedback #126)
-    view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+L"));
+    view.push_back(menuItem(ID_VIEW_LOG, L"&Log", L"Ctrl+M"));
     {  // each workspace's own views, in a submenu with its name (gray outside it)
         MenuModel data{menuItem(ID_DATA_ENTRY, L"&Entry view"), menuItem(ID_DATA_TABLE, L"&Table view", L"Ctrl+E")};
         view.push_back(menuPopup(L"&Data", data));
@@ -215,6 +339,7 @@ MenuModel buildMenuModel() {
     append(units, placeItems(ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL));
     units.push_back(menuItem(ID_OPT_STACK, L"&Can be on top of others"));
     units.push_back(menuItem(ID_OPT_RESDIST, L"Keep &resources 3 tiles from town halls"));
+    units.push_back(menuItem(ID_OPT_RANDOMFACING, L"&Randomize unit direction when placed"));
     units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
     doodads.push_back(menuSeparator());
@@ -249,8 +374,16 @@ MenuModel buildMenuModel() {
                    menuItem(ID_HELP_WHATSNEW, L"&What is new"),
                    menuItem(ID_HELP_UPDATES, L"Check for &updates"),
                    menuItem(ID_HELP_ABOUT, L"&About StarDraft 2")};
-    return MenuModel{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
-                     menuPopup(L"&Tools", tools), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
+    MenuModel bar{menuPopup(L"&File", file), menuPopup(L"&Edit", edit), menuPopup(L"&View", view), menuPopup(L"&Mode", mode),
+                  menuPopup(L"&Tools", tools), menuPopup(L"&Options", options), menuPopup(L"&Help", help)};
+    if (cmbwMode()) {  // (Cosmonarchy BW mode: its own tools, after Tools)
+        MenuModel cosmonarchy;
+        menuCommand(cosmonarchy, "edit.cmbw.repairIsom");
+        menuCommand(cosmonarchy, "scen.cmbw.checkComments");
+        bar.insert(bar.begin() + 5, menuPopup(L"&Cosmonarchy", cosmonarchy));
+    }
+    assignMenuSequences(bar);
+    return bar;
 }
 
 // The dock menu of the minimap (mini) or of the active mode's toolbar (a right click on it): its name (grayed), then

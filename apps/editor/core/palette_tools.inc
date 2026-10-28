@@ -1,3 +1,14 @@
+// Cosmonarchy's doodad brushes in the Doodads palette (core/cmbw.inc): values from kBrushDoodadBase.
+constexpr int kBrushDoodadBase = 40000;
+const TerrainStamp* brushDoodad(int value);
+int brushDoodadValue(const TerrainStamp* s);
+std::wstring brushDoodadName(const TerrainStamp& s);
+bool placeBrushDoodad(AppState& app, const TerrainStamp& s, float wx, float wy, int* tx = nullptr, int* ty = nullptr, bool place = true);
+bool brushDoodadFits(AppState& app, const TerrainStamp& s, int tx, int ty);
+bool brushDoodadAt(AppState& app, float wx, float wy, AppState::BrushAt& out);
+int deleteBrushDoodads(AppState& app);
+int moveBrushDoodads(AppState& app, float dx, float dy);
+
 // The editor's palette and tool state (portable, core.inc): the device scale, the status bar's texts and the messages,
 // the tool and brush of the active mode, the palette's entries and their list, and the player (owner) choice. The state
 // is the app's AppState (passed in as app); the lists, combo boxes, the log and the windows are the host's (shell.h).
@@ -40,9 +51,17 @@ Brush currentBrush(const AppState& app) {
     return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain && !brushHeightLocked(app) ? app.brushHeight : 0.0f};
 }
 
-// The terrain selection's shape: the brush shape (diamond, square, circle) while it is made with Select.
+// The terrain selection's shape: the Select tool's own (diamond, square, circle; a square at first), kept apart from the
+// brushes' so that a painting brush's shape does not change how Select selects.
 Editor::SelectShape selectShape(const AppState& app) {
-    return app.brushShape == Brush::Diamond ? Editor::SelectShape::Diamond : app.brushShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
+    // (the diamond: the area along the map's diamonds between the drag's two corners, so that it starts where the drag does)
+    if (app.selectShape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
+    return app.selectShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
+}
+// The shape the tool strip's shape box shows and changes: the Select tool's while it is the terrain's tool, else the
+// brushes'.
+Brush::Shape& shapeOf(AppState& app) {
+    return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShape : app.brushShape;
 }
 
 void setStatusPart(AppState& app, int i, const wchar_t* text) {
@@ -60,8 +79,64 @@ size_t unitStackCount(const AppState& app) {
     return app.ed->unitsAt(int(wx), int(wy)).size();
 }
 
+bool docOpen();  // (documents.inc)
+// The tile at map point (wx, wy) as text: its CV5 group and index, its VX4 megatile, its terrain, and the tile value
+// (the status bar; the map menu's Copy tile value). "" outside the map.
+std::wstring tileValueText(const Editor& ed, float wx, float wy) {
+    const int tx = int(wx) / 32, ty = int(wy) / 32;
+    if (wx < 0 || wy < 0 || tx >= ed.width() || ty >= ed.height() || size_t(ty) * ed.width() + tx >= ed.terrain().tiles.size()) return L"";
+    const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
+    wchar_t b[200];
+    std::swprintf(b, 200, L"CV5 %d.%d  VX4 %d  %ls  (tile %d, 0x%04X)", v >> 4, v & 15, ed.tileset().megatileFor(v),
+                  widen(ed.terrainName(ed.paletteTerrainAt(int(wx), int(wy)))).c_str(), int(v), int(v));
+    return b;
+}
+std::wstring unitDisplayName(int u);  // (names.inc)
+std::wstring unitsListOwner(int owner);  // (units_list.inc)
+std::wstring unitRangesText(const Unit& u);  // (map_scene.inc)
+// The status bar's selection: one unit or doodad, what it is (its name, owner, place, and a unit's hit points, shields
+// and energy where they are not full, a resource's amount, its ranges); more: how many.
+std::wstring selectionStatus(const AppState& app) {
+    if (!app.ed) return L"";
+    const Editor& ed = *app.ed;
+    wchar_t buf[256];
+    const bool doodads = app.mode == Mode::Doodads || (ed.selection().empty() && !app.selDoodads.empty());
+    if (doodads && !app.selDoodads.empty()) {
+        if (app.selDoodads.size() > 1) return std::to_wstring(app.selDoodads.size()) + tr(L" doodads selected");
+        const int i = app.selDoodads.front();
+        if (i < 0 || i >= int(ed.doodads().size())) return L"";
+        const Doodad& d = ed.doodads()[size_t(i)];
+        std::wstring name = L"#" + std::to_wstring(d.id);
+        if (const DoodadType* t = ed.doodadTypes().find(d.id); t && t->groupString)
+            name = widen(ed.unitTypes().statText(t->groupString - 1u)) + L" " + name;
+        std::swprintf(buf, 256, L"%ls  \x00b7  %d, %d", name.c_str(), int(d.x), int(d.y));
+        return buf;
+    }
+    const auto& sel = ed.selection();
+    if (sel.empty()) return tr(L"Nothing selected");
+    if (sel.size() > 1) return std::to_wstring(sel.size()) + tr(L" units selected");
+    if (sel.front() < 0 || sel.front() >= int(ed.units().size())) return L"";
+    const Unit& u = ed.units()[size_t(sel.front())];
+    std::swprintf(buf, 256, L"%ls  \x00b7  %ls  \x00b7  %d, %d", unitDisplayName(u.type).c_str(), unitsListOwner(u.owner).c_str(), int(u.x), int(u.y));
+    std::wstring out = buf;
+    // (only what the unit has: its valid properties)
+    if ((u.validProps & UnitProp::HitPoints) && u.hitPoints != 100) out += L"  \x00b7  HP " + std::to_wstring(u.hitPoints) + L"%";
+    if ((u.validProps & UnitProp::Shields) && u.shields != 100)
+        out += L"  \x00b7  " + std::wstring(tr(L"Shields ")) + std::to_wstring(u.shields) + L"%";
+    if ((u.validProps & UnitProp::Energy) && u.energy != 100)
+        out += L"  \x00b7  " + std::wstring(tr(L"Energy ")) + std::to_wstring(u.energy) + L"%";
+    if (u.validProps & UnitProp::Resources) out += L"  \x00b7  " + std::to_wstring(u.resources) + tr(L" resources");
+    if (const std::wstring r = unitRangesText(u); !r.empty() && !(u.validProps & UnitProp::Resources))  // (in tiles; a resource: none)
+        out += L"  \x00b7  " + r;
+    return out;
+}
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
+    if (!docOpen()) {  // no map shows (the start page, the New page): no part of a map's status
+        for (int i = 0; i < 6; ++i)
+            if (!app.statusText[i].empty()) setStatusPart(app, i, L"");
+        return;
+    }
     wchar_t buf[256];
     float wx, wy;
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
@@ -70,6 +145,8 @@ void updateStatus(AppState& app) {
                   : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
+    if (app.mode == Mode::Terrain && app.ed)  // the tile under the mouse: its group and index, its megatile, its terrain
+        if (const std::wstring t = tileValueText(*app.ed, wx, wy); !t.empty()) std::wcsncat(buf, (L"   " + t).c_str(), 255 - std::wcslen(buf));
     // Units mode: two or more units under the mouse (a stack) say how many, and how to see them.
     if (const size_t n = unitStackCount(app); n > 1) {
         wchar_t more[128];
@@ -80,9 +157,7 @@ void updateStatus(AppState& app) {
     }
     std::swprintf(buf, 256, L"%.0f%%  %ls", app.zoom * 100, widen(qualityName(app.quality)).c_str());
     setStatusPart(app, 2, buf);
-    size_t sel = app.ed ? app.ed->selection().size() : 0;
-    std::swprintf(buf, 256, L"%zu selected", sel);
-    setStatusPart(app, 3, buf);
+    setStatusPart(app, 3, selectionStatus(app).c_str());
     setStatusPart(app, 4, app.message.c_str());
     const int sprites = shellSpriteCount();
     // Frames drawn in the last second (the map draws when something changes, so this is low when nothing moves).
@@ -148,12 +223,12 @@ std::wstring itemLabel(const AppState& app, int v) {
     Editor& ed = *app.ed;
     switch (app.mode) {
     case Mode::Terrain: {
-        const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
-        return t ? widen(t->terrainName(uint16_t(v))) : L"";
+        return widen(ed.terrainName(uint16_t(v)));
     }
     case Mode::Units:
         return v < 0 ? L"(Select / move)" : unitTag(ed.unitTypes()[uint16_t(v)]) + L"   " + unitShortName(ed.unitTypes()[uint16_t(v)]);
     case Mode::Doodads: {
+        if (const TerrainStamp* b = brushDoodad(v)) return brushDoodadName(*b);
         const DoodadType* d = ed.doodadTypes().find(uint16_t(v));
         if (!d) return L"";
         return widen(ed.unitTypes().statText(d->groupString - 1u)) + L"  #" + std::to_wstring(d->id) + L"  (" +
@@ -178,9 +253,11 @@ void rebuildList(AppState& app) {
         std::vector<int> all;
         switch (app.mode) {
         case Mode::Terrain:
-            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()); t && ed.canPaintTerrain())
+            if (const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era()); t && ed.canPaintTerrain()) {
                 for (uint16_t i = 1; i <= t->terrainCount(); ++i)
                     if (t->isTerrain(i)) all.push_back(i);
+                for (const Tileset::ModTerrain& m : ed.tileset().modTerrains) all.push_back(m.id);  // (a mod's own: Cosmonarchy tabs)
+            }
             break;
         case Mode::Units: break;  // in the unit palette (side bar)
         case Mode::Sprites: break;
@@ -261,6 +338,13 @@ bool spriteIsOverlay(const AppState& app, int i) {
 // it fits, or anywhere on the map (the terrain is not checked). True when it was placed.
 bool placePaletteDoodad(AppState& app, float wx, float wy, std::string& why) {
     Editor& ed = *app.ed;
+    if (const TerrainStamp* b = brushDoodad(app.palette)) {
+        int tx = 0, ty = 0;
+        placeBrushDoodad(app, *b, wx, wy, &tx, &ty, false);
+        if (app.doodadCheck && !brushDoodadFits(app, *b, tx, ty)) return why = "its edges do not join the tiles around it", false;
+        if (placeBrushDoodad(app, *b, wx, wy)) return true;
+        return why = "its tiles are there already", false;
+    }
     const uint16_t id = uint16_t(app.palette);
     if (ed.placeDoodad(id, int(wx), int(wy), app.doodadCheck, &why)) return true;
     if (!app.doodadNearest) return false;
@@ -321,6 +405,7 @@ void pickUnit(AppState& app, int v, bool add) {
                        (app.mode == Mode::Doodads ? L": click to place it (green if it fits, red if it does not)" : L""));
         app.dirty = true;
         shellPaletteChanged();
+        if (!add && app.palette >= 0) shellPaletteReveal(app.palette);  // (the pipette's pick: the list scrolls to it)
         return;
     }
     if (app.mode != Mode::Units) setMode(Mode::Units);

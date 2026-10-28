@@ -59,8 +59,34 @@ void locationMenuPick(int loc, int pick) {
 // already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
-       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP };
+       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
+std::wstring tileValueText(const Editor& ed, float wx, float wy);  // (palette_tools.inc)
+void shellCopyText(const std::wstring& text);                     // (shell_sdl.inc)
+void shellReportFeedback(const std::wstring& on, const std::wstring& text);
+std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
+
+// The selected terrain's tiles for a feedback report: each tile value once (as Copy tile value has it) with the places
+// it is at; at most 40 values and 6 places each.
+std::wstring selectedTilesText(const Editor& ed) {
+    std::map<uint16_t, std::vector<std::pair<int, int>>> at;
+    std::vector<uint16_t> order;
+    for (auto [x, y] : terrainSelTiles()) {
+        const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + size_t(x)];
+        auto& list = at[v];
+        if (list.empty()) order.push_back(v);
+        list.push_back({x, y});
+    }
+    std::wstring out = L"\n\n" + std::wstring(tr(L"The selected terrain (tile x, y):"));
+    for (size_t i = 0; i < order.size() && i < 40; ++i) {
+        const auto& list = at[order[i]];
+        out += L"\n" + tileValueText(ed, list.front().first * 32.0f + 16, list.front().second * 32.0f + 16) + L"  at";
+        for (size_t k = 0; k < list.size() && k < 6; ++k) out += L" " + std::to_wstring(list[k].first) + L"," + std::to_wstring(list[k].second);
+        if (list.size() > 6) out += L" (+" + std::to_wstring(list.size() - 6) + L")";
+    }
+    if (order.size() > 40) out += L"\n(+" + std::to_wstring(order.size() - 40) + L")";
+    return out;
+}
 float gMapMenuWX = 0, gMapMenuWY = 0;  // the map point that the menu opened on
 size_t gMapMenuStack = 0;              // the units at that point (Units mode)
 
@@ -168,7 +194,7 @@ MenuModel mapMenuModel(float wx, float wy) {
         const int hit = dd ? ed.doodadAt(int(wx), int(wy)) : mapSpriteAt(*app.ed, int(wx), int(wy));
         if (hit >= 0 && std::find(sel.begin(), sel.end(), hit) == sel.end()) sel = {hit};
         (dd ? gMapMenuDoodad : gMapMenuSprite) = hit;
-        has = !sel.empty(), canPaste = !(dd ? app.doodadClip : app.spriteClip).empty();
+        has = !sel.empty() || (dd && !app.selBrushes.empty()), canPaste = !(dd ? app.doodadClip : app.spriteClip).empty();
         break;
     }
     case Mode::Locations: {
@@ -179,7 +205,10 @@ MenuModel mapMenuModel(float wx, float wy) {
         has = ed.selectedLocation() >= 0, canPaste = !app.locationClip.empty();
         break;
     }
-    case Mode::Terrain: has = app.hasTerrainSel, canPaste = ed.hasTileClipboard() || ed.hasTerrainClipboard(); break;  // either copy (#83)
+    case Mode::Terrain:
+        has = app.hasTerrainSel, canPaste = ed.hasTileClipboard() || ed.hasTerrainClipboard();  // either copy (#83)
+        gMapMenuWX = wx, gMapMenuWY = wy;  // (Copy tile value: the tile here)
+        break;
     }
     auto item = [&](int id, const wchar_t* text, const wchar_t* keys, bool on) { m.push_back(menuItem(id, text, keys, !on)); };
     const bool terrain = app.mode == Mode::Terrain;
@@ -192,6 +221,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
     if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles->picked >= 0);  // (#114)
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
+    if (terrain) item(ID_MAPMENU_COPYTILE, L"Copy tile &value", L"", true);  // (as the status bar shows it: tileValueText)
     m.push_back(menuSeparator());
     item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
@@ -200,6 +230,12 @@ MenuModel mapMenuModel(float wx, float wy) {
         m.push_back(menuItem(ID_MAPMENU_SAMETYPE_PLAYER, L"Select all of this type for Player " + std::to_wstring(ed.units()[size_t(gMapMenuUnit)].owner + 1)));
     if (gMapMenuStack > 1) item(ID_MAPMENU_STACK, L"Select a unit &here\x2026", L"Alt+click", true);  // (a stack: the list of its units)
     item(ID_MAPMENU_SELECT, L"&Select (no placing)", L"Esc", !inSelection());
+    if (app.mode == Mode::Units) {  // the ranges of the selected units (as View > Unit vision and ranges)
+        MenuModel ranges{menuItem(ID_VIEW_RANGES, L"&All ranges", {}, false, gRangeKinds == kRangeAll), menuSeparator()};
+        for (int k = 0; k < kRangeKindCount; ++k) ranges.push_back(menuItem(ID_VIEW_RANGEKIND + k, kRangeKinds[k].menu, {}, false, rangeShown(k)));
+        m.push_back(menuSeparator());
+        m.push_back(menuPopup(L"&Unit vision and ranges", std::move(ranges)));
+    }
     if (gMapMenuUnit >= 0) {
         m.push_back(menuSeparator());
         item(ID_MAPMENU_PROPS, L"P&roperties\x2026", L"", true);
@@ -208,6 +244,12 @@ MenuModel mapMenuModel(float wx, float wy) {
         m.push_back(menuSeparator());
         for (MenuItem& it : locationMenuModel(gMapMenuLocation))
             if (it.id != ID_LOCMENU_DELETE) m.push_back(std::move(it));  // Delete is above
+    }
+    // A terrain selection: the menu's Report feedback is on it, its tiles in the box (in the place of "on the map": the
+    // shell adds that one only when this is not here, mapRightClickSdl).
+    if (terrain && has) {
+        m.push_back(menuSeparator());
+        item(ID_MAPMENU_FEEDBACKSEL, L"Report feedback on the selected terrain\x2026", L"", true);
     }
     return m;
 }
@@ -221,6 +263,12 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_REPLACE) shellShowQuickPicker(true, false);
     else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
     else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
+    else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));
+    else if (pick == ID_MAPMENU_COPYTILE && app.ed) {
+        const std::wstring t = tileValueText(*app.ed, gMapMenuWX, gMapMenuWY);
+        shellCopyText(t);
+        setMessage(tr(L"Copied: ") + t);
+    }
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
     else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
         // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.

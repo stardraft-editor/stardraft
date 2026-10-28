@@ -40,7 +40,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Key | What it does |
 |---|---|
 | Ctrl+1 to Ctrl+9 | The side bar's items in their order: Map, Data, Triggers, Briefing, Assets, Properties (a project: then Project), and last Help. View > Workspaces lists them with their keys |
-| Ctrl+L | Show or hide the Log |
+| Ctrl+M | Show or hide the Log |
 | F1 | Help on what has the keyboard: a Data field's page, a trigger check's part, else the contents |
 
 ## The map
@@ -48,12 +48,14 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Key | What it does |
 |---|---|
 | T, U, D, S, L | Terrain, Units, Doodads, Sprites and Locations mode |
+| Ctrl+T, Ctrl+U, Ctrl+G, Ctrl+R, Ctrl+L | Terrain, Units, Doodads, Sprites and Locations mode (as SCMDraft's layer keys, but Doodads on Ctrl+G; in the Map workspace) |
+| Ctrl+F | Show or hide the fog of war of the selected player |
 | V, B, A, F | The mode's tools: Select, Brush (place), Spray and Fill |
 | 1 to 9, 0 | Player 1 to 10 for what you place (in Terrain mode, the palette's terrain) |
 | G | Show or hide the grid |
 | + and - | Zoom in and out |
 | Ctrl+0 | Actual size |
-| Ctrl+F | Fit the map in the window |
+| Ctrl+H | Fit the map in the window |
 | Arrows | Move the selected units by one pixel, else scroll the map |
 | Shift+arrows | Move the selected units by 8 pixels, or by a grid cell when units snap |
 | Enter | Properties of the selected location or unit |
@@ -141,3 +143,117 @@ The box at the top filters the columns by name. **Changed** shows only the colum
 
 The keys are those of the program's menus and its key table (apps/editor/core/map_edit_commands.inc and
 apps/editor/core/map_commands.inc). Written for StarDraft 2.
+
+
+## Two-key shortcuts
+
+Each menu command that has no key of its own has two keys: press the first key, then the second key. After the
+first key, the status bar shows that StarDraft 2 waits for the second key. Esc cancels. The menus show these keys
+too, for example "Ctrl+K, G". (Cosmonarchy: only in Cosmonarchy BW mode.)
+
+### Ctrl+K: the View menu
+
+| Keys | Menu command |
+|---|---|
+| Ctrl+K, H | View > Graphics > High definition (2x, default) |
+| Ctrl+K, Shift+H | View > Graphics > High definition (4x) |
+| Ctrl+K, S | View > Graphics > Standard definition |
+| Ctrl+K, C | View > Graphics > Carbot (cartooned) |
+| Ctrl+K, 1 | View > Grid > Fine (8 pixels) |
+| Ctrl+K, 2 | View > Grid > Small (16 pixels) |
+| Ctrl+K, 3 | View > Grid > Normal (32 pixels) |
+| Ctrl+K, 4 | View > Grid > Large (64 pixels) |
+| Ctrl+K, 5 | View > Grid > Huge (128 pixels) |
+| Ctrl+K, 6 | View > Grid > Custom |
+| Ctrl+K, T | View > Overlays > Town areas |
+| Ctrl+K, Shift+P | View > Overlays > Pathing > Off |
+| Ctrl+K, P | View > Overlays > Pathing > Regions |
+| Ctrl+K, A | View > Overlays > Pathing > Connected areas |
+| Ctrl+K, Shift+F | View > Overlays > Terrain flags > Off |
+| Ctrl+K, W | View > Overlays > Terrain flags > Walkable ground |
+| Ctrl+K, E | View > Overlays > Terrain flags > Ground height |
+| Ctrl+K, B | View > Overlays > Terrain flags > Ground that blocks the line of sight |
+| Ctrl+K, Shift+B | View > Overlays > Terrain flags > Buildable ground |
+| Ctrl+K, R | View > Unit vision and ranges > All ranges |
+| Ctrl+K, V | View > Unit vision and ranges > Sight |
+| Ctrl+K, Q | View > Unit vision and ranges > Target acquisition |
+| Ctrl+K, Shift+G | View > Unit vision and ranges > Ground weapon |
+| Ctrl+K, Shift+A | View > Unit vision and ranges > Air weapon |
+| Ctrl+K, D | View > Unit vision and ranges > Detection |
+| Ctrl+K, I | View > Unit vision and ranges > Psi field |
+| Ctrl+K, Shift+T | View > Layers > Terrain |
+| Ctrl+K, Shift+D | View > Layers > Doodads |
+| Ctrl+K, Shift+S | View > Layers > Sprites |
+| Ctrl+K, Shift+U | View > Layers > Units |
+| Ctrl+K, Shift+M | View > Layers > Map revealers |
+| Ctrl+K, Shift+C | View > Layers > Creep |
+| Ctrl+K, L | View > Layers > Locations |
+| Ctrl+K, N | View > Animate units |
+| Ctrl+K, M | View > Show minimap |
+| Ctrl+K, 7 | View > Floating palettes > Terrain palette |
+| Ctrl+K, 8 | View > Floating palettes > Unit palette |
+| Ctrl+K, 9 | View > Floating palettes > Doodad palette |
+| Ctrl+K, 0 | View > Floating palettes > Sprite palette |
+| Ctrl+K, Shift+L | View > Floating palettes > Location list |
+| Ctrl+K, U | View > Units list |
+| Ctrl+K, Shift+E | View > Data > Entry view |
+| Ctrl+K, X | View > Triggers > Trigger code pane |
+
+### Ctrl+J: the Options menu
+
+| Keys | Menu command |
+|---|---|
+| Ctrl+J, 1 | Options > Units > Do not snap |
+| Ctrl+J, 2 | Options > Units > Snap to tiles (32 px) |
+| Ctrl+J, 3 | Options > Units > Snap to half tiles (16 px) |
+| Ctrl+J, 4 | Options > Units > Snap to quarter tiles (8 px) |
+| Ctrl+J, B | Options > Units > Snap buildings to tile edges |
+| Ctrl+J, F | Options > Units > Place only where it fits |
+| Ctrl+J, N | Options > Units > Move to the nearest place where it fits |
+| Ctrl+J, A | Options > Units > Place anywhere |
+| Ctrl+J, T | Options > Units > Can be on top of others |
+| Ctrl+J, R | Options > Units > Keep resources 3 tiles from town halls |
+| Ctrl+J, D | Options > Units > Randomize unit direction when placed |
+| Ctrl+J, G | Options > Units > Dragged units go back to the last place where they fit |
+| Ctrl+J, Shift+F | Options > Doodads > Place only where it fits |
+| Ctrl+J, Shift+N | Options > Doodads > Move to the nearest place where it fits |
+| Ctrl+J, Shift+A | Options > Doodads > Place anywhere |
+| Ctrl+J, 5 | Options > Sprites > Do not snap |
+| Ctrl+J, 6 | Options > Sprites > Snap to tiles (32 px) |
+| Ctrl+J, 7 | Options > Sprites > Snap to half tiles (16 px) |
+| Ctrl+J, 8 | Options > Sprites > Snap to quarter tiles (8 px) |
+| Ctrl+J, Z | Options > Locations > Do not snap |
+| Ctrl+J, X | Options > Locations > Snap to tiles (32 px) |
+| Ctrl+J, C | Options > Locations > Snap to half tiles (16 px) |
+| Ctrl+J, V | Options > Locations > Snap to quarter tiles (8 px) |
+| Ctrl+J, L | Options > Locations > Names in lines that fit in the location |
+| Ctrl+J, U | Options > Terrain copy includes units |
+| Ctrl+J, O | Options > Terrain copy includes doodads |
+
+### Ctrl+Shift+K: the File, Tools, Cosmonarchy and Help menus
+
+| Keys | Menu command |
+|---|---|
+| Ctrl+Shift+K, O | File > Project > Open project |
+| Ctrl+Shift+K, M | File > Project > Make this map a project |
+| Ctrl+Shift+K, I | File > Project > Import a project (experimental) |
+| Ctrl+Shift+K, S | File > Project > Add script |
+| Ctrl+Shift+K, F | File > Project > Open project folder |
+| Ctrl+Shift+K, P | File > Project > Project settings |
+| Ctrl+Shift+K, X | File > Exit |
+| Ctrl+Shift+K, C | Tools > Check that StarCraft can start the map |
+| Ctrl+Shift+K, H | Tools > Check pathing (nooks and crannies) |
+| Ctrl+Shift+K, 1 | Tools > Decorate the terrain > A few doodads |
+| Ctrl+Shift+K, 2 | Tools > Decorate the terrain > Some doodads |
+| Ctrl+Shift+K, 3 | Tools > Decorate the terrain > Many doodads |
+| Ctrl+Shift+K, R | Tools > Place map revealers |
+| Ctrl+Shift+K, Shift+R | Tools > Remove all map revealers |
+| Ctrl+Shift+K, Shift+I | Cosmonarchy > Try to repair the ISOM |
+| Ctrl+Shift+K, Shift+C | Cosmonarchy > Check the CRIG commands |
+| Ctrl+Shift+K, Shift+F | Help > Report feedback |
+| Ctrl+Shift+K, G | Help > Report an issue on GitHub |
+| Ctrl+Shift+K, D | Help > Join Discord |
+| Ctrl+Shift+K, Shift+G | Help > StarDraft 2 on GitHub |
+| Ctrl+Shift+K, W | Help > What is new |
+| Ctrl+Shift+K, U | Help > Check for updates |
+| Ctrl+Shift+K, A | Help > About StarDraft 2 |

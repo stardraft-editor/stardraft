@@ -54,12 +54,67 @@ const SdlSound* sdlSound(const std::string& name) {
 // last one: a snapshot's state line says them (a test run plays nothing).
 int gSoundAsks = 0;
 std::string gSoundAsked;
-SDL_AudioStream* openPlaybackSdl(const SDL_AudioSpec* spec) {
-    if (gSilent) return nullptr;
+// One playback device for every sound: opened at the first need and kept open and running while sounds play, so a
+// sound starts at once (a device opened for each sound took a moment to start, and the sound began late). Each sound is
+// a stream of its own on it (closeStreamSdl takes it off). The Briefing and Assets pages open it when they show and keep
+// it open while they show (a Bluetooth headset's link then stays awake: its first sound starts at once too). Elsewhere,
+// after 20 seconds with no sound the device closes (an open device keeps the computer from sleeping); the next sound
+// opens it again. 0: none (a test run, or no device: a failed
+// open is tried again after 2 seconds at the earliest, not at each of the briefing's ticks).
+SDL_AudioDeviceID gPlaybackDevice = 0;
+SDL_AudioSpec gPlaybackSpec{};
+std::set<SDL_AudioStream*> gPlaybackStreams;  // (the streams of openPlaybackSdl not closed yet)
+uint64_t gPlaybackFailedAt = 0, gPlaybackSoundAt = 0;
+void playbackIdleCheckSdl() {
+    if (!gHost) return;
+    gHost->timer(5000, [] {
+        if (!gPlaybackDevice) return;
+        if (gWorkspace == Workspace::Briefing || gWorkspace == Workspace::Files) gPlaybackSoundAt = SDL_GetTicks();
+        for (SDL_AudioStream* s : gPlaybackStreams)
+            if (SDL_GetAudioStreamDevice(s) && SDL_GetAudioStreamQueued(s) > 0) gPlaybackSoundAt = SDL_GetTicks();
+        if (SDL_GetTicks() - gPlaybackSoundAt < 20000) return playbackIdleCheckSdl();
+        for (SDL_AudioStream* s : gPlaybackStreams) SDL_UnbindAudioStream(s);
+        SDL_CloseAudioDevice(gPlaybackDevice);
+        gPlaybackDevice = 0;
+    });
+}
+SDL_AudioDeviceID playbackDeviceSdl() {
+    if (gSilent) return 0;
+    if (gPlaybackDevice) return gPlaybackSoundAt = SDL_GetTicks(), gPlaybackDevice;
+    if (gPlaybackFailedAt && SDL_GetTicks() - gPlaybackFailedAt < 2000) return 0;
     if (!SDL_WasInit(SDL_INIT_AUDIO)) SDL_InitSubSystem(SDL_INIT_AUDIO);
-    SDL_AudioStream* s = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, spec, nullptr, nullptr);
-    if (s) SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f);
+    gPlaybackDevice = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
+    if (!gPlaybackDevice) return gPlaybackFailedAt = SDL_GetTicks(), 0;
+    gPlaybackFailedAt = 0, gPlaybackSoundAt = SDL_GetTicks();
+    if (!SDL_GetAudioDeviceFormat(gPlaybackDevice, &gPlaybackSpec, nullptr)) gPlaybackSpec = {SDL_AUDIO_F32, 2, 48000};
+    playbackIdleCheckSdl();
+    return gPlaybackDevice;
+}
+// Ends a sound of openPlaybackSdl (it stops if it plays).
+void closeStreamSdl(SDL_AudioStream* s) {
+    if (!s) return;
+    gPlaybackStreams.erase(s);
+    SDL_DestroyAudioStream(s);
+}
+SDL_AudioStream* openPlaybackSdl(const SDL_AudioSpec* spec) {
+    if (!playbackDeviceSdl()) return nullptr;
+    SDL_AudioStream* s = SDL_CreateAudioStream(spec, &gPlaybackSpec);
+    if (!s) return nullptr;
+    SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f);
+    gPlaybackStreams.insert(s);
     return s;
+}
+// Starts a stream of openPlaybackSdl with the data put in: it goes on the running device (the sound starts at once).
+// False: no device (the sound does not play).
+bool playStreamSdl(SDL_AudioStream* s) {
+    return s && playbackDeviceSdl() && SDL_BindAudioStream(gPlaybackDevice, s);
+}
+// Pauses one sound (it leaves the device, its data stays) or plays it on: the other sounds go on. False: it could not
+// play on (no device).
+bool pauseStreamSdl(SDL_AudioStream* s, bool pause) {
+    if (!s) return false;
+    if (pause) return SDL_UnbindAudioStream(s), true;
+    return playStreamSdl(s);
 }
 
 // One sound to listen to: play, and play again to stop.
@@ -71,7 +126,7 @@ struct SdlPreview {
 } gSdlPreview;
 
 void previewStopSdl() {
-    if (gSdlPreview.stream) SDL_DestroyAudioStream(gSdlPreview.stream);
+    closeStreamSdl(gSdlPreview.stream);
     gSdlPreview = {};
 }
 bool previewPlayingSdl(const std::string& name) {
@@ -91,7 +146,7 @@ void previewToggleSdl(const std::string& name) {
     }
     SDL_PutAudioStreamData(s, d->pcm.data(), int(d->pcm.size()));
     SDL_FlushAudioStream(s);
-    SDL_ResumeAudioStreamDevice(s);
+    playStreamSdl(s);
     gSdlPreview.stream = s, gSdlPreview.name = name, gSdlPreview.started = SDL_GetTicks(), gSdlPreview.ms = d->ms;
 }
 

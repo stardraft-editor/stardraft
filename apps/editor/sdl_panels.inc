@@ -109,23 +109,19 @@ bool panelPicture(draw::Canvas& c, Mode what, int value, bool sprites, draw::Rec
 
 // The View menu (core/palette_view.inc: paletteMenuModel) of the palette `pal` at `at` of `from`: on its item of `row`
 // (-1: none), a doodad of a project gets Pin to the top or Unpin first. A view item changes the view of the palette's
-// mode (saved in the settings), a section scrolls the list to it.
+// mode (saved in the settings).
 void palettePanelsViewOf(Mode m);  // (sdl_palette_panels.inc)
 void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int row, PalettePanelView* panel) {
     const int value = row >= 0 && row < int(pal.rows.size()) ? pal.rows[size_t(row)].value : -1;
     const Mode mode = pal.mode;
-    std::vector<int> sections;  // the rows of the list's sections (units, doodads, sprites)
-    if (mode == Mode::Units || mode == Mode::Doodads || mode == Mode::Sprites)
-        for (size_t i = 0; i < pal.rows.size(); ++i)
-            if (pal.rows[i].value < 0) sections.push_back(int(i));
-    std::vector<std::wstring> names;
-    for (int i : sections) names.push_back(pal.rows[size_t(i)].label);
     const PaletteView& view = panel ? panel->view : gViewByMode[int(mode)];
     const PaletteSort sort = panel ? panel->sort : gSortByMode[int(mode)];
-    const MenuModel model = paletteMenuModel(mode, view, names, palettePinState(mode, value), sort, panel && !panel->floating);
+    bool tiers = false;  // (a mod's units with tech tiers: Sort by tier)
+    if (mode == Mode::Units && gState.ed && gState.ed->isOpen())
+        for (uint16_t i = 0; i < gState.ed->unitTypes().size() && !tiers; ++i) tiers = gState.ed->unitTypes()[i].paletteTier > 0;
+    const MenuModel model = paletteMenuModel(mode, view, palettePinState(mode, value), sort, panel && !panel->floating, tiers);
     const std::wstring on = sdlFeedbackOn(from, at, panel ? L"a palette panel" : L"the palette");
-    PaletteGridView* p = &pal;
-    sdlPopupMenu(from, at, sdlModelItems(model, [p, value, sections, mode, panel, view, sort](int id) {
+    sdlPopupMenu(from, at, sdlModelItems(model, [value, mode, panel, view, sort](int id) {
         if (id == kPalPin) return doodadPinToggle(value);
         if (id == ID_PAL_NEW_PANEL) return palettePanelNew(mode, view, sort, panel);
         if (id == ID_PAL_CLOSE_PANEL && panel) return shellPost([panel] { palettePanelClose(*panel); });
@@ -134,17 +130,12 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
             return shellPost([fm] { shellFloatPalette(fm, !paletteFloats(fm)); });
         }
         if (panel) {  // a panel's own view and order (each panel's own: panel_state.inc)
-            if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) return p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
             if (applyPaletteViewCommand(mode, id, panel->view, panel->sort)) palettePanelRebuild(*panel);
             return;
         }
         if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) return shellFloatPalette(Mode(id - ID_VIEW_FLOATPAL), !paletteFloats(Mode(id - ID_VIEW_FLOATPAL)));
-        if (id >= kPalSectionFirst && id < kPalSectionFirst + int(sections.size())) {
-            p->scrollTo(p->rowRect(sections[size_t(id - kPalSectionFirst)]).top);
-            return;
-        }
         if (applyPaletteViewCommand(mode, id)) {
-            if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) shellPaletteRebuilt();  // (the rows in the new order)
+            if ((id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) || id == ID_PAL_SORT_TIER) shellPaletteRebuilt();  // (the rows in the new order)
             gPalList.layout(), gPal2List.layout(), gPal3List.layout();  // (each palette shows the view of its mode)
             shellSettingsChanged();
         }

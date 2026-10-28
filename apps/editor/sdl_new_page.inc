@@ -39,17 +39,21 @@ std::wstring NewHostSdl::pickMapFile() {
     return shellPickFile(d).wstring();
 }
 
-// A list picker: the rows are the items' labels, the row picked is its value (sdlPickFromList, a modal dialog).
-void NewHostSdl::pickList(const std::wstring& title, const std::vector<NewListItem>& items, const std::string& current, draw::Rect,
+// A list picker: a dropdown menu under the field (the items' labels, the current one checked); the item picked gives
+// its value.
+void NewHostSdl::pickList(const std::wstring& title, const std::vector<NewListItem>& items, const std::string& current, draw::Rect below,
                           const std::function<void(const std::string&)>& picked) {
-    std::vector<std::wstring> rows;
-    int checked = -1;
-    for (size_t i = 0; i < items.size(); ++i) {
-        rows.push_back(items[i].label);
-        if (items[i].value == current) checked = int(i);
+    std::vector<kit::MenuItem> menu;
+    for (const NewListItem& it : items) {
+        kit::MenuItem m;
+        m.label = it.label, m.checked = it.value == current;
+        m.run = [picked, v = it.value] { picked(v); };
+        menu.push_back(std::move(m));
     }
-    const int i = sdlPickFromList(rows, checked, title);
-    if (i >= 0 && i < int(items.size())) picked(items[size_t(i)].value);
+    (void)title;  // (a dropdown: no Report feedback item, as sdlPopupMenu adds)
+    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
+    kit_sdl::ImguiCanvas measure(list, nullptr);
+    kit::Menu::popup(gNewView, {below.left, below.bottom}, menu, kit::Menu::measure(menu, &measure), {});
 }
 
 // Leaves the page: the map shows again (the start page, when no map is open).
@@ -61,8 +65,13 @@ void NewHostSdl::cancel() {
 // Makes the map with the page's choices, in a tab of its own (an EUD project: the project folder around it, as the
 // Windows program's); the page closes.
 bool NewHostSdl::make() {
-    auto ed = std::make_unique<Editor>(gState.data);
     std::string err;
+    const GameData* data = &gState.data;
+    if (gNewView.cosmonarchy && !(data = cmbwGameData(err))) {  // (a Cosmonarchy map: the mod's units and tiles)
+        shellErrorBox(widen(err), shellTr(L"Could not create the Cosmonarchy map"));
+        return false;
+    }
+    auto ed = std::make_unique<Editor>(*data);
     const TerrainGenParams p = gNewView.params();
     const bool copy = gNewView.project && gNewView.copyMap;  // Import an existing map: the project's map is a copy of it (the file stays as it is)
     const bool ok = copy                   ? ed->open(fs::path(gNewView.fromMapText()), err)
@@ -106,6 +115,7 @@ bool NewHostSdl::make() {
 // EUD project) shows the New page with that kind's choices. Both show in the Map workspace; Create makes the map or the
 // project in a tab of its own (the open maps and projects stay).
 void openNewPageSdl(int kind) {
+    if (cmbwMode() && kind != 2) kind = -1;  // (Cosmonarchy: the start page, its Cosmonarchy map card; 2: that card's page)
     if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
     if (kind < 0) {
         gNewOpen = false, gStartOpen = true;
@@ -119,7 +129,7 @@ void openNewPageSdl(int kind) {
         gNewView.reset(kind);
     }
     gNewView.tallest = 0;
-    gNewView.project = kind == 1, gNewView.card = kind;
+    gNewView.project = kind == 1, gNewView.cosmonarchy = kind == 2, gNewView.card = kind == 2 ? 0 : kind;
     gNewView.changed(false);
     gNewOpen = true;
     if (!gNewView.importing() && !gNewView.previewMade) gNewView.schedule(10);
@@ -166,4 +176,4 @@ void shellPageTabClose() {
 }
 
 // The tab's name: the kind (the document tabs name a page with it).
-const wchar_t* gNewTitle() { return gNewView.project ? L"New EUD project" : L"New classic project"; }
+const wchar_t* gNewTitle() { return gNewView.cosmonarchy ? L"New Cosmonarchy map" : gNewView.project ? L"New EUD project" : L"New classic project"; }

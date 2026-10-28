@@ -531,6 +531,8 @@ Flingy	Flingy
 Upgrades	업그레이드
 Tech data	기술 데이터
 Orders	명령
+on	켜짐
+off	꺼짐
 SFX data	SFX 데이터
 Port data	Port 데이터
 Showing changed 	변경된 항목만 표시 중 
@@ -1416,8 +1418,7 @@ Dark theme (default)	어두운 테마 (기본값)
 Light theme	밝은 테마
 Accent color	강조 색상
  (default)	 (기본값)
-Animate units	유닛 애니메이션
-Units on the map play their animations	맵의 유닛이 애니메이션을 재생합니다
+A&nimate units	유닛 애니메이션(&N)
 Custom names	사용자 지정 이름
 How lists name a unit that has a custom name in the map	맵에서 사용자 지정 이름을 가진 유닛을 목록에서 표시하는 방법
 Open the last project on start	시작할 때 마지막 프로젝트 열기
@@ -1952,6 +1953,7 @@ Paste\tCtrl+V	붙여넣기\tCtrl+V
 Edit the block…	블록 편집…
 Move out\tCtrl+Left	밖으로 이동\tCtrl+Left
 Move in\tCtrl+Right	안으로 이동\tCtrl+Right
+Always: 	항상: 
 Becomes 	맵에서 
  triggers in the map. 	개의 트리거가 됩니다. 
 Off	끔
@@ -2282,6 +2284,9 @@ Make floating	떠 있게 하기
 Sort by &category	분류순 정렬(&C)
 Sort by na&me	이름순 정렬(&M)
 Sort by n&umber	번호순 정렬(&U)
+Sort by &tier	티어순 정렬(&T)
+Tier	티어
+No tier	티어 없음
 &New panel like this	이와 같은 새 패널(&N)
 &Close panel	패널 닫기(&C)
 New palette panel: 	새 팔레트 패널: 
@@ -2429,6 +2434,24 @@ Simulate melee &mining (experimental)	근접 채취 시뮬레이션(&M) (실험�
 Simulate com&bat of the selected units	선택한 유닛의 전투 시뮬레이션(&B)
 Simulate com&bat of the selected units (experimental)	선택한 유닛의 전투 시뮬레이션(&B) (실험적)
 &Tools	도구(&T)
+press the second key (Esc: none)	두 번째 키를 누르십시오 (Esc: 취소)
+that command is not available here	여기서는 그 명령을 사용할 수 없습니다
+no command has that second key	그 두 번째 키를 가진 명령이 없습니다
+&Cosmonarchy	Cosmonarchy(&C)
+Try to repair the &ISOM	ISOM 복구 시도(&I)
+&Check the CRIG commands	CRIG 명령 검사(&C)
+Check the CRIG commands	CRIG 명령 검사
+Standard (StarCraft: Brood War)	표준 (StarCraft: Brood War)
+Cosmonarchy BW	Cosmonarchy BW
+Mods	모드
+Cosmonarchy folder	Cosmonarchy 폴더
+Select the Cosmonarchy BW folder	Cosmonarchy BW 폴더를 선택하십시오
+That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	이 폴더에는 Cosmonarchy BW 데이터(mpq\arr\units.datex)가 없습니다.
+The Cosmonarchy folder is set	Cosmonarchy 폴더가 설정되었습니다
+The Prerelease or Release folder	Prerelease 또는 Release 폴더입니다
+The Prerelease or Release folder. A new folder is used from the next start	Prerelease 또는 Release 폴더입니다. 새 폴더는 다음 시작부터 사용됩니다
+The CRIG commands have no problems	CRIG 명령에 문제가 없습니다
+These CRIG commands in the trigger Comments have problems:	트리거 주석의 다음 CRIG 명령에 문제가 있습니다:
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	실험적 시뮬레이션입니다. 아직 게임과 완전히 같지 않을 수 있습니다. 게임의 엔진이 아닌 StarDraft 자체 시뮬레이션입니다.
 Simulation	시뮬레이션
 Simulate mining	채취 시뮬레이션
@@ -2527,3 +2550,29 @@ The simulation cannot start: %ls	시뮬레이션을 시작할 수 없습니다: 
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2는 팬이 만든 도구입니다. Blizzard Entertainment가 만들거나 승인하거나 보증하지 않았습니다.
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft는 Blizzard Entertainment의 상표입니다.
 stored as %u (1/256 hit points)	%u로 저장됨 (1/256 체력)
+On	켜짐
+Turned off	꺼짐
+On: the condition or action works in the game (off: it does nothing)	켜짐: 조건이나 동작이 게임에서 작동합니다 (꺼짐: 아무것도 하지 않습니다)
+Add a trigger after the selected one (T)	선택한 트리거 뒤에 트리거 추가 (T)
+Add a condition (C)	조건 추가 (C)
+Add an action (A)	액션 추가 (A)
+Standard	표준
+Cosmonarchy	Cosmonarchy
+StarCraft: Brood War's maps and projects (default)	스타크래프트: 브루드 워 맵과 프로젝트 (기본값)
+Cosmonarchy BW: every map opens with the mod's units, and the start page and File > New make Cosmonarchy maps (no classic maps or projects)	Cosmonarchy BW: 모든 맵이 모드의 유닛으로 열리고, 시작 페이지와 파일 > 새로 만들기가 Cosmonarchy 맵을 만듭니다 (클래식 맵이나 프로젝트 없음)
+Game: Cosmonarchy. Maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	게임: Cosmonarchy. 맵이 Cosmonarchy BW 맵으로 열리고 만들어집니다 (열린 탭은 그대로 유지됩니다)
+Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	게임: 표준. 맵이 스타크래프트: 브루드 워 맵으로 열리고 만들어집니다 (열린 탭은 그대로 유지됩니다)
+&Unit vision and ranges	시야와 사거리(&U)
+&Quick picker…\tQ	빠른 선택(&Q)…\tQ
+&Off	끄기(&O)
+&Regions	지역(&R)
+Connected &areas	연결된 구역(&A)
+Town a&reas	기지 구역(&R)
+&Terrain flags	지형 속성(&T)
+Copy tile &value	타일 값 복사(&V)
+Copied: 	복사함: 
+Report feedback on the selected terrain…	피드백 보고: 선택한 지형…
+The selected terrain (tile x, y):	선택한 지형 (타일 x, y):
+&Randomize unit direction when placed	배치할 때 유닛 방향 무작위(&R)
+Units get a random direction when placed	배치할 때 유닛 방향이 무작위로 정해집니다
+Units face down and right	유닛이 오른쪽 아래를 봅니다

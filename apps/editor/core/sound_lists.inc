@@ -40,19 +40,25 @@ std::string gameSoundElsewhere(const std::string& name) {
 }
 
 // A sound's bytes by its path: the map's archive first, then the game's files.
+// The game data the open tab plays with: a Cosmonarchy BW tab's is the mod's (its own sounds, then the game's).
+const GameData& soundGameData() {
+    AppState& st = appState();
+    return st.ed && st.ed->isOpen() ? st.ed->gameData() : st.data;
+}
 const Bytes* soundFileBytes(const std::string& name) {
     if (name.empty()) return nullptr;
     AppState& st = appState();
     if (st.ed)
         if (const ArchiveFile* f = st.ed->archiveFile(name)) return &f->data;
-    static std::map<std::string, Bytes> game;
-    auto [it, fresh] = game.try_emplace(name);
+    const GameData& data = soundGameData();
+    static std::map<std::pair<const GameData*, std::string>, Bytes> game;
+    auto [it, fresh] = game.try_emplace({&data, name});
     if (fresh) {
         std::string err;
-        if (!st.data.readFile(name, it->second, err)) {
+        if (!data.readFile(name, it->second, err)) {
             it->second.clear();
             const std::string other = gameSoundElsewhere(name);
-            if (!other.empty() && !st.data.readFile(other, it->second, err)) it->second.clear();
+            if (!other.empty() && !data.readFile(other, it->second, err)) it->second.clear();
         }
     }
     return it->second.empty() ? nullptr : &it->second;
@@ -71,11 +77,12 @@ std::vector<std::string> mapSounds() {
 
 // The game's sounds: every file under sound\ (their paths, as a map names them).
 const std::vector<std::string>& gameSounds() {
-    static std::vector<std::string> out;
-    static bool listed = false;
-    if (!listed) {
-        listed = true;
-        for (const auto& n : appState().data.listFiles()) {
+    static std::map<const GameData*, std::vector<std::string>> lists;  // (each game data's: a Cosmonarchy tab lists the mod's)
+    const GameData& data = soundGameData();
+    auto [found, fresh] = lists.try_emplace(&data);
+    std::vector<std::string>& out = found->second;
+    if (fresh) {
+        for (const auto& n : data.listFiles()) {
             if (n.size() < 7 || !isSoundName(n)) continue;
             std::string lower = n.substr(0, 6);
             std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);

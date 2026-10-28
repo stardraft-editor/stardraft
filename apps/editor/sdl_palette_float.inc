@@ -73,17 +73,22 @@ kit::MenuItem sdlPaletteFloatItem(Mode m) {
     return it;
 }
 
-// A palette window inside the main window (the floating palette, the panels: they belong to the map tab): the window
-// moves in when a part of it is outside the main window's area (or as much as fits). False: it was inside.
-bool sdlPanelKeepInside(SDL_Window* w, int* x = nullptr, int* y = nullptr) {
+// A palette window on a screen (the floating palette, the panels): it may be anywhere, over the main window or outside
+// it, on any screen; it moves in when a part of it is outside the usable area of the screen it is most on (the main
+// window's screen when it is on none), or as much as fits. False: it was on the screen.
+bool sdlPanelKeepOnScreen(SDL_Window* w, int* x = nullptr, int* y = nullptr) {
     SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;
     if (!w || !main) return false;
-    int mx = 0, my = 0, mw = 0, mh = 0, px = 0, py = 0, pw = 0, ph = 0;
-    SDL_GetWindowPosition(main, &mx, &my), SDL_GetWindowSize(main, &mw, &mh);
+    int px = 0, py = 0, pw = 0, ph = 0;
     SDL_GetWindowPosition(w, &px, &py), SDL_GetWindowSize(w, &pw, &ph);
     if (x) px = *x;
     if (y) py = *y;
-    const int nx = std::max(mx, std::min(px, mx + mw - pw)), ny = std::max(my, std::min(py, my + mh - ph));
+    const SDL_Rect at{px, py, pw, ph};
+    SDL_DisplayID display = SDL_GetDisplayForRect(&at);
+    if (!display) display = SDL_GetDisplayForWindow(main);
+    SDL_Rect area{};
+    if (!display || !SDL_GetDisplayUsableBounds(display, &area) || area.w <= 0 || area.h <= 0) return false;
+    const int nx = std::max(area.x, std::min(px, area.x + area.w - pw)), ny = std::max(area.y, std::min(py, area.y + area.h - ph));
     int cx = 0, cy = 0;
     SDL_GetWindowPosition(w, &cx, &cy);
     if (nx == cx && ny == cy) return false;
@@ -96,8 +101,8 @@ void sdlPanelCollapse(PanelStripView& v, bool on, int& fullH);  // (sdl_palette_
 // The height of a palette window's strip (core/views_palette_float.inc: PanelStripView): 32 px and its line.
 int panelStripH() { return scale(32) + 1; }
 
-// The window's hit test: the strip moves the window (the system's drag: smooth; the window comes back inside the main
-// window when the drag ends, sdlPanelKeepInside); on Windows and Linux (no frame of the system's: drawFrame) its edges
+// The window's hit test: the strip moves the window (the system's drag: smooth; the window comes back onto its screen
+// when the drag ends, sdlPanelKeepOnScreen); on Windows and Linux (no frame of the system's: drawFrame) its edges
 // and corners change its size too.
 SDL_HitTestResult sdlPanelHitTest(SDL_Window* win, const SDL_Point* p, void* data) {
     const PanelStripView& v = *static_cast<const PanelStripView*>(data);
@@ -122,7 +127,7 @@ SDL_HitTestResult sdlPanelHitTest(SDL_Window* win, const SDL_Point* p, void* dat
 // A palette window's look and drag (the floating palette's, a panel's): the slim strip in place of the system's title
 // bar (core/views_palette_float.inc: PanelStripView; macOS: the title bar shows nothing, macSetupToolWindow; Windows and
 // Linux: no frame of the system's, a line around it, the edges and the strip through the hit test), and a drag on the
-// strip moves the window with the mouse, kept in the main window (Wayland: the system moves it; it cannot be kept in).
+// strip moves the window with the mouse, kept on a screen (Wayland: the system moves it).
 void sdlPanelWindowSetup(PanelStripView& v) {
     SDL_Window* sw = gHost ? gHost->sdlWindow(v) : nullptr;
     if (!sw) return;
@@ -133,9 +138,9 @@ void sdlPanelWindowSetup(PanelStripView& v) {
     }
     SDL_SetWindowHitTest(sw, sdlPanelHitTest, &v);
 }
-// After a drag (no mouse button down): the window back inside the main window.
-void sdlPanelKeepInsideAfterDrag(SDL_Window* w) {
-    if (!(SDL_GetGlobalMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK)) sdlPanelKeepInside(w);
+// After a drag (no mouse button down): the window back on its screen.
+void sdlPanelKeepOnScreenAfterDrag(SDL_Window* w) {
+    if (!(SDL_GetGlobalMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK)) sdlPanelKeepOnScreen(w);
 }
 
 // The screens' usable areas, in SDL's window coordinates.
@@ -237,7 +242,7 @@ bool locationListSync(bool shown, draw::Rect slot) {
             SDL_SetWindowSize(sw, kept.w, kept.h);
             SDL_SetWindowPosition(sw, kept.x, kept.y);
         }
-        sdlPanelKeepInside(sw);
+        sdlPanelKeepOnScreen(sw);
     }
     if (gFloatPalOpen && !gHost->sdlWindow(gFloatPalView)) gFloatPalView.titleH = panelStripH();  // (a snapshot: the strip, as in the window)
     if (gFloatPalOpen) gFloatPalView.place();
@@ -283,7 +288,7 @@ void sdlFloatPaletteFrame() {
     if (!w) return;
     FloatPalette& kept = gFloatPal[int(gFloatPalMode)];
     FloatPalette now = kept;
-    sdlPanelKeepInsideAfterDrag(w);
+    sdlPanelKeepOnScreenAfterDrag(w);
     SDL_GetWindowPosition(w, &now.x, &now.y);
     SDL_GetWindowSize(w, &now.w, &now.h);
     if (gFloatPalView.collapsed) now.h = kept.h;  // (its height while collapsed is the strip's: the kept one stays)

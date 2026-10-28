@@ -2,6 +2,7 @@
 // usage: portrait_test <install dir> <out dir> [path, e.g. tmarine\TMaTlk0]
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "stardraft/game_data.h"
@@ -15,8 +16,21 @@ namespace fs = std::filesystem;
 
 int main(int argc, char** argv) {
     if (argc < 3) return std::fprintf(stderr, "usage: portrait_test <install dir> <out dir> [path]\n"), 2;
-    GameData data;
     std::string err;
+    if (fs::path(argv[1]).extension() == ".smk") {  // a Smacker video (StarCraft 1.16.1's portraits): each frame as PNG
+        std::ifstream in(argv[1], std::ios::binary);
+        const Bytes file((std::istreambuf_iterator<char>(in)), {});
+        PortraitVideo v;
+        const bool ok = decodeSmacker(file, v, err);
+        std::printf("smk %s: %s %dx%d, %zu frames, %.1f fps%s%s\n", argv[1], ok ? "ok" : "FAILED", v.width, v.height, v.frames.size(), v.fps,
+                    ok ? "" : ": ", ok ? "" : err.c_str());
+        fs::create_directories(argv[2]);
+        for (size_t f = 0; f < v.frames.size(); ++f)
+            stbi_write_png((fs::path(argv[2]) / ("smk_" + std::to_string(f) + ".png")).string().c_str(), v.width, v.height, 4, v.frames[f].data(),
+                           v.width * 4);
+        return ok ? 0 : 1;
+    }
+    GameData data;
     if (!data.open(argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
     const std::string path = argc > 3 ? argv[3] : "tmarine\\TMaTlk0";
     fs::create_directories(argv[2]);

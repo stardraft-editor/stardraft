@@ -29,6 +29,16 @@ struct ClassicDialog {
 };
 ClassicDialog* gClassic = nullptr;  // the working copy of the page that shows (map_pages.inc)
 
+// A weapon's, upgrade's or technology's name: the mod's (SettingDefaults' names), else the game's.
+std::wstring classicDatName(const std::string& dat, int e) {
+    if (gClassic && gClassic->def) {
+        const SettingDefaults& d = *gClassic->def;
+        const std::vector<std::string>& names = dat == "weapons" ? d.weaponNames : dat == "upgrades" ? d.upgradeNames : d.techNames;
+        if (e >= 0 && size_t(e) < names.size()) return widen(names[size_t(e)]);
+    }
+    return entryName(dat, e);
+}
+
 int classicEntryCount(int tab) {
     const bool bw = gClassic->bw;
     return tab == kClassicUnits ? kSettingUnits : tab == kClassicUpgrades ? (bw ? kSettingUpgrades : kOriginalUpgrades) : (bw ? kSettingTechs : kOriginalTechs);
@@ -191,7 +201,8 @@ uint32_t classicNumberOf(const std::wstring& t) {
 // show them (the Data workspace copies one table's values too: not the unit's name, its weapons or its players); Reset
 // gives the entry the game's values, its players' values included.
 
-bool gClassicChangedOnly[kClassicTabCount] = {};  // each tab's Changed filter (it stays while the program runs)
+bool gClassicChangedOnly[kClassicTabCount] = {};
+int gClassicFitH = 0;  // the height the page has on the screen (the program sets it): the list is as tall as that  // each tab's Changed filter (it stays while the program runs)
 
 // The Data workspace's table of a tab (its pins).
 int classicDataTab(int tab) { return datTabOf(tab == kClassicUnits ? "units" : tab == kClassicUpgrades ? "upgrades" : "techdata"); }
@@ -463,6 +474,14 @@ public:
         d_.entry[tab_] = std::clamp(e, 0, classicEntryCount(tab_) - 1);
         fill();
     }
+    // Q's pick (the quick picker): the entry, in a list with no search or Changed filter that could hide it.
+    void goTo(int e) {
+        if (!search_.text().empty()) search_.setText(L"");
+        if (gClassicChangedOnly[tab_]) setChangedOnly(false);
+        d_.entry[tab_] = std::clamp(e, 0, classicEntryCount(tab_) - 1);
+        fill();
+        fillList();
+    }
     // The widgets a test or a change through the page drives: a text's setText and then its onChange (a typed text), a
     // check box's setOn and then its onChange (a click).
     stardraft::kit::TextField& field(int f) { return fields_[size_t(f)].field; }
@@ -613,7 +632,8 @@ private:
     Rows rows() {
         Rows l{};
         l.pad = scale(stardraft::kit::kDialogPad), l.rowH = scale(stardraft::kit::kFieldH), l.gap = scale(8), l.step = l.rowH + l.gap;
-        l.listW = scale(250), l.listH = scale(470), l.listTop = l.pad + l.rowH + l.gap, l.titleH = scale(30);
+        l.listW = scale(250), l.listTop = l.pad + l.rowH + l.gap, l.titleH = scale(30);
+        l.listH = std::max(scale(470), gClassicFitH - l.listTop - l.pad);  // down to the page's bottom (as the Data workspace's list)
         l.x0 = l.pad + l.listW + l.pad * 2, l.labelW = scale(130), l.numW = scale(90), l.x1 = l.x0 + l.labelW + l.numW + l.pad * 3;
         const int defW = host_.textWidth(L"Default");
         l.nameColW = std::max<int>(scale(80), defW + scale(8)), l.defColW = std::max<int>(scale(90), defW + scale(34));
@@ -796,6 +816,13 @@ private:
     void fillList() {
         const DataListRows rows = dataListRows(model_, tab_, search_.text(), gClassicChangedOnly[tab_], dataPins(classicDataTab(tab_)));
         shown_ = rows.shown, pinnedShown_ = rows.pinnedShown;
+        if (tab_ == kClassicUnits) {  // not the unit slots that have no unit (a mod's free entries)
+            std::vector<int> kept;
+            int pinned = 0;
+            for (size_t k = 0; k < shown_.size(); ++k)
+                if (!host_.unitGameName(shown_[k]).empty()) kept.push_back(shown_[k]), pinned += int(k) < pinnedShown_;
+            shown_ = std::move(kept), pinnedShown_ = pinned;
+        }
         list_.setCount(int(shown_.size()));
         selectRow(true);
         list_.invalidate();
@@ -842,7 +869,7 @@ private:
                 }
                 const size_t w = size_t(weapons_[size_t(k)]);
                 const UnitSettings::Weapon& v = def ? d_.def->units.weapons[w] : d_.units.weapons[w];
-                weaponLabel_[size_t(k)] = entryName("weapons", int(w)) + L": " + tr(classicWeaponTargets(e, int(w)));
+                weaponLabel_[size_t(k)] = classicDatName("weapons", int(w)) + L": " + tr(classicWeaponTargets(e, int(w)));
                 dmg.field.setText(std::to_wstring(v.damage)), bon.field.setText(std::to_wstring(v.bonus));
                 dmg.field.setReadOnly(false), bon.field.setReadOnly(false);
             }

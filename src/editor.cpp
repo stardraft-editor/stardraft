@@ -18,6 +18,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <set>
 
 #include "stardraft/game_data.h"
@@ -196,7 +197,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     reload();
     open_ = !tileset_.groups.empty();
     // The terrain core makes the tiles as StarEdit's new map does (unless a rect no tile fits: then they stay).
-    if (open_ && terrainCoreOn() && core_.load(chk_, tileset_, error) && core_.fill(terrain) && !core_.untileable()) {
+    if (open_ && useCore() && core_.load(chk_, tileset_, error) && core_.fill(terrain) && !core_.untileable()) {
         core_.store(chk_);
         reload();
     }
@@ -252,7 +253,7 @@ bool Editor::generateMap(const TerrainGenParams& params, std::string& error) {
 }
 
 bool Editor::save(const std::filesystem::path& path, std::string& error) {
-    Bytes raw = chk_.serialize();
+    const Bytes raw = chk_.serialize();
     bool archive = lower(path.extension().string()) != ".chk";
     if (archive) {
         finishFiles();
@@ -284,14 +285,49 @@ void Editor::reload() {
             doodadTypes_.load(data_, tileset_, era_, err);
             tilesetError_.clear();
             loadedEra_ = era_;
+            // A mod's terrains: each takes 15 shapes past the game's (the map file's ISOM has them).
+            modTable_.reset();
+            const IsomTerrainTable* game = IsomTerrainTable::forEra(era_);
+            const IsomTiles* tiles = tileset_.modTerrains.empty() || tileset_.groups.empty() ? nullptr : IsomTiles::forTileset(tileset_);
+            if (game && tiles) {
+                std::vector<IsomTerrainTable::Extra> extras;
+                auto on = [&](const Tileset::ModTerrain& m, uint16_t id) {  // (m stands on id: a level above it, maybe)
+                    uint16_t g = m.ground;
+                    for (int n = 0; n < 16 && g; ++n) {
+                        if (g == id) return true;
+                        const Tileset::ModTerrain* o = tileset_.modTerrain(g);
+                        g = o ? o->ground : 0;
+                    }
+                    return false;
+                };
+                for (size_t i = 0; i < tileset_.modTerrains.size(); ++i) {
+                    const Tileset::ModTerrain& m = tileset_.modTerrains[i];
+                    extras.push_back({m.id, m.standIn, m.ground, uint16_t(i + 1), m.name, m.groundTemplate});
+                    const Tileset::ModTerrain* g = tileset_.modTerrain(m.ground);
+                    // (its ground's twins: each terrain with the ground's tiles inside and its template (the same game terrain
+                    // in the template and on the same one there: a rect where a twin meets its own ground is one game tile), at
+                    // any height (the tiles where they meet are the same ones, so the step up or down is the same): Caution on
+                    // Substructure on Dirt or on Jungle; not one on the terrain itself)
+                    const uint32_t key = g ? g->fillKey : 0xFFFF0000u | m.ground;
+                    if (!key) continue;
+                    const uint16_t templ = g ? g->standIn : m.ground, templGround = g ? (g->groundTemplate ? g->groundTemplate : g->ground) : 0;
+                    for (const Tileset::ModTerrain& o : tileset_.modTerrains)
+                        if (o.id != m.ground && o.id != m.id && o.fillKey == key && o.standIn == templ && !on(o, m.id) &&
+                            (!g || (o.groundTemplate ? o.groundTemplate : o.ground) == templGround))
+                            extras.back().twins.push_back(o.id);
+                }
+                modTable_ = IsomTerrainTable::withExtras(*game, extras, std::max<uint16_t>(game->shapeEnd(), uint16_t(tiles->shapeCount())));
+            }
         } else {
             tilesetError_ = err;
             loadedEra_ = 0xFFFF;  // the next reload tries again
+            modTable_.reset();
         }
     }
     reloadTerrain();
     std::string err;
     isom_.setTileset(tileset_.groups.empty() ? nullptr : &tileset_);  // (its tiles: StarEdit's, through the terrain core)
+    isom_.setTable(modTable_.get());
     isomOk_ = isom_.load(chk_, err);
     isomRebuilt_ = false;
     if (!isomOk_ && (!chk_.find("ISOM") || chk_.find("ISOM")->data.empty()))  // no ISOM: made from the tiles, so isometric painting works
@@ -406,6 +442,31 @@ void Editor::beginEdit() {
     pushUndo(chk_);
 }
 
+int Editor::repairIsomFromTiles(std::string& error) {
+    const Section* old = chk_.find("ISOM");
+    const Bytes before = old ? old->data : Bytes{};
+    const Chk backup = chk_;
+    beginEdit();
+    if (!isom_.rebuildFromTiles(chk_, error)) {  // (as it was: the map, its ISOM, no undo step)
+        chk_ = backup;
+        std::string ignored;
+        isomOk_ = isom_.load(chk_, ignored);
+        dropLastUndo();
+        return -1;
+    }
+    isomOk_ = true;
+    const Bytes& after = chk_.find("ISOM")->data;
+    int changed = 0;
+    for (size_t i = 0; i + 1 < std::max(before.size(), after.size()); i += 2)
+        if (i + 1 >= before.size() || i + 1 >= after.size() || before[i] != after[i] || before[i + 1] != after[i + 1]) ++changed;
+    if (!changed) {
+        dropLastUndo();
+        return 0;
+    }
+    commit(true);
+    return changed;
+}
+
 void Editor::commit(bool terrain) {
     lastRedo_.clear();  // a change: the cleared redo steps are gone for good
     modified_ = true;
@@ -480,12 +541,34 @@ void Editor::beginTerrainStroke() {
     if (!isomOk_ || inStroke_) return;
     beginEdit();
     inStroke_ = strokeStep_ = true;
+    strokeAsked_ = strokeVariant_ = 0;
+    isom_.beginStroke();
+}
+
+uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
+    if (inStroke_ && strokeAsked_ == terrain && strokeVariant_) return strokeVariant_;
+    // (it, the terrains with its set (its pieces and fill: High Floor on High Asphalt for Floor on Asphalt), and their variants)
+    std::vector<uint16_t> each{terrain};
+    if (const Tileset::ModTerrain* own = tileset_.modTerrain(terrain); own && !own->pieces.empty())
+        for (const Tileset::ModTerrain& m : tileset_.modTerrains)
+            if (m.id != terrain && !m.pieces.empty() && m.pieces[0] == own->pieces[0] && m.fillKey == own->fillKey) each.push_back(m.id);
+    uint16_t best = terrain;
+    if (each.size() > 1 && modTable_) {
+        // (the one already there, else the one nearest to the terrain there: the one whose ground or a twin of it is there)
+        const uint16_t under = terrainAt(px, py);
+        int bestD = 1 << 20;
+        for (uint16_t t : each)
+            if (const int d = t == under ? -1 : modTable_->distance(t, under); d < bestD) bestD = d, best = t;
+    }
+    if (inStroke_) strokeAsked_ = terrain, strokeVariant_ = best;
+    return best;
 }
 
 void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (!isomOk_) return;
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
+    terrain = brushTerrain(px, py, terrain);
     const int reach = brushSize * 64 + 256;
     const std::vector<int> watch = placeableUnitsIn({px - reach, py - reach, px + reach, py + reach});
     const std::vector<uint8_t> intact = doodadsIntact();
@@ -498,11 +581,12 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
         for (int ty = std::max(0, int(py - hh) / 32); ty <= std::min(int(height_) - 1, int(py + hh) / 32); ++ty)
             for (int tx = std::max(0, int(px - hw) / 32); tx <= std::min(int(width_) - 1, int(px + hw) / 32); ++tx) {
                 const float dx = std::abs(tx * 32 + 16 - float(px)) / hw, dy = std::abs(ty * 32 + 16 - float(py)) / hh;
-                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < before.tiles.size() && !tileFromIsom(chk_, before, tx, ty, tileset_))
+                if (dx + dy <= 1.0f && size_t(ty) * width_ + tx < before.tiles.size() && !isom_.tileFromIsom(chk_, before, tx, ty))
                     isom_.markRectDirty(tx / 2, ty);
             }
         std::string err;
         isom_.store(chk_, err);
+        if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
         commit(true);
         pruneDoodads(intact, &before);
         pruneUnits(watch);
@@ -510,7 +594,10 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (own) endTerrainStroke();
 }
 
-void Editor::endTerrainStroke() { endStrokeStep(); }
+void Editor::endTerrainStroke() {
+    endStrokeStep();
+    isom_.beginStroke();  // (a paste or fill after it chooses its own ground)
+}
 
 void Editor::beginStroke() {
     if (inStroke_) return;
@@ -1139,12 +1226,247 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
     // make): the old engine makes this edit instead, as it keeps every rect tileable. The map is still as it was.
     if (core_.untileable()) return repair();
     core_.store(chk_);
+    if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
     if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
     commit(true);
     // The core does not check doodads: a doodad stays, with its tiles, while the terrain under it still fits it.
     pruneDoodads(intact, &before);
     pruneUnits(watch);
     return true;
+}
+
+// A mod's tileset with its own tiles (Cosmonarchy's new groups, learned from its maps): where the brush made a border
+// rect with a game piece that the mod has pieces for too (Tileset::groupPieces: subtile pairs), the rect gets one of the
+// mod's (the game's piece stays only where none of them looks like it); where it made tiles of one terrain alone
+// (Tileset::groupTerrains), 1 in 20 of them is one of the mod's tiles of that terrain, as the game's rare tiles are. The same places get the same tiles (a hash of the place); a doodad's tiles stay.
+void Editor::sprinkleModTiles(const TerrainLayer& before) {
+    // (what the tileset gives, made once per tileset: each stroke calls this)
+    struct Tables {
+        std::tuple<uint16_t, size_t, size_t, size_t, size_t> key{};
+        std::vector<std::array<uint16_t, 2>> terrains;
+        std::map<uint16_t, std::vector<uint16_t>> variants;  // terrain -> the mod's tile values of it alone
+        std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>> pieces;  // the game's left group -> the mod's pieces for its rect
+    };
+    static Tables tables;
+    const auto key = std::make_tuple(uint16_t(era_ & 7), tileset_.groups.size(), tileset_.megatiles.size(), tileset_.modTerrains.size(),
+                                     tileset_.groupTerrains.size());
+    if (tables.key != key || tables.terrains.empty()) {
+        tables = Tables{key, tileGroupTerrains(tileset_), {}, {}};
+        const auto& terrains = tables.terrains;
+        std::set<uint16_t> pieceGroups;  // (a piece's tiles go only as the whole piece)
+        for (const auto& [left, right, game] : tileset_.groupPieces) pieceGroups.insert(uint16_t(left >> 4)), pieceGroups.insert(uint16_t(right >> 4));
+        // (and a mod terrain's edge: its set's pieces for the game's border rects, which the maps also show on the ground
+        // beside them: Asphalt on Mud's edge in the mud)
+        for (const auto& m : tileset_.modTerrains)
+            for (size_t i = 0; i + m.gapPieces < m.pieces.size(); ++i)
+                if (const auto& p = m.pieces[i]; p[0] < terrains.size() && terrains[p[0]][1])
+                    pieceGroups.insert(uint16_t(p[1] >> 4)), pieceGroups.insert(uint16_t(p[2] >> 4));
+        for (const auto& [g, t, other] : tileset_.groupTerrains)
+            if (!other && g < tileset_.groups.size() && !pieceGroups.count(g))
+                for (int s = 0; s < 16; ++s) {
+                    const uint16_t m = tileset_.groups[g].megatiles[size_t(s)];
+                    if (m && m < tileset_.megatiles.size()) tables.variants[t].push_back(uint16_t(g << 4 | s));
+                }
+        for (const auto& [left, right, game] : tileset_.groupPieces) tables.pieces[game].push_back({left, right});
+    }
+    const auto& terrains = tables.terrains;
+    const auto& variants = tables.variants;
+    const auto& pieces = tables.pieces;
+    if (variants.empty() && pieces.empty() && tileset_.modTerrains.empty()) return;
+    TerrainLayer tile = readTerrain(chk_, "TILE"), mtxm = readTerrain(chk_, "MTXM");
+    // The doodads' tiles stay as they are (the core writes MTXM too: a mod tile there would take the doodad away). A
+    // doodad that the edit takes away (pruneDoodads: the terrain under it no longer fits) leaves its place to the mod's
+    // tiles as any other.
+    std::vector<uint8_t> underDoodad(size_t(width_) * height_, 0);
+    for (const Doodad& d : doodads_)
+        if (const DoodadType* t = doodadTypes_.find(d.id)) {
+            const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+            const bool kept = doodadTerrainHolds(d, tile, before);
+            for (int r = 0; r < t->height && kept; ++r)
+                for (int c = 0; c < t->width; ++c)
+                    if (tx + c >= 0 && ty + r >= 0 && tx + c < width_ && ty + r < height_) underDoodad[size_t(ty + r) * width_ + tx + c] = 1;
+        }
+    bool changed = false;
+    auto hashAt = [](int x, int y) {
+        uint32_t h = uint32_t(x) * 73856093u ^ uint32_t(y) * 19349663u;
+        h ^= h >> 13, h *= 0x5bd1e995u, h ^= h >> 15;
+        return h;
+    };
+    std::vector<uint8_t> done(tile.tiles.size(), 0);
+    // Which of the mod's tiles look like the game's tile they would replace (the maps' data also has tiles placed over
+    // another terrain's diamonds): the mean color within 12 (RGB) and the contrast (the brightness's spread) within a quarter.
+    // (kept between edits for the tileset: its era and its number of groups; a mod has one tileset of each era)
+    static std::map<std::tuple<uint16_t, size_t, uint16_t>, std::array<float, 4>> looks;  // -> mean R, G, B, brightness spread
+    auto lookOf = [&](uint16_t value) -> const std::array<float, 4>& {
+        auto [it, fresh] = looks.try_emplace({uint16_t(tileset_.era & 7), tileset_.groups.size(), value}, std::array<float, 4>{-1, -1, -1, -1});
+        if (!fresh) return it->second;
+        const int m = tileset_.megatileFor(value);
+        if (m < 0) return it->second;
+        double r = 0, g = 0, b = 0, l = 0, l2 = 0;
+        int n = 0;
+        for (uint32_t e : tileset_.megatiles[size_t(m)]) {
+            if ((e >> 1) >= tileset_.minitiles.size()) continue;
+            for (uint8_t p : tileset_.minitiles[e >> 1]) {
+                const Rgb& c = tileset_.palette[p];
+                const double lum = 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+                r += c.r, g += c.g, b += c.b, l += lum, l2 += lum * lum, ++n;
+            }
+        }
+        if (n) it->second = {float(r / n), float(g / n), float(b / n), float(std::sqrt(std::max(0.0, l2 / n - (l / n) * (l / n))))};
+        return it->second;
+    };
+    // (and buildable as the game's tile is: a group of the mod's maps that is mostly dirt but unbuildable is a structure's
+    // edge, not dirt: CV5 2661 and 2311 in Badlands, a gray piece in the dirt)
+    auto alike = [&](uint16_t a, uint16_t b) {
+        if ((a >> 4) >= tileset_.groups.size() || (b >> 4) >= tileset_.groups.size() ||
+            ((tileset_.groups[a >> 4].buildability ^ tileset_.groups[b >> 4].buildability) & Tileset::kUnbuildable))
+            return false;
+        const auto& x = lookOf(a);
+        const auto& y = lookOf(b);
+        if (x[0] < 0 || y[0] < 0) return false;
+        const float dr = x[0] - y[0], dg = x[1] - y[1], db = x[2] - y[2];
+        return dr * dr + dg * dg + db * db < 12.0f * 12.0f && std::abs(x[3] - y[3]) < 0.25f * std::max(x[3], y[3]);
+    };
+    // The edges of a tile (its outer rows and columns of pixels: left, right, top, bottom): a mod's tile goes in only
+    // where its edges are near the game tile's that it replaces, so that it joins the tiles around it as that one does
+    // (the game's tiles of a border or cliff join only where their edges match).
+    static std::map<std::tuple<uint16_t, size_t, uint16_t>, std::array<std::array<Rgb, 32>, 4>> edgesKept;
+    auto edgesOf = [&](uint16_t value) -> const std::array<std::array<Rgb, 32>, 4>* {
+        auto [it, fresh] = edgesKept.try_emplace({uint16_t(tileset_.era & 7), tileset_.groups.size(), value});
+        const int m = tileset_.megatileFor(value);
+        if (m < 0 || size_t(m) >= tileset_.megatiles.size()) return nullptr;
+        if (fresh) {
+            auto pixel = [&](int px, int py) {
+                const uint32_t e = tileset_.megatiles[size_t(m)][size_t(py / 8 * 4 + px / 8)];
+                if ((e >> 1) >= tileset_.minitiles.size()) return Rgb{};
+                const int mx = (e & 1) ? 7 - px % 8 : px % 8;
+                return tileset_.palette[tileset_.minitiles[e >> 1][size_t(py % 8 * 8 + mx)]];
+            };
+            for (int i = 0; i < 32; ++i)
+                it->second[0][size_t(i)] = pixel(0, i), it->second[1][size_t(i)] = pixel(31, i), it->second[2][size_t(i)] = pixel(i, 0),
+                it->second[3][size_t(i)] = pixel(i, 31);
+        }
+        return &it->second;
+    };
+    // How many pixels of a tile's outer 2 rows and columns are far (RGB distance over 50) from a color: a piece of
+    // something else at a tile's edge (a structure or a path cut from a bigger picture: CV5 3814, 2311, 2661 in Badlands,
+    // a gray bit in the dirt), which the means above do not see.
+    auto edgeOutliers = [&](uint16_t value, const std::array<float, 4>& mean) {
+        const int m = tileset_.megatileFor(value);
+        if (m < 0 || size_t(m) >= tileset_.megatiles.size()) return 1 << 20;
+        int n = 0;
+        for (int y = 0; y < 32; ++y)
+            for (int x = 0; x < 32; ++x) {
+                if (x >= 2 && x < 30 && y >= 2 && y < 30) continue;
+                const uint32_t e = tileset_.megatiles[size_t(m)][size_t(y / 8 * 4 + x / 8)];
+                if ((e >> 1) >= tileset_.minitiles.size()) continue;
+                const int mx = (e & 1) ? 7 - x % 8 : x % 8;
+                const Rgb& c = tileset_.palette[tileset_.minitiles[e >> 1][size_t(y % 8 * 8 + mx)]];
+                const float dr = c.r - mean[0], dg = c.g - mean[1], db = c.b - mean[2];
+                n += dr * dr + dg * dg + db * db > 50.0f * 50.0f;
+            }
+        return n;
+    };
+    // sides: bit 0 left, 1 right, 2 top, 3 bottom. Near: the mean difference of the pixels (R, G and B) within 16.
+    auto edgesFit = [&](uint16_t mine, uint16_t game, int sides) {
+        const auto* a = edgesOf(mine);
+        const auto* b = edgesOf(game);
+        if (!a || !b) return false;
+        int sum = 0, n = 0;
+        for (int s = 0; s < 4; ++s)
+            if (sides >> s & 1)
+                for (int i = 0; i < 32; ++i) {
+                    const Rgb &p = (*a)[size_t(s)][size_t(i)], &q = (*b)[size_t(s)][size_t(i)];
+                    sum += std::abs(int(p.r) - q.r) + std::abs(int(p.g) - q.g) + std::abs(int(p.b) - q.b), n += 3;
+                }
+        return n && sum < 16 * n;
+    };
+    // The mod's own terrains' pieces (Tileset::modTerrains: the terrain engine puts them in) stay as they are; not the
+    // game's tiles of one terrain that a mod terrain takes as its fill (that terrain's own ground gets the mod's tiles).
+    {
+        uint16_t firstMod = uint16_t(tileset_.groups.size());  // (the mod's groups come after the game's)
+        for (const auto& gt : tileset_.groupTerrains) firstMod = std::min(firstMod, gt[0]);
+        auto gameFill = [&](uint16_t v) { return (v >> 4) < firstMod && size_t(v >> 4) < terrains.size() && !terrains[v >> 4][1]; };
+        std::set<uint16_t> mine, fills;
+        for (const Tileset::ModTerrain& m : tileset_.modTerrains)
+            for (const auto& [g, l, r] : m.pieces)
+                if (!gameFill(l) || !gameFill(r)) mine.insert(l), mine.insert(r);
+                else fills.insert(l), fills.insert(r);
+        auto inMod = [&](size_t k) {  // (a corner of the tile's rect a mod terrain)
+            const int rx = int(k % size_t(width_)) / 2, ry = int(k / size_t(width_));
+            for (int dy = 0; dy < 2; ++dy)
+                for (int dx = 0; dx < 2; ++dx)
+                    if (isomOk_ && isom_.terrainAt(rx + dx, ry + dy) >= Tileset::kModTerrainIds) return true;
+            return false;
+        };
+        for (size_t k = 0; k < tile.tiles.size() && k < done.size() && (!mine.empty() || !fills.empty()); ++k)
+            if (mine.count(tile.tiles[k]) || (fills.count(tile.tiles[k]) && inMod(k))) done[k] = 1;
+    }
+    // The pieces: a rect's two tiles (the left one at an even column) as the brush made them.
+    for (int y = 0; y < height_ && !pieces.empty(); ++y)
+        for (int x = 0; x + 1 < width_; x += 2) {
+            const size_t k = size_t(y) * width_ + x;
+            if (k + 1 >= tile.tiles.size() || k + 1 >= mtxm.tiles.size() || underDoodad[k] || underDoodad[k + 1]) continue;
+            if (k + 1 < before.tiles.size() && before.tiles[k] == tile.tiles[k] && before.tiles[k + 1] == tile.tiles[k + 1]) continue;
+            const uint16_t g = uint16_t(tile.tiles[k] >> 4);
+            if (uint16_t(tile.tiles[k + 1] >> 4) != g + 1) continue;
+            // (borders only: the mod's pieces for a rect of one terrain alone stand out as blocks in it)
+            if (g >= terrains.size() || !terrains[g][1]) continue;
+            auto it = pieces.find(g);
+            if (it == pieces.end()) continue;
+            // The mod's pieces that look like the game's piece there.
+            std::vector<std::pair<uint16_t, uint16_t>> fit;
+            for (const auto& [left, right] : it->second)
+                if (alike(left, tile.tiles[k]) && alike(right, tile.tiles[k + 1]) && edgesFit(left, tile.tiles[k], 0b1101) &&
+                    edgesFit(right, tile.tiles[k + 1], 0b1110))
+                    fit.push_back({left, right});
+            if (fit.empty()) continue;  // (the game's piece: the mod has none that looks like it)
+            const auto [left, right] = fit[hashAt(x, y) % uint32_t(fit.size())];
+            tile.tiles[k] = mtxm.tiles[k] = left;
+            tile.tiles[k + 1] = mtxm.tiles[k + 1] = right;
+            done[k] = done[k + 1] = 1, changed = true;
+        }
+    std::map<uint16_t, std::vector<uint16_t>> variantsFor;  // a game tile value -> the mod's tiles that look like it
+    for (int y = 0; y < height_ && !variants.empty(); ++y)
+        for (int x = 0; x < width_; ++x) {
+            const size_t k = size_t(y) * width_ + x;
+            if (k < done.size() && done[k]) continue;
+            if (k >= tile.tiles.size() || k >= mtxm.tiles.size() || underDoodad[k] || (k < before.tiles.size() && before.tiles[k] == tile.tiles[k]))
+                continue;
+            const uint16_t g = uint16_t(tile.tiles[k] >> 4);
+            if (g >= terrains.size() || !terrains[g][0] || terrains[g][1]) continue;
+            auto it = variants.find(terrains[g][0]);
+            if (it == variants.end()) continue;
+            const uint32_t h = hashAt(x, y);
+            if (h % 20) continue;
+            auto [found, fresh] = variantsFor.try_emplace(tile.tiles[k]);  // (once for each game tile value in an edit)
+            std::vector<uint16_t>& fit = found->second;
+            if (fresh)
+                for (uint16_t v : it->second)
+                    if (alike(v, tile.tiles[k]) && edgesFit(v, tile.tiles[k], 0b1111) &&
+                        edgeOutliers(v, lookOf(tile.tiles[k])) <= edgeOutliers(tile.tiles[k], lookOf(tile.tiles[k])))
+                        fit.push_back(v);
+            if (fit.empty()) continue;
+            const uint16_t v = fit[(h / 20) % fit.size()];
+            tile.tiles[k] = mtxm.tiles[k] = v, changed = true;
+        }
+    if (!changed) return;
+    Bytes t, m;
+    for (uint16_t v : tile.tiles) appendU16(t, v);
+    for (uint16_t v : mtxm.tiles) appendU16(m, v);
+    chk_.set("TILE", std::move(t)), chk_.set("MTXM", std::move(m));
+}
+
+bool Editor::retileFromIsom(int tx0, int ty0, int tx1, int ty1) {
+    if (!isomOk_) return false;
+    std::vector<CornerValue> corners;  // (each corner of the area's rects, its own terrain: the edit changes no terrain)
+    for (int y = std::max(0, ty0); y <= std::min(int(height_), ty1 + 1); ++y)
+        for (int x = std::max(0, tx0 / 2); x <= std::min(int(width_) / 2, tx1 / 2 + 1); ++x)
+            if ((x + y) & 1) corners.push_back({x, y, isom_.terrainAt(x, y)});
+    if (corners.empty()) return false;
+    const TerrainLayer before = readTerrain(chk_, "TILE");
+    applyTerrain(corners, true);
+    return readTerrain(chk_, "TILE").tiles != before.tiles;
 }
 
 bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced) {
@@ -1155,7 +1477,7 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlac
     // Whole diamonds of one terrain: the terrain core paints them as StarEdit's brush would.
     // The core makes the tiles of each diamond it paints again: other edits than the brush's (fill, replace) give it only
     // the diamonds whose terrain changes, so that the tiles placed in Rectangle mode stay where the terrain stays.
-    if (terrainCoreOn()) {
+    if (useCore()) {
         auto diamonds = wholeDiamonds(isom_, corners);
         const uint16_t terrain = corners.front().terrain;
         if (!overPlaced)
@@ -1179,6 +1501,7 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     if (overPlaced) markPlacedTilesDirty(corners);
     std::string err;
     isom_.store(chk_, err);
+    if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
     commit(true);
     pruneDoodads(intact, &before);
     pruneUnits(watch);
@@ -1194,7 +1517,7 @@ void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
                 if (rx >= 0 && ry >= 0 && rx * 2 < int(width_) && ry < int(height_)) rects.insert({rx, ry});
     for (auto [rx, ry] : rects)
         for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
-            if (!tileFromIsom(chk_, tiles, tx, ry, tileset_)) {
+            if (!isom_.tileFromIsom(chk_, tiles, tx, ry)) {
                 isom_.markRectDirty(rx, ry);
                 break;
             }
@@ -1205,6 +1528,40 @@ uint16_t Editor::terrainAt(int px, int py) const {
     int x, y;
     isom_.cornerAtPixel(px, py, x, y);
     return isom_.terrainAt(x, y);
+}
+
+uint16_t Editor::paletteTerrainAt(int px, int py) const {
+    const uint16_t t = terrainAt(px, py);
+    if (tileset_.modTerrains.empty() || px < 0 || py < 0 || px >= width_ * 32 || py >= height_ * 32) return t;
+    const TerrainLayer tile = readTerrain(chk_, "TILE");
+    const size_t k = size_t(py / 32) * width_ + size_t(px / 32);
+    if (k >= tile.tiles.size()) return t;
+    // The ISOM: a mod terrain at the nearest corner, else at a corner of the tile's rect (on an edge the nearest corner may
+    // be the ground); among those, one whose pieces the tile is (mod terrains may share tiles: the game's asphalt is the
+    // fill of several). No ISOM of a mod terrain there: the first whose pieces the tile is (placed in Rectangle mode).
+    if (tileset_.modTerrain(t)) return t;
+    const int rx = px / 64, ry = py / 32;
+    std::vector<uint16_t> near;
+    for (int y = ry; y <= ry + 1; ++y)
+        for (int x = rx; x <= rx + 1; ++x)
+            for (int dx = -1; dx <= 1; dx += 2) {  // (the corners of the rect's two diamonds)
+                const int cx = ((x + y) & 1) ? x : x + dx;
+                if (const uint16_t c = isom_.terrainAt(cx, y); tileset_.modTerrain(c)) near.push_back(c);
+            }
+    auto isPiece = [&](const Tileset::ModTerrain& m) {
+        for (const auto& p : m.pieces)
+            if (p[1] == tile.tiles[k] || p[2] == tile.tiles[k]) return true;
+        return false;
+    };
+    for (uint16_t c : near)
+        if (isPiece(*tileset_.modTerrain(c))) return c;
+    // (a tile the ISOM's own terrain gives there, as the game's asphalt in plain Asphalt: that terrain, not a mod terrain
+    // whose fill it is too)
+    if (isom_.tileFromIsom(chk_, tile, px / 32, py / 32)) return t;
+    if (tile.tiles[k] < 2) return t;  // (the null tile, black: a mod terrain's fill (Chasm) only where its corners say so)
+    for (const Tileset::ModTerrain& m : tileset_.modTerrains)
+        if (isPiece(m)) return m.id;
+    return t;
 }
 
 bool Editor::terrainCoreOn() {
@@ -1246,10 +1603,11 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
     if (!isomOk_) return false;
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
+    terrain = brushTerrain(px, py, terrain);
     bool ok;
     // The brush's tiles replace the tiles placed in Rectangle mode where it paints (GitHub #143): overPlaced.
     // StarEdit's own brush (a diamond of whole diamonds, as wide as high): the terrain core paints it as StarEdit does.
-    if (terrainCoreOn() && brush.starEdit()) {
+    if (useCore() && brush.starEdit()) {
         ok = applyCoreBrush(px, py, terrain, int(brush.size));
     } else {
         std::vector<CornerValue> corners;
@@ -1265,8 +1623,14 @@ bool Editor::brushAllTerrain(int px, int py, const Brush& brush, uint16_t terrai
     if (!isomOk_) return false;
     for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
         for (auto [cx, cy] : isom_.brushCorners(x, y, brush))
-            if (isom_.isCorner(cx, cy) && isom_.terrainAt(cx, cy) != terrain) return false;
+            if (isom_.isCorner(cx, cy) && !sameBrushTerrain(isom_.terrainAt(cx, cy), terrain)) return false;
     return true;
+}
+
+bool Editor::sameBrushTerrain(uint16_t a, uint16_t b) const {
+    if (a == b) return true;
+    const Tileset::ModTerrain *x = tileset_.modTerrain(a), *y = tileset_.modTerrain(b);
+    return x && y && !x->pieces.empty() && !y->pieces.empty() && x->pieces[0] == y->pieces[0] && x->fillKey == y->fillKey;
 }
 
 int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
@@ -1304,7 +1668,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         const TileGroup* g = group(rx * 2, top);
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
         if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
-        if (!tileFromIsom(chk_, tile, rx * 2, top, tileset_)) continue;                       // and placed tiles theirs
+        if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
         std::vector<int> subs;
         const int cur = tile.tiles[size_t(top) * w + rx * 2] & 15;
         for (int s = 0; s < 16; ++s)
@@ -1317,7 +1681,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
             for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < w; ++tx) {
                 if (ty > top && !stacked(tx, ty)) continue;
                 if (!hasSub(tx, ty, sub)) continue;
-                if ((tx != rx * 2 || ty != top) && !tileFromIsom(chk_, tile, tx, ty, tileset_)) continue;  // placed tiles stay
+                if ((tx != rx * 2 || ty != top) && !isom_.tileFromIsom(chk_, tile, tx, ty)) continue;  // placed tiles stay
                 size_t i = size_t(ty) * w + tx;
                 if ((mtxm.tiles[i] >> 4) >= 1024) continue;  // under a doodad: the doodad's tile stays
                 uint16_t v = uint16_t((tile.tiles[i] & 0xFFF0) | sub);
@@ -1450,6 +1814,7 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
     if (!isomOk_) return;
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
+    terrain = brushTerrain(px, py, terrain);
     std::mt19937 rng(seed);
     const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;
     std::uniform_real_distribution<double> unit(-1, 1);
@@ -1468,6 +1833,7 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
 
 bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     if (!isomOk_) return false;
+    terrain = brushTerrain(px, py, terrain);
     std::vector<CornerValue> corners;
     for (auto [x, y] : symmetricPoints(px, py))
         for (auto [cx, cy] : isom_.floodCorners(x, y)) corners.push_back({cx, cy, terrain});
@@ -1498,6 +1864,16 @@ int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int are
 bool Editor::inSelectShape(const Rect& box, SelectShape shape, int px, int py) {
     const Rect r = box.normalized();
     if (shape == SelectShape::Rect) return r.contains(px, py);
+    if (shape == SelectShape::IsoRect || shape == SelectShape::IsoRectFlip) {
+        // (along the diamonds' edges: u and v count diamonds down to the right and down to the left)
+        const bool flip = shape == SelectShape::IsoRectFlip;
+        auto u = [](double x, double y) { return x / 64.0 + y / 32.0; };
+        auto v = [](double x, double y) { return y / 32.0 - x / 64.0; };
+        const double ax = flip ? r.right : r.left, bx = flip ? r.left : r.right, ay = r.top, by = r.bottom;
+        const double pu = u(px, py), pv = v(px, py), e = 1e-6;
+        return pu >= std::min(u(ax, ay), u(bx, by)) - e && pu <= std::max(u(ax, ay), u(bx, by)) + e &&
+               pv >= std::min(v(ax, ay), v(bx, by)) - e && pv <= std::max(v(ax, ay), v(bx, by)) + e;
+    }
     const double hw = std::max(1.0, (r.right - r.left) / 2.0), hh = std::max(1.0, (r.bottom - r.top) / 2.0);
     const double dx = (px - (r.left + r.right) / 2.0) / hw, dy = (py - (r.top + r.bottom) / 2.0) / hh;
     return shape == SelectShape::Diamond ? std::abs(dx) + std::abs(dy) <= 1.0 : dx * dx + dy * dy <= 1.0;
@@ -1752,7 +2128,9 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
         for (int x = -1; x <= isom_.rectCols() + 1; ++x)
             if (isom_.isCorner(x, y)) {
                 const uint16_t t = isom_.terrainAt(x, y);
-                corners.push_back({x + dx, y + dy, t < mapTo.size() ? mapTo[t] : fill});
+                // (a mod's terrain: itself in the same tileset)
+                const bool own = era == era_ && modTable_ && modTable_->isTerrain(t) && t >= mapTo.size();
+                corners.push_back({x + dx, y + dy, own ? t : t < mapTo.size() ? mapTo[t] : fill});
             }
     const std::vector<Doodad> oldDoodads = doodads_;
     const bool keepDoodads = era == era_;  // before reload() changes era_
@@ -1771,7 +2149,7 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     // The same tileset: the terrain core resizes as ScmDraft does (the terrain moved, the new ground filled, the edges
     // between them made; the tiles that stay keep theirs). MTXM is TILE again: the doodads are placed again below.
     // Else (a new tileset, or a rect no tile fits): the terrain is made again from its corners (below).
-    bool viaCore = terrainCoreOn() && era == era_ && core_.load(chk_, tileset_, err) && core_.resize(width, height, dx * 2, dy, fill) &&
+    bool viaCore = useCore() && era == era_ && core_.load(chk_, tileset_, err) && core_.resize(width, height, dx * 2, dy, fill) &&
                    !core_.untileable();
     if (viaCore) {
         core_.store(chk_);
@@ -2869,13 +3247,52 @@ Bytes colorSection(const Chk& chk) {
 uint32_t Editor::colorIdRgb(int id) { return id >= 0 && id < kColorIds ? kColorRgb[id] : 0x808080; }
 const char* Editor::colorIdName(int id) { return id >= 0 && id < kColorIds ? kColorNames[id] : "Random"; }
 
+int Editor::colorCount() const {
+    const UnitDataLoader* mod = data_.unitDataLoader();
+    return mod && mod->colorNames ? std::min<int>(int(mod->colorNames().size()), 256) : kColorIds;
+}
+
+std::string Editor::colorName(int id) const {
+    const UnitDataLoader* mod = data_.unitDataLoader();
+    if (mod && mod->colorNames) {
+        const auto& names = mod->colorNames();
+        return id >= 0 && size_t(id) < names.size() ? names[size_t(id)] : "Color " + std::to_string(id);
+    }
+    return colorIdName(id);
+}
+
+uint32_t Editor::colorRgb(int id) const {
+    const UnitDataLoader* mod = data_.unitDataLoader();
+    if (mod && mod->colorNames) {
+        const int i = unitSprites_.minimapColor(id, era_ & 7);
+        if (i >= 0 && size_t(i) < tileset_.palette.size()) {
+            const Rgb& c = tileset_.palette[size_t(i)];
+            return uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | c.b;
+        }
+    }
+    return colorIdRgb(id);
+}
+
 uint32_t Editor::playerRgb(int p) const {
     if (p < 0 || p >= 8) return colorIdRgb(p == 11 ? 11 : p);
     const PlayerColor c = player(p).color;
     if (c.kind == PlayerColor::Custom) return c.rgb;
-    if (c.kind == PlayerColor::Id && c.id < kColorIds) return colorIdRgb(c.id);
+    if (c.kind == PlayerColor::Id && c.id < colorCount()) return colorRgb(c.id);
     const uint8_t id = colorSection(chk_)[size_t(p)];
-    return colorIdRgb(id < 12 ? id : p);
+    return colorRgb(id < 12 || id < colorCount() ? id : p);
+}
+
+void Editor::syncColorRows() {
+    if (colorRowsRevision_ == revision_) return;
+    colorRowsRevision_ = revision_;
+    std::array<uint8_t, 12> rows{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    const int count = unitSprites_.colorRowCount();
+    for (int p = 0; p < 8 && isOpen(); ++p) {
+        const PlayerColor c = player(p).color;
+        const int id = c.kind == PlayerColor::Id ? c.id : colorSection(chk_)[size_t(p)];  // (random, choice, RGB: COLR's)
+        rows[size_t(p)] = uint8_t(id < count ? id : p);
+    }
+    unitSprites_.setColorRows(rows);
 }
 
 Editor::Player Editor::player(int p) const {
@@ -2914,11 +3331,14 @@ Editor::Force Editor::force(int f) const {
 void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces) {
     // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is made
     // only when a color needs it (random, the player's choice, RGB, or ids 12 and up).
+    // (a mod's colors, more than 12 by number: COLR holds them, the game it runs on reads COLR only)
+    const bool modColors = data_.unitDataLoader() && data_.unitDataLoader()->colorNames;
+    const int colrIds = modColors ? colorCount() : 12;
     bool colorsChanged = false, needCrgb = chk_.find("CRGB") != nullptr;
     for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
         const PlayerColor& c = players[p].color;
         colorsChanged |= !(c == player(int(p)).color);
-        needCrgb |= c.kind != PlayerColor::Id || c.id >= 12;
+        needCrgb |= c.kind != PlayerColor::Id || c.id >= colrIds;
     }
     Bytes colr, crgb;
     if (colorsChanged) {
@@ -2930,7 +3350,7 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         }
         for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
             const PlayerColor& c = players[p].color;
-            if (c.kind == PlayerColor::Id && c.id < 12) colr[p] = c.id;  // the leaderboard's color too
+            if (c.kind == PlayerColor::Id && c.id < colrIds) colr[p] = c.id;  // the leaderboard's color too
             if (crgb.empty()) continue;
             crgb[24 + p] = c.kind;
             if (c.kind == PlayerColor::Custom)
@@ -3209,6 +3629,18 @@ bool Editor::removeArchiveFile(const std::string& name) {
     return true;
 }
 
+bool Editor::removeArchiveFiles(const std::vector<std::string>& names) {
+    finishFiles();
+    std::vector<std::string> there;
+    for (const std::string& n : names)
+        if (std::any_of(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n; })) there.push_back(n);
+    if (there.empty()) return false;
+    pushUndo(chk_, there);  // the undo step keeps the files
+    std::erase_if(files_, [&](const ArchiveFile& f) { return std::find(there.begin(), there.end(), f.name) != there.end(); });
+    commit(false);
+    return true;
+}
+
 bool Editor::renameArchiveFile(const std::string& from, const std::string& to) {
     if (to.empty() || archiveFile(to)) return false;
     auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == from; });
@@ -3373,9 +3805,55 @@ int Editor::placeStartLocations() {
     return placed;
 }
 
+void Editor::renameInComments(int location, const std::string& from, const std::string& to) {
+    const UnitDataLoader* mod = data_.unitDataLoader();
+    if (!mod || !mod->renameInComment || from.empty() || from == to) return;
+    // (another location with the old name or the new one: the lines' name could be either, so they stay as they are)
+    auto lower = [](std::string s) {
+        for (char& c : s) c = char(std::tolower(static_cast<unsigned char>(c)));
+        return s;
+    };
+    for (int k = 0; k < int(locations_.size()); ++k)
+        if (k != location && locationUsed(k) && (lower(locationName(k)) == lower(from) || lower(locationName(k)) == lower(to))) return;
+    ClassicTriggers t = readClassicTriggers(chk_);
+    // The strings that something other than a Comment uses (a message, a sound, a name): a Comment's new text goes into
+    // a new string there, so that the other use keeps its text.
+    std::set<uint32_t> others;
+    for (const ClassicTrigger& tr : t.triggers)
+        for (const ClassicAction& a : tr.actions)
+            if (a.type && a.type != 47) others.insert(a.text), others.insert(a.wav);
+    for (const Location& l : locations_) others.insert(l.nameString);
+    for (int s = 0; s < 256; ++s)
+        if (const Bytes& sw = chk_.effective("SWNM"); size_t(s) * 4 + 4 <= sw.size())
+            others.insert(uint32_t(sw[size_t(s) * 4] | sw[size_t(s) * 4 + 1] << 8 | sw[size_t(s) * 4 + 2] << 16 | uint32_t(sw[size_t(s) * 4 + 3]) << 24));
+    std::map<uint32_t, uint32_t> moved;  // (a shared string: its Comments' new string)
+    bool triggersChanged = false;
+    for (ClassicTrigger& tr : t.triggers)
+        for (ClassicAction& a : tr.actions) {
+            if (a.type != 47 || !a.text || a.text > strings_.size()) continue;  // (Comments)
+            if (auto m = moved.find(a.text); m != moved.end()) {
+                a.text = m->second, triggersChanged = true;
+                continue;
+            }
+            const std::string was = strings_.get(a.text);
+            const std::string now = mod->renameInComment(was, from, to);
+            if (now == was) continue;
+            if (others.count(a.text)) {
+                const uint32_t id = uint32_t(strings_.add(now));
+                moved[a.text] = id, a.text = id, triggersChanged = true;
+            } else {
+                strings_.set(a.text, now);
+                others.insert(a.text);  // (done: another Comment with it has the new text already)
+                moved[a.text] = a.text;
+            }
+        }
+    if (triggersChanged) writeClassicTriggers(chk_, t);
+}
+
 void Editor::renameLocation(int i, const std::string& name) {
     if (i < 0 || i >= int(locations_.size()) || name.empty()) return;
     beginEdit();
+    renameInComments(i, locationName(i), name);
     Location& l = locations_[i];
     if (l.nameString) strings_.set(l.nameString, name);
     else l.nameString = uint16_t(strings_.add(name));
@@ -3456,6 +3934,7 @@ bool Editor::editLocation(int i, const LocationEdit& edit, std::string* error) {
         return false;
     beginEdit();
     if (rename) {
+        renameInComments(i, locationName(i), edit.name);
         if (l.nameString) strings_.set(l.nameString, edit.name);
         else l.nameString = uint16_t(strings_.add(edit.name));
         strings_.write(chk_);

@@ -101,6 +101,7 @@ float kPlayerRgb[12][3] = {{0.957f, 0.016f, 0.016f}, {0.047f, 0.282f, 0.8f},   {
 
 struct ImageTex {
     bool loaded = false, failed = false;
+    bool team = false;  // (SD: it has player color pixels)
     SDL_GPUTexture* diffuse = nullptr;
     SDL_GPUTexture* mask = nullptr;
     float texW = 0, texH = 0;      // texels
@@ -109,9 +110,24 @@ struct ImageTex {
     struct Frame {
         float u0, v0, u1, v1;      // texels
         float x, y, w, h;          // inside the box, map pixels
+        int page = -1;             // (SD: its atlas page; -1 not there yet)
+        bool team = false;         // (SD: it has player color pixels)
     };
     std::vector<Frame> frames;
+    // SD: each frame goes to the shared atlas pages when a scene first draws it (atlasFrame), not the whole GRP at
+    // once (Cosmonarchy's images have hundreds of frames: a map with all its units had 393 million pixels of them).
+    bool sd = false;
+    int row = -1;  // (sd) the color row of its player color pixels' own shades; -1 the grey ramp, tinted
 };
+
+// An SD atlas page: frames on shelves, each with a clear pixel around it.
+struct AtlasPage {
+    SDL_GPUTexture* diffuse = nullptr;
+    SDL_GPUTexture* mask = nullptr;  // R8: 255 where the player color tints
+    uint32_t x = 0, y = 0, shelf = 0;
+};
+constexpr uint32_t kAtlasPage = 4096;
+constexpr size_t kAtlasPages = 12;  // (12 pages: 960 MB; past it all frames go and come again as they are drawn)
 
 uint32_t mipCount(uint32_t w, uint32_t h) {
     uint32_t n = 1;
@@ -167,11 +183,25 @@ struct Renderer::Impl {
     UnitSprites* unitSprites = nullptr;
     const Tileset* tileset = nullptr;
     uint16_t era = 0xFFFF, loadedEra = 0xFFFF;
+    // (the tileset the atlases were made from: another one of the same era, as a mod's, or one loaded again, makes them
+    // again; its address and size, since the editor loads a new tileset into the same object)
+    const Tileset* loadedTileset = nullptr;
+    size_t loadedTilesetSize = 0;
     GraphicsQuality quality = GraphicsQuality::HD2, loadedQuality = GraphicsQuality::SD;
     bool carbot = false, loadedCarbot = false;
     bool tilesetDirty = true;
 
     std::map<int, ImageTex> images;
+    std::map<std::pair<int, int>, ImageTex> teamImages;  // (setExactTeamColors: an image in a color row's shades)
+    uint16_t exactTeam = 0;  // (a bit per owner)
+    std::vector<AtlasPage> pages;
+    bool pagesFull = false;  // (the next frame starts them again)
+    struct PageUpload {
+        int page;
+        uint32_t x, y, w, h;
+        std::vector<uint8_t> rgba, mask;
+    };
+    std::vector<PageUpload> pageUploads;  // (sent in the frame's own copy pass)
     double loadBudgetMs = 30;
 
     // Dynamic buffers
@@ -203,8 +233,11 @@ struct Renderer::Impl {
     bool ensureBuffer(SDL_GPUBuffer*& buf, uint32_t& cap, uint32_t bytes);
     bool ensureUpload(uint32_t bytes);
     ImageTex* image(int id, Clock::time_point frameStart, bool& pending);
-    void loadImage(int id, ImageTex& t);
+    void loadImage(int id, ImageTex& t, int row = -1);
     void freeImages();
+    bool atlasFrame(ImageTex& t, int id, size_t frame);
+    void freePages();
+    void sendPageUploads(SDL_GPUCommandBuffer* cmd);
     bool draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uint32_t w, uint32_t h, const Scene& scene);
 };
 
@@ -402,7 +435,118 @@ void Renderer::Impl::freeImages() {
         if (t.diffuse) SDL_ReleaseGPUTexture(device, t.diffuse);
         if (t.mask) SDL_ReleaseGPUTexture(device, t.mask);
     }
-    images.clear();
+    for (auto& [key, t] : teamImages) {
+        if (t.diffuse) SDL_ReleaseGPUTexture(device, t.diffuse);
+        if (t.mask) SDL_ReleaseGPUTexture(device, t.mask);
+    }
+    images.clear(), teamImages.clear();
+    freePages();
+}
+
+// The atlas pages go; the SD frames on them come again as they are drawn.
+void Renderer::Impl::freePages() {
+    for (AtlasPage& pg : pages) {
+        if (pg.diffuse) SDL_ReleaseGPUTexture(device, pg.diffuse);
+        if (pg.mask) SDL_ReleaseGPUTexture(device, pg.mask);
+    }
+    pages.clear(), pageUploads.clear(), pagesFull = false;
+    for (auto* list : {&images})
+        for (auto& [id, t] : *list)
+            for (ImageTex::Frame& f : t.frames) f.page = -1;
+    for (auto& [key, t] : teamImages)
+        for (ImageTex::Frame& f : t.frames) f.page = -1;
+}
+
+// Frame `frame` of an SD image on a page (its pixels to the next copy pass); false if no page has room.
+bool Renderer::Impl::atlasFrame(ImageTex& t, int id, size_t frame) {
+    ImageTex::Frame& out = t.frames[frame];
+    if (out.page >= 0) return true;
+    const Grp* g = unitSprites ? unitSprites->grp(id) : nullptr;
+    if (!g || frame >= g->frames.size() || !tileset) return false;
+    const Grp::Frame& fr = g->frames[frame];
+    const uint32_t w = uint32_t(fr.width) + 2, h = uint32_t(fr.height) + 2;  // (a clear pixel around it)
+    if (w > kAtlasPage || h > kAtlasPage) return false;
+    auto fits = [&](AtlasPage& pg) {
+        if (pg.x + w > kAtlasPage) pg.y += pg.shelf, pg.x = 0, pg.shelf = 0;
+        return pg.y + h <= kAtlasPage;
+    };
+    if (pages.empty() || !fits(pages.back())) {
+        if (pages.size() >= kAtlasPages) {
+            pagesFull = true;
+            return false;
+        }
+        AtlasPage pg;
+        pg.diffuse = createTexture(SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, kAtlasPage, kAtlasPage, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+        pg.mask = createTexture(SDL_GPU_TEXTUREFORMAT_R8_UNORM, kAtlasPage, kAtlasPage, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+        if (!pg.diffuse || !pg.mask) {
+            if (pg.diffuse) SDL_ReleaseGPUTexture(device, pg.diffuse);
+            if (pg.mask) SDL_ReleaseGPUTexture(device, pg.mask);
+            return false;
+        }
+        pages.push_back(pg);
+    }
+    AtlasPage& pg = pages.back();
+    PageUpload up{int(pages.size() - 1), pg.x, pg.y, w, h, std::vector<uint8_t>(size_t(w) * h * 4, 0), std::vector<uint8_t>(size_t(w) * h, 0)};
+    pg.x += w, pg.shelf = std::max(pg.shelf, h);
+    const std::string* extra = unitSprites->extraPath(id);
+    for (int y = 0; y < fr.height; ++y)
+        for (int x = 0; x < fr.width; ++x) {
+            const uint8_t idx = fr.pixels[size_t(y) * fr.width + x];
+            if (!idx) continue;
+            bool team = !extra && idx >= 8 && idx < 16;
+            // Team pixels: white player's ramp gives a neutral grey the shader can tint. Glows: their
+            // colour over black from the tileset's remap table.
+            Rgb glow{};
+            const bool glowing = unitSprites->glowColor(id, idx, *tileset, glow);
+            if (glowing) team = false;
+            out.team = out.team || team;
+            const Rgb& c = glowing ? glow : tileset->palette[team ? unitSprites->remapRow(idx, t.row >= 0 ? t.row : 6) : idx];
+            const size_t o = size_t(y + 1) * w + x + 1;
+            up.rgba[o * 4] = c.r, up.rgba[o * 4 + 1] = c.g, up.rgba[o * 4 + 2] = c.b, up.rgba[o * 4 + 3] = 255;
+            if (team && t.row < 0) up.mask[o] = 255;  // (a row's own shades: nothing to tint)
+        }
+    out.u0 = float(up.x + 1), out.v0 = float(up.y + 1), out.u1 = out.u0 + fr.width, out.v1 = out.v0 + fr.height;
+    out.page = up.page;
+    pageUploads.push_back(std::move(up));
+    return true;
+}
+
+// The frames that atlasFrame put on the pages since the last call, in one copy pass of `cmd`.
+void Renderer::Impl::sendPageUploads(SDL_GPUCommandBuffer* cmd) {
+    if (pageUploads.empty()) return;
+    // (each block at a multiple of 512: Vulkan takes a copy only from a multiple of the texel's size, and D3D12 copies
+    // without a detour from a multiple of 512)
+    auto aligned = [](size_t n) { return (n + 511) & ~size_t(511); };
+    size_t total = 0;
+    for (const PageUpload& u : pageUploads) total += aligned(u.rgba.size()) + aligned(u.mask.size());
+    SDL_GPUTransferBufferCreateInfo ti{};
+    ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    ti.size = uint32_t(total);
+    SDL_GPUTransferBuffer* tb = SDL_CreateGPUTransferBuffer(device, &ti);
+    if (!tb) return;
+    uint8_t* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device, tb, false));
+    size_t at = 0;
+    for (const PageUpload& u : pageUploads) {
+        std::memcpy(p + at, u.rgba.data(), u.rgba.size()), at += aligned(u.rgba.size());
+        std::memcpy(p + at, u.mask.data(), u.mask.size()), at += aligned(u.mask.size());
+    }
+    SDL_UnmapGPUTransferBuffer(device, tb);
+    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+    at = 0;
+    for (const PageUpload& u : pageUploads) {
+        for (int m = 0; m < 2; ++m) {
+            SDL_GPUTextureTransferInfo src{};
+            src.transfer_buffer = tb, src.offset = uint32_t(at), src.pixels_per_row = u.w, src.rows_per_layer = u.h;
+            SDL_GPUTextureRegion dst{};
+            dst.texture = m ? pages[size_t(u.page)].mask : pages[size_t(u.page)].diffuse;
+            dst.x = u.x, dst.y = u.y, dst.w = u.w, dst.h = u.h, dst.d = 1;
+            SDL_UploadToGPUTexture(copy, &src, &dst, false);
+            at += aligned(m ? u.mask.size() : u.rgba.size());
+        }
+    }
+    SDL_EndGPUCopyPass(copy);
+    SDL_ReleaseGPUTransferBuffer(device, tb);
+    pageUploads.clear();
 }
 
 void Renderer::shutdown() {
@@ -551,8 +695,11 @@ bool Renderer::Impl::buildHdAtlas() {
 
 void Renderer::Impl::reloadTileset() {
     if (!tileset || !data || tileset->groups.empty()) return;
-    if (era != loadedEra) buildSdAtlas();
-    if (era != loadedEra || quality != loadedQuality || carbot != loadedCarbot) buildHdAtlas();
+    const size_t size = tileset->groups.size() * 1000003u + tileset->megatiles.size() * 1009u + tileset->minitiles.size();
+    const bool other = era != loadedEra || tileset != loadedTileset || size != loadedTilesetSize;
+    if (other) buildSdAtlas();
+    if (other || quality != loadedQuality || carbot != loadedCarbot) buildHdAtlas();
+    loadedTileset = tileset, loadedTilesetSize = size;
     if (quality != loadedQuality || carbot != loadedCarbot) freeImages();
     loadedEra = era;
     loadedQuality = quality;
@@ -572,6 +719,7 @@ void Renderer::setCarbot(bool carbot) {
     if (impl_->carbot != carbot) impl_->carbot = carbot, impl_->tilesetDirty = true;
 }
 void Renderer::setLoadBudget(double ms) { impl_->loadBudgetMs = ms; }
+void Renderer::setExactTeamColors(uint16_t owners) { impl_->exactTeam = owners; }
 Stats Renderer::stats() const { return impl_->stats; }
 
 void Renderer::setPlayerColors(const uint32_t rgb[12]) {
@@ -581,7 +729,8 @@ void Renderer::setPlayerColors(const uint32_t rgb[12]) {
 
 void Renderer::setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era) {
     Impl& r = *impl_;
-    if (r.tileset != tileset || r.era != era) r.tilesetDirty = true;
+    const size_t size = tileset ? tileset->groups.size() * 1000003u + tileset->megatiles.size() * 1009u + tileset->minitiles.size() : 0;
+    if (r.tileset != tileset || r.era != era || (tileset && size != r.loadedTilesetSize)) r.tilesetDirty = true;
     if (r.unitSprites != sprites) r.freeImages();
     r.data = data, r.unitSprites = sprites, r.tileset = tileset, r.era = era;
 }
@@ -657,7 +806,7 @@ bool Renderer::Impl::ensureUpload(uint32_t bytes) {
 
 // --- Sprite images -----------------------------------------------------------------------------
 
-void Renderer::Impl::loadImage(int id, ImageTex& t) {
+void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
     t.loaded = true;
     std::string err;
     AnimImage a;
@@ -685,46 +834,18 @@ void Renderer::Impl::loadImage(int id, ImageTex& t) {
                                 f.xOff / 4.0f, f.yOff / 4.0f, f.width / 4.0f, f.height / 4.0f});
         return;
     }
-    // SD fallback: classic GRP frames packed into an RGBA atlas (team pixels as a grey ramp + mask).
+    // SD fallback: classic GRP frames on the atlas pages (team pixels as a grey ramp + mask).
     const Grp* g = unitSprites ? unitSprites->grp(id) : nullptr;
     if (!g || g->frames.empty() || !tileset) {
         t.failed = true;
         return;
     }
-    uint32_t cols = std::min<uint32_t>(uint32_t(g->frames.size()), std::max<uint32_t>(1, 4096 / std::max<uint32_t>(g->width, 1)));
-    uint32_t rows = uint32_t((g->frames.size() + cols - 1) / cols);
-    uint32_t w = cols * g->width, h = rows * g->height;
-    std::vector<uint8_t> diffuse(size_t(w) * h * 4, 0), mask(size_t(w) * h * 4, 0);
-    for (size_t f = 0; f < g->frames.size(); ++f) {
-        const Grp::Frame& fr = g->frames[f];
-        uint32_t ox = uint32_t(f % cols) * g->width + fr.x, oy = uint32_t(f / cols) * g->height + fr.y;
-        for (int y = 0; y < fr.height; ++y)
-            for (int x = 0; x < fr.width; ++x) {
-                uint8_t idx = fr.pixels[size_t(y) * fr.width + x];
-                if (!idx) continue;
-                bool team = !extra && idx >= 8 && idx < 16;
-                // Team pixels: white player's ramp gives a neutral grey the shader can tint. Glows: their
-                // colour over black from the tileset's remap table.
-                Rgb glow{};
-                const bool glowing = unitSprites->glowColor(id, idx, *tileset, glow);
-                if (glowing) team = false;
-                const Rgb& c = glowing ? glow : tileset->palette[team ? unitSprites->remap(idx, 6) : idx];
-                size_t o = (size_t(oy + y) * w + ox + x) * 4;
-                diffuse[o] = c.r, diffuse[o + 1] = c.g, diffuse[o + 2] = c.b, diffuse[o + 3] = 255;
-                mask[o] = team ? 255 : 0, mask[o + 3] = 255;
-            }
-    }
-    t.diffuse = createTexture(SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, w, h, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
-    t.mask = createTexture(SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, w, h, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
-    uploadTexture(t.diffuse, w, h, diffuse.data(), diffuse.size(), false);
-    uploadTexture(t.mask, w, h, mask.data(), mask.size(), false);
-    t.texW = float(w), t.texH = float(h);
+    // (the frames' places in the box; their pixels go to the pages as they are drawn: atlasFrame)
+    t.sd = true, t.row = row;
+    t.texW = t.texH = float(kAtlasPage);
     t.boxW = g->width, t.boxH = g->height;
-    for (size_t f = 0; f < g->frames.size(); ++f) {
-        const Grp::Frame& fr = g->frames[f];
-        float u = float((f % cols) * g->width + fr.x), v = float((f / cols) * g->height + fr.y);
-        t.frames.push_back({u, v, u + fr.width, v + fr.height, float(fr.x), float(fr.y), float(fr.width), float(fr.height)});
-    }
+    for (const Grp::Frame& fr : g->frames)
+        t.frames.push_back({0, 0, 0, 0, float(fr.x), float(fr.y), float(fr.width), float(fr.height)});
 }
 
 ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pending) {
@@ -738,7 +859,7 @@ ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pend
         }
         loadImage(id, t);
     }
-    return t.failed || !t.diffuse ? nullptr : &t;
+    return t.failed || (!t.diffuse && !t.sd) ? nullptr : &t;
 }
 
 // --- Frame ---------------------------------------------------------------------------------------
@@ -746,6 +867,7 @@ ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pend
 bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uint32_t w, uint32_t h, const Scene& scene) {
     auto frameStart = Clock::now();
     stats = {};
+    if (pagesFull) freePages();
     if (tilesetDirty) reloadTileset();
     ensureDepth(w, h);
     const Camera& cam = scene.camera;
@@ -753,8 +875,9 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
 
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
     struct Raw {
-        ImageTex* tex;
-        ImageTex* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
+        SDL_GPUTexture* diffuse;
+        SDL_GPUTexture* mask;
+        SDL_GPUTexture* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
         int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows, 3 those that bend what is under them
         GpuInstance in;
     };
@@ -775,7 +898,16 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             if (pending) ++stats.imagesPending;
             if (!warp || warp->frames.empty()) continue;
         }
-        const ImageTex::Frame& f = t->frames[size_t(s.frame) < t->frames.size() ? s.frame : 0];
+        size_t warpFrame = 0;  // (the Warp Texture's frame: the level)
+        if (warp) {
+            warpFrame = size_t(std::clamp(s.level, 0, int(warp->frames.size()) - 1));
+            if (warp->sd && warp->frames[warpFrame].page < 0 && (msSince(frameStart) > loadBudgetMs || !atlasFrame(*warp, 210, warpFrame))) {
+                ++stats.imagesPending;
+                continue;
+            }
+        }
+        const size_t fi = size_t(s.frame) < t->frames.size() ? size_t(s.frame) : 0;
+        const ImageTex::Frame& f = t->frames[fi];
         // On the map's pixel grid, as the game draws: whole-pixel origin and integer box halves, so no
         // sprite lands between pixels (visible with nearest-neighbour sampling).
         const float ox = std::floor(s.x), oy = std::floor(s.y);
@@ -783,11 +915,27 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         float left = std::round(s.flip ? ox + (ox - (boxL + f.x + f.w)) : boxL + f.x);
         float top = std::round(boxT + f.y);
         if (left > viewR || top > viewB || left + f.w < viewL || top + f.h < viewT) continue;  // off screen
+        // An SD frame on its page: within the frame's load budget, as image().
+        auto onPage = [&](ImageTex& im, int id, size_t k) {
+            if (im.frames[k].page >= 0) return true;
+            if (msSince(frameStart) > loadBudgetMs) return ++stats.imagesPending, false;
+            return atlasFrame(im, id, k);
+        };
+        if (t->sd && !onPage(*t, s.image, fi)) continue;
+        // The owner's color row's own shades (the same GRP: the same box and frames, other places on the pages).
+        if ((exactTeam >> std::min<int>(s.owner, 11) & 1) && t->sd && t->frames[fi].team && unitSprites && !s.ground && !s.terrain) {
+            const int row = unitSprites->colorRow(s.owner);
+            ImageTex& e = teamImages[{s.image, row}];
+            if (!e.loaded) loadImage(s.image, e, row);
+            // (the tinted picture until it is there)
+            if (!e.failed && e.frames.size() == t->frames.size() && onPage(e, s.image, fi)) t = &e;
+        }
+        const ImageTex::Frame& uf = t->frames[fi];  // (its place in the texture drawn)
         GpuInstance in{};
         in.pos[0] = left, in.pos[1] = top;
         in.size[0] = f.w, in.size[1] = f.h;
-        float u0 = f.u0 / t->texW, u1 = f.u1 / t->texW;
-        in.uv[0] = s.flip ? u1 : u0, in.uv[1] = f.v0 / t->texH, in.uv[2] = s.flip ? u0 : u1, in.uv[3] = f.v1 / t->texH;
+        float u0 = uf.u0 / t->texW, u1 = uf.u1 / t->texW;
+        in.uv[0] = s.flip ? u1 : u0, in.uv[1] = uf.v0 / t->texH, in.uv[2] = s.flip ? u0 : u1, in.uv[3] = uf.v1 / t->texH;
         const float* rgb = kPlayerRgb[std::min<int>(s.owner, 11)];
         in.color[0] = rgb[0], in.color[1] = rgb[1], in.color[2] = rgb[2], in.color[3] = s.alpha;
         float yn = std::clamp((s.hasSortY ? s.sortY : s.y) / mapPxH, 0.0f, 1.0f);
@@ -810,7 +958,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             if (df == 17) in.level = 1.0f - std::clamp(((s.level < 0 ? 48 : s.level) - 48) / 15.0f, 0.0f, 1.0f);
             if (df == 12) {
                 // The Warp Texture's frame (the level) at the same place as the sprite's frame: from its top-left.
-                const ImageTex::Frame& wf = warp->frames[size_t(std::clamp(s.level, 0, int(warp->frames.size()) - 1))];
+                const ImageTex::Frame& wf = warp->frames[warpFrame];
                 const float perX = wf.w > 0 ? (wf.u1 - wf.u0) / wf.w : 1, perY = wf.h > 0 ? (wf.v1 - wf.v0) / wf.h : 1;
                 in.warpUv[0] = wf.u0 / warp->texW, in.warpUv[1] = wf.v0 / warp->texH;
                 in.warpUv[2] = (wf.u0 + f.w * perX) / warp->texW, in.warpUv[3] = (wf.v0 + f.h * perY) / warp->texH;
@@ -818,21 +966,24 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
                 in.warpLim[2] = wf.u1 / warp->texW, in.warpLim[3] = wf.v1 / warp->texH;
             }
         }
-        if (look != 64) warp = nullptr;
+        SDL_GPUTexture* warpTex = look != 64 || !warp ? nullptr : warp->sd ? pages[size_t(warp->frames[warpFrame].page)].diffuse : warp->diffuse;
         in.flags = float((shadow ? 1 : 0) | (s.tintRed ? 2 : 0) | (s.ground ? 4 : 0) | (glow ? 8 : 0) | look);
-        raw.push_back({t, warp, s.terrain ? 0 : glow ? 2 : (look == 16 || look == 32) ? 3 : 1, in});
+        SDL_GPUTexture* diffuse = t->sd ? pages[size_t(uf.page)].diffuse : t->diffuse;
+        SDL_GPUTexture* mask = t->sd ? (t->row < 0 ? pages[size_t(uf.page)].mask : nullptr) : t->mask;
+        raw.push_back({diffuse, mask, warpTex, s.terrain ? 0 : glow ? 2 : (look == 16 || look == 32) ? 3 : 1, in});
     }
+    sendPageUploads(cmd);
     // The terrain's sprites first (else the depth that they write would hide the shadows and circles over them), then
     // the others, then the sprites that bend what is under them (cloaks, the EMP shockwave: they read the picture of the
     // others), then glows in their own batches (additive pipeline; drawn last, as they write no depth).
-    std::map<std::tuple<int, ImageTex*, ImageTex*>, std::vector<GpuInstance>> buckets;
-    for (auto& [t, warp, order, in] : raw) buckets[{order, t, warp}].push_back(in);
+    std::map<std::tuple<int, SDL_GPUTexture*, SDL_GPUTexture*, SDL_GPUTexture*>, std::vector<GpuInstance>> buckets;
+    for (auto& [diffuse, mask, warp, order, in] : raw) buckets[{order, diffuse, mask, warp}].push_back(in);
     std::vector<GpuInstance> instances;
     instances.reserve(raw.size());
-    struct Batch { ImageTex* tex; ImageTex* warp; uint32_t first, count; int order; };
+    struct Batch { SDL_GPUTexture* diffuse; SDL_GPUTexture* mask; SDL_GPUTexture* warp; uint32_t first, count; int order; };
     std::vector<Batch> batches;
     for (auto& [key, list] : buckets) {
-        batches.push_back({std::get<1>(key), std::get<2>(key), uint32_t(instances.size()), uint32_t(list.size()), std::get<0>(key)});
+        batches.push_back({std::get<1>(key), std::get<2>(key), std::get<3>(key), uint32_t(instances.size()), uint32_t(list.size()), std::get<0>(key)});
         instances.insert(instances.end(), list.begin(), list.end());
     }
     // Only a scene with such sprites draws into the backdrop first (and then copies it to the target).
@@ -1004,8 +1155,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             SDL_PushGPUVertexUniformData(cmd, 0, &u, sizeof u);
             // Nearest-neighbour unless zoomed out (sprite textures have no mipmaps).
             SDL_GPUSampler* spriteSampler = cam.zoom >= 0.5f ? pointClamp : linearClamp;
-            SDL_GPUTexture* second = b.warp ? b.warp->diffuse : b.tex->mask ? b.tex->mask : blackTex;
-            SDL_GPUTextureSamplerBinding tb[3] = {{b.tex->diffuse, spriteSampler}, {second, spriteSampler}, {under ? under : blackTex, pointClamp}};
+            SDL_GPUTexture* second = b.warp ? b.warp : b.mask ? b.mask : blackTex;
+            SDL_GPUTextureSamplerBinding tb[3] = {{b.diffuse, spriteSampler}, {second, spriteSampler}, {under ? under : blackTex, pointClamp}};
             SDL_BindGPUFragmentSamplers(pass, 0, tb, 3);
             SDL_DrawGPUPrimitives(pass, 6, b.count, 0, 0);
             ++stats.drawCalls;
@@ -1042,7 +1193,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     SDL_EndGPURenderPass(pass);
 
     stats.imagesResident = 0;
-    for (auto& [id, t] : images) stats.imagesResident += t.diffuse != nullptr;
+    for (auto& [id, t] : images) stats.imagesResident += t.diffuse != nullptr || t.sd;
     stats.cpuMs = msSince(frameStart);
     return true;
 }

@@ -11,6 +11,7 @@ void showAboutSdl();    // (sdl_options.inc: Help > About StarDraft)
 void showKitGallerySdl();  // (sdl_options.inc: View > Control kit)
 void showFeedbackSdl(const std::wstring& on);  // (sdl_options.inc: Options > Report feedback, a modal dialog)
 void previewStopSdl();  // (sdl_files.inc: a sound that plays stops when the Files workspace is left)
+SDL_AudioDeviceID playbackDeviceSdl();  // (sdl_files.inc: the sounds' device, opened when a page with sounds shows)
 void briefingStopSdl();  // (sdl_briefing.inc: the preview stops when the Briefing workspace is left)
 bool sdlWorkspacePage(Workspace w);  // (sdl_map_pages.inc: the page of a map page workspace opens; false: none does)
 void sdlProjectShown();  // (sdl_project.inc: the Project page reads the project's scripts again)
@@ -30,6 +31,9 @@ void setWorkspace(Workspace w) {
     // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
     if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
     gWorkspace = w;
+    // The pages that play sounds: the device opens now, so the first sound starts at once (a Bluetooth headset's
+    // link takes a moment to wake up when sound begins).
+    if (w == Workspace::Briefing || w == Workspace::Files) playbackDeviceSdl();
     if (w == Workspace::Project) sdlProjectShown();
     if (w == Workspace::Triggers) sdlTriggersShown();
     shellStatusChanged();  // the map's parts show in Map only

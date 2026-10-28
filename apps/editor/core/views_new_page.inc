@@ -190,6 +190,7 @@ public:
 
     // The page's choices (the host reads them to make the map; the self-tests set them).
     bool project = false, generate = false;
+    bool cosmonarchy = false;  // a Cosmonarchy BW map (the start page's card): a blank map only, made with the mod's data
     // The generator: doodads after the terrain (roadmap R37): 0 none, else 1 (few) to 10 (many); Editor::decorate puts
     // one in each square of 13 - value tiles where one fits (doodadSpacing).
     NewSlider doodads{L"Doodads", 0, 10, 0};
@@ -277,9 +278,10 @@ public:
     uint16_t loadedEra = 0xFFFF;
     std::vector<uint32_t> megaColor, tileColor;
 
-    // The tab's kind and fresh choices (the open map's tileset, 128 x 128, blank). kind: 0 a classic project, 1 an EUD project.
+    // The tab's kind and fresh choices (the open map's tileset, 128 x 128, blank). kind: 0 a classic project, 1 an EUD
+    // project, 2 a Cosmonarchy BW map.
     void reset(int kind) {
-        project = kind == 1, card = kind == 1 ? 1 : 0;
+        project = kind == 1, cosmonarchy = kind == 2, card = kind == 1 ? 1 : 0;
         generate = false, copyMap = false, terrainOnly = false;
         era = openEra_;
         terrain = 0, w = h = 128, symmetry = 0, feature = 0, scroll = 0;

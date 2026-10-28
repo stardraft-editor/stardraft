@@ -39,6 +39,7 @@ int fuzzyScore(const std::wstring& hay, const std::wstring& needle) {
 // The palette's units: each with its section (and order), label and the text searches look at.
 struct PaletteUnit {
     int value = 0, order = 0;
+    int tier = 0;  // (a mod's unit: its tech tier, 0 none)
     std::wstring section, label, hay;
 };
 
@@ -49,14 +50,19 @@ std::vector<PaletteUnit> paletteUnits(AppState& app) {
     std::map<std::wstring, int> firstId;  // sections within a race in the order units.dat first uses them
     for (uint16_t i = 0; i < types.size(); ++i) {
         const UnitType& t = types[i];
+        if (t.name.empty()) continue;  // a slot with no unit (a mod's free entries: Cosmonarchy BW has 3000)
         // Every unit, as SCMDraft lists them: also those StarEdit hides (start location, eggs, doors and
         // traps, turrets, markers, the unused ones), which have no command icon of their own.
         PaletteUnit u;
         u.value = i, u.label = withCustomName(unitPaletteLabel(t), int(i));
         int race = 0;
-        u.section = unitSection(t, race);
-        firstId.emplace(u.section, i);
-        u.order = race * 1000 + firstId[u.section];
+        if (!t.paletteSection.empty()) {  // a mod's place (src/mods)
+            u.section = widen(t.paletteSection), u.order = t.paletteOrder, u.tier = t.paletteTier;
+        } else {
+            u.section = unitSection(t, race);
+            firstId.emplace(u.section, i);
+            u.order = race * 1000 + firstId[u.section];
+        }
         // Label first, so a match at the start of the name scores best.
         u.hay = u.label + L" " + widen(t.name) + L" " + u.section;
         std::transform(u.hay.begin(), u.hay.end(), u.hay.begin(), ::towlower);
@@ -109,14 +115,30 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
     if (app.mode == Mode::Terrain) {
         const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
         if (!t || !ed.canPaintTerrain()) return out;
+        // Each terrain, then the mod's terrains that stand on it (and theirs), in the mod's order: Jungle (High Dirt)
+        // after High Dirt. (A mod's own terrains: Cosmonarchy tabs; a mod terrain whose ground is not in the list: at the end.)
+        const auto& mods = ed.tileset().modTerrains;
+        std::vector<bool> listed(mods.size(), false);
+        auto add = [&](uint16_t value, const std::wstring& label) {
+            PaletteUnit u;
+            u.value = value, u.order = int(out.size()), u.label = label;
+            u.section = std::wstring(kTilesetNames[ed.era() & 7]) + L" terrain";
+            u.hay = lower(u.label);
+            out.push_back(std::move(u));
+        };
+        std::function<void(uint16_t, int)> under = [&](uint16_t ground, int depth) {
+            for (size_t k = 0; k < mods.size() && depth < 16; ++k)
+                if (!listed[k] && mods[k].ground == ground) {
+                    listed[k] = true;
+                    if (mods[k].variantOf) continue;  // (a variant: the brush takes it for the ground under it)
+                    add(mods[k].id, widen(mods[k].name));
+                    under(mods[k].id, depth + 1);
+                }
+        };
         for (uint16_t i = 1; i <= t->terrainCount(); ++i)
-            if (t->isTerrain(i)) {
-                PaletteUnit u;
-                u.value = i, u.order = 0, u.label = widen(t->terrainName(i));
-                u.section = std::wstring(kTilesetNames[ed.era() & 7]) + L" terrain";
-                u.hay = lower(u.label);
-                out.push_back(std::move(u));
-            }
+            if (t->isTerrain(i)) add(i, widen(ed.terrainName(i))), under(i, 0);
+        for (size_t k = 0; k < mods.size(); ++k)
+            if (!listed[k] && !mods[k].variantOf) listed[k] = true, add(mods[k].id, widen(mods[k].name)), under(mods[k].id, 0);
         return out;
     }
     if (app.mode == Mode::Sprites) {  // sprites.dat: those with a picture
@@ -142,10 +164,24 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
             if (!d.inPalette) continue;
             PaletteUnit u;
             u.value = d.id;
-            u.section = widen(ed.unitTypes().statText(d.groupString - 1u));
+            // (a Cosmonarchy tab: the mod's texts are not the game's, so its doodad groups' names are not the doodads';
+            // the game's doodads are "Standard", the mod's brushes after them by their sets)
+            u.section = modTab() ? std::wstring(tr(L"Standard")) : widen(ed.unitTypes().statText(d.groupString - 1u));
             firstId.emplace(d.groupString, d.id);
             u.order = firstId[d.groupString];
             u.label = L"#" + std::to_wstring(d.id) + L"  " + std::to_wstring(d.width) + L" x " + std::to_wstring(d.height);
+            u.hay = lower(u.section + L" " + u.label);
+            out.push_back(std::move(u));
+        }
+        const auto& brushes = brushDoodadList();  // (Cosmonarchy's doodad brushes, after the game's: a section for each set)
+        std::map<std::wstring, int> setOrder;
+        for (size_t i = 0; i < brushes.size(); ++i) {
+            PaletteUnit u;
+            u.value = brushDoodadValue(brushes[i]);
+            const auto [set, own] = brushDoodadParts(*brushes[i]);
+            u.section = set;
+            u.order = setOrder.emplace(set, 100000 + int(setOrder.size())).first->second;
+            u.label = own + L"  " + std::to_wstring(brushes[i]->width) + L" x " + std::to_wstring(brushes[i]->height);
             u.hay = lower(u.section + L" " + u.label);
             out.push_back(std::move(u));
         }

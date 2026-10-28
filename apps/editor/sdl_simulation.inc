@@ -732,12 +732,28 @@ void simClose() {
 }
 
 // A game starts: the map's copy (its unsaved edits too) into the simulation, then `start`.
+// A Cosmonarchy BW map as the simulation reads it (it has the game's units only): each of the mod's workers, resource
+// depots and resources as the game's unit of that role (cmbw::simUnits: Talos and Pilgrim as SCVs, Landlock as a Command
+// Center, Vespene Ridges as Vespene Geysers, ...), its other own units left out; the simulation runs them with the
+// game's values.
+Bytes simModChk(const Chk& map, const UnitTypes& types) {
+    Chk c = map;
+    if (const Section* u = c.find("UNIT")) c.set("UNIT", stardraft::cmbw::simUnits(u->data, types));
+    return c.serialize();
+}
+
 bool simBegin(bool combat, const std::function<bool(std::string&)>& start) {
     if (!gState.ed || !gState.ed->isOpen()) return false;
+    if (combat && modTab()) {  // (the mod's units fight with their own values, which the simulation does not have)
+        if (gRoot)
+            msgbox::ask(*gRoot, tr(L"Simulation"), tr(L"The combat simulation is not available for Cosmonarchy BW maps. The mining simulation is."),
+                        {tr(L"OK")}, msgbox::Icon::Info);
+        return false;
+    }
     if (gSim.shown) simClose();
     if (!simReady()) return false;
     std::string err;
-    Bytes chk = gState.ed->chk().serialize();
+    Bytes chk = modTab() ? simModChk(gState.ed->chk(), gState.ed->unitTypes()) : gState.ed->chk().serialize();
     if (!simEngine().setMap(chk, err) || !start(err)) {
         if (gRoot) msgbox::ask(*gRoot, L"Simulation", widen(err), {L"OK"}, msgbox::Icon::Error);
         return false;
@@ -765,7 +781,7 @@ struct SimVoice {
 };
 std::vector<SimVoice> gSimVoices;
 void simStopSounds() {
-    for (const SimVoice& v : gSimVoices) SDL_DestroyAudioStream(v.stream);
+    for (const SimVoice& v : gSimVoices) closeStreamSdl(v.stream);
     gSimVoices.clear();
 }
 bool simPlaySound(int sfx, float pan, float gain, float dist) {
@@ -778,7 +794,7 @@ bool simPlaySound(int sfx, float pan, float gain, float dist) {
     static std::map<int, Mono> decoded;
     static std::map<int, Uint64> lastStart;
     for (auto it = voices.begin(); it != voices.end();)
-        if (SDL_GetAudioStreamQueued(it->stream) <= 0) SDL_DestroyAudioStream(it->stream), it = voices.erase(it);
+        if (SDL_GetAudioStreamQueued(it->stream) <= 0) closeStreamSdl(it->stream), it = voices.erase(it);
         else ++it;
     if (std::count_if(voices.begin(), voices.end(), [&](const Voice& v) { return v.sfx == sfx; }) >= 2) return false;
     const Uint64 now = SDL_GetTicks();
@@ -786,7 +802,7 @@ bool simPlaySound(int sfx, float pan, float gain, float dist) {
     if (voices.size() >= 12) {  // (full: the farthest sound gives way to a nearer one)
         auto farthest = std::max_element(voices.begin(), voices.end(), [](const Voice& a, const Voice& b) { return a.dist < b.dist; });
         if (farthest->dist <= dist) return false;
-        SDL_DestroyAudioStream(farthest->stream);
+        closeStreamSdl(farthest->stream);
         voices.erase(farthest);
     }
     auto it = decoded.find(sfx);
@@ -821,7 +837,7 @@ bool simPlaySound(int sfx, float pan, float gain, float dist) {
     SDL_SetAudioStreamGain(s, float(gDock.volume) / 100.0f * std::clamp(gain, 0.0f, 1.0f) * crowd);
     SDL_PutAudioStreamData(s, lr.data(), int(lr.size() * sizeof(float)));
     SDL_FlushAudioStream(s);
-    SDL_ResumeAudioStreamDevice(s);
+    playStreamSdl(s);
     voices.push_back({s, sfx, dist});
     lastStart[sfx] = now;
     return true;

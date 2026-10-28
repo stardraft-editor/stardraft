@@ -288,7 +288,7 @@ padding, rows 32 apart, fields 24 high, dim labels, the system scroll bar in the
 
 | Section | Options | Component |
 |---|---|---|
-| Appearance | Theme (dark, light); accent color; animate units | Segmented choice; color swatches (a ring on the selected one, the name as a tooltip); `ui::check` |
+| Appearance | Theme (dark, light); accent color | Segmented choice; color swatches (a ring on the selected one, the name as a tooltip); `ui::check` |
 | Start | Open the last project; look for updates (and "Check now") | `ui::check`; `ui::link` |
 | StarCraft folder | The folder in use, Browse… | A read-only `ui::fieldBox`; `ui::button` |
 

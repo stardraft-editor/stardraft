@@ -24,6 +24,8 @@ struct AppState {
     // reverse). Each keeps its own (GitHub #155).
     float otherBrushSize = 2, otherBrushHeight = 0;
     Brush::Shape brushShape = Brush::Diamond;
+    Brush::Shape selectShape = Brush::Square;
+    bool terrainSelFlip = false;  // the diamond selection's drag went between the box's top right and bottom left (IsoRectFlip)  // the terrain Select tool's shape: its own, not the brushes' (shapeOf)
     int toolByMode[kModeCount] = {};
     int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
     uint32_t spraySeed = 1;
@@ -42,6 +44,10 @@ struct AppState {
     bool locationWrap = false;  // a location's name in lines that fit in it (Options > Locations)
     bool allowIllegalUnits = false;  // Options: units anywhere; terrain edits keep them
     std::vector<int> selDoodads, selSprites;  // the selected doodads and sprites (indexes into the Editor's lists)
+    struct BrushAt {
+        int value = -1, tx = 0, ty = 0;  // a Cosmonarchy doodad brush on the map: its palette value, its top left tile
+    };
+    std::vector<BrushAt> selBrushes;  // the selected doodad brushes (Doodads mode; core/cmbw.inc)
     // Each mode's own copy buffer (units and terrain are the Editor's): Ctrl+C, Ctrl+X and Ctrl+V act on the active mode's.
     // Doodads and sprites: the copied ones, each from the middle of the group; a paste follows the mouse.
     std::vector<Editor::ItemAt> doodadClip, spriteClip;
@@ -60,6 +66,7 @@ struct AppState {
     bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
+    bool randomFacing = true;        // Options > Units: units with a random units.dat facing each face their own way
     float lastValidDX = 0, lastValidDY = 0;  // offset of that spot from where the drag started
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)

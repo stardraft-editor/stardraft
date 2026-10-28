@@ -76,7 +76,7 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     const uint64_t creepRev = creepRevision(ed);
     if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
         uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev) {
-        gRenderer->setSources(&gState.data, &ed.unitSprites(), &ed.tileset(), ed.era());
+        gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
         if (gLayers.terrain && gLayers.doodads && !gLayers.creep) gRenderer->updateTerrain(ed.terrain());
         else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
         gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev;
@@ -85,7 +85,26 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     uint32_t team[12];
     for (int i = 0; i < 12; ++i) team[i] = playerRgba(i, 0) >> 8;
     gRenderer->setPlayerColors(team);
-    // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (Options > Animate units).
+    {  // (the palette's player list: each player's color square)
+        extern kit::Dropdown gOwnerBox;  // (sdl_panels.inc)
+        std::vector<kit::DropdownItem> owners;
+        for (int i = 0; i < 12; ++i)
+            owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
+                              draw::rgb(int(team[i] >> 16 & 255), int(team[i] >> 8 & 255), int(team[i] & 255))});
+        bool same = gOwnerBox.items().size() == owners.size();
+        for (size_t i = 0; same && i < owners.size(); ++i) same = gOwnerBox.items()[i].swatch == owners[i].swatch;
+        if (!same) {  // (setItems closes an open list: only when a color changed)
+            const int v = gOwnerBox.value();
+            gOwnerBox.setItems(std::move(owners));
+            gOwnerBox.setValue(v);
+        }
+    }
+    // (a mod's colors: their own shades, Rainbow as the game shows it; a custom RGB color has no row: tinted)
+    uint16_t exact = 0;
+    if (modTab())
+        for (int i = 0; i < 12; ++i) exact |= uint16_t((i >= 8 || ed.player(i).color.kind != Editor::PlayerColor::Custom) << i);
+    gRenderer->setExactTeamColors(exact);
+    // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
     const render::Scene scene = buildScene();
     gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : std::vector<std::pair<int, uint16_t>>{});
@@ -360,6 +379,7 @@ struct MapView final : draw::View {
 
 // The shortcuts and the menus (sdl_menus.inc).
 bool shortcutRun(const draw::KeyEvent& e);
+bool sequenceKey(const draw::KeyEvent& e);
 void menusIfDirty();
 bool sdlNativeMenuBar();  // (sdl_native_menus.inc: the menus are in the system's menu bar, macOS)
 void command(int id);
@@ -993,13 +1013,16 @@ void sdlMidPanCheck() {
     MapView::middleDragTest = -1;
 }
 
-// --palview in a snapshot: the View menu's items (list, icons, sprites, normal, large) on the palette of the mode.
+// --palview in a snapshot: the View menu's items (list, icons, sprites, normal, large, xlarge; the orders: category, name,
+// number, tier) on the palette of the mode.
 void sdlPaletteViewShot(const std::string& spec) {
     std::stringstream in(spec);
     for (std::string w; std::getline(in, w, ',');) {
         const int id = w == "list" ? ID_PAL_LIST : w == "icons" ? ID_PAL_ICONS : w == "sprites" ? ID_PAL_SPRITES : w == "normal" ? ID_PAL_NORMAL
-                                                                                                  : w == "large" ? ID_PAL_LARGE : w == "xlarge" ? ID_PAL_XLARGE : 0;
-        if (!applyPaletteViewCommand(gState.mode, id)) std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal, large or xlarge\n", w.c_str());
+                                                                                                  : w == "large" ? ID_PAL_LARGE : w == "xlarge" ? ID_PAL_XLARGE
+                       : w == "category" ? ID_PAL_SORT_CATEGORY : w == "name" ? ID_PAL_SORT_NAME : w == "number" ? ID_PAL_SORT_NUMBER
+                       : w == "tier" ? ID_PAL_SORT_TIER : 0;
+        if (!applyPaletteViewCommand(gState.mode, id)) std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal, large, xlarge, category, name, number or tier\n", w.c_str());
     }
     shellPaletteRebuilt();
 }

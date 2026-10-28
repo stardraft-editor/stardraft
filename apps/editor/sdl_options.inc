@@ -154,7 +154,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
-           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -179,6 +179,14 @@ bool sdlOptionsCommand(int id) {
         prefs::flag(L"OpenLastProject", flag);
         prefs::setNumber(L"OpenLastProject", flag ? 0 : 1);
         setMessage(!flag ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
+        break;
+    case ID_GAME_MODE:
+    case ID_GAME_MODE + 1:
+        setGameMode(id - ID_GAME_MODE);
+        gStartView.cosmonarchyOnly = cmbwMode(), gStartView.invalidate();
+        gMenusDirty = true;
+        setMessage(cmbwMode() ? L"Game: Cosmonarchy. Maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)"
+                              : L"Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)");
         break;
     default:  // Language: it applies at the next start (the texts are made then): restart now, or later
         gLanguage = kLanguageChoices[id - ID_OPT_LANG].code;
@@ -214,7 +222,6 @@ public:
             if (gAccentAuto) v.accent = theme::kAccentCount;
             v.systemTheme = true, v.themeAuto = gThemeAuto;
         }
-        v.animate = gState.animate;
         prefs::flag(L"MiddleDrag", flag), v.middleDrag = flag;
         v.volume = gDock.volume;
         v.languages = languageChoicesOffered(L"Automatic (the language of the system)"), v.language = languageChoice();
@@ -223,6 +230,7 @@ public:
         v.unitLimit[0] = gUnitLimitClassic, v.unitLimit[1] = gUnitLimitEud;
         flag = false;
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
+        v.gameMode = cmbwMode() ? 1 : 0;
         flag = true;
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;
         v.previews = sdlUpdatePreviews();  // (sdl_updates.inc)
@@ -230,6 +238,12 @@ public:
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
         v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
         v.installNext = !gInstallNext.empty() && gInstallNext != gInstallInUse ? gInstallNext.wstring() : std::wstring();
+        if (v.gameMode == 1) {  // (Mods: the Cosmonarchy folder, shown in that game only)
+            const fs::path mod = !gCmbwInUse.empty() ? gCmbwInUse : stardraft::cmbw::findInstall();
+            v.cmbwFolder = mod.empty() ? std::wstring() : mod.wstring();
+            v.cmbwOpen = !gCmbwInUse.empty();
+            v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
+        }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
         prefs::number(L"SimWorkers", v.simWorkers, 1, 60), prefs::number(L"SimGasWorkers", v.simGas, 0, 3);

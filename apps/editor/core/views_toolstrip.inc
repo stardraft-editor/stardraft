@@ -131,9 +131,11 @@ void stripNumberChanged() {
     shellToolsChanged();
     appState().dirty = true;
 }
-// The Diamond's height follows its size (brushHeightLocked): a change of the height says so and does not occur.
+// The Diamond's height follows its size (brushHeightLocked): a change of the height says so and does not occur. (Select
+// has a shape of its own and makes its selection by a drag: the brushes' lock is not its.)
+bool stripSelectTool() { return appState().mode == Mode::Terrain && currentTool() == TSelect; }
 bool stripHeightLockedSays() {
-    if (!brushHeightLocked(appState())) return false;
+    if (stripSelectTool() || !brushHeightLocked(appState())) return false;
     setMessage(L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.");
     return true;
 }
@@ -141,7 +143,8 @@ bool stripHeightLockedSays() {
 void stripNumberStep(int which, int dir) {
     AppState& app = appState();
     if (which == kNumShape) {  // diamond, square, circle, round and round
-        app.brushShape = Brush::Shape((int(app.brushShape) + (dir > 0 ? 1 : 2)) % 3);
+        Brush::Shape& shape = shapeOf(app);  // (Select's own, or the brushes')
+        shape = Brush::Shape((int(shape) + (dir > 0 ? 1 : 2)) % 3);
         shellSettingsChanged();
     } else if (which == kNumSize) {
         const auto& v = brushSizes();
@@ -436,7 +439,7 @@ public:
             // The shape opens a list; each number has a spin at its right, takes the mouse wheel and a click types it. The
             // link keeps the height the same as the width (the height then shows in the dim color).
             const int h = scale(26), seg = scale(40), linkW = scale(34), spin = scale(14), pad = scale(4);
-            const bool locked = brushHeightLocked(app), linked = locked || app.brushHeight <= 0;
+            const bool locked = !stripSelectTool() && brushHeightLocked(app), linked = locked || app.brushHeight <= 0;
             const bool editing = editing_ == kNumSize || editing_ == kNumHeight;
             const draw::Rect boxR{0, y, W, y + h};
             box(c, boxR, kCtl, editing ? kAccent : kBorder);
@@ -448,14 +451,14 @@ public:
             static const UiIcon shapeIcons[3] = {UiIcon::ShapeDiamond, UiIcon::ShapeSquare, UiIcon::ShapeCircle};
             const draw::Rect sr{boxR.left, boxR.top, boxR.left + seg, boxR.bottom};
             hotFill(sr);
-            c.icon({sr.left + scale(4), sr.top, sr.left + scale(24), sr.bottom}, int(shapeIcons[int(app.brushShape) % 3]), kText, scale(14));
+            c.icon({sr.left + scale(4), sr.top, sr.left + scale(24), sr.bottom}, int(shapeIcons[int(shapeOf(app)) % 3]), kText, scale(14));
             glyph(c, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, L'\xE70D', kDim, 7);
             addHit(sr, [this, sr] {
                 std::vector<std::wstring> names;
                 for (const wchar_t* n : kStripShapeNames) names.push_back(std::wstring(tr(n)));
-                const int pick = shellPopupPick(names, int(appState().brushShape), sr.left, sr.bottom + scale(2));
+                const int pick = shellPopupPick(names, int(shapeOf(appState())), sr.left, sr.bottom + scale(2));
                 if (pick >= 0) {
-                    appState().brushShape = Brush::Shape(pick);
+                    shapeOf(appState()) = Brush::Shape(pick);
                     shellSettingsChanged();
                     shellToolsChanged();
                 }
@@ -553,8 +556,19 @@ public:
                 }, k.tip);
                 mx += mb + scale(3);
             }
-            y += mb + gap;
-            numberRow(kNumTurns, L"Turns", kTurnsTip);
+            // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
+            // too narrow.
+            const int name = c.measure(tr(L"Turns")) + scale(8), minStep = scale(84), left = mx + scale(6);
+            if (W - left >= minStep) {
+                const bool named = W - left - name >= minStep;
+                if (named) c.text({left, y, left + name, y + mb}, tr(L"Turns"), kDim, draw::kMiddle);
+                const int sx = named ? left + name : left;
+                stepper(kNumTurns, {sx, y + scale(1), std::min(W, sx + scale(120)), y + mb - scale(1)}, kTurnsTip, scale(26));
+                y += mb + gap;
+            } else {
+                y += mb + gap;
+                numberRow(kNumTurns, L"Turns", kTurnsTip);
+            }
         }
         c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.

@@ -7,8 +7,11 @@
 #include <cmath>
 #include <cstdlib>
 #include <deque>
+#include <map>
 #include <mutex>
+#include <set>
 #include <span>
+#include <tuple>
 
 #include "byteio.h"
 #include "stardraft/terrain.h"
@@ -48,7 +51,21 @@ void IsomGrid::setTileset(const Tileset* tileset) {
 // --- IsomTerrainTable ----------------------------------------------------------------------
 
 IsomTerrainTable::IsomTerrainTable(uint16_t firstTransition, std::vector<Pair> pairs, std::vector<const char*> names)
-    : firstTransition_(firstTransition), pairs_(std::move(pairs)), names_(std::move(names)) {}
+    : firstTransition_(firstTransition), pairs_(std::move(pairs)), names_(std::move(names)) {
+    indexShapes();
+}
+
+void IsomTerrainTable::indexShapes() {
+    size_t end = 0;
+    for (const auto& s : solids_) end = std::max<size_t>(end, size_t(s.shape) + 1);
+    for (const auto& p : pairs_) end = std::max<size_t>(end, size_t(p.firstShape) + 14);
+    shapeSolid_.assign(end, -1), shapePair_.assign(end, -1);
+    for (size_t i = 0; i < solids_.size(); ++i)  // (the first one of a shape, as the scans found it)
+        if (shapeSolid_[solids_[i].shape] < 0) shapeSolid_[solids_[i].shape] = int16_t(i);
+    for (size_t i = 0; i < pairs_.size(); ++i)
+        for (uint16_t k = 0; k < 14; ++k)
+            if (shapePair_[size_t(pairs_[i].firstShape) + k] < 0) shapePair_[size_t(pairs_[i].firstShape) + k] = int16_t(i);
+}
 
 const IsomTerrainTable* IsomTerrainTable::forEra(uint16_t era) {
     // Derived from Blizzard's maps: the first transition id and each 14-shape
@@ -93,21 +110,189 @@ bool IsomTerrainTable::linked(uint16_t a, uint16_t b) const {
     return false;
 }
 
-std::array<uint16_t, 4> IsomTerrainTable::corners(uint16_t shape) const {
-    if (isTerrain(shape)) return {shape, shape, shape, shape};
-    for (const auto& p : pairs_) {
-        if (shape >= p.firstShape && shape < p.firstShape + 14) {
-            const auto& pat = kPairPatterns[shape - p.firstShape];
-            std::array<uint16_t, 4> c;
-            for (int i = 0; i < 4; ++i) c[i] = pat[i] ? p.b : p.a;
-            return c;
+bool IsomTerrainTable::twinOnly(uint16_t a, uint16_t b) const {
+    bool twin = false;
+    for (const auto& p : pairs_)
+        if ((p.a == a && p.b == b) || (p.a == b && p.b == a)) {
+            if (!p.twin) return false;
+            twin = twin || p.a == a;
         }
+    return twin;
+}
+
+std::unique_ptr<IsomTerrainTable> IsomTerrainTable::withExtras(const IsomTerrainTable& game, const std::vector<Extra>& extras, uint16_t firstValue) {
+    auto t = std::make_unique<IsomTerrainTable>(game.firstTransition_, game.pairs_, game.names_);
+    t->game_ = &game;
+    // The game terrains named as the mod terrains are, "X (Y)": each with the terrain it stands on, its parent in the
+    // tileset's tree of borders from its main terrain (the one with the most borders: Dirt, Platform, Substructure); the
+    // main terrain keeps its name.
+    {
+        const size_t n = t->names_.size();
+        std::vector<std::vector<uint16_t>> next(n + 1);
+        for (const auto& p : game.pairs_)
+            if (p.a >= 1 && p.b >= 1 && p.a <= n && p.b <= n) next[p.a].push_back(p.b), next[p.b].push_back(p.a);
+        uint16_t root = 1;
+        for (uint16_t i = 1; i <= n; ++i)
+            if (next[i].size() > next[root].size()) root = i;
+        std::vector<uint16_t> parent(n + 1, 0), queue{root};
+        parent[root] = root;
+        for (size_t q = 0; q < queue.size(); ++q)
+            for (uint16_t b : next[queue[q]])
+                if (!parent[b]) parent[b] = queue[q], queue.push_back(b);
+        t->gameNames_.resize(n);
+        for (uint16_t i = 1; i <= n; ++i) {
+            const char* own = game.names_[i - 1u];
+            t->gameNames_[i - 1u] = own[0] && parent[i] && parent[i] != i ? std::string(own) + " (" + game.names_[parent[i] - 1u] + ")" : own;
+        }
+        for (uint16_t i = 1; i <= n; ++i) t->names_[i - 1u] = t->gameNames_[i - 1u].c_str();
+    }
+    t->ownNames_.reserve(extras.size());
+    for (const Extra& e : extras) t->ownNames_.push_back(e.name);
+    for (size_t i = 0; i < extras.size(); ++i) {
+        const Extra& e = extras[i];
+        // (its 15 shapes by its id: a terrain keeps them when others come before it; ids from 64, kExtraSlots of them)
+        if (e.id < 64 || e.id >= 64 + kExtraSlots) continue;
+        const uint16_t v = uint16_t(firstValue + 15 * (e.id - 64));
+        // (its ground: a game terrain, or a mod terrain before it with a game terrain as its template ground)
+        if (!e.id || game.isTerrain(e.id) || !game.isTerrain(e.templ) || !t->isTerrain(e.ground) || (e.groundTempl && !game.isTerrain(e.groundTempl)) ||
+            (!game.isTerrain(e.ground) && !e.groundTempl))
+            continue;
+        if (t->names_.size() < e.id) t->names_.resize(e.id, "");
+        t->names_[e.id - 1u] = t->ownNames_[i].c_str();
+        t->solids_.push_back({e.id, v, e.templ, e.tag});
+        t->pairs_.push_back({uint16_t(v + 1), e.id, e.ground, e.templ, e.groundTempl ? e.groundTempl : e.ground, e.tag});
+        t->levels_ = t->levels_ || (e.groundTempl && e.groundTempl != e.ground);
+    }
+    // Its borders with its ground's twins: the same pieces, 14 more shapes each, from a place that adding terrains does
+    // not move (saved maps keep these values): past kExtraSlots terrains' shapes, in the order of the newer of the two
+    // terrains, then the ids (a new terrain, the last of its tileset, comes after all the twins before it).
+    struct Twin {
+        const Extra* e;
+        uint16_t g;
+    };
+    std::vector<Twin> twins;
+    for (const Extra& e : extras)
+        if (t->isTerrain(e.id))
+            for (uint16_t g : e.twins)
+                if (t->isTerrain(g) && g != e.ground && !t->linked(e.id, g)) twins.push_back({&e, g});
+    std::sort(twins.begin(), twins.end(), [](const Twin& x, const Twin& y) {
+        return std::make_tuple(std::max(x.e->id, x.g), x.e->id, x.g) < std::make_tuple(std::max(y.e->id, y.g), y.e->id, y.g);
+    });
+    uint16_t w = uint16_t(firstValue + 15 * kExtraSlots);
+    for (const Twin& tw : twins) {
+        if (w + 15 > 4096) break;  // (an ISOM value holds a shape in 12 bits)
+        Pair p{uint16_t(w + 1), tw.e->id, tw.g, tw.e->templ, tw.e->groundTempl ? tw.e->groundTempl : tw.e->ground, tw.e->tag};
+        p.twin = true;
+        t->pairs_.push_back(p);
+        w = uint16_t(w + 15);
+    }
+    t->indexShapes();
+    return t;
+}
+
+uint16_t IsomTerrainTable::shapeEnd() const {
+    uint16_t end = firstTransition_;
+    for (const auto& p : pairs_) end = std::max<uint16_t>(end, uint16_t(p.firstShape + 14));
+    for (const auto& s : solids_) end = std::max<uint16_t>(end, uint16_t(s.shape + 1));
+    return end;
+}
+
+bool IsomTerrainTable::levelGround(uint16_t left, uint16_t right, uint16_t& from, uint16_t& to, uint16_t& tag) const {
+    const Pair *pl = pairOf(left), *pr = pairOf(right);  // (the pair first in the table of the two, as a scan of it)
+    const Pair* p = pl && pr ? (pl < pr ? pl : pr) : pl ? pl : pr;
+    for (const Pair* q : {p, p == pl ? pr : pl})
+        if (q && q->ta && q->b != q->tb) {
+            from = q->b, to = q->tb, tag = q->tag;
+            return true;
+        }
+    return false;
+}
+
+uint16_t IsomTerrainTable::templateShape(uint16_t shape) const {
+    if (!game_) return shape;
+    if (const Solid* s = solidOf(shape)) return s->templ;
+    if (const Pair* p = pairOf(shape); p && p->ta) {
+        const auto& pat = kPairPatterns[shape - p->firstShape];
+        std::array<uint16_t, 4> c;
+        for (int i = 0; i < 4; ++i) c[i] = pat[i] ? p->tb : p->ta;
+        return game_->shapeFor(c);
+    }
+    return shape;
+}
+
+bool IsomTerrainTable::templateRect(uint16_t left, uint16_t right, uint16_t& gameLeft, uint16_t& gameRight, uint16_t& tag) const {
+    gameLeft = left, gameRight = right, tag = 0;
+    if (!game_) return true;
+    std::array<std::pair<uint16_t, uint16_t>, 8> map{};  // a terrain of the rect -> the game's terrain in its template
+    int n = 0;
+    auto mapped = [&](uint16_t from) {
+        for (int i = 0; i < n; ++i)
+            if (map[size_t(i)].first == from) return i;
+        return -1;
+    };
+    auto add = [&](uint16_t from, uint16_t to) {
+        const int i = mapped(from);
+        if (i >= 0) return map[size_t(i)].second == to;
+        map[size_t(n++)] = {from, to};
+        return true;
+    };
+    // Each diamond: a mod terrain's border (its template names both its terrains), a mod terrain's solid shape (its own
+    // template), or the game's (its terrains as themselves). The borders decide first: the ground beside a mod terrain a
+    // level higher takes the border's template terrain (High Dirt under Higher Dirt's cliff is that cliff's Dirt).
+    const Pair* pairs[2] = {nullptr, nullptr};
+    const Solid* solid[2] = {nullptr, nullptr};
+    const uint16_t shapes[2] = {left, right};
+    for (int d = 0; d < 2; ++d) {
+        solid[d] = solidOf(shapes[d]);
+        if (const Pair* p = pairOf(shapes[d]); !solid[d] && p && p->ta) pairs[d] = p;
+    }
+    if (!pairs[0] && !pairs[1] && !solid[0] && !solid[1]) return true;
+    for (int d = 0; d < 2; ++d)
+        if (const Pair* p = pairs[d]) {
+            if (!add(p->a, p->ta) || !add(p->b, p->tb) || (tag && tag != p->tag)) return false;
+            tag = p->tag;
+        }
+    for (int d = 0; d < 2; ++d)
+        if (const Solid* sd = solid[d]) {
+            if (mapped(sd->id) < 0) add(sd->id, sd->templ);
+            if (!tag) tag = sd->tag;
+            else if (!pairs[0] && !pairs[1] && tag != sd->tag) return false;
+        }
+    for (int d = 0; d < 2; ++d)
+        if (!pairs[d] && !solid[d])
+            for (uint16_t t : corners(shapes[d]))
+                if (t && mapped(t) < 0) add(t, t);
+    for (int i = 0; i < n; ++i)  // (two terrains of the rect as one template terrain: the pieces would show one of them)
+        for (int j = i + 1; j < n; ++j)
+            if (map[size_t(i)].second == map[size_t(j)].second) return false;
+    auto game = [&](uint16_t shape) {
+        auto c = corners(shape);
+        for (uint16_t& t : c)
+            if (const int i = mapped(t); i >= 0) t = map[size_t(i)].second;
+        return game_->shapeFor(c);
+    };
+    gameLeft = game(left), gameRight = game(right);
+    return gameLeft && gameRight;
+}
+
+std::array<uint16_t, 4> IsomTerrainTable::corners(uint16_t shape) const {
+    if (const Solid* s = solidOf(shape)) return {s->id, s->id, s->id, s->id};
+    if (game_ ? game_->isTerrain(shape) : isTerrain(shape)) return {shape, shape, shape, shape};
+    if (const Pair* p = pairOf(shape)) {
+        const auto& pat = kPairPatterns[shape - p->firstShape];
+        std::array<uint16_t, 4> c;
+        for (int i = 0; i < 4; ++i) c[i] = pat[i] ? p->b : p->a;
+        return c;
     }
     return {0, 0, 0, 0};
 }
 
 uint16_t IsomTerrainTable::shapeFor(const std::array<uint16_t, 4>& c) const {
-    if (c[0] == c[1] && c[1] == c[2] && c[2] == c[3]) return isTerrain(c[0]) ? c[0] : 0;
+    if (c[0] == c[1] && c[1] == c[2] && c[2] == c[3]) {
+        for (const auto& s : solids_)
+            if (s.id == c[0]) return s.shape;
+        return (game_ ? game_->isTerrain(c[0]) : isTerrain(c[0])) ? c[0] : 0;
+    }
     for (const auto& p : pairs_) {
         std::array<uint8_t, 4> pat;
         bool ok = true;
@@ -124,7 +309,7 @@ uint16_t IsomTerrainTable::shapeFor(const std::array<uint16_t, 4>& c) const {
 }
 
 int IsomTerrainTable::distance(uint16_t a, uint16_t b) const {
-    const int n = firstTransition_;
+    const int n = idCount();
     if (distances_.empty()) {
         distances_.assign(size_t(n) * n, 1000);
         for (uint16_t i = 1; i < n; ++i)
@@ -136,9 +321,27 @@ int IsomTerrainTable::distance(uint16_t a, uint16_t b) const {
     return a < n && b < n ? distances_[size_t(a) * n + b] : 1000;
 }
 
-std::vector<uint16_t> IsomTerrainTable::path(uint16_t from, uint16_t to) const {
+int IsomTerrainTable::diameter() const {
+    int d = 0;
+    for (uint16_t a = 1; a <= terrainCount(); ++a)
+        for (uint16_t b = uint16_t(a + 1); b <= terrainCount(); ++b)
+            if (isTerrain(a) && isTerrain(b))
+                if (const int k = distance(a, b); k < 1000) d = std::max(d, k);
+    return d;
+}
+
+std::vector<uint16_t> IsomTerrainTable::groundsOf(uint16_t terrain) const {
+    std::vector<uint16_t> out;
+    bool twins = false;
+    for (const auto& p : pairs_)
+        if (p.ta && p.a == terrain && std::find(out.begin(), out.end(), p.b) == out.end()) out.push_back(p.b), twins = twins || p.twin;
+    if (!twins) out.clear();
+    return out;
+}
+
+std::vector<uint16_t> IsomTerrainTable::path(uint16_t from, uint16_t to, const std::vector<uint16_t>* avoid) const {
     if (!isTerrain(from) || !isTerrain(to)) return {};
-    std::vector<int> prev(firstTransition_, -1);
+    std::vector<int> prev(size_t(idCount()), -1);
     std::deque<uint16_t> queue{from};
     prev[from] = from;
     while (!queue.empty()) {
@@ -146,7 +349,9 @@ std::vector<uint16_t> IsomTerrainTable::path(uint16_t from, uint16_t to) const {
         queue.pop_front();
         if (t == to) break;
         for (const auto& p : pairs_) {
+            if (p.twin && p.a != from && p.a != to) continue;  // (a twin's border: not a way between the twins)
             uint16_t n = p.a == t ? p.b : p.b == t ? p.a : 0;
+            if (n && avoid && n != to && std::find(avoid->begin(), avoid->end(), n) != avoid->end()) continue;
             if (n && prev[n] < 0) {
                 prev[n] = t;
                 queue.push_back(n);
@@ -180,11 +385,22 @@ bool IsomGrid::load(const Chk& chk, std::string& error) {
         return false;
     }
     era_ = readEra(chk);
-    table_ = IsomTerrainTable::forEra(era_);
+    table_ = ownTable_ ? ownTable_ : IsomTerrainTable::forEra(era_);
     if (!table_) {
         error = std::string("no ISOM terrain table for tileset ") + tilesetName(era_);
         return false;
     }
+    pieces_.clear(), gameTile_.clear();
+    if (table_->hasExtras() && tileset_)
+        for (const auto& m : tileset_->modTerrains) {
+            auto& by = pieces_.emplace_back();
+            for (size_t i = 0; i < m.pieces.size(); ++i) {
+                const auto& [g, l, r] = m.pieces[i];
+                by[g].push_back({l, r});
+                if (i + m.gapPieces < m.pieces.size())  // (a gap's null tile stands for no one game tile)
+                    gameTile_.emplace(l, uint16_t(g << 4)), gameTile_.emplace(r, uint16_t((g + 1) << 4));
+            }
+        }
     mapWidth_ = w;
     mapHeight_ = h;
     rectCols_ = w / 2 + 1;
@@ -418,11 +634,39 @@ bool IsomGrid::apply(const std::vector<CornerValue>& locked) {
     if (source_.size() != n) source_.assign(n, 0);
     std::fill(source_.begin(), source_.end(), 0);
     locked_.assign(n, 0);
+    fixFailed_.clear();
     for (const auto& c : locked)
         if (isCorner(c.x, c.y)) locked_[size_t(c.y + 1) * (rectCols_ + 3) + (c.x + 1)] = 1;
+    // (a terrain with twin grounds: the one most around the stroke's first edit is its ground for the whole stroke; the
+    // settle does not take the others, so the stroke's ring is one terrain: Caution dragged from Substructure on Jungle
+    // out onto Dirt keeps that Substructure, with Jungle around it, and not a seam of the two Substructures that cannot be)
+    avoid_.clear();
+    const uint16_t terrain = locked.front().terrain;
+    const std::vector<uint16_t> grounds = table_->groundsOf(terrain);
+    if (grounds.size() > 1 && strokeTerrain_ == terrain && strokeGround_) {
+        for (uint16_t g : grounds)
+            if (g != strokeGround_) avoid_.push_back(g);
+    } else if (grounds.size() > 1) {
+        // (none of them there: the one nearest to the terrains there, so a stroke on Dirt makes the way up to it)
+        std::vector<int> count(grounds.size(), 0), far(grounds.size(), 0);
+        static const int nb[8][2] = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}};
+        for (const auto& c : locked)
+            for (const auto& d : nb)
+                if (const int x = c.x + d[0], y = c.y + d[1]; isCorner(x, y))
+                    for (size_t k = 0; k < grounds.size(); ++k)
+                        count[k] += corner(x, y) == grounds[k], far[k] += table_->distance(grounds[k], corner(x, y));
+        size_t best = size_t(std::max_element(count.begin(), count.end()) - count.begin());
+        if (!count[best]) best = size_t(std::min_element(far.begin(), far.end()) - far.begin());
+        for (size_t k = 0; k < grounds.size(); ++k)
+            if (k != best) avoid_.push_back(grounds[k]);
+        strokeTerrain_ = terrain, strokeGround_ = grounds[best];
+    }
+    painted_ = terrain;
     settleFrom(locked, true);
+    painted_ = 0;
     lastTerrain_ = locked.front().terrain;
     repairUntileable();
+    avoid_.clear();
     return true;
 }
 
@@ -437,6 +681,20 @@ void IsomGrid::settleFrom(const std::vector<CornerValue>& seeds, bool markSource
     static const int nb[8][2] = {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {2, 0}, {-2, 0}, {0, 2}, {0, -2}};
 
     std::vector<std::pair<int, int>> queue;
+    // How far the wave may go from the seeds: as far as the longest chain of borders can need (each step of it a diamond:
+    // 2 corners across), and a margin. A corner past it keeps its terrain: a seam there, not the whole map rebuilt (a mod's
+    // terrains can ask for chains the space between two of them cannot hold, and then the wave never ended).
+    int sx0 = 1 << 30, sy0 = 1 << 30, sx1 = -(1 << 30), sy1 = -(1 << 30);
+    for (const auto& c : seeds) sx0 = std::min(sx0, c.x), sy0 = std::min(sy0, c.y), sx1 = std::max(sx1, c.x), sy1 = std::max(sy1, c.y);
+    if (diameterOf_ != table_) diameter_ = std::max(1, table_->diameter()), diameterOf_ = table_;
+    const int reach = 2 * diameter_ + 4;
+    // (the game's terrains: no limit, as StarEdit's settle; a mod's only)
+    const bool limited = table_->hasExtras();
+    auto inReach = [&](int x, int y) { return !limited || (x >= sx0 - reach && x <= sx1 + reach && y >= sy0 - reach && y <= sy1 + reach); };
+    if (markSource) {
+        if (limited) reachX0_ = sx0 - reach, reachY0_ = sy0 - reach, reachX1_ = sx1 + reach, reachY1_ = sy1 + reach;
+        else reachX0_ = 0, reachX1_ = -1;  // (no reach: repairUntileable runs where the edit made rects dirty)
+    }
     for (const auto& c : seeds) {
         if (!isCorner(c.x, c.y)) continue;
         if (corner(c.x, c.y) != c.terrain) setCorner(c.x, c.y, c.terrain);
@@ -449,7 +707,7 @@ void IsomGrid::settleFrom(const std::vector<CornerValue>& seeds, bool markSource
         auto [x, y] = queue[head];
         for (const auto& d : nb) {
             int cx = x + d[0], cy = y + d[1];
-            if (!isCorner(cx, cy) || processed[idx(cx, cy)]) continue;
+            if (!isCorner(cx, cy) || processed[idx(cx, cy)] || !inReach(cx, cy)) continue;
             processed[idx(cx, cy)] = 1;
             uint16_t settled[8];
             int ns = 0;
@@ -467,7 +725,12 @@ void IsomGrid::settleFrom(const std::vector<CornerValue>& seeds, bool markSource
             uint16_t best = old;
             int bestWorst = 1 << 20, bestDist = 1 << 20;
             for (uint16_t t = 1; t <= terrains; ++t) {
-                if (!table_->isTerrain(t)) continue;
+                if (!table_->isTerrain(t) || std::find(avoid_.begin(), avoid_.end(), t) != avoid_.end()) continue;
+                // (a terrain beside a twin of its ground: only the painted one; Outpost on Outpost does not ring a High
+                // Outpost painted on Snow)
+                bool twinBeside = false;
+                for (int i = 0; i < ns && t != painted_; ++i) twinBeside = twinBeside || table_->twinOnly(t, settled[i]);
+                if (twinBeside) continue;
                 // Prefer terrains compatible with every settled neighbor, then the closest to the old one.
                 int w = worst(t), dd = table_->distance(t, old);
                 int key = w <= 1 ? 0 : w;
@@ -586,6 +849,16 @@ bool IsomGrid::rectTileable(int rx, int ry) const {
     int par = (rx + ry) & 1;
     uint16_t left = par ? shapeAt(rx, ry + 1) : shapeAt(rx, ry);
     uint16_t right = par ? shapeAt(rx + 1, ry) : shapeAt(rx + 1, ry + 1);
+    if (table_ && table_->hasExtras()) {  // (a mod's terrain: the tiles of its template)
+        uint16_t gl = 0, gr = 0, tag = 0;
+        if (!table_->templateRect(left, right, gl, gr, tag)) return false;
+        const auto& gs = tiles_->groups(par, gl, gr);
+        // piecesOnly_: a rect of a mod's terrain must be one its set has a piece for (not a rect where its border meets
+        // another terrain's), or the template's solid rect (a terrain of edges only: the template's own tiles inside it).
+        if (piecesOnly_ && tag && !gs.empty() && tag <= pieces_.size() && gl != gr)
+            return std::any_of(gs.begin(), gs.end(), [&](uint16_t g) { return pieces_[tag - 1u].count(g) != 0; });
+        return !gs.empty();
+    }
     return !tiles_->groups(par, left, right).empty();  // (a group StarEdit picks for it: the tileset's CV5)
 }
 
@@ -593,8 +866,7 @@ bool IsomGrid::stacksWithAbove(int rx, int ry) const {
     if (!tiles_ || ry <= 0 || ry >= rectRows_ - 1 || rx < 0 || rx >= rectCols_) return true;
     auto slots = [&](int x, int y, uint16_t& l, uint16_t& r) {
         int par = (x + y) & 1;
-        l = par ? shapeAt(x, y + 1) : shapeAt(x, y);
-        r = par ? shapeAt(x + 1, y) : shapeAt(x + 1, y + 1);
+        std::tie(l, r) = templateSlots(x, y);
         return par;
     };
     uint16_t al, ar, bl, br;
@@ -630,6 +902,18 @@ bool IsomGrid::fixRectMinimal(int rx, int ry, uint16_t prefer, bool stacks, bool
     }
     if (prefer && table_->isTerrain(prefer) && std::find(values.begin(), values.end(), prefer) == values.end()) values.push_back(prefer);
     if (movable.empty()) return false;
+    // (a call like one that found nothing, with the same corners everywhere its checks look: nothing again)
+    uint64_t key = 1469598103934665603ull;
+    auto mix = [&](uint64_t v) { key = (key ^ v) * 1099511628211ull; };
+    mix(uint64_t(rx) << 32 | uint32_t(ry)), mix(uint64_t(prefer) << 3 | uint64_t(stacks) << 2 | uint64_t(grow) << 1 | uint64_t(piecesOnly_));
+    // (the rects 3 around, the ones above and below them that stacking reads, and the ones 2 rows on and a column aside
+    // that a level table's rectTemplate reads for those; their corners, and the diamonds' shapes: an invalid diamond keeps
+    // its last shape)
+    for (int y = ry - 7; y <= ry + 8; ++y)
+        for (int x = rx - 5; x <= rx + 6; ++x)
+            mix(isCorner(x, y) ? corner(x, y) : uint64_t(shapeAt(x, y)) << 16);
+    const bool remember = table_->hasExtras();  // (a mod's terrains only: the game's keep StarEdit's search as it was)
+    if (remember && fixFailed_.count(key)) return false;
     // Good: tileable, and with `stacks` also stacking with the rects above and below. Rects around
     // this one that are good now must stay so; the rect itself must become so.
     // Tileable neighbors stay tileable, and (with `stacks`) stacking ones keep stacking.
@@ -659,6 +943,27 @@ bool IsomGrid::fixRectMinimal(int rx, int ry, uint16_t prefer, bool stacks, bool
     // Try every set of up to three movable corners and every value combination; corners are changed in
     // place (setCorner keeps shapes current) and restored after each trial.
     const int nf = int(movable.size());
+    // (a value at a corner that leaves a diamond there with no shape, where none of that diamond's other corners can
+    // move: no trial with it can do; left out before the trials)
+    std::vector<std::vector<uint8_t>> allowed(movable.size(), std::vector<uint8_t>(values.size(), 1));
+    auto isMovable = [&](int x, int y) { return std::find(movable.begin(), movable.end(), std::pair{x, y}) != movable.end(); };
+    for (size_t m = 0; m < movable.size(); ++m)
+        for (size_t v = 0; v < values.size(); ++v) {
+            const auto [mx, my] = movable[m];
+            for (auto [dx, dy] : {std::pair{-1, 0}, std::pair{1, 0}, std::pair{0, -1}, std::pair{0, 1}}) {
+                const int x = mx + dx, y = my + dy;  // a diamond touching this corner
+                if (!inGrid(x, y)) continue;
+                const std::pair<int, int> cs[4] = {{x - 1, y}, {x, y - 1}, {x + 1, y}, {x, y + 1}};
+                std::array<uint16_t, 4> c{};
+                bool other = false;
+                for (int i = 0; i < 4; ++i) {
+                    const bool self = cs[i].first == mx && cs[i].second == my;
+                    c[size_t(i)] = self ? values[v] : corner(cs[i].first, cs[i].second);
+                    other = other || (!self && isMovable(cs[i].first, cs[i].second));
+                }
+                if (!other && !table_->shapeFor(c)) allowed[m][v] = 0;
+            }
+        }
     for (int k = 1; k <= std::min(3, nf); ++k) {
         if (best.changes <= k - 1) break;
         std::vector<int> pick(static_cast<size_t>(k), 0);
@@ -673,15 +978,33 @@ bool IsomGrid::fixRectMinimal(int rx, int ry, uint16_t prefer, bool stacks, bool
                     uint16_t v = values[size_t(val[size_t(i)])];
                     // !grow: the painted terrain neither spreads nor shrinks (earlier strokes stay too).
                     if (v == corner(x, y) || (!grow && (v == prefer || corner(x, y) == prefer))) noop = true;
+                    if (!allowed[size_t(pick[size_t(i)])][size_t(val[size_t(i)])]) noop = true;
                     trial.push_back({x, y, v});
                 }
                 if (!noop) {
                     saved.clear();
                     std::vector<std::pair<int, int>> changed;
                     for (const auto& t : trial) saved.push_back(corner(t.x, t.y)), setCorner(t.x, t.y, t.terrain), changed.push_back({t.x, t.y});
+                    // (only the rects with a diamond at a changed corner can change: the others keep what they were)
+                    auto touched = [&](int x, int y) {
+                        const int par = (x + y) & 1, ax = x, ay = par ? y + 1 : y, bx = x + 1, by = par ? y : y + 1;
+                        for (auto [cx, cy] : changed)
+                            if (std::abs(ax - cx) + std::abs(ay - cy) == 1 || std::abs(bx - cx) + std::abs(by - cy) == 1) return true;
+                        return false;
+                    };
                     bool ok = diamondsValid(changed) && good(rx, ry);
-                    for (size_t r = 0; ok && r < nearRects.size(); ++r) ok = rectTileable(nearRects[r].first, nearRects[r].second);
-                    for (size_t r = 0; ok && r < nearStacking.size(); ++r) ok = stacking(nearStacking[r].first, nearStacking[r].second);
+                    for (size_t r = 0; ok && r < nearRects.size(); ++r)
+                        if (touched(nearRects[r].first, nearRects[r].second)) ok = rectTileable(nearRects[r].first, nearRects[r].second);
+                    // (stacking reads the rects above and below; with levels, their templates read rects 2 rows on and a
+                    // column aside too)
+                    const int sx = table_->hasLevels() ? 1 : 0, sy = table_->hasLevels() ? 3 : 1;
+                    for (size_t r = 0; ok && r < nearStacking.size(); ++r) {
+                        const auto [x, y] = nearStacking[r];
+                        bool near = false;
+                        for (int dy = -sy; dy <= sy && !near; ++dy)
+                            for (int dx = -sx; dx <= sx && !near; ++dx) near = touched(x + dx, y + dy);
+                        if (near) ok = stacking(x, y);
+                    }
                     if (ok) {
                         int toward = 0;
                         for (const auto& t : trial) toward += t.terrain == prefer;
@@ -700,7 +1023,10 @@ bool IsomGrid::fixRectMinimal(int rx, int ry, uint16_t prefer, bool stacks, bool
             for (int j = i + 1; j < k; ++j) pick[size_t(j)] = pick[size_t(j - 1)] + 1;
         }
     }
-    if (best.set.empty()) return false;
+    if (best.set.empty()) {
+        if (remember) fixFailed_[key] = 1;
+        return false;
+    }
     for (const auto& t : best.set) setCorner(t.x, t.y, t.terrain);
     return true;
 }
@@ -713,11 +1039,14 @@ bool IsomGrid::pushRectToward(int rx, int ry, uint16_t terrain) {
     const int pts[6][2] = {{ax - 1, ay}, {ax, ay - 1}, {ax + 1, ay}, {ax, ay + 1}, {bx + 1, by}, {bx, par ? by - 1 : by + 1}};
     // Move the corner(s) farthest from `terrain` (in the terrain tree) one step closer.
     size_t far = 0;
-    for (const auto& p : pts) far = std::max(far, table_->path(terrain, corner(p[0], p[1])).size());
+    // (the stroke's avoided grounds: Caution pushed out from Substructure on Jungle goes on through Jungle, not through
+    // Substructure on Dirt; apply)
+    const std::vector<uint16_t>* avoid = avoid_.empty() ? nullptr : &avoid_;
+    for (const auto& p : pts) far = std::max(far, table_->path(terrain, corner(p[0], p[1]), avoid).size());
     if (far <= 1) return false;
     std::vector<CornerValue> moved;
     for (const auto& p : pts) {
-        auto path = table_->path(terrain, corner(p[0], p[1]));
+        auto path = table_->path(terrain, corner(p[0], p[1]), avoid);
         if (path.size() == far) moved.push_back({p[0], p[1], path[path.size() - 2]});
     }
     // Neighbors outside this rect may not accept the new values; settle them too, or a push next to
@@ -727,20 +1056,37 @@ bool IsomGrid::pushRectToward(int rx, int ry, uint16_t terrain) {
 }
 
 void IsomGrid::repairUntileable() {
+    size_t lastBad = SIZE_MAX;  // (a pass that leaves no fewer untileable rects than the one before: the end)
     for (int pass = 0; pass < 16; ++pass) {
         bool changed = false;
+        size_t bad = 0;
         for (int ry = 0; ry < rectRows_; ++ry)
             for (int rx = 0; rx < rectCols_; ++rx) {
                 int par = (rx + ry) & 1;
                 int ax = rx, ay = par ? ry + 1 : ry, bx = rx + 1, by = par ? ry : ry + 1;
                 auto dirtyAt = [&](int x, int y) { return inGrid(x, y) && diamondDirty_[size_t(y) * (rectCols_ + 1) + x]; };
                 if (!dirtyAt(ax, ay) && !dirtyAt(bx, by)) continue;
-                if (rectTileable(rx, ry)) continue;
+                // (within the edit's reach only: past it a rect keeps its terrain; the fixes do not run on across the map)
+                if (reachX1_ >= reachX0_ && (rx < reachX0_ || rx > reachX1_ || ry < reachY0_ || ry > reachY1_)) continue;
+                if (rectTileable(rx, ry)) {
+                    // A mod's terrain where its set has no piece for the rect: the smallest change that gives it one,
+                    // without the painted terrain growing (no such change: the game's tiles there).
+                    if (!pieces_.empty()) {
+                        piecesOnly_ = true;
+                        if (!rectTileable(rx, ry)) changed |= fixRectMinimal(rx, ry, sourceNear(rx, ry), false, false);
+                        piecesOnly_ = false;
+                    }
+                    continue;
+                }
                 // The smallest fix first (keeps thin walls thin), the old push toward the painted
                 // terrain only when none exists.
+                ++bad;
                 changed |= fixRectMinimal(rx, ry, sourceNear(rx, ry)) || pushRect(rx, ry);
             }
-        if (!changed) break;
+        // (a mod's terrains: a pass that leaves no fewer untileable rects is the end; only the pieces-only fixes left: they
+        // run on while they change)
+        if (!changed || (table_->hasExtras() && bad && bad >= lastBad)) break;
+        lastBad = bad;
     }
 }
 
@@ -810,15 +1156,44 @@ int IsomGrid::invalidDiamonds() const {
 
 bool IsomGrid::store(Chk& chk, std::string& error) {
     std::vector<uint8_t> touched(dirtyRects_.size(), 0);  // every rect changed by this store
+    // A mod's terrains (IsomTerrainTable::withExtras): the terrain core makes the tiles of their templates, on a copy of
+    // the map with the game's shapes and tiles in place of the mod's; then their rects take the mod's pieces for those.
+    const bool own = table_ && table_->hasExtras();
+    Chk copy;
+    if (own) {
+        // (a piece as the game's tile it stands for: only in a rect of a mod's terrain, by the ISOM before this store; the
+        // same tiles placed elsewhere stay as they are)
+        std::vector<uint8_t> modRect(size_t(rectCols_) * rectRows_, 0);
+        for (int ry = 0; ry < rectRows_; ++ry)
+            for (int rx = 0; rx < rectCols_; ++rx) {
+                const uint16_t* q = &isom_[(size_t(ry) * rectCols_ + rx) * 4];
+                uint16_t gl = 0, gr = 0, tag = 0;
+                modRect[size_t(ry) * rectCols_ + rx] = table_->templateRect(uint16_t(q[0] >> 4), uint16_t(q[2] >> 4), gl, gr, tag) && tag;
+            }
+        auto take = [&](SectionName name, bool tiles) {
+            const Section* s = chk.find(name);
+            if (!s) return;
+            Bytes d = s->data;
+            for (size_t i = 0; tiles && i + 1 < d.size(); i += 2) {
+                const size_t t = i / 2, x = mapWidth_ ? t % size_t(mapWidth_) : 0, y = mapWidth_ ? t / size_t(mapWidth_) : 0;
+                if (y >= size_t(rectRows_) || !modRect[y * rectCols_ + x / 2]) continue;
+                if (auto it = gameTile_.find(uint16_t(d[i] | d[i + 1] << 8)); it != gameTile_.end()) d[i] = uint8_t(it->second), d[i + 1] = uint8_t(it->second >> 8);
+            }
+            copy.set(name, std::move(d));
+        };
+        take("DIM ", false), take("ERA ", false), take("TILE", true), take("MTXM", true);
+    }
+    Chk& work = own ? copy : chk;
+    size_t lastBreaks = 0;
     for (int pass = 0;; ++pass) {
         encodeDirty();
         for (size_t i = 0; i < touched.size(); ++i) touched[i] |= dirtyRects_[i];
-        writeIsom(chk);
-        const TerrainLayer before = readTerrain(chk, "TILE");
+        writeIsom(work, own);
+        const TerrainLayer before = readTerrain(work, "TILE");
         if (!tileset_) return error = "the map's tileset is not loaded", false;
-        if (!regenerateTiles(chk, dirtyRects_, *tileset_, error)) return false;
+        if (!regenerateTiles(work, dirtyRects_, *tileset_, error)) return false;
         {  // tiles that changed beyond the edited rects (down a column, along a row) are part of the edit too
-            const TerrainLayer after = readTerrain(chk, "TILE");
+            const TerrainLayer after = readTerrain(work, "TILE");
             for (int ty = 0; ty < mapHeight_ && size_t(ty) * mapWidth_ < after.tiles.size(); ++ty)
                 for (int tx = 0; tx < mapWidth_; ++tx) {
                     const size_t i = size_t(ty) * mapWidth_ + tx;
@@ -831,7 +1206,14 @@ bool IsomGrid::store(Chk& chk, std::string& error) {
         // shape is one StarEdit would not produce. Widen the edit there and regenerate.
         if (pass >= 6 || !lastTerrain_) break;
         bool pushed = false;
-        const auto breaks = stackBreaks(chk, touched);
+        const auto breaks = stackBreaks(work, touched);
+        // (no fewer breaks than the pass before: the changes do not help, more would only spread the terrain)
+        if (own && pass > 0 && breaks.size() >= lastBreaks) break;
+        lastBreaks = breaks.size();
+        // (a mod's terrains: no growing; its terrains on one ground read that ground as other game terrains in their
+        // templates (Floor and Plating on Substructure: Asphalt and Dirt), so beside each other their pieces may never
+        // stack, and growing to make them stack spreads one through the other)
+        const bool mayGrow = !own;
         for (auto [rx, ry] : breaks) {
             // The smallest change that lets the pieces stack, on either rect; the old push toward the
             // painted terrain only if there is none (it widens thin walls).
@@ -844,6 +1226,7 @@ bool IsomGrid::store(Chk& chk, std::string& error) {
             if (fixRectMinimal(rx, ry, src, true, false) || fixRectMinimal(rx, ry - 1, src, true, false)) pushed = true;
             // No such change: a piece that cannot fit is a seam in the game. Let the painted terrain grow by a corner or
             // two, as StarEdit's brush does, when that is the only way (a small brush between two edges).
+            else if (!mayGrow) continue;
             else if (fixRectMinimal(rx, ry, src, true, true) || fixRectMinimal(rx, ry - 1, src, true, true)) pushed = true;
             else  // still none: a corner change in a rect next to them (the spot is too tight for these two alone)
                 for (auto [dx, dy] : {std::pair{-1, 0}, std::pair{1, 0}, std::pair{-1, -1}, std::pair{1, -1}, std::pair{0, 1}, std::pair{0, -2}})
@@ -855,7 +1238,286 @@ bool IsomGrid::store(Chk& chk, std::string& error) {
         if (!pushed) break;
         repairUntileable();
     }
+    if (own) {
+        writeIsom(chk);
+        putPieces(chk, work, touched);
+    }
     return true;
+}
+
+bool IsomGrid::rectTemplate(int rx, int ry, uint16_t& gl, uint16_t& gr, uint16_t& tag, uint16_t* ground) const {
+    auto shapesOf = [&](int x, int y, uint16_t& l, uint16_t& r) {
+        const int par = (x + y) & 1;
+        l = par ? shapeAt(x, y + 1) : shapeAt(x, y), r = par ? shapeAt(x + 1, y) : shapeAt(x + 1, y + 1);
+    };
+    uint16_t l = 0, r = 0, from = 0, to = 0, t = 0;
+    shapesOf(rx, ry, l, r);
+    if (ground) *ground = 0;
+    if (!table_ || !table_->templateRect(l, r, gl, gr, tag)) return false;
+    if (!table_->hasExtras()) return true;
+    // A rect of one terrain beside the border of a mod terrain whose ground is another terrain in the template (High Dirt
+    // as Dirt beside Higher Dirt; the mod's Asphalt as Dirt beside Structure on Asphalt): the game's walls go down over the
+    // ground below a cliff, its top edges stack under the ground above and its rects meet the ground beside, so the rects
+    // around such a border (two above and below, one beside) are that template terrain too; also a mod terrain's own.
+    const auto cl = table_->corners(l), cr = table_->corners(r);
+    bool oneTerrain = table_->hasLevels();
+    for (uint16_t c : {cl[1], cl[2], cl[3], cr[0], cr[1], cr[2], cr[3]}) oneTerrain = oneTerrain && c == cl[0];
+    if (tag && !oneTerrain) {  // (a border: the ground's own tiles where its set has no piece)
+        if (ground && table_->levelGround(l, r, from, to, t)) *ground = from;
+        return true;
+    }
+    if (!oneTerrain) return true;
+    if (!levelMask_.empty()) {  // (made for this pass: levelMask)
+        const LevelRect& m = levelMask_[size_t(ry) * rectCols_ + rx];
+        if (m.from && m.from == cl[0]) {
+            gl = gr = m.to, tag = m.tag;
+            if (ground) *ground = m.from;
+        }
+        return true;
+    }
+    for (int dy : {0, 1, -1, 2, -2})
+        for (int dx : {0, -1, 1}) {
+            const int x = rx + dx, y = ry - dy;
+            if ((!dx && !dy) || x < 0 || y < 0 || x >= rectCols_ || y >= rectRows_) continue;
+            uint16_t al = 0, ar = 0;
+            shapesOf(x, y, al, ar);
+            if (table_->levelGround(al, ar, from, to, t) && from == cl[0]) {
+                gl = gr = to, tag = t;  // (a game terrain's solid shape is its id)
+                if (ground) *ground = from;
+                return true;
+            }
+        }
+    return true;
+}
+
+IsomGrid::LevelMask::LevelMask(const IsomGrid& g) : grid(g) {
+    if (!g.table_ || !g.table_->hasLevels() || !g.levelMask_.empty()) return;
+    own = true;
+    std::vector<LevelRect> mask(size_t(g.rectCols_) * g.rectRows_);
+    for (int ry = 0; ry < g.rectRows_; ++ry)  // (from each rect with a border of a terrain a level higher: the rects around it)
+        for (int rx = 0; rx < g.rectCols_; ++rx) {
+            const int par = (rx + ry) & 1;
+            uint16_t from = 0, to = 0, tag = 0;
+            if (!g.table_->levelGround(par ? g.shapeAt(rx, ry + 1) : g.shapeAt(rx, ry), par ? g.shapeAt(rx + 1, ry) : g.shapeAt(rx + 1, ry + 1), from, to, tag)) continue;
+            for (int dy = -2; dy <= 2; ++dy)
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int x = rx + dx, y = ry + dy;
+                    if (x < 0 || y < 0 || x >= g.rectCols_ || y >= g.rectRows_) continue;
+                    LevelRect& m = mask[size_t(y) * g.rectCols_ + x];
+                    if (!m.from) m = {from, to, tag};
+                }
+        }
+    g.levelMask_ = std::move(mask);
+}
+
+IsomGrid::LevelMask::~LevelMask() {
+    if (own) grid.levelMask_.clear();
+}
+
+std::pair<uint16_t, uint16_t> IsomGrid::templateSlots(int rx, int ry) const {
+    uint16_t gl = 0, gr = 0, tag = 0;
+    if (rectTemplate(rx, ry, gl, gr, tag)) return {gl, gr};
+    const int par = (rx + ry) & 1;
+    return templatePair(par ? shapeAt(rx, ry + 1) : shapeAt(rx, ry), par ? shapeAt(rx + 1, ry) : shapeAt(rx + 1, ry + 1));
+}
+
+std::pair<uint16_t, uint16_t> IsomGrid::templatePair(uint16_t l, uint16_t r) const {
+    uint16_t gl = l, gr = r, tag = 0;
+    if (table_ && table_->hasExtras() && !table_->templateRect(l, r, gl, gr, tag)) gl = table_->templateShape(l), gr = table_->templateShape(r);
+    return {gl, gr};
+}
+
+std::pair<uint16_t, uint16_t> IsomGrid::pickPiece(const std::vector<std::pair<uint16_t, uint16_t>>& pieces, const TerrainLayer& tile, int rx,
+                                                  int ry, uint32_t h) const {
+    // (a set's first two variants of a rect are its plain ones, the others carry cracks, gates or marks: those 4 times as
+    // often, as the fill's first variants; the maps put the others in here and there)
+    auto pick = [&](const std::vector<size_t>& of) {
+        uint32_t total = 0;
+        for (size_t i : of) total += i < 2 ? 4 : 1;
+        uint32_t k = h % total;
+        for (size_t i : of) {
+            const uint32_t w = i < 2 ? 4 : 1;
+            if (k < w) return pieces[i];
+            k -= w;
+        }
+        return pieces[of.back()];
+    };
+    std::vector<size_t> all(pieces.size());
+    for (size_t i = 0; i < all.size(); ++i) all[i] = i;
+    const auto& rules = tileset_->pieceNeighbors;
+    const auto& ruled = tileset_->pieceNeighborTiles;
+    if (rules.empty() || pieces.size() < 2) return pick(all);
+    auto at = [&](int x, int y) -> int {  // a rect's left tile, when it has rules
+        if (x < 0 || y < 0 || 2 * x + 1 >= tile.width || y >= tile.height) return -1;
+        const uint16_t v = tile.tiles[size_t(y) * tile.width + 2 * x];
+        return ruled.count(v) ? v : -1;
+    };
+    const int above = at(rx, ry - 1), upLeft = at(rx - 1, ry - 1), upRight = at(rx + 1, ry - 1);
+    auto fits = [&](uint16_t c, bool sides) {
+        if (above >= 0 && !rules.count(Tileset::pieceNeighborKey(uint16_t(above), c, 0))) return false;
+        if (!sides) return true;
+        if (upLeft >= 0 && !rules.count(Tileset::pieceNeighborKey(uint16_t(upLeft), c, 1))) return false;
+        if (upRight >= 0 && !rules.count(Tileset::pieceNeighborKey(c, uint16_t(upRight), 2))) return false;
+        return true;
+    };
+    std::vector<size_t> ok;
+    for (bool sides : {true, false}) {
+        for (size_t i = 0; i < pieces.size(); ++i)
+            if (fits(pieces[i].first, sides)) ok.push_back(i);
+        if (!ok.empty()) return pick(ok);
+    }
+    return pick(all);
+}
+
+void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& rects) const {
+    const LevelMask mask(*this);
+    TerrainLayer tile = readTerrain(chk, "TILE"), mtxm = readTerrain(chk, "MTXM");
+    const TerrainLayer wt = readTerrain(work, "TILE"), wm = readTerrain(work, "MTXM");
+    const size_t n = size_t(mapWidth_) * mapHeight_;
+    if (tile.tiles.size() < n || mtxm.tiles.size() < n || wt.tiles.size() < n || wm.tiles.size() < n) return;
+    std::vector<uint16_t> tagOf(size_t(rectCols_) * rectRows_, 0);  // (each rect's mod terrain, for the seam pass below)
+    for (int ry = 0; ry < mapHeight_; ++ry)
+        for (int rx = 0; 2 * rx + 1 < mapWidth_; ++rx) {
+            if (size_t(ry) * rectCols_ + rx >= rects.size() || !rects[size_t(ry) * rectCols_ + rx]) continue;
+            const size_t k = size_t(ry) * mapWidth_ + 2 * rx;
+            uint16_t l = wt.tiles[k], r = wt.tiles[k + 1], ml = wm.tiles[k], mr = wm.tiles[k + 1];
+            uint16_t gl = 0, gr = 0, tag = 0, ground = 0;
+            if (rectTemplate(rx, ry, gl, gr, tag, &ground) && tag && tag <= pieces_.size()) {
+                tagOf[size_t(ry) * rectCols_ + rx] = tag;
+                const auto& by = pieces_[tag - 1u];
+                // (the rows of a block stand one under the other: a rect under one with a piece of the same terrain
+                // takes the variant of the top one, so that a wall's gate or door keeps its parts together)
+                int top = ry;
+                for (int up = 1; up <= 2 && ry - up >= 0; ++up) {
+                    uint16_t ul = 0, ur = 0, utag = 0;
+                    if (!rectTemplate(rx, ry - up, ul, ur, utag) || utag != tag) break;
+                    const uint16_t ug = uint16_t(wt.tiles[size_t(ry - up) * mapWidth_ + 2 * rx] >> 4);
+                    if (auto u = by.find(ug); u == by.end() || u->second.empty()) break;
+                    top = ry - up;
+                }
+                uint32_t h = uint32_t(2 * rx) * 73856093u ^ uint32_t(top) * 19349663u;
+                h ^= h >> 13, h *= 0x5bd1e995u, h ^= h >> 15;
+                // (no piece for the game's rect: its tiles, as inside a terrain of edges only; under a cliff a level
+                // higher: the ground's own tiles, not its template's)
+                if (auto it = by.find(uint16_t(l >> 4)); it != by.end() && !it->second.empty()) {
+                    const auto [pl, pr] = pickPiece(it->second, tile, rx, ry, h);
+                    l = ml = pl, r = mr = pr;
+                } else if (uint16_t gt = 0, gtag = 0; ground && table_->modTerrain(ground, gt, gtag)) {  // (a mod terrain: its fill)
+                    const int par = (rx + ry) & 1;
+                    const auto& gs = tiles_->groups(par, gt, gt);
+                    for (size_t n = 0; n < gs.size() && gtag && gtag <= pieces_.size(); ++n)
+                        if (auto f = pieces_[gtag - 1u].find(gs[(h + n) % gs.size()]); f != pieces_[gtag - 1u].end() && !f->second.empty()) {
+                            const auto [pl, pr] = f->second[(h >> 8) % uint32_t(f->second.size())];
+                            l = ml = pl, r = mr = pr;
+                            break;
+                        }
+                } else if (ground) {
+                    const int par = (rx + ry) & 1;
+                    const auto& gs = tiles_->groups(par, ground, ground);  // (a game terrain's solid shape is its id)
+                    if (!gs.empty() && size_t(gs[0]) + 1 < tileset_->groups.size()) {
+                        const uint16_t g = gs[h % gs.size()], k = uint16_t((h >> 8) % 4);  // (one of its first variants)
+                        const uint16_t sub = tileset_->groups[g].megatiles[k] && tileset_->groups[g + 1u].megatiles[k] ? k : 0;
+                        l = ml = uint16_t(g << 4 | sub), r = mr = uint16_t((g + 1) << 4 | sub);
+                    }
+                }
+            }
+            tile.tiles[k] = l, tile.tiles[k + 1] = r, mtxm.tiles[k] = ml, mtxm.tiles[k + 1] = mr;
+        }
+    // Seams: a mod terrain's piece whose edges do not meet the tiles around it (a thin slice or an inner corner its set has
+    // no piece for: a block's lower row under the ground) takes the piece of that terrain whose edges meet them best, when
+    // it is much better (from the top down, so a rect's upper neighbor is final).
+    if (tileset_) {
+        auto pixel = [&](uint16_t value, int px, int py) -> const Rgb* {
+            const int mg = tileset_->megatileFor(value);
+            if (mg < 0 || size_t(mg) >= tileset_->megatiles.size()) return nullptr;
+            const uint32_t e = tileset_->megatiles[size_t(mg)][size_t(py / 8 * 4 + px / 8)];
+            if ((e >> 1) >= tileset_->minitiles.size()) return nullptr;
+            return &tileset_->palette[tileset_->minitiles[e >> 1][size_t(py % 8 * 8 + ((e & 1) ? 7 - px % 8 : px % 8))]];
+        };
+        auto at = [&](int x, int y) -> int { return x >= 0 && y >= 0 && x < mapWidth_ && y < mapHeight_ ? tile.tiles[size_t(y) * mapWidth_ + x] : -1; };
+        // A tile's four edges (left, right, top, bottom: 32 pixels each, RGB), read once per tile value and tileset.
+        struct Edges {
+            bool ok = false;
+            uint8_t px[4][32][3];
+        };
+        static std::map<std::pair<const Tileset*, uint16_t>, Edges> kept;
+        // (another tileset's graphics, or the same tileset loaded again: its edges read again)
+        static std::tuple<const void*, const void*, size_t, size_t> keptFor{};
+        const auto now = std::make_tuple(static_cast<const void*>(tileset_->megatiles.data()), static_cast<const void*>(tileset_->minitiles.data()),
+                                         tileset_->megatiles.size(), tileset_->minitiles.size());
+        if (keptFor != now) kept.clear(), keptFor = now;
+        auto edgesOf = [&](uint16_t v) -> const Edges& {
+            auto [it, fresh] = kept.try_emplace({tileset_, v});
+            if (fresh) {
+                it->second.ok = tileset_->megatileFor(v) >= 0;
+                for (int d = 0; d < 4 && it->second.ok; ++d)
+                    for (int i = 0; i < 32; ++i) {
+                        const int x = d == 0 ? 0 : d == 1 ? 31 : i, y = d == 2 ? 0 : d == 3 ? 31 : i;
+                        const Rgb* p = pixel(v, x, y);
+                        const uint8_t c[3] = {uint8_t(p ? p->r : 0), uint8_t(p ? p->g : 0), uint8_t(p ? p->b : 0)};
+                        std::copy(c, c + 3, it->second.px[d][i]);
+                    }
+            }
+            return it->second;
+        };
+        // The mean difference (RGB) along the edges of the pair (l, r) at (tx, ty) with the tiles around it.
+        auto seam = [&](uint16_t l, uint16_t r, int tx, int ty) {
+            int64_t sum = 0, cnt = 0;
+            auto edge = [&](uint16_t v, int d, int w) {  // d: 0 left, 1 right, 2 top, 3 bottom; w the neighbor there
+                if (w < 0) return;
+                const Edges &a = edgesOf(v), &b = edgesOf(uint16_t(w));
+                if (!a.ok || !b.ok) return;
+                const int o = d ^ 1;  // (the neighbor's facing edge)
+                for (int i = 0; i < 32; ++i)
+                    for (int k = 0; k < 3; ++k) sum += std::abs(int(a.px[d][i][k]) - int(b.px[o][i][k]));
+                cnt += 96;
+            };
+            edge(l, 0, at(tx - 1, ty)), edge(r, 1, at(tx + 2, ty));
+            edge(l, 2, at(tx, ty - 1)), edge(r, 2, at(tx + 1, ty - 1));
+            edge(l, 3, at(tx, ty + 1)), edge(r, 3, at(tx + 1, ty + 1));
+            return cnt ? double(sum) / double(cnt) : 0.0;
+        };
+        std::map<uint32_t, std::vector<std::pair<uint16_t, uint16_t>>> all;  // (the candidates of a terrain and a parity, made once a call)
+        for (int ry = 0; ry < mapHeight_; ++ry)
+            for (int rx = 0; 2 * rx + 1 < mapWidth_; ++rx) {
+                const uint16_t tag = size_t(ry) * rectCols_ + rx < tagOf.size() ? tagOf[size_t(ry) * rectCols_ + rx] : 0;
+                if (!tag) continue;
+                const int par = (rx + ry) & 1;
+                {  // (edges only: a rect whose two diamonds have one terrain at all their corners keeps its fill)
+                    const int ax = rx, ay = par ? ry + 1 : ry, bx = rx + 1, by = par ? ry : ry + 1;
+                    const int pts[6][2] = {{ax - 1, ay}, {ax, ay - 1}, {ax, ay + 1}, {bx + 1, by}, {bx, by - 1}, {bx, by + 1}};
+                    bool one = true;
+                    for (const auto& q : pts) one = one && terrainAt(q[0], q[1]) == terrainAt(pts[0][0], pts[0][1]);
+                    if (one) continue;
+                }
+                const size_t k = size_t(ry) * mapWidth_ + 2 * rx;
+                if (tile.tiles[k] == 0 && tile.tiles[k + 1] == 1) continue;  // (the null tile: a gap in the set, kept in sight)
+                const double now = seam(tile.tiles[k], tile.tiles[k + 1], 2 * rx, ry);
+                if (now < 28) continue;
+                // (the candidates: the terrain's pieces for game rects of this parity, so that a diagonal keeps its way; of
+                // other shapes too: the set may have no fitting piece of the game's shapes here)
+                auto [it, fresh] = all.try_emplace(uint32_t(tag) << 1 | uint32_t(par));
+                if (fresh) {
+                    std::set<std::pair<uint16_t, uint16_t>> seen;
+                    for (const auto& [g, list] : pieces_[tag - 1u]) {
+                        const auto& rs = tiles_->rectsOf(uint16_t(g & ~1u));
+                        if (std::none_of(rs.begin(), rs.end(), [&](const IsomTiles::Rect& r) { return r.parity == par; })) continue;
+                        for (const auto& p : list)
+                            if (p != std::pair<uint16_t, uint16_t>{0, 1} && seen.insert(p).second) it->second.push_back(p);
+                    }
+                }
+                std::pair<uint16_t, uint16_t> best{tile.tiles[k], tile.tiles[k + 1]};
+                double bestScore = now;
+                for (const auto& p : it->second)
+                    if (const double sc = seam(p.first, p.second, 2 * rx, ry); sc < bestScore) bestScore = sc, best = p;
+                if (bestScore < now * 0.6)
+                    tile.tiles[k] = mtxm.tiles[k] = best.first, tile.tiles[k + 1] = mtxm.tiles[k + 1] = best.second;
+            }
+    }
+    Bytes t, m;
+    for (uint16_t v : tile.tiles) appendU16(t, v);
+    for (uint16_t v : mtxm.tiles) appendU16(m, v);
+    chk.set("TILE", std::move(t)), chk.set("MTXM", std::move(m));
 }
 
 void IsomGrid::encodeDirty() {
@@ -884,10 +1546,23 @@ void IsomGrid::encodeDirty() {
         }
 }
 
-void IsomGrid::writeIsom(Chk& chk) const {
+void IsomGrid::writeIsom(Chk& chk, bool templates) const {
     Bytes data;
     data.reserve(isom_.size() * 2);
-    for (uint16_t v : isom_) appendU16(data, v);
+    const uint16_t known = templates && tiles_ ? tiles_->shapeCount() : 0;  // (the terrain core reads its tables by the value: none past them)
+    const LevelMask mask(*this);
+    if (!templates)
+        for (uint16_t v : isom_) appendU16(data, v);
+    else  // (each rect's slots as the game's rect of its template: the core reads a rect's own four slots)
+        for (int ry = 0; ry < rectRows_; ++ry)
+            for (int rx = 0; rx < rectCols_; ++rx) {
+                const uint16_t* q = &isom_[(size_t(ry) * rectCols_ + rx) * 4];
+                const auto [gl, gr] = templateSlots(rx, ry);
+                for (int k = 0; k < 4; ++k) {
+                    const uint16_t s = rightSlot(rx, ry, k) ? gr : gl;
+                    appendU16(data, s < known ? uint16_t(s << 4 | (q[k] & 15)) : uint16_t(0));
+                }
+            }
     // Keep any bytes beyond the expected size (unusual, but preserves the original).
     if (const Section* s = chk.find("ISOM"); s && s->data.size() > data.size())
         data.insert(data.end(), s->data.begin() + data.size(), s->data.end());
@@ -900,24 +1575,33 @@ std::vector<std::pair<int, int>> IsomGrid::stackBreaks(const Chk& chk, const std
     {  // by the tileset's CV5 (the terrain core's tables)
         TerrainLayer tile = readTerrain(chk, "TILE");
         auto group = [&](int tx, int ty) { return int(tile.tiles[size_t(ty) * mapWidth_ + tx] >> 4); };
+        const LevelMask mask(*this);
         auto placed = [&](int tx, int ty) {  // a tile placed as it is: not the terrain's fault
             const int rx = tx / 2;
-            auto shape = [&](int k) { return uint16_t(isom_[(size_t(ty) * rectCols_ + rx) * 4 + k] >> 4); };
-            return !groupFromCv5(*tiles_, group(tx, ty), ty > 0 ? group(tx, ty - 1) : -1, (rx + ty) & 1, tx & 1, shape(0), shape(2));
+            uint16_t gl = uint16_t(isom_[(size_t(ty) * rectCols_ + rx) * 4] >> 4), gr = uint16_t(isom_[(size_t(ty) * rectCols_ + rx) * 4 + 2] >> 4);
+            if (table_ && table_->hasExtras()) std::tie(gl, gr) = templateSlots(rx, ty);  // (a mod's terrains: the rect's template)
+            return !groupFromCv5(*tiles_, group(tx, ty), ty > 0 ? group(tx, ty - 1) : -1, (rx + ty) & 1, tx & 1, gl, gr);
+        };
+        // (a mod terrain a level higher: the ground beside its cliff is its template's lower terrain, the ground farther
+        // away its own; where they meet the game has no tiles, and the ground's own tiles go there: no break)
+        const bool levels = table_ && table_->hasExtras();
+        auto lowered = [&](int rx, int ry) {
+            uint16_t gl = 0, gr = 0, tag = 0, ground = 0;
+            return levels && rectTemplate(rx, ry, gl, gr, tag, &ground) && ground;
         };
         for (int ty = 1; ty < mapHeight_; ++ty)
             for (int tx = 0; tx < mapWidth_; ++tx) {
                 const int rx = tx / 2;
                 if (!area[size_t(ty) * rectCols_ + rx] && !area[size_t(ty - 1) * rectCols_ + rx]) continue;
                 const int a = group(tx, ty - 1), b = group(tx, ty);
-                if (a >= 1024 || b >= 1024 || placed(tx, ty - 1) || placed(tx, ty)) continue;
+                if (a >= 1024 || b >= 1024 || placed(tx, ty - 1) || placed(tx, ty) || (levels && lowered(rx, ty - 1) != lowered(rx, ty))) continue;
                 if (tiles_->stackBottom(uint16_t(a)) != tiles_->stackTop(uint16_t(b))) out.push_back({rx, ty});
             }
         for (int ty = 0; ty < mapHeight_; ++ty)  // rects side by side that share no diamond shape
             for (int tx = 1; tx + 1 < mapWidth_; tx += 2) {
                 if (!area[size_t(ty) * rectCols_ + tx / 2] && !area[size_t(ty) * rectCols_ + (tx + 1) / 2]) continue;
                 const int l = group(tx, ty), r = group(tx + 1, ty);
-                if (l >= 1024 || r >= 1024 || placed(tx, ty) || placed(tx + 1, ty)) continue;
+                if (l >= 1024 || r >= 1024 || placed(tx, ty) || placed(tx + 1, ty) || (levels && lowered(tx / 2, ty) != lowered((tx + 1) / 2, ty))) continue;
                 if (!tiles_->beside(uint16_t(l - 1), uint16_t(r))) out.push_back({tx / 2, ty + 1}), out.push_back({(tx + 1) / 2, ty + 1});
             }
         return out;
@@ -974,6 +1658,38 @@ bool tileFromIsom(const Chk& chk, const TerrainLayer& tile, int tx, int ty, cons
     return groupFromCv5(*tiles, tile.tiles[i] >> 4, ty > 0 ? tile.tiles[i - w] >> 4 : -1, (rx + ty) & 1, tx & 1, shape(0), shape(2));
 }
 
+bool IsomGrid::tileFromIsom(const Chk& chk, const TerrainLayer& tile, int tx, int ty) const {
+    if (!tileset_) return true;
+    if (!table_ || !table_->hasExtras() || !tiles_) return stardraft::tileFromIsom(chk, tile, tx, ty, *tileset_);
+    const int w = tile.width, h = tile.height;
+    if (tx < 0 || ty < 0 || tx >= w || ty >= h || tile.tiles.size() < size_t(w) * h || ty >= rectRows_ - 1 || tx / 2 >= rectCols_) return true;
+    const int rx = tx / 2, par = (rx + ty) & 1, half = tx & 1;
+    uint16_t gl = 0, gr = 0, tag = 0, ground = 0;  // (as putPieces gives the rect its tiles)
+    if (!rectTemplate(rx, ty, gl, gr, tag, &ground)) return true;  // (no rect of the game's: nothing to compare with)
+    const size_t i = size_t(ty) * w + tx;
+    const uint16_t v = tile.tiles[i];
+    if (tag && tag <= pieces_.size())
+        for (uint16_t g : tiles_->groups(par, gl, gr))
+            if (auto it = pieces_[tag - 1u].find(g); it != pieces_[tag - 1u].end())
+                for (const auto& [l, r] : it->second)
+                    if ((half ? r : l) == v) return true;
+    if (uint16_t gt = 0, gtag = 0; ground && table_->modTerrain(ground, gt, gtag)) {  // (the ground's own tiles where the set has no piece)
+        for (uint16_t g : tiles_->groups(par, gt, gt)) {
+            if (!gtag || gtag > pieces_.size()) break;
+            if (auto f = pieces_[gtag - 1u].find(g); f != pieces_[gtag - 1u].end())
+                for (const auto& [l, r] : f->second)
+                    if ((half ? r : l) == v) return true;
+        }
+    } else if (ground)
+        for (uint16_t g : tiles_->groups(par, ground, ground))
+            if ((v >> 4) == uint16_t(g + half)) return true;
+    auto game = [&](uint16_t value) {  // (a piece as the game's tile it is for: only in a rect of the mod's terrain)
+        const auto it = tag ? gameTile_.find(value) : gameTile_.end();
+        return int((it == gameTile_.end() ? value : it->second) >> 4);
+    };
+    return groupFromCv5(*tiles_, game(v), ty > 0 ? game(tile.tiles[i - w]) : -1, par, half, gl, gr);
+}
+
 int solidTileGroup(const Tileset& tileset, uint16_t terrain, int half) {
     const IsomTiles* tiles = IsomTiles::forTileset(tileset);
     if (!tiles) return -1;
@@ -1010,6 +1726,8 @@ std::vector<std::array<uint16_t, 2>> tileGroupTerrains(const Tileset& tileset) {
         out[g][0] = out[g + 1][0] = counts[0].first;
         if (!solid && counts.size() > 1) out[g][1] = out[g + 1][1] = counts[1].first;
     }
+    for (const auto& [g, t, other] : tileset.groupTerrains)
+        if (g < groupCount) out[g] = {t, other};
     return out;
 }
 

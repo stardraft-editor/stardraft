@@ -96,6 +96,8 @@ struct SettingDefaults {
     std::array<std::array<uint8_t, 4>, kSettingUnits> unitWeapons{};
     std::array<uint16_t, kSettingUpgrades> upgradeIcon{};  // cmdicons frame
     std::array<uint16_t, kSettingTechs> techIcon{};
+    // A mod's names of the weapons, upgrades and technologies (empty: the game's names, DatSchema::entryNames).
+    std::vector<std::string> weaponNames, upgradeNames, techNames;
     bool load(const GameData& data, std::string& error);
 };
 

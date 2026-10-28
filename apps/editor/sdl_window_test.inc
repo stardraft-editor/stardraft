@@ -367,6 +367,57 @@ void sdlWinTestPump() {
         winTestNext();
         return;
     }
+    case 9: {  // a floating palette: it opens (the map's mode's palette floats)
+        if (!gState.ed || !gState.ed->isOpen() || gWorkspace != Workspace::Map) return void(t.step = 11);  // (no map: no palette)
+        shellFloatPalette(gState.mode, true);
+        winTestNext();
+        return;
+    }
+    case 10: {  // ... it stays where the user puts it outside the main window, and comes back onto a screen from off it
+        SDL_Window* pw = nullptr;
+        for (auto& p : gPanels)
+            if (p->open && p->view->floating) pw = gHost->sdlWindow(*p->view);
+        if (!pw || !winTestWaited(300, 3)) {
+            if (SDL_GetTicks() - t.since < 10000) return;
+            winTestLine(false, "palette: no floating palette window in 10 s");
+            winTestNext();
+            return;
+        }
+        int mx = 0, my = 0, mw = 0, mh = 0, ww = 0, wh = 0;
+        SDL_GetWindowPosition(w, &mx, &my), SDL_GetWindowSize(w, &mw, &mh), SDL_GetWindowSize(pw, &ww, &wh);
+        SDL_Rect area{};
+        SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(w), &area);
+        // Outside: right of the main window, else left of it, else below it (a window as big as the screen: none of them).
+        int ox = mx + mw + 8, oy = my;
+        if (ox + ww > area.x + area.w) ox = mx - ww - 8;
+        if (ox < area.x) ox = mx, oy = my + mh + 8;
+        const bool room = ox >= area.x && ox + ww <= area.x + area.w && oy >= area.y && oy + wh <= area.y + area.h;
+        if (room) {
+            SDL_SetWindowPosition(pw, ox, oy);
+            SDL_SyncWindow(pw);
+            sdlPanelKeepOnScreen(pw);
+            int x = 0, y = 0;
+            SDL_GetWindowPosition(pw, &x, &y);
+            std::snprintf(buf, sizeof buf, "palette: put outside the main window at %d,%d (main %d,%d %dx%d): it is at %d,%d", ox, oy, mx, my, mw, mh, x, y);
+            winTestLine(x == ox && y == oy, buf);
+        } else {
+            winTestLine(true, "palette: no room on the screen outside the main window (not checked)");
+        }
+        SDL_SetWindowPosition(pw, area.x + area.w + 400, area.y + area.h + 400);  // (off every screen to the lower right)
+        SDL_SyncWindow(pw);
+        sdlPanelKeepOnScreen(pw);
+        SDL_SyncWindow(pw);
+        int x = 0, y = 0;
+        SDL_GetWindowPosition(pw, &x, &y);
+        const SDL_Rect at{x, y, ww, wh};
+        SDL_Rect in{};
+        const bool onScreen = SDL_GetRectIntersection(&at, &area, &in) && in.w == ww && in.h == wh;
+        std::snprintf(buf, sizeof buf, "palette: put off the screens: it came back to %d,%d %dx%d (the screen's area %d,%d %dx%d)", x, y, ww, wh, area.x, area.y, area.w, area.h);
+        winTestLine(onScreen, buf);
+        shellFloatPalette(gState.mode, false);
+        winTestNext();
+        return;
+    }
     case 8: {  // the second program ended, and its map opened here
 #ifdef _WIN32
         if (t.second.hProcess) {
@@ -416,16 +467,16 @@ void sdlWinTestPump() {
         winTestNext();
         return;
     }
-    case 9: {  // --wintest-fullscreen: full screen on
+    case 11: {  // --wintest-fullscreen: full screen on
         if (!gWinTestFull) return void(t.step = 99);
         SDL_GetWindowSizeInPixels(w, &t.fullW, &t.fullH);
         if (!SDL_SetWindowFullscreen(w, true)) winTestLine(false, std::string("full screen: SDL_SetWindowFullscreen: ") + SDL_GetError());
         winTestNext();
         return;
     }
-    case 10:    // full screen: the window has the display's size, and frames go to it
-    case 11: {  // full screen off: the window's size of before
-        const bool on = t.step == 10;
+    case 12:    // full screen: the window has the display's size, and frames go to it
+    case 13: {  // full screen off: the window's size of before
+        const bool on = t.step == 12;
         const bool flag = (SDL_GetWindowFlags(w) & SDL_WINDOW_FULLSCREEN) != 0;
         int pw = 0, ph = 0;
         SDL_GetWindowSizeInPixels(w, &pw, &ph);

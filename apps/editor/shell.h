@@ -195,6 +195,9 @@ std::uint32_t shellProcessId();
 bool shellProcessRunning(std::uint32_t pid);
 // File > Options > StarCraft folder: another install is chosen (used from the next start).
 void shellChooseInstallFolder();
+// Program options > Cosmonarchy folder's Browse: the folder of the Cosmonarchy BW install (Prerelease, Release or the
+// Cosmonarchy folder that holds them), at once when the mod's data is not open yet, else from the next start.
+void shellChooseCmbwFolder();
 // A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.
 std::wstring shellPickFolder(const std::wstring& title);
 // The file that Build writes (a .scx), `name` the file name to start with: the file, or empty when none is picked.
@@ -224,6 +227,11 @@ bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const
 // A text the game shows (its bytes, with the color codes) in the value pop-out's game text mode (the colors, Preview
 // and Raw) under `field`. False: Cancel, or the same text.
 bool shellEditGameText(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);
+// A PNG, JPEG or BMP file's picture as RGBA (rows from the top). False: not a picture it reads.
+bool shellDecodeImage(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba);
+// A plain text of several lines (no color codes, no preview) in the value pop-out under `field`. False: Cancel, or the
+// same text.
+bool shellEditPlainLines(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);
 // Writes an error line to the log (the Windows log shows it in the error color).
 void shellLogError(const std::wstring& line);
 // A file's bytes as text in the system's code page (Windows: the ANSI code page, as the RichEdit read a script; the SDL

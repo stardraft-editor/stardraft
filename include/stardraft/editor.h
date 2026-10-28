@@ -100,6 +100,11 @@ public:
     bool isOpen() const { return open_; }
     bool modified() const { return modified_; }
     bool isomRebuilt() const { return isomRebuilt_; }  // the map had no ISOM section; it was made from the tiles on open
+    // Tools > Try to repair ISOM (a map whose ISOM is out of step with its tiles, as some of Cosmonarchy's are): the ISOM
+    // made again from the tiles (IsomGrid::rebuildFromTiles: each corner takes the terrain that its tiles vote for), as
+    // one undo step. The tiles stay as they are. The ISOM values that changed (0: none, no undo step); -1: it could not
+    // be made (`error`; the map stays as it was).
+    int repairIsomFromTiles(std::string& error);
 
     // --- State (read-only) ----------------------------------------------------------------------
     const Chk& chk() const { return chk_; }
@@ -115,7 +120,11 @@ public:
     const Tileset& tileset() const { return tileset_; }
     const UnitTypes& unitTypes() const { return types_; }
     const DoodadTypes& doodadTypes() const { return doodadTypes_; }
-    UnitSprites& unitSprites() { return unitSprites_; }
+    // (its units drawn in the players' colors: the map's COLR or CRGB color numbers as tunit.pcx rows)
+    UnitSprites& unitSprites() {
+        syncColorRows();
+        return unitSprites_;
+    }
     const GameData& gameData() const { return data_; }
     // Increases on every change; terrainRevision only when MTXM changes.
     uint64_t revision() const { return revision_; }
@@ -123,11 +132,28 @@ public:
 
     // --- Terrain --------------------------------------------------------------------------------
     bool canPaintTerrain() const { return isomOk_; }
+    // A terrain's name for the palette and messages: a mod terrain's, or the game terrain's (in a mod's tab "X (Y)", with
+    // the terrain it stands on, as the mod terrains are named).
+    std::string terrainName(uint16_t t) const {
+        if (const Tileset::ModTerrain* m = tileset_.modTerrain(t)) return m->name;
+        const IsomTerrainTable* table = modTable_ ? modTable_.get() : IsomTerrainTable::forEra(era_);
+        return table ? table->terrainName(t) : "";
+    }
     // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
     // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
     static bool terrainCoreOn();
     // A brush stroke: begin once (one undo step), paint any number of times, end.
     void beginTerrainStroke();
+    // The terrain a brush of the given terrain paints at a map pixel: a mod terrain's variant for the ground there
+    // (Tileset::ModTerrain::variantOf), the same one for the whole stroke; else the terrain itself.
+    uint16_t brushTerrain(int px, int py, uint16_t terrain);
+    // Whether two terrains are one for the brush: the same, or a mod's terrains of one set (a variant and its terrain).
+    bool sameBrushTerrain(uint16_t a, uint16_t b) const;
+    // The palette's entry of a terrain: a variant's terrain (variants are not in the list), else the terrain.
+    uint16_t paletteTerrainOf(uint16_t t) const {
+        const Tileset::ModTerrain* m = tileset_.modTerrain(t);
+        return m && m->variantOf ? m->variantOf : t;
+    }
     void paintTerrain(int px, int py, uint16_t terrain, int brushSize);
     void endTerrainStroke();
     // Any run of edits as one undo step (e.g. units placed while dragging): begin, edit, end.
@@ -148,7 +174,10 @@ public:
     bool fillTerrain(int px, int py, uint16_t terrain);
     int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
-    enum class SelectShape { Rect, Diamond, Ellipse };
+    // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'
+    // edges) whose opposite corners are the box's top left and bottom right; IsoRectFlip: its top right and bottom left
+    // (the corners a drag went between: the selection starts where the drag starts).
+    enum class SelectShape { Rect, Diamond, Ellipse, IsoRect, IsoRectFlip };
     static bool inSelectShape(const Rect& box, SelectShape shape, int px, int py);
     // The ISOM corners (rect-grid points) in the shape of `area` (map pixels): those copyTerrain copies.
     std::vector<std::pair<int, int>> cornersInShape(const Rect& area, SelectShape shape) const;
@@ -168,6 +197,9 @@ public:
     // not fit moves to the nearest spot where it fits (`correct`) or is not pasted.
     bool pasteTerrain(int px, int py, bool correct = true);
     uint16_t terrainAt(int px, int py) const;  // terrain of the corner nearest a map pixel (0: the ISOM did not load)
+    // The terrain list's value of the terrain at a map pixel: terrainAt, or the mod terrain whose piece the tile there is
+    // (a mod terrain keeps its stand-in's ISOM: Tileset::modTerrains).
+    uint16_t paletteTerrainAt(int px, int py) const;
     int invalidTerrain() const { return isom_.invalidDiamonds(); }  // should always be 0
     std::vector<std::pair<int, int>> brushCorners(int px, int py, const Brush& b) const { return isom_.brushCorners(px, py, b); }
 
@@ -199,6 +231,9 @@ public:
         uint16_t value = 0;
     };
     int placeTileValues(const std::vector<TileAt>& cells);
+    // The tiles of tiles (tx0, ty0)-(tx1, ty1) (inclusive) made again from the ISOM, as its terrains give them (the
+    // tiles placed by hand there go: a Cosmonarchy doodad brush taken away). One undo step. False: nothing changed.
+    bool retileFromIsom(int tx0, int ty0, int tx1, int ty1);
     // The tile clipboard (Rectangle mode): the tiles of a rectangle (inclusive, in tiles) as they are.
     // (shape: the tiles whose middle is in it; the others are not pasted)
     bool copyTiles(int tx0, int ty0, int tx1, int ty1, SelectShape shape = SelectShape::Rect);
@@ -429,6 +464,9 @@ public:
     int locationInvertedAxes(int i) const;  // 1 left/right, 2 top/bottom (as createLocation's axes)
     void setLocationRect(int i, const Rect& r);
     void renameLocation(int i, const std::string& name);
+    // (a mod's trigger commands in Comments: the lines that use the old name get the new one, in the same undo step:
+    // UnitDataLoader::renameInComment)
+    void renameInComments(int location, const std::string& from, const std::string& to);
     // Elevation flags (MRGN): the LocationElevation bits that are set are the elevations the location excludes.
     uint16_t locationElevation(int i) const;
     // Sets the excluded elevations (LocationElevation bits; the unused bits stay as they are). One undo step;
@@ -484,6 +522,11 @@ public:
     static uint32_t colorIdRgb(int id);       // the game's color `id` as 0xRRGGBB (Red, Blue, ..., Black)
     static const char* colorIdName(int id);
     uint32_t playerRgb(int p) const;          // the color player p (0-7) has on the map (random and choice: its COLR color)
+    // The colors a map's players can have by number: StarCraft's kColorIds, or a mod's (UnitDataLoader::colorNames: its
+    // tunit.pcx rows, the swatch its tminimap.pcx gives in the map's tileset).
+    int colorCount() const;
+    std::string colorName(int id) const;
+    uint32_t colorRgb(int id) const;
     enum ForceFlag : uint8_t { RandomStart = 1, Allies = 2, AlliedVictory = 4, SharedVision = 8 };
     struct Force {
         std::string name;
@@ -527,6 +570,7 @@ public:
     void setArchiveFile(const std::string& name, Bytes data);
     void setArchiveFiles(std::vector<ArchiveFile> files);  // likewise, all in one undo step
     bool removeArchiveFile(const std::string& name);      // one undo step
+    bool removeArchiveFiles(const std::vector<std::string>& names);  // the ones that are there, all in one undo step
     // A new path for a file; the briefings that play it use the new path. One undo step. False: no such file, or
     // a file of that path (in any case) is in the map already.
     bool renameArchiveFile(const std::string& from, const std::string& to);
@@ -645,6 +689,11 @@ private:
     // leaves a rect without a tile (IsomCore::untileable), `repair` makes the edit instead (the old engine).
     // (x0, y0)-(x1, y1): the edit's grid area.
     bool applyCore(const std::function<bool()>& paint, const std::function<bool()>& repair, int x0, int y0, int x1, int y1);
+    void sprinkleModTiles(const TerrainLayer& before);
+    // A mod's terrains (Tileset::modTerrains): the game's terrain table with them (IsomTerrainTable::withExtras), for
+    // the old engine (the terrain core knows only the game's shapes); none: the game's table, and the core.
+    std::unique_ptr<IsomTerrainTable> modTable_;
+    bool useCore() const { return terrainCoreOn() && !modTable_; }
     // The old engine's part of an edit (IsomGrid::apply, then store): the corners and their grid area; overPlaced as
     // applyTerrain's.
     bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false);
@@ -761,8 +810,11 @@ private:
     std::deque<Snapshot> lastRedo_;  // the redo steps the last undo step cleared (until the next change)
     size_t undoBytes_ = 0;
     bool inStroke_ = false, strokeStep_ = false;  // strokeStep_: the stroke's start took an undo step
+    uint16_t strokeAsked_ = 0, strokeVariant_ = 0;  // (brushTerrain: the stroke's terrain and the variant it took)
     static uint64_t nextRevision();
     uint64_t revision_ = nextRevision(), terrainRevision_ = nextRevision();
+    uint64_t colorRowsRevision_ = 0;  // (the revision syncColorRows gave unitSprites_ the players' colors at)
+    void syncColorRows();
     // The map's state: a new number at each change (an undo or redo gives the number of the state it restores), and the
     // state at the last open or save. Undo or Redo back to that state: the map is not modified.
     uint64_t state_ = nextRevision(), savedState_ = state_;

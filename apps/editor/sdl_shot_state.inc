@@ -220,7 +220,7 @@ std::string shotMapState() {
         s += " brushrows=";
         for (auto it = rows.begin(); it != rows.end(); ++it) s += (it == rows.begin() ? "" : ",") + std::to_string(it->second);
     }
-    s += std::string(" brushshape=") + kShapes[int(app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
+    s += std::string(" brushshape=") + kShapes[int(app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShape : app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
     // The Tiles list (Rectangle): its scroll, its pictures kept, the tile picked; and the bitmaps that went while the
     // frame that drew them was not yet drawn by the GPU (none should: GitHub #148).
     s += " tilescroll=" + std::to_string(gTiles->scroll) + "/" + std::to_string(std::max(0, gTiles->contentH - tilesViewH())) +

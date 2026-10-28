@@ -17,6 +17,10 @@ const wchar_t* const kKindCards[] = {
     L"Remastered.",
 };
 
+// The last card when Program options > Start > Show Cosmonarchy BW is on (core/cmbw.inc).
+const wchar_t* const kCosmonarchyName = L"Cosmonarchy map";
+const wchar_t* const kCosmonarchyCard = L"Make maps with the units of the Cosmonarchy BW mod.";
+
 // The banner when no StarCraft install was found (the start page's top).
 const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
 
@@ -68,6 +72,9 @@ public:
     std::function<void(int)> onCard;
     std::function<void(bool, size_t)> onOpenRecent, onRemoveRecent;
     std::function<void()> onOpen;
+    // Program options > Mods > Game: Cosmonarchy: the Cosmonarchy map card alone (no classic map or projects).
+    bool cosmonarchyOnly = false;
+    std::function<void()> onCosmonarchy;
     std::function<std::wstring(const fs::path&)> dateOf;
     // The host's scroll bar for the page after a paint that changed it: the largest position, the page size, the position.
     std::function<void(int, int, int)> scrollInfo;
@@ -89,11 +96,11 @@ public:
 
     // The card the keyboard is on (0 or 1); Left, Right and Tab move it, Enter and Space open it (Tab also goes to the
     // banner's Browse, when it is shown).
-    // Tab came to the page: Browse, else the first card (back: the second card).
+    // Tab came to the page: Browse, else the first card (back: the last card).
     void tabbedTo(bool back) override {
-        if (back) card_ = 1;
+        if (back) card_ = lastCard();
         else if (browse_.visible() && browse_.enabled()) browse_.focus();
-        else card_ = 0;
+        else card_ = firstCard();
         invalidate();
     }
     void setCard(int k) {
@@ -133,8 +140,12 @@ public:
         }
         const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kRowH), bh = scale(stardraft::kit::kButtonH), gap = scale(16);
         const int avail = w - 2 * pad;
+        // (the cards shown: all four, or the Cosmonarchy map card alone in Cosmonarchy BW mode)
+        const std::vector<int> kinds = cosmonarchyOnly ? std::vector<int>{3} : std::vector<int>{0, 1, 2, 3};
+        const int n = int(kinds.size());
         const int cardW = std::clamp((avail - 3 * gap) / 4, scale(180), scale(320));
-        const int cw = 4 * cardW + 3 * gap;
+        const int cw = cosmonarchyOnly ? 4 * cardW + 3 * gap : n * cardW + (n - 1) * gap;
+        const int cardsW = n * cardW + (n - 1) * gap;
         const int x1 = std::max(pad, (w - cw) / 2);
         // The banner (no StarCraft install found): at the top of the page, as wide as the cards; the block is under it.
         const int bannerH = installMissing ? paintBanner(c, x1, pad - scroll_, cw) : 0;
@@ -146,21 +157,27 @@ public:
         // The cards: the kinds side by side. Click a card (or Enter on it) to go to its settings.
         const int inPad = scale(16), iconS = scale(32);
         int textH = 0;  // all cards have the height of the longest text
-        for (const wchar_t* text : kKindCards) textH = std::max(textH, c.measureBox(text, cardW - 2 * inPad, kWrap).y);
+        // The last card: Cosmonarchy map in place of Mod project, when Program options > Start > Show Cosmonarchy BW is on.
+        const bool cmbwCard = cosmonarchyOnly;
+        auto cardName = [cmbwCard](int k) { return k == 3 && cmbwCard ? kCosmonarchyName : kKindNames[k]; };
+        auto cardText = [cmbwCard](int k) { return k == 3 && cmbwCard ? kCosmonarchyCard : kKindCards[k]; };
+        for (int k = 0; k < 4; ++k) textH = std::max(textH, c.measureBox(cardText(k), cardW - 2 * inPad, kWrap).y);
         const int cardH = inPad + iconS + scale(12) + scale(26) + scale(6) + textH + inPad;
         const UiIcon icons[] = {UiIcon::Map, UiIcon::Project, UiIcon::Folder, UiIcon::Assets};
         cardsEnabled_ = 0;
-        for (int k = 0; k < 4; ++k) {
-            const bool enabled = k < 2;  // Campaign project (roadmap R25, not ready) and Mod project: later
-            const Rect card{x1 + k * (cardW + gap), y, x1 + k * (cardW + gap) + cardW, y + cardH};
+        const int cx1 = x1 + (cw - cardsW) / 2;  // (the cards in the middle of the page's column)
+        for (int slot = 0; slot < n; ++slot) {
+            const int k = kinds[size_t(slot)];
+            const bool enabled = k < 2 || (k == 3 && cosmonarchyOnly);  // Campaign project (roadmap R25, not ready) and Mod project: later
+            const Rect card{cx1 + slot * (cardW + gap), y, cx1 + slot * (cardW + gap) + cardW, y + cardH};
             const bool over = enabled && hot(card), focused = enabled && card_ == k && hasFocus();
             if (!enabled) c.roundBox(card, kReadOnly, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
             else c.roundBox(card, over ? kCtlHot : kCtl, focused ? kAccent : over ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
-            c.icon({card.left + inPad, card.top + inPad, card.left + inPad + iconS, card.top + inPad + iconS}, int(icons[k]), enabled ? kAccent : kFaint, iconS);
+            c.icon({card.left + inPad, card.top + inPad, card.left + inPad + iconS, card.top + inPad + iconS}, int(k == 3 && cmbwCard ? UiIcon::Map : icons[k]), enabled ? kAccent : kFaint, iconS);
             int ty = card.top + inPad + iconS + scale(12);
             {
                 const draw::Font of = c.setFont(titleFont(c));
-                c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, kKindNames[k], enabled ? kText : kFaint, kMiddle | kEllipsis);
+                c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, cardName(k), enabled ? kText : kFaint, kMiddle | kEllipsis);
                 c.setFont(of);
             }
             if (!enabled) {  // the "Coming later" mark, at the top right
@@ -172,12 +189,14 @@ public:
                 c.setFont(of);
             }
             ty += scale(26) + scale(6);
-            c.text({card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, kKindCards[k], enabled ? kDim : kFaint, kWrap | kLeft);
+            c.text({card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, cardText(k), enabled ? kDim : kFaint, kWrap | kLeft);
             if (enabled) {
                 ++cardsEnabled_;
                 hits_.push_back({card, [this, k] {
-                                     if (onCard) onCard(k);
-                                 }, L"", Cursor::Hand, std::wstring(L"the ") + kKindNames[k] + L" card"});
+                                     if (k == 3) {
+                                         if (onCosmonarchy) onCosmonarchy();
+                                     } else if (onCard) onCard(k);
+                                 }, L"", Cursor::Hand, std::wstring(L"the ") + cardName(k) + L" card"});
             } else {
                 hits_.push_back({card, nullptr, k == 2 ? L"Campaign projects come in a later version" : L"Mod projects come in a later version", Cursor::No});
             }
@@ -303,20 +322,22 @@ public:
         if (!e.down) return false;
         const bool banner = browse_.visible(), onBrowse = banner && browse_.hasFocus();
         if (e.key == draw::Key::Left || e.key == draw::Key::Right) {
-            card_ = e.key == draw::Key::Left ? 0 : 1;
+            card_ = nextCard(card_, e.key == draw::Key::Left);
             if (onBrowse) focus();
         } else if (e.key == draw::Key::Tab && !(e.mods & (draw::kCtrl | draw::kAlt))) {
             const bool back = (e.mods & draw::kShift) != 0;
             if (onBrowse) {  // Browse is the first stop
                 focus();
                 if (back) return false;  // (the window's Tab goes on from the page)
-                card_ = 0;
-            } else if (back ? card_ == 0 : card_ == 1) {  // past the last card (back: the first)
+                card_ = firstCard();
+            } else if (back ? card_ == firstCard() : card_ == lastCard()) {  // past the last card (back: the first)
                 if (!(back && banner)) return false;
                 browse_.focus();
-            } else card_ = back ? 0 : 1;
+            } else card_ = nextCard(card_, back);
         } else if (e.key == draw::Key::Enter || e.key == draw::Key::Space) {
-            if (onCard) onCard(card_);
+            if (card_ == 3) {
+                if (onCosmonarchy) onCosmonarchy();
+            } else if (onCard) onCard(card_);
             return true;
         } else return false;
         invalidate();
@@ -441,6 +462,14 @@ private:
     std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)
     int hover_ = -1;                // the hit under the mouse at the last move
     int card_ = 0;
+    // The cards the keys reach: the two projects, and Cosmonarchy map (the fourth) when it shows.
+    int firstCard() const { return cosmonarchyOnly ? 3 : 0; }
+    int lastCard() const { return cosmonarchyOnly ? 3 : 1; }
+    int nextCard(int k, bool back) const {
+        if (cosmonarchyOnly) return 3;
+        if (back) return k == 3 ? 1 : 0;
+        return k == 0 ? 1 : lastCard();
+    }
     int scroll_ = 0, height_ = 0, blockH_ = 0;
     int shownHeight_ = -1, shownPage_ = -1, shownPos_ = -1;
     bool cardsShown_ = false;

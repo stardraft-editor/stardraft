@@ -10,9 +10,10 @@ class SdlBriefingHost final : public BriefingPageHost {
 public:
     ~SdlBriefingHost() override {
         for (auto& [id, s] : voices_)
-            if (s) SDL_DestroyAudioStream(s);
+            closeStreamSdl(s);
     }
     uint32_t soundLength(const std::string& name) override {
+        playbackDeviceSdl();  // (the page asks for the lengths before Play: the device runs before the first sound)
         const SdlSound* d = sdlSound(name);
         return d ? d->ms : 0;
     }
@@ -26,14 +27,14 @@ public:
         const uint64_t skip = uint64_t(fromMs) * uint64_t(d->spec.freq) / 1000 * uint64_t(frame);
         if (skip < d->pcm.size()) SDL_PutAudioStreamData(s, d->pcm.data() + skip, int(d->pcm.size() - skip));
         SDL_FlushAudioStream(s);
-        SDL_ResumeAudioStreamDevice(s);
+        playStreamSdl(s);
         voices_[++next_] = s;
         return next_;
     }
     void stopSound(int voice) override {
         auto it = voices_.find(voice);
         if (it == voices_.end()) return;
-        if (it->second) SDL_DestroyAudioStream(it->second);
+        closeStreamSdl(it->second);
         voices_.erase(it);
     }
     // The pickers open as the program's pop-out windows (core/views_list_pick.inc: runListPick), at the place in the window.
@@ -80,7 +81,9 @@ public:
         // (the core message box, as the Windows program's MB_OKCANCEL | MB_ICONWARNING with the names Delete and Cancel)
         return gRoot && msgbox::ask(*gRoot, shellTr(title.c_str()), shellTr(text.c_str()), {shellTr(yes.c_str()), shellTr(L"Cancel")}, msgbox::Icon::Warning) == 0;
     }
-    draw::Bitmap* unitIcon(int unit) override { return unit >= 0 && unit < 228 ? paletteBitmap(Mode::Units, unit, 0) : nullptr; }
+    draw::Bitmap* unitIcon(int unit) override {
+        return gState.ed && unit >= 0 && unit < int(gState.ed->unitTypes().size()) ? paletteBitmap(Mode::Units, unit, 0) : nullptr;
+    }
 
 private:
     std::map<int, SDL_AudioStream*> voices_;

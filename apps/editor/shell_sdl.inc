@@ -168,6 +168,17 @@ void shellOwnerSelect(int i) {
     gOwnerBox.setValue(i);
     palettePanelsOwner(i);
 }
+void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text);  // (sdl_options.inc)
+// The text on the system's clipboard (Copy tile value).
+void shellCopyText(const std::wstring& text) {
+    if (gHost) gHost->setClipboardText(narrow(text));
+}
+// Report feedback on `on`, the box holding `text` already (Report feedback on the selected terrain: its tiles).
+void shellReportFeedback(const std::wstring& on, const std::wstring& text) {
+    if (gSilent) return void(std::printf("feedback on %s:%c%s%c", narrow(on).c_str(), 10, narrow(text).c_str(), 10));  // (a test sends nothing)
+    showFeedbackFilledSdl(on, text);
+}
+
 void shellPaletteReveal(int value) {
     gPalList.reveal(value);
     palettePanelsReveal(value);  // (the active mode's palette windows too)
@@ -244,6 +255,13 @@ int shellAskStartLocations(const std::wstring& text) {
     if (gShotDialogs) std::printf("question: Start locations (the map has no start location for every player)\n");
     return msgbox::ask(*gRoot, shellTr(L"Start locations"), text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")},
                        msgbox::Icon::Question);
+}
+// The trigger comments question before a save of a Cosmonarchy map (map_commands.inc confirmTriggerComments): 0 Save
+// anyway, 1 Cancel.
+int shellAskTriggerComments(const std::wstring& text) {
+    if (!gRoot) return 0;
+    if (gShotDialogs) std::printf("question: Trigger comments (Cosmonarchy BW skips a line)%c", 10);
+    return msgbox::ask(*gRoot, shellTr(L"Comment actions"), text, {shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Warning);
 }
 // Save after the question: a map with a file is saved there (true when it was written); an untitled map (or one in a
 // folder StarDraft cannot write to) asks for its file and stays open until it is saved (false: close it again then;
@@ -553,6 +571,38 @@ void shellChooseInstallFolder() {
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
+void shellChooseCmbwFolder() {
+    const std::wstring picked = shellPickFolder(shellTr(L"Select the Cosmonarchy BW folder"));
+    if (picked.empty() || !gRoot) return;
+    const fs::path in = stardraft::cmbw::installIn(fs::path(picked));
+    if (in.empty()) {
+        msgbox::ask(*gRoot, shellTr(L"Cosmonarchy folder"), shellTr(L"That folder has no Cosmonarchy BW data (mpq\\arr\\units.datex)."), {L"OK"},
+                    msgbox::Icon::Warning);
+        return;
+    }
+    {  // (the mod's data must open from it: also the StarCraft 1.16.1 MPQs in the Starcraft folder next to it)
+        GameData probe;
+        std::string err;
+        if (!stardraft::cmbw::open(probe, in, err)) {
+            msgbox::ask(*gRoot, shellTr(L"Cosmonarchy folder"), shellTr(L"Could not read the game data in this folder:") + L"\r\n" + widen(err), {L"OK"},
+                        msgbox::Icon::Warning);
+            return;
+        }
+    }
+    if (!gSilent) prefs::setText(L"CosmonarchyFolder", in.wstring());  // (tests never change the user's settings)
+    gOptionsView.invalidate();
+    if (gCmbwInUse.empty()) {  // (the mod's data is not open yet: it opens from this folder)
+        stardraft::cmbw::useInstall(in);
+        gCmbwNext.clear();
+        setMessage(L"The Cosmonarchy folder is set");
+        return;
+    }
+    gCmbwNext = in;
+    msgbox::ask(*gRoot, shellTr(L"Cosmonarchy folder"),
+                shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                {L"OK"}, msgbox::Icon::Info);
+    shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
+}
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
 // meanwhile). A dialog whose answer comes after the program quits keeps its small state (the callback may still come).
 namespace {
@@ -666,6 +716,22 @@ bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const
 bool shellEditGameText(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
     ValuePopSpec spec;
     spec.type = "Text", spec.colorsOnly = true, spec.title = title, spec.initial = text;
+    std::string out;
+    if (!shellEditValue(v, field, spec, out) || out == text) return false;
+    text = out;
+    return true;
+}
+bool shellDecodeImage(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba) {
+    int n = 0;
+    unsigned char* px = stbi_load_from_memory(file.data(), int(file.size()), &width, &height, &n, 4);
+    if (!px) return false;
+    rgba.assign(px, px + size_t(width) * size_t(height) * 4);
+    stbi_image_free(px);
+    return true;
+}
+bool shellEditPlainLines(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text) {
+    ValuePopSpec spec;
+    spec.type = "Text", spec.code = true, spec.title = title, spec.initial = text;
     std::string out;
     if (!shellEditValue(v, field, spec, out) || out == text) return false;
     text = out;

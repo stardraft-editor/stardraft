@@ -370,6 +370,23 @@ CASES += [
     ("map-stack-menu", ["--mode", "units", "--script", "{script:stackmenu}"], "map"),
     # While the Marine is picked for placing, Alt+click on the stack is the pipette (no list, no new unit).
     ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
+    # Cosmonarchy BW maps (--cmbwmap: a map of the mod whose trigger 1 has a Comment with CRIGs, as Butcher's Ballad's
+    # "01. Clenched Fist.scx"; the mod's install is found as the program finds it). The Players
+    # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
+    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677", "--key", "Down",
+                             "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
+    # A classic map's race list is the game's (no Askosi).
+    ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
+    # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,
+    # and Enter adds it to the comment (its word lists: cmbw_test).
+    # CRIGs as conditions and actions: trigger 1's Comment of commands is a row for each line; Add an action lists the
+    # mod's commands too (a section of their own): "set race" finds Set race, Enter adds it as a row, written back into
+    # the trigger's Comment of commands.
+    ("cmbw-crig-words", ["--cmbw", "--size", "1500x1000", "--workspace", "classictriggers", "--classictrig", "1:1:0", "--click", "700,513",
+                         "--type", "set race", "--key", "Enter", "--check", "classicrows", "{cmbwmap}"], "cmbw"),
+    # Quick add (Q) lists the mod's commands too: "set race" then Enter adds Set race after the selected action (row 1).
+    ("cmbw-crig-quickadd", ["--cmbw", "--size", "1500x1000", "--workspace", "classictriggers", "--classictrig", "1:1:0", "--key", "Q",
+                            "--type", "set race", "--key", "Enter", "--check", "classicrows", "{cmbwmap}"], "cmbw"),
 ]
 # The floating palettes (Roadmap R40; sdl_palette_float.inc): View > Floating palettes > Terrain palette puts the
 # Terrain palette in a window of its own over the map (a snapshot shows it there); a pick in it paints with that
@@ -492,9 +509,10 @@ CASES += [
     ("map-tiles-grid-480-scale15", ["--settings", "{leftwidth:332}", "--scale", "1.5", "--size", "2400x1500", "--rect",
                                     "--click", "tile37", "--click", "tile63"], "map"),
     # The Diamond keeps the map's diamond shape (GitHub #138): two clicks on the height's up arrow change nothing (a
-    # message says why), the size's up arrow makes it 3 x 3 (diamonds, Isometric), and in Rectangle it is 3 x 2 tiles.
+    # message says why), the size's up arrow makes it 3 x 3 (diamonds, Isometric), and in Rectangle (its own size, GitHub
+    # #155: its up arrow from 2 to 3) it is 3 x 2 tiles.
     ("map-brush-diamond-locked", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
-                                  "--click", "202,427"], "map"),
+                                  "--click", "202,427", "--click", "198,487"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
     # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
     # it was: its tiles and a box.
@@ -505,8 +523,9 @@ CASES += [
                                 "--move", "700,600"], "map"),
     # The terrain selection (V) of the Diamond and of the Circle: its outline (Isometric: on the diamonds' edges;
     # Rectangle: on the tile edges), as the rectangle's (GitHub #135, #136).
-    ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
-    ("map-terrain-select-circle", ["--mode", "terrain", "--wheel", "90,485,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    ("map-terrain-select-square", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,-1", "--drag", "520,600-700,720"], "map"),
+    ("map-terrain-select-circle", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,1", "--drag", "520,600-700,720"], "map"),
     ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
     # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
     ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
@@ -1347,8 +1366,8 @@ workspace project
 workspace briefing
 workspace props
 workspace classic
-key Ctrl+L
-key Ctrl+L
+key Ctrl+M
+key Ctrl+M
 workspace map
 stats
 """,
@@ -1512,7 +1531,7 @@ stats
     "panelsfloat": "mode terrain\nclick 202,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
                    "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
-                "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nkey Del\n"
+                "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nclick 900,700\nkey Esc\nkey Del\n"
                 "key Ctrl+Z\nkey Ctrl+A\nkey Esc\nclick 200,495\nclick 200,525:Ctrl\n",
     "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,353\ntype plat\nclick 490,466\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
@@ -1857,13 +1876,14 @@ def check_tiles_grid(width):
 
 
 def check_diamond_locked(output):
-    """The Diamond's height follows its size (GitHub #138): 2 x 2, 3 x 3, then 3 x 2 tiles in Rectangle, which it
-    paints as 2 full rows of 3 tiles."""
-    return expect(output, 3, [
+    """The Diamond's height follows its size (GitHub #138): 2 x 2, 3 x 3, then in Rectangle (its own size: 2, GitHub
+    #155) 2 x 1, and its up arrow makes it 3 x 2 tiles, which it paints as 2 full rows of 3 tiles."""
+    return expect(output, 4, [
         ("the height's up arrow changed the diamond's height", lambda s: s[0]["brush"] == "2x2" and "its height follows its size" in output),
         ("the size's up arrow did not make it 3 x 3", lambda s: s[1]["brush"] == "3x3"),
-        ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[2]["brush"] == "3x2"),
-        ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[2].get("brushrows") == "3,3"),
+        ("Rectangle did not keep its own size (2 x 1)", lambda s: s[2]["brush"] == "2x1"),
+        ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[3]["brush"] == "3x2"),
+        ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[3].get("brushrows") == "3,3"),
     ])
 
 
@@ -1889,6 +1909,14 @@ def check_tiles_brush(shape, outline, rows):
             return f"the {shape} paints the rows {last.get('brushrows')}, not {rows}"
         return None
     return check
+
+
+def check_select_square(output):
+    """Select's own shape at first is a square (not the brushes' diamond): a selection is made with it."""
+    s = state_lines(output)
+    if not s or s[-1].get("brushshape") != "square" or s[-1].get("tsel") == "-":
+        return f"no square selection: {s[-1].get('brushshape') if s else '-'} {s[-1].get('tsel') if s else '-'}"
+    return None
 
 
 def check_select_shape(shape):
@@ -3057,7 +3085,7 @@ def check_menubar(output):
         if t not in lines:
             return f"no menu {t}"
     for n in need:
-        if not any(l == n or l.startswith(n + " (") for l in lines):
+        if not any(l == n or l.startswith(n + " (") or l.startswith(n + " [") for l in lines):  # (its key: "[Ctrl+Shift+K, X]")
             return f"no item {n}"
     for n in never:
         if any(l.startswith(n) for l in lines):
@@ -3818,6 +3846,49 @@ def check_stack_menu(output):
     return None
 
 
+def check_players_askosi(output):
+    """In a Cosmonarchy map the race list is Zerg, Terran, Protoss, Askosi, User select, Random; two steps down from
+    Terran and Enter make player 1 Askosi (69)."""
+    m = re.search(r"^players: races=([\d,]+) list=(.*)$", output, re.M)
+    if not m:
+        return "no players line"
+    if m.group(2).strip() != "Zerg,Terran,Protoss,Askosi,User select,Random":
+        return f"the race list is {m.group(2)}"
+    if m.group(1).split(",")[0] != "69":
+        return f"player 1's race is {m.group(1).split(',')[0]}, not Askosi (69)"
+    return None
+
+
+def check_players_classic(output):
+    """A classic map's race list is the game's."""
+    m = re.search(r"^players: races=[\d,]+ list=(.*)$", output, re.M)
+    if not m:
+        return "no players line"
+    return None if m.group(1).strip() == "Zerg,Terran,Protoss,User select,Random" else f"the race list is {m.group(1)}"
+
+
+def check_crig_quickadd(output):
+    """Quick add put Set race after the selected action (row 1), the rest after it."""
+    if not re.search(r"^action 1 \(CRIG\): Set race:", output, re.M):
+        return "Quick add did not put Set race after the selected action"
+    return None if re.search(r"^action 2 \(CRIG\): Set player name: \[Player 2\]", output, re.M) else "the rows after it moved wrong"
+
+
+def check_crig_words(output):
+    """Trigger 1's commands are rows; Add an action's search found Set race first, Enter added it as a row, and the
+    trigger's Comment of commands has it."""
+    if not re.search(r"^action 0 \(CRIG\): Set player name: \[Player 1\]", output, re.M):
+        return "trigger 1's first command is not a row (Set player name)"
+    if not re.search(r'picker: search "set race", \d+ rows?: Set race', output):
+        return "the Add an action search did not find Set race first"
+    if not re.search(r"^action \d+ \(CRIG\): Set race:", output, re.M):
+        return "Enter did not add a Set race row"
+    written = re.search(r"^written comment 0: (.*)$", output, re.M)
+    if not written or "set_player_name 1" not in written.group(1) or "set_race" not in written.group(1):
+        return f"the Comment written is not the commands with set_race: {written.group(1) if written else None}"
+    return None
+
+
 def check_stack_pipette(output):
     """While the Marine is picked for placing, Alt+click on the stack of three is the pipette: no list, no new unit."""
     s = stack_steps(output)
@@ -3830,8 +3901,9 @@ def check_stack_pipette(output):
         return "Alt+click while placing opened the list of the stack, not the pipette"
     if alt["units"] != s[3]["units"] or alt["selected"] != 0:
         return f"Alt+click while placing changed the units or the selection: {alt}"
-    if "Placing Terran Marine" not in alt["message"]:
-        return f"the pipette did not pick the Marine: {alt['message']}"
+    picked = re.search(r"^Placing ([^:]+): click to place", output, re.M)  # (the unit the palette's click picked: the stack's)
+    if not picked or f"Placing {picked.group(1)}" not in alt["message"]:
+        return f"the pipette did not pick the stack's unit ({picked.group(1) if picked else '?'}): {alt['message']}"
     return None
 
 
@@ -3975,18 +4047,19 @@ def check_strip_other_side(output):
 
 def check_location_multi(output):
     """Locations select, move, copy and delete together; the map and the list show the same selection."""
-    return expect(output, 16, [
+    # (Ctrl+V places the copy where the next click is, and again until Esc: the copies are the selection then)
+    return expect(output, 18, [
         ("a click on Location 2 did not select it alone", lambda s: s[3]["locsel"] == "1"),
         ("Ctrl+click on Location 3 did not add it", lambda s: s[4]["locsel"] == "1,2"),
         ("Shift+click on Location 4 did not add it", lambda s: s[5]["locsel"] == "1,2,3"),
         ("the drag did not move the selected locations", lambda s: s[6]["locsel"] == "1,2,3" and s[6]["location"] != s[5]["location"]),
-        ("the paste did not make three selected copies", lambda s: s[9]["locations"] == "7" and s[9]["locsel"] == "4,5,6"),
-        ("Del did not delete the three copies", lambda s: s[10]["locations"] == "4" and s[10]["locsel"] == "-"),
-        ("one Ctrl+Z did not give the three back", lambda s: s[11]["locations"] == "7"),
-        ("Ctrl+A did not select every location", lambda s: s[12]["locsel"] == "0,1,2,3,4,5,6"),
-        ("Esc did not clear the selection", lambda s: s[13]["locsel"] == "-"),
-        ("a click in the list did not select its location", lambda s: s[14]["locsel"] == "0" and s[14]["listsel"] == "0"),
-        ("Ctrl+click in the list did not add its location", lambda s: s[15]["locsel"] == "0,1" and s[15]["listsel"] == "0,1"),
+        ("the paste did not make three selected copies", lambda s: s[11]["locations"] == "7" and s[11]["locsel"] == "4,5,6"),
+        ("Del did not delete the three copies", lambda s: s[12]["locations"] == "4" and s[12]["locsel"] == "-"),
+        ("one Ctrl+Z did not give the three back", lambda s: s[13]["locations"] == "7"),
+        ("Ctrl+A did not select every location", lambda s: s[14]["locsel"] == "0,1,2,3,4,5,6"),
+        ("Esc did not clear the selection", lambda s: s[15]["locsel"] == "-"),
+        ("a click in the list did not select its location", lambda s: s[16]["locsel"] == "0" and s[16]["listsel"] == "0"),
+        ("Ctrl+click in the list did not add its location", lambda s: s[17]["locsel"] == "0,1" and s[17]["listsel"] == "0,1"),
     ])
 
 
@@ -4006,8 +4079,9 @@ def check_panels_float(output):
     """Floating moves the side bar's panel's state into the window; docking moves the window's back."""
     return expect(output, 5, [
         ("the floating window did not take the side bar panel's Rectangle and size", lambda s: s[2]["active"] == "window1-Terrain" and s[2]["window1"].startswith("rect:3:")),
-        ("Isometric in the window was not its own", lambda s: s[3]["window1"].startswith("iso:3:")),
-        ("docking did not bring the window's state back to the side bar", lambda s: s[4]["active"] == "side-Terrain" and s[4]["sideT"].startswith("iso:3:")),
+        # (Isometric and Rectangle keep their own sizes, GitHub #155: the window's Isometric is size 2)
+        ("Isometric in the window was not its own", lambda s: s[3]["window1"].startswith("iso:2:")),
+        ("docking did not bring the window's state back to the side bar", lambda s: s[4]["active"] == "side-Terrain" and s[4]["sideT"].startswith("iso:2:")),
     ])
 
 
@@ -4069,7 +4143,8 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-palette-float": check_palette_float, "map-palette-docked": check_palette_docked,
           "map-palette-float-settings": check_palette_settings, "map-palette-float-units": check_palette_units, "map-palette-second-pick": check_palette_second_pick, "map-strip-other-side": check_strip_other_side, "map-palette-float-multi": check_palette_float_multi, "map-palette-float-shared": check_palette_float_shared, "map-location-multi": check_location_multi, "map-panels-own": check_panels_own, "map-panels-float": check_panels_float, "map-palette-float-keys": check_palette_keys,
           "map-stack-list": check_stack_list, "map-stack-cycle": check_stack_cycle, "map-stack-menu": check_stack_menu,
-          "map-stack-pipette": check_stack_pipette,
+          "map-stack-pipette": check_stack_pipette, "cmbw-players-askosi": check_players_askosi,
+          "map-players-races": check_players_classic, "cmbw-crig-words": check_crig_words, "cmbw-crig-quickadd": check_crig_quickadd,
           "map-terrain-lostdrag": check_terrain_lostdrag, "map-key-undo": check_undo, "map-save-edited": check_edited, "map-click-place": check_place,
           "map-drag-select": check_box_select, "map-mode-unselect": check_mode_unselect, "map-drag-unit": check_drag_unit, "map-doodad-place": check_doodad_place,
           "map-doodad-ghost": check_doodad_ghost, "map-sprite-place": check_sprite_place,
@@ -4081,7 +4156,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-tiles-grid-480": check_tiles_grid(480 - 12), "map-tiles-grid-480-scale15": check_tiles_grid(480 - 18),
           "map-brush-diamond-locked": check_diamond_locked, "map-tiles-brush-diamond": check_tiles_brush("diamond", True, "3,7,7,3"),
           "map-tiles-brush-circle": check_tiles_brush("circle", True, "3,5,7,7,7,5,3"), "map-tiles-brush-square": check_tiles_brush("square", False, ",".join(["7"] * 7)),
-          "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
+          "map-terrain-select-square": check_select_square, "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
           "map-tiles-select-circle": check_select_shape("circle"),
           "map-terrain-rect-quick": check_rect_quick, "map-terrain-rect-quick-scroll": check_rect_quick_scroll,
           "map-terrain-paste-ghost": check_terrain_paste_ghost, "map-paste-ghost": check_paste_ghost,
@@ -4123,7 +4198,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-unitprops-cycle": check_dialog_cycle(["Invincible", "OK", "Cancel"]),
           "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "OK", "Cancel"]),
           "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
-          "map-options-cycle": check_dialog_cycle(["Dark", "Accent color", "Animate units", "Open the last project on start",
+          "map-options-cycle": check_dialog_cycle(["Dark", "Accent color", "Open the last project on start",
                                                    "Look for updates", "Previews", "Default", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
@@ -4599,6 +4674,7 @@ def main():
     ap.add_argument("--install", help="a StarCraft: Remastered install (the cases that need game data)")
     ap.add_argument("--map", help="a map to open (the cases that need a map; needs --install)")
     ap.add_argument("--project", help="a project to open (the cases that need a project)")
+    ap.add_argument("--cmbwmap", help="a Cosmonarchy BW map (the cases that need the mod; its install must be there)")
     ap.add_argument("--only", help="only these cases (names, comma-separated)")
     ap.add_argument("--scale", default="1", help="the UI scale (default 1, so that the sizes are the same everywhere)")
     ap.add_argument("--timeout", type=int, default=120, help="seconds for each run (default 120)")
@@ -4606,7 +4682,7 @@ def main():
     ap.add_argument("--list", action="store_true", help="show the cases and exit")
     a = ap.parse_args()
 
-    have = {"": True, "data": bool(a.install), "map": bool(a.map and a.install), "project": bool(a.project)}
+    have = {"": True, "data": bool(a.install), "map": bool(a.map and a.install), "project": bool(a.project), "cmbw": bool(a.cmbwmap)}
     only = set(a.only.split(",")) if a.only else None
     if only:
         unknown = only - {name for name, _, _ in CASES}
@@ -4692,7 +4768,7 @@ def main():
             write_once(oldsettings, lambda: write_old_settings(oldsettings, a.out))
         if any("{legacyhive}" in x for x in args):
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
-        paths = dict(map=a.map or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
+        paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
                      releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage)
 

@@ -63,12 +63,45 @@ inline void ctAddAfterSelected(CtPageHost& h, int kind, uint8_t type) {
     if (!ok) h.message(tr(L"The list is full"));
 }
 
-// The conditions, then the actions: the value is kind * 256 + type.
+// A Cosmonarchy command (CRIG `i`) after the selected entry of its kind (a condition or an action), as
+// ctAddAfterSelected adds the game's.
+constexpr int kCtQuickCrig = 0x10000;  // (Quick add's value of command i: kCtQuickCrig + i)
+inline void ctAddCrigAfterSelected(CtPageHost& h, size_t i) {
+    CtModel& m = h.model();
+    const ClassicTrigger* t = ctModelSelected(m);
+    const auto& all = stardraft::cmbw::crigCommands();
+    if (!t) return h.message(tr(L"Select a trigger first"));
+    if (i >= all.size()) return;
+    auto c = std::make_shared<ClassicCrig>();
+    c->line = stardraft::cmbw::crigNewLine(all[i]);
+    bool ok;
+    if (all[i].kind != "condition") {
+        int at = -1, depth = 0;
+        if (m.kind == 1 && m.entry >= 0 && m.entry < t->actionCount()) at = t->blockEnd(m.entry), depth = t->actions[size_t(m.entry)].depth;
+        ClassicAction a;
+        a.type = kClassicCrigType, a.depth = uint8_t(depth), a.crig.p = c;
+        ok = ctInsertAction(h, a, at);
+    } else {
+        ClassicCondition k;
+        k.type = kClassicCrigType, k.crig.p = c;
+        ok = ctInsertCondition(h, k, m.kind == 0 && m.entry >= 0 ? m.entry + 1 : -1);
+    }
+    if (!ok) h.message(tr(L"The list is full"));
+}
+
+// The conditions, then the actions: the value is kind * 256 + type (a Cosmonarchy map: its commands too,
+// kCtQuickCrig + the command's index).
 inline std::vector<PaletteUnit> ctQuickAddRows() {
     std::vector<PaletteUnit> out;
     for (int kind = 0; kind < 2; ++kind)
         for (const ClassicDef* def : kind ? classicActionDefs() : classicConditionDefs())
             out.push_back(quickRow(kind * 256 + def->type, widen(def->name), tr(kind ? L"Action" : L"Condition")));
+    if (modTab()) {
+        const auto& all = stardraft::cmbw::crigCommands();
+        for (size_t i = 0; i < all.size(); ++i)
+            out.push_back(quickRow(kCtQuickCrig + int(i), widen(stardraft::cmbw::crigTitle(all[i])),
+                                   all[i].kind == "condition" ? tr(L"Condition") : tr(L"Action")));
+    }
     return out;
 }
 
@@ -78,7 +111,10 @@ inline void ctQuickAdd(CtPageHost& h) {
     gQuickCustom.exact = false;
     gQuickCustom.icon = UiIcon::Triggers;
     gQuickCustom.rows = ctQuickAddRows;
-    gQuickCustom.run = [&h](int v) { ctAddAfterSelected(h, v / 256, uint8_t(v % 256)); };
+    gQuickCustom.run = [&h](int v) {
+        if (v >= kCtQuickCrig) return ctAddCrigAfterSelected(h, size_t(v - kCtQuickCrig));
+        ctAddAfterSelected(h, v / 256, uint8_t(v % 256));
+    };
     shellShowQuickPickerCustom();
 }
 
@@ -203,13 +239,24 @@ inline void ctFind(CtPageHost& h) {
             out.push_back(quickRow(int(gCtFindTargets.size()) - 1, title + L": " + conditions, ctTriggerLineOf(t, true, n), ctSearchTextOf(t, n)));
             for (int j = 0; j < t.conditionCount(); ++j) {
                 gCtFindTargets.push_back({i, 0, j});
-                out.push_back(quickRow(int(gCtFindTargets.size()) - 1, widen(classicConditionText(t.conditions[size_t(j)], n)), title + L"  \x00B7  " + tr(L"Condition")));
+                const ClassicCondition& c = t.conditions[size_t(j)];
+                if (c.crig) {  // a Cosmonarchy command: its sentence, found by its line too
+                    out.push_back(quickRow(int(gCtFindTargets.size()) - 1, ctCrigReadable(*c.crig.p), title + L"  \x00B7  " + tr(L"Condition"),
+                                           widen(c.crig->line)));
+                    continue;
+                }
+                out.push_back(quickRow(int(gCtFindTargets.size()) - 1, widen(classicConditionText(c, n)), title + L"  \x00B7  " + tr(L"Condition")));
             }
             for (int j = 0; j < t.actionCount(); ++j) {
                 const ClassicAction& a = t.actions[size_t(j)];
                 const std::vector<const ClassicBatch*> scope = ctScopeOf(t, j);
                 const std::string text = a.type == kClassicBlockType ? classicBatchText(*a.batch, n) : classicActionText(a, n, &scope);
                 gCtFindTargets.push_back({i, 1, j});
+                if (a.crig) {
+                    out.push_back(quickRow(int(gCtFindTargets.size()) - 1, ctCrigReadable(*a.crig.p), title + L"  \x00B7  " + tr(L"Action"),
+                                           widen(a.crig->line)));
+                    continue;
+                }
                 out.push_back(quickRow(int(gCtFindTargets.size()) - 1, widen(text), title + L"  \x00B7  " + tr(L"Action")));
             }
         }

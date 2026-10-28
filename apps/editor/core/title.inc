@@ -3,7 +3,9 @@
 
 void updateTitle() {
     AppState& app = shellState();
-    const std::wstring app_ = L"StarDraft 2 - v" + shellVersion();  // the brand and the version: "StarDraft 2 - v0.5.0.6"
+    // The brand, the version and the game when it is a mod's (Program options > Mods > Game): "StarDraft 2 - v0.5.0.6",
+    // "StarDraft 2 - v0.5.0.6 - Cosmonarchy BW".
+    const std::wstring app_ = L"StarDraft 2 - v" + shellVersion() + (cmbwMode() ? L" - Cosmonarchy BW" : L"");
     std::wstring t = app_;
     if (app.ed && app.ed->isOpen())
         t = (gActive >= 0 ? docTitle(gActive) : std::wstring(L"Untitled")) + L" - " + app_;

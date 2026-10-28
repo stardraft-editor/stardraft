@@ -14,8 +14,9 @@ struct PaletteView {
 PaletteView gViewByMode[kModeCount] = {{false, false, true}, {}, {true, false, true}, {}, {true, false, true}};
 
 // The order of each mode's palette (the View menu's Sort items): by category (the sections, each in the game's order:
-// units by race and group), by name (A to Z, no sections) or by number (the item's id, no sections).
-enum class PaletteSort { Category, Name, Number };
+// units by race and group), by name (A to Z, no sections), by number (the item's id, no sections) or by tier (a mod's
+// units with tech tiers: a section each tier, in it the category order).
+enum class PaletteSort { Category, Name, Number, Tier };
 PaletteSort gSortByMode[kModeCount] = {};
 // The orders as one number (2 bits a mode), as the settings file keeps them.
 int paletteSortBits() {
@@ -24,7 +25,7 @@ int paletteSortBits() {
     return bits;
 }
 void setPaletteSortBits(int v) {
-    for (int m = 0; m < kModeCount; ++m) gSortByMode[m] = PaletteSort(std::clamp((v >> (m * 2)) & 3, 0, 2));
+    for (int m = 0; m < kModeCount; ++m) gSortByMode[m] = PaletteSort((v >> (m * 2)) & 3);
 }
 
 // The views of each mode as one number (3 bits a mode: grid, sprites, large; then a bit a mode from bit 15: extra
@@ -52,45 +53,21 @@ bool applyPaletteViewCommand(Mode mode, int id, PaletteView& v, PaletteSort& sor
     else if (id == ID_PAL_SPRITES) v.grid = v.sprites = true;
     else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) v.large = id != ID_PAL_NORMAL, v.xl = id == ID_PAL_XLARGE;
     else if (id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) sort = PaletteSort(id - ID_PAL_SORT_CATEGORY);
+    else if (id == ID_PAL_SORT_TIER) sort = PaletteSort::Tier;
     else return false;
     if (mode != Mode::Units) v.sprites = false;
     return true;
 }
 bool applyPaletteViewCommand(Mode mode, int id) { return applyPaletteViewCommand(mode, id, gViewByMode[int(mode)], gSortByMode[int(mode)]); }
 
-// A palette section's group in the View menu (a heading there) and its name under it: units by race ("Terran Ground Units":
-// Terran > Ground Units), sprites as doodads, units and buildings, other; doodads have no group (only the categories).
-std::pair<std::wstring, std::wstring> paletteGoGroup(Mode mode, const std::wstring& section) {
-    if (mode == Mode::Units) {
-        const size_t sp = section.find(L' ');
-        if (sp == std::wstring::npos) return {section, section};
-        const std::wstring group = section.substr(0, sp), rest = section.substr(sp + 1);
-        return {group, rest == group ? L"Other " + group : rest};
-    }
-    if (mode == Mode::Sprites) {
-        static const std::wstring kDoodads = L" doodads";
-        if (section.size() > kDoodads.size() && section.ends_with(kDoodads)) return {L"Doodads", section.substr(0, section.size() - kDoodads.size())};
-        if (section == L"Terran" || section == L"Zerg" || section == L"Protoss") return {L"Units and buildings", section};
-        return {L"Other", section};
-    }
-    return {L"", section};  // doodads: only the categories, no group headings (2026-10-15)
-}
-
-constexpr int kPalPin = 0xDF00;           // the View menu's Pin / Unpin item
-constexpr int kPalSectionFirst = 0xE000;  // the View menu's first section: kPalSectionFirst + its index in `sections`
-
-// A label as a menu text: an & in it is not an access key.
-std::wstring paletteMenuEscaped(std::wstring t) {
-    for (size_t p = t.find(L'&'); p != std::wstring::npos; p = t.find(L'&', p + 2)) t.insert(p, 1, L'&');
-    return t;
-}
+constexpr int kPalPin = 0xDF00;  // the View menu's Pin / Unpin item
 
 // The View menu of the palette in `mode` (the View button, or a right click on the palette): Pin to the top or Unpin
 // first (`pin`: -1 none, 0 Pin, 1 Unpin: a doodad of a project), then List and Grid (units: icons or sprites), Normal and
-// Large, then the list's sections under their group headings (units, doodads, sprites; `sections`: the sections' names
-// in the list's order). A section's id is kPalSectionFirst + its index. `sort`: the order shown checked; `panel`: the menu
-// of a palette panel (Close panel in place of the floating palette's item).
-MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<std::wstring>& sections, int pin, PaletteSort sort, bool panel) {
+// Large, the order, and the panel's items. (The palette's section dropdown goes to a section.) `sort`: the order shown
+// checked; `panel`: the menu of a palette panel (Close panel in place of the floating palette's item); `tiers`: the
+// units have tech tiers (a mod's), so Sort by tier is there.
+MenuModel paletteMenuModel(Mode mode, const PaletteView& v, int pin, PaletteSort sort, bool panel, bool tiers = false) {
     MenuModel m;
     if (pin >= 0) {
         m.push_back(menuItem(kPalPin, pin ? L"Un&pin" : L"&Pin to the top"));
@@ -108,26 +85,18 @@ MenuModel paletteMenuModel(Mode mode, const PaletteView& v, const std::vector<st
     m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, v.large && !v.xl));
     m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, v.xl));
     m.push_back(menuSeparator());
-    m.push_back(menuItem(ID_PAL_SORT_CATEGORY, L"Sort by &category", {}, false, sort == PaletteSort::Category));
+    // (Tier with no tiers here: the rows are by category)
+    const bool tierShown = mode == Mode::Units && tiers;
+    m.push_back(menuItem(ID_PAL_SORT_CATEGORY, L"Sort by &category", {}, false,
+                         sort == PaletteSort::Category || (sort == PaletteSort::Tier && !tierShown)));
     m.push_back(menuItem(ID_PAL_SORT_NAME, L"Sort by na&me", {}, false, sort == PaletteSort::Name));
     m.push_back(menuItem(ID_PAL_SORT_NUMBER, L"Sort by n&umber", {}, false, sort == PaletteSort::Number));
+    if (tierShown) m.push_back(menuItem(ID_PAL_SORT_TIER, L"Sort by &tier", {}, false, sort == PaletteSort::Tier));
     // (View > Floating palettes: this mode's palette in a window of its own, or back in the side bar)
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_NEW_PANEL, L"&New panel like this"));
     if (panel) m.push_back(menuItem(ID_PAL_CLOSE_PANEL, L"&Close panel"));
     else m.push_back(menuItem(ID_VIEW_FLOATPAL + int(mode), floatPaletteMenuLabel(mode)));
-    if (mode != Mode::Units && mode != Mode::Doodads && mode != Mode::Sprites) return m;
-    std::wstring group;
-    bool first = true;
-    for (size_t k = 0; k < sections.size() && k < 0x1000; ++k) {
-        const auto [g, name] = paletteGoGroup(mode, sections[k]);
-        if (first || g != group) {  // a heading (not a command) for each group, in the order the list has them
-            m.push_back(menuSeparator());
-            if (!g.empty()) m.push_back(menuItem(0, paletteMenuEscaped(g), {}, true));
-            group = g, first = false;
-        }
-        m.push_back(menuItem(kPalSectionFirst + int(k), paletteMenuEscaped(name)));
-    }
     return m;
 }
 
@@ -156,7 +125,21 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
                         ++pinned;
                         break;
                     }
-    if (sort != PaletteSort::Category) {  // one list, no sections: by name (a doodad's: its group's, then its own) or number
+    const bool tiers = sort == PaletteSort::Tier && std::any_of(units.begin(), units.end(), [](const PaletteUnit& u) { return u.tier > 0; });
+    if (tiers) {  // a section each tier, the units with no tier last; in each the category order (units' order)
+        std::vector<const PaletteUnit*> list;
+        for (const PaletteUnit& u : units)
+            if (shown(u)) list.push_back(&u);
+        auto key = [](const PaletteUnit* u) { return u->tier > 0 ? u->tier : INT_MAX; };
+        std::stable_sort(list.begin(), list.end(), [&](const PaletteUnit* a, const PaletteUnit* b) { return key(a) < key(b); });
+        for (size_t i = 0; i < list.size(); ++i) {
+            if (!i || key(list[i - 1]) != key(list[i]))
+                rows.push_back({-1, list[i]->tier > 0 ? shellTr(L"Tier") + L" " + std::to_wstring(list[i]->tier) : shellTr(L"No tier")});
+            rows.push_back({list[i]->value, list[i]->label});
+        }
+        return rows;
+    }
+    if (sort == PaletteSort::Name || sort == PaletteSort::Number) {  // one list, no sections: by name (a doodad's: its group's, then its own) or number
         std::vector<const PaletteUnit*> list;
         for (const PaletteUnit& u : units)
             if (shown(u)) list.push_back(&u);
@@ -175,7 +158,7 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
     const PaletteUnit* prev = nullptr;
     for (const PaletteUnit& u : units) {
         if (!shown(u)) continue;
-        if (!prev || prev->order != u.order) rows.push_back({-1, u.section});
+        if (!prev || prev->section != u.section) rows.push_back({-1, u.section});  // (a section's units can have orders of their own: a mod's)
         rows.push_back({u.value, u.label});
         prev = &u;
     }
@@ -278,5 +261,6 @@ std::vector<uint16_t> pieTerrains(const AppState& app) {
     if (const IsomTerrainTable* t = IsomTerrainTable::forEra(app.ed->era()))
         for (uint16_t i = 1; i <= t->terrainCount(); ++i)
             if (t->isTerrain(i)) items.push_back(i);
+    for (const Tileset::ModTerrain& m : app.ed->tileset().modTerrains) items.push_back(m.id);  // (a mod's own: Cosmonarchy tabs)
     return items;
 }

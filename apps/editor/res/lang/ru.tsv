@@ -510,6 +510,8 @@ Flingy	Flingy
 Upgrades	Улучшения
 Tech data	Данные технологий
 Orders	Приказы
+on	вкл.
+off	выкл.
 SFX data	Данные SFX
 Port data	Данные Port
 Showing changed 	Показаны только изменённые 
@@ -1332,8 +1334,7 @@ Dark theme (default)	Тёмная тема (по умолчанию)
 Light theme	Светлая тема
 Accent color	Акцентный цвет
  (default)	 (по умолчанию)
-Animate units	Анимация юнитов
-Units on the map play their animations	Юниты на карте воспроизводят свою анимацию
+A&nimate units	&Анимация юнитов
 Custom names	Пользовательские имена
 How lists name a unit that has a custom name in the map	Как в списках называть юнит, которому задано имя на карте
 Open the last project on start	Открывать последний проект при запуске
@@ -1952,6 +1953,7 @@ Paste\tCtrl+V	Вставить\tCtrl+V
 Edit the block…	Изменить блок…
 Move out\tCtrl+Left	Вынести\tCtrl+Left
 Move in\tCtrl+Right	Внести\tCtrl+Right
+Always: 	Всегда: 
 Becomes 	Становится 
  triggers in the map. 	 триггерами на карте. 
 Off	Выкл.
@@ -2282,6 +2284,9 @@ Make floating	Сделать плавающей
 Sort by &category	Сортировать по &категории
 Sort by na&me	Сортировать по &имени
 Sort by n&umber	Сортировать по &номеру
+Sort by &tier	Сортировать по &уровню
+Tier	Уровень
+No tier	Без уровня
 &New panel like this	&Новая панель как эта
 &Close panel	&Закрыть панель
 New palette panel: 	Новая панель палитры: 
@@ -2429,6 +2434,24 @@ Simulate melee &mining (experimental)	Моделировать ближнюю &�
 Simulate com&bat of the selected units	Моделировать &бой выбранных юнитов
 Simulate com&bat of the selected units (experimental)	Моделировать &бой выбранных юнитов (экспериментально)
 &Tools	&Инструменты
+press the second key (Esc: none)	нажмите вторую клавишу (Esc: отмена)
+that command is not available here	эта команда здесь недоступна
+no command has that second key	нет команды с такой второй клавишей
+&Cosmonarchy	&Cosmonarchy
+Try to repair the &ISOM	Попробовать восстановить &ISOM
+&Check the CRIG commands	&Проверить команды CRIG
+Check the CRIG commands	Проверить команды CRIG
+Standard (StarCraft: Brood War)	Стандартная (StarCraft: Brood War)
+Cosmonarchy BW	Cosmonarchy BW
+Mods	Моды
+Cosmonarchy folder	Папка Cosmonarchy
+Select the Cosmonarchy BW folder	Выберите папку Cosmonarchy BW
+That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	В этой папке нет данных Cosmonarchy BW (mpq\arr\units.datex).
+The Cosmonarchy folder is set	Папка Cosmonarchy задана
+The Prerelease or Release folder	Папка Prerelease или Release
+The Prerelease or Release folder. A new folder is used from the next start	Папка Prerelease или Release. Новая папка используется со следующего запуска
+The CRIG commands have no problems	В командах CRIG нет проблем
+These CRIG commands in the trigger Comments have problems:	Эти команды CRIG в комментариях триггеров содержат проблемы:
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Экспериментальное моделирование, пока может не полностью совпадать с игрой. Это собственная симуляция StarDraft, а не движок игры.
 Simulation	Моделирование
 Simulate mining	Моделировать добычу
@@ -2527,3 +2550,29 @@ The simulation cannot start: %ls	Не удалось запустить моде
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 — инструмент, созданный фанатами. Blizzard Entertainment не создавала, не одобряла и не поддерживает его.
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft — товарный знак Blizzard Entertainment.
 stored as %u (1/256 hit points)	хранится как %u (1/256 очка здоровья)
+On	Вкл.
+Turned off	Отключён
+On: the condition or action works in the game (off: it does nothing)	Вкл.: условие или действие работает в игре (выкл.: ничего не делает)
+Add a trigger after the selected one (T)	Добавить триггер после выбранного (T)
+Add a condition (C)	Добавить условие (C)
+Add an action (A)	Добавить действие (A)
+Standard	Стандарт
+Cosmonarchy	Cosmonarchy
+StarCraft: Brood War's maps and projects (default)	Карты и проекты StarCraft: Brood War (по умолчанию)
+Cosmonarchy BW: every map opens with the mod's units, and the start page and File > New make Cosmonarchy maps (no classic maps or projects)	Cosmonarchy BW: каждая карта открывается с юнитами мода, а начальная страница и Файл > Создать создают карты Cosmonarchy (без классических карт и проектов)
+Game: Cosmonarchy. Maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Игра: Cosmonarchy. Карты открываются и создаются как карты Cosmonarchy BW (открытые вкладки остаются как есть)
+Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Игра: Стандарт. Карты открываются и создаются как карты StarCraft: Brood War (открытые вкладки остаются как есть)
+&Unit vision and ranges	Обзор и дальность юнитов (&U)
+&Quick picker…\tQ	Быстрый выбор (&Q)…\tQ
+&Off	&Выкл.
+&Regions	&Регионы
+Connected &areas	Связанные &области
+Town a&reas	Зоны &баз
+&Terrain flags	&Свойства местности
+Copy tile &value	Копировать &значение тайла
+Copied: 	Скопировано: 
+Report feedback on the selected terrain…	Отзыв о выбранной местности…
+The selected terrain (tile x, y):	Выбранная местность (тайл x, y):
+&Randomize unit direction when placed	Случайное &направление юнитов при размещении
+Units get a random direction when placed	Юниты получают случайное направление при размещении
+Units face down and right	Юниты смотрят вниз и вправо

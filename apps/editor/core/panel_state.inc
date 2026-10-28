@@ -173,7 +173,7 @@ void activatePanel(PanelState* p) {
     AppState& app = appState();
     if (!p) return;
     const bool changed = app.mode != p->mode;
-    if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.pastingItems = false;
+    if (changed) app.selDoodads.clear(), app.selSprites.clear(), app.selBrushes.clear(), app.pastingItems = false;
     // The selected units are Units mode's: they show in each mode, so they are let go when another mode starts.
     if (changed && app.mode == Mode::Units && app.ed) app.ed->clearSelection();
     if (p != gActivePanel) {

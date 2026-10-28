@@ -27,16 +27,14 @@ int imageOfFlingy(int fl) {
 int imageOfUnit(int u) { return imageOfFlingy(datValue("units", "Graphics", u, -1)); }
 
 // The frame of an image facing `dir32` (0 up, 8 right, 16 down, clockwise) from a script frame; turning images
-// have 17 frames per set (up to down on the right; the left side mirrored).
+// have 17 frames per set (up to down on the right; the left side mirrored), or 32 (UnitSprites::facingSet).
 int facingFrame(int image, int scriptFrame, int dir32, bool& flip) {
     flip = false;
     if (!shellState().ed || image < 0) return scriptFrame;
     UnitSprites& sp = dataSprites();
     if (!sp.turns(image)) return scriptFrame;
-    const int base = scriptFrame / 17 * 17, d = ((dir32 % 32) + 32) % 32;
-    if (d <= 16) return base + d;
-    flip = true;
-    return base + 32 - d;
+    const int set = sp.facingSet(image);
+    return scriptFrame / set * set + sp.facingIndex(image, dir32, flip);
 }
 
 // --- Remastered art in the widgets: View > HD2, HD or Carbot draws them from the HD2 textures (or Carbot's) ----------

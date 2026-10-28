@@ -147,7 +147,22 @@ std::wstring startLocationsQuestion(const std::vector<std::string>& problems) {
 // Before a save (File > Save, Save as, and the Build's save of the project's map): a map that StarCraft will not start for
 // want of start locations asks Place them (the missing start locations, as one undo step), Save anyway or Cancel. False when
 // the map is not to be saved.
+int shellAskTriggerComments(const std::wstring& text);
+// Before a save of a Cosmonarchy map: trigger comment lines the game skips (a command's name mistyped: cmbw::crigProblems)
+// ask Save anyway or Cancel. False when the map is not to be saved.
+bool confirmTriggerComments() {
+    AppState& app = shellState();
+    if (!app.ed || !app.ed->isOpen() || !modTab()) return true;
+    const std::vector<std::string> problems = stardraft::cmbw::crigProblems(app.ed->chk());
+    if (problems.empty()) return true;
+    const std::wstring nl = {wchar_t(13), wchar_t(10)}, bullet = std::wstring(1, wchar_t(0x2022)) + L" ";
+    std::wstring text = std::wstring(tr(L"Cosmonarchy BW skips these lines of the triggers' Comment actions:")) + nl + nl;
+    for (size_t i = 0; i < problems.size() && i < 12; ++i) text += bullet + widen(problems[i]) + nl;
+    if (problems.size() > 12) text += bullet + std::to_wstring(problems.size() - 12) + L" more" + nl;
+    return shellAskTriggerComments(text) == 0;
+}
 bool confirmStartLocations() {
+    if (!confirmTriggerComments()) return false;
     AppState& app = shellState();
     for (;;) {
         if (!app.ed || !app.ed->isOpen()) return true;
@@ -256,13 +271,23 @@ void registerMapCommands() {
     },
                [] { return shellState().showLocations; });
     addCommand(ID_VIEW_GRID, "view.grid", L"Show &grid", "View", L"G", [] { shellState().showGrid = !shellState().showGrid, shellState().dirty = true; }, [] { return shellState().showGrid; });
-    addCommand(ID_VIEW_RANGES, "view.ranges", L"Show ranges of the selected u&nits", "View", L"", [] {
-        gShowRanges = !gShowRanges;
-        setMessage(gShowRanges ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)"
+    // View > Unit vision and ranges: the ranges of the selected units in the Units mode, each kind on or off, or all of them.
+    addCommand(ID_VIEW_RANGES, "view.ranges", L"&All ranges", "View/Unit vision and ranges/All", L"", [] {
+        gRangeKinds = gRangeKinds == kRangeAll ? 0 : kRangeAll;
+        setMessage(gRangeKinds ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)"
                                : L"Ranges are hidden");
         shellMenusChanged();
         shellState().dirty = true;
-    }, [] { return gShowRanges; });
+    }, [] { return gRangeKinds == kRangeAll; });
+    static const char* const kRangeCommands[] = {"view.ranges.sight", "view.ranges.acquisition", "view.ranges.ground", "view.ranges.air",
+                                                 "view.ranges.detection", "view.ranges.psi"};
+    for (int k = 0; k < kRangeKindCount; ++k)
+        addCommand(ID_VIEW_RANGEKIND + k, kRangeCommands[k], kRangeKinds[k].menu, "View/Unit vision and ranges", L"", [k] {
+            gRangeKinds ^= 1 << k;
+            setMessage(std::wstring(L"Range of the selected units: ") + kRangeKinds[k].named + (rangeShown(k) ? L" shows" : L" is hidden"));
+            shellMenusChanged();
+            shellState().dirty = true;
+        }, [k] { return rangeShown(k); });
     addCommand(ID_VIEW_MINIMAP, "view.minimap", L"Show &minimap", "View", L"", [] {
         gDock.minimapHidden = !gDock.minimapHidden;
         saveDock(), shellRelayout(), shellMenusChanged();
@@ -278,9 +303,13 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
     addCommand(ID_LAYER_REVEALERS, "view.layer.revealers", L"Map &revealers", "View/Layers", L"", [] { toggleRevealers(); }, [] { return gLayers.revealers; });
     addCommand(ID_LAYER_CREEP, "view.layer.creep", L"&Creep", "View/Layers", L"", [] { toggleCreep(); }, [] { return gLayers.creep; });
-    addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
-    addCommand(ID_LAYER + 5, "view.pathing.regions", L"Pathing shows the &regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
-               [] { return !pathingLayerAreas(); }, true);
+    // View > Overlays > Pathing: Off, or the regions or the connected areas (one of the three).
+    addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing (toggle)", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
+    addCommand(ID_PATHING_OFF, "view.pathing.off", L"&Off", "View/Pathing", L"", [] {
+        if (pathingLayerOn()) pathingLayerToggle();
+    }, [] { return !pathingLayerOn(); }, true);
+    addCommand(ID_LAYER + 5, "view.pathing.regions", L"&Regions", "View/Pathing", L"", [] { pathingLayerMode(false); },
+               [] { return pathingLayerOn() && !pathingLayerAreas(); }, true);
     {
         const struct {
             const char* id;
@@ -288,15 +317,21 @@ void registerMapCommands() {
             int view;
         } flags[] = {{"view.flags.walkable", L"&Walkable ground", 1}, {"view.flags.height", L"Ground &height", 2},
                      {"view.flags.blocksview", L"Ground that blocks the line of &sight", 3}, {"view.flags.buildable", L"&Buildable ground", 4}};
+        // View > Overlays > Terrain flags: Off, or one of the four views.
+        addCommand(ID_TERRAIN_FLAGS_OFF, "view.flags.off", L"&Off", "View/Terrain flags", L"", [] {
+            if (terrainFlagsView() != TerrainFlagsView(0)) terrainFlagsSet(terrainFlagsView());  // (the view again: off)
+        }, [] { return terrainFlagsView() == TerrainFlagsView(0); }, true);  // (0: Off)
         for (int k = 0; k < 4; ++k) {
             const auto v = TerrainFlagsView(flags[k].view);
-            addCommand(ID_TERRAIN_FLAGS + k, flags[k].id, flags[k].label, "View/Terrain flags", L"", [v] { terrainFlagsSet(v); },
+            addCommand(ID_TERRAIN_FLAGS + k, flags[k].id, flags[k].label, "View/Terrain flags", L"", [v] {
+                if (terrainFlagsView() != v) terrainFlagsSet(v);  // (a radio item: picked again, it stays)
+            },
                        [v] { return terrainFlagsView() == v; }, true);
         }
     }
-    addCommand(ID_FOG, "view.fog", L"&Fog of war of the selected player", "View/Fog", L"", [] { fogToggle(); }, [] { return gShowFog; });
-    addCommand(ID_LAYER + 6, "view.pathing.areas", L"Pathing shows the connected &areas", "View/Pathing", L"", [] { pathingLayerMode(true); },
-               [] { return pathingLayerAreas(); }, true);
+    addCommand(ID_FOG, "view.fog", L"&Fog of war of the selected player", "View/Fog", L"Ctrl+F", [] { fogToggle(); }, [] { return gShowFog; });
+    addCommand(ID_LAYER + 6, "view.pathing.areas", L"Connected &areas", "View/Pathing", L"", [] { pathingLayerMode(true); },
+               [] { return pathingLayerOn() && pathingLayerAreas(); }, true);
     {  // Edit > Decorate the terrain (roadmap R37): doodads where they fit (Editor::decorate)
         const struct {
             const char* id;
@@ -314,6 +349,8 @@ void registerMapCommands() {
     addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units (experimental)", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
 #endif
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
+    addCommand(ID_CMBW_REPAIRISOM, "edit.cmbw.repairIsom", L"Try to repair the &ISOM", "Cosmonarchy", L"", [] { cmbwRepairIsomCommand(); });
+    addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
     // View: the camera. + and - are the map view's own keys (they also work with the number pad).
     addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"+", [] {
@@ -332,5 +369,5 @@ void registerMapCommands() {
         viewSize(w, h);
         zoomAt(1.0f / shellState().zoom, w / 2, h / 2);
     });
-    addCommand(ID_VIEW_FIT, "view.fit", L"&Fit map", "View", L"Ctrl+F", [] { fitMap(); });
+    addCommand(ID_VIEW_FIT, "view.fit", L"&Fit map", "View", L"Ctrl+H", [] { fitMap(); });
 }

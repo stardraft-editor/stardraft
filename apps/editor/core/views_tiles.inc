@@ -67,16 +67,17 @@ draw::Bitmap& tilesPixels(uint16_t value, draw::Rect& src) {
     const int mode = app.carbot ? 2 : app.quality == GraphicsQuality::SD ? 0 : 1;
     if (mode != gTilesArt.pixelsMode || gTilesArt.forEd != app.ed.get() || gTilesArt.forEra != app.ed->era())
         gTilesArt.pixels.clear(), gTilesArt.pixelsMode = mode, gTilesArt.forEd = app.ed.get(), gTilesArt.forEra = app.ed->era();
-    if (mode && (gTilesArt.hdEra != app.ed->era() || gTilesArt.hdMode != mode)) {
+    auto& slot = gTilesArt.hdByData[&app.ed->gameData()];
+    if (mode && (slot.era != app.ed->era() || slot.mode != mode)) {
         std::string err;
-        gTilesArt.hdEra = app.ed->era(), gTilesArt.hdMode = mode;
-        if (!loadHdTiles(app.data, app.ed->era(), GraphicsQuality::HD2, gTilesArt.hd, err, mode == 2)) gTilesArt.hd = {};
+        slot.era = app.ed->era(), slot.mode = mode;
+        if (!loadHdTiles(app.ed->gameData(), app.ed->era(), GraphicsQuality::HD2, slot.hd, err, mode == 2)) slot.hd = {};
     }
     auto [it, fresh] = gTilesArt.pixels.try_emplace(uint16_t(value >> 4));
     draw::Bitmap& b = it->second.bitmap;
     it->second.used = gTilesArt.paints;
     if (fresh) {
-        const HdTiles* hd = mode && !gTilesArt.hd.tiles.empty() ? &gTilesArt.hd : nullptr;
+        const HdTiles* hd = mode && !slot.hd.tiles.empty() ? &slot.hd : nullptr;
         std::vector<uint16_t> row(16);
         for (int s = 0; s < 16; ++s) row[size_t(s)] = uint16_t((value & 0xFFF0) | s);
         const Sprite pic = mapTilesPicture(app.ed->tileset(), row, 16, 0, 0, 16, 1, hd);

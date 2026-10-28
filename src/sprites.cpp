@@ -196,20 +196,25 @@ std::vector<IscriptLine> disassembleIscript(const Bytes& d, size_t start, size_t
 }
 
 void UnitSprites::applyEdits(const Bytes& sprites, const Bytes& images) {
-    if (sprites.size() >= kSprites * 2)
+    if (sprites.size() >= kSprites * 2 && spriteImage_.size() >= kSprites)
         for (size_t i = 0; i < kSprites; ++i) spriteImage_[i] = readU16(sprites, 2 * i);
+    if (imageGrp_.size() != kImages) return;  // the edits are classic .dat files
     if (images.size() >= 3996 + kImages) imageTurns_.assign(images.begin() + 3996, images.begin() + 3996 + kImages);
     if (images.size() >= 7992 + kImages) imageDrawFn_.assign(images.begin() + 7992, images.begin() + 7992 + kImages);
     if (images.size() >= 8991 + kImages) imageRemap_.assign(images.begin() + 8991, images.begin() + 8991 + kImages);
-    if (data_) loadScripts(*data_, images);  // each image's script, by its edited Iscript ID
+    if (data_ && images.size() >= 9990 + kImages * 4) {  // each image's script, by its edited Iscript ID
+        std::vector<int> ids(kImages);
+        for (size_t i = 0; i < kImages; ++i) ids[i] = int(readU32(images, 9990 + i * 4));
+        loadScripts(*data_, ids);
+    }
 }
 
 void UnitSprites::applyUnitEdits(const Bytes& units, const Bytes& flingy) {
-    if (units.size() >= 228 + kUnits * 2) {
+    if (units.size() >= 228 + kUnits * 2 && unitFlingy_.size() == kUnits) {
         unitFlingy_.assign(units.begin(), units.begin() + kUnits);
         for (size_t i = 0; i < kUnits; ++i) unitSubunit_[i] = readU16(units, 228 + 2 * i);
     }
-    if (flingy.size() >= kFlingies * 2)
+    if (flingy.size() >= kFlingies * 2 && flingySprite_.size() >= kFlingies)
         for (size_t i = 0; i < kFlingies; ++i) flingySprite_[i] = readU16(flingy, 2 * i);
     sprites_.clear();  // the pictures of the unit types
 }
@@ -225,7 +230,8 @@ std::vector<uint16_t> UnitSprites::changedUnitGraphics(const UnitSprites& game, 
         for (uint16_t u : s->unitSubunit_)
             if (u != kNoUnit) subunits.insert(u);
     std::vector<uint16_t> out;
-    for (uint16_t t = 0; t < kUnits; ++t) {
+    const size_t units = std::min(game.unitFlingy_.size(), edited.unitFlingy_.size());
+    for (uint16_t t = 0; t < units; ++t) {
         if (subunits.count(t)) continue;
         if (look(game, game.imageFor(t)) != look(edited, edited.imageFor(t)) ||
             look(game, game.subunitImage(t)) != look(edited, edited.subunitImage(t)))
@@ -234,32 +240,45 @@ std::vector<uint16_t> UnitSprites::changedUnitGraphics(const UnitSprites& game, 
     return out;
 }
 
-void UnitSprites::loadScripts(const GameData& data, const Bytes& images) {
-    scripts_.assign(kImages, {});
-    scriptHeader_.assign(kImages, 0);
-    imageScriptId_.assign(kImages, -1);
-    Bytes& d = iscript_;
+void UnitSprites::loadScripts(const GameData& data, const std::vector<int>& scriptIds) {
+    const size_t images = imageGrp_.size();
+    scripts_.assign(images, {});
+    scriptHeader_.assign(images, {});
+    imageScriptId_.assign(images, -1);
+    facingSet_.clear();  // (found from the scripts: again for the new ones)
     std::string err;
-    // iscript.bin does not change: read it once.
-    if (d.empty() && !data.readFile("scripts\\iscript.bin", d, err)) return;
-    if (d.size() < 2 || images.size() < 9990 + kImages * 4) return;
-    // Table of (iscript id, offset) pairs, terminated by id 0xFFFF.
-    std::map<uint16_t, uint16_t>& entries = scriptEntries_;
-    entries.clear();
-    for (size_t p = readU16(d, 0); p + 4 <= d.size(); p += 4) {
-        uint16_t id = readU16(d, p);
-        if (id == 0xFFFF) break;
-        entries[id] = readU16(d, p + 2);
+    // The iscript files do not change: read them once.
+    // (each file in its place, read or not: a script ID's high bits give its index, Tables::scriptIdFile)
+    if (iscripts_.empty())
+        for (const std::string& f : iscriptFiles_) {
+            Bytes d;
+            if (!data.readFile(f, d, err) || d.size() < 2) d.clear();
+            iscripts_.push_back(std::move(d));
+        }
+    if (std::all_of(iscripts_.begin(), iscripts_.end(), [](const Bytes& d) { return d.empty(); }) || scriptIds.size() < images) return;
+    // Each file: a table of (iscript id, offset) pairs, terminated by id 0xFFFF.
+    scriptEntries_.clear(), firstEntries_.clear();
+    for (size_t f = 0; f < iscripts_.size(); ++f) {
+        const Bytes& d = iscripts_[f];
+        for (size_t p = d.size() >= 2 ? readU16(d, 0) : d.size(); p + 4 <= d.size(); p += 4) {
+            uint16_t id = readU16(d, p);
+            if (id == 0xFFFF) break;
+            const ScriptAt at{uint8_t(f), readU16(d, p + 2)};
+            scriptEntries_.emplace(uint32_t(f) << 16 | id, at);
+            firstEntries_.emplace(id, at);
+        }
     }
-    for (size_t img = 0; img < kImages; ++img) {
-        imageScriptId_[img] = int(readU32(images, 9990 + img * 4));
-        auto it = entries.find(uint16_t(imageScriptId_[img]));
-        if (it == entries.end() || size_t(it->second) + 10 > d.size()) continue;
-        scriptHeader_[img] = it->second;
+    for (size_t img = 0; img < images; ++img) {
+        imageScriptId_[img] = scriptIds[img];
+        const ScriptAt* at = findScript(imageScriptId_[img]);
+        if (!at && scriptIdFile_ && imageScriptId_[img] >= 0) at = scriptThatFits(int(img), uint16_t(imageScriptId_[img]));
+        if (!at || size_t(at->header) + 10 > iscripts_[at->file].size()) continue;
+        scriptHeader_[img] = *at;
     }
     auto spriteImage = [&](int sprite) { return sprite >= 0 && size_t(sprite) < spriteImage_.size() ? int(spriteImage_[size_t(sprite)]) : -1; };
-    for (size_t img = 0; img < kImages; ++img) {
-        if (!scriptHeader_[img]) continue;
+    for (size_t img = 0; img < images; ++img) {
+        if (!scriptHeader_[img].header) continue;
+        const Bytes& d = iscripts_[scriptHeader_[img].file];
         ImageScript& sc = scripts_[img];
         // Init, then Built (what a finished building plays), each read straight through waits to the
         // first jump or end: the frame it rests on and every overlay it creates.
@@ -288,6 +307,7 @@ void UnitSprites::loadScripts(const GameData& data, const Bytes& images) {
                 case 0x0A: sc.over.push_back({arg, 0, 0}); break;                      // imgolorig
                 case 0x09: case 0x0E: sc.under.push_back({arg, s8(2), s8(3)}); break;  // imgul, imguluselo
                 case 0x3D: sc.under.push_back({int(img) + 1, s8(0), s8(1)}); break;    // imgulnextid
+                case 0x34: if (anim == 0) sc.direction = d[q] & 31; break;            // setfldirect
                 case 0x0F: case 0x10: case 0x15: sc.over.push_back({spriteImage(arg), len >= 4 ? s8(2) : 0, len >= 4 ? s8(3) : 0}); break;
                 case 0x11: case 0x13: case 0x14: sc.under.push_back({spriteImage(arg), s8(2), s8(3)}); break;
                 }
@@ -298,28 +318,73 @@ void UnitSprites::loadScripts(const GameData& data, const Bytes& images) {
                 }
             }
         }
-        std::erase_if(sc.under, [](const ImageScript::Overlay& o) { return o.image < 0 || o.image >= int(kImages); });
-        std::erase_if(sc.over, [&](const ImageScript::Overlay& o) { return o.image < 0 || o.image >= int(kImages) || o.image == int(img); });
+        std::erase_if(sc.under, [&](const ImageScript::Overlay& o) { return o.image < 0 || o.image >= int(images); });
+        std::erase_if(sc.over, [&](const ImageScript::Overlay& o) { return o.image < 0 || o.image >= int(images) || o.image == int(img); });
     }
 }
 
-std::vector<uint16_t> UnitSprites::scriptIds() const {
-    std::vector<uint16_t> out;
-    for (const auto& [id, at] : scriptEntries_) out.push_back(id);
+std::vector<uint32_t> UnitSprites::scriptIds() const {
+    std::vector<uint32_t> out;
+    if (scriptIdFile_)
+        for (const auto& [key, at] : scriptEntries_) out.push_back(key);  // (its file in the high bits, as images.dat has it)
+    else
+        for (const auto& [id, at] : firstEntries_) out.push_back(id);
     return out;
 }
 
+const UnitSprites::ScriptAt* UnitSprites::scriptThatFits(int image, uint16_t id) {
+    const Grp* g = grp(image);
+    const int frames = g ? int(g->frames.size()) : 0;
+    if (!frames) return nullptr;
+    for (size_t f = 0; f < iscripts_.size(); ++f) {
+        auto it = scriptEntries_.find(uint32_t(f) << 16 | id);
+        if (it == scriptEntries_.end() || size_t(it->second.header) + 10 > iscripts_[f].size()) continue;
+        const size_t init = headerAnimOffset(iscripts_[f], it->second.header, 0);
+        bool fits = init != 0;
+        for (const IscriptLine& l : disassembleIscript(iscripts_[f], init, 60))
+            if ((l.opcode == 0x00 || l.opcode == 0x01) && !l.argv.empty() && l.argv[0].value >= frames) fits = false;
+        if (fits) return &it->second;
+    }
+    return nullptr;
+}
+
+const UnitSprites::ScriptAt* UnitSprites::findScript(int scriptId) const {
+    if (scriptId < 0) return nullptr;
+    if (scriptIdFile_) {
+        auto it = scriptEntries_.find(uint32_t(scriptId));
+        return it != scriptEntries_.end() ? &it->second : nullptr;
+    }
+    auto it = firstEntries_.find(uint16_t(scriptId));
+    return it != firstEntries_.end() ? &it->second : nullptr;
+}
+
+namespace {
+const Bytes kNoCode;
+}
+
+const Bytes& UnitSprites::iscript() const { return iscripts_.empty() ? kNoCode : iscripts_.front(); }
+
+const Bytes& UnitSprites::scriptCode(int image) const {
+    if (image < 0 || size_t(image) >= scriptHeader_.size() || !scriptHeader_[size_t(image)].header) return kNoCode;
+    return iscripts_[scriptHeader_[size_t(image)].file];
+}
+
+const Bytes& UnitSprites::scriptCodeById(int scriptId) const {
+    const ScriptAt* at = findScript(scriptId);
+    return at ? iscripts_[at->file] : kNoCode;
+}
+
 size_t UnitSprites::animOffset(int image, int anim) const {
-    if (image < 0 || size_t(image) >= scriptHeader_.size() || !scriptHeader_[size_t(image)]) return 0;
-    return headerAnimOffset(scriptHeader_[size_t(image)], anim);
+    if (image < 0 || size_t(image) >= scriptHeader_.size() || !scriptHeader_[size_t(image)].header) return 0;
+    return headerAnimOffset(scriptCode(image), scriptHeader_[size_t(image)].header, anim);
 }
 
 size_t UnitSprites::scriptAnimOffset(int scriptId, int anim) const {
-    auto it = scriptEntries_.find(uint16_t(scriptId));
-    return scriptId >= 0 && it != scriptEntries_.end() ? headerAnimOffset(it->second, anim) : 0;
+    const ScriptAt* at = findScript(scriptId);
+    return at ? headerAnimOffset(iscripts_[at->file], at->header, anim) : 0;
 }
 
-size_t UnitSprites::headerAnimOffset(size_t h, int anim) const {
+size_t UnitSprites::headerAnimOffset(const Bytes& iscript_, size_t h, int anim) const {
     // Header: "SCPE", type, 3 bytes, then one u16 offset per animation; the type sets how many.
     if (h + 8 > iscript_.size()) return 0;
     static const std::map<int, int> counts = {{0, 2},   {1, 2},   {2, 4},   {12, 14}, {13, 14}, {14, 16}, {15, 16}, {20, 22},
@@ -332,12 +397,19 @@ size_t UnitSprites::headerAnimOffset(size_t h, int anim) const {
 ImageAnim::ImageAnim(const UnitSprites& sprites, int image, uint32_t seed, int anim) {
     const size_t start = sprites.animOffset(image, anim);
     if (!start) return;
-    code_ = &sprites.iscript();
+    code_ = &sprites.scriptCode(image);
     pc_ = start;
     rng_ = seed * 2654435761u + 1;
     stopped_ = false;
     frame_ = sprites.script(image).initFrame;
     tick();  // the first tick runs up to the first wait
+}
+
+void ImageAnim::play(const UnitSprites& sprites, int image, int anim) {
+    const size_t start = sprites.animOffset(image, anim);
+    if (!start || !code_ || code_ != &sprites.scriptCode(image)) return;
+    pc_ = start, wait_ = 0, stopped_ = false;
+    tick();
 }
 
 bool ImageAnim::tick() {
@@ -394,6 +466,16 @@ bool ImageAnim::tick() {
             break;
         }
         case 0x07: pc_ = readU16(d, a); break;  // goto
+        case 0x02: ox_ = int8_t(d[a]); break;   // sethorpos
+        case 0x03: oy_ = int8_t(d[a]); break;   // setvertpos
+        case 0x04: ox_ = int8_t(d[a]), oy_ = int8_t(d[a + 1]); break;  // setpos
+        case 0x1F: turn_ -= d[a]; break;        // turnccwise
+        case 0x20: turn_ += d[a]; break;        // turncwise
+        case 0x21: ++turn_; break;              // turn1cwise
+        case 0x22: turn_ += rand() % 4 == 1 ? -int(d[a]) : int(d[a]); break;  // turnrand (as SpriteSim)
+        case 0x34: setDir_ = d[a] & 31, turn_ = 0; break;  // setfldirect
+        case 0x32: hidden_ = true; break;                  // tmprmgraphicstart
+        case 0x33: hidden_ = false; break;                 // tmprmgraphicend
         case 0x1E:                              // randcondjmp
             if (int(rand() & 255) <= d[a]) pc_ = readU16(d, a + 1);
             break;
@@ -410,11 +492,76 @@ bool ImageAnim::tick() {
     return frame_ != before;
 }
 
-int UnitSprites::animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip) const {
-    const int facing = defaultFrame(unitType, image, flip);
+int UnitSprites::facingDirection(uint16_t unitType, int direction) const {
+    return unitType < unitDirection_.size() && unitDirection_[unitType] < 32 ? unitDirection_[unitType]
+           : direction >= 0                                                  ? direction % 32
+                                                                             : 12;
+}
+
+int UnitSprites::animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip, int direction, int turned) const {
+    int facing = defaultFrame(unitType, image, flip, direction);
     if (image < 0 || size_t(image) >= imageTurns_.size() || !imageTurns_[image]) return scriptFrame;
-    const int base = size_t(image) < scripts_.size() ? scripts_[image].initFrame / 17 * 17 : 0;
-    return scriptFrame / 17 * 17 + (facing - base);
+    const int set = facingSet(image);
+    const int base = size_t(image) < scripts_.size() ? scripts_[image].initFrame / set * set : 0;
+    if (turned >= 0) facing = base + facingIndex(image, turned & 31, flip);
+    return scriptFrame / set * set + (facing - base);
+}
+
+int UnitSprites::facingSet(int image) const {
+    if (image < 0) return 17;
+    if (facingSet_.size() <= size_t(image)) facingSet_.resize(size_t(image) + 1, 0);
+    if (!facingSet_[size_t(image)]) {
+        // (the frames its animations play: more set starts of 32 than of 17 make it a set of 32; a frame of both, as
+        // 544, counts for neither, and a frame of a run (a death's 0x1D0 .. 0x1D8) that is one by chance is outvoted)
+        auto vote = [&](int img) {
+            int by32 = 0, by17 = 0;
+            for (int anim = 0; anim < 30; ++anim)
+                if (const size_t at = animOffset(img, anim))
+                    for (const IscriptLine& l : disassembleIscript(scriptCode(img), at))
+                        if ((l.opcode == 0x00 || l.opcode == 0x01) && !l.argv.empty() && l.argv[0].value) {
+                            const int v = l.argv[0].value;
+                            if (v % 17 == 0 && v % 32) ++by17;
+                            else if (v % 32 == 0 && v % 17) ++by32;
+                        }
+            return by32 > by17;
+        };
+        // The set is the graphic's: an image whose script plays its GRP as sets of 17 (an old script: the Maverick's
+        // terran\maverick.grp with the Marine's) while another image of that GRP, or of a look of it (the same name up to a
+        // "-": maverick-futurist.grp, maverick-upstart.grp, with as many frames), plays it as sets of 32 has sets of 32 too
+        // (its frames 17, 34, ... are other facings: it turned round).
+        bool is32 = vote(image);
+        if (!is32 && size_t(image) < imageGrp_.size() && imageGrp_[size_t(image)])  // (another image of the same GRP)
+            for (size_t o = 0; o < imageGrp_.size() && !is32; ++o)
+                if (o != size_t(image) && imageGrp_[o] == imageGrp_[size_t(image)]) is32 = vote(int(o));
+        auto stem = [&](int img) {
+            if (img < 0 || size_t(img) >= imageGrp_.size() || !imageGrp_[size_t(img)] || imageGrp_[size_t(img)] > imagePaths_.size()) return std::string();
+            std::string n = imagePaths_[imageGrp_[size_t(img)] - 1];
+            n = n.substr(n.find_last_of("\\/") == std::string::npos ? 0 : n.find_last_of("\\/") + 1);
+            if (const size_t dot = n.rfind('.'); dot != std::string::npos) n.resize(dot);
+            for (char& ch : n) ch = char(std::tolower((unsigned char)ch));
+            return n.substr(0, n.find('-'));  // (the looks of a graphic: its name up to a "-")
+        };
+        const std::string own = is32 ? std::string() : stem(image);
+        if (!own.empty())
+            for (size_t o = 0; o < imageGrp_.size() && !is32; ++o) {
+                if (o == size_t(image) || imageGrp_[o] == 0) continue;
+                const std::string other = stem(int(o));
+                if (other != own || !vote(int(o))) continue;
+                auto& self = const_cast<UnitSprites&>(*this);
+                const Grp *a = self.grp(image), *b = self.grp(int(o));
+                is32 = a && b && a->frames.size() == b->frames.size();
+            }
+        // (by its index: loading a GRP above may have made the list again)
+        if (facingSet_.size() <= size_t(image)) facingSet_.resize(size_t(image) + 1, 0);
+        facingSet_[size_t(image)] = is32 ? 32 : 17;
+    }
+    return facingSet_[size_t(image)];
+}
+
+int UnitSprites::facingIndex(int image, int dir32, bool& flip) const {
+    const int d = ((dir32 % 32) + 32) % 32;
+    flip = facingSet(image) == 17 && d > 16;
+    return flip ? 32 - d : d;
 }
 
 const ImageScript& UnitSprites::script(int image) const {
@@ -430,66 +577,102 @@ UnitSprites::UnitSprites() = default;
 UnitSprites::~UnitSprites() = default;
 
 bool UnitSprites::load(const GameData& data, std::string& error) {
-    data_ = &data;
-    sprites_.clear();  // loaded again: the game's graphics, without edits
-    Bytes units, flingy, sprites, images, tbl, tunit;
+    if (const UnitDataLoader* l = data.unitDataLoader(); l && l->sprites) return l->sprites(data, *this, error);
+    Bytes units, flingy, sprites, images;
     if (!data.readFile("arr\\units.dat", units, error) || !data.readFile("arr\\flingy.dat", flingy, error) ||
-        !data.readFile("arr\\sprites.dat", sprites, error) || !data.readFile("arr\\images.dat", images, error) ||
-        !data.readFile("arr\\images.tbl", tbl, error))
+        !data.readFile("arr\\sprites.dat", sprites, error) || !data.readFile("arr\\images.dat", images, error))
         return false;
     if (units.size() < 2472 || flingy.size() < kFlingies * 2 || sprites.size() < kSprites * 2 ||
-        images.size() < 3996 + kImages) {
+        images.size() < 9990 + kImages * 4) {
         error = "unexpected .dat sizes";
         return false;
     }
+    Tables t;
+    t.unitFlingy.assign(units.begin(), units.begin() + kUnits);
+    t.unitSubunit.resize(kUnits);
+    t.unitDirection.assign(units.begin() + 2244, units.begin() + 2244 + kUnits);
+    for (size_t i = 0; i < kUnits; ++i) t.unitSubunit[i] = readU16(units, 228 + 2 * i);
+    t.flingySprite.resize(kFlingies);
+    for (size_t i = 0; i < kFlingies; ++i) t.flingySprite[i] = readU16(flingy, 2 * i);
+    t.spriteImage.resize(kSprites);
+    for (size_t i = 0; i < kSprites; ++i) t.spriteImage[i] = readU16(sprites, 2 * i);
+    // sprites.dat after the images (u16 x 517): health bar u8 x 387, unknown u8 x 517, visible u8 x 517,
+    // selection circle image u8 x 387, selection circle vertical offset u8 x 387 (sprites 130-516).
+    {
+        const size_t n = kSprites - 130, circle = kSprites * 2 + n + kSprites * 2, offset = circle + n;
+        t.spriteSelCircle.assign(kSprites, uint8_t(0));
+        t.spriteSelOffset.assign(kSprites, uint8_t(0));
+        if (sprites.size() >= offset + n) {
+            std::copy(sprites.begin() + long(circle), sprites.begin() + long(circle + n), t.spriteSelCircle.begin() + 130);
+            std::copy(sprites.begin() + long(offset), sprites.begin() + long(offset + n), t.spriteSelOffset.begin() + 130);
+        }
+    }
+    t.imageGrp.resize(kImages);
+    for (size_t i = 0; i < kImages; ++i) t.imageGrp[i] = readU32(images, 4 * i);
+    t.imageTurns.assign(images.begin() + 3996, images.begin() + 3996 + kImages);
+    t.imageDrawFn.assign(images.begin() + 7992, images.begin() + 7992 + kImages);
+    t.imageRemap.assign(images.begin() + 8991, images.begin() + 8991 + kImages);
+    t.imageScriptId.resize(kImages);
+    for (size_t i = 0; i < kImages; ++i) t.imageScriptId[i] = int(readU32(images, 9990 + i * 4));
+    {
+        // After the u32 iscript ids (9990): shield, attack, damage, special, landing dust, lift-off overlays.
+        // All six lo files: attack, damage, special, landing dust, lift-off (in images.dat order after the shield's), shield.
+        const size_t at[6] = {17982, 21978, 25974, 29970, 33966, 13986};
+        for (int k = 0; k < 6; ++k) {
+            t.imageOverlays[k].assign(kImages, 0);
+            if (images.size() >= at[k] + kImages * 4)
+                for (size_t i = 0; i < kImages; ++i) t.imageOverlays[k][i] = readU32(images, at[k] + 4 * i);
+        }
+    }
+    return loadTables(data, std::move(t), error);
+}
+
+bool UnitSprites::loadTables(const GameData& data, Tables t, std::string& error) {
+    data_ = &data;
+    sprites_.clear();  // loaded again: the game's graphics, without edits
+    grps_.clear();
+    Bytes tbl, tunit;
+    if (!data.readFile("arr\\images.tbl", tbl, error)) return false;
     TblStrings paths = parseTbl(tbl);
     if (paths.bad) {
         error = tblDamaged("arr\\images.tbl", paths.bad);
         return false;
     }
-    unitFlingy_.assign(units.begin(), units.begin() + kUnits);
-    unitSubunit_.resize(kUnits);
-    unitDirection_.assign(units.begin() + 2244, units.begin() + 2244 + kUnits);
-    for (size_t i = 0; i < kUnits; ++i) unitSubunit_[i] = readU16(units, 228 + 2 * i);
-    flingySprite_.resize(kFlingies);
-    for (size_t i = 0; i < kFlingies; ++i) flingySprite_[i] = readU16(flingy, 2 * i);
-    spriteImage_.resize(kSprites);
-    for (size_t i = 0; i < kSprites; ++i) spriteImage_[i] = readU16(sprites, 2 * i);
-    // sprites.dat after the images (u16 x 517): health bar u8 x 387, unknown u8 x 517, visible u8 x 517,
-    // selection circle image u8 x 387, selection circle vertical offset u8 x 387 (sprites 130-516).
-    {
-        const size_t n = kSprites - 130, circle = kSprites * 2 + n + kSprites * 2, offset = circle + n;
-        if (sprites.size() >= offset + n) {
-            spriteSelCircle_.assign(sprites.begin() + long(circle), sprites.begin() + long(circle + n));
-            spriteSelOffset_.assign(sprites.begin() + long(offset), sprites.begin() + long(offset + n));
-        }
-    }
-    imageGrp_.resize(kImages);
-    for (size_t i = 0; i < kImages; ++i) imageGrp_[i] = readU32(images, 4 * i);
-    imageTurns_.assign(images.begin() + 3996, images.begin() + 3996 + kImages);
-    imageDrawFn_.assign(images.begin() + 7992, images.begin() + 7992 + kImages);
-    // After the u32 iscript ids (9990): shield, attack, damage, special, landing dust, lift-off overlays.
-    imageSpecial_.assign(kImages, 0);
-    imageRemap_.assign(images.begin() + 8991, images.begin() + 8991 + kImages);
-    if (images.size() >= 25974 + kImages * 4)
-        for (size_t i = 0; i < kImages; ++i) imageSpecial_[i] = readU32(images, 25974 + 4 * i);
-    {
-        // All six lo files: attack, damage, special, landing dust, lift-off (in images.dat order after the shield's), shield.
-        const size_t at[6] = {17982, 21978, 25974, 29970, 33966, 13986};
-        for (int k = 0; k < 6; ++k) {
-            imageOverlays_[k].assign(kImages, 0);
-            if (images.size() >= at[k] + kImages * 4)
-                for (size_t i = 0; i < kImages; ++i) imageOverlays_[k][i] = readU32(images, at[k] + 4 * i);
-        }
-    }
+    // Every table of a file as long as the file's first one.
+    const size_t units = t.unitFlingy.size(), sprites = t.spriteImage.size(), images = t.imageGrp.size();
+    t.unitSubunit.resize(units, kNoUnit), t.unitDirection.resize(units, uint8_t(32));
+    t.spriteSelCircle.resize(sprites), t.spriteSelOffset.resize(sprites);
+    t.imageTurns.resize(images), t.imageDrawFn.resize(images), t.imageRemap.resize(images), t.imageScriptId.resize(images, -1);
+    for (auto& o : t.imageOverlays) o.resize(images);
+    unitFlingy_ = std::move(t.unitFlingy);
+    unitSubunit_ = std::move(t.unitSubunit);
+    unitDirection_ = std::move(t.unitDirection);
+    flingySprite_ = std::move(t.flingySprite);
+    spriteImage_ = std::move(t.spriteImage);
+    spriteSelCircle_ = std::move(t.spriteSelCircle);
+    spriteSelOffset_ = std::move(t.spriteSelOffset);
+    imageGrp_ = std::move(t.imageGrp);
+    imageTurns_ = std::move(t.imageTurns);
+    imageDrawFn_ = std::move(t.imageDrawFn);
+    imageRemap_ = std::move(t.imageRemap);
+    for (int k = 0; k < 6; ++k) imageOverlays_[k] = std::move(t.imageOverlays[k]);
+    imageSpecial_ = imageOverlays_[2];
     imagePaths_ = std::move(paths.strings);
-    loadScripts(data, images);
+    iscriptFiles_ = std::move(t.iscriptFiles);
+    scriptIdFile_ = t.scriptIdFile;
+    iscripts_.clear();
+    loadScripts(data, t.imageScriptId);
 
-    // Player colors: tunit.pcx holds 8 palette indices per player, side by side.
+    // Player colors: tunit.pcx holds 8 palette indices per color row, side by side (a mod's: 256 rows); tminimap.pcx a
+    // palette index per row, a line of them per tileset.
     if (data.readFile("game\\tunit.pcx", tunit, error)) {
         int w = 0, h = 0;
         std::vector<uint8_t> px = decodePcx(tunit, w, h);
         playerColors_.assign(px.begin(), px.begin() + std::min<size_t>(px.size(), size_t(w)));
+    }
+    if (Bytes mini; data.readFile("game\\tminimap.pcx", mini, error)) {
+        int w = 0, h = 0;
+        minimapColors_ = decodePcx(mini, w, h), minimapWidth_ = w;
     }
     error.clear();
     return true;
@@ -497,30 +680,30 @@ bool UnitSprites::load(const GameData& data, std::string& error) {
 
 int UnitSprites::imageFor(uint16_t unitType) const {
     if (unitType >= unitFlingy_.size()) return -1;
-    uint8_t f = unitFlingy_[unitType];
+    uint16_t f = unitFlingy_[unitType];
     if (f >= flingySprite_.size()) return -1;
     uint16_t s = flingySprite_[f];
     if (s >= spriteImage_.size()) return -1;
     uint16_t img = spriteImage_[s];
-    return img < kImages ? img : -1;
+    return img < imageGrp_.size() ? img : -1;
 }
 
 int UnitSprites::imageForSprite(uint16_t sprite) const {
     if (sprite >= spriteImage_.size()) return -1;
     uint16_t img = spriteImage_[sprite];
-    return img < kImages ? img : -1;
+    return img < imageGrp_.size() ? img : -1;
 }
 
 bool UnitSprites::selectionCircle(uint16_t unitType, int& image, int& offsetY) const {
     if (unitType >= unitFlingy_.size()) return false;
-    uint8_t f = unitFlingy_[unitType];
+    uint16_t f = unitFlingy_[unitType];
     if (f >= flingySprite_.size()) return false;
     uint16_t s = flingySprite_[f];
-    if (s < 130 || size_t(s - 130) >= spriteSelCircle_.size()) return false;
+    if (s < 130 || s >= spriteSelCircle_.size()) return false;
     // Selection circle images are images.dat 561 onwards (22 to 146 pixels), indexed by this field.
-    image = 561 + spriteSelCircle_[s - 130];
-    offsetY = spriteSelOffset_[s - 130];
-    return image < int(kImages);
+    image = 561 + spriteSelCircle_[s];
+    offsetY = spriteSelOffset_[s];
+    return image < int(imageGrp_.size());
 }
 
 int UnitSprites::subunitImage(uint16_t unitType) const {
@@ -528,23 +711,30 @@ int UnitSprites::subunitImage(uint16_t unitType) const {
     return imageFor(unitSubunit_[unitType]);
 }
 
-int UnitSprites::defaultFrame(uint16_t unitType, int image, bool& flip) const {
+int UnitSprites::defaultFrame(uint16_t unitType, int image, bool& flip, int direction) const {
     flip = false;
     if (image < 0 || size_t(image) >= imageTurns_.size()) return 0;
     // An image that does not turn: the frame its Init rests on (a sieged tank's base: deployed).
     if (!imageTurns_[image]) return size_t(image) < scripts_.size() ? scripts_[image].initFrame : 0;
-    // Turning graphics hold 17 frames (up .. down via right); the left side is mirrored.
-    // Face down-right (direction 12 of 32) unless units.dat fixes a direction.
-    int dir = unitType < unitDirection_.size() && unitDirection_[unitType] < 32 ? unitDirection_[unitType] : 12;
-    if (dir > 16) flip = true, dir = 32 - dir;
-    // Facing sets are 17 frames; start from the set the image's Init animation shows.
-    int base = size_t(image) < scripts_.size() ? scripts_[image].initFrame / 17 * 17 : 0;
-    return base + dir;
+    // Face down-right (direction 12 of 32), or `direction` when units.dat gives a random one, unless units.dat fixes a
+    // direction; start from the facing set the image's
+    // Init animation shows (facingSet: 17 frames, the left side mirrored, or 32).
+    const int dir = facingDirection(unitType, direction);
+    const int set = facingSet(image);
+    const int base = size_t(image) < scripts_.size() ? scripts_[image].initFrame / set * set : 0;
+    return base + facingIndex(image, dir, flip);
 }
 
-uint8_t UnitSprites::remap(uint8_t idx, uint8_t owner) const {
-    if (idx >= 8 && idx < 16 && size_t(owner) * 8 + 7 < playerColors_.size()) return playerColors_[size_t(owner) * 8 + (idx - 8)];
+uint8_t UnitSprites::remap(uint8_t idx, uint8_t owner) const { return remapRow(idx, colorRow_[std::min<size_t>(owner, 11)]); }
+
+uint8_t UnitSprites::remapRow(uint8_t idx, int row) const {
+    if (idx >= 8 && idx < 16 && row >= 0 && size_t(row) * 8 + 7 < playerColors_.size()) return playerColors_[size_t(row) * 8 + (idx - 8)];
     return idx;
+}
+
+int UnitSprites::minimapColor(int row, int era) const {
+    const size_t at = size_t(era) * size_t(minimapWidth_) + size_t(row);
+    return row >= 0 && row < minimapWidth_ && at < minimapColors_.size() ? minimapColors_[at] : -1;
 }
 
 int UnitSprites::extraImage(const std::string& path) {
@@ -598,9 +788,8 @@ int SpriteSim::rand() {
 
 void SpriteSim::setImageDirection(Image& im, int dir32) {
     if (!im.directional) return;
-    const int d = ((dir32 % 32) + 32) % 32;
-    im.dirIndex = d > 16 ? 32 - d : d;
-    im.flipped = d > 16;
+    // (17 frames, the left side mirrored, or 32: a mod's graphics, as Cosmonarchy's)
+    im.dirIndex = sp_->facingIndex(im.id, dir32, im.flipped);
 }
 
 void SpriteSim::setDirection(int dir32) { setHeading(dir32 * 8); }
@@ -632,7 +821,7 @@ void SpriteSim::warpIn() {
     const size_t start = sp_->scriptAnimOffset(193, 0);
     if (!running() || !start) return;
     Image& im = images_[size_t(main_)];
-    im.pc = start, im.wait = 0;
+    im.pc = start, im.wait = 0, im.code = &sp_->scriptCodeById(193);
     execute(main_);
     setModifier(images_[size_t(main_)], 12);
     warp_ = 1, handoff_ = 0;  // the order has the sprite now
@@ -693,7 +882,7 @@ void SpriteSim::runAnim(int index, int anim) {
     Image& im = images_[size_t(index)];
     const size_t start = sp_->animOffset(im.id, anim);
     if (!start) return;
-    im.pc = start, im.wait = 0;
+    im.pc = start, im.wait = 0, im.code = &sp_->scriptCode(im.id);
     execute(index);
 }
 
@@ -769,7 +958,8 @@ bool SpriteSim::execute(int index) {
         --im->wait;
         return true;
     }
-    const Bytes& d = sp_->iscript();
+    if (!im->code) return false;
+    const Bytes& d = *im->code;
     const bool isMain = index == main_;
     auto u16 = [&](size_t a) { return int(d[a] | d[a + 1] << 8); };
     for (int n = 0; n < 512; ++n) {
@@ -1027,9 +1217,8 @@ void UnitSprites::drawImage(Sprite& s, int image, int frame, bool flip, uint8_t 
                 continue;
             }
             const uint8_t raw = idx;
-            // Palette indices 8-15 are the player color ramp.
-            if (idx >= 8 && idx < 16 && size_t(owner) * 8 + 7 < playerColors_.size())
-                idx = playerColors_[size_t(owner) * 8 + (idx - 8)];
+            // Palette indices 8-15 are the player color ramp (the owner's color row).
+            idx = remap(idx, owner);
             int bx = flip ? g->width - 1 - (f.x + x) : f.x + x;
             int px = s.originX - g->width / 2 + bx + dx, py = s.originY - g->height / 2 + f.y + y + dy;
             if (px < 0 || py < 0 || px >= s.width || py >= s.height) continue;
@@ -1111,7 +1300,7 @@ const Sprite* UnitSprites::iconFrame(uint16_t unitType) {
 const Sprite* UnitSprites::unitSprite(uint16_t unitType, uint8_t owner, const Tileset& ts) {
     if (spriteTileset_ != &ts) sprites_.clear(), spriteTileset_ = &ts;
     owner = std::min<uint8_t>(owner, 11);
-    auto key = std::make_pair(unitType, owner);
+    auto key = std::make_pair(unitType, colorRow_[owner]);  // (players of one color share the picture)
     auto it = sprites_.find(key);
     if (it != sprites_.end()) return it->second.get();
 
@@ -1130,34 +1319,32 @@ const Sprite* UnitSprites::unitSprite(uint16_t unitType, uint8_t owner, const Ti
         s->width = w, s->height = h;
         s->originX = s->width / 2, s->originY = s->height / 2;
         s->rgba.assign(size_t(s->width) * s->height * 4, 0);
-        // Turning graphics hold 17 frames per facing set (up .. down via right); others use frame 0.
+        // Turning graphics: the frame in a facing set (facingSet), from the set Init shows; others their Init frame.
         // Face down-right (direction 12 of 32) unless units.dat fixes a direction.
+        const int dir = unitDirection_[unitType] < 32 ? unitDirection_[unitType] : 12;
         auto frameFor = [&](int img, bool& flip) {
             flip = false;
-            if (!imageTurns_[img]) return 0;
-            int dir = unitDirection_[unitType] < 32 ? unitDirection_[unitType] : 12;
-            if (dir > 16) flip = true, dir = 32 - dir;
-            return dir;
+            if (!imageTurns_[img]) return scripts_[img].initFrame;
+            const int set = facingSet(img);
+            return scripts_[img].initFrame / set * set + facingIndex(img, dir, flip);
         };
         bool flip = false;
-        int frame = frameFor(image, flip);
-        if (imageTurns_[image]) frame += scripts_[image].initFrame / 17 * 17;
-        else frame = scripts_[image].initFrame;
+        const int frame = frameFor(image, flip);
         // Painter's order: the unit, its turret at the base's special-overlay offset, the overlays on top
         // (glows added to what is under them), then shadows, which only fill empty pixels.
         auto at = [&](const ImageScript::Overlay& o) { return std::pair{flip ? -o.x : o.x, o.y}; };
         drawImage(*s, image, frame, flip, owner, ts);
         if (sg) {
             bool sflip = false;
-            int sframe = frameFor(sub, sflip) + (imageTurns_[sub] ? scripts_[sub].initFrame / 17 * 17 : 0);
-            if (!imageTurns_[sub]) sframe = scripts_[sub].initFrame;
+            const int sframe = frameFor(sub, sflip);
             auto [tx, ty] = specialOffset(image, frame);
             drawImage(*s, sub, sframe, sflip, owner, ts, flip ? -tx : tx, ty);
         }
         for (const auto& o : script(image).over) {
             auto [ox, oy] = at(o);
-            const int of = imageTurns_[o.image] ? scripts_[o.image].initFrame / 17 * 17 + frame % 17 : scripts_[o.image].initFrame;
-            drawImage(*s, o.image, of, imageTurns_[o.image] && flip, owner, ts, ox, oy, drawFunction(o.image) == 9 ? Blend::Glow : Blend::Normal);
+            bool oflip = false;
+            const int of = frameFor(o.image, oflip);
+            drawImage(*s, o.image, of, oflip, owner, ts, ox, oy, drawFunction(o.image) == 9 ? Blend::Glow : Blend::Normal);
         }
         for (const auto& o : script(image).under) {
             if (!isShadow(o.image)) continue;

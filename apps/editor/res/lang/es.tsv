@@ -531,6 +531,8 @@ Flingy	Flingy
 Upgrades	Mejoras
 Tech data	Datos de tecnología
 Orders	Órdenes
+on	activado
+off	desactivado
 SFX data	Datos SFX
 Port data	Datos Port
 Showing changed 	Mostrando solo cambios: 
@@ -1415,8 +1417,7 @@ Dark theme (default)	Tema oscuro (predeterminado)
 Light theme	Tema claro
 Accent color	Color de énfasis
  (default)	 (predeterminado)
-Animate units	Animar unidades
-Units on the map play their animations	Las unidades del mapa reproducen sus animaciones
+A&nimate units	A&nimar unidades
 Custom names	Nombres personalizados
 How lists name a unit that has a custom name in the map	Cómo nombran las listas una unidad que tiene un nombre personalizado en el mapa
 Open the last project on start	Abrir el último proyecto al iniciar
@@ -1951,6 +1952,7 @@ Paste\tCtrl+V	Pegar\tCtrl+V
 Edit the block…	Editar el bloque…
 Move out\tCtrl+Left	Sacar\tCtrl+Left
 Move in\tCtrl+Right	Meter\tCtrl+Right
+Always: 	Siempre: 
 Becomes 	Se convierte en 
  triggers in the map. 	 disparadores en el mapa. 
 Off	Desactivado
@@ -2282,6 +2284,9 @@ Make floating	Hacer flotante
 Sort by &category	Ordenar por &categoría
 Sort by na&me	Ordenar por no&mbre
 Sort by n&umber	Ordenar por n&úmero
+Sort by &tier	Ordenar por &nivel
+Tier	Nivel
+No tier	Sin nivel
 &New panel like this	&Nuevo panel como este
 &Close panel	&Cerrar panel
 New palette panel: 	Nuevo panel de paleta: 
@@ -2429,6 +2434,24 @@ Simulate melee &mining (experimental)	Simular &extracción cuerpo a cuerpo (expe
 Simulate com&bat of the selected units	Simular el com&bate de las unidades seleccionadas
 Simulate com&bat of the selected units (experimental)	Simular el com&bate de las unidades seleccionadas (experimental)
 &Tools	&Herramientas
+press the second key (Esc: none)	pulse la segunda tecla (Esc: ninguna)
+that command is not available here	ese comando no está disponible aquí
+no command has that second key	ningún comando tiene esa segunda tecla
+&Cosmonarchy	&Cosmonarchy
+Try to repair the &ISOM	Intentar reparar el &ISOM
+&Check the CRIG commands	&Comprobar los comandos CRIG
+Check the CRIG commands	Comprobar los comandos CRIG
+Standard (StarCraft: Brood War)	Estándar (StarCraft: Brood War)
+Cosmonarchy BW	Cosmonarchy BW
+Mods	Mods
+Cosmonarchy folder	Carpeta de Cosmonarchy
+Select the Cosmonarchy BW folder	Seleccione la carpeta de Cosmonarchy BW
+That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	Esa carpeta no tiene datos de Cosmonarchy BW (mpq\arr\units.datex).
+The Cosmonarchy folder is set	La carpeta de Cosmonarchy está establecida
+The Prerelease or Release folder	La carpeta Prerelease o Release
+The Prerelease or Release folder. A new folder is used from the next start	La carpeta Prerelease o Release. Una carpeta nueva se usa desde el próximo inicio
+The CRIG commands have no problems	Los comandos CRIG no tienen problemas
+These CRIG commands in the trigger Comments have problems:	Estos comandos CRIG de los comentarios de los disparadores tienen problemas:
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Simulación experimental; puede que aún no coincida del todo con el juego. Es una simulación propia de StarDraft, no el motor del juego.
 Simulation	Simulación
 Simulate mining	Simular extracción
@@ -2527,3 +2550,29 @@ The simulation cannot start: %ls	La simulación no puede empezar: %ls
 StarDraft 2 is a fan-made tool. Blizzard Entertainment did not make, approve or endorse it.	StarDraft 2 es una herramienta hecha por fans. Blizzard Entertainment no la creó, aprobó ni respalda.
 StarCraft is a trademark of Blizzard Entertainment.	StarCraft es una marca comercial de Blizzard Entertainment.
 stored as %u (1/256 hit points)	guardado como %u (1/256 de punto de vida)
+On	Activado
+Turned off	Desactivado
+On: the condition or action works in the game (off: it does nothing)	Activado: la condición o acción funciona en el juego (desactivado: no hace nada)
+Add a trigger after the selected one (T)	Añadir un disparador después del seleccionado (T)
+Add a condition (C)	Añadir una condición (C)
+Add an action (A)	Añadir una acción (A)
+Standard	Estándar
+Cosmonarchy	Cosmonarchy
+StarCraft: Brood War's maps and projects (default)	Mapas y proyectos de StarCraft: Brood War (predeterminado)
+Cosmonarchy BW: every map opens with the mod's units, and the start page and File > New make Cosmonarchy maps (no classic maps or projects)	Cosmonarchy BW: cada mapa se abre con las unidades del mod, y la página de inicio y Archivo > Nuevo crean mapas de Cosmonarchy (sin mapas clásicos ni proyectos)
+Game: Cosmonarchy. Maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Juego: Cosmonarchy. Los mapas se abren y se crean como mapas de Cosmonarchy BW (las pestañas abiertas se quedan como están)
+Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Juego: Estándar. Los mapas se abren y se crean como mapas de StarCraft: Brood War (las pestañas abiertas se quedan como están)
+&Unit vision and ranges	Visión y alcances de unidades (&U)
+&Quick picker…\tQ	Selector rápido (&Q)…\tQ
+&Off	&Desactivado
+&Regions	&Regiones
+Connected &areas	Zonas &conectadas
+Town a&reas	Zonas de &base
+&Terrain flags	&Propiedades del terreno
+Copy tile &value	Copiar el &valor de la casilla
+Copied: 	Copiado: 
+Report feedback on the selected terrain…	Enviar comentarios sobre el terreno seleccionado…
+The selected terrain (tile x, y):	El terreno seleccionado (casilla x, y):
+&Randomize unit direction when placed	&Dirección aleatoria de las unidades al colocarlas
+Units get a random direction when placed	Las unidades reciben una dirección aleatoria al colocarlas
+Units face down and right	Las unidades miran hacia abajo a la derecha

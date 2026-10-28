@@ -49,6 +49,10 @@ int ctVarDepthAt(const ClassicTrigger& t, int index, ClassicField f) {
     return v ? v - 1 : -1;
 }
 
+// A Cosmonarchy command's value (CRIG) as its chip shows it: a unit's or a player's name, the rest as written
+// (core/views_crigs.inc).
+inline std::wstring ctCrigValueText(const std::string& kind, const std::string& v);
+
 // The sentence of a condition or action (`t` and `index` give an action's trigger and row: its blocks' variables; null
 // for a condition). Each value is a chip; a sentence that starts with a value starts with a capital.
 template <class E>
@@ -58,6 +62,24 @@ std::vector<CtSegment> ctSentenceParts(const E& e, int kind, const ClassicTrigge
     auto word = [&out](std::wstring s) {
         if (!s.empty()) out.push_back({CtPart::Word, std::move(s), -1});
     };
+    if (e.type == kClassicCrigType && e.crig) {  // a Cosmonarchy command (CRIG): its name, then its values as chips
+        const auto l = stardraft::cmbw::parseCrigLine(e.crig->line);
+        if (!l.command) {  // a line that is not a command: kept as text
+            word(e.crig->line.empty() ? std::wstring(L"Comment: (an empty line)") : L"Comment: " + widen(e.crig->line));
+            return out;
+        }
+        word(widen(stardraft::cmbw::crigTitle(*l.command)) + (l.command->args.empty() ? L"" : L": "));
+        bool first = true;
+        for (size_t k = 0; k < l.command->args.size(); ++k) {
+            const bool given = k < l.values.size();
+            if (!given && l.command->args[k].optional) continue;
+            if (!first) word(L", ");
+            first = false;
+            out.push_back({CtPart::Chip, given ? ctCrigValueText(stardraft::cmbw::crigArgKind(l.command->args[k]), l.values[k]) : std::wstring(L"?"), int(k)});
+        }
+        if (!l.rest.empty()) word(L" " + widen(l.rest));
+        return out;
+    }
     if constexpr (std::is_same_v<E, ClassicAction>) {
         if (e.type == kClassicBlockType) {  // a block: "For each unit in ..." (its chevron is painted by the list)
             word(widen(classicBatchText(*e.batch, env.names)));
@@ -174,6 +196,27 @@ inline std::wstring ctTriggerLineOf(const ClassicTrigger& t, bool actions, const
     return widen(s);
 }
 
+// A trigger's name in the list when it has no comment: its first condition that tells something (not Always, not an
+// elapsed game time of at least 0 seconds, not turned off); with none, "Always: " and its first action. (Many maps start
+// most triggers with one of those: their first condition alone told them apart from nothing.)
+inline std::wstring ctTriggerName(const ClassicTrigger& t, const ClassicNames& n) {
+    for (int i = 0; i < t.conditionCount(); ++i) {
+        const ClassicCondition& c = t.conditions[size_t(i)];
+        const bool always = c.type == 22 || (c.type == 12 && c.comparison == 0 && c.amount == 0);  // (Always; Elapsed time)
+        if (!always && !(c.flags & 2)) return widen(classicConditionText(c, n));
+    }
+    for (int i = 0; i < t.actionCount(); ++i) {  // (its first action that runs and is no Comment)
+        const ClassicAction& a = t.actions[size_t(i)];
+        if ((a.flags & 2) || a.type == 47) continue;
+        const std::vector<const ClassicBatch*> scope = ctScopeOf(t, i);
+        std::string s = a.type == kClassicBlockType ? classicBatchText(*a.batch, n) : classicActionText(a, n, &scope);
+        for (char& ch : s)
+            if (static_cast<unsigned char>(ch) < 32) ch = ' ';
+        return tr(L"Always: ") + widen(s);
+    }
+    return t.conditionCount() ? widen(classicConditionText(t.conditions[0], n)) : L"Always";
+}
+
 // The trigger's comment (roadmap R62): its first Comment action at the top level (-1: none). The list shows its text
 // as the trigger's title, as StarEdit does; the head edits it (core/views_classic_page.inc: ctEditComment).
 constexpr uint8_t kCtCommentType = 47;
@@ -185,8 +228,9 @@ inline int ctCommentEntry(const ClassicTrigger& t) {
 
 // A heading (roadmap R59): a trigger that holds only a comment (no condition but Always, one Comment action). The list
 // shows it as a heading, and a click on its arrow folds the triggers under it, up to the next heading. The game runs it
-// as any trigger (it does nothing).
+// as any trigger (it does nothing). Not in a Cosmonarchy map: its comments are commands the mod runs (CRIGs).
 inline bool ctIsHeading(const ClassicTrigger& t) {
+    if (modTab()) return false;
     if (t.actionCount() != 1 || t.actions[0].type != kCtCommentType || !t.actions[0].text) return false;
     for (int i = 0; i < t.conditionCount(); ++i)
         if (t.conditions[size_t(i)].type != 22) return false;  // (22: Always)
@@ -195,8 +239,21 @@ inline bool ctIsHeading(const ClassicTrigger& t) {
 
 // The text a search matches, in lower case: the trigger's sentences (its conditions and actions, names of units,
 // locations and switches) and the names of its players.
+// A Cosmonarchy command row's sentence as the rows say it ("Set race: Player 1, terran"), for Find and the search.
+inline std::wstring ctCrigReadable(const ClassicCrig& c) {
+    ClassicCondition k;  // (its parts: ctSentenceParts reads the line only)
+    k.type = kClassicCrigType, k.crig.p = std::make_shared<ClassicCrig>(c);
+    std::wstring s;
+    for (const CtSegment& g : ctSentenceParts(k, 0, nullptr, 0, CtSentenceEnv{})) s += g.text;
+    return s;
+}
+
 inline std::wstring ctSearchTextOf(const ClassicTrigger& t, const ClassicNames& n) {
     std::wstring s = ctTriggerLineOf(t, false, n) + L" " + ctTriggerLineOf(t, true, n);
+    for (int i = 0; i < t.conditionCount(); ++i)  // (a command row: its sentence too, beside its line)
+        if (t.conditions[size_t(i)].crig) s += L" " + ctCrigReadable(*t.conditions[size_t(i)].crig.p);
+    for (int i = 0; i < t.actionCount(); ++i)
+        if (t.actions[size_t(i)].crig) s += L" " + ctCrigReadable(*t.actions[size_t(i)].crig.p);
     for (int g = 0; g < kClassicGroups; ++g)
         if (t.players[size_t(g)]) s += L" " + widen(classicPlayerName(uint32_t(g), n));
     std::transform(s.begin(), s.end(), s.begin(), ::towlower);
@@ -310,6 +367,7 @@ inline ClassicTrigger* ctModelSelectedMut(CtModel& m) {
 inline void ctModelLoad(CtModel& m, Editor& ed) {
     m.strings = ed.strings();
     m.trig = classicCollapseBatches(ed.classicTriggers(), m.strings);
+    if (modTab()) m.trig = stardraft::cmbw::crigCollapse(m.trig, m.strings);  // (a Cosmonarchy map: its commands as rows)
     m.before = m.trig.triggers;
 }
 
@@ -525,14 +583,26 @@ inline int ctModelApply(CtModel& m, Editor& ed, std::wstring& message) {
         message = L"Could not set the classic triggers. A long trigger needs a switch that no trigger uses.";
         return kCtApplyRefused;
     }
-    // The strings this page made that no action uses now go again.
+    if (!stardraft::cmbw::crigFits(m.trig, m.strings)) {  // (a Cosmonarchy map: a Comment of commands takes a slot again)
+        message = L"Could not set the classic triggers. A trigger needs more than 64 actions once its Cosmonarchy commands are written.";
+        return kCtApplyRefused;
+    }
+    // The strings this page made that no action uses now go again (a Cosmonarchy command's row uses its Comment's).
     for (uint32_t id : m.ownStrings) {
         bool used = false;
-        for (const ClassicTrigger& t : m.trig.triggers)
-            for (int i = 0; i < t.actionCount() && !used; ++i) used = t.actions[size_t(i)].text == id;
+        for (const ClassicTrigger& t : m.trig.triggers) {
+            for (int i = 0; i < t.actionCount() && !used; ++i) used = t.actions[size_t(i)].text == id || (t.actions[size_t(i)].crig && t.actions[size_t(i)].crig->text == id);
+            for (int i = 0; i < t.conditionCount() && !used; ++i) used = t.conditions[size_t(i)].crig && t.conditions[size_t(i)].crig->text == id;
+        }
         if (!used) m.strings.set(id, "");
     }
-    const ClassicTriggers expanded = classicExpandBatches(m.trig, m.strings);  // the batches' triggers, as the game reads them
+    // The batches' triggers, as the game reads them. Command rows (Cosmonarchy) go back into Comments first, on any map
+    // (rows pasted into a standard map are Comments there); a Cosmonarchy map's page then reads them as the map opened
+    // again would.
+    ClassicTriggers reread;
+    const ClassicTriggers commands = stardraft::cmbw::crigExpand(m.trig, m.strings, &m.ownStrings, modTab() ? &reread : nullptr);
+    const ClassicTriggers expanded = classicExpandBatches(commands, m.strings);
+    if (modTab()) m.trig = std::move(reread);
     if (!ed.setClassicTriggers(expanded, &m.strings)) {
         message = L"Classic triggers: no change";
         return kCtApplyUnchanged;
@@ -558,7 +628,7 @@ inline bool ctPickerIsList(ClassicKind k) {
 
 inline bool ctIsChoiceOf(Editor& ed, const std::vector<ClassicAiScript>& ai, ClassicKind k, uint32_t v) {
     switch (k) {
-    case ClassicKind::Unit: return v <= 232;
+    case ClassicKind::Unit: return v <= 232 || (modTab() && v < ed.unitTypes().size() && !ed.unitTypes()[uint16_t(v)].name.empty());
     case ClassicKind::Location: {
         const int i = int(v) - 1;
         return v >= 1 && i < ed.locationCount() && (ed.locationUsed(i) || i == kAnywhereLocation);
@@ -660,8 +730,10 @@ public:
     virtual void entryMenu(int kind, int i, draw::Point at) = 0;
     virtual void addClick(int kind, draw::Rect link) = 0;  // "Add a condition/action": `link` in the list's coordinates
     virtual void chipClick(int kind, int i, int pi, draw::Rect chip) = 0;
+    virtual void chipStep(int /*kind*/, int /*i*/, int /*pi*/, int /*dir*/) {}  // the wheel over a value chip: the next (1) or the one before (-1)
     virtual void toggleCollapsed(int i) = 0;
     virtual void entriesLaid(int height) = 0;  // the entries' height changed: the editor follows
+    virtual void addKey(int /*kind*/) {}       // C or A on the page: "Add a condition/action" as its click (the entries' link)
     // A key on a list (`isList`: the trigger list, else the entries): true when it is one of the list's keys.
     virtual bool listKey(bool /*isList*/, const draw::KeyEvent& /*e*/) { return false; }
 };
@@ -728,7 +800,7 @@ public:
     // The conditions and actions at the Triggers workspace's zoom (Ctrl+mouse wheel; roadmap R23): sizes (scale) and
     // the UI font grow or shrink while they paint, as the workspace's pane does. The click areas are recorded as it paints.
     void paint(draw::Canvas& c) override {
-        hits_.clear();
+        hits_.clear(), chips_.clear();
         if (triggers_) return paintTriggers(c);
         const int zoom = gDock.triggerZoom;
         draw::Font of{};
@@ -741,6 +813,17 @@ public:
         if (of) c.setFont(of);
     }
     bool key(const draw::KeyEvent& e) override { return host_.listKey(triggers_, e); }
+    // C or A on the page (the program's keys, sdl_classic_triggers.inc: sdlClassicAdd): that list's add link, as a click
+    // on it (nothing when no trigger is selected or the list is full). The picker opens at the link as last painted (at
+    // the top before a paint), or at the view's edge when the link is scrolled out of it.
+    void addFromKey(int kind) const {
+        const ClassicTrigger* t = host_.selectedTrigger();
+        if (!t || (kind ? t->actionCount() >= kClassicActions : t->conditionCount() >= kClassicConditions)) return;
+        draw::Rect r = addLink_[kind];
+        if (r.width() <= 0) r = {scale(10), 0, width() - scale(10), scale(30)};
+        const int dy = std::clamp(r.top, 0, std::max(0, height() - r.height())) - r.top;
+        host_.addClick(kind, {r.left, r.top + dy, r.right, r.bottom + dy});
+    }
 
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
@@ -795,6 +878,16 @@ public:
                 setMessage(L"Zoom " + std::to_wstring(z) + L"%");
                 return true;
             }
+            // Over a value chip: its value steps (as a dropdown's: away from the user, the one before); a part of a notch waits.
+            if (!triggers_ && !e.horizontal && !(e.mods & draw::kCtrl))
+                for (const Chip& ch : chips_)
+                    if (ch.r.contains(e.pt)) {
+                        wheelAcc_ += e.wheel;
+                        while (wheelAcc_ >= 1) wheelAcc_ -= 1, host_.chipStep(ch.kind, ch.i, ch.pi, -1);
+                        while (wheelAcc_ <= -1) wheelAcc_ += 1, host_.chipStep(ch.kind, ch.i, ch.pi, 1);
+                        return true;
+                    }
+            wheelAcc_ = 0;
             scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(26)) * 3.0f))));
             return true;
         default: return false;
@@ -924,13 +1017,19 @@ private:
         const draw::Color line = dim ? kReadOnlyLine : over ? kAccentLine : kChipLine;
         c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
     }
-    void addRow(draw::Canvas& c, draw::Rect r, const std::wstring& text, std::function<void()> click, const std::wstring& tip, bool enabled) {
+    void addRow(draw::Canvas& c, draw::Rect r, const std::wstring& text, std::function<void()> click, const std::wstring& tip, bool enabled,
+                const wchar_t* keyName = nullptr) {
         const bool over = enabled && hot(r);  // (a link: no box; its icon and text light up under the mouse)
         const int is = scale(14);
         const draw::Color col = !enabled ? kFaint : over ? kAccent : kDim;
         const draw::Rect ir{r.left + scale(4), (r.top + r.bottom - is) / 2, r.left + scale(4) + is, (r.top + r.bottom + is) / 2};
         c.icon(ir, int(UiIcon::Add), col, is);
-        c.text({ir.right + scale(8), r.top, r.right - scale(8), r.bottom}, text, col, draw::kMiddle | draw::kEllipsis);
+        const draw::Rect tr{ir.right + scale(8), r.top, r.right - scale(8), r.bottom};
+        c.text(tr, text, col, draw::kMiddle | draw::kEllipsis);
+        if (keyName && enabled) {  // (its key, faint, after the text)
+            const int kx = tr.left + c.measure(text) + scale(10);
+            if (kx + c.measure(keyName) < tr.right) c.text({kx, r.top, tr.right, r.bottom}, keyName, kFaint, draw::kMiddle);
+        }
         hit(r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
     }
     static draw::Rect squareOf(draw::Rect r) {
@@ -948,6 +1047,22 @@ private:
             const draw::Rect r = squareOf({x, y, x + w, y + h});
             const bool over = a.enabled && hot(r);
             if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+            if (a.icon == UiIcon::Power) {  // Turn on or off: a check box, ticked while it is on (a.on: it is off)
+                const auto& th = stardraft::kit::theme();
+                const int bs = scale(14), bx = (r.left + r.right - bs) / 2, by = (r.top + r.bottom - bs) / 2;
+                const draw::Rect b{bx, by, bx + bs, by + bs};
+                const bool ticked = !a.on;  // (a box that cannot change, a block's: in the dim colors)
+                c.roundBox(b, ticked && a.enabled ? th.accentFill : th.ctl,
+                           !a.enabled ? th.borderStrong : ticked ? th.accent : over ? th.borderHot : th.borderStrong, float(scale(3)));
+                if (!a.on) {
+                    const draw::Point mark[3] = {{b.left + bs * 22 / 100, b.top + bs * 52 / 100}, {b.left + bs * 42 / 100, b.top + bs * 72 / 100},
+                                                 {b.left + bs * 78 / 100, b.top + bs * 30 / 100}};
+                    c.polyline(mark, 3, a.enabled ? th.onText : th.dim, std::max(1, scale(2)));
+                }
+                hit(r, a.enabled ? a.click : nullptr, a.tip, a.enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
+                x += w;
+                continue;
+            }
             const bool quiet = a.tone == stardraft::kit::Tone::Quiet;
             const draw::Color rest = quiet && a.on ? kWarn : a.on || a.tone == stardraft::kit::Tone::Primary ? kAccent : kDim;
             draw::Color lit = kText;
@@ -1009,6 +1124,10 @@ private:
                     const ClassicParam& p = def->params[size_t(s.param)];
                     const int pi = s.param;
                     hit(r, [this, kind, index, pi, r] { host_.chipClick(kind, index, pi, r); }, host_.chipTip(p), draw::Cursor::Hand);
+                    chips_.push_back({r, kind, index, pi});
+                } else if (r.right > r.left && e.type == kClassicCrigType && s.param >= 0) {  // a Cosmonarchy command's value
+                    const int pi = s.param;
+                    hit(r, [this, kind, index, pi, r] { host_.chipClick(kind, index, pi, r); }, L"", draw::Cursor::Hand);
                 }
             }
         }
@@ -1033,7 +1152,8 @@ private:
         rows_[0].clear();
         int y = -scroll_;
         const ClassicNames n = host_.names();
-        addRow(c, {scale(10), y + scale(2), w - scale(10), y + scale(32)}, L"Add a trigger", [this] { host_.addTrigger(); }, L"Add a trigger after the selected one", true);
+        addRow(c, {scale(10), y + scale(2), w - scale(10), y + scale(32)}, L"Add a trigger", [this] { host_.addTrigger(); },
+               L"Add a trigger after the selected one (T)", true, L"T");
         y += scale(38);
         if (host_.shown().empty()) y = noneRow(c, scale(10), y, w);
         const std::vector<int> shown = host_.shown();
@@ -1073,11 +1193,11 @@ private:
                 continue;
             }
             const int parts = ctPartsOf(t);  // a trigger too long for 64 slots is several triggers in the map
-            const int actionCount = t.actionCount();
-            const int right = r.right - scale(8) - scale(stardraft::kit::kIconBox) * 3;
+            // (the text runs to the row's end, but for the icons on the selected or hovered row)
+            const int right = r.right - scale(8) - (lit || hot(r) ? scale(stardraft::kit::kIconBox) * 3 : 0);
             const draw::Rect top{textX, r.top, right, (r.top + r.bottom) / 2 + scale(1)}, bottom{textX, top.bottom - scale(2), right, r.bottom};
-            // The first condition (Always when there is none), and the Off chip at the right of it.
-            std::wstring first = t.conditionCount() ? widen(classicConditionText(t.conditions[0], n)) : L"Always";
+            // Its name (ctTriggerName, or its comment), and the Off chip at the right of it.
+            std::wstring first = ctTriggerName(t, n);
             if (const int ci = ctCommentEntry(t); ci >= 0 && t.actions[size_t(ci)].text && n.string) {  // the comment as its title
                 const std::string note = n.string(t.actions[size_t(ci)].text);
                 if (!note.empty()) first = widen(note);
@@ -1094,11 +1214,11 @@ private:
             const draw::Rect head{textX, top.top, textRight, top.bottom};
             // (a turned-off trigger's line is in the warning color, as the native paint left it after the Off chip)
             c.text(head, std::to_wstring(i + 1) + L". " + first, t.disabled() ? kWarn : textOfRow(lit), draw::kBottom | draw::kEllipsis);
-            // The players and the number of actions: "Player 1, Player 2 | 2 actions".
+            // The players: "Player 1, Player 2".
             std::wstring who;
             for (int g = 0; g < kClassicGroups; ++g)
                 if (t.players[size_t(g)]) who += (who.empty() ? L"" : L", ") + widen(classicPlayerName(uint32_t(g), n));
-            const std::wstring tail = (who.empty() ? L"No players" : who) + L" | " + std::to_wstring(actionCount) + (actionCount == 1 ? L" action" : L" actions");
+            const std::wstring tail = who.empty() ? std::wstring(L"No players") : who;
             c.text(bottom, tail, kDim, draw::kEllipsis);
             rowActions(c, r,
                        {{UiIcon::Power, t.disabled() ? L"Turn on" : L"Turn off", [this, i] { host_.toggleTrigger(i); }, stardraft::kit::Tone::Quiet, t.disabled()},
@@ -1155,13 +1275,13 @@ private:
                     hit(column, [this, i] { host_.toggleCollapsed(i); }, shut ? L"Show the actions of the block" : L"Hide the actions of the block",
                         draw::Cursor::Hand);
                 }
-                // The row's actions: a block (edit, turn on or off, duplicate, delete); an action (turn on or off, move out,
-                // move in, duplicate, delete); a condition (turn on or off, duplicate, delete).
+                // The row's actions: a block (edit, turn on or off, duplicate, delete); an action (turn on or off, move out
+                // and move in when it can go out of or into a For each block, duplicate, delete); a condition (turn on or
+                // off, duplicate, delete).
                 std::vector<CtAction> acts;
                 if (isBlock) acts.push_back({UiIcon::Edit, L"Edit the block", [this, i] { host_.editBlock(i); }});
                 acts.push_back({UiIcon::Power, off ? L"Turn on" : L"Turn off", [this, kind, i] { host_.toggleEntry(kind, i); }, stardraft::kit::Tone::Quiet, off, !isBlock});
-                if (kind) {
-                    const bool canOut = ctCanMoveRow(*t, i, false), canIn = ctCanMoveRow(*t, i, true);
+                if (const bool canOut = kind && ctCanMoveRow(*t, i, false), canIn = kind && ctCanMoveRow(*t, i, true); canOut || canIn) {
                     acts.push_back({UiIcon::Back, L"Move out (Ctrl+Left)", [this, i] { host_.moveRow(i, false); }, stardraft::kit::Tone::Normal, false, canOut});
                     acts.push_back({UiIcon::Forward, L"Move in (Ctrl+Right)", [this, i] { host_.moveRow(i, true); }, stardraft::kit::Tone::Normal, false, canIn});
                 }
@@ -1193,7 +1313,9 @@ private:
                     text = tr(L"Add an action to For each ") + widen(t->actions[size_t(host_.entryIndex())].batch->name) + L"\x2026";
                     tip = L"Add an action inside the block (the end of its actions)";
                 }
-                addRow(c, lr, text, [this, kind, lr] { host_.addClick(kind, lr); }, tip, !full);
+                addRow(c, lr, text, [this, kind, lr] { host_.addClick(kind, lr); }, tip.empty() ? (kind ? L"Add an action (A)" : L"Add a condition (C)") : tip,
+                       !full, kind ? L"A" : L"C");
+                addLink_[kind] = lr;
                 y += scale(30);
             }
             y += scale(16);
@@ -1207,6 +1329,13 @@ private:
     std::vector<draw::Rect> rows_[3];  // the rows of each list as painted: the triggers, the conditions, the actions
     Drag drag_;
     draw::Rect hoverRect_;  // the part the mouse is over (its hit's rectangle at the last move)
+    draw::Rect addLink_[2];  // the entries' add links as last painted: the conditions', the actions'
+    struct Chip {  // a value chip as last painted: its entry and its value (the wheel steps it)
+        draw::Rect r;
+        int kind, i, pi;
+    };
+    std::vector<Chip> chips_;
+    float wheelAcc_ = 0;
     int scroll_ = 0, height_ = 0, laid_ = -1;
 };
 
@@ -1219,11 +1348,12 @@ class CtHeadView final : public draw::View {
 public:
     struct Callbacks {
         std::function<void()> players;  // the Players field was clicked: its list
-        std::function<void()> turnOff, deleteTrig;
+        std::function<void(bool on)> turnOff;  // the On box was clicked: the trigger on or off as it is now
+        std::function<void()> deleteTrig;
         std::function<void()> comment;  // the trigger's comment (roadmap R62)
     };
     explicit CtHeadView(Callbacks cb)
-        : turnOff(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Power)), stardraft::kit::IconStyle::Bare, L"Turn off the trigger", std::move(cb.turnOff)),
+        : turnOff(L"", false, std::move(cb.turnOff)),
           deleteTrig(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Delete)), stardraft::kit::IconStyle::Bare, L"Delete the trigger", std::move(cb.deleteTrig),
                      stardraft::kit::Tone::Danger),
           comment(L"", std::move(cb.comment), stardraft::kit::Tone::Quiet) {
@@ -1243,7 +1373,8 @@ public:
     }
 
     stardraft::kit::Label title, count;
-    stardraft::kit::IconButton turnOff, deleteTrig;  // (icons: the page's quieter look)
+    stardraft::kit::CheckBox turnOff;      // on or off: ticked while the trigger is on
+    stardraft::kit::IconButton deleteTrig;  // (an icon: the page's quieter look)
     stardraft::kit::Link comment;  // the trigger's comment: Add a comment, or its text (a click edits it)
     stardraft::kit::Dropdown players;  // the players, comma-separated; a click opens their list (ctPlayersClick)
 

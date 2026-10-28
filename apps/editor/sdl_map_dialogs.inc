@@ -178,6 +178,7 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
             k.label = accessFree(it.label), k.shortcut = it.shortcut, k.checked = it.checked, k.enabled = !it.grayed && it.id != 0;
             for (const auto& [id, icon] : icons)
                 if (id == it.id) k.icon = int(icon);
+            if (it.id == ID_MAPMENU_FEEDBACKSEL) k.icon = int(kFeedbackIcon), k.iconColor = draw::Color(kFeedback);  // (as Report feedback)
             const int id = it.id;
             k.run = [id] {
                 mapMenuPick(id);
@@ -203,10 +204,19 @@ void mapRightClickSdl(draw::View& map, draw::Point at) {
     }
     float wx, wy;
     toWorld(at.x, at.y, wx, wy);
-    const std::vector<kit::MenuItem> items = mapMenuKit(mapMenuModel(wx, wy));
+    const MenuModel model = mapMenuModel(wx, wy);
+    const std::vector<kit::MenuItem> items = mapMenuKit(model);
     gState.dirty = true;
     map.invalidate();
-    sdlPopupMenu(map, at, items, sdlFeedbackOn(map, at, L"the map"));  // (sdl_menus.inc: with Report feedback, as on Windows)
+    // (Report feedback, as on Windows; on a terrain selection: the menu's own, on the selected terrain, in its place)
+    const bool own = std::any_of(model.begin(), model.end(), [](const MenuItem& it) { return it.id == ID_MAPMENU_FEEDBACKSEL; });
+    if (own) {
+        ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own, as sdlPopupMenu)
+        kit_sdl::ImguiCanvas measure(list, nullptr);
+        kit::Menu::popup(map, at, items, kit::Menu::measure(items, &measure), {});
+    } else {
+        sdlPopupMenu(map, at, items, sdlFeedbackOn(map, at, L"the map"));  // (sdl_menus.inc)
+    }
 }
 
 // --- The quick picker (Q, Quick open, Replace with...; core/views_quick_pick.inc) -----------------------------------

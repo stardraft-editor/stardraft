@@ -230,7 +230,7 @@ void NewPageView::paint(draw::Canvas& c) {
             const std::wstring map = fromMapText();
             sub = map.empty() ? L"an imported map" : L"imported from " + fs::path(map).filename().wstring();
         }
-        y = titleBlock(c, x1, y, x3 + w3, kKindNames[proj ? 1 : 0], sub, proj ? UiIcon::NewProject : UiIcon::New);
+        y = titleBlock(c, x1, y, x3 + w3, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0], sub, proj ? UiIcon::NewProject : UiIcon::New);
     }
     const int top = y + scale(8);
 
@@ -321,6 +321,7 @@ void NewPageView::paint(draw::Canvas& c) {
     startOffered.clear();
     for (int k = 0; k < 4; ++k) {
         if (k == 2) continue;  // Import an existing map (an EUD project's): hidden for now
+        if (k == 1 && cosmonarchy) continue;  // (a Cosmonarchy map: no generated terrain)
         if (k == 3) continue;  // The terrain of a map: not offered (as in 0.5)
         startOffered += std::string(startOffered.empty() ? "" : ",") + (k == 3 ? "terrain" : k == 2 ? "import" : k == 1 ? "generate" : "blank");
         const bool on = k == 3 ? terrainOnly : k == 2 ? copyMap : !copyMap && !terrainOnly && generate == (k == 1);

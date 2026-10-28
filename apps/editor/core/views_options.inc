@@ -22,7 +22,6 @@ struct OptionsValues {
     int defaultAccent = 0;     // the accent that is the default (its tooltip says so)
     bool systemTheme = false;  // the Theme row has Automatic: the system's theme (macOS); it is the default then
     bool themeAuto = false;    // the theme is the system's
-    bool animate = false;
     bool middleDrag = true;   // the middle button drags the map (else it pans it)
     int volume = 0;           // every sound's volume, 0 to 100
     int language = 0;         // the chosen language (its choice index, ids.inc's ID_OPT_LANG + index)
@@ -31,6 +30,7 @@ struct OptionsValues {
     int unitNames = 0;        // how lists name a unit with a custom name (0 to 3)
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
+    int gameMode = 0;         // Mods > Game: 0 Standard, 1 Cosmonarchy (core/cmbw.inc cmbwMode)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
@@ -39,6 +39,9 @@ struct OptionsValues {
     std::wstring projectsFolder;  // the working folder (the default one when none is set)
     std::wstring installInUse;    // the StarCraft folder in use ("": none)
     std::wstring installNext;     // the folder used from the next start ("": the same)
+    std::wstring cmbwFolder;      // Mods: the Cosmonarchy install in use, else the one it opens from
+    std::wstring cmbwNext;        // ... the one used from the next start ("": the same)
+    bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
     int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
@@ -75,21 +78,25 @@ namespace optionsview {
 // The sections of the window, in their order (the headers), and the tabs of a Settings window (macOS): each tab shows
 // some sections, in this order.
 enum Section : unsigned {
-    kAppearance = 1u << 0, kMouse = 1u << 1, kUnitNames = 1u << 2, kUnitLimit = 1u << 3, kStart = 1u << 4,
-    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kAllSections = (1u << 9) - 1,
+    kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
+    kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kMods = 1u << 9,
+    kAllSections = (1u << 10) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the toolbar item's label and the window's title
     unsigned sections;
 };
 inline const Tab kTabs[] = {
-    {L"General", kAppearance | kMouse},
+    {L"General", kStart | kAppearance | kMouse | kMods},
     {L"Map", kUnitNames | kUnitLimit},
-    {L"Start", kStart | kUpdates},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
+    {L"Updates", kUpdates},
     {L"Simulation", kSimulation},
 };
 constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
+
+// The games that maps open with (Mods > Game's items, in the order of ID_GAME_MODE + i: core/cmbw.inc gameMode).
+const wchar_t* const kGames[] = {L"Standard (StarCraft: Brood War)", L"Cosmonarchy BW"};
 
 // The names of the unit name forms (the dropdown's items).
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
@@ -99,9 +106,6 @@ inline const int kSimWorkers[] = {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30};
 inline const int kSimGas[] = {0, 1, 2, 3};
 inline const int kSimMinutes[] = {1, 2, 3, 5, 10, 15, 20};
 const wchar_t* const kSimRaces[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
-
-// The small font of the notes (the labels' size less a sixth).
-inline draw::Font notesFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
 
 }  // namespace optionsview
 
@@ -123,9 +127,6 @@ public:
         }
         for (int i = 0; i < 3; ++i) crashSeg_[i].onClick = [this, i] { host_.command(ID_CRASH_MODE + i); };
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
-        animate_.setLabel(L"Animate units");
-        animate_.setTip(L"Units on the map play their animations");
-        animate_.onChange = [this](bool) { host_.command(ID_OPT_ANIMATE); };
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
         updates_.setLabel(L"Look for updates");
@@ -134,15 +135,23 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&animate_), static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
                         static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
         };
         unitNames_.onChange = [this](int i) { host_.setUnitNames(i); };
+        game_.onChange = [this](int i) { host_.command(ID_GAME_MODE + i); };
+        game_.wheelSteps = false;  // (the wheel scrolls the window: a game changes only by a pick)
         add(language_, {0, 0, 0, 0}), language_.setVisible(false);
         add(unitNames_, {0, 0, 0, 0}), unitNames_.setVisible(false);
+        add(game_, {0, 0, 0, 0}), game_.setVisible(false);
+        {
+            std::vector<stardraft::kit::DropdownItem> games;
+            for (const wchar_t* n : optionsview::kGames) games.push_back({n});
+            game_.setItems(games);
+        }
         std::vector<stardraft::kit::DropdownItem> forms;
         for (const wchar_t* n : optionsview::kUnitNameForms) forms.push_back({n});
         unitNames_.setItems(forms);
@@ -191,14 +200,17 @@ public:
         }
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
-        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0});
-        folder_.setVisible(false), install_.setVisible(false);
+        cmbw_.setReadOnly(true), cmbw_.setTabStop(false);
+        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0});
+        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false);
         browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder where StarDraft 2 makes new projects");
         browse_.onClick = [this] { host_.browseWorkingFolder(); };
         defaultFolder_.setText(L"Default"), defaultFolder_.setTip(L"Documents\\StarDraft");
         defaultFolder_.onClick = [this] { host_.useDefaultWorkingFolder(); };
         installBrowse_.setText(L"Browse\x2026"), installBrowse_.setTip(L"Select the StarCraft: Remastered folder");
         installBrowse_.onClick = [this] { host_.command(ID_OPT_INSTALL); };
+        cmbwBrowse_.setText(L"Browse\x2026"), cmbwBrowse_.setTip(L"Select the Cosmonarchy BW folder");
+        cmbwBrowse_.onClick = [this] { host_.command(ID_OPT_CMBWFOLDER); };
         check_.setText(L"Check now"), check_.setTip(L"Look for a newer release now");
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };
         restart_.setText(L"Restart now"), restart_.setTip(L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
@@ -207,7 +219,7 @@ public:
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &check_, &restart_, &maps_, &close_}) b->setVisible(false);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &maps_, &close_}) b->setVisible(false);
     }
 
     // The window's size (the host asks): the content's height and what the footer takes.
@@ -258,7 +270,6 @@ public:
     // again (onTabHeight: the new window takes it).
     void resetScroll() { scroll_ = 0, tabHeight_ = 0; }
     // The fields and check boxes the tests drive.
-    stardraft::kit::CheckBox& animate() { return animate_; }
     stardraft::kit::TextField& limitField(int k) { return limit_[k]; }
 
     void paint(draw::Canvas& c) override;
@@ -324,7 +335,7 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &check_, &restart_, &maps_, &close_}) out.push_back(b);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &maps_, &close_}) out.push_back(b);
         return out;
     }
     int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_)); }
@@ -358,12 +369,12 @@ private:
 
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
-    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox animate_, lastProject_, updates_, previews_;
-    stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
+    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, maps_, close_;
+    stardraft::kit::CheckBox lastProject_, updates_, previews_;
+    stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1}, game_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], folder_, install_;
+    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -407,8 +418,9 @@ void OptionsView::sync(const OptionsValues& v) {
         crashChosen_ = crash;
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
+    if (game_.value() != v.gameMode) game_.setValue(v.gameMode);
     accents_ = v.accents;
-    animate_.setOn(v.animate), lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -441,6 +453,8 @@ void OptionsView::sync(const OptionsValues& v) {
     if (folder_.text() != v.projectsFolder) folder_.setText(v.projectsFolder);
     const std::wstring inst = v.installInUse.empty() ? std::wstring(L"\x2014") : v.installInUse;
     if (install_.text() != inst) install_.setText(inst);
+    const std::wstring mod = v.cmbwFolder.empty() ? std::wstring(L"\x2014") : v.cmbwFolder;
+    if (cmbw_.text() != mod) cmbw_.setText(mod);
 }
 
 void OptionsView::paint(draw::Canvas& c) {
@@ -469,10 +483,9 @@ void OptionsView::paint(draw::Canvas& c) {
         y += rowH + scale(6);
     };
     auto label = [&](const wchar_t* name) { c.text({x0, y, x0 + labelW, y + rowH}, name, kDim, draw::kMiddle | draw::kEllipsis); };
+    // A note under a row: the labels' size and color (a smaller font was too small to read).
     auto note = [&](int x, int noteY, const std::wstring& text) {
-        const draw::Font o = c.setFont(optionsview::notesFont(c));
         c.text({x, noteY, colRight, noteY + scale(20)}, text, kDim, draw::kMiddle | draw::kEllipsis);
-        c.setFont(o);
     };
     // A button of a row at x (its own width), its top at `top`.
     auto buttonAt = [&](stardraft::kit::Button& b, int x, int top, int h, const std::string& part) {
@@ -509,6 +522,21 @@ void OptionsView::paint(draw::Canvas& c) {
     placed_.clear();
     tabOrder_.clear();
     c.pushClip({0, 0, W, contentBottom_});  // the content scrolls above the footer
+
+    // Start.
+    if (shown & optionsview::kStart) {
+        header(L"Start");
+        checkRow(y, lastProject_, "lastproject");
+        y += rowH;
+        // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
+        if (v.mapsRow) {
+            label(L"Maps");
+            if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
+            else smallAt(maps_, fx, y, "maps");
+            y += rowH;
+        }
+        y += pad;
+    }
 
     // Appearance.
     if (shown & optionsview::kAppearance) {
@@ -553,8 +581,6 @@ void OptionsView::paint(draw::Canvas& c) {
             if (v.accent >= 0 && v.accent < int(v.accents.size()))
                 note(fx + int(v.accents.size()) * (s + scale(8)) + scale(4), y + (rowH - scale(20)) / 2, v.accents[size_t(v.accent)].name);
         }
-        y += rowH;
-        checkRow(y, animate_, "animate");
         y += rowH;
         // The volume: its name and value, a slider.
         {
@@ -606,59 +632,6 @@ void OptionsView::paint(draw::Canvas& c) {
         y += scale(20) + pad;
     }
 
-    // Simulate mining (experimental: Tools > Simulate mining).
-    if (shown & optionsview::kSimulation) {
-        header(L"Simulate mining");
-        const std::pair<const wchar_t*, std::pair<stardraft::kit::Dropdown*, const char*>> rows[] = {
-            {L"Workers on minerals at each base", {&simWorkers_, "sim.workers"}},
-            {L"Workers on gas", {&simGas_, "sim.gas"}},
-            {L"Measured game time", {&simMinutes_, "sim.minutes"}},
-            {L"Races", {&simRace_, "sim.races"}}};
-        for (const auto& [name, drop] : rows) {
-            label(name);
-            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
-            place(*drop.first, box, true);
-            parts_[drop.second] = box;
-            y += rowH;
-        }
-        note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");
-        y += scale(20) + pad;
-    }
-
-    // Start.
-    if (shown & optionsview::kStart) {
-        header(L"Start");
-        checkRow(y, lastProject_, "lastproject");
-        y += rowH;
-        // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
-        label(L"Crash reports");
-        segmented(y, crashSeg_, 3, "crashreports");
-        y += rowH;
-        // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
-        if (v.mapsRow) {
-            label(L"Maps");
-            if (v.mapsWithSD2) note(fx, y + (rowH - scale(20)) / 2, L"Maps (.scm, .scx) open with StarDraft 2");
-            else smallAt(maps_, fx, y, "maps");
-            y += rowH;
-        }
-        y += pad;
-    }
-
-    // Updates: the check at start and each hour (the top bar's Update shows a newer release), and the track.
-    if (shown & optionsview::kUpdates) {
-        header(L"Updates");
-        {
-            const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
-            place(updates_, cr, true);
-            parts_["updatecheck"] = cr;
-            smallAt(check_, cr.right + scale(16), y, "check");
-        }
-        y += rowH;
-        checkRow(y, previews_, "previews");
-        y += rowH;
-        y += pad;
-    }
-
     // The working folder: where new projects go.
     if (shown & optionsview::kWorkingFolder) {
         header(L"Working folder");
@@ -687,6 +660,73 @@ void OptionsView::paint(draw::Canvas& c) {
         y += rowH;
         note(x0, y - scale(4),
              !v.installNext.empty() ? L"From the next start: " + v.installNext : std::wstring(L"A new folder is used from the next start"));
+        y += scale(20) + pad;
+    }
+
+    // Updates: the check at start and each hour (the top bar's Update shows a newer release), the track, and crash reports.
+    if (shown & optionsview::kUpdates) {
+        header(L"Updates and crash reports");
+        {
+            const draw::Rect cr{x0, y, x0 + scale(24) + c.measure(updates_.label()), y + rowH};  // as ui::check
+            place(updates_, cr, true);
+            parts_["updatecheck"] = cr;
+            smallAt(check_, cr.right + scale(16), y, "check");
+        }
+        y += rowH;
+        checkRow(y, previews_, "previews");
+        y += rowH;
+        // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
+        label(L"Crash reports");
+        segmented(y, crashSeg_, 3, "crashreports");
+        y += rowH;
+        y += pad;
+    }
+
+    // Simulate mining (experimental: Tools > Simulate mining).
+    if (shown & optionsview::kSimulation) {
+        header(L"Simulate mining");
+        const std::pair<const wchar_t*, std::pair<stardraft::kit::Dropdown*, const char*>> rows[] = {
+            {L"Workers on minerals at each base", {&simWorkers_, "sim.workers"}},
+            {L"Workers on gas", {&simGas_, "sim.gas"}},
+            {L"Measured game time", {&simMinutes_, "sim.minutes"}},
+            {L"Races", {&simRace_, "sim.races"}}};
+        for (const auto& [name, drop] : rows) {
+            label(name);
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
+            place(*drop.first, box, true);
+            parts_[drop.second] = box;
+            y += rowH;
+        }
+        note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");
+        y += scale(20) + pad;
+    }
+
+    // Mods: the game the maps open with (Standard or Cosmonarchy BW: the only switch for the mod's parts) and the mod's
+    // folder (core/cmbw.inc).
+    if (shown & optionsview::kMods) {
+        header(L"Mods");
+        label(L"Game");
+        {
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
+            place(game_, box, true);
+            parts_["game"] = box;
+        }
+        y += rowH;
+        if (v.gameMode != 1) y += pad;  // (the section's end: no folder row below)
+    }
+    if ((shown & optionsview::kMods) && v.gameMode == 1) {  // (the Cosmonarchy folder: only in that game)
+        label(L"Cosmonarchy folder");
+        const int cw = cmbwBrowse_.preferredWidth(c);
+        const draw::Rect cf{fx, fieldTop(y), colRight - cw - gap, fieldTop(y) + fieldH};
+        place(cmbw_, cf, true);
+        const int cy = buttonTop(y);
+        place(cmbwBrowse_, {colRight - cw, cy, colRight, cy + btnH}, true);
+        parts_["cmbwfolder"] = {colRight - cw, cy, colRight, cy + btnH};
+        y += rowH;
+        note(fx, y - scale(4),
+             !v.cmbwNext.empty() ? L"From the next start: " + v.cmbwNext
+             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used from the next start")
+                                 : std::wstring(L"The Prerelease or Release folder"));
         y += scale(20) + pad;
     }
 
