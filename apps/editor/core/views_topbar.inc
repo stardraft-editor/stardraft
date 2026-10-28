@@ -65,7 +65,7 @@ struct TopBarView final : stardraft::draw::View {
             }
             const TopItem& it = kTopItems[i];
             const int cmd = it.cmd;
-            kitui::iconButton(c, surface, {x, y, x + b, y + b}, it.icon, [cmd] { command(cmd); }, it.tip, kitui::Icon::Bare, false,
+            kitui::iconButton(c, surface, {x, y, x + b, y + b}, it.icon, [cmd] { command(cmd); }, keyTip(tr(it.tip)), kitui::Icon::Bare, false,
                               commandEnabled(cmd), kitui::Tone::Normal);
             x += b + gap;
         }

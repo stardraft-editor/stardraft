@@ -20,7 +20,8 @@ case's options, {map}, {project}, {install} (the --install folder), {root} (the 
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
 name), {wav} (a short sound that the script writes in --out), {release} (GitHub's answer for the newest release, with a
 download for each system: RELEASE_JSON), {htmlpage} (the HTML view's test page HTML_PAGE, with its image), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
-Options > Units > Snap buildings to tile edges off)
+Options > Units > Snap buildings to tile edges off), {nokeyssettings} (a settings file with Program options > Single-key
+shortcuts off)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
 {script:<name>} is the path of the input script SCRIPTS[name] (main_sdl.cpp's --script), written into --out with the
 same paths in it. A run also fails when its output has "(WRONG)", or when the
@@ -78,12 +79,12 @@ CASES += [("ws-" + w, ["--workspace", w], "") for w in WORKSPACES]
 CASES += [
     ("check-window", ["--check", "window", "--lang", "en"], ""),
     ("check-window-system", ["--check", "window", "--lang", "en", "--theme", "system", "--accent", "system"], ""),
-    ("dialog-options-system", ["--dialog", "options", "--size", "720x820", "--theme", "system", "--accent", "system"], ""),
+    ("dialog-options-system", ["--dialog", "options", "--size", "720x600", "--theme", "system", "--accent", "system"], ""),
 ]
 CASES += [
     ("newpage-classic", ["--newpage", "classic"], ""),
     ("newpage-eud", ["--newpage", "eud"], ""),
-    ("dialog-options", ["--dialog", "options", "--size", "720x820"], ""),
+    ("dialog-options", ["--dialog", "options", "--size", "720x600"], ""),
     ("dialog-feedback", ["--dialog", "feedback", "--size", "592x370"], ""),
     ("dialog-newproject", ["--dialog", "newproject", "--size", "688x394"], ""),
     ("dialog-prompt", ["--dialog", "prompt", "--size", "385x105"], ""),
@@ -145,10 +146,11 @@ CASES += [
     # elsewhere one line says that they are macOS only. A second --check (another part's name) adds nothing to the
     # Dock's lines. Program options' tabs as macOS's Settings window shows them.
     ("check-dock", ["--check", "dock", "--check", "bundle"], ""),
-    ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x520"], ""),
-    ("dialog-options-tab-map", ["--dialog", "options:1", "--size", "720x520"], ""),
-    ("dialog-options-tab-start", ["--dialog", "options:2", "--size", "720x520"], ""),
-    ("dialog-options-tab-folders", ["--dialog", "options:3", "--size", "720x520", "--theme", "light"], ""),
+    ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x600"], ""),
+    ("dialog-options-tab-keyboard", ["--dialog", "options:1", "--size", "720x600"], ""),
+    ("dialog-options-tab-map", ["--dialog", "options:2", "--size", "720x600"], ""),
+    ("dialog-options-tab-folders", ["--dialog", "options:3", "--size", "720x600", "--theme", "light"], ""),
+    ("dialog-options-tab-updates", ["--dialog", "options:4", "--size", "720x600"], ""),
     # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
     # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
     # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
@@ -243,7 +245,7 @@ CASES += [
     # The Triggers code pane's menu (Copy all, Select all), and Report feedback in a dialog (Program options, a block's
     # help page): a right click that no view takes there.
     ("project-rclick-code", ["--workspace", "triggers", "--trig", "1:0", "--trigcode", "--rclick", "1300,700"], "project"),
-    ("dialog-options-rclick", ["--dialog", "options", "--size", "720x820", "--rclick", "600,30"], ""),
+    ("dialog-options-rclick", ["--dialog", "options", "--size", "720x600", "--rclick", "600,80"], ""),
     ("dialog-blockhelp-rclick", ["--dialog", "blockhelp:act.createunit", "--size", "460x600", "--rclick", "200,300"], "data"),
     # A project open.
     # A trigger whose blocks name units: the units' pictures in the values (the second trigger of the second group).
@@ -285,7 +287,7 @@ CASES += [
     ("dialog-valuepop", ["--dialog", "valuepop"], ""),
     ("dialog-valuepop-number", ["--dialog", "valuepop:number"], ""),
     ("dialog-blockpick", ["--dialog", "blockpick", "--size", "1266x861"], "data"),
-    ("dialog-options-light", ["--dialog", "options", "--size", "720x820", "--theme", "light"], ""),
+    ("dialog-options-light", ["--dialog", "options", "--size", "720x600", "--theme", "light"], ""),
     ("map-log", ["--log"], "map"),
 ]
 # Edits, Undo and the save (the Windows self-test's steps): each key's line in the output says the units, the doodads,
@@ -797,6 +799,10 @@ CASES += [
     ("map-prompt-cycle", ["--mode", "locations", "--drag", "520,640-600,700", "--key", "F2"] + ["--key", "Tab"] * 8 +
      ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
     ("map-options-cycle", ["--key", "Ctrl+,"] + ["--key", "Tab"] * 60 + ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
+    # Program options: Ctrl+Tab and Ctrl+Shift+Tab go to the next tab and back, and the keyboard goes to the tab strip
+    # (not to a hidden option of the tab before).
+    ("map-options-ctrltab", ["--key", "Ctrl+,", "--key", "Tab", "--key", "Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+Shift+Tab",
+                             "--key", "Esc"], "map"),
     ("map-feedback-cycle", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 32 + ["--key", "Enter"] +
      ["--key", "Tab"] * 10 + ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
     # The Triggers tree takes typed letters (type-ahead) after a text field of the window had the keyboard: New trigger
@@ -1138,6 +1144,15 @@ def check_message_tab(output):
             tabs.append(m.group(1))
     if len(tabs) < 2 or tabs[0] != "1/1" or tabs[-1] != "0/0":
         return f"the tabs after each Ctrl+W: {tabs} (not 1/1, then 0/0)"
+    return None
+
+
+def check_options_ctrltab(output):
+    """None when Ctrl+Tab and Ctrl+Shift+Tab put the keyboard on the tab strip at the next tab and back."""
+    got = {inp: (kind, text) for inp, kind, text, _, _ in focus_lines(output)}
+    for key, tab in (("key Ctrl+Tab", "Mouse and keyboard"), ("key Ctrl+Shift+Tab", "General")):
+        if got.get(key) != ("tab strip", tab):
+            return f"{key}: focus {got.get(key)}, not the tab strip at {tab!r}"
     return None
 
 
@@ -3122,7 +3137,8 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 5 items: \"General\" \"Map\" \"Start\" \"Folders\" \"Simulation\"; selected"]
+             "settings: toolbar style preference; 6 items: \"General\" \"Mouse and keyboard\" \"Map\" \"Folders\" \"Updates\" "
+             "\"Simulation\"; selected"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"
@@ -3566,6 +3582,14 @@ CASES += [
     ("map-building-snap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
                            "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
 ]
+# Program options > Single-key shortcuts off ({nokeyssettings}): 3 and T do nothing (the player stays Player 1, the mode
+# stays Units); Ctrl+T still goes to the Terrain mode. With the default (on), 3 selects Player 3 and T goes to the
+# Terrain mode. The menus show the single keys only while they are on (Mode > Terrain [T]); Del stays.
+CASES += [
+    ("map-singlekeys-off", ["--settings", "{nokeyssettings}", "--mode", "units", "--key", "3", "--key", "T", "--key", "Ctrl+T",
+                            "--check", "menus"], "map"),
+    ("map-singlekeys-on", ["--mode", "units", "--key", "3", "--key", "T", "--check", "menus"], "map"),
+]
 
 
 def ui_lines(output):
@@ -3684,6 +3708,31 @@ def check_resize_undo(output):
     if sizes.get("key Ctrl+Z") != "128x128":
         return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"
     return None
+
+
+def check_single_keys(on):
+    """None when 3 and T change the player and the mode only while single-key shortcuts are `on` (and the menus show T only
+    then), and Ctrl+T changes the mode always."""
+    def check(output):
+        s = states(output)
+        want = [("key 3", "Units", "3" if on else "1"), ("key T", "Terrain" if on else "Units", None)]  # (Terrain: no player)
+        if not on:
+            want.append(("key Ctrl+T", "Terrain", None))
+        if len(s) != len(want):
+            return f"{len(s)} input lines, not {len(want)}"
+        lines = output.splitlines()
+        menus = ("menubar: Mode > Terrain" + (" [T]" if on else ""), "menubar: Edit > Delete [Del]")
+        for line in menus if sys.platform != "darwin" else ():  # (macOS: the system's menu bar has no single keys)
+            if line not in lines:
+                return f"no line {line!r}"
+        for (inp, st), (key, mode, player) in zip(s, want):
+            m = re.search(r" mode=(\w+) player=(\d+)", st)
+            if inp != key or not m:
+                return f"{key}: no state line ({inp})"
+            if m.group(1) != mode or (player and m.group(2) != player):
+                return f"{key}: mode {m.group(1)}, Player {m.group(2)}; not mode {mode}, Player {player}"
+        return None
+    return check
 
 
 def check_building_snap(snapped):
@@ -4191,7 +4240,8 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
-          "dialog-options-tab-start": check_options_tab, "dialog-options-tab-folders": check_options_tab,
+          "dialog-options-tab-keyboard": check_options_tab, "dialog-options-tab-folders": check_options_tab,
+          "dialog-options-tab-updates": check_options_tab,
           "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_release,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
@@ -4199,8 +4249,8 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-unitprops-cycle": check_dialog_cycle(["Invincible", "OK", "Cancel"]),
           "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "OK", "Cancel"]),
           "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
-          "map-options-cycle": check_dialog_cycle(["Dark", "Accent color", "Open the last project on start",
-                                                   "Look for updates", "Previews", "Default", "Close"]),
+          "map-options-ctrltab": check_options_ctrltab,
+          "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
           "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
@@ -4279,6 +4329,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
+          "map-singlekeys-off": check_single_keys(False), "map-singlekeys-on": check_single_keys(True),
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),
@@ -4765,13 +4816,17 @@ def main():
                  "Layout/UnitPaletteHeight": 420})))
         if any("{nosnapsettings}" in x for x in args):
             write_once(nosnapsettings, write_text(nosnapsettings, json.dumps({"Settings/SnapBuildings": 0})))
+        nokeyssettings = os.path.join(a.out, "nokeys-settings.json")  # {nokeyssettings}: Single-key shortcuts off
+        if any("{nokeyssettings}" in x for x in args):
+            write_once(nokeyssettings, write_text(nokeyssettings, json.dumps({"SingleKeyShortcuts": 0})))
         if any("{oldsettings}" in x for x in args):
             write_once(oldsettings, lambda: write_old_settings(oldsettings, a.out))
         if any("{legacyhive}" in x for x in args):
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
         paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, nokeyssettings=nokeyssettings,
+                     floatpalsettings=floatpalsettings, htmlpage=htmlpage)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

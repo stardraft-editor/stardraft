@@ -1688,6 +1688,13 @@ Drag map	Перетаскивание карты
 Pan map	Прокрутка карты
 Middle mouse click and hold drags the map	Зажатие средней кнопки мыши перетаскивает карту
 Middle mouse click and hold pans the map	Зажатие средней кнопки мыши прокручивает карту
+Mouse and keyboard	Мышь и клавиатура
+Keyboard	Клавиатура
+Single-key shortcuts	Сочетания из одной клавиши
+Each of these keys runs its command (default)	Каждая из этих клавиш выполняет свою команду (по умолчанию)
+The keys with no Ctrl or Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 to 0, + and -	Клавиши без Ctrl и Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1–0, + и -
+Single-key shortcuts are on	Сочетания из одной клавиши включены
+Single-key shortcuts are off	Сочетания из одной клавиши выключены
 &Quick open…\tCtrl+Shift+O	&Быстрое открытие…\tCtrl+Shift+O
 Go to an open tab, or open a recent project or map	Перейти к открытой вкладке или открыть недавний проект или карту
 Open tab: project	Открытая вкладка: проект

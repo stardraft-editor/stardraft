@@ -269,7 +269,7 @@ bool TabStrip::mouse(const draw::MouseEvent& e) {
             invalidate();
             return true;
         }
-        drag_ = h.index;
+        drag_ = movable ? h.index : -1;
         dragging_ = false;
         dragX_ = e.pt.x;
         selectByUser(h.index);  // (the owner may change the tabs here: nothing of the strip is used after it)

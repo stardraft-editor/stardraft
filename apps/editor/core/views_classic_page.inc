@@ -832,7 +832,7 @@ inline bool ctListKey(CtPageHost& h, bool isList, const draw::KeyEvent& e) {
         return ctDeleteEntry(h, m.kind, m.entry), true;
     }
     if (ctrl && k == Key('V')) return ctPaste(h), true;
-    if (!ctrl && !(e.mods & (draw::kAlt | draw::kShift)) && k == Key('Q')) return ctQuickAdd(h), true;  // Quick add (core/views_trigger_quick.inc)
+    if (gSingleKeys && !ctrl && !(e.mods & (draw::kAlt | draw::kShift)) && k == Key('Q')) return ctQuickAdd(h), true;  // Quick add (core/views_trigger_quick.inc)
     if (isList) {  // the checked triggers (Ctrl or Shift click) when there are some, else the selected one
         if (k == Key::Delete) return ctModelDeleteTriggers(m, h), true;
         if (ctrl && k == Key('D')) return ctModelDuplicateTriggers(m, h), true;

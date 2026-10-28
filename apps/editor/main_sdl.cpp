@@ -108,6 +108,7 @@
 #include "dropdown.h"  // apps/kit: the palette's dropdown (core/views_search.inc)
 #include "check_box.h"  // apps/kit: the players and forces page (core/views_players.inc)
 #include "slider.h"  // apps/kit: the volume and the generator's sliders (core/views_options.inc, core/views_new_page.inc)
+#include "tab_strip.h"  // apps/kit: the tabs of Program options (core/views_options.inc)
 #include "list_view.h"  // apps/kit: the palette and the Locations list (sdl_panels.inc)
 #include "button.h"  // apps/kit: the View button (sdl_panels.inc)
 #include "tree_view.h"  // apps/kit: the Triggers workspace's tree (core/views_triggers_tree.inc)
@@ -617,10 +618,10 @@ int main(int argc, char** argv) {
             pickInstallArg = openInstall(installArg, ignored) ? narrow(gInstallInUse.wstring()) : std::string();
         }
         if (!pickInstallArg.empty()) installFolderPicked(pickInstallArg);  // (a snapshot: the folder as Browse's dialog gives it)
-        // The dock layout (core/dock_prefs.inc), the recent lists, the working folder and the unit limits in the
-        // settings, as the Win32 program at its start (snapshots: the defaults).
+        // The dock layout (core/dock_prefs.inc), the recent lists, the working folder, the unit limits and Single-key
+        // shortcuts in the settings, as the Win32 program at its start (snapshots: the defaults).
         // (--settings: a snapshot reads the file's, and still saves nothing)
-        if (!gSilent || settingsArg) loadDock(), loadRecentLists(), loadUnitLimits();
+        if (!gSilent || settingsArg) loadDock(), loadRecentLists(), loadUnitLimits(), loadSingleKeys();
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)
@@ -769,9 +770,13 @@ int main(int argc, char** argv) {
             BlockPickView blockShot(gSdlBlockPickHost, false, {}, {});
             pickShot.setMulti({"0", "1", "37"}, L"Set");
             draw::View* shown = &root;
-            if (dialogArg == "options") shown = &gOptionsView;
-            else if (dialogArg.rfind("options:", 0) == 0) shown = &gOptionsView, gOptionsView.setTab(std::atoi(dialogArg.c_str() + 8));  // a tab of macOS's Settings window
-            else if (dialogArg == "feedback") shown = &feedbackShot;
+            if (dialogArg == "options" || dialogArg.rfind("options:", 0) == 0) {  // Program options at its first tab, or options:<tab>
+                shown = &gOptionsView;
+                gOptionsView.setTab(dialogArg == "options" ? 0 : std::atoi(dialogArg.c_str() + 8));
+#ifndef __APPLE__
+                gOptionsView.showTabStrip(true);  // (macOS: a Settings window, its tabs in the toolbar)
+#endif
+            } else if (dialogArg == "feedback") shown = &feedbackShot;
             else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;

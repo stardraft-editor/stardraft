@@ -1,9 +1,9 @@
 // Options > Program options (Ctrl+,): the options of the program in one window (portable, core.inc; the snap and placement
 // options are in the Options menu). A view: its rows are kit widgets (check boxes, dropdowns, text fields, a slider,
-// buttons), its section headers, labels, notes and accent swatches are painted on the canvas, and it scrolls with its
-// own bar (or the wheel) above a footer with Close. On macOS the window can show one tab at a time (setTab: a Settings
-// window with toolbar tabs, sdl_options.inc): the sections of that tab, no footer, and the window takes the content's
-// height (onTabHeight). A change applies at once, through the same command as the menu (the
+// buttons), its section headers, labels, notes and accent swatches are painted on the canvas, and it scrolls with the
+// wheel above a footer with Close. The window shows one tab at a time (setTab: the sections of that tab): on Windows and
+// Linux under its own tab strip (showTabStrip), on macOS as a Settings window with toolbar tabs (sdl_options.inc), with
+// no footer, as high as the tab's content (onTabHeight). A change applies at once, through the same command as the menu (the
 // host runs command(ID_OPT_...)), so the shortcuts and the tests that call the commands get the same result. Close, Esc
 // and Enter close the window. The host (options_window.inc on Windows) runs the commands, the folder pickers and the
 // list pickers, and tells the view what the options are now (values()).
@@ -23,6 +23,7 @@ struct OptionsValues {
     bool systemTheme = false;  // the Theme row has Automatic: the system's theme (macOS); it is the default then
     bool themeAuto = false;    // the theme is the system's
     bool middleDrag = true;   // the middle button drags the map (else it pans it)
+    bool singleKeys = true;   // the shortcuts of one key with no Ctrl or Alt run (gSingleKeys)
     int volume = 0;           // every sound's volume, 0 to 100
     int language = 0;         // the chosen language (its choice index, ids.inc's ID_OPT_LANG + index)
     std::vector<std::pair<int, std::wstring>> languages;  // the choices offered: (choice index, name)
@@ -75,19 +76,19 @@ public:
 
 namespace optionsview {
 
-// The sections of the window, in their order (the headers), and the tabs of a Settings window (macOS): each tab shows
-// some sections, in this order.
+// The sections of the window, in their order (the headers), and the tabs: each tab shows some sections, in this order.
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
     kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kMods = 1u << 9,
-    kAllSections = (1u << 10) - 1,
+    kKeyboard = 1u << 10, kAllSections = (1u << 11) - 1,
 };
 struct Tab {
-    const wchar_t* name;  // the toolbar item's label and the window's title
+    const wchar_t* name;  // the tab's name (macOS: the toolbar item's label and the window's title)
     unsigned sections;
 };
 inline const Tab kTabs[] = {
-    {L"General", kStart | kAppearance | kMouse | kMods},
+    {L"General", kStart | kAppearance | kMods},
+    {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
@@ -129,14 +130,17 @@ public:
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
+        singleKeys_.setLabel(L"Single-key shortcuts");
+        singleKeys_.setTip(L"Each of these keys runs its command (default)");
+        singleKeys_.onChange = [this](bool) { host_.command(ID_OPT_SINGLEKEYS); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&updates_),
-                        static_cast<draw::View*>(&previews_)})
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&singleKeys_),
+                        static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
             if (i >= 0 && i < int(langChoices_.size())) host_.command(ID_OPT_LANG + langChoices_[size_t(i)]);
@@ -220,20 +224,35 @@ public:
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
         for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &maps_, &close_}) b->setVisible(false);
+        // The tabs (showTabStrip): fixed pages, in the order of kTabs.
+        std::vector<stardraft::kit::Tab> tabs;
+        for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
+        strip_.setTabs(std::move(tabs));
+        strip_.movable = false;
+        strip_.onSelect = [this](int i) { setTab(i); };
+        add(strip_, {0, 0, 0, 0}), strip_.setVisible(false);
     }
 
     // The window's size (the host asks): the content's height and what the footer takes.
     int contentHeight() const { return height_; }
 
-    // One tab of a Settings window (0 to optionsview::kTabCount - 1): only its sections, with no footer (the window's
-    // close button closes it); -1: every section and Close (one window, the default).
+    // One tab (0 to optionsview::kTabCount - 1): only its sections; in a Settings window (macOS) with no footer (the
+    // window's close button closes it). -1: every section and Close (the tests' whole page).
     void setTab(int t) {
         t = t >= 0 && t < optionsview::kTabCount ? t : -1;
+        if (t >= 0) strip_.select(t);
         if (t == tab_) return;
         tab_ = t, scroll_ = 0, tabHeight_ = 0;
         invalidate();
     }
     int tab() const { return tab_; }
+    // Windows and Linux: the tabs in a strip at the top, above the tab's sections, with Close in the footer (a tab is
+    // shown: setTab). Ctrl+Tab and Ctrl+Shift+Tab go to the next tab and the one before.
+    void showTabStrip(bool on) {
+        if (on == stripOn_) return;
+        stripOn_ = on, scroll_ = 0;
+        invalidate();
+    }
     // A tab's content changed its height (px, after a paint): the window takes that height.
     std::function<void(int height)> onTabHeight;
 
@@ -277,6 +296,12 @@ public:
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
         if (e.key == draw::Key::Tab && !(e.mods & (draw::kCtrl | draw::kAlt))) return tabScroll((e.mods & draw::kShift) != 0);
+        if (stripOn_ && tab_ >= 0 && e.key == draw::Key::Tab && (e.mods & draw::kCtrl) && !(e.mods & draw::kAlt)) {
+            const int n = optionsview::kTabCount;
+            setTab((tab_ + ((e.mods & draw::kShift) ? n - 1 : 1)) % n);
+            strip_.focus();  // (the focus was maybe on an option of the tab that goes)
+            return true;
+        }
         if (e.key == draw::Key::Escape || e.key == draw::Key::Enter) return host_.close(), true;
         // A Settings window (macOS): Cmd+W closes it, as each window there.
         if (tab_ >= 0 && e.key == static_cast<draw::Key>('W') && (e.mods & draw::kSuper)) return host_.close(), true;
@@ -284,7 +309,8 @@ public:
     }
     // Tab through the options in the order of the rows, also to the ones that are scrolled out of view: the content
     // scrolls to show the next one (the window's Tab knows only the shown ones). After the last option: Close (the
-    // window's Tab); from Close: the first option (Shift+Tab: the last). false: the window's Tab does it.
+    // window's Tab); from Close: the first option (Shift+Tab: the last). With the tab strip: from Close the strip, from
+    // the strip the first option. false: the window's Tab does it.
     bool tabScroll(bool back) {
         const int n = int(tabOrder_.size());
         if (n == 0) return false;
@@ -293,14 +319,16 @@ public:
             if (focusIn(*tabOrder_[size_t(k)].first)) i = k;
         int j;
         if (i >= 0) j = i + (back ? -1 : 1);
+        else if (close_.hasFocus() && stripOn_ && !back) return false;  // (the window's Tab goes round to the tab strip)
         else if (close_.hasFocus()) j = back ? n - 1 : 0;
+        else if (stripOn_ && strip_.hasFocus() && !back) j = 0;
         else return false;
         while (j >= 0 && j < n && !tabOrder_[size_t(j)].first->focusable()) j += back ? -1 : 1;  // (a read-only path, a gray button)
         if (j < 0 || j >= n) return false;
         auto [v, r] = tabOrder_[size_t(j)];
         const int pad = scale(stardraft::kit::kDialogPad);
         if (j == 0) scrollTo(0);  // (the first option: the top of the content, its heading too)
-        else if (r.top < 0) scrollTo(scroll_ + r.top - pad);
+        else if (r.top < contentTop_) scrollTo(scroll_ + r.top - contentTop_ - pad);
         else if (r.bottom > contentBottom_) scrollTo(scroll_ + r.bottom - contentBottom_ + pad);
         if (!v->visible()) v->setVisible(true);  // (the next paint places it where the scroll shows it)
         v->focus();
@@ -324,7 +352,7 @@ public:
     void resized() override { invalidate(); }
     bool vscroll(int code, int pos, int track, int page) override;
     bool windowScrollBar(int& range, int& pageSize, int& pos) override {
-        range = std::max(0, height_ - 1), pageSize = std::max(0, contentBottom_), pos = scroll_;
+        range = std::max(0, height_ - 1), pageSize = std::max(0, contentBottom_ - contentTop_), pos = scroll_;
         return true;
     }
 
@@ -338,8 +366,9 @@ private:
         for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &maps_, &close_}) out.push_back(b);
         return out;
     }
-    int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_)); }
+    int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_ - contentTop_)); }
     int accentAt(draw::Point pt) const {
+        if (pt.y < contentTop_ || pt.y >= contentBottom_) return -1;  // (a swatch scrolled under the tab strip or the footer)
         for (size_t i = 0; i < accentRects_.size(); ++i)
             if (accentRects_[i].contains(pt)) return int(i);
         return -1;
@@ -352,11 +381,12 @@ private:
         limit_[k].setText(std::to_wstring(v));
     }
     // Places a child at `r` (view coordinates) for this paint; a child is shown when it is wholly in the content (the
-    // footer is not drawn over). A child that is not placed in a paint is hidden at its end.
+    // tab strip and the footer are not drawn over; `bottom`: a child out of the content, the strip and Close). A child
+    // that is not placed in a paint is hidden at its end.
     void place(draw::View& v, draw::Rect r, bool show, int bottom = -1) {
         placed_.push_back(&v);
-        if (show && &v != &close_) tabOrder_.push_back({&v, r});
-        const bool vis = show && r.top >= 0 && r.bottom <= (bottom < 0 ? contentBottom_ : bottom);
+        if (show && &v != &close_ && &v != &strip_) tabOrder_.push_back({&v, r});
+        const bool vis = show && r.top >= (bottom < 0 ? contentTop_ : 0) && r.bottom <= (bottom < 0 ? contentBottom_ : bottom);
         if (v.visible() != vis) v.setVisible(vis);
         if (vis && (v.frame().left != r.left || v.frame().top != r.top || v.frame().right != r.right || v.frame().bottom != r.bottom)) v.setFrame(r);
     }
@@ -370,7 +400,8 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, maps_, close_;
-    stardraft::kit::CheckBox lastProject_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, singleKeys_, updates_, previews_;
+    stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1}, game_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
@@ -387,9 +418,11 @@ private:
     int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1;  // the segmented choices' Primary buttons (sync)
     int limitValue_[2] = {3400, 1700};
     int tab_ = -1;          // setTab
+    bool stripOn_ = false;  // showTabStrip
     int tabHeight_ = 0;     // the height that onTabHeight got last
     int scroll_ = 0;        // the content's scroll position (px)
     int height_ = 0;        // the content's full height (px), at the last paint
+    int contentTop_ = 0;    // the top of the content (under the tab strip), at the last paint
     int contentBottom_ = 0; // the bottom of the content (above the footer), at the last paint
     bool lightShown_ = false, lightKnown_ = false;
     bool uiBuilt_ = false;
@@ -420,7 +453,7 @@ void OptionsView::sync(const OptionsValues& v) {
     }
     if (game_.value() != v.gameMode) game_.setValue(v.gameMode);
     accents_ = v.accents;
-    lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    lastProject_.setOn(v.openLast), singleKeys_.setOn(v.singleKeys), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -466,12 +499,14 @@ void OptionsView::paint(draw::Canvas& c) {
     c.fill({0, 0, W, H}, kBg);
     const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kFormRowH), fieldH = scale(stardraft::kit::kFieldH);
     const int btnH = scale(stardraft::kit::kButtonH), gap = scale(stardraft::kit::kButtonGap);
-    const bool tabbed = tab_ >= 0;
+    const bool tabbed = tab_ >= 0, settings = tabbed && !stripOn_;  // (settings: macOS's Settings window, no footer)
     const unsigned shown = tabbed ? optionsview::kTabs[tab_].sections : optionsview::kAllSections;
-    const int footerH = tabbed ? 0 : pad + btnH + pad;
-    contentBottom_ = std::max(0, H - footerH);
+    const int footerH = settings ? 0 : pad + btnH + pad;
+    const int stripH = stripOn_ ? scale(32) : 0;
+    contentTop_ = stripOn_ ? pad + stripH : 0;
+    contentBottom_ = std::max(contentTop_, H - footerH);
     const int x0 = pad, labelW = scale(210), colRight = W - pad, fx = x0 + labelW;
-    int y = pad - scroll_;
+    int y = contentTop_ + pad - scroll_;
     parts_.clear();
     accentRects_.clear();
     const draw::Font of = c.setFont(c.font({}));  // (the UI font; the notes use the small one)
@@ -521,7 +556,8 @@ void OptionsView::paint(draw::Canvas& c) {
     };
     placed_.clear();
     tabOrder_.clear();
-    c.pushClip({0, 0, W, contentBottom_});  // the content scrolls above the footer
+    if (stripOn_) place(strip_, {pad, pad, colRight, pad + stripH}, true, H);
+    c.pushClip({0, contentTop_, W, contentBottom_});  // the content scrolls under the tab strip, above the footer
 
     // Start.
     if (shown & optionsview::kStart) {
@@ -603,6 +639,15 @@ void OptionsView::paint(draw::Canvas& c) {
         label(L"Middle mouse click and hold");
         segmented(y, middleSeg_, 2, "middle");
         y += rowH + pad;
+    }
+
+    // Keyboard: the shortcuts of one key with no Ctrl or Alt, on or off (gSingleKeys: the menus, the window's keys).
+    if (shown & optionsview::kKeyboard) {
+        header(L"Keyboard");
+        checkRow(y, singleKeys_, "singlekeys");
+        y += rowH;
+        note(x0 + scale(24), y - scale(4), L"The keys with no Ctrl or Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 to 0, + and -");
+        y += scale(20) + pad;
     }
 
     // Unit names: a unit with a custom name (the map's unit settings), in every list that names it.
@@ -730,11 +775,12 @@ void OptionsView::paint(draw::Canvas& c) {
         y += scale(20) + pad;
     }
 
-    height_ = y + scroll_;
+    height_ = y + scroll_ - contentTop_;
     c.popClip();
-    // The footer: Close (the content scrolls under it, a line between). A tab has none: its window takes its height.
-    if (!tabbed && height_ > contentBottom_) c.fill({0, contentBottom_, W, contentBottom_ + 1}, kBorder);
-    if (!tabbed) {
+    // The footer: Close (the content scrolls under it, a line between). A Settings window has none: it takes the tab's
+    // height.
+    if (!settings && height_ > contentBottom_ - contentTop_) c.fill({0, contentBottom_, W, contentBottom_ + 1}, kBorder);
+    if (!settings) {
         const int w = close_.preferredWidth(c);
         const draw::Rect r{colRight - w, H - pad - btnH, colRight, H - pad};
         place(close_, r, true, H);
@@ -746,7 +792,7 @@ void OptionsView::paint(draw::Canvas& c) {
         return ma != mb ? ma < mb : a.second.left < b.second.left;
     });
     c.setFont(of);
-    if (tabbed && height_ != tabHeight_) {
+    if (settings && height_ != tabHeight_) {
         tabHeight_ = height_;
         if (onTabHeight) onTabHeight(height_);
     }

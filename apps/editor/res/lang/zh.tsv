@@ -1688,6 +1688,13 @@ Drag map	拖动地图
 Pan map	平移地图
 Middle mouse click and hold drags the map	按住鼠标中键拖动地图
 Middle mouse click and hold pans the map	按住鼠标中键平移地图
+Mouse and keyboard	鼠标和键盘
+Keyboard	键盘
+Single-key shortcuts	单键快捷键
+Each of these keys runs its command (default)	这些键各自执行其命令（默认）
+The keys with no Ctrl or Alt: T, U, D, S, L, G, V, B, A, F, C, Q, R, 1 to 0, + and -	不带 Ctrl 或 Alt 的键：T、U、D、S、L、G、V、B、A、F、C、Q、R、1 到 0、+ 和 -
+Single-key shortcuts are on	单键快捷键已开启
+Single-key shortcuts are off	单键快捷键已关闭
 &Quick open…\tCtrl+Shift+O	快速打开(&Q)…\tCtrl+Shift+O
 Go to an open tab, or open a recent project or map	切换到已打开的标签页，或打开最近的项目或地图
 Open tab: project	已打开的标签页：项目

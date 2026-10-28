@@ -38,6 +38,8 @@ public:
     std::function<void(int index)> onSelect;
     std::function<void(int index)> onClose;
     std::function<void(int from, int to)> onMove;
+    // false: a drag does not move the tabs (a fixed set of pages: Program options).
+    bool movable = true;
 
     TabLook look() const { return look_; }
     void setLook(TabLook l) {

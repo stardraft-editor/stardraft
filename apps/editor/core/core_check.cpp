@@ -50,6 +50,7 @@
 #include "list_view.h"
 #include "check_box.h"
 #include "slider.h"
+#include "tab_strip.h"
 #include "button.h"
 #include "dialog.h"
 #include "label.h"

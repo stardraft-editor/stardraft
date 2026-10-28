@@ -160,6 +160,9 @@ bool chordIs(const stardraft::KeyChord& c, const draw::KeyEvent& e) {
 #endif
     return c.ctrl == ((e.mods & kShortcutCtrl) != 0) && c.shift == ((e.mods & draw::kShift) != 0) && c.alt == ((e.mods & draw::kAlt) != 0);
 }
+// A shortcut of one key with no Ctrl or Alt (T, Q, 1, +, Shift+R) while single-key shortcuts are off (gSingleKeys,
+// Program options): it does not run, and the menus do not show it.
+bool singleKeyOff(const stardraft::KeyChord& c) { return !gSingleKeys && !c.ctrl && !c.alt && c.key.size() == 1; }
 
 // The command of the table with this native id (nullptr: the item is not in the table).
 const stardraft::Command* tableCommand(int id) {
@@ -459,6 +462,7 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
             break;
         case MenuItem::Kind::Command: {
             k.label = accessFree(it.label), k.shortcut = platformShortcut(it.id, it.shortcut);  // (the menus show it with shortcutText)
+            if (const auto c = stardraft::parseShortcut(narrow(k.shortcut)); c && singleKeyOff(*c)) k.shortcut.clear();
             const stardraft::Command* tc = tableCommand(it.id);
             k.checked = it.checked || (tc && tc->isChecked()) || mapMenuCheck(it.id) == 1;
             k.enabled = !it.grayed && sdlEnabled(it.id);
@@ -530,12 +534,12 @@ bool shortcutRun(const draw::KeyEvent& e) {
     // the menus' other keys.
     for (const ProgramKey& k : kProgramKeys)
         if (const auto c = stardraft::parseShortcut(k.chord);
-            c && chordIs(*c, e) && (!k.mapOnly || gWorkspace == Workspace::Map) && sdlEnabled(k.id)) {
+            c && chordIs(*c, e) && !singleKeyOff(*c) && (!k.mapOnly || gWorkspace == Workspace::Map) && sdlEnabled(k.id)) {
             command(k.id);
             return true;
         }
     for (const Shortcut& s : gShortcuts)
-        if (chordIs(s.chord, e) && sdlEnabled(s.id)) {
+        if (chordIs(s.chord, e) && !singleKeyOff(s.chord) && sdlEnabled(s.id)) {
             command(s.id);
             return true;
         }
@@ -639,6 +643,8 @@ void sdlFocusLine() {
         kind = "check box", text = narrow(cb->label());
     } else if (dynamic_cast<const kit::Dropdown*>(f)) {
         kind = "dropdown";
+    } else if (const auto* ts = dynamic_cast<const kit::TabStrip*>(f)) {
+        kind = "tab strip", text = ts->selected() >= 0 ? narrow(ts->tabs()[size_t(ts->selected())].text) : "";
     } else {  // a view with parts of its own: which view, and the part with the focus (View::focusedItem)
         if (dynamic_cast<const kit::MenuBar*>(f)) kind = "menu bar";
         else if (dynamic_cast<const TopBarView*>(f)) kind = "top bar";
