@@ -232,6 +232,8 @@ if(cmbw_probes)
     target_link_libraries(cmbw_paint_count PRIVATE stardraft)
     add_executable(cmbw_isom_testmaps tools/probes/cmbw_isom_testmaps.cpp)  # test maps of a mod terrain in the ISOM, for other editors
     target_link_libraries(cmbw_isom_testmaps PRIVATE stardraft)
+    add_executable(cmbw_group_match tools/probes/cmbw_group_match.cpp)  # the game tiles a mod's tiles look like (recolored copies)
+    target_link_libraries(cmbw_group_match PRIVATE stardraft)
     add_executable(cmbw_rect_shapes tools/probes/cmbw_rect_shapes.cpp)  # the isometric rects of a range of tile groups
     target_link_libraries(cmbw_rect_shapes PRIVATE stardraft)
     add_executable(cmbw_sheet tools/probes/cmbw_sheet.cpp)  # columns of game and mod rects side by side

@@ -805,15 +805,22 @@ const ModTerrainSet kModTerrainSets[] = {
      {{3130, {46, 44}, 7, 0}, {3132, {50, 48}, 7, 0}, {3134, {52, 54, 56}, 8, 0}, {3140, {58, 60, 62}, 8, 0}, {3137, {52, 54, 56}, 4, 0},
       {3137, {58, 60, 62}, 4, 8}, {3143, {64, 66, 68}, 2, 0}, {3143, {70, 72, 74}, 2, 4}, {3146, {80, 82}, 3, 0}, {3146, {76, 78}, 3, 6}},
      0, 0, 0, 1},
-    // Dirt-Dirt2-cliff and Dirt-Dirt3-cliff: the mod's lighter dirt (2768/2769) a level up on Dirt, and a level up again.
-    {0, "High Dirt 2 (Dirt)", 2, 1, 8,
+    // Dirt-Dirt2-cliff and Dirt-Dirt3-cliff: the mod's lighter dirt (2768/2769) a level up on High Dirt (the maps have
+    // the walls' foot on High Dirt's tiles: a third height, High Dirt read as Dirt in the template), and a level up again.
+    // The concave corners that the brush files leave out are in the sets' next groups (2788-2797, 1703-1712), recolored
+    // copies of the game's cliff rects 84-94 (cmbw_group_match); the game's 96 and 98 have no copy: the null tile.
+    {0, "Higher Dirt (High Dirt)", 2, 2, 8,
      {{2770, {46, 44}, 7, 0}, {2772, {50, 48}, 7, 0}, {2774, {52, 54, 56}, 8, 0}, {2780, {58, 60, 62}, 8, 0}, {2777, {52, 54, 56}, 4, 0},
-      {2777, {58, 60, 62}, 4, 8}, {2783, {64, 66, 68}, 2, 0}, {2783, {70, 72, 74}, 2, 4}, {2786, {80, 82}, 3, 0}, {2786, {76, 78}, 3, 6}},
-     2768, 2769, 0},
-    {0, "Higher Dirt (High Dirt 2)", 2, 1, 8,
+      {2777, {58, 60, 62}, 4, 8}, {2783, {64, 66, 68}, 2, 0}, {2783, {70, 72, 74}, 2, 4}, {2786, {80, 82}, 3, 0}, {2786, {76, 78}, 3, 6},
+      {2788, {84}, 7, 0}, {2790, {84}, 5, 0}, {2789, {86}, 7, 0}, {2791, {86}, 5, 0}, {2792, {88}, 6, 0}, {2793, {90}, 6, 0},
+      {2794, {92}, 7, 0}, {2796, {92}, 5, 0}, {2795, {94}, 7, 0}, {2797, {94}, 5, 0}},
+     2768, 2769, 0, 1},
+    {0, "Highest Dirt (Higher Dirt)", 2, 1, 8,
      {{1685, {46, 44}, 7, 0}, {1687, {50, 48}, 7, 0}, {1689, {52, 54, 56}, 8, 0}, {1695, {58, 60, 62}, 8, 0}, {1692, {52, 54, 56}, 4, 0},
-      {1692, {58, 60, 62}, 4, 8}, {1698, {64, 66, 68}, 2, 0}, {1698, {70, 72, 74}, 2, 4}, {1701, {80, 82}, 3, 0}, {1701, {76, 78}, 3, 6}},
-     2768, 2769, 0, 1, "High Dirt 2 (Dirt)"},
+      {1692, {58, 60, 62}, 4, 8}, {1698, {64, 66, 68}, 2, 0}, {1698, {70, 72, 74}, 2, 4}, {1701, {80, 82}, 3, 0}, {1701, {76, 78}, 3, 6},
+      {1703, {84}, 7, 0}, {1705, {84}, 5, 0}, {1704, {86}, 7, 0}, {1706, {86}, 5, 0}, {1707, {88}, 6, 0}, {1708, {90}, 6, 0},
+      {1709, {92}, 7, 0}, {1711, {92}, 5, 0}, {1710, {94}, 7, 0}, {1712, {94}, 5, 0}},
+     2768, 2769, 0, 1, "Higher Dirt (High Dirt)"},
     // Basilica-dirt1-cliff and -dirt2-cliff: a basilica on Dirt and on High Dirt (in the game's old groups 614-625 and
     // 662-673), made as Ice's Basilica (Snow) (the same layout); the floor 614/615 and 662/663, subtile 0.
     {0, "Basilica (Dirt)", 2, 1, 8,
