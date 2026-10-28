@@ -276,16 +276,28 @@ private:
     int scroll_ = 0, contentH_ = 0, hover_ = -1;
 };
 
-// The pie palette's ring (core/palette_view.inc: pieTerrains, pieSliceAt): pieSize() px square, the ring's middle at its
-// middle. Its slices go clockwise from the top; the hot one is in the accent; each has its terrain's picture (the host's)
-// and name; the middle says what letting go of Space does. The mouse over it picks the hot slice.
+// The pie palette's ring (core/palette_view.inc: pieTerrains, pieSliceAt): ringSize() px wide, the ring at the top
+// (its middle ringSize() / 2 down) and a row for the name under it; the ring is wider with more terrains (radius). Its slices go clockwise from the top, each filled
+// with its terrain's picture (the host's: 8 x 8 tiles), all at one size (32 px a tile), and a terrain that stands on
+// another ("X (Y)") has Y as a band at the slice's outer end; the hot one has an accent rim. Each slice has its terrain's name when every
+// name fits in its slice; the row under the ring has the hot slice's name (or what letting go does). The mouse over it
+// picks the hot slice.
 struct PieView : draw::View {
     std::vector<uint16_t> items;
     int hot = -1;
-    std::function<void(draw::Canvas&, uint16_t terrain, draw::Rect box)> picture;
+    std::function<draw::Bitmap*(uint16_t terrain, int tiles)> picture;  // tiles x tiles tiles (an even number)
+    std::function<uint16_t(uint16_t terrain)> ground;  // the terrain it stands on (0: none)
+    bool namesInSlices = false;  // (at the last paint: every name fit in its slice)
+    int radius = 0;              // the ring's outer radius (the host sets it as the map has room; 0: pieRadius for the items)
 
+    int ringRadius() const { return radius > 0 ? radius : pieRadius(int(items.size())); }
+    int ringSize() const { return 2 * ringRadius() + scale(8); }
+
+    static int labelHeight() { return scale(34); }
+    // The ring's middle, in the view's coordinates.
+    draw::Point middle() const { return {width() / 2, ringSize() / 2}; }
     // The slice under `p` (the view's coordinates).
-    int sliceAt(draw::Point p) const { return pieSliceAt(p.x - width() / 2.0, p.y - height() / 2.0, int(items.size())); }
+    int sliceAt(draw::Point p) const { return pieSliceAt(p.x - middle().x, p.y - middle().y, int(items.size())); }
     void track(draw::Point p) {
         const int h = sliceAt(p);
         if (h != hot) hot = h, invalidate();
@@ -301,46 +313,108 @@ struct PieView : draw::View {
     }
     void paint(draw::Canvas& c) override {
         constexpr double kTurn = 2 * 3.14159265358979323846;
+        using PointF = draw::Canvas::PointF;
         const int n = int(items.size());
-        const float R = float(pieRadius()), r0 = float(pieHole()), cx = width() / 2.0f, cy = height() / 2.0f;
+        const float R = float(ringRadius()), r0 = float(pieHole()), cx = float(middle().x), cy = float(middle().y);
         const double step = n ? kTurn / n : kTurn;
-        auto at = [&](double a, float rad) { return draw::Canvas::PointF{cx + float(std::sin(a)) * rad, cy - float(std::cos(a)) * rad}; };
+        auto at = [&](double a, float rad) { return PointF{cx + float(std::sin(a)) * rad, cy - float(std::cos(a)) * rad}; };
         c.smoothEllipse({cx - R, cy - R}, 2 * R, 2 * R, kPanel);
-        if (hot >= 0 && hot < n) {  // the hot slice: an accent tint (the ring's color and the accent, mixed), in thin pieces
-            auto mixed = [](draw::Color a, draw::Color b, int k) {  // b over a at k / 255
-                draw::Color out = 0;
-                for (int s = 0; s < 24; s += 8) out |= draw::Color(((a >> s & 255) * (255 - k) + (b >> s & 255) * k) / 255) << s;
-                return out;
-            };
-            const draw::Color tint = mixed(kPanel, kAccent, 120);
-            const double a0 = hot * step - step / 2;
-            const int parts = std::max(4, int(step / kTurn * 96));
-            for (int k = 0; k < parts; ++k) {
-                const double a = a0 + step * k / parts, b = a0 + step * (k + 1) / parts + 0.002;
-                const draw::Canvas::PointF q[4] = {at(a, r0), at(a, R), at(b, R), at(b, r0)};
-                c.smoothPolygon(q, 4, tint);
+        // Each slice: its terrain's picture from the hole to the band (or the rim), the ground's in the band, in thin
+        // pieces along the arc. Every picture has one size on the screen (8 tiles of 32 px at 100 %), its middle at the
+        // middle of its part's box.
+        const int parts = std::max(2, int(96 / std::max(1, n)));
+        const float band = float(scale(18)), tilePx = float(scale(32));
+        struct Box {
+            float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+        };
+        auto boxOf = [&](double a0, float ra, float rb) {
+            Box r;
+            for (int j = 0; j <= parts; ++j)
+                for (const float rad : {ra, rb}) {
+                    const PointF q = at(a0 + step * j / parts, rad);
+                    r.x0 = std::min(r.x0, q.x), r.y0 = std::min(r.y0, q.y), r.x1 = std::max(r.x1, q.x), r.y1 = std::max(r.y1, q.y);
+                }
+            return r;
+        };
+        // The pictures' size in tiles: the biggest part's box with a tile to spare (the parts of one slice are alike, so
+        // the first slice's tell; 8 at least), even (terrainPicture's pairs of halves).
+        int tiles = 8;
+        if (n > 0) {
+            const Box b = boxOf(-step / 2, r0, R);
+            tiles = std::max(tiles, int(std::ceil(std::max(b.x1 - b.x0, b.y1 - b.y0) / tilePx)) + 1);
+            const Box s = boxOf(-step / 2 + kTurn / 4, r0, R);  // (a slice at the side: its box is the other way round)
+            tiles = std::max(tiles, int(std::ceil(std::max(s.x1 - s.x0, s.y1 - s.y0) / tilePx)) + 1);
+            tiles = (tiles + 1) / 2 * 2;
+        }
+        auto fillPart = [&](uint16_t terrain, double a0, float ra, float rb) {
+            draw::Bitmap* b = picture ? picture(terrain, tiles) : nullptr;
+            if (!b || b->width() <= 0 || b->height() <= 0 || rb <= ra) return;
+            const Box box = boxOf(a0, ra, rb);
+            const float span = tilePx * float(tiles), mx = (box.x0 + box.x1) / 2, my = (box.y0 + box.y1) / 2;
+            auto uv = [&](PointF q) { return PointF{0.5f + (q.x - mx) / span, 0.5f + (q.y - my) / span}; };
+            for (int j = 0; j < parts; ++j) {
+                const double a = a0 + step * j / parts, e = a0 + step * (j + 1) / parts + (j + 1 < parts ? 0.002 : 0);
+                const PointF q[4] = {at(a, ra), at(a, rb), at(e, rb), at(e, ra)};
+                const PointF t[4] = {uv(q[0]), uv(q[1]), uv(q[2]), uv(q[3])};
+                c.bitmapQuad(*b, q, t);
             }
+        };
+        for (int k = 0; k < n; ++k) {
+            const double a0 = k * step - step / 2;
+            const uint16_t g = ground ? ground(items[size_t(k)]) : 0;
+            fillPart(items[size_t(k)], a0, r0, g ? R - band : R);
+            if (!g) continue;
+            fillPart(g, a0, R - band, R);
+            c.smoothArc({cx - (R - band), cy - (R - band)}, 2 * (R - band), 2 * (R - band), float(a0 * 360 / kTurn) - 90,
+                        float(step * 360 / kTurn), kBorderStrong, 1.5f);  // (the border between the two)
         }
         for (int k = 0; k < n; ++k) {  // the lines between the slices
             const double a = k * step - step / 2;
-            c.smoothLine(at(a, r0), at(a, R), kBorder);
+            c.smoothLine(at(a, r0), at(a, R), kBorderStrong, 1.5f);
         }
-        c.smoothArc({cx - R, cy - R}, 2 * R, 2 * R, 0, 360, kBorderStrong);
-        c.smoothEllipse({cx - r0, cy - r0}, 2 * r0, 2 * r0, kBg);
-        c.smoothArc({cx - r0, cy - r0}, 2 * r0, 2 * r0, 0, 360, kBorderStrong);
-        // Each slice: its terrain's picture, and its name under it.
-        const int box = scale(44);
+        c.smoothArc({cx - R, cy - R}, 2 * R, 2 * R, 0, 360, kBorderStrong, 1.5f);
+        c.smoothEllipse({cx - r0 + 1, cy - r0 + 1}, 2 * r0 - 2, 2 * r0 - 2, kBg);
+        c.smoothArc({cx - r0, cy - r0}, 2 * r0, 2 * r0, 0, 360, kBorderStrong, 1.5f);
+        if (hot >= 0 && hot < n) {  // the hot slice: an accent rim (over the hole's border)
+            const double a0 = hot * step - step / 2, a1 = a0 + step;
+            const float w = float(scale(3));
+            c.smoothLine(at(a0, r0), at(a0, R), kAccent, w);
+            c.smoothLine(at(a1, r0), at(a1, R), kAccent, w);
+            const float deg0 = float(a0 * 360 / kTurn) - 90, sweep = float(step * 360 / kTurn);
+            c.smoothArc({cx - R, cy - R}, 2 * R, 2 * R, deg0, sweep, kAccent, w);
+            c.smoothArc({cx - r0, cy - r0}, 2 * r0, 2 * r0, deg0, sweep, kAccent, w);
+        }
+        // The names in the slices, each on a plate at the middle of its slice, when no plate touches the next one and
+        // each is inside the ring.
+        const float rm = (r0 + R) / 2 + scale(10);
+        const int pad = scale(6), lineH = scale(20), gap = scale(2);
+        std::vector<draw::Rect> plates;
         for (int k = 0; k < n; ++k) {
-            const double a = k * step;
-            const float rm = (r0 + R) / 2 + scale(10);
-            const draw::Canvas::PointF p = at(a, rm);
-            const int x = int(p.x), y = int(p.y) - scale(8);
-            if (picture) picture(c, items[size_t(k)], {x - box / 2, y - box / 2, x + box / 2, y + box / 2});
-            const int ty = int(p.y) + scale(22);
-            c.text({x - scale(60), ty - scale(10), x + scale(60), ty + scale(10)}, terrainName(items[size_t(k)]), k == hot ? kText : kDim,
-                   draw::kCenter | draw::kMiddle | draw::kEllipsis);
+            const PointF q = at(k * step, rm);
+            const int w = c.measure(terrainName(items[size_t(k)])) + 2 * pad, x = int(q.x) - w / 2, y = int(q.y) - lineH / 2;
+            plates.push_back({x, y, x + w, y + lineH});
         }
-        const std::wstring mid = hot >= 0 && hot < n ? terrainName(items[size_t(hot)]) : std::wstring(L"Let go: no change");
-        c.text({int(cx - r0) + 2, int(cy - r0), int(cx + r0) - 2, int(cy + r0)}, mid, kText, draw::kCenter | draw::kMiddle | draw::kWrap);
+        auto inRing = [&](const draw::Rect& r) {
+            for (const float x : {float(r.left), float(r.right)})
+                for (const float y : {float(r.top), float(r.bottom)})
+                    if (std::hypot(x - cx, y - cy) > R - gap) return false;
+            return true;
+        };
+        auto apart = [&](const draw::Rect& a, const draw::Rect& b) {
+            return a.right + gap <= b.left || b.right + gap <= a.left || a.bottom + gap <= b.top || b.bottom + gap <= a.top;
+        };
+        namesInSlices = n > 0;
+        for (int k = 0; k < n && namesInSlices; ++k)
+            if (!inRing(plates[size_t(k)]) || (n > 1 && !apart(plates[size_t(k)], plates[size_t((k + 1) % n)]))) namesInSlices = false;
+        if (namesInSlices)
+            for (int k = 0; k < n; ++k) {
+                c.fill(plates[size_t(k)], kBg, 210);
+                c.text(plates[size_t(k)], terrainName(items[size_t(k)]), k == hot ? kText : kDim, draw::kCenter | draw::kMiddle);
+            }
+        // The row under the ring: the hot slice's name, or what letting go does.
+        const std::wstring label = hot >= 0 && hot < n ? terrainName(items[size_t(hot)]) : std::wstring(L"Let go: no change");
+        const int lw = std::min(width(), c.measure(label) + 4 * pad), lx = (width() - lw) / 2, ly = ringSize() + (labelHeight() - scale(26)) / 2;
+        c.roundBox({lx, ly, lx + lw, ly + scale(26)}, kPanel, kBorderStrong, float(scale(stardraft::kit::kRadius)));
+        c.text({lx + pad, ly, lx + lw - pad, ly + scale(26)}, label, hot >= 0 ? kText : kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
     }
 };

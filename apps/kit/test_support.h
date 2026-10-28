@@ -100,6 +100,7 @@ public:
     }
     Font font(const FontDesc& d) override { return Font{reinterpret_cast<const void*>(uintptr_t(1 + int(d.face) * 1000 + d.px * 4 + (d.bold ? 1 : 0)))}; }
     void bitmap(Bitmap& b, Rect, Rect dst, bool, uint8_t) override { ops.push_back("bitmap " + std::to_string(b.width()) + "x" + std::to_string(b.height()) + " " + r(dst)); }
+    void bitmapQuad(Bitmap& b, const PointF*, const PointF*, uint8_t) override { ops.push_back("bitmapQuad " + std::to_string(b.width()) + "x" + std::to_string(b.height())); }
     void icon(Rect x, int i, Color k, int) override { ops.push_back("icon " + r(x) + " " + std::to_string(i) + " " + c(k)); }
     void fitted(const Image&, Rect box) override { ops.push_back("fitted " + r(box)); }
 

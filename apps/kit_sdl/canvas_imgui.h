@@ -124,6 +124,7 @@ public:
     draw::Font font(const draw::FontDesc& d) override;
 
     void bitmap(draw::Bitmap& b, draw::Rect src, draw::Rect dst, bool smooth = false, uint8_t alpha = 255) override;
+    void bitmapQuad(draw::Bitmap& b, const PointF* pts, const PointF* uv, uint8_t alpha = 255) override;
 
     void icon(draw::Rect r, int icon, draw::Color c, int px) override;
     void resourceIcon(draw::Rect r, int resourceId, int px) override;

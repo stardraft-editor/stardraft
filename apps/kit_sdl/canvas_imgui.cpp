@@ -1181,6 +1181,15 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
                   ImVec2(sr / W, sb / H), colorOf(draw::rgb(255, 255, 255), alpha));
 }
 
+void ImguiCanvas::bitmapQuad(draw::Bitmap& b, const PointF* p, const PointF* uv, uint8_t alpha) {
+    if (!dev_ || b.width() <= 0 || b.height() <= 0 || alpha == 0) return;
+    GpuBitmap* g = gpuBitmapOf(dev_, b);
+    if (!g) return;
+    g->drawn = gBitmapFrame;
+    dl_->AddImageQuad(texRef(g->tex), at(p[0].x, p[0].y), at(p[1].x, p[1].y), at(p[2].x, p[2].y), at(p[3].x, p[3].y), ImVec2(uv[0].x, uv[0].y),
+                      ImVec2(uv[1].x, uv[1].y), ImVec2(uv[2].x, uv[2].y), ImVec2(uv[3].x, uv[3].y), colorOf(draw::rgb(255, 255, 255), alpha));
+}
+
 void ImguiCanvas::icon(Rect r, int icon, Color c, int px) {
     if (c == kNone || icon < 0 || gAtlases.empty()) return;
     // Up to 32 px, the atlas of the size the Win32 editor draws at px (its uiIconSize): 32 from 32 px, 24 from 28, else

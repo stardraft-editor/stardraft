@@ -356,9 +356,11 @@ bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int ro
 // Terrain mode: hold Space and a ring of the tileset's terrains comes up in the middle of the map; move the mouse toward
 // one (its slice lights up) and let go of Space: the brush paints with it. Let go in the middle: no change. The ring's
 // view is core/views_palette.inc (PieView); the Windows program draws the same ring in a layered window (main.cpp).
-int pieRadius() { return scale(190); }
+// The ring's outer radius for `n` terrains: 190 px at 100 %, wider with many (about 40 px of rim for each slice: a
+// Cosmonarchy tileset has 50 and more).
+int pieRadius(int n = 0) { return scale(std::max(190, int(n * 40 / (2 * 3.14159265358979323846)))); }
 int pieHole() { return scale(46); }
-int pieSize() { return 2 * pieRadius() + scale(8); }
+int pieSize(int n = 0) { return 2 * pieRadius(n) + scale(8); }
 
 // The slice in the direction (dx, dy) from the middle, of `n` slices (-1: inside the hole). The first slice is centered on
 // the top; they go clockwise.

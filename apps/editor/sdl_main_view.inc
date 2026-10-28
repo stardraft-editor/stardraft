@@ -442,9 +442,8 @@ struct MainView final : draw::View {
         for (auto& [w, v] : gWorkspaceViews) add(*v, draw::Rect(0, 0, 0, 0));
         add(pie, draw::Rect(0, 0, 0, 0));  // (the last child: over the map)
         pie.setVisible(false);
-        pie.picture = [](draw::Canvas& c, uint16_t t, draw::Rect box) {
-            if (draw::Bitmap* b = paletteBitmap(Mode::Terrain, t, 0)) drawPaletteArt(c, *b, box);
-        };
+        pie.picture = [](uint16_t t, int tiles) { return pieBitmap(t, tiles); };
+        pie.ground = [](uint16_t t) { return gState.ed ? terrainGround(*gState.ed, t) : uint16_t(0); };
         relayout();
     }
     ~MainView() override {  // (the children go before the members do: their views unlink here)
@@ -683,10 +682,14 @@ struct MainView final : draw::View {
         pie.items = pieTerrains(gState);
         if (pie.items.empty() || !map.shown()) return;
         const draw::Rect m = map.frame();
-        const int s = pieSize(), cx = (m.left + m.right) / 2, cy = (m.top + m.bottom) / 2;
-        pie.setFrame({cx - s / 2, cy - s / 2, cx - s / 2 + s, cy - s / 2 + s});
+        // The ring as wide as its terrains need, in the map's room (with the name's row under it), not smaller than at
+        // first.
+        const int fit = (std::min(m.width(), m.height() - 2 * PieView::labelHeight()) - scale(16)) / 2;
+        pie.radius = std::max(pieRadius(), std::min(pieRadius(int(pie.items.size())), fit));
+        const int s = pie.ringSize(), cx = (m.left + m.right) / 2, cy = (m.top + m.bottom) / 2;  // (the ring in the map's middle)
+        pie.setFrame({cx - s / 2, cy - s / 2, cx - s / 2 + s, cy - s / 2 + s + PieView::labelHeight()});
         pie.setVisible(true);
-        const draw::Point at = host() ? host()->mouse(pie) : draw::Point{s / 2, s / 2};
+        const draw::Point at = host() ? host()->mouse(pie) : pie.middle();
         pie.hot = pie.sliceAt(at);
         pie.invalidate();
     }
@@ -923,8 +926,11 @@ void sdlPieShot() {
     gRoot->pieOpen();
     PieView& p = gRoot->pie;
     if (!p.shown()) return void(std::printf("pie: not open (no terrain to paint)\n"));
-    p.track({p.width() / 2 + pieRadius() * 2 / 3, p.height() / 2});
+    p.track({p.middle().x + p.ringRadius() * 2 / 3, p.middle().y});
     std::printf("pie: slices %d, pointed at %d\n", int(p.items.size()), p.hot);
+    std::string names;
+    for (const uint16_t t : p.items) names += (names.empty() ? "" : "; ") + narrow(p.terrainName(t));
+    std::printf("pie: terrains %s\n", names.c_str());
 }
 void sdlPieShotRelease() {
     if (!gRoot || !gRoot->pie.shown()) return;

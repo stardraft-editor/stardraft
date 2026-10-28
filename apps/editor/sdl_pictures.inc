@@ -14,10 +14,26 @@ struct PaletteArt {
     bool hdTilesLoaded = false;
     int hdTilesEra = -1, hdTilesMode = -1;  // (the era and mode of hdTiles: another map of that tileset uses them too)
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
+    std::map<std::pair<uint16_t, int>, std::unique_ptr<draw::Bitmap>> pieBitmaps;  // the pie palette's terrains (pieBitmap)
 };
 PaletteArt gPaletteArt;
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
 void releasePaletteArt() { gPaletteArt = PaletteArt{}; }
+
+// The terrain that terrain `value` stands on ("X (Y)": Y; a mod terrain's ground), or 0: the palette's picture shows it
+// as a square at its bottom right, the pie palette as the end of the slice.
+uint16_t terrainGround(const Editor& ed, uint16_t value) {
+    if (const Tileset::ModTerrain* m = ed.tileset().modTerrain(value)) return m->ground;
+    const std::string n = ed.terrainName(value);
+    if (n.size() <= 3 || n.back() != ')' || n.find(" (") == std::string::npos) return 0;
+    const std::string y = n.substr(n.find(" (") + 2, n.size() - n.find(" (") - 3);
+    const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
+    for (uint16_t i = 1; t && i <= t->terrainCount(); ++i)
+        if (t->isTerrain(i) && ed.terrainName(i) == y) return i;
+    for (uint16_t i = 1; t && i <= t->terrainCount(); ++i)  // (Y named with its own ground: "Dirt" is the main terrain)
+        if (t->isTerrain(i) && ed.terrainName(i).rfind(y + " (", 0) == 0) return i;
+    return 0;
+}
 
 // The picture of one item (value) of a palette mode, or nullptr when it has none (the Win32 palette's blank case: the
 // game's "BLANK" icon). Terrains and doodads: their tiles; units: the command icon (HD in the HD modes); sprites: their
@@ -30,7 +46,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
     const bool unitKind = what == Mode::Units && !iconFrame;
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode) {
-        gPaletteArt.bitmaps.clear();
+        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear();
         if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
             gPaletteArt.hdIcons.clear();
             gPaletteArt.data = &ed.gameData();
@@ -76,17 +92,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         if (what == Mode::Terrain) {
             art = terrainPicture(ed.tileset(), uint16_t(value), hd);
             // The terrain it stands on ("X (Y)": Y) as a small square at the bottom right, half the picture's height.
-            uint16_t ground = 0;
-            if (const Tileset::ModTerrain* m = ed.tileset().modTerrain(uint16_t(value))) ground = m->ground;
-            else if (const std::string n = ed.terrainName(uint16_t(value)); n.size() > 3 && n.back() == ')') {
-                const std::string y = n.substr(n.find(" (") + 2, n.size() - n.find(" (") - 3);
-                const IsomTerrainTable* t = IsomTerrainTable::forEra(ed.era());
-                for (uint16_t i = 1; t && i <= t->terrainCount() && !ground; ++i)
-                    if (t->isTerrain(i) && ed.terrainName(i) == y) ground = i;
-                if (!ground && t)  // (Y named with its own ground: "Dirt" is the main terrain)
-                    for (uint16_t i = 1; i <= t->terrainCount() && !ground; ++i)
-                        if (t->isTerrain(i) && ed.terrainName(i).rfind(y + " (", 0) == 0) ground = i;
-            }
+            const uint16_t ground = terrainGround(ed, uint16_t(value));
             if (ground && art.width && art.height >= 8) {
                 const Sprite g = terrainPicture(ed.tileset(), ground, hd);
                 const int side = art.height / 2, x0 = art.width - side, y0 = art.height - side;
@@ -155,6 +161,28 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         }
     b->changed();
     return (gPaletteArt.bitmaps[key] = std::move(b)).get();
+}
+
+// The pie palette's picture of a terrain: tiles x tiles SD tiles (8 x 8: 256 x 256 pixels; more for a big ring), with no
+// ground square; the ring shows every slice at the same size, 32 pixels a tile at 100 % (core/views_palette.inc:
+// PieView). nullptr: the terrain has none.
+draw::Bitmap* pieBitmap(uint16_t terrain, int tiles) {
+    if (!gState.ed || !gState.ed->isOpen()) return nullptr;
+    paletteBitmap(Mode::Terrain, terrain, 0);  // (the cache follows this editor, era and mode)
+    const std::pair<uint16_t, int> key{terrain, tiles};
+    if (const auto it = gPaletteArt.pieBitmaps.find(key); it != gPaletteArt.pieBitmaps.end()) return it->second.get();
+    const Sprite s = terrainPicture(gState.ed->tileset(), terrain, nullptr, tiles, tiles);
+    std::unique_ptr<draw::Bitmap> b;
+    if (s.width > 0 && s.height > 0) {
+        b = std::make_unique<draw::Bitmap>(s.width, s.height);
+        uint32_t* px = b->pixels();
+        for (size_t i = 0; i < size_t(s.width) * size_t(s.height); ++i) {
+            const uint8_t* p = &s.rgba[i * 4];
+            px[i] = p[0] | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | 0xFF000000u;  // (opaque: the tiles)
+        }
+        b->changed();
+    }
+    return (gPaletteArt.pieBitmaps[key] = std::move(b)).get();
 }
 
 // Draws a palette picture centered in `box`, shrunk to fit (enlarged at most to the display's scale), as the Win32

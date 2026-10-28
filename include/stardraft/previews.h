@@ -15,9 +15,9 @@ struct DoodadType;
 struct HdTiles;
 struct Tileset;
 
-// A patch of a terrain: 4x2 tiles of its solid tile group, with varied tile variants. Empty (width 0)
-// if the tileset's rules have no solid group for it.
-Sprite terrainPicture(const Tileset& tileset, uint16_t terrain, const HdTiles* hd = nullptr);
+// A patch of a terrain: w x h tiles (w even; 4 x 2 by default) of its solid tile group, with varied tile variants.
+// Empty (width 0) if the tileset's rules have no solid group for it.
+Sprite terrainPicture(const Tileset& tileset, uint16_t terrain, const HdTiles* hd = nullptr, int w = 4, int h = 2);
 
 // The tiles of a map (MTXM values, row-major, `mapWidth` wide) in the rectangle (x, y, w, h) of tiles: SD, or HD2
 // (64 pixels per tile) when `hd` is given. Tiles outside the map are transparent.
