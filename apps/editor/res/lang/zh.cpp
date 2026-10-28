@@ -2599,6 +2599,7 @@ constexpr UiText kRows[] = {
     {L"Adjusts StarDraft to work with the CMBW environment when it is loaded", L"\u52A0\u8F7D\u540E\uFF0C\u8C03\u6574 StarDraft \u4EE5\u9002\u914D CMBW \u73AF\u5883"},
     {L"Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)", L"\u5DF2\u52A0\u8F7D Cosmonarchy BW \u63D2\u4EF6\uFF1A\u5730\u56FE\u4EE5 Cosmonarchy BW \u5730\u56FE\u6253\u5F00\u548C\u521B\u5EFA\uFF08\u5DF2\u6253\u5F00\u7684\u6807\u7B7E\u9875\u4E0D\u53D8\uFF09"},
     {L"Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)", L"\u5DF2\u5378\u8F7D Cosmonarchy BW \u63D2\u4EF6\uFF1A\u5730\u56FE\u4EE5 StarCraft: Brood War \u5730\u56FE\u6253\u5F00\u548C\u521B\u5EFA\uFF08\u5DF2\u6253\u5F00\u7684\u6807\u7B7E\u9875\u4E0D\u53D8\uFF09"},
+    {L"Type to search", L"\u8F93\u5165\u4EE5\u641C\u7D22"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -31,27 +31,37 @@ int gOpenLists = 0;  // the dropdowns whose list is open (Dropdown::anyListOpen)
 
 }  // namespace
 
-// The list under the field: one row per item, the current value highlighted. Its callbacks pick a row or cancel.
+// The list under the field: one row per item, the current value highlighted. Its callbacks pick a row or cancel. With
+// `search` it has a search row at its top: the typed text shows only the items whose name (or number) has it; Backspace
+// takes a letter off, Esc empties it (then closes the list). The rows are the shown items (shown_: their indices).
 class Dropdown::List final : public View {
 public:
-    List(std::vector<DropdownItem> items, int current, std::function<void(int)> pick, std::function<void()> cancel)
-        : items_(std::move(items)), current_(current), pick_(std::move(pick)), cancel_(std::move(cancel)) {
-        hot_ = current_ >= 0 ? current_ : (items_.empty() ? -1 : 0);
-        show(hot_);
+    List(std::vector<DropdownItem> items, int current, bool search, std::function<void(int)> pick, std::function<void()> cancel)
+        : items_(std::move(items)), current_(current), search_(search), pick_(std::move(pick)), cancel_(std::move(cancel)) {
+        refilter();
     }
 
     void paint(Canvas& c) override {
         const auto& th = kit::theme();
         c.roundBox({0, 0, width(), height()}, th.ctl, th.border, px(kRadius));
-        const int last = std::min(int(items_.size()), top_ + visible());
-        for (int i = top_; i < last; ++i) {
-            const Rect r = row(i);
+        if (search_) {  // (the search row: what is typed, or what to do; a line under it)
+            const Rect r{px(2), px(2), width() - px(2), px(2) + rowH()};
+            c.text({r.left + px(10), r.top, r.right - px(10), r.bottom}, query_.empty() ? std::wstring(L"Type to search") : query_ + L"|",
+                   query_.empty() ? th.dim : th.text, draw::kMiddle | draw::kEllipsis);
+            c.fill({r.left, r.bottom - px(1), r.right, r.bottom}, th.border);
+            if (shown_.empty())
+                c.text({r.left + px(10), r.bottom, r.right - px(10), r.bottom + rowH()}, L"No match", th.dim, draw::kMiddle);
+        }
+        const int last = std::min(int(shown_.size()), top_ + visible());
+        for (int k = top_; k < last; ++k) {
+            const Rect r = row(k);
+            const int i = shown_[size_t(k)];
             const DropdownItem& it = items_[size_t(i)];
             const bool sel = i == current_;
             if (sel) {
                 c.fill(r, th.sel);
                 c.fill({r.left, r.top, r.left + px(2), r.bottom}, th.accent);
-            } else if (i == hot_) {
+            } else if (k == hot_) {
                 c.fill(r, th.rowHot);
             }
             const Color fg = sel ? th.accent : th.text;
@@ -69,7 +79,7 @@ public:
     bool mouse(const MouseEvent& e) override {
         switch (e.kind) {
         case MouseKind::Move:
-            if (const int i = rowAt(e.pt); i != hot_) hot_ = i, invalidate();
+            if (const int k = rowAt(e.pt); k != hot_) hot_ = k, invalidate();
             return true;
         case MouseKind::Leave:
             if (hot_ != -1) hot_ = -1, invalidate();
@@ -78,7 +88,7 @@ public:
         case MouseKind::DoubleClick: return e.button == 0;
         case MouseKind::Up:
             if (e.button == 0)
-                if (const int i = rowAt(e.pt); i >= 0) pick_(i);
+                if (const int k = rowAt(e.pt); k >= 0) pick_(shown_[size_t(k)]);
             return e.button == 0;
         case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up; a part of a notch waits
             int notches = 0;
@@ -97,13 +107,20 @@ public:
         }
     }
 
-    // Typed letters jump to the next item whose label starts with them, as a combo box's list does. The letters
-    // count on for a second after the last one; one letter typed again (or the same one over and over) moves on to
-    // the next item that starts with it.
+    // A search list: the typed letters go into the search. Else typed letters jump to the next item whose label starts
+    // with them, as a combo box's list does. The letters count on for a second after the last one; one letter typed
+    // again (or the same one over and over) moves on to the next item that starts with it.
     bool text(const draw::TextEvent& e) override {
-        const int n = int(items_.size());
+        const int n = int(shown_.size());
         const std::wstring typed = fromUtf8(e.utf8);
-        if (!n || typed.empty() || typed.find_first_of(L" \t\r\n") != std::wstring::npos) return false;
+        if (typed.empty() || typed.find_first_of(L"\t\r\n") != std::wstring::npos) return false;
+        if (search_) {
+            if (typed == L" " && query_.empty()) return false;  // (Space alone picks: key)
+            query_ += typed;
+            refilter();
+            return true;
+        }
+        if (!n || typed.find(L' ') != std::wstring::npos) return false;
         const auto now = std::chrono::steady_clock::now();
         if (now - typedAt_ > std::chrono::seconds(1)) typed_.clear();
         typedAt_ = now;
@@ -112,13 +129,13 @@ public:
         const std::wstring prefix = again ? std::wstring(1, typed_[0]) : typed_;
         const int from = again ? hot_ + 1 : std::max(hot_, 0);
         for (int k = 0; k < n; ++k) {
-            const int i = (from + k) % n;
-            const std::wstring& label = items_[size_t(i)].label;
+            const int at = (from + k) % n;
+            const std::wstring& label = items_[size_t(shown_[size_t(at)])].label;
             if (label.size() >= prefix.size() &&
                 std::equal(prefix.begin(), prefix.end(), label.begin(), [](wchar_t a, wchar_t b) {
                     return std::towlower(a) == std::towlower(b);
                 })) {
-                if (i != hot_) setHot(i);
+                if (at != hot_) setHot(at);
                 break;
             }
         }
@@ -127,7 +144,7 @@ public:
 
     bool key(const KeyEvent& e) override {
         if (!e.down) return false;
-        const int n = int(items_.size());
+        const int n = int(shown_.size());
         switch (e.key) {
         case Key::Up: setHot(hot_ <= 0 ? 0 : hot_ - 1); return true;
         case Key::Down: setHot(hot_ < 0 ? 0 : std::min(n - 1, hot_ + 1)); return true;
@@ -135,9 +152,21 @@ public:
         case Key::End: setHot(n - 1); return true;
         case Key::Enter:
         case Key::Space:
-            if (hot_ >= 0) pick_(hot_);
+            if (hot_ >= 0 && hot_ < n) pick_(shown_[size_t(hot_)]);
+            return true;
+        case Key::Backspace:
+            if (!search_ || query_.empty()) return search_;
+            query_.pop_back();
+            refilter();
             return true;
         case Key::Escape:
+            if (search_ && !query_.empty()) {  // (the first Esc empties the search)
+                query_.clear();
+                refilter();
+                return true;
+            }
+            cancel_();
+            return true;
         case Key::Tab: cancel_(); return true;
         default: return false;
         }
@@ -145,30 +174,53 @@ public:
 
 private:
     int rowH() const { return px(kRowH); }
-    int visible() const { return std::min(int(items_.size()), kVisibleRows); }
-    int maxTop() const { return std::max(0, int(items_.size()) - visible()); }
-    Rect row(int i) const {
-        const int y = px(2) + (i - top_) * rowH();
+    int headH() const { return search_ ? rowH() : 0; }
+    int visible() const { return std::min(int(shown_.size()), kVisibleRows); }
+    int maxTop() const { return std::max(0, int(shown_.size()) - visible()); }
+    Rect row(int k) const {
+        const int y = px(2) + headH() + (k - top_) * rowH();
         return {px(2), y, width() - px(2), y + rowH()};
     }
     int rowAt(Point p) const {
-        for (int i = top_; i < std::min(int(items_.size()), top_ + visible()); ++i)
-            if (row(i).contains(p)) return i;
+        for (int k = top_; k < std::min(int(shown_.size()), top_ + visible()); ++k)
+            if (row(k).contains(p)) return k;
         return -1;
     }
-    void show(int i) {
-        if (i < 0) return;
-        if (i < top_) top_ = i;
-        else if (i >= top_ + visible()) top_ = i - visible() + 1;
+    void show(int k) {
+        if (k < 0) return;
+        if (k < top_) top_ = k;
+        else if (k >= top_ + visible()) top_ = k - visible() + 1;
     }
-    void setHot(int i) {
-        hot_ = i;
-        show(i);
+    void setHot(int k) {
+        hot_ = k;
+        show(k);
+        invalidate();
+    }
+    // The shown items: those whose name or number has the search (any case); the current value hot, else the first.
+    void refilter() {
+        auto lower = [](std::wstring s) {
+            for (wchar_t& ch : s) ch = wchar_t(std::towlower(ch));
+            return s;
+        };
+        const std::wstring q = lower(query_);
+        shown_.clear();
+        for (int i = 0; i < int(items_.size()); ++i)
+            if (q.empty() || lower(items_[size_t(i)].label).find(q) != std::wstring::npos ||
+                (items_[size_t(i)].number >= 0 && std::to_wstring(items_[size_t(i)].number).find(q) != std::wstring::npos))
+                shown_.push_back(i);
+        hot_ = shown_.empty() ? -1 : 0;
+        for (int k = 0; k < int(shown_.size()); ++k)
+            if (shown_[size_t(k)] == current_) hot_ = k;
+        top_ = 0;
+        show(hot_);
         invalidate();
     }
 
     std::vector<DropdownItem> items_;
-    int current_ = -1, hot_ = -1, top_ = 0;
+    std::vector<int> shown_;  // the items the rows show (all, or the search's)
+    int current_ = -1, hot_ = -1, top_ = 0;  // (hot_ and top_: rows of shown_)
+    bool search_ = false;
+    std::wstring query_;  // the search's text
     float wheelAcc_ = 0;  // the wheel's notches that are not a whole one yet
     std::wstring typed_;  // the letters typed in the last second
     std::chrono::steady_clock::time_point typedAt_;
@@ -247,9 +299,9 @@ void Dropdown::openList() {
     std::weak_ptr<bool> alive = alive_;
     retireList();  // the list made before (closed) goes now
     list_ = std::make_unique<List>(
-        items_, value_, [this](int i) { pick(i); }, [this] { closeList(); });
+        items_, value_, searchable, [this](int i) { pick(i); }, [this] { closeList(); });
     listHost_ = h;
-    const int rows = std::min(int(items_.size()), kVisibleRows);
+    const int rows = std::min(int(items_.size()), kVisibleRows) + (searchable ? 1 : 0);  // (the search's row)
     const int top = height() + px(2);
     const Rect at{0, top, width(), top + rows * px(kRowH) + 2 * px(2)};
     setOpen(true);

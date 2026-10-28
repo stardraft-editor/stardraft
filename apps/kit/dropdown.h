@@ -38,6 +38,9 @@ public:
     // The mouse wheel over the closed field steps the value (the default). Off: the wheel goes on to the view under it (a
     // choice that changes much, as Program options' Game, changes only by the list or the keys).
     bool wheelSteps = true;
+    // The open list has a search row: typing shows only the items whose name (or number) has the typed text (a long
+    // list: the players' colors). Off: typing jumps to the next item that starts with it.
+    bool searchable = false;
 
     // Replaces the items (the list closes; the value stays if it is still an item).
     void setItems(std::vector<DropdownItem> items);

@@ -100,6 +100,7 @@ public:
                 if (i >= 0 && i < int(races_.size())) v_.players[size_t(p)].race = races_[size_t(i)].first, edited();
             };
             force_[p].onChange = [this, p](int i) { v_.players[size_t(p)].force = i, edited(); };
+            color_[p].searchable = true;  // (a long list, more with a mod's colors: type to search it)
             color_[p].onChange = [this, p](int row) { colorPicked(p, row); };
             // Custom again (it is the color already): its picker opens again, as the old list's Custom row did.
             color_[p].onSame = [this, p](int row) {

@@ -294,3 +294,30 @@ KIT_TEST(dropdown_set_items_closes_the_list_and_keeps_a_valid_value) {
     CHECK(dd.value() == -1);
     host.runTimers();
 }
+
+KIT_TEST(dropdown_searchable_list_shows_the_matches) {
+    draw::View root;
+    FakeHost host(root);
+    kit::Dropdown dd({item(L"Red"), item(L"Blue"), item(L"Teal"), item(L"Purple", 12)}, 0);
+    dd.searchable = true;
+    int last = -2;
+    dd.onChange = [&](int i) { last = i; };
+    root.add(dd, {10, 10, 210, 34});
+    host.click(50, 20);
+    CHECK(dd.listOpen());
+    // The search row says what to do; every item shows.
+    CHECK((host.paintWindow(0).texts() == std::vector<std::string>{"Type to search", "Red", "Blue", "Teal", "Purple", "12"}));
+    host.type("u");  // Blue and Purple have a "u"
+    CHECK((host.paintWindow(0).texts() == std::vector<std::string>{"u|", "Blue", "Purple", "12"}));
+    host.type("r");  // "ur": Purple
+    CHECK((host.paintWindow(0).texts() == std::vector<std::string>{"ur|", "Purple", "12"}));
+    host.press(Key::Backspace);  // "u" again
+    CHECK((host.paintWindow(0).texts() == std::vector<std::string>{"u|", "Blue", "Purple", "12"}));
+    host.press(Key::Escape);  // the first Esc empties the search; the list stays open
+    CHECK(dd.listOpen());
+    host.type("12");  // a number matches too
+    CHECK((host.paintWindow(0).texts() == std::vector<std::string>{"12|", "Purple", "12"}));
+    host.press(Key::Enter);  // the first match
+    CHECK(!dd.listOpen() && dd.value() == 3 && last == 3);
+    host.runTimers();
+}

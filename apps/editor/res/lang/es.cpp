@@ -2599,6 +2599,7 @@ constexpr UiText kRows[] = {
     {L"Adjusts StarDraft to work with the CMBW environment when it is loaded", L"Ajusta StarDraft para trabajar con el entorno de CMBW cuando est\u00E1 cargado"},
     {L"Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)", L"Complemento Cosmonarchy BW cargado: los mapas se abren y se crean como mapas de Cosmonarchy BW (las pesta\u00F1as abiertas no cambian)"},
     {L"Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)", L"Complemento Cosmonarchy BW descargado: los mapas se abren y se crean como mapas de StarCraft: Brood War (las pesta\u00F1as abiertas no cambian)"},
+    {L"Type to search", L"Escribe para buscar"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
