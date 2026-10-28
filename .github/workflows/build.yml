@@ -138,7 +138,8 @@ jobs:
       # The command-line program starts and answers (no game data here: `ops` needs none).
       - name: Check the command-line program
         shell: bash
-        run: build/Release/stardraft-cli.exe ops | grep -q '"ok": *true'
+        run: |
+          build/Release/stardraft-cli.exe ops | grep -q '"ok": *true'
 
       # stardraft.pdb is the one of this stardraft.exe (the same GUID and age): crash.dmp files open with it.
       - name: Check the symbols
