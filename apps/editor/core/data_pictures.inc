@@ -725,10 +725,10 @@ double gameLength(double dx, double dy) {
     return x / 4 < y ? x - x / 16 + y * 3 / 8 - x / 64 + y * 3 / 256 : x;
 }
 // The points within `range` of a box (screen pixels; `range` already zoomed): ranges between units are measured
-// from box to box (OpenBW units_distance), so the box grows by the game's distance shape on every side.
-std::vector<draw::Point> rangeShapeAround(draw::Rect box, double range) {
+// from box to box (OpenBW units_distance), so the box grows by the game's distance shape on every side. `steps`: its
+// points (fewer for a shape that is small on the screen).
+std::vector<draw::Point> rangeShapeAround(draw::Rect box, double range, int steps = 256) {
     std::vector<draw::Point> pts;
-    const int steps = 256;
     for (int k = 0; k <= steps; ++k) {
         const double a = 2 * 3.14159265358979323846 * k / steps, dx = std::cos(a), dy = std::sin(a);
         const double r = range / gameLength(dx, dy);

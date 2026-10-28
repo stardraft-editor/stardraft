@@ -935,7 +935,10 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     if (!mod && (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd || !flags)) return;
     auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
         if (r <= 0) return;
-        const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r));
+        // (a line about every 6 screen pixels: many units' shapes zoomed out are cheap)
+        const double around = 6.2832 * (r + (box.right - box.left + box.bottom - box.top) / 4.0) * app.zoom;
+        const int steps = std::clamp(int(around / 6) / 8 * 8, 16, 256);  // (a multiple of 8: the dashes)
+        const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r), steps);
         for (size_t k = 1; k < pts.size(); ++k) {
             if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
             render::RectDraw l;
@@ -964,8 +967,8 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     };
     std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
     std::vector<uint8_t> psi;   // the map's tiles in the psi field of a selected Pylon
-    // A big selection: the ranges of the 64 selected units in the view (or near it: a range reaches into it) that are
-    // nearest its middle; each unit's shapes are many lines.
+    // The ranges of the selected units in the view (or near it: a range reaches into it), nearest its middle first; a
+    // very big selection: the first 2000 of them.
     std::vector<std::pair<float, int>> closest;  // (distance to the view's middle, the unit)
     {
         int vw, vh;
@@ -979,7 +982,7 @@ void rangesScene(render::Scene& s, float dx, float dy) {
             closest.push_back({(x - mx) * (x - mx) + (y - my) * (y - my), i});
         }
         std::sort(closest.begin(), closest.end());
-        if (closest.size() > 64) closest.resize(64);
+        if (closest.size() > 2000) closest.resize(2000);
     }
     for (const auto& [distance, i] : closest) {
         Unit u = list[size_t(i)];
