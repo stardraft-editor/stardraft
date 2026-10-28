@@ -212,11 +212,26 @@ KIT_TEST(tab_strip_icon_and_text_place) {
     kit::Tab t;
     t.text = L"A";
     t.icon = 5;
+    t.closable = true;
     ts.setTabs({t});
     auto c = host.paint();
-    // The icon at the tab's left, 16 px, centered up and down; the text after 5 px; the text ends before the x's place.
+    // A tab with an x: the icon at the tab's left, 16 px, centered up and down; the text after 5 px; the text ends
+    // before the x's place.
     CHECK(c.drew("icon 10,7,26,23 5 " + C(th.text)));
     CHECK(c.drew("text 31,0,67,30 'A' " + C(th.text) + " 12"));
+}
+
+KIT_TEST(tab_strip_text_centered_without_close) {
+    const auto& th = kit::theme();
+    draw::View root;
+    FakeHost host(root);
+    kit::TabStrip ts;
+    root.add(ts, {0, 0, 400, 30});
+    ts.setTabs({{L"A"}, {L"B"}});
+    auto c = host.paint();
+    // A tab with no x and no dot (a fixed page: Program options): its text in the middle of its whole box (90 px wide).
+    CHECK(c.drew("text 10,0,80,30 'A' " + C(th.text) + " " + std::to_string(draw::kCenter | draw::kMiddle | draw::kEllipsis)));
+    CHECK(c.drew("text 100,0,170,30 'B' " + C(th.dim) + " " + std::to_string(draw::kCenter | draw::kMiddle | draw::kEllipsis)));
 }
 
 KIT_TEST(tab_strip_cursor_and_tip) {

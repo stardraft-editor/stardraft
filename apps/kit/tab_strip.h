@@ -2,7 +2,8 @@
 // A row of tabs (docs/dev/CONTROLS.md, "Tabs"). Two looks: Segmented, a row of buttons 4 px apart with the chosen one
 // Primary (the mode buttons of the top bar); Tabs, flat tabs with a bar under the chosen one (the document tabs and the
 // panel tabs). A tab can have an icon and a close (x): a click on the x, or a middle click, closes it. A tab with
-// unsaved changes shows a dot where the x is, until the mouse is over it. Drag a tab along the row to move it. Left and
+// unsaved changes shows a dot where the x is, until the mouse is over it. A tab with no x and no dot has its icon and
+// text in its middle (in both looks). Drag a tab along the row to move it (unless `movable` is false). Left and
 // Right (Home, End) choose the tabs. The tabs do not scroll: when they do not all fit, each gets an equal share.
 //
 // The strip does not own the documents: it shows `tabs` and tells the owner what the user did. onSelect and onClose

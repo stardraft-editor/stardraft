@@ -151,11 +151,11 @@ void TabStrip::drawTab(draw::Canvas& c, int i, const draw::Rect& box, draw::Colo
     const int h = height(), is = px(kIconPx), gap = px(kIconGap), pad = px(kPad), rad = px(kRadius);
     const draw::Rect cr = closeRect(i);
     const bool closeMark = t.changed || t.closable;
-    // The text ends before the x's place; a Segmented tab without an x uses its whole box, so the text is centered.
-    const bool reserve = look_ != TabLook::Segmented || closeMark;
-    const int right = reserve ? cr.left - px(2) : box.right - pad;
+    // A tab without an x or a dot uses its whole box: its icon and text are in the middle (in both looks). A flat tab
+    // with an x has them at its left; the text ends before the x's place.
+    const int right = closeMark ? cr.left - px(2) : box.right - pad;
     const int top = (h - is) / 2;
-    if (look_ == TabLook::Segmented) {
+    if (look_ == TabLook::Segmented || !closeMark) {
         // The icon and the name together in the middle; the name is cut when it does not fit; without room for it, the
         // icon alone.
         const int tw = t.text.empty() ? 0 : c.measure(t.text);
