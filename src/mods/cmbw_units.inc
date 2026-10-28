@@ -250,7 +250,7 @@
 {"Zerg Skithrokor", "Zerg", 2, 1, 2, 1, 2, "Hydrith Den", false, ""},
 {"Zerg Bactalisk", "Zerg", 2, 1, 2, 1, 3, "Hydrith Den", false, ""},
 {"Zerg Tethzorokor", "Zerg", 2, 1, 2, 1, 4, "Hydrith Den", false, ""},
-{"Zerg Yvilirokor", "Zerg", 2, 1, 2, 1, 4, "Hydrith Den", true, "Goszirith Tendril"},
+{"Zerg Yvilirokor", "Zerg", 2, 1, 2, 1, 4, "Hydrith Den", false, "Goszirith Tendril"},
 {"Zerg Vithrilisk", "Zerg", 2, 1, 2, 1, 5, "Hydrith Den", false, ""},
 {"Zerg Zorkiz Shroud", "Zerg", 2, 1, 3, 0, 0, "Zorkiz Shroud", false, ""},
 {"Zerg Ulgorg Cavern", "Zerg", 2, 1, 3, 0, 1, "Zorkiz Shroud", false, ""},

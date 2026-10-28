@@ -10,6 +10,9 @@ mod's terrain edges. On a Cosmonarchy tab each usable set is a terrain of its ow
   set's pieces in. Classic tabs: no change.
 - The map file keeps the mod's values (SCMDraft does not know them; vanilla regions work as usual).
 - Tests: tools/tests/cmbw_test.cpp (needs the Cosmonarchy install; not in CI).
+- After a mod update: `python -I tools/cmbw_update.py` says whether the install is at the mod's newest commit, makes
+  the unit palette table (src/mods/cmbw_units.inc) and the trigger comment commands (src/mods/cmbw_crigs.inc) again, and
+  says what changed. The game data (units.dat, graphics, sounds) comes from the install itself; new brush sets: below.
 
 ## How to add a mod terrain
 

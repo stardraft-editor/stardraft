@@ -8,10 +8,14 @@ A placeholder until the Cosmonarchy community has a source for it: the table com
 website's order), as the website's race pages list them, and the faction of a unit that only one faction has (the
 export's includeFactions: its first; empty for a base unit, which the race's melee faction has).
 
-usage: python tools/cmbw_units.py [all.json]   (no argument: the export is downloaded)
+The export can call a unit unimplemented for some days after the game has it: a unit that the mod's patch notes call
+NEW (a "**NEW:** [Name](https://cosmonarchy.com/<race>/<unit>/)" line, --notes) is implemented.
+
+usage: python tools/cmbw_units.py [all.json] [--notes <patchnotes.md>]...   (no all.json: the export is downloaded)
 """
 import json
 import os
+import re
 import sys
 import urllib.request
 
@@ -19,13 +23,28 @@ URL = 'https://cosmonarchy.com/export/all.json'
 
 
 def main():
-    if len(sys.argv) > 1:
-        data = json.load(open(sys.argv[1], encoding='utf-8'))
+    args, notes = [], []
+    it = iter(sys.argv[1:])
+    for a in it:
+        if a == '--notes':
+            notes.append(next(it))
+        else:
+            args.append(a)
+    new = set()  # the export's ids of the units that a patch note calls NEW ("zerg/yvilirokor")
+    for n in notes:
+        text = open(n, encoding='utf-8', errors='replace').read()
+        new |= set(re.findall(r'\*\*NEW:\*\*\s*\[[^\]]*\]\(https?://cosmonarchy\.com/([a-z0-9-]+/[a-z0-9-]+)/?\)', text))
+    if args:
+        data = json.load(open(args[0], encoding='utf-8'))
     else:
         with urllib.request.urlopen(URL) as r:
             data = json.loads(r.read().decode('utf-8'))
     races = {k: v for k, v in data['races'].items()}
     race_order = {v['name']: v.get('order', 9) for v in races.values()}
+    for key, u in data['units'].items():
+        if key in new and u.get('unimplemented'):
+            u['unimplemented'] = False
+            print('implemented (NEW in the patch notes):', u['race'], u['name'])
     units = [u for u in data['units'].values() if not u.get('hidden')]
     groups = {}
     for u in units:
