@@ -476,8 +476,10 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
 }
 
 // Find a command (Ctrl+Shift+P): each item of the menu bar in the quick picker's list, found by its name, its menus or its
-// keys. A row says its menus and keys under its name; an option has a check box (on or off); an item that cannot run now
-// is gray (picked, it says so). Enter runs the item as its menu item does.
+// keys. Out of its menu a name can say too little: an item of a submenu ("Regions") or one whose name another item has
+// too ("Units": Mode, Layers, Workspaces) starts with its menu's name ("Pathing: Regions", "Mode: Units"), unless it has
+// it already ("Show grid"). Under it, the row's menus and keys; an option has a check box (on or off); an item that
+// cannot run now is gray (picked, it says so). Enter runs the item as its menu item does.
 struct FindCommandRow {
     int id;
     std::wstring name;
@@ -491,13 +493,35 @@ void sdlFindCommand() {
     gQuickCustom.rows = [] {
         std::vector<PaletteUnit> out;
         gFindCommandRows.clear();
-        std::function<void(const MenuModel&, const std::wstring&)> walk = [&](const MenuModel& items, const std::wstring& path) {
+        auto lower = [](std::wstring s) {
+            std::transform(s.begin(), s.end(), s.begin(), ::towlower);
+            return s;
+        };
+        struct Found {
+            const MenuItem* it;
+            std::wstring path, menu;  // its menus ("View > Overlays > Pathing"), the last of them
+        };
+        std::vector<Found> found;
+        std::map<std::wstring, int> names;  // how many items have each name
+        std::function<void(const MenuModel&, const std::wstring&, const std::wstring&)> walk = [&](const MenuModel& items, const std::wstring& path,
+                                                                                                    const std::wstring& menu) {
             for (const MenuItem& it : items) {
                 if (it.kind == MenuItem::Kind::Popup) {
-                    if (it.recent.empty()) walk(it.items, (path.empty() ? L"" : path + L" > ") + accessFree(it.label));  // (not the recent files)
+                    const std::wstring name = accessFree(it.label);
+                    if (it.recent.empty()) walk(it.items, (path.empty() ? L"" : path + L" > ") + name, name);  // (not the recent files)
                     continue;
                 }
                 if (it.kind != MenuItem::Kind::Command || !it.id || it.id == ID_COMMANDS) continue;
+                found.push_back({&it, path, menu});
+                ++names[lower(accessFree(it.label))];
+            }
+        };
+        const MenuModel model = buildMenuModel();
+        walk(model, L"", L"");
+        for (const Found& f : found) {
+            const MenuItem& it = *f.it;
+            const std::wstring& path = f.path;
+            {
                 const stardraft::Command* tc = tableCommand(it.id);
                 const int check = mapMenuCheck(it.id);
                 const bool option = it.checked || (tc && tc->checked) || check >= 0;
@@ -507,6 +531,8 @@ void sdlFindCommand() {
                 PaletteUnit u;
                 u.value = int(gFindCommandRows.size());
                 u.label = accessFree(it.label);
+                const bool submenu = path.find(L" > ") != std::wstring::npos, twice = names[lower(u.label)] > 1;
+                if ((submenu || twice) && lower(u.label).find(lower(f.menu)) == std::wstring::npos) u.label = f.menu + L": " + u.label;
                 u.section = path + (keys.empty() ? L"" : L"   " + keys);
                 u.mark = uint8_t((option ? kQuickMarkOption : 0) | (on ? kQuickMarkOn : 0) | (enabled ? 0 : kQuickMarkGray));
                 u.hay = u.label + L" " + path + L" " + keys;
@@ -514,8 +540,7 @@ void sdlFindCommand() {
                 gFindCommandRows.push_back({it.id, u.label, enabled});
                 out.push_back(std::move(u));
             }
-        };
-        walk(buildMenuModel(), L"");
+        }
         return out;
     };
     gQuickCustom.run = [](int v) {

@@ -100,7 +100,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Overlays/Unit vision and ranges/Air weapon", L"Ctrl+K, J"},
         {L"View/Overlays/Unit vision and ranges/Detection", L"Ctrl+K, D"},
         {L"View/Overlays/Unit vision and ranges/Psi field", L"Ctrl+K, I"},
-        {L"View/Overlays/Turn all off", L"Ctrl+K, O"},
+        {L"View/Overlays/Turn off all overlays", L"Ctrl+K, O"},
         {L"View/Layers/Terrain", L"Ctrl+Shift+L, T"},
         {L"View/Layers/Doodads", L"Ctrl+Shift+L, D"},
         {L"View/Layers/Sprites", L"Ctrl+Shift+L, S"},
@@ -256,7 +256,7 @@ MenuModel buildMenuModel() {
     {  // what shows over the map: the town areas, the pathing (core/pathing_layer.inc), the terrain flags
        // (core/terrain_flags_layer.inc), the ranges of the selected units
         // (first the overlays that are on or off, then those with views: a submenu each, whose item that is on turns off
-        // when it is clicked again; then Turn all off)
+        // when it is clicked again; then Turn off all overlays)
         MenuModel overlays;
         overlays.push_back(menuItem(ID_VIEW_TOWNS, L"Town a&reas"));
         menuCommands(overlays, "View/Fog");  // (core/fog_layer.inc)

@@ -329,8 +329,8 @@ void registerMapCommands() {
         if (pathingLayerOn() && pathingLayerAreas()) pathingLayerToggle();
         else pathingLayerMode(true);
     }, [] { return pathingLayerOn() && pathingLayerAreas(); });
-    // View > Overlays > Turn all off: the town areas, the fog of war, the pathing, the terrain flags and the ranges.
-    addCommand(ID_OVERLAYS_OFF, "view.overlays.off", L"Turn all &off", "View/Overlays off", L"", [] {
+    // View > Overlays > Turn off all overlays: the town areas, the fog of war, the pathing, the terrain flags and the ranges.
+    addCommand(ID_OVERLAYS_OFF, "view.overlays.off", L"Turn &off all overlays", "View/Overlays off", L"", [] {
         if (gPath.towns) pathOverlayToggle(ID_VIEW_TOWNS);
         if (gShowFog) fogToggle();
         if (pathingLayerOn()) pathingLayerToggle();

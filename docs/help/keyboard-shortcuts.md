@@ -185,7 +185,7 @@ Cosmonarchy BW mode.)
 | Ctrl+K, J | View > Overlays > Unit vision and ranges > Air weapon |
 | Ctrl+K, D | View > Overlays > Unit vision and ranges > Detection |
 | Ctrl+K, I | View > Overlays > Unit vision and ranges > Psi field |
-| Ctrl+K, O | View > Overlays > Turn all off |
+| Ctrl+K, O | View > Overlays > Turn off all overlays |
 | Ctrl+K, N | View > Animate units |
 | Ctrl+K, M | View > Show minimap |
 | Ctrl+K, U | View > Units list |

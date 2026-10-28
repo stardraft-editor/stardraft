@@ -3595,7 +3595,7 @@ CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag",
 # Ctrl+Alt+T: in Units mode nothing; in Terrain mode Rectangle, Custom and Isometric in turn.
 CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
-# Turn all off (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
+# Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
                                    "--key", "Ctrl+K", "--key", "T", "--key", "Ctrl+K", "--key", "R", "--key", "Ctrl+K", "--key", "O", "--check", "menus"], "map")]
 # Find a command (Ctrl+Shift+P): "connected areas" and Enter turn on View > Overlays > Pathing > Connected areas; the
@@ -3732,7 +3732,7 @@ def check_terrain_kind_key(output):
 
 
 def check_overlay_toggles(output):
-    """None when the second Ctrl+K, P and W hid the pathing and the terrain flags, and Turn all off left no overlay on."""
+    """None when the second Ctrl+K, P and W hid the pathing and the terrain flags, and Turn off all overlays left none on."""
     status = [l.split(": ", 2)[-1] for l in output.splitlines() if re.match(r"key [PWO]: ", l)]
     if len(status) != 5:
         return f"{len(status)} status lines of P, W and O: {status}"
@@ -3740,7 +3740,7 @@ def check_overlay_toggles(output):
         return f"the second P and W did not hide their overlay: {status[1][:40]!r}, {status[3][:40]!r}"
     on = [l for l in output.splitlines() if l.startswith("menubar: View > Overlays") and l.endswith("(checked)")]
     if not status[4].startswith("All overlays are hidden") or on:
-        return f"Turn all off: {status[4][:40]!r}, still on: {on}"
+        return f"Turn off all overlays: {status[4][:40]!r}, still on: {on}"
     return None
 
 
