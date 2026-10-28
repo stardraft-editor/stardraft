@@ -157,7 +157,7 @@ Cosmonarchy BW mode.)
 
 | Keys | Menu command |
 |---|---|
-| Ctrl+K, H | View > Graphics > High definition (2x, default) |
+| Ctrl+K, E | View > Graphics > High definition (2x, default) |
 | Ctrl+K, K | View > Graphics > High definition (4x) |
 | Ctrl+K, S | View > Graphics > Standard definition |
 | Ctrl+K, C | View > Graphics > Carbot (cartooned) |
@@ -173,7 +173,7 @@ Cosmonarchy BW mode.)
 | Ctrl+K, A | View > Overlays > Pathing > Connected areas |
 | Ctrl+K, Z | View > Overlays > Terrain flags > Off |
 | Ctrl+K, W | View > Overlays > Terrain flags > Walkable ground |
-| Ctrl+K, E | View > Overlays > Terrain flags > Ground height |
+| Ctrl+K, H | View > Overlays > Terrain flags > Ground height |
 | Ctrl+K, B | View > Overlays > Terrain flags > Ground that blocks the line of sight |
 | Ctrl+K, G | View > Overlays > Terrain flags > Buildable ground |
 | Ctrl+K, R | View > Unit vision and ranges > All ranges |
