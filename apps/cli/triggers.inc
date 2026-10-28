@@ -76,7 +76,7 @@ TriggerCall blockFromJson(const Json& j) {
             const int i = d->param(f.first);
             if (i < 0) fail("block " + id + " has no parameter \"" + f.first + "\"");
             const Json& v = f.second;
-            if (v.type == Json::Type::Number) c.args[size_t(i)] = v.n == std::floor(v.n) ? std::to_string(long long(v.n)) : std::to_string(v.n);
+            if (v.type == Json::Type::Number) c.args[size_t(i)] = v.n == std::floor(v.n) ? std::to_string(static_cast<long long>(v.n)) : std::to_string(v.n);
             else if (v.type == Json::Type::String) c.args[size_t(i)] = v.s;
             else if (v.type == Json::Type::Bool) c.args[size_t(i)] = v.b ? "1" : "0";
             else fail("parameter \"" + f.first + "\" must be a number, text or yes/no");
@@ -101,12 +101,12 @@ std::vector<TriggerCall>& blockList(TriggerNode& node, const std::string& list, 
             if (step.items.size() != 2 || step.items[0].type != Json::Type::Number || step.items[1].type != Json::Type::Number)
                 fail("\"in\" steps are [list, index]");
             const double at = step.items[1].n, l = step.items[0].n;
-            if (at < 0 || at >= double(v->size()) || at != std::floor(at)) fail("\"in\": no block " + std::to_string(long long(at)));
+            if (at < 0 || at >= double(v->size()) || at != std::floor(at)) fail("\"in\": no block " + std::to_string(static_cast<long long>(at)));
             TriggerCall& call = (*v)[size_t(at)];
             // The container's lists are the block library's (TriggerDef::lists): a list the block does not have is refused.
             const TriggerDef* def = TriggerDef::find(call.def);
             if (!def || l < 0 || l >= double(def->lists.size()) || l != std::floor(l))
-                fail("\"in\": block " + call.def + " has no list " + std::to_string(long long(l)));
+                fail("\"in\": block " + call.def + " has no list " + std::to_string(static_cast<long long>(l)));
             if (call.lists.size() < def->lists.size()) call.lists.resize(def->lists.size());
             v = &call.lists[size_t(l)];
         }

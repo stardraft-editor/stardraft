@@ -399,7 +399,7 @@ void sdlClassicAdd(int what) {
 void sdlClassicRowsCheck() {
     CtModel& m = gSdlTrigHost.model();
     const ClassicTrigger* t = ctModelSelected(m);
-    if (!t) return (void)std::printf("classic rows: no trigger\n");
+    if (!t) return (void)std::printf("classic rows: no trigger\n");
     CtSentenceEnv env;
     env.names = gSdlTrigHost.names();
     env.chipText = [&env](const ClassicParam& p, uint32_t v) { return ctChipTextOf(p, v, env.names, true); };
@@ -408,12 +408,12 @@ void sdlClassicRowsCheck() {
         for (const CtSegment& g : parts) s += g.part == CtPart::Chip ? L"[" + g.text + L"]" : g.text;
         return narrow(s);
     };
-    std::printf("classic rows: trigger %d\n", m.sel + 1);
+    std::printf("classic rows: trigger %d\n", m.sel + 1);
     for (int i = 0; i < t->conditionCount(); ++i)
-        std::printf("condition %d%s: %s\n", i, t->conditions[size_t(i)].type == kClassicCrigType ? " (CRIG)" : "",
+        std::printf("condition %d%s: %s\n", i, t->conditions[size_t(i)].type == kClassicCrigType ? " (CRIG)" : "",
                     say(ctSentenceParts(t->conditions[size_t(i)], 0, nullptr, i, env)).c_str());
     for (int i = 0; i < t->actionCount(); ++i)
-        std::printf("action %d%s: %s\n", i, t->actions[size_t(i)].type == kClassicCrigType ? " (CRIG)" : "",
+        std::printf("action %d%s: %s\n", i, t->actions[size_t(i)].type == kClassicCrigType ? " (CRIG)" : "",
                     say(ctSentenceParts(t->actions[size_t(i)], 1, t, i, env)).c_str());
     StringTable strings = m.strings;
     ClassicTriggers one;
@@ -425,7 +425,7 @@ void sdlClassicRowsCheck() {
             for (char& ch : text)
                 if (ch == '\r') ch = ' ';
                 else if (ch == '\n') ch = '/';
-            std::printf("written comment %d: %s\n", i, text.c_str());
+            std::printf("written comment %d: %s\n", i, text.c_str());
         }
 }
 
