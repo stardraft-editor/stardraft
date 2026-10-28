@@ -360,9 +360,9 @@ public:
             static const struct {
                 const wchar_t* name;
                 const wchar_t* tip;
-            } segs[3] = {{L"Isometric", L"Isometric: paint terrains, with the edges corrected. Ctrl+Alt+I selects the next choice."},
-                         {L"Rectangle", L"Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+I selects the next choice."},
-                         {L"Custom", L"Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+I selects the next choice."}};
+            } segs[3] = {{L"Isometric", L"Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice."},
+                         {L"Rectangle", L"Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice."},
+                         {L"Custom", L"Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice."}};
             const int kind = terrainKind();
             for (int k = 0; k < 3; ++k) {
                 const draw::Rect r{k * (third + sg), y, k == 2 ? W : k * (third + sg) + third, y + sh};

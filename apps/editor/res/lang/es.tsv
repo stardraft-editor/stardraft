@@ -836,11 +836,11 @@ Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	R
 Isometric: the tools paint terrains and correct the edges between them	Isométrico: las herramientas pintan terrenos y corrigen los bordes entre ellos
 Isometric	Isométrico
 Isometric: paint terrains, with the edges corrected	Isométrico: pinta terrenos, con los bordes corregidos
-Isometric: paint terrains, with the edges corrected. Ctrl+Alt+I selects the next choice.	Isométrico: pinta terrenos, con los bordes corregidos. Ctrl+Alt+I selecciona la siguiente opción.
+Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Isométrico: pinta terrenos, con los bordes corregidos. Ctrl+Alt+T selecciona la siguiente opción.
 Rectangle	Rectángulo
 Rectangle: place tiles as they are (no terrain correction)	Rectángulo: coloca los tiles tal cual (sin corrección de terreno)
-Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+I selects the next choice.	Rectángulo: coloca los tiles tal cual, sin corrección de terreno. Ctrl+Alt+I selecciona la siguiente opción.
-Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+I selects the next choice.	Personalizado: coloca tu terreno personalizado, tiles que guardaste de un mapa. Ctrl+Alt+I selecciona la siguiente opción.
+Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Rectángulo: coloca los tiles tal cual, sin corrección de terreno. Ctrl+Alt+T selecciona la siguiente opción.
+Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Personalizado: coloca tu terreno personalizado, tiles que guardaste de un mapa. Ctrl+Alt+T selecciona la siguiente opción.
 Select what to place in the list	Seleccione en la lista qué colocar
 Brush shape: diamond	Forma del pincel: rombo
 Brush shape: square	Forma del pincel: cuadrado

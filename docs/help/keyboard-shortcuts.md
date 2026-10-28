@@ -51,7 +51,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+T, Ctrl+U, Ctrl+G, Ctrl+R, Ctrl+L | Terrain, Units, Doodads, Sprites and Locations mode (as SCMDraft's layer keys, but Doodads on Ctrl+G; in the Map workspace) |
 | Ctrl+F | Show or hide the fog of war of the selected player |
 | V, B, A, F | The mode's tools: Select, Brush (place), Spray and Fill |
-| Ctrl+Alt+I | Terrain mode: Isometric, Rectangle and Custom, each in turn (from another mode: Terrain mode) |
+| Ctrl+Alt+T | Terrain mode: Isometric, Rectangle and Custom, each in turn |
 | 1 to 9, 0 | Player 1 to 10 for what you place (in Terrain mode, the palette's terrain) |
 | G | Show or hide the grid |
 | + and - | Zoom in and out |

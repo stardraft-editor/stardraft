@@ -290,7 +290,7 @@ bool sdlRuns(int id) {
     }
     if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) return true;  // the keys 1 to 0
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
-    if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+I
+    if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
     if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) return true;
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) return true;

@@ -803,11 +803,11 @@ Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	�
 Isometric: the tools paint terrains and correct the edges between them	等距：工具绘制地形，并修正地形之间的边缘。
 Isometric	等距
 Isometric: paint terrains, with the edges corrected	等距：绘制地形，并修正边缘
-Isometric: paint terrains, with the edges corrected. Ctrl+Alt+I selects the next choice.	等距：绘制地形，并修正边缘。 Ctrl+Alt+I 选择下一个选项。
+Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	等距：绘制地形，并修正边缘。 Ctrl+Alt+T 选择下一个选项。
 Rectangle	矩形
 Rectangle: place tiles as they are (no terrain correction)	矩形：按原样放置图块（不修正地形）
-Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+I selects the next choice.	矩形：按原样放置图块，不修正地形。 Ctrl+Alt+I 选择下一个选项。
-Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+I selects the next choice.	自定义：放置你的自定义地形，即你从地图中保存的图块。 Ctrl+Alt+I 选择下一个选项。
+Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	矩形：按原样放置图块，不修正地形。 Ctrl+Alt+T 选择下一个选项。
+Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	自定义：放置你的自定义地形，即你从地图中保存的图块。 Ctrl+Alt+T 选择下一个选项。
 Select what to place in the list	在列表中选择要放置的内容
 Brush shape: diamond	笔刷形状：菱形
 Brush shape: square	笔刷形状：方形

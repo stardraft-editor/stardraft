@@ -3592,8 +3592,8 @@ CASES += [
 # The map's menu over a terrain selection: Copy tile values (its 8th item) copies each selected tile, a line each with
 # its place (x, y: CV5 ...), and the status bar says how many.
 CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
-# Ctrl+Alt+I: from Units mode Terrain mode, then Terrain mode's Rectangle, Custom and Isometric in turn.
-CASES += [("map-terrain-kind-key", ["--mode", "units"] + ["--key", "Ctrl+Alt+I"] * 4, "map")]
+# Ctrl+Alt+T: in Units mode nothing; in Terrain mode Rectangle, Custom and Isometric in turn.
+CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
 
 
 def ui_lines(output):
@@ -3715,11 +3715,11 @@ def check_resize_undo(output):
 
 
 def check_terrain_kind_key(output):
-    """None when Ctrl+Alt+I went to Terrain mode, then to Rectangle, Custom and Isometric."""
+    """None when Ctrl+Alt+T did nothing in Units mode, then went to Rectangle, Custom and Isometric in Terrain mode."""
     s = states(output)
-    if len(s) != 4 or any(" mode=Terrain " not in st for _, st in s):
-        return f"not 4 inputs in Terrain mode: {[st[:60] for _, st in s]}"
-    got = [l.split(": ", 2)[-1][:9] for l in output.splitlines() if l.startswith("key Ctrl+Alt+I: ")][1:]
+    if len(s) != 5 or " mode=Units " not in s[0][1] or any(" mode=Terrain " not in st for _, st in s[1:]):
+        return f"not Units, then 4 inputs in Terrain mode: {[st[:60] for _, st in s]}"
+    got = [l.split(": ", 2)[-1][:9] for l in output.splitlines() if l.startswith("key Ctrl+Alt+T: ")][1:]
     return None if got == ["Rectangle", "Custom: t", "Isometric"] else f"the status lines: {got}"
 
 
