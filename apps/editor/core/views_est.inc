@@ -1,20 +1,20 @@
 // The establishing shot of a Cosmonarchy map (portable, core.inc; Map properties' last part, only for a Cosmonarchy map:
 // core/cmbw.inc modTab): the pages with a picture and text that the mod shows before the map starts, when the map holds
 // rez\est.txt (stardraft::cmbw::EstablishingShot). A page list, a preview of the page, and its picture (with its size
-// against the game's 640 x 480), text, place and display time; the shot's fade time. Each change goes into the map at
+// against the game's 1920 x 1080), text, place and display time; the shot's fade time. Each change goes into the map at
 // once (one undo step).
 
 class EstShotView final : public draw::View {
 public:
-    // The game's screen: a picture fills it (the mod's example, its screenshot: the 1.16.1 game at 640 x 480).
-    static constexpr int kShotW = 640, kShotH = 480;
+    // The game's screen: a picture fills it (1080p: the mod's widescreen screen since October 2026; before, 640 x 480).
+    static constexpr int kShotW = 1920, kShotH = 1080;
 
     EstShotView() {
         add_.setText(tr(L"Add an establishing shot"));
         add_.setTip(tr(L"Pages with a picture and text that Cosmonarchy shows before the map starts"));
         add_.onClick = [this] { create(); };
         picture_.setText(tr(L"Choose picture\x2026"));
-        picture_.setTip(tr(L"640 x 480 pixels, the game's screen. A PNG, JPEG or BMP is cut to 4:3 and made an 8-bit PCX with its own 256 colors; "
+        picture_.setTip(tr(L"1920 x 1080 pixels, the game's screen. A PNG, JPEG or BMP is cut to 16:9 and made an 8-bit PCX with its own 256 colors; "
                            L"an 8-bit PCX goes in as it is."));
         picture_.onClick = [this] { choosePicture(); };
         text_.setText(tr(L"Edit text\x2026"));
@@ -52,7 +52,7 @@ public:
         c.fill({pad, pad + rowH - 1, width() - pad, pad + rowH}, kBorder);
         const int noteY = pad + rowH + scale(6);
         c.text({pad, noteY, width() - pad, noteY + rowH},
-               tr(L"Pages that Cosmonarchy shows before the map starts: each a 640 x 480 picture with text (rez\\est.txt in the map)."), kDim,
+               tr(L"Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map)."), kDim,
                draw::kMiddle | draw::kEllipsis);
         const int top = noteY + rowH + scale(10);
         const Editor* ed = appState().ed.get();
@@ -69,7 +69,7 @@ public:
         fade_.setEnabled(has), addPage_.setEnabled(has), deletePage_.setEnabled(pages > 1);
 
         // The page list over the preview.
-        const int pw = scale(480), ph = scale(360);
+        const int pw = scale(480), ph = pw * kShotH / kShotW;  // (the screen's shape)
         std::vector<stardraft::kit::DropdownItem> names;
         for (int i = 0; i < pages; ++i) {
             std::wstring first = shot.pages[size_t(i)].lines.empty() ? L"" : gameTextPlain(shot.pages[size_t(i)].lines.front());
@@ -104,7 +104,7 @@ public:
         if (pg) {
             std::wstring t;
             for (const std::string& l : pg->lines) t += (t.empty() ? L"" : L"\n") + gameTextPlain(l);
-            const int m = pw * 10 / kShotW;  // (the game's 10 pixels from the screen's edge, in the preview's scale)
+            const int m = pw * 10 / 640;  // (the game's 10 pixels from the edge of a 640-pixel-wide screen, in the preview's scale)
             const draw::Rect inner{pv.left + m, pv.top + m, pv.right - m, pv.bottom - m};
             const std::string& p = pg->place;
             const unsigned h = p.find("LEFT") != std::string::npos ? draw::kLeft : p.find("RIGHT") != std::string::npos ? draw::kRight : draw::kCenter;
@@ -125,10 +125,10 @@ public:
             if (b) {
                 info += L"   " + std::to_wstring(picW) + L" x " + std::to_wstring(picH);
                 if (picW == kShotW && picH == kShotH) info += tr(L": the game's screen");
-                else info += tr(L": not 640 x 480 (choose the picture again to make it so)"), infoColor = kWarn;
+                else info += tr(L": not 1920 x 1080 (choose the picture again to make it so)"), infoColor = kWarn;
             }
         } else if (has) {
-            info = tr(L"Choose a picture of 640 x 480 pixels, the game's screen"), infoColor = kWarn;
+            info = tr(L"Choose a picture of 1920 x 1080 pixels, the game's screen"), infoColor = kWarn;
         }
         c.text({pad, iy, pad + pw, iy + rowH}, info, infoColor, draw::kMiddle | draw::kEllipsis);
 
@@ -138,7 +138,7 @@ public:
         c.text({x, top, x + w, top + bh}, pg ? tr(L"Page ") + std::to_wstring(page + 1) + tr(L" of ") + std::to_wstring(pages) : std::wstring(), kText,
                draw::kMiddle);
         place(picture_, {x, y, x + w, y + bh}), y += bh + scale(4);
-        c.text({x, y, x + w, y + rowH}, tr(L"640 x 480, 8-bit PCX"), kDim, draw::kMiddle), y += rowH + scale(6);
+        c.text({x, y, x + w, y + rowH}, tr(L"1920 x 1080, 8-bit PCX"), kDim, draw::kMiddle), y += rowH + scale(6);
         place(text_, {x, y, x + w, y + bh}), y += bh + scale(8);
         c.text({x, y, x + w, y + rowH}, tr(L"Place of the text"), kDim, draw::kMiddle), y += rowH;
         int placeIndex = 0;
@@ -233,7 +233,7 @@ private:
                 p.background = "est\\est.pcx", p.displayMs = 6500, p.place = "SCREENLOWERLEFT";
                 if (p.lines.empty()) p.lines = {"MAP TITLE", "", "A place, a time"};
             },
-            tr(L"Added an establishing shot: choose its picture (640 x 480) and edit its text"));
+            tr(L"Added an establishing shot: choose its picture (1920 x 1080) and edit its text"));
     }
     void addPage() {
         Editor* ed = appState().ed.get();
@@ -283,7 +283,7 @@ private:
         Editor* ed = appState().ed.get();
         if (!ed) return;
         ShellFilePick pick;
-        pick.title = tr(L"Picture of the page (640 x 480)");
+        pick.title = tr(L"Picture of the page (1920 x 1080)");
         pick.filters = {{L"Picture (*.png; *.jpg; *.jpeg; *.bmp; *.pcx)", L"*.png;*.jpg;*.jpeg;*.bmp;*.pcx"}};
         const fs::path file = shellPickFile(pick);
         if (file.empty()) return;
@@ -292,12 +292,12 @@ private:
         int w = 0, h = 0;
         std::vector<uint8_t> rgba;
         std::wstring how;
-        // (an 8-bit PCX as it is; another picture: its middle at 4:3, made an 8-bit PCX of the game's 640 x 480, its 256
-        // colors picked)
+        // (an 8-bit PCX as it is; another picture: its middle at 16:9, made an 8-bit PCX of the game's 1920 x 1080, its
+        // 256 colors picked)
         if (!stardraft::cmbw::decodePcxRgba(data, w, h, rgba)) {
             if (!shellDecodeImage(data, w, h, rgba))
                 return shellErrorBox(tr(L"The file is not a PNG, JPEG, BMP or 8-bit PCX picture."), tr(L"Picture of the establishing shot"));
-            int cw = w, ch = h;  // (the largest 4:3 part, in the middle)
+            int cw = w, ch = h;  // (the largest 16:9 part, in the middle)
             if (int64_t(w) * kShotH > int64_t(h) * kShotW) cw = int(int64_t(h) * kShotW / kShotH);
             else ch = int(int64_t(w) * kShotH / kShotW);
             std::vector<uint8_t> crop(size_t(cw) * size_t(ch) * 4);
@@ -305,10 +305,10 @@ private:
             for (int y = 0; y < ch; ++y)
                 std::memcpy(&crop[size_t(y) * size_t(cw) * 4], &rgba[(size_t(y + oy) * size_t(w) + size_t(ox)) * 4], size_t(cw) * 4);
             data = stardraft::cmbw::encodePcx8(crop, cw, ch, kShotW, kShotH);
-            if (cw != w || ch != h) how = tr(L" (its middle, cut to 4:3)");
-            if (cw != kShotW || ch != kShotH) how += tr(L", made 640 x 480");
+            if (cw != w || ch != h) how = tr(L" (its middle, cut to 16:9)");
+            if (cw != kShotW || ch != kShotH) how += tr(L", made 1920 x 1080");
         } else if (w != kShotW || h != kShotH) {
-            how = L" (" + std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L": the game's screen is 640 x 480)");
+            how = L" (" + std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L": the game's screen is 1920 x 1080)");
         }
         const auto shot = shotOf(*ed);
         if (shot.pages.empty()) return;

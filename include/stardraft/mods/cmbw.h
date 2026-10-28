@@ -78,7 +78,7 @@ const std::vector<TerrainStamp>& brushStamps(const std::filesystem::path& instal
 int brushEdgeScore(const Tileset& tileset, const TerrainStamp& brush, const TerrainLayer& map, int x0, int y0);
 
 // The establishing shot (rez\est.txt in a map): pages that Cosmonarchy shows before the map starts, each a picture
-// (BACKGROUND, an 8-bit PCX of 640 x 480: the game's screen) with text at a place, for DISPLAYTIME ms, fading in and out
+// (BACKGROUND, an 8-bit PCX of 1920 x 1080: the game's screen) with text at a place, for DISPLAYTIME ms, fading in and out
 // over FADESPEED ms. The tags before a page's place are that page's, as the mod's example file has them
 // (fraudsclub.com/cosmonarchy-bw/sites/scenario-setup, pastebin k14M3iDt).
 struct EstablishingShot {
@@ -184,8 +184,8 @@ int crigActionCount(const ClassicTrigger& t);
 // An 8-bit PCX picture (the game's pictures: its palette at the end) as RGBA. False when it is not one.
 bool decodePcxRgba(const std::vector<uint8_t>& file, int& width, int& height, std::vector<uint8_t>& rgba);
 // A picture (RGBA, rows from the top) as an 8-bit PCX file of `outW` x `outH` (scaled to it, smoothly), its 256 colors
-// picked by median cut: for an establishing shot from a PNG (the game's size, 640 x 480).
-std::vector<uint8_t> encodePcx8(const std::vector<uint8_t>& rgba, int width, int height, int outW = 640, int outH = 480);
+// picked by median cut: for an establishing shot from a PNG (the game's size, 1920 x 1080).
+std::vector<uint8_t> encodePcx8(const std::vector<uint8_t>& rgba, int width, int height, int outW = 1920, int outH = 1080);
 
 // For the mining simulation (it knows only the game's units): a map's UNIT section with each unit as the game's unit of
 // its role in the mod (by units.dat flags and race): workers as an SCV, Drone or Probe; resource depots as a Command

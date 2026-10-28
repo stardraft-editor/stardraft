@@ -58,14 +58,15 @@ int main(int argc, char** argv) {
         std::vector<uint8_t> back;
         const bool read = cmbw::decodePcxRgba(pcx, bw, bh, back);
         double err2 = 0;
-        if (read && bw == 640 && bh == 480)
-            for (int y = 0; y < 480; ++y)
-                for (int x = 0; x < 640; ++x)
+        constexpr int W = 1920, H = 1080;  // (an establishing shot's: the game's screen)
+        if (read && bw == W && bh == H)
+            for (int y = 0; y < H; ++y)
+                for (int x = 0; x < W; ++x)
                     for (int k = 0; k < 3; ++k)
-                        err2 += std::abs(int(back[(size_t(y) * 640 + x) * 4 + k]) - int(rgba[(size_t(y * h / 480) * w + x * w / 640) * 4 + k]));
-        const double mean = err2 / (640.0 * 480 * 3);
+                        err2 += std::abs(int(back[(size_t(y) * W + x) * 4 + k]) - int(rgba[(size_t(y * h / H) * w + x * w / W) * 4 + k]));
+        const double mean = err2 / (double(W) * H * 3);
         std::printf("      PCX from a picture: %zu bytes, %d x %d, mean color error %.1f\n", pcx.size(), bw, bh, mean);
-        CHECK(read && bw == 640 && bh == 480 && mean < 6, "a picture becomes an 8-bit PCX of 640 x 480 near its colors");
+        CHECK(read && bw == W && bh == H && mean < 6, "a picture becomes an 8-bit PCX of 1920 x 1080 near its colors");
     }
     CHECK(badlands.groupTerrains.size() > 500, "the mod's badlands has the learned terrains of its new groups");
     const auto terrains = tileGroupTerrains(badlands);
