@@ -71,12 +71,13 @@ The tilesets have no "ramp" name: a ramp is a cliff doodad that fits one side of
 low ground. It finds the doodad that fits there and joins the two sides, and places it. Use it in an `apply` with no
 symmetry: the other side of a symmetric map needs a different doodad, so place each ramp on its own.
 
-- A rectangle of high ground (`paint_area`, shape `rect`) takes ramps on all four sides. A diamond's lower sides take
-  them; its upper sides take none: `place_ramp` can put a cliff piece there that joins the ground but looks broken.
-  Render each ramp close and look at it.
-- With a half turn, the image of a ramp on a lower side is on an upper side. So put the ramps of a turned map on
-  straight edges: flatten a diamond's top and bottom points with a small `rect`, and give `place_ramp` the ramp of that
-  edge (`doodads`; Jungle: 293 at a bottom edge, 284 at a top edge).
+- Paint high ground as wavy shapes (many `paint_terrain` strokes), not `paint_area` rectangles or diamonds: their
+  edges come out wrong more often than right. A ramp needs a straight run of edge: put the point at the shape's
+  outermost point (top, bottom, left or right) and give `place_ramp` the ramp of that edge (`doodads`; Jungle: 293 at a
+  bottom edge, 284 top, 281 right, 302 left). Upper diagonal edges take none that look right.
+- With a half turn, the image of a ramp on a bottom edge is on a top edge, of a right edge on a left edge. The image
+  side has other cliff tiles, so the doodad can fit at another place there: try points along the edge with
+  `apply --dry-run` until the two ramps land as images of each other. Render each ramp close and look at it.
 - A terrain edit near a ramp can remove it (`doodads_removed`). Paint first, then place the ramps.
 - Then `check`, or `get <map> pathing`, and look at a close `render` of the ramp.
 
@@ -123,7 +124,6 @@ The ladder maps (Jungle, the median): 7 terrains, the largest 34 % of the map; a
 - Put patches of the other terrains of the same level on the ground (`paint_terrain`, a circle brush): grass, mud and
   rocks on the dirt, grass on the high ground. Keep them away from cliffs and shores, or the cliffs move. Do it before
   the ramps.
-- Use `paint_area` with shape `diamond` for some cliffs and water: its edges are the 2:1 diagonals.
 - Doodads: mostly small ground details. `decorate` with `doodads` (the 2x1 and 2x2 doodads of the ground's groups,
   from `get <map> doodad-types`) and `level` 3 (the tiles between them), then a few bigger ones.
 - Sprites: few, delicately. On the ladder maps most sprites are on ground that is not walkable, at the edge of a
@@ -134,6 +134,8 @@ The ladder maps (Jungle, the median): 7 terrains, the largest 34 % of the map; a
 
 - Put each painted area on the grid of the terrain's diamonds: x a multiple of 128, y a multiple of 64. Else the two
   sides of a turned map do not come out the same.
+- A cliff that faces one way is wider than its image: a choke between cliffs comes out narrower on one side of a
+  turned map. Water shores come out the same; or measure both sides.
 - A cliff that faces up is lower than one that faces down. So the two sides differ where a shore or a cliff meets a
   cliff: ground that no unit can get to stays there. `{"op": "fix_pockets"}` makes such ground not walkable;
   `"closed_passages": true` also small closed passages, where it is safe. Then `get <map> pathing` must show no

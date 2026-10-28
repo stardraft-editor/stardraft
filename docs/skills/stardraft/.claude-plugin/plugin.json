@@ -1,0 +1,14 @@
+{
+  "name": "stardraft",
+  "version": "1.0.0",
+  "description": "Make and measure 1v1 StarCraft melee maps with stardraft-cli.",
+  "skills": [
+    "./"
+  ],
+  "author": {
+    "name": "StarDraft",
+    "url": "https://github.com/stardraft-editor/stardraft"
+  },
+  "homepage": "https://github.com/stardraft-editor/stardraft/tree/main/docs/skills/stardraft",
+  "license": "MIT"
+}

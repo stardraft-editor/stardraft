@@ -1,4 +1,4 @@
-# Measure melee map layout from stardraft-cli JSON (ladder_extract.py): python analyze.py <out>/data/*.json  (writes analysis.json)
+# The layout analysis behind measure.py: bases, town halls, ground distances, the main, chokes on the rush path.
 import glob, json, math, os, re, sys
 import numpy as np
 from scipy import ndimage
@@ -253,13 +253,3 @@ def analyze(path):
     out['base_list'] = [{k: v for k, v in b.items() if k not in ('cell', 'mineral_offsets')} for b in bases]
     return out
 
-
-if __name__ == '__main__':
-    files = sys.argv[1:]
-    res = []
-    for f in files:
-        try:
-            r = analyze(f); res.append(r); print(os.path.basename(f), r['file'], r['players'], r['bases'], file=sys.stderr)
-        except Exception as e:
-            import traceback; traceback.print_exc(); print('FAIL', f, e, file=sys.stderr)
-    json.dump(res, open('analysis.json', 'w', encoding='utf-8'), indent=1)

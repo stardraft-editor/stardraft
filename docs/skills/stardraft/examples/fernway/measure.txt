@@ -1,0 +1,45 @@
+size                            128x112     
+symmetry                     half_turn 0.55     
+bases per player                    6.0   (5, 6)  ok
+passable                           0.69   (0.65, 0.79)  ok
+geysers on the map                   10   (10, 12)  ok
+-- player 1 (288, 400)
+main fields / geysers               9/1     
+main field side / gas        left / ['top']     
+start to map edge                   288   (240, 320)  ok
+main area (tiles)                   765   (680, 1150)  ok
+main exits                            1   (1, 1)  ok
+rush ground                        5282   (4554, 5949)  ok
+rush seconds (approx.)               36   (32, 38)  ok
+rush air                           4488   (3360, 4651)  ok
+ramp width                          128   (64, 136)  ok
+ramp ground distance                828   (593, 1000)  ok
+natural distance                   1024   (916, 1134)  ok
+natural fields/gas, level    7/1 0 (main 1)     
+natural choke width                None   (128, 320)  OUT
+narrowest mid-map choke            None   (128, 320)  OUT
+third distance                     2002   (1630, 2493)  ok
+bases within 3000 px                  4   (2, 5)  ok
+routes between mains                  1   (1, 2)  ok
+   chokes on the rush path (at, width, x, y): [(828, 128, 1096, 352), (3752, 208, 2528, 2608), (4243, 158, 2632, 3056), (4596, 128, 2912, 3232)]
+-- player 2 (3808, 3184)
+main fields / geysers               9/1     
+main field side / gas        right / ['top']     
+start to map edge                   288   (240, 320)  ok
+main area (tiles)                   762   (680, 1150)  ok
+main exits                            1   (1, 1)  ok
+rush ground                        5282   (4554, 5949)  ok
+rush seconds (approx.)               36   (32, 38)  ok
+rush air                           4488   (3360, 4651)  ok
+ramp width                          128   (64, 136)  ok
+ramp ground distance                860   (593, 1000)  ok
+natural distance                   1056   (916, 1134)  ok
+natural fields/gas, level    7/1 0 (main 1)     
+natural choke width                 158   (128, 320)  ok
+narrowest mid-map choke             208   (128, 320)  ok
+third distance                     2002   (1630, 2493)  ok
+bases within 3000 px                  4   (2, 5)  ok
+routes between mains                  1   (1, 2)  ok
+   chokes on the rush path (at, width, x, y): [(860, 128, 2968, 3232), (1269, 158, 2632, 3056), (1736, 208, 2528, 2632), (4604, 128, 1176, 352)]
+base pair spread                     64   (0, 150)  ok
+   (worst pair: the base at (724, 2290) )

@@ -9,38 +9,38 @@
  },
  {
   "op": "place_base",
-  "x": 320,
-  "y": 1264,
-  "side": "left",
-  "minerals": 7
- },
- {
-  "op": "place_base",
-  "x": 320,
-  "y": 2352,
-  "side": "left",
-  "minerals": 7
- },
- {
-  "op": "place_base",
-  "x": 1792,
-  "y": 304,
-  "side": "right",
-  "minerals": 8
- },
- {
-  "op": "place_base",
   "x": 1344,
-  "y": 3248,
-  "side": "left",
-  "minerals": 7,
-  "geysers": 0
+  "y": 384,
+  "side": "right",
+  "minerals": 7
  },
  {
   "op": "place_base",
-  "x": 1472,
-  "y": 2592,
+  "x": 640,
+  "y": 1504,
   "side": "left",
   "minerals": 7
+ },
+ {
+  "op": "place_base",
+  "x": 2432,
+  "y": 640,
+  "side": "right",
+  "minerals": 7
+ },
+ {
+  "op": "place_base",
+  "x": 896,
+  "y": 2240,
+  "side": "left",
+  "minerals": 7
+ },
+ {
+  "op": "place_base",
+  "x": 1856,
+  "y": 1216,
+  "side": "right",
+  "minerals": 6,
+  "geysers": 0
  }
 ]

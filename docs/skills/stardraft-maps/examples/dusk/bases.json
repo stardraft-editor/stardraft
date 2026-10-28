@@ -1,8 +1,0 @@
-[
- {"op": "place_base", "x": 288, "y": 496, "side": "left", "minerals": 9, "player": 1},
- {"op": "place_base", "x": 1216, "y": 976, "side": "right", "minerals": 7},
- {"op": "place_base", "x": 288, "y": 1776, "side": "left", "minerals": 7},
- {"op": "place_base", "x": 288, "y": 2896, "side": "left", "minerals": 8},
- {"op": "place_base", "x": 1184, "y": 1648, "side": "left", "minerals": 6, "geysers": 0},
- {"op": "place_base", "x": 1216, "y": 2928, "side": "left", "minerals": 7}
-]

@@ -1,0 +1,17 @@
+{
+  "name": "stardraft",
+  "description": "Claude Code skills for StarDraft, the StarCraft map editor.",
+  "owner": { "name": "StarDraft", "url": "https://github.com/stardraft-editor/stardraft" },
+  "plugins": [
+    {
+      "name": "stardraft",
+      "description": "Make and measure 1v1 StarCraft melee maps with stardraft-cli.",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/stardraft-editor/stardraft.git",
+        "path": "docs/skills/stardraft",
+        "ref": "main"
+      }
+    }
+  ]
+}

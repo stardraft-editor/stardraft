@@ -8,6 +8,7 @@
 # Each blob sits on an edge between two terrains of the map (from `get terrain --step 32`): half of them push the
 # inner terrain out (a bulge), half the outer one in (a bite). No blob comes near the `keep` areas (bases, ramps,
 # chokes) or into a narrow passage (the walkable ground must stay wider than `min_gap` px each way).
+import json
 import random
 import numpy as np
 from scipy import ndimage
@@ -61,8 +62,9 @@ def roughen(cli, M, keep=(), count=120, seed=3, half=None, min_gap=320, sizes=(1
 # --- Organic shapes ------------------------------------------------------------------------------------------------
 # blob(): an outline round (cx, cy) whose radius waves (a few sine waves with random phases); worm(): a band along a
 # path whose width waves. fill(): `paint_terrain` strokes, one per row of tiles, that paint the inside of an outline
-# (the brush makes the edge the terrain's own iso edge). Paint a straight `rect` where a ramp goes (ramps need a
-# straight edge).
+# (the brush makes the edge the terrain's own iso edge). The painted water or cliff comes out about a tile wider on
+# each side than the outline. A ramp goes on a shape's outermost point (extreme(), ramp_pair()); give a shape with a
+# ramp only long waves (waves=(2, 3)), so that its edge has straight runs there.
 import math
 
 
@@ -99,10 +101,6 @@ def worm(path, width, amp=0.35, seed=1, step=48):
         left.append((x + nx * hw, y + ny * hw))
         right.append((x - nx * hw, y - ny * hw))
     return left + right[::-1]
-
-
-def rect(l, t, r, b):
-    return [(l, t), (r, t), (r, b), (l, b)]
 
 
 def fill(poly, terrain, brush=1):
@@ -181,6 +179,37 @@ def narrow_rects(cli, M, corridor=400, block=128):
         for bx in range(0, a.shape[1], c):
             if narrow[by:by + c, bx:bx + c].any(): out.append([bx * 8, by * 8, bx * 8 + block, by * 8 + block])
     return out
+
+
+def extreme(poly, side, out=16):
+    """The point of the outline `poly` farthest to `side` (left, right, top, bottom), `out` px outside it: where
+    place_ramp goes on a blob (the cliff stands outside the painted shape, and the outermost point is straight)."""
+    k, sign = {'left': (0, -1), 'right': (0, 1), 'top': (1, -1), 'bottom': (1, 1)}[side]
+    p = max(poly, key=lambda q: sign * q[k])
+    x, y = p[0] + (sign * out if k == 0 else 0), p[1] + (sign * out if k == 1 else 0)
+    return int(round(x)), int(round(y))
+
+
+def ramp_pair(cli, M, point, doodad, image, image_doodad, along='y', span=320, max_off=64):
+    """place_ramp ops for a ramp and its symmetric image. A turn or mirror makes different cliff tiles on the other
+    side, so a doodad that fits at a point can fail at its image: scan the edge (`along` x or y, +-`span` px) on both
+    sides and take the pair that lands closest to each other's image (at most `max_off` px off). `image(x, y)` maps a
+    point to its image. Shapes with only long waves (blob(..., waves=(2, 3))) have the straight runs that ramps need."""
+    def fits(x0, y0, d):
+        out = []
+        for s in range(-span, span + 1, 32):
+            x, y = (x0, y0 + s) if along == 'y' else (x0 + s, y0)
+            json.dump({"ops": [{"op": "place_ramp", "x": x, "y": y, "radius": 48, "doodads": [d]}]}, open('ramp.tmp.json', 'w'))
+            r = cli('apply', M, 'ramp.tmp.json', '--dry-run', ok=False)
+            if r.get('ok'): out.append(((x, y), (r['results'][0]['x'], r['results'][0]['y'])))
+        return out
+    A, B = fits(*point, doodad), fits(*image(*point), image_doodad)
+    pairs = sorted(((abs(image(*a[1])[0] - b[1][0]) + abs(image(*a[1])[1] - b[1][1]), a[0], b[0]) for a in A for b in B))
+    if not pairs or pairs[0][0] > max_off:
+        raise RuntimeError(f'no ramp pair near {point}: {len(A)} fits on one side, {len(B)} on the other' + (f', best {pairs[0][0]} px off' if pairs else ''))
+    _, p, q = pairs[0]
+    return [{"op": "place_ramp", "x": p[0], "y": p[1], "radius": 48, "doodads": [doodad]},
+            {"op": "place_ramp", "x": q[0], "y": q[1], "radius": 48, "doodads": [image_doodad]}]
 
 
 def back(base, terrain='High Dirt', gap=40, depth=360, amp=0.18, seed=1):
