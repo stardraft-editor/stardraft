@@ -16,7 +16,7 @@ struct AppState {
     Mode mode = Mode::Units;
     std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
     int palette = -1;        // selected palette entry value
-    int palette2 = -1;       // isometric terrain: the second terrain (Ctrl+click in the palette), painted with Shift+click or Shift+drag
+    int palette2 = -1;       // isometric terrain: the second terrain (Shift+click or Ctrl+click in the palette), painted with Shift+click or Shift+drag
     int playerOwner = 0;
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)

@@ -97,13 +97,14 @@ void fitMap() {
     app.dirty = true;
 }
 
-// Isometric terrain: Shift with the left button paints the second terrain (Ctrl+click in the palette) with the Brush,
-// Spray, Fill or Replace tool, as the left button alone paints the first. The Win32 view keeps the first terrain
-// during such a stroke (gSecondStrokeSaved).
+// Isometric terrain: Shift with the left button paints the second terrain (Shift+click or Ctrl+click in the palette)
+// with the Brush, Spray or Replace tool, as the left button alone paints the first. (Fill with Shift fills every place
+// of the clicked terrain with the first: mapMouseDown.) The Win32 view keeps the first terrain during such a stroke
+// (gSecondStrokeSaved).
 bool secondPaints() {
     AppState& app = appState();
     const int tool = currentTool(app);
-    return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TFill || tool == TReplace);
+    return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TReplace);
 }
 
 void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, Drag move) {
@@ -390,8 +391,10 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             uint16_t from = ed.terrainAt(int(wx), int(wy));
             const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
             int n = ed.replaceTerrain(from, t, area, int(selectShape(app)));  // (in the selection's shape)
-            setMessage(app, L"Replaced " + widen(ed.terrainName(from)) + L" with " + itemLabel(app, app.palette) + L" (" +
-                       std::to_wstring(n) + L" corners" + (area ? L", in selection)" : L")"));
+            // (the clicked terrain by the map's isometric data: a mod's tiles drawn over another terrain count as that one)
+            if (from == t) setMessage(app, L"Did not fill: the clicked terrain is " + widen(ed.terrainName(from)) + L" already");
+            else setMessage(app, L"Replaced " + widen(ed.terrainName(from)) + L" with " + itemLabel(app, app.palette) + L" (" +
+                                     std::to_wstring(n) + L" corners" + (area ? L", in selection)" : L")"));
         }
         break;
     }

@@ -52,6 +52,9 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+F | Show or hide the fog of war of the selected player |
 | V, B, A, F | The mode's tools: Select, Brush (place), Spray and Fill |
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle and Custom, each in turn |
+| Shift+click in the palette | Isometric terrain: the second terrain (Ctrl+click too) |
+| Shift+click, Shift+drag | Isometric terrain: paint with the second terrain (Brush, Spray, Replace) |
+| Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
 | 1 to 9, 0 | Player 1 to 10 for what you place (in Terrain mode, the palette's terrain) |
 | G | Show or hide the grid |
 | + and - | Zoom in and out |

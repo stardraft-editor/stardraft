@@ -342,7 +342,8 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         activatePanel(&pv->state());  // (its own picks)
         // Ctrl adds to the pick; Shift picks every item from the last pick (as the side bar's palette).
         const bool ctrl = (mods & draw::kCtrl) != 0;
-        if (!((mods & draw::kShift) && paletteShiftPick(gState, pv->list.rows, row, ctrl))) pickUnit(gState, value, ctrl);
+        const bool second = (mods & draw::kShift) && gState.mode == Mode::Terrain && !gState.terrainRect;  // (as the side bar's)
+        if (!((mods & draw::kShift) && paletteShiftPick(gState, pv->list.rows, row, ctrl))) pickUnit(gState, value, ctrl || second);
         shellPaletteChanged();
         invalidateMapView();
         shellFocusView();

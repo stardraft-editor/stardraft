@@ -382,7 +382,7 @@ void pickUnit(AppState& app, int v, bool add) {
     if (!app.ed || v < 0) return;
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it (Ctrl adds to a spray, #79).
-        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain: Shift+click or Shift+drag paints it
+        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain (Shift+click or Ctrl+click): Shift+click or Shift+drag paints it
             app.palette2 = app.palette2 == v ? -1 : v;
             if (currentTool(app) == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo(app);
             setMessage(app, app.palette2 > 0 ? shellTr(L"Shift+drag paints ") + paletteItemName(v) + shellTr(L"; drag paints ") +
