@@ -2182,9 +2182,6 @@ Added unit 	Unidad añadida
  here: 	 aquí: 
 . Click again for the next unit.	. Haga clic otra vez para la unidad siguiente.
 , at 	, en 
-The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	El rombo tiene la forma de los rombos del mapa: su alto sigue a su tamaño. Para dar un alto, seleccione el cuadrado o el círculo.
-The diamond has the shape of the map's diamonds: its height follows its size.	El rombo tiene la forma de los rombos del mapa: su alto sigue a su tamaño.
-Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	Alto del pincel: el rombo tiene la forma de los rombos del mapa, así que su alto sigue a su tamaño. Para dar un alto, seleccione el cuadrado o el círculo.
 Terrain palette	Paleta de terreno
 Dock	Acoplar
 The terrain palette is in its own window	La paleta de terreno está en su propia ventana
@@ -2282,9 +2279,20 @@ Make &floating	Hacer &flotante
 Dock in the side bar	Acoplar en la barra lateral
 Make floating	Hacer flotante
 Sort by &category	Ordenar por &categoría
-Sort by na&me	Ordenar por no&mbre
-Sort by n&umber	Ordenar por n&úmero
 Sort by &tier	Ordenar por &nivel
+Name: &A to Z	Nombre: de la &A a la Z
+Name: &Z to A	Nombre: de la &Z a la A
+Number: &low to high	Número: de &menor a mayor
+Number: &high to low	Número: de ma&yor a menor
+Sort: name, A to Z	Orden: nombre, de la A a la Z
+Sort: name, Z to A	Orden: nombre, de la Z a la A
+Sort: number, low to high	Orden: número, de menor a mayor
+Sort: number, high to low	Orden: número, de mayor a menor
+Sort: tier	Orden: nivel
+Sort: category	Orden: categoría
+Click to change the order.	Haga clic para cambiar el orden.
+Move &up	Mover &arriba
+Move &down	Mover a&bajo
 Tier	Nivel
 No tier	Sin nivel
 &New panel like this	&Nuevo panel como este

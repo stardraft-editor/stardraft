@@ -814,8 +814,8 @@ bool sdlShotInputNext() {
 // to the second point in steps, the button held), the button goes up. The events go the host's way for a window's
 // (SdlHost::snapshotMouse), with the modifier keys held (Shift, Ctrl, Alt, joined with +; Ctrl is Cmd on macOS);
 // Double in the mods: a double click (a second press and release, SDL's clicks 2). Repeat<n> in a click's mods: n quick
-// clicks at the point, as SDL counts them (clicks 1, 2, ... n: the second and each next press is a double click to the
-// views). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
+// clicks at the point, as SDL counts them (clicks 1, 2, ... n: each even press is a double click to the views, each
+// odd one a click: SdlHost). Quick in a click's mods: the click comes quickly after the click before it (SDL's clicks 2, anywhere: the
 // system counts it as a double click when it is near the first). Undo in a drag's mods: Ctrl+Z is pressed halfway,
 // while the button is held. Right in a click's mods: the right button; Menu<n>: a right click, and the menu that opens
 // runs its item n (its items go to the output, as --rclick's: sdlMenuShot).

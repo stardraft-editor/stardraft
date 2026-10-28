@@ -2182,9 +2182,6 @@ Added unit 	已添加单位
  here: 	 (此处): 
 . Click again for the next unit.	。再次单击可选择下一个单位。
 , at 	，位置 
-The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	菱形与地图的菱形形状相同：其高度随大小变化。要设置高度，请选择正方形或圆形。
-The diamond has the shape of the map's diamonds: its height follows its size.	菱形与地图的菱形形状相同：其高度随大小变化。
-Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	画笔高度：菱形与地图的菱形形状相同，因此其高度随大小变化。要设置高度，请选择正方形或圆形。
 Terrain palette	地形调色板
 Dock	停靠
 The terrain palette is in its own window	地形调色板在单独的窗口中
@@ -2282,9 +2279,20 @@ Make &floating	设为浮动(&F)
 Dock in the side bar	停靠到侧栏
 Make floating	设为浮动
 Sort by &category	按类别排序(&C)
-Sort by na&me	按名称排序(&M)
-Sort by n&umber	按编号排序(&U)
 Sort by &tier	按等级排序(&T)
+Name: &A to Z	名称：A 到 Z(&A)
+Name: &Z to A	名称：Z 到 A(&Z)
+Number: &low to high	编号：从低到高(&L)
+Number: &high to low	编号：从高到低(&H)
+Sort: name, A to Z	排序：名称，A 到 Z
+Sort: name, Z to A	排序：名称，Z 到 A
+Sort: number, low to high	排序：编号，从低到高
+Sort: number, high to low	排序：编号，从高到低
+Sort: tier	排序：等级
+Sort: category	排序：分类
+Click to change the order.	单击以更改顺序。
+Move &up	上移(&M)
+Move &down	下移(&D)
 Tier	等级
 No tier	无等级
 &New panel like this	新建类似面板(&N)

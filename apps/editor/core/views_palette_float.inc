@@ -7,7 +7,13 @@
 // The views of a palette in the window, from the top: rows (a view that fills the row, and a button at its right or
 // none), then the list that fills the rest; `alt` shows in place of the rows and the list while altShown.
 struct FloatPaletteParts {
-    std::vector<std::pair<draw::View*, draw::View*>> rows;
+    // A row: the view that fills it, a button at its right end (View), and a square button before that (Sort).
+    struct Row {
+        draw::View* fill = nullptr;
+        draw::View* button = nullptr;
+        draw::View* sort = nullptr;
+    };
+    std::vector<Row> rows;
     draw::View* list = nullptr;
     draw::View* alt = nullptr;
 };
@@ -211,12 +217,17 @@ struct FloatPaletteView final : PanelStripView {
             y += th + pad;
         }
         for (size_t i = 0; i < parts_.rows.size(); ++i) {
-            auto [fill, button] = parts_.rows[i];
+            auto [fill, button, sort] = parts_.rows[i];
             int right = w - pad - (i == 0 && titleH <= 0 ? btnW + pad : 0);  // (Dock is at the right end of the first row)
             if (button) {
                 button->setFrame({right - btnW, y, right, y + rowH});
                 right -= btnW + pad;
                 button->setVisible(!alt);
+            }
+            if (sort) {
+                sort->setFrame({right - rowH, y, right, y + rowH});
+                right -= rowH + pad;
+                sort->setVisible(!alt);
             }
             if (fill) fill->setFrame({pad, y, std::max(pad, right), y + rowH}), fill->setVisible(!alt);
             y += rowH + pad;
@@ -244,9 +255,10 @@ private:
     FloatPaletteParts parts_;
     std::vector<draw::View*> views() const {
         std::vector<draw::View*> out;
-        for (auto [fill, button] : parts_.rows) {
+        for (auto [fill, button, sort] : parts_.rows) {
             if (fill) out.push_back(fill);
             if (button) out.push_back(button);
+            if (sort) out.push_back(sort);
         }
         if (parts_.list) out.push_back(parts_.list);
         if (parts_.alt) out.push_back(parts_.alt);
@@ -268,6 +280,9 @@ struct PalettePanelView final : PanelStripView {
     stardraft::kit::Button viewButton{L"View", stardraft::kit::Tone::Normal, [this] {
                                           if (onView) onView();
                                       }};
+    stardraft::kit::IconButton sortButton{stardraft::kit::IconGlyph::ofGlyph(L'\xE8CB'), stardraft::kit::IconStyle::Boxed, L"", [this] {
+                                              if (onSort) onSort();
+                                          }};
     PaletteGridView list;
     ToolStripView tools;  // its mode's tools, sizes and options (the side bar's strip), as its state has them
     Mode mode = Mode::Units;
@@ -282,6 +297,7 @@ struct PalettePanelView final : PanelStripView {
     PaletteSort sort = PaletteSort::Category;
     std::wstring section;          // the section it shows ("": all)
     std::function<void()> onView;  // the View button: the panel's View menu
+    std::function<void()> onSort;  // the Sort button: the panel's order
     // A mode's floating palette (View > Floating palettes, Make floating): its type is the mode's (no type box), its view
     // and order are the mode's (gViewByMode, gSortByMode), the close box docks it; it shows in every mode. Terrain's holds
     // Rectangle mode's Tiles panel (`alt`) in Terrain mode while Rectangle mode is on.
@@ -305,7 +321,7 @@ struct PalettePanelView final : PanelStripView {
         tilesPanel.holdGrid(tilesGrid);
         tilesPanel.bind(&tilesData);
         list.ownView = &view;
-        for (draw::View* v : std::initializer_list<draw::View*>{&tools, &type, &owner, &sections, &search, &viewButton, &list}) add(*v, {});
+        for (draw::View* v : std::initializer_list<draw::View*>{&tools, &type, &owner, &sections, &search, &sortButton, &viewButton, &list}) add(*v, {});
         search.setPlaceholder(L"Search");
     }
     ~PalettePanelView() override {
@@ -313,7 +329,7 @@ struct PalettePanelView final : PanelStripView {
         const auto kids = children();
         for (View* c : kids) remove(*c);
     }
-    std::vector<draw::View*> ownViews() { return {&type, &owner, &sections, &search, &viewButton, &list}; }
+    std::vector<draw::View*> ownViews() { return {&type, &owner, &sections, &search, &sortButton, &viewButton, &list}; }
     bool hasOwner() const { return mode == Mode::Units || mode == Mode::Sprites; }
     bool hasSections() const { return mode != Mode::Terrain; }
     // The same sizes as the side bar's rows (core/layout.inc).
@@ -335,11 +351,15 @@ struct PalettePanelView final : PanelStripView {
         const int rowsTop = y;
         sections.setVisible(hasSections());
         if (hasSections()) sections.setFrame({pad, y, w - pad, y + rowH}), y += rowH + pad;
-        search.setFrame({pad, y, std::max(pad, w - pad - btnW - pad), y + rowH});
+        const int sortW = mode == Mode::Terrain ? 0 : rowH + pad;  // (the Sort button: the lists of objects)
+        search.setFrame({pad, y, std::max(pad, w - pad - btnW - pad - sortW), y + rowH});
+        sortButton.setFrame({w - pad - btnW - pad - rowH, y, w - pad - btnW - pad, y + rowH});
         viewButton.setFrame({w - pad - btnW, y, w - pad, y + rowH});
         y += rowH + pad;
         list.setFrame({pad, y, w - pad, std::max(y + 1, h - pad)});
         for (draw::View* v : std::initializer_list<draw::View*>{&search, &viewButton, &list}) v->setVisible(!collapsed && !altShown);
+        sortButton.setVisible(!collapsed && !altShown && mode != Mode::Terrain);
+        sortButton.setTip(paletteSortTip(mode, sort));
         type.setVisible(!collapsed);
         if (collapsed || altShown) owner.setVisible(false), sections.setVisible(false);
         if (alt) {  // (Rectangle mode's Tiles panel in place of the rows and the list)

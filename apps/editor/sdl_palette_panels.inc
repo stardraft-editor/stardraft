@@ -331,6 +331,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         palettePanelRebuild(*pv);
     };
     v.onView = [pv] { paletteMenuSdl(pv->list, pv->viewButton, {0, pv->viewButton.height()}, -1, pv); };
+    v.onSort = [pv] { paletteSortMenuSdl(pv->mode, pv->sortButton, pv); };
     v.onCollapse = [pv] { shellPost([pv] { palettePanelCollapse(*pv, !pv->collapsed); }); };
     v.list.picture = panelPicture;
     // A pick picks in the panel's mode: the active mode becomes it (as a click in the mode's own palette).
@@ -498,7 +499,7 @@ void palettePanelsLoad(int doc) {
         if (std::find(std::begin(kPanelModes), std::end(kPanelModes), Mode(mode)) == std::end(kPanelModes)) continue;
         const int bits = std::atoi(part[2].c_str());
         PaletteView view{(bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0, (bits & 8) != 0};
-        auto p = palettePanelMake(Mode(mode), view, PaletteSort(std::clamp(std::atoi(part[1].c_str()), 0, 3)), doc);
+        auto p = palettePanelMake(Mode(mode), view, PaletteSort(std::clamp(std::atoi(part[1].c_str()), 0, kPaletteSortCount - 1)), doc);
         const int x = std::atoi(part[4].c_str()), y = std::atoi(part[5].c_str());
         const int w = std::max(kFloatPalMinW, std::atoi(part[6].c_str())), h = std::max(1, std::atoi(part[7].c_str()));
         p->at = draw::Rect(int(x * k), int(y * k), int((x + w) * k), int((y + h) * k));
@@ -539,7 +540,8 @@ void sdlPanelScript(const std::string& what) {
     if (what == "new") palettePanelNew(gState.mode, gViewByMode[int(gState.mode)], gSortByMode[int(gState.mode)], nullptr);
     else if (what == "dup" && last && last->onDuplicate) last->onDuplicate();
     else if (what.rfind("sort ", 0) == 0 && last) {
-        last->sort = arg == "name" ? PaletteSort::Name : arg == "number" ? PaletteSort::Number : arg == "tier" ? PaletteSort::Tier : PaletteSort::Category;
+        last->sort = arg == "name" ? PaletteSort::Name : arg == "number" ? PaletteSort::Number : arg == "tier" ? PaletteSort::Tier
+                   : arg == "name-down" ? PaletteSort::NameDown : arg == "number-down" ? PaletteSort::NumberDown : PaletteSort::Category;
         palettePanelRebuild(*last);
     } else if (what.rfind("type ", 0) == 0 && last) {
         for (size_t i = 0; i < std::size(kPanelModes); ++i)
@@ -558,7 +560,7 @@ void sdlPanelScript(const std::string& what) {
     sdlInputLine("panel " + what);
     for (size_t i = 0; i < gPanels.size(); ++i) {
         const PalettePanelView& v = *gPanels[i]->view;
-        const char* sorts[] = {"category", "name", "number", "tier"};
+        const char* sorts[] = {"category", "name", "number", "tier", "name-down", "number-down"};
         std::printf("  panel %zu: %s, by %s, %zu rows (first: %s), section \"%s\", search \"%s\"%s, %s at %d,%d %dx%d\n", i + 1,
                     narrow(kModeNames[int(v.mode)]).c_str(), sorts[int(v.sort)], v.list.rows.size(),
                     v.list.rows.empty() ? "-" : narrow(v.list.rows.front().label).c_str(), narrow(v.section).c_str(), narrow(v.search.text()).c_str(),

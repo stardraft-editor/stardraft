@@ -428,6 +428,8 @@ struct MainView final : draw::View {
         add(gSearchSdl, draw::Rect(0, 0, 0, 0));
         add(gSectionDropSdl, draw::Rect(0, 0, 0, 0));
         add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
+        add(gSortBtnSdl, draw::Rect(0, 0, 0, 0));
+        add(gLocSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gPalList, draw::Rect(0, 0, 0, 0));
         gTilesDockPanel.holdGrid(gTilesDockGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
         add(gTilesDockPanel, draw::Rect(0, 0, 0, 0));
@@ -815,6 +817,9 @@ struct MainView final : draw::View {
         side(gTilesDockPanel, tiles2 ? L.palette2 : tiles3 ? L.palette3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
         side(gSearchSdl, L.search, !locs && here && !tiles);
         side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
+        sortTipsSdl();
+        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && here && !tiles);
+        side(gLocSortBtnSdl, L.sortBtn, locs && here);
         side(gPalList, L.palette, !locs && here && !tiles);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
@@ -878,9 +883,9 @@ PanelState* sidePanelAt(draw::Point pt) {
     for (PaletteGridView* l : {static_cast<PaletteGridView*>(&gPalList), static_cast<PaletteGridView*>(&gPal2List), static_cast<PaletteGridView*>(&gPal3List)})
         if (in(*l)) return l->state;
     if (in(gTilesDockPanel)) return &dockedPanel(Mode::Terrain);
-    for (draw::View* v : std::initializer_list<draw::View*>{&gSearchSdl, &gViewBtnSdl, &gSectionDropSdl, &gOwnerBox})
+    for (draw::View* v : std::initializer_list<draw::View*>{&gSearchSdl, &gViewBtnSdl, &gSortBtnSdl, &gSectionDropSdl, &gOwnerBox})
         if (in(*v)) return &dockedPanel(gState.mode);
-    if (in(gLocList) || in(gFilterSdl)) return &dockedPanel(Mode::Locations);
+    if (in(gLocList) || in(gFilterSdl) || in(gLocSortBtnSdl)) return &dockedPanel(Mode::Locations);
     return nullptr;
 }
 void floatPalettesTiles();  // (sdl_palette_panels.inc: the windows' Tiles lists)
@@ -1014,17 +1019,18 @@ void sdlMidPanCheck() {
 }
 
 // --palview in a snapshot: the View menu's items (list, icons, sprites, normal, large, xlarge; the orders: category, name,
-// number, tier) on the palette of the mode.
+// name-down, number, number-down, tier) on the palette of the mode.
 void sdlPaletteViewShot(const std::string& spec) {
     std::stringstream in(spec);
     for (std::string w; std::getline(in, w, ',');) {
         const int id = w == "list" ? ID_PAL_LIST : w == "icons" ? ID_PAL_ICONS : w == "sprites" ? ID_PAL_SPRITES : w == "normal" ? ID_PAL_NORMAL
                                                                                                   : w == "large" ? ID_PAL_LARGE : w == "xlarge" ? ID_PAL_XLARGE
                        : w == "category" ? ID_PAL_SORT_CATEGORY : w == "name" ? ID_PAL_SORT_NAME : w == "number" ? ID_PAL_SORT_NUMBER
-                       : w == "tier" ? ID_PAL_SORT_TIER : 0;
-        if (!applyPaletteViewCommand(gState.mode, id)) std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal, large, xlarge, category, name, number or tier\n", w.c_str());
+                       : w == "tier" ? ID_PAL_SORT_TIER : w == "name-down" ? ID_PAL_SORT_NAME_DOWN : w == "number-down" ? ID_PAL_SORT_NUMBER_DOWN : 0;
+        if (!applyPaletteViewCommand(gState.mode, id))
+            std::fprintf(stderr, "--palview %s: not list, icons, sprites, normal, large, xlarge, category, name, name-down, number, number-down or tier\n", w.c_str());
     }
-    shellPaletteRebuilt();
+    sortChangedSdl(gState.mode);
 }
 
 // A workspace's view is added to the window (now when the window exists, else when it is made).

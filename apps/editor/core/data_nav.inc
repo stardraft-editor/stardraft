@@ -41,11 +41,21 @@ bool dataPinned(int tab, int e) {
 }
 // Pins entry `e` of tab `tab` (or unpins it) and saves the pins. True when it is pinned now. (A classic map's Map data
 // page pins its units, upgrades and techs here too: one user's pins in both lists.)
-bool dataPinSave(int tab, int e) {
-    const bool pin = dataPinToggle(dataPins(tab), e);
+void dataPinsStore(int tab) {
     if (!gSelfTest && !gSettingsOff)  // (tests and snapshot runs leave the user's settings alone)
         prefs::setText(L"DataPins/" + widen(dataTabKey(tab)), dataPinsText(dataPins(tab)));
+}
+bool dataPinSave(int tab, int e) {
+    const bool pin = dataPinToggle(dataPins(tab), e);
+    dataPinsStore(tab);
     return pin;
+}
+// Moves the pinned entry `e` of tab `tab` one place up (dir -1) or down (1) among the pins that the list shows (`shown`)
+// and saves the pins. False: it did not move.
+bool dataPinMoveSave(int tab, int e, int dir, const std::vector<int>& shown) {
+    if (!pinMove(dataPins(tab), e, dir, shown)) return false;
+    dataPinsStore(tab);
+    return true;
 }
 // Pins entry `e` of the open tab (or unpins it), saves the pins and makes the list again; the status says which.
 void dataTogglePin(int e) {
@@ -256,6 +266,10 @@ MenuModel dataEntryMenuModel(int u) {
         for (int e : es) all &= dataPinned(dataState().datTab, e);
         const std::wstring n = es.size() > 1 ? L" " + std::to_wstring(es.size()) + tr(L" entries") : L"";
         item(4, all ? L"Un&pin" + n : L"&Pin" + n + L" to the top", L"", true);
+        if (es.size() == 1 && all) {  // (a pinned entry: its place in the pinned entries)
+            item(6, L"Move &up", L"", pinCanMove(dataPins(dataState().datTab), u, -1, dataState().shown));
+            item(7, L"Move &down", L"", pinCanMove(dataPins(dataState().datTab), u, 1, dataState().shown));
+        }
     }
     return m;
 }
@@ -265,6 +279,7 @@ void dataEntryMenuPick(int u, int pick) {
     else if (pick == 3) dataResetEntry(u);
     else if (pick == 4) dataTogglePins(u);
     else if (pick == 5) dataPasteAll(u);
+    else if ((pick == 6 || pick == 7) && dataPinMoveSave(dataState().datTab, u, pick == 6 ? -1 : 1, dataState().shown)) dataRebuildList();
 }
 
 // A field's menu (the right button over a field of the form): copy, paste and reset its value.

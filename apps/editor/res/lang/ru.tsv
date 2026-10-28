@@ -2182,9 +2182,6 @@ Added unit 	Добавлен юнит
  here: 	 здесь: 
 . Click again for the next unit.	. Щёлкните снова, чтобы выбрать следующий юнит.
 , at 	, в точке 
-The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.	Ромб имеет форму ромбов карты: его высота следует за размером. Чтобы задать высоту, выберите квадрат или круг.
-The diamond has the shape of the map's diamonds: its height follows its size.	Ромб имеет форму ромбов карты: его высота следует за размером.
-Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.	Высота кисти: ромб имеет форму ромбов карты, поэтому его высота следует за размером. Чтобы задать высоту, выберите квадрат или круг.
 Terrain palette	Палитра местности
 Dock	Закрепить
 The terrain palette is in its own window	Палитра местности в отдельном окне
@@ -2282,9 +2279,20 @@ Make &floating	Сделать &плавающей
 Dock in the side bar	Закрепить на боковой панели
 Make floating	Сделать плавающей
 Sort by &category	Сортировать по &категории
-Sort by na&me	Сортировать по &имени
-Sort by n&umber	Сортировать по &номеру
 Sort by &tier	Сортировать по &уровню
+Name: &A to Z	Имя: от &А до Я
+Name: &Z to A	Имя: от &Я до А
+Number: &low to high	Номер: по &возрастанию
+Number: &high to low	Номер: по &убыванию
+Sort: name, A to Z	Порядок: имя, от А до Я
+Sort: name, Z to A	Порядок: имя, от Я до А
+Sort: number, low to high	Порядок: номер, по возрастанию
+Sort: number, high to low	Порядок: номер, по убыванию
+Sort: tier	Порядок: уровень
+Sort: category	Порядок: категория
+Click to change the order.	Нажмите, чтобы изменить порядок.
+Move &up	&Переместить вверх
+Move &down	Переместить в&низ
 Tier	Уровень
 No tier	Без уровня
 &New panel like this	&Новая панель как эта

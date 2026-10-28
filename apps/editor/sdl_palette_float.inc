@@ -31,22 +31,23 @@ std::string floatPaletteShort(Mode m) {
 FloatPaletteParts floatPaletteParts(Mode m) {
     FloatPaletteParts p;
     if (m == Mode::Locations) {
-        p.rows = {{&gFilterSdl, nullptr}};
+        p.rows = {{&gFilterSdl, nullptr, &gLocSortBtnSdl}};
         p.list = &gLocList;
         return p;
     }
     if (m == Mode::Units || m == Mode::Sprites) p.rows.push_back({&gOwnerBox, nullptr});
     if (m != Mode::Terrain) p.rows.push_back({&gSectionDropSdl, nullptr});
-    p.rows.push_back({&gSearchSdl, &gViewBtnSdl});
+    p.rows.push_back({&gSearchSdl, &gViewBtnSdl, m == Mode::Terrain ? nullptr : &gSortBtnSdl});
     p.list = &gPalList;
     if (m == Mode::Terrain) p.alt = &gTilesDockPanel;  // (Rectangle mode's Tiles panel)
     return p;
 }
 std::vector<draw::View*> floatPaletteViews(const FloatPaletteParts& p) {
     std::vector<draw::View*> out;
-    for (auto [fill, button] : p.rows) {
+    for (auto [fill, button, sort] : p.rows) {
         if (fill) out.push_back(fill);
         if (button) out.push_back(button);
+        if (sort) out.push_back(sort);
     }
     if (p.list) out.push_back(p.list);
     if (p.alt) out.push_back(p.alt);

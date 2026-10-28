@@ -508,10 +508,10 @@ CASES += [
     ("map-tiles-grid-480", ["--settings", "{leftwidth:492}", "--rect", "--click", "tile37", "--click", "tile63"], "map"),
     ("map-tiles-grid-480-scale15", ["--settings", "{leftwidth:332}", "--scale", "1.5", "--size", "2400x1500", "--rect",
                                     "--click", "tile37", "--click", "tile63"], "map"),
-    # The Diamond keeps the map's diamond shape (GitHub #138): two clicks on the height's up arrow change nothing (a
-    # message says why), the size's up arrow makes it 3 x 3 (diamonds, Isometric), and in Rectangle (its own size, GitHub
-    # #155: its up arrow from 2 to 3) it is 3 x 2 tiles.
-    ("map-brush-diamond-locked", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
+    # The Diamond's height (#dev, 2026-10-27): two clicks on the height's up arrow make it 2 x 4 (no longer linked), the
+    # size's up arrow makes it 3 x 4 (diamonds, Isometric); in Rectangle (its own size, GitHub #155; linked: the map's
+    # diamond shape, GitHub #138; its up arrow from 2 to 3) it is 3 x 2 tiles.
+    ("map-brush-diamond-height", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
                                   "--click", "202,427", "--click", "198,487"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
     # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
@@ -1875,12 +1875,13 @@ def check_tiles_grid(width):
     return check
 
 
-def check_diamond_locked(output):
-    """The Diamond's height follows its size (GitHub #138): 2 x 2, 3 x 3, then in Rectangle (its own size: 2, GitHub
-    #155) 2 x 1, and its up arrow makes it 3 x 2 tiles, which it paints as 2 full rows of 3 tiles."""
+def check_diamond_height(output):
+    """The Diamond's height has a value of its own (#dev, 2026-10-27): 2 x 4, 3 x 4; linked in Rectangle it keeps the
+    map's diamond shape (GitHub #138; its own size: 2, GitHub #155): 2 x 1, and its up arrow makes it 3 x 2 tiles, which
+    it paints as 2 full rows of 3 tiles."""
     return expect(output, 4, [
-        ("the height's up arrow changed the diamond's height", lambda s: s[0]["brush"] == "2x2" and "its height follows its size" in output),
-        ("the size's up arrow did not make it 3 x 3", lambda s: s[1]["brush"] == "3x3"),
+        ("the height's up arrow did not make the diamond 2 x 4", lambda s: s[0]["brush"] == "2x4"),
+        ("the size's up arrow did not make it 3 x 4", lambda s: s[1]["brush"] == "3x4"),
         ("Rectangle did not keep its own size (2 x 1)", lambda s: s[2]["brush"] == "2x1"),
         ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[3]["brush"] == "3x2"),
         ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[3].get("brushrows") == "3,3"),
@@ -4154,7 +4155,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           # (the panel less its scroll bar: 12 px, 18 px at the scale 1.5)
           "map-tiles-grid-240": check_tiles_grid(240 - 12), "map-tiles-grid-320": check_tiles_grid(320 - 12),
           "map-tiles-grid-480": check_tiles_grid(480 - 12), "map-tiles-grid-480-scale15": check_tiles_grid(480 - 18),
-          "map-brush-diamond-locked": check_diamond_locked, "map-tiles-brush-diamond": check_tiles_brush("diamond", True, "3,7,7,3"),
+          "map-brush-diamond-height": check_diamond_height, "map-tiles-brush-diamond": check_tiles_brush("diamond", True, "3,7,7,3"),
           "map-tiles-brush-circle": check_tiles_brush("circle", True, "3,5,7,7,7,5,3"), "map-tiles-brush-square": check_tiles_brush("square", False, ",".join(["7"] * 7)),
           "map-terrain-select-square": check_select_square, "map-terrain-select-diamond": check_select_shape("diamond"), "map-terrain-select-circle": check_select_shape("circle"),
           "map-tiles-select-circle": check_select_shape("circle"),

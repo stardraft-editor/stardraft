@@ -1149,7 +1149,8 @@ void SdlHost::dispatch(const SDL_Event& e) {
         m.button = button;
         m.mods = modsOf(mouseModState());
         if (e.type == SDL_EVENT_MOUSE_BUTTON_UP) m.kind = MouseKind::Up;
-        else m.kind = e.button.clicks >= 2 ? MouseKind::DoubleClick : MouseKind::Down;
+        // (A double click takes two new clicks: the third fast click is a click, the fourth a double click again.)
+        else m.kind = e.button.clicks >= 2 && e.button.clicks % 2 == 0 ? MouseKind::DoubleClick : MouseKind::Down;
         const bool taken = w->router->mouse(m);
         // A right click that no view of a dialog or a pop-out took: the program's hook (Report feedback).
         if (rightClick_ && !taken && m.kind == MouseKind::Up && button == 1 && wid != mainId_)

@@ -38,17 +38,17 @@ void toWorld(const AppState& app, int sx, int sy, float& wx, float& wy) {
 
 int currentTool(const AppState& app) { return app.toolByMode[int(app.mode)]; }
 
-// The Diamond keeps the shape of the map's diamonds (GitHub #138): 2 to 1 in pixels, as the ISOM cells. Its height
-// follows its size (Height has no value of its own for it): in diamonds (Isometric) the height is the size; in tiles
-// (Rectangle) it is half the size, rounded up. Square and Circle: their Height (0: the same as the size; GitHub #113).
-bool brushHeightLocked(const AppState& app) { return app.brushShape == Brush::Diamond; }
+// The brush's height: its Height (GitHub #113), or when linked (0) the same as the size. A linked Diamond keeps the
+// shape of the map's diamonds (GitHub #138): 2 to 1 in pixels, as the ISOM cells: in diamonds (Isometric) its height is
+// the size; in tiles (Rectangle) half the size, rounded up.
 float brushHeightOf(const AppState& app) {
-    if (brushHeightLocked(app)) return app.terrainRect ? float((std::max(1L, std::lround(app.brushSize)) + 1) / 2) : app.brushSize;
-    return app.brushHeight > 0 ? app.brushHeight : app.brushSize;
+    if (app.brushHeight > 0) return app.brushHeight;
+    if (app.brushShape == Brush::Diamond && app.terrainRect) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
+    return app.brushSize;
 }
 
 Brush currentBrush(const AppState& app) {
-    return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain && !brushHeightLocked(app) ? app.brushHeight : 0.0f};
+    return Brush{app.brushShape, app.brushSize, app.mode == Mode::Terrain ? app.brushHeight : 0.0f};
 }
 
 // The terrain selection's shape: the Select tool's own (diamond, square, circle; a square at first), kept apart from the
@@ -194,13 +194,17 @@ bool listFilterKeeps(const std::wstring& label, std::wstring filter) {
     std::transform(low.begin(), low.end(), low.begin(), ::towlower);
     return low.find(filter) != std::wstring::npos || squash(low).find(squash(filter)) != std::wstring::npos;
 }
+void sortLocationItems(const AppState& app, std::vector<int>& all);  // (palette_view.inc: Locations' Sort)
 void locationListRows(const AppState& app, std::vector<int>& items, std::vector<std::wstring>& rows) {
     items.clear(), rows.clear();
     if (!app.ed || !app.ed->isOpen()) return;
     const std::wstring filter = shellFilterText();
+    std::vector<int> all;
     for (int i = 0; i < app.ed->locationCount(); ++i)
-        if (app.ed->locationUsed(i))
-            if (std::wstring label = widen(app.ed->locationName(i)); listFilterKeeps(label, filter)) items.push_back(i), rows.push_back(std::move(label));
+        if (app.ed->locationUsed(i)) all.push_back(i);
+    sortLocationItems(app, all);
+    for (int i : all)
+        if (std::wstring label = widen(app.ed->locationName(i)); listFilterKeeps(label, filter)) items.push_back(i), rows.push_back(std::move(label));
 }
 
 // Compact tag from units.dat's StarEdit group flags: race (T/Z/P, N neutral, I independent) and
@@ -271,6 +275,7 @@ void rebuildList(AppState& app) {
         case Mode::Locations:
             for (int i = 0; i < ed.locationCount(); ++i)
                 if (ed.locationUsed(i)) all.push_back(i);
+            sortLocationItems(app, all);
             break;
         }
         auto squash = [](std::wstring t) {

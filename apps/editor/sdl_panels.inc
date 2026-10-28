@@ -65,6 +65,22 @@ void palettePanelRebuild(PalettePanelView& p);
 kit::Button gViewBtnSdl{L"View", kit::Tone::Normal, [] {  // the View menu under the button (as the Windows View button)
     paletteMenuSdl(gPalList, gViewBtnSdl, {0, gViewBtnSdl.height()}, -1);
 }};
+void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel = nullptr);
+// The Sort buttons: the search row's (the order of the active mode's palette: Units, Doodads, Sprites) and the Locations
+// filter row's (the order of the locations; its floating window shows in every mode).
+kit::IconButton gSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(gState.mode, gSortBtnSdl); }};
+kit::IconButton gLocSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(Mode::Locations, gLocSortBtnSdl); }};
+// The Sort buttons' tips: the orders now.
+void sortTipsSdl() {
+    gSortBtnSdl.setTip(paletteSortTip(gState.mode, gSortByMode[int(gState.mode)]));
+    gLocSortBtnSdl.setTip(paletteSortTip(Mode::Locations, gSortByMode[int(Mode::Locations)]));
+}
+// The lists after a change of an order: Locations' everywhere (the list, the other palettes), else the palettes.
+void sortChangedSdl(Mode mode) {
+    if (mode == Mode::Locations) rebuildList(gState);  // (the Locations list: shellListFill, in any mode)
+    shellPaletteRebuilt();
+    sortTipsSdl();
+}
 PanelTabsView gPanelTabsSdl[2];
 
 
@@ -116,13 +132,14 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
     const Mode mode = pal.mode;
     const PaletteView& view = panel ? panel->view : gViewByMode[int(mode)];
     const PaletteSort sort = panel ? panel->sort : gSortByMode[int(mode)];
-    bool tiers = false;  // (a mod's units with tech tiers: Sort by tier)
-    if (mode == Mode::Units && gState.ed && gState.ed->isOpen())
-        for (uint16_t i = 0; i < gState.ed->unitTypes().size() && !tiers; ++i) tiers = gState.ed->unitTypes()[i].paletteTier > 0;
-    const MenuModel model = paletteMenuModel(mode, view, palettePinState(mode, value), sort, panel && !panel->floating, tiers);
+    const bool tiers = mode == Mode::Units && paletteHasTiers();  // (a mod's units with tech tiers: Sort by tier)
+    const int pin = palettePinState(mode, value);
+    const std::vector<uint16_t> shown = paletteShownDoodads(pal.rows);  // (Move up and Move down: among the pins shown)
+    const MenuModel model = paletteMenuModel(mode, view, pin, sort, panel && !panel->floating, tiers, pin == 1 ? doodadPinMovesOff(value, shown) : 0);
     const std::wstring on = sdlFeedbackOn(from, at, panel ? L"a palette panel" : L"the palette");
-    sdlPopupMenu(from, at, sdlModelItems(model, [value, mode, panel, view, sort](int id) {
+    sdlPopupMenu(from, at, sdlModelItems(model, [value, mode, panel, view, sort, shown](int id) {
         if (id == kPalPin) return doodadPinToggle(value);
+        if (id == kPalPinUp || id == kPalPinDown) return doodadPinMove(value, id == kPalPinUp ? -1 : 1, shown);
         if (id == ID_PAL_NEW_PANEL) return palettePanelNew(mode, view, sort, panel);
         if (id == ID_PAL_CLOSE_PANEL && panel) return shellPost([panel] { palettePanelClose(*panel); });
         if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) {
@@ -135,10 +152,29 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
         }
         if (id >= ID_VIEW_FLOATPAL && id < ID_VIEW_FLOATPAL + kModeCount) return shellFloatPalette(Mode(id - ID_VIEW_FLOATPAL), !paletteFloats(Mode(id - ID_VIEW_FLOATPAL)));
         if (applyPaletteViewCommand(mode, id)) {
-            if ((id >= ID_PAL_SORT_CATEGORY && id <= ID_PAL_SORT_NUMBER) || id == ID_PAL_SORT_TIER) shellPaletteRebuilt();  // (the rows in the new order)
+            if (paletteSortCommand(id)) sortChangedSdl(mode);  // (the rows in the new order)
             gPalList.layout(), gPal2List.layout(), gPal3List.layout();  // (each palette shows the view of its mode)
             shellSettingsChanged();
         }
+    }), on);
+}
+
+// The Sort button's menu (core/palette_view.inc: paletteSortMenuModel) under `from`: the order of the list of `mode`, or
+// of a palette panel's own list. The side bar's order is saved in the settings.
+void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel) {
+    const PaletteSort sort = panel ? panel->sort : gSortByMode[int(mode)];
+    const bool tiers = mode == Mode::Units && paletteHasTiers();  // (a mod's units with tech tiers: Sort by tier)
+    const draw::Point at{0, from.height()};
+    const std::wstring on = sdlFeedbackOn(from, at, L"the Sort button");
+    sdlPopupMenu(from, at, sdlModelItems(paletteSortMenuModel(mode, sort, tiers), [mode, panel](int id) {
+        if (panel) {
+            PaletteView v = panel->view;
+            if (applyPaletteViewCommand(mode, id, v, panel->sort)) palettePanelRebuild(*panel);
+            return;
+        }
+        if (!applyPaletteViewCommand(mode, id)) return;
+        sortChangedSdl(mode);
+        shellSettingsChanged();
     }), on);
 }
 
@@ -214,14 +250,18 @@ void rebuildPaletteRows() {
 }
 
 // The second (or the third) palette's rows: its mode's items, unfiltered (it has no search box). Locations: the map's
-// locations, by name (as the Locations list).
+// locations, in Locations' order (as the Locations list).
 void rebuildOtherRows(PalettePanel& list, Mode m) {
     int pinned = 0;
     if (m == Mode::Locations) {
         std::vector<PaletteRow> rows;
-        if (gState.ed && gState.ed->isOpen())
+        if (gState.ed && gState.ed->isOpen()) {
+            std::vector<int> all;
             for (int i = 0; i < gState.ed->locationCount(); ++i)
-                if (gState.ed->locationUsed(i)) rows.push_back({i, widen(gState.ed->locationName(i))});
+                if (gState.ed->locationUsed(i)) all.push_back(i);
+            sortLocationItems(gState, all);
+            for (int i : all) rows.push_back({i, widen(gState.ed->locationName(i))});
+        }
         list.setRows(std::move(rows), m, 0);
         return;
     }

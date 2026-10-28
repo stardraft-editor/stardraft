@@ -47,7 +47,7 @@ struct LayoutInput {
 // the dock columns, the second palette's mode).
 struct MainLayout {
     PaneSlot status, log, topBar, tabs, wsRail, workspace, minimap, modeBar;
-    PaneSlot panelTabActive, tool, owner, sectionBox, search, viewBtn, filter, palette, list;
+    PaneSlot panelTabActive, tool, owner, sectionBox, search, viewBtn, sortBtn, filter, palette, list;
     PaneSlot panelTabOther, palette2, palette3, view;
     PaneSlot tool2, tool3;  // the other side's mode's tools over its list, and the third list's mode's tools
     RECT splitters[3] = {};  // the left side's edge, the right side's, the minimap's bottom edge
@@ -156,10 +156,14 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const bool sectionShown = in.hasSectionBox && (in.mode == Mode::Units || in.mode == Mode::Doodads || in.mode == Mode::Sprites);
     L.sectionBox = S(sx + pad, y, inner, sc(400), sectionShown, true);
     if (sectionShown) y += rowH + pad;
-    const int btnW = sc(64);
-    L.search = S(sx + pad, y, inner - pad - btnW, rowH, true, true);
+    // The search row: the search, the Sort button (a square: the lists of objects, not Terrain's), the View button;
+    // Locations: the filter, then the Sort button.
+    const int btnW = sc(64), sortW = in.mode == Mode::Terrain ? 0 : rowH + pad;
+    L.search = S(sx + pad, y, inner - pad - btnW - sortW, rowH, true, true);
     L.viewBtn = S(sx + sideW - pad - btnW, y, btnW, rowH, true, true);
-    L.filter = S(sx + pad, y, inner, rowH, true, true);
+    const int sortX = in.mode == Mode::Locations ? sx + sideW - pad - rowH : sx + sideW - pad - btnW - pad - rowH;
+    L.sortBtn = S(sortX, y, rowH, rowH, in.mode != Mode::Terrain, true);
+    L.filter = S(sx + pad, y, inner - rowH - pad, rowH, true, true);
     y += rowH + pad;
     L.palette = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);
     L.list = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);

@@ -271,8 +271,9 @@ void classicResetEntry(int tab, int e) {
 
 // An entry's menu (the right button over the list), as the Data workspace's: the ids are what ClassicPageView::menuPick
 // takes. `copied`: the name of the copied entry (empty: nothing to paste).
-enum ClassicMenuId { kClassicMenuCopy = 1, kClassicMenuPaste, kClassicMenuReset, kClassicMenuPin };
-MenuModel classicEntryMenuModel(int tab, int e, const std::wstring& copied) {
+enum ClassicMenuId { kClassicMenuCopy = 1, kClassicMenuPaste, kClassicMenuReset, kClassicMenuPin, kClassicMenuPinUp, kClassicMenuPinDown };
+// `shown`: the list's entries (Move up and Move down: among the pins that it shows).
+MenuModel classicEntryMenuModel(int tab, int e, const std::wstring& copied, const std::vector<int>& shown) {
     MenuModel m;
     auto item = [&m](int id, const std::wstring& label, const std::wstring& shortcut, bool enabled) {
         MenuItem it;
@@ -291,6 +292,10 @@ MenuModel classicEntryMenuModel(int tab, int e, const std::wstring& copied) {
     item(kClassicMenuReset, L"&Reset to the game's values", L"", classicEntryChanged(tab, e));
     separator();
     item(kClassicMenuPin, classicPinned(tab, e) ? L"Un&pin" : L"&Pin to the top", L"", true);
+    if (classicPinned(tab, e)) {  // (its place in the pinned entries)
+        item(kClassicMenuPinUp, L"Move &up", L"", pinCanMove(dataPins(classicDataTab(tab)), e, -1, shown));
+        item(kClassicMenuPinDown, L"Move &down", L"", pinCanMove(dataPins(classicDataTab(tab)), e, 1, shown));
+    }
     return m;
 }
 
@@ -356,7 +361,7 @@ public:
             const int e = shown_[size_t(i)];
             if (d_.entry[tab_] != e) d_.entry[tab_] = e, fill();
             const std::wstring copied = classicCanPaste(tab_) ? host_.entryName(tab_, gClassicClip.entry) : std::wstring();
-            host_.menu(list_, pt, classicEntryMenuModel(tab_, e, copied), [this, e](int pick) { menuPick(e, pick); }, host_.entryName(tab_, e));
+            host_.menu(list_, pt, classicEntryMenuModel(tab_, e, copied, shown_), [this, e](int pick) { menuPick(e, pick); }, host_.entryName(tab_, e));
         };
         add(list_, {0, 0, 0, 0});
         for (int f = 0; f < classicFieldCount(tab_); ++f) {
@@ -461,6 +466,8 @@ public:
             const bool pin = dataPinSave(classicDataTab(tab_), e);
             fillList();
             setMessage(pin ? tr(L"Pinned ") + name + tr(L" to the top of the list") : tr(L"Unpinned ") + name);
+        } else if (pick == kClassicMenuPinUp || pick == kClassicMenuPinDown) {
+            if (dataPinMoveSave(classicDataTab(tab_), e, pick == kClassicMenuPinUp ? -1 : 1, shown_)) fillList();
         }
     }
     // Edit > Copy and Edit > Paste (Ctrl+C, Ctrl+V): the selected entry's values.

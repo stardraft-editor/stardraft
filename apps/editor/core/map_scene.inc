@@ -823,15 +823,19 @@ render::Scene buildScene() {
         }
     }
     if (objectSprayOn()) {
-        // Spray area: a circle of small dots.
-        float r = float(sprayRadius()), d = std::max(1.5f, 2 / app.zoom);
+        // Spray area: a circle, a line 1 pixel wide (short straight parts, about 4 screen pixels each).
+        const float r = float(sprayRadius());
+        const int n = std::clamp(int(6.2831853f * r * app.zoom / 4), 24, 360);
         for (auto [px, py] : ed.symmetricPoints(int(wx), int(wy)))
-            for (int k = 0; k < 48; ++k) {
-                float a = k * 6.2831853f / 48;
-                s.rects.push_back({px + r * std::cos(a) - d, py + r * std::sin(a) - d, px + r * std::cos(a) + d, py + r * std::sin(a) + d,
-                                   0xFFD040E0u, true});
+            for (int k = 0; k < n; ++k) {
+                const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
+                render::RectDraw l;
+                l.x0 = px + r * std::cos(a0), l.y0 = py + r * std::sin(a0), l.x1 = px + r * std::cos(a1), l.y1 = py + r * std::sin(a1);
+                l.rgba = 0xFFD040E0u, l.thickness = 1, l.line = true;
+                s.rects.push_back(l);
             }
-    }    return s;
+    }
+    return s;
 }
 
 // View > Show ranges of the selected units (GitHub feedback #109): around each selected unit (Units mode), its sight

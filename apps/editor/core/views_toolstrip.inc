@@ -131,14 +131,8 @@ void stripNumberChanged() {
     shellToolsChanged();
     appState().dirty = true;
 }
-// The Diamond's height follows its size (brushHeightLocked): a change of the height says so and does not occur. (Select
-// has a shape of its own and makes its selection by a drag: the brushes' lock is not its.)
+// (Select has a shape of its own and makes its selection by a drag.)
 bool stripSelectTool() { return appState().mode == Mode::Terrain && currentTool() == TSelect; }
-bool stripHeightLockedSays() {
-    if (stripSelectTool() || !brushHeightLocked(appState())) return false;
-    setMessage(L"The diamond has the shape of the map's diamonds: its height follows its size. To set the height, select the square or the circle.");
-    return true;
-}
 // One step up (dir 1) or down (-1).
 void stripNumberStep(int which, int dir) {
     AppState& app = appState();
@@ -163,9 +157,8 @@ void stripNumberStep(int which, int dir) {
                 }
         }
         app.brushSize = next;
-    } else if (which == kNumHeight) {  // linked: one step from the size, and no longer linked
-        if (stripHeightLockedSays()) return;
-        app.brushHeight = std::clamp(std::round(app.brushHeight > 0 ? app.brushHeight : app.brushSize) + float(dir), 1.0f, 32.0f);
+    } else if (which == kNumHeight) {  // linked: one step from the height it shows, and no longer linked
+        app.brushHeight = std::clamp(std::round(brushHeightOf(app)) + float(dir), 1.0f, 32.0f);
     } else if (which == kNumTurns) {
         if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
     } else {
@@ -176,7 +169,6 @@ void stripNumberStep(int which, int dir) {
 // A typed number: into the range; Size to a whole number, or 0.5 below 1 (half a diamond: one corner).
 bool stripNumberSet(int which, const std::wstring& text) {
     AppState& app = appState();
-    if (which == kNumHeight && stripHeightLockedSays()) return true;
     if (which == kNumHeight && text.empty()) {  // linked: the same as the size
         app.brushHeight = 0;
         stripNumberChanged();
@@ -431,15 +423,13 @@ public:
             L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
-        static const wchar_t* const kHeightLockedTip =
-            L"Brush height: the diamond has the shape of the map's diamonds, so its height follows its size. To set the height, select the square or the circle.";
         if (stripHasSize() && app.mode == Mode::Terrain) {
             // Terrain: the brush in one field the width of the strip (GitHub #113):
             //   [ shape v | width w ^v | height h ^v | link ]
             // The shape opens a list; each number has a spin at its right, takes the mouse wheel and a click types it. The
             // link keeps the height the same as the width (the height then shows in the dim color).
             const int h = scale(26), seg = scale(40), linkW = scale(34), spin = scale(14), pad = scale(4);
-            const bool locked = !stripSelectTool() && brushHeightLocked(app), linked = locked || app.brushHeight <= 0;
+            const bool linked = app.brushHeight <= 0;
             const bool editing = editing_ == kNumSize || editing_ == kNumHeight;
             const draw::Rect boxR{0, y, W, y + h};
             box(c, boxR, kCtl, editing ? kAccent : kBorder);
@@ -472,12 +462,10 @@ public:
             glyph(c, lk, L'\xE71B', linked ? kAccent : kFaint, 10);
             addHit(lk, [] {
                 AppState& a = appState();
-                if (stripHeightLockedSays()) return shellFocusView();
-                a.brushHeight = a.brushHeight <= 0 ? a.brushSize : 0;  // as it is now (a typed height may just have been set)
+                a.brushHeight = a.brushHeight <= 0 ? brushHeightOf(a) : 0;  // as it is now (a typed height may just have been set)
                 stripNumberChanged();
                 shellFocusView();
-            }, locked ? L"The diamond has the shape of the map's diamonds: its height follows its size."
-               : linked ? L"The height is the same as the size. Click to give the height a value of its own."
+            }, linked ? L"The height is the same as the size. Click to give the height a value of its own."
                         : L"The height has a value of its own. Click to make it the same as the size.");
             divider(lk.left);
             // The width and the height, a divider between them.
@@ -513,7 +501,7 @@ public:
             };
             part(kNumSize, sr.right + 1, mx, L"w", kSizeTip);
             divider(mx);
-            part(kNumHeight, mx + 1, lk.left, L"h", locked ? kHeightLockedTip : kHeightTip);
+            part(kNumHeight, mx + 1, lk.left, L"h", kHeightTip);
             y += h + gap;
         } else if (stripHasSize()) {
             numberRow(kNumSize, L"Size", kSizeTip);
@@ -699,7 +687,6 @@ private:
 
     // Typing a number: the field is placed over the value part (r) and takes the text of the number.
     void beginEdit(int which, draw::Rect r) {
-        if (which == kNumHeight && stripHeightLockedSays()) return;
         editing_ = which;
         field_.setFrame({r.left + scale(4), r.top + scale(4), r.right - scale(2), r.bottom - scale(4)});
         field_.setText(stripNumberText(which));

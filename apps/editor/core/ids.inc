@@ -50,6 +50,7 @@ enum : int {
     ID_PAL_NEW_PANEL = 628, ID_PAL_CLOSE_PANEL,  // ... a palette panel like it (sdl_palette_panels.inc), a panel's Close
     ID_PAL_XLARGE = 630,  // ... Extra large (Discord feedback, GitHub #150)
     ID_PAL_SORT_TIER = 631,  // ... Sort by tier (a mod's units with tiers: Cosmonarchy BW)
+    ID_PAL_SORT_NAME_DOWN = 632, ID_PAL_SORT_NUMBER_DOWN,  // ... the names Z to A, the numbers high to low
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
