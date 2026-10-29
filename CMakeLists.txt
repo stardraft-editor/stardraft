@@ -90,6 +90,7 @@ add_library(stardraft
     src/game_data.cpp
     src/creep.cpp
     src/mods/cmbw.cpp
+    src/mods/terrain_rules.cpp
     src/tileset.cpp
     src/terrain.cpp
     src/isom.cpp
@@ -220,6 +221,8 @@ if(cmbw_probes)
     target_link_libraries(cmbw_rect_shapes PRIVATE stardraft)
     add_executable(cmbw_sheet tools/plugins/cmbw/probes/cmbw_sheet.cpp)  # columns of game and mod rects side by side
     target_link_libraries(cmbw_sheet PRIVATE stardraft)
+    add_executable(cmbw_rules_export tools/plugins/cmbw/probes/cmbw_rules_export.cpp)  # the built-in terrain rules as a .sdterrain file, round trip
+    target_link_libraries(cmbw_rules_export PRIVATE stardraft)
     add_executable(cmbw_map_eras tools/plugins/cmbw/probes/cmbw_map_eras.cpp)  # a folder's maps by tileset
     target_link_libraries(cmbw_map_eras PRIVATE stardraft)
     add_executable(cmbw_paint_one tools/plugins/cmbw/probes/cmbw_paint_one.cpp)  # one stroke of a mod terrain on its ground

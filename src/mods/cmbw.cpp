@@ -19,6 +19,7 @@
 #include "stardraft/isom.h"
 #include "stardraft/isom_core.h"
 #include "stardraft/map_file.h"
+#include "stardraft/mods/terrain_rules.h"
 #include "stardraft/sprites.h"
 #include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
@@ -1781,12 +1782,28 @@ void addModTerrains(Tileset& t) {
     }
 }
 
+// The terrain rules files over the built-in rows: the one the mod ships (<install>\mpq	errains.sdterrain), then the
+// temporary override (useTerrainOverride). Each replaces terrains by id or adds new ones (terrainrules::apply).
+std::filesystem::path gTerrainOverride;
+void applyTerrainFiles(Tileset& t) {
+    for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.sdterrain", gTerrainOverride}) {
+        std::error_code ec;
+        if (f.empty() || !std::filesystem::exists(f, ec)) continue;
+        terrainrules::Rules r;
+        std::string err;
+        if (terrainrules::load(f, r, err)) terrainrules::apply(t, r);
+    }
+}
+
+void useTerrainOverride(const std::filesystem::path& file) { gTerrainOverride = file; }
+
 void loadTileset(Tileset& t) {
     for (const GroupTerrain& g : kGroupTerrains)
         if (g.era == (t.era & 7)) t.groupTerrains.push_back({g.group, g.terrain, g.other});
     for (const GroupPiece& p : kGroupPieces)
         if (p.era == (t.era & 7) && t.megatileFor(p.left) >= 0 && t.megatileFor(p.right) >= 0) t.groupPieces.push_back({p.left, p.right, p.game});
     addModTerrains(t);
+    applyTerrainFiles(t);
     forEachPieceNeighbor(t.era & 7, [&t](uint16_t a, uint16_t b, int place) {
         t.pieceNeighbors.insert(Tileset::pieceNeighborKey(a, b, place));
         t.pieceNeighborTiles.insert(a), t.pieceNeighborTiles.insert(b);
