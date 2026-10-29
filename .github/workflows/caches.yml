@@ -1,6 +1,7 @@
 # After each Build run of a push that keeps its compiler caches (master, port/kit, port/ci-*: KEEP_CACHE in build.yml):
-# the branch's older compiler caches go, the newest of each kind stays. A run reads only the newest one (restore-keys),
-# and GitHub keeps 10 GB for each repository: the old ones pushed out the others (the dependencies, the Flatpak's).
+# the branch's older compiler caches and dependency caches (build/_deps, a key for each CMakeLists.txt) go, the newest of
+# each kind stays. A run reads only the newest compiler cache (restore-keys) and the dependency cache of its
+# CMakeLists.txt, and GitHub keeps 10 GB for each repository: the old ones pushed out the others (the Flatpak's).
 name: Caches
 
 on:
@@ -17,13 +18,14 @@ jobs:
     if: github.event.workflow_run.event == 'push'
     runs-on: ubuntu-24.04
     steps:
-      - name: Remove the older compiler caches
+      - name: Remove the older caches
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          for kind in sccache-windows- ccache-linux-gcc- ccache-linux-clang- ccache-appimage- ccache-macos-; do
+          for kind in sccache-windows- ccache-linux-gcc- ccache-linux-clang- ccache-appimage- ccache-macos- \
+                      deps-ninja-Windows- deps-gcc-Linux- deps-clang-Linux- deps-appimage- deps-macOS-; do
             gh cache list --ref "refs/heads/$BRANCH" --key "$kind" --sort created_at --order desc --limit 100 \
                 --json id,key --jq '.[1:][] | "\(.id) \(.key)"' |
               while read -r id key; do

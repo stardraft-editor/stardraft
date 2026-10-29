@@ -339,8 +339,9 @@ runner.
   actions/cache (`sccache-windows-`, `ccache-linux-gcc-`, `ccache-linux-clang-`, `ccache-appimage-`, `ccache-macos-`
   and the run's id). A run takes the newest cache that GitHub lets it see: its own branch's, else `master`'s. Only the
   pushes to `master`, `port/kit` and the `port/ci-*` branches save a cache, and after their run
-  `.github/workflows/caches.yml` removes the branch's older ones of each kind (a run reads only the newest; GitHub keeps
-  10 GB for each repository and removes the oldest). The step "The compiler cache" shows the hits and misses. The
+  `.github/workflows/caches.yml` removes the branch's older ones of each kind, also of the dependency caches (`deps-`
+  and the hash of `CMakeLists.txt`): a run reads only the newest. GitHub keeps 10 GB for each repository and removes
+  the oldest. The step "The compiler cache" shows the hits and misses. The
   build's commit (`build_info.h`) and time (`__DATE__`, `__TIME__`) are only in `apps/common/build_stamp.cpp` and
   `apps/editor/build_time.cpp`, so the cache keeps `main_sdl.cpp` when none of its files changed.
 - `main_sdl.cpp` is one translation unit (it includes the editor's 45,000 lines of .inc files into one anonymous
