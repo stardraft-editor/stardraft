@@ -512,15 +512,11 @@ jobs:
           key: ccache-appimage-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ccache-appimage-
 
-      # A release's AppImage (a version from its tag) has no Program options > Plugins, as the other releases
-      # (STARDRAFT_PLUGINS in CMakeLists.txt); it keeps the version of CMakeLists.txt.
       - name: Build
         run: |
-          plugins=()
-          [ -n "$(bash tools/ci/version_name.sh)" ] && plugins=(-DSTARDRAFT_PLUGINS=OFF)
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-12 -DCMAKE_C_COMPILER=gcc-12 \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DSTARDRAFT_STATIC_LIBSTDCXX=ON -DSTARDRAFT_REQUIRE_DBUS=ON -DSTARDRAFT_NEXT=OFF "${plugins[@]}"
+            -DSTARDRAFT_STATIC_LIBSTDCXX=ON -DSTARDRAFT_REQUIRE_DBUS=ON -DSTARDRAFT_NEXT=OFF
           cmake --build build --parallel --target stardraft_editor stardraft_thumbnailer -- -k 0  # (all the errors at once)
 
       - name: Make the AppImage

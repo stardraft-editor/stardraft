@@ -1847,9 +1847,6 @@ static std::string withoutUserFolder(std::string text) {
 // or not (the setting GameMode; before it, CosmonarchyMode), with its install folder's name (not the whole path: it may
 // hold the user's name). The file: STARDRAFT_SETTINGS, else the editor's own place (apps/editor/shell_sdl.inc).
 static std::string feedbackPluginsLine() {
-#if defined(STARDRAFT_PLUGINS) && !STARDRAFT_PLUGINS
-    return "Plugins: none in this build";  // (CMakeLists.txt: release builds have no Plugins tab for now)
-#endif
     fs::path file;
     if (const char* e = std::getenv("STARDRAFT_SETTINGS"); e && *e) file = fs::u8path(e);
 #ifdef _WIN32

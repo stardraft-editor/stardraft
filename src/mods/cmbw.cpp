@@ -795,19 +795,20 @@ const ModTerrainSet kModTerrainSets[] = {
      {{2680, {46, 44}, 3, 0}, {2680, {50, 48}, 3, 6}, {2682, {58, 60, 62}}, {2685, {52, 54, 56}}, {2688, {64, 66, 68}, 7}, {2691, {70, 72, 74}, 7},
       {2680, {80, 82}, 1, 14}, {2680, {76, 78}, 1, 12}},
      2108, 2109, 0, 1, "High Asphalt (High Grass)"},
-    // Badlands' dirt cliff sets: the game's Dirt/High Dirt cliff (44-90) as the maps' ISOM has their pieces (cmbw_auto_rows):
-    // W north, E north, E south, W south (8 variants each), more south variants (W in subtiles 8-14), outer corners (W in
-    // 0-2, E in 4-6), inner corners (W in 0-4, E in 6-10); the four sets one layout (their groups from 2973, 3130, 2770,
-    // 1685). Their art is a lighter dirt than the game's tiles under and over them: squares where they meet, as on the
-    // maps (no pieces between those dirts: the mod's to make). Dirtcliff-mud1 and -Grass1: High Dirt over Mud and over
-    // Grass (Mud and Grass are Dirt in the template; the game's High Dirt on top).
+    // Badlands' dirt cliff sets: the game's Dirt/High Dirt cliff (44-90) as the maps' ISOM has their pieces
+    // (cmbw_auto_rows): W north, E north, E south, W south (8 variants each), more south variants (W in subtiles 8-14),
+    // outer corners (W in 0-2, E in 4-6), inner corners (E in 0-4, W in 6-10: copies of the game's 76/78 and 80/82,
+    // cmbw_group_match); the four sets one layout (their groups from 2973, 3130, 2770, 1685). Their art is a lighter
+    // dirt than the game's tiles under and over them: squares where they meet, as on the maps (no pieces between those
+    // dirts: the mod's to make). Dirtcliff-mud1 and -Grass1: High Dirt over Mud and over Grass (Mud and Grass are Dirt
+    // in the template; the game's High Dirt on top).
     {0, "High Dirt (Mud)", 2, 9, 8,
      {{2973, {46, 44}, 7, 0}, {2975, {50, 48}, 7, 0}, {2977, {52, 54, 56}, 8, 0}, {2983, {58, 60, 62}, 8, 0}, {2980, {52, 54, 56}, 4, 0},
-      {2980, {58, 60, 62}, 4, 8}, {2986, {64, 66, 68}, 2, 0}, {2986, {70, 72, 74}, 2, 4}, {2989, {80, 82}, 3, 0}, {2989, {76, 78}, 3, 6}},
+      {2980, {58, 60, 62}, 4, 8}, {2986, {64, 66, 68}, 2, 0}, {2986, {70, 72, 74}, 2, 4}, {2989, {76, 78}, 3, 0}, {2989, {80, 82}, 3, 6}},
      0, 0, 0, 1},
     {0, "High Dirt (Grass)", 2, 4, 8,
      {{3130, {46, 44}, 7, 0}, {3132, {50, 48}, 7, 0}, {3134, {52, 54, 56}, 8, 0}, {3140, {58, 60, 62}, 8, 0}, {3137, {52, 54, 56}, 4, 0},
-      {3137, {58, 60, 62}, 4, 8}, {3143, {64, 66, 68}, 2, 0}, {3143, {70, 72, 74}, 2, 4}, {3146, {80, 82}, 3, 0}, {3146, {76, 78}, 3, 6}},
+      {3137, {58, 60, 62}, 4, 8}, {3143, {64, 66, 68}, 2, 0}, {3143, {70, 72, 74}, 2, 4}, {3146, {76, 78}, 3, 0}, {3146, {80, 82}, 3, 6}},
      0, 0, 0, 1},
     // Dirt-Dirt2-cliff and Dirt-Dirt3-cliff: the mod's lighter dirt (2768/2769) a level up on High Dirt (the maps have
     // the walls' foot on High Dirt's tiles: a third height, High Dirt read as Dirt in the template), and a level up again.
@@ -815,13 +816,13 @@ const ModTerrainSet kModTerrainSets[] = {
     // copies of the game's cliff rects 84-94 (cmbw_group_match); the game's 96 and 98 have no copy: the null tile.
     {0, "Higher Dirt (High Dirt)", 2, 2, 8,
      {{2770, {46, 44}, 7, 0}, {2772, {50, 48}, 7, 0}, {2774, {52, 54, 56}, 8, 0}, {2780, {58, 60, 62}, 8, 0}, {2777, {52, 54, 56}, 4, 0},
-      {2777, {58, 60, 62}, 4, 8}, {2783, {64, 66, 68}, 2, 0}, {2783, {70, 72, 74}, 2, 4}, {2786, {80, 82}, 3, 0}, {2786, {76, 78}, 3, 6},
+      {2777, {58, 60, 62}, 4, 8}, {2783, {64, 66, 68}, 2, 0}, {2783, {70, 72, 74}, 2, 4}, {2786, {76, 78}, 3, 0}, {2786, {80, 82}, 3, 6},
       {2788, {84}, 7, 0}, {2790, {84}, 5, 0}, {2789, {86}, 7, 0}, {2791, {86}, 5, 0}, {2792, {88}, 6, 0}, {2793, {90}, 6, 0},
       {2794, {92}, 7, 0}, {2796, {92}, 5, 0}, {2795, {94}, 7, 0}, {2797, {94}, 5, 0}},
      2768, 2769, 0, 1},
     {0, "Highest Dirt (Higher Dirt)", 2, 1, 8,
      {{1685, {46, 44}, 7, 0}, {1687, {50, 48}, 7, 0}, {1689, {52, 54, 56}, 8, 0}, {1695, {58, 60, 62}, 8, 0}, {1692, {52, 54, 56}, 4, 0},
-      {1692, {58, 60, 62}, 4, 8}, {1698, {64, 66, 68}, 2, 0}, {1698, {70, 72, 74}, 2, 4}, {1701, {80, 82}, 3, 0}, {1701, {76, 78}, 3, 6},
+      {1692, {58, 60, 62}, 4, 8}, {1698, {64, 66, 68}, 2, 0}, {1698, {70, 72, 74}, 2, 4}, {1701, {76, 78}, 3, 0}, {1701, {80, 82}, 3, 6},
       {1703, {84}, 7, 0}, {1705, {84}, 5, 0}, {1704, {86}, 7, 0}, {1706, {86}, 5, 0}, {1707, {88}, 6, 0}, {1708, {90}, 6, 0},
       {1709, {92}, 7, 0}, {1711, {92}, 5, 0}, {1710, {94}, 7, 0}, {1712, {94}, 5, 0}},
      2768, 2769, 0, 1, "Higher Dirt (High Dirt)"},

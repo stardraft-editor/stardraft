@@ -2594,6 +2594,7 @@ more	más
 The rest of the command	El resto del comando
 the values after these, as the command reads them	los valores después de estos, como los lee el comando
 Plugins	Complementos
+Early feature preview: please report issues	Vista previa de una función temprana: informe de los problemas
 Adjusts StarDraft to work with the CMBW environment when it is loaded	Ajusta StarDraft para trabajar con el entorno de CMBW cuando está cargado
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Complemento Cosmonarchy BW cargado: los mapas se abren y se crean como mapas de Cosmonarchy BW (las pestañas abiertas no cambian)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Complemento Cosmonarchy BW descargado: los mapas se abren y se crean como mapas de StarCraft: Brood War (las pestañas abiertas no cambian)

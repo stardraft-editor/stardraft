@@ -3146,10 +3146,6 @@ def check_dock(output):
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
              "settings: toolbar style preference; 7 items: \"General\" \"Mouse and keyboard\" \"Map\" \"Plugins\" \"Folders\" "
              "\"Updates\" \"Simulation\"; selected"]
-    # (a release build has no Plugins tab: STARDRAFT_PLUGINS in CMakeLists.txt)
-    no_plugins = wants[-1].replace("7 items", "6 items").replace("\"Plugins\" ", "")
-    if wants[-1] not in output and no_plugins in output:
-        wants[-1] = no_plugins
     for w in wants:
         if w not in output:
             return f"no {w!r}"

@@ -69,11 +69,7 @@ void sdlDockWatchBuild() {
 
 // The Settings window's tabs (core/views_options.inc: optionsview::kTabs), with their toolbar icons (SF Symbols).
 std::vector<MacSettingsTab> sdlSettingsTabs() {
-    static const char* const kSymbols[] = {"gearshape", "keyboard", "map",
-#if STARDRAFT_PLUGINS
-                                           "puzzlepiece.extension",
-#endif
-                                           "folder", "arrow.down.circle", "play.circle"};
+    static const char* const kSymbols[] = {"gearshape", "keyboard", "map", "puzzlepiece.extension", "folder", "arrow.down.circle", "play.circle"};
     static_assert(std::size(kSymbols) == size_t(optionsview::kTabCount), "an icon for each Settings tab");
     std::vector<MacSettingsTab> tabs;
     for (int i = 0; i < optionsview::kTabCount; ++i) tabs.push_back({narrow(shellTr(optionsview::kTabs[i].name)), kSymbols[i]});
