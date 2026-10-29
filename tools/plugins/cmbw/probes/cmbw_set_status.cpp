@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
             static const unsigned kStock[8] = {1665, 1513, 1265, 1262, 1578, 1520, 1415, 1494};  // (the 1.16.1 CV5s)
             size_t game = 0;  // (the game's own groups: a set of them is the game's border, in the list already)
             for (uint16_t g : st.groups) in += pieceGroups.count(g), tiles += used[e][g], game += g < kStock[e];
-            // (sets looked at and left out, the reason in docs/dev/cmbw-terrains.md: "out")
+            // (sets looked at and left out, the reason in docs/dev/cmbw-update.md: "out")
             static const std::set<std::string> kLeftOut = {
                                                            "Cosmonarchy_Jungle-Rjungle-cliff", "Cosmonarchy_Jungle-Rjungle-high-cliff",
                                                            "Cosmonarchy_Urban-Halfsphalt-2", "Cosmonarchy_Flagstones-dirt3",
