@@ -179,7 +179,7 @@ void NewPageView::pickTerrain(draw::Rect b) {
 
 void NewPageView::paint(draw::Canvas& c) {
     if (covered) return;  // (the start page's window is over this one)
-    makeSwatches();
+    if (!cosmonarchy) makeSwatches();  // (a Cosmonarchy map: the tilesets' names only, no pictures of the game's)
     newLoadTileset();
     hits.clear();
     wheels.clear();
@@ -290,7 +290,8 @@ void NewPageView::paint(draw::Canvas& c) {
             const bool on = era == e;
             listRowFace(c, r, on, hot(r));
             const draw::Rect sw{x2 + scale(10), r.top + scale(4), x2 + scale(10) + scale(64), r.bottom - scale(4)};
-            if (!swatch[e].empty()) {  // the picture, cropped to the middle
+            if (cosmonarchy) {  // (the name alone)
+            } else if (!swatch[e].empty()) {  // the picture, cropped to the middle
                 const draw::Bitmap& bm = swatchBitmap[e];
                 const int pw = bm.width(), ph = bm.height();
                 const double k = std::max(double(sw.width()) / pw, double(sw.height()) / ph);
@@ -299,8 +300,9 @@ void NewPageView::paint(draw::Canvas& c) {
             } else {
                 c.fill(sw, kPanel);
             }
-            c.roundBox(sw, draw::kNone, kBorder, float(scale(2)));
-            c.text({sw.right + scale(12), r.top, r.right - scale(8), r.bottom}, kTilesetNames[e], on ? kAccent : kText, draw::kMiddle);
+            if (!cosmonarchy) c.roundBox(sw, draw::kNone, kBorder, float(scale(2)));
+            c.text({cosmonarchy ? x2 + scale(12) : sw.right + scale(12), r.top, r.right - scale(8), r.bottom}, kTilesetNames[e], on ? kAccent : kText,
+                   draw::kMiddle);
             hitAdd(r, [this, e] {
                 if (era != e) era = e, terrain = 0, changed();
             });

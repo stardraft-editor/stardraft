@@ -274,6 +274,22 @@ void installFolderPicked(const std::string& picked) {
     }
 }
 void browseInstallFolder() { installFolderPicked(narrow(shellPickFolder(shellTr(L"Select the StarCraft folder")))); }
+// The plugin was unloaded (Program options > Plugins) and no game data is open (the start looked for none): the install
+// is looked for now; none found: the start page's banner asks for the folder, as at a start.
+void ensureGameData() {
+    if (gDataOk) return;
+    std::string err;
+    if (openInstall("", err)) {
+        gDataOk = true, gDataError.clear();
+        gStartView.dataError.clear(), gStartView.installMissing = false;
+    } else {
+        gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
+        gStartView.installMissing = true;
+        gStartView.dataError = widen(err);
+    }
+    if (gRoot) gRoot->relayout(), gRoot->invalidate();
+    gStartView.invalidate();
+}
 // A file dropped on the window, or (macOS) opened from Finder: the Windows program's drop (core/documents.inc), after the
 // save question for the open map (SDL has one tab).
 // In the Assets workspace a sound imports into the map (sdl_dock.inc).
@@ -343,6 +359,8 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 }
 
 }  // namespace
+
+void sdlEnsureGameData() { ensureGameData(); }  // (sdl_options.inc)
 
 #include "sdl_window_test.inc"  // --noactivate, --frames, --wintest: tests of the real window
 
@@ -518,7 +536,11 @@ int main(int argc, char** argv) {
     std::string dataErr;
     std::wstring settingsRead;
     prefs::text(L"StarCraftFolder", settingsRead);
-    std::future<bool> dataOpening = std::async(std::launch::async, [&] { return !noInstallArg && openInstall(installArg, dataErr); });
+    // (the Cosmonarchy BW plugin loaded: its maps use the mod's files, so no StarCraft install is looked for; it is when
+    // the plugin is unloaded, sdlEnsureGameData)
+    gSettingsOff = gSilent && !settingsArg;  // (as the start reads the settings below: a snapshot's run has the defaults)
+    const bool modOnly = cmbwMode();
+    std::future<bool> dataOpening = std::async(std::launch::async, [&] { return !noInstallArg && !modOnly && openInstall(installArg, dataErr); });
 
     // The device first (the renderer makes it with its shader formats), then the host on it.
     render::Renderer renderer;
@@ -606,7 +628,7 @@ int main(int argc, char** argv) {
         const bool dataOpened = dataOpening.get();
         startLap("game data (the rest)");
         if (dataOpened) gDataOk = true;
-        else {
+        else if (!modOnly) {
             gDataError = "No StarCraft install found: choose the StarCraft folder, or start with --install <folder>, or STARDRAFT_INSTALL";
             if (!dataErr.empty()) gDataError += ". Game data: " + dataErr;
             // The start page's banner asks for the folder (Browse); under the notice, the game data's own reason when

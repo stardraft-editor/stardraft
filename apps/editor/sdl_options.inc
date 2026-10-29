@@ -127,6 +127,7 @@ std::vector<std::wstring> sdlOpenFiles() {
     }
     return files;
 }
+void sdlEnsureGameData();  // (main_sdl.cpp: the StarCraft install looked for when the plugin is unloaded)
 // StarDraft 2 starts again (its open maps and projects open again) and this one ends; false when it could not start.
 bool restartProcessSdl() {
     {
@@ -209,6 +210,7 @@ bool sdlOptionsCommand(int id) {
     case ID_GAME_MODE:
     case ID_GAME_MODE + 1:
         setGameMode(id - ID_GAME_MODE);
+        if (!cmbwMode()) sdlEnsureGameData();  // (the start looked for no StarCraft while the plugin was loaded)
         gStartView.cosmonarchyOnly = cmbwMode(), gStartView.modReady = cmbwMode() && !stardraft::cmbw::findInstall().empty();
         gStartView.invalidate();
         gMenusDirty = true;

@@ -435,7 +435,9 @@ public:
     void newLoadTileset() {
         if (loadedEra == era) return;
         std::string err;
-        if (!tileset.load(appState().data, era, err)) return;
+        // (a Cosmonarchy map: the mod's tilesets, as the map is made with them; the game's data need not be open)
+        const GameData* data = cosmonarchy ? cmbwGameData(err) : &appState().data;
+        if (!data || !tileset.load(*data, era, err)) return;
         loadedEra = era;
         roles = generatorTerrains(era, tileset);
         megaColor = newpage::megaColors(tileset);
