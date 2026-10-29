@@ -208,6 +208,9 @@ public:
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };
         restart_.setText(L"Restart now"), restart_.setTip(L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
         restart_.onClick = [this] { host_.command(ID_OPT_RESTART); };
+        bar_.onScroll = [this](int pos) { scrollTo(pos); };  // (the scroll bar: shown when the content is taller than its room)
+        add(bar_, {0, 0, 0, 0});
+        bar_.setVisible(false);
         reset_.setText(L"Reset all program settings\x2026"), reset_.setTone(stardraft::kit::Tone::Danger);
         reset_.setTip(L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)");
         reset_.onClick = [this] { host_.command(ID_OPT_RESETALL); };
@@ -383,8 +386,8 @@ private:
         if (vis && (v.frame().left != r.left || v.frame().top != r.top || v.frame().right != r.right || v.frame().bottom != r.bottom)) v.setFrame(r);
     }
     void hideUnplaced() {
-        for (draw::View* ch : children())
-            if (ch->visible() && std::find(placed_.begin(), placed_.end(), ch) == placed_.end()) ch->setVisible(false);
+        for (draw::View* ch : children())  // (not the scroll bar: the paint's end shows or hides it)
+            if (ch != &bar_ && ch->visible() && std::find(placed_.begin(), placed_.end(), ch) == placed_.end()) ch->setVisible(false);
         placed_.clear();
     }
     void sync(const OptionsValues& v);
@@ -392,6 +395,7 @@ private:
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, reset_, maps_, close_;
+    stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
     stardraft::kit::CheckBox lastProject_, cmbwPlugin_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
@@ -792,8 +796,16 @@ void OptionsView::paint(draw::Canvas& c) {
         tabHeight_ = height_;
         if (onTabHeight) onTabHeight(height_);
     }
-    // The scroll: a bar's page is the content's height above the footer.
+    // The scroll: a bar's page is the content's height above the footer; the bar shows at the content's right when
+    // there is more to scroll to (the wheel scrolls too).
     if (scroll_ > maxScroll()) scroll_ = maxScroll(), invalidate();
+    const bool more = maxScroll() > 0;
+    bar_.setVisible(more);
+    if (more) {
+        bar_.setFrame({W - scale(stardraft::kit::kScrollBarW), contentTop_, W, contentBottom_});
+        bar_.setRange(height_, contentBottom_ - contentTop_);
+        bar_.setPos(scroll_);
+    }
 }
 
 bool OptionsView::mouse(const draw::MouseEvent& e) {

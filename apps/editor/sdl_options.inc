@@ -375,7 +375,7 @@ void showOptionsSdl() {
     if (SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_RaiseWindow(w);
 #endif
     if (!gRoot || gOptionsOpen) return;
-    int h = std::min(scale(480), std::max(scale(300), gRoot->height() - scale(80)));  // (General, the tallest tab, fits)
+    int h = std::min(scale(680), std::max(scale(300), gRoot->height() - scale(80)));  // (General, the tallest tab, fits; resizable)
     const wchar_t* title = L"Program options";
     gOptionsView.setTab(gSettingsTab);
 #ifdef __APPLE__
@@ -387,7 +387,11 @@ void showOptionsSdl() {
 #endif
     gOptionsView.resetScroll();
     gOptionsOpen = true;
-    gHost->openWindow(*gRoot, gOptionsView, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(720), h), title}, [] {
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, scale(760), h), title};
+#ifndef __APPLE__
+    spec.resizable = true;  // (its content is laid out again; it scrolls with a bar when it is taller)
+#endif
+    gHost->openWindow(*gRoot, gOptionsView, spec, [] {
         gOptionsOpen = false;
         if (gOptionsView.tab() >= 0) gSettingsTab = gOptionsView.tab();
     });
