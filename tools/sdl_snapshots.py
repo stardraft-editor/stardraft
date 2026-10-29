@@ -3603,6 +3603,10 @@ CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ct
 # list of "walk" with Walkable ground on (its check box on, the picture).
 CASES += [("map-find-command", ["--key", "Ctrl+P", "--type", "connected areas", "--key", "Enter", "--check", "menus"], "map"),
           ("map-loading-view", ["--loading"], "map"),
+          # A flags cell (Special ability flags of the Marine) takes a decimal number: 16 is 0x00000010 (and 0x10 is hex).
+          ("data-flags-decimal", ["--size", "1400x900", "--untitled", "--workspace", "data", "--data", "units:0", "--key", "Ctrl+E",
+                                  "--click", "925,154", "--type", "special ability", "--click", "685,241", "--type", "16", "--key", "Enter",
+                                  "--key", "Up", "--check", "datatable"], "data"),
           # The data table's Columns…: the Combat heading (Up from its first column) hides all its columns, then shows them.
           ("data-columns-group", ["--size", "1400x900", "--untitled", "--workspace", "data", "--data", "units:0", "--key", "Ctrl+E", "--click", "1155,154", "--type", "combat",
                                   "--key", "Up", "--key", "Space", "--key", "Space", "--key", "Esc"], "data"),
@@ -3752,6 +3756,12 @@ def check_overlay_toggles(output):
 def check_find_command(output):
     """None when Enter on the found Connected areas turned that pathing view on (its menu item is checked)."""
     return None if "View > Overlays > Pathing > Connected areas [Ctrl+K, A] (checked)" in output else "Connected areas is not on"
+
+
+def check_flags_decimal(output):
+    """None when 16 typed into a flags cell made it 0x00000010."""
+    m = re.search(r"selection text:\r?\n(\S+)", output)
+    return None if m and m.group(1) == "0x00000010" else f"the cell: {m.group(1) if m else 'none'}"
 
 
 def check_columns_group(output):
@@ -4378,7 +4388,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
           "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key,
-          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group,
+          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group, "data-flags-decimal": check_flags_decimal,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),

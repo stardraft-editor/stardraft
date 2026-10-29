@@ -293,12 +293,16 @@ DataCellSet dataCellSet(DatTable& t, const DataTableColumn& col, int e, const st
     const uint32_t old = t.value(f, e);
     uint32_t v = old;
     if (col.kind == DataCellKind::Flags) {
-        // A set of flags: its number in hex, as the cell shows it (0x is not needed), or the names of the flags that are
-        // on ("Building, Flyer" or "Building|Flyer"; "None": no flag). (Names: the bits without a name stay as they are.)
-        const std::wstring digits = dataLower(text).rfind(L"0x", 0) == 0 ? text.substr(2) : text;
-        if (!digits.empty() && digits.size() <= 8 && digits.find_first_not_of(L"0123456789abcdefABCDEF") == std::wstring::npos) {
-            v = uint32_t(std::wcstoul(digits.c_str(), nullptr, 16));
-            if (v > f.maxValue()) return DataCellSet::NotValue;
+        // A set of flags: its number, decimal ("16") or hex with 0x ("0x10", as the cell shows it and copies it), or the
+        // names of the flags that are on ("Building, Flyer" or "Building|Flyer"; "None": no flag). (Names: the bits
+        // without a name stay as they are.)
+        const bool hex = dataLower(text).rfind(L"0x", 0) == 0;
+        const std::wstring digits = hex ? text.substr(2) : text;
+        if (!digits.empty() && digits.size() <= (hex ? 8u : 10u) &&
+            digits.find_first_not_of(hex ? L"0123456789abcdefABCDEF" : L"0123456789") == std::wstring::npos) {
+            const unsigned long long n = std::wcstoull(digits.c_str(), nullptr, hex ? 16 : 10);
+            if (n > f.maxValue()) return DataCellSet::NotValue;
+            v = uint32_t(n);
         } else {
             v = old & ~dataNamedFlags(f);
             if (dataLower(text) != L"none") {
