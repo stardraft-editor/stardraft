@@ -1020,6 +1020,7 @@ int main(int argc, char** argv) {
     releasePaletteArt();  // its pictures' textures: before the device goes
     releaseDataPictures();  // the Data pictures' textures too (core/views_data_pictures.inc)
     sdlDataExtrasRelease();  // the Display section's wireframes (sdl_data_extras.inc)
+    gSdlBriefing.silence();          // the preview's sounds and music: their streams before SDL_Quit destroys them
     gSdlBriefing.releasePictures();  // the briefing's portraits (sdl_briefing.inc): their textures before the device goes
     kit_sdl::unloadIconAtlases();
     gRenderer = nullptr;

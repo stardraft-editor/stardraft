@@ -50,7 +50,8 @@ public:
     std::array<bool, 27> who{};       // the briefing shown: its triggers' player list (0-7 players, 17 all, 18-21 forces)
     bool chosen = false;              // a briefing is chosen (else the first one is, when the view paints)
     int player = 0;                   // whose briefing the preview plays (one it is for)
-    int sel = -1;                     // the focused action: index into the rows (its text shows)
+    int music = -1;                   // the preview's music: -1 the player's race's (as in the game), 0-2 a race's, 3 none
+    int sel = -1;                    // the focused action: index into the rows (its text shows)
     std::set<int> picked;             // the selected rows
     int anchor = -1;                  // where a Shift+click range starts
     bool playing = false;
@@ -110,9 +111,11 @@ public:
     // --- Playing -----------------------------------------------------------------------------------------------------
     void play(bool on) {
         if (on && t >= total_) t = 0;
-        if (on)  // every sound decoded before the clock starts, so none starts late
+        if (on) {  // every sound decoded before the clock starts, so none starts late
             for (const BriefingEvent& e : timeline_)
                 if (isSound(e)) host_.soundLength(e.a->wav);
+            if (const std::string m = musicFile(); !m.empty()) host_.soundLength(m);
+        }
         playing = on;
         last_ = nowMs();
         cancelTick();
@@ -126,6 +129,8 @@ public:
         syncSounds(true);
         invalidate();
     }
+    // The program quits: the sounds and the music stop (their streams go before SDL's audio does).
+    void silence() { playing = false, stopSounds(); }
     // The workspace is left: the preview stops (the text that was typed goes in first).
     void stop() {
         commitText();
@@ -408,15 +413,51 @@ private:
     static bool isSound(const BriefingEvent& e) {
         return e.a && !e.a->wav.empty() && (e.a->type == BriefingAction::PlayWav || e.a->type == BriefingAction::Transmission);
     }
-    void stopSounds() {
+    void stopVoices() {  // (the actions' sounds; the music goes on)
         for (const Voice& v : voices_)
             if (v.id) host_.stopSound(v.id);
         voices_.clear();
     }
+    void stopSounds() {
+        stopVoices();
+        if (musicVoice_) host_.stopSound(musicVoice_);
+        musicVoice_ = 0, musicPlays_.clear();
+    }
+    // The race whose briefing music plays (0 Zerg, 1 Terran, 2 Protoss): the chosen one, else the player's (the game's
+    // choice; Terran for a race the player selects or a random one). -1: none.
+    int musicRace() const {
+        if (music >= 0) return music < 3 ? music : -1;
+        const auto& ed = shellState().ed;
+        const Editor::Race r = ed && player >= 0 && player < 8 ? ed->player(player).race : Editor::Race::Terran;
+        return r == Editor::Race::Zerg ? 0 : r == Editor::Race::Protoss ? 2 : 1;
+    }
+    std::string musicFile() const {
+        static const char* const kFiles[3] = {"music\\zrdyroom.wav", "music\\trdyroom.wav", "music\\prdyroom.wav"};
+        const int r = musicRace();
+        return r < 0 ? std::string() : kFiles[r];
+    }
+    // The music under the briefing, from the start again at its end (as the game plays it), from where it is at time t.
+    // A seek starts it again at its new place; while the timeline is dragged, at most each quarter second (each start
+    // queues the rest of the track), and a tick puts it in its place after the drag.
+    void syncMusic(bool restart) {
+        const std::string f = playing && total_ && shellState().ed ? musicFile() : std::string();  // (no music for a briefing of no length)
+        const uint32_t len = f.empty() ? 0 : host_.soundLength(f);
+        const uint32_t round = len ? t / len : 0;
+        const uint64_t now = nowMs();
+        if (len && f == musicPlays_ && round == musicRound_) {
+            const int64_t off = int64_t(musicFrom_) + int64_t(now - musicSince_) - int64_t(t % len);  // (how far the music is from t)
+            if ((off > -300 && off < 300) || now - musicSince_ < 250) return;
+        }
+        if (musicVoice_) host_.stopSound(musicVoice_);
+        musicVoice_ = 0, musicPlays_.clear();
+        if (!len) return;
+        musicPlays_ = f, musicRound_ = round, musicFrom_ = t % len, musicSince_ = now;
+        musicVoice_ = host_.startSound(f, musicFrom_);
+    }
     // The sounds that play at the current time, started (or kept) at their place: each for as long as its file is (the
     // action's own length is often 0 or rounded). After a seek (restart), a sound starts from where it is at that time.
     void syncSounds(bool restart) {
-        if (restart) stopSounds();
+        if (restart) stopVoices();
         if (!playing || !shellState().ed) return stopSounds();
         std::vector<const BriefingEvent*> now;
         for (const BriefingEvent& e : timeline_) {
@@ -438,6 +479,7 @@ private:
             if (std::any_of(voices_.begin(), voices_.end(), [&](const Voice& v) { return v.a == e->a && v.at == e->at; })) continue;
             voices_.push_back({e->a, e->at, host_.startSound(e->a->wav, restart ? t - e->at : 0)});
         }
+        syncMusic(restart);
     }
     void scheduleTick() {
         if (host()) tickId_ = host()->timer(30, [this] { tick(); });
@@ -863,7 +905,19 @@ private:
         glyphButton(c, {px, ty, px + bs, ty + bs}, UiIcon::ToStart, false, [this] { seek(0); }, L"Go to the start");
         glyphButton(c, {px + bs + scale(6), ty, px + 2 * bs + scale(6), ty + bs}, playing ? UiIcon::Pause : UiIcon::Play, false, [this] { play(!playing); },
                     playing ? L"Pause (Space)" : L"Play (Space)");
-        c.text({px + 2 * bs + scale(18), ty, px + previewW, ty + bs}, briefTime(t) + L" / " + briefTime(total_), kDim, draw::kMiddle);
+        const int mw = std::min(scale(150), previewW / 2);
+        c.text({px + 2 * bs + scale(18), ty, px + previewW - mw - scale(8), ty + bs}, briefTime(t) + L" / " + briefTime(total_), kDim, draw::kMiddle);
+        static const wchar_t* const kRaceNames[3] = {L"Zerg", L"Terran", L"Protoss"};
+        const int race = musicRace();
+        pickBox(c, {px + previewW - mw, ty + scale(2), px + previewW, ty + bs - scale(2)}, std::wstring(L"Music: ") + (race < 0 ? L"None" : kRaceNames[race]),
+                [this](draw::Rect r) {
+                    std::vector<ListPickItem> items{{L"The player's race", L"", "-1"}};
+                    for (int k : {1, 0, 2}) items.push_back({kRaceNames[k], L"", std::to_string(k)});
+                    items.push_back({L"None", L"", "3"});
+                    std::string got;
+                    if (pick(L"Music", items, std::to_string(music), below(r), got)) music = std::stoi(got), syncSounds(true), invalidate();
+                },
+                L"The music of the preview. The game plays the briefing music of the player's race.");
         ty += bs + scale(8);
         paintTimeline(c, {px, ty, px + previewW, ty + scale(64)});
     }
@@ -970,8 +1024,10 @@ private:
         }
         // Seconds.
         const int ty = ly + 3 * (laneH + scale(3)) + scale(2);
-        const uint32_t step = span > 120000 ? 30000 : span > 40000 ? 10000 : span > 10000 ? 5000 : 1000;
-        for (uint32_t ms = 0; ms <= span; ms += step) {
+        uint32_t step = span > 120000 ? 30000 : span > 40000 ? 10000 : span > 10000 ? 5000 : 1000;
+        while (span / step > 60) step *= 2;  // (a very long briefing: at most about 60 marks)
+        for (uint64_t at = 0; at <= span; at += step) {
+            const uint32_t ms = uint32_t(at);
             c.line(xAt(ms), ty, xAt(ms), ty + scale(4), draw::rgb(70, 74, 80));
             c.text({xAt(ms) - scale(30), ty + scale(4), xAt(ms) + scale(30), ty + scale(20)}, briefTime(ms), kDim, draw::kMiddle | draw::kCenter);
         }
@@ -991,6 +1047,11 @@ private:
     std::vector<BriefingEvent> timeline_;
     uint32_t total_ = 0;
     std::vector<Voice> voices_;
+    int musicVoice_ = 0;      // the music's voice (0: none, or a test run)
+    std::string musicPlays_;  // the music file that plays ("": none)
+    uint32_t musicRound_ = 0;  // which time it plays from the start (t / its length)
+    uint32_t musicFrom_ = 0;   // where in the track it started (ms)
+    uint64_t musicSince_ = 0;  // when it started (nowMs)
     std::vector<Hit> hits_;
     // The values the wheel steps through (a chip of a list's values): its place, and the step (-1 the item before).
     std::vector<std::pair<draw::Rect, std::function<void(int)>>> wheels_;
