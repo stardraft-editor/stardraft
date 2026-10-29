@@ -354,9 +354,10 @@ public:
         auto addHit = [&](draw::Rect r, std::function<void()> click, std::wstring tip) {
             addHitC(r, std::move(click), std::move(tip), draw::Cursor::Hand);
         };
-        // Terrain: Isometric, Rectangle or Custom, a segmented choice over the tools.
+        // Terrain: Isometric, Rectangle or Custom, a segmented choice over the tools: one box with a line between the
+        // segments, rounded only at its ends; the chosen one primary (as the modes' bar, core/views_modebar.inc).
         if (app.mode == Mode::Terrain) {
-            const int sh = scale(26), sg = scale(4), third = (W - 2 * sg) / 3;
+            const int sh = scale(26), third = W / 3, over = scale(8);
             static const struct {
                 const wchar_t* name;
                 const wchar_t* tip;
@@ -365,8 +366,16 @@ public:
                          {L"Custom", L"Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice."}};
             const int kind = terrainKind();
             for (int k = 0; k < 3; ++k) {
-                const draw::Rect r{k * (third + sg), y, k == 2 ? W : k * (third + sg) + third, y + sh};
-                buttonFace(c, r, segs[k].name, kind == k, hot(r));
+                const draw::Rect r{k * third, y, k == 2 ? W : (k + 1) * third, y + sh};
+                const bool on = kind == k;
+                c.pushClip(r);
+                draw::Rect seg = r;  // (the box drawn wider on the inner sides: the segment's clip cuts it)
+                if (k > 0) seg.left -= over;
+                if (k < 2) seg.right += over;
+                c.roundBox(seg, on ? kSel : hot(r) ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
+                if (k < 2) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
+                c.text(r, tr(segs[k].name), on ? kAccent : kText, draw::kCenter | draw::kMiddle);
+                c.popClip();
                 addHit(r, [k] {
                     setTerrainKind(k);
                     shellFocusView();
