@@ -13,24 +13,10 @@ namespace {
 
 constexpr int kUnits = 228, kWeapons = 130, kUpgrades = 61, kTechs = 44;
 
-// VCOD is a fixed verification blob; take it from a campaign scenario shipped with the game.
-bool readVcod(const GameData& data, Bytes& out, std::string& error) {
-    static const char* sources[] = {"SD\\campaign\\Zerg\\Zerg03\\staredit\\scenario.chk",
-                                    "SD\\campaign\\Protoss\\Protoss03\\staredit\\scenario.chk",
-                                    "SD\\campaign\\EXPZerg\\Zerg05\\staredit\\scenario.chk"};
-    for (const char* name : sources) {
-        Bytes raw;
-        if (!data.readFile(name, raw, error)) continue;
-        Chk c = Chk::parse(raw);
-        if (const Section* v = c.find("VCOD"); v && v->data.size() == 1040) {
-            out = v->data;
-            error.clear();
-            return true;
-        }
-    }
-    error = "no VCOD found in the game's campaign maps";
-    return false;
-}
+// VCOD: the verification code that every map has, the same 1040 bytes (src/vcod.inc).
+const uint8_t kVcod[1040] =
+#include "vcod.inc"
+    ;
 
 void u8s(Bytes& d, int n, uint8_t v) { d.insert(d.end(), size_t(n), v); }
 
@@ -38,8 +24,8 @@ void u8s(Bytes& d, int n, uint8_t v) { d.insert(d.end(), size_t(n), v); }
 
 bool createNewScenario(Chk& chk, const GameData& data, uint16_t width, uint16_t height, uint16_t era, uint16_t terrain,
                        std::string& error) {
-    Bytes vcod, units, upgrades, techs, weapons;
-    if (!readVcod(data, vcod, error) || !data.readFile("arr\\units.dat", units, error) ||
+    Bytes vcod(std::begin(kVcod), std::end(kVcod)), units, upgrades, techs, weapons;
+    if (!data.readFile("arr\\units.dat", units, error) ||
         !data.readFile("arr\\upgrades.dat", upgrades, error) || !data.readFile("arr\\techdata.dat", techs, error) ||
         !data.readFile("arr\\weapons.dat", weapons, error))
         return false;

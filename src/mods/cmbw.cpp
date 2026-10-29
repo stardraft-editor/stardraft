@@ -2890,17 +2890,6 @@ bool open(GameData& data, const fs::path& install, std::string& error) {
         if (fs::is_regular_file(sc / m, ec)) mpqs.push_back(sc / m);
     auto files = std::make_unique<LayeredFiles>(loose, mpqs);
     if (!files->archives()) return error = "no StarCraft 1.16.1 MPQs in " + sc.string(), false;
-    // A new map takes its VCOD from a campaign scenario (new_map.cpp). The 1.16.1 MPQs have no scenario files: a map
-    // that the mod gives takes its place.
-    for (auto it = fs::recursive_directory_iterator(sc / "Maps" / "CMBW-Root", ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec)) {
-        if (it->path().extension() != ".scx") continue;
-        Bytes chk;
-        std::string err;
-        if (readMapFile(it->path(), chk, err)) {
-            files->addFile("campaign\\Zerg\\Zerg03\\staredit\\scenario.chk", std::move(chk));
-            break;
-        }
-    }
     gLoose = loose;
     data.open(std::move(files), &kLoader);
     return true;
