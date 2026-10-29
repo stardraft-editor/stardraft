@@ -81,8 +81,8 @@ CASES += [
     ("dialog-options-system", ["--dialog", "options", "--size", "720x480", "--theme", "system", "--accent", "system"], ""),
 ]
 CASES += [
-    ("newpage-classic", ["--newpage", "classic"], ""),
-    ("newpage-eud", ["--newpage", "eud"], ""),
+    ("newpage-classic", ["--newpage", "classic"], "data"),
+    ("newpage-eud", ["--newpage", "eud"], "data"),
     ("dialog-options", ["--dialog", "options", "--size", "720x480"], ""),
     ("dialog-feedback", ["--dialog", "feedback", "--size", "592x370"], ""),
     ("dialog-newproject", ["--dialog", "newproject", "--size", "688x394"], ""),
@@ -3558,7 +3558,8 @@ def check_release_token(output):
 # The last tab closed from any workspace (Data, Triggers, Briefing) goes to the start page in the Map workspace; a classic
 # map's tab after a project's in Data shows its map.
 CASES += [
-    ("newpage-noback", ["--newpage", "eud", "--click", "382,218", "--key", "Esc"], ""),
+    # (game data: without it the New page does not open; a new map needs the game's files)
+    ("newpage-noback", ["--newpage", "eud", "--click", "382,218", "--key", "Esc"], "data"),
     ("project-newproject", ["--key", "Ctrl+N", "--click", "711,430", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}",
                             "--click", "1162,800"], "project"),
     # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
