@@ -908,8 +908,9 @@ int main(int argc, char** argv) {
         CHECK(section("Terran Minotaur") == "Terran \xC2\xB7 Air units" && section("Crashed Minotaur") == "Terran \xC2\xB7 Special units" &&
                   section("Volatile Egg") == "Zerg \xC2\xB7 Special units",
               "the unit palette: Crashed Minotaur and Volatile Egg are special units, not the Minotaur and the Egg");
-        CHECK(section("Zerg Begrothilisk") == "Zerg \xC2\xB7 Unimplemented units" && section("Zerg Rakzilisk") == "Zerg \xC2\xB7 Ground units",
-              "the unit palette: a unit the website marks unimplemented (Begrothilisk) is in its race's Unimplemented units");
+        CHECK(section("Terran Cyprian") == "Terran - Hecaton Coalition \xC2\xB7 Ground units" && section("Zerg Rakzilisk") == "Zerg \xC2\xB7 Ground units" &&
+                  section("Goliath Turret") == "Subunits",
+              "the unit palette: a faction (unitnames.tbl part 2) has its own sections, a subunit (units.dat) is in Subunits");
     }
 
     {

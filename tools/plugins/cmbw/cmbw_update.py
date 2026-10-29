@@ -6,12 +6,12 @@ come with the install. What the install does not have is in tables made from oth
 
 1. The install: are its git checkouts (Prerelease, Release) at the newest commit of their repositories? The Fraud
    Launcher updates them (the install's folder is the administrators'); this script only says it.
-2. src/mods/cmbw_units.inc (the unit palette's races, tiers and groups) from the website's export:
-   tools/plugins/cmbw/cmbw_units.py, with the install's patch notes (a unit that they call NEW is implemented).
+2. src/mods/cmbw_unit_tiers.inc (the units' tech tiers by id) from the website's export and the install's unitnames.tbl:
+   tools/plugins/cmbw/cmbw_units.py. The palette's other places come from the install's files (src/mods/cmbw.cpp).
 3. src/mods/cmbw_crigs.inc (the trigger comment commands) from Cosmonarchy-GPTP: tools/plugins/cmbw/cmbw_crigs.py, on a
    clone in build/cmbw/Cosmonarchy-GPTP (made or brought up to date here).
 
-Then the changes: units added, removed or made implemented; commands added, removed or with other arguments; and the
+Then the changes: units whose tier is new, gone or other; commands added, removed or with other arguments; and the
 new commands that src/mods/cmbw_crig_docs.inc does not document (its help is written by hand).
 A table whose content is the same is not written again.
 
@@ -27,7 +27,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..', '..'))
 GPTP_URL = 'https://gitlab.com/the-no-frauds-club/tools/Cosmonarchy-GPTP.git'
-UNITS = os.path.join(ROOT, 'src', 'mods', 'cmbw_units.inc')
+UNITS = os.path.join(ROOT, 'src', 'mods', 'cmbw_unit_tiers.inc')
 CRIGS = os.path.join(ROOT, 'src', 'mods', 'cmbw_crigs.inc')
 DOCS = os.path.join(ROOT, 'src', 'mods', 'cmbw_crig_docs.inc')
 
@@ -95,12 +95,11 @@ def read(path):
 
 
 def unit_rows(data):
-    out = {}
+    out = {}  # (id: (tier, name))
     for line in (data or b'').decode('utf-8').splitlines():
-        m = re.match(r'\{"((?:[^"\\]|\\.)*)", "([^"]*)", (\d+), (\d+), (\d+), (\d+), (\d+), "((?:[^"\\]|\\.)*)", (true|false), "([^"]*)"\},', line)
+        m = re.match(r'\{(\d+), (\d+)\},\s*//\s*(.*)$', line)
         if m:
-            out[m.group(1)] = {'race': m.group(2), 'tier': m.group(4), 'category': m.group(5), 'group': m.group(8),
-                               'unimplemented': m.group(9) == 'true', 'faction': m.group(10)}
+            out[int(m.group(1))] = (m.group(2), m.group(3))
     return out
 
 
@@ -114,14 +113,9 @@ def crig_rows(data):
 
 
 def update_units(folder):
-    print('== Units (src/mods/cmbw_units.inc, from the website export)')
-    notes = []
-    for f in (os.path.join(folder, 'Prerelease', 'patchnotes.md'), os.path.join(folder, 'Release', 'master changelog.md'),
-              os.path.join(folder, 'Release', 'patchnotes.md')):
-        if os.path.isfile(f):
-            notes += ['--notes', f]
+    print('== Unit tiers (src/mods/cmbw_unit_tiers.inc, from the website export)')
     before = read(UNITS)
-    r = subprocess.run([sys.executable, '-I', os.path.join(HERE, 'cmbw_units.py')] + notes, capture_output=True, text=True)
+    r = subprocess.run([sys.executable, '-I', os.path.join(HERE, 'cmbw_units.py'), folder], capture_output=True, text=True)
     if r.returncode:
         print('  failed:', r.stderr.strip().splitlines()[-1] if r.stderr.strip() else r.returncode)
         return
@@ -130,22 +124,15 @@ def update_units(folder):
     keep_newlines(UNITS, before)
     old, new = unit_rows(before), unit_rows(read(UNITS))
     changes = 0
-    for name in sorted(set(new) - set(old)):
-        u = new[name]
-        print('  new: %s (tier %s%s%s)' % (name, u['tier'], ', ' + u['faction'] if u['faction'] else '',
-                                          ', unimplemented' if u['unimplemented'] else ''))
+    for i in sorted(set(new) - set(old)):
+        print('  new: %d %s (tier %s)' % (i, new[i][1], new[i][0]))
         changes += 1
-    for name in sorted(set(old) - set(new)):
-        print('  removed:', name)
+    for i in sorted(set(old) - set(new)):
+        print('  no tier now: %d %s' % (i, old[i][1]))
         changes += 1
-    for name in sorted(set(old) & set(new)):
-        o, n = old[name], new[name]
-        if o['unimplemented'] != n['unimplemented']:
-            print('  %s: %s' % (name, 'unimplemented now' if n['unimplemented'] else 'implemented now'))
-            changes += 1
-        elif (o['tier'], o['category'], o['group'], o['faction']) != (n['tier'], n['category'], n['group'], n['faction']):
-            print('  %s: another place in the palette (tier %s, group %s%s)' % (name, n['tier'], n['group'],
-                                                                                ', ' + n['faction'] if n['faction'] else ''))
+    for i in sorted(set(old) & set(new)):
+        if old[i][0] != new[i][0]:
+            print('  %d %s: tier %s (was %s)' % (i, new[i][1], new[i][0], old[i][0]))
             changes += 1
     if not changes:
         print('  no changes')

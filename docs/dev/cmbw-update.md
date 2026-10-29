@@ -7,7 +7,7 @@
 
 | File | Command |
 |---|---|
-| `cmbw_units.inc`, `cmbw_crigs.inc` | `python -I tools/plugins/cmbw/cmbw_update.py` |
+| `cmbw_unit_tiers.inc` (id → tier only), `cmbw_crigs.inc` | `python -I tools/plugins/cmbw/cmbw_update.py` |
 | `cmbw_isom.inc`, `cmbw_isom_pieces.inc` | `cmbw_isom_learn <maps> <tileset dir> <out> <pieces out> <votes.txt>` |
 | `cmbw_auto_terrains.inc` | `cmbw_auto_rows <P> <votes.txt> <out>` |
 | `cmbw_neighbors.inc` | `cmbw_neighbors <maps> --inc src/mods/cmbw_neighbors.inc <P>` |

@@ -221,6 +221,18 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
         for (const PaletteUnit* u : list) rows.push_back({u->value, mode == Mode::Doodads && byName ? u->section + L"  " + u->label : u->label});
         return rows;
     }
+    if (!section.empty() && std::any_of(units.begin(), units.end(), [&](const PaletteUnit& u) { return u.group == section; })) {
+        // (a mod's main category, "Terran units": its units by their sections there, Ground units, Air units, Buildings)
+        std::vector<const PaletteUnit*> list;
+        for (const PaletteUnit& u : units)
+            if (shown(u)) list.push_back(&u);
+        std::stable_sort(list.begin(), list.end(), [](const PaletteUnit* a, const PaletteUnit* b) { return a->groupOrder < b->groupOrder; });
+        for (size_t i = 0; i < list.size(); ++i) {
+            if (!i || list[i - 1]->groupSection != list[i]->groupSection) rows.push_back({-1, list[i]->groupSection});
+            rows.push_back({list[i]->value, list[i]->label});
+        }
+        return rows;
+    }
     const PaletteUnit* prev = nullptr;
     for (const PaletteUnit& u : units) {
         if (!shown(u)) continue;

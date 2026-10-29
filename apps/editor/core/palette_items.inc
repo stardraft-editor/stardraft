@@ -41,6 +41,8 @@ struct PaletteUnit {
     int value = 0, order = 0;
     int tier = 0;  // (a mod's unit: its tech tier, 0 none)
     std::wstring section, label, hay;
+    std::wstring group, groupSection;  // (a mod's unit: its main category, "Terran units", and its section there; empty: none)
+    int groupOrder = 0;
     uint8_t mark = 0;  // a custom row's state (Find a command): kQuickMarkOption (a check box), kQuickMarkOn, kQuickMarkGray
 };
 constexpr uint8_t kQuickMarkOption = 1, kQuickMarkOn = 2, kQuickMarkGray = 4;
@@ -60,6 +62,7 @@ std::vector<PaletteUnit> paletteUnits(AppState& app) {
         int race = 0;
         if (!t.paletteSection.empty()) {  // a mod's place (src/mods)
             u.section = widen(t.paletteSection), u.order = t.paletteOrder, u.tier = t.paletteTier;
+            u.group = widen(t.paletteGroup), u.groupSection = widen(t.paletteGroupSection), u.groupOrder = t.paletteGroupOrder;
         } else {
             u.section = unitSection(t, race);
             firstId.emplace(u.section, i);
@@ -184,9 +187,12 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
 }
 
 
-// The section names of the palette's items, in their order (the section box lists them).
+// The section names of the palette's items, in their order (the section box lists them): a mod's main categories
+// ("Terran units") first.
 std::vector<std::wstring> paletteSectionNames(const std::vector<PaletteUnit>& units) {
     std::vector<std::wstring> names;
+    for (const auto& u : units)
+        if (!u.group.empty() && std::find(names.begin(), names.end(), u.group) == names.end()) names.push_back(u.group);
     for (const auto& u : units)
         if (std::find(names.begin(), names.end(), u.section) == names.end()) names.push_back(u.section);
     return names;
@@ -208,5 +214,5 @@ bool paletteLiteralSearch(const std::vector<PaletteUnit>& units, const std::wstr
 
 // Whether the item is listed for the search and the section ("" is every section).
 bool paletteUnitShown(const PaletteUnit& u, bool literal, const std::wstring& filter, const std::wstring& section) {
-    return (section.empty() || u.section == section) && (literal ? paletteWordsFound(u, filter) : fuzzyScore(u.hay, filter) >= 0);
+    return (section.empty() || u.section == section || u.group == section) && (literal ? paletteWordsFound(u, filter) : fuzzyScore(u.hay, filter) >= 0);
 }

@@ -1,81 +1,71 @@
 #!/usr/bin/env python3
-"""Makes src/mods/cmbw_units.inc: the Cosmonarchy BW units' races, tiers and production groups, for the unit palette.
+"""Makes src/mods/cmbw_unit_tiers.inc: the Cosmonarchy BW units' tech tiers by id, for the unit palette.
 
-A placeholder until the Cosmonarchy community has a source for it: the table comes from the website's export
-(https://cosmonarchy.com/export/all.json), whose unit ids are not the game's, so the editor matches units by name
-("Terran Maverick" = race + name). The palette's sections are each race's ground units, air units and buildings
-(units.dat's flags: src/mods/cmbw.cpp placeUnits); this table gives the order in each (the tier, the category, the
-website's order), as the website's race pages list them, and the faction of a unit that only one faction has (the
-export's includeFactions: its first; empty for a base unit, which the race's melee faction has).
+The install's files give everything else (src/mods/cmbw.cpp placeUnits: races, factions, groups, subunits); the
+website's export (https://cosmonarchy.com/export/all.json) gives the tiers only. Its unit ids are not the game's, so
+each id of the install's rez/unitnames.tbl takes the tier of the export's unit with its name ("Terran Maverick" = race +
+name): the one of the unit's faction (part 2 of the tbl entry, the export's includeFactions), else the base one.
 
-The export can call a unit unimplemented for some days after the game has it: a unit that the mod's patch notes call
-NEW (a "**NEW:** [Name](https://cosmonarchy.com/<race>/<unit>/)" line, --notes) is implemented.
-
-usage: python tools/plugins/cmbw/cmbw_units.py [all.json] [--notes <patchnotes.md>]...
+usage: python -I tools/plugins/cmbw/cmbw_units.py <Cosmonarchy folder> [all.json]
        (no all.json: the export is downloaded)
 """
 import json
 import os
-import re
+import struct
 import sys
 import urllib.request
 
 URL = 'https://cosmonarchy.com/export/all.json'
 
 
+def tbl_entries(path):
+    """The tbl's entries, each as its parts ("Terran Cyprian\\0Hecaton Coalition\\0Factional Units": three)."""
+    data = open(path, 'rb').read()
+    count = struct.unpack_from('<H', data, 0)[0]
+    out = []
+    for i in range(count):
+        at, parts = struct.unpack_from('<H', data, 2 + 2 * i)[0], []
+        for _ in range(3):
+            end = data.find(b'\0', at)
+            end = len(data) if end < 0 else end
+            parts.append(data[at:end].decode('latin-1'))
+            at = end + 1
+        out.append(parts)
+    return out
+
+
 def main():
-    args, notes = [], []
-    it = iter(sys.argv[1:])
-    for a in it:
-        if a == '--notes':
-            notes.append(next(it))
-        else:
-            args.append(a)
-    new = set()  # the export's ids of the units that a patch note calls NEW ("zerg/yvilirokor")
-    for n in notes:
-        text = open(n, encoding='utf-8', errors='replace').read()
-        new |= set(re.findall(r'\*\*NEW:\*\*\s*\[[^\]]*\]\(https?://cosmonarchy\.com/([a-z0-9-]+/[a-z0-9-]+)/?\)', text))
-    if args:
-        data = json.load(open(args[0], encoding='utf-8'))
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    folder = sys.argv[1]
+    tbl = os.path.join(folder, 'Prerelease', 'mpq', 'rez', 'unitnames.tbl')
+    if len(sys.argv) > 2:
+        data = json.load(open(sys.argv[2], encoding='utf-8'))
     else:
         with urllib.request.urlopen(URL) as r:
             data = json.loads(r.read().decode('utf-8'))
-    races = {k: v for k, v in data['races'].items()}
-    race_order = {v['name']: v.get('order', 9) for v in races.values()}
-    for key, u in data['units'].items():
-        if key in new and u.get('unimplemented'):
-            u['unimplemented'] = False
-            print('implemented (NEW in the patch notes):', u['race'], u['name'])
-    units = [u for u in data['units'].values() if not u.get('hidden')]
-    groups = {}
-    for u in units:
-        groups.setdefault((u['race'], u['tier'], u['category']), []).append(u)
-    heads = {}
-    for key, us in groups.items():
-        us.sort(key=lambda u: (u['order'], u['suborder']))
-        structures = [u for u in us if 'Structure' in u.get('flags', [])]
-        heads[key] = (structures or us)[0]['name']
-    # (a name that a base unit has is a base unit's: its variants (Maverick (Golden Republic)) are the game's other units,
-    # their faction from their subtitle in the editor)
-    base_names = {(u['race'] + ' ' + u['name']).lower() for u in units if not u.get('includeFactions')}
-    rows, seen = [], set()
-    for key in sorted(groups, key=lambda k: (race_order.get(k[0], 9), k[1], k[2])):
-        for u in groups[key]:
-            name = u['race'] + ' ' + u['name']
-            if name.lower() in seen or (u.get('includeFactions') and name.lower() in base_names):
-                continue  # (variants of one unit share its name: the base one's place)
-            seen.add(name.lower())
-            faction = (u.get('includeFactions') or [''])[0]
-            rows.append((name, u['race'], race_order.get(u['race'], 9), u['tier'], u['category'], u['order'], u['suborder'], heads[key],
-                         bool(u.get('unimplemented')), faction))
-    out = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'src', 'mods', 'cmbw_units.inc')
+    tiers = {}  # (name lower case: {faction ('' base): tier})
+    for u in data['units'].values():
+        if u.get('hidden'):
+            continue
+        by = tiers.setdefault((u['race'] + ' ' + u['name']).lower(), {})
+        for f in (u.get('includeFactions') or ['']):
+            by.setdefault(f.lower(), u['tier'])
+    rows = []
+    for i, parts in enumerate(tbl_entries(tbl)):
+        name = parts[0] if parts else ''
+        by = tiers.get(name.lower())
+        if not by:
+            continue
+        faction = (parts[1] if len(parts) > 1 else '').lower()
+        tier = next((by[f.strip()] for f in faction.split(',') if f.strip() in by), by.get('', min(by.values())))
+        rows.append((i, tier, name))
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'src', 'mods', 'cmbw_unit_tiers.inc')
     with open(out, 'w', encoding='utf-8', newline='\n') as f:
-        f.write('// Generated by tools/plugins/cmbw/cmbw_units.py from ' + URL + ' (do not edit by hand).\n')
-        f.write('// name, race, race order, tier, category, order, suborder, group (its first structure), unimplemented, faction\n')
-        for r in rows:
-            esc = lambda s: s.replace('\\', '\\\\').replace('"', '\\"')
-            f.write('{"%s", "%s", %d, %d, %d, %d, %d, "%s", %s, "%s"},\n' % (esc(r[0]), esc(r[1]), r[2], r[3], r[4], r[5], r[6], esc(r[7]),
-                                                                          'true' if r[8] else 'false', esc(r[9])))
+        f.write('// Generated by tools/plugins/cmbw/cmbw_units.py from ' + URL + ' and the install\'s unitnames.tbl (do not edit by hand).\n')
+        f.write('// id, tier\n')
+        for i, tier, name in rows:
+            f.write('{%d, %d},  // %s\n' % (i, tier, name.replace('\\', '/')))
     print('wrote', os.path.normpath(out), len(rows), 'units')
 
 

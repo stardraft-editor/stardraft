@@ -220,19 +220,13 @@ std::pair<std::string, std::string> tblParts(const Bytes& tbl, size_t index, con
     return {a, next()};
 }
 
-// The units' places in the palette (tools/plugins/cmbw/cmbw_units.py: the website's races, tiers and production groups;
-// a placeholder until the Cosmonarchy community has a source for it). Matched by name: the website's unit ids are not
-// the game's.
-struct UnitPlace {
-    const char* name;  // "Terran Maverick"
-    const char* race;
-    int raceOrder, tier, category, order, suborder;
-    const char* group;  // the tier's and category's first structure ("Stockade")
-    bool unimplemented;
-    const char* faction;  // the one faction that has it (the website's includeFactions); "": a base unit (the melee faction's)
+// The units' tech tiers by id (tools/plugins/cmbw/cmbw_units.py, from the website's export: the install has no tiers).
+struct UnitTier {
+    uint16_t id;
+    uint8_t tier;
 };
-const UnitPlace kUnitPlaces[] = {
-#include "cmbw_units.inc"
+const UnitTier kUnitTiers[] = {
+#include "cmbw_unit_tiers.inc"
 };
 
 std::string lowerText(std::string s) {
@@ -240,94 +234,108 @@ std::string lowerText(std::string s) {
     return s;
 }
 
-// The races' factions past their first (the website's export, cosmonarchy.com/export/all.json: each race's first
-// faction is its melee one, the base units): a unit of one has its name in its subtitle ("Maverick (Golden Republic)",
-// "Shaman (Adrenaline, Upstart)", "Valkyrie (Hecaton)", "Madrigal (Hecaton Furia)").
-const std::vector<std::pair<std::string, std::vector<std::string>>> kFactions = {
-    {"Terran", {"Hecaton Coalition", "Futurist Federation", "Golden Republic", "Nydus Trinity", "Upstart"}},
-    {"Zerg", {"Imicren Tendril", "Goszirith Tendril", "Orkoti Tendril", "Zorthos Tendril"}},
-    {"Protoss", {"Khalendric Knights", "Order of the Sacred Saber", "Starbound", "Astral Omen"}},
-    {"Askosi", {"Sons of Ash"}},
-    {"Forerunner", {"Sentinel Swarm"}},
-};
-// The faction (its place in the race's list, from 1) whose name a unit's subtitle has, 0: none (a base unit, or a mode).
-std::pair<int, std::string> unitFaction(const std::string& race, const std::string& subtitle) {
-    std::string sub = lowerText(subtitle);
-    for (const auto& [r, names] : kFactions) {
-        if (r != race) continue;
-        for (size_t i = 0; i < names.size(); ++i) {
-            const std::string n = lowerText(names[i]), first = n.substr(0, n.find(' '));
-            for (size_t at = 0; at <= sub.size();) {  // (each part of the subtitle: "adrenaline, upstart")
-                const size_t end = std::min(sub.find(',', at), sub.size());
-                std::string part = sub.substr(at, end - at);
-                while (!part.empty() && part.front() == ' ') part.erase(part.begin());
-                while (!part.empty() && part.back() == ' ') part.pop_back();
-                if (!part.empty() && (part == n || part == first || part.rfind(first + " ", 0) == 0)) return {int(i) + 1, names[i]};
-                at = end + 1;
-            }
-        }
+// The parts of a unit's subtitle, trimmed ("Adrenaline, Upstart": Adrenaline and Upstart).
+std::vector<std::string> subtitleParts(const std::string& subtitle) {
+    std::vector<std::string> out;
+    for (size_t at = 0; at <= subtitle.size();) {
+        const size_t end = std::min(subtitle.find(',', at), subtitle.size());
+        std::string part = subtitle.substr(at, end - at);
+        while (!part.empty() && part.front() == ' ') part.erase(part.begin());
+        while (!part.empty() && part.back() == ' ') part.pop_back();
+        if (!part.empty()) out.push_back(part);
+        at = end + 1;
     }
-    return {0, {}};
+    return out;
 }
 
-// Each named unit's palette section and order: "Terran - Ground units" (with a middle dot; Ground units, Air units,
-// Buildings by units.dat's flags) for the race's base units (its melee faction's), then the same for each faction
-// ("Terran - Golden Republic - Ground units", the race and the faction with a dash) with only that faction's own units
-// (the website's includeFactions, or the faction in the subtitle); in each the units in the website's order (tier,
-// category, order). The units the website does not have (their race: the name's first word, else the flags): the race's
-// "Special units" last; the ones the website marks unimplemented: the race's "Unimplemented units" after them; the free
-// slots ("Reserved", "unused"): "Unused slots" at the end.
-void placeUnits(std::vector<UnitType>& types) {
-    std::map<std::string, const UnitPlace*> full;
-    std::map<std::string, int> raceOrder;
-    for (const UnitPlace& p : kUnitPlaces) {
-        full.emplace(lowerText(p.name), &p);
-        raceOrder.emplace(p.race, p.raceOrder);
+// Each named unit's palette section and order, from the install's files only (unitnames.tbl: the name, part 2 the
+// faction or a mode ("*": the default faction), part 3 the group; units.datex: the flags and the subunits):
+// - The race: the name's first word when 3 or more units of the main groups have it (Terran, Askosi), else by units.dat's
+//   group flags, else Neutral. Terran, Zerg and Protoss first, then the others in the order of their first units.
+// - "Terran · Ground units" (with a middle dot; Ground units, Air units, Buildings by units.dat's flags) for the main
+//   groups (Ground Units, Air Units, Buildings, Structures, Addons, Factional Units).
+// - "Terran - Golden Republic · Ground units" for a Factional Units unit with a faction in part 2: a value that 2 or more
+//   Factional Units units of the race have (subunits not counted). A value of one unit is a mode (Tank Mode): that unit
+//   is in its race's sections. The factions in the order of their first units.
+// - The race's "Special units" for the other groups (Special, Heroes, Powerups); Neutral units by their flags only.
+// - "Subunits": the units that units.dat gives other units as subunits (turrets), after the races.
+// - "Unused slots" ("Reserved", "unused", the Unused group) last.
+// In each section the units by tier (kUnitTiers; the ones with no tier after), then by id.
+// Each race's units of the main groups (its factions' too) are also in its main category ("Terran units"), by kind
+// (Ground units, Air units, Buildings), then tier.
+void placeUnits(std::vector<UnitType>& types, const std::set<uint16_t>& subunits) {
+    static const std::set<std::string> kMain = {"ground units", "air units", "buildings", "structures", "addons", "factional units", "faction units"};
+    auto factional = [](const UnitType& t) {
+        const std::string g = lowerText(t.editorGroup);
+        return g == "factional units" || g == "faction units";
+    };
+    auto firstWord = [](const std::string& name) { return name.substr(0, name.find(' ')); };
+    std::map<std::string, std::pair<int, uint16_t>> words;  // (a first word: its units, its first unit)
+    for (const UnitType& t : types) {
+        if (t.name.empty() || !kMain.count(lowerText(t.editorGroup))) continue;
+        ++words.emplace(firstWord(t.name), std::pair<int, uint16_t>{0, t.id}).first->second.first;
     }
+    std::vector<std::string> races = {"Terran", "Zerg", "Protoss"};
+    std::vector<std::pair<uint16_t, std::string>> more;
+    for (const auto& [w, n] : words)
+        if (n.first >= 3 && std::find(races.begin(), races.end(), w) == races.end()) more.push_back({n.second, w});
+    std::sort(more.begin(), more.end());
+    for (const auto& m : more) races.push_back(m.second);
+    auto raceOf = [&](const UnitType& t) {
+        const std::string w = firstWord(t.name);
+        if (std::find(races.begin(), races.end(), w) != races.end()) return w;
+        return std::string((t.groupFlags & UnitGroup::Zerg) ? "Zerg" : (t.groupFlags & UnitGroup::Terran) ? "Terran"
+                         : (t.groupFlags & UnitGroup::Protoss) ? "Protoss" : "Neutral");
+    };
+    std::map<std::pair<std::string, std::string>, std::pair<int, uint16_t>> values;  // (race, part 2 value: its units, its first unit)
+    for (const UnitType& t : types)
+        if (!t.name.empty() && factional(t) && !subunits.count(t.id))
+            for (const std::string& v : subtitleParts(t.subtitle))
+                ++values.emplace(std::pair{raceOf(t), v}, std::pair<int, uint16_t>{0, t.id}).first->second.first;
+    std::map<std::string, std::vector<std::pair<uint16_t, std::string>>> factions;
+    for (const auto& [key, n] : values)
+        if (n.first >= 2) factions[key.first].push_back({n.second, key.second});
+    for (auto& [race, list] : factions) std::sort(list.begin(), list.end());
+    std::map<uint16_t, int> tiers;
+    for (const UnitTier& u : kUnitTiers) tiers.emplace(u.id, u.tier);
+
     const std::string dot = "\xC2\xB7";  // (UTF-8 middle dot)
     auto kind = [](const UnitType& t) { return (t.flags & 0x1) ? 2 : (t.flags & 0x4) ? 1 : 0; };  // (building, flyer, ground)
     static const char* kKinds[] = {"Ground units", "Air units", "Buildings"};
     for (UnitType& t : types) {
         if (t.name.empty()) continue;
-        const std::string n = lowerText(t.name);
-        const UnitPlace* p = nullptr;
-        // (the full name only: a name without its race matched other units, as Crashed Minotaur the Minotaur)
-        if (auto it = full.find(n); it != full.end()) p = it->second;
-        const int k = kind(t);
-        if (p && p->unimplemented) {  // (the website's unimplemented units, often with another unit's graphics: after the race's Special units, no tier)
-            t.paletteSection = std::string(p->race) + " " + dot + " Unimplemented units";
-            t.paletteOrder = p->raceOrder * 100000000 + 99500000 + k * 100000 + p->tier * 10000 + p->category * 1000 + std::min(p->order, 99) * 10 + p->suborder % 10;
-            continue;
-        }
-        if (p) {
-            auto [f, faction] = unitFaction(p->race, t.subtitle);
-            if (!f && *p->faction)  // (a unit of one faction alone: under it, not among the race's base units)
-                for (const auto& [r, names] : kFactions)
-                    for (size_t i = 0; i < names.size() && r == p->race; ++i)
-                        if (names[i] == p->faction) f = int(i) + 1, faction = names[i];
-            t.paletteSection = std::string(p->race) + (f ? " - " + faction : std::string()) + " " + dot + " " + kKinds[k];
-            t.paletteOrder = p->raceOrder * 100000000 + (f ? 3 + f : k) * 10000000 + (f ? k * 1000000 : 0) + p->tier * 100000 +
-                             p->category * 10000 + p->order * 10 + p->suborder;
-            t.paletteTier = p->tier;
-            continue;
-        }
-        if (n == "reserved" || n == "unused") {  // (the mod's free slots: last, in one section)
+        const std::string n = lowerText(t.name), group = lowerText(t.editorGroup);
+        if (n == "reserved" || n == "unused" || group == "unused") {  // (the mod's free slots: last, in one section)
             t.paletteSection = "Unused slots";
             t.paletteOrder = 900000000 + t.id;
             continue;
         }
-        std::string race = t.name.substr(0, t.name.find(' '));
-        if (!raceOrder.count(race))
-            race = (t.groupFlags & UnitGroup::Zerg) ? "Zerg" : (t.groupFlags & UnitGroup::Terran) ? "Terran" : (t.groupFlags & UnitGroup::Protoss) ? "Protoss" : "Neutral";
-        const int order = raceOrder.count(race) ? raceOrder[race] : 8;
-        const auto [f, faction] = unitFaction(race, t.subtitle);
-        if (!f && raceOrder.count(race)) {  // (a unit the website does not list: heroes, the campaigns' and old units, after the factions)
-            t.paletteSection = race + " " + dot + " Special units";
-            t.paletteOrder = order * 100000000 + 99 * 1000000 + k * 10000 + t.id;
+        if (subunits.count(t.id)) {
+            t.paletteSection = "Subunits";
+            t.paletteOrder = 800000000 + t.id;
             continue;
         }
+        if (auto it = tiers.find(t.id); it != tiers.end()) t.paletteTier = it->second;
+        const int place = (t.paletteTier > 0 ? std::min(t.paletteTier, 98) : 99) * 10000 + t.id;  // (below 1000000)
+        const std::string race = raceOf(t);
+        const int r = std::min(int(std::find(races.begin(), races.end(), race) - races.begin()), 7);  // (Neutral: after the races)
+        const int k = kind(t);
+        if (race != "Neutral" && !kMain.count(group)) {
+            t.paletteSection = race + " " + dot + " Special units";
+            t.paletteOrder = r * 100000000 + (96 + k) * 1000000 + place;
+            continue;
+        }
+        int f = 0;  // (the faction: its place in the race's list, from 1; 0 none)
+        std::string faction;
+        if (auto it = factions.find(race); it != factions.end() && factional(t))
+            for (const std::string& v : subtitleParts(t.subtitle))
+                for (size_t i = 0; i < it->second.size() && !f; ++i)
+                    if (it->second[i].second == v) f = int(i) + 1, faction = v;
+        f = std::min(f, 30);
         t.paletteSection = race + (f ? " - " + faction : std::string()) + " " + dot + " " + kKinds[k];
-        t.paletteOrder = order * 100000000 + (f ? 3 + f : k) * 10000000 + (f ? k * 1000000 : 0) + 900000 + t.id;
+        t.paletteOrder = r * 100000000 + (f ? 3 * f + k : k) * 1000000 + place;
+        if (race != "Neutral")  // (the race's main category: its units and its factions' by kind, then tier)
+            t.paletteGroup = race + " units", t.paletteGroupSection = kKinds[k], t.paletteGroupOrder = k * 1000000 + place;
     }
 }
 
@@ -337,11 +345,22 @@ bool loadTypes(const GameData& data, UnitTypes& out, std::string& error) {
     Bytes names, stat;
     if (!data.readFile("rez\\unitnames.tbl", names, error) || !data.readFile("rez\\stat_txt.tbl", stat, error)) return false;
     const TblStrings n = parseTbl(names), s = parseTbl(stat);
+    // arr\units.txt: a line for each id; "Extended Unit #N" is a free slot (no unit), whatever unitnames.tbl has there
+    Bytes list;
+    std::string listError;
+    std::vector<bool> free(d.count());
+    if (data.readFile("arr\\units.txt", list, listError))
+        for (size_t at = 0, i = 0; at < list.size() && i < free.size(); ++i) {
+            size_t e = at;
+            while (e < list.size() && list[e] != '\n') ++e;
+            free[i] = lowerText(std::string(list.begin() + long(at), list.begin() + long(e))).rfind("extended unit", 0) == 0;
+            at = e + 1;
+        }
     std::vector<UnitType> types(d.count());
     for (size_t i = 0; i < d.count(); ++i) {
         UnitType& t = types[i];
         t.id = uint16_t(i);
-        if (i < n.strings.size()) {
+        if (i < n.strings.size() && !free[i]) {
             t.name = n.strings[i];
             std::tie(t.subtitle, t.editorGroup) = tblParts(names, i, t.name);
         }
@@ -361,7 +380,11 @@ bool loadTypes(const GameData& data, UnitTypes& out, std::string& error) {
         t.portrait = uint16_t(d.get(UPortrait, i));
         t.addonX = int16_t(d.get(UAddonPos, i, 0, 2)), t.addonY = int16_t(d.get(UAddonPos, i, 1, 2));
     }
-    placeUnits(types);
+    std::set<uint16_t> subunits;  // (the units that named units have as subunits; 228: none)
+    for (size_t i = 0; i < d.count(); ++i)
+        for (const size_t field : {USubunit1, USubunit2})
+            if (const uint32_t v = d.get(field, i); !types[i].name.empty() && v != 228 && v < d.count()) subunits.insert(uint16_t(v));
+    placeUnits(types, subunits);
     out.assign(std::move(types), s.strings);
     return true;
 }
