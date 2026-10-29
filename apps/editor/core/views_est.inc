@@ -14,8 +14,7 @@ public:
         add_.setTip(tr(L"Pages with a picture and text that Cosmonarchy shows before the map starts"));
         add_.onClick = [this] { create(); };
         picture_.setText(tr(L"Choose picture\x2026"));
-        picture_.setTip(tr(L"1920 x 1080 pixels, the game's screen. A PNG, JPEG or BMP is cut to 16:9 and made an 8-bit PCX with its own 256 colors; "
-                           L"an 8-bit PCX goes in as it is."));
+        picture_.setTip(tr(L"An 8-bit PCX picture of 1920 x 1080 pixels, the game's screen. It goes into the map as it is."));
         picture_.onClick = [this] { choosePicture(); };
         text_.setText(tr(L"Edit text\x2026"));
         text_.setTip(tr(L"The page's lines, as the game shows them (plain text: no color codes)"));
@@ -284,7 +283,7 @@ private:
         if (!ed) return;
         ShellFilePick pick;
         pick.title = tr(L"Picture of the page (1920 x 1080)");
-        pick.filters = {{L"Picture (*.png; *.jpg; *.jpeg; *.bmp; *.pcx)", L"*.png;*.jpg;*.jpeg;*.bmp;*.pcx"}};
+        pick.filters = {{L"PCX picture (*.pcx)", L"*.pcx"}};  // (only an 8-bit PCX for now: it goes into the map as it is)
         const fs::path file = shellPickFile(pick);
         if (file.empty()) return;
         std::ifstream in(file, std::ios::binary);
@@ -292,22 +291,9 @@ private:
         int w = 0, h = 0;
         std::vector<uint8_t> rgba;
         std::wstring how;
-        // (an 8-bit PCX as it is; another picture: its middle at 16:9, made an 8-bit PCX of the game's 1920 x 1080, its
-        // 256 colors picked)
-        if (!stardraft::cmbw::decodePcxRgba(data, w, h, rgba)) {
-            if (!shellDecodeImage(data, w, h, rgba))
-                return shellErrorBox(tr(L"The file is not a PNG, JPEG, BMP or 8-bit PCX picture."), tr(L"Picture of the establishing shot"));
-            int cw = w, ch = h;  // (the largest 16:9 part, in the middle)
-            if (int64_t(w) * kShotH > int64_t(h) * kShotW) cw = int(int64_t(h) * kShotW / kShotH);
-            else ch = int(int64_t(w) * kShotH / kShotW);
-            std::vector<uint8_t> crop(size_t(cw) * size_t(ch) * 4);
-            const int ox = (w - cw) / 2, oy = (h - ch) / 2;
-            for (int y = 0; y < ch; ++y)
-                std::memcpy(&crop[size_t(y) * size_t(cw) * 4], &rgba[(size_t(y + oy) * size_t(w) + size_t(ox)) * 4], size_t(cw) * 4);
-            data = stardraft::cmbw::encodePcx8(crop, cw, ch, kShotW, kShotH);
-            if (cw != w || ch != h) how = tr(L" (its middle, cut to 16:9)");
-            if (cw != kShotW || ch != kShotH) how += tr(L", made 1920 x 1080");
-        } else if (w != kShotW || h != kShotH) {
+        if (!stardraft::cmbw::decodePcxRgba(data, w, h, rgba))
+            return shellErrorBox(tr(L"The file is not an 8-bit PCX picture."), tr(L"Picture of the establishing shot"));
+        if (w != kShotW || h != kShotH) {
             how = L" (" + std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L": the game's screen is 1920 x 1080)");
         }
         const auto shot = shotOf(*ed);
