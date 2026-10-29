@@ -2030,6 +2030,9 @@ Paste	Вставить
 Copy all	Копировать всё
 Select all	Выделить всё
 Could not find StarCraft on your system.	Не удалось найти StarCraft в системе.
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	Нажмите «Обзор», чтобы найти папку StarCraft, или «Загрузить мод», чтобы использовать мод (Параметры программы > Плагины).
+Load mod…	Загрузить мод…
+Program options > Plugins: load a mod, as Cosmonarchy BW	Параметры программы > Плагины: загрузить мод, например Cosmonarchy BW
 That folder has no StarCraft game data.	В этой папке нет игровых данных StarCraft.
 Select the StarCraft folder	Выберите папку StarCraft
 Services	Службы

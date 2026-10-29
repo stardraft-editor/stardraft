@@ -2030,6 +2030,9 @@ Paste	붙여넣기
 Copy all	모두 복사
 Select all	모두 선택
 Could not find StarCraft on your system.	시스템에서 StarCraft를 찾을 수 없습니다.
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	찾아보기를 선택해 StarCraft 폴더를 찾거나, 모드 불러오기를 선택해 모드를 사용하세요 (프로그램 옵션 > 플러그인).
+Load mod…	모드 불러오기…
+Program options > Plugins: load a mod, as Cosmonarchy BW	프로그램 옵션 > 플러그인: Cosmonarchy BW 같은 모드를 불러옵니다
 That folder has no StarCraft game data.	이 폴더에는 StarCraft 게임 데이터가 없습니다.
 Select the StarCraft folder	StarCraft 폴더 선택
 Services	서비스

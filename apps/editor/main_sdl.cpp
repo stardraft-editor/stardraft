@@ -636,6 +636,7 @@ int main(int argc, char** argv) {
             gStartView.dataError = widen(dataErr);
         }
         gStartView.onBrowseInstall = [] { shellPost(browseInstallFolder); };  // (after the click: the dialog waits for its answer)
+        gStartView.onLoadMod = [] { shellPost([] { showOptionsTab(L"Plugins"); }); };  // (Program options at its Plugins tab)
         if (pickInstallArg == "found") {  // (a snapshot: the folder that the search finds, as if the user picked it)
             std::string ignored;
             pickInstallArg = openInstall(installArg, ignored) ? narrow(gInstallInUse.wstring()) : std::string();

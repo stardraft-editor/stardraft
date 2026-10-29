@@ -23,6 +23,8 @@ const wchar_t* const kCosmonarchyCard = L"Make maps with the units of the Cosmon
 
 // The banner when no StarCraft install was found (the start page's top).
 const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
+// (its second line: the two ways on, its two buttons)
+const wchar_t* const kNoInstallHint = L"Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).";
 
 // (two lines: what to do first, then how to give feedback)
 const wchar_t* const kStartNotice = L"StarDraft 2 is alpha software: back up your maps and projects before you edit them.\n"
@@ -53,7 +55,14 @@ public:
 
 class StartView final : public draw::View {
 public:
-    StartView() : open_(L"Open\x2026", stardraft::kit::Tone::Normal, nullptr), browse_(L"Browse\x2026", stardraft::kit::Tone::Primary, nullptr) {
+    StartView()
+        : open_(L"Open\x2026", stardraft::kit::Tone::Normal, nullptr), browse_(L"Browse\x2026", stardraft::kit::Tone::Primary, nullptr),
+          loadMod_(L"Load mod\x2026", stardraft::kit::Tone::Normal, nullptr) {
+        loadMod_.onClick = [this] {
+            if (onLoadMod) onLoadMod();
+        };
+        loadMod_.setTip(L"Program options > Plugins: load a mod, as Cosmonarchy BW");
+        add(loadMod_, draw::Rect(0, 0, 0, 0)), loadMod_.setVisible(false);
         open_.onClick = [this] {
             if (onOpen) onOpen();
         };
@@ -91,6 +100,8 @@ public:
     std::function<bool()> mapsReady;
     std::wstring installNote;
     std::function<void()> onBrowseInstall;
+    // The banner's Load mod: the host opens Program options at its Plugins tab.
+    std::function<void()> onLoadMod;
     // Whether the last paint showed the banner (the snapshots read it).
     bool bannerShown() const { return bannerShown_; }
     // Where the page's keys go (the snapshots read it): "Browse", "card 0", "card 1", or "none" (not on the page).
@@ -142,7 +153,7 @@ public:
         const bool banner = installMissing && !modReady;
         if (!banner && browse_.visible()) {
             if (browse_.hasFocus()) focus();  // (the keys go to the cards again)
-            browse_.setVisible(false);
+            browse_.setVisible(false), loadMod_.setVisible(false);
         }
         const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kRowH), bh = scale(stardraft::kit::kButtonH), gap = scale(16);
         const int avail = w - 2 * pad;
@@ -435,14 +446,16 @@ private:
         return *removes_[k];
     }
 
-    // The banner at (x, y), `w` wide: a warning icon, the text (and the note under it), Browse at the right. Returns
-    // its height.
+    // The banner at (x, y), `w` wide: a warning icon, the text, what to do (and the note under it), Load mod and Browse
+    // at the right. Returns its height.
     int paintBanner(draw::Canvas& c, int x, int y, int w) {
         const int inPad = scale(12), iconS = scale(16), bh = scale(stardraft::kit::kButtonH);
         const int bw = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Browse\x2026") + scale(28));
-        const int textL = x + inPad + iconS + scale(10), textR = x + w - inPad - bw - scale(16);
+        const int mw = onLoadMod ? std::max(scale(stardraft::kit::kButtonMinW), c.measure(tr(L"Load mod\x2026")) + scale(28)) + scale(8) : 0;
+        const int textL = x + inPad + iconS + scale(10), textR = x + w - inPad - bw - mw - scale(16);
         const int lineH = scale(20);
-        const int noteH = installNote.empty() ? 0 : c.measureBox(installNote, std::max(1, textR - textL), draw::kWrap).y;
+        const std::wstring note = std::wstring(tr(kNoInstallHint)) + (installNote.empty() ? L"" : L"\n" + installNote);
+        const int noteH = c.measureBox(note, std::max(1, textR - textL), draw::kWrap).y;
         const int contentH = std::max(bh, lineH + (noteH ? scale(2) + noteH : 0));
         const int h = contentH + 2 * inPad;
         const draw::Rect box{x, y, x + w, y + h};
@@ -450,10 +463,14 @@ private:
         const int ty = y + inPad + (contentH - lineH - (noteH ? scale(2) + noteH : 0)) / 2;
         c.icon({x + inPad, ty + (lineH - iconS) / 2, x + inPad + iconS, ty + (lineH - iconS) / 2 + iconS}, int(UiIcon::Warning), kWarn, iconS);
         c.text({textL, ty, textR, ty + lineH}, kNoInstallText, kText, draw::kMiddle | draw::kEllipsis);
-        if (noteH) c.text({textL, ty + lineH + scale(2), textR, ty + lineH + scale(2) + noteH}, installNote, kWarn, draw::kWrap | draw::kLeft);
+        if (noteH)
+            c.text({textL, ty + lineH + scale(2), textR, ty + lineH + scale(2) + noteH}, note, installNote.empty() ? kDim : kWarn, draw::kWrap | draw::kLeft);
         const draw::Rect br{x + w - inPad - bw, y + (h - bh) / 2, x + w - inPad, y + (h - bh) / 2 + bh};
         if (!sameRect(browse_.frame(), br)) browse_.setFrame(br);
         browse_.setVisible(true);
+        const draw::Rect mr{br.left - mw, br.top, br.left - scale(8), br.bottom};  // (Load mod: left of Browse)
+        if (mw && !sameRect(loadMod_.frame(), mr)) loadMod_.setFrame(mr);
+        loadMod_.setVisible(mw > 0);
         return h;
     }
 
@@ -470,6 +487,7 @@ private:
 
     StartButton open_;              // (set up in the constructor; it never takes the keyboard)
     StartBrowse browse_;            // the banner's Browse (shown with the banner; a Tab stop)
+    StartButton loadMod_;           // the banner's Load mod (shown with the banner, when the host gives onLoadMod)
     bool bannerShown_ = false;
     std::vector<std::unique_ptr<StartRemove>> removes_;
     std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)

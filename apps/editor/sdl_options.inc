@@ -373,6 +373,17 @@ void sdlSettingsShowTab(int i) {
 // Options > Program options (one window; a second Ctrl+, does nothing while it is open): the tabs in a strip at the top
 // and Close at the bottom, the window as high as the tallest tab where the main window has room. On macOS a Settings
 // window (a second Cmd+, brings it to the front).
+// Program options at the tab named `name` (the start page's Load mod: Plugins), open or not.
+void showOptionsTab(const wchar_t* name) {
+    for (int i = 0; i < optionsview::kTabCount; ++i)
+        if (std::wcscmp(optionsview::kTabs[i].name, name) == 0) gSettingsTab = i;
+#ifdef __APPLE__
+    if (gOptionsOpen) sdlSettingsShowTab(gSettingsTab);
+#else
+    if (gOptionsOpen) gOptionsView.setTab(gSettingsTab);
+#endif
+    showOptionsSdl();  // (an open window: to the front on macOS)
+}
 void showOptionsSdl() {
 #ifdef __APPLE__
     if (SDL_Window* w = gOptionsOpen && gHost ? gHost->sdlWindow(gOptionsView) : nullptr) SDL_RaiseWindow(w);
