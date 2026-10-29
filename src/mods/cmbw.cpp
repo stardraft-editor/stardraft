@@ -1015,17 +1015,17 @@ const ModTerrainSet kModTerrainSets[] = {
      0, 0, 9},
     // Dirtcliff-Space: dirt at Platform's height above Space (the maps put its blocks on the game's Space/Platform edge,
     // 302-340: W south 1831 and 1834 (subtiles 0-6) on 316-320, E south 1837 and 1834 (8-14) on 310-314; the outer corners
-    // 1840 (W 0-2, E 4-6), the inner ones 1843 (W 0-4, E 6-10)); dirt 1788/1789 on top (as its edges' dirt).
+    // 1840 (W 0-2, E 4-6), the inner ones 1843 (on 334-336: 6-10, on 338-340: 0-4)); dirt 1788/1789 on top (as its edges' dirt).
     {1, "Dirt (Space)", 2, 1, 7,
      {{1827, {302, 304}}, {1829, {306, 308}}, {1831, {316, 318, 320}}, {1834, {316, 318, 320}, 4, 0}, {1837, {310, 312, 314}},
-      {1834, {310, 312, 314}, 4, 8}, {1840, {322, 324, 326}, 2, 0}, {1840, {328, 330, 332}, 2, 4}, {1843, {334, 336}, 3, 0}, {1843, {338, 340}, 3, 6}},
+      {1834, {310, 312, 314}, 4, 8}, {1840, {322, 324, 326}, 2, 0}, {1840, {328, 330, 332}, 2, 4}, {1843, {334, 336}, 3, 6}, {1843, {338, 340}, 3, 0}},
      1788, 1789, 0},
     // Dirtcliff-SpaceLow: dirt at Low Platform's height above Space (Megalith Empire, Rageslave), made as Dirt above Space
-    // (the maps' rects: W south 2140 on 316-320, E south 2146 on 310-314; 2143 is not W south's: other places); dirt
-    // 1790/1791 on top.
+    // (the maps' rects: W south 2140 on 316-320, E south 2146 on 310-314; 2143 is not W south's: other places; the inner
+    // corners 2152 as Dirt above Space's); dirt 1790/1791 on top.
     {1, "Low Dirt (Space)", 2, 1, 7,
      {{2136, {302, 304}}, {2138, {306, 308}}, {2140, {316, 318, 320}, 8}, {2146, {310, 312, 314}, 8}, {2149, {322, 324, 326}, 2, 0},
-      {2149, {328, 330, 332}, 2, 4}, {2152, {334, 336}, 3, 0}, {2152, {338, 340}, 3, 6}},
+      {2149, {328, 330, 332}, 2, 4}, {2152, {334, 336}, 3, 6}, {2152, {338, 340}, 3, 0}},
      1790, 1791, 0},
     // Spacecliff-DirtLow: Platform on a cliff above the low dirt (Estacion Fantasma), made on the game's Low
     // Platform/Platform cliff (390-428) as the maps have its blocks, Low Dirt above Space its ground (Low Platform in
