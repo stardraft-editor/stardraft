@@ -2621,6 +2621,9 @@ constexpr UiText kRows[] = {
     {L"All overlays are hidden", L"Todas las superposiciones est\u00E1n ocultas"},
     {L"Terrain &pie palette", L"&Paleta circular de terreno"},
     {L"The pie palette has no terrains for this tileset", L"La paleta circular no tiene terrenos para este conjunto de casillas"},
+    {L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files", L"Primero elija la carpeta de StarCraft (Examinar, arriba): un mapa nuevo necesita los archivos del juego"},
+    {L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).", L"StarDraft 2 necesita los archivos del juego StarCraft para abrir un mapa. Elija la carpeta de StarCraft en la p\u00E1gina de inicio (Examinar)."},
+    {L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files", L"Primero elija la carpeta de StarCraft (la p\u00E1gina de inicio: Examinar): un mapa nuevo necesita los archivos del juego"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

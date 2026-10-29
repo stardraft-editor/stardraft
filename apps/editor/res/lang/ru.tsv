@@ -2619,3 +2619,6 @@ Turn &off all overlays	&Выключить все наложения
 All overlays are hidden	Все наложения скрыты
 Terrain &pie palette	&Круговая палитра местности
 The pie palette has no terrains for this tileset	В круговой палитре нет местности для этого набора тайлов
+Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	Сначала выберите папку StarCraft (Обзор, вверху): для новой карты нужны файлы игры
+StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	Чтобы открыть карту, StarDraft 2 нужны файлы игры StarCraft. Выберите папку StarCraft на начальной странице (Обзор).
+Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	Сначала выберите папку StarCraft (начальная страница: Обзор): для новой карты нужны файлы игры

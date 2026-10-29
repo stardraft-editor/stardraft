@@ -2619,3 +2619,6 @@ Turn &off all overlays	모든 오버레이 끄기(&O)
 All overlays are hidden	모든 오버레이가 숨겨졌습니다
 Terrain &pie palette	지형 원형 팔레트(&P)
 The pie palette has no terrains for this tileset	원형 팔레트에 이 타일셋의 지형이 없습니다
+Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(위의 찾아보기): 새 맵에는 게임 파일이 필요합니다
+StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2에서 맵을 열려면 StarCraft 게임 파일이 필요합니다. 시작 페이지에서 StarCraft 폴더를 선택하세요(찾아보기).
+Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(시작 페이지: 찾아보기): 새 맵에는 게임 파일이 필요합니다

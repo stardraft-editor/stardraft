@@ -84,6 +84,11 @@ public:
     // onBrowseInstall (the host's folder dialog). installNote: the banner's second line (a picked folder with no game
     // data); empty: none.
     bool installMissing = false;
+    // The Cosmonarchy BW plugin is loaded and the mod's folder is found: its maps need no Remastered install (no banner).
+    bool modReady = false;
+    // The game's files are there (the host's: a StarCraft folder, or the plugin's): else the cards that make maps are off,
+    // with the reason in their tips (a new map needs the game's files). Empty: on.
+    std::function<bool()> mapsReady;
     std::wstring installNote;
     std::function<void()> onBrowseInstall;
     // Whether the last paint showed the banner (the snapshots read it).
@@ -134,7 +139,8 @@ public:
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kBg);
         hits_.clear();
-        if (!installMissing && browse_.visible()) {
+        const bool banner = installMissing && !modReady;
+        if (!banner && browse_.visible()) {
             if (browse_.hasFocus()) focus();  // (the keys go to the cards again)
             browse_.setVisible(false);
         }
@@ -148,8 +154,8 @@ public:
         const int cardsW = n * cardW + (n - 1) * gap;
         const int x1 = std::max(pad, (w - cw) / 2);
         // The banner (no StarCraft install found): at the top of the page, as wide as the cards; the block is under it.
-        const int bannerH = installMissing ? paintBanner(c, x1, pad - scroll_, cw) : 0;
-        bannerShown_ = installMissing;
+        const int bannerH = banner ? paintBanner(c, x1, pad - scroll_, cw) : 0;
+        bannerShown_ = banner;
         const int top = bannerH ? pad + bannerH + gap : pad;
         const int startY = std::max(top, (h - blockH_) / 2) - scroll_;  // the block is in the middle (it has the notice under the list)
         int y = startY;
@@ -168,7 +174,8 @@ public:
         const int cx1 = x1 + (cw - cardsW) / 2;  // (the cards in the middle of the page's column)
         for (int slot = 0; slot < n; ++slot) {
             const int k = kinds[size_t(slot)];
-            const bool enabled = k < 2 || (k == 3 && cosmonarchyOnly);  // Campaign project (roadmap R25, not ready) and Mod project: later
+            const bool soon = !(k < 2 || (k == 3 && cosmonarchyOnly));  // Campaign project (roadmap R25, not ready) and Mod project: later
+            const bool enabled = !soon && (!mapsReady || mapsReady());  // (no game files: no map can be made yet)
             const Rect card{cx1 + slot * (cardW + gap), y, cx1 + slot * (cardW + gap) + cardW, y + cardH};
             const bool over = enabled && hot(card), focused = enabled && card_ == k && hasFocus();
             if (!enabled) c.roundBox(card, kReadOnly, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
@@ -180,7 +187,7 @@ public:
                 c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, cardName(k), enabled ? kText : kFaint, kMiddle | kEllipsis);
                 c.setFont(of);
             }
-            if (!enabled) {  // the "Coming later" mark, at the top right
+            if (soon) {  // the "Coming later" mark, at the top right
                 const draw::Font of = c.setFont(smallFont(c));
                 const int lw = c.measure(L"Coming later") + scale(16), lh = scale(20);
                 const Rect mark{card.right - inPad - lw, card.top + inPad, card.right - inPad, card.top + inPad + lh};
@@ -198,7 +205,11 @@ public:
                                      } else if (onCard) onCard(k);
                                  }, L"", Cursor::Hand, std::wstring(L"the ") + cardName(k) + L" card"});
             } else {
-                hits_.push_back({card, nullptr, k == 2 ? L"Campaign projects come in a later version" : L"Mod projects come in a later version", Cursor::No});
+                hits_.push_back({card, nullptr,
+                                 !soon ? L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files"
+                                 : k == 2 ? L"Campaign projects come in a later version"
+                                          : L"Mod projects come in a later version",
+                                 Cursor::No});
             }
         }
         cardsShown_ = true;
@@ -335,6 +346,7 @@ public:
                 browse_.focus();
             } else card_ = nextCard(card_, back);
         } else if (e.key == draw::Key::Enter || e.key == draw::Key::Space) {
+            if (mapsReady && !mapsReady()) return true;  // (no game files: the cards are off)
             if (card_ == 3) {
                 if (onCosmonarchy) onCosmonarchy();
             } else if (onCard) onCard(card_);

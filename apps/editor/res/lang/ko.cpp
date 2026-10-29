@@ -2621,6 +2621,9 @@ constexpr UiText kRows[] = {
     {L"All overlays are hidden", L"\uBAA8\uB4E0 \uC624\uBC84\uB808\uC774\uAC00 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
     {L"Terrain &pie palette", L"\uC9C0\uD615 \uC6D0\uD615 \uD314\uB808\uD2B8(&P)"},
     {L"The pie palette has no terrains for this tileset", L"\uC6D0\uD615 \uD314\uB808\uD2B8\uC5D0 \uC774 \uD0C0\uC77C\uC14B\uC758 \uC9C0\uD615\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files", L"\uBA3C\uC800 StarCraft \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694(\uC704\uC758 \uCC3E\uC544\uBCF4\uAE30): \uC0C8 \uB9F5\uC5D0\uB294 \uAC8C\uC784 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4"},
+    {L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).", L"StarDraft 2\uC5D0\uC11C \uB9F5\uC744 \uC5F4\uB824\uBA74 StarCraft \uAC8C\uC784 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uC2DC\uC791 \uD398\uC774\uC9C0\uC5D0\uC11C StarCraft \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694(\uCC3E\uC544\uBCF4\uAE30)."},
+    {L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files", L"\uBA3C\uC800 StarCraft \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694(\uC2DC\uC791 \uD398\uC774\uC9C0: \uCC3E\uC544\uBCF4\uAE30): \uC0C8 \uB9F5\uC5D0\uB294 \uAC8C\uC784 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

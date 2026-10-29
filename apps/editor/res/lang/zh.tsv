@@ -2619,3 +2619,6 @@ Turn &off all overlays	关闭所有叠加层(&O)
 All overlays are hidden	所有叠加层已隐藏
 Terrain &pie palette	地形饼状调色板(&P)
 The pie palette has no terrains for this tileset	饼状调色板中没有此图块集的地形
+Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	请先选择 StarCraft 文件夹（上方的“浏览”）：新地图需要游戏文件
+StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 需要 StarCraft 的游戏文件才能打开地图。请在开始页面选择 StarCraft 文件夹（浏览）。
+Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面：浏览）：新地图需要游戏文件

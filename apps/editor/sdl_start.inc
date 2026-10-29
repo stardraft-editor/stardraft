@@ -28,8 +28,13 @@ std::wstring startDateSdl(const fs::path& p) {
     return buf;
 }
 
+// The game's files for maps are there: a StarCraft folder whose data opened, or the Cosmonarchy BW plugin loaded with
+// the mod's folder found (its maps need no Remastered).
+bool shellMapsReady() { return gDataOk || (cmbwMode() && !stardraft::cmbw::findInstall().empty()); }
+
 // Makes the page's callbacks (the host's part of StartView). Called once, when the root view is made.
 void initStartPage() {
+    gStartView.mapsReady = [] { return gDataOk || gStartView.modReady; };
     gStartView.onCard = [](int kind) {
         if (kind == 2) return command(ID_CAMPAIGN_NEW);  // the Campaign card: a new campaign (core/views_campaign.inc)
         openNewPageSdl(kind);
@@ -48,6 +53,7 @@ void initStartPage() {
     gStartView.onOpen = [] { command(ID_FILE_OPEN); };
     gStartView.onCosmonarchy = [] { openNewPageSdl(2); };  // (the New page: the tileset, the size, the terrain)
     gStartView.cosmonarchyOnly = cmbwMode();
+    gStartView.modReady = cmbwMode() && !stardraft::cmbw::findInstall().empty();
     gStartView.dateOf = [](const fs::path& p) { return startDateSdl(p); };
     gStartView.scrollInfo = [](int, int, int) {};  // (the page scrolls with the wheel; the window has no bar yet)
 }

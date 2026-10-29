@@ -199,8 +199,14 @@ const GameData& gameDataForMap(const fs::path& path);  // (cmbw.inc)
 void addDocument(std::unique_ptr<Editor> ed, bool replaceBlank);
 void setMessage(const std::wstring& m);
 // `project`: the map of a project, which always has the game's data (a Cosmonarchy map is never a project).
+bool shellMapsReady();  // (the host: the game's files are there, sdl_start.inc)
 void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     AppState& app = shellState();
+    if (!shellMapsReady()) {  // (no game files: a map cannot open; the start page's banner asks for the folder)
+        shellErrorBox(tr(L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse)."),
+                      tr(L"Could not open the map"));
+        return;
+    }
     if (const int open = switchToOpen ? findOpenMap(path) : -1; open >= 0) {  // open already: go to its tab
         activateDoc(open);
         addRecent(gRecentMaps, path);

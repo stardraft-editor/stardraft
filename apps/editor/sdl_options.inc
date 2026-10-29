@@ -183,7 +183,8 @@ bool sdlOptionsCommand(int id) {
     case ID_GAME_MODE:
     case ID_GAME_MODE + 1:
         setGameMode(id - ID_GAME_MODE);
-        gStartView.cosmonarchyOnly = cmbwMode(), gStartView.invalidate();
+        gStartView.cosmonarchyOnly = cmbwMode(), gStartView.modReady = cmbwMode() && !stardraft::cmbw::findInstall().empty();
+        gStartView.invalidate();
         gMenusDirty = true;
         setMessage(cmbwMode() ? L"Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)"
                               : L"Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)");

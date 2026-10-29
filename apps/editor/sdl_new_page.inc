@@ -122,8 +122,13 @@ bool NewHostSdl::make() {
 // File > New (-1) shows the start page (in place of the open map too); a card or Project > New EUD project (0 classic, 1
 // EUD project) shows the New page with that kind's choices. Both show in the Map workspace; Create makes the map or the
 // project in a tab of its own (the open maps and projects stay).
+bool shellMapsReady();  // (sdl_start.inc)
 void openNewPageSdl(int kind) {
     if (cmbwMode() && kind != 2) kind = -1;  // (Cosmonarchy: the start page, its Cosmonarchy map card; 2: that card's page)
+    if (kind >= 0 && !shellMapsReady()) {  // (no game files: no new map; the start page says why)
+        kind = -1;
+        setMessage(tr(L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files"));
+    }
     if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
     if (kind < 0) {
         gNewOpen = false, gStartOpen = true;
