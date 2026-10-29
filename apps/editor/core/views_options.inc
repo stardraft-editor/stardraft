@@ -79,7 +79,7 @@ namespace optionsview {
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
     kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kPlugins = 1u << 9,
-    kKeyboard = 1u << 10, kReset = 1u << 11, kAllSections = (1u << 12) - 1,
+    kKeyboard = 1u << 10, kReset = 1u << 11, kAllSections = ((1u << 12) - 1) & ~(kPluginsBuilt ? 0u : unsigned(kPlugins)),
 };
 struct Tab {
     const wchar_t* name;  // the tab's name (macOS: the toolbar item's label and the window's title)
@@ -89,7 +89,9 @@ inline const Tab kTabs[] = {
     {L"General", kStart | kAppearance | kReset},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
+#if STARDRAFT_PLUGINS
     {L"Plugins", kPlugins},
+#endif
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
     {L"Simulation", kSimulation},

@@ -38,6 +38,9 @@ Start or the taskbar. It also makes project.stardraft files open with it:
     StarDraft-latest.exe [map or project]
 
 The window title shows when the build was made.
+Program options > Plugins (the mod plugin) is in every build but a release's: a build with a version name (from its
+tag, `tools/ci/version_name.sh`) has `STARDRAFT_PLUGINS` off, so its users cannot load the mod for now.
+`-DSTARDRAFT_PLUGINS=OFF` builds a development copy without it.
 The first build takes long: CMake fetches SDL3, StormLib, CascLib, stb, libvpx and Dear ImGui, and the fonts.
 
 ### Snapshots

@@ -696,7 +696,7 @@ int main(int argc, char** argv) {
         // undo) has the host, and the focus stays from one input to the next.
         if (!snapshot.empty() && !inputArgs.empty()) host.snapshotInput(root, width, height, {});
         if (!snapshot.empty()) sdlFloatPaletteSetup();  // (a snapshot with input: the floating palette's window shows over the root)
-        if (cmbwArg && mapArg.empty()) newCmbwMap();  // (with a map: it opens as a Cosmonarchy map, if it is one)
+        if (kPluginsBuilt && cmbwArg && mapArg.empty()) newCmbwMap();  // (with a map: it opens as a Cosmonarchy map, if it is one)
         if (!mapArg.empty()) openAny(widen(mapArg));  // a map, or a project (.eds, .stardraft, its folder): as File > Open does
         bool openLast = false;  // Program options > Open the last project on start (as the Win32 program)
         if (restartPid) restartReopen();  // what the old program had open (the setting Reopen: core/documents.inc)

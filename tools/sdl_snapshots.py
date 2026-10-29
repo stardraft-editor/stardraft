@@ -3146,6 +3146,10 @@ def check_dock(output):
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
              "settings: toolbar style preference; 7 items: \"General\" \"Mouse and keyboard\" \"Map\" \"Plugins\" \"Folders\" "
              "\"Updates\" \"Simulation\"; selected"]
+    # (a release build has no Plugins tab: STARDRAFT_PLUGINS in CMakeLists.txt)
+    no_plugins = wants[-1].replace("7 items", "6 items").replace("\"Plugins\" ", "")
+    if wants[-1] not in output and no_plugins in output:
+        wants[-1] = no_plugins
     for w in wants:
         if w not in output:
             return f"no {w!r}"
@@ -3612,6 +3616,16 @@ CASES += [("map-find-command", ["--key", "Ctrl+P", "--type", "connected areas", 
           ("data-columns-group", ["--size", "1400x900", "--untitled", "--workspace", "data", "--data", "units:0", "--key", "Ctrl+E", "--click", "1155,154", "--type", "combat",
                                   "--key", "Up", "--key", "Space", "--key", "Space", "--key", "Esc"], "data"),
           ("map-find-command-list", ["--size", "1400x900", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+P", "--type", "walk"], "map")]
+# The pictures of release 0.8 (tools/shots/0.8.json): the Data table, its cells selected (the bar under it sums them),
+# Map data's Table view (its icon), and Classic triggers with a comment, a condition and actions.
+CASES += [("data-table", ["--size", "1400x900", "--untitled", "--workspace", "data", "--data", "units:0", "--key", "Ctrl+E"], "data"),
+          ("data-table-select", ["--size", "1400x900", "--untitled", "--workspace", "data", "--data", "units:0", "--key", "Ctrl+E",
+                                 "--click", "700,241", "--click", "960,319:Shift"], "data"),
+          ("map-mapdata-table", ["--size", "1400x900", "--workspace", "classic", "--click", "1370,174"], "map"),
+          ("map-classictrig-shot", ["--size", "1600x900", "--workspace", "classictriggers", "--click", "698,188", "--type", "Reinforcements",
+                                    "--key", "Ctrl+Enter", "--classictrig", "1:1:0",
+                                    "--key", "Q", "--type", "bring", "--key", "Enter", "--key", "Q", "--type", "create units", "--key", "Enter",
+                                    "--key", "Q", "--type", "display text", "--key", "Enter"], "map")]
 
 
 def ui_lines(output):
