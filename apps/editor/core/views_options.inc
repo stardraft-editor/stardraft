@@ -42,7 +42,7 @@ struct OptionsValues {
     std::wstring cmbwFolder;      // Mods: the Cosmonarchy install in use, else the one it opens from
     std::wstring cmbwNext;        // ... the one used from the next start ("": the same)
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
-    bool overrideOn = false;      // ... Temporary override: a terrain rules file over the built-in rules
+    bool overrideOn = false;      // ... ISOM terrain rules override: a terrain rules file over the built-in rules
     std::wstring overrideFile;    // ... its file ("": none chosen)
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
@@ -132,7 +132,7 @@ public:
         // Plugins: Cosmonarchy BW, loaded or not (Game Standard or Cosmonarchy: ID_GAME_MODE + 0 or 1, core/cmbw.inc gameMode)
         cmbwPlugin_.setLabel(L"Cosmonarchy BW (CMBW)");
         cmbwPlugin_.onChange = [this](bool on) { host_.command(ID_GAME_MODE + (on ? 1 : 0)); };
-        override_.setLabel(L"Temporary override");
+        override_.setLabel(L"ISOM terrain rules override");
         override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
         override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
         updates_.setLabel(L"Look for updates");
@@ -784,7 +784,7 @@ void OptionsView::paint(draw::Canvas& c) {
              : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used from the next start")
                                  : std::wstring(L"The Prerelease or Release folder"));
         y += scale(20);
-        // Temporary override: a terrain rules file over the built-in rules (the maps opened from then on).
+        // ISOM terrain rules override: a terrain rules file over the built-in rules (the maps opened from then on).
         checkRow(y, override_, "plugin.override");
         y += rowH;
         const int ow = overrideBrowse_.preferredWidth(c);

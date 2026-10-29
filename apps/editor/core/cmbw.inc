@@ -313,7 +313,7 @@ void cmbwUseFolderSetting() {
         if (const fs::path in = stardraft::cmbw::installIn(fs::path(saved)); !in.empty()) stardraft::cmbw::useInstall(in);
 }
 
-// Program options > Plugins > Temporary override: a terrain rules file (.sdterrain, the Custom isom terrain editor's)
+// Program options > Plugins > ISOM terrain rules override: a terrain rules file (.sdterrain, the Custom isom terrain editor's)
 // over the built-in rules and the mod's own file (the settings TerrainOverride and TerrainOverrideOn). It applies to
 // the tilesets that load after it is set: maps opened from then on.
 fs::path gTerrainOverride;

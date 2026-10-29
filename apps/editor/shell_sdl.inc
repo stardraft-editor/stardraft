@@ -604,7 +604,7 @@ void shellChooseCmbwFolder() {
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
 }
-// Program options > Plugins > Temporary override: on or off (with no file yet: Browse first), and Browse (a terrain rules
+// Program options > Plugins > ISOM terrain rules override: on or off (with no file yet: Browse first), and Browse (a terrain rules
 // file). The rules apply to the maps opened from then on (core/cmbw.inc: cmbwApplyTerrainOverride).
 void shellChooseTerrainOverride();
 void shellToggleTerrainOverride() {
@@ -613,8 +613,8 @@ void shellToggleTerrainOverride() {
     if (!gSilent) prefs::setNumber(L"TerrainOverrideOn", gTerrainOverrideOn ? 1 : 0);
     cmbwApplyTerrainOverride();
     gOptionsView.invalidate();
-    setMessage(gTerrainOverrideOn ? L"Temporary override on: maps opened from now on use its terrain rules"
-                                  : L"Temporary override off: maps opened from now on use the built-in terrain rules");
+    setMessage(gTerrainOverrideOn ? L"ISOM terrain rules override on: maps opened from now on use its terrain rules"
+                                  : L"ISOM terrain rules override off: maps opened from now on use the built-in terrain rules");
 }
 void shellChooseTerrainOverride() {
     ShellFilePick d;
@@ -626,7 +626,7 @@ void shellChooseTerrainOverride() {
     stardraft::terrainrules::Rules r;
     std::string err;
     if (!stardraft::terrainrules::load(picked, r, err)) {
-        msgbox::ask(*gRoot, shellTr(L"Temporary override"), shellTr(L"Could not read the terrain rules file:") + L"\r\n" + widen(err), {L"OK"},
+        msgbox::ask(*gRoot, shellTr(L"ISOM terrain rules override"), shellTr(L"Could not read the terrain rules file:") + L"\r\n" + widen(err), {L"OK"},
                     msgbox::Icon::Warning);
         return;
     }
@@ -634,7 +634,7 @@ void shellChooseTerrainOverride() {
     if (!gSilent) prefs::setText(L"TerrainOverride", picked.wstring()), prefs::setNumber(L"TerrainOverrideOn", 1);
     cmbwApplyTerrainOverride();
     gOptionsView.invalidate();
-    setMessage(L"Temporary override on: maps opened from now on use its terrain rules");
+    setMessage(L"ISOM terrain rules override on: maps opened from now on use its terrain rules");
 }
 
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints

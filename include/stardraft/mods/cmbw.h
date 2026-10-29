@@ -37,7 +37,7 @@ std::filesystem::path installIn(const std::filesystem::path& folder);
 // The folder that findInstall gives from now on (the user's choice: the editor's Cosmonarchy folder); empty: the search.
 void useInstall(const std::filesystem::path& install);
 // A terrain rules file (.sdterrain, mods/terrain_rules.h) put over the built-in rules and the mod's own file when a
-// tileset loads (Program options > Plugins: Temporary override); empty: none.
+// tileset loads (Program options > Plugins: ISOM terrain rules override); empty: none.
 void useTerrainOverride(const std::filesystem::path& file);
 
 // Opens `data` on the CMBW files of `install` (findInstall): the loose mpq folder first, then the 1.16.1 MPQs
