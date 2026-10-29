@@ -35,7 +35,7 @@ public:
     // Handles events and paints the windows that changed, until every window is closed or quit() is called.
     void run();
     void quit() { quit_ = true; }
-    // Paints the windows that changed now, with no input handled (the system's messages wait in SDL's queue): a long
+    // Paints the windows that changed now, with no input read (the events wait for the next turn of the loop): a long
     // job on the main thread shows its progress (the map's loading view).
     void paintNow();
     // Handles events and paints, as run() does, until `done` is true or the program quits: a call that waits for a

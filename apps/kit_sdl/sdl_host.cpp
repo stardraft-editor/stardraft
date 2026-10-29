@@ -1003,8 +1003,7 @@ void SdlHost::destroyRetired() {
 }
 
 void SdlHost::paintNow() {
-    SDL_PumpEvents();  // (the system sees the program answer; the events wait for the next turn of the loop)
-    renderDirty();
+    renderDirty();  // (no events are read: an event watch would run in the middle of the job)
 }
 
 void SdlHost::renderDirty() {

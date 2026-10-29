@@ -208,9 +208,9 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
         return;
     }
     // (the loading view over the workspace: each step with its time, as it is done)
-    loadingStart(tr(L"Opening ") + fs::path(path).filename().wstring());
+    loadingStart(tr(L"Opening the map\x2026"), fs::path(path).filename().wstring());
     shellWaitCursor();
-    const GameData& data = *loadingTimed(tr(L"game data"), 0.15f, [&]() -> const GameData* { return project ? &app.data : &gameDataForMap(fs::path(path)); });
+    const GameData& data = *loadingTimed(tr(L"Loading the game data\x2026"), 0.15f, [&]() -> const GameData* { return project ? &app.data : &gameDataForMap(fs::path(path)); });
     auto ed = std::make_unique<Editor>(data);
     loadingSteps(*ed, 0.15f, 0.85f);
     std::string err;
@@ -220,7 +220,7 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
         return;
     }
     ed->onOpenStep = nullptr;
-    loadingTimed(tr(L"the tab, the minimap and the panels"), 1.0f, [&] { return addDocument(std::move(ed), true), 0; });  // (replaces the untouched startup map)
+    loadingTimed(tr(L"Making the tab\x2026"), 1.0f, [&] { return addDocument(std::move(ed), true), 0; });  // (replaces the untouched startup map)
     loadingEnd();
     addRecent(gRecentMaps, path);
     shellMapOpened(path);

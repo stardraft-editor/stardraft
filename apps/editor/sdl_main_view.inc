@@ -954,9 +954,10 @@ void sdlPieFromMenu() {
     gRoot->pieOpen();
     if (!gRoot->pie.shown()) setMessage(tr(L"The pie palette has no terrains for this tileset"));
 }
-// The loading view's frame: the window laid out (the view shows while gLoading.on) and painted now.
+// The loading view's frame: the window laid out (the view shows while gLoading.on) and painted now, once the work has
+// taken 150 ms (a quick open paints no frame: each waits for the screen).
 void shellLoadingFrame() {
-    if (!gRoot || !gHost) return;
+    if (!gRoot || !gHost || std::chrono::steady_clock::now() - gLoading.started < std::chrono::milliseconds(150)) return;
     gRoot->relayout();
     gLoadingView.invalidate();
     gHost->paintNow();

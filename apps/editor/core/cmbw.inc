@@ -340,16 +340,16 @@ const GameData& gameDataForMap(const fs::path& /*path*/) {
 // The start page's New Cosmonarchy map: a 128 x 128 Badlands map with the mod's units, in a tab of its own.
 void newCmbwMap() {
     std::string err;
-    loadingStart(tr(L"Making a new Cosmonarchy map"));
+    loadingStart(tr(L"Making a new Cosmonarchy map\x2026"));
     shellWaitCursor();
-    const GameData* data = loadingTimed(tr(L"game data"), 0.4f, [&] { return cmbwGameData(err); });
+    const GameData* data = loadingTimed(tr(L"Loading the game data\x2026"), 0.4f, [&] { return cmbwGameData(err); });
     auto ed = data ? std::make_unique<Editor>(*data) : nullptr;
-    if (!ed || !loadingTimed(tr(L"the map"), 0.85f, [&] { return ed->newMap(128, 128, 0, 2, err); })) {  // (Badlands dirt, the New page's first terrain)
+    if (!ed || !loadingTimed(tr(L"Making the map\x2026"), 0.85f, [&] { return ed->newMap(128, 128, 0, 2, err); })) {  // (Badlands dirt, the New page's first terrain)
         loadingEnd();
         shellErrorBox(widen(err), L"Could not create the Cosmonarchy map");
         return;
     }
-    loadingTimed(tr(L"the tab, the minimap and the panels"), 1.0f, [&] { return addDocument(std::move(ed), false), 0; });
+    loadingTimed(tr(L"Making the tab\x2026"), 1.0f, [&] { return addDocument(std::move(ed), false), 0; });
     loadingEnd();
     setMessage(L"Created a Cosmonarchy BW map: Badlands 128 x 128 (" + std::to_wstring(shellState().ed->unitTypes().size()) + L" unit types)");
 }

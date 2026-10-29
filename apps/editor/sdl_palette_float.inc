@@ -167,6 +167,7 @@ void floatPaletteViewsBack() {
     if (gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
     if (!gRoot) return;
     for (draw::View* v : views) gRoot->add(*v, draw::Rect(0, 0, 0, 0));
+    gRoot->add(gLoadingView, gLoadingView.frame());  // (over them: the loading view, then the pie)
     gRoot->add(gRoot->pie, gRoot->pie.frame());
 }
 

@@ -69,7 +69,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
         const auto now = std::chrono::steady_clock::now();
         openSteps_.push_back({what, std::chrono::duration<double, std::milli>(now - t0).count()});
         if (onOpenStep) onOpenStep(what, openSteps_.back().second);
-        t0 = now;
+        t0 = std::chrono::steady_clock::now();  // (the callback's own time, a paint, is no step's)
     };
     finishFiles();  // a map still being read: done with it first
     Bytes raw;

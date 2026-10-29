@@ -592,14 +592,14 @@ void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain) {
     AppState& app = shellState();
     auto ed = std::make_unique<Editor>(app.data);
     std::string err;
-    loadingStart(tr(L"Making a new map"));
+    loadingStart(tr(L"Making a new map\x2026"));
     shellWaitCursor();
-    if (!loadingTimed(tr(L"the map"), 0.8f, [&] { return ed->newMap(width, height, era, terrain, err); })) {
+    if (!loadingTimed(tr(L"Making the map\x2026"), 0.8f, [&] { return ed->newMap(width, height, era, terrain, err); })) {
         loadingEnd();
         shellErrorBox(widen(err), L"Could not create the map");
         return;
     }
-    loadingTimed(tr(L"the tab, the minimap and the panels"), 1.0f, [&] { return addDocument(std::move(ed), false), 0; });
+    loadingTimed(tr(L"Making the tab\x2026"), 1.0f, [&] { return addDocument(std::move(ed), false), 0; });
     loadingEnd();
     const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
     setMessage(L"Created a new " + std::wstring(kTilesetNames[era & 7]) + L" map (" + std::to_wstring(width) + L"x" + std::to_wstring(height) + L", " +
