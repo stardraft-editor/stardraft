@@ -197,6 +197,11 @@ public:
     void cornerAtPixel(int px, int py, int& x, int& y) const;
     // Corners covered by a brush centered on a map pixel (at least the nearest corner).
     std::vector<std::pair<int, int>> brushCorners(int px, int py, const Brush& brush) const;
+    // The game rect whose tiles the rect (rx, ry) takes in the template, and its mod terrain's tag (rectTemplate).
+    bool templateOf(int rx, int ry, uint16_t& gameLeft, uint16_t& tag) const {
+        uint16_t gr = 0;
+        return rectTemplate(rx, ry, gameLeft, gr, tag);
+    }
     // Corners connected to the corner nearest (px, py) that have the same terrain.
     std::vector<std::pair<int, int>> floodCorners(int px, int py) const;
     // Corners inside a pixel rectangle (left, top, right, bottom; right/bottom exclusive).

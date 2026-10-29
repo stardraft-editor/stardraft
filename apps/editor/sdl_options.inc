@@ -427,6 +427,23 @@ void shellShowCampaignWindow() {
                       [] { gCampaignWindowOpen = false; });
 }
 
+// Tools > Cosmonarchy > Custom isom terrain editor (core/views_isom_rules.inc; one window, beside the map). Its close
+// button asks about unsaved rules (IsomRulesView::closeRequested).
+bool gIsomRulesOpen = false;
+void shellShowIsomRulesWindow() {
+    if (!gRoot || !gHost) return;
+    if (gIsomRulesOpen) {
+        if (SDL_Window* w = gHost->sdlWindow(gIsomRulesView)) SDL_RaiseWindow(w);
+        return;
+    }
+    gIsomRulesOpen = true;
+    const draw::Point sz = IsomRulesView::size();
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())),
+                          L"Custom isom terrain editor"};
+    spec.resizable = true;
+    gHost->openWindow(*gRoot, gIsomRulesView, spec, [] { gIsomRulesOpen = false; });
+}
+
 void sdlCampaignFollow() {
     if (gCampaignWindowOpen) gCampaignView.enable();
 }

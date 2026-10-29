@@ -383,6 +383,7 @@ MenuModel buildMenuModel() {
         MenuModel cosmonarchy;
         menuCommand(cosmonarchy, "edit.cmbw.repairIsom");
         menuCommand(cosmonarchy, "scen.cmbw.checkComments");
+        menuCommand(cosmonarchy, "tools.cmbw.isomRules");
         tools.push_back(menuSeparator());
         tools.push_back(menuPopup(L"&Cosmonarchy", cosmonarchy));
     }

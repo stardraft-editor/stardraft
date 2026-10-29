@@ -277,48 +277,64 @@ void Editor::reloadTerrain() {
     terrainRevision_ = nextRevision();
 }
 
+// The mod's terrains as ISOM terrains: each takes 15 shapes past the game's (the map file's ISOM has them).
+void Editor::buildModTable() {
+    modTable_.reset();
+    const IsomTerrainTable* game = IsomTerrainTable::forEra(era_);
+    const IsomTiles* tiles = tileset_.modTerrains.empty() || tileset_.groups.empty() ? nullptr : IsomTiles::forTileset(tileset_);
+    if (game && tiles) {
+        std::vector<IsomTerrainTable::Extra> extras;
+        auto on = [&](const Tileset::ModTerrain& m, uint16_t id) {  // (m stands on id: a level above it, maybe)
+            uint16_t g = m.ground;
+            for (int n = 0; n < 16 && g; ++n) {
+                if (g == id) return true;
+                const Tileset::ModTerrain* o = tileset_.modTerrain(g);
+                g = o ? o->ground : 0;
+            }
+            return false;
+        };
+        for (size_t i = 0; i < tileset_.modTerrains.size(); ++i) {
+            const Tileset::ModTerrain& m = tileset_.modTerrains[i];
+            extras.push_back({m.id, m.standIn, m.ground, uint16_t(i + 1), m.name, m.groundTemplate});
+            const Tileset::ModTerrain* g = tileset_.modTerrain(m.ground);
+            // (its ground's twins: each terrain with the ground's tiles inside and its template (the same game terrain
+            // in the template and on the same one there: a rect where a twin meets its own ground is one game tile), at
+            // any height (the tiles where they meet are the same ones, so the step up or down is the same): Caution on
+            // Substructure on Dirt or on Jungle; not one on the terrain itself)
+            const uint32_t key = g ? g->fillKey : 0xFFFF0000u | m.ground;
+            if (!key) continue;
+            const uint16_t templ = g ? g->standIn : m.ground, templGround = g ? (g->groundTemplate ? g->groundTemplate : g->ground) : 0;
+            for (const Tileset::ModTerrain& o : tileset_.modTerrains)
+                if (o.id != m.ground && o.id != m.id && o.fillKey == key && o.standIn == templ && !on(o, m.id) &&
+                    (!g || (o.groundTemplate ? o.groundTemplate : o.ground) == templGround))
+                    extras.back().twins.push_back(o.id);
+        }
+        modTable_ = IsomTerrainTable::withExtras(*game, extras, std::max<uint16_t>(game->shapeEnd(), uint16_t(tiles->shapeCount())));
+    }
+}
+
+void Editor::useModTerrains(std::vector<Tileset::ModTerrain> terrains) {
+    modTerrainsOverride_ = std::move(terrains);
+    if (loadedEra_ == era_ && !tileset_.groups.empty()) {  // (the tileset is loaded: only its mod terrains change)
+        tileset_.modTerrains = *modTerrainsOverride_;
+        buildModTable();
+    } else {
+        loadedEra_ = 0xFFFF;
+    }
+    reload();
+}
+
 void Editor::reload() {
     readDimensions(chk_, width_, height_);
     era_ = readEra(chk_);
     if (era_ != loadedEra_) {
         std::string err;
         if (tileset_.load(data_, era_, err)) {
+            if (modTerrainsOverride_) tileset_.modTerrains = *modTerrainsOverride_;
             doodadTypes_.load(data_, tileset_, era_, err);
             tilesetError_.clear();
             loadedEra_ = era_;
-            // A mod's terrains: each takes 15 shapes past the game's (the map file's ISOM has them).
-            modTable_.reset();
-            const IsomTerrainTable* game = IsomTerrainTable::forEra(era_);
-            const IsomTiles* tiles = tileset_.modTerrains.empty() || tileset_.groups.empty() ? nullptr : IsomTiles::forTileset(tileset_);
-            if (game && tiles) {
-                std::vector<IsomTerrainTable::Extra> extras;
-                auto on = [&](const Tileset::ModTerrain& m, uint16_t id) {  // (m stands on id: a level above it, maybe)
-                    uint16_t g = m.ground;
-                    for (int n = 0; n < 16 && g; ++n) {
-                        if (g == id) return true;
-                        const Tileset::ModTerrain* o = tileset_.modTerrain(g);
-                        g = o ? o->ground : 0;
-                    }
-                    return false;
-                };
-                for (size_t i = 0; i < tileset_.modTerrains.size(); ++i) {
-                    const Tileset::ModTerrain& m = tileset_.modTerrains[i];
-                    extras.push_back({m.id, m.standIn, m.ground, uint16_t(i + 1), m.name, m.groundTemplate});
-                    const Tileset::ModTerrain* g = tileset_.modTerrain(m.ground);
-                    // (its ground's twins: each terrain with the ground's tiles inside and its template (the same game terrain
-                    // in the template and on the same one there: a rect where a twin meets its own ground is one game tile), at
-                    // any height (the tiles where they meet are the same ones, so the step up or down is the same): Caution on
-                    // Substructure on Dirt or on Jungle; not one on the terrain itself)
-                    const uint32_t key = g ? g->fillKey : 0xFFFF0000u | m.ground;
-                    if (!key) continue;
-                    const uint16_t templ = g ? g->standIn : m.ground, templGround = g ? (g->groundTemplate ? g->groundTemplate : g->ground) : 0;
-                    for (const Tileset::ModTerrain& o : tileset_.modTerrains)
-                        if (o.id != m.ground && o.id != m.id && o.fillKey == key && o.standIn == templ && !on(o, m.id) &&
-                            (!g || (o.groundTemplate ? o.groundTemplate : o.ground) == templGround))
-                            extras.back().twins.push_back(o.id);
-                }
-                modTable_ = IsomTerrainTable::withExtras(*game, extras, std::max<uint16_t>(game->shapeEnd(), uint16_t(tiles->shapeCount())));
-            }
+            buildModTable();
         } else {
             tilesetError_ = err;
             loadedEra_ = 0xFFFF;  // the next reload tries again
@@ -1243,14 +1259,17 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
 void Editor::sprinkleModTiles(const TerrainLayer& before) {
     // (what the tileset gives, made once per tileset: each stroke calls this)
     struct Tables {
-        std::tuple<uint16_t, size_t, size_t, size_t, size_t> key{};
+        std::tuple<uint16_t, size_t, size_t, size_t, size_t, uint64_t> key{};
         std::vector<std::array<uint16_t, 2>> terrains;
         std::map<uint16_t, std::vector<uint16_t>> variants;  // terrain -> the mod's tile values of it alone
         std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>> pieces;  // the game's left group -> the mod's pieces for its rect
     };
     static Tables tables;
+    uint64_t piecesHash = 1469598103934665603ull;  // (the mod terrains' pieces: another set of rules is another table)
+    for (const auto& m : tileset_.modTerrains)
+        for (const auto& q : m.pieces) piecesHash = (piecesHash ^ (uint64_t(q[0]) << 32 | uint64_t(q[1]) << 16 | q[2])) * 1099511628211ull;
     const auto key = std::make_tuple(uint16_t(era_ & 7), tileset_.groups.size(), tileset_.megatiles.size(), tileset_.modTerrains.size(),
-                                     tileset_.groupTerrains.size());
+                                     tileset_.groupTerrains.size(), piecesHash);
     if (tables.key != key || tables.terrains.empty()) {
         tables = Tables{key, tileGroupTerrains(tileset_), {}, {}};
         const auto& terrains = tables.terrains;

@@ -204,6 +204,12 @@ public:
     uint16_t paletteTerrainAt(int px, int py) const;
     int invalidTerrain() const { return isom_.invalidDiamonds(); }  // should always be 0
     std::vector<std::pair<int, int>> brushCorners(int px, int py, const Brush& b) const { return isom_.brushCorners(px, py, b); }
+    // The game rect (its left group) whose tiles the rect (rx, ry) has in the brush's template, and its mod terrain (tag:
+    // its index in tileset().modTerrains + 1; 0: a game terrain's rect). False: no such rect (IsomGrid::rectTemplate).
+    bool rectTemplate(int rx, int ry, uint16_t& gameLeft, uint16_t& tag) const { return isom_.templateOf(rx, ry, gameLeft, tag); }
+    // A mod's terrains in place of the ones the tileset loads with (the Custom isom terrain editor's working rules): the
+    // tileset loads again with them (empty: the loaded ones).
+    void useModTerrains(std::vector<Tileset::ModTerrain> terrains);
 
     // --- Tiles (rectangular terrain, roadmap N.7) -----------------------------------------------
     // A tile group of the map's tileset (CV5) for the Tiles palette: the groups that have a megatile.
@@ -769,6 +775,8 @@ private:
     void pruneUnits(const std::vector<int>& wasPlaceable);
     int removedByTerrain_ = 0;
     uint16_t loadedEra_ = 0xFFFF;
+    std::optional<std::vector<Tileset::ModTerrain>> modTerrainsOverride_;  // (useModTerrains)
+    void buildModTable();
     std::string tilesetError_;     // why the last tileset load failed ("" after a good load)
     bool unitDataLoaded_ = false;  // unit types and sprites are loaded (a failed load is tried again on the next open)
     mutable std::vector<TileGroupEntry> tileGroups_;  // for tileGroupsEra_ (built on first use)

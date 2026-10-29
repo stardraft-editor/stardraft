@@ -46,6 +46,8 @@ void setMessage(const std::wstring& m);
 // mistyped: cmbw::crigProblems) and the values that the Classic triggers page marks (cmbw::crigValueProblems), all in
 // one list.
 void shellWarningBox(const std::wstring& text, const std::wstring& title);
+void isomRulesShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Custom isom terrain editor)
+
 void cmbwCheckCommentsCommand() {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen() || !modTab()) return;

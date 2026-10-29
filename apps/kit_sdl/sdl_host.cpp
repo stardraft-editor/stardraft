@@ -1092,7 +1092,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         if (!w) return;
         if (wid == mainId_ && quitRequest_) return quitRequest_();
         if (w->transient()) dismiss(wid);
-        else closeWindow(*w->root);
+        else if (w->root->closeRequested()) closeWindow(*w->root);
         return;
     }
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:

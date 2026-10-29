@@ -3,7 +3,10 @@
 
 #include <fstream>
 #include <iterator>
+
 #include <set>
+
+#include "stardraft/isom_core.h"
 
 namespace stardraft::terrainrules {
 
@@ -50,11 +53,20 @@ uint64_t fingerprint(const Tileset& t) {
     return h;
 }
 
-Kind kindOf(const Tileset&, const Tileset::ModTerrain& m) {
-    std::set<uint16_t> rects;  // (the game rects its own set has pieces for)
-    for (size_t i = 0; i < m.setPieces && i < m.pieces.size(); ++i) rects.insert(m.pieces[i][0]);
+Kind kindOf(const Tileset& t, const Tileset::ModTerrain& m) {
+    // (the game rects of its border, its set's and its gaps': a wall's rects stand in rows one under the other, its sides
+    // under its top edges (CV5's stack connections); a path's are one row; none: a field)
+    const IsomTiles* tiles = IsomTiles::forTileset(t);
+    std::set<uint16_t> rects;
+    for (size_t i = 0; i < m.pieces.size(); ++i)
+        if (i < m.setPieces) rects.insert(m.pieces[i][0]);  // (its set's own: not its fill, not the gaps of its template)
     if (rects.empty()) return Kind::Field;
-    return rects.size() > 16 ? Kind::Wall : Kind::Path;  // (a path's border has 16 rects, a cliff's or a wall's 22 and more)
+    if (!tiles) return Kind::Path;
+    // (a wall's side has a middle row: a rect stacked both under one and over one; a path's edges are 2 rows, each linked
+    // on one side only: Badlands Grass / Dirt 188-218, Dirt / High Dirt 54 and 60, Structure / Asphalt 370 and 376)
+    for (uint16_t g : rects)
+        if (tiles->stackTop(g) && tiles->stackBottom(g)) return Kind::Wall;
+    return Kind::Path;
 }
 
 TilesetRules rulesOf(const Tileset& t) {
@@ -135,10 +147,14 @@ bool apply(Tileset& t, const Rules& r, std::string* why) {
             return false;
         }
         for (const Terrain& x : ts.terrains) {
+            if (x.t.variantOf) continue;  // (a variant is made from its terrain: below)
             bool replaced = false;
             for (Tileset::ModTerrain& m : t.modTerrains)
                 if (m.id == x.t.id) m = x.t, replaced = true;
             if (!replaced) t.modTerrains.push_back(x.t);
+            // (its variants: its set again on another ground, the same pieces)
+            for (Tileset::ModTerrain& v : t.modTerrains)
+                if (v.variantOf == x.t.id) v.pieces = x.t.pieces, v.setPieces = x.t.setPieces, v.gapPieces = x.t.gapPieces;
         }
         return true;
     }

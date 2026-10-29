@@ -318,6 +318,7 @@ bool simLocksCommand(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
+    if (id == ID_CMBW_ISOMRULES && !cmbwMode()) return false;  // (the mod loaded)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
@@ -1392,7 +1393,7 @@ void confirmQuit(std::function<void()> then) {
     if (gQuitPrompt || sdlFileDialogOpen()) return;
     gQuitPrompt = true;
     gQuitRetry = [then] { confirmQuit(then); };
-    const bool ok = !gRoot || confirmAllDocs();
+    const bool ok = !gRoot || (isomRulesConfirmQuit() && confirmAllDocs());
     gQuitRetry = {};
     gQuitPrompt = false;
     if (ok) then();

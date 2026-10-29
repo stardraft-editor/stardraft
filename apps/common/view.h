@@ -212,6 +212,8 @@ public:
     virtual bool windowHScrollBar(int& /*range*/, int& /*page*/, int& /*pos*/) { return false; }
     // true: the window's vertical bar is disabled (not hidden) when its content fits (the Data list's bar).
     virtual bool windowScrollBarDisables() const { return false; }
+    // The window's close button (a window of its own): false keeps the window open (unsaved work asked about).
+    virtual bool closeRequested() { return true; }
     // The mouse's extra buttons (1 or 2: back, forward) released over the view; true: handled.
     virtual bool extraButton(int /*button*/) { return false; }
 

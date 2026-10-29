@@ -801,7 +801,12 @@ int main(int argc, char** argv) {
                 gOptionsView.showTabStrip(true);  // (macOS: a Settings window, its tabs in the toolbar)
 #endif
             } else if (dialogArg == "feedback") shown = &feedbackShot;
-            else if (dialogArg == "newproject") shown = &projectShot;
+            else if (dialogArg.rfind("isomrules", 0) == 0) {  // isomrules[:<terrain>]: the Custom isom terrain editor (a Cosmonarchy run: --cmbw)
+                shown = &gIsomRulesView;
+                gIsomRulesView.open();
+                if (dialogArg.size() > 10) gIsomRulesView.selectByName(dialogArg.substr(10));
+                std::printf("%s\n", gIsomRulesView.state().c_str());
+            } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
             else if (dialogArg == "blockpick") shown = &blockShot;

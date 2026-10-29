@@ -377,6 +377,9 @@ CASES += [
     # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
     ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677", "--key", "Down",
                              "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
+    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s examples; a click on a NULL hole, then on
+    # tile 2.0 of the palette: the rect takes 2.0 and 2.1, one null less (CHECKS: check_isom_rules).
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "848,438", "--click", "1020,110"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
     # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,
@@ -1154,6 +1157,13 @@ def check_options_ctrltab(output):
         if got.get(key) != ("tab strip", tab):
             return f"{key}: focus {got.get(key)}, not the tab strip at {tab!r}"
     return None
+
+
+def check_isom_rules(output):
+    """None when the editor shows the terrain with its NULL holes and the palette's tile goes into the hole that was clicked."""
+    if "isom rules: Structure (Halfsphalt), 16 null, 2 holes in the examples" not in output:
+        return "no terrain with 16 null and 2 holes"
+    return None if re.search(r"^click 1020,110: .*Piece \d+: 2\.0 2\.1", output, re.M) else "the tile did not go into the hole"
 
 
 def check_dialog_cycle(want, skip=0):
@@ -4319,6 +4329,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "OK", "Cancel"]),
           "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
           "map-options-ctrltab": check_options_ctrltab,
+          "cmbw-isom-rules": check_isom_rules,
           "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
