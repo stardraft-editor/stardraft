@@ -8,7 +8,7 @@ A Claude Code skill: make and measure 1v1 StarCraft melee maps with stardraft-cl
 In Claude Code:
 
 ```
-/plugin marketplace add https://raw.githubusercontent.com/stardraft-editor/stardraft/main/docs/skills/stardraft/.claude-plugin/marketplace.json
+/plugin marketplace add https://raw.githubusercontent.com/stardraft-editor/stardraft/master/docs/skills/stardraft/.claude-plugin/marketplace.json
 /plugin install stardraft@stardraft
 ```
 

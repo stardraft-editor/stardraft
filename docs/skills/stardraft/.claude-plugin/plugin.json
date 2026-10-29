@@ -9,6 +9,6 @@
     "name": "StarDraft",
     "url": "https://github.com/stardraft-editor/stardraft"
   },
-  "homepage": "https://github.com/stardraft-editor/stardraft/tree/main/docs/skills/stardraft",
+  "homepage": "https://github.com/stardraft-editor/stardraft/tree/master/docs/skills/stardraft",
   "license": "MIT"
 }

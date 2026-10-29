@@ -192,7 +192,7 @@ there, each page other than the index has "Sources and credits", and each field 
 on its page, `<dat>-dat.md`, with the id that F1 opens). The build runs it to put the pages into the program
 (`generated/help_pages.cpp`: Help > Documentation and F1 work offline), so a broken link stops the build; GitHub runs
 it before the build too, and `.github/workflows/pages.yml` publishes the same pages (`--site`) on GitHub Pages under
-`/help/` after a push to main. Write the pages in the program's own words (ASD-STE100, as the UI texts) and name the
+`/help/` after a push to master. Write the pages in the program's own words (ASD-STE100, as the UI texts) and name the
 sources at the end of each page. A heading's id is its text in lower case with a "-" for each run of other
 characters ("Rank/sublabel": `rank-sublabel`); `{#id}` at the end of a heading gives it another id. A .dat field
 whose raw value is in a unit that is difficult to read gets its converted value in `src/dat_units.cpp` (the Data form
@@ -391,7 +391,7 @@ A release is a tag `v<version>`. The owner says when, and approves the scope and
 5. `release.py publish <version> --yes` checks again, then commits "Changelog <version>" (the section and its
    pictures), tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
    as it is). Then it waits for the tag's run of `.github/workflows/release.yml` (it waits for the build and tests
-   of main's push, then releases in a few minutes) and confirms the release. `--dry-run` shows the commands only.
+   of master's push, then releases in a few minutes) and confirms the release. `--dry-run` shows the commands only.
 
 CI (`.github/workflows/release.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
 a commit on `main`). Then it takes the files that build.yml built and tested for that commit as that version (see

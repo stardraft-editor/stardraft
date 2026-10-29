@@ -1,4 +1,4 @@
-# The help pages on the web: a push to main that changes docs/help (or the build of the pages) builds them with
+# The help pages on the web: a push to master that changes docs/help (or the build of the pages) builds them with
 # tools/help_build.py (the same pages that the program has: Help > Documentation) and publishes them on this
 # repository's GitHub Pages under /help/ (https://stardraft-editor.github.io/stardraft/help/). The build stops on a
 # broken link between the pages. The repository's Pages setting: Source "GitHub Actions".
@@ -6,7 +6,7 @@ name: Help pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths: [docs/help/**, tools/help_build.py, src/data/dat_schema.inc, .github/workflows/pages.yml]
   workflow_dispatch:
 

@@ -6,10 +6,10 @@
 # snapshots), linux-appimage (the AppImage), macos (the app and its disk image). Most tests need a StarCraft:
 # Remastered install, so they are not run here (.github/workflows/data.yml: a self-hosted runner with the game data,
 # off by default; a workflow of its own, so that a release never waits for that runner).
-# The heavy extras (flatpak, linux-appimage-run, wine) run only on port/kit, main, tags and runs by hand; the
+# The heavy extras (flatpak, linux-appimage-run, wine) run only on port/kit, master, tags and runs by hand; the
 # release test of the macOS app (release-test-macos) only on port/kit, the port/t-* branches and by hand.
 # A compiler cache in each build job (Windows: sccache; Linux and macOS: ccache), kept with actions/cache: each run
-# takes the newest cache that it can see (its own branch's, else main's), and the pushes to main, port/kit and the
+# takes the newest cache that it can see (its own branch's, else master's), and the pushes to master, port/kit and the
 # port/ci-* branches keep their caches for the next runs (docs/dev/DEVELOPING.md, "CI").
 # A release tag's version: tools/ci/version_name.sh (a push of a tagged commit builds it as that version).
 name: Build
@@ -45,14 +45,14 @@ on:
 permissions:
   contents: read
 
-# A newer push to the same branch stops its older run (only the newest one counts). main and tags always go to the end.
+# A newer push to the same branch stops its older run (only the newest one counts). master and tags always go to the end.
 concurrency:
   group: build-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/tags/') }}
 
 env:
-  # The compiler caches are kept only by these pushes (a branch's run can read main's cache and its own).
-  KEEP_CACHE: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/ci-')) }}
+  # The compiler caches are kept only by these pushes (a branch's run can read master's cache and its own).
+  KEEP_CACHE: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/ci-')) }}
 
 jobs:
   # The editor on Windows (stardraft.exe): the release's program and its symbols, its snapshots (on Direct3D 12, which
@@ -539,7 +539,7 @@ jobs:
   # The AppImage starts on the oldest and on the newest Ubuntu (a container of ubuntu:rolling): a snapshot without a
   # window (Vulkan on the CPU: lavapipe), and what the program finds of the desktop (--check desktop).
   linux-appimage-run:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
     needs: linux-appimage
     strategy:
       fail-fast: false
@@ -594,7 +594,7 @@ jobs:
   # The Flatpak (packaging/flatpak): built with flatpak-builder in the Freedesktop runtime, as Flathub builds it, and
   # kept with the run as a bundle (flatpak install --user stardraft.flatpak).
   flatpak:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
@@ -792,9 +792,9 @@ jobs:
   # signature, map types and Quick Look extensions; the snapshots with no game data, a session of 10 minutes (the memory
   # flat), the real window (it never takes the focus: Metal, the Retina scale, resize, minimize, full screen), text
   # input in Korean and Japanese, the crash reports and Check for updates. Only for pushes to port/kit and the port/t-*
-  # branches, and by hand (not on main).
+  # branches, and by hand (not on master).
   release-test-macos:
-    if: github.ref != 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/t-'))))
+    if: github.ref != 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/t-'))))
     needs: macos
     runs-on: macos-15
     timeout-minutes: 90
@@ -827,7 +827,7 @@ jobs:
   # the system's Vulkan, here lavapipe) and on Direct3D 12 (Wine's vkd3d makes it Vulkan). Only reports: Wine is a
   # stopgap for Linux users, not a release target.
   wine:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
     needs: windows
     runs-on: ubuntu-24.04
     continue-on-error: true

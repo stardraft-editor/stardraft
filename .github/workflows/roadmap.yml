@@ -5,7 +5,7 @@ name: Roadmap
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths: [docs/project/ROADMAP.md, .github/workflows/roadmap.yml]
   workflow_dispatch:
 
@@ -40,5 +40,5 @@ jobs:
             echo "The page is up to date."
           else
             git commit -m "Page from the roadmap (stardraft@${GITHUB_SHA::7})"
-            git push origin HEAD:main
+            git push origin HEAD:master
           fi

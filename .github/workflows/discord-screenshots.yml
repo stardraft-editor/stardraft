@@ -24,7 +24,7 @@ jobs:
   post:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4  # main: tools/release.py, and the changelog with every version's section
+      - uses: actions/checkout@v4  # master: tools/release.py, and the changelog with every version's section
       - name: Post
         shell: pwsh
         env:

@@ -1,5 +1,5 @@
 # The release of a tag, from the files that build.yml built and tested for the same commit:
-#   v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it, with main): the release
+#   v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it, with master): the release
 #     "StarDraft 2 - v<version> (build <commit>)", marked Latest, with StarDraft-<version>-win64.zip (stardraft.exe
 #     and stardraft-cli.exe: the editor's fonts and icons are in it, so an installed stardraft.exe, also the Windows program of an older release,
 #     updates to it); its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base
@@ -17,7 +17,7 @@
 #
 # The files: the job "tested" finds build.yml's push run of the tag's commit (the same sha: tools/ci/tested_run.py),
 # waits for it when it is not done, and takes it only when all its jobs passed and it built the tag's version (a tagged
-# commit's push builds as that version: tools/ci/version_name.sh; release.py publish pushes main and the tag
+# commit's push builds as that version: tools/ci/version_name.sh; release.py publish pushes master and the tag
 # together). Then the release job only packs, attaches and posts (a few minutes). No such run (a tag on a commit that
 # was pushed before the tag, or never pushed to a branch): this run builds and tests the commit itself (build.yml as
 # a called workflow), as before.
@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # A release tag: the tag is a version, its changelog section and pictures are good, and the commit is on main.
+      # A release tag: the tag is a version, its changelog section and pictures are good, and the commit is on master.
       # Checked first, so a bad tag stops in seconds. (A preview tag, v<version>-preview.<n>, is made from port/kit
       # and has no changelog section: not checked here; a ci-test tag is a test.)
       - name: Check the release tag

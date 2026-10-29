@@ -1,6 +1,6 @@
 """Releases of StarDraft 2: the unreleased work, the checks, the screenshots and the release itself.
 
-A push to main never makes a release. A tag v<version> does (.github/workflows/release.yml, with the files that
+A push to master never makes a release. A tag v<version> does (.github/workflows/release.yml, with the files that
 build.yml built and tested for the commit pushed with it). This script makes that tag
 the same way each time, after the owner approves the scope and the release notes. Run it with `python -I`:
 
@@ -11,7 +11,7 @@ the same way each time, after the owner approves the scope and the release notes
     check <version>             All checks, without a change: the version, the push account, the working tree, the
                                 changelog section and its pictures, the UI text, the translation tables, the build.
     publish <version> --yes     check, then commit the changelog and its pictures ("Changelog <version>"), tag
-                                v<version>, push main and the tag together, wait for CI and confirm the release.
+                                v<version>, push master and the tag together, wait for CI and confirm the release.
                                 --dry-run: show the commands and change nothing.
     untag <version>             Delete the tag v<version> here and on GitHub, when its run stopped before the release
                                 was made (then publish again). Refused when the release is there.
@@ -33,7 +33,7 @@ CI uses these (they need only Python and git):
     title <version>             "StarDraft 2 - v<version> (build <commit>)", the commit of HEAD (7 characters, as
                                 cmake/build_info.cmake writes it: Check for updates compares the two).
     ci-check <tag>              Before the tag's release: the tag is a version and the newest one, its section and
-                                pictures are good, and the commit is on main.
+                                pictures are good, and the commit is on master.
 """
 
 import calendar
@@ -199,7 +199,7 @@ def unreleased():
     """[(sha, subject, pushed)] after the newest release tag, oldest first."""
     tags = release_tags()
     since = f"v{tags[-1]}..HEAD" if tags else "HEAD"
-    pushed = set(git("rev-list", "origin/main", check=False).split())
+    pushed = set(git("rev-list", "origin/master", check=False).split())
     out = []
     for line in git("log", "--reverse", "--format=%H %s", since).splitlines():
         sha, _, subject = line.partition(" ")
@@ -233,7 +233,7 @@ def push_git_args(token_env_name="RELEASE_PUSH_TOKEN"):
 def cmd_pending(args):
     tags = release_tags()
     latest = tags[-1] if tags else None
-    git("fetch", "--quiet", "origin", "main", check=False)
+    git("fetch", "--quiet", "origin", "master", check=False)
     commits = unreleased()
     print(f"Newest release: v{latest}" if latest else "No release tag yet")
     print(f"Next version (a suggestion; the owner names it): {next_version(latest) if latest else '0.5.0.1'}")
@@ -479,11 +479,11 @@ def cmd_ci_check(args):
     if newer:
         problems.append(f"v{max(newer, key=vkey)} is newer: an older tag makes no release")
     sha = os.environ.get("GITHUB_SHA") or git("rev-parse", "HEAD")
-    if os.environ.get("GH_TOKEN"):  # the tag's commit is on main (main has it, or is it)
-        status = run(["gh", "api", f"repos/{os.environ.get('GITHUB_REPOSITORY', REPO)}/compare/main...{sha}",
+    if os.environ.get("GH_TOKEN"):  # the tag's commit is on master (master has it, or is it)
+        status = run(["gh", "api", f"repos/{os.environ.get('GITHUB_REPOSITORY', REPO)}/compare/master...{sha}",
                       "--jq", ".status"], check=False)
         if status not in ("behind", "identical"):
-            problems.append(f"the tagged commit {sha[:7]} is not on main (compare: {status or 'no answer'})")
+            problems.append(f"the tagged commit {sha[:7]} is not on master (compare: {status or 'no answer'})")
     for w in warnings:
         print(f"warning: {w}")
     if problems:
@@ -511,16 +511,16 @@ def cmd_check(args, quiet_build=False):
     except Fail as e:
         problems.append(str(e))
     # The working tree: only the changelog and this version's pictures may be open (publish commits them)
-    if git("rev-parse", "--abbrev-ref", "HEAD") != "main":
-        problems.append("not on main")
+    if git("rev-parse", "--abbrev-ref", "HEAD") != "master":
+        problems.append("not on master")
     allowed = ("docs/user/CHANGELOG.md", f"docs/user/images/{version}/", f"tools/shots/{version}.json")
     for line in git("status", "--porcelain").splitlines():
         path = line[3:].strip().strip('"')
         if not path.startswith(allowed) and not line.startswith("??"):
             problems.append(f"a change that is not committed: {path}")
-    git("fetch", "--quiet", "origin", "main", check=False)
-    if git("rev-list", "--count", "HEAD..origin/main", check=False) not in ("", "0"):
-        problems.append("GitHub's main has commits that are not here: git pull --ff-only")
+    git("fetch", "--quiet", "origin", "master", check=False)
+    if git("rev-list", "--count", "HEAD..origin/master", check=False) not in ("", "0"):
+        problems.append("GitHub's master has commits that are not here: git pull --ff-only")
     # The section and its pictures
     check_section(version, problems, warnings)
     # The UI text and the translation tables, as CI checks them
@@ -572,11 +572,11 @@ def cmd_publish(args):
         steps.append(["git", "add", "--", *open_paths])
         steps.append(["git", "commit", "-q", "-m", f"Changelog {version}"])
     steps.append(["git", "tag", tag])
-    steps.append(["git", *push_git_args(), "push", "--atomic", "origin", "main", tag])
-    # main can move during the build: look again just before the tag
-    git("fetch", "--quiet", "origin", "main", check=False)
-    if git("rev-list", "--count", "HEAD..origin/main", check=False) not in ("", "0"):
-        raise Fail("GitHub's main has new commits: git pull --rebase, then publish again")
+    steps.append(["git", *push_git_args(), "push", "--atomic", "origin", "master", tag])
+    # master can move during the build: look again just before the tag
+    git("fetch", "--quiet", "origin", "master", check=False)
+    if git("rev-list", "--count", "HEAD..origin/master", check=False) not in ("", "0"):
+        raise Fail("GitHub's master has new commits: git pull --rebase, then publish again")
     pushed_at = time.time()
     for s in steps:
         shown = " ".join(x if " " not in x else f'"{x}"' for x in s)
@@ -610,7 +610,7 @@ def cmd_publish(args):
             time.sleep(10)
     if not run_id:
         raise Fail(f"no CI run for {tag} after 5 minutes: gh run list --workflow release.yml --branch {tag}")
-    print(f"CI run {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (it waits for the build and tests of main's push, about 15 minutes, then releases)")
+    print(f"CI run {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (it waits for the build and tests of master's push, about 15 minutes, then releases)")
     while True:
         st = json.loads(run(["gh", "run", "view", str(run_id), "--repo", REPO, "--json", "status,conclusion"], env=env))
         if st["status"] == "completed":
@@ -635,7 +635,7 @@ def cmd_untag(args):
     if run(["git", "ls-remote", "--tags", "origin", tag], check=False):
         run(["git", *push_git_args(), "push", "origin", f":refs/tags/{tag}"], env=env)
         print(f"deleted the tag {tag} on GitHub")
-    print(f"next: fix it on main, then publish {version} --yes")
+    print(f"next: fix it on master, then publish {version} --yes")
 
 
 def confirm(version, sha, env):
