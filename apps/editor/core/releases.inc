@@ -364,13 +364,12 @@ inline std::optional<Release>& available() {
 // A release build: the one CI makes (the others are built here, by a developer).
 inline bool releaseBuild() { return !issueToken().empty(); }
 
-// The program's file name in a release's download: stardraft.exe on Windows, stardraft on the other systems. On Windows
-// it is the SDL program; an installed Win32 stardraft.exe (a release before the switch) updates to it in the same way
-// (the zip holds stardraft.exe, which has its fonts and icons in it: shell_sdl_win.inc, embeddedFile, and
-// stardraft-cli.exe: placeReleaseCli).
+// The program's file name in a release's download: StarDraft 2.exe on Windows (it has its fonts and icons in it:
+// shell_sdl_win.inc, embeddedFile; beside it in the zip, stardraft-cli.exe: placeReleaseCli), stardraft on the other
+// systems.
 inline std::wstring releaseProgramName() {
 #ifdef _WIN32
-    return L"stardraft.exe";
+    return L"StarDraft 2.exe";
 #else
     return L"stardraft";
 #endif
@@ -386,21 +385,21 @@ inline std::wstring releaseCliName() {
 }
 
 // Whether this program can put the release in its own place: a release build whose file has the release program's
-// name (not stardraft-testing.exe), and the release has
-// this system's download. Else the user gets the release page.
+// name (not stardraft-testing.exe) or the name of the releases up to 0.7 (stardraft.exe: the update keeps the file's
+// name), and the release has this system's download. Else the user gets the release page.
 // (Windows only for now: the macOS and Linux downloads hold an app folder, not one program file.)
 inline bool installable(const fs::path& self, const Release& r) {
 #ifndef _WIN32
     (void)self, (void)r;
     return false;
 #endif
-    std::wstring a = self.filename().wstring(), b = releaseProgramName();
+    std::wstring a = self.filename().wstring(), b = releaseProgramName(), before = L"stardraft.exe";
     for (auto* s : {&a, &b})
         for (wchar_t& ch : *s) ch = wchar_t(std::towlower(ch));  // (Windows: the file name's case does not matter)
-    return releaseBuild() && a == b && !r.zip.empty();
+    return releaseBuild() && (a == b || a == before) && !r.zip.empty();
 }
 
-// How this program is packaged: by itself (stardraft.exe, the macOS app), as an AppImage, or as a Flatpak.
+// How this program is packaged: by itself (StarDraft 2.exe, the macOS app), as an AppImage, or as a Flatpak.
 enum class Packaged { None, AppImage, Flatpak };
 
 // What Check for updates does with the newest release: UpToDate (nothing), Install (this program takes the download's
@@ -482,7 +481,7 @@ inline std::wstring installRelease(const fs::path& self, const fs::path& fresh, 
 inline std::vector<std::string> restartArguments(std::uint32_t pid) { return {"--restart", std::to_string(pid)}; }
 
 // At start, once the program works here (its graphics device is made): the program file of an earlier update
-// (stardraft.exe.old) goes, and a new program that an update gave back (stardraft.exe.failed); true when there is no
+// (StarDraft 2.exe.old) goes, and a new program that an update gave back (StarDraft 2.exe.failed); true when there is no
 // old one now.
 inline bool removeOldProgram(const fs::path& self) {
     std::error_code ec;

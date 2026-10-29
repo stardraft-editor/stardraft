@@ -1,7 +1,7 @@
 # Builds and tests StarDraft on every push (and on pull requests) and keeps the files as artifacts of the run. A push to
 # a branch never makes a release: a tag v<version> does, in .github/workflows/release.yml, from the files of this
 # workflow's run of the same commit (it builds them again here only when there is no good run of that commit).
-# The jobs: windows (stardraft.exe, CMake target stardraft_editor: built with MSVC and Ninja, snapshotted, then all the
+# The jobs: windows (StarDraft 2.exe, CMake target stardraft_editor: built with MSVC and Ninja, snapshotted, then all the
 # other targets), linux and linux-clang (the library, the tools and the tests with GCC and with Clang, and the editor's
 # snapshots), linux-appimage (the AppImage), macos (the app and its disk image). Most tests need a StarCraft:
 # Remastered install, so they are not run here (.github/workflows/data.yml: a self-hosted runner with the game data,
@@ -55,7 +55,7 @@ env:
   KEEP_CACHE: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/heads/port/ci-')) }}
 
 jobs:
-  # The editor on Windows (stardraft.exe): the release's program and its symbols, its snapshots (on Direct3D 12, which
+  # The editor on Windows (StarDraft 2.exe): the release's program and its symbols, its snapshots (on Direct3D 12, which
   # uses WARP, the CPU: GitHub's Windows machines have no GPU; no game data: the shell with no map), the program alone in
   # a folder as a release has it, then all the other targets.
   windows:
@@ -141,16 +141,16 @@ jobs:
         run: |
           build/Release/stardraft-cli.exe ops | grep -q '"ok": *true'
 
-      # stardraft.pdb is the one of this stardraft.exe (the same GUID and age): crash.dmp files open with it.
+      # StarDraft 2.pdb is the one of this StarDraft 2.exe (the same GUID and age): crash.dmp files open with it.
       - name: Check the symbols
-        run: python -I tools/ci/pdb_check.py build/Release/stardraft.exe build/Release/stardraft.pdb
+        run: python -I tools/ci/pdb_check.py "build/Release/StarDraft 2.exe" "build/Release/StarDraft 2.pdb"
 
       # The programs: a release is these files (the editor's fonts and icons are in it).
       - uses: actions/upload-artifact@v4
         with:
           name: stardraft-${{ github.sha }}
           path: |
-            build/Release/stardraft.exe
+            build/Release/StarDraft 2.exe
             build/Release/stardraft-cli.exe
           if-no-files-found: error
 
@@ -158,7 +158,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: stardraft-symbols-${{ github.sha }}
-          path: build/Release/stardraft.pdb
+          path: build/Release/StarDraft 2.pdb
           retention-days: 90
 
       # The version name that this build has (empty: CMakeLists.txt's): release.yml takes this run's files only for that
@@ -178,17 +178,17 @@ jobs:
         run: |
           export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
           mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
-          exe=build/Release/stardraft.exe
+          exe="build/Release/StarDraft 2.exe"
           "$exe" --snapshot editor-windows.png | tee snap.txt
           grep -q "^wrote " snap.txt
           "$exe" --workspace files --snapshot editor-windows-files.png | tee snap.txt
           grep -q "^wrote " snap.txt
           "$exe" --dialog options --size 720x820 --snapshot editor-windows-options.png | tee snap.txt
           grep -q "^wrote " snap.txt
-          # As a release has it: stardraft.exe alone in a folder (no res/, no fonts/ beside it). The icons come from the
+          # As a release has it: StarDraft 2.exe alone in a folder (no res/, no fonts/ beside it). The icons come from the
           # program itself, the fonts from the system (Segoe UI).
           mkdir -p alone && cp "$exe" alone/
-          alone/stardraft.exe --snapshot editor-windows-alone.png | tee snap.txt
+          "alone/StarDraft 2.exe" --snapshot editor-windows-alone.png | tee snap.txt
           grep -q "^wrote " snap.txt
           grep -q "fonts segoeui.ttf" snap.txt
           if grep -q "no icon atlases\|no app icon" snap.txt; then exit 1; fi
@@ -202,7 +202,7 @@ jobs:
         run: |
           export APPDATA="$RUNNER_TEMP\\appdata" LOCALAPPDATA="$RUNNER_TEMP\\localappdata"
           mkdir -p "$RUNNER_TEMP/appdata" "$RUNNER_TEMP/localappdata"
-          python -I tools/sdl_snapshots.py --exe build/Release/stardraft.exe --out sdl-snapshots --jobs 3
+          python -I tools/sdl_snapshots.py --exe "build/Release/StarDraft 2.exe" --out sdl-snapshots --jobs 3
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -213,7 +213,7 @@ jobs:
 
       - name: Pack the editor
         if: always()
-        run: Compress-Archive -Force -Path build/Release/stardraft.exe, build/Release/stardraft-cli.exe -DestinationPath stardraft-windows.zip
+        run: Compress-Archive -Force -Path "build/Release/StarDraft 2.exe", build/Release/stardraft-cli.exe -DestinationPath stardraft-windows.zip
 
       - uses: actions/upload-artifact@v4
         if: always()

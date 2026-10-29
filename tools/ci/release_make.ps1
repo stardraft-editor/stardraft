@@ -1,5 +1,5 @@
-# The release of a tag (.github/workflows/release.yml), from the files of the tested build: dl/stardraft.exe,
-# dl/stardraft-cli.exe, dl/stardraft.pdb, dl/dmg/*.dmg, dl/appimage/StarDraft-x86_64.AppImage. Run in the tag's checkout (tools/release.py
+# The release of a tag (.github/workflows/release.yml), from the files of the tested build: dl/StarDraft 2.exe,
+# dl/stardraft-cli.exe, dl/StarDraft 2.pdb, dl/dmg/*.dmg, dl/appimage/StarDraft-x86_64.AppImage. Run in the tag's checkout (tools/release.py
 # reads the changelog there).
 #   v<version>:                 the release "StarDraft 2 - v<version> (build <commit>)", marked Latest, and its Discord post.
 #   v<version>-preview.<n>:     a pre-release for early testers (Windows, macOS and Linux), never Latest, no Discord post.
@@ -22,7 +22,7 @@ if ($test) {
   $version = $tag.Substring(1)
 }
 $zip = "StarDraft-$version-win64.zip"
-Compress-Archive -Force -Path dl/stardraft.exe, dl/stardraft-cli.exe -DestinationPath $zip  # the programs only (the notes are on the release page)
+Compress-Archive -Force -Path 'dl/StarDraft 2.exe', dl/stardraft-cli.exe -DestinationPath $zip  # the programs only (the notes are on the release page)
 # The text: what is new in this version (its changelog section), then the base changelog (what StarDraft is and does,
 # how to start) for new visitors; picture paths become addresses at this tag. tools/release.py makes it, the same text
 # that `release.py notes <version>` shows before a release.
@@ -45,17 +45,17 @@ $hasZip = $exists -and @($assets) -contains $zip
 if ($hasZip) {
   Write-Output "The release $tag has its zip: the zip and the symbols stay as they are. A post that did not go: Actions > Post screenshots to Discord."
 } else {
-# The symbols first (stardraft.pdb), so that the kept symbols match the zip that goes out: a draft release
+# The symbols first (StarDraft 2.pdb), so that the kept symbols match the zip that goes out: a draft release
 # symbols-<tag>, which only the repository's members see, kept for good (an artifact goes after 90 days), to read crash
 # reports' crash.dmp files. Not on the release page.
 $sym = "StarDraft-$version-symbols.zip"
-Compress-Archive -Force -Path dl/stardraft.pdb -DestinationPath $sym
+Compress-Archive -Force -Path 'dl/StarDraft 2.pdb' -DestinationPath $sym
 $kept = @(gh release list --limit 200 --json tagName --jq '.[].tagName')
 if ($kept -contains "symbols-$tag") {
   gh release upload "symbols-$tag" $sym --clobber  # (its zip did not go out: these symbols replace them)
 } else {
   gh release create "symbols-$tag" $sym --draft --target $env:GITHUB_SHA --title "Symbols of $title" `
-    --notes "stardraft.pdb of $title, for its crash reports (crash.dmp). A draft: only the repository's members see it."
+    --notes "StarDraft 2.pdb of $title, for its crash reports (crash.dmp). A draft: only the repository's members see it."
 }
 if ($LASTEXITCODE) { throw "The symbols were not kept ($LASTEXITCODE)" }
 if ($exists) {

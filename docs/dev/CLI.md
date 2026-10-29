@@ -5,7 +5,7 @@ editor (`include/stardraft/editor.h`), so an edit has the same checks: placement
 It is the first part of [the interface for agents](agent-interface.md).
 
 Build: `cmake --build build --config Release --target stardraft_cli` (it builds also with `-DSTARDRAFT_RENDERER=OFF`).
-On Windows, a release's zip has `stardraft-cli.exe` beside `stardraft.exe`, and an update of the editor also
+On Windows, a release's zip has `stardraft-cli.exe` beside `StarDraft 2.exe`, and an update of the editor also
 updates it (`placeReleaseCli` in `apps/editor/core/releases.inc`). The installed program does the update, so an
 update from a release without `placeReleaseCli` does not put the CLI in place: get it from the zip that time.
 

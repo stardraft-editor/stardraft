@@ -1,7 +1,7 @@
 """Checks that a .pdb is the one of an .exe: the exe's debug entry (CodeView RSDS) names the PDB's GUID and age, as a
 debugger (Visual Studio, WinDbg) checks them before it opens a crash.dmp with the symbols. Needs only Python.
 
-usage: python -I tools/ci/pdb_check.py <stardraft.exe> <stardraft.pdb>
+usage: python -I tools/ci/pdb_check.py <"StarDraft 2.exe"> <"StarDraft 2.pdb">
 """
 
 import struct

@@ -657,7 +657,7 @@ The first public version. This is an alpha: please save often, keep copies of yo
 
 ### Start
 
-1. Unzip the release's zip file into a folder and run `stardraft.exe`. StarCraft: Remastered must be
+1. Unzip the release's zip file into a folder and run `StarDraft 2.exe`. StarCraft: Remastered must be
    installed. StarDraft 2 reads the game's files from it (if it does not find them, use Options > Program options >
    StarCraft folder).
 2. StarDraft 2 starts with a new project. File > Save asks where to keep it. A project is a folder with

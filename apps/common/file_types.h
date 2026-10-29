@@ -4,12 +4,13 @@
 // needed; file_types_win32.cpp). project.stardraft opens with the program; maps (.scm, .scx) are in Explorer's Open
 // with list, and the program a double-click opens when the user says so. What the user is asked stays in the program.
 
+#include <cwctype>
 #include <filesystem>
 #include <string>
 
 namespace stardraft::platform {
 
-// The program of a file type's open command ("\"C:\Tools\stardraft.exe\" \"%1\"": C:\Tools\stardraft.exe).
+// The program of a file type's open command ("\"C:\Tools\StarDraft 2.exe\" \"%1\"": C:\Tools\StarDraft 2.exe).
 inline std::wstring commandProgram(const std::wstring& command) {
     if (command.empty()) return {};
     if (command[0] == L'"') {
@@ -20,12 +21,21 @@ inline std::wstring commandProgram(const std::wstring& command) {
 }
 // At a start that only keeps the file types (not the user's Yes): a command that opens another copy of StarDraft 2 that
 // is still there stays (a copy run once from Downloads or a USB stick does not take the maps from the installed one).
-// False: the command is none, opens `exe`, or opens a program that is not there any more: it is `exe`'s now.
+// False: the command is none, opens `exe`, opens a program that is not there any more, or opens stardraft.exe in
+// `exe`'s folder (the program's name up to 0.7: the same install, before StarDraft 2.exe was unzipped beside it): it
+// is `exe`'s now.
 inline bool keepRegisteredProgram(const std::wstring& command, const std::wstring& exe) {
     const std::wstring now = commandProgram(command);
     std::error_code ec;
     if (now.empty() || std::filesystem::path(now) == std::filesystem::path(exe)) return false;
-    return std::filesystem::is_regular_file(std::filesystem::path(now), ec);
+    const auto lower = [](std::wstring s) {
+        for (wchar_t& ch : s) ch = wchar_t(std::towlower(ch));  // (Windows: the case of a file name does not matter)
+        return s;
+    };
+    const std::filesystem::path registered(now), self(exe);
+    if (lower(registered.filename().wstring()) == L"stardraft.exe" && lower(registered.parent_path().wstring()) == lower(self.parent_path().wstring()))
+        return false;
+    return std::filesystem::is_regular_file(registered, ec);
 }
 
 // project.stardraft opens with `exe`. Explorer is told when something changed. `keepOther`: a command that opens

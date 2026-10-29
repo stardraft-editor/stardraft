@@ -49,7 +49,7 @@ const char* exceptionName(DWORD code) {
     }
 }
 
-// "stardraft.exe+0x1A2B3C" for an address.
+// "StarDraft 2.exe+0x1A2B3C" for an address.
 std::string where(DWORD64 address) {
     HMODULE m = nullptr;
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCWSTR>(address), &m) || !m) {

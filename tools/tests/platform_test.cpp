@@ -241,6 +241,11 @@ int main(int argc, char** argv) {
         check(!keepRegisteredProgram(L"\"" + (dir / "USB" / "stardraft.exe").wstring() + L"\" \"%1\"", copy.wstring()),
               "a command of a copy that is not there any more is this program's now");
         check(!keepRegisteredProgram(L"", copy.wstring()), "no command: this program's");
+        // StarDraft 2.exe unzipped beside the stardraft.exe of 0.7: the same install, so the maps open with the new one
+        const fs::path renamed = dir / "Tools" / "StarDraft 2.exe";
+        std::ofstream(renamed) << "x";
+        check(!keepRegisteredProgram(cmd, renamed.wstring()), "the stardraft.exe of 0.7 in the same folder: this program's");
+        check(keepRegisteredProgram(L"\"" + renamed.wstring() + L"\" \"%1\"", copy.wstring()), "a second copy keeps StarDraft 2.exe's command");
     }
 
     // One sender for a report: the crashed program's sender takes the folder ("sending"), so the next start does not

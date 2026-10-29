@@ -33,7 +33,7 @@ std::string loadFonts(const std::string& fontDir);
 // default): the kit's sizes as they are.
 void setUiFontHeight(int emPx);
 
-// The files built into the program (on Windows its RCDATA resources, so that stardraft.exe is one file): for a UTF-8
+// The files built into the program (on Windows its RCDATA resources, so that StarDraft 2.exe is one file): for a UTF-8
 // path that has no file, its bytes (they stay valid while the program runs) and their size, or {nullptr, 0}. The
 // fonts, the icon atlases and the resource icons read them when the file is not there. Null (the default): none.
 using EmbeddedFile = std::pair<const void*, size_t> (*)(const std::string& path);

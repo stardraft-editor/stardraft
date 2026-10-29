@@ -1,9 +1,10 @@
 # The release of a tag, from the files that build.yml built and tested for the same commit:
 #   v<version> (v0.5.0.1; `python -I tools/release.py publish <version> --yes` makes it, with master): the release
-#     "StarDraft 2 - v<version> (build <commit>)", marked Latest, with StarDraft-<version>-win64.zip (stardraft.exe
-#     and stardraft-cli.exe: the editor's fonts and icons are in it, so an installed stardraft.exe, also the Windows program of an older release,
-#     updates to it); its text is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base
-#     changelog (its last section, what StarDraft is) for new visitors; a post in Discord with the section's pictures.
+#     "StarDraft 2 - v<version> (build <commit>)", marked Latest, with StarDraft-<version>-win64.zip (StarDraft 2.exe
+#     and stardraft-cli.exe: the editor's fonts and icons are in it, so an installed StarDraft 2.exe updates to it; the
+#     releases up to 0.7 had stardraft.exe, which cannot take this zip: their update opens the release page); its text
+#     is the "## <version>" section of docs/user/CHANGELOG.md (what is new), then the base changelog (its last section,
+#     what StarDraft is) for new visitors; a post in Discord with the section's pictures.
 #     The macOS disk image (StarDraft-<version>-macos-arm64.dmg) goes on it when the repository variable RELEASE_MAC is
 #     "on", the AppImage (StarDraft-<version>-x86_64.AppImage) when RELEASE_LINUX is "on" (Settings > Secrets and
 #     variables > Actions > Variables; not set: off).
@@ -12,7 +13,7 @@
 #   ci-test-<n>, ci-test-<n>-preview: a test of this workflow: the same release as a DRAFT (tools/ci/release_make.ps1),
 #     no Discord post. Delete it after the check (gh release delete ci-test-<n> --yes --cleanup-tag, and its
 #     symbols-ci-test-<n>).
-# The symbols (stardraft.pdb) go to a draft release symbols-<tag>. StarDraft's Check for updates reads "(build
+# The symbols (StarDraft 2.pdb) go to a draft release symbols-<tag>. StarDraft's Check for updates reads "(build
 # <commit>)" in the newest release's title.
 #
 # The files: the job "tested" finds build.yml's push run of the tag's commit (the same sha: tools/ci/tested_run.py),
@@ -121,8 +122,8 @@ jobs:
         run: |
           ls -lR dl
           # The sha check, once more: the program names this commit (STARDRAFT_COMMIT, cmake/build_info.cmake).
-          grep -a -q "${GITHUB_SHA:0:7}" dl/stardraft.exe || { echo "dl/stardraft.exe is not of ${GITHUB_SHA:0:7}"; exit 1; }
-          python3 -I tools/ci/pdb_check.py dl/stardraft.exe dl/stardraft.pdb
+          grep -a -q "${GITHUB_SHA:0:7}" "dl/StarDraft 2.exe" || { echo "dl/StarDraft 2.exe is not of ${GITHUB_SHA:0:7}"; exit 1; }
+          python3 -I tools/ci/pdb_check.py "dl/StarDraft 2.exe" "dl/StarDraft 2.pdb"
           test -f dl/stardraft-cli.exe || { echo "no dl/stardraft-cli.exe"; exit 1; }
 
       - name: Make the release

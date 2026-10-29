@@ -2,7 +2,7 @@
 // hour (the top bar's Update), the release notes window (Help > What is new, core/views_changelog.inc), on
 // this system (the Windows program's update.inc and its commands in main.cpp). The release, the download and the texts
 // are the core's (core/releases.inc); this file asks the user with the core's message box (msgbox::ask). A release build on Windows
-// puts the new stardraft.exe in its own place and starts it; a release build on macOS opens its disk image's download,
+// puts the new StarDraft 2.exe in its own place and starts it; a release build on macOS opens its disk image's download,
 // an AppImage the new AppImage's download, and a Flatpak tells that its package manager updates it; a build that cannot
 // (made here, or a file with another name, such as stardraft-testing.exe) opens the release page.
 // The crash reports (the handler, the question, --check crashes) and the Windows parts (the map files, one program for

@@ -530,7 +530,7 @@ def cmd_check(args, quiet_build=False):
     gen = subprocess.run([sys.executable, "-I", "tools/ui_lang_gen.py"], cwd=ROOT, capture_output=True, text=True)
     if gen.returncode or git("status", "--porcelain", "--", "apps/editor/res/lang"):
         problems.append("the translation tables are not made from the .tsv files: python -I tools/ui_lang_gen.py, commit")
-    # The build: all targets, as CI builds them (in the testing build folder: the user's stardraft.exe stays alone)
+    # The build: all targets, as CI builds them (in the testing build folder: the user's StarDraft 2.exe stays alone)
     if "--no-build" not in args:
         build = ROOT / (opt(args, "--build-dir") or "build")
         if not (build / "CMakeCache.txt").is_file():
@@ -673,7 +673,7 @@ def cmd_shots(args):
     if not (install / ".build.info").is_file():
         raise Fail(f"no StarCraft install at {install} (set STARCRAFT_INSTALL)")
     build = ROOT / (opt(args, "--build-dir") or "build")
-    exe = build / "Release" / "stardraft-testing.exe"  # (the testing build: the user's stardraft.exe stays alone)
+    exe = build / "Release" / "stardraft-testing.exe"  # (the testing build: the user's StarDraft 2.exe stays alone)
     if not exe.is_file():
         raise Fail(f"no {exe.relative_to(ROOT)}: cmake -S . -B build -DSTARDRAFT_EXE_NAME=stardraft-testing, "
                    "cmake --build build --config Release --target stardraft_editor")

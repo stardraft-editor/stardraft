@@ -8,7 +8,7 @@ with new units, weapons and game rules from trigger blocks in plain sentences.
 ![Downloads](https://img.shields.io/github/downloads/stardraft-editor/stardraft/total)
 
 [Download the latest release](https://github.com/stardraft-editor/stardraft/releases/latest). Unzip it and run
-`stardraft.exe`. StarCraft: Remastered must be installed.
+`StarDraft 2.exe`. StarCraft: Remastered must be installed.
 
 See it in use: [watch the video](https://www.youtube.com/watch?v=pUr3eruPKA4). Questions and feedback: join the
 [StarDraft Discord](https://discord.gg/JBMCwSRJBm).

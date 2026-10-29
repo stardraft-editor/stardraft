@@ -24,7 +24,7 @@ bool unpackArchive(const std::filesystem::path& archive, const std::filesystem::
 // NewNotPlaced: the old program is back in place. Broken: it could not be put back; it is at oldProgramFile(self).
 enum class Replace { Done, OldNotMoved, NewNotPlaced, Broken };
 Replace replaceProgram(const std::filesystem::path& self, const std::filesystem::path& fresh);
-std::filesystem::path oldProgramFile(const std::filesystem::path& self);  // stardraft.exe.old
+std::filesystem::path oldProgramFile(const std::filesystem::path& self);  // StarDraft 2.exe.old
 // After replaceProgram, when the new program did not start: the new file goes and the old program is at `self` again.
 // False when the old program could not be put back (it stays at oldProgramFile(self)).
 bool restoreProgram(const std::filesystem::path& self);
@@ -32,7 +32,7 @@ bool restoreProgram(const std::filesystem::path& self);
 // back in its place (Windows: the running file is renamed to failedProgramFile(self), as a running program's file cannot
 // be replaced). False when there is no old program or it could not be put back (then nothing changed).
 bool rollBackUpdate(const std::filesystem::path& self);
-std::filesystem::path failedProgramFile(const std::filesystem::path& self);  // stardraft.exe.failed
+std::filesystem::path failedProgramFile(const std::filesystem::path& self);  // StarDraft 2.exe.failed
 
 // Starts a program (its folder the working folder) with these arguments, not waiting for it. False when it did not
 // start (Windows: a file that is not a program for this system, such as a damaged download).

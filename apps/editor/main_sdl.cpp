@@ -1,4 +1,4 @@
-// StarDraft's editor on Windows (stardraft.exe), macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl). It compiles
+// StarDraft's editor on Windows (StarDraft 2.exe), macOS and Linux (SDL3, Dear ImGui through apps/kit_sdl). It compiles
 // the portable core (core/core.inc, research/ports/MAC-BUILD-PLAN.md step 6), then the SDL shell: the host seam
 // (shell_sdl.inc), the root view (sdl_main_view.inc), the functions the core still needs from the program
 // (sdl_pending.inc, each marked until it is in the core) and the workspaces (sdl_*.inc).
@@ -592,7 +592,7 @@ int main(int argc, char** argv) {
         host.setNoActivate(gNoActivate);
         host.setSnapshotKeysFromOpener(gKeysFromOpener);
         host.setWindowMadeHook(sdlTitleBarOfNewWindow);  // (Windows: each window's title bar in the theme)
-        kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the atlases, the icon and the Noto Sans fallback are in stardraft.exe too)
+        kit_sdl::setEmbeddedFiles(sdlEmbeddedFiles());  // (Windows: the atlases, the icon and the Noto Sans fallback are in StarDraft 2.exe too)
         kit_sdl::setUiFontHeight(sdlUiFontHeight());  // (Windows: the system's message font size)
         startLap("host");
         std::printf("stardraft_editor: fonts %s, scale %.2f\n", kit_sdl::loadFonts(base + "fonts/").c_str(), double(scale));

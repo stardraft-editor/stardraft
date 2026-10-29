@@ -1,5 +1,5 @@
 // StarDraft-latest.exe (in the repository's root): starts the newest build of StarDraft (stardraft-testing.exe, else
-// stardraft.exe, in the build folder) as a copy of its own, so new builds can be made while it is open; earlier copies that are
+// StarDraft 2.exe, in the build folder) as a copy of its own, so new builds can be made while it is open; earlier copies that are
 // closed are deleted. Arguments (a map or a project) go to StarDraft. Pin it to Start or the taskbar. It also makes
 // project.stardraft files open with it.
 #define WIN32_LEAN_AND_MEAN
@@ -99,7 +99,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR args, int) {
 #else
     fs::path src = here / L"stardraft-testing.exe";
 #endif
-    if (!fs::exists(src, ec)) src = here / L"stardraft.exe";
+    if (!fs::exists(src, ec)) src = here / L"StarDraft 2.exe";
     if (!fs::exists(src, ec)) {
         MessageBoxW(nullptr, (L"No build of StarDraft is in " + here.wstring()).c_str(), L"StarDraft-latest", MB_ICONERROR);
         return 1;

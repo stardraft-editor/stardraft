@@ -474,7 +474,7 @@ if(STARDRAFT_RENDERER)
     target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
     # The fonts (SIL Open Font License, NOTICE.md): Noto Sans for Latin, Korean and Chinese, at pinned commits,
     # downloaded once into the build and put beside the programs (fonts/), so every system shows the same text. The
-    # editor on Windows uses the system's fonts (Segoe UI, Malgun Gothic, Microsoft YaHei): stardraft.exe has only Noto
+    # editor on Windows uses the system's fonts (Segoe UI, Malgun Gothic, Microsoft YaHei): StarDraft 2.exe has only Noto
     # Sans in it, for when Segoe UI is not there.
     set(STARDRAFT_FONTS
         "NotoSans-Regular.ttf|https://raw.githubusercontent.com/notofonts/notofonts.github.io/5c3913063bb189df4edc94b766584dfb4c04a187/fonts/NotoSans/hinted/ttf/NotoSans-Regular.ttf|478c558ea716033cd60c03438f628dfa75694dcf6b5f6d505a2f05fd2b4f3823"
@@ -554,9 +554,17 @@ function(stardraft_version_rc target fileName description)
     target_sources(${target} PRIVATE ${CMAKE_BINARY_DIR}/generated/${target}_version.rc)
 endfunction()
 
-# The editor's file name: stardraft (stardraft.exe on Windows). A second name (-DSTARDRAFT_EXE_NAME=stardraft-testing)
-# lets a build run while stardraft.exe is open.
-set(STARDRAFT_EXE_NAME stardraft CACHE STRING "File name of the editor (without .exe)")
+# The editor's file name: "StarDraft 2" on Windows (StarDraft 2.exe), stardraft on Linux and macOS. A second name
+# (-DSTARDRAFT_EXE_NAME=stardraft-testing) lets a build run while StarDraft 2.exe is open. A Windows build folder made
+# with the name before (stardraft) gets the new name.
+if(WIN32)
+    set(STARDRAFT_EXE_NAME "StarDraft 2" CACHE STRING "File name of the editor (without .exe)")
+    if(STARDRAFT_EXE_NAME STREQUAL "stardraft")
+        set(STARDRAFT_EXE_NAME "StarDraft 2" CACHE STRING "File name of the editor (without .exe)" FORCE)
+    endif()
+else()
+    set(STARDRAFT_EXE_NAME stardraft CACHE STRING "File name of the editor")
+endif()
 
 # --- stardraft-next: the new shell's spike (SDL3 + Dear ImGui; research/ports/PLAN.md, phase 4), and kit_demo -------
 # Programs of their own beside the editor, on every system. Off: they are not built.
@@ -603,12 +611,12 @@ if(STARDRAFT_NEXT AND STARDRAFT_RENDERER)
 endif()
 
 # --- The editor (target stardraft_editor): the portable core (core/core.inc) with the SDL shell (main_sdl.cpp), on
-# every system: stardraft.exe on Windows, stardraft on Linux, stardraft.app on macOS. The fonts and atlases go beside
-# it (res/, fonts/); on Windows the atlases and Noto Sans are in stardraft.exe (generated/stardraft_editor_files.rc)
+# every system: StarDraft 2.exe on Windows, stardraft on Linux, stardraft.app on macOS. The fonts and atlases go beside
+# it (res/, fonts/); on Windows the atlases and Noto Sans are in StarDraft 2.exe (generated/stardraft_editor_files.rc)
 # and no fonts go beside it (it uses the system's fonts), so a release is that one file.
 if(STARDRAFT_RENDERER)
     set(sdlEditor stardraft_editor)
-    set(sdlEditorName ${STARDRAFT_EXE_NAME})
+    set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
@@ -623,7 +631,7 @@ if(STARDRAFT_RENDERER)
         # not there; not the Korean and Chinese Noto fonts: each Windows has Malgun Gothic and Microsoft YaHei) as RCDATA
         # named by their path beside the program (shell_sdl_win.inc, embeddedFile).
         set(editorFiles ${CMAKE_BINARY_DIR}/generated/${sdlEditor}_files.rc)
-        set(editorFilesText "// Made by CMakeLists.txt: the files that stardraft.exe reads when they are not beside it.\n")
+        set(editorFilesText "// Made by CMakeLists.txt: the files that StarDraft 2.exe reads when they are not beside it.\n")
         foreach(f ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico)
             get_filename_component(n ${f} NAME)
             string(APPEND editorFilesText "\"res/${n}\" RCDATA \"${f}\"\n")
@@ -637,11 +645,11 @@ if(STARDRAFT_RENDERER)
         file(CONFIGURE OUTPUT ${editorFiles} CONTENT "${editorFilesText}")  # (written only when it changes)
         set_source_files_properties(${editorFiles} PROPERTIES OBJECT_DEPENDS "${STARDRAFT_ATLASES};${editorFonts}")
         target_sources(${sdlEditor} PRIVATE apps/editor/res/stardraft_sdl.rc apps/editor/stardraft_sdl.manifest ${editorFiles})
-        stardraft_version_rc(${sdlEditor} ${sdlEditorName} "StarDraft 2")
+        stardraft_version_rc(${sdlEditor} "${sdlEditorName}" "StarDraft 2")
         target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32 advapi32)
     endif()
     target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft_map_preview stardraft litehtml)
-    set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME ${sdlEditorName} MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
+    set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME "${sdlEditorName}" MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)
     if(APPLE)
         # macOS: the menus (mac_menus.mm: the menu bar, the context menus), the trackpad's scrolls, smart zoom and swipes
         # (mac_input.mm: the only event monitors), the window and document look (mac_window.mm), the Dock, Finder and the
@@ -721,7 +729,7 @@ if(STARDRAFT_RENDERER)
     endif()
     add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
-    if(STARDRAFT_FONT_FILES AND NOT WIN32)  # (Windows: the system's fonts, and Noto Sans in stardraft.exe)
+    if(STARDRAFT_FONT_FILES AND NOT WIN32)  # (Windows: the system's fonts, and Noto Sans in StarDraft 2.exe)
         add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
     endif()
@@ -729,8 +737,8 @@ if(STARDRAFT_RENDERER)
         # (main_sdl.cpp holds the whole editor: more sections than the default allows)
         target_compile_options(${sdlEditor} PRIVATE /W4 /utf-8 /bigobj)
         set_source_files_properties(apps/editor/vorbis.c PROPERTIES COMPILE_OPTIONS /W0)  # (stb_vorbis: not our code)
-        # Symbols for Release, to read crash dumps (stardraft.pdb: a release keeps them in a draft release). /Z7: the
-        # debug information goes into each .obj (a compiler cache, sccache, can keep it) and the linker writes stardraft.pdb.
+        # Symbols for Release, to read crash dumps (StarDraft 2.pdb: a release keeps them in a draft release). /Z7: the
+        # debug information goes into each .obj (a compiler cache, sccache, can keep it) and the linker writes the pdb.
         target_compile_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/Z7>)
         target_link_options(${sdlEditor} PRIVATE $<$<CONFIG:Release>:/DEBUG /OPT:REF /OPT:ICF>)
     endif()
@@ -795,7 +803,7 @@ if(UNIX AND NOT APPLE AND STARDRAFT_RENDERER)
 endif()
 
 # --- StarDraft-latest.exe (Windows): starts a copy of the newest build of the editor (stardraft-testing.exe, else
-# stardraft.exe; pin it to Start), so builds can go on while it runs.
+# StarDraft 2.exe; pin it to Start), so builds can go on while it runs.
 if(WIN32 AND STARDRAFT_RENDERER)
     add_executable(stardraft_latest WIN32 apps/latest/main.cpp apps/latest/latest.rc)
     target_link_libraries(stardraft_latest PRIVATE shell32 ole32 advapi32)

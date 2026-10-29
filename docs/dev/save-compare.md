@@ -7,7 +7,7 @@ section and no other file of the archive is different. No difference needs an ex
 
 ## How the maps were saved
 
-- **The new program**: `stardraft.exe --snapshot <png> --install <StarCraft> --saveas <out> <map>` (a snapshot run, with
+- **The new program**: `"StarDraft 2.exe" --snapshot <png> --install <StarCraft> --saveas <out> <map>` (a snapshot run, with
   `APPDATA` and `LOCALAPPDATA` in a temp folder). `--saveas` is File > Save as (`saveMapFile` in
   `apps/editor/core/map_commands.inc`, which calls `Editor::save`). Its round-trip line said "the saved map is the same
   (yes)" for all 333 maps.

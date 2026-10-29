@@ -6,7 +6,7 @@ settings of its own in a new folder (STARDRAFT_SETTINGS, APPDATA, LOCALAPPDATA):
 no saved folders, and the user's own settings stay as they are. Then: Options > Program options > Plugins > Cosmonarchy
 BW (CMBW), and open a map of the mod (or the start page's new Cosmonarchy map).
 
-usage: python -I tools/plugins/cmbw/try_without_remastered.py [--exe <stardraft.exe>] [--dry-run] [map] [the program's options]
+usage: python -I tools/plugins/cmbw/try_without_remastered.py [--exe <StarDraft 2.exe>] [--dry-run] [map] [the program's options]
        (default exe: build/Release/stardraft-testing.exe)
 """
 import argparse

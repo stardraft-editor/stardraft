@@ -5,7 +5,7 @@ that you find, so that they are fixed before the release.
 
 ## Downloads
 
-- **Windows**: `StarDraft-<version>-win64.zip`. Unzip it and start `stardraft.exe`.
+- **Windows**: `StarDraft-<version>-win64.zip`. Unzip it and start `StarDraft 2.exe`.
 - **macOS** (Apple silicon): `StarDraft-<version>-macos-arm64.dmg`. Open it and drag StarDraft 2 to Applications. The
   app is not signed by Apple yet: the first time, right-click the app and select **Open**.
 - **Linux** (x86-64): `StarDraft-<version>-x86_64.AppImage`. Make it executable (`chmod +x`) and start it.

@@ -1,4 +1,4 @@
-// The SDL program's Windows-only parts (stardraft.exe): the files built into the program, the settings of the builds before the settings file (the
+// The SDL program's Windows-only parts (StarDraft 2.exe): the files built into the program, the settings of the builds before the settings file (the
 // registry), the crash handler and the crash report question, the map files (.scm, .scx) and project.stardraft in
 // Explorer, one program for all maps (a map opened from Explorer goes to the program that is open), and the window's
 // dark title bar. The icons are res/stardraft_sdl.rc's (SDL gives the first one to its windows). The texts and the
@@ -198,7 +198,7 @@ void titleBarsDark(bool dark) {
 
 // The fonts, the icon atlases and the app icon are the program's RCDATA resources (the build's
 // generated/<target>_files.rc), named by their path under the program's folder ("fonts/NotoSans-Regular.ttf"), so a
-// release is stardraft.exe only (the update puts one file in place) and a copy of it (StarDraft-latest) runs anywhere.
+// release is StarDraft 2.exe only (the update puts one file in place) and a copy of it (StarDraft-latest) runs anywhere.
 // A file beside the program comes first (kit_sdl reads it).
 std::pair<const void*, size_t> embeddedFile(const std::string& path) {
     static const std::string base = [] {

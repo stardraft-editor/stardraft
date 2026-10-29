@@ -24,9 +24,9 @@ You need Windows, Visual Studio 2022, CMake 3.20 or newer, and the Windows SDK (
     cmake -S . -B build
     cmake --build build --config Release --target stardraft_editor
 
-The target `stardraft_editor` is `stardraft.exe`: the SDL program (`apps/editor/main_sdl.cpp` and its `sdl_*.inc`
+The target `stardraft_editor` is `StarDraft 2.exe` (`stardraft` on Linux and macOS): the SDL program (`apps/editor/main_sdl.cpp` and its `sdl_*.inc`
 files, which draw the portable views in `apps/editor/core`), the same program as on macOS and Linux. Its fonts and
-icons are in the program file, so `stardraft.exe` runs alone (a release is that one file); the `res` and `fonts`
+icons are in the program file, so `StarDraft 2.exe` runs alone (a release is that one file); the `res` and `fonts`
 folders that the build puts next to it come first when they are there.
 
 To build while you use StarDraft (Windows locks a running .exe), give the build its own name and start the newest
@@ -46,21 +46,21 @@ A snapshot draws one frame without a window and writes it as a PNG; a snapshot r
 changes no settings:
 
     set SDL_VIDEODRIVER=offscreen
-    build\Release\stardraft.exe [map] --snapshot out.png
-    build\Release\stardraft.exe [map] --workspace triggers --snapshot out.png
-    build\Release\stardraft.exe [map] --dialog options --size 720x820 --snapshot out.png
+    "build\Release\StarDraft 2.exe" [map] --snapshot out.png
+    "build\Release\StarDraft 2.exe" [map] --workspace triggers --snapshot out.png
+    "build\Release\StarDraft 2.exe" [map] --dialog options --size 720x820 --snapshot out.png
 
 The comments on the options in `main()` of `main_sdl.cpp` (`--workspace`, `--dialog`, `--data`, ...) say what a
 snapshot can show. `tools/sdl_snapshots.py` takes one snapshot of each workspace and dialog and checks each one
 (`--help` tells how; `--install`, `--map` and `--project` add the cases that need them):
 
-    python -I tools/sdl_snapshots.py --exe build\Release\stardraft.exe --out snapshots
+    python -I tools/sdl_snapshots.py --exe "build\Release\StarDraft 2.exe" --out snapshots
 
 `--jobs <n>` runs n cases at the same time (each case has its own files; the shared input files are written once,
 before the runs). With all the data, the 215 cases take about 3.5 minutes one at a time and 1.2 minutes with `--jobs 3`;
 use at most `--jobs 3` on a computer with 8 GB of free memory.
 
-GitHub builds `stardraft.exe` on each push (the job windows), runs `sdl_snapshots.py` on it, takes a snapshot of it
+GitHub builds `StarDraft 2.exe` on each push (the job windows), runs `sdl_snapshots.py` on it, takes a snapshot of it
 alone in a folder (as a release has it), and keeps the snapshots (with no game data: no map) and the program with the
 run. GitHub's Windows machines have no GPU: there Direct3D 12 draws on the CPU (WARP).
 
@@ -160,7 +160,7 @@ Give each test a new, empty scratch folder.
 
 | Test | Command | What it checks |
 |---|---|---|
-| `sdl_snapshots.py` | `python -I tools/sdl_snapshots.py --exe <stardraft.exe> --out <dir> --install <install> --map <map> [--project <project>] [--jobs 3]` | The real program, with no window: each workspace, mode and dialog, and the cases that drive it with the mouse and the keys (place, select, paste, undo, save, the Data form, the triggers) and check what its output says. Use `(2)Bottleneck.scm`. See "Snapshots" above. |
+| `sdl_snapshots.py` | `python -I tools/sdl_snapshots.py --exe <StarDraft 2.exe> --out <dir> --install <install> --map <map> [--project <project>] [--jobs 3]` | The real program, with no window: each workspace, mode and dialog, and the cases that drive it with the mouse and the keys (place, select, paste, undo, save, the Data form, the triggers) and check what its output says. Use `(2)Bottleneck.scm`. See "Snapshots" above. |
 | `trigger_test` | `trigger_test <dir> <install> <map.scx> [--update-lock]` (a Brood War map, e.g. `Maps\BroodWar\(2)Binary Burghs.scx`) | The block library, the checker, the generated epScript, and that euddraft builds a map with it. Linked .eps files (R5): saved relative, built with what they import, a missing one stops Build, an error names the file and line. |
 | `dat_test` | `dat_test <install> <map.scx> <dir>` | .dat editing, strings, requirements, buttons, unit display; euddraft builds a map with them. New graphics for preplaced units (R8): the plan, the code that makes the units, and the built map without them. |
 | `editor_test` | `editor_test <install> <map> <dir> [sounds]` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
@@ -284,13 +284,13 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
 - **Crash reports** (`apps/editor/shell_sdl_win.inc` and `core/releases.inc`; the crash handler and the sending in `apps/common/crash_report.h`): a crash writes `crash.dmp` and `report.txt` (version, commit, Windows,
   video card, the exception, the stack, the last log lines) into `%LOCALAPPDATA%\StarDraft\crashes\<time>\` and
   sends the report at once, with no user action: an issue with the label `crash`, or a comment on the open issue for
-  the same place. Reports that could not go are sent at the next start. `stardraft.exe --crash-test` crashes on
+  the same place. Reports that could not go are sent at the next start. `StarDraft 2.exe --crash-test` crashes on
   purpose (a test run: the report stays on disk; `--crash-test stack`: with a stack overflow, the report is written by
   a thread of its own); `--check crashes` prints the reports and what the next start does
   with them. On macOS, Linux and the BSDs a signal handler (`apps/common/crash_posix.cpp`) writes `report.txt` only (no
   minidump) into `~/Library/Application Support/StarDraft/crashes/<time>/` (macOS) or
   `$XDG_STATE_HOME/StarDraft/crashes/<time>/` (Linux and the BSDs); the question, the sending and `--check crashes` are
-  the same as on Windows (`apps/editor/shell_sdl_win.inc`). Each CI run keeps the build's `stardraft.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
+  the same as on Windows (`apps/editor/shell_sdl_win.inc`). Each CI run keeps the build's `StarDraft 2.pdb` (artifact `stardraft-symbols-<commit>`, 90 days), and each
   release keeps it for good in the draft release `symbols-v<version>`: open `crash.dmp` with it to get function names
   and lines.
 - **Feedback** (`core/views_feedback.inc`, `core/feedback_send.inc`, `sdl_options.inc`): a right click on almost
@@ -300,13 +300,14 @@ token starts. The environment variable `STARDRAFT_ISSUES_TOKEN` also gives one, 
   makes an issue with the label `feedback` (no user name); feedback that could not go waits in
   `%LOCALAPPDATA%\StarDraft\feedback\`. The glyph and its color (`kFeedback`, yellow) are the same everywhere.
 - **Updates** (`apps/editor/sdl_updates.inc` and `core/releases.inc`; unpacking and replacing the program in `apps/common/update.h`): Help > Check for updates compares the newest release's title ("... (build
-  <commit>)") with the build's commit, downloads the zip, puts its `stardraft.exe` in place of the running one (that
-  one becomes `stardraft.exe.old`) and starts it with `--restart <pid>` and the open maps and projects (as Restart
-  now); the new program waits for the old one to end and deletes `stardraft.exe.old`. A new program that does not
+  <commit>)") with the build's commit, downloads the zip, puts its `StarDraft 2.exe` in place of the running one (that
+  one becomes `StarDraft 2.exe.old`) and starts it with `--restart <pid>` and the open maps and projects (as Restart
+  now); the new program waits for the old one to end and deletes `StarDraft 2.exe.old`. A new program that does not
   start (a damaged download) goes, and the old one is in its place again. A release build also checks at start and
-  says so in the status bar. An installed `stardraft.exe` of an older release (the Windows program before the SDL
-  one) gets the new program in this way: the program in the zip is `stardraft.exe`. The zip also has
-  `stardraft-cli.exe`, which an update puts beside the program (`placeReleaseCli`). `stardraft.exe --update-test <zip>
+  says so in the status bar. A program file named `stardraft.exe` (the name up to 0.7) updates in the same way and
+  keeps its name; the releases up to 0.7 cannot take a zip without `stardraft.exe`, so their update opens the release
+  page. The zip also has
+  `stardraft-cli.exe`, which an update puts beside the program (`placeReleaseCli`). `StarDraft 2.exe --update-test <zip>
   [options]` does the install with a zip on this computer (no network) in a copy of the program in a temporary
   folder: the zip's program starts with the options after the zip (`--snapshot <png> --check update`).
 
@@ -317,7 +318,7 @@ release of a tag. The jobs of build.yml:
 
 | Job | What it does |
 |---|---|
-| windows | The UI text and translation table checks; `stardraft.exe` with MSVC and Ninja (Ninja Multi-Config: the files go to `build/Release/`, as with Visual Studio's generator); the check that `stardraft.pdb` matches the exe (`tools/ci/pdb_check.py`); the snapshots (also of the exe alone in a folder) and `sdl_snapshots.py --jobs 3`; then all the other targets. Its `stardraft.exe` and `stardraft.pdb` are the release's files. |
+| windows | The UI text and translation table checks; `StarDraft 2.exe` with MSVC and Ninja (Ninja Multi-Config: the files go to `build/Release/`, as with Visual Studio's generator); the check that `StarDraft 2.pdb` matches the exe (`tools/ci/pdb_check.py`); the snapshots (also of the exe alone in a folder) and `sdl_snapshots.py --jobs 3`; then all the other targets. Its `StarDraft 2.exe` and `StarDraft 2.pdb` are the release's files. |
 | linux | GCC: all targets, the desktop files and the thumbnailer, the tests that need no game data, the snapshots of stardraft-next, the kit demo and the editor. |
 | linux-clang | Clang: all targets; the kit's tests with AddressSanitizer and UndefinedBehaviorSanitizer. |
 | linux-appimage | The AppImage (Ubuntu 22.04, GCC 12). |
@@ -333,7 +334,7 @@ runner.
   check reads them), `docs/user/images/` and `tools/preview_notes.md` (a release reads them) still start one.
 - A newer push to a branch stops the older run of that branch. Runs of `main` and of tags always go to their end.
 - Compiler caches: sccache on Windows (the editor has `/Z7`: the debug information is in each .obj, so sccache can keep
-  it; the linker still writes `stardraft.pdb`), ccache on Linux, macOS and the AppImage. Each job keeps its cache with
+  it; the linker still writes `StarDraft 2.pdb`), ccache on Linux, macOS and the AppImage. Each job keeps its cache with
   actions/cache (`sccache-windows-`, `ccache-linux-gcc-`, `ccache-linux-clang-`, `ccache-appimage-`, `ccache-macos-`
   and the run's id). A run takes the newest cache that GitHub lets it see: its own branch's, else `main`'s. Only the
   pushes to `main`, `port/kit` and the `port/ci-*` branches save a cache (GitHub keeps 10 GB for each repository and
@@ -348,7 +349,7 @@ runner.
 release.yml finds build.yml's push run of the tag's commit (`tools/ci/tested_run.py`: the run's `head_sha` is the
 tag's commit, all its jobs passed, and its `build-version-windows-<commit>` and `build-version-macos-<commit>` files
 name the tag's version). It waits while that run is not done. Then the job `release` downloads that run's files (their
-artifact names have the commit too; the job checks that `stardraft.exe` names the commit and that the pdb matches it)
+artifact names have the commit too; the job checks that `StarDraft 2.exe` names the commit and that the pdb matches it)
 and only packs, attaches and posts (`tools/ci/release_make.ps1`). With no such run (a tag on a commit that was pushed
 before the tag, a preview tag pushed after its branch, a run that failed or was stopped), release.yml builds and tests
 the commit itself (build.yml as a called workflow) and releases those files. For a fast preview, push the branch and
@@ -369,7 +370,7 @@ cores) has the same billing.
 
 ## Commits and releases
 
-Commit messages say what changed for the user, in a few lines. Every push builds `stardraft.exe` on GitHub (an
+Commit messages say what changed for the user, in a few lines. Every push builds `StarDraft 2.exe` on GitHub (an
 artifact of the run). A push never makes a release: push when the work is done. Build before you push; run the tests
 that a change needs.
 
@@ -395,12 +396,12 @@ A release is a tag `v<version>`. The owner says when, and approves the scope and
 
 CI (`.github/workflows/release.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
 a commit on `main`). Then it takes the files that build.yml built and tested for that commit as that version (see
-"CI": releases from the tested build) and makes the release "StarDraft 2 - v<version> (build <commit>)" with `StarDraft-<version>-win64.zip` (only `stardraft.exe`), marked Latest. Its text is the version's
+"CI": releases from the tested build) and makes the release "StarDraft 2 - v<version> (build <commit>)" with `StarDraft-<version>-win64.zip` (`StarDraft 2.exe` and `stardraft-cli.exe`), marked Latest. Its text is the version's
 section, then the changelog's last section (what StarDraft is), with the pictures as addresses at the tag
 (`release.py notes <version>` shows the text). In Discord (`release.py discord`), each channel gets the release's name
 and link, then the version's section as Discord text (`release.py discord-text <version>` shows the messages), then
 each picture as a message of its own with its text, so that the notes and the pictures show in the channel (a link
-alone shows neither; the owner's requirement). The symbols (`stardraft.pdb`)
+alone shows neither; the owner's requirement). The symbols (`StarDraft 2.pdb`)
 go to the draft release `symbols-v<version>`, which only the repository's members see, for crash reports. For now the
 release has only the Windows build. The repository variable `RELEASE_MAC` (Settings > Secrets and variables > Actions >
 Variables), default off, = `on` attaches the macOS disk image `StarDraft-<version>-macos-arm64.dmg` (see "The macOS
