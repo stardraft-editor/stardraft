@@ -208,16 +208,11 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
         return;
     }
     // (the loading view over the workspace: each step with its time, as it is done)
-    loadingStart(fs::path(path).filename().wstring());
+    loadingStart(tr(L"Opening ") + fs::path(path).filename().wstring());
     shellWaitCursor();
-    using Clock = std::chrono::steady_clock;
-    auto ms = [](Clock::time_point from) { return std::chrono::duration<double, std::milli>(Clock::now() - from).count(); };
-    Clock::time_point t0 = Clock::now();
-    const GameData& data = project ? app.data : gameDataForMap(fs::path(path));
-    if (const double d = ms(t0); d >= 1) loadingStep(tr(L"game data"), d, 0.15f);
+    const GameData& data = *loadingTimed(tr(L"game data"), 0.15f, [&]() -> const GameData* { return project ? &app.data : &gameDataForMap(fs::path(path)); });
     auto ed = std::make_unique<Editor>(data);
-    int steps = 0;
-    ed->onOpenStep = [&steps](const char* what, double d) { loadingStep(widen(what), d, 0.15f + 0.17f * float(++steps)); };
+    loadingSteps(*ed, 0.15f, 0.85f);
     std::string err;
     if (!ed->open(fs::path(path), err)) {
         loadingEnd();
@@ -225,9 +220,7 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
         return;
     }
     ed->onOpenStep = nullptr;
-    t0 = Clock::now();
-    addDocument(std::move(ed), true);  // replaces the untouched startup map
-    loadingStep(tr(L"the tab, the minimap and the panels"), ms(t0), 1.0f);
+    loadingTimed(tr(L"the tab, the minimap and the panels"), 1.0f, [&] { return addDocument(std::move(ed), true), 0; });  // (replaces the untouched startup map)
     loadingEnd();
     addRecent(gRecentMaps, path);
     shellMapOpened(path);

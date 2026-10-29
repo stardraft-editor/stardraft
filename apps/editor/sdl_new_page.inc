@@ -67,18 +67,25 @@ void NewHostSdl::cancel() {
 bool NewHostSdl::make() {
     std::string err;
     const GameData* data = &gState.data;
-    if (gNewView.cosmonarchy && !(data = cmbwGameData(err))) {  // (a Cosmonarchy map: the mod's units and tiles)
+    const bool copy = gNewView.project && gNewView.copyMap;  // Import an existing map: the project's map is a copy of it (the file stays as it is)
+    // (the loading view while the map is made: what, each step, the bar)
+    loadingStart(copy ? tr(L"Opening ") + fs::path(gNewView.fromMapText()).filename().wstring()
+                      : gNewView.generate ? std::wstring(tr(L"Generating a map")) : std::wstring(tr(L"Making a new map")));
+    if (gNewView.cosmonarchy && !(data = loadingTimed(tr(L"game data"), 0.2f, [&] { return cmbwGameData(err); }))) {  // (the mod's units and tiles)
+        loadingEnd();
         shellErrorBox(widen(err), shellTr(L"Could not create the Cosmonarchy map"));
         return false;
     }
     auto ed = std::make_unique<Editor>(*data);
     const TerrainGenParams p = gNewView.params();
-    const bool copy = gNewView.project && gNewView.copyMap;  // Import an existing map: the project's map is a copy of it (the file stays as it is)
+    if (copy) loadingSteps(*ed, 0.2f, 0.8f);
     const bool ok = copy                   ? ed->open(fs::path(gNewView.fromMapText()), err)
-                    : gNewView.terrainOnly ? ed->newMapFromTerrain(fs::path(gNewView.fromMapText()), err)
-                    : gNewView.generate  ? ed->generateMap(p, err)
-                                         : ed->newMap(gNewView.w, gNewView.h, gNewView.era, gNewView.terrainId(), err);
+                    : gNewView.terrainOnly ? loadingTimed(tr(L"the map from the other map's terrain"), 0.8f, [&] { return ed->newMapFromTerrain(fs::path(gNewView.fromMapText()), err); })
+                    : gNewView.generate  ? loadingTimed(tr(L"the generated map"), 0.8f, [&] { return ed->generateMap(p, err); })
+                                         : loadingTimed(tr(L"the map"), 0.8f, [&] { return ed->newMap(gNewView.w, gNewView.h, gNewView.era, gNewView.terrainId(), err); });
+    ed->onOpenStep = nullptr;
     if (!ok) {
+        loadingEnd();
         shellErrorBox(widen(err), shellTr(copy ? L"Could not open the map" : gNewView.generate ? L"Could not generate the map" : L"Could not create the map"));
         return false;
     }
@@ -100,7 +107,8 @@ bool NewHostSdl::make() {
     // What it is: the tileset and the size (as the Windows program's message says).
     const std::wstring what = std::wstring(kTilesetNames[ed->era() & 7]) + L" " + std::to_wstring(ed->width()) + L" x " + std::to_wstring(ed->height());
     const std::wstring message = gNewView.generate ? L"Generated a map: " + what + L" (seed " + std::to_wstring(p.seed) + L")" : L"Created a map: " + what;
-    addDocument(std::move(ed), false);  // (a tab of its own: the open maps and projects stay, also an untouched one)
+    loadingTimed(tr(L"the tab, the minimap and the panels"), 1.0f, [&] { return addDocument(std::move(ed), false), 0; });  // (a tab of its own)
+    loadingEnd();
     gNewOpen = false;
     shellRelayout(), shellMenusChanged();
     if (!project) return setMessage(message), true;

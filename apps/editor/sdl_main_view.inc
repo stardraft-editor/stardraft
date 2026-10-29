@@ -961,6 +961,11 @@ void shellLoadingFrame() {
     gLoadingView.invalidate();
     gHost->paintNow();
 }
+void shellLoadingDone() {
+    if (!gRoot) return;
+    gRoot->relayout();
+    gRoot->invalidate();
+}
 bool sdlPieClickAway() {
     if (!gRoot || !gRoot->pie.shown()) return false;
     gRoot->pie.setVisible(false);

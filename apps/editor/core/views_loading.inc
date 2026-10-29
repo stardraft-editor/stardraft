@@ -1,8 +1,10 @@
-// The map's loading view (portable, core.inc): while a map opens, the workspace is blank but for the file's name, a
-// progress bar and the steps done so far with their times (the open's log). The map opens on the main thread: the host
-// draws the window after each step (shellLoadingFrame), so the view shows while the work goes on.
+// The map's loading view (portable, core.inc): while a map opens or is made (a file, a project's map, File > New, a new
+// Cosmonarchy map), the workspace is blank but for what is done ("Opening x.scx"), a progress bar and the steps done so
+// far with their times (the log). The map is made on the main thread: the host draws the window after each step
+// (shellLoadingFrame), so the view shows while the work goes on; at the end it goes (loadingEnd).
 
 void shellLoadingFrame();  // (the host: lays the window out and draws it now; nothing in a test run without a window)
+void shellLoadingDone();   // (the host: lays the window out without the view)
 
 struct MapLoading {
     bool on = false;
@@ -12,10 +14,11 @@ struct MapLoading {
 };
 MapLoading gLoading;
 
-void loadingStart(const std::wstring& file) {
+// `title`: what is done ("Opening x.scx", "Making a new map").
+void loadingStart(const std::wstring& title) {
     gLoading = {};
     gLoading.on = true;
-    gLoading.title = tr(L"Opening ") + file;
+    gLoading.title = title;
     shellLoadingFrame();
 }
 // A step done (its time in ms); `done`: the part of the open done after it.
@@ -26,7 +29,24 @@ void loadingStep(std::wstring what, double ms, float done) {
     gLoading.done = done;
     shellLoadingFrame();
 }
-void loadingEnd() { gLoading.on = false; }
+void loadingEnd() {
+    if (!gLoading.on) return;
+    gLoading.on = false;
+    shellLoadingDone();
+}
+// Each step of the editor's open (Editor::onOpenStep) a step of the view, the bar from `from` to `to`.
+void loadingSteps(Editor& ed, float from, float to) {
+    auto n = std::make_shared<int>(0);
+    ed.onOpenStep = [n, from, to](const char* what, double ms) { loadingStep(widen(what), ms, std::min(to, from + (to - from) * float(++*n) / 4)); };
+}
+// `work` as one step of the view (its time); `done`: the bar after it. Returns what `work` returns.
+template <class Work>
+auto loadingTimed(const std::wstring& what, float done, Work&& work) {
+    const auto t0 = std::chrono::steady_clock::now();
+    auto r = work();
+    loadingStep(what, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count(), done);
+    return r;
+}
 
 class LoadingView final : public draw::View {
 public:
