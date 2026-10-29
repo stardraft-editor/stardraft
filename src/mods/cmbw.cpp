@@ -1795,8 +1795,6 @@ void applyTerrainFiles(Tileset& t) {
     }
 }
 
-void useTerrainOverride(const std::filesystem::path& file) { gTerrainOverride = file; }
-
 void loadTileset(Tileset& t) {
     for (const GroupTerrain& g : kGroupTerrains)
         if (g.era == (t.era & 7)) t.groupTerrains.push_back({g.group, g.terrain, g.other});
@@ -2939,5 +2937,7 @@ std::vector<uint8_t> simUnits(const std::vector<uint8_t>& in, const UnitTypes& t
     }
     return out;
 }
+
+void useTerrainOverride(const std::filesystem::path& file) { gTerrainOverride = file; }
 
 }  // namespace stardraft::cmbw

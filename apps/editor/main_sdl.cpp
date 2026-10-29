@@ -126,6 +126,7 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/mods/terrain_rules.h"
 #include "stardraft/hd_assets.h"
 #include "stardraft/msqc.h"  // the triggers' keys and buttons (core/project_build.inc)
 #include "stardraft/pathing.h"
@@ -647,7 +648,7 @@ int main(int argc, char** argv) {
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)
-        cmbwUseFolderSetting();  // (Program options' Cosmonarchy folder: core/cmbw.inc)
+        cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting();  // (Program options' Cosmonarchy folder: core/cmbw.inc)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
         gMapPrefsOn = !gSilent || settingsArg;  // (the maps' own files: a snapshot's next to its --settings file, core/map_prefs.inc)
         // A settings file that is not JSON (a hand edit): the Log says so; its first save keeps a copy of it.

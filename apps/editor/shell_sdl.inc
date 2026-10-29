@@ -604,6 +604,39 @@ void shellChooseCmbwFolder() {
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
 }
+// Program options > Plugins > Temporary override: on or off (with no file yet: Browse first), and Browse (a terrain rules
+// file). The rules apply to the maps opened from then on (core/cmbw.inc: cmbwApplyTerrainOverride).
+void shellChooseTerrainOverride();
+void shellToggleTerrainOverride() {
+    if (!gTerrainOverrideOn && gTerrainOverride.empty()) return shellChooseTerrainOverride();
+    gTerrainOverrideOn = !gTerrainOverrideOn;
+    if (!gSilent) prefs::setNumber(L"TerrainOverrideOn", gTerrainOverrideOn ? 1 : 0);
+    cmbwApplyTerrainOverride();
+    gOptionsView.invalidate();
+    setMessage(gTerrainOverrideOn ? L"Temporary override on: maps opened from now on use its terrain rules"
+                                  : L"Temporary override off: maps opened from now on use the built-in terrain rules");
+}
+void shellChooseTerrainOverride() {
+    ShellFilePick d;
+    d.title = shellTr(L"Select a terrain rules file");
+    d.filters = {{L"Terrain rules (*.sdterrain)", L"*.sdterrain"}};
+    if (!gTerrainOverride.empty()) d.initialDir = gTerrainOverride.parent_path();
+    const fs::path picked = shellPickFile(d);
+    if (picked.empty() || !gRoot) return;
+    stardraft::terrainrules::Rules r;
+    std::string err;
+    if (!stardraft::terrainrules::load(picked, r, err)) {
+        msgbox::ask(*gRoot, shellTr(L"Temporary override"), shellTr(L"Could not read the terrain rules file:") + L"\r\n" + widen(err), {L"OK"},
+                    msgbox::Icon::Warning);
+        return;
+    }
+    gTerrainOverride = picked, gTerrainOverrideOn = true;
+    if (!gSilent) prefs::setText(L"TerrainOverride", picked.wstring()), prefs::setNumber(L"TerrainOverrideOn", 1);
+    cmbwApplyTerrainOverride();
+    gOptionsView.invalidate();
+    setMessage(L"Temporary override on: maps opened from now on use its terrain rules");
+}
+
 // The file and folder dialogs: SDL's (asynchronous); the call waits for the answer (the host handles events and paints
 // meanwhile). A dialog whose answer comes after the program quits keeps its small state (the callback may still come).
 namespace {

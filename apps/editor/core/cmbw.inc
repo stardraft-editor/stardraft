@@ -321,6 +321,21 @@ void cmbwUseFolderSetting() {
         if (const fs::path in = stardraft::cmbw::installIn(fs::path(saved)); !in.empty()) stardraft::cmbw::useInstall(in);
 }
 
+// Program options > Plugins > Temporary override: a terrain rules file (.sdterrain, the Custom isom terrain editor's)
+// over the built-in rules and the mod's own file (the settings TerrainOverride and TerrainOverrideOn). It applies to
+// the tilesets that load after it is set: maps opened from then on.
+fs::path gTerrainOverride;
+bool gTerrainOverrideOn = false;
+void cmbwApplyTerrainOverride() { stardraft::cmbw::useTerrainOverride(gTerrainOverrideOn ? gTerrainOverride : fs::path()); }
+void cmbwUseTerrainOverrideSetting() {
+    std::wstring saved;
+    int64_t on = 0;
+    if (gSettingsOff) return;
+    if (prefs::text(L"TerrainOverride", saved)) gTerrainOverride = fs::path(saved);
+    prefs::number(L"TerrainOverrideOn", on), gTerrainOverrideOn = on != 0 && !gTerrainOverride.empty();
+    cmbwApplyTerrainOverride();
+}
+
 // The mod's files, opened at the first use (nullptr and `err`: no Cosmonarchy install).
 const GameData* cmbwGameData(std::string& err) {
     static std::unique_ptr<GameData> data;

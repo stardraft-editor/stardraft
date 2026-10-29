@@ -42,6 +42,8 @@ struct OptionsValues {
     std::wstring cmbwFolder;      // Mods: the Cosmonarchy install in use, else the one it opens from
     std::wstring cmbwNext;        // ... the one used from the next start ("": the same)
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
+    bool overrideOn = false;      // ... Temporary override: a terrain rules file over the built-in rules
+    std::wstring overrideFile;    // ... its file ("": none chosen)
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
     int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
@@ -132,13 +134,16 @@ public:
         // Plugins: Cosmonarchy BW, loaded or not (Game Standard or Cosmonarchy: ID_GAME_MODE + 0 or 1, core/cmbw.inc gameMode)
         cmbwPlugin_.setLabel(L"Cosmonarchy BW (CMBW)");
         cmbwPlugin_.onChange = [this](bool on) { host_.command(ID_GAME_MODE + (on ? 1 : 0)); };
+        override_.setLabel(L"Temporary override");
+        override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
+        override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&cmbwPlugin_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -195,9 +200,9 @@ public:
         }
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
-        cmbw_.setReadOnly(true), cmbw_.setTabStop(false);
-        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0});
-        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false);
+        cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
+        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0});
+        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false);
         browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder where StarDraft 2 makes new projects");
         browse_.onClick = [this] { host_.browseWorkingFolder(); };
         defaultFolder_.setText(L"Default"), defaultFolder_.setTip(L"Documents\\StarDraft");
@@ -206,6 +211,8 @@ public:
         installBrowse_.onClick = [this] { host_.command(ID_OPT_INSTALL); };
         cmbwBrowse_.setText(L"Browse\x2026"), cmbwBrowse_.setTip(L"Select the Cosmonarchy BW folder");
         cmbwBrowse_.onClick = [this] { host_.command(ID_OPT_CMBWFOLDER); };
+        overrideBrowse_.setText(L"Browse\x2026"), overrideBrowse_.setTip(L"Select a terrain rules file (*.sdterrain)");
+        overrideBrowse_.onClick = [this] { host_.command(ID_OPT_TERRAINOVERRIDEFILE); };
         check_.setText(L"Check now"), check_.setTip(L"Look for a newer release now");
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };
         restart_.setText(L"Restart now"), restart_.setTip(L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
@@ -220,7 +227,7 @@ public:
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
         // The tabs (showTabStrip): fixed pages, in the order of kTabs.
         std::vector<stardraft::kit::Tab> tabs;
         for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
@@ -360,7 +367,7 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
     int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_ - contentTop_)); }
@@ -396,14 +403,14 @@ private:
 
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
-    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, reset_, maps_, close_;
+    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, cmbwPlugin_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, cmbwPlugin_, override_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_;
+    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -449,7 +456,8 @@ void OptionsView::sync(const OptionsValues& v) {
         crashChosen_ = crash;
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
-    cmbwPlugin_.setOn(v.gameMode == 1);
+    cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
+    if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
     accents_ = v.accents;
     lastProject_.setOn(v.openLast), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
@@ -774,6 +782,18 @@ void OptionsView::paint(draw::Canvas& c) {
              !v.cmbwNext.empty() ? L"From the next start: " + v.cmbwNext
              : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used from the next start")
                                  : std::wstring(L"The Prerelease or Release folder"));
+        y += scale(20);
+        // Temporary override: a terrain rules file over the built-in rules (the maps opened from then on).
+        checkRow(y, override_, "plugin.override");
+        y += rowH;
+        const int ow = overrideBrowse_.preferredWidth(c);
+        const draw::Rect of{x0 + scale(24), fieldTop(y), colRight - ow - gap, fieldTop(y) + fieldH};
+        place(overrideFile_, of, true);
+        const int oy = buttonTop(y);
+        place(overrideBrowse_, {colRight - ow, oy, colRight, oy + btnH}, true);
+        parts_["overridefile"] = {colRight - ow, oy, colRight, oy + btnH};
+        y += rowH;
+        note(x0 + scale(24), y - scale(4), L"Maps opened after a change use the file's terrain rules");
         y += scale(20) + pad;
     }
 

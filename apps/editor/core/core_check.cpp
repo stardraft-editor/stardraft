@@ -77,6 +77,7 @@
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/mods/terrain_rules.h"
 #include "stardraft/pathing.h"
 #include "stardraft/pathing_regions.h"
 #include "stardraft/portraits.h"  // the briefing's portraits (core/views_briefing.inc)

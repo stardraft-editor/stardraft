@@ -272,6 +272,7 @@ public:
             v.cmbwFolder = mod.empty() ? std::wstring() : mod.wstring();
             v.cmbwOpen = !gCmbwInUse.empty();
             v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
+            v.overrideOn = gTerrainOverrideOn, v.overrideFile = gTerrainOverride.wstring();
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();

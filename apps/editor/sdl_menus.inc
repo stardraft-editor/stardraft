@@ -245,6 +245,8 @@ bool sdlRuns(int id) {
     case ID_VIEW_LOG:
     case ID_OPT_INSTALL:
     case ID_OPT_CMBWFOLDER:
+    case ID_OPT_TERRAINOVERRIDE:
+    case ID_OPT_TERRAINOVERRIDEFILE:
     case ID_SCEN_CHECK:
     case ID_RECENT_CLEAR_MAPS:
     case ID_RECENT_CLEAR_PROJECTS:
@@ -1490,6 +1492,8 @@ void commandSdl(int id) {
     case ID_VIEW_LOG: gLogPane.setExpanded(!gLogPane.expanded()); return;
     case ID_OPT_INSTALL: shellChooseInstallFolder(); return;
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
+    case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
+    case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
     case ID_SCEN_CHECK: {
         const std::wstring problems = playabilityText();
         if (problems.empty()) setMessage(L"StarCraft can start this map");

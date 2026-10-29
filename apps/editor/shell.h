@@ -198,6 +198,9 @@ void shellChooseInstallFolder();
 // Program options > Cosmonarchy folder's Browse: the folder of the Cosmonarchy BW install (Prerelease, Release or the
 // Cosmonarchy folder that holds them), at once when the mod's data is not open yet, else from the next start.
 void shellChooseCmbwFolder();
+// Program options > Plugins > Temporary override: on or off, and Browse (a terrain rules file).
+void shellToggleTerrainOverride();
+void shellChooseTerrainOverride();
 // A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.
 std::wstring shellPickFolder(const std::wstring& title);
 // The file that Build writes (a .scx), `name` the file name to start with: the file, or empty when none is picked.
