@@ -136,17 +136,7 @@ struct PanelTabsView final : stardraft::draw::View {
             }
             return true;
         }
-        case MouseKind::Wheel: {  // the next (or the one before) of this side's tabs, round again at the ends
-            if (e.horizontal) return false;
-            const std::vector<Mode> ms = modes();
-            if (ms.empty()) return true;
-            int k = int(std::find(ms.begin(), ms.end(), gPanelTab[side]) - ms.begin());
-            const int n = int(ms.size());
-            k = ((k + (e.wheel > 0 ? -1 : 1)) % n + n) % n;
-            setMode(ms[size_t(k)]);
-            return true;
-        }
-        default: return false;
+        default: return false;  // (the wheel does not change the tab)
         }
     }
     Cursor cursor(Point p) override { return tabAt(p) >= 0 ? Cursor::Hand : Cursor::Arrow; }
