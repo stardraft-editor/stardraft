@@ -153,7 +153,7 @@ ClassicTriggers crigExpand(const ClassicTriggers& t, StringTable& strings, std::
 // The trigger comment lines that the game would not read as the mapper meant (for a check before a save): each problem as
 // "Trigger <n>: "<line>": <what>". A line whose first word has a "_" and is one letter off a command's name (a typo: the
 // game skips the line). Values are not checked: the game reads them more loosely than its documentation says (the mod's
-// 416 maps, cmbw_crig_check). Turned-off Comments are left out.
+// 416 maps). Turned-off Comments are left out.
 std::vector<std::string> crigProblems(const Chk& chk);
 // What the editor knows of a map for the checks of a line's values.
 struct CrigMapInfo {

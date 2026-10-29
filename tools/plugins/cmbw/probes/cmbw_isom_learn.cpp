@@ -53,7 +53,7 @@ bool loadCv5(const fs::path& file, uint16_t era, Tileset& ts) {
 
 int main(int argc, char** argv) {
     if (argc < 3) return std::fprintf(stderr, "usage: cmbw_isom_learn <maps folder> <mod tileset folder> [out .inc] [pieces out .inc]\n"), 2;
-    // The game's group counts (cmbw_tiles_probe): the mod's groups from these on are new.
+    // The game's group counts: the mod's groups from these on are new.
     const std::array<unsigned, 8> stock = {1665, 1513, 1265, 1262, 1578, 1520, 1415, 1494};
     const char* files[8] = {"badlands", "platform", "install", "AshWorld", "Jungle", "Desert", "Ice", "Twilight"};
     std::array<Tileset, 8> sets;

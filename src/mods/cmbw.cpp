@@ -966,8 +966,7 @@ const ModTerrainSet kModTerrainSets[] = {
       {1475, {140, 142, 144}, 5, 0}, {1475, {146, 148, 150}, 3, 10}, {1478, {152, 154}, 4, 0}, {1478, {156, 158}, 4, 8}},
      1468, 1469, 0, 2, "Higher Crushed Rock (Higher Dirt)"},
     // Desert: Driedmudedge-highdirt, dried mud on high dirt, made like Ash World's Dirt/Lava block for block; its
-    // stand-in is High Sand Dunes (the flat terrain the game borders with High Dirt: its rects are Ash World's + 36,
-    // cmbw_twin), its fill the game's Dried Mud.
+    // stand-in is High Sand Dunes (the flat terrain the game borders with High Dirt: its rects are Ash World's + 36), its fill the game's Dried Mud.
     // (its inner corners are named the other way round: W inner is the game's E inner block, seen on the map)
     {5, "High Dried Mud (High Dirt)", 9, 2, 5,
      {{1716, {228, 230}}, {1718, {232, 234}}, {1722, {240, 242}}, {1720, {236, 238}}, {1724, {244, 246}}, {1726, {248, 250}},
@@ -1093,7 +1092,7 @@ const ModTerrainSet kModTerrainSets[] = {
       {2856, {252, 254}}, {2858, {256, 258}}},
      2842, 2843, 0},
     // Compoundcliff-dirt: compound cliffs on dirt (named, its inner corners the other way round, seen on the map; W and E blocks share groups,
-    // one in subtiles 0-7, the other in 8-15); stand-in High Dirt (Desert's Dirt/High Dirt cliff: cmbw_twin from Ash
+    // one in subtiles 0-7, the other in 8-15); stand-in High Dirt (Desert's Dirt/High Dirt cliff from Ash
     // World's), its roof the game's Compound.
     {5, "Compound (Dirt)", 2, 1, 4,
      {{1740, {38, 36}, 0, 0}, {1740, {42, 40}, 0, 8}, {1742, {44, 46, 48}, 0, 8}, {1742, {50, 52, 54}, 0, 0}, {1745, {56, 58, 60}, 0, 0},
@@ -2159,7 +2158,7 @@ std::string crigArgKind(const CrigArg& a) {
 
 std::string crigValueProblem(const CrigLine& l, size_t k, const CrigMapInfo& map) {
     // (the game reads values loosely: "*" for any, a location by its number or as "(x y ~w ~h)", true and false as
-    // numbers, values left out; the mod's 418 maps, cmbw_crig_values: only what none of them does is marked, but for
+    // numbers, values left out; the mod's 418 maps: only what none of them does is marked, but for
     // set_player_name's names with a space and no quotes (5 lines: the second word goes to ignore_human_name))
     if (!l.command || k >= l.command->args.size() || k >= l.values.size()) return {};
     const CrigArg& a = l.command->args[k];

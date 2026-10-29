@@ -47,8 +47,3 @@ tile: no approximate fills.
    blocks (`cmbw_group_maps`, `cmbw_tile_at`); `fillSubtiles`. Read the maps first.
 5. Missing rects: `cmbw_group_match <P> <map> <mod a-b> <game a-b>` (≈1 = copy).
 6. `cmbw_neighbors`, `cmbw_test`; pin the printed id.
-
-## SCMDraft
-
-`tools/scmdraft/`: `open_cm.ahk`, `paint_save.ahk` (no input); `steps.ahk`, `menus.ahk`, `save.ahk` (real input, user
-away). Compare: `cmbw_map_terrains`, `cmbw_map_diff`.
