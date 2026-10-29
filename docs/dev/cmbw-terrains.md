@@ -79,7 +79,9 @@ The palette shows each mod terrain with its fill pieces (src/previews.cpp terrai
 2. `cmbw_test` on each tileset's map and `cmbw_stroke_bench <Prerelease> <map> --all` (the slowest stroke beside each
    terrain).
 3. The report for the mod's team: `python tools/plugins/cmbw/cmbw_report.py --install <Prerelease> --bin build/Release
-   --out <stardraft-editor.github.io>/cosmonarchy --raw <a new empty folder>`, then commit the folder in the website
+   --out <stardraft-editor.github.io>/cosmonarchy --raw <a new empty folder>`, then
+   `python tools/plugins/cmbw/cmbw_atlas.py <stardraft-editor.github.io>/cosmonarchy` (the pictures in a few sheets, so
+   the page is not rate limited), then commit the folder in the website
    repository (it is served at https://stardraft-editor.github.io/cosmonarchy/). For each terrain: the game border it is
    made as, its required pieces (the rects most sets of that border have: edges, outer and inner corners) and the
    missing ones, its variations, and the extra rects it lacks (thin, single and concave shapes: the game's tiles to
