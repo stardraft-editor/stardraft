@@ -2622,3 +2622,10 @@ The pie palette has no terrains for this tileset	饼状调色板中没有此图�
 Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	请先选择 StarCraft 文件夹（上方的“浏览”）：新地图需要游戏文件
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 需要 StarCraft 的游戏文件才能打开地图。请在开始页面选择 StarCraft 文件夹（浏览）。
 Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面：浏览）：新地图需要游戏文件
+Reset all program settings…	重置所有程序设置…
+Every program setting gets its default value, and StarDraft 2 starts again (a question first)	所有程序设置恢复为默认值，然后 StarDraft 2 重新启动（会先询问）
+Your maps, projects and recent lists stay as they are	您的地图、项目和最近列表保持不变
+Reset all program settings	重置所有程序设置
+Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	所有程序设置将恢复为默认值，StarDraft 2 将重新启动。您的地图、项目和最近列表保持不变。
+&Reset and restart	重置并重新启动(&R)
+The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。

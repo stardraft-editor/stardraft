@@ -2624,6 +2624,13 @@ constexpr UiText kRows[] = {
     {L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files", L"\uBA3C\uC800 StarCraft \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694(\uC704\uC758 \uCC3E\uC544\uBCF4\uAE30): \uC0C8 \uB9F5\uC5D0\uB294 \uAC8C\uC784 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4"},
     {L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).", L"StarDraft 2\uC5D0\uC11C \uB9F5\uC744 \uC5F4\uB824\uBA74 StarCraft \uAC8C\uC784 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uC2DC\uC791 \uD398\uC774\uC9C0\uC5D0\uC11C StarCraft \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694(\uCC3E\uC544\uBCF4\uAE30)."},
     {L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files", L"\uBA3C\uC800 StarCraft \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694(\uC2DC\uC791 \uD398\uC774\uC9C0: \uCC3E\uC544\uBCF4\uAE30): \uC0C8 \uB9F5\uC5D0\uB294 \uAC8C\uC784 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4"},
+    {L"Reset all program settings\u2026", L"\uBAA8\uB4E0 \uD504\uB85C\uADF8\uB7A8 \uC124\uC815 \uCD08\uAE30\uD654\u2026"},
+    {L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)", L"\uBAA8\uB4E0 \uD504\uB85C\uADF8\uB7A8 \uC124\uC815\uC774 \uAE30\uBCF8\uAC12\uC774 \uB418\uACE0 StarDraft 2\uAC00 \uB2E4\uC2DC \uC2DC\uC791\uB429\uB2C8\uB2E4(\uBA3C\uC800 \uD655\uC778\uD569\uB2C8\uB2E4)"},
+    {L"Your maps, projects and recent lists stay as they are", L"\uB9F5, \uD504\uB85C\uC81D\uD2B8, \uCD5C\uADFC \uBAA9\uB85D\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4"},
+    {L"Reset all program settings", L"\uBAA8\uB4E0 \uD504\uB85C\uADF8\uB7A8 \uC124\uC815 \uCD08\uAE30\uD654"},
+    {L"Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.", L"\uBAA8\uB4E0 \uD504\uB85C\uADF8\uB7A8 \uC124\uC815\uC774 \uAE30\uBCF8\uAC12\uC774 \uB418\uACE0 StarDraft 2\uAC00 \uB2E4\uC2DC \uC2DC\uC791\uB429\uB2C8\uB2E4. \uB9F5, \uD504\uB85C\uC81D\uD2B8, \uCD5C\uADFC \uBAA9\uB85D\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4."},
+    {L"&Reset and restart", L"\uCD08\uAE30\uD654 \uD6C4 \uB2E4\uC2DC \uC2DC\uC791(&R)"},
+    {L"The program settings have their default values. Close StarDraft 2 and start it again to use them.", L"\uD504\uB85C\uADF8\uB7A8 \uC124\uC815\uC774 \uAE30\uBCF8\uAC12\uC774 \uB418\uC5C8\uC2B5\uB2C8\uB2E4. StarDraft 2\uB97C \uB2EB\uACE0 \uB2E4\uC2DC \uC2DC\uC791\uD558\uBA74 \uC801\uC6A9\uB429\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

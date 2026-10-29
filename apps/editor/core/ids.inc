@@ -82,6 +82,7 @@ enum : int {
     ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
     ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
+    ID_OPT_RESETALL = 1045,    // Program options > General > Reset all program settings (a question, then a restart)
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry

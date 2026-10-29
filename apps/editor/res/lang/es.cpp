@@ -2624,6 +2624,13 @@ constexpr UiText kRows[] = {
     {L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files", L"Primero elija la carpeta de StarCraft (Examinar, arriba): un mapa nuevo necesita los archivos del juego"},
     {L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).", L"StarDraft 2 necesita los archivos del juego StarCraft para abrir un mapa. Elija la carpeta de StarCraft en la p\u00E1gina de inicio (Examinar)."},
     {L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files", L"Primero elija la carpeta de StarCraft (la p\u00E1gina de inicio: Examinar): un mapa nuevo necesita los archivos del juego"},
+    {L"Reset all program settings\u2026", L"Restablecer toda la configuraci\u00F3n del programa\u2026"},
+    {L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)", L"Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia (primero se pregunta)"},
+    {L"Your maps, projects and recent lists stay as they are", L"Sus mapas, proyectos y listas recientes no cambian"},
+    {L"Reset all program settings", L"Restablecer toda la configuraci\u00F3n del programa"},
+    {L"Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.", L"Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia. Sus mapas, proyectos y listas recientes no cambian."},
+    {L"&Reset and restart", L"&Restablecer y reiniciar"},
+    {L"The program settings have their default values. Close StarDraft 2 and start it again to use them.", L"La configuraci\u00F3n del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

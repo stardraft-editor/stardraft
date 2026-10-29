@@ -127,8 +127,9 @@ std::vector<std::wstring> sdlOpenFiles() {
     }
     return files;
 }
-void restartProgramSdl() {
-    confirmQuit([] {
+// StarDraft 2 starts again (its open maps and projects open again) and this one ends; false when it could not start.
+bool restartProcessSdl() {
+    {
         std::error_code ec;
         fs::path self = stardraft::platform::programFile();  // the program's own file
         if (self.empty()) self = fs::absolute(fs::path(gSelfPath), ec);
@@ -140,11 +141,35 @@ void restartProgramSdl() {
         const std::uintptr_t p = sdlStartProgram(self, fs::current_path(ec), L"--restart " + std::to_wstring(shellProcessId()), L"StarDraft 2", error);
         if (!p) {
             prefs::remove(L"Reopen");
-            setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
-            return;
+            return false;
         }
         shellProcessClose(p);  // (the new program goes on; this one ends)
         quitNow();
+        return true;
+    }
+}
+void restartProgramSdl() {
+    confirmQuit([] {
+        if (!restartProcessSdl()) setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
+    });
+}
+
+// Program options > Reset all program settings: a question; then (each changed tab asked about, as a quit) every value
+// of the settings file goes but the recent lists, this run saves nothing more (its values would come back), and
+// StarDraft 2 starts again with the default values.
+void resetSettingsSdl() {
+    if (!gRoot || gNoBoxes) return;
+    if (msgbox::ask(*gRoot, shellTr(L"Reset all program settings"),
+                    shellTr(L"Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are."),
+                    {shellTr(L"&Reset and restart"), shellTr(L"Cancel")}, msgbox::Icon::Warning) != 0)
+        return;
+    confirmQuit([] {
+        stardraft::Settings& s = prefs::store();
+        s.reload();
+        for (const std::string& name : s.names())
+            if (name != "RecentMaps" && name != "RecentProjects") s.remove(name);
+        gSettingsOff = true;
+        if (!restartProcessSdl()) setMessage(L"The program settings have their default values. Close StarDraft 2 and start it again to use them.");
     });
 }
 
@@ -153,7 +178,7 @@ void restartProgramSdl() {
 void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
-    return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART ||
+    return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART || id == ID_OPT_RESETALL ||
            id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
@@ -170,6 +195,7 @@ bool sdlOptionsCommand(int id) {
         setMessage(sdlThemeMessage());
         break;
     case ID_OPT_RESTART: restartProgramSdl(); break;
+    case ID_OPT_RESETALL: resetSettingsSdl(); break;
     case ID_MIDDLE_MODE:
     case ID_MIDDLE_MODE + 1:
         prefs::setNumber(L"MiddleDrag", id == ID_MIDDLE_MODE + 1 ? 1 : 0);

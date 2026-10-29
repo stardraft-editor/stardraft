@@ -2624,6 +2624,13 @@ constexpr UiText kRows[] = {
     {L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files", L"\u8BF7\u5148\u9009\u62E9 StarCraft \u6587\u4EF6\u5939\uFF08\u4E0A\u65B9\u7684\u201C\u6D4F\u89C8\u201D\uFF09\uFF1A\u65B0\u5730\u56FE\u9700\u8981\u6E38\u620F\u6587\u4EF6"},
     {L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).", L"StarDraft 2 \u9700\u8981 StarCraft \u7684\u6E38\u620F\u6587\u4EF6\u624D\u80FD\u6253\u5F00\u5730\u56FE\u3002\u8BF7\u5728\u5F00\u59CB\u9875\u9762\u9009\u62E9 StarCraft \u6587\u4EF6\u5939\uFF08\u6D4F\u89C8\uFF09\u3002"},
     {L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files", L"\u8BF7\u5148\u9009\u62E9 StarCraft \u6587\u4EF6\u5939\uFF08\u5F00\u59CB\u9875\u9762\uFF1A\u6D4F\u89C8\uFF09\uFF1A\u65B0\u5730\u56FE\u9700\u8981\u6E38\u620F\u6587\u4EF6"},
+    {L"Reset all program settings\u2026", L"\u91CD\u7F6E\u6240\u6709\u7A0B\u5E8F\u8BBE\u7F6E\u2026"},
+    {L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)", L"\u6240\u6709\u7A0B\u5E8F\u8BBE\u7F6E\u6062\u590D\u4E3A\u9ED8\u8BA4\u503C\uFF0C\u7136\u540E StarDraft 2 \u91CD\u65B0\u542F\u52A8\uFF08\u4F1A\u5148\u8BE2\u95EE\uFF09"},
+    {L"Your maps, projects and recent lists stay as they are", L"\u60A8\u7684\u5730\u56FE\u3001\u9879\u76EE\u548C\u6700\u8FD1\u5217\u8868\u4FDD\u6301\u4E0D\u53D8"},
+    {L"Reset all program settings", L"\u91CD\u7F6E\u6240\u6709\u7A0B\u5E8F\u8BBE\u7F6E"},
+    {L"Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.", L"\u6240\u6709\u7A0B\u5E8F\u8BBE\u7F6E\u5C06\u6062\u590D\u4E3A\u9ED8\u8BA4\u503C\uFF0CStarDraft 2 \u5C06\u91CD\u65B0\u542F\u52A8\u3002\u60A8\u7684\u5730\u56FE\u3001\u9879\u76EE\u548C\u6700\u8FD1\u5217\u8868\u4FDD\u6301\u4E0D\u53D8\u3002"},
+    {L"&Reset and restart", L"\u91CD\u7F6E\u5E76\u91CD\u65B0\u542F\u52A8(&R)"},
+    {L"The program settings have their default values. Close StarDraft 2 and start it again to use them.", L"\u7A0B\u5E8F\u8BBE\u7F6E\u5DF2\u6062\u590D\u4E3A\u9ED8\u8BA4\u503C\u3002\u8BF7\u5173\u95ED StarDraft 2 \u5E76\u91CD\u65B0\u542F\u52A8\u4EE5\u4F7F\u7528\u5B83\u4EEC\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

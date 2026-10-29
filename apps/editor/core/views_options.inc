@@ -79,14 +79,14 @@ namespace optionsview {
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
     kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kPlugins = 1u << 9,
-    kKeyboard = 1u << 10, kAllSections = (1u << 11) - 1,
+    kKeyboard = 1u << 10, kReset = 1u << 11, kAllSections = (1u << 12) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the tab's name (macOS: the toolbar item's label and the window's title)
     unsigned sections;
 };
 inline const Tab kTabs[] = {
-    {L"General", kStart | kAppearance},
+    {L"General", kStart | kAppearance | kReset},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
     {L"Plugins", kPlugins},
@@ -208,11 +208,14 @@ public:
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };
         restart_.setText(L"Restart now"), restart_.setTip(L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
         restart_.onClick = [this] { host_.command(ID_OPT_RESTART); };
+        reset_.setText(L"Reset all program settings\x2026"), reset_.setTone(stardraft::kit::Tone::Danger);
+        reset_.setTip(L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)");
+        reset_.onClick = [this] { host_.command(ID_OPT_RESETALL); };
         maps_.setText(L"Open maps with StarDraft 2"), maps_.setTip(L"Make StarDraft 2 the program that opens .scm and .scx maps");
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &maps_, &close_}) b->setVisible(false);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
         // The tabs (showTabStrip): fixed pages, in the order of kTabs.
         std::vector<stardraft::kit::Tab> tabs;
         for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
@@ -352,7 +355,7 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &maps_, &close_}) out.push_back(b);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
     int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_ - contentTop_)); }
@@ -388,7 +391,7 @@ private:
 
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
-    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, maps_, close_;
+    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::CheckBox lastProject_, cmbwPlugin_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
@@ -620,6 +623,15 @@ void OptionsView::paint(draw::Canvas& c) {
             y += rowH;
         }
         y += pad;
+    }
+
+    // Reset: every program setting back to its default value, then StarDraft 2 starts again (a question first).
+    if (shown & optionsview::kReset) {
+        header(L"Reset");
+        smallAt(reset_, x0, y, "reset");
+        y += rowH;
+        note(x0, y - scale(4), L"Your maps, projects and recent lists stay as they are");
+        y += scale(20) + pad;
     }
 
     // Mouse: what holding the middle button does on the map (the middle button is the only one that moves it).

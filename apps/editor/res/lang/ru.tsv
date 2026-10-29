@@ -2622,3 +2622,10 @@ The pie palette has no terrains for this tileset	В круговой палит�
 Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	Сначала выберите папку StarCraft (Обзор, вверху): для новой карты нужны файлы игры
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	Чтобы открыть карту, StarDraft 2 нужны файлы игры StarCraft. Выберите папку StarCraft на начальной странице (Обзор).
 Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	Сначала выберите папку StarCraft (начальная страница: Обзор): для новой карты нужны файлы игры
+Reset all program settings…	Сбросить все настройки программы…
+Every program setting gets its default value, and StarDraft 2 starts again (a question first)	Все настройки программы получают значения по умолчанию, и StarDraft 2 перезапускается (сначала с вопросом)
+Your maps, projects and recent lists stay as they are	Ваши карты, проекты и списки недавних файлов не меняются
+Reset all program settings	Сброс всех настроек программы
+Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	Все настройки программы получат значения по умолчанию, и StarDraft 2 перезапустится. Ваши карты, проекты и списки недавних файлов не изменятся.
+&Reset and restart	&Сбросить и перезапустить
+The program settings have their default values. Close StarDraft 2 and start it again to use them.	Настройки программы сброшены к значениям по умолчанию. Закройте StarDraft 2 и запустите снова, чтобы их применить.

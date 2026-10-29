@@ -2622,3 +2622,10 @@ The pie palette has no terrains for this tileset	원형 팔레트에 이 타일�
 Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(위의 찾아보기): 새 맵에는 게임 파일이 필요합니다
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2에서 맵을 열려면 StarCraft 게임 파일이 필요합니다. 시작 페이지에서 StarCraft 폴더를 선택하세요(찾아보기).
 Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(시작 페이지: 찾아보기): 새 맵에는 게임 파일이 필요합니다
+Reset all program settings…	모든 프로그램 설정 초기화…
+Every program setting gets its default value, and StarDraft 2 starts again (a question first)	모든 프로그램 설정이 기본값이 되고 StarDraft 2가 다시 시작됩니다(먼저 확인합니다)
+Your maps, projects and recent lists stay as they are	맵, 프로젝트, 최근 목록은 그대로 유지됩니다
+Reset all program settings	모든 프로그램 설정 초기화
+Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	모든 프로그램 설정이 기본값이 되고 StarDraft 2가 다시 시작됩니다. 맵, 프로젝트, 최근 목록은 그대로 유지됩니다.
+&Reset and restart	초기화 후 다시 시작(&R)
+The program settings have their default values. Close StarDraft 2 and start it again to use them.	프로그램 설정이 기본값이 되었습니다. StarDraft 2를 닫고 다시 시작하면 적용됩니다.
