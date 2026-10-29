@@ -120,7 +120,7 @@ std::filesystem::path feedbackWriteFile(const std::wstring& on, const std::wstri
     const std::string summary = narrow(feedbackShort(typed));
     std::ofstream(file, std::ios::binary) << "Feedback on " << narrow(on) << ": " << summary << "\n"
                                           << body << "\n\n---\nOn: " << narrow(on) << "\nWorkspace: " << narrow(where) << "\nStarDraft " STARDRAFT_VERSION_NAME ", "
-                                          << build << ", commit " STARDRAFT_COMMIT "\n" << system << "\n" << reportPluginsLine(true) << "\n";
+                                          << build << ", commit " << stardraft::buildCommit() << "\n" << system << "\n" << reportPluginsLine(true) << "\n";
     return file;
 }
 

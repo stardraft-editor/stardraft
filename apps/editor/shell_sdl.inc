@@ -395,7 +395,7 @@ std::chrono::steady_clock::time_point shellProcessStart() {
     return t0;
 }
 std::wstring shellVersion() { return widen(STARDRAFT_VERSION_NAME); }
-std::wstring shellBuildStamp() { return widen(std::string("built ") + __DATE__ + " " + __TIME__); }
+std::wstring shellBuildStamp() { return widen(std::string("built ") + stardraft::buildTime()); }
 // The main window's title only: a dialog window (Program options, About, Block help) keeps its own.
 void shellSetTitle(const std::wstring& title) {
     SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;

@@ -96,9 +96,7 @@
 #include <signal.h>  // kill (shell_sdl_win.inc)
 #include <unistd.h>  // getpid (shell_sdl_win.inc: the processes that still run)
 #endif
-#if __has_include("build_info.h")
-#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake): Check for updates compares it with the release's
-#endif
+#include "build_stamp.h"  // apps/common: the build's commit and time (core/releases.inc, shell_sdl.inc)
 #include "dialog.h"  // apps/kit: the map pages' pickers (sdl_map_pages.inc)
 #include "label.h"  // apps/kit: the block dialog's text (core/views_classic_batch.inc)
 #include "link.h"   // apps/kit: the Classic trigger head's comment (core/views_classic_triggers.inc)

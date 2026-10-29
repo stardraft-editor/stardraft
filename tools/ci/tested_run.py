@@ -20,6 +20,7 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "stardraft-editor/stardraft")
 # The jobs whose files a release has, or that test them: each one must have passed (not skipped).
 REQUIRED = {"windows", "macos", "linux-appimage", "linux", "linux-clang"}
 # Not waited for: linux-data (now in data.yml; its runner is usually off); wine only reports (continue-on-error).
+# (The job extras only decides whether the heavy extras run: it must pass.)
 IGNORED = {"linux-data", "wine"}
 VERSIONS = ("windows", "macos")  # (the jobs that build with the version name: build-version-<job>-<commit>)
 
@@ -54,7 +55,9 @@ def state(run):
     bad = [f"{j['name']} {j['conclusion']}" for j in jobs if j["conclusion"] not in ("success", "skipped")]
     branch = run["head_branch"] or ""
     required = set(REQUIRED)
-    if branch in ("main", "port/kit"):  # (the heavy extras run there: a job that waits for another is listed late)
+    # The heavy extras (build.yml's job extras): a release takes a run of master or port/kit only when they passed (a job
+    # that waits for another is listed late; on master they run for a release's commit pushed with its tag).
+    if branch in ("master", "port/kit"):
         required |= {"flatpak", "linux-appimage-run (ubuntu-22.04)", "linux-appimage-run (ubuntu-rolling)"}
     if branch == "port/kit" or branch.startswith("port/t-"):
         required.add("release-test-macos")

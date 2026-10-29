@@ -6,11 +6,14 @@
 # snapshots), linux-appimage (the AppImage), macos (the app and its disk image). Most tests need a StarCraft:
 # Remastered install, so they are not run here (.github/workflows/data.yml: a self-hosted runner with the game data,
 # off by default; a workflow of its own, so that a release never waits for that runner).
-# The heavy extras (flatpak, linux-appimage-run, wine) run only on port/kit, master, tags and runs by hand; the
-# release test of the macOS app (release-test-macos) only on port/kit, the port/t-* branches and by hand.
+# The heavy extras (flatpak, linux-appimage-run, wine) run on port/kit, tags and runs by hand, and on a push to master
+# only for a release's commit or a change to what they build (the job extras; .github/workflows/nightly.yml runs them
+# each night for master's newest commit when no run had them). The release test of the macOS app (release-test-macos):
+# only on port/kit, the port/t-* branches and by hand.
 # A compiler cache in each build job (Windows: sccache; Linux and macOS: ccache), kept with actions/cache: each run
 # takes the newest cache that it can see (its own branch's, else master's), and the pushes to master, port/kit and the
-# port/ci-* branches keep their caches for the next runs (docs/dev/DEVELOPING.md, "CI").
+# port/ci-* branches keep their caches for the next runs (docs/dev/DEVELOPING.md, "CI"); .github/workflows/caches.yml
+# then removes the branch's older ones.
 # A release tag's version: tools/ci/version_name.sh (a push of a tagged commit builds it as that version).
 name: Build
 
@@ -536,11 +539,46 @@ jobs:
           path: ${{ runner.temp }}/ccache
           key: ccache-appimage-${{ github.run_id }}-${{ github.run_attempt }}
 
+  # Whether the heavy extras run (flatpak, linux-appimage-run, wine: about 10 runner minutes, and wine waits for the
+  # windows job): on port/kit, tags (release.yml's build), runs by hand (also nightly.yml's), and on a push to master
+  # only for a release's commit (a v* tag on GitHub: tools/ci/version_name.sh, or a ci-test-* tag; a release takes a run
+  # of master only when they passed, tools/ci/tested_run.py, else it builds the commit again with them) or a change to
+  # what they build or start (the packaging, the CMake files, the renderer, this file).
+  extras:
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.which.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+      - name: Run the extras?
+        id: which
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          run=false
+          case "$GITHUB_EVENT_NAME:$GITHUB_REF" in
+            workflow_dispatch:*|*:refs/tags/*|push:refs/heads/port/kit) run=true ;;
+            push:refs/heads/master)
+              if [ -n "$(bash tools/ci/version_name.sh)" ] ||
+                 [ -n "$(git ls-remote --tags origin 'ci-test-*' | awk -v sha="$GITHUB_SHA" '$1 == sha')" ]; then
+                run=true; echo "a release's commit (or a ci-test tag's)"
+              elif ! git fetch -q --depth=1 origin "$BEFORE"; then
+                run=true; echo "no commit before this push to compare with"
+              else
+                changed=$(git diff --name-only "$BEFORE" HEAD |
+                          grep -E '^(packaging/|cmake/|CMakeLists\.txt$|tools/ci/linux_appimage\.sh$|src/render/|shaders/|\.github/workflows/build\.yml$)' || true)
+                if [ -n "$changed" ]; then run=true; echo "changed:"; echo "$changed"; fi
+              fi ;;
+          esac
+          echo "run=$run" | tee -a "$GITHUB_OUTPUT"
+
   # The AppImage starts on the oldest and on the newest Ubuntu (a container of ubuntu:rolling): a snapshot without a
   # window (Vulkan on the CPU: lavapipe), and what the program finds of the desktop (--check desktop).
   linux-appimage-run:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
-    needs: linux-appimage
+    if: needs.extras.outputs.run == 'true'
+    needs: [extras, linux-appimage]
     strategy:
       fail-fast: false
       matrix:
@@ -594,7 +632,8 @@ jobs:
   # The Flatpak (packaging/flatpak): built with flatpak-builder in the Freedesktop runtime, as Flathub builds it, and
   # kept with the run as a bundle (flatpak install --user stardraft.flatpak).
   flatpak:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
+    if: needs.extras.outputs.run == 'true'
+    needs: extras
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
@@ -827,8 +866,8 @@ jobs:
   # the system's Vulkan, here lavapipe) and on Direct3D 12 (Wine's vkd3d makes it Vulkan). Only reports: Wine is a
   # stopgap for Linux users, not a release target.
   wine:
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/port/kit' || startsWith(github.ref, 'refs/tags/')
-    needs: windows
+    if: needs.extras.outputs.run == 'true'
+    needs: [extras, windows]
     runs-on: ubuntu-24.04
     continue-on-error: true
     steps:

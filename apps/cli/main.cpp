@@ -46,16 +46,11 @@
 #include "stardraft/mods/cmbw.h"  // (feedback: the plugin's install folder)
 #include "text_codec.h"
 #include "http.h"
-#if __has_include("build_info.h")
-#include "build_info.h"  // STARDRAFT_COMMIT (cmake/build_info.cmake)
-#endif
+#include "build_stamp.h"  // apps/common: the build's commit
 #include "cli_skill.inc"  // kCliSkill: apps/cli/SKILL.md (CMakeLists.txt)
 
 #ifndef STARDRAFT_VERSION_NAME
 #define STARDRAFT_VERSION_NAME "dev"
-#endif
-#ifndef STARDRAFT_COMMIT
-#define STARDRAFT_COMMIT "unknown"
 #endif
 #ifndef STARDRAFT_ISSUES_TOKEN
 #define STARDRAFT_ISSUES_TOKEN ""
@@ -1898,7 +1893,7 @@ static Json cmdFeedback(Session& s) {
     const char* system = "Linux";
 #endif
     const std::string title = "Feedback on stardraft-cli: " + summary;
-    const std::string body = text + "\n\n---\nOn: stardraft-cli\nStarDraft " STARDRAFT_VERSION_NAME ", commit " STARDRAFT_COMMIT "\n" + system + "\n" +
+    const std::string body = text + "\n\n---\nOn: stardraft-cli\nStarDraft " STARDRAFT_VERSION_NAME ", commit " + stardraft::buildCommit() + "\n" + system + "\n" +
                              feedbackPluginsLine() + "\n";
     if (s.args.has("dry-run")) return Obj().add("sent", false).add("title", title).add("body", body);
     std::string token = STARDRAFT_ISSUES_TOKEN;

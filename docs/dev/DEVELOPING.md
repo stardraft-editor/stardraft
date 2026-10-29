@@ -323,7 +323,8 @@ release of a tag. The jobs of build.yml:
 | linux-clang | Clang: all targets; the kit's tests with AddressSanitizer and UndefinedBehaviorSanitizer. |
 | linux-appimage | The AppImage (Ubuntu 22.04, GCC 12). |
 | macos | The app, its checks and tests, the snapshots and the disk image (signed and notarized when the secrets are there). |
-| linux-appimage-run, flatpak, wine | Only on `port/kit`, `main`, tags and runs by hand (Actions > Build > Run workflow). |
+| extras | Whether the three below run: on `port/kit`, tags and runs by hand (Actions > Build > Run workflow), and on a push to `master` only for a commit pushed with its release tag (or a `ci-test-*` tag) or a change to `packaging/`, `cmake/`, `CMakeLists.txt`, `tools/ci/linux_appimage.sh`, `src/render/`, `shaders/` or `build.yml`. |
+| linux-appimage-run, flatpak, wine | Only when the job extras says so. Each night `.github/workflows/nightly.yml` starts build.yml on `master` (a run by hand) when no run had them for its newest commit. |
 | release-test-macos | Only on `port/kit`, the `port/t-*` branches and runs by hand. |
 
 The tests with the game data (the job linux-data, on the owner's self-hosted runner: repository variable
@@ -332,31 +333,36 @@ runner.
 
 - A push that changes only docs (`docs/`, `*.md`) starts no run. `README.md`, `docs/user/CHANGELOG.md` (the UI text
   check reads them), `docs/user/images/` and `tools/preview_notes.md` (a release reads them) still start one.
-- A newer push to a branch stops the older run of that branch. Runs of `main` and of tags always go to their end.
+- A newer push to a branch stops the older run of that branch. Runs of `master` and of tags always go to their end.
 - Compiler caches: sccache on Windows (the editor has `/Z7`: the debug information is in each .obj, so sccache can keep
   it; the linker still writes `StarDraft 2.pdb`), ccache on Linux, macOS and the AppImage. Each job keeps its cache with
   actions/cache (`sccache-windows-`, `ccache-linux-gcc-`, `ccache-linux-clang-`, `ccache-appimage-`, `ccache-macos-`
-  and the run's id). A run takes the newest cache that GitHub lets it see: its own branch's, else `main`'s. Only the
-  pushes to `main`, `port/kit` and the `port/ci-*` branches save a cache (GitHub keeps 10 GB for each repository and
-  removes the oldest). The step "The compiler cache" shows the hits and misses. `main_sdl.cpp` is compiled again in
-  each run: it has the build's time (`__DATE__`, `__TIME__`) and its commit (`build_info.h`).
+  and the run's id). A run takes the newest cache that GitHub lets it see: its own branch's, else `master`'s. Only the
+  pushes to `master`, `port/kit` and the `port/ci-*` branches save a cache, and after their run
+  `.github/workflows/caches.yml` removes the branch's older ones of each kind (a run reads only the newest; GitHub keeps
+  10 GB for each repository and removes the oldest). The step "The compiler cache" shows the hits and misses. The
+  build's commit (`build_info.h`) and time (`__DATE__`, `__TIME__`) are only in `apps/common/build_stamp.cpp` and
+  `apps/editor/build_time.cpp`, so the cache keeps `main_sdl.cpp` when none of its files changed.
 - `main_sdl.cpp` is one translation unit (it includes the editor's 45,000 lines of .inc files into one anonymous
   namespace). It is not split: the parts share internal functions and state, and a split needs headers for all of
   them.
 
 **Releases from the tested build.** A tagged commit's push builds as that version (`tools/ci/version_name.sh`:
-`release.py publish` pushes `main` and the tag together, so the push run sees the tag). The job `tested` of
+`release.py publish` pushes `master` and the tag together, so the push run sees the tag, and its job extras runs the
+heavy extras). The job `tested` of
 release.yml finds build.yml's push run of the tag's commit (`tools/ci/tested_run.py`: the run's `head_sha` is the
 tag's commit, all its jobs passed, and its `build-version-windows-<commit>` and `build-version-macos-<commit>` files
 name the tag's version). It waits while that run is not done. Then the job `release` downloads that run's files (their
 artifact names have the commit too; the job checks that `StarDraft 2.exe` names the commit and that the pdb matches it)
 and only packs, attaches and posts (`tools/ci/release_make.ps1`). With no such run (a tag on a commit that was pushed
-before the tag, a preview tag pushed after its branch, a run that failed or was stopped), release.yml builds and tests
+before the tag, a preview tag pushed after its branch, a run of `master` without the heavy extras, a run that failed or
+was stopped), release.yml builds and tests
 the commit itself (build.yml as a called workflow) and releases those files. For a fast preview, push the branch and
 its tag together: `git push --atomic origin port/kit v<version>-preview.<n>`.
 
-A test of the release path: a tag `ci-test-<n>` (or `ci-test-<n>-preview`) on a commit with a passed push run makes the
-same release as a draft (the version is the changelog's newest), with the macOS and Linux files and no Discord post.
+A test of the release path: a tag `ci-test-<n>` (or `ci-test-<n>-preview`) on a commit with a passed push run (on
+`master`: push the branch and the tag together, `git push --atomic origin master ci-test-<n>`, so that the run has the
+heavy extras) makes the same release as a draft (the version is the changelog's newest), with the macOS and Linux files and no Discord post.
 Check its files, then delete it and its symbols: `gh release delete ci-test-<n> --yes --cleanup-tag` and
 `gh release delete symbols-ci-test-<n> --yes`.
 

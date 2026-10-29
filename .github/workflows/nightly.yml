@@ -1,0 +1,34 @@
+# Each night: the heavy extras of build.yml (flatpak, linux-appimage-run, wine) for master's newest commit, when no Build
+# run had them for it. A push to master runs them only for a release's commit or a change to what they build (build.yml,
+# the job extras); this run by hand of build.yml runs them, and all the other jobs.
+name: Nightly
+
+on:
+  schedule:
+    - cron: '23 3 * * *'  # (03:23 UTC)
+  workflow_dispatch:
+
+permissions:
+  actions: write  # to start build.yml
+  contents: read
+
+jobs:
+  extras:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Start Build on master when its newest commit had no run with the extras
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sha=$(gh api "repos/$GH_REPO/commits/master" --jq .sha)
+          for run in $(gh api "repos/$GH_REPO/actions/workflows/build.yml/runs?head_sha=$sha&per_page=30" --jq '.workflow_runs[].id'); do
+            # (a flatpak job that ran, or runs now: passed or failed, the extras were there)
+            if [ -n "$(gh api "repos/$GH_REPO/actions/runs/$run/jobs?per_page=100" \
+                  --jq '.jobs[] | select(.name == "flatpak" and .conclusion != "skipped" and .conclusion != "cancelled") | .id')" ]; then
+              echo "run $run of ${sha:0:7} had the extras"
+              exit 0
+            fi
+          done
+          gh workflow run build.yml --ref master
+          echo "started Build on master (${sha:0:7}) with the extras" | tee -a "$GITHUB_STEP_SUMMARY"

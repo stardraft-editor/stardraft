@@ -292,7 +292,7 @@ add_executable(sim_test tools/tests/sim_test.cpp)
 target_link_libraries(sim_test PRIVATE stardraft_sim)
 
 # The editor without a window, for scripts and agents (docs/dev/CLI.md). It needs no GPU and no SDL.
-add_executable(stardraft_cli apps/cli/main.cpp $<$<BOOL:${WIN32}>:apps/common/install_win32.cpp>)
+add_executable(stardraft_cli apps/cli/main.cpp apps/common/build_stamp.cpp $<$<BOOL:${WIN32}>:apps/common/install_win32.cpp>)
 set_target_properties(stardraft_cli PROPERTIES OUTPUT_NAME stardraft-cli)
 target_include_directories(stardraft_cli PRIVATE src apps/common)
 target_link_libraries(stardraft_cli PRIVATE stardraft)
@@ -440,8 +440,17 @@ endif()
 # --- The build's commit and the issues token -----------------------------------------------------------------
 # Crash reports: the commit, and the token that sends them to GitHub as issues (CI gives it; see core/releases.inc).
 # The commit: each build writes it into generated/build_info.h (cmake/build_info.cmake), so a build after a new
-# commit names that commit with no configure step.
+# commit names that commit with no configure step. Only apps/common/build_stamp.cpp reads it, and only
+# apps/editor/build_time.cpp has the build's time (__DATE__, __TIME__): main_sdl.cpp and the CLI's main.cpp stay the
+# same after a commit, so a compiler cache keeps them. build_time.cpp compiles again after a new commit and when a file
+# of apps/editor changes: it includes generated/build_time.h, an empty file that this step touches then (OBJECT_DEPENDS:
+# Visual Studio's projects do not use it for a .cpp file).
 set(STARDRAFT_BUILD_INFO ${CMAKE_BINARY_DIR}/generated/build_info.h)
+file(GLOB_RECURSE editorSources CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/editor/*.cpp ${CMAKE_SOURCE_DIR}/apps/editor/*.inc ${CMAKE_SOURCE_DIR}/apps/editor/*.h)
+list(FILTER editorSources EXCLUDE REGEX "/build_time\\.cpp$")
+set(STARDRAFT_BUILD_TIME ${CMAKE_BINARY_DIR}/generated/build_time.h)
+add_custom_command(OUTPUT ${STARDRAFT_BUILD_TIME} COMMAND ${CMAKE_COMMAND} -E touch ${STARDRAFT_BUILD_TIME}
+                   DEPENDS ${STARDRAFT_BUILD_INFO} ${editorSources} VERBATIM)
 add_custom_target(stardraft_build_info COMMAND ${CMAKE_COMMAND} -DSTARDRAFT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
                   -DSTARDRAFT_BUILD_INFO=${STARDRAFT_BUILD_INFO} -P ${CMAKE_SOURCE_DIR}/cmake/build_info.cmake
                   BYPRODUCTS ${STARDRAFT_BUILD_INFO} VERBATIM)  # Ninja reads the header again after the step
@@ -618,7 +627,7 @@ if(STARDRAFT_RENDERER)
     set(sdlEditor stardraft_editor)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
-                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp)
+                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)

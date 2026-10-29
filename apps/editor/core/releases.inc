@@ -3,16 +3,10 @@
 // whether it is newer than this build, the download and the placing of a release (Help > Check for updates), and the
 // crash reports' texts and their sending at start. The Windows program's crash.inc and update.inc and the SDL
 // program's sdl_updates.inc call them; what the user is asked stays in each program. The requests are apps/common's
-// (http.h), the self-update's file steps too (update.h, crash_report.h).
+// (http.h), the self-update's file steps too (update.h, crash_report.h). The build's commit: build_stamp.h.
 
-#if __has_include("build_info.h")
-#include "build_info.h"  // STARDRAFT_COMMIT, written on each build (cmake/build_info.cmake)
-#endif
 #ifndef STARDRAFT_VERSION_NAME
 #define STARDRAFT_VERSION_NAME "dev"
-#endif
-#ifndef STARDRAFT_COMMIT
-#define STARDRAFT_COMMIT "unknown"
 #endif
 #ifndef STARDRAFT_ISSUES_TOKEN
 #define STARDRAFT_ISSUES_TOKEN ""
@@ -258,9 +252,6 @@ inline long long isoSeconds(const std::string& t) {
     return (era * 146097 + doe - 719468) * 86400 + h * 3600 + mi * 60 + s;
 }
 
-#ifndef STARDRAFT_COMMIT_TIME
-#define STARDRAFT_COMMIT_TIME 0  // (no git: unknown)
-#endif
 // Whether the release is newer than this build. A release build (a version of numbers) compares the numbers. Another
 // build (a CI build of a commit, a build made here) is older than the release when its commit is older than the
 // release's publishing: a build of a later commit is never offered the older release (its Install would go back).
@@ -272,7 +263,7 @@ inline bool newerThan(const Release& r, const std::string& version, const std::s
     if (commitTime > 0 && published > 0) return published > commitTime;
     return true;
 }
-inline bool newer(const Release& r) { return newerThan(r, STARDRAFT_VERSION_NAME, STARDRAFT_COMMIT, (long long)STARDRAFT_COMMIT_TIME); }
+inline bool newer(const Release& r) { return newerThan(r, STARDRAFT_VERSION_NAME, stardraft::buildCommit(), stardraft::buildCommitTime()); }
 
 // --- The release notes (the release notes window, views_changelog.inc) ------------------------------------------------
 
@@ -519,7 +510,7 @@ inline std::wstring crashModeMessage(int mode) {
 
 // The report's first lines: the program, its build and commit, the system and the video card.
 inline std::string crashHeader(const std::string& build, const std::wstring& gpu) {
-    return "StarDraft " STARDRAFT_VERSION_NAME ", " + build + ", commit " STARDRAFT_COMMIT "\n" + stardraft::platform::systemName() + ", video card: " +
+    return "StarDraft " STARDRAFT_VERSION_NAME ", " + build + ", commit " + stardraft::buildCommit() + "\n" + stardraft::platform::systemName() + ", video card: " +
            narrow(gpu) + "\n" + reportPluginsLine(false) + "\n";
 }
 
