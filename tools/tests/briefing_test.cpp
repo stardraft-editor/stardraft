@@ -49,6 +49,18 @@ int main(int argc, char** argv) {
     const auto back = readBriefings(chk2, StringTable::read(chk2));
     const bool same = back == b;
     std::printf("written and read back: %s\n", same ? "same" : "DIFFERENT");
+    // A text message's text shows for its time, then the box is empty; a transmission's stays until the next text.
+    std::vector<BriefingTrigger> made(1);
+    made[0].players[17] = true;
+    BriefingAction msg, wait, tx;
+    msg.type = BriefingAction::TextMessage, msg.text = "a", msg.time = 2000;
+    wait.type = BriefingAction::Wait, wait.time = 3000;
+    tx.type = BriefingAction::Transmission, tx.text = "b", tx.time = 1000;
+    made[0].actions = {msg, wait, tx, wait};
+    const auto mt = briefingTimeline(made, 0, forces);
+    const bool textOk = briefingStateAt(mt, 1000).text == "a" && briefingStateAt(mt, 2500).text.empty() && briefingStateAt(mt, 3500).text == "b" &&
+                        briefingStateAt(mt, 5000).text == "b";
+    std::printf("text message for its time: %s\n", textOk ? "yes" : "NO");
     if (argc > 3) {  // the map with its sounds, to open in the editor
         std::vector<ArchiveFile> files;
         for (const auto& t : b)
@@ -60,5 +72,5 @@ int main(int argc, char** argv) {
         const bool ok = writeMap(argv[3], bytes, files, err);
         std::printf("map written: %s (%zu sounds) %s\n", ok ? "yes" : "NO", files.size(), ok ? "" : err.c_str());
     }
-    return same ? 0 : 1;
+    return same && textOk ? 0 : 1;
 }

@@ -118,7 +118,7 @@ std::vector<BriefingEvent> briefingTimeline(const std::vector<BriefingTrigger>& 
             if (a.disabled()) continue;
             uint32_t len = a.duration();
             if (a.type == BriefingAction::PlayWav) len = a.wavTime;
-            if (a.type == BriefingAction::SpeakingPortrait) len = a.time;
+            if (a.type == BriefingAction::SpeakingPortrait || a.type == BriefingAction::TextMessage) len = a.time;  // (a text shows for its time)
             out.push_back({t, len, int(ti), int(ai), &a});
             t += a.duration();
         }
@@ -138,7 +138,10 @@ BriefingState briefingStateAt(const std::vector<BriefingEvent>& timeline, uint32
         const int slot = std::clamp(a.slot, 0, 3);
         switch (a.type) {
         case BriefingAction::Objectives: s.objectives = a.text; break;
-        case BriefingAction::TextMessage: s.text = a.text, s.textSlot = -1, s.textSince = e.at, s.textFor = a.time; break;
+        case BriefingAction::TextMessage:  // (shown for its time, then the box is empty; a time of 0: until the next text)
+            if (a.time && t >= e.at + a.time) s.text.clear(), s.textSlot = -1;
+            else s.text = a.text, s.textSlot = -1, s.textSince = e.at, s.textFor = a.time;
+            break;
         case BriefingAction::ShowPortrait: s.portraits[size_t(slot)] = {true, a.unit, false, e.at}; break;
         case BriefingAction::HidePortrait: s.portraits[size_t(slot)] = {}; break;
         case BriefingAction::SpeakingPortrait:
