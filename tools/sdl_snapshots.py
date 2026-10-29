@@ -3754,7 +3754,8 @@ def check_find_command(output):
 def check_loading_view(output):
     """None when the loading view lists the open's steps, from reading the scenario to the tab."""
     steps = re.findall(r"^loading: (.+?)   \d+ ms\r?$", output, re.M)
-    want = ["Reading the map file\u2026", "Reading the map's data\u2026", "Loading the units\u2026", "Loading the terrain\u2026", "Making the tab\u2026"]
+    want = ["Extracting scenario.chk from the MPQ\u2026", "Parsing CHK sections\u2026", "Loading units.dat, flingy.dat, sprites.dat, images.dat\u2026",
+            "Loading tileset (CV5, VX4, VR4) and terrain (MTXM, ISOM, UNIT, DD2)\u2026", "Creating tab and minimap\u2026"]
     return None if all(w in steps for w in want) else f"the steps: {steps}"
 
 

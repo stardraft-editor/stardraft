@@ -46,10 +46,10 @@ void loadingEnd() {
 // Each step of the editor's open (Editor::onOpenStep, in its order) a step of the view, the bar from `from` to `to`; the
 // first one starts now.
 void loadingSteps(Editor& ed, float from, float to) {
-    static const std::pair<const char*, const wchar_t*> kSteps[] = {{"read the scenario", L"Reading the map file\x2026"},
-                                                                  {"parse the scenario", L"Reading the map's data\x2026"},
-                                                                  {"unit types and sprites", L"Loading the units\x2026"},
-                                                                  {"terrain, tileset, units", L"Loading the terrain\x2026"}};
+    static const std::pair<const char*, const wchar_t*> kSteps[] = {{"read the scenario", L"Extracting scenario.chk from the MPQ\x2026"},
+                                                                  {"parse the scenario", L"Parsing CHK sections\x2026"},
+                                                                  {"unit types and sprites", L"Loading units.dat, flingy.dat, sprites.dat, images.dat\x2026"},
+                                                                  {"terrain, tileset, units", L"Loading tileset (CV5, VX4, VR4) and terrain (MTXM, ISOM, UNIT, DD2)\x2026"}};
     constexpr int n = int(std::size(kSteps));
     auto at = std::make_shared<int>(0);
     ed.onOpenStep = [at, from, to](const char* what, double ms) {
