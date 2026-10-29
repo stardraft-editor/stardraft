@@ -194,7 +194,7 @@ MenuModel mapMenuModel(float wx, float wy) {
         const int hit = dd ? ed.doodadAt(int(wx), int(wy)) : mapSpriteAt(*app.ed, int(wx), int(wy));
         if (hit >= 0 && std::find(sel.begin(), sel.end(), hit) == sel.end()) sel = {hit};
         (dd ? gMapMenuDoodad : gMapMenuSprite) = hit;
-        has = !sel.empty() || (dd && !app.selBrushes.empty()), canPaste = !(dd ? app.doodadClip : app.spriteClip).empty();
+        has = !sel.empty(), canPaste = !(dd ? app.doodadClip : app.spriteClip).empty();
         break;
     }
     case Mode::Locations: {

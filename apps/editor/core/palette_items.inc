@@ -167,23 +167,11 @@ std::vector<PaletteUnit> paletteItems(AppState& app) {
             PaletteUnit u;
             u.value = d.id;
             // (a Cosmonarchy tab: the mod's texts are not the game's, so its doodad groups' names are not the doodads';
-            // the game's doodads are "Standard", the mod's brushes after them by their sets)
+            // the game's doodads are "Standard"; the mod's brushes are Custom terrain stamps)
             u.section = modTab() ? std::wstring(tr(L"Standard")) : widen(ed.unitTypes().statText(d.groupString - 1u));
             firstId.emplace(d.groupString, d.id);
             u.order = firstId[d.groupString];
             u.label = L"#" + std::to_wstring(d.id) + L"  " + std::to_wstring(d.width) + L" x " + std::to_wstring(d.height);
-            u.hay = lower(u.section + L" " + u.label);
-            out.push_back(std::move(u));
-        }
-        const auto& brushes = brushDoodadList();  // (Cosmonarchy's doodad brushes, after the game's: a section for each set)
-        std::map<std::wstring, int> setOrder;
-        for (size_t i = 0; i < brushes.size(); ++i) {
-            PaletteUnit u;
-            u.value = brushDoodadValue(brushes[i]);
-            const auto [set, own] = brushDoodadParts(*brushes[i]);
-            u.section = set;
-            u.order = setOrder.emplace(set, 100000 + int(setOrder.size())).first->second;
-            u.label = own + L"  " + std::to_wstring(brushes[i]->width) + L" x " + std::to_wstring(brushes[i]->height);
             u.hay = lower(u.section + L" " + u.label);
             out.push_back(std::move(u));
         }

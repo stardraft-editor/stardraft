@@ -45,7 +45,6 @@ void replaceSelectionWith(int v) {
         ed.endStroke();
         setMessage(L"Replaced " + std::to_wstring(n) + L" units with " + paletteItemName(v));
     } else if (app.mode == Mode::Doodads) {
-        if (brushDoodad(v)) return;  // (a Cosmonarchy brush is tiles, not a doodad: nothing to replace with)
         const int asked = int(app.selDoodads.size());
         n = ed.replaceDoodads(app.selDoodads, uint16_t(v), app.doodadCheck);
         app.selDoodads.clear();

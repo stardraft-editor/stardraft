@@ -114,10 +114,6 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
                 art.rgba.assign(size_t(art.width) * size_t(art.height) * 4, 0);
                 ed.unitSprites().drawImage(art, image, 0, false, 0, ed.tileset());
             }
-        } else if (const TerrainStamp* b = brushDoodad(value)) {
-            std::vector<uint16_t> tiles(b->tiles.size());
-            for (size_t i = 0; i < tiles.size(); ++i) tiles[i] = i < b->mask.size() && b->mask[i] ? b->tiles[i] : uint16_t(0xFFFF);
-            art = tilesSprite(ed.tileset(), b->width, b->height, tiles, hd);
         } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(value))) art = doodadPicture(*d, ed.tileset(), ed.unitSprites(), hd);
         if (art.width) s = &art;
     } else {

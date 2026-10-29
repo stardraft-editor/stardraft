@@ -725,9 +725,6 @@ render::Scene buildScene() {
                 outline(s, {tx * 32, ty * 32, (tx + t->width) * 32, (ty + t->height) * 32}, ok ? 0x40FF40FFu : 0xFF4040FFu, 2);
             }
         };
-        for (const AppState::BrushAt& b : app.selBrushes)  // (the selected Cosmonarchy doodad brushes)
-            if (const TerrainStamp* st = brushDoodad(b.value))
-                outline(s, {b.tx * 32, b.ty * 32, (b.tx + st->width) * 32, (b.ty + st->height) * 32}, 0x40FF40FFu, 2);
         for (int i : app.selDoodads)
             if (i >= 0 && i < int(ed.doodads().size())) {
                 const Doodad& sd = ed.doodads()[size_t(i)];
@@ -736,31 +733,12 @@ render::Scene buildScene() {
                 if (app.drag == Drag::MoveDoodad && app.dragMoved) ghost(sd.id, int(sd.x) + int(wx - app.dragWX), int(sd.y) + int(wy - app.dragWY), true);
             }
         if (app.pastingItems)
-            for (const auto& it : app.doodadClip)
-                if (const TerrainStamp* b = brushDoodad(it.id)) {  // (a Cosmonarchy doodad brush: its outline where it would go)
-                    int tx = 0, ty = 0;
-                    placeBrushDoodad(app, *b, wx + float(it.x), wy + float(it.y), &tx, &ty, false);
-                    outline(s, {tx * 32, ty * 32, (tx + b->width) * 32, (ty + b->height) * 32}, 0x40FF40FFu, 2);
-                } else
-                    ghost(it.id, int(wx) + it.x, int(wy) + it.y, true);
+            for (const auto& it : app.doodadClip) ghost(it.id, int(wx) + it.x, int(wy) + it.y, true);
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
     } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn()) {
-        if (const TerrainStamp* b = brushDoodad(app.palette)) {  // (a Cosmonarchy brush: its tiles where they would go)
-            int tx = 0, ty = 0;
-            placeBrushDoodad(app, *b, wx, wy, &tx, &ty, false);
-            std::vector<std::pair<int, uint16_t>> cells;
-            for (int y = 0; y < b->height; ++y)
-                for (int x = 0; x < b->width; ++x)
-                    if (b->has(x, y) && tx + x >= 0 && ty + y >= 0 && tx + x < ed.width() && ty + y < ed.height())
-                        cells.push_back({(ty + y) * ed.width() + tx + x, b->tiles[size_t(y) * b->width + x]});
-            ghostTiles = std::move(cells);
-            const Rect r{tx * 32, ty * 32, (tx + b->width) * 32, (ty + b->height) * 32};
-            const bool ok = !app.doodadCheck || brushDoodadFits(app, *b, tx, ty);  // (as a click places: green where it joins, red where not)
-            s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), ok ? 0x40FF4018u : 0xFF404040u, true});
-            outline(s, r, ok ? 0x40FF40FFu : 0xFF4040FFu, 1.5f);
-        } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
+        if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
             Rect r{tx * 32, ty * 32, (tx + d->width) * 32, (ty + d->height) * 32};

@@ -1,5 +1,5 @@
 // Which of the mod's brush sets are terrains in the isometric list: for each tileset, each set (the brushes' name up to
-// the last "_"; the doodad, swamp and tree sets left out: the Doodads palette has them), its brushes and tiles, and how many
+// the last "_"; the doodad, swamp and tree sets left out: Custom terrain stamps), its brushes and tiles, and how many
 // of its tile groups are pieces of a mod terrain ("done" when most are). For seeing what is left to do.
 // usage: cmbw_set_status <Cosmonarchy install> [era] [maps folder]   (with the maps: how many of their tiles are each set's)
 #include <algorithm>
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
             const std::string set = s.name.substr(0, s.name.rfind('_'));
             Set& st = sets[set];
             ++st.brushes, st.big += s.width > 2 || s.height > 3, st.single += s.width == 2 && s.height == 1;
-            if (s.width > 2 || s.height > 3) continue;  // (a ramp's or cave's groups: a doodad brush, in the Doodads palette)
+            if (s.width > 2 || s.height > 3) continue;  // (a ramp's or cave's groups: a Custom terrain stamp)
             for (size_t i = 0; i < s.tiles.size() && i < s.mask.size(); ++i)
                 if (s.mask[i]) st.groups.insert(uint16_t(s.tiles[i] >> 4));
         }
