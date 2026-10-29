@@ -675,7 +675,7 @@ public:
     bool pickMany(const std::wstring& title, std::vector<ListPickItem> items, std::set<std::string>& checked, draw::Point pt,
                   std::function<void(const std::string&, bool, std::set<std::string>&)> toggle) override {
         ListPickView v(title, std::move(items), "");
-        if (toggle) v.setLive(checked, shellTr(L"Close"), std::move(toggle));
+        if (toggle) v.setLive(checked, shellTr(L"Close"), std::move(toggle)), v.setGroups(true);  // (Columns…: a heading toggles its group)
         else v.setMulti(checked, shellTr(L"OK"));
         const draw::Point o = gSdlDataTable.origin();
         if (!runListPick(v, {o.x + pt.x, o.y + pt.y})) return false;

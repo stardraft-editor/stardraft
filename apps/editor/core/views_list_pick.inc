@@ -113,6 +113,7 @@ constexpr int kButtonW = 96, kButtonH = 26;
 
 // The picker's view. `items`, `current` (the value with the check mark) and `prompt` (the search's placeholder) are the
 // caller's; multi: the multi-pick, with `checked` checked at the start and `okText` on OK.
+
 class ListPickView final : public draw::View {
 public:
     ListPickView(const std::wstring& prompt, std::vector<ListPickItem> items, const std::string& current) : items_(std::move(items)), current_(current) {
@@ -146,6 +147,10 @@ public:
         toggle_ = std::move(toggle);
         cancel_.setVisible(false);
     }
+    // A live multi-pick's section headings in the rows' size, each a row of its own: a click checks every row of the
+    // section (or clears them all when all are checked), as one toggle with the value kListPickGroup + the section's name
+    // (UTF-8); a check at its right when all its rows are checked, a dash when some are (the data table's Columns…).
+    void setGroups(bool on) { groups_ = on; }
     // The icon of an item with one (iconDat and icon): the program's picture of that entry (empty: none).
     std::function<draw::Image(const ListPickItem&)> iconOf;
 
@@ -187,7 +192,21 @@ public:
         fill();
     }
     // Picks the selected row (multi: checks it), as a click or Enter does.
+    // The rows (items) of section heading `heading` (an index into rows_.headings), and how many of them are checked.
+    std::pair<int, int> groupCounts(int heading) const {
+        int all = 0, on = 0;
+        for (const ListPickItem& it : items_)
+            if (it.section == rows_.headings[size_t(heading)]) ++all, on += checked_.count(it.value) != 0;
+        return {all, on};
+    }
     void choose() {
+        if (groups_ && multi_ && toggle_ && sel_ >= 0 && sel_ < int(rows_.shown.size()) && rows_.shown[size_t(sel_)] < 0) {  // a group's heading
+            const int h = -rows_.shown[size_t(sel_)] - 1;
+            const auto [all, on] = groupCounts(h);
+            toggle_(kListPickGroup + narrow(rows_.headings[size_t(h)]), on < all, checked_);
+            invalidate();
+            return;
+        }
         if (sel_ < 0 || sel_ >= int(rows_.shown.size()) || rows_.shown[size_t(sel_)] < 0) return;
         const std::string& value = items_[size_t(rows_.shown[size_t(sel_)])].value;
         if (multi_) {  // checks the row; the list stays open
@@ -262,7 +281,7 @@ public:
         case Key::PageUp: {
             const int step = e.key == Key::Down ? 1 : e.key == Key::Up ? -1 : e.key == Key::PageDown ? 10 : -10;
             int next = std::clamp(sel_ + step, 0, std::max(0, n - 1));
-            while (next >= 0 && next < n && rows_.shown[size_t(next)] < 0) next += step > 0 ? 1 : -1;  // skip headings
+            while (!groups_ && next >= 0 && next < n && rows_.shown[size_t(next)] < 0) next += step > 0 ? 1 : -1;  // skip headings (setGroups: rows too)
             if (next >= 0 && next < n) setSel(next);
             return true;
         }
@@ -358,11 +377,22 @@ private:
     }
 
     // A row: on the window's ground; the selected row a rounded pill; the current value (multi: a checked one) with a
-    // check mark at the right; the typed words in the accent. A section heading: small and dim.
+    // check mark at the right; the typed words in the accent. A section heading: small and dim (setGroups: in the rows'
+    // size, a row to click, with a check when all its rows are checked and a dash when some are).
     void paintRow(draw::Canvas& c, int i, draw::Rect r) {
         const int idx = rows_.shown[size_t(i)];
         // (the native list's pill: its radius was scaled twice, as ui::box scales the radius it is given)
-        if (i == sel_ && idx >= 0) c.roundBox({r.left + scale(2), r.top + scale(1), r.right - scale(2), r.bottom - scale(1)}, kSel, kSel, float(scale(scale(6))));
+        if (i == sel_ && (idx >= 0 || groups_)) c.roundBox({r.left + scale(2), r.top + scale(1), r.right - scale(2), r.bottom - scale(1)}, kSel, kSel, float(scale(scale(6))));
+        if (idx < 0 && groups_) {
+            const int h = -idx - 1;
+            const auto [all, on] = groupCounts(h);
+            const int cs = scale(16), cx = r.right - scale(8) - cs, cy = (r.top + r.bottom - cs) / 2;
+            if (on == all && all > 0) c.icon({cx, cy, cx + cs, cy + cs}, int(UiIcon::Check), kAccent, cs);
+            else if (on > 0) c.fill({cx + scale(3), cy + cs / 2 - scale(1), cx + cs - scale(3), cy + cs / 2 + scale(1)}, kAccent);  // (some: a dash)
+            drawMatched(c, {r.left + scale(10), r.top, cx - scale(6), r.bottom}, rows_.headings[size_t(h)], words_, kAccentBright);
+            c.fill({r.left + scale(10), r.bottom - 1, r.right - scale(10), r.bottom}, kBorder);  // (the line under it: the group's rows follow)
+            return;
+        }
         if (idx < 0) {
             const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));  // (ui::smallFont)
             c.text({r.left + scale(10), r.top + scale(6), r.right - scale(10), r.bottom}, rows_.headings[size_t(-idx - 1)], kDim, draw::kMiddle | draw::kEllipsis);
@@ -389,6 +419,7 @@ private:
     std::string current_, result_;
     std::set<std::string> checked_;
     std::function<void(const std::string&, bool, std::set<std::string>&)> toggle_;  // a live multi-pick: each click acts
+    bool groups_ = false;  // the section headings are rows that check or clear their section (setGroups)
     bool multi_ = false, done_ = false, picked_ = false, laid_ = false;
     int advance_ = 0;
     unsigned pickMods_ = 0;

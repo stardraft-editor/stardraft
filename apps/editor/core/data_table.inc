@@ -46,6 +46,9 @@ std::wstring dataColumnTitle(const DatSchema& sch, const DataTableColumn& col) {
     if (!f) return L"";
     return datLabel(f->name);
 }
+// A live multi-pick's toggle for a whole section (ListPickView::setGroups, the Columns… list): this, then the section's
+// name in UTF-8.
+inline const std::string kListPickGroup = "\x01group:";
 std::wstring dataColumnGroup(const DatSchema& sch, const DataTableColumn& col) {
     if (col.kind == DataCellKind::Name) return L"";
     const DatField* f = dataSchemaField(sch, col.field);

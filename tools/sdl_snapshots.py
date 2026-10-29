@@ -3603,6 +3603,9 @@ CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ct
 # list of "walk" with Walkable ground on (its check box on, the picture).
 CASES += [("map-find-command", ["--key", "Ctrl+P", "--type", "connected areas", "--key", "Enter", "--check", "menus"], "map"),
           ("map-loading-view", ["--loading"], "map"),
+          # The data table's Columns…: the Combat heading (Up from its first column) hides all its columns, then shows them.
+          ("data-columns-group", ["--size", "1400x900", "--untitled", "--workspace", "data", "--data", "units:0", "--key", "Ctrl+E", "--click", "1155,154", "--type", "combat",
+                                  "--key", "Up", "--key", "Space", "--key", "Space", "--key", "Esc"], "data"),
           ("map-find-command-list", ["--size", "1400x900", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+P", "--type", "walk"], "map")]
 
 
@@ -3749,6 +3752,13 @@ def check_overlay_toggles(output):
 def check_find_command(output):
     """None when Enter on the found Connected areas turned that pathing view on (its menu item is checked)."""
     return None if "View > Overlays > Pathing > Connected areas [Ctrl+K, A] (checked)" in output else "Connected areas is not on"
+
+
+def check_columns_group(output):
+    """None when a click on the group's heading hid its columns, and a second one showed them again."""
+    hid = re.search(r"^Hid the (\d+) columns of Combat", output, re.M)
+    showed = re.search(r"^Showed the (\d+) columns of Combat", output, re.M)
+    return None if hid and showed and hid.group(1) == showed.group(1) and int(hid.group(1)) > 1 else "the Combat heading did not hide and show its columns"
 
 
 def check_loading_view(output):
@@ -4368,7 +4378,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
           "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key,
-          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view,
+          "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
           "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),

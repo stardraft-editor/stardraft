@@ -1347,8 +1347,8 @@ inline void DataTableView::hideColumns(const std::vector<int>& cols) {
 
 // Columns…: the list of the .dat's columns (in sections: the field's section, a flag's field), the ones that show
 // checked. A click acts at once: a column that starts to show goes to the right end of the table (so the columns show
-// in the order of the clicks), a column that is unchecked goes. "All columns" and "None" at the top show every column
-// or only the name.
+// in the order of the clicks), a column that is unchecked goes; a click on a section's heading shows all its columns
+// (or hides them, when all show). "All columns" and "None" at the top show every column or only the name.
 inline void DataTableView::pickColumns(draw::Point pt) {
     const DatTable* t = host_.table();
     if (!t) return;
@@ -1378,6 +1378,12 @@ inline void DataTableView::pickColumns(draw::Point pt) {
         } else if (value == "\x01none") {
             for (const DataTableColumn& col : all) dataColumnSetShown(l, sch, col, false);
             what = L"Hid all columns";
+        } else if (value.rfind(kListPickGroup, 0) == 0) {  // a group's heading: all its columns
+            const std::string group = value.substr(kListPickGroup.size());
+            int n = 0;
+            for (const DataTableColumn& col : all)
+                if (col.kind != DataCellKind::Name && narrow(dataColumnGroup(sch, col)) == group) dataColumnSetShown(l, sch, col, on), ++n;
+            what = (on ? L"Showed the " : L"Hid the ") + std::to_wstring(n) + L" columns of " + widen(group);
         } else {
             for (const DataTableColumn& col : all)
                 if (narrow(dataColumnKey(sch, col)) == value) {
@@ -1389,7 +1395,7 @@ inline void DataTableView::pickColumns(draw::Point pt) {
         now = checks();
         host_.status(what);
         refresh();
-        if (on && value != "\x01all")  // a column that shows: at the right end, scrolled to (it may be past the edge)
+        if (on && value != "\x01all" && value.rfind(kListPickGroup, 0) != 0)  // a column that shows: at the right end, scrolled to (it may be past the edge)
             for (int c = 0; c < int(cols_.size()); ++c)
                 if (narrow(dataColumnKey(sch, cols_[size_t(c)])) == value) return revealColumn(c);
     };
