@@ -2596,6 +2596,7 @@ constexpr UiText kRows[] = {
     {L"The rest of the command", L"\uBA85\uB839\uC758 \uB098\uBA38\uC9C0"},
     {L"the values after these, as the command reads them", L"\uC774 \uAC12\uB4E4 \uB4A4\uC758 \uAC12 (\uBA85\uB839\uC774 \uC77D\uB294 \uB300\uB85C)"},
     {L"Plugins", L"\uD50C\uB7EC\uADF8\uC778"},
+    {L"Early feature preview: please report issues", L"\uCD08\uAE30 \uAE30\uB2A5 \uBBF8\uB9AC \uBCF4\uAE30: \uBB38\uC81C\uAC00 \uC788\uC73C\uBA74 \uC54C\uB824 \uC8FC\uC138\uC694"},
     {L"Adjusts StarDraft to work with the CMBW environment when it is loaded", L"\uB85C\uB4DC\uB418\uBA74 StarDraft\uB97C CMBW \uD658\uACBD\uC5D0 \uB9DE\uAC8C \uC870\uC815\uD569\uB2C8\uB2E4"},
     {L"Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)", L"Cosmonarchy BW \uD50C\uB7EC\uADF8\uC778\uC744 \uB85C\uB4DC\uD588\uC2B5\uB2C8\uB2E4: \uB9F5\uC740 Cosmonarchy BW \uB9F5\uC73C\uB85C \uC5F4\uB9AC\uACE0 \uB9CC\uB4E4\uC5B4\uC9D1\uB2C8\uB2E4 (\uC5F4\uB9B0 \uD0ED\uC740 \uADF8\uB300\uB85C\uC785\uB2C8\uB2E4)"},
     {L"Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)", L"Cosmonarchy BW \uD50C\uB7EC\uADF8\uC778\uC744 \uB0B4\uB838\uC2B5\uB2C8\uB2E4: \uB9F5\uC740 StarCraft: Brood War \uB9F5\uC73C\uB85C \uC5F4\uB9AC\uACE0 \uB9CC\uB4E4\uC5B4\uC9D1\uB2C8\uB2E4 (\uC5F4\uB9B0 \uD0ED\uC740 \uADF8\uB300\uB85C\uC785\uB2C8\uB2E4)"},

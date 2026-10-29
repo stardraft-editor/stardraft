@@ -3,17 +3,9 @@
 // BW: not loaded (the game's data, as always) or loaded (every map opens and is made with the mod's data: gameDataForMap;
 // the start page and File > New make Cosmonarchy maps).
 
-// Program options > Plugins is built in or not (STARDRAFT_PLUGINS, CMakeLists.txt: off in release builds for now). Without
-// it, the Plugins tab is gone and the mod is never loaded (a GameMode setting of 1 from another build counts as 0).
-#ifndef STARDRAFT_PLUGINS
-#define STARDRAFT_PLUGINS 1
-#endif
-constexpr bool kPluginsBuilt = STARDRAFT_PLUGINS != 0;
-
 bool gCmbwForced = false;  // (a snapshot's --cmbw: Cosmonarchy for the run)
 int gGameMode = -1;        // 0 Standard, 1 Cosmonarchy (the setting GameMode, read once: the checks run often); -1 not read yet
 bool cmbwMode() {
-    if (!kPluginsBuilt) return false;
     if (gGameMode < 0) {
         int64_t v = 0;  // (tests and screenshot runs: Standard, the default; gSettingsOff)
         if (gSettingsOff || gSelfTest) v = 0;

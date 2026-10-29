@@ -79,7 +79,7 @@ namespace optionsview {
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
     kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kPlugins = 1u << 9,
-    kKeyboard = 1u << 10, kReset = 1u << 11, kAllSections = ((1u << 12) - 1) & ~(kPluginsBuilt ? 0u : unsigned(kPlugins)),
+    kKeyboard = 1u << 10, kReset = 1u << 11, kAllSections = (1u << 12) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the tab's name (macOS: the toolbar item's label and the window's title)
@@ -89,9 +89,7 @@ inline const Tab kTabs[] = {
     {L"General", kStart | kAppearance | kReset},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
-#if STARDRAFT_PLUGINS
     {L"Plugins", kPlugins},
-#endif
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
     {L"Simulation", kSimulation},
@@ -751,10 +749,13 @@ void OptionsView::paint(draw::Canvas& c) {
         y += scale(20) + pad;
     }
 
-    // Plugins: each one loaded or not, what it does under it, and its settings while it is loaded. Cosmonarchy BW (the
-    // only switch for the mod's parts: maps open and are made as the mod's) and the mod's folder (core/cmbw.inc).
+    // Plugins: an early preview (a line says so), each one loaded or not, what it does under it, and its
+    // settings while it is loaded. Cosmonarchy BW (the only switch for the mod's parts: maps open and are made as the
+    // mod's) and the mod's folder (core/cmbw.inc).
     if (shown & optionsview::kPlugins) {
         header(L"Plugins");
+        c.text({x0, y, colRight, y + scale(20)}, L"Early feature preview: please report issues", kText, draw::kMiddle | draw::kEllipsis);
+        y += scale(20) + scale(6);
         checkRow(y, cmbwPlugin_, "plugin.cmbw");
         y += rowH;
         note(x0 + scale(24), y - scale(4), L"Adjusts StarDraft to work with the CMBW environment when it is loaded");

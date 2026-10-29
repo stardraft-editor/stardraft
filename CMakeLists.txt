@@ -526,19 +526,6 @@ if(STARDRAFT_RENDERER)
     target_link_libraries(stardraft_kit_sdl PUBLIC stardraft_kit imgui SDL3::SDL3-static)
 endif()
 
-# Program options > Plugins (the mod plugin): off in a release build (a version name from its tag) until the mod's team
-# has checked it, on in the other builds (development, the hidden test build). -DSTARDRAFT_PLUGINS=ON or OFF sets it.
-if(STARDRAFT_VERSION_NAME)
-    option(STARDRAFT_PLUGINS "Program options > Plugins (the mod plugin)" OFF)
-else()
-    option(STARDRAFT_PLUGINS "Program options > Plugins (the mod plugin)" ON)
-endif()
-if(STARDRAFT_PLUGINS)
-    set(pluginsBuilt 1)
-else()
-    set(pluginsBuilt 0)
-endif()
-
 # The version name that the editors say: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
 # .github/workflows/build.yml); other builds say this one.
 if(NOT STARDRAFT_VERSION_NAME)
@@ -554,8 +541,7 @@ file(WRITE ${CMAKE_BINARY_DIR}/generated/cli_skill.inc.tmp "// Made by CMakeList
 execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/generated/cli_skill.inc.tmp
                 ${CMAKE_BINARY_DIR}/generated/cli_skill.inc)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/cli/SKILL.md)
-target_compile_definitions(stardraft_cli PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
-                           STARDRAFT_PLUGINS=${pluginsBuilt})
+target_compile_definitions(stardraft_cli PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
 target_include_directories(stardraft_cli PRIVATE ${CMAKE_BINARY_DIR}/generated)
 add_dependencies(stardraft_cli stardraft_build_info)
 if(WIN32)
@@ -642,8 +628,7 @@ if(STARDRAFT_RENDERER)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
-    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
-                               STARDRAFT_PLUGINS=${pluginsBuilt})
+    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)
