@@ -673,6 +673,16 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         break;
     case Drag::Tiles: tilesMouseUp(wx, wy); break;
     case Drag::TerrainSelect: {
+        // (Rectangle: a Ctrl+click on a tile that is not selected picks it, as with the Brush: the Tiles list shows it,
+        // and the Brush places it)
+        if (const int tx = int(std::floor(app.dragWX / 32)), ty = int(std::floor(app.dragWY / 32));  // (the tile pressed)
+            app.terrainRect && app.terrainSelOp == 2 && !app.dragMoved && !gTiles->stamps && tx >= 0 && ty >= 0 && tx < ed.width() && ty < ed.height() &&
+            !terrainSelHas(tx, ty)) {
+            app.terrainSelOp = 0;
+            const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
+            tilesPick(v, true), tilesToBrush(), tilesReveal(v);
+            break;
+        }
         if (app.terrainRect && app.terrainSelOp) {  // Shift: the tiles go into the selection; Ctrl: out of it (a click: one tile)
             terrainSelCombine(terrainSelectRect(wx, wy), app.terrainSelOp == 1);
             app.terrainSelOp = 0;
