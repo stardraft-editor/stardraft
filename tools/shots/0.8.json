@@ -1,0 +1,14 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["data-table", "data-flags-decimal", "map-mapdata-table", "map-pie",
+                                                "map-classictrig-shot", "map-find-command-list"]}
+  ],
+  "shots": [
+    {"run": 0, "from": "data-table.png", "to": "table-view.png", "alt": "Table view: the units of units.dat, an entry a row and a field a column"},
+    {"run": 0, "from": "data-flags-decimal.png", "to": "table-flags.png", "crop": [368, 175, 1032, 680], "alt": "A field of flags in the table: its value in hex and a check box for each flag"},
+    {"run": 0, "from": "map-mapdata-table.png", "to": "map-data-table.png", "crop": [64, 100, 1336, 760], "alt": "Map data in the Table view: the unit settings of a classic map"},
+    {"run": 0, "from": "map-pie.png", "to": "terrain-pie.png", "crop": [600, 310, 460, 450], "alt": "The terrain pie palette: each slice shows its terrain"},
+    {"run": 0, "from": "map-classictrig-shot.png", "to": "classic-triggers.png", "crop": [64, 100, 1536, 420], "alt": "Classic triggers in three columns: the triggers, the selected trigger, the selected action"},
+    {"run": 0, "from": "map-find-command-list.png", "to": "find-a-command.png", "crop": [380, 98, 640, 610], "alt": "Find a command: the menu commands with their menus, keys and check boxes"}
+  ]
+}

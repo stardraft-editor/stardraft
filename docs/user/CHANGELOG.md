@@ -2,6 +2,48 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8
+
+### New
+
+- Table view (Ctrl+E): edit a whole .dat file as a spreadsheet, an entry a row and a field a column. Change many cells
+  at once (type a value, +10, *1.5, fill down), set flags with check boxes, sort, hide and move columns, and copy,
+  paste, import and export CSV with your spreadsheet program. The bar under the table sums the selected numbers.
+
+  ![Table view: the units of units.dat, an entry a row and a field a column](images/0.8/table-view.png)
+
+  ![A field of flags in the table: its value in hex and a check box for each flag](images/0.8/table-flags.png)
+- Map data has a Table view too: the unit, upgrade and technology settings of a classic map in one table.
+
+  ![Map data in the Table view: the unit settings of a classic map](images/0.8/map-data-table.png)
+- Command line: stardraft-cli.exe (in the Windows zip) opens, checks, changes and saves maps, for scripts and AI
+  agents. `stardraft-cli skill` prints the guide for agents.
+
+### Map
+
+- The terrain pie palette (hold Space in Terrain mode) shows each terrain in its slice.
+
+  ![The terrain pie palette: each slice shows its terrain](images/0.8/terrain-pie.png)
+- Sort the Units, Doodads, Sprites and Locations lists. Ranges show for all selected units (not only 64).
+- Also: a loading view while a map opens, Copy tile values, a search in the player color list, Shift+click for the
+  second terrain, and a height for the Diamond brush.
+
+### Triggers
+
+- Classic triggers in three columns: the triggers, the selected trigger, and the selected condition or action.
+
+  ![Classic triggers in three columns: the triggers, the selected trigger, the selected action](images/0.8/classic-triggers.png)
+
+### The program
+
+- Find a command (Ctrl+P): find and run any menu command by its name.
+
+  ![Find a command: the menu commands with their menus, keys and check boxes](images/0.8/find-a-command.png)
+- Program options in tabs, with Reset all program settings. New two-key shortcuts (Ctrl+K and Ctrl+Shift+L, then a
+  letter) are in Help > Keyboard shortcuts.
+- Windows: the program is StarDraft 2.exe. From 0.7: unzip the new zip and start StarDraft 2.exe (Check for updates
+  opens the release page). Your settings stay.
+
 ## 0.7
 
 ### New
