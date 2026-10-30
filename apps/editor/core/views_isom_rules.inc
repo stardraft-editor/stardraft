@@ -1941,8 +1941,8 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             }
         }
         if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
-        for (const Place& p : places_)  // (the slots with a NULL half: red frames, over the reference)
-            if (t && !refAlone && frames_ && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && isomrules::anyNull(t->t.pieces[size_t(p.piece)]))
+        for (const Place& p : places_)  // (the slots with a NULL half: red frames while the reference covers their black)
+            if (t && refShown && !refAlone && frames_ && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && isomrules::anyNull(t->t.pieces[size_t(p.piece)]))
                 c.frame(rectOf(p), 0x4650E6, scale(2));
         for (const Place& p : places_)  // (the hovered rect's places, over the reference too)
             if (frames_ && hover_ >= 0 && p.piece == hover_) c.frame(rectOf(p), kBorderHot, scale(1));
