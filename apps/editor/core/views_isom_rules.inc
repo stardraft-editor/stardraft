@@ -623,7 +623,7 @@ private:
         keepPins();
         sel_ = v >= 0 ? v : -1, std_ = v < 0 && v > -1000000 ? -1 - v : -1;
         revealSideRow();
-        target_ = -1, pins_.clear();
+        target_ = -1, pins_.clear(), suggFor_ = -1;
         if (const auto* t = terrain()) pins_ = savedPins_[t->t.id];  // (its pins as it had them)
         updateMyRows();
         updateTemplate();
@@ -737,7 +737,7 @@ private:
                 if (in->gen != buildGen_) return;
                 building_ = false;
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
-                ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
+                ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1, suggFor_ = -1;  // (the suggestions' seams: this example's)  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
@@ -1227,12 +1227,12 @@ private:
             for (const Place& p : places_)
                 if (t && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == g) own.insert({p.tx, p.ty}), own.insert({p.tx + 1, p.ty});
             for (const Place& p : places_) {
-                if (!own.count({p.tx, p.ty}) || seams.size() >= 24) continue;
+                if (!own.count({p.tx, p.ty})) continue;
                 // (half, side, the neighbour's place, its edge that touches)
                 const int at[6][5] = {{0, 2, p.tx - 1, p.ty, 3}, {1, 3, p.tx + 2, p.ty, 2}, {0, 0, p.tx, p.ty - 1, 1},
                                       {1, 0, p.tx + 1, p.ty - 1, 1}, {0, 1, p.tx, p.ty + 1, 0}, {1, 1, p.tx + 1, p.ty + 1, 0}};
                 for (const auto& a : at) {
-                    if (own.count({a[2], a[3]})) continue;
+                    if (own.count({a[2], a[3]}) || seams.size() >= 24) continue;  // (24 at most: a short paint)
                     const int v = idAt(a[2], a[3]);
                     if (v < 0 || tileset_.megatileFor(uint16_t(v)) <= 0) continue;
                     const stardraft::Sprite ns = stardraft::mapTilesPicture(tileset_, {uint16_t(v)}, 1, 0, 0, 1, 1);
@@ -1254,6 +1254,7 @@ private:
             }
             return sum / float(seams.size());
         };
+        // (the shapes of every row first; the seams only for the 40 rows of the best shapes: a short paint)
         std::vector<Suggestion> all;
         for (size_t k = 0; k * 16 < sh.ok.size(); ++k) {
             Suggestion best{int(sh.first + int(k)), -1, -2};
@@ -1261,12 +1262,24 @@ private:
                 const size_t i = k * 16 + size_t(c);
                 if (!sh.ok[i] || !sh.ok[i + 1]) continue;
                 const float shape = (match(&sh.v[i * 256], l) + match(&sh.v[(i + 1) * 256], r)) / 2;
-                const float seam = seamOf(i);
-                const float score = seam < 0 ? shape : 0.6f * shape + 0.4f * seam;
-                if (score > best.score) best.col = c, best.score = score, best.shape = shape, best.seam = seam;
+                if (shape > best.shape || best.col < 0) best.col = c, best.shape = shape, best.score = shape;
             }
             if (best.col >= 0) all.push_back(best);
         }
+        const size_t top = std::min<size_t>(40, all.size());
+        std::partial_sort(all.begin(), all.begin() + long(top), all.end(), [](const Suggestion& a, const Suggestion& b) { return a.shape > b.shape; });
+        all.resize(top);
+        if (!seams.empty())
+            for (Suggestion& sg : all) {  // (its best pair by shape and seams together)
+                const size_t k = size_t(sg.row - sh.first);
+                sg.score = -2;
+                for (int c = 0; c + 1 < 16; c += 2) {
+                    const size_t i = k * 16 + size_t(c);
+                    if (!sh.ok[i] || !sh.ok[i + 1]) continue;
+                    const float shape = (match(&sh.v[i * 256], l) + match(&sh.v[(i + 1) * 256], r)) / 2, seam = seamOf(i);
+                    if (const float score = 0.6f * shape + 0.4f * seam; score > sg.score) sg.col = c, sg.score = score, sg.shape = shape, sg.seam = seam;
+                }
+            }
         const size_t n = std::min<size_t>(6, all.size());
         std::partial_sort(all.begin(), all.begin() + long(n), all.end(), [](const Suggestion& a, const Suggestion& b) { return a.score > b.score; });
         sugg_.assign(all.begin(), all.begin() + long(n));
