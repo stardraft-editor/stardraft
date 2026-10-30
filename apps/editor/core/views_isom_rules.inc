@@ -808,7 +808,7 @@ private:
     // The brush is the tile (pair mode: the pair) at value; the example's slots get it.
     void endStroke() {
         if (!painting_) return;
-        painting_ = strokeSaved_ = false, lastPaint_ = -1;
+        painting_ = strokeSaved_ = erasing_ = false, lastPaint_ = -1;
         if (host()) host()->capture(*this, false);
         invalidate();
     }
@@ -818,6 +818,25 @@ private:
         const int v = brushValue();
         setMessage(v < 0 ? std::wstring(L"Brush: none") : L"Brush: " + std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15) + (wide_ ? L"-" + std::to_wstring((v & 15) + 1) : L""));
         invalidate();
+    }
+    // The target's slot is NULL (pair mode: both halves; single: the target's half). A stroke is one undo step.
+    void erase() {
+        if (loading_) return;
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
+        auto& m = rules().terrains[size_t(sel_)].t;
+        const size_t k = size_t(target_);
+        if (k >= m.pieces.size()) return;
+        if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be NULL");
+        auto p = m.pieces[k];
+        const auto was = p;
+        if (wide_) p[1] = 0, p[2] = 1;
+        else p[size_t(1 + targetHalf_)] = uint16_t(targetHalf_);  // (the null tile's subtiles: 0 left, 1 right)
+        if (p == was) return;
+        if (!painting_ || !strokeSaved_) remember(), strokeSaved_ = painting_;
+        m.pieces[k] = p;
+        changed();
+        auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
+        setMessage(L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]));
     }
     // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void place(uint16_t value) {
@@ -1431,7 +1450,7 @@ private:
     std::vector<int> shown_;
     int sel_ = -1, target_ = -1, targetHalf_ = 0, hover_ = -1, hoverHalf_ = 0;
     int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
-    bool painting_ = false, strokeSaved_ = false;  // (a paint stroke: one undo step)
+    bool painting_ = false, strokeSaved_ = false, erasing_ = false;  // (a paint stroke: one undo step; erasing: the right button, NULL)
     int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
     int brushValue() const { return brush_ < 0 ? -1 : wide_ ? brush_ & ~1 : brush_; }
     std::vector<Place> places_;
@@ -2068,9 +2087,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         int half = 0;
         const int i = placeAt(e.pt, half), h = i >= 0 ? places_[size_t(i)].piece : -1;
         if (h != hover_ || half != hoverHalf_) hover_ = h, hoverHalf_ = half, invalidate();
-        if (painting_ && brushValue() >= 0 && h >= 0 && h * 2 + half != lastPaint_) {  // (a drag paints each slot it crosses)
+        if (painting_ && (erasing_ || brushValue() >= 0) && h >= 0 && h * 2 + half != lastPaint_) {  // (a drag paints each slot it crosses)
             lastPaint_ = h * 2 + half;
-            setTarget(h, half, false), place(uint16_t(brushValue()));
+            setTarget(h, half, false);
+            if (erasing_) erase();
+            else place(uint16_t(brushValue()));
         }
         int cell = -1;  // (the example's tile under the mouse: its ID on hover)
         if (picture_ && puzzle_.contains(e.pt) && crop_.width() > 0) {
@@ -2095,7 +2116,31 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (ch != checkHover_) checkHover_ = ch, invalidate();
         return false;
     }
-    if (e.kind == draw::MouseKind::Down && e.button == 1 && t) {  // (the right button in the example: its tile is the brush)
+    if (e.kind == draw::MouseKind::Down && e.button == 1 && t && !loading_) {  // (the right button: the slot is NULL; a drag goes on)
+        int half = 0;
+        if (const int at = placeAt(e.pt, half); at >= 0) {
+            const int k = places_[size_t(at)].piece;
+            if (k >= 0) {
+                painting_ = erasing_ = true, strokeSaved_ = false, lastPaint_ = k * 2 + half;
+                if (host()) host()->capture(*this, true);
+                setTarget(k, half, false), erase();
+                invalidate();
+            }
+            return true;
+        }
+        if (check_.contains(e.pt)) {  // (a custom tile of the checklist)
+            const int dy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
+            const std::vector<CheckRow> rows = checkRows();
+            if (dy >= 0 && dy / scale(kCheckRow) < int(rows.size())) {
+                const CheckRow& row = rows[size_t(dy / scale(kCheckRow))];
+                const int th = scale(24), xc = check_.left + scale(8) + scale(110) + 2 * th + scale(16);
+                const int h = e.pt.x >= xc + th && e.pt.x < xc + 2 * th ? 1 : e.pt.x >= xc && e.pt.x < xc + th ? 0 : -1;
+                if (row.piece >= 0 && h >= 0) setTarget(row.piece, h), erase();
+            }
+            return true;
+        }
+    }
+    if (e.kind == draw::MouseKind::Down && e.button == 0 && (e.mods & draw::kAlt) && t) {  // (Alt+click in the example: its tile is the brush)
         int half = 0;
         if (const int at = placeAt(e.pt, half); at >= 0) {
             const int k = places_[size_t(at)].piece;
