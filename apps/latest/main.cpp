@@ -100,11 +100,11 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR args, int) {
     fs::path src = here / L"stardraft-testing.exe";
 #endif
     if (!fs::exists(src, ec)) src = here / L"StarDraft 2.exe";
-    // The newest of the configurations' builds (a Debug build that made this program last must not hide a newer Release one).
-    for (const wchar_t* config : {L"Release", L"Debug", L"RelWithDebInfo"}) {
-        const fs::path other = here.parent_path() / config / src.filename();
-        if (other != src && fs::exists(other, ec) && (!fs::exists(src, ec) || fs::last_write_time(other, ec) > fs::last_write_time(src, ec))) src = other;
-    }
+    // The Release build when there is one (a Debug build that made this program last must not start the slow Debug
+    // editor); STARDRAFT_LATEST_CONFIG=Debug starts the Debug one.
+    wchar_t want[32] = L"Release";
+    GetEnvironmentVariableW(L"STARDRAFT_LATEST_CONFIG", want, 32);
+    if (const fs::path other = here.parent_path() / want / src.filename(); fs::exists(other, ec)) src = other;
     if (!fs::exists(src, ec)) {
         MessageBoxW(nullptr, (L"No build of StarDraft is in " + here.wstring()).c_str(), L"StarDraft-latest", MB_ICONERROR);
         return 1;
