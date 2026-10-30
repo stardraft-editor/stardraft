@@ -2,7 +2,7 @@
 // isometric terrain rules (stardraft/mods/terrain_rules.h): each mod terrain is a game border (its template: a stand-in
 // terrain on a ground) with the mod's tiles in the template's rects. Left: the tileset's terrains (search; New terrain
 // from a template, with the game's tiles or empty). Middle: the example, the terrain painted by the real brush on its
-// bordering terrain (a NULL half: black with the game's tile dimmed, a red frame; a borrowed rect, the game's own tiles:
+// bordering terrain (a NULL half: black, a red frame; a borrowed rect, the game's own tiles:
 // a blue frame); under it the target rect large (the game's tiles beside yours) and the checklist: every rect of the
 // template by its role (edge N, corner SE top...) with its state. Click a rect, a hole or a checklist row: it is the
 // target. Right of the example (or left: the tiles' right-click menu): the tileset's tiles, a tile group a row (16
@@ -145,6 +145,14 @@ public:
 
     // Off: the work is done at once, on this thread (a snapshot's run).
     void setAsync(bool on) { async_ = on; }
+    // The default columns, widths and view options, whatever the layout settings hold (a snapshot's run). Not saved.
+    void useDefaultLayout() {
+        std::copy(std::begin(kDefaultOrder), std::end(kDefaultOrder), colOrder_);
+        std::copy(std::begin(kDefaultW), std::end(kDefaultW), colW_);
+        for (bool& s : colShown_) s = true;
+        tileIds_ = 0, frames_ = true;
+        if (laidOut_) layout();
+    }
     // The program ends: the worker ends (after the job that runs).
     void shutdown() {
         ++buildGen_, ++openGen_;
@@ -1293,15 +1301,13 @@ private:
             if (r.group == group) return widen(r.role);
         return L"rect " + std::to_wstring(group);
     }
-    // A tile into r (a NULL value: black; `ghost`: the game's tile of that half's group, dimmed: what belongs there).
-    void drawTile(draw::Canvas& c, uint16_t v, draw::Rect r, uint32_t ghostGroup = 0xFFFFFFFFu) {
+    // A tile into r (a NULL value: black, nothing guessed).
+    void drawTile(draw::Canvas& c, uint16_t v, draw::Rect r) {
         c.fill(r, 0x000000);
-        const bool ghost = isomrules::nullHalf(v);
-        if (ghost) v = ghostGroup == 0xFFFFFFFFu ? 0 : gameTile(ghostGroup);
-        if (!v) return;
+        if (isomrules::nullHalf(v) || !v) return;
         auto& b = chips_[v];
         if (!b) b = isomrules::tilesBitmap(tileset_, {v}, 1, 1);
-        if (b) c.bitmap(*b, {0, 0, b->width(), b->height()}, r, false, ghost ? 100 : 255);
+        if (b) c.bitmap(*b, {0, 0, b->width(), b->height()}, r);
     }
 
     stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1};
@@ -1382,6 +1388,7 @@ private:
     // (Layout/IsomColumns: the order in 2-bit digits, the shown bits from bit 8). Each has a header; its right-click
     // menu moves or hides it (a hidden one comes back from any header's menu or the Menu button).
     enum Col { kColTerrains = 0, kColRects = 1, kColExample = 2, kColTiles = 3 };
+    static constexpr int kDefaultOrder[4] = {kColTerrains, kColRects, kColExample, kColTiles};
     int colOrder_[4] = {kColTerrains, kColRects, kColExample, kColTiles};
     bool colShown_[4] = {true, true, true, true};
     draw::Rect colHead_[4], colBody_[4];  // (empty while hidden)
@@ -1392,7 +1399,8 @@ private:
         bool right = false;  // (the column is right of the edge: dragging right makes it narrower)
     };
     std::vector<Edge> edges_;
-    int colW_[4] = {260, 300, 600, 16 * 26 + 24 + 14};  // (unscaled)
+    static constexpr int kDefaultW[4] = {260, 300, 600, 16 * 26 + 24 + 14};  // (unscaled)
+    int colW_[4] = {260, 300, 600, 16 * 26 + 24 + 14};
     int dragEdge_ = -1;
     int edgeAt(draw::Point p) const {
         if (p.y < colHead_[colOrder_[0]].top && p.y < colHead_[colOrder_[3]].top) return -1;
@@ -1477,7 +1485,17 @@ private:
         const auto it = std::lower_bound(palRows_.begin(), palRows_.end(), g);
         return it != palRows_.end() && *it == g ? int(it - palRows_.begin()) : -1;
     }
-    int palCell() const { return std::max(scale(8), (palette_.width() - scale(56)) / 16); }
+    // The palette shows each group's 16 subtiles as 8 pairs (0-1, 2-3, ...: a rect's left and right tile), a gap between pairs.
+    int palGap() const { return scale(4); }
+    int palCell() const { return std::max(scale(8), (palette_.width() - scale(56) - 7 * palGap()) / 16); }
+    int palX(int sub) const { return palette_.left + scale(48) + sub * palCell() + sub / 2 * palGap(); }
+    // The subtile under x (in pair mode the pair's left one); -1 outside the tiles or in a gap.
+    int palSubAt(int x) const {
+        const int cell = palCell(), pair = 2 * cell + palGap(), dx = x - (palette_.left + scale(48));
+        if (dx < 0 || dx >= 8 * pair || dx % pair >= 2 * cell) return -1;
+        const int sub = dx / pair * 2 + dx % pair / cell;
+        return wide_ ? sub & ~1 : sub;
+    }
     int palScrollMax() const { return std::max(0, palRowCount() * palCell() - palette_.height()); }
     void togglePalMine() {
         if (!palMine_ && palRows_.empty()) return setMessage(L"No groups assigned to this terrain yet");
@@ -1670,8 +1688,8 @@ void IsomRulesView::paint(draw::Canvas& c) {
             const Place& p = places_[size_t(h)];
             if (p.piece < 0 || p.piece >= int(t->t.pieces.size())) continue;
             const auto& q = t->t.pieces[size_t(p.piece)];
-            for (int half = 0; half < 2; ++half)  // (a NULL half: black, with the game's tile of its group dimmed: what belongs there)
-                if (isomrules::nullHalf(q[size_t(1 + half)])) drawTile(c, 0, halfOf(rectOf(p), half), uint32_t(q[0]) + uint32_t(half));
+            for (int half = 0; half < 2; ++half)  // (a NULL half: black)
+                if (isomrules::nullHalf(q[size_t(1 + half)])) drawTile(c, 0, halfOf(rectOf(p), half));
             if (frames_) c.frame(rectOf(p), 0x4650E6, scale(2));
         }
         if (t && !refAlone && frames_)
@@ -1746,8 +1764,8 @@ void IsomRulesView::paint(draw::Canvas& c) {
             drawTile(c, gameTile(uint32_t(row.group) + 1), {xt + th, ty, xt + 2 * th, ty + th});
             c.frame({xt, ty, xt + 2 * th, ty + th}, kBorder, scale(1));
             if (t) {
-                drawTile(c, p ? (*p)[1] : 0, {xc, ty, xc + th, ty + th}, row.group);
-                drawTile(c, p ? (*p)[2] : 0, {xc + th, ty, xc + 2 * th, ty + th}, uint32_t(row.group) + 1);
+                drawTile(c, p ? (*p)[1] : 0, {xc, ty, xc + th, ty + th});
+                drawTile(c, p ? (*p)[2] : 0, {xc + th, ty, xc + 2 * th, ty + th});
                 c.frame({xc, ty, xc + 2 * th, ty + th}, st == isomrules::PieceState::Own ? kBorder : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole, scale(1));
                 const std::wstring state = st == isomrules::PieceState::Own ? L"Custom" : st == isomrules::PieceState::Borrowed ? L"Borrowed" : st == isomrules::PieceState::Partial ? L"Partial" : L"NULL";
                 c.text({xs, y, check_.right - pad, y + rh}, state, st == isomrules::PieceState::Own ? kDim : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole,
@@ -1774,7 +1792,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
         c.frame({x, y0, x + 2 * T, y0 + T}, kBorder, scale(1));
         c.text({x + 2 * T, y0, x + 2 * T + scale(24), y0 + T}, L"\x2192", kDim, draw::kCenter | draw::kMiddle);
         x += 2 * T + scale(24);
-        drawTile(c, q[1], {x, y0, x + T, y0 + T}, q[0]), drawTile(c, q[2], {x + T, y0, x + 2 * T, y0 + T}, uint32_t(q[0]) + 1);
+        drawTile(c, q[1], {x, y0, x + T, y0 + T}), drawTile(c, q[2], {x + T, y0, x + 2 * T, y0 + T});
         c.frame({x, y0, x + 2 * T, y0 + T}, kAccent, scale(1));
         if (!wide_) c.frame(targetHalf_ ? draw::Rect{x + T, y0, x + 2 * T, y0 + T} : draw::Rect{x, y0, x + T, y0 + T}, kAccent, scale(2));
     } else if (strip_.width() > 0) {
@@ -1810,7 +1828,8 @@ void IsomRulesView::paint(draw::Canvas& c) {
                     for (int s = 0; s < 16; ++s) tiles.push_back(k < int(tileset_.groups.size()) && tileset_.megatileFor(uint16_t(k << 4 | s)) > 0 ? uint16_t(k << 4 | s) : 0);
                 b = isomrules::tilesBitmap(tileset_, tiles, 16, 64);
             }
-            if (b) c.bitmap(*b, {0, (g % 64) * 32, 16 * 32, (g % 64) * 32 + 32}, {x0, y, x0 + 16 * cell, y + cell});
+            if (b)
+                for (int k = 0; k < 8; ++k) c.bitmap(*b, {k * 64, (g % 64) * 32, k * 64 + 64, (g % 64) * 32 + 32}, {palX(2 * k), y, palX(2 * k) + 2 * cell, y + cell});
         } else {
             auto& b = rowPics_[g];
             if (!b) {
@@ -1818,7 +1837,8 @@ void IsomRulesView::paint(draw::Canvas& c) {
                 for (int s = 0; s < 16; ++s) tiles.push_back(tileset_.megatileFor(uint16_t(g << 4 | s)) > 0 ? uint16_t(g << 4 | s) : 0);
                 b = isomrules::tilesBitmap(tileset_, tiles, 16, 1);
             }
-            if (b) c.bitmap(*b, {0, 0, 16 * 32, 32}, {x0, y, x0 + 16 * cell, y + cell});
+            if (b)
+                for (int k = 0; k < 8; ++k) c.bitmap(*b, {k * 64, 0, k * 64 + 64, 32}, {palX(2 * k), y, palX(2 * k) + 2 * cell, y + cell});
         }
     }
     auto rowY = [&](int g) { const int i = palIndexOf(g); return i < 0 ? INT_MIN : palette_.top + i * cell - palScroll_; };
@@ -1826,16 +1846,16 @@ void IsomRulesView::paint(draw::Canvas& c) {
         for (int half = 1; half <= 2; ++half) {
             const uint16_t v = t->t.pieces[size_t(target_)][size_t(half)];
             if (isomrules::nullHalf(v) || rowY(v >> 4) == INT_MIN) continue;
-            const int y = rowY(v >> 4), x = x0 + int(v & 15) * cell;
+            const int y = rowY(v >> 4), x = palX(v & 15);
             c.frame({x, y, x + cell, y + cell}, kAccent, scale(2));
         }
     if (palHover_ >= 0 && rowY(palHover_ >> 4) != INT_MIN) {  // (what a click puts in: 1 or 2 tiles)
-        const int y = rowY(palHover_ >> 4), x = x0 + (palHover_ & 15) * cell;
+        const int y = rowY(palHover_ >> 4), x = palX(palHover_ & 15);
         c.frame({x, y, x + (wide_ && (palHover_ & 15) < 15 ? 2 : 1) * cell, y + cell}, 0xFFFFFF, scale(1));
     }
     if (jump_ >= 0 && rowY(jump_ >> 4) != INT_MIN) {  // (the row or the tile that was asked for)
         const int y = rowY(jump_ >> 4);
-        const int x = jumpRow_ ? x0 : x0 + (jump_ & 15) * cell, w = jumpRow_ ? 16 * cell : cell;
+        const int x = jumpRow_ ? x0 : palX(jump_ & 15), w = jumpRow_ ? palX(15) + cell - x0 : cell;
         c.frame({x - 1, y - 1, x + w + 1, y + cell + 1}, 0x30C8FF, scale(2));
     }
     c.popClip();
@@ -1908,7 +1928,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     if (e.kind == draw::MouseKind::Move) {
         int v = -1;
         if (palette_.contains(e.pt) && e.pt.x >= x0) {
-            const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = (e.pt.x - x0) / cell;
+            const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = palSubAt(e.pt.x);
             if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16) v = g << 4 | s;
         }
         if (v != palHover_) palHover_ = v, invalidate();
@@ -1960,7 +1980,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return true;
     }
     if (palette_.contains(e.pt) && e.pt.x >= x0) {
-        const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = (e.pt.x - x0) / cell;
+        const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = palSubAt(e.pt.x);
         if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16 && tileset_.megatileFor(uint16_t(g << 4 | s)) > 0) place(uint16_t(g << 4 | s));
         return true;
     }
@@ -1972,8 +1992,8 @@ std::wstring IsomRulesView::tip(draw::Point p) {
     if (!t) return {};
     const int cell = palCell(), x0 = palette_.left + scale(48);
     if (palette_.contains(p) && p.x >= x0) {
-        const int g = palGroupAt((p.y - palette_.top + palScroll_) / cell), s = (p.x - x0) / cell;
-        if (g < 0) return {};
+        const int g = palGroupAt((p.y - palette_.top + palScroll_) / cell), s = palSubAt(p.x);
+        if (g < 0 || s < 0) return {};
         return std::to_wstring(g) + L"." + std::to_wstring(s) + (g < int(rowNames_.size()) && !rowNames_[size_t(g)].empty() ? L"  \x00b7  " + rowNames_[size_t(g)] : L"");
     }
     if (const int col = colAt(p); col >= 0) {

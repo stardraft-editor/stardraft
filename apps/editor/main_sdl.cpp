@@ -805,6 +805,7 @@ int main(int argc, char** argv) {
                 shown = &gIsomRulesView;
                 gIsomRulesView.setAsync(false);  // (the snapshot: at once)
                 gIsomRulesView.open();
+                gIsomRulesView.useDefaultLayout();  // (the snapshot's coordinates: not the user's saved columns)
                 if (dialogArg.size() > 10) {  // (<terrain>, or <era>/<terrain>: another tileset's)
                     std::string name = dialogArg.substr(10);
                     if (name.size() > 2 && std::isdigit(static_cast<unsigned char>(name[0])) && name[1] == '/') gIsomRulesView.showEra(name[0] - '0'), name = name.substr(2);
