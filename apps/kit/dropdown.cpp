@@ -78,6 +78,11 @@ public:
             c.text({r.left + px(32), r.top, r.right - (hasNumber ? px(56) : px(10)), r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
             if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(10), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
         }
+        if (const int n = int(shown_.size()); n > visible()) {  // (more rows than it shows: where the shown ones are)
+            const int y0 = px(2) + headH(), h = visible() * rowH();
+            const int th0 = std::max(px(16), h * visible() / n), ty = y0 + (h - th0) * top_ / std::max(1, maxTop());
+            c.fill({width() - px(6), ty, width() - px(3), ty + th0}, th.thumb);
+        }
     }
 
     bool mouse(const MouseEvent& e) override {
@@ -176,10 +181,14 @@ public:
         }
     }
 
+    // The rows it shows at most (the room in the window: fewer than kVisibleRows; it scrolls).
+    void setMaxRows(int n) { maxRows_ = std::max(1, n); }
+
 private:
+    int maxRows_ = kVisibleRows;
     int rowH() const { return px(kRowH); }
     int headH() const { return search_ ? rowH() : 0; }
-    int visible() const { return std::min(int(shown_.size()), kVisibleRows); }
+    int visible() const { return std::min(int(shown_.size()), maxRows_); }
     int maxTop() const { return std::max(0, int(shown_.size()) - visible()); }
     Rect row(int k) const {
         const int y = px(2) + headH() + (k - top_) * rowH();
@@ -305,9 +314,19 @@ void Dropdown::openList() {
     list_ = std::make_unique<List>(
         items_, value_, searchable, [this](int i) { pick(i); }, [this] { closeList(); });
     listHost_ = h;
-    const int rows = std::min(int(items_.size()), kVisibleRows) + (searchable ? 1 : 0);  // (the search's row)
-    const int top = height() + px(2);
-    const Rect at{0, top, width(), top + rows * px(kRowH) + 2 * px(2)};
+    // (the list stays in the window: under the field, or over it when there is more room there; fewer rows when
+    // neither has room for all: it scrolls)
+    const View* root = this;
+    while (root->parent()) root = root->parent();
+    const int y = origin().y, extra = (searchable ? 1 : 0) * px(kRowH) + 2 * px(2), gap = px(2);
+    const int below = root->height() - (y + height() + gap) - px(4), above = y - gap - px(4);
+    const int want = std::min(int(items_.size()), kVisibleRows);
+    const bool up = below < want * px(kRowH) + extra && above > below;
+    const int fit = std::max(1, ((up ? above : below) - extra) / px(kRowH));
+    const int shown = std::min(want, fit);
+    list_->setMaxRows(shown);
+    const int listH = shown * px(kRowH) + extra;
+    const Rect at = up ? Rect{0, -gap - listH, width(), -gap} : Rect{0, height() + gap, width(), height() + gap + listH};
     setOpen(true);
     justClosed_ = false;
     h->openWindow(*this, *list_, WindowSpec{WindowKind::Popup, at, L""}, [alive, this] {

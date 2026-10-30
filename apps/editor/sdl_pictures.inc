@@ -9,6 +9,7 @@ struct PaletteArt {
     const Editor* ed = nullptr;
     const GameData* data = nullptr;  // the game data the HD icons came from (a Cosmonarchy tab has its own)
     int era = -1, mode = -1;
+    int rulesRev = 0;  // (gTerrainRulesRev of the pictures: terrain rules loaded again draw the terrains again)
     std::vector<Sprite> hdIcons;  // HD2 (or Carbot) command icons, for the mode
     HdTiles hdTiles;              // HD2 (or Carbot) megatiles, for terrain and doodad pictures
     bool hdTilesLoaded = false;
@@ -45,8 +46,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     Editor& ed = *gState.ed;
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
     const bool unitKind = what == Mode::Units && !iconFrame;
-    if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode) {
-        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear();
+    if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode || gPaletteArt.rulesRev != gTerrainRulesRev) {
+        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
         if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
             gPaletteArt.hdIcons.clear();
             gPaletteArt.data = &ed.gameData();

@@ -101,6 +101,38 @@ void cmbwUseFolderSetting() {
 fs::path gTerrainOverride;
 bool gTerrainOverrideOn = false;
 void cmbwApplyTerrainOverride() { stardraft::cmbw::useTerrainOverride(gTerrainOverrideOn ? gTerrainOverride : fs::path()); }
+struct {
+    fs::path f, override;
+    bool same = false;
+} gOverrideAsked;  // (the last answer: a window asks at each paint, the files are opened once; a save asks again)
+bool cmbwIsTerrainOverride(const fs::path& f) {
+    if (!gTerrainOverrideOn || f.empty()) return false;
+    if (f == gOverrideAsked.f && gTerrainOverride == gOverrideAsked.override) return gOverrideAsked.same;
+    std::error_code ec;
+    gOverrideAsked = {f, gTerrainOverride, fs::equivalent(f, gTerrainOverride, ec)};
+    return gOverrideAsked.same;
+}
+// The Custom isom terrain editor saved `f`: when it is the override in use, the open map loads its terrain rules again
+// (its terrains and its brushes; the map's tiles stay). False: not the override, or no map open.
+int gTerrainRulesRev = 0;  // (one more each time: the palette's terrain pictures are made again)
+const GameData* cmbwGameData(std::string& err);
+bool cmbwReloadTerrainRules(const fs::path& f) {
+    gOverrideAsked = {};  // (the file may be new)
+    if (!cmbwIsTerrainOverride(f)) return false;
+    std::string err;
+    const GameData* mod = cmbwGameData(err);
+    if (!mod) return false;
+    bool any = false;
+    auto reload = [&](Editor* ed) {  // (a map of the mod: only its terrain rules come from the file)
+        if (ed && ed->isOpen() && &ed->gameData() == mod) ed->reloadTileset(), any = true;
+    };
+    reload(shellState().ed.get());
+    for (Doc& d : gDocs) reload(d.ed.get());  // (the tabs at the back: theirs too)
+    if (!any) return false;
+    ++gTerrainRulesRev;
+    shellPaletteRebuilt();  // (the Terrain palette: the terrains as the file has them)
+    return true;
+}
 void cmbwUseTerrainOverrideSetting() {
     std::wstring saved;
     int64_t on = 0;

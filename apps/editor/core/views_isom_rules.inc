@@ -16,6 +16,8 @@
 
 const GameData* cmbwGameData(std::string& err);  // (core/cmbw.inc)
 void cmbwApplyTerrainOverride();
+bool cmbwIsTerrainOverride(const std::filesystem::path& f);   // (core/cmbw.inc: f is the ISOM terrain rules override in use)
+bool cmbwReloadTerrainRules(const std::filesystem::path& f);  // (f is the override in use: the open map loads its rules again)
 void shellShowIsomRulesWindow();  // (the host: the window, once)
 void shellSetIsomRulesTitle(const std::wstring& title);  // (the host: the window's title)
 int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (the host)
@@ -218,7 +220,7 @@ public:
         refShow_.setLabel(L"Reference Overlay"), refShow_.setPlainLabel(true);
         refShow_.onChange = [this](bool) { toggleReference(); };
         refShow_.setTip(L"Render the reference border over the example. Key: Ctrl+R");
-        refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Up, Ctrl+Down");
+        refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Shift+Up, Ctrl+Shift+Down");
         refOpacity_.onChange = [this](int) { invalidate(); };
         row_.searchable = true, row_.wheelSteps = false;
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Ctrl+M: next block of this terrain's groups");
@@ -261,8 +263,15 @@ public:
         title_.clear();  // (a new window: its title is set again)
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
-        if (doc_.tilesets.empty()) openEra(app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
-        else rebuild();
+        if (!doc_.tilesets.empty()) return rebuild();
+        if (std::wstring last; !gSilent && prefs::text(L"Layout/IsomRulesFile", last) && !last.empty()) {  // (the file saved last)
+            std::error_code ec;
+            stardraft::terrainrules::Rules r;
+            std::string err;
+            if (const std::filesystem::path f(last); std::filesystem::exists(f, ec) && !modsOwn(f) && stardraft::terrainrules::load(f, r, err))
+                doc_ = std::move(r), file_ = f, dirty_ = false;
+        }
+        openEra(app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
     }
     bool dirty() const { return dirty_; }
     // Another tileset (a snapshot's isomrules:<era>/<name>).
@@ -293,18 +302,18 @@ public:
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
         if (!e.down || search_.hasFocus()) return false;
-        if (e.mods || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         const bool ctrl = e.mods == draw::kCtrl;  // (the window's letter keys: Ctrl+ only)
+        if (!ctrl || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
         if (e.key == draw::Key::Escape && !e.mods && (brush_ >= 0 || slotKeys_ || target_ >= 0)) return deselectAll(), true;
-        if (slotKeys_ && target_ >= 0 && !e.mods) {  // (the clicked slot: its tile steps through the tiles)
+        if (slotKeys_ && target_ >= 0 && ctrl) {  // (the clicked slot: Ctrl+arrows step its tile through the tiles)
             if (e.key == draw::Key::Left || e.key == draw::Key::Right) return nudge(e.key == draw::Key::Right ? 1 : -1, 0), true;
             if (e.key == draw::Key::Up || e.key == draw::Key::Down) return nudge(0, e.key == draw::Key::Down ? 1 : -1), true;
         }
         if (e.key == static_cast<draw::Key>('R') && ctrl) return toggleReference(), true;
         if (e.key == static_cast<draw::Key>('H') && ctrl) return toggleFrames(), true;
-        if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && (e.mods & draw::kCtrl)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
+        if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && e.mods == (draw::kCtrl | draw::kShift)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('M') && ctrl) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('D') && ctrl) return toggleDraft(), true;
         if (e.key == static_cast<draw::Key>('G') && ctrl) return togglePalMine(), true;
@@ -442,7 +451,10 @@ private:
         std::vector<stardraft::kit::DropdownItem> refs{{L"Template"}, {L"None"}};
         if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era())))
             for (const auto& pr : game->pairs())
-                if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) stdPairs_.push_back({pr.a, pr.b}), refs.push_back({stdName(int(stdPairs_.size()) - 1)});
+                if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) {
+                    stdPairs_.push_back({pr.a, pr.b}), refs.push_back({stdName(int(stdPairs_.size()) - 1)});
+                    if (const uint16_t v = swatchOf(-int(stdPairs_.size()))) refs.back().image = isomrules::tilesBitmap(tileset_, {v}, 1, 1);  // (its tile, then its name)
+                }
         refPick_.setItems(refs), refPick_.setValue(0);
         pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
@@ -585,7 +597,7 @@ private:
         stardraft::terrainrules::Terrain t;
         isomrules::Family family = isomrules::Family::Other;  // (the terrain's template's: its shape)
         std::vector<std::pair<int, int>> extra;  // (more spots of the shape, found for this terrain: moreRects_)
-        int extend = 0;                          // (search for more spots that show the rects the shape does not: 1 by itself, 2 More rects)
+        bool extend = false;                     // (search for more spots that show the rects the shape does not: a terrain's first example)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
         std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins;  // (pins_)
@@ -621,7 +633,7 @@ private:
         }
         in->t = *t, in->family = family_;
         if (const auto it = moreRects_.find(t->t.id); it != moreRects_.end()) in->extra = it->second;
-        in->extend = extendNext_ ? extendNext_ : moreRects_.count(t->t.id) ? 0 : 1, extendNext_ = 0;  // (a terrain's first example: the search before it shows, one picture)
+        in->extend = !moreRects_.count(t->t.id);  // (a terrain's first example: the search before it shows, one picture)
         in->pins = pins_;
         uint16_t root = t->t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
@@ -665,12 +677,7 @@ private:
                     for (const Place& p : places_)
                         if (p.piece >= 0 && p.piece < int(t->t.pieces.size())) visibleGroups_.insert(t->t.pieces[size_t(p.piece)][0]);
                 picture_ = std::move(out->picture), refPicture_ = std::move(out->reference);
-                if (in->extend) {
-                    moreRects_[in->t.t.id] = out->extra;
-                    if (out->gained || in->extend == 2)
-                        setMessage(out->gained ? L"Extend example: +" + std::to_wstring(out->gained) + L" rects (" + std::to_wstring(out->extra.size()) + L" extra positions)"
-                                               : L"Extend example: no position exposes more rects (" + std::to_wstring(out->extra.size()) + L" extra positions)");
-                }
+                if (in->extend) moreRects_[in->t.t.id] = out->extra;
                 invalidate();
             });
         });
@@ -832,7 +839,7 @@ private:
         static const std::vector<std::pair<int, int>> kBoth = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}};
         return f == isomrules::Family::Wall || f == isomrules::Family::Cliff ? kWall : f == isomrules::Family::Other ? kBoth : kPath;
     }
-    // The reference over the example, on or off (Ctrl+R); its opacity is the slider (Ctrl+Up / Ctrl+Down: 10 % steps; 100 %:
+    // The reference over the example, on or off (Ctrl+R); its opacity is the slider (Ctrl+Shift+Up / Ctrl+Shift+Down: 10 % steps; 100 %:
     // the reference alone).
     void toggleReference() {
         refOn_ = !refOn_;
@@ -1057,14 +1064,6 @@ private:
         setMessage(L"Groups " + std::to_wstring(go) + L"+: this terrain");
         invalidate();
     }
-    // More rects: the next example searches for more places that show the rects it does not (on the worker).
-    void moreRects() {
-        if (loading_) return setMessage(L"Tileset loading");
-        if (sel_ < 0) return setMessage(std_ >= 0 ? L"Game borders show every rect" : L"Select a terrain first");
-        extendNext_ = 2;
-        setMessage(L"Extend example: searching\x2026");
-        rebuild();
-    }
     // The target walks the checklist: the next (or the previous) rect of the template, round.
     void stepTarget(int dir) {
         const auto* t = terrain();
@@ -1129,8 +1128,7 @@ private:
         std::vector<Item> terrainMenu = {radio(L"Draft", L"Ctrl+D", t && t->t.draft, [this] { toggleDraft(); }, own),
                                          radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
                                          item(L"Next NULL Rect", L"Ctrl+L", [this] { nextNull(); }, own),
-                                         item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
-                                         item(L"Extend Example", L"", [this] { moreRects(); }, own)};
+                                         item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
         for (int m = 0; m < 3; ++m) ids.sub.push_back(radio(m == 0 ? L"Off" : m == 1 ? L"On Hover" : L"Always", L"", tileIds_ == m, [this, m] { setTileIds(m); }));
@@ -1457,7 +1455,9 @@ private:
         std::string err;
         if (!stardraft::terrainrules::save(f, doc_, err)) return shellErrorBox(widen(err), L"Save terrain rules"), false;
         file_ = f, dirty_ = false;
-        setMessage(L"Saved " + f.filename().wstring());
+        if (!gSilent) prefs::setText(L"Layout/IsomRulesFile", f.wstring());  // (the next open opens it)
+        // (the file the maps use (ISOM terrain rules override): the open map takes the new rules now)
+        setMessage(L"Saved " + f.filename().wstring() + (cmbwReloadTerrainRules(f) ? L"; the open map uses the new rules" : L""));
         invalidate();
         return true;
     }
@@ -1574,8 +1574,7 @@ private:
     isomrules::Family family_ = isomrules::Family::Other;
     int checkScroll_ = 0, checkHover_ = -1;  // (the checklist: its scroll, the row under the mouse)
     int listHover_ = -1;  // (the rect (group) of the checklist row under the mouse: its places framed in the example)
-    std::map<uint16_t, std::vector<std::pair<int, int>>> moreRects_;  // (a terrain id -> the extra spots More rects found)
-    int extendNext_ = 0;  // (the next example searches for more spots: 1 by itself, 2 More rects)
+    std::map<uint16_t, std::vector<std::pair<int, int>>> moreRects_;  // (a terrain id -> the extra spots its first example found)
     // Undo (Ctrl+Z) and redo (Ctrl+Y): a terrain as it was before an edit (its id: the list can change).
     struct Edit {
         uint16_t id = 0;
@@ -1622,7 +1621,7 @@ private:
     // The example's places pinned to a variant of their rect (Make Unique): map tile place -> the rect's group and the
     // variant's number among the group's pieces. The editor's only: the game's brush picks a variant at random.
     std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins_;
-    // A slot clicked in the example: the arrow keys change its tile to the next one in the tiles; its frame blinks.
+    // A slot clicked in the example: Ctrl+arrow keys change its tile to the next one in the tiles; its frame blinks.
     bool slotKeys_ = false, blinkOn_ = true;
     int blinkId_ = 0;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // (false once destroyed: the blink's timer may still run)
@@ -1967,7 +1966,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const bool sel = target_ >= 0 && target_ < int(t->t.pieces.size());
         const std::wstring mode = b >= 0 ? L"Brush" : L"Selection";
         std::wstring what = b >= 0 ? std::to_wstring(b >> 4) + L"." + std::to_wstring(b & 15) + L"-" + std::to_wstring((b & 15) + 1) + L"  \x00b7  Click or drag on slots to paint. Esc: clear"
-                                : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Arrows or a click in Tiles set its tiles. Esc: clear"
+                                : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Ctrl+arrows or a click in Tiles set its tiles. Esc: clear"
                                         : std::wstring(L"Click a slot to select it, or a tile in Tiles to paint with it");
         const int mw = c.measure(mode) + 2 * pad;
         int right = modeBar_.right - pad;
@@ -2007,8 +2006,12 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         const draw::Rect sb{0, H - statusH(), W, H};
         c.fill(sb, kPanel), c.fill({0, sb.top, W, sb.top + 1}, kBorder);
         const std::wstring file = file_.empty() ? std::wstring(L"Untitled") : file_.filename().wstring();
-        const int fw = std::min(W / 2, c.measure(file) + 2 * pad);
-        c.text({sb.right - fw, sb.top, sb.right - pad, sb.bottom}, file, kDim, draw::kMiddle | draw::kRight | draw::kEllipsis);
+        // (the file edited: its whole path; its name alone when the path does not fit)
+        std::wstring shown = file_.empty() ? std::wstring(L"Rules in use (no file: Save As to keep them)") : file_.wstring();
+        if (c.measure(shown) + 2 * pad > W / 2 && !file_.empty()) shown = file;
+        shown += cmbwIsTerrainOverride(file_) ? L"  \x00b7  used by maps" : L"";
+        const int fw = std::min(W / 2, c.measure(shown) + 2 * pad);
+        c.text({sb.right - fw, sb.top, sb.right - pad, sb.bottom}, shown, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
         // (the title bar, as Windows programs show a file: an asterisk while it has unsaved changes)
         if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - Custom Isom Terrain Editor"; title != title_) title_ = title, shellSetIsomRulesTitle(title);
         c.text({pad, sb.top, sb.right - fw - pad, sb.bottom}, status_.empty() ? std::wstring(L"Ready") : status_, kDim, draw::kMiddle | draw::kEllipsis);

@@ -724,6 +724,10 @@ private:
     void commit(bool terrain);    // write state into chk, bump revisions
     void reload();                // rebuild state from chk_
     void reloadTerrain();
+public:
+    // Loads the tileset again (its mod terrains: a terrain rules file changed), then the state from the map.
+    void reloadTileset() { loadedEra_ = 0xFFFF, reload(); }
+private:
     uint32_t nextFreeSerial(const std::vector<Unit>& units) const;
     Unit correctedOrSame(Unit u, bool correct, const std::vector<Unit>& against) const;
     // Where a unit put at u's position goes by the placement options: as is (units anywhere, or it fits), else the
