@@ -1281,7 +1281,8 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
         for (const auto& m : tileset_.modTerrains)
             for (size_t i = 0; i + m.gapPieces < m.pieces.size(); ++i)
                 if (const auto& p = m.pieces[i]; p[0] < terrains.size() && terrains[p[0]][1])
-                    pieceGroups.insert(uint16_t(p[1] >> 4)), pieceGroups.insert(uint16_t(p[2] >> 4));
+                    for (const uint16_t v : {p[1], p[2]})
+                        if (v > 1) pieceGroups.insert(uint16_t(v >> 4));  // (not a NULL half: the null tile's group)
         for (const auto& [g, t, other] : tileset_.groupTerrains)
             if (!other && g < tileset_.groups.size() && !pieceGroups.count(g))
                 for (int s = 0; s < 16; ++s) {

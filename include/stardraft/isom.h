@@ -82,6 +82,8 @@ public:
     uint16_t terrainCount() const { return uint16_t(names_.size()); }
     const char* terrainName(uint16_t t) const { return t >= 1 && t <= names_.size() ? names_[t - 1] : ""; }
     bool linked(uint16_t a, uint16_t b) const;
+    // The borders (each: its first shape, the ground a, the terrain b on it).
+    const std::vector<Pair>& pairs() const { return pairs_; }
     // a stands on b only as on a twin of its ground (withExtras), not by a border of their own.
     bool twinOnly(uint16_t a, uint16_t b) const;
     // Corner terrains (left, top, right, bottom) of a shape; all zero if unknown.

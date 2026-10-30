@@ -397,8 +397,10 @@ bool IsomGrid::load(const Chk& chk, std::string& error) {
             for (size_t i = 0; i < m.pieces.size(); ++i) {
                 const auto& [g, l, r] = m.pieces[i];
                 by[g].push_back({l, r});
-                if (i + m.gapPieces < m.pieces.size())  // (a gap's null tile stands for no one game tile)
-                    gameTile_.emplace(l, uint16_t(g << 4)), gameTile_.emplace(r, uint16_t((g + 1) << 4));
+                if (i + m.gapPieces < m.pieces.size()) {  // (a gap's null tile stands for no one game tile; so does a NULL half)
+                    if (l > 1) gameTile_.emplace(l, uint16_t(g << 4));
+                    if (r > 1) gameTile_.emplace(r, uint16_t((g + 1) << 4));
+                }
             }
         }
     mapWidth_ = w;
