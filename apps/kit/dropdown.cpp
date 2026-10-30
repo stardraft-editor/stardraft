@@ -57,6 +57,11 @@ public:
             const Rect r = row(k);
             const int i = shown_[size_t(k)];
             const DropdownItem& it = items_[size_t(i)];
+            if (it.heading) {
+                c.text({r.left + px(10), r.top, r.right - px(10), r.bottom}, it.label, th.dim, draw::kMiddle | draw::kEllipsis);
+                if (k > 0) c.fill({r.left + px(6), r.top, r.right - px(6), r.top + px(1)}, th.border);
+                continue;
+            }
             const bool sel = i == current_;
             if (sel) {
                 c.fill(r, th.sel);
@@ -88,7 +93,10 @@ public:
     bool mouse(const MouseEvent& e) override {
         switch (e.kind) {
         case MouseKind::Move:
-            if (const int k = rowAt(e.pt); k != hot_) hot_ = k, invalidate();
+            if (int k = rowAt(e.pt); k != hot_) {
+                if (k >= 0 && items_[size_t(shown_[size_t(k)])].heading) k = -1;
+                hot_ = k, invalidate();
+            }
             return true;
         case MouseKind::Leave:
             if (hot_ != -1) hot_ = -1, invalidate();
@@ -97,7 +105,7 @@ public:
         case MouseKind::DoubleClick: return e.button == 0;
         case MouseKind::Up:
             if (e.button == 0)
-                if (const int k = rowAt(e.pt); k >= 0) pick_(shown_[size_t(k)]);
+                if (const int k = rowAt(e.pt); k >= 0 && !items_[size_t(shown_[size_t(k)])].heading) pick_(shown_[size_t(k)]);
             return e.button == 0;
         case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up; a part of a notch waits
             int notches = 0;
@@ -140,7 +148,7 @@ public:
         for (int k = 0; k < n; ++k) {
             const int at = (from + k) % n;
             const std::wstring& label = items_[size_t(shown_[size_t(at)])].label;
-            if (label.size() >= prefix.size() &&
+            if (!items_[size_t(shown_[size_t(at)])].heading && label.size() >= prefix.size() &&
                 std::equal(prefix.begin(), prefix.end(), label.begin(), [](wchar_t a, wchar_t b) {
                     return std::towlower(a) == std::towlower(b);
                 })) {
@@ -155,13 +163,13 @@ public:
         if (!e.down) return false;
         const int n = int(shown_.size());
         switch (e.key) {
-        case Key::Up: setHot(hot_ <= 0 ? 0 : hot_ - 1); return true;
-        case Key::Down: setHot(hot_ < 0 ? 0 : std::min(n - 1, hot_ + 1)); return true;
-        case Key::Home: setHot(0); return true;
-        case Key::End: setHot(n - 1); return true;
+        case Key::Up: setHot(hot_ <= 0 ? item(0, 1) : item(hot_ - 1, -1)); return true;
+        case Key::Down: setHot(hot_ < 0 ? item(0, 1) : item(std::min(n - 1, hot_ + 1), 1)); return true;
+        case Key::Home: setHot(item(0, 1)); return true;
+        case Key::End: setHot(item(n - 1, -1)); return true;
         case Key::Enter:
         case Key::Space:
-            if (hot_ >= 0 && hot_ < n) pick_(shown_[size_t(hot_)]);
+            if (hot_ >= 0 && hot_ < n && !items_[size_t(shown_[size_t(hot_)])].heading) pick_(shown_[size_t(hot_)]);
             return true;
         case Key::Backspace:
             if (!search_ || query_.empty()) return search_;
@@ -204,7 +212,16 @@ private:
         if (k < top_) top_ = k;
         else if (k >= top_ + visible()) top_ = k - visible() + 1;
     }
+    // The row k, or the next one in `dir` that is an item (not a heading); else the nearest one the other way; -1: none.
+    int item(int k, int dir) const {
+        const int n = int(shown_.size());
+        for (int d : {dir, -dir})
+            for (int at = std::clamp(k, 0, std::max(0, n - 1)); at >= 0 && at < n; at += d)
+                if (!items_[size_t(shown_[size_t(at)])].heading) return at;
+        return -1;
+    }
     void setHot(int k) {
+        if (k < 0 && hot_ >= 0) return;  // (no item that way: the hot one stays)
         hot_ = k;
         show(k);
         invalidate();
@@ -217,11 +234,20 @@ private:
         };
         const std::wstring q = lower(query_);
         shown_.clear();
-        for (int i = 0; i < int(items_.size()); ++i)
+        int heading = -1;  // (the section's heading, shown once over its first match)
+        for (int i = 0; i < int(items_.size()); ++i) {
+            if (items_[size_t(i)].heading) {
+                heading = i;
+                continue;
+            }
             if (q.empty() || lower(items_[size_t(i)].label).find(q) != std::wstring::npos ||
-                (items_[size_t(i)].number >= 0 && std::to_wstring(items_[size_t(i)].number).find(q) != std::wstring::npos))
+                (items_[size_t(i)].number >= 0 && std::to_wstring(items_[size_t(i)].number).find(q) != std::wstring::npos)) {
+                if (heading >= 0) shown_.push_back(heading), heading = -1;
                 shown_.push_back(i);
-        hot_ = shown_.empty() ? -1 : 0;
+            }
+        }
+        hot_ = -1;
+        hot_ = item(0, 1);
         for (int k = 0; k < int(shown_.size()); ++k)
             if (shown_[size_t(k)] == current_) hot_ = k;
         top_ = 0;
@@ -366,8 +392,9 @@ void Dropdown::pick(int i) {
 void Dropdown::step(int dir) {
     const int n = int(items_.size());
     if (!n || onOpen) return;
-    const int next = value_ < 0 ? (dir > 0 ? 0 : n - 1) : std::clamp(value_ + dir, 0, n - 1);
-    if (next == value_) return;
+    int next = value_ < 0 ? (dir > 0 ? 0 : n - 1) : std::clamp(value_ + dir, 0, n - 1);
+    while (next >= 0 && next < n && items_[size_t(next)].heading) next += value_ < 0 ? (dir > 0 ? 1 : -1) : dir;
+    if (next < 0 || next >= n || next == value_) return;
     value_ = next;
     invalidate();
     if (onChange) onChange(value_);

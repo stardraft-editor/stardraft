@@ -20,6 +20,9 @@ struct DropdownItem {
     draw::Color swatch = draw::kNone;
     // A picture before the label, in the list and on the closed field (a map tile); null: none.
     std::shared_ptr<draw::Bitmap> image;
+    // A section heading in the list (dim, not an item to pick: the keys and the clicks pass it by; a search shows it
+    // over its matches).
+    bool heading = false;
 };
 
 class Dropdown : public draw::View {

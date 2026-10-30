@@ -59,6 +59,11 @@ inline std::wstring titleCase(std::wstring s) {
     }
     return s;
 }
+// A tileset's name as the program's lists have it (Jungle World, Ash World).
+inline std::wstring tilesetTitle(int e) {
+    static const wchar_t* kNames[8] = {L"Badlands", L"Space Platform", L"Installation", L"Ash World", L"Jungle World", L"Desert World", L"Ice World", L"Twilight World"};
+    return kNames[e & 7];
+}
 inline std::wstring familyName(Family f) { return titleCase(widen(stardraft::terrainrules::familyName(f))); }
 inline bool isNull(const std::array<uint16_t, 3>& p) { return p[1] == 0 && p[2] == 1; }
 // A half with no tile yet (the null tile's subtile: 0 or 1); a piece with one: not done.
@@ -207,19 +212,19 @@ public:
     IsomRulesView()
         : newTerrain_(L"New Terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
-        for (int e = 0; e < 8; ++e) eras.push_back({isomrules::titleCase(widen(tilesetName(uint16_t(e))))});
+        for (int e = 0; e < 8; ++e) eras.push_back({isomrules::tilesetTitle(e)});
         era_.setItems(eras), era_.setValue(0);
         era_.onChange = [this](int e) { openEra(e); };
-        refEra_.setItems(eras), refEra_.setValue(0), refEra_.wheelSteps = false;
-        refEra_.setTip(L"The reference border's tileset (another tileset's border in the same shape)");
-        refEra_.onChange = [this](int e) { setRefEra(e); };
         search_.setPlaceholder(L"Search (Name, Family, Draft)");
         search_.onChange = [this] { filter(); };
         sideBar_.onScroll = [this](int pos) { sideScroll_ = pos, invalidate(); };
         ground_.onChange = [this](int i) { setGround(i); };
         refPick_.searchable = true, refPick_.wheelSteps = false;
-        refPick_.setTip(L"Reference border rendered in the same shape (Template: the terrain's own). Ctrl+R: the overlay on or off");
-        refPick_.onChange = [this](int) { rebuild(); };
+        refPick_.setTip(L"Reference border rendered in the same shape (Template: the terrain's own; any tileset's border). Ctrl+R: the overlay on or off");
+        refPick_.onChange = [this](int) {
+            if (!refOn_ && refOf(terrain()) >= 0) refOn_ = true, refShow_.setOn(true);  // (a border picked: the overlay shows it)
+            rebuild();
+        };
         refShow_.setLabel(L"Reference Overlay"), refShow_.setPlainLabel(true);
         refShow_.onChange = [this](bool) { toggleReference(); };
         refShow_.setTip(L"Render the reference border over the example. Key: Ctrl+R");
@@ -233,7 +238,7 @@ public:
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
         loadColumns();
-        for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refEra_, &refPick_, &refShow_, &refOpacity_, &search_,
+        for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
                                                                &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_})
             add(*v, {0, 0, 0, 0});
     }
@@ -309,6 +314,7 @@ public:
         if (!ctrl || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
+        if (e.key == draw::Key::F2 && !e.mods) return renameTerrain(sel_), true;
         if (e.key == draw::Key::Escape && !e.mods && (brush_ >= 0 || slotKeys_ || target_ >= 0)) return deselectAll(), true;
         if (slotKeys_ && target_ >= 0 && ctrl) {  // (the clicked slot: Ctrl+arrows step its tile through the tiles)
             if (e.key == draw::Key::Left || e.key == draw::Key::Right) return nudge(e.key == draw::Key::Right ? 1 : -1, 0), true;
@@ -433,33 +439,82 @@ private:
         tileset_ = std::move(o.tileset);
         if (!rulesOrNull() || o.plain) setRules(std::move(o.rules));
         for (auto& x : rules().terrains) stardraft::terrainrules::normalize(tileset_, x.t);  // (every template rect present, the engine's order)
-        groundIds_.clear();
-        std::vector<stardraft::kit::DropdownItem> grounds;
-        std::map<uint16_t, std::wstring> names;  // (a terrain id -> its name: the rows' terrains)
-        if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era())))
-            for (uint16_t i = 1; i <= game->terrainCount(); ++i)
-                if (game->isTerrain(i)) groundIds_.push_back(i), grounds.push_back({widen(game->terrainName(i))}), names[i] = widen(game->terrainName(i));
-        for (const auto& x : rules().terrains) groundIds_.push_back(x.t.id), grounds.push_back({widen(x.t.name)}), names[x.t.id] = widen(x.t.name);
-        ground_.setItems(grounds);
+        const std::map<uint16_t, std::wstring> names = fillGrounds();  // (a terrain id -> its name: the rows' terrains)
         // (the rows: each group of the tileset, by its number and the terrain its tiles are)
         std::vector<std::wstring> of(tileset_.groups.size());
         for (const auto& [g, tr, other] : tileset_.groupTerrains)
             if (g < of.size() && names.count(tr))
-                of[g] = names[tr] + (other && names.count(other) ? L" / " + names[other] : L"");
+                of[g] = names.at(tr) + (other && names.count(other) ? L" / " + names.at(other) : L"");
         std::vector<stardraft::kit::DropdownItem> rows;
         for (size_t g = 0; g < tileset_.groups.size(); ++g) rows.push_back({std::to_wstring(g) + (of[g].empty() ? L"" : L"  " + of[g])});
         row_.setItems(rows), row_.setValue(-1);
         rowNames_ = of, rowPics_.clear();
         stdPairs_.clear(), std_ = -1;
         stdPairs_ = bordersOf(era());
-        if (refEraSet_ == int(era())) refEraSet_ = -1;  // (the reference's tileset: the one edited again)
-        refEra_.setValue(int(refEra()));
-        fillRefs(), refPick_.setValue(0);
+        refPick_.setValue(0), fillRefs();
         pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
         filter();
         if (!shown_.empty()) selectValue(shown_[0]);
+        loadRefTilesets();  // (after the first example's job: it does not wait for them)
         invalidate();
+    }
+    // The Bordering list: the game's terrains, then the rules'; the shown terrain's ground picked. Its names by id.
+    std::map<uint16_t, std::wstring> fillGrounds() {
+        groundIds_.clear();
+        std::vector<stardraft::kit::DropdownItem> grounds;
+        std::map<uint16_t, std::wstring> names;
+        if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era())))
+            for (uint16_t i = 1; i <= game->terrainCount(); ++i)
+                if (game->isTerrain(i)) groundIds_.push_back(i), grounds.push_back({widen(game->terrainName(i))}), names[i] = widen(game->terrainName(i));
+        for (const auto& x : rules().terrains)
+            if (!x.t.variantOf) groundIds_.push_back(x.t.id), grounds.push_back({widen(x.t.name)}), names[x.t.id] = widen(x.t.name);
+        ground_.setItems(grounds), ground_.setValue(-1);
+        if (const auto* t = terrain())
+            for (size_t k = 0; k < groundIds_.size(); ++k)
+                if (groundIds_[k] == t->t.ground) ground_.setValue(int(k));
+        return names;
+    }
+    // Rename: the terrain's name (an undo step of the terrain; the Bordering list too).
+    void renameTerrain(int i) {
+        if (loading_ || i < 0 || i >= int(rules().terrains.size())) return;
+        if (i != sel_) selectValue(i);
+        const std::wstring was = widen(rules().terrains[size_t(i)].t.name);
+        std::wstring name = was;
+        if (!shellPromptText(L"Terrain name", name)) return;
+        name.erase(0, name.find_first_not_of(L' ')), name.erase(name.find_last_not_of(L' ') + 1);  // (no spaces around it)
+        if (name.empty() || name == was) return;
+        remember();
+        rules().terrains[size_t(i)].t.name = narrow(name);
+        dirty_ = true;
+        filter(), fillGrounds(), invalidate();
+        setMessage(L"Renamed " + was + L" to " + name);
+    }
+    // Delete: the terrain goes from the rules (not while another terrain borders on it). No undo: it asks first.
+    void deleteTerrain(int i) {
+        if (loading_ || i < 0 || i >= int(rules().terrains.size())) return;
+        auto& ts = rules();
+        const uint16_t id = ts.terrains[size_t(i)].t.id;
+        const std::wstring name = widen(ts.terrains[size_t(i)].t.name);
+        std::wstring users;
+        for (const auto& o : ts.terrains)
+            if (o.t.id != id && !o.t.variantOf && (o.t.ground == id || o.t.groundTemplate == id)) users += (users.empty() ? L"" : L", ") + widen(o.t.name);
+        if (!users.empty())
+            return shellErrorBox(name + L" is the bordering terrain of " + users + L". Give them another bordering terrain first.", L"Delete terrain");
+        if (msgbox::ask(*this, L"Delete terrain", L"Delete " + name + L"? Maps that use it keep their tiles, but the brush no longer has it. Undo does not bring it back.",
+                        {L"&Delete", L"Cancel"}, msgbox::Icon::Warning) != 0)
+            return;
+        ts.terrains.erase(std::remove_if(ts.terrains.begin(), ts.terrains.end(), [id](const auto& x) { return x.t.id == id || x.t.variantOf == id; }), ts.terrains.end());
+        auto gone = [id](const Edit& e) { return e.id == id || e.before.t.ground == id || e.before.t.groundTemplate == id; };  // (an undo: no link to it again)
+        undo_.erase(std::remove_if(undo_.begin(), undo_.end(), gone), undo_.end());
+        redo_.erase(std::remove_if(redo_.begin(), redo_.end(), gone), redo_.end());
+        moreRects_.erase(id), savedPins_.erase(id), familyCache_.clear();
+        dirty_ = true;
+        sel_ = -1, target_ = -1, pins_.clear(), shownId_ = -1;  // (the next terrain may get its index: its example is new)
+        filter(), fillGrounds();
+        if (!shown_.empty()) selectValue(shown_[0]);
+        else rebuild();
+        setMessage(L"Deleted " + name);
     }
     void filter() {
         shown_.clear();
@@ -629,8 +684,9 @@ private:
             return invalidate();
         }
         in->era = era(), in->data = data;
-        in->refEra = refEra();
-        if (const int ref = refOf(t); ref >= 0 && refOn_) in->refGround = refList()[size_t(ref)].first, in->refTerrain = refList()[size_t(ref)].second;
+        in->refEra = era();
+        if (const int ref = refOf(t); ref >= 0 && refOn_)
+            in->refEra = uint8_t(refEntries_[size_t(ref)].era), in->refGround = refEntries_[size_t(ref)].ground, in->refTerrain = refEntries_[size_t(ref)].terrain;
         if (!t) {  // (a standard terrain: the game's border, read only)
             in->standard = true, in->root = stdPairs_[size_t(std_)].first, in->stdTerrain = stdPairs_[size_t(std_)].second;
             return start(in, -2 - std_);
@@ -885,23 +941,18 @@ private:
         setMessage(L"Reference " + std::to_wstring(refOpacity_.value()) + L" %");
         invalidate();
     }
-    // The reference border (an index of refList(); -1: none): the one picked, or (Auto) the terrain's template: its
-    // stand-in on the game terrain its ground stands for (another tileset: its border of the same names).
+    // The reference border (an index of refEntries_; -1: none): the one picked, or (Template) the terrain's template:
+    // its stand-in on the game terrain its ground stands for, in the tileset edited.
     int refOf(const stardraft::terrainrules::Terrain* t) const {
-        const auto& list = refList();
         const int c = refPick_.value();
-        if (c >= 2 && c - 2 < int(list.size())) return c - 2;
+        if (c >= 2 && c < int(refEntries_.size())) return refEntries_[size_t(c)].era >= 0 ? c : -1;
         if (c != 0 || !t) return -1;
         const uint16_t ground = t->t.groundTemplate ? t->t.groundTemplate : t->t.ground, terrain = t->t.standIn;
-        const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era()));
-        const IsomTerrainTable* other = IsomTerrainTable::forEra(uint16_t(refEra()));
-        auto same = [&](uint16_t a, uint16_t b) {  // (a: the reference tileset's terrain; b: the edited one's)
-            return refEra() == era() ? a == b : game && other && game->isTerrain(b) && game->terrainName(b) == other->terrainName(a);
-        };
-        for (size_t k = 0; k < list.size(); ++k)
-            if (same(list[k].first, ground) && same(list[k].second, terrain)) return int(k);
-        for (size_t k = 0; k < list.size(); ++k)
-            if (same(list[k].first, terrain) && same(list[k].second, ground)) return int(k);
+        for (int pass = 0; pass < 2; ++pass)
+            for (size_t k = 0; k < refEntries_.size(); ++k)
+                if (const RefEntry& r = refEntries_[k]; r.era == int(era()) &&
+                    (pass == 0 ? r.ground == ground && r.terrain == terrain : r.ground == terrain && r.terrain == ground))
+                    return int(k);
         return -1;
     }
     // A tileset's game borders (ground, terrain on it).
@@ -912,45 +963,71 @@ private:
                 if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) out.push_back({pr.a, pr.b});
         return out;
     }
-    // The reference's tileset: the one edited (refEraSet_ -1), or another.
-    uint8_t refEra() const { return refEraSet_ < 0 ? era() : uint8_t(refEraSet_); }
-    const std::vector<std::pair<uint16_t, uint16_t>>& refList() const { return refEraSet_ < 0 ? stdPairs_ : refPairs_; }
-    // The Reference list: Template, None, then the reference tileset's borders, each with its tile (another tileset's
-    // tiles once it is loaded).
+    // The Reference list: Template, None, then each tileset's borders under its name (the tileset edited first), each
+    // with its tile (another tileset's tiles once it is loaded: refPics_). refEntries_: what each item is.
+    struct RefEntry {
+        int era = -1;  // (-1: Template, None or a heading)
+        uint16_t ground = 0, terrain = 0;
+    };
+    std::vector<RefEntry> refEntries_;
+    std::map<int, std::map<uint16_t, std::shared_ptr<draw::Bitmap>>> refPics_;  // (another tileset: its terrains' tiles, for the list)
+    bool refsDue_ = false;  // (tiles came while the list was open: it fills when it closes)
     void fillRefs() {
         const int keep = refPick_.value();
+        const RefEntry kept = keep >= 0 && keep < int(refEntries_.size()) ? refEntries_[size_t(keep)] : RefEntry{};
         std::vector<stardraft::kit::DropdownItem> refs{{L"Template"}, {L"None"}};
-        const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(refEra()));
-        const stardraft::Tileset* ts = refEraSet_ < 0 ? &tileset_ : refTileset_ && refTilesetEra_ == refEraSet_ ? refTileset_.get() : nullptr;
-        for (const auto& [a, b] : refList()) {
-            refs.push_back({game ? widen(game->terrainName(b)) + L" (" + widen(game->terrainName(a)) + L")" : std::wstring()});
-            if (ts && !ts->groups.empty())
-                if (const int g = stardraft::solidTileGroup(*ts, b); g >= 0)
-                    if (const uint16_t v = stardraft::terrainrules::gameTile(*ts, uint32_t(g))) refs.back().image = isomrules::tilesBitmap(*ts, {v}, 1, 1);
+        refEntries_ = {{}, {}};
+        int value = keep == 1 ? 1 : 0;
+        for (int n = 0; n < 8; ++n) {
+            const int e = n == 0 ? int(era()) : n <= int(era()) ? n - 1 : n;  // (the tileset edited, then the others in order)
+            const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(e));
+            const auto pics = refPics_.find(e);
+            const auto borders = bordersOf(e);
+            if (!game || borders.empty()) continue;
+            refs.push_back({isomrules::tilesetTitle(e)}), refs.back().heading = true, refEntries_.push_back({});
+            for (const auto& [g, t] : borders) {
+                refs.push_back({widen(game->terrainName(t)) + L" (" + widen(game->terrainName(g)) + L")"});
+                if (e == int(era())) refs.back().image = terrainPic(tileset_, t);
+                else if (pics != refPics_.end())
+                    if (const auto pic = pics->second.find(t); pic != pics->second.end()) refs.back().image = pic->second;
+                if (kept.era == e && kept.ground == g && kept.terrain == t) value = int(refs.size()) - 1;
+                refEntries_.push_back({e, g, t});
+            }
         }
         refPick_.setItems(refs);
-        refPick_.setValue(keep >= 0 && keep < int(refs.size()) ? keep : 0);
+        refPick_.setValue(value);
     }
-    void setRefEra(int e) {
-        refEraSet_ = e == int(era()) ? -1 : e & 7;
-        refPairs_ = refEraSet_ < 0 ? decltype(refPairs_)() : bordersOf(refEraSet_);
-        refPick_.setValue(0), fillRefs();
-        if (refEraSet_ >= 0 && refTilesetEra_ != refEraSet_) {  // (its tiles for the list: the tileset loads on the worker)
-            const int want = refEraSet_;
-            std::shared_ptr<bool> alive = alive_;
-            background([this, want, alive] {
-                auto ts = std::make_shared<stardraft::Tileset>();
-                std::string err;
-                if (!loadTileset(*ts, want, false, err)) return;
-                foreground([this, want, alive, ts] {
-                    if (!*alive) return;
-                    refTileset_ = ts, refTilesetEra_ = want;
-                    if (refEraSet_ == want) fillRefs();
-                });
+    // A game terrain's tile (its solid group's), as a picture; null: none.
+    static std::shared_ptr<draw::Bitmap> terrainPic(const stardraft::Tileset& ts, uint16_t terrain) {
+        if (ts.groups.empty()) return nullptr;
+        const int g = stardraft::solidTileGroup(ts, terrain);
+        const uint16_t v = g >= 0 ? stardraft::terrainrules::gameTile(ts, uint32_t(g)) : 0;
+        return v ? std::shared_ptr<draw::Bitmap>(isomrules::tilesBitmap(ts, {v}, 1, 1)) : nullptr;
+    }
+    // The other tilesets load on the worker one after the other (a job each: an example waits for one at most); each
+    // gives the list its borders' tiles, then goes.
+    void loadRefTilesets() {
+        int next = -1;
+        for (int e = 0; e < 8 && next < 0; ++e)
+            if (e != int(era()) && !refPics_.count(e)) next = e;
+        if (next < 0 || !async_) return;
+        refPics_[next];  // (asked for)
+        std::shared_ptr<bool> alive = alive_;
+        background([this, next, alive] {
+            auto pics = std::make_shared<std::map<uint16_t, std::shared_ptr<draw::Bitmap>>>();
+            stardraft::Tileset ts;
+            std::string err;
+            if (loadTileset(ts, next, false, err))
+                for (const auto& [g, t] : bordersOf(next))
+                    if (!pics->count(t)) (*pics)[t] = terrainPic(ts, t);
+            foreground([this, next, alive, pics] {
+                if (!*alive) return;
+                refPics_[next] = std::move(*pics);
+                if (refPick_.listOpen()) refsDue_ = true;  // (an open list: not now, its search and keys stay)
+                else fillRefs();
+                loadRefTilesets();
             });
-        }
-        refOn_ = true, refShow_.setOn(true);  // (a tileset picked: the overlay shows it)
-        rebuild();
+        });
     }
     // The target (the rect, or the half: 1 tile) has no tile: NULL (a place that needs work; it stays where it is: the
     // engine reads no NULL half as a game tile).
@@ -1224,7 +1301,9 @@ private:
         std::vector<Item> terrainMenu = {radio(L"Draft", L"Ctrl+D", t && t->t.draft, [this] { toggleDraft(); }, own),
                                          radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
                                          item(L"Next NULL Rect", L"Ctrl+L", [this] { nextNull(); }, own),
-                                         item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own)};
+                                         item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
+                                         item(L"Rename Terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
+                                         item(L"Delete Terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
         for (int m = 0; m < 3; ++m) ids.sub.push_back(radio(m == 0 ? L"Off" : m == 1 ? L"On Hover" : L"Always", L"", tileIds_ == m, [this, m] { setTileIds(m); }));
@@ -1272,6 +1351,7 @@ private:
         for (size_t k = 0; k < groundIds_.size(); ++k)  // (the Bordering box: the ground as it was)
             if (groundIds_[k] == ts.terrains[size_t(i)].t.ground) ground_.setValue(int(k));
         places_.clear(), holes_.clear(), absent_.clear();  // (the piece numbers may have moved: none until the new example)
+        fillGrounds();  // (a name may come back: the Bordering list's)
         target_ = e.target, targetHalf_ = e.half;
         changed();
         setMessage((redo ? L"Redo: " : L"Undo: ") + widen(ts.terrains[size_t(i)].t.name) + L" (" + std::to_wstring(nulls(ts.terrains[size_t(i)].t)) + L" NULL)");
@@ -1665,11 +1745,7 @@ private:
         if (b) c.bitmap(*b, {0, 0, b->width(), b->height()}, r);
     }
 
-    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1}, refEra_{{}, -1};
-    int refEraSet_ = -1;  // (the reference's tileset; -1: the one edited)
-    std::vector<std::pair<uint16_t, uint16_t>> refPairs_;  // (its borders, another tileset's)
-    std::shared_ptr<stardraft::Tileset> refTileset_;  // (another tileset, for the list's tiles)
-    int refTilesetEra_ = -1;
+    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1};
     std::vector<std::pair<uint16_t, uint16_t>> stdPairs_;  // (the game's borders: its ground, the terrain on it)
     int std_ = -1;  // (the standard terrain shown: an index of stdPairs_; -1: a terrain of the rules)
     bool refOn_ = false;  // (the reference over the example; it paints only while it shows)
@@ -2116,11 +2192,8 @@ void IsomRulesView::layout() {
             const int ry = refRow_.top + pad / 2;
             refShow_.setFrame({rx, ry, rx + scale(130), ry + barH}), rx += scale(130) + pad;
             refOpacity_.setFrame({rx, ry + scale(4), rx + scale(90), ry + barH - scale(4)}), rx += scale(90) + pad;
-            refEra_.setFrame({rx, ry, std::min(rx + scale(110), b.right - pad), ry + barH}), rx = refEra_.frame().right + pad / 2;
-            refPick_.setFrame({rx, ry, std::max(rx + scale(60), std::min(rx + scale(180), b.right - pad)), ry + barH});  // (its own width, not the row's)
-        } else
-            puzzle_ = strip_ = refRow_ = modeBar_ = none, ground_.setFrame(none), refShow_.setFrame(none), refOpacity_.setFrame(none), refPick_.setFrame(none),
-            refEra_.setFrame(none);
+            refPick_.setFrame({rx, ry, std::max(rx + scale(60), std::min(rx + scale(240), b.right - pad)), ry + barH});  // (its own width, not the row's)
+        } else puzzle_ = strip_ = refRow_ = modeBar_ = none, ground_.setFrame(none), refShow_.setFrame(none), refOpacity_.setFrame(none), refPick_.setFrame(none);
     }
     {  // Tiles: the group picker, the palette with its bar at its right.
         const draw::Rect& b = colBody_[kColTiles];
@@ -2133,6 +2206,7 @@ void IsomRulesView::layout() {
 }
 
 void IsomRulesView::paint(draw::Canvas& c) {
+    if (refsDue_ && !refPick_.listOpen()) refsDue_ = false, fillRefs();  // (the Reference list closed: its new tiles)
     paintBody(c);
     if (modeBar_.width() > 0 && terrain()) {  // (the terrain view's mode)
         const int pad = scale(8), b = brushValue();
@@ -2512,6 +2586,21 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     if (e.kind == draw::MouseKind::Wheel && side_.contains(e.pt)) {
         sideScroll_ = std::clamp(sideScroll_ - int(draw::wheelDistance(e, float(scale(44) * 2))), 0, std::max(0, sideTotal_ - side_.height()));
         invalidate();
+        return true;
+    }
+    if (e.kind == draw::MouseKind::Down && e.button == 1 && side_.contains(e.pt) && !loading_) {  // (a terrain's row: Rename, Delete)
+        const int sy = e.pt.y - side_.top + sideScroll_;
+        for (const SideRow& r : sideRows_)
+            if (r.value != kSideHeader && sy >= r.y && sy < r.y + r.h) {
+                if (r.value < 0) return selectValue(r.value), setMessage(L"Game borders are read-only"), true;
+                selectValue(r.value);
+                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026"})) {
+                case 1: renameTerrain(r.value); break;
+                case 2: deleteTerrain(r.value); break;
+                default: break;
+                }
+                return true;
+            }
         return true;
     }
     if (e.kind == draw::MouseKind::Down && e.button == 0 && side_.contains(e.pt)) {  // (a terrain's row: shown)
