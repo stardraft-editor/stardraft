@@ -10,7 +10,7 @@
 // done rect hands the target to the next rect with no tile; Up / Down walk the checklist; the tiles scroll to the
 // target's row. Ctrl+Z / Ctrl+Y undo
 // and redo; Clear all makes every rect NULL; Holes get the game's tiles; Copy from takes another terrain's tiles by
-// role; Draft marks a terrain as not checked yet. Load and Save the rules file (.sdterrain); the ISOM terrain rules
+// role; Draft marks a terrain as not checked yet. Load and Save the rules file (.isom); the ISOM terrain rules
 // override (Program options > Plugins) uses such a file. Closing with unsaved changes asks Save, Do not save or Cancel.
 // Terse texts: a tool for the mod's tile makers (not STE100).
 
@@ -1325,7 +1325,7 @@ private:
         if (dirty_ && !confirmClose()) return;
         ShellFilePick d;
         d.title = L"Load terrain rules";
-        d.filters = {{L"Terrain rules (*.sdterrain)", L"*.sdterrain"}};
+        d.filters = {{L"Terrain rules (*.isom)", L"*.isom"}};
         const std::filesystem::path f = shellPickFile(d);
         if (f.empty()) return;
         stardraft::terrainrules::Rules r;
@@ -1335,7 +1335,7 @@ private:
         openEra(era());  // (a tileset the file has no rules for: the ones in use now)
         setMessage(L"Loaded " + f.filename().wstring());
     }
-    // A file in the mod's install folder (its own terrains.sdterrain: the default rules, with the built-in ones): never
+    // A file in the mod's install folder (its own terrains.isom: the default rules, with the built-in ones): never
     // written, never the file Save writes to.
     static bool modsOwn(const std::filesystem::path& f) {
         const std::filesystem::path install = stardraft::cmbw::findInstall();
@@ -1351,8 +1351,8 @@ private:
             if (as || f.empty()) {
                 ShellFilePick d;
                 d.title = L"Save terrain rules";
-                d.filters = {{L"Terrain rules (*.sdterrain)", L"*.sdterrain"}};
-                d.defaultExtension = L"sdterrain", d.fileName = L"terrains", d.save = true;
+                d.filters = {{L"Terrain rules (*.isom)", L"*.isom"}};
+                d.defaultExtension = L"isom", d.fileName = L"terrains", d.save = true;
                 d.initialDir = shellDocumentsFolder() / "StarDraft";
                 std::error_code ec;
                 std::filesystem::create_directories(d.initialDir, ec);

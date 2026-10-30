@@ -209,7 +209,7 @@ public:
         installBrowse_.onClick = [this] { host_.command(ID_OPT_INSTALL); };
         cmbwBrowse_.setText(L"Browse\x2026"), cmbwBrowse_.setTip(L"Select the Cosmonarchy BW folder");
         cmbwBrowse_.onClick = [this] { host_.command(ID_OPT_CMBWFOLDER); };
-        overrideBrowse_.setText(L"Browse\x2026"), overrideBrowse_.setTip(L"Select a terrain rules file (*.sdterrain)");
+        overrideBrowse_.setText(L"Browse\x2026"), overrideBrowse_.setTip(L"Select a terrain rules file (*.isom)");
         overrideBrowse_.onClick = [this] { host_.command(ID_OPT_TERRAINOVERRIDEFILE); };
         check_.setText(L"Check now"), check_.setTip(L"Look for a newer release now");
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };

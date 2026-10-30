@@ -36,7 +36,7 @@ std::filesystem::path findInstall();
 std::filesystem::path installIn(const std::filesystem::path& folder);
 // The folder that findInstall gives from now on (the user's choice: the editor's Cosmonarchy folder); empty: the search.
 void useInstall(const std::filesystem::path& install);
-// A terrain rules file (.sdterrain, mods/terrain_rules.h) put over the built-in rules and the mod's own file when a
+// A terrain rules file (.isom, mods/terrain_rules.h) put over the built-in rules and the mod's own file when a
 // tileset loads (Program options > Plugins: ISOM terrain rules override); empty: none.
 void useTerrainOverride(const std::filesystem::path& file);
 // On: the tilesets this thread loads leave the override out (the default rules: the shipped file and the built-in ones).

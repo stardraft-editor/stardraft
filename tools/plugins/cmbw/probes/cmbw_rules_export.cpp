@@ -1,6 +1,6 @@
-// The built-in isometric terrain rules of every tileset as a terrain rules file (.sdterrain, mods/terrain_rules.h),
+// The built-in isometric terrain rules of every tileset as a terrain rules file (.isom, mods/terrain_rules.h),
 // then a check: the file read back is the same, and a tileset with the file applied paints with the same pieces.
-// usage: cmbw_rules_export <Cosmonarchy install> <out .sdterrain>
+// usage: cmbw_rules_export <Cosmonarchy install> <out .isom>
 #include <cstdio>
 #include <string>
 
@@ -22,7 +22,7 @@ bool same(const Tileset::ModTerrain& a, const Tileset::ModTerrain& b) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 3) return std::fprintf(stderr, "usage: cmbw_rules_export <install> <out .sdterrain>\n"), 2;
+    if (argc < 3) return std::fprintf(stderr, "usage: cmbw_rules_export <install> <out .isom>\n"), 2;
     std::string err;
     GameData data;
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;

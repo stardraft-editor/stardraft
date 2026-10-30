@@ -623,7 +623,7 @@ void shellToggleTerrainOverride() {
 void shellChooseTerrainOverride() {
     ShellFilePick d;
     d.title = shellTr(L"Select a terrain rules file");
-    d.filters = {{L"Terrain rules (*.sdterrain)", L"*.sdterrain"}};
+    d.filters = {{L"Terrain rules (*.isom)", L"*.isom"}};
     if (!gTerrainOverride.empty()) d.initialDir = gTerrainOverride.parent_path();
     const fs::path picked = shellPickFile(d);
     if (picked.empty() || !gRoot) return;

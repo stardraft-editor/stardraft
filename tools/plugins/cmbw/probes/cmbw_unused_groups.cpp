@@ -3,12 +3,12 @@
 // runs of consecutive groups; a run of 14 to 44 groups with full rows of 16 subtiles is likely a border set (a terrain
 // with no row yet), a run of odd groups doodads or fills. For each tileset: the runs with their size and how many
 // subtiles each row has, and a sheet (PNG, 16 tiles a row, the run's first rows) to look at.
-// With an .sdterrain path, the runs that look like border sets become draft terrains in that file (loaded in the Custom
+// With an .isom path, the runs that look like border sets become draft terrains in that file (loaded in the Custom
 // isom terrain editor with Load…): the template is the tileset's first game border of the family the run's size says
 // (14 patch, 24 blend, 36 wall, 44 cliff), the run's rows go to the template's rects in order (a generated set lays
 // them out in the game's order), each row's subtile pairs as variants, the rects past the run NULL, the name
 // "Set <first>-<last> (<ground>)"; all drafts, for a person to check, rename and complete.
-// usage: cmbw_unused_groups <Cosmonarchy install> <out folder> [tileset | -] [out .sdterrain]
+// usage: cmbw_unused_groups <Cosmonarchy install> <out folder> [tileset | -] [out .isom]
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>

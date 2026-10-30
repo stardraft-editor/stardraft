@@ -10,7 +10,7 @@
 //      compared) and by the structure of its edges (gradient magnitude, normalized cross-correlation, 64 x 32). Nothing
 //      is applied: right-looking sets score 0.4 to 0.85 on the layout, and a half-and-half tile matches many masks, so
 //      the best candidate is often the same tile for several roles.
-// The repaired rules go to one .sdterrain file (version 2; drafts stay drafts), the report to a text file, and (with an
+// The repaired rules go to one .isom file (version 2; drafts stay drafts), the report to a text file, and (with an
 // .inc path) the file's bytes as a C array for src/mods/cmbw.cpp (kRepairedRules: the program applies them over the
 // built-in rows).
 //   4. variants: a group's pieces for one rect should share one layout; a variant whose mask strays from the others'
@@ -22,7 +22,7 @@
 //      reported with its neighbours.
 //   7. seams: the border painted as the window's example; a piece whose seams against its neighbours stand out from
 //      the set's (the mean plus two deviations, 40 gray levels or more) is reported.
-// usage: cmbw_draft_fix <Cosmonarchy install> <out .sdterrain> <report .txt> [out .inc | -] [tileset] [passes 1-7]
+// usage: cmbw_draft_fix <Cosmonarchy install> <out .isom> <report .txt> [out .inc | -] [tileset] [passes 1-7]
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -182,7 +182,7 @@ std::vector<uint16_t> insideTiles(const Tileset& ts, const Tileset::ModTerrain& 
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 4) return std::fprintf(stderr, "usage: cmbw_draft_fix <install> <out .sdterrain> <report .txt> [tileset] [passes]\n"), 2;
+    if (argc < 4) return std::fprintf(stderr, "usage: cmbw_draft_fix <install> <out .isom> <report .txt> [tileset] [passes]\n"), 2;
     std::string err;
     GameData data;
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;

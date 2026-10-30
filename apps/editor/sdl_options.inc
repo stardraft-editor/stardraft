@@ -443,7 +443,7 @@ void shellShowIsomRulesWindow() {
     spec.resizable = true;
     gHost->openWindow(*gRoot, gIsomRulesView, spec, [] { gIsomRulesOpen = false; });
 }
-// The window's title ("*terrains.sdterrain - Custom Isom Terrain Editor": the asterisk, unsaved changes).
+// The window's title ("*terrains.isom - Custom Isom Terrain Editor": the asterisk, unsaved changes).
 void shellSetIsomRulesTitle(const std::wstring& title) {
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gIsomRulesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }

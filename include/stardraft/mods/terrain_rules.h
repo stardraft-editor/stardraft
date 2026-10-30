@@ -1,8 +1,8 @@
 #pragma once
 
-// A mod's isometric terrain rules as a file (.sdterrain): for each tileset, each mod terrain with its pieces (the mod's
+// A mod's isometric terrain rules as a file (.isom): for each tileset, each mod terrain with its pieces (the mod's
 // tiles for each rect of its template, the game border whose shapes it takes). StarDraft has its rules built in
-// (src/mods/cmbw.cpp); a file the mod ships in its mpq folder (terrains.sdterrain) replaces them, and a temporary
+// (src/mods/cmbw.cpp); a file the mod ships in its mpq folder (terrains.isom) replaces them, and a temporary
 // override (Program options > Plugins) replaces both, terrain by terrain: a terrain of the file takes the place of the
 // one with its id, a new id is a new terrain. The Custom isom terrain editor (Tools > Cosmonarchy) saves these files.
 //

@@ -1806,7 +1806,7 @@ void addModTerrains(Tileset& t) {
     }
 }
 
-// The terrain rules files over the built-in rows: the one the mod ships (<install>\mpq	errains.sdterrain), then the
+// The terrain rules files over the built-in rows: the one the mod ships (<install>\mpq	errains.isom), then the
 // temporary override (useTerrainOverride). Each replaces terrains by id or adds new ones (terrainrules::apply).
 std::filesystem::path gTerrainOverride;
 std::mutex gTerrainOverrideLock;  // (a tileset can load on a worker thread)
@@ -1818,7 +1818,7 @@ void applyTerrainFiles(Tileset& t) {
         std::lock_guard<std::mutex> lock(gTerrainOverrideLock);
         override = gTerrainOverride;
     }
-    for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.sdterrain", override}) {
+    for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.isom", override}) {
         std::error_code ec;
         if (f.empty() || !std::filesystem::exists(f, ec)) continue;
         terrainrules::Rules r;
