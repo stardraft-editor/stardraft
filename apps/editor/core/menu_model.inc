@@ -127,6 +127,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"Tools/Remove all map revealers", L"Ctrl+Shift+K, E"},
         {L"Tools/Cosmonarchy/Try to repair the ISOM", L"Ctrl+Shift+K, Y"},
         {L"Tools/Cosmonarchy/Check the CRIG commands", L"Ctrl+Shift+K, K"},
+        {L"Tools/Cosmonarchy/Custom isom terrain editor", L"Ctrl+Shift+K, T"},
         {L"Options/Units/Do not snap", L"Ctrl+J, 1"},
         {L"Options/Units/Snap to tiles (32 px)", L"Ctrl+J, 2"},
         {L"Options/Units/Snap to half tiles (16 px)", L"Ctrl+J, 3"},

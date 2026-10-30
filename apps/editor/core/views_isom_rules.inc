@@ -140,6 +140,7 @@ public:
     // loads on the worker: the window shows Loading until then).
     void open() {
         const AppState& app = shellState();
+        if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (doc_.tilesets.empty()) openEra(app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
         else rebuild();
     }
@@ -461,8 +462,10 @@ private:
         std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
         int gained = 0;                          // (the search: rects shown that were not)
         draw::Rect crop;
+        std::vector<uint16_t> ids;  // (the crop's tiles, row by row; kNullId: a NULL half)
         std::unique_ptr<draw::Bitmap> picture, reference;
     };
+    static constexpr uint16_t kNullId = 0xFFFF;
     void rebuild() {
         const auto* t = terrain();
         std::string err;
@@ -518,6 +521,7 @@ private:
                 if (in->gen != buildGen_) return;
                 building_ = false;
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
+                ids_ = std::move(out->ids);
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
@@ -582,6 +586,9 @@ private:
             if (x1 < 0) x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1;
             x0 = std::max(0, x0 - 2), y0 = std::max(0, y0 - 1), x1 = std::min(W - 1, x1 + 2), y1 = std::min(H - 1, y1 + 1);
             out.crop = {x0, y0, x1 + 1, y1 + 1};
+            const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+            for (int y = y0; y <= y1; ++y)
+                for (int x = x0; x <= x1; ++x) out.ids.push_back(l.tiles[size_t(y) * W + x]);
             out.picture = pictureOf(out.crop);
             addReference(shapeOf(isomrules::Family::Other));
             return;
@@ -641,6 +648,7 @@ private:
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
         std::set<uint16_t> seen;
+        std::vector<bool> nullAt(tl.tiles.size());
         for (int ty = 0; ty < H; ++ty)
             for (int tx = 0; tx < W; ++tx) {
                 uint16_t& v = tl.tiles[size_t(ty) * W + tx];
@@ -655,6 +663,7 @@ private:
                     out.places.push_back({tx, ty, int(k)});
                     x0 = std::min(x0, tx), y0 = std::min(y0, ty), x1 = std::max(x1, tx + 1), y1 = std::max(y1, ty);
                 }
+                nullAt[size_t(ty) * W + tx] = isomrules::nullHalf(q[right ? 2 : 1]);
                 v = isomrules::nullHalf(q[right ? 2 : 1]) ? 0 : q[right ? 2 : 1];
             }
         for (size_t k = 0; k < t->t.pieces.size(); ++k)  // (its set's pieces and its gaps, not its fill: kindOf's rects)
@@ -666,7 +675,10 @@ private:
         out.crop = {x0, y0, x1 + 1, y1 + 1};
         std::vector<uint16_t> part;
         for (int y = y0; y <= y1; ++y)
-            for (int x = x0; x <= x1; ++x) part.push_back(tl.tiles[size_t(y) * W + x]);
+            for (int x = x0; x <= x1; ++x) {
+                part.push_back(tl.tiles[size_t(y) * W + x]);
+                out.ids.push_back(nullAt[size_t(y) * W + x] ? kNullId : part.back());
+            }
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
         addReference(shape);
     }
@@ -859,14 +871,15 @@ private:
                                                  L"Extend example",
                                                  t && t->t.draft ? L"Mark verified" : L"Mark draft",
                                                  checkTodo_ ? L"Checklist: every rect" : L"Checklist: to do only",
-                                                 palMine_ ? L"Palette: all groups" : L"Palette: this terrain's groups"};
+                                                 palMine_ ? L"Palette: all groups" : L"Palette: this terrain's groups",
+                                                 tileIds_ == 0 ? L"Tile IDs: on hover" : tileIds_ == 1 ? L"Tile IDs: always" : L"Tile IDs: off"};
         std::vector<std::wstring> all = items;
         std::vector<int> hidden;
         for (int k = 0; k < 4; ++k)
             if (!colShown_[k]) hidden.push_back(k), all.push_back(std::wstring(L"Show ") + colName(k));
         const int pick = shellContextMenuAt(menu_, {0, menu_.frame().bottom - menu_.frame().top}, all);  // (under the button)
-        if (pick >= 15 && pick - 15 < int(hidden.size())) {
-            setColumnShown(hidden[size_t(pick - 15)], true), saveColumns(), layout(), invalidate();
+        if (pick >= 16 && pick - 16 < int(hidden.size())) {
+            setColumnShown(hidden[size_t(pick - 16)], true), saveColumns(), layout(), invalidate();
             return;
         }
         switch (pick) {
@@ -884,6 +897,9 @@ private:
             case 12: return toggleDraft();
             case 13: return toggleTodo();
             case 14: return togglePalMine();
+            case 15:
+                tileIds_ = (tileIds_ + 1) % 3, prefs::setNumber(L"Layout/IsomTileIds", tileIds_), invalidate();
+                return setMessage(tileIds_ == 0 ? L"Tile IDs: off" : tileIds_ == 1 ? L"Tile IDs: on hover" : L"Tile IDs: always");
             default: return;
         }
     }
@@ -1319,6 +1335,8 @@ private:
     std::vector<int> shown_;
     int sel_ = -1, target_ = -1, targetHalf_ = 0, hover_ = -1;
     std::vector<Place> places_;
+    std::vector<uint16_t> ids_;  // (the example's tiles, crop_ row by row: the tile IDs)
+    int tileIds_ = 0, idHover_ = -1;  // (tileIds_: the example's tile IDs 0 off, 1 on hover, 2 always; idHover_: the cell in ids_)
     std::vector<int> holes_, absent_;
     std::unique_ptr<draw::Bitmap> picture_;
     struct Spot { int x, y; float s; };
@@ -1626,6 +1644,24 @@ void IsomRulesView::paint(draw::Canvas& c) {
                 }
         for (const Place& p : places_)
             if (p.piece == target_ && target_ >= 0) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
+        if (tileIds_ && ids_.size() == size_t(crop_.width()) * size_t(crop_.height())) {  // (the tile IDs: group over subtile)
+            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 4)}));
+            auto label = [&](size_t i) {
+                const int x = ox + int(float(i % size_t(crop_.width())) * ts), y = oy + int(float(i / size_t(crop_.width())) * ts);
+                const draw::Rect r{x, y, x + int(ts), y + int(ts)};
+                const uint16_t v = ids_[i];
+                c.fill({r.left + 1, r.top + 1, r.right - 1, r.bottom - 1}, 0x000000, 150);
+                if (v == kNullId) return c.text(r, L"NULL", kHole, draw::kCenter | draw::kMiddle);
+                const int mid = (r.top + r.bottom) / 2;
+                c.text({r.left, r.top, r.right, mid + scale(2)}, std::to_wstring(v >> 4), 0xFFFFFF, draw::kCenter | draw::kBottom);
+                c.text({r.left, mid - scale(2), r.right, r.bottom}, L"." + std::to_wstring(v & 15), 0xFFFFFF, draw::kCenter);
+            };
+            if (tileIds_ == 2)
+                for (size_t i = 0; i < ids_.size(); ++i) label(i);
+            else if (idHover_ >= 0 && size_t(idHover_) < ids_.size())
+                label(size_t(idHover_));
+            c.setFont(of);
+        }
         c.popClip();
     } else if (puzzle_.width() > 0) {
         c.text(puzzle_, loading_ ? L"Loading tileset\x2026" : building_ ? L"Rendering example\x2026" : t ? L"No example (mod data missing)" : L"Select a terrain",
@@ -1828,6 +1864,19 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         int half = 0;
         const int i = placeAt(e.pt, half), h = i >= 0 ? places_[size_t(i)].piece : -1;
         if (h != hover_) hover_ = h, invalidate();
+        int cell = -1;  // (the example's tile under the mouse: its ID on hover)
+        if (picture_ && puzzle_.contains(e.pt) && crop_.width() > 0) {
+            const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
+            const int ox = puzzle_.left + (puzzle_.width() - pw) / 2, oy = puzzle_.top + (puzzle_.height() - ph) / 2;
+            if (e.pt.x >= ox && e.pt.y >= oy) {
+                const int cx = int(float(e.pt.x - ox) / (32 * zoom_)), cy = int(float(e.pt.y - oy) / (32 * zoom_));
+                if (cx < crop_.width() && cy < crop_.height()) cell = cy * crop_.width() + cx;
+            }
+        }
+        if (cell != idHover_) {
+            idHover_ = cell;
+            if (tileIds_ == 1) invalidate();
+        }
         int sh = -1;
         if (side_.contains(e.pt))
             for (size_t i = 0; i < sideRows_.size(); ++i)
