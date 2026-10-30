@@ -380,14 +380,14 @@ CASES += [
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
     # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
     # in pair mode (T) the rect takes a palette tile and the next one and the target moves on (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "730,410", "--key", "T", "--click", "1110,290"], "cmbw"),
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--key", "T", "--click", "1110,290", "--click", "730,410"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
     # New terrain… (the Terrains column's bottom): the template list picked by its text (wall · Structure (Asphalt)),
     # Bordering and the name taken as offered (Enter): "Primary (Asphalt)", every rect NULL.
     ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--type", "wall  ·  Structure (Asphalt)",
                              "--key", "Enter", "--key", "Enter", "--key", "Enter"], "cmbw"),
-    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "730,410", "--key", "T", "--click", "1110,290", "--key", "Ctrl+Z",
+    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--key", "T", "--click", "1110,290", "--click", "730,410", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
@@ -1173,13 +1173,15 @@ def check_isom_rules(output):
     and the palette's tile goes into the rect that was clicked."""
     if "isom rules: Structure (Halfsphalt), 16 null, 12 holes in the examples" not in output or "20 of 36 rects done, 0 borrowed" not in output:
         return "the terrain does not open with its 16 NULL rects (12 holes in the example, 20 of 36 done)"
-    return None if re.search(r"^click 1110,290: .*Rect \d+: \d+\.0 \d+\.1", output, re.M) else "the tiles did not go into the hole"
+    if not re.search(r"^click 1110,290: .*Brush: \d+\.0-1", output, re.M):
+        return "a click in the tiles did not pick the pair as the brush"
+    return None if re.search(r"^click 730,410: .*Rect \d+: \d+\.0 \d+\.1", output, re.M) else "the brush did not paint the hole"
 
 
 def check_isom_rules_undo(output):
-    """None when a pick fills the clicked hole (15 NULL left), Ctrl+Z brings the hole back (16 NULL) and Ctrl+Y fills it again."""
-    if not re.search(r"^click 1110,290: .*Rect \d+: \d+\.0 \d+\.1  → next \d+", output, re.M):
-        return "the pick did not fill the hole"
+    """None when the brush paints the clicked hole (15 NULL left), Ctrl+Z brings the hole back (16 NULL) and Ctrl+Y fills it again."""
+    if not re.search(r"^click 730,410: .*Rect \d+: \d+\.0 \d+\.1", output, re.M):
+        return "the brush did not paint the hole"
     for w in ["Undo: Structure (Halfsphalt) (16 NULL)", "Redo: Structure (Halfsphalt) (15 NULL)"]:
         if w not in output:
             return "missing: " + w

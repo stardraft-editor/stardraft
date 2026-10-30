@@ -223,6 +223,7 @@ public:
         if (!e.down || search_.hasFocus()) return false;
         if (e.key == static_cast<draw::Key>('N') && !e.mods) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
+        if (e.key == draw::Key::Escape && !e.mods && brush_ >= 0) return pickBrush(-1), true;
         if (e.key == static_cast<draw::Key>('R') && !e.mods) return toggleReference(), true;
         if (e.key == static_cast<draw::Key>('H') && !e.mods) return toggleFrames(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && (e.mods & draw::kCtrl)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
@@ -321,7 +322,7 @@ private:
         era_.setValue(e);
         const int gen = ++openGen_;
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
-        undo_.clear(), redo_.clear();
+        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1;
         shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         invalidate();
         background([this, gen, e, plain] {
@@ -804,32 +805,40 @@ private:
         if (y < palScroll_ || y + cell > palScroll_ + palette_.height()) palScroll_ = std::clamp(y - palette_.height() / 2, 0, palScrollMax());
     }
 
-    // A tile of the palette went into the target (Rect: the pair; Tile: the half that was clicked).
+    // The brush is the tile (pair mode: the pair) at value; the example's slots get it.
+    void endStroke() {
+        if (!painting_) return;
+        painting_ = strokeSaved_ = false, lastPaint_ = -1;
+        if (host()) host()->capture(*this, false);
+        invalidate();
+    }
+    void pickBrush(int value) {
+        if (value < 0) endStroke();  // (2: no brush, no stroke)
+        brush_ = value;
+        const int v = brushValue();
+        setMessage(v < 0 ? std::wstring(L"Brush: none") : L"Brush: " + std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15) + (wide_ ? L"-" + std::to_wstring((v & 15) + 1) : L""));
+        invalidate();
+    }
+    // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void place(uint16_t value) {
         if (loading_) return;
         if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
         auto& m = rules().terrains[size_t(sel_)].t;
         if (target_ >= int(m.pieces.size())) return;
         auto p = m.pieces[size_t(target_)];
-        if (wide_) {  // (the tile and the next one in its row: the two cells framed under the mouse)
+        const auto was = p;
+        if (wide_) {  // (the tile and the next one in its row)
             if ((value & 15) == 15 || tileset_.megatileFor(uint16_t(value + 1)) <= 0) return setMessage(L"Pair: subtile k+1 is empty in this row; use Single");
-            remember();
             p[1] = value, p[2] = uint16_t(value + 1);
         } else {
-            remember();
             p[size_t(1 + targetHalf_)] = value;  // (the half only: the other half's tile is the user's choice too)
         }
+        if (p == was) return;
+        if (!painting_ || !strokeSaved_) remember(), strokeSaved_ = painting_;
         m.pieces[size_t(target_)] = p;
-        if (!wide_ && isomrules::nullHalf(p[size_t(2 - targetHalf_)])) targetHalf_ = 1 - targetHalf_;  // (next: the other half, still NULL)
         changed();  // (a complete piece moves into the set: the target follows it)
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
-        std::wstring msg = L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]);
-        if (!isomrules::anyNull(p)) {  // (the rect is done: the next one with no tile is the target)
-            const int next = findNull(target_);
-            if (next >= 0) setTarget(next, -1), msg += L"  \x2192 next " + std::to_wstring(m.pieces[size_t(next)][0]);
-            else msg += L"  \x2192 no NULL rects left";
-        }
-        setMessage(msg);
+        setMessage(L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]));
     }
     // The next piece after `from` (-1: the start) of the set or the gaps with no tile; -1: none. The order: the rects
     // the example shows (their context is in view), then the tray's, each by piece; round.
@@ -849,14 +858,14 @@ private:
         return it == v.end() ? v.front() : *it;
     }
     // Piece k is the target (half -1: its first NULL half, else the left), and the tiles show its row.
-    void setTarget(int k, int half) {
+    void setTarget(int k, int half, bool follow = true) {
         const auto* t = terrain();
         if (!t || k < 0 || k >= int(t->t.pieces.size())) return;
         const auto& q = t->t.pieces[size_t(k)];
         target_ = k, targetHalf_ = half >= 0 ? half : isomrules::nullHalf(q[1]) ? 0 : 1;
         uint16_t v = q[size_t(1 + targetHalf_)];  // (its tile's row in view, or the other half's: the tiles near it)
         if (isomrules::nullHalf(v)) v = q[size_t(2 - targetHalf_)];
-        if (!isomrules::nullHalf(v)) scrollToRow(v >> 4), row_.setValue(v >> 4);  // (the group picker follows the target)
+        if (follow && !isomrules::nullHalf(v)) scrollToRow(v >> 4), row_.setValue(v >> 4);  // (the group picker follows the target)
         const std::vector<CheckRow> rows = checkRows();  // (the checklist shows the target's row)
         for (size_t i = 0; i < rows.size(); ++i)
             if (rows[i].group == q[0]) {
@@ -1420,7 +1429,11 @@ private:
     stardraft::Tileset tileset_;
     std::vector<uint16_t> groundIds_;
     std::vector<int> shown_;
-    int sel_ = -1, target_ = -1, targetHalf_ = 0, hover_ = -1;
+    int sel_ = -1, target_ = -1, targetHalf_ = 0, hover_ = -1, hoverHalf_ = 0;
+    int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
+    bool painting_ = false, strokeSaved_ = false;  // (a paint stroke: one undo step)
+    int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
+    int brushValue() const { return brush_ < 0 ? -1 : wide_ ? brush_ & ~1 : brush_; }
     std::vector<Place> places_;
     std::vector<uint16_t> ids_;  // (the example's tiles, crop_ row by row: the tile IDs)
     int tileIds_ = 0, idHover_ = -1;
@@ -1539,15 +1552,15 @@ private:
         const auto it = std::lower_bound(palRows_.begin(), palRows_.end(), g);
         return it != palRows_.end() && *it == g ? int(it - palRows_.begin()) : -1;
     }
-    // The palette shows each group's 16 subtiles as 8 pairs (0-1, 2-3, ...: a rect's left and right tile), a gap between pairs.
-    int palGap() const { return scale(4); }
-    int palCell() const { return std::max(scale(8), (palette_.width() - scale(56) - 7 * palGap()) / 16); }
-    int palX(int sub) const { return palette_.left + scale(48) + sub * palCell() + sub / 2 * palGap(); }
-    // The subtile under x (in pair mode the pair's left one); -1 outside the tiles or in a gap.
+    // The palette: each group's 16 subtiles in a row, in a fine grid (the lines between pairs 0-1, 2-3, ... brighter).
+    int palLeft() const { return palette_.left + scale(30); }  // (the group numbers' margin)
+    int palCell() const { return std::max(scale(8), (palette_.right - palLeft() - scale(2)) / 16); }
+    int palX(int sub) const { return palLeft() + sub * palCell(); }
+    // The subtile under x (in pair mode the pair's left one); -1 outside the tiles.
     int palSubAt(int x) const {
-        const int cell = palCell(), pair = 2 * cell + palGap(), dx = x - (palette_.left + scale(48));
-        if (dx < 0 || dx >= 8 * pair || dx % pair >= 2 * cell) return -1;
-        const int sub = dx / pair * 2 + dx % pair / cell;
+        const int dx = x - palLeft();
+        if (dx < 0 || dx >= 16 * palCell()) return -1;
+        const int sub = dx / palCell();
         return wide_ ? sub & ~1 : sub;
     }
     int palScrollMax() const { return std::max(0, palRowCount() * palCell() - palette_.height()); }
@@ -1779,16 +1792,16 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             for (const Place& p : places_)  // (a borrowed rect: the game's own tiles, a blue frame)
                 if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && stardraft::terrainrules::stateOf(t->t.pieces[size_t(p.piece)]) == isomrules::PieceState::Borrowed)
                     c.frame(rectOf(p), kBorrowed, scale(1));
-        if (t && palHover_ >= 0 && target_ >= 0 && target_ < int(t->t.pieces.size()) && !refAlone)  // (the tile under the mouse, as it would sit in the target)
+        if (const int b = brushValue(); t && b >= 0 && hover_ >= 0 && !painting_ && !refAlone)  // (the brush, as it would sit in the slot under the mouse)
             for (const Place& p : places_)
-                if (p.piece == target_) {
+                if (p.piece == hover_) {
                     if (wide_) {
-                        drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), 0));
-                        if ((palHover_ & 15) < 15) drawTile(c, uint16_t(palHover_ + 1), halfOf(rectOf(p), 1));
+                        drawTile(c, uint16_t(b), halfOf(rectOf(p), 0));
+                        if ((b & 15) < 15) drawTile(c, uint16_t(b + 1), halfOf(rectOf(p), 1));
                     } else {
-                        drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), targetHalf_));
+                        drawTile(c, uint16_t(b), halfOf(rectOf(p), hoverHalf_));
                     }
-                    c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), 0xFFFFFF, scale(1));
+                    c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), hoverHalf_), 0xFFFFFF, scale(1));
                 }
         for (const Place& p : places_)
             if (p.piece == target_ && target_ >= 0) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
@@ -1899,7 +1912,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     // The palette (the Tiles column): a tile group a row, its 16 subtiles; the target's tiles framed.
     if (palette_.width() <= 0) return;
     c.fill(palette_, kPanel);
-    const int cell = palCell(), x0 = palette_.left + scale(48);
+    const int cell = palCell(), x0 = palLeft();
     const int rows = palRowCount();
     if (!palMine_) {  // (the pictures of 64 groups each: only those near the view stay, about 4 MB each)
         const int first = palScroll_ / std::max(1, cell) / 64, last = (palScroll_ + palette_.height()) / std::max(1, cell) / 64;
@@ -1910,6 +1923,9 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     if (const int total = rows * cell, page = palette_.height(); total != palTotal_ || page != palPage_) palBar_.setRange(total, page), palTotal_ = total, palPage_ = page;
     palBar_.setPos(palScroll_);
     c.pushClip(palette_);
+    const int gridR = palX(16);
+    c.fill({x0, palette_.top, gridR + 1, std::min(palette_.bottom, palette_.top + rows * cell - palScroll_ + 1)}, kBorder);  // (the grid's lines)
+    auto tileAt = [&](int sub, int y) { return draw::Rect{palX(sub) + 1, y + 1, palX(sub) + cell, y + cell}; };  // (a cell inside its lines)
     for (int i = std::max(0, palScroll_ / cell); i < rows && (i * cell - palScroll_) < palette_.height(); ++i) {
         const int g = palGroupAt(i);
         if (g < 0) continue;
@@ -1927,7 +1943,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 b = isomrules::tilesBitmap(tileset_, tiles, 16, 64);
             }
             if (b)
-                for (int k = 0; k < 8; ++k) c.bitmap(*b, {k * 64, (g % 64) * 32, k * 64 + 64, (g % 64) * 32 + 32}, {palX(2 * k), y, palX(2 * k) + 2 * cell, y + cell});
+                for (int k = 0; k < 16; ++k) c.bitmap(*b, {k * 32, (g % 64) * 32, k * 32 + 32, (g % 64) * 32 + 32}, tileAt(k, y));
         } else {
             auto& b = rowPics_[g];
             if (!b) {
@@ -1936,20 +1952,28 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 b = isomrules::tilesBitmap(tileset_, tiles, 16, 1);
             }
             if (b)
-                for (int k = 0; k < 8; ++k) c.bitmap(*b, {k * 64, 0, k * 64 + 64, 32}, {palX(2 * k), y, palX(2 * k) + 2 * cell, y + cell});
+                for (int k = 0; k < 16; ++k) c.bitmap(*b, {k * 32, 0, k * 32 + 32, 32}, tileAt(k, y));
         }
     }
+    for (int k = 0; k <= 16; k += 2) c.fill({palX(k), palette_.top, palX(k) + 1, std::min(palette_.bottom, palette_.top + rows * cell - palScroll_ + 1)}, kBorderHot);
     auto rowY = [&](int g) { const int i = palIndexOf(g); return i < 0 ? INT_MIN : palette_.top + i * cell - palScroll_; };
     if (t && target_ >= 0 && target_ < int(t->t.pieces.size()))
         for (int half = 1; half <= 2; ++half) {
             const uint16_t v = t->t.pieces[size_t(target_)][size_t(half)];
             if (isomrules::nullHalf(v) || rowY(v >> 4) == INT_MIN) continue;
             const int y = rowY(v >> 4), x = palX(v & 15);
-            c.frame({x, y, x + cell, y + cell}, kAccent, scale(2));
+            const uint16_t left = t->t.pieces[size_t(target_)][1], right = t->t.pieces[size_t(target_)][2];
+            const bool pair = wide_ && !(left & 1) && right == left + 1;  // (pair mode: a pair in the tiles, one 2x1 frame)
+            if (pair && half == 2) continue;
+            c.frame({x, y, x + (pair ? 2 : 1) * cell + 1, y + cell + 1}, kAccent, scale(2));
         }
-    if (palHover_ >= 0 && rowY(palHover_ >> 4) != INT_MIN) {  // (what a click puts in: 1 or 2 tiles)
+    if (palHover_ >= 0 && rowY(palHover_ >> 4) != INT_MIN) {  // (what a click picks: 1 or 2 tiles)
         const int y = rowY(palHover_ >> 4), x = palX(palHover_ & 15);
-        c.frame({x, y, x + (wide_ && (palHover_ & 15) < 15 ? 2 : 1) * cell, y + cell}, 0xFFFFFF, scale(1));
+        c.frame({x, y, x + (wide_ && (palHover_ & 15) < 15 ? 2 : 1) * cell + 1, y + cell + 1}, 0xFFFFFF, scale(1));
+    }
+    if (brush_ >= 0 && rowY(brush_ >> 4) != INT_MIN) {  // (the brush)
+        const int v = brushValue(), y = rowY(v >> 4), x = palX(v & 15);
+        c.frame({x - scale(1), y - scale(1), x + (wide_ ? 2 : 1) * cell + 1 + scale(1), y + cell + 1 + scale(1)}, 0x30C8FF, scale(3));
     }
     if (jump_ >= 0 && rowY(jump_ >> 4) != INT_MIN) {  // (the row or the tile that was asked for)
         const int y = rowY(jump_ >> 4);
@@ -1961,7 +1985,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
 
 bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     const auto* t = terrain();
-    const int cell = palCell(), x0 = palette_.left + scale(48);
+    const int cell = palCell(), x0 = palLeft();
     if (e.kind == draw::MouseKind::Wheel && palette_.contains(e.pt)) {
         palScroll_ = std::clamp(palScroll_ - int(draw::wheelDistance(e, float(cell * 3))), 0, palScrollMax());
         invalidate();
@@ -1990,6 +2014,10 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         dragEdge_ = -1, hoverEdge_ = edgeAt(e.pt), saveWidths();
         if (host()) host()->capture(*this, false);
         invalidate();
+        return true;
+    }
+    if (painting_ && e.kind == draw::MouseKind::Up) {  // (the stroke's end, wherever the button goes up)
+        endStroke();
         return true;
     }
     if (const int col = colAt(e.pt); col >= 0) {  // (a column's header: the right button, its menu)
@@ -2039,7 +2067,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (v != palHover_) palHover_ = v, invalidate();
         int half = 0;
         const int i = placeAt(e.pt, half), h = i >= 0 ? places_[size_t(i)].piece : -1;
-        if (h != hover_) hover_ = h, invalidate();
+        if (h != hover_ || half != hoverHalf_) hover_ = h, hoverHalf_ = half, invalidate();
+        if (painting_ && brushValue() >= 0 && h >= 0 && h * 2 + half != lastPaint_) {  // (a drag paints each slot it crosses)
+            lastPaint_ = h * 2 + half;
+            setTarget(h, half, false), place(uint16_t(brushValue()));
+        }
         int cell = -1;  // (the example's tile under the mouse: its ID on hover)
         if (picture_ && puzzle_.contains(e.pt) && crop_.width() > 0) {
             const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
@@ -2063,9 +2095,29 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (ch != checkHover_) checkHover_ = ch, invalidate();
         return false;
     }
+    if (e.kind == draw::MouseKind::Down && e.button == 1 && t) {  // (the right button in the example: its tile is the brush)
+        int half = 0;
+        if (const int at = placeAt(e.pt, half); at >= 0) {
+            const int k = places_[size_t(at)].piece;
+            if (k >= 0 && k < int(t->t.pieces.size())) {
+                const uint16_t v = t->t.pieces[size_t(k)][size_t(1 + half)];
+                if (isomrules::nullHalf(v)) setMessage(L"Rect " + std::to_wstring(t->t.pieces[size_t(k)][0]) + L": half is NULL");
+                else pickBrush(v), showRow(v >> 4, v);
+            }
+            return true;
+        }
+    }
     if (e.kind != draw::MouseKind::Down || e.button != 0 || !t || loading_) return false;
     if (int half = 0; placeAt(e.pt, half) >= 0) {
-        setTarget(places_[size_t(placeAt(e.pt, half))].piece, half);
+        const int k = places_[size_t(placeAt(e.pt, half))].piece;
+        if (brushValue() >= 0 && !(e.mods & draw::kCtrl) && k >= 0) {  // (the brush paints the slot; a drag goes on painting)
+            painting_ = true, strokeSaved_ = false, lastPaint_ = k * 2 + half;
+            if (host()) host()->capture(*this, true);
+            setTarget(k, half, false), place(uint16_t(brushValue()));
+            invalidate();
+            return true;
+        }
+        setTarget(k, half);
         if (e.mods & draw::kCtrl) {  // (its tiles in the palette: the half clicked)
             const auto& q = t->t.pieces[size_t(target_)];
             if (isomrules::nullHalf(q[size_t(1 + half)])) setMessage(L"Rect " + std::to_wstring(q[0]) + L": half is NULL");
@@ -2086,7 +2138,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     }
     if (palette_.contains(e.pt) && e.pt.x >= x0) {
         const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = palSubAt(e.pt.x);
-        if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16 && tileset_.megatileFor(uint16_t(g << 4 | s)) > 0) place(uint16_t(g << 4 | s));
+        if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16 && tileset_.megatileFor(uint16_t(g << 4 | s)) > 0)
+            pickBrush(brush_ == (g << 4 | s) ? -1 : g << 4 | s);  // (the brush again: none)
         return true;
     }
     return false;
@@ -2095,7 +2148,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
 std::wstring IsomRulesView::tip(draw::Point p) {
     const auto* t = terrain();
     if (!t) return {};
-    const int cell = palCell(), x0 = palette_.left + scale(48);
+    const int cell = palCell(), x0 = palLeft();
     if (palette_.contains(p) && p.x >= x0) {
         const int g = palGroupAt((p.y - palette_.top + palScroll_) / cell), s = palSubAt(p.x);
         if (g < 0 || s < 0) return {};
