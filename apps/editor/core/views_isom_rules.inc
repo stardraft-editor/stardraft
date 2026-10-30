@@ -2210,7 +2210,10 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         const int sy = e.pt.y - side_.top + sideScroll_;
         for (const SideRow& r : sideRows_)
             if (r.value != kSideHeader && sy >= r.y && sy < r.y + r.h) {
-                if (!loading_) selectValue(r.value);
+                if (!loading_) {
+                    selectValue(r.value);
+                    if (!myRows_.empty()) scrollToRow(*myRows_.begin()), row_.setValue(*myRows_.begin());  // (the Tiles show the terrain's tiles)
+                }
                 return true;
             }
         return true;
@@ -2333,7 +2336,13 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (dy >= 0 && dy / scale(kCheckRow) < int(rows.size())) {
             const CheckRow& row = rows[size_t(dy / scale(kCheckRow))];
             const int th = scale(24), xc = check_.left + scale(8) + scale(110) + 2 * th + scale(16);  // (the custom tiles' left)
-            if (row.piece >= 0) setTarget(row.piece, e.pt.x >= xc + th && e.pt.x < xc + 2 * th ? 1 : e.pt.x >= xc && e.pt.x < xc + th ? 0 : -1);
+            if (row.piece >= 0) {
+                setTarget(row.piece, e.pt.x >= xc + th && e.pt.x < xc + 2 * th ? 1 : e.pt.x >= xc && e.pt.x < xc + th ? 0 : -1);
+                const auto& q = t->t.pieces[size_t(row.piece)];  // (the Tiles show its tiles; a NULL rect: the template's group)
+                const uint16_t v = !isomrules::nullHalf(q[size_t(1 + targetHalf_)]) ? q[size_t(1 + targetHalf_)] : q[size_t(2 - targetHalf_)];
+                if (!isomrules::nullHalf(v)) showRow(v >> 4, wide_ ? v & ~1 : v);
+                else showRow(q[0], -1);
+            }
         }
         return true;
     }
