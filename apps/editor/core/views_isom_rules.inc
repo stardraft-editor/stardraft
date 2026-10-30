@@ -362,6 +362,12 @@ private:
             if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(-1 - int(k));
         }
         list_.setCount(int(shown_.size()));
+        // (the list's highlight follows the shown terrain, or none when the filter hides it)
+        int at = -1;
+        for (size_t i = 0; i < shown_.size(); ++i)
+            if ((sel_ >= 0 && shown_[i] == sel_) || (std_ >= 0 && shown_[i] == -1 - std_)) at = int(i);
+        if (at >= 0) list_.selectOnly(at);
+        else list_.clearSelection();
     }
     // A standard terrain's name: Primary (Bordering), as the mod's.
     std::wstring stdName(int k) const {
@@ -1264,13 +1270,13 @@ void IsomRulesView::layout() {
     const int pad = scale(8), barH = scale(stardraft::kit::kButtonH), W = width(), H = height();
     int x = pad;
     auto put = [&](draw::View& v, int w) { v.setFrame({x, pad, x + w, pad + barH}), x += w + pad; };
-    put(era_, scale(150)), put(load_, scale(80)), put(loadDefault_, scale(110)), put(save_, scale(70)), put(saveAs_, scale(90));
-    x += scale(20);
-    put(nextNull_, scale(110)), put(width_, scale(90)), put(null_, scale(90));
+    put(era_, scale(130)), put(load_, scale(70)), put(loadDefault_, scale(100)), put(save_, scale(60)), put(saveAs_, scale(80));
     x += scale(12);
-    put(row_, scale(180));
-    x += scale(12);
-    put(refPick_, scale(170)), put(refShow_, scale(90));
+    put(nextNull_, scale(100)), put(width_, scale(80)), put(null_, scale(80));
+    x += scale(8);
+    put(row_, scale(160));
+    x += scale(8);
+    put(refPick_, scale(150)), put(refShow_, scale(80));
     barEnd_ = x;
     const int top = pad * 2 + barH, leftW = scale(280);
     if (!paletteW_) paletteW_ = 16 * scale(32) + scale(24);
@@ -1305,7 +1311,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
     c.fill({0, 0, W, H}, kBg);
     if (!puzzle_.width()) layout();
     // The title line's right: the file and the unsaved dot.
-    c.text({std::max(barEnd_, W - scale(420)), pad, W - pad, pad + scale(stardraft::kit::kButtonH)},
+    c.text({std::max(barEnd_, W - scale(520)), pad, W - pad, pad + scale(stardraft::kit::kButtonH)},
            verifiedText() + (file_.empty() ? std::wstring(L"(not saved)") : file_.filename().wstring()) + (dirty_ ? L"  \x25cf" : L""), dirty_ ? kAccent : kDim,
            draw::kMiddle | draw::kRight | draw::kEllipsis);
     const auto* t = terrain();
