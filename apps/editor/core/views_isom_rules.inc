@@ -1112,6 +1112,43 @@ private:
         setMessage(L"Nothing selected");
         invalidate();
     }
+    // Fill From Row (Shift+click in the Tiles): the target's rect takes every pair of tile group `row` (subtiles 0-1,
+    // 2-3, ... 14-15 where both are tiles: the mod's layout, a pair side by side) as its variants, in place of the ones
+    // it had. One undo step.
+    void fillFromRow(int row) {
+        if (loading_) return;
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
+        auto& m = rules().terrains[size_t(sel_)].t;
+        if (target_ >= int(m.pieces.size())) return;
+        const size_t k = size_t(target_);
+        if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot have variants");
+        const uint16_t g = m.pieces[k][0];
+        std::vector<std::array<uint16_t, 3>> pairs;
+        for (int c = 0; c + 1 < 16; c += 2) {
+            const uint16_t l = uint16_t(row << 4 | c), r = uint16_t(row << 4 | (c + 1));
+            if (tileset_.megatileFor(l) > 0 && tileset_.megatileFor(r) > 0) pairs.push_back({g, l, r});
+        }
+        if (pairs.empty()) return setMessage(L"Row " + std::to_wstring(row) + L" has no tile pairs (subtiles 0-1, 2-3, ...)");
+        remember();
+        // (the rect's pieces go, from the set and the gaps; the row's pairs go into the set: normalize puts them in order)
+        std::vector<std::array<uint16_t, 3>> set, fill, gaps;
+        for (size_t i = 0; i < m.pieces.size(); ++i) {
+            auto& to = i < m.setPieces ? set : i + m.gapPieces >= m.pieces.size() ? gaps : fill;
+            if (m.pieces[i][0] != g || &to == &fill) to.push_back(m.pieces[i]);
+        }
+        set.insert(set.end(), pairs.begin(), pairs.end());
+        m.pieces = set, m.setPieces = set.size();
+        m.pieces.insert(m.pieces.end(), fill.begin(), fill.end());
+        m.pieces.insert(m.pieces.end(), gaps.begin(), gaps.end()), m.gapPieces = gaps.size();
+        for (auto it = pins_.begin(); it != pins_.end();)  // (the rect's pins: its variants are new)
+            it = it->second.first == g ? pins_.erase(it) : std::next(it);
+        target_ = -1;
+        for (size_t i = 0; i < m.pieces.size() && target_ < 0; ++i)
+            if (m.pieces[i] == pairs.front()) target_ = int(i);
+        changed();
+        setMessage(L"Rect " + std::to_wstring(g) + L": " + std::to_wstring(pairs.size()) + (pairs.size() == 1 ? L" pair" : L" pairs") + L" of row " + std::to_wstring(row) +
+                   L" (the brush picks one of them for each place)");
+    }
     // Make Unique: a copy of the target's piece is a new variant of its rect (the engine picks one of a rect's variants
     // where it paints the rect), and the target is the copy: its edits leave the other variant.
     void makeUnique() {
@@ -2227,7 +2264,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const bool sel = target_ >= 0 && target_ < int(t->t.pieces.size());
         const std::wstring mode = b >= 0 ? L"Brush" : L"Selection";
         std::wstring what = b >= 0 ? std::to_wstring(b >> 4) + L"." + std::to_wstring(b & 15) + L"-" + std::to_wstring((b & 15) + 1) + L"  \x00b7  Click or drag on slots to paint. Esc: clear"
-                                : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Ctrl+arrows or a click in Tiles set its tiles. Esc: clear"
+                                : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Ctrl+arrows or a click in Tiles set its tiles; Shift+click: the whole row. Esc: clear"
                                         : std::wstring(L"Click a slot to select it, or a tile in Tiles to paint with it");
         const int mw = c.measure(mode) + 2 * pad;
         int right = modeBar_.right - pad;
@@ -2778,7 +2815,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = palSubAt(e.pt.x);
         if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16 && tileset_.megatileFor(uint16_t(g << 4 | s)) > 0)
         {
-            if (slotKeys_ && target_ >= 0) place(uint16_t(g << 4 | s)), blinkOn_ = true;  // (a slot selected (blinking): the tile goes into it)
+            if ((e.mods & draw::kShift) && target_ >= 0) fillFromRow(g), blinkOn_ = true;  // (Shift: the whole row, each pair a variant)
+            else if (slotKeys_ && target_ >= 0) place(uint16_t(g << 4 | s)), blinkOn_ = true;  // (a slot selected (blinking): the tile goes into it)
             else pickBrush(brush_ == (g << 4 | s) ? -1 : g << 4 | s);  // (the brush again: none)
         }
         return true;
