@@ -1653,7 +1653,7 @@ void addModTerrains(Tileset& t) {
         if (s.era != (t.era & 7)) continue;
         if (terrains.empty()) terrains = tileGroupTerrains(t);
         Tileset::ModTerrain m;
-        m.id = uint16_t(Tileset::kModTerrainIds + index++), m.standIn = s.standIn, m.ground = s.ground, m.name = s.name; m.fillKey = s.fillLeft ? uint32_t(s.fillLeft) << 16 | s.fillRight : 0xFFFF0000u | (s.fillTerrain ? s.fillTerrain : s.standIn);  // (no fill: the stand-in's own tiles inside)
+        m.id = uint16_t(Tileset::kModTerrainIds + index++), m.standIn = s.standIn, m.ground = s.ground, m.name = s.name, m.draft = true; m.fillKey = s.fillLeft ? uint32_t(s.fillLeft) << 16 | s.fillRight : 0xFFFF0000u | (s.fillTerrain ? s.fillTerrain : s.standIn);  // (no fill: the stand-in's own tiles inside)
         m.fill = s.fillLeft || s.fillTerrain;
         m.groundTemplate = s.groundTemplate;
         if (s.groundMod) {  // (a mod terrain as its ground)
@@ -1707,7 +1707,7 @@ void addModTerrains(Tileset& t) {
         if (a.era != (t.era & 7)) continue;
         if (terrains.empty()) terrains = tileGroupTerrains(t);
         Tileset::ModTerrain m;
-        m.id = uint16_t(Tileset::kModTerrainIds + index++), m.standIn = a.standIn, m.ground = a.ground, m.name = a.name, m.fromMaps = true;
+        m.id = uint16_t(Tileset::kModTerrainIds + index++), m.standIn = a.standIn, m.ground = a.ground, m.name = a.name, m.fromMaps = true, m.draft = true;
         while (names.count(m.name)) m.name += " 2";  // (a name a hand-made row has)
         names.insert(m.name);
         for (const AutoPiece& p : a.pieces)

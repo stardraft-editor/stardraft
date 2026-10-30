@@ -76,7 +76,8 @@ struct Tileset {
         size_t setPieces = 0;  // pieces' first ones are its set's own; the rest its fill and its gaps
         size_t gapPieces = 0;  // pieces' last ones: the null tile for the border's game groups its set has no piece for
         uint16_t variantOf = 0;  // a variant: that terrain's set on another ground with its ground's tiles (the brush picks it)
-        bool fromMaps = false;  // made from the maps (src/mods/cmbw_auto_terrains.inc), not a hand-made row  // its set's blocks that gave no pieces (their groups have no tiles: the mod renumbered them?)
+        bool fromMaps = false;  // made from the maps (src/mods/cmbw_auto_terrains.inc), not a hand-made row
+        bool draft = false;     // not checked by a person yet (the built-in rows: all of them; the terrain rules file keeps the flag)
     };
     static constexpr uint16_t kModTerrainIds = 64;
     // A mod's variants (ModTerrain::variantOf) from here on: the rows before them may grow without moving them (saved maps

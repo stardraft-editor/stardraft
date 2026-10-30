@@ -33,9 +33,9 @@ int main(int argc, char** argv) {
         Tileset t;
         if (!t.load(data, era, err)) continue;
         terrainrules::TilesetRules r = terrainrules::rulesOf(t);
-        int kinds[4] = {};
-        for (const auto& x : r.terrains) ++kinds[int(x.kind)], pieces += x.t.pieces.size();
-        std::printf("era %d: %zu terrains (field %d, path %d, wall %d)\n", era, r.terrains.size(), kinds[1], kinds[2], kinds[3]);
+        int drafts = 0;
+        for (const auto& x : r.terrains) drafts += x.t.draft ? 1 : 0, pieces += x.t.pieces.size();
+        std::printf("era %d: %zu terrains (%d drafts)\n", era, r.terrains.size(), drafts);
         rules.tilesets.push_back(std::move(r));
         sets.push_back(std::move(t));
     }
