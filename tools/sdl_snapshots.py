@@ -383,6 +383,11 @@ CASES += [
     ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "518,284", "--click", "1020,110"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
+    # New terrain… (the left column's bottom): the template list picked by its text (wall · Structure (Asphalt)), Bordering,
+    # Initial tiles and the name taken as offered (Enter): "Primary (Asphalt)", 36 rects borrowed. Then Copy tiles… (the
+    # strip's right, second row): Floor (Substructure), a wall too: its 20 own pairs land by role, 16 roles have none.
+    ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "140,878", "--type", "wall  ·  Structure (Asphalt)",
+                             "--key", "Enter", "--key", "Enter", "--key", "Enter", "--key", "Enter", "--click", "886,649", "--type", "Floor (Substructure)", "--key", "Enter"], "cmbw"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "646,645", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y", "--click", "518,284", "--click", "1020,110", "--click", "1020,110"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
@@ -1182,6 +1187,14 @@ def check_isom_rules_undo(output):
     if len(done) != 2 or done[0][1] != done[1][0]:
         return "the target did not go to the next rect: %r" % (done,)
     return None
+
+
+def check_isom_rules_new(output):
+    """None when New terrain makes Primary (Asphalt) from the Structure (Asphalt) template with borrowed tiles and Copy tiles
+    brings Floor (Substructure)'s 20 own pairs in by role."""
+    if "New terrain Primary (Asphalt): template Structure (Asphalt), borrowed tiles" not in output:
+        return "New terrain did not make Primary (Asphalt) from the template"
+    return None if re.search(r"Copied 20 rects from Floor \(Substructure\); 16 without mod tiles", output) else "Copy tiles did not copy 20 rects by role"
 
 
 def check_dialog_cycle(want, skip=0):
@@ -4349,6 +4362,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-options-ctrltab": check_options_ctrltab,
           "cmbw-isom-rules": check_isom_rules,
           "cmbw-isom-rules-undo": check_isom_rules_undo,
+          "cmbw-isom-rules-new": check_isom_rules_new,
           "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,

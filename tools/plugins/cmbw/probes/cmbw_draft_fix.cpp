@@ -6,9 +6,10 @@
 //   2. foreign tiles: a piece whose tiles are in groups the maps never use with this terrain (Tileset::groupTerrains)
 //      nor in its other pieces' groups: reported as suspects.
 //   3. shape check: each mod pair's picture against the template pair's, by the structure of their edges (gradient
-//      magnitude, normalized cross-correlation, 64 x 32); a pair that fits badly is reported with the best pair of the
-//      terrain's own groups (not applied: the score is sure only for sets that recolor the game's, and a group's
-//      variants score apart although all are right).
+//      magnitude, normalized cross-correlation, 64 x 32). In a set that recolors the game's tiles (the set's mean fit
+//      0.6 or more) a pair that fits badly is replaced by a pair of another group of the terrain's that fits clearly
+//      (0.7 or more, 0.35 better); elsewhere, and for a group's own variants (they score apart although all are
+//      right), the better pair is only reported.
 // The repaired rules go to one .sdterrain file (version 2; drafts stay drafts), the report to a text file, and (with an
 // .inc path) the file's bytes as a C array for src/mods/cmbw.cpp (kRepairedRules: the program applies them over the
 // built-in rows).
@@ -79,7 +80,7 @@ int main(int argc, char** argv) {
     if (!rep) return std::fprintf(stderr, "cannot write %s\n", argv[3]), 1;
     auto out = [&](const char* fmt, auto... args) { std::fprintf(rep, fmt, args...), std::printf(fmt, args...); };
     tr::Rules rules;
-    int totalBorrowed = 0, totalReplaced = 0, totalSuspects = 0, totalBroken = 0;
+    int totalBorrowed = 0, totalReplaced = 0, totalSuspects = 0, totalBroken = 0, totalApplied = 0;
     for (int era = 0; era < 8; ++era) {
         if (only >= 0 && era != only) continue;
         Tileset ts;
@@ -163,42 +164,61 @@ int main(int argc, char** argv) {
             for (uint16_t g : mine)
                 for (uint16_t s = 0; s + 1 < 16; ++s)
                     if (ts.megatileFor(uint16_t(g << 4 | s)) > 0 && ts.megatileFor(uint16_t(g << 4 | (s + 1))) > 0) candidates.push_back({uint16_t(g << 4 | s), uint16_t(g << 4 | (s + 1))});
-            int replaced = 0, weak = 0;
+            // (every own pair's fit first: a set whose pairs fit the template well on the whole recolors the game's tiles,
+            // and only there is the score sure enough to act on)
+            struct Fit {
+                size_t k;
+                float cur;
+            };
+            std::vector<Fit> fits;
             double sum = 0;
-            int scored = 0;
             for (size_t k = 0; k < m.pieces.size(); ++k) {
-                auto& p = m.pieces[k];
+                const auto& p = m.pieces[k];
                 if (!isTemplatePiece(k) || tr::stateOf(p) != tr::PieceState::Own) continue;
                 const uint16_t gl = tr::gameTile(ts, p[0]), gr = tr::gameTile(ts, uint32_t(p[0]) + 1);
                 if (!gl || !gr) continue;
-                const std::vector<float>& want = edgesOf(gl, gr);
-                const float cur = ncc(want, edgesOf(p[1], p[2]));
-                sum += cur, ++scored;
-                if (cur >= 0.45f) continue;
+                const float cur = ncc(edgesOf(gl, gr), edgesOf(p[1], p[2]));
+                fits.push_back({k, cur}), sum += cur;
+            }
+            const int scored = int(fits.size());
+            const double setFit = scored ? sum / scored : 0.0;
+            const bool recolor = setFit >= 0.6;
+            int replaced = 0, weak = 0, applied = 0;
+            for (const Fit& f : fits) {
+                auto& p = m.pieces[f.k];
+                if (f.cur >= 0.45f) continue;
+                const std::vector<float>& want = edgesOf(tr::gameTile(ts, p[0]), tr::gameTile(ts, uint32_t(p[0]) + 1));
                 std::pair<uint16_t, uint16_t> best{0, 0};
-                float bestScore = cur;
+                float bestScore = f.cur;
                 for (const auto& c : candidates)
                     if (const float sc = ncc(want, edgesOf(c.first, c.second)); sc > bestScore) bestScore = sc, best = c;
                 const char* role = byGroup.count(p[0]) ? byGroup[p[0]]->role.c_str() : "other";
-                if (best.first && bestScore >= 0.55f && bestScore >= cur + 0.2f) {  // (reported, not applied: the score is sure only for recolored
-                    // sets, and a group's variants score apart although all are right)
+                // (applied only in a recolor set, for a pair of another group (a group's variants score apart although all
+                // are right), with a clear fit and a clear margin; else reported)
+                if (best.first && recolor && (best.first >> 4) != (p[1] >> 4) && bestScore >= 0.7f && bestScore >= f.cur + 0.35f) {
+                    out("   pass 3  %-24s rect %u: %u.%u fits %.2f, %u.%u fits %.2f -> replaced\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15), double(f.cur),
+                        unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
+                    p[1] = best.first, p[2] = best.second, ++applied;
+                } else if (best.first && bestScore >= 0.55f && bestScore >= f.cur + 0.2f) {
                     out("   pass 3  %-24s rect %u: %u.%u fits %.2f, %u.%u would fit %.2f: check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15),
-                        double(cur), unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
+                        double(f.cur), unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
                     ++replaced;
                 } else {
-                    out("   pass 3  %-24s rect %u: %u.%u fits %.2f (best other %.2f): check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15), double(cur),
+                    out("   pass 3  %-24s rect %u: %u.%u fits %.2f (best other %.2f): check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15), double(f.cur),
                         double(bestScore));
                     ++weak;
                 }
             }
-            totalReplaced += replaced;
+            totalReplaced += replaced, totalApplied += applied;
+            if (applied) out("   pass 3  %d pairs replaced (a recolor set: fit %.2f)\n", applied, setFit);
             const auto after = tr::completeness(ts, m);
-            out("   result  %d of %d rects; shape fit %.2f over %d pairs; %d with a better-fitting pair, %d weak\n", after.first, after.second, scored ? sum / scored : 0.0, scored,
+            out("   result  %d of %d rects; shape fit %.2f over %d pairs; %d replaced, %d with a better-fitting pair, %d weak\n", after.first, after.second, setFit, scored, applied,
                 replaced, weak);
         }
         rules.tilesets.push_back(std::move(tsr));
     }
-    out("== totals: %d rects borrowed, %d pairs with a better-fitting pair, %d suspects, %d broken pairs\n", totalBorrowed, totalReplaced, totalSuspects, totalBroken);
+    out("== totals: %d rects borrowed, %d pairs replaced by shape (recolor sets), %d pairs with a better-fitting pair, %d suspects, %d broken pairs\n", totalBorrowed, totalApplied,
+        totalReplaced, totalSuspects, totalBroken);
     std::fclose(rep);
     if (!tr::save(argv[2], rules, err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
     std::printf("wrote %s\n", argv[2]);
