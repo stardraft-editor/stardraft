@@ -1521,7 +1521,7 @@ private:
     stardraft::Tileset tileset_;
     std::vector<uint16_t> groundIds_;
     std::vector<int> shown_;
-    int sel_ = -1, target_ = -1, targetHalf_ = 0, hover_ = -1, hoverHalf_ = 0;
+    int sel_ = -1, target_ = -1, targetHalf_ = 0, hover_ = -1, hoverHalf_ = 0, hoverPlace_ = -1;
     int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
     bool painting_ = false, strokeSaved_ = false;  // (a paint stroke: one undo step)
     int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
@@ -1947,6 +1947,10 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                     }
                     c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), hoverHalf_), 0xFFFFFF, scale(1));
                 }
+        if (hoverPlace_ >= 0 && hoverPlace_ < int(places_.size()) && brushValue() < 0 && !refAlone) {  // (the cursor: the slot under the mouse; pair mode 2x1)
+            const draw::Rect r = rectOf(places_[size_t(hoverPlace_)]);
+            c.frame(wide_ ? r : halfOf(r, hoverHalf_), 0xFFFFFF, scale(1));
+        }
         for (const Place& p : places_)
             if (p.piece == target_ && target_ >= 0 && (!slotKeys_ || blinkOn_)) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
         if (tileIds_ && ids_.size() == size_t(crop_.width()) * size_t(crop_.height())) {  // (the tile IDs: group over subtile)
@@ -1975,7 +1979,13 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 if (ty < puzzle_.top) ty = y + int(ts) + scale(4);
                 const draw::Rect box{std::clamp(cx - tw / 2, puzzle_.left, std::max(puzzle_.left, puzzle_.right - tw)), ty, 0, ty + th};
                 const draw::Rect tag{box.left, box.top, box.left + tw, box.bottom};
-                c.frame({x, y, x + int(ts), y + int(ts)}, 0xFFFFFF, scale(1));
+                draw::Rect cur{x, y, x + int(ts), y + int(ts)};  // (pair mode: the rect's two tiles)
+                if (wide_) {
+                    const int tx = crop_.left + int(i % size_t(crop_.width())), ty0 = crop_.top + int(i / size_t(crop_.width()));
+                    for (const Place& p : places_)
+                        if (p.ty == ty0 && (tx == p.tx || tx == p.tx + 1)) { cur = rectOf(p); break; }
+                }
+                c.frame(cur, 0xFFFFFF, scale(1));
                 c.fill(tag, 0x000000, 210);
                 c.frame(tag, kBorder, scale(1));
                 c.text(tag, text, v == kNullId ? kHole : 0xFFFFFF, draw::kCenter | draw::kMiddle);
@@ -2102,14 +2112,14 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     for (int k = 0; k <= 16; k += 2) c.fill({palX(k), palette_.top, palX(k) + 1, std::min(palette_.bottom, palette_.top + rows * cell - palScroll_ + 1)}, kBorderHot);
     auto rowY = [&](int g) { const int i = palIndexOf(g); return i < 0 ? INT_MIN : palette_.top + i * cell - palScroll_; };
     if (t && target_ >= 0 && target_ < int(t->t.pieces.size()))
-        for (int half = 1; half <= 2; ++half) {
-            const uint16_t v = t->t.pieces[size_t(target_)][size_t(half)];
-            if (isomrules::nullHalf(v) || rowY(v >> 4) == INT_MIN) continue;
+        for (int half = 1; half <= 2; ++half) {  // (pair mode: one 2x1 frame, the pair of the left tile (else of the right))
+            const auto& q = t->t.pieces[size_t(target_)];
+            if (wide_ && half == 2 && !isomrules::nullHalf(q[1])) break;
+            const uint16_t v = wide_ ? uint16_t(q[size_t(half)] & ~1) : q[size_t(half)];
+            if (isomrules::nullHalf(q[size_t(half)]) || rowY(v >> 4) == INT_MIN) continue;
             const int y = rowY(v >> 4), x = palX(v & 15);
-            const uint16_t left = t->t.pieces[size_t(target_)][1], right = t->t.pieces[size_t(target_)][2];
-            const bool pair = wide_ && !(left & 1) && right == left + 1;  // (pair mode: a pair in the tiles, one 2x1 frame)
-            if (pair && half == 2) continue;
-            c.frame({x, y, x + (pair ? 2 : 1) * cell + 1, y + cell + 1}, kAccent, scale(2));
+            c.frame({x, y, x + (wide_ ? 2 : 1) * cell + 1, y + cell + 1}, kAccent, scale(2));
+            if (wide_) break;
         }
     if (palHover_ >= 0 && rowY(palHover_ >> 4) != INT_MIN) {  // (what a click picks: 1 or 2 tiles)
         const int y = rowY(palHover_ >> 4), x = palX(palHover_ & 15);
@@ -2121,7 +2131,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     }
     if (jump_ >= 0 && rowY(jump_ >> 4) != INT_MIN) {  // (the row or the tile that was asked for)
         const int y = rowY(jump_ >> 4);
-        const int x = jumpRow_ ? x0 : palX(jump_ & 15), w = jumpRow_ ? palX(15) + cell - x0 : cell;
+        const int x = jumpRow_ ? x0 : palX(wide_ ? jump_ & 14 : jump_ & 15), w = jumpRow_ ? palX(15) + cell - x0 : (wide_ ? 2 : 1) * cell;
         c.frame({x - 1, y - 1, x + w + 1, y + cell + 1}, 0x30C8FF, scale(2));
     }
     c.popClip();
@@ -2198,7 +2208,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return -1;
     };
     if (e.kind == draw::MouseKind::Leave) {
-        if (idHover_ >= 0 || hoverEdge_ >= 0 || palHover_ >= 0) idHover_ = -1, hoverEdge_ = -1, palHover_ = -1, invalidate();
+        if (idHover_ >= 0 || hoverEdge_ >= 0 || palHover_ >= 0 || hoverPlace_ >= 0) idHover_ = -1, hoverEdge_ = -1, palHover_ = -1, hoverPlace_ = -1, hover_ = -1, invalidate();
         return false;
     }
     if (e.kind == draw::MouseKind::Move) {
@@ -2211,7 +2221,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (v != palHover_) palHover_ = v, invalidate();
         int half = 0;
         const int i = placeAt(e.pt, half), h = i >= 0 ? places_[size_t(i)].piece : -1;
-        if (h != hover_ || half != hoverHalf_) hover_ = h, hoverHalf_ = half, invalidate();
+        if (h != hover_ || half != hoverHalf_ || i != hoverPlace_) hover_ = h, hoverHalf_ = half, hoverPlace_ = i, invalidate();
         if (painting_ && brushValue() >= 0 && h >= 0 && h * 2 + half != lastPaint_) {  // (a drag paints each slot it crosses)
             lastPaint_ = h * 2 + half;
             setTarget(h, half, false), place(uint16_t(brushValue()));
