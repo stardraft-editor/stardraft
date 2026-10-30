@@ -5,8 +5,8 @@
 // bordering terrain (a NULL half: black with the game's tile dimmed, a red frame; a borrowed rect, the game's own tiles:
 // a blue frame); under it the target rect large (the game's tiles beside yours) and the checklist: every rect of the
 // template by its role (edge N, corner SE top...) with its state. Click a rect, a hole or a checklist row: it is the
-// target. Right: the tileset's tiles, a tile group a row (16 subtiles), the column's width dragged at its left edge; a
-// click puts the tile into the target (2 tiles: both halves, the tile and the next in its row; 1 tile: the half), and a
+// target. Right of the example (or left: the tiles' right-click menu): the tileset's tiles, a tile group a row (16
+// subtiles), the column's width dragged at the edge between them; a click puts the tile into the target (2 tiles: both halves, the tile and the next in its row; 1 tile: the half), and a
 // done rect hands the target to the next rect with no tile; the tiles scroll to the target's row. Ctrl+Z / Ctrl+Y undo
 // and redo; Clear all makes every rect NULL; Holes get the game's tiles; Copy from takes another terrain's tiles by
 // role; Draft marks a terrain as not checked yet. Load and Save the rules file (.sdterrain); the ISOM terrain rules
@@ -144,6 +144,7 @@ public:
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
+        if (int v = 1; prefs::number(L"Layout/IsomTilesRight", v, 0, 1)) tilesRight_ = v != 0;
         for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &width_, &null_, &clear_, &more_, &borrow_, &copy_, &draft_, &row_, &refPick_, &refShow_, &search_,
                                                                &list_, &newTerrain_, &ground_, &palBar_})
             add(*v, {0, 0, 0, 0});
@@ -200,7 +201,9 @@ public:
         return false;
     }
     std::wstring tip(draw::Point p) override;
-    draw::Cursor cursor(draw::Point p) override { return std::abs(p.x - palette_.left) < scale(4) ? draw::Cursor::SizeWE : draw::Cursor::Arrow; }
+    draw::Cursor cursor(draw::Point p) override { return std::abs(p.x - splitX()) < scale(4) ? draw::Cursor::SizeWE : draw::Cursor::Arrow; }
+    // The edge between the tiles and the example (dragged: the tiles' width).
+    int splitX() const { return tilesRight_ ? palette_.left : puzzle_.left; }
 
     // (the snapshot's lines: the terrain, its holes and the target)
     std::string state() const {
@@ -1213,6 +1216,7 @@ private:
     draw::Rect crop_, puzzle_, palette_, strip_, check_;
     float zoom_ = 1;
     int paletteW_ = 0, palScroll_ = 0;
+    bool tilesRight_ = true;  // (the tiles at the right of the example; Layout/IsomTilesRight)
     bool dragging_ = false;
     std::map<int, std::unique_ptr<draw::Bitmap>> pal_;  // (the palette's pictures, 64 groups each)
     std::map<uint16_t, std::unique_ptr<draw::Bitmap>> chips_;  // (the tray's tiles, one each)
@@ -1238,9 +1242,10 @@ void IsomRulesView::layout() {
     newTerrain_.setFrame({pad, H - pad - barH, leftW - pad, H - pad});
 
     const int barW = scale(stardraft::kit::kScrollBarW);
-    palette_ = {W - paletteW_, top, W - barW, H};
-    palBar_.setFrame({W - barW, top, W, H});
-    const int mx0 = leftW, mx1 = W - paletteW_;
+    // (the tiles at the right of the example, or at its left (the right-click menu of the tiles); their bar at their right)
+    if (tilesRight_) palette_ = {W - paletteW_ - barW, top, W - barW, H}, palBar_.setFrame({W - barW, top, W, H});
+    else palette_ = {leftW, top, leftW + paletteW_, H}, palBar_.setFrame({leftW + paletteW_, top, leftW + paletteW_ + barW, H});
+    const int mx0 = tilesRight_ ? leftW : leftW + paletteW_ + barW, mx1 = tilesRight_ ? W - paletteW_ - barW : W;
     ground_.setFrame({mx0 + scale(90), top, std::min(mx1 - pad, mx0 + scale(380)), top + barH});
     const int checkH = std::clamp(H / 4, scale(120), scale(260));
     puzzle_ = {mx0, top + barH + pad, mx1, H - checkH - scale(84)};
@@ -1371,7 +1376,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
         int x = strip_.left + pad;
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
         c.text({x, strip_.top + pad, x + scale(104), y0}, roleOf(q[0]), kText, draw::kMiddle | draw::kEllipsis);
-        c.text({x, y0, x + scale(104), y0 + scale(20)}, L"rect " + std::to_wstring(q[0]), kFaint, draw::kMiddle);
+        if (roleOf(q[0]) != L"rect " + std::to_wstring(q[0])) c.text({x, y0, x + scale(104), y0 + scale(20)}, L"rect " + std::to_wstring(q[0]), kFaint, draw::kMiddle);
         c.text({x, y0 + scale(20), x + scale(104), y0 + scale(40)}, half(q[1]) + L"  " + half(q[2]), kDim, draw::kMiddle);
         c.text({x + scale(112), strip_.top + pad, x + scale(112) + 2 * T, y0}, L"Template", kDim, draw::kMiddle);
         c.text({x + scale(112) + 2 * T + scale(24), strip_.top + pad, strip_.right - pad, y0}, L"Mod", kDim, draw::kMiddle);
@@ -1388,7 +1393,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
     }
     // The palette: a tile group a row, its 16 subtiles; the target's tiles framed.
     c.fill(palette_, kPanel);
-    c.fill({palette_.left, palette_.top, palette_.left + 1, palette_.bottom}, kBorder);
+    c.fill({splitX() - 1, palette_.top, splitX() + 1, H}, kBorder);
     const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16), x0 = palette_.left + scale(48);
     const int rows = int(tileset_.groups.size());
     {  // (the pictures of 64 groups each: only those near the view stay, about 4 MB each)
@@ -1446,13 +1451,22 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         invalidate();
         return true;
     }
-    if (e.kind == draw::MouseKind::Down && e.button == 0 && std::abs(e.pt.x - palette_.left) < scale(4)) {
+    if (e.kind == draw::MouseKind::Up && e.button == 1 && palette_.contains(e.pt)) {  // (the right button: the side of the tiles)
+        const int pick = shellContextMenu({std::wstring(L"Tiles left of the example") + (tilesRight_ ? L"" : L"  \x2713"), std::wstring(L"Tiles right of the example") + (tilesRight_ ? L"  \x2713" : L"")});
+        if (pick == 0 || pick == 1) {
+            tilesRight_ = pick == 1;
+            prefs::setNumber(L"Layout/IsomTilesRight", tilesRight_ ? 1 : 0);
+            layout(), invalidate();
+        }
+        return true;
+    }
+    if (e.kind == draw::MouseKind::Down && e.button == 0 && std::abs(e.pt.x - splitX()) < scale(4)) {
         dragging_ = true;
         if (host()) host()->capture(*this, true);
         return true;
     }
     if (dragging_ && e.kind == draw::MouseKind::Move) {
-        paletteW_ = width() - e.pt.x;
+        paletteW_ = tilesRight_ ? width() - e.pt.x - scale(stardraft::kit::kScrollBarW) : e.pt.x - palette_.left - scale(stardraft::kit::kScrollBarW);
         layout(), invalidate();
         return true;
     }

@@ -377,9 +377,9 @@ CASES += [
     # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
     ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677", "--key", "Down",
                              "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
-    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (with the places More rects finds
-    # by itself: 12 of its 16 null rects in it); a click on a NULL hole, then on tile 2.0 of the palette: the rect takes
-    # 2.0 and 2.1, one null less (CHECKS: check_isom_rules).
+    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (36 of 36 rects: the repaired
+    # drafts borrow the template's tiles for the 16 the row had none for); a click on a rect, then on tile 2.0 of the
+    # palette: the rect takes 2.0 and 2.1 (CHECKS: check_isom_rules).
     ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "518,284", "--click", "1020,110"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
@@ -1165,15 +1165,16 @@ def check_options_ctrltab(output):
 
 
 def check_isom_rules(output):
-    """None when the editor shows the terrain with its NULL holes and the palette's tile goes into the hole that was clicked."""
-    if "isom rules: Structure (Halfsphalt), 16 null, 12 holes in the examples" not in output:
-        return "no terrain with 16 null and 6 holes"
+    """None when the editor shows the terrain complete (the repaired drafts: the template's tiles where the row had none)
+    and the palette's tile goes into the rect that was clicked."""
+    if "isom rules: Structure (Halfsphalt), 0 null, 0 holes in the examples" not in output or "36 of 36 rects done, 16 borrowed" not in output:
+        return "the terrain does not open complete (36 of 36 rects, 16 borrowed from the template)"
     return None if re.search(r"^click 1020,110: .*Rect \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
 
 
 def check_isom_rules_undo(output):
     """None when Clear all, undo and redo report their null counts and each filled rect hands the target to the next."""
-    want = ["36 rects set to NULL", "Undo: Structure (Halfsphalt) (16 NULL)", "Redo: Structure (Halfsphalt) (36 NULL)"]
+    want = ["36 rects set to NULL", "Undo: Structure (Halfsphalt) (0 NULL)", "Redo: Structure (Halfsphalt) (36 NULL)"]
     for w in want:
         if w not in output:
             return "missing: " + w

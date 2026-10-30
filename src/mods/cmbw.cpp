@@ -1832,6 +1832,22 @@ void loadTileset(Tileset& t) {
     for (const GroupPiece& p : kGroupPieces)
         if (p.era == (t.era & 7) && t.megatileFor(p.left) >= 0 && t.megatileFor(p.right) >= 0) t.groupPieces.push_back({p.left, p.right, p.game});
     addModTerrains(t);
+    {  // The rows repaired (tools/plugins/cmbw/probes/cmbw_draft_fix.cpp, cmbw_repaired_rules_*.inc: one file per channel of
+       // the mod, their tilesets differ): every template rect present, the template's own tiles (borrowed) where a row had
+       // none; the rows stay drafts. A tileset whose fingerprint differs (the other channel, or the mod changed its groups)
+       // takes neither.
+        static const uint8_t kRepairedPrerelease[] = {
+#include "cmbw_repaired_rules_prerelease.inc"
+        };
+        static const uint8_t kRepairedRelease[] = {
+#include "cmbw_repaired_rules_release.inc"
+        };
+        for (const auto& [bytes, size] : {std::make_pair(kRepairedPrerelease, sizeof kRepairedPrerelease), std::make_pair(kRepairedRelease, sizeof kRepairedRelease)}) {
+            terrainrules::Rules r;
+            std::string err;
+            if (terrainrules::read(std::vector<uint8_t>(bytes, bytes + size), r, err) && terrainrules::apply(t, r)) break;
+        }
+    }
     applyTerrainFiles(t);
     forEachPieceNeighbor(t.era & 7, [&t](uint16_t a, uint16_t b, int place) {
         t.pieceNeighbors.insert(Tileset::pieceNeighborKey(a, b, place));
