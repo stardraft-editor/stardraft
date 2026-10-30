@@ -328,7 +328,7 @@ private:
         era_.setValue(e);
         const int gen = ++openGen_;
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
-        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false;
+        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false, pins_.clear();
         shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         invalidate();
         background([this, gen, e, plain] {
@@ -478,7 +478,7 @@ private:
     void selectValue(int v) {
         sel_ = v >= 0 ? v : -1, std_ = v < 0 && v > -1000000 ? -1 - v : -1;
         revealSideRow();
-        target_ = -1;
+        target_ = -1, pins_.clear();
         updateMyRows();
         updateTemplate();
         if (const auto* t = terrain())
@@ -511,6 +511,7 @@ private:
         int extend = 0;                          // (search for more spots that show the rects the shape does not: 1 by itself, 2 More rects)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
+        std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins;  // (pins_)
         const GameData* data = nullptr;
         bool standard = false;  // (a game border: stdTerrain on root, no pieces)
         uint16_t stdTerrain = 0, refGround = 0, refTerrain = 0;  // (refTerrain 0: no reference)
@@ -544,6 +545,7 @@ private:
         in->t = *t, in->family = family_;
         if (const auto it = moreRects_.find(t->t.id); it != moreRects_.end()) in->extra = it->second;
         in->extend = extendNext_, extendNext_ = 0;
+        in->pins = pins_;
         uint16_t root = t->t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
             if (const isomrules::ModTerrain* m = tileset_.modTerrain(root)) root = m->ground; else break;
@@ -713,9 +715,15 @@ private:
                 uint16_t& v = tl.tiles[size_t(ty) * W + tx];
                 const auto it = index.find(v);
                 if (it == index.end()) continue;
-                const size_t k = it->second / 2;
-                const auto& q = t->t.pieces[k];
+                size_t k = it->second / 2;
                 const bool right = it->second & 1;
+                // (a place pinned to a variant of its rect (Make Unique): that variant, not the engine's pick)
+                if (const auto pin = in.pins.find({right ? tx - 1 : tx, ty}); pin != in.pins.end() && pin->second.first == t->t.pieces[k][0]) {
+                    int n = pin->second.second;
+                    for (size_t i = 0; i < t->t.pieces.size(); ++i)
+                        if (t->t.pieces[i][0] == pin->second.first && n-- == 0) { k = i; break; }
+                }
+                const auto& q = t->t.pieces[k];
                 if (!right) {
                     seen.insert(q[0]);
                     if (isomrules::anyNull(q)) out.holes.push_back(int(out.places.size()));
@@ -871,12 +879,21 @@ private:
                 ++n;
                 if (m.pieces[i] == q) last = int(i);
             }
-        if (last >= 0) setTarget(last, targetHalf_, false), slotFocus(true);
+        if (last >= 0) {
+            if (pinAt_.first != INT_MIN) {  // (the clicked place shows the copy: its number among the group's pieces)
+                int nth = 0;
+                for (int i = 0; i < last; ++i) nth += m.pieces[size_t(i)][0] == q[0] ? 1 : 0;
+                pins_[pinAt_] = {q[0], nth}, rebuild();
+            }
+            setTarget(last, targetHalf_, false), slotFocus(true);
+        }
         setMessage(L"Rect " + std::to_wstring(q[0]) + L": variant " + std::to_wstring(n) + L" of " + std::to_wstring(n) + L" (the brush picks one of them for each place)" +
                    (visibleGroups_.count(q[0]) ? L"" : L"; not in the example"));
     }
     // The right button's menu of slot (piece k, half): Set to NULL, Use as Brush, Show in Tiles, Make Unique.
-    void slotMenu(int k, int half, draw::Point at) {
+    std::pair<int, int> pinAt_{INT_MIN, INT_MIN};  // (the place of the slot's menu: its tile place)
+    void slotMenu(int k, int half, draw::Point at, int place) {
+        pinAt_ = place >= 0 && place < int(places_.size()) ? std::make_pair(places_[size_t(place)].tx, places_[size_t(place)].ty) : std::make_pair(INT_MIN, INT_MIN);
         setTarget(k, half, false);
         invalidate();
         const uint16_t v = terrain()->t.pieces[size_t(k)][size_t(1 + half)];
@@ -1508,6 +1525,9 @@ private:
     int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
     bool painting_ = false, strokeSaved_ = false;  // (a paint stroke: one undo step)
     int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
+    // The example's places pinned to a variant of their rect (Make Unique): map tile place -> the rect's group and the
+    // variant's number among the group's pieces. The editor's only: the game's brush picks a variant at random.
+    std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins_;
     // A slot clicked in the example: the arrow keys change its tile to the next one in the tiles; its frame blinks.
     bool slotKeys_ = false, blinkOn_ = true;
     int blinkId_ = 0;
@@ -2220,8 +2240,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return false;
     }
     if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::Up) && e.button == 1 && t && !loading_) {  // (the right button: the slot's menu)
-        int half = 0, k = -1;
-        if (const int at = placeAt(e.pt, half); at >= 0) k = places_[size_t(at)].piece;
+        int half = 0, k = -1, place = placeAt(e.pt, half);
+        if (place >= 0) k = places_[size_t(place)].piece;
         else if (check_.contains(e.pt)) {  // (a custom tile of the checklist)
             const int dy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
             const std::vector<CheckRow> rows = checkRows();
@@ -2237,7 +2257,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             return true;
         }
         if (k < 0 || k >= int(t->t.pieces.size())) return check_.contains(e.pt);
-        if (e.kind == draw::MouseKind::Up) slotMenu(k, half, e.pt);
+        if (e.kind == draw::MouseKind::Up) slotMenu(k, half, e.pt, place);
         return true;
     }
     if (e.kind == draw::MouseKind::Down && e.button == 0 && (e.mods & draw::kAlt) && t) {  // (Alt+click in the example: its tile is the brush)
