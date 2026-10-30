@@ -106,7 +106,8 @@ inline bool crigEditValue(CtPageHost& h, const draw::View& from, draw::Point at,
             items.push_back({tr(n), L"", p});
         return pick(std::move(items));
     }
-    if (arg.kind == "area" && ed) {
+    // (a position: the map's locations as for an area (the mod takes a location's middle), or typed "(x y)")
+    if ((arg.kind == "area" || arg.kind == "position") && ed) {
         std::vector<ListPickItem> items;
         const auto named = stardraft::cmbw::crigMapInfo(ed->chk(), 0).locations;  // (lower case; a nameless location has none)
         for (int li = 0; li < ed->locationCount(); ++li)

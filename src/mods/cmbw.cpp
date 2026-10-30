@@ -2158,7 +2158,8 @@ std::string crigArgKind(const CrigArg& a) {
 }
 
 std::string crigValueProblem(const CrigLine& l, size_t k, const CrigMapInfo& map) {
-    // (the game reads values loosely: "*" for any, a location by its number or as "(x y ~w ~h)", true and false as
+    // (the game reads values loosely: "*" for any, a location by its number or as "(x y ~w ~h)" (a position: "(x y)" or a
+    // location, its middle), true and false as
     // numbers, values left out; the mod's 418 maps: only what none of them does is marked, but for
     // set_player_name's names with a space and no quotes (5 lines: the second word goes to ignore_human_name))
     if (!l.command || k >= l.command->args.size() || k >= l.values.size()) return {};
@@ -2169,7 +2170,7 @@ std::string crigValueProblem(const CrigLine& l, size_t k, const CrigMapInfo& map
     std::string low = v;
     for (char& c : low) c = char(std::tolower(static_cast<unsigned char>(c)));
     const bool digits = !v.empty() && v.size() <= 9 && std::all_of(v.begin(), v.end(), [](char c) { return c >= '0' && c <= '9'; });
-    if (a.kind == "area" && !v.empty() && v != "*" && v.front() != '(' && !digits && !map.locations.empty() && !map.locations.count(low))
+    if ((a.kind == "area" || a.kind == "position") && !v.empty() && v != "*" && v.front() != '(' && !digits && !map.locations.empty() && !map.locations.count(low))
         return "the map has no location \"" + v + "\"";
     if (kind == "unit" && digits && map.unitTypes && std::stoll(v) >= (long long)map.unitTypes) return "no unit has the id " + v;
     if (kind == "bool" && low != "true" && low != "false" && low != "1" && low != "0") return "\"" + v + "\" is not true or false";
