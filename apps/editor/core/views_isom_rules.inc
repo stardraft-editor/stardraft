@@ -416,6 +416,7 @@ private:
         era_.setValue(e);
         const int gen = ++openGen_;
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
+        busySince_ = std::chrono::steady_clock::now(), armBusy();
         undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false, pins_.clear(), savedPins_.clear();
         shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         invalidate();
@@ -727,7 +728,10 @@ private:
     void start(std::shared_ptr<BuildIn> in, int shown) {
         if (shownId_ != shown)
             places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset(), visibleGroups_.clear(), shownId_ = shown;
+        if (!building_) busySince_ = std::chrono::steady_clock::now();
         building_ = true;
+        progress(kStepPaint);
+        armBusy();
         invalidate();
         background([this, in] {
             if (in->gen != buildGen_) return;  // (a newer one comes after it)
@@ -789,6 +793,7 @@ private:
         };
         auto addReference = [&](const std::vector<std::pair<int, int>>& shape) {
             if (!in.refTerrain || !out.picture) return;
+            progress(kStepReference);
             Editor* on = gameMap(in.refEra, in.refGround, in.refGroups);
             if (!on) return;
             paintGame(on, in.refGround, in.refTerrain, shape);
@@ -872,6 +877,7 @@ private:
                 size_t bestGain = 0;
                 for (size_t s = 0; s < spots.size() && spots[s].bound > bestGain; ++s) {
                     shape.push_back(spots[s].at);
+                    progress(kStepSearch, int(s) + 1, int(spots.size()), round + 1);
                     paint();
                     std::set<uint16_t> now = shownGroups();
                     shape.pop_back();
@@ -933,6 +939,7 @@ private:
                 part.push_back(tl.tiles[size_t(y) * W + x]);
                 out.ids.push_back(nullAt[size_t(y) * W + x] ? kNullId : part.back());
             }
+        progress(kStepPicture);
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
         addReference(shape);
     }
@@ -1219,20 +1226,39 @@ private:
         auto& m = rules().terrains[size_t(sel_)].t;
         const size_t k = size_t(target_);
         if (k >= m.pieces.size()) return;
-        if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be removed one by one (Edit > Clear All Rects)");
+        if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) {  // (a fill piece: the terrain's inside; one of them stays)
+            if (m.pieces.size() - m.gapPieces - m.setPieces <= 1) return setMessage(L"The terrain's only fill piece cannot be removed");
+            remember();
+            const uint16_t g = m.pieces[k][0];
+            m.pieces.erase(m.pieces.begin() + long(k));
+            target_ = -1;
+            changed();
+            return setMessage(L"Fill piece of rect " + std::to_wstring(g) + L" removed (" + std::to_wstring(m.pieces.size() - m.gapPieces - m.setPieces) + L" left)");
+        }
         const uint16_t g = m.pieces[k][0];
-        const auto n = std::count_if(m.pieces.begin(), m.pieces.end(), [g](const auto& q) { return q[0] == g; });
+        const auto q = m.pieces[k];
+        if (isomrules::nullHalf(q[1]) && isomrules::nullHalf(q[2])) return setMessage(L"Rect " + std::to_wstring(g) + L" is NULL already");
+        const auto n = std::count_if(m.pieces.begin(), m.pieces.end(), [g](const auto& p) { return p[0] == g; });
+        const auto same = std::count(m.pieces.begin(), m.pieces.end(), q);  // (the variants with these tiles: all go, else the tile stays in sight)
         const bool inTemplate = std::any_of(tmpl_.begin(), tmpl_.end(), [g](const auto& r) { return r.group == g; });
         remember();
         std::wstring what;
-        if (n > 1 || !inTemplate) {
-            m.pieces.erase(m.pieces.begin() + long(k));
-            if (k < m.setPieces) --m.setPieces;
-            else --m.gapPieces;
-            what = n > 1 ? L"a variant removed (" + std::to_wstring(n - 1) + L" left)" : L"removed (not a rect of the template)";
-        } else {
-            m.pieces[k][1] = 0, m.pieces[k][2] = 1;
-            what = L"its only piece: NULL";
+        // (every piece with these tiles goes; the segments' counts follow)
+        std::vector<std::array<uint16_t, 3>> keep;
+        size_t set = 0, gaps = 0;
+        for (size_t i = 0; i < m.pieces.size(); ++i) {
+            if (m.pieces[i] == q) continue;
+            keep.push_back(m.pieces[i]);
+            set += i < m.setPieces, gaps += i + m.gapPieces >= m.pieces.size();
+        }
+        if (n > same || !inTemplate) {
+            m.pieces = std::move(keep), m.setPieces = set, m.gapPieces = gaps;
+            what = n > same ? (same > 1 ? std::to_wstring(same) + L" variants with these tiles removed (" : L"a variant removed (") + std::to_wstring(n - same) + L" left)"
+                            : L"removed (not a rect of the template)";
+        } else {  // (its only tiles: NULL, once)
+            keep.insert(keep.begin() + long(set), {g, 0, 1});
+            m.pieces = std::move(keep), m.setPieces = set + 1, m.gapPieces = gaps;
+            what = L"its only tiles removed: NULL";
         }
         for (auto it = pins_.begin(); it != pins_.end();)  // (the rect's pins: its variants changed)
             it = it->second.first == g ? pins_.erase(it) : std::next(it);
@@ -2049,6 +2075,22 @@ private:
     size_t gameEdGroups_ = 0;         // (its group limit)
     std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
     bool async_ = true, loading_ = false, building_ = false;
+    // The example's progress, as the worker tells it: the step (kStep...), its round, done of total in it.
+    enum : int { kStepPaint, kStepSearch, kStepReference, kStepPicture };
+    std::atomic<int> progStep_{kStepPaint}, progRound_{0}, progDone_{0}, progTotal_{0};
+    std::chrono::steady_clock::time_point busySince_;  // (a short build shows no bar)
+    int busyTimer_ = 0;
+    void progress(int step, int done = 0, int total = 0, int round = 0) { progStep_ = step, progDone_ = done, progTotal_ = total, progRound_ = round; }
+    // While the tileset loads or the example renders: a paint every 100 ms (the bar moves).
+    void armBusy() {
+        if (busyTimer_ || !host() || !async_) return;
+        std::shared_ptr<bool> alive = alive_;
+        busyTimer_ = host()->timer(100, [this, alive] {
+            if (!*alive) return;
+            busyTimer_ = 0;
+            if (loading_ || building_) invalidate(), armBusy();
+        });
+    }
     int openGen_ = 0, shownId_ = -1, jump_ = -1;  // (jump_: the tile framed in the tiles; jumpRow_: its whole row)
     bool jumpRow_ = false;
     std::atomic<int> buildGen_{0};  // (the newest example asked for: the worker leaves out older ones)
@@ -2495,12 +2537,36 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             }
         }
         c.popClip();
-    } else if (puzzle_.width() > 0) {
-        c.text(puzzle_, loading_ ? L"Loading tileset\x2026" : building_ ? L"Rendering example\x2026" : t ? L"No example (mod data missing)" : L"Select a terrain",
-               kDim, draw::kCenter | draw::kMiddle);
+    } else if (puzzle_.width() > 0 && !loading_ && !building_) {
+        c.text(puzzle_, t ? L"No example (mod data missing)" : L"Select a terrain", kDim, draw::kCenter | draw::kMiddle);
     }
-    if (building_ && picture_)
-        c.text({puzzle_.left + pad, puzzle_.top + pad, puzzle_.right - pad, puzzle_.top + scale(28)}, L"Rendering\x2026", kDim, draw::kRight);
+    // (the tileset loading or the example rendering, after a moment: a bar and what goes on, in the middle)
+    if (puzzle_.width() > 0 && (loading_ || building_) && (!picture_ || std::chrono::steady_clock::now() - busySince_ > std::chrono::milliseconds(300))) {
+        const int bw = std::min(scale(320), puzzle_.width() - 2 * pad), bh = scale(6), mx = (puzzle_.left + puzzle_.right) / 2, my = (puzzle_.top + puzzle_.bottom) / 2;
+        const draw::Rect panel{mx - bw / 2 - pad, my - scale(22), mx + bw / 2 + pad, my + scale(30)};
+        if (picture_) c.fill(panel, kPanel, 230), c.frame(panel, kBorder, scale(1));
+        const draw::Rect bar{mx - bw / 2, my - bh / 2 - scale(8), mx + bw / 2, my + bh / 2 - scale(8)};
+        c.fill(bar, kBorder);
+        const int done = progDone_, total = progTotal_;
+        if (!loading_ && total > 0) c.fill({bar.left, bar.top, bar.left + bar.width() * std::min(done, total) / total, bar.bottom}, kAccent);
+        else {  // (no count: a block that goes across)
+            const int ms = int(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - busySince_).count());
+            const int w = bw / 4, x = bar.left + (ms / 4) % (bw + w) - w;
+            c.fill({std::max(bar.left, x), bar.top, std::min(bar.right, x + w), bar.bottom}, kAccent);
+        }
+        std::wstring label;
+        switch (loading_ ? -1 : int(progStep_)) {
+        case -1: label = L"Loading the tileset"; break;
+        case kStepPaint: label = L"Painting the example"; break;
+        case kStepSearch:
+            label = L"Finding places for the rects the example does not show (round " + std::to_wstring(int(progRound_)) + L", " + std::to_wstring(done) + L" of " +
+                    std::to_wstring(total) + L" places)";
+            break;
+        case kStepReference: label = L"Painting the reference"; break;
+        default: label = L"Making the picture"; break;
+        }
+        c.text({puzzle_.left + pad, bar.bottom + scale(6), puzzle_.right - pad, bar.bottom + scale(28)}, label, kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
+    }
     // The checklist (the Rects column): every rect of the template by its role, the template's tiles, the custom tiles,
     // its state; the target's row marked. The column names on top.
     if (check_.width() > 0) {
