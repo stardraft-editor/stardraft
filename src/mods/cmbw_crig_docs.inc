@@ -55,7 +55,7 @@
 {"unit_sprite", "Gives these units another sprite (a sprite id or a unit id)."},
 {"clear_unit_sprite", "Gives these units their own sprite again (the same values as unit_sprite)."},
 {"clear_creep", "Removes the creep in the area."},
-{"spawn", "Creates units for the player at the source position, with an effect (None, Augur, AugurDamage, Zerg), after a delay and one after the other (stagger). With a move position, they attack-move there."},
+{"spawn", "Creates units for the player at the source position, with an effect (None, Augur, AugurDamage, Zerg), after a delay and one after the other (stagger). With a move position, they attack-move there. A position is \"(x y)\" in pixels or a location (its middle)."},
 {"layouts_enable", "Turns the AI layouts of these units in the area on or off."},
 {"layouts_priority_add", "Adds to the priority of these AI layouts."},
 {"layouts_priority_set", "Sets the priority of these AI layouts."},
