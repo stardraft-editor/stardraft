@@ -195,6 +195,7 @@ public:
         if (e.key == static_cast<draw::Key>('M') && !e.mods) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('V') && !e.mods) return toggleDraft(), true;
         if (e.key == static_cast<draw::Key>('F') && !e.mods) return toggleTodo(), true;
+        if (e.key == static_cast<draw::Key>('G') && !e.mods) return togglePalMine(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save(false), true;
         if (e.key == static_cast<draw::Key>('Z') && (e.mods & draw::kCtrl)) return undo(e.mods & draw::kShift), true;
@@ -324,6 +325,7 @@ private:
         std::vector<stardraft::kit::DropdownItem> rows;
         for (size_t g = 0; g < tileset_.groups.size(); ++g) rows.push_back({std::to_wstring(g) + (of[g].empty() ? L"" : L"  " + of[g])});
         row_.setItems(rows), row_.setValue(-1);
+        rowNames_ = of, rowPics_.clear();
         stdPairs_.clear(), std_ = -1;
         std::vector<stardraft::kit::DropdownItem> refs{{L"Template"}, {L"None"}};
         if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era())))
@@ -751,11 +753,10 @@ private:
     }
     // Row g of the tiles in view (as it is when it shows already).
     void scrollToRow(int g) {
-        if (g < 0 || g >= int(tileset_.groups.size())) return;
-        const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16);
-        const int y = g * cell;
-        if (y < palScroll_ || y + cell > palScroll_ + palette_.height())
-            palScroll_ = std::clamp(y - palette_.height() / 2, 0, std::max(0, int(tileset_.groups.size()) * cell - palette_.height()));
+        const int i = palIndexOf(g);
+        if (i < 0 || i >= palRowCount()) return;
+        const int cell = palCell(), y = i * cell;
+        if (y < palScroll_ || y + cell > palScroll_ + palette_.height()) palScroll_ = std::clamp(y - palette_.height() / 2, 0, palScrollMax());
     }
 
     // A tile of the palette went into the target (Rect: the pair; Tile: the half that was clicked).
@@ -823,14 +824,14 @@ private:
     // The tiles go to the next block of the terrain's own rows (marked at the left), round.
     void nextMyRows() {
         if (myRows_.empty()) return setMessage(L"No groups assigned to this terrain yet");
-        const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16), top = palScroll_ / std::max(1, cell);
+        const int cell = palCell(), top = palGroupAt(palScroll_ / std::max(1, cell));
         std::vector<int> starts;  // (each block's first row)
         for (int g : myRows_)
             if (starts.empty() || !myRows_.count(g - 1)) starts.push_back(g);
         int go = starts.front();
         for (int g : starts)
             if (g > top + 1) { go = g; break; }
-        palScroll_ = std::clamp(go * cell - scale(4), 0, std::max(0, int(tileset_.groups.size()) * cell - palette_.height()));
+        palScroll_ = std::clamp(std::max(0, palIndexOf(go)) * cell - scale(4), 0, palScrollMax());
         row_.setValue(go);
         setMessage(L"Groups " + std::to_wstring(go) + L"+: this terrain (M: next block)");
         invalidate();
@@ -1036,6 +1037,8 @@ private:
                 if (!isomrules::nullHalf(t->t.pieces[k][size_t(h)])) myRows_.insert(t->t.pieces[k][size_t(h)] >> 4);
         for (const auto& [g, tr, other] : tileset_.groupTerrains)
             if (tr == t->t.id || other == t->t.id) myRows_.insert(int(g));
+        palRows_.assign(myRows_.begin(), myRows_.end());
+        if (palMine_) palScroll_ = std::min(palScroll_, palScrollMax());
     }
     void nextNull() {
         if (!terrain()) return;
@@ -1337,6 +1340,27 @@ private:
     float zoom_ = 1;
     int paletteW_ = 0, palScroll_ = 0;
     bool tilesRight_ = true;  // (the tiles at the right of the example; Layout/IsomTilesRight)
+    // The palette's rows: every group, or (G) only the terrain's own groups (myRows_, sorted); the header above the rows.
+    bool palMine_ = false;
+    std::vector<int> palRows_;
+    std::map<int, std::unique_ptr<draw::Bitmap>> rowPics_;  // (a row's picture, by group: the terrain-rows mode)
+    std::vector<std::wstring> rowNames_;  // (a group -> the terrain its tiles are, from the mod's maps; the tip)
+    draw::Rect palHead_;
+    int palRowCount() const { return palMine_ ? int(palRows_.size()) : int(tileset_.groups.size()); }
+    int palGroupAt(int i) const { return palMine_ ? (i >= 0 && i < int(palRows_.size()) ? palRows_[size_t(i)] : -1) : i; }
+    int palIndexOf(int g) const {
+        if (!palMine_) return g;
+        const auto it = std::lower_bound(palRows_.begin(), palRows_.end(), g);
+        return it != palRows_.end() && *it == g ? int(it - palRows_.begin()) : -1;
+    }
+    int palCell() const { return std::max(scale(8), (palette_.width() - scale(56)) / 16); }
+    int palScrollMax() const { return std::max(0, palRowCount() * palCell() - palette_.height()); }
+    void togglePalMine() {
+        if (!palMine_ && palRows_.empty()) return setMessage(L"No groups assigned to this terrain yet");
+        palMine_ = !palMine_, palScroll_ = 0;
+        setMessage(palMine_ ? L"Tiles: this terrain's groups (G: all)" : L"Tiles: all groups (G: this terrain's)");
+        invalidate();
+    }
     bool dragging_ = false;
     std::map<int, std::unique_ptr<draw::Bitmap>> pal_;  // (the palette's pictures, 64 groups each)
     std::map<uint16_t, std::unique_ptr<draw::Bitmap>> chips_;  // (the tray's tiles, one each)
@@ -1409,8 +1433,10 @@ void IsomRulesView::layout() {
 
     const int barW = scale(stardraft::kit::kScrollBarW);
     // (the tiles at the right of the example, or at its left (the right-click menu of the tiles); their bar at their right)
-    if (tilesRight_) palette_ = {W - paletteW_ - barW, top, W - barW, H}, palBar_.setFrame({W - barW, top, W, H});
-    else palette_ = {leftW, top, leftW + paletteW_, H}, palBar_.setFrame({leftW + paletteW_, top, leftW + paletteW_ + barW, H});
+    const int palTop = top + scale(22);  // (the header: all groups, or this terrain's)
+    if (tilesRight_) palette_ = {W - paletteW_ - barW, palTop, W - barW, H}, palBar_.setFrame({W - barW, palTop, W, H});
+    else palette_ = {leftW, palTop, leftW + paletteW_, H}, palBar_.setFrame({leftW + paletteW_, palTop, leftW + paletteW_ + barW, H});
+    palHead_ = {palette_.left, top, palBar_.frame().right, palTop};
     const int mx0 = tilesRight_ ? leftW : leftW + paletteW_ + barW, mx1 = tilesRight_ ? W - paletteW_ - barW : W;
     ground_.setFrame({mx0 + scale(90), top, std::min(mx1 - pad, mx0 + scale(380)), top + barH});
     const int checkH = std::clamp(H / 4, scale(120), scale(260));
@@ -1482,6 +1508,17 @@ void IsomRulesView::paint(draw::Canvas& c) {
             for (const Place& p : places_)  // (a borrowed rect: the game's own tiles, a blue frame)
                 if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && stardraft::terrainrules::stateOf(t->t.pieces[size_t(p.piece)]) == isomrules::PieceState::Borrowed)
                     c.frame(rectOf(p), kBorrowed, scale(1));
+        if (t && palHover_ >= 0 && target_ >= 0 && target_ < int(t->t.pieces.size()) && !refAlone)  // (the tile under the mouse, as it would sit in the target)
+            for (const Place& p : places_)
+                if (p.piece == target_) {
+                    if (wide_) {
+                        drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), 0));
+                        if ((palHover_ & 15) < 15) drawTile(c, uint16_t(palHover_ + 1), halfOf(rectOf(p), 1));
+                    } else {
+                        drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), targetHalf_));
+                    }
+                    c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), 0xFFFFFF, scale(1));
+                }
         for (const Place& p : places_)
             if (p.piece == target_ && target_ >= 0) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
         c.popClip();
@@ -1566,45 +1603,64 @@ void IsomRulesView::paint(draw::Canvas& c) {
     }
     // The palette: a tile group a row, its 16 subtiles; the target's tiles framed.
     c.fill(palette_, kPanel);
-    c.fill({splitX() - 1, palette_.top, splitX() + 1, H}, kBorder);
-    const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16), x0 = palette_.left + scale(48);
-    const int rows = int(tileset_.groups.size());
-    {  // (the pictures of 64 groups each: only those near the view stay, about 4 MB each)
+    c.fill(palHead_, kPanel);
+    c.fill({splitX() - 1, palHead_.top, splitX() + 1, H}, kBorder);
+    c.fill({palHead_.left, palHead_.bottom - 1, palHead_.right, palHead_.bottom}, kBorder);
+    c.text({palHead_.left + pad, palHead_.top, palHead_.right - pad, palHead_.bottom}, palMine_ ? L"Tiles \x00b7 this terrain's groups" : L"Tiles \x00b7 all groups", palMine_ ? kAccent : kDim,
+           draw::kMiddle);
+    c.text({palHead_.left + pad, palHead_.top, palHead_.right - pad, palHead_.bottom}, palMine_ ? L"all (G)" : L"this terrain (G)", kDim, draw::kMiddle | draw::kRight);
+    const int cell = palCell(), x0 = palette_.left + scale(48);
+    const int rows = palRowCount();
+    if (!palMine_) {  // (the pictures of 64 groups each: only those near the view stay, about 4 MB each)
         const int first = palScroll_ / std::max(1, cell) / 64, last = (palScroll_ + palette_.height()) / std::max(1, cell) / 64;
         for (auto it = pal_.begin(); it != pal_.end();)
             it = it->first < first - 1 || it->first > last + 1 ? pal_.erase(it) : std::next(it);
     }
+    if (rowPics_.size() > 300) rowPics_.clear();
     if (const int total = rows * cell, page = palette_.height(); total != palTotal_ || page != palPage_) palBar_.setRange(total, page), palTotal_ = total, palPage_ = page;
     palBar_.setPos(palScroll_);
     c.pushClip(palette_);
-    for (int g = std::max(0, palScroll_ / cell); g < rows && (g * cell - palScroll_) < palette_.height(); ++g) {
-        const int y = palette_.top + g * cell - palScroll_;
+    for (int i = std::max(0, palScroll_ / cell); i < rows && (i * cell - palScroll_) < palette_.height(); ++i) {
+        const int g = palGroupAt(i);
+        if (g < 0) continue;
+        const int y = palette_.top + i * cell - palScroll_;
         const bool mine = myRows_.count(g) > 0;  // (a row of the terrain's own tiles: marked)
         if (mine) c.fill({palette_.left + 1, y, palette_.left + scale(4), y + cell}, kAccent);
-        if (g % 4 == 0 || mine) c.text({palette_.left + scale(4), y, x0 - scale(4), y + cell}, std::to_wstring(g), mine ? kAccent : kDim, draw::kMiddle | draw::kRight);
-        const int chunk = g / 64;
-        auto& b = pal_[chunk];
-        if (!b) {
-            std::vector<uint16_t> tiles;
-            for (int k = chunk * 64; k < chunk * 64 + 64; ++k)
-                for (int s = 0; s < 16; ++s) tiles.push_back(k < rows && tileset_.megatileFor(uint16_t(k << 4 | s)) > 0 ? uint16_t(k << 4 | s) : 0);
-            b = isomrules::tilesBitmap(tileset_, tiles, 16, 64);
+        if (palMine_ || g % 4 == 0 || mine) c.text({palette_.left + scale(4), y, x0 - scale(4), y + cell}, std::to_wstring(g), mine ? kAccent : kDim, draw::kMiddle | draw::kRight);
+        if (!palMine_) {
+            const int chunk = g / 64;
+            auto& b = pal_[chunk];
+            if (!b) {
+                std::vector<uint16_t> tiles;
+                for (int k = chunk * 64; k < chunk * 64 + 64; ++k)
+                    for (int s = 0; s < 16; ++s) tiles.push_back(k < int(tileset_.groups.size()) && tileset_.megatileFor(uint16_t(k << 4 | s)) > 0 ? uint16_t(k << 4 | s) : 0);
+                b = isomrules::tilesBitmap(tileset_, tiles, 16, 64);
+            }
+            if (b) c.bitmap(*b, {0, (g % 64) * 32, 16 * 32, (g % 64) * 32 + 32}, {x0, y, x0 + 16 * cell, y + cell});
+        } else {
+            auto& b = rowPics_[g];
+            if (!b) {
+                std::vector<uint16_t> tiles;
+                for (int s = 0; s < 16; ++s) tiles.push_back(tileset_.megatileFor(uint16_t(g << 4 | s)) > 0 ? uint16_t(g << 4 | s) : 0);
+                b = isomrules::tilesBitmap(tileset_, tiles, 16, 1);
+            }
+            if (b) c.bitmap(*b, {0, 0, 16 * 32, 32}, {x0, y, x0 + 16 * cell, y + cell});
         }
-        if (b) c.bitmap(*b, {0, (g % 64) * 32, 16 * 32, (g % 64) * 32 + 32}, {x0, y, x0 + 16 * cell, y + cell});
     }
+    auto rowY = [&](int g) { const int i = palIndexOf(g); return i < 0 ? INT_MIN : palette_.top + i * cell - palScroll_; };
     if (t && target_ >= 0 && target_ < int(t->t.pieces.size()))
         for (int half = 1; half <= 2; ++half) {
             const uint16_t v = t->t.pieces[size_t(target_)][size_t(half)];
-            if (isomrules::nullHalf(v)) continue;
-            const int y = palette_.top + int(v >> 4) * cell - palScroll_, x = x0 + int(v & 15) * cell;
+            if (isomrules::nullHalf(v) || rowY(v >> 4) == INT_MIN) continue;
+            const int y = rowY(v >> 4), x = x0 + int(v & 15) * cell;
             c.frame({x, y, x + cell, y + cell}, kAccent, scale(2));
         }
-    if (palHover_ >= 0) {  // (what a click puts in: 1 or 2 tiles)
-        const int y = palette_.top + (palHover_ >> 4) * cell - palScroll_, x = x0 + (palHover_ & 15) * cell;
+    if (palHover_ >= 0 && rowY(palHover_ >> 4) != INT_MIN) {  // (what a click puts in: 1 or 2 tiles)
+        const int y = rowY(palHover_ >> 4), x = x0 + (palHover_ & 15) * cell;
         c.frame({x, y, x + (wide_ && (palHover_ & 15) < 15 ? 2 : 1) * cell, y + cell}, 0xFFFFFF, scale(1));
     }
-    if (jump_ >= 0) {  // (the row or the tile that was asked for)
-        const int g = jump_ >> 4, y = palette_.top + g * cell - palScroll_;
+    if (jump_ >= 0 && rowY(jump_ >> 4) != INT_MIN) {  // (the row or the tile that was asked for)
+        const int y = rowY(jump_ >> 4);
         const int x = jumpRow_ ? x0 : x0 + (jump_ & 15) * cell, w = jumpRow_ ? 16 * cell : cell;
         c.frame({x - 1, y - 1, x + w + 1, y + cell + 1}, 0x30C8FF, scale(2));
     }
@@ -1613,12 +1669,13 @@ void IsomRulesView::paint(draw::Canvas& c) {
 
 bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     const auto* t = terrain();
-    const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16), x0 = palette_.left + scale(48);
+    const int cell = palCell(), x0 = palette_.left + scale(48);
     if (e.kind == draw::MouseKind::Wheel && palette_.contains(e.pt)) {
-        palScroll_ = std::clamp(palScroll_ - int(draw::wheelDistance(e, float(cell * 3))), 0, std::max(0, int(tileset_.groups.size()) * cell - palette_.height()));
+        palScroll_ = std::clamp(palScroll_ - int(draw::wheelDistance(e, float(cell * 3))), 0, palScrollMax());
         invalidate();
         return true;
     }
+    if (e.kind == draw::MouseKind::Down && e.button == 0 && palHead_.contains(e.pt)) return togglePalMine(), true;
     if (e.kind == draw::MouseKind::Wheel && side_.contains(e.pt)) {
         sideScroll_ = std::clamp(sideScroll_ - int(draw::wheelDistance(e, float(scale(44) * 2))), 0, std::max(0, sideTotal_ - side_.height()));
         invalidate();
@@ -1675,7 +1732,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     if (e.kind == draw::MouseKind::Move) {
         int v = -1;
         if (palette_.contains(e.pt) && e.pt.x >= x0) {
-            const int g = (e.pt.y - palette_.top + palScroll_) / cell, s = (e.pt.x - x0) / cell;
+            const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = (e.pt.x - x0) / cell;
             if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16) v = g << 4 | s;
         }
         if (v != palHover_) palHover_ = v, invalidate();
@@ -1715,7 +1772,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return true;
     }
     if (palette_.contains(e.pt) && e.pt.x >= x0) {
-        const int g = (e.pt.y - palette_.top + palScroll_) / cell, s = (e.pt.x - x0) / cell;
+        const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = (e.pt.x - x0) / cell;
         if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16 && tileset_.megatileFor(uint16_t(g << 4 | s)) > 0) place(uint16_t(g << 4 | s));
         return true;
     }
@@ -1725,11 +1782,13 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
 std::wstring IsomRulesView::tip(draw::Point p) {
     const auto* t = terrain();
     if (!t) return {};
-    const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16), x0 = palette_.left + scale(48);
+    const int cell = palCell(), x0 = palette_.left + scale(48);
     if (palette_.contains(p) && p.x >= x0) {
-        const int g = (p.y - palette_.top + palScroll_) / cell, s = (p.x - x0) / cell;
-        return std::to_wstring(g) + L"." + std::to_wstring(s);
+        const int g = palGroupAt((p.y - palette_.top + palScroll_) / cell), s = (p.x - x0) / cell;
+        if (g < 0) return {};
+        return std::to_wstring(g) + L"." + std::to_wstring(s) + (g < int(rowNames_.size()) && !rowNames_[size_t(g)].empty() ? L"  \x00b7  " + rowNames_[size_t(g)] : L"");
     }
+    if (palHead_.contains(p)) return palMine_ ? L"Only this terrain's groups: its pieces' rows and the rows its maps use (G: all groups)" : L"All groups (G: only this terrain's)";
     if (hover_ >= 0 && hover_ < int(t->t.pieces.size())) {
         const auto& q = t->t.pieces[size_t(hover_)];
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
