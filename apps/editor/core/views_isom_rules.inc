@@ -102,6 +102,7 @@ public:
           width_(L"2 tiles (T)", stardraft::kit::Tone::Normal, [this] { toggleWidth(); }),
           null_(L"NULL (Del)", stardraft::kit::Tone::Normal, [this] { setNull(); }),
           clear_(L"Clear all", stardraft::kit::Tone::Normal, [this] { clearTerrain(); }),
+          more_(L"More rects", stardraft::kit::Tone::Normal, [this] { moreRects(); }),
           refShow_(L"Ref off", stardraft::kit::Tone::Normal, [this] { cycleReference(); }),
           newTerrain_(L"New terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
@@ -122,6 +123,7 @@ public:
         width_.setTip(L"2 tiles: a click in the tiles fills the whole rect (that tile and the next one in its row). 1 tile: one half");
         null_.setTip(L"The target (the rect, or the half: 1 tile) has no tile: NULL, a place that needs work");
         clear_.setTip(L"Every rect of this terrain NULL: a fresh start (Ctrl+Z undoes)");
+        more_.setTip(L"Searches again for more places in the example that show the rects it does not (a few seconds; a terrain's first example searches by itself)");
         nextNull_.setTip(L"The next rect with no tile is the target (a filled rect goes to the next one by itself)");
         refPick_.searchable = true, refPick_.wheelSteps = false;
         refPick_.setTip(L"Reference: a game border painted in the same shape (Auto: the terrain's template, the border its tiles stand in for); "
@@ -132,7 +134,7 @@ public:
         row_.setTip(L"Go to a row of the tiles (a group: type its number or its terrain). Ctrl+click a rect of the example: its tiles. M: the next block of this terrain's rows (marked at the left)");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
-        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &width_, &null_, &clear_, &row_, &refPick_, &refShow_, &search_,
+        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &width_, &null_, &clear_, &more_, &row_, &refPick_, &refShow_, &search_,
                                                                &list_, &newTerrain_, &ground_, &palBar_})
             add(*v, {0, 0, 0, 0});
     }
@@ -367,6 +369,8 @@ private:
         uint8_t era = 0;
         uint16_t root = 1;
         stardraft::terrainrules::Terrain t;
+        std::vector<std::pair<int, int>> extra;  // (more spots of the shape, found for this terrain: moreRects_)
+        int extend = 0;                          // (search for more spots that show the rects the shape does not: 1 by itself, 2 More rects)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
         const GameData* data = nullptr;
@@ -376,6 +380,8 @@ private:
     struct BuildOut {
         std::vector<Place> places;
         std::vector<int> holes, absent;
+        std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
+        int gained = 0;                          // (the search: rects shown that were not)
         draw::Rect crop;
         std::unique_ptr<draw::Bitmap> picture, reference, blend;  // (blend: the picture and the reference, half and half)
     };
@@ -396,6 +402,8 @@ private:
             return start(in, -2 - std_);
         }
         in->t = *t;
+        if (const auto it = moreRects_.find(t->t.id); it != moreRects_.end()) in->extra = it->second;
+        in->extend = extendNext_, extendNext_ = 0;
         uint16_t root = t->t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
             if (const isomrules::ModTerrain* m = tileset_.modTerrain(root)) root = m->ground; else break;
@@ -437,6 +445,16 @@ private:
                     for (const Place& p : places_)
                         if (p.piece >= 0 && p.piece < int(t->t.pieces.size())) visibleGroups_.insert(t->t.pieces[size_t(p.piece)][0]);
                 picture_ = std::move(out->picture), refPicture_ = std::move(out->reference), blendPicture_ = std::move(out->blend);
+                if (in->extend) {
+                    moreRects_[in->t.t.id] = out->extra;
+                    if (out->gained || in->extend == 2)
+                        setMessage(out->gained ? L"More rects: " + std::to_wstring(out->gained) + L" more of the rects are in the example now (" +
+                                                     std::to_wstring(out->extra.size()) + L" more places)"
+                                               : L"More rects: no place shows more of them (the shape has " + std::to_wstring(out->extra.size()) + L" extra places)");
+                } else if (!moreRects_.count(in->t.t.id)) {  // (a terrain's first example: the search follows it by itself)
+                    if (absent_.empty()) moreRects_[in->t.t.id] = {};
+                    else extendNext_ = 1, rebuild();
+                }
                 invalidate();
             });
         });
@@ -503,14 +521,52 @@ private:
         // (one shape for each kind: diamonds of 1, in steps of 64 to the side and 32 up or down from the middle; the
         // places that show the most rects of the mod's walls and paths: a search over all their terrains found the same
         // few each time)
-        std::vector<Spot> blob;
-        for (const auto& [i, j] : shapeOf(t->kind)) blob.push_back({cx + i * 64, cy + j * 32, 1.0f});
+        std::vector<std::pair<int, int>> shape = shapeOf(t->kind);
+        shape.insert(shape.end(), in.extra.begin(), in.extra.end());
         auto paint = [&]() {  // (the bordering terrain all around: no other terrain in the picture; the shape)
             ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
             ed->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 24.0f});
-            for (const auto& k : blob) ed->paintBrush(k.x, k.y, t->t.id, Brush{Brush::Diamond, k.s});
+            for (const auto& [i, j] : shape) ed->paintBrush(cx + i * 64, cy + j * 32, t->t.id, Brush{Brush::Diamond, 1.0f});
+        };
+        // (the rects of the terrain (its set's and its gaps', by game group) that the painted map shows)
+        auto shownGroups = [&]() {
+            const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+            std::set<uint16_t> g;
+            for (uint16_t v : l.tiles)
+                if (const auto it = index.find(v); it != index.end() && !(it->second & 1)) g.insert(t->t.pieces[it->second / 2][0]);
+            return g;
         };
         paint();
+        if (in.extend) {  // (more spots, one at a time: each must show a rect that none showed, and lose none)
+            std::set<uint16_t> want;
+            for (size_t k = 0; k < t->t.pieces.size(); ++k)
+                if (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) want.insert(t->t.pieces[k][0]);
+            std::set<uint16_t> have = shownGroups();
+            const size_t before = have.size();
+            for (int round = 0; round < 8 && in.gen == buildGen_; ++round) {
+                std::pair<int, int> best{0, 0};
+                std::set<uint16_t> bestHave;
+                size_t bestGain = 0;
+                for (int j = -6; j <= 6; ++j)
+                    for (int i = -4; i <= 4; ++i) {
+                        if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) != shape.end()) continue;
+                        shape.push_back({i, j});
+                        paint();
+                        std::set<uint16_t> now = shownGroups();
+                        shape.pop_back();
+                        if (!std::includes(now.begin(), now.end(), have.begin(), have.end())) continue;
+                        size_t gain = 0;
+                        for (uint16_t g : now)
+                            if (want.count(g) && !have.count(g)) ++gain;
+                        if (gain > bestGain) bestGain = gain, best = {i, j}, bestHave = std::move(now);
+                    }
+                if (!bestGain) break;
+                shape.push_back(best), have = std::move(bestHave);
+            }
+            out.gained = int(have.size() - before);
+            out.extra.assign(shape.begin() + long(shapeOf(t->kind).size()), shape.end());
+            paint();
+        }
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
         std::set<uint16_t> seen;
@@ -541,7 +597,7 @@ private:
         for (int y = y0; y <= y1; ++y)
             for (int x = x0; x <= x1; ++x) part.push_back(tl.tiles[size_t(y) * W + x]);
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
-        addReference(shapeOf(t->kind));
+        addReference(shape);
     }
     // A kind's shape: diamonds of 1, in steps of 64 to the side and 32 up or down from the middle (the places that show
     // the most rects of the mod's walls and paths: a search over all their terrains found the same few each time); the
@@ -683,6 +739,14 @@ private:
         row_.setValue(go);
         setMessage(L"Rows " + std::to_wstring(go) + L"\x2026: this terrain's tiles (M: the next block)");
         invalidate();
+    }
+    // More rects: the next example searches for more places that show the rects it does not (on the worker).
+    void moreRects() {
+        if (loading_) return setMessage(L"The tileset is loading");
+        if (sel_ < 0) return setMessage(std_ >= 0 ? L"A standard terrain shows all its rects" : L"Select a terrain first");
+        extendNext_ = 2;
+        setMessage(L"More rects: searching\x2026");
+        rebuild();
     }
     void toggleWidth() {
         wide_ = !wide_, width_.setText(wide_ ? L"2 tiles (T)" : L"1 tile (T)"), invalidate();
@@ -920,7 +984,9 @@ private:
     std::unique_ptr<draw::Bitmap> refPicture_, blendPicture_;
     stardraft::kit::ScrollBar palBar_;  // (the tiles' scroll bar, at the right edge)
     int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
-    stardraft::kit::Button load_, loadDefault_, save_, saveAs_, nextNull_, width_, null_, clear_, refShow_, newTerrain_;
+    stardraft::kit::Button load_, loadDefault_, save_, saveAs_, nextNull_, width_, null_, clear_, more_, refShow_, newTerrain_;
+    std::map<uint16_t, std::vector<std::pair<int, int>>> moreRects_;  // (a terrain id -> the extra spots More rects found)
+    int extendNext_ = 0;  // (the next example searches for more spots: 1 by itself, 2 More rects)
     // Undo (Ctrl+Z) and redo (Ctrl+Y): a terrain as it was before an edit (its id: the list can change).
     struct Edit {
         uint16_t id = 0;
@@ -974,6 +1040,7 @@ void IsomRulesView::layout() {
     search_.setFrame({pad, top, leftW - pad, top + barH});
     list_.setFrame({pad, top + barH + pad, leftW - pad, H - pad * 2 - barH});
     newTerrain_.setFrame({pad, H - pad - barH, leftW - pad, H - pad});
+    more_.setFrame({leftW + pad, H - scale(92) + pad + scale(26), leftW + pad + scale(100), H - scale(92) + pad + scale(26) + barH});
     const int barW = scale(stardraft::kit::kScrollBarW);
     palette_ = {W - paletteW_, top, W - barW, H};
     palBar_.setFrame({W - barW, top, W, H});

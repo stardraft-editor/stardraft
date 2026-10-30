@@ -377,13 +377,14 @@ CASES += [
     # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
     ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677", "--key", "Down",
                              "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
-    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s examples; a click on a NULL hole, then on
-    # tile 2.0 of the palette: the rect takes 2.0 and 2.1, one null less (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "455,368", "--click", "1020,110"], "cmbw"),
+    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (with the places More rects finds
+    # by itself: 12 of its 16 null rects in it); a click on a NULL hole, then on tile 2.0 of the palette: the rect takes
+    # 2.0 and 2.1, one null less (CHECKS: check_isom_rules).
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "518,350", "--click", "1020,110"], "cmbw"),
     # Clear all makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "922,22", "--key", "Ctrl+Z",
-                              "--key", "Ctrl+Y", "--click", "455,368", "--click", "1020,110", "--click", "1020,110"], "cmbw"),
+                              "--key", "Ctrl+Y", "--click", "518,350", "--click", "1020,110", "--click", "1020,110"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
     # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,
@@ -1165,7 +1166,7 @@ def check_options_ctrltab(output):
 
 def check_isom_rules(output):
     """None when the editor shows the terrain with its NULL holes and the palette's tile goes into the hole that was clicked."""
-    if "isom rules: Structure (Halfsphalt), 16 null, 6 holes in the examples" not in output:
+    if "isom rules: Structure (Halfsphalt), 16 null, 12 holes in the examples" not in output:
         return "no terrain with 16 null and 6 holes"
     return None if re.search(r"^click 1020,110: .*Piece \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
 
