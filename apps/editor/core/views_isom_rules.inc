@@ -1227,17 +1227,17 @@ private:
         const size_t k = size_t(target_);
         if (k >= m.pieces.size()) return;
         if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) {  // (a fill piece: the terrain's inside; one of them stays)
-            if (m.pieces.size() - m.gapPieces - m.setPieces <= 1) return setMessage(L"The terrain's only fill piece cannot be removed");
+            if (m.pieces.size() - m.gapPieces - m.setPieces <= 1) return setMessage(L"Remove: last fill piece (kept)");
             remember();
             const uint16_t g = m.pieces[k][0];
             m.pieces.erase(m.pieces.begin() + long(k));
             target_ = -1;
             changed();
-            return setMessage(L"Fill piece of rect " + std::to_wstring(g) + L" removed (" + std::to_wstring(m.pieces.size() - m.gapPieces - m.setPieces) + L" left)");
+            return setMessage(L"Remove: fill piece, group " + std::to_wstring(g) + L" (" + std::to_wstring(m.pieces.size() - m.gapPieces - m.setPieces) + L" fill pieces left)");
         }
         const uint16_t g = m.pieces[k][0];
         const auto q = m.pieces[k];
-        if (isomrules::nullHalf(q[1]) && isomrules::nullHalf(q[2])) return setMessage(L"Rect " + std::to_wstring(g) + L" is NULL already");
+        if (isomrules::nullHalf(q[1]) && isomrules::nullHalf(q[2])) return setMessage(L"Remove: rect " + std::to_wstring(g) + L" is NULL");
         const auto n = std::count_if(m.pieces.begin(), m.pieces.end(), [g](const auto& p) { return p[0] == g; });
         const auto same = std::count(m.pieces.begin(), m.pieces.end(), q);  // (the variants with these tiles: all go, else the tile stays in sight)
         const bool inTemplate = std::any_of(tmpl_.begin(), tmpl_.end(), [g](const auto& r) { return r.group == g; });
@@ -1253,12 +1253,12 @@ private:
         }
         if (n > same || !inTemplate) {
             m.pieces = std::move(keep), m.setPieces = set, m.gapPieces = gaps;
-            what = n > same ? (same > 1 ? std::to_wstring(same) + L" variants with these tiles removed (" : L"a variant removed (") + std::to_wstring(n - same) + L" left)"
-                            : L"removed (not a rect of the template)";
+            what = n > same ? std::to_wstring(same) + (same > 1 ? L" pieces" : L" piece") + L" removed, " + std::to_wstring(n - same) + L" variants left"
+                            : L"removed (group not in template)";
         } else {  // (its only tiles: NULL, once)
             keep.insert(keep.begin() + long(set), {g, 0, 1});
             m.pieces = std::move(keep), m.setPieces = set + 1, m.gapPieces = gaps;
-            what = L"its only tiles removed: NULL";
+            what = L"last piece removed: NULL";
         }
         for (auto it = pins_.begin(); it != pins_.end();)  // (the rect's pins: its variants changed)
             it = it->second.first == g ? pins_.erase(it) : std::next(it);
@@ -1266,7 +1266,7 @@ private:
         for (size_t i = 0; i < m.pieces.size() && target_ < 0; ++i)
             if (m.pieces[i][0] == g) target_ = int(i);
         changed();
-        setMessage(L"Rect " + std::to_wstring(g) + L": " + what);
+        setMessage(L"Remove: rect " + std::to_wstring(g) + L": " + what);
     }
     void slotMenu(int k, int half, draw::Point at, int place) {
         pinAt_ = place >= 0 && place < int(places_.size()) ? std::make_pair(places_[size_t(place)].tx, places_[size_t(place)].ty) : std::make_pair(INT_MIN, INT_MIN);
@@ -2556,14 +2556,14 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         }
         std::wstring label;
         switch (loading_ ? -1 : int(progStep_)) {
-        case -1: label = L"Loading the tileset"; break;
-        case kStepPaint: label = L"Painting the example"; break;
+        case -1: label = L"Loading tileset: CV5, VX4EX, VR4, terrain rules"; break;
+        case kStepPaint: label = L"ISOM paint: example shape"; break;
         case kStepSearch:
-            label = L"Finding places for the rects the example does not show (round " + std::to_wstring(int(progRound_)) + L", " + std::to_wstring(done) + L" of " +
-                    std::to_wstring(total) + L" places)";
+            label = L"Spot search: round " + std::to_wstring(int(progRound_)) + L" \x00b7 spot " + std::to_wstring(done) + L"/" + std::to_wstring(total) +
+                    L" \x00b7 rects not in example";
             break;
-        case kStepReference: label = L"Painting the reference"; break;
-        default: label = L"Making the picture"; break;
+        case kStepReference: label = L"ISOM paint: reference"; break;
+        default: label = L"Render: TILE to bitmap"; break;
         }
         c.text({puzzle_.left + pad, bar.bottom + scale(6), puzzle_.right - pad, bar.bottom + scale(28)}, label, kDim, draw::kCenter | draw::kMiddle | draw::kEllipsis);
     }
