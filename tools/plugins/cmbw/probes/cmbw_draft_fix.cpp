@@ -5,11 +5,11 @@
 //      the border renders like the game there instead of black).
 //   2. foreign tiles: a piece whose tiles are in groups the maps never use with this terrain (Tileset::groupTerrains)
 //      nor in its other pieces' groups: reported as suspects.
-//   3. shape check: each mod pair's picture against the template pair's, by the structure of their edges (gradient
-//      magnitude, normalized cross-correlation, 64 x 32). In a set that recolors the game's tiles (the set's mean fit
-//      0.6 or more) a pair that fits badly is replaced by a pair of another group of the terrain's that fits clearly
-//      (0.7 or more, 0.35 better); elsewhere, and for a group's own variants (they score apart although all are
-//      right), the better pair is only reported.
+//   3. layout and shape check, a report for a person: each mod pair against the template pair by where each puts the
+//      terrain and the ground (each pixel classed by colour against the set's own inside and ground tiles; masks
+//      compared) and by the structure of its edges (gradient magnitude, normalized cross-correlation, 64 x 32). Nothing
+//      is applied: right-looking sets score 0.4 to 0.85 on the layout, and a half-and-half tile matches many masks, so
+//      the best candidate is often the same tile for several roles.
 // The repaired rules go to one .sdterrain file (version 2; drafts stay drafts), the report to a text file, and (with an
 // .inc path) the file's bytes as a C array for src/mods/cmbw.cpp (kRepairedRules: the program applies them over the
 // built-in rows).
@@ -264,9 +264,9 @@ int main(int argc, char** argv) {
                 for (const auto& c : candidates)
                     if (const float sc = agree(want, modMask(c.first, c.second)); sc > bestScore) bestScore = sc, best = c;
                 const char* role = byGroup.count(p[0]) ? byGroup[p[0]]->role.c_str() : "other";
-                // (applied when the set's own pairs fit the layout well on the whole (the materials are told apart), this
-                // pair clearly does not, and a pair of another group clearly does; else reported)
-                if (best.first && setLayout >= 0.7 && (best.first >> 4) != (p[1] >> 4) && f.layout < 0.6f && bestScore >= 0.85f && bestScore >= f.layout + 0.25f) {
+                // (never applied: a half-and-half tile matches many masks, so one candidate wins for several roles at once;
+                // the two signals are for a person's review)
+                if (false && best.first && setLayout >= 0.7 && (best.first >> 4) != (p[1] >> 4) && f.layout < 0.6f && bestScore >= 0.85f && bestScore >= f.layout + 0.25f) {
                     out("   pass 3  %-24s rect %u: %u.%u layout %.2f, %u.%u layout %.2f -> replaced\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15),
                         double(f.layout), unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
                     p[1] = best.first, p[2] = best.second, ++applied;
