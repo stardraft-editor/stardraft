@@ -331,6 +331,7 @@ void Editor::reload() {
         std::string err;
         if (tileset_.load(data_, era_, err)) {
             if (modTerrainsOverride_) tileset_.modTerrains = *modTerrainsOverride_;
+            if (groupLimit_ && tileset_.groups.size() > groupLimit_) tileset_.groups.resize(groupLimit_);  // (limitGroups)
             doodadTypes_.load(data_, tileset_, era_, err);
             tilesetError_.clear();
             loadedEra_ = era_;

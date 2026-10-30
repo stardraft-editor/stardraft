@@ -727,6 +727,9 @@ private:
 public:
     // Loads the tileset again (its mod terrains: a terrain rules file changed), then the state from the map.
     void reloadTileset() { loadedEra_ = 0xFFFF, reload(); }
+    // Only the first n tile groups (a mod's tileset: the game's own groups, n of them; its own groups past them have the
+    // same edge codes and the brush would pick them too). 0: every group. The tileset loads again at the next map.
+    void limitGroups(size_t n) { groupLimit_ = n, loadedEra_ = 0xFFFF; }
 private:
     uint32_t nextFreeSerial(const std::vector<Unit>& units) const;
     Unit correctedOrSame(Unit u, bool correct, const std::vector<Unit>& against) const;
@@ -780,6 +783,7 @@ private:
     int removedByTerrain_ = 0;
     uint16_t loadedEra_ = 0xFFFF;
     std::optional<std::vector<Tileset::ModTerrain>> modTerrainsOverride_;  // (useModTerrains)
+    size_t groupLimit_ = 0;  // (limitGroups; 0: every group)
     void buildModTable();
     std::string tilesetError_;     // why the last tileset load failed ("" after a good load)
     bool unitDataLoaded_ = false;  // unit types and sprites are loaded (a failed load is tried again on the next open)

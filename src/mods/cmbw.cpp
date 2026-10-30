@@ -2966,6 +2966,26 @@ bool open(GameData& data, const fs::path& install, std::string& error) {
     return true;
 }
 
+size_t gameTileGroups(int era) {
+    static std::mutex m;
+    static std::map<int, size_t> known;
+    std::lock_guard<std::mutex> lock(m);
+    if (const auto it = known.find(era & 7); it != known.end()) return it->second;
+    size_t n = 0;
+    std::error_code ec;
+    if (const fs::path install = findInstall(); !install.empty()) {
+        const fs::path sc = install.parent_path() / "Starcraft";
+        std::vector<fs::path> mpqs;
+        for (const char* f : {"patch_rt.mpq", "BrooDat.mpq", "StarDat.mpq"})
+            if (fs::is_regular_file(sc / f, ec)) mpqs.push_back(sc / f);
+        const LayeredFiles files(fs::path(), mpqs);  // (no loose folder: the game's files only)
+        Bytes cv5;
+        std::string err;
+        if (files.readFile(std::string("TileSet\\") + tilesetName(uint16_t(era & 7)) + ".cv5", cv5, err)) n = cv5.size() / 52;
+    }
+    return known[era & 7] = n;
+}
+
 // --- The mining simulation's units ----------------------------------------------------------------------------------
 
 std::vector<uint8_t> simUnits(const std::vector<uint8_t>& in, const UnitTypes& types) {

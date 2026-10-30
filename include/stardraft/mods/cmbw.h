@@ -47,6 +47,9 @@ void skipRepairedRules(bool on);
 // Opens `data` on the CMBW files of `install` (findInstall): the loose mpq folder first, then the 1.16.1 MPQs
 // (patch_rt, BrooDat, StarDat). Unit types and sprites then come from the .datex files.
 bool open(GameData& data, const std::filesystem::path& install, std::string& error);
+// The game's own tile groups of a tileset (era 0-7): its .cv5 in the StarCraft MPQs beside the install, without the
+// mod's (the mod's tileset adds groups past them, some with the game's edge codes). 0: not known.
+size_t gameTileGroups(int era);
 
 // Whether a map file is a CMBW map by what it shows: it is in the Cosmonarchy folder (findInstall's parent), or it has
 // units that only the mod has (unit ids 228 and up).

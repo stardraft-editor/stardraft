@@ -573,7 +573,7 @@ private:
         for (int v : shown_)
             if (v < 0) games.push_back(v);
         if (!games.empty()) {
-            header(L"Game Borders", int(games.size()));
+            header(L"Game Tilesets", int(games.size()));
             for (int v : games) sideRows_.push_back({v, {}, y, scale(30)}), y += scale(30);
         }
         sideTotal_ = y;
@@ -661,7 +661,8 @@ private:
         const GameData* data = nullptr;
         bool standard = false;  // (a game border: stdTerrain on root, no pieces)
         uint16_t stdTerrain = 0, refGround = 0, refTerrain = 0;  // (refTerrain 0: no reference)
-        uint8_t refEra = 0;  // (the reference's tileset: another one paints on refEd_)
+        uint8_t refEra = 0;  // (the reference's tileset)
+        size_t gameGroups = 0, refGroups = 0;  // (the game's own tile groups of the tileset, of the reference's; 0: all)
     };
     struct BuildOut {
         std::vector<Place> places;
@@ -683,10 +684,11 @@ private:
             building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset();
             return invalidate();
         }
-        in->era = era(), in->data = data;
+        in->era = era(), in->data = data, in->gameGroups = gameGroups(era());
         in->refEra = era();
         if (const int ref = refOf(t); ref >= 0 && refOn_)
             in->refEra = uint8_t(refEntries_[size_t(ref)].era), in->refGround = refEntries_[size_t(ref)].ground, in->refTerrain = refEntries_[size_t(ref)].terrain;
+        in->refGroups = gameGroups(in->refEra);
         if (!t) {  // (a standard terrain: the game's border, read only)
             in->standard = true, in->root = stdPairs_[size_t(std_)].first, in->stdTerrain = stdPairs_[size_t(std_)].second;
             return start(in, -2 - std_);
@@ -769,23 +771,30 @@ private:
                 for (int x = crop.left; x < crop.right; ++x) part.push_back(l.tiles[size_t(y) * W + x]);
             return isomrules::tilesBitmap(on->tileset(), part, crop.width(), crop.height());
         };
+        // (a game tileset's map: the game's own tile groups only (the mod's groups past them have the same edge codes:
+        // the brush would put them in); its own map of the same size: the shape falls on the same tiles)
+        auto gameMap = [&](uint8_t e, uint16_t ground, size_t groups) -> Editor* {
+            if (!gameEd_) gameEd_ = std::make_unique<Editor>(*in.data);
+            Editor* g = gameEd_.get();
+            if (!g->isOpen() || g->era() != e || gameEdGroups_ != groups) {
+                g->limitGroups(groups);
+                if (!g->newMap(W, H, e, ground, err)) return nullptr;
+                g->useModTerrains({});
+                gameEdGroups_ = groups;
+            }
+            return g;
+        };
         auto addReference = [&](const std::vector<std::pair<int, int>>& shape) {
             if (!in.refTerrain || !out.picture) return;
-            Editor* on = ed;
-            if (in.refEra != in.era) {  // (another tileset: its own map of the same size; the shape falls on the same tiles)
-                if (!refEd_) refEd_ = std::make_unique<Editor>(*in.data);
-                on = refEd_.get();
-                if (!on->isOpen() || on->era() != in.refEra) {
-                    if (!on->newMap(W, H, in.refEra, in.refGround, err)) return;
-                    on->useModTerrains({});
-                }
-            }
+            Editor* on = gameMap(in.refEra, in.refGround, in.refGroups);
+            if (!on) return;
             paintGame(on, in.refGround, in.refTerrain, shape);
             out.reference = pictureOf(on, out.crop);
             if (out.reference && (out.reference->width() != out.picture->width() || out.reference->height() != out.picture->height())) out.reference.reset();
         };
         if (in.standard) {  // (the game's border: the rects whose ISOM differs from its ground alone)
-            ed->useModTerrains({});
+            Editor* const ed = gameMap(in.era, root, in.gameGroups);
+            if (!ed) return;
             ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
             const std::vector<uint8_t> before = ed->chk().find("ISOM") ? ed->chk().find("ISOM")->data : std::vector<uint8_t>();
             paintGame(ed, root, in.stdTerrain, shapeOf(isomrules::Family::Other));
@@ -997,6 +1006,8 @@ private:
         refPick_.setItems(refs);
         refPick_.setValue(value);
     }
+    // The game's own tile groups of a tileset (the mod's groups past them: not in a game tileset); 0: unknown.
+    static size_t gameGroups(int e) { return stardraft::cmbw::gameTileGroups(e); }
     // A game terrain's tile (its solid group's), as a picture; null: none.
     static std::shared_ptr<draw::Bitmap> terrainPic(const stardraft::Tileset& ts, uint16_t terrain) {
         if (ts.groups.empty()) return nullptr;
@@ -1033,7 +1044,7 @@ private:
     // engine reads no NULL half as a game tile).
     void setNull() {
         if (loading_) return;
-        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
         auto& m = rules().terrains[size_t(sel_)].t;
         if (target_ >= int(m.pieces.size())) return;
         const size_t k = size_t(target_);
@@ -1079,7 +1090,7 @@ private:
     // The target's slot is NULL (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void erase() {
         if (loading_) return;
-        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
         auto& m = rules().terrains[size_t(sel_)].t;
         const size_t k = size_t(target_);
         if (k >= m.pieces.size()) return;
@@ -1105,7 +1116,7 @@ private:
     // where it paints the rect), and the target is the copy: its edits leave the other variant.
     void makeUnique() {
         if (loading_) return;
-        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
         auto& m = rules().terrains[size_t(sel_)].t;
         const size_t k = size_t(target_);
         if (k >= m.pieces.size()) return;
@@ -1168,7 +1179,7 @@ private:
     // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void place(uint16_t value) {
         if (loading_) return;
-        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
         auto& m = rules().terrains[size_t(sel_)].t;
         if (target_ >= int(m.pieces.size())) return;
         auto p = m.pieces[size_t(target_)];
@@ -1437,7 +1448,7 @@ private:
                    (noTile ? L"; " + std::to_wstring(noTile) + L" without mod tiles" : L"") + L". Ctrl+Z undoes");
     }
     void toggleDraft() {
-        if (loading_ || sel_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a terrain first");
+        if (loading_ || sel_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a terrain first");
         auto& t = rules().terrains[size_t(sel_)];
         remember();
         t.t.draft = !t.t.draft;
@@ -1948,7 +1959,8 @@ private:
     std::vector<int> holes_, absent_;
     std::unique_ptr<draw::Bitmap> picture_;
     struct Spot { int x, y; float s; };
-    std::unique_ptr<Editor> refEd_;  // (another tileset's map for the reference: the worker's)
+    std::unique_ptr<Editor> gameEd_;  // (the game tilesets' map: the game borders and the reference; the worker's)
+    size_t gameEdGroups_ = 0;         // (its group limit)
     std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
     bool async_ = true, loading_ = false, building_ = false;
     int openGen_ = 0, shownId_ = -1, jump_ = -1;  // (jump_: the tile framed in the tiles; jumpRow_: its whole row)
@@ -2592,7 +2604,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         const int sy = e.pt.y - side_.top + sideScroll_;
         for (const SideRow& r : sideRows_)
             if (r.value != kSideHeader && sy >= r.y && sy < r.y + r.h) {
-                if (r.value < 0) return selectValue(r.value), setMessage(L"Game borders are read-only"), true;
+                if (r.value < 0) return selectValue(r.value), setMessage(L"Game tilesets are read-only"), true;
                 selectValue(r.value);
                 switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026"})) {
                 case 1: renameTerrain(r.value); break;
