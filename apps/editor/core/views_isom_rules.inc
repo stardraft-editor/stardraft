@@ -844,12 +844,43 @@ private:
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
         setMessage(L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]));
     }
-    // The right button's menu of slot (piece k, half): Set to NULL, Use as Brush, Show in Tiles.
+    void deselectAll() {
+        endStroke();
+        brush_ = -1, target_ = -1, slotKeys_ = false;
+        setMessage(L"Nothing selected");
+        invalidate();
+    }
+    // Make Unique: a copy of the target's piece is a new variant of its rect (the engine picks one of a rect's variants
+    // where it paints the rect), and the target is the copy: its edits leave the other variant.
+    void makeUnique() {
+        if (loading_) return;
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game borders are read-only" : L"Select a rect first");
+        auto& m = rules().terrains[size_t(sel_)].t;
+        const size_t k = size_t(target_);
+        if (k >= m.pieces.size()) return;
+        if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot have variants");
+        const auto q = m.pieces[k];
+        if (isomrules::nullHalf(q[1]) && isomrules::nullHalf(q[2])) return setMessage(L"Rect " + std::to_wstring(q[0]) + L" is NULL: paint it first");
+        remember();
+        m.pieces.insert(m.pieces.begin() + long(k) + 1, q);
+        if (k < m.setPieces) ++m.setPieces;
+        changed();
+        int n = 0, last = -1;  // (the copy: the last piece with these tiles)
+        for (size_t i = 0; i < m.pieces.size(); ++i)
+            if (m.pieces[i][0] == q[0]) {
+                ++n;
+                if (m.pieces[i] == q) last = int(i);
+            }
+        if (last >= 0) setTarget(last, targetHalf_, false), slotFocus(true);
+        setMessage(L"Rect " + std::to_wstring(q[0]) + L": variant " + std::to_wstring(n) + L" of " + std::to_wstring(n) + L" (the brush picks one of them for each place)" +
+                   (visibleGroups_.count(q[0]) ? L"" : L"; not in the example"));
+    }
+    // The right button's menu of slot (piece k, half): Set to NULL, Use as Brush, Show in Tiles, Make Unique.
     void slotMenu(int k, int half, draw::Point at) {
         setTarget(k, half, false);
         invalidate();
         const uint16_t v = terrain()->t.pieces[size_t(k)][size_t(1 + half)];
-        switch (shellContextMenuAt(*this, at, {L"Set to NULL", L"Use as Brush", L"Show in Tiles"})) {
+        switch (shellContextMenuAt(*this, at, {L"Set to NULL", L"Use as Brush", L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)"})) {
         case 1: erase(); break;
         case 2:
             if (isomrules::nullHalf(v)) setMessage(L"The slot is NULL");
@@ -859,6 +890,7 @@ private:
             if (isomrules::nullHalf(v)) setMessage(L"The slot is NULL");
             else showRow(v >> 4, v);
             break;
+        case 4: makeUnique(); break;
         default: break;
         }
     }
@@ -2200,7 +2232,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
                 if (half >= 0) k = row.piece;
             }
         }
-        if (k < 0 || k >= int(t->t.pieces.size())) return puzzle_.contains(e.pt) || check_.contains(e.pt);
+        if (k < 0 && puzzle_.contains(e.pt)) {  // (no slot under it: nothing selected, no brush)
+            if (e.kind == draw::MouseKind::Up) deselectAll();
+            return true;
+        }
+        if (k < 0 || k >= int(t->t.pieces.size())) return check_.contains(e.pt);
         if (e.kind == draw::MouseKind::Up) slotMenu(k, half, e.pt);
         return true;
     }
