@@ -801,7 +801,13 @@ int main(int argc, char** argv) {
                 gOptionsView.showTabStrip(true);  // (macOS: a Settings window, its tabs in the toolbar)
 #endif
             } else if (dialogArg == "feedback") shown = &feedbackShot;
-            else if (dialogArg.rfind("isomrules", 0) == 0) {  // isomrules[:[<era>/]<terrain>]: the Custom isom terrain editor (a Cosmonarchy run: --cmbw)
+            else if (dialogArg.rfind("isomnew", 0) == 0) {  // isomnew[:<terrain>]: the Custom isom terrain editor's New Terrain window, from that terrain
+                gIsomRulesView.setAsync(false);
+                gIsomRulesView.open();
+                if (dialogArg.size() > 8) gIsomRulesView.selectByName(dialogArg.substr(8));
+                static std::unique_ptr<isomrules::NewTerrainDialog> newShot;
+                if ((newShot = gIsomRulesView.newDialogShot())) shown = newShot.get();
+            } else if (dialogArg.rfind("isomrules", 0) == 0) {  // isomrules[:[<era>/]<terrain>]: the Custom isom terrain editor (a Cosmonarchy run: --cmbw)
                 shown = &gIsomRulesView;
                 gIsomRulesView.setAsync(false);  // (the snapshot: at once)
                 gIsomRulesView.open();

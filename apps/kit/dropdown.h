@@ -18,6 +18,8 @@ struct DropdownItem {
     int number = -1;  // shown at the right in dim; -1: none
     // A color square before the label, on the closed field (a player's color); kNone: none.
     draw::Color swatch = draw::kNone;
+    // A picture before the label, in the list and on the closed field (a map tile); null: none.
+    std::shared_ptr<draw::Bitmap> image;
 };
 
 class Dropdown : public draw::View {

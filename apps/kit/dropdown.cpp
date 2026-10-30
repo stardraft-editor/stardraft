@@ -66,6 +66,10 @@ public:
             }
             const Color fg = sel ? th.accent : th.text;
             if (it.icon >= 0) c.icon({r.left + px(6), r.top + px(4), r.left + px(22), r.bottom - px(4)}, it.icon, fg, px(16));
+            if (it.image) {  // (the item's picture, square, at the icon's place)
+                const int s = std::min(px(22), r.height() - px(4)), sy = (r.top + r.bottom - s) / 2;
+                c.bitmap(*it.image, {0, 0, it.image->width(), it.image->height()}, {r.left + px(5), sy, r.left + px(5) + s, sy + s});
+            }
             if (it.swatch != draw::kNone) {  // (a color list: the item's square, as on the closed field)
                 const int s = px(12), sx = r.left + px(10), sy = (r.top + r.bottom - s) / 2;
                 c.fill({sx, sy, sx + s, sy + s}, it.swatch);
@@ -365,6 +369,11 @@ void Dropdown::paint(Canvas& c) {
         if (it.icon >= 0) {
             c.icon({tx, r.top + px(3), tx + px(18), r.bottom - px(3)}, it.icon, enabled_ ? th.text : th.faint, px(16));
             tx += px(24);
+        }
+        if (it.image) {
+            const int s = std::min(px(22), r.height() - px(6)), sy = (r.top + r.bottom - s) / 2;
+            c.bitmap(*it.image, {0, 0, it.image->width(), it.image->height()}, {tx - px(3), sy, tx - px(3) + s, sy + s});
+            tx += s + px(6);
         }
         // A list with squares (a color list): the square at 10 px where the item has one, and every label after seven
         // spaces' width (as the program's pickers had it, Random and Player's choice too).

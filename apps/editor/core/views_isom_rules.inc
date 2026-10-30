@@ -125,6 +125,78 @@ inline Worker& worker() {
     return w;
 }
 
+// New Terrain: a small window with the name, the reference (the template: a game border or a terrain to copy) and the
+// bordering terrain (each item: its tile, then its name). Enter: Create; Esc: Cancel.
+class NewTerrainDialog final : public draw::View {
+public:
+    NewTerrainDialog(std::vector<stardraft::kit::DropdownItem> models, int model, std::vector<stardraft::kit::DropdownItem> grounds, int ground)
+        : create_(L"Create", stardraft::kit::Tone::Primary, [this] { finish(true); }), cancel_(L"Cancel", stardraft::kit::Tone::Normal, [this] { finish(false); }) {
+        model_.setItems(std::move(models)), model_.setValue(model);
+        ground_.setItems(std::move(grounds)), ground_.setValue(ground);
+        for (stardraft::kit::Dropdown* d : {&model_, &ground_}) d->searchable = true, d->enterOpens = false;
+        model_.onChange = [this](int v) {
+            if (onModel) onModel(v);
+        };
+        ground_.onChange = [this](int) { autoName(); };
+        name_.onChange = [this] { named_ = true; };
+        name_.onEnter = [this] { finish(true); };
+        name_.onEscape = [this] { finish(false); };
+        add(name_, {}), add(model_, {}), add(ground_, {}), add(cancel_, {}), add(create_, {});
+        autoName();
+    }
+    // The template changed (index): the caller sets the bordering terrain to its ground (setGround).
+    std::function<void(int)> onModel;
+    void setGround(int i) { ground_.setValue(i), autoName(); }
+    int model() const { return model_.value(); }
+    int ground() const { return ground_.value(); }
+    const std::wstring& name() const { return name_.text(); }
+    bool created() const { return created_; }
+    static draw::Point size() { return {scale(460), scale(200)}; }
+
+    void resized() override {
+        const int pad = scale(16), lw = scale(90), fh = scale(stardraft::kit::kFieldH), rowH = scale(36);
+        for (int i = 0; i < 3; ++i) {
+            const int y = pad + i * rowH;
+            draw::View& f = i == 0 ? static_cast<draw::View&>(name_) : i == 1 ? static_cast<draw::View&>(model_) : ground_;
+            f.setFrame({pad + lw, y, width() - pad, y + fh});
+        }
+        const int bw = scale(stardraft::kit::kButtonMinW), bh = scale(stardraft::kit::kButtonH), by = height() - pad - bh;
+        cancel_.setFrame({width() - pad - 2 * bw - scale(8), by, width() - pad - bw - scale(8), by + bh});
+        create_.setFrame({width() - pad - bw, by, width() - pad, by + bh});
+    }
+    void paint(draw::Canvas& c) override {
+        if (!focused_ && host()) focused_ = true, name_.focus();  // (the window shows: the keys go to the name)
+        const auto& th = stardraft::kit::theme();
+        c.fill({0, 0, width(), height()}, th.bg);
+        const int pad = scale(16), fh = scale(stardraft::kit::kFieldH), rowH = scale(36);
+        const wchar_t* labels[] = {L"Name", L"Reference", L"Bordering"};
+        for (int i = 0; i < 3; ++i) c.text({pad, pad + i * rowH, pad + scale(86), pad + i * rowH + fh}, labels[i], th.dim, draw::kMiddle);
+    }
+    bool key(const draw::KeyEvent& e) override {
+        if (!e.down || stardraft::kit::Dropdown::anyListOpen()) return false;
+        if (e.key == draw::Key::Enter && !e.mods) return finish(true), true;
+        if (e.key == draw::Key::Escape && !e.mods) return finish(false), true;
+        return false;
+    }
+
+private:
+    void autoName() {  // (the name follows the bordering terrain until it is typed)
+        if (named_) return;
+        const auto& g = ground_.items();
+        const int i = ground_.value();
+        name_.setText(L"Primary (" + (i >= 0 && i < int(g.size()) ? g[size_t(i)].label : std::wstring()) + L")");
+    }
+    void finish(bool create) {
+        if (create && (model_.value() < 0 || ground_.value() < 0 || name_.text().empty())) return;
+        created_ = create;
+        if (draw::Host* h = host()) h->closeWindow(*this);
+    }
+    stardraft::kit::Dropdown model_{{}, -1}, ground_{{}, -1};
+    stardraft::kit::TextField name_;
+    stardraft::kit::Button create_, cancel_;
+    bool named_ = false, created_ = false, focused_ = false;
+};
+
 }  // namespace isomrules
 
 class IsomRulesView final : public draw::View {
@@ -141,20 +213,20 @@ public:
         sideBar_.onScroll = [this](int pos) { sideScroll_ = pos, invalidate(); };
         ground_.onChange = [this](int i) { setGround(i); };
         refPick_.searchable = true, refPick_.wheelSteps = false;
-        refPick_.setTip(L"Reference border rendered in the same shape (Template: the terrain's own). R cycles off / overlay / only");
+        refPick_.setTip(L"Reference border rendered in the same shape (Template: the terrain's own). Ctrl+R: the overlay on or off");
         refPick_.onChange = [this](int) { rebuild(); };
         refShow_.setLabel(L"Reference Overlay"), refShow_.setPlainLabel(true);
         refShow_.onChange = [this](bool) { toggleReference(); };
-        refShow_.setTip(L"Render the reference border over the example. Key: R");
+        refShow_.setTip(L"Render the reference border over the example. Key: Ctrl+R");
         refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Up, Ctrl+Down");
         refOpacity_.onChange = [this](int) { invalidate(); };
         row_.searchable = true, row_.wheelSteps = false;
-        row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Key M: next block of this terrain's groups");
+        row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Ctrl+M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
         minePick_.setItems({{L"All Tile Groups"}, {L"This Terrain's Groups"}}), minePick_.setValue(0);
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
-        minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: G");
+        minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
         loadColumns();
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
                                                                &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_})
@@ -164,6 +236,11 @@ public:
 
     // Off: the work is done at once, on this thread (a snapshot's run).
     void setAsync(bool on) { async_ = on; }
+    // The New Terrain window as it opens, for a snapshot (--dialog isomnew:<terrain>); null: no templates.
+    std::unique_ptr<isomrules::NewTerrainDialog> newDialogShot() {
+        std::vector<int> modelOf;
+        return makeNewDialog(modelOf);
+    }
     // The default columns, widths and view options, whatever the layout settings hold (a snapshot's run). Not saved.
     void useDefaultLayout() {
         std::copy(std::begin(kDefaultOrder), std::end(kDefaultOrder), colOrder_);
@@ -217,19 +294,20 @@ public:
     bool key(const draw::KeyEvent& e) override {
         if (!e.down || search_.hasFocus()) return false;
         if (e.mods || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
-        if (e.key == static_cast<draw::Key>('N') && !e.mods) return nextNull(), true;
+        const bool ctrl = e.mods == draw::kCtrl;  // (the window's letter keys: Ctrl+ only)
+        if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
         if (e.key == draw::Key::Escape && !e.mods && (brush_ >= 0 || slotKeys_ || target_ >= 0)) return deselectAll(), true;
         if (slotKeys_ && target_ >= 0 && !e.mods) {  // (the clicked slot: its tile steps through the tiles)
             if (e.key == draw::Key::Left || e.key == draw::Key::Right) return nudge(e.key == draw::Key::Right ? 1 : -1, 0), true;
             if (e.key == draw::Key::Up || e.key == draw::Key::Down) return nudge(0, e.key == draw::Key::Down ? 1 : -1), true;
         }
-        if (e.key == static_cast<draw::Key>('R') && !e.mods) return toggleReference(), true;
-        if (e.key == static_cast<draw::Key>('H') && !e.mods) return toggleFrames(), true;
+        if (e.key == static_cast<draw::Key>('R') && ctrl) return toggleReference(), true;
+        if (e.key == static_cast<draw::Key>('H') && ctrl) return toggleFrames(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && (e.mods & draw::kCtrl)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
-        if (e.key == static_cast<draw::Key>('M') && !e.mods) return nextMyRows(), true;
-        if (e.key == static_cast<draw::Key>('V') && !e.mods) return toggleDraft(), true;
-        if (e.key == static_cast<draw::Key>('G') && !e.mods) return togglePalMine(), true;
+        if (e.key == static_cast<draw::Key>('M') && ctrl) return nextMyRows(), true;
+        if (e.key == static_cast<draw::Key>('D') && ctrl) return toggleDraft(), true;
+        if (e.key == static_cast<draw::Key>('G') && ctrl) return togglePalMine(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save((e.mods & draw::kShift) != 0), true;
         if (e.key == static_cast<draw::Key>('N') && (e.mods & draw::kCtrl)) return newTerrain(), true;
@@ -458,6 +536,13 @@ private:
         for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k)
             if (!isomrules::nullHalf(m.pieces[k][1])) return m.pieces[k][1];
         const int g = stardraft::solidTileGroup(tileset_, m.standIn);
+        return g >= 0 ? gameTile(uint32_t(g)) : 0;
+    }
+    // A terrain id's tile, for its picture: a game terrain's solid tile, or a terrain of the rules' swatch.
+    uint16_t terrainTile(uint16_t id) const {
+        for (size_t i = 0; i < rules().terrains.size(); ++i)
+            if (rules().terrains[i].t.id == id) return swatchOf(int(i));
+        const int g = tileset_.groups.empty() ? -1 : stardraft::solidTileGroup(tileset_, id);
         return g >= 0 ? gameTile(uint32_t(g)) : 0;
     }
     // A standard terrain's name: Primary (Bordering), as the mod's.
@@ -750,7 +835,7 @@ private:
         static const std::vector<std::pair<int, int>> kBoth = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}};
         return f == isomrules::Family::Wall || f == isomrules::Family::Cliff ? kWall : f == isomrules::Family::Other ? kBoth : kPath;
     }
-    // The reference over the example, on or off (R); its opacity is the slider (Ctrl+Up / Ctrl+Down: 10 % steps; 100 %:
+    // The reference over the example, on or off (Ctrl+R); its opacity is the slider (Ctrl+Up / Ctrl+Down: 10 % steps; 100 %:
     // the reference alone).
     void toggleReference() {
         refOn_ = !refOn_;
@@ -1044,10 +1129,10 @@ private:
                                   item(L"Set Target to NULL", L"Del", [this] { setNull(); }, own),
                                   item(L"Clear All Rects", L"", [this] { clearTerrain(); }, own),
                                   item(L"Copy Tiles From\x2026", L"", [this] { copyFrom(); }, own)};
-        std::vector<Item> terrainMenu = {radio(L"Draft", L"V", t && t->t.draft, [this] { toggleDraft(); }, own),
-                                         radio(L"Verified", L"V", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
-                                         item(L"Next NULL Rect", L"N", [this] { nextNull(); }, own),
-                                         item(L"Next Group Block", L"M", [this] { nextMyRows(); }, own), sep,
+        std::vector<Item> terrainMenu = {radio(L"Draft", L"Ctrl+D", t && t->t.draft, [this] { toggleDraft(); }, own),
+                                         radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
+                                         item(L"Next NULL Rect", L"Ctrl+L", [this] { nextNull(); }, own),
+                                         item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
                                          item(L"Extend Example", L"", [this] { moreRects(); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
@@ -1056,10 +1141,10 @@ private:
         cols.label = L"Columns";
         for (int c = 0; c < 4; ++c)
             cols.sub.push_back(check(colName(c), L"", colShown_[c], [this, c] { setColumnShown(c, !colShown_[c]), saveColumns(), layout(), invalidate(); }));
-        std::vector<Item> view = {radio(L"All Tile Groups", L"G", !palMine_, [this] { togglePalMine(); }),
-                                  radio(L"This Terrain's Tile Groups", L"G", palMine_, [this] { togglePalMine(); }), sep,
-                                  check(L"Reference Overlay", L"R", refOn_, [this] { toggleReference(); }),
-                                  check(L"Rect Frames", L"H", frames_, [this] { toggleFrames(); }), sep, ids, cols};
+        std::vector<Item> view = {radio(L"All Tile Groups", L"Ctrl+G", !palMine_, [this] { togglePalMine(); }),
+                                  radio(L"This Terrain's Tile Groups", L"Ctrl+G", palMine_, [this] { togglePalMine(); }), sep,
+                                  check(L"Reference Overlay", L"Ctrl+R", refOn_, [this] { toggleReference(); }),
+                                  check(L"Rect Frames", L"Ctrl+H", frames_, [this] { toggleFrames(); }), sep, ids, cols};
         bar_.setMenus({{L"File", std::move(file)}, {L"Edit", std::move(edit)}, {L"Terrain", std::move(terrainMenu)}, {L"View", std::move(view)}});
     }
     void setTileIds(int m) {
@@ -1230,11 +1315,11 @@ private:
         setMessage(L"Rect " + std::to_wstring(terrain()->t.pieces[size_t(next)][0]) + (visibleGroups_.count(terrain()->t.pieces[size_t(next)][0]) ? L"" : L" (not in the example)"));
     }
 
-    // New terrain: its template (a game border, by family: its rects and roles; or a mod terrain: its template and its
-    // tiles, a copy to change), its bordering terrain, how it starts (the game's own tiles in every rect, or empty: NULL),
-    // then its name ("Primary (Bordering)").
-    void newTerrain() {
-        if (loading_) return setMessage(L"Tileset loading");
+    // New terrain (a small window): its template (a game border: its rects and roles, every rect NULL; or a mod terrain:
+    // its template and its tiles, a copy to change), its bordering terrain and its name ("Primary (Bordering)").
+    // The New Terrain window, filled (modelOf: each template item's game border, -1 - k, or terrain of the rules to copy);
+    // null: no templates.
+    std::unique_ptr<isomrules::NewTerrainDialog> makeNewDialog(std::vector<int>& modelOf) {
         auto& ts = rules();
         struct Std {
             int k;
@@ -1247,37 +1332,56 @@ private:
             stds.push_back({int(k), stardraft::terrainrules::familyOf(rects, tileset_), rects.size()});
         }
         std::stable_sort(stds.begin(), stds.end(), [](const Std& a, const Std& b) { return int(a.f) > int(b.f); });  // (cliffs first, patches last)
-        std::vector<ListPickItem> models;
-        for (const Std& d : stds)
-            models.push_back({isomrules::familyName(d.f) + L"  \x00b7  " + stdName(d.k) + L"  \x00b7  " + std::to_wstring(d.rects) + L" Rects", L"", "s" + std::to_string(d.k), "", -1});
+        auto chip = [this](uint16_t v) { return std::shared_ptr<draw::Bitmap>(v ? isomrules::tilesBitmap(tileset_, {v}, 1, 1) : nullptr); };
+        std::vector<stardraft::kit::DropdownItem> models;
+        modelOf.clear();
+        for (const Std& d : stds) {
+            models.push_back({stdName(d.k) + L"  \x00b7  " + isomrules::familyName(d.f) + L"  \x00b7  " + std::to_wstring(d.rects) + L" Rects"});
+            models.back().image = chip(swatchOf(-1 - d.k)), modelOf.push_back(-1 - d.k);
+        }
         for (size_t i = 0; i < ts.terrains.size(); ++i)
             if (!ts.terrains[i].t.variantOf) {
                 const auto [done, total] = stardraft::terrainrules::completeness(tileset_, ts.terrains[i].t);
-                models.push_back({L"copy  \x00b7  " + widen(ts.terrains[i].t.name) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total), L"", std::to_string(i), "", -1});
+                models.push_back({L"Copy of " + widen(ts.terrains[i].t.name) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects"});
+                models.back().image = chip(swatchOf(int(i))), modelOf.push_back(int(i));
             }
-        if (models.empty()) return setMessage(L"No templates in this tileset");
-        const draw::Rect at = newTerrain_.frame();
-        int preset = -1;
-        if (std_ >= 0) preset = std_;
-        else if (sel_ >= 0)
-            for (size_t k = 0; k < stdPairs_.size(); ++k)
-                if (stdPairs_[k] == tmplPair_) preset = int(k);
-        ListPickView modelPick(L"Template", models, preset >= 0 ? "s" + std::to_string(preset) : std::string());
-        if (!runListPick(modelPick, {at.left, at.top - scale(400)}) || modelPick.result().empty()) return;
-        const bool fromStd = modelPick.result()[0] == 's';
-        const int modelIx = std::stoi(fromStd ? modelPick.result().substr(1) : modelPick.result());
+        if (models.empty()) return nullptr;
+        std::vector<stardraft::kit::DropdownItem> grounds;
+        for (size_t k = 0; k < groundIds_.size(); ++k) {
+            grounds.push_back({ground_.items()[k].label});
+            grounds.back().image = chip(terrainTile(groundIds_[k]));
+        }
+        int preset = 0;
+        for (size_t m = 0; m < modelOf.size(); ++m)
+            if (modelOf[m] < 0 && ((std_ >= 0 && -1 - modelOf[m] == std_) || (std_ < 0 && sel_ >= 0 && stdPairs_[size_t(-1 - modelOf[m])] == tmplPair_))) preset = int(m);
+        auto groundOf = [this, modelOf](int m) {  // (a template's own bordering terrain: the ground's item)
+            const int v = modelOf[size_t(m)];
+            const uint16_t g = v < 0 ? stdPairs_[size_t(-1 - v)].first : rules().terrains[size_t(v)].t.ground;
+            for (size_t k = 0; k < groundIds_.size(); ++k)
+                if (groundIds_[k] == g) return int(k);
+            return -1;
+        };
+        auto dlg = std::make_unique<isomrules::NewTerrainDialog>(models, preset, grounds, groundOf(preset));
+        dlg->onModel = [d = dlg.get(), groundOf](int m) { d->setGround(groundOf(m)); };
+        return dlg;
+    }
+    void newTerrain() {
+        if (loading_) return setMessage(L"Tileset loading");
+        auto& ts = rules();
+        std::vector<int> modelOf;
+        const auto made = makeNewDialog(modelOf);
+        if (!made) return setMessage(L"No templates in this tileset");
+        isomrules::NewTerrainDialog& dlg = *made;
+        const draw::Point sz = isomrules::NewTerrainDialog::size();
+        host()->runModal(*this, dlg, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect{0, 0, sz.x, sz.y}, L"New Terrain"});
+        if (!dlg.created() || dlg.model() < 0 || dlg.ground() < 0) return;
+        const int mv = modelOf[size_t(dlg.model())];
+        const bool fromStd = mv < 0;
+        const int modelIx = fromStd ? -1 - mv : mv;
         const uint16_t tplGround = fromStd ? stdPairs_[size_t(modelIx)].first : stardraft::terrainrules::templateOf(tileset_, ts.terrains[size_t(modelIx)].t).first;
         const uint16_t tplTerrain = fromStd ? stdPairs_[size_t(modelIx)].second : ts.terrains[size_t(modelIx)].t.standIn;
-        std::vector<ListPickItem> grounds;
-        for (size_t k = 0; k < groundIds_.size(); ++k) grounds.push_back({ground_.items()[k].label, L"", std::to_string(groundIds_[k]), "", -1});
-        ListPickView groundPick(L"Bordering", grounds, std::to_string(fromStd ? tplGround : ts.terrains[size_t(modelIx)].t.ground));
-        if (!runListPick(groundPick, {at.left, at.top - scale(400)}) || groundPick.result().empty()) return;
-        const uint16_t ground = uint16_t(std::stoi(groundPick.result()));
-        std::wstring groundName;
-        for (const auto& g : grounds)
-            if (g.value == groundPick.result()) groundName = g.label;
-        std::wstring name = L"Primary (" + groundName + L")";
-        if (!shellPromptText(L"New terrain name (Primary (Bordering))", name) || name.empty()) return;
+        const uint16_t ground = groundIds_[size_t(dlg.ground())];
+        const std::wstring name = dlg.name();
         std::set<uint16_t> ids;
         for (const auto& o : ts.terrains) ids.insert(o.t.id);
         for (const auto& m : tileset_.modTerrains) ids.insert(m.id);  // (and the variants' ids)
@@ -1462,8 +1566,7 @@ private:
         status_ = m, invalidate();
         ::setMessage(m);
     }
-    stardraft::kit::Button newTerrain_;
-    stardraft::kit::CheckBox refShow_;
+    stardraft::kit::Button newTerrain_;    stardraft::kit::CheckBox refShow_;
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
     isomrules::HeaderPick minePick_;
     void syncButtons() {
@@ -1534,7 +1637,7 @@ private:
     void armBlink() {
         if (blinkId_ || !host()) return;
         std::shared_ptr<bool> alive = alive_;
-        blinkId_ = host()->timer(600, [this, alive] {
+        blinkId_ = host()->timer(1000, [this, alive] {
             if (!*alive) return;
             blinkId_ = 0;
             blinkOn_ = slotKeys_ ? !blinkOn_ : true;
@@ -1697,7 +1800,7 @@ private:
     static constexpr int kCheckHead = 22;  // (the checklist's column names)
     float zoom_ = 1;
     int palScroll_ = 0;
-    // The palette's rows: every group, or (G) only the terrain's own groups (myRows_, sorted); the header above the rows.
+    // The palette's rows: every group, or (Ctrl+G) only the terrain's own groups (myRows_, sorted); the header above the rows.
     bool palMine_ = false;
     std::vector<int> palRows_;
     std::map<int, std::unique_ptr<draw::Bitmap>> rowPics_;  // (a row's picture, by group: the terrain-rows mode)

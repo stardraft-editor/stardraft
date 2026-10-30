@@ -385,8 +385,10 @@ CASES += [
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
     # New terrain… (the Terrains column's bottom): the template list picked by its text (wall · Structure (Asphalt)),
     # Bordering and the name taken as offered (Enter): "Primary (Asphalt)", every rect NULL.
-    ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--type", "wall  ·  Structure (Asphalt)",
-                             "--key", "Enter", "--key", "Enter", "--key", "Enter"], "cmbw"),
+    ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--wait", "300",
+                             "--key", "Enter"], "cmbw"),
+    # The New Terrain window: the template and the bordering terrain, each with its tile.
+    ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "1110,290", "--click", "730,398", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
