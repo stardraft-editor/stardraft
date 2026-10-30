@@ -129,6 +129,7 @@ inline Worker& worker() {
 
 class IsomRulesView final : public draw::View {
 public:
+    ~IsomRulesView() { *alive_ = false; }
     IsomRulesView()
         : newTerrain_(L"New Terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
@@ -224,6 +225,11 @@ public:
         if (e.key == static_cast<draw::Key>('N') && !e.mods) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
         if (e.key == draw::Key::Escape && !e.mods && brush_ >= 0) return pickBrush(-1), true;
+        if (e.key == draw::Key::Escape && !e.mods && slotKeys_) return slotFocus(false), true;
+        if (slotKeys_ && target_ >= 0 && !e.mods) {  // (the clicked slot: its tile steps through the tiles)
+            if (e.key == draw::Key::Left || e.key == draw::Key::Right) return nudge(e.key == draw::Key::Right ? 1 : -1, 0), true;
+            if (e.key == draw::Key::Up || e.key == draw::Key::Down) return nudge(0, e.key == draw::Key::Down ? 1 : -1), true;
+        }
         if (e.key == static_cast<draw::Key>('R') && !e.mods) return toggleReference(), true;
         if (e.key == static_cast<draw::Key>('H') && !e.mods) return toggleFrames(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && (e.mods & draw::kCtrl)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
@@ -322,7 +328,7 @@ private:
         era_.setValue(e);
         const int gen = ++openGen_;
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
-        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1;
+        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false;
         shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         invalidate();
         background([this, gen, e, plain] {
@@ -1452,6 +1458,55 @@ private:
     int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
     bool painting_ = false, strokeSaved_ = false, erasing_ = false;  // (a paint stroke: one undo step; erasing: the right button, NULL)
     int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
+    // A slot clicked in the example: the arrow keys change its tile to the next one in the tiles; its frame blinks.
+    bool slotKeys_ = false, blinkOn_ = true;
+    int blinkId_ = 0;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);  // (false once destroyed: the blink's timer may still run)
+    void slotFocus(bool on) {
+        slotKeys_ = on, blinkOn_ = true;
+        if (on) armBlink();
+        invalidate();
+    }
+    void armBlink() {
+        if (blinkId_ || !host()) return;
+        std::shared_ptr<bool> alive = alive_;
+        blinkId_ = host()->timer(600, [this, alive] {
+            if (!*alive) return;
+            blinkId_ = 0;
+            blinkOn_ = slotKeys_ ? !blinkOn_ : true;
+            invalidate();
+            if (slotKeys_) armBlink();
+        });
+    }
+    // The target's tile goes to the next tile of the tiles: dx along its row (pair mode: a pair), dy to the next row shown
+    // (the same subtile). Empty tiles are skipped.
+    void nudge(int dx, int dy) {
+        const auto* t = terrain();
+        if (!t || target_ < 0 || target_ >= int(t->t.pieces.size())) return;
+        const auto& q = t->t.pieces[size_t(target_)];
+        const uint16_t v = wide_ ? q[1] : q[size_t(1 + targetHalf_)];
+        if (isomrules::nullHalf(v)) return setMessage(L"The slot is NULL: paint a tile first");
+        const int step = wide_ ? 2 : 1, s = wide_ ? (v & 15) & ~1 : v & 15;
+        auto ok = [&](int g, int k) {
+            return g >= 0 && g < int(tileset_.groups.size()) && k >= 0 && k + step - 1 < 16 && tileset_.megatileFor(uint16_t(g << 4 | k)) > 0 &&
+                   (!wide_ || tileset_.megatileFor(uint16_t(g << 4 | (k + 1))) > 0);
+        };
+        int to = -1;
+        if (dx) {
+            for (int k = s + dx * step; k >= 0 && k < 16 && to < 0; k += dx * step)
+                if (ok(v >> 4, k)) to = (v >> 4) << 4 | k;
+        } else if (const int at = palIndexOf(v >> 4); at >= 0) {  // (the rows the tiles show)
+            for (int i = at + dy; i >= 0 && i < palRowCount() && to < 0; i += dy)
+                if (ok(palGroupAt(i), s)) to = palGroupAt(i) << 4 | s;
+        } else {
+            for (int g = (v >> 4) + dy; g >= 0 && g < int(tileset_.groups.size()) && to < 0; g += dy)
+                if (ok(g, s)) to = g << 4 | s;
+        }
+        if (to < 0) return setMessage(dx ? L"No more tiles in this row" : L"No more rows with this tile");
+        place(uint16_t(to));
+        scrollToRow(to >> 4), row_.setValue(to >> 4);
+        blinkOn_ = true, invalidate();
+    }
     int brushValue() const { return brush_ < 0 ? -1 : wide_ ? brush_ & ~1 : brush_; }
     std::vector<Place> places_;
     std::vector<uint16_t> ids_;  // (the example's tiles, crop_ row by row: the tile IDs)
@@ -1823,7 +1878,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                     c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), hoverHalf_), 0xFFFFFF, scale(1));
                 }
         for (const Place& p : places_)
-            if (p.piece == target_ && target_ >= 0) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
+            if (p.piece == target_ && target_ >= 0 && (!slotKeys_ || blinkOn_)) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
         if (tileIds_ && ids_.size() == size_t(crop_.width()) * size_t(crop_.height())) {  // (the tile IDs: group over subtile)
             const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 4)}));
             auto label = [&](size_t i) {
@@ -2159,10 +2214,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             painting_ = true, strokeSaved_ = false, lastPaint_ = k * 2 + half;
             if (host()) host()->capture(*this, true);
             setTarget(k, half, false), place(uint16_t(brushValue()));
-            invalidate();
+            slotFocus(true);
             return true;
         }
         setTarget(k, half);
+        slotFocus(true);
         if (e.mods & draw::kCtrl) {  // (its tiles in the palette: the half clicked)
             const auto& q = t->t.pieces[size_t(target_)];
             if (isomrules::nullHalf(q[size_t(1 + half)])) setMessage(L"Rect " + std::to_wstring(q[0]) + L": half is NULL");
@@ -2172,6 +2228,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return true;
     }
     if (check_.contains(e.pt)) {  // (a row of the checklist: its rect is the target; the half: the custom tile clicked)
+        slotFocus(false);
         const int dy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
         const std::vector<CheckRow> rows = checkRows();
         if (dy >= 0 && dy / scale(kCheckRow) < int(rows.size())) {
