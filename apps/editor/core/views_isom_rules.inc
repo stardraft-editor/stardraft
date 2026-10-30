@@ -452,7 +452,6 @@ private:
         stdPairs_.clear(), std_ = -1;
         stdPairs_ = bordersOf(era());
         refPick_.setValue(0), fillRefs();
-        shapes_.reset(), shapesAsked_ = false, suggFor_ = -1, sugg_.clear();  // (the suggestions: this tileset's tiles)
         pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
         filter();
@@ -623,7 +622,7 @@ private:
         keepPins();
         sel_ = v >= 0 ? v : -1, std_ = v < 0 && v > -1000000 ? -1 - v : -1;
         revealSideRow();
-        target_ = -1, pins_.clear(), suggFor_ = -1;
+        target_ = -1, pins_.clear();
         if (const auto* t = terrain()) pins_ = savedPins_[t->t.id];  // (its pins as it had them)
         updateMyRows();
         updateTemplate();
@@ -737,7 +736,7 @@ private:
                 if (in->gen != buildGen_) return;
                 building_ = false;
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
-                ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1, suggFor_ = -1;  // (the suggestions' seams: this example's)  // (a new example: the hover tag waits for the mouse)
+                ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
@@ -1112,177 +1111,6 @@ private:
         brush_ = -1, target_ = -1, slotKeys_ = false;
         setMessage(L"Nothing selected");
         invalidate();
-    }
-    // Suggested rows: the mod's tile groups ranked for the target's rect. Each tile's picture as a shape (16 x 16 gray,
-    // mean 0, scaled to its spread: a recolor has the same shape); a pair's score is how well its two tiles match the
-    // game's two tiles of the rect (correlation, 1: the same shape), a row's its best pair's.
-    struct TileShapes {
-        int first = 0;            // (the first group: the mod's own, past the game's)
-        std::vector<int8_t> v;    // (16 tiles a group, 256 values a tile)
-        std::vector<uint8_t> ok;  // (a tile: 1; an empty subtile or a flat tile: 0)
-        std::vector<uint8_t> edges;  // (a tile's edges: top, bottom, left, right; 32 px RGB each: kEdgeBytes)
-    };
-    static constexpr size_t kEdgeBytes = 4 * 32 * 3;
-    // A tile's edges from a picture (the tile at x0): top row, bottom row, left column, right column.
-    static void edgesOf(const stardraft::Sprite& s, int x0, uint8_t* out) {
-        for (int side = 0; side < 4; ++side)
-            for (int k = 0; k < 32; ++k) {
-                const int x = side == 2 ? 0 : side == 3 ? 31 : k, y = side == 0 ? 0 : side == 1 ? 31 : k;
-                const uint8_t* q = &s.rgba[(size_t(y) * size_t(s.width) + size_t(x0 + x)) * 4];
-                uint8_t* o = &out[size_t(side * 32 + k) * 3];
-                o[0] = q[0], o[1] = q[1], o[2] = q[2];
-            }
-    }
-    static bool shapeOf(const stardraft::Sprite& s, int x0, int8_t* out) {
-        float g[256], sum = 0;
-        for (int y = 0; y < 16; ++y)
-            for (int x = 0; x < 16; ++x) {
-                float a = 0;
-                for (int dy = 0; dy < 2; ++dy)
-                    for (int dx = 0; dx < 2; ++dx) {
-                        const uint8_t* q = &s.rgba[(size_t(y * 2 + dy) * size_t(s.width) + size_t(x0 + x * 2 + dx)) * 4];
-                        a += 0.299f * q[0] + 0.587f * q[1] + 0.114f * q[2];
-                    }
-                g[y * 16 + x] = a / 4, sum += a / 4;
-            }
-        const float mean = sum / 256;
-        float var = 0;
-        for (float& v : g) v -= mean, var += v * v;
-        const float sd = std::sqrt(var / 256);
-        if (sd < 2) return false;  // (flat: no shape to match)
-        for (int i = 0; i < 256; ++i) out[i] = int8_t(std::clamp(g[i] / sd * 32.0f, -127.0f, 127.0f));
-        return true;
-    }
-    static float match(const int8_t* a, const int8_t* b) {
-        int dot = 0;
-        for (int i = 0; i < 256; ++i) dot += int(a[i]) * int(b[i]);
-        return float(dot) / (256.0f * 32.0f * 32.0f);
-    }
-    std::shared_ptr<const TileShapes> shapes_;
-    bool shapesAsked_ = false;
-    struct Suggestion {
-        int row = 0, col = 0;  // (the row, its best pair's first subtile)
-        float score = 0;       // (shape and seams together)
-        float shape = 0, seam = -1;  // (seam -1: no neighbours to meet)
-    };
-    std::vector<Suggestion> sugg_;
-    int suggFor_ = -1;  // (the rect the suggestions are for; -1: none)
-    std::vector<draw::Rect> suggRects_;
-    // The shapes of the mod's tiles: once a tileset, on the worker (a copy of the tileset goes with the job).
-    void askShapes() {
-        if (shapesAsked_ || tileset_.groups.empty()) return;
-        shapesAsked_ = true;
-        auto ts = std::make_shared<stardraft::Tileset>(tileset_);
-        const int first = int(gameGroups(era())), gen = openGen_;
-        std::shared_ptr<bool> alive = alive_;
-        background([this, ts, first, gen, alive] {
-            auto out = std::make_shared<TileShapes>();
-            out->first = first;
-            const size_t n = ts->groups.size() > size_t(first) ? ts->groups.size() - size_t(first) : 0;
-            out->v.assign(n * 16 * 256, 0), out->ok.assign(n * 16, 0), out->edges.assign(n * 16 * kEdgeBytes, 0);
-            for (size_t k = 0; k < n; ++k) {
-                std::vector<uint16_t> row(16);
-                for (int c = 0; c < 16; ++c) row[size_t(c)] = uint16_t((size_t(first) + k) << 4 | size_t(c));
-                const stardraft::Sprite s = stardraft::mapTilesPicture(*ts, row, 16, 0, 0, 16, 1);
-                if (s.width < 16 * 32 || s.height < 32) continue;
-                for (int c = 0; c < 16; ++c)
-                    if (ts->megatileFor(row[size_t(c)]) > 0) {
-                        out->ok[k * 16 + size_t(c)] = shapeOf(s, c * 32, &out->v[(k * 16 + size_t(c)) * 256]) ? 1 : 0;
-                        edgesOf(s, c * 32, &out->edges[(k * 16 + size_t(c)) * kEdgeBytes]);
-                    }
-            }
-            foreground([this, out, gen, alive] {
-                if (!*alive || gen != openGen_) return;
-                shapes_ = out, suggFor_ = -1, invalidate();
-            });
-        });
-    }
-    // The suggestions for rect g (the game's groups g and g + 1): the best rows, best first.
-    void suggest(uint16_t g) {
-        suggFor_ = g, sugg_.clear();
-        if (!shapes_) askShapes();  // (not async: done now)
-        if (!shapes_) return;
-        const std::vector<uint16_t> game{gameTile(g), gameTile(uint32_t(g) + 1)};
-        if (!game[0] || !game[1]) return;
-        const stardraft::Sprite s = stardraft::mapTilesPicture(tileset_, game, 2, 0, 0, 2, 1);
-        int8_t l[256], r[256];
-        if (s.width < 64 || !shapeOf(s, 0, l) || !shapeOf(s, 32, r)) return;
-        const TileShapes& sh = *shapes_;
-        // (the seams: at each place of the rect in the example, the tiles around it that are there (not NULL, not the
-        // rect's own); a candidate's edge must continue the neighbour's edge that touches it)
-        struct Seam {
-            int half, side;           // (the candidate's tile (0 left, 1 right) and its edge: 0 top, 1 bottom, 2 left, 3 right)
-            std::vector<uint8_t> px;  // (the neighbour's touching edge, 32 px RGB)
-        };
-        std::vector<Seam> seams;
-        if (ids_.size() == size_t(crop_.width()) * size_t(crop_.height())) {
-            const auto* t = terrain();
-            auto idAt = [&](int tx, int ty) -> int {
-                const int cx = tx - crop_.left, cy = ty - crop_.top;
-                if (cx < 0 || cy < 0 || cx >= crop_.width() || cy >= crop_.height()) return -1;
-                const uint16_t v = ids_[size_t(cy) * size_t(crop_.width()) + size_t(cx)];
-                return v == kNullId ? -1 : int(v);
-            };
-            std::set<std::pair<int, int>> own;  // (the rect's own tiles: not neighbours)
-            for (const Place& p : places_)
-                if (t && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == g) own.insert({p.tx, p.ty}), own.insert({p.tx + 1, p.ty});
-            for (const Place& p : places_) {
-                if (!own.count({p.tx, p.ty})) continue;
-                // (half, side, the neighbour's place, its edge that touches)
-                const int at[6][5] = {{0, 2, p.tx - 1, p.ty, 3}, {1, 3, p.tx + 2, p.ty, 2}, {0, 0, p.tx, p.ty - 1, 1},
-                                      {1, 0, p.tx + 1, p.ty - 1, 1}, {0, 1, p.tx, p.ty + 1, 0}, {1, 1, p.tx + 1, p.ty + 1, 0}};
-                for (const auto& a : at) {
-                    if (own.count({a[2], a[3]}) || seams.size() >= 24) continue;  // (24 at most: a short paint)
-                    const int v = idAt(a[2], a[3]);
-                    if (v < 0 || tileset_.megatileFor(uint16_t(v)) <= 0) continue;
-                    const stardraft::Sprite ns = stardraft::mapTilesPicture(tileset_, {uint16_t(v)}, 1, 0, 0, 1, 1);
-                    if (ns.width < 32 || ns.height < 32) continue;
-                    uint8_t e[kEdgeBytes];
-                    edgesOf(ns, 0, e);
-                    seams.push_back({a[0], a[1], std::vector<uint8_t>(e + a[4] * 96, e + a[4] * 96 + 96)});
-                }
-            }
-        }
-        auto seamOf = [&](size_t i) {  // (1: the edges continue; 0: they differ by 64 levels or more on average)
-            if (seams.empty()) return -1.0f;
-            float sum = 0;
-            for (const Seam& sm : seams) {
-                const uint8_t* e = &sh.edges[(i + size_t(sm.half)) * kEdgeBytes + size_t(sm.side) * 96];
-                int d = 0;
-                for (int k = 0; k < 96; ++k) d += std::abs(int(e[k]) - int(sm.px[size_t(k)]));
-                sum += std::max(0.0f, 1.0f - float(d) / 96.0f / 64.0f);
-            }
-            return sum / float(seams.size());
-        };
-        // (the shapes of every row first; the seams only for the 40 rows of the best shapes: a short paint)
-        std::vector<Suggestion> all;
-        for (size_t k = 0; k * 16 < sh.ok.size(); ++k) {
-            Suggestion best{int(sh.first + int(k)), -1, -2};
-            for (int c = 0; c + 1 < 16; c += 2) {
-                const size_t i = k * 16 + size_t(c);
-                if (!sh.ok[i] || !sh.ok[i + 1]) continue;
-                const float shape = (match(&sh.v[i * 256], l) + match(&sh.v[(i + 1) * 256], r)) / 2;
-                if (shape > best.shape || best.col < 0) best.col = c, best.shape = shape, best.score = shape;
-            }
-            if (best.col >= 0) all.push_back(best);
-        }
-        const size_t top = std::min<size_t>(40, all.size());
-        std::partial_sort(all.begin(), all.begin() + long(top), all.end(), [](const Suggestion& a, const Suggestion& b) { return a.shape > b.shape; });
-        all.resize(top);
-        if (!seams.empty())
-            for (Suggestion& sg : all) {  // (its best pair by shape and seams together)
-                const size_t k = size_t(sg.row - sh.first);
-                sg.score = -2;
-                for (int c = 0; c + 1 < 16; c += 2) {
-                    const size_t i = k * 16 + size_t(c);
-                    if (!sh.ok[i] || !sh.ok[i + 1]) continue;
-                    const float shape = (match(&sh.v[i * 256], l) + match(&sh.v[(i + 1) * 256], r)) / 2, seam = seamOf(i);
-                    if (const float score = 0.6f * shape + 0.4f * seam; score > sg.score) sg.col = c, sg.score = score, sg.shape = shape, sg.seam = seam;
-                }
-            }
-        const size_t n = std::min<size_t>(6, all.size());
-        std::partial_sort(all.begin(), all.begin() + long(n), all.end(), [](const Suggestion& a, const Suggestion& b) { return a.score > b.score; });
-        sugg_.assign(all.begin(), all.begin() + long(n));
     }
     // Fill From Row (Shift+click in the Tiles): the target's rect takes every pair of tile group `row` (subtiles 0-1,
     // 2-3, ... 14-15 where both are tiles: the mod's layout, a pair side by side) as its variants, in place of the ones
@@ -2406,7 +2234,7 @@ void IsomRulesView::layout() {
             ground_.setFrame({b.left + scale(90), b.top + scale(4), std::min(b.right - pad, b.left + scale(300)), b.top + scale(4) + barH});
             const int refH = barH + pad;
             refRow_ = {b.left, b.bottom - refH, b.right, b.bottom};
-            strip_ = {b.left, refRow_.top - scale(150), b.right, refRow_.top};
+            strip_ = {b.left, refRow_.top - scale(84), b.right, refRow_.top};
             modeBar_ = {b.left, strip_.top - scale(24), b.right, strip_.top};
             puzzle_ = {b.left, b.top + scale(8) + barH, b.right, modeBar_.top};
             int rx = b.left + pad;
@@ -2668,7 +2496,6 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     // The target's strip: the game's tiles of its rect (the groups the mod's tiles stand in for) beside its own, large.
     c.fill({strip_.left, strip_.top, strip_.right, strip_.top + 1}, kBorder);
     c.fill({refRow_.left, refRow_.top, refRow_.right, refRow_.top + 1}, kBorder);
-    suggRects_.clear();  // (drawn again below, or none)
     if (strip_.width() > 0 && t && target_ >= 0 && target_ < int(t->t.pieces.size())) {
         const auto& q = t->t.pieces[size_t(target_)];
         const int T = scale(44), y0 = strip_.top + pad + scale(16);
@@ -2687,26 +2514,6 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         drawTile(c, q[1], {x, y0, x + T, y0 + T}), drawTile(c, q[2], {x + T, y0, x + 2 * T, y0 + T});
         c.frame({x, y0, x + 2 * T, y0 + T}, kAccent, scale(1));
         if (!wide_) c.frame(targetHalf_ ? draw::Rect{x + T, y0, x + 2 * T, y0 + T} : draw::Rect{x, y0, x + T, y0 + T}, kAccent, scale(2));
-        // (the rows that match the rect's game tiles best: click one, its best pair goes in; Shift+click, the whole row)
-        if (suggFor_ != q[0]) suggest(q[0]);
-        suggRects_.clear();
-        const int sy = y0 + T + scale(10), st = scale(28);
-        int sx = strip_.left + pad;
-        c.text({sx, sy, sx + scale(104), sy + st}, shapes_ ? L"Suggested rows" : L"Suggested rows\x2026", kDim, draw::kMiddle);
-        sx += scale(112);
-        for (const Suggestion& sg : sugg_) {
-            if (sx + 2 * st > strip_.right - pad) break;
-            const draw::Rect r{sx, sy, sx + 2 * st, sy + st};
-            drawTile(c, uint16_t(sg.row << 4 | sg.col), {r.left, r.top, r.left + st, r.bottom}), drawTile(c, uint16_t(sg.row << 4 | (sg.col + 1)), {r.left + st, r.top, r.right, r.bottom});
-            const bool used = (q[1] >> 4) == sg.row;
-            c.frame(r, used ? kAccent : kBorder, scale(1));
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 4)}));
-            c.text({r.left - scale(8), r.bottom, r.right + scale(8), r.bottom + scale(14)}, std::to_wstring(sg.row) + L"  " + std::to_wstring(int(std::lround(sg.score * 100))) + L"%",
-                   used ? kAccent : kDim, draw::kCenter | draw::kMiddle);
-            c.setFont(of);
-            suggRects_.push_back(r);
-            sx = r.right + scale(10);
-        }
     } else if (strip_.width() > 0) {
         c.text({strip_.left + pad, strip_.top, strip_.left + scale(300), strip_.bottom}, L"Select a rect: template vs custom tiles", kDim, draw::kMiddle);
     }
@@ -2987,14 +2794,6 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return true;
     }
     if (puzzle_.contains(e.pt) && picture_ && !(e.mods & draw::kAlt)) return deselectAll(), true;  // (off the slots: nothing selected)
-    for (size_t i = 0; i < suggRects_.size() && i < sugg_.size(); ++i)  // (a suggested row: its best pair in the rect; Shift: the whole row)
-        if (strip_.contains(e.pt) && suggRects_[i].contains(e.pt) && target_ >= 0) {
-            const Suggestion sg = sugg_[i];
-            if (e.mods & draw::kShift) fillFromRow(sg.row);
-            else place(uint16_t(sg.row << 4 | sg.col));
-            showRow(sg.row, sg.row << 4 | sg.col);
-            return true;
-        }
     if (check_.contains(e.pt)) {  // (a row of the checklist: its rect is the target; the half: the custom tile clicked)
         slotFocus(false);
         const int dy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
