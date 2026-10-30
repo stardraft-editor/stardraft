@@ -115,6 +115,7 @@ public:
         : refShow_(L"Reference Overlay", stardraft::kit::Tone::Normal, [this] { toggleReference(); }),
           todoBtn_(L"All", stardraft::kit::Tone::Normal, [this] { toggleTodo(); }),
           mineBtn_(L"All Groups", stardraft::kit::Tone::Normal, [this] { togglePalMine(); }),
+          pairBtn_(L"Pick: Single", stardraft::kit::Tone::Normal, [this] { toggleWidth(); }),
           newTerrain_(L"New Terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
         for (int e = 0; e < 8; ++e) eras.push_back({isomrules::titleCase(widen(tilesetName(uint16_t(e))))});
@@ -135,10 +136,11 @@ public:
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
         todoBtn_.setTip(L"Rects shown: all, or to do (the rects without custom tiles). Key: F");
+        pairBtn_.setTip(L"A click on a tile puts in one tile (the target's half), or a pair (the tile and the next: both halves). Key: T");
         mineBtn_.setTip(L"Tiles shown: all groups, or this terrain's (its pieces' rows and the rows its maps use). Key: G");
         loadColumns();
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
-                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &todoBtn_, &mineBtn_})
+                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &todoBtn_, &mineBtn_, &pairBtn_})
             add(*v, {0, 0, 0, 0});
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
@@ -1322,15 +1324,17 @@ private:
     int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
     stardraft::kit::MenuBar bar_;
     std::string menuKey_;  // (the state the menus were made for: updateMenus)
-    stardraft::kit::Button refShow_, todoBtn_, mineBtn_, newTerrain_;
+    stardraft::kit::Button refShow_, todoBtn_, mineBtn_, pairBtn_, newTerrain_;
     // The header buttons show the filter in use (paint).
     void syncButtons() {
         const wchar_t* todo = checkTodo_ ? L"To Do" : L"All";
         const wchar_t* mine = palMine_ ? L"This Terrain" : L"All Groups";
         if (todoText_ != todo) todoText_ = todo, todoBtn_.setText(todo), todoBtn_.setTone(checkTodo_ ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
         if (mineText_ != mine) mineText_ = mine, mineBtn_.setText(mine), mineBtn_.setTone(palMine_ ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        const wchar_t* pair = wide_ ? L"Pick: Pair" : L"Pick: Single";
+        if (pairText_ != pair) pairText_ = pair, pairBtn_.setText(pair);
     }
-    std::wstring todoText_ = L"All", mineText_ = L"All Groups";
+    std::wstring todoText_ = L"All", mineText_ = L"All Groups", pairText_ = L"Pick: Single";
     std::vector<isomrules::TemplateRect> tmpl_;  // (the shown terrain's template: its rects by role, in the game's order)
     std::pair<uint16_t, uint16_t> tmplPair_{0, 0};  // (the template: the game ground and the game terrain on it)
     isomrules::Family family_ = isomrules::Family::Other;
@@ -1588,6 +1592,7 @@ void IsomRulesView::layout() {
         const draw::Rect& t = colHead_[kColTiles];
         todoBtn_.setFrame(r.width() > 0 ? draw::Rect{r.right - pad - bw, by, r.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
         mineBtn_.setFrame(t.width() > 0 ? draw::Rect{t.right - pad - bw, by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
+        pairBtn_.setFrame(t.width() > 0 ? draw::Rect{t.right - 2 * (pad + bw), by, t.right - 2 * pad - bw, by + barH} : draw::Rect{0, 0, 0, 0});
     }
     const draw::Rect none{0, 0, 0, 0};
     {  // Terrains: the search, the list with its bar, New terrain at the bottom.
@@ -1672,7 +1677,6 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
         const int ox = puzzle_.left + (puzzle_.width() - pw) / 2, oy = puzzle_.top + (puzzle_.height() - ph) / 2;
         c.bitmap(*picture_, {0, 0, picture_->width(), picture_->height()}, {ox, oy, ox + pw, oy + ph});
-        if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
         const float ts = 32 * zoom_;
         auto rectOf = [&](const Place& p) {
             const int x = ox + int((p.tx - crop_.left) * ts), y = oy + int((p.ty - crop_.top) * ts);
@@ -1683,15 +1687,17 @@ void IsomRulesView::paint(draw::Canvas& c) {
         auto halfOf = [](draw::Rect r, int half) {
             return half ? draw::Rect{(r.left + r.right) / 2, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, (r.left + r.right) / 2, r.bottom};
         };
-        for (int h : holes_) {  // (the halves with no tile: black, framed red)
+        for (int h : holes_) {  // (the halves with no tile: black; the reference shows through them)
             if (!t || refAlone) break;
             const Place& p = places_[size_t(h)];
             if (p.piece < 0 || p.piece >= int(t->t.pieces.size())) continue;
             const auto& q = t->t.pieces[size_t(p.piece)];
             for (int half = 0; half < 2; ++half)  // (a NULL half: black)
                 if (isomrules::nullHalf(q[size_t(1 + half)])) drawTile(c, 0, halfOf(rectOf(p), half));
-            if (frames_) c.frame(rectOf(p), 0x4650E6, scale(2));
         }
+        if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
+        for (int h : holes_)  // (their red frames, over the reference)
+            if (t && !refAlone && frames_) c.frame(rectOf(places_[size_t(h)]), 0x4650E6, scale(2));
         if (t && !refAlone && frames_)
             for (const Place& p : places_)  // (a borrowed rect: the game's own tiles, a blue frame)
                 if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && stardraft::terrainrules::stateOf(t->t.pieces[size_t(p.piece)]) == isomrules::PieceState::Borrowed)
@@ -1723,9 +1729,24 @@ void IsomRulesView::paint(draw::Canvas& c) {
             };
             if (tileIds_ == 2)
                 for (size_t i = 0; i < ids_.size(); ++i) label(i);
-            else if (idHover_ >= 0 && size_t(idHover_) < ids_.size())
-                label(size_t(idHover_));
             c.setFont(of);
+            if (tileIds_ == 1 && idHover_ >= 0 && size_t(idHover_) < ids_.size()) {  // (on hover: a tag in the UI's large text over the tile)
+                const size_t i = size_t(idHover_);
+                const int x = ox + int(float(i % size_t(crop_.width())) * ts), y = oy + int(float(i / size_t(crop_.width())) * ts);
+                const uint16_t v = ids_[i];
+                const std::wstring text = v == kNullId ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15);
+                const draw::Font big = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+                const int tw = c.measure(text) + scale(16), th = scale(30), cx = x + int(ts) / 2;
+                int ty = y - th - scale(4);
+                if (ty < puzzle_.top) ty = y + int(ts) + scale(4);
+                const draw::Rect box{std::clamp(cx - tw / 2, puzzle_.left, std::max(puzzle_.left, puzzle_.right - tw)), ty, 0, ty + th};
+                const draw::Rect tag{box.left, box.top, box.left + tw, box.bottom};
+                c.frame({x, y, x + int(ts), y + int(ts)}, 0xFFFFFF, scale(1));
+                c.fill(tag, 0x000000, 210);
+                c.frame(tag, kBorder, scale(1));
+                c.text(tag, text, v == kNullId ? kHole : 0xFFFFFF, draw::kCenter | draw::kMiddle);
+                c.setFont(big);
+            }
         }
         c.popClip();
     } else if (puzzle_.width() > 0) {
