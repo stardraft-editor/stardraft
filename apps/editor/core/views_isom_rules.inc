@@ -2542,13 +2542,27 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     }
     // (the tileset loading or the example rendering, after a moment: a bar and what goes on, in the middle)
     if (puzzle_.width() > 0 && (loading_ || building_) && (!picture_ || std::chrono::steady_clock::now() - busySince_ > std::chrono::milliseconds(300))) {
-        const int bw = std::min(scale(320), puzzle_.width() - 2 * pad), bh = scale(6), mx = (puzzle_.left + puzzle_.right) / 2, my = (puzzle_.top + puzzle_.bottom) / 2;
-        const draw::Rect panel{mx - bw / 2 - pad, my - scale(22), mx + bw / 2 + pad, my + scale(30)};
+        const int bw = std::min(scale(440), puzzle_.width() - 2 * pad), bh = scale(12), mx = (puzzle_.left + puzzle_.right) / 2, my = (puzzle_.top + puzzle_.bottom) / 2;
+        const draw::Rect panel{mx - bw / 2 - pad, my - scale(26), mx + bw / 2 + pad, my + scale(34)};
         if (picture_) c.fill(panel, kPanel, 230), c.frame(panel, kBorder, scale(1));
         const draw::Rect bar{mx - bw / 2, my - bh / 2 - scale(8), mx + bw / 2, my + bh / 2 - scale(8)};
         c.fill(bar, kBorder);
         const int done = progDone_, total = progTotal_;
-        if (!loading_ && total > 0) c.fill({bar.left, bar.top, bar.left + bar.width() * std::min(done, total) / total, bar.bottom}, kAccent);
+        // (one bar for the whole render: each step its part, so it only goes on: paint 0-5 %, the spot search 5-85 % (round r
+        // the half of what is left: the rounds' number is not known), the reference 85-95 %, the picture 95-100 %)
+        float part = 0;
+        switch (int(progStep_)) {
+        case kStepPaint: part = 0.02f; break;
+        case kStepSearch: {
+            const int r = std::max(1, int(progRound_));
+            const float from = 1.0f - std::pow(0.5f, float(r - 1)), to = 1.0f - std::pow(0.5f, float(r));
+            part = 0.05f + 0.80f * (from + (to - from) * (total > 0 ? float(std::min(done, total)) / float(total) : 0.0f));
+            break;
+        }
+        case kStepReference: part = 0.90f; break;
+        default: part = 0.97f; break;
+        }
+        if (!loading_) c.fill({bar.left, bar.top, bar.left + int(float(bar.width()) * part), bar.bottom}, kAccent);
         else {  // (no count: a block that goes across)
             const int ms = int(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - busySince_).count());
             const int w = bw / 4, x = bar.left + (ms / 4) % (bw + w) - w;
