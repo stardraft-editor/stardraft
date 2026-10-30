@@ -1211,12 +1211,44 @@ private:
     }
     // The right button's menu of slot (piece k, half): Set to NULL, Use as Brush, Show in Tiles, Make Unique.
     std::pair<int, int> pinAt_{INT_MIN, INT_MIN};  // (the place of the slot's menu: its tile place)
+    // Remove: the target's piece goes. One of the rect's variants: only that one; the rect's only piece: NULL (the
+    // template has every rect); a rect the template does not have: gone from the terrain. One undo step.
+    void removePiece() {
+        if (loading_) return;
+        if (sel_ < 0 || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
+        auto& m = rules().terrains[size_t(sel_)].t;
+        const size_t k = size_t(target_);
+        if (k >= m.pieces.size()) return;
+        if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be removed one by one (Edit > Clear All Rects)");
+        const uint16_t g = m.pieces[k][0];
+        const auto n = std::count_if(m.pieces.begin(), m.pieces.end(), [g](const auto& q) { return q[0] == g; });
+        const bool inTemplate = std::any_of(tmpl_.begin(), tmpl_.end(), [g](const auto& r) { return r.group == g; });
+        remember();
+        std::wstring what;
+        if (n > 1 || !inTemplate) {
+            m.pieces.erase(m.pieces.begin() + long(k));
+            if (k < m.setPieces) --m.setPieces;
+            else --m.gapPieces;
+            what = n > 1 ? L"a variant removed (" + std::to_wstring(n - 1) + L" left)" : L"removed (not a rect of the template)";
+        } else {
+            m.pieces[k][1] = 0, m.pieces[k][2] = 1;
+            what = L"its only piece: NULL";
+        }
+        for (auto it = pins_.begin(); it != pins_.end();)  // (the rect's pins: its variants changed)
+            it = it->second.first == g ? pins_.erase(it) : std::next(it);
+        target_ = -1;
+        for (size_t i = 0; i < m.pieces.size() && target_ < 0; ++i)
+            if (m.pieces[i][0] == g) target_ = int(i);
+        changed();
+        setMessage(L"Rect " + std::to_wstring(g) + L": " + what);
+    }
     void slotMenu(int k, int half, draw::Point at, int place) {
         pinAt_ = place >= 0 && place < int(places_.size()) ? std::make_pair(places_[size_t(place)].tx, places_[size_t(place)].ty) : std::make_pair(INT_MIN, INT_MIN);
         setTarget(k, half, false);
         invalidate();
         const uint16_t v = terrain()->t.pieces[size_t(k)][size_t(1 + half)];
-        switch (shellContextMenuAt(*this, at, {L"Set to NULL", L"Use as Brush", L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)"})) {
+        switch (shellContextMenuAt(*this, at, {L"Set to NULL", L"Use as Brush", L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)", L"Remove"})) {
+        case 5: removePiece(); break;
         case 1: erase(); break;
         case 2:
             if (isomrules::nullHalf(v)) setMessage(L"The slot is NULL");
