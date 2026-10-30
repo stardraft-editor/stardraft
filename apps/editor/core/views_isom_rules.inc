@@ -216,6 +216,7 @@ public:
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
         if (!e.down || search_.hasFocus()) return false;
+        if (e.mods || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         if (e.key == static_cast<draw::Key>('N') && !e.mods) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
         if (e.key == draw::Key::Escape && !e.mods && (brush_ >= 0 || slotKeys_ || target_ >= 0)) return deselectAll(), true;
@@ -1067,12 +1068,14 @@ private:
     }
     // Before an edit: the terrain as it is (Ctrl+Z brings it back).
     void remember() {
+        nudgeSlot_ = -1;  // (another undo step: the arrow keys' run ends)
         const auto* t = terrain();
         if (!t) return;
         undo_.push_back({t->t.id, *t, target_, targetHalf_}), redo_.clear();
         if (undo_.size() > 200) undo_.erase(undo_.begin());
     }
     void undo(bool redo) {
+        nudgeSlot_ = -1;
         auto& from = redo ? redo_ : undo_;
         auto& to = redo ? undo_ : redo_;
         if (loading_) return;
@@ -1470,6 +1473,7 @@ private:
     std::pair<uint16_t, uint16_t> tmplPair_{0, 0};  // (the template: the game ground and the game terrain on it)
     isomrules::Family family_ = isomrules::Family::Other;
     int checkScroll_ = 0, checkHover_ = -1;  // (the checklist: its scroll, the row under the mouse)
+    int listHover_ = -1;  // (the rect (group) of the checklist row under the mouse: its places framed in the example)
     std::map<uint16_t, std::vector<std::pair<int, int>>> moreRects_;  // (a terrain id -> the extra spots More rects found)
     int extendNext_ = 0;  // (the next example searches for more spots: 1 by itself, 2 More rects)
     // Undo (Ctrl+Z) and redo (Ctrl+Y): a terrain as it was before an edit (its id: the list can change).
@@ -1506,6 +1510,14 @@ private:
     int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
     bool painting_ = false, strokeSaved_ = false;  // (a paint stroke: one undo step)
     int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
+    int nudgeSlot_ = -1;  // (the slot the last arrow keys changed; -1: another key, a click or an edit since)
+    // The piece of the slot under the mouse in the example (-1: none).
+    int hoverPiece() const {
+        const auto* t = terrain();
+        if (!t || hoverPlace_ < 0 || hoverPlace_ >= int(places_.size())) return -1;
+        const int k = places_[size_t(hoverPlace_)].piece;
+        return k >= 0 && k < int(t->t.pieces.size()) ? k : -1;
+    }
     draw::Rect modeBar_;  // (under the example: Brush or Selection, and what a click does)
     // The example's places pinned to a variant of their rect (Make Unique): map tile place -> the rect's group and the
     // variant's number among the group's pieces. The editor's only: the game's brush picks a variant at random.
@@ -1555,7 +1567,12 @@ private:
                 if (ok(g, s)) to = g << 4 | s;
         }
         if (to < 0) return setMessage(dx ? L"No more tiles in this row" : L"No more rows with this tile");
-        place(uint16_t(to));
+        if (painting_) place(uint16_t(to));  // (a paint stroke under way: its undo step)
+        else {
+            painting_ = true, strokeSaved_ = nudgeSlot_ == target_;  // (the presses on one slot: one undo step, as a stroke)
+            place(uint16_t(to));
+            painting_ = strokeSaved_ = false, nudgeSlot_ = target_;
+        }
         scrollToRow(to >> 4), row_.setValue(to >> 4);
         blinkOn_ = true, invalidate();
     }
@@ -1849,13 +1866,23 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const auto* t = terrain();
         const bool sel = target_ >= 0 && target_ < int(t->t.pieces.size());
         const std::wstring mode = b >= 0 ? L"Brush" : L"Selection";
-        const std::wstring what = b >= 0 ? std::to_wstring(b >> 4) + L"." + std::to_wstring(b & 15) + L"-" + std::to_wstring((b & 15) + 1) + L"  \x00b7  Click or drag on slots to paint. Esc: clear"
+        std::wstring what = b >= 0 ? std::to_wstring(b >> 4) + L"." + std::to_wstring(b & 15) + L"-" + std::to_wstring((b & 15) + 1) + L"  \x00b7  Click or drag on slots to paint. Esc: clear"
                                 : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Arrows or a click in Tiles set its tiles. Esc: clear"
                                         : std::wstring(L"Click a slot to select it, or a tile in Tiles to paint with it");
         const int mw = c.measure(mode) + 2 * pad;
+        int right = modeBar_.right - pad;
+        if (hoverPiece() >= 0) {  // (the slot under the mouse: its rect, role and tiles in place of the hint)
+            const auto& q = t->t.pieces[size_t(hoverPiece())];
+            std::wstring role;
+            for (const CheckRow& r : checkRows())
+                if (r.group == q[0]) { role = isomrules::titleCase(r.role); break; }
+            auto tile = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
+            const std::wstring info = L"Rect " + std::to_wstring(q[0]) + (role.empty() ? L"" : L"  \x00b7  " + role) + L"  \x00b7  " + tile(q[1]) + L" " + tile(q[2]);
+            what = info, right = -1;
+        }
         c.fill({modeBar_.left + pad / 2, modeBar_.top + scale(4), modeBar_.left + pad / 2 + mw, modeBar_.bottom - scale(3)}, b >= 0 ? 0x30C8FF : kAccent, 60);
         c.text({modeBar_.left + pad / 2, modeBar_.top, modeBar_.left + pad / 2 + mw, modeBar_.bottom}, mode, 0xFFFFFF, draw::kCenter | draw::kMiddle);
-        c.text({modeBar_.left + mw + pad, modeBar_.top, modeBar_.right - pad, modeBar_.bottom}, what, kDim, draw::kMiddle | draw::kEllipsis);
+        c.text({modeBar_.left + mw + pad, modeBar_.top, modeBar_.right - pad, modeBar_.bottom}, what, right < 0 ? kText : kDim, draw::kMiddle | draw::kEllipsis);
     }
     // The lines between the columns, over everything: the one under the mouse or dragged is wide and in the accent.
     for (size_t i = 0; i < edges_.size(); ++i) {
@@ -1961,6 +1988,16 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                     }
                     c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), hoverHalf_), 0xFFFFFF, scale(1));
                 }
+        if (t && palHover_ >= 0 && (palHover_ & 15) < 15 && tileset_.megatileFor(uint16_t(palHover_ + 1)) > 0 && brushValue() < 0 && slotKeys_ && target_ >= 0 &&
+            !refAlone)  // (a selected slot: the pair under the mouse in the Tiles, in it, when a click can put it in)
+            for (const Place& p : places_)
+                if (p.piece == target_) {
+                    drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), 0));
+                    drawTile(c, uint16_t(palHover_ + 1), halfOf(rectOf(p), 1));
+                }
+        if (t)
+            for (const Place& p : places_)  // (the rect under the mouse in the Rects column: its places)
+            if (listHover_ >= 0 && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == listHover_) c.frame(rectOf(p), 0xFFFFFF, scale(2));
         if (hoverPlace_ >= 0 && hoverPlace_ < int(places_.size()) && brushValue() < 0 && !refAlone) {  // (the cursor: the slot under the mouse; pair mode 2x1)
             const draw::Rect r = rectOf(places_[size_t(hoverPlace_)]);
             c.frame(wide_ ? r : halfOf(r, hoverHalf_), 0xFFFFFF, scale(1));
@@ -2035,7 +2072,8 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             const isomrules::PieceState st = p ? stardraft::terrainrules::stateOf(*p) : isomrules::PieceState::Null;
             const bool isTarget = t && target_ >= 0 && row.piece >= 0 && t->t.pieces[size_t(target_)][0] == row.group;
             if (isTarget) c.fill({check_.left, y, check_.right - 1, y + rh}, kSel);
-            else if (int(i) == checkHover_) c.fill({check_.left, y, check_.right - 1, y + rh}, kCtlHot);
+            else if (int(i) == checkHover_ || (t && hoverPiece() >= 0 && t->t.pieces[size_t(hoverPiece())][0] == row.group))
+                c.fill({check_.left, y, check_.right - 1, y + rh}, kCtlHot);  // (the row under the mouse, or the rect under it in the example)
             const bool shown = visibleGroups_.count(row.group) > 0 || std_ >= 0;
             c.text({x0, y, xt - scale(4), y + rh}, isomrules::titleCase(row.role), isTarget ? kAccent : shown ? kText : kDim, draw::kMiddle | draw::kEllipsis);
             const int ty = y + (rh - th) / 2;
@@ -2146,7 +2184,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     if (jump_ >= 0 && rowY(jump_ >> 4) != INT_MIN) {  // (the row or the tile that was asked for)
         const int y = rowY(jump_ >> 4);
         const int x = jumpRow_ ? x0 : palX(wide_ ? jump_ & 14 : jump_ & 15), w = jumpRow_ ? palX(15) + cell - x0 : (wide_ ? 2 : 1) * cell;
-        c.frame({x - 1, y - 1, x + w + 1, y + cell + 1}, 0x30C8FF, scale(2));
+        c.frame({x - 1, y - 1, x + w + 1, y + cell + 1}, 0xFFFFFF, scale(2));  // (white: the brush's frame is yellow)
     }
     c.popClip();
 }
@@ -2237,7 +2275,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return -1;
     };
     if (e.kind == draw::MouseKind::Leave) {
-        if (idHover_ >= 0 || hoverEdge_ >= 0 || palHover_ >= 0 || hoverPlace_ >= 0) idHover_ = -1, hoverEdge_ = -1, palHover_ = -1, hoverPlace_ = -1, hover_ = -1, invalidate();
+        if (idHover_ >= 0 || hoverEdge_ >= 0 || palHover_ >= 0 || hoverPlace_ >= 0 || checkHover_ >= 0)
+            idHover_ = -1, hoverEdge_ = -1, palHover_ = -1, hoverPlace_ = -1, hover_ = -1, checkHover_ = -1, listHover_ = -1, invalidate();
         return false;
     }
     if (e.kind == draw::MouseKind::Move) {
@@ -2275,7 +2314,12 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (sh != sideHover_) sideHover_ = sh, invalidate();
         const int cdy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
         const int ch = check_.contains(e.pt) && cdy >= 0 ? cdy / scale(kCheckRow) : -1;
-        if (ch != checkHover_) checkHover_ = ch, invalidate();
+        if (ch != checkHover_) {
+            checkHover_ = ch, listHover_ = -1;
+            if (ch >= 0)
+                if (const std::vector<CheckRow> rows = checkRows(); ch < int(rows.size())) listHover_ = rows[size_t(ch)].group;
+            invalidate();
+        }
         return false;
     }
     if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::Up) && e.button == 1 && t && !loading_) {  // (the right button: the slot's menu)
@@ -2311,6 +2355,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             return true;
         }
     }
+    if (e.kind == draw::MouseKind::Down) nudgeSlot_ = -1;
     if (e.kind != draw::MouseKind::Down || e.button != 0 || !t || loading_) return false;
     if (int half = 0; placeAt(e.pt, half) >= 0) {
         const int k = places_[size_t(placeAt(e.pt, half))].piece;
