@@ -380,7 +380,7 @@ CASES += [
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (36 of 36 rects: the repaired
     # drafts borrow the template's tiles for the 16 the row had none for); a click on a rect, then on tile 2.0 of the
     # palette: the rect takes 2.0 and 2.1 (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "518,284", "--click", "1020,110"], "cmbw"),
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "518,284", "--click", "1020,149"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
     # New terrain… (the left column's bottom): the template list picked by its text (wall · Structure (Asphalt)), Bordering,
@@ -389,7 +389,7 @@ CASES += [
     ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "140,878", "--type", "wall  ·  Structure (Asphalt)",
                              "--key", "Enter", "--key", "Enter", "--key", "Enter", "--key", "Enter", "--click", "886,649", "--type", "Floor (Substructure)", "--key", "Enter"], "cmbw"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "646,645", "--key", "Ctrl+Z",
-                              "--key", "Ctrl+Y", "--click", "518,284", "--click", "1020,110", "--click", "1020,110"], "cmbw"),
+                              "--key", "Ctrl+Y", "--click", "518,284", "--click", "1020,149", "--click", "1020,149"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
     # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,
@@ -1174,7 +1174,7 @@ def check_isom_rules(output):
     and the palette's tile goes into the rect that was clicked."""
     if "isom rules: Structure (Halfsphalt), 0 null, 0 holes in the examples" not in output or "36 of 36 rects done, 16 borrowed" not in output:
         return "the terrain does not open complete (36 of 36 rects, 16 borrowed from the template)"
-    return None if re.search(r"^click 1020,110: .*Rect \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
+    return None if re.search(r"^click 1020,149: .*Rect \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
 
 
 def check_isom_rules_undo(output):
@@ -1183,7 +1183,7 @@ def check_isom_rules_undo(output):
     for w in want:
         if w not in output:
             return "missing: " + w
-    done = re.findall(r"^click 1020,110: .*Rect (\d+): 2\.0 2\.1  \u2192 next (\d+)", output, re.M)
+    done = re.findall(r"^click 1020,149: .*Rect (\d+): 2\.0 2\.1  \u2192 next (\d+)", output, re.M)
     if len(done) != 2 or done[0][1] != done[1][0]:
         return "the target did not go to the next rect: %r" % (done,)
     return None
