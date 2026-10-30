@@ -166,6 +166,8 @@ public:
         else rebuild();
     }
     bool dirty() const { return dirty_; }
+    // Another tileset (a snapshot's isomrules:<era>/<name>).
+    void showEra(int e) { openEra(e & 7); }
     // Selects the terrain of that name in the list (a snapshot's isomrules:<name>); false: none.
     bool selectByName(const std::string& name) {
         for (size_t i = 0; i < shown_.size(); ++i)
