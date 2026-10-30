@@ -380,14 +380,14 @@ CASES += [
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
     # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
     # in pair mode (T) the rect takes a palette tile and the next one and the target moves on (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--key", "T", "--click", "1110,290", "--click", "730,410"], "cmbw"),
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "1110,290", "--click", "730,410"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
     # New terrain… (the Terrains column's bottom): the template list picked by its text (wall · Structure (Asphalt)),
     # Bordering and the name taken as offered (Enter): "Primary (Asphalt)", every rect NULL.
     ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--type", "wall  ·  Structure (Asphalt)",
                              "--key", "Enter", "--key", "Enter", "--key", "Enter"], "cmbw"),
-    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--key", "T", "--click", "1110,290", "--click", "730,410", "--key", "Ctrl+Z",
+    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "1110,290", "--click", "730,410", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
