@@ -17,6 +17,7 @@
 const GameData* cmbwGameData(std::string& err);  // (core/cmbw.inc)
 void cmbwApplyTerrainOverride();
 void shellShowIsomRulesWindow();  // (the host: the window, once)
+void shellSetIsomRulesTitle(const std::wstring& title);  // (the host: the window's title)
 int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (the host)
 
 namespace isomrules {
@@ -112,11 +113,7 @@ inline Worker& worker() {
 class IsomRulesView final : public draw::View {
 public:
     IsomRulesView()
-        : refShow_(L"Reference Overlay", stardraft::kit::Tone::Normal, [this] { toggleReference(); }),
-          todoBtn_(L"All", stardraft::kit::Tone::Normal, [this] { toggleTodo(); }),
-          mineBtn_(L"All Groups", stardraft::kit::Tone::Normal, [this] { togglePalMine(); }),
-          pairBtn_(L"Pick: Single", stardraft::kit::Tone::Normal, [this] { toggleWidth(); }),
-          newTerrain_(L"New Terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
+        : newTerrain_(L"New Terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
         for (int e = 0; e < 8; ++e) eras.push_back({isomrules::titleCase(widen(tilesetName(uint16_t(e))))});
         era_.setItems(eras), era_.setValue(0);
@@ -128,6 +125,8 @@ public:
         refPick_.searchable = true, refPick_.wheelSteps = false;
         refPick_.setTip(L"Reference border rendered in the same shape (Template: the terrain's own). R cycles off / overlay / only");
         refPick_.onChange = [this](int) { rebuild(); };
+        refShow_.setLabel(L"Reference Overlay"), refShow_.setPlainLabel(true);
+        refShow_.onChange = [this](bool) { toggleReference(); };
         refShow_.setTip(L"Render the reference border over the example. Key: R");
         refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Up, Ctrl+Down");
         refOpacity_.onChange = [this](int) { invalidate(); };
@@ -135,12 +134,18 @@ public:
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Key M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
-        todoBtn_.setTip(L"Rects shown: all, or to do (the rects without custom tiles). Key: F");
-        pairBtn_.setTip(L"A click on a tile puts in one tile (the target's half), or a pair (the tile and the next: both halves). Key: T");
-        mineBtn_.setTip(L"Tiles shown: all groups, or this terrain's (its pieces' rows and the rows its maps use). Key: G");
+        todoPick_.setItems({{L"All Rects"}, {L"Rects To Do"}}), todoPick_.setValue(0);
+        todoPick_.onChange = [this](int v) { if ((v == 1) != checkTodo_) toggleTodo(); };
+        todoPick_.setTip(L"The rects shown: all, or to do (the rects without custom tiles). Key: F");
+        pairPick_.setItems({{L"Single Tile"}, {L"Tile Pair"}}), pairPick_.setValue(0);
+        pairPick_.onChange = [this](int v) { if ((v == 1) != wide_) toggleWidth(); };
+        pairPick_.setTip(L"What a click on a tile puts in: one tile (the target's half), or a pair (the tile and the next: both halves). Key: T");
+        minePick_.setItems({{L"All Tile Groups"}, {L"This Terrain's Groups"}}), minePick_.setValue(0);
+        minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
+        minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: G");
         loadColumns();
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
-                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &todoBtn_, &mineBtn_, &pairBtn_})
+                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &todoPick_, &minePick_, &pairPick_})
             add(*v, {0, 0, 0, 0});
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
@@ -208,7 +213,9 @@ public:
         if (e.key == static_cast<draw::Key>('F') && !e.mods) return toggleTodo(), true;
         if (e.key == static_cast<draw::Key>('G') && !e.mods) return togglePalMine(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
-        if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save(false), true;
+        if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save((e.mods & draw::kShift) != 0), true;
+        if (e.key == static_cast<draw::Key>('N') && (e.mods & draw::kCtrl)) return newTerrain(), true;
+        if (e.key == static_cast<draw::Key>('O') && (e.mods & draw::kCtrl)) return loadFile(), true;
         if (e.key == static_cast<draw::Key>('Z') && (e.mods & draw::kCtrl)) return undo(e.mods & draw::kShift), true;
         if (e.key == static_cast<draw::Key>('Y') && (e.mods & draw::kCtrl)) return undo(true), true;
         return false;
@@ -721,7 +728,7 @@ private:
     // the reference alone).
     void toggleReference() {
         refOn_ = !refOn_;
-        refShow_.setTone(refOn_ ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        refShow_.setOn(refOn_);
         if (refOn_ && refOf(terrain()) < 0) setMessage(L"No reference border: select one in the Reference list");
         if (refOn_ && !refPicture_) return rebuild();  // (it paints only while it shows)
         invalidate();
@@ -884,47 +891,67 @@ private:
     // The menu bar's menus (File, Edit, View), made again when a check mark or an item's state changes (menuKey()).
     std::string menuKey() const {
         const auto* t = terrain();
-        std::string k{char('0' + wide_), char('0' + checkTodo_), char('0' + palMine_), char('0' + refOn_), char('0' + tileIds_), char('0' + frames_), char('0' + (t != nullptr)),
-                      char('0' + (t && t->t.draft))};
+        std::string k{char('0' + wide_), char('0' + checkTodo_), char('0' + palMine_), char('0' + refOn_), char('0' + tileIds_), char('0' + frames_),
+                      char('0' + (t != nullptr)), char('0' + (t && t->t.draft)), char('0' + !undo_.empty()), char('0' + !redo_.empty())};
         for (int c = 0; c < 4; ++c) k += char('0' + colShown_[c]);
         return k;
     }
+    // The menu bar, by the Windows menu conventions: File, Edit, Terrain, View; a choice of a group is a radio item
+    // (a bullet), an on / off setting a check box item, a command a plain item (off while it cannot run).
     void updateMenus() {
         if (menuKey_ == menuKey() || bar_.openIndex() >= 0) return;
         menuKey_ = menuKey();
         using Item = stardraft::kit::MenuItem;
-        auto item = [this](std::wstring label, std::wstring keys, std::function<void()> run, bool checked = false, bool enabled = true) {
+        auto item = [this](std::wstring label, std::wstring keys, std::function<void()> run, bool enabled = true) {
             Item it;
-            it.label = std::move(label), it.shortcut = std::move(keys), it.checked = checked, it.enabled = enabled;
+            it.label = std::move(label), it.shortcut = std::move(keys), it.enabled = enabled;
             it.run = [this, run = std::move(run)] { run(), focus(); };  // (the keys go back to the editor, not the menu bar)
+            return it;
+        };
+        auto check = [&](std::wstring label, std::wstring keys, bool on, std::function<void()> run, bool enabled = true) {
+            Item it = item(std::move(label), std::move(keys), std::move(run), enabled);
+            it.checked = on;
+            return it;
+        };
+        // (a radio item: picking the one that is on does nothing)
+        auto radio = [&](std::wstring label, std::wstring keys, bool on, std::function<void()> run, bool enabled = true) {
+            Item it = item(std::move(label), std::move(keys), [on, run = std::move(run)] { if (!on) run(); }, enabled);
+            it.checked = on, it.radio = true;
             return it;
         };
         Item sep;
         sep.separator = true;
         const auto* t = terrain();
-        std::vector<Item> file = {item(L"Load\x2026", L"", [this] { loadFile(); }), item(L"Load Default", L"", [this] { loadDefault(); }), sep,
-                                  item(L"Save", L"Ctrl+S", [this] { save(false); }), item(L"Save As\x2026", L"", [this] { save(true); }), sep,
-                                  item(L"New Terrain\x2026", L"", [this] { newTerrain(); })};
-        std::vector<Item> edit = {item(L"Undo", L"Ctrl+Z", [this] { undo(false); }), item(L"Redo", L"Ctrl+Y", [this] { undo(true); }), sep,
-                                  item(L"Next NULL Rect", L"N", [this] { nextNull(); }), item(L"Pick Pair", L"T", [this] { toggleWidth(); }, wide_),
-                                  item(L"Set Target to NULL", L"Del", [this] { setNull(); }), item(L"Clear Rects", L"", [this] { clearTerrain(); }),
-                                  item(L"Copy Tiles\x2026", L"", [this] { copyFrom(); }), sep,
-                                  item(L"Verified", L"V", [this] { toggleDraft(); }, t && !t->t.draft, t != nullptr)};
+        const bool own = t != nullptr;  // (a terrain of the rules: a game border is read-only)
+        std::vector<Item> file = {item(L"New Terrain\x2026", L"Ctrl+N", [this] { newTerrain(); }), sep,
+                                  item(L"Open\x2026", L"Ctrl+O", [this] { loadFile(); }), item(L"Open Default Rules", L"", [this] { loadDefault(); }), sep,
+                                  item(L"Save", L"Ctrl+S", [this] { save(false); }), item(L"Save As\x2026", L"Ctrl+Shift+S", [this] { save(true); })};
+        std::vector<Item> edit = {item(L"Undo", L"Ctrl+Z", [this] { undo(false); }, !undo_.empty()),
+                                  item(L"Redo", L"Ctrl+Y", [this] { undo(true); }, !redo_.empty()), sep,
+                                  radio(L"Pick Single Tile", L"T", !wide_, [this] { toggleWidth(); }),
+                                  radio(L"Pick Tile Pair", L"T", wide_, [this] { toggleWidth(); }), sep,
+                                  item(L"Set Target to NULL", L"Del", [this] { setNull(); }, own),
+                                  item(L"Clear All Rects", L"", [this] { clearTerrain(); }, own),
+                                  item(L"Copy Tiles From\x2026", L"", [this] { copyFrom(); }, own)};
+        std::vector<Item> terrainMenu = {radio(L"Draft", L"V", t && t->t.draft, [this] { toggleDraft(); }, own),
+                                         radio(L"Verified", L"V", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
+                                         item(L"Next NULL Rect", L"N", [this] { nextNull(); }, own),
+                                         item(L"Next Group Block", L"M", [this] { nextMyRows(); }, own), sep,
+                                         item(L"Extend Example", L"", [this] { moreRects(); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
-        for (int m = 0; m < 3; ++m)
-            ids.sub.push_back(item(m == 0 ? L"Off" : m == 1 ? L"On Hover" : L"Always", L"", [this, m] { setTileIds(m); }, tileIds_ == m));
+        for (int m = 0; m < 3; ++m) ids.sub.push_back(radio(m == 0 ? L"Off" : m == 1 ? L"On Hover" : L"Always", L"", tileIds_ == m, [this, m] { setTileIds(m); }));
         Item cols;
         cols.label = L"Columns";
         for (int c = 0; c < 4; ++c)
-            cols.sub.push_back(item(colName(c), L"", [this, c] { setColumnShown(c, !colShown_[c]), saveColumns(), layout(), invalidate(); }, colShown_[c]));
-        std::vector<Item> view = {item(L"Checklist: To Do Only", L"F", [this] { toggleTodo(); }, checkTodo_),
-                                  item(L"Palette: This Terrain's Groups", L"G", [this] { togglePalMine(); }, palMine_),
-                                  item(L"Next Group Block", L"M", [this] { nextMyRows(); }), sep,
-                                  item(L"Reference Overlay", L"R", [this] { toggleReference(); }, refOn_),
-                                  item(L"Rect Frames", L"H", [this] { toggleFrames(); }, frames_), ids, sep,
-                                  item(L"Extend Example", L"", [this] { moreRects(); }), sep, cols};
-        bar_.setMenus({{L"File", std::move(file)}, {L"Edit", std::move(edit)}, {L"View", std::move(view)}});
+            cols.sub.push_back(check(colName(c), L"", colShown_[c], [this, c] { setColumnShown(c, !colShown_[c]), saveColumns(), layout(), invalidate(); }));
+        std::vector<Item> view = {radio(L"All Rects", L"F", !checkTodo_, [this] { toggleTodo(); }),
+                                  radio(L"Rects To Do", L"F", checkTodo_, [this] { toggleTodo(); }), sep,
+                                  radio(L"All Tile Groups", L"G", !palMine_, [this] { togglePalMine(); }),
+                                  radio(L"This Terrain's Tile Groups", L"G", palMine_, [this] { togglePalMine(); }), sep,
+                                  check(L"Reference Overlay", L"R", refOn_, [this] { toggleReference(); }),
+                                  check(L"Rect Frames", L"H", frames_, [this] { toggleFrames(); }), sep, ids, cols};
+        bar_.setMenus({{L"File", std::move(file)}, {L"Edit", std::move(edit)}, {L"Terrain", std::move(terrainMenu)}, {L"View", std::move(view)}});
     }
     void setTileIds(int m) {
         tileIds_ = m, prefs::setNumber(L"Layout/IsomTileIds", tileIds_), invalidate();
@@ -1324,17 +1351,21 @@ private:
     int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
     stardraft::kit::MenuBar bar_;
     std::string menuKey_;  // (the state the menus were made for: updateMenus)
-    stardraft::kit::Button refShow_, todoBtn_, mineBtn_, pairBtn_, newTerrain_;
-    // The header buttons show the filter in use (paint).
-    void syncButtons() {
-        const wchar_t* todo = checkTodo_ ? L"To Do" : L"All";
-        const wchar_t* mine = palMine_ ? L"This Terrain" : L"All Groups";
-        if (todoText_ != todo) todoText_ = todo, todoBtn_.setText(todo), todoBtn_.setTone(checkTodo_ ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
-        if (mineText_ != mine) mineText_ = mine, mineBtn_.setText(mine), mineBtn_.setTone(palMine_ ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
-        const wchar_t* pair = wide_ ? L"Pick: Pair" : L"Pick: Single";
-        if (pairText_ != pair) pairText_ = pair, pairBtn_.setText(pair);
+    std::wstring status_, title_;  // (the status bar's message; the window's title)
+    static int statusH() { return scale(26); }
+    void setMessage(const std::wstring& m) {
+        status_ = m, invalidate();
+        ::setMessage(m);
     }
-    std::wstring todoText_ = L"All", mineText_ = L"All Groups", pairText_ = L"Pick: Single";
+    stardraft::kit::Button newTerrain_;
+    stardraft::kit::CheckBox refShow_;
+    // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
+    stardraft::kit::Dropdown todoPick_{{}, -1}, minePick_{{}, -1}, pairPick_{{}, -1};
+    void syncButtons() {
+        if (todoPick_.value() != (checkTodo_ ? 1 : 0)) todoPick_.setValue(checkTodo_ ? 1 : 0);
+        if (minePick_.value() != (palMine_ ? 1 : 0)) minePick_.setValue(palMine_ ? 1 : 0);
+        if (pairPick_.value() != (wide_ ? 1 : 0)) pairPick_.setValue(wide_ ? 1 : 0);
+    }
     std::vector<isomrules::TemplateRect> tmpl_;  // (the shown terrain's template: its rects by role, in the game's order)
     std::pair<uint16_t, uint16_t> tmplPair_{0, 0};  // (the template: the game ground and the game terrain on it)
     isomrules::Family family_ = isomrules::Family::Other;
@@ -1561,7 +1592,8 @@ void IsomRulesView::layout() {
     bar_.setFrame({0, 0, W, menuH});
     int x = pad;
     auto put = [&](draw::View& v, int w) { v.setFrame({x, menuH + pad, x + w, menuH + pad + barH}), x += w + pad; };
-    put(era_, scale(130));
+    x += scale(52);  // ("Tileset", painted)
+    put(era_, scale(150));
     barEnd_ = x;
     const int top = menuH + pad * 2 + barH;
     // The columns in their order: each its own width, the flexible one (the example, else the last shown) the rest.
@@ -1583,16 +1615,17 @@ void IsomRulesView::layout() {
         }
         if (prev >= 0) edges_.push_back(prev != flex ? Edge{cx, prev, false} : Edge{cx, c, true});
         const int w = c == flex ? flexW : scale(colW_[c]);
-        colHead_[c] = {cx, top, cx + w, top + headH}, colBody_[c] = {cx, top + headH, cx + w, H};
+        colHead_[c] = {cx, top, cx + w, top + headH}, colBody_[c] = {cx, top + headH, cx + w, H - statusH()};
         cx += w, prev = c;
     }
     {  // (the header buttons: at the header's right)
-        const int bw = scale(110), by = top + (headH - barH) / 2;
+        const int bw = scale(170), by = top + (headH - barH) / 2;
         const draw::Rect& r = colHead_[kColRects];
         const draw::Rect& t = colHead_[kColTiles];
-        todoBtn_.setFrame(r.width() > 0 ? draw::Rect{r.right - pad - bw, by, r.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
-        mineBtn_.setFrame(t.width() > 0 ? draw::Rect{t.right - pad - bw, by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
-        pairBtn_.setFrame(t.width() > 0 ? draw::Rect{t.right - 2 * (pad + bw), by, t.right - 2 * pad - bw, by + barH} : draw::Rect{0, 0, 0, 0});
+        todoPick_.setFrame(r.width() > 0 ? draw::Rect{std::max(r.left + scale(70), r.right - pad - bw), by, r.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
+        minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
+        const int pr = minePick_.frame().left - pad;
+        pairPick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), pr - scale(120)), by, pr, by + barH} : draw::Rect{0, 0, 0, 0});
     }
     const draw::Rect none{0, 0, 0, 0};
     {  // Terrains: the search, the list with its bar, New terrain at the bottom.
@@ -1638,10 +1671,19 @@ void IsomRulesView::paint(draw::Canvas& c) {
     c.fill({0, 0, W, H}, kBg);
     if (!laidOut_) layout();
     updateMenus(), syncButtons();
-    // The top bar's right: the file and the unsaved dot.
     const int menuH = bar_.frame().bottom;
-    c.text({barEnd_, menuH + pad, W - pad, menuH + pad + scale(stardraft::kit::kButtonH)}, (file_.empty() ? std::wstring(L"(Not Saved)") : file_.filename().wstring()) + (dirty_ ? L"  \x25cf" : L""),
-           dirty_ ? kAccent : kDim, draw::kMiddle | draw::kRight | draw::kEllipsis);
+    c.fill({0, menuH, W, menuH + 1}, kBorder);
+    c.text({pad, menuH + pad, era_.frame().left - scale(6), menuH + pad + scale(stardraft::kit::kButtonH)}, L"Tileset", kDim, draw::kMiddle);
+    {  // The status bar: the last message at the left; the file and its state at the right.
+        const draw::Rect sb{0, H - statusH(), W, H};
+        c.fill(sb, kPanel), c.fill({0, sb.top, W, sb.top + 1}, kBorder);
+        const std::wstring file = file_.empty() ? std::wstring(L"Untitled") : file_.filename().wstring();
+        const int fw = std::min(W / 2, c.measure(file) + 2 * pad);
+        c.text({sb.right - fw, sb.top, sb.right - pad, sb.bottom}, file, kDim, draw::kMiddle | draw::kRight | draw::kEllipsis);
+        // (the title bar, as Windows programs show a file: an asterisk while it has unsaved changes)
+        if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - Custom Isom Terrain Editor"; title != title_) title_ = title, shellSetIsomRulesTitle(title);
+        c.text({pad, sb.top, sb.right - fw - pad, sb.bottom}, status_.empty() ? std::wstring(L"Ready") : status_, kDim, draw::kMiddle | draw::kEllipsis);
+    }
     const auto* t = terrain();
     // The columns' headers: the name at the left, the column's own switch at the right (the right-click menu moves or hides).
     for (int col = 0; col < 4; ++col) {
@@ -1649,7 +1691,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const draw::Rect& h = colHead_[col];
         c.fill(h, kPanel);
         c.fill({h.left, h.bottom - 1, h.right, h.bottom}, kBorder);
-        if (h.left > 0) c.fill({h.left, h.top, h.left + 1, H}, kBorder);
+        if (h.left > 0) c.fill({h.left, h.top, h.left + 1, H - statusH()}, kBorder);
         c.text({h.left + pad, h.top, h.right - pad, h.bottom}, colName(col), kText, draw::kMiddle);
         std::wstring right;
         draw::Color tone = kDim;

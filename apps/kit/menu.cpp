@@ -213,7 +213,10 @@ void Panel::paint(Canvas& c) {
         if (on && (i == hot_ || i == open_)) c.roundBox(r, th.sel, th.sel, px(kRowRadius));
         const Color fg = on ? th.text : th.faint;
         const Rect mark{r.left + px(8), r.top + (r.height() - px(18)) / 2, r.left + px(26), r.top + (r.height() + px(18)) / 2};
-        if (it.checked) c.icon(mark, kIconCheck, on ? th.accent : th.faint, px(16));
+        if (it.checked && it.radio) {  // (a bullet, centred in the mark's box)
+            const int d = px(8), mx = (mark.left + mark.right) / 2, my = (mark.top + mark.bottom) / 2;
+            c.roundBox({mx - d / 2, my - d / 2, mx - d / 2 + d, my - d / 2 + d}, on ? th.accent : th.faint, on ? th.accent : th.faint, d / 2);
+        } else if (it.checked) c.icon(mark, kIconCheck, on ? th.accent : th.faint, px(16));
         else if (it.icon >= 0) c.icon(mark, it.icon, on && it.iconColor != draw::kNone ? it.iconColor : fg, px(16));
         const int textRight = r.right - px(it.sub.empty() ? 10 : kSubW);
         c.text({r.left + px(kIconCol), r.top, textRight, r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);

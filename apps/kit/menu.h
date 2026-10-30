@@ -19,6 +19,7 @@ struct MenuItem {
     int icon = -1;                // a UI icon (apps/editor/res/ui_icons.h); -1: none
     draw::Color iconColor = draw::kNone;  // the icon's color while enabled (the feedback item's); kNone: the text's
     bool checked = false;         // a check mark in the icon column (it takes the place of the icon)
+    bool radio = false;           // one choice of a group: a checked one shows a bullet, not a check mark
     bool enabled = true;          // a disabled item is faint and cannot be picked or highlighted
     bool separator = false;       // a line between groups (the other fields are not used)
     std::vector<MenuItem> sub;    // a submenu's items; an item with items here opens them

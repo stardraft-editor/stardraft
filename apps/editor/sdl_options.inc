@@ -439,9 +439,13 @@ void shellShowIsomRulesWindow() {
     gIsomRulesOpen = true;
     const draw::Point sz = IsomRulesView::size();
     draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())),
-                          L"Custom isom terrain editor"};
+                          L"Custom Isom Terrain Editor"};
     spec.resizable = true;
     gHost->openWindow(*gRoot, gIsomRulesView, spec, [] { gIsomRulesOpen = false; });
+}
+// The window's title ("*terrains.sdterrain - Custom Isom Terrain Editor": the asterisk, unsaved changes).
+void shellSetIsomRulesTitle(const std::wstring& title) {
+    if (SDL_Window* w = gHost ? gHost->sdlWindow(gIsomRulesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }
 
 void sdlCampaignFollow() {
