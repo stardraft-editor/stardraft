@@ -1120,7 +1120,19 @@ private:
         int first = 0;            // (the first group: the mod's own, past the game's)
         std::vector<int8_t> v;    // (16 tiles a group, 256 values a tile)
         std::vector<uint8_t> ok;  // (a tile: 1; an empty subtile or a flat tile: 0)
+        std::vector<uint8_t> edges;  // (a tile's edges: top, bottom, left, right; 32 px RGB each: kEdgeBytes)
     };
+    static constexpr size_t kEdgeBytes = 4 * 32 * 3;
+    // A tile's edges from a picture (the tile at x0): top row, bottom row, left column, right column.
+    static void edgesOf(const stardraft::Sprite& s, int x0, uint8_t* out) {
+        for (int side = 0; side < 4; ++side)
+            for (int k = 0; k < 32; ++k) {
+                const int x = side == 2 ? 0 : side == 3 ? 31 : k, y = side == 0 ? 0 : side == 1 ? 31 : k;
+                const uint8_t* q = &s.rgba[(size_t(y) * size_t(s.width) + size_t(x0 + x)) * 4];
+                uint8_t* o = &out[size_t(side * 32 + k) * 3];
+                o[0] = q[0], o[1] = q[1], o[2] = q[2];
+            }
+    }
     static bool shapeOf(const stardraft::Sprite& s, int x0, int8_t* out) {
         float g[256], sum = 0;
         for (int y = 0; y < 16; ++y)
@@ -1150,7 +1162,8 @@ private:
     bool shapesAsked_ = false;
     struct Suggestion {
         int row = 0, col = 0;  // (the row, its best pair's first subtile)
-        float score = 0;
+        float score = 0;       // (shape and seams together)
+        float shape = 0, seam = -1;  // (seam -1: no neighbours to meet)
     };
     std::vector<Suggestion> sugg_;
     int suggFor_ = -1;  // (the rect the suggestions are for; -1: none)
@@ -1166,14 +1179,17 @@ private:
             auto out = std::make_shared<TileShapes>();
             out->first = first;
             const size_t n = ts->groups.size() > size_t(first) ? ts->groups.size() - size_t(first) : 0;
-            out->v.assign(n * 16 * 256, 0), out->ok.assign(n * 16, 0);
+            out->v.assign(n * 16 * 256, 0), out->ok.assign(n * 16, 0), out->edges.assign(n * 16 * kEdgeBytes, 0);
             for (size_t k = 0; k < n; ++k) {
                 std::vector<uint16_t> row(16);
                 for (int c = 0; c < 16; ++c) row[size_t(c)] = uint16_t((size_t(first) + k) << 4 | size_t(c));
                 const stardraft::Sprite s = stardraft::mapTilesPicture(*ts, row, 16, 0, 0, 16, 1);
                 if (s.width < 16 * 32 || s.height < 32) continue;
                 for (int c = 0; c < 16; ++c)
-                    if (ts->megatileFor(row[size_t(c)]) > 0) out->ok[k * 16 + size_t(c)] = shapeOf(s, c * 32, &out->v[(k * 16 + size_t(c)) * 256]) ? 1 : 0;
+                    if (ts->megatileFor(row[size_t(c)]) > 0) {
+                        out->ok[k * 16 + size_t(c)] = shapeOf(s, c * 32, &out->v[(k * 16 + size_t(c)) * 256]) ? 1 : 0;
+                        edgesOf(s, c * 32, &out->edges[(k * 16 + size_t(c)) * kEdgeBytes]);
+                    }
             }
             foreground([this, out, gen, alive] {
                 if (!*alive || gen != openGen_) return;
@@ -1192,14 +1208,62 @@ private:
         int8_t l[256], r[256];
         if (s.width < 64 || !shapeOf(s, 0, l) || !shapeOf(s, 32, r)) return;
         const TileShapes& sh = *shapes_;
+        // (the seams: at each place of the rect in the example, the tiles around it that are there (not NULL, not the
+        // rect's own); a candidate's edge must continue the neighbour's edge that touches it)
+        struct Seam {
+            int half, side;           // (the candidate's tile (0 left, 1 right) and its edge: 0 top, 1 bottom, 2 left, 3 right)
+            std::vector<uint8_t> px;  // (the neighbour's touching edge, 32 px RGB)
+        };
+        std::vector<Seam> seams;
+        if (ids_.size() == size_t(crop_.width()) * size_t(crop_.height())) {
+            const auto* t = terrain();
+            auto idAt = [&](int tx, int ty) -> int {
+                const int cx = tx - crop_.left, cy = ty - crop_.top;
+                if (cx < 0 || cy < 0 || cx >= crop_.width() || cy >= crop_.height()) return -1;
+                const uint16_t v = ids_[size_t(cy) * size_t(crop_.width()) + size_t(cx)];
+                return v == kNullId ? -1 : int(v);
+            };
+            std::set<std::pair<int, int>> own;  // (the rect's own tiles: not neighbours)
+            for (const Place& p : places_)
+                if (t && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == g) own.insert({p.tx, p.ty}), own.insert({p.tx + 1, p.ty});
+            for (const Place& p : places_) {
+                if (!own.count({p.tx, p.ty}) || seams.size() >= 24) continue;
+                // (half, side, the neighbour's place, its edge that touches)
+                const int at[6][5] = {{0, 2, p.tx - 1, p.ty, 3}, {1, 3, p.tx + 2, p.ty, 2}, {0, 0, p.tx, p.ty - 1, 1},
+                                      {1, 0, p.tx + 1, p.ty - 1, 1}, {0, 1, p.tx, p.ty + 1, 0}, {1, 1, p.tx + 1, p.ty + 1, 0}};
+                for (const auto& a : at) {
+                    if (own.count({a[2], a[3]})) continue;
+                    const int v = idAt(a[2], a[3]);
+                    if (v < 0 || tileset_.megatileFor(uint16_t(v)) <= 0) continue;
+                    const stardraft::Sprite ns = stardraft::mapTilesPicture(tileset_, {uint16_t(v)}, 1, 0, 0, 1, 1);
+                    if (ns.width < 32 || ns.height < 32) continue;
+                    uint8_t e[kEdgeBytes];
+                    edgesOf(ns, 0, e);
+                    seams.push_back({a[0], a[1], std::vector<uint8_t>(e + a[4] * 96, e + a[4] * 96 + 96)});
+                }
+            }
+        }
+        auto seamOf = [&](size_t i) {  // (1: the edges continue; 0: they differ by 64 levels or more on average)
+            if (seams.empty()) return -1.0f;
+            float sum = 0;
+            for (const Seam& sm : seams) {
+                const uint8_t* e = &sh.edges[(i + size_t(sm.half)) * kEdgeBytes + size_t(sm.side) * 96];
+                int d = 0;
+                for (int k = 0; k < 96; ++k) d += std::abs(int(e[k]) - int(sm.px[size_t(k)]));
+                sum += std::max(0.0f, 1.0f - float(d) / 96.0f / 64.0f);
+            }
+            return sum / float(seams.size());
+        };
         std::vector<Suggestion> all;
         for (size_t k = 0; k * 16 < sh.ok.size(); ++k) {
             Suggestion best{int(sh.first + int(k)), -1, -2};
             for (int c = 0; c + 1 < 16; c += 2) {
                 const size_t i = k * 16 + size_t(c);
                 if (!sh.ok[i] || !sh.ok[i + 1]) continue;
-                const float score = (match(&sh.v[i * 256], l) + match(&sh.v[(i + 1) * 256], r)) / 2;
-                if (score > best.score) best.col = c, best.score = score;
+                const float shape = (match(&sh.v[i * 256], l) + match(&sh.v[(i + 1) * 256], r)) / 2;
+                const float seam = seamOf(i);
+                const float score = seam < 0 ? shape : 0.6f * shape + 0.4f * seam;
+                if (score > best.score) best.col = c, best.score = score, best.shape = shape, best.seam = seam;
             }
             if (best.col >= 0) all.push_back(best);
         }
@@ -2624,7 +2688,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             const bool used = (q[1] >> 4) == sg.row;
             c.frame(r, used ? kAccent : kBorder, scale(1));
             const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 4)}));
-            c.text({r.left - scale(4), r.bottom, r.right + scale(4), r.bottom + scale(14)}, std::to_wstring(sg.row) + L"  " + std::to_wstring(int(std::lround(sg.score * 100))) + L"%",
+            c.text({r.left - scale(8), r.bottom, r.right + scale(8), r.bottom + scale(14)}, std::to_wstring(sg.row) + L"  " + std::to_wstring(int(std::lround(sg.score * 100))) + L"%",
                    used ? kAccent : kDim, draw::kCenter | draw::kMiddle);
             c.setFont(of);
             suggRects_.push_back(r);
