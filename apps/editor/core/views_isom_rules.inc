@@ -726,6 +726,7 @@ private:
         start(in, sel_);
     }
     void start(std::shared_ptr<BuildIn> in, int shown) {
+        if (shownId_ != shown) viewZoom_ = 1, panX_ = panY_ = 0;  // (another terrain: the fit)
         if (shownId_ != shown)
             places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset(), visibleGroups_.clear(), shownId_ = shown;
         if (!building_) busySince_ = std::chrono::steady_clock::now();
@@ -2190,6 +2191,22 @@ private:
     }
     static constexpr int kCheckHead = 22;  // (the checklist's column names)
     float zoom_ = 1;
+    float viewZoom_ = 1;  // (the wheel's zoom over the example: 1 fits it, up to 8; the tiles nearest neighbor)
+    int panX_ = 0, panY_ = 0;  // (the example moved from the middle while zoomed in: a middle-button drag)
+    bool panning_ = false;
+    draw::Point panFrom_{};
+    // The example's top left on the view (zoom_: the fit times the wheel's zoom); a picture larger than the area stays
+    // over it, a smaller one in its middle.
+    void exampleOrigin(int& ox, int& oy) {
+        const int pad = scale(8);
+        const float fit = std::max(0.1f, std::min(std::min(float(puzzle_.width() - 2 * pad) / float(picture_->width()), float(puzzle_.height() - 2 * pad) / float(picture_->height())), 2.0f));
+        zoom_ = fit * viewZoom_;
+        const int pw = int(float(picture_->width()) * zoom_), ph = int(float(picture_->height()) * zoom_);
+        const int cx = puzzle_.left + (puzzle_.width() - pw) / 2, cy = puzzle_.top + (puzzle_.height() - ph) / 2;
+        ox = pw > puzzle_.width() ? std::clamp(cx + panX_, puzzle_.right - pw, puzzle_.left) : cx;
+        oy = ph > puzzle_.height() ? std::clamp(cy + panY_, puzzle_.bottom - ph, puzzle_.top) : cy;
+        panX_ = ox - cx, panY_ = oy - cy;
+    }
     int palScroll_ = 0;
     // The palette's rows: every group, or (Ctrl+G) only the terrain's own groups (myRows_, sorted); the header above the rows.
     bool palMine_ = false;
@@ -2439,11 +2456,10 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     c.fill(puzzle_, 0x151515);
     if (puzzle_.width() > 0 && picture_ && (t || std_ >= 0)) {
         const bool refShown = refOn_ && refPicture_ != nullptr, refAlone = refShown && refOpacity_.value() >= 100;
-        zoom_ = std::min(float(puzzle_.width() - 2 * pad) / picture_->width(), float(puzzle_.height() - 2 * pad) / picture_->height());
-        zoom_ = std::max(0.1f, std::min(zoom_, 2.0f));
+        int ox = 0, oy = 0;
+        exampleOrigin(ox, oy);
         c.pushClip(puzzle_);
-        const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
-        const int ox = puzzle_.left + (puzzle_.width() - pw) / 2, oy = puzzle_.top + (puzzle_.height() - ph) / 2;
+        const int pw = int(float(picture_->width()) * zoom_), ph = int(float(picture_->height()) * zoom_);
         c.bitmap(*picture_, {0, 0, picture_->width(), picture_->height()}, {ox, oy, ox + pw, oy + ph});
         const float ts = 32 * zoom_;
         auto rectOf = [&](const Place& p) {
@@ -2730,6 +2746,28 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
 bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     const auto* t = terrain();
     const int cell = palCell(), x0 = palLeft();
+    if (e.kind == draw::MouseKind::Wheel && puzzle_.contains(e.pt) && picture_) {  // (the example: zoom at the mouse, the fit at least)
+        int ox = 0, oy = 0;
+        exampleOrigin(ox, oy);
+        const float before = zoom_, px = float(e.pt.x - ox) / before, py = float(e.pt.y - oy) / before;  // (the picture's point under the mouse)
+        viewZoom_ = std::clamp(viewZoom_ * std::pow(1.25f, draw::wheelDistance(e, 40.0f) / 40.0f), 1.0f, 8.0f);
+        int nx = 0, ny = 0;
+        exampleOrigin(nx, ny);  // (zoom_ now the new one)
+        panX_ += int(float(e.pt.x) - px * zoom_) - nx, panY_ += int(float(e.pt.y) - py * zoom_) - ny;
+        exampleOrigin(nx, ny);  // (clamped)
+        invalidate();
+        return true;
+    }
+    if (e.button == 2 && (e.kind == draw::MouseKind::Down || panning_)) {  // (the middle button: the example moves while zoomed in)
+        if (e.kind == draw::MouseKind::Down && puzzle_.contains(e.pt)) panning_ = true, panFrom_ = e.pt;
+        else if (e.kind == draw::MouseKind::Up) panning_ = false;
+        return true;
+    }
+    if (panning_ && e.kind == draw::MouseKind::Move) {
+        panX_ += e.pt.x - panFrom_.x, panY_ += e.pt.y - panFrom_.y, panFrom_ = e.pt;
+        invalidate();
+        return true;
+    }
     if (e.kind == draw::MouseKind::Wheel && palette_.contains(e.pt)) {
         palScroll_ = std::clamp(palScroll_ - int(draw::wheelDistance(e, float(cell * 3))), 0, palScrollMax());
         invalidate();
@@ -2820,8 +2858,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     // (the examples' place under the point: its rect, and the half)
     auto placeAt = [&](draw::Point pt, int& half) -> int {
         if (!picture_ || !puzzle_.contains(pt)) return -1;
-        const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
-        const int ox = puzzle_.left + (puzzle_.width() - pw) / 2, oy = puzzle_.top + (puzzle_.height() - ph) / 2;
+        int ox = 0, oy = 0;
+        exampleOrigin(ox, oy);
         const int tx = crop_.left + int(float(pt.x - ox) / (32 * zoom_)), ty = crop_.top + int(float(pt.y - oy) / (32 * zoom_));
         for (size_t i = 0; i < places_.size(); ++i)
             if (places_[i].ty == ty && (tx == places_[i].tx || tx == places_[i].tx + 1)) return half = tx - places_[i].tx, int(i);
@@ -2849,8 +2887,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         }
         int cell = -1;  // (the example's tile under the mouse: its ID on hover)
         if (picture_ && puzzle_.contains(e.pt) && crop_.width() > 0) {
-            const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
-            const int ox = puzzle_.left + (puzzle_.width() - pw) / 2, oy = puzzle_.top + (puzzle_.height() - ph) / 2;
+            int ox = 0, oy = 0;
+            exampleOrigin(ox, oy);
             if (e.pt.x >= ox && e.pt.y >= oy) {
                 const int cx = int(float(e.pt.x - ox) / (32 * zoom_)), cy = int(float(e.pt.y - oy) / (32 * zoom_));
                 if (cx < crop_.width() && cy < crop_.height()) cell = cy * crop_.width() + cx;
