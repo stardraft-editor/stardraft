@@ -110,7 +110,7 @@ public:
           borrow_(L"Borrow template", stardraft::kit::Tone::Normal, [this] { borrowHoles(); }),
           copy_(L"Copy tiles\x2026", stardraft::kit::Tone::Normal, [this] { copyFrom(); }),
           draft_(L"Draft", stardraft::kit::Tone::Normal, [this] { toggleDraft(); }),
-          refShow_(L"Ref: off", stardraft::kit::Tone::Normal, [this] { cycleReference(); }),
+          refShow_(L"Ref (R)", stardraft::kit::Tone::Normal, [this] { toggleReference(); }),
           newTerrain_(L"New terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
         for (int e = 0; e < 8; ++e) eras.push_back({widen(tilesetName(uint16_t(e)))});
@@ -118,16 +118,7 @@ public:
         era_.onChange = [this](int e) { openEra(e); };
         search_.setPlaceholder(L"Search (name, family, draft)");
         search_.onChange = [this] { filter(); };
-        list_.label = [this](int i) {
-            if (i < 0 || i >= int(shown_.size())) return std::wstring();
-            if (shown_[size_t(i)] < 0) return stdName(-1 - shown_[size_t(i)]) + L"   game";
-            const auto& x = rules().terrains[size_t(shown_[size_t(i)])];
-            const auto [done, total] = stardraft::terrainrules::completeness(tileset_, x.t);
-            const auto [a, b] = stardraft::terrainrules::templateOf(tileset_, x.t);
-            return widen(x.t.name) + L"   " + isomrules::familyName(stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tileset_, a, b), tileset_)) +
-                   L" \x00b7 " + std::to_wstring(done) + L"/" + std::to_wstring(total) + (x.t.draft ? L" \x00b7 draft" : L"");
-        };
-        list_.onSelect = [this] { selectTerrain(); };
+        sideBar_.onScroll = [this](int pos) { sideScroll_ = pos, invalidate(); };
         ground_.onChange = [this](int i) { setGround(i); };
         width_.setTip(L"Pair: a palette click sets both halves (subtile k and k+1 of the row). Single: the selected half only");
         null_.setTip(L"Set the target rect (Single: the half) to NULL");
@@ -140,14 +131,16 @@ public:
         refPick_.searchable = true, refPick_.wheelSteps = false;
         refPick_.setTip(L"Reference border rendered in the same shape (Template: the terrain's own). R cycles off / overlay / only");
         refPick_.onChange = [this](int) { rebuild(); };
-        refShow_.setTip(L"Reference display: off, 50 % overlay, or reference only (R)");
+        refShow_.setTip(L"Reference over the example: on / off (R)");
+        refOpacity_.setTip(L"Reference opacity (Ctrl+Up / Ctrl+Down, 10 % steps); 100 %: the reference alone");
+        refOpacity_.onChange = [this](int) { invalidate(); };
         row_.searchable = true, row_.wheelSteps = false;
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
         if (int v = 1; prefs::number(L"Layout/IsomTilesRight", v, 0, 1)) tilesRight_ = v != 0;
-        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &width_, &null_, &clear_, &more_, &borrow_, &copy_, &draft_, &row_, &refPick_, &refShow_, &search_,
-                                                               &list_, &newTerrain_, &ground_, &palBar_})
+        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &width_, &null_, &clear_, &more_, &borrow_, &copy_, &draft_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
+                                                               &sideBar_, &newTerrain_, &ground_, &palBar_})
             add(*v, {0, 0, 0, 0});
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
@@ -173,7 +166,7 @@ public:
     bool selectByName(const std::string& name) {
         for (size_t i = 0; i < shown_.size(); ++i)
             if (shown_[i] >= 0 ? rules().terrains[size_t(shown_[i])].t.name == name : narrow(stdName(-1 - shown_[i])) == name)
-                return list_.selectOnly(int(i)), selectTerrain(), true;
+                return selectValue(shown_[i]), true;
         return false;
     }
     // The window is closing: unsaved changes ask Save, Do not save or Cancel. False: it stays open.
@@ -190,15 +183,18 @@ public:
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override;
+    void paintSide(draw::Canvas& c);
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
         if (!e.down || search_.hasFocus()) return false;
         if (e.key == static_cast<draw::Key>('N') && !e.mods) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
-        if (e.key == static_cast<draw::Key>('R') && !e.mods) return cycleReference(), true;
+        if (e.key == static_cast<draw::Key>('R') && !e.mods) return toggleReference(), true;
+        if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && (e.mods & draw::kCtrl)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('T') && !e.mods) return toggleWidth(), true;
         if (e.key == static_cast<draw::Key>('M') && !e.mods) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('V') && !e.mods) return toggleDraft(), true;
+        if (e.key == static_cast<draw::Key>('F') && !e.mods) return toggleTodo(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save(false), true;
         if (e.key == static_cast<draw::Key>('Z') && (e.mods & draw::kCtrl)) return undo(e.mods & draw::kShift), true;
@@ -246,6 +242,7 @@ private:
             if (ts.era == r.era) return void(ts = std::move(r));
         doc_.tilesets.push_back(std::move(r));
     }
+    const stardraft::terrainrules::TilesetRules& rules() const { return const_cast<IsomRulesView*>(this)->rules(); }
     const stardraft::terrainrules::TilesetRules* rulesOrNull() const {
         for (const auto& ts : doc_.tilesets)
             if (ts.era == era()) return &ts;
@@ -289,7 +286,7 @@ private:
         const int gen = ++openGen_;
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
         undo_.clear(), redo_.clear();
-        shown_.clear(), sel_ = -1, target_ = -1, list_.setCount(0), places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+        shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         invalidate();
         background([this, gen, e, plain] {
             auto o = std::make_shared<Opened>();
@@ -336,7 +333,7 @@ private:
         pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
         filter();
-        if (!shown_.empty()) list_.selectOnly(0), selectTerrain();
+        if (!shown_.empty()) selectValue(shown_[0]);
         invalidate();
     }
     void filter() {
@@ -361,13 +358,71 @@ private:
             std::transform(n.begin(), n.end(), n.begin(), ::towlower);
             if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(-1 - int(k));
         }
-        list_.setCount(int(shown_.size()));
-        // (the list's highlight follows the shown terrain, or none when the filter hides it)
-        int at = -1;
-        for (size_t i = 0; i < shown_.size(); ++i)
-            if ((sel_ >= 0 && shown_[i] == sel_) || (std_ >= 0 && shown_[i] == -1 - std_)) at = int(i);
-        if (at >= 0) list_.selectOnly(at);
-        else list_.clearSelection();
+        buildSideRows();
+    }
+    // The family of a list value (a terrain of the rules, or -1 - k: the game's border k), kept until the rules change.
+    isomrules::Family familyOfValue(int v) {
+        const uint32_t key = v >= 0 ? uint32_t(rules().terrains[size_t(v)].t.id) : 0x10000u | uint32_t(-1 - v);
+        if (const auto it = familyCache_.find(key); it != familyCache_.end()) return it->second;
+        isomrules::Family f = isomrules::Family::Other;
+        if (!tileset_.groups.empty()) {
+            const auto [a, b] = v >= 0 ? stardraft::terrainrules::templateOf(tileset_, rules().terrains[size_t(v)].t) : stdPairs_[size_t(-1 - v)];
+            f = stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tileset_, a, b), tileset_);
+        }
+        return familyCache_[key] = f;
+    }
+    // The sidebar's rows: the terrains by family (cliffs first), each family a header with its count, then the game's
+    // borders; the shown terrain's row in view.
+    void buildSideRows() {
+        sideRows_.clear();
+        static const isomrules::Family kOrder[] = {isomrules::Family::Cliff, isomrules::Family::Wall, isomrules::Family::Blend, isomrules::Family::Pavement,
+                                                   isomrules::Family::Patch, isomrules::Family::Other};
+        int y = 0;
+        auto header = [&](const std::wstring& text, int n) {
+            sideRows_.push_back({kSideHeader, text + L"  \x00b7  " + std::to_wstring(n), y, scale(24)}), y += scale(24);
+        };
+        for (isomrules::Family f : kOrder) {
+            std::vector<int> in;
+            for (int v : shown_)
+                if (v >= 0 && familyOfValue(v) == f) in.push_back(v);
+            if (in.empty()) continue;
+            header(isomrules::familyName(f), int(in.size()));
+            for (int v : in) sideRows_.push_back({v, {}, y, scale(44)}), y += scale(44);
+        }
+        std::vector<int> games;
+        for (int v : shown_)
+            if (v < 0) games.push_back(v);
+        if (!games.empty()) {
+            header(L"game borders", int(games.size()));
+            for (int v : games) sideRows_.push_back({v, {}, y, scale(30)}), y += scale(30);
+        }
+        sideTotal_ = y;
+        revealSideRow();
+        invalidate();
+    }
+    void revealSideRow() {
+        if (side_.height() <= 0) return;  // (before the first layout: the layout calls again)
+        for (const SideRow& r : sideRows_)
+            if (r.value != kSideHeader && ((sel_ >= 0 && r.value == sel_) || (std_ >= 0 && r.value == -1 - std_))) {
+                if (r.y < sideScroll_ || r.y + r.h > sideScroll_ + side_.height()) sideScroll_ = std::max(0, r.y - side_.height() / 3);
+                for (const SideRow& h : sideRows_)  // (its family's header above it, when the row is near the top)
+                    if (h.value == kSideHeader && h.y < r.y && h.y + scale(24 * 2) > r.y && h.y < sideScroll_) sideScroll_ = h.y;
+                break;
+            }
+    }
+    // The tile that stands for a list value in the sidebar: a mod terrain's first fill tile (else its stand-in's solid
+    // tile), a game border's terrain's solid tile. 0: none.
+    uint16_t swatchOf(int v) const {
+        if (tileset_.groups.empty()) return 0;
+        if (v < 0) {
+            const int g = stardraft::solidTileGroup(tileset_, stdPairs_[size_t(-1 - v)].second);
+            return g >= 0 ? gameTile(uint32_t(g)) : 0;
+        }
+        const auto& m = rules().terrains[size_t(v)].t;
+        for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k)
+            if (!isomrules::nullHalf(m.pieces[k][1])) return m.pieces[k][1];
+        const int g = stardraft::solidTileGroup(tileset_, m.standIn);
+        return g >= 0 ? gameTile(uint32_t(g)) : 0;
     }
     // A standard terrain's name: Primary (Bordering), as the mod's.
     std::wstring stdName(int k) const {
@@ -375,10 +430,10 @@ private:
         if (!game || k < 0 || k >= int(stdPairs_.size())) return {};
         return widen(game->terrainName(stdPairs_[size_t(k)].second)) + L" (" + widen(game->terrainName(stdPairs_[size_t(k)].first)) + L")";
     }
-    void selectTerrain() {
-        const int i = list_.cursor();
-        const int v = i >= 0 && i < int(shown_.size()) ? shown_[size_t(i)] : -1000000;
+    // A list value shown: a terrain of the rules (v >= 0), or the game's border k (v = -1 - k).
+    void selectValue(int v) {
         sel_ = v >= 0 ? v : -1, std_ = v < 0 && v > -1000000 ? -1 - v : -1;
+        revealSideRow();
         target_ = -1;
         updateMyRows();
         updateTemplate();
@@ -423,7 +478,7 @@ private:
         std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
         int gained = 0;                          // (the search: rects shown that were not)
         draw::Rect crop;
-        std::unique_ptr<draw::Bitmap> picture, reference, blend;  // (blend: the picture and the reference, half and half)
+        std::unique_ptr<draw::Bitmap> picture, reference;
     };
     void rebuild() {
         const auto* t = terrain();
@@ -432,11 +487,11 @@ private:
         auto in = std::make_shared<BuildIn>();
         in->gen = ++buildGen_;
         if ((!t && std_ < 0) || !data) {
-            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset(), blendPicture_.reset();
+            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset();
             return invalidate();
         }
         in->era = era(), in->data = data;
-        if (const int ref = refOf(t); ref >= 0 && refMode_) in->refGround = stdPairs_[size_t(ref)].first, in->refTerrain = stdPairs_[size_t(ref)].second;
+        if (const int ref = refOf(t); ref >= 0 && refOn_) in->refGround = stdPairs_[size_t(ref)].first, in->refTerrain = stdPairs_[size_t(ref)].second;
         if (!t) {  // (a standard terrain: the game's border, read only)
             in->standard = true, in->root = stdPairs_[size_t(std_)].first, in->stdTerrain = stdPairs_[size_t(std_)].second;
             return start(in, -2 - std_);
@@ -469,7 +524,7 @@ private:
     }
     void start(std::shared_ptr<BuildIn> in, int shown) {
         if (shownId_ != shown)
-            places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset(), blendPicture_.reset(), visibleGroups_.clear(), shownId_ = shown;
+            places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset(), visibleGroups_.clear(), shownId_ = shown;
         building_ = true;
         invalidate();
         background([this, in] {
@@ -484,7 +539,7 @@ private:
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
                         if (p.piece >= 0 && p.piece < int(t->t.pieces.size())) visibleGroups_.insert(t->t.pieces[size_t(p.piece)][0]);
-                picture_ = std::move(out->picture), refPicture_ = std::move(out->reference), blendPicture_ = std::move(out->blend);
+                picture_ = std::move(out->picture), refPicture_ = std::move(out->reference);
                 if (in->extend) {
                     moreRects_[in->t.t.id] = out->extra;
                     if (out->gained || in->extend == 2)
@@ -526,13 +581,7 @@ private:
             if (!in.refTerrain || !out.picture) return;
             paintGame(in.refGround, in.refTerrain, shape);
             out.reference = pictureOf(out.crop);
-            if (!out.reference || out.reference->width() != out.picture->width() || out.reference->height() != out.picture->height()) return;
-            out.blend = std::make_unique<draw::Bitmap>(out.picture->width(), out.picture->height());
-            const uint32_t *a = out.picture->pixels(), *r = out.reference->pixels();
-            uint32_t* px = out.blend->pixels();
-            for (size_t i = 0; i < size_t(out.picture->width()) * size_t(out.picture->height()); ++i)
-                px[i] = 0xFF000000u | (((a[i] & 0xFEFEFE) >> 1) + ((r[i] & 0xFEFEFE) >> 1));
-            out.blend->changed();
+            if (out.reference && (out.reference->width() != out.picture->width() || out.reference->height() != out.picture->height())) out.reference.reset();
         };
         if (in.standard) {  // (the game's border: the rects whose ISOM differs from its ground alone)
             ed->useModTerrains({});
@@ -647,12 +696,19 @@ private:
         static const std::vector<std::pair<int, int>> kBoth = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}};
         return f == isomrules::Family::Wall || f == isomrules::Family::Cliff ? kWall : f == isomrules::Family::Other ? kBoth : kPath;
     }
-    // The reference: over the example, alone, off.
-    void cycleReference() {
-        refMode_ = (refMode_ + 1) % 3;
-        refShow_.setText(refMode_ == 1 ? L"Ref: overlay" : refMode_ == 2 ? L"Ref: only" : L"Ref: off");
-        if (refOf(terrain()) < 0) setMessage(L"No reference border: select one in the Reference list");
-        if (refMode_ && !refPicture_) return rebuild();  // (it paints only while it shows)
+    // The reference over the example, on or off (R); its opacity is the slider (Ctrl+Up / Ctrl+Down: 10 % steps; 100 %:
+    // the reference alone).
+    void toggleReference() {
+        refOn_ = !refOn_;
+        refShow_.setTone(refOn_ ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+        if (refOn_ && refOf(terrain()) < 0) setMessage(L"No reference border: select one in the Reference list");
+        if (refOn_ && !refPicture_) return rebuild();  // (it paints only while it shows)
+        invalidate();
+    }
+    void stepOpacity(int dir) {
+        refOpacity_.setValue(refOpacity_.value() + 10 * dir);
+        if (!refOn_) toggleReference();
+        setMessage(L"Reference " + std::to_wstring(refOpacity_.value()) + L" %");
         invalidate();
     }
     // The reference border (an index of stdPairs_; -1: none): the one picked, or (Auto) the terrain's template: its
@@ -830,11 +886,7 @@ private:
         const bool same = sel_ == i && std_ < 0;
         to.push_back({e.id, ts.terrains[size_t(i)], same ? target_ : -1, same ? targetHalf_ : 0});
         ts.terrains[size_t(i)] = std::move(e.before);
-        if (!same) {
-            for (size_t k = 0; k < shown_.size(); ++k)
-                if (shown_[k] == i) list_.selectOnly(int(k));
-            sel_ = i, std_ = -1;
-        }
+        if (!same) sel_ = i, std_ = -1, revealSideRow();
         for (size_t k = 0; k < groundIds_.size(); ++k)  // (the Bordering box: the ground as it was)
             if (groundIds_[k] == ts.terrains[size_t(i)].t.ground) ground_.setValue(int(k));
         places_.clear(), holes_.clear(), absent_.clear();  // (the piece numbers may have moved: none until the new example)
@@ -952,7 +1004,7 @@ private:
         t.t.draft = !t.t.draft;
         draft_.setText(t.t.draft ? L"Draft" : L"Verified");
         dirty_ = true;
-        list_.invalidate(), invalidate();
+        familyCache_.clear(), invalidate();
         setMessage(widen(t.t.name) + (t.t.draft ? L": draft" : L": verified"));
     }
     void changed() {
@@ -970,7 +1022,7 @@ private:
             if (t->t.pieces != before) places_.clear(), holes_.clear(), absent_.clear();  // (the piece numbers moved: none until the new example)
             updateTemplate();
         }
-        list_.invalidate();
+        familyCache_.clear();
         updateMyRows();
         rebuild();
     }
@@ -1072,10 +1124,9 @@ private:
         }
         stardraft::terrainrules::normalize(tileset_, x.t);
         ts.terrains.push_back(std::move(x));
+        familyCache_.clear();
         filter();
-        for (size_t i = 0; i < shown_.size(); ++i)
-            if (shown_[i] == int(ts.terrains.size()) - 1) list_.selectOnly(int(i));
-        selectTerrain();
+        selectValue(int(ts.terrains.size()) - 1);
         dirty_ = true;
         setMessage(L"New terrain " + name + L": " + (fromStd ? L"template " + stdName(modelIx) + (borrowed ? L", borrowed tiles" : L", NULL") : L"copy of " + widen(ts.terrains[size_t(modelIx)].t.name)) +
                    L", id " + std::to_wstring(id));
@@ -1171,7 +1222,19 @@ private:
             for (size_t k = 0; k < t->t.setPieces && k < t->t.pieces.size(); ++k)
                 if (const uint16_t g = t->t.pieces[k][0]; !in.count(g)) in.insert(g), rows.push_back({g, L"other " + std::to_wstring(g), int(k), 0});
         }
+        if (checkTodo_ && t)  // (to do: the rects whose piece is not the mod's own)
+            rows.erase(std::remove_if(rows.begin(), rows.end(),
+                                      [&](const CheckRow& r) {
+                                          return r.piece >= 0 && r.piece < int(t->t.pieces.size()) &&
+                                                 stardraft::terrainrules::stateOf(t->t.pieces[size_t(r.piece)]) == isomrules::PieceState::Own;
+                                      }),
+                       rows.end());
         return rows;
+    }
+    void toggleTodo() {
+        checkTodo_ = !checkTodo_, checkScroll_ = 0;
+        setMessage(checkTodo_ ? L"Checklist: rects without mod tiles" : L"Checklist: every rect");
+        invalidate();
     }
     static constexpr int kCheckRow = 36;  // (a checklist row's height, before scaling)
     // The template of the shown terrain (or the standard border): its rects by role, its family.
@@ -1217,10 +1280,11 @@ private:
     stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1};
     std::vector<std::pair<uint16_t, uint16_t>> stdPairs_;  // (the game's borders: its ground, the terrain on it)
     int std_ = -1;  // (the standard terrain shown: an index of stdPairs_; -1: a terrain of the rules)
-    int refMode_ = 0;  // (the reference shown: 0 off, 1 over the example, 2 alone; it paints only while it shows)
+    bool refOn_ = false;  // (the reference over the example; it paints only while it shows)
+    stardraft::kit::Slider refOpacity_{10, 100, 50, 10};  // (its opacity in %; 100: alone)
     std::set<int> myRows_;  // (the rows of the tiles that are the shown terrain's: its pieces' and the ones its maps use)
     std::set<uint16_t> visibleGroups_;  // (the rects the example shows, by game group: they keep when the pieces move)
-    std::unique_ptr<draw::Bitmap> refPicture_, blendPicture_;
+    std::unique_ptr<draw::Bitmap> refPicture_;
     stardraft::kit::ScrollBar palBar_;  // (the tiles' scroll bar, at the right edge)
     int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
     stardraft::kit::Button load_, loadDefault_, save_, saveAs_, nextNull_, width_, null_, clear_, more_, borrow_, copy_, draft_, refShow_, newTerrain_;
@@ -1238,7 +1302,19 @@ private:
     };
     std::vector<Edit> undo_, redo_;
     stardraft::kit::TextField search_;
-    stardraft::kit::ListView list_;
+    // The sidebar: the terrains by family, each a row with its swatch, name, family, done/total and draft mark.
+    static constexpr int kSideHeader = -1000000;
+    struct SideRow {
+        int value;  // (a list value, or kSideHeader)
+        std::wstring header;
+        int y, h;  // (in the sidebar's scroll space)
+    };
+    std::vector<SideRow> sideRows_;
+    std::map<uint32_t, isomrules::Family> familyCache_;
+    stardraft::kit::ScrollBar sideBar_;
+    draw::Rect side_;
+    int sideScroll_ = 0, sideTotal_ = 0, sideHover_ = -1, sideBarTotal_ = -1, sideBarPage_ = -1;
+    bool checkTodo_ = false;  // (the checklist: only the rects without mod tiles)
     stardraft::terrainrules::Rules doc_;  // (the rules being edited: each tileset opened, or the loaded file's)
     std::filesystem::path file_;
     bool dirty_ = false, wide_ = true;  // (wide_: a pick fills both halves: the tile and the next one in its row)
@@ -1266,6 +1342,49 @@ private:
     std::map<uint16_t, std::unique_ptr<draw::Bitmap>> chips_;  // (the tray's tiles, one each)
 };
 
+// The sidebar: a header per family, a row per terrain (its swatch, its name, "family · done/total", a progress bar, a
+// draft mark), the game's borders last; the shown one in the selection colour.
+void IsomRulesView::paintSide(draw::Canvas& c) {
+    const int pad = scale(6);
+    c.fill(side_, kPanel);
+    sideScroll_ = std::clamp(sideScroll_, 0, std::max(0, sideTotal_ - side_.height()));
+    if (sideTotal_ != sideBarTotal_ || side_.height() != sideBarPage_) sideBar_.setRange(sideTotal_, side_.height()), sideBarTotal_ = sideTotal_, sideBarPage_ = side_.height();
+    sideBar_.setPos(sideScroll_);
+    c.pushClip(side_);
+    const draw::Color kDraft = 0x50AAF0;  // (COLORREF: a warm orange)
+    for (size_t i = 0; i < sideRows_.size(); ++i) {
+        const SideRow& r = sideRows_[i];
+        const int y = side_.top + r.y - sideScroll_;
+        if (y + r.h < side_.top || y > side_.bottom) continue;
+        if (r.value == kSideHeader) {
+            c.fill({side_.left, y + r.h - 1, side_.right, y + r.h}, kBorder);
+            c.text({side_.left + pad, y, side_.right - pad, y + r.h}, r.header, kDim, draw::kMiddle);
+            continue;
+        }
+        const bool selected = (sel_ >= 0 && r.value == sel_) || (std_ >= 0 && r.value == -1 - std_);
+        if (selected) c.fill({side_.left, y, side_.right, y + r.h}, kSel);
+        else if (int(i) == sideHover_) c.fill({side_.left, y, side_.right, y + r.h}, kCtlHot);
+        const int sw = r.h - scale(12);
+        drawTile(c, swatchOf(r.value), {side_.left + pad, y + scale(6), side_.left + pad + sw, y + scale(6) + sw});
+        const int x = side_.left + pad + sw + scale(8);
+        if (r.value < 0) {
+            c.text({x, y, side_.right - pad, y + r.h}, stdName(-1 - r.value), selected ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+            continue;
+        }
+        const auto& m = rules().terrains[size_t(r.value)].t;
+        const auto [done, total] = stardraft::terrainrules::completeness(tileset_, m);
+        c.text({x, y + scale(4), side_.right - pad - (m.draft ? scale(40) : 0), y + scale(22)}, widen(m.name), selected ? kText : kText, draw::kMiddle | draw::kEllipsis);
+        if (m.draft) c.text({side_.right - pad - scale(38), y + scale(4), side_.right - pad, y + scale(22)}, L"draft", kDraft, draw::kMiddle | draw::kRight);
+        c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, isomrules::familyName(familyOfValue(r.value)) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" rects",
+               kDim, draw::kMiddle | draw::kEllipsis);
+        const int bx0 = x, bx1 = side_.right - pad, by = y + r.h - scale(5);  // (the progress: done of total)
+        c.fill({bx0, by, bx1, by + scale(2)}, kBorder);
+        if (total > 0) c.fill({bx0, by, bx0 + (bx1 - bx0) * done / total, by + scale(2)}, done == total ? kAccent : kDraft);
+    }
+    c.popClip();
+    c.fill({side_.left, side_.top, side_.right, side_.top + 1}, kBorder);
+}
+
 void IsomRulesView::layout() {
     const int pad = scale(8), barH = scale(stardraft::kit::kButtonH), W = width(), H = height();
     int x = pad;
@@ -1276,13 +1395,16 @@ void IsomRulesView::layout() {
     x += scale(8);
     put(row_, scale(160));
     x += scale(8);
-    put(refPick_, scale(150)), put(refShow_, scale(80));
+    put(refPick_, scale(150)), put(refShow_, scale(64));
+    refOpacity_.setFrame({x, pad + scale(4), x + scale(84), pad + barH - scale(4)}), x += scale(84) + pad;
     barEnd_ = x;
     const int top = pad * 2 + barH, leftW = scale(280);
     if (!paletteW_) paletteW_ = 16 * scale(32) + scale(24);
     paletteW_ = std::clamp(paletteW_, scale(200), std::max(scale(200), W - leftW - scale(300)));
     search_.setFrame({pad, top, leftW - pad, top + barH});
-    list_.setFrame({pad, top + barH + pad, leftW - pad, H - pad * 2 - barH});
+    side_ = {pad, top + barH + pad, leftW - pad - scale(stardraft::kit::kScrollBarW), H - pad * 2 - barH};
+    sideBar_.setFrame({side_.right, side_.top, side_.right + scale(stardraft::kit::kScrollBarW), side_.bottom});
+    revealSideRow();
     newTerrain_.setFrame({pad, H - pad - barH, leftW - pad, H - pad});
 
     const int barW = scale(stardraft::kit::kScrollBarW);
@@ -1315,6 +1437,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
            verifiedText() + (file_.empty() ? std::wstring(L"(not saved)") : file_.filename().wstring()) + (dirty_ ? L"  \x25cf" : L""), dirty_ ? kAccent : kDim,
            draw::kMiddle | draw::kRight | draw::kEllipsis);
     const auto* t = terrain();
+    paintSide(c);
     c.text({puzzle_.left + pad, puzzle_.top - scale(stardraft::kit::kButtonH) - pad, puzzle_.left + scale(88), puzzle_.top - pad}, L"Bordering", kDim,
            draw::kMiddle);
     if (t || std_ >= 0)
@@ -1322,19 +1445,20 @@ void IsomRulesView::paint(draw::Canvas& c) {
                 puzzle_.top - pad},
                t ? isomrules::familyName(family_) + L" \x00b7 " + templateName() + L" \x00b7 id " + std::to_wstring(t->t.id) + L" \x00b7 " +
                        std::to_wstring(stardraft::terrainrules::completeness(tileset_, t->t).first) + L"/" + std::to_wstring(tmpl_.size()) + L" rects" +
-                       (t->t.draft ? L" \x00b7 draft" : L"") + (refOf(t) >= 0 && refMode_ ? L" \x00b7 ref " + stdName(refOf(t)) : std::wstring())
+                       (t->t.draft ? L" \x00b7 draft" : L"") + (refOf(t) >= 0 && refOn_ ? L" \x00b7 ref " + stdName(refOf(t)) + L" " + std::to_wstring(refOpacity_.value()) + L" %" : std::wstring())
                  : isomrules::familyName(family_) + L" \x00b7 " + std::to_wstring(tmpl_.size()) + L" rects \x00b7 game border \x00b7 read-only",
                kDim, draw::kMiddle | draw::kRight | draw::kEllipsis);
     // The puzzle: the examples, fit to the area; NULL holes framed red, the target orange, the hovered piece's places.
     c.fill(puzzle_, 0x151515);
     if (picture_ && (t || std_ >= 0)) {
-        draw::Bitmap& pic = refMode_ == 2 && refPicture_ ? *refPicture_ : refMode_ == 1 && blendPicture_ ? *blendPicture_ : *picture_;
+        const bool refShown = refOn_ && refPicture_ != nullptr, refAlone = refShown && refOpacity_.value() >= 100;
         zoom_ = std::min(float(puzzle_.width() - 2 * pad) / picture_->width(), float(puzzle_.height() - 2 * pad) / picture_->height());
         zoom_ = std::max(0.1f, std::min(zoom_, 2.0f));
         c.pushClip(puzzle_);
         const int pw = int(picture_->width() * zoom_), ph = int(picture_->height() * zoom_);
         const int ox = puzzle_.left + (puzzle_.width() - pw) / 2, oy = puzzle_.top + (puzzle_.height() - ph) / 2;
-        c.bitmap(pic, {0, 0, pic.width(), pic.height()}, {ox, oy, ox + pw, oy + ph});
+        c.bitmap(*picture_, {0, 0, picture_->width(), picture_->height()}, {ox, oy, ox + pw, oy + ph});
+        if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
         const float ts = 32 * zoom_;
         auto rectOf = [&](const Place& p) {
             const int x = ox + int((p.tx - crop_.left) * ts), y = oy + int((p.ty - crop_.top) * ts);
@@ -1346,7 +1470,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
             return half ? draw::Rect{(r.left + r.right) / 2, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, (r.left + r.right) / 2, r.bottom};
         };
         for (int h : holes_) {  // (the halves with no tile: black, framed red)
-            if (!t || refMode_ == 2) break;
+            if (!t || refAlone) break;
             const Place& p = places_[size_t(h)];
             if (p.piece < 0 || p.piece >= int(t->t.pieces.size())) continue;
             const auto& q = t->t.pieces[size_t(p.piece)];
@@ -1354,7 +1478,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
                 if (isomrules::nullHalf(q[size_t(1 + half)])) drawTile(c, 0, halfOf(rectOf(p), half), uint32_t(q[0]) + uint32_t(half));
             c.frame(rectOf(p), 0x4650E6, scale(2));
         }
-        if (t && refMode_ != 2)
+        if (t && !refAlone)
             for (const Place& p : places_)  // (a borrowed rect: the game's own tiles, a blue frame)
                 if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && stardraft::terrainrules::stateOf(t->t.pieces[size_t(p.piece)]) == isomrules::PieceState::Borrowed)
                     c.frame(rectOf(p), kBorrowed, scale(1));
@@ -1380,6 +1504,11 @@ void IsomRulesView::paint(draw::Canvas& c) {
         c.text({x0 + scale(180), check_.top - checkScroll_ + scale(2), x0 + scale(180) + 2 * th, check_.top - checkScroll_ + scale(22)}, L"Template", kDim, draw::kMiddle);
         c.text({x0 + scale(180) + 2 * th + scale(24), check_.top - checkScroll_ + scale(2), x0 + scale(180) + 4 * th + scale(24), check_.top - checkScroll_ + scale(22)},
                L"Mod", kDim, draw::kMiddle);
+        {  // (the filter: every rect, or only those without mod tiles; a click or F)
+            const std::wstring f = checkTodo_ ? L"to do \x00b7 all (F)" : L"all \x00b7 to do (F)";
+            c.text({check_.right - scale(130), check_.top - checkScroll_ + scale(2), check_.right - pad, check_.top - checkScroll_ + scale(22)}, f, checkTodo_ ? kAccent : kDim,
+                   draw::kMiddle | draw::kRight);
+        }
         for (size_t i = 0; i < rows.size(); ++i) {
             const int y = check_.top + scale(24) + int(i) * rh - checkScroll_;
             if (y + rh < check_.top || y > check_.bottom) continue;
@@ -1490,6 +1619,20 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         invalidate();
         return true;
     }
+    if (e.kind == draw::MouseKind::Wheel && side_.contains(e.pt)) {
+        sideScroll_ = std::clamp(sideScroll_ - int(draw::wheelDistance(e, float(scale(44) * 2))), 0, std::max(0, sideTotal_ - side_.height()));
+        invalidate();
+        return true;
+    }
+    if (e.kind == draw::MouseKind::Down && e.button == 0 && side_.contains(e.pt)) {  // (a terrain's row: shown)
+        const int sy = e.pt.y - side_.top + sideScroll_;
+        for (const SideRow& r : sideRows_)
+            if (r.value != kSideHeader && sy >= r.y && sy < r.y + r.h) {
+                if (!loading_) selectValue(r.value);
+                return true;
+            }
+        return true;
+    }
     if (e.kind == draw::MouseKind::Wheel && check_.contains(e.pt)) {
         checkScroll_ = std::max(0, checkScroll_ - int(draw::wheelDistance(e, float(scale(kCheckRow) * 2))));
         invalidate();
@@ -1539,6 +1682,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         int half = 0;
         const int i = placeAt(e.pt, half), h = i >= 0 ? places_[size_t(i)].piece : -1;
         if (h != hover_) hover_ = h, invalidate();
+        int sh = -1;
+        if (side_.contains(e.pt))
+            for (size_t i = 0; i < sideRows_.size(); ++i)
+                if (const int sy = e.pt.y - side_.top + sideScroll_; sideRows_[i].value != kSideHeader && sy >= sideRows_[i].y && sy < sideRows_[i].y + sideRows_[i].h) sh = int(i);
+        if (sh != sideHover_) sideHover_ = sh, invalidate();
         const int cdy = e.pt.y - check_.top - scale(24) + checkScroll_;
         const int ch = check_.contains(e.pt) && cdy >= 0 ? cdy / scale(kCheckRow) : -1;
         if (ch != checkHover_) checkHover_ = ch, invalidate();
@@ -1557,6 +1705,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     }
     if (check_.contains(e.pt)) {  // (a row of the checklist: its rect is the target; the half: the tile clicked)
         const int dy = e.pt.y - check_.top - scale(24) + checkScroll_;
+        if (dy < 0 && e.pt.x >= check_.right - scale(130)) return toggleTodo(), true;
         const std::vector<CheckRow> rows = checkRows();
         if (dy >= 0 && dy / scale(kCheckRow) < int(rows.size())) {
             const CheckRow& row = rows[size_t(dy / scale(kCheckRow))];
