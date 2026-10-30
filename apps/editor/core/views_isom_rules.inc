@@ -22,6 +22,23 @@ int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::
 
 namespace isomrules {
 
+// A header's dropdown: Up, Down and the wheel do not step it while its list is closed (they are the editor's: the rects,
+// the palette), so a pick leaves no trap for the keys.
+struct HeaderPick final : stardraft::kit::Dropdown {
+    HeaderPick() : Dropdown({}, -1) { wheelSteps = false; }
+    bool key(const draw::KeyEvent& e) override {
+        if (!listOpen() && (e.key == draw::Key::Up || e.key == draw::Key::Down) && !(e.mods & draw::kAlt)) return false;
+        return Dropdown::key(e);
+    }
+};
+// The menu bar: Up and Down go to the editor while no menu is open (the bar keeps the focus after Escape).
+struct EditorMenuBar final : stardraft::kit::MenuBar {
+    bool key(const draw::KeyEvent& e) override {
+        if (openIndex() < 0 && (e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return false;
+        return MenuBar::key(e);
+    }
+};
+
 using stardraft::terrainrules::Family;
 using stardraft::terrainrules::PieceState;
 using stardraft::terrainrules::TemplateRect;
@@ -169,6 +186,7 @@ public:
     // loads on the worker: the window shows Loading until then).
     void open() {
         const AppState& app = shellState();
+        title_.clear();  // (a new window: its title is set again)
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
         if (doc_.tilesets.empty()) openEra(app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
@@ -198,6 +216,7 @@ public:
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override;
+    void paintBody(draw::Canvas& c);
     void paintSide(draw::Canvas& c);
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
@@ -554,7 +573,7 @@ private:
                 if (in->gen != buildGen_) return;
                 building_ = false;
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
-                ids_ = std::move(out->ids);
+                ids_ = std::move(out->ids), idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
@@ -1349,7 +1368,7 @@ private:
     std::unique_ptr<draw::Bitmap> refPicture_;
     stardraft::kit::ScrollBar palBar_;  // (the tiles' scroll bar, at the right edge)
     int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
-    stardraft::kit::MenuBar bar_;
+    isomrules::EditorMenuBar bar_;
     std::string menuKey_;  // (the state the menus were made for: updateMenus)
     std::wstring status_, title_;  // (the status bar's message; the window's title)
     static int statusH() { return scale(26); }
@@ -1360,7 +1379,7 @@ private:
     stardraft::kit::Button newTerrain_;
     stardraft::kit::CheckBox refShow_;
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
-    stardraft::kit::Dropdown todoPick_{{}, -1}, minePick_{{}, -1}, pairPick_{{}, -1};
+    isomrules::HeaderPick todoPick_, minePick_, pairPick_;
     void syncButtons() {
         if (todoPick_.value() != (checkTodo_ ? 1 : 0)) todoPick_.setValue(checkTodo_ ? 1 : 0);
         if (minePick_.value() != (palMine_ ? 1 : 0)) minePick_.setValue(palMine_ ? 1 : 0);
@@ -1430,17 +1449,17 @@ private:
     // Every edge between two columns drags: the width of the column beside it that is not the flexible one (the example,
     // else the last column shown, takes what the others leave). Kept in the layout settings (Layout/IsomColW<c>, unscaled).
     struct Edge {
-        int x = 0, col = 0;
-        bool right = false;  // (the column is right of the edge: dragging right makes it narrower)
+        int x = 0, a = 0, b = 0;  // (the columns left and right of it)
     };
     std::vector<Edge> edges_;
     static constexpr int kDefaultW[4] = {260, 300, 600, 16 * 26 + 24 + 14};  // (unscaled)
     int colW_[4] = {260, 300, 600, 16 * 26 + 24 + 14};
-    int dragEdge_ = -1;
+    int dragEdge_ = -1, hoverEdge_ = -1, flex_ = -1, colsTop_ = 0;
+    static int minColW(bool flex) { return scale(flex ? 300 : 120); }
     int edgeAt(draw::Point p) const {
-        if (p.y < colHead_[colOrder_[0]].top && p.y < colHead_[colOrder_[3]].top) return -1;
+        if (p.y < colsTop_ || p.y >= height() - statusH()) return -1;  // (the columns' height only)
         for (size_t i = 0; i < edges_.size(); ++i)
-            if (std::abs(p.x - edges_[i].x) < scale(4)) return int(i);
+            if (std::abs(p.x - edges_[i].x) <= scale(4)) return int(i);
         return -1;
     }
     bool laidOut_ = false;
@@ -1600,10 +1619,17 @@ void IsomRulesView::layout() {
     int flex = colShown_[kColExample] ? int(kColExample) : -1;
     for (int i = 3; i >= 0 && flex < 0; --i)
         if (colShown_[colOrder_[i]]) flex = colOrder_[i];
-    int fixed = 0;
+    flex_ = flex, colsTop_ = top;
+    int fixed = 0, shownFixed = 0;
     for (int c = 0; c < 4; ++c)
-        if (colShown_[c] && c != flex) fixed += scale(colW_[c]);
-    const int flexW = std::max(scale(200), W - fixed);
+        if (colShown_[c] && c != flex) fixed += scale(colW_[c]), ++shownFixed;
+    // (a window too narrow for the widths: the fixed columns give way in proportion, the flexible one keeps its least)
+    const int room = std::max(shownFixed * minColW(false), W - minColW(true));
+    auto widthOf = [&](int c) { return fixed > room ? std::max(minColW(false), scale(colW_[c]) * room / fixed) : scale(colW_[c]); };
+    int used = 0;
+    for (int c = 0; c < 4; ++c)
+        if (colShown_[c] && c != flex) used += widthOf(c);
+    const int flexW = std::max(minColW(true), W - used);
     int cx = 0;
     edges_.clear();
     int prev = -1;
@@ -1613,8 +1639,8 @@ void IsomRulesView::layout() {
             colHead_[c] = colBody_[c] = {0, 0, 0, 0};
             continue;
         }
-        if (prev >= 0) edges_.push_back(prev != flex ? Edge{cx, prev, false} : Edge{cx, c, true});
-        const int w = c == flex ? flexW : scale(colW_[c]);
+        if (prev >= 0) edges_.push_back({cx, prev, c});
+        const int w = c == flex ? flexW : widthOf(c);
         colHead_[c] = {cx, top, cx + w, top + headH}, colBody_[c] = {cx, top + headH, cx + w, H - statusH()};
         cx += w, prev = c;
     }
@@ -1624,8 +1650,8 @@ void IsomRulesView::layout() {
         const draw::Rect& t = colHead_[kColTiles];
         todoPick_.setFrame(r.width() > 0 ? draw::Rect{std::max(r.left + scale(70), r.right - pad - bw), by, r.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
         minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
-        const int pr = minePick_.frame().left - pad;
-        pairPick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), pr - scale(120)), by, pr, by + barH} : draw::Rect{0, 0, 0, 0});
+        const int pr = minePick_.frame().left - pad;  // (the pair choice when there is room for it; else in Edit and T only)
+        pairPick_.setFrame(t.width() > 0 && pr - scale(120) >= t.left + scale(60) ? draw::Rect{pr - scale(120), by, pr, by + barH} : draw::Rect{0, 0, 0, 0});
     }
     const draw::Rect none{0, 0, 0, 0};
     {  // Terrains: the search, the list with its bar, New terrain at the bottom.
@@ -1665,6 +1691,17 @@ void IsomRulesView::layout() {
 }
 
 void IsomRulesView::paint(draw::Canvas& c) {
+    paintBody(c);
+    // The lines between the columns, over everything: the one under the mouse or dragged is wide and in the accent.
+    for (size_t i = 0; i < edges_.size(); ++i) {
+        const int x = edges_[i].x;
+        const bool hot = int(i) == dragEdge_ || (dragEdge_ < 0 && int(i) == hoverEdge_);
+        if (hot) c.fill({x - scale(2), colsTop_, x + scale(2), height() - statusH()}, kAccent);
+        else c.fill({x, colsTop_, x + 1, height() - statusH()}, kBorderHot);
+    }
+}
+
+void IsomRulesView::paintBody(draw::Canvas& c) {
     const int W = width(), H = height(), pad = scale(8);
     const draw::Color kBorrowed = 0xFFA05A, kHole = 0x4650E6;  // (COLORREF: a blue, a red)
     (void)H;
@@ -1691,7 +1728,6 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const draw::Rect& h = colHead_[col];
         c.fill(h, kPanel);
         c.fill({h.left, h.bottom - 1, h.right, h.bottom}, kBorder);
-        if (h.left > 0) c.fill({h.left, h.top, h.left + 1, H - statusH()}, kBorder);
         c.text({h.left + pad, h.top, h.right - pad, h.bottom}, colName(col), kText, draw::kMiddle);
         std::wstring right;
         draw::Color tone = kDim;
@@ -1699,7 +1735,6 @@ void IsomRulesView::paint(draw::Canvas& c) {
         else if (col == kColExample && t) right = isomrules::familyName(family_) + L" \x00b7 " + templateName();
         if (!right.empty()) c.text({h.left + pad, h.top, h.right - pad, h.bottom}, right, tone, draw::kMiddle | draw::kRight | draw::kEllipsis);
     }
-    if (dragEdge_ >= 0 && dragEdge_ < int(edges_.size())) c.fill({edges_[size_t(dragEdge_)].x - 1, colHead_[colOrder_[0]].top, edges_[size_t(dragEdge_)].x + 1, H}, kBorderHot);
     if (side_.width() > 0) paintSide(c);
     if (puzzle_.width() > 0) {
         c.text({puzzle_.left + pad, puzzle_.top - scale(stardraft::kit::kButtonH) - pad, puzzle_.left + scale(88), puzzle_.top - pad}, L"Bordering", kDim, draw::kMiddle);
@@ -1724,8 +1759,6 @@ void IsomRulesView::paint(draw::Canvas& c) {
             const int x = ox + int((p.tx - crop_.left) * ts), y = oy + int((p.ty - crop_.top) * ts);
             return draw::Rect{x, y, x + int(2 * ts), y + int(ts)};
         };
-        for (const Place& p : places_)
-            if (frames_ && hover_ >= 0 && p.piece == hover_) c.frame(rectOf(p), kBorderHot, scale(1));
         auto halfOf = [](draw::Rect r, int half) {
             return half ? draw::Rect{(r.left + r.right) / 2, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, (r.left + r.right) / 2, r.bottom};
         };
@@ -1740,6 +1773,8 @@ void IsomRulesView::paint(draw::Canvas& c) {
         if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
         for (int h : holes_)  // (their red frames, over the reference)
             if (t && !refAlone && frames_) c.frame(rectOf(places_[size_t(h)]), 0x4650E6, scale(2));
+        for (const Place& p : places_)  // (the hovered rect's places, over the reference too)
+            if (frames_ && hover_ >= 0 && p.piece == hover_) c.frame(rectOf(p), kBorderHot, scale(1));
         if (t && !refAlone && frames_)
             for (const Place& p : places_)  // (a borrowed rect: the game's own tiles, a blue frame)
                 if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && stardraft::terrainrules::stateOf(t->t.pieces[size_t(p.piece)]) == isomrules::PieceState::Borrowed)
@@ -1939,18 +1974,20 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             return true;
         }
     }
-    if (dragEdge_ >= 0 && e.kind == draw::MouseKind::Move) {
-        const Edge& g = edges_[size_t(dragEdge_)];
-        const draw::Rect& b = colBody_[g.col];
-        const int w = g.right ? b.right - e.pt.x : e.pt.x - b.left;
-        colW_[g.col] = std::clamp(w * 100 / scale(100), 120, 4000);
+    if (dragEdge_ >= 0 && e.kind == draw::MouseKind::Move) {  // (a splitter: the two columns beside the edge, the others stay)
+        const Edge g = edges_[size_t(dragEdge_)];
+        const int left = colBody_[g.a].left, right = colBody_[g.b].right;
+        const int x = std::clamp(e.pt.x, left + minColW(g.a == flex_), right - minColW(g.b == flex_));
+        auto unscaled = [](int w) { return w * 100 / scale(100); };
+        if (g.a != flex_) colW_[g.a] = unscaled(x - left);
+        if (g.b != flex_) colW_[g.b] = unscaled(right - x);
         const int k = dragEdge_;
         layout(), invalidate();
         dragEdge_ = k < int(edges_.size()) ? k : -1;
         return true;
     }
     if (dragEdge_ >= 0 && e.kind == draw::MouseKind::Up) {
-        dragEdge_ = -1, saveWidths();
+        dragEdge_ = -1, hoverEdge_ = edgeAt(e.pt), saveWidths();
         if (host()) host()->capture(*this, false);
         invalidate();
         return true;
@@ -1988,7 +2025,12 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             if (places_[i].ty == ty && (tx == places_[i].tx || tx == places_[i].tx + 1)) return half = tx - places_[i].tx, int(i);
         return -1;
     };
+    if (e.kind == draw::MouseKind::Leave) {
+        if (idHover_ >= 0 || hoverEdge_ >= 0 || palHover_ >= 0) idHover_ = -1, hoverEdge_ = -1, palHover_ = -1, invalidate();
+        return false;
+    }
     if (e.kind == draw::MouseKind::Move) {
+        if (const int k = edgeAt(e.pt); k != hoverEdge_) hoverEdge_ = k, invalidate();
         int v = -1;
         if (palette_.contains(e.pt) && e.pt.x >= x0) {
             const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = palSubAt(e.pt.x);
