@@ -17,6 +17,7 @@
 const GameData* cmbwGameData(std::string& err);  // (core/cmbw.inc)
 void cmbwApplyTerrainOverride();
 void shellShowIsomRulesWindow();  // (the host: the window, once)
+int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (the host)
 
 namespace isomrules {
 
@@ -863,7 +864,7 @@ private:
         std::vector<int> hidden;
         for (int k = 0; k < 4; ++k)
             if (!colShown_[k]) hidden.push_back(k), all.push_back(std::wstring(L"Show ") + colName(k));
-        const int pick = shellContextMenu(all);
+        const int pick = shellContextMenuAt(menu_, {0, menu_.frame().bottom - menu_.frame().top}, all);  // (under the button)
         if (pick >= 15 && pick - 15 < int(hidden.size())) {
             setColumnShown(hidden[size_t(pick - 15)], true), saveColumns(), layout(), invalidate();
             return;
@@ -1310,7 +1311,7 @@ private:
     bool checkTodo_ = false;  // (the checklist: only the rects without mod tiles)
     stardraft::terrainrules::Rules doc_;  // (the rules being edited: each tileset opened, or the loaded file's)
     std::filesystem::path file_;
-    bool dirty_ = false, wide_ = true;  // (wide_: a pick fills both halves: the tile and the next one in its row)
+    bool dirty_ = false, wide_ = false;  // (wide_: a pick fills both halves: the tile and the next one in its row; T)
     int palHover_ = -1;  // (the tile under the mouse in the tiles)
     int barEnd_ = 0;  // (the bar's controls end: the file's name after them)
     stardraft::Tileset tileset_;
@@ -1379,12 +1380,12 @@ private:
         colShown_[c] = on;
     }
     // A header's right-click menu: move the column, hide it, show a hidden one.
-    void columnMenu(int c) {
+    void columnMenu(int c, draw::Point at) {
         std::vector<std::wstring> items = {L"Move left", L"Move right", L"Hide"};
         std::vector<int> hidden;
         for (int k = 0; k < 4; ++k)
             if (!colShown_[k]) hidden.push_back(k), items.push_back(std::wstring(L"Show ") + colName(k));
-        const int pick = shellContextMenu(items);
+        const int pick = shellContextMenuAt(*this, at, items);
         if (pick == 1) moveColumn(c, -1);
         else if (pick == 2) moveColumn(c, 1);
         else if (pick == 3) setColumnShown(c, false);
@@ -1766,7 +1767,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return true;
     }
     if (const int col = colAt(e.pt); col >= 0) {  // (a column's header: its switch at the right; the right button: its menu)
-        if (e.kind == draw::MouseKind::Up && e.button == 1) return columnMenu(col), true;
+        if (e.kind == draw::MouseKind::Up && e.button == 1) return columnMenu(col, e.pt), true;
         if (e.kind == draw::MouseKind::Down && e.button == 0 && e.pt.x >= colHead_[col].right - scale(120)) {
             if (col == kColTiles) togglePalMine();
             else if (col == kColRects) toggleTodo();

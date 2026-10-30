@@ -161,6 +161,10 @@ int shellContextMenu(const std::vector<std::wstring>& items) {
     if (!gRoot || !gHost) return 0;
     return sdlMenuPick(*gRoot, gHost->mouse(*gRoot), items, -1, true) + 1;
 }
+// The same at `at` of `from` (a view of another window: the menu opens in that window).
+int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items) {
+    return sdlMenuPick(from, at, items, -1, true) + 1;
+}
 void palettePanelsOwner(int i);
 void palettePanelsReveal(int value);
 // (the owner dropdowns show player i, the side bar's and the palette windows'; no change is sent)
