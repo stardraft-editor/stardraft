@@ -21,6 +21,9 @@ inline const wchar_t* kindName(Kind k) {
     return k == Kind::Field ? L"field" : k == Kind::Path ? L"path" : k == Kind::Wall ? L"wall" : L"?";
 }
 inline bool isNull(const std::array<uint16_t, 3>& p) { return p[1] == 0 && p[2] == 1; }
+// A half with no tile yet (the null tile's subtile: 0 or 1); a piece with one: not done.
+inline bool nullHalf(uint16_t v) { return v <= 1; }
+inline bool anyNull(const std::array<uint16_t, 3>& p) { return nullHalf(p[1]) || nullHalf(p[2]); }
 
 // A picture of map tiles (SD), as a bitmap (each tile 32 x 32).
 inline std::unique_ptr<draw::Bitmap> tilesBitmap(const stardraft::Tileset& ts, const std::vector<uint16_t>& tiles, int w, int h) {
@@ -94,7 +97,6 @@ public:
           save_(L"Save", stardraft::kit::Tone::Primary, [this] { save(false); }),
           saveAs_(L"Save as\x2026", stardraft::kit::Tone::Normal, [this] { save(true); }),
           nextNull_(L"Next null (N)", stardraft::kit::Tone::Normal, [this] { nextNull(); }),
-          mode_(L"Rect", stardraft::kit::Tone::Normal, [this] { rectMode_ = !rectMode_, mode_.setText(rectMode_ ? L"Rect" : L"Tile"); }),
           newTerrain_(L"New terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
         for (int e = 0; e < 8; ++e) eras.push_back({widen(tilesetName(uint16_t(e)))});
@@ -110,12 +112,11 @@ public:
         };
         list_.onSelect = [this] { selectTerrain(); };
         ground_.onChange = [this](int i) { setGround(i); };
-        mode_.setTip(L"Rect: both halves (subtiles 2v, 2v+1). Tile: one half");
         row_.searchable = true, row_.wheelSteps = false;
         row_.setTip(L"Go to a row of the tiles (a group: type its number or its terrain). Ctrl+click a rect of the example: its tiles");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
-        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &mode_, &row_, &search_,
+        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &row_, &search_,
                                                                &list_, &newTerrain_, &ground_, &palBar_})
             add(*v, {0, 0, 0, 0});
     }
@@ -206,7 +207,7 @@ private:
         return r && sel_ >= 0 && sel_ < int(r->terrains.size()) ? &r->terrains[size_t(sel_)] : nullptr;
     }
     static int nulls(const isomrules::ModTerrain& m) {
-        return int(std::count_if(m.pieces.begin(), m.pieces.end(), [](const auto& p) { return isomrules::isNull(p); }));
+        return int(std::count_if(m.pieces.begin(), m.pieces.end(), [](const auto& p) { return isomrules::anyNull(p); }));
     }
 
     // The tileset of an era with the rules files (shipped, override), or without the override (`plain`). (On the worker.)
@@ -420,11 +421,11 @@ private:
                 const bool right = it->second & 1;
                 if (!right) {
                     seen.insert(q[0]);
-                    if (isomrules::isNull(q)) out.holes.push_back(int(out.places.size()));
+                    if (isomrules::anyNull(q)) out.holes.push_back(int(out.places.size()));
                     out.places.push_back({tx, ty, int(k)});
                     x0 = std::min(x0, tx), y0 = std::min(y0, ty), x1 = std::max(x1, tx + 1), y1 = std::max(y1, ty);
                 }
-                v = isomrules::isNull(q) ? 0 : q[right ? 2 : 1];
+                v = isomrules::nullHalf(q[right ? 2 : 1]) ? 0 : q[right ? 2 : 1];
             }
         for (size_t k = 0; k < t->t.pieces.size(); ++k)  // (its set's pieces and its gaps, not its fill: kindOf's rects)
             if (const uint16_t g = t->t.pieces[k][0]; (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) && !seen.count(g) &&
@@ -471,11 +472,8 @@ private:
         auto& m = rules().terrains[size_t(sel_)].t;
         if (target_ >= int(m.pieces.size())) return;
         auto p = m.pieces[size_t(target_)];
-        const bool wasNull = isomrules::isNull(p);
-        if (rectMode_) p[1] = uint16_t(value & ~1u), p[2] = uint16_t(value | 1u);
-        else if (targetHalf_ == 0) p[1] = value, p[2] = wasNull ? uint16_t(value | 1u) : p[2];
-        else p[2] = value, p[1] = wasNull ? uint16_t(value & ~1u) : p[1];
-        if (wasNull && size_t(target_) >= m.pieces.size() - m.gapPieces) {  // (a gap's piece is one of its set's now)
+        p[size_t(1 + targetHalf_)] = value;  // (the half only: the other half's tile is the user's choice too)
+        if (!isomrules::anyNull(p) && size_t(target_) >= m.pieces.size() - m.gapPieces) {  // (a gap's piece with both tiles: one of its set's now)
             m.pieces.erase(m.pieces.begin() + target_);
             m.pieces.insert(m.pieces.begin() + long(m.setPieces), p);
             target_ = int(m.setPieces), ++m.setPieces, --m.gapPieces;
@@ -483,9 +481,10 @@ private:
         } else {
             m.pieces[size_t(target_)] = p;
         }
+        if (isomrules::nullHalf(p[size_t(2 - targetHalf_)])) targetHalf_ = 1 - targetHalf_;  // (next: the other half, still NULL)
         changed();
-        setMessage(L"Piece " + std::to_wstring(p[0]) + L": " + std::to_wstring(p[1] >> 4) + L"." + std::to_wstring(p[1] & 15) + L" " +
-                   std::to_wstring(p[2] >> 4) + L"." + std::to_wstring(p[2] & 15));
+        auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
+        setMessage(L"Piece " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]));
     }
     void changed() {
         dirty_ = true;
@@ -498,11 +497,11 @@ private:
         std::vector<int> nulls;
         for (int h : holes_) nulls.push_back(places_[size_t(h)].piece);
         for (int a : absent_)
-            if (isomrules::isNull(t->t.pieces[size_t(a)])) nulls.push_back(a);
+            if (isomrules::anyNull(t->t.pieces[size_t(a)])) nulls.push_back(a);
         std::sort(nulls.begin(), nulls.end());
         if (nulls.empty()) return setMessage(L"No null left");
         auto it = std::upper_bound(nulls.begin(), nulls.end(), target_);
-        target_ = it == nulls.end() ? nulls.front() : *it, targetHalf_ = 0;
+        target_ = it == nulls.end() ? nulls.front() : *it, targetHalf_ = isomrules::nullHalf(t->t.pieces[size_t(target_)][1]) ? 0 : 1;
         invalidate();
     }
 
@@ -614,12 +613,12 @@ private:
     stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1};
     stardraft::kit::ScrollBar palBar_;  // (the tiles' scroll bar, at the right edge)
     int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
-    stardraft::kit::Button load_, loadDefault_, save_, saveAs_, nextNull_, mode_, newTerrain_;
+    stardraft::kit::Button load_, loadDefault_, save_, saveAs_, nextNull_, newTerrain_;
     stardraft::kit::TextField search_;
     stardraft::kit::ListView list_;
     stardraft::terrainrules::Rules doc_;  // (the rules being edited: each tileset opened, or the loaded file's)
     std::filesystem::path file_;
-    bool dirty_ = false, rectMode_ = true;
+    bool dirty_ = false;
     stardraft::Tileset tileset_;
     std::vector<uint16_t> groundIds_;
     std::vector<int> shown_;
@@ -646,7 +645,7 @@ void IsomRulesView::layout() {
     auto put = [&](draw::View& v, int w) { v.setFrame({x, pad, x + w, pad + barH}), x += w + pad; };
     put(era_, scale(150)), put(load_, scale(80)), put(loadDefault_, scale(110)), put(save_, scale(70)), put(saveAs_, scale(90));
     x += scale(20);
-    put(nextNull_, scale(110)), put(mode_, scale(60));
+    put(nextNull_, scale(110));
     x += scale(20);
     put(row_, scale(240));
     const int top = pad * 2 + barH, leftW = scale(280);
@@ -696,13 +695,19 @@ void IsomRulesView::paint(draw::Canvas& c) {
         };
         for (const Place& p : places_)
             if (hover_ >= 0 && p.piece == hover_) c.frame(rectOf(p), kBorderHot, scale(1));
-        for (int h : holes_) c.fill(rectOf(places_[size_t(h)]), 0x000000), c.frame(rectOf(places_[size_t(h)]), 0x4650E6, scale(2));
+        auto halfOf = [](draw::Rect r, int half) {
+            return half ? draw::Rect{(r.left + r.right) / 2, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, (r.left + r.right) / 2, r.bottom};
+        };
+        for (int h : holes_) {  // (the halves with no tile: black, framed red)
+            const Place& p = places_[size_t(h)];
+            if (p.piece < 0 || p.piece >= int(t->t.pieces.size())) continue;
+            const auto& q = t->t.pieces[size_t(p.piece)];
+            for (int half = 0; half < 2; ++half)
+                if (isomrules::nullHalf(q[size_t(1 + half)])) c.fill(halfOf(rectOf(p), half), 0x000000);
+            c.frame(rectOf(p), 0x4650E6, scale(2));
+        }
         for (const Place& p : places_)
-            if (p.piece == target_ && target_ >= 0) {
-                draw::Rect r = rectOf(p);
-                if (!rectMode_) r = targetHalf_ ? draw::Rect{(r.left + r.right) / 2, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, (r.left + r.right) / 2, r.bottom};
-                c.frame(r, kAccent, scale(2));
-            }
+            if (p.piece == target_ && target_ >= 0) c.frame(halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
         c.popClip();
     } else {
         c.text(puzzle_, loading_ ? L"Loading the tileset\x2026" : building_ ? L"Painting the example\x2026" : t ? L"No picture (the mod's data?)" : L"Select a terrain",
@@ -718,9 +723,15 @@ void IsomRulesView::paint(draw::Canvas& c) {
         for (int a : absent_) {
             const auto& p = t->t.pieces[size_t(a)];
             const draw::Rect r{x, tray_.top + pad, x + scale(70), tray_.top + scale(28)};
-            c.fill(r, isomrules::isNull(p) ? 0x000000 : kPanel);
-            c.frame(r, a == target_ ? kAccent : isomrules::isNull(p) ? 0x4650E6 : kBorder, scale(1));
-            c.text(r, std::to_wstring(p[0]), isomrules::isNull(p) ? draw::Color(0xE0E0E0) : kText, draw::kCenter | draw::kMiddle);
+            const int mid = (r.left + r.right) / 2;
+            for (int half = 0; half < 2; ++half)  // (a half each: black while it has no tile)
+                c.fill(half ? draw::Rect{mid, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, mid, r.bottom},
+                       isomrules::nullHalf(p[size_t(1 + half)]) ? 0x000000 : kPanel);
+            c.fill({mid, r.top, mid + 1, r.bottom}, kBorder);
+            c.frame(r, isomrules::anyNull(p) ? 0x4650E6 : kBorder, scale(1));
+            if (a == target_)
+                c.frame(targetHalf_ ? draw::Rect{mid, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, mid, r.bottom}, kAccent, scale(2));
+            c.text(r, std::to_wstring(p[0]), isomrules::anyNull(p) ? draw::Color(0xE0E0E0) : kText, draw::kCenter | draw::kMiddle);
             x += scale(76);
             if (x > tray_.right - scale(76)) break;
         }
@@ -754,7 +765,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
     if (t && target_ >= 0 && target_ < int(t->t.pieces.size()))
         for (int half = 1; half <= 2; ++half) {
             const uint16_t v = t->t.pieces[size_t(target_)][size_t(half)];
-            if (isomrules::isNull(t->t.pieces[size_t(target_)])) break;
+            if (isomrules::nullHalf(v)) continue;
             const int y = palette_.top + int(v >> 4) * cell - palScroll_, x = x0 + int(v & 15) * cell;
             c.frame({x, y, x + cell, y + cell}, kAccent, scale(2));
         }
@@ -810,15 +821,16 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         target_ = places_[size_t(placeAt(e.pt, half))].piece, targetHalf_ = half;
         if (e.mods & draw::kCtrl) {  // (its tiles in the palette: the half clicked)
             const auto& q = t->t.pieces[size_t(target_)];
-            if (isomrules::isNull(q)) setMessage(L"Rect " + std::to_wstring(q[0]) + L": NULL, no tiles");
+            if (isomrules::nullHalf(q[size_t(1 + half)])) setMessage(L"Rect " + std::to_wstring(q[0]) + L": this half is NULL, no tile");
             else showRow(q[1 + half] >> 4, q[1 + half]);
         }
         invalidate();
         return true;
     }
     if (tray_.contains(e.pt)) {  // (a rect that the examples do not show)
-        const int k = (e.pt.x - tray_.left - scale(120)) / scale(76);
-        if (k >= 0 && k < int(absent_.size())) target_ = absent_[size_t(k)], targetHalf_ = 0, invalidate();
+        const int k = (e.pt.x - tray_.left - scale(120)) / scale(76), in = (e.pt.x - tray_.left - scale(120)) % scale(76);
+        if (k >= 0 && k < int(absent_.size()) && in < scale(70))  // (the chip's half that was clicked)
+            target_ = absent_[size_t(k)], targetHalf_ = in >= scale(35) ? 1 : 0, invalidate();
         return true;
     }
     if (palette_.contains(e.pt) && e.pt.x >= x0) {
@@ -839,10 +851,8 @@ std::wstring IsomRulesView::tip(draw::Point p) {
     }
     if (hover_ >= 0 && hover_ < int(t->t.pieces.size())) {
         const auto& q = t->t.pieces[size_t(hover_)];
-        return L"rect " + std::to_wstring(q[0]) + L" \x2192 " +
-               (isomrules::isNull(q) ? std::wstring(L"NULL")
-                                     : std::to_wstring(q[1] >> 4) + L"." + std::to_wstring(q[1] & 15) + L" " + std::to_wstring(q[2] >> 4) + L"." +
-                                           std::to_wstring(q[2] & 15));
+        auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
+        return L"rect " + std::to_wstring(q[0]) + L" \x2192 " + half(q[1]) + L" " + half(q[2]);
     }
     return {};
 }

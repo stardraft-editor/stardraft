@@ -1161,9 +1161,9 @@ def check_options_ctrltab(output):
 
 def check_isom_rules(output):
     """None when the editor shows the terrain with its NULL holes and the palette's tile goes into the hole that was clicked."""
-    if "isom rules: Structure (Halfsphalt), 16 null, 2 holes in the examples" not in output:
-        return "no terrain with 16 null and 2 holes"
-    return None if re.search(r"^click 1020,110: .*Piece \d+: 2\.0 2\.1", output, re.M) else "the tile did not go into the hole"
+    if "isom rules: Structure (Halfsphalt), 16 null, 6 holes in the examples" not in output:
+        return "no terrain with 16 null and 6 holes"
+    return None if re.search(r"^click 1020,110: .*Piece \d+: (2\.0 NULL|NULL 2\.0)", output, re.M) else "the tile did not go into the hole's half (only)"
 
 
 def check_dialog_cycle(want, skip=0):
