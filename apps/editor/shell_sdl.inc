@@ -634,8 +634,11 @@ void shellChooseTerrainOverride() {
                     msgbox::Icon::Warning);
         return;
     }
-    gTerrainOverride = picked, gTerrainOverrideOn = true;
-    if (!gSilent) prefs::setText(L"TerrainOverride", picked.wstring()), prefs::setNumber(L"TerrainOverrideOn", 1);
+    shellSetTerrainOverride(picked);
+}
+void shellSetTerrainOverride(const std::filesystem::path& file) {
+    gTerrainOverride = file, gTerrainOverrideOn = true;
+    if (!gSilent) prefs::setText(L"TerrainOverride", file.wstring()), prefs::setNumber(L"TerrainOverrideOn", 1);
     cmbwApplyTerrainOverride();
     gOptionsView.invalidate();
     setMessage(L"ISOM terrain rules override on: maps opened from now on use its terrain rules");

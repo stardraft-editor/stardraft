@@ -201,6 +201,8 @@ void shellChooseCmbwFolder();
 // Program options > Plugins > ISOM terrain rules override: on or off, and Browse (a terrain rules file).
 void shellToggleTerrainOverride();
 void shellChooseTerrainOverride();
+// Program options > Plugins > ISOM terrain rules override: this file, on (the Custom isom terrain editor's first save).
+void shellSetTerrainOverride(const std::filesystem::path& file);
 // A folder picker with the title (File > New EUD project's Browse): the folder, or empty when none is picked.
 std::wstring shellPickFolder(const std::wstring& title);
 // The file that Build writes (a .scx), `name` the file name to start with: the file, or empty when none is picked.

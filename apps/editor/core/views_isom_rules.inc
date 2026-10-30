@@ -20,6 +20,7 @@ bool cmbwIsTerrainOverride(const std::filesystem::path& f);   // (core/cmbw.inc:
 bool cmbwReloadTerrainRules(const std::filesystem::path& f);  // (f is the override in use: the open map loads its rules again)
 void shellShowIsomRulesWindow();  // (the host: the window, once)
 void shellSetIsomRulesTitle(const std::wstring& title);  // (the host: the window's title)
+void shellSetTerrainOverride(const std::filesystem::path& file);  // (the host: Program options > Plugins' override)
 int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (the host)
 
 namespace isomrules {
@@ -268,7 +269,7 @@ public:
     // loads on the worker: the window shows Loading until then).
     void open() {
         const AppState& app = shellState();
-        title_.clear();  // (a new window: its title is set again)
+        title_.clear(), copyAsked_ = false;  // (a new window: its title is set again; the copy question once)
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
         if (!doc_.tilesets.empty()) return rebuild();
@@ -459,7 +460,19 @@ private:
         if (!shown_.empty()) selectValue(shown_[0]);
         loadRefTilesets();  // (after the first example's job: it does not wait for them)
         invalidate();
+        if (file_.empty() && !copyAsked_ && !gSilent && host()) {  // (no rules file: the rules in use are the mod's; a copy to change)
+            copyAsked_ = true;
+            std::shared_ptr<bool> alive = alive_;
+            host()->timer(1, [this, alive] {
+                if (!*alive || !file_.empty()) return;
+                if (msgbox::ask(*this, L"Custom isom terrain editor",
+                                L"No terrain rules file (.isom) is open: these are the rules in use. Make a local copy to modify?",
+                                {L"&Make Copy\x2026", L"&Not Now"}, msgbox::Icon::Question) == 0)
+                    save(true);
+            });
+        }
     }
+    bool copyAsked_ = false;  // (the local copy question: once a window)
     // The Bordering list: the game's terrains, then the rules'; the shown terrain's ground picked. Its names by id.
     std::map<uint16_t, std::wstring> fillGrounds() {
         groundIds_.clear();
@@ -1785,7 +1798,14 @@ private:
         }
         std::string err;
         if (!stardraft::terrainrules::save(f, doc_, err)) return shellErrorBox(widen(err), L"Save terrain rules"), false;
+        const bool first = file_.empty();
         file_ = f, dirty_ = false;
+        if (first && !gSilent && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them)
+            msgbox::ask(*this, L"Save terrain rules",
+                        L"Use " + f.filename().wstring() + L" as the ISOM terrain rules override? Maps then paint with its rules.\r\n"
+                        L"Program options > Plugins can change this later.",
+                        {L"&Use as Override", L"&Not Now"}, msgbox::Icon::Question) == 0)
+            shellSetTerrainOverride(f);
         if (!gSilent) prefs::setText(L"Layout/IsomRulesFile", f.wstring());  // (the next open opens it)
         // (the file the maps use (ISOM terrain rules override): the open map takes the new rules now)
         setMessage(L"Saved " + f.filename().wstring() + (cmbwReloadTerrainRules(f) ? L"; the open map uses the new rules" : L""));
