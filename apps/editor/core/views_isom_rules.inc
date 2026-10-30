@@ -227,7 +227,7 @@ public:
         };
         refShow_.setLabel(L"Reference Overlay"), refShow_.setPlainLabel(true);
         refShow_.onChange = [this](bool) { toggleReference(); };
-        refShow_.setTip(L"Render the reference border over the example. Key: Ctrl+R");
+        refShow_.setTip(L"Render the reference border over the terrain canvas. Key: Ctrl+R");
         refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Shift+Up, Ctrl+Shift+Down");
         refOpacity_.onChange = [this](int) { invalidate(); };
         row_.searchable = true, row_.wheelSteps = false;
@@ -1222,7 +1222,7 @@ private:
             }
         if (copy >= 0) setTarget(copy, targetHalf_, false), slotFocus(true);
         setMessage(L"Rect " + std::to_wstring(q[0]) + L": variant " + std::to_wstring(n) + L" of " + std::to_wstring(n) + L" (the brush picks one of them for each place)" +
-                   (visibleGroups_.count(q[0]) ? L"" : L"; not in the example"));
+                   (visibleGroups_.count(q[0]) ? L"" : L"; not on the terrain canvas"));
     }
     // The right button's menu of slot (piece k, half): Set to NULL, Use as Brush, Show in Tiles, Make Unique.
     std::pair<int, int> pinAt_{INT_MIN, INT_MIN};  // (the place of the slot's menu: its tile place)
@@ -1638,7 +1638,7 @@ private:
         const int next = findNull(target_);
         if (next < 0) return setMessage(L"No NULL rects");
         setTarget(next, -1);
-        setMessage(L"Rect " + std::to_wstring(terrain()->t.pieces[size_t(next)][0]) + (visibleGroups_.count(terrain()->t.pieces[size_t(next)][0]) ? L"" : L" (not in the example)"));
+        setMessage(L"Rect " + std::to_wstring(terrain()->t.pieces[size_t(next)][0]) + (visibleGroups_.count(terrain()->t.pieces[size_t(next)][0]) ? L"" : L" (not on the terrain canvas)"));
     }
 
     // New terrain (a small window): its template (a game border: its rects and roles, every rect NULL; or a mod terrain:
@@ -2128,7 +2128,7 @@ private:
         return -1;
     }
     bool laidOut_ = false;
-    static const wchar_t* colName(int c) { return c == kColTerrains ? L"Terrains" : c == kColRects ? L"Rects" : c == kColExample ? L"Example" : L"Tiles"; }
+    static const wchar_t* colName(int c) { return c == kColTerrains ? L"Terrains" : c == kColRects ? L"Rects" : c == kColExample ? L"Terrain Canvas" : L"Tiles"; }
     int colAt(draw::Point p) const {
         for (int c = 0; c < 4; ++c)
             if (colShown_[c] && colHead_[c].contains(p)) return c;
@@ -2561,7 +2561,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         }
         c.popClip();
     } else if (puzzle_.width() > 0 && !loading_ && !building_) {
-        c.text(puzzle_, t ? L"No example (mod data missing)" : L"Select a terrain", kDim, draw::kCenter | draw::kMiddle);
+        c.text(puzzle_, t ? L"No terrain canvas (mod data missing)" : L"Select a terrain", kDim, draw::kCenter | draw::kMiddle);
     }
     // (the tileset loading or the example rendering, after a moment: a bar and what goes on, in the middle)
     if (puzzle_.width() > 0 && (loading_ || building_) && (!picture_ || std::chrono::steady_clock::now() - busySince_ > std::chrono::milliseconds(300))) {
@@ -2594,10 +2594,10 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         std::wstring label;
         switch (loading_ ? -1 : int(progStep_)) {
         case -1: label = L"Loading tileset: CV5, VX4EX, VR4, terrain rules"; break;
-        case kStepPaint: label = L"ISOM paint: example shape"; break;
+        case kStepPaint: label = L"ISOM paint: terrain canvas"; break;
         case kStepSearch:
             label = L"Spot search: round " + std::to_wstring(int(progRound_)) + L" \x00b7 spot " + std::to_wstring(done) + L"/" + std::to_wstring(total) +
-                    L" \x00b7 rects not in example";
+                    L" \x00b7 rects not on canvas";
             break;
         case kStepReference: label = L"ISOM paint: reference"; break;
         default: label = L"Render: TILE to bitmap"; break;
@@ -3015,7 +3015,7 @@ std::wstring IsomRulesView::tip(draw::Point p) {
         if (checkHover_ < int(rows.size())) {
             const CheckRow& row = rows[size_t(checkHover_)];
             return L"rect " + std::to_wstring(row.group) + (row.more ? L"  \x00b7  " + std::to_wstring(row.more + 1) + L" variants" : L"") +
-                   (visibleGroups_.count(row.group) || std_ >= 0 ? L"" : L"  \x00b7  not in the example");
+                   (visibleGroups_.count(row.group) || std_ >= 0 ? L"" : L"  \x00b7  not on the terrain canvas");
         }
     }
     if (hover_ >= 0 && hover_ < int(t->t.pieces.size())) {
