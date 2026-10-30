@@ -224,8 +224,7 @@ public:
         if (!e.down || search_.hasFocus()) return false;
         if (e.key == static_cast<draw::Key>('N') && !e.mods) return nextNull(), true;
         if (e.key == draw::Key::Delete && !e.mods) return setNull(), true;
-        if (e.key == draw::Key::Escape && !e.mods && brush_ >= 0) return pickBrush(-1), true;
-        if (e.key == draw::Key::Escape && !e.mods && slotKeys_) return slotFocus(false), true;
+        if (e.key == draw::Key::Escape && !e.mods && (brush_ >= 0 || slotKeys_ || target_ >= 0)) return deselectAll(), true;
         if (slotKeys_ && target_ >= 0 && !e.mods) {  // (the clicked slot: its tile steps through the tiles)
             if (e.key == draw::Key::Left || e.key == draw::Key::Right) return nudge(e.key == draw::Key::Right ? 1 : -1, 0), true;
             if (e.key == draw::Key::Up || e.key == draw::Key::Down) return nudge(0, e.key == draw::Key::Down ? 1 : -1), true;
@@ -582,7 +581,7 @@ private:
                 if (in->gen != buildGen_) return;
                 building_ = false;
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
-                ids_ = std::move(out->ids), idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
+                ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
                     for (const Place& p : places_)
@@ -928,6 +927,7 @@ private:
         if (p == was) return;
         if (!painting_ || !strokeSaved_) remember(), strokeSaved_ = painting_;
         m.pieces[size_t(target_)] = p;
+        lightEdit_ = !isomrules::anyNull(was) && !isomrules::anyNull(p);  // (no piece moves: the example stays, its slots show the tiles)
         changed();  // (a complete piece moves into the set: the target follows it)
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
         setMessage(L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]));
@@ -1200,8 +1200,10 @@ private:
         familyCache_.clear(), invalidate();
         setMessage(widen(t.t.name) + (t.t.draft ? L": draft" : L": verified"));
     }
+    bool lightEdit_ = false;  // (the next changed(): only a complete piece's tiles; the example is not painted again)
     void changed() {
         dirty_ = true;
+        bool light = std::exchange(lightEdit_, false);
         if (auto* t = sel_ >= 0 && sel_ < int(rules().terrains.size()) ? &rules().terrains[size_t(sel_)] : nullptr) {
             // (the engine's order: complete pieces first; the target follows its piece)
             const std::array<uint16_t, 3> was = target_ >= 0 && target_ < int(t->t.pieces.size()) ? t->t.pieces[size_t(target_)] : std::array<uint16_t, 3>{0xFFFF, 0, 0};
@@ -1212,11 +1214,12 @@ private:
                 for (size_t k = 0; k < t->t.pieces.size(); ++k)
                     if (t->t.pieces[k] == was) { target_ = int(k); break; }
             }
-            if (t->t.pieces != before) places_.clear(), holes_.clear(), absent_.clear();  // (the piece numbers moved: none until the new example)
+            if (t->t.pieces != before) places_.clear(), holes_.clear(), absent_.clear(), light = false;  // (the piece numbers moved: none until the new example)
             updateTemplate();
-        }
+        } else light = false;
         familyCache_.clear();
         updateMyRows();
+        if (light) return syncIds(), invalidate();
         rebuild();
     }
     // The rows of the tiles that are the shown terrain's: its pieces' tiles' rows, and the groups its maps use with it.
@@ -1579,7 +1582,21 @@ private:
     }
     int brushValue() const { return brush_ < 0 ? -1 : wide_ ? brush_ & ~1 : brush_; }
     std::vector<Place> places_;
-    std::vector<uint16_t> ids_;  // (the example's tiles, crop_ row by row: the tile IDs)
+    std::vector<uint16_t> ids_;     // (the example's tiles, crop_ row by row: the tile IDs, with the edits since)
+    std::vector<uint16_t> picIds_;  // (the tiles of the picture as it was painted)
+    // The slots' tiles in ids_ as the pieces have them now (after an edit that does not paint the example again).
+    void syncIds() {
+        const auto* t = terrain();
+        if (!t || ids_.size() != size_t(crop_.width()) * size_t(crop_.height())) return;
+        for (const Place& p : places_)
+            if (p.piece >= 0 && p.piece < int(t->t.pieces.size()))
+                for (int half = 0; half < 2; ++half) {
+                    const int cx = p.tx + half - crop_.left, cy = p.ty - crop_.top;
+                    if (cx < 0 || cy < 0 || cx >= crop_.width() || cy >= crop_.height()) continue;
+                    const uint16_t v = t->t.pieces[size_t(p.piece)][size_t(1 + half)];
+                    ids_[size_t(cy) * size_t(crop_.width()) + size_t(cx)] = isomrules::nullHalf(v) ? kNullId : v;
+                }
+    }
     int tileIds_ = 0, idHover_ = -1;
     bool frames_ = true;  // (the example's rect frames: holes red, borrowed blue, the hovered rect; H. The target's stays)
     void toggleFrames() {
@@ -1697,7 +1714,7 @@ private:
         return it != palRows_.end() && *it == g ? int(it - palRows_.begin()) : -1;
     }
     // The palette: each group's 16 subtiles in a row, in a fine grid (the lines between pairs 0-1, 2-3, ... brighter).
-    int palLeft() const { return palette_.left + scale(30); }  // (the group numbers' margin)
+    int palLeft() const { return palette_.left + scale(38); }  // (the group numbers' margin: 4 digits)
     int palCell() const { return std::max(scale(8), (palette_.right - palLeft() - scale(2)) / 16); }
     int palX(int sub) const { return palLeft() + sub * palCell(); }
     // The subtile under x (in pair mode the pair's left one); -1 outside the tiles.
@@ -1919,17 +1936,23 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         auto halfOf = [](draw::Rect r, int half) {
             return half ? draw::Rect{(r.left + r.right) / 2, r.top, r.right, r.bottom} : draw::Rect{r.left, r.top, (r.left + r.right) / 2, r.bottom};
         };
-        for (int h : holes_) {  // (the halves with no tile: black; the reference shows through them)
+        for (const Place& p : places_) {  // (each slot's working tiles: a NULL half black (the reference shows through
+            // it), a tile changed since the example was painted over it)
             if (!t || refAlone) break;
-            const Place& p = places_[size_t(h)];
             if (p.piece < 0 || p.piece >= int(t->t.pieces.size())) continue;
             const auto& q = t->t.pieces[size_t(p.piece)];
-            for (int half = 0; half < 2; ++half)  // (a NULL half: black)
-                if (isomrules::nullHalf(q[size_t(1 + half)])) drawTile(c, 0, halfOf(rectOf(p), half));
+            for (int half = 0; half < 2; ++half) {
+                const uint16_t v = q[size_t(1 + half)];
+                const int cx = p.tx + half - crop_.left, cy = p.ty - crop_.top;
+                const size_t i = size_t(cy) * size_t(crop_.width()) + size_t(cx);
+                if (isomrules::nullHalf(v)) drawTile(c, 0, halfOf(rectOf(p), half));
+                else if (cx >= 0 && cy >= 0 && cx < crop_.width() && i < picIds_.size() && picIds_[i] != v) drawTile(c, v, halfOf(rectOf(p), half));
+            }
         }
         if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
-        for (int h : holes_)  // (their red frames, over the reference)
-            if (t && !refAlone && frames_) c.frame(rectOf(places_[size_t(h)]), 0x4650E6, scale(2));
+        for (const Place& p : places_)  // (the slots with a NULL half: red frames, over the reference)
+            if (t && !refAlone && frames_ && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && isomrules::anyNull(t->t.pieces[size_t(p.piece)]))
+                c.frame(rectOf(p), 0x4650E6, scale(2));
         for (const Place& p : places_)  // (the hovered rect's places, over the reference too)
             if (frames_ && hover_ >= 0 && p.piece == hover_) c.frame(rectOf(p), kBorderHot, scale(1));
         if (t && !refAlone && frames_)
@@ -2302,6 +2325,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         invalidate();
         return true;
     }
+    if (puzzle_.contains(e.pt) && picture_ && !(e.mods & draw::kAlt)) return deselectAll(), true;  // (off the slots: nothing selected)
     if (check_.contains(e.pt)) {  // (a row of the checklist: its rect is the target; the half: the custom tile clicked)
         slotFocus(false);
         const int dy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
@@ -2316,7 +2340,10 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     if (palette_.contains(e.pt) && e.pt.x >= x0) {
         const int g = palGroupAt((e.pt.y - palette_.top + palScroll_) / cell), s = palSubAt(e.pt.x);
         if (g >= 0 && g < int(tileset_.groups.size()) && s >= 0 && s < 16 && tileset_.megatileFor(uint16_t(g << 4 | s)) > 0)
-            pickBrush(brush_ == (g << 4 | s) ? -1 : g << 4 | s);  // (the brush again: none)
+        {
+            if (slotKeys_ && target_ >= 0) place(uint16_t(g << 4 | s)), blinkOn_ = true;  // (a slot selected (blinking): the tile goes into it)
+            else pickBrush(brush_ == (g << 4 | s) ? -1 : g << 4 | s);  // (the brush again: none)
+        }
         return true;
     }
     return false;
