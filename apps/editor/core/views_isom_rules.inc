@@ -7,7 +7,8 @@
 // template by its role (edge N, corner SE top...) with its state. Click a rect, a hole or a checklist row: it is the
 // target. Right of the example (or left: the tiles' right-click menu): the tileset's tiles, a tile group a row (16
 // subtiles), the column's width dragged at the edge between them; a click puts the tile into the target (2 tiles: both halves, the tile and the next in its row; 1 tile: the half), and a
-// done rect hands the target to the next rect with no tile; the tiles scroll to the target's row. Ctrl+Z / Ctrl+Y undo
+// done rect hands the target to the next rect with no tile; Up / Down walk the checklist; the tiles scroll to the
+// target's row. Ctrl+Z / Ctrl+Y undo
 // and redo; Clear all makes every rect NULL; Holes get the game's tiles; Copy from takes another terrain's tiles by
 // role; Draft marks a terrain as not checked yet. Load and Save the rules file (.sdterrain); the ISOM terrain rules
 // override (Program options > Plugins) uses such a file. Closing with unsaved changes asks Save, Do not save or Cancel.
@@ -115,7 +116,7 @@ public:
         for (int e = 0; e < 8; ++e) eras.push_back({widen(tilesetName(uint16_t(e)))});
         era_.setItems(eras), era_.setValue(0);
         era_.onChange = [this](int e) { openEra(e); };
-        search_.setPlaceholder(L"Search");
+        search_.setPlaceholder(L"Search (name, family, draft)");
         search_.onChange = [this] { filter(); };
         list_.label = [this](int i) {
             if (i < 0 || i >= int(shown_.size())) return std::wstring();
@@ -133,7 +134,7 @@ public:
         clear_.setTip(L"Set every template rect to NULL; fill pieces stay. Ctrl+Z undoes");
         borrow_.setTip(L"Set every NULL half to the template's own tile (borrowed, blue frame): the border renders like the game there until mod tiles replace it");
         copy_.setTip(L"Import another terrain's mod tiles, matched by rect role (edge N, corner SE top\x2026)");
-        draft_.setTip(L"Draft: generated, not verified. Toggle to Verified when reviewed; stored in the rules file");
+        draft_.setTip(L"Draft: generated, not verified. Toggle to Verified when reviewed (V); stored in the rules file");
         more_.setTip(L"Search for brush positions that expose rects missing from the example (runs once per terrain automatically)");
         nextNull_.setTip(L"Target the next rect with a NULL half (automatic after a rect is completed)");
         refPick_.searchable = true, refPick_.wheelSteps = false;
@@ -197,6 +198,8 @@ public:
         if (e.key == static_cast<draw::Key>('R') && !e.mods) return cycleReference(), true;
         if (e.key == static_cast<draw::Key>('T') && !e.mods) return toggleWidth(), true;
         if (e.key == static_cast<draw::Key>('M') && !e.mods) return nextMyRows(), true;
+        if (e.key == static_cast<draw::Key>('V') && !e.mods) return toggleDraft(), true;
+        if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save(false), true;
         if (e.key == static_cast<draw::Key>('Z') && (e.mods & draw::kCtrl)) return undo(e.mods & draw::kShift), true;
         if (e.key == static_cast<draw::Key>('Y') && (e.mods & draw::kCtrl)) return undo(true), true;
@@ -344,6 +347,12 @@ private:
         for (size_t i = 0; i < ts.terrains.size(); ++i) {
             if (ts.terrains[i].t.variantOf) continue;  // (variants: the brush's, made from their terrain)
             std::wstring n = widen(ts.terrains[i].t.name);
+            if (!q.empty() && !tileset_.groups.empty()) {  // (the label too: "draft", a family, "36/36")
+                const auto [done, total] = stardraft::terrainrules::completeness(tileset_, ts.terrains[i].t);
+                const auto [a, b] = stardraft::terrainrules::templateOf(tileset_, ts.terrains[i].t);
+                n += L" " + isomrules::familyName(stardraft::terrainrules::familyOf(stardraft::terrainrules::templateRects(tileset_, a, b), tileset_)) + L" " +
+                     std::to_wstring(done) + L"/" + std::to_wstring(total) + (ts.terrains[i].t.draft ? L" draft" : L" verified");
+            }
             std::transform(n.begin(), n.end(), n.begin(), ::towlower);
             if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(int(i));
         }
@@ -772,6 +781,24 @@ private:
         setMessage(L"Extend example: searching\x2026");
         rebuild();
     }
+    // The target walks the checklist: the next (or the previous) rect of the template, round.
+    void stepTarget(int dir) {
+        const auto* t = terrain();
+        if (!t) return;
+        const std::vector<CheckRow> rows = checkRows();
+        if (rows.empty()) return;
+        int at = -1;
+        if (target_ >= 0 && target_ < int(t->t.pieces.size()))
+            for (size_t i = 0; i < rows.size(); ++i)
+                if (rows[i].group == t->t.pieces[size_t(target_)][0]) at = int(i);
+        for (int step = 0; step < int(rows.size()); ++step) {  // (a row with no piece: the next)
+            at = at < 0 ? (dir > 0 ? 0 : int(rows.size()) - 1) : ((at + dir) % int(rows.size()) + int(rows.size())) % int(rows.size());
+            if (rows[size_t(at)].piece >= 0) break;
+        }
+        if (rows[size_t(at)].piece < 0) return;
+        setTarget(rows[size_t(at)].piece, -1);
+        setMessage(rows[size_t(at)].role + L"  (rect " + std::to_wstring(rows[size_t(at)].group) + L")");
+    }
     void toggleWidth() {
         wide_ = !wide_, width_.setText(wide_ ? L"Pair (T)" : L"Single (T)"), invalidate();
     }
@@ -1150,6 +1177,15 @@ private:
         tmpl_ = stardraft::terrainrules::templateRects(tileset_, tmplPair_.first, tmplPair_.second);
         family_ = stardraft::terrainrules::familyOf(tmpl_, tileset_);
     }
+    // "12/43 verified · " for the tileset's terrains (none loaded: empty).
+    std::wstring verifiedText() const {
+        const auto* r = rulesOrNull();
+        if (!r || r->terrains.empty()) return {};
+        int n = 0, v = 0;
+        for (const auto& x : r->terrains)
+            if (!x.t.variantOf) ++n, v += x.t.draft ? 0 : 1;
+        return std::to_wstring(v) + L"/" + std::to_wstring(n) + L" verified \x00b7 ";
+    }
     std::wstring templateName() const {
         const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era()));
         if (!game || !tmplPair_.second) return L"?";
@@ -1270,7 +1306,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
     if (!puzzle_.width()) layout();
     // The title line's right: the file and the unsaved dot.
     c.text({std::max(barEnd_, W - scale(420)), pad, W - pad, pad + scale(stardraft::kit::kButtonH)},
-           (file_.empty() ? std::wstring(L"(not saved)") : file_.filename().wstring()) + (dirty_ ? L"  \x25cf" : L""), dirty_ ? kAccent : kDim,
+           verifiedText() + (file_.empty() ? std::wstring(L"(not saved)") : file_.filename().wstring()) + (dirty_ ? L"  \x25cf" : L""), dirty_ ? kAccent : kDim,
            draw::kMiddle | draw::kRight | draw::kEllipsis);
     const auto* t = terrain();
     c.text({puzzle_.left + pad, puzzle_.top - scale(stardraft::kit::kButtonH) - pad, puzzle_.left + scale(88), puzzle_.top - pad}, L"Bordering", kDim,
