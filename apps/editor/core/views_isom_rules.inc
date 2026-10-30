@@ -621,7 +621,7 @@ private:
         }
         in->t = *t, in->family = family_;
         if (const auto it = moreRects_.find(t->t.id); it != moreRects_.end()) in->extra = it->second;
-        in->extend = extendNext_, extendNext_ = 0;
+        in->extend = extendNext_ ? extendNext_ : moreRects_.count(t->t.id) ? 0 : 1, extendNext_ = 0;  // (a terrain's first example: the search before it shows, one picture)
         in->pins = pins_;
         uint16_t root = t->t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
@@ -670,9 +670,6 @@ private:
                     if (out->gained || in->extend == 2)
                         setMessage(out->gained ? L"Extend example: +" + std::to_wstring(out->gained) + L" rects (" + std::to_wstring(out->extra.size()) + L" extra positions)"
                                                : L"Extend example: no position exposes more rects (" + std::to_wstring(out->extra.size()) + L" extra positions)");
-                } else if (!moreRects_.count(in->t.t.id)) {  // (a terrain's first example: the search follows it by itself)
-                    if (absent_.empty()) moreRects_[in->t.t.id] = {};
-                    else extendNext_ = 1, rebuild();
                 }
                 invalidate();
             });
@@ -759,7 +756,7 @@ private:
                 if (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) want.insert(t->t.pieces[k][0]);
             std::set<uint16_t> have = shownGroups();
             const size_t before = have.size();
-            for (int round = 0; round < 8 && in.gen == buildGen_; ++round) {
+            for (int round = 0; round < 8 && in.gen == buildGen_ && !std::includes(have.begin(), have.end(), want.begin(), want.end()); ++round) {  // (every rect shown: no search)
                 std::pair<int, int> best{0, 0};
                 std::set<uint16_t> bestHave;
                 size_t bestGain = 0;
