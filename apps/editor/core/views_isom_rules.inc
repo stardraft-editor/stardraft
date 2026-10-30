@@ -438,20 +438,6 @@ private:
         for (int y = y0; y <= y1; ++y)
             for (int x = x0; x <= x1; ++x) part.push_back(tl.tiles[size_t(y) * W + x]);
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
-        if (out.picture) {  // (the tiles that are no rect of the terrain: dimmed, so its own pieces stand out)
-            std::vector<uint8_t> own(size_t(x1 - x0 + 1) * size_t(y1 - y0 + 1), 0);
-            for (const Place& pl : out.places)
-                for (int d = 0; d < 2; ++d) own[size_t(pl.ty - y0) * size_t(x1 - x0 + 1) + size_t(pl.tx + d - x0)] = 1;
-            uint32_t* px = out.picture->pixels();
-            const int pw = out.picture->width();
-            for (int y = 0; y < out.picture->height(); ++y)
-                for (int x = 0; x < pw; ++x)
-                    if (!own[size_t(y / 32) * size_t(x1 - x0 + 1) + size_t(x / 32)]) {
-                        uint32_t& c = px[size_t(y) * pw + x];
-                        c = 0xFF000000u | ((c >> 2) & 0x3F3F3F);
-                    }
-            out.picture->changed();
-        }
     }
     // The tiles' row g in view, and tile v framed (-1: the whole row) until another is asked for.
     void showRow(int g, int v) {
