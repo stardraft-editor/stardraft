@@ -442,6 +442,35 @@ void shellShowIsomRulesWindow() {
                           L"Custom Isom Terrain Editor"};
     spec.resizable = true;
     gHost->openWindow(*gRoot, gIsomRulesView, spec, [] { gIsomRulesOpen = false; });
+    // (where it was last time and its size, when that place is on a screen now; maximized: so again)
+    int64_t x = 0, y = 0, w = 0, h = 0, max = 0;
+    SDL_Window* win = gHost->sdlWindow(gIsomRulesView);
+    if (win && !gSilent && prefs::number(L"Layout/IsomWindowX", x) && prefs::number(L"Layout/IsomWindowY", y) && prefs::number(L"Layout/IsomWindowW", w) &&
+        prefs::number(L"Layout/IsomWindowH", h) && w >= 400 && h >= 300) {
+        const SDL_Point mid{int(x + w / 2), int(y + 16)};
+        if (SDL_GetDisplayForPoint(&mid)) SDL_SetWindowSize(win, int(w), int(h)), SDL_SetWindowPosition(win, int(x), int(y));
+        if (prefs::number(L"Layout/IsomWindowMax", max) && max) SDL_MaximizeWindow(win);
+    }
+}
+// Each turn of the event loop: the window's place and size as the user moves it, saved half a second after the last
+// change (not at each step of a drag; maximized: the place and size before it stay).
+void sdlIsomRulesFrame() {
+    static int lastX = 0, lastY = 0, lastW = 0, lastH = 0, lastMax = -1;
+    static uint64_t saveAt = 0;
+    SDL_Window* win = gIsomRulesOpen && gHost && !gSilent ? gHost->sdlWindow(gIsomRulesView) : nullptr;
+    if (!win) return;
+    const int max = (SDL_GetWindowFlags(win) & SDL_WINDOW_MAXIMIZED) ? 1 : 0;
+    int x = lastX, y = lastY, w = lastW, h = lastH;
+    if (!max && !(SDL_GetWindowFlags(win) & SDL_WINDOW_MINIMIZED)) SDL_GetWindowPosition(win, &x, &y), SDL_GetWindowSize(win, &w, &h);
+    if (x != lastX || y != lastY || w != lastW || h != lastH || max != lastMax) {
+        if (lastMax >= 0) saveAt = SDL_GetTicks() + 500;  // (not the first look: the window as it opened)
+        lastX = x, lastY = y, lastW = w, lastH = h, lastMax = max;
+    }
+    if (saveAt && SDL_GetTicks() >= saveAt) {
+        saveAt = 0;
+        prefs::setNumber(L"Layout/IsomWindowX", x), prefs::setNumber(L"Layout/IsomWindowY", y);
+        prefs::setNumber(L"Layout/IsomWindowW", w), prefs::setNumber(L"Layout/IsomWindowH", h), prefs::setNumber(L"Layout/IsomWindowMax", max);
+    }
 }
 // The window's title ("*terrains.isom - Custom Isom Terrain Editor": the asterisk, unsaved changes).
 void shellSetIsomRulesTitle(const std::wstring& title) {

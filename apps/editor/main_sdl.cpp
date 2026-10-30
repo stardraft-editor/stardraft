@@ -687,6 +687,7 @@ int main(int argc, char** argv) {
             sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
+            sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
