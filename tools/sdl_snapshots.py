@@ -1173,8 +1173,8 @@ def check_options_ctrltab(output):
 def check_isom_rules(output):
     """None when the editor shows the terrain complete (the repaired drafts: the template's tiles where the row had none)
     and the palette's tile goes into the rect that was clicked."""
-    if "isom rules: Structure (Halfsphalt), 16 null, 12 holes in the examples" not in output or "20 of 36 rects done, 0 borrowed" not in output:
-        return "the terrain does not open with its 16 NULL rects (12 holes in the example, 20 of 36 done)"
+    if "isom rules: Structure (Halfsphalt), 16 null, 16 holes in the examples" not in output or "20 of 36 rects done, 0 borrowed" not in output:
+        return "the terrain does not open with its 16 NULL rects (16 holes in the example, 20 of 36 done)"
     if not re.search(r"^click 1110,290: .*Brush: \d+\.0-1", output, re.M):
         return "a click in the tiles did not pick the pair as the brush"
     return None if re.search(r"^click 730,398: .*Rect \d+: \d+\.0 \d+\.1", output, re.M) else "the brush did not paint the hole"

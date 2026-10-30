@@ -674,6 +674,7 @@ private:
         std::unique_ptr<draw::Bitmap> picture, reference;
     };
     static constexpr uint16_t kNullId = 0xFFFF;
+    static constexpr int kHalfSpot = 10000;  // (a spot of the example's shape painted with the 0.5 brush: i + kHalfSpot, on the grid of 32 x 16)
     void rebuild() {
         const auto* t = terrain();
         std::string err;
@@ -827,7 +828,11 @@ private:
         auto paint = [&]() {  // (the bordering terrain all around: no other terrain in the picture; the shape)
             ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
             ed->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 24.0f});
-            for (const auto& [i, j] : shape) ed->paintBrush(cx + i * 64, cy + j * 32, t->t.id, Brush{Brush::Diamond, 1.0f});
+            for (const auto& [i, j] : shape)
+                if (i >= kHalfSpot / 2)  // (a half spot: the 0.5 brush, on the grid of 32 x 16)
+                    ed->paintBrush(cx + (i - kHalfSpot) * 32, cy + j * 16, t->t.id, Brush{Brush::Diamond, 0.5f});
+                else
+                    ed->paintBrush(cx + i * 64, cy + j * 32, t->t.id, Brush{Brush::Diamond, 1.0f});
         };
         // (the rects of the terrain (its set's and its gaps', by game group) that the painted map shows)
         auto shownGroups = [&]() {
@@ -855,6 +860,9 @@ private:
             for (int j = -6; j <= 6; ++j)
                 for (int i = -4; i <= 4; ++i)
                     if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end()) spots.push_back({{i, j}, SIZE_MAX});
+            for (int j = -12; j <= 12; ++j)  // (the 0.5 brush's spots: rects only a thin strip shows, as a map painted with it)
+                for (int i = -8; i <= 8; ++i)
+                    if ((i + j) % 2 == 0) spots.push_back({{kHalfSpot + i, j}, SIZE_MAX});
             for (int round = 0; round < 8 && in.gen == buildGen_ && !std::includes(have.begin(), have.end(), want.begin(), want.end()); ++round) {  // (every rect shown: no search)
                 std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.bound > b.bound; });
                 int best = -1;
@@ -1840,7 +1848,7 @@ private:
             for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
             g = m->t.ground;
         }
-        return L"IsomExtra/v2-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+        return L"IsomExtra/v3-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
                std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
     }
     std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
