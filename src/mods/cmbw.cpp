@@ -1811,6 +1811,7 @@ void addModTerrains(Tileset& t) {
 std::filesystem::path gTerrainOverride;
 std::mutex gTerrainOverrideLock;  // (a tileset can load on a worker thread)
 thread_local bool tSkipOverride = false;  // (skipTerrainOverride)
+thread_local bool tSkipRepaired = false;  // (skipRepairedRules)
 void applyTerrainFiles(Tileset& t) {
     std::filesystem::path override;
     if (!tSkipOverride) {
@@ -1832,10 +1833,11 @@ void loadTileset(Tileset& t) {
     for (const GroupPiece& p : kGroupPieces)
         if (p.era == (t.era & 7) && t.megatileFor(p.left) >= 0 && t.megatileFor(p.right) >= 0) t.groupPieces.push_back({p.left, p.right, p.game});
     addModTerrains(t);
-    {  // The rows repaired (tools/plugins/cmbw/probes/cmbw_draft_fix.cpp, cmbw_repaired_rules_*.inc: one file per channel of
-       // the mod, their tilesets differ): every template rect present, the template's own tiles (borrowed) where a row had
-       // none; the rows stay drafts. A tileset whose fingerprint differs (the other channel, or the mod changed its groups)
-       // takes neither.
+    if (!tSkipRepaired) {  // The rows repaired (tools/plugins/cmbw/probes/cmbw_draft_fix.cpp, cmbw_repaired_rules_*.inc: one file per
+        // channel of the mod, their tilesets differ): every template rect present (the ones a row had none for NULL: no
+        // borrowing of the template's tiles, a game tile in a mod border hides a height decision), stray variants dropped,
+        // mirrored roles' tiles put right; the rows stay drafts. A tileset whose fingerprint differs (the other channel, or
+        // the mod changed its groups) takes neither. The repair probe skips them (skipRepairedRules): it starts from the rows.
         static const uint8_t kRepairedPrerelease[] = {
 #include "cmbw_repaired_rules_prerelease.inc"
         };
@@ -2998,5 +3000,6 @@ void useTerrainOverride(const std::filesystem::path& file) {
     gTerrainOverride = file;
 }
 void skipTerrainOverride(bool on) { tSkipOverride = on; }
+void skipRepairedRules(bool on) { tSkipRepaired = on; }
 
 }  // namespace stardraft::cmbw

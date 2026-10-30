@@ -41,6 +41,8 @@ void useInstall(const std::filesystem::path& install);
 void useTerrainOverride(const std::filesystem::path& file);
 // On: the tilesets this thread loads leave the override out (the default rules: the shipped file and the built-in ones).
 void skipTerrainOverride(bool on);
+// On: the tilesets this thread loads leave the built-in repaired rows out (the repair probe starts from the rows themselves).
+void skipRepairedRules(bool on);
 
 // Opens `data` on the CMBW files of `install` (findInstall): the loose mpq folder first, then the 1.16.1 MPQs
 // (patch_rt, BrooDat, StarDat). Unit types and sprites then come from the .datex files.

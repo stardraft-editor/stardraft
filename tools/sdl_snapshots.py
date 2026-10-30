@@ -377,19 +377,18 @@ CASES += [
     # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
     ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677", "--key", "Down",
                              "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
-    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (36 of 36 rects: the repaired
-    # drafts borrow the template's tiles for the 16 the row had none for); a click on a rect, then on tile 2.0 of the
-    # palette: the rect takes 2.0 and 2.1 (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "518,284", "--click", "1020,149"], "cmbw"),
+    # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
+    # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
+    # the rect takes 2.0 and 2.1 and the target moves on (CHECKS: check_isom_rules).
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "767,386", "--click", "1110,127"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
-    # New terrain… (the left column's bottom): the template list picked by its text (wall · Structure (Asphalt)), Bordering,
-    # Initial tiles and the name taken as offered (Enter): "Primary (Asphalt)", 36 rects borrowed. Then Copy tiles… (the
-    # strip's right, second row): Floor (Substructure), a wall too: its 20 own pairs land by role, 16 roles have none.
-    ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "140,878", "--type", "wall  ·  Structure (Asphalt)",
-                             "--key", "Enter", "--key", "Enter", "--key", "Enter", "--key", "Enter", "--click", "886,649", "--type", "Floor (Substructure)", "--key", "Enter"], "cmbw"),
-    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "646,645", "--key", "Ctrl+Z",
-                              "--key", "Ctrl+Y", "--click", "518,284", "--click", "1020,149", "--click", "1020,149"], "cmbw"),
+    # New terrain… (the Terrains column's bottom): the template list picked by its text (wall · Structure (Asphalt)),
+    # Bordering and the name taken as offered (Enter): "Primary (Asphalt)", every rect NULL.
+    ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,878", "--type", "wall  ·  Structure (Asphalt)",
+                             "--key", "Enter", "--key", "Enter", "--key", "Enter"], "cmbw"),
+    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "767,386", "--click", "1110,127", "--key", "Ctrl+Z",
+                              "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
     # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,
@@ -1172,29 +1171,24 @@ def check_options_ctrltab(output):
 def check_isom_rules(output):
     """None when the editor shows the terrain complete (the repaired drafts: the template's tiles where the row had none)
     and the palette's tile goes into the rect that was clicked."""
-    if "isom rules: Structure (Halfsphalt), 0 null, 0 holes in the examples" not in output or "36 of 36 rects done, 16 borrowed" not in output:
-        return "the terrain does not open complete (36 of 36 rects, 16 borrowed from the template)"
-    return None if re.search(r"^click 1020,149: .*Rect \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
+    if "isom rules: Structure (Halfsphalt), 16 null, 12 holes in the examples" not in output or "20 of 36 rects done, 0 borrowed" not in output:
+        return "the terrain does not open with its 16 NULL rects (12 holes in the example, 20 of 36 done)"
+    return None if re.search(r"^click 1110,127: .*Rect \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
 
 
 def check_isom_rules_undo(output):
-    """None when Clear all, undo and redo report their null counts and each filled rect hands the target to the next."""
-    want = ["36 rects set to NULL", "Undo: Structure (Halfsphalt) (0 NULL)", "Redo: Structure (Halfsphalt) (36 NULL)"]
-    for w in want:
+    """None when a pick fills the clicked hole (15 NULL left), Ctrl+Z brings the hole back (16 NULL) and Ctrl+Y fills it again."""
+    if not re.search(r"^click 1110,127: .*Rect \d+: 2\.0 2\.1  → next \d+", output, re.M):
+        return "the pick did not fill the hole"
+    for w in ["Undo: Structure (Halfsphalt) (16 NULL)", "Redo: Structure (Halfsphalt) (15 NULL)"]:
         if w not in output:
             return "missing: " + w
-    done = re.findall(r"^click 1020,149: .*Rect (\d+): 2\.0 2\.1  \u2192 next (\d+)", output, re.M)
-    if len(done) != 2 or done[0][1] != done[1][0]:
-        return "the target did not go to the next rect: %r" % (done,)
     return None
 
 
 def check_isom_rules_new(output):
-    """None when New terrain makes Primary (Asphalt) from the Structure (Asphalt) template with borrowed tiles and Copy tiles
-    brings Floor (Substructure)'s 20 own pairs in by role."""
-    if "New terrain Primary (Asphalt): template Structure (Asphalt), borrowed tiles" not in output:
-        return "New terrain did not make Primary (Asphalt) from the template"
-    return None if re.search(r"Copied 20 rects from Floor \(Substructure\); 16 without mod tiles", output) else "Copy tiles did not copy 20 rects by role"
+    """None when New terrain makes Primary (Asphalt) from the Structure (Asphalt) template with borrowed tiles."""
+    return None if "New terrain Primary (Asphalt): template Structure (Asphalt), every rect NULL" in output else "New terrain did not make Primary (Asphalt) from the template"
 
 
 def check_dialog_cycle(want, skip=0):

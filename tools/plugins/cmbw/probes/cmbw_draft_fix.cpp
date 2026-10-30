@@ -1,8 +1,8 @@
 // Repair passes over the mod's terrain drafts (the built-in rows, generated, not verified), with the template model
 // (stardraft/mods/terrain_rules.h). For each tileset and each draft terrain, up to three passes:
 //   1. structure: normalize (every template rect present, the engine's order); tiles that do not exist, pairs that
-//      are not two subtiles side by side in one group: reported; NULL rects get the template's own tiles (borrowed:
-//      the border renders like the game there instead of black).
+//      are not two subtiles side by side in one group: reported; NULL rects stay NULL and are counted (no borrowing of
+//      the template's tiles: a game tile in a mod border hides a height decision).
 //   2. foreign tiles: a piece whose tiles are in groups the maps never use with this terrain (Tileset::groupTerrains)
 //      nor in its other pieces' groups: reported as suspects.
 //   3. layout and shape check, a report for a person: each mod pair against the template pair by where each puts the
@@ -186,6 +186,7 @@ int main(int argc, char** argv) {
     std::string err;
     GameData data;
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+    cmbw::skipRepairedRules(true);  // (from the rows themselves, not from the last repair)
     const std::string incPath = argc > 4 && std::string(argv[4]) != "-" ? argv[4] : "";
     const int only = argc > 5 ? std::atoi(argv[5]) : -1, passes = argc > 6 ? std::clamp(std::atoi(argv[6]), 1, 7) : 7;
     FILE* rep = std::fopen(argv[3], "w");
@@ -239,14 +240,7 @@ int main(int argc, char** argv) {
                         unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15), unsigned(p[2] >> 4), unsigned(p[2] & 15));
                     ++broken;
                 }
-                if (tr::nullHalf(p[1]) || tr::nullHalf(p[2])) {
-                    const uint16_t l = tr::gameTile(ts, p[0]), r = tr::gameTile(ts, uint32_t(p[0]) + 1);
-                    if (l && r) {
-                        if (tr::nullHalf(p[1])) p[1] = l;
-                        if (tr::nullHalf(p[2])) p[2] = r;
-                        ++borrowed;
-                    }
-                }
+                if (tr::nullHalf(p[1]) || tr::nullHalf(p[2])) ++borrowed;  // (counted, not filled: a template tile would hide a height decision)
             }
             tr::normalize(ts, m);
             if (borrowed) out("   pass 1  %d rects borrowed the template's tiles\n", borrowed);
@@ -562,7 +556,7 @@ int main(int argc, char** argv) {
         }
         rules.tilesets.push_back(std::move(tsr));
     }
-    out("== totals: %d rects borrowed, %d pairs replaced by layout, %d pairs with a better-fitting pair, %d suspects, %d broken pairs, %d variants dropped, %d pairs replaced by their "
+    out("== totals: %d rects left NULL, %d pairs replaced by layout, %d pairs with a better-fitting pair, %d suspects, %d broken pairs, %d variants dropped, %d pairs replaced by their "
         "mirror, %d off the row order, %d with hard seams\n",
         totalBorrowed, totalApplied, totalReplaced, totalSuspects, totalBroken, totalDropped, totalMirrored, totalOrder, totalSeams);
     std::fclose(rep);
