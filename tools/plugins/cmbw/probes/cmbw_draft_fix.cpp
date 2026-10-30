@@ -67,6 +67,65 @@ float ncc(const std::vector<float>& a, const std::vector<float>& b) {
     return float(s / double(a.size()));
 }
 
+// A material's colours: the mean and variance of each channel over some tiles of it (the terrain's inside, the ground).
+struct Material {
+    float mean[3] = {}, var[3] = {1, 1, 1};
+    bool ok = false;
+};
+Material materialOf(const Tileset& ts, const std::vector<uint16_t>& tiles) {
+    Material m;
+    double sum[3] = {}, sq[3] = {};
+    size_t n = 0;
+    for (uint16_t t : tiles) {
+        const Sprite s = mapTilesPicture(ts, {t}, 1, 0, 0, 1, 1);
+        for (size_t i = 0; i + 3 < s.rgba.size(); i += 4, ++n)
+            for (int c = 0; c < 3; ++c) sum[c] += s.rgba[i + c], sq[c] += double(s.rgba[i + c]) * s.rgba[i + c];
+    }
+    if (!n) return m;
+    for (int c = 0; c < 3; ++c) m.mean[c] = float(sum[c] / n), m.var[c] = std::max(25.0f, float(sq[c] / n - (sum[c] / n) * (sum[c] / n)));
+    m.ok = true;
+    return m;
+}
+// Each pixel of a pair (64 x 32) as the terrain (1) or the ground (0): the nearer material by variance-weighted distance.
+std::vector<uint8_t> maskOf(const Tileset& ts, uint16_t l, uint16_t r, const Material& terrain, const Material& ground) {
+    const Sprite s = mapTilesPicture(ts, {l, r}, 2, 0, 0, 2, 1);
+    std::vector<uint8_t> out;
+    if (s.width != 64 || s.height != 32) return out;
+    out.resize(size_t(64 * 32));
+    for (size_t i = 0; i < out.size(); ++i) {
+        float dt = 0, dg = 0;
+        for (int c = 0; c < 3; ++c) {
+            const float v = s.rgba[i * 4 + size_t(c)];
+            dt += (v - terrain.mean[c]) * (v - terrain.mean[c]) / terrain.var[c], dg += (v - ground.mean[c]) * (v - ground.mean[c]) / ground.var[c];
+        }
+        out[i] = dt < dg ? 1 : 0;
+    }
+    return out;
+}
+// How much two masks agree (0 to 1).
+float agree(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+    if (a.size() != b.size() || a.empty()) return 0;
+    size_t same = 0;
+    for (size_t i = 0; i < a.size(); ++i) same += a[i] == b[i];
+    return float(same) / float(a.size());
+}
+// Some solid tiles of a game terrain (its left and right solid groups, the first subtiles).
+std::vector<uint16_t> solidTiles(const Tileset& ts, uint16_t terrain) {
+    std::vector<uint16_t> out;
+    for (int half = 0; half < 2; ++half)
+        if (const int g = solidTileGroup(ts, terrain, half); g >= 0)
+            for (uint16_t k = 0; k < 4; ++k)
+                if (ts.megatileFor(uint16_t(g << 4 | k)) > 0) out.push_back(uint16_t(g << 4 | k));
+    return out;
+}
+// The tiles inside a mod terrain: its fill pieces' (a few), else its stand-in's solid tiles.
+std::vector<uint16_t> insideTiles(const Tileset& ts, const Tileset::ModTerrain& m) {
+    std::vector<uint16_t> out;
+    for (size_t k = m.setPieces; k < m.pieces.size() - std::min(m.gapPieces, m.pieces.size()) && out.size() < 8; ++k)
+        if (!tr::nullHalf(m.pieces[k][1])) out.push_back(m.pieces[k][1]), out.push_back(m.pieces[k][2]);
+    return out.empty() ? solidTiles(ts, m.standIn) : out;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -159,61 +218,73 @@ int main(int argc, char** argv) {
             }
             totalSuspects += suspects;
             if (passes < 3) continue;
-            // Pass 3: the shape of each own pair against the template's.
+            // Pass 3: where each own pair puts the terrain and the ground, against the template pair. Each pixel is the
+            // terrain or the ground by its colour (the set's own inside tiles and its ground's; the template's: the game's
+            // solid tiles of its two terrains), so the materials drop out and the masks compare the layout: an edge N
+            // tile has the terrain below, a corner has it in one quadrant. The shape (edge structure) is a second opinion.
             std::vector<std::pair<uint16_t, uint16_t>> candidates;
             for (uint16_t g : mine)
                 for (uint16_t s = 0; s + 1 < 16; ++s)
                     if (ts.megatileFor(uint16_t(g << 4 | s)) > 0 && ts.megatileFor(uint16_t(g << 4 | (s + 1))) > 0) candidates.push_back({uint16_t(g << 4 | s), uint16_t(g << 4 | (s + 1))});
-            // (every own pair's fit first: a set whose pairs fit the template well on the whole recolors the game's tiles,
-            // and only there is the score sure enough to act on)
+            const Material modIn = materialOf(ts, insideTiles(ts, m));
+            const Tileset::ModTerrain* modGround = m.ground >= Tileset::kModTerrainIds ? ts.modTerrain(m.ground) : nullptr;
+            const Material modOut = materialOf(ts, modGround ? insideTiles(ts, *modGround) : solidTiles(ts, m.ground));
+            const Material gameIn = materialOf(ts, solidTiles(ts, b)), gameOut = materialOf(ts, solidTiles(ts, a));
+            std::map<uint16_t, std::vector<uint8_t>> maskCache;  // (by the left tile)
+            auto modMask = [&](uint16_t l, uint16_t r) -> const std::vector<uint8_t>& {
+                auto& v = maskCache[l];
+                if (v.empty()) v = maskOf(ts, l, r, modIn, modOut);
+                return v;
+            };
             struct Fit {
                 size_t k;
-                float cur;
+                float layout, shape;
             };
             std::vector<Fit> fits;
-            double sum = 0;
+            double sumLayout = 0, sumShape = 0;
+            const bool canMask = modIn.ok && modOut.ok && gameIn.ok && gameOut.ok;
             for (size_t k = 0; k < m.pieces.size(); ++k) {
                 const auto& p = m.pieces[k];
                 if (!isTemplatePiece(k) || tr::stateOf(p) != tr::PieceState::Own) continue;
                 const uint16_t gl = tr::gameTile(ts, p[0]), gr = tr::gameTile(ts, uint32_t(p[0]) + 1);
                 if (!gl || !gr) continue;
-                const float cur = ncc(edgesOf(gl, gr), edgesOf(p[1], p[2]));
-                fits.push_back({k, cur}), sum += cur;
+                const float shape = ncc(edgesOf(gl, gr), edgesOf(p[1], p[2]));
+                const float layout = canMask ? agree(maskOf(ts, gl, gr, gameIn, gameOut), modMask(p[1], p[2])) : 0.0f;
+                fits.push_back({k, layout, shape}), sumLayout += layout, sumShape += shape;
             }
             const int scored = int(fits.size());
-            const double setFit = scored ? sum / scored : 0.0;
-            const bool recolor = setFit >= 0.6;
+            const double setLayout = scored ? sumLayout / scored : 0.0, setShape = scored ? sumShape / scored : 0.0;
             int replaced = 0, weak = 0, applied = 0;
             for (const Fit& f : fits) {
                 auto& p = m.pieces[f.k];
-                if (f.cur >= 0.45f) continue;
-                const std::vector<float>& want = edgesOf(tr::gameTile(ts, p[0]), tr::gameTile(ts, uint32_t(p[0]) + 1));
+                if (!canMask || f.layout >= 0.75f) continue;
+                const std::vector<uint8_t> want = maskOf(ts, tr::gameTile(ts, p[0]), tr::gameTile(ts, uint32_t(p[0]) + 1), gameIn, gameOut);
                 std::pair<uint16_t, uint16_t> best{0, 0};
-                float bestScore = f.cur;
+                float bestScore = f.layout;
                 for (const auto& c : candidates)
-                    if (const float sc = ncc(want, edgesOf(c.first, c.second)); sc > bestScore) bestScore = sc, best = c;
+                    if (const float sc = agree(want, modMask(c.first, c.second)); sc > bestScore) bestScore = sc, best = c;
                 const char* role = byGroup.count(p[0]) ? byGroup[p[0]]->role.c_str() : "other";
-                // (applied only in a recolor set, for a pair of another group (a group's variants score apart although all
-                // are right), with a clear fit and a clear margin; else reported)
-                if (best.first && recolor && (best.first >> 4) != (p[1] >> 4) && bestScore >= 0.7f && bestScore >= f.cur + 0.35f) {
-                    out("   pass 3  %-24s rect %u: %u.%u fits %.2f, %u.%u fits %.2f -> replaced\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15), double(f.cur),
-                        unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
+                // (applied when the set's own pairs fit the layout well on the whole (the materials are told apart), this
+                // pair clearly does not, and a pair of another group clearly does; else reported)
+                if (best.first && setLayout >= 0.7 && (best.first >> 4) != (p[1] >> 4) && f.layout < 0.6f && bestScore >= 0.85f && bestScore >= f.layout + 0.25f) {
+                    out("   pass 3  %-24s rect %u: %u.%u layout %.2f, %u.%u layout %.2f -> replaced\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15),
+                        double(f.layout), unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
                     p[1] = best.first, p[2] = best.second, ++applied;
-                } else if (best.first && bestScore >= 0.55f && bestScore >= f.cur + 0.2f) {
-                    out("   pass 3  %-24s rect %u: %u.%u fits %.2f, %u.%u would fit %.2f: check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15),
-                        double(f.cur), unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
+                } else if (best.first && bestScore >= 0.8f && bestScore >= f.layout + 0.2f) {
+                    out("   pass 3  %-24s rect %u: %u.%u layout %.2f (shape %.2f), %u.%u would be %.2f: check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4),
+                        unsigned(p[1] & 15), double(f.layout), double(f.shape), unsigned(best.first >> 4), unsigned(best.first & 15), double(bestScore));
                     ++replaced;
                 } else {
-                    out("   pass 3  %-24s rect %u: %u.%u fits %.2f (best other %.2f): check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15), double(f.cur),
-                        double(bestScore));
+                    out("   pass 3  %-24s rect %u: %u.%u layout %.2f (shape %.2f, best other %.2f): check by hand\n", role, unsigned(p[0]), unsigned(p[1] >> 4), unsigned(p[1] & 15),
+                        double(f.layout), double(f.shape), double(bestScore));
                     ++weak;
                 }
             }
             totalReplaced += replaced, totalApplied += applied;
-            if (applied) out("   pass 3  %d pairs replaced (a recolor set: fit %.2f)\n", applied, setFit);
+            if (applied) out("   pass 3  %d pairs replaced (the set's layout fit %.2f)\n", applied, setLayout);
             const auto after = tr::completeness(ts, m);
-            out("   result  %d of %d rects; shape fit %.2f over %d pairs; %d replaced, %d with a better-fitting pair, %d weak\n", after.first, after.second, setFit, scored, applied,
-                replaced, weak);
+            out("   result  %d of %d rects; layout fit %.2f, shape fit %.2f over %d pairs; %d replaced, %d with a better pair, %d weak\n", after.first, after.second, setLayout, setShape,
+                scored, applied, replaced, weak);
         }
         rules.tilesets.push_back(std::move(tsr));
     }
