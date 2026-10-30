@@ -592,7 +592,7 @@ void shellChooseCmbwFolder() {
     }
     if (!gSilent) prefs::setText(L"CosmonarchyFolder", in.wstring());  // (tests never change the user's settings)
     gOptionsView.invalidate();
-    if (gCmbwInUse.empty()) {  // (the mod's data is not open yet: it opens from this folder)
+    if (!gCmbwOpening) {  // (the mod's data is not open or opening yet: it opens from this folder)
         stardraft::cmbw::useInstall(in);
         gCmbwNext.clear();
         setMessage(L"The Cosmonarchy folder is set");

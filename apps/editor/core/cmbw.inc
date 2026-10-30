@@ -79,10 +79,11 @@ fs::path gCmbwInUse, gCmbwNext;
 // The plugins line of every report (feedback, crash reports): the loaded plugins, Cosmonarchy BW with its install
 // folder's name (Prerelease or Release; not the whole path: it may hold the user's name); `tab`: also whether the
 // active tab is a Cosmonarchy BW map (not in a crash report: only settings are read there).
+fs::path cmbwInUse();
 std::string reportPluginsLine(bool tab) {
     if (!cmbwMode()) return "Plugins: none loaded";
     std::string s = "Plugins: Cosmonarchy BW (CMBW) loaded";
-    if (!gCmbwInUse.empty()) s += ", its folder " + gCmbwInUse.filename().string();
+    if (const fs::path in = cmbwInUse(); !in.empty()) s += ", its folder " + in.filename().string();
     if (tab) s += modTab() ? "; this tab is a CMBW map" : "; this tab is not a CMBW map";
     return s;
 }
@@ -110,14 +111,24 @@ void cmbwUseTerrainOverrideSetting() {
 }
 
 // The mod's files, opened at the first use (nullptr and `err`: no Cosmonarchy install).
+std::mutex gCmbwDataLock;  // (the isom terrain editor opens the mod's data on a worker thread)
+std::atomic<bool> gCmbwOpening{false};  // (the mod's data is open or opening: its folder is chosen)
+// The mod's folder whose data is open (empty: none yet, or it is opening now: the lock is not waited for).
+fs::path cmbwInUse() {
+    std::unique_lock<std::mutex> lock(gCmbwDataLock, std::try_to_lock);
+    return lock.owns_lock() ? gCmbwInUse : fs::path();
+}
 const GameData* cmbwGameData(std::string& err) {
+    std::lock_guard<std::mutex> lock(gCmbwDataLock);
     static std::unique_ptr<GameData> data;
     if (data) return data.get();
+    gCmbwOpening = true;
     const fs::path install = stardraft::cmbw::findInstall();
     if (install.empty())
-        return err = "Could not find Cosmonarchy BW (a Prerelease or Release folder under Program Files\\Cosmonarchy; Options > Program options: Cosmonarchy folder)", nullptr;
+        return gCmbwOpening = false,
+               err = "Could not find Cosmonarchy BW (a Prerelease or Release folder under Program Files\\Cosmonarchy; Options > Program options: Cosmonarchy folder)", nullptr;
     auto d = std::make_unique<GameData>();
-    if (!stardraft::cmbw::open(*d, install, err)) return nullptr;
+    if (!stardraft::cmbw::open(*d, install, err)) return gCmbwOpening = false, nullptr;
     data = std::move(d);
     gCmbwInUse = install;
     return data.get();

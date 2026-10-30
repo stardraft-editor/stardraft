@@ -36,6 +36,54 @@ inline std::unique_ptr<draw::Bitmap> tilesBitmap(const stardraft::Tileset& ts, c
     return b;
 }
 
+// The window's worker thread: the tileset loads and the examples paint there, one job after the other (the window stays
+// open and answers meanwhile). It is never stopped: the program's end stops it.
+class Worker {
+public:
+    void post(std::function<void()> f) {
+        {
+            std::lock_guard<std::mutex> lock(m_);
+            if (stopped_) return;
+            if (!thread_.joinable()) thread_ = std::thread([this] { run(); });
+            jobs_.push_back(std::move(f));
+        }
+        cv_.notify_one();
+    }
+    // The program ends: the jobs that wait go, the one that runs ends first (before the window and the game data go).
+    void stop() {
+        {
+            std::lock_guard<std::mutex> lock(m_);
+            stopped_ = true, jobs_.clear();
+        }
+        cv_.notify_one();
+        if (thread_.joinable()) thread_.join();
+    }
+
+private:
+    void run() {
+        for (;;) {
+            std::function<void()> f;
+            {
+                std::unique_lock<std::mutex> lock(m_);
+                cv_.wait(lock, [this] { return !jobs_.empty() || stopped_; });
+                if (stopped_) return;
+                f = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            f();
+        }
+    }
+    std::mutex m_;
+    std::condition_variable cv_;
+    std::deque<std::function<void()>> jobs_;
+    std::thread thread_;
+    bool stopped_ = false;
+};
+inline Worker& worker() {
+    static Worker w;
+    return w;
+}
+
 }  // namespace isomrules
 
 class IsomRulesView final : public draw::View {
@@ -63,13 +111,25 @@ public:
         list_.onSelect = [this] { selectTerrain(); };
         ground_.onChange = [this](int i) { setGround(i); };
         mode_.setTip(L"Rect: both halves (subtiles 2v, 2v+1). Tile: one half");
-        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &mode_, &search_,
-                                                               &list_, &newTerrain_, &ground_})
+        row_.searchable = true, row_.wheelSteps = false;
+        row_.setTip(L"Go to a row of the tiles (a group: type its number or its terrain). Ctrl+click a rect of the example: its tiles");
+        row_.onChange = [this](int g) { showRow(g, -1); };
+        palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
+        for (draw::View* v : std::initializer_list<draw::View*>{&era_, &load_, &loadDefault_, &save_, &saveAs_, &nextNull_, &mode_, &row_, &search_,
+                                                               &list_, &newTerrain_, &ground_, &palBar_})
             add(*v, {0, 0, 0, 0});
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
 
-    // Opens with the rules in use now (the built-in ones, the mod's file, the override) of the open map's tileset.
+    // Off: the work is done at once, on this thread (a snapshot's run).
+    void setAsync(bool on) { async_ = on; }
+    // The program ends: the worker ends (after the job that runs).
+    void shutdown() {
+        ++buildGen_, ++openGen_;
+        isomrules::worker().stop();
+    }
+    // Opens with the rules in use now (the built-in ones, the mod's file, the override) of the open map's tileset (it
+    // loads on the worker: the window shows Loading until then).
     void open() {
         const AppState& app = shellState();
         if (doc_.tilesets.empty()) openEra(app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
@@ -149,34 +209,72 @@ private:
         return int(std::count_if(m.pieces.begin(), m.pieces.end(), [](const auto& p) { return isomrules::isNull(p); }));
     }
 
-    // The tileset of an era with the rules files (shipped, override), or without the override (`plain`).
-    bool loadTileset(int e, bool plain, std::string& err) {
+    // The tileset of an era with the rules files (shipped, override), or without the override (`plain`). (On the worker.)
+    static bool loadTileset(stardraft::Tileset& ts, int e, bool plain, std::string& err) {
         const GameData* data = cmbwGameData(err);
         if (!data) return false;
-        if (plain) stardraft::cmbw::useTerrainOverride({});
-        tileset_ = stardraft::Tileset();
-        const bool ok = tileset_.load(*data, uint16_t(e), err);
-        if (plain) cmbwApplyTerrainOverride();
+        stardraft::cmbw::skipTerrainOverride(plain);
+        const bool ok = ts.load(*data, uint16_t(e), err);
+        stardraft::cmbw::skipTerrainOverride(false);
         return ok;
     }
-    void openEra(int e, bool plain = false) {
+    // A job on the worker (off: now), and its end back on the window's thread.
+    void background(std::function<void()> f) {
+        if (!async_) return f();
+        isomrules::worker().post(std::move(f));
+    }
+    void foreground(std::function<void()> f) {
+        if (!async_) return f();
+        shellPost(std::move(f));
+    }
+    struct Opened {
+        stardraft::Tileset tileset;
+        stardraft::terrainrules::TilesetRules rules;
         std::string err;
+        bool ok = false, plain = false;
+    };
+    void openEra(int e, bool plain = false) {
         era_.setValue(e);
-        if (!loadTileset(e, plain, err)) {
-            shown_.clear(), sel_ = -1, target_ = -1, list_.setCount(0), places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+        const int gen = ++openGen_;
+        ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
+        shown_.clear(), sel_ = -1, target_ = -1, list_.setCount(0), places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+        invalidate();
+        background([this, gen, e, plain] {
+            auto o = std::make_shared<Opened>();
+            o->plain = plain;
+            o->ok = loadTileset(o->tileset, e, plain, o->err);
+            if (o->ok) o->rules = stardraft::terrainrules::rulesOf(o->tileset);
+            foreground([this, gen, o] { opened(gen, *o); });
+        });
+    }
+    void opened(int gen, Opened& o) {
+        if (gen != openGen_) return;  // (another tileset was asked for meanwhile)
+        loading_ = false;
+        if (!o.ok) {  // (no tiles: not the last tileset's under this one's name)
+            tileset_ = stardraft::Tileset(), pal_.clear(), palScroll_ = 0, jump_ = -1, row_.setItems({}), ground_.setItems({}), groundIds_.clear();
             invalidate();
-            shellErrorBox(widen(err), L"Custom isom terrain editor");
+            shellErrorBox(widen(o.err), L"Custom isom terrain editor");
             return;
         }
-        if (!rulesOrNull() || plain) setRules(stardraft::terrainrules::rulesOf(tileset_));
+        tileset_ = std::move(o.tileset);
+        if (!rulesOrNull() || o.plain) setRules(std::move(o.rules));
         groundIds_.clear();
         std::vector<stardraft::kit::DropdownItem> grounds;
-        if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(e)))
+        std::map<uint16_t, std::wstring> names;  // (a terrain id -> its name: the rows' terrains)
+        if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era())))
             for (uint16_t i = 1; i <= game->terrainCount(); ++i)
-                if (game->isTerrain(i)) groundIds_.push_back(i), grounds.push_back({widen(game->terrainName(i))});
-        for (const auto& x : rules().terrains) groundIds_.push_back(x.t.id), grounds.push_back({widen(x.t.name)});
+                if (game->isTerrain(i)) groundIds_.push_back(i), grounds.push_back({widen(game->terrainName(i))}), names[i] = widen(game->terrainName(i));
+        for (const auto& x : rules().terrains) groundIds_.push_back(x.t.id), grounds.push_back({widen(x.t.name)}), names[x.t.id] = widen(x.t.name);
         ground_.setItems(grounds);
-        pal_.clear();
+        // (the rows: each group of the tileset, by its number and the terrain its tiles are)
+        std::vector<std::wstring> of(tileset_.groups.size());
+        for (const auto& [g, tr, other] : tileset_.groupTerrains)
+            if (g < of.size() && names.count(tr))
+                of[g] = names[tr] + (other && names.count(other) ? L" / " + names[other] : L"");
+        std::vector<stardraft::kit::DropdownItem> rows;
+        for (size_t g = 0; g < tileset_.groups.size(); ++g) rows.push_back({std::to_wstring(g) + (of[g].empty() ? L"" : L"  " + of[g])});
+        row_.setItems(rows), row_.setValue(-1);
+        pal_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
         filter();
         if (!shown_.empty()) list_.selectOnly(0), selectTerrain();
@@ -214,49 +312,101 @@ private:
         changed();
     }
 
-    // The examples: a new map of the tileset, its bordering terrain, then the terrain in diamonds of 0.5 to 3 and two
-    // that overlap, with the working rules; each rect of the terrain with its piece.
+    // The example: a new map of the tileset, its bordering terrain, then the terrain in the fixed shape of its kind (a
+    // wall's, a path's: diamonds of 1 that show its edges, corners and joints), with the working rules;
+    // each rect of the terrain with its piece. It paints on the worker; another terrain's picture goes at once, the same
+    // terrain's stays until the new one comes.
+    struct BuildIn {
+        int gen = 0;
+        uint8_t era = 0;
+        uint16_t root = 1;
+        stardraft::terrainrules::Terrain t;
+        std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
+        std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
+        const GameData* data = nullptr;
+    };
+    struct BuildOut {
+        std::vector<Place> places;
+        std::vector<int> holes, absent;
+        draw::Rect crop;
+        std::unique_ptr<draw::Bitmap> picture;
+    };
     void rebuild() {
-        places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         const auto* t = terrain();
         std::string err;
-        const GameData* data = t ? cmbwGameData(err) : nullptr;
-        if (!t || !data) return invalidate();
-        if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*data);
-        Editor* ed = puzzleEd_.get();
+        const GameData* data = t && !loading_ ? cmbwGameData(err) : nullptr;
+        auto in = std::make_shared<BuildIn>();
+        in->gen = ++buildGen_;
+        if (!t || !data) {
+            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+            return invalidate();
+        }
+        in->era = era(), in->t = *t, in->data = data;
         uint16_t root = t->t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
             if (const isomrules::ModTerrain* m = tileset_.modTerrain(root)) root = m->ground; else break;
-        constexpr int W = 96, H = 64;
-        if (!ed->isOpen() || ed->era() != era()) {
-            if (!ed->newMap(W, H, era(), root ? root : 1, err)) return invalidate();
-        }
+        in->root = root ? root : 1;
         // (each half of each piece of the terrain as a value that no tile uses: past the tileset's groups, else an empty
         // subtile; the painted map then tells which piece is in each rect, and its half; the picture puts the piece's own
         // tiles there)
-        std::vector<uint16_t> free;
-        std::unordered_map<uint16_t, uint32_t> index;  // (a stand-in value -> piece * 2 + half)
-        for (uint32_t v = uint32_t(tileset_.groups.size()) * 16; v <= 0xFFFF && free.size() < 2 * t->t.pieces.size(); ++v) free.push_back(uint16_t(v));
-        for (uint32_t v = 16; v <= 0xFFFF && free.size() < 2 * t->t.pieces.size(); ++v)
-            if (v / 16 < tileset_.groups.size() && !tileset_.groups[v / 16].megatiles[v % 16]) free.push_back(uint16_t(v));
-        if (free.size() < 2 * t->t.pieces.size()) return invalidate();
-        for (uint32_t i = 0; i < free.size(); ++i) index[free[i]] = i;
-        std::vector<isomrules::ModTerrain> all;
-        for (const auto& x : rules().terrains) {
-            all.push_back(x.t);
-            if (x.t.id == t->t.id)
-                for (size_t k = 0; k < all.back().pieces.size(); ++k)
-                    all.back().pieces[k][1] = free[2 * k], all.back().pieces[k][2] = free[2 * k + 1];
+        const size_t need = 2 * t->t.pieces.size();
+        for (uint32_t v = uint32_t(tileset_.groups.size()) * 16; v <= 0xFFFF && in->free.size() < need; ++v) in->free.push_back(uint16_t(v));
+        for (uint32_t v = 16; v <= 0xFFFF && in->free.size() < need; ++v)
+            if (v / 16 < tileset_.groups.size() && !tileset_.groups[v / 16].megatiles[v % 16]) in->free.push_back(uint16_t(v));
+        if (in->free.size() < need) {
+            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+            return invalidate();
         }
-        ed->useModTerrains(all);
-        const int cy = H * 16;
-        ed->paintBrush(W * 16, cy, root ? root : 1, Brush{Brush::Diamond, 64.0f});  // (the last examples go: all of it the root terrain)
-        // (small shapes close together: a diamond of 1 and one of 2, and two of 2 that overlap: their inner corners and
-        // joints; the bordering terrain only around them)
-        const struct { int x, y; float s; } strokes[] = {{640, cy, 1.0f}, {1024, cy, 2.0f}, {1536, cy - 64, 2.0f}, {1632, cy + 64, 2.0f}};
-        if (t->t.ground != root)
-            for (const auto& k : strokes) ed->paintBrush(k.x, k.y, t->t.ground, Brush{Brush::Diamond, k.s + 2});
-        for (const auto& k : strokes) ed->paintBrush(k.x, k.y, t->t.id, Brush{Brush::Diamond, k.s});
+        for (const auto& x : rules().terrains) {
+            in->all.push_back(x.t);
+            if (x.t.id == t->t.id)
+                for (size_t k = 0; k < in->all.back().pieces.size(); ++k)
+                    in->all.back().pieces[k][1] = in->free[2 * k], in->all.back().pieces[k][2] = in->free[2 * k + 1];
+        }
+        if (shownId_ != sel_) places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), shownId_ = sel_;
+        building_ = true;
+        invalidate();
+        background([this, in] {
+            if (in->gen != buildGen_) return;  // (a newer one comes after it)
+            auto out = std::make_shared<BuildOut>();
+            build(*in, *out);
+            foreground([this, in, out] {
+                if (in->gen != buildGen_) return;
+                building_ = false;
+                places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
+                picture_ = std::move(out->picture);
+                invalidate();
+            });
+        });
+    }
+    // (on the worker: puzzleEd_ is its own)
+    void build(const BuildIn& in, BuildOut& out) {
+        const auto* t = &in.t;
+        std::string err;
+        if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data);
+        Editor* ed = puzzleEd_.get();
+        const uint16_t root = in.root;
+        constexpr int W = 40, H = 28;
+        if (!ed->isOpen() || ed->era() != in.era) {
+            if (!ed->newMap(W, H, in.era, root, err)) return;
+        }
+        std::unordered_map<uint16_t, uint32_t> index;  // (a stand-in value -> piece * 2 + half)
+        for (uint32_t i = 0; i < in.free.size(); ++i) index[in.free[i]] = i;
+        ed->useModTerrains(in.all);
+        const int cx = W * 16, cy = H * 16;
+        // (one shape for each kind: diamonds of 1, in steps of 64 to the side and 32 up or down from the middle; the
+        // places that show the most rects of the mod's walls and paths: a search over all their terrains found the same
+        // few each time)
+        static const std::vector<std::pair<int, int>> kWall = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}};
+        static const std::vector<std::pair<int, int>> kPath = {{0, 0}, {0, -2}, {-1, 1}, {0, 2}, {3, 1}, {3, -3}, {-3, -3}};
+        std::vector<Spot> blob;
+        for (const auto& [i, j] : t->kind == stardraft::terrainrules::Kind::Wall ? kWall : kPath) blob.push_back({cx + i * 64, cy + j * 32, 1.0f});
+        auto paint = [&]() {  // (the bordering terrain all around: no other terrain in the picture; the shape)
+            ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
+            ed->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 24.0f});
+            for (const auto& k : blob) ed->paintBrush(k.x, k.y, t->t.id, Brush{Brush::Diamond, k.s});
+        };
+        paint();
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
         std::set<uint16_t> seen;
@@ -270,42 +420,53 @@ private:
                 const bool right = it->second & 1;
                 if (!right) {
                     seen.insert(q[0]);
-                    if (isomrules::isNull(q)) holes_.push_back(int(places_.size()));
-                    places_.push_back({tx, ty, int(k)});
+                    if (isomrules::isNull(q)) out.holes.push_back(int(out.places.size()));
+                    out.places.push_back({tx, ty, int(k)});
                     x0 = std::min(x0, tx), y0 = std::min(y0, ty), x1 = std::max(x1, tx + 1), y1 = std::max(y1, ty);
                 }
                 v = isomrules::isNull(q) ? 0 : q[right ? 2 : 1];
             }
         for (size_t k = 0; k < t->t.pieces.size(); ++k)  // (its set's pieces and its gaps, not its fill: kindOf's rects)
             if (const uint16_t g = t->t.pieces[k][0]; (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) && !seen.count(g) &&
-                std::none_of(absent_.begin(), absent_.end(), [&](int a) { return t->t.pieces[size_t(a)][0] == g; }))
-                absent_.push_back(int(k));
+                std::none_of(out.absent.begin(), out.absent.end(), [&](int a) { return t->t.pieces[size_t(a)][0] == g; }))
+                out.absent.push_back(int(k));
         if (x1 < 0) x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1;
         x0 = std::max(0, x0 - 2), y0 = std::max(0, y0 - 1), x1 = std::min(W - 1, x1 + 2), y1 = std::min(H - 1, y1 + 1);
-        crop_ = {x0, y0, x1 + 1, y1 + 1};
+        out.crop = {x0, y0, x1 + 1, y1 + 1};
         std::vector<uint16_t> part;
         for (int y = y0; y <= y1; ++y)
             for (int x = x0; x <= x1; ++x) part.push_back(tl.tiles[size_t(y) * W + x]);
-        picture_ = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
-        if (picture_) {  // (the tiles that are no rect of the terrain: dimmed, so its own pieces stand out)
+        out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
+        if (out.picture) {  // (the tiles that are no rect of the terrain: dimmed, so its own pieces stand out)
             std::vector<uint8_t> own(size_t(x1 - x0 + 1) * size_t(y1 - y0 + 1), 0);
-            for (const Place& p : places_)
-                for (int d = 0; d < 2; ++d) own[size_t(p.ty - y0) * size_t(x1 - x0 + 1) + size_t(p.tx + d - x0)] = 1;
-            uint32_t* px = picture_->pixels();
-            const int pw = picture_->width();
-            for (int y = 0; y < picture_->height(); ++y)
+            for (const Place& pl : out.places)
+                for (int d = 0; d < 2; ++d) own[size_t(pl.ty - y0) * size_t(x1 - x0 + 1) + size_t(pl.tx + d - x0)] = 1;
+            uint32_t* px = out.picture->pixels();
+            const int pw = out.picture->width();
+            for (int y = 0; y < out.picture->height(); ++y)
                 for (int x = 0; x < pw; ++x)
                     if (!own[size_t(y / 32) * size_t(x1 - x0 + 1) + size_t(x / 32)]) {
                         uint32_t& c = px[size_t(y) * pw + x];
                         c = 0xFF000000u | ((c >> 2) & 0x3F3F3F);
                     }
-            picture_->changed();
+            out.picture->changed();
         }
+    }
+    // The tiles' row g in view, and tile v framed (-1: the whole row) until another is asked for.
+    void showRow(int g, int v) {
+        if (g < 0 || g >= int(tileset_.groups.size())) return;
+        jump_ = v >= 0 ? v : g << 4, jumpRow_ = v < 0;
+        row_.setValue(g);
+        const int cell = std::max(scale(8), (palette_.width() - scale(56)) / 16);
+        const int y = g * cell;
+        if (y < palScroll_ || y + cell > palScroll_ + palette_.height())
+            palScroll_ = std::clamp(y - palette_.height() / 2, 0, std::max(0, int(tileset_.groups.size()) * cell - palette_.height()));
         invalidate();
     }
 
     // A tile of the palette went into the target (Rect: the pair; Tile: the half that was clicked).
     void place(uint16_t value) {
+        if (loading_) return;
         if (sel_ < 0 || target_ < 0) return setMessage(L"Click a rect or a NULL hole first");
         auto& m = rules().terrains[size_t(sel_)].t;
         if (target_ >= int(m.pieces.size())) return;
@@ -318,6 +479,7 @@ private:
             m.pieces.erase(m.pieces.begin() + target_);
             m.pieces.insert(m.pieces.begin() + long(m.setPieces), p);
             target_ = int(m.setPieces), ++m.setPieces, --m.gapPieces;
+            places_.clear(), holes_.clear(), absent_.clear();  // (their piece numbers moved: none until the new example)
         } else {
             m.pieces[size_t(target_)] = p;
         }
@@ -344,21 +506,43 @@ private:
         invalidate();
     }
 
+    // New terrain: its model (an existing terrain: its rects, the game border it is made as), its bordering terrain
+    // (the model's, or another known one), then its name ("Primary (Bordering)"); every rect NULL. Its kind comes from
+    // the model.
     void newTerrain() {
-        const auto* t = terrain();
-        if (!t) return setMessage(L"Select the terrain to copy the model and the bordering terrain from");
-        std::wstring name = L"Primary (Bordering)";
-        if (!shellPromptText(L"New terrain (its model and bordering terrain: the selected one's)", name) || name.empty()) return;
+        if (loading_) return setMessage(L"The tileset is loading");
         auto& ts = rules();
-        stardraft::terrainrules::Terrain x;
-        x.kind = t->kind, x.t.name = narrow(name), x.t.standIn = t->t.standIn, x.t.ground = t->t.ground, x.t.groundTemplate = t->t.groundTemplate;
-        x.t.fill = false, x.t.fillKey = 0;
+        std::vector<ListPickItem> models;
+        for (size_t i = 0; i < ts.terrains.size(); ++i)
+            if (!ts.terrains[i].t.variantOf)
+                models.push_back({widen(ts.terrains[i].t.name) + L" \x00b7 " + isomrules::kindName(ts.terrains[i].kind), L"", std::to_string(i), "", -1});
+        if (models.empty()) return setMessage(L"No terrain to copy a model from in this tileset");
+        const draw::Rect at = newTerrain_.frame();
+        ListPickView modelPick(L"Model: like", models, sel_ >= 0 ? std::to_string(sel_) : std::string());
+        if (!runListPick(modelPick, {at.left, at.top - scale(400)}) || modelPick.result().empty()) return;
+        const auto model = ts.terrains[size_t(std::stoi(modelPick.result()))];
+        std::vector<ListPickItem> grounds;
+        for (size_t k = 0; k < groundIds_.size(); ++k) grounds.push_back({ground_.items()[k].label, L"", std::to_string(groundIds_[k]), "", -1});
+        ListPickView groundPick(L"Bordering", grounds, std::to_string(model.t.ground));
+        if (!runListPick(groundPick, {at.left, at.top - scale(400)}) || groundPick.result().empty()) return;
+        const uint16_t ground = uint16_t(std::stoi(groundPick.result()));
+        std::wstring groundName;
+        for (const auto& g : grounds)
+            if (g.value == groundPick.result()) groundName = g.label;
+        std::wstring name = L"Primary (" + groundName + L")";
+        if (!shellPromptText(L"New terrain: its name (Primary (Bordering))", name) || name.empty()) return;
         std::set<uint16_t> ids, games;
         for (const auto& o : ts.terrains) ids.insert(o.t.id);
+        for (const auto& m : tileset_.modTerrains) ids.insert(m.id);  // (and the variants' ids)
         uint16_t id = stardraft::Tileset::kModTerrainIds;
-        while (ids.count(id)) ++id;
-        x.t.id = id;
-        for (const auto& p : t->t.pieces)  // (each rect of the model once, NULL)
+        while (ids.count(id) && id < stardraft::Tileset::kModVariantIds) ++id;
+        if (id >= stardraft::Tileset::kModVariantIds) return shellErrorBox(L"No free terrain id left in this tileset.", L"New terrain");
+        stardraft::terrainrules::Terrain x;
+        x.kind = model.kind, x.t.id = id, x.t.name = narrow(name), x.t.standIn = model.t.standIn, x.t.ground = ground;
+        const isomrules::ModTerrain* gm = tileset_.modTerrain(ground);
+        x.t.groundTemplate = ground == model.t.ground ? model.t.groundTemplate : gm ? gm->standIn : 0;
+        x.t.fill = false, x.t.fillKey = 0;
+        for (const auto& p : model.t.pieces)  // (each rect of the model once, NULL; not its fill)
             if (games.insert(p[0]).second) x.t.pieces.push_back({p[0], 0, 1});
         x.t.setPieces = 0, x.t.gapPieces = x.t.pieces.size();
         ts.terrains.push_back(std::move(x));
@@ -367,6 +551,7 @@ private:
             if (shown_[i] == int(ts.terrains.size()) - 1) list_.selectOnly(int(i));
         selectTerrain();
         dirty_ = true;
+        setMessage(L"New terrain " + name + L": like " + widen(model.t.name) + L", id " + std::to_wstring(id));
     }
 
     void loadDefault() {
@@ -385,12 +570,7 @@ private:
         std::string err;
         if (!stardraft::terrainrules::load(f, r, err)) return shellErrorBox(widen(err), L"Load terrain rules");
         doc_ = std::move(r), file_ = modsOwn(f) ? std::filesystem::path() : f, dirty_ = false;  // (the mod's own file: Save asks for another)
-        const int e = era();
-        if (!rulesOrNull()) {  // (the file has no rules for this tileset: the ones in use now)
-            std::string err2;
-            if (loadTileset(e, false, err2)) setRules(stardraft::terrainrules::rulesOf(tileset_));
-        }
-        openEra(e);
+        openEra(era());  // (a tileset the file has no rules for: the ones in use now)
         setMessage(L"Loaded " + f.filename().wstring());
     }
     // A file in the mod's install folder (its own terrains.sdterrain: the default rules, with the built-in ones): never
@@ -431,7 +611,9 @@ private:
 
     void layout();
 
-    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1};
+    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1};
+    stardraft::kit::ScrollBar palBar_;  // (the tiles' scroll bar, at the right edge)
+    int palTotal_ = -1, palPage_ = -1;  // (the bar's range as it was last set)
     stardraft::kit::Button load_, loadDefault_, save_, saveAs_, nextNull_, mode_, newTerrain_;
     stardraft::kit::TextField search_;
     stardraft::kit::ListView list_;
@@ -445,7 +627,12 @@ private:
     std::vector<Place> places_;
     std::vector<int> holes_, absent_;
     std::unique_ptr<draw::Bitmap> picture_;
-    std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once)
+    struct Spot { int x, y; float s; };
+    std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
+    bool async_ = true, loading_ = false, building_ = false;
+    int openGen_ = 0, shownId_ = -1, jump_ = -1;  // (jump_: the tile framed in the tiles; jumpRow_: its whole row)
+    bool jumpRow_ = false;
+    std::atomic<int> buildGen_{0};  // (the newest example asked for: the worker leaves out older ones)
     draw::Rect crop_, puzzle_, palette_, tray_;
     float zoom_ = 1;
     int paletteW_ = 0, palScroll_ = 0;
@@ -460,13 +647,17 @@ void IsomRulesView::layout() {
     put(era_, scale(150)), put(load_, scale(80)), put(loadDefault_, scale(110)), put(save_, scale(70)), put(saveAs_, scale(90));
     x += scale(20);
     put(nextNull_, scale(110)), put(mode_, scale(60));
+    x += scale(20);
+    put(row_, scale(240));
     const int top = pad * 2 + barH, leftW = scale(280);
     if (!paletteW_) paletteW_ = 16 * scale(32) + scale(24);
     paletteW_ = std::clamp(paletteW_, scale(200), std::max(scale(200), W - leftW - scale(300)));
     search_.setFrame({pad, top, leftW - pad, top + barH});
     list_.setFrame({pad, top + barH + pad, leftW - pad, H - pad * 2 - barH});
     newTerrain_.setFrame({pad, H - pad - barH, leftW - pad, H - pad});
-    palette_ = {W - paletteW_, top, W, H};
+    const int barW = scale(stardraft::kit::kScrollBarW);
+    palette_ = {W - paletteW_, top, W - barW, H};
+    palBar_.setFrame({W - barW, top, W, H});
     const int mx0 = leftW, mx1 = W - paletteW_;
     ground_.setFrame({mx0 + scale(90), top, std::min(mx1 - pad, mx0 + scale(380)), top + barH});
     puzzle_ = {mx0, top + barH + pad, mx1, H - scale(70)};
@@ -514,8 +705,11 @@ void IsomRulesView::paint(draw::Canvas& c) {
             }
         c.popClip();
     } else {
-        c.text(puzzle_, t ? L"No picture (the mod's data?)" : L"Select a terrain", kDim, draw::kCenter | draw::kMiddle);
+        c.text(puzzle_, loading_ ? L"Loading the tileset\x2026" : building_ ? L"Painting the example\x2026" : t ? L"No picture (the mod's data?)" : L"Select a terrain",
+               kDim, draw::kCenter | draw::kMiddle);
     }
+    if (building_ && picture_)
+        c.text({puzzle_.left + pad, puzzle_.top + pad, puzzle_.right - pad, puzzle_.top + scale(28)}, L"Painting\x2026", kDim, draw::kRight);
     // The tray: the rects of the model that the examples do not show.
     c.fill({tray_.left, tray_.top, tray_.right, tray_.top + 1}, kBorder);
     c.text({tray_.left + pad, tray_.top + pad, tray_.left + scale(110), tray_.top + scale(28)}, L"Not in examples", kDim, draw::kMiddle);
@@ -541,6 +735,8 @@ void IsomRulesView::paint(draw::Canvas& c) {
         for (auto it = pal_.begin(); it != pal_.end();)
             it = it->first < first - 1 || it->first > last + 1 ? pal_.erase(it) : std::next(it);
     }
+    if (const int total = rows * cell, page = palette_.height(); total != palTotal_ || page != palPage_) palBar_.setRange(total, page), palTotal_ = total, palPage_ = page;
+    palBar_.setPos(palScroll_);
     c.pushClip(palette_);
     for (int g = std::max(0, palScroll_ / cell); g < rows && (g * cell - palScroll_) < palette_.height(); ++g) {
         const int y = palette_.top + g * cell - palScroll_;
@@ -562,6 +758,11 @@ void IsomRulesView::paint(draw::Canvas& c) {
             const int y = palette_.top + int(v >> 4) * cell - palScroll_, x = x0 + int(v & 15) * cell;
             c.frame({x, y, x + cell, y + cell}, kAccent, scale(2));
         }
+    if (jump_ >= 0) {  // (the row or the tile that was asked for)
+        const int g = jump_ >> 4, y = palette_.top + g * cell - palScroll_;
+        const int x = jumpRow_ ? x0 : x0 + (jump_ & 15) * cell, w = jumpRow_ ? 16 * cell : cell;
+        c.frame({x - 1, y - 1, x + w + 1, y + cell + 1}, 0x30C8FF, scale(2));
+    }
     c.popClip();
 }
 
@@ -604,9 +805,14 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         if (h != hover_) hover_ = h, invalidate();
         return false;
     }
-    if (e.kind != draw::MouseKind::Down || e.button != 0 || !t) return false;
+    if (e.kind != draw::MouseKind::Down || e.button != 0 || !t || loading_) return false;
     if (int half = 0; placeAt(e.pt, half) >= 0) {
         target_ = places_[size_t(placeAt(e.pt, half))].piece, targetHalf_ = half;
+        if (e.mods & draw::kCtrl) {  // (its tiles in the palette: the half clicked)
+            const auto& q = t->t.pieces[size_t(target_)];
+            if (isomrules::isNull(q)) setMessage(L"Rect " + std::to_wstring(q[0]) + L": NULL, no tiles");
+            else showRow(q[1 + half] >> 4, q[1 + half]);
+        }
         invalidate();
         return true;
     }
@@ -648,5 +854,7 @@ void isomRulesShow() {
     gIsomRulesView.open();
     shellShowIsomRulesWindow();
 }
+// The program's end: the window's worker stops (before the windows and the game data go).
+void isomRulesShutdown() { gIsomRulesView.shutdown(); }
 // Quit: the editor's unsaved rules ask first (false: the quit stops).
 bool isomRulesConfirmQuit() { return gIsomRulesView.confirmClose(); }

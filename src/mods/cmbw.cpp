@@ -1809,8 +1809,15 @@ void addModTerrains(Tileset& t) {
 // The terrain rules files over the built-in rows: the one the mod ships (<install>\mpq	errains.sdterrain), then the
 // temporary override (useTerrainOverride). Each replaces terrains by id or adds new ones (terrainrules::apply).
 std::filesystem::path gTerrainOverride;
+std::mutex gTerrainOverrideLock;  // (a tileset can load on a worker thread)
+thread_local bool tSkipOverride = false;  // (skipTerrainOverride)
 void applyTerrainFiles(Tileset& t) {
-    for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.sdterrain", gTerrainOverride}) {
+    std::filesystem::path override;
+    if (!tSkipOverride) {
+        std::lock_guard<std::mutex> lock(gTerrainOverrideLock);
+        override = gTerrainOverride;
+    }
+    for (const std::filesystem::path& f : {findInstall().empty() ? std::filesystem::path() : findInstall() / "mpq" / "terrains.sdterrain", override}) {
         std::error_code ec;
         if (f.empty() || !std::filesystem::exists(f, ec)) continue;
         terrainrules::Rules r;
@@ -1864,7 +1871,7 @@ bool unitRanges(const GameData& data, uint16_t unit, UnitRanges& out) {
         Datex u, w;
         bool ok = false;
     };
-    static std::map<const GameData*, Tables> cache;
+    thread_local std::map<const GameData*, Tables> cache;  // (each thread its own)
     Tables& t = cache[&data];
     if (!t.ok) {
         std::string err;
@@ -1995,7 +2002,7 @@ std::vector<TerrainStamp> parseBrushes(const Bytes& d, uint16_t era) {
 }  // namespace
 
 const std::vector<TerrainStamp>& brushStamps(const fs::path& install, uint16_t era) {
-    static std::map<uint16_t, std::vector<TerrainStamp>> cache;
+    thread_local std::map<uint16_t, std::vector<TerrainStamp>> cache;  // (each thread its own)
     auto [it, fresh] = cache.try_emplace(uint16_t(era & 7));
     if (fresh && !install.empty()) {
         static const char* kFiles[8] = {"badlands", "platform", "install", "ashworld", "jungle", "desert", "ice", "twilight"};
@@ -2824,6 +2831,7 @@ std::vector<uint8_t> encodePcx8(const std::vector<uint8_t>& rgba, int width, int
 }
 
 fs::path gChosenInstall;  // (useInstall)
+std::mutex gChosenInstallLock;  // (a worker thread can open the mod's data)
 
 fs::path installIn(const fs::path& folder) {
     std::error_code ec;
@@ -2834,10 +2842,16 @@ fs::path installIn(const fs::path& folder) {
     return {};
 }
 
-void useInstall(const fs::path& install) { gChosenInstall = install; }
+void useInstall(const fs::path& install) {
+    std::lock_guard<std::mutex> lock(gChosenInstallLock);
+    gChosenInstall = install;
+}
 
 fs::path findInstall() {
-    if (!gChosenInstall.empty()) return gChosenInstall;
+    {
+        std::lock_guard<std::mutex> lock(gChosenInstallLock);
+        if (!gChosenInstall.empty()) return gChosenInstall;
+    }
     for (const char* v : {"ProgramFiles(x86)", "ProgramFiles"})
         if (const char* p = std::getenv(v))
             if (fs::path in = installIn(fs::path(p) / "Cosmonarchy"); !in.empty()) return in;
@@ -2962,6 +2976,10 @@ std::vector<uint8_t> simUnits(const std::vector<uint8_t>& in, const UnitTypes& t
     return out;
 }
 
-void useTerrainOverride(const std::filesystem::path& file) { gTerrainOverride = file; }
+void useTerrainOverride(const std::filesystem::path& file) {
+    std::lock_guard<std::mutex> lock(gTerrainOverrideLock);
+    gTerrainOverride = file;
+}
+void skipTerrainOverride(bool on) { tSkipOverride = on; }
 
 }  // namespace stardraft::cmbw

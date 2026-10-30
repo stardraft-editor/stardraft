@@ -39,6 +39,8 @@ void useInstall(const std::filesystem::path& install);
 // A terrain rules file (.sdterrain, mods/terrain_rules.h) put over the built-in rules and the mod's own file when a
 // tileset loads (Program options > Plugins: ISOM terrain rules override); empty: none.
 void useTerrainOverride(const std::filesystem::path& file);
+// On: the tilesets this thread loads leave the override out (the default rules: the shipped file and the built-in ones).
+void skipTerrainOverride(bool on);
 
 // Opens `data` on the CMBW files of `install` (findInstall): the loose mpq folder first, then the 1.16.1 MPQs
 // (patch_rt, BrooDat, StarDat). Unit types and sprites then come from the .datex files.

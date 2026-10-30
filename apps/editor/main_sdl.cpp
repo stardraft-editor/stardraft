@@ -803,6 +803,7 @@ int main(int argc, char** argv) {
             } else if (dialogArg == "feedback") shown = &feedbackShot;
             else if (dialogArg.rfind("isomrules", 0) == 0) {  // isomrules[:<terrain>]: the Custom isom terrain editor (a Cosmonarchy run: --cmbw)
                 shown = &gIsomRulesView;
+                gIsomRulesView.setAsync(false);  // (the snapshot: at once)
                 gIsomRulesView.open();
                 if (dialogArg.size() > 10) gIsomRulesView.selectByName(dialogArg.substr(10));
                 std::printf("%s\n", gIsomRulesView.state().c_str());
@@ -1020,6 +1021,7 @@ int main(int argc, char** argv) {
             if (gWinTestWrong) status = 1;
         }
         // The map view's texture and the scene's state go before the device; the views before the host.
+        isomRulesShutdown();  // (the isom terrain editor's worker: before the views and the game data go)
         releaseMapTexture();
         gRoot = nullptr;
         gHost = nullptr;

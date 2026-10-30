@@ -379,7 +379,7 @@ CASES += [
                              "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s examples; a click on a NULL hole, then on
     # tile 2.0 of the palette: the rect takes 2.0 and 2.1, one null less (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "848,438", "--click", "1020,110"], "cmbw"),
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "455,420", "--click", "1020,110"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
     # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,

@@ -1444,9 +1444,9 @@ void IsomGrid::putPieces(Chk& chk, const Chk& work, const std::vector<uint8_t>& 
             bool ok = false;
             uint8_t px[4][32][3];
         };
-        static std::map<std::pair<const Tileset*, uint16_t>, Edges> kept;
+        thread_local std::map<std::pair<const Tileset*, uint16_t>, Edges> kept;  // (each thread its own)
         // (another tileset's graphics, or the same tileset loaded again: its edges read again)
-        static std::tuple<const void*, const void*, size_t, size_t> keptFor{};
+        thread_local std::tuple<const void*, const void*, size_t, size_t> keptFor{};
         const auto now = std::make_tuple(static_cast<const void*>(tileset_->megatiles.data()), static_cast<const void*>(tileset_->minitiles.data()),
                                          tileset_->megatiles.size(), tileset_->minitiles.size());
         if (keptFor != now) kept.clear(), keptFor = now;

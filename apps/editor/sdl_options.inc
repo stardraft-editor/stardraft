@@ -268,9 +268,9 @@ public:
         v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
         v.installNext = !gInstallNext.empty() && gInstallNext != gInstallInUse ? gInstallNext.wstring() : std::wstring();
         if (v.gameMode == 1) {  // (Mods: the Cosmonarchy folder, shown in that game only)
-            const fs::path mod = !gCmbwInUse.empty() ? gCmbwInUse : stardraft::cmbw::findInstall();
+            const fs::path inUse = cmbwInUse(), mod = !inUse.empty() ? inUse : stardraft::cmbw::findInstall();
             v.cmbwFolder = mod.empty() ? std::wstring() : mod.wstring();
-            v.cmbwOpen = !gCmbwInUse.empty();
+            v.cmbwOpen = !inUse.empty();
             v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
             v.overrideOn = gTerrainOverrideOn, v.overrideFile = gTerrainOverride.wstring();
         }

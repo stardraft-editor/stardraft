@@ -1257,14 +1257,15 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
 // mod's (the game's piece stays only where none of them looks like it); where it made tiles of one terrain alone
 // (Tileset::groupTerrains), 1 in 20 of them is one of the mod's tiles of that terrain, as the game's rare tiles are. The same places get the same tiles (a hash of the place); a doodad's tiles stay.
 void Editor::sprinkleModTiles(const TerrainLayer& before) {
-    // (what the tileset gives, made once per tileset: each stroke calls this)
+    // (what the tileset gives, made once per tileset: each stroke calls this; each thread its own: a window paints its
+    // examples on a worker thread)
     struct Tables {
         std::tuple<uint16_t, size_t, size_t, size_t, size_t, uint64_t> key{};
         std::vector<std::array<uint16_t, 2>> terrains;
         std::map<uint16_t, std::vector<uint16_t>> variants;  // terrain -> the mod's tile values of it alone
         std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>> pieces;  // the game's left group -> the mod's pieces for its rect
     };
-    static Tables tables;
+    thread_local Tables tables;
     uint64_t piecesHash = 1469598103934665603ull;  // (the mod terrains' pieces: another set of rules is another table)
     for (const auto& m : tileset_.modTerrains)
         for (const auto& q : m.pieces) piecesHash = (piecesHash ^ (uint64_t(q[0]) << 32 | uint64_t(q[1]) << 16 | q[2])) * 1099511628211ull;
@@ -1316,7 +1317,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     // Which of the mod's tiles look like the game's tile they would replace (the maps' data also has tiles placed over
     // another terrain's diamonds): the mean color within 12 (RGB) and the contrast (the brightness's spread) within a quarter.
     // (kept between edits for the tileset: its era and its number of groups; a mod has one tileset of each era)
-    static std::map<std::tuple<uint16_t, size_t, uint16_t>, std::array<float, 4>> looks;  // -> mean R, G, B, brightness spread
+    thread_local std::map<std::tuple<uint16_t, size_t, uint16_t>, std::array<float, 4>> looks;  // -> mean R, G, B, brightness spread
     auto lookOf = [&](uint16_t value) -> const std::array<float, 4>& {
         auto [it, fresh] = looks.try_emplace({uint16_t(tileset_.era & 7), tileset_.groups.size(), value}, std::array<float, 4>{-1, -1, -1, -1});
         if (!fresh) return it->second;
@@ -1350,7 +1351,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     // The edges of a tile (its outer rows and columns of pixels: left, right, top, bottom): a mod's tile goes in only
     // where its edges are near the game tile's that it replaces, so that it joins the tiles around it as that one does
     // (the game's tiles of a border or cliff join only where their edges match).
-    static std::map<std::tuple<uint16_t, size_t, uint16_t>, std::array<std::array<Rgb, 32>, 4>> edgesKept;
+    thread_local std::map<std::tuple<uint16_t, size_t, uint16_t>, std::array<std::array<Rgb, 32>, 4>> edgesKept;
     auto edgesOf = [&](uint16_t value) -> const std::array<std::array<Rgb, 32>, 4>* {
         auto [it, fresh] = edgesKept.try_emplace({uint16_t(tileset_.era & 7), tileset_.groups.size(), value});
         const int m = tileset_.megatileFor(value);
