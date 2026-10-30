@@ -1104,7 +1104,14 @@ private:
         if (host()) host()->capture(*this, false);
         invalidate();
     }
+    // Paint mode (a tile of the Tiles as a brush, click or drag on slots): off for now, selection only (a slot selected,
+    // then a click in the Tiles fills it).
+    static constexpr bool kBrushMode = false;
     void pickBrush(int value) {
+        if (!kBrushMode) {
+            if (value >= 0) setMessage(L"Select a slot first: a click in Tiles fills the selected slot");
+            return;
+        }
         if (value < 0) endStroke();  // (2: no brush, no stroke)
         brush_ = value;
         const int v = brushValue();
@@ -1273,20 +1280,20 @@ private:
         setTarget(k, half, false);
         invalidate();
         const uint16_t v = terrain()->t.pieces[size_t(k)][size_t(1 + half)];
-        switch (shellContextMenuAt(*this, at, {L"Set to NULL", L"Use as Brush", L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)", L"Remove"})) {
-        case 5: removePiece(); break;
-        case 1: erase(); break;
-        case 2:
+        std::vector<std::wstring> items{L"Set to NULL"};
+        if (kBrushMode) items.push_back(L"Use as Brush");
+        for (const wchar_t* s : {L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)", L"Remove"}) items.push_back(s);
+        const int r = shellContextMenuAt(*this, at, items);
+        const std::wstring picked = r >= 1 && r <= int(items.size()) ? items[size_t(r - 1)] : std::wstring();
+        if (picked == L"Set to NULL") erase();
+        else if (picked == L"Use as Brush" || picked == L"Show in Tiles") {
             if (isomrules::nullHalf(v)) setMessage(L"The slot is NULL");
-            else pickBrush(v), showRow(v >> 4, v);
-            break;
-        case 3:
-            if (isomrules::nullHalf(v)) setMessage(L"The slot is NULL");
-            else showRow(v >> 4, v);
-            break;
-        case 4: makeUnique(); break;
-        default: break;
-        }
+            else {
+                if (picked == L"Use as Brush") pickBrush(v);
+                showRow(v >> 4, v);
+            }
+        } else if (picked == L"Make Unique (Unlink From Linked Tiles)") makeUnique();
+        else if (picked == L"Remove") removePiece();
     }
     // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void place(uint16_t value) {
@@ -2356,7 +2363,7 @@ void IsomRulesView::paint(draw::Canvas& c) {
         const std::wstring mode = b >= 0 ? L"Brush" : L"Selection";
         std::wstring what = b >= 0 ? std::to_wstring(b >> 4) + L"." + std::to_wstring(b & 15) + L"-" + std::to_wstring((b & 15) + 1) + L"  \x00b7  Click or drag on slots to paint. Esc: clear"
                                 : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Ctrl+arrows or a click in Tiles set its tiles; Shift+click: the whole row. Esc: clear"
-                                        : std::wstring(L"Click a slot to select it, or a tile in Tiles to paint with it");
+                                        : std::wstring(kBrushMode ? L"Click a slot to select it, or a tile in Tiles to paint with it" : L"Click a slot to select it");
         const int mw = c.measure(mode) + 2 * pad;
         int right = modeBar_.right - pad;
         if (hoverPiece() >= 0) {  // (the slot under the mouse: its rect, role and tiles in place of the hint)
