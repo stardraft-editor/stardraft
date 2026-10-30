@@ -152,18 +152,12 @@ public:
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Key M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
-        todoPick_.setItems({{L"All Rects"}, {L"Rects To Do"}}), todoPick_.setValue(0);
-        todoPick_.onChange = [this](int v) { if ((v == 1) != checkTodo_) toggleTodo(); };
-        todoPick_.setTip(L"The rects shown: all, or to do (the rects without custom tiles). Key: F");
-        pairPick_.setItems({{L"Single Tile"}, {L"Tile Pair"}}), pairPick_.setValue(0);
-        pairPick_.onChange = [this](int v) { if ((v == 1) != wide_) toggleWidth(); };
-        pairPick_.setTip(L"What a click on a tile puts in: one tile (the target's half), or a pair (the tile and the next: both halves). Key: T");
         minePick_.setItems({{L"All Tile Groups"}, {L"This Terrain's Groups"}}), minePick_.setValue(0);
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: G");
         loadColumns();
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
-                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &todoPick_, &minePick_, &pairPick_})
+                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_})
             add(*v, {0, 0, 0, 0});
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
@@ -232,10 +226,8 @@ public:
         if (e.key == static_cast<draw::Key>('R') && !e.mods) return toggleReference(), true;
         if (e.key == static_cast<draw::Key>('H') && !e.mods) return toggleFrames(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && (e.mods & draw::kCtrl)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
-        if (e.key == static_cast<draw::Key>('T') && !e.mods) return toggleWidth(), true;
         if (e.key == static_cast<draw::Key>('M') && !e.mods) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('V') && !e.mods) return toggleDraft(), true;
-        if (e.key == static_cast<draw::Key>('F') && !e.mods) return toggleTodo(), true;
         if (e.key == static_cast<draw::Key>('G') && !e.mods) return togglePalMine(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save((e.mods & draw::kShift) != 0), true;
@@ -1048,8 +1040,6 @@ private:
                                   item(L"Save", L"Ctrl+S", [this] { save(false); }), item(L"Save As\x2026", L"Ctrl+Shift+S", [this] { save(true); })};
         std::vector<Item> edit = {item(L"Undo", L"Ctrl+Z", [this] { undo(false); }, !undo_.empty()),
                                   item(L"Redo", L"Ctrl+Y", [this] { undo(true); }, !redo_.empty()), sep,
-                                  radio(L"Pick Single Tile", L"T", !wide_, [this] { toggleWidth(); }),
-                                  radio(L"Pick Tile Pair", L"T", wide_, [this] { toggleWidth(); }), sep,
                                   item(L"Set Target to NULL", L"Del", [this] { setNull(); }, own),
                                   item(L"Clear All Rects", L"", [this] { clearTerrain(); }, own),
                                   item(L"Copy Tiles From\x2026", L"", [this] { copyFrom(); }, own)};
@@ -1065,9 +1055,7 @@ private:
         cols.label = L"Columns";
         for (int c = 0; c < 4; ++c)
             cols.sub.push_back(check(colName(c), L"", colShown_[c], [this, c] { setColumnShown(c, !colShown_[c]), saveColumns(), layout(), invalidate(); }));
-        std::vector<Item> view = {radio(L"All Rects", L"F", !checkTodo_, [this] { toggleTodo(); }),
-                                  radio(L"Rects To Do", L"F", checkTodo_, [this] { toggleTodo(); }), sep,
-                                  radio(L"All Tile Groups", L"G", !palMine_, [this] { togglePalMine(); }),
+        std::vector<Item> view = {radio(L"All Tile Groups", L"G", !palMine_, [this] { togglePalMine(); }),
                                   radio(L"This Terrain's Tile Groups", L"G", palMine_, [this] { togglePalMine(); }), sep,
                                   check(L"Reference Overlay", L"R", refOn_, [this] { toggleReference(); }),
                                   check(L"Rect Frames", L"H", frames_, [this] { toggleFrames(); }), sep, ids, cols};
@@ -1076,10 +1064,6 @@ private:
     void setTileIds(int m) {
         tileIds_ = m, prefs::setNumber(L"Layout/IsomTileIds", tileIds_), invalidate();
         setMessage(tileIds_ == 0 ? L"Tile IDs: off" : tileIds_ == 1 ? L"Tile IDs: on hover" : L"Tile IDs: always");
-    }
-    void toggleWidth() {
-        wide_ = !wide_, invalidate();
-        setMessage(wide_ ? L"Pick: pair (both halves)" : L"Pick: single (the selected half)");
     }
     // Before an edit: the terrain as it is (Ctrl+Z brings it back).
     void remember() {
@@ -1418,11 +1402,6 @@ private:
                        rows.end());
         return rows;
     }
-    void toggleTodo() {
-        checkTodo_ = !checkTodo_, checkScroll_ = 0;
-        setMessage(checkTodo_ ? L"Checklist: rects without mod tiles" : L"Checklist: every rect");
-        invalidate();
-    }
     static constexpr int kCheckRow = 32;  // (a checklist row's height, before scaling)
     // The template of the shown terrain (or the standard border): its rects by role, its family.
     void updateTemplate() {
@@ -1483,11 +1462,9 @@ private:
     stardraft::kit::Button newTerrain_;
     stardraft::kit::CheckBox refShow_;
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
-    isomrules::HeaderPick todoPick_, minePick_, pairPick_;
+    isomrules::HeaderPick minePick_;
     void syncButtons() {
-        if (todoPick_.value() != (checkTodo_ ? 1 : 0)) todoPick_.setValue(checkTodo_ ? 1 : 0);
         if (minePick_.value() != (palMine_ ? 1 : 0)) minePick_.setValue(palMine_ ? 1 : 0);
-        if (pairPick_.value() != (wide_ ? 1 : 0)) pairPick_.setValue(wide_ ? 1 : 0);
     }
     std::vector<isomrules::TemplateRect> tmpl_;  // (the shown terrain's template: its rects by role, in the game's order)
     std::pair<uint16_t, uint16_t> tmplPair_{0, 0};  // (the template: the game ground and the game terrain on it)
@@ -1515,10 +1492,11 @@ private:
     stardraft::kit::ScrollBar sideBar_;
     draw::Rect side_;
     int sideScroll_ = 0, sideTotal_ = 0, sideHover_ = -1, sideBarTotal_ = -1, sideBarPage_ = -1;
-    bool checkTodo_ = false;  // (the checklist: only the rects without mod tiles)
+    static constexpr bool checkTodo_ = false;  // (the checklist: every rect; a to-do filter: not for now)
     stardraft::terrainrules::Rules doc_;  // (the rules being edited: each tileset opened, or the loaded file's)
     std::filesystem::path file_;
-    bool dirty_ = false, wide_ = true;  // (wide_: a pick fills both halves: the tile and the next one in its row; T; the default)
+    bool dirty_ = false;
+    static constexpr bool wide_ = true;  // (a pick fills both halves: the tile and the next one in its row; single tiles: not for now)
     int palHover_ = -1;  // (the tile under the mouse in the tiles)
     int barEnd_ = 0;  // (the bar's controls end: the file's name after them)
     stardraft::Tileset tileset_;
@@ -1528,6 +1506,7 @@ private:
     int brush_ = -1;  // (the tile the example's slots get, -1: none; in pair mode its pair)
     bool painting_ = false, strokeSaved_ = false;  // (a paint stroke: one undo step)
     int lastPaint_ = -1;  // (the stroke's last slot: piece * 2 + half)
+    draw::Rect modeBar_;  // (under the example: Brush or Selection, and what a click does)
     // The example's places pinned to a variant of their rect (Make Unique): map tile place -> the rect's group and the
     // variant's number among the group's pieces. The editor's only: the game's brush picks a variant at random.
     std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins_;
@@ -1822,10 +1801,7 @@ void IsomRulesView::layout() {
         const int bw = scale(170), by = top + (headH - barH) / 2;
         const draw::Rect& r = colHead_[kColRects];
         const draw::Rect& t = colHead_[kColTiles];
-        todoPick_.setFrame(r.width() > 0 ? draw::Rect{std::max(r.left + scale(70), r.right - pad - bw), by, r.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
         minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
-        const int pr = minePick_.frame().left - pad;  // (the pair choice when there is room for it; else in Edit and T only)
-        pairPick_.setFrame(t.width() > 0 && pr - scale(120) >= t.left + scale(60) ? draw::Rect{pr - scale(120), by, pr, by + barH} : draw::Rect{0, 0, 0, 0});
     }
     const draw::Rect none{0, 0, 0, 0};
     {  // Terrains: the search, the list with its bar, New terrain at the bottom.
@@ -1846,13 +1822,14 @@ void IsomRulesView::layout() {
             const int refH = barH + pad;
             refRow_ = {b.left, b.bottom - refH, b.right, b.bottom};
             strip_ = {b.left, refRow_.top - scale(84), b.right, refRow_.top};
-            puzzle_ = {b.left, b.top + scale(8) + barH, b.right, strip_.top};
+            modeBar_ = {b.left, strip_.top - scale(24), b.right, strip_.top};
+            puzzle_ = {b.left, b.top + scale(8) + barH, b.right, modeBar_.top};
             int rx = b.left + pad;
             const int ry = refRow_.top + pad / 2;
             refShow_.setFrame({rx, ry, rx + scale(130), ry + barH}), rx += scale(130) + pad;
             refOpacity_.setFrame({rx, ry + scale(4), rx + scale(90), ry + barH - scale(4)}), rx += scale(90) + pad;
-            refPick_.setFrame({rx, ry, std::max(rx + scale(60), b.right - pad), ry + barH});
-        } else puzzle_ = strip_ = refRow_ = none, ground_.setFrame(none), refShow_.setFrame(none), refOpacity_.setFrame(none), refPick_.setFrame(none);
+            refPick_.setFrame({rx, ry, std::max(rx + scale(60), std::min(rx + scale(160), b.right - pad)), ry + barH});  // (its own width, not the row's)
+        } else puzzle_ = strip_ = refRow_ = modeBar_ = none, ground_.setFrame(none), refShow_.setFrame(none), refOpacity_.setFrame(none), refPick_.setFrame(none);
     }
     {  // Tiles: the group picker, the palette with its bar at its right.
         const draw::Rect& b = colBody_[kColTiles];
@@ -1866,6 +1843,20 @@ void IsomRulesView::layout() {
 
 void IsomRulesView::paint(draw::Canvas& c) {
     paintBody(c);
+    if (modeBar_.width() > 0 && terrain()) {  // (the terrain view's mode)
+        const int pad = scale(8), b = brushValue();
+        c.fill(modeBar_, kPanel), c.fill({modeBar_.left, modeBar_.top, modeBar_.right, modeBar_.top + 1}, kBorder);
+        const auto* t = terrain();
+        const bool sel = target_ >= 0 && target_ < int(t->t.pieces.size());
+        const std::wstring mode = b >= 0 ? L"Brush" : L"Selection";
+        const std::wstring what = b >= 0 ? std::to_wstring(b >> 4) + L"." + std::to_wstring(b & 15) + L"-" + std::to_wstring((b & 15) + 1) + L"  \x00b7  Click or drag on slots to paint. Esc: clear"
+                                : sel   ? L"Rect " + std::to_wstring(t->t.pieces[size_t(target_)][0]) + L"  \x00b7  Arrows or a click in Tiles set its tiles. Esc: clear"
+                                        : std::wstring(L"Click a slot to select it, or a tile in Tiles to paint with it");
+        const int mw = c.measure(mode) + 2 * pad;
+        c.fill({modeBar_.left + pad / 2, modeBar_.top + scale(4), modeBar_.left + pad / 2 + mw, modeBar_.bottom - scale(3)}, b >= 0 ? 0x30C8FF : kAccent, 60);
+        c.text({modeBar_.left + pad / 2, modeBar_.top, modeBar_.left + pad / 2 + mw, modeBar_.bottom}, mode, 0xFFFFFF, draw::kCenter | draw::kMiddle);
+        c.text({modeBar_.left + mw + pad, modeBar_.top, modeBar_.right - pad, modeBar_.bottom}, what, kDim, draw::kMiddle | draw::kEllipsis);
+    }
     // The lines between the columns, over everything: the one under the mouse or dragged is wide and in the accent.
     for (size_t i = 0; i < edges_.size(); ++i) {
         const int x = edges_[i].x;
@@ -2212,7 +2203,19 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             if (r.value != kSideHeader && sy >= r.y && sy < r.y + r.h) {
                 if (!loading_) {
                     selectValue(r.value);
-                    if (!myRows_.empty()) scrollToRow(*myRows_.begin()), row_.setValue(*myRows_.begin());  // (the Tiles show the terrain's tiles)
+                    if (const auto* tt = terrain()) {  // (the Tiles: the row the terrain's tiles use most, at the top)
+                        std::map<int, int> uses;
+                        for (const auto& q : tt->t.pieces)
+                            for (int h = 1; h <= 2; ++h)
+                                if (!isomrules::nullHalf(q[size_t(h)])) ++uses[q[size_t(h)] >> 4];
+                        int g = -1, most = 0;
+                        for (const auto& [row, n] : uses)
+                            if (n > most) g = row, most = n;
+                        if (const int i = g >= 0 ? palIndexOf(g) : -1; i >= 0) {
+                            palScroll_ = std::clamp(i * palCell() - scale(4), 0, palScrollMax());
+                            row_.setValue(g);
+                        }
+                    }
                 }
                 return true;
             }
