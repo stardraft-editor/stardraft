@@ -379,7 +379,11 @@ CASES += [
                              "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s examples; a click on a NULL hole, then on
     # tile 2.0 of the palette: the rect takes 2.0 and 2.1, one null less (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "455,420", "--click", "1020,110"], "cmbw"),
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "455,368", "--click", "1020,110"], "cmbw"),
+    # Clear all makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
+    # target to the next rect with no tile (three clicks on the same tile fill three rects).
+    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "922,22", "--key", "Ctrl+Z",
+                              "--key", "Ctrl+Y", "--click", "455,368", "--click", "1020,110", "--click", "1020,110"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
     # The CRIG editor: the Add a command search for "set_race" (a command with a word value, its race) finds it first,
@@ -1164,6 +1168,18 @@ def check_isom_rules(output):
     if "isom rules: Structure (Halfsphalt), 16 null, 6 holes in the examples" not in output:
         return "no terrain with 16 null and 6 holes"
     return None if re.search(r"^click 1020,110: .*Piece \d+: 2\.0 2\.1", output, re.M) else "the tiles did not go into the hole"
+
+
+def check_isom_rules_undo(output):
+    """None when Clear all, undo and redo report their null counts and each filled rect hands the target to the next."""
+    want = ["Cleared: 36 rects NULL", "Undo: Structure (Halfsphalt), 16 null", "Redo: Structure (Halfsphalt), 36 null"]
+    for w in want:
+        if w not in output:
+            return "missing: " + w
+    done = re.findall(r"^click 1020,110: .*Piece (\d+): 2\.0 2\.1  \u2192 next: rect (\d+)", output, re.M)
+    if len(done) != 2 or done[0][1] != done[1][0]:
+        return "the target did not go to the next rect: %r" % (done,)
+    return None
 
 
 def check_dialog_cycle(want, skip=0):
@@ -4330,6 +4346,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
           "map-options-ctrltab": check_options_ctrltab,
           "cmbw-isom-rules": check_isom_rules,
+          "cmbw-isom-rules-undo": check_isom_rules_undo,
           "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
