@@ -210,6 +210,9 @@ public:
         for (int e = 0; e < 8; ++e) eras.push_back({isomrules::titleCase(widen(tilesetName(uint16_t(e))))});
         era_.setItems(eras), era_.setValue(0);
         era_.onChange = [this](int e) { openEra(e); };
+        refEra_.setItems(eras), refEra_.setValue(0), refEra_.wheelSteps = false;
+        refEra_.setTip(L"The reference border's tileset (another tileset's border in the same shape)");
+        refEra_.onChange = [this](int e) { setRefEra(e); };
         search_.setPlaceholder(L"Search (Name, Family, Draft)");
         search_.onChange = [this] { filter(); };
         sideBar_.onScroll = [this](int pos) { sideScroll_ = pos, invalidate(); };
@@ -230,7 +233,7 @@ public:
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
         loadColumns();
-        for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
+        for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refEra_, &refPick_, &refShow_, &refOpacity_, &search_,
                                                                &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_})
             add(*v, {0, 0, 0, 0});
     }
@@ -448,14 +451,10 @@ private:
         row_.setItems(rows), row_.setValue(-1);
         rowNames_ = of, rowPics_.clear();
         stdPairs_.clear(), std_ = -1;
-        std::vector<stardraft::kit::DropdownItem> refs{{L"Template"}, {L"None"}};
-        if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era())))
-            for (const auto& pr : game->pairs())
-                if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) {
-                    stdPairs_.push_back({pr.a, pr.b}), refs.push_back({stdName(int(stdPairs_.size()) - 1)});
-                    if (const uint16_t v = swatchOf(-int(stdPairs_.size()))) refs.back().image = isomrules::tilesBitmap(tileset_, {v}, 1, 1);  // (its tile, then its name)
-                }
-        refPick_.setItems(refs), refPick_.setValue(0);
+        stdPairs_ = bordersOf(era());
+        if (refEraSet_ == int(era())) refEraSet_ = -1;  // (the reference's tileset: the one edited again)
+        refEra_.setValue(int(refEra()));
+        fillRefs(), refPick_.setValue(0);
         pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
         filter();
@@ -600,12 +599,14 @@ private:
         isomrules::Family family = isomrules::Family::Other;  // (the terrain's template's: its shape)
         std::vector<std::pair<int, int>> extra;  // (more spots of the shape, found for this terrain: moreRects_)
         bool extend = false;                     // (search for more spots that show the rects the shape does not: a terrain's first example)
+        std::wstring extraKey;                   // (what the search's spots depend on: extraKeyOf)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
         std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins;  // (pins_)
         const GameData* data = nullptr;
         bool standard = false;  // (a game border: stdTerrain on root, no pieces)
         uint16_t stdTerrain = 0, refGround = 0, refTerrain = 0;  // (refTerrain 0: no reference)
+        uint8_t refEra = 0;  // (the reference's tileset: another one paints on refEd_)
     };
     struct BuildOut {
         std::vector<Place> places;
@@ -628,12 +629,16 @@ private:
             return invalidate();
         }
         in->era = era(), in->data = data;
-        if (const int ref = refOf(t); ref >= 0 && refOn_) in->refGround = stdPairs_[size_t(ref)].first, in->refTerrain = stdPairs_[size_t(ref)].second;
+        in->refEra = refEra();
+        if (const int ref = refOf(t); ref >= 0 && refOn_) in->refGround = refList()[size_t(ref)].first, in->refTerrain = refList()[size_t(ref)].second;
         if (!t) {  // (a standard terrain: the game's border, read only)
             in->standard = true, in->root = stdPairs_[size_t(std_)].first, in->stdTerrain = stdPairs_[size_t(std_)].second;
             return start(in, -2 - std_);
         }
         in->t = *t, in->family = family_;
+        in->extraKey = extraKeyOf(*t);
+        if (!moreRects_.count(t->t.id))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
+            if (const auto known = knownExtra(in->extraKey)) moreRects_[t->t.id] = *known;
         if (const auto it = moreRects_.find(t->t.id); it != moreRects_.end()) in->extra = it->second;
         in->extend = !moreRects_.count(t->t.id);  // (a terrain's first example: the search before it shows, one picture)
         in->pins = pins_;
@@ -679,7 +684,7 @@ private:
                     for (const Place& p : places_)
                         if (p.piece >= 0 && p.piece < int(t->t.pieces.size())) visibleGroups_.insert(t->t.pieces[size_t(p.piece)][0]);
                 picture_ = std::move(out->picture), refPicture_ = std::move(out->reference);
-                if (in->extend) moreRects_[in->t.t.id] = out->extra;
+                if (in->extend) moreRects_[in->t.t.id] = out->extra, keepExtra(in->extraKey, out->extra);
                 invalidate();
             });
         });
@@ -697,28 +702,37 @@ private:
         }
         const int cx = W * 16, cy = H * 16;
         // (a game terrain on its ground in a shape; the map's tiles of a part)
-        auto paintGame = [&](uint16_t ground, uint16_t terrain, const std::vector<std::pair<int, int>>& shape) {
-            ed->paintBrush(cx, cy, ground, Brush{Brush::Diamond, 64.0f});
-            for (const auto& [i, j] : shape) ed->paintBrush(cx + i * 64, cy + j * 32, terrain, Brush{Brush::Diamond, 1.0f});
+        auto paintGame = [&](Editor* on, uint16_t ground, uint16_t terrain, const std::vector<std::pair<int, int>>& shape) {
+            on->paintBrush(cx, cy, ground, Brush{Brush::Diamond, 64.0f});
+            for (const auto& [i, j] : shape) on->paintBrush(cx + i * 64, cy + j * 32, terrain, Brush{Brush::Diamond, 1.0f});
         };
-        auto pictureOf = [&](const draw::Rect& crop) {
-            const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+        auto pictureOf = [&](Editor* on, const draw::Rect& crop) {
+            const stardraft::TerrainLayer l = stardraft::readTerrain(on->chk(), "TILE");
             std::vector<uint16_t> part;
             for (int y = crop.top; y < crop.bottom; ++y)
                 for (int x = crop.left; x < crop.right; ++x) part.push_back(l.tiles[size_t(y) * W + x]);
-            return isomrules::tilesBitmap(ed->tileset(), part, crop.width(), crop.height());
+            return isomrules::tilesBitmap(on->tileset(), part, crop.width(), crop.height());
         };
         auto addReference = [&](const std::vector<std::pair<int, int>>& shape) {
             if (!in.refTerrain || !out.picture) return;
-            paintGame(in.refGround, in.refTerrain, shape);
-            out.reference = pictureOf(out.crop);
+            Editor* on = ed;
+            if (in.refEra != in.era) {  // (another tileset: its own map of the same size; the shape falls on the same tiles)
+                if (!refEd_) refEd_ = std::make_unique<Editor>(*in.data);
+                on = refEd_.get();
+                if (!on->isOpen() || on->era() != in.refEra) {
+                    if (!on->newMap(W, H, in.refEra, in.refGround, err)) return;
+                    on->useModTerrains({});
+                }
+            }
+            paintGame(on, in.refGround, in.refTerrain, shape);
+            out.reference = pictureOf(on, out.crop);
             if (out.reference && (out.reference->width() != out.picture->width() || out.reference->height() != out.picture->height())) out.reference.reset();
         };
         if (in.standard) {  // (the game's border: the rects whose ISOM differs from its ground alone)
             ed->useModTerrains({});
             ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
             const std::vector<uint8_t> before = ed->chk().find("ISOM") ? ed->chk().find("ISOM")->data : std::vector<uint8_t>();
-            paintGame(root, in.stdTerrain, shapeOf(isomrules::Family::Other));
+            paintGame(ed, root, in.stdTerrain, shapeOf(isomrules::Family::Other));
             const std::vector<uint8_t> after = ed->chk().find("ISOM") ? ed->chk().find("ISOM")->data : std::vector<uint8_t>();
             int x0 = W, y0 = H, x1 = -1, y1 = -1;
             const int cols = W / 2 + 1;  // (ISOM: a rect each 2 tiles across and 1 down, 4 values of 2 bytes each)
@@ -733,7 +747,7 @@ private:
             const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
             for (int y = y0; y <= y1; ++y)
                 for (int x = x0; x <= x1; ++x) out.ids.push_back(l.tiles[size_t(y) * W + x]);
-            out.picture = pictureOf(out.crop);
+            out.picture = pictureOf(ed, out.crop);
             addReference(shapeOf(isomrules::Family::Other));
             return;
         }
@@ -765,25 +779,40 @@ private:
                 if (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) want.insert(t->t.pieces[k][0]);
             std::set<uint16_t> have = shownGroups();
             const size_t before = have.size();
+            // (each spot's gain of the round before is the most it can gain now (a spot shows no more rects next to more
+            // spots): a round tries the spots by that gain and stops at the first that cannot beat the best; the first round
+            // tries them all)
+            struct Spot {
+                std::pair<int, int> at;
+                size_t bound;
+            };
+            std::vector<Spot> spots;
+            for (int j = -6; j <= 6; ++j)
+                for (int i = -4; i <= 4; ++i)
+                    if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end()) spots.push_back({{i, j}, SIZE_MAX});
             for (int round = 0; round < 8 && in.gen == buildGen_ && !std::includes(have.begin(), have.end(), want.begin(), want.end()); ++round) {  // (every rect shown: no search)
-                std::pair<int, int> best{0, 0};
+                std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.bound > b.bound; });
+                int best = -1;
                 std::set<uint16_t> bestHave;
                 size_t bestGain = 0;
-                for (int j = -6; j <= 6; ++j)
-                    for (int i = -4; i <= 4; ++i) {
-                        if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) != shape.end()) continue;
-                        shape.push_back({i, j});
-                        paint();
-                        std::set<uint16_t> now = shownGroups();
-                        shape.pop_back();
-                        if (!std::includes(now.begin(), now.end(), have.begin(), have.end())) continue;
-                        size_t gain = 0;
+                for (size_t s = 0; s < spots.size() && spots[s].bound > bestGain; ++s) {
+                    shape.push_back(spots[s].at);
+                    paint();
+                    std::set<uint16_t> now = shownGroups();
+                    shape.pop_back();
+                    size_t gain = 0;
+                    if (std::includes(now.begin(), now.end(), have.begin(), have.end()))  // (a spot that loses a rect: none)
                         for (uint16_t g : now)
                             if (want.count(g) && !have.count(g)) ++gain;
-                        if (gain > bestGain) bestGain = gain, best = {i, j}, bestHave = std::move(now);
-                    }
-                if (!bestGain) break;
-                shape.push_back(best), have = std::move(bestHave);
+                    spots[s].bound = gain;
+                    if (gain > bestGain) bestGain = gain, best = int(s), bestHave = std::move(now);
+                }
+                if (best < 0) break;
+                const auto [bi, bj] = spots[size_t(best)].at;
+                shape.push_back(spots[size_t(best)].at), have = std::move(bestHave);
+                spots.erase(spots.begin() + best);
+                for (Spot& sp : spots)  // (the spots next to it: a joint with it can show rects they did not alone; tried again)
+                    if (std::abs(sp.at.first - bi) <= 1 && std::abs(sp.at.second - bj) <= 2) sp.bound = SIZE_MAX;
             }
             out.gained = int(have.size() - before);
             out.extra.assign(shape.begin() + long(shapeOf(in.family).size()), shape.end());
@@ -856,18 +885,72 @@ private:
         setMessage(L"Reference " + std::to_wstring(refOpacity_.value()) + L" %");
         invalidate();
     }
-    // The reference border (an index of stdPairs_; -1: none): the one picked, or (Auto) the terrain's template: its
-    // stand-in on the game terrain its ground stands for.
+    // The reference border (an index of refList(); -1: none): the one picked, or (Auto) the terrain's template: its
+    // stand-in on the game terrain its ground stands for (another tileset: its border of the same names).
     int refOf(const stardraft::terrainrules::Terrain* t) const {
+        const auto& list = refList();
         const int c = refPick_.value();
-        if (c >= 2 && c - 2 < int(stdPairs_.size())) return c - 2;
+        if (c >= 2 && c - 2 < int(list.size())) return c - 2;
         if (c != 0 || !t) return -1;
         const uint16_t ground = t->t.groundTemplate ? t->t.groundTemplate : t->t.ground, terrain = t->t.standIn;
-        for (size_t k = 0; k < stdPairs_.size(); ++k)
-            if (stdPairs_[k].first == ground && stdPairs_[k].second == terrain) return int(k);
-        for (size_t k = 0; k < stdPairs_.size(); ++k)
-            if (stdPairs_[k].first == terrain && stdPairs_[k].second == ground) return int(k);
+        const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(era()));
+        const IsomTerrainTable* other = IsomTerrainTable::forEra(uint16_t(refEra()));
+        auto same = [&](uint16_t a, uint16_t b) {  // (a: the reference tileset's terrain; b: the edited one's)
+            return refEra() == era() ? a == b : game && other && game->isTerrain(b) && game->terrainName(b) == other->terrainName(a);
+        };
+        for (size_t k = 0; k < list.size(); ++k)
+            if (same(list[k].first, ground) && same(list[k].second, terrain)) return int(k);
+        for (size_t k = 0; k < list.size(); ++k)
+            if (same(list[k].first, terrain) && same(list[k].second, ground)) return int(k);
         return -1;
+    }
+    // A tileset's game borders (ground, terrain on it).
+    static std::vector<std::pair<uint16_t, uint16_t>> bordersOf(int e) {
+        std::vector<std::pair<uint16_t, uint16_t>> out;
+        if (const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(e)))
+            for (const auto& pr : game->pairs())
+                if (game->isTerrain(pr.a) && game->isTerrain(pr.b)) out.push_back({pr.a, pr.b});
+        return out;
+    }
+    // The reference's tileset: the one edited (refEraSet_ -1), or another.
+    uint8_t refEra() const { return refEraSet_ < 0 ? era() : uint8_t(refEraSet_); }
+    const std::vector<std::pair<uint16_t, uint16_t>>& refList() const { return refEraSet_ < 0 ? stdPairs_ : refPairs_; }
+    // The Reference list: Template, None, then the reference tileset's borders, each with its tile (another tileset's
+    // tiles once it is loaded).
+    void fillRefs() {
+        const int keep = refPick_.value();
+        std::vector<stardraft::kit::DropdownItem> refs{{L"Template"}, {L"None"}};
+        const IsomTerrainTable* game = IsomTerrainTable::forEra(uint16_t(refEra()));
+        const stardraft::Tileset* ts = refEraSet_ < 0 ? &tileset_ : refTileset_ && refTilesetEra_ == refEraSet_ ? refTileset_.get() : nullptr;
+        for (const auto& [a, b] : refList()) {
+            refs.push_back({game ? widen(game->terrainName(b)) + L" (" + widen(game->terrainName(a)) + L")" : std::wstring()});
+            if (ts && !ts->groups.empty())
+                if (const int g = stardraft::solidTileGroup(*ts, b); g >= 0)
+                    if (const uint16_t v = stardraft::terrainrules::gameTile(*ts, uint32_t(g))) refs.back().image = isomrules::tilesBitmap(*ts, {v}, 1, 1);
+        }
+        refPick_.setItems(refs);
+        refPick_.setValue(keep >= 0 && keep < int(refs.size()) ? keep : 0);
+    }
+    void setRefEra(int e) {
+        refEraSet_ = e == int(era()) ? -1 : e & 7;
+        refPairs_ = refEraSet_ < 0 ? decltype(refPairs_)() : bordersOf(refEraSet_);
+        refPick_.setValue(0), fillRefs();
+        if (refEraSet_ >= 0 && refTilesetEra_ != refEraSet_) {  // (its tiles for the list: the tileset loads on the worker)
+            const int want = refEraSet_;
+            std::shared_ptr<bool> alive = alive_;
+            background([this, want, alive] {
+                auto ts = std::make_shared<stardraft::Tileset>();
+                std::string err;
+                if (!loadTileset(*ts, want, false, err)) return;
+                foreground([this, want, alive, ts] {
+                    if (!*alive) return;
+                    refTileset_ = ts, refTilesetEra_ = want;
+                    if (refEraSet_ == want) fillRefs();
+                });
+            });
+        }
+        refOn_ = true, refShow_.setOn(true);  // (a tileset picked: the overlay shows it)
+        rebuild();
     }
     // The target (the rect, or the half: 1 tile) has no tile: NULL (a place that needs work; it stays where it is: the
     // engine reads no NULL half as a game tile).
@@ -1582,7 +1665,11 @@ private:
         if (b) c.bitmap(*b, {0, 0, b->width(), b->height()}, r);
     }
 
-    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1};
+    stardraft::kit::Dropdown era_{{}, -1}, ground_{{}, -1}, row_{{}, -1}, refPick_{{}, -1}, refEra_{{}, -1};
+    int refEraSet_ = -1;  // (the reference's tileset; -1: the one edited)
+    std::vector<std::pair<uint16_t, uint16_t>> refPairs_;  // (its borders, another tileset's)
+    std::shared_ptr<stardraft::Tileset> refTileset_;  // (another tileset, for the list's tiles)
+    int refTilesetEra_ = -1;
     std::vector<std::pair<uint16_t, uint16_t>> stdPairs_;  // (the game's borders: its ground, the terrain on it)
     int std_ = -1;  // (the standard terrain shown: an index of stdPairs_; -1: a terrain of the rules)
     bool refOn_ = false;  // (the reference over the example; it paints only while it shows)
@@ -1612,6 +1699,48 @@ private:
     int checkScroll_ = 0, checkHover_ = -1;  // (the checklist: its scroll, the row under the mouse)
     int listHover_ = -1;  // (the rect (group) of the checklist row under the mouse: its places framed in the example)
     std::map<uint16_t, std::vector<std::pair<int, int>>> moreRects_;  // (a terrain id -> the extra spots its first example found)
+    // The search's spots depend on the tileset, the terrain's ground and template, its shape and the rects it has (not
+    // its tiles): the key they are kept by (v1: the search as it is now).
+    std::wstring extraKeyOf(const stardraft::terrainrules::Terrain& t) const {
+        std::set<uint16_t> want;
+        for (size_t k = 0; k < t.t.pieces.size(); ++k)
+            if (k < t.t.setPieces || k + t.t.gapPieces >= t.t.pieces.size()) want.insert(t.t.pieces[k][0]);
+        uint32_t h = 2166136261u;
+        for (uint16_t g : want) h = (h ^ g) * 16777619u;
+        h = (h ^ uint32_t(tileset_.groups.size())) * 16777619u;  // (the tileset's groups: a mod's own numbering)
+        for (uint16_t g = t.t.ground, n = 0; g >= stardraft::Tileset::kModTerrainIds && n < 16; ++n) {  // (a mod ground: its own rules, down to the game's)
+            const stardraft::terrainrules::Terrain* m = nullptr;
+            for (const auto& o : rules().terrains)
+                if (o.t.id == g) m = &o;
+            if (!m) break;
+            for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
+            g = m->t.ground;
+        }
+        return L"IsomExtra/v2-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+               std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
+    }
+    std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
+    std::optional<std::vector<std::pair<int, int>>> knownExtra(const std::wstring& key) {
+        if (const auto it = extraKnown_.find(key); it != extraKnown_.end()) return it->second;
+        std::wstring v;
+        if (gSilent || !prefs::text(key, v) || v.empty()) return std::nullopt;
+        std::vector<std::pair<int, int>> spots;  // ("i,j;i,j"; "-": none)
+        for (size_t at = 0; v != L"-" && at < v.size();) {
+            size_t end = v.find(L';', at);
+            if (end == std::wstring::npos) end = v.size();
+            int i = 0, j = 0;
+            if (std::swscanf(v.substr(at, end - at).c_str(), L"%d,%d", &i, &j) == 2) spots.push_back({i, j});
+            at = end + 1;
+        }
+        return extraKnown_[key] = spots;
+    }
+    void keepExtra(const std::wstring& key, const std::vector<std::pair<int, int>>& spots) {
+        extraKnown_[key] = spots;
+        if (gSilent) return;
+        std::wstring v;
+        for (const auto& [i, j] : spots) v += (v.empty() ? L"" : L";") + std::to_wstring(i) + L"," + std::to_wstring(j);
+        prefs::setText(key, v.empty() ? L"-" : v);
+    }
     // Undo (Ctrl+Z) and redo (Ctrl+Y): a terrain as it was before an edit (its id: the list can change).
     struct Edit {
         uint16_t id = 0;
@@ -1743,6 +1872,7 @@ private:
     std::vector<int> holes_, absent_;
     std::unique_ptr<draw::Bitmap> picture_;
     struct Spot { int x, y; float s; };
+    std::unique_ptr<Editor> refEd_;  // (another tileset's map for the reference: the worker's)
     std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
     bool async_ = true, loading_ = false, building_ = false;
     int openGen_ = 0, shownId_ = -1, jump_ = -1;  // (jump_: the tile framed in the tiles; jumpRow_: its whole row)
@@ -1986,8 +2116,11 @@ void IsomRulesView::layout() {
             const int ry = refRow_.top + pad / 2;
             refShow_.setFrame({rx, ry, rx + scale(130), ry + barH}), rx += scale(130) + pad;
             refOpacity_.setFrame({rx, ry + scale(4), rx + scale(90), ry + barH - scale(4)}), rx += scale(90) + pad;
-            refPick_.setFrame({rx, ry, std::max(rx + scale(60), std::min(rx + scale(160), b.right - pad)), ry + barH});  // (its own width, not the row's)
-        } else puzzle_ = strip_ = refRow_ = modeBar_ = none, ground_.setFrame(none), refShow_.setFrame(none), refOpacity_.setFrame(none), refPick_.setFrame(none);
+            refEra_.setFrame({rx, ry, std::min(rx + scale(110), b.right - pad), ry + barH}), rx = refEra_.frame().right + pad / 2;
+            refPick_.setFrame({rx, ry, std::max(rx + scale(60), std::min(rx + scale(180), b.right - pad)), ry + barH});  // (its own width, not the row's)
+        } else
+            puzzle_ = strip_ = refRow_ = modeBar_ = none, ground_.setFrame(none), refShow_.setFrame(none), refOpacity_.setFrame(none), refPick_.setFrame(none),
+            refEra_.setFrame(none);
     }
     {  // Tiles: the group picker, the palette with its bar at its right.
         const draw::Rect& b = colBody_[kColTiles];
@@ -2117,7 +2250,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             if (t && refShown && !refAlone && frames_ && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && isomrules::anyNull(t->t.pieces[size_t(p.piece)]))
                 c.frame(rectOf(p), 0x4650E6, scale(2));
         for (const Place& p : places_)  // (the hovered rect's places, over the reference too)
-            if (frames_ && hover_ >= 0 && p.piece == hover_) c.frame(rectOf(p), kBorderHot, scale(1));
+            if (frames_ && hover_ >= 0 && p.piece == hover_ && p.piece != target_) c.frame(rectOf(p), kBorderHot, scale(1));  // (not the selected one: its blue frame)
         if (t && !refAlone && frames_)
             for (const Place& p : places_)  // (a borrowed rect: the game's own tiles, a blue frame)
                 if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && stardraft::terrainrules::stateOf(t->t.pieces[size_t(p.piece)]) == isomrules::PieceState::Borrowed)
@@ -2143,12 +2276,13 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         if (t)
             for (const Place& p : places_)  // (the rect under the mouse in the Rects column: its places)
             if (listHover_ >= 0 && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == listHover_) c.frame(rectOf(p), 0xFFFFFF, scale(2));
-        if (hoverPlace_ >= 0 && hoverPlace_ < int(places_.size()) && brushValue() < 0 && !refAlone) {  // (the cursor: the slot under the mouse; pair mode 2x1)
+        if (hoverPlace_ >= 0 && hoverPlace_ < int(places_.size()) && brushValue() < 0 && !refAlone &&
+            places_[size_t(hoverPlace_)].piece != target_) {  // (the cursor: the slot under the mouse; pair mode 2x1; the selected one: its blue frame only)
             const draw::Rect r = rectOf(places_[size_t(hoverPlace_)]);
             c.frame(wide_ ? r : halfOf(r, hoverHalf_), 0xFFFFFF, scale(1));
         }
         for (const Place& p : places_)
-            if (p.piece == target_ && target_ >= 0 && (!slotKeys_ || blinkOn_)) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(2));
+            if (p.piece == target_ && target_ >= 0 && (!slotKeys_ || blinkOn_)) c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), targetHalf_), kAccent, scale(1));
         if (tileIds_ && ids_.size() == size_t(crop_.width()) * size_t(crop_.height())) {  // (the tile IDs: group over subtile)
             const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 4)}));
             auto label = [&](size_t i) {
