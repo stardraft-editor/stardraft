@@ -407,7 +407,7 @@ private:
         era_.setValue(e);
         const int gen = ++openGen_;
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
-        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false, pins_.clear();
+        undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false, pins_.clear(), savedPins_.clear();
         shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
         invalidate();
         background([this, gen, e, plain] {
@@ -565,9 +565,11 @@ private:
     }
     // A list value shown: a terrain of the rules (v >= 0), or the game's border k (v = -1 - k).
     void selectValue(int v) {
+        keepPins();
         sel_ = v >= 0 ? v : -1, std_ = v < 0 && v > -1000000 ? -1 - v : -1;
         revealSideRow();
         target_ = -1, pins_.clear();
+        if (const auto* t = terrain()) pins_ = savedPins_[t->t.id];  // (its pins as it had them)
         updateMyRows();
         updateTemplate();
         if (const auto* t = terrain())
@@ -950,24 +952,35 @@ private:
         if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot have variants");
         const auto q = m.pieces[k];
         if (isomrules::nullHalf(q[1]) && isomrules::nullHalf(q[2])) return setMessage(L"Rect " + std::to_wstring(q[0]) + L" is NULL: paint it first");
+        // (each piece's number among the rect's pieces; the copy comes right after the original)
+        auto ordinal = [&](size_t i) {
+            int o = 0;
+            for (size_t j = 0; j < i; ++j) o += m.pieces[j][0] == q[0] ? 1 : 0;
+            return o;
+        };
+        const int ordK = ordinal(k);
+        // (every place of the rect keeps the variant it shows now: the engine would spread the new one over them too; the
+        // clicked place shows the copy)
+        std::map<std::pair<int, int>, std::pair<uint16_t, int>> keep;
+        for (const Place& p : places_)
+            if (p.piece >= 0 && p.piece < int(m.pieces.size()) && m.pieces[size_t(p.piece)][0] == q[0]) {
+                const int o = ordinal(size_t(p.piece));
+                keep[{p.tx, p.ty}] = {q[0], o > ordK ? o + 1 : o};
+            }
+        if (pinAt_.first != INT_MIN) keep[pinAt_] = {q[0], ordK + 1};
+        else if (!keep.empty()) keep.begin()->second.second = ordK + 1;  // (from the checklist: the rect's first place shows the copy)
         remember();
         m.pieces.insert(m.pieces.begin() + long(k) + 1, q);
         if (k < m.setPieces) ++m.setPieces;
+        for (const auto& [at, pin] : keep) pins_[at] = pin;
         changed();
-        int n = 0, last = -1;  // (the copy: the last piece with these tiles)
+        int n = 0, copy = -1;  // (the copy: the rect's piece number ordK + 1)
         for (size_t i = 0; i < m.pieces.size(); ++i)
             if (m.pieces[i][0] == q[0]) {
+                if (n == ordK + 1) copy = int(i);
                 ++n;
-                if (m.pieces[i] == q) last = int(i);
             }
-        if (last >= 0) {
-            if (pinAt_.first != INT_MIN) {  // (the clicked place shows the copy: its number among the group's pieces)
-                int nth = 0;
-                for (int i = 0; i < last; ++i) nth += m.pieces[size_t(i)][0] == q[0] ? 1 : 0;
-                pins_[pinAt_] = {q[0], nth}, rebuild();
-            }
-            setTarget(last, targetHalf_, false), slotFocus(true);
-        }
+        if (copy >= 0) setTarget(copy, targetHalf_, false), slotFocus(true);
         setMessage(L"Rect " + std::to_wstring(q[0]) + L": variant " + std::to_wstring(n) + L" of " + std::to_wstring(n) + L" (the brush picks one of them for each place)" +
                    (visibleGroups_.count(q[0]) ? L"" : L"; not in the example"));
     }
@@ -1151,7 +1164,7 @@ private:
         nudgeSlot_ = -1;  // (another undo step: the arrow keys' run ends)
         const auto* t = terrain();
         if (!t) return;
-        undo_.push_back({t->t.id, *t, target_, targetHalf_}), redo_.clear();
+        undo_.push_back({t->t.id, *t, target_, targetHalf_, pins_}), redo_.clear();
         if (undo_.size() > 200) undo_.erase(undo_.begin());
     }
     void undo(bool redo) {
@@ -1168,7 +1181,9 @@ private:
         Edit e = std::move(from.back());
         from.pop_back();
         const bool same = sel_ == i && std_ < 0;
-        to.push_back({e.id, ts.terrains[size_t(i)], same ? target_ : -1, same ? targetHalf_ : 0});
+        if (!same) keepPins();  // (the terrain shown now: its pins wait for it)
+        to.push_back({e.id, ts.terrains[size_t(i)], same ? target_ : -1, same ? targetHalf_ : 0, same ? pins_ : savedPins_[e.id]});
+        pins_ = std::move(e.pins);
         ts.terrains[size_t(i)] = std::move(e.before);
         if (!same) sel_ = i, std_ = -1, revealSideRow();
         for (size_t k = 0; k < groundIds_.size(); ++k)  // (the Bordering box: the ground as it was)
@@ -1276,10 +1291,13 @@ private:
             const std::array<uint16_t, 3> was = target_ >= 0 && target_ < int(t->t.pieces.size()) ? t->t.pieces[size_t(target_)] : std::array<uint16_t, 3>{0xFFFF, 0, 0};
             const std::vector<std::array<uint16_t, 3>> before = t->t.pieces;
             stardraft::terrainrules::normalize(tileset_, t->t);
-            if (was[0] != 0xFFFF) {
+            if (t->t.pieces != before) remapPins(before, t->t.pieces);
+            if (was[0] != 0xFFFF) {  // (the same one of equal pieces: a copy of Make Unique and its original)
+                int occ = 0;
+                for (int j = 0; j < target_; ++j) occ += before[size_t(j)] == was ? 1 : 0;
                 target_ = -1;
                 for (size_t k = 0; k < t->t.pieces.size(); ++k)
-                    if (t->t.pieces[k] == was) { target_ = int(k); break; }
+                    if (t->t.pieces[k] == was && occ-- == 0) { target_ = int(k); break; }
             }
             if (t->t.pieces != before) places_.clear(), holes_.clear(), absent_.clear(), light = false;  // (the piece numbers moved: none until the new example)
             updateTemplate();
@@ -1288,6 +1306,25 @@ private:
         updateMyRows();
         if (light) return syncIds(), invalidate();
         rebuild();
+    }
+    // The pieces' order changed (a variant set to NULL goes to the gaps): each pin follows its piece (the same tiles, the
+    // same one of equal pieces: the order keeps equal pieces in their order) to its new number among the rect's pieces.
+    void remapPins(const std::vector<std::array<uint16_t, 3>>& before, const std::vector<std::array<uint16_t, 3>>& after) {
+        for (auto& [at, pin] : pins_) {
+            const auto [g, nth] = pin;
+            int seen = 0, i = -1;
+            for (size_t j = 0; j < before.size() && i < 0; ++j)
+                if (before[j][0] == g && seen++ == nth) i = int(j);
+            if (i < 0) continue;
+            int occ = 0;
+            for (int j = 0; j < i; ++j) occ += before[size_t(j)] == before[size_t(i)] ? 1 : 0;
+            int o = 0;
+            for (const auto& p : after) {
+                if (p == before[size_t(i)] && occ-- == 0) break;
+                o += p[0] == g ? 1 : 0;
+            }
+            pin.second = o;
+        }
     }
     // The rows of the tiles that are the shown terrain's: its pieces' tiles' rows, and the groups its maps use with it.
     void updateMyRows() {
@@ -1580,6 +1617,7 @@ private:
         uint16_t id = 0;
         stardraft::terrainrules::Terrain before;
         int target = -1, half = 0;
+        std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins;  // (the example's pins then: they follow the pieces)
     };
     std::vector<Edit> undo_, redo_;
     stardraft::kit::TextField search_;
@@ -1621,6 +1659,10 @@ private:
     // The example's places pinned to a variant of their rect (Make Unique): map tile place -> the rect's group and the
     // variant's number among the group's pieces. The editor's only: the game's brush picks a variant at random.
     std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins_;
+    std::map<uint16_t, std::map<std::pair<int, int>, std::pair<uint16_t, int>>> savedPins_;  // (each terrain's pins while another shows)
+    void keepPins() {
+        if (const auto* t = terrain()) savedPins_[t->t.id] = pins_;
+    }
     // A slot clicked in the example: Ctrl+arrow keys change its tile to the next one in the tiles; its frame blinks.
     bool slotKeys_ = false, blinkOn_ = true;
     int blinkId_ = 0;
