@@ -763,7 +763,9 @@ private:
         // (a game terrain on its ground in a shape; the map's tiles of a part)
         auto paintGame = [&](Editor* on, uint16_t ground, uint16_t terrain, const std::vector<std::pair<int, int>>& shape) {
             on->paintBrush(cx, cy, ground, Brush{Brush::Diamond, 64.0f});
-            for (const auto& [i, j] : shape) on->paintBrush(cx + i * 64, cy + j * 32, terrain, Brush{Brush::Diamond, 1.0f});
+            for (const auto& [i, j] : shape)  // (as the example: a half spot with the 0.5 brush)
+                if (i >= kHalfSpot / 2) on->paintBrush(cx + (i - kHalfSpot) * 32, cy + j * 16, terrain, Brush{Brush::Diamond, 0.5f});
+                else on->paintBrush(cx + i * 64, cy + j * 32, terrain, Brush{Brush::Diamond, 1.0f});
         };
         auto pictureOf = [&](Editor* on, const draw::Rect& crop) {
             const stardraft::TerrainLayer l = stardraft::readTerrain(on->chk(), "TILE");
@@ -938,9 +940,16 @@ private:
     // the most rects of walls and of blends: a search over all the mod's terrains found the same few each time; More
     // rects adds to them); the game's borders (Other): both.
     static const std::vector<std::pair<int, int>>& shapeOf(isomrules::Family f) {
-        static const std::vector<std::pair<int, int>> kWall = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}};
-        static const std::vector<std::pair<int, int>> kPath = {{0, 0}, {0, -2}, {-1, 1}, {0, 2}, {3, 1}, {3, -3}, {-3, -3}};
-        static const std::vector<std::pair<int, int>> kBoth = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}};
+        // (and with the 0.5 brush, at the right: a strip down to the right, a strip up to the right, a single one: the
+        // thin strips maps have)
+        auto thin = [](std::vector<std::pair<int, int>> v) {
+            for (int k = 0; k < 4; ++k) v.push_back({kHalfSpot + 9 + k, 3 + k}), v.push_back({kHalfSpot + 9 + k, -3 - k});
+            v.push_back({kHalfSpot + 15, 1});
+            return v;
+        };
+        static const std::vector<std::pair<int, int>> kWall = thin({{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}});
+        static const std::vector<std::pair<int, int>> kPath = thin({{0, 0}, {0, -2}, {-1, 1}, {0, 2}, {3, 1}, {3, -3}, {-3, -3}});
+        static const std::vector<std::pair<int, int>> kBoth = thin({{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}});
         return f == isomrules::Family::Wall || f == isomrules::Family::Cliff ? kWall : f == isomrules::Family::Other ? kBoth : kPath;
     }
     // The reference over the example, on or off (Ctrl+R); its opacity is the slider (Ctrl+Shift+Up / Ctrl+Shift+Down: 10 % steps; 100 %:
@@ -1848,7 +1857,7 @@ private:
             for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
             g = m->t.ground;
         }
-        return L"IsomExtra/v3-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+        return L"IsomExtra/v4-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
                std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
     }
     std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
