@@ -2,6 +2,21 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.1
+
+### Map
+
+- Terrain > Custom has a search box.
+- The Tiles list shows the terrain flags overlay.
+- When StarCraft is not found, the start page has Load mod.
+
+### Cosmonarchy BW (early feature preview)
+
+- Experimental ISOM terrain editor for mods with custom terrain.
+- The unit palette uses the mod's own unit sections. The mod's ramps, caves, bridges and trees are in Terrain > Custom.
+- Classic triggers: a position can be a location of the map.
+- Keep resources 3 tiles from town halls works with the mod's units.
+
 ## 0.8
 
 ### New
