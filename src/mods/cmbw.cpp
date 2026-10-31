@@ -2957,7 +2957,8 @@ bool open(GameData& data, const fs::path& install, std::string& error) {
     if (!fs::is_regular_file(loose / "arr" / "units.datex", ec)) return error = "no Cosmonarchy data in " + install.string(), false;
     const fs::path sc = install.parent_path() / "Starcraft";
     std::vector<fs::path> mpqs;
-    for (const char* m : {"patch_rt.mpq", "BrooDat.mpq", "StarDat.mpq"})
+    // (the game's files, then its CD archives last: the music, the briefing music among it, is only in those)
+    for (const char* m : {"patch_rt.mpq", "BrooDat.mpq", "StarDat.mpq", "BroodWar.mpq", "StarCraft.mpq"})
         if (fs::is_regular_file(sc / m, ec)) mpqs.push_back(sc / m);
     auto files = std::make_unique<LayeredFiles>(loose, mpqs);
     if (!files->archives()) return error = "no StarCraft 1.16.1 MPQs in " + sc.string(), false;
