@@ -395,7 +395,7 @@ CASES += [
     # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
     # (it wraps as the game's).
     ("cmbw-isom-shot", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247"], "cmbw"),
-    ("map-tiles-flags-shot", ["--mode", "terrain", "--click", "202,427", "--command", "view.flags.height"], "map"),
+    ("map-tiles-flags-shot", ["--mode", "terrain", "--click", "246,427", "--command", "view.flags.height"], "map"),
     ("map-briefing-text-shot", ["--workspace", "briefing", "--size", "1600x1000", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                                 "--click", "510,830", "--type", "Welcome to Mar Sara, Magistrate. The equipment demonstration you requested is prepared-",
                                 "--click", "1400,600"], "map"),
@@ -472,9 +472,9 @@ CASES += [
     # (its Isometric).
     ("map-panels-float", ["--script", "{script:panelsfloat}"], "map"),
     # Release pictures (0.6.1.3): a Tiles stamp over the map; Rectangle mode's left-right mirror; a taller minimap.
-    ("map-tiles-stamp-shot", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--drag", "75,700-160,760", "--move", "700,400",
+    ("map-tiles-stamp-shot", ["--mode", "terrain", "--click", "246,427", "--wait", "300", "--drag", "75,700-160,760", "--move", "700,400",
                               "--wait", "200"], "map"),
-    ("map-rect-mirror-shot", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--click", "115,521", "--click", "100,720",
+    ("map-rect-mirror-shot", ["--mode", "terrain", "--click", "246,427", "--wait", "300", "--click", "115,521", "--click", "100,720",
                               "--move", "600,400", "--wait", "200"], "map"),
     ("map-minimap-taller", ["--drag", "200,374-200,540", "--wait", "200"], "map"),
     # The palette's Extra large view (GitHub #150): Doodads mode, two big pictures in a row.
@@ -520,10 +520,10 @@ CASES += [
     # that frame (freedinframe), and the list keeps the pictures of a few tile groups, not of all.
     ("map-terrain-rect-scroll", ["--rect"] + ["--wheel", "200,750,0,-20"] * 100 + ["--wheel", "200,750,0,200"] * 10, "map"),
     # The isometric brush over tiles placed in Rectangle mode (GitHub #143): a click paints Solar Array, a tile of the
-    # Tiles list is placed there (Rectangle at 202,427), then the same click paints Solar Array again (Isometric at
+    # Tiles list is placed there (Tile at 246,427), then the same click paints Solar Array again (Isometric at
     # 135,427; the ISOM does not change): a tile of the brush's group is there again, not the placed one.
     ("map-terrain-brush-over-tiles", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--click", "560,690",
-                                      "--move", "560,690", "--click", "202,427", "--click", "tile16", "--key", "B",
+                                      "--move", "560,690", "--click", "246,427", "--click", "tile16", "--key", "B",
                                       "--click", "560,690", "--click", "135,427", "--click", "202,759", "--key", "B",
                                       "--click", "560,690"], "map"),
     # The quick picker (Q) in Rectangle mode (GitHub #141): its rows are the tile groups, found as the Tiles list's
@@ -546,7 +546,7 @@ CASES += [
     # size's up arrow makes it 3 x 4 (diamonds, Isometric); in Rectangle (its own size, GitHub #155; linked: the map's
     # diamond shape, GitHub #138; its up arrow from 2 to 3) it is 3 x 2 tiles.
     ("map-brush-diamond-height", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
-                                  "--click", "202,427", "--click", "198,487"], "map"),
+                                  "--click", "246,427", "--click", "198,487"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
     # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
     # it was: its tiles and a box.
@@ -555,11 +555,11 @@ CASES += [
                                 "--move", "700,600"], "map"),
     ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "198,487:Repeat5",
                                 "--move", "700,600"], "map"),
-    # Solid (docs/dev/solid-terrain-brush.md): Solar Array from the terrain list (the quick picker), the Brush at size 1
-    # puts one rect (2 x 1 tiles) of Solar Array's own tiles; Undo takes them back; Ctrl+Alt+T goes to Isometric, whose
-    # list has the same terrains.
+    # Rect (the code's Solid, docs/dev/solid-terrain-brush.md): Solar Array from the terrain list (the quick picker), the
+    # Brush at size 1 puts one rect (2 x 1 tiles) of Solar Array's own tiles; Undo takes them back; Ctrl+Alt+T goes to
+    # Tile, Custom, then Isometric (the strip's order), whose list has the same terrains.
     ("map-solid-brush", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
-                         "--click", "560,690", "--key", "Ctrl+Z", "--key", "Ctrl+Alt+T"], "map"),
+                         "--click", "560,690", "--key", "Ctrl+Z", "--key", "Ctrl+Alt+T", "--key", "Ctrl+Alt+T", "--key", "Ctrl+Alt+T"], "map"),
     # Solid at size 3: 3 x 3 rects (6 x 3 tiles) in one click (the Diamond of 3 rects is all of them).
     ("map-solid-size3", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B",
                          "--wheel", "560,690,0,1:Alt", "--click", "560,690", "--move", "560,690"], "map"),
@@ -574,7 +574,7 @@ CASES += [
     ("map-terrain-select-circle", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,1", "--drag", "520,600-700,720"], "map"),
     ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
     # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
-    ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "202,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
+    ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "246,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
                              "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),
     # Custom terrain (Terrain's Custom; the files in a new folder: --stamps, never the user's): the square shape, Select
     # (V), a drag selects 7 x 4 tiles, Shift+click adds a tile apart from them, Ctrl+click takes one out of them; a right
@@ -601,7 +601,7 @@ CASES += [
     # Volcanis (Ash World) after Ctrl+O; with none, the list says how to make it.
     ("map-custom-other-tileset", ["--custom", "--stamps", "{newdir}", "--key", "V", "--drag", "520,640-560,660",
                                   "--click", "540,655:Menu7", "--type", "Platform_Piece", "--key", "Enter",
-                                  "--key", "Ctrl+O", "--pick", "{install}/Maps/(2)Volcanis.scm", "--click", "252,427"], "map"),
+                                  "--key", "Ctrl+O", "--pick", "{install}/Maps/(2)Volcanis.scm", "--click", "299,427"], "map"),
     # Units: the placement preview at the left-right mirror image too (Discord feedback #133).
     ("map-units-mirror-ghost", ["--mode", "units", "--click", "1371,187", "--click", "1386,579", "--wheel", "831,525,0,-4", "--move", "700,500",
                                 "--wait", "200"], "map"),
@@ -1646,7 +1646,7 @@ stats
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
     "panelsown": "mode terrain\npanel new\nwait 0\nclick 1231,196\nclick 1157,254\nclick 200,652\nclick 1157,254\nkey U\nkey T\n",
-    "panelsfloat": "mode terrain\nclick 202,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
+    "panelsfloat": "mode terrain\nclick 246,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
                    "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
                 "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nclick 900,700\nkey Esc\nkey Del\n"
@@ -2031,7 +2031,10 @@ def check_solid_brush(output):
     _, before = solid_step(steps, "wheel 560,690,0,-1:Alt")
     msg, click = solid_step(steps, "click 560,690")
     _, undo = solid_step(steps, "key Ctrl+Z")
-    _, iso = solid_step(steps, "key Ctrl+Alt+T")
+    kinds = [s.get("kind") for i, _, s in steps if i == "key Ctrl+Alt+T"]
+    if kinds != ["rect", "custom", "iso"]:
+        return f"Ctrl+Alt+T went to {kinds}, not Tile, Custom and Isometric"
+    iso = [s for i, _, s in steps if i == "key Ctrl+Alt+T"][-1]
     if before.get("kind") != "solid" or before.get("brush") != "1x1":
         return f"not Solid at size 1 (kind={before.get('kind')} brush={before.get('brush')})"
     if msg != "Placed 2 tiles":

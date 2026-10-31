@@ -799,14 +799,13 @@ Spray: random doodads of the selected kinds (Density). Hold the button to spray 
 Place the sprites selected in the list (several: each one at random); drag to place more	放置列表中选中的精灵（多个时各自随机）；拖动可放置更多
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	喷洒：所选类型的随机精灵（密度）。按住按钮可喷洒更多。
 Select, move and resize locations; drag on empty ground to make one	选择、移动和调整位置大小；在空地上拖动可新建位置
-Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	矩形：工具按原样放置图块。在图块列表中选择一个图块。
+Tile: the tools place tiles as they are. Select a tile in the Tiles list.	图块：工具按原样放置图块。在图块列表中选择一个图块。
 Isometric: the tools paint terrains and correct the edges between them	等距：工具绘制地形，并修正地形之间的边缘。
 Isometric	等距
 Isometric: paint terrains, with the edges corrected	等距：绘制地形，并修正边缘
 Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	等距：绘制地形，并修正边缘。 Ctrl+Alt+T 选择下一个选项。
-Rectangle	矩形
 Rectangle: place tiles as they are (no terrain correction)	矩形：按原样放置图块（不修正地形）
-Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	矩形：按原样放置图块，不修正地形。 Ctrl+Alt+T 选择下一个选项。
+Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	图块：按原样放置图块，不修正地形。 Ctrl+Alt+T 选择下一个选项。
 Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	自定义：放置你的自定义地形，即你从地图中保存的图块。 Ctrl+Alt+T 选择下一个选项。
 Select what to place in the list	在列表中选择要放置的内容
 Brush shape: diamond	笔刷形状：菱形
@@ -816,7 +815,7 @@ One step more	增加一步
 One step less	减少一步
 Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	笔刷大小：1 至 32。点击可输入大小。- 和 + 以及鼠标滚轮可更改（地图上也可用 Alt+滚轮）。
 Density	密度
-Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的点数（矩形：图块数），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的点数（图块：图块数；矩形：矩形数），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
 Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的单位数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
 Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的装饰物数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
 No symmetry	无对称
@@ -2204,7 +2203,7 @@ Pathing shows the connected &areas	寻路显示连通区域(&A)
 Check &pathing (nooks and crannies)	检查寻路(&P)（缝隙和角落）
 Search the pathing problems	搜索寻路问题
 %d more problems are not in the list	另有 %d 个问题不在列表中
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	此图块上有装饰物：修复会将其删除。请在 地形 > 矩形 中更改图块
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	此图块上有装饰物：修复会将其删除。请在 地形 > 图块 中更改图块
 Apply the fix: tile %d, %d gets no walkable minitile there	应用修复：图块 %d, %d 的该处不再可行走
 Closed passages	封闭的通道
 Fix: change the tiles here so that the ground connects, or make it unwalkable	修复：更改此处的图块使地面相连，或使其不可行走
@@ -2501,7 +2500,7 @@ Lost (minerals + gas)	损失（矿物 + 瓦斯）
 Field	矿区
 Fields	矿区数
 Base	基地
-Tile	格子
+Tile	图块
 Minerals a minute	每分钟矿物
 Gas a minute	每分钟瓦斯
 Round trip of each field, nearest first (frames)	每个矿区的往返时间，从近到远（帧）
@@ -2633,3 +2632,4 @@ Reset all program settings	重置所有程序设置
 Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	所有程序设置将恢复为默认值，StarDraft 2 将重新启动。您的地图、项目和最近列表保持不变。
 &Reset and restart	重置并重新启动(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。
+Rectangle	矩形

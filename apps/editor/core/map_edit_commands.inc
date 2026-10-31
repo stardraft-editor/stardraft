@@ -41,7 +41,7 @@ constexpr ProgramKey kProgramKeys[] = {
 #ifndef __APPLE__  // (macOS: Cmd+M is the system's Window > Minimize; View > Log has no key there)
     {"Ctrl+M", ID_VIEW_LOG},
 #endif
-    {"Ctrl+Alt+T", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Custom in turn)
+    {"Ctrl+Alt+T", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Tile, Custom in turn)
     // The tool strip's symmetry: each mirror on or off (they combine), Alt+0 none
     {"Alt+0", ID_MIRROR_KEY, true}, {"Alt+1", ID_MIRROR_KEY + 1, true}, {"Alt+2", ID_MIRROR_KEY + 2, true}, {"Alt+3", ID_MIRROR_KEY + 3, true},
     {"Alt+4", ID_MIRROR_KEY + 4, true},
@@ -513,7 +513,7 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_TOOL_KEY + 2:
     case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
     case ID_TERRAIN_KIND_NEXT:  // (the Terrain tool strip's choice: another mode has none)
-        if (app.mode == Mode::Terrain) setTerrainKind((terrainKind() + 1) % kTerrainKinds);
+        if (app.mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
         std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +

@@ -1,6 +1,8 @@
-# Solid: a terrain's inside tiles with Rectangle's tools
+# Rectangle: a terrain's inside tiles with Tile's tools
 
-The Terrain tool strip has a fourth choice, Solid, after Isometric, Rectangle and Custom. The user selects a terrain in
+The Terrain tool strip's choices are Isometric, Rectangle, Tile and Custom. Rectangle is new; Tile is the old
+Rectangle (tiles as they are). The code calls the new one Solid (`TilesView::solid`, `solidRectTiles`), and its
+`terrainRect` is on in Tile, Custom and Solid. The user selects a terrain in
 the same list as Isometric's, and the tools put the tiles that the isometric brush puts inside that terrain (its solid
 rects), not its edges. They go in ISOM rects (2 x 1 tiles), as tiles: the ISOM does not change (as SCMDraft's
 rectangle terrain). It is SCMDraft's rectangular terrain brush; the request is from the user (2026-10-31).
@@ -8,8 +10,9 @@ rectangle terrain). It is SCMDraft's rectangular terrain brush; the request is f
 ## Model
 
 - Solid is Rectangle's tools on the map with another source of tiles, as Custom is (`AppState::terrainRect` on,
-  `TilesView::solid` on). The kinds: 0 Isometric, 1 Rectangle, 2 Custom, 3 Solid (`terrainKind`). Ctrl+Alt+T goes
-  through the four.
+  `TilesView::solid` on). The kinds: 0 Isometric, 1 Tile, 2 Custom, 3 Solid (`terrainKind`); the strip shows them as
+  Isometric, Rectangle, Tile, Custom (`kTerrainKindOrder`), and Ctrl+Alt+T goes through them in that
+  order.
 - The panel shows the terrain palette (`paletteItems`, Mode::Terrain: the game's terrains, then each mod terrain under
   its ground, no variants), not the Tiles list. `tilesOn()` is false in Solid: the quick picker (Q) lists the
   terrains, as Isometric's does.
@@ -65,9 +68,11 @@ own rects.
 
 ## UI texts
 
-- Segment: "Solid" (the four segments are each their name's width and an equal part of the rest). Tip: "Solid: place
+- Segment: "Rectangle" (the four segments are each their name's width and an equal part of the rest). Tip: "Rectangle: place
   the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice."
-- Status on the choice: "Solid: the tools place the tiles inside a terrain. Select a terrain in the list."
+- Status on the choice: "Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list."
+- The old Rectangle is "Tile" in its segment, tip, status, the Density tip and the pathing check's message
+  ("Change the tile in Terrain > Tile").
 - Tools' tips (Brush, Spray, Fill) say "the tiles inside the terrain".
 - No pick: "Select a terrain in the list first (or Ctrl+click the map)".
 

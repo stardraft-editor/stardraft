@@ -832,14 +832,13 @@ Select a sprite: click it; drag it to move. Esc goes to Select.	스프라이트 
 Place the sprites selected in the list (several: each one at random); drag to place more	목록에서 선택한 스프라이트를 배치합니다 (여러 개: 각각 무작위로). 드래그하면 더 배치합니다
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 스프라이트를 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
 Select, move and resize locations; drag on empty ground to make one	위치를 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 위치를 만듭니다
-Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	사각형: 도구가 타일을 그대로 배치합니다. 타일 목록에서 타일을 선택합니다.
+Tile: the tools place tiles as they are. Select a tile in the Tiles list.	타일: 도구가 타일을 그대로 배치합니다. 타일 목록에서 타일을 선택합니다.
 Isometric: the tools paint terrains and correct the edges between them	아이소메트릭: 도구가 지형을 칠하고 지형 사이의 가장자리를 보정합니다
 Isometric	아이소메트릭
 Isometric: paint terrains, with the edges corrected	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다
 Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
-Rectangle	사각형
 Rectangle: place tiles as they are (no terrain correction)	사각형: 타일을 그대로 배치합니다 (지형 보정 없음)
-Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	사각형: 타일을 그대로 배치하며 지형 보정은 없습니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	타일: 타일을 그대로 배치하며 지형 보정은 없습니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
 Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	사용자 지정: 맵에서 저장한 타일인 사용자 지정 지형을 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
 Select what to place in the list	목록에서 배치할 것을 선택합니다
 Brush shape: diamond	브러시 모양: 마름모
@@ -849,7 +848,7 @@ One step more	한 단계 늘리기
 One step less	한 단계 줄이기
 Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	브러시 크기: 1 ~ 32. 클릭하여 크기를 입력합니다. - 와 + 및 마우스 휠로 변경합니다 (지도에서는 Alt+휠도 가능).
 Density	밀도
-Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 점의 수 (사각형: 타일 수), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
+Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 점의 수 (타일: 타일 수, 사각형: 사각형 수), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
 Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 유닛의 수 (들어갈 수 있는 곳에), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
 Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	밀도: 스프레이 한 번에 놓이는 장식물의 수 (들어갈 수 있는 곳에), 1 ~ 50. 클릭하여 숫자를 입력합니다. - 와 + 및 마우스 휠로 변경합니다.
 No symmetry	대칭 없음
@@ -2204,7 +2203,7 @@ Pathing shows the connected &areas	경로에 연결된 영역 표시(&A)
 Check &pathing (nooks and crannies)	경로 검사(&P) (좁은 틈과 구석)
 Search the pathing problems	경로 문제 검색
 %d more problems are not in the list	목록에 없는 문제 %d개가 더 있습니다
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	이 타일에 장식물이 있습니다: 수정하면 장식물이 지워집니다. 지형 > 사각형에서 타일을 바꾸십시오
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	이 타일에 장식물이 있습니다: 수정하면 장식물이 지워집니다. 지형 > 타일에서 타일을 바꾸십시오
 Apply the fix: tile %d, %d gets no walkable minitile there	수정 적용: 타일 %d, %d의 그 자리를 걸을 수 없게 합니다
 Closed passages	닫힌 통로
 Fix: change the tiles here so that the ground connects, or make it unwalkable	수정: 땅이 이어지도록 이곳의 타일을 바꾸거나, 걸을 수 없게 하십시오
@@ -2651,9 +2650,9 @@ Width (16 to 256 tiles)	너비 (16 ~ 256 타일)
 Height (16 to 256 tiles)	높이 (16 ~ 256 타일)
 Width: type a size from 16 to 256	너비: 16 ~ 256 사이의 크기를 입력하세요
 Height: type a size from 16 to 256	높이: 16 ~ 256 사이의 크기를 입력하세요
-Solid	솔리드
-Solid: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	솔리드: 지형 안쪽의 타일을 가장자리 없이 2 x 1 타일 사각형 단위로 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
-Solid: the tools place the tiles inside a terrain. Select a terrain in the list.	솔리드: 도구가 지형 안쪽의 타일을 배치합니다. 목록에서 지형을 선택하십시오.
+Rectangle	사각형
+Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	사각형: 지형 안쪽의 타일을 가장자리 없이 2 x 1 타일 사각형 단위로 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	사각형: 도구가 지형 안쪽의 타일을 배치합니다. 목록에서 지형을 선택하십시오.
 Select a terrain in the list first (or Ctrl+click the map)	먼저 목록에서 지형을 선택하십시오 (또는 맵을 Ctrl+클릭하십시오)
 Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	브러시: 목록에서 선택한 지형 안쪽의 타일을 2 x 1 타일 사각형 단위로, 브러시의 크기와 모양으로 배치합니다
 Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.	스프레이: 브러시 안의 무작위 사각형에 지형 안쪽의 타일을 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.

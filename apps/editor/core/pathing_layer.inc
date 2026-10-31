@@ -376,7 +376,7 @@ void pathingApplyFix(int i) {
     if (p.fixTileX < 0) return;
     Editor& ed = *app.ed;
     if (ed.doodadAt(p.fixTileX * 32 + 16, p.fixTileY * 32 + 16) >= 0) {
-        setMessage(tr(L"A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle"));
+        setMessage(tr(L"A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile"));
         return;
     }
     if (!ed.placeTileValues({Editor::TileAt{p.fixTileX, p.fixTileY, p.fixValue}})) {
