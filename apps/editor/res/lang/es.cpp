@@ -2644,6 +2644,17 @@ constexpr UiText kRows[] = {
     {L"&Fill selection with the selected terrain", L"&Rellenar la selecci\u00F3n con el terreno seleccionado"},
     {L"Select a terrain in the list first", L"Seleccione primero un terreno en la lista"},
     {L"Could not select the terrain. The map has no isometric terrain data.", L"No se pudo seleccionar el terreno. El mapa no tiene datos de terreno isom\u00E9trico."},
+    {L"Te&rrain tools", L"&Herramientas de terreno"},
+    {L"&Isometric", L"&Isom\u00E9trico"},
+    {L"&Rectangle", L"&Rect\u00E1ngulo"},
+    {L"&Tile", L"&Tile"},
+    {L"&Custom", L"&Personalizado"},
+    {L"&Next", L"&Siguiente"},
+    {L"&Isometric\tCtrl+Alt+1", L"&Isom\u00E9trico\tCtrl+Alt+1"},
+    {L"&Rectangle\tCtrl+Alt+2", L"&Rect\u00E1ngulo\tCtrl+Alt+2"},
+    {L"&Tile\tCtrl+Alt+3", L"&Tile\tCtrl+Alt+3"},
+    {L"&Custom\tCtrl+Alt+4", L"&Personalizado\tCtrl+Alt+4"},
+    {L"&Next\tCtrl+Alt+T", L"&Siguiente\tCtrl+Alt+T"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

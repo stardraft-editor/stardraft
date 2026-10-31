@@ -259,6 +259,24 @@ void registerMapCommands() {
     addCommand(ID_MODE_DOODADS, "mode.doodads", L"&Doodads", "Mode", L"D", [] { setMode(Mode::Doodads); });
     addCommand(ID_MODE_SPRITES, "mode.sprites", L"&Sprites", "Mode", L"S", [] { setMode(Mode::Sprites); });
     addCommand(ID_MODE_LOCATIONS, "mode.locations", L"&Locations", "Mode", L"L", [] { setMode(Mode::Locations); });
+    // Mode > Terrain tools: the Terrain tool strip's choices, each with its key (Terrain mode first), and the next one
+    // (Ctrl+Alt+T: kProgramKeys runs it, as before)
+    static const struct {
+        const char* id;
+        const wchar_t *label, *key;
+    } kKinds[kTerrainKinds] = {{"mode.terrain.isometric", L"&Isometric", L"Ctrl+Alt+1"},
+                               {"mode.terrain.rectangle", L"&Rectangle", L"Ctrl+Alt+2"},
+                               {"mode.terrain.tile", L"&Tile", L"Ctrl+Alt+3"},
+                               {"mode.terrain.custom", L"&Custom", L"Ctrl+Alt+4"}};
+    for (int i = 0; i < kTerrainKinds; ++i)
+        addCommand(ID_TERRAIN_KIND + i, kKinds[i].id, kKinds[i].label, "Mode/Terrain tools", kKinds[i].key, [i] {
+                if (gWorkspace != Workspace::Map || !shellState().ed) return;
+                if (shellState().mode != Mode::Terrain) setMode(Mode::Terrain);
+                setTerrainKind(kTerrainKindOrder[i]);
+            }, [i] { return shellState().mode == Mode::Terrain && terrainKind() == kTerrainKindOrder[i]; }, true);
+    addCommand(ID_TERRAIN_KIND_NEXT, "mode.terrain.next", L"&Next", "Mode/Terrain tools", L"Ctrl+Alt+T", [] {
+            if (gWorkspace == Workspace::Map && shellState().ed && shellState().mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
+        }, {}, false, false);
     // View: the graphics (one of four)
     addCommand(ID_VIEW_HD2, "view.hd2", L"&High definition (2x, default)", "View", L"", [] { setGraphics(GraphicsQuality::HD2, false); },
                [] { return !shellState().carbot && shellState().quality == GraphicsQuality::HD2; }, true);

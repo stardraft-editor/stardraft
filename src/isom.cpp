@@ -1744,7 +1744,24 @@ bool solidRectTiles(const Tileset& tileset, uint16_t terrain, const TerrainLayer
                     return true;
                 }
             }
-            std::tie(left, right) = pickModPiece(tileset, fill, tile, rx, ry, next());
+            // Pieces with rules of the mod's maps: as the brush picks them. Else the game's rule (getRandomSubtile) on the
+            // pieces' subtiles, as the mod's maps have them: a piece whose left tile is before the first empty megatile of
+            // its group is common (all as often), the others rare (1 time in 20).
+            const auto& ruled = tileset.pieceNeighborTiles;
+            if (std::any_of(fill.begin(), fill.end(), [&](const auto& p) { return ruled.count(p.first) != 0; })) {
+                std::tie(left, right) = pickModPiece(tileset, fill, tile, rx, ry, next());
+                return true;
+            }
+            std::vector<std::pair<uint16_t, uint16_t>> common, rare;
+            for (const auto& p : fill) {
+                const size_t pg = p.first >> 4;
+                int run = 0;
+                while (pg < tileset.groups.size() && run < 16 && tileset.groups[pg].megatiles[size_t(run)]) ++run;
+                auto& to = (p.first & 15) < run ? common : rare;
+                if (std::find(to.begin(), to.end(), p) == to.end()) to.push_back(p);  // (the fill lists a piece more times to weight it)
+            }
+            const auto& from = !rare.empty() && (common.empty() || next() % 20 == 0) ? rare : common;
+            std::tie(left, right) = from[next() % uint32_t(from.size())];
             return true;
         }
         terrain = mod->standIn;  // (no fill of its own: the stand-in's tiles inside it)

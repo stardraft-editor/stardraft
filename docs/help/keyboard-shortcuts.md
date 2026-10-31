@@ -52,6 +52,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+T, Ctrl+U, Ctrl+G, Ctrl+R, Ctrl+L | Terrain, Units, Doodads, Sprites and Locations mode (as SCMDraft's layer keys, but Doodads on Ctrl+G; in the Map workspace) |
 | Ctrl+F | Show or hide the fog of war of the selected player |
 | V, B, A, F | The mode's tools: Select, Brush (place), Spray and Fill |
+| Ctrl+Alt+1 to Ctrl+Alt+4 | Terrain mode with Isometric, Rectangle, Tile or Custom (Mode > Terrain tools) |
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
 | Shift+click in the palette | Isometric terrain: the second terrain (Ctrl+click too) |
 | Shift+click, Shift+drag | Isometric terrain: paint with the second terrain (Brush, Spray, Replace) |

@@ -2644,6 +2644,17 @@ constexpr UiText kRows[] = {
     {L"&Fill selection with the selected terrain", L"\u7528\u6240\u9009\u5730\u5F62\u586B\u5145\u9009\u533A(&F)"},
     {L"Select a terrain in the list first", L"\u8BF7\u5148\u5728\u5217\u8868\u4E2D\u9009\u62E9\u4E00\u4E2A\u5730\u5F62"},
     {L"Could not select the terrain. The map has no isometric terrain data.", L"\u65E0\u6CD5\u9009\u62E9\u5730\u5F62\u3002\u6B64\u5730\u56FE\u6CA1\u6709\u7B49\u8DDD\u5730\u5F62\u6570\u636E\u3002"},
+    {L"Te&rrain tools", L"\u5730\u5F62\u5DE5\u5177(&R)"},
+    {L"&Isometric", L"\u7B49\u8DDD(&I)"},
+    {L"&Rectangle", L"\u77E9\u5F62(&R)"},
+    {L"&Tile", L"\u56FE\u5757(&T)"},
+    {L"&Custom", L"\u81EA\u5B9A\u4E49(&C)"},
+    {L"&Next", L"\u4E0B\u4E00\u4E2A(&N)"},
+    {L"&Isometric\tCtrl+Alt+1", L"\u7B49\u8DDD(&I)\tCtrl+Alt+1"},
+    {L"&Rectangle\tCtrl+Alt+2", L"\u77E9\u5F62(&R)\tCtrl+Alt+2"},
+    {L"&Tile\tCtrl+Alt+3", L"\u56FE\u5757(&T)\tCtrl+Alt+3"},
+    {L"&Custom\tCtrl+Alt+4", L"\u81EA\u5B9A\u4E49(&C)\tCtrl+Alt+4"},
+    {L"&Next\tCtrl+Alt+T", L"\u4E0B\u4E00\u4E2A(&N)\tCtrl+Alt+T"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

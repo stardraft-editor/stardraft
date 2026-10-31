@@ -1978,10 +1978,11 @@ int Editor::placeTileCells(const std::vector<std::pair<int, int>>& cells, uint16
     return placeTileValues(v);
 }
 
-int Editor::placeTileValues(const std::vector<TileAt>& cells) {
+int Editor::placeTileValues(const std::vector<TileAt>& cells, bool modTiles) {
     if (!open_) return 0;
     TerrainLayer mtxm = readTerrain(chk_, "MTXM"), tile = readTerrain(chk_, "TILE");
     if (!chk_.has("TILE")) tile = mtxm;  // a map without StarEdit's copy gets one
+    const TerrainLayer before = tile;
     std::vector<std::pair<size_t, uint16_t>> todo;
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const TileAt& c : cells) {
@@ -2012,6 +2013,7 @@ int Editor::placeTileValues(const std::vector<TileAt>& cells) {
     // Both sections, so StarEdit (which reads TILE) and the game (MTXM) show the same; the ISOM stays as it is.
     chk_.set("MTXM", pack(mtxm));
     chk_.set("TILE", pack(tile));
+    if (modTiles && !tileset_.groupTerrains.empty()) sprinkleModTiles(before);
     commit(true);
     pruneDoodads(intact);
     pruneUnits(watch);

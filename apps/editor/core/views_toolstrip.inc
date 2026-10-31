@@ -87,8 +87,7 @@ bool stripHasMirrors() {
 // Tiles grid (TilesView::stamps). Rectangle (the code's Solid): Tile's tools put the tiles inside the terrain selected
 // in the terrain list, which the panel shows (TilesView::solid, docs/dev/solid-terrain-brush.md).
 // 0 Isometric, 1 Tile, 2 Custom, 3 Rectangle; the strip shows them in kTerrainKindOrder (Ctrl+Alt+T goes in that order).
-constexpr int kTerrainKinds = 4;
-constexpr int kTerrainKindOrder[kTerrainKinds] = {0, 3, 1, 2};
+// (kTerrainKinds and kTerrainKindOrder: modes.inc)
 int nextTerrainKind(int kind) {
     for (int i = 0; i < kTerrainKinds; ++i)
         if (kTerrainKindOrder[i] == kind) return kTerrainKindOrder[(i + 1) % kTerrainKinds];

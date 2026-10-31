@@ -296,7 +296,14 @@ std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cel
         }
     return out;
 }
-int tilesPut(const std::vector<Editor::TileAt>& cells) { return appState().ed->placeTileValues(gTiles->solid ? solidMirrored(cells) : tilesMirrored(cells)); }
+// (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts
+// them; a mod terrain's fill stays as it is, as the isometric brush keeps it)
+int tilesPut(const std::vector<Editor::TileAt>& cells) {
+    Editor& ed = *appState().ed;
+    if (!gTiles->solid) return ed.placeTileValues(tilesMirrored(cells));
+    const Tileset::ModTerrain* m = ed.tileset().modTerrain(uint16_t(std::max(0, appState().palette)));
+    return ed.placeTileValues(solidMirrored(cells), !m || !m->fill);  // (no fill of its own: its stand-in's tiles, as a game terrain's)
+}
 int tilesPutCells(const std::vector<std::pair<int, int>>& cells, uint16_t value) {
     std::vector<Editor::TileAt> v;
     for (const auto& [x, y] : cells) v.push_back({x, y, value});

@@ -58,6 +58,7 @@ enum : int {
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_TERRAIN_KIND_NEXT = 977,  // Ctrl+Alt+T: Terrain mode's Isometric, Rectangle, Tile, Custom, each in turn
+    ID_TERRAIN_KIND = 1130,  // + the place in the tool strip: Mode > Terrain tools > Isometric, Rectangle, Tile, Custom (Ctrl+Alt+1 to 4)
     ID_MIRROR_KEY = 1120,  // + n: the tool strip's symmetry: 0 none (Alt+0), 1 left and right (Alt+1), 2 top and bottom, 3 the diagonal, 4 the other diagonal
     ID_VIEW_RANGES = 975,  // View > Ranges > All ranges (of the selected units: GitHub feedback #109)
     ID_GO_TRIGGERS = 1100, ID_GO_BRIEFING, ID_GO_PROPS, ID_GO_ASSETS, ID_GO_DATA,  // Ctrl+Shift+T, B, Enter, A, D: the tab's page or workspace

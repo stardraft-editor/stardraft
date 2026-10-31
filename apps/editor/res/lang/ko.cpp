@@ -2674,6 +2674,17 @@ constexpr UiText kRows[] = {
     {L"Could not save the protected terrain: ", L"\uBCF4\uD638\uB41C \uC9C0\uD615\uC744 \uC800\uC7A5\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: "},
     {L"Protect the terrain (%d tiles)", L"\uC9C0\uD615 \uBCF4\uD638 (\uD0C0\uC77C %d\uAC1C)"},
     {L"Unprotect the terrain (%d tiles)", L"\uC9C0\uD615 \uBCF4\uD638 \uD574\uC81C (\uD0C0\uC77C %d\uAC1C)"},
+    {L"Te&rrain tools", L"\uC9C0\uD615 \uB3C4\uAD6C(&R)"},
+    {L"&Isometric", L"\uC544\uC774\uC18C\uBA54\uD2B8\uB9AD(&I)"},
+    {L"&Rectangle", L"\uC0AC\uAC01\uD615(&R)"},
+    {L"&Tile", L"\uD0C0\uC77C(&T)"},
+    {L"&Custom", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815(&C)"},
+    {L"&Next", L"\uB2E4\uC74C(&N)"},
+    {L"&Isometric\tCtrl+Alt+1", L"\uC544\uC774\uC18C\uBA54\uD2B8\uB9AD(&I)\tCtrl+Alt+1"},
+    {L"&Rectangle\tCtrl+Alt+2", L"\uC0AC\uAC01\uD615(&R)\tCtrl+Alt+2"},
+    {L"&Tile\tCtrl+Alt+3", L"\uD0C0\uC77C(&T)\tCtrl+Alt+3"},
+    {L"&Custom\tCtrl+Alt+4", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815(&C)\tCtrl+Alt+4"},
+    {L"&Next\tCtrl+Alt+T", L"\uB2E4\uC74C(&N)\tCtrl+Alt+T"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
