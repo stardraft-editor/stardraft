@@ -18,7 +18,8 @@ import time
 
 def run(exe, mapfile, arg, picture):
     cmd = [exe, mapfile, "--cmbw", "--dialog", "isomrules:" + arg, "--size", "1600x1100", "--snapshot", picture]
-    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+    env = dict(os.environ, STARDRAFT_SHOW_STRAYS="1")  # (the pictures frame the strays' tiles red)
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, env=env)
     return p.stdout + p.stderr
 
 
