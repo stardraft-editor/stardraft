@@ -526,7 +526,7 @@ private:
         if (!shellPromptText(L"Terrain name", name)) return;
         name.erase(0, name.find_first_not_of(L' ')), name.erase(name.find_last_not_of(L' ') + 1);  // (no spaces around it)
         if (name.empty() || name == was) return;
-        remember();
+        if (!remember()) return;
         rules().terrains[size_t(i)].t.name = narrow(name);
         dirty_ = true;
         filter(), fillGrounds(), invalidate();
@@ -538,6 +538,7 @@ private:
         auto& ts = rules();
         const uint16_t id = ts.terrains[size_t(i)].t.id;
         const std::wstring name = widen(ts.terrains[size_t(i)].t.name);
+        if (ts.terrains[size_t(i)].t.locked) return setMessage(name + L" is protected. To delete it, right-click it in the list > Unprotect first");
         std::wstring users;
         for (const auto& o : ts.terrains)
             if (o.t.id != id && !o.t.variantOf && (o.t.ground == id || o.t.groundTemplate == id)) users += (users.empty() ? L"" : L", ") + widen(o.t.name);
@@ -707,7 +708,11 @@ private:
             return setMessage(widen(v->name) + L": a variant's bordering terrain is the brush's. Select " + widen(t->t.name) + L" to change its own");
         }
         const uint16_t g = groundIds_[size_t(i)];
-        remember();
+        if (!remember()) {  // (the box shows its ground again)
+            for (size_t k = 0; k < groundIds_.size(); ++k)
+                if (groundIds_[k] == t->t.ground) ground_.setValue(int(k));
+            return;
+        }
         const uint16_t tpl = stardraft::terrainrules::templateOf(tileset_, t->t).first;  // (the template stays: its ground)
         t->t.ground = g;
         t->t.groundTemplate = g == tpl ? 0 : tpl;
@@ -1151,7 +1156,7 @@ private:
         if (target_ >= int(m.pieces.size())) return;
         const size_t k = size_t(target_);
         if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) return setMessage(L"Fill pieces cannot be NULL");
-        remember();
+        if (!remember()) return;
         auto p = m.pieces[k];
         if (wide_) p[1] = 0, p[2] = 1;
         else p[size_t(1 + targetHalf_)] = uint16_t(targetHalf_);  // (the null tile's subtiles: 0 left, 1 right)
@@ -1209,7 +1214,10 @@ private:
         if (wide_) p[1] = 0, p[2] = 1;
         else p[size_t(1 + targetHalf_)] = uint16_t(targetHalf_);  // (the null tile's subtiles: 0 left, 1 right)
         if (p == was) return;
-        if (!painting_ || !strokeSaved_) remember(), strokeSaved_ = painting_;
+        if (!painting_ || !strokeSaved_) {
+            if (!remember()) return;
+            strokeSaved_ = painting_;
+        }
         m.pieces[k] = p;
         changed();
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
@@ -1238,7 +1246,7 @@ private:
             if (tileset_.megatileFor(l) > 0 && tileset_.megatileFor(r) > 0) pairs.push_back({g, l, r});
         }
         if (pairs.empty()) return setMessage(L"Row " + std::to_wstring(row) + L" has no tile pairs (subtiles 0-1, 2-3, ...)");
-        remember();
+        if (!remember()) return;
         // (the rect's pieces go, from the set and the gaps; the row's pairs go into the set: normalize puts them in order)
         std::vector<std::array<uint16_t, 3>> set, fill, gaps;
         for (size_t i = 0; i < m.pieces.size(); ++i) {
@@ -1286,7 +1294,7 @@ private:
             }
         if (pinAt_.first != INT_MIN) keep[pinAt_] = {q[0], ordK + 1};
         else if (!keep.empty()) keep.begin()->second.second = ordK + 1;  // (from the checklist: the rect's first place shows the copy)
-        remember();
+        if (!remember()) return;
         m.pieces.insert(m.pieces.begin() + long(k) + 1, q);
         if (k < m.setPieces) ++m.setPieces;
         for (const auto& [at, pin] : keep) pins_[at] = pin;
@@ -1316,7 +1324,7 @@ private:
             const size_t fillEnd = m.pieces.size() - m.gapPieces, fills = fillEnd - m.setPieces;
             const size_t same = size_t(std::count(m.pieces.begin() + long(m.setPieces), m.pieces.begin() + long(fillEnd), q));
             if (same >= fills) return setMessage(L"Remove: fill " + std::to_wstring(q[0]) + L": every fill piece has these tiles (kept: a solid place always shows a fill piece; set its tiles instead)");
-            remember();
+            if (!remember()) return;
             const uint16_t g = q[0];
             for (size_t i = fillEnd; i-- > m.setPieces;)  // (every fill piece with these tiles: else the next one shows the same tile)
                 if (m.pieces[i] == q) m.pieces.erase(m.pieces.begin() + long(i));
@@ -1330,7 +1338,7 @@ private:
         const auto n = std::count_if(m.pieces.begin(), m.pieces.end(), [g](const auto& p) { return p[0] == g; });
         const auto same = std::count(m.pieces.begin(), m.pieces.end(), q);  // (the variants with these tiles: all go, else the tile stays in sight)
         const bool inTemplate = std::any_of(tmpl_.begin(), tmpl_.end(), [g](const auto& r) { return r.group == g; });
-        remember();
+        if (!remember()) return;
         std::wstring what;
         // (every piece with these tiles goes; the segments' counts follow)
         std::vector<std::array<uint16_t, 3>> keep;
@@ -1392,7 +1400,10 @@ private:
             p[size_t(1 + targetHalf_)] = value;  // (the half only: the other half's tile is the user's choice too)
         }
         if (p == was) return;
-        if (!painting_ || !strokeSaved_) remember(), strokeSaved_ = painting_;
+        if (!painting_ || !strokeSaved_) {
+            if (!remember()) return;
+            strokeSaved_ = painting_;
+        }
         m.pieces[size_t(target_)] = p;
         lightEdit_ = !isomrules::anyNull(was) && !isomrules::anyNull(p);  // (no piece moves: the example stays, its slots show the tiles)
         changed();  // (a complete piece moves into the set: the target follows it)
@@ -1471,7 +1482,7 @@ private:
     std::string menuKey() const {
         const auto* t = terrain();
         std::string k{char('0' + wide_), char('0' + checkTodo_), char('0' + palMine_), char('0' + refOn_), char('0' + tileIds_), char('0' + frames_), char('0' + heights_),
-                      char('0' + (t != nullptr)), char('0' + (t && t->t.draft)), char('0' + !undo_.empty()), char('0' + !redo_.empty())};
+                      char('0' + (t != nullptr)), char('0' + (t && t->t.draft)), char('0' + (t && t->t.locked)), char('0' + !undo_.empty()), char('0' + !redo_.empty())};
         for (int c = 0; c < 4; ++c) k += char('0' + colShown_[c]);
         return k;
     }
@@ -1520,6 +1531,7 @@ private:
                                          item(L"Previous Variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
                                          item(L"Next Unpaired Variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
                                          item(L"Rename Terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
+                                         check(L"Protected", L"", t && t->t.locked, [this] { toggleProtect(sel_); }, own),
                                          item(L"Delete Terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
@@ -1539,13 +1551,29 @@ private:
         tileIds_ = m, prefs::setNumber(L"Layout/IsomTileIds", tileIds_), invalidate();
         setMessage(tileIds_ == 0 ? L"Tile IDs: off" : tileIds_ == 1 ? L"Tile IDs: on hover" : L"Tile IDs: always");
     }
-    // Before an edit: the terrain as it is (Ctrl+Z brings it back).
-    void remember() {
+    // Before an edit: the terrain as it is (Ctrl+Z brings it back). False (and a message): the terrain is protected, the
+    // edit does not happen.
+    bool remember() {
         nudgeSlot_ = -1;  // (another undo step: the arrow keys' run ends)
         const auto* t = terrain();
-        if (!t) return;
+        if (!t) return true;
+        if (t->t.locked) {
+            setMessage(widen(t->t.name) + L" is protected. To change it, right-click it in the list > Unprotect");
+            return false;
+        }
         undo_.push_back({t->t.id, *t, target_, targetHalf_, pins_}), redo_.clear();
         if (undo_.size() > 200) undo_.erase(undo_.begin());
+        return true;
+    }
+    // Protect / Unprotect (the list's menu, the Terrain menu): a protected terrain takes no edits until it is unprotected.
+    void toggleProtect(int i) {
+        if (loading_ || i < 0 || i >= int(rules().terrains.size())) return;
+        auto& m = rules().terrains[size_t(i)].t;
+        endStroke(), nudgeSlot_ = -1;  // (a stroke or a Ctrl+arrow run under way: the next edit asks again)
+        m.locked = !m.locked;
+        dirty_ = true;
+        invalidate();
+        setMessage(widen(m.name) + (m.locked ? L": protected (no edits until it is unprotected)" : L": unprotected"));
     }
     void undo(bool redo) {
         nudgeSlot_ = -1;
@@ -1558,6 +1586,8 @@ private:
         for (size_t k = 0; k < ts.terrains.size(); ++k)
             if (ts.terrains[k].t.id == from.back().id) i = int(k);
         if (i < 0) return setMessage(L"Terrain no longer exists");  // (the entry stays)
+        if (ts.terrains[size_t(i)].t.locked)
+            return setMessage(widen(ts.terrains[size_t(i)].t.name) + (redo ? L" is protected: no redo" : L" is protected: no undo") + L". Right-click it in the list > Unprotect");
         Edit e = std::move(from.back());
         from.pop_back();
         const bool same = sel_ == i && std_ < 0;
@@ -1579,7 +1609,7 @@ private:
         if (loading_) return;
         if (sel_ < 0) return setMessage(std_ >= 0 ? L"Standard terrains are read only" : L"Select a terrain first");
         auto& m = rules().terrains[size_t(sel_)].t;
-        remember();
+        if (!remember()) return;
         std::vector<std::array<uint16_t, 3>> fill(m.pieces.begin() + long(m.setPieces), m.pieces.end() - long(m.gapPieces)), gaps;
         std::set<uint16_t> games;
         for (size_t k = 0; k < m.pieces.size(); ++k)
@@ -1644,7 +1674,7 @@ private:
             bool put = false;
             for (auto& p : m.pieces)
                 if (p[0] == r.group && !put) {
-                    if (!copied) remember();
+                    if (!copied && !remember()) return;
                     p[1] = sp->second[1], p[2] = sp->second[2], put = true, ++copied;
                 }
         }
@@ -1657,7 +1687,7 @@ private:
     void toggleDraft() {
         if (loading_ || sel_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a terrain first");
         auto& t = rules().terrains[size_t(sel_)];
-        remember();
+        if (!remember()) return;
         t.t.draft = !t.t.draft;
         dirty_ = true;
         familyCache_.clear(), invalidate();
@@ -2202,7 +2232,7 @@ private:
             if (places_[i].piece != piece) continue;
             for (int dir : {1, -1}) {
                 int from = piece, ty = places_[i].ty;
-                for (int step = 0; step < 2; ++step) {  // (a block: the brush looks 2 rows up)
+                for (;;) {  // (each row of a block continues the row above it)
                     ty += dir;
                     const int q = placeAtTile(places_[i].tx, ty);
                     if (q < 0 || places_[size_t(q)].piece < 0 || places_[size_t(q)].piece >= int(P.size()) || P[size_t(places_[size_t(q)].piece)][0] == g) break;
@@ -2584,8 +2614,9 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
         const auto [done, total] = stardraft::terrainrules::completeness(tileset_, m);
         c.text({x, y + scale(4), side_.right - pad - (m.draft ? scale(40) : 0), y + scale(22)}, widen(m.name), selected ? kText : kText, draw::kMiddle | draw::kEllipsis);
         if (m.draft) c.text({side_.right - pad - scale(38), y + scale(4), side_.right - pad, y + scale(22)}, L"Draft", kDraft, draw::kMiddle | draw::kRight);
-        c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, isomrules::familyName(familyOfValue(r.value)) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
+        c.text({x, y + scale(22), side_.right - pad - (m.locked ? scale(64) : 0), y + scale(36)}, isomrules::familyName(familyOfValue(r.value)) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
                kDim, draw::kMiddle | draw::kEllipsis);
+        if (m.locked) c.text({side_.right - pad - scale(64), y + scale(22), side_.right - pad, y + scale(36)}, L"Protected", kAccent, draw::kMiddle | draw::kRight);
         const int bx0 = x, bx1 = side_.right - pad, by = y + r.h - scale(5);  // (the progress: done of total)
         c.fill({bx0, by, bx1, by + scale(2)}, kBorder);
         if (total > 0) c.fill({bx0, by, bx0 + (bx1 - bx0) * done / total, by + scale(2)}, done == total ? kAccent : kDraft);
@@ -3176,9 +3207,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
                 if (isVariantRow(r.value)) return selectValue(r.value), true;  // (a variant: the terrain's own row renames and deletes)
                 if (r.value < 0) return selectValue(r.value), setMessage(L"Game tilesets are read-only"), true;
                 selectValue(r.value);
-                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026"})) {
+                const bool locked = rules().terrains[size_t(r.value)].t.locked;
+                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026", locked ? L"Unprotect" : L"Protect"})) {
                 case 1: renameTerrain(r.value); break;
                 case 2: deleteTerrain(r.value); break;
+                case 3: toggleProtect(r.value); break;
                 default: break;
                 }
                 return true;

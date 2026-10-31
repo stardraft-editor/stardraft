@@ -231,7 +231,7 @@ std::vector<uint8_t> write(const Rules& r) {
         o.u8(ts.era), o.u32(ts.groups), o.u64(ts.fingerprint), o.u16(uint16_t(ts.terrains.size()));
         for (const Terrain& x : ts.terrains) {
             const Tileset::ModTerrain& m = x.t;
-            o.u16(m.id), o.u8(uint8_t((m.fill ? 1 : 0) | (m.fromMaps ? 2 : 0) | (m.draft ? 4 : 0)));
+            o.u16(m.id), o.u8(uint8_t((m.fill ? 1 : 0) | (m.fromMaps ? 2 : 0) | (m.draft ? 4 : 0) | (m.locked ? 8 : 0)));
             o.u16(m.standIn), o.u16(m.ground), o.u16(m.groundTemplate), o.u16(m.variantOf), o.u32(m.fillKey);
             o.u32(uint32_t(m.setPieces)), o.u32(uint32_t(m.gapPieces)), o.str(m.name);
             o.u32(uint32_t(m.pieces.size()));
@@ -259,7 +259,7 @@ bool read(const std::vector<uint8_t>& bytes, Rules& r, std::string& err) {
             m.id = in.u16();
             if (version == 1) in.u8();  // (the kind: gone)
             const uint8_t flags = in.u8();
-            m.fill = flags & 1, m.fromMaps = (flags & 2) != 0, m.draft = (flags & 4) != 0;
+            m.fill = flags & 1, m.fromMaps = (flags & 2) != 0, m.draft = (flags & 4) != 0, m.locked = (flags & 8) != 0;
             m.standIn = in.u16(), m.ground = in.u16(), m.groundTemplate = in.u16(), m.variantOf = in.u16(), m.fillKey = in.u32();
             m.setPieces = in.u32(), m.gapPieces = in.u32(), m.name = in.str();
             const uint32_t pieces = in.u32();
