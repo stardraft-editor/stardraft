@@ -803,10 +803,10 @@ Tile: the tools place tiles as they are. Select a tile in the Tiles list.	图块
 Isometric: the tools paint terrains and correct the edges between them	等距：工具绘制地形，并修正地形之间的边缘。
 Isometric	等距
 Isometric: paint terrains, with the edges corrected	等距：绘制地形，并修正边缘
-Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	等距：绘制地形，并修正边缘。 Ctrl+Alt+T 选择下一个选项。
+Isometric (Ctrl+Alt+1): paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	等距 (Ctrl+Alt+1)：绘制地形，并修正边缘。 Ctrl+Alt+T 选择下一个选项。
 Rectangle: place tiles as they are (no terrain correction)	矩形：按原样放置图块（不修正地形）
-Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	图块：按原样放置图块，不修正地形。 Ctrl+Alt+T 选择下一个选项。
-Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	自定义：放置你的自定义地形，即你从地图中保存的图块。 Ctrl+Alt+T 选择下一个选项。
+Tile (Ctrl+Alt+3): place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	图块 (Ctrl+Alt+3)：按原样放置图块，不修正地形。 Ctrl+Alt+T 选择下一个选项。
+Custom (Ctrl+Alt+4): place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	自定义 (Ctrl+Alt+4)：放置你的自定义地形，即你从地图中保存的图块。 Ctrl+Alt+T 选择下一个选项。
 Select what to place in the list	在列表中选择要放置的内容
 Brush shape: diamond	笔刷形状：菱形
 Brush shape: square	笔刷形状：方形
@@ -2633,7 +2633,7 @@ Every program setting gets its default value, and StarDraft 2 starts again. Your
 &Reset and restart	重置并重新启动(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。
 Rectangle	矩形
-Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	矩形：以 2 x 1 图块的矩形放置地形内部的图块，不带边缘。 Ctrl+Alt+T 选择下一个选项。
+Rectangle (Ctrl+Alt+2): place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	矩形 (Ctrl+Alt+2)：以 2 x 1 图块的矩形放置地形内部的图块，不带边缘。 Ctrl+Alt+T 选择下一个选项。
 Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	矩形：工具放置地形内部的图块。请在列表中选择一个地形。
 Select a terrain in the list first (or Ctrl+click the map)	请先在列表中选择一个地形（或在地图上 Ctrl+点击）
 Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	笔刷：按笔刷的大小和形状，以 2 x 1 图块的矩形放置列表中选中地形的内部图块

@@ -836,10 +836,10 @@ Tile: the tools place tiles as they are. Select a tile in the Tiles list.	Tile: 
 Isometric: the tools paint terrains and correct the edges between them	Isométrico: las herramientas pintan terrenos y corrigen los bordes entre ellos
 Isometric	Isométrico
 Isometric: paint terrains, with the edges corrected	Isométrico: pinta terrenos, con los bordes corregidos
-Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Isométrico: pinta terrenos, con los bordes corregidos. Ctrl+Alt+T selecciona la siguiente opción.
+Isometric (Ctrl+Alt+1): paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Isométrico (Ctrl+Alt+1): pinta terrenos, con los bordes corregidos. Ctrl+Alt+T selecciona la siguiente opción.
 Rectangle: place tiles as they are (no terrain correction)	Rectángulo: coloca los tiles tal cual (sin corrección de terreno)
-Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Tile: coloca los tiles tal cual, sin corrección de terreno. Ctrl+Alt+T selecciona la siguiente opción.
-Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Personalizado: coloca tu terreno personalizado, tiles que guardaste de un mapa. Ctrl+Alt+T selecciona la siguiente opción.
+Tile (Ctrl+Alt+3): place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Tile (Ctrl+Alt+3): coloca los tiles tal cual, sin corrección de terreno. Ctrl+Alt+T selecciona la siguiente opción.
+Custom (Ctrl+Alt+4): place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Personalizado (Ctrl+Alt+4): coloca tu terreno personalizado, tiles que guardaste de un mapa. Ctrl+Alt+T selecciona la siguiente opción.
 Select what to place in the list	Seleccione en la lista qué colocar
 Brush shape: diamond	Forma del pincel: rombo
 Brush shape: square	Forma del pincel: cuadrado
@@ -2633,7 +2633,7 @@ Every program setting gets its default value, and StarDraft 2 starts again. Your
 &Reset and restart	&Restablecer y reiniciar
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	La configuración del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos.
 Rectangle	Rectángulo
-Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	Rectángulo: coloca los tiles del interior de un terreno, sin bordes, en rectángulos de 2 x 1 tiles. Ctrl+Alt+T selecciona la siguiente opción.
+Rectangle (Ctrl+Alt+2): place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	Rectángulo (Ctrl+Alt+2): coloca los tiles del interior de un terreno, sin bordes, en rectángulos de 2 x 1 tiles. Ctrl+Alt+T selecciona la siguiente opción.
 Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	Rectángulo: las herramientas colocan los tiles del interior de un terreno. Seleccione un terreno en la lista.
 Select a terrain in the list first (or Ctrl+click the map)	Seleccione primero un terreno en la lista (o Ctrl+clic en el mapa)
 Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	Pincel: coloca los tiles del interior del terreno seleccionado en la lista, en rectángulos de 2 x 1 tiles, con el tamaño y la forma del pincel

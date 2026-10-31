@@ -373,10 +373,10 @@ public:
             static const struct {
                 const wchar_t* name;
                 const wchar_t* tip;
-            } segs[kTerrainKinds] = {{L"Isometric", L"Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice."},
-                                     {L"Tile", L"Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice."},
-                                     {L"Custom", L"Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice."},
-                                     {L"Rectangle", L"Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice."}};
+            } segs[kTerrainKinds] = {{L"Isometric", L"Isometric (Ctrl+Alt+1): paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice."},
+                                     {L"Tile", L"Tile (Ctrl+Alt+3): place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice."},
+                                     {L"Custom", L"Custom (Ctrl+Alt+4): place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice."},
+                                     {L"Rectangle", L"Rectangle (Ctrl+Alt+2): place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice."}};
             const int kind = terrainKind();
             int edge[kTerrainKinds + 1] = {0}, names = 0;
             for (int k = 0; k < kTerrainKinds; ++k) names += c.measure(tr(segs[k].name));

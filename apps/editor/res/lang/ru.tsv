@@ -801,10 +801,10 @@ Tile: the tools place tiles as they are. Select a tile in the Tiles list.	Тай
 Isometric: the tools paint terrains and correct the edges between them	Изометрия: инструменты рисуют местность и исправляют стыки между разными видами местности.
 Isometric	Изометрия
 Isometric: paint terrains, with the edges corrected	Изометрия: рисует местность с исправленными краями
-Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Изометрия: рисует местность с исправленными краями. Ctrl+Alt+T выбирает следующий вариант.
+Isometric (Ctrl+Alt+1): paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Изометрия (Ctrl+Alt+1): рисует местность с исправленными краями. Ctrl+Alt+T выбирает следующий вариант.
 Rectangle: place tiles as they are (no terrain correction)	Прямоугольник: ставит тайлы как есть (без коррекции местности)
-Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Тайл: ставит тайлы как есть, без коррекции местности. Ctrl+Alt+T выбирает следующий вариант.
-Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Свой: ставит ваш собственный рельеф, тайлы, сохранённые из карты. Ctrl+Alt+T выбирает следующий вариант.
+Tile (Ctrl+Alt+3): place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Тайл (Ctrl+Alt+3): ставит тайлы как есть, без коррекции местности. Ctrl+Alt+T выбирает следующий вариант.
+Custom (Ctrl+Alt+4): place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Свой (Ctrl+Alt+4): ставит ваш собственный рельеф, тайлы, сохранённые из карты. Ctrl+Alt+T выбирает следующий вариант.
 Select what to place in the list	Выберите в списке, что разместить
 Brush shape: diamond	Форма кисти: ромб
 Brush shape: square	Форма кисти: квадрат
@@ -2633,7 +2633,7 @@ Every program setting gets its default value, and StarDraft 2 starts again. Your
 &Reset and restart	&Сбросить и перезапустить
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	Настройки программы сброшены к значениям по умолчанию. Закройте StarDraft 2 и запустите снова, чтобы их применить.
 Rectangle	Прямоугольник
-Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	Прямоугольник: ставит тайлы внутренней части местности, без краёв, прямоугольниками 2 x 1 тайла. Ctrl+Alt+T выбирает следующий вариант.
+Rectangle (Ctrl+Alt+2): place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	Прямоугольник (Ctrl+Alt+2): ставит тайлы внутренней части местности, без краёв, прямоугольниками 2 x 1 тайла. Ctrl+Alt+T выбирает следующий вариант.
 Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	Прямоугольник: инструменты ставят тайлы внутренней части местности. Выберите местность в списке.
 Select a terrain in the list first (or Ctrl+click the map)	Сначала выберите местность в списке (или Ctrl+щелчок по карте)
 Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	Кисть: ставит тайлы внутренней части местности, выбранной в списке, прямоугольниками 2 x 1 тайла, с размером и формой кисти

@@ -836,10 +836,10 @@ Tile: the tools place tiles as they are. Select a tile in the Tiles list.	타일
 Isometric: the tools paint terrains and correct the edges between them	아이소메트릭: 도구가 지형을 칠하고 지형 사이의 가장자리를 보정합니다
 Isometric	아이소메트릭
 Isometric: paint terrains, with the edges corrected	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다
-Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	아이소메트릭: 가장자리를 보정하며 지형을 칠합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Isometric (Ctrl+Alt+1): paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	아이소메트릭 (Ctrl+Alt+1): 가장자리를 보정하며 지형을 칠합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
 Rectangle: place tiles as they are (no terrain correction)	사각형: 타일을 그대로 배치합니다 (지형 보정 없음)
-Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	타일: 타일을 그대로 배치하며 지형 보정은 없습니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
-Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	사용자 지정: 맵에서 저장한 타일인 사용자 지정 지형을 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Tile (Ctrl+Alt+3): place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	타일 (Ctrl+Alt+3): 타일을 그대로 배치하며 지형 보정은 없습니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Custom (Ctrl+Alt+4): place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	사용자 지정 (Ctrl+Alt+4): 맵에서 저장한 타일인 사용자 지정 지형을 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
 Select what to place in the list	목록에서 배치할 것을 선택합니다
 Brush shape: diamond	브러시 모양: 마름모
 Brush shape: square	브러시 모양: 사각형
@@ -2651,7 +2651,7 @@ Height (16 to 256 tiles)	높이 (16 ~ 256 타일)
 Width: type a size from 16 to 256	너비: 16 ~ 256 사이의 크기를 입력하세요
 Height: type a size from 16 to 256	높이: 16 ~ 256 사이의 크기를 입력하세요
 Rectangle	사각형
-Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	사각형: 지형 안쪽의 타일을 가장자리 없이 2 x 1 타일 사각형 단위로 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Rectangle (Ctrl+Alt+2): place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	사각형 (Ctrl+Alt+2): 지형 안쪽의 타일을 가장자리 없이 2 x 1 타일 사각형 단위로 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
 Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	사각형: 도구가 지형 안쪽의 타일을 배치합니다. 목록에서 지형을 선택하십시오.
 Select a terrain in the list first (or Ctrl+click the map)	먼저 목록에서 지형을 선택하십시오 (또는 맵을 Ctrl+클릭하십시오)
 Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	브러시: 목록에서 선택한 지형 안쪽의 타일을 2 x 1 타일 사각형 단위로, 브러시의 크기와 모양으로 배치합니다
