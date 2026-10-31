@@ -2633,3 +2633,12 @@ Every program setting gets its default value, and StarDraft 2 starts again. Your
 &Reset and restart	重置并重新启动(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。
 Rectangle	矩形
+Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	矩形：以 2 x 1 图块的矩形放置地形内部的图块，不带边缘。 Ctrl+Alt+T 选择下一个选项。
+Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	矩形：工具放置地形内部的图块。请在列表中选择一个地形。
+Select a terrain in the list first (or Ctrl+click the map)	请先在列表中选择一个地形（或在地图上 Ctrl+点击）
+Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	笔刷：按笔刷的大小和形状，以 2 x 1 图块的矩形放置列表中选中地形的内部图块
+Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.	喷洒：在笔刷范围内的随机矩形中放置地形内部的图块 (密度)。按住按钮可喷洒更多。
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).	填充：在选区内点击可填充整个选区。在其他位置点击可填充与所点图块地形相连的图块。Shift+点击可填充该地形的所有图块（如有选区，则在选区内）。
+&Fill selection with the selected terrain	用所选地形填充选区(&F)
+Select a terrain in the list first	请先在列表中选择一个地形
+Could not select the terrain. The map has no isometric terrain data.	无法选择地形。此地图没有等距地形数据。

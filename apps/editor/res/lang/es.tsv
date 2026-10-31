@@ -2633,3 +2633,12 @@ Every program setting gets its default value, and StarDraft 2 starts again. Your
 &Reset and restart	&Restablecer y reiniciar
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	La configuración del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos.
 Rectangle	Rectángulo
+Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	Rectángulo: coloca los tiles del interior de un terreno, sin bordes, en rectángulos de 2 x 1 tiles. Ctrl+Alt+T selecciona la siguiente opción.
+Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	Rectángulo: las herramientas colocan los tiles del interior de un terreno. Seleccione un terreno en la lista.
+Select a terrain in the list first (or Ctrl+click the map)	Seleccione primero un terreno en la lista (o Ctrl+clic en el mapa)
+Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	Pincel: coloca los tiles del interior del terreno seleccionado en la lista, en rectángulos de 2 x 1 tiles, con el tamaño y la forma del pincel
+Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.	Spray: coloca los tiles del interior del terreno en rectángulos aleatorios del pincel (Densidad). Mantenga pulsado el botón para rociar más.
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).	Relleno: haga clic en la selección para rellenar toda la selección. Haga clic en otro lugar para rellenar los tiles conectados del terreno del tile pulsado. Mayús+clic rellena todos los tiles de ese terreno (en la selección, si la hay).
+&Fill selection with the selected terrain	&Rellenar la selección con el terreno seleccionado
+Select a terrain in the list first	Seleccione primero un terreno en la lista
+Could not select the terrain. The map has no isometric terrain data.	No se pudo seleccionar el terreno. El mapa no tiene datos de terreno isométrico.

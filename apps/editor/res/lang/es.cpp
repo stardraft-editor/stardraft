@@ -2635,6 +2635,15 @@ constexpr UiText kRows[] = {
     {L"&Reset and restart", L"&Restablecer y reiniciar"},
     {L"The program settings have their default values. Close StarDraft 2 and start it again to use them.", L"La configuraci\u00F3n del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos."},
     {L"Rectangle", L"Rect\u00E1ngulo"},
+    {L"Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.", L"Rect\u00E1ngulo: coloca los tiles del interior de un terreno, sin bordes, en rect\u00E1ngulos de 2 x 1 tiles. Ctrl+Alt+T selecciona la siguiente opci\u00F3n."},
+    {L"Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.", L"Rect\u00E1ngulo: las herramientas colocan los tiles del interior de un terreno. Seleccione un terreno en la lista."},
+    {L"Select a terrain in the list first (or Ctrl+click the map)", L"Seleccione primero un terreno en la lista (o Ctrl+clic en el mapa)"},
+    {L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", L"Pincel: coloca los tiles del interior del terreno seleccionado en la lista, en rect\u00E1ngulos de 2 x 1 tiles, con el tama\u00F1o y la forma del pincel"},
+    {L"Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.", L"Spray: coloca los tiles del interior del terreno en rect\u00E1ngulos aleatorios del pincel (Densidad). Mantenga pulsado el bot\u00F3n para rociar m\u00E1s."},
+    {L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).", L"Relleno: haga clic en la selecci\u00F3n para rellenar toda la selecci\u00F3n. Haga clic en otro lugar para rellenar los tiles conectados del terreno del tile pulsado. May\u00FAs+clic rellena todos los tiles de ese terreno (en la selecci\u00F3n, si la hay)."},
+    {L"&Fill selection with the selected terrain", L"&Rellenar la selecci\u00F3n con el terreno seleccionado"},
+    {L"Select a terrain in the list first", L"Seleccione primero un terreno en la lista"},
+    {L"Could not select the terrain. The map has no isometric terrain data.", L"No se pudo seleccionar el terreno. El mapa no tiene datos de terreno isom\u00E9trico."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

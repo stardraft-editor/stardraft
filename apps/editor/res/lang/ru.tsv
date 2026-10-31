@@ -2633,3 +2633,12 @@ Every program setting gets its default value, and StarDraft 2 starts again. Your
 &Reset and restart	&Сбросить и перезапустить
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	Настройки программы сброшены к значениям по умолчанию. Закройте StarDraft 2 и запустите снова, чтобы их применить.
 Rectangle	Прямоугольник
+Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	Прямоугольник: ставит тайлы внутренней части местности, без краёв, прямоугольниками 2 x 1 тайла. Ctrl+Alt+T выбирает следующий вариант.
+Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.	Прямоугольник: инструменты ставят тайлы внутренней части местности. Выберите местность в списке.
+Select a terrain in the list first (or Ctrl+click the map)	Сначала выберите местность в списке (или Ctrl+щелчок по карте)
+Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	Кисть: ставит тайлы внутренней части местности, выбранной в списке, прямоугольниками 2 x 1 тайла, с размером и формой кисти
+Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.	Распыление: ставит тайлы внутренней части местности в случайные прямоугольники кисти (Плотность). Удерживайте кнопку, чтобы распылять больше.
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).	Заливка: щелчок в выделении заливает всё выделение. Щелчок в другом месте заливает связанные тайлы местности тайла под щелчком. Shift+щелчок заливает все тайлы этой местности (в выделении, если оно есть).
+&Fill selection with the selected terrain	&Заполнить выделение выбранной местностью
+Select a terrain in the list first	Сначала выберите местность в списке
+Could not select the terrain. The map has no isometric terrain data.	Не удалось выбрать местность. На карте нет данных изометрической местности.

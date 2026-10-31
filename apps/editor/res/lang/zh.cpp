@@ -2635,6 +2635,15 @@ constexpr UiText kRows[] = {
     {L"&Reset and restart", L"\u91CD\u7F6E\u5E76\u91CD\u65B0\u542F\u52A8(&R)"},
     {L"The program settings have their default values. Close StarDraft 2 and start it again to use them.", L"\u7A0B\u5E8F\u8BBE\u7F6E\u5DF2\u6062\u590D\u4E3A\u9ED8\u8BA4\u503C\u3002\u8BF7\u5173\u95ED StarDraft 2 \u5E76\u91CD\u65B0\u542F\u52A8\u4EE5\u4F7F\u7528\u5B83\u4EEC\u3002"},
     {L"Rectangle", L"\u77E9\u5F62"},
+    {L"Rectangle: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.", L"\u77E9\u5F62\uFF1A\u4EE5 2 x 1 \u56FE\u5757\u7684\u77E9\u5F62\u653E\u7F6E\u5730\u5F62\u5185\u90E8\u7684\u56FE\u5757\uFF0C\u4E0D\u5E26\u8FB9\u7F18\u3002 Ctrl+Alt+T \u9009\u62E9\u4E0B\u4E00\u4E2A\u9009\u9879\u3002"},
+    {L"Rectangle: the tools place the tiles inside a terrain. Select a terrain in the list.", L"\u77E9\u5F62\uFF1A\u5DE5\u5177\u653E\u7F6E\u5730\u5F62\u5185\u90E8\u7684\u56FE\u5757\u3002\u8BF7\u5728\u5217\u8868\u4E2D\u9009\u62E9\u4E00\u4E2A\u5730\u5F62\u3002"},
+    {L"Select a terrain in the list first (or Ctrl+click the map)", L"\u8BF7\u5148\u5728\u5217\u8868\u4E2D\u9009\u62E9\u4E00\u4E2A\u5730\u5F62\uFF08\u6216\u5728\u5730\u56FE\u4E0A Ctrl+\u70B9\u51FB\uFF09"},
+    {L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", L"\u7B14\u5237\uFF1A\u6309\u7B14\u5237\u7684\u5927\u5C0F\u548C\u5F62\u72B6\uFF0C\u4EE5 2 x 1 \u56FE\u5757\u7684\u77E9\u5F62\u653E\u7F6E\u5217\u8868\u4E2D\u9009\u4E2D\u5730\u5F62\u7684\u5185\u90E8\u56FE\u5757"},
+    {L"Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.", L"\u55B7\u6D12\uFF1A\u5728\u7B14\u5237\u8303\u56F4\u5185\u7684\u968F\u673A\u77E9\u5F62\u4E2D\u653E\u7F6E\u5730\u5F62\u5185\u90E8\u7684\u56FE\u5757 (\u5BC6\u5EA6)\u3002\u6309\u4F4F\u6309\u94AE\u53EF\u55B7\u6D12\u66F4\u591A\u3002"},
+    {L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).", L"\u586B\u5145\uFF1A\u5728\u9009\u533A\u5185\u70B9\u51FB\u53EF\u586B\u5145\u6574\u4E2A\u9009\u533A\u3002\u5728\u5176\u4ED6\u4F4D\u7F6E\u70B9\u51FB\u53EF\u586B\u5145\u4E0E\u6240\u70B9\u56FE\u5757\u5730\u5F62\u76F8\u8FDE\u7684\u56FE\u5757\u3002Shift+\u70B9\u51FB\u53EF\u586B\u5145\u8BE5\u5730\u5F62\u7684\u6240\u6709\u56FE\u5757\uFF08\u5982\u6709\u9009\u533A\uFF0C\u5219\u5728\u9009\u533A\u5185\uFF09\u3002"},
+    {L"&Fill selection with the selected terrain", L"\u7528\u6240\u9009\u5730\u5F62\u586B\u5145\u9009\u533A(&F)"},
+    {L"Select a terrain in the list first", L"\u8BF7\u5148\u5728\u5217\u8868\u4E2D\u9009\u62E9\u4E00\u4E2A\u5730\u5F62"},
+    {L"Could not select the terrain. The map has no isometric terrain data.", L"\u65E0\u6CD5\u9009\u62E9\u5730\u5F62\u3002\u6B64\u5730\u56FE\u6CA1\u6709\u7B49\u8DDD\u5730\u5F62\u6570\u636E\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
