@@ -10,8 +10,17 @@ bool gResourceZones[2] = {false, false};  // (0: invalid resource depot, 1: inva
 
 void addResourceZones(render::Scene& s) {
     const AppState& app = appState();
-    if ((!gResourceZones[0] && !gResourceZones[1]) || !app.ed || !app.ed->isOpen()) return;
+    if (!app.ed || !app.ed->isOpen()) return;
     const Editor& ed = *app.ed;
+    // While a unit is picked to place (Units mode), the zones it may not reach into, in red: placing a resource,
+    // the ones round the town halls and start locations; placing a town hall or a start location, the ones round the
+    // resources (when Options > Keep resources 3 tiles from town halls is on)
+    bool placing[2] = {false, false};
+    if (app.mode == Mode::Units && app.palette >= 0 && app.resourceDistance && !app.allowIllegalUnits && size_t(app.palette) < ed.unitTypes().size()) {
+        const UnitType& p = ed.unitTypes()[size_t(app.palette)];
+        if (p.is(UnitFlag::Building)) placing[0] = p.is(UnitFlag::ResourceDepot), placing[1] = p.is(UnitFlag::ResourceContainer);
+    }
+    if (!gResourceZones[0] && !gResourceZones[1] && !placing[0] && !placing[1]) return;
     int vw, vh;
     viewSize(vw, vh);
     const float vx0 = app.camX, vy0 = app.camY, vx1 = app.camX + vw / app.zoom, vy1 = app.camY + vh / app.zoom;
@@ -21,15 +30,20 @@ void addResourceZones(render::Scene& s) {
         const UnitType& t = ed.unitTypes()[u.type];
         if (!t.is(UnitFlag::Building) || (t.is(UnitFlag::FlyingBuilding) && (u.state & UnitState::InTransit))) continue;  // (lifted off: no box)
         const int k = t.is(UnitFlag::ResourceContainer) ? 0 : t.is(UnitFlag::ResourceDepot) ? 1 : -1;
-        if (k < 0 || !gResourceZones[k]) continue;
+        if (k < 0 || (!gResourceZones[k] && !placing[k])) continue;
         const float l = float(u.x - t.placementWidth / 2), tp = float(u.y - t.placementHeight / 2);
         render::RectDraw d;
         d.x0 = l - 96, d.y0 = tp - 96, d.x1 = l + t.placementWidth + 96, d.y1 = tp + t.placementHeight + 96;
         if (d.x1 < vx0 || d.x0 > vx1 || d.y1 < vy0 || d.y0 > vy1) continue;
-        d.rgba = kFill[k], d.fill = true;
-        s.rects.push_back(d);
-        d.rgba = kLine[k], d.fill = false;
-        s.rects.push_back(d);
+        if (gResourceZones[k]) {  // (the overlay: its fill and line)
+            d.rgba = kFill[k], d.fill = true;
+            s.rects.push_back(d);
+            d.rgba = kLine[k], d.fill = false;
+            s.rects.push_back(d);
+        } else {  // (while placing: a red fill only)
+            d.rgba = 0xF0404050u, d.fill = true;
+            s.rects.push_back(d);
+        }
     }
 }
 
