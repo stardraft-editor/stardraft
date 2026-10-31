@@ -236,12 +236,15 @@ public:
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Ctrl+M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
+        pairPick_.setItems({{L"Tile Pair"}, {L"Single Tile"}}), pairPick_.setValue(0);
+        pairPick_.onChange = [this](int v) { if ((v == 0) != wide_) toggleWidth(); };
+        pairPick_.setTip(L"What a slot and a click in Tiles take: a tile pair (both halves: the tile and the next in its row) or a single tile (one half). Key: Ctrl+T");
         minePick_.setItems({{L"All Tile Groups"}, {L"This Terrain's Groups"}}), minePick_.setValue(0);
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
         loadColumns();
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
-                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_})
+                                                               &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_, &pairPick_})
             add(*v, {0, 0, 0, 0});
     }
     static draw::Point size() { return {scale(1500), scale(900)}; }
@@ -328,6 +331,7 @@ public:
         if (e.key == static_cast<draw::Key>('M') && ctrl) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('D') && ctrl) return toggleDraft(), true;
         if (e.key == static_cast<draw::Key>('G') && ctrl) return togglePalMine(), true;
+        if (e.key == static_cast<draw::Key>('T') && ctrl) return toggleWidth(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && !e.mods) return stepTarget(e.key == draw::Key::Down ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('S') && (e.mods & draw::kCtrl)) return save((e.mods & draw::kShift) != 0), true;
         if (e.key == static_cast<draw::Key>('N') && (e.mods & draw::kCtrl)) return newTerrain(), true;
@@ -1442,7 +1446,9 @@ private:
                                   item(L"Redo", L"Ctrl+Y", [this] { undo(true); }, !redo_.empty()), sep,
                                   item(L"Set Target to NULL", L"Del", [this] { setNull(); }, own),
                                   item(L"Clear All Rects", L"", [this] { clearTerrain(); }, own),
-                                  item(L"Copy Tiles From\x2026", L"", [this] { copyFrom(); }, own)};
+                                  item(L"Copy Tiles From\x2026", L"", [this] { copyFrom(); }, own), sep,
+                                  radio(L"Pick Tile Pair", L"Ctrl+T", wide_, [this] { toggleWidth(); }),
+                                  radio(L"Pick Single Tile", L"Ctrl+T", !wide_, [this] { toggleWidth(); })};
         std::vector<Item> terrainMenu = {radio(L"Draft", L"Ctrl+D", t && t->t.draft, [this] { toggleDraft(); }, own),
                                          radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
                                          item(L"Next NULL Rect", L"Ctrl+L", [this] { nextNull(); }, own),
@@ -1917,7 +1923,7 @@ private:
     }
     stardraft::kit::Button newTerrain_;    stardraft::kit::CheckBox refShow_;
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
-    isomrules::HeaderPick minePick_;
+    isomrules::HeaderPick minePick_, pairPick_;
     void syncButtons() {
         if (minePick_.value() != (palMine_ ? 1 : 0)) minePick_.setValue(palMine_ ? 1 : 0);
     }
@@ -1994,7 +2000,11 @@ private:
     stardraft::terrainrules::Rules doc_;  // (the rules being edited: each tileset opened, or the loaded file's)
     std::filesystem::path file_;
     bool dirty_ = false;
-    static constexpr bool wide_ = true;  // (a pick fills both halves: the tile and the next one in its row; single tiles: not for now)
+    bool wide_ = true;  // (a pick fills both halves: the tile and the next one in its row (the default); off: one tile, the half; Ctrl+T)
+    void toggleWidth() {
+        wide_ = !wide_, pairPick_.setValue(wide_ ? 0 : 1), invalidate();
+        setMessage(wide_ ? L"Pick: tile pair (both halves)" : L"Pick: single tile (the selected half)");
+    }
     int palHover_ = -1;  // (the tile under the mouse in the tiles)
     int barEnd_ = 0;  // (the bar's controls end: the file's name after them)
     stardraft::Tileset tileset_;
@@ -2351,6 +2361,8 @@ void IsomRulesView::layout() {
         const draw::Rect& r = colHead_[kColRects];
         const draw::Rect& t = colHead_[kColTiles];
         minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
+        const int pr = minePick_.frame().left - pad;  // (the pick's width when there is room for it; else in Edit and Ctrl+T only)
+        pairPick_.setFrame(t.width() > 0 && pr - scale(120) >= t.left + scale(60) ? draw::Rect{pr - scale(120), by, pr, by + barH} : draw::Rect{0, 0, 0, 0});
     }
     const draw::Rect none{0, 0, 0, 0};
     {  // Terrains: the search, the list with its bar, New terrain at the bottom.
