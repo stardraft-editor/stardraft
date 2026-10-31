@@ -811,17 +811,17 @@ int main(int argc, char** argv) {
             } else if (dialogArg.rfind("isomrules", 0) == 0) {  // isomrules[:[<era>/]<terrain>]: the Custom isom terrain editor (a Cosmonarchy run: --cmbw)
                 shown = &gIsomRulesView;
                 gIsomRulesView.setAsync(false);  // (the snapshot: at once)
+                // (<terrain>, or <era>/<terrain>: another tileset's; the window opens on it, with no other terrain's canvas first)
+                std::string name = dialogArg.size() > 10 ? dialogArg.substr(10) : std::string();
+                const bool removeTest = name.size() > 7 && name.compare(name.size() - 7, 7, "!remove") == 0;  // (<terrain>!remove: Remove From Canvas, then Restore)
+                if (removeTest) name.resize(name.size() - 7);
+                int era = -1;
+                if (name.size() > 2 && std::isdigit(static_cast<unsigned char>(name[0])) && name[1] == '/') era = name[0] - '0', name = name.substr(2);
+                gIsomRulesView.showFirst(era, name == "*" ? std::string() : name);
                 gIsomRulesView.open();
                 gIsomRulesView.useDefaultLayout();  // (the snapshot's coordinates: not the user's saved columns)
-                if (dialogArg.size() > 10) {  // (<terrain>, or <era>/<terrain>: another tileset's)
-                    std::string name = dialogArg.substr(10);
-                    const bool removeTest = name.size() > 7 && name.compare(name.size() - 7, 7, "!remove") == 0;  // (<terrain>!remove: Remove From Canvas, then Restore)
-                    if (removeTest) name.resize(name.size() - 7);
-                    if (name.size() > 2 && std::isdigit(static_cast<unsigned char>(name[0])) && name[1] == '/') gIsomRulesView.showEra(name[0] - '0'), name = name.substr(2);
-                    if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
-                    else gIsomRulesView.selectByName(name);
-                    if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
-                }
+                if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
+                if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
                 std::printf("%s\n", gIsomRulesView.state().c_str());
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;

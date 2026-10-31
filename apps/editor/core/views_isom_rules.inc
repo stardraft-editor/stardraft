@@ -287,8 +287,11 @@ public:
             if (const std::filesystem::path f(last); std::filesystem::exists(f, ec) && !modsOwn(f) && stardraft::terrainrules::load(f, r, err))
                 doc_ = std::move(r), file_ = f, dirty_ = false;
         }
-        openEra(app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
+        openEra(firstEra_ >= 0 ? firstEra_ : app.ed && app.ed->isOpen() ? int(app.ed->era()) & 7 : 0);
     }
+    // The tileset and terrain that open() shows first, in place of the open map's tileset and its first terrain (a
+    // snapshot's isomrules:[<era>/]<name>: no canvas of another terrain before it). Era -1: the open map's.
+    void showFirst(int era, const std::string& name) { firstEra_ = era, firstName_ = name; }
     bool dirty() const { return dirty_; }
     // Another tileset (a snapshot's isomrules:<era>/<name>).
     void showEra(int e) { openEra(e & 7); }
@@ -533,7 +536,9 @@ private:
         pal_.clear(), chips_.clear(), palScroll_ = 0, jump_ = -1;
         sel_ = -1;
         filter();
-        if (!shown_.empty()) selectValue(shown_[0]);
+        const std::string first = std::exchange(firstName_, std::string());
+        if (first.empty() || !selectByName(first))
+            if (!shown_.empty()) selectValue(shown_[0]);
         loadRefTilesets();  // (after the first example's job: it does not wait for them)
         invalidate();
         if (file_.empty() && !copyAsked_ && !gSettingsOff && host()) {  // (no rules file: the rules in use are the mod's; a copy to change)
@@ -3276,6 +3281,8 @@ private:
     std::map<std::tuple<uint8_t, uint16_t, uint16_t>, std::array<bool, 256>> groundColors_;  // (the ground's palette colors, by its tileset, root and ground: the worker's)
     std::map<uint64_t, std::vector<std::pair<int, int>>> cleaned_;  // (a shape with its strays gone, by the shape and the pieces' sides: the worker's)
     bool async_ = true, loading_ = false, building_ = false;
+    int firstEra_ = -1;      // (showFirst)
+    std::string firstName_;  // (showFirst: until the tileset opens)
     // The example's progress, as the worker tells it: the step (kStep...), its round, done of total in it.
     enum : int { kStepPaint, kStepSearch, kStepReference, kStepPicture };
     std::atomic<int> progStep_{kStepPaint}, progRound_{0}, progDone_{0}, progTotal_{0};
