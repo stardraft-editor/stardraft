@@ -646,19 +646,18 @@ private:
             std::transform(n.begin(), n.end(), n.begin(), ::towlower);
             match[i] = q.empty() || n.find(q) != std::wstring::npos;
         }
-        // (each terrain, then its variants: shown when it or they match)
+        // (each terrain with tiles of its own; the terrains that only use its tiles on another ground (variantOf) are no
+        // rows: a search for one of them shows the terrain whose tiles it uses)
         for (size_t i = 0; i < ts.terrains.size(); ++i) {
             if (ts.terrains[i].t.variantOf) continue;
-            std::vector<int> vars;
+            bool viaUser = false;
             for (const isomrules::ModTerrain& v : tileset_.modTerrains)
                 if (v.variantOf && v.variantOf == ts.terrains[i].t.id) {
                     std::wstring n = widen(v.name);
                     std::transform(n.begin(), n.end(), n.begin(), ::towlower);
-                    if (match[i] || n.find(q) != std::wstring::npos) vars.push_back(kVariantRow - int(v.id));
+                    viaUser = viaUser || (!q.empty() && n.find(q) != std::wstring::npos);
                 }
-            if (!match[i] && vars.empty()) continue;
-            shown_.push_back(int(i));
-            shown_.insert(shown_.end(), vars.begin(), vars.end());
+            if (match[i] || viaUser) shown_.push_back(int(i));
         }
         for (size_t k = 0; k < stdPairs_.size(); ++k) {  // (the game's own: -1 - k)
             std::wstring n = stdName(int(k)) + L" game";
