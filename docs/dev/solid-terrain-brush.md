@@ -31,11 +31,22 @@ a terrain, as the terrain core makes them for a rect whose two diamonds are that
   in 20 a rare one (the variants after that gap). Under the group above in its stack (stack connections that are not
   0): the variant of the tile above, as StarEdit gives a stack one variant. The right tile is the next group with the
   same variant. Rows under a dab keep their tiles (Rectangle's rule: no correction).
-- A mod terrain (`Tileset::modTerrains`): its pieces for the stand-in's solid groups (its fill; not the gap pieces),
-  picked as the ISOM brush picks them (`pickModPiece`, formerly `IsomGrid::pickPiece`: a piece that the mod's maps
-  have beside the pieces above it, the first two variants 4 times as often); under a fill piece whose block has a next
-  row (one group down, the same subtiles), that row, as the brush keeps a block's rows together. A mod terrain with no fill pieces (its
-  inside is the stand-in's own tiles): the stand-in's tiles, as a game terrain.
+- A mod terrain (`Tileset::modTerrains`): its pieces for the stand-in's solid groups (its fill; not the gap pieces).
+  Under a fill piece whose block has a next row (one group down, the same subtiles): that row, as the brush keeps a
+  block's rows together. Pieces that the mod's maps have neighbor rules for (`Tileset::pieceNeighborTiles`): picked as
+  the ISOM brush picks them (`pickModPiece`). The others by the game's rule on the pieces' subtiles: a piece whose left
+  tile is before the first empty megatile of its group is common (all as often), the others rare (1 time in 20). A mod
+  terrain with no fill pieces (its inside is the stand-in's own tiles): the stand-in's tiles, as a game terrain.
+- A game terrain on a mod's tileset: the mod's own tiles of that terrain go in as the ISOM brush puts them
+  (`Editor::sprinkleModTiles` after `placeTileValues(cells, true)`: 1 in 20 of the tiles of one terrain, where a mod
+  tile looks like the game's). Not for a mod terrain: the ISOM brush keeps its fill as it is.
+
+The variants were measured (2026-10-31, `--histbox`: the state line's `tilehist=`): Rectangle's game terrains have the
+variant shares of Blizzard's maps (Jungle, Ash World Dirt, Badlands Asphalt: within 1 point each). For the mod's
+fills, the mod's own melee maps use the common subtiles all as often and the rare ones about 1 % each (Structure:
+subtiles 0 to 8 about 10 % each); the ISOM brush's weights (the fill's first 4 variants 4 times, the first 2 pieces 4
+times) gave subtile 0 at 15 % and the marked variants 17 % in all, and Rectangle now gives the maps' shares. The ISOM
+brush's own fill still has those weights.
 
 Each rect gets its own random number (the spray seed). The rects of one dab are made from the top row down, so the
 tile above a rect is the one the dab just put there.
@@ -66,6 +77,12 @@ tile above a rect is the one the dab just put there.
 (include/stardraft/isom.h, `tileFromIsom`): a later isometric edit keeps these tiles unless it changes the ISOM of their
 own rects.
 
+## Keys
+
+Mode > Terrain tools: Isometric (Ctrl+Alt+1), Rectangle (Ctrl+Alt+2), Tile (Ctrl+Alt+3), Custom (Ctrl+Alt+4), each with a
+check on the one in use, and Next (Ctrl+Alt+T). In the Map workspace only; from another mode they go to Terrain mode
+first.
+
 ## UI texts
 
 - Segment: "Rectangle" (the four segments are each their name's width and an equal part of the rest). Tip: "Rectangle: place
@@ -79,6 +96,8 @@ own rects.
 ## Tests
 
 Snapshot cases: `map-solid-brush` (Space Platform: Solar Array, one rect, then Undo; Isometric's list is the same),
-`map-solid-size3` (size 3: 6 x 3 tiles), `map-solid-mirror` (a stroke with the left-right mirror puts twice the tiles),
+`map-solid-size3` (size 3: 6 x 3 tiles), `map-terrain-kind-keys` (Ctrl+Alt+1 to 4), `map-rect-variants` and `cmbw-rect-variants` (the variants' shares
+after a Shift+Fill: the common ones about as often, the rare ones 1 % to 12 %), `map-rect-variants-repeat` (60
+clicks at one place: Rectangle over its own tiles again keeps the rare ones rare; `--histbox mouse,2,1`), `map-solid-mirror` (a stroke with the left-right mirror puts twice the tiles),
 `cmbw-solid-brush` (a Cosmonarchy mod terrain: its fill pieces). The state line's `solidfill` says whether the tile
 under the mouse is one of the selected terrain's solid tiles.

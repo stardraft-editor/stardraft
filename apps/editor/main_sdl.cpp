@@ -440,6 +440,11 @@ int main(int argc, char** argv) {
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--custom") customArg = true;  // Terrain mode's Custom (the Custom list), for a snapshot
+        else if (a == "--histbox") {  // tiles (or mouse,rx,ry): the state line's tilehist=, for a test
+            const std::string v = next();
+            if (std::sscanf(v.c_str(), "mouse,%d,%d", &gHistBox[1], &gHistBox[2]) == 2) gHistBox[0] = -2;
+            else std::sscanf(v.c_str(), "%d,%d,%d,%d", &gHistBox[0], &gHistBox[1], &gHistBox[2], &gHistBox[3]);
+        }
         else if (a == "--solid") solidArg = true;  // Terrain mode's Solid (the terrain list, Rectangle's tools), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot

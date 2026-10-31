@@ -10,6 +10,11 @@
 namespace {
 
 // A trigger block as text: its id and its values, with the blocks it holds ("act.setresources(P1,1,50,0)").
+// --histbox x0,y0,x1,y1 (tiles, inclusive), or mouse,rx,ry (the tile under the mouse, rx tiles left and right, ry up
+// and down): the state line counts each tile value in that box (tilehist=value:count|...), so a test compares how
+// often a brush puts each variant (docs/dev/solid-terrain-brush.md). gHistBox[0] -2: around the mouse.
+int gHistBox[4] = {-1, -1, -1, -1};
+
 std::string shotBlockText(const TriggerCall& b) {
     std::string s = b.def + "(";
     for (size_t i = 0; i < b.args.size(); ++i) s += (i ? "," : "") + b.args[i];
@@ -236,6 +241,17 @@ std::string shotMapState() {
     // rows as it shows them (# a group, ## a sub-group, then the items), and whether the panel shows the list.
     static const char* const kKinds[kTerrainKinds] = {"iso", "rect", "custom", "solid"};
     s += std::string(" kind=") + kKinds[terrainKind()] + " tselcount=" + std::to_string(terrainSelTiles().size());
+    if (gHistBox[0] >= 0 || gHistBox[0] == -2) {
+        const bool around = gHistBox[0] == -2;
+        const int x0 = around ? tx - gHistBox[1] : gHistBox[0], y0 = around ? ty - gHistBox[2] : gHistBox[1];
+        const int x1 = around ? tx + gHistBox[1] : gHistBox[2], y1 = around ? ty + gHistBox[2] : gHistBox[3];
+        std::map<uint16_t, int> hist;
+        for (int y = std::max(0, y0); y <= std::min(int(ed.height()) - 1, y1); ++y)
+            for (int x = std::max(0, x0); x <= std::min(int(ed.width()) - 1, x1); ++x) ++hist[ed.terrain().tiles[size_t(y) * ed.width() + size_t(x)]];
+        std::string h;
+        for (const auto& [v, n] : hist) h += (h.empty() ? "" : "|") + std::to_string(v) + ":" + std::to_string(n);
+        s += " tilehist=" + h;
+    }
     // Solid (docs/dev/solid-terrain-brush.md): the palette's items, and whether the tile under the mouse is one that Solid
     // puts inside the selected terrain (a mod terrain: one of its fill pieces; a game terrain: one of its solid groups).
     s += " palitems=" + std::to_string(app.items.size());

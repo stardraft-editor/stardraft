@@ -391,6 +391,10 @@ CASES += [
     # Solid on a new Cosmonarchy map (Badlands): Asphalt (Grass), a mod terrain, puts its fill pieces.
     ("cmbw-solid-brush", ["--cmbw", "--solid", "--key", "Q", "--type", "asphalt (grass)", "--key", "Enter", "--key", "B",
                           "--click", "560,690", "--move", "560,690"], "cmbw"),
+    # Rectangle's variants of a Cosmonarchy terrain's fill (Structure (Dirt), the game's Structure tiles), as the mod's maps
+    # have them: subtiles 0 to 8 all as often, 10 to 14 seldom (the game's rule).
+    ("cmbw-rect-variants", ["--cmbw", "--histbox", "8,8,119,119", "--solid", "--key", "Q", "--type", "structure (dirt)", "--key", "Enter",
+                            "--click", "187,459", "--click", "800,500:Shift"], "cmbw"),
     ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
     # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
     # (it wraps as the game's).
@@ -563,6 +567,19 @@ CASES += [
     # Solid at size 3: 3 x 3 rects (6 x 3 tiles) in one click (the Diamond of 3 rects is all of them).
     ("map-solid-size3", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B",
                          "--wheel", "560,690,0,1:Alt", "--click", "560,690", "--move", "560,690"], "map"),
+    # Rectangle's variants as the game's maps have them (the game's rule: the common variants all as often, the variants
+    # after the group's first empty megatile 1 time in 20): Road War's Asphalt filled with Rectangle (Shift+Fill: every
+    # tile of that terrain), the tiles counted (--histbox: tilehist=).
+    ("map-rect-variants", ["{install}/Maps/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "187,459",
+                           "--click", "800,500:Shift"], "data"),
+    # Rectangle painted over its own tiles again and again (60 clicks at one place, brush size 4): the rare variants stay
+    # rare (the tiles in the brush counted after each click: --histbox mouse,2,1).
+    ("map-rect-variants-repeat", ["{install}/Maps/(2)Road War.scm", "--histbox", "mouse,2,1", "--solid", "--click", "800,500:Ctrl", "--key", "B",
+                                  "--wheel", "800,500,0,1:Alt", "--wheel", "800,500,0,1:Alt"] + ["--click", "800,500"] * 60, "data"),
+    # Mode > Terrain tools' keys: from Units mode, Ctrl+Alt+3 is Terrain mode with Tile, then Ctrl+Alt+2 Rectangle, Ctrl+Alt+4
+    # Custom and Ctrl+Alt+1 Isometric; the picture: Find a command (Ctrl+P) with the items, their keys and the one on.
+    ("map-terrain-kind-keys", ["--mode", "units", "--key", "Ctrl+Alt+3", "--key", "Ctrl+Alt+2", "--key", "Ctrl+Alt+4", "--key", "Ctrl+Alt+1",
+                               "--key", "Ctrl+Alt+2", "--key", "Ctrl+P", "--type", "terrain tools"], "map"),
     # Solid with the left-right mirror: the same stroke without it, Undo, then with it puts twice the tiles.
     ("map-solid-mirror", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
                           "--drag", "520,650-600,650", "--key", "Ctrl+Z", "--click", "115,521", "--drag", "520,650-600,650",
@@ -2070,6 +2087,68 @@ def check_cmbw_solid(output):
     if not msg.startswith("Placed ") or click.get("solidfill") != "yes":
         return f"the click: {msg!r} (solidfill={click.get('solidfill')}), not the mod terrain's fill pieces"
     return None
+
+
+def check_terrain_kind_keys(output):
+    """Ctrl+Alt+1 to 4: Terrain mode with Isometric, Rectangle, Tile or Custom."""
+    steps = solid_steps(output)
+    got = [(s.get("mode"), s.get("kind")) for i, _, s in steps if i.startswith("key Ctrl+Alt+")]
+    want = [("Terrain", "rect"), ("Terrain", "solid"), ("Terrain", "custom"), ("Terrain", "iso"), ("Terrain", "solid")]
+    return None if got == want else f"the keys gave {got}, not {want}"
+
+
+def check_rect_variants_repeat(output):
+    """Group 16 (Road War's Asphalt) under the brush after each of the 60 clicks: the variants after the first empty
+    megatile (7 and up) 1 % to 12 % of the samples, each common one (0 to 5) 10 % to 25 %."""
+    steps = [s for i, _, s in solid_steps(output) if i == "click 800,500"]
+    if len(steps) < 60:
+        return f"{len(steps)} clicks, not 60"
+    row = {}
+    for s in steps:
+        for part in s.get("tilehist", "").split("|"):
+            if ":" in part:
+                v, n = (int(x) for x in part.split(":"))
+                if v >> 4 == 16:
+                    row[v & 15] = row.get(v & 15, 0) + n
+    total = sum(row.values())
+    if total < 300:
+        return f"only {total} samples of group 16"
+    rare = sum(n for k, n in row.items() if k >= 7)
+    odd = {k: n for k, n in row.items() if k < 6 and not 0.10 * total <= n <= 0.25 * total}
+    if odd or not 0.01 * total <= rare <= 0.12 * total:
+        return f"rare {100 * rare / total:.1f} %, common out of range {odd} ({sorted(row.items())})"
+    return None
+
+
+def check_rect_variants(group):
+    """Rectangle's variants of tile group `group` (the left tiles of a fill): each common variant (before the group's
+    first empty megatile; those the tiles show more than 3 % of the time) within half to twice their mean, and the rare
+    ones together 1 % to 12 % (the game's rule: 1 in 20)."""
+    def check(output):
+        fills = re.findall(r"^click 800,500:Shift: .*selected: (.*)$", output, re.M)
+        if not fills or not fills[-1].startswith("Replaced"):
+            return f"the Fill: {fills[-1] if fills else None!r}, not tiles replaced"
+        hists = re.findall(r"tilehist=(\S+)", output)
+        if not hists:
+            return "no tilehist= in the state lines"
+        row = {}
+        for part in hists[-1].split("|"):
+            v, n = (int(x) for x in part.split(":"))
+            if v >> 4 == group:
+                row[v & 15] = n
+        total = sum(row.values())
+        if total < 500:
+            return f"only {total} tiles of group {group}"
+        common = {s: n for s, n in row.items() if n > 0.03 * total}
+        rare = total - sum(common.values())
+        mean = sum(common.values()) / len(common)
+        odd = {s: n for s, n in common.items() if not 0.5 * mean <= n <= 2 * mean}
+        if len(common) < 3 or odd:
+            return f"group {group}: the common variants are not about as often ({sorted(common.items())})"
+        if not 0.01 * total <= rare <= 0.12 * total:
+            return f"group {group}: the rare variants are {100 * rare / total:.1f} % of {total} tiles (not 1 to 12 %)"
+        return None
+    return check
 
 
 def check_tiles_brush(shape, outline, rows):
@@ -4794,7 +4873,7 @@ def check_custom_other_tileset(output):
 CHECKS.update({
     "map-custom-terrain": check_custom_terrain, "map-custom-other-tileset": check_custom_other_tileset,
     "map-solid-brush": check_solid_brush, "map-solid-size3": check_solid_size3, "map-solid-mirror": check_solid_mirror,
-    "cmbw-solid-brush": check_cmbw_solid,
+    "cmbw-solid-brush": check_cmbw_solid, "map-rect-variants": check_rect_variants(16), "map-terrain-kind-keys": check_terrain_kind_keys, "map-rect-variants-repeat": check_rect_variants_repeat, "cmbw-rect-variants": check_rect_variants(18),
     "help-index": check_help_page("index", "", "StarDraft 2 help"),
     "help-page": check_help_page("units-dat", "hit-points", "Units (units.dat)"),
     "help-light": check_help_page("getting-started", "", "Getting started"),

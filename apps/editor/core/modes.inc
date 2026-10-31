@@ -10,6 +10,13 @@ const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click 
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray"};
 enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect };
+// The Terrain tool strip's choices (core/views_toolstrip.inc: terrainKind): 0 Isometric, 1 Tile, 2 Custom, 3 Rectangle,
+// and their order in the strip and Mode > Terrain tools: Isometric, Rectangle, Tile, Custom.
+constexpr int kTerrainKinds = 4;
+constexpr int kTerrainKindOrder[kTerrainKinds] = {0, 3, 1, 2};
+int terrainKind();
+void setTerrainKind(int kind);
+int nextTerrainKind(int kind);
 enum UnitTool { UPlace, USpray, UReplace };
 enum DoodadTool { DPlace, DSpray };
 enum SpriteTool { SPlace, SSpray };

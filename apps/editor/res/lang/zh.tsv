@@ -2642,3 +2642,14 @@ Fill: click in the selection to fill the whole selection. Click elsewhere to fil
 &Fill selection with the selected terrain	用所选地形填充选区(&F)
 Select a terrain in the list first	请先在列表中选择一个地形
 Could not select the terrain. The map has no isometric terrain data.	无法选择地形。此地图没有等距地形数据。
+Te&rrain tools	地形工具(&R)
+&Isometric	等距(&I)
+&Rectangle	矩形(&R)
+&Tile	图块(&T)
+&Custom	自定义(&C)
+&Next	下一个(&N)
+&Isometric\tCtrl+Alt+1	等距(&I)\tCtrl+Alt+1
+&Rectangle\tCtrl+Alt+2	矩形(&R)\tCtrl+Alt+2
+&Tile\tCtrl+Alt+3	图块(&T)\tCtrl+Alt+3
+&Custom\tCtrl+Alt+4	自定义(&C)\tCtrl+Alt+4
+&Next\tCtrl+Alt+T	下一个(&N)\tCtrl+Alt+T

@@ -2642,3 +2642,14 @@ Fill: click in the selection to fill the whole selection. Click elsewhere to fil
 &Fill selection with the selected terrain	&Rellenar la selección con el terreno seleccionado
 Select a terrain in the list first	Seleccione primero un terreno en la lista
 Could not select the terrain. The map has no isometric terrain data.	No se pudo seleccionar el terreno. El mapa no tiene datos de terreno isométrico.
+Te&rrain tools	&Herramientas de terreno
+&Isometric	&Isométrico
+&Rectangle	&Rectángulo
+&Tile	&Tile
+&Custom	&Personalizado
+&Next	&Siguiente
+&Isometric\tCtrl+Alt+1	&Isométrico\tCtrl+Alt+1
+&Rectangle\tCtrl+Alt+2	&Rectángulo\tCtrl+Alt+2
+&Tile\tCtrl+Alt+3	&Tile\tCtrl+Alt+3
+&Custom\tCtrl+Alt+4	&Personalizado\tCtrl+Alt+4
+&Next\tCtrl+Alt+T	&Siguiente\tCtrl+Alt+T

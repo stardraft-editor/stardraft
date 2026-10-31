@@ -2672,3 +2672,14 @@ Protected terrain is hidden (View > Layers shows it again)	보호된 지형이 �
 Could not save the protected terrain: 	보호된 지형을 저장할 수 없습니다: 
 Protect the terrain (%d tiles)	지형 보호 (타일 %d개)
 Unprotect the terrain (%d tiles)	지형 보호 해제 (타일 %d개)
+Te&rrain tools	지형 도구(&R)
+&Isometric	아이소메트릭(&I)
+&Rectangle	사각형(&R)
+&Tile	타일(&T)
+&Custom	사용자 지정(&C)
+&Next	다음(&N)
+&Isometric\tCtrl+Alt+1	아이소메트릭(&I)\tCtrl+Alt+1
+&Rectangle\tCtrl+Alt+2	사각형(&R)\tCtrl+Alt+2
+&Tile\tCtrl+Alt+3	타일(&T)\tCtrl+Alt+3
+&Custom\tCtrl+Alt+4	사용자 지정(&C)\tCtrl+Alt+4
+&Next\tCtrl+Alt+T	다음(&N)\tCtrl+Alt+T
