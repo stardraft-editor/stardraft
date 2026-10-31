@@ -1,0 +1,44 @@
+{
+  "runs": [
+    {
+      "map": "Maps/(2)Bottleneck.scm",
+      "cases": [
+        "map-solid-mirror",
+        "map-protect-terrain",
+        "map-dialog-mapimage"
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "run": 0,
+      "from": "map-solid-mirror.png",
+      "to": "rectangle-brush.png",
+      "crop": [
+        64,
+        400,
+        820,
+        560
+      ],
+      "alt": "Terrain > Rectangle: the terrain list, and Solar Array painted in rects with a mirror"
+    },
+    {
+      "run": 0,
+      "from": "map-protect-terrain.png",
+      "to": "protect-terrain.png",
+      "crop": [
+        400,
+        200,
+        560,
+        520
+      ],
+      "alt": "Protected terrain in yellow, and the selection's menu with Protect terrain and Unprotect terrain"
+    },
+    {
+      "run": 0,
+      "from": "map-dialog-mapimage.png",
+      "to": "export-map-image.png",
+      "alt": "Export map image: Include units and Exclude specific units"
+    }
+  ]
+}

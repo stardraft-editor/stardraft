@@ -2,6 +2,36 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.2
+
+### Map
+
+- New Rectangle brush: a terrain's inside tiles in 2 x 1 rects, no edges (as in SCMDraft). The old Rectangle is now Tile.
+
+  ![Terrain > Rectangle: the terrain list, and Solar Array painted in rects with a mirror](images/0.8.2/rectangle-brush.png)
+- Ctrl+Alt+1 to 4 pick Isometric, Rectangle, Tile and Custom.
+- Protect terrain (right-click a selection), shown by View > Layers > Protected terrain.
+
+  ![Protected terrain in yellow, and the selection's menu with Protect terrain and Unprotect terrain](images/0.8.2/protect-terrain.png)
+- Holding the brush no longer fills the ground with rare tiles.
+- Symmetry keys Alt+0 to 4.
+- View > Overlays: Invalid resource depot and Invalid resource node.
+- Ctrl+arrows move units by 16 pixels; a paste follows the symmetry.
+- The = key picks player 12.
+
+### The program
+
+- Each map opens in its own tab with no save question; a middle click closes a tab.
+- New page: type any size from 16 to 256.
+- Export map image: choose the units to include or exclude.
+
+  ![Export map image: Include units and Exclude specific units](images/0.8.2/export-map-image.png)
+
+### CMBW mod
+
+- The custom isom terrain editor's canvas is complete, clean and much faster.
+- Snow (High Dirt cliffs) and Dirt (High Dirt cliffs) paint as raised cliffs, not as hollows.
+
 ## 0.8.1
 
 ### Map
