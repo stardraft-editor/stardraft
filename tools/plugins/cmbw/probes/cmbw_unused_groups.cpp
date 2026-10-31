@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
             for (const Run& r : runs) {
                 const size_t n = r.last - r.first + 1;
                 if (n < 14 || n > 48 || r.full * 2 < int(n)) continue;
-                const tr::Family f = n <= 16 ? tr::Family::Patch : n <= 26 ? tr::Family::Blend : n <= 40 ? tr::Family::Wall : tr::Family::Cliff;
+                const tr::Family f = n <= 16 ? tr::Family::Patch : n <= 26 ? tr::Family::Field : n <= 40 ? tr::Family::Wall : tr::Family::Cliff;
                 const auto [a, b] = templateOfFamily(f);
                 if (!a) continue;
                 const std::vector<tr::TemplateRect> rects = tr::templateRects(ts, a, b);

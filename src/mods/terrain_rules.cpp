@@ -61,7 +61,7 @@ std::vector<uint16_t> borderGroups(const Tileset& t, uint16_t a, uint16_t b) {
 const char* familyName(Family f) {
     switch (f) {
         case Family::Patch: return "patch";
-        case Family::Blend: return "blend";
+        case Family::Field: return "field";
         case Family::Pavement: return "pavement";
         case Family::Wall: return "wall";
         case Family::Cliff: return "cliff";
@@ -129,7 +129,7 @@ Family familyOf(const std::vector<TemplateRect>& rects, const Tileset& t) {
         }
     const size_t n = rects.size();
     if (n <= 16) return Family::Patch;
-    if (n <= 28) return ids.size() <= 1 ? Family::Pavement : Family::Blend;
+    if (n <= 28) return ids.size() <= 1 ? Family::Pavement : Family::Field;
     if (n <= 40) return Family::Wall;
     return Family::Cliff;
 }
