@@ -63,12 +63,14 @@ void stampsChanged() {
     appState().dirty = true;
 }
 
-// The custom terrain becomes the Brush's stamp: its tiles as they are, those not in it left out (0xFFFF).
+// The custom terrain becomes the Brush's stamp: its tiles as they are, those not in it left out (0xFFFF), and its null
+// tiles too (no picture: tile 0, or a tile of megatile 0): the map keeps its own tile there.
 void stampsUse(const TerrainStamp& s) {
     AppState& app = appState();
     gTiles->stamp.clear(), gTiles->chosen.clear();
+    auto isNull = [&](uint16_t v) { return v == 0 || (app.ed && app.ed->isOpen() && app.ed->tileset().megatileFor(v) <= 0); };
     for (size_t i = 0; i < s.tiles.size() && i < s.mask.size(); ++i) {
-        const uint16_t v = s.mask[i] ? s.tiles[i] : uint16_t(0xFFFF);
+        const uint16_t v = s.mask[i] && !isNull(s.tiles[i]) ? s.tiles[i] : uint16_t(0xFFFF);
         gTiles->stamp.push_back(v);
         if (v != 0xFFFF && std::find(gTiles->chosen.begin(), gTiles->chosen.end(), v) == gTiles->chosen.end()) gTiles->chosen.push_back(v);
     }
