@@ -2648,6 +2648,11 @@ constexpr UiText kRows[] = {
     {L"No unit excluded", L"\uC81C\uC678\uB41C \uC720\uB2DB \uC5C6\uC74C"},
     {L"Click to put the unit back in the picture", L"\uD074\uB9AD\uD558\uBA74 \uC720\uB2DB\uC774 \uADF8\uB9BC\uC5D0 \uB2E4\uC2DC \uB098\uC635\uB2C8\uB2E4"},
     {L"Include units", L"\uD3EC\uD568\uD560 \uC720\uB2DB"},
+    {L"Click to type a size: 16 to 256 tiles", L"\uD074\uB9AD\uD558\uC5EC \uD06C\uAE30\uB97C \uC785\uB825\uD569\uB2C8\uB2E4: 16 ~ 256 \uD0C0\uC77C"},
+    {L"Width (16 to 256 tiles)", L"\uB108\uBE44 (16 ~ 256 \uD0C0\uC77C)"},
+    {L"Height (16 to 256 tiles)", L"\uB192\uC774 (16 ~ 256 \uD0C0\uC77C)"},
+    {L"Width: type a size from 16 to 256", L"\uB108\uBE44: 16 ~ 256 \uC0AC\uC774\uC758 \uD06C\uAE30\uB97C \uC785\uB825\uD558\uC138\uC694"},
+    {L"Height: type a size from 16 to 256", L"\uB192\uC774: 16 ~ 256 \uC0AC\uC774\uC758 \uD06C\uAE30\uB97C \uC785\uB825\uD558\uC138\uC694"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -461,6 +461,7 @@ void shellShowIsomRulesWindow() {
     // (where it was last time and its size, when that place is on a screen now; maximized: so again)
     int64_t x = 0, y = 0, w = 0, h = 0, max = 0;
     SDL_Window* win = gHost->sdlWindow(gIsomRulesView);
+    if (win) sdlNoMinimizeButton(win);  // (a tool window beside the map: maximize and close only)
     if (win && !gSilent && prefs::number(L"Layout/IsomWindowX", x) && prefs::number(L"Layout/IsomWindowY", y) && prefs::number(L"Layout/IsomWindowW", w) &&
         prefs::number(L"Layout/IsomWindowH", h) && w >= 400 && h >= 300) {
         const SDL_Point mid{int(x + w / 2), int(y + 16)};

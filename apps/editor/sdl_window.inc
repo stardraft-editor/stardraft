@@ -9,6 +9,7 @@ SDL_Window* gMainWindow = nullptr;  // the program's main window, after host.sho
 
 void applyThemeSdl(bool light, int accent, bool save);  // (sdl_options.inc)
 void sdlTitleBarsDark(bool dark);  // Windows: the title bars in the theme (shell_sdl_win.inc; elsewhere nothing)
+void sdlNoMinimizeButton(SDL_Window* w);  // Windows: the window's title bar without its minimize button (elsewhere nothing)
 
 // --- The window's document ------------------------------------------------------------------------------------------
 

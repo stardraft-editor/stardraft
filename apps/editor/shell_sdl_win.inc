@@ -308,6 +308,12 @@ bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
 // The title bars follow the theme: the windows open now, and each dialog window before it shows (sdlSetLook calls it
 // again when the theme changes).
 void sdlTitleBarsDark(bool dark) { winsdl::titleBarsDark(dark); }
+void sdlNoMinimizeButton(SDL_Window* w) {
+    if (HWND hwnd = winsdl::windowHandle(w)) {
+        SetWindowLongPtrW(hwnd, GWL_STYLE, GetWindowLongPtrW(hwnd, GWL_STYLE) & ~LONG_PTR(WS_MINIMIZEBOX));
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);  // (the title bar again)
+    }
+}
 // A new window: its title bar in the theme; a menu or a pop-out (no title bar) gets the small rounded corners of the
 // system's menus (Windows 11; an older Windows keeps square corners).
 void sdlTitleBarOfNewWindow(SDL_Window* w) {
@@ -408,6 +414,7 @@ bool sdlMapsOpenWithUs() { return false; }
 bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
 #endif
 void sdlTitleBarsDark(bool) {}
+void sdlNoMinimizeButton(SDL_Window*) {}
 #if defined(STARDRAFT_XDG)
 // Each window gets the program's icon (X11: the task bar and Alt+Tab show it also when no .desktop file matches the
 // window, as an AppImage that is not installed).

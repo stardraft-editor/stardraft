@@ -100,9 +100,9 @@ int NewPageView::sectionHeader(draw::Canvas& c, int x0, int colRight, int y, int
 
 void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int right, const wchar_t* name, uint16_t& value, int which) {
     const int n = int(std::size(kMapSizes)), rowH = scale(stardraft::kit::kFormRowH), cy = y + rowH / 2;
-    int at = 0;
-    for (int i = 0; i < n; ++i)
-        if (kMapSizes[i] <= value) at = i;
+    float at = 0;  // (the thumb: at a stop, or between two for a typed size)
+    for (int i = 0; i + 1 < n; ++i)
+        if (value >= kMapSizes[i]) at = float(i) + std::min(1.0f, float(value - kMapSizes[i]) / float(kMapSizes[i + 1] - kMapSizes[i]));
     c.text({x, y, x + labelW - scale(48), y + rowH}, name, kDim, draw::kMiddle | draw::kEllipsis);
     c.text({x + labelW - scale(56), y, x + labelW - scale(4), y + rowH}, std::to_wstring(value), kText, draw::kMiddle | draw::kRight);
     const int x0 = x + labelW + scale(8), x1 = right - scale(8);
@@ -112,12 +112,27 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
         c.fill({tx - hw / 2, cy + scale(9), tx - hw / 2 + hw, cy + scale(13)}, kBorderHot);
     }
     const draw::Rect area{x0 - scale(8), y, right, y + rowH};
-    sliderFace(c, x0, x1, cy, float(at) / float(n - 1), hot(area));
+    sliderFace(c, x0, x1, cy, at / float(n - 1), hot(area));
     sizeX0 = x0, sizeX1 = x1, sizeY[which] = cy;
     Hit label;
     label.r = {x, y, area.left, y + rowH}, label.name = name;  // its name and value: feedback on it
     hits.push_back(label);
     uint16_t* p = &value;
+    Hit typed;  // (a click on the value: type any size, 16 to 256, as Crop or extend takes)
+    typed.r = {x + labelW - scale(56), y, x + labelW - scale(4), y + rowH}, typed.name = name, typed.cursor = draw::Cursor::Hand;
+    typed.tip = L"Click to type a size: 16 to 256 tiles";
+    typed.click = [this, p, name] {
+        // (copies first: the prompt's loop paints the page again, which makes these hits again and ends this one)
+        uint16_t* const target = p;
+        const std::wstring what = name;
+        NewPageView* const self = this;
+        std::wstring text = std::to_wstring(*target);
+        if (!shellPromptText(what + L" (16 to 256 tiles)", text)) return;
+        const int v = std::wcstol(text.c_str(), nullptr, 10);
+        if (v < 16 || v > 256) return setMessage(what + L": type a size from 16 to 256");
+        if (v != *target) *target = uint16_t(v), self->changed();
+    };
+    hits.push_back(typed);
     Hit h;
     h.r = area, h.cursor = draw::Cursor::Hand;
     h.press = [this, p, x0, x1, n](draw::Point pt) {
@@ -125,11 +140,21 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
         const uint16_t nv = kMapSizes[std::clamp(int(std::lround(f * float(n - 1))), 0, n - 1)];
         if (nv != *p) *p = nv, changed();
     };
-    h.wheel = [this, p, n](int dir) {
-        int i = 0;
-        for (int k = 0; k < n; ++k)
-            if (kMapSizes[k] <= *p) i = k;
-        const uint16_t nv = kMapSizes[std::clamp(i + dir, 0, n - 1)];
+    h.wheel = [this, p, n](int dir) {  // (the next stop above or under the size, also a typed one between them)
+        uint16_t nv = *p;
+        if (dir > 0) {
+            for (int k = 0; k < n; ++k)
+                if (kMapSizes[k] > *p) {
+                    nv = kMapSizes[k];
+                    break;
+                }
+        } else {
+            for (int k = n - 1; k >= 0; --k)
+                if (kMapSizes[k] < *p) {
+                    nv = kMapSizes[k];
+                    break;
+                }
+        }
         if (nv != *p) *p = nv, changed();
     };
     wheels.push_back({area, h.wheel});
