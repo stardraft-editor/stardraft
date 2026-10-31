@@ -41,6 +41,7 @@ enum : int {
     ID_OPT_SNAPBUILDINGS,  // Options > Units > Snap buildings to tile edges (a check item)
     ID_OPT_RESDIST,  // Options > Units > Keep resources 3 tiles from town halls (a check item; Discord feedback #97)
     ID_OPT_RANDOMFACING,  // Options > Units > Randomize unit direction when placed (a check item)
+    ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
     // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
     ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,

@@ -163,6 +163,7 @@ bool confirmTriggerComments() {
 }
 bool confirmStartLocations() {
     if (!confirmTriggerComments()) return false;
+    if (bool ask = true; prefs::flag(L"AskStartLocations", ask) && !ask) return true;  // (Program options > Saving maps: off)
     AppState& app = shellState();
     for (;;) {
         if (!app.ed || !app.ed->isOpen()) return true;
