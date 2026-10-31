@@ -842,7 +842,7 @@ private:
     void build(const BuildIn& in, BuildOut& out) {
         const auto* t = &in.t;
         std::string err;
-        if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data);
+        if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data), puzzleEd_->setUndoLimit(1);  // (painted again and again: no undo history)
         Editor* ed = puzzleEd_.get();
         const uint16_t root = in.root;
         constexpr int W = 40, H = 46;  // (the shape in the middle; under it, the row of the thin shapes: kThinRow)
@@ -918,15 +918,20 @@ private:
         // few each time)
         std::vector<std::pair<int, int>> shape = shapeOf(in.family);
         shape.insert(shape.end(), in.extra.begin(), in.extra.end());
-        auto paint = [&]() {  // (the bordering terrain all around: no other terrain in the picture; the shape)
-            ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
-            ed->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 40.0f});
-            for (const auto& [i, j] : shape)
-                if (i >= kHalfSpot / 2)  // (a half spot: the 0.5 brush, on the grid of 32 x 16)
-                    ed->paintBrush(cx + (i - kHalfSpot) * 32, cy + j * 16, t->t.id, Brush{Brush::Diamond, 0.5f});
+        // (the bordering terrain all around: no other terrain in the picture; the shape, and one spot more when `more`)
+        auto paintOn = [&](Editor* e, const std::pair<int, int>* more) {
+            e->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
+            e->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 40.0f});
+            auto spot = [&](std::pair<int, int> sp) {
+                if (sp.first >= kHalfSpot / 2)  // (a half spot: the 0.5 brush, on the grid of 32 x 16)
+                    e->paintBrush(cx + (sp.first - kHalfSpot) * 32, cy + sp.second * 16, t->t.id, Brush{Brush::Diamond, 0.5f});
                 else
-                    ed->paintBrush(cx + i * 64, cy + j * 32, t->t.id, Brush{Brush::Diamond, 1.0f});
+                    e->paintBrush(cx + sp.first * 64, cy + sp.second * 32, t->t.id, Brush{Brush::Diamond, 1.0f});
+            };
+            for (const auto& sp : shape) spot(sp);
+            if (more) spot(*more);
         };
+        auto paint = [&]() { paintOn(ed, nullptr); };
         // (the rects of the terrain (its set's and its gaps', by game group) that the painted map shows)
         auto shownGroups = [&]() {
             const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
@@ -937,12 +942,41 @@ private:
         };
         paint();
         // (how many places of each rect the painted map shows)
-        auto shownCounts = [&]() {
-            const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+        auto countsOn = [&](const Editor* e) {
+            const stardraft::TerrainLayer l = stardraft::readTerrain(e->chk(), "TILE");
             std::map<uint16_t, int> n;
             for (uint16_t v : l.tiles)
                 if (const auto it = index.find(v); it != index.end() && !(it->second & 1)) ++n[t->t.pieces[it->second / 2][0]];
             return n;
+        };
+        auto shownCounts = [&]() { return countsOn(ed); };
+        // (the counts of the shape with each spot more, at once: each a map of its own (helpers_ and this one), on the
+        // processor's cores. Each map is painted whole, as paint() does)
+        auto countsWithEach = [&](const std::vector<std::pair<int, int>>& spots) {
+            if (!pool_) {  // (once: a thread and a map for each core but this one; the threads stay, so their caches do)
+                const size_t n = std::clamp<size_t>(std::thread::hardware_concurrency(), 2, 8) - 1;
+                for (size_t k = 0; k < n; ++k) helpers_.push_back(std::make_unique<Editor>(*in.data)), helpers_.back()->setUndoLimit(1);
+                pool_ = std::make_unique<TrialPool>(n);
+            }
+            if (helpersFor_ != in.gen) {  // (each build: its tileset and the working rules)
+                helpersFor_ = in.gen;
+                std::string ignored;
+                for (auto& h : helpers_) {
+                    if (!h->isOpen() || h->era() != in.era) h->newMap(W, H, in.era, root, ignored);
+                    h->useModTerrains(in.all);
+                }
+            }
+            std::vector<std::map<uint16_t, int>> out(spots.size());
+            std::atomic<size_t> next{0};
+            std::atomic<bool> anyMap{false};
+            pool_->run([&](size_t w) {
+                Editor* e = helpers_[w].get();
+                if (!e->isOpen() || e->era() != in.era) return;  // (a map that could not take this tileset: the others do its share)
+                anyMap = true;
+                for (size_t k; (k = next++) < spots.size() && in.gen == buildGen_;) paintOn(e, &spots[k]), out[k] = countsOn(e);
+            });
+            for (size_t k; !anyMap && (k = next++) < spots.size() && in.gen == buildGen_;) paintOn(ed, &spots[k]), out[k] = countsOn(ed);
+            return out;
         };
         if (in.extend) {  // (more spots, one at a time: each must show a rect that none showed, or one more place of a rect
             // with fewer places than variants (each variant then shows at a place of its own); and lose no rect)
@@ -982,17 +1016,20 @@ private:
                 std::map<uint16_t, int> bestCounts;
                 size_t bestGain = 0;
                 const size_t base = score(counts);
-                for (size_t s = 0; s < spots.size() && spots[s].bound > bestGain; ++s) {
-                    shape.push_back(spots[s].at);
-                    progress(kStepSearch, int(s) + 1, int(spots.size()), round + 1);
-                    paint();
-                    std::map<uint16_t, int> now = shownCounts();
-                    shape.pop_back();
-                    size_t gain = 0;
-                    if (std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; }))  // (a spot that loses a rect: none)
-                        gain = score(now) > base ? score(now) - base : 0;
-                    spots[s].bound = gain;
-                    if (gain > bestGain) bestGain = gain, best = int(s), bestCounts = std::move(now);
+                const size_t batch = 2 * std::max<size_t>(helpers_.size(), 1);  // (the spots tried at once: a few for each core)
+                for (size_t s = 0; s < spots.size() && spots[s].bound > bestGain && in.gen == buildGen_;) {
+                    std::vector<std::pair<int, int>> some;
+                    for (size_t e = s; e < spots.size() && some.size() < std::max<size_t>(batch, 2) && spots[e].bound > bestGain; ++e) some.push_back(spots[e].at);
+                    progress(kStepSearch, int(s + some.size()), int(spots.size()), round + 1);
+                    std::vector<std::map<uint16_t, int>> seen = countsWithEach(some);
+                    for (size_t b = 0; b < some.size() && spots[s].bound > bestGain; ++b, ++s) {  // (in turn, as one at a time: the first best wins; the rest of the batch, as one at a time would not try it, does not count)
+                        std::map<uint16_t, int>& now = seen[b];
+                        size_t gain = 0;
+                        if (std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; }))  // (a spot that loses a rect: none)
+                            gain = score(now) > base ? score(now) - base : 0;
+                        spots[s].bound = gain;
+                        if (gain > bestGain) bestGain = gain, best = int(s), bestCounts = std::move(now);
+                    }
                 }
                 if (best < 0) break;
                 const auto [bi, bj] = spots[size_t(best)].at;
@@ -1045,25 +1082,27 @@ private:
                 int bestI = 0, bestJ = 0;
                 size_t bestNew = 0;
                 std::map<uint16_t, int> bestCounts;
-                const int total = (jHi - jLo + 1) * 25;
-                for (int j = jLo; j <= jHi && in.gen == buildGen_; ++j)
-                    for (int i = -12; i <= 12 && in.gen == buildGen_; ++i) {
-                        progress(kStepSearch, (j - jLo) * 25 + i + 13, total, round + 1);
+                std::vector<std::pair<int, int>> tries;
+                for (int j = jLo; j <= jHi; ++j)
+                    for (int i = -12; i <= 12; ++i) {
                         const std::pair<int, int> sp{kHalfSpot + i, j};
                         if ((i + j) % 2 != 0 || std::find(shape.begin(), shape.end(), sp) != shape.end()) continue;
                         if (dull.count(sp) && !(added.first != INT_MIN && nextTo(sp, added, 96, 64))) continue;
                         if (touching && std::none_of(shape.begin(), shape.end(), [&](std::pair<int, int> o) { return nextTo(sp, o, 128, 80); })) continue;
-                        dull.erase(sp);
-                        shape.push_back(sp);
-                        paint();
-                        std::map<uint16_t, int> now = shownCounts();
-                        shape.pop_back();
-                        if (!std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; })) continue;
-                        size_t fresh = 0;
-                        for (uint16_t g : want) fresh += now.count(g) && !have.count(g);
-                        if (!fresh) dull.insert(sp);
-                        if (fresh > bestNew) bestNew = fresh, bestI = i, bestJ = j, bestCounts = std::move(now);
+                        tries.push_back(sp);
                     }
+                progress(kStepSearch, 0, int(tries.size()), round + 1);
+                std::vector<std::map<uint16_t, int>> seen = countsWithEach(tries);
+                for (size_t k = 0; k < tries.size() && in.gen == buildGen_; ++k) {
+                    const std::pair<int, int> sp = tries[k];
+                    std::map<uint16_t, int>& now = seen[k];
+                    dull.erase(sp);
+                    if (!std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; })) continue;
+                    size_t fresh = 0;
+                    for (uint16_t g : want) fresh += now.count(g) && !have.count(g);
+                    if (!fresh) dull.insert(sp);
+                    if (fresh > bestNew) bestNew = fresh, bestI = sp.first - kHalfSpot, bestJ = sp.second, bestCounts = std::move(now);
+                }
                 if (!bestNew || in.gen != buildGen_) break;
                 shape.push_back({kHalfSpot + bestI, bestJ}), counts = std::move(bestCounts), gained = true, added = shape.back();
                 for (const auto& [g, c] : counts) have.insert(g);
@@ -2573,7 +2612,56 @@ private:
     struct Spot { int x, y; float s; };
     std::unique_ptr<Editor> gameEd_;  // (the game tilesets' map: the game borders and the reference; the worker's)
     size_t gameEdGroups_ = 0;         // (its group limit)
-    std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
+    std::unique_ptr<Editor> puzzleEd_;
+    std::vector<std::unique_ptr<Editor>> helpers_;  // (more maps for the search's trials, one for each core: the worker's)
+    int helpersFor_ = -1;                           // (the build they were made ready for)
+    // The threads that paint the search's trials, one for each map of helpers_ (they stay for the window: their caches
+    // stay warm). run(f) calls f(k) on each thread k and returns when all are done.
+    class TrialPool {
+    public:
+        explicit TrialPool(size_t n) {
+            for (size_t k = 0; k < n; ++k)
+                threads_.emplace_back([this, k] {
+                    uint64_t seen = 0;
+                    for (;;) {
+                        std::function<void(size_t)> job;
+                        {
+                            std::unique_lock<std::mutex> l(m_);
+                            wake_.wait(l, [&] { return stop_ || id_ != seen; });
+                            if (stop_) return;
+                            seen = id_, job = job_;
+                        }
+                        job(k);
+                        std::lock_guard<std::mutex> l(m_);
+                        if (--busy_ == 0) done_.notify_all();
+                    }
+                });
+        }
+        ~TrialPool() {
+            {
+                std::lock_guard<std::mutex> l(m_);
+                stop_ = true;
+            }
+            wake_.notify_all();
+            for (auto& t : threads_) t.join();
+        }
+        void run(std::function<void(size_t)> f) {
+            std::unique_lock<std::mutex> l(m_);
+            job_ = std::move(f), busy_ = threads_.size(), ++id_;
+            wake_.notify_all();
+            done_.wait(l, [&] { return busy_ == 0; });
+        }
+
+    private:
+        std::vector<std::thread> threads_;
+        std::mutex m_;
+        std::condition_variable wake_, done_;
+        std::function<void(size_t)> job_;
+        uint64_t id_ = 0;
+        size_t busy_ = 0;
+        bool stop_ = false;
+    };
+    std::unique_ptr<TrialPool> pool_;  // (after helpers_: it goes first)  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
     bool async_ = true, loading_ = false, building_ = false;
     // The example's progress, as the worker tells it: the step (kStep...), its round, done of total in it.
     enum : int { kStepPaint, kStepSearch, kStepReference, kStepPicture };

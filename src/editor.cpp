@@ -427,7 +427,7 @@ void Editor::pushUndo(const Chk& chk, const std::vector<std::string>& files) {
     undo_.back().files = fileStates(files);
     for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
-    while (undo_.size() > 1 && (undo_.size() > kUndoSteps || undoBytes_ > kUndoBytes)) {
+    while (undo_.size() > 1 && (undo_.size() > std::min(kUndoSteps, undoLimit_) || undoBytes_ > kUndoBytes)) {
         undoBytes_ -= std::min(undoBytes_, undo_.front().ownBytes);
         undo_.pop_front();
     }

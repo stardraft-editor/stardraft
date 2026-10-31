@@ -644,7 +644,10 @@ public:
     // --- Undo -----------------------------------------------------------------------------------
     bool canUndo() const { return !undo_.empty(); }
     bool canRedo() const { return !redo_.empty(); }
-    size_t undoSteps() const { return undo_.size(); }  // the steps that Undo can take back (and Redo give again)
+    size_t undoSteps() const { return undo_.size(); }
+    // The most undo steps kept (at least 1; the default: as many as kUndoSteps and kUndoBytes allow). The off-screen maps
+    // that are painted again and again (the isom terrain editor's examples) keep 1.
+    void setUndoLimit(size_t steps) { undoLimit_ = std::max<size_t>(1, steps); }  // the steps that Undo can take back (and Redo give again)
     size_t redoSteps() const { return redo_.size(); }
     // Undo and Redo wait for the end of a stroke (a paint, a spray or a place that the mouse button still holds):
     // during one they do nothing. After them, the map is modified unless it is as it was at its last open or save.
@@ -833,6 +836,7 @@ private:
     void undoOne();  // one step back (forward) without the reload: undo(n) and redo(n) reload once at the end
     void redoOne();
     std::deque<Snapshot> undo_, redo_;
+    size_t undoLimit_ = SIZE_MAX;  // (setUndoLimit)
     std::deque<Snapshot> lastRedo_;  // the redo steps the last undo step cleared (until the next change)
     size_t undoBytes_ = 0;
     bool inStroke_ = false, strokeStep_ = false;  // strokeStep_: the stroke's start took an undo step
