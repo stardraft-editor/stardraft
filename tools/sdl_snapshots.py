@@ -1221,16 +1221,20 @@ def check_isom_canvas(output):
 
 
 def check_isom_canvas_remove(output):
-    """None when Remove From Canvas takes a strip away (fewer places) and Restore Removed Pieces brings the places back."""
-    m = re.search(r"remove test: places (\d+), a strip removed at tile [\d,]+ after \d+ tries: places (\d+), restored: places (\d+), removed strips (\d+)", output)
+    """None when Remove From Canvas takes a place away (fewer places) and Restore Removed Pieces brings it back, and
+    Remove All Rect N Pieces From Canvas leaves no place of that rect and Restore brings them back."""
+    m = re.search(r"remove test: places (\d+), one removed at tile [\d,]+: places (\d+), restored: places (\d+), "
+                  r"rect \d+ removed: places (\d+), of the rect (\d+), restored: places (\d+), removed (\d+)", output)
     if not m:
         line = next((l for l in output.splitlines() if l.startswith("remove test:")), "no remove test line")
         return line
-    before, removed, restored, left = (int(g) for g in m.groups())
-    if removed >= before:
-        return f"the removal left {removed} of {before} places"
-    if restored != before or left != 0:
-        return f"the restore gave {restored} of {before} places, {left} strips still removed"
+    before, one, back, without, ofrect, back2, left = (int(g) for g in m.groups())
+    if one >= before:
+        return f"the removal left {one} of {before} places"
+    if back != before or back2 != before or left != 0:
+        return f"the restores gave {back} and {back2} of {before} places, {left} still removed"
+    if without >= before or ofrect != 0:
+        return f"the rect's removal left {without} of {before} places, {ofrect} of the rect"
     return None
 
 

@@ -801,6 +801,7 @@ private:
         isomrules::Family family = isomrules::Family::Other;  // (the terrain's template's: its shape)
         std::vector<std::pair<int, int>> extra;  // (more spots of the shape, found for this terrain: moreRects_)
         std::set<std::pair<int, int>> hidden;    // (the strips taken off the canvas: hiddenOf)
+        std::set<std::array<int, 3>> cut;        // (the pieces drawn as ground in the picture: a place's left tile and rect; (-1, -1, rect): all of a rect (cutOf))
         std::pair<int, int> removeAt{INT_MIN, INT_MIN};  // (Remove From Canvas: the place's tile; the build finds its strip only)
         bool extend = false;                     // (search for more spots that show the rects the shape does not: a terrain's first example)
         uint16_t cacheId = 0;                    // (moreRects_'s key: the terrain's id, a variant's id)
@@ -866,6 +867,7 @@ private:
         in->t = on, in->family = family_, in->cacheId = cacheId;
         in->extraKey = extraKeyOf(on);
         in->hidden = hiddenOf(in->extraKey);
+        in->cut = cutOf(in->extraKey);
         in->removeAt = removeAt_, removeAt_ = {INT_MIN, INT_MIN};
         if (!moreRects_.count(cacheId))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
             if (const auto known = knownExtra(in->extraKey)) moreRects_[cacheId] = *known;
@@ -915,9 +917,19 @@ private:
                 shapeKey_ = in->extraKey;
                 if (in->extend) moreRects_[in->cacheId] = out->extra, keepExtra(in->extraKey, out->extra);
                 if (in->removeAt.first != INT_MIN) {  // (Remove From Canvas: the strip found; the canvas again without it)
-                    if (!out->removeSpot) {
-                        invalidate();
-                        return setMessage(L"Remove From Canvas: this piece is part of the canvas's shape; only the pieces of the small extra strips can go");
+                    if (!out->removeSpot) {  // (a piece of the shape: drawn as ground while its rect is there)
+                        int rect = -1;
+                        if (const auto* t = terrain())
+                            for (const Place& p : places_)
+                                if (p.tx == in->removeAt.first && p.ty == in->removeAt.second && p.piece >= 0 && size_t(p.piece) < t->t.pieces.size())
+                                    rect = t->t.pieces[size_t(p.piece)][0];
+                        if (rect < 0) return invalidate();
+                        auto cut = cutOf(in->extraKey);
+                        cut.insert({in->removeAt.first, in->removeAt.second, rect});
+                        keepCut(in->extraKey, cut);
+                        target_ = -1;
+                        rebuild();
+                        return setMessage(L"Removed the piece from the canvas (right-click > Restore Removed Pieces brings it back)");
                     }
                     auto hidden = hiddenOf(in->extraKey);
                     hidden.insert(*out->removeSpot);
@@ -1591,12 +1603,29 @@ private:
         }
         // (the picture's paint on a new map: a paint depends a little on the paints before it, and a first build paints
         // more than a later one; so a terrain's canvas is the same each time it shows)
+        std::vector<uint16_t> groundTiles;  // (the map with no shape: the ground under the pieces taken off the picture)
+        if (!in.cut.empty() && ed->newMap(W, H, in.era, root, err)) {
+            const auto keep = std::move(shape);
+            shape.clear();
+            ed->useModTerrains(in.all), paint();
+            groundTiles = stardraft::readTerrain(ed->chk(), "TILE").tiles;
+            shape = keep;
+        }
         if (ed->newMap(W, H, in.era, root, err)) {
             ed->useModTerrains(in.all), paint();
             const Look last = lookOn(ed);
             out.strays = last.strays, out.strayTiles = last.strayTiles;
         }
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
+        if (groundTiles.size() == tl.tiles.size())  // (Remove From Canvas: the pieces of the shape taken off, as ground)
+            for (int ty = 0; ty < H; ++ty)
+                for (int tx = 0; tx + 1 < W; ++tx) {
+                    const size_t i = size_t(ty) * W + size_t(tx);
+                    const auto it = index.find(tl.tiles[i]);
+                    if (it == index.end() || (it->second & 1)) continue;
+                    if (const int g = int(t->t.pieces[it->second / 2][0]); in.cut.count({tx, ty, g}) || in.cut.count({-1, -1, g}))
+                        tl.tiles[i] = groundTiles[i], tl.tiles[i + 1] = groundTiles[i + 1];
+                }
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
         std::set<uint16_t> seen;
         std::vector<bool> nullAt(tl.tiles.size());
@@ -2081,8 +2110,10 @@ private:
         std::vector<std::wstring> items{L"Set to NULL"};
         if (kBrushMode) items.push_back(L"Use as Brush");
         for (const wchar_t* s : {L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)", L"Remove"}) items.push_back(s);
-        if (place >= 0) items.push_back(L"Remove From Canvas");
-        if (!shapeKey_.empty() && !hiddenOf(shapeKey_).empty()) items.push_back(L"Restore Removed Pieces");
+        const uint16_t rect = terrain()->t.pieces[size_t(k)][0];
+        const std::wstring removeAll = L"Remove All Rect " + std::to_wstring(rect) + L" Pieces From Canvas";
+        if (place >= 0) items.push_back(L"Remove From Canvas"), items.push_back(removeAll);
+        if (!shapeKey_.empty() && (!hiddenOf(shapeKey_).empty() || !cutOf(shapeKey_).empty())) items.push_back(L"Restore Removed Pieces");
         const int r = shellContextMenuAt(*this, at, items);
         const std::wstring picked = r >= 1 && r <= int(items.size()) ? items[size_t(r - 1)] : std::wstring();
         if (picked == L"Set to NULL") erase();
@@ -2095,6 +2126,7 @@ private:
         } else if (picked == L"Make Unique (Unlink From Linked Tiles)") makeUnique();
         else if (picked == L"Remove") removePiece();
         else if (picked == L"Remove From Canvas") removeFromCanvas(place);
+        else if (picked == removeAll) removeRectFromCanvas(rect);
         else if (picked == L"Restore Removed Pieces") restoreRemoved();
     }
     // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
@@ -2808,43 +2840,76 @@ private:
         for (const auto& [i, j] : spots) v += (v.empty() ? L"" : L";") + std::to_wstring(i) + L"," + std::to_wstring(j);
         prefs::setText(L"IsomHidden-" + key, v);
     }
+    // The pieces of the shape taken off the picture (Remove From Canvas on a piece that no strip paints: its place's left
+    // tile and rect, drawn as ground while that rect is there; Remove All Rect N Pieces From Canvas: (-1, -1, N)), by the
+    // search's key, kept for the next run. Restore Removed Pieces brings them back.
+    std::map<std::wstring, std::set<std::array<int, 3>>> cutKnown_;
+    std::set<std::array<int, 3>> cutOf(const std::wstring& key) {
+        if (const auto it = cutKnown_.find(key); it != cutKnown_.end()) return it->second;
+        std::set<std::array<int, 3>> out;
+        std::wstring v;
+        if (!gSettingsOff && prefs::text(L"IsomCut-" + key, v))
+            for (size_t at = 0; at < v.size();) {
+                size_t end = v.find(L';', at);
+                if (end == std::wstring::npos) end = v.size();
+                int i = 0, j = 0, g = 0;
+                if (std::swscanf(v.substr(at, end - at).c_str(), L"%d,%d,%d", &i, &j, &g) == 3) out.insert({i, j, g});
+                at = end + 1;
+            }
+        return cutKnown_[key] = out;
+    }
+    void keepCut(const std::wstring& key, const std::set<std::array<int, 3>>& cut) {
+        cutKnown_[key] = cut;
+        if (gSettingsOff) return;
+        std::wstring v;
+        for (const auto& c : cut) v += (v.empty() ? L"" : L";") + std::to_wstring(c[0]) + L"," + std::to_wstring(c[1]) + L"," + std::to_wstring(c[2]);
+        prefs::setText(L"IsomCut-" + key, v);
+    }
+    void removeRectFromCanvas(uint16_t rect) {
+        if (shapeKey_.empty() || loading_) return;
+        auto cut = cutOf(shapeKey_);
+        cut.insert({-1, -1, int(rect)});
+        keepCut(shapeKey_, cut);
+        target_ = -1;
+        rebuild();
+        setMessage(L"Removed all pieces of rect " + std::to_wstring(rect) + L" from the canvas (right-click > Restore Removed Pieces brings them back)");
+    }
     void removeFromCanvas(int place) {
         if (place < 0 || place >= int(places_.size()) || loading_) return;
         removeAt_ = {places_[size_t(place)].tx, places_[size_t(place)].ty};
         rebuild();
     }
     // The snapshot's isomrules:<name>!remove (a run without the window's timers): Remove From Canvas on the canvas's
-    // places from the bottom up (the thin shapes are under the shape) until one takes a strip away, then Restore Removed
-    // Pieces. The line tells the places before, after the removal and after the restore.
+    // lowest place (a strip of the thin shapes, or a piece of the shape), then Restore Removed Pieces; then Remove All Rect
+    // N Pieces From Canvas on the first place's rect, then Restore again. The line tells the places after each step.
     std::string testRemoveStrip() {
         if (shapeKey_.empty() || places_.empty()) return "remove test: no canvas";
-        const std::wstring key = shapeKey_;
-        const size_t before = places_.size(), hiddenBefore = hiddenOf(key).size();
+        const size_t before = places_.size();
+        const Place low = places_.back();
         std::string out = "remove test: places " + std::to_string(before);
-        int tries = 0;
-        for (int i = int(places_.size()) - 1; i >= 0 && tries < 80; --i, ++tries) {
-            const Place p = places_[size_t(i)];
-            if (const auto* t = terrain(); t && p.piece >= int(t->t.setPieces) && size_t(p.piece) + t->t.gapPieces < t->t.pieces.size()) {
-                --tries;  // (a fill piece: the cliff tops' diamond, no strip)
-                continue;
-            }
-            removeFromCanvas(i);
-            if (hiddenOf(key).size() > hiddenBefore) {
-                out += ", a strip removed at tile " + std::to_string(p.tx) + "," + std::to_string(p.ty) + " after " + std::to_string(tries + 1) +
-                       " tries: places " + std::to_string(places_.size());
-                restoreRemoved();
-                return out + ", restored: places " + std::to_string(places_.size()) + ", removed strips " + std::to_string(hiddenOf(key).size());
-            }
-            if (places_.size() != before) return out + ", a refused removal changed the canvas (WRONG)";
-        }
-        return out + ", no strip removed in " + std::to_string(tries) + " tries";
+        removeFromCanvas(int(places_.size()) - 1);
+        bool still = false;
+        for (const Place& p : places_) still = still || (p.tx == low.tx && p.ty == low.ty);
+        out += ", one removed at tile " + std::to_string(low.tx) + "," + std::to_string(low.ty) + ": places " + std::to_string(places_.size()) +
+               (still ? " (the place is still there: WRONG)" : "");
+        restoreRemoved();
+        out += ", restored: places " + std::to_string(places_.size());
+        const auto* t = terrain();
+        if (!t || places_.empty() || places_[0].piece < 0) return out;
+        const uint16_t rect = t->t.pieces[size_t(places_[0].piece)][0];
+        removeRectFromCanvas(rect);
+        int left = 0;
+        for (const Place& p : places_) left += p.piece >= 0 && t->t.pieces[size_t(p.piece)][0] == rect;
+        out += ", rect " + std::to_string(rect) + " removed: places " + std::to_string(places_.size()) + ", of the rect " + std::to_string(left);
+        restoreRemoved();
+        return out + ", restored: places " + std::to_string(places_.size()) + ", removed " + std::to_string(hiddenOf(shapeKey_).size() + cutOf(shapeKey_).size());
     }
     void restoreRemoved() {
         if (shapeKey_.empty()) return;
-        const size_t n = hiddenOf(shapeKey_).size();
         keepHidden(shapeKey_, {});
+        keepCut(shapeKey_, {});
         rebuild();
-        setMessage(L"Restored " + std::to_wstring(n) + (n == 1 ? L" removed piece" : L" removed pieces") + L" on the canvas");
+        setMessage(L"Restored the removed pieces on the canvas");
     }
     void keepExtra(const std::wstring& key, const std::vector<std::pair<int, int>>& spots) {
         extraKnown_[key] = spots;
