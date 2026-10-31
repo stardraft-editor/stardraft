@@ -352,6 +352,8 @@ struct MapDialogShot {
         if (resize && gResizeShown == resize.get()) gResizeShown = nullptr;
     }
 };
+extern std::deque<std::string> gShotMapImages;  // (sdl_map_image.inc: --mapimage)
+MapImageOptions sdlMapImageSpec(const std::string& spec);
 bool mapDialogShot(const std::string& name, MapDialogShot& s) {
     if (!gState.ed || !gState.ed->isOpen()) return false;
     Editor& ed = *gState.ed;
@@ -432,8 +434,9 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         gResizeShown = s.resize.get();  // (the ui line; the snapshot's views go at its end)
         return true;
     }
-    if (name == "mapimage") {
+    if (name == "mapimage") {  // (--mapimage: its first options)
         Rect sel{};
+        if (!gShotMapImages.empty()) gMapImageLast = sdlMapImageSpec(gShotMapImages.front()), gShotMapImages.pop_front();
         s.image = std::make_unique<MapImageView>(gMapImageLast, shellMapImageHd(), mapImageSelection(sel));
         s.size = mapImageDialogSetup(s.dlg, *s.image), s.view = &s.dlg;
         return true;

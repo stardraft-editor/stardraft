@@ -33,16 +33,111 @@ struct MapImageOptions {
     bool units = true, doodads = true, sprites = true, locations = false, grid = false;
     // Units: all of them, or only the kinds below (GitHub feedback #185: a picture with no helper units in it).
     bool someUnits = false, keepStarts = true, keepNeutral = true;
+    // The unit types that are never in the picture (Exclude specific units: the chips; kept in the program settings).
+    std::vector<uint16_t> leaveOut;
 };
 
 // Is unit u in the picture?
 inline bool mapImageHasUnit(const MapImageOptions& o, const Unit& u) {
-    if (!o.units) return false;
+    if (!o.units || std::find(o.leaveOut.begin(), o.leaveOut.end(), u.type) != o.leaveOut.end()) return false;
     return !o.someUnits || (o.keepStarts && u.type == 214 /* Start Location */) || (o.keepNeutral && u.owner == 11 /* Player 12 */);
 }
 
 // The options of the last export in this session (the dialog shows them again).
 inline MapImageOptions gMapImageLast;
+
+// Exclude specific units's unit types in the program settings ("12,214"): read once a session, written at each export.
+inline void mapImageLeaveOutLoad() {
+    static bool loaded = false;
+    if (loaded || gSettingsOff) return;
+    loaded = true;
+    std::wstring v;
+    if (!prefs::text(L"MapImage/LeaveOut", v)) return;
+    gMapImageLast.leaveOut.clear();
+    for (size_t at = 0; at < v.size();) {
+        size_t end = v.find(L',', at);
+        if (end == std::wstring::npos) end = v.size();
+        if (end > at && std::iswdigit(v[at])) gMapImageLast.leaveOut.push_back(uint16_t(std::wcstoul(v.substr(at, end - at).c_str(), nullptr, 10)));  // (a number only)
+        at = end + 1;
+    }
+}
+inline void mapImageLeaveOutSave(const std::vector<uint16_t>& types) {
+    if (gSettingsOff) return;
+    std::wstring v;
+    for (uint16_t t : types) v += (v.empty() ? L"" : L",") + std::to_wstring(t);
+    prefs::setText(L"MapImage/LeaveOut", v);
+}
+
+// Exclude specific units's chips: a unit type's name each, left to right; a click on a chip takes it away (onRemove with its index).
+// Chips that do not fit: "+N" at the end.
+class MapImageChips final : public draw::View {
+public:
+    std::function<void(size_t)> onRemove;
+    void setChips(std::vector<std::wstring> names) {
+        names_ = std::move(names), hover_ = -1;
+        invalidate();
+    }
+    void setEnabled(bool on) {
+        enabled_ = on;
+        invalidate();
+    }
+    void paint(draw::Canvas& c) override {
+        boxes_.clear();
+        if (names_.empty()) {
+            c.text({0, 0, width(), height()}, tr(L"No unit excluded"), kDim, draw::kMiddle);
+            return;
+        }
+        const int pad = scale(6), gap = scale(4);
+        int x = 0;
+        for (size_t i = 0; i < names_.size(); ++i) {
+            const std::wstring text = names_[i] + L"  \x00d7";
+            const int w = c.measure(text) + 2 * pad;
+            const int more = i + 1 < names_.size() ? c.measure(L"+" + std::to_wstring(names_.size() - i - 1)) + 2 * pad + gap : 0;
+            if (x + w + more > width() && i > 0) {
+                const draw::Rect r{x, scale(2), x + c.measure(L"+" + std::to_wstring(names_.size() - i)) + 2 * pad, height() - scale(2)};
+                kitpaint::drawChipFace(c, r, false, !enabled_);
+                c.text(r, L"+" + std::to_wstring(names_.size() - i), kDim, draw::kMiddle | draw::kCenter);
+                break;
+            }
+            const draw::Rect r{x, scale(2), x + w, height() - scale(2)};
+            kitpaint::drawChipFace(c, r, enabled_ && int(i) == hover_, !enabled_);
+            c.text({r.left + pad, r.top, r.right - pad, r.bottom}, text, enabled_ ? kText : kDim, draw::kMiddle);
+            boxes_.push_back(r);
+            x += w + gap;
+        }
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        int at = -1;
+        for (size_t i = 0; i < boxes_.size(); ++i)
+            if (boxes_[i].contains(e.pt)) at = int(i);
+        if (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Leave) {
+            const int h = e.kind == draw::MouseKind::Leave ? -1 : at;
+            if (h != hover_) hover_ = h, invalidate();
+            return false;
+        }
+        if (e.kind == draw::MouseKind::Down && e.button == 0 && at >= 0 && enabled_) {
+            if (onRemove) onRemove(size_t(at));
+            return true;
+        }
+        return false;
+    }
+    std::wstring tip(draw::Point p) override {
+        for (const draw::Rect& r : boxes_)
+            if (r.contains(p)) return tr(L"Click to put the unit back in the picture");
+        return L"";
+    }
+    draw::Cursor cursor(draw::Point p) override {
+        for (const draw::Rect& r : boxes_)
+            if (r.contains(p) && enabled_) return draw::Cursor::Hand;
+        return draw::Cursor::Arrow;
+    }
+
+private:
+    std::vector<std::wstring> names_;
+    std::vector<draw::Rect> boxes_;
+    int hover_ = -1;
+    bool enabled_ = true;
+};
 
 // The selected area in map pixels: the terrain selection (Terrain mode, Select), else the selected location. False
 // when there is none.
@@ -197,10 +292,10 @@ void shellMapImageWritten(const fs::path& file, int w, int h, const std::string&
 constexpr int kMapImageExport = 1, kMapImageCancel = 2;
 
 namespace mapImageLayout {
-constexpr int kPad = 16, kRowH = 24, kPitch = 32, kLabelW = 96, kFieldW = 360;
+constexpr int kPad = 16, kRowH = 24, kPitch = 32, kLabelW = 112, kFieldW = 360;
 constexpr int kContentW = kLabelW + kFieldW;
 constexpr int kAreaY = kPad, kScaleY = kAreaY + 3 * kPitch + 8, kShowY = kScaleY + kPitch + 8, kUnitsY = kShowY + 3 * kPitch + 8,
-              kSizeY = kUnitsY + 2 * kPitch + 8;
+              kLeaveY = kUnitsY + 2 * kPitch + 8, kSizeY = kLeaveY + 3 * kPitch + 8;
 constexpr int kButtonH = 28, kButtonsY = kSizeY + kPitch + 16, kWindowH = kButtonsY + kButtonH + kPad;
 constexpr int kColW = 140;  // the first column of the check boxes (the second is wider: Locations and their names)
 }  // namespace mapImageLayout
@@ -212,7 +307,7 @@ public:
     MapImageView(const MapImageOptions& o, bool hd, bool selection) : opts_(o) {
         using stardraft::kit::LabelTone;
         for (auto [l, t] : {std::pair{&labels_[0], L"Area"}, std::pair{&labels_[1], L"Scale"}, std::pair{&labels_[2], L"Show"},
-                            std::pair{&labels_[3], L"Size"}, std::pair{&labels_[4], L"Units"}}) {
+                            std::pair{&labels_[3], L"Size"}, std::pair{&labels_[4], L"Include units"}, std::pair{&labels_[5], L"Exclude specific units"}}) {
             l->setText(tr(t)), l->setTone(LabelTone::Dim);
             add(*l, {0, 0, 0, 0});
         }
@@ -273,6 +368,35 @@ public:
             keeps_[k].onChange = [this, field](bool on) { opts_.*field = on; };
             add(keeps_[k], {0, 0, 0, 0});
         }
+        // Exclude specific units: the unit types never in the picture, as chips (a click takes one away), and a searchable list of the
+        // map's unit types to add one.
+        if (const AppState& app = shellState(); app.ed && app.ed->isOpen()) {
+            const auto& types = app.ed->unitTypes();
+            auto label = [&](uint16_t t) {  // (its name, and its subtitle as the palette shows it: Mineral Field (Type 2))
+                return widen(types[t].name) + (types[t].subtitle.empty() ? L"" : L" (" + widen(types[t].subtitle) + L")");
+            };
+            std::vector<stardraft::kit::DropdownItem> items{{tr(L"Add a unit\x2026"), -1, -1}};
+            for (uint16_t t = 0; t < types.size(); ++t)
+                if (!types[t].name.empty()) items.push_back({label(t), -1, int(t)}), addTypes_.push_back(t);
+            add_.setItems(std::move(items));
+            for (uint16_t t = 0; t < types.size(); ++t) typeNames_.push_back(label(t));
+        }
+        add_.searchable = true;
+        add_.setValue(0);
+        add_.onChange = [this](int i) {
+            if (i >= 1 && size_t(i - 1) < addTypes_.size() &&
+                std::find(opts_.leaveOut.begin(), opts_.leaveOut.end(), addTypes_[size_t(i - 1)]) == opts_.leaveOut.end())
+                opts_.leaveOut.push_back(addTypes_[size_t(i - 1)]);
+            add_.setValue(0);
+            showChips();
+        };
+        chips_.onRemove = [this](size_t i) {
+            if (i < opts_.leaveOut.size()) opts_.leaveOut.erase(opts_.leaveOut.begin() + long(i));
+            showChips();
+        };
+        add(chips_, {0, 0, 0, 0});
+        add(add_, {0, 0, 0, 0});
+        showChips();
         size_.setTone(LabelTone::Normal);
         add(size_, {0, 0, 0, 0});
         update();
@@ -305,6 +429,9 @@ public:
         put(*unitModes_[1], kLabelW, kUnitsY + kPitch, 64, kRowH);
         put(keeps_[0], kLabelW + 72, kUnitsY + kPitch, 136, kRowH);
         put(keeps_[1], kLabelW + 216, kUnitsY + kPitch, kFieldW - 216, kRowH);
+        put(labels_[5], 0, kLeaveY, kContentW, kRowH);  // (Exclude specific units: a line of its own, the list and the chips under it)
+        put(add_, kLabelW, kLeaveY + kPitch, kFieldW, kRowH);
+        put(chips_, kLabelW, kLeaveY + 2 * kPitch, kFieldW, kRowH);
         put(labels_[3], 0, kSizeY, kLabelW - 8, kRowH);
         put(size_, kLabelW, kSizeY, kFieldW, kRowH);
     }
@@ -318,11 +445,17 @@ private:
         if (dlg_) dlg_->setEnabledFor(kMapImageExport, size_ok_);
         for (auto& m : unitModes_) m->setEnabled(opts_.units);  // (the units' choice: only while units show)
         for (auto& k : keeps_) k.setEnabled(opts_.units && opts_.someUnits);
+        add_.setEnabled(opts_.units), chips_.setEnabled(opts_.units);  // (Exclude specific units: only while units show)
+    }
+    void showChips() {
+        std::vector<std::wstring> names;
+        for (uint16_t t : opts_.leaveOut) names.push_back(t < typeNames_.size() && !typeNames_[t].empty() ? typeNames_[t] : L"#" + std::to_wstring(t));
+        chips_.setChips(std::move(names));
     }
 
     MapImageOptions opts_;
     stardraft::kit::Dialog* dlg_ = nullptr;
-    stardraft::kit::Label labels_[5], size_;
+    stardraft::kit::Label labels_[6], size_;
     stardraft::kit::RadioGroup group_;
     std::unique_ptr<stardraft::kit::RadioButton> areas_[3];
     stardraft::kit::Dropdown scale_;
@@ -331,6 +464,10 @@ private:
     stardraft::kit::RadioGroup unitGroup_;
     std::unique_ptr<stardraft::kit::RadioButton> unitModes_[2];
     stardraft::kit::CheckBox keeps_[2];
+    stardraft::kit::Dropdown add_;          // (Exclude specific units: Add a unit…, then the map's unit types)
+    std::vector<uint16_t> addTypes_;        // (its items' unit types, from item 1)
+    std::vector<std::wstring> typeNames_;   // (each unit type's name, for the chips)
+    MapImageChips chips_;
     bool size_ok_ = false;
 };
 
@@ -447,12 +584,14 @@ inline void exportMapImage(draw::View& from) {
     AppState& app = shellState();
     if (!app.ed || !app.ed->isOpen()) return;
     Rect sel{};
+    mapImageLeaveOutLoad();
     MapImageView view(gMapImageLast, shellMapImageHd(), mapImageSelection(sel));
     stardraft::kit::Dialog dlg;
     const draw::Point size = mapImageDialogSetup(dlg, view);
     if (dlg.run(from, tr(L"Export map image"), size) != kMapImageExport || !view.valid()) return;
     const MapImageOptions o = view.options();
     gMapImageLast = o;
+    mapImageLeaveOutSave(o.leaveOut);
     std::wstring base = app.ed->path().empty() ? std::wstring(L"map") : app.ed->path().stem().wstring();
     const fs::path file = pickPngFile(L"Export map image", base + L".png");
     if (file.empty()) return;

@@ -2643,6 +2643,11 @@ constexpr UiText kRows[] = {
     {L"Invalid resource node: the box of a resource may not reach into the orange areas", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uC704\uCE58: \uC790\uC6D0\uC758 \uC0C1\uC790\uB294 \uC8FC\uD669 \uC601\uC5ED\uC5D0 \uB4E4\uC5B4\uAC08 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"},
     {L"Invalid resource depot is hidden", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uBCF8\uC9C4 \uC704\uCE58\uAC00 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
     {L"Invalid resource node is hidden", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uC704\uCE58\uAC00 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
+    {L"Exclude specific units", L"\uD2B9\uC815 \uC720\uB2DB \uC81C\uC678"},
+    {L"Add a unit\u2026", L"\uC720\uB2DB \uCD94\uAC00\u2026"},
+    {L"No unit excluded", L"\uC81C\uC678\uB41C \uC720\uB2DB \uC5C6\uC74C"},
+    {L"Click to put the unit back in the picture", L"\uD074\uB9AD\uD558\uBA74 \uC720\uB2DB\uC774 \uADF8\uB9BC\uC5D0 \uB2E4\uC2DC \uB098\uC635\uB2C8\uB2E4"},
+    {L"Include units", L"\uD3EC\uD568\uD560 \uC720\uB2DB"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

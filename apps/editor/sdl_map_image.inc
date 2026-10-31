@@ -167,42 +167,55 @@ void shellMapImageCanceled(const fs::path& file, int done, int parts) {
                 fs::exists(file, ec) ? "there" : "not there", narrow(part.filename().wstring()).c_str(), fs::exists(part, ec) ? "there" : "not there");
 }
 
+// A snapshot's --mapimage spec ("8,whole,nounits,leaveout=176:214,sel=..."): the options it gives (and the cancel
+// count and the terrain selection it sets).
+MapImageOptions sdlMapImageSpec(const std::string& spec) {
+    MapImageOptions o;
+    gShotMapImageCancel = 0;
+    size_t at = 0;
+    while (at <= spec.size()) {
+        const size_t end = std::min(spec.find(',', at), spec.size());
+        const std::string t = spec.substr(at, end - at);
+        at = end + 1;
+        const bool off = t.rfind("no", 0) == 0;
+        const std::string n = off ? t.substr(2) : t;
+        if (!t.empty() && std::isdigit((unsigned char)t[0])) o.px = std::atoi(t.c_str());
+        else if (t == "whole") o.area = MapImageArea::Whole;
+        else if (t == "view") o.area = MapImageArea::View;
+        else if (t == "selection") o.area = MapImageArea::Selection;
+        else if (n == "units") o.units = !off;
+        else if (n == "doodads") o.doodads = !off;
+        else if (n == "sprites") o.sprites = !off;
+        else if (n == "locations") o.locations = !off;
+        else if (n == "grid") o.grid = !off;
+        else if (t == "allunits") o.someUnits = false;
+        else if (t == "someunits") o.someUnits = true;
+        else if (n == "starts") o.keepStarts = !off;
+        else if (n == "neutral") o.keepNeutral = !off;
+        else if (t.rfind("leaveout=", 0) == 0) {  // (leaveout=<type>:<type>: the excluded unit types)
+            o.leaveOut.clear();
+            for (size_t a = 9; a < t.size();) {
+                size_t e = std::min(t.find(':', a), t.size());
+                if (e > a) o.leaveOut.push_back(uint16_t(std::atoi(t.substr(a, e - a).c_str())));
+                a = e + 1;
+            }
+        }
+        else if (t.rfind("cancel=", 0) == 0) gShotMapImageCancel = std::atoi(t.c_str() + 7);
+        else if (t.rfind("sel=", 0) == 0) {
+            int v[4] = {0, 0, 0, 0};
+            std::sscanf(t.c_str() + 4, "%d:%d:%d:%d", &v[0], &v[1], &v[2], &v[3]);
+            gState.terrainSel = {v[0] * 32, v[1] * 32, v[2] * 32, v[3] * 32}, gState.hasTerrainSel = true, gState.terrainSelMask.clear();
+        }
+    }
+    return o;
+}
+
 // File > Export map image (Ctrl+Shift+E). A snapshot's --mapimage gives the dialog its first options.
 void sdlExportMapImage() {
     if (!gRoot || !gState.ed || !gState.ed->isOpen()) return;
     if (!gShotMapImages.empty()) {
-        const std::string spec = gShotMapImages.front();
+        gMapImageLast = sdlMapImageSpec(gShotMapImages.front());
         gShotMapImages.pop_front();
-        MapImageOptions o;
-        gShotMapImageCancel = 0;
-        size_t at = 0;
-        while (at <= spec.size()) {
-            const size_t end = std::min(spec.find(',', at), spec.size());
-            const std::string t = spec.substr(at, end - at);
-            at = end + 1;
-            const bool off = t.rfind("no", 0) == 0;
-            const std::string n = off ? t.substr(2) : t;
-            if (!t.empty() && std::isdigit((unsigned char)t[0])) o.px = std::atoi(t.c_str());
-            else if (t == "whole") o.area = MapImageArea::Whole;
-            else if (t == "view") o.area = MapImageArea::View;
-            else if (t == "selection") o.area = MapImageArea::Selection;
-            else if (n == "units") o.units = !off;
-            else if (n == "doodads") o.doodads = !off;
-            else if (n == "sprites") o.sprites = !off;
-            else if (n == "locations") o.locations = !off;
-            else if (n == "grid") o.grid = !off;
-            else if (t == "allunits") o.someUnits = false;
-            else if (t == "someunits") o.someUnits = true;
-            else if (n == "starts") o.keepStarts = !off;
-            else if (n == "neutral") o.keepNeutral = !off;
-            else if (t.rfind("cancel=", 0) == 0) gShotMapImageCancel = std::atoi(t.c_str() + 7);
-            else if (t.rfind("sel=", 0) == 0) {
-                int v[4] = {0, 0, 0, 0};
-                std::sscanf(t.c_str() + 4, "%d:%d:%d:%d", &v[0], &v[1], &v[2], &v[3]);
-                gState.terrainSel = {v[0] * 32, v[1] * 32, v[2] * 32, v[3] * 32}, gState.hasTerrainSel = true, gState.terrainSelMask.clear();
-            }
-        }
-        gMapImageLast = o;
     }
     exportMapImage(*gRoot);
 }

@@ -2641,3 +2641,8 @@ Invalid resource depot: the box of a town hall or a start location may not reach
 Invalid resource node: the box of a resource may not reach into the orange areas	잘못된 자원 위치: 자원의 상자는 주황 영역에 들어갈 수 없습니다
 Invalid resource depot is hidden	잘못된 자원 본진 위치가 숨겨졌습니다
 Invalid resource node is hidden	잘못된 자원 위치가 숨겨졌습니다
+Exclude specific units	특정 유닛 제외
+Add a unit…	유닛 추가…
+No unit excluded	제외된 유닛 없음
+Click to put the unit back in the picture	클릭하면 유닛이 그림에 다시 나옵니다
+Include units	포함할 유닛
