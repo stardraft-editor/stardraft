@@ -733,8 +733,6 @@ private:
         bool extend = false;                     // (search for more spots that show the rects the shape does not: a terrain's first example)
         uint16_t cacheId = 0;                    // (moreRects_'s key: the terrain's id, a variant's id)
         std::wstring extraKey;                   // (what the search's spots depend on: extraKeyOf)
-        std::set<std::pair<int, int>> hidden;    // (the spots removed from the canvas: hiddenOf)
-        std::pair<int, int> removeAt{INT_MIN, INT_MIN};  // (Remove From Canvas: the place's tile; the build finds its spot only)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
         std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins;  // (pins_)
@@ -748,15 +746,15 @@ private:
         std::vector<Place> places;
         std::vector<int> holes, absent;
         std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
-        std::vector<std::pair<int, int>> shape;  // (the spots painted: the shape's, the extra ones; not the hidden ones)
-        std::optional<std::pair<int, int>> removeSpot;  // (Remove From Canvas: the spot to remove; none: no spot paints the place alone)
         int gained = 0;                          // (the search: rects shown that were not)
+        int thinTop = -1;                        // (the map's tile row where the thin shapes start; -1: none)
         draw::Rect crop;
         std::vector<uint16_t> ids;  // (the crop's tiles, row by row; kNullId: a NULL half)
         std::unique_ptr<draw::Bitmap> picture, reference;
     };
     static constexpr uint16_t kNullId = 0xFFFF;
-    static constexpr int kHalfSpot = 10000;  // (a spot of the example's shape painted with the 0.5 brush: i + kHalfSpot, on the grid of 32 x 16)
+    static constexpr int kHalfSpot = 10000;
+    static constexpr int kThinRow = 34;  // (the thin shapes' row: half spots 34 x 16 pixels under the middle, 3 up or down, and diamonds on its middle; 4 free tile rows under the shape's lowest spot, so the two do not join)  // (a spot of the example's shape painted with the 0.5 brush: i + kHalfSpot, on the grid of 32 x 16)
     void rebuild() {
         const auto* t = terrain();
         std::string err;
@@ -782,8 +780,6 @@ private:
         const uint16_t cacheId = var ? var->id : t->t.id;  // (the extra spots: the variant's own)
         in->t = on, in->family = family_, in->cacheId = cacheId;
         in->extraKey = extraKeyOf(on);
-        in->hidden = hiddenOf(in->extraKey);
-        in->removeAt = removeAt_, removeAt_ = {INT_MIN, INT_MIN};
         if (!moreRects_.count(cacheId))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
             if (const auto known = knownExtra(in->extraKey)) moreRects_[cacheId] = *known;
         if (const auto it = moreRects_.find(cacheId); it != moreRects_.end()) in->extra = it->second;
@@ -829,22 +825,8 @@ private:
             foreground([this, in, out] {
                 if (in->gen != buildGen_) return;
                 building_ = false;
-                if (in->removeAt.first != INT_MIN) {  // (Remove From Canvas: the spot found; the canvas again without it)
-                    if (in->extend) moreRects_[in->cacheId] = out->extra, keepExtra(in->extraKey, out->extra);
-                    if (!out->removeSpot) {
-                        invalidate();
-                        return setMessage(L"Remove From Canvas: no spot of the canvas paints this piece alone (the pieces around it need it)");
-                    }
-                    auto hidden = hiddenOf(in->extraKey);
-                    hidden.insert(*out->removeSpot);
-                    keepHidden(in->extraKey, hidden);
-                    target_ = -1;
-                    rebuild();
-                    return setMessage(L"Removed the piece from the canvas (right-click > Restore Removed Pieces brings back all " + std::to_wstring(hidden.size()) +
-                                      (hidden.size() == 1 ? L" piece)" : L" pieces)"));
-                }
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop, ++placesRev_;
-                shape_ = std::move(out->shape), shapeKey_ = in->extraKey;
+                thinTop_ = out->thinTop;
                 ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
@@ -863,7 +845,7 @@ private:
         if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data);
         Editor* ed = puzzleEd_.get();
         const uint16_t root = in.root;
-        constexpr int W = 40, H = 28;
+        constexpr int W = 40, H = 46;  // (the shape in the middle; under it, the row of the thin shapes: kThinRow)
         if (!ed->isOpen() || ed->era() != in.era) {
             if (!ed->newMap(W, H, in.era, root, err)) return;
         }
@@ -934,15 +916,11 @@ private:
         // (one shape for each kind: diamonds of 1, in steps of 64 to the side and 32 up or down from the middle; the
         // places that show the most rects of the mod's walls and paths: a search over all their terrains found the same
         // few each time)
-        std::vector<std::pair<int, int>> shape;  // (the shape's spots, then the extra ones; none that the canvas's menu removed)
-        for (const auto& sp : shapeOf(in.family))
-            if (!in.hidden.count(sp)) shape.push_back(sp);
-        const size_t baseSpots = shape.size();
-        for (const auto& sp : in.extra)
-            if (!in.hidden.count(sp)) shape.push_back(sp);
+        std::vector<std::pair<int, int>> shape = shapeOf(in.family);
+        shape.insert(shape.end(), in.extra.begin(), in.extra.end());
         auto paint = [&]() {  // (the bordering terrain all around: no other terrain in the picture; the shape)
             ed->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
-            ed->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 24.0f});
+            ed->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 40.0f});
             for (const auto& [i, j] : shape)
                 if (i >= kHalfSpot / 2)  // (a half spot: the 0.5 brush, on the grid of 32 x 16)
                     ed->paintBrush(cx + (i - kHalfSpot) * 32, cy + j * 16, t->t.id, Brush{Brush::Diamond, 0.5f});
@@ -997,10 +975,7 @@ private:
             std::vector<Spot> spots;
             for (int j = -9; j <= 9; ++j)
                 for (int i = -6; i <= 6; ++i)
-                    if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end() && !in.hidden.count({i, j})) spots.push_back({{i, j}, SIZE_MAX});
-            for (int j = -18; j <= 18; ++j)  // (the 0.5 brush's spots: rects only a thin strip shows, as a map painted with it)
-                for (int i = -12; i <= 12; ++i)
-                    if ((i + j) % 2 == 0 && !in.hidden.count({kHalfSpot + i, j})) spots.push_back({{kHalfSpot + i, j}, SIZE_MAX});
+                    if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end()) spots.push_back({{i, j}, SIZE_MAX});
             for (int round = 0; round < 40 && in.gen == buildGen_ && !done(); ++round) {  // (every rect and variant shown: no search)
                 std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.bound > b.bound; });
                 int best = -1;
@@ -1036,30 +1011,54 @@ private:
                 for (Spot& sp : spots)  // (the spots next to it, full or half: a joint with it can show rects they did not alone; tried again)
                     if (const auto [sx, sy] = px(sp.at); std::abs(sx - bx) <= 96 && std::abs(sy - by) <= 64) sp.bound = SIZE_MAX;
             }
-            out.gained = int(have.size() - before);
-            out.extra.assign(shape.begin() + long(baseSpots), shape.end());
+            // (the thin shapes: the rects that only the 0.5 brush's strips show (a thin strip has no room for a terrain's
+            // walls), alone or where they join a wall. In a row of their own under the shape (kThinRow): three small
+            // diamonds to join, then half spots one at a time: each shows a rect that none showed, and loses none. No rect
+            // gained: the row goes)
+            const size_t mainSpots = shape.size();
+            const auto mainCounts = counts;
+            const auto mainHave = have;
+            for (int i : {-4, 0, 4}) shape.push_back({i, kThinRow / 2});
             paint();
-        }
-        if (in.removeAt.first != INT_MIN) {  // (Remove From Canvas: the spot whose removal takes the place away with the fewest other tiles changed)
-            const stardraft::TerrainLayer full = stardraft::readTerrain(ed->chk(), "TILE");
-            const auto [rx, ry] = in.removeAt;
-            auto piece = [&](const stardraft::TerrainLayer& l) {
-                return rx >= 0 && ry >= 0 && rx < W && ry < H && index.count(l.tiles[size_t(ry) * W + rx]) > 0;
+            counts = shownCounts();
+            have.insert(mainHave.begin(), mainHave.end());
+            for (const auto& [g, c] : counts) have.insert(g);
+            bool thinGained = std::any_of(want.begin(), want.end(), [&](uint16_t g) { return have.count(g) && !mainHave.count(g); });
+            auto allShown = [&] { return std::all_of(want.begin(), want.end(), [&](uint16_t g) { return have.count(g) > 0; }); };
+            auto thinSearch = [&](int jLo, int jHi) {  // (half spots in rows jLo to jHi, one at a time, each for a rect that none showed)
+                bool gained = false;
+                for (int round = 0; round < 24 && in.gen == buildGen_ && !allShown(); ++round) {
+                int bestI = 0, bestJ = 0;
+                size_t bestNew = 0;
+                std::map<uint16_t, int> bestCounts;
+                const int total = (jHi - jLo + 1) * 25;
+                for (int j = jLo; j <= jHi && in.gen == buildGen_; ++j)
+                    for (int i = -12; i <= 12 && in.gen == buildGen_; ++i) {
+                        progress(kStepSearch, (j - jLo) * 25 + i + 13, total, round + 1);
+                        if ((i + j) % 2 != 0 || std::find(shape.begin(), shape.end(), std::make_pair(kHalfSpot + i, j)) != shape.end()) continue;
+                        shape.push_back({kHalfSpot + i, j});
+                        paint();
+                        std::map<uint16_t, int> now = shownCounts();
+                        shape.pop_back();
+                        if (!std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; })) continue;
+                        size_t fresh = 0;
+                        for (uint16_t g : want) fresh += now.count(g) && !have.count(g);
+                        if (fresh > bestNew) bestNew = fresh, bestI = i, bestJ = j, bestCounts = std::move(now);
+                    }
+                if (!bestNew || in.gen != buildGen_) break;
+                shape.push_back({kHalfSpot + bestI, bestJ}), counts = std::move(bestCounts), gained = true;
+                for (const auto& [g, c] : counts) have.insert(g);
+                }
+                return gained;
             };
-            const std::vector<std::pair<int, int>> all = shape;
-            size_t best = SIZE_MAX;
-            for (size_t k = 0; k < all.size() && in.gen == buildGen_; ++k) {
-                shape = all;
-                shape.erase(shape.begin() + long(k));
-                paint();
-                const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
-                if (piece(l)) continue;  // (the place is still there)
-                size_t changed = 0;
-                for (size_t i = 0; i < l.tiles.size(); ++i) changed += l.tiles[i] != full.tiles[i];
-                if (changed < best) best = changed, out.removeSpot = all[k];
-            }
-            shape = all;
-            return;
+            if (thinSearch(kThinRow - 3, kThinRow + 3)) thinGained = true;
+            if (!thinGained) shape.resize(mainSpots), counts = mainCounts, have = mainHave;
+            // (a rect that shows only where a thin strip joins the shape's walls: a half spot in the shape, for that rect
+            // alone; the puzzle has every rect)
+            thinSearch(-18, 18);
+            out.gained = int(have.size() - before);
+            out.extra.assign(shape.begin() + long(shapeOf(in.family).size()), shape.end());
+            paint();
         }
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
@@ -1131,25 +1130,21 @@ private:
                 part.push_back(tl.tiles[size_t(y) * W + x]);
                 out.ids.push_back(nullAt[size_t(y) * W + x] ? kNullId : part.back());
             }
+        for (const Place& p : out.places)  // (the thin shapes' row: the first tile row of its places, under the free rows)
+            if (p.ty * 32 >= cy + (kThinRow - 6) * 16 && (out.thinTop < 0 || p.ty < out.thinTop)) out.thinTop = p.ty;
         progress(kStepPicture);
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
-        out.shape = shape;
         addReference(shape);
     }
     // A family's shape: diamonds of 1, in steps of 64 to the side and 32 up or down from the middle (the places that show
     // the most rects of walls and of blends: a search over all the mod's terrains found the same few each time; More
     // rects adds to them); the game's borders (Other): both.
     static const std::vector<std::pair<int, int>>& shapeOf(isomrules::Family f) {
-        // (and with the 0.5 brush, at the right: a strip down to the right, a strip up to the right, a single one: the
-        // thin strips maps have)
-        auto thin = [](std::vector<std::pair<int, int>> v) {
-            for (int k = 0; k < 4; ++k) v.push_back({kHalfSpot + 9 + k, 3 + k}), v.push_back({kHalfSpot + 9 + k, -3 - k});
-            v.push_back({kHalfSpot + 15, 1});
-            return v;
-        };
-        static const std::vector<std::pair<int, int>> kWall = thin({{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}});
-        static const std::vector<std::pair<int, int>> kPath = thin({{0, 0}, {0, -2}, {-1, 1}, {0, 2}, {3, 1}, {3, -3}, {-3, -3}});
-        static const std::vector<std::pair<int, int>> kBoth = thin({{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}});
+        // (the thin strips maps have (the 0.5 brush) are not in it: the search puts those that show a rect in a row of
+        // their own under it, kThinRow)
+        static const std::vector<std::pair<int, int>> kWall = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}};
+        static const std::vector<std::pair<int, int>> kPath = {{0, 0}, {0, -2}, {-1, 1}, {0, 2}, {3, 1}, {3, -3}, {-3, -3}};
+        static const std::vector<std::pair<int, int>> kBoth = {{0, 0}, {0, -2}, {-1, -3}, {-1, 3}, {3, -3}, {-1, 1}, {0, 2}, {3, 1}, {-3, -3}};
         return f == isomrules::Family::Wall || f == isomrules::Family::Cliff ? kWall : f == isomrules::Family::Other ? kBoth : kPath;
     }
     // The reference over the example, on or off (Ctrl+R); its opacity is the slider (Ctrl+Shift+Up / Ctrl+Shift+Down: 10 % steps; 100 %:
@@ -1483,8 +1478,6 @@ private:
         std::vector<std::wstring> items{L"Set to NULL"};
         if (kBrushMode) items.push_back(L"Use as Brush");
         for (const wchar_t* s : {L"Show in Tiles", L"Make Unique (Unlink From Linked Tiles)", L"Remove"}) items.push_back(s);
-        if (place >= 0 && !shape_.empty()) items.push_back(L"Remove From Canvas");
-        if (!shapeKey_.empty() && !hiddenOf(shapeKey_).empty()) items.push_back(L"Restore Removed Pieces");
         const int r = shellContextMenuAt(*this, at, items);
         const std::wstring picked = r >= 1 && r <= int(items.size()) ? items[size_t(r - 1)] : std::wstring();
         if (picked == L"Set to NULL") erase();
@@ -1496,8 +1489,6 @@ private:
             }
         } else if (picked == L"Make Unique (Unlink From Linked Tiles)") makeUnique();
         else if (picked == L"Remove") removePiece();
-        else if (picked == L"Remove From Canvas") hideSpot(place);
-        else if (picked == L"Restore Removed Pieces") restoreSpots();
     }
     // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void place(uint16_t value) {
@@ -2163,7 +2154,7 @@ private:
             for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
             g = m->t.ground;
         }
-        return L"IsomExtra/v5-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+        return L"IsomExtra/v8-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
                std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
     }
     std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
@@ -2180,48 +2171,6 @@ private:
             at = end + 1;
         }
         return extraKnown_[key] = spots;
-    }
-    // The spots removed from the canvas (its right-click menu: Remove From Canvas), by the search's key (extraKeyOf):
-    // the canvas paints them no more, and the search does not add them again.
-    std::vector<std::pair<int, int>> shape_;  // (the spots of the canvas shown)
-    std::wstring shapeKey_;                   // (their key)
-    std::map<std::wstring, std::set<std::pair<int, int>>> hiddenKnown_;
-    std::set<std::pair<int, int>> hiddenOf(const std::wstring& key) {
-        if (const auto it = hiddenKnown_.find(key); it != hiddenKnown_.end()) return it->second;
-        std::set<std::pair<int, int>> out;
-        std::wstring v;
-        if (!gSettingsOff && prefs::text(L"IsomHidden-" + key, v))
-            for (size_t at = 0; at < v.size();) {
-                size_t end = v.find(L';', at);
-                if (end == std::wstring::npos) end = v.size();
-                int i = 0, j = 0;
-                if (std::swscanf(v.substr(at, end - at).c_str(), L"%d,%d", &i, &j) == 2) out.insert({i, j});
-                at = end + 1;
-            }
-        return hiddenKnown_[key] = out;
-    }
-    void keepHidden(const std::wstring& key, const std::set<std::pair<int, int>>& spots) {
-        hiddenKnown_[key] = spots;
-        if (gSettingsOff) return;
-        std::wstring v;
-        for (const auto& [i, j] : spots) v += (v.empty() ? L"" : L";") + std::to_wstring(i) + L"," + std::to_wstring(j);
-        prefs::setText(L"IsomHidden-" + key, v);
-    }
-    // Remove From Canvas: the spot that paints place p goes: of the spots whose removal takes the place away, the one
-    // that changes the fewest other tiles (the build tries each; the rects it showed alone show no more, the checklist
-    // says which). Restore Removed Pieces: all of them come back.
-    std::pair<int, int> removeAt_{INT_MIN, INT_MIN};
-    void hideSpot(int place) {
-        if (place < 0 || place >= int(places_.size()) || shapeKey_.empty()) return;
-        removeAt_ = {places_[size_t(place)].tx, places_[size_t(place)].ty};
-        rebuild();
-    }
-    void restoreSpots() {
-        if (shapeKey_.empty()) return;
-        const size_t n = hiddenOf(shapeKey_).size();
-        keepHidden(shapeKey_, {});
-        rebuild();
-        setMessage(L"Restored " + std::to_wstring(n) + (n == 1 ? L" removed piece" : L" removed pieces") + L" on the canvas");
     }
     void keepExtra(const std::wstring& key, const std::vector<std::pair<int, int>>& spots) {
         extraKnown_[key] = spots;
@@ -2627,6 +2576,7 @@ private:
     bool jumpRow_ = false;
     std::atomic<int> buildGen_{0};  // (the newest example asked for: the worker leaves out older ones)
     draw::Rect crop_, puzzle_, palette_, strip_, check_, refRow_;
+    int thinTop_ = -1;  // (the example's tile row where the thin shapes start: BuildOut::thinTop)
     // The four columns (Terrains, Rects, Example, Tiles): their order and which show, kept in the layout settings
     // (Layout/IsomColumns: the order in 2-bit digits, the shown bits from bit 8). Each has a header; its right-click
     // menu moves or hides it (a hidden one comes back from any header's menu or the Menu button).
@@ -3002,6 +2952,11 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         const int pw = int(float(picture_->width()) * zoom_), ph = int(float(picture_->height()) * zoom_);
         c.bitmap(*picture_, {0, 0, picture_->width(), picture_->height()}, {ox, oy, ox + pw, oy + ph});
         const float ts = 32 * zoom_;
+        if (thinTop_ > crop_.top && thinTop_ < crop_.bottom) {  // (the thin shapes' row: a line over it, its name)
+            const int y = oy + int((thinTop_ - crop_.top) * ts);
+            c.fill({ox, y, ox + pw, y + scale(1)}, kBorder);
+            c.text({ox + scale(6), y + scale(2), ox + pw, y + scale(20)}, L"Thin shapes", kDim, draw::kMiddle);
+        }
         auto rectOf = [&](const Place& p) {
             const int x = ox + int((p.tx - crop_.left) * ts), y = oy + int((p.ty - crop_.top) * ts);
             return draw::Rect{x, y, x + int(2 * ts), y + int(ts)};
