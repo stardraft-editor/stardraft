@@ -1255,7 +1255,7 @@ private:
                 const size_t base = score(counts);
                 paint();
                 const int curStrays = lookOn(ed).strays;  // (the map as the shape is now)
-                const size_t batch = 2 * std::max<size_t>(helpers_.size(), 1);  // (the spots tried at once: a few for each core)
+                const size_t batch = 4 * std::max<size_t>(helpers_.size(), 1);  // (the spots tried at once: a few for each core)
                 for (size_t s = 0; s < spots.size() && spots[s].bound > bestGain && in.gen == buildGen_;) {
                     std::vector<std::pair<int, int>> some;
                     for (size_t e = s; e < spots.size() && some.size() < std::max<size_t>(batch, 2) && spots[e].bound > bestGain; ++e) some.push_back(spots[e].at);
@@ -1317,15 +1317,32 @@ private:
                         if (const auto it = have.find(p); it != have.end()) sc += std::min(it->second, n);
                     return sc;
                 };
+                // (whether a pair has more stacks, up to its need, in `b` than in `a`)
+                auto gains = [&](const std::map<std::pair<uint16_t, uint16_t>, int>& a, const std::map<std::pair<uint16_t, uint16_t>, int>& b) {
+                    for (const auto& [p, n] : stacksNeed) {
+                        const auto x = a.find(p), y = b.find(p);
+                        if (std::min(y == b.end() ? 0 : y->second, n) > std::min(x == a.end() ? 0 : x->second, n)) return true;
+                    }
+                    return false;
+                };
                 paint();
-                int curStacks = stacksScore(stacksOn(ed)), curStrays = lookOn(ed).strays;
+                std::map<std::pair<uint16_t, uint16_t>, int> curHave = stacksOn(ed);
+                int curStacks = stacksScore(curHave), curStrays = lookOn(ed).strays;
                 int needAll = 0;
                 for (const auto& [p, n] : stacksNeed) needAll += n;
+                // (a spot that gave no pair a stack more in a round gives none in the next unless the spot added was next to
+                // it: it is tried again only then. A spot added that takes a pair's stack away makes every spot new again)
+                std::set<std::pair<int, int>> dull;
+                std::pair<int, int> added{INT_MIN, INT_MIN};
                 for (int round = 0; round < 24 && curStacks < needAll && in.gen == buildGen_; ++round) {
                     std::vector<std::pair<int, int>> tries;
                     for (int j = -9; j <= 9; ++j)
-                        for (int i = -6; i <= 6; ++i)
-                            if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end()) tries.push_back({i, j});
+                        for (int i = -6; i <= 6; ++i) {
+                            const std::pair<int, int> sp{i, j};
+                            if (std::find(shape.begin(), shape.end(), sp) != shape.end()) continue;
+                            if (dull.count(sp) && !(added.first != INT_MIN && std::abs(i - added.first) <= 2 && std::abs(j - added.second) <= 3)) continue;
+                            tries.push_back(sp);
+                        }
                     progress(kStepSearch, round + 1, 24, round + 1);
                     std::vector<std::pair<std::map<uint16_t, int>, std::map<std::pair<uint16_t, uint16_t>, int>>> seen(tries.size());
                     std::vector<int> strays(tries.size());
@@ -1333,6 +1350,8 @@ private:
                     int best = -1, bestStacks = curStacks;
                     for (size_t k = 0; k < tries.size(); ++k) {
                         const int sc = stacksScore(seen[k].second);
+                        if (!gains(curHave, seen[k].second)) dull.insert(tries[k]);
+                        else dull.erase(tries[k]);
                         if (sc <= bestStacks || strays[k] > curStrays) continue;  // (no stray more)
                         bool keeps = true;  // (no rect loses a place, up to its variants)
                         for (const auto& [g, nv] : need) {
@@ -1343,6 +1362,9 @@ private:
                     }
                     if (best < 0) break;
                     shape.push_back(tries[size_t(best)]), counts = seen[size_t(best)].first, curStacks = bestStacks, curStrays = strays[size_t(best)];
+                    added = tries[size_t(best)];
+                    if (gains(seen[size_t(best)].second, curHave)) dull.clear();
+                    curHave = seen[size_t(best)].second;
                     for (const auto& [g, c] : counts) have.insert(g);
                 }
             }
