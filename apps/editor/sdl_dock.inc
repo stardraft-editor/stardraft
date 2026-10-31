@@ -55,7 +55,7 @@ std::vector<MacDockItem> sdlDockItems() {
 void sdlDockOpen(const std::string& utf8) {
     const fs::path f = fs::path(widen(utf8));
     shellPost([f] {
-        if (!sdlUiWaits()) confirmReplace([f] { openAny(f); });
+        if (!sdlUiWaits()) openAny(f);
     });
 }
 

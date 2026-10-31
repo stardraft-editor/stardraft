@@ -233,7 +233,7 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
         return;
     }
     ed->onOpenStep = nullptr;
-    loadingTimed(tr(L"Creating tab and minimap\x2026"), 1.0f, [&] { return addDocument(std::move(ed), true), 0; });  // (replaces the untouched startup map)
+    loadingTimed(tr(L"Creating tab and minimap\x2026"), 1.0f, [&] { return addDocument(std::move(ed), true), 0; });  // (in place of the start page or a tab with no work: addDocument)
     loadingEnd();
     if (!project) protectedTerrainSync();  // (its protected terrain, from its settings; a project's: openProject)
     addRecent(gRecentMaps, path);

@@ -72,7 +72,7 @@ void openProjectDialogSdl() {
 // The project commands (sdl_menus.inc's command); false: not one of them.
 bool sdlProjectCommand(int id) {
     switch (id) {
-    case ID_PROJ_OPEN: confirmReplace(openProjectDialogSdl); return true;
+    case ID_PROJ_OPEN: openProjectDialogSdl(); return true;
     case ID_PROJ_FROMMAP: showProjectDialogSdl(); return true;
     case ID_PROJ_ADDSCRIPT: addProjectScript(); return true;
     case ID_PROJ_FOLDER:

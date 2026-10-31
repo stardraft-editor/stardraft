@@ -125,7 +125,7 @@ bool sendOrListen(const std::vector<std::wstring>& files) {
                }
                shellPost([opened] {
                    raiseMainWindow();
-                   for (const fs::path& f : opened) confirmReplace([f] { openAny(f); });
+                   for (const fs::path& f : opened) openAny(f);
                });
            }) == stardraft::platform::InstanceStart::Sent;
 }

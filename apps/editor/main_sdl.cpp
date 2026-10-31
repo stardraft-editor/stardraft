@@ -294,7 +294,7 @@ void ensureGameData() {
 // In the Assets workspace a sound imports into the map (sdl_dock.inc).
 void dropFile(const std::string& utf8) {
     if (sdlAssetsDrop(fs::path(widen(utf8)))) return;
-    openDropped({fs::path(widen(utf8))}, [](const fs::path& f) { confirmReplace([f] { openAny(f); }); });
+    openDropped({fs::path(widen(utf8))}, [](const fs::path& f) { openAny(f); });
 }
 
 // The main window without --size: w x h in the system's points (on a Retina display of macOS 2 pixels each, as the

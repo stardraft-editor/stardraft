@@ -92,7 +92,7 @@ void openSentFiles(const std::string& text) {
     if (files.empty()) return;
     shellPost([files] {
         raiseMainWindow();
-        for (const fs::path& f : files) confirmReplace([f] { openAny(f); });
+        for (const fs::path& f : files) openAny(f);
     });
 }
 

@@ -1404,17 +1404,6 @@ void confirmQuit(std::function<void()> then) {
 // Quit (File > Exit, the window's close, the system's quit).
 void requestQuit() { confirmQuit(quitNow); }
 
-// Before a map opens (the active tab is asked about): Save, Do not save or Cancel. `then` runs when the map may go on:
-// after Do not save, or after a Save that saved.
-void confirmReplace(std::function<void()> then) {
-    if (!gRoot || !gState.ed || !gState.ed->isOpen() || !gState.ed->modified()) return then();
-    const int r = shellAskSaveChanges(false);  // (the save question: shell_sdl.inc)
-    if (r == 0) saveOpenMap(false, [then](bool ok) {
-        if (ok) then();
-    });
-    else if (r == 1) then();
-}
-
 // --- Commands ---------------------------------------------------------------------------------------------------------
 
 // Runs a command by its id: the core's command path first (the table, the recent lists, the checks of the tab's mode),
@@ -1429,7 +1418,7 @@ void command(int id) {
 }
 void commandSdl(int id) {
     if ((id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) || (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax))
-        return confirmReplace([id] { commandPortable(gState, id); });
+        return void(commandPortable(gState, id));  // (a map opens in a tab of its own: the open tabs keep their work)
     if (commandPortable(gState, id)) return;
     if (commandMapEdit(gState, id)) return;  // the Map's Edit and Options commands, the keys, Close (core/map_edit_commands.inc)
     if (sdlProjectCommand(id)) return;
@@ -1437,10 +1426,9 @@ void commandSdl(int id) {
     if (sdlUpdatesCommand(id)) return;
     if (sdlHelpCommand(id)) return;
     switch (id) {
-    case ID_FILE_OPEN: confirmReplace([] {
-            showFileDialog(false, [](const fs::path& p) {
-                if (!p.empty()) openAny(p);
-            });
+    case ID_FILE_OPEN:  // (a map opens in a tab of its own: the open tabs keep their work, no save question)
+        showFileDialog(false, [](const fs::path& p) {
+            if (!p.empty()) openAny(p);
         });
         return;
     case ID_FILE_SAVE: saveOpenMap(false); return;
