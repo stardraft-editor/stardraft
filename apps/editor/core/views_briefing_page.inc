@@ -957,6 +957,7 @@ private:
         auto at = [&](int x0, int y0, int x1, int y1) { return draw::Rect{r.left + int(x0 * k), r.top + int(y0 * k), r.left + int(x1 * k), r.top + int(y1 * k)}; };
         // The game's font: about 14 px on its 480-line screen, lines 19 px apart.
         const int fpx = std::max(scale(10), int(14 * k));
+        const double track = 1.15 * k;  // (the game's letters: about 1.15 px further apart on its 640-wide screen; its lines wrap there)
         const draw::Font oldFont = c.setFont(c.font({draw::Face::Ui, fpx}));
         const draw::Color frame = draw::rgb(84, 58, 54), talk = draw::rgb(230, 40, 30), textColor = draw::rgb(196, 204, 255);  // the game's frames, quieter
         auto panel = [&](draw::Rect b, draw::Color line, int lw = 1) {
@@ -986,7 +987,7 @@ private:
         const int olh = std::max(1, int(19 * k));
         const draw::Rect oh{obj.left + int(10 * k), obj.top + int(8 * k), obj.right - int(8 * k), obj.top + int(8 * k) + olh};
         c.text(oh, L"Objectives", textColor, draw::kMiddle);
-        drawGameText(c, {obj.left + int(10 * k), oh.bottom + int(6 * k), obj.right - int(8 * k), obj.bottom}, s.objectives, draw::rgb(220, 220, 220), olh, true);
+        drawGameText(c, {obj.left + int(10 * k), oh.bottom + int(6 * k), obj.right - int(8 * k), obj.bottom}, s.objectives, draw::rgb(220, 220, 220), olh, true, track);
         // The message: 6.5 lines; longer text scrolls up, so that its end shows when its time is over.
         const draw::Rect msg = at(183, 169, 462, 308);
         panel(msg, s.textSlot >= 0 ? draw::rgb(150, 64, 50) : frame);
@@ -995,11 +996,11 @@ private:
         tr.bottom = tr.top + inner;
         if (!s.text.empty()) {  // (no text: the box stays empty, as the game shows it)
             c.pushClip({0, 0, 0, 0});  // measure only
-            const int full = drawGameText(c, tr, s.text, textColor, lh, true);
+            const int full = drawGameText(c, tr, s.text, textColor, lh, true, track);
             c.popClip();
             const int off = briefTextScroll(full, inner, double(t - std::min(t, s.textSince)), s.textFor);
             c.pushClip(tr);
-            drawGameText(c, {tr.left, tr.top - off, tr.right, tr.bottom}, s.text, textColor, lh, true);
+            drawGameText(c, {tr.left, tr.top - off, tr.right, tr.bottom}, s.text, textColor, lh, true, track);
             c.popClip();
         }
         c.setFont(oldFont);

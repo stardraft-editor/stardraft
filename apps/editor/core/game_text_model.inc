@@ -73,7 +73,10 @@ inline const std::vector<TextSwatch>& textSwatches(TextPalette p) {
 
 // Draws `raw` (UTF-8 with the game's control bytes) in `r`, line by line, in the canvas's font; returns the height used.
 // `briefing`: the colors of mission briefings. A line wraps at the box's width between words; codes 12 and 13 align it.
-inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, draw::Color normal, int lineHeight = 0, bool briefing = false) {
+// `tracking`: px after each character (the game's font sets its letters wider apart than the program's: the briefing
+// preview wraps where the game does).
+inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, draw::Color normal, int lineHeight = 0, bool briefing = false,
+                        double tracking = 0) {
     const int lh = lineHeight ? lineHeight : c.metrics().height + scale(2), width = r.right - r.left;
     int y = r.top;
     draw::Color color = normal;
@@ -88,7 +91,14 @@ inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, d
         for (const auto& p : pieces) w += p.w;
         int x = align == 1 ? r.right - w : align == 2 ? r.left + (width - w) / 2 : r.left;
         for (const auto& p : pieces) {
-            if (p.color != kInvisibleText) c.textAt({x, y}, p.text, p.color);
+            if (p.color != kInvisibleText) {
+                if (!tracking) c.textAt({x, y}, p.text, p.color);
+                else  // (a character at a time, each followed by the tracking)
+                    for (double cx = x; wchar_t ch : p.text) {
+                        const std::wstring one(1, ch);
+                        c.textAt({int(std::lround(cx)), y}, one, p.color), cx += c.measureAt(one) + tracking;
+                    }
+            }
             x += p.w;
         }
         y += lh;
@@ -127,7 +137,15 @@ inline int drawGameText(draw::Canvas& c, draw::Rect r, const std::string& raw, d
         int x = 0;
         for (auto& wd : words) {
             int ww = 0;
-            for (auto& p : wd) p.w = c.measureAt(p.text), ww += p.w;  // (the width as textAt draws it)
+            for (auto& p : wd) {  // (the width as textAt draws it)
+                if (!tracking) p.w = c.measureAt(p.text);
+                else {
+                    double w = 0;
+                    for (wchar_t ch : p.text) w += c.measureAt(std::wstring(1, ch)) + tracking;
+                    p.w = int(std::lround(w));
+                }
+                ww += p.w;
+            }
             if (x > 0 && x + ww > width) drawLine(lineNow, align), lineNow.clear(), x = 0;
             for (auto& p : wd) lineNow.push_back(p);
             x += ww;
