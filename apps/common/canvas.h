@@ -181,6 +181,9 @@ public:
 
     // Part `src` of `b` into `dst` (scaled; `smooth`: filtered, else nearest pixels), with `alpha` (255: as it is).
     virtual void bitmap(Bitmap& b, Rect src, Rect dst, bool smooth = false, uint8_t alpha = 255) = 0;
+    // The pictures drawn from now on: nearest pixels (on: pixel art enlarged stays sharp) or as the canvas draws them
+    // (off, the default). A canvas that filters every picture has it; the others draw nearest pixels anyway.
+    virtual void nearest(bool on) { (void)on; }
     // `b` mapped onto the quad `pts` (4 corners in order, convex): corner k shows the bitmap's point uv[k] (0 to 1 of its
     // width and height), with `alpha`. The default draws nothing (a canvas that can map a picture onto a shape has it).
     virtual void bitmapQuad(Bitmap& b, const PointF* pts, const PointF* uv, uint8_t alpha = 255) { (void)b, (void)pts, (void)uv, (void)alpha; }

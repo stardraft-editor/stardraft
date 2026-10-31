@@ -1181,6 +1181,13 @@ void ImguiCanvas::bitmap(draw::Bitmap& b, Rect src, Rect dst, bool, uint8_t alph
                   ImVec2(sr / W, sb / H), colorOf(draw::rgb(255, 255, 255), alpha));
 }
 
+// The backend's sampler for the draws after it (its standard callbacks: a draw list command each).
+void ImguiCanvas::nearest(bool on) {
+    if (!dl_) return;
+    const ImGuiPlatformIO& io = ImGui::GetPlatformIO();
+    if (ImDrawCallback f = on ? io.DrawCallback_SetSamplerNearest : io.DrawCallback_SetSamplerLinear) dl_->AddCallback(f, nullptr);
+}
+
 void ImguiCanvas::bitmapQuad(draw::Bitmap& b, const PointF* p, const PointF* uv, uint8_t alpha) {
     if (!dev_ || b.width() <= 0 || b.height() <= 0 || alpha == 0) return;
     GpuBitmap* g = gpuBitmapOf(dev_, b);

@@ -2391,7 +2391,9 @@ void IsomRulesView::layout() {
 
 void IsomRulesView::paint(draw::Canvas& c) {
     if (refsDue_ && !refPick_.listOpen()) refsDue_ = false, fillRefs();  // (the Reference list closed: its new tiles)
+    c.nearest(true);  // (the tiles, the terrain canvas zoomed in: sharp pixels)
     paintBody(c);
+    c.nearest(false);
     if (modeBar_.width() > 0 && terrain()) {  // (the terrain view's mode)
         const int pad = scale(8), b = brushValue();
         c.fill(modeBar_, kPanel), c.fill({modeBar_.left, modeBar_.top, modeBar_.right, modeBar_.top + 1}, kBorder);
