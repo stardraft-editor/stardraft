@@ -663,8 +663,9 @@ struct MainView final : draw::View {
     // The map's own keys (the Windows map's WM_KEYDOWN; the core's functions, core/map_input.inc): Esc stops the step
     // or clears the selection, R and Shift+R turn the terrain to paste, the arrows move the selected units or the view.
     bool mapKey(const draw::KeyEvent& e) {
-        if (!map.open() || (e.mods & (draw::kCtrl | draw::kAlt))) return false;
-        const bool shift = (e.mods & draw::kShift) != 0;
+        const bool arrow = e.key == draw::Key::Left || e.key == draw::Key::Right || e.key == draw::Key::Up || e.key == draw::Key::Down;
+        if (!map.open() || (e.mods & draw::kAlt) || ((e.mods & draw::kCtrl) && !arrow)) return false;
+        const bool shift = (e.mods & draw::kShift) != 0, ctrl = (e.mods & draw::kCtrl) != 0;
         switch (e.key) {
         case draw::Key::Escape:
             if (mapCancelStep(gState))
@@ -675,8 +676,9 @@ struct MainView final : draw::View {
         case draw::Key::Right:
         case draw::Key::Up:
         case draw::Key::Down:
-            mapArrowKey(gState, e.key == draw::Key::Left ? -1 : e.key == draw::Key::Right ? 1 : 0,
-                        e.key == draw::Key::Up ? -1 : e.key == draw::Key::Down ? 1 : 0, shift);
+            if (!mapArrowKey(gState, e.key == draw::Key::Left ? -1 : e.key == draw::Key::Right ? 1 : 0,
+                             e.key == draw::Key::Up ? -1 : e.key == draw::Key::Down ? 1 : 0, shift, ctrl))
+                return false;
             clampCamera();
             break;
         default: return false;

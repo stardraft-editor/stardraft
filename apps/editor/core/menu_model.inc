@@ -261,6 +261,7 @@ MenuModel buildMenuModel() {
         MenuModel overlays;
         overlays.push_back(menuItem(ID_VIEW_TOWNS, L"Town a&reas"));
         menuCommands(overlays, "View/Fog");  // (core/fog_layer.inc)
+        menuCommands(overlays, "View/Resource distance");  // (core/resource_zones.inc)
         overlays.push_back(menuSeparator());
         MenuModel pathing, flags;
         menuCommands(pathing, "View/Pathing");

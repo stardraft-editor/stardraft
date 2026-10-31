@@ -63,6 +63,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+H | Fit the map in the window |
 | Arrows | Move the selected units by one pixel, else scroll the map |
 | Shift+arrows | Move the selected units by 8 pixels, or by a grid cell when units snap |
+| Ctrl+arrows | Move the selected units by 16 pixels, or by a grid cell when units snap |
 | Enter | Properties of the selected location or unit |
 | Esc | Cancel what is under way: a paste, a drag, a selection |
 | R, Shift+R | Turn the terrain that is about to be pasted, the other way |

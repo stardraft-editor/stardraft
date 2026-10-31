@@ -2635,6 +2635,14 @@ constexpr UiText kRows[] = {
     {L"Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.", L"\uBAA8\uB4E0 \uD504\uB85C\uADF8\uB7A8 \uC124\uC815\uC774 \uAE30\uBCF8\uAC12\uC774 \uB418\uACE0 StarDraft 2\uAC00 \uB2E4\uC2DC \uC2DC\uC791\uB429\uB2C8\uB2E4. \uB9F5, \uD504\uB85C\uC81D\uD2B8, \uCD5C\uADFC \uBAA9\uB85D\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4."},
     {L"&Reset and restart", L"\uCD08\uAE30\uD654 \uD6C4 \uB2E4\uC2DC \uC2DC\uC791(&R)"},
     {L"The program settings have their default values. Close StarDraft 2 and start it again to use them.", L"\uD504\uB85C\uADF8\uB7A8 \uC124\uC815\uC774 \uAE30\uBCF8\uAC12\uC774 \uB418\uC5C8\uC2B5\uB2C8\uB2E4. StarDraft 2\uB97C \uB2EB\uACE0 \uB2E4\uC2DC \uC2DC\uC791\uD558\uBA74 \uC801\uC6A9\uB429\uB2C8\uB2E4."},
+    {L"Only:", L"\uB2E4\uC74C\uB9CC:"},
+    {L"Player 12 (Neutral)", L"\uD50C\uB808\uC774\uC5B4 12 (\uC911\uB9BD)"},
+    {L"Invalid resource &depot", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uBCF8\uC9C4 \uC704\uCE58(&D)"},
+    {L"Invalid resource &node", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uC704\uCE58(&N)"},
+    {L"Invalid resource depot: the box of a town hall or a start location may not reach into the red areas", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uBCF8\uC9C4 \uC704\uCE58: \uBCF8\uC9C4 \uAC74\uBB3C\uC774\uB098 \uC2DC\uC791 \uC704\uCE58\uC758 \uC0C1\uC790\uB294 \uBE68\uAC04 \uC601\uC5ED\uC5D0 \uB4E4\uC5B4\uAC08 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Invalid resource node: the box of a resource may not reach into the orange areas", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uC704\uCE58: \uC790\uC6D0\uC758 \uC0C1\uC790\uB294 \uC8FC\uD669 \uC601\uC5ED\uC5D0 \uB4E4\uC5B4\uAC08 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Invalid resource depot is hidden", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uBCF8\uC9C4 \uC704\uCE58\uAC00 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
+    {L"Invalid resource node is hidden", L"\uC798\uBABB\uB41C \uC790\uC6D0 \uC704\uCE58\uAC00 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

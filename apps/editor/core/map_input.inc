@@ -261,7 +261,8 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         float pwx = wx, pwy = wy;
         snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy in the middle of a grid cell
         applyUnitLimit(ed);
-        const int pasted = ed.paste(int(pwx), int(pwy), app.correction), copied = int(ed.clipboard().size());
+        const int copied = int(ed.pasteUnits(int(pwx), int(pwy)).size());  // (the symmetric copies too)
+        const int pasted = ed.paste(int(pwx), int(pwy), app.correction);
         setMessage(app, pasted < copied && atUnitLimit(ed) ? unitLimitText(ed)
                    : (pasted < copied ? L"Pasted " + std::to_wstring(pasted) + L" of " + std::to_wstring(copied) + L" units (the other units do not fit here)"
                                       : L"Pasted " + std::to_wstring(pasted) + L" units") + L". To stop, right-click or press Esc.");
@@ -825,17 +826,20 @@ void mapTurnPaste(AppState& app, bool back) {
                             : L"Turned the terrain (R turns clockwise, Shift+R turns back)");
 }
 
-// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, big: 8, with Options > Units snap a grid cell; a
-// unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
-void mapArrowKey(AppState& app, int dx, int dy, bool big) {
+// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units snap a
+// grid cell; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
+// False: Ctrl and no units to move (the key is not the map's).
+bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
     if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && !app.pasting) {
-        const int d = app.unitGrid ? app.unitGrid : big ? 8 : 1;
+        const int d = app.unitGrid ? app.unitGrid : ctrl ? 16 : big ? 8 : 1;
         const int moved = app.ed->moveSelection(dx * d, dy * d, false);
         setMessage(app, moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
-        return;
+        return true;
     }
+    if (ctrl) return false;
     const float step = 64 / app.zoom;
     app.camX += dx * step, app.camY += dy * step;
+    return true;
 }
 
 // Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down

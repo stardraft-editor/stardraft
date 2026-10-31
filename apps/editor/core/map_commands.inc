@@ -31,6 +31,8 @@ bool pathingLayerAreas();
 void pathingLayerToggle();
 void pathingLayerMode(bool areas);
 void fogToggle();  // View > Overlays > Fog of war (core/fog_layer.inc)
+extern bool gResourceZones[2];  // View > Overlays > Invalid resource depot, node (core/resource_zones.inc)
+void resourceZonesToggle(int k);
 const std::vector<int>& paletteChosen();
 
 // Edit > Decorate the terrain (roadmap R37): doodads in the terrain selection (else the whole map), one in each
@@ -331,9 +333,13 @@ void registerMapCommands() {
         else pathingLayerMode(true);
     }, [] { return pathingLayerOn() && pathingLayerAreas(); });
     // View > Overlays > Turn off all overlays: the town areas, the fog of war, the pathing, the terrain flags and the ranges.
+    addCommand(ID_RESOURCE_ZONES, "view.resourceDepot", L"Invalid resource &depot", "View/Resource distance", L"", [] { resourceZonesToggle(0); }, [] { return gResourceZones[0]; });
+    addCommand(ID_RESOURCE_ZONES + 1, "view.resourceNode", L"Invalid resource &node", "View/Resource distance", L"", [] { resourceZonesToggle(1); }, [] { return gResourceZones[1]; });
     addCommand(ID_OVERLAYS_OFF, "view.overlays.off", L"Turn &off all overlays", "View/Overlays off", L"", [] {
         if (gPath.towns) pathOverlayToggle(ID_VIEW_TOWNS);
         if (gShowFog) fogToggle();
+        for (int k = 0; k < 2; ++k)
+            if (gResourceZones[k]) resourceZonesToggle(k);
         if (pathingLayerOn()) pathingLayerToggle();
         if (terrainFlagsView() != TerrainFlagsView(0)) terrainFlagsSet(terrainFlagsView());  // (the view again: off)
         gRangeKinds = 0;

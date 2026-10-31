@@ -31,7 +31,15 @@ struct MapImageOptions {
     MapImageArea area = MapImageArea::Whole;
     int px = 8;
     bool units = true, doodads = true, sprites = true, locations = false, grid = false;
+    // Units: all of them, or only the kinds below (GitHub feedback #185: a picture with no helper units in it).
+    bool someUnits = false, keepStarts = true, keepNeutral = true;
 };
+
+// Is unit u in the picture?
+inline bool mapImageHasUnit(const MapImageOptions& o, const Unit& u) {
+    if (!o.units) return false;
+    return !o.someUnits || (o.keepStarts && u.type == 214 /* Start Location */) || (o.keepNeutral && u.owner == 11 /* Player 12 */);
+}
 
 // The options of the last export in this session (the dialog shows them again).
 inline MapImageOptions gMapImageLast;
@@ -125,8 +133,8 @@ inline render::Scene mapImageScene(const MapImageOptions& o, float x, float y, f
         d.owner = uint8_t(std::min<int>(m.owner, 11));
         addImage(s, d);
     }
-    if (o.units)
-        for (const Unit& u : ed.units()) addUnitSprites(s, u, 0, 0, 1, false, false);
+    for (const Unit& u : ed.units())
+        if (mapImageHasUnit(o, u)) addUnitSprites(s, u, 0, 0, 1, false, false);
     if (o.locations)
         for (int i = 0; i < ed.locationCount(); ++i) {
             if (!ed.locationUsed(i) || i == kAnywhereLocation) continue;
@@ -151,6 +159,7 @@ inline int mapImageTestUnit(const MapImageOptions& o, int& px, int& py) {
     for (int pass = 0; pass < 2 && found < 0; ++pass)
         for (size_t i = 0; i < units.size(); ++i) {
             const Unit& u = units[i];
+            if (!mapImageHasUnit(o, u)) continue;
             if (u.x < r.left + 16 || u.y < r.top + 16 || u.x >= r.right - 16 || u.y >= r.bottom - 16) continue;
             if (pass == 0 && (u.owner >= 8 || u.type == 214)) continue;  // (first a player's unit; not a start location)
             found = int(i);
@@ -190,7 +199,8 @@ constexpr int kMapImageExport = 1, kMapImageCancel = 2;
 namespace mapImageLayout {
 constexpr int kPad = 16, kRowH = 24, kPitch = 32, kLabelW = 96, kFieldW = 360;
 constexpr int kContentW = kLabelW + kFieldW;
-constexpr int kAreaY = kPad, kScaleY = kAreaY + 3 * kPitch + 8, kShowY = kScaleY + kPitch + 8, kSizeY = kShowY + 3 * kPitch + 8;
+constexpr int kAreaY = kPad, kScaleY = kAreaY + 3 * kPitch + 8, kShowY = kScaleY + kPitch + 8, kUnitsY = kShowY + 3 * kPitch + 8,
+              kSizeY = kUnitsY + 2 * kPitch + 8;
 constexpr int kButtonH = 28, kButtonsY = kSizeY + kPitch + 16, kWindowH = kButtonsY + kButtonH + kPad;
 constexpr int kColW = 140;  // the first column of the check boxes (the second is wider: Locations and their names)
 }  // namespace mapImageLayout
@@ -202,7 +212,7 @@ public:
     MapImageView(const MapImageOptions& o, bool hd, bool selection) : opts_(o) {
         using stardraft::kit::LabelTone;
         for (auto [l, t] : {std::pair{&labels_[0], L"Area"}, std::pair{&labels_[1], L"Scale"}, std::pair{&labels_[2], L"Show"},
-                            std::pair{&labels_[3], L"Size"}}) {
+                            std::pair{&labels_[3], L"Size"}, std::pair{&labels_[4], L"Units"}}) {
             l->setText(tr(t)), l->setTone(LabelTone::Dim);
             add(*l, {0, 0, 0, 0});
         }
@@ -242,8 +252,26 @@ public:
             shows_[k].setLabel(tr(shows[k].second));
             shows_[k].setOn(opts_.*field);
             shows_[k].setPlainLabel(true);
-            shows_[k].onChange = [this, field](bool on) { opts_.*field = on; };
+            shows_[k].onChange = [this, field](bool on) { opts_.*field = on, update(); };
             add(shows_[k], {0, 0, 0, 0});
+        }
+        // The units in the picture: all, or only the start locations and Player 12's units (each on or off).
+        unitModes_[0] = std::make_unique<stardraft::kit::RadioButton>(tr(L"All units"), unitGroup_, !o.someUnits);
+        unitModes_[1] = std::make_unique<stardraft::kit::RadioButton>(tr(L"Only:"), unitGroup_, o.someUnits);
+        for (auto& m : unitModes_) m->setPlainLabel(true), add(*m, {0, 0, 0, 0});
+        unitGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
+            opts_.someUnits = &b == unitModes_[1].get();
+            update();
+        };
+        const std::pair<bool MapImageOptions::*, const wchar_t*> keeps[2] = {{&MapImageOptions::keepStarts, L"Start locations"},
+                                                                             {&MapImageOptions::keepNeutral, L"Player 12 (Neutral)"}};
+        for (int k = 0; k < 2; ++k) {
+            bool MapImageOptions::*field = keeps[k].first;
+            keeps_[k].setLabel(tr(keeps[k].second));
+            keeps_[k].setOn(opts_.*field);
+            keeps_[k].setPlainLabel(true);
+            keeps_[k].onChange = [this, field](bool on) { opts_.*field = on; };
+            add(keeps_[k], {0, 0, 0, 0});
         }
         size_.setTone(LabelTone::Normal);
         add(size_, {0, 0, 0, 0});
@@ -272,6 +300,11 @@ public:
         put(scale_, kLabelW, kScaleY, kFieldW, kRowH);
         put(labels_[2], 0, kShowY, kLabelW - 8, kRowH);
         for (int k = 0; k < 5; ++k) put(shows_[k], kLabelW + (k / 3) * kColW, kShowY + (k % 3) * kPitch, k < 3 ? kColW - 8 : kFieldW - kColW, kRowH);
+        put(labels_[4], 0, kUnitsY, kLabelW - 8, kRowH);
+        put(*unitModes_[0], kLabelW, kUnitsY, kFieldW, kRowH);
+        put(*unitModes_[1], kLabelW, kUnitsY + kPitch, 64, kRowH);
+        put(keeps_[0], kLabelW + 72, kUnitsY + kPitch, 136, kRowH);
+        put(keeps_[1], kLabelW + 216, kUnitsY + kPitch, kFieldW - 216, kRowH);
         put(labels_[3], 0, kSizeY, kLabelW - 8, kRowH);
         put(size_, kLabelW, kSizeY, kFieldW, kRowH);
     }
@@ -283,16 +316,21 @@ private:
         size_ok_ = sz.x > 0 && sz.y > 0;
         size_.setText(size_ok_ ? std::to_wstring(sz.x) + L" x " + std::to_wstring(sz.y) + L" " + tr(L"pixels") : L"\x2014");
         if (dlg_) dlg_->setEnabledFor(kMapImageExport, size_ok_);
+        for (auto& m : unitModes_) m->setEnabled(opts_.units);  // (the units' choice: only while units show)
+        for (auto& k : keeps_) k.setEnabled(opts_.units && opts_.someUnits);
     }
 
     MapImageOptions opts_;
     stardraft::kit::Dialog* dlg_ = nullptr;
-    stardraft::kit::Label labels_[4], size_;
+    stardraft::kit::Label labels_[5], size_;
     stardraft::kit::RadioGroup group_;
     std::unique_ptr<stardraft::kit::RadioButton> areas_[3];
     stardraft::kit::Dropdown scale_;
     std::vector<int> scales_;
     stardraft::kit::CheckBox shows_[5];
+    stardraft::kit::RadioGroup unitGroup_;
+    std::unique_ptr<stardraft::kit::RadioButton> unitModes_[2];
+    stardraft::kit::CheckBox keeps_[2];
     bool size_ok_ = false;
 };
 
@@ -440,7 +478,9 @@ inline void exportMapImage(draw::View& from) {
         const int u = mapImageTestUnit(o, ux, uy);
         shellMapImageWritten(file, sz.x, sz.y,
                              "area " + std::to_string(r.left) + "," + std::to_string(r.top) + "," + std::to_string(r.right) + "," + std::to_string(r.bottom) +
-                                 ", " + std::to_string(o.px) + " px a tile, units " + (o.units ? "on" : "off") + "; " +
+                                 ", " + std::to_string(o.px) + " px a tile, units " + (o.units ? "on" : "off") + " (" +
+                                 std::to_string(std::count_if(app.ed->units().begin(), app.ed->units().end(), [&](const Unit& v) { return mapImageHasUnit(o, v); })) +
+                                 " in the picture); " +
                                  (u >= 0 ? "unit " + std::to_string(u) + " at " + std::to_string(ux) + "," + std::to_string(uy) : std::string("no unit")));
     }
     setMessage(tr(L"Exported the map image ") + file.filename().wstring() + L" (" + std::to_wstring(sz.x) + L" x " + std::to_wstring(sz.y) + L" " +

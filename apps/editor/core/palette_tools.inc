@@ -206,10 +206,16 @@ std::wstring unitTag(const UnitType& t) {
     return std::wstring{race, L' ', kind};
 }
 
+// The unit's name with no race word in front ("Marine"): the game's races, and a mod's (src/mods: the first word of
+// its palette section, as "Askosi" in "Askosi · Ground units").
 std::wstring unitShortName(const UnitType& t) {
     std::wstring n = widen(t.name);
     for (const wchar_t* prefix : {L"Terran ", L"Zerg ", L"Protoss "})
         if (n.rfind(prefix, 0) == 0) return n.substr(wcslen(prefix));
+    if (const size_t sp = t.paletteSection.find(' '); sp != std::string::npos && sp > 0) {
+        const std::wstring race = widen(t.paletteSection.substr(0, sp)) + L" ";
+        if (n.size() > race.size() && n.rfind(race, 0) == 0) return n.substr(race.size());
+    }
     return n;
 }
 

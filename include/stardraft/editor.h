@@ -339,10 +339,13 @@ public:
     void fixAddonLinks();
     // Copy/paste of units; paste centers the copied group on (x, y) and selects the pasted units. Each unit obeys
     // the placement options as placing does: it goes as it is if it fits (or with "units anywhere"), else to the
-    // nearest spot where it fits (`correct`), else it is not pasted. Returns how many units were pasted.
+    // nearest spot where it fits (`correct`), else it is not pasted. The symmetry pastes the copy at its mirror images
+    // and turns too, as placing does. Returns how many units were pasted.
     void copySelection();
     bool canPaste() const { return !clipboard_.empty(); }
     int paste(int x, int y, bool correct = true);
+    // The units a paste at (x, y) puts down, before the placement checks: the copy, then its symmetric copies.
+    std::vector<Unit> pasteUnits(int x, int y) const;
     const std::vector<Unit>& clipboard() const { return clipboard_; }  // positions relative to group center
     // The copied units go to `owner` when pasted (those that can have an owner: not resources or critters). Returns how
     // many of them changed; the map does not change.

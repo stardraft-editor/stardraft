@@ -366,10 +366,11 @@ std::vector<std::pair<int, uint16_t>> ghostTiles;  // doodad preview tiles, set 
 void syncMapUnitGraphics();
 void rangesScene(render::Scene& s, float dx = 0, float dy = 0);
 void addFogLayer(render::Scene& s);
+void addResourceZones(render::Scene& s);
 void tilesScene(render::Scene& s, float wx, float wy);
 
-// The units' paste ghost with the mouse at (wx, wy) in the map: each copied unit where a click puts it, and red when it
-// does not fit there (the units before it in the copy count as placed).
+// The units' paste ghost with the mouse at (wx, wy) in the map: each copied unit (and its symmetric copies) where a click
+// puts it, and red when it does not fit there (the units before it in the copy count as placed).
 struct PasteGhostUnit {
     Unit unit;
     bool red = false;
@@ -381,10 +382,7 @@ std::vector<PasteGhostUnit> unitPasteGhost(float wx, float wy) {
     std::vector<Unit> placed = ed.units();
     float pwx = wx, pwy = wy;
     snapUnitPoint(pwx, pwy);
-    for (Unit u : ed.clipboard()) {
-        u.x = uint16_t(std::clamp(int(pwx) + int16_t(u.x), 0, ed.width() * 32 - 1));
-        u.y = uint16_t(std::clamp(int(pwy) + int16_t(u.y), 0, ed.height() * 32 - 1));
-        if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
+    for (const Unit& u : ed.pasteUnits(int(pwx), int(pwy))) {  // (the symmetric copies too)
         out.push_back({u, !app.allowIllegalUnits && !placementOk(ed.placementContext(&placed), u)});
         placed.push_back(u);
     }
@@ -578,6 +576,7 @@ render::Scene buildScene() {
 
     terrainSelScene(s, wx, wy);  // Terrain selection (copy area)
 
+    addResourceZones(s);  // View > Overlays > Invalid resource depot, node (core/resource_zones.inc)
     addFogLayer(s);  // View > Overlays > Fog of war (core/fog_layer.inc)
     if (gRangeKinds && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
 

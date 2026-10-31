@@ -2633,3 +2633,11 @@ Reset all program settings	모든 프로그램 설정 초기화
 Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	모든 프로그램 설정이 기본값이 되고 StarDraft 2가 다시 시작됩니다. 맵, 프로젝트, 최근 목록은 그대로 유지됩니다.
 &Reset and restart	초기화 후 다시 시작(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	프로그램 설정이 기본값이 되었습니다. StarDraft 2를 닫고 다시 시작하면 적용됩니다.
+Only:	다음만:
+Player 12 (Neutral)	플레이어 12 (중립)
+Invalid resource &depot	잘못된 자원 본진 위치(&D)
+Invalid resource &node	잘못된 자원 위치(&N)
+Invalid resource depot: the box of a town hall or a start location may not reach into the red areas	잘못된 자원 본진 위치: 본진 건물이나 시작 위치의 상자는 빨간 영역에 들어갈 수 없습니다
+Invalid resource node: the box of a resource may not reach into the orange areas	잘못된 자원 위치: 자원의 상자는 주황 영역에 들어갈 수 없습니다
+Invalid resource depot is hidden	잘못된 자원 본진 위치가 숨겨졌습니다
+Invalid resource node is hidden	잘못된 자원 위치가 숨겨졌습니다

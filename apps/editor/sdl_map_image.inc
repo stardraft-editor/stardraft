@@ -191,6 +191,10 @@ void sdlExportMapImage() {
             else if (n == "sprites") o.sprites = !off;
             else if (n == "locations") o.locations = !off;
             else if (n == "grid") o.grid = !off;
+            else if (t == "allunits") o.someUnits = false;
+            else if (t == "someunits") o.someUnits = true;
+            else if (n == "starts") o.keepStarts = !off;
+            else if (n == "neutral") o.keepNeutral = !off;
             else if (t.rfind("cancel=", 0) == 0) gShotMapImageCancel = std::atoi(t.c_str() + 7);
             else if (t.rfind("sel=", 0) == 0) {
                 int v[4] = {0, 0, 0, 0};

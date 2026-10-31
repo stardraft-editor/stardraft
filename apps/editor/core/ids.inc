@@ -76,6 +76,7 @@ enum : int {
     ID_CMBW_CHECKCOMMENTS = 1098,  // Tools > Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
     ID_VIEW_UNITLIST = 1060,  // View > Units list (core/units_list.inc: the list of the Units mode's units, in its side bar)
     ID_FOG = 1035,  // View > Overlays > Fog of war of the selected player (roadmap R32)
+    ID_RESOURCE_ZONES = 1046,  // + View > Overlays: 0 Invalid resource depot, 1 Invalid resource node (core/resource_zones.inc)
     ID_OVERLAYS_OFF = 1037,  // View > Overlays > Turn off all overlays (the ranges too)
     ID_COMMANDS = 1038,      // View > Find a command (Ctrl+P: the menus' items in a searchable list, sdl_menus.inc)
     ID_PIE_PALETTE = 1039,   // View > Terrain pie palette (Space held on the map; from the menu: until a click, sdl_main_view.inc)

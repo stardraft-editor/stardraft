@@ -2843,16 +2843,31 @@ void Editor::copySelection() {
     }
 }
 
+std::vector<Unit> Editor::pasteUnits(int x, int y) const {
+    std::vector<Unit> out, copies;
+    for (Unit u : clipboard_) {
+        const int nx = x + int16_t(u.x), ny = y + int16_t(u.y);
+        // (one start location for each player: a start location gets no symmetric copies, as placing gives it none)
+        const bool oneStart = u.type == 214 /* Start Location */ && !manyStartLocations_;
+        const auto pts = symmetricPoints(nx, ny);
+        for (size_t k = 0; k < (oneStart ? std::min<size_t>(pts.size(), 1) : pts.size()); ++k) {
+            Unit c = u;
+            c.x = uint16_t(std::clamp(pts[k].first, 0, width_ * 32 - 1));
+            c.y = uint16_t(std::clamp(pts[k].second, 0, height_ * 32 - 1));
+            if (c.type < types_.size()) snapToGrid(types_[c.type], c.x, c.y);
+            (k ? copies : out).push_back(c);
+        }
+    }
+    out.insert(out.end(), copies.begin(), copies.end());  // (the copy first: it gets the spots where it fits)
+    return out;
+}
+
 int Editor::paste(int x, int y, bool correct) {
     if (clipboard_.empty()) return 0;
     std::vector<Unit> all = units_;
     SerialCounter serials(all);
-    for (Unit u : clipboard_) {
+    for (const Unit& u : pasteUnits(x, y)) {
         if (unitLimit_ > 0 && int(all.size()) >= unitLimit_) break;
-        int nx = x + int16_t(u.x), ny = y + int16_t(u.y);
-        u.x = uint16_t(std::clamp(nx, 0, width_ * 32 - 1));
-        u.y = uint16_t(std::clamp(ny, 0, height_ * 32 - 1));
-        if (u.type < types_.size()) snapToGrid(types_[u.type], u.x, u.y);
         std::optional<Unit> f = fitted(u, correct, all);
         if (!f) continue;  // no spot where it fits: not pasted, as placing refuses
         f->serial = serials.take();
