@@ -3794,7 +3794,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         const int rh = scale(kCheckRow), th = scale(24), head = scale(kCheckHead);
         const int total = int(rows.size()) * rh;
         checkScroll_ = std::clamp(checkScroll_, 0, std::max(0, total - (check_.height() - head)));
-        const int x0 = check_.left + pad, xt = x0 + scale(110), xc = xt + 2 * th + scale(16), xs = xc + 2 * th + pad;
+        const int x0 = check_.left + pad, xt = x0 + scale(110), xc = xt + 2 * th + scale(16);
         c.text({x0, check_.top, xt, check_.top + head}, L"Role", kDim, draw::kMiddle);
         c.text({xt, check_.top, xt + 2 * th + scale(16), check_.top + head}, L"Template", kDim, draw::kMiddle);
         c.text({xc, check_.top, check_.right - pad, check_.top + head}, L"Custom", kDim, draw::kMiddle);
@@ -3823,13 +3823,11 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 drawTile(c, p ? (*p)[2] : 0, {xc + th, ty, xc + 2 * th, ty + th});
                 if (isTarget && slotKeys_ && blinkOn_)  // (the selected slot: its blinking frame, as on the canvas)
                     c.frame(wide_ ? draw::Rect{xc, ty, xc + 2 * th, ty + th} : targetHalf_ ? draw::Rect{xc + th, ty, xc + 2 * th, ty + th} : draw::Rect{xc, ty, xc + th, ty + th}, kAccent, scale(2));
-                c.frame({xc, ty, xc + 2 * th, ty + th}, st == isomrules::PieceState::Own ? kBorder : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole, scale(1));
-                // (a variant that differs: in place of Custom or Borrowed; NULL and Partial stay in sight)
+                // (the state by the frame: custom gray, borrowed its color, NULL or a NULL half red; a variant that differs
+                // (Unpaired) orange, as its text was)
                 const bool differs = differing.count(row.group) > 0 && (st == isomrules::PieceState::Own || st == isomrules::PieceState::Borrowed);
-                const std::wstring state = differs ? L"Unpaired"
-                                           : st == isomrules::PieceState::Own ? L"Custom" : st == isomrules::PieceState::Borrowed ? L"Borrowed" : st == isomrules::PieceState::Partial ? L"Partial" : L"NULL";
-                c.text({xs, y, check_.right - pad, y + rh}, state, differs ? draw::Color(0x50AAF0) : st == isomrules::PieceState::Own ? kDim : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole,
-                       draw::kMiddle | draw::kEllipsis);
+                c.frame({xc, ty, xc + 2 * th, ty + th},
+                        differs ? draw::Color(0x50AAF0) : st == isomrules::PieceState::Own ? kBorder : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole, scale(1));
             }
         }
         c.popClip();
