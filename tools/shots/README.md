@@ -10,7 +10,8 @@ crops each picture into `docs/user/images/<version>/`. The captures are snapshot
   its `CASES`. `map` is relative to the StarCraft install (the environment variable `STARCRAFT_INSTALL`, else the
   usual install folder); `project` (a `project.stardraft` or `.eds` file) is relative to the repository. A case that
   needs a map or a project needs `map` or `project`. `env` sets environment variables for that run only
-  (`"STARDRAFT_LANG": "zh"` for a language).
+  (`"STARDRAFT_LANG": "zh"` for a language). `"cmbw": true` runs the Cosmonarchy BW cases (the mod's install must be
+  there).
 - `shots`: one picture each. `run` (default 0) and `from` name a capture of a run (`<case>.png`); `to` is the
   picture's name (small letters, digits and -); `crop` is `[x, y, width, height]` in the capture; `scale` enlarges it
   after the crop; `alt` is the text for the changelog: `![<alt>](images/<version>/<to>)`.

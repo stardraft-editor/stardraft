@@ -8,8 +8,12 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 
 - Terrain > Custom has a search box.
 - The Tiles list shows the terrain flags overlay.
+
+  ![The Tiles list with the terrain flags overlay: low, middle and high ground as on the map](images/0.8.1/tiles-terrain-flags.png)
 - Ctrl+click on a tile of the map picks it also when the Select tool is on.
 - When StarCraft is not found, the start page has Load mod.
+
+  ![The start page when StarCraft is not found: Load mod or Browse](images/0.8.1/start-load-mod.png)
 
 ### Briefings
 
@@ -17,6 +21,8 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
   Zerg, Protoss or None.
 - A Text message leaves the text box when its time is over, as in the game; the timeline shows each one's time.
 - The preview's text wraps where the game wraps it.
+
+  ![The briefing preview: the text wraps where the game wraps it, and the Music list](images/0.8.1/briefing-text.png)
 
 ### The program
 
@@ -27,6 +33,10 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 - Early feature preview: load the Cosmonarchy BW mod in Program options > Plugins: its units, terrain and triggers in
   the editor.
 - Experimental ISOM terrain editor for mods with custom terrain.
+
+  ![The experimental ISOM terrain editor: a mod terrain's rects, its terrain canvas and the tileset's tiles](images/0.8.1/isom-terrain-editor.png)
+
+  ![New Terrain: a name, the reference border and the bordering terrain, each with its tile](images/0.8.1/isom-new-terrain.png)
 - The unit palette uses the mod's own unit sections. The mod's ramps, caves, bridges and trees are in Terrain > Custom.
 - Classic triggers: a position can be a location of the map.
 - Keep resources 3 tiles from town halls works with the mod's units.

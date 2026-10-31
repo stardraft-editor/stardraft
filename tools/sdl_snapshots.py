@@ -389,6 +389,13 @@ CASES += [
                              "--key", "Enter"], "cmbw"),
     # The New Terrain window: the template and the bordering terrain, each with its tile.
     ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
+    # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
+    # (it wraps as the game's).
+    ("cmbw-isom-shot", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "840,377"], "cmbw"),
+    ("map-tiles-flags-shot", ["--mode", "terrain", "--click", "202,427", "--command", "view.flags.height"], "map"),
+    ("map-briefing-text-shot", ["--workspace", "briefing", "--size", "1600x1000", "--click", "543,166", "--type", "Text message", "--key", "Enter",
+                                "--click", "510,830", "--type", "Welcome to Mar Sara, Magistrate. The equipment demonstration you requested is prepared-",
+                                "--click", "1400,600"], "map"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "840,377", "--click", "1110,290", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).

@@ -1,0 +1,14 @@
+{
+  "runs": [
+    {"map": "Maps/(2)Bottleneck.scm", "cases": ["map-tiles-flags-shot", "map-briefing-text-shot"]},
+    {"cmbw": true, "cases": ["cmbw-isom-shot", "cmbw-isom-new-dialog"]},
+    {"cases": ["start-noinstall"]}
+  ],
+  "shots": [
+    {"run": 1, "from": "cmbw-isom-shot.png", "to": "isom-terrain-editor.png", "alt": "The experimental ISOM terrain editor: a mod terrain's rects, its terrain canvas and the tileset's tiles"},
+    {"run": 1, "from": "cmbw-isom-new-dialog.png", "to": "isom-new-terrain.png", "alt": "New Terrain: a name, the reference border and the bordering terrain, each with its tile"},
+    {"run": 0, "from": "map-tiles-flags-shot.png", "to": "tiles-terrain-flags.png", "crop": [64, 380, 836, 570], "alt": "The Tiles list with the terrain flags overlay: low, middle and high ground as on the map"},
+    {"run": 0, "from": "map-briefing-text-shot.png", "to": "briefing-text.png", "crop": [748, 112, 838, 730], "alt": "The briefing preview: the text wraps where the game wraps it, and the Music list"},
+    {"run": 2, "from": "start-noinstall.png", "to": "start-load-mod.png", "crop": [160, 108, 1344, 76], "alt": "The start page when StarCraft is not found: Load mod or Browse"}
+  ]
+}

@@ -693,6 +693,8 @@ def cmd_shots(args):
             cmd += ["--map", str(install / r["map"])]
         if "project" in r:
             cmd += ["--project", str(ROOT / r["project"])]
+        if r.get("cmbw"):  # (the Cosmonarchy BW cases: the mod's install, found as the program finds it; no map of it)
+            cmd += ["--cmbwmap", "-"]
         t = time.time()
         p = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
                            timeout=600 + 120 * len(r["cases"]))
