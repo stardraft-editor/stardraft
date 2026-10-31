@@ -42,6 +42,9 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+M", ID_VIEW_LOG},
 #endif
     {"Ctrl+Alt+T", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Custom in turn)
+    // The tool strip's symmetry: each mirror on or off (they combine), Alt+0 none
+    {"Alt+0", ID_MIRROR_KEY, true}, {"Alt+1", ID_MIRROR_KEY + 1, true}, {"Alt+2", ID_MIRROR_KEY + 2, true}, {"Alt+3", ID_MIRROR_KEY + 3, true},
+    {"Alt+4", ID_MIRROR_KEY + 4, true},
 #ifdef __APPLE__  // macOS: Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
     {"Ctrl+Backspace", ID_EDIT_DELETE}, {"Ctrl+`", ID_TAB_NEXT},     {"Ctrl+Shift+`", ID_TAB_PREV},
 #endif
@@ -360,6 +363,19 @@ bool commandMapEdit(AppState& app, int id) {
         app.showGrid = true, app.dirty = true;
         saveDock();
         setMessage(L"Grid: " + std::wstring(g.name) + L", " + std::to_wstring(g.px) + L" pixels");
+        return done();
+    }
+    if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
+        if (!app.ed || !app.ed->isOpen() || !stripHasMirrors()) return done();
+        static const int kFlags[5] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::Diagonal, Mirror::AntiDiagonal};
+        static const wchar_t* const kNames[5] = {L"none", L"left and right", L"top and bottom", L"the diagonal", L"the other diagonal"};
+        const int k = id - ID_MIRROR_KEY, flag = kFlags[k];
+        app.ed->setMirrors(flag ? app.ed->mirrors() ^ flag : 0);
+        if (!flag) app.ed->setTurns(1);  // (none: the turns off too)
+        shellToolsChanged();
+        app.dirty = true;
+        setMessage(!flag ? std::wstring(L"Symmetry: none")
+                         : L"Symmetry: " + std::wstring(kNames[k]) + ((app.ed->mirrors() & flag) ? L" on" : L" off"));
         return done();
     }
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) {

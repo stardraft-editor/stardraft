@@ -525,11 +525,11 @@ public:
             static const struct {
                 int flag;
                 const wchar_t* tip;
-            } kinds[] = {{0, L"No symmetry"},
-                         {Mirror::LeftRight, L"Mirror left and right"},
-                         {Mirror::TopBottom, L"Mirror top and bottom"},
-                         {Mirror::Diagonal, L"Mirror across the diagonal"},
-                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal"}};
+            } kinds[] = {{0, L"No symmetry (Alt+0)"},
+                         {Mirror::LeftRight, L"Mirror left and right (Alt+1)"},
+                         {Mirror::TopBottom, L"Mirror top and bottom (Alt+2)"},
+                         {Mirror::Diagonal, L"Mirror across the diagonal (Alt+3)"},
+                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal (Alt+4)"}};
             const int mb = scale(28);
             int mx = 0;
             for (const auto& k : kinds) {
