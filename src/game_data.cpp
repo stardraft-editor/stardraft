@@ -2,6 +2,7 @@
 
 #include <CascLib.h>
 
+#include <mutex>
 #include <type_traits>
 
 namespace stardraft {
@@ -24,6 +25,9 @@ struct GameData::Impl {
     HANDLE storage = nullptr;
     std::unique_ptr<FileSource> source;  // set: files from it, not CASC
     const UnitDataLoader* loader = nullptr;
+    // (one read at a time: CascLib's and StormLib's handles are not for threads at once; the isom terrain editor makes its
+    // maps on threads of their own, and a window's worker reads while the program does)
+    std::recursive_mutex reading;
     ~Impl() {
         if (storage) CascCloseStorage(storage);
     }
@@ -56,6 +60,7 @@ bool GameData::isOpen() const { return impl_->storage != nullptr || impl_->sourc
 const UnitDataLoader* GameData::unitDataLoader() const { return impl_->loader; }
 
 bool GameData::hasFile(const std::string& name, uint64_t* size) const {
+    std::lock_guard<std::recursive_mutex> lock(impl_->reading);
     if (impl_->source) return impl_->source->hasFile(name, size);
     HANDLE file = nullptr;
     if (!impl_->storage || !CascOpenFile(impl_->storage, name.c_str(), 0, CASC_OPEN_BY_NAME, &file)) return false;
@@ -67,6 +72,7 @@ bool GameData::hasFile(const std::string& name, uint64_t* size) const {
 }
 
 bool GameData::readFile(const std::string& name, Bytes& out, std::string& error) const {
+    std::lock_guard<std::recursive_mutex> lock(impl_->reading);
     if (impl_->source) return impl_->source->readFile(name, out, error);
     HANDLE file = nullptr;
     if (!CascOpenFile(impl_->storage, name.c_str(), 0, CASC_OPEN_BY_NAME, &file)) {
@@ -91,6 +97,7 @@ bool GameData::readFile(const std::string& name, Bytes& out, std::string& error)
 }
 
 std::vector<std::string> GameData::listFiles() const {
+    std::lock_guard<std::recursive_mutex> lock(impl_->reading);
     if (impl_->source) return impl_->source->listFiles();
     std::vector<std::string> names;
     CASC_FIND_DATA fd;

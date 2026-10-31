@@ -652,6 +652,9 @@ public:
     // The most undo steps kept (at least 1; the default: as many as kUndoSteps and kUndoBytes allow). The off-screen maps
     // that are painted again and again (the isom terrain editor's examples) keep 1.
     void setUndoLimit(size_t steps) { undoLimit_ = std::max<size_t>(1, steps); }  // the steps that Undo can take back (and Redo give again)
+    // A map for its terrain only (the isom terrain editor's off-screen maps): newMap loads no unit types and sprites (a
+    // load takes most of a new map's time). Units on such a map have no types.
+    void setTerrainOnly(bool on) { terrainOnly_ = on; }
     size_t redoSteps() const { return redo_.size(); }
     // Undo and Redo wait for the end of a stroke (a paint, a spray or a place that the mouse button still holds):
     // during one they do nothing. After them, the map is modified unless it is as it was at its last open or save.
@@ -802,6 +805,7 @@ private:
     void buildModTable();
     std::string tilesetError_;     // why the last tileset load failed ("" after a good load)
     bool unitDataLoaded_ = false;  // unit types and sprites are loaded (a failed load is tried again on the next open)
+    bool terrainOnly_ = false;     // (setTerrainOnly)
     mutable std::vector<TileGroupEntry> tileGroups_;  // for tileGroupsEra_ (built on first use)
     mutable int tileGroupsEra_ = -1;
 

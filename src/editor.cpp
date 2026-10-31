@@ -183,7 +183,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     finishFiles();
     Chk chk;
     if (!createNewScenario(chk, data_, width, height, era, terrain, error)) return false;
-    if (!unitDataLoaded_) {
+    if (!unitDataLoaded_ && !terrainOnly_) {
         if (!types_.load(data_, error) || !unitSprites_.load(data_, error)) return false;
         unitDataLoaded_ = true;
     }

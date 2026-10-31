@@ -938,7 +938,7 @@ private:
     void build(const BuildIn& in, BuildOut& out) {
         const auto* t = &in.t;
         std::string err;
-        if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data), puzzleEd_->setUndoLimit(1);  // (painted again and again: no undo history)
+        if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data), puzzleEd_->setUndoLimit(1), puzzleEd_->setTerrainOnly(true);  // (painted again and again: no undo history)
         Editor* ed = puzzleEd_.get();
         const uint16_t root = in.root;
         constexpr int W = 40, H = 54;  // (the shape at the middle (cy); under it, the row of the thin shapes (kThinRow), then the cliff tops (kTopRow))
@@ -1054,16 +1054,18 @@ private:
         auto onEach = [&](size_t n, const std::function<void(Editor*, size_t)>& f) {
             if (!pool_) {  // (once: a thread and a map for each core but this one; the threads stay, so their caches do)
                 const size_t n = std::clamp<size_t>(std::thread::hardware_concurrency(), 2, 8) - 1;
-                for (size_t k = 0; k < n; ++k) helpers_.push_back(std::make_unique<Editor>(*in.data)), helpers_.back()->setUndoLimit(1);
+                for (size_t k = 0; k < n; ++k) helpers_.push_back(std::make_unique<Editor>(*in.data)), helpers_.back()->setUndoLimit(1), helpers_.back()->setTerrainOnly(true);
                 pool_ = std::make_unique<TrialPool>(n);
             }
             if (helpersFor_ != in.gen) {  // (each build: its tileset and the working rules)
                 helpersFor_ = in.gen;
-                std::string ignored;
-                for (auto& h : helpers_) {
-                    if (!h->isOpen() || h->era() != in.era || in.extend) h->newMap(W, H, in.era, root, ignored);  // (a search: new maps, as this one's)
-                    h->useModTerrains(in.all);
-                }
+                pool_->run([&](size_t w) {  // (each map on its own thread, all at once: a new map loads its tileset, which takes long)
+                    Editor& h = *helpers_[w];
+                    std::srand(1);  // (the new map's fill picks rare tiles with rand, each thread its own: the same, after any build)
+                    std::string ignored;
+                    if (!h.isOpen() || h.era() != in.era || in.extend) h.newMap(W, H, in.era, root, ignored);  // (a search: new maps, as this one's)
+                    h.useModTerrains(in.all);
+                });
             }
             // (each map its trials in a fixed order: trial k on the (k mod m)-th map that can take this tileset. A paint
             // depends a little on what its map painted before: so each run gives the same canvas)
