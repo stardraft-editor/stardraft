@@ -98,32 +98,22 @@ void protectSelection(bool on) {
     app.dirty = true;
 }
 
-// View > Layers > Protected terrain: a light yellow fill over the protected tiles, with yellow stripes from the top left
-// to the bottom right over it (one pattern over the whole map, so the parts join), as wide as the space between them. The
-// tiles are put together into rectangles (the same run of tiles on rows one under the other: one rectangle), and the
-// stripes are cut to each one. Made again when the mask, the theme or the zoom changes (the stripes are about the same
-// width on the screen at each zoom).
+// View > Layers > Protected terrain: a yellow fill over the protected tiles, put together into rectangles (the same run
+// of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes.
 struct ProtectedLayer {
     const Editor* editor = nullptr;
     uint64_t revision = 0;
     bool light = false;
-    float zoom = 0;
     std::vector<render::RectDraw> fills;
 } gProtectedLayer;
 
 void addProtectedLayer(const Editor& ed, render::Scene& s) {
     if (!gLayers.protectedTerrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
     ProtectedLayer& l = gProtectedLayer;
-    const float zoom = std::max(appState().zoom, 1.0f / 64);
-    if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme || l.zoom != zoom) {
-        l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme, l.zoom = zoom;
+    if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme) {
+        l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme;
         l.fills.clear();
-        const uint32_t fill = gLightTheme ? 0xFFE9703Cu : 0xFFF2A030u, stripe = gLightTheme ? 0xE0B000A0u : 0xFFE06090u;
-        // (the stripes at least 12 screen pixels apart across: 16 map pixels along x, twice that for each halving of the
-        // zoom; as wide as the space between them, in screen pixels)
-        float gap = 16;
-        while (gap * zoom / std::sqrt(2.0f) < 12 && gap < 1024) gap *= 2;
-        const float width = gap * zoom / std::sqrt(2.0f) / 2, inset = width / 2 / zoom / std::sqrt(2.0f);
+        const uint32_t fill = gLightTheme ? 0xE8C00060u : 0xFFE05060u;
         // The rectangles: each row's runs, joined with the same run of the row above.
         struct Box {
             int x0, x1, y0;
@@ -134,15 +124,6 @@ void addProtectedLayer(const Editor& ed, render::Scene& s) {
             render::RectDraw d;
             d.x0 = left, d.y0 = top, d.x1 = right, d.y1 = bottom, d.rgba = fill, d.fill = true;
             l.fills.push_back(d);
-            // The stripes x - y = c, cut to the box; each end a little in, so that the stripe's square end stays inside.
-            for (float c = std::ceil((left - bottom) / gap) * gap; c < right - top; c += gap) {
-                const float a = std::max(left, top + c) + inset, b2 = std::min(right, bottom + c) - inset;
-                if (b2 <= a) continue;
-                render::RectDraw line;
-                line.line = true, line.rgba = stripe, line.thickness = width;
-                line.x0 = a, line.y0 = a - c, line.x1 = b2, line.y1 = b2 - c;
-                l.fills.push_back(line);
-            }
         };
         const int w = ed.width(), h = ed.height();
         for (int y = 0; y <= h; ++y) {
