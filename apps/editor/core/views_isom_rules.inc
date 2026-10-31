@@ -933,11 +933,34 @@ private:
             return g;
         };
         paint();
-        if (in.extend) {  // (more spots, one at a time: each must show a rect that none showed, and lose none)
+        // (how many places of each rect the painted map shows)
+        auto shownCounts = [&]() {
+            const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+            std::map<uint16_t, int> n;
+            for (uint16_t v : l.tiles)
+                if (const auto it = index.find(v); it != index.end() && !(it->second & 1)) ++n[t->t.pieces[it->second / 2][0]];
+            return n;
+        };
+        if (in.extend) {  // (more spots, one at a time: each must show a rect that none showed, or one more place of a rect
+            // with fewer places than variants (each variant then shows at a place of its own); and lose no rect)
             std::set<uint16_t> want;
+            std::map<uint16_t, int> need;  // (a rect's variants: its set's and its gaps' pieces)
             for (size_t k = 0; k < t->t.pieces.size(); ++k)
-                if (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) want.insert(t->t.pieces[k][0]);
-            std::set<uint16_t> have = shownGroups();
+                if (k < t->t.setPieces || k + t->t.gapPieces >= t->t.pieces.size()) want.insert(t->t.pieces[k][0]), ++need[t->t.pieces[k][0]];
+            auto score = [&](const std::map<uint16_t, int>& n) {  // (a rect shown first, then the variants' places)
+                size_t sc = 0;
+                for (const auto& [g, c] : n)
+                    if (want.count(g)) sc += 1000 + size_t(std::min(c, need[g]));
+                return sc;
+            };
+            std::map<uint16_t, int> counts = shownCounts();
+            std::set<uint16_t> have;
+            for (const auto& [g, c] : counts) have.insert(g);
+            auto done = [&] {
+                for (uint16_t g : want)
+                    if (!counts.count(g) || counts[g] < need[g]) return false;
+                return true;
+            };
             const size_t before = have.size();
             // (each spot's gain of the round before is the most it can gain now (a spot shows no more rects next to more
             // spots): a round tries the spots by that gain and stops at the first that cannot beat the best; the first round
@@ -947,36 +970,46 @@ private:
                 size_t bound;
             };
             std::vector<Spot> spots;
-            for (int j = -6; j <= 6; ++j)
-                for (int i = -4; i <= 4; ++i)
+            for (int j = -9; j <= 9; ++j)
+                for (int i = -6; i <= 6; ++i)
                     if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end()) spots.push_back({{i, j}, SIZE_MAX});
-            for (int j = -12; j <= 12; ++j)  // (the 0.5 brush's spots: rects only a thin strip shows, as a map painted with it)
-                for (int i = -8; i <= 8; ++i)
+            for (int j = -18; j <= 18; ++j)  // (the 0.5 brush's spots: rects only a thin strip shows, as a map painted with it)
+                for (int i = -12; i <= 12; ++i)
                     if ((i + j) % 2 == 0) spots.push_back({{kHalfSpot + i, j}, SIZE_MAX});
-            for (int round = 0; round < 8 && in.gen == buildGen_ && !std::includes(have.begin(), have.end(), want.begin(), want.end()); ++round) {  // (every rect shown: no search)
+            for (int round = 0; round < 40 && in.gen == buildGen_ && !done(); ++round) {  // (every rect and variant shown: no search)
                 std::stable_sort(spots.begin(), spots.end(), [](const Spot& a, const Spot& b) { return a.bound > b.bound; });
                 int best = -1;
-                std::set<uint16_t> bestHave;
+                std::map<uint16_t, int> bestCounts;
                 size_t bestGain = 0;
+                const size_t base = score(counts);
                 for (size_t s = 0; s < spots.size() && spots[s].bound > bestGain; ++s) {
                     shape.push_back(spots[s].at);
                     progress(kStepSearch, int(s) + 1, int(spots.size()), round + 1);
                     paint();
-                    std::set<uint16_t> now = shownGroups();
+                    std::map<uint16_t, int> now = shownCounts();
                     shape.pop_back();
                     size_t gain = 0;
-                    if (std::includes(now.begin(), now.end(), have.begin(), have.end()))  // (a spot that loses a rect: none)
-                        for (uint16_t g : now)
-                            if (want.count(g) && !have.count(g)) ++gain;
+                    if (std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; }))  // (a spot that loses a rect: none)
+                        gain = score(now) > base ? score(now) - base : 0;
                     spots[s].bound = gain;
-                    if (gain > bestGain) bestGain = gain, best = int(s), bestHave = std::move(now);
+                    if (gain > bestGain) bestGain = gain, best = int(s), bestCounts = std::move(now);
                 }
                 if (best < 0) break;
                 const auto [bi, bj] = spots[size_t(best)].at;
-                shape.push_back(spots[size_t(best)].at), have = std::move(bestHave);
+                bool lost = false;  // (a rect with fewer places than before, in reach of its variants: every spot may gain again)
+                for (const auto& [g, c] : counts)
+                    if (const auto it = bestCounts.find(g); it != bestCounts.end() && std::min(it->second, need[g]) < std::min(c, need[g])) lost = true;
+                shape.push_back(spots[size_t(best)].at), counts = std::move(bestCounts);
+                for (const auto& [g, c] : counts) have.insert(g);
+                if (lost)
+                    for (Spot& sp : spots) sp.bound = SIZE_MAX;
                 spots.erase(spots.begin() + best);
-                for (Spot& sp : spots)  // (the spots next to it: a joint with it can show rects they did not alone; tried again)
-                    if (std::abs(sp.at.first - bi) <= 1 && std::abs(sp.at.second - bj) <= 2) sp.bound = SIZE_MAX;
+                auto px = [](std::pair<int, int> a) {  // (a spot's middle in pixels: a half spot on the grid of 32 x 16)
+                    return a.first >= kHalfSpot / 2 ? std::make_pair((a.first - kHalfSpot) * 32, a.second * 16) : std::make_pair(a.first * 64, a.second * 32);
+                };
+                const auto [bx, by] = px({bi, bj});
+                for (Spot& sp : spots)  // (the spots next to it, full or half: a joint with it can show rects they did not alone; tried again)
+                    if (const auto [sx, sy] = px(sp.at); std::abs(sx - bx) <= 96 && std::abs(sy - by) <= 64) sp.bound = SIZE_MAX;
             }
             out.gained = int(have.size() - before);
             out.extra.assign(shape.begin() + long(shapeOf(in.family).size()), shape.end());
@@ -986,6 +1019,41 @@ private:
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
         std::set<uint16_t> seen;
         std::vector<bool> nullAt(tl.tiles.size());
+        // (each place's piece: a pinned place (Show variant, Make Unique) its variant; else the rect's variants in turn over
+        // its places, so that each variant shows at a place of its own; under a piece of the terrain the piece one row down
+        // at the same subtiles where the rect has it, as the brush puts it)
+        const auto& P = t->t.pieces;
+        std::map<std::pair<int, int>, size_t> chosen;  // (a place's left tile -> its piece)
+        std::set<std::pair<int, int>> pinnedAt;
+        {
+            std::map<uint16_t, size_t> turn;
+            for (int ty = 0; ty < H; ++ty)
+                for (int tx = 0; tx < W; ++tx) {
+                    const auto it = index.find(tl.tiles[size_t(ty) * W + tx]);
+                    if (it == index.end() || (it->second & 1)) continue;
+                    size_t k = it->second / 2;
+                    const uint16_t g = P[k][0];
+                    if (const auto pin = in.pins.find({tx, ty}); pin != in.pins.end() && pin->second.first == g) {
+                        int n = pin->second.second;
+                        for (size_t i = 0; i < P.size(); ++i)
+                            if (P[i][0] == g && n-- == 0) { k = i; break; }
+                        pinnedAt.insert({tx, ty});
+                    } else {
+                        std::vector<size_t> vs;  // (the rect's variants: its set's and its gaps' pieces)
+                        for (size_t i = 0; i < P.size(); ++i)
+                            if (P[i][0] == g && (i < t->t.setPieces || i + t->t.gapPieces >= P.size())) vs.push_back(i);
+                        if (!vs.empty()) k = vs[turn[g]++ % vs.size()];
+                    }
+                    chosen[{tx, ty}] = k;
+                }
+            for (int ty = 1; ty < H; ++ty)  // (the rows of a block, top down)
+                for (int tx = 0; tx < W; ++tx) {
+                    const auto me = chosen.find({tx, ty}), up = chosen.find({tx, ty - 1});
+                    if (me == chosen.end() || up == chosen.end() || pinnedAt.count({tx, ty})) continue;
+                    for (size_t i = 0; i < P.size(); ++i)
+                        if (P[i][0] == P[me->second][0] && continues(P[up->second], P[i])) { me->second = i; break; }
+                }
+        }
         for (int ty = 0; ty < H; ++ty)
             for (int tx = 0; tx < W; ++tx) {
                 uint16_t& v = tl.tiles[size_t(ty) * W + tx];
@@ -993,12 +1061,7 @@ private:
                 if (it == index.end()) continue;
                 size_t k = it->second / 2;
                 const bool right = it->second & 1;
-                // (a place pinned to a variant of its rect (Make Unique): that variant, not the engine's pick)
-                if (const auto pin = in.pins.find({right ? tx - 1 : tx, ty}); pin != in.pins.end() && pin->second.first == t->t.pieces[k][0]) {
-                    int n = pin->second.second;
-                    for (size_t i = 0; i < t->t.pieces.size(); ++i)
-                        if (t->t.pieces[i][0] == pin->second.first && n-- == 0) { k = i; break; }
-                }
+                if (const auto c = chosen.find({right ? tx - 1 : tx, ty}); c != chosen.end() && P[c->second][0] == P[k][0]) k = c->second;
                 const auto& q = t->t.pieces[k];
                 if (!right) {
                     seen.insert(q[0]);
@@ -1405,10 +1468,12 @@ private:
             strokeSaved_ = painting_;
         }
         m.pieces[size_t(target_)] = p;
+        const int linked = relink(m, was, p, size_t(target_));  // (the rows of its block follow)
         lightEdit_ = !isomrules::anyNull(was) && !isomrules::anyNull(p);  // (no piece moves: the example stays, its slots show the tiles)
         changed();  // (a complete piece moves into the set: the target follows it)
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
-        setMessage(L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]));
+        setMessage(L"Rect " + std::to_wstring(p[0]) + L": " + half(p[1]) + L" " + half(p[2]) +
+                   (linked ? L"  \x00b7  " + std::to_wstring(linked) + (linked == 1 ? L" linked row follows" : L" linked rows follow") : L""));
     }
     // The next piece after `from` (-1: the start) of the set or the gaps with no tile; -1: none. The order: the rects
     // the example shows (their context is in view), then the tray's, each by piece; round.
@@ -2033,11 +2098,11 @@ private:
     // The search's spots depend on the tileset, the terrain's ground and template, its shape and the rects it has (not
     // its tiles): the key they are kept by (v1: the search as it is now).
     std::wstring extraKeyOf(const stardraft::terrainrules::Terrain& t) const {
-        std::set<uint16_t> want;
+        std::map<uint16_t, uint32_t> want;  // (each rect, its variants: the search gives each variant a place)
         for (size_t k = 0; k < t.t.pieces.size(); ++k)
-            if (k < t.t.setPieces || k + t.t.gapPieces >= t.t.pieces.size()) want.insert(t.t.pieces[k][0]);
+            if (k < t.t.setPieces || k + t.t.gapPieces >= t.t.pieces.size()) ++want[t.t.pieces[k][0]];
         uint32_t h = 2166136261u;
-        for (uint16_t g : want) h = (h ^ g) * 16777619u;
+        for (const auto& [g, n] : want) h = (h ^ g) * 16777619u, h = (h ^ n) * 16777619u;
         h = (h ^ uint32_t(tileset_.groups.size())) * 16777619u;  // (the tileset's groups: a mod's own numbering)
         for (uint16_t g = t.t.ground, n = 0; g >= stardraft::Tileset::kModTerrainIds && n < 16; ++n) {  // (a mod ground: its own rules, down to the game's)
             const stardraft::terrainrules::Terrain* m = nullptr;
@@ -2047,7 +2112,7 @@ private:
             for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
             g = m->t.ground;
         }
-        return L"IsomExtra/v4-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+        return L"IsomExtra/v5-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
                std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
     }
     std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
@@ -2150,6 +2215,44 @@ private:
     // Two pieces one under the other as the brush continues them: b's tiles one row under a's.
     static bool continues(const std::array<uint16_t, 3>& a, const std::array<uint16_t, 3>& b) {
         return !isomrules::anyNull(a) && !isomrules::anyNull(b) && b[1] == uint16_t(a[1] + 16) && b[2] == uint16_t(a[2] + 16);
+    }
+    // A piece's tiles changed from `was` to `now`: the rows of its block follow (one undo step with it). The piece of the
+    // rect below that continued `was` (its tiles one row down) now continues `now`, the piece above that `was` continued
+    // now leads to it, and so on down and up the block, where the tiles one row down (up) are tiles of the tileset. The
+    // rects that stand one under the other: the terrain canvas's. The pieces changed.
+    int relink(isomrules::ModTerrain& m, const std::array<uint16_t, 3>& was, const std::array<uint16_t, 3>& now, size_t edited) {
+        if (isomrules::anyNull(was) || isomrules::anyNull(now) || was == now) return 0;
+        std::set<std::pair<uint16_t, uint16_t>> stacked;  // (the rect above, the rect under it)
+        for (const Place& p : places_)
+            if (p.piece >= 0 && p.piece < int(m.pieces.size()))
+                if (const int q = placeAtTile(p.tx, p.ty - 1); q >= 0 && places_[size_t(q)].piece >= 0 && places_[size_t(q)].piece < int(m.pieces.size()))
+                    stacked.insert({m.pieces[size_t(places_[size_t(q)].piece)][0], m.pieces[size_t(p.piece)][0]});
+        auto tile = [&](int v) { return v >= 16 && (v >> 4) < int(tileset_.groups.size()) && tileset_.megatileFor(uint16_t(v)) > 0; };
+        struct Step { std::array<uint16_t, 3> was, now; int dir; };
+        std::vector<Step> todo{{was, now, 0}};
+        std::set<size_t> done{edited};  // (the piece edited keeps its tiles)
+        int n = 0;
+        while (!todo.empty()) {
+            const Step st = todo.back();
+            todo.pop_back();
+            // (another piece of the rect has the old tiles still (Make Unique's original): its block keeps its rows)
+            if (std::find(m.pieces.begin(), m.pieces.end(), st.was) != m.pieces.end()) continue;
+            for (int dir : {1, -1}) {
+                if (dir == -st.dir) continue;  // (not back where it came from)
+                const int d = 16 * dir;
+                if (!tile(st.now[1] + d) || !tile(st.now[2] + d)) continue;
+                for (size_t i = 0; i < m.pieces.size(); ++i) {
+                    auto& q = m.pieces[i];
+                    if (done.count(i) || !stacked.count(dir > 0 ? std::make_pair(st.was[0], q[0]) : std::make_pair(q[0], st.was[0]))) continue;
+                    if (dir > 0 ? !continues(st.was, q) : !continues(q, st.was)) continue;
+                    const std::array<uint16_t, 3> old = q;
+                    q[1] = uint16_t(st.now[1] + d), q[2] = uint16_t(st.now[2] + d);
+                    done.insert(i), ++n;
+                    todo.push_back({old, q, dir});
+                }
+            }
+        }
+        return n;
     }
     // The place of the canvas at tile (tx, ty), -1 none.
     int placeAtTile(int tx, int ty) const {
