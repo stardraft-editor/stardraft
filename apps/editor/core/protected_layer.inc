@@ -98,53 +98,53 @@ void protectSelection(bool on) {
     app.dirty = true;
 }
 
-// View > Layers > Protected terrain: a light yellow fill over each run of protected tiles, with dashed diagonal lines
-// over it (one pattern over the whole map, so the runs join), made again when the mask changes.
+// View > Layers > Protected terrain: a yellow fill over the protected tiles, put together into rectangles (the same run
+// of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes.
 struct ProtectedLayer {
     const Editor* editor = nullptr;
     uint64_t revision = 0;
     bool light = false;
-    float gap = 0;
     std::vector<render::RectDraw> fills;
 } gProtectedLayer;
 
 void addProtectedLayer(const Editor& ed, render::Scene& s) {
     if (!gLayers.protectedTerrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
     ProtectedLayer& l = gProtectedLayer;
-    // (the lines at least 12 screen pixels apart: 16 map pixels, twice that for each halving of the zoom below 75%)
-    float gap = 16;
-    while (gap * appState().zoom < 12 && gap < 512) gap *= 2;
-    if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme || l.gap != gap) {
-        l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme, l.gap = gap;
+    if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme) {
+        l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme;
         l.fills.clear();
-        const uint32_t fill = gLightTheme ? 0xFFE9704Cu : 0xFFF2A040u, dash = gLightTheme ? 0xC8A000D0u : 0xFFE680C0u;
-        const float kGap = gap, kDash = gap * 0.375f, kPeriod = gap * 0.625f;  // (map pixels: a dash and its period, down)
+        const uint32_t fill = gLightTheme ? 0xE8C00040u : 0xFFE05040u;
+        // The rectangles: each row's runs, joined with the same run of the row above.
+        struct Box {
+            int x0, x1, y0;
+        };
+        std::vector<Box> open, next;
+        auto emit = [&](const Box& b, int y1) {
+            const float left = b.x0 * 32.0f, right = b.x1 * 32.0f, top = b.y0 * 32.0f, bottom = y1 * 32.0f;
+            render::RectDraw d;
+            d.x0 = left, d.y0 = top, d.x1 = right, d.y1 = bottom, d.rgba = fill, d.fill = true;
+            l.fills.push_back(d);
+        };
         const int w = ed.width(), h = ed.height();
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w;) {
+        for (int y = 0; y <= h; ++y) {
+            next.clear();
+            size_t i = 0;
+            for (int x = 0; y < h && x < w;) {
                 if (!ed.tileProtected(x, y)) {
                     ++x;
                     continue;
                 }
                 int e = x;
                 while (e < w && ed.tileProtected(e, y)) ++e;
-                render::RectDraw d;
-                const float left = x * 32.0f, right = e * 32.0f, top = y * 32.0f, bottom = top + 32;
-                d.x0 = left, d.y0 = top, d.x1 = right, d.y1 = bottom, d.rgba = fill, d.fill = true;
-                l.fills.push_back(d);
-                // The lines x + y = c (up to the right), in dashes along y, cut to the run's box.
-                for (float c = std::ceil((left + top) / kGap) * kGap; c < right + bottom; c += kGap)
-                    for (float y0 = top; y0 < bottom; y0 += kPeriod) {
-                        // (the dash's part with left <= c - y < right)
-                        const float a = std::max(y0, c - right), b = std::min({y0 + kDash, bottom, c - left});
-                        if (b <= a) continue;
-                        render::RectDraw line;
-                        line.line = true, line.rgba = dash, line.thickness = 1.5f;
-                        line.x0 = c - a, line.y0 = a, line.x1 = c - b, line.y1 = b;
-                        l.fills.push_back(line);
-                    }
+                Box run{x, e, y};
+                while (i < open.size() && open[i].x0 < x) emit(open[i], y), ++i;
+                if (i < open.size() && open[i].x0 == x && open[i].x1 == e) run.y0 = open[i].y0, ++i;
+                next.push_back(run);
                 x = e;
             }
+            for (; i < open.size(); ++i) emit(open[i], y);
+            std::swap(open, next);
+        }
     }
     s.rects.insert(s.rects.end(), l.fills.begin(), l.fills.end());
 }
@@ -184,7 +184,7 @@ bool protectCheck(const std::string& what, std::string& out) {
     std::string name = step.text;
     if (const size_t at = name.find("%d"); at != std::string::npos) name.replace(at, 2, std::to_string(step.count));
     out = "protect: " + std::to_string(n) + " protected tiles, " + std::to_string(changed) + " of them changed" +
-          (n > 0 && !changed ? " (yes)" : " (WRONG)") + "; " + std::to_string(others) + " other tiles changed; " +
+          (changed ? " (WRONG)" : n ? " (yes)" : " (none protected)") + "; " + std::to_string(others) + " other tiles changed; " +
           std::to_string(protectedInSelection(ed)) + " protected in the selection; layer " + (gLayers.protectedTerrain ? "on" : "off") +
           "; undo: " + (name.empty() ? "none" : name) + "\n";
     return true;
