@@ -113,7 +113,7 @@ void addProtectedLayer(const Editor& ed, render::Scene& s) {
     if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme) {
         l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme;
         l.fills.clear();
-        const uint32_t fill = gLightTheme ? 0xE8C00060u : 0xFFE05060u;
+        const uint32_t fill = gLightTheme ? 0xE8C00040u : 0xFFE05040u;
         // The rectangles: each row's runs, joined with the same run of the row above.
         struct Box {
             int x0, x1, y0;
