@@ -278,8 +278,8 @@ public:
         field_.onEnter = [this] { choose(); };
         field_.onEscape = [this] { finish(-1); };
         bar_.onScroll = [this](int pos) {
-            const int ih = std::max(1, scale(quickPickLayout::kItemH));
-            top_ = (pos + ih / 2) / ih;  // (whole rows, as the list box scrolled)
+            const int ih = std::max(1, itemH());
+            top_ = (pos + ih / 2) / ih * cols();  // (whole rows, as the list box scrolled; a grid: whole lines)
             invalidate();
         };
         add(field_, {0, 0, 0, 0});
@@ -299,6 +299,7 @@ public:
         field_.setPlaceholder(quickPickCue(kind_, replace_, mode_));
         field_.setFont({draw::Face::Ui, quickFontPx()});
         top_ = 0;
+        grid_ = gridSetting(), size_ = sizeSetting();
         fill();
     }
     QuickPickKind kind() const { return kind_; }
@@ -320,19 +321,40 @@ public:
         if (k == draw::Key::Escape) return finish(-1);
         key(draw::KeyEvent{k, true, false, 0});
     }
+    // How the map's things show (the settings QuickPickGrid and QuickPickSize): a list or a grid of pictures, small,
+    // medium (the default) or large. The Data jump, Quick open and the other lists are lists.
+    static bool gridSetting() {
+        int v = 0;
+        return prefs::number(L"QuickPickGrid", v, 0, 1) && v == 1;
+    }
+    static int sizeSetting() {
+        int v = 1;
+        return prefs::number(L"QuickPickSize", v, 0, 2) ? v : 1;
+    }
+    void setView(bool grid, int size) {
+        grid_ = grid, size_ = std::clamp(size, 0, 2);
+        if (!gSettingsOff) prefs::setNumber(L"QuickPickGrid", grid_ ? 1 : 0), prefs::setNumber(L"QuickPickSize", size_);
+        top_ = 0;
+        if (sel_ >= 0) select(sel_);
+        layoutField(), place(), invalidate();
+    }
     // The window's size at the display scale (the view is this less the frame on each side when the host draws it).
     static draw::Point windowSize() { return {scale(quickPickLayout::kW), scale(quickPickLayout::kH)}; }
 
     // Up and Down move the choice by one, Page Up and Page Down by 8 (the field does not take them).
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
+        if (pictures() && e.mods == draw::kCtrl) {  // (the view: Ctrl+L list, Ctrl+G grid; the size: Ctrl+wheel or the S / M / L button)
+            if (e.key == static_cast<draw::Key>('L')) return setView(false, size_), true;
+            if (e.key == static_cast<draw::Key>('G')) return setView(true, size_), true;
+        }
         const int n = int(shown_.size());
         int step = 0;
         switch (e.key) {
-        case draw::Key::Down: step = 1; break;
-        case draw::Key::Up: step = -1; break;
-        case draw::Key::PageDown: step = 8; break;
-        case draw::Key::PageUp: step = -8; break;
+        case draw::Key::Down: step = cols(); break;
+        case draw::Key::Up: step = -cols(); break;
+        case draw::Key::PageDown: step = std::max(cols(), visibleRows() - cols()); break;
+        case draw::Key::PageUp: step = -std::max(cols(), visibleRows() - cols()); break;
         case draw::Key::Enter: return choose(), true;
         case draw::Key::Escape: return finish(-1), true;
         default: return false;
@@ -343,10 +365,25 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         const draw::Rect L = listRect();
-        if (e.kind == draw::MouseKind::Wheel) {  // three rows a notch (the list box's)
+        if (e.kind == draw::MouseKind::Wheel) {  // three rows a notch (the list box's; a grid: a line of pictures)
             if (e.wheel == 0 || e.horizontal) return false;
-            setTop(top_ - (e.exact ? draw::exactSteps(e, float(scale(quickPickLayout::kItemH)), wheelCarry_) : int(std::lround(e.wheel * 3))));
+            if (pictures() && (e.mods & draw::kCtrl)) return setView(grid_, size_ + (e.wheel > 0 ? 1 : -1)), true;  // (Ctrl+wheel: the size)
+            const int lines = e.exact ? draw::exactSteps(e, float(itemH()), wheelCarry_) : int(std::lround(e.wheel * (grid_ && pictures() ? 1 : 3)));
+            setTop(top_ - lines * cols());
             return true;
+        }
+        if (pictures() && (e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0)
+            for (int b = 0; b < 3; ++b)
+                if (viewButton(b).contains(e.pt)) {
+                    if (b == 2) setView(grid_, (size_ + 1) % 3);
+                    else setView(b == 1, size_);
+                    return true;
+                }
+        if (pictures() && e.kind == draw::MouseKind::Move) {
+            int over = -1;
+            for (int b = 0; b < 3; ++b)
+                if (viewButton(b).contains(e.pt)) over = b;
+            if (over != overButton_) overButton_ = over, invalidate();
         }
         if (e.kind != draw::MouseKind::Move && e.kind != draw::MouseKind::Down && e.kind != draw::MouseKind::DoubleClick) return false;
         const int i = rowAt(e.pt);
@@ -379,17 +416,34 @@ public:
         const draw::Font of = c.setFont(smallFont(c));
         const std::wstring count = std::to_wstring(shown_.size()) + (shown_.size() >= 400 ? L"+" : L"");
         c.text({sr_.right - scale(80), sr_.top, sr_.right, sr_.bottom}, count, kDim, draw::kRight | draw::kMiddle);
+        if (pictures()) {  // (the view: List, Grid, the size)
+            static const wchar_t* const kSizes[3] = {L"S", L"M", L"L"};
+            for (int b = 0; b < 3; ++b) {
+                const draw::Rect r = viewButton(b);
+                const bool on = b == 2 ? false : (b == 1) == grid_;
+                if (on) c.roundBox(r, kSel, kAccentLine, float(scale(4)));
+                else if (b == overButton_) c.roundBox(r, kCtlHot, kCtlHot, float(scale(4)));
+                const draw::Color fg = on ? kAccentBright : b == overButton_ ? kText : kDim;
+                if (b == 2) c.text(r, kSizes[size_], fg, draw::kCenter | draw::kMiddle);
+                else c.icon({r.left + scale(4), r.top + scale(4), r.right - scale(4), r.bottom - scale(4)}, int(b == 1 ? UiIcon::Grid : UiIcon::AlignLeft), fg, scale(16));
+            }
+        }
         c.setFont(of);
         c.fill({inset(), sr_.bottom + scale(8), width() - inset(), sr_.bottom + scale(9)}, kBorder);
         // The rows.
         const draw::Rect L = listRect();
         c.pushClip(L);
-        const int ih = scale(kItemH);
+        const int ih = itemH(), nc = cols(), cw = cellW();
         const int rowsRight = L.right - (scrolls() ? scale(kScrollW) : 0);
         for (int i = top_; i < int(shown_.size()); ++i) {
-            const int y = L.top + (i - top_) * ih;
+            const int y = L.top + (i - top_) / nc * ih;
             if (y >= L.bottom) break;
-            paintRow(c, shown_[size_t(i)], i == sel_, {L.left, y, rowsRight, y + ih});
+            if (nc > 1 || (grid_ && pictures())) {
+                const int x = L.left + (i - top_) % nc * cw;
+                paintCell(c, shown_[size_t(i)], i == sel_, {x, y, x + cw, y + ih});
+            } else {
+                paintRow(c, shown_[size_t(i)], i == sel_, {L.left, y, rowsRight, y + ih});
+            }
         }
         c.popClip();
     }
@@ -411,13 +465,48 @@ private:
         const int left = o + scale(kListSide);
         return {left, top, left + outerW() - 2 * scale(kListSide), top + outerH() - (top - o) - scale(kListSide)};
     }
-    int visibleRows() const { return std::max(1, listRect().height() / std::max(1, scale(quickPickLayout::kItemH))); }
-    bool scrolls() const { return int(shown_.size()) * scale(quickPickLayout::kItemH) > listRect().height(); }
+    // The map's things have pictures: they take the view (list or grid, the size); the other lists are lists.
+    bool pictures() const { return kind_ == QuickPickKind::Map; }
+    // A row's height (a list) or a cell's (a grid: its picture and its name under it); a cell's width; the columns.
+    int itemH() const {
+        static const int kListH[3] = {36, 48, 64}, kCell[3] = {64, 88, 120};
+        if (!pictures()) return scale(quickPickLayout::kItemH);
+        return grid_ ? scale(kCell[size_] + 18) : scale(kListH[size_]);
+    }
+    int cellW() const {
+        static const int kCell[3] = {64, 88, 120};
+        return pictures() && grid_ ? scale(kCell[size_]) : listRect().width();
+    }
+    int cols() const { return pictures() && grid_ ? std::max(1, (listRect().width() - scale(quickPickLayout::kScrollW)) / std::max(1, cellW())) : 1; }
+    int lines(int n) const { return (n + cols() - 1) / cols(); }
+    int visibleLines() const { return std::max(1, listRect().height() / std::max(1, itemH())); }
+    int visibleRows() const { return visibleLines() * cols(); }  // (the things that show whole: a grid's lines of them)
+    bool scrolls() const { return lines(int(shown_.size())) * itemH() > listRect().height(); }
     int rowAt(draw::Point pt) const {
         const draw::Rect L = listRect();
-        if (pt.y < L.top) return -1;
-        const int i = top_ + (pt.y - L.top) / std::max(1, scale(quickPickLayout::kItemH));
+        if (pt.y < L.top || pt.x < L.left) return -1;
+        const int col = (pt.x - L.left) / std::max(1, cellW());
+        if (col >= cols()) return -1;
+        const int i = top_ + (pt.y - L.top) / std::max(1, itemH()) * cols() + col;
         return i < int(shown_.size()) ? i : -1;
+    }
+    // The view's buttons in the search row, left of the count: List, Grid, the size.
+    draw::Rect viewButton(int b) const {
+        const int bw = scale(24), right = sr_.right - scale(56) - (2 - b) * (bw + scale(2));  // (the count's room at the right: 56)
+        return {right - bw, sr_.top + scale(4), right, sr_.bottom - scale(4)};
+    }
+    // A grid's cell: the picture, as large as the cell takes, the name under it (cut to the cell).
+    void paintCell(draw::Canvas& c, const PaletteUnit& u, bool sel, draw::Rect r) {
+        c.fill(r, kBg);
+        if (sel) c.roundBox({r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kSel, kSel, float(scale(6)));
+        const int pic = r.width() - scale(12);
+        const draw::Rect box{r.left + scale(6), r.top + scale(4), r.left + scale(6) + pic, r.top + scale(4) + pic};
+        if (!(mode_ != Mode::Locations && host_->drawPicture(c, kind_, mode_, u, box)))
+            c.icon(box, int(mode_ == Mode::Locations ? UiIcon::Locations : UiIcon::Units), kFaint, scale(20));
+        const draw::Font of = c.setFont(smallFont(c));
+        c.text({r.left + scale(3), box.bottom + scale(2), r.right - scale(3), r.bottom - scale(2)}, u.label, u.mark & kQuickMarkGray ? kFaint : kText,
+               draw::kCenter | draw::kMiddle | draw::kEllipsis);
+        c.setFont(of);
     }
 
     void layoutField() {
@@ -427,18 +516,18 @@ private:
         const int lineH = lineHeight_ > 0 ? lineHeight_ : scale(20);
         const int editH = lineH + scale(4), editX = sr_.left + scale(32);
         const int y = sr_.top + (scale(kRowH) - editH) / 2;
-        field_.setFrame({editX + scale(2), y - scale(2), sr_.right - scale(84), y - scale(2) + editH});
+        field_.setFrame({editX + scale(2), y - scale(2), sr_.right - (pictures() ? scale(56 + 3 * 26 + 8) : scale(84)), y - scale(2) + editH});
     }
     void place() {
         const draw::Rect L = listRect();
-        const int ih = scale(quickPickLayout::kItemH);
+        const int ih = itemH();
         // The kit bar where the old list's bar had its track: in the 17 px column at the right, between the 17 px of its
         // arrows; its thin thumb on the column's middle. The page is the whole rows that show (the list box's), so the
         // thumb has the old one's length and place.
         const int col = L.right - scale(quickPickLayout::kScrollW), arrow = scale(quickPickLayout::kScrollW);
         bar_.setFrame({col + scale(1), L.top + arrow, col + scale(1) + scale(stardraft::kit::kScrollBarW), L.bottom - arrow});
-        bar_.setRange(int(shown_.size()) * ih, visibleRows() * ih);
-        bar_.setPos(top_ * ih);
+        bar_.setRange(lines(int(shown_.size())) * ih, visibleLines() * ih);
+        bar_.setPos(top_ / cols() * ih);
         bar_.setVisible(scrolls());
     }
 
@@ -454,15 +543,16 @@ private:
         invalidate();
     }
     void setTop(int t) {
-        const int maxTop = std::max(0, int(shown_.size()) - visibleRows());
-        t = std::clamp(t, 0, maxTop);
+        const int nc = cols(), maxTop = std::max(0, lines(int(shown_.size())) - visibleLines()) * nc;
+        t = std::clamp(t / nc * nc, 0, maxTop);
         if (t != top_) top_ = t, place(), invalidate();
     }
-    // The choice, scrolled into view (the list box's LB_SETCURSEL).
+    // The choice, scrolled into view (the list box's LB_SETCURSEL; a grid: its line).
     void select(int i) {
         sel_ = i;
+        const int nc = cols();
         if (i < top_) setTop(i);
-        else if (i >= top_ + visibleRows()) setTop(i - visibleRows() + 1);
+        else if (i >= top_ + visibleRows()) setTop((i / nc - visibleLines() + 1) * nc);
         invalidate();
     }
     void choose() { finish(sel_ >= 0 && sel_ < int(shown_.size()) ? shown_[size_t(sel_)].value : -1); }
@@ -537,6 +627,9 @@ private:
     QuickPickKind kind_ = QuickPickKind::Map;
     Mode mode_ = Mode::Units;
     bool replace_ = false, framed_ = true, focusText_ = true, focused_ = false, done_ = false;
+    bool grid_ = false;  // (the view of the map's things: a grid of pictures, else a list)
+    int size_ = 1;       // (their size: 0 small, 1 medium, 2 large)
+    int overButton_ = -1;  // (the view button under the mouse)
     std::vector<PaletteUnit> openRows_;  // Quick open's rows, made once when it opens
     std::vector<PaletteUnit> shown_;
     std::vector<std::wstring> words_;  // what is typed, word by word (the rows show where each word is in the name)
