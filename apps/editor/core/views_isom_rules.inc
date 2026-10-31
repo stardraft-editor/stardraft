@@ -292,6 +292,13 @@ public:
     bool dirty() const { return dirty_; }
     // Another tileset (a snapshot's isomrules:<era>/<name>).
     void showEra(int e) { openEra(e & 7); }
+    // The terrains of the list, one a line: name, family (a snapshot's isomrules:<era>/*).
+    std::string terrainNames() {
+        std::string out;
+        for (int v : shown_)
+            if (v >= 0) out += "isom terrain: " + rules().terrains[size_t(v)].t.name + " | " + narrow(isomrules::familyName(familyOfValue(v))) + "\n";
+        return out;
+    }
     // Selects the terrain of that name in the list (a snapshot's isomrules:<name>); false: none.
     bool selectByName(const std::string& name) {
         for (size_t i = 0; i < shown_.size(); ++i)
@@ -994,6 +1001,7 @@ private:
         std::erase_if(shape, [&](const std::pair<int, int>& sp) { return spotKind(sp.first) == 1 && in.hidden.count(sp) > 0; });  // (the strips taken off)
         // (the bordering terrain all around: no other terrain in the picture; the shape, and one spot more when `more`)
         auto paintOn = [&](Editor* e, const std::pair<int, int>* more, size_t without = SIZE_MAX) {  // (`without`: a spot of the shape left out)
+            std::srand(1);  // (the terrain core picks rare tiles with rand, each thread its own: the same shape paints the same, on any thread, after any build)
             e->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
             e->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 56.0f});
             auto spot = [&](std::pair<int, int> sp) {
@@ -1040,15 +1048,20 @@ private:
                     h->useModTerrains(in.all);
                 }
             }
-            std::atomic<size_t> next{0};
-            std::atomic<bool> anyMap{false};
+            // (each map its trials in a fixed order: trial k on the (k mod m)-th map that can take this tileset. A paint
+            // depends a little on what its map painted before: so each run gives the same canvas)
+            std::vector<size_t> usable;
+            for (size_t w = 0; w < helpers_.size(); ++w)
+                if (helpers_[w]->isOpen() && helpers_[w]->era() == in.era) usable.push_back(w);
+            if (usable.empty()) {
+                for (size_t k = 0; k < n && in.gen == buildGen_; ++k) f(ed, k);
+                return;
+            }
             pool_->run([&](size_t w) {
-                Editor* e = helpers_[w].get();
-                if (!e->isOpen() || e->era() != in.era) return;  // (a map that could not take this tileset: the others do its share)
-                anyMap = true;
-                for (size_t k; (k = next++) < n && in.gen == buildGen_;) f(e, k);
+                const auto at = std::find(usable.begin(), usable.end(), w);
+                if (at == usable.end()) return;  // (a map that could not take this tileset: the others do its share)
+                for (size_t k = size_t(at - usable.begin()); k < n && in.gen == buildGen_; k += usable.size()) f(helpers_[w].get(), k);
             });
-            for (size_t k; !anyMap && (k = next++) < n && in.gen == buildGen_;) f(ed, k);
         };
         auto countsWithEach = [&](const std::vector<std::pair<int, int>>& spots) {
             std::vector<std::map<uint16_t, int>> out(spots.size());

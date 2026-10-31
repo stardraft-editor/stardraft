@@ -816,7 +816,8 @@ int main(int argc, char** argv) {
                 if (dialogArg.size() > 10) {  // (<terrain>, or <era>/<terrain>: another tileset's)
                     std::string name = dialogArg.substr(10);
                     if (name.size() > 2 && std::isdigit(static_cast<unsigned char>(name[0])) && name[1] == '/') gIsomRulesView.showEra(name[0] - '0'), name = name.substr(2);
-                    gIsomRulesView.selectByName(name);
+                    if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
+                    else gIsomRulesView.selectByName(name);
                 }
                 std::printf("%s\n", gIsomRulesView.state().c_str());
             } else if (dialogArg == "newproject") shown = &projectShot;
