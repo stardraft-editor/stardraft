@@ -375,8 +375,8 @@ CASES += [
     # Cosmonarchy BW maps (--cmbwmap: a map of the mod whose trigger 1 has a Comment with CRIGs, as Butcher's Ballad's
     # "01. Clenched Fist.scx"; the mod's install is found as the program finds it). The Players
     # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
-    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677", "--key", "Down",
-                             "--key", "Down", "--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
+    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677"] + ["--key", "Up"] * 5 +
+                            ["--key", "Down"] * 3 + ["--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
     # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
     # in pair mode (T) the rect takes a palette tile and the next one and the target moves on (CHECKS: check_isom_rules).
@@ -4049,8 +4049,8 @@ def check_stack_menu(output):
 
 
 def check_players_askosi(output):
-    """In a Cosmonarchy map the race list is Zerg, Terran, Protoss, Askosi, User select, Random; two steps down from
-    Terran and Enter make player 1 Askosi (69)."""
+    """In a Cosmonarchy map the race list is Zerg, Terran, Protoss, Askosi, User select, Random; up to the top (Zerg,
+    whatever race the map gives player 1), three steps down and Enter make player 1 Askosi (69)."""
     m = re.search(r"^players: races=([\d,]+) list=(.*)$", output, re.M)
     if not m:
         return "no players line"
