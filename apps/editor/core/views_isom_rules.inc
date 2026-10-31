@@ -1025,8 +1025,22 @@ private:
             for (const auto& [g, c] : counts) have.insert(g);
             bool thinGained = std::any_of(want.begin(), want.end(), [&](uint16_t g) { return have.count(g) && !mainHave.count(g); });
             auto allShown = [&] { return std::all_of(want.begin(), want.end(), [&](uint16_t g) { return have.count(g) > 0; }); };
-            auto thinSearch = [&](int jLo, int jHi) {  // (half spots in rows jLo to jHi, one at a time, each for a rect that none showed)
+            // (half spots in rows jLo to jHi, one at a time, each for a rect that none showed. `touching`: only the spots
+            // next to a spot of the shape (a strip far from every wall joins none). A spot that showed no new rect in a
+            // round shows none in the next (the rects to find only get fewer) unless the spot added was next to it: it is
+            // tried again only then)
+            auto thinSearch = [&](int jLo, int jHi, bool touching) {
                 bool gained = false;
+                auto px = [](std::pair<int, int> a) {  // (a spot's middle in pixels: a half spot on the grid of 32 x 16)
+                    return a.first >= kHalfSpot / 2 ? std::make_pair((a.first - kHalfSpot) * 32, a.second * 16) : std::make_pair(a.first * 64, a.second * 32);
+                };
+                auto nextTo = [&](std::pair<int, int> a, std::pair<int, int> b, int dx, int dy) {
+                    const auto [ax, ay] = px(a);
+                    const auto [bx, by] = px(b);
+                    return std::abs(ax - bx) <= dx && std::abs(ay - by) <= dy;
+                };
+                std::set<std::pair<int, int>> dull;  // (the spots that showed no new rect the round before)
+                std::pair<int, int> added{INT_MIN, INT_MIN};
                 for (int round = 0; round < 24 && in.gen == buildGen_ && !allShown(); ++round) {
                 int bestI = 0, bestJ = 0;
                 size_t bestNew = 0;
@@ -1035,27 +1049,32 @@ private:
                 for (int j = jLo; j <= jHi && in.gen == buildGen_; ++j)
                     for (int i = -12; i <= 12 && in.gen == buildGen_; ++i) {
                         progress(kStepSearch, (j - jLo) * 25 + i + 13, total, round + 1);
-                        if ((i + j) % 2 != 0 || std::find(shape.begin(), shape.end(), std::make_pair(kHalfSpot + i, j)) != shape.end()) continue;
-                        shape.push_back({kHalfSpot + i, j});
+                        const std::pair<int, int> sp{kHalfSpot + i, j};
+                        if ((i + j) % 2 != 0 || std::find(shape.begin(), shape.end(), sp) != shape.end()) continue;
+                        if (dull.count(sp) && !(added.first != INT_MIN && nextTo(sp, added, 96, 64))) continue;
+                        if (touching && std::none_of(shape.begin(), shape.end(), [&](std::pair<int, int> o) { return nextTo(sp, o, 128, 80); })) continue;
+                        dull.erase(sp);
+                        shape.push_back(sp);
                         paint();
                         std::map<uint16_t, int> now = shownCounts();
                         shape.pop_back();
                         if (!std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; })) continue;
                         size_t fresh = 0;
                         for (uint16_t g : want) fresh += now.count(g) && !have.count(g);
+                        if (!fresh) dull.insert(sp);
                         if (fresh > bestNew) bestNew = fresh, bestI = i, bestJ = j, bestCounts = std::move(now);
                     }
                 if (!bestNew || in.gen != buildGen_) break;
-                shape.push_back({kHalfSpot + bestI, bestJ}), counts = std::move(bestCounts), gained = true;
+                shape.push_back({kHalfSpot + bestI, bestJ}), counts = std::move(bestCounts), gained = true, added = shape.back();
                 for (const auto& [g, c] : counts) have.insert(g);
                 }
                 return gained;
             };
-            if (thinSearch(kThinRow - 3, kThinRow + 3)) thinGained = true;
+            if (thinSearch(kThinRow - 3, kThinRow + 3, false)) thinGained = true;
             if (!thinGained) shape.resize(mainSpots), counts = mainCounts, have = mainHave;
             // (a rect that shows only where a thin strip joins the shape's walls: a half spot in the shape, for that rect
             // alone; the puzzle has every rect)
-            thinSearch(-18, 18);
+            thinSearch(-18, 18, true);
             out.gained = int(have.size() - before);
             out.extra.assign(shape.begin() + long(shapeOf(in.family).size()), shape.end());
             paint();
