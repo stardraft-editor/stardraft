@@ -1138,6 +1138,62 @@ private:
                 for (Spot& sp : spots)  // (the spots next to it, full or half: a joint with it can show rects they did not alone; tried again)
                     if (const auto [sx, sy] = px(sp.at); std::abs(sx - bx) <= 96 && std::abs(sy - by) <= 64) sp.bound = SIZE_MAX;
             }
+            // (the led variants: a variant that the brush puts only under another one (its tiles that one's one row down)
+            // needs that one's rect right above a place of its rect. The stacks each rect pair needs (a led variant each)
+            // against the stacks the map has; spots one at a time, each giving more of the stacks needed and taking no
+            // place from any rect, until none does)
+            {
+                const auto& Q = t->t.pieces;
+                std::map<std::pair<uint16_t, uint16_t>, int> stacksNeed;  // (the rect above, the rect under it) -> led variants
+                for (size_t k = 0; k < Q.size(); ++k) {
+                    if (!(k < t->t.setPieces || k + t->t.gapPieces >= Q.size()) || isomrules::anyNull(Q[k])) continue;
+                    for (size_t i = 0; i < Q.size(); ++i)
+                        if (i != k && continues(Q[i], Q[k])) { ++stacksNeed[{Q[i][0], Q[k][0]}]; break; }
+                }
+                auto stacksOn = [&](const Editor* e) {
+                    const stardraft::TerrainLayer l = stardraft::readTerrain(e->chk(), "TILE");
+                    std::map<std::pair<uint16_t, uint16_t>, int> have;
+                    for (int ty = 0; ty + 1 < H; ++ty)
+                        for (int tx = 0; tx < W; ++tx) {
+                            const auto a = index.find(l.tiles[size_t(ty) * W + tx]), b = index.find(l.tiles[size_t(ty + 1) * W + tx]);
+                            if (a != index.end() && b != index.end() && !(a->second & 1) && !(b->second & 1)) ++have[{Q[a->second / 2][0], Q[b->second / 2][0]}];
+                        }
+                    return have;
+                };
+                auto stacksScore = [&](const std::map<std::pair<uint16_t, uint16_t>, int>& have) {
+                    int sc = 0;
+                    for (const auto& [p, n] : stacksNeed)
+                        if (const auto it = have.find(p); it != have.end()) sc += std::min(it->second, n);
+                    return sc;
+                };
+                paint();
+                int curStacks = stacksScore(stacksOn(ed));
+                int needAll = 0;
+                for (const auto& [p, n] : stacksNeed) needAll += n;
+                for (int round = 0; round < 24 && curStacks < needAll && in.gen == buildGen_; ++round) {
+                    std::vector<std::pair<int, int>> tries;
+                    for (int j = -9; j <= 9; ++j)
+                        for (int i = -6; i <= 6; ++i)
+                            if (std::find(shape.begin(), shape.end(), std::make_pair(i, j)) == shape.end()) tries.push_back({i, j});
+                    progress(kStepSearch, round + 1, 24, round + 1);
+                    std::vector<std::pair<std::map<uint16_t, int>, std::map<std::pair<uint16_t, uint16_t>, int>>> seen(tries.size());
+                    onEach(tries.size(), [&](Editor* e, size_t k) { paintOn(e, &tries[k]), seen[k] = {countsOn(e), stacksOn(e)}; });
+                    int best = -1, bestStacks = curStacks;
+                    for (size_t k = 0; k < tries.size(); ++k) {
+                        const int sc = stacksScore(seen[k].second);
+                        if (sc <= bestStacks) continue;
+                        bool keeps = true;  // (no rect loses a place, up to its variants)
+                        for (const auto& [g, nv] : need) {
+                            const auto a = counts.find(g), b = seen[k].first.find(g);
+                            keeps = keeps && std::min(b == seen[k].first.end() ? 0 : b->second, nv) >= std::min(a == counts.end() ? 0 : a->second, nv);
+                        }
+                        if (keeps) best = int(k), bestStacks = sc;
+                    }
+                    if (best < 0) break;
+                    shape.push_back(tries[size_t(best)]), counts = seen[size_t(best)].first, curStacks = bestStacks;
+                    for (const auto& [g, c] : counts) have.insert(g);
+                }
+            }
             // (the thin shapes: the rects that only the 0.5 brush's strips show (a thin strip has no room for a terrain's
             // walls), alone or where they join a wall. In a row of their own under the shape (kThinRow): three small
             // diamonds to join, then half spots one at a time: each shows a rect that none showed, and loses none. No rect
@@ -1394,30 +1450,64 @@ private:
         std::map<std::pair<int, int>, size_t> chosen;  // (a place's left tile -> its piece)
         std::set<std::pair<int, int>> pinnedAt;
         {
-            std::map<uint16_t, size_t> turn;
+            auto isFill = [&](size_t k) { return k >= t->t.setPieces && k + t->t.gapPieces < P.size(); };
+            auto variantsOf = [&](uint16_t g) {  // (the rect's variants: its set's and its gaps' pieces; a fill rect: its fill pieces)
+                std::vector<size_t> vs;
+                for (size_t i = 0; i < P.size(); ++i)
+                    if (P[i][0] == g && !isFill(i)) vs.push_back(i);
+                if (vs.empty())
+                    for (size_t i = 0; i < P.size(); ++i)
+                        if (P[i][0] == g && isFill(i)) vs.push_back(i);
+                return vs;
+            };
+            // (the places in turn, top down; a pinned place (Show variant, Make Unique) keeps its variant)
+            std::vector<std::pair<int, int>> order;
+            std::map<std::pair<int, int>, uint16_t> rectAt;
             for (int ty = 0; ty < H; ++ty)
                 for (int tx = 0; tx < W; ++tx) {
                     const auto it = index.find(tl.tiles[size_t(ty) * W + tx]);
                     if (it == index.end() || (it->second & 1)) continue;
                     size_t k = it->second / 2;
                     const uint16_t g = P[k][0];
+                    rectAt[{tx, ty}] = g;
                     if (const auto pin = in.pins.find({tx, ty}); pin != in.pins.end() && pin->second.first == g) {
                         int n = pin->second.second;
                         for (size_t i = 0; i < P.size(); ++i)
                             if (P[i][0] == g && n-- == 0) { k = i; break; }
-                        pinnedAt.insert({tx, ty});
+                        pinnedAt.insert({tx, ty}), chosen[{tx, ty}] = k;
                     } else {
-                        std::vector<size_t> vs;  // (the rect's variants: its set's and its gaps' pieces; a fill rect: its fill pieces)
-                        for (size_t i = 0; i < P.size(); ++i)
-                            if (P[i][0] == g && (i < t->t.setPieces || i + t->t.gapPieces >= P.size())) vs.push_back(i);
-                        if (vs.empty())
-                            for (size_t i = t->t.setPieces; i + t->t.gapPieces < P.size(); ++i)
-                                if (P[i][0] == g) vs.push_back(i);
-                        if (!vs.empty()) k = vs[turn[g]++ % vs.size()];
+                        order.push_back({tx, ty}), chosen[{tx, ty}] = k;
                     }
-                    chosen[{tx, ty}] = k;
                 }
-            auto isFill = [&](size_t k) { return k >= t->t.setPieces && k + t->t.gapPieces < P.size(); };
+            // (first the led variants: a variant that the brush puts only under another one gets that one on a place of
+            // its rect right above a place of its rect, the led one under it; both stay)
+            std::map<size_t, int> uses;
+            for (size_t k = 0; k < P.size(); ++k) {
+                if (isFill(k) || isomrules::anyNull(P[k])) continue;
+                size_t leader = SIZE_MAX;
+                for (size_t i = 0; i < P.size() && leader == SIZE_MAX; ++i)
+                    if (i != k && continues(P[i], P[k])) leader = i;
+                if (leader == SIZE_MAX) continue;
+                for (const auto& p : order) {
+                    const std::pair<int, int> below{p.first, p.second + 1};
+                    const auto r = rectAt.find(below);
+                    if (rectAt[p] != P[leader][0] || r == rectAt.end() || r->second != P[k][0] || pinnedAt.count(p) || pinnedAt.count(below)) continue;
+                    chosen[p] = leader, chosen[below] = k, pinnedAt.insert(p), pinnedAt.insert(below), ++uses[leader], ++uses[k];
+                    break;
+                }
+            }
+            // (then each other place: the variant of its rect with the fewest places so far, in turn among those)
+            std::map<uint16_t, size_t> turn;
+            for (const auto& p : order) {
+                if (pinnedAt.count(p)) continue;
+                const std::vector<size_t> vs = variantsOf(rectAt[p]);
+                if (vs.empty()) continue;
+                size_t& at = turn[rectAt[p]];
+                size_t best = vs[at % vs.size()];
+                for (size_t n = 0; n < vs.size(); ++n)
+                    if (const size_t c = vs[(at + n) % vs.size()]; uses[c] < uses[best]) best = c;
+                ++at, chosen[p] = best, ++uses[best];
+            }
             auto follow = [&] {
                 for (int ty = 1; ty < H; ++ty)  // (the rows of a block, top down)
                     for (int tx = 0; tx < W; ++tx) {
@@ -2517,7 +2607,7 @@ private:
             for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
             g = m->t.ground;
         }
-        return L"IsomExtra/v10-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+        return L"IsomExtra/v11-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
                std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
     }
     std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
