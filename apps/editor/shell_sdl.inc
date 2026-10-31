@@ -136,6 +136,7 @@ int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring
     std::vector<stardraft::kit::MenuItem> kitItems(items.size());
     for (size_t i = 0; i < items.size(); ++i) {
         kitItems[i].label = items[i], kitItems[i].checked = int(i) == checked;
+        kitItems[i].separator = items[i] == L"-";  // ("-": a line between groups)
         kitItems[i].run = [pick, i] { pick->index = int(i); };
     }
     stardraft::kit::MenuOptions opts;
