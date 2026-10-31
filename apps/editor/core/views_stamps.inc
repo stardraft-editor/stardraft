@@ -1,7 +1,8 @@
 // The Custom list (portable; views_tiles.inc includes it before the Tiles panel, which shows it in place of its grid
 // while its panel's Custom is on): the custom terrain of the map's tileset (core/stamps.inc), a picture of each, under
 // headings made from the names ("Jungle_Bridges_Left": Left under Bridges under Jungle); a click on a heading closes or
-// opens it. The box at the top sorts by name (A to Z) or the newest first. A click on an item makes it the Brush's
+// opens it. The box at the top sorts by name (A to Z) or the newest first; the search under it shows only the custom
+// terrain whose name has the typed text (any case; GitHub #175), its closed headings open. A click on an item makes it the Brush's
 // stamp; a right click: Rename, Delete, Show in folder. With no custom terrain for the tileset, two dim lines say how
 // to make it.
 
@@ -35,15 +36,17 @@ struct StampRow {
 };
 std::set<std::wstring> gStampsClosed;  // the headings closed (by key), for this run
 
-std::vector<StampRow> stampsRows() {
+std::vector<StampRow> stampsRows(std::wstring search = {}) {
     const auto& list = stampsList();
-    std::vector<int> order(list.size());
-    for (size_t i = 0; i < order.size(); ++i) order[i] = int(i);
     auto lower = [](const std::string& n) {
         std::wstring w = widen(n);
         std::transform(w.begin(), w.end(), w.begin(), ::towlower);
         return w;
     };
+    std::transform(search.begin(), search.end(), search.begin(), ::towlower);
+    std::vector<int> order;
+    for (size_t i = 0; i < list.size(); ++i)
+        if (search.empty() || lower(list[i].name).find(search) != std::wstring::npos) order.push_back(int(i));
     if (stampsSort() == 1)
         std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return list[size_t(a)].created > list[size_t(b)].created; });
     else
@@ -73,7 +76,7 @@ std::vector<StampRow> stampsRows() {
         if (it.group.empty()) rows.push_back({0, false, it.label, L"", it.index});
     for (const std::wstring& g : groups) {
         rows.push_back({0, true, g, g, -1});
-        if (gStampsClosed.count(g)) continue;
+        if (gStampsClosed.count(g) && search.empty()) continue;
         for (const Item& it : items)  // its own items first, then its sub-groups
             if (it.group == g && it.sub.empty()) rows.push_back({1, false, it.label, L"", it.index});
         std::vector<std::wstring> subs;
@@ -82,7 +85,7 @@ std::vector<StampRow> stampsRows() {
         for (const std::wstring& sub : subs) {
             const std::wstring key = g + L"_" + sub;
             rows.push_back({1, true, sub, key, -1});
-            if (gStampsClosed.count(key)) continue;
+            if (gStampsClosed.count(key) && search.empty()) continue;
             for (const Item& it : items)
                 if (it.group == g && it.sub == sub) rows.push_back({2, false, it.label, L"", it.index});
         }
@@ -109,6 +112,9 @@ public:
             shellFocusView();
         };
         add(sort_, {0, 0, 0, 0});
+        search_.setPlaceholder(tr(L"Search"));
+        search_.onChange = [this] { scroll_ = 0, layout(); };
+        add(search_, {0, 0, 0, 0});
         add(bar_, {0, 0, 0, 0});
         bar_.onScroll = [this](int pos) { scrollTo(pos); };
     }
@@ -117,17 +123,18 @@ public:
     StampsListView& operator=(const StampsListView&) = delete;
 
     TilesScope here() { return {data, grid, panel}; }
-    static int topH() { return scale(24) + scale(6); }
+    static int topH() { return 2 * scale(24) + 2 * scale(6); }  // (the sort box, the search)
     static int rowH(bool heading) { return heading ? scale(24) : scale(44); }
     const std::vector<StampRow>& rows() const { return rows_; }
 
     void resized() override {
         sort_.setFrame({0, 0, width(), scale(24)});
+        search_.setFrame({0, scale(24) + scale(6), width(), 2 * scale(24) + scale(6)});
         layout();
     }
     // The rows again (the files, the sort, a heading closed): their places, the scroll kept where it can be.
     void layout() {
-        rows_ = stampsRows();
+        rows_ = stampsRows(search_.text());
         tops_.clear();
         int y = 0;
         for (const StampRow& r : rows_) tops_.push_back(y), y += rowH(r.heading);
@@ -165,6 +172,10 @@ public:
         const int w = width() - (bar_.shown() ? barW() : 0), h = height();
         c.fill({0, 0, width(), h}, kBg);
         if (!appState().ed || !appState().ed->isOpen()) return;
+        if (rows_.empty() && !search_.text().empty()) {
+            c.text({scale(8), topH(), w - scale(8), topH() + scale(28)}, tr(L"No match"), kDim, draw::kCenter | draw::kMiddle);
+            return;
+        }
         if (rows_.empty()) {  // how to make it: as short as it can be
             const int mid = topH() + (h - topH()) / 2, lh = scale(20);
             c.text({scale(8), mid - lh, w - scale(8), mid}, tr(L"Select tiles on the map."), kDim, draw::kCenter | draw::kMiddle);
@@ -283,6 +294,7 @@ public:
 
 private:
     stardraft::kit::Dropdown sort_;
+    stardraft::kit::TextField search_;
     stardraft::kit::ScrollBar bar_;
     std::vector<StampRow> rows_;
     std::vector<int> tops_;

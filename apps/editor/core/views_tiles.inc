@@ -31,6 +31,7 @@ void shellFocusView();
 std::wstring shellTr(const wchar_t* english);
 void setMessage(const std::wstring& m);
 void tilesSetFilter(int index);
+bool terrainFlagsMinitile(const Tileset& ts, uint16_t v, int k, draw::Color& color, uint8_t& alpha);  // (terrain_flags_layer.inc)
 
 // Favorites (GitHub feedback #111): tiles the user keeps for each tileset, in the program settings (not in the map).
 // Right-click a tile in the list to add it or take it out; the filter box shows them.
@@ -550,6 +551,14 @@ void TilesGridView::paint(draw::Canvas& c) {
                 const int size = src.right - src.left;
                 if (whole < 0) whole = size > 0 && nominal % kTilesPerRow == 0 && (nominal / kTilesPerRow) % size == 0;
                 c.bitmap(px, src, cell, !whole);
+                for (int m = 0; m < 16; ++m) {  // (the map's terrain flags overlay, on its tiles too: GitHub #176)
+                    draw::Color tint;
+                    uint8_t alpha = 0;
+                    if (!terrainFlagsMinitile(app.ed->tileset(), v, m, tint, alpha)) continue;
+                    const int x0 = cell.left + cell.width() * (m % 4) / 4, x1 = cell.left + cell.width() * (m % 4 + 1) / 4;
+                    const int y0 = cell.top + cell.height() * (m / 4) / 4, y1 = cell.top + cell.height() * (m / 4 + 1) / 4;
+                    c.fill({x0, y0, x1, y1}, tint, alpha);
+                }
                 const bool sel = v == gTiles->picked || (gTiles->chosen.size() > 1 && std::find(gTiles->chosen.begin(), gTiles->chosen.end(), v) != gTiles->chosen.end());
                 if (sel || v == gTiles->hover) marks.push_back({cell, v});  // (a null tile has no frame: 1 px between all tiles)
             }

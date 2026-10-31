@@ -110,6 +110,27 @@ void makeTerrainFlagsShapes(const Editor& ed) {
     }
 }
 
+// The overlay's tint of minitile k (0-15) of tile v, as the map shows it (the Tiles list draws it over its tiles,
+// GitHub #176): false where it draws nothing. `color` is a COLORREF (0x00BBGGRR), `alpha` its opacity.
+bool terrainFlagsMinitile(const Tileset& ts, uint16_t v, int k, draw::Color& color, uint8_t& alpha) {
+    if (gTerrainFlags.view == TerrainFlagsView::Off) return false;
+    const uint8_t a = gLightTheme ? 0x70 : 0x60;
+    auto rgb = [&](uint32_t rgba, uint8_t al) { color = draw::Color(((rgba >> 24) & 0xFF) | ((rgba >> 8) & 0xFF00) | ((rgba << 8) & 0xFF0000)), alpha = al; return true; };
+    const int mega = ts.megatileFor(v);
+    if (gTerrainFlags.view == TerrainFlagsView::Buildable) {
+        const TileGroup* g = ts.groupFor(v);
+        return rgb(g && mega >= 0 && !(g->buildability & Tileset::kUnbuildable) ? 0x30D05000u : 0xE0303000u, a);
+    }
+    const bool known = mega >= 0 && size_t(mega) < ts.minitileFlags.size();
+    const uint16_t f = known ? ts.minitileFlags[size_t(mega)][size_t(k)] : 0;
+    switch (gTerrainFlags.view) {
+    case TerrainFlagsView::Walkable: return rgb((f & Tileset::kWalkable) ? 0x30D05000u : 0xE0303000u, a);
+    case TerrainFlagsView::Height: return known && rgb((f & 4) ? 0xF0502800u : (f & 2) ? 0xE8C83000u : 0x4080FF00u, a);
+    case TerrainFlagsView::BlocksView: return (f & 8) && rgb(0xE040F000u, uint8_t(a + 0x30));
+    default: return false;
+    }
+}
+
 void addTerrainFlagsLayer(render::Scene& s) {
     const AppState& app = appState();
     if (gTerrainFlags.view == TerrainFlagsView::Off || !app.ed || !app.ed->isOpen()) return;
@@ -127,6 +148,7 @@ void terrainFlagsSet(TerrainFlagsView v) {
     gTerrainFlags.key = -1;
     shellMenusChanged();
     appState().dirty = true;
+    shellPaletteRebuilt();  // (the Tiles list shows the overlay on its tiles too)
     switch (gTerrainFlags.view) {
     case TerrainFlagsView::Off: setMessage(tr(L"Terrain flags are hidden (View > Overlays)")); break;
     case TerrainFlagsView::Walkable: setMessage(tr(L"Terrain flags: walkable (green), not walkable (red)")); break;
