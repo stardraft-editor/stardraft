@@ -396,6 +396,14 @@ CASES += [
     ("map-briefing-text-shot", ["--workspace", "briefing", "--size", "1600x1000", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                                 "--click", "510,830", "--type", "Welcome to Mar Sara, Magistrate. The equipment demonstration you requested is prepared-",
                                 "--click", "1400,600"], "map"),
+    # The terrain canvas of a cliff, a wall and a field (each a tileset of its own era): every rect with tiles on it, no
+    # piece alone on the ground, every variant with a place of its own (CHECKS: check_isom_canvas).
+    ("cmbw-isom-canvas-cliff", ["--cmbw", "--dialog", "isomrules:0/Structure (Dirt)", "--size", "1600x1100"], "cmbw"),
+    ("cmbw-isom-canvas-wall", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)", "--size", "1600x1100"], "cmbw"),
+    ("cmbw-isom-canvas-field", ["--cmbw", "--dialog", "isomrules:4/Grass (Dirt)", "--size", "1600x1100"], "cmbw"),
+    # Remove From Canvas on the canvas's places from the bottom up until a strip (0.5 brush) goes, then Restore Removed
+    # Pieces: fewer places, then as many as before (CHECKS: check_isom_canvas_remove).
+    ("cmbw-isom-canvas-remove", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)!remove", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "840,377", "--click", "1110,290", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
@@ -1192,6 +1200,37 @@ def check_isom_rules_undo(output):
     for w in ["Undo: Structure (Halfsphalt) (16 NULL)", "Redo: Structure (Halfsphalt) (15 NULL)"]:
         if w not in output:
             return "missing: " + w
+    return None
+
+
+def check_isom_canvas(output):
+    """None when the terrain canvas shows every rect that has tiles, no stray (a piece alone on the ground) and every
+    variant with a place of its own (the snapshot line: core/views_isom_rules.inc state())."""
+    line = next((l for l in output.splitlines() if l.startswith("isom rules:")), "")
+    if not line:
+        return "no isom rules line"
+    m = re.search(r"(\d+) strays", line)
+    if not m or m.group(1) != "0":
+        return "strays: " + (m.group(1) if m else "not told")
+    missing = re.search(r"variants with no place:([^;]*)", line)
+    if missing and missing.group(1).strip():
+        return "variants with no place:" + missing.group(1)
+    absent = re.search(r"rects not in them:([^;]*)", line)
+    real = [r for r in (absent.group(1).split() if absent else []) if "(null)" not in r]
+    return "rects with tiles not on the canvas: " + " ".join(real) if real else None
+
+
+def check_isom_canvas_remove(output):
+    """None when Remove From Canvas takes a strip away (fewer places) and Restore Removed Pieces brings the places back."""
+    m = re.search(r"remove test: places (\d+), a strip removed at tile [\d,]+ after \d+ tries: places (\d+), restored: places (\d+), removed strips (\d+)", output)
+    if not m:
+        line = next((l for l in output.splitlines() if l.startswith("remove test:")), "no remove test line")
+        return line
+    before, removed, restored, left = (int(g) for g in m.groups())
+    if removed >= before:
+        return f"the removal left {removed} of {before} places"
+    if restored != before or left != 0:
+        return f"the restore gave {restored} of {before} places, {left} strips still removed"
     return None
 
 
@@ -4366,6 +4405,10 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "cmbw-isom-rules": check_isom_rules,
           "cmbw-isom-rules-undo": check_isom_rules_undo,
           "cmbw-isom-rules-new": check_isom_rules_new,
+          "cmbw-isom-canvas-cliff": check_isom_canvas,
+          "cmbw-isom-canvas-wall": check_isom_canvas,
+          "cmbw-isom-canvas-field": check_isom_canvas,
+          "cmbw-isom-canvas-remove": check_isom_canvas_remove,
           "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
