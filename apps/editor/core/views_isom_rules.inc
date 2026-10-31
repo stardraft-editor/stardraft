@@ -2542,10 +2542,14 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                     }
                     c.frame(wide_ ? rectOf(p) : halfOf(rectOf(p), hoverHalf_), 0xFFFFFF, scale(1));
                 }
-        if (t && palHover_ >= 0 && (palHover_ & 15) < 15 && tileset_.megatileFor(uint16_t(palHover_ + 1)) > 0 && brushValue() < 0 && slotKeys_ && target_ >= 0 &&
-            !refAlone)  // (a selected slot: the pair under the mouse in the Tiles, in it, when a click can put it in)
+        if (t && palHover_ >= 0 && (!wide_ || ((palHover_ & 15) < 15 && tileset_.megatileFor(uint16_t(palHover_ + 1)) > 0)) && brushValue() < 0 && slotKeys_ &&
+            target_ >= 0 && !refAlone)  // (a selected slot: what a click in the Tiles puts in, in it: the pair, or (single) the tile in its half)
             for (const Place& p : places_)
                 if (p.piece == target_) {
+                    if (!wide_) {
+                        drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), targetHalf_));
+                        continue;
+                    }
                     drawTile(c, uint16_t(palHover_), halfOf(rectOf(p), 0));
                     drawTile(c, uint16_t(palHover_ + 1), halfOf(rectOf(p), 1));
                 }
@@ -2553,7 +2557,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             for (const Place& p : places_)  // (the rect under the mouse in the Rects column: its places)
             if (listHover_ >= 0 && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == listHover_) c.frame(rectOf(p), 0xFFFFFF, scale(2));
         if (hoverPlace_ >= 0 && hoverPlace_ < int(places_.size()) && brushValue() < 0 && !refAlone &&
-            places_[size_t(hoverPlace_)].piece != target_) {  // (the cursor: the slot under the mouse; pair mode 2x1; the selected one: its blue frame only)
+            (places_[size_t(hoverPlace_)].piece != target_ || (!wide_ && hoverHalf_ != targetHalf_))) {  // (the cursor: the slot under the mouse; pair mode 2x1; the selected one: its blue frame only)
             const draw::Rect r = rectOf(places_[size_t(hoverPlace_)]);
             c.frame(wide_ ? r : halfOf(r, hoverHalf_), 0xFFFFFF, scale(1));
         }
