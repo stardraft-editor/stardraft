@@ -342,8 +342,9 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                     app.drag = Drag::None;
             break;
         }
-        // The Select tool (not pasting): Shift+drag adds to the selection, Ctrl+drag takes out of it, as in Tile
-        if (currentTool(app) == TSelect && !app.terrainPasting && (shift || ctrl)) {
+        // The Select tool (not pasting): Shift+drag adds to the selection, Ctrl+drag takes out of it, as in Tile; with no
+        // selection, Ctrl+click picks the terrain under the mouse (below)
+        if (currentTool(app) == TSelect && !app.terrainPasting && (shift || (ctrl && app.hasTerrainSel))) {
             app.terrainSelOp = shift ? 1 : 2;
             app.drag = Drag::TerrainSelect;
             break;
