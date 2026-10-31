@@ -491,7 +491,8 @@ void tilesMakeStamp(int r0, int r1, int c0, int c1) {
     for (int r = r0; r <= r1; ++r)
         for (int c = c0; c <= c1; ++c) {
             const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
-            const uint16_t v = k < gTiles->values.size() ? gTiles->values[k] : kTilesNone;
+            uint16_t v = k < gTiles->values.size() ? gTiles->values[k] : kTilesNone;
+            if (v != kTilesNone && tileIsNull(v)) v = kTilesNone;  // (a null tile: left out, the map keeps its tile)
             stamp.push_back(v == kTilesNone ? uint16_t(0xFFFF) : v);
             n += v != kTilesNone;
         }

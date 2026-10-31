@@ -178,6 +178,13 @@ void tilesStampChosen() {
     appState().dirty = true;
 }
 
+// A null tile (no picture: tile 0, or a tile of megatile 0): a stamp leaves it out, so the map keeps its own tile there
+// (the Tiles list's box, Ctrl+C of the map, custom terrain).
+inline bool tileIsNull(uint16_t v) {
+    const AppState& app = appState();
+    return v == 0 || (app.ed && app.ed->isOpen() && app.ed->tileset().megatileFor(v) <= 0);
+}
+
 // Ctrl+C of a box in Rectangle mode: the copied tiles are the stamp, as a box over the grid makes it (the Brush places
 // them; a copy's null cells are left out). Discord feedback #49.
 void tilesStampFromCopy() {
@@ -187,6 +194,7 @@ void tilesStampFromCopy() {
     gTiles->chosen.clear();
     int n = 0;
     for (uint16_t v : ed.tileClipboard()) {
+        if (v != 0xFFFF && tileIsNull(v)) v = 0xFFFF;
         gTiles->stamp.push_back(v);
         if (v == 0xFFFF) continue;
         ++n;
