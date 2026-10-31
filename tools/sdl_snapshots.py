@@ -380,7 +380,7 @@ CASES += [
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
     # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
     # in pair mode (T) the rect takes a palette tile and the next one and the target moves on (CHECKS: check_isom_rules).
-    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "840,377", "--click", "1110,290"], "cmbw"),
+    ("cmbw-isom-rules", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247", "--click", "1110,290"], "cmbw"),
     # Clear all (in the strip under the example) makes every rect NULL (36), Ctrl+Z brings the 16 back, Ctrl+Y clears again; a filled rect hands the
     # target to the next rect with no tile (three clicks on the same tile fill three rects).
     # New terrain… (the Terrains column's bottom): the template list picked by its text (wall · Structure (Asphalt)),
@@ -391,7 +391,7 @@ CASES += [
     ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
     # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
     # (it wraps as the game's).
-    ("cmbw-isom-shot", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "840,377"], "cmbw"),
+    ("cmbw-isom-shot", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247"], "cmbw"),
     ("map-tiles-flags-shot", ["--mode", "terrain", "--click", "202,427", "--command", "view.flags.height"], "map"),
     ("map-briefing-text-shot", ["--workspace", "briefing", "--size", "1600x1000", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                                 "--click", "510,830", "--type", "Welcome to Mar Sara, Magistrate. The equipment demonstration you requested is prepared-",
@@ -404,7 +404,7 @@ CASES += [
     # Remove From Canvas on the canvas's places from the bottom up until a strip (0.5 brush) goes, then Restore Removed
     # Pieces: fewer places, then as many as before (CHECKS: check_isom_canvas_remove).
     ("cmbw-isom-canvas-remove", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)!remove", "--size", "1600x1100"], "cmbw"),
-    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "840,377", "--click", "1110,290", "--key", "Ctrl+Z",
+    ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247", "--click", "1110,290", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
     # A classic map's race list is the game's (no Askosi).
     ("map-players-races", ["--workspace", "props", "--check", "players"], "map"),
@@ -1188,8 +1188,8 @@ def check_options_ctrltab(output):
 def check_isom_rules(output):
     """None when the editor shows the terrain complete (the repaired drafts: the template's tiles where the row had none)
     and the palette's tile goes into the rect that was clicked."""
-    if "isom rules: Structure (Halfsphalt), 16 null, 19 holes in the examples" not in output or "20 of 36 rects done, 0 borrowed" not in output:
-        return "the terrain does not open with its 16 NULL rects (19 holes in the example, 20 of 36 done)"
+    if "isom rules: Structure (Halfsphalt), 16 null, 16 holes in the examples" not in output or "20 of 36 rects done, 0 borrowed" not in output:
+        return "the terrain does not open with its 16 NULL rects (16 holes in the example, 20 of 36 done)"
     return None if re.search(r"^click 1110,290: .*Rect \d+: \d+\.0 \d+\.1", output, re.M) else "a click in the tiles did not fill the selected hole"
 
 

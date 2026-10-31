@@ -942,9 +942,9 @@ private:
         Editor* ed = puzzleEd_.get();
         const uint16_t root = in.root;
         constexpr int W = 40, H = 54;  // (the shape at the middle (cy); under it, the row of the thin shapes (kThinRow), then the cliff tops (kTopRow))
-        if (!ed->isOpen() || ed->era() != in.era) {
-            if (!ed->newMap(W, H, in.era, root, err)) return;
-        }
+        // (a new map each build: a paint depends a little on what its map painted before, so a canvas is the same
+        // whatever terrain showed before it)
+        if (!ed->newMap(W, H, in.era, root, err)) return;
         const int cx = W * 16, cy = 15 * 32;  // (the middle: room for the shape above it, the rows under it)
         // (a game terrain on its ground in a shape; the map's tiles of a part)
         auto paintGame = [&](Editor* on, uint16_t ground, uint16_t terrain, const std::vector<std::pair<int, int>>& shape) {
@@ -1061,7 +1061,7 @@ private:
                 helpersFor_ = in.gen;
                 std::string ignored;
                 for (auto& h : helpers_) {
-                    if (!h->isOpen() || h->era() != in.era) h->newMap(W, H, in.era, root, ignored);
+                    if (!h->isOpen() || h->era() != in.era || in.extend) h->newMap(W, H, in.era, root, ignored);  // (a search: new maps, as this one's)
                     h->useModTerrains(in.all);
                 }
             }
@@ -1518,6 +1518,13 @@ private:
                 if (changed < best) best = changed, out.removeSpot = all[k];
             }
             return;
+        }
+        // (the picture's paint on a new map: a paint depends a little on the paints before it, and a first build paints
+        // more than a later one; so a terrain's canvas is the same each time it shows)
+        if (ed->newMap(W, H, in.era, root, err)) {
+            ed->useModTerrains(in.all), paint();
+            const Look last = lookOn(ed);
+            out.strays = last.strays, out.strayTiles = last.strayTiles;
         }
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
