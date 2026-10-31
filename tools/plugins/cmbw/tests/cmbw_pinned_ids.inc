@@ -185,7 +185,7 @@
 {4, 118, "Water (Asphalt (Jungle))"},
 {5, 112, "Compound (Compound (Sand Dunes))"},
 {5, 113, "Structure (High Asphalt (High Dirt))"},
-{6, 112, "Mud (Dirt (High Dirt cliffs))"},
+{6, 112, "High Mud (Snow (High Dirt cliffs))"},
 {6, 113, "Outpost (Outpost (Dirt))"},
 {6, 114, "Outpost (Water (Snow cliffs))"},
 {6, 115, "Submerged Outpost (Water (Snow cliffs))"},

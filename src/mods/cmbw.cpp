@@ -1250,14 +1250,14 @@ const ModTerrainSet kModTerrainSets[] = {
      {{2669, {228, 230}}, {2671, {232, 234}}, {2675, {236, 238}}, {2673, {240, 242}}, {2681, {244, 246}}, {2683, {248, 250}},
       {2677, {252, 254}}, {2679, {256, 258}}},
      2686, 2687, 0, 2},
-    // Dirt-Cliff-Snow-1: snow at the foot of High Dirt cliffs (Ozone: a hollow of snow in High Dirt), made as Water at
-    // High Dirt cliffs (blocks in their brushes'
-    // order: W north 2607, E north 2609, W south 2611, E south 2614 (seen painted), W outer 2617, E outer 2620, inner 2623 and 2625);
-    // the game's Snow below.
-    {6, "Snow (High Dirt cliffs)", 1, 9, 6,
+    // Dirt-Cliff-Snow-1: High Dirt cliffs standing on snow (Ozone), on the game's Snow/High Snow cliff (36-74): the brush
+    // raises a High Dirt plateau, as a cliff does (GitHub #180: not a hollow of snow); the template's high side painted,
+    // High Dirt's tiles on top, Snow around (blocks in their brushes' order: W north 2607, E north 2609, W south 2611,
+    // E south 2614 (seen painted), W outer 2617, E outer 2620, inner 2623 and 2625).
+    {6, "Snow (High Dirt cliffs)", 2, 1, 6,
      {{2607, {38, 36}}, {2609, {42, 40}}, {2611, {44, 46, 48}}, {2614, {50, 52, 54}}, {2617, {56, 58, 60}}, {2620, {62, 64, 66}},
       {2623, {72, 74}}, {2625, {68, 70}}},
-     0, 0, 1, 2},
+     0, 0, 9, 0},
     // Outpost-Chainlink-Cliff-2: High Outpost on a cliff above the chain-link mesh floor (Mouth of Bathala), on the
     // game's Snow/High Snow cliff (36-74), Mesh (Outpost) its ground; each block W (subtiles 0-6) and E (8-14) in one group;
     // High Outpost's tiles on top.
@@ -1276,12 +1276,13 @@ const ModTerrainSet kModTerrainSets[] = {
      {{1666, {228, 230}}, {1668, {232, 234}}, {1670, {236, 238}}, {1672, {240, 242}}, {1674, {244, 246}}, {1676, {248, 250}},
       {1678, {252, 254}}, {1680, {256, 258}}},
      1714, 1715, 0, 2, "Higher Snow (High Snow)"},
-    // Dirt-cliff-dirt1: dirt at the foot of High Dirt cliffs (Qinngua Valley), made as Snow (High Dirt cliffs) (blocks in
-    // their brushes' order; the two inner corners in one block, the W one in its first subtiles); the game's Dirt below.
-    {6, "Dirt (High Dirt cliffs)", 1, 9, 6,
+    // Dirt-cliff-dirt1: High Dirt cliffs standing on dirt (Qinngua Valley), made as Snow (High Dirt cliffs): a raised
+    // High Dirt plateau, Dirt around (Dirt is Snow in the template; blocks in their brushes' order; the two inner corners in
+    // one block, the W one in its first subtiles).
+    {6, "Dirt (High Dirt cliffs)", 2, 4, 6,
      {{2133, {38, 36}}, {2135, {42, 40}}, {2137, {44, 46, 48}}, {2140, {50, 52, 54}}, {2143, {56, 58, 60}}, {2146, {62, 64, 66}},
       {2149, {72, 74}, 4, 0}, {2149, {68, 70}, 2, 8}},
-     0, 0, 4, 2},
+     0, 0, 9, 1},
     // Outpost-Chainlink-3: an outpost a level above High Outpost on a cliff above the mesh floor (The Initiate), made as
     // High Outpost (Mesh) with Mesh (High Outpost) its ground (blocks in their brushes' order, each W in its first five
     // subtiles, E in the last three; the inner corners as High Outpost (Mesh)'s); High Outpost's tiles on top.
@@ -1847,7 +1848,15 @@ void loadTileset(Tileset& t) {
         for (const auto& [bytes, size] : {std::make_pair(kRepairedPrerelease, sizeof kRepairedPrerelease), std::make_pair(kRepairedRelease, sizeof kRepairedRelease)}) {
             terrainrules::Rules r;
             std::string err;
-            if (terrainrules::read(std::vector<uint8_t>(bytes, bytes + size), r, err) && terrainrules::apply(t, r)) break;
+            if (!terrainrules::read(std::vector<uint8_t>(bytes, bytes + size), r, err)) continue;
+            // (a repaired terrain made from an older row: its stand-in, ground or the ground's template is not the row's
+            // now (a row changed by hand since, as Snow (High Dirt cliffs) raised as a cliff): the row stays)
+            for (auto& ts : r.tilesets)
+                std::erase_if(ts.terrains, [&t](const terrainrules::Terrain& x) {
+                    const Tileset::ModTerrain* row = t.modTerrain(x.t.id);
+                    return row && (row->standIn != x.t.standIn || row->ground != x.t.ground || row->groundTemplate != x.t.groundTemplate);
+                });
+            if (terrainrules::apply(t, r)) break;
         }
     }
     applyTerrainFiles(t);
