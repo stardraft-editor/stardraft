@@ -445,7 +445,14 @@ bool commandMapEdit(AppState& app, int id) {
                 if (!spriteIsOverlay(app, i)) app.selSprites.push_back(i);
             setMessage(L"Selected " + std::to_wstring(app.selSprites.size()) + L" sprites");
         } else if (app.mode == Mode::Units) app.ed->selectAll();
-        else if (app.mode == Mode::Locations) {
+        else if (app.mode == Mode::Terrain) {  // every tile of the map (to unprotect all of it, copy it, ...)
+            std::vector<std::pair<int, int>> tiles;
+            tiles.reserve(size_t(app.ed->width()) * app.ed->height());
+            for (int y = 0; y < app.ed->height(); ++y)
+                for (int x = 0; x < app.ed->width(); ++x) tiles.push_back({x, y});
+            setTerrainSelTiles(tiles);
+            setMessage(L"Selected all the terrain (" + std::to_wstring(app.ed->width()) + L" x " + std::to_wstring(app.ed->height()) + L" tiles)");
+        } else if (app.mode == Mode::Locations) {
             app.ed->selectLocation(-1);
             for (int i = 0; i < app.ed->locationCount(); ++i)
                 if (i != kAnywhereLocation) app.ed->addLocationSelection(i);

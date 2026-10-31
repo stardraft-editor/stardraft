@@ -3713,6 +3713,16 @@ rclick 590,665:8
 key Ctrl+Z
 key Ctrl+Y
 """
+# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 10th
+# item) then unprotects every protected tile.
+SCRIPTS["protectselectall"] = """mode terrain
+key V
+drag 540,630-640,700
+rclick 590,665:8
+key Ctrl+A
+rclick 900,300:9
+"""
+CASES += [("map-protect-selectall", ["--script", "{script:protectselectall}", "--check", "protect"], "map")]
 CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--check", "protect", "--mode", "terrain", "--key", "V",
                                    "--drag", "540,630-640,700", "--rclick", "590,665"], "map"),
           ("map-protect-undo", ["--script", "{script:protectundo}", "--check", "protect"], "map")]
@@ -4918,6 +4928,9 @@ CHECKS.update({
     "map-protect-terrain": lambda o: (
         "the protected tiles changed, or none is protected" if not re.search(r"protect: [1-9]\d* protected tiles, 0 of them changed \(yes\); [1-9]\d* other tiles changed", o)
         else "the menu has no Unprotect terrain" if "Unprotect terrain" not in o.replace("&", "") else None),
+    "map-protect-selectall": lambda o: (
+        None if re.search(r"Selected all the terrain \(128 x 128 tiles\)", o) and re.search(r"protect: 0 protected tiles, 0 of them changed \(none protected\).*; undo: Unprotect the terrain \(192 tiles\)", o)
+        else "Ctrl+A did not select all the terrain, or Unprotect terrain did not unprotect it"),
     "map-protect-undo": lambda o: (
         None if re.search(r"protect: ([1-9]\d*) protected tiles, 0 of them changed \(yes\).*; undo: Protect the terrain \(\1 tiles\)", o)
         else "Ctrl+Z and Ctrl+Y did not give back the protected tiles as one step"),

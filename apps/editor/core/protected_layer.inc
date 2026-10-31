@@ -184,7 +184,7 @@ bool protectCheck(const std::string& what, std::string& out) {
     std::string name = step.text;
     if (const size_t at = name.find("%d"); at != std::string::npos) name.replace(at, 2, std::to_string(step.count));
     out = "protect: " + std::to_string(n) + " protected tiles, " + std::to_string(changed) + " of them changed" +
-          (n > 0 && !changed ? " (yes)" : " (WRONG)") + "; " + std::to_string(others) + " other tiles changed; " +
+          (changed ? " (WRONG)" : n ? " (yes)" : " (none protected)") + "; " + std::to_string(others) + " other tiles changed; " +
           std::to_string(protectedInSelection(ed)) + " protected in the selection; layer " + (gLayers.protectedTerrain ? "on" : "off") +
           "; undo: " + (name.empty() ? "none" : name) + "\n";
     return true;

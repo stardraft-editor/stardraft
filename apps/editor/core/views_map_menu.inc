@@ -233,7 +233,7 @@ MenuModel mapMenuModel(float wx, float wy) {
         if (protectedTiles) item(ID_MAPMENU_UNPROTECT, L"U&nprotect terrain", L"", true);
     }
     m.push_back(menuSeparator());
-    item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
+    item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", true);  // (terrain: every tile of the map)
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
     if (gMapMenuUnit >= 0 || gMapMenuDoodad >= 0 || gMapMenuSprite >= 0) item(ID_MAPMENU_SAMETYPE, L"Select all of this t&ype", L"", true);
     if (gMapMenuUnit >= 0)
