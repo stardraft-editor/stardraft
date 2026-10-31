@@ -569,7 +569,7 @@ private:
     // borders; the shown terrain's row in view.
     void buildSideRows() {
         sideRows_.clear();
-        static const isomrules::Family kOrder[] = {isomrules::Family::Cliff, isomrules::Family::Wall, isomrules::Family::Field, isomrules::Family::Pavement,
+        static const isomrules::Family kOrder[] = {isomrules::Family::Cliff, isomrules::Family::Wall, isomrules::Family::Field, isomrules::Family::HardEdge,
                                                    isomrules::Family::Patch, isomrules::Family::Other};
         int y = 0;
         auto header = [&](const std::wstring& text, int n) {

@@ -62,7 +62,7 @@ const char* familyName(Family f) {
     switch (f) {
         case Family::Patch: return "patch";
         case Family::Field: return "field";
-        case Family::Pavement: return "pavement";
+        case Family::HardEdge: return "hard edge";
         case Family::Wall: return "wall";
         case Family::Cliff: return "cliff";
         default: return "other";
@@ -118,20 +118,29 @@ std::vector<TemplateRect> templateRects(const Tileset& t, uint16_t ground, uint1
     return out;
 }
 
+// The family from the border's structure in the ISOM tables (the same for every tileset):
+// - hard edge: its edge tiles stack one terrain id (a sharp line, no mix of the two);
+// - field and patch: every rect in a row of the edge (top, middle or bottom: no rect off the rows); a patch's middle
+//   row is shorter than its top (a small blob: 2 middle rects to 6 top), a field's is not (8 and 8);
+// - wall and cliff: rects off the rows too (the face); a cliff's middle row has 10 or more rects (a face of more rows),
+//   a wall's fewer.
+// (On all eight tilesets' game borders this gives the families of their rect counts, 14 / 24 / 36 / 44 and more; the
+// tiles' ground height does not tell them: water, a pit and magma have walls and cliffs at one height.)
 Family familyOf(const std::vector<TemplateRect>& rects, const Tileset& t) {
     if (rects.empty()) return Family::Other;
     const IsomTiles* tiles = IsomTiles::forTileset(t);
     std::set<uint16_t> ids;
-    for (const TemplateRect& r : rects)
+    int rows[4] = {0, 0, 0, 0};  // (off the rows, top, middle, bottom)
+    for (const TemplateRect& r : rects) {
         if (tiles) {
             if (tiles->stackTop(r.group)) ids.insert(tiles->stackTop(r.group));
             if (tiles->stackBottom(r.group)) ids.insert(tiles->stackBottom(r.group));
         }
-    const size_t n = rects.size();
-    if (n <= 16) return Family::Patch;
-    if (n <= 28) return ids.size() <= 1 ? Family::Pavement : Family::Field;
-    if (n <= 40) return Family::Wall;
-    return Family::Cliff;
+        ++rows[std::clamp(r.row, 0, 3)];
+    }
+    if (ids.size() <= 1) return Family::HardEdge;
+    if (rows[0] == 0) return rows[2] >= rows[1] ? Family::Field : Family::Patch;
+    return rows[2] >= 10 ? Family::Cliff : Family::Wall;
 }
 
 std::pair<uint16_t, uint16_t> templateOf(const Tileset& t, const Tileset::ModTerrain& m) {

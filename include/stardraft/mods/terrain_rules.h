@@ -50,7 +50,7 @@ constexpr uint16_t kVersion = 2;
 // The families of the game's borders, by their rects (the same in every tileset): a patch (14 rects: Rocky Ground on
 // Dirt), a blend (24, texture on texture: Grass on Dirt), a pavement (24, flat, one stack link id: Asphalt on Dirt), a
 // wall (36: Structure on Asphalt, Temple, shorelines) and a cliff (44 and up: High Dirt on Dirt).
-enum class Family : uint8_t { Other = 0, Patch = 1, Field = 2, Pavement = 3, Wall = 4, Cliff = 5 };
+enum class Family : uint8_t { Other = 0, Patch = 1, Field = 2, HardEdge = 3, Wall = 4, Cliff = 5 };
 const char* familyName(Family f);
 
 // A rect of a game border's template: its tile group (the left tile's; the right tile's is the next), its role from
