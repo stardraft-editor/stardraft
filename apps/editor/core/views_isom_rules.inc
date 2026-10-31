@@ -376,17 +376,28 @@ public:
     std::string coverage(const isomrules::ModTerrain& m) const {
         std::set<int> placed;
         for (const Place& p : places_) placed.insert(p.piece);
-        int variants = 0, variantsPlaced = 0, fills = 0, fillsPlaced = 0;
+        // (a piece with no place whose rect's game group is no rect's left tile in StarEdit's tables (an odd group, as a
+        // fill's right half): the brush's tiles never take it; only its seam pass can (isom.cpp putPieces: the pieces
+        // of the even group's rects), when the group before it has rects. Counted apart)
+        const stardraft::IsomTiles* tiles = stardraft::IsomTiles::forTileset(tileset_);
+        auto brushPlaces = [&](uint16_t g) { return !tiles || !tiles->rectsOf(g).empty(); };
+        int variants = 0, variantsPlaced = 0, fills = 0, fillsPlaced = 0, never = 0, seamsOnly = 0;
         for (size_t k = 0; k < m.pieces.size(); ++k) {
             const bool fill = k >= m.setPieces && k + m.gapPieces < m.pieces.size();
+            if (!placed.count(int(k)) && !brushPlaces(m.pieces[k][0])) {
+                ++(brushPlaces(uint16_t(m.pieces[k][0] & ~1u)) ? seamsOnly : never);
+                continue;
+            }
             (fill ? fills : variants) += 1;
             if (placed.count(int(k))) (fill ? fillsPlaced : variantsPlaced) += 1;
         }
         std::map<uint16_t, int> fillGroups;  // (the fill's rects and their pieces)
         for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k) ++fillGroups[m.pieces[k][0]];
         std::string out = "; variants with a place " + std::to_string(variantsPlaced) + " of " + std::to_string(variants) + ", fill pieces with a place " +
-                          std::to_string(fillsPlaced) + " of " + std::to_string(fills) + "; fill rects:";
+                          std::to_string(fillsPlaced) + " of " + std::to_string(fills) + ", " + std::to_string(seamsOnly) +
+                          " pieces the brush places only at seams, " + std::to_string(never) + " pieces the brush never places; fill rects:";
         for (const auto& [g, n] : fillGroups) {
+            if (!brushPlaces(g)) continue;  // (counted apart)
             int at = 0;  // (its pieces with a place)
             for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k) at += m.pieces[k][0] == g && placed.count(int(k));
             int places = 0;  // (its places)
@@ -405,7 +416,7 @@ public:
         }
         out += "; variants with no place:";
         for (size_t k = 0; k < m.pieces.size(); ++k) {
-            if (!(k < m.setPieces || k + m.gapPieces >= m.pieces.size()) || placed.count(int(k)) || isomrules::anyNull(m.pieces[k])) continue;
+            if (!(k < m.setPieces || k + m.gapPieces >= m.pieces.size()) || placed.count(int(k)) || isomrules::anyNull(m.pieces[k]) || !brushPlaces(m.pieces[k][0])) continue;
             bool led = false;  // (a piece of the set whose tiles one row down are this one's)
             for (size_t i = 0; i < m.pieces.size() && !led; ++i) led = i != k && continues(m.pieces[i], m.pieces[k]);
             out += " " + std::to_string(k) + "(rect " + std::to_string(m.pieces[k][0]) + (led ? ", led" : ", top") + ")";
