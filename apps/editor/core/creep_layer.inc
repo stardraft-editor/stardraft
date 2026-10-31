@@ -91,7 +91,14 @@ void addCreepTiles(const Editor& ed, TerrainLayer& terrain) {
     if (!gLayers.creep || !gLayers.terrain || !ed.isOpen()) return;
     const std::vector<uint8_t>& creep = shownCreep(ed);
     if (gCreep.variants.size() != creep.size()) mapCreep(ed);  // (the variants, once a session)
-    if (creep.size() == terrain.tiles.size() && gCreep.variants.size() == creep.size()) applyCreep(terrain, creep, gCreep.variants);
+    if (creep.size() != terrain.tiles.size() || gCreep.variants.size() != creep.size()) return;
+    // (the map's own creep tiles stay as the mapper placed them, as the game shows them: only the buildings' creep gets
+    // a variant)
+    std::vector<std::pair<size_t, uint16_t>> own;
+    for (size_t i = 0; i < terrain.tiles.size(); ++i)
+        if ((terrain.tiles[i] >> 4) == 1) own.push_back({i, terrain.tiles[i]});
+    applyCreep(terrain, creep, gCreep.variants);
+    for (const auto& [i, v] : own) terrain.tiles[i] = v;
 }
 
 // The creep's edges, as the game draws them: on each tile with no creep next to creep, the frame of the tileset's creep
