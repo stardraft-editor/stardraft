@@ -3887,6 +3887,10 @@ CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--che
                                    "--drag", "540,630-640,700", "--rclick", "590,665"], "map"),
           ("map-protect-undo", ["--script", "{script:protectundo}", "--check", "protect"], "map")]
 # Ctrl+Alt+T: in Units mode nothing; in Terrain mode Rectangle, Custom and Isometric in turn.
+# Terrain > Isometric, Select: a drag selects, Shift+drag adds tiles, Ctrl+drag takes tiles out (GitHub #188); Ctrl does
+# not pick the terrain under the mouse while Select is on.
+CASES += [("map-isom-select-combine", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--drag", "700,640-780,700:Shift",
+                                       "--drag", "520,640-560,700:Ctrl"], "map")]
 CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
@@ -4032,6 +4036,21 @@ def check_resize_undo(output):
         return f"after Change the size: {sizes.get('click 494,424')}"
     if sizes.get("key Ctrl+Z") != "128x128":
         return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"
+    return None
+
+
+def check_isom_select_combine(output):
+    """None when Isometric's Select added tiles with Shift+drag and took some out with Ctrl+drag, and Ctrl picked no terrain."""
+    def count(prefix):
+        m = re.search(r"^" + re.escape(prefix) + r".*Selected (\d+) tiles", output, re.M)
+        return int(m.group(1)) if m else -1
+    added, removed = count("drag 700,640-780,700:Shift: "), count("drag 520,640-560,700:Ctrl: ")
+    if "selected with Ctrl+click" in output:
+        return "Ctrl+drag picked the terrain under the mouse"
+    if added <= 0:
+        return "Shift+drag added no tiles"
+    if not 0 < removed < added:
+        return f"Ctrl+drag left {removed} of {added} tiles"
     return None
 
 
@@ -4698,7 +4717,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
-          "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key,
+          "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key, "map-isom-select-combine": check_isom_select_combine,
           "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group, "data-flags-decimal": check_flags_decimal,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),

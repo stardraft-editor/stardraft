@@ -342,6 +342,12 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                     app.drag = Drag::None;
             break;
         }
+        // The Select tool (not pasting): Shift+drag adds to the selection, Ctrl+drag takes out of it, as in Tile
+        if (currentTool(app) == TSelect && !app.terrainPasting && (shift || ctrl)) {
+            app.terrainSelOp = shift ? 1 : 2;
+            app.drag = Drag::TerrainSelect;
+            break;
+        }
         if (ctrl) {
             // Eyedropper: pick the terrain under the cursor as the brush terrain.
             uint16_t t = ed.paletteTerrainOf(ed.paletteTerrainAt(int(wx), int(wy)));  // (a mod terrain's piece: that mod terrain; a variant: its terrain)
@@ -669,7 +675,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             tilesPick(v, true), tilesToBrush(), tilesReveal(v);
             break;
         }
-        if (app.terrainRect && app.terrainSelOp) {  // Shift: the tiles go into the selection; Ctrl: out of it (a click: one tile)
+        if (app.terrainSelOp) {  // Shift: the tiles go into the selection; Ctrl: out of it (a click: one tile)
             terrainSelCombine(terrainSelectRect(wx, wy), app.terrainSelOp == 1);
             app.terrainSelOp = 0;
             const size_t n = terrainSelTiles().size();
