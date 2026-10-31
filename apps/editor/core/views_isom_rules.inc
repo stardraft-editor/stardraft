@@ -993,14 +993,15 @@ private:
         shape.insert(shape.end(), in.extra.begin(), in.extra.end());
         std::erase_if(shape, [&](const std::pair<int, int>& sp) { return spotKind(sp.first) == 1 && in.hidden.count(sp) > 0; });  // (the strips taken off)
         // (the bordering terrain all around: no other terrain in the picture; the shape, and one spot more when `more`)
-        auto paintOn = [&](Editor* e, const std::pair<int, int>* more) {
+        auto paintOn = [&](Editor* e, const std::pair<int, int>* more, size_t without = SIZE_MAX) {  // (`without`: a spot of the shape left out)
             e->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
             e->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 56.0f});
             auto spot = [&](std::pair<int, int> sp) {
                 const auto [x, y] = spotAt(sp);
                 e->paintBrush(cx + x, cy + y, t->t.id, spotBrush(sp.first));
             };
-            for (const auto& sp : shape) spot(sp);
+            for (size_t k = 0; k < shape.size(); ++k)
+                if (k != without) spot(shape[k]);
             if (more) spot(*more);
         };
         auto paint = [&]() { paintOn(ed, nullptr); };
@@ -1024,7 +1025,8 @@ private:
         auto shownCounts = [&]() { return countsOn(ed); };
         // (the counts of the shape with each spot more, at once: each a map of its own (helpers_ and this one), on the
         // processor's cores. Each map is painted whole, as paint() does)
-        auto countsWithEach = [&](const std::vector<std::pair<int, int>>& spots) {
+        // (n trials at once, f(map, k) each: on the maps of helpers_, a thread each, on the processor's cores)
+        auto onEach = [&](size_t n, const std::function<void(Editor*, size_t)>& f) {
             if (!pool_) {  // (once: a thread and a map for each core but this one; the threads stay, so their caches do)
                 const size_t n = std::clamp<size_t>(std::thread::hardware_concurrency(), 2, 8) - 1;
                 for (size_t k = 0; k < n; ++k) helpers_.push_back(std::make_unique<Editor>(*in.data)), helpers_.back()->setUndoLimit(1);
@@ -1038,16 +1040,19 @@ private:
                     h->useModTerrains(in.all);
                 }
             }
-            std::vector<std::map<uint16_t, int>> out(spots.size());
             std::atomic<size_t> next{0};
             std::atomic<bool> anyMap{false};
             pool_->run([&](size_t w) {
                 Editor* e = helpers_[w].get();
                 if (!e->isOpen() || e->era() != in.era) return;  // (a map that could not take this tileset: the others do its share)
                 anyMap = true;
-                for (size_t k; (k = next++) < spots.size() && in.gen == buildGen_;) paintOn(e, &spots[k]), out[k] = countsOn(e);
+                for (size_t k; (k = next++) < n && in.gen == buildGen_;) f(e, k);
             });
-            for (size_t k; !anyMap && (k = next++) < spots.size() && in.gen == buildGen_;) paintOn(ed, &spots[k]), out[k] = countsOn(ed);
+            for (size_t k; !anyMap && (k = next++) < n && in.gen == buildGen_;) f(ed, k);
+        };
+        auto countsWithEach = [&](const std::vector<std::pair<int, int>>& spots) {
+            std::vector<std::map<uint16_t, int>> out(spots.size());
+            onEach(spots.size(), [&](Editor* e, size_t k) { paintOn(e, &spots[k]), out[k] = countsOn(e); });
             return out;
         };
         if (in.extend) {  // (more spots, one at a time: each must show a rect that none showed, or one more place of a rect
@@ -1198,6 +1203,153 @@ private:
             out.gained = int(have.size() - before);
             out.extra.assign(shape.begin() + long(shapeOf(in.family).size()), shape.end());
             paint();
+        }
+        // (the strays: a few tiles of the terrain alone on the ground, as where two diamonds meet and the pieces around
+        // draw as ground. As the eye sees it: a wall pixel is one of a color that the ground's tiles do not use (a mod's
+        // own dirt is drawn with the ground's colors); a tile with 32 wall pixels or more is part of the terrain, a NULL
+        // half too (a piece to make). Two such tiles side by side are one shape only where their wall pixels meet at the
+        // side between them (a box's bottom tile is dirt under its wall: a piece under it stands apart). A shape of
+        // kStrayTiles tiles or fewer: a stray. Each build, the spots go (the shape's too) whose removal leaves fewer
+        // strays and every rect its places out of strays, up to its variants)
+        if (!in.standard && in.family == isomrules::Family::Cliff) {  // (a cliff: a wall's pieces are small, alone or not)
+            const Tileset& ts = ed->tileset();
+            auto pixelsOf = [&](uint16_t value, auto&& f) {  // (f(palette index) for each pixel of the tile)
+                const int mg = ts.megatileFor(value);
+                if (mg < 0 || size_t(mg) >= ts.megatiles.size()) return;
+                for (uint32_t e : ts.megatiles[size_t(mg)])
+                    if ((e >> 1) < ts.minitiles.size())
+                        for (uint8_t p : ts.minitiles[e >> 1]) f(p);
+            };
+            const std::tuple<uint8_t, uint16_t, uint16_t> groundKey{in.era, root, t->t.ground};
+            if (!groundColors_.count(groundKey)) {  // (the ground's colors: its tiles' on the map with no shape)
+                const auto keep = std::move(shape);
+                shape.clear();
+                paint();
+                std::array<bool, 256>& used = groundColors_[groundKey];
+                std::set<uint16_t> seen;
+                const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+                for (int ty = std::max(0, cy / 32 - 8); ty < std::min(H, cy / 32 + 8); ++ty)  // (the middle: far from the ground's border with the root)
+                    for (int tx = W / 2 - 8; tx < W / 2 + 8; ++tx)
+                        if (const uint16_t v = l.tiles[size_t(ty) * W + tx]; seen.insert(v).second) pixelsOf(v, [&](uint8_t p) { used[p] = true; });
+                shape = keep;
+                paint();
+            }
+            const std::array<bool, 256> groundUsed = groundColors_[groundKey];
+            const auto& Q = t->t.pieces;
+            struct Edges {  // (a tile's wall pixels on its four sides, a bit for each pixel; none: no part of the terrain)
+                uint32_t top = 0, bottom = 0, left = 0, right = 0;
+                bool part = false;
+            };
+            auto edgesOf = [&](uint16_t value) {
+                Edges sides;
+                if (isomrules::nullHalf(value)) return Edges{~0u, ~0u, ~0u, ~0u, true};
+                const int mg = ts.megatileFor(value);
+                if (mg < 0 || size_t(mg) >= ts.megatiles.size()) return sides;
+                int walls = 0;
+                for (int my = 0; my < 4; ++my)
+                    for (int mx = 0; mx < 4; ++mx) {
+                        const uint32_t e = ts.megatiles[size_t(mg)][size_t(my * 4 + mx)];
+                        if ((e >> 1) >= ts.minitiles.size()) continue;
+                        const auto& mini = ts.minitiles[e >> 1];
+                        for (int py = 0; py < 8; ++py)
+                            for (int px = 0; px < 8; ++px) {
+                                if (groundUsed[mini[size_t(py * 8 + ((e & 1) ? 7 - px : px))]]) continue;
+                                const int x = mx * 8 + px, y = my * 8 + py;
+                                ++walls;
+                                if (y == 0) sides.top |= 1u << x;
+                                if (y == 31) sides.bottom |= 1u << x;
+                                if (x == 0) sides.left |= 1u << y;
+                                if (x == 31) sides.right |= 1u << y;
+                            }
+                    }
+                sides.part = walls >= 32;
+                return sides;
+            };
+            std::vector<std::array<Edges, 2>> edges(Q.size());  // (each piece's halves)
+            for (size_t k = 0; k < Q.size(); ++k)
+                for (int h : {0, 1}) edges[k][size_t(h)] = edgesOf(Q[k][size_t(1 + h)]);
+            auto meet = [](uint32_t a, uint32_t b) { return (a & (b | b << 1 | b >> 1)) != 0; };  // (a pixel apart at most)
+            struct Look {
+                std::map<uint16_t, int> counts;  // (each rect's places out of strays)
+                int strays = 0;
+            };
+            constexpr size_t kStrayTiles = 6;  // (as the eye sees them: tiles, not rects; a rect can be ground on one half and wall on the other)
+            auto lookOn = [&](const Editor* e) {
+                const stardraft::TerrainLayer l = stardraft::readTerrain(e->chk(), "TILE");
+                std::map<std::pair<int, int>, size_t> at;           // (a place's left tile -> its piece)
+                std::map<std::pair<int, int>, const Edges*> wall;  // (the tiles that are part of the terrain, their sides)
+                for (int ty = 0; ty < H; ++ty)
+                    for (int tx = 0; tx < W; ++tx)
+                        if (const auto it = index.find(l.tiles[size_t(ty) * W + tx]); it != index.end() && !(it->second & 1)) {
+                            const size_t k = it->second / 2;
+                            at[{tx, ty}] = k;
+                            for (int h : {0, 1})
+                                if (edges[k][size_t(h)].part) wall[{tx + h, ty}] = &edges[k][size_t(h)];
+                        }
+                Look o;
+                std::set<std::pair<int, int>> stray;  // (the tiles of the strays)
+                std::set<std::pair<int, int>> done;
+                for (const auto& [p, pe] : wall) {
+                    if (done.count(p)) continue;
+                    std::vector<std::pair<int, int>> group{p}, todo{p};
+                    done.insert(p);
+                    while (!todo.empty()) {
+                        const auto [x, y] = todo.back();
+                        todo.pop_back();
+                        const Edges& me = *wall.at({x, y});
+                        auto link = [&](std::pair<int, int> nb, bool touch) {
+                            if (touch && !done.count(nb)) done.insert(nb), group.push_back(nb), todo.push_back(nb);
+                        };
+                        if (const auto r = wall.find({x + 1, y}); r != wall.end()) link(r->first, meet(me.right, r->second->left));
+                        if (const auto lt = wall.find({x - 1, y}); lt != wall.end()) link(lt->first, meet(me.left, lt->second->right));
+                        if (const auto d = wall.find({x, y + 1}); d != wall.end()) link(d->first, meet(me.bottom, d->second->top));
+                        if (const auto u = wall.find({x, y - 1}); u != wall.end()) link(u->first, meet(me.top, u->second->bottom));
+                    }
+                    if (group.size() <= kStrayTiles) ++o.strays, stray.insert(group.begin(), group.end());
+                }
+                for (const auto& [p, k] : at) {  // (a place counts unless its wall tiles are all a stray's)
+                    const bool a = edges[k][0].part, b = edges[k][1].part;
+                    const bool kept = (!a && !b) || (a && !stray.count(p)) || (b && !stray.count({p.first + 1, p.second}));
+                    if (kept) ++o.counts[Q[k][0]];
+                }
+                return o;
+            };
+            std::map<uint16_t, int> variants;  // (every rect (the set's, the gaps', the fill's: the cliff tops stay), its variants)
+            for (size_t k = 0; k < Q.size(); ++k) ++variants[Q[k][0]];
+            auto placesOf = [&](const Look& x, uint16_t g, int n) {
+                const auto it = x.counts.find(g);
+                return std::min(it == x.counts.end() ? 0 : it->second, n);
+            };
+            uint64_t cleanKey = 1469598103934665603ull;  // (the shape and each piece's sides: a tile changed, the cleanup runs again)
+            auto mix = [&](uint64_t v) { cleanKey = (cleanKey ^ v) * 1099511628211ull; };
+            mix(uint64_t(in.era) << 32 | uint64_t(root) << 16 | t->t.ground);
+            for (const auto& [i, j] : shape) mix(uint64_t(uint32_t(i)) << 32 | uint32_t(j));
+            for (const auto& e2 : edges)
+                for (const Edges& e1 : e2) mix(uint64_t(e1.top) << 32 | e1.bottom), mix(uint64_t(e1.left) << 32 | e1.right), mix(e1.part);
+            if (const auto it = cleaned_.find(cleanKey); it != cleaned_.end()) {
+                if (it->second != shape) shape = it->second, paint();
+            } else {
+            Look cur = lookOn(ed);
+            bool tried = false;
+            for (int round = 0; round < 16 && cur.strays > 0 && in.gen == buildGen_; ++round) {
+                tried = true;
+                progress(kStepSearch, round + 1, 16, 1);
+                std::vector<Look> without(shape.size());
+                onEach(shape.size(), [&](Editor* e, size_t k) { paintOn(e, nullptr, k), without[k] = lookOn(e); });
+                int best = -1;
+                for (size_t k = 0; k < shape.size(); ++k) {
+                    if (without[k].strays >= (best < 0 ? cur.strays : without[size_t(best)].strays)) continue;
+                    bool keeps = true;  // (every rect its places out of strays)
+                    for (const auto& [g, n] : variants) keeps = keeps && placesOf(without[k], g, n) >= placesOf(cur, g, n);
+                    if (keeps) best = int(k);
+                }
+                if (best < 0) break;
+                cur = std::move(without[size_t(best)]);
+                shape.erase(shape.begin() + best);
+            }
+            if (tried) paint();  // (the trials painted the maps: this one again, whole)
+            if (in.gen == buildGen_) cleaned_[cleanKey] = shape;
+            }
         }
         if (in.removeAt.first != INT_MIN) {  // (Remove From Canvas: of the 0.5 brush's strips, the one whose removal takes the place away with the fewest other tiles changed)
             const stardraft::TerrainLayer full = stardraft::readTerrain(ed->chk(), "TILE");
@@ -2790,7 +2942,7 @@ private:
     struct Spot { int x, y; float s; };
     std::unique_ptr<Editor> gameEd_;  // (the game tilesets' map: the game borders and the reference; the worker's)
     size_t gameEdGroups_ = 0;         // (its group limit)
-    std::unique_ptr<Editor> puzzleEd_;
+    std::unique_ptr<Editor> puzzleEd_;  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
     std::vector<std::unique_ptr<Editor>> helpers_;  // (more maps for the search's trials, one for each core: the worker's)
     int helpersFor_ = -1;                           // (the build they were made ready for)
     // The threads that paint the search's trials, one for each map of helpers_ (they stay for the window: their caches
@@ -2839,7 +2991,9 @@ private:
         size_t busy_ = 0;
         bool stop_ = false;
     };
-    std::unique_ptr<TrialPool> pool_;  // (after helpers_: it goes first)  // (the examples' map, kept between rebuilds: its unit data loads once; the worker's)
+    std::unique_ptr<TrialPool> pool_;  // (after helpers_: it goes first)
+    std::map<std::tuple<uint8_t, uint16_t, uint16_t>, std::array<bool, 256>> groundColors_;  // (the ground's palette colors, by its tileset, root and ground: the worker's)
+    std::map<uint64_t, std::vector<std::pair<int, int>>> cleaned_;  // (a shape with its strays gone, by the shape and the pieces' sides: the worker's)
     bool async_ = true, loading_ = false, building_ = false;
     // The example's progress, as the worker tells it: the step (kStep...), its round, done of total in it.
     enum : int { kStepPaint, kStepSearch, kStepReference, kStepPicture };
