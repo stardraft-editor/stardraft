@@ -24,6 +24,7 @@ void addResourceZones(render::Scene& s) {
     int vw, vh;
     viewSize(vw, vh);
     const float vx0 = app.camX, vy0 = app.camY, vx1 = app.camX + vw / app.zoom, vy1 = app.camY + vh / app.zoom;
+    std::vector<render::RectDraw> red;  // (the zones while placing)
     static const uint32_t kFill[2] = {0xE0403048u, 0xE0A02048u}, kLine[2] = {0xF05040D0u, 0xF0B030D0u};
     for (const Unit& u : ed.units()) {
         if (u.type >= ed.unitTypes().size()) continue;
@@ -40,9 +41,31 @@ void addResourceZones(render::Scene& s) {
             s.rects.push_back(d);
             d.rgba = kLine[k], d.fill = false;
             s.rects.push_back(d);
-        } else {  // (while placing: a red fill only)
-            d.rgba = 0xF0404050u, d.fill = true;
+        } else {  // (while placing: a red fill only, below)
+            red.push_back(d);
+        }
+    }
+    // The red fill covers each point once, so that zones that overlap have the same color: the union of the zones, cut
+    // on the zones' edges into cells, and the covered cells of each row joined into rects
+    if (red.empty()) return;
+    std::vector<float> xs, ys;
+    for (const render::RectDraw& r : red) xs.push_back(r.x0), xs.push_back(r.x1), ys.push_back(r.y0), ys.push_back(r.y1);
+    std::sort(xs.begin(), xs.end()), xs.erase(std::unique(xs.begin(), xs.end()), xs.end());
+    std::sort(ys.begin(), ys.end()), ys.erase(std::unique(ys.begin(), ys.end()), ys.end());
+    for (size_t j = 0; j + 1 < ys.size(); ++j) {
+        const float cy = (ys[j] + ys[j + 1]) / 2;
+        for (size_t i = 0; i + 1 < xs.size();) {
+            auto covered = [&](size_t c) {
+                const float cx = (xs[c] + xs[c + 1]) / 2;
+                return std::any_of(red.begin(), red.end(), [&](const render::RectDraw& r) { return cx > r.x0 && cx < r.x1 && cy > r.y0 && cy < r.y1; });
+            };
+            if (!covered(i)) { ++i; continue; }
+            size_t e = i + 1;
+            while (e + 1 < xs.size() && covered(e)) ++e;
+            render::RectDraw d;
+            d.x0 = xs[i], d.x1 = xs[e], d.y0 = ys[j], d.y1 = ys[j + 1], d.rgba = 0xF0404050u, d.fill = true;
             s.rects.push_back(d);
+            i = e;
         }
     }
 }
