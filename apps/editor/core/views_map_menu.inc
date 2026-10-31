@@ -219,7 +219,8 @@ MenuModel mapMenuModel(float wx, float wy) {
     item(ID_EDIT_DELETE, L"&Delete", L"Del", has && !terrain);
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", L"", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
-    if (terrain && app.terrainRect) item(ID_MAPMENU_FILLSEL, L"&Fill selection with the selected tiles", L"", has && gTiles->picked >= 0);  // (#114)
+    if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
+        item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
     // (as the status bar shows it: tileValueText; with a selection, each of its tiles)
     if (terrain) item(ID_MAPMENU_COPYTILE, has ? L"Copy tile &values" : L"Copy tile &value", L"", true);

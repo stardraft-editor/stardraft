@@ -388,6 +388,9 @@ CASES += [
     ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--wait", "300",
                              "--key", "Enter"], "cmbw"),
     # The New Terrain window: the template and the bordering terrain, each with its tile.
+    # Solid on a new Cosmonarchy map (Badlands): Asphalt (Grass), a mod terrain, puts its fill pieces.
+    ("cmbw-solid-brush", ["--cmbw", "--solid", "--key", "Q", "--type", "asphalt (grass)", "--key", "Enter", "--key", "B",
+                          "--click", "560,690", "--move", "560,690"], "cmbw"),
     ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
     # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
     # (it wraps as the game's).
@@ -552,6 +555,18 @@ CASES += [
                                 "--move", "700,600"], "map"),
     ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "198,487:Repeat5",
                                 "--move", "700,600"], "map"),
+    # Solid (docs/dev/solid-terrain-brush.md): Solar Array from the terrain list (the quick picker), the Brush at size 1
+    # puts one rect (2 x 1 tiles) of Solar Array's own tiles; Undo takes them back; Ctrl+Alt+T goes to Isometric, whose
+    # list has the same terrains.
+    ("map-solid-brush", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
+                         "--click", "560,690", "--key", "Ctrl+Z", "--key", "Ctrl+Alt+T"], "map"),
+    # Solid at size 3: 3 x 3 rects (6 x 3 tiles) in one click (the Diamond of 3 rects is all of them).
+    ("map-solid-size3", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B",
+                         "--wheel", "560,690,0,1:Alt", "--click", "560,690", "--move", "560,690"], "map"),
+    # Solid with the left-right mirror: the same stroke without it, Undo, then with it puts twice the tiles.
+    ("map-solid-mirror", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
+                          "--drag", "520,650-600,650", "--key", "Ctrl+Z", "--click", "115,521", "--drag", "520,650-600,650",
+                          "--move", "560,600"], "map"),
     # The terrain selection (V) of the Diamond and of the Circle: its outline (Isometric: on the diamonds' edges;
     # Rectangle: on the tile edges), as the rectangle's (GitHub #135, #136).
     ("map-terrain-select-square", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
@@ -586,7 +601,7 @@ CASES += [
     # Volcanis (Ash World) after Ctrl+O; with none, the list says how to make it.
     ("map-custom-other-tileset", ["--custom", "--stamps", "{newdir}", "--key", "V", "--drag", "520,640-560,660",
                                   "--click", "540,655:Menu7", "--type", "Platform_Piece", "--key", "Enter",
-                                  "--key", "Ctrl+O", "--pick", "{install}/Maps/(2)Volcanis.scm", "--click", "293,427"], "map"),
+                                  "--key", "Ctrl+O", "--pick", "{install}/Maps/(2)Volcanis.scm", "--click", "252,427"], "map"),
     # Units: the placement preview at the left-right mirror image too (Discord feedback #133).
     ("map-units-mirror-ghost", ["--mode", "units", "--click", "1371,187", "--click", "1386,579", "--wheel", "831,525,0,-4", "--move", "700,500",
                                 "--wait", "200"], "map"),
@@ -1989,6 +2004,69 @@ def check_diamond_height(output):
         ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[3]["brush"] == "3x2"),
         ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[3].get("brushrows") == "3,3"),
     ])
+
+
+def solid_steps(output):
+    """Each input's first line (its message) and its state (a dict), in order: [(input, message, state)]."""
+    steps, last = [], None
+    for line in output.splitlines():
+        if line.startswith("  state: "):
+            if last:
+                steps.append((last[0], last[1], dict((k, v.strip('"')) for k, v in STATE_FIELD.findall(line))))
+            last = None
+        elif not line.startswith(" ") and " selected: " in line and last is None:  # (an input's line, not a message alone)
+            inp, _, rest = line.partition(": ")
+            last = (inp, rest.rpartition("selected: ")[2])
+    return steps
+
+
+def solid_step(steps, inp):
+    """The first step of input `inp`: (message, state), or ("", {})."""
+    return next(((m, s) for i, m, s in steps if i == inp), ("", {}))
+
+
+def check_solid_brush(output):
+    """Solid: the list is Isometric's, size 1 puts one rect of the terrain's own tiles, Undo takes it back."""
+    steps = solid_steps(output)
+    _, before = solid_step(steps, "wheel 560,690,0,-1:Alt")
+    msg, click = solid_step(steps, "click 560,690")
+    _, undo = solid_step(steps, "key Ctrl+Z")
+    _, iso = solid_step(steps, "key Ctrl+Alt+T")
+    if before.get("kind") != "solid" or before.get("brush") != "1x1":
+        return f"not Solid at size 1 (kind={before.get('kind')} brush={before.get('brush')})"
+    if msg != "Placed 2 tiles":
+        return f"the click: {msg!r}, not 2 tiles placed"
+    if click.get("solidfill") != "yes":
+        return f"the tile under the mouse is not one of Solar Array's own (solidfill={click.get('solidfill')})"
+    if undo.get("terrain") != before.get("terrain"):
+        return "Undo did not take the tiles back"
+    if iso.get("kind") != "iso" or iso.get("palitems") != undo.get("palitems"):
+        return f"Isometric's list is not Solid's ({iso.get('kind')}: {iso.get('palitems')} items, Solid {undo.get('palitems')})"
+    return None
+
+
+def check_solid_size3(output):
+    """Solid at size 3: 3 x 3 rects (6 x 3 tiles) of the terrain."""
+    msg, click = solid_step(solid_steps(output), "click 560,690")
+    if msg != "Placed 18 tiles" or click.get("brush") != "3x3" or click.get("solidfill") != "yes":
+        return f"the click: {msg!r} (brush {click.get('brush')}, solidfill={click.get('solidfill')}), not 18 tiles of the terrain at size 3"
+    return None
+
+
+def check_solid_mirror(output):
+    """Solid's stroke with the left-right mirror puts twice the tiles of the stroke without it."""
+    placed = [int(n) for i, m, _ in solid_steps(output) if i == "drag 520,650-600,650" for n in re.findall(r"^Placed (\d+) tiles", m)]
+    if len(placed) != 2 or placed[0] < 2 or placed[1] != 2 * placed[0]:
+        return f"the strokes placed {placed} tiles, not n and 2n"
+    return None
+
+
+def check_cmbw_solid(output):
+    """Solid on a Cosmonarchy map: the mod terrain's own fill pieces; the list has the mod's terrains."""
+    msg, click = solid_step(solid_steps(output), "click 560,690")
+    if not msg.startswith("Placed ") or click.get("solidfill") != "yes":
+        return f"the click: {msg!r} (solidfill={click.get('solidfill')}), not the mod terrain's fill pieces"
+    return None
 
 
 def check_tiles_brush(shape, outline, rows):
@@ -4667,6 +4745,8 @@ def check_custom_other_tileset(output):
 
 CHECKS.update({
     "map-custom-terrain": check_custom_terrain, "map-custom-other-tileset": check_custom_other_tileset,
+    "map-solid-brush": check_solid_brush, "map-solid-size3": check_solid_size3, "map-solid-mirror": check_solid_mirror,
+    "cmbw-solid-brush": check_cmbw_solid,
     "help-index": check_help_page("index", "", "StarDraft 2 help"),
     "help-page": check_help_page("units-dat", "hit-points", "Units (units.dat)"),
     "help-light": check_help_page("getting-started", "", "Getting started"),

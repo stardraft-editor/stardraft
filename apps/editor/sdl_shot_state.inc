@@ -234,8 +234,30 @@ std::string shotMapState() {
     // Custom (core/stamps.inc): the choice of the strip, the tiles selected (Shift and Ctrl make any shape), the Brush's
     // custom terrain, the files of the tileset in the folder (names, | between them: read from the disk now), the list's
     // rows as it shows them (# a group, ## a sub-group, then the items), and whether the panel shows the list.
-    static const char* const kKinds[3] = {"iso", "rect", "custom"};
+    static const char* const kKinds[kTerrainKinds] = {"iso", "rect", "custom", "solid"};
     s += std::string(" kind=") + kKinds[terrainKind()] + " tselcount=" + std::to_string(terrainSelTiles().size());
+    // Solid (docs/dev/solid-terrain-brush.md): the palette's items, and whether the tile under the mouse is one that Solid
+    // puts inside the selected terrain (a mod terrain: one of its fill pieces; a game terrain: one of its solid groups).
+    s += " palitems=" + std::to_string(app.items.size());
+    {
+        std::string fill = "-";
+        if (gTiles->solid && app.palette > 0 && onMap) {
+            const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + size_t(tx)];
+            const Tileset& ts = ed.tileset();
+            const IsomTiles* it = IsomTiles::forTileset(ts);
+            const Tileset::ModTerrain* m = ts.modTerrain(uint16_t(app.palette));
+            const uint16_t t = m ? m->standIn : uint16_t(app.palette);
+            bool yes = false;
+            for (int par = 0; par < 2 && it; ++par)
+                for (uint16_t g : it->groups(par, t, t)) {
+                    if (m)
+                        for (size_t i = 0; i + m->gapPieces < m->pieces.size(); ++i) yes |= m->pieces[i][0] == g && (m->pieces[i][1] == v || m->pieces[i][2] == v);
+                    else yes |= (v >> 4) == g || (v >> 4) == g + 1u;
+                }
+            fill = yes ? "yes" : "no";
+        }
+        s += " solidfill=" + fill;
+    }
     s += " custombrush=" + (gTiles->stampName.empty() ? std::string("-") : quoted(narrow(gTiles->stampName)));
     {
         std::string files, rows;

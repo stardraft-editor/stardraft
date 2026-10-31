@@ -382,7 +382,7 @@ int main(int argc, char** argv) {
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
-    bool rectArg = false, customArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
+    bool rectArg = false, customArg = false, solidArg = false, previewArg = false, logArg = false, buildArg = false, trigCodeArg = false;
     int trigPopArg = -1;  // --trigpop: the value whose pop-out shows (sdl_popshot.inc); -2: a text's words; -100 - n: the variable form's field n
     std::string textPopArg;  // --textpop: a game text pop-out in the snapshot (sdl_data.inc)
     std::string palViewArg;  // --palview: the palette's view items (list, icons, sprites, normal, large), comma separated
@@ -440,6 +440,7 @@ int main(int argc, char** argv) {
         else if (a == "--dialog") dialogArg = next();  // options, feedback, newproject, prompt or listpick (--size its size), or blockpick, blockhelp:<block id>, unitprops, locprops, quick, valuepop[:number|:colors|:text], about, message, message:build, message:delete, error or tip: that view is the snapshot
         else if (a == "--rect") rectArg = true;  // Terrain mode's Rectangle (the Tiles panel), for a snapshot
         else if (a == "--custom") customArg = true;  // Terrain mode's Custom (the Custom list), for a snapshot
+        else if (a == "--solid") solidArg = true;  // Terrain mode's Solid (the terrain list, Rectangle's tools), for a snapshot
         else if (a == "--scriptpreview") previewArg = true;  // the Project page's script preview on (not saved), for a snapshot
         else if (a == "--log") logArg = true;  // the Log open (View > Log), for a snapshot
         else if (a == "--build") buildArg = true;  // Build (Ctrl+B) runs first: its lines go to the Log; a snapshot waits for its end
@@ -729,6 +730,7 @@ int main(int argc, char** argv) {
         }
         if (rectArg) setMode(Mode::Terrain), setTerrainRect(true);
         if (customArg) setMode(Mode::Terrain), setTerrainKind(2);
+        if (solidArg) setMode(Mode::Terrain), setTerrainKind(3);
         if (!palViewArg.empty()) sdlPaletteViewShot(palViewArg);  // (not saved: a snapshot saves no settings)
         if (previewArg && !gProj.sections.empty()) triggersRefresh(gProj.sections.back());  // the last script in the preview (as scriptpreview:)
         if (!dataArg.empty()) sdlDataSelect(dataArg);

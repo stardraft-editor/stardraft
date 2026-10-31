@@ -628,7 +628,7 @@ bool gPanelsShown = false;  // (the Map workspace shows a map: the windows' Tile
 void floatPalettesTiles() {
     for (auto& p : gPanels) {
         PalettePanelView& v = *p->view;
-        const bool rect = gPanelsShown && v.mode == Mode::Terrain && panelFresh(v.state()).terrainRect && gState.ed && gState.ed->isOpen();
+        const bool rect = gPanelsShown && v.mode == Mode::Terrain && panelShowsTiles(v.state()) && gState.ed && gState.ed->isOpen();
         if (rect != v.altShown || v.alt != &v.tilesPanel) v.holdAlt(&v.tilesPanel, rect);
         if (rect) v.tilesGrid.invalidate();
     }

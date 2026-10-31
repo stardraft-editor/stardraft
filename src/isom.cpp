@@ -1331,6 +1331,11 @@ std::pair<uint16_t, uint16_t> IsomGrid::templatePair(uint16_t l, uint16_t r) con
 
 std::pair<uint16_t, uint16_t> IsomGrid::pickPiece(const std::vector<std::pair<uint16_t, uint16_t>>& pieces, const TerrainLayer& tile, int rx,
                                                   int ry, uint32_t h) const {
+    return pickModPiece(*tileset_, pieces, tile, rx, ry, h);
+}
+
+std::pair<uint16_t, uint16_t> pickModPiece(const Tileset& tileset, const std::vector<std::pair<uint16_t, uint16_t>>& pieces, const TerrainLayer& tile,
+                                           int rx, int ry, uint32_t h) {
     // (a set's first two variants of a rect are its plain ones, the others carry cracks, gates or marks: those 4 times as
     // often, as the fill's first variants; the maps put the others in here and there)
     auto pick = [&](const std::vector<size_t>& of) {
@@ -1346,8 +1351,8 @@ std::pair<uint16_t, uint16_t> IsomGrid::pickPiece(const std::vector<std::pair<ui
     };
     std::vector<size_t> all(pieces.size());
     for (size_t i = 0; i < all.size(); ++i) all[i] = i;
-    const auto& rules = tileset_->pieceNeighbors;
-    const auto& ruled = tileset_->pieceNeighborTiles;
+    const auto& rules = tileset.pieceNeighbors;
+    const auto& ruled = tileset.pieceNeighborTiles;
     if (rules.empty() || pieces.size() < 2) return pick(all);
     auto at = [&](int x, int y) -> int {  // a rect's left tile, when it has rules
         if (x < 0 || y < 0 || 2 * x + 1 >= tile.width || y >= tile.height) return -1;
@@ -1707,6 +1712,68 @@ int solidTileGroup(const Tileset& tileset, uint16_t terrain, int half) {
     if (!tiles) return -1;
     const auto& gs = tiles->groups(0, terrain, terrain);
     return gs.empty() ? -1 : int(gs[0]) + (half & 1);
+}
+
+bool solidRectTiles(const Tileset& tileset, uint16_t terrain, const TerrainLayer& tile, int rx, int ry, uint32_t rnd, uint16_t& left, uint16_t& right) {
+    const IsomTiles* tiles = IsomTiles::forTileset(tileset);
+    if (!tiles) return false;
+    // (the next random number of the rect: each choice takes its own)
+    rnd = rnd * 0x9E3779B1u | 1u;
+    auto next = [&] {
+        rnd ^= rnd << 13, rnd ^= rnd >> 17, rnd ^= rnd << 5;
+        return rnd;
+    };
+    const int parity = (rx + ry) & 1;
+    const size_t w = tile.width, above = ry > 0 && size_t(2 * rx) < w && tile.tiles.size() >= size_t(ry) * w ? size_t(ry - 1) * w + size_t(2 * rx) : SIZE_MAX;
+    // A mod terrain: its pieces for the stand-in's solid groups (its fill), picked as the brush picks them.
+    const Tileset::ModTerrain* mod = tileset.modTerrain(terrain);
+    if (mod) {
+        std::vector<std::pair<uint16_t, uint16_t>> fill;
+        for (uint16_t g : tiles->groups(parity, mod->standIn, mod->standIn)) {
+            for (size_t i = 0; i + mod->gapPieces < mod->pieces.size(); ++i)
+                if (mod->pieces[i][0] == g) fill.push_back({mod->pieces[i][1], mod->pieces[i][2]});
+            if (!fill.empty()) break;
+        }
+        if (!fill.empty()) {
+            // (under a piece of its fill: the next row of that piece's block, one group down at the same subtiles, when the
+            // fill has it, as the brush keeps a block's rows together; else a piece as the brush picks it)
+            if (above != SIZE_MAX && size_t(2 * rx + 1) < w) {  // (the rect's both tiles on the map)
+                const std::pair<uint16_t, uint16_t> down{uint16_t(tile.tiles[above] + 16), uint16_t(tile.tiles[above + 1] + 16)};
+                if (std::find(fill.begin(), fill.end(), down) != fill.end()) {
+                    std::tie(left, right) = down;
+                    return true;
+                }
+            }
+            std::tie(left, right) = pickModPiece(tileset, fill, tile, rx, ry, next());
+            return true;
+        }
+        terrain = mod->standIn;  // (no fill of its own: the stand-in's tiles inside it)
+    }
+    // A game terrain: its solid groups, the one that stacks under the tile above (as StarEdit picks), else the first.
+    const auto& gs = tiles->groups(parity, terrain, terrain);
+    if (gs.empty()) return false;
+    uint16_t g = gs[0];
+    if (above != SIZE_MAX)
+        for (uint16_t c : gs)
+            if (tiles->stackTop(c) == tiles->stackBottom(uint16_t(tile.tiles[above] >> 4))) {
+                g = c;
+                break;
+            }
+    if (size_t(g) + 1 >= tileset.groups.size()) return false;
+    // Its variant, by IsomTerrain's rule (getRandomSubtile): the common variants (before the first empty megatile), and
+    // 1 time in 20 a rare one (the variants after that gap).
+    const auto& mega = tileset.groups[g].megatiles;
+    int common = 0, rare = 0;
+    while (common < 16 && mega[size_t(common)]) ++common;
+    while (common + rare + 1 < 16 && mega[size_t(common + rare + 1)]) ++rare;
+    uint16_t sub = 0;
+    // (under the group above in its stack: the stack's variant, as StarEdit gives a whole stack one variant)
+    if (above != SIZE_MAX && tiles->stackTop(g) && tiles->stackTop(g) == tiles->stackBottom(uint16_t(tile.tiles[above] >> 4)) && mega[tile.tiles[above] & 15])
+        sub = uint16_t(tile.tiles[above] & 15);
+    else if (rare && next() % 20 == 0) sub = uint16_t(common + 1 + int(next() % uint32_t(rare)));
+    else if (common) sub = uint16_t(next() % uint32_t(common));
+    left = uint16_t(g << 4 | sub), right = uint16_t((g + 1) << 4 | sub);
+    return true;
 }
 
 std::vector<std::array<uint16_t, 2>> tileGroupTerrains(const Tileset& tileset) {

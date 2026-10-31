@@ -350,4 +350,18 @@ std::vector<std::array<uint16_t, 2>> tileGroupTerrains(const struct Tileset& til
 // The tile group StarEdit puts under solid `terrain` (from the CV5), or -1. half: 0 left, 1 right tile of a rect.
 int solidTileGroup(const struct Tileset& tileset, uint16_t terrain, int half = 0);
 
+// The tiles that the isometric brush puts inside `terrain` (its solid rect, not its edges), for rect (rx, ry): tiles 2rx
+// and 2rx + 1 of row ry (Terrain's Solid, docs/dev/solid-terrain-brush.md). A game terrain: its solid group that stacks
+// under the tile above in `tile` (as StarEdit picks), and one of its variants, a rare one 1 time in 20. A mod terrain
+// (Tileset::modTerrains): one of its fill pieces, as pickModPiece picks them; with no fill pieces, its stand-in's tiles.
+// `rnd`: a random number. False: the terrain has no solid tiles in the tileset.
+bool solidRectTiles(const struct Tileset& tileset, uint16_t terrain, const struct TerrainLayer& tile, int rx, int ry, uint32_t rnd, uint16_t& left,
+                    uint16_t& right);
+
+// One of a rect's mod pieces (`h`: a hash or random number): one that the mod's maps have beside the pieces already
+// placed around it in `tile` (above, a row up to the left and to the right: Tileset::pieceNeighbors); fewer of those
+// neighbors when none fits all, any piece when none fits one. The first two pieces 4 times as often as each other.
+std::pair<uint16_t, uint16_t> pickModPiece(const struct Tileset& tileset, const std::vector<std::pair<uint16_t, uint16_t>>& pieces,
+                                           const struct TerrainLayer& tile, int rx, int ry, uint32_t h);
+
 }  // namespace stardraft

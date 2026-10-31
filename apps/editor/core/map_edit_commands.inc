@@ -230,10 +230,12 @@ bool copySelectedTiles(Editor& ed) {
 // Edit > Copy in the active mode (the terrain selection, the tiles, the doodads, the sprites, the location or the units).
 void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain && app.terrainRect) {
-        if (copySelectedTiles(*app.ed))
-            shareTerrainCopy(*app.ed), tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
-        else
+        if (!copySelectedTiles(*app.ed))
             setMessage(L"First, select an area with the Select / copy tool");
+        else if (gTiles->solid)  // (Solid: the Brush places the terrain; Ctrl+V pastes the copy)
+            shareTerrainCopy(*app.ed), setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) + L" tiles");
+        else
+            shareTerrainCopy(*app.ed), tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
@@ -511,7 +513,7 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_TOOL_KEY + 2:
     case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
     case ID_TERRAIN_KIND_NEXT:  // (the Terrain tool strip's choice: another mode has none)
-        if (app.mode == Mode::Terrain) setTerrainKind((terrainKind() + 1) % 3);
+        if (app.mode == Mode::Terrain) setTerrainKind((terrainKind() + 1) % kTerrainKinds);
         break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
         std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +

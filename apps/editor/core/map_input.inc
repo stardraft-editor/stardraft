@@ -175,7 +175,7 @@ bool pipette(AppState& app, float wx, float wy) {
     Editor& ed = *app.ed;
     switch (app.mode) {
     case Mode::Terrain:
-        if (app.terrainRect) {
+        if (app.terrainRect && !gTiles->solid) {  // (Solid: its terrain, as Isometric's)
             if (gTiles->stamps) return false;  // (Custom: the list has no tiles to pick)
             const int tx = int(wx) / 32, ty = int(wy) / 32;
             if (tx < 0 || ty < 0 || tx >= ed.width() || ty >= ed.height()) return false;
@@ -328,14 +328,20 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         break;
     }
     case Mode::Terrain: {
-        if (app.terrainRect) {  // Rectangle: tiles as they are, no ISOM needed
+        // Rectangle: tiles as they are, no ISOM needed. (Solid's Ctrl+click picks the terrain, as Isometric's below.)
+        if (app.terrainRect && !(gTiles->solid && ctrl && currentTool(app) != TSelect)) {
             tilesMouseDown(wx, wy, mods);
             if (app.drag == Drag::Spray) app.lastSprayX = sx, app.lastSprayY = sy;
             if (app.drag == Drag::Spray) sprayHoldStart(app, sx, sy);
             break;
         }
         const bool shiftDown = (mods & draw::kShift) != 0;
-        if (!ed.canPaintTerrain()) break;
+        if (!ed.canPaintTerrain()) {  // (no ISOM: Solid's Ctrl+click has no terrain to pick; its tools work with the list's)
+            if (app.terrainRect)
+                setMessage(app, app.palette > 0 ? L"Could not select the terrain. The map has no isometric terrain data." : L"Select a terrain in the list first"),
+                    app.drag = Drag::None;
+            break;
+        }
         if (ctrl) {
             // Eyedropper: pick the terrain under the cursor as the brush terrain.
             uint16_t t = ed.paletteTerrainOf(ed.paletteTerrainAt(int(wx), int(wy)));  // (a mod terrain's piece: that mod terrain; a variant: its terrain)
@@ -654,9 +660,9 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     case Drag::Tiles: tilesMouseUp(wx, wy); break;
     case Drag::TerrainSelect: {
         // (Rectangle: a Ctrl+click on a tile that is not selected picks it, as with the Brush: the Tiles list shows it,
-        // and the Brush places it)
+        // and the Brush places it; Custom and Solid: their list has no tiles)
         if (const int tx = int(std::floor(app.dragWX / 32)), ty = int(std::floor(app.dragWY / 32));  // (the tile pressed)
-            app.terrainRect && app.terrainSelOp == 2 && !app.dragMoved && !gTiles->stamps && tx >= 0 && ty >= 0 && tx < ed.width() && ty < ed.height() &&
+            app.terrainRect && app.terrainSelOp == 2 && !app.dragMoved && !gTiles->stamps && !gTiles->solid && tx >= 0 && ty >= 0 && tx < ed.width() && ty < ed.height() &&
             !terrainSelHas(tx, ty)) {
             app.terrainSelOp = 0;
             const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];

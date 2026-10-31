@@ -2651,3 +2651,13 @@ Width (16 to 256 tiles)	너비 (16 ~ 256 타일)
 Height (16 to 256 tiles)	높이 (16 ~ 256 타일)
 Width: type a size from 16 to 256	너비: 16 ~ 256 사이의 크기를 입력하세요
 Height: type a size from 16 to 256	높이: 16 ~ 256 사이의 크기를 입력하세요
+Solid	솔리드
+Solid: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice.	솔리드: 지형 안쪽의 타일을 가장자리 없이 2 x 1 타일 사각형 단위로 배치합니다. Ctrl+Alt+T는 다음 선택을 고릅니다.
+Solid: the tools place the tiles inside a terrain. Select a terrain in the list.	솔리드: 도구가 지형 안쪽의 타일을 배치합니다. 목록에서 지형을 선택하십시오.
+Select a terrain in the list first (or Ctrl+click the map)	먼저 목록에서 지형을 선택하십시오 (또는 맵을 Ctrl+클릭하십시오)
+Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape	브러시: 목록에서 선택한 지형 안쪽의 타일을 2 x 1 타일 사각형 단위로, 브러시의 크기와 모양으로 배치합니다
+Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.	스프레이: 브러시 안의 무작위 사각형에 지형 안쪽의 타일을 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).	채우기: 선택 영역 안을 클릭하면 선택 영역 전체를 채웁니다. 다른 곳을 클릭하면 클릭한 타일의 지형과 연결된 타일을 채웁니다. Shift+클릭하면 그 지형의 모든 타일을 채웁니다 (선택 영역이 있으면 그 안에서).
+&Fill selection with the selected terrain	선택 영역을 선택한 지형으로 채우기(&F)
+Select a terrain in the list first	먼저 목록에서 지형을 선택하십시오
+Could not select the terrain. The map has no isometric terrain data.	지형을 선택할 수 없습니다. 맵에 아이소메트릭 지형 데이터가 없습니다.

@@ -84,8 +84,11 @@ bool stripHasMirrors() {
 // The Terrain tool strip's Isometric | Rectangle: what the terrain tools work on (ISOM terrains, or tiles as they are).
 // Each map's own: its file keeps it (a new map starts in Isometric).
 // The third choice, Custom: Rectangle's tools on the map, and the panel shows the user's custom terrain (core/stamps.inc)
-// in place of the Tiles grid (TilesView::stamps). 0 Isometric, 1 Rectangle, 2 Custom.
-int terrainKind() { return !appState().terrainRect ? 0 : gTiles->stamps ? 2 : 1; }
+// in place of the Tiles grid (TilesView::stamps). The fourth, Solid: Rectangle's tools put the tiles inside the terrain
+// selected in the terrain list, which the panel shows (TilesView::solid, docs/dev/solid-terrain-brush.md).
+// 0 Isometric, 1 Rectangle, 2 Custom, 3 Solid.
+constexpr int kTerrainKinds = 4;
+int terrainKind() { return !appState().terrainRect ? 0 : gTiles->stamps ? 2 : gTiles->solid ? 3 : 1; }
 void stampsPanelSync();  // (views_stamps.inc: the active panel shows its list or its grid)
 void setTerrainKind(int kind) {
     AppState& app = appState();
@@ -99,6 +102,7 @@ void setTerrainKind(int kind) {
         }
         gTiles->stamps = kind == 2;
     }
+    gTiles->solid = kind == 3;
     if (!rect && !app.terrainSelMask.empty()) app.hasTerrainSel = false, app.terrainSelMask.clear();  // (Isometric has no such selection)
     if (app.terrainRect != rect) {
         app.terrainRect = rect;
@@ -108,8 +112,10 @@ void setTerrainKind(int kind) {
     stampsPanelSync();
     if (shellViewShown()) shellRelayout();  // the strip's height (no mirrors in Rectangle)
     fillToolCombo(app);  // tilesSync: the Tiles grid or the terrain palette
+    if (kind == 3 || was == 3) rebuildList(app);  // (Solid: the terrain list with its pick)
     updateStatus();
-    setMessage(kind == 2 ? L"Custom: the tools place your custom terrain. Select custom terrain in the list."
+    setMessage(kind == 3 ? L"Solid: the tools place the tiles inside a terrain. Select a terrain in the list."
+               : kind == 2 ? L"Custom: the tools place your custom terrain. Select custom terrain in the list."
                : rect    ? L"Rectangle: the tools place tiles as they are. Select a tile in the Tiles list."
                          : L"Isometric: the tools paint terrains and correct the edges between them");
     shellToolsChanged();
@@ -354,26 +360,32 @@ public:
         auto addHit = [&](draw::Rect r, std::function<void()> click, std::wstring tip) {
             addHitC(r, std::move(click), std::move(tip), draw::Cursor::Hand);
         };
-        // Terrain: Isometric, Rectangle or Custom, a segmented choice over the tools: one box with a line between the
-        // segments, rounded only at its ends; the chosen one primary (as the modes' bar, core/views_modebar.inc).
+        // Terrain: Isometric, Rectangle, Custom or Solid, a segmented choice over the tools: one box with a line between
+        // the segments, rounded only at its ends; the chosen one primary (as the modes' bar, core/views_modebar.inc).
+        // Each segment is its name's width and an equal part of the space that is left.
         if (app.mode == Mode::Terrain) {
-            const int sh = scale(26), third = W / 3, over = scale(8);
+            const int sh = scale(26), over = scale(8);
             static const struct {
                 const wchar_t* name;
                 const wchar_t* tip;
-            } segs[3] = {{L"Isometric", L"Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice."},
-                         {L"Rectangle", L"Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice."},
-                         {L"Custom", L"Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice."}};
+            } segs[kTerrainKinds] = {{L"Isometric", L"Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice."},
+                                     {L"Rectangle", L"Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice."},
+                                     {L"Custom", L"Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice."},
+                                     {L"Solid", L"Solid: place the tiles inside a terrain, with no edges, in rects of 2 x 1 tiles. Ctrl+Alt+T selects the next choice."}};
             const int kind = terrainKind();
-            for (int k = 0; k < 3; ++k) {
-                const draw::Rect r{k * third, y, k == 2 ? W : (k + 1) * third, y + sh};
+            int edge[kTerrainKinds + 1] = {0}, names = 0;
+            for (int k = 0; k < kTerrainKinds; ++k) names += c.measure(tr(segs[k].name));
+            for (int k = 0; k < kTerrainKinds; ++k) edge[k + 1] = edge[k] + c.measure(tr(segs[k].name)) + (W - names) / kTerrainKinds;
+            edge[kTerrainKinds] = W;
+            for (int k = 0; k < kTerrainKinds; ++k) {
+                const draw::Rect r{edge[k], y, edge[k + 1], y + sh};
                 const bool on = kind == k;
                 c.pushClip(r);
                 draw::Rect seg = r;  // (the box drawn wider on the inner sides: the segment's clip cuts it)
                 if (k > 0) seg.left -= over;
-                if (k < 2) seg.right += over;
+                if (k < kTerrainKinds - 1) seg.right += over;
                 c.roundBox(seg, on ? kSel : hot(r) ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
-                if (k < 2) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
+                if (k < kTerrainKinds - 1) c.fill({r.right - 1, r.top + 1, r.right, r.bottom - 1}, kBorder);  // the line to the next segment
                 c.text(r, tr(segs[k].name), on ? kAccent : kText, draw::kCenter | draw::kMiddle);
                 c.popClip();
                 addHit(r, [k] {

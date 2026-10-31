@@ -50,6 +50,8 @@ PanelState& panelFresh(PanelState& s) {
     if (&s == gActivePanel) panelStore(s);
     return s;
 }
+// The panel shows its Tiles list (Rectangle, Custom) in place of its terrain list (Isometric, Solid).
+bool panelShowsTiles(PanelState& s) { return panelFresh(s).terrainRect && !(s.tiles && s.tiles->solid); }
 
 // A panel that is not active, for a moment (its paint, its height): its state is the app state's, then the active
 // panel's again. What changes in it is the panel's.
@@ -211,7 +213,7 @@ std::string panelStateText(PanelState& s) {
     panelFresh(s);
     char b[192];
     std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
-                  s.density, s.mirrors, int(s.terrainRect) + int(s.terrainRect && s.tiles && s.tiles->stamps), s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
+                  s.density, s.mirrors, !s.terrainRect ? 0 : !s.tiles ? 1 : s.tiles->stamps ? 2 : s.tiles->solid ? 3 : 1, s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
                   s.otherBrushHeight);
     return b;
 }
@@ -225,7 +227,7 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & Mirror::All, s.terrainRect = num(7) != 0;
     s.owner = std::clamp(num(8), 0, 11), s.palette = num(9), s.palette2 = num(10);
     s.chosen.clear();
-    if (s.tiles) s.tiles->picked = num(11), s.tiles->stamps = num(7) == 2;  // (2: Custom)
+    if (s.tiles) s.tiles->picked = num(11), s.tiles->stamps = num(7) == 2, s.tiles->solid = num(7) == 3;  // (2: Custom, 3: Solid)
     if (part.size() >= at + 14)  // (a file of an older version: the other terrain tools' brush as it was)
         s.otherBrushSize = std::clamp(float(std::atof(part[at + 12].c_str())), 0.5f, 32.0f),
         s.otherBrushHeight = std::clamp(float(std::atof(part[at + 13].c_str())), 0.0f, 32.0f);
