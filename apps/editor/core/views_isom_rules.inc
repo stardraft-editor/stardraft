@@ -608,7 +608,6 @@ private:
         auto& ts = rules();
         const uint16_t id = ts.terrains[size_t(i)].t.id;
         const std::wstring name = widen(ts.terrains[size_t(i)].t.name);
-        if (ts.terrains[size_t(i)].t.locked) return setMessage(name + L" is protected. To delete it, right-click it in the list > Unprotect first");
         std::wstring users;
         for (const auto& o : ts.terrains)
             if (o.t.id != id && !o.t.variantOf && (o.t.ground == id || o.t.groundTemplate == id)) users += (users.empty() ? L"" : L", ") + widen(o.t.name);
@@ -2131,7 +2130,7 @@ private:
     std::string menuKey() const {
         const auto* t = terrain();
         std::string k{char('0' + wide_), char('0' + checkTodo_), char('0' + palMine_), char('0' + refOn_), char('0' + tileIds_), char('0' + frames_), char('0' + heights_),
-                      char('0' + (t != nullptr)), char('0' + (t && t->t.draft)), char('0' + (t && t->t.locked)), char('0' + !undo_.empty()), char('0' + !redo_.empty())};
+                      char('0' + (t != nullptr)), char('0' + (t && t->t.draft)), char('0' + !undo_.empty()), char('0' + !redo_.empty())};
         for (int c = 0; c < 4; ++c) k += char('0' + colShown_[c]);
         return k;
     }
@@ -2180,7 +2179,6 @@ private:
                                          item(L"Previous Variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
                                          item(L"Next Unpaired Variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
                                          item(L"Rename Terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
-                                         check(L"Protected", L"", t && t->t.locked, [this] { toggleProtect(sel_); }, own),
                                          item(L"Delete Terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
@@ -2200,29 +2198,14 @@ private:
         tileIds_ = m, prefs::setNumber(L"Layout/IsomTileIds", tileIds_), invalidate();
         setMessage(tileIds_ == 0 ? L"Tile IDs: off" : tileIds_ == 1 ? L"Tile IDs: on hover" : L"Tile IDs: always");
     }
-    // Before an edit: the terrain as it is (Ctrl+Z brings it back). False (and a message): the terrain is protected, the
-    // edit does not happen.
+    // Before an edit: the terrain as it is (Ctrl+Z brings it back). True: the edit goes on.
     bool remember() {
         nudgeSlot_ = -1;  // (another undo step: the arrow keys' run ends)
         const auto* t = terrain();
         if (!t) return true;
-        if (t->t.locked) {
-            setMessage(widen(t->t.name) + L" is protected. To change it, right-click it in the list > Unprotect");
-            return false;
-        }
         undo_.push_back({t->t.id, *t, target_, targetHalf_, pins_}), redo_.clear();
         if (undo_.size() > 200) undo_.erase(undo_.begin());
         return true;
-    }
-    // Protect / Unprotect (the list's menu, the Terrain menu): a protected terrain takes no edits until it is unprotected.
-    void toggleProtect(int i) {
-        if (loading_ || i < 0 || i >= int(rules().terrains.size())) return;
-        auto& m = rules().terrains[size_t(i)].t;
-        endStroke(), nudgeSlot_ = -1;  // (a stroke or a Ctrl+arrow run under way: the next edit asks again)
-        m.locked = !m.locked;
-        dirty_ = true;
-        invalidate();
-        setMessage(widen(m.name) + (m.locked ? L": protected (no edits until it is unprotected)" : L": unprotected"));
     }
     void undo(bool redo) {
         nudgeSlot_ = -1;
@@ -2235,8 +2218,6 @@ private:
         for (size_t k = 0; k < ts.terrains.size(); ++k)
             if (ts.terrains[k].t.id == from.back().id) i = int(k);
         if (i < 0) return setMessage(L"Terrain no longer exists");  // (the entry stays)
-        if (ts.terrains[size_t(i)].t.locked)
-            return setMessage(widen(ts.terrains[size_t(i)].t.name) + (redo ? L" is protected: no redo" : L" is protected: no undo") + L". Right-click it in the list > Unprotect");
         Edit e = std::move(from.back());
         from.pop_back();
         const bool same = sel_ == i && std_ < 0;
@@ -3460,9 +3441,8 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
         const auto [done, total] = stardraft::terrainrules::completeness(tileset_, m);
         c.text({x, y + scale(4), side_.right - pad - (m.draft ? scale(40) : 0), y + scale(22)}, widen(m.name), selected ? kText : kText, draw::kMiddle | draw::kEllipsis);
         if (m.draft) c.text({side_.right - pad - scale(38), y + scale(4), side_.right - pad, y + scale(22)}, L"Draft", kDraft, draw::kMiddle | draw::kRight);
-        c.text({x, y + scale(22), side_.right - pad - (m.locked ? scale(64) : 0), y + scale(36)}, isomrules::familyName(familyOfValue(r.value)) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
+        c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, isomrules::familyName(familyOfValue(r.value)) + L"  \x00b7  " + std::to_wstring(done) + L"/" + std::to_wstring(total) + L" Rects",
                kDim, draw::kMiddle | draw::kEllipsis);
-        if (m.locked) c.text({side_.right - pad - scale(64), y + scale(22), side_.right - pad, y + scale(36)}, L"Protected", kAccent, draw::kMiddle | draw::kRight);
         const int bx0 = x, bx1 = side_.right - pad, by = y + r.h - scale(5);  // (the progress: done of total)
         c.fill({bx0, by, bx1, by + scale(2)}, kBorder);
         if (total > 0) c.fill({bx0, by, bx0 + (bx1 - bx0) * done / total, by + scale(2)}, done == total ? kAccent : kDraft);
@@ -4059,11 +4039,9 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
                 if (isVariantRow(r.value)) return selectValue(r.value), true;  // (a variant: the terrain's own row renames and deletes)
                 if (r.value < 0) return selectValue(r.value), setMessage(L"Game tilesets are read-only"), true;
                 selectValue(r.value);
-                const bool locked = rules().terrains[size_t(r.value)].t.locked;
-                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026", locked ? L"Unprotect" : L"Protect"})) {
+                switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026"})) {
                 case 1: renameTerrain(r.value); break;
                 case 2: deleteTerrain(r.value); break;
-                case 3: toggleProtect(r.value); break;
                 default: break;
                 }
                 return true;

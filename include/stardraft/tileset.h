@@ -78,7 +78,6 @@ struct Tileset {
         uint16_t variantOf = 0;  // a variant: that terrain's set on another ground with its ground's tiles (the brush picks it)
         bool fromMaps = false;  // made from the maps (src/mods/cmbw_auto_terrains.inc), not a hand-made row
         bool draft = false;     // not checked by a person yet (the built-in rows: all of them; the terrain rules file keeps the flag)
-        bool locked = false;    // protected: the terrain rules editor changes nothing of it until it is unprotected (kept in the file)
     };
     static constexpr uint16_t kModTerrainIds = 64;
     // A mod's variants (ModTerrain::variantOf) from here on: the rows before them may grow without moving them (saved maps
