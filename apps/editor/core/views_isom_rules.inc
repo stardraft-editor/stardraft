@@ -1253,13 +1253,17 @@ private:
         const size_t k = size_t(target_);
         if (k >= m.pieces.size()) return;
         if (k >= m.setPieces && k < m.pieces.size() - m.gapPieces) {  // (a fill piece: the terrain's inside; one of them stays)
-            if (m.pieces.size() - m.gapPieces - m.setPieces <= 1) return setMessage(L"Remove: last fill piece (kept)");
+            const auto q = m.pieces[k];
+            const size_t fillEnd = m.pieces.size() - m.gapPieces, fills = fillEnd - m.setPieces;
+            const size_t same = size_t(std::count(m.pieces.begin() + long(m.setPieces), m.pieces.begin() + long(fillEnd), q));
+            if (same >= fills) return setMessage(L"Remove: fill " + std::to_wstring(q[0]) + L": every fill piece has these tiles (kept: a solid place always shows a fill piece; set its tiles instead)");
             remember();
-            const uint16_t g = m.pieces[k][0];
-            m.pieces.erase(m.pieces.begin() + long(k));
+            const uint16_t g = q[0];
+            for (size_t i = fillEnd; i-- > m.setPieces;)  // (every fill piece with these tiles: else the next one shows the same tile)
+                if (m.pieces[i] == q) m.pieces.erase(m.pieces.begin() + long(i));
             target_ = -1;
             changed();
-            return setMessage(L"Remove: fill piece, group " + std::to_wstring(g) + L" (" + std::to_wstring(m.pieces.size() - m.gapPieces - m.setPieces) + L" fill pieces left)");
+            return setMessage(L"Remove: fill " + std::to_wstring(g) + L": " + std::to_wstring(same) + (same > 1 ? L" pieces" : L" piece") + L" with these tiles removed (" + std::to_wstring(m.pieces.size() - m.gapPieces - m.setPieces) + L" fill pieces left)");
         }
         const uint16_t g = m.pieces[k][0];
         const auto q = m.pieces[k];
