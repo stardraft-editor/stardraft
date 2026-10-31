@@ -734,6 +734,7 @@ private:
         uint16_t cacheId = 0;                    // (moreRects_'s key: the terrain's id, a variant's id)
         std::wstring extraKey;                   // (what the search's spots depend on: extraKeyOf)
         std::set<std::pair<int, int>> hidden;    // (the spots removed from the canvas: hiddenOf)
+        std::pair<int, int> removeAt{INT_MIN, INT_MIN};  // (Remove From Canvas: the place's tile; the build finds its spot only)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
         std::map<std::pair<int, int>, std::pair<uint16_t, int>> pins;  // (pins_)
@@ -748,6 +749,7 @@ private:
         std::vector<int> holes, absent;
         std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
         std::vector<std::pair<int, int>> shape;  // (the spots painted: the shape's, the extra ones; not the hidden ones)
+        std::optional<std::pair<int, int>> removeSpot;  // (Remove From Canvas: the spot to remove; none: no spot paints the place alone)
         int gained = 0;                          // (the search: rects shown that were not)
         draw::Rect crop;
         std::vector<uint16_t> ids;  // (the crop's tiles, row by row; kNullId: a NULL half)
@@ -781,6 +783,7 @@ private:
         in->t = on, in->family = family_, in->cacheId = cacheId;
         in->extraKey = extraKeyOf(on);
         in->hidden = hiddenOf(in->extraKey);
+        in->removeAt = removeAt_, removeAt_ = {INT_MIN, INT_MIN};
         if (!moreRects_.count(cacheId))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
             if (const auto known = knownExtra(in->extraKey)) moreRects_[cacheId] = *known;
         if (const auto it = moreRects_.find(cacheId); it != moreRects_.end()) in->extra = it->second;
@@ -826,6 +829,20 @@ private:
             foreground([this, in, out] {
                 if (in->gen != buildGen_) return;
                 building_ = false;
+                if (in->removeAt.first != INT_MIN) {  // (Remove From Canvas: the spot found; the canvas again without it)
+                    if (in->extend) moreRects_[in->cacheId] = out->extra, keepExtra(in->extraKey, out->extra);
+                    if (!out->removeSpot) {
+                        invalidate();
+                        return setMessage(L"Remove From Canvas: no spot of the canvas paints this piece alone (the pieces around it need it)");
+                    }
+                    auto hidden = hiddenOf(in->extraKey);
+                    hidden.insert(*out->removeSpot);
+                    keepHidden(in->extraKey, hidden);
+                    target_ = -1;
+                    rebuild();
+                    return setMessage(L"Removed the piece from the canvas (right-click > Restore Removed Pieces brings back all " + std::to_wstring(hidden.size()) +
+                                      (hidden.size() == 1 ? L" piece)" : L" pieces)"));
+                }
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop, ++placesRev_;
                 shape_ = std::move(out->shape), shapeKey_ = in->extraKey;
                 ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
@@ -1022,6 +1039,27 @@ private:
             out.gained = int(have.size() - before);
             out.extra.assign(shape.begin() + long(baseSpots), shape.end());
             paint();
+        }
+        if (in.removeAt.first != INT_MIN) {  // (Remove From Canvas: the spot whose removal takes the place away with the fewest other tiles changed)
+            const stardraft::TerrainLayer full = stardraft::readTerrain(ed->chk(), "TILE");
+            const auto [rx, ry] = in.removeAt;
+            auto piece = [&](const stardraft::TerrainLayer& l) {
+                return rx >= 0 && ry >= 0 && rx < W && ry < H && index.count(l.tiles[size_t(ry) * W + rx]) > 0;
+            };
+            const std::vector<std::pair<int, int>> all = shape;
+            size_t best = SIZE_MAX;
+            for (size_t k = 0; k < all.size() && in.gen == buildGen_; ++k) {
+                shape = all;
+                shape.erase(shape.begin() + long(k));
+                paint();
+                const stardraft::TerrainLayer l = stardraft::readTerrain(ed->chk(), "TILE");
+                if (piece(l)) continue;  // (the place is still there)
+                size_t changed = 0;
+                for (size_t i = 0; i < l.tiles.size(); ++i) changed += l.tiles[i] != full.tiles[i];
+                if (changed < best) best = changed, out.removeSpot = all[k];
+            }
+            shape = all;
+            return;
         }
         stardraft::TerrainLayer tl = stardraft::readTerrain(ed->chk(), "TILE");
         int x0 = W, y0 = H, x1 = -1, y1 = -1;
@@ -2169,32 +2207,14 @@ private:
         for (const auto& [i, j] : spots) v += (v.empty() ? L"" : L";") + std::to_wstring(i) + L"," + std::to_wstring(j);
         prefs::setText(L"IsomHidden-" + key, v);
     }
-    // The spot that painted place p: the one whose middle is nearest to the place's middle (map pixels). -1: none.
-    int spotOf(const Place& p) const {
-        const int px = p.tx * 32 + 32, py = p.ty * 32 + 16, cx = 40 * 16, cy = 28 * 16;  // (build's map: 40 x 28 tiles)
-        int best = -1;
-        long long bestD = LLONG_MAX;
-        for (size_t s = 0; s < shape_.size(); ++s) {
-            const auto [i, j] = shape_[s];
-            const int sx = i >= kHalfSpot / 2 ? cx + (i - kHalfSpot) * 32 : cx + i * 64, sy = i >= kHalfSpot / 2 ? cy + j * 16 : cy + j * 32;
-            const long long d = 1LL * (sx - px) * (sx - px) + 1LL * (sy - py) * (sy - py);
-            if (d < bestD) bestD = d, best = int(s);
-        }
-        return best;
-    }
-    // Remove From Canvas: the spot that painted place p goes (the rects it showed alone show no more; the checklist says
-    // which); Restore Removed Pieces: all of them come back.
+    // Remove From Canvas: the spot that paints place p goes: of the spots whose removal takes the place away, the one
+    // that changes the fewest other tiles (the build tries each; the rects it showed alone show no more, the checklist
+    // says which). Restore Removed Pieces: all of them come back.
+    std::pair<int, int> removeAt_{INT_MIN, INT_MIN};
     void hideSpot(int place) {
         if (place < 0 || place >= int(places_.size()) || shapeKey_.empty()) return;
-        const int s = spotOf(places_[size_t(place)]);
-        if (s < 0) return;
-        auto hidden = hiddenOf(shapeKey_);
-        hidden.insert(shape_[size_t(s)]);
-        keepHidden(shapeKey_, hidden);
-        target_ = -1;
+        removeAt_ = {places_[size_t(place)].tx, places_[size_t(place)].ty};
         rebuild();
-        setMessage(L"Removed the piece from the canvas (right-click > Restore Removed Pieces brings back all " + std::to_wstring(hidden.size()) +
-                   (hidden.size() == 1 ? L" piece)" : L" pieces)"));
     }
     void restoreSpots() {
         if (shapeKey_.empty()) return;
