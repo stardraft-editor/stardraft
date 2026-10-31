@@ -1892,9 +1892,17 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
         if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
         if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
+        // (the new variant as the brush picks one (IsomTerrain's getRandomSubtile, as StarEdit): a common one (before the
+        // group's first empty megatile) most of the time, a rare one (after it) 1 time in 20; not the one there now. Each
+        // pass over the same ground draws again: an even pick of all of them filled the ground with the rare ones)
+        int common = 0, rare = 0;
+        while (common < 16 && g->megatiles[size_t(common)]) ++common;
+        while (common + rare + 1 < 16 && g->megatiles[size_t(common + rare + 1)]) ++rare;
+        const bool pickRare = rare > 0 && rng() % 20 == 0;
+        const int from = pickRare ? common + 1 : 0, to = pickRare ? common + 1 + rare : common;
         std::vector<int> subs;
         const int cur = tile.tiles[size_t(top) * w + rx * 2] & 15;
-        for (int s = 0; s < 16; ++s)
+        for (int s = from; s < to; ++s)
             if (hasSub(rx * 2, top, s) && hasSub(rx * 2 + 1, top, s) && s != cur) subs.push_back(s);
         if (subs.empty()) continue;
         const int sub = subs[rng() % subs.size()];
