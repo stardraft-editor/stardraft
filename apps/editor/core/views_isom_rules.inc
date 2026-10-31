@@ -2121,27 +2121,42 @@ private:
         heights_ = !heights_, prefs::setNumber(L"Layout/IsomHeights", heights_ ? 1 : 0), invalidate();
         setMessage(heights_ ? L"Height overlay: low (blue), middle (yellow), high (red); not walkable: dark" : L"Height overlay: off");
     }
+    // The height of minitile `m` (0-15) of tile v: 0 no tile; 1-3 low, middle, high; +3 not walkable.
+    int heightKind(uint16_t v, int m) const {
+        const int mega = v == kNullId ? -1 : tileset_.megatileFor(v);
+        if (mega <= 0 || size_t(mega) >= tileset_.minitileFlags.size()) return 0;
+        const uint16_t f = tileset_.minitileFlags[size_t(mega)][size_t(m)];
+        return ((f & 4) ? 3 : (f & 2) ? 2 : 1) + ((f & 1) ? 0 : 3);
+    }
+    static constexpr draw::Color kHeightColors[7] = {0, 0xFF8040, 0x30C8E8, 0x2850F0, 0x804020, 0x186474, 0x142878};  // (COLORREF)
+    static uint8_t heightAlpha(int k) { return k > 3 ? 150 : 110; }
+    // The height overlay of one tile in r (a cell of the Tiles): its 4 x 4 minitiles, runs of one color on each row.
+    void paintTileHeights(draw::Canvas& c, uint16_t v, draw::Rect r) {
+        for (int my = 0; my < 4; ++my)
+            for (int mx = 0; mx < 4;) {
+                const int k = heightKind(v, my * 4 + mx);
+                int end = mx + 1;
+                while (end < 4 && heightKind(v, my * 4 + end) == k) ++end;
+                if (k)
+                    c.fill({r.left + r.width() * mx / 4, r.top + r.height() * my / 4, r.left + r.width() * end / 4, r.top + r.height() * (my + 1) / 4},
+                           kHeightColors[k], heightAlpha(k));
+                mx = end;
+            }
+    }
     // The height overlay over the terrain canvas: each minitile (8 px) of the tiles in ids_ (the edits too) in the color of
     // its VF4 height, runs of one color on each minitile row as one fill. Not walkable: a darker fill.
     void paintHeights(draw::Canvas& c, int ox, int oy) {
         const int cw = crop_.width(), ch = crop_.height();
         if (ids_.size() != size_t(cw) * size_t(ch)) return;
         const float ms = 8 * zoom_;
-        auto kindAt = [&](int mx, int my) {  // (0: no tile; 1-3 low, middle, high; +3: not walkable)
-            const uint16_t v = ids_[size_t(my / 4) * size_t(cw) + size_t(mx / 4)];
-            const int mega = v == kNullId ? -1 : tileset_.megatileFor(v);
-            if (mega <= 0 || size_t(mega) >= tileset_.minitileFlags.size()) return 0;
-            const uint16_t f = tileset_.minitileFlags[size_t(mega)][size_t((my % 4) * 4 + mx % 4)];
-            return ((f & 4) ? 3 : (f & 2) ? 2 : 1) + ((f & 1) ? 0 : 3);
-        };
-        static const draw::Color kColors[7] = {0, 0xFF8040, 0x30C8E8, 0x2850F0, 0x804020, 0x186474, 0x142878};  // (COLORREF)
+        auto kindAt = [&](int mx, int my) { return heightKind(ids_[size_t(my / 4) * size_t(cw) + size_t(mx / 4)], (my % 4) * 4 + mx % 4); };
         for (int my = 0; my < ch * 4; ++my)
             for (int mx = 0; mx < cw * 4;) {
                 const int k = kindAt(mx, my);
                 int end = mx + 1;
                 while (end < cw * 4 && kindAt(end, my) == k) ++end;
                 if (k)
-                    c.fill({ox + int(mx * ms), oy + int(my * ms), ox + int(end * ms), oy + int((my + 1) * ms)}, kColors[k], k > 3 ? 150 : 110);
+                    c.fill({ox + int(mx * ms), oy + int(my * ms), ox + int(end * ms), oy + int((my + 1) * ms)}, kHeightColors[k], heightAlpha(k));
                 mx = end;
             }
     }
@@ -2792,6 +2807,9 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             if (b)
                 for (int k = 0; k < 16; ++k) c.bitmap(*b, {k * 32, 0, k * 32 + 32, 32}, tileAt(k, y));
         }
+        if (heights_)  // (the height overlay (Ctrl+E) over the Tiles too)
+            for (int k = 0; k < 16; ++k)
+                if (tileset_.megatileFor(uint16_t(g << 4 | k)) > 0) paintTileHeights(c, uint16_t(g << 4 | k), tileAt(k, y));
     }
     for (int k = 0; k <= 16; k += 2) c.fill({palX(k), palette_.top, palX(k) + 1, std::min(palette_.bottom, palette_.top + rows * cell - palScroll_ + 1)}, kBorderHot);
     auto rowY = [&](int g) { const int i = palIndexOf(g); return i < 0 ? INT_MIN : palette_.top + i * cell - palScroll_; };
