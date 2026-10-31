@@ -46,6 +46,10 @@ public:
     // The open list has a search row: typing shows only the items whose name (or number) has the typed text (a long
     // list: the players' colors). Off: typing jumps to the next item that starts with it.
     bool searchable = false;
+    // The rows the open list shows at most (then it scrolls), and whether it stays in the window (the default: fewer
+    // rows when the window has no room). Off: the list may go past a small window (a dialog's long list).
+    int listRows = 12;
+    bool listInWindow = true;
 
     // Replaces the items (the list closes; the value stays if it is still an item).
     void setItems(std::vector<DropdownItem> items);

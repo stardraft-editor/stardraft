@@ -141,7 +141,8 @@ public:
         : create_(L"Create", stardraft::kit::Tone::Primary, [this] { finish(true); }), cancel_(L"Cancel", stardraft::kit::Tone::Normal, [this] { finish(false); }) {
         model_.setItems(std::move(models)), model_.setValue(model);
         ground_.setItems(std::move(grounds)), ground_.setValue(ground);
-        for (stardraft::kit::Dropdown* d : {&model_, &ground_}) d->searchable = true, d->enterOpens = false;
+        for (stardraft::kit::Dropdown* d : {&model_, &ground_})  // (long lists in a small window: 20 rows, past its edge)
+            d->searchable = true, d->enterOpens = false, d->listRows = 20, d->listInWindow = false;
         model_.onChange = [this](int v) {
             if (onModel) onModel(v);
         };

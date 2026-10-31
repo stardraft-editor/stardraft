@@ -346,9 +346,9 @@ void Dropdown::openList() {
     while (root->parent()) root = root->parent();
     const int y = origin().y, extra = (searchable ? 1 : 0) * px(kRowH) + 2 * px(2), gap = px(2);
     const int below = root->height() - (y + height() + gap) - px(4), above = y - gap - px(4);
-    const int want = std::min(int(items_.size()), kVisibleRows);
-    const bool up = below < want * px(kRowH) + extra && above > below;
-    const int fit = std::max(1, ((up ? above : below) - extra) / px(kRowH));
+    const int want = std::min(int(items_.size()), std::max(1, listRows));
+    const bool up = listInWindow && below < want * px(kRowH) + extra && above > below;
+    const int fit = listInWindow ? std::max(1, ((up ? above : below) - extra) / px(kRowH)) : want;
     const int shown = std::min(want, fit);
     list_->setMaxRows(shown);
     const int listH = shown * px(kRowH) + extra;
