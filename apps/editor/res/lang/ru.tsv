@@ -819,8 +819,8 @@ Density: the number of doodads each spray puts down (where they fit), 1 to 50. C
 No symmetry	Без симметрии
 Mirror left and right	Зеркально слева направо
 Mirror top and bottom	Зеркально сверху вниз
-Mirror across the diagonal	Зеркально по диагонали
-Mirror across the other diagonal	Зеркально по другой диагонали
+Mirror across the line from top left to bottom right	Зеркально по линии из левого верхнего угла в правый нижний
+Mirror across the line from top right to bottom left	Зеркально по линии из правого верхнего угла в левый нижний
 Turn a half turn	Поворот на 180°
 Turn in quarter turns (4 ways)	Поворот на четверть оборота (4 варианта)
 . Right-click: move it to the other side.	. Правая кнопка: переместить на другую сторону.
@@ -2653,3 +2653,5 @@ Te&rrain tools	&Инструменты местности
 &Tile\tCtrl+Alt+3	&Тайл\tCtrl+Alt+3
 &Custom\tCtrl+Alt+4	&Свой\tCtrl+Alt+4
 &Next\tCtrl+Alt+T	&Следующий\tCtrl+Alt+T
+top left to bottom right	из левого верхнего угла в правый нижний
+top right to bottom left	из правого верхнего угла в левый нижний

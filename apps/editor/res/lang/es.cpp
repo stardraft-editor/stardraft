@@ -858,8 +858,8 @@ constexpr UiText kRows[] = {
     {L"No symmetry", L"Sin simetr\u00EDa"},
     {L"Mirror left and right", L"Reflejar izquierda y derecha"},
     {L"Mirror top and bottom", L"Reflejar arriba y abajo"},
-    {L"Mirror across the diagonal", L"Reflejar en la diagonal"},
-    {L"Mirror across the other diagonal", L"Reflejar en la otra diagonal"},
+    {L"Mirror across the line from top left to bottom right", L"Reflejar en la l\u00EDnea de arriba a la izquierda a abajo a la derecha"},
+    {L"Mirror across the line from top right to bottom left", L"Reflejar en la l\u00EDnea de arriba a la derecha a abajo a la izquierda"},
     {L"Turn a half turn", L"Girar media vuelta"},
     {L"Turn in quarter turns (4 ways)", L"Girar en cuartos de vuelta (4 direcciones)"},
     {L". Right-click: move it to the other side.", L". Clic derecho: moverlo al otro lado."},
@@ -2655,6 +2655,8 @@ constexpr UiText kRows[] = {
     {L"&Tile\tCtrl+Alt+3", L"&Tile\tCtrl+Alt+3"},
     {L"&Custom\tCtrl+Alt+4", L"&Personalizado\tCtrl+Alt+4"},
     {L"&Next\tCtrl+Alt+T", L"&Siguiente\tCtrl+Alt+T"},
+    {L"top left to bottom right", L"de arriba a la izquierda a abajo a la derecha"},
+    {L"top right to bottom left", L"de arriba a la derecha a abajo a la izquierda"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -858,8 +858,8 @@ constexpr UiText kRows[] = {
     {L"No symmetry", L"\uB300\uCE6D \uC5C6\uC74C"},
     {L"Mirror left and right", L"\uC88C\uC6B0 \uB300\uCE6D"},
     {L"Mirror top and bottom", L"\uC0C1\uD558 \uB300\uCE6D"},
-    {L"Mirror across the diagonal", L"\uB300\uAC01\uC120 \uB300\uCE6D"},
-    {L"Mirror across the other diagonal", L"\uB2E4\uB978 \uB300\uAC01\uC120 \uB300\uCE6D"},
+    {L"Mirror across the line from top left to bottom right", L"\uC67C\uCABD \uC704\uC5D0\uC11C \uC624\uB978\uCABD \uC544\uB798\uB85C \uAC00\uB294 \uC120 \uB300\uCE6D"},
+    {L"Mirror across the line from top right to bottom left", L"\uC624\uB978\uCABD \uC704\uC5D0\uC11C \uC67C\uCABD \uC544\uB798\uB85C \uAC00\uB294 \uC120 \uB300\uCE6D"},
     {L"Turn a half turn", L"180\uB3C4 \uD68C\uC804"},
     {L"Turn in quarter turns (4 ways)", L"90\uB3C4 \uB2E8\uC704 \uD68C\uC804 (4\uBC29\uD5A5)"},
     {L". Right-click: move it to the other side.", L". \uC624\uB978\uCABD \uD074\uB9AD: \uBC18\uB300\uCABD\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4."},
@@ -2685,6 +2685,8 @@ constexpr UiText kRows[] = {
     {L"&Tile\tCtrl+Alt+3", L"\uD0C0\uC77C(&T)\tCtrl+Alt+3"},
     {L"&Custom\tCtrl+Alt+4", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815(&C)\tCtrl+Alt+4"},
     {L"&Next\tCtrl+Alt+T", L"\uB2E4\uC74C(&N)\tCtrl+Alt+T"},
+    {L"top left to bottom right", L"\uC67C\uCABD \uC704\uC5D0\uC11C \uC624\uB978\uCABD \uC544\uB798"},
+    {L"top right to bottom left", L"\uC624\uB978\uCABD \uC704\uC5D0\uC11C \uC67C\uCABD \uC544\uB798"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

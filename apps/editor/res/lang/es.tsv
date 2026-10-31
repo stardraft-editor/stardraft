@@ -854,8 +854,8 @@ Density: the number of doodads each spray puts down (where they fit), 1 to 50. C
 No symmetry	Sin simetría
 Mirror left and right	Reflejar izquierda y derecha
 Mirror top and bottom	Reflejar arriba y abajo
-Mirror across the diagonal	Reflejar en la diagonal
-Mirror across the other diagonal	Reflejar en la otra diagonal
+Mirror across the line from top left to bottom right	Reflejar en la línea de arriba a la izquierda a abajo a la derecha
+Mirror across the line from top right to bottom left	Reflejar en la línea de arriba a la derecha a abajo a la izquierda
 Turn a half turn	Girar media vuelta
 Turn in quarter turns (4 ways)	Girar en cuartos de vuelta (4 direcciones)
 . Right-click: move it to the other side.	. Clic derecho: moverlo al otro lado.
@@ -2653,3 +2653,5 @@ Te&rrain tools	&Herramientas de terreno
 &Tile\tCtrl+Alt+3	&Tile\tCtrl+Alt+3
 &Custom\tCtrl+Alt+4	&Personalizado\tCtrl+Alt+4
 &Next\tCtrl+Alt+T	&Siguiente\tCtrl+Alt+T
+top left to bottom right	de arriba a la izquierda a abajo a la derecha
+top right to bottom left	de arriba a la derecha a abajo a la izquierda

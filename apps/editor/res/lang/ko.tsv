@@ -854,8 +854,8 @@ Density: the number of doodads each spray puts down (where they fit), 1 to 50. C
 No symmetry	대칭 없음
 Mirror left and right	좌우 대칭
 Mirror top and bottom	상하 대칭
-Mirror across the diagonal	대각선 대칭
-Mirror across the other diagonal	다른 대각선 대칭
+Mirror across the line from top left to bottom right	왼쪽 위에서 오른쪽 아래로 가는 선 대칭
+Mirror across the line from top right to bottom left	오른쪽 위에서 왼쪽 아래로 가는 선 대칭
 Turn a half turn	180도 회전
 Turn in quarter turns (4 ways)	90도 단위 회전 (4방향)
 . Right-click: move it to the other side.	. 오른쪽 클릭: 반대쪽으로 이동합니다.
@@ -2683,3 +2683,5 @@ Te&rrain tools	지형 도구(&R)
 &Tile\tCtrl+Alt+3	타일(&T)\tCtrl+Alt+3
 &Custom\tCtrl+Alt+4	사용자 지정(&C)\tCtrl+Alt+4
 &Next\tCtrl+Alt+T	다음(&N)\tCtrl+Alt+T
+top left to bottom right	왼쪽 위에서 오른쪽 아래
+top right to bottom left	오른쪽 위에서 왼쪽 아래

@@ -821,8 +821,8 @@ Density: the number of doodads each spray puts down (where they fit), 1 to 50. C
 No symmetry	无对称
 Mirror left and right	左右镜像
 Mirror top and bottom	上下镜像
-Mirror across the diagonal	沿对角线镜像
-Mirror across the other diagonal	沿另一对角线镜像
+Mirror across the line from top left to bottom right	沿左上到右下的线镜像
+Mirror across the line from top right to bottom left	沿右上到左下的线镜像
 Turn a half turn	旋转 180 度
 Turn in quarter turns (4 ways)	按 90 度旋转（4 个方向）
 . Right-click: move it to the other side.	. 右键点击：移到另一侧。
@@ -2653,3 +2653,5 @@ Te&rrain tools	地形工具(&R)
 &Tile\tCtrl+Alt+3	图块(&T)\tCtrl+Alt+3
 &Custom\tCtrl+Alt+4	自定义(&C)\tCtrl+Alt+4
 &Next\tCtrl+Alt+T	下一个(&N)\tCtrl+Alt+T
+top left to bottom right	左上到右下
+top right to bottom left	右上到左下

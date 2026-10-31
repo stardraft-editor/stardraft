@@ -546,8 +546,8 @@ public:
             } kinds[] = {{0, L"No symmetry"},
                          {Mirror::LeftRight, L"Mirror left and right"},
                          {Mirror::TopBottom, L"Mirror top and bottom"},
-                         {Mirror::Diagonal, L"Mirror across the diagonal"},
-                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal"}};
+                         {Mirror::Diagonal, L"Mirror across the line from top left to bottom right"},
+                         {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"}};
             const int mb = scale(28);
             int mx = 0;
             for (const auto& k : kinds) {
