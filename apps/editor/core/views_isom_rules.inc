@@ -1160,13 +1160,25 @@ private:
             const stardraft::TerrainLayer l = stardraft::readTerrain(e->chk(), "TILE");
             std::map<std::pair<int, int>, size_t> at;           // (a place's left tile -> its piece)
             std::map<std::pair<int, int>, const Edges*> wall;  // (the tiles that are part of the terrain, their sides)
+            // (by tile, y * W + x: the NULL halves (a set's hole, no art yet); every tile of a piece with its sides (also one
+            // with few wall pixels); the tiles of the terrain's fill pieces (its top))
+            std::vector<uint8_t> hole(size_t(W) * H, 0), fillTile(size_t(W) * H, 0);
+            std::vector<const Edges*> side(size_t(W) * H, nullptr);
+            auto tileAt = [&](std::pair<int, int> p) { return p.first >= 0 && p.second >= 0 && p.first < W && p.second < H ? size_t(p.second) * W + size_t(p.first) : SIZE_MAX; };
+            auto flag = [&](const std::vector<uint8_t>& v, std::pair<int, int> p) { const size_t i = tileAt(p); return i != SIZE_MAX && v[i] != 0; };
             for (int ty = 0; ty < H; ++ty)
                 for (int tx = 0; tx < W; ++tx)
                     if (const auto it = index.find(l.tiles[size_t(ty) * W + tx]); it != index.end() && !(it->second & 1)) {
                         const size_t k = it->second / 2;
                         at[{tx, ty}] = k;
-                        for (int h : {0, 1})
+                        for (int h : {0, 1}) {
+                            if (const size_t i = tileAt({tx + h, ty}); i != SIZE_MAX) {
+                                side[i] = &edges[k][size_t(h)];
+                                fillTile[i] = k >= t->t.setPieces && k + t->t.gapPieces < Q.size();
+                                hole[i] = isomrules::nullHalf(Q[k][size_t(1 + h)]);
+                            }
                             if (edges[k][size_t(h)].part) wall[{tx + h, ty}] = &edges[k][size_t(h)];
+                        }
                     }
             Look o;
             std::set<std::pair<int, int>> stray;  // (the tiles of the strays)
@@ -1194,13 +1206,42 @@ private:
                 }
                 // (alone: no tile of another shape within a tile of it (a corner's pebble, an edge's bit of the
                 // tile's art next to the shape is the shape's look, not a stray))
-                bool alone = group.size() <= kStrayTiles;
+                // (with a NULL hole: the shape's art there is not made yet, the piece next to it is part of that shape)
+                bool alone = group.size() <= kStrayTiles && std::none_of(group.begin(), group.end(), [&](const auto& p) { return flag(hole, p); });
                 for (size_t g = 0; alone && g < group.size(); ++g)
                     for (int dy = -1; alone && dy <= 1; ++dy)
                         for (int dx = -1; alone && dx <= 1; ++dx)
                             if (const std::pair<int, int> nb{group[g].first + dx, group[g].second + dy};
                                 wall.count(nb) && std::find(group.begin(), group.end(), nb) == group.end())
                                 alone = false;
+                // (and its wall pixels go on into a piece next to it with few wall pixels, within 3 pixels: a box's corner
+                // where the ground has the box's own colors)
+                auto nearMeet = [](uint32_t a, uint32_t b) {
+                    uint32_t m = b;
+                    for (int s = 1; s <= 3; ++s) m |= b << s | b >> s;
+                    return (a & m) != 0;
+                };
+                for (size_t g = 0; alone && g < group.size(); ++g) {
+                    const auto [x, y] = group[g];
+                    const Edges& me = *wall.at({x, y});
+                    auto other = [&](int nx, int ny) -> const Edges* {
+                        const std::pair<int, int> nb{nx, ny};
+                        if (wall.count(nb)) return nullptr;
+                        const size_t i = tileAt(nb);
+                        return i == SIZE_MAX ? nullptr : side[i];
+                    };
+                    if (const Edges* r = other(x + 1, y); r && nearMeet(me.right, r->left)) alone = false;
+                    if (const Edges* lt = other(x - 1, y); lt && nearMeet(me.left, lt->right)) alone = false;
+                    if (const Edges* d = other(x, y + 1); d && nearMeet(me.bottom, d->top)) alone = false;
+                    if (const Edges* u = other(x, y - 1); u && nearMeet(me.top, u->bottom)) alone = false;
+                    // (at the side of the terrain's own fill, or a fill piece at the side of the terrain's pieces: on the
+                    // terrain's top, not alone on the ground (a top whose edges or fill have the ground's colors). A fill
+                    // piece is only where the 4 corners of its rect are the terrain: the rects around it are the terrain's too)
+                    for (const auto [dx, dy] : {std::pair{1, 0}, std::pair{-1, 0}, std::pair{0, 1}, std::pair{0, -1}})
+                        if (const std::pair<int, int> nb{x + dx, y + dy};
+                            (flag(fillTile, nb) || (flag(fillTile, {x, y}) && tileAt(nb) != SIZE_MAX && side[tileAt(nb)])) && std::find(group.begin(), group.end(), nb) == group.end())
+                            alone = false;
+                }
                 if (alone) ++o.strays, stray.insert(group.begin(), group.end()), o.strayTiles.insert(o.strayTiles.end(), group.begin(), group.end());
             }
             for (const auto& [p, k] : at) {  // (a place counts unless its wall tiles are all a stray's)
