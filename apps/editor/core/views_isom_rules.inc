@@ -818,7 +818,7 @@ private:
             foreground([this, in, out] {
                 if (in->gen != buildGen_) return;
                 building_ = false;
-                places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop;
+                places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop, ++placesRev_;
                 ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
@@ -1518,7 +1518,7 @@ private:
                                          item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
                                          item(L"Next Variant", L"Ctrl+]", [this] { stepVariant(1); }, own),
                                          item(L"Previous Variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
-                                         item(L"Next Differing Variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
+                                         item(L"Next Unpaired Variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
                                          item(L"Rename Terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
                                          item(L"Delete Terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
         Item ids;
@@ -2108,96 +2108,65 @@ private:
             if (m.pieces[i][0] == m.pieces[size_t(k)][0] && !(i >= m.setPieces && i < m.pieces.size() - m.gapPieces)) out.push_back(int(i));
         return out;
     }
-    // The variant check: piece -> how it differs from its rect's usual variant (the one nearest to the others): the
-    // height or walkable flags of its minitiles, the colors along its edges (where its neighbors join it). Made again
-    // when the pieces change.
+    // The variant check, as the brush places a terrain's pieces: in a block of rows of one terrain, the rect under a
+    // piece takes the piece one tile row down at the same subtiles (left + 16, right + 16: the next row of the mod's
+    // sheet), so that a wall's gate or door keeps its parts together; with none, it picks one at random. For each pair of
+    // rects that stand one under the other on the terrain canvas (and continue each other at least once): a variant
+    // that the rect below does not continue, and a variant that continues none above. Piece -> why.
     std::map<int, std::wstring> variantWhy_;
     std::vector<std::array<uint16_t, 3>> variantFor_;
-    int variantEra_ = -1, variantSel_ = -1;
+    int variantEra_ = -1, variantSel_ = -1, variantPlaces_ = -1, placesRev_ = 0;
+    std::set<uint16_t> variantChecked_;  // (the rects the check saw: on the canvas)
+    // Two pieces one under the other as the brush continues them: b's tiles one row under a's.
+    static bool continues(const std::array<uint16_t, 3>& a, const std::array<uint16_t, 3>& b) {
+        return !isomrules::anyNull(a) && !isomrules::anyNull(b) && b[1] == uint16_t(a[1] + 16) && b[2] == uint16_t(a[2] + 16);
+    }
+    // The place of the canvas at tile (tx, ty), -1 none.
+    int placeAtTile(int tx, int ty) const {
+        for (size_t i = 0; i < places_.size(); ++i)
+            if (places_[i].tx == tx && places_[i].ty == ty) return int(i);
+        return -1;
+    }
+    std::vector<int> piecesOfGroup(uint16_t g) const {
+        std::vector<int> out;
+        if (const auto* t = terrain())
+            for (size_t k = 0; k < t->t.pieces.size(); ++k)
+                if (t->t.pieces[k][0] == g) out.push_back(int(k));
+        return out;
+    }
     const std::map<int, std::wstring>& variantIssues() {
         const auto* t = terrain();
-        if (!t) return variantWhy_.clear(), variantFor_.clear(), variantWhy_;
-        if (variantFor_ == t->t.pieces && variantSel_ == sel_ && variantEra_ == era()) return variantWhy_;
-        variantFor_ = t->t.pieces, variantSel_ = sel_, variantEra_ = era(), variantWhy_.clear();
-        struct Sig {
-            std::array<uint8_t, 32> height{}, walk{};
-            std::array<std::array<int, 3>, 24> edge{};  // (the mean colors of the pair's outer 2 px, 8 px at a time)
-            bool ok = false;
-        };
-        auto sigOf = [&](const std::array<uint16_t, 3>& q) {
-            Sig s;
-            if (isomrules::anyNull(q)) return s;
-            for (int h = 0; h < 2; ++h) {
-                const int mega = tileset_.megatileFor(q[size_t(1 + h)]);
-                if (mega <= 0 || size_t(mega) >= tileset_.minitileFlags.size()) return s;
-                for (int i = 0; i < 16; ++i) {
-                    const uint16_t f = tileset_.minitileFlags[size_t(mega)][size_t(i)];
-                    s.height[size_t(h * 16 + i)] = uint8_t((f >> 1) & 3), s.walk[size_t(h * 16 + i)] = uint8_t(f & 1);
-                }
-            }
-            const stardraft::Sprite p = stardraft::mapTilesPicture(tileset_, {q[1], q[2]}, 2, 0, 0, 2, 1);
-            if (p.width < 64 || p.height < 32) return s;
-            auto mean = [&](int x0, int y0, int w, int h) {
-                std::array<int, 3> a{};
-                for (int y = y0; y < y0 + h; ++y)
-                    for (int x = x0; x < x0 + w; ++x)
-                        for (int k = 0; k < 3; ++k) a[size_t(k)] += p.rgba[(size_t(y) * size_t(p.width) + size_t(x)) * 4 + size_t(k)];
-                for (int& v : a) v /= w * h;
-                return a;
-            };
-            size_t c = 0;
-            for (int x = 0; x < 64; x += 8) s.edge[c++] = mean(x, 0, 8, 2), s.edge[c++] = mean(x, 30, 8, 2);  // (top, bottom)
-            for (int y = 0; y < 32; y += 8) s.edge[c++] = mean(0, y, 2, 8), s.edge[c++] = mean(62, y, 2, 8);  // (left, right)
-            s.ok = true;
-            return s;
-        };
-        struct Diff {
-            int height = 0, walk = 0;
-            std::set<std::wstring> sides;
-            int score() const { return height * 4 + walk * 2 + int(sides.size()) * 3; }
-        };
-        constexpr int kEdgeDiff = 40;  // (a mean color this far from the usual one (0-255): another picture at that edge)
-        auto diff = [&](const Sig& a, const Sig& b) {
-            Diff d;
-            for (size_t i = 0; i < 32; ++i) d.height += a.height[i] != b.height[i], d.walk += a.walk[i] != b.walk[i];
-            for (size_t c = 0; c < 24; ++c) {
-                const int e = (std::abs(a.edge[c][0] - b.edge[c][0]) + std::abs(a.edge[c][1] - b.edge[c][1]) + std::abs(a.edge[c][2] - b.edge[c][2])) / 3;
-                if (e > kEdgeDiff) d.sides.insert(c < 16 ? (c % 2 ? L"bottom" : L"top") : (c % 2 ? L"right" : L"left"));
-            }
-            return d;
-        };
-        std::set<uint16_t> done;
-        for (size_t k = 0; k < t->t.pieces.size(); ++k) {
-            if (!done.insert(t->t.pieces[k][0]).second) continue;
-            std::vector<int> vs;
-            std::vector<Sig> sigs;
-            for (int v : variantsOf(int(k)))
-                if (Sig s = sigOf(t->t.pieces[size_t(v)]); s.ok) vs.push_back(v), sigs.push_back(s);
-            if (vs.size() < 2) continue;
-            size_t ref = 0;  // (the usual variant: the least different from the others)
-            int best = INT_MAX;
-            for (size_t a = 0; a < sigs.size(); ++a) {
-                int sum = 0;
-                for (size_t b = 0; b < sigs.size(); ++b) sum += a == b ? 0 : diff(sigs[a], sigs[b]).score();
-                if (sum < best) best = sum, ref = a;
-            }
-            for (size_t a = 0; a < sigs.size(); ++a) {
-                if (a == ref) continue;
-                const Diff d = diff(sigs[a], sigs[ref]);
-                std::wstring why;
-                auto add = [&](const std::wstring& s) { why += (why.empty() ? L"" : L"; ") + s; };
-                if (d.height) add(L"height differs in " + std::to_wstring(d.height) + L" minitiles");
-                if (d.walk >= 2) add(L"walkable differs in " + std::to_wstring(d.walk) + L" minitiles");
-                if (!d.sides.empty()) {
-                    std::wstring s;
-                    for (const auto& side : {L"top", L"bottom", L"left", L"right"})
-                        if (d.sides.count(side)) s += (s.empty() ? L"" : L", ") + std::wstring(side);
-                    add(L"edge differs (" + s + L")");
-                }
-                const std::vector<int> all = variantsOf(int(k));  // (the number the strip and the keys give it)
-                const int refNo = int(std::find(all.begin(), all.end(), vs[ref]) - all.begin()) + 1;
-                if (!why.empty()) variantWhy_[vs[a]] = L"differs from variant " + std::to_wstring(refNo) + L": " + why;
-            }
+        if (!t) return variantWhy_.clear(), variantFor_.clear(), variantChecked_.clear(), variantWhy_;
+        if (variantFor_ == t->t.pieces && variantSel_ == sel_ && variantEra_ == era() && variantPlaces_ == placesRev_) return variantWhy_;
+        variantFor_ = t->t.pieces, variantSel_ = sel_, variantEra_ = era(), variantPlaces_ = placesRev_, variantWhy_.clear(), variantChecked_.clear();
+        const auto& P = t->t.pieces;
+        std::set<std::pair<uint16_t, uint16_t>> stacked;  // (the rect above, the rect under it)
+        for (const Place& p : places_) {
+            if (p.piece < 0 || p.piece >= int(P.size())) continue;
+            variantChecked_.insert(P[size_t(p.piece)][0]);
+            if (const int q = placeAtTile(p.tx, p.ty - 1); q >= 0 && places_[size_t(q)].piece >= 0 && places_[size_t(q)].piece < int(P.size()))
+                stacked.insert({P[size_t(places_[size_t(q)].piece)][0], P[size_t(p.piece)][0]});
+        }
+        std::map<int, std::vector<std::wstring>> why;
+        for (const auto& [ga, gb] : stacked) {
+            const std::vector<int> as = piecesOfGroup(ga), bs = piecesOfGroup(gb);
+            bool any = false;  // (no variant continues another: not a block of the mod's sheet, the brush picks freely)
+            for (int a : as)
+                for (int b : bs) any = any || continues(P[size_t(a)], P[size_t(b)]);
+            if (!any) continue;
+            for (int a : as)
+                if (!isomrules::anyNull(P[size_t(a)]) && std::none_of(bs.begin(), bs.end(), [&](int b) { return continues(P[size_t(a)], P[size_t(b)]); }))
+                    why[a].push_back(L"rect " + std::to_wstring(gb) + L" below has no variant that continues it (" + std::to_wstring((P[size_t(a)][1] + 16) >> 4) + L"." +
+                                     std::to_wstring(P[size_t(a)][1] & 15) + L"): the brush puts a random one there");
+            for (int b : bs)
+                if (!isomrules::anyNull(P[size_t(b)]) && std::none_of(as.begin(), as.end(), [&](int a) { return continues(P[size_t(a)], P[size_t(b)]); }))
+                    why[b].push_back(L"continues no variant of rect " + std::to_wstring(ga) + L" above (" + std::to_wstring((P[size_t(b)][1] - 16) >> 4) + L"." +
+                                     std::to_wstring(P[size_t(b)][1] & 15) + L" is not one)");
+        }
+        for (const auto& [k, ws] : why) {
+            std::wstring w;
+            for (const auto& x : ws) w += (w.empty() ? L"" : L"; ") + x;
+            variantWhy_[k] = w;
         }
         return variantWhy_;
     }
@@ -2221,6 +2190,30 @@ private:
         int at = 0;
         for (Place& p : places_)
             if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == g) p.piece = piece, pins_[{p.tx, p.ty}] = {g, ord}, ++at;
+        // (the block it stands in follows, as the brush continues it: under it the piece one row down at the same
+        // subtiles, above it the one a row up, where the rects have them)
+        const auto& P = t->t.pieces;
+        auto pin = [&](Place& n, int k) {
+            int o = 0;
+            for (int j = 0; j < k; ++j) o += P[size_t(j)][0] == P[size_t(k)][0] ? 1 : 0;
+            n.piece = k, pins_[{n.tx, n.ty}] = {P[size_t(k)][0], o};
+        };
+        for (size_t i = 0; i < places_.size(); ++i) {
+            if (places_[i].piece != piece) continue;
+            for (int dir : {1, -1}) {
+                int from = piece, ty = places_[i].ty;
+                for (int step = 0; step < 2; ++step) {  // (a block: the brush looks 2 rows up)
+                    ty += dir;
+                    const int q = placeAtTile(places_[i].tx, ty);
+                    if (q < 0 || places_[size_t(q)].piece < 0 || places_[size_t(q)].piece >= int(P.size()) || P[size_t(places_[size_t(q)].piece)][0] == g) break;
+                    int next = -1;
+                    for (int k : piecesOfGroup(P[size_t(places_[size_t(q)].piece)][0]))
+                        if (dir > 0 ? continues(P[size_t(from)], P[size_t(k)]) : continues(P[size_t(k)], P[size_t(from)])) next = k;
+                    if (next < 0) break;
+                    pin(places_[size_t(q)], next), from = next;
+                }
+            }
+        }
         syncIds();
         setTarget(piece, -1), slotFocus(true);
         const std::vector<int> vs = variantsOf(piece);
@@ -2244,7 +2237,7 @@ private:
     void nextDifferingVariant() {
         if (!terrain()) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a terrain first");
         const auto& why = variantIssues();
-        if (why.empty()) return setMessage(L"No variant differs from the other variants of its rect");
+        if (why.empty()) return setMessage(L"Every variant on the terrain canvas continues the one above it");
         auto it = why.upper_bound(target_);
         if (it == why.end()) it = why.begin();
         showVariant(it->first);
@@ -2970,7 +2963,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 c.frame({xc, ty, xc + 2 * th, ty + th}, st == isomrules::PieceState::Own ? kBorder : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole, scale(1));
                 // (a variant that differs: in place of Custom or Borrowed; NULL and Partial stay in sight)
                 const bool differs = differing.count(row.group) > 0 && (st == isomrules::PieceState::Own || st == isomrules::PieceState::Borrowed);
-                const std::wstring state = differs ? L"Differs"
+                const std::wstring state = differs ? L"Unpaired"
                                            : st == isomrules::PieceState::Own ? L"Custom" : st == isomrules::PieceState::Borrowed ? L"Borrowed" : st == isomrules::PieceState::Partial ? L"Partial" : L"NULL";
                 c.text({xs, y, check_.right - pad, y + rh}, state, differs ? draw::Color(0x50AAF0) : st == isomrules::PieceState::Own ? kDim : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole,
                        draw::kMiddle | draw::kEllipsis);
@@ -3006,7 +2999,8 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             const auto& why = variantIssues();
             const int differ = int(std::count_if(vs.begin(), vs.end(), [&](int k) { return why.count(k) > 0; }));
             const draw::Color kDiffer = 0x50AAF0;  // (COLORREF: the Draft orange)
-            c.text({x, strip_.top + pad, strip_.right - pad, y0}, L"Variants " + std::to_wstring(vs.size()) + (differ ? L"  \x00b7  " + std::to_wstring(differ) + L" differ" : L""),
+            const bool checked = variantChecked_.count(t->t.pieces[size_t(target_)][0]) > 0;
+            c.text({x, strip_.top + pad, strip_.right - pad, y0}, L"Variants " + std::to_wstring(vs.size()) + (differ ? L"  \x00b7  " + std::to_wstring(differ) + L" unpaired" : checked ? L"" : L"  \x00b7  not on the canvas"),
                    differ ? kDiffer : kDim, draw::kMiddle | draw::kEllipsis);
             const int ch = (T - scale(4)) / 2, cw = 2 * ch, gap = scale(4), cols = (strip_.right - pad - x + gap) / (cw + gap);
             for (size_t i = 0; i < vs.size() && int(i) < 2 * cols; ++i) {
