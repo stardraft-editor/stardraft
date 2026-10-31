@@ -1265,6 +1265,8 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
         std::vector<std::array<uint16_t, 2>> terrains;
         std::map<uint16_t, std::vector<uint16_t>> variants;  // terrain -> the mod's tile values of it alone
         std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>> pieces;  // the game's left group -> the mod's pieces for its rect
+        // a tile value -> bit 0: a mod terrain's own piece; bit 1: a game tile of one terrain that a mod terrain takes as its fill
+        std::vector<uint8_t> modTile;
     };
     thread_local Tables tables;
     uint64_t piecesHash = 1469598103934665603ull;  // (the mod terrains' pieces: another set of rules is another table)
@@ -1273,8 +1275,18 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     const auto key = std::make_tuple(uint16_t(era_ & 7), tileset_.groups.size(), tileset_.megatiles.size(), tileset_.modTerrains.size(),
                                      tileset_.groupTerrains.size(), piecesHash);
     if (tables.key != key || tables.terrains.empty()) {
-        tables = Tables{key, tileGroupTerrains(tileset_), {}, {}};
+        tables = Tables{key, tileGroupTerrains(tileset_), {}, {}, {}};
         const auto& terrains = tables.terrains;
+        {
+            uint16_t firstMod = uint16_t(tileset_.groups.size());  // (the mod's groups come after the game's)
+            for (const auto& gt : tileset_.groupTerrains) firstMod = std::min(firstMod, gt[0]);
+            auto gameFill = [&](uint16_t v) { return (v >> 4) < firstMod && size_t(v >> 4) < terrains.size() && !terrains[v >> 4][1]; };
+            tables.modTile.assign(65536, 0);
+            for (const Tileset::ModTerrain& m : tileset_.modTerrains)
+                for (const auto& [g, l, r] : m.pieces)
+                    if (!gameFill(l) || !gameFill(r)) tables.modTile[l] |= 1, tables.modTile[r] |= 1;
+                    else tables.modTile[l] |= 2, tables.modTile[r] |= 2;
+        }
         std::set<uint16_t> pieceGroups;  // (a piece's tiles go only as the whole piece)
         for (const auto& [left, right, game] : tileset_.groupPieces) pieceGroups.insert(uint16_t(left >> 4)), pieceGroups.insert(uint16_t(right >> 4));
         // (and a mod terrain's edge: its set's pieces for the game's border rects, which the maps also show on the ground
@@ -1406,15 +1418,9 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     };
     // The mod's own terrains' pieces (Tileset::modTerrains: the terrain engine puts them in) stay as they are; not the
     // game's tiles of one terrain that a mod terrain takes as its fill (that terrain's own ground gets the mod's tiles).
+    // (the tables' modTile: made once for the tileset)
     {
-        uint16_t firstMod = uint16_t(tileset_.groups.size());  // (the mod's groups come after the game's)
-        for (const auto& gt : tileset_.groupTerrains) firstMod = std::min(firstMod, gt[0]);
-        auto gameFill = [&](uint16_t v) { return (v >> 4) < firstMod && size_t(v >> 4) < terrains.size() && !terrains[v >> 4][1]; };
-        std::set<uint16_t> mine, fills;
-        for (const Tileset::ModTerrain& m : tileset_.modTerrains)
-            for (const auto& [g, l, r] : m.pieces)
-                if (!gameFill(l) || !gameFill(r)) mine.insert(l), mine.insert(r);
-                else fills.insert(l), fills.insert(r);
+        const std::vector<uint8_t>& modTile = tables.modTile;
         auto inMod = [&](size_t k) {  // (a corner of the tile's rect a mod terrain)
             const int rx = int(k % size_t(width_)) / 2, ry = int(k / size_t(width_));
             for (int dy = 0; dy < 2; ++dy)
@@ -1422,8 +1428,8 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
                     if (isomOk_ && isom_.terrainAt(rx + dx, ry + dy) >= Tileset::kModTerrainIds) return true;
             return false;
         };
-        for (size_t k = 0; k < tile.tiles.size() && k < done.size() && (!mine.empty() || !fills.empty()); ++k)
-            if (mine.count(tile.tiles[k]) || (fills.count(tile.tiles[k]) && inMod(k))) done[k] = 1;
+        for (size_t k = 0; k < tile.tiles.size() && k < done.size() && !tileset_.modTerrains.empty(); ++k)
+            if (const uint8_t f = modTile[tile.tiles[k]]; (f & 1) || ((f & 2) && inMod(k))) done[k] = 1;
     }
     // The pieces: a rect's two tiles (the left one at an even column) as the brush made them.
     for (int y = 0; y < height_ && !pieces.empty(); ++y)
