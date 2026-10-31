@@ -51,6 +51,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Q", ID_QUICKPICK},           {"1", ID_PLAYER_1},               {"2", ID_PLAYER_1 + 1},             {"3", ID_PLAYER_1 + 2},
     {"4", ID_PLAYER_1 + 3},        {"5", ID_PLAYER_1 + 4},           {"6", ID_PLAYER_1 + 5},             {"7", ID_PLAYER_1 + 6},
     {"8", ID_PLAYER_1 + 7},        {"9", ID_PLAYER_1 + 8},           {"0", ID_PLAYER_1 + 9},
+    {"=", ID_PLAYER_1 + 11},       {"Shift+=", ID_PLAYER_1 + 11},  // (player 12: the key after 0 and - on a US keyboard, with or without Shift; + and - stay the zoom keys)
 };
 
 void command(int id);
@@ -308,7 +309,7 @@ bool commandMapEdit(AppState& app, int id) {
         app.dirty = true;
         return true;
     };
-    if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) {
+    if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) {
         // While placing, the key picks the owner of what you are about to place. Otherwise, with units
         // selected (Units mode), it gives them to that player and nothing else changes. With neither, it
         // picks the player for the next placement.

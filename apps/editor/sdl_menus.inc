@@ -125,6 +125,7 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
         case '`': out = draw::Key::Grave; return true;
         case '[': out = draw::Key::LeftBracket; return true;
         case ']': out = draw::Key::RightBracket; return true;
+        case '=': out = draw::Key::Equals; return true;
         case ' ': out = draw::Key::Space; return true;
         default: return false;
         }
@@ -293,7 +294,7 @@ bool sdlRuns(int id) {
     case ID_PATHSIZE_LARGE: return true;
     default: break;
     }
-    if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) return true;  // the keys 1 to 0
+    if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) return true;  // the keys 1 to 0 and = (player 12)
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
@@ -311,7 +312,7 @@ bool sdlRuns(int id) {
 bool simBarShown();  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
     return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
-           (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 10) || id == ID_QUICKPICK ||
+           (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
            (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
 }
