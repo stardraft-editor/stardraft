@@ -331,6 +331,8 @@ public:
         if (e.key == static_cast<draw::Key>('R') && ctrl) return toggleReference(), true;
         if (e.key == static_cast<draw::Key>('H') && ctrl) return toggleFrames(), true;
         if (e.key == static_cast<draw::Key>('E') && ctrl) return toggleHeights(), true;
+        if ((e.key == draw::Key::RightBracket || e.key == draw::Key::LeftBracket) && ctrl) return stepVariant(e.key == draw::Key::RightBracket ? 1 : -1), true;
+        if (e.key == static_cast<draw::Key>('K') && ctrl) return nextDifferingVariant(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && e.mods == (draw::kCtrl | draw::kShift)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('M') && ctrl) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('D') && ctrl) return toggleDraft(), true;
@@ -495,10 +497,27 @@ private:
         ground_.setItems(grounds), ground_.setValue(-1);
         if (const auto* t = terrain())
             for (size_t k = 0; k < groundIds_.size(); ++k)
-                if (groundIds_[k] == t->t.ground) ground_.setValue(int(k));
+                if (groundIds_[k] == shownGround(*t)) ground_.setValue(int(k));
         return names;
     }
     // Rename: the terrain's name (an undo step of the terrain; the Bordering list too).
+    // A terrain's variants (the brush's: its pieces on another ground that looks the same inside, made when the tileset
+    // loads; the rules file does not keep them). The list shows each under its terrain (a value kVariantRow - its id);
+    // its row shows the terrain on the variant's ground: the pieces are the terrain's, its edits the terrain's.
+    static constexpr int kVariantRow = -2000000;
+    uint16_t variantView_ = 0;  // (the variant shown: its id; 0: none)
+    static bool isVariantRow(int v) { return v <= kVariantRow; }
+    // The Bordering box's ground of terrain t: the variant's while one is shown.
+    uint16_t shownGround(const stardraft::terrainrules::Terrain& t) const {
+        const isomrules::ModTerrain* v = variantView_ ? tileset_.modTerrain(variantView_) : nullptr;
+        return v ? v->ground : t.t.ground;
+    }
+    const isomrules::ModTerrain* variantOfRow(int v) const { return isVariantRow(v) ? tileset_.modTerrain(uint16_t(kVariantRow - v)) : nullptr; }
+    int indexOfId(uint16_t id) const {
+        for (size_t i = 0; i < rules().terrains.size(); ++i)
+            if (rules().terrains[i].t.id == id) return int(i);
+        return -1;
+    }
     void renameTerrain(int i) {
         if (loading_ || i < 0 || i >= int(rules().terrains.size())) return;
         if (i != sel_) selectValue(i);
@@ -544,8 +563,8 @@ private:
         std::wstring q = search_.text();
         std::transform(q.begin(), q.end(), q.begin(), ::towlower);
         const auto& ts = rules();
+        std::vector<bool> match(ts.terrains.size());
         for (size_t i = 0; i < ts.terrains.size(); ++i) {
-            if (ts.terrains[i].t.variantOf) continue;  // (variants: the brush's, made from their terrain)
             std::wstring n = widen(ts.terrains[i].t.name);
             if (!q.empty() && !tileset_.groups.empty()) {  // (the label too: "draft", a family, "36/36")
                 const auto [done, total] = stardraft::terrainrules::completeness(tileset_, ts.terrains[i].t);
@@ -554,7 +573,21 @@ private:
                      std::to_wstring(done) + L"/" + std::to_wstring(total) + (ts.terrains[i].t.draft ? L" Draft" : L" Verified");
             }
             std::transform(n.begin(), n.end(), n.begin(), ::towlower);
-            if (q.empty() || n.find(q) != std::wstring::npos) shown_.push_back(int(i));
+            match[i] = q.empty() || n.find(q) != std::wstring::npos;
+        }
+        // (each terrain, then its variants: shown when it or they match)
+        for (size_t i = 0; i < ts.terrains.size(); ++i) {
+            if (ts.terrains[i].t.variantOf) continue;
+            std::vector<int> vars;
+            for (const isomrules::ModTerrain& v : tileset_.modTerrains)
+                if (v.variantOf && v.variantOf == ts.terrains[i].t.id) {
+                    std::wstring n = widen(v.name);
+                    std::transform(n.begin(), n.end(), n.begin(), ::towlower);
+                    if (match[i] || n.find(q) != std::wstring::npos) vars.push_back(kVariantRow - int(v.id));
+                }
+            if (!match[i] && vars.empty()) continue;
+            shown_.push_back(int(i));
+            shown_.insert(shown_.end(), vars.begin(), vars.end());
         }
         for (size_t k = 0; k < stdPairs_.size(); ++k) {  // (the game's own: -1 - k)
             std::wstring n = stdName(int(k)) + L" game";
@@ -587,14 +620,16 @@ private:
         for (isomrules::Family f : kOrder) {
             std::vector<int> in;
             for (int v : shown_)
-                if (v >= 0 && familyOfValue(v) == f) in.push_back(v);
+                if (const isomrules::ModTerrain* m = variantOfRow(v)) {
+                    if (const int p = indexOfId(m->variantOf); p >= 0 && familyOfValue(p) == f) in.push_back(v);
+                } else if (v >= 0 && familyOfValue(v) == f) in.push_back(v);
             if (in.empty()) continue;
-            header(isomrules::familyName(f), int(in.size()));
+            header(isomrules::familyName(f), int(std::count_if(in.begin(), in.end(), [](int v) { return v >= 0; })));
             for (int v : in) sideRows_.push_back({v, {}, y, scale(44)}), y += scale(44);
         }
         std::vector<int> games;
         for (int v : shown_)
-            if (v < 0) games.push_back(v);
+            if (v < 0 && !isVariantRow(v)) games.push_back(v);
         if (!games.empty()) {
             header(L"Game Tilesets", int(games.size()));
             for (int v : games) sideRows_.push_back({v, {}, y, scale(30)}), y += scale(30);
@@ -643,20 +678,34 @@ private:
     // A list value shown: a terrain of the rules (v >= 0), or the game's border k (v = -1 - k).
     void selectValue(int v) {
         keepPins();
+        variantView_ = 0;
+        if (const isomrules::ModTerrain* m = variantOfRow(v)) {
+            if (const int p = indexOfId(m->variantOf); p >= 0) v = p, variantView_ = m->id;
+            else return;
+        }
         sel_ = v >= 0 ? v : -1, std_ = v < 0 && v > -1000000 ? -1 - v : -1;
         revealSideRow();
         target_ = -1, pins_.clear();
         if (const auto* t = terrain()) pins_ = savedPins_[t->t.id];  // (its pins as it had them)
         updateMyRows();
         updateTemplate();
-        if (const auto* t = terrain())
+        if (const auto* t = terrain()) {
+            const isomrules::ModTerrain* var = variantView_ ? tileset_.modTerrain(variantView_) : nullptr;
             for (size_t k = 0; k < groundIds_.size(); ++k)
-                if (groundIds_[k] == t->t.ground) ground_.setValue(int(k));
+                if (groundIds_[k] == (var ? var->ground : t->t.ground)) ground_.setValue(int(k));
+            if (var) setMessage(widen(var->name) + L": the tiles of " + widen(t->t.name) + L" on " + widen(tileset_.modTerrain(var->ground) ? tileset_.modTerrain(var->ground)->name : std::string("its ground")) +
+                                L". Edits change " + widen(t->t.name));
+        }
         rebuild();
     }
     void setGround(int i) {
         auto* t = sel_ >= 0 ? &rules().terrains[size_t(sel_)] : nullptr;
         if (!t || i < 0 || i >= int(groundIds_.size()) || groundIds_[size_t(i)] == t->t.id) return;
+        if (const isomrules::ModTerrain* v = variantView_ ? tileset_.modTerrain(variantView_) : nullptr) {  // (a variant's ground is the brush's)
+            for (size_t k = 0; k < groundIds_.size(); ++k)
+                if (groundIds_[k] == v->ground) ground_.setValue(int(k));
+            return setMessage(widen(v->name) + L": a variant's bordering terrain is the brush's. Select " + widen(t->t.name) + L" to change its own");
+        }
         const uint16_t g = groundIds_[size_t(i)];
         remember();
         const uint16_t tpl = stardraft::terrainrules::templateOf(tileset_, t->t).first;  // (the template stays: its ground)
@@ -677,6 +726,7 @@ private:
         isomrules::Family family = isomrules::Family::Other;  // (the terrain's template's: its shape)
         std::vector<std::pair<int, int>> extra;  // (more spots of the shape, found for this terrain: moreRects_)
         bool extend = false;                     // (search for more spots that show the rects the shape does not: a terrain's first example)
+        uint16_t cacheId = 0;                    // (moreRects_'s key: the terrain's id, a variant's id)
         std::wstring extraKey;                   // (what the search's spots depend on: extraKeyOf)
         std::vector<isomrules::ModTerrain> all;  // (the working rules: the terrain's pieces as the stand-in values)
         std::vector<uint16_t> free;              // (the stand-in values: piece k's halves are 2k and 2k + 1)
@@ -717,14 +767,18 @@ private:
             in->standard = true, in->root = stdPairs_[size_t(std_)].first, in->stdTerrain = stdPairs_[size_t(std_)].second;
             return start(in, -2 - std_);
         }
-        in->t = *t, in->family = family_;
-        in->extraKey = extraKeyOf(*t);
-        if (!moreRects_.count(t->t.id))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
-            if (const auto known = knownExtra(in->extraKey)) moreRects_[t->t.id] = *known;
-        if (const auto it = moreRects_.find(t->t.id); it != moreRects_.end()) in->extra = it->second;
-        in->extend = !moreRects_.count(t->t.id);  // (a terrain's first example: the search before it shows, one picture)
+        stardraft::terrainrules::Terrain on = *t;  // (a variant shown: the terrain on the variant's ground)
+        const isomrules::ModTerrain* var = variantView_ ? tileset_.modTerrain(variantView_) : nullptr;
+        if (var) on.t.ground = var->ground, on.t.groundTemplate = var->groundTemplate;
+        const uint16_t cacheId = var ? var->id : t->t.id;  // (the extra spots: the variant's own)
+        in->t = on, in->family = family_, in->cacheId = cacheId;
+        in->extraKey = extraKeyOf(on);
+        if (!moreRects_.count(cacheId))  // (another terrain of the same template and rects, now or in an earlier run: its spots)
+            if (const auto known = knownExtra(in->extraKey)) moreRects_[cacheId] = *known;
+        if (const auto it = moreRects_.find(cacheId); it != moreRects_.end()) in->extra = it->second;
+        in->extend = !moreRects_.count(cacheId);  // (a terrain's first example: the search before it shows, one picture)
         in->pins = pins_;
-        uint16_t root = t->t.ground;  // (a game terrain under its grounds)
+        uint16_t root = on.t.ground;  // (a game terrain under its grounds)
         for (int n = 0; n < 16 && root >= stardraft::Tileset::kModTerrainIds; ++n)
             if (const isomrules::ModTerrain* m = tileset_.modTerrain(root)) root = m->ground; else break;
         in->root = root ? root : 1;
@@ -741,11 +795,12 @@ private:
         }
         for (const auto& x : rules().terrains) {
             in->all.push_back(x.t);
+            if (x.t.id == t->t.id) in->all.back().ground = on.t.ground, in->all.back().groundTemplate = on.t.groundTemplate;
             if (x.t.id == t->t.id)
                 for (size_t k = 0; k < in->all.back().pieces.size(); ++k)
                     in->all.back().pieces[k][1] = in->free[2 * k], in->all.back().pieces[k][2] = in->free[2 * k + 1];
         }
-        start(in, sel_);
+        start(in, var ? kVariantRow - int(var->id) : sel_);
     }
     void start(std::shared_ptr<BuildIn> in, int shown) {
         if (shownId_ != shown) viewZoom_ = 1, panX_ = panY_ = 0;  // (another terrain: the fit)
@@ -770,7 +825,7 @@ private:
                     for (const Place& p : places_)
                         if (p.piece >= 0 && p.piece < int(t->t.pieces.size())) visibleGroups_.insert(t->t.pieces[size_t(p.piece)][0]);
                 picture_ = std::move(out->picture), refPicture_ = std::move(out->reference);
-                if (in->extend) moreRects_[in->t.t.id] = out->extra, keepExtra(in->extraKey, out->extra);
+                if (in->extend) moreRects_[in->cacheId] = out->extra, keepExtra(in->extraKey, out->extra);
                 invalidate();
             });
         });
@@ -1461,6 +1516,9 @@ private:
                                          radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
                                          item(L"Next NULL Rect", L"Ctrl+L", [this] { nextNull(); }, own),
                                          item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
+                                         item(L"Next Variant", L"Ctrl+]", [this] { stepVariant(1); }, own),
+                                         item(L"Previous Variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
+                                         item(L"Next Differing Variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
                                          item(L"Rename Terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
                                          item(L"Delete Terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
         Item ids;
@@ -1507,9 +1565,9 @@ private:
         to.push_back({e.id, ts.terrains[size_t(i)], same ? target_ : -1, same ? targetHalf_ : 0, same ? pins_ : savedPins_[e.id]});
         pins_ = std::move(e.pins);
         ts.terrains[size_t(i)] = std::move(e.before);
-        if (!same) sel_ = i, std_ = -1, revealSideRow();
+        if (!same) sel_ = i, std_ = -1, variantView_ = 0, revealSideRow();
         for (size_t k = 0; k < groundIds_.size(); ++k)  // (the Bordering box: the ground as it was)
-            if (groundIds_[k] == ts.terrains[size_t(i)].t.ground) ground_.setValue(int(k));
+            if (groundIds_[k] == shownGround(ts.terrains[size_t(i)])) ground_.setValue(int(k));
         places_.clear(), holes_.clear(), absent_.clear();  // (the piece numbers may have moved: none until the new example)
         fillGrounds();  // (a name may come back: the Bordering list's)
         target_ = e.target, targetHalf_ = e.half;
@@ -2039,6 +2097,169 @@ private:
     void keepPins() {
         if (const auto* t = terrain()) savedPins_[t->t.id] = pins_;
     }
+    // --- Variants: the pieces of one rect (the game's brush picks one of them for each place) ---
+    // The variants of piece k's rect: its set's and its gaps' pieces of that group (not the fill), in order.
+    std::vector<int> variantsOf(int k) const {
+        std::vector<int> out;
+        const auto* t = terrain();
+        if (!t || k < 0 || k >= int(t->t.pieces.size())) return out;
+        const auto& m = t->t;
+        for (size_t i = 0; i < m.pieces.size(); ++i)
+            if (m.pieces[i][0] == m.pieces[size_t(k)][0] && !(i >= m.setPieces && i < m.pieces.size() - m.gapPieces)) out.push_back(int(i));
+        return out;
+    }
+    // The variant check: piece -> how it differs from its rect's usual variant (the one nearest to the others): the
+    // height or walkable flags of its minitiles, the colors along its edges (where its neighbors join it). Made again
+    // when the pieces change.
+    std::map<int, std::wstring> variantWhy_;
+    std::vector<std::array<uint16_t, 3>> variantFor_;
+    int variantEra_ = -1, variantSel_ = -1;
+    const std::map<int, std::wstring>& variantIssues() {
+        const auto* t = terrain();
+        if (!t) return variantWhy_.clear(), variantFor_.clear(), variantWhy_;
+        if (variantFor_ == t->t.pieces && variantSel_ == sel_ && variantEra_ == era()) return variantWhy_;
+        variantFor_ = t->t.pieces, variantSel_ = sel_, variantEra_ = era(), variantWhy_.clear();
+        struct Sig {
+            std::array<uint8_t, 32> height{}, walk{};
+            std::array<std::array<int, 3>, 24> edge{};  // (the mean colors of the pair's outer 2 px, 8 px at a time)
+            bool ok = false;
+        };
+        auto sigOf = [&](const std::array<uint16_t, 3>& q) {
+            Sig s;
+            if (isomrules::anyNull(q)) return s;
+            for (int h = 0; h < 2; ++h) {
+                const int mega = tileset_.megatileFor(q[size_t(1 + h)]);
+                if (mega <= 0 || size_t(mega) >= tileset_.minitileFlags.size()) return s;
+                for (int i = 0; i < 16; ++i) {
+                    const uint16_t f = tileset_.minitileFlags[size_t(mega)][size_t(i)];
+                    s.height[size_t(h * 16 + i)] = uint8_t((f >> 1) & 3), s.walk[size_t(h * 16 + i)] = uint8_t(f & 1);
+                }
+            }
+            const stardraft::Sprite p = stardraft::mapTilesPicture(tileset_, {q[1], q[2]}, 2, 0, 0, 2, 1);
+            if (p.width < 64 || p.height < 32) return s;
+            auto mean = [&](int x0, int y0, int w, int h) {
+                std::array<int, 3> a{};
+                for (int y = y0; y < y0 + h; ++y)
+                    for (int x = x0; x < x0 + w; ++x)
+                        for (int k = 0; k < 3; ++k) a[size_t(k)] += p.rgba[(size_t(y) * size_t(p.width) + size_t(x)) * 4 + size_t(k)];
+                for (int& v : a) v /= w * h;
+                return a;
+            };
+            size_t c = 0;
+            for (int x = 0; x < 64; x += 8) s.edge[c++] = mean(x, 0, 8, 2), s.edge[c++] = mean(x, 30, 8, 2);  // (top, bottom)
+            for (int y = 0; y < 32; y += 8) s.edge[c++] = mean(0, y, 2, 8), s.edge[c++] = mean(62, y, 2, 8);  // (left, right)
+            s.ok = true;
+            return s;
+        };
+        struct Diff {
+            int height = 0, walk = 0;
+            std::set<std::wstring> sides;
+            int score() const { return height * 4 + walk * 2 + int(sides.size()) * 3; }
+        };
+        constexpr int kEdgeDiff = 40;  // (a mean color this far from the usual one (0-255): another picture at that edge)
+        auto diff = [&](const Sig& a, const Sig& b) {
+            Diff d;
+            for (size_t i = 0; i < 32; ++i) d.height += a.height[i] != b.height[i], d.walk += a.walk[i] != b.walk[i];
+            for (size_t c = 0; c < 24; ++c) {
+                const int e = (std::abs(a.edge[c][0] - b.edge[c][0]) + std::abs(a.edge[c][1] - b.edge[c][1]) + std::abs(a.edge[c][2] - b.edge[c][2])) / 3;
+                if (e > kEdgeDiff) d.sides.insert(c < 16 ? (c % 2 ? L"bottom" : L"top") : (c % 2 ? L"right" : L"left"));
+            }
+            return d;
+        };
+        std::set<uint16_t> done;
+        for (size_t k = 0; k < t->t.pieces.size(); ++k) {
+            if (!done.insert(t->t.pieces[k][0]).second) continue;
+            std::vector<int> vs;
+            std::vector<Sig> sigs;
+            for (int v : variantsOf(int(k)))
+                if (Sig s = sigOf(t->t.pieces[size_t(v)]); s.ok) vs.push_back(v), sigs.push_back(s);
+            if (vs.size() < 2) continue;
+            size_t ref = 0;  // (the usual variant: the least different from the others)
+            int best = INT_MAX;
+            for (size_t a = 0; a < sigs.size(); ++a) {
+                int sum = 0;
+                for (size_t b = 0; b < sigs.size(); ++b) sum += a == b ? 0 : diff(sigs[a], sigs[b]).score();
+                if (sum < best) best = sum, ref = a;
+            }
+            for (size_t a = 0; a < sigs.size(); ++a) {
+                if (a == ref) continue;
+                const Diff d = diff(sigs[a], sigs[ref]);
+                std::wstring why;
+                auto add = [&](const std::wstring& s) { why += (why.empty() ? L"" : L"; ") + s; };
+                if (d.height) add(L"height differs in " + std::to_wstring(d.height) + L" minitiles");
+                if (d.walk >= 2) add(L"walkable differs in " + std::to_wstring(d.walk) + L" minitiles");
+                if (!d.sides.empty()) {
+                    std::wstring s;
+                    for (const auto& side : {L"top", L"bottom", L"left", L"right"})
+                        if (d.sides.count(side)) s += (s.empty() ? L"" : L", ") + std::wstring(side);
+                    add(L"edge differs (" + s + L")");
+                }
+                const std::vector<int> all = variantsOf(int(k));  // (the number the strip and the keys give it)
+                const int refNo = int(std::find(all.begin(), all.end(), vs[ref]) - all.begin()) + 1;
+                if (!why.empty()) variantWhy_[vs[a]] = L"differs from variant " + std::to_wstring(refNo) + L": " + why;
+            }
+        }
+        return variantWhy_;
+    }
+    // The rects (by game group) with a variant that differs.
+    std::set<uint16_t> differingRects() {
+        std::set<uint16_t> out;
+        if (const auto* t = terrain())
+            for (const auto& [k, why] : variantIssues())
+                if (k < int(t->t.pieces.size())) out.insert(t->t.pieces[size_t(k)][0]);
+        return out;
+    }
+    // Variant `piece` of its rect at every place of the rect on the terrain canvas (pinned: a new example keeps it), and
+    // selected. No new picture: the slots show the piece's tiles. The strip shows every variant (also of a rect that the
+    // canvas does not show).
+    void showVariant(int piece) {
+        const auto* t = terrain();
+        if (!t || piece < 0 || piece >= int(t->t.pieces.size())) return;
+        const uint16_t g = t->t.pieces[size_t(piece)][0];
+        int ord = 0;  // (its number among the rect's pieces: the pins')
+        for (int j = 0; j < piece; ++j) ord += t->t.pieces[size_t(j)][0] == g ? 1 : 0;
+        int at = 0;
+        for (Place& p : places_)
+            if (p.piece >= 0 && p.piece < int(t->t.pieces.size()) && t->t.pieces[size_t(p.piece)][0] == g) p.piece = piece, pins_[{p.tx, p.ty}] = {g, ord}, ++at;
+        syncIds();
+        setTarget(piece, -1), slotFocus(true);
+        const std::vector<int> vs = variantsOf(piece);
+        const int n = int(std::find(vs.begin(), vs.end(), piece) - vs.begin()) + 1;
+        const auto& why = variantIssues();
+        const auto it = why.find(piece);
+        setMessage(L"Rect " + std::to_wstring(g) + L": variant " + std::to_wstring(n) + L" of " + std::to_wstring(vs.size()) +
+                   (at ? L" at its " + std::to_wstring(at) + (at == 1 ? L" place" : L" places") : std::wstring(L" (not on the terrain canvas: the strip shows it)")) +
+                   (it != why.end() ? L"  \x00b7  " + it->second : L""));
+    }
+    // Ctrl+] / Ctrl+[: the target's rect shows its next (previous) variant.
+    void stepVariant(int dir) {
+        if (!terrain() || target_ < 0) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a rect first");
+        const std::vector<int> vs = variantsOf(target_);
+        const auto it = std::find(vs.begin(), vs.end(), target_);
+        if (vs.size() < 2 || it == vs.end()) return setMessage(L"Rect " + std::to_wstring(terrain()->t.pieces[size_t(target_)][0]) + L" has one variant");
+        const int n = int(vs.size()), i = int(it - vs.begin());
+        showVariant(vs[size_t(((i + dir) % n + n) % n)]);
+    }
+    // Ctrl+K: the next variant that differs from its rect's usual one, shown.
+    void nextDifferingVariant() {
+        if (!terrain()) return setMessage(std_ >= 0 ? L"Game tilesets are read-only" : L"Select a terrain first");
+        const auto& why = variantIssues();
+        if (why.empty()) return setMessage(L"No variant differs from the other variants of its rect");
+        auto it = why.upper_bound(target_);
+        if (it == why.end()) it = why.begin();
+        showVariant(it->first);
+    }
+    std::vector<std::pair<draw::Rect, int>> variantChips_;  // (the strip's variants: where each is, its piece)
+    // Piece k's tiles as they show: the target's as a click in the Tiles would make them while the mouse is on a tile there
+    // (a selected slot: the pair, or (single) the tile in its half), else as they are.
+    std::array<uint16_t, 3> shownPiece(int k) const {
+        const auto* t = terrain();
+        std::array<uint16_t, 3> q = t->t.pieces[size_t(k)];
+        if (k != target_ || palHover_ < 0 || !slotKeys_ || brushValue() >= 0) return q;
+        if (!wide_) q[size_t(1 + targetHalf_)] = uint16_t(palHover_);
+        else if ((palHover_ & 15) < 15 && tileset_.megatileFor(uint16_t(palHover_ + 1)) > 0) q[1] = uint16_t(palHover_), q[2] = uint16_t(palHover_ + 1);
+        return q;
+    }
     // A slot clicked in the example: Ctrl+arrow keys change its tile to the next one in the tiles; its frame blinks.
     bool slotKeys_ = false, blinkOn_ = true;
     int blinkId_ = 0;
@@ -2345,10 +2566,21 @@ void IsomRulesView::paintSide(draw::Canvas& c) {
             c.text({side_.left + pad, y, side_.right - pad, y + r.h}, r.header, kDim, draw::kMiddle);
             continue;
         }
-        const bool selected = (sel_ >= 0 && r.value == sel_) || (std_ >= 0 && r.value == -1 - std_);
+        const isomrules::ModTerrain* variant = variantOfRow(r.value);
+        const bool selected = variant ? variantView_ == variant->id : (sel_ >= 0 && r.value == sel_ && !variantView_) || (std_ >= 0 && r.value == -1 - std_);
         if (selected) c.fill({side_.left, y, side_.right, y + r.h}, kSel);
         else if (int(i) == sideHover_) c.fill({side_.left, y, side_.right, y + r.h}, kCtlHot);
         const int sw = r.h - scale(12);
+        if (variant) {  // (a variant: under its terrain, the terrain's tiles on the variant's ground)
+            const int x = side_.left + pad + sw + scale(8);
+            c.fill({side_.left + pad + sw / 2, y, side_.left + pad + sw / 2 + scale(1), y + r.h}, kBorder);
+            drawTile(c, terrainTile(variant->ground), {x - scale(4) - sw / 2, y + (r.h - sw / 2) / 2, x - scale(4), y + (r.h + sw / 2) / 2});
+            c.text({x, y + scale(4), side_.right - pad, y + scale(22)}, widen(variant->name), selected ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+            const int p = indexOfId(variant->variantOf);
+            c.text({x, y + scale(22), side_.right - pad, y + scale(36)}, L"Variant  \x00b7  the tiles of " + (p >= 0 ? widen(rules().terrains[size_t(p)].t.name) : std::wstring(L"?")), kDim,
+                   draw::kMiddle | draw::kEllipsis);
+            continue;
+        }
         drawTile(c, swatchOf(r.value), {side_.left + pad, y + scale(6), side_.left + pad + sw, y + scale(6) + sw});
         const int x = side_.left + pad + sw + scale(8);
         if (r.value < 0) {
@@ -2702,6 +2934,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     if (check_.width() > 0) {
         c.fill(check_, kPanel);
         const std::vector<CheckRow> rows = checkRows();
+        const std::set<uint16_t> differing = differingRects();
         const int rh = scale(kCheckRow), th = scale(24), head = scale(kCheckHead);
         const int total = int(rows.size()) * rh;
         checkScroll_ = std::clamp(checkScroll_, 0, std::max(0, total - (check_.height() - head)));
@@ -2715,9 +2948,11 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             const int y = check_.top + head + int(i) * rh - checkScroll_;
             if (y + rh < check_.top + head || y > check_.bottom) continue;
             const CheckRow& row = rows[i];
-            const std::array<uint16_t, 3>* p = t && row.piece >= 0 && row.piece < int(t->t.pieces.size()) ? &t->t.pieces[size_t(row.piece)] : nullptr;
-            const isomrules::PieceState st = p ? stardraft::terrainrules::stateOf(*p) : isomrules::PieceState::Null;
             const bool isTarget = t && target_ >= 0 && row.piece >= 0 && t->t.pieces[size_t(target_)][0] == row.group;
+            // (the target's row: the target (a variant too), with the tile under the mouse in the Tiles in it)
+            const std::array<uint16_t, 3> rowPiece = isTarget ? shownPiece(target_) : t && row.piece >= 0 && row.piece < int(t->t.pieces.size()) ? t->t.pieces[size_t(row.piece)] : std::array<uint16_t, 3>{};
+            const std::array<uint16_t, 3>* p = t && row.piece >= 0 && row.piece < int(t->t.pieces.size()) ? &rowPiece : nullptr;
+            const isomrules::PieceState st = p ? stardraft::terrainrules::stateOf(*p) : isomrules::PieceState::Null;
             if (isTarget) c.fill({check_.left, y, check_.right - 1, y + rh}, kSel);
             else if (int(i) == checkHover_ || (t && hoverPiece() >= 0 && t->t.pieces[size_t(hoverPiece())][0] == row.group))
                 c.fill({check_.left, y, check_.right - 1, y + rh}, kCtlHot);  // (the row under the mouse, or the rect under it in the example)
@@ -2730,9 +2965,14 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             if (t) {
                 drawTile(c, p ? (*p)[1] : 0, {xc, ty, xc + th, ty + th});
                 drawTile(c, p ? (*p)[2] : 0, {xc + th, ty, xc + 2 * th, ty + th});
+                if (isTarget && slotKeys_ && blinkOn_)  // (the selected slot: its blinking frame, as on the canvas)
+                    c.frame(wide_ ? draw::Rect{xc, ty, xc + 2 * th, ty + th} : targetHalf_ ? draw::Rect{xc + th, ty, xc + 2 * th, ty + th} : draw::Rect{xc, ty, xc + th, ty + th}, kAccent, scale(2));
                 c.frame({xc, ty, xc + 2 * th, ty + th}, st == isomrules::PieceState::Own ? kBorder : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole, scale(1));
-                const std::wstring state = st == isomrules::PieceState::Own ? L"Custom" : st == isomrules::PieceState::Borrowed ? L"Borrowed" : st == isomrules::PieceState::Partial ? L"Partial" : L"NULL";
-                c.text({xs, y, check_.right - pad, y + rh}, state, st == isomrules::PieceState::Own ? kDim : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole,
+                // (a variant that differs: in place of Custom or Borrowed; NULL and Partial stay in sight)
+                const bool differs = differing.count(row.group) > 0 && (st == isomrules::PieceState::Own || st == isomrules::PieceState::Borrowed);
+                const std::wstring state = differs ? L"Differs"
+                                           : st == isomrules::PieceState::Own ? L"Custom" : st == isomrules::PieceState::Borrowed ? L"Borrowed" : st == isomrules::PieceState::Partial ? L"Partial" : L"NULL";
+                c.text({xs, y, check_.right - pad, y + rh}, state, differs ? draw::Color(0x50AAF0) : st == isomrules::PieceState::Own ? kDim : st == isomrules::PieceState::Borrowed ? kBorrowed : kHole,
                        draw::kMiddle | draw::kEllipsis);
             }
         }
@@ -2741,8 +2981,9 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
     // The target's strip: the game's tiles of its rect (the groups the mod's tiles stand in for) beside its own, large.
     c.fill({strip_.left, strip_.top, strip_.right, strip_.top + 1}, kBorder);
     c.fill({refRow_.left, refRow_.top, refRow_.right, refRow_.top + 1}, kBorder);
+    variantChips_.clear();
     if (strip_.width() > 0 && t && target_ >= 0 && target_ < int(t->t.pieces.size())) {
-        const auto& q = t->t.pieces[size_t(target_)];
+        const std::array<uint16_t, 3> q = shownPiece(target_);  // (with the tile under the mouse in the Tiles)
         const int T = scale(44), y0 = strip_.top + pad + scale(16);
         int x = strip_.left + pad;
         auto half = [](uint16_t v) { return isomrules::nullHalf(v) ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15); };
@@ -2757,8 +2998,32 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         c.text({x + 2 * T, y0, x + 2 * T + scale(24), y0 + T}, L"\x2192", kDim, draw::kCenter | draw::kMiddle);
         x += 2 * T + scale(24);
         drawTile(c, q[1], {x, y0, x + T, y0 + T}), drawTile(c, q[2], {x + T, y0, x + 2 * T, y0 + T});
+        if (heights_) paintTileHeights(c, q[1], {x, y0, x + T, y0 + T}), paintTileHeights(c, q[2], {x + T, y0, x + 2 * T, y0 + T});
         c.frame({x, y0, x + 2 * T, y0 + T}, kAccent, scale(1));
         if (!wide_) c.frame(targetHalf_ ? draw::Rect{x + T, y0, x + 2 * T, y0 + T} : draw::Rect{x, y0, x + T, y0 + T}, kAccent, scale(2));
+        x += 2 * T + scale(16);
+        if (const std::vector<int> vs = variantsOf(target_); vs.size() >= 2 && x + scale(40) <= strip_.right - pad) {  // (the rect's variants: a click shows one)
+            const auto& why = variantIssues();
+            const int differ = int(std::count_if(vs.begin(), vs.end(), [&](int k) { return why.count(k) > 0; }));
+            const draw::Color kDiffer = 0x50AAF0;  // (COLORREF: the Draft orange)
+            c.text({x, strip_.top + pad, strip_.right - pad, y0}, L"Variants " + std::to_wstring(vs.size()) + (differ ? L"  \x00b7  " + std::to_wstring(differ) + L" differ" : L""),
+                   differ ? kDiffer : kDim, draw::kMiddle | draw::kEllipsis);
+            const int ch = (T - scale(4)) / 2, cw = 2 * ch, gap = scale(4), cols = (strip_.right - pad - x + gap) / (cw + gap);
+            for (size_t i = 0; i < vs.size() && int(i) < 2 * cols; ++i) {
+                const int k = vs[i];
+                const auto& v = t->t.pieces[size_t(k)];
+                const int cx = x + int(i) % cols * (cw + gap), cy = y0 + int(i) / cols * (ch + gap);
+                const draw::Rect r{cx, cy, cx + cw, cy + ch};
+                if (int(i) == 2 * cols - 1 && int(vs.size()) > 2 * cols) {  // (more than fit: how many more)
+                    c.text(r, L"+" + std::to_wstring(vs.size() - i), kDim, draw::kCenter | draw::kMiddle);
+                    break;
+                }
+                drawTile(c, v[1], {r.left, r.top, r.left + ch, r.bottom}), drawTile(c, v[2], {r.left + ch, r.top, r.right, r.bottom});
+                if (heights_) paintTileHeights(c, v[1], {r.left, r.top, r.left + ch, r.bottom}), paintTileHeights(c, v[2], {r.left + ch, r.top, r.right, r.bottom});
+                c.frame(r, k == target_ ? kAccent : why.count(k) ? kDiffer : kBorder, scale(k == target_ || why.count(k) ? 2 : 1));
+                variantChips_.push_back({r, k});
+            }
+        }
     } else if (strip_.width() > 0) {
         c.text({strip_.left + pad, strip_.top, strip_.left + scale(300), strip_.bottom}, L"Select a rect: template vs custom tiles", kDim, draw::kMiddle);
     }
@@ -2842,6 +3107,9 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
 bool IsomRulesView::mouse(const draw::MouseEvent& e) {
     const auto* t = terrain();
     const int cell = palCell(), x0 = palLeft();
+    if (e.kind == draw::MouseKind::Down && e.button == 0)
+        for (const auto& [r, k] : variantChips_)
+            if (r.contains(e.pt)) return showVariant(k), true;  // (a variant in the strip: shown at the rect's places)
     if (e.kind == draw::MouseKind::Wheel && puzzle_.contains(e.pt) && picture_) {  // (the example: zoom at the mouse, the fit at least)
         int ox = 0, oy = 0;
         exampleOrigin(ox, oy);
@@ -2911,6 +3179,7 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         const int sy = e.pt.y - side_.top + sideScroll_;
         for (const SideRow& r : sideRows_)
             if (r.value != kSideHeader && sy >= r.y && sy < r.y + r.h) {
+                if (isVariantRow(r.value)) return selectValue(r.value), true;  // (a variant: the terrain's own row renames and deletes)
                 if (r.value < 0) return selectValue(r.value), setMessage(L"Game tilesets are read-only"), true;
                 selectValue(r.value);
                 switch (shellContextMenuAt(*this, e.pt, {L"Rename\x2026", L"Delete\x2026"})) {
@@ -3064,7 +3333,8 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
         return true;
     }
     if (puzzle_.contains(e.pt) && picture_ && !(e.mods & draw::kAlt)) return deselectAll(), true;  // (off the slots: nothing selected)
-    if (check_.contains(e.pt)) {  // (a row of the checklist: its rect is the target; the half: the custom tile clicked)
+    if (check_.contains(e.pt)) {  // (a row of the checklist: its rect is the target; the half: the custom tile clicked, then
+        // selected for the Tiles: the tile under the mouse there shows in it, a click puts it in)
         slotFocus(false);
         const int dy = e.pt.y - check_.top - scale(kCheckHead) + checkScroll_;
         const std::vector<CheckRow> rows = checkRows();
@@ -3072,8 +3342,11 @@ bool IsomRulesView::mouse(const draw::MouseEvent& e) {
             const CheckRow& row = rows[size_t(dy / scale(kCheckRow))];
             const int th = scale(24), xc = check_.left + scale(8) + scale(110) + 2 * th + scale(16);  // (the custom tiles' left)
             if (row.piece >= 0) {
-                setTarget(row.piece, e.pt.x >= xc + th && e.pt.x < xc + 2 * th ? 1 : e.pt.x >= xc && e.pt.x < xc + th ? 0 : -1);
-                const auto& q = t->t.pieces[size_t(row.piece)];  // (the Tiles show its tiles; a NULL rect: the template's group)
+                const int half = e.pt.x >= xc + th && e.pt.x < xc + 2 * th ? 1 : e.pt.x >= xc && e.pt.x < xc + th ? 0 : -1;
+                const int k = target_ >= 0 && t->t.pieces[size_t(target_)][0] == row.group ? target_ : row.piece;  // (the variant shown: it stays)
+                setTarget(k, half);
+                if (half >= 0) slotFocus(true);
+                const auto& q = t->t.pieces[size_t(k)];  // (the Tiles show its tiles; a NULL rect: the template's group)
                 const uint16_t v = !isomrules::nullHalf(q[size_t(1 + targetHalf_)]) ? q[size_t(1 + targetHalf_)] : q[size_t(2 - targetHalf_)];
                 if (!isomrules::nullHalf(v)) showRow(v >> 4, wide_ ? v & ~1 : v);
                 else showRow(q[0], -1);
