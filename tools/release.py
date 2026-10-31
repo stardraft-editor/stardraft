@@ -54,7 +54,7 @@ SHOTS = ROOT / "tools" / "shots"
 REPO = "stardraft-editor/stardraft"
 PUSH_ACCOUNT = "milestone-dev"
 MAX_IMAGES = 10  # a Discord post carries at most 10 files
-GROUPS = {"New", "Map", "Data", "Triggers", "Briefings", "Assets", "The program", "Fixes", "Known problems"}
+GROUPS = {"New", "Map", "Data", "Triggers", "Briefings", "Assets", "The program", "CMBW mod", "Fixes", "Known problems"}
 # Words that tell of the work, not of what a user gets (a warning: the owner approves the text).
 DEV_WORDS = re.compile(r"\b(CI|workflow|refactor\w*|lint|datashots?|self-test|commit|cmake|pdb|GitHub Actions|"
                        r"unit tests?|test suite)\b", re.I)

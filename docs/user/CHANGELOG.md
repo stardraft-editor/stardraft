@@ -16,18 +16,21 @@ StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, f
 - The briefing preview plays the background music: the Music list gives your race's music (as in the game), Terran,
   Zerg, Protoss or None.
 - A Text message leaves the text box when its time is over, as in the game; the timeline shows each one's time.
+- The preview's text wraps where the game wraps it.
 
 ### The program
 
 - The mouse wheel over a side bar's tabs no longer changes the tab.
 
-### CMBW mod (early feature preview)
+### CMBW mod
 
-- Load the Cosmonarchy BW mod in Program options > Plugins: its units, terrain and triggers in the editor.
+- Early feature preview: load the Cosmonarchy BW mod in Program options > Plugins: its units, terrain and triggers in
+  the editor.
 - Experimental ISOM terrain editor for mods with custom terrain.
 - The unit palette uses the mod's own unit sections. The mod's ramps, caves, bridges and trees are in Terrain > Custom.
 - Classic triggers: a position can be a location of the map.
 - Keep resources 3 tiles from town halls works with the mod's units.
+- The briefing preview plays the music of a mod map.
 - Inner corners of Dirt (Space), Low Dirt (Space) and the high dirt terrains are on the correct sides.
 
 ## 0.8

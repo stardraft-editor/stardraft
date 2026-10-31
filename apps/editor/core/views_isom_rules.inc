@@ -20,6 +20,8 @@ bool cmbwIsTerrainOverride(const std::filesystem::path& f);   // (core/cmbw.inc:
 bool cmbwReloadTerrainRules(const std::filesystem::path& f);  // (f is the override in use: the open map loads its rules again)
 void shellShowIsomRulesWindow();  // (the host: the window, once)
 void shellSetIsomRulesTitle(const std::wstring& title);  // (the host: the window's title)
+void setMessage(const std::wstring& m);  // (the program's status bar)
+inline void isomProgramMessage(const std::wstring& m) { setMessage(m); }  // (the view's own setMessage hides it)
 void shellSetTerrainOverride(const std::filesystem::path& file);  // (the host: Program options > Plugins' override)
 int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (the host)
 
@@ -277,7 +279,7 @@ public:
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
         if (!doc_.tilesets.empty()) return rebuild();
-        if (std::wstring last; !gSilent && prefs::text(L"Layout/IsomRulesFile", last) && !last.empty()) {  // (the file saved last)
+        if (std::wstring last; !gSettingsOff && prefs::text(L"Layout/IsomRulesFile", last) && !last.empty()) {  // (the file saved last)
             std::error_code ec;
             stardraft::terrainrules::Rules r;
             std::string err;
@@ -465,7 +467,7 @@ private:
         if (!shown_.empty()) selectValue(shown_[0]);
         loadRefTilesets();  // (after the first example's job: it does not wait for them)
         invalidate();
-        if (file_.empty() && !copyAsked_ && !gSilent && host()) {  // (no rules file: the rules in use are the mod's; a copy to change)
+        if (file_.empty() && !copyAsked_ && !gSettingsOff && host()) {  // (no rules file: the rules in use are the mod's; a copy to change)
             copyAsked_ = true;
             std::shared_ptr<bool> alive = alive_;
             host()->timer(1, [this, alive] {
@@ -1811,13 +1813,13 @@ private:
         if (!stardraft::terrainrules::save(f, doc_, err)) return shellErrorBox(widen(err), L"Save terrain rules"), false;
         const bool first = file_.empty();
         file_ = f, dirty_ = false;
-        if (first && !gSilent && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them)
+        if (first && !gSettingsOff && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them)
             msgbox::ask(*this, L"Save terrain rules",
                         L"Use " + f.filename().wstring() + L" as the ISOM terrain rules override? Maps then paint with its rules.\r\n"
                         L"Program options > Plugins can change this later.",
                         {L"&Use as Override", L"&Not Now"}, msgbox::Icon::Question) == 0)
             shellSetTerrainOverride(f);
-        if (!gSilent) prefs::setText(L"Layout/IsomRulesFile", f.wstring());  // (the next open opens it)
+        if (!gSettingsOff) prefs::setText(L"Layout/IsomRulesFile", f.wstring());  // (the next open opens it)
         // (the file the maps use (ISOM terrain rules override): the open map takes the new rules now)
         setMessage(L"Saved " + f.filename().wstring() + (cmbwReloadTerrainRules(f) ? L"; the open map uses the new rules" : L""));
         invalidate();
@@ -1923,7 +1925,7 @@ private:
     static int statusH() { return scale(26); }
     void setMessage(const std::wstring& m) {
         status_ = m, invalidate();
-        ::setMessage(m);
+        isomProgramMessage(m);
     }
     stardraft::kit::Button newTerrain_;    stardraft::kit::CheckBox refShow_;
     // The headers' choices: the rects shown, the tile groups shown, what a click on a tile puts in (they follow the keys).
@@ -1961,7 +1963,7 @@ private:
     std::optional<std::vector<std::pair<int, int>>> knownExtra(const std::wstring& key) {
         if (const auto it = extraKnown_.find(key); it != extraKnown_.end()) return it->second;
         std::wstring v;
-        if (gSilent || !prefs::text(key, v) || v.empty()) return std::nullopt;
+        if (gSettingsOff || !prefs::text(key, v) || v.empty()) return std::nullopt;
         std::vector<std::pair<int, int>> spots;  // ("i,j;i,j"; "-": none)
         for (size_t at = 0; v != L"-" && at < v.size();) {
             size_t end = v.find(L';', at);
@@ -1974,7 +1976,7 @@ private:
     }
     void keepExtra(const std::wstring& key, const std::vector<std::pair<int, int>>& spots) {
         extraKnown_[key] = spots;
-        if (gSilent) return;
+        if (gSettingsOff) return;
         std::wstring v;
         for (const auto& [i, j] : spots) v += (v.empty() ? L"" : L";") + std::to_wstring(i) + L"," + std::to_wstring(j);
         prefs::setText(key, v.empty() ? L"-" : v);
