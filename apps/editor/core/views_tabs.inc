@@ -340,6 +340,14 @@ struct TabsView final : stardraft::draw::View {
             return e.exact && swipeStep(e);
         case MouseKind::Down:
         case MouseKind::DoubleClick:  // (the old tab strip had no double clicks: a second press is a press)
+            if (e.button == 2) {  // the middle button closes the tab under the mouse (a map page's tab too)
+                if (PtInRect(&gPageTabHit.tab, pt) || PtInRect(&gPageTabHit.close, pt)) {
+                    if (shellPageTabClosable()) shellPageTabClose();
+                } else {
+                    pressAt(pt, true);
+                }
+                return true;
+            }
             if (e.button != 0) return false;
             keys.pressed();
             if (PtInRect(&gNewTabHit, pt)) {
@@ -353,10 +361,7 @@ struct TabsView final : stardraft::draw::View {
             pressAt(pt, false);
             return true;
         case MouseKind::Up:
-            if (e.button == 2) {  // the middle button closes the tab under the mouse
-                pressAt(pt, true);
-                return true;
-            }
+            if (e.button == 2) return true;  // (the middle button's press closed the tab)
             if (e.button != 0) return false;
             if (gTabDrag >= 0) {
                 if (gTabDragging) setMessage(L"Moved the tab \"" + docTitle(gTabDrag) + L"\"");
