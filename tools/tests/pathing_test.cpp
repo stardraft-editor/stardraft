@@ -34,6 +34,11 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "usage: pathing_test <install dir> <maps dir> [more maps dirs...]\n");
         return 2;
     }
+    {  // (gas or minerals: a mod's Vespene Ridge is gas, Discord feedback #183)
+        UnitType ridge, geyser, field;
+        ridge.name = "Vespene Ridge", geyser.name = "Vespene Geyser", field.name = "Mineral Field (Type 1)";
+        check(isGasResource(ridge) && isGasResource(geyser) && !isGasResource(field), "gas resources: a geyser and a ridge are gas, a mineral field is not");
+    }
     std::string err;
     GameData data;
     UnitTypes types;

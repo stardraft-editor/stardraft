@@ -20,7 +20,6 @@ constexpr uint32_t kMinResource = 64;
 using Clock = std::chrono::steady_clock;
 double msSince(Clock::time_point t) { return std::chrono::duration<double, std::milli>(Clock::now() - t).count(); }
 
-bool isGeyser(const UnitType& t) { return t.name.find("Geyser") != std::string::npos; }
 
 struct Box {
     int left, top, right, bottom;  // pixels, right/bottom exclusive
@@ -181,6 +180,7 @@ bool isStaticObstacle(const UnitType& type, uint16_t typeId) {
 }
 
 bool isResource(const UnitType& type) { return type.editorGroup == "Resources"; }
+bool isGasResource(const UnitType& t) { return t.name.find("Geyser") != std::string::npos || t.name.find("Vespene") != std::string::npos; }
 
 WalkGrid buildWalkGrid(const PathingInput& in) {
     WalkGrid g;
@@ -316,7 +316,7 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
     auto addResource = [&](Base& b, int i) {
         const Unit& u = units[size_t(i)];
         b.resources.push_back(i);
-        if (isGeyser(types[u.type])) ++b.geysers, b.gasAmount += u.resources;
+        if (isGasResource(types[u.type])) ++b.geysers, b.gasAmount += u.resources;
         else ++b.minerals, b.mineralAmount += u.resources;
     };
     // Each resource near a start location goes to the nearest one.

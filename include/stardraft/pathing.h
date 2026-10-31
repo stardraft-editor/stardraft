@@ -60,6 +60,8 @@ struct PathingOptions {
 bool isStaticObstacle(const UnitType& type, uint16_t typeId);
 // A unit is a resource for the town areas: the Resources group of StarEdit's palette (minerals and geysers).
 bool isResource(const UnitType& type);
+// A resource of gas (a Vespene Geyser; a mod's Vespene Ridge): its name says it. The other resources are minerals.
+bool isGasResource(const UnitType& type);
 
 WalkGrid buildWalkGrid(const PathingInput& in);
 
