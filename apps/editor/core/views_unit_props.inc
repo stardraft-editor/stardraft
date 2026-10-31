@@ -42,7 +42,7 @@ inline void unitPropsApply(Editor& ed, const std::vector<int>& units, const Unit
         for (uint16_t t : from) ed.replaceUnits(t, uint16_t(v.unitType), true);
     }
     ed.updateUnits(units, [&](Unit& u) {
-        if (v.owner != was.owner && (u.validProps & UnitProp::Owner)) u.owner = uint8_t(v.owner);
+        if (v.owner != was.owner) u.owner = uint8_t(v.owner), u.validProps = uint16_t(u.validProps | UnitProp::Owner);  // (any unit: as SCMDraft; the owner valid from then on)
         if (hp != was.hitPoints && (u.validProps & UnitProp::HitPoints)) u.hitPoints = uint8_t(hp);
         if (sh != was.shields && (u.validProps & UnitProp::Shields)) u.shields = uint8_t(sh);
         if (en != was.energy && (u.validProps & UnitProp::Energy)) u.energy = uint8_t(en);
@@ -194,7 +194,7 @@ public:
         for (int i = 0; i < 12; ++i) players.push_back({tr(L"Player ") + std::to_wstring(i + 1) + (i == 11 ? tr(L" (neutral)") : L""), -1, -1});
         owner_.setItems(players);
         owner_.setValue(std::min<int>(u.owner, 11));
-        owner_.setEnabled((u.validProps & UnitProp::Owner) != 0);
+        owner_.setEnabled(true);  // (any unit can take a player, as in SCMDraft: a mod's unit types often lack StarEdit's Non-Neutral flag)
         add(owner_, {0, 0, 0, 0});
         const bool single = units.size() == 1;
         label(labels_[1], L"Hit points %"), number(hp_, u.hitPoints, u.validProps & UnitProp::HitPoints);
@@ -251,6 +251,9 @@ public:
 
     // The unit a pick asked the window to show next (kUnitPropsPick).
     int nextUnit() const { return next_; }
+    // Set: a pick, Delete, undo or redo calls it (kUnitPropsPick, kUnitPropsRefresh) in place of closing the window; the
+    // host shows the next unit in the same window (no new window: no flicker).
+    std::function<void(int)> onSwitch;
 
     // What the fields hold (a call after OK).
     UnitPropsValues values() const {
@@ -484,9 +487,10 @@ private:
             if (list_.isSelected(r)) ed_->select(rows_[size_t(r)], true);
     }
     void closeWith(int result) {
+        if ((result == kUnitPropsPick || result == kUnitPropsRefresh) && onSwitch) return onSwitch(result);
         if (dlg_) dlg_->close(result);
     }
-    // A pick: the window closes and opens again with the picked unit (its edits are not kept).
+    // A pick: the window shows the picked unit (its edits are not kept).
     void pickAt(int row) {
         next_ = rows_[size_t(row)];
         closeWith(kUnitPropsPick);

@@ -2304,22 +2304,28 @@ std::optional<Unit> Editor::fitted(Unit u, bool correct, const std::vector<Unit>
     return u;
 }
 
+bool Editor::staysNeutral(uint16_t type) const {
+    if (type >= types_.size()) return true;
+    const UnitType& t = types_[type];
+    if (t.availability & UnitAvail::NonNeutral) return false;
+    const bool race = (t.groupFlags & (UnitGroup::Zerg | UnitGroup::Terran | UnitGroup::Protoss)) != 0;
+    return t.is(UnitFlag::ResourceContainer) || ((t.groupFlags & UnitGroup::Neutral) && !race);
+}
+
 int Editor::setClipboardOwner(uint8_t owner) {
     int n = 0;
     for (Unit& u : clipboard_)
-        if (u.owner != owner && u.type < types_.size() && (types_[u.type].availability & UnitAvail::NonNeutral)) u.owner = owner, ++n;
+        if (u.owner != owner && !staysNeutral(u.type)) u.owner = owner, u.validProps = uint16_t(u.validProps | UnitProp::Owner), ++n;
     return n;
 }
 
 int Editor::setSelectionOwner(uint8_t owner) {
     std::vector<int> targets;
     for (int i : selection_)
-        if (i >= 0 && i < int(units_.size()) && units_[i].owner != owner && units_[i].type < types_.size() &&
-            (types_[units_[i].type].availability & UnitAvail::NonNeutral))
-            targets.push_back(i);
+        if (i >= 0 && i < int(units_.size()) && units_[i].owner != owner && !staysNeutral(units_[i].type)) targets.push_back(i);
     if (targets.empty()) return 0;
     beginEdit();
-    for (int i : targets) units_[i].owner = owner;
+    for (int i : targets) units_[i].owner = owner, units_[i].validProps = uint16_t(units_[i].validProps | UnitProp::Owner);
     writeUnits(chk_, units_);
     commit(false);
     return int(targets.size());

@@ -331,10 +331,10 @@ bool commandMapEdit(AppState& app, int id) {
         if (app.ed && app.mode == Mode::Units && app.pasting) {  // pasting units: the copy goes to that player
             const size_t copied = app.ed->clipboard().size();
             app.ed->setClipboardOwner(uint8_t(player));
-            size_t owned = 0;
-            for (const Unit& u : app.ed->clipboard()) owned += u.owner == player;
+            size_t neutral = 0;  // (the copied units that stay neutral)
+            for (const Unit& u : app.ed->clipboard()) neutral += app.ed->staysNeutral(u.type);
             setMessage(L"Paste " + std::to_wstring(copied) + L" units for Player " + std::to_wstring(player + 1) +
-                       (owned < copied ? L" (resources and critters stay neutral)" : L"") +
+                       (neutral ? L" (resources and critters stay neutral)" : L"") +
                        L": click to place them, and again to place more. Right-click or Esc stops.");
             app.dirty = true;
             return true;
@@ -342,8 +342,10 @@ bool commandMapEdit(AppState& app, int id) {
         if (app.ed && app.mode == Mode::Units && !placing && !app.ed->selection().empty()) {
             const size_t selected = app.ed->selection().size();
             const int n = app.ed->setSelectionOwner(uint8_t(player));
+            size_t neutral = 0;  // (the selected units that stay neutral)
+            for (int i : app.ed->selection()) neutral += i >= 0 && size_t(i) < app.ed->units().size() && app.ed->staysNeutral(app.ed->units()[size_t(i)].type);
             setMessage(L"Gave " + std::to_wstring(n) + L" of " + std::to_wstring(selected) + L" selected units to Player " +
-                       std::to_wstring(player + 1) + (n < int(selected) ? L" (resources and critters stay neutral)" : L""));
+                       std::to_wstring(player + 1) + (neutral ? L" (resources and critters stay neutral)" : L""));
             return true;
         }
         setPlayer(app, player);

@@ -304,9 +304,13 @@ public:
     // Replace every unit of type `from` (only selected ones if `selectionOnly`) with type `to`,
     // keeping owner and applicable properties; returns how many were replaced. One undo step.
     int replaceUnits(uint16_t from, uint16_t to, bool selectionOnly);
-    // Give the selected units to player `owner` (0..11); neutral-only units (resources, critters)
-    // keep their owner. Returns how many changed. One undo step.
+    // Give the selected units to player `owner` (0..11); the ones that stay neutral (staysNeutral) keep their owner; the
+    // owner is valid from then on. Returns how many changed. One undo step.
     int setSelectionOwner(uint8_t owner);
+    // A unit type that a player change leaves neutral: a resource (minerals, a geyser), or a critter (StarEdit's Neutral
+    // group and no race), unless StarEdit's availability says Non-Neutral. (Not the flag alone: a mod's unit types often
+    // lack it, and their units must take a player.)
+    bool staysNeutral(uint16_t type) const;
     // Edit placed units (the properties dialog): `change` runs on a copy of each; the ones it changes are
     // written back as one undo step. Returns how many changed.
     int updateUnits(const std::vector<int>& indices, const std::function<void(Unit&)>& change);

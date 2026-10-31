@@ -40,43 +40,60 @@ void unitWindowSaved(const UnitPropsView* v) {
 
 void showUnitProperties(int index) {
     if (!gRoot || !gState.ed || index < 0 || index >= int(gState.ed->units().size())) return;
-    // The window has the Units list (core/units_list.inc): a pick, Delete, undo or redo shows the window again (for the
-    // picked unit, or else the map's first unit), until it is closed for good.
-    for (;;) {
-        Editor& ed = *gState.ed;
-        if (!ed.isSelected(index)) ed.clearSelection(), ed.select(index, false);
-        const std::vector<int> units = ed.selection();
-        const Unit first = ed.units()[size_t(index)];
-        gState.dirty = true;
-        UnitPropsView* shown = nullptr;
-        const int type = first.type, owner = first.owner;
-        const bool project = activeProject() != nullptr;
-        int next = -1;
-        UnitPropsWindow win;  // (resizable: its place and size as the settings keep them; the default size otherwise)
-        win.placed = gDock.unitWinW > 0;
-        win.place = draw::Point{gDock.unitWinX, gDock.unitWinY};
-        win.size = gDock.unitWinW > 0 ? draw::Point{gDock.unitWinW, gDock.unitWinH} : unitWindowDefaultSize();
-        win.closing = [&shown] { unitWindowSaved(shown); };
-        const int r = runUnitPropsDialog(*gRoot, ed, units, first, draw::Image{}, project, shown, [type, owner](draw::Canvas& c, draw::Rect box) {
-            if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);  // (the palette's picture)
-        }, &next, &win);
-        if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
-            if (project) setWorkspace(Workspace::Data), dataGoTo("units", type);
-            else sdlMapDataShowUnit(type);
-        }
+    // One window with the Units list (core/units_list.inc): a pick, Delete, undo or redo shows the picked unit (or else
+    // the map's first unit) in the same window, at its place and size (a new window each time flickered), until it closes.
+    stardraft::kit::Dialog dlg;
+    std::unique_ptr<UnitPropsView> view, old;  // (old: the view a swap replaced; it goes at the next swap)
+    std::vector<int> units;
+    Unit first{};
+    int pending = 0, timer = 0;
+    draw::Host* host = gRoot->host();
+    std::function<draw::Point(int)> show;
+    auto swap = [&] {  // (after the view's own call: from a timer)
+        timer = 0;
+        const int r = pending;
+        pending = 0;
         updateTitle();
         gState.dirty = true;
         invalidateMapView();
-        if (r == kUnitPropsPick && next >= 0 && next < int(gState.ed->units().size())) {
-            index = next;
-            continue;
-        }
-        if (r == kUnitPropsRefresh && !gState.ed->units().empty()) {
-            index = 0;
-            continue;
-        }
-        break;
+        const int next = r == kUnitPropsPick ? view->nextUnit() : 0;
+        if (!gState.ed || next < 0 || next >= int(gState.ed->units().size())) return dlg.close(kUnitPropsCancel);
+        show(next);
+    };
+    show = [&](int i) {
+        Editor& ed = *gState.ed;
+        if (!ed.isSelected(i)) ed.clearSelection(), ed.select(i, false);
+        units = ed.selection();
+        first = ed.units()[size_t(i)];
+        gState.dirty = true;
+        const int type = first.type, owner = first.owner;
+        old = std::move(view);
+        view = std::make_unique<UnitPropsView>(ed, first, units, draw::Image{}, activeProject() != nullptr);
+        view->paintIcon = [type, owner](draw::Canvas& c, draw::Rect box) {
+            if (draw::Bitmap* b = paletteBitmap(Mode::Units, type, owner)) drawPaletteArt(c, *b, box);  // (the palette's picture)
+        };
+        view->onSwitch = [&](int result) {
+            pending = result;
+            if (host && !timer) timer = host->timer(1, [&] { swap(); });
+            else if (!host) dlg.close(kUnitPropsCancel);
+        };
+        return unitPropsDialogSetup(dlg, *view);
+    };
+    draw::Point size = show(index);
+    dlg.setResizable(true);  // (resizable: its place and size as the settings keep them; the default size otherwise)
+    if (gDock.unitWinW > 0) dlg.setPlace(draw::Point{gDock.unitWinX, gDock.unitWinY}), size = draw::Point{gDock.unitWinW, gDock.unitWinH};
+    else size = unitWindowDefaultSize();
+    dlg.closing = [&] { unitWindowSaved(view.get()); };
+    const int r = dlg.run(*gRoot, tr(L"Unit properties"), size);
+    if (timer && host) host->cancelTimer(timer);
+    if (r == kUnitPropsOk || r == kUnitPropsEditType) unitPropsApply(*gState.ed, units, first, view->values(), modTab());
+    if (r == kUnitPropsEditType) {  // Edit unit type: the type in Data (a project) or on the Map data page (a classic map)
+        if (activeProject() != nullptr) setWorkspace(Workspace::Data), dataGoTo("units", first.type);
+        else sdlMapDataShowUnit(first.type);
     }
+    updateTitle();
+    gState.dirty = true;
+    invalidateMapView();
 }
 
 // Location properties of location `loc` (it is selected first), as on Windows.
