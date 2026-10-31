@@ -67,6 +67,7 @@ enum : int {
     ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units, 4 pathing; 5, 6 pathing shows the regions, the connected areas
     ID_DECORATE = 1040,  // + Edit > Decorate the terrain: 0 a few, 1 some, 2 many doodads (roadmap R37)
     ID_LAYER_CREEP = 989,  // View > Layers > Creep (the start creep of the map's Zerg buildings: core/creep_layer.inc)
+    ID_LAYER_PROTECTED = 1048,  // View > Layers > Protected terrain (the tiles no terrain edit changes: core/protected_layer.inc)
     ID_LAYER_REVEALERS = 988,  // View > Layers > Map revealers (the map's Map Revealer units: drawn and picked, or not)
     ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)

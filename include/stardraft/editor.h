@@ -211,6 +211,25 @@ public:
     // tileset loads again with them (empty: the loaded ones).
     void useModTerrains(std::vector<Tileset::ModTerrain> terrains);
 
+    // --- Protected terrain ------------------------------------------------------------------------
+    // Protected tiles (one per tile, 1: protected; empty: none) keep their tiles (MTXM and TILE) through every terrain
+    // edit: the brush, spray, fill, replace, paste, the tiles of Rectangle mode, reroll and Copy terrain. An edit of the
+    // ISOM keeps the ISOM corners of the protected tiles' rects as they are and fits the terrain around them. The map
+    // file does not have them: the editor keeps them in the map's project (setProtectedTiles when the map opens).
+    bool tileProtected(int tx, int ty) const {
+        return tx >= 0 && ty >= 0 && tx < int(width_) && ty < int(height_) && protected_.size() == size_t(width_) * height_ &&
+               protected_[size_t(ty) * width_ + size_t(tx)];
+    }
+    bool hasProtectedTiles() const { return protectedCount_ > 0; }
+    // The mask (width x height, row by row; empty: none).
+    const std::vector<uint8_t>& protectedTiles() const { return protected_; }
+    // Protects (on) or unprotects the tiles (x, y in tiles). One undo step; returns the tiles that changed (0: no step).
+    int protectTiles(const std::vector<std::pair<int, int>>& cells, bool on);
+    // The mask as it is kept (a mask of another size: none). No undo step, the map is not modified.
+    void setProtectedTiles(std::vector<uint8_t> mask);
+    // Changes when the mask changes (also by undo and redo).
+    uint64_t protectedRevision() const { return protectedRevision_; }
+
     // --- Tiles (rectangular terrain, roadmap N.7) -----------------------------------------------
     // A tile group of the map's tileset (CV5) for the Tiles palette: the groups that have a megatile.
     struct TileGroupEntry {
@@ -581,8 +600,9 @@ public:
     bool openChk(const Chk& chk, std::string& error);
     // The scenario of `edited` (a copy of this map from openChk that an edit changed: the resize preview of Map
     // properties) in place of this map's, as one undo step, so the map is the copy tile for tile (the terrain core
-    // selects some tiles at random). The archive's other files stay. False when `edited` is not open.
-    bool takeScenario(const Editor& edited);
+    // selects some tiles at random). The archive's other files stay. False when `edited` is not open. The protected
+    // tiles move by (shiftX, shiftY) tiles (as resizeShift gives them); a new tileset unprotects them.
+    bool takeScenario(const Editor& edited, int shiftX = 0, int shiftY = 0);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
     // Adds (or replaces) a file in the map archive, such as a briefing's sound; saved with the map. One undo step.
@@ -721,7 +741,7 @@ private:
     bool useCore() const { return terrainCoreOn() && !modTable_; }
     // The old engine's part of an edit (IsomGrid::apply, then store): the corners and their grid area; overPlaced as
     // applyTerrain's.
-    bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false);
+    bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false, size_t own = SIZE_MAX);
     IsomCore core_;
     std::pair<int, int> mirror(int px, int py, int which) const;
     // The point turned `k` steps of 360 / turns() degrees about the map's middle (in the map's proportions: on a square map a
@@ -737,7 +757,42 @@ private:
     };
     std::vector<SymmetricPlace> symmetricPlaces(int px, int py) const;
 
-    void beginEdit();             // snapshot for undo
+    // Protected terrain (protectTiles): the mask, its count of protected tiles and its revision.
+    std::vector<uint8_t> protected_;
+    size_t protectedCount_ = 0;
+    uint64_t protectedRevision_ = 0;
+    void protectedChanged();  // (the count and the revision again)
+    // A rect (rx, ry) of the ISOM with a protected tile.
+    bool rectProtected(int rx, int ry) const { return tileProtected(rx * 2, ry) || tileProtected(rx * 2 + 1, ry); }
+    // An ISOM corner of a protected rect (one of the four rects around it).
+    bool cornerProtected(int cx, int cy) const {
+        return rectProtected(cx - 1, cy - 1) || rectProtected(cx, cy - 1) || rectProtected(cx - 1, cy) || rectProtected(cx, cy);
+    }
+    // Are protected tiles in the grid area (x0, y0)-(x1, y1) (corners) or within `margin` grid steps of it?
+    bool protectedNear(int x0, int y0, int x1, int y1, int margin) const;
+    // An ISOM edit's corners with protected terrain near them: the corners of protected rects go out, and the corners of
+    // the protected rects near the edit (`margin` grid steps around its corners) come in with the terrain they have, so
+    // the edit keeps them (IsomGrid::apply locks its corners). The edit's own corners stay first. Returns how many of
+    // them stay; -1: no protected tiles near (nothing changed).
+    int pinProtected(std::vector<CornerValue>& corners, int margin) const;
+    static constexpr int kProtectMargin = 12;  // (grid steps: the reach of an edit's repair around its corners)
+    // The protected tiles of a map of oldWidth x oldHeight moved by (dx, dy) tiles onto the map's size now (resizeMap,
+    // takeScenario).
+    void shiftProtected(int oldWidth, int oldHeight, int dx, int dy);
+    // The tiles (MTXM, TILE) before an edit, and the protected tiles back to them after it (before commit). True: a
+    // tile went back. `doodads`: also every tile of a doodad on protected tiles (doodads_), so the doodad stays whole.
+    struct ProtectedBefore {
+        TerrainLayer mtxm, tile;
+    };
+    std::optional<ProtectedBefore> protectedBefore() const;
+    bool restoreProtected(const std::optional<ProtectedBefore>& before, bool doodads = true);
+    // A map of oldWidth x oldHeight that moved by (dx, dy) tiles (Crop or extend): the protected tiles move with it
+    // (shiftProtected) and get their tiles of `before` back.
+    void keepProtectedMoved(const std::optional<ProtectedBefore>& before, int oldWidth, int oldHeight, int dx, int dy);
+    // A doodad with a tile on protected tiles.
+    bool doodadOnProtected(const Doodad& d) const;
+
+    void beginEdit();            // snapshot for undo
     void commit(bool terrain);    // write state into chk, bump revisions
     void reload();                // rebuild state from chk_
     void reloadTerrain();
@@ -829,12 +884,16 @@ private:
             Bytes data;
         };
         std::vector<File> files;
+        std::shared_ptr<const std::vector<uint8_t>> protect;  // the protected tiles (protected_; null: none)
         size_t ownBytes = 0;  // section and file data this snapshot added (not shared with the one before)
         uint64_t state = 0;   // the map's state (state_) that the snapshot holds
     };
     static Snapshot snapshot(const Chk& chk, const std::deque<Snapshot>& stack);
     static Chk restore(const Snapshot& s);
     void pushUndo(const Chk& chk, const std::vector<std::string>& files = {});  // files: the archive files the step changes
+    // The protected tiles now for a snapshot (`prev`'s copy when they are the same); and back from one.
+    std::shared_ptr<const std::vector<uint8_t>> protectedSnapshot(const Snapshot* prev) const;
+    void restoreProtectedSnapshot(const std::shared_ptr<const std::vector<uint8_t>>& mask);
     std::vector<Snapshot::File> fileStates(const std::vector<std::string>& names) const;
     std::vector<Snapshot::File> fileStates(const std::vector<Snapshot::File>& like) const;  // the same files as now
     void restoreFiles(const std::vector<Snapshot::File>& files);

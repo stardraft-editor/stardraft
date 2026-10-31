@@ -458,6 +458,7 @@ render::Scene buildScene() {
     addPathingLayer(s);
     addPathOverlays(s);
     addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
+    addProtectedLayer(ed, s);  // (View > Layers > Protected terrain: core/protected_layer.inc)
 
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
     // the sprites.

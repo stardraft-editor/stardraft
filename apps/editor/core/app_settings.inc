@@ -48,6 +48,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("LayerUnits", gLayers.units, bool),
         SD_SETTING("LayerRevealers", gLayers.revealers, bool),
         SD_SETTING("LayerCreep", gLayers.creep, bool),
+        SD_SETTING("LayerProtected", gLayers.protectedTerrain, bool),
         {L"PaletteViews", [] { return paletteViewBits(); }, [](int v) { setPaletteViewBits(v); }},
         {L"PaletteSorts", [] { return paletteSortBits(); }, [](int v) { setPaletteSortBits(v); }},
     };

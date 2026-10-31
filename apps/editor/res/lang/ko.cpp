@@ -2662,6 +2662,18 @@ constexpr UiText kRows[] = {
     {L"&Fill selection with the selected terrain", L"\uC120\uD0DD \uC601\uC5ED\uC744 \uC120\uD0DD\uD55C \uC9C0\uD615\uC73C\uB85C \uCC44\uC6B0\uAE30(&F)"},
     {L"Select a terrain in the list first", L"\uBA3C\uC800 \uBAA9\uB85D\uC5D0\uC11C \uC9C0\uD615\uC744 \uC120\uD0DD\uD558\uC2ED\uC2DC\uC624"},
     {L"Could not select the terrain. The map has no isometric terrain data.", L"\uC9C0\uD615\uC744 \uC120\uD0DD\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9F5\uC5D0 \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD \uC9C0\uD615 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."},
+    {L"Pr&otect terrain", L"\uC9C0\uD615 \uBCF4\uD638(&O)"},
+    {L"U&nprotect terrain", L"\uC9C0\uD615 \uBCF4\uD638 \uD574\uC81C(&N)"},
+    {L"&Protected terrain", L"\uBCF4\uD638\uB41C \uC9C0\uD615(&P)"},
+    {L"Protected 1 tile", L"\uD0C0\uC77C 1\uAC1C\uB97C \uBCF4\uD638\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Protected %d tiles", L"\uD0C0\uC77C %d\uAC1C\uB97C \uBCF4\uD638\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Unprotected 1 tile", L"\uD0C0\uC77C 1\uAC1C\uC758 \uBCF4\uD638\uB97C \uD574\uC81C\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Unprotected %d tiles", L"\uD0C0\uC77C %d\uAC1C\uC758 \uBCF4\uD638\uB97C \uD574\uC81C\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Protected terrain shows", L"\uBCF4\uD638\uB41C \uC9C0\uD615\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
+    {L"Protected terrain is hidden (View > Layers shows it again)", L"\uBCF4\uD638\uB41C \uC9C0\uD615\uC774 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4 (\uBCF4\uAE30 > \uB808\uC774\uC5B4\uC5D0\uC11C \uB2E4\uC2DC \uD45C\uC2DC)"},
+    {L"Could not save the protected terrain: ", L"\uBCF4\uD638\uB41C \uC9C0\uD615\uC744 \uC800\uC7A5\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: "},
+    {L"Protect the terrain (%d tiles)", L"\uC9C0\uD615 \uBCF4\uD638 (\uD0C0\uC77C %d\uAC1C)"},
+    {L"Unprotect the terrain (%d tiles)", L"\uC9C0\uD615 \uBCF4\uD638 \uD574\uC81C (\uD0C0\uC77C %d\uAC1C)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

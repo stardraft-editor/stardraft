@@ -97,6 +97,8 @@ void pathingCheckCommand();
 void showUnitsList();   // View > Units list: the Unit properties window with the list (core/units_list.inc)
 
 void toggleCreep();  // View > Layers > Creep (core/creep_layer.inc)
+void toggleProtectedLayer();  // View > Layers > Protected terrain (core/protected_layer.inc)
+void protectedTerrainSync();  // (core/protected_layer.inc)
 
 void toggleLayer(int k) {
     bool* layer[4] = {&gLayers.terrain, &gLayers.doodads, &gLayers.sprites, &gLayers.units};
@@ -126,6 +128,7 @@ bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
     if (!app.ed) return err = "No map is open.", false;
     if (!app.ed->save(path, err)) return false;
+    protectedTerrainSync();  // (the protected terrain of the saved map: core/protected_layer.inc)
     updateTitle();
     if (!activeProject()) addRecent(gRecentMaps, path);
     setMessage(L"Saved " + path.filename().wstring());
@@ -307,6 +310,8 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
     addCommand(ID_LAYER_REVEALERS, "view.layer.revealers", L"Map &revealers", "View/Layers", L"", [] { toggleRevealers(); }, [] { return gLayers.revealers; });
     addCommand(ID_LAYER_CREEP, "view.layer.creep", L"&Creep", "View/Layers", L"", [] { toggleCreep(); }, [] { return gLayers.creep; });
+    addCommand(ID_LAYER_PROTECTED, "view.layer.protected", L"&Protected terrain", "View/Layers", L"", [] { toggleProtectedLayer(); },
+               [] { return gLayers.protectedTerrain; });
     // View > Overlays > Pathing: the regions or the connected areas (one of them; the one that shows, clicked again: off).
     addCommand(ID_LAYER + 4, "view.layer.pathing", L"&Pathing", "View/Pathing (toggle)", L"", [] { pathingLayerToggle(); }, [] { return pathingLayerOn(); });
     addCommand(ID_LAYER + 5, "view.pathing.regions", L"&Regions", "View/Pathing", L"", [] {

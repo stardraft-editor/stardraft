@@ -4,6 +4,8 @@
 // line). The verbs of the input options: key, type, click, drag, lostdrag, move, wheel, pinch, wait (their values are
 // the options' values). And the verbs of a session:
 //   command <name>     a menu command by name, as --command
+//   rclick x,y[:n]     a right click there: the menu's items go to the output, item n runs, as --rclick (but in its
+//                      place among the inputs)
 //   mode <name>        a mode (units, terrain, doodads, sprites, locations), as --mode
 //   rect [off]         Terrain mode's Rectangle on (as --rect), or off
 //   workspace <name>   a workspace (map, data, triggers...), as --workspace
@@ -88,7 +90,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}};
+        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -325,6 +327,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
         return true;
     }
     case 'C': sdlCommandShot(value); return true;
+    case 'r': sdlRightClickShot(value, nullptr, {}); return true;  // (x,y[:n]: the map's menu there, item n runs: as --rclick)
     case 'M':
         if (!sdlModeByName(value)) std::printf("mode %s: no such mode (WRONG)\n", value.c_str());
         sdlInputLine("mode " + value);

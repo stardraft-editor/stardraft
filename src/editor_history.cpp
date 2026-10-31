@@ -115,6 +115,21 @@ Editor::StepName nameOf(const Parts& before, const Parts& after, bool files) {
     return {"Change the map", -1};
 }
 
+// A step that changed only the protected tiles (Editor::protectTiles): "Protect the terrain (%d tiles)" or "Unprotect
+// the terrain (%d tiles)"; else `name`.
+Editor::StepName protectName(Editor::StepName name, const std::vector<uint8_t>* a, const std::vector<uint8_t>* b) {
+    static const std::vector<uint8_t> none;
+    const std::vector<uint8_t>& x = a ? *a : none;
+    const std::vector<uint8_t>& y = b ? *b : none;
+    if (name.text != "Change the map" || x == y) return name;
+    int on = 0, off = 0;
+    for (size_t i = 0; i < std::max(x.size(), y.size()); ++i) {
+        const bool p = i < x.size() && x[i], q = i < y.size() && y[i];
+        on += !p && q, off += p && !q;
+    }
+    return on >= off ? Editor::StepName{"Protect the terrain (%d tiles)", on} : Editor::StepName{"Unprotect the terrain (%d tiles)", off};
+}
+
 }  // namespace
 
 // The sections of a snapshot, and of the map now.
@@ -133,7 +148,8 @@ Editor::StepName Editor::undoStepName(size_t k) const {
         return p;
     };
     const Snapshot& from = undo_[n - 1 - k];
-    return nameOf(parts(from), k == 0 ? partsOfChk(chk_) : parts(undo_[n - k]), !from.files.empty());
+    return protectName(nameOf(parts(from), k == 0 ? partsOfChk(chk_) : parts(undo_[n - k]), !from.files.empty()), from.protect.get(),
+                       k == 0 ? &protected_ : undo_[n - k].protect.get());
 }
 
 Editor::StepName Editor::redoStepName(size_t k) const {
@@ -145,7 +161,8 @@ Editor::StepName Editor::redoStepName(size_t k) const {
         return p;
     };
     const Snapshot& to = redo_[m - 1 - k];
-    return nameOf(k == 0 ? partsOfChk(chk_) : parts(redo_[m - k]), parts(to), !to.files.empty());
+    return protectName(nameOf(k == 0 ? partsOfChk(chk_) : parts(redo_[m - k]), parts(to), !to.files.empty()),
+                       k == 0 ? &protected_ : redo_[m - k].protect.get(), to.protect.get());
 }
 
 }  // namespace stardraft

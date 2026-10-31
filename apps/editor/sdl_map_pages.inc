@@ -895,7 +895,7 @@ void sdlMapPageResize() {
     gResizeRecord.shiftPxX = sx * 32, gResizeRecord.shiftPxY = sy * 32;
     // The map that the preview showed (the copy's, tile for tile); else (the copy holds another map) the same change.
     std::string err;
-    const bool taken = resizeCopyHolds(gResizeRecord.preview, ed) && ed.takeScenario(resizeCopy(ed.gameData()));
+    const bool taken = resizeCopyHolds(gResizeRecord.preview, ed) && ed.takeScenario(resizeCopy(ed.gameData()), sx, sy);
     if (!taken && !ed.resizeMap(uint16_t(v.w), uint16_t(v.h), ed.era(), v.shiftX, v.shiftY, v.fill, err)) {
         shellWarningBox(L"The map keeps its size: " + widen(err), L"Crop or extend the map");
         return;

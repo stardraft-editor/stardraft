@@ -137,12 +137,14 @@ void activateDoc(int i) {
     shellInvalidateWorkspaceBar();
     setMessage(L"Switched to " + docTitle(i));
 }
+void protectedTerrainSync();  // (core/protected_layer.inc)
 // Closes tab i (asking to save it if modified). Returns false if the user canceled.
 bool closeDoc(int i) {
     AppState& app = shellState();
     if (i < 0 || i >= int(gDocs.size())) return true;
     activateDoc(i);
     if (!confirmDiscard()) return setWorkspace(gWorkspace), false;  // (canceled: the map page its question closed opens again)
+    protectedTerrainSync();  // (its protected terrain kept when its question saved it: core/protected_layer.inc)
     const std::wstring closed = docTitle(i);
     mapPageClose();
     app.ed.reset();

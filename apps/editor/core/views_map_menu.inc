@@ -59,11 +59,14 @@ void locationMenuPick(int loc, int pick) {
 // already), then Cut, Copy, Paste, Duplicate, Delete and Select all act on the mode's selection and its own copy
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
-       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL };
+       ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
+       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
 std::wstring tileValueText(const Editor& ed, float wx, float wy);  // (palette_tools.inc)
 void shellCopyText(const std::wstring& text);                     // (shell_sdl.inc)
 void shellReportFeedback(const std::wstring& on, const std::wstring& text);
+int protectedInSelection(const Editor& ed);  // (core/protected_layer.inc)
+void protectSelection(bool on);
 std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
 
 // The selected terrain's tiles for a feedback report: each tile value once (as Copy tile value has it) with the places
@@ -224,6 +227,12 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
     // (as the status bar shows it: tileValueText; with a selection, each of its tiles)
     if (terrain) item(ID_MAPMENU_COPYTILE, has ? L"Copy tile &values" : L"Copy tile &value", L"", true);
+    // (the selection's tiles: no terrain edit changes them; core/protected_layer.inc)
+    if (terrain && has) {
+        const int protectedTiles = protectedInSelection(ed);
+        item(ID_MAPMENU_PROTECT, L"Pr&otect terrain", L"", protectedTiles < int(terrainSelTiles().size()));
+        if (protectedTiles) item(ID_MAPMENU_UNPROTECT, L"U&nprotect terrain", L"", true);
+    }
     m.push_back(menuSeparator());
     item(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A", !terrain);
     // On a unit, doodad or sprite: all of its type on the map (units: also only its player's).
@@ -265,6 +274,7 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_REPLACE) shellShowQuickPicker(true, false);
     else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
     else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
+    else if (pick == ID_MAPMENU_PROTECT || pick == ID_MAPMENU_UNPROTECT) protectSelection(pick == ID_MAPMENU_PROTECT);
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));
     else if (pick == ID_MAPMENU_COPYTILE && app.ed) {
         // A terrain selection: each of its tiles, a line each (its place, then its value), row by row; else the tile here.

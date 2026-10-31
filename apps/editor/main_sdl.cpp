@@ -690,6 +690,7 @@ int main(int argc, char** argv) {
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
+            protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
             drawMapOfRoot(cmd);
@@ -749,7 +750,7 @@ int main(int argc, char** argv) {
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
-            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c.rfind("drawfuncs:", 0) == 0;
+            const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c == "protect" || c.rfind("drawfuncs:", 0) == 0;
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
@@ -998,6 +999,7 @@ int main(int argc, char** argv) {
             if (hasCheck("dataform")) sdlDataFormCheck();  // (the last paint's parts)
             if (hasCheck("datatable")) sdlDataTableCheck();
             if (hasCheck("resize")) sdlResizeCheck();  // (Crop or extend: its dialog, or the change its OK made)
+            if (std::string out; hasCheck("protect") && protectCheck("protect", out)) std::printf("%s", out.c_str());  // (after the inputs: core/protected_layer.inc)
             if (hasCheck("classicrows")) sdlClassicRowsCheck();  // (the selected trigger's rows and the Comments they write)
             if (hasCheck("players") && appState().ed && appState().ed->isOpen()) {  // (the map's races and the Players page's race list)
                 std::string races, list;
