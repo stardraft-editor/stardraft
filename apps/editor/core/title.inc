@@ -4,8 +4,11 @@
 void updateTitle() {
     AppState& app = shellState();
     // The brand, the version and the game when it is a mod's (Program options > Plugins > Cosmonarchy BW): "StarDraft 2 - v0.5.0.6",
-    // "StarDraft 2 - v0.5.0.6 - Cosmonarchy BW".
-    const std::wstring app_ = L"StarDraft 2 - v" + shellVersion() + (cmbwMode() ? L" - Cosmonarchy BW" : L"");
+    // "StarDraft 2 - v0.5.0.6 - Cosmonarchy BW". A release build's version is numbers and dots (its tag); any other build is a
+    // development build: "StarDraft 2 - dev".
+    const std::wstring version = shellVersion();
+    const bool release = !version.empty() && version.find_first_not_of(L"0123456789.") == std::wstring::npos;
+    const std::wstring app_ = L"StarDraft 2 - " + (release ? L"v" + version : std::wstring(L"dev")) + (cmbwMode() ? L" - Cosmonarchy BW" : L"");
     std::wstring t = app_;
     if (app.ed && app.ed->isOpen())
         t = (gActive >= 0 ? docTitle(gActive) : std::wstring(L"Untitled")) + L" - " + app_;
