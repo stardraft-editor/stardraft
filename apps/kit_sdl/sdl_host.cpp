@@ -87,6 +87,8 @@ int toLogical(int pixels, float density) { return int(std::lround(float(pixels) 
 draw::Key keyOf(SDL_Keycode k) {
     if (k >= 'a' && k <= 'z') return Key(k - 32);  // SDL's letters are lower case; the kit's are capitals
     if (k >= '0' && k <= '9') return Key(k);
+    if (k >= SDLK_KP_1 && k <= SDLK_KP_9 && (SDL_GetModState() & SDL_KMOD_NUM)) return Key('1' + int(k - SDLK_KP_1));  // (the number pad's digits, Num Lock on)
+    if (k == SDLK_KP_0 && (SDL_GetModState() & SDL_KMOD_NUM)) return Key('0');
     if (k >= SDLK_F1 && k <= SDLK_F12) return Key(int(Key::F1) + int(k - SDLK_F1));
     switch (k) {
     case SDLK_RETURN: case SDLK_KP_ENTER: return Key::Enter;
