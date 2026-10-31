@@ -368,7 +368,8 @@ public:
         return "isom rules: " + t->t.name + ", " + std::to_string(nulls(t->t)) + " null, " + std::to_string(holes_.size()) + " holes in the examples, " +
                std::to_string(absent_.size()) + " not in them, " + std::to_string(visibleGroups_.size()) + " rects shown, " + std::to_string(done) + " of " +
                std::to_string(total) + " rects done, " + std::to_string(borrowed) + " borrowed, " + stardraft::terrainrules::familyName(family_) +
-               (t->t.draft ? ", draft" : ", verified") + (target_ >= 0 ? ", target piece " + std::to_string(target_) : "") + coverage(t->t);
+               (t->t.draft ? ", draft" : ", verified") + (target_ >= 0 ? ", target piece " + std::to_string(target_) : "") + ", " +
+               std::to_string(strays_) + " strays" + coverage(t->t);
     }
     // (the snapshot's line, more: the variants of the set's and the gaps' rects with a place of their own, the fill
     // pieces with a place, and the rects not in the examples)
@@ -481,7 +482,7 @@ private:
         ++buildGen_, building_ = false, loading_ = true, shownId_ = -1;
         busySince_ = std::chrono::steady_clock::now(), armBusy();
         undo_.clear(), redo_.clear(), endStroke(), brush_ = -1, slotKeys_ = false, pins_.clear(), savedPins_.clear();
-        shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+        shown_.clear(), sideRows_.clear(), familyCache_.clear(), sel_ = -1, target_ = -1, places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0, picture_.reset();
         invalidate();
         background([this, gen, e, plain] {
             auto o = std::make_shared<Opened>();
@@ -801,6 +802,7 @@ private:
         std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
         std::optional<std::pair<int, int>> removeSpot;  // (Remove From Canvas: the strip that paints the place; none: no strip does)
         int gained = 0;                          // (the search: rects shown that were not)
+        int strays = 0;                          // (the strays the canvas shows: the snapshot line)
         draw::Rect crop;
         std::vector<uint16_t> ids;  // (the crop's tiles, row by row; kNullId: a NULL half)
         std::unique_ptr<draw::Bitmap> picture, reference;
@@ -826,7 +828,7 @@ private:
         auto in = std::make_shared<BuildIn>();
         in->gen = ++buildGen_;
         if ((!t && std_ < 0) || !data) {
-            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset();
+            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0, picture_.reset(), refPicture_.reset();
             return invalidate();
         }
         in->era = era(), in->data = data, in->gameGroups = gameGroups(era());
@@ -863,7 +865,7 @@ private:
         for (uint32_t v = 16; v <= 0xFFFF && in->free.size() < need; ++v)
             if (v / 16 < tileset_.groups.size() && !tileset_.groups[v / 16].megatiles[v % 16]) in->free.push_back(uint16_t(v));
         if (in->free.size() < need) {
-            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), picture_.reset();
+            building_ = false, places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0, picture_.reset();
             return invalidate();
         }
         for (const auto& x : rules().terrains) {
@@ -878,7 +880,7 @@ private:
     void start(std::shared_ptr<BuildIn> in, int shown) {
         if (shownId_ != shown) viewZoom_ = 1, panX_ = panY_ = 0;  // (another terrain: the fit)
         if (shownId_ != shown)
-            places_.clear(), holes_.clear(), absent_.clear(), picture_.reset(), refPicture_.reset(), visibleGroups_.clear(), shownId_ = shown;
+            places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0, picture_.reset(), refPicture_.reset(), visibleGroups_.clear(), shownId_ = shown;
         if (!building_) busySince_ = std::chrono::steady_clock::now();
         building_ = true;
         progress(kStepPaint);
@@ -907,6 +909,7 @@ private:
                                       (hidden.size() == 1 ? L" piece)" : L" pieces)"));
                 }
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop, ++placesRev_;
+                strays_ = out->strays;
                 ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
@@ -1280,7 +1283,7 @@ private:
         // side between them (a box's bottom tile is dirt under its wall: a piece under it stands apart). A shape of
         // kStrayTiles tiles or fewer: a stray. Each build, the spots go (the shape's too) whose removal leaves fewer
         // strays and every rect its places out of strays, up to its variants)
-        if (!in.standard && in.family == isomrules::Family::Cliff) {  // (a cliff: a wall's pieces are small, alone or not)
+        if (!in.standard) {  // (the strays of every terrain are counted; a cliff's are taken away (a wall's pieces are small, alone or not))
             const Tileset& ts = ed->tileset();
             auto pixelsOf = [&](uint16_t value, auto&& f) {  // (f(palette index) for each pixel of the tile)
                 const int mg = ts.megatileFor(value);
@@ -1395,7 +1398,8 @@ private:
             for (const auto& [i, j] : shape) mix(uint64_t(uint32_t(i)) << 32 | uint32_t(j));
             for (const auto& e2 : edges)
                 for (const Edges& e1 : e2) mix(uint64_t(e1.top) << 32 | e1.bottom), mix(uint64_t(e1.left) << 32 | e1.right), mix(e1.part);
-            if (const auto it = cleaned_.find(cleanKey); it != cleaned_.end()) {
+            if (in.family != isomrules::Family::Cliff) {
+            } else if (const auto it = cleaned_.find(cleanKey); it != cleaned_.end()) {
                 if (it->second != shape) shape = it->second, paint();
             } else {
             Look cur = lookOn(ed);
@@ -1419,6 +1423,7 @@ private:
             if (tried) paint();  // (the trials painted the maps: this one again, whole)
             if (in.gen == buildGen_) cleaned_[cleanKey] = shape;
             }
+            out.strays = lookOn(ed).strays;
         }
         if (in.removeAt.first != INT_MIN) {  // (Remove From Canvas: of the 0.5 brush's strips, the one whose removal takes the place away with the fewest other tiles changed)
             const stardraft::TerrainLayer full = stardraft::readTerrain(ed->chk(), "TILE");
@@ -2155,7 +2160,7 @@ private:
         if (!same) sel_ = i, std_ = -1, variantView_ = 0, revealSideRow();
         for (size_t k = 0; k < groundIds_.size(); ++k)  // (the Bordering box: the ground as it was)
             if (groundIds_[k] == shownGround(ts.terrains[size_t(i)])) ground_.setValue(int(k));
-        places_.clear(), holes_.clear(), absent_.clear();  // (the piece numbers may have moved: none until the new example)
+        places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0;  // (the piece numbers may have moved: none until the new example)
         fillGrounds();  // (a name may come back: the Bordering list's)
         target_ = e.target, targetHalf_ = e.half;
         changed();
@@ -2174,7 +2179,7 @@ private:
         m.pieces = std::move(fill);
         m.setPieces = 0, m.gapPieces = gaps.size();
         m.pieces.insert(m.pieces.end(), gaps.begin(), gaps.end());
-        places_.clear(), holes_.clear(), absent_.clear();
+        places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0;
         target_ = -1, targetHalf_ = 0;
         changed();
         if (const int first = findNull(-1); first >= 0) setTarget(first, -1);
@@ -2267,7 +2272,7 @@ private:
                 for (size_t k = 0; k < t->t.pieces.size(); ++k)
                     if (t->t.pieces[k] == was && occ-- == 0) { target_ = int(k); break; }
             }
-            if (t->t.pieces != before) places_.clear(), holes_.clear(), absent_.clear(), light = false;  // (the piece numbers moved: none until the new example)
+            if (t->t.pieces != before) places_.clear(), holes_.clear(), absent_.clear(), strays_ = 0, light = false;  // (the piece numbers moved: none until the new example)
             updateTemplate();
         } else light = false;
         familyCache_.clear();
@@ -3118,6 +3123,7 @@ private:
     bool jumpRow_ = false;
     std::atomic<int> buildGen_{0};  // (the newest example asked for: the worker leaves out older ones)
     draw::Rect crop_, puzzle_, palette_, strip_, check_, refRow_;
+    int strays_ = 0;  // (the strays of the canvas shown: BuildOut::strays)
     // The four columns (Terrains, Rects, Example, Tiles): their order and which show, kept in the layout settings
     // (Layout/IsomColumns: the order in 2-bit digits, the shown bits from bit 8). Each has a header; its right-click
     // menu moves or hides it (a hidden one comes back from any header's menu or the Menu button).
