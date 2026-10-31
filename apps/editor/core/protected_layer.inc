@@ -98,53 +98,72 @@ void protectSelection(bool on) {
     app.dirty = true;
 }
 
-// View > Layers > Protected terrain: a light yellow fill over each run of protected tiles, with dashed diagonal lines
-// over it (one pattern over the whole map, so the runs join), made again when the mask changes.
+// View > Layers > Protected terrain: a light yellow fill over the protected tiles, with yellow stripes from the top left
+// to the bottom right over it (one pattern over the whole map, so the parts join), as wide as the space between them. The
+// tiles are put together into rectangles (the same run of tiles on rows one under the other: one rectangle), and the
+// stripes are cut to each one. Made again when the mask, the theme or the zoom changes (the stripes are about the same
+// width on the screen at each zoom).
 struct ProtectedLayer {
     const Editor* editor = nullptr;
     uint64_t revision = 0;
     bool light = false;
-    float gap = 0;
+    float zoom = 0;
     std::vector<render::RectDraw> fills;
 } gProtectedLayer;
 
 void addProtectedLayer(const Editor& ed, render::Scene& s) {
     if (!gLayers.protectedTerrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
     ProtectedLayer& l = gProtectedLayer;
-    // (the lines at least 12 screen pixels apart: 16 map pixels, twice that for each halving of the zoom below 75%)
-    float gap = 16;
-    while (gap * appState().zoom < 12 && gap < 512) gap *= 2;
-    if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme || l.gap != gap) {
-        l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme, l.gap = gap;
+    const float zoom = std::max(appState().zoom, 1.0f / 64);
+    if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme || l.zoom != zoom) {
+        l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme, l.zoom = zoom;
         l.fills.clear();
-        const uint32_t fill = gLightTheme ? 0xFFE9704Cu : 0xFFF2A040u, dash = gLightTheme ? 0xC8A000D0u : 0xFFE680C0u;
-        const float kGap = gap, kDash = gap * 0.375f, kPeriod = gap * 0.625f;  // (map pixels: a dash and its period, down)
+        const uint32_t fill = gLightTheme ? 0xFFE9703Cu : 0xFFF2A030u, stripe = gLightTheme ? 0xE0B000A0u : 0xFFE06090u;
+        // (the stripes at least 12 screen pixels apart across: 16 map pixels along x, twice that for each halving of the
+        // zoom; as wide as the space between them, in screen pixels)
+        float gap = 16;
+        while (gap * zoom / std::sqrt(2.0f) < 12 && gap < 1024) gap *= 2;
+        const float width = gap * zoom / std::sqrt(2.0f) / 2, inset = width / 2 / zoom / std::sqrt(2.0f);
+        // The rectangles: each row's runs, joined with the same run of the row above.
+        struct Box {
+            int x0, x1, y0;
+        };
+        std::vector<Box> open, next;
+        auto emit = [&](const Box& b, int y1) {
+            const float left = b.x0 * 32.0f, right = b.x1 * 32.0f, top = b.y0 * 32.0f, bottom = y1 * 32.0f;
+            render::RectDraw d;
+            d.x0 = left, d.y0 = top, d.x1 = right, d.y1 = bottom, d.rgba = fill, d.fill = true;
+            l.fills.push_back(d);
+            // The stripes x - y = c, cut to the box; each end a little in, so that the stripe's square end stays inside.
+            for (float c = std::ceil((left - bottom) / gap) * gap; c < right - top; c += gap) {
+                const float a = std::max(left, top + c) + inset, b2 = std::min(right, bottom + c) - inset;
+                if (b2 <= a) continue;
+                render::RectDraw line;
+                line.line = true, line.rgba = stripe, line.thickness = width;
+                line.x0 = a, line.y0 = a - c, line.x1 = b2, line.y1 = b2 - c;
+                l.fills.push_back(line);
+            }
+        };
         const int w = ed.width(), h = ed.height();
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w;) {
+        for (int y = 0; y <= h; ++y) {
+            next.clear();
+            size_t i = 0;
+            for (int x = 0; y < h && x < w;) {
                 if (!ed.tileProtected(x, y)) {
                     ++x;
                     continue;
                 }
                 int e = x;
                 while (e < w && ed.tileProtected(e, y)) ++e;
-                render::RectDraw d;
-                const float left = x * 32.0f, right = e * 32.0f, top = y * 32.0f, bottom = top + 32;
-                d.x0 = left, d.y0 = top, d.x1 = right, d.y1 = bottom, d.rgba = fill, d.fill = true;
-                l.fills.push_back(d);
-                // The lines x + y = c (up to the right), in dashes along y, cut to the run's box.
-                for (float c = std::ceil((left + top) / kGap) * kGap; c < right + bottom; c += kGap)
-                    for (float y0 = top; y0 < bottom; y0 += kPeriod) {
-                        // (the dash's part with left <= c - y < right)
-                        const float a = std::max(y0, c - right), b = std::min({y0 + kDash, bottom, c - left});
-                        if (b <= a) continue;
-                        render::RectDraw line;
-                        line.line = true, line.rgba = dash, line.thickness = 1.5f;
-                        line.x0 = c - a, line.y0 = a, line.x1 = c - b, line.y1 = b;
-                        l.fills.push_back(line);
-                    }
+                Box run{x, e, y};
+                while (i < open.size() && open[i].x0 < x) emit(open[i], y), ++i;
+                if (i < open.size() && open[i].x0 == x && open[i].x1 == e) run.y0 = open[i].y0, ++i;
+                next.push_back(run);
                 x = e;
             }
+            for (; i < open.size(); ++i) emit(open[i], y);
+            std::swap(open, next);
+        }
     }
     s.rects.insert(s.rects.end(), l.fills.begin(), l.fills.end());
 }
