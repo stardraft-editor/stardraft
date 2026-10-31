@@ -1127,6 +1127,19 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         const std::vector<Editor::TileAt> stamp = tilesStampCells(sx, sy);
         for (const auto& t : stamp) add(t.x, t.y, t.value);
         addMirrors(stamp);
+    } else if (gTiles->solid && (tool == TBrush || tool == TSpray)) {  // Solid: the outline of the brush's rects (each rect at random)
+        if (app.palette <= 0) return;
+        std::vector<Editor::TileAt> foot;
+        for (auto [rx, ry] : solidFootprint(cx, cy))
+            for (int x = 2 * rx; x <= 2 * rx + 1; ++x)
+                if (x >= 0 && ry >= 0 && x < ed.width() && ry < ed.height()) foot.push_back({x, ry, 0});
+        std::vector<std::pair<int, int>> tiles;
+        for (const auto& t : solidMirrored(foot)) tiles.push_back({t.x, t.y});  // (and the mirrors' images)
+        ghostTiles.clear();
+        const size_t before = s.rects.size();
+        tileOutline(s, tiles, tool == TSpray ? 0xFFD040E0u : 0x40FF40FFu);
+        gTilesPreview.tiles = tiles.size(), gTilesPreview.lines = s.rects.size() - before;
+        return;
     } else if (tool == TBrush || tool == TSpray) {
         if (gTiles->picked < 0 || !ed.tileset().groupFor(uint16_t(gTiles->picked))) return;
         if (app.brushShape != Brush::Square) {  // the Circle and the Diamond: their outline on the tile edges (#135, #136)

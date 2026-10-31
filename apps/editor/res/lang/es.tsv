@@ -832,14 +832,13 @@ Select a sprite: click it; drag it to move. Esc goes to Select.	Seleccionar un s
 Place the sprites selected in the list (several: each one at random); drag to place more	Coloca los sprites seleccionados en la lista (varios: cada uno al azar); arrastre para colocar más
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Spray: sprites al azar de los tipos seleccionados (Densidad). Mantenga pulsado el botón para rociar más.
 Select, move and resize locations; drag on empty ground to make one	Seleccione, mueva y cambie el tamaño de las ubicaciones; arrastre sobre el suelo vacío para crear una
-Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	Rectángulo: las herramientas colocan los tiles tal cual. Seleccione un tile en la lista Tiles.
+Tile: the tools place tiles as they are. Select a tile in the Tiles list.	Tile: las herramientas colocan los tiles tal cual. Seleccione un tile en la lista Tiles.
 Isometric: the tools paint terrains and correct the edges between them	Isométrico: las herramientas pintan terrenos y corrigen los bordes entre ellos
 Isometric	Isométrico
 Isometric: paint terrains, with the edges corrected	Isométrico: pinta terrenos, con los bordes corregidos
 Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Isométrico: pinta terrenos, con los bordes corregidos. Ctrl+Alt+T selecciona la siguiente opción.
-Rectangle	Rectángulo
 Rectangle: place tiles as they are (no terrain correction)	Rectángulo: coloca los tiles tal cual (sin corrección de terreno)
-Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Rectángulo: coloca los tiles tal cual, sin corrección de terreno. Ctrl+Alt+T selecciona la siguiente opción.
+Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Tile: coloca los tiles tal cual, sin corrección de terreno. Ctrl+Alt+T selecciona la siguiente opción.
 Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Personalizado: coloca tu terreno personalizado, tiles que guardaste de un mapa. Ctrl+Alt+T selecciona la siguiente opción.
 Select what to place in the list	Seleccione en la lista qué colocar
 Brush shape: diamond	Forma del pincel: rombo
@@ -849,7 +848,7 @@ One step more	Un paso más
 One step less	Un paso menos
 Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	Tamaño del pincel: 1 a 32. Haga clic para escribir un tamaño. - y + y la rueda del ratón lo cambian (Alt+rueda también en el mapa).
 Density	Densidad
-Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de toques (Rectángulo: tiles) que deja cada spray, de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
+Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de toques (Tile: tiles; Rectángulo: rectángulos) que deja cada spray, de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
 Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de unidades que deja cada spray (donde quepan), de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
 Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de decorados que deja cada spray (donde quepan), de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
 No symmetry	Sin simetría
@@ -2204,7 +2203,7 @@ Pathing shows the connected &areas	Las rutas muestran las &zonas conectadas
 Check &pathing (nooks and crannies)	Comprobar las &rutas (huecos y rincones)
 Search the pathing problems	Buscar los problemas de rutas
 %d more problems are not in the list	Hay %d problemas más que no están en la lista
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	Hay un decorado en este tile: la corrección lo quitaría. Cambie el tile en Terreno > Rectángulo
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	Hay un decorado en este tile: la corrección lo quitaría. Cambie el tile en Terreno > Tile
 Apply the fix: tile %d, %d gets no walkable minitile there	Aplicar la corrección: el tile %d, %d no tendrá allí minitiles transitables
 Closed passages	Pasos cerrados
 Fix: change the tiles here so that the ground connects, or make it unwalkable	Corrección: cambie aquí los tiles para que el suelo se conecte, o hágalo intransitable
@@ -2501,7 +2500,7 @@ Lost (minerals + gas)	Perdido (minerales + gas)
 Field	Campo
 Fields	Campos de recursos
 Base	Base
-Tile	Casilla
+Tile	Tile
 Minerals a minute	Minerales por minuto
 Gas a minute	Gas por minuto
 Round trip of each field, nearest first (frames)	Ida y vuelta a cada campo, del más cercano (fotogramas)
@@ -2633,3 +2632,4 @@ Reset all program settings	Restablecer toda la configuración del programa
 Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia. Sus mapas, proyectos y listas recientes no cambian.
 &Reset and restart	&Restablecer y reiniciar
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	La configuración del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos.
+Rectangle	Rectángulo

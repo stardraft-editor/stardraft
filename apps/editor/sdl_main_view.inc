@@ -805,7 +805,7 @@ struct MainView final : draw::View {
         apply(gPanelTabsSdl[toolsRight ? 0 : 1], L.panelTabOther, L.panelTabOther.visible && mapWs);
         // Rectangle mode's Tiles panel takes the palette's place: from its search box down to its end (the Win32 tilesSync),
         // where the side bar's Terrain panel is in Rectangle (its own Isometric or Rectangle: panel_state.inc).
-        const bool rectT = mapWs && panelFresh(dockedPanel(Mode::Terrain)).terrainRect && !paletteFloats(Mode::Terrain);
+        const bool rectT = mapWs && panelShowsTiles(dockedPanel(Mode::Terrain)) && !paletteFloats(Mode::Terrain);
         const bool tiles = rectT && m == Mode::Terrain;
         gTilesShown = tiles;
         PaneSlot tilesSlot = L.search;

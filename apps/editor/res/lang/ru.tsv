@@ -797,14 +797,13 @@ Spray: random doodads of the selected kinds (Density). Hold the button to spray 
 Place the sprites selected in the list (several: each one at random); drag to place more	Размещает спрайты, выбранные в списке (несколько: каждый выбирается случайно); перетащите, чтобы разместить больше
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Распыление: случайные спрайты выбранных видов (Плотность). Удерживайте кнопку, чтобы распылить больше.
 Select, move and resize locations; drag on empty ground to make one	Выделение, перемещение и изменение размера локаций; перетащите по пустому месту, чтобы создать локацию
-Rectangle: the tools place tiles as they are. Select a tile in the Tiles list.	Прямоугольник: инструменты ставят тайлы как есть. Выберите тайл в списке «Тайлы».
+Tile: the tools place tiles as they are. Select a tile in the Tiles list.	Тайл: инструменты ставят тайлы как есть. Выберите тайл в списке «Тайлы».
 Isometric: the tools paint terrains and correct the edges between them	Изометрия: инструменты рисуют местность и исправляют стыки между разными видами местности.
 Isometric	Изометрия
 Isometric: paint terrains, with the edges corrected	Изометрия: рисует местность с исправленными краями
 Isometric: paint terrains, with the edges corrected. Ctrl+Alt+T selects the next choice.	Изометрия: рисует местность с исправленными краями. Ctrl+Alt+T выбирает следующий вариант.
-Rectangle	Прямоугольник
 Rectangle: place tiles as they are (no terrain correction)	Прямоугольник: ставит тайлы как есть (без коррекции местности)
-Rectangle: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Прямоугольник: ставит тайлы как есть, без коррекции местности. Ctrl+Alt+T выбирает следующий вариант.
+Tile: place tiles as they are, with no terrain correction. Ctrl+Alt+T selects the next choice.	Тайл: ставит тайлы как есть, без коррекции местности. Ctrl+Alt+T выбирает следующий вариант.
 Custom: place your custom terrain, tiles that you saved from a map. Ctrl+Alt+T selects the next choice.	Свой: ставит ваш собственный рельеф, тайлы, сохранённые из карты. Ctrl+Alt+T выбирает следующий вариант.
 Select what to place in the list	Выберите в списке, что разместить
 Brush shape: diamond	Форма кисти: ромб
@@ -814,7 +813,7 @@ One step more	Ещё на один шаг
 One step less	На один шаг меньше
 Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	Размер кисти: от 1 до 32. Щёлкните, чтобы ввести размер. Клавиши - и + и колесо мыши меняют его (на карте также Alt+колесо).
 Density	Плотность
-Density: the number of dabs (Rectangle: tiles) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число мазков (для прямоугольника: тайлов), которое ставит каждое распыление, от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
+Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число мазков (для тайла: тайлов; для прямоугольника: прямоугольников), которое ставит каждое распыление, от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
 Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число юнитов, которое ставит каждое распыление (там, где они помещаются), от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
 Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число декораций, которое ставит каждое распыление (там, где они помещаются), от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
 No symmetry	Без симметрии
@@ -2204,7 +2203,7 @@ Pathing shows the connected &areas	Проходимость: связанные 
 Check &pathing (nooks and crannies)	Проверить &проходимость (щели и закоулки)
 Search the pathing problems	Поиск проблем проходимости
 %d more problems are not in the list	Ещё %d проблем нет в списке
-A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Rectangle	На этом тайле есть декорация: исправление удалит её. Измените тайл в Местность > Прямоугольник
+A doodad is on this tile: the fix would remove it. Change the tile in Terrain > Tile	На этом тайле есть декорация: исправление удалит её. Измените тайл в Местность > Тайл
 Apply the fix: tile %d, %d gets no walkable minitile there	Исправить: в тайле %d, %d там не будет проходимых мини-тайлов
 Closed passages	Закрытые проходы
 Fix: change the tiles here so that the ground connects, or make it unwalkable	Исправление: измените здесь тайлы, чтобы земля соединилась, или сделайте её непроходимой
@@ -2633,3 +2632,4 @@ Reset all program settings	Сброс всех настроек программ
 Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	Все настройки программы получат значения по умолчанию, и StarDraft 2 перезапустится. Ваши карты, проекты и списки недавних файлов не изменятся.
 &Reset and restart	&Сбросить и перезапустить
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	Настройки программы сброшены к значениям по умолчанию. Закройте StarDraft 2 и запустите снова, чтобы их применить.
+Rectangle	Прямоугольник

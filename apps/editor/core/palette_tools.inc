@@ -30,10 +30,11 @@ int currentTool(const AppState& app) { return app.toolByMode[int(app.mode)]; }
 
 // The brush's height: its Height (GitHub #113), or when linked (0) the same as the size. A linked Diamond keeps the
 // shape of the map's diamonds (GitHub #138): 2 to 1 in pixels, as the ISOM cells: in diamonds (Isometric) its height is
-// the size; in tiles (Rectangle) half the size, rounded up.
+// the size; in tiles (Rectangle) half the size, rounded up; in ISOM rects (Solid: 2 to 1 already) the size.
+bool tilesSolidOn();  // (tiles_edit.inc)
 float brushHeightOf(const AppState& app) {
     if (app.brushHeight > 0) return app.brushHeight;
-    if (app.brushShape == Brush::Diamond && app.terrainRect) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
+    if (app.brushShape == Brush::Diamond && app.terrainRect && !tilesSolidOn()) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
     return app.brushSize;
 }
 
@@ -438,6 +439,11 @@ std::vector<StripItem> stripTools(Mode m) {
     const AppState& app = appState();
     switch (m) {
     case Mode::Terrain:
+        if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
+            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
+                    {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
+                    {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.", TSpray, false},
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).", TFill, false}};
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.", TBrush, false},
