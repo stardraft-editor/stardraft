@@ -361,7 +361,34 @@ public:
         return "isom rules: " + t->t.name + ", " + std::to_string(nulls(t->t)) + " null, " + std::to_string(holes_.size()) + " holes in the examples, " +
                std::to_string(absent_.size()) + " not in them, " + std::to_string(visibleGroups_.size()) + " rects shown, " + std::to_string(done) + " of " +
                std::to_string(total) + " rects done, " + std::to_string(borrowed) + " borrowed, " + stardraft::terrainrules::familyName(family_) +
-               (t->t.draft ? ", draft" : ", verified") + (target_ >= 0 ? ", target piece " + std::to_string(target_) : "");
+               (t->t.draft ? ", draft" : ", verified") + (target_ >= 0 ? ", target piece " + std::to_string(target_) : "") + coverage(t->t);
+    }
+    // (the snapshot's line, more: the variants of the set's and the gaps' rects with a place of their own, the fill
+    // pieces with a place, and the rects not in the examples)
+    std::string coverage(const isomrules::ModTerrain& m) const {
+        std::set<int> placed;
+        for (const Place& p : places_) placed.insert(p.piece);
+        int variants = 0, variantsPlaced = 0, fills = 0, fillsPlaced = 0;
+        for (size_t k = 0; k < m.pieces.size(); ++k) {
+            const bool fill = k >= m.setPieces && k + m.gapPieces < m.pieces.size();
+            (fill ? fills : variants) += 1;
+            if (placed.count(int(k))) (fill ? fillsPlaced : variantsPlaced) += 1;
+        }
+        std::map<uint16_t, int> fillGroups;  // (the fill's rects and their pieces)
+        for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k) ++fillGroups[m.pieces[k][0]];
+        std::string out = "; variants with a place " + std::to_string(variantsPlaced) + " of " + std::to_string(variants) + ", fill pieces with a place " +
+                          std::to_string(fillsPlaced) + " of " + std::to_string(fills) + "; fill rects:";
+        for (const auto& [g, n] : fillGroups) {
+            int at = 0;  // (its pieces with a place)
+            for (size_t k = m.setPieces; k + m.gapPieces < m.pieces.size(); ++k) at += m.pieces[k][0] == g && placed.count(int(k));
+            int places = 0;  // (its places)
+            for (const Place& p : places_) places += p.piece >= 0 && size_t(p.piece) < m.pieces.size() && m.pieces[size_t(p.piece)][0] == g;
+            out += " " + std::to_string(g) + "x" + std::to_string(n) + " (" + std::to_string(at) + " with a place, " + std::to_string(places) + " places)";
+        }
+        out += "; rects not in them:";
+        for (int k : absent_)
+            if (k >= 0 && size_t(k) < m.pieces.size()) out += " " + std::to_string(m.pieces[size_t(k)][0]) + (isomrules::anyNull(m.pieces[size_t(k)]) ? "(null)" : "");
+        return out;
     }
 
 private:
@@ -747,14 +774,24 @@ private:
         std::vector<int> holes, absent;
         std::vector<std::pair<int, int>> extra;  // (the extra spots, after a search)
         int gained = 0;                          // (the search: rects shown that were not)
-        int thinTop = -1;                        // (the map's tile row where the thin shapes start; -1: none)
         draw::Rect crop;
         std::vector<uint16_t> ids;  // (the crop's tiles, row by row; kNullId: a NULL half)
         std::unique_ptr<draw::Bitmap> picture, reference;
     };
     static constexpr uint16_t kNullId = 0xFFFF;
-    static constexpr int kHalfSpot = 10000;
-    static constexpr int kThinRow = 34;  // (the thin shapes' row: half spots 34 x 16 pixels under the middle, 3 up or down, and diamonds on its middle; 4 free tile rows under the shape's lowest spot, so the two do not join)  // (a spot of the example's shape painted with the 0.5 brush: i + kHalfSpot, on the grid of 32 x 16)
+    static constexpr int kHalfSpot = 10000;  // (a spot of the example's shape painted with the 0.5 brush: i + kHalfSpot, on the grid of 32 x 16)
+    static constexpr int kTopSpot = 20000;   // (the cliff tops' spot: i + kTopSpot, a diamond of kTopSize, on the grid of 64 x 32)
+    static constexpr int kTopSize = 5;       // (a diamond of n reaches n x 32 pixels up and down, n x 64 to the sides; inside: about 45 places of a fill rect, for 26 variants)
+    static constexpr int kThinRow = 34;  // (the thin shapes' row: half spots 34 x 16 pixels under the middle, 3 up or down, and diamonds on its middle; 4 free tile rows under the shape's lowest spot, so the two do not join)
+    static constexpr int kTopRow = 29;   // (the cliff tops' row: its diamond 29 x 32 pixels under the middle; its top 2 tile rows under the thin shapes' walls, so the two do not join)
+    // A spot's kind (0: the 1 brush, 1: the 0.5 brush, 2: the cliff tops' diamond) and its middle, from the map's middle.
+    static int spotKind(int i) { return i >= (kHalfSpot + kTopSpot) / 2 ? 2 : i >= kHalfSpot / 2 ? 1 : 0; }
+    static std::pair<int, int> spotAt(std::pair<int, int> a) {
+        const int k = spotKind(a.first);
+        return k == 2 ? std::make_pair((a.first - kTopSpot) * 64, a.second * 32) : k == 1 ? std::make_pair((a.first - kHalfSpot) * 32, a.second * 16)
+                                                                                         : std::make_pair(a.first * 64, a.second * 32);
+    }
+    static Brush spotBrush(int i) { return Brush{Brush::Diamond, spotKind(i) == 2 ? float(kTopSize) : spotKind(i) == 1 ? 0.5f : 1.0f}; }
     void rebuild() {
         const auto* t = terrain();
         std::string err;
@@ -826,7 +863,6 @@ private:
                 if (in->gen != buildGen_) return;
                 building_ = false;
                 places_ = std::move(out->places), holes_ = std::move(out->holes), absent_ = std::move(out->absent), crop_ = out->crop, ++placesRev_;
-                thinTop_ = out->thinTop;
                 ids_ = std::move(out->ids), picIds_ = ids_, idHover_ = -1;  // (a new example: the hover tag waits for the mouse)
                 visibleGroups_.clear();
                 if (const auto* t = terrain())
@@ -845,17 +881,18 @@ private:
         if (!puzzleEd_) puzzleEd_ = std::make_unique<Editor>(*in.data), puzzleEd_->setUndoLimit(1);  // (painted again and again: no undo history)
         Editor* ed = puzzleEd_.get();
         const uint16_t root = in.root;
-        constexpr int W = 40, H = 46;  // (the shape in the middle; under it, the row of the thin shapes: kThinRow)
+        constexpr int W = 40, H = 54;  // (the shape at the middle (cy); under it, the row of the thin shapes (kThinRow), then the cliff tops (kTopRow))
         if (!ed->isOpen() || ed->era() != in.era) {
             if (!ed->newMap(W, H, in.era, root, err)) return;
         }
-        const int cx = W * 16, cy = H * 16;
+        const int cx = W * 16, cy = 15 * 32;  // (the middle: room for the shape above it, the rows under it)
         // (a game terrain on its ground in a shape; the map's tiles of a part)
         auto paintGame = [&](Editor* on, uint16_t ground, uint16_t terrain, const std::vector<std::pair<int, int>>& shape) {
             on->paintBrush(cx, cy, ground, Brush{Brush::Diamond, 64.0f});
-            for (const auto& [i, j] : shape)  // (as the example: a half spot with the 0.5 brush)
-                if (i >= kHalfSpot / 2) on->paintBrush(cx + (i - kHalfSpot) * 32, cy + j * 16, terrain, Brush{Brush::Diamond, 0.5f});
-                else on->paintBrush(cx + i * 64, cy + j * 32, terrain, Brush{Brush::Diamond, 1.0f});
+            for (const auto& sp : shape) {  // (as the example: each spot with its brush)
+                const auto [x, y] = spotAt(sp);
+                on->paintBrush(cx + x, cy + y, terrain, spotBrush(sp.first));
+            }
         };
         auto pictureOf = [&](Editor* on, const draw::Rect& crop) {
             const stardraft::TerrainLayer l = stardraft::readTerrain(on->chk(), "TILE");
@@ -921,12 +958,10 @@ private:
         // (the bordering terrain all around: no other terrain in the picture; the shape, and one spot more when `more`)
         auto paintOn = [&](Editor* e, const std::pair<int, int>* more) {
             e->paintBrush(cx, cy, root, Brush{Brush::Diamond, 64.0f});
-            e->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 40.0f});
+            e->paintBrush(cx, cy, t->t.ground ? t->t.ground : 1, Brush{Brush::Diamond, 56.0f});
             auto spot = [&](std::pair<int, int> sp) {
-                if (sp.first >= kHalfSpot / 2)  // (a half spot: the 0.5 brush, on the grid of 32 x 16)
-                    e->paintBrush(cx + (sp.first - kHalfSpot) * 32, cy + sp.second * 16, t->t.id, Brush{Brush::Diamond, 0.5f});
-                else
-                    e->paintBrush(cx + sp.first * 64, cy + sp.second * 32, t->t.id, Brush{Brush::Diamond, 1.0f});
+                const auto [x, y] = spotAt(sp);
+                e->paintBrush(cx + x, cy + y, t->t.id, spotBrush(sp.first));
             };
             for (const auto& sp : shape) spot(sp);
             if (more) spot(*more);
@@ -1042,7 +1077,7 @@ private:
                     for (Spot& sp : spots) sp.bound = SIZE_MAX;
                 spots.erase(spots.begin() + best);
                 auto px = [](std::pair<int, int> a) {  // (a spot's middle in pixels: a half spot on the grid of 32 x 16)
-                    return a.first >= kHalfSpot / 2 ? std::make_pair((a.first - kHalfSpot) * 32, a.second * 16) : std::make_pair(a.first * 64, a.second * 32);
+                    return spotAt(a);
                 };
                 const auto [bx, by] = px({bi, bj});
                 for (Spot& sp : spots)  // (the spots next to it, full or half: a joint with it can show rects they did not alone; tried again)
@@ -1069,7 +1104,7 @@ private:
             auto thinSearch = [&](int jLo, int jHi, bool touching) {
                 bool gained = false;
                 auto px = [](std::pair<int, int> a) {  // (a spot's middle in pixels: a half spot on the grid of 32 x 16)
-                    return a.first >= kHalfSpot / 2 ? std::make_pair((a.first - kHalfSpot) * 32, a.second * 16) : std::make_pair(a.first * 64, a.second * 32);
+                    return spotAt(a);
                 };
                 auto nextTo = [&](std::pair<int, int> a, std::pair<int, int> b, int dx, int dy) {
                     const auto [ax, ay] = px(a);
@@ -1114,6 +1149,18 @@ private:
             // (a rect that shows only where a thin strip joins the shape's walls: a half spot in the shape, for that rect
             // alone; the puzzle has every rect)
             thinSearch(-18, 18, true);
+            // (the cliff tops: the fill's pieces (the inside's tiles, each rect with its variants) need a wide inside to
+            // each have a place: a diamond of kTopSize in a row of its own, when a fill rect has more variants than the
+            // shape's small insides hold)
+            std::map<uint16_t, int> fillVariants;
+            for (size_t k = t->t.setPieces; k + t->t.gapPieces < t->t.pieces.size(); ++k) ++fillVariants[t->t.pieces[k][0]];
+            if (std::any_of(fillVariants.begin(), fillVariants.end(), [](const auto& f) { return f.second > 2; })) {
+                shape.push_back({kTopSpot, kTopRow});
+                paint();
+                const std::map<uint16_t, int> now = shownCounts();
+                if (!std::all_of(have.begin(), have.end(), [&](uint16_t g) { return now.count(g) > 0; })) shape.pop_back();  // (a rect lost: no tops)
+                else counts = now;
+            }
             out.gained = int(have.size() - before);
             out.extra.assign(shape.begin() + long(shapeOf(in.family).size()), shape.end());
             paint();
@@ -1142,9 +1189,12 @@ private:
                             if (P[i][0] == g && n-- == 0) { k = i; break; }
                         pinnedAt.insert({tx, ty});
                     } else {
-                        std::vector<size_t> vs;  // (the rect's variants: its set's and its gaps' pieces)
+                        std::vector<size_t> vs;  // (the rect's variants: its set's and its gaps' pieces; a fill rect: its fill pieces)
                         for (size_t i = 0; i < P.size(); ++i)
                             if (P[i][0] == g && (i < t->t.setPieces || i + t->t.gapPieces >= P.size())) vs.push_back(i);
+                        if (vs.empty())
+                            for (size_t i = t->t.setPieces; i + t->t.gapPieces < P.size(); ++i)
+                                if (P[i][0] == g) vs.push_back(i);
                         if (!vs.empty()) k = vs[turn[g]++ % vs.size()];
                     }
                     chosen[{tx, ty}] = k;
@@ -1153,6 +1203,7 @@ private:
                 for (int tx = 0; tx < W; ++tx) {
                     const auto me = chosen.find({tx, ty}), up = chosen.find({tx, ty - 1});
                     if (me == chosen.end() || up == chosen.end() || pinnedAt.count({tx, ty})) continue;
+                    if (me->second >= t->t.setPieces && me->second + t->t.gapPieces < P.size()) continue;  // (a fill piece: no block, as the brush)
                     for (size_t i = 0; i < P.size(); ++i)
                         if (P[i][0] == P[me->second][0] && continues(P[up->second], P[i])) { me->second = i; break; }
                 }
@@ -1188,8 +1239,6 @@ private:
                 part.push_back(tl.tiles[size_t(y) * W + x]);
                 out.ids.push_back(nullAt[size_t(y) * W + x] ? kNullId : part.back());
             }
-        for (const Place& p : out.places)  // (the thin shapes' row: the first tile row of its places, under the free rows)
-            if (p.ty * 32 >= cy + (kThinRow - 6) * 16 && (out.thinTop < 0 || p.ty < out.thinTop)) out.thinTop = p.ty;
         progress(kStepPicture);
         out.picture = isomrules::tilesBitmap(ed->tileset(), part, x1 - x0 + 1, y1 - y0 + 1);
         addReference(shape);
@@ -2203,6 +2252,9 @@ private:
             if (k < t.t.setPieces || k + t.t.gapPieces >= t.t.pieces.size()) ++want[t.t.pieces[k][0]];
         uint32_t h = 2166136261u;
         for (const auto& [g, n] : want) h = (h ^ g) * 16777619u, h = (h ^ n) * 16777619u;
+        std::map<uint16_t, uint32_t> fill;  // (the fill's rects and their variants: the cliff tops' row comes with more than 2)
+        for (size_t k = t.t.setPieces; k + t.t.gapPieces < t.t.pieces.size(); ++k) ++fill[t.t.pieces[k][0]];
+        for (const auto& [g, n] : fill) h = (h ^ (g | 0x10000u)) * 16777619u, h = (h ^ std::min<uint32_t>(n, 3)) * 16777619u;
         h = (h ^ uint32_t(tileset_.groups.size())) * 16777619u;  // (the tileset's groups: a mod's own numbering)
         for (uint16_t g = t.t.ground, n = 0; g >= stardraft::Tileset::kModTerrainIds && n < 16; ++n) {  // (a mod ground: its own rules, down to the game's)
             const stardraft::terrainrules::Terrain* m = nullptr;
@@ -2212,7 +2264,7 @@ private:
             for (uint32_t v : {uint32_t(m->t.ground), uint32_t(m->t.standIn), uint32_t(m->t.groundTemplate), uint32_t(m->t.pieces.size())}) h = (h ^ v) * 16777619u;
             g = m->t.ground;
         }
-        return L"IsomExtra/v8-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
+        return L"IsomExtra/v9-" + std::to_wstring(era()) + L"-" + std::to_wstring(t.t.ground) + L"-" + std::to_wstring(t.t.standIn) + L"-" +
                std::to_wstring(t.t.groundTemplate) + L"-" + std::to_wstring(int(family_)) + L"-" + std::to_wstring(h);
     }
     std::map<std::wstring, std::vector<std::pair<int, int>>> extraKnown_;  // (key -> spots, this run)
@@ -2683,7 +2735,6 @@ private:
     bool jumpRow_ = false;
     std::atomic<int> buildGen_{0};  // (the newest example asked for: the worker leaves out older ones)
     draw::Rect crop_, puzzle_, palette_, strip_, check_, refRow_;
-    int thinTop_ = -1;  // (the example's tile row where the thin shapes start: BuildOut::thinTop)
     // The four columns (Terrains, Rects, Example, Tiles): their order and which show, kept in the layout settings
     // (Layout/IsomColumns: the order in 2-bit digits, the shown bits from bit 8). Each has a header; its right-click
     // menu moves or hides it (a hidden one comes back from any header's menu or the Menu button).
@@ -3059,11 +3110,6 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         const int pw = int(float(picture_->width()) * zoom_), ph = int(float(picture_->height()) * zoom_);
         c.bitmap(*picture_, {0, 0, picture_->width(), picture_->height()}, {ox, oy, ox + pw, oy + ph});
         const float ts = 32 * zoom_;
-        if (thinTop_ > crop_.top && thinTop_ < crop_.bottom) {  // (the thin shapes' row: a line over it, its name)
-            const int y = oy + int((thinTop_ - crop_.top) * ts);
-            c.fill({ox, y, ox + pw, y + scale(1)}, kBorder);
-            c.text({ox + scale(6), y + scale(2), ox + pw, y + scale(20)}, L"Thin shapes", kDim, draw::kMiddle);
-        }
         auto rectOf = [&](const Place& p) {
             const int x = ox + int((p.tx - crop_.left) * ts), y = oy + int((p.ty - crop_.top) * ts);
             return draw::Rect{x, y, x + int(2 * ts), y + int(ts)};
