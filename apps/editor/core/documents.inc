@@ -11,6 +11,7 @@ void startMark(const char* what);
 void updateTitle();
 void activateDoc(int i);
 void openMap(const std::wstring& path, bool switchToOpen = true, bool project = false);
+void protectedTerrainSync();  // (core/protected_layer.inc)
 int findOpenProject(const std::filesystem::path& folder);
 bool classicCommandInProject(int id);  // core/map_edit_commands.inc: the project's map has that classic data (L.4)
 
@@ -35,6 +36,11 @@ struct Doc {
     std::shared_ptr<MapPageCopies> mapPages;  // the map pages' working copies (map_pages.inc)
     int key = ++gDocKeys;  // the tab's own number while it is open (its place in gDocs changes): its palette panels
     Workspace workspace = Workspace::Map;  // the workspace or map page the tab was on when it went to the back: it comes back to it
+    // Its protected terrain's place (its project's file or its map's settings: core/protected_layer.inc), whether it was
+    // read from there, and the revision of the mask that is kept there.
+    std::filesystem::path protectPlace;
+    bool protectLoaded = false;
+    uint64_t protectRev = 0;
 };
 std::vector<Doc> gDocs;
 int gUntitledCount = 0;
@@ -118,6 +124,7 @@ void openProject(const std::filesystem::path& edsOrFolder) {
     openMap(pr->inputMap().wstring(), false, true);  // a tab of its own, also when the map is open by itself
     if (gDocs.size() < before || gActive < 0 || !app.ed || app.ed->path() != pr->inputMap()) return;  // the map did not open
     gDocs[size_t(gActive)].project = pr;
+    protectedTerrainSync();  // (its protected terrain, from the project: core/protected_layer.inc)
     updateTitle();
     removeRecent(gRecentMaps, pr->inputMap());  // listed as the project, not as a map
     addRecent(gRecentProjects, pr->folder());
@@ -228,6 +235,7 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     ed->onOpenStep = nullptr;
     loadingTimed(tr(L"Creating tab and minimap\x2026"), 1.0f, [&] { return addDocument(std::move(ed), true), 0; });  // (replaces the untouched startup map)
     loadingEnd();
+    if (!project) protectedTerrainSync();  // (its protected terrain, from its settings; a project's: openProject)
     addRecent(gRecentMaps, path);
     shellMapOpened(path);
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");

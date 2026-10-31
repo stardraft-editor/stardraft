@@ -28,4 +28,5 @@ bool rangeShown(int kind) { return (gRangeKinds >> kind) & 1; }
 // View > Layers (GitHub feedback #117): the map's layers that show. Locations: app.showLocations.
 struct MapLayers {
     bool terrain = true, doodads = true, sprites = true, units = true, revealers = true, creep = true;
+    bool protectedTerrain = true;  // View > Layers > Protected terrain (core/protected_layer.inc)
 } gLayers;

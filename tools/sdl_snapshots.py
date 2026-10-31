@@ -3681,6 +3681,41 @@ CASES += [
 # The map's menu over a terrain selection: Copy tile values (its 8th item) copies each selected tile, a line each with
 # its place (x, y: CV5 ...), and the status bar says how many.
 CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
+# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 9th item); then the
+# isometric brush (Solar Array) is dragged over it and around it, the fill clicks in it (nothing) and next to it, and
+# Rectangle's brush puts a tile of the Tiles list in it (nothing) and next to it. --check protect: none of the
+# protected tiles has another tile than the map file, the tiles around them do; the right click at the end shows
+# Unprotect terrain.
+SCRIPTS["protectterrain"] = """mode terrain
+key V
+drag 540,630-640,700
+rclick 590,665:8
+click 202,759
+key B
+drag 470,600-710,740
+drag 710,600-470,740
+drag 590,580-590,760
+key F
+click 590,665
+click 470,600
+rect
+click tile16
+key B
+click 590,665
+click 720,730
+"""
+# Undo and redo of Protect terrain are one step each: Ctrl+Z unprotects the tiles, Ctrl+Y protects them again, and
+# the undo step's name says so.
+SCRIPTS["protectundo"] = """mode terrain
+key V
+drag 540,630-640,700
+rclick 590,665:8
+key Ctrl+Z
+key Ctrl+Y
+"""
+CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--check", "protect", "--mode", "terrain", "--key", "V",
+                                   "--drag", "540,630-640,700", "--rclick", "590,665"], "map"),
+          ("map-protect-undo", ["--script", "{script:protectundo}", "--check", "protect"], "map")]
 # Ctrl+Alt+T: in Units mode nothing; in Terrain mode Rectangle, Custom and Isometric in turn.
 CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
@@ -4878,6 +4913,15 @@ def png_check(path):
             return None  # two colors: good
         prev = line
     return f"the picture is one flat color ({first.hex()})"
+
+CHECKS.update({
+    "map-protect-terrain": lambda o: (
+        "the protected tiles changed, or none is protected" if not re.search(r"protect: [1-9]\d* protected tiles, 0 of them changed \(yes\); [1-9]\d* other tiles changed", o)
+        else "the menu has no Unprotect terrain" if "Unprotect terrain" not in o.replace("&", "") else None),
+    "map-protect-undo": lambda o: (
+        None if re.search(r"protect: ([1-9]\d*) protected tiles, 0 of them changed \(yes\).*; undo: Protect the terrain \(\1 tiles\)", o)
+        else "Ctrl+Z and Ctrl+Y did not give back the protected tiles as one step"),
+})
 
 
 def main():

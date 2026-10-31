@@ -107,6 +107,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Layers/Units", L"Ctrl+Shift+L, U"},
         {L"View/Layers/Map revealers", L"Ctrl+Shift+L, R"},
         {L"View/Layers/Creep", L"Ctrl+Shift+L, C"},
+        {L"View/Layers/Protected terrain", L"Ctrl+Shift+L, P"},
         {L"View/Layers/Locations", L"Ctrl+Shift+L, L"},
         {L"View/Animate units", L"Ctrl+K, N"},
         {L"View/Show minimap", L"Ctrl+K, M"},

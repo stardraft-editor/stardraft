@@ -2646,3 +2646,15 @@ Add a unit…	유닛 추가…
 No unit excluded	제외된 유닛 없음
 Click to put the unit back in the picture	클릭하면 유닛이 그림에 다시 나옵니다
 Include units	포함할 유닛
+Pr&otect terrain	지형 보호(&O)
+U&nprotect terrain	지형 보호 해제(&N)
+&Protected terrain	보호된 지형(&P)
+Protected 1 tile	타일 1개를 보호했습니다
+Protected %d tiles	타일 %d개를 보호했습니다
+Unprotected 1 tile	타일 1개의 보호를 해제했습니다
+Unprotected %d tiles	타일 %d개의 보호를 해제했습니다
+Protected terrain shows	보호된 지형이 표시됩니다
+Protected terrain is hidden (View > Layers shows it again)	보호된 지형이 숨겨졌습니다 (보기 > 레이어에서 다시 표시)
+Could not save the protected terrain: 	보호된 지형을 저장할 수 없습니다: 
+Protect the terrain (%d tiles)	지형 보호 (타일 %d개)
+Unprotect the terrain (%d tiles)	지형 보호 해제 (타일 %d개)

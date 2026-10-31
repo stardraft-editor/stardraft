@@ -113,6 +113,8 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     path_ = path;
     undo_.clear();
     redo_.clear();
+    protected_.clear();  // (the editor gives a map's protected tiles after the open: setProtectedTiles)
+    protectedChanged();
     selection_.clear();
     selectLocation(-1);
     reload();
@@ -143,6 +145,8 @@ bool Editor::openChk(const Chk& chk, std::string& error) {
     path_.clear();
     undo_.clear();
     redo_.clear();
+    protected_.clear();  // (the editor gives a map's protected tiles after the open: setProtectedTiles)
+    protectedChanged();
     selection_.clear();
     selectLocation(-1);
     reload();
@@ -157,13 +161,17 @@ bool Editor::openChk(const Chk& chk, std::string& error) {
     return true;
 }
 
-bool Editor::takeScenario(const Editor& edited) {
+bool Editor::takeScenario(const Editor& edited, int shiftX, int shiftY) {
     if (!edited.open_ || &edited == this) return false;
     beginEdit();
+    const uint16_t oldW = width_, oldH = height_, oldEra = era_;
+    const std::optional<ProtectedBefore> kept = protectedBefore();
     chk_ = edited.chk_;
     selection_.clear();
     selectLocation(-1);
     reload();
+    if (era_ != oldEra) setProtectedTiles({});
+    else keepProtectedMoved(kept, oldW, oldH, shiftX, shiftY);
     commit(true);
     return true;
 }
@@ -193,6 +201,8 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     path_.clear();
     undo_.clear();
     redo_.clear();
+    protected_.clear();  // (the editor gives a map's protected tiles after the open: setProtectedTiles)
+    protectedChanged();
     selection_.clear();
     selectLocation(-1);
     reload();
@@ -424,6 +434,7 @@ void Editor::restoreFiles(const std::vector<Snapshot::File>& files) {
 void Editor::pushUndo(const Chk& chk, const std::vector<std::string>& files) {
     undo_.push_back(snapshot(chk, undo_));
     undo_.back().state = state_;
+    undo_.back().protect = protectedSnapshot(undo_.size() > 1 ? &undo_[undo_.size() - 2] : nullptr);
     undo_.back().files = fileStates(files);
     for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
@@ -493,6 +504,161 @@ void Editor::commit(bool terrain) {
     if (terrain) reloadTerrain();
 }
 
+// --- Protected terrain ---------------------------------------------------------------------------
+
+void Editor::protectedChanged() {
+    protectedCount_ = size_t(std::count(protected_.begin(), protected_.end(), uint8_t(1)));
+    if (!protectedCount_) protected_.clear();
+    protectedRevision_ = nextRevision();
+}
+
+void Editor::setProtectedTiles(std::vector<uint8_t> mask) {
+    protected_ = mask.size() == size_t(width_) * height_ ? std::move(mask) : std::vector<uint8_t>{};
+    for (uint8_t& v : protected_) v = v ? 1 : 0;
+    protectedChanged();
+}
+
+int Editor::protectTiles(const std::vector<std::pair<int, int>>& cells, bool on) {
+    if (!open_) return 0;
+    std::vector<uint8_t> mask = protected_;
+    if (mask.size() != size_t(width_) * height_) mask.assign(size_t(width_) * height_, 0);
+    int changed = 0;
+    for (auto [x, y] : cells) {
+        if (x < 0 || y < 0 || x >= int(width_) || y >= int(height_)) continue;
+        uint8_t& v = mask[size_t(y) * width_ + size_t(x)];
+        if (v != (on ? 1 : 0)) v = on ? 1 : 0, ++changed;
+    }
+    if (!changed) return 0;
+    beginEdit();
+    protected_ = std::move(mask);
+    protectedChanged();
+    commit(false);
+    return changed;
+}
+
+void Editor::shiftProtected(int oldWidth, int oldHeight, int dx, int dy) {
+    const std::vector<uint8_t> old = std::move(protected_);
+    protected_.clear();
+    if (old.size() == size_t(oldWidth) * size_t(oldHeight)) {
+        protected_.assign(size_t(width_) * height_, 0);
+        for (int y = 0; y < oldHeight; ++y)
+            for (int x = 0; x < oldWidth; ++x)
+                if (const int nx = x + dx, ny = y + dy; old[size_t(y) * oldWidth + x] && nx >= 0 && ny >= 0 && nx < int(width_) && ny < int(height_))
+                    protected_[size_t(ny) * width_ + size_t(nx)] = 1;
+    }
+    protectedChanged();
+}
+
+void Editor::keepProtectedMoved(const std::optional<ProtectedBefore>& before, int oldWidth, int oldHeight, int dx, int dy) {
+    shiftProtected(oldWidth, oldHeight, dx, dy);
+    if (!before || !protectedCount_ || before->mtxm.tiles.size() != size_t(oldWidth) * size_t(oldHeight) ||
+        before->tile.tiles.size() != before->mtxm.tiles.size())
+        return;
+    // (the tiles before, where they are now: the other tiles as they are now, restoreProtected does not write them)
+    std::optional<ProtectedBefore> moved = protectedBefore();
+    if (!moved || moved->mtxm.tiles.size() != protected_.size() || moved->tile.tiles.size() != protected_.size()) return;
+    for (int y = 0; y < oldHeight; ++y)
+        for (int x = 0; x < oldWidth; ++x)
+            if (const int nx = x + dx, ny = y + dy; nx >= 0 && ny >= 0 && nx < int(width_) && ny < int(height_)) {
+                const size_t from = size_t(y) * size_t(oldWidth) + size_t(x), to = size_t(ny) * width_ + size_t(nx);
+                moved->mtxm.tiles[to] = before->mtxm.tiles[from], moved->tile.tiles[to] = before->tile.tiles[from];
+            }
+    restoreProtected(moved, false);
+}
+
+std::shared_ptr<const std::vector<uint8_t>> Editor::protectedSnapshot(const Snapshot* prev) const {
+    if (protected_.empty()) return nullptr;
+    if (prev && prev->protect && *prev->protect == protected_) return prev->protect;
+    return std::make_shared<const std::vector<uint8_t>>(protected_);
+}
+
+void Editor::restoreProtectedSnapshot(const std::shared_ptr<const std::vector<uint8_t>>& mask) {
+    if ((mask ? *mask : std::vector<uint8_t>{}) == protected_) return;
+    protected_ = mask ? *mask : std::vector<uint8_t>{};
+    protectedChanged();
+}
+
+bool Editor::doodadOnProtected(const Doodad& d) const {
+    const DoodadType* t = protectedCount_ ? doodadTypes_.find(d.id) : nullptr;
+    if (!t) return false;
+    const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+    for (int y = ty; y < ty + int(t->height); ++y)
+        for (int x = tx; x < tx + int(t->width); ++x)
+            if (tileProtected(x, y)) return true;
+    return false;
+}
+
+bool Editor::protectedNear(int x0, int y0, int x1, int y1, int margin) const {
+    if (!protectedCount_ || protected_.size() != size_t(width_) * height_) return false;
+    // (grid corners to tiles: corner x is 2 tiles across, corner y 1 tile down; a corner touches the rects x - 1 to x)
+    const int tx0 = std::max(0, (x0 - margin - 1) * 2), tx1 = std::min(int(width_) - 1, (x1 + margin) * 2 + 1);
+    const int ty0 = std::max(0, y0 - margin - 1), ty1 = std::min(int(height_) - 1, y1 + margin);
+    for (int ty = ty0; ty <= ty1; ++ty)
+        for (int tx = tx0; tx <= tx1; ++tx)
+            if (protected_[size_t(ty) * width_ + size_t(tx)]) return true;
+    return false;
+}
+
+int Editor::pinProtected(std::vector<CornerValue>& corners, int margin) const {
+    if (corners.empty() || !protectedCount_) return -1;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    if (!protectedNear(x0, y0, x1, y1, margin)) return -1;
+    std::erase_if(corners, [&](const CornerValue& c) { return cornerProtected(c.x, c.y); });
+    const int kept = int(corners.size());
+    std::set<std::pair<int, int>> pinned;
+    const IsomTerrainTable* table = modTable_ ? modTable_.get() : IsomTerrainTable::forEra(era_);
+    for (int ry = std::max(0, y0 - margin - 1); ry <= std::min(isom_.rectRows() - 1, y1 + margin); ++ry)
+        for (int rx = std::max(0, x0 - margin - 1); rx <= std::min(isom_.rectCols() - 1, x1 + margin); ++rx)
+            if (rectProtected(rx, ry))
+                for (int cy = ry; cy <= ry + 1; ++cy)
+                    for (int cx = rx; cx <= rx + 1; ++cx)
+                        if (const uint16_t t = isom_.terrainAt(cx, cy); isom_.isCorner(cx, cy) && (!table || table->isTerrain(t)) &&
+                                                                         pinned.insert({cx, cy}).second)
+                            corners.push_back({cx, cy, t});
+    return kept;
+}
+
+std::optional<Editor::ProtectedBefore> Editor::protectedBefore() const {
+    if (!protectedCount_) return std::nullopt;
+    ProtectedBefore b;
+    b.mtxm = readTerrain(chk_, "MTXM");
+    b.tile = chk_.has("TILE") ? readTerrain(chk_, "TILE") : b.mtxm;
+    return b;
+}
+
+bool Editor::restoreProtected(const std::optional<ProtectedBefore>& before, bool doodads) {
+    if (!before || protected_.size() != size_t(width_) * height_) return false;
+    TerrainLayer mtxm = readTerrain(chk_, "MTXM"), tile = chk_.has("TILE") ? readTerrain(chk_, "TILE") : mtxm;
+    const size_t n = protected_.size();
+    if (mtxm.tiles.size() != n || tile.tiles.size() != n || before->mtxm.tiles.size() != n || before->tile.tiles.size() != n) return false;
+    // (and every tile of a doodad on protected tiles: the doodad stays whole, so the edit does not take it away and put
+    // the terrain under it on the protected tiles)
+    std::vector<uint8_t> keep = protected_;
+    for (const Doodad& d : doodads ? doodads_ : std::vector<Doodad>{}) {
+        if (!doodadOnProtected(d)) continue;
+        const DoodadType* t = doodadTypes_.find(d.id);
+        const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+        for (int y = std::max(0, ty); y < std::min(int(height_), ty + int(t->height)); ++y)
+            for (int x = std::max(0, tx); x < std::min(int(width_), tx + int(t->width)); ++x) keep[size_t(y) * width_ + size_t(x)] = 1;
+    }
+    bool back = false, tileBack = false;
+    for (size_t i = 0; i < n; ++i) {
+        if (!keep[i]) continue;
+        if (mtxm.tiles[i] != before->mtxm.tiles[i]) mtxm.tiles[i] = before->mtxm.tiles[i], back = true;
+        if (tile.tiles[i] != before->tile.tiles[i]) tile.tiles[i] = before->tile.tiles[i], tileBack = true;
+    }
+    auto pack = [](const TerrainLayer& t) {
+        Bytes out;
+        out.reserve(t.tiles.size() * 2);
+        for (uint16_t v : t.tiles) appendU16(out, v);
+        return out;
+    };
+    if (back) chk_.set("MTXM", pack(mtxm));
+    if (tileBack && chk_.has("TILE")) chk_.set("TILE", pack(tile));
+    return back || tileBack;
+}
+
 // After an undo or redo: the units that were selected stay selected where they are now (by their serial; a unit that
 // is not on the map now is no longer selected), so a selection never points to another unit.
 std::vector<int> Editor::selectionAfterRestore(const std::vector<Unit>& before) const {
@@ -522,11 +688,13 @@ void Editor::undoOne() {
     lastRedo_.clear();
     redo_.push_back(snapshot(chk_, redo_));
     redo_.back().state = state_;
+    redo_.back().protect = protectedSnapshot(redo_.size() > 1 ? &redo_[redo_.size() - 2] : nullptr);
     redo_.back().files = fileStates(undo_.back().files);
     for (const auto& f : redo_.back().files) redo_.back().ownBytes += f.data.size();
     restoreFiles(undo_.back().files);
     chk_ = restore(undo_.back());
     state_ = undo_.back().state;
+    restoreProtectedSnapshot(undo_.back().protect);
     undoBytes_ -= std::min(undoBytes_, undo_.back().ownBytes);
     undo_.pop_back();
 }
@@ -544,12 +712,14 @@ void Editor::redoOne() {
     lastRedo_.clear();
     undo_.push_back(snapshot(chk_, undo_));
     undo_.back().state = state_;
+    undo_.back().protect = protectedSnapshot(undo_.size() > 1 ? &undo_[undo_.size() - 2] : nullptr);
     undo_.back().files = fileStates(redo_.back().files);
     for (const auto& f : undo_.back().files) undo_.back().ownBytes += f.data.size();
     undoBytes_ += undo_.back().ownBytes;
     restoreFiles(redo_.back().files);
     chk_ = restore(redo_.back());
     state_ = redo_.back().state;
+    restoreProtectedSnapshot(redo_.back().protect);
     redo_.pop_back();
 }
 
@@ -584,6 +754,10 @@ uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
 
 void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (!isomOk_) return;
+    if (protectedCount_) {  // (the corner path keeps the protected tiles: applyTerrain)
+        paintBrush(px, py, terrain, Brush{Brush::Diamond, float(std::max(1, brushSize))});
+        return;
+    }
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
     terrain = brushTerrain(px, py, terrain);
@@ -1237,6 +1411,7 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    const std::optional<ProtectedBefore> kept = protectedBefore();
     // (The core makes the tiles of each diamond it paints again, also where its terrain does not change: the tiles
     // placed in Rectangle mode there are replaced as StarEdit replaces them, GitHub #143.)
     if (!paint()) return false;
@@ -1245,6 +1420,7 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
     if (core_.untileable()) return repair();
     core_.store(chk_);
     if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
+    restoreProtected(kept);
     if (!isom_.load(chk_, err)) isomOk_ = false;  // (the core writes a full ISOM: this does not fail)
     commit(true);
     // The core does not check doodads: a doodad stays, with its tiles, while the terrain under it still fits it.
@@ -1498,8 +1674,18 @@ bool Editor::retileFromIsom(int tx0, int ty0, int tx1, int ty1) {
     return readTerrain(chk_, "TILE").tiles != before.tiles;
 }
 
-bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlaced) {
-    if (!isomOk_ || corners.empty()) return false;
+bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced) {
+    if (!isomOk_ || asked.empty()) return false;
+    // Protected tiles near the edit: their rects' corners stay as they are (the old engine locks them, and the repair
+    // fits the terrain around them); the edit's corners on them go.
+    std::vector<CornerValue> corners = asked;
+    if (const int kept = pinProtected(corners, kProtectMargin); kept >= 0) {
+        if (!kept) return false;
+        int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+        for (size_t i = 0; i < size_t(kept); ++i)
+            x0 = std::min(x0, corners[i].x), y0 = std::min(y0, corners[i].y), x1 = std::max(x1, corners[i].x), y1 = std::max(y1, corners[i].y);
+        return applyOld(corners, x0, y0, x1, y1, overPlaced, size_t(kept));
+    }
     // The repair around an edit stays within a few tiles of it.
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
@@ -1522,15 +1708,18 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& corners, bool overPlac
     return applyOld(corners, x0, y0, x1, y1, overPlaced);
 }
 
-bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced) {
+bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced, size_t own) {
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    const std::optional<ProtectedBefore> kept = protectedBefore();
     if (!isom_.apply(corners)) return false;
-    if (overPlaced) markPlacedTilesDirty(corners);
+    if (overPlaced)  // (the edit's own corners: not the protected ones it keeps)
+        markPlacedTilesDirty(own < corners.size() ? std::vector<CornerValue>(corners.begin(), corners.begin() + long(own)) : corners);
     std::string err;
     isom_.store(chk_, err);
     if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
+    restoreProtected(kept);
     commit(true);
     pruneDoodads(intact, &before);
     pruneUnits(watch);
@@ -1545,7 +1734,7 @@ void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
             for (int rx = c.x - 1; rx <= c.x; ++rx)
                 if (rx >= 0 && ry >= 0 && rx * 2 < int(width_) && ry < int(height_)) rects.insert({rx, ry});
     for (auto [rx, ry] : rects)
-        for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
+        for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_) && !rectProtected(rx, ry); ++tx)
             if (!isom_.tileFromIsom(chk_, tiles, tx, ry)) {
                 isom_.markRectDirty(rx, ry);
                 break;
@@ -1636,14 +1825,18 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
     bool ok;
     // The brush's tiles replace the tiles placed in Rectangle mode where it paints (GitHub #143): overPlaced.
     // StarEdit's own brush (a diamond of whole diamonds, as wide as high): the terrain core paints it as StarEdit does.
-    if (useCore() && brush.starEdit()) {
-        ok = applyCoreBrush(px, py, terrain, int(brush.size));
-    } else {
-        std::vector<CornerValue> corners;
-        for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
-            for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
-        ok = applyTerrain(corners, true);
+    // Near protected tiles: the corner path, which keeps them (applyTerrain).
+    std::vector<CornerValue> corners;
+    for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
+        for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) corners.push_back({cx, cy, terrain});
+    bool nearProtected = false;
+    if (protectedCount_ && !corners.empty()) {
+        int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+        for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+        nearProtected = protectedNear(x0, y0, x1, y1, kProtectMargin);
     }
+    if (useCore() && brush.starEdit() && !nearProtected) ok = applyCoreBrush(px, py, terrain, int(brush.size));
+    else ok = applyTerrain(corners, true);
     if (own) endTerrainStroke();
     return ok;
 }
@@ -1695,6 +1888,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         while (top > 0 && stacked(rx * 2, top)) --top;
         if (!done.insert({rx, top}).second) continue;
         const TileGroup* g = group(rx * 2, top);
+        if (rectProtected(rx, top)) continue;  // (a protected stack top: the stack keeps its variant)
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
         if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
         if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
@@ -1713,6 +1907,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
                 if ((tx != rx * 2 || ty != top) && !isom_.tileFromIsom(chk_, tile, tx, ty)) continue;  // placed tiles stay
                 size_t i = size_t(ty) * w + tx;
                 if ((mtxm.tiles[i] >> 4) >= 1024) continue;  // under a doodad: the doodad's tile stays
+                if (tileProtected(tx, ty)) continue;
                 uint16_t v = uint16_t((tile.tiles[i] & 0xFFF0) | sub);
                 if (tile.tiles[i] != v) tile.tiles[i] = mtxm.tiles[i] = v, ++changed;
             }
@@ -1784,6 +1979,7 @@ int Editor::placeTileValues(const std::vector<TileAt>& cells) {
     for (const TileAt& c : cells) {
         if (c.x < 0 || c.y < 0 || c.x >= int(width_) || c.y >= int(height_)) continue;
         if (!tileset_.groupFor(c.value) || tileset_.megatileFor(c.value) < 0) continue;
+        if (tileProtected(c.x, c.y)) continue;
         const size_t i = size_t(c.y) * width_ + c.x;
         if (mtxm.tiles[i] == c.value && tile.tiles[i] == c.value) continue;
         todo.push_back({i, c.value});
@@ -1862,6 +2058,11 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
 
 bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     if (!isomOk_) return false;
+    if (protectedCount_) {  // (a fill that starts on protected terrain: nothing)
+        int cx, cy;
+        isom_.cornerAtPixel(px, py, cx, cy);
+        if (cornerProtected(cx, cy)) return false;
+    }
     terrain = brushTerrain(px, py, terrain);
     std::vector<CornerValue> corners;
     for (auto [x, y] : symmetricPoints(px, py))
@@ -2008,12 +2209,19 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
             if (!((x + y) & 1)) ++x;  // corners have x + y odd; a flip can break that
             corners.push_back({x, y, c.terrain});
         }
+    // Protected tiles: their rects' corners stay (applyTerrain), and they keep their tiles.
+    if (pinProtected(corners, kProtectMargin) == 0) {
+        if (!inStroke_) dropLastUndo();  // nothing to paste: all of it is on protected tiles (a stroke keeps its step)
+        return false;
+    }
+    const std::optional<ProtectedBefore> kept = protectedBefore();
     if (!isom_.apply(corners)) {
-        dropLastUndo();  // nothing changed
+        if (!inStroke_) dropLastUndo();  // nothing changed (a stroke keeps its step)
         return false;
     }
     std::string err;
     isom_.store(chk_, err);
+    restoreProtected(kept);
     // Doodads and units after the terrain (tile regeneration rewrites MTXM).
     for (size_t k = 0; k < origins.size(); ++k) {
         const int opx = origins[k].first * 64, opy = origins[k].second * 32;
@@ -2022,7 +2230,10 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
                 int cx = opx + int16_t(d.x), cy = opy + int16_t(d.y);
                 int tx, ty;
                 doodadOrigin(*t, cx, cy, tx, ty);
-                stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, d.owner, false);
+                bool onProtected = false;  // (a doodad's tiles go into MTXM: not over protected tiles)
+                for (int y = ty; y < ty + int(t->height) && !onProtected; ++y)
+                    for (int x = tx; x < tx + int(t->width) && !onProtected; ++x) onProtected = tileProtected(x, y);
+                if (!onProtected) stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, d.owner, false);
             }
     }
     reloadTerrain();  // the unit check reads terrain_; the store and the doodads changed MTXM
@@ -2163,6 +2374,8 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
             }
     const std::vector<Doodad> oldDoodads = doodads_;
     const bool keepDoodads = era == era_;  // before reload() changes era_
+    const int oldWidth = width_, oldHeight = height_;
+    const std::optional<ProtectedBefore> kept = protectedBefore();
     std::vector<MapSprite> sprites;  // the sprites that are not doodads' (the doodads bring theirs again)
     for (const MapSprite& s : sprites_) {
         bool overlay = false;
@@ -2241,6 +2454,9 @@ bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX
     selection_.clear();
     selectLocation(-1);
     reload();
+    // The protected tiles move with the terrain; a new tileset has other tiles: none stays protected.
+    if (keepDoodads) keepProtectedMoved(kept, oldWidth, oldHeight, dx * 2, dy);
+    else setProtectedTiles({});
     commit(true);
     return true;
 }
@@ -3077,15 +3293,62 @@ bool Editor::copyTerrain(const Chk& from, std::string& error) {
         return false;
     };
     std::vector<MapSprite> sprites;
-    const std::vector<Doodad> ours = readDoodads(chk_), theirs = readDoodads(from);
+    const bool sameTileset = readEra(from) == era_;
+    std::vector<Doodad> ours = readDoodads(chk_), theirs = readDoodads(from), gone;
+    // Protected terrain (the same tileset): this map's doodads on protected tiles stay (with their tiles and overlays);
+    // the other map's doodads on those tiles do not come, and their tiles outside them are the terrain under them (TILE).
+    std::vector<Doodad> stay;
+    std::vector<uint8_t> taken(size_t(width_) * height_, 0);  // (the protected tiles and the tiles of the doodads that stay)
+    auto footprint = [&](const Doodad& d, const std::function<void(int, int)>& each) {
+        if (const DoodadType* t = doodadTypes_.find(d.id)) {
+            const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+            for (int y = std::max(0, ty); y < std::min(int(height_), ty + int(t->height)); ++y)
+                for (int x = std::max(0, tx); x < std::min(int(width_), tx + int(t->width)); ++x) each(x, y);
+        }
+    };
+    if (sameTileset && protectedCount_) {
+        for (int y = 0; y < height_; ++y)
+            for (int x = 0; x < width_; ++x) taken[size_t(y) * width_ + size_t(x)] = tileProtected(x, y);
+        for (const Doodad& d : ours)
+            if (doodadOnProtected(d)) stay.push_back(d), footprint(d, [&](int x, int y) { taken[size_t(y) * width_ + size_t(x)] = 1; });
+        // (and, in turn, those that share tiles with one that does not come: ramp pieces share their empty corners, and
+        // the reset of a dropped doodad's tiles below would take the other one's)
+        for (size_t before = SIZE_MAX; before != theirs.size();) {
+            before = theirs.size();
+            std::erase_if(theirs, [&](const Doodad& d) {
+                bool on = false;
+                footprint(d, [&](int x, int y) { on = on || taken[size_t(y) * width_ + size_t(x)]; });
+                if (on) gone.push_back(d), footprint(d, [&](int x, int y) { taken[size_t(y) * width_ + size_t(x)] = 1; });
+                return on;
+            });
+        }
+    }
     for (const MapSprite& s : readSprites(chk_))
-        if (!overlay(s, ours)) sprites.push_back(s);
+        if (!overlay(s, ours) || overlay(s, stay)) sprites.push_back(s);
     for (const MapSprite& s : readSprites(from))
         if (overlay(s, theirs)) sprites.push_back(s);
     writeSprites(chk_, sprites);
-    copySections(chk_, from, {"ERA ", "MTXM", "TILE", "ISOM", "DD2 "});
+    const std::optional<ProtectedBefore> kept = sameTileset ? protectedBefore() : std::nullopt;
+    copySections(chk_, from, {"ERA ", "MTXM", "TILE", "ISOM"});
+    if (!gone.empty()) {  // (their tiles off the map: the terrain under them)
+        TerrainLayer mtxm = readTerrain(chk_, "MTXM");
+        const TerrainLayer tile = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        for (const Doodad& d : gone)
+            footprint(d, [&](int x, int y) {
+                if (const size_t i = size_t(y) * width_ + size_t(x); i < mtxm.tiles.size() && i < tile.tiles.size()) mtxm.tiles[i] = tile.tiles[i];
+            });
+        Bytes packed;
+        for (uint16_t v : mtxm.tiles) appendU16(packed, v);
+        chk_.set("MTXM", std::move(packed));
+    }
+    theirs.insert(theirs.end(), stay.begin(), stay.end());
+    writeDoodads(chk_, theirs);
+    // (another tileset: the protected tiles' values mean other tiles there; the doodads_ that stay keep all their tiles)
+    doodads_ = stay;
+    restoreProtected(kept, true);
     reload();
     pushUndo(before);
+    if (!kept) setProtectedTiles({});
     commit(true);
     return true;
 }
@@ -3118,6 +3381,9 @@ int Editor::decorate(const std::vector<uint16_t>& ids, Rect area, int spacingTil
         mark(blocked, (u.x - hx) / 32, (u.y - hy) / 32, (u.x + hx + 31) / 32, (u.y + hy + 31) / 32);
     }
     for (const Rect& r : avoid) mark(blocked, r.left / 32, r.top / 32, (r.right + 31) / 32, (r.bottom + 31) / 32);
+    for (int y = 0; protectedCount_ && y < h; ++y)  // (protected terrain: its tiles stay)
+        for (int x = 0; x < w; ++x)
+            if (tileProtected(x, y)) blocked[size_t(y) * w + size_t(x)] = 1;
     auto markDoodad = [&](const Doodad& d) {
         if (const DoodadType* o = doodadTypes_.find(d.id)) {
             const int ox = (d.x - o->width * 16) / 32, oy = (d.y - o->height * 16) / 32;

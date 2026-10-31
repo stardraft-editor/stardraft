@@ -115,6 +115,10 @@ public:
     // [project]; not written to the .eds). Call save() to keep a change.
     std::vector<uint16_t> doodadPins() const;
     void setDoodadPins(const std::vector<uint16_t>& ids);
+    // The map's protected terrain (Editor::protectedTiles), as the editor writes it ("protectedterrain: ..." in
+    // [project]; not written to the .eds; empty: none). Call save() to keep a change.
+    std::string protectedTerrain() const;
+    void setProtectedTerrain(const std::string& value);
     // Whether a preplaced unit stays in the map (with the old graphics), by what the map's UNIT section says of it: a unit
     // in a transport (in transit, not a building), and a unit linked to an add-on or a Nydus Canal. `building`: its
     // type is a building (a lifted building is in transit too, and the code makes it).

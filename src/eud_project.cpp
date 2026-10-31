@@ -189,7 +189,7 @@ std::string EudProject::text(bool eds) const {
                 o << "input: " << generic(buildMap().lexically_relative(folder())) << "\r\n";
                 continue;
             }
-            if (eds && i == 0 && splitLine(l, k, v) && (k == "debug" || k == "trace" || k == "remake" || k == "doodadpins")) continue;  // StarDraft's own settings: not for euddraft
+            if (eds && i == 0 && splitLine(l, k, v) && (k == "debug" || k == "trace" || k == "remake" || k == "doodadpins" || k == "protectedterrain")) continue;  // StarDraft's own settings: not for euddraft
             o << l << "\r\n";
         }
         // A trace build: euddraft's debug mode (any "debug" key turns it on, so it is written only when on).
@@ -449,6 +449,15 @@ void EudProject::setDoodadPins(const std::vector<uint16_t>& ids) {
     std::string line = "doodadpins: ";
     for (size_t i = 0; i < ids.size(); ++i) line += (i ? "," : "") + std::to_string(ids[i]);
     lines.push_back(line);
+}
+
+std::string EudProject::protectedTerrain() const { return mainValue("protectedterrain"); }
+void EudProject::setProtectedTerrain(const std::string& value) {
+    if (sections_.empty()) return;
+    auto& lines = sections_.front().lines;
+    std::string k, v;
+    lines.erase(std::remove_if(lines.begin(), lines.end(), [&](const std::string& l) { return splitLine(l, k, v) && k == "protectedterrain"; }), lines.end());
+    if (!value.empty()) lines.push_back("protectedterrain: " + value);
 }
 
 bool EudProject::remakeKeeps(const Unit& u, bool building) {
