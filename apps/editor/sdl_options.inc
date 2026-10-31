@@ -180,7 +180,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART || id == ID_OPT_RESETALL ||
-           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_ASKSTARTLOC || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_ASKSTARTLOC || id == ID_OPT_MANYSTARTS || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -207,6 +207,12 @@ bool sdlOptionsCommand(int id) {
         prefs::flag(L"AskStartLocations", flag);
         prefs::setNumber(L"AskStartLocations", flag ? 0 : 1);
         setMessage(!flag ? L"A save asks about missing start locations" : L"A save does not ask about missing start locations");
+        break;
+    case ID_OPT_MANYSTARTS:
+        prefs::flag(L"ManyStartLocations", flag);
+        prefs::setNumber(L"ManyStartLocations", flag ? 0 : 1);
+        applyManyStartLocations();
+        setMessage(!flag ? L"A player can have many start locations" : L"A player has one start location: a new one moves it");
         break;
     case ID_OPT_LASTPROJECT:
         prefs::flag(L"OpenLastProject", flag);
@@ -267,6 +273,8 @@ public:
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
         flag = true;
         prefs::flag(L"AskStartLocations", flag), v.askStartLocations = flag;
+        flag = false;
+        prefs::flag(L"ManyStartLocations", flag), v.manyStartLocations = flag;
         v.gameMode = cmbwMode() ? 1 : 0;
         flag = true;
         prefs::flag(L"CheckUpdates", flag), v.checkUpdates = flag;

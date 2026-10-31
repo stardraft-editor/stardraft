@@ -31,6 +31,7 @@ struct OptionsValues {
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
+    bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
     int gameMode = 0;         // Plugins > Cosmonarchy BW: 0 not loaded, 1 loaded (core/cmbw.inc cmbwMode)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
@@ -133,6 +134,9 @@ public:
         askStart_.setLabel(L"Ask about missing start locations");
         askStart_.setTip(L"Before a save: a map that StarCraft will not start (players without start locations) asks to place them");
         askStart_.onChange = [this](bool) { host_.command(ID_OPT_ASKSTARTLOC); };
+        manyStarts_.setLabel(L"Many start locations for each player");
+        manyStarts_.setTip(L"Off: a new start location for a player moves the start location that the player has");
+        manyStarts_.onChange = [this](bool) { host_.command(ID_OPT_MANYSTARTS); };
         // Plugins: Cosmonarchy BW, loaded or not (Game Standard or Cosmonarchy: ID_GAME_MODE + 0 or 1, core/cmbw.inc gameMode)
         cmbwPlugin_.setLabel(L"Cosmonarchy BW (CMBW)");
         cmbwPlugin_.onChange = [this](bool on) { host_.command(ID_GAME_MODE + (on ? 1 : 0)); };
@@ -145,7 +149,7 @@ public:
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -407,7 +411,7 @@ private:
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
     stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, askStart_, cmbwPlugin_, override_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
@@ -461,7 +465,7 @@ void OptionsView::sync(const OptionsValues& v) {
     cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
     accents_ = v.accents;
-    lastProject_.setOn(v.openLast), askStart_.setOn(v.askStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
+    lastProject_.setOn(v.openLast), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
     if (langChoices_.size() != v.languages.size() || !std::equal(langChoices_.begin(), langChoices_.end(), v.languages.begin(), [](int a, const auto& b) {
             return a == b.first;
@@ -690,6 +694,9 @@ void OptionsView::paint(draw::Canvas& c) {
         }
         note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
         y += scale(20) + pad;
+        header(L"Placing units");
+        checkRow(y, manyStarts_, "manystartlocations");
+        y += rowH + pad;
         header(L"Saving maps");
         checkRow(y, askStart_, "askstartlocations");
         y += rowH + pad;

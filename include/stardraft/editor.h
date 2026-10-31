@@ -288,6 +288,10 @@ public:
     // Town halls and resources keep 3 tiles apart (PlacementContext::resourceDistance) for every placement check.
     void setResourceDistance(bool keep) { resourceDistance_ = keep; }
     bool resourceDistance() const { return resourceDistance_; }
+    // More than one start location for each player (the default value; the editor's Program options set it, off there).
+    // Off: placing a start location for a player that has one moves that one to the new spot, as StarEdit does.
+    void setManyStartLocations(bool many) { manyStartLocations_ = many; }
+    bool manyStartLocations() const { return manyStartLocations_; }
     bool allowIllegalUnits() const { return allowIllegalUnits_; }
     // Units removed by terrain edits since the last call.
     int takeUnitsRemovedByTerrain() { return std::exchange(removedByTerrain_, 0); }
@@ -767,6 +771,7 @@ private:
     int unitLimit_ = 0;
     bool allowStacking_ = false;
     bool resourceDistance_ = true;
+    bool manyStartLocations_ = true;
     int doodadsRemovedByTerrain_ = 0;
     // Per doodad: are all its tiles still in MTXM?
     std::vector<uint8_t> doodadsIntact() const;

@@ -633,7 +633,8 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             uint16_t ux = uint16_t(std::clamp(int(wx), 0, ed.width() * 32 - 1)), uy = uint16_t(std::clamp(int(wy), 0, ed.height() * 32 - 1));
             snapToGrid(t, ux, uy);
             bool moved = r.unit.x != ux || r.unit.y != uy;
-            setMessage(app, L"Placed " + widen(t.name) + (moved ? L" (moved to the nearest valid spot)" : L""));
+            setMessage(app, (r.movedStart ? tr(L"Moved the start location of Player ") + std::to_wstring(who + 1) : L"Placed " + widen(t.name)) +
+                                (moved ? L" (moved to the nearest valid spot)" : L""));
         } else {
             std::wstring why;
             for (auto is : r.issues) why += L" " + widen(placementIssueName(is));

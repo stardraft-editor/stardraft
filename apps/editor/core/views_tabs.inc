@@ -84,6 +84,21 @@ void stashActive() {
     panelsStash();  // (its active panel keeps its state for when the tab is back: panel_state.inc)
     d.ed = std::move(app.ed);
 }
+// Program options > Placing units > Many start locations for each player (ManyStartLocations; off: a player's new start
+// location moves the one that the player has).
+bool manyStartLocations() {
+    bool many = false;
+    if (!gSelfTest && !gSettingsOff) prefs::flag(L"ManyStartLocations", many);
+    return many;
+}
+// The setting changed: every open map follows.
+void applyManyStartLocations() {
+    const bool many = manyStartLocations();
+    for (auto& d : gDocs)
+        if (d.ed) d.ed->setManyStartLocations(many);
+    if (shellState().ed) shellState().ed->setManyStartLocations(many);
+}
+
 // Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
 void showActive() {
     AppState& app = shellState();
@@ -91,6 +106,7 @@ void showActive() {
     app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
     app.ed->setAllowStacking(app.allowStacking);
     app.ed->setResourceDistance(app.resourceDistance);
+    app.ed->setManyStartLocations(manyStartLocations());
     setBuildingSnap(app.snapBuildings);  // Options > Units > Snap buildings to tile edges
     app.terrainRev = 0;
     shellRendererSources();  // the host's renderer shows this editor's sources (quality, sprites, tileset)

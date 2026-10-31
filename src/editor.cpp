@@ -2583,6 +2583,15 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
         return r;
     }
     const UnitType& t = types_[type];
+    // One start location for each player (setManyStartLocations off): the player's start location moves to the new spot.
+    // It does not block its new spot, and the symmetry makes no copies (they would move it again).
+    const bool oneStart = type == 214 /* Start Location */ && !manyStartLocations_;
+    int oldStart = -1;
+    for (int i = 0; oneStart && oldStart < 0 && i < int(units_.size()); ++i)
+        if (units_[size_t(i)].type == type && units_[size_t(i)].owner == owner) oldStart = i;
+    std::vector<Unit> others;
+    if (oldStart >= 0) others = units_, others.erase(others.begin() + oldStart);
+    const std::vector<Unit>* against = oldStart >= 0 ? &others : nullptr;
     uint16_t ux = uint16_t(std::clamp(x, 0, width_ * 32 - 1)), uy = uint16_t(std::clamp(y, 0, height_ * 32 - 1));
     snapToGrid(t, ux, uy);
     // A Terran add-on near its building (same owner, no add-on yet) goes on it, linked to it (GitHub #129).
@@ -2603,10 +2612,10 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
     }
     r.unit = makeUnit(t, owner, ux, uy);
     r.unit.serial = nextFreeSerial(units_);
-    if (!allowIllegalUnits_) r.issues = checkPlacement(placementContext(), r.unit);
+    if (!allowIllegalUnits_) r.issues = checkPlacement(placementContext(against), r.unit);
     if (!r.issues.empty()) {
         if (!correct) return r;
-        auto p = findValidPosition(r.unit);
+        auto p = findValidPosition(r.unit, 320, against);
         if (!p) return r;  // nowhere valid nearby: refuse with the original issues
         r.unit.x = p->first, r.unit.y = p->second;
         parent = -1;  // moved off the building's add-on spot: not linked
@@ -2617,12 +2626,13 @@ PlaceResult Editor::placeUnit(uint16_t type, uint8_t owner, int x, int y, bool c
         r.unit.links |= UnitLink::Addon, r.unit.relatedSerial = b.serial;
         b.links |= UnitLink::Addon, b.relatedSerial = r.unit.serial;
     }
+    if (oldStart >= 0) units_.erase(units_.begin() + oldStart), r.movedStart = true;
     units_.push_back(r.unit);
     r.index = int(units_.size()) - 1;
     r.placed = true;
     selection_ = {r.index};
     // Mirror images (symmetry), each corrected or skipped if there is no valid spot.
-    auto pts = symmetricPoints(x, y);
+    auto pts = oneStart ? std::vector<std::pair<int, int>>{} : symmetricPoints(x, y);
     for (size_t k = 1; k < pts.size(); ++k) {
         if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
         uint16_t mx = uint16_t(std::clamp(pts[k].first, 0, width_ * 32 - 1)), my = uint16_t(std::clamp(pts[k].second, 0, height_ * 32 - 1));
