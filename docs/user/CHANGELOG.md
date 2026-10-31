@@ -2,7 +2,7 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
-## 0.8.1.1
+## 0.8.1
 
 ### Map
 

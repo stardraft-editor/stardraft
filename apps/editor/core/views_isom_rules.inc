@@ -244,7 +244,6 @@ public:
         minePick_.setItems({{L"All Tile Groups"}, {L"This Terrain's Groups"}}), minePick_.setValue(0);
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
-        loadColumns();
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
                                                                &sideBar_, &newTerrain_, &ground_, &palBar_, &minePick_, &pairPick_})
             add(*v, {0, 0, 0, 0});
@@ -276,6 +275,7 @@ public:
     void open() {
         const AppState& app = shellState();
         title_.clear(), copyAsked_ = false;  // (a new window: its title is set again; the copy question once)
+        loadColumns();  // (here, not when the view is made: the program's settings are not read yet then)
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
         if (!doc_.tilesets.empty()) return rebuild();
