@@ -385,6 +385,23 @@ public:
             for (const Place& p : places_) places += p.piece >= 0 && size_t(p.piece) < m.pieces.size() && m.pieces[size_t(p.piece)][0] == g;
             out += " " + std::to_string(g) + "x" + std::to_string(n) + " (" + std::to_string(at) + " with a place, " + std::to_string(places) + " places)";
         }
+        out += "; rects with fewer places than variants:";
+        {
+            std::map<uint16_t, int> variantsOf, placesOf;
+            for (size_t k = 0; k < m.pieces.size(); ++k)
+                if (k < m.setPieces || k + m.gapPieces >= m.pieces.size()) ++variantsOf[m.pieces[k][0]];
+            for (const Place& p : places_)
+                if (p.piece >= 0 && size_t(p.piece) < m.pieces.size()) ++placesOf[m.pieces[size_t(p.piece)][0]];
+            for (const auto& [g, n] : variantsOf)
+                if (placesOf[g] > 0 && placesOf[g] < n) out += " " + std::to_string(g) + "(" + std::to_string(placesOf[g]) + "/" + std::to_string(n) + ")";
+        }
+        out += "; variants with no place:";
+        for (size_t k = 0; k < m.pieces.size(); ++k) {
+            if (!(k < m.setPieces || k + m.gapPieces >= m.pieces.size()) || placed.count(int(k)) || isomrules::anyNull(m.pieces[k])) continue;
+            bool led = false;  // (a piece of the set whose tiles one row down are this one's)
+            for (size_t i = 0; i < m.pieces.size() && !led; ++i) led = i != k && continues(m.pieces[i], m.pieces[k]);
+            out += " " + std::to_string(k) + "(rect " + std::to_string(m.pieces[k][0]) + (led ? ", led" : ", top") + ")";
+        }
         out += "; rects not in them:";
         for (int k : absent_)
             if (k >= 0 && size_t(k) < m.pieces.size()) out += " " + std::to_string(m.pieces[size_t(k)][0]) + (isomrules::anyNull(m.pieces[size_t(k)]) ? "(null)" : "");
@@ -1199,14 +1216,45 @@ private:
                     }
                     chosen[{tx, ty}] = k;
                 }
-            for (int ty = 1; ty < H; ++ty)  // (the rows of a block, top down)
-                for (int tx = 0; tx < W; ++tx) {
-                    const auto me = chosen.find({tx, ty}), up = chosen.find({tx, ty - 1});
-                    if (me == chosen.end() || up == chosen.end() || pinnedAt.count({tx, ty})) continue;
-                    if (me->second >= t->t.setPieces && me->second + t->t.gapPieces < P.size()) continue;  // (a fill piece: no block, as the brush)
-                    for (size_t i = 0; i < P.size(); ++i)
-                        if (P[i][0] == P[me->second][0] && continues(P[up->second], P[i])) { me->second = i; break; }
+            auto isFill = [&](size_t k) { return k >= t->t.setPieces && k + t->t.gapPieces < P.size(); };
+            auto follow = [&] {
+                for (int ty = 1; ty < H; ++ty)  // (the rows of a block, top down)
+                    for (int tx = 0; tx < W; ++tx) {
+                        const auto me = chosen.find({tx, ty}), up = chosen.find({tx, ty - 1});
+                        if (me == chosen.end() || up == chosen.end() || pinnedAt.count({tx, ty})) continue;
+                        if (isFill(me->second)) continue;  // (a fill piece: no block, as the brush)
+                        for (size_t i = 0; i < P.size(); ++i)
+                            if (P[i][0] == P[me->second][0] && continues(P[up->second], P[i])) { me->second = i; break; }
+                    }
+            };
+            follow();
+            // (a variant with no place yet: a place of its rect takes it, or, when the brush puts it only under another
+            // variant (its tiles that one's one row down), a place of that one's rect over a place of its rect takes that
+            // one; only a place whose variant has another place, so no variant loses its last; then the rows follow again)
+            for (int pass = 0; pass < 8; ++pass) {
+                std::map<size_t, int> uses;
+                for (const auto& [p, k] : chosen) ++uses[k];
+                bool changed = false;
+                for (size_t k = 0; k < P.size(); ++k) {
+                    if (isFill(k) || uses.count(k) || isomrules::anyNull(P[k])) continue;
+                    auto spare = [&](const std::pair<int, int>& p, uint16_t rect) {  // (a place of `rect` whose variant has another place)
+                        const auto c = chosen.find(p);
+                        return c != chosen.end() && P[c->second][0] == rect && !pinnedAt.count(p) && uses[c->second] > 1;
+                    };
+                    size_t leader = SIZE_MAX;
+                    for (size_t i = 0; i < P.size() && leader == SIZE_MAX; ++i)
+                        if (i != k && continues(P[i], P[k])) leader = i;
+                    for (const auto& [p, c] : chosen) {
+                        const std::pair<int, int> below{p.first, p.second + 1};
+                        if (leader != SIZE_MAX ? spare(p, P[leader][0]) && chosen.count(below) && P[chosen[below]][0] == P[k][0] : spare(p, P[k][0])) {
+                            --uses[c], chosen[p] = leader != SIZE_MAX ? leader : k, ++uses[chosen[p]], changed = true;
+                            break;
+                        }
+                    }
                 }
+                if (!changed) break;
+                follow();
+            }
         }
         for (int ty = 0; ty < H; ++ty)
             for (int tx = 0; tx < W; ++tx) {
