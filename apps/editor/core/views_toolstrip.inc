@@ -525,11 +525,11 @@ public:
             static const struct {
                 int flag;
                 const wchar_t* tip;
-            } kinds[] = {{0, L"No symmetry (Alt+0)"},
-                         {Mirror::LeftRight, L"Mirror left and right (Alt+1)"},
-                         {Mirror::TopBottom, L"Mirror top and bottom (Alt+2)"},
-                         {Mirror::Diagonal, L"Mirror across the diagonal (Alt+3)"},
-                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal (Alt+4)"}};
+            } kinds[] = {{0, L"No symmetry"},
+                         {Mirror::LeftRight, L"Mirror left and right"},
+                         {Mirror::TopBottom, L"Mirror top and bottom"},
+                         {Mirror::Diagonal, L"Mirror across the diagonal"},
+                         {Mirror::AntiDiagonal, L"Mirror across the other diagonal"}};
             const int mb = scale(28);
             int mx = 0;
             for (const auto& k : kinds) {
@@ -550,7 +550,7 @@ public:
                     shellToolsChanged();
                     a.dirty = true;
                     shellFocusView();
-                }, k.tip);
+                }, std::wstring(tr(k.tip)) + L" (Alt+" + std::to_wstring(int(&k - kinds)) + L")");  // (the key: Alt+0 none, Alt+1 to Alt+4 the mirrors)
                 mx += mb + scale(3);
             }
             // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
