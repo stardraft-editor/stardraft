@@ -278,6 +278,7 @@ public:
         loadColumns();  // (here, not when the view is made: the program's settings are not read yet then)
         if (int v = 0; prefs::number(L"Layout/IsomTileIds", v, 0, 2)) tileIds_ = v;
         if (int v = 0; prefs::number(L"Layout/IsomRectFrames", v, 0, 1)) frames_ = v != 0;
+        if (int v = 0; prefs::number(L"Layout/IsomHeights", v, 0, 1)) heights_ = v != 0;
         if (!doc_.tilesets.empty()) return rebuild();
         if (std::wstring last; !gSettingsOff && prefs::text(L"Layout/IsomRulesFile", last) && !last.empty()) {  // (the file saved last)
             std::error_code ec;
@@ -329,6 +330,7 @@ public:
         }
         if (e.key == static_cast<draw::Key>('R') && ctrl) return toggleReference(), true;
         if (e.key == static_cast<draw::Key>('H') && ctrl) return toggleFrames(), true;
+        if (e.key == static_cast<draw::Key>('E') && ctrl) return toggleHeights(), true;
         if ((e.key == draw::Key::Up || e.key == draw::Key::Down) && e.mods == (draw::kCtrl | draw::kShift)) return stepOpacity(e.key == draw::Key::Up ? 1 : -1), true;
         if (e.key == static_cast<draw::Key>('M') && ctrl) return nextMyRows(), true;
         if (e.key == static_cast<draw::Key>('D') && ctrl) return toggleDraft(), true;
@@ -1413,7 +1415,7 @@ private:
     // The menu bar's menus (File, Edit, View), made again when a check mark or an item's state changes (menuKey()).
     std::string menuKey() const {
         const auto* t = terrain();
-        std::string k{char('0' + wide_), char('0' + checkTodo_), char('0' + palMine_), char('0' + refOn_), char('0' + tileIds_), char('0' + frames_),
+        std::string k{char('0' + wide_), char('0' + checkTodo_), char('0' + palMine_), char('0' + refOn_), char('0' + tileIds_), char('0' + frames_), char('0' + heights_),
                       char('0' + (t != nullptr)), char('0' + (t && t->t.draft)), char('0' + !undo_.empty()), char('0' + !redo_.empty())};
         for (int c = 0; c < 4; ++c) k += char('0' + colShown_[c]);
         return k;
@@ -1471,7 +1473,8 @@ private:
         std::vector<Item> view = {radio(L"All Tile Groups", L"Ctrl+G", !palMine_, [this] { togglePalMine(); }),
                                   radio(L"This Terrain's Tile Groups", L"Ctrl+G", palMine_, [this] { togglePalMine(); }), sep,
                                   check(L"Reference Overlay", L"Ctrl+R", refOn_, [this] { toggleReference(); }),
-                                  check(L"Rect Frames", L"Ctrl+H", frames_, [this] { toggleFrames(); }), sep, ids, cols};
+                                  check(L"Rect Frames", L"Ctrl+H", frames_, [this] { toggleFrames(); }),
+                                  check(L"Height Overlay", L"Ctrl+E", heights_, [this] { toggleHeights(); }), sep, ids, cols};
         bar_.setMenus({{L"File", std::move(file)}, {L"Edit", std::move(edit)}, {L"Terrain", std::move(terrainMenu)}, {L"View", std::move(view)}});
     }
     void setTileIds(int m) {
@@ -2113,6 +2116,35 @@ private:
         frames_ = !frames_, prefs::setNumber(L"Layout/IsomRectFrames", frames_ ? 1 : 0), invalidate();
         setMessage(frames_ ? L"Rect frames: on" : L"Rect frames: off");
     }  // (tileIds_: the example's tile IDs 0 off, 1 on hover, 2 always; idHover_: the cell in ids_)
+    bool heights_ = false;  // (the terrain canvas's height overlay: each minitile's VF4 height; Ctrl+E)
+    void toggleHeights() {
+        heights_ = !heights_, prefs::setNumber(L"Layout/IsomHeights", heights_ ? 1 : 0), invalidate();
+        setMessage(heights_ ? L"Height overlay: low (blue), middle (yellow), high (red); not walkable: dark" : L"Height overlay: off");
+    }
+    // The height overlay over the terrain canvas: each minitile (8 px) of the tiles in ids_ (the edits too) in the color of
+    // its VF4 height, runs of one color on each minitile row as one fill. Not walkable: a darker fill.
+    void paintHeights(draw::Canvas& c, int ox, int oy) {
+        const int cw = crop_.width(), ch = crop_.height();
+        if (ids_.size() != size_t(cw) * size_t(ch)) return;
+        const float ms = 8 * zoom_;
+        auto kindAt = [&](int mx, int my) {  // (0: no tile; 1-3 low, middle, high; +3: not walkable)
+            const uint16_t v = ids_[size_t(my / 4) * size_t(cw) + size_t(mx / 4)];
+            const int mega = v == kNullId ? -1 : tileset_.megatileFor(v);
+            if (mega <= 0 || size_t(mega) >= tileset_.minitileFlags.size()) return 0;
+            const uint16_t f = tileset_.minitileFlags[size_t(mega)][size_t((my % 4) * 4 + mx % 4)];
+            return ((f & 4) ? 3 : (f & 2) ? 2 : 1) + ((f & 1) ? 0 : 3);
+        };
+        static const draw::Color kColors[7] = {0, 0xFF8040, 0x30C8E8, 0x2850F0, 0x804020, 0x186474, 0x142878};  // (COLORREF)
+        for (int my = 0; my < ch * 4; ++my)
+            for (int mx = 0; mx < cw * 4;) {
+                const int k = kindAt(mx, my);
+                int end = mx + 1;
+                while (end < cw * 4 && kindAt(end, my) == k) ++end;
+                if (k)
+                    c.fill({ox + int(mx * ms), oy + int(my * ms), ox + int(end * ms), oy + int((my + 1) * ms)}, kColors[k], k > 3 ? 150 : 110);
+                mx = end;
+            }
+    }
     std::vector<int> holes_, absent_;
     std::unique_ptr<draw::Bitmap> picture_;
     struct Spot { int x, y; float s; };
@@ -2524,6 +2556,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
             }
         }
         if (refShown) c.bitmap(*refPicture_, {0, 0, refPicture_->width(), refPicture_->height()}, {ox, oy, ox + pw, oy + ph}, false, uint8_t(255 * refOpacity_.value() / 100));
+        if (heights_ && !refAlone) paintHeights(c, ox, oy);
         for (const Place& p : places_)  // (the slots with a NULL half: red frames while the reference covers their black)
             if (t && refShown && !refAlone && frames_ && p.piece >= 0 && p.piece < int(t->t.pieces.size()) && isomrules::anyNull(t->t.pieces[size_t(p.piece)]))
                 c.frame(rectOf(p), 0x4650E6, scale(2));
