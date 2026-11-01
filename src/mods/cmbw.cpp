@@ -1845,19 +1845,26 @@ void loadTileset(Tileset& t) {
         static const uint8_t kRepairedRelease[] = {
 #include "cmbw_repaired_rules_release.inc"
         };
-        for (const auto& [bytes, size] : {std::make_pair(kRepairedPrerelease, sizeof kRepairedPrerelease), std::make_pair(kRepairedRelease, sizeof kRepairedRelease)}) {
+        // Then the mod team's own fixes (cmbw_creator_rules.inc: the rects they gave tiles, the pieces they put right)
+        // over the repaired rows.
+        static const uint8_t kCreator[] = {
+#include "cmbw_creator_rules.inc"
+        };
+        auto applyBytes = [&t](const uint8_t* bytes, size_t size) {
             terrainrules::Rules r;
             std::string err;
-            if (!terrainrules::read(std::vector<uint8_t>(bytes, bytes + size), r, err)) continue;
-            // (a repaired terrain made from an older row: its stand-in, ground or the ground's template is not the row's
-            // now (a row changed by hand since, as Snow (High Dirt cliffs) raised as a cliff): the row stays)
+            if (!terrainrules::read(std::vector<uint8_t>(bytes, bytes + size), r, err)) return false;
+            // (a terrain made from an older row: its stand-in, ground or the ground's template is not the row's now (a
+            // row changed by hand since, as Snow (High Dirt cliffs) raised as a cliff): the row stays)
             for (auto& ts : r.tilesets)
                 std::erase_if(ts.terrains, [&t](const terrainrules::Terrain& x) {
                     const Tileset::ModTerrain* row = t.modTerrain(x.t.id);
                     return row && (row->standIn != x.t.standIn || row->ground != x.t.ground || row->groundTemplate != x.t.groundTemplate);
                 });
-            if (terrainrules::apply(t, r)) break;
-        }
+            return terrainrules::apply(t, r);
+        };
+        if (!applyBytes(kRepairedPrerelease, sizeof kRepairedPrerelease)) applyBytes(kRepairedRelease, sizeof kRepairedRelease);
+        applyBytes(kCreator, sizeof kCreator);
     }
     applyTerrainFiles(t);
     forEachPieceNeighbor(t.era & 7, [&t](uint16_t a, uint16_t b, int place) {
