@@ -190,7 +190,10 @@ public:
         const int cy = y + gTiles->scroll, col = tilesIndexAt(x), row = tilesIndexAt(cy);
         if (col < 0 || row < 0 || col >= kTilesPerRow || x >= tilesEdge(col + 1) - 1 || cy >= tilesEdge(row + 1) - 1) return -1;
         const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
-        return k < gTiles->values.size() && gTiles->values[k] != kTilesNone ? gTiles->values[k] : -1;
+        if (k >= gTiles->values.size() || gTiles->values[k] == kTilesNone) return -1;
+        // (a null tile shown black in a terrain's or a doodad's rows: no pick, a box starts there)
+        const int kind = gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) ? gTiles->filters[size_t(gTiles->filter)].kind : 0;
+        return kind != 0 && kind != 3 && tileIsNull(gTiles->values[k]) ? -1 : gTiles->values[k];
     }
 
 private:
@@ -415,6 +418,7 @@ void tilesRebuild() {
     gTiles->listW = std::max(w, kTilesPerRow * tilesMinCell() + kTilesPerRow - 1);
     // A row is a tile group (the tiles that the filter hides are empty slots), but the favorites follow one another.
     const bool byGroup = !(gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5);
+    const bool hideNull = gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 4;
     std::wstring text = gTilesPanel->search().text();
     std::transform(text.begin(), text.end(), text.begin(), ::towlower);
     std::vector<std::wstring> words;
@@ -438,8 +442,8 @@ void tilesRebuild() {
         bool any = false;
         for (int s = 0; s < 16 && !any; ++s) any = tilesInFilter(uint16_t(g << 4 | s));
         if (!any) continue;
-        for (int s = 0; s < 16; ++s)
-            if (tilesInFilter(uint16_t(g << 4 | s))) gTiles->values.push_back(uint16_t(g << 4 | s));
+        for (int s = 0; s < 16; ++s)  // (a shown group's null tiles show too, black, but in the filter that hides them)
+            if (tilesInFilter(uint16_t(g << 4 | s)) || (byGroup && !hideNull && tilesIsNull(g << 4 | s))) gTiles->values.push_back(uint16_t(g << 4 | s));
             else if (byGroup) gTiles->values.push_back(kTilesNone);
     }
     const int rows = (int(gTiles->values.size()) + kTilesPerRow - 1) / kTilesPerRow;
@@ -511,7 +515,8 @@ void TilesGridView::boxSelect() {
     for (int r = r0; r <= r1; ++r)
         for (int c = c0; c <= c1; ++c) {
             const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
-            if (k < gTiles->values.size() && gTiles->values[k] != kTilesNone && std::find(chosen.begin(), chosen.end(), gTiles->values[k]) == chosen.end())
+            if (k < gTiles->values.size() && gTiles->values[k] != kTilesNone && !tileIsNull(gTiles->values[k]) &&
+                std::find(chosen.begin(), chosen.end(), gTiles->values[k]) == chosen.end())
                 chosen.push_back(gTiles->values[k]);
         }
     if (chosen.empty()) return;
@@ -638,7 +643,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
                     for (int r = r0; r <= r1; ++r)
                         for (int c = c0; c <= c1; ++c) {
                             const int k = r * kTilesPerRow + c;
-                            if (k < n && gTiles->values[size_t(k)] != kTilesNone &&
+                            if (k < n && gTiles->values[size_t(k)] != kTilesNone && !tileIsNull(gTiles->values[size_t(k)]) &&
                                 std::find(gTiles->chosen.begin(), gTiles->chosen.end(), gTiles->values[size_t(k)]) == gTiles->chosen.end())
                                 gTiles->chosen.push_back(gTiles->values[size_t(k)]);
                         }
@@ -659,8 +664,8 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         } else if (v >= 0) {
             tilesPick(v, false);
         }
-        // A drag from here: a box (Ctrl: added to the tiles selected before). It starts on an empty slot too (a null tile
-        // the filter hides): a box over a doodad's tiles is one stamp, its empty slots left out.
+        // A drag from here: a box (Ctrl: added to the tiles selected before). It starts on an empty slot too (a null tile:
+        // black, or one the filter hides): a box over a doodad's tiles is one stamp, its empty slots left out.
         const bool inGrid = e.pt.y >= 0 && e.pt.y < tilesViewH() && e.pt.x >= 0 && e.pt.x < tilesEdge(kTilesPerRow) &&
                             e.pt.y + gTiles->scroll < gTiles->contentH;
         if ((v >= 0 || inGrid) && !shift) {
