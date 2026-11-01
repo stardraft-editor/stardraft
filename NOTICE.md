@@ -35,3 +35,7 @@ reference tests use, unchanged, and StarDraft's stand-ins for the two Chkdraft h
 
 StarCraft and StarCraft: Remastered are trademarks of Blizzard Entertainment. StarDraft is not affiliated with
 Blizzard. StarDraft reads the game's files from the user's own installation and contains none of them.
+
+## Terrain artwork reflection
+
+The direct tile artwork reflection algorithm was adapted from [Map Studio](https://github.com/RustyNovoBland77464/scmdraft-native/tree/e35461dea3b4387b0956feb59ed07ab4ee8d3fa6) (MIT, Copyright (c) 2026 ScmDraft Fan Add-on contributors). StarDraft uses its own clipboard, renderer and undo model. The original permission notice is in [licenses/terrain-mirror.txt](licenses/terrain-mirror.txt). No game artwork is included.

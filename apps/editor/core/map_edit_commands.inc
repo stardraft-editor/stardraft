@@ -27,7 +27,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+Shift+Tab", ID_TAB_PREV}, {"Ctrl+N", ID_FILE_NEW},        {"Ctrl+Shift+N", ID_PROJ_NEW},      {"Ctrl+Shift+O", ID_QUICKOPEN},
     {"Ctrl+O", ID_FILE_OPEN},      {"Ctrl+S", ID_FILE_SAVE},         {"Ctrl+Shift+S", ID_FILE_SAVEAS},   {"Ctrl+Shift+E", ID_FILE_EXPORTIMAGE},   {"Ctrl+Z", ID_EDIT_UNDO},
     {"Ctrl+Y", ID_EDIT_REDO},      {"Ctrl+Shift+Z", ID_EDIT_REDO},   {"Ctrl+Shift+H", ID_EDIT_HISTORY},   {"Ctrl+X", ID_EDIT_CUT},            {"Ctrl+C", ID_EDIT_COPY},
-    {"Ctrl+D", ID_EDIT_DUPLICATE}, {"Ctrl+V", ID_EDIT_PASTE},        {"Ctrl+A", ID_EDIT_SELECTALL},
+    {"Ctrl+Shift+M", ID_CREATE_MIRRORED}, {"Ctrl+D", ID_EDIT_DUPLICATE}, {"Ctrl+V", ID_EDIT_PASTE},        {"Ctrl+A", ID_EDIT_SELECTALL},
     // SCMDraft's layer keys, in the Map workspace: Ctrl+T, G, L, U and R the modes (the letters alone too; Doodads on G, as
     // Ctrl+D is Duplicate), Ctrl+F the fog of war (its command)
     {"Ctrl+T", ID_MODE_TERRAIN, true}, {"Ctrl+G", ID_MODE_DOODADS, true}, {"Ctrl+L", ID_MODE_LOCATIONS, true},
@@ -66,6 +66,7 @@ void pathOverlayToggle(int id);
 void pathOverlaySize(int id);
 void saveDock();
 void setMode(Mode m);
+void cancelMirroredCopy();
 void renameSelectedLocation();
 AppState::LocationCopy locationCopyOf(const Editor& ed, int l);
 std::wstring locationsText(const Editor& ed, const std::vector<int>& locs);
@@ -114,7 +115,10 @@ struct SharedTerrainCopy {
 SharedTerrainCopy gTerrainCopy;
 extern const wchar_t* kTilesetNames[8];  // (palette_items.inc)
 // After a copy (or a turn of it) in `ed`: it is the copy of all maps.
-void shareTerrainCopy(const Editor& ed) { gTerrainCopy = {ed.terrainCopies(), ed.era(), true}; }
+void shareTerrainCopy(const Editor& ed) {
+    cancelMirroredCopy();
+    gTerrainCopy = {ed.terrainCopies(), ed.era(), true};
+}
 // The copy of all maps into `ed` (a map that shows, or a paste): nothing when it is of another tileset. True when the
 // copy is of another tileset.
 bool takeTerrainCopy(Editor& ed) {
@@ -163,6 +167,7 @@ void pasteLocationsAt(AppState& app, float wx, float wy) {
 // Edit > Paste in the active mode: the copy follows the mouse (click to place it; again for more; right-click or Esc
 // stops).
 void pasteMapCopy(AppState& app) {
+    cancelMirroredCopy();
     if (app.ed && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {  // the copy follows the mouse: click to place it
         const bool dd = app.mode == Mode::Doodads;
         if ((dd ? app.doodadClip : app.spriteClip).empty())
@@ -214,6 +219,7 @@ void pasteMapCopy(AppState& app) {
 // Rectangle's copy of the terrain selection (the tile clipboard): the tiles of its box, those outside its shape or (a
 // selection made with Shift and Ctrl) its mask left out. False: nothing to copy.
 bool copySelectedTiles(Editor& ed) {
+    cancelMirroredCopy();
     const AppState& app = appState();
     const Rect& r = app.terrainSel;
     const bool masked = !app.terrainSelMask.empty();
@@ -228,8 +234,11 @@ bool copySelectedTiles(Editor& ed) {
     return true;
 }
 
+#include "mirrored_copy.inc"
+
 // Edit > Copy in the active mode (the terrain selection, the tiles, the doodads, the sprites, the location or the units).
 void copyMapSelection(AppState& app) {
+    cancelMirroredCopy();
     if (app.mode == Mode::Terrain && app.terrainRect) {
         if (!copySelectedTiles(*app.ed))
             setMessage(L"First, select an area with the Select / copy tool");
@@ -275,6 +284,7 @@ void copyMapSelection(AppState& app) {
 
 // Edit > Cut in the active mode: its copy, then its delete (terrain: null tiles in its place).
 void cutMapSelection(AppState& app) {
+    cancelMirroredCopy();
     if (app.mode == Mode::Units) {
         app.ed->copySelection(), app.ed->deleteSelection();
         return;
@@ -306,6 +316,10 @@ void cutMapSelection(AppState& app) {
 
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
 bool commandMapEdit(AppState& app, int id) {
+    if (id == ID_CREATE_MIRRORED) {
+        createMirroredVersion();
+        return true;
+    }
     const bool open = app.ed && app.ed->isOpen();
     auto done = [&app] {
         shellMenusChanged();
@@ -412,6 +426,7 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_EDIT_PASTE: pasteMapCopy(app); break;
     case ID_EDIT_DUPLICATE:
+        cancelMirroredCopy();
         // The active mode's copy, then its paste (the copy follows the mouse; locations: at the mouse).
         if (open && app.mode != Mode::Units && app.mode != Mode::Terrain) {
             command(ID_EDIT_COPY), pasteMapCopy(app);
@@ -665,4 +680,86 @@ bool classicCommandInProject(int id) {
         settings = classicSettingsUsed(*app.ed);
     }
     return id == ID_SCEN_CLASSICTRIG ? triggers : id == ID_SCEN_CLASSIC ? settings : false;
+}
+
+// --check mirrored-copy-race: ready synthetic jobs make publication races deterministic, without running the matcher.
+bool mirroredCopyCheck(const std::string& name, std::string& out) {
+    if (name != "mirrored-copy-race") return false;
+    auto& app = appState();
+    if (!app.ed || !app.ed->isOpen() || gMirroredCopyJob.valid()) {
+        out = "mirrored-copy-race: requires an open map and no active search (WRONG)\n";
+        return true;
+    }
+    const auto savedCopy = app.ed->terrainCopies();
+    const auto savedShared = gTerrainCopy;
+    const auto savedSelection = app.ed->selection();
+    const auto savedMode = app.mode;
+    const auto savedHasSelection = app.hasTerrainSel;
+    const auto savedPalette = app.palette;
+    const auto savedTool = app.toolByMode[int(Mode::Terrain)];
+    const auto savedCamX = app.camX, savedCamY = app.camY;
+    app.mode = Mode::Terrain;
+    app.hasTerrainSel = false;
+    app.ed->clearSelection();
+    app.ed->setTerrainCopies({});
+    gTerrainCopy = {};
+    int failed = 0, checked = 0;
+    auto expect = [&](bool ok) {
+        ++checked;
+        failed += !ok;
+    };
+    auto arm = [&] {
+        gMirroredCopyFor = app.ed.get();
+        gMirroredCopyRevision = app.ed->revision();
+        gMirroredCopyContext = mirroredCopyContext();
+        gMirroredCopyCancelled = false;
+        gMirroredCopyStop = std::make_shared<std::atomic<bool>>(false);
+        std::promise<MirroredCopyResult> ready;
+        gMirroredCopyJob = ready.get_future();
+        ready.set_value({});
+    };
+    // New clipboard commands win even when they cannot copy/paste anything: they express newer user intent.
+    for (const int id : {ID_EDIT_COPY, ID_EDIT_CUT, ID_EDIT_PASTE, ID_EDIT_DUPLICATE}) {
+        arm();
+        commandMapEdit(app, id);
+        expect(gMirroredCopyCancelled && *gMirroredCopyStop);
+        mirroredCopyPoll();
+        expect(!gMirroredCopyJob.valid() && app.mode == Mode::Terrain && !app.ed->hasTileClipboard());
+    }
+    arm();
+    shareTerrainCopy(*app.ed);
+    expect(gMirroredCopyCancelled);
+    mirroredCopyPoll();
+    // Direct panel/tool changes are also guarded, even if they bypass a normal mode-change entry point.
+    arm();
+    ++app.palette;
+    mirroredCopyPoll();
+    expect(gMirroredCopyCancelled && !gMirroredCopyJob.valid());
+    app.palette = savedPalette;
+    arm();
+    ++app.toolByMode[int(Mode::Terrain)];
+    mirroredCopyPoll();
+    expect(gMirroredCopyCancelled && !gMirroredCopyJob.valid());
+    app.toolByMode[int(Mode::Terrain)] = savedTool;
+    arm();
+    ++app.terrainSel.left;
+    mirroredCopyPoll();
+    expect(gMirroredCopyCancelled && !gMirroredCopyJob.valid());
+    --app.terrainSel.left;
+    // Panning keeps the search current; cancel it before a synthetic result can enter paste mode.
+    arm();
+    app.camX += 32, app.camY += 32;
+    expect(mirroredCopyCurrent());
+    cancelMirroredCopy();
+    mirroredCopyPoll();
+    app.camX = savedCamX, app.camY = savedCamY;
+    app.mode = savedMode;
+    app.hasTerrainSel = savedHasSelection;
+    app.palette = savedPalette;
+    app.ed->setTerrainCopies(savedCopy);
+    gTerrainCopy = savedShared;
+    for (int i : savedSelection) app.ed->select(i, true);
+    out = "mirrored-copy-race: " + std::to_string(checked) + " checks, " + std::to_string(failed) +
+          (failed ? " failed (WRONG)\n" : " failed\n");
+    return true;
 }

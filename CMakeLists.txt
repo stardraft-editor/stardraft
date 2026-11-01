@@ -119,6 +119,7 @@ add_library(stardraft
     src/project_import.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
+    src/terrain_mirror.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp
@@ -755,6 +756,8 @@ if(STARDRAFT_RENDERER)
     endif()
     add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
+    add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/licenses
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/licenses/terrain-mirror.txt ${editorDir}/licenses)
     if(STARDRAFT_FONT_FILES AND NOT WIN32)  # (Windows: the system's fonts, and Noto Sans in StarDraft 2.exe)
         add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
@@ -846,3 +849,6 @@ if(WIN32 AND STARDRAFT_RENDERER)
     endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
+
+add_executable(terrain_mirror_test tools/tests/terrain_mirror_test.cpp)
+target_link_libraries(terrain_mirror_test PRIVATE stardraft)

@@ -6,6 +6,8 @@
 #include <cstring>
 #include <ctime>
 #include <chrono>
+#include <future>
+#include <tuple>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
@@ -90,6 +92,7 @@
 #include "stardraft/msqc.h"
 #include "stardraft/png_writer.h"  // File > Export map image (core/map_image.inc)
 #include "stardraft/terrain.h"
+#include "stardraft/terrain_mirror.h"
 #include "stardraft/tileset.h"
 #include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"

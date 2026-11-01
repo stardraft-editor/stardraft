@@ -9,6 +9,10 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
 - [Keyboard shortcuts](keyboard-shortcuts.md): the keys of the menus, the map, the trigger editors and the lists.
 
+## Terrain editing
+
+- [Create a mirrored terrain version](terrain-mirror.md): reflect selected tile artwork into the paste clipboard.
+
 ## Triggers
 
 - [Trigger checks](trigger-checks.md): what each mark in the Triggers workspace means, and what the checks do not find.

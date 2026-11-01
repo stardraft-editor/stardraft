@@ -28,6 +28,7 @@ void updateTitle();
 void rebuildList(AppState& app);
 void updateStatus();
 void mapFrameDone(AppState& app) {
+    mirroredCopyPoll();
     if (!app.ed) return;
     if (app.ed->revision() != app.editorRev) {
         app.editorRev = app.ed->revision();
