@@ -834,6 +834,7 @@ int main(int argc, char** argv) {
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
+            else if (dialogArg == "toolpopout") shown = toolPopoutShot();  // (core/views_toolstrip.inc)
             else if (dialogArg == "blockpick") shown = &blockShot;
             else if (dialogArg.rfind("blockhelp:", 0) == 0) shown = &gSdlBlockHelp, gSdlBlockHelp.setBlock(dialogArg.substr(10));  // a block's help page (--size 460x600)
             else if (mapShot.view) shown = mapShot.view;

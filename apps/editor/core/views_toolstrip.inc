@@ -389,6 +389,13 @@ struct ToolPopoutView final : draw::View {
     }
 };
 ToolPopoutView gToolPopout;
+// --dialog toolpopout (a snapshot, --mode terrain): the row of the Terrain strip's shapes button, as it opens (--size 222x36).
+draw::View* toolPopoutShot() {
+    for (const StripItem& it : stripTools(Mode::Terrain))
+        if (it.group == 2) gToolPopout.group = it;
+    gToolPopout.hot = 3;  // (the mouse over Rectangle)
+    return &gToolPopout;
+}
 
 void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button) {
     draw::Host* host = from.host();
@@ -525,8 +532,10 @@ public:
                    (it.members.empty() ? L"" : tr(L" Click again for the next tool of this button; the arrow or a right click lists them.")));
             if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
                 const draw::Rect sq = square(r);
-                const int s = scale(5), cx = sq.right - scale(3), cy = sq.bottom - scale(3);
-                for (int j = 0; j < s; ++j) c.fill({cx - j, cy - j, cx + 1, cy - j + 1}, on ? kAccentBright : kDim);
+                // (a small smooth triangle in the corner, its right angle at the corner)
+                const float s = float(scale(5)), x1 = float(sq.right - scale(3)), y1 = float(sq.bottom - scale(3));
+                const draw::Canvas::PointF tri[3] = {{x1, y1 - s}, {x1, y1}, {x1 - s, y1}};
+                c.smoothPolygon(tri, 3, on ? kAccentBright : kDim);
                 const draw::Rect corner{sq.right - scale(11), sq.bottom - scale(11), sq.right, sq.bottom};
                 addHit(corner, [this, it, sq] { stripGroupPopout(it, *this, sq); }, tr(L"The tools of this button"));
                 groups_.push_back({sq, it});
