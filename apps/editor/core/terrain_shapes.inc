@@ -3,7 +3,7 @@
 // draws (the release joins its last point to its first). Polygon fills the polygon of the clicked points (a double click
 // closes it, Esc stops it). The map changes only at the end, as one undo step; until then the map view shows the result
 // over the terrain (ghostTiles: map_scene.inc, shapeScene).
-// Isometric: the brush's own paint path changes a copy of the map (Editor::paintBrush along the line, fillTerrainPolygon),
+// Isometric: the brush's own paint path changes a copy of the map (Editor::paintTerrainLine, fillTerrainPolygon),
 // so the edges are corrected; the end takes the copy's map (Editor::takeScenario), tile for tile as the preview showed it.
 // Rectangle, Tile and Custom: the tiles (Rectangle: the rects) that the line's brush covers or whose middle is in the
 // shape, as the Brush gives them.
@@ -66,13 +66,7 @@ void shapeIsoPaint(Editor& e, int tool, const std::vector<std::pair<int, int>>& 
         e.fillTerrainPolygon(pts, t);
         return;
     }
-    const float x0 = float(pts.front().first), y0 = float(pts.front().second);
-    const float dx = float(pts.back().first) - x0, dy = float(pts.back().second) - y0;
-    const float step = std::max(8.0f, std::min(brush.size, brush.height()) * 16), len = std::hypot(dx, dy);
-    const int n = int(std::ceil(len / step));
-    e.beginTerrainStroke();
-    for (int k = 0; k <= n; ++k) e.paintBrush(int(x0 + (n ? dx * k / n : 0)), int(y0 + (n ? dy * k / n : 0)), t, brush);
-    e.endTerrainStroke();
+    e.paintTerrainLine(pts.front().first, pts.front().second, pts.back().first, pts.back().second, t, brush);
 }
 
 // The tiles from tile (x0, y0) to tile (x1, y1) on a straight line (each step one tile across or down, or both).

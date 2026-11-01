@@ -2121,6 +2121,59 @@ bool Editor::fillTerrainPolygon(const std::vector<std::pair<int, int>>& points, 
     return true;
 }
 
+bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush) {
+    if (!isomOk_) return false;
+    const float dx = float(x1 - x0), dy = float(y1 - y0);
+    const float step = std::max(8.0f, std::min(brush.size, brush.height()) * 16);
+    const int n = int(std::ceil(std::hypot(dx, dy) / step));
+    const bool own = !inStroke_;
+    if (own) isom_.beginStroke();  // (the line chooses its own ground, as a new stroke of the brush)
+    terrain = brushTerrain(x0, y0, terrain);
+    // The corners of each step; with StarEdit's brush, also each step's block of diamonds for the terrain core. The core
+    // paints the line (as the brush paints each step: applyCoreBrush) unless a step is near protected tiles or has no
+    // block (at the map's edge); then the corner path paints all of it (applyTerrain).
+    const bool core = useCore() && brush.starEdit();
+    bool coreOk = core;
+    std::set<std::pair<int, int>> taken, takenDiamonds;
+    std::vector<CornerValue> corners;
+    std::vector<std::pair<int, int>> diamonds;
+    for (int k = 0; k <= n; ++k) {
+        const int px = int(x0 + (n ? dx * k / n : 0)), py = int(y0 + (n ? dy * k / n : 0));
+        int bx0 = INT_MAX, by0 = INT_MAX, bx1 = INT_MIN, by1 = INT_MIN;
+        for (auto [x, y] : terrainSymmetricPoints(px, py, brush)) {
+            for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) {
+                bx0 = std::min(bx0, cx), by0 = std::min(by0, cy), bx1 = std::max(bx1, cx), by1 = std::max(by1, cy);
+                if (taken.insert({cx, cy}).second) corners.push_back({cx, cy, terrain});
+            }
+            if (coreOk) {
+                const auto block = starEditBrushAt(x, y, int(brush.size));
+                if (block.empty()) coreOk = false;
+                for (const auto& d : block)
+                    if (takenDiamonds.insert(d).second) diamonds.push_back(d);
+            }
+        }
+        if (coreOk && protectedCount_ && bx0 <= bx1 && protectedNear(bx0, by0, bx1, by1, kProtectMargin)) coreOk = false;
+    }
+    if (corners.empty()) return false;
+    if (own) beginEdit();
+    bool ok;
+    if (coreOk && !diamonds.empty()) {
+        int dx0 = INT_MAX, dy0 = INT_MAX, dx1 = INT_MIN, dy1 = INT_MIN;
+        for (auto [x, y] : diamonds) dx0 = std::min(dx0, x), dy0 = std::min(dy0, y), dx1 = std::max(dx1, x), dy1 = std::max(dy1, y);
+        const int reach = 1;  // (in grid steps: the diamonds around the blocks)
+        ok = applyCore([&] { return core_.paintDiamonds(diamonds, terrain); },
+                       [&] { return applyOld(corners, dx0 - reach, dy0 - reach, dx1 + reach, dy1 + reach, true); }, dx0 - reach, dy0 - reach,
+                       dx1 + reach, dy1 + reach);
+    } else {
+        ok = applyTerrain(corners, true);
+    }
+    if (!ok) {
+        if (own) dropLastUndo();  // nothing changed
+        return false;
+    }
+    return true;
+}
+
 int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int areaShape) {
     if (!isomOk_ || from == to) return 0;
     Rect r = area ? area->normalized() : Rect{-64, -32, width_ * 32 + 64, height_ * 32 + 64};

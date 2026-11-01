@@ -178,6 +178,10 @@ public:
     // symmetric position, and the terrain around them is fitted to it (as the brush's). One undo step, or part of an
     // open stroke. False: no corner is inside, or nothing changed.
     bool fillTerrainPolygon(const std::vector<std::pair<int, int>>& points, uint16_t terrain);
+    // The ISOM corners that the brush covers along the straight line from (x0, y0) to (x1, y1) (map pixels; the brush at
+    // most half its size apart) get the terrain, at every symmetric position, in one pass (as fillTerrainPolygon). One
+    // undo step, or part of an open stroke. False: nothing changed.
+    bool paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush);
     int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
     // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'
