@@ -212,6 +212,7 @@ std::string shotMapState() {
          " tab=" + quoted(narrow(docTitle(gActive, false)));
     s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
     s += " quicktop=" + std::to_string(gQuickViewSdl.top()) + "/" + std::to_string(gQuickViewSdl.shown().size());  // its first row shown, of its rows
+    s += " quicksel=" + std::to_string(gQuickViewSdl.selected());  // (its chosen row)
     s += " lastat=" + (!ed.units().empty() ? std::to_string(ed.units().back().x) + "," + std::to_string(ed.units().back().y) : std::string("-"));  // the last unit's place
     s += " brush=" + narrow(stripNumberText(kNumSize)) + "x" + narrow(stripNumberText(kNumHeight));  // (Terrain: the brush's size and height)
     static const char* const kShapes[3] = {"diamond", "square", "circle"};

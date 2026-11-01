@@ -270,10 +270,21 @@ public:
     virtual void closed(int v) = 0;
 };
 
+// The search field: in the grid of pictures, Left and Right move the choice (onArrow takes them), not the caret.
+class QuickPickField final : public stardraft::kit::TextField {
+public:
+    std::function<bool(const draw::KeyEvent&)> onArrow;
+    bool key(const draw::KeyEvent& e) override {
+        if (e.down && !e.mods && (e.key == draw::Key::Left || e.key == draw::Key::Right) && onArrow && onArrow(e)) return true;
+        return TextField::key(e);
+    }
+};
+
 class QuickPickView final : public draw::View {
 public:
     QuickPickView() : bar_(stardraft::kit::Axis::Vertical) {
         field_.setPlain(true);
+        field_.onArrow = [this](const draw::KeyEvent& e) { return gridShown() && key(e); };
         field_.onChange = [this] { fill(); };
         field_.onEnter = [this] { choose(); };
         field_.onEscape = [this] { finish(-1); };
@@ -341,7 +352,8 @@ public:
     // The window's size at the display scale (the view is this less the frame on each side when the host draws it).
     static draw::Point windowSize() { return {scale(quickPickLayout::kW), scale(quickPickLayout::kH)}; }
 
-    // Up and Down move the choice by one, Page Up and Page Down by 8 (the field does not take them).
+    // Up and Down move the choice by one, Page Up and Page Down by 8 (the field does not take them); in the grid of
+    // pictures Up and Down move it by a line, Left and Right by one.
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
         if (pictures() && e.mods == draw::kCtrl) {  // (the view: Ctrl+L list, Ctrl+G grid; the size: Ctrl+wheel or the S / M / L button)
@@ -353,6 +365,11 @@ public:
         switch (e.key) {
         case draw::Key::Down: step = cols(); break;
         case draw::Key::Up: step = -cols(); break;
+        case draw::Key::Right:
+        case draw::Key::Left:
+            if (!gridShown()) return false;
+            step = e.key == draw::Key::Right ? 1 : -1;
+            break;
         case draw::Key::PageDown: step = std::max(cols(), visibleRows() - cols()); break;
         case draw::Key::PageUp: step = -std::max(cols(), visibleRows() - cols()); break;
         case draw::Key::Enter: return choose(), true;
@@ -477,6 +494,7 @@ private:
         static const int kCell[3] = {64, 88, 120};
         return pictures() && grid_ ? scale(kCell[size_]) : listRect().width();
     }
+    bool gridShown() const { return pictures() && grid_; }
     int cols() const { return pictures() && grid_ ? std::max(1, (listRect().width() - scale(quickPickLayout::kScrollW)) / std::max(1, cellW())) : 1; }
     int lines(int n) const { return (n + cols() - 1) / cols(); }
     int visibleLines() const { return std::max(1, listRect().height() / std::max(1, itemH())); }
@@ -637,6 +655,6 @@ private:
     float wheelCarry_ = 0;  // an exact scroll's part of a row (draw::exactSteps)
     int lineHeight_ = 0;  // the rows' font's line height, from the last paint
     draw::Rect sr_;       // the search row: the icon, the field, the count
-    stardraft::kit::TextField field_;
+    QuickPickField field_;
     stardraft::kit::ScrollBar bar_;
 };
