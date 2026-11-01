@@ -16,6 +16,13 @@ files of the game. When StarDraft 2 cannot find the game, the start page asks fo
 
 Each open map or project has a tab at the top of the window.
 
+The start page's **Recent** shelf shows small map previews, names, terrain details and last-saved dates.
+Click a card to open it. Use the arrows above the shelf, or scroll over it, to see more maps. Press Down
+from the project choices to reach Recent, Left/Right to choose a card, and Enter to open it; Up returns
+to the project choices. Hover a card for its full path or its remove button. Removing a card only removes
+it from the recent list. Previews load in the background and are cached locally; missing files keep a
+placeholder so they can still be removed.
+
 ## The workspaces
 
 The bar on the left side of the window has the workspaces of the open tab:

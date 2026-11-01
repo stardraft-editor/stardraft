@@ -929,6 +929,12 @@ int main(int argc, char** argv) {
                 for (const std::wstring& l : gLoading.lines) std::printf("loading: %s\n", narrow(l).c_str());
             }
             host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            // The first paint queues the visible recent-map pictures. Snapshot runs wait for those
+            // jobs only, without writing the user's cache or changing their recent history.
+            if (mapArg.empty() && shown == &root) {
+                recentPreviewsWait();
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
             startLap("first frame");
             if (!trigSelArg.empty()) sdlTrigFocusFirstValue();  // (the pane's hit areas are the first frame's)
             if (trigPopArg != -1) sdlTrigPopShot(trigPopArg), host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
@@ -967,6 +973,10 @@ int main(int argc, char** argv) {
             }
             if (!commandArgs.empty()) {  // the menu commands after the first frame, then a frame more
                 for (const std::string& c : commandArgs) sdlCommandShot(c);
+                host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
+            }
+            if (shown == &root && (!gState.ed || !gState.ed->isOpen())) {
+                recentPreviewsWait();
                 host.snapshot(*shown, tex, width, height, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM);
             }
             if (!saveAsArg.empty()) std::printf("%s\n", mapSaveRoundTrip(fs::path(widen(saveAsArg))).c_str());  // (the status bar: Saved ...)

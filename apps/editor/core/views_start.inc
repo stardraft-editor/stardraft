@@ -85,6 +85,8 @@ public:
     bool cosmonarchyOnly = false;
     std::function<void()> onCosmonarchy;
     std::function<std::wstring(const fs::path&)> dateOf;
+    std::function<draw::Bitmap*(const fs::path&)> previewOf;
+    std::function<std::wstring(const fs::path&)> previewDetails;
     // The host's scroll bar for the page after a paint that changed it: the largest position, the page size, the position.
     std::function<void(int, int, int)> scrollInfo;
     // Why the game data is not open (the host sets it; empty when it is open): the page says so under the notice.
@@ -107,6 +109,7 @@ public:
     // Where the page's keys go (the snapshots read it): "Browse", "card 0", "card 1", or "none" (not on the page).
     std::string keysOn() const {
         if (browse_.visible() && browse_.hasFocus()) return "Browse";
+        if (hasFocus() && recentFocus_ >= 0) return "recent " + std::to_string(recentFocus_);
         return hasFocus() ? "card " + std::to_string(card_) : "none";
     }
 
@@ -126,6 +129,7 @@ public:
     // The page is shown again: it starts at the top.
     void resetScroll() {
         if (scroll_) scroll_ = 0, invalidate();
+        recentOffset_ = 0, recentFocus_ = -1;
     }
     // What the last paint showed (the self-tests read these).
     bool cardsShown() const { return cardsShown_; }
@@ -188,7 +192,7 @@ public:
             const bool soon = !(k < 2 || (k == 3 && cosmonarchyOnly));  // Campaign project (roadmap R25, not ready) and Mod project: later
             const bool enabled = !soon && (!mapsReady || mapsReady());  // (no game files: no map can be made yet)
             const Rect card{cx1 + slot * (cardW + gap), y, cx1 + slot * (cardW + gap) + cardW, y + cardH};
-            const bool over = enabled && hot(card), focused = enabled && card_ == k && hasFocus();
+            const bool over = enabled && hot(card), focused = enabled && recentFocus_ < 0 && card_ == k && hasFocus();
             if (!enabled) c.roundBox(card, kReadOnly, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
             else c.roundBox(card, over ? kCtlHot : kCtl, focused ? kAccent : over ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
             c.icon({card.left + inPad, card.top + inPad, card.left + inPad + iconS, card.top + inPad + iconS}, int(k == 3 && cmbwCard ? UiIcon::Map : icons[k]), enabled ? kAccent : kFaint, iconS);
@@ -244,41 +248,73 @@ public:
             c.text({x1 + scale(8), y, x1 + cw, y + rowH}, L"None", kDim, kMiddle);
             y += rowH;
         }
+        const int galleryW = std::max(scale(140), std::min(cw, avail));
+        const int galleryGap = scale(10);
+        const int columns = std::max(1, (galleryW + galleryGap) / scale(140));
+        const int thumbW = (galleryW - (columns - 1) * galleryGap) / columns;
+        const int imageH = scale(84), tileH = imageH + scale(68);
+        recentVisible_ = columns;
+        recentTotal_ = int(items.size());
+        recentOffset_ = std::clamp(recentOffset_, 0, std::max(0, recentTotal_ - columns));
+        recentActions_.clear();
+        for (const auto& it : items) recentActions_.push_back([this, project = it.project, i = it.index] {
+            if (onOpenRecent) onOpenRecent(project, i);
+        });
+        if (recentTotal_ > columns) {
+            const Rect prev{x1 + galleryW - scale(64), y - rowH, x1 + galleryW - scale(34), y - scale(2)};
+            const Rect next{x1 + galleryW - scale(30), y - rowH, x1 + galleryW, y - scale(2)};
+            c.text({prev.left - scale(120), prev.top, prev.left - scale(8), prev.bottom},
+                   std::to_wstring(recentOffset_ + 1) + L"\x2013" + std::to_wstring(std::min(recentOffset_ + columns, recentTotal_)) +
+                   L" / " + std::to_wstring(recentTotal_), kDim, kMiddle | kRight);
+            for (int direction : {-1, 1}) {
+                const Rect button = direction < 0 ? prev : next;
+                const bool enabled = direction < 0 ? recentOffset_ > 0 : recentOffset_ + columns < recentTotal_;
+                c.roundBox(button, hot(button) && enabled ? kCtlHot : kCtl, kBorder, float(scale(4)));
+                c.text(button, direction < 0 ? L"\x2039" : L"\x203A", enabled ? kText : kFaint, kMiddle | kCenter);
+                if (enabled) hits_.push_back({button, [this, direction] { shiftRecent(direction * recentVisible_); },
+                                             direction < 0 ? L"Previous maps" : L"Next maps", Cursor::Hand});
+            }
+        }
+        y += scale(10);
+        recentBounds_ = {x1, y, x1 + galleryW, y + tileH};
         size_t row = 0;
-        for (const Recent& it : items) {
-            const bool project = it.project;
-            const size_t i = it.index;
-            const Rect r{x1, y, x1 + cw, y + rowH};
-            const bool over = hot(r);
-            if (over) c.fill(r, kRowHot);  // the list row under the mouse
-            hits_.push_back({r, [this, project, i] {
-                                 if (onOpenRecent) onOpenRecent(project, i);
-                             },
-                             fs::path(it.path).make_preferred().wstring(), Cursor::Hand});
-            c.icon({x1 + scale(8), r.top + (rowH - scale(16)) / 2, x1 + scale(24), r.top + (rowH - scale(16)) / 2 + scale(16)},
-                   int(project ? UiIcon::Project : UiIcon::Map), kDim, scale(16));
-            // Remove: under the mouse; always where the file is not found (the one thing to do with it).
+        for (int slot = 0; slot < columns && recentOffset_ + slot < recentTotal_; ++slot) {
+            const int position = recentOffset_ + slot;
+            const Recent& it = items[size_t(position)];
+            const Rect r{x1 + slot * (thumbW + galleryGap), y, x1 + slot * (thumbW + galleryGap) + thumbW, y + tileH};
+            const bool over = hot(r), focused = recentFocus_ == position && hasFocus();
+            c.roundBox(r, over ? kCtlHot : kCtl, focused ? kAccent : over ? kBorderHot : kBorder, float(scale(6)));
+            hits_.push_back({r, recentActions_[size_t(position)], fs::path(it.path).make_preferred().wstring(), Cursor::Hand});
+            const Rect picture{r.left + scale(8), r.top + scale(8), r.right - scale(8), r.top + imageH};
+            c.fill(picture, kBg);
+            draw::Bitmap* image = previewOf ? previewOf(it.path) : nullptr;
+            if (image && image->width() > 0 && image->height() > 0) {
+                const double fit = std::min(double(picture.width()) / image->width(), double(picture.height()) / image->height());
+                const int iw = std::max(1, int(image->width() * fit)), ih = std::max(1, int(image->height() * fit));
+                const int ix = picture.left + (picture.width() - iw) / 2, iy = picture.top + (picture.height() - ih) / 2;
+                c.bitmap(*image, {0, 0, image->width(), image->height()}, {ix, iy, ix + iw, iy + ih}, true);
+            } else {
+                const int side = scale(32), cx = (picture.left + picture.right) / 2, cy = (picture.top + picture.bottom) / 2;
+                c.icon({cx - side / 2, cy - side / 2, cx + side / 2, cy + side / 2},
+                       int(it.project ? UiIcon::Project : UiIcon::Map), kFaint, side);
+            }
             StartRemove& rm = removeAt(row++);
-            const int bw = scale(stardraft::kit::kIconBox), bhh = std::min(rowH, bw);
-            const Rect rmR{r.right - scale(4) - bw, (r.top + r.bottom - bhh) / 2, r.right - scale(4), (r.top + r.bottom - bhh) / 2 + bhh};
-            const int actionsLeft = rmR.left;
+            const int bw = scale(stardraft::kit::kIconBox);
+            const Rect rmR{r.right - bw - scale(4), r.top + scale(4), r.right - scale(4), r.top + bw + scale(4)};
             if (!sameRect(rm.frame(), rmR)) rm.setFrame(rmR);
             rm.setVisible(it.date.empty() || over);
-            rm.onClick = [this, project, i] {
-                if (onRemoveRecent) onRemoveRecent(project, i);
-            };
-            const int dateW = scale(96);
-            const Rect dt{actionsLeft - dateW - scale(8), r.top, actionsLeft - scale(8), r.bottom};
-            c.text(dt, it.date.empty() ? L"Not found" : it.date, it.date.empty() ? kWarn : kDim, kMiddle | kRight);
-            const std::wstring name = it.path.filename().wstring();
-            const Rect nt{x1 + scale(32), r.top, std::min<int>(x1 + scale(32) + cw * 2 / 5, dt.left - scale(16)), r.bottom};
-            c.text(nt, name, kText, kMiddle | kEllipsis);
-            const int nameRight = nt.left + std::min<int>(nt.width(), c.measure(name));
-            const std::wstring folder = fs::path(it.path.parent_path()).make_preferred().wstring();
-            c.text({nameRight + scale(16), r.top, dt.left - scale(16), r.bottom}, folder, kDim, kMiddle | kPathEllipsis);
-            y += rowH;
+            rm.onClick = [this, project = it.project, i = it.index] { if (onRemoveRecent) onRemoveRecent(project, i); };
+            const int left = r.left + scale(12), right = r.right - scale(12), ty = r.top + imageH + scale(8);
+            c.text({left, ty, right, ty + scale(20)}, it.path.filename().wstring(), kText, kMiddle | kEllipsis);
+            const std::wstring details = it.project ? L"EUD project" : previewDetails ? previewDetails(it.path) : L"StarCraft map";
+            const draw::Font of = c.setFont(smallFont(c));
+            c.text({left, ty + scale(21), right, ty + scale(36)}, details, kDim, kMiddle | kEllipsis);
+            c.text({left, ty + scale(37), right, ty + scale(52)}, it.date.empty() ? L"Not found" : it.date,
+                   it.date.empty() ? kWarn : kDim, kMiddle | kEllipsis);
+            c.setFont(of);
         }
         for (size_t k = row; k < removes_.size(); ++k) removes_[k]->setVisible(false);
+        if (!items.empty()) y += tileH;
 
         // Open: a project or a map that is not in the list.
         y += scale(12);
@@ -332,6 +368,15 @@ public:
             }
             return false;
         case draw::MouseKind::Wheel:
+            if (recentBounds_.contains(e.pt) && recentTotal_ > recentVisible_) {
+                const float delta = e.horizontal ? (e.exact ? e.panX : e.wheel * scale(80)) : draw::wheelDistance(e, float(scale(80)));
+                recentWheel_ -= delta;
+                if (std::abs(recentWheel_) >= scale(60)) {
+                    shiftRecent(recentWheel_ > 0 ? 1 : -1);
+                    recentWheel_ = 0;
+                }
+                return true;
+            }
             scrollBy(-int(draw::wheelDistance(e, float(scale(32) * 3))));
             return true;
         default: return false;
@@ -344,6 +389,22 @@ public:
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
         const bool banner = browse_.visible(), onBrowse = banner && browse_.hasFocus();
+        if (e.key == draw::Key::Down && recentTotal_) {
+            recentFocus_ = recentOffset_;
+            focus(); invalidate(); return true;
+        }
+        if (recentFocus_ >= 0) {
+            if (e.key == draw::Key::Up || e.key == draw::Key::Escape || e.key == draw::Key::Tab) { recentFocus_ = -1; invalidate(); }
+            else if (e.key == draw::Key::Left || e.key == draw::Key::Right) {
+                recentFocus_ = std::clamp(recentFocus_ + (e.key == draw::Key::Left ? -1 : 1), 0, recentTotal_ - 1);
+                if (recentFocus_ < recentOffset_) recentOffset_ = recentFocus_;
+                if (recentFocus_ >= recentOffset_ + recentVisible_) recentOffset_ = recentFocus_ - recentVisible_ + 1;
+                invalidate(); return true;
+            } else if (e.key == draw::Key::Enter || e.key == draw::Key::Space) {
+                if (size_t(recentFocus_) < recentActions_.size()) recentActions_[size_t(recentFocus_)]();
+                return true;
+            }
+        }
         if (e.key == draw::Key::Left || e.key == draw::Key::Right) {
             card_ = nextCard(card_, e.key == draw::Key::Left);
             if (onBrowse) focus();
@@ -491,6 +552,15 @@ private:
     bool bannerShown_ = false;
     std::vector<std::unique_ptr<StartRemove>> removes_;
     std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)
+    draw::Rect recentBounds_{};
+    int recentOffset_ = 0, recentVisible_ = 1, recentTotal_ = 0, recentFocus_ = -1;
+    float recentWheel_ = 0;
+    std::vector<std::function<void()>> recentActions_;
+    void shiftRecent(int delta) {
+        recentOffset_ = std::clamp(recentOffset_ + delta, 0, std::max(0, recentTotal_ - recentVisible_));
+        recentFocus_ = -1;
+        invalidate();
+    }
     int hover_ = -1;                // the hit under the mouse at the last move
     int card_ = 0;
     // The cards the keys reach: the two projects, and Cosmonarchy map (the fourth) when it shows.

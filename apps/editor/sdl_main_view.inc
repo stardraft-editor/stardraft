@@ -480,6 +480,11 @@ struct MainView final : draw::View {
     // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
     // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
     bool key(const draw::KeyEvent& e) override {
+        // With no focused control, Down enters the recent-map shelf directly.
+        if (gStartView.visible() && !gStartView.hasFocus() && e.down && e.key == draw::Key::Down && !e.mods) {
+            gStartView.focus();
+            if (gStartView.key(e)) return true;
+        }
         if (simKey(e)) return true;  // (Esc ends a live game)
         if (simBarShown()) return shortcutRun(e);  // (a live game: the menus' keys only, not the map's)
         const int k = int(e.key);

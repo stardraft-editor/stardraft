@@ -7,6 +7,8 @@
 
 StartView gStartView;  // (declared extern in sdl_main_view.inc: the root view shows it)
 
+#include "sdl_recent_previews.inc"
+
 // The day a file (or a project's folder: its project file) was last saved, as the start page shows it; "" when not found.
 // The file clock is turned into the system clock by its offset to now (std::chrono::clock_cast is not on every system yet).
 std::wstring startDateSdl(const fs::path& p) {
@@ -24,7 +26,7 @@ std::wstring startDateSdl(const fs::path& p) {
     if (!localtime_r(&tt, &tm)) return L"";
 #endif
     wchar_t buf[32];
-    std::swprintf(buf, 32, L"%04d-%02d-%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+    std::swprintf(buf, 32, L"%04d-%02d-%02d %02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
     return buf;
 }
 
@@ -54,6 +56,8 @@ void initStartPage() {
     gStartView.onCosmonarchy = [] { openNewPageSdl(2); };  // (the New page: the tileset, the size, the terrain)
     gStartView.cosmonarchyOnly = cmbwMode();
     gStartView.modReady = cmbwMode() && !stardraft::cmbw::findInstall().empty();
+    gStartView.previewOf = [](const fs::path& p) { return recentPreviews().picture(p); };
+    gStartView.previewDetails = [](const fs::path& p) { return recentPreviews().details(p); };
     gStartView.dateOf = [](const fs::path& p) { return startDateSdl(p); };
     gStartView.scrollInfo = [](int, int, int) {};  // (the page scrolls with the wheel; the window has no bar yet)
 }
