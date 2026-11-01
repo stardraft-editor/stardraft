@@ -1865,9 +1865,9 @@ Accept: 	Accept:
 " -xf "	" -xf "
 A value in the text is missing. Insert it again.	文本中缺少一个值。请重新插入。
 Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	将暂停放入序列中：在序列外，它不起作用。若要在序列外等待，请使用“延迟后”。
-Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.	填充：点击选区内以填充整个选区。点击其他位置会填充与被点击图块相连且相同的图块。Shift+点击会填充所有匹配的图块(若有选区，则仅限选区内)。若在图块列表中选择了多个图块，每个被填充的图块都会随机获得其中之一。
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	填充：点击选区内以填充整个选区。点击其他位置会填充与被点击图块相连且相同的图块。Shift+点击会填充所有匹配的图块(若有选区，则仅限选区内)。若在图块列表中选择了多个图块，填充会将它们作为图案重复。
 Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 程序选项 > 地图 中设置。
-Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.	笔刷：以笔刷的大小和形状放置图块列表中选中的图块。选中多个图块时，笔刷中的每个图块会随机获得其中之一。
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	笔刷：以笔刷的大小和形状放置图块列表中选中的图块。选中多个图块时，笔刷按它们在列表中的排列放置；按住 Shift 可随机放置。
 . At the next start, StarDraft 2 asks if you want to send the crash report.	。下次启动时，StarDraft 2 会询问您是否要发送崩溃报告。
 &Pin to the top	置顶(&P)
 Un&pin	取消置顶(&P)

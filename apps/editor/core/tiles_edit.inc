@@ -18,10 +18,10 @@ struct TilesView {
     int scroll = 0, contentH = 0, layoutW = -1;
     int listW = 16 * 32 + 15;  // the grid's width for the tiles: the view's, or more (tilesMinCell)
     int picked = -1;        // the tile value to place (group << 4 | subtile), -1: none
-    std::vector<uint16_t> chosen;  // Ctrl+click and Shift+click: several tiles; Spray places one of them at random (#81)
-    int anchor = -1;               // the tile a Shift+click's rectangle starts from: the last click without Shift
-    // The stamp: a rectangle of the grid (a box dragged over it, or Shift+click), its tiles as the grid shows them
-    // (stampW x stampH, 0xFFFF: a slot with no tile). The Brush places them as they are, and a drag repeats them in a
+    std::vector<uint16_t> chosen;  // the selected tiles (a box, Shift adds, Ctrl takes out); Spray places one of them at random (#81)
+    int anchor = -1;               // the tile picked last
+    // The stamp: the selected tiles at their places in the grid, in the rectangle round them (stampW x stampH, 0xFFFF:
+    // a slot not selected, the map keeps its tile there). The Brush places them as they are, and a drag repeats them in a
     // pattern from the press (stampX, stampY: the pattern's top-left tile); Fill fills with the pattern. With Shift on
     // the map, the Brush places the tiles at random instead (scatter). Spray is always random.
     std::vector<uint16_t> stamp;
@@ -38,10 +38,11 @@ struct TilesView {
     int lastX = 0, lastY = 0;  // the Brush stroke's last tile
     int hover = -1;         // the tile value under the mouse in the list
     // A box dragged over the grid selects the tiles in it (GitHub feedback #110): from the press, in content pixels
-    // (the scroll added); Ctrl+drag adds to the tiles selected before.
+    // (the scroll added); Shift+drag adds its tiles to the ones selected before (boxOp 1), Ctrl+drag takes them out (2).
     bool boxing = false, boxed = false;
     POINT boxFrom{}, boxTo{};
     std::vector<uint16_t> boxBase;
+    int boxOp = 0;
     const Editor* builtFor = nullptr;
     int builtEra = -1;
     bool shown = false;
@@ -177,7 +178,7 @@ std::vector<Editor::TileAt> tilesStampCells(int x0, int y0) {
     return cells;
 }
 
-// The grid's selection became a stamp (a box, or Shift+click): the Brush places it.
+// The grid's selection became a stamp: the Brush places it.
 void tilesStampChosen() {
     int n = 0;
     for (uint16_t v : gTiles->stamp) n += v != 0xFFFF;
@@ -421,7 +422,7 @@ void tilesSprayAt(float wx, float wy) {
     const auto foot = tilesFootprint(tx, ty);
     if (foot.empty()) return;
     std::mt19937 rng(appState().spraySeed++);
-    // Each dab: one of the selected tiles, at random (Ctrl+click or Shift+click in the grid; one tile: that tile).
+    // Each dab: one of the selected tiles, at random (one tile: that tile).
     std::vector<Editor::TileAt> cells;
     for (int i = 0; i < sprayDabs(); ++i) {
         const uint16_t v = gTiles->chosen.size() > 1 ? gTiles->chosen[rng() % gTiles->chosen.size()] : uint16_t(gTiles->picked);
@@ -431,8 +432,8 @@ void tilesSprayAt(float wx, float wy) {
     gTilesStrokePlaced += tilesPut(cells);
 }
 
-// The picked tile in `cells` (one undo step); with several tiles picked (Shift+click in the list), each cell gets one of
-// them at random.
+// The picked tile in `cells` (one undo step); with several tiles picked and no stamp, each cell gets one of them at
+// random.
 // With a stamp: its pattern from (ox, oy).
 // Solid: the terrain's tiles in the rects of `cells` (a half of a rect that is not in them keeps its tile).
 int tilesPlaceRandom(const std::vector<std::pair<int, int>>& cells, int ox = 0, int oy = 0) {

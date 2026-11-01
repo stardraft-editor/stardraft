@@ -1761,7 +1761,7 @@ Add to favorites	Agregar a favoritos
 Remove from favorites	Quitar de favoritos
 Show the favorites	Mostrar los favoritos
 &Fill selection with the selected tiles	&Rellenar la selección con las fichas seleccionadas
-Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.	Relleno: haga clic dentro de la selección para rellenarla entera. Haga clic fuera de la selección para rellenar los tiles conectados iguales al tile en el que hace clic. Shift+clic rellena todos los tiles iguales a ese tile (dentro de la selección, si la hay). Con varios tiles seleccionados en la lista de Tiles, cada tile rellenado recibe uno de ellos al azar.
+Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	Relleno: haga clic dentro de la selección para rellenarla entera. Haga clic fuera de la selección para rellenar los tiles conectados iguales al tile en el que hace clic. Shift+clic rellena todos los tiles iguales a ese tile (dentro de la selección, si la hay). Con varios tiles seleccionados en la lista de Tiles, Rellenar los repite como un patrón.
 Crash reports	Informes de errores
 Ask	Preguntar
 Do not send	No enviar
@@ -1826,7 +1826,7 @@ Start StarDraft 2 again in the new language. Your open maps and projects open ag
 The new language shows after a restart	El nuevo idioma se muestra después de reiniciar
 A new language shows after a restart	Un nuevo idioma se muestra después de reiniciar
 Text color	Color del texto
-Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Con varios tiles seleccionados, cada tile del pincel recibe uno de los tiles seleccionados al azar.
+Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Con varios tiles seleccionados, el pincel los coloca como están en la lista; mantén Shift para colocarlos al azar.
 . At the next start, StarDraft 2 asks if you want to send the crash report.	. En el próximo inicio, StarDraft 2 le pregunta si quiere enviar el informe de fallo.
 &Pin to the top	&Fijar arriba
 Un&pin	&Desfijar

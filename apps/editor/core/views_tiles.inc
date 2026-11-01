@@ -486,44 +486,66 @@ void tilesSetFilter(int index) {
     tilesRebuild();
 }
 
-// The stamp: the grid's slots in rows r0 to r1 and columns c0 to c1, as the grid shows them (tiles_edit.inc). Fewer
-// than 2 tiles: no stamp.
-void tilesMakeStamp(int r0, int r1, int c0, int c1) {
+// The selection is these tiles. The stamp: the selected tiles at their places in the grid, in the rectangle round
+// them (tiles_edit.inc); the slots between them have no tile (the map keeps its tile there). Fewer than 2 tiles in
+// the grid: no stamp.
+void tilesSetChosen(std::vector<uint16_t> chosen) {
     gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
-    int n = 0;
-    std::vector<uint16_t> stamp;
-    for (int r = r0; r <= r1; ++r)
-        for (int c = c0; c <= c1; ++c) {
-            const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
-            uint16_t v = k < gTiles->values.size() ? gTiles->values[k] : kTilesNone;
-            if (v != kTilesNone && tileIsNull(v)) v = kTilesNone;  // (a null tile: left out, the map keeps its tile)
-            stamp.push_back(v == kTilesNone ? uint16_t(0xFFFF) : v);
-            n += v != kTilesNone;
-        }
-    if (n < 2) return;
-    gTiles->stamp = std::move(stamp), gTiles->stampW = c1 - c0 + 1, gTiles->stampH = r1 - r0 + 1;
+    std::vector<bool> in(65536), shown(65536);
+    for (uint16_t v : chosen) in[v] = true;
+    std::vector<size_t> at;  // the selected tiles' slots
+    for (size_t k = 0; k < gTiles->values.size(); ++k)
+        if (gTiles->values[k] != kTilesNone && in[gTiles->values[k]]) at.push_back(k), shown[gTiles->values[k]] = true;
+    std::erase_if(chosen, [&](uint16_t v) { return !shown[v]; });  // (only the tiles the grid shows: they are the stamp)
+    gTiles->picked = chosen.empty() ? -1 : chosen.back();
+    gTiles->chosen = std::move(chosen);
+    if (at.size() < 2) return;
+    size_t r0 = SIZE_MAX, r1 = 0, c0 = SIZE_MAX, c1 = 0;
+    for (size_t k : at) {
+        const size_t r = k / kTilesPerRow, c = k % kTilesPerRow;
+        r0 = std::min(r0, r), r1 = std::max(r1, r), c0 = std::min(c0, c), c1 = std::max(c1, c);
+    }
+    const size_t w = c1 - c0 + 1, h = r1 - r0 + 1;
+    gTiles->stamp.assign(w * h, uint16_t(0xFFFF));
+    for (size_t k : at) gTiles->stamp[(k / kTilesPerRow - r0) * w + (k % kTilesPerRow - c0)] = gTiles->values[k];
+    gTiles->stampW = int(w), gTiles->stampH = int(h);
 }
 
-// The box: the tiles whose cells it touches, added to the ones selected before it (Ctrl; else they are the stamp).
+// A selection made in the grid: the Brush places it (a stamp, or the one tile).
+void tilesChosenDone() {
+    if (tilesStampOn()) return tilesStampChosen();
+    if (gTiles->picked < 0) return setMessage(L"No tiles are selected. Select tiles in the Tiles list");
+    tilesToBrush();
+    setMessage(L"Placing " + tilesValueLabel(gTiles->picked) + L": click or drag to place it (the brush's size and shape)");
+    appState().dirty = true;
+}
+
+// The box: the tiles whose cells it touches (null tiles: not). They are the selection, or Shift adds them to the
+// tiles selected before it, Ctrl takes them out.
 void TilesGridView::boxSelect() {
     const TilesScope scope = here();
     const int x0 = std::min(gTiles->boxFrom.x, gTiles->boxTo.x), x1 = std::max(gTiles->boxFrom.x, gTiles->boxTo.x);
     const int y0 = std::min(gTiles->boxFrom.y, gTiles->boxTo.y), y1 = std::max(gTiles->boxFrom.y, gTiles->boxTo.y);
     const int c0 = std::max(0, tilesIndexAt(x0)), c1 = std::min(kTilesPerRow - 1, tilesIndexAt(x1));
     const int r0 = std::max(0, tilesIndexAt(y0)), r1 = std::max(0, tilesIndexAt(y1));
-    std::vector<uint16_t> chosen = gTiles->boxBase;
+    std::vector<uint16_t> box;
+    std::vector<bool> inBox(65536);
     for (int r = r0; r <= r1; ++r)
         for (int c = c0; c <= c1; ++c) {
             const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
-            if (k < gTiles->values.size() && gTiles->values[k] != kTilesNone && !tileIsNull(gTiles->values[k]) &&
-                std::find(chosen.begin(), chosen.end(), gTiles->values[k]) == chosen.end())
-                chosen.push_back(gTiles->values[k]);
+            if (k < gTiles->values.size() && gTiles->values[k] != kTilesNone && !inBox[gTiles->values[k]] && !tileIsNull(gTiles->values[k]))
+                box.push_back(gTiles->values[k]), inBox[gTiles->values[k]] = true;
         }
-    if (chosen.empty()) return;
-    if (gTiles->boxBase.empty()) tilesMakeStamp(r0, r1, c0, c1);
-    else gTiles->stamp.clear();
-    gTiles->chosen = chosen;
-    gTiles->picked = chosen.back();
+    if (box.empty() && gTiles->boxOp == 0) return;  // (only empty slots: the selection stays)
+    std::vector<uint16_t> chosen = gTiles->boxBase;
+    std::vector<bool> inBase(65536);
+    for (uint16_t v : chosen) inBase[v] = true;
+    if (gTiles->boxOp == 2) std::erase_if(chosen, [&](uint16_t v) { return inBox[v]; });
+    else
+        for (uint16_t v : box)
+            if (!inBase[v]) chosen.push_back(v);
+    if (chosen == gTiles->chosen) return;  // (no change: a copied stamp stays as it is)
+    tilesSetChosen(std::move(chosen));
     invalidate();
 }
 
@@ -630,48 +652,31 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         }
         const bool ctrl = (e.mods & draw::kCtrl) != 0, shift = (e.mods & draw::kShift) != 0;
         const int v = hit(e.pt.x, e.pt.y);
-        if (v >= 0 && (ctrl || shift) && gTiles->picked >= 0) {  // several tiles, for Spray (#81)
-            if (shift) {  // the rectangle of the grid from the last click without Shift to this tile (Ctrl: added)
-                auto at = [](int value) { return int(std::find(gTiles->values.begin(), gTiles->values.end(), uint16_t(value)) - gTiles->values.begin()); };
-                const int from = at(gTiles->anchor >= 0 ? gTiles->anchor : gTiles->picked), to = at(v);
-                const int n = int(gTiles->values.size());
-                if (!ctrl) gTiles->chosen.clear();
-                if (from < n && to < n) {
-                    const int c0 = std::min(from % kTilesPerRow, to % kTilesPerRow), c1 = std::max(from % kTilesPerRow, to % kTilesPerRow);
-                    const int r0 = std::min(from, to) / kTilesPerRow, r1 = std::max(from, to) / kTilesPerRow;
-                    if (!ctrl) tilesMakeStamp(r0, r1, c0, c1);
-                    for (int r = r0; r <= r1; ++r)
-                        for (int c = c0; c <= c1; ++c) {
-                            const int k = r * kTilesPerRow + c;
-                            if (k < n && gTiles->values[size_t(k)] != kTilesNone && !tileIsNull(gTiles->values[size_t(k)]) &&
-                                std::find(gTiles->chosen.begin(), gTiles->chosen.end(), gTiles->values[size_t(k)]) == gTiles->chosen.end())
-                                gTiles->chosen.push_back(gTiles->values[size_t(k)]);
-                        }
-                }
-                if (gTiles->chosen.empty()) gTiles->chosen.push_back(uint16_t(v));
-            } else if (auto it = std::find(gTiles->chosen.begin(), gTiles->chosen.end(), uint16_t(v)); it != gTiles->chosen.end()) {
-                if (gTiles->chosen.size() > 1) gTiles->chosen.erase(it);
-            } else {
-                gTiles->chosen.push_back(uint16_t(v));
+        const int op = shift ? 1 : ctrl ? 2 : 0;  // Shift adds to the selection, Ctrl takes out of it (as on the map)
+        // (the selection before: none when the grid's tiles changed, a tileset of its own)
+        if (gTiles->picked < 0) gTiles->chosen.clear();
+        if (v >= 0 && op) {
+            std::vector<uint16_t> chosen = gTiles->chosen;
+            const auto it = std::find(chosen.begin(), chosen.end(), uint16_t(v));
+            if (op == 1 && it == chosen.end()) chosen.push_back(uint16_t(v));
+            else if (op == 2 && it != chosen.end()) chosen.erase(it);
+            if (chosen != gTiles->chosen) {  // (Ctrl on a tile that is not selected: no change)
+                tilesSetChosen(std::move(chosen));
+                tilesChosenDone();
+                invalidate();
             }
-            if (!shift) gTiles->anchor = v;
-            if (ctrl) gTiles->stamp.clear();  // (Ctrl: a set of tiles, placed at random)
-            gTiles->picked = gTiles->chosen.back();
-            if (tilesStampOn()) tilesStampChosen();
-            else setMessage(L"Selected " + std::to_wstring(gTiles->chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
-            invalidate();
-            appState().dirty = true;
         } else if (v >= 0) {
             tilesPick(v, false);
         }
-        // A drag from here: a box (Ctrl: added to the tiles selected before). It starts on an empty slot too (a null tile:
-        // black, or one the filter hides): a box over a doodad's tiles is one stamp, its empty slots left out.
+        // A drag from here: a box (Shift: added to the tiles selected before; Ctrl: taken out of them). It starts on an
+        // empty slot too (a null tile: black, or one the filter hides): a box over a doodad's tiles is one stamp.
         const bool inGrid = e.pt.y >= 0 && e.pt.y < tilesViewH() && e.pt.x >= 0 && e.pt.x < tilesEdge(kTilesPerRow) &&
                             e.pt.y + gTiles->scroll < gTiles->contentH;
-        if ((v >= 0 || inGrid) && !shift) {
+        if (v >= 0 || inGrid) {
             gTiles->boxing = true, gTiles->boxed = false;
             gTiles->boxFrom = gTiles->boxTo = {e.pt.x, e.pt.y + gTiles->scroll};
-            gTiles->boxBase = ctrl ? gTiles->chosen : std::vector<uint16_t>{};
+            gTiles->boxOp = op;
+            gTiles->boxBase = op ? gTiles->chosen : std::vector<uint16_t>{};
             if (draw::Host* h = host()) h->capture(*this, true);
         }
         shellFocusView();
@@ -687,10 +692,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         if (e.button == 0 && gTiles->boxing) {
             gTiles->boxing = false;
             if (draw::Host* h = host()) h->capture(*this, false);
-            if (gTiles->boxed && !gTiles->chosen.empty()) tilesToBrush();  // (as a pick: a box from an empty slot picked no tile at the press)
-            if (gTiles->boxed && tilesStampOn()) tilesStampChosen();
-            else if (gTiles->boxed && gTiles->chosen.size() > 1)
-                setMessage(L"Selected " + std::to_wstring(gTiles->chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
+            if (gTiles->boxed) tilesChosenDone();  // (the Brush, as a pick: a box from an empty slot picked no tile at the press)
             invalidate();
         }
         return true;
