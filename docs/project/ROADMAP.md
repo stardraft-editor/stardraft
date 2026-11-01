@@ -9,9 +9,11 @@ website (https://stardraft-editor.github.io, made by build.py in stardraft-edito
 only these, and the sentence under each section heading. The next paragraph tells the problem that the feature solves,
 and other notes. A push of this file updates the website (the Roadmap workflow).
 
-## Now
+Until the 1.0 release, the work is stabilization (fixes), so the roadmap has no Now section.
 
-Accelerated improvements, and the missing features based on early user feedback.
+## Next
+
+Make StarDraft 2 a more powerful creation suite.
 
 - [ ] **R36 Clickable build errors.** *Tag:* EUD.
   Click a build error in the Log to open its trigger and block in the Triggers workspace.
@@ -64,11 +66,6 @@ Accelerated improvements, and the missing features based on early user feedback.
 
   Open question (2026-10-14): "center the screen" exists (act.centerview), and R53 Camera controls covers the camera.
   Take it out of this item? The other tasks have no block yet (2026-10-18).
-
-## Next
-
-Make StarDraft 2 a more powerful creation suite.
-
 - [x] **R55 Stacked units.** *Tag:* Capability.
   Place units on top of each other, as in SCMDraft 2, and see a list of all the units under the cursor.
 
@@ -316,11 +313,16 @@ Exploring how to enable the next evolution of StarCraft creations.
   Upload a map to [scmscx.com](https://scmscx.com) from StarDraft 2.
 
   To share a map, mappers must save it and upload it on the website.
-- [ ] **R46 1.16.1 mod support.** *Tag:* Mods.
+- [x] **R46 1.16.1 mod support.** *Tag:* Mods.
   Load a StarCraft 1.16.1 mod, such as [Cosmonarchy](https://cosmonarchy.com/), and make maps with it.
 
   StarDraft 2 reads only the files of StarCraft: Remastered. The largest mod, Cosmonarchy, has needs of its own (R27
-  was its own item). These needs are not known yet.
+  was its own item).
+
+  Done (2026-11-01): released in 0.8.1 as an early feature preview. Program options > Plugins loads Cosmonarchy BW:
+  maps of the mod open, show, edit and save with the mod's own data (units, terrain and triggers). The unit palette
+  has the mod's unit sections, Terrain > Custom has its ramps, caves, bridges and trees, and an ISOM terrain editor
+  (experimental) makes terrains from the mod's tiles.
 - [ ] **R47 Version history.** *Tag:* Capability.
   Compare two versions of a map or project, and merge the changes.
 
