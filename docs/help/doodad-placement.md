@@ -8,5 +8,4 @@ Green marks footprint coverage, not valid cursor centers: the usual cursor previ
 
 ## Sources and credits
 
-- Behavior adapted from [Map Studio](https://github.com/RustyNovoBland77464/scmdraft-native/tree/e35461dea3b4387b0956feb59ed07ab4ee8d3fa6), MIT. Copyright (c) 2026 ScmDraft Fan Add-on contributors; the notice is retained in `licenses/doodad-placement.txt`.
-- Placement rules use StarDraft's existing `doodadFits` and `Editor::doodadOverlaps`, which read the active game's or mod's data.
+Uses StarDraft's existing map data and editing APIs.
