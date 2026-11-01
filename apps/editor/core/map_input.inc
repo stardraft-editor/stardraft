@@ -883,7 +883,7 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
 }
 
 // Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down
-// (brushSizes). False when no brush is active (the wheel zooms then).
+// (brushSizes). False when no brush is active.
 bool mapBrushActive(const AppState& app) {
     return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine ||
                                           (currentTool() == TJumble && !app.terrainRect))) ||
@@ -925,7 +925,7 @@ void mapPanBy(AppState& app, float dx, float dy) {
 // `horizontal`: a wheel's sideways steps (a tilt wheel). The rules:
 //  - Alt + wheel: the active brush one size up or down (mapBrushWheel); a trackpad's scroll and a smooth wheel's
 //    fractions step once per notch. In Doodads mode with a doodad picked and no spray: the palette's next or previous
-//    doodad (Discord feedback #119).
+//    doodad (Discord feedback #119). With no brush, Alt + wheel does nothing (it never zooms).
 //  - Ctrl (Cmd on macOS) + wheel or scroll: the zoom at the mouse (a trackpad's: smoothly; Windows sends a touchpad's
 //    pinch as Ctrl + wheel).
 //  - A mouse wheel: the zoom at the mouse (a sideways tilt does nothing).
@@ -955,6 +955,7 @@ bool mapWheel(AppState& app, float x, float y, float notches, float panX, float 
             }
             return true;
         }
+        return true;  // (no brush: nothing; Alt + wheel never zooms)
     }
     if (ctrl || !precise) {
         if (horizontal || notches == 0) return false;
