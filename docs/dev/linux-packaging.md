@@ -27,8 +27,8 @@ hyphen of `stardraft-editor` becomes an underscore.)
 | `share/thumbnailers/<id>.thumbnailer` | The map thumbnailer for the file managers |
 
 The .desktop file, the file types and the metainfo are made by CMake (`cmake/linux_desktop.cmake`) from the `.in`
-files and the translations in `apps/editor/res/lang/*.tsv`: a new text there gets its Korean, Spanish, Russian and
-Chinese in the .tsv files, as the program's texts do.
+files and the translations in `apps/editor/res/lang/*.tsv`: a new text there gets its Korean, Spanish, Russian,
+Chinese and French in the .tsv files, as the program's texts do.
 
 ## What the program does on the desktop
 

@@ -39,13 +39,14 @@ UiLang sdlSystemLanguage() {
             else if (l == "es") lang = UiLang::Spanish;
             else if (l == "ru") lang = UiLang::Russian;
             else if (l == "zh" && (c.empty() || c == "CN" || c == "SG")) lang = UiLang::Chinese;  // simplified; traditional: English
+            else if (l == "fr") lang = UiLang::French;
         }
         SDL_free(locales);
     }
     return lang;
 }
 
-// The language to use: STARDRAFT_LANG (en, ko, es, ru or zh, for test runs) wins, then the setting, and automatic is the
+// The language to use: STARDRAFT_LANG (en, ko, es, ru, zh or fr, for test runs) wins, then the setting, and automatic is the
 // language of the system.
 UiLang sdlLanguageChosen(const std::wstring& setting) {
     std::wstring code = setting;

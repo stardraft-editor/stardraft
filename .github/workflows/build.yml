@@ -707,7 +707,7 @@ jobs:
           plutil -lint build/stardraft.app/Contents/Info.plist
           plutil -p build/stardraft.app/Contents/Info.plist | grep -E "CFBundleShortVersionString|CFBundleIconFile|UTExportedTypeDeclarations|scx"
           test -f build/stardraft.app/Contents/Resources/stardraft.icns
-          for l in ko es ru zh-Hans; do plutil -lint "build/stardraft.app/Contents/Resources/$l.lproj/InfoPlist.strings"; done
+          for l in ko es ru zh-Hans fr; do plutil -lint "build/stardraft.app/Contents/Resources/$l.lproj/InfoPlist.strings"; done
           cat build/stardraft.app/Contents/Resources/ko.lproj/InfoPlist.strings
           for x in StarDraftPreview StarDraftThumbnail; do
             plutil -lint "build/stardraft.app/Contents/PlugIns/$x.appex/Contents/Info.plist"

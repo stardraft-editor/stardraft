@@ -55,7 +55,7 @@ enum : int {
     ID_PAL_SORT_NAME_DOWN = 632, ID_PAL_SORT_NUMBER_DOWN,  // ... the names Z to A, the numbers high to low
     ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
     ID_GRID_CUSTOM = 958,
-    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese
+    ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_TERRAIN_KIND_NEXT = 977,  // Ctrl+Alt+T: Terrain mode's Isometric, Rectangle, Tile, Custom, each in turn
     ID_TERRAIN_KIND = 1130,  // + the place in the tool strip: Mode > Terrain tools > Isometric, Rectangle, Tile, Custom (Ctrl+Alt+1 to 4)

@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-enum class UiLang { English, Korean, Spanish, Russian, Chinese };  // Chinese: simplified
+enum class UiLang { English, Korean, Spanish, Russian, Chinese, French };  // Chinese: simplified
 inline UiLang gUiLang = UiLang::English;  // the language in use (set at the start, see sdlLanguageChosen)
 
 struct UiText {
@@ -22,6 +22,7 @@ std::span<const UiText> langTableKo();  // res/lang/ko.cpp: the Korean translati
 std::span<const UiText> langTableEs();  // res/lang/es.cpp: the Spanish translations (generated)
 std::span<const UiText> langTableRu();  // res/lang/ru.cpp: the Russian translations (generated)
 std::span<const UiText> langTableZh();  // res/lang/zh.cpp: the Chinese (simplified) translations (generated)
+std::span<const UiText> langTableFr();  // res/lang/fr.cpp: the French translations (generated)
 
 inline const std::unordered_map<std::wstring_view, const wchar_t*>& uiTable(UiLang lang) {
     auto make = [](std::span<const UiText> rows) {
@@ -29,8 +30,8 @@ inline const std::unordered_map<std::wstring_view, const wchar_t*>& uiTable(UiLa
         for (const UiText& e : rows) m.emplace(e.en, e.text);
         return m;
     };
-    static const auto ko = make(langTableKo()), es = make(langTableEs()), ru = make(langTableRu()), zh = make(langTableZh());
-    return lang == UiLang::Korean ? ko : lang == UiLang::Spanish ? es : lang == UiLang::Russian ? ru : zh;
+    static const auto ko = make(langTableKo()), es = make(langTableEs()), ru = make(langTableRu()), zh = make(langTableZh()), fr = make(langTableFr());
+    return lang == UiLang::Korean ? ko : lang == UiLang::Spanish ? es : lang == UiLang::Russian ? ru : lang == UiLang::Chinese ? zh : fr;
 }
 
 // The translation of an English text (a pointer into the tables, or the text itself: it stays valid as long as it was).
@@ -47,7 +48,7 @@ inline std::wstring tr(const std::wstring& english) {
 
 // --- Program options > Language (both programs) ------------------------------------------------------------------
 
-inline std::wstring gLanguage = L"auto";  // the setting Language: auto, en, ko, es, ru or zh (a change applies at the next start)
+inline std::wstring gLanguage = L"auto";  // the setting Language: auto, en, ko, es, ru, zh or fr (a change applies at the next start)
 
 // The languages, each by its own name (Automatic: the language of the system).
 struct LanguageChoice {
@@ -56,15 +57,16 @@ struct LanguageChoice {
 };
 inline constexpr LanguageChoice kLanguageChoices[] = {{L"auto", L"Automatic (the language of Windows)"}, {L"en", L"English"}, {L"ko", L"한국어"},
                                                       {L"es", L"Español"}, {L"ru", L"Русский"},
-                                                      {L"zh", L"简体中文"}};
+                                                      {L"zh", L"简体中文"}, {L"fr", L"Français"}};
 inline constexpr int kLanguageChoiceCount = int(sizeof kLanguageChoices / sizeof kLanguageChoices[0]);
 
-// The language of a code (en, ko, es, ru or zh); "auto" and other codes give `system` (the language of the system).
+// The language of a code (en, ko, es, ru, zh or fr); "auto" and other codes give `system` (the language of the system).
 inline UiLang uiLanguageOfCode(const std::wstring& code, UiLang system) {
     if (code == L"ko") return UiLang::Korean;
     if (code == L"es") return UiLang::Spanish;
     if (code == L"ru") return UiLang::Russian;
     if (code == L"zh") return UiLang::Chinese;
+    if (code == L"fr") return UiLang::French;
     if (code == L"en") return UiLang::English;
     return system;
 }
@@ -84,7 +86,8 @@ inline std::vector<std::pair<int, std::wstring>> languageChoicesOffered(const wc
     std::vector<std::pair<int, std::wstring>> out;
     for (int i = 0; i < kLanguageChoiceCount; ++i) {
         const std::wstring code = kLanguageChoices[i].code;
-        if ((code == L"ru" && langTableRu().empty()) || (code == L"zh" && langTableZh().empty())) continue;
+        if ((code == L"ru" && langTableRu().empty()) || (code == L"zh" && langTableZh().empty()) ||
+            (code == L"fr" && langTableFr().empty())) continue;
         out.push_back({i, i == 0 && automatic ? std::wstring(automatic) : std::wstring(kLanguageChoices[i].name)});
     }
     return out;

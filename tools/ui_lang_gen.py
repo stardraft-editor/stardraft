@@ -8,7 +8,7 @@ tr() looks up in apps/editor/ui_lang.h, so it must be the exact text of the call
 with # are skipped. A translation that is equal to another English key is reported: tr() would translate it again.
 
 The output is a C++ file per language: a table of {L"English", L"translation"}, with non-ASCII characters as \\uXXXX,
-and the function that returns it (langTableKo, langTableEs, langTableRu or langTableZh, declared in apps/editor/ui_lang.h).
+and the function that returns it (langTableKo, langTableEs, langTableRu, langTableZh or langTableFr, declared in apps/editor/ui_lang.h).
 """
 import argparse
 import sys
@@ -17,7 +17,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-LANGS = {"ko": "langTableKo", "es": "langTableEs", "ru": "langTableRu", "zh": "langTableZh"}
+LANGS = {"ko": "langTableKo", "es": "langTableEs", "ru": "langTableRu", "zh": "langTableZh", "fr": "langTableFr"}
 
 
 def unescape(s):

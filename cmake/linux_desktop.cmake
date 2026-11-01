@@ -2,7 +2,7 @@
 # and the software centers' metainfo, with their texts in each language of apps/editor/res/lang/*.tsv (the English
 # text is the key, as the program's tr() has it). Included by CMakeLists.txt on Linux and the BSDs.
 
-set(STARDRAFT_LANGS ko es ru zh)
+set(STARDRAFT_LANGS ko es ru zh fr)
 
 # The translation of `english` in `lang` (its .tsv), or "" when it has none.
 function(stardraft_tsv_text english lang out)

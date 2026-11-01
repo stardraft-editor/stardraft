@@ -457,7 +457,7 @@ int main(int argc, char** argv) {
             const std::string n = next();
             accentArg = n == "system" ? -2 : std::atoi(n.c_str());
         }
-        else if (a == "--lang") langArg = next();  // en, ko, es, ru or zh: the language for this run (not saved), for a snapshot
+        else if (a == "--lang") langArg = next();  // en, ko, es, ru, zh or fr: the language for this run (not saved), for a snapshot
         else if (a == "--drop") dropArg = next();  // a file dropped on the window (as from Finder on macOS), for a snapshot
         else if (a == "--silent") gSilent = true;
         else if (a == "--fail-device") gFailDeviceArg = true;  // the graphics device is not made, as on a computer without one (a test)

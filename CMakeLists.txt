@@ -644,7 +644,7 @@ if(STARDRAFT_RENDERER)
     set(sdlEditor stardraft_editor)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
-                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
+                   apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
     target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
@@ -700,7 +700,7 @@ if(STARDRAFT_RENDERER)
                               "-framework Security" "-framework ImageIO" "-framework CoreGraphics")
         # The map type's name in Finder ("StarCraft map", Info.plist) in each language of res/lang/*.tsv:
         # <language>.lproj/InfoPlist.strings in Resources.
-        foreach(lang ko es ru zh)
+        foreach(lang ko es ru zh fr)
             file(STRINGS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/${lang}.tsv typeLine ENCODING UTF-8 REGEX "^StarCraft map\t")
             string(REGEX REPLACE "^StarCraft map\t([^\r]*).*" "\\1" typeText "${typeLine}")
             set(lproj ${lang})
@@ -714,7 +714,7 @@ if(STARDRAFT_RENDERER)
         endforeach()
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ko.tsv
                      ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/es.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/ru.tsv
-                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv)
+                     ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/zh.tsv ${CMAKE_SOURCE_DIR}/apps/editor/res/lang/fr.tsv)
         # The Quick Look extensions (apps/quicklook): Finder's icon of a map (thumbnail) and the space bar's preview,
         # each a .appex in the app's Contents/PlugIns. An extension must be in a sandbox (quicklook.entitlements): the
         # build signs it ad hoc with it; tools/ci/mac_dist.sh signs it again for a release (a Developer ID).
