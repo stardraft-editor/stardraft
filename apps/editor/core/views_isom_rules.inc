@@ -329,7 +329,9 @@ public:
     void paintSide(draw::Canvas& c);
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
-        if (!e.down || search_.hasFocus()) return false;
+        // (the search box has the keys: its typing and its text keys are its own; the Ctrl keys that it does not take
+        // (Ctrl+E, Ctrl+S...) are the editor's)
+        if (!e.down || (search_.hasFocus() && !(e.mods & draw::kCtrl))) return false;
         const bool ctrl = e.mods == draw::kCtrl;  // (the window's letter keys: Ctrl+ only)
         if (!ctrl || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
