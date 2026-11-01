@@ -659,7 +659,11 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         } else if (v >= 0) {
             tilesPick(v, false);
         }
-        if (v >= 0 && !shift) {  // a drag from here: a box (Ctrl: added to the tiles selected before)
+        // A drag from here: a box (Ctrl: added to the tiles selected before). It starts on an empty slot too (a null tile
+        // the filter hides): a box over a doodad's tiles is one stamp, its empty slots left out.
+        const bool inGrid = e.pt.y >= 0 && e.pt.y < tilesViewH() && e.pt.x >= 0 && e.pt.x < tilesEdge(kTilesPerRow) &&
+                            e.pt.y + gTiles->scroll < gTiles->contentH;
+        if ((v >= 0 || inGrid) && !shift) {
             gTiles->boxing = true, gTiles->boxed = false;
             gTiles->boxFrom = gTiles->boxTo = {e.pt.x, e.pt.y + gTiles->scroll};
             gTiles->boxBase = ctrl ? gTiles->chosen : std::vector<uint16_t>{};
@@ -678,6 +682,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         if (e.button == 0 && gTiles->boxing) {
             gTiles->boxing = false;
             if (draw::Host* h = host()) h->capture(*this, false);
+            if (gTiles->boxed && !gTiles->chosen.empty()) tilesToBrush();  // (as a pick: a box from an empty slot picked no tile at the press)
             if (gTiles->boxed && tilesStampOn()) tilesStampChosen();
             else if (gTiles->boxed && gTiles->chosen.size() > 1)
                 setMessage(L"Selected " + std::to_wstring(gTiles->chosen.size()) + L" tiles: Brush, Spray and Fill place one of them at random");
