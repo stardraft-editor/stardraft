@@ -2721,7 +2721,12 @@ constexpr UiText kRows[] = {
     {L"Filled the rectangle", L"Se rellen\u00F3 el rect\u00E1ngulo"},
     {L"Painted the ellipse", L"Se pint\u00F3 la elipse"},
     {L"Filled the ellipse", L"Se rellen\u00F3 la elipse"},
-    {L"Release the button at the other corner. Hold Shift for a square or a circle", L"Suelte el bot\u00F3n en la otra esquina. Mantenga Shift para un cuadrado o un c\u00EDrculo"},
+    {L"Filled diamond", L"Rombo relleno"},
+    {L"Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.", L"Rombo: arrastre a trav\u00E9s del rect\u00E1ngulo que lo contiene. Al soltar se pintan sus bordes, con el tama\u00F1o y la forma del pincel. Mantenga Shift para un rombo con la forma del mapa."},
+    {L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.", L"Rombo relleno: arrastre a trav\u00E9s del rect\u00E1ngulo que lo contiene. Al soltar se rellena. Mantenga Shift para un rombo con la forma del mapa."},
+    {L"Painted the diamond", L"Se pint\u00F3 el rombo"},
+    {L"Filled the diamond", L"Se rellen\u00F3 el rombo"},
+    {L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape", L"Suelte el bot\u00F3n en la otra esquina. Mantenga Shift para un cuadrado, un c\u00EDrculo o un rombo con la forma del mapa"},
     {L"Please describe what the issue is and what you would expect instead.", L"Describa cu\u00E1l es el problema y qu\u00E9 esperar\u00EDa en su lugar."},
 };
 }  // namespace

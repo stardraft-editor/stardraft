@@ -456,6 +456,8 @@ constexpr const wchar_t* kRectTip = L"Rectangle: drag from one corner to the oth
 constexpr const wchar_t* kRectFillTip = L"Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.";
 constexpr const wchar_t* kEllipseTip = L"Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.";
 constexpr const wchar_t* kEllipseFillTip = L"Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.";
+constexpr const wchar_t* kDiamondTip = L"Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.";
+constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.";
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
@@ -471,7 +473,8 @@ std::vector<StripItem> stripTools(Mode m) {
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                     stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
-                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})};
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
@@ -480,7 +483,8 @@ std::vector<StripItem> stripTools(Mode m) {
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill puts them in patches at random (Mix).", TFill, false},
                     stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
-                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
@@ -489,7 +493,8 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                 stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
-                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})};
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},

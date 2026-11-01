@@ -2721,7 +2721,12 @@ constexpr UiText kRows[] = {
     {L"Filled the rectangle", L"\u5DF2\u586B\u5145\u77E9\u5F62"},
     {L"Painted the ellipse", L"\u5DF2\u7ED8\u5236\u692D\u5706"},
     {L"Filled the ellipse", L"\u5DF2\u586B\u5145\u692D\u5706"},
-    {L"Release the button at the other corner. Hold Shift for a square or a circle", L"\u5728\u53E6\u4E00\u4E2A\u89D2\u677E\u5F00\u6309\u94AE\u3002\u6309\u4F4F Shift \u4E3A\u6B63\u65B9\u5F62\u6216\u5706\u5F62"},
+    {L"Filled diamond", L"\u586B\u5145\u83F1\u5F62"},
+    {L"Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.", L"\u83F1\u5F62\uFF1A\u62D6\u8FC7\u5B83\u6240\u5728\u7684\u65B9\u6846\u3002\u677E\u5F00\u65F6\u4EE5\u7B14\u5237\u7684\u5927\u5C0F\u548C\u5F62\u72B6\u7ED8\u5236\u5176\u8FB9\u7F18\u3002\u6309\u4F4F Shift \u4E3A\u5730\u56FE\u5F62\u72B6\u7684\u83F1\u5F62\u3002"},
+    {L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.", L"\u586B\u5145\u83F1\u5F62\uFF1A\u62D6\u8FC7\u5B83\u6240\u5728\u7684\u65B9\u6846\u3002\u677E\u5F00\u65F6\u586B\u5145\u5B83\u3002\u6309\u4F4F Shift \u4E3A\u5730\u56FE\u5F62\u72B6\u7684\u83F1\u5F62\u3002"},
+    {L"Painted the diamond", L"\u5DF2\u7ED8\u5236\u83F1\u5F62"},
+    {L"Filled the diamond", L"\u5DF2\u586B\u5145\u83F1\u5F62"},
+    {L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape", L"\u5728\u53E6\u4E00\u4E2A\u89D2\u677E\u5F00\u6309\u94AE\u3002\u6309\u4F4F Shift \u4E3A\u6B63\u65B9\u5F62\u3001\u5706\u5F62\u6216\u5730\u56FE\u5F62\u72B6\u7684\u83F1\u5F62"},
     {L"Please describe what the issue is and what you would expect instead.", L"\u8BF7\u63CF\u8FF0\u95EE\u9898\u662F\u4EC0\u4E48\uFF0C\u4EE5\u53CA\u60A8\u671F\u671B\u7684\u7ED3\u679C\u662F\u4EC0\u4E48\u3002"},
 };
 }  // namespace

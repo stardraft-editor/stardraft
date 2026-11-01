@@ -2719,5 +2719,10 @@ Painted the rectangle	Rectangle peint
 Filled the rectangle	Rectangle rempli
 Painted the ellipse	Ellipse peinte
 Filled the ellipse	Ellipse remplie
-Release the button at the other corner. Hold Shift for a square or a circle	Relâchez le bouton à l'autre coin. Maintenez Maj pour un carré ou un cercle
+Filled diamond	Losange plein
+Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.	Losange: faites glisser en travers du cadre qui le contient. Au relâchement, ses bords sont peints, avec la taille et la forme du pinceau. Maintenez Maj pour un losange de la forme de la carte.
+Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	Losange plein: faites glisser en travers du cadre qui le contient. Au relâchement, il est rempli. Maintenez Maj pour un losange de la forme de la carte.
+Painted the diamond	Losange peint
+Filled the diamond	Losange rempli
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Relâchez le bouton à l'autre coin. Maintenez Maj pour un carré, un cercle ou un losange de la forme de la carte
 Please describe what the issue is and what you would expect instead.	Veuillez décrire le problème et ce que vous attendiez à la place.

@@ -2721,7 +2721,12 @@ constexpr UiText kRows[] = {
     {L"Filled the rectangle", L"Rectangle rempli"},
     {L"Painted the ellipse", L"Ellipse peinte"},
     {L"Filled the ellipse", L"Ellipse remplie"},
-    {L"Release the button at the other corner. Hold Shift for a square or a circle", L"Rel\u00E2chez le bouton \u00E0 l'autre coin. Maintenez Maj pour un carr\u00E9 ou un cercle"},
+    {L"Filled diamond", L"Losange plein"},
+    {L"Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.", L"Losange: faites glisser en travers du cadre qui le contient. Au rel\u00E2chement, ses bords sont peints, avec la taille et la forme du pinceau. Maintenez Maj pour un losange de la forme de la carte."},
+    {L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.", L"Losange plein: faites glisser en travers du cadre qui le contient. Au rel\u00E2chement, il est rempli. Maintenez Maj pour un losange de la forme de la carte."},
+    {L"Painted the diamond", L"Losange peint"},
+    {L"Filled the diamond", L"Losange rempli"},
+    {L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape", L"Rel\u00E2chez le bouton \u00E0 l'autre coin. Maintenez Maj pour un carr\u00E9, un cercle ou un losange de la forme de la carte"},
     {L"Please describe what the issue is and what you would expect instead.", L"Veuillez d\u00E9crire le probl\u00E8me et ce que vous attendiez \u00E0 la place."},
 };
 }  // namespace

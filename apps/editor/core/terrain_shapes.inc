@@ -44,8 +44,9 @@ std::vector<std::pair<int, int>> shapePath() {
     return p;
 }
 
-// Rectangle and Ellipse: the outline of the box between the press and the mouse (its corners; an ellipse's points, 4
-// map pixels or more apart, 12 at least and 180 at most). Empty: the box has no width or no height.
+// Rectangle, Ellipse and Diamond: the outline of the box between the press and the mouse (its corners; a diamond's:
+// the middles of its sides; an ellipse's points, 4 map pixels or more apart, 12 at least and 180 at most). Empty: the
+// box has no width or no height.
 std::vector<std::pair<int, int>> shapeBoxPoints(int tool, const std::vector<std::pair<int, int>>& pts) {
     if (pts.size() < 2) return {};
     const auto [ax, ay] = pts.front();
@@ -53,6 +54,7 @@ std::vector<std::pair<int, int>> shapeBoxPoints(int tool, const std::vector<std:
     const int l = std::min(ax, bx), r = std::max(ax, bx), t = std::min(ay, by), b = std::max(ay, by);
     if (r - l < 2 || b - t < 2) return {};
     if (tool == TRect || tool == TRectFill) return {{l, t}, {r, t}, {r, b}, {l, b}};
+    if (tool == TDiamond || tool == TDiamondFill) return {{(l + r) / 2, t}, {r, (t + b) / 2}, {(l + r) / 2, b}, {l, (t + b) / 2}};
     const double cx = (l + r) / 2.0, cy = (t + b) / 2.0, rx = (r - l) / 2.0, ry = (b - t) / 2.0;
     const int n = std::clamp(int(6.2831853 * std::max(rx, ry) / 4), 12, 180);
     std::vector<std::pair<int, int>> out;
@@ -67,10 +69,12 @@ std::vector<std::pair<int, int>> shapeBoxPoints(int tool, const std::vector<std:
 std::vector<std::pair<int, int>> shapeGeometry(const std::vector<std::pair<int, int>>& pts) {
     return isBoxTool(gShape.tool) ? shapeBoxPoints(gShape.tool, pts) : pts;
 }
-// Shift (Rectangle, Ellipse): the box from `a` a square, as large as the mouse's farther side.
-std::pair<int, int> shapeSquare(std::pair<int, int> a, std::pair<int, int> p) {
-    const int dx = p.first - a.first, dy = p.second - a.second, d = std::max(std::abs(dx), std::abs(dy));
-    return {a.first + (dx < 0 ? -d : d), a.second + (dy < 0 ? -d : d)};
+// Shift (Rectangle, Ellipse, Diamond): the box from `a` a square (Diamond: twice as wide as high, as the map's
+// diamonds), as large as the mouse's farther side.
+std::pair<int, int> shapeSquare(std::pair<int, int> a, std::pair<int, int> p, int tool) {
+    const int q = tool == TDiamond || tool == TDiamondFill ? 2 : 1;  // (the width for each pixel of height)
+    const int dx = p.first - a.first, dy = p.second - a.second, d = std::max(std::abs(dx), q * std::abs(dy));
+    return {a.first + (dx < 0 ? -d : d), a.second + (dy < 0 ? -d / q : d / q)};
 }
 
 // The copy of the map that the Isometric previews paint (one for the program, as the resize preview's).
@@ -90,7 +94,7 @@ void shapeCopySettings(Editor& c, const Editor& ed) {
 }
 
 // Isometric: the shape painted on `e` with the terrain `t`. Line: the brush at most half its size apart along the line.
-// Rectangle and Ellipse: their outline's lines (filled: as a polygon).
+// Rectangle, Ellipse and Diamond: their outline's lines (filled: as a polygon).
 void shapeIsoPaint(Editor& e, int tool, const std::vector<std::pair<int, int>>& pts, uint16_t t, const Brush& brush) {
     if (!isStrokeShape(tool)) {
         e.fillTerrainPolygon(pts, t);
@@ -267,7 +271,7 @@ void shapeFinish() {
         for (int l : locations) ed.addLocationSelection(l);
         setMessage(tool == TLine ? L"Painted the line" : tool == TContour ? L"Filled the contour" : tool == TPolygon ? L"Filled the polygon"
                    : tool == TRect ? L"Painted the rectangle" : tool == TRectFill ? L"Filled the rectangle" : tool == TEllipse ? L"Painted the ellipse"
-                   : L"Filled the ellipse");
+                   : tool == TEllipseFill ? L"Filled the ellipse" : tool == TDiamond ? L"Painted the diamond" : L"Filled the diamond");
     }
     shapeReset();
     app.dirty = true;
@@ -307,7 +311,7 @@ void shapeMouseDown(float wx, float wy, bool snap) {
     if (tool == TLine || isBoxTool(tool)) gShape.points.push_back(p);
     if (tool != TPolygon) app.drag = Drag::Shape;
     setMessage(tool == TLine      ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
-               : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square or a circle"
+               : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape"
                : tool == TContour ? L"Contour: draw the shape, then release the button"
                                   : L"Polygon: click to add points. Double-click to close the polygon and fill it. Hold Shift to lock the angle. Esc stops the polygon.");
     shapeUpdate();
@@ -325,7 +329,7 @@ void shapeMouseMove(float wx, float wy, bool snap) {
     } else if (gShape.tool == TLine) {
         gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
     } else if (isBoxTool(gShape.tool)) {
-        gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p) : p;
+        gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p, gShape.tool) : p;
     } else {
         const auto& q = gShape.points.back();
         if (std::hypot(float(p.first - q.first), float(p.second - q.second)) * app.zoom < 6) return;
@@ -339,7 +343,7 @@ void shapeMouseUp(float wx, float wy, bool snap) {
     if (shapeOn()) {
         const std::pair<int, int> p{int(wx), int(wy)};
         if (gShape.tool == TLine) gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
-        else if (isBoxTool(gShape.tool)) gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p) : p;
+        else if (isBoxTool(gShape.tool)) gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p, gShape.tool) : p;
         else if (gShape.points.back() != p) gShape.points.push_back(p);
     }
     shapeFinish();

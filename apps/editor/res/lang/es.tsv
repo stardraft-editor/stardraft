@@ -2719,5 +2719,10 @@ Painted the rectangle	Se pintó el rectángulo
 Filled the rectangle	Se rellenó el rectángulo
 Painted the ellipse	Se pintó la elipse
 Filled the ellipse	Se rellenó la elipse
-Release the button at the other corner. Hold Shift for a square or a circle	Suelte el botón en la otra esquina. Mantenga Shift para un cuadrado o un círculo
+Filled diamond	Rombo relleno
+Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.	Rombo: arrastre a través del rectángulo que lo contiene. Al soltar se pintan sus bordes, con el tamaño y la forma del pincel. Mantenga Shift para un rombo con la forma del mapa.
+Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	Rombo relleno: arrastre a través del rectángulo que lo contiene. Al soltar se rellena. Mantenga Shift para un rombo con la forma del mapa.
+Painted the diamond	Se pintó el rombo
+Filled the diamond	Se rellenó el rombo
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Suelte el botón en la otra esquina. Mantenga Shift para un cuadrado, un círculo o un rombo con la forma del mapa
 Please describe what the issue is and what you would expect instead.	Describa cuál es el problema y qué esperaría en su lugar.

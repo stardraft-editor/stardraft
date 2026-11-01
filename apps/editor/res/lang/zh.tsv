@@ -2719,5 +2719,10 @@ Painted the rectangle	已绘制矩形
 Filled the rectangle	已填充矩形
 Painted the ellipse	已绘制椭圆
 Filled the ellipse	已填充椭圆
-Release the button at the other corner. Hold Shift for a square or a circle	在另一个角松开按钮。按住 Shift 为正方形或圆形
+Filled diamond	填充菱形
+Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.	菱形：拖过它所在的方框。松开时以笔刷的大小和形状绘制其边缘。按住 Shift 为地图形状的菱形。
+Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	填充菱形：拖过它所在的方框。松开时填充它。按住 Shift 为地图形状的菱形。
+Painted the diamond	已绘制菱形
+Filled the diamond	已填充菱形
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	在另一个角松开按钮。按住 Shift 为正方形、圆形或地图形状的菱形
 Please describe what the issue is and what you would expect instead.	请描述问题是什么，以及您期望的结果是什么。

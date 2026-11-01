@@ -2749,5 +2749,10 @@ Painted the rectangle	사각형을 칠했습니다
 Filled the rectangle	사각형을 채웠습니다
 Painted the ellipse	타원을 칠했습니다
 Filled the ellipse	타원을 채웠습니다
-Release the button at the other corner. Hold Shift for a square or a circle	반대 모서리에서 버튼을 놓으십시오. Shift를 누르고 있으면 정사각형이나 원이 됩니다
+Filled diamond	채운 마름모
+Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.	마름모: 마름모가 들어갈 상자를 가로질러 드래그합니다. 놓으면 브러시의 크기와 모양으로 테두리를 칠합니다. Shift를 누르고 있으면 맵의 모양을 한 마름모가 됩니다.
+Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	채운 마름모: 마름모가 들어갈 상자를 가로질러 드래그합니다. 놓으면 안을 채웁니다. Shift를 누르고 있으면 맵의 모양을 한 마름모가 됩니다.
+Painted the diamond	마름모를 칠했습니다
+Filled the diamond	마름모를 채웠습니다
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	반대 모서리에서 버튼을 놓으십시오. Shift를 누르고 있으면 정사각형, 원 또는 맵의 모양을 한 마름모가 됩니다
 Please describe what the issue is and what you would expect instead.	어떤 문제인지, 그리고 대신 어떻게 되기를 기대하는지 적어 주십시오.
