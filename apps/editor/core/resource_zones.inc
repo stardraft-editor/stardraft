@@ -26,14 +26,20 @@ void addResourceZones(render::Scene& s) {
     const AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
     const Editor& ed = *app.ed;
-    // While a unit is picked to place (Units mode), the zones it may not reach into, in red: placing a resource,
-    // the ones round the town halls and start locations; placing a town hall or a start location, the ones round the
-    // resources (when Options > Keep resources 3 tiles from town halls is on)
+    // While a unit is picked to place or units are pasted (Units mode), the zones they may not reach into, in red:
+    // placing a resource, the ones round the town halls and start locations; placing a town hall or a start location,
+    // the ones round the resources (when Options > Keep resources 3 tiles from town halls is on and Allow illegal units
+    // is off)
     bool placing[2] = {false, false};
-    if (app.mode == Mode::Units && app.palette >= 0 && app.resourceDistance && !app.allowIllegalUnits && size_t(app.palette) < ed.unitTypes().size()) {
-        int w, h;
-        const int k = resourceZoneKind(ed, uint16_t(app.palette), w, h);
-        if (k >= 0) placing[1 - k] = true;
+    if (app.mode == Mode::Units && app.resourceDistance && !app.allowIllegalUnits) {
+        auto add = [&](uint16_t type) {
+            int w, h;
+            if (const int k = resourceZoneKind(ed, type, w, h); k >= 0) placing[1 - k] = true;
+        };
+        if (app.pasting && ed.canPaste())  // (the copy that follows the mouse)
+            for (const Unit& u : ed.clipboard()) add(u.type);
+        else if (app.palette >= 0)
+            add(uint16_t(app.palette));
     }
     if (!gResourceZones[0] && !gResourceZones[1] && !placing[0] && !placing[1]) return;
     int vw, vh;
