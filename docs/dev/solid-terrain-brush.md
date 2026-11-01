@@ -37,9 +37,10 @@ a terrain, as the terrain core makes them for a rect whose two diamonds are that
   the ISOM brush picks them (`pickModPiece`). The others by the game's rule on the pieces' subtiles: a piece whose left
   tile is before the first empty megatile of its group is common (all as often), the others rare (1 time in 20). A mod
   terrain with no fill pieces (its inside is the stand-in's own tiles): the stand-in's tiles, as a game terrain.
-- A game terrain on a mod's tileset: the mod's own tiles of that terrain go in as the ISOM brush puts them
-  (`Editor::sprinkleModTiles` after `placeTileValues(cells, true)`: 1 in 20 of the tiles of one terrain, where a mod
-  tile looks like the game's). Not for a mod terrain: the ISOM brush keeps its fill as it is.
+- A game terrain on a mod's tileset: the mod's pieces of a border go in as the ISOM brush puts them
+  (`Editor::sprinkleModTiles` after `placeTileValues(cells, true)`); tiles of one terrain alone stay the game's (the
+  mod's maps also put its other grounds and pieces on a terrain: those groups are not its variants). Not for a mod
+  terrain: the ISOM brush keeps its fill as it is.
 
 The variants were measured (2026-10-31, `--histbox`: the state line's `tilehist=`): Rectangle's game terrains have the
 variant shares of Blizzard's maps (Jungle, Ash World Dirt, Badlands Asphalt: within 1 point each). For the mod's

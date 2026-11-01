@@ -270,8 +270,8 @@ public:
         int x = 0, y = 0;
         uint16_t value = 0;
     };
-    // modTiles: on a mod's tileset, the mod's own tiles of a terrain go in as the isometric brush puts them
-    // (sprinkleModTiles: 1 in 20 of the tiles of one terrain), for a brush of a terrain's tiles (Terrain's Rectangle).
+    // modTiles: on a mod's tileset, the mod's pieces of a border go in as the isometric brush puts them
+    // (sprinkleModTiles; tiles of one terrain alone stay the game's), for a brush of a terrain's tiles (Terrain's Rectangle).
     int placeTileValues(const std::vector<TileAt>& cells, bool modTiles = false);
     // The tiles of tiles (tx0, ty0)-(tx1, ty1) (inclusive) made again from the ISOM, as its terrains give them (the
     // tiles placed by hand there go: a Cosmonarchy doodad brush taken away). One undo step. False: nothing changed.

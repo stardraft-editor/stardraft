@@ -141,8 +141,6 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 4; ++i) ed.paintTerrain(ed.width() * 8 + i * 256, ed.height() * 16, terrain, 8);
     const int byPaint = modTiles(mid);
     std::printf("      mod tiles placed: %d by the brush, %d by the old engine's paint (terrain %u)\n", byBrush, byPaint, unsigned(terrain));
-    CHECK(byBrush > 0, "the brush placed some of the mod's tiles of that terrain");
-    CHECK(byPaint > 0, "the old engine's paint placed some of the mod's tiles of that terrain");
     {
         // The doodads that stay are those the same strokes keep with the mod's tiles off (a stroke that changes the
         // terrain under a doodad takes it away, as on any map; the mod's tiles take none).
@@ -157,8 +155,8 @@ int main(int argc, char** argv) {
         CHECK(ed.doodads().size() == plain.doodads().size(), "the doodads stay (their tiles get no mod tiles)");
     }
     {
-        // Each tile the strokes made one of the mod's is a tile of one terrain alone; most are of the painted terrain
-        // (the strokes also make the tiles of the diamonds around them again: their terrains' tiles).
+        // The strokes make no tile of one terrain alone one of the mod's: the groups the mod's maps give a terrain are
+        // other grounds and pieces put on it (Ash World's mud and plated floor edges on its Dirt), not its variants.
         Editor fresh(data);
         fresh.open(argv[2], err);
         const auto was = readTerrain(fresh.chk(), "TILE").tiles, now = readTerrain(ed.chk(), "TILE").tiles;
@@ -181,9 +179,7 @@ int main(int argc, char** argv) {
             painted += it != ts.groupTerrains.end() && (*it)[1] == terrain;
         }
         std::printf("      %d mod tiles placed, %d of the painted terrain, %d of a border\n", placed, painted, border);
-        // (at least half: since a mod tile goes in only with clean edges (edgeOutliers), the painted terrain has fewer looks
-        // to place, and its share in this stroke is half)
-        CHECK(placed > 0 && border == 0 && painted * 2 >= placed, "the mod tiles placed are of one terrain alone, at least half of the painted one");
+        CHECK(placed == 0, "no mod tile in the tiles of one terrain alone (the game's tiles there)");
     }
     {
         // The mod's pieces (Tileset::groupPieces): each terrain painted at its own places; the rects the brush made with a

@@ -1431,18 +1431,16 @@ bool Editor::applyCore(const std::function<bool()>& paint, const std::function<b
 
 // A mod's tileset with its own tiles (Cosmonarchy's new groups, learned from its maps): where the brush made a border
 // rect with a game piece that the mod has pieces for too (Tileset::groupPieces: subtile pairs), the rect gets one of the
-// mod's (the game's piece stays only where none of them looks like it); where it made tiles of one terrain alone
-// (Tileset::groupTerrains), 1 in 20 of them is one of the mod's tiles of that terrain, as the game's rare tiles are. The same places get the same tiles (a hash of the place); a doodad's tiles stay.
+// mod's (the game's piece stays only where none of them looks like it). Tiles of one terrain alone stay the game's: the
+// mod's maps also put its other grounds and pieces on a terrain (Ash World's mud and a plated floor's edges on its Dirt),
+// so the groups they give a terrain (Tileset::groupTerrains) are not its variants. A doodad's tiles stay.
 void Editor::sprinkleModTiles(const TerrainLayer& before) {
     // (what the tileset gives, made once per tileset: each stroke calls this; each thread its own: a window paints its
     // examples on a worker thread)
     struct Tables {
         std::tuple<uint16_t, size_t, size_t, size_t, size_t, uint64_t> key{};
         std::vector<std::array<uint16_t, 2>> terrains;
-        std::map<uint16_t, std::vector<uint16_t>> variants;  // terrain -> the mod's tile values of it alone
         std::map<uint16_t, std::vector<std::pair<uint16_t, uint16_t>>> pieces;  // the game's left group -> the mod's pieces for its rect
-        // a tile value -> bit 0: a mod terrain's own piece; bit 1: a game tile of one terrain that a mod terrain takes as its fill
-        std::vector<uint8_t> modTile;
     };
     thread_local Tables tables;
     uint64_t piecesHash = 1469598103934665603ull;  // (the mod terrains' pieces: another set of rules is another table)
@@ -1451,39 +1449,12 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     const auto key = std::make_tuple(uint16_t(era_ & 7), tileset_.groups.size(), tileset_.megatiles.size(), tileset_.modTerrains.size(),
                                      tileset_.groupTerrains.size(), piecesHash);
     if (tables.key != key || tables.terrains.empty()) {
-        tables = Tables{key, tileGroupTerrains(tileset_), {}, {}, {}};
-        const auto& terrains = tables.terrains;
-        {
-            uint16_t firstMod = uint16_t(tileset_.groups.size());  // (the mod's groups come after the game's)
-            for (const auto& gt : tileset_.groupTerrains) firstMod = std::min(firstMod, gt[0]);
-            auto gameFill = [&](uint16_t v) { return (v >> 4) < firstMod && size_t(v >> 4) < terrains.size() && !terrains[v >> 4][1]; };
-            tables.modTile.assign(65536, 0);
-            for (const Tileset::ModTerrain& m : tileset_.modTerrains)
-                for (const auto& [g, l, r] : m.pieces)
-                    if (!gameFill(l) || !gameFill(r)) tables.modTile[l] |= 1, tables.modTile[r] |= 1;
-                    else tables.modTile[l] |= 2, tables.modTile[r] |= 2;
-        }
-        std::set<uint16_t> pieceGroups;  // (a piece's tiles go only as the whole piece)
-        for (const auto& [left, right, game] : tileset_.groupPieces) pieceGroups.insert(uint16_t(left >> 4)), pieceGroups.insert(uint16_t(right >> 4));
-        // (and a mod terrain's edge: its set's pieces for the game's border rects, which the maps also show on the ground
-        // beside them: Asphalt on Mud's edge in the mud)
-        for (const auto& m : tileset_.modTerrains)
-            for (size_t i = 0; i + m.gapPieces < m.pieces.size(); ++i)
-                if (const auto& p = m.pieces[i]; p[0] < terrains.size() && terrains[p[0]][1])
-                    for (const uint16_t v : {p[1], p[2]})
-                        if (v > 1) pieceGroups.insert(uint16_t(v >> 4));  // (not a NULL half: the null tile's group)
-        for (const auto& [g, t, other] : tileset_.groupTerrains)
-            if (!other && g < tileset_.groups.size() && !pieceGroups.count(g))
-                for (int s = 0; s < 16; ++s) {
-                    const uint16_t m = tileset_.groups[g].megatiles[size_t(s)];
-                    if (m && m < tileset_.megatiles.size()) tables.variants[t].push_back(uint16_t(g << 4 | s));
-                }
+        tables = Tables{key, tileGroupTerrains(tileset_), {}};
         for (const auto& [left, right, game] : tileset_.groupPieces) tables.pieces[game].push_back({left, right});
     }
     const auto& terrains = tables.terrains;
-    const auto& variants = tables.variants;
     const auto& pieces = tables.pieces;
-    if (variants.empty() && pieces.empty() && tileset_.modTerrains.empty()) return;
+    if (pieces.empty()) return;
     TerrainLayer tile = readTerrain(chk_, "TILE"), mtxm = readTerrain(chk_, "MTXM");
     // The doodads' tiles stay as they are (the core writes MTXM too: a mod tile there would take the doodad away). A
     // doodad that the edit takes away (pruneDoodads: the terrain under it no longer fits) leaves its place to the mod's
@@ -1503,7 +1474,6 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
         h ^= h >> 13, h *= 0x5bd1e995u, h ^= h >> 15;
         return h;
     };
-    std::vector<uint8_t> done(tile.tiles.size(), 0);
     // Which of the mod's tiles look like the game's tile they would replace (the maps' data also has tiles placed over
     // another terrain's diamonds): the mean color within 12 (RGB) and the contrast (the brightness's spread) within a quarter.
     // (kept between edits for the tileset: its era and its number of groups; a mod has one tileset of each era)
@@ -1528,7 +1498,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     };
     // (and buildable as the game's tile is: a group of the mod's maps that is mostly dirt but unbuildable is a structure's
     // edge, not dirt: CV5 2661 and 2311 in Badlands, a gray piece in the dirt)
-    auto alike = [&](uint16_t a, uint16_t b, float within = 12.0f) {
+    auto alike = [&](uint16_t a, uint16_t b) {
         if ((a >> 4) >= tileset_.groups.size() || (b >> 4) >= tileset_.groups.size() ||
             ((tileset_.groups[a >> 4].buildability ^ tileset_.groups[b >> 4].buildability) & Tileset::kUnbuildable))
             return false;
@@ -1536,7 +1506,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
         const auto& y = lookOf(b);
         if (x[0] < 0 || y[0] < 0) return false;
         const float dr = x[0] - y[0], dg = x[1] - y[1], db = x[2] - y[2];
-        return dr * dr + dg * dg + db * db < within * within && std::abs(x[3] - y[3]) < 0.25f * std::max(x[3], y[3]);
+        return dr * dr + dg * dg + db * db < 12.0f * 12.0f && std::abs(x[3] - y[3]) < 0.25f * std::max(x[3], y[3]);
     };
     // The edges of a tile (its outer rows and columns of pixels: left, right, top, bottom): a mod's tile goes in only
     // where its edges are near the game tile's that it replaces, so that it joins the tiles around it as that one does
@@ -1559,25 +1529,6 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
         }
         return &it->second;
     };
-    // How many pixels of a tile's outer 2 rows and columns are far (RGB distance over 50) from a color: a piece of
-    // something else at a tile's edge (a structure or a path cut from a bigger picture: CV5 3814, 2311, 2661 in Badlands,
-    // a gray bit in the dirt), which the means above do not see.
-    auto edgeOutliers = [&](uint16_t value, const std::array<float, 4>& mean) {
-        const int m = tileset_.megatileFor(value);
-        if (m < 0 || size_t(m) >= tileset_.megatiles.size()) return 1 << 20;
-        int n = 0;
-        for (int y = 0; y < 32; ++y)
-            for (int x = 0; x < 32; ++x) {
-                if (x >= 2 && x < 30 && y >= 2 && y < 30) continue;
-                const uint32_t e = tileset_.megatiles[size_t(m)][size_t(y / 8 * 4 + x / 8)];
-                if ((e >> 1) >= tileset_.minitiles.size()) continue;
-                const int mx = (e & 1) ? 7 - x % 8 : x % 8;
-                const Rgb& c = tileset_.palette[tileset_.minitiles[e >> 1][size_t(y % 8 * 8 + mx)]];
-                const float dr = c.r - mean[0], dg = c.g - mean[1], db = c.b - mean[2];
-                n += dr * dr + dg * dg + db * db > 50.0f * 50.0f;
-            }
-        return n;
-    };
     // sides: bit 0 left, 1 right, 2 top, 3 bottom. Near: the mean difference of the pixels (R, G and B) within 16.
     auto edgesFit = [&](uint16_t mine, uint16_t game, int sides) {
         const auto* a = edgesOf(mine);
@@ -1592,21 +1543,6 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
                 }
         return n && sum < 16 * n;
     };
-    // The mod's own terrains' pieces (Tileset::modTerrains: the terrain engine puts them in) stay as they are; not the
-    // game's tiles of one terrain that a mod terrain takes as its fill (that terrain's own ground gets the mod's tiles).
-    // (the tables' modTile: made once for the tileset)
-    {
-        const std::vector<uint8_t>& modTile = tables.modTile;
-        auto inMod = [&](size_t k) {  // (a corner of the tile's rect a mod terrain)
-            const int rx = int(k % size_t(width_)) / 2, ry = int(k / size_t(width_));
-            for (int dy = 0; dy < 2; ++dy)
-                for (int dx = 0; dx < 2; ++dx)
-                    if (isomOk_ && isom_.terrainAt(rx + dx, ry + dy) >= Tileset::kModTerrainIds) return true;
-            return false;
-        };
-        for (size_t k = 0; k < tile.tiles.size() && k < done.size() && !tileset_.modTerrains.empty(); ++k)
-            if (const uint8_t f = modTile[tile.tiles[k]]; (f & 1) || ((f & 2) && inMod(k))) done[k] = 1;
-    }
     // The pieces: a rect's two tiles (the left one at an even column) as the brush made them.
     for (int y = 0; y < height_ && !pieces.empty(); ++y)
         for (int x = 0; x + 1 < width_; x += 2) {
@@ -1629,33 +1565,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
             const auto [left, right] = fit[hashAt(x, y) % uint32_t(fit.size())];
             tile.tiles[k] = mtxm.tiles[k] = left;
             tile.tiles[k + 1] = mtxm.tiles[k + 1] = right;
-            done[k] = done[k + 1] = 1, changed = true;
-        }
-    std::map<uint16_t, std::vector<uint16_t>> variantsFor;  // a game tile value -> the mod's tiles that look like it
-    for (int y = 0; y < height_ && !variants.empty(); ++y)
-        for (int x = 0; x < width_; ++x) {
-            const size_t k = size_t(y) * width_ + x;
-            if (k < done.size() && done[k]) continue;
-            if (k >= tile.tiles.size() || k >= mtxm.tiles.size() || underDoodad[k] || (k < before.tiles.size() && before.tiles[k] == tile.tiles[k]))
-                continue;
-            const uint16_t g = uint16_t(tile.tiles[k] >> 4);
-            if (g >= terrains.size() || !terrains[g][0] || terrains[g][1]) continue;
-            auto it = variants.find(terrains[g][0]);
-            if (it == variants.end()) continue;
-            const uint32_t h = hashAt(x, y);
-            if (h % 20) continue;
-            auto [found, fresh] = variantsFor.try_emplace(tile.tiles[k]);  // (once for each game tile value in an edit)
-            std::vector<uint16_t>& fit = found->second;
-            // (closer than a border piece: the maps also put the mod's other grounds on a terrain's diamonds, as Ash World's
-            // brown mud on its Dirt, 4.6 to 9 from its mean color; the Dirt's own variants are within 3.5)
-            if (fresh)
-                for (uint16_t v : it->second)
-                    if (alike(v, tile.tiles[k], 4.0f) && edgesFit(v, tile.tiles[k], 0b1111) &&
-                        edgeOutliers(v, lookOf(tile.tiles[k])) <= edgeOutliers(tile.tiles[k], lookOf(tile.tiles[k])))
-                        fit.push_back(v);
-            if (fit.empty()) continue;
-            const uint16_t v = fit[(h / 20) % fit.size()];
-            tile.tiles[k] = mtxm.tiles[k] = v, changed = true;
+            changed = true;
         }
     if (!changed) return;
     Bytes t, m;
