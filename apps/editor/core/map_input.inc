@@ -183,7 +183,7 @@ bool pipette(AppState& app, float wx, float wy) {
     case Mode::Units:
         if (const int u = ed.unitAt(int(wx), int(wy)); u >= 0) {
             const Unit& un = ed.units()[size_t(u)];
-            if (un.owner < 12) setPlayer(app, un.owner);
+            if (un.owner < ownerChoices()) setPlayer(app, un.owner);
             pickUnit(app, un.type, false);
             return true;
         }

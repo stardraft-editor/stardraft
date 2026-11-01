@@ -95,6 +95,16 @@ void palettePanelsOwner(int) {
     for (auto& p : gPanels)
         if (p->open && &p->view->state() == gActivePanel) p->view->owner.setValue(gState.playerOwner), p->view->list.invalidate();
 }
+// The players of the owner boxes follow the tab (a Cosmonarchy map has more: core/palette_tools.inc ownerChoices).
+void palettePanelsOwnerItems(const std::vector<kit::DropdownItem>& owners) {
+    for (auto& p : gPanels)
+        if (p->view->owner.items().size() != owners.size()) {
+            std::vector<kit::DropdownItem> copy = owners;
+            for (kit::DropdownItem& d : copy) d.swatch = draw::kNone;  // (the panels' boxes have no color squares)
+            p->view->owner.setItems(std::move(copy));
+            p->view->owner.setValue(p->view->state().owner);
+        }
+}
 void palettePanelsReveal(int value) {
     for (auto& p : gPanels)
         if (p->open && &p->view->state() == gActivePanel) p->view->list.reveal(value);

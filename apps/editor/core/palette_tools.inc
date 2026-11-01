@@ -319,6 +319,11 @@ void fillToolCombo(AppState& app) {
     tilesSync();
 }
 
+// The players that units can be placed for: 12, and on a Cosmonarchy BW map 249 (the mod reads start locations of players
+// 9 and up as the places of its resource areas, and its table has 249 of them: players 9 to 249).
+bool modTab();  // (core/cmbw.inc)
+int ownerChoices() { return modTab() ? 249 : 12; }
+
 void setPlayer(AppState& app, int i) {
     app.playerOwner = i;
     shellOwnerSelect(i);
