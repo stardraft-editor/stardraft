@@ -1,4 +1,3 @@
-// Polygon measurement adapted from Map Studio, MIT, 2026 ScmDraft Fan Add-on contributors.
 #include "stardraft/area_measurement.h"
 #include <algorithm>
 #include <bit>

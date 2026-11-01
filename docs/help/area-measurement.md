@@ -10,4 +10,4 @@ Open **Tools > Measure area > Draw area**. The small tool window measures a tile
 
 ## Sources and credits
 
-Adapted from Map Studio, MIT, Copyright (c) 2026 ScmDraft Fan Add-on contributors. [Source](https://github.com/RustyNovoBland77464/scmdraft-native), revision `e35461dea3b4387b0956feb59ed07ab4ee8d3fa6`. The original MIT notice is included in `licenses/area-measurement.txt`.
+Uses StarDraft's existing map data and editing APIs.
