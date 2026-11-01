@@ -4,6 +4,55 @@
 # keeps the text it last committed and gives back that (or the text being composed); SDL already turns the input
 # method's replacement into a Backspace and the new text. Not sent to SDL: SDL takes no AI-written code.
 # -DDEBUG_IME=ON (STARDRAFT_SDL_DEBUG_IME): SDL also logs each call of the input method (the IME workflow on macOS).
+# Windows: with the hint STARDRAFT_D3D12_WARP set, Direct3D 12 uses WARP (the software device of Windows) in place of the
+# video card. The renderer asks for it when the video card has no Direct3D 12 or Vulkan that SDL can use.
+
+# Each change: the text as SDL has it, and as it becomes. A change that does not find its text stops the configure.
+function(change old new)
+    string(FIND "${text}" "${old}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "patch_sdl.cmake: ${file} is not as expected (SDL changed): look at the patch again")
+    endif()
+    string(REPLACE "${old}" "${new}" text "${text}")
+    set(text "${text}" PARENT_SCOPE)
+endfunction()
+
+set(file src/gpu/d3d12/SDL_gpu_d3d12.c)
+file(READ ${file} text)
+if(NOT text MATCHES "STARDRAFT_D3D12_WARP")
+    change("    if (FAILED(res)) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_GPU, \"D3D12: Failed to find adapter for D3D12Device\");"
+"    if (SDL_GetHintBoolean(\"STARDRAFT_D3D12_WARP\", false)) {  // StarDraft: the software device
+        IDXGIFactory4 *warpFactory = NULL;
+        if (SUCCEEDED(res)) {
+            IDXGIAdapter1_Release(adapter);
+            adapter = NULL;
+        }
+        res = IDXGIFactory1_QueryInterface(factory, D3D_GUID(D3D_IID_IDXGIFactory4), (void **)&warpFactory);
+        if (SUCCEEDED(res)) {
+            res = IDXGIFactory4_EnumWarpAdapter(warpFactory, D3D_GUID(D3D_IID_IDXGIAdapter1), (void **)&adapter);
+            IDXGIFactory4_Release(warpFactory);
+        }
+    }
+    if (FAILED(res)) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_GPU, \"D3D12: Failed to find adapter for D3D12Device\");")
+    change("    if (FAILED(res)) {
+        D3D12_INTERNAL_DestroyRenderer(renderer);
+        CHECK_D3D12_ERROR_AND_RETURN(\"Could not find adapter for D3D12Device\", NULL);"
+"    if (SDL_GetHintBoolean(\"STARDRAFT_D3D12_WARP\", false)) {  // StarDraft: the software device
+        if (SUCCEEDED(res)) {
+            IDXGIAdapter1_Release(renderer->adapter);
+            renderer->adapter = NULL;
+        }
+        res = IDXGIFactory4_EnumWarpAdapter(renderer->factory, D3D_GUID(D3D_IID_IDXGIAdapter1), (void **)&renderer->adapter);
+    }
+    if (FAILED(res)) {
+        D3D12_INTERNAL_DestroyRenderer(renderer);
+        CHECK_D3D12_ERROR_AND_RETURN(\"Could not find adapter for D3D12Device\", NULL);")
+    file(WRITE ${file} "${text}")
+    message(STATUS "SDL: ${file} changed (Direct3D 12 can use WARP)")
+endif()
+
 
 set(file src/video/cocoa/SDL_cocoakeyboard.m)
 file(READ ${file} text)
@@ -25,16 +74,6 @@ endif()
 if(text MATCHES "StarDraft: the text last committed")
     return()  # (already changed)
 endif()
-
-# Each change: the text as SDL has it, and as it becomes. A change that does not find its text stops the configure.
-function(change old new)
-    string(FIND "${text}" "${old}" at)
-    if(at EQUAL -1)
-        message(FATAL_ERROR "patch_sdl.cmake: ${file} is not as expected (SDL changed): look at the patch again")
-    endif()
-    string(REPLACE "${old}" "${new}" text "${text}")
-    set(text "${text}" PARENT_SCOPE)
-endfunction()
 
 change("    NSString *_markedText;
     NSRange _markedRange;"

@@ -318,11 +318,13 @@ if(STARDRAFT_RENDERER)
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    # (the script's hash is in the command: a changed script runs again on SDL's source)
+    file(SHA256 ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake STARDRAFT_SDL_PATCH_HASH)
     FetchContent_Declare(SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
         GIT_TAG release-3.4.18
         GIT_SHALLOW TRUE
-        PATCH_COMMAND ${CMAKE_COMMAND} -DDEBUG_IME=${STARDRAFT_SDL_DEBUG_IME} -P ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake  # (macOS: Hanja; see the script)
+        PATCH_COMMAND ${CMAKE_COMMAND} -DDEBUG_IME=${STARDRAFT_SDL_DEBUG_IME} -DPATCH_HASH=${STARDRAFT_SDL_PATCH_HASH} -P ${CMAKE_SOURCE_DIR}/cmake/patch_sdl.cmake  # (macOS: Hanja; Windows: WARP; see the script)
         UPDATE_DISCONNECTED TRUE)
     FetchContent_MakeAvailable(SDL3)
 

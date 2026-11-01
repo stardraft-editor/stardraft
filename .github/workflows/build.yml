@@ -93,7 +93,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-ninja-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-ninja-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -287,7 +287,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build-gcc/_deps
-          key: deps-gcc-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-gcc-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -444,7 +444,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build-clang/_deps
-          key: deps-clang-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-clang-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -503,7 +503,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-appimage-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-appimage-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4
@@ -645,7 +645,7 @@ jobs:
         with:
           bundle: stardraft.flatpak
           manifest-path: packaging/flatpak/io.github.stardraft_editor.StarDraft.yml
-          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/*.yml', 'CMakeLists.txt') }}
+          cache-key: flatpak-builder-${{ hashFiles('packaging/flatpak/*.yml', 'CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
           upload-artifact: true
 
   macos:
@@ -662,7 +662,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/_deps
-          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/patch_sdl.cmake') }}
 
       - name: Restore the compiler cache
         uses: actions/cache/restore@v4

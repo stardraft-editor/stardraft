@@ -246,32 +246,76 @@ struct Renderer::Impl {
 Renderer::Renderer() : impl_(std::make_unique<Impl>()) {}
 Renderer::~Renderer() { shutdown(); }
 
-bool Renderer::Impl::createDevice(std::string& err) {
-    // Windows: Direct3D 12, or Vulkan when STARDRAFT_GPU_DRIVER is "vulkan". Elsewhere SDL picks Metal or Vulkan.
+// The properties of each try: what the shaders ask of the device.
+static SDL_PropertiesID deviceProperties() {
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, false);  // (its default is true)
-#ifdef STARDRAFT_SHADERS_DXIL
-    const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
-    const bool vulkan = asked && std::string(asked) == "vulkan";
-    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, !vulkan);
-    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, vulkan);
-    if (vulkan) SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, "vulkan");
-#else
-    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
-    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_MSL_BOOLEAN, true);
     // The map view uses none of these: GPUs without them can run it too. (Depth clamping stays: the pipelines leave
     // enable_depth_clip off, which asks for it.)
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_CLIP_DISTANCE_BOOLEAN, false);
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_INDIRECT_DRAW_FIRST_INSTANCE_BOOLEAN, false);
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_ANISOTROPY_BOOLEAN, false);
     SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_METAL_ALLOW_MACFAMILY1_BOOLEAN, true);  // (no sRGB targets)
-#endif
+    return props;
+}
+
+bool Renderer::Impl::createDevice(std::string& err) {
+    // Windows: Direct3D 12 on the video card, else Vulkan, else Direct3D 12 on WARP (the software device of Windows:
+    // slow, but the program starts on video cards that have neither). STARDRAFT_GPU_DRIVER "direct3d12", "vulkan" or
+    // "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
+#ifdef STARDRAFT_SHADERS_DXIL
+    const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
+    std::string only = asked ? asked : "";
+    if (only != "direct3d12" && only != "vulkan" && only != "warp") only.clear();
+    // SDL gives the reason a driver cannot be used only as a warning in its log: the error says which they were.
+    struct Reasons {
+        SDL_LogOutputFunction next = nullptr;
+        void* nextData = nullptr;
+        SDL_LogPriority shown = SDL_GetLogPriority(SDL_LOG_CATEGORY_GPU);  // (the log shows what it showed before)
+        std::string text;
+    } reasons;
+    SDL_GetLogOutputFunction(&reasons.next, &reasons.nextData);
+    if (reasons.shown > SDL_LOG_PRIORITY_WARN) SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, SDL_LOG_PRIORITY_WARN);
+    SDL_SetLogOutputFunction(
+        [](void* data, int category, SDL_LogPriority priority, const char* message) {
+            auto& r = *static_cast<Reasons*>(data);
+            if (category == SDL_LOG_CATEGORY_GPU && priority >= SDL_LOG_PRIORITY_WARN) r.text += std::string(r.text.empty() ? "" : ", ") + message;
+            if (category != SDL_LOG_CATEGORY_GPU || priority >= r.shown) r.next(r.nextData, category, priority, message);
+        },
+        &reasons);
+    std::string errors;
+    for (const char* driver : {"direct3d12", "vulkan", "warp"}) {
+        if (!only.empty() && only != driver) continue;
+        const bool vulkan = std::string(driver) == "vulkan";
+        SDL_SetHint("STARDRAFT_D3D12_WARP", std::string(driver) == "warp" ? "1" : "0");  // (cmake/patch_sdl.cmake)
+        SDL_PropertiesID props = deviceProperties();
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_DXIL_BOOLEAN, !vulkan);
+        SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, vulkan);
+        SDL_SetStringProperty(props, SDL_PROP_GPU_DEVICE_CREATE_NAME_STRING, vulkan ? "vulkan" : "direct3d12");
+        reasons.text.clear();
+        device = SDL_CreateGPUDeviceWithProperties(props);
+        SDL_DestroyProperties(props);
+        if (device) break;
+        errors += std::string(errors.empty() ? "" : "; ") + driver + ": " + (reasons.text.empty() ? SDL_GetError() : reasons.text);
+    }
+    SDL_SetLogOutputFunction(reasons.next, reasons.nextData);
+    SDL_SetLogPriority(SDL_LOG_CATEGORY_GPU, reasons.shown);
+    SDL_ResetHint("STARDRAFT_D3D12_WARP");
+    if (!device) {
+        err = "SDL_CreateGPUDevice: " + errors;
+        return false;
+    }
+#else
+    SDL_PropertiesID props = deviceProperties();
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
+    SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_MSL_BOOLEAN, true);
     device = SDL_CreateGPUDeviceWithProperties(props);
     SDL_DestroyProperties(props);
     if (!device) {
         err = std::string("SDL_CreateGPUDevice: ") + SDL_GetError();
         return false;
     }
+#endif
     const SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(device);
     shaderFormat = formats & SDL_GPU_SHADERFORMAT_DXIL    ? SDL_GPU_SHADERFORMAT_DXIL
                    : formats & SDL_GPU_SHADERFORMAT_SPIRV ? SDL_GPU_SHADERFORMAT_SPIRV

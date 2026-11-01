@@ -83,9 +83,10 @@ To run the SDL program and take its snapshots (the same options as on Windows):
 
 The `res` and `fonts` folders next to `stardraft` (on macOS, in the app) must stay with it.
 
-The renderer's tools render offscreen; with no display, set `SDL_VIDEODRIVER=offscreen`. On Windows,
-`STARDRAFT_GPU_DRIVER=vulkan` (an environment variable) makes the renderer, the editor's map view included, use
-Vulkan instead of Direct3D 12.
+The renderer's tools render offscreen; with no display, set `SDL_VIDEODRIVER=offscreen`. On Windows, the renderer
+tries Direct3D 12 on the video card, then Vulkan, then Direct3D 12 on WARP (the software device of Windows; SDL is
+changed for it in `cmake/patch_sdl.cmake`). `STARDRAFT_GPU_DRIVER` (an environment variable) set to `direct3d12`,
+`vulkan` or `warp` makes it use only that one.
 
 What does not work there:
 
