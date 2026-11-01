@@ -635,7 +635,7 @@ render::Scene buildScene() {
     if (app.mode == Mode::Units) {
         // With a unit picked, the unit under the mouse does not matter: a click places there (it does not select).
         // (Not with Spray: it places random picks around the mouse, not this one in the middle; GitHub feedback #99.)
-        if (app.palette >= 0 && !objectSprayOn() && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
+        if (app.palette >= 0 && !objectSprayOn() && !objectFillOn() && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
             // Ghost of the unit to place, with where correction would put it.
             const UnitType& t = ed.unitTypes()[uint16_t(app.palette)];
             float gx = wx, gy = wy;
@@ -709,7 +709,7 @@ render::Scene buildScene() {
             d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
             addImage(s, d);
         };
-        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn()) {
+        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn() && !objectFillOn()) {
             ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
             // The mirror images and turned copies, where a click would put them too.
             const auto copies = ed.symmetricPoints(int(cx), int(cy));
@@ -757,7 +757,7 @@ render::Scene buildScene() {
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-    } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn()) {
+    } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn() && !objectFillOn()) {
         if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);

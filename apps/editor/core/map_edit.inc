@@ -460,6 +460,69 @@ bool placePaletteUnit(float wx, float wy, bool correct) {
     return r.placed;
 }
 
+// The patches' size for Fill with several picks (Terrain), from the Mix setting: 10 (Mix 1, large) to 1 (Mix 10: each
+// diamond or tile its own).
+int fillPatch() { return 11 - std::clamp(appState().fillMix, 1, 10); }
+
+// Units' or Doodads' Fill: the tool's press fills; no preview follows the mouse.
+bool objectFillOn() {
+    const AppState& app = appState();
+    return (app.mode == Mode::Units && currentTool(app) == UFill) || (app.mode == Mode::Doodads && currentTool(app) == DFill);
+}
+
+// Fill in Units and Doodads: the connected ground of the clicked tile's terrain (its tiles, 4 ways: the isometric terrain,
+// or the same tile without it) gets units or doodads of the selected kinds at random places, where they fit: as many
+// tries as one in 10 of its tiles at Density 10 (Density 50: half), 500 at most (each try is a placement of its own: a
+// large ground gets them spread over it). One undo step. Returns the number placed (-1: nothing to place or no ground).
+int fillObjectsAt(float wx, float wy) {
+    AppState& app = appState();
+    if (!app.ed) return -1;
+    Editor& ed = *app.ed;
+    std::vector<uint16_t> picks;
+    for (int v : selectedPalette())
+        if (v >= 0) picks.push_back(uint16_t(v));
+    const int w = ed.width(), h = ed.height(), tx = int(wx) / 32, ty = int(wy) / 32;
+    if (picks.empty()) {
+        setMessage(app.mode == Mode::Units ? L"Select a unit in the list first" : L"Select a doodad in the list first");
+        return -1;
+    }
+    if (tx < 0 || ty < 0 || tx >= w || ty >= h) return -1;
+    const std::vector<uint16_t>& tiles = ed.terrain().tiles;
+    auto kind = [&](int x, int y) -> uint32_t {
+        const uint16_t t = ed.terrainAt(x * 32 + 16, y * 32 + 16);
+        return t ? t : 0x10000u | tiles[size_t(y) * w + x];
+    };
+    const uint32_t from = kind(tx, ty);
+    std::vector<std::pair<int, int>> ground;
+    std::vector<uint8_t> seen(size_t(w) * h, 0);
+    std::vector<std::pair<int, int>> todo{{tx, ty}};
+    seen[size_t(ty) * w + tx] = 1;
+    while (!todo.empty()) {
+        const auto [x, y] = todo.back();
+        todo.pop_back();
+        ground.push_back({x, y});
+        const int nx[4] = {x - 1, x + 1, x, x}, ny[4] = {y, y, y - 1, y + 1};
+        for (int k = 0; k < 4; ++k)
+            if (nx[k] >= 0 && ny[k] >= 0 && nx[k] < w && ny[k] < h && !seen[size_t(ny[k]) * w + nx[k]] && kind(nx[k], ny[k]) == from)
+                seen[size_t(ny[k]) * w + nx[k]] = 1, todo.push_back({nx[k], ny[k]});
+    }
+    const int tries = std::clamp(int(ground.size() * size_t(app.sprayDensity) / 100), 1, 500);
+    std::mt19937 rng(app.spraySeed++);
+    int placed = 0;
+    if (app.mode == Mode::Units) applyUnitLimit(ed);
+    ed.beginStroke();
+    for (int i = 0; i < tries; ++i) {
+        const auto [x, y] = ground[rng() % ground.size()];
+        const int px = x * 32 + int(rng() % 32), py = y * 32 + int(rng() % 32);
+        placed += app.mode == Mode::Units ? ed.sprayUnits(picks, uint8_t(app.playerOwner), px, py, 0, 1, app.spraySeed++)
+                                          : ed.sprayDoodads(picks, px, py, 0, 1, app.spraySeed++, app.doodadCheck);
+        if (app.mode == Mode::Units && atUnitLimit(ed)) break;
+    }
+    ed.endStroke();
+    if (app.mode == Mode::Units) ed.clearSelection();  // (placed units are not selected)
+    return placed;
+}
+
 // One spray at a map point with the active mode's Spray: terrain (ISOM; in Rectangle mode, tiles), units or doodads.
 // Returns the units or doodads it placed.
 int sprayAt(float wx, float wy) {
@@ -467,7 +530,18 @@ int sprayAt(float wx, float wy) {
     Editor& ed = *appState().ed;
     if (appState().mode == Mode::Terrain) {
         if (appState().terrainRect) tilesSprayAt(wx, wy);
-        else if (appState().palette > 0) ed.sprayTerrain(int(wx), int(wy), uint16_t(appState().palette), currentBrush(), sprayDabs(), appState().spraySeed++);
+        else if (appState().palette > 0) {
+            // (several terrains: the dabs shared out among them, each its own share at random places)
+            std::vector<uint16_t> picks;
+            for (int v : selectedPalette())
+                if (v > 0) picks.push_back(uint16_t(v));
+            if (picks.empty()) picks.push_back(uint16_t(appState().palette));
+            const int dabs = sprayDabs(), n = int(picks.size());
+            const uint32_t first = appState().spraySeed++;
+            for (int i = 0; i < n; ++i)
+                if (const int share = dabs / n + ((int(first % uint32_t(n)) + i) % n < dabs % n ? 1 : 0); share > 0)
+                    ed.sprayTerrain(int(wx), int(wy), picks[(first + uint32_t(i)) % uint32_t(n)], currentBrush(), share, appState().spraySeed++);
+        }
         return 0;
     }
     std::vector<uint16_t> picks;

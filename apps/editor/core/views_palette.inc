@@ -107,15 +107,10 @@ struct PaletteGridView : draw::View {
             const bool isPick = (units && e.value == pick) || (locs && e.value == app.ed->selectedLocation());
             const bool isChosen = (units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end()) ||
                                   (locs && app.ed->locationSelected(e.value));
-            const bool isSecond = units && (own || !second) && mode == Mode::Terrain && !app.terrainRect && e.value == app.palette2;  // Shift's
-            if (isPick || isChosen || isSecond || int(i) == hover_) {
+            if (isPick || isChosen || int(i) == hover_) {
                 const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
                 if (isPick) kitpaint::drawListRow(c, f, true, false);
-                else c.fill(f, isChosen || isSecond ? kSel : kRowHot);
-                if (isSecond) {  // a dashed accent frame, and "Shift" at its right end
-                    c.frame(f, kAccent, 1, draw::LineStyle::Dot);
-                    c.text({f.right - scale(60), f.top, f.right - scale(4), f.bottom}, L"Shift", kAccent, draw::kRight | draw::kMiddle);
-                }
+                else c.fill(f, isChosen ? kSel : kRowHot);
             }
             if (pinned && i >= 1 && i <= size_t(pinned)) {  // a pinned doodad's copy at the top: the pin at its right
                 draw::FontDesc glyphs;

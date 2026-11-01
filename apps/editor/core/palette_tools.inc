@@ -370,17 +370,9 @@ int selectPalette(AppState& app, int value) {
 void pickUnit(AppState& app, int v, bool add) {
     if (!app.ed || v < 0) return;
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
-        // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it (Ctrl adds to a spray, #79).
-        if (add && app.mode == Mode::Terrain && !app.terrainRect) {  // the second terrain (Shift+click or Ctrl+click): Shift+click or Shift+drag paints it
-            app.palette2 = app.palette2 == v ? -1 : v;
-            if (currentTool(app) == TSelect) app.toolByMode[int(Mode::Terrain)] = TBrush, fillToolCombo(app);
-            setMessage(app, app.palette2 > 0 ? shellTr(L"Shift+drag paints ") + paletteItemName(v) + shellTr(L"; drag paints ") +
-                                              (app.palette > 0 ? paletteItemName(app.palette) : std::wstring(shellTr(L"the terrain you click"))) : shellTr(L"Shift+drag: no terrain"));
-            app.dirty = true;
-            shellPaletteChanged();
-            return;
-        }
-        if (add && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {
+        // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it. Ctrl adds it to the picks (or
+        // takes it out): Spray and Fill put them at random (#79), the Brush and a click the last one.
+        if (add) {
             auto it = std::find(shellPaletteChosen().begin(), shellPaletteChosen().end(), v);
             if (it != shellPaletteChosen().end()) shellPaletteChosen().erase(it);
             else shellPaletteChosen().push_back(v);
@@ -394,7 +386,11 @@ void pickUnit(AppState& app, int v, bool add) {
             app.toolByMode[int(Mode::Terrain)] = TBrush;
             fillToolCombo(app);
         }
-        if (app.palette >= 0)
+        if (app.palette >= 0 && add && shellPaletteChosen().size() > 1)
+            setMessage(app, L"Selected " + std::to_wstring(shellPaletteChosen().size()) +
+                                (app.mode == Mode::Terrain ? L" terrains" : app.mode == Mode::Sprites ? L" sprites" : L" doodads") +
+                                L": Spray and Fill put them at random");
+        else if (app.palette >= 0)
             setMessage(app, (app.mode == Mode::Terrain ? L"Painting " : app.mode == Mode::Sprites ? L"Placing sprite " : L"Placing doodad ") + paletteItemName(app.palette) +
                        (app.mode == Mode::Doodads ? L": click to place it (green if it fits, red if it does not)" : L""));
         app.dirty = true;
@@ -414,7 +410,7 @@ void pickUnit(AppState& app, int v, bool add) {
     }
     app.pasting = false;
     app.ed->clearSelection();
-    if (currentTool(app) != USpray && currentTool(app) != UReplace) {
+    if (currentTool(app) != USpray && currentTool(app) != UReplace && currentTool(app) != UFill) {
         app.toolByMode[int(Mode::Units)] = UPlace;
         fillToolCombo(app);
     }
@@ -446,29 +442,31 @@ std::vector<StripItem> stripTools(Mode m) {
         if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
-                    {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).", TFill, false},
+                    {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                     {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
-                    {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.", TFill, false},
+                    {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill puts them in patches at random (Mix).", TFill, false},
                     {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
-                {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
+                {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
                 {UiIcon::Jumble, L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", TJumble, false},
-                {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false},
+                {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                 {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
-                {UiIcon::Spray, L"Spray: random units of the selected kinds (Density). Hold the button to spray more.", USpray, false}};
+                {UiIcon::Spray, L"Spray: random units of the selected kinds (Density). Hold the button to spray more.", USpray, false},
+                {UiIcon::Fill, L"Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", UFill, false}};
     case Mode::Doodads:
         return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
                 {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
-                {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false}};
+                {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false},
+                {UiIcon::Fill, L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", DFill, false}};
     case Mode::Sprites:
         return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc goes to Select.", SPlace, true},
                 {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},

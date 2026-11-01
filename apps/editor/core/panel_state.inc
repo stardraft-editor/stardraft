@@ -7,7 +7,7 @@
 
 struct PanelState {
     Mode mode = Mode::Units;
-    int palette = -1, palette2 = -1;  // (AppState's)
+    int palette = -1;  // (AppState's)
     std::vector<int> chosen;          // (shellPaletteChosen)
     int owner = 0;
     float brushSize = 2, brushHeight = 0;
@@ -29,7 +29,7 @@ PanelState* gActivePanel = nullptr;
 // The app state into the panel's state (the active panel's, before another one is), and back.
 void panelStore(PanelState& s) {
     const AppState& a = appState();
-    s.palette = a.palette, s.palette2 = a.palette2, s.chosen = shellPaletteChosen(), s.owner = a.playerOwner;
+    s.palette = a.palette, s.chosen = shellPaletteChosen(), s.owner = a.playerOwner;
     s.brushSize = a.brushSize, s.brushHeight = a.brushHeight, s.brushShape = a.brushShape;
     s.otherBrushSize = a.otherBrushSize, s.otherBrushHeight = a.otherBrushHeight;
     s.tool = a.toolByMode[int(s.mode)], s.density = a.sprayDensity, s.terrainRect = a.terrainRect;
@@ -38,7 +38,7 @@ void panelStore(PanelState& s) {
 void panelLoad(const PanelState& s) {
     AppState& a = appState();
     a.mode = s.mode;
-    a.palette = s.palette, a.palette2 = s.palette2, shellPaletteChosen() = s.chosen, a.playerOwner = s.owner;
+    a.palette = s.palette, shellPaletteChosen() = s.chosen, a.playerOwner = s.owner;
     a.brushSize = s.brushSize, a.brushHeight = s.brushHeight, a.brushShape = s.brushShape;
     a.otherBrushSize = s.otherBrushSize, a.otherBrushHeight = s.otherBrushHeight;
     a.toolByMode[int(s.mode)] = s.tool, a.sprayDensity = s.density, a.terrainRect = s.terrainRect;
@@ -213,7 +213,7 @@ std::string panelStateText(PanelState& s) {
     panelFresh(s);
     char b[192];
     std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
-                  s.density, s.mirrors, !s.terrainRect ? 0 : !s.tiles ? 1 : s.tiles->stamps ? 2 : s.tiles->solid ? 3 : 1, s.owner, s.palette, s.palette2, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
+                  s.density, s.mirrors, !s.terrainRect ? 0 : !s.tiles ? 1 : s.tiles->stamps ? 2 : s.tiles->solid ? 3 : 1, s.owner, s.palette, -1, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
                   s.otherBrushHeight);
     return b;
 }
@@ -226,7 +226,8 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.brushShape = Brush::Shape(std::clamp(num(4), 0, int(Brush::Circle)));
     s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & Mirror::All, s.terrainRect = num(7) != 0;
     if (m == Mode::Terrain && (s.tool > TJumble || (s.terrainRect && s.tool == TJumble))) s.tool = TBrush;  // (Jumble: Isometric's only)
-    s.owner = std::clamp(num(8), 0, 11), s.palette = num(9), s.palette2 = num(10);
+    if ((m == Mode::Units && s.tool > UFill) || (m == Mode::Doodads && s.tool > DFill)) s.tool = 0;
+    s.owner = std::clamp(num(8), 0, 11), s.palette = num(9);
     s.chosen.clear();
     if (s.tiles) s.tiles->picked = num(11), s.tiles->stamps = num(7) == 2, s.tiles->solid = num(7) == 3;  // (2: Custom, 3: Solid)
     if (part.size() >= at + 14)  // (a file of an older version: the other terrain tools' brush as it was)

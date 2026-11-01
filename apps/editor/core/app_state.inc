@@ -16,7 +16,6 @@ struct AppState {
     Mode mode = Mode::Units;
     std::vector<int> items;  // palette entries for the current mode; -1 = "(Select)"
     int palette = -1;        // selected palette entry value
-    int palette2 = -1;       // isometric terrain: the second terrain (Shift+click or Ctrl+click in the palette), painted with Shift+click or Shift+drag
     int playerOwner = 0;
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
@@ -27,6 +26,7 @@ struct AppState {
     Brush::Shape selectShape = Brush::Square;
     bool terrainSelFlip = false;  // the diamond selection's drag went between the box's top right and bottom left (IsoRectFlip)  // the terrain Select tool's shape: its own, not the brushes' (shapeOf)
     int toolByMode[kModeCount] = {};
+    int fillMix = 5;  // Fill with several picks (Terrain): how fine their patches are, 1 (large) to 10 (each diamond or tile)
     int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
     uint32_t spraySeed = 1;
     int lastSprayX = -100000, lastSprayY = -100000;

@@ -58,8 +58,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Esc | Polygon: stop the polygon (no change to the map) |
 | Ctrl+Alt+1 to Ctrl+Alt+4 | Terrain mode with Isometric, Rectangle, Tile or Custom (Mode > Terrain tools) |
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
-| Shift+click in the palette | Isometric terrain: the second terrain (Ctrl+click too) |
-| Shift+click, Shift+drag | Isometric terrain: paint with the second terrain (Brush, Spray, Replace) |
+| Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
 | 1 to 9, 0 | Player 1 to 10 for what you place (in Terrain mode, the palette's terrain) |
 | G | Show or hide the grid |

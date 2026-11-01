@@ -2053,9 +2053,6 @@ int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
     spots.resize(std::max<size_t>(1, spots.size() / 6));
     const bool own = !inStroke_;
     if (own) beginEdit();
-    // As applyOld, with each dab's correction and tiles one after the other (the tiles' cliff fixes keep each dab's own
-    // corners), and the rest once at the end.
-    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     std::vector<std::vector<CornerValue>> dabs;
     for (auto [cx, cy] : spots) {
         // (another terrain than the one at the spot: each dab changes something)
@@ -2064,18 +2061,70 @@ int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         const uint16_t t = other.empty() ? terrains[0] : other[rng() % other.size()];
         std::vector<CornerValue> dab;
         for (auto [x, y] : symmetricPoints(cx * 64, cy * 32))
-            for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 2.0f})) {
-                dab.push_back({dx, dy, t});
-                x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
-            }
+            for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 2.0f})) dab.push_back({dx, dy, t});
         dabs.push_back(std::move(dab));
     }
+    const int changed = applyDabs(dabs);
+    if (!changed && own) dropLastUndo();  // nothing changed
+    return changed;
+}
+
+bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed) {
+    if (terrains.size() < 2) return !terrains.empty() && fillTerrain(px, py, terrains[0]);
+    if (!isomOk_) return false;
+    if (protectedCount_) {  // (a fill that starts on protected terrain: nothing)
+        int cx, cy;
+        isom_.cornerAtPixel(px, py, cx, cy);
+        if (cornerProtected(cx, cy)) return false;
+    }
+    // The area (its corners at the point itself: the patches' places; each patch repeats at the symmetric positions),
+    // and all of it at every symmetric position (a patch stays in it).
+    const std::vector<std::pair<int, int>> spots = isom_.floodCorners(px, py);
+    std::set<std::pair<int, int>> area;
+    for (auto [x, y] : symmetricPoints(px, py))
+        for (const auto& c : isom_.floodCorners(x, y)) area.insert(c);
+    if (spots.empty()) return false;
+    std::vector<uint16_t> ts;
+    for (uint16_t t : terrains) ts.push_back(brushTerrain(px, py, t));
+    beginEdit();
+    std::vector<CornerValue> base;
+    for (const auto& [cx, cy] : area) base.push_back({cx, cy, ts[0]});
+    bool any = applyTerrain(base);
+    // The patches: enough to cover the area about twice, each of a terrain at random (the first too). At most 400 (each
+    // patch is a correction and the tiles of its own): a large area gets larger patches.
+    constexpr size_t kMostPatches = 400;
+    std::mt19937 rng(seed);
+    float size = std::max(2.0f, float(patch));
+    size = std::max(size, std::ceil(std::sqrt(2.0f * float(spots.size()) / float(kMostPatches))));
+    const size_t perPatch = size_t(size * size);
+    std::vector<std::pair<int, int>> order = spots;
+    std::shuffle(order.begin(), order.end(), rng);
+    order.resize(std::min({order.size(), kMostPatches, std::max<size_t>(1, 2 * spots.size() / perPatch)}));
+    std::vector<std::vector<CornerValue>> dabs;
+    for (auto [cx, cy] : order) {
+        const uint16_t t = ts[rng() % ts.size()];
+        std::vector<CornerValue> dab;
+        for (auto [x, y] : symmetricPoints(cx * 64, cy * 32))
+            for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, size}))
+                if (area.count({dx, dy})) dab.push_back({dx, dy, t});
+        if (!dab.empty()) dabs.push_back(std::move(dab));
+    }
+    any = applyDabs(dabs) > 0 || any;
+    if (!any) dropLastUndo();  // nothing changed
+    return any;
+}
+
+int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& dab : dabs)
+        for (const auto& c : dab) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    if (dabs.empty() || x0 > x1) return 0;
     const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     const std::optional<ProtectedBefore> kept = protectedBefore();
     int changed = 0;
-    for (auto& dab : dabs) {
+    for (std::vector<CornerValue> dab : dabs) {
         bool same = true;
         for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
         if (same) continue;
@@ -2086,10 +2135,7 @@ int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         isom_.store(chk_, err);
         ++changed;
     }
-    if (!changed) {
-        if (own) dropLastUndo();  // nothing changed
-        return 0;
-    }
+    if (!changed) return 0;
     if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
     restoreProtected(kept);
     commit(true);

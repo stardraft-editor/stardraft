@@ -332,7 +332,7 @@ void initPanels() {
     gPalList.picked = [](int row, unsigned mods) {
         const int v = gPalList.rows[size_t(row)].value;
         const bool ctrl = (mods & draw::kCtrl) != 0;
-        // (isometric terrain: Shift+click picks the second terrain, the one Shift+click paints on the map; as Ctrl+click)
+        // (isometric terrain: Shift+click with no pick before adds it, as Ctrl+click)
         const bool second = (mods & draw::kShift) && gState.mode == Mode::Terrain && !gState.terrainRect;
         if (!((mods & draw::kShift) && paletteShiftPick(gState, gPalList.rows, row, ctrl))) pickUnit(gState, v, ctrl || second);
         invalidateMapView();

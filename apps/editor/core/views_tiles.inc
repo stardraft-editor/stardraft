@@ -490,7 +490,7 @@ void tilesSetFilter(int index) {
 // them (tiles_edit.inc); the slots between them have no tile (the map keeps its tile there). Fewer than 2 tiles in
 // the grid: no stamp.
 void tilesSetChosen(std::vector<uint16_t> chosen) {
-    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
+    gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear(), gTiles->stampCopied = false;
     std::vector<bool> in(65536), shown(65536);
     for (uint16_t v : chosen) in[v] = true;
     std::vector<size_t> at;  // the selected tiles' slots

@@ -26,6 +26,7 @@ struct TilesView {
     // the map, the Brush places the tiles at random instead (scatter). Spray is always random.
     std::vector<uint16_t> stamp;
     int stampW = 0, stampH = 0, stampX = 0, stampY = 0;
+    bool stampCopied = false;  // the stamp is a copy of the map's tiles (Ctrl+C): Fill repeats it (the list's selection: Fill mixes it)
     bool scatter = false;  // the Brush stroke under way: Shift was held at its press
     // Custom terrain (the tool strip's Custom, core/stamps.inc): the panel shows the user's custom terrain in place of
     // the grid (Rectangle's tools on the map), and the stamp is the custom terrain of this name (empty: not one).
@@ -215,7 +216,7 @@ void tilesStampFromCopy() {
         setMessage(L"Copied " + std::to_wstring(w) + L" x " + std::to_wstring(h) + L" tiles");
         return;
     }
-    gTiles->stampW = w, gTiles->stampH = h;
+    gTiles->stampW = w, gTiles->stampH = h, gTiles->stampCopied = true;
     gTiles->picked = gTiles->anchor = gTiles->chosen.back();
     tilesToBrush();
     setMessage(tr(L"Brush: the ") + std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L" tiles you copied (") + std::to_wstring(n) +
@@ -225,7 +226,7 @@ void tilesStampFromCopy() {
 }
 
 void tilesPick(int value, bool fromMap) {
-    gTiles->picked = value;
+    gTiles->picked = value, gTiles->stampCopied = false;
     gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
     if (!fromMap && value >= 0) tilesToBrush();
     gTiles->anchor = value;
@@ -362,9 +363,33 @@ std::vector<std::pair<int, int>> solidFootprint(int tx, int ty) { return tilesFo
 // The rects that the Brush stroke under way gave tiles: a drag over them does not make them again.
 std::set<std::pair<int, int>> gSolidStrokeRects;
 
+// One of n picks for cell (x, y), in patches of about `size` cells (Fill's Mix): the pick of the nearest of random points,
+// one in each block of size x size cells. Size 1: each cell its own pick at random. The same seed: the same patches.
+int patchPick(int x, int y, int size, int n, uint32_t seed) {
+    if (n <= 1) return 0;
+    auto hash = [seed](int a, int b, uint32_t salt) {
+        uint32_t h = uint32_t(a) * 73856093u ^ uint32_t(b) * 19349663u ^ seed * 83492791u ^ salt * 2654435761u;
+        h ^= h >> 13, h *= 0x5bd1e995u, h ^= h >> 15;
+        return h;
+    };
+    if (size <= 1) return int(hash(x, y, 1) % uint32_t(n));
+    auto down = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
+    const int bx = down(x, size), by = down(y, size);
+    int best = INT_MAX, pick = 0;
+    for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx) {
+            const int cx = bx + dx, cy = by + dy;
+            const int px = cx * size + int(hash(cx, cy, 2) % uint32_t(size)), py = cy * size + int(hash(cx, cy, 3) % uint32_t(size));
+            if (const int d = (px - x) * (px - x) + (py - y) * (py - y); d < best) best = d, pick = int(hash(cx, cy, 4) % uint32_t(n));
+        }
+    return pick;
+}
+
 // The tiles of the selected terrain in `rects`, each rect at random, from the top row down (the tile above a rect is the
-// one placed for it: solidRectTiles takes it). `only`: the tiles that go (null: all).
-std::vector<Editor::TileAt> solidTiles(std::vector<std::pair<int, int>> rects, const std::set<std::pair<int, int>>* only = nullptr) {
+// one placed for it: solidRectTiles takes it). `only`: the tiles that go (null: all). `terrainOf`: the terrain of a rect
+// (null: the one selected in the list).
+std::vector<Editor::TileAt> solidTiles(std::vector<std::pair<int, int>> rects, const std::set<std::pair<int, int>>* only = nullptr,
+                                       const std::function<uint16_t(int, int)>& terrainOf = nullptr) {
     std::vector<Editor::TileAt> out;
     const Editor& ed = *appState().ed;
     if (appState().palette <= 0) return out;
@@ -375,7 +400,7 @@ std::vector<Editor::TileAt> solidTiles(std::vector<std::pair<int, int>> rects, c
     for (const auto& [rx, ry] : rects) {
         if (rx < 0 || ry < 0 || 2 * rx >= ed.width() || ry >= ed.height()) continue;
         uint16_t l = 0, r = 0;
-        if (!solidRectTiles(ed.tileset(), uint16_t(appState().palette), work, rx, ry, uint32_t(rng()), l, r)) continue;
+        if (!solidRectTiles(ed.tileset(), terrainOf ? terrainOf(rx, ry) : uint16_t(appState().palette), work, rx, ry, uint32_t(rng()), l, r)) continue;
         for (int h = 0; h < 2; ++h) {
             const int x = 2 * rx + h;
             if (x >= ed.width() || (only && !only->count({x, ry}))) continue;
@@ -416,7 +441,11 @@ void tilesSprayAt(float wx, float wy) {
         std::mt19937 rng(appState().spraySeed++);
         std::vector<std::pair<int, int>> rects;
         for (int i = 0; i < sprayDabs(); ++i) rects.push_back(foot[rng() % foot.size()]);
-        gTilesStrokePlaced += tilesPut(solidTiles(rects));
+        const std::vector<int> picks = selectedPalette();  // (several terrains: each rect one of them at random)
+        const uint32_t seed = uint32_t(rng());
+        gTilesStrokePlaced += tilesPut(solidTiles(rects, nullptr, [&](int rx, int ry) {
+            return uint16_t(picks.size() > 1 ? picks[size_t(patchPick(rx * 2, ry, 1, int(picks.size()), seed))] : appState().palette);
+        }));
         return;
     }
     const auto foot = tilesFootprint(tx, ty);
@@ -432,19 +461,30 @@ void tilesSprayAt(float wx, float wy) {
     gTilesStrokePlaced += tilesPut(cells);
 }
 
-// The picked tile in `cells` (one undo step); with several tiles picked and no stamp, each cell gets one of them at
-// random.
-// With a stamp: its pattern from (ox, oy).
-// Solid: the terrain's tiles in the rects of `cells` (a half of a rect that is not in them keeps its tile).
+// Fill's tiles in `cells` (one undo step): the picked tile; with several tiles selected in the list, they in patches at
+// random (Mix: fillPatch). A copied or a Custom stamp: its pattern from (ox, oy).
+// Solid: the terrain's tiles in the rects of `cells` (a half of a rect that is not in them keeps its tile); several
+// terrains selected: they in patches of rects.
 int tilesPlaceRandom(const std::vector<std::pair<int, int>>& cells, int ox = 0, int oy = 0) {
     Editor& ed = *appState().ed;
     std::vector<Editor::TileAt> values;
+    const uint32_t seed = appState().spraySeed++;
     if (gTiles->solid) {
         const std::set<std::pair<int, int>> only(cells.begin(), cells.end());
         std::vector<std::pair<int, int>> rects;
         for (const auto& [x, y] : cells) rects.push_back({x / 2, y});
+        const std::vector<int> picks = selectedPalette();
         ed.beginStroke();
-        const int n = tilesPut(solidTiles(rects, &only));
+        const int n = tilesPut(solidTiles(rects, &only, [&](int rx, int ry) {
+            return uint16_t(picks.size() > 1 ? picks[size_t(patchPick(rx * 2, ry, fillPatch(), int(picks.size()), seed))] : appState().palette);
+        }));
+        ed.endStroke();
+        return n;
+    }
+    if (gTiles->chosen.size() > 1 && !gTiles->stampCopied && gTiles->stampName.empty()) {  // the list's selection: patches
+        for (const auto& [x, y] : cells) values.push_back({x, y, gTiles->chosen[size_t(patchPick(x, y, fillPatch(), int(gTiles->chosen.size()), seed))]});
+        ed.beginStroke();
+        const int n = tilesPut(values);
         ed.endStroke();
         return n;
     }

@@ -176,8 +176,6 @@ struct MapView final : draw::View {
     draw::Point anchor;  // where the middle button went down
     std::chrono::steady_clock::time_point panLast;  // (Pan map: the time of the last step)
     static inline int middleDragTest = -1;  // (--midpan: 0 Pan map, 1 Drag map, in place of the setting)
-    bool rightStroke = false;  // a Shift+left stroke paints with the second terrain; the palette is the first one again after it
-    int savedPalette = -1;
     draw::Point last;
     bool open() const { return gState.ed && gState.ed->isOpen(); }
     void paint(draw::Canvas& c) override {
@@ -241,18 +239,10 @@ struct MapView final : draw::View {
                 rightDown = gState.drag == Drag::None;
                 return true;
             }
-            // Shift with the left button paints with the second terrain (isometric terrain, as the Windows program).
-            const bool second = e.button == 0 && (e.mods & draw::kShift) && !(e.mods & (draw::kCtrl | draw::kAlt)) &&
-                                gState.drag == Drag::None && open() && secondPaints();
-            if (second) {
-                rightStroke = true, savedPalette = gState.palette;
-                gState.palette = gState.palette2;
-            } else if (e.button == 1 || !open()) {
-                return false;
-            }
+            if (e.button == 1 || !open()) return false;
             if (draw::Host* h = host()) h->capture(*this, true);
             gState.mouseX = e.pt.x, gState.mouseY = e.pt.y, gState.mouseIn = true;
-            mapMouseDown(gState, e.pt.x, e.pt.y, second ? (e.mods & ~draw::kShift) : e.mods);  // (the Windows program drops Shift here too)
+            mapMouseDown(gState, e.pt.x, e.pt.y, e.mods);
             invalidate();
             return true;
         }
@@ -279,15 +269,6 @@ struct MapView final : draw::View {
                     leftUpInPan = true;
                 if (e.button != 2) return true;
                 panEnd();
-                return true;
-            }
-            if (rightStroke && e.button == 0) {  // the end of a second-terrain stroke: the first terrain again
-                rightStroke = false;
-                mapMouseUp(gState, e.pt.x, e.pt.y, e.mods);
-                gState.palette = savedPalette;
-                gState.dirty = true;
-                if (draw::Host* h = host()) h->capture(*this, false);
-                invalidate();
                 return true;
             }
             if (e.button == 1 && std::exchange(rightDown, false) && open()) {
@@ -360,9 +341,7 @@ struct MapView final : draw::View {
             if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
             gState.dirty = true;
         }
-        const bool second = std::exchange(rightStroke, false);
         if (gState.drag != Drag::None) mapMouseUp(gState, gState.mouseX, gState.mouseY, 0);
-        if (second) gState.palette = savedPalette, gState.dirty = true;
         invalidate();
     }
     // The release of the middle button: the press ends. A left drag from before the pan (move units, paint, a Shift

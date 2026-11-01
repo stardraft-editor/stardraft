@@ -344,11 +344,11 @@ int paletteLayout(const std::vector<PaletteRow>& rows, const PaletteView& v, int
 // The grid's footer (the hovered or picked item's name): its height, 0 for a list.
 int paletteFooterHeight(const PaletteView& v) { return v.grid ? scale(26) : 0; }
 
-// Shift+click in the palette (doodads, sprites, units): every item from the last pick to `row`, in the palette's order, is
-// picked (for a spray, #79); Ctrl keeps the picks before. False: no last pick in the list (a plain pick then).
+// Shift+click in the palette (terrains, doodads, sprites, units): every item from the last pick to `row`, in the palette's
+// order, is picked (for a spray or a fill, #79); Ctrl keeps the picks before. False: no last pick in the list (a plain pick then).
 bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int row, bool ctrl) {
     if (row < 0 || row >= int(rows.size()) || app.palette < 0) return false;
-    if (app.mode != Mode::Doodads && app.mode != Mode::Sprites && app.mode != Mode::Units) return false;
+    if (app.mode != Mode::Doodads && app.mode != Mode::Sprites && app.mode != Mode::Units && app.mode != Mode::Terrain) return false;
     int from = -1;
     for (size_t k = 0; k < rows.size(); ++k)
         if (rows[k].value == app.palette) from = int(k);
@@ -357,8 +357,9 @@ bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int ro
     if (!ctrl) chosen.clear();
     for (int k = std::min(from, row); k <= std::max(from, row); ++k)
         if (const int v = rows[size_t(k)].value; v >= 0 && std::find(chosen.begin(), chosen.end(), v) == chosen.end()) chosen.push_back(v);
-    const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : L" doodads";
-    setMessage(L"Selected " + std::to_wstring(chosen.size()) + what + L": each click or spray places one of them, at random");
+    const wchar_t* what = app.mode == Mode::Units ? L" units" : app.mode == Mode::Sprites ? L" sprites" : app.mode == Mode::Terrain ? L" terrains" : L" doodads";
+    setMessage(L"Selected " + std::to_wstring(chosen.size()) + what +
+               (app.mode == Mode::Terrain ? L": Spray and Fill put them at random" : L": each click or spray places one of them, at random"));
     app.dirty = true;
     shellPaletteChanged();
     return true;

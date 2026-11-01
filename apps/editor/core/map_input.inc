@@ -26,7 +26,6 @@ void setListSel(int i);
 void showUnitProperties(int index);
 void showLocationEdit(int loc);
 bool inSelection();
-bool secondPaints();
 int sprayRadius();
 int brushSizeIndex(float size);
 const std::vector<float>& brushSizes();
@@ -95,16 +94,6 @@ void fitMap() {
     app.camX = (app.ed->width() * 32.0f - w / app.zoom) / 2;
     app.camY = (app.ed->height() * 32.0f - h / app.zoom) / 2;
     app.dirty = true;
-}
-
-// Isometric terrain: Shift with the left button paints the second terrain (Shift+click or Ctrl+click in the palette)
-// with the Brush, Spray or Replace tool, as the left button alone paints the first. (Fill with Shift fills every place
-// of the clicked terrain with the first: mapMouseDown.) The Win32 view keeps the first terrain during such a stroke
-// (gSecondStrokeSaved).
-bool secondPaints() {
-    AppState& app = appState();
-    const int tool = currentTool(app);
-    return app.ed && app.mode == Mode::Terrain && !app.terrainRect && app.palette2 > 0 && (tool == TBrush || tool == TSpray || tool == TReplace);
 }
 
 void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, Drag move) {
@@ -283,6 +272,11 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     switch (app.mode) {
     case Mode::Units: {
         int hit = ed.unitAt(int(wx), int(wy));
+        if (currentTool(app) == UFill) {
+            const int n = fillObjectsAt(wx, wy);
+            if (n >= 0) setMessage(app, L"Filled the ground with " + std::to_wstring(n) + L" units");
+            break;
+        }
         if (currentTool(app) == USpray) {
             ed.beginStroke();  // the press and hold: one undo step
             app.sprayPlaced = sprayAt(wx, wy);
@@ -412,12 +406,16 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             app.drag = Drag::Paint;
         } else if (tool == TSpray) {
             ed.beginTerrainStroke();
-            ed.sprayTerrain(int(wx), int(wy), t, currentBrush(app), sprayDabs(), app.spraySeed++);
+            sprayAt(wx, wy);
             app.lastSprayX = sx, app.lastSprayY = sy;
             app.drag = Drag::Spray;
             sprayHoldStart(app, sx, sy);
         } else if (tool == TFill && !shiftDown) {
-            if (ed.fillTerrain(int(wx), int(wy), t)) setMessage(app, L"Filled with " + itemLabel(app, app.palette));
+            std::vector<uint16_t> picks;  // (several: in patches, Mix)
+            for (int v : selectedPalette())
+                if (v > 0) picks.push_back(uint16_t(v));
+            if (picks.size() > 1 ? ed.fillTerrainMix(int(wx), int(wy), picks, fillPatch(), app.spraySeed++) : ed.fillTerrain(int(wx), int(wy), t))
+                setMessage(app, picks.size() > 1 ? L"Filled with " + std::to_wstring(picks.size()) + L" terrains" : L"Filled with " + itemLabel(app, app.palette));
         } else if (tool == TReplace || tool == TFill) {  // Fill with Shift: every place of that terrain
             uint16_t from = ed.terrainAt(int(wx), int(wy));
             const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
@@ -460,6 +458,11 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         }
         break;
     case Mode::Doodads:
+        if (currentTool(app) == DFill) {
+            const int n = fillObjectsAt(wx, wy);
+            if (n >= 0) setMessage(app, L"Filled the ground with " + std::to_wstring(n) + L" doodads");
+            break;
+        }
         if (currentTool(app) == DSpray) {
             ed.beginStroke();  // the press and hold: one undo step
             app.sprayPlaced = sprayAt(wx, wy);

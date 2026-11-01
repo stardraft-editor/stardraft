@@ -30,7 +30,7 @@ int brushSizeIndex(float size) {  // the nearest size in the list
 }
 
 // The tool strip's number boxes (Size, Density, the Terrain height and the brush shape, for the wheel).
-enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns };
+enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns, kNumMix };
 
 // A click area of the strip, as painted: what it does, its tip, its cursor.
 struct StripHit {
@@ -73,8 +73,14 @@ bool objectSprayOn() {
 }
 // The brush size: Terrain, and the sprays of Units, Doodads and Sprites (their radius).
 bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn(); }
-// Density: the sprays (Terrain, Units, Doodads, Sprites).
-bool stripHasDensity() { return (appState().mode == Mode::Terrain && currentTool() == TSpray) || objectSprayOn(); }
+// Density: the sprays (Terrain, Units, Doodads, Sprites) and the Fill of Units and Doodads (how many).
+bool stripHasDensity() {
+    const AppState& app = appState();
+    return (app.mode == Mode::Terrain && currentTool() == TSpray) || objectSprayOn() || (app.mode == Mode::Units && currentTool() == UFill) ||
+           (app.mode == Mode::Doodads && currentTool() == DFill);
+}
+// Mix: Terrain's Fill (several picks in patches).
+bool stripHasMix() { return appState().mode == Mode::Terrain && currentTool() == TFill && terrainKind() != 2; }  // (not Custom)
 // The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images; sprites as units do).
 bool stripHasMirrors() {
     const AppState& app = appState();
@@ -136,6 +142,7 @@ std::wstring stripNumberText(int which) {
     if (which == kNumSize) std::swprintf(t, 24, L"%g", app.brushSize);
     else if (which == kNumHeight) std::swprintf(t, 24, L"%g", brushHeightOf(app));  // linked: the size; the Diamond: its own rule
     else if (which == kNumTurns) std::swprintf(t, 24, L"%d", app.ed ? app.ed->turns() : 1);
+    else if (which == kNumMix) std::swprintf(t, 24, L"%d", app.fillMix);
     else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
@@ -173,6 +180,8 @@ void stripNumberStep(int which, int dir) {
         app.brushHeight = std::clamp(std::round(brushHeightOf(app)) + float(dir), 1.0f, 32.0f);
     } else if (which == kNumTurns) {
         if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
+    } else if (which == kNumMix) {
+        app.fillMix = std::clamp(app.fillMix + dir, 1, 10);
     } else {
         app.sprayDensity = std::clamp(app.sprayDensity + dir, 1, kDensityMax);
     }
@@ -199,6 +208,8 @@ bool stripNumberSet(int which, const std::wstring& text) {
         app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
     } else if (which == kNumTurns) {
         if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0))));
+    } else if (which == kNumMix) {
+        app.fillMix = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, 10);
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
     }
@@ -236,7 +247,7 @@ int toolStripHeight(int width, bool titled) {
     const int tools = int(stripTools(app.mode).size());
     const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + scale(26) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
-                      (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
+                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
@@ -540,6 +551,9 @@ public:
                       app.mode == Mode::Terrain ? L"Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it."
                       : app.mode == Mode::Units ? L"Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it."
                                                 : L"Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.");
+        if (stripHasMix())
+            numberRow(kNumMix, L"Mix",
+                      L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.");
         // The mirrors: they combine (left/right and top/bottom together mirror both ways); None turns them all off.
         if (stripHasMirrors() && app.ed) {
             static const struct {

@@ -187,6 +187,11 @@ public:
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two
     // terrains under the brush).
     int jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed);
+    // Fill with several terrains: the connected area of one terrain (as fillTerrain, at every symmetric position) gets
+    // the first terrain, then patches of all of them at random places in it, each patch a diamond of `patch` diamonds
+    // (2 at the least: finer loses a terrain's edges; 10: large; a large area gets larger ones, 400 patches at most), and
+    // the terrain around each patch is fitted to it. One undo step. False: nothing changed. One terrain: fillTerrain.
+    bool fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed);
     int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
     // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'
@@ -790,6 +795,10 @@ private:
     // the edit keeps them (IsomGrid::apply locks its corners). The edit's own corners stay first. Returns how many of
     // them stay; -1: no protected tiles near (nothing changed).
     int pinProtected(std::vector<CornerValue>& corners, int margin) const;
+    // Dabs (each a set of corners) on the ISOM one after the other, each fitted and its tiles made before the next (the
+    // tiles' cliff fixes keep each dab's own corners), then the mod's tiles, the protected tiles, the doodads and the
+    // units once. Part of an open edit. Returns the dabs that changed the terrain.
+    int applyDabs(const std::vector<std::vector<CornerValue>>& dabs);
     static constexpr int kProtectMargin = 12;  // (grid steps: the reach of an edit's repair around its corners)
     // The protected tiles of a map of oldWidth x oldHeight moved by (dx, dy) tiles onto the map's size now (resizeMap,
     // takeScenario).
