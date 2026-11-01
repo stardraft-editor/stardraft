@@ -2722,6 +2722,7 @@ constexpr UiText kRows[] = {
     {L"Painted the ellipse", L"\u5DF2\u7ED8\u5236\u692D\u5706"},
     {L"Filled the ellipse", L"\u5DF2\u586B\u5145\u692D\u5706"},
     {L"Release the button at the other corner. Hold Shift for a square or a circle", L"\u5728\u53E6\u4E00\u4E2A\u89D2\u677E\u5F00\u6309\u94AE\u3002\u6309\u4F4F Shift \u4E3A\u6B63\u65B9\u5F62\u6216\u5706\u5F62"},
+    {L"Please describe what the issue is and what you would expect instead.", L"\u8BF7\u63CF\u8FF0\u95EE\u9898\u662F\u4EC0\u4E48\uFF0C\u4EE5\u53CA\u60A8\u671F\u671B\u7684\u7ED3\u679C\u662F\u4EC0\u4E48\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -2722,6 +2722,7 @@ constexpr UiText kRows[] = {
     {L"Painted the ellipse", L"Se pint\u00F3 la elipse"},
     {L"Filled the ellipse", L"Se rellen\u00F3 la elipse"},
     {L"Release the button at the other corner. Hold Shift for a square or a circle", L"Suelte el bot\u00F3n en la otra esquina. Mantenga Shift para un cuadrado o un c\u00EDrculo"},
+    {L"Please describe what the issue is and what you would expect instead.", L"Describa cu\u00E1l es el problema y qu\u00E9 esperar\u00EDa en su lugar."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

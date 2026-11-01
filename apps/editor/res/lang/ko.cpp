@@ -2752,6 +2752,7 @@ constexpr UiText kRows[] = {
     {L"Painted the ellipse", L"\uD0C0\uC6D0\uC744 \uCE60\uD588\uC2B5\uB2C8\uB2E4"},
     {L"Filled the ellipse", L"\uD0C0\uC6D0\uC744 \uCC44\uC6E0\uC2B5\uB2C8\uB2E4"},
     {L"Release the button at the other corner. Hold Shift for a square or a circle", L"\uBC18\uB300 \uBAA8\uC11C\uB9AC\uC5D0\uC11C \uBC84\uD2BC\uC744 \uB193\uC73C\uC2ED\uC2DC\uC624. Shift\uB97C \uB204\uB974\uACE0 \uC788\uC73C\uBA74 \uC815\uC0AC\uAC01\uD615\uC774\uB098 \uC6D0\uC774 \uB429\uB2C8\uB2E4"},
+    {L"Please describe what the issue is and what you would expect instead.", L"\uC5B4\uB5A4 \uBB38\uC81C\uC778\uC9C0, \uADF8\uB9AC\uACE0 \uB300\uC2E0 \uC5B4\uB5BB\uAC8C \uB418\uAE30\uB97C \uAE30\uB300\uD558\uB294\uC9C0 \uC801\uC5B4 \uC8FC\uC2ED\uC2DC\uC624."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

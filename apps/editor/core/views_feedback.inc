@@ -162,13 +162,19 @@ private:
 
 void FeedbackView::paint(draw::Canvas& c) {
     if (!focused_ && host()) focused_ = true, text_.focus();  // the text box has the keyboard when the dialog opens
-    const int pad = scale(stardraft::kit::kDialogPad), w = scale(560), editH = scale(200), bh = scale(stardraft::kit::kButtonH);
+    const int pad = scale(stardraft::kit::kDialogPad), w = scale(560), editH = scale(176), bh = scale(stardraft::kit::kButtonH);
     const int W = width(), H = height();
     c.fill({0, 0, W, H}, kBg);
     // The glyph and the title ("Feedback on <the thing>").
     c.icon({scale(12), scale(10), scale(12) + scale(20), scale(10) + scale(20)}, int(kFeedbackIcon), kFeedback, scale(16));
     c.text({pad + scale(26), pad + scale(1), pad + w, pad + scale(21)}, tr(L"Feedback on ") + on_, kText, draw::kMiddle | draw::kEllipsis);
     int y = pad + scale(24);
+    if (stage_ == 0) {  // what to write (the box's height less its line: the dialog keeps its size)
+        c.text({pad, y, pad + w, y + scale(20)}, tr(L"Please describe what the issue is and what you would expect instead."), kText, draw::kMiddle | draw::kEllipsis);
+        y += scale(24);
+    } else {
+        y += scale(24);
+    }
     const draw::Rect editR{pad, y, pad + w, y + editH};
     const bool typing = stage_ == 0;
     if (typing) {
