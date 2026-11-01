@@ -99,7 +99,8 @@ void protectSelection(bool on) {
 }
 
 // View > Layers > Protected terrain: a yellow fill over the protected tiles, put together into rectangles (the same run
-// of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes.
+// of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes. Only in Terrain
+// mode (the protection is for the terrain tools).
 struct ProtectedLayer {
     const Editor* editor = nullptr;
     uint64_t revision = 0;
@@ -108,7 +109,7 @@ struct ProtectedLayer {
 } gProtectedLayer;
 
 void addProtectedLayer(const Editor& ed, render::Scene& s) {
-    if (!gLayers.protectedTerrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
+    if (!gLayers.protectedTerrain || shellState().mode != Mode::Terrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
     ProtectedLayer& l = gProtectedLayer;
     if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme) {
         l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme;
