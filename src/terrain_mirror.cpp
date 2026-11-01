@@ -1,4 +1,3 @@
-// Direct terrain artwork reflection adapted from Map Studio (MIT); see NOTICE.md.
 #include "stardraft/terrain_mirror.h"
 #include <algorithm>
 #include <cmath>

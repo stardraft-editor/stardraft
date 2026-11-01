@@ -10,4 +10,4 @@ Search runs in the background. Escape, a new copy/paste command, a changed selec
 
 ## Sources and credits
 
-The artwork matching algorithm is adapted from [Map Studio](https://github.com/RustyNovoBland77464/scmdraft-native/tree/e35461dea3b4387b0956feb59ed07ab4ee8d3fa6), MIT, Copyright (c) 2026 ScmDraft Fan Add-on contributors. See the source repository's `licenses/terrain-mirror.txt` for the permission notice.
+Uses StarDraft's existing map data and editing APIs.
