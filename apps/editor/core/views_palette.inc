@@ -111,6 +111,8 @@ struct PaletteGridView : draw::View {
                 const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
                 if (isPick) kitpaint::drawListRow(c, f, true, false);
                 else c.fill(f, isChosen ? kSel : kRowHot);
+                // (several picked: each of them framed in the light accent, so that the set shows at a glance)
+                if (isChosen && units && chosen->size() > 1) c.frame(f, kAccentBright, scale(2));
             }
             if (pinned && i >= 1 && i <= size_t(pinned)) {  // a pinned doodad's copy at the top: the pin at its right
                 draw::FontDesc glyphs;

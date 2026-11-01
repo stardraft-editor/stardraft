@@ -189,8 +189,8 @@ public:
     int jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed);
     // Fill with several terrains: the connected area of one terrain (as fillTerrain, at every symmetric position) gets
     // the first terrain, then patches of all of them at random places in it, each patch a diamond of `patch` diamonds
-    // (2 at the least: finer loses a terrain's edges; 10: large; a large area gets larger ones, 400 patches at most), and
-    // the terrain around each patch is fitted to it. One undo step. False: nothing changed. One terrain: fillTerrain.
+    // (2 at the least: finer loses a terrain's edges; 10: large), each terrain's patches fitted together. One undo step.
+    // False: nothing changed. One terrain: fillTerrain.
     bool fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed);
     int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
@@ -356,6 +356,10 @@ public:
     // Spray `count` units of the given types (random pick) within `radius` px of (x, y); only spots
     // that pass checkPlacement are used. Honors symmetry. Returns units placed. One undo step.
     int sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x, int y, int radius, int count, uint32_t seed);
+    // One unit of the given types (random pick) at each of `points` (map pixels, and their symmetric places), where it
+    // fits: as sprayUnits, in one edit. `typeOfPoint`: each point's type (null: a random pick from `types`).
+    int sprayUnitsAt(const std::vector<uint16_t>& types, uint8_t owner, const std::vector<std::pair<int, int>>& points, uint32_t seed,
+                     const std::vector<uint16_t>* typeOfPoint = nullptr);
     // Spray `count` sprites of the given kinds (random pick) at random points within `radius` px of (x, y), each point
     // snapped to a grid of `grid` px (snapToCell). Only spots where the sprite can go are used. Returns sprites placed.
     int spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid);
@@ -402,6 +406,11 @@ public:
     // With `checkTerrain` off (Options > Doodads > Place anywhere), the terrain under it is not checked; on, it must be
     // the doodad's own terrain (doodadScatterFits).
     int sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int radius, int count, uint32_t seed, bool checkTerrain = true);
+    // One doodad (random pick from `ids`) at each of `points` (map pixels, and their symmetric places), where it fits:
+    // as sprayDoodads, in one edit (one copy of the map, one commit). `idOfPoint`: each point's doodad (null: a random
+    // pick from `ids`).
+    int sprayDoodadsAt(const std::vector<uint16_t>& ids, const std::vector<std::pair<int, int>>& points, uint32_t seed, bool checkTerrain = true,
+                       const std::vector<uint16_t>* idOfPoint = nullptr);
     // A campaign's maps (roadmap R25): the data of map `from` into this one (the unit, upgrade and technology settings,
     // with the players' upgrades and technologies; the custom unit names stay this map's), or its terrain (the size, the
     // tileset, the tiles and the doodads; the maps must have the same size). One undo step each; false with `error`.

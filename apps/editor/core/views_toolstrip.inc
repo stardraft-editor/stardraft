@@ -246,9 +246,12 @@ int toolStripHeight(int width, bool titled) {
     const int perRow = std::max(1, (width + gap) / (b + gap));
     const int tools = int(stripTools(app.mode).size());
     const int rows = (tools + perRow - 1) / perRow;  // (Terrain: the brush's shape is in its size field)
-    const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + scale(26) + gap : 0) + (stripHasDensity() ? scale(26) + gap : 0) +
+    // (the mirrors' row: Turns on it where it fits, as paint puts it; else a row of its own below)
+    const bool turnsBeside = width - (5 * (scale(28) + scale(3)) + scale(6)) >= scale(84);
+    const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
+                      (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
-    return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
+    return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra + gap;  // (the last gap: the thin line under the strip)
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
 int toolStripHeight(int width, PanelState* panel) {
@@ -601,7 +604,7 @@ public:
                 numberRow(kNumTurns, L"Turns", kTurnsTip);
             }
         }
-        c.setFont(prevFont);
+        if (y > gap) c.fill({0, y - gap / 2 - 1, W, y - gap / 2}, kBorder);  // (a thin line: the strip ends, the list starts)        c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.
         (void)H;
         if (keys_.shows(*this, int(hits_.size()))) paintFocusOutline(c, hits_[size_t(keys_.at)].r);    }

@@ -472,8 +472,8 @@ bool objectFillOn() {
 
 // Fill in Units and Doodads: the connected ground of the clicked tile's terrain (its tiles, 4 ways: the isometric terrain,
 // or the same tile without it) gets units or doodads of the selected kinds at random places, where they fit: as many
-// tries as one in 10 of its tiles at Density 10 (Density 50: half), 500 at most (each try is a placement of its own: a
-// large ground gets them spread over it). One undo step. Returns the number placed (-1: nothing to place or no ground).
+// tries as one in 10 of its tiles at Density 10 (Density 50: half), 5000 at most. One undo step (one edit of all the
+// places). Returns the number placed (-1: nothing to place or no ground).
 int fillObjectsAt(float wx, float wy) {
     AppState& app = appState();
     if (!app.ed) return -1;
@@ -506,19 +506,16 @@ int fillObjectsAt(float wx, float wy) {
             if (nx[k] >= 0 && ny[k] >= 0 && nx[k] < w && ny[k] < h && !seen[size_t(ny[k]) * w + nx[k]] && kind(nx[k], ny[k]) == from)
                 seen[size_t(ny[k]) * w + nx[k]] = 1, todo.push_back({nx[k], ny[k]});
     }
-    const int tries = std::clamp(int(ground.size() * size_t(app.sprayDensity) / 100), 1, 500);
+    const int tries = std::clamp(int(ground.size() * size_t(app.sprayDensity) / 100), 1, 5000);
     std::mt19937 rng(app.spraySeed++);
-    int placed = 0;
-    if (app.mode == Mode::Units) applyUnitLimit(ed);
-    ed.beginStroke();
+    std::vector<std::pair<int, int>> points;
     for (int i = 0; i < tries; ++i) {
         const auto [x, y] = ground[rng() % ground.size()];
-        const int px = x * 32 + int(rng() % 32), py = y * 32 + int(rng() % 32);
-        placed += app.mode == Mode::Units ? ed.sprayUnits(picks, uint8_t(app.playerOwner), px, py, 0, 1, app.spraySeed++)
-                                          : ed.sprayDoodads(picks, px, py, 0, 1, app.spraySeed++, app.doodadCheck);
-        if (app.mode == Mode::Units && atUnitLimit(ed)) break;
+        points.push_back({x * 32 + int(rng() % 32), y * 32 + int(rng() % 32)});
     }
-    ed.endStroke();
+    if (app.mode == Mode::Units) applyUnitLimit(ed);
+    const int placed = app.mode == Mode::Units ? ed.sprayUnitsAt(picks, uint8_t(app.playerOwner), points, app.spraySeed++)
+                                               : ed.sprayDoodadsAt(picks, points, app.spraySeed++, app.doodadCheck);
     if (app.mode == Mode::Units) ed.clearSelection();  // (placed units are not selected)
     return placed;
 }

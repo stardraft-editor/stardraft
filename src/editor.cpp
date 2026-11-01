@@ -3,6 +3,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <numeric>
 #include <tuple>
 #include "byteio.h"
 #include "file_write.h"
@@ -2090,26 +2091,28 @@ bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrain
     std::vector<CornerValue> base;
     for (const auto& [cx, cy] : area) base.push_back({cx, cy, ts[0]});
     bool any = applyTerrain(base);
-    // The patches: enough to cover the area about twice, each of a terrain at random (the first too). At most 400 (each
-    // patch is a correction and the tiles of its own): a large area gets larger patches.
-    constexpr size_t kMostPatches = 400;
+    // The patches: enough to cover the area about twice, each of a terrain at random (the first too). Each terrain's
+    // patches go in together, one correction for all of them (a correction for each patch is slow on a large area);
+    // the terrains in random order, a later one's patches over an earlier one's.
     std::mt19937 rng(seed);
-    float size = std::max(2.0f, float(patch));
-    size = std::max(size, std::ceil(std::sqrt(2.0f * float(spots.size()) / float(kMostPatches))));
+    const float size = std::max(2.0f, float(patch));
     const size_t perPatch = size_t(size * size);
     std::vector<std::pair<int, int>> order = spots;
     std::shuffle(order.begin(), order.end(), rng);
-    order.resize(std::min({order.size(), kMostPatches, std::max<size_t>(1, 2 * spots.size() / perPatch)}));
-    std::vector<std::vector<CornerValue>> dabs;
+    order.resize(std::min(order.size(), std::max<size_t>(1, 2 * spots.size() / perPatch)));
+    std::vector<std::vector<CornerValue>> byTerrain(ts.size());
+    std::vector<std::set<std::pair<int, int>>> seen(ts.size());
     for (auto [cx, cy] : order) {
-        const uint16_t t = ts[rng() % ts.size()];
-        std::vector<CornerValue> dab;
+        const size_t k = rng() % ts.size();
         for (auto [x, y] : symmetricPoints(cx * 64, cy * 32))
             for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, size}))
-                if (area.count({dx, dy})) dab.push_back({dx, dy, t});
-        if (!dab.empty()) dabs.push_back(std::move(dab));
+                if (area.count({dx, dy}) && seen[k].insert({dx, dy}).second) byTerrain[k].push_back({dx, dy, ts[k]});
     }
-    any = applyDabs(dabs) > 0 || any;
+    std::vector<size_t> terrainOrder(ts.size());
+    std::iota(terrainOrder.begin(), terrainOrder.end(), size_t(0));
+    std::shuffle(terrainOrder.begin(), terrainOrder.end(), rng);
+    for (size_t k : terrainOrder)
+        if (!byTerrain[k].empty()) any = applyTerrain(byTerrain[k]) || any;
     if (!any) dropLastUndo();  // nothing changed
     return any;
 }
@@ -2742,17 +2745,32 @@ int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x,
     if (types.empty() || count <= 0) return 0;
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> unit(-1, 1);
-    std::vector<Unit> added;
-    std::vector<Unit> all = units_;
-    SerialCounter serials(all);
+    std::vector<std::pair<int, int>> points;
+    std::vector<uint16_t> kinds;  // (each point's type, drawn before it, as the spray always did: a seed gives the same units)
     for (int i = 0; i < count; ++i) {
-        uint16_t type = types[rng() % types.size()];
+        const uint16_t type = types[rng() % types.size()];
         if (type >= types_.size()) continue;
-        const UnitType& t = types_[type];
         double dx, dy;
         do dx = unit(rng), dy = unit(rng);
         while (dx * dx + dy * dy > 1);
-        for (auto [px, py] : symmetricPoints(int(x + dx * radius), int(y + dy * radius))) {
+        points.push_back({int(x + dx * radius), int(y + dy * radius)}), kinds.push_back(type);
+    }
+    return sprayUnitsAt(types, owner, points, seed, &kinds);
+}
+
+int Editor::sprayUnitsAt(const std::vector<uint16_t>& types, uint8_t owner, const std::vector<std::pair<int, int>>& points, uint32_t seed,
+                         const std::vector<uint16_t>* typeOfPoint) {
+    if (types.empty() || points.empty()) return 0;
+    std::mt19937 rng(seed);
+    std::vector<Unit> added;
+    std::vector<Unit> all = units_;
+    SerialCounter serials(all);
+    for (size_t i = 0; i < points.size(); ++i) {
+        const auto [x, y] = points[i];
+        uint16_t type = typeOfPoint && i < typeOfPoint->size() ? (*typeOfPoint)[i] : types[rng() % types.size()];
+        if (type >= types_.size()) continue;
+        const UnitType& t = types_[type];
+        for (auto [px, py] : symmetricPoints(x, y)) {
             if (unitLimit_ > 0 && int(all.size()) >= unitLimit_) break;
             if (px < 0 || py < 0 || px >= width_ * 32 || py >= height_ * 32) continue;
             uint16_t ux = uint16_t(px), uy = uint16_t(py);
@@ -3335,23 +3353,66 @@ int Editor::sprayDoodads(const std::vector<uint16_t>& ids, int x, int y, int rad
     if (ids.empty() || count <= 0) return 0;
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> unit(-1, 1);
+    std::vector<std::pair<int, int>> points;
+    std::vector<uint16_t> kinds;  // (each point's doodad, drawn before it, as the spray always did: a seed gives the same doodads)
+    for (int i = 0; i < count; ++i) {
+        const uint16_t id = ids[rng() % ids.size()];
+        if (!doodadTypes_.find(id)) continue;
+        double dx, dy;
+        do dx = unit(rng), dy = unit(rng);
+        while (dx * dx + dy * dy > 1);
+        points.push_back({int(x + dx * radius), int(y + dy * radius)}), kinds.push_back(id);
+    }
+    return sprayDoodadsAt(ids, points, seed, checkTerrain, &kinds);
+}
+
+int Editor::sprayDoodadsAt(const std::vector<uint16_t>& ids, const std::vector<std::pair<int, int>>& points, uint32_t seed, bool checkTerrain,
+                           const std::vector<uint16_t>* idOfPoint) {
+    if (ids.empty() || points.empty()) return 0;
+    std::mt19937 rng(seed);
     Chk before = chk_;
     int placed = 0;
     const auto terrains = checkTerrain ? tileGroupTerrains(tileset_) : std::vector<std::array<uint16_t, 2>>{};
     const TerrainLayer under = checkTerrain ? readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM") : TerrainLayer{};
-    for (int i = 0; i < count; ++i) {
-        const DoodadType* t = doodadTypes_.find(ids[rng() % ids.size()]);
+    // The tiles the doodads take, as doodadOverlaps counts them (a doodad's tiles; all of its rect when it has none),
+    // made once and kept as doodads go in: each check looks at its own cells, not at every doodad of the map.
+    std::vector<uint8_t> taken(size_t(width_) * height_, 0);
+    auto eachCell = [&](const DoodadType& k, int ox, int oy, const std::function<bool(size_t)>& each) {
+        auto tile = [&](int c, int r) {
+            const size_t g = size_t(k.firstGroup) + size_t(r);
+            return g < tileset_.groups.size() && size_t(c) < tileset_.groups[g].megatiles.size() && tileset_.groups[g].megatiles[size_t(c)] != 0;
+        };
+        bool any = false;
+        for (int r = 0; r < k.height && !any; ++r)
+            for (int c = 0; c < k.width && !any; ++c) any = tile(c, r);
+        for (int r = 0; r < k.height; ++r)
+            for (int c = 0; c < k.width; ++c)
+                if ((!any || tile(c, r)) && ox + c >= 0 && oy + r >= 0 && ox + c < width_ && oy + r < height_ &&
+                    each(size_t(oy + r) * width_ + size_t(ox + c)))
+                    return true;
+        return false;
+    };
+    auto mark = [&](const DoodadType& k, int ox, int oy) { eachCell(k, ox, oy, [&](size_t i) { return taken[i] = 1, false; }); };
+    for (const Doodad& d : doodads_)
+        if (const DoodadType* o = doodadTypes_.find(d.id)) mark(*o, (d.x - o->width * 16) / 32, (d.y - o->height * 16) / 32);
+    for (size_t i = 0; i < points.size(); ++i) {
+        const auto [x, y] = points[i];
+        const DoodadType* t = doodadTypes_.find(idOfPoint && i < idOfPoint->size() ? (*idOfPoint)[i] : ids[rng() % ids.size()]);
         if (!t) continue;
-        double dx, dy;
-        do dx = unit(rng), dy = unit(rng);
-        while (dx * dx + dy * dy > 1);
-        for (auto [px, py] : symmetricPoints(int(x + dx * radius), int(y + dy * radius))) {
+        for (auto [px, py] : symmetricPoints(x, y)) {
             int tx, ty;
             doodadOrigin(*t, px, py, tx, ty);
-            if (!doodadFits(chk_, *t, tx, ty, checkTerrain) || doodadOverlaps(*t, tx, ty)) continue;
+            if (!doodadFits(chk_, *t, tx, ty, checkTerrain) || eachCell(*t, tx, ty, [&](size_t i) { return taken[i] != 0; })) continue;
             if (checkTerrain && !doodadScatterFits(*t, tx, ty, terrains, under)) continue;
             if (stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, 0, checkTerrain)) {
-                doodads_ = readDoodads(chk_);
+                // (the new one is DD2's last: read only it, not all of them again)
+                if (const Section* s = chk_.find("DD2 "); s && s->data.size() >= 8 && s->data.size() / 8 == doodads_.size() + 1) {
+                    const size_t o = s->data.size() - 8;
+                    doodads_.push_back({readU16(s->data, o), readU16(s->data, o + 2), readU16(s->data, o + 4), s->data[o + 6], s->data[o + 7]});
+                } else {
+                    doodads_ = readDoodads(chk_);
+                }
+                mark(*t, tx, ty);
                 ++placed;
             }
         }
