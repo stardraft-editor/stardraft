@@ -119,6 +119,7 @@ add_library(stardraft
     src/project_import.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
+    src/area_measurement.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp
@@ -753,6 +754,8 @@ if(STARDRAFT_RENDERER)
     else()
         set(editorDir $<TARGET_FILE_DIR:${sdlEditor}>)
     endif()
+    add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/licenses
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/licenses/area-measurement.txt ${editorDir}/licenses)
     add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
     if(STARDRAFT_FONT_FILES AND NOT WIN32)  # (Windows: the system's fonts, and Noto Sans in StarDraft 2.exe)
@@ -846,3 +849,6 @@ if(WIN32 AND STARDRAFT_RENDERER)
     endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
+
+add_executable(area_measurement_test tools/tests/area_measurement_test.cpp)
+target_link_libraries(area_measurement_test PRIVATE stardraft)

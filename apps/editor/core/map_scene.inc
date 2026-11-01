@@ -623,6 +623,7 @@ render::Scene buildScene() {
         }
     }
 
+    areaMeasureScene(s);
     if (!app.mouseIn) return s;
     if (app.pasting && ed.canPaste()) {
         // Ghost of the clipboard at the cursor; red where a unit could not be placed as is.

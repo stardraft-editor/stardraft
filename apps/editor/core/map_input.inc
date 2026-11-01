@@ -234,6 +234,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     Editor& ed = *app.ed;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (areaMeasureDown(wx, wy)) return;
     gStackNext = -1;
     // Alt+click (macOS: Option+click) on two or more units: the list of the units there (on one unit, or while a unit
     // type is selected for placing: the pipette).
@@ -564,6 +565,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (areaMeasureMove(wx, wy)) return;
     if (app.drag == Drag::Paint && app.ed) {
         const uint16_t paint = currentTool(app) == TErase ? eraseTerrain(*app.ed) : uint16_t(app.palette);  // (Erase: Dirt)
         // Over the same terrain: new variants each half brush along the drag (not on every small move).
@@ -615,6 +617,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
 }
 
 void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
+    if (areaMeasureUp()) return;
     if (!app.ed || !app.ed->isOpen()) {
         app.drag = Drag::None;
         return;

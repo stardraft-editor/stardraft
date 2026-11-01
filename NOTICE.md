@@ -35,3 +35,7 @@ reference tests use, unchanged, and StarDraft's stand-ins for the two Chkdraft h
 
 StarCraft and StarCraft: Remastered are trademarks of Blizzard Entertainment. StarDraft is not affiliated with
 Blizzard. StarDraft reads the game's files from the user's own installation and contains none of them.
+
+## Area measurement
+
+Area measurement behavior and polygon scanline measurement are adapted from [Map Studio](https://github.com/RustyNovoBland77464/scmdraft-native) at `e35461dea3b4387b0956feb59ed07ab4ee8d3fa6`, MIT, Copyright (c) 2026 ScmDraft Fan Add-on contributors. The native StarDraft tool uses its control kit and terrain data. The original notice is in `licenses/area-measurement.txt`. No game assets or simulation engine code are included.
