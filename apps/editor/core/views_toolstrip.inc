@@ -250,7 +250,7 @@ void stripToolByKey(int key) {
 // A group's tools in a row of icon buttons under its button `button` (in `from`'s coordinates): its arrow, a right
 // click on it. A click on one picks it and closes the row; Esc or a click outside closes it. (`it` a copy: the strip
 // paints its buttons again while the row is open.)
-void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button);
+void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button, bool byHover = false);
 
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
@@ -359,10 +359,12 @@ struct ToolPopoutView final : draw::View {
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
         case draw::MouseKind::Move:
+            cancelClose();
             if (const int i = at(e.pt); i != hot) hot = i, invalidate();
             return true;
         case draw::MouseKind::Leave:
             if (hot >= 0) hot = -1, invalidate();
+            closeLater();
             return true;
         case draw::MouseKind::Down: {
             if (e.button != 0) return true;
@@ -383,9 +385,23 @@ struct ToolPopoutView final : draw::View {
         return false;
     }
     void close() {
+        cancelClose();
         if (!open) return;
         open = false, hot = -1;
         if (draw::Host* h = host()) h->closeWindow(*this);
+    }
+    // Opened by a hover (stripGroupPopout): it closes a moment after the mouse goes off it and off its button.
+    bool byHover = false;
+    int closeTimer = -1;
+    draw::Host* timerHost = nullptr;  // (the timer's host: the host detaches the pop-out before its closed callback)
+    void closeLater() {
+        if (!open || !byHover || closeTimer >= 0) return;
+        if (draw::Host* h = host()) timerHost = h, closeTimer = h->timer(350, [this] { closeTimer = -1, close(); });
+    }
+    void cancelClose() {
+        if (closeTimer < 0) return;
+        if (timerHost) timerHost->cancelTimer(closeTimer);
+        closeTimer = -1;
     }
 };
 ToolPopoutView gToolPopout;
@@ -397,16 +413,18 @@ draw::View* toolPopoutShot() {
     return &gToolPopout;
 }
 
-void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button) {
+// byHover: the mouse rested on the button (it closes when the mouse goes off; a click or a right click: it stays open).
+void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button, bool byHover) {
     draw::Host* host = from.host();
     if (!host || it.members.empty()) return;
     gToolPopout.close();
+    gToolPopout.byHover = byHover;
     gToolPopout.group = std::move(it);
     const int w = int(gToolPopout.group.members.size()) * ToolPopoutView::cell() + 2 * ToolPopoutView::pad(),
               h = ToolPopoutView::cell() + 2 * ToolPopoutView::pad();
     const draw::Rect at{button.left - ToolPopoutView::pad(), button.bottom + scale(2), button.left - ToolPopoutView::pad() + w, button.bottom + scale(2) + h};
     gToolPopout.open = true;
-    host->openWindow(from, gToolPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gToolPopout.open = false, gToolPopout.hot = -1; });
+    host->openWindow(from, gToolPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gToolPopout.cancelClose(), gToolPopout.open = false, gToolPopout.hot = -1; });
 }
 
 // --- The view -----------------------------------------------------------------------------------------------------
@@ -783,6 +801,7 @@ public:
             hover_ = e.pt;
             hovering_ = true;
             if (before != now) invalidate();
+            hoverGroup(groupAt(e.pt));
             return false;
         }
         case draw::MouseKind::Leave:
@@ -790,8 +809,10 @@ public:
                 hovering_ = false;
                 invalidate();
             }
+            hoverGroup(-1);
             return false;
         case draw::MouseKind::Down: {
+            cancelHover();
             if (e.button != 0) return false;
             keys_.pressed();
             if (editing_ >= 0) {  // a click elsewhere ends the typing (it is kept)
@@ -890,6 +911,38 @@ private:
     ItemFocus keys_;     // the part with the keyboard focus (an index into hits_)
     int editing_ = -1;   // the number box being typed into
     std::vector<std::pair<draw::Rect, StripItem>> groups_;  // the group buttons as painted (a right click lists their tools)
+    int hoverGroup_ = -1;  // the group button under the mouse (an index into groups_)
+    int hoverTimer_ = -1;  // its pop-out opens when the mouse rests on it
+    int groupAt(draw::Point p) const {
+        for (size_t i = 0; i < groups_.size(); ++i)
+            if (groups_[i].first.contains(p)) return int(i);
+        return -1;
+    }
+    void cancelHover() {
+        if (hoverTimer_ < 0) return;
+        if (draw::Host* h = host()) h->cancelTimer(hoverTimer_);
+        hoverTimer_ = -1;
+    }
+    // The mouse on group button g (-1: none): its tools pop out after a short rest (the active panel's strip only; a
+    // button whose tools are out keeps them), and a hover pop-out closes when the mouse goes off its button.
+    void hoverGroup(int g) {
+        if (g == hoverGroup_) return;
+        hoverGroup_ = g;
+        cancelHover();
+        if (g < 0) return gToolPopout.closeLater();
+        if (gToolPopout.open && gToolPopout.group.group == groups_[size_t(g)].second.group) return gToolPopout.cancelClose();
+        gToolPopout.closeLater();  // (another group's hover pop-out: it goes before this one opens)
+        if (state && state != gActivePanel) return;
+        draw::Host* h = host();
+        if (!h) return;
+        hoverTimer_ = h->timer(400, [this] {
+            hoverTimer_ = -1;
+            const int at = groupAt(hover_);
+            if (!hovering_ || pressed_ >= 0 || at < 0 || (state && state != gActivePanel)) return;
+            const auto [rect, item] = groups_[size_t(at)];
+            if (!gToolPopout.open) stripGroupPopout(item, *this, rect, true);  // (one open by a click stays; a hover one closes first)
+        });
+    }
     int pressed_ = -1;   // the hit the mouse is down on
     draw::Point hover_;  // the pointer, as last moved
     bool hovering_ = false;
