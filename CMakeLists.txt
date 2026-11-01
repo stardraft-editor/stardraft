@@ -544,10 +544,25 @@ if(STARDRAFT_RENDERER)
 endif()
 
 # The version name that the editors say: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
-# .github/workflows/build.yml); other builds say this one.
+# .github/workflows/build.yml); other builds say the newest release tag before their commit (v0.8.2: "0.8.2"), or the
+# newest release tag of the checkout (a shallow one: CI's checkout gets the tags only), else "dev".
 if(NOT STARDRAFT_VERSION_NAME)
-    set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 --match "v[0-9]*" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                        OUTPUT_VARIABLE versionTag OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(NOT versionTag)
+            execute_process(COMMAND ${GIT_EXECUTABLE} tag --list "v[0-9]*" --sort=-version:refname WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                            OUTPUT_VARIABLE versionTags OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+            string(REGEX MATCH "^[^\n]+" versionTag "${versionTags}")
+        endif()
+        string(REGEX REPLACE "^v" "" STARDRAFT_VERSION_NAME "${versionTag}")
+    endif()
+    if(NOT STARDRAFT_VERSION_NAME)
+        set(STARDRAFT_VERSION_NAME "dev")
+    endif()
 endif()
+message(STATUS "Version name: ${STARDRAFT_VERSION_NAME}")
 
 # stardraft-cli's version, commit and issues token (`stardraft-cli feedback` files an issue, as the editor's feedback),
 # its requests (http_win32.cpp, or http_curl.cpp: the curl program), and its skill: apps/cli/SKILL.md, which
