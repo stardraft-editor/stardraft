@@ -35,3 +35,5 @@ reference tests use, unchanged, and StarDraft's stand-ins for the two Chkdraft h
 
 StarCraft and StarCraft: Remastered are trademarks of Blizzard Entertainment. StarDraft is not affiliated with
 Blizzard. StarDraft reads the game's files from the user's own installation and contains none of them.
+
+Doodad placement availability adapts Map Studio behavior (MIT), Copyright (c) 2026 ScmDraft Fan Add-on contributors. See `licenses/doodad-placement.txt` and the source link in the help page.

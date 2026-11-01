@@ -759,6 +759,7 @@ render::Scene buildScene() {
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
     } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn() && !objectFillOn() && !objectEraseOn()) {
         if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
+            doodadAvailabilityScene(ed, *d, s);
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
             Rect r{tx * 32, ty * 32, (tx + d->width) * 32, (ty + d->height) * 32};
