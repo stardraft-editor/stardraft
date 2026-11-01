@@ -464,6 +464,76 @@ bool placePaletteUnit(float wx, float wy, bool correct) {
 // diamond or tile its own).
 int fillPatch() { return 11 - std::clamp(appState().fillMix, 1, 10); }
 
+// Erase in Units, Doodads, Sprites or Locations (a brush: its circle, Size).
+bool objectEraseOn() {
+    const AppState& app = appState();
+    const int t = currentTool(app);
+    return (app.mode == Mode::Units && t == UErase) || (app.mode == Mode::Doodads && t == DErase) || (app.mode == Mode::Sprites && t == SErase) ||
+           (app.mode == Mode::Locations && t == LErase);
+}
+
+// Erase in Terrain: the terrain it paints, Dirt; where the tileset has no Dirt, its first terrain (a new map's ground).
+uint16_t eraseTerrain(const Editor& ed) {
+    const IsomTerrainTable* table = IsomTerrainTable::forEra(ed.era());
+    if (!table) return 1;
+    uint16_t first = 0;
+    for (uint16_t i = 1; i <= table->terrainCount(); ++i)
+        if (table->isTerrain(i)) {
+            if (!first) first = i;
+            if (ed.terrainName(i) == "Dirt") return i;
+        }
+    return first ? first : 1;
+}
+
+// Erase in Units, Doodads, Sprites or Locations: what is in the brush's circle (Size), at every symmetric position, is
+// deleted (a location: where its rectangle meets the circle; Anywhere stays; a doodad's overlay sprite goes with its
+// doodad, not alone). Part of the press's stroke. Returns how many.
+int eraseAt(float wx, float wy) {
+    AppState& app = appState();
+    if (!app.ed) return 0;
+    Editor& ed = *app.ed;
+    const double r = sprayRadius();
+    const auto centers = ed.symmetricPoints(int(wx), int(wy));
+    auto inBrush = [&](double x0, double y0, double x1, double y1) {  // (a rectangle, or a point: x0 = x1)
+        for (auto [px, py] : centers) {
+            const double cx = std::clamp(double(px), std::min(x0, x1), std::max(x0, x1)), cy = std::clamp(double(py), std::min(y0, y1), std::max(y0, y1));
+            if ((cx - px) * (cx - px) + (cy - py) * (cy - py) <= r * r) return true;
+        }
+        return false;
+    };
+    std::vector<int> hit;
+    switch (app.mode) {
+    case Mode::Units:
+        for (size_t i = 0; i < ed.units().size(); ++i)  // (the units that show: not the hidden map revealers)
+            if (ed.pickable(int(i)) && inBrush(ed.units()[i].x, ed.units()[i].y, ed.units()[i].x, ed.units()[i].y)) hit.push_back(int(i));
+        if (hit.empty()) return 0;
+        ed.clearSelection();
+        for (int i : hit) ed.select(i, true);
+        ed.deleteSelection();
+        break;
+    case Mode::Doodads:
+        for (size_t i = 0; i < ed.doodads().size(); ++i)
+            if (inBrush(ed.doodads()[i].x, ed.doodads()[i].y, ed.doodads()[i].x, ed.doodads()[i].y)) hit.push_back(int(i));
+        if (!hit.empty()) ed.deleteDoodads(hit), app.selDoodads.clear();  // (the selection's indices no longer hold)
+        break;
+    case Mode::Sprites:
+        for (size_t i = 0; i < ed.sprites().size(); ++i)
+            if (inBrush(ed.sprites()[i].x, ed.sprites()[i].y, ed.sprites()[i].x, ed.sprites()[i].y) && !spriteIsOverlay(app, int(i))) hit.push_back(int(i));
+        if (!hit.empty()) ed.deleteSprites(hit), app.selSprites.clear();  // (the selection's indices no longer hold)
+        break;
+    case Mode::Locations:
+        for (int i = int(ed.locations().size()) - 1; i >= 0; --i)
+            if (i != kAnywhereLocation && ed.locationUsed(i)) {
+                const Rect b = ed.locationRect(i);
+                if (inBrush(b.left, b.top, b.right, b.bottom)) hit.push_back(i);
+            }
+        for (int i : hit) ed.deleteLocation(i);
+        break;
+    default: break;
+    }
+    return int(hit.size());
+}
+
 // Units' or Doodads' Fill: the tool's press fills; no preview follows the mouse.
 bool objectFillOn() {
     const AppState& app = appState();

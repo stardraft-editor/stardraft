@@ -269,7 +269,12 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
     app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
     bool shift = mods & draw::kShift, ctrl = mods & draw::kCtrl;
-    switch (app.mode) {
+    if (objectEraseOn() && !app.pastingItems && !app.pasting) {  // Erase: the brush's circle; a drag erases along the way (one undo step)
+        ed.beginStroke();
+        app.sprayPlaced = eraseAt(wx, wy);
+        gPaintX = wx, gPaintY = wy;
+        app.drag = Drag::Erase;
+    } else switch (app.mode) {
     case Mode::Units: {
         int hit = ed.unitAt(int(wx), int(wy));
         if (currentTool(app) == UFill) {
@@ -328,6 +333,17 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         break;
     }
     case Mode::Terrain: {
+        if (currentTool(app) == TErase) {  // Erase: Dirt with the isometric brush (in Rectangle, Tile and Custom too)
+            if (!ed.canPaintTerrain()) {
+                setMessage(app, L"Could not erase: the map has no isometric terrain data");
+                break;
+            }
+            ed.beginTerrainStroke();
+            ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app));
+            gPaintX = wx, gPaintY = wy, gRerollX = wx, gRerollY = wy;
+            app.drag = Drag::Paint;
+            break;
+        }
         if (isShapeTool(currentTool(app)) && !(ctrl && !gTiles->stamps)) {  // Line, Contour, Polygon (Ctrl+click picks the terrain or tile, below)
             shapeMouseDown(wx, wy, (mods & draw::kShift) != 0);
             break;
@@ -549,10 +565,11 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     if (app.drag == Drag::Paint && app.ed) {
+        const uint16_t paint = currentTool(app) == TErase ? eraseTerrain(*app.ed) : uint16_t(app.palette);  // (Erase: Dirt)
         // Over the same terrain: new variants each half brush along the drag (not on every small move).
         const float extent = std::min(app.brushSize, currentBrush(app).height());  // a flat brush: its smaller side
         if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) &&
-            app.ed->brushAllTerrain(int(wx), int(wy), currentBrush(app), uint16_t(app.palette))) {
+            app.ed->brushAllTerrain(int(wx), int(wy), currentBrush(app), paint)) {
             app.ed->rerollTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
             gRerollX = wx, gRerollY = wy;
         }
@@ -561,14 +578,20 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         const float step = std::max(32.0f, extent * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
         const int n = std::clamp(int(len / step), 0, 8);
         for (int k = 1; k <= n; ++k)
-            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), uint16_t(app.palette), currentBrush(app));
-        app.ed->paintBrush(int(wx), int(wy), uint16_t(app.palette), currentBrush(app));
+            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), paint, currentBrush(app));
+        app.ed->paintBrush(int(wx), int(wy), paint, currentBrush(app));
         gPaintX = wx, gPaintY = wy;
     }
     if (app.drag == Drag::Jumble && app.ed &&
         std::hypot(wx - gPaintX, wy - gPaintY) >= std::max(16.0f, std::min(app.brushSize, currentBrush(app).height()) * 32)) {
         jumbleAt(app, wx, wy);  // (each half brush along the drag)
         gPaintX = wx, gPaintY = wy;
+    }
+    if (app.drag == Drag::Erase && app.ed) {  // (each half brush along the way from the last point: a fast move skips no ground)
+        const float step = float(std::max(8.0, sprayRadius() * 0.5)), dx = wx - gPaintX, dy = wy - gPaintY;
+        const int n = int(std::hypot(dx, dy) / step);
+        for (int k = 1; k <= n; ++k) app.sprayPlaced += eraseAt(gPaintX + dx * k / n, gPaintY + dy * k / n);
+        if (n > 0) gPaintX = wx, gPaintY = wy;
     }
     if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);
     if (app.mode == Mode::Terrain && gShape.tool >= 0) shapeMouseMove(wx, wy, (mods & draw::kShift) != 0);
@@ -684,6 +707,12 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     }
     case Drag::Paint:
     case Drag::Jumble: ed.endTerrainStroke(); break;
+    case Drag::Erase:
+        ed.endStroke();
+        if (app.mode == Mode::Locations) rebuildList(app);  // (the list shows the locations that are left)
+        setMessage(app, L"Erased " + std::to_wstring(app.sprayPlaced) +
+                            (app.mode == Mode::Units ? L" units" : app.mode == Mode::Doodads ? L" doodads" : app.mode == Mode::Sprites ? L" sprites" : L" locations"));
+        break;
     case Drag::Spray:
         sprayHoldStop();
         if (app.mode == Mode::Terrain && app.terrainRect) tilesMouseUp(wx, wy);
@@ -831,7 +860,7 @@ bool mapCancelStep(AppState& app) {
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
     if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
-                   app.drag == Drag::Jumble)) {
+                   app.drag == Drag::Jumble || app.drag == Drag::Erase)) {
         sprayHoldStop();
         // (the press so far is one undo step; later edits are steps of their own; a terrain stroke's ground is chosen anew)
         if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray || app.drag == Drag::Jumble)) app.ed->endTerrainStroke();
@@ -890,7 +919,7 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
 bool mapBrushActive(const AppState& app) {
     return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine ||
                                           (currentTool() == TJumble && !app.terrainRect))) ||
-           objectSprayOn();
+           objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && currentTool() == TErase);
 }
 bool mapBrushWheel(AppState& app, bool up) {
     if (!mapBrushActive(app)) return false;

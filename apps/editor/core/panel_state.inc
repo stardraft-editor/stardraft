@@ -225,8 +225,10 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.brushSize = std::clamp(float(std::atof(part[at + 2].c_str())), 0.5f, 32.0f), s.brushHeight = std::clamp(float(std::atof(part[at + 3].c_str())), 0.0f, 32.0f);
     s.brushShape = Brush::Shape(std::clamp(num(4), 0, int(Brush::Circle)));
     s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & Mirror::All, s.terrainRect = num(7) != 0;
-    if (m == Mode::Terrain && (s.tool > TJumble || (s.terrainRect && s.tool == TJumble))) s.tool = TBrush;  // (Jumble: Isometric's only)
-    if ((m == Mode::Units && s.tool > UFill) || (m == Mode::Doodads && s.tool > DFill)) s.tool = 0;
+    if (m == Mode::Terrain && (s.tool > TErase || (s.terrainRect && s.tool == TJumble))) s.tool = TBrush;  // (Jumble: Isometric's only)
+    if ((m == Mode::Units && s.tool > UErase) || (m == Mode::Doodads && s.tool > DErase) || (m == Mode::Sprites && s.tool > SErase) ||
+        (m == Mode::Locations && s.tool > LErase))
+        s.tool = 0;
     s.owner = std::clamp(num(8), 0, 11), s.palette = num(9);
     s.chosen.clear();
     if (s.tiles) s.tiles->picked = num(11), s.tiles->stamps = num(7) == 2, s.tiles->solid = num(7) == 3;  // (2: Custom, 3: Solid)

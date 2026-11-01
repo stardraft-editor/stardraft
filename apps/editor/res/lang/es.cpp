@@ -2699,6 +2699,14 @@ constexpr UiText kRows[] = {
     {L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.", L"Mezcla: con varios terrenos o tiles seleccionados, c\u00F3mo Relleno los pone en manchas, de 1 (manchas grandes) a 10 (las m\u00E1s peque\u00F1as: cada tile al azar; Isom\u00E9trico: 2 rombos). Haga clic para escribir un n\u00FAmero. - y + y la rueda del rat\u00F3n lo cambian."},
     {L"New floating ", L"Nuevo panel flotante ("},
     {L" panel", L")"},
+    {L"Could not erase: the map has no isometric terrain data", L"No se pudo borrar: el mapa no tiene datos de terreno isom\u00E9trico"},
+    {L"Erased ", L"Se borraron "},
+    {L"Erase", L"Borrar"},
+    {L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", L"Borrar: el pincel convierte el terreno bajo \u00E9l en Tierra (donde el tileset no tiene Tierra: su primer terreno), con el tama\u00F1o y la forma del pincel. Arrastre para borrar m\u00E1s."},
+    {L"Erase: drag the brush over units to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre unidades para eliminarlas (Tama\u00F1o: el tama\u00F1o del pincel)"},
+    {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre decorados para eliminarlos (Tama\u00F1o: el tama\u00F1o del pincel)"},
+    {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre sprites para eliminarlos (Tama\u00F1o: el tama\u00F1o del pincel)"},
+    {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre ubicaciones para eliminarlas (Tama\u00F1o: el tama\u00F1o del pincel)"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

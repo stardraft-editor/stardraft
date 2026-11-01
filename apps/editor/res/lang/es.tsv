@@ -2697,3 +2697,11 @@ Mix	Mezcla
 Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	Mezcla: con varios terrenos o tiles seleccionados, cómo Relleno los pone en manchas, de 1 (manchas grandes) a 10 (las más pequeñas: cada tile al azar; Isométrico: 2 rombos). Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
 New floating 	Nuevo panel flotante (
  panel	)
+Could not erase: the map has no isometric terrain data	No se pudo borrar: el mapa no tiene datos de terreno isométrico
+Erased 	Se borraron 
+Erase	Borrar
+Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.	Borrar: el pincel convierte el terreno bajo él en Tierra (donde el tileset no tiene Tierra: su primer terreno), con el tamaño y la forma del pincel. Arrastre para borrar más.
+Erase: drag the brush over units to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre unidades para eliminarlas (Tamaño: el tamaño del pincel)
+Erase: drag the brush over doodads to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre decorados para eliminarlos (Tamaño: el tamaño del pincel)
+Erase: drag the brush over sprites to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre sprites para eliminarlos (Tamaño: el tamaño del pincel)
+Erase: drag the brush over locations to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre ubicaciones para eliminarlas (Tamaño: el tamaño del pincel)

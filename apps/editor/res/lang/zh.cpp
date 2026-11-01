@@ -2699,6 +2699,14 @@ constexpr UiText kRows[] = {
     {L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.", L"\u6DF7\u5408\uFF1A\u9009\u62E9\u591A\u4E2A\u5730\u5F62\u6216\u56FE\u5757\u65F6\uFF0C\u586B\u5145\u653E\u7F6E\u8272\u5757\u7684\u5927\u5C0F\uFF0C\u4ECE 1\uFF08\u5927\u8272\u5757\uFF09\u5230 10\uFF08\u6700\u5C0F\uFF1A\u6BCF\u4E2A\u56FE\u5757\u968F\u673A\uFF1B\u7B49\u8DDD\uFF1A2 \u4E2A\u83F1\u5F62\uFF09\u3002\u70B9\u51FB\u53EF\u8F93\u5165\u6570\u5B57\u3002- \u548C + \u4EE5\u53CA\u9F20\u6807\u6EDA\u8F6E\u53EF\u66F4\u6539\u3002"},
     {L"New floating ", L"\u65B0\u5EFA\u6D6E\u52A8"},
     {L" panel", L"\u9762\u677F"},
+    {L"Could not erase: the map has no isometric terrain data", L"\u65E0\u6CD5\u64E6\u9664\uFF1A\u5730\u56FE\u6CA1\u6709\u7B49\u8DDD\u5730\u5F62\u6570\u636E"},
+    {L"Erased ", L"\u5DF2\u64E6\u9664 "},
+    {L"Erase", L"\u64E6\u9664"},
+    {L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", L"\u64E6\u9664\uFF1A\u7B14\u5237\u5C06\u5176\u4E0B\u65B9\u7684\u5730\u5F62\u53D8\u4E3A\u6CE5\u571F\uFF08\u56FE\u5757\u96C6\u6CA1\u6709\u6CE5\u571F\u65F6\uFF1A\u5176\u7B2C\u4E00\u79CD\u5730\u5F62\uFF09\uFF0C\u4F7F\u7528\u7B14\u5237\u7684\u5927\u5C0F\u548C\u5F62\u72B6\u3002\u62D6\u52A8\u53EF\u64E6\u9664\u66F4\u591A\u3002"},
+    {L"Erase: drag the brush over units to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u5355\u4F4D\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
+    {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u88C5\u9970\u7269\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
+    {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u7CBE\u7075\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
+    {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u5730\u70B9\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

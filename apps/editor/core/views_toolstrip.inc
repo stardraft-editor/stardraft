@@ -71,8 +71,8 @@ bool objectSprayOn() {
     return (app.mode == Mode::Units && currentTool() == USpray) || (app.mode == Mode::Doodads && currentTool() == DSpray) ||
            (app.mode == Mode::Sprites && currentTool() == SSpray);
 }
-// The brush size: Terrain, and the sprays of Units, Doodads and Sprites (their radius).
-bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn(); }
+// The brush size: Terrain, and the sprays and Erase of Units, Doodads, Sprites and Locations (their radius).
+bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn() || objectEraseOn(); }
 // Density: the sprays (Terrain, Units, Doodads, Sprites) and the Fill of Units and Doodads (how many).
 bool stripHasDensity() {
     const AppState& app = appState();
@@ -251,7 +251,7 @@ int toolStripHeight(int width, bool titled) {
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
-    return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra + gap;  // (the last gap: the thin line under the strip)
+    return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
 int toolStripHeight(int width, PanelState* panel) {
@@ -428,7 +428,7 @@ public:
             const draw::Rect r{x, y, x + b, y + b};
             iconButtonFace(c, r, it.icon, on, hot(square(r)));
             addHit(square(r), [it] { pickStripTool(it); },
-                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPX"[key]) + L")" : std::wstring(it.tip));
+                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXE"[key]) + L")" : std::wstring(it.tip));
             next();
         }
         if (x > 0) x = 0, y += b + gap;
@@ -567,18 +567,28 @@ public:
                          {Mirror::TopBottom, L"Mirror top and bottom"},
                          {Mirror::Diagonal, L"Mirror across the line from top left to bottom right"},
                          {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"}};
-            const int mb = scale(28);
+            // One segmented row, as Isometric | Rectangle | Tile | Custom: No symmetry, then the mirrors (any of them
+            // together); a line only after No symmetry (it turns the others off).
+            const int mb = scale(28), segW = mb + scale(2), over = scale(8);
+            const int count = int(std::size(kinds));
             int mx = 0;
             for (const auto& k : kinds) {
+                const int i = int(&k - kinds);
                 const int mask = app.ed->mirrors();
                 const bool on = k.flag ? (mask & k.flag) != 0 : mask == 0 && app.ed->turns() == 1;
-                const draw::Rect br{mx, y, mx + mb, y + mb};
+                const draw::Rect br{i * segW, y, i == count - 1 ? count * segW : (i + 1) * segW, y + mb};
                 const int flag = k.flag;
-                const bool over = hot(square(br));
-                if (on) box(c, square(br), kSel, kAccentLine);
-                else if (over) box(c, square(br), kCtlHot, kNoLine);
-                mirrorIcon(c, square(br), flag, on ? kAccentBright : over ? kText : kDim, on ? kSel : over ? kCtlHot : kBg);
-                addHit(square(br), [flag] {
+                const bool over2 = hot(br);
+                c.pushClip(br);
+                draw::Rect seg = br;  // (the box drawn wider on the inner sides: the segment's clip cuts it)
+                if (i > 0) seg.left -= over;
+                if (i < count - 1) seg.right += over;
+                c.roundBox(seg, on ? kSel : over2 ? kCtlHot : kCtl, on ? kAccentLine : kBorder, float(scale(kModeBoxRadius)));
+                if (i == 0) c.fill({br.right - 1, br.top + 1, br.right, br.bottom - 1}, kBorder);  // (a line after No symmetry only: the mirrors combine)
+                c.popClip();
+                mirrorIcon(c, square(br), flag, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
+                mx = br.right;
+                addHit(br, [flag] {
                     AppState& a = appState();
                     if (!a.ed) return;
                     const int m2 = flag ? a.ed->mirrors() ^ flag : 0;
@@ -588,8 +598,8 @@ public:
                     a.dirty = true;
                     shellFocusView();
                 }, std::wstring(tr(k.tip)) + L" (Alt+" + std::to_wstring(int(&k - kinds)) + L")");  // (the key: Alt+0 none, Alt+1 to Alt+4 the mirrors)
-                mx += mb + scale(3);
             }
+            mx = std::max(mx, count * (mb + scale(3)));  // (Turns where it was: the strip's height counts on it)
             // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
             // too narrow.
             const int name = c.measure(tr(L"Turns")) + scale(8), minStep = scale(84), left = mx + scale(6);
@@ -604,7 +614,7 @@ public:
                 numberRow(kNumTurns, L"Turns", kTurnsTip);
             }
         }
-        if (y > gap) c.fill({0, y - gap / 2 - 1, W, y - gap / 2}, kBorder);  // (a thin line: the strip ends, the list starts)        c.setFont(prevFont);
+        c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.
         (void)H;
         if (keys_.shows(*this, int(hits_.size()))) paintFocusOutline(c, hits_[size_t(keys_.at)].r);    }

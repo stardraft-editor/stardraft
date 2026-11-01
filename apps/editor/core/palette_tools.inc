@@ -133,7 +133,8 @@ void updateStatus(AppState& app) {
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
     std::swprintf(buf, 256, L"%ls: %ls", kModeNames[int(app.mode)],
                   app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
-                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
+                  : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : currentTool(app) == SErase || (app.mode == Mode::Locations && currentTool(app) == LErase) ? L"Erase"
+                  : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
     if (app.mode == Mode::Terrain && app.ed)  // the tile under the mouse: its group and index, its megatile, its terrain
@@ -307,8 +308,9 @@ void rebuildList(AppState& app) {
 // The tool strip (app.tool) shows the active mode's tools as icons: repaint it after the tool changes.
 void fillToolCombo(AppState& app) {
     shellToolsChanged();
-    // The terrain selection goes with a tool that does not use it (Brush, Spray, Line, Contour, Polygon, Jumble); Fill and Replace work in it.
-    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray || isShapeTool(t) || t == TJumble) && app.hasTerrainSel)
+    // The terrain selection goes with a tool that does not use it (Brush, Erase, Spray, Line, Contour, Polygon, Jumble); Fill and Replace work in it.
+    if (const int t = app.toolByMode[int(Mode::Terrain)];
+        app.mode == Mode::Terrain && (t == TBrush || t == TErase || t == TSpray || isShapeTool(t) || t == TJumble) && app.hasTerrainSel)
         app.hasTerrainSel = false, app.dirty = true;
     // The strip's rows follow the tool (size and density for the sprays): its height, and what is under it.
     static int lastRows = -1;
@@ -442,17 +444,20 @@ std::vector<StripItem> stripTools(Mode m) {
         if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
+                    {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                     {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
+                    {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill puts them in patches at random (Mix).", TFill, false},
                     {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
+                {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                 {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
                 {UiIcon::Jumble, L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", TJumble, false},
                 {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
@@ -460,23 +465,28 @@ std::vector<StripItem> stripTools(Mode m) {
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
+                {UiIcon::Erase, L"Erase: drag the brush over units to delete them (Size: the brush's size)", UErase, false},
                 {UiIcon::Spray, L"Spray: random units of the selected kinds (Density). Hold the button to spray more.", USpray, false},
                 {UiIcon::Fill, L"Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", UFill, false}};
     case Mode::Doodads:
         return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
                 {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
+                {UiIcon::Erase, L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", DErase, false},
                 {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false},
                 {UiIcon::Fill, L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", DFill, false}};
     case Mode::Sprites:
         return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc goes to Select.", SPlace, true},
                 {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
+                {UiIcon::Erase, L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", SErase, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
-    case Mode::Locations: return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", 0, true}};
+    case Mode::Locations:
+        return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", LSelect, true},
+                {UiIcon::Erase, L"Erase: drag the brush over locations to delete them (Size: the brush's size)", LErase, false}};
     }
     return {};
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
-// 4 I line, 5 O contour, 6 P polygon; -1 none.
+// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -486,6 +496,7 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Contour) return 5;
     if (it.icon == UiIcon::Polygon) return 6;
     if (it.icon == UiIcon::Jumble) return 7;
+    if (it.icon == UiIcon::Erase) return 8;
     return -1;
 }
 

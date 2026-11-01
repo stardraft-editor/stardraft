@@ -1353,10 +1353,9 @@ bool Editor::deleteSprites(const std::vector<int>& indices) {
         if (i >= 0 && i < int(sprites_.size())) idx.push_back(i);
     if (idx.empty()) return false;
     std::sort(idx.rbegin(), idx.rend());
-    const Chk before = chk_;
+    beginEdit();  // (in a stroke: the stroke's own snapshot, one undo step for all of it)
     for (int i : idx) sprites_.erase(sprites_.begin() + i);
     writeSprites(chk_, sprites_);
-    pushUndo(before);
     sprites_ = readSprites(chk_);
     commit(false);
     return true;

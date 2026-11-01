@@ -2697,3 +2697,11 @@ Mix	Смесь
 Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	Смесь: если выбрано несколько местностей или тайлов, как Заливка ставит их пятнами, от 1 (большие пятна) до 10 (самые мелкие: каждый тайл случайно; изометрия: 2 ромба). Щёлкните, чтобы ввести число. - и + и колесо мыши меняют его.
 New floating 	Новая плавающая панель (
  panel	)
+Could not erase: the map has no isometric terrain data	Не удалось стереть: на карте нет данных изометрической местности
+Erased 	Стёрто: 
+Erase	Ластик
+Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.	Ластик: кисть делает местность под собой Землёй (если в тайлсете нет Земли: его первой местностью), с размером и формой кисти. Перетащите, чтобы стереть больше.
+Erase: drag the brush over units to delete them (Size: the brush's size)	Ластик: проведите кистью по юнитам, чтобы удалить их (Размер: размер кисти)
+Erase: drag the brush over doodads to delete them (Size: the brush's size)	Ластик: проведите кистью по декорациям, чтобы удалить их (Размер: размер кисти)
+Erase: drag the brush over sprites to delete them (Size: the brush's size)	Ластик: проведите кистью по спрайтам, чтобы удалить их (Размер: размер кисти)
+Erase: drag the brush over locations to delete them (Size: the brush's size)	Ластик: проведите кистью по локациям, чтобы удалить их (Размер: размер кисти)

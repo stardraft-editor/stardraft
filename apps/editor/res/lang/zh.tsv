@@ -2697,3 +2697,11 @@ Mix	混合
 Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	混合：选择多个地形或图块时，填充放置色块的大小，从 1（大色块）到 10（最小：每个图块随机；等距：2 个菱形）。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
 New floating 	新建浮动
  panel	面板
+Could not erase: the map has no isometric terrain data	无法擦除：地图没有等距地形数据
+Erased 	已擦除 
+Erase	擦除
+Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.	擦除：笔刷将其下方的地形变为泥土（图块集没有泥土时：其第一种地形），使用笔刷的大小和形状。拖动可擦除更多。
+Erase: drag the brush over units to delete them (Size: the brush's size)	擦除：拖动笔刷经过单位即可删除它们（大小：笔刷的大小）
+Erase: drag the brush over doodads to delete them (Size: the brush's size)	擦除：拖动笔刷经过装饰物即可删除它们（大小：笔刷的大小）
+Erase: drag the brush over sprites to delete them (Size: the brush's size)	擦除：拖动笔刷经过精灵即可删除它们（大小：笔刷的大小）
+Erase: drag the brush over locations to delete them (Size: the brush's size)	擦除：拖动笔刷经过地点即可删除它们（大小：笔刷的大小）

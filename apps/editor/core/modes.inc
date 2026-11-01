@@ -3,13 +3,13 @@
 const wchar_t* kModeNames[] = {L"Terrain", L"Units", L"Doodads", L"Locations", L"Sprites"};
 
 enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, PendingPlace, Paint, Spray, TerrainSelect, LocCreate, LocMove, LocResize,
-                  MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble };  // Shape: a Line or Contour press (core/terrain_shapes.inc)
+                  MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble, Erase };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select / copy", L"Line", L"Contour", L"Polygon", L"Jumble"};
-const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill"};
-const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill"};
-enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble };  // (Line to Polygon: core/terrain_shapes.inc)
+const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select / copy", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase"};
+const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
+const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
+enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase };  // (Line to Polygon: core/terrain_shapes.inc)
 inline bool isShapeTool(int tool) { return tool == TLine || tool == TContour || tool == TPolygon; }
 // The Terrain tool strip's choices (core/views_toolstrip.inc: terrainKind): 0 Isometric, 1 Tile, 2 Custom, 3 Rectangle,
 // and their order in the strip and Mode > Terrain tools: Isometric, Rectangle, Tile, Custom.
@@ -18,9 +18,10 @@ constexpr int kTerrainKindOrder[kTerrainKinds] = {0, 3, 1, 2};
 int terrainKind();
 void setTerrainKind(int kind);
 int nextTerrainKind(int kind);
-enum UnitTool { UPlace, USpray, UReplace, UFill };
-enum DoodadTool { DPlace, DSpray, DFill };
-enum SpriteTool { SPlace, SSpray };
+enum UnitTool { UPlace, USpray, UReplace, UFill, UErase };
+enum DoodadTool { DPlace, DSpray, DFill, DErase };
+enum SpriteTool { SPlace, SSpray, SErase };
+enum LocationTool { LSelect, LErase };
 // View > Ranges (and the Units mode's right-click menu): the ranges of the selected units that show, a bit each in the
 // order of kRangeKinds; 0: none.
 int gRangeKinds = 0;

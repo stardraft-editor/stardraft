@@ -107,10 +107,11 @@ enum class UiIcon : int {
   Contour = 101,  // Tools: Contour (added by hand)
   Polygon = 102,  // Tools: Polygon (added by hand)
   Jumble = 103,  // Tools: Jumble (added by hand)
-  Count = 104,
+  Erase = 104,  // Tools: Erase (added by hand)
+  Count = 105,
 };
 inline const char* uiIconId(UiIcon i) {
-  static const char* const ids[] = {"map", "data", "triggers", "briefing", "assets", "project", "build", "new-project", "terrain", "units", "doodads", "locations", "brush", "spray", "fill", "replace", "select", "shape-diamond", "shape-square", "shape-circle", "owner", "filter", "new", "open", "save", "save-as", "close", "recent", "generate", "folder", "open-external", "undo", "redo", "cut", "copy", "paste", "duplicate", "delete", "select-all", "rename", "search", "align-right", "align-center", "zoom-in", "zoom-out", "actual-size", "fit", "grid", "show", "log", "code", "control-kit", "play", "pause", "stop", "to-start", "to-end", "loop", "sound", "mute", "attack", "timeline", "dat-units", "dat-weapons", "dat-flingy", "dat-sprites", "dat-images", "dat-upgrades", "dat-tech", "dat-orders", "dat-sfx", "dat-portraits", "dat-strings", "dat-buttons", "add", "remove", "check", "edit", "back", "forward", "move-up", "move-down", "dropdown", "chevron-up", "chevron-down", "power", "error", "warning", "help", "tag", "settings", "feedback", "update", "issue", "debug", "align-left", "chevron-right", "info", "pin", "link", "line", "contour", "polygon", "jumble"};
+  static const char* const ids[] = {"map", "data", "triggers", "briefing", "assets", "project", "build", "new-project", "terrain", "units", "doodads", "locations", "brush", "spray", "fill", "replace", "select", "shape-diamond", "shape-square", "shape-circle", "owner", "filter", "new", "open", "save", "save-as", "close", "recent", "generate", "folder", "open-external", "undo", "redo", "cut", "copy", "paste", "duplicate", "delete", "select-all", "rename", "search", "align-right", "align-center", "zoom-in", "zoom-out", "actual-size", "fit", "grid", "show", "log", "code", "control-kit", "play", "pause", "stop", "to-start", "to-end", "loop", "sound", "mute", "attack", "timeline", "dat-units", "dat-weapons", "dat-flingy", "dat-sprites", "dat-images", "dat-upgrades", "dat-tech", "dat-orders", "dat-sfx", "dat-portraits", "dat-strings", "dat-buttons", "add", "remove", "check", "edit", "back", "forward", "move-up", "move-down", "dropdown", "chevron-up", "chevron-down", "power", "error", "warning", "help", "tag", "settings", "feedback", "update", "issue", "debug", "align-left", "chevron-right", "info", "pin", "link", "line", "contour", "polygon", "jumble", "erase"};
   return ids[static_cast<int>(i)];
 }
 constexpr int kUiIconSizes[] = {16, 20, 24, 32};

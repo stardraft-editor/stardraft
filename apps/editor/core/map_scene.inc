@@ -635,7 +635,7 @@ render::Scene buildScene() {
     if (app.mode == Mode::Units) {
         // With a unit picked, the unit under the mouse does not matter: a click places there (it does not select).
         // (Not with Spray: it places random picks around the mouse, not this one in the middle; GitHub feedback #99.)
-        if (app.palette >= 0 && !objectSprayOn() && !objectFillOn() && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
+        if (app.palette >= 0 && !objectSprayOn() && !objectFillOn() && !objectEraseOn() && (app.drag == Drag::None || app.drag == Drag::PendingPlace || app.drag == Drag::PlaceStroke)) {
             // Ghost of the unit to place, with where correction would put it.
             const UnitType& t = ed.unitTypes()[uint16_t(app.palette)];
             float gx = wx, gy = wy;
@@ -709,7 +709,7 @@ render::Scene buildScene() {
             d.x = x, d.y = y, d.owner = uint8_t(std::min<int>(owner, 11)), d.alpha = 0.6f, d.air = true;
             addImage(s, d);
         };
-        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn() && !objectFillOn()) {
+        if (app.palette >= 0 && !app.pastingItems && !objectSprayOn() && !objectFillOn() && !objectEraseOn()) {
             ghost(uint16_t(app.palette), cx, cy, uint8_t(app.playerOwner));
             // The mirror images and turned copies, where a click would put them too.
             const auto copies = ed.symmetricPoints(int(cx), int(cy));
@@ -732,7 +732,7 @@ render::Scene buildScene() {
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-        if (app.palette >= 0) {  // where a click puts the picked sprite
+        if (app.palette >= 0 && !objectEraseOn()) {  // where a click puts the picked sprite
             outline(s, {int(cx) - 12, int(cy) - 12, int(cx) + 12, int(cy) + 12}, 0x40FF40C0u, 1);
         }
     } else if (app.mode == Mode::Doodads && app.palette < 0) {
@@ -757,7 +757,7 @@ render::Scene buildScene() {
         if (app.drag == Drag::BoxSelect)
             s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF40FFu, false, 1, true}),
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
-    } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn() && !objectFillOn()) {
+    } else if (app.mode == Mode::Doodads && app.palette >= 0 && !objectSprayOn() && !objectFillOn() && !objectEraseOn()) {
         if (const DoodadType* d = ed.doodadTypes().find(uint16_t(app.palette))) {
             int tx, ty;
             ed.doodadOrigin(*d, int(wx), int(wy), tx, ty);
@@ -802,6 +802,11 @@ render::Scene buildScene() {
         }
     } else if (app.mode == Mode::Terrain && shapeOn()) {
         shapeScene(s);
+    } else if (app.mode == Mode::Terrain && currentTool() == TErase) {  // Erase: the isometric brush's diamonds (any kind), in red
+        std::set<std::pair<int, int>> set;
+        for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
+            for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);
+        diamondOutline(s, set, 0xFF6060F0u);
     } else if (app.mode == Mode::Terrain && app.terrainRect) {
         tilesScene(s, wx, wy);
     } else if (app.mode == Mode::Terrain && currentTool() == TSelect) {
@@ -822,8 +827,8 @@ render::Scene buildScene() {
             diamondOutline(s, set, currentTool() == TSpray ? 0xFFD040E0u : 0xFFFFFFF0u);
         }
     }
-    if (objectSprayOn()) {
-        // Spray area: a circle, a line 1 pixel wide (short straight parts, about 4 screen pixels each).
+    if (objectSprayOn() || objectEraseOn()) {
+        // Spray (Erase: in red) area: a circle, a line 1 pixel wide (short straight parts, about 4 screen pixels each).
         const float r = float(sprayRadius());
         const int n = std::clamp(int(6.2831853f * r * app.zoom / 4), 24, 360);
         for (auto [px, py] : ed.symmetricPoints(int(wx), int(wy)))
@@ -831,7 +836,7 @@ render::Scene buildScene() {
                 const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
                 render::RectDraw l;
                 l.x0 = px + r * std::cos(a0), l.y0 = py + r * std::sin(a0), l.x1 = px + r * std::cos(a1), l.y1 = py + r * std::sin(a1);
-                l.rgba = 0xFFD040E0u, l.thickness = 1, l.line = true;
+                l.rgba = objectEraseOn() ? 0xFF6060F0u : 0xFFD040E0u, l.thickness = 1, l.line = true;
                 s.rects.push_back(l);
             }
     }
