@@ -305,7 +305,9 @@ void cutMapSelection(AppState& app) {
 }
 
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
+void showSymmetryCopiesDialog();
 bool commandMapEdit(AppState& app, int id) {
+    if (id == ID_SYMMETRY_COPIES) { showSymmetryCopiesDialog(); return true; }
     const bool open = app.ed && app.ed->isOpen();
     auto done = [&app] {
         shellMenusChanged();
@@ -377,7 +379,12 @@ bool commandMapEdit(AppState& app, int id) {
         static const wchar_t* const kNames[5] = {L"none", L"left and right", L"top and bottom", L"top left to bottom right", L"top right to bottom left"};
         const int k = id - ID_MIRROR_KEY, flag = kFlags[k];
         app.ed->setMirrors(flag ? app.ed->mirrors() ^ flag : 0);
-        if (!flag) app.ed->setTurns(1);  // (none: the turns off too)
+        if (!flag) {
+            app.ed->setTurns(1);
+            auto options = app.ed->copyOptions();
+            options.opposite = options.mirroredRotations = false;
+            app.ed->setCopyOptions(options);
+        }
         shellToolsChanged();
         app.dirty = true;
         setMessage(!flag ? std::wstring(L"Symmetry: none")

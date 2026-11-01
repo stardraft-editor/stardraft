@@ -356,6 +356,7 @@ void showQuickPickerSdl(bool replace, bool open) {
 // unitprops: the first unit of the map; locprops: the first location in use (else Anywhere); prompt: Rename location
 // with the location's name; quick: the quick picker of the mode (--mode); resize: Crop or extend at the map's size.
 struct MapDialogShot {
+    std::unique_ptr<SymmetryCopiesView> symmetry;
     std::unique_ptr<UnitPropsView> unit;
     std::unique_ptr<LocationPropsView> loc;
     std::unique_ptr<TextPromptView> prompt;
@@ -452,6 +453,32 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         gResizeShown = s.resize.get();  // (the ui line; the snapshot's views go at its end)
         return true;
     }
+    if (name.rfind("symmetry-copies", 0) == 0) {
+        if (const auto colon = name.find(':'); colon != std::string::npos) {
+            int mirrors = 3, turns = 4;
+            std::sscanf(name.c_str() + colon + 1, "%d:%d", &mirrors, &turns);
+            gState.ed->setMirrors(mirrors), gState.ed->setTurns(turns);
+        }
+        if (name.ends_with(":demo")) { // deterministic, asset-free UI fixture
+            auto options = gState.ed->copyOptions();
+            const auto copies = gState.ed->availableCopies();
+            std::vector<int> terrains;
+            for (int t = 1; t < 512; ++t)
+                if (!gState.ed->terrainName(uint16_t(t)).empty()) terrains.push_back(t);
+            if (copies.size() > 2 && !terrains.empty()) {
+                options.choices.push_back({copies[1].key(), true, terrains[std::min<size_t>(2, terrains.size() - 1)]});
+                options.choices.push_back({copies[2].key(), false});
+                gState.ed->setCopyOptions(options);
+            }
+        }
+        s.symmetry = std::make_unique<SymmetryCopiesView>(*gState.ed);
+        s.dlg.setContent(*s.symmetry);
+        s.dlg.setButtons({{tr(L"OK"), 1, true}, {tr(L"Cancel"), 2, false, true}});
+        s.size = SymmetryCopiesView::preferredSize();
+        s.size.x += scale(32), s.size.y += scale(80);
+        s.view = &s.dlg;
+        return true;
+    }
     if (name == "mapimage") {  // (--mapimage: its first options)
         Rect sel{};
         if (!gShotMapImages.empty()) gMapImageLast = sdlMapImageSpec(gShotMapImages.front()), gShotMapImages.pop_front();
@@ -515,4 +542,8 @@ void sdlResizeCheck() {
                 samePicture ? "yes" : "no (WRONG)", rec.fromCopy ? "yes" : "no (WRONG)");
     std::printf("resize: units %zu before, %zu after, %zu expected, moved by %d,%d px: %s\n", rec.unitsBefore.size(), have.size(), want.size(),
                 rec.shiftPxX, rec.shiftPxY, want == have ? "yes" : "no (WRONG)");
+}
+
+void showSymmetryCopiesDialog() {
+    if (gRoot && gState.ed && gState.ed->isOpen() && runSymmetryCopiesDialog(*gRoot, *gState.ed)) shellToolsChanged();
 }

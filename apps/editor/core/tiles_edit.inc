@@ -272,14 +272,15 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
 // the stroke is.
 std::vector<Editor::TileAt> tilesMirrored(const std::vector<Editor::TileAt>& cells) {
     const Editor& ed = *appState().ed;
-    if (!ed.mirrors() && ed.turns() == 1) return cells;  // (the turns too: a tile is not turned, its images are)
+    if (!ed.mirrors() && ed.turns() == 1 && !ed.copyOptions().opposite)
+        return cells; // (the turns too: a tile is not turned, its images are)
     std::vector<Editor::TileAt> out = cells;
     std::set<std::pair<int, int>> taken;
     for (const auto& c : cells) taken.insert({c.x, c.y});
     for (const auto& c : cells)
-        for (auto [px, py] : ed.symmetricPoints(c.x * 32 + 16, c.y * 32 + 16)) {
-            const int x = int(std::floor(px / 32.0)), y = int(std::floor(py / 32.0));
-            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second) out.push_back({x, y, c.value});
+        for (const auto& target : ed.symmetricRawTiles(c.x, c.y, c.value)) {
+            const int x = target.x, y = target.y;
+            if (taken.insert({x, y}).second) out.push_back(target);
         }
     return out;
 }
@@ -287,15 +288,43 @@ std::vector<Editor::TileAt> tilesMirrored(const std::vector<Editor::TileAt>& cel
 // has the image's middle. The rects themselves first, then their images where no tile of the stroke is.
 std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cells) {
     const Editor& ed = *appState().ed;
-    if (!ed.mirrors() && ed.turns() == 1) return cells;
+    if (!ed.mirrors() && ed.turns() == 1 && !ed.copyOptions().opposite) return cells;
     std::vector<Editor::TileAt> out = cells;
     std::set<std::pair<int, int>> taken;
-    for (const auto& c : cells) taken.insert({c.x, c.y});
+    TerrainLayer work = ed.terrain();
+    for (const auto& c : cells) {
+        taken.insert({c.x, c.y});
+        work.tiles[size_t(c.y) * work.width + c.x] = c.value;
+    }
+    struct Target {
+        int terrain;
+        uint16_t source;
+    };
+    std::map<std::pair<int, int>, Target> targets; // y/x order keeps the tile above ready for solid stacking.
     for (const auto& c : cells)
-        for (auto [px, py] : ed.symmetricPoints((c.x & ~1) * 32 + 32, c.y * 32 + 16)) {
-            const int x = 2 * int(std::floor(px / 64.0)) + (c.x & 1), y = int(std::floor(py / 32.0));
-            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second) out.push_back({x, y, c.value});
+        for (const auto& p : ed.symmetryTargets((c.x & ~1) * 32 + 32, c.y * 32 + 16)) {
+            const int x = 2 * int(std::floor(p.x / 64.0)) + (c.x & 1), y = int(std::floor(p.y / 32.0));
+            if (x >= 0 && y >= 0 && x < ed.width() && y < ed.height() && taken.insert({x, y}).second)
+                targets[{y, x}] = {p.terrain, c.value};
         }
+    std::map<std::tuple<int, int, int>, std::array<uint16_t, 2>> rects;
+    for (const auto& [position, target] : targets) {
+        const auto [y, x] = position;
+        uint16_t value = target.source;
+        if (target.terrain >= 0) {
+            const auto key = std::tuple{y, x / 2, target.terrain};
+            auto at = rects.find(key);
+            if (at == rects.end()) {
+                uint16_t left = 0, right = 0;
+                const auto seed = uint32_t(x / 2 * 73856093u) ^ uint32_t(y * 19349663u) ^ uint32_t(target.terrain * 83492791u);
+                if (!solidRectTiles(ed.tileset(), uint16_t(target.terrain), work, x / 2, y, seed, left, right)) continue;
+                at = rects.emplace(key, std::array<uint16_t, 2>{left, right}).first;
+            }
+            value = at->second[size_t(x & 1)];
+        }
+        work.tiles[size_t(y) * work.width + x] = value;
+        out.push_back({x, y, value});
+    }
     return out;
 }
 // (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts

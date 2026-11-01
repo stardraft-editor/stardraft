@@ -113,6 +113,7 @@ add_library(stardraft
     src/wireframes.cpp
     src/triggers.cpp
     src/editor.cpp
+    src/symmetry_copies.cpp
     src/editor_history.cpp
     src/new_map.cpp
     src/campaign.cpp
@@ -755,6 +756,9 @@ if(STARDRAFT_RENDERER)
     endif()
     add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/res
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_ATLASES} ${CMAKE_SOURCE_DIR}/apps/editor/res/stardraft.ico ${editorDir}/res)
+    add_custom_command(TARGET ${sdlEditor} POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/licenses
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/licenses/symmetry-copies.txt ${editorDir}/licenses)
     if(STARDRAFT_FONT_FILES AND NOT WIN32)  # (Windows: the system's fonts, and Noto Sans in StarDraft 2.exe)
         add_custom_command(TARGET ${sdlEditor} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory ${editorDir}/fonts
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STARDRAFT_FONT_FILES} ${editorDir}/fonts)
@@ -846,3 +850,8 @@ if(WIN32 AND STARDRAFT_RENDERER)
     endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
+
+add_executable(symmetry_copies_test tools/tests/symmetry_copies_test.cpp)
+target_link_libraries(symmetry_copies_test PRIVATE stardraft)
+add_executable(symmetry_editor_test tools/tests/symmetry_editor_test.cpp)
+target_link_libraries(symmetry_editor_test PRIVATE stardraft)

@@ -328,6 +328,7 @@ MenuModel buildMenuModel() {
     terrainTools.insert(terrainTools.end() - 1, menuSeparator());  // (before Next)
     mode.push_back(menuSeparator());
     mode.push_back(menuPopup(L"Te&rrain tools", terrainTools));
+    mode.push_back(menuItem(ID_SYMMETRY_COPIES, L"Configure symmetry copies"));
     // (No Scenario menu: Map properties, Players and forces, Map data and Classic triggers are the side bar's items
     // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Tools.)
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is

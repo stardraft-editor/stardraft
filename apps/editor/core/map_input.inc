@@ -339,7 +339,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                 break;
             }
             ed.beginTerrainStroke();
-            ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app));
+            ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app), false);
             gPaintX = wx, gPaintY = wy, gRerollX = wx, gRerollY = wy;
             app.drag = Drag::Paint;
             break;
@@ -578,8 +578,8 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         const float step = std::max(32.0f, extent * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
         const int n = std::clamp(int(len / step), 0, 8);
         for (int k = 1; k <= n; ++k)
-            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), paint, currentBrush(app));
-        app.ed->paintBrush(int(wx), int(wy), paint, currentBrush(app));
+            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), paint, currentBrush(app), currentTool(app) != TErase);
+        app.ed->paintBrush(int(wx), int(wy), paint, currentBrush(app), currentTool(app) != TErase);
         gPaintX = wx, gPaintY = wy;
     }
     if (app.drag == Drag::Jumble && app.ed &&

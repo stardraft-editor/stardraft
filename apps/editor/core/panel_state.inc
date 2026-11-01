@@ -15,6 +15,7 @@ struct PanelState {
     Brush::Shape brushShape = Brush::Diamond;
     int tool = 0;                     // (AppState::toolByMode of its mode)
     int density = 10;
+    CopyOptions copyOptions;
     int mirrors = 0;                  // (the Editor's)
     int turns = 1;                    // (the Editor's: the number of positions, feedback #111)
     bool terrainRect = false;
@@ -33,7 +34,7 @@ void panelStore(PanelState& s) {
     s.brushSize = a.brushSize, s.brushHeight = a.brushHeight, s.brushShape = a.brushShape;
     s.otherBrushSize = a.otherBrushSize, s.otherBrushHeight = a.otherBrushHeight;
     s.tool = a.toolByMode[int(s.mode)], s.density = a.sprayDensity, s.terrainRect = a.terrainRect;
-    if (a.ed) s.mirrors = a.ed->mirrors(), s.turns = a.ed->turns();
+    if (a.ed) s.mirrors = a.ed->mirrors(), s.turns = a.ed->turns(), s.copyOptions = a.ed->copyOptions();
 }
 void panelLoad(const PanelState& s) {
     AppState& a = appState();
@@ -42,7 +43,7 @@ void panelLoad(const PanelState& s) {
     a.brushSize = s.brushSize, a.brushHeight = s.brushHeight, a.brushShape = s.brushShape;
     a.otherBrushSize = s.otherBrushSize, a.otherBrushHeight = s.otherBrushHeight;
     a.toolByMode[int(s.mode)] = s.tool, a.sprayDensity = s.density, a.terrainRect = s.terrainRect;
-    if (a.ed) a.ed->setMirrors(s.mirrors), a.ed->setTurns(s.turns);
+    if (a.ed) a.ed->setMirrors(s.mirrors), a.ed->setTurns(s.turns), a.ed->setCopyOptions(s.copyOptions);
     if (s.tiles && s.tilesGrid && s.tilesPanel) gTiles = s.tiles, gTilesGrid = s.tilesGrid, gTilesPanel = s.tilesPanel;
 }
 // The panel's state as it is now (the active panel's is the app state's).
@@ -215,7 +216,7 @@ std::string panelStateText(PanelState& s) {
     std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
                   s.density, s.mirrors, !s.terrainRect ? 0 : !s.tiles ? 1 : s.tiles->stamps ? 2 : s.tiles->solid ? 3 : 1, s.owner, s.palette, -1, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
                   s.otherBrushHeight);
-    return b;
+    return std::string(b) + "\t" + std::to_string(s.turns) + "\t" + copyOptionsText(s.copyOptions);
 }
 // Back from the text (from part `at` of the line's tab-separated parts): false when it is not a state of mode `m`.
 bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t at, Mode m) {
@@ -235,6 +236,8 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     if (part.size() >= at + 14)  // (a file of an older version: the other terrain tools' brush as it was)
         s.otherBrushSize = std::clamp(float(std::atof(part[at + 12].c_str())), 0.5f, 32.0f),
         s.otherBrushHeight = std::clamp(float(std::atof(part[at + 13].c_str())), 0.0f, 32.0f);
+    if (part.size() >= at + 15) s.turns = std::clamp(num(14), 1, kMaxTurns);
+    if (part.size() >= at + 16) s.copyOptions = readCopyOptions(part[at + 15]);
     return true;
 }
 // The tab's panels came from its file after the tab showed: the active one's state is the app state's again.

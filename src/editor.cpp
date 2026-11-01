@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 #include <algorithm>
+#include <map>
 #include <random>
 #include <cctype>
 #include <cmath>
@@ -755,7 +756,9 @@ uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
 
 void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (!isomOk_) return;
-    if (protectedCount_) {  // (the corner path keeps the protected tiles: applyTerrain)
+    if (protectedCount_ || copyOptions_.terrain >= 0 ||
+        std::any_of(copyOptions_.choices.begin(), copyOptions_.choices.end(), [](const CopyChoice& c) { return c.terrain >= 0; })) {
+        // The common brush path resolves each copy's terrain and keeps protected tiles.
         paintBrush(px, py, terrain, Brush{Brush::Diamond, float(std::max(1, brushSize))});
         return;
     }
@@ -828,9 +831,11 @@ void Editor::setSymmetry(Symmetry s) {
     static const int turns[] = {1, 1, 1, 1, 2, 1, 1, 4};
     mirrors_ = masks[int(s)];
     turns_ = turns[int(s)];
+    copyOptions_.opposite = copyOptions_.mirroredRotations = false;
 }
 
 Symmetry Editor::symmetry() const {
+    if (!mirrors_ && turns_ == 1 && copyOptions_.opposite) return Symmetry::Rotate180;
     if (!mirrors_ && turns_ == 2) return Symmetry::Rotate180;
     if (!mirrors_ && turns_ == 4) return Symmetry::Rotate4;
     switch (mirrors_) {
@@ -847,40 +852,54 @@ Symmetry Editor::symmetry() const {
 // each other (their group), at most kMaxSymmetricPlaces. A place outside the map is left out. Each carries whether
 // it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
 std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py) const {
-    std::vector<SymmetricPlace> out{{px, py, false, false}};
-    const int W = width_ * 32, H = height_ * 32;
-    // A place is added when it is inside the map and no place is there yet (1 px).
-    auto add = [&](int x, int y, bool fx, bool fy) {
-        if (x < 0 || y < 0 || x > W || y > H || out.size() >= kMaxSymmetricPlaces) return;
-        for (const SymmetricPlace& p : out)
-            if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
-        out.push_back({x, y, fx, fy});
-    };
-    // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half turn
-    // flips a pasted copy both ways.
-    for (int k = 1; k < turns_; ++k) {
-        const auto [x, y] = turnPoint(px, py, k);
-        add(x, y, 2 * k == turns_, 2 * k == turns_);
-    }
-    // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
-    // How each flips a pasted copy.
-    static const struct {
-        int flag, which;
-        bool fx, fy;
-    } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Diagonal, 3, false, false},
-                     {Mirror::AntiDiagonal, 4, false, false}};
-    for (size_t k = 0; k < out.size(); ++k)
-        for (const auto& m : mirrorsOf) {
-            if (!(mirrors_ & m.flag)) continue;
-            const auto [x, y] = mirror(out[k].x, out[k].y, m.which);
-            add(x, y, out[k].flipX != m.fx, out[k].flipY != m.fy);
+    std::vector<SymmetricPlace> out;
+    const double w = width_ * 32.0, h = height_ * 32.0;
+    if (!w || !h) return out;
+    const auto transforms = symmetrySuppressed_ ? std::vector<CopyTransform>{{}} : availableCopies();
+    for (size_t k = 0; k < transforms.size(); ++k) {
+        const auto t = transforms[k];
+        int terrain = k ? copyOptions_.terrain : -1;
+        int rawTile = k ? copyOptions_.rawTile : -1;
+        if (k) {
+            const auto key = t.key();
+            const auto it =
+                std::find_if(copyOptions_.choices.begin(), copyOptions_.choices.end(), [&](const CopyChoice& c) { return c.key == key; });
+            if (it != copyOptions_.choices.end()) {
+                if (!it->enabled) continue;
+                if (it->terrain >= 0) terrain = it->terrain;
+                if (it->rawTile >= 0) rawTile = it->rawTile;
+            }
         }
+        const double u = px / w - 0.5, v = py / h - 0.5;
+        const int x = int(std::lround((0.5 + t.a * u + t.b * v) * w));
+        const int y = int(std::lround((0.5 + t.c * u + t.d * v) * h));
+        if (x < 0 || y < 0 || x > w || y > h) continue;
+        if (std::any_of(out.begin(), out.end(), [&](const SymmetricPlace& p) { return std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1; }))
+            continue;
+        const bool axial = std::abs(t.b) < 1e-6 && std::abs(t.c) < 1e-6;
+        out.push_back({x, y, t, terrain, axial && t.a < 0, axial && t.d < 0, rawTile});
+    }
     return out;
 }
 
 std::vector<std::pair<int, int>> Editor::symmetricPoints(int px, int py) const {
     std::vector<std::pair<int, int>> out;
     for (const SymmetricPlace& p : symmetricPlaces(px, py)) out.push_back({p.x, p.y});
+    return out;
+}
+
+std::vector<Editor::SymmetryTarget> Editor::symmetryTargets(int px, int py) const {
+    std::vector<SymmetryTarget> out;
+    for (const auto& p : symmetricPlaces(px, py)) out.push_back({p.x, p.y, p.terrain, p.rawTile});
+    return out;
+}
+
+std::vector<Editor::TileAt> Editor::symmetricRawTiles(int tx, int ty, uint16_t value) const {
+    std::vector<TileAt> out;
+    for (const auto& p : symmetricPlaces(tx * 32 + 16, ty * 32 + 16)) {
+        const int x = int(std::floor(p.x / 32.0)), y = int(std::floor(p.y / 32.0));
+        if (x >= 0 && y >= 0 && x < width_ && y < height_) out.push_back({x, y, uint16_t(p.rawTile < 0 ? value : p.rawTile)});
+    }
     return out;
 }
 
@@ -1729,8 +1748,39 @@ bool Editor::applyCoreBrush(int px, int py, uint16_t terrain, int extent) {
         x0 - reach, y0 - reach, x1 + reach, y1 + reach);
 }
 
-bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
+bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush, bool useCopyTerrain) {
+    if (!useCopyTerrain) {
+        struct Restore { CopyOptions& target; CopyOptions saved; ~Restore() { target = std::move(saved); } } restore{copyOptions_, copyOptions_};
+        copyOptions_.terrain = copyOptions_.rawTile = -1;
+        for (auto& c : copyOptions_.choices) c.terrain = c.rawTile = -1;
+        return paintBrush(px, py, terrain, brush);
+    }
     if (!isomOk_) return false;
+    if (!symmetrySuppressed_ && (copyOptions_.terrain >= 0 || std::any_of(copyOptions_.choices.begin(), copyOptions_.choices.end(),
+                                                                          [](const CopyChoice& c) { return c.terrain >= 0; }))) {
+        const bool ownStroke = !inStroke_;
+        if (ownStroke) beginTerrainStroke();
+        if (brush.starEdit()) {
+            const auto center = starEditCenter(px, py, int(brush.size));
+            px = center.first * 64, py = center.second * 32;
+        }
+        const auto places = symmetricPlaces(px, py);
+        struct Suppress {
+            bool& flag;
+            Suppress(bool& f) : flag(f) { flag = true; }
+            ~Suppress() { flag = false; }
+        } suppress(symmetrySuppressed_);
+        bool changed = false, overlap = false;
+        for (size_t i = 0; i < places.size(); ++i) {
+            const auto& p = places[i];
+            auto at = std::pair{p.x, p.y};
+            if (i && std::abs(p.x - px) < (brush.size + 2) * 128 && std::abs(p.y - py) < (brush.height() + 2) * 64) overlap = true;
+            changed = paintBrush(at.first, at.second, uint16_t(p.terrain < 0 ? terrain : p.terrain), brush) || changed;
+        }
+        if (overlap && !places.empty()) changed = paintBrush(px, py, terrain, brush) || changed;
+        if (ownStroke) endTerrainStroke();
+        return changed;
+    }
     bool own = !inStroke_;
     if (own) beginTerrainStroke();
     terrain = brushTerrain(px, py, terrain);
@@ -1755,9 +1805,14 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
 
 bool Editor::brushAllTerrain(int px, int py, const Brush& brush, uint16_t terrain) const {
     if (!isomOk_) return false;
-    for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
-        for (auto [cx, cy] : isom_.brushCorners(x, y, brush))
-            if (isom_.isCorner(cx, cy) && !sameBrushTerrain(isom_.terrainAt(cx, cy), terrain)) return false;
+    if (brush.starEdit()) {
+        const auto center = starEditCenter(px, py, int(brush.size));
+        px = center.first * 64, py = center.second * 32;
+    }
+    for (const auto& p : symmetricPlaces(px, py))
+        for (auto [cx, cy] : isom_.brushCorners(p.x, p.y, brush))
+            if (isom_.isCorner(cx, cy) && !sameBrushTerrain(isom_.terrainAt(cx, cy), uint16_t(p.terrain < 0 ? terrain : p.terrain)))
+                return false;
     return true;
 }
 
@@ -1965,15 +2020,26 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
     std::mt19937 rng(seed);
     const double w = std::max(0.5, double(brush.size)) * 64, h = std::max(0.5, double(brush.height())) * 32;
     std::uniform_real_distribution<double> unit(-1, 1);
-    std::vector<CornerValue> corners;
+    std::vector<std::pair<int, int>> dabsAt;
     for (int i = 0; i < dabs; ++i) {
         // Random point inside the brush shape, then a single-corner dab there.
         double dx, dy;
         do dx = unit(rng), dy = unit(rng);
         while (brush.shape == Brush::Diamond ? std::abs(dx) + std::abs(dy) > 1 : brush.shape == Brush::Circle && dx * dx + dy * dy > 1);
-        for (auto [x, y] : symmetricPoints(int(px + dx * w), int(py + dy * h)))
-            for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 0.5f})) corners.push_back({cx, cy, terrain});
+        dabsAt.push_back({int(px + dx * w), int(py + dy * h)});
     }
+    // Reserve every source dab before copies, including overlaps between different dabs.
+    std::set<std::pair<int, int>> taken;
+    std::vector<CornerValue> corners;
+    for (auto [x, y] : dabsAt)
+        for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 0.5f}))
+            if (taken.insert({cx, cy}).second) corners.push_back({cx, cy, terrain});
+    for (auto [x, y] : dabsAt)
+        for (const auto& p : symmetricPlaces(x, y)) {
+            const uint16_t copyTerrain = p.terrain < 0 ? terrain : brushTerrain(p.x, p.y, uint16_t(p.terrain));
+            for (auto [cx, cy] : isom_.brushCorners(p.x, p.y, Brush{Brush::Diamond, 0.5f}))
+                if (taken.insert({cx, cy}).second) corners.push_back({cx, cy, copyTerrain});
+        }
     applyTerrain(corners);
     if (own) endTerrainStroke();
 }
@@ -1987,8 +2053,10 @@ bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     }
     terrain = brushTerrain(px, py, terrain);
     std::vector<CornerValue> corners;
-    for (auto [x, y] : symmetricPoints(px, py))
-        for (auto [cx, cy] : isom_.floodCorners(x, y)) corners.push_back({cx, cy, terrain});
+    std::set<std::pair<int, int>> taken;
+    for (const auto& p : symmetricPlaces(px, py))
+        for (auto [cx, cy] : isom_.floodCorners(p.x, p.y))
+            if (taken.insert({cx, cy}).second) corners.push_back({cx, cy, uint16_t(p.terrain < 0 ? terrain : p.terrain)});
     if (corners.empty()) return false;
     beginEdit();
     if (!applyTerrain(corners)) {
@@ -2012,16 +2080,19 @@ bool Editor::fillTerrainPolygon(const std::vector<std::pair<int, int>>& points, 
         return in;
     };
     terrain = brushTerrain(int(sx / double(points.size())), int(sy / double(points.size())), terrain);
-    std::set<std::pair<int, int>> taken;
-    std::vector<CornerValue> corners;
+    std::vector<std::pair<int, int>> sourceCorners;
     for (int y = int(std::floor(top / 32.0)); y <= int(std::ceil(bottom / 32.0)); ++y)
-        for (int x = int(std::floor(left / 64.0)); x <= int(std::ceil(right / 64.0)); ++x) {
-            if (!isom_.isCorner(x, y) || !inside(x * 64.0, y * 32.0)) continue;
-            for (auto [px, py] : symmetricPoints(x * 64, y * 32)) {
-                int cx, cy;
-                isom_.cornerAtPixel(px, py, cx, cy);
-                if (isom_.isCorner(cx, cy) && taken.insert({cx, cy}).second) corners.push_back({cx, cy, terrain});
-            }
+        for (int x = int(std::floor(left / 64.0)); x <= int(std::ceil(right / 64.0)); ++x)
+            if (isom_.isCorner(x, y) && inside(x * 64.0, y * 32.0)) sourceCorners.push_back({x, y});
+    std::set<std::pair<int, int>> taken(sourceCorners.begin(), sourceCorners.end());
+    std::vector<CornerValue> corners;
+    for (auto [x, y] : sourceCorners) corners.push_back({x, y, terrain});
+    for (auto [x, y] : sourceCorners)
+        for (const auto& p : symmetricPlaces(x * 64, y * 32)) {
+            int cx, cy;
+            isom_.cornerAtPixel(p.x, p.y, cx, cy);
+            if (isom_.isCorner(cx, cy) && taken.insert({cx, cy}).second)
+                corners.push_back({cx, cy, uint16_t(p.terrain < 0 ? terrain : p.terrain)});
         }
     if (corners.empty()) return false;
     const bool own = !inStroke_;
@@ -2060,8 +2131,10 @@ int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         std::erase(other, isom_.terrainAt(cx, cy));
         const uint16_t t = other.empty() ? terrains[0] : other[rng() % other.size()];
         std::vector<CornerValue> dab;
-        for (auto [x, y] : symmetricPoints(cx * 64, cy * 32))
-            for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 2.0f})) dab.push_back({dx, dy, t});
+        for (const auto& p : symmetricPlaces(cx * 64, cy * 32))
+            for (auto [dx, dy] : isom_.brushCorners(p.x, p.y, Brush{Brush::Diamond, 2.0f})) {
+                dab.push_back({dx, dy, uint16_t(p.terrain < 0 ? t : p.terrain)});
+            }
         dabs.push_back(std::move(dab));
     }
     const int changed = applyDabs(dabs);
@@ -2081,14 +2154,20 @@ bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrain
     // and all of it at every symmetric position (a patch stays in it).
     const std::vector<std::pair<int, int>> spots = isom_.floodCorners(px, py);
     std::set<std::pair<int, int>> area;
-    for (auto [x, y] : symmetricPoints(px, py))
-        for (const auto& c : isom_.floodCorners(x, y)) area.insert(c);
+    std::map<std::pair<int, int>, uint16_t> overrides;
+    area.insert(spots.begin(), spots.end()); // source patches keep priority at overlaps
+    for (const auto& p : symmetricPlaces(px, py))
+        for (const auto& c : isom_.floodCorners(p.x, p.y))
+            if (area.insert(c).second && p.terrain >= 0) overrides[c] = brushTerrain(p.x, p.y, uint16_t(p.terrain));
     if (spots.empty()) return false;
     std::vector<uint16_t> ts;
     for (uint16_t t : terrains) ts.push_back(brushTerrain(px, py, t));
     beginEdit();
     std::vector<CornerValue> base;
-    for (const auto& [cx, cy] : area) base.push_back({cx, cy, ts[0]});
+    for (const auto& [cx, cy] : area) {
+        const auto at = overrides.find({cx, cy});
+        base.push_back({cx, cy, at == overrides.end() ? ts[0] : at->second});
+    }
     bool any = applyTerrain(base);
     // The patches: enough to cover the area about twice, each of a terrain at random (the first too). Each terrain's
     // patches go in together, one correction for all of them (a correction for each patch is slow on a large area);
@@ -2105,7 +2184,8 @@ bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrain
         const size_t k = rng() % ts.size();
         for (auto [x, y] : symmetricPoints(cx * 64, cy * 32))
             for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, size}))
-                if (area.count({dx, dy}) && seen[k].insert({dx, dy}).second) byTerrain[k].push_back({dx, dy, ts[k]});
+                if (area.count({dx, dy}) && !overrides.count({dx, dy}) && seen[k].insert({dx, dy}).second)
+                    byTerrain[k].push_back({dx, dy, ts[k]});
     }
     std::vector<size_t> terrainOrder(ts.size());
     std::iota(terrainOrder.begin(), terrainOrder.end(), size_t(0));
@@ -2148,6 +2228,19 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
 
 bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush) {
     if (!isomOk_) return false;
+    if (copyOptions_.terrain >= 0 ||
+        std::any_of(copyOptions_.choices.begin(), copyOptions_.choices.end(), [](const CopyChoice& c) { return c.terrain >= 0; })) {
+        const bool own = !inStroke_;
+        if (own) beginTerrainStroke();
+        const int steps = std::max(
+            1, int(std::ceil(std::hypot(double(x1 - x0), double(y1 - y0)) / std::max(8.0f, std::min(brush.size, brush.height()) * 16))));
+        bool changed = false;
+        for (int k = 0; k <= steps; ++k)
+            changed =
+                paintBrush(x0 + int((int64_t(x1) - x0) * k / steps), y0 + int((int64_t(y1) - y0) * k / steps), terrain, brush) || changed;
+        if (own) endTerrainStroke();
+        return changed;
+    }
     const float dx = float(x1 - x0), dy = float(y1 - y0);
     const float step = std::max(8.0f, std::min(brush.size, brush.height()) * 16);
     const int n = int(std::ceil(std::hypot(dx, dy) / step));

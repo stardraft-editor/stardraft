@@ -252,7 +252,9 @@ std::string mapSaveRoundTrip(const fs::path& path) {
 // program's (sdl_palette_float.inc).
 void shellFloatPalette(Mode m, bool on);
 
+bool commandMapEdit(AppState&, int);
 void registerMapCommands() {
+    addCommand(ID_SYMMETRY_COPIES, "mode.symmetry.copies", L"Configure symmetry copies", "Mode", L"", [] { commandMapEdit(appState(), ID_SYMMETRY_COPIES); });
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });
     addCommand(ID_MODE_UNITS, "mode.units", L"&Units", "Mode", L"U", [] { setMode(Mode::Units); });
