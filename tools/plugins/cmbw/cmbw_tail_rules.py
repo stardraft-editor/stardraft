@@ -2,10 +2,10 @@
 the mod's unused groups right after each set (the mod team lays a set's missing rects out there: their terrains.isom of
 2026-11-01 filled 568 NULL rects, mostly from that run). The layouts are the mod team's:
   - 8 rects in a row (k, k+2 .. k+14, as 260-274 or 608-622): one group each, in order, subtiles 0 and 1;
-  - the wall block 76-106 (16 rects): two rects a group (subtiles 8-9, then 0-1) for groups 0-4, then 96: 6.0, 98: 6.8,
-    100: 5.0, 102: 5.8, 104: 7.0, 106: 7.8;
   - 198-212: 198: 2, 200: 0, 202: 3, 204: 1, 210: 1, 212: 3 (206 and 208 stay NULL).
-Other NULL rects stay NULL (also a wall's second row, 560-574). Variants follow their parent. A terrain the mod team's file has (cmbw_creator_rules.inc) is left out: theirs wins.
+A cliff (its wall block 76-106 NULL) is left out: the tiles after its set were too often not its walls (2026-11-01).
+Other NULL rects stay NULL. Variants follow their parent. A terrain the mod team's file has (cmbw_creator_rules.inc)
+is left out: theirs wins.
 usage: python -I tools/plugins/cmbw/cmbw_tail_rules.py <cmbw_unused_groups output .txt>  (in the repository folder;
 the probe's output made with this file empty, so that the groups it fills count as unused)"""
 import re, struct, sys
@@ -37,18 +37,17 @@ def parse(d):
 
 
 NUL = {(0, 0), (0, 1)}
-WALL = {76: (0, 8), 78: (0, 0), 80: (1, 8), 82: (1, 0), 84: (2, 8), 86: (2, 0), 88: (3, 8), 90: (3, 0), 92: (4, 8),
-        94: (4, 0), 96: (6, 0), 98: (6, 8), 100: (5, 0), 102: (5, 8), 104: (7, 0), 106: (7, 8)}
-PLATING = {198: (2, 0), 200: (0, 0), 202: (3, 0), 204: (1, 0), 210: (1, 0), 212: (3, 0)}
+# Terrains whose tiles after the set are another terrain's (checked in paintings, 2026-11-01): Ash World's Flagstones
+# (Crushed Rock) gets crushed rock, Higher Flagstones (Crushed Rock) lava.
+LEAVE_OUT = {(3, 76), (3, 78)}
+PLATING ={198: (2, 0), 200: (0, 0), 202: (3, 0), 204: (1, 0), 210: (1, 0), 212: (3, 0)}
 
 
 def layout(nullg):
     """slot -> (group index in the run, first subtile) for the NULL slots the layouts cover."""
     out, s = {}, set(nullg)
-    if all(g in s for g in range(76, 107, 2)) and 74 not in s and 108 not in s:
-        # (a wall's second row, 560-574, stays NULL: the mod team's files give no layout for it, and the run's 8
-        # groups are the wall block's)
-        return dict(WALL)
+    if any(g in s for g in range(76, 107, 2)):  # (a cliff: left out)
+        return {}
     if all(g in s for g in range(198, 213, 2)) and 196 not in s and 214 not in s:
         out.update(PLATING)
     for k in sorted(s):
@@ -73,7 +72,7 @@ out, count = {}, 0
 for era, (groups, fp, ts) in sorted(repaired.items()):
     theirs = {h[0] for h, _, _ in team.get(era, (0, 0, []))[2]}
     for head, name, pieces in ts:
-        if head[0] in theirs or head[5]:  # (a variant takes its parent's pieces: terrainrules::apply skips its own)
+        if head[0] in theirs or head[5] or (era, head[0]) in LEAVE_OUT:  # (a variant takes its parent's pieces)
             continue
         nullg = sorted({g for g, l, r in pieces if (l, r) in NUL})
         own = [v >> 4 for g, l, r in pieces for v in (l, r) if v > 1]
