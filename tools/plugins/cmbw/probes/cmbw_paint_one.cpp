@@ -4,6 +4,7 @@
 // usage: cmbw_paint_one <Cosmonarchy install> <map | new:<era>> <terrain name> <size> <out .png> [dx] [saved map]
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <map>
 #include <string>
 
@@ -29,11 +30,26 @@ int main(int argc, char** argv) {
     const Tileset::ModTerrain* mt = nullptr;
     for (const auto& m : e.tileset().modTerrains)
         if (m.name == argv[3]) mt = &m;
-    if (!mt) return std::fprintf(stderr, "no mod terrain named %s\n", argv[3]), 1;
+    // (game:<terrain>[:<ground>]: a game terrain by its id, on its ground (default 1), to compare with a mod terrain)
+    const bool game = std::string(argv[3]).rfind("game:", 0) == 0;
+    if (!mt && !game) return std::fprintf(stderr, "no mod terrain named %s\n", argv[3]), 1;
+    const uint16_t id = game ? uint16_t(std::atoi(argv[3] + 5)) : mt->id;
+    const char* colon = game ? std::strchr(argv[3] + 5, ':') : nullptr;
+    const uint16_t ground = game ? uint16_t(colon ? std::atoi(colon + 1) : 1) : mt->ground;
     const int cx = e.width() * 16, cy = e.height() * 16, dx = argc > 6 ? std::atoi(argv[6]) : 0;
-    e.paintBrush(cx, cy, mt->ground, Brush{Brush::Diamond, 16.0f});
-    e.paintBrush(cx, cy, mt->id, Brush{Brush::Diamond, float(std::atof(argv[4]))});
-    if (dx) e.paintBrush(cx + dx, cy, mt->id, Brush{Brush::Diamond, float(std::atof(argv[4]))});
+    auto env = [](const char* n, int d) { const char* v = std::getenv(n); return v ? std::atoi(v) : d; };
+    e.paintBrush(cx, cy, ground, Brush{Brush::Diamond, float(env("PAINT_GROUND", 16))});  // (the ground's diamond size)
+    e.paintBrush(cx, cy, id, Brush{Brush::Diamond, float(std::atof(argv[4]))});
+    const int dy = env("PAINT_DY", 0);  // (the second one's offset down)
+    if (dx || dy) e.paintBrush(cx + dx, cy + dy, id, Brush{Brush::Diamond, float(std::atof(argv[4]))});
+    if (const char* s = std::getenv("PAINT_STROKES")) {  // (more strokes: "dx,dy,size;dx,dy,size")
+        int sx = 0, sy = 0, n = 0;
+        float size = 0;
+        for (const char* p = s; *p; p += n + (p[n] == ';')) {
+            if (std::sscanf(p, "%d,%d,%f%n", &sx, &sy, &size, &n) != 3) break;
+            e.paintBrush(cx + sx, cy + sy, id, Brush{Brush::Diamond, size});
+        }
+    }
     std::map<int, int> corners;
     for (int y = cy / 32 - 16; y <= cy / 32 + 16; ++y)
         for (int x = cx / 64 - 9; x <= cx / 64 + 9; ++x)
@@ -41,10 +57,19 @@ int main(int argc, char** argv) {
     for (auto [t, n] : corners) std::printf("terrain %d: %d corners\n", t, n);
     const TerrainLayer t = readTerrain(e.chk(), "TILE");
     TerrainLayer part;
-    const int x0 = std::max(0, cx / 32 - 18), y0 = std::max(0, cy / 32 - 16);
-    part.width = uint16_t(std::min<int>(t.width - x0, 36)), part.height = uint16_t(std::min<int>(t.height - y0, 32));
+    const int pw = env("PAINT_W", 36), ph = env("PAINT_H", 32);  // (the picture's size in tiles, around the middle)
+    const int x0 = std::max(0, cx / 32 - pw / 2), y0 = std::max(0, cy / 32 - ph / 2);
+    part.width = uint16_t(std::min<int>(t.width - x0, pw)), part.height = uint16_t(std::min<int>(t.height - y0, ph));
     for (int y = 0; y < part.height; ++y)
         for (int x = 0; x < part.width; ++x) part.tiles.push_back(t.tiles[size_t(y0 + y) * t.width + x0 + x]);
+    if (const char* dump = std::getenv("PAINT_TILES")) {  // (the picture's tile values: "width height", then a line a row)
+        if (FILE* f = std::fopen(dump, "w")) {
+            std::fprintf(f, "%d %d\n", part.width, part.height);
+            for (int y = 0; y < part.height; ++y)
+                for (int x = 0; x < part.width; ++x) std::fprintf(f, "%u%c", part.tiles[size_t(y) * part.width + x], x + 1 < part.width ? ' ' : '\n');
+            std::fclose(f);
+        }
+    }
     if (argc > 7 && !e.save(argv[7], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
     return writePng(argv[5], renderTerrain(e.tileset(), part)) ? 0 : 1;
 }

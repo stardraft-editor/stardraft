@@ -221,8 +221,18 @@ if(cmbw_probes)
     target_link_libraries(cmbw_rect_shapes PRIVATE stardraft)
     add_executable(cmbw_sheet tools/plugins/cmbw/probes/cmbw_sheet.cpp)  # columns of game and mod rects side by side
     target_link_libraries(cmbw_sheet PRIVATE stardraft)
+    add_executable(cmbw_render_tiles tools/plugins/cmbw/probes/cmbw_render_tiles.cpp)  # a grid of tile values as a picture
+    target_link_libraries(cmbw_render_tiles PRIVATE stardraft)
+    add_executable(cmbw_min_isom tools/plugins/cmbw/probes/cmbw_min_isom.cpp)  # the smallest shape that uses every group of a border
+    target_link_libraries(cmbw_min_isom PRIVATE stardraft)
     add_executable(cmbw_rules_export tools/plugins/cmbw/probes/cmbw_rules_export.cpp)  # the built-in terrain rules as a .sdterrain file, round trip
     target_link_libraries(cmbw_rules_export PRIVATE stardraft)
+    add_executable(cmbw_unused_groups tools/plugins/cmbw/probes/cmbw_unused_groups.cpp)  # the mod tile groups no row or map uses: runs, a sheet
+    target_link_libraries(cmbw_unused_groups PRIVATE stardraft)
+    add_executable(cmbw_draft_fix tools/plugins/cmbw/probes/cmbw_draft_fix.cpp)  # repair passes over the mod terrain drafts, a repaired .sdterrain
+    target_link_libraries(cmbw_draft_fix PRIVATE stardraft)
+    add_executable(cmbw_std_kinds tools/plugins/cmbw/probes/cmbw_std_kinds.cpp)  # the game borders of each tileset as the rules kinds (field / path / wall) see them
+    target_link_libraries(cmbw_std_kinds PRIVATE stardraft)
     add_executable(cmbw_unit_sections tools/plugins/cmbw/probes/cmbw_unit_sections.cpp)  # the unit palette's sections and their units
     target_link_libraries(cmbw_unit_sections PRIVATE stardraft)
     add_executable(cmbw_map_eras tools/plugins/cmbw/probes/cmbw_map_eras.cpp)  # a folder's maps by tileset
