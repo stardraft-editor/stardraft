@@ -12,7 +12,7 @@ std::shared_ptr<std::atomic<bool>> gMirroredCopyStop;
 auto mirroredCopyContext() {
     const auto& app = appState();
     return std::tuple{app.mode,           currentTool(app),     terrainKind(),         app.palette,
-                      app.palette2,       gActivePanel,         app.hasTerrainSel,     app.terrainSel.left,
+                      paletteChosen(),       gActivePanel,         app.hasTerrainSel,     app.terrainSel.left,
                       app.terrainSel.top, app.terrainSel.right, app.terrainSel.bottom, app.pasting,
                       app.terrainPasting, app.pastingItems};
 }
