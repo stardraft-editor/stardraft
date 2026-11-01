@@ -2705,7 +2705,7 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	擦除�
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	擦除：拖动笔刷经过装饰物即可删除它们（大小：笔刷的大小）
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	擦除：拖动笔刷经过精灵即可删除它们（大小：笔刷的大小）
 Erase: drag the brush over locations to delete them (Size: the brush's size)	擦除：拖动笔刷经过地点即可删除它们（大小：笔刷的大小）
- Click again for the next tool of this button; the arrow or a right click lists them.	 再次点击可切换到此按钮的下一个工具；箭头或右键点击可列出它们。
+ A click also shows the tools of this button.	 点击也会列出此按钮的工具。
 The tools of this button	此按钮的工具
 Filled rectangle	填充矩形
 Ellipse	椭圆

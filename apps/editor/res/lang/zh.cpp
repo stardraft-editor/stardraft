@@ -2707,7 +2707,7 @@ constexpr UiText kRows[] = {
     {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u88C5\u9970\u7269\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
     {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u7CBE\u7075\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
     {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u5730\u70B9\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
-    {L" Click again for the next tool of this button; the arrow or a right click lists them.", L" \u518D\u6B21\u70B9\u51FB\u53EF\u5207\u6362\u5230\u6B64\u6309\u94AE\u7684\u4E0B\u4E00\u4E2A\u5DE5\u5177\uFF1B\u7BAD\u5934\u6216\u53F3\u952E\u70B9\u51FB\u53EF\u5217\u51FA\u5B83\u4EEC\u3002"},
+    {L" A click also shows the tools of this button.", L" \u70B9\u51FB\u4E5F\u4F1A\u5217\u51FA\u6B64\u6309\u94AE\u7684\u5DE5\u5177\u3002"},
     {L"The tools of this button", L"\u6B64\u6309\u94AE\u7684\u5DE5\u5177"},
     {L"Filled rectangle", L"\u586B\u5145\u77E9\u5F62"},
     {L"Ellipse", L"\u692D\u5706"},

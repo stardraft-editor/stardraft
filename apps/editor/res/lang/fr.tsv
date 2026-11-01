@@ -2705,7 +2705,7 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	Effacer
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	Effacer: faites glisser le pinceau sur des décors pour les supprimer (Taille: la taille du pinceau)
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	Effacer: faites glisser le pinceau sur des sprites pour les supprimer (Taille: la taille du pinceau)
 Erase: drag the brush over locations to delete them (Size: the brush's size)	Effacer: faites glisser le pinceau sur des emplacements pour les supprimer (Taille: la taille du pinceau)
- Click again for the next tool of this button; the arrow or a right click lists them.	 Cliquez à nouveau pour l'outil suivant de ce bouton; la flèche ou un clic droit les liste.
+ A click also shows the tools of this button.	 Un clic affiche aussi les outils de ce bouton.
 The tools of this button	Les outils de ce bouton
 Filled rectangle	Rectangle plein
 Ellipse	Ellipse

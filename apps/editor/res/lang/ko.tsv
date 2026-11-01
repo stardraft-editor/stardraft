@@ -2735,7 +2735,7 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	지우�
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	지우개: 브러시를 장식물 위로 드래그하면 장식물을 삭제합니다 (크기: 브러시의 크기)
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	지우개: 브러시를 스프라이트 위로 드래그하면 스프라이트를 삭제합니다 (크기: 브러시의 크기)
 Erase: drag the brush over locations to delete them (Size: the brush's size)	지우개: 브러시를 로케이션 위로 드래그하면 로케이션을 삭제합니다 (크기: 브러시의 크기)
- Click again for the next tool of this button; the arrow or a right click lists them.	 다시 클릭하면 이 버튼의 다음 도구로 바뀝니다. 화살표나 오른쪽 클릭으로 목록을 봅니다.
+ A click also shows the tools of this button.	 클릭하면 이 버튼의 도구 목록도 보입니다.
 The tools of this button	이 버튼의 도구
 Filled rectangle	채운 사각형
 Ellipse	타원

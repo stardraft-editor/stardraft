@@ -2707,7 +2707,7 @@ constexpr UiText kRows[] = {
     {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre decorados para eliminarlos (Tama\u00F1o: el tama\u00F1o del pincel)"},
     {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre sprites para eliminarlos (Tama\u00F1o: el tama\u00F1o del pincel)"},
     {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre ubicaciones para eliminarlas (Tama\u00F1o: el tama\u00F1o del pincel)"},
-    {L" Click again for the next tool of this button; the arrow or a right click lists them.", L" Haga clic de nuevo para la siguiente herramienta de este bot\u00F3n; la flecha o un clic derecho las muestra."},
+    {L" A click also shows the tools of this button.", L" Un clic tambi\u00E9n muestra las herramientas de este bot\u00F3n."},
     {L"The tools of this button", L"Las herramientas de este bot\u00F3n"},
     {L"Filled rectangle", L"Rect\u00E1ngulo relleno"},
     {L"Ellipse", L"Elipse"},

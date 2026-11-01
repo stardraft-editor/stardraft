@@ -2707,7 +2707,7 @@ constexpr UiText kRows[] = {
     {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"Effacer: faites glisser le pinceau sur des d\u00E9cors pour les supprimer (Taille: la taille du pinceau)"},
     {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"Effacer: faites glisser le pinceau sur des sprites pour les supprimer (Taille: la taille du pinceau)"},
     {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"Effacer: faites glisser le pinceau sur des emplacements pour les supprimer (Taille: la taille du pinceau)"},
-    {L" Click again for the next tool of this button; the arrow or a right click lists them.", L" Cliquez \u00E0 nouveau pour l'outil suivant de ce bouton; la fl\u00E8che ou un clic droit les liste."},
+    {L" A click also shows the tools of this button.", L" Un clic affiche aussi les outils de ce bouton."},
     {L"The tools of this button", L"Les outils de ce bouton"},
     {L"Filled rectangle", L"Rectangle plein"},
     {L"Ellipse", L"Ellipse"},
