@@ -2660,7 +2660,7 @@ Contour	Контур
 Polygon	Многоугольник
 Line: drag from the start to the end of the line. The release paints the line, with the brush's size and shape.	Линия: перетащите от начала до конца линии. Когда вы отпустите кнопку, линия будет нарисована с размером и формой кисти.
 Contour: drag to draw a shape. The release closes the shape and fills it.	Контур: перетащите, чтобы нарисовать фигуру. Когда вы отпустите кнопку, фигура замкнётся и будет залита.
-Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.	Многоугольник: щёлкайте, чтобы добавить точки. Двойной щелчок замыкает многоугольник и заливает его. Esc останавливает многоугольник.
+Polygon: click to add points. Double-click to close the polygon and fill it. Hold Shift to lock the angle. Esc stops the polygon.	Многоугольник: щёлкайте, чтобы добавить точки. Двойной щелчок замыкает многоугольник и заливает его. Удерживайте Shift, чтобы зафиксировать угол. Esc останавливает многоугольник.
 Could not paint the terrain. The map has no isometric terrain data.	Не удалось нарисовать местность. В карте нет данных изометрической местности.
 Did not fill the polygon: a polygon has 3 points or more	Многоугольник не залит: у многоугольника 3 точки или больше
 Did not fill the contour: draw a larger shape	Контур не залит: нарисуйте фигуру больше
@@ -2668,7 +2668,7 @@ The terrain is the same already	Местность уже такая же
 Painted the line	Нарисована линия
 Filled the contour	Залит контур
 Filled the polygon	Залит многоугольник
-Line: release the button at the end of the line	Линия: отпустите кнопку в конце линии
+Line: release the button at the end of the line. Hold Shift to lock the angle	Линия: отпустите кнопку в конце линии. Удерживайте Shift, чтобы зафиксировать угол
 Contour: draw the shape, then release the button	Контур: нарисуйте фигуру, затем отпустите кнопку
 Stopped the line	Линия остановлена
 Stopped the contour	Контур остановлен

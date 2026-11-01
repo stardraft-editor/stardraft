@@ -232,15 +232,30 @@ void shapeFinish() {
     app.dirty = true;
 }
 
+// Shift (Line, Polygon): the point from `a` goes in the nearest of the map's directions (horizontal, vertical, 45 degrees
+// and the isometric diamond's edges, 2:1), as far along it as the mouse.
+std::pair<int, int> shapeSnap(std::pair<int, int> a, std::pair<int, int> p) {
+    const float dx = float(p.first - a.first), dy = float(p.second - a.second);
+    static const float dirs[][2] = {{1, 0}, {0, 1}, {1, 1}, {1, -1}, {2, 1}, {2, -1}};
+    float best = -1, ux = 1, uy = 0, along = 0;
+    for (const auto& d : dirs) {
+        const float n = std::hypot(d[0], d[1]), x = d[0] / n, y = d[1] / n, dot = dx * x + dy * y;
+        if (std::fabs(dot) > best) best = std::fabs(dot), ux = x, uy = y, along = dot;
+    }
+    return {a.first + int(std::lround(ux * along)), a.second + int(std::lround(uy * along))};
+}
+
 // A press on the map with a shape tool: Line and Contour start (Drag::Shape), Polygon adds a point (the first starts it).
-void shapeMouseDown(float wx, float wy) {
+// snap: Shift held (shapeSnap).
+void shapeMouseDown(float wx, float wy, bool snap) {
     AppState& app = appState();
     app.drag = Drag::None;
     if (!shapeHasPick()) return;
     const int tool = currentTool(app);
     const std::pair<int, int> p{int(wx), int(wy)};
     if (tool == TPolygon && shapeOn()) {
-        if (gShape.points.back() != p) gShape.points.push_back(p);
+        const std::pair<int, int> q = snap ? shapeSnap(gShape.points.back(), p) : p;
+        if (gShape.points.back() != q) gShape.points.push_back(q);
         gShape.hasHover = false;
         shapeUpdate();
         return;
@@ -250,23 +265,23 @@ void shapeMouseDown(float wx, float wy) {
     gShape.points = {p};
     if (tool == TLine) gShape.points.push_back(p);
     if (tool != TPolygon) app.drag = Drag::Shape;
-    setMessage(tool == TLine      ? L"Line: release the button at the end of the line"
+    setMessage(tool == TLine      ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
                : tool == TContour ? L"Contour: draw the shape, then release the button"
-                                  : L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.");
+                                  : L"Polygon: click to add points. Double-click to close the polygon and fill it. Hold Shift to lock the angle. Esc stops the polygon.");
     shapeUpdate();
 }
 
 // The mouse moves: Line's end, Contour's next point (each 6 screen pixels or more from the last one), Polygon's next point.
-void shapeMouseMove(float wx, float wy) {
+void shapeMouseMove(float wx, float wy, bool snap) {
     if (!shapeOn()) return;
     const AppState& app = appState();
     const std::pair<int, int> p{int(wx), int(wy)};
     if (gShape.tool == TPolygon) {
-        gShape.hasHover = true, gShape.hover = p;
+        gShape.hasHover = true, gShape.hover = snap ? shapeSnap(gShape.points.back(), p) : p;
     } else if (app.drag != Drag::Shape) {
         return;
     } else if (gShape.tool == TLine) {
-        gShape.points.back() = p;
+        gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
     } else {
         const auto& q = gShape.points.back();
         if (std::hypot(float(p.first - q.first), float(p.second - q.second)) * app.zoom < 6) return;
@@ -276,10 +291,10 @@ void shapeMouseMove(float wx, float wy) {
 }
 
 // The release of a Line or Contour press: the shape goes on the map.
-void shapeMouseUp(float wx, float wy) {
+void shapeMouseUp(float wx, float wy, bool snap) {
     if (shapeOn()) {
         const std::pair<int, int> p{int(wx), int(wy)};
-        if (gShape.tool == TLine) gShape.points.back() = p;
+        if (gShape.tool == TLine) gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
         else if (gShape.points.back() != p) gShape.points.push_back(p);
     }
     shapeFinish();

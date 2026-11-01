@@ -269,7 +269,7 @@ struct MapView final : draw::View {
                 return true;
             }
             if (!open()) return false;
-            mapMouseMove(gState, e.pt.x, e.pt.y);
+            mapMouseMove(gState, e.pt.x, e.pt.y, e.mods);
             invalidate();
             return true;
         case draw::MouseKind::Up:
