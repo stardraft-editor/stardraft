@@ -182,6 +182,9 @@ public:
     // most half its size apart) get the terrain, at every symmetric position, in one pass (as fillTerrainPolygon). One
     // undo step, or part of an open stroke. False: nothing changed.
     bool paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush);
+    // As paintTerrainLine along each line from a point to the next (closed: also from the last to the first), all lines
+    // in one pass (Rectangle and Ellipse's outlines).
+    bool paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool closed, uint16_t terrain, const Brush& brush);
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two

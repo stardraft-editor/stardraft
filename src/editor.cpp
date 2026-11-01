@@ -2147,13 +2147,25 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
 }
 
 bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush) {
-    if (!isomOk_) return false;
-    const float dx = float(x1 - x0), dy = float(y1 - y0);
+    return paintTerrainPath({{x0, y0}, {x1, y1}}, false, terrain, brush);
+}
+
+bool Editor::paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool closed, uint16_t terrain, const Brush& brush) {
+    if (!isomOk_ || pts.empty()) return false;
     const float step = std::max(8.0f, std::min(brush.size, brush.height()) * 16);
-    const int n = int(std::ceil(std::hypot(dx, dy) / step));
+    // The brush's points: along each line, at most `step` apart (a line's last point is the next line's first).
+    std::vector<std::pair<int, int>> spots;
+    const size_t lines = pts.size() < 2 ? 0 : closed ? pts.size() : pts.size() - 1;
+    for (size_t i = 0; i < std::max<size_t>(lines, 1); ++i) {
+        const auto [x0, y0] = pts[i];
+        const auto [x1, y1] = lines ? pts[(i + 1) % pts.size()] : pts[i];
+        const float dx = float(x1 - x0), dy = float(y1 - y0);
+        const int n = int(std::ceil(std::hypot(dx, dy) / step));
+        for (int k = i ? 1 : 0; k <= n; ++k) spots.push_back({int(x0 + (n ? dx * k / n : 0)), int(y0 + (n ? dy * k / n : 0))});
+    }
     const bool own = !inStroke_;
     if (own) isom_.beginStroke();  // (the line chooses its own ground, as a new stroke of the brush)
-    terrain = brushTerrain(x0, y0, terrain);
+    terrain = brushTerrain(pts.front().first, pts.front().second, terrain);
     // The corners of each step; with StarEdit's brush, also each step's block of diamonds for the terrain core. The core
     // paints the line (as the brush paints each step: applyCoreBrush) unless a step is near protected tiles or has no
     // block (at the map's edge); then the corner path paints all of it (applyTerrain).
@@ -2162,8 +2174,7 @@ bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, 
     std::set<std::pair<int, int>> taken, takenDiamonds;
     std::vector<CornerValue> corners;
     std::vector<std::pair<int, int>> diamonds;
-    for (int k = 0; k <= n; ++k) {
-        const int px = int(x0 + (n ? dx * k / n : 0)), py = int(y0 + (n ? dy * k / n : 0));
+    for (const auto& [px, py] : spots) {
         int bx0 = INT_MAX, by0 = INT_MAX, bx1 = INT_MIN, by1 = INT_MIN;
         for (auto [x, y] : terrainSymmetricPoints(px, py, brush)) {
             for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) {

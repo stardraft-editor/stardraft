@@ -4,6 +4,7 @@
 // usage: editor_test <install dir> <map.scm|.scx> <scratch dir>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <bit>
 #include <cstdio>
@@ -1071,6 +1072,50 @@ static void rampsStay(const GameData& data, const fs::path& install) {
     CHECK(!has(), "ramps: another terrain painted over a ramp removes it");
 }
 
+// An ellipse's outline (180 lines, as Terrain's Ellipse tool gives them): paintTerrainPath paints it in one pass, with
+// the terrain as the lines one by one give it, in much less time.
+static void ellipseOutlineTest(const GameData& data) {
+    Editor a(data), b(data);
+    std::string err2;
+    if (a.newMap(256, 256, 0, 1, err2) && b.newMap(256, 256, 0, 1, err2) && a.canPaintTerrain()) {
+        const IsomTerrainTable* table = IsomTerrainTable::forEra(a.era());
+        uint16_t terrain = 2;
+        while (!table->isTerrain(terrain)) ++terrain;
+        std::vector<std::pair<int, int>> pts;
+        for (int k = 0; k < 180; ++k) {
+            const double t = 6.2831853 * k / 180;
+            pts.push_back({int(std::lround(4096 + 2400 * std::cos(t))), int(std::lround(4096 + 1600 * std::sin(t)))});
+        }
+        const Brush brush{Brush::Diamond, 2.0f};
+        const std::vector<uint16_t> was = a.terrain().tiles, wasB = b.terrain().tiles;
+        const auto t0 = std::chrono::steady_clock::now();
+        a.beginStroke();
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const auto& p = pts[i];
+            const auto& q = pts[(i + 1) % pts.size()];
+            a.paintTerrainLine(p.first, p.second, q.first, q.second, terrain, brush);
+        }
+        a.endStroke();
+        const auto t1 = std::chrono::steady_clock::now();
+        b.paintTerrainPath(pts, true, terrain, brush);
+        const auto t2 = std::chrono::steady_clock::now();
+        const double lines = std::chrono::duration<double, std::milli>(t1 - t0).count(), path = std::chrono::duration<double, std::milli>(t2 - t1).count();
+        // (a new map's tiles are random: the tiles that each one changed, by their tile group)
+        int differ = 0, changed = 0;
+        for (size_t i = 0; i < was.size(); ++i) {
+            const bool ca = a.terrain().tiles[i] != was[i], cb = b.terrain().tiles[i] != wasB[i];
+            changed += ca;
+            differ += ca != cb || (ca && a.terrain().tiles[i] >> 4 != b.terrain().tiles[i] >> 4);
+        }
+        const int misfitsA = countTileMisfits(a.chk(), a.tileset()), misfitsB = countTileMisfits(b.chk(), b.tileset());
+        std::printf("ellipse outline: lines one by one %.0f ms, one pass %.0f ms; %d tiles changed, %d of them differ; misfits %d and %d\n", lines,
+                    path, changed, differ, misfitsA, misfitsB);
+        CHECK(changed > 0 && differ * 20 <= changed, "an ellipse's outline in one pass paints about the tiles of its lines one by one (5 % may differ)");
+        CHECK(misfitsB <= misfitsA, "an ellipse's outline in one pass leaves no more tiles that do not fit than its lines one by one");
+        CHECK(path * 4 < lines, "an ellipse's outline in one pass takes less than a quarter of the time of its lines one by one");
+    }
+}
+
 // Sound files of the map: import, rename and remove are each one undo step, and undo puts the archive and the
 // briefings back together (no briefing names a sound that the file list does not have).
 static void soundFileSteps(const GameData& data, const char* map) {
@@ -1469,6 +1514,11 @@ int main(int argc, char** argv) {
     }
     if (argc > 4 && std::string(argv[4]) == "sounds") {  // only the sound file checks
         soundFileSteps(data, argv[2]);
+        return failures ? 1 : 0;
+    }
+    if (argc > 4 && std::string(argv[4]) == "ellipse") {  // only the ellipse outline check
+        ellipseOutlineTest(data);
+        std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
     if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
@@ -2308,6 +2358,7 @@ int main(int argc, char** argv) {
                                  std::to_string(tilesets) + " maps, at most 12)";
         CHECK(tilesets == 8 && misfits <= 12, what.c_str());
     }
+    ellipseOutlineTest(data);
     // Rectangular terrain (N.7): tiles placed as they are, kept by later terrain edits that do not touch their rects,
     // saved and opened again as placed; the ISOM stays valid.
     if (Editor te(data); te.open(argv[2], err) && te.canPaintTerrain()) {

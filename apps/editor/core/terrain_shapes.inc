@@ -97,13 +97,7 @@ void shapeIsoPaint(Editor& e, int tool, const std::vector<std::pair<int, int>>& 
         return;
     }
     if (tool == TLine) return void(e.paintTerrainLine(pts.front().first, pts.front().second, pts.back().first, pts.back().second, t, brush));
-    e.beginStroke();  // (the outline's lines: one edit)
-    for (size_t i = 0; i < pts.size(); ++i) {
-        const auto& a = pts[i];
-        const auto& b = pts[(i + 1) % pts.size()];
-        e.paintTerrainLine(a.first, a.second, b.first, b.second, t, brush);
-    }
-    e.endStroke();
+    e.paintTerrainPath(pts, true, t, brush);  // (the outline's lines: one pass, one edit)
 }
 
 // The tiles from tile (x0, y0) to tile (x1, y1) on a straight line (each step one tile across or down, or both).
