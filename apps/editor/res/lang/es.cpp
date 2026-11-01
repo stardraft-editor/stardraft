@@ -2675,6 +2675,10 @@ constexpr UiText kRows[] = {
     {L"Stopped the line", L"L\u00EDnea detenida"},
     {L"Stopped the contour", L"Contorno detenido"},
     {L"Stopped the polygon", L"Pol\u00EDgono detenido"},
+    {L"Jumble", L"Mezclar"},
+    {L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", L"Mezclar: mezcla al azar los terrenos del pincel. Los bordes entre ellos se corrigen. Arrastra para mezclar m\u00E1s."},
+    {L"Jumbled the terrain", L"Terreno mezclado"},
+    {L"Did not jumble: the brush has only one terrain under it", L"No se mezcl\u00F3: bajo el pincel hay un solo terreno"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

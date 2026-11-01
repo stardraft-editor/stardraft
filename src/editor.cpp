@@ -2121,6 +2121,71 @@ bool Editor::fillTerrainPolygon(const std::vector<std::pair<int, int>>& points, 
     return true;
 }
 
+int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
+    if (!isomOk_) return 0;
+    // The brush's corners at the point itself (the dabs' places; each dab repeats at the symmetric positions), and the
+    // terrains under the brush at every symmetric position.
+    std::vector<std::pair<int, int>> spots;
+    std::vector<uint16_t> terrains;
+    const IsomTerrainTable* table = modTable_ ? modTable_.get() : IsomTerrainTable::forEra(era_);
+    for (auto [cx, cy] : isom_.brushCorners(px, py, brush))
+        if (isom_.isCorner(cx, cy)) spots.push_back({cx, cy});
+    for (auto [x, y] : terrainSymmetricPoints(px, py, brush))
+        for (auto [cx, cy] : isom_.brushCorners(x, y, brush))
+            if (const uint16_t t = isom_.terrainAt(cx, cy); isom_.isCorner(cx, cy) && (!table || table->isTerrain(t)) &&
+                                                             std::find(terrains.begin(), terrains.end(), t) == terrains.end())
+                terrains.push_back(t);
+    if (terrains.size() < 2 || spots.empty()) return -1;
+    std::mt19937 rng(seed);
+    std::shuffle(spots.begin(), spots.end(), rng);
+    spots.resize(std::max<size_t>(1, spots.size() / 6));
+    const bool own = !inStroke_;
+    if (own) beginEdit();
+    // As applyOld, with each dab's correction and tiles one after the other (the tiles' cliff fixes keep each dab's own
+    // corners), and the rest once at the end.
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    std::vector<std::vector<CornerValue>> dabs;
+    for (auto [cx, cy] : spots) {
+        // (another terrain than the one at the spot: each dab changes something)
+        std::vector<uint16_t> other = terrains;
+        std::erase(other, isom_.terrainAt(cx, cy));
+        const uint16_t t = other.empty() ? terrains[0] : other[rng() % other.size()];
+        std::vector<CornerValue> dab;
+        for (auto [x, y] : symmetricPoints(cx * 64, cy * 32))
+            for (auto [dx, dy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 2.0f})) {
+                dab.push_back({dx, dy, t});
+                x0 = std::min(x0, dx), y0 = std::min(y0, dy), x1 = std::max(x1, dx), y1 = std::max(y1, dy);
+            }
+        dabs.push_back(std::move(dab));
+    }
+    const std::vector<int> watch = placeableUnitsIn({x0 * 64 - 256, y0 * 32 - 256, x1 * 64 + 256, y1 * 32 + 256});
+    const std::vector<uint8_t> intact = doodadsIntact();
+    const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    const std::optional<ProtectedBefore> kept = protectedBefore();
+    int changed = 0;
+    for (auto& dab : dabs) {
+        bool same = true;
+        for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
+        if (same) continue;
+        const int mine = pinProtected(dab, kProtectMargin);  // (near protected tiles: their corners stay; -1: none near)
+        if (mine == 0 || !isom_.apply(dab)) continue;
+        markPlacedTilesDirty(std::vector<CornerValue>(dab.begin(), mine > 0 ? dab.begin() + mine : dab.end()));
+        std::string err;
+        isom_.store(chk_, err);
+        ++changed;
+    }
+    if (!changed) {
+        if (own) dropLastUndo();  // nothing changed
+        return 0;
+    }
+    if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
+    restoreProtected(kept);
+    commit(true);
+    pruneDoodads(intact, &before);
+    pruneUnits(watch);
+    return changed;
+}
+
 bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush) {
     if (!isomOk_) return false;
     const float dx = float(x1 - x0), dy = float(y1 - y0);

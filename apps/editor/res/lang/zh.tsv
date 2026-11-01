@@ -2673,3 +2673,7 @@ Contour: draw the shape, then release the button	轮廓：绘制形状，然后�
 Stopped the line	已停止直线
 Stopped the contour	已停止轮廓
 Stopped the polygon	已停止多边形
+Jumble	打乱
+Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.	打乱：随机混合画笔内的地形。地形之间的边缘会被修正。拖动可打乱更多。
+Jumbled the terrain	已打乱地形
+Did not jumble: the brush has only one terrain under it	未打乱：画笔下只有一种地形

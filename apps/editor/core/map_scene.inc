@@ -812,10 +812,10 @@ render::Scene buildScene() {
             diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0x40FF40FFu);
             for (size_t k = 1; k < pts.size(); ++k) outline(s, {pts[k].first, pts[k].second, pts[k].first + b.right, pts[k].second + b.bottom}, 0x40FF40FFu, 2);
         }
-    } else if (app.mode == Mode::Terrain && app.palette > 0) {
+    } else if (app.mode == Mode::Terrain && (app.palette > 0 || (currentTool() == TJumble && !app.terrainRect))) {  // (Jumble: no pick)
         // Brush footprint as diamonds: the outline of the diamonds whose four corners the brush sets, at
         // every symmetric position. A half-size brush sets a single corner; it shows a half diamond.
-        if (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine) {
+        if (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine || currentTool() == TJumble) {
             std::set<std::pair<int, int>> set;
             for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
                 for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);

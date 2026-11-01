@@ -2675,6 +2675,10 @@ constexpr UiText kRows[] = {
     {L"Stopped the line", L"\u5DF2\u505C\u6B62\u76F4\u7EBF"},
     {L"Stopped the contour", L"\u5DF2\u505C\u6B62\u8F6E\u5ED3"},
     {L"Stopped the polygon", L"\u5DF2\u505C\u6B62\u591A\u8FB9\u5F62"},
+    {L"Jumble", L"\u6253\u4E71"},
+    {L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", L"\u6253\u4E71\uFF1A\u968F\u673A\u6DF7\u5408\u753B\u7B14\u5185\u7684\u5730\u5F62\u3002\u5730\u5F62\u4E4B\u95F4\u7684\u8FB9\u7F18\u4F1A\u88AB\u4FEE\u6B63\u3002\u62D6\u52A8\u53EF\u6253\u4E71\u66F4\u591A\u3002"},
+    {L"Jumbled the terrain", L"\u5DF2\u6253\u4E71\u5730\u5F62"},
+    {L"Did not jumble: the brush has only one terrain under it", L"\u672A\u6253\u4E71\uFF1A\u753B\u7B14\u4E0B\u53EA\u6709\u4E00\u79CD\u5730\u5F62"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

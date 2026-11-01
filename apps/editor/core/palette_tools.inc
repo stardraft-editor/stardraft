@@ -307,8 +307,8 @@ void rebuildList(AppState& app) {
 // The tool strip (app.tool) shows the active mode's tools as icons: repaint it after the tool changes.
 void fillToolCombo(AppState& app) {
     shellToolsChanged();
-    // The terrain selection goes with a tool that does not use it (Brush, Spray, Line, Contour, Polygon); Fill and Replace work in it.
-    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray || isShapeTool(t)) && app.hasTerrainSel)
+    // The terrain selection goes with a tool that does not use it (Brush, Spray, Line, Contour, Polygon, Jumble); Fill and Replace work in it.
+    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray || isShapeTool(t) || t == TJumble) && app.hasTerrainSel)
         app.hasTerrainSel = false, app.dirty = true;
     // The strip's rows follow the tool (size and density for the sprays): its height, and what is under it.
     static int lastRows = -1;
@@ -458,6 +458,7 @@ std::vector<StripItem> stripTools(Mode m) {
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
+                {UiIcon::Jumble, L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", TJumble, false},
                 {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false},
                 {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
     case Mode::Units:
@@ -486,6 +487,7 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Line) return 4;
     if (it.icon == UiIcon::Contour) return 5;
     if (it.icon == UiIcon::Polygon) return 6;
+    if (it.icon == UiIcon::Jumble) return 7;
     return -1;
 }
 

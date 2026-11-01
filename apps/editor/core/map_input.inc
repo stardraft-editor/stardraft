@@ -135,6 +135,12 @@ void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, 
 constexpr UINT_PTR kSprayTimer = 78;
 float gRerollX = -1e9f, gRerollY = -1e9f;  // where the brush last redrew its own terrain (new variants) in this stroke
 float gPaintX = 0, gPaintY = 0;             // where the brush last painted in this stroke (a fast move paints the way between)
+// Jumble at the map point (wx, wy): the terrains under the brush mixed at random (Editor::jumbleTerrain).
+void jumbleAt(AppState& app, float wx, float wy) {
+    const int n = app.ed->jumbleTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
+    if (n > 0) setMessage(app, L"Jumbled the terrain");
+    else if (n < 0) setMessage(app, L"Did not jumble: the brush has only one terrain under it");
+}
 std::chrono::steady_clock::time_point gSprayTick;
 void sprayHoldStart(AppState& app, int sx, int sy) {
     app.sprayHeld = 0, app.sprayCredit = 0;
@@ -383,6 +389,13 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             }
             break;
         }
+        if (tool == TJumble && !app.terrainRect) {  // (no pick: the terrains under the brush)
+            ed.beginTerrainStroke();
+            jumbleAt(app, wx, wy);
+            gPaintX = wx, gPaintY = wy;
+            app.drag = Drag::Jumble;
+            break;
+        }
         if (app.palette <= 0) break;
         uint16_t t = uint16_t(app.palette);
         if (tool == TBrush) {
@@ -549,6 +562,11 @@ void mapMouseMove(AppState& app, int sx, int sy) {
         app.ed->paintBrush(int(wx), int(wy), uint16_t(app.palette), currentBrush(app));
         gPaintX = wx, gPaintY = wy;
     }
+    if (app.drag == Drag::Jumble && app.ed &&
+        std::hypot(wx - gPaintX, wy - gPaintY) >= std::max(16.0f, std::min(app.brushSize, currentBrush(app).height()) * 32)) {
+        jumbleAt(app, wx, wy);  // (each half brush along the drag)
+        gPaintX = wx, gPaintY = wy;
+    }
     if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);
     if (app.mode == Mode::Terrain && gShape.tool >= 0) shapeMouseMove(wx, wy);
     if (app.drag == Drag::Spray && app.ed && std::hypot(sx - app.lastSprayX, sy - app.lastSprayY) > std::max(12.0, sprayRadius() * app.zoom * 0.5)) {
@@ -661,7 +679,8 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         }
         break;
     }
-    case Drag::Paint: ed.endTerrainStroke(); break;
+    case Drag::Paint:
+    case Drag::Jumble: ed.endTerrainStroke(); break;
     case Drag::Spray:
         sprayHoldStop();
         if (app.mode == Mode::Terrain && app.terrainRect) tilesMouseUp(wx, wy);
@@ -808,10 +827,11 @@ bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
-    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint)) {
+    if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
+                   app.drag == Drag::Jumble)) {
         sprayHoldStop();
         // (the press so far is one undo step; later edits are steps of their own; a terrain stroke's ground is chosen anew)
-        if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray)) app.ed->endTerrainStroke();
+        if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray || app.drag == Drag::Jumble)) app.ed->endTerrainStroke();
         else app.ed->endStroke();
         app.drag = Drag::None;
         stroke = true;
@@ -865,7 +885,9 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
 // Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down
 // (brushSizes). False when no brush is active (the wheel zooms then).
 bool mapBrushActive(const AppState& app) {
-    return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray)) || objectSprayOn();
+    return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine ||
+                                          (currentTool() == TJumble && !app.terrainRect))) ||
+           objectSprayOn();
 }
 bool mapBrushWheel(AppState& app, bool up) {
     if (!mapBrushActive(app)) return false;

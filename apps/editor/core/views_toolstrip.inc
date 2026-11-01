@@ -113,6 +113,7 @@ void setTerrainKind(int kind) {
         app.terrainRect = rect;
         std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
     }
+    if (rect && app.toolByMode[int(Mode::Terrain)] == TJumble) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (Isometric's only)
     app.terrainPasting = false;
     stampsPanelSync();
     if (shellViewShown()) shellRelayout();  // the strip's height (no mirrors in Rectangle)
@@ -413,7 +414,7 @@ public:
             const draw::Rect r{x, y, x + b, y + b};
             iconButtonFace(c, r, it.icon, on, hot(square(r)));
             addHit(square(r), [it] { pickStripTool(it); },
-                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOP"[key]) + L")" : std::wstring(it.tip));
+                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPX"[key]) + L")" : std::wstring(it.tip));
             next();
         }
         if (x > 0) x = 0, y += b + gap;

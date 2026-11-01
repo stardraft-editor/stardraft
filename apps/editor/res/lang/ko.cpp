@@ -2705,6 +2705,10 @@ constexpr UiText kRows[] = {
     {L"Stopped the line", L"\uC120\uC744 \uBA48\uCDC4\uC2B5\uB2C8\uB2E4"},
     {L"Stopped the contour", L"\uC724\uACFD\uC744 \uBA48\uCDC4\uC2B5\uB2C8\uB2E4"},
     {L"Stopped the polygon", L"\uB2E4\uAC01\uD615\uC744 \uBA48\uCDC4\uC2B5\uB2C8\uB2E4"},
+    {L"Jumble", L"\uC11E\uAE30"},
+    {L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", L"\uC11E\uAE30: \uBE0C\uB7EC\uC2DC \uC548\uC758 \uC9C0\uD615\uC744 \uBB34\uC791\uC704\uB85C \uC11E\uC2B5\uB2C8\uB2E4. \uC9C0\uD615 \uC0AC\uC774\uC758 \uAC00\uC7A5\uC790\uB9AC\uB294 \uC218\uC815\uB429\uB2C8\uB2E4. \uB4DC\uB798\uADF8\uD558\uBA74 \uB354 \uC11E\uC2B5\uB2C8\uB2E4."},
+    {L"Jumbled the terrain", L"\uC9C0\uD615\uC744 \uC11E\uC5C8\uC2B5\uB2C8\uB2E4"},
+    {L"Did not jumble: the brush has only one terrain under it", L"\uC11E\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4: \uBE0C\uB7EC\uC2DC \uC544\uB798\uC5D0 \uC9C0\uD615\uC774 \uD558\uB098\uBFD0\uC785\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

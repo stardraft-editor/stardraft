@@ -2673,3 +2673,7 @@ Contour: draw the shape, then release the button	Контур: нарисуйт�
 Stopped the line	Линия остановлена
 Stopped the contour	Контур остановлен
 Stopped the polygon	Многоугольник остановлен
+Jumble	Перемешать
+Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.	Перемешать: случайно перемешивает ландшафты под кистью. Края между ними исправляются. Перетащите, чтобы перемешать больше.
+Jumbled the terrain	Ландшафт перемешан
+Did not jumble: the brush has only one terrain under it	Не перемешано: под кистью только один ландшафт

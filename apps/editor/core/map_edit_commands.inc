@@ -35,7 +35,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"T", ID_CT_ADD_TRIGGER},      {"C", ID_CT_ADD_CONDITION},       {"A", ID_CT_ADD_ACTION},  // (before the tools' A: on the Classic triggers page only)
     {"V", ID_TOOL_KEY},
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"I", ID_SHAPE_KEY},
-    {"O", ID_SHAPE_KEY + 1},       {"P", ID_SHAPE_KEY + 2},          {"Ctrl+1", ID_RAIL_KEY},
+    {"O", ID_SHAPE_KEY + 1},       {"P", ID_SHAPE_KEY + 2},          {"X", ID_SHAPE_KEY + 3},            {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
     {"Ctrl+6", ID_RAIL_KEY + 5},   {"Ctrl+7", ID_RAIL_KEY + 6},      {"Ctrl+8", ID_RAIL_KEY + 7},        {"Ctrl+9", ID_RAIL_KEY + 8},
     {"Ctrl+B", ID_PROJ_COMPILE},   {"F1", ID_HELP_CONTEXT},            {"Ctrl+E", ID_DATA_TABLE},
@@ -522,7 +522,8 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_TOOL_KEY + 3: stripToolByKey(id - ID_TOOL_KEY); break;
     case ID_SHAPE_KEY:
     case ID_SHAPE_KEY + 1:
-    case ID_SHAPE_KEY + 2: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
+    case ID_SHAPE_KEY + 2:
+    case ID_SHAPE_KEY + 3: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
     case ID_TERRAIN_KIND_NEXT:  // (the Terrain tool strip's choice: another mode has none)
         if (app.mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         break;

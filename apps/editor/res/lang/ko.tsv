@@ -2703,3 +2703,7 @@ Contour: draw the shape, then release the button	윤곽: 모양을 그린 다음
 Stopped the line	선을 멈췄습니다
 Stopped the contour	윤곽을 멈췄습니다
 Stopped the polygon	다각형을 멈췄습니다
+Jumble	섞기
+Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.	섞기: 브러시 안의 지형을 무작위로 섞습니다. 지형 사이의 가장자리는 수정됩니다. 드래그하면 더 섞습니다.
+Jumbled the terrain	지형을 섞었습니다
+Did not jumble: the brush has only one terrain under it	섞지 않았습니다: 브러시 아래에 지형이 하나뿐입니다

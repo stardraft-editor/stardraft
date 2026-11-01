@@ -2673,3 +2673,7 @@ Contour: draw the shape, then release the button	Contorno: dibuje la forma y des
 Stopped the line	Línea detenida
 Stopped the contour	Contorno detenido
 Stopped the polygon	Polígono detenido
+Jumble	Mezclar
+Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.	Mezclar: mezcla al azar los terrenos del pincel. Los bordes entre ellos se corrigen. Arrastra para mezclar más.
+Jumbled the terrain	Terreno mezclado
+Did not jumble: the brush has only one terrain under it	No se mezcló: bajo el pincel hay un solo terreno
