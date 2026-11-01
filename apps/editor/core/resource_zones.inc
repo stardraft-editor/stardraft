@@ -22,6 +22,58 @@ int resourceZoneKind(const Editor& ed, uint16_t type, int& w, int& h) {
     return t.is(UnitFlag::ResourceContainer) ? 0 : t.is(UnitFlag::ResourceDepot) ? 1 : -1;
 }
 
+// The zones as one area: each point is covered once, so that zones that overlap have the same color, and the line
+// (when `line` is not 0) goes only round the outside. The union is cut on the zones' edges into cells; the covered cells
+// of each row are joined into rects, and the edges between a covered cell and one that is not are joined into lines.
+void addZoneUnion(render::Scene& s, const std::vector<render::RectDraw>& zones, uint32_t fill, uint32_t line) {
+    if (zones.empty()) return;
+    std::vector<float> xs, ys;
+    for (const render::RectDraw& r : zones) xs.push_back(r.x0), xs.push_back(r.x1), ys.push_back(r.y0), ys.push_back(r.y1);
+    std::sort(xs.begin(), xs.end()), xs.erase(std::unique(xs.begin(), xs.end()), xs.end());
+    std::sort(ys.begin(), ys.end()), ys.erase(std::unique(ys.begin(), ys.end()), ys.end());
+    const int nx = int(xs.size()) - 1, ny = int(ys.size()) - 1;
+    std::vector<uint8_t> cov(size_t(nx) * size_t(ny), 0);
+    auto index = [](const std::vector<float>& v, float f) { return int(std::lower_bound(v.begin(), v.end(), f) - v.begin()); };
+    for (const render::RectDraw& r : zones)
+        for (int j = index(ys, r.y0), j1 = index(ys, r.y1); j < j1; ++j)
+            for (int i = index(xs, r.x0), i1 = index(xs, r.x1); i < i1; ++i) cov[size_t(j) * nx + i] = 1;
+    auto covered = [&](int i, int j) { return i >= 0 && j >= 0 && i < nx && j < ny && cov[size_t(j) * nx + i]; };
+    for (int j = 0; j < ny; ++j)
+        for (int i = 0; i < nx;) {
+            if (!covered(i, j)) { ++i; continue; }
+            int e = i + 1;
+            while (e < nx && covered(e, j)) ++e;
+            render::RectDraw d;
+            d.x0 = xs[size_t(i)], d.x1 = xs[size_t(e)], d.y0 = ys[size_t(j)], d.y1 = ys[size_t(j + 1)], d.rgba = fill, d.fill = true;
+            s.rects.push_back(d);
+            i = e;
+        }
+    if (!line) return;
+    auto edge = [&](float x0, float y0, float x1, float y1) {
+        render::RectDraw d;
+        d.x0 = x0, d.y0 = y0, d.x1 = x1, d.y1 = y1, d.rgba = line, d.line = true;
+        s.rects.push_back(d);
+    };
+    for (int j = 0; j <= ny; ++j)  // (the lines along x: a covered cell on one side only)
+        for (int i = 0; i < nx;) {
+            const bool above = covered(i, j - 1), below = covered(i, j);
+            if (above == below) { ++i; continue; }
+            int e = i + 1;
+            while (e < nx && covered(e, j - 1) == above && covered(e, j) == below) ++e;
+            edge(xs[size_t(i)], ys[size_t(j)], xs[size_t(e)], ys[size_t(j)]);
+            i = e;
+        }
+    for (int i = 0; i <= nx; ++i)  // (the lines along y)
+        for (int j = 0; j < ny;) {
+            const bool left = covered(i - 1, j), right = covered(i, j);
+            if (left == right) { ++j; continue; }
+            int e = j + 1;
+            while (e < ny && covered(i - 1, e) == left && covered(i, e) == right) ++e;
+            edge(xs[size_t(i)], ys[size_t(j)], xs[size_t(i)], ys[size_t(e)]);
+            j = e;
+        }
+}
+
 void addResourceZones(render::Scene& s) {
     const AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
@@ -45,8 +97,7 @@ void addResourceZones(render::Scene& s) {
     int vw, vh;
     viewSize(vw, vh);
     const float vx0 = app.camX, vy0 = app.camY, vx1 = app.camX + vw / app.zoom, vy1 = app.camY + vh / app.zoom;
-    std::vector<render::RectDraw> red;  // (the zones while placing)
-    static const uint32_t kFill[2] = {0xE0403048u, 0xE0A02048u}, kLine[2] = {0xF05040D0u, 0xF0B030D0u};
+    std::vector<render::RectDraw> zones[3];  // (the overlays' zones, 0 and 1; 2: the red ones while placing)
     for (const Unit& u : ed.units()) {
         int w, h;
         const int k = resourceZoneKind(ed, u.type, w, h);
@@ -57,38 +108,10 @@ void addResourceZones(render::Scene& s) {
         render::RectDraw d;
         d.x0 = l - 96, d.y0 = tp - 96, d.x1 = l + w + 96, d.y1 = tp + h + 96;
         if (d.x1 < vx0 || d.x0 > vx1 || d.y1 < vy0 || d.y0 > vy1) continue;
-        if (gResourceZones[k]) {  // (the overlay: its fill and line)
-            d.rgba = kFill[k], d.fill = true;
-            s.rects.push_back(d);
-            d.rgba = kLine[k], d.fill = false;
-            s.rects.push_back(d);
-        } else {  // (while placing: a red fill only, below)
-            red.push_back(d);
-        }
+        zones[gResourceZones[k] ? k : 2].push_back(d);  // (an overlay that is on: its own look, also while placing)
     }
-    // The red fill covers each point once, so that zones that overlap have the same color: the union of the zones, cut
-    // on the zones' edges into cells, and the covered cells of each row joined into rects
-    if (red.empty()) return;
-    std::vector<float> xs, ys;
-    for (const render::RectDraw& r : red) xs.push_back(r.x0), xs.push_back(r.x1), ys.push_back(r.y0), ys.push_back(r.y1);
-    std::sort(xs.begin(), xs.end()), xs.erase(std::unique(xs.begin(), xs.end()), xs.end());
-    std::sort(ys.begin(), ys.end()), ys.erase(std::unique(ys.begin(), ys.end()), ys.end());
-    for (size_t j = 0; j + 1 < ys.size(); ++j) {
-        const float cy = (ys[j] + ys[j + 1]) / 2;
-        for (size_t i = 0; i + 1 < xs.size();) {
-            auto covered = [&](size_t c) {
-                const float cx = (xs[c] + xs[c + 1]) / 2;
-                return std::any_of(red.begin(), red.end(), [&](const render::RectDraw& r) { return cx > r.x0 && cx < r.x1 && cy > r.y0 && cy < r.y1; });
-            };
-            if (!covered(i)) { ++i; continue; }
-            size_t e = i + 1;
-            while (e + 1 < xs.size() && covered(e)) ++e;
-            render::RectDraw d;
-            d.x0 = xs[i], d.x1 = xs[e], d.y0 = ys[j], d.y1 = ys[j + 1], d.rgba = 0xF0404050u, d.fill = true;
-            s.rects.push_back(d);
-            i = e;
-        }
-    }
+    static const uint32_t kFill[3] = {0xE0403048u, 0xE0A02048u, 0xF0404050u}, kLine[3] = {0xF05040D0u, 0xF0B030D0u, 0};
+    for (int k = 0; k < 3; ++k) addZoneUnion(s, zones[k], kFill[k], kLine[k]);
 }
 
 void resourceZonesToggle(int k) {
