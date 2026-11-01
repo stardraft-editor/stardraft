@@ -2705,3 +2705,18 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	Лас�
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	Ластик: проведите кистью по декорациям, чтобы удалить их (Размер: размер кисти)
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	Ластик: проведите кистью по спрайтам, чтобы удалить их (Размер: размер кисти)
 Erase: drag the brush over locations to delete them (Size: the brush's size)	Ластик: проведите кистью по локациям, чтобы удалить их (Размер: размер кисти)
+ Click again for the next tool of this button; the arrow or a right click lists them.	 Щёлкните ещё раз, чтобы выбрать следующий инструмент этой кнопки; стрелка или правый щелчок показывают их список.
+The tools of this button	Инструменты этой кнопки
+Filled rectangle	Залитый прямоугольник
+Ellipse	Эллипс
+Filled ellipse	Залитый эллипс
+Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.	Прямоугольник: перетащите от одного угла к другому. При отпускании рисуются его края, с размером и формой кисти. Удерживайте Shift для квадрата.
+Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.	Залитый прямоугольник: перетащите от одного угла к другому. При отпускании он заливается. Удерживайте Shift для квадрата.
+Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.	Эллипс: перетащите через прямоугольник, в который он вписан. При отпускании рисуется его край, с размером и формой кисти. Удерживайте Shift для круга.
+Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.	Залитый эллипс: перетащите через прямоугольник, в который он вписан. При отпускании он заливается. Удерживайте Shift для круга.
+Did not paint the shape: drag a larger box	Фигура не нарисована: перетащите прямоугольник побольше
+Painted the rectangle	Прямоугольник нарисован
+Filled the rectangle	Прямоугольник залит
+Painted the ellipse	Эллипс нарисован
+Filled the ellipse	Эллипс залит
+Release the button at the other corner. Hold Shift for a square or a circle	Отпустите кнопку в другом углу. Удерживайте Shift для квадрата или круга

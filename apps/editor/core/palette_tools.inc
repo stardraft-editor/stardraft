@@ -430,10 +430,32 @@ struct StripItem {
     const wchar_t* tip;
     int tool;     // the mode's tool it sets
     bool select;  // the Select button: the tool with nothing picked
+    // A group's button (1: Spray and Jumble; 2: Line, Contour and Polygon): it is the tool of the group in use, else the
+    // one used last (AppState::lastInGroup); a click on it while it is the tool goes to the next of them, its corner's
+    // arrow and a right click list them (core/views_toolstrip.inc).
+    int group = 0;
+    std::vector<StripItem> members;
 };
+// The group's button: the member that is the tool, else the one used last, else the first.
+StripItem stripGroup(int group, std::vector<StripItem> members) {
+    const AppState& app = appState();
+    const int now = app.toolByMode[int(app.mode)];
+    size_t k = members.size();
+    for (size_t i = 0; i < members.size() && k == members.size(); ++i)
+        if (members[i].tool == now) k = i;
+    for (size_t i = 0; i < members.size() && k == members.size(); ++i)
+        if (members[i].tool == app.lastInGroup[group]) k = i;
+    StripItem it = members[k < members.size() ? k : 0];
+    it.group = group, it.members = std::move(members);
+    return it;
+}
 // The Terrain shape tools' tips (core/terrain_shapes.inc), the same for each kind of terrain.
 constexpr const wchar_t* kLineTip = L"Line: drag from the start to the end of the line. The release paints the line, with the brush's size and shape.";
 constexpr const wchar_t* kContourTip = L"Contour: drag to draw a shape. The release closes the shape and fills it.";
+constexpr const wchar_t* kRectTip = L"Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.";
+constexpr const wchar_t* kRectFillTip = L"Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.";
+constexpr const wchar_t* kEllipseTip = L"Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.";
+constexpr const wchar_t* kEllipseFillTip = L"Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.";
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
@@ -447,21 +469,27 @@ std::vector<StripItem> stripTools(Mode m) {
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
-                    {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
+                    stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
+                                   {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill puts them in patches at random (Mix).", TFill, false},
-                    {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
+                    stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
+                                   {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
-                {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
-                {UiIcon::Jumble, L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", TJumble, false},
+                stripGroup(1, {{UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
+                               {UiIcon::Jumble, L"Jumble: mix the terrains in the brush at random. The edges between them are corrected. Drag to jumble more.", TJumble, false}}),
                 {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
-                {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
+                stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
+                                   {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},

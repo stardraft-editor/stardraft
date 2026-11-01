@@ -2735,3 +2735,18 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	지우�
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	지우개: 브러시를 장식물 위로 드래그하면 장식물을 삭제합니다 (크기: 브러시의 크기)
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	지우개: 브러시를 스프라이트 위로 드래그하면 스프라이트를 삭제합니다 (크기: 브러시의 크기)
 Erase: drag the brush over locations to delete them (Size: the brush's size)	지우개: 브러시를 로케이션 위로 드래그하면 로케이션을 삭제합니다 (크기: 브러시의 크기)
+ Click again for the next tool of this button; the arrow or a right click lists them.	 다시 클릭하면 이 버튼의 다음 도구로 바뀝니다. 화살표나 오른쪽 클릭으로 목록을 봅니다.
+The tools of this button	이 버튼의 도구
+Filled rectangle	채운 사각형
+Ellipse	타원
+Filled ellipse	채운 타원
+Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.	사각형: 한 모서리에서 반대 모서리까지 드래그합니다. 놓으면 브러시의 크기와 모양으로 테두리를 칠합니다. Shift를 누르고 있으면 정사각형이 됩니다.
+Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.	채운 사각형: 한 모서리에서 반대 모서리까지 드래그합니다. 놓으면 안을 채웁니다. Shift를 누르고 있으면 정사각형이 됩니다.
+Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.	타원: 타원이 들어갈 상자를 가로질러 드래그합니다. 놓으면 브러시의 크기와 모양으로 테두리를 칠합니다. Shift를 누르고 있으면 원이 됩니다.
+Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.	채운 타원: 타원이 들어갈 상자를 가로질러 드래그합니다. 놓으면 안을 채웁니다. Shift를 누르고 있으면 원이 됩니다.
+Did not paint the shape: drag a larger box	모양을 칠하지 않았습니다: 더 큰 상자를 드래그하십시오
+Painted the rectangle	사각형을 칠했습니다
+Filled the rectangle	사각형을 채웠습니다
+Painted the ellipse	타원을 칠했습니다
+Filled the ellipse	타원을 채웠습니다
+Release the button at the other corner. Hold Shift for a square or a circle	반대 모서리에서 버튼을 놓으십시오. Shift를 누르고 있으면 정사각형이나 원이 됩니다

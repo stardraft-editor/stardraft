@@ -2707,6 +2707,21 @@ constexpr UiText kRows[] = {
     {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre decorados para eliminarlos (Tama\u00F1o: el tama\u00F1o del pincel)"},
     {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre sprites para eliminarlos (Tama\u00F1o: el tama\u00F1o del pincel)"},
     {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"Borrar: arrastre el pincel sobre ubicaciones para eliminarlas (Tama\u00F1o: el tama\u00F1o del pincel)"},
+    {L" Click again for the next tool of this button; the arrow or a right click lists them.", L" Haga clic de nuevo para la siguiente herramienta de este bot\u00F3n; la flecha o un clic derecho las muestra."},
+    {L"The tools of this button", L"Las herramientas de este bot\u00F3n"},
+    {L"Filled rectangle", L"Rect\u00E1ngulo relleno"},
+    {L"Ellipse", L"Elipse"},
+    {L"Filled ellipse", L"Elipse rellena"},
+    {L"Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.", L"Rect\u00E1ngulo: arrastre de una esquina a la otra. Al soltar se pintan sus bordes, con el tama\u00F1o y la forma del pincel. Mantenga Shift para un cuadrado."},
+    {L"Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.", L"Rect\u00E1ngulo relleno: arrastre de una esquina a la otra. Al soltar se rellena. Mantenga Shift para un cuadrado."},
+    {L"Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.", L"Elipse: arrastre a trav\u00E9s del rect\u00E1ngulo que la contiene. Al soltar se pinta su borde, con el tama\u00F1o y la forma del pincel. Mantenga Shift para un c\u00EDrculo."},
+    {L"Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.", L"Elipse rellena: arrastre a trav\u00E9s del rect\u00E1ngulo que la contiene. Al soltar se rellena. Mantenga Shift para un c\u00EDrculo."},
+    {L"Did not paint the shape: drag a larger box", L"No se pint\u00F3 la forma: arrastre un rect\u00E1ngulo m\u00E1s grande"},
+    {L"Painted the rectangle", L"Se pint\u00F3 el rect\u00E1ngulo"},
+    {L"Filled the rectangle", L"Se rellen\u00F3 el rect\u00E1ngulo"},
+    {L"Painted the ellipse", L"Se pint\u00F3 la elipse"},
+    {L"Filled the ellipse", L"Se rellen\u00F3 la elipse"},
+    {L"Release the button at the other corner. Hold Shift for a square or a circle", L"Suelte el bot\u00F3n en la otra esquina. Mantenga Shift para un cuadrado o un c\u00EDrculo"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

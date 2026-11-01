@@ -2705,3 +2705,18 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	擦除�
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	擦除：拖动笔刷经过装饰物即可删除它们（大小：笔刷的大小）
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	擦除：拖动笔刷经过精灵即可删除它们（大小：笔刷的大小）
 Erase: drag the brush over locations to delete them (Size: the brush's size)	擦除：拖动笔刷经过地点即可删除它们（大小：笔刷的大小）
+ Click again for the next tool of this button; the arrow or a right click lists them.	 再次点击可切换到此按钮的下一个工具；箭头或右键点击可列出它们。
+The tools of this button	此按钮的工具
+Filled rectangle	填充矩形
+Ellipse	椭圆
+Filled ellipse	填充椭圆
+Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.	矩形：从一个角拖动到另一个角。松开时以笔刷的大小和形状绘制其边缘。按住 Shift 为正方形。
+Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.	填充矩形：从一个角拖动到另一个角。松开时填充它。按住 Shift 为正方形。
+Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.	椭圆：拖过它所在的方框。松开时以笔刷的大小和形状绘制其边缘。按住 Shift 为圆形。
+Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.	填充椭圆：拖过它所在的方框。松开时填充它。按住 Shift 为圆形。
+Did not paint the shape: drag a larger box	未绘制形状：请拖出更大的方框
+Painted the rectangle	已绘制矩形
+Filled the rectangle	已填充矩形
+Painted the ellipse	已绘制椭圆
+Filled the ellipse	已填充椭圆
+Release the button at the other corner. Hold Shift for a square or a circle	在另一个角松开按钮。按住 Shift 为正方形或圆形

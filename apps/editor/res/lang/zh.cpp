@@ -2707,6 +2707,21 @@ constexpr UiText kRows[] = {
     {L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u88C5\u9970\u7269\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
     {L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u7CBE\u7075\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
     {L"Erase: drag the brush over locations to delete them (Size: the brush's size)", L"\u64E6\u9664\uFF1A\u62D6\u52A8\u7B14\u5237\u7ECF\u8FC7\u5730\u70B9\u5373\u53EF\u5220\u9664\u5B83\u4EEC\uFF08\u5927\u5C0F\uFF1A\u7B14\u5237\u7684\u5927\u5C0F\uFF09"},
+    {L" Click again for the next tool of this button; the arrow or a right click lists them.", L" \u518D\u6B21\u70B9\u51FB\u53EF\u5207\u6362\u5230\u6B64\u6309\u94AE\u7684\u4E0B\u4E00\u4E2A\u5DE5\u5177\uFF1B\u7BAD\u5934\u6216\u53F3\u952E\u70B9\u51FB\u53EF\u5217\u51FA\u5B83\u4EEC\u3002"},
+    {L"The tools of this button", L"\u6B64\u6309\u94AE\u7684\u5DE5\u5177"},
+    {L"Filled rectangle", L"\u586B\u5145\u77E9\u5F62"},
+    {L"Ellipse", L"\u692D\u5706"},
+    {L"Filled ellipse", L"\u586B\u5145\u692D\u5706"},
+    {L"Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.", L"\u77E9\u5F62\uFF1A\u4ECE\u4E00\u4E2A\u89D2\u62D6\u52A8\u5230\u53E6\u4E00\u4E2A\u89D2\u3002\u677E\u5F00\u65F6\u4EE5\u7B14\u5237\u7684\u5927\u5C0F\u548C\u5F62\u72B6\u7ED8\u5236\u5176\u8FB9\u7F18\u3002\u6309\u4F4F Shift \u4E3A\u6B63\u65B9\u5F62\u3002"},
+    {L"Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.", L"\u586B\u5145\u77E9\u5F62\uFF1A\u4ECE\u4E00\u4E2A\u89D2\u62D6\u52A8\u5230\u53E6\u4E00\u4E2A\u89D2\u3002\u677E\u5F00\u65F6\u586B\u5145\u5B83\u3002\u6309\u4F4F Shift \u4E3A\u6B63\u65B9\u5F62\u3002"},
+    {L"Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.", L"\u692D\u5706\uFF1A\u62D6\u8FC7\u5B83\u6240\u5728\u7684\u65B9\u6846\u3002\u677E\u5F00\u65F6\u4EE5\u7B14\u5237\u7684\u5927\u5C0F\u548C\u5F62\u72B6\u7ED8\u5236\u5176\u8FB9\u7F18\u3002\u6309\u4F4F Shift \u4E3A\u5706\u5F62\u3002"},
+    {L"Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.", L"\u586B\u5145\u692D\u5706\uFF1A\u62D6\u8FC7\u5B83\u6240\u5728\u7684\u65B9\u6846\u3002\u677E\u5F00\u65F6\u586B\u5145\u5B83\u3002\u6309\u4F4F Shift \u4E3A\u5706\u5F62\u3002"},
+    {L"Did not paint the shape: drag a larger box", L"\u672A\u7ED8\u5236\u5F62\u72B6\uFF1A\u8BF7\u62D6\u51FA\u66F4\u5927\u7684\u65B9\u6846"},
+    {L"Painted the rectangle", L"\u5DF2\u7ED8\u5236\u77E9\u5F62"},
+    {L"Filled the rectangle", L"\u5DF2\u586B\u5145\u77E9\u5F62"},
+    {L"Painted the ellipse", L"\u5DF2\u7ED8\u5236\u692D\u5706"},
+    {L"Filled the ellipse", L"\u5DF2\u586B\u5145\u692D\u5706"},
+    {L"Release the button at the other corner. Hold Shift for a square or a circle", L"\u5728\u53E6\u4E00\u4E2A\u89D2\u677E\u5F00\u6309\u94AE\u3002\u6309\u4F4F Shift \u4E3A\u6B63\u65B9\u5F62\u6216\u5706\u5F62"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

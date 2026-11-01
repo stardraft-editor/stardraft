@@ -2705,3 +2705,18 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	Borrar:
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre decorados para eliminarlos (Tamaño: el tamaño del pincel)
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre sprites para eliminarlos (Tamaño: el tamaño del pincel)
 Erase: drag the brush over locations to delete them (Size: the brush's size)	Borrar: arrastre el pincel sobre ubicaciones para eliminarlas (Tamaño: el tamaño del pincel)
+ Click again for the next tool of this button; the arrow or a right click lists them.	 Haga clic de nuevo para la siguiente herramienta de este botón; la flecha o un clic derecho las muestra.
+The tools of this button	Las herramientas de este botón
+Filled rectangle	Rectángulo relleno
+Ellipse	Elipse
+Filled ellipse	Elipse rellena
+Rectangle: drag from one corner to the other. The release paints its edges, with the brush's size and shape. Hold Shift for a square.	Rectángulo: arrastre de una esquina a la otra. Al soltar se pintan sus bordes, con el tamaño y la forma del pincel. Mantenga Shift para un cuadrado.
+Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.	Rectángulo relleno: arrastre de una esquina a la otra. Al soltar se rellena. Mantenga Shift para un cuadrado.
+Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.	Elipse: arrastre a través del rectángulo que la contiene. Al soltar se pinta su borde, con el tamaño y la forma del pincel. Mantenga Shift para un círculo.
+Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.	Elipse rellena: arrastre a través del rectángulo que la contiene. Al soltar se rellena. Mantenga Shift para un círculo.
+Did not paint the shape: drag a larger box	No se pintó la forma: arrastre un rectángulo más grande
+Painted the rectangle	Se pintó el rectángulo
+Filled the rectangle	Se rellenó el rectángulo
+Painted the ellipse	Se pintó la elipse
+Filled the ellipse	Se rellenó la elipse
+Release the button at the other corner. Hold Shift for a square or a circle	Suelte el botón en la otra esquina. Mantenga Shift para un cuadrado o un círculo

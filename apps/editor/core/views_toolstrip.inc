@@ -223,6 +223,11 @@ void pickStripTool(const StripItem& it) {
     if (it.select) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
     else {
         app.toolByMode[int(app.mode)] = it.tool;
+        if (app.mode == Mode::Terrain)  // (its group's button shows it from now on)
+            for (int g : {1, 2})
+                for (const StripItem& s : stripTools(app.mode))
+                    for (const StripItem& m : s.members)
+                        if (s.group == g && m.tool == it.tool) app.lastInGroup[g] = it.tool;
         app.terrainPasting = false;
         fillToolCombo(app);  // the strip's rows (size, density) follow the tool
         if (app.palette < 0 && app.mode != Mode::Terrain) setMessage(L"Select what to place in the list");
@@ -236,9 +241,16 @@ void pickStripTool(const StripItem& it) {
 // The keys V, B, A, F: the active mode's tool of that key (the Map workspace only).
 void stripToolByKey(int key) {
     if (gWorkspace != Workspace::Map) return;
-    for (const StripItem& it : stripTools(appState().mode))
-        if (stripToolKey(it) == key) return pickStripTool(it);
+    for (const StripItem& it : stripTools(appState().mode)) {
+        if (it.members.empty() && stripToolKey(it) == key) return pickStripTool(it);
+        for (const StripItem& m : it.members)  // (a group: each of its tools by its own key)
+            if (stripToolKey(m) == key) return pickStripTool(m);
+    }
 }
+// A group's tools in a row of icon buttons under its button `button` (in `from`'s coordinates): its arrow, a right
+// click on it. A click on one picks it and closes the row; Esc or a click outside closes it. (`it` a copy: the strip
+// paints its buttons again while the row is open.)
+void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button);
 
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
@@ -314,6 +326,82 @@ void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
 }
 }  // namespace stripLook
 
+// The pop-out of a group's tools (stripGroupPopout): one row of icon buttons, the tool in use on.
+struct ToolPopoutView final : draw::View {
+    StripItem group{};
+    int hot = -1;
+    bool open = false;
+    static int cell() { return scale(30); }
+    static int pad() { return scale(3); }
+    int at(draw::Point p) const {
+        if (p.y < pad() || p.y >= pad() + cell() || p.x < pad()) return -1;
+        const int i = (p.x - pad()) / cell();
+        return i < int(group.members.size()) ? i : -1;
+    }
+    void paint(draw::Canvas& c) override {
+        using namespace stripLook;
+        c.fill({0, 0, width(), height()}, kPanel);
+        c.frame({0, 0, width(), height()}, kBorderHot, 1);
+        const int now = appState().toolByMode[int(appState().mode)];
+        for (size_t i = 0; i < group.members.size(); ++i) {
+            const draw::Rect r{pad() + int(i) * cell(), pad(), pad() + int(i + 1) * cell(), pad() + cell()};
+            iconButtonFace(c, r, group.members[i].icon, group.members[i].tool == now, int(i) == hot);
+        }
+    }
+    bool hoverTip() const override { return true; }
+    std::wstring tip(draw::Point p) override {
+        const int i = at(p);
+        if (i < 0) return {};
+        const StripItem& m = group.members[size_t(i)];
+        const int key = stripToolKey(m);
+        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXE"[key]) + L")" : L"");
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        switch (e.kind) {
+        case draw::MouseKind::Move:
+            if (const int i = at(e.pt); i != hot) hot = i, invalidate();
+            return true;
+        case draw::MouseKind::Leave:
+            if (hot >= 0) hot = -1, invalidate();
+            return true;
+        case draw::MouseKind::Down: {
+            if (e.button != 0) return true;
+            const int i = at(e.pt);
+            if (i < 0) return true;
+            const StripItem pick = group.members[size_t(i)];
+            shellPost([this, pick] {  // (after this event: the row's window closes, then the tool; the row lives as long as the program)
+                close();
+                pickStripTool(pick);
+            });
+            return true;
+        }
+        default: return false;
+        }
+    }
+    bool key(const draw::KeyEvent& e) override {
+        if (e.down && e.key == draw::Key::Escape) return close(), true;
+        return false;
+    }
+    void close() {
+        if (!open) return;
+        open = false, hot = -1;
+        if (draw::Host* h = host()) h->closeWindow(*this);
+    }
+};
+ToolPopoutView gToolPopout;
+
+void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button) {
+    draw::Host* host = from.host();
+    if (!host || it.members.empty()) return;
+    gToolPopout.close();
+    gToolPopout.group = std::move(it);
+    const int w = int(gToolPopout.group.members.size()) * ToolPopoutView::cell() + 2 * ToolPopoutView::pad(),
+              h = ToolPopoutView::cell() + 2 * ToolPopoutView::pad();
+    const draw::Rect at{button.left - ToolPopoutView::pad(), button.bottom + scale(2), button.left - ToolPopoutView::pad() + w, button.bottom + scale(2) + h};
+    gToolPopout.open = true;
+    host->openWindow(from, gToolPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gToolPopout.open = false, gToolPopout.hot = -1; });
+}
+
 // --- The view -----------------------------------------------------------------------------------------------------
 class ToolStripView;
 extern ToolStripView* gStripInUse;  // the strip of the last mouse event (a dropdown of it opens there)
@@ -369,6 +457,7 @@ public:
         c.fill({0, 0, W, H}, kBg);
         hits_.clear();
         numbers_.clear();
+        groups_.clear();
         const int b = scale(30), gap = scale(4);
         int y = 0, x = 0;
         auto next = [&] {
@@ -427,8 +516,21 @@ public:
             const int key = stripToolKey(it);
             const draw::Rect r{x, y, x + b, y + b};
             iconButtonFace(c, r, it.icon, on, hot(square(r)));
-            addHit(square(r), [it] { pickStripTool(it); },
-                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXE"[key]) + L")" : std::wstring(it.tip));
+            // A group: a click on it while it is the tool goes to the next of its tools.
+            addHit(square(r), [it, on] {
+                if (it.members.empty() || !on) return pickStripTool(it);
+                for (size_t m = 0; m < it.members.size(); ++m)
+                    if (it.members[m].tool == it.tool) return pickStripTool(it.members[(m + 1) % it.members.size()]);
+            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXE"[key]) + L")" : std::wstring(it.tip)) +
+                   (it.members.empty() ? L"" : tr(L" Click again for the next tool of this button; the arrow or a right click lists them.")));
+            if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
+                const draw::Rect sq = square(r);
+                const int s = scale(5), cx = sq.right - scale(3), cy = sq.bottom - scale(3);
+                for (int j = 0; j < s; ++j) c.fill({cx - j, cy - j, cx + 1, cy - j + 1}, on ? kAccentBright : kDim);
+                const draw::Rect corner{sq.right - scale(11), sq.bottom - scale(11), sq.right, sq.bottom};
+                addHit(corner, [this, it, sq] { stripGroupPopout(it, *this, sq); }, tr(L"The tools of this button"));
+                groups_.push_back({sq, it});
+            }
             next();
         }
         if (x > 0) x = 0, y += b + gap;
@@ -693,11 +795,20 @@ public:
             return true;
         }
         case draw::MouseKind::Up: {
+            if (e.button == 1)  // a right click on a group's button: its tools
+                for (const auto& [rect, item] : groups_)
+                    if (rect.contains(e.pt)) {
+                        const StripItem copy = item;  // (the menu waits; the strip paints again meanwhile)
+                        return stripGroupPopout(copy, *this, rect), true;
+                    }
             if (e.button != 0 || pressed_ < 0) return false;
             const int k = pressed_;
             pressed_ = -1;
             if (draw::Host* h = host()) h->capture(*this, false);
-            if (indexAt(e.pt) == k && hits_[size_t(k)].click) hits_[size_t(k)].click();
+            if (indexAt(e.pt) == k && hits_[size_t(k)].click) {
+                const std::function<void()> click = hits_[size_t(k)].click;  // (a menu it opens waits: the strip paints again meanwhile)
+                click();
+            }
             return true;
         }
         case draw::MouseKind::Wheel: {  // over a number box: one step
@@ -769,6 +880,7 @@ private:
     std::vector<std::pair<draw::Rect, int>> numbers_;  // the number boxes (for the wheel)
     ItemFocus keys_;     // the part with the keyboard focus (an index into hits_)
     int editing_ = -1;   // the number box being typed into
+    std::vector<std::pair<draw::Rect, StripItem>> groups_;  // the group buttons as painted (a right click lists their tools)
     int pressed_ = -1;   // the hit the mouse is down on
     draw::Point hover_;  // the pointer, as last moved
     bool hovering_ = false;

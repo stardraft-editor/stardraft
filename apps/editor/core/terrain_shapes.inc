@@ -44,6 +44,35 @@ std::vector<std::pair<int, int>> shapePath() {
     return p;
 }
 
+// Rectangle and Ellipse: the outline of the box between the press and the mouse (its corners; an ellipse's points, 4
+// map pixels or more apart, 12 at least and 180 at most). Empty: the box has no width or no height.
+std::vector<std::pair<int, int>> shapeBoxPoints(int tool, const std::vector<std::pair<int, int>>& pts) {
+    if (pts.size() < 2) return {};
+    const auto [ax, ay] = pts.front();
+    const auto [bx, by] = pts.back();
+    const int l = std::min(ax, bx), r = std::max(ax, bx), t = std::min(ay, by), b = std::max(ay, by);
+    if (r - l < 2 || b - t < 2) return {};
+    if (tool == TRect || tool == TRectFill) return {{l, t}, {r, t}, {r, b}, {l, b}};
+    const double cx = (l + r) / 2.0, cy = (t + b) / 2.0, rx = (r - l) / 2.0, ry = (b - t) / 2.0;
+    const int n = std::clamp(int(6.2831853 * std::max(rx, ry) / 4), 12, 180);
+    std::vector<std::pair<int, int>> out;
+    for (int k = 0; k < n; ++k) {
+        const double a = 6.2831853 * k / n;
+        const std::pair<int, int> p{int(std::lround(cx + rx * std::cos(a))), int(std::lround(cy + ry * std::sin(a)))};
+        if (out.empty() || out.back() != p) out.push_back(p);
+    }
+    return out;
+}
+// The points the shape paints: a box's outline, else its own points.
+std::vector<std::pair<int, int>> shapeGeometry(const std::vector<std::pair<int, int>>& pts) {
+    return isBoxTool(gShape.tool) ? shapeBoxPoints(gShape.tool, pts) : pts;
+}
+// Shift (Rectangle, Ellipse): the box from `a` a square, as large as the mouse's farther side.
+std::pair<int, int> shapeSquare(std::pair<int, int> a, std::pair<int, int> p) {
+    const int dx = p.first - a.first, dy = p.second - a.second, d = std::max(std::abs(dx), std::abs(dy));
+    return {a.first + (dx < 0 ? -d : d), a.second + (dy < 0 ? -d : d)};
+}
+
 // The copy of the map that the Isometric previews paint (one for the program, as the resize preview's).
 Editor& shapeCopy(const GameData& data) {
     static std::unique_ptr<Editor> copy;
@@ -61,12 +90,20 @@ void shapeCopySettings(Editor& c, const Editor& ed) {
 }
 
 // Isometric: the shape painted on `e` with the terrain `t`. Line: the brush at most half its size apart along the line.
+// Rectangle and Ellipse: their outline's lines (filled: as a polygon).
 void shapeIsoPaint(Editor& e, int tool, const std::vector<std::pair<int, int>>& pts, uint16_t t, const Brush& brush) {
-    if (tool != TLine) {
+    if (!isStrokeShape(tool)) {
         e.fillTerrainPolygon(pts, t);
         return;
     }
-    e.paintTerrainLine(pts.front().first, pts.front().second, pts.back().first, pts.back().second, t, brush);
+    if (tool == TLine) return void(e.paintTerrainLine(pts.front().first, pts.front().second, pts.back().first, pts.back().second, t, brush));
+    e.beginStroke();  // (the outline's lines: one edit)
+    for (size_t i = 0; i < pts.size(); ++i) {
+        const auto& a = pts[i];
+        const auto& b = pts[(i + 1) % pts.size()];
+        e.paintTerrainLine(a.first, a.second, b.first, b.second, t, brush);
+    }
+    e.endStroke();
 }
 
 // The tiles from tile (x0, y0) to tile (x1, y1) on a straight line (each step one tile across or down, or both).
@@ -94,12 +131,17 @@ void shapeMakeTiles(const std::vector<std::pair<int, int>>& pts) {
     const Editor& ed = *app.ed;
     const int w = ed.width(), h = ed.height();
     std::set<std::pair<int, int>> tiles;  // Rectangle: the rects (rx, ry: tiles 2rx and 2rx + 1 of row ry)
-    if (gShape.tool == TLine) {
-        int ax, ay, bx, by;
-        tilesAt(float(pts.front().first), float(pts.front().second), ax, ay);
-        tilesAt(float(pts.back().first), float(pts.back().second), bx, by);
-        for (auto [x, y] : shapeLineTiles(ax, ay, bx, by))
-            for (const auto& c : gTiles->solid ? solidFootprint(x, y) : tilesFootprint(x, y)) tiles.insert(c);
+    if (isStrokeShape(gShape.tool)) {  // (Line: one line; Rectangle and Ellipse: the lines round them)
+        const size_t lines = gShape.tool == TLine ? 1 : pts.size();
+        for (size_t i = 0; i < lines; ++i) {
+            const auto& a = gShape.tool == TLine ? pts.front() : pts[i];
+            const auto& b = gShape.tool == TLine ? pts.back() : pts[(i + 1) % pts.size()];
+            int ax, ay, bx, by;
+            tilesAt(float(a.first), float(a.second), ax, ay);
+            tilesAt(float(b.first), float(b.second), bx, by);
+            for (auto [x, y] : shapeLineTiles(ax, ay, bx, by))
+                for (const auto& c : gTiles->solid ? solidFootprint(x, y) : tilesFootprint(x, y)) tiles.insert(c);
+        }
     } else {
         int left = INT_MAX, top = INT_MAX, right = INT_MIN, bottom = INT_MIN;
         for (const auto& [x, y] : pts) left = std::min(left, x), top = std::min(top, y), right = std::max(right, x), bottom = std::max(bottom, y);
@@ -158,8 +200,9 @@ void shapeUpdate(bool now = false) {
         return shellShapeLater(int(2 * cost));
     gShape.ghost.clear(), gShape.cells.clear(), gShape.copyHolds = false;
     gShape.madeFor = pts, gShape.madeKey = key, gShape.made = true;
-    if (pts.size() < (gShape.tool == TLine ? 2u : 3u)) return;
-    if (app.terrainRect) return shapeMakeTiles(pts);
+    const std::vector<std::pair<int, int>> geo = shapeGeometry(pts);
+    if (geo.size() < (gShape.tool == TLine ? 2u : 3u)) return;
+    if (app.terrainRect) return shapeMakeTiles(geo);
     Editor& c = shapeCopy(ed.gameData());
     std::string error;
     if (!c.openChk(ed.chk(), error)) {
@@ -167,7 +210,7 @@ void shapeUpdate(bool now = false) {
         return;
     }
     shapeCopySettings(c, ed);
-    shapeIsoPaint(c, gShape.tool, pts, uint16_t(app.palette), currentBrush(app));
+    shapeIsoPaint(c, gShape.tool, geo, uint16_t(app.palette), currentBrush(app));
     const std::vector<uint16_t>&a = ed.terrain().tiles, &b = c.terrain().tiles;
     if (a.size() == b.size())
         for (size_t i = 0; i < a.size(); ++i)
@@ -203,9 +246,11 @@ void shapeFinish() {
     const int tool = gShape.tool;
     gShape.hasHover = false;  // (Polygon: the clicked points only)
     std::vector<std::pair<int, int>> pts = gShape.points;
-    if (tool != TLine) pts.erase(std::unique(pts.begin(), pts.end()), pts.end());  // (a Line click: the brush at the point)
-    if (tool != TLine && pts.size() < 3) {
-        setMessage(tool == TPolygon ? L"Did not fill the polygon: a polygon has 3 points or more" : L"Did not fill the contour: draw a larger shape");
+    if (tool != TLine && !isBoxTool(tool)) pts.erase(std::unique(pts.begin(), pts.end()), pts.end());  // (a Line click: the brush at the point)
+    if (isBoxTool(tool) ? shapeBoxPoints(tool, pts).empty() : tool != TLine && pts.size() < 3) {
+        setMessage(isBoxTool(tool)       ? L"Did not paint the shape: drag a larger box"
+                   : tool == TPolygon    ? L"Did not fill the polygon: a polygon has 3 points or more"
+                                         : L"Did not fill the contour: draw a larger shape");
         shapeReset();
         app.dirty = true;
         return;
@@ -226,7 +271,9 @@ void shapeFinish() {
         if (ed.units().size() == unitCount)
             for (int u : units) ed.select(u, true);
         for (int l : locations) ed.addLocationSelection(l);
-        setMessage(tool == TLine ? L"Painted the line" : tool == TContour ? L"Filled the contour" : L"Filled the polygon");
+        setMessage(tool == TLine ? L"Painted the line" : tool == TContour ? L"Filled the contour" : tool == TPolygon ? L"Filled the polygon"
+                   : tool == TRect ? L"Painted the rectangle" : tool == TRectFill ? L"Filled the rectangle" : tool == TEllipse ? L"Painted the ellipse"
+                   : L"Filled the ellipse");
     }
     shapeReset();
     app.dirty = true;
@@ -263,9 +310,10 @@ void shapeMouseDown(float wx, float wy, bool snap) {
     shapeReset();
     gShape.tool = tool, gShape.ed = app.ed.get(), gShape.seed = app.spraySeed++;
     gShape.points = {p};
-    if (tool == TLine) gShape.points.push_back(p);
+    if (tool == TLine || isBoxTool(tool)) gShape.points.push_back(p);
     if (tool != TPolygon) app.drag = Drag::Shape;
     setMessage(tool == TLine      ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
+               : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square or a circle"
                : tool == TContour ? L"Contour: draw the shape, then release the button"
                                   : L"Polygon: click to add points. Double-click to close the polygon and fill it. Hold Shift to lock the angle. Esc stops the polygon.");
     shapeUpdate();
@@ -282,6 +330,8 @@ void shapeMouseMove(float wx, float wy, bool snap) {
         return;
     } else if (gShape.tool == TLine) {
         gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
+    } else if (isBoxTool(gShape.tool)) {
+        gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p) : p;
     } else {
         const auto& q = gShape.points.back();
         if (std::hypot(float(p.first - q.first), float(p.second - q.second)) * app.zoom < 6) return;
@@ -295,6 +345,7 @@ void shapeMouseUp(float wx, float wy, bool snap) {
     if (shapeOn()) {
         const std::pair<int, int> p{int(wx), int(wy)};
         if (gShape.tool == TLine) gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
+        else if (isBoxTool(gShape.tool)) gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p) : p;
         else if (gShape.points.back() != p) gShape.points.push_back(p);
     }
     shapeFinish();

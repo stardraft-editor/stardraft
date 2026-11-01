@@ -427,7 +427,7 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
 void shapeScene(render::Scene& s) {
     shapeUpdate();
     ghostTiles = gShape.ghost;
-    const std::vector<std::pair<int, int>> pts = shapePath();
+    const std::vector<std::pair<int, int>> pts = shapeGeometry(shapePath());  // (Rectangle, Ellipse: their outline)
     const size_t lines = pts.size() < 2 ? 0 : gShape.tool == TLine || pts.size() < 3 ? pts.size() - 1 : pts.size();
     for (size_t i = 0; i < lines; ++i) {
         const auto& a = pts[i];
@@ -820,7 +820,7 @@ render::Scene buildScene() {
     } else if (app.mode == Mode::Terrain && (app.palette > 0 || (currentTool() == TJumble && !app.terrainRect))) {  // (Jumble: no pick)
         // Brush footprint as diamonds: the outline of the diamonds whose four corners the brush sets, at
         // every symmetric position. A half-size brush sets a single corner; it shows a half diamond.
-        if (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine || currentTool() == TJumble) {
+        if (currentTool() == TBrush || currentTool() == TSpray || isStrokeShape(currentTool()) || currentTool() == TJumble) {
             std::set<std::pair<int, int>> set;
             for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
                 for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);
