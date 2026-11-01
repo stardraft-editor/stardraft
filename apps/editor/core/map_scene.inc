@@ -422,6 +422,26 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     return s.rects.size() - from;
 }
 
+// The shape under way (core/terrain_shapes.inc): its tiles over the terrain (ghostTiles), its lines between its points,
+// and Polygon's points.
+void shapeScene(render::Scene& s) {
+    shapeUpdate();
+    ghostTiles = gShape.ghost;
+    const std::vector<std::pair<int, int>> pts = shapePath();
+    const size_t lines = pts.size() < 2 ? 0 : gShape.tool == TLine || pts.size() < 3 ? pts.size() - 1 : pts.size();
+    for (size_t i = 0; i < lines; ++i) {
+        const auto& a = pts[i];
+        const auto& b = pts[(i + 1) % pts.size()];
+        render::RectDraw l;
+        l.x0 = float(a.first), l.y0 = float(a.second), l.x1 = float(b.first), l.y1 = float(b.second);
+        l.rgba = 0xFFFFFFF0u, l.thickness = 1.5f, l.line = true;
+        s.rects.push_back(l);
+    }
+    if (gShape.tool != TPolygon) return;
+    const float r = 3 / std::max(0.01f, shellState().zoom);  // (3 screen pixels)
+    for (const auto& [x, y] : gShape.points) s.rects.push_back({float(x) - r, float(y) - r, float(x) + r, float(y) + r, 0xFFFFFFF0u, true});
+}
+
 // A live game shows in place of the map's units and sprites while it runs (experimental: Tools > Simulate,
 // sdl_simulation.inc): it adds its images to the scene. nullptr: the map's own.
 void (*gLiveScene)(render::Scene& s) = nullptr;
@@ -780,6 +800,8 @@ render::Scene buildScene() {
                 s.sprites.push_back(g);
             }
         }
+    } else if (app.mode == Mode::Terrain && shapeOn()) {
+        shapeScene(s);
     } else if (app.mode == Mode::Terrain && app.terrainRect) {
         tilesScene(s, wx, wy);
     } else if (app.mode == Mode::Terrain && currentTool() == TSelect) {
@@ -793,7 +815,7 @@ render::Scene buildScene() {
     } else if (app.mode == Mode::Terrain && app.palette > 0) {
         // Brush footprint as diamonds: the outline of the diamonds whose four corners the brush sets, at
         // every symmetric position. A half-size brush sets a single corner; it shows a half diamond.
-        if (currentTool() == TBrush || currentTool() == TSpray) {
+        if (currentTool() == TBrush || currentTool() == TSpray || currentTool() == TLine) {
             std::set<std::pair<int, int>> set;
             for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
                 for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);

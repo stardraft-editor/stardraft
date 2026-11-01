@@ -307,12 +307,12 @@ void rebuildList(AppState& app) {
 // The tool strip (app.tool) shows the active mode's tools as icons: repaint it after the tool changes.
 void fillToolCombo(AppState& app) {
     shellToolsChanged();
-    // The terrain selection goes with a tool that does not use it (Brush, Spray); Fill and Replace work in it.
-    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray) && app.hasTerrainSel)
+    // The terrain selection goes with a tool that does not use it (Brush, Spray, Line, Contour, Polygon); Fill and Replace work in it.
+    if (const int t = app.toolByMode[int(Mode::Terrain)]; app.mode == Mode::Terrain && (t == TBrush || t == TSpray || isShapeTool(t)) && app.hasTerrainSel)
         app.hasTerrainSel = false, app.dirty = true;
     // The strip's rows follow the tool (size and density for the sprays): its height, and what is under it.
     static int lastRows = -1;
-    const int rows = int(app.mode) * 4 + app.toolByMode[int(app.mode)];
+    const int rows = int(app.mode) * 16 + app.toolByMode[int(app.mode)];
     if (shellViewShown() && rows != lastRows) lastRows = rows, shellRelayout();
     tilesSync();
 }
@@ -433,6 +433,10 @@ struct StripItem {
     int tool;     // the mode's tool it sets
     bool select;  // the Select button: the tool with nothing picked
 };
+// The Terrain shape tools' tips (core/terrain_shapes.inc), the same for each kind of terrain.
+constexpr const wchar_t* kLineTip = L"Line: drag from the start to the end of the line. The release paints the line, with the brush's size and shape.";
+constexpr const wchar_t* kContourTip = L"Contour: drag to draw a shape. The release closes the shape and fills it.";
+constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
 std::vector<StripItem> stripTools(Mode m) {
@@ -443,16 +447,19 @@ std::vector<StripItem> stripTools(Mode m) {
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).", TFill, false}};
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one).", TFill, false},
+                    {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
             return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, each tile of the brush gets one of the selected tiles at random.", TBrush, false},
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.", TSpray, false},
-                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.", TFill, false}};
+                    {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, each filled tile gets one of them at random.", TFill, false},
+                    {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
         return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Spray, L"Spray: random dabs of the terrain (Density). Hold the button to spray more.", TSpray, false},
-                {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false}};
+                {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one).", TFill, false},
+                {UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false}};
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
@@ -469,12 +476,16 @@ std::vector<StripItem> stripTools(Mode m) {
     }
     return {};
 }
-// The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; -1 none.
+// The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
+// 4 I line, 5 O contour, 6 P polygon; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
     if (it.icon == UiIcon::Fill) return 3;
     if (it.icon == UiIcon::Brush || it.icon == UiIcon::Add) return 1;
+    if (it.icon == UiIcon::Line) return 4;
+    if (it.icon == UiIcon::Contour) return 5;
+    if (it.icon == UiIcon::Polygon) return 6;
     return -1;
 }
 

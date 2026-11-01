@@ -2655,3 +2655,21 @@ Te&rrain tools	&Herramientas de terreno
 &Next\tCtrl+Alt+T	&Siguiente\tCtrl+Alt+T
 top left to bottom right	de arriba a la izquierda a abajo a la derecha
 top right to bottom left	de arriba a la derecha a abajo a la izquierda
+Line	Línea
+Contour	Contorno
+Polygon	Polígono
+Line: drag from the start to the end of the line. The release paints the line, with the brush's size and shape.	Línea: arrastre desde el inicio hasta el final de la línea. Al soltar el botón se pinta la línea, con el tamaño y la forma del pincel.
+Contour: drag to draw a shape. The release closes the shape and fills it.	Contorno: arrastre para dibujar una forma. Al soltar el botón la forma se cierra y se rellena.
+Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.	Polígono: haga clic para añadir puntos. Haga doble clic para cerrar el polígono y rellenarlo. Esc detiene el polígono.
+Could not paint the terrain. The map has no isometric terrain data.	No se pudo pintar el terreno. El mapa no tiene datos de terreno isométrico.
+Did not fill the polygon: a polygon has 3 points or more	No se rellenó el polígono: un polígono tiene 3 puntos o más
+Did not fill the contour: draw a larger shape	No se rellenó el contorno: dibuje una forma más grande
+The terrain is the same already	El terreno ya es el mismo
+Painted the line	Línea pintada
+Filled the contour	Contorno rellenado
+Filled the polygon	Polígono rellenado
+Line: release the button at the end of the line	Línea: suelte el botón al final de la línea
+Contour: draw the shape, then release the button	Contorno: dibuje la forma y después suelte el botón
+Stopped the line	Línea detenida
+Stopped the contour	Contorno detenido
+Stopped the polygon	Polígono detenido

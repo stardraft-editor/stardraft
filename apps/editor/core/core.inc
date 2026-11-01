@@ -26,6 +26,7 @@
 #include "views_stub.inc"
 #include "map_edit.inc"
 #include "tiles_edit.inc"
+#include "terrain_shapes.inc"  // Terrain's Line, Contour and Polygon: the shape, its preview and its end
 #include "panel_state.inc"  // each palette panel's own pick, tools, brush, player, mirrors, Isometric or Rectangle and tiles
 #include "path_overlay.inc"
 #include "map_input.inc"

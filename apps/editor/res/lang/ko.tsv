@@ -2685,3 +2685,21 @@ Te&rrain tools	지형 도구(&R)
 &Next\tCtrl+Alt+T	다음(&N)\tCtrl+Alt+T
 top left to bottom right	왼쪽 위에서 오른쪽 아래
 top right to bottom left	오른쪽 위에서 왼쪽 아래
+Line	선
+Contour	윤곽
+Polygon	다각형
+Line: drag from the start to the end of the line. The release paints the line, with the brush's size and shape.	선: 선의 시작점에서 끝점까지 드래그합니다. 버튼을 놓으면 브러시의 크기와 모양으로 선을 칠합니다.
+Contour: drag to draw a shape. The release closes the shape and fills it.	윤곽: 드래그하여 모양을 그립니다. 버튼을 놓으면 모양이 닫히고 채워집니다.
+Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.	다각형: 클릭하여 점을 추가합니다. 더블클릭하면 다각형이 닫히고 채워집니다. Esc는 다각형을 멈춥니다.
+Could not paint the terrain. The map has no isometric terrain data.	지형을 칠할 수 없습니다. 맵에 아이소메트릭 지형 데이터가 없습니다.
+Did not fill the polygon: a polygon has 3 points or more	다각형을 채우지 않았습니다: 다각형은 점이 3개 이상 필요합니다
+Did not fill the contour: draw a larger shape	윤곽을 채우지 않았습니다: 더 큰 모양을 그리십시오
+The terrain is the same already	지형이 이미 같습니다
+Painted the line	선을 칠했습니다
+Filled the contour	윤곽을 채웠습니다
+Filled the polygon	다각형을 채웠습니다
+Line: release the button at the end of the line	선: 선의 끝에서 버튼을 놓으십시오
+Contour: draw the shape, then release the button	윤곽: 모양을 그린 다음 버튼을 놓으십시오
+Stopped the line	선을 멈췄습니다
+Stopped the contour	윤곽을 멈췄습니다
+Stopped the polygon	다각형을 멈췄습니다

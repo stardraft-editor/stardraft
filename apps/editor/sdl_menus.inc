@@ -296,6 +296,7 @@ bool sdlRuns(int id) {
     }
     if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) return true;  // the keys 1 to 0 and = (player 12)
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
+    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 3) return true;  // I, O, P
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
@@ -313,7 +314,7 @@ bool simBarShown();  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
     return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
-           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
+           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 3) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
 }
 
@@ -909,6 +910,8 @@ bool sdlShotInputNext() {
 // runs its item n (its items go to the output, as --rclick's: sdlMenuShot).
 // The points are the main window's, as a user's mouse is on the screen: a pop-out that an input opened takes the
 // events when the first point is on it, and a press outside it closes it; a dialog takes them in its own pixels.
+// A drag can go on through more points: x0,y0-x1,y1-x2,y2... (the mouse moves to each in turn, in steps). Hold in a
+// drag's mods: the button does not go up (the press goes on: a preview that shows while the button is held).
 // --move x,y: only the mouse comes to the point (no button): a paste's copy follows it there. --lostdrag
 // x0,y0-x1,y1[:mods]: a drag, but the window loses the focus (Alt+Tab) before the button goes up, and the release does
 // not come (SDL_EVENT_WINDOW_FOCUS_LOST): the press ends there. `kind`: 'c', 'd', 'l' or 'm'.
@@ -919,6 +922,19 @@ void sdlMouseShot(const std::string& spec, char kind) {
     const std::string at = spec.substr(0, colon), mods = colon == std::string::npos ? "" : spec.substr(colon + 1);
     int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     int got = drag ? std::sscanf(at.c_str(), "%d,%d-%d,%d", &x0, &y0, &x1, &y1) : std::sscanf(at.c_str(), "%d,%d", &x0, &y0);
+    std::vector<std::pair<int, int>> via;  // a drag's points after the first (x1, y1: the last)
+    if (drag && got == 4) {
+        std::vector<std::string> parts{""};  // (a '-' after a digit separates two points; else it is a minus sign)
+        for (size_t i = 0; i < at.size(); ++i)
+            if (at[i] == '-' && i > 0 && std::isdigit(static_cast<unsigned char>(at[i - 1]))) parts.emplace_back();
+            else parts.back() += at[i];
+        for (size_t k = 1; k < parts.size(); ++k) {
+            int px = 0, py = 0;
+            if (std::sscanf(parts[k].c_str(), "%d,%d", &px, &py) != 2) got = 0;
+            else via.push_back({px, py});
+        }
+        if (!via.empty()) x1 = via.back().first, y1 = via.back().second;
+    }
     if (!drag && at.rfind("tile", 0) == 0 && gRoot && gHost) {  // tile<k>: the middle of the Tiles list's k-th slot
         gHost->snapshotLayout(*gRoot);
         if (tilesSlotCenter(std::atoi(at.c_str() + 4), x0, y0)) got = 2;
@@ -933,7 +949,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
         return void(std::fprintf(stderr, "--%s%s: not %s[:mods]\n", name.c_str(), spec.c_str(), drag ? "x0,y0-x1,y1" : "x,y"));
     if (!drag) x1 = x0, y1 = y0;
     SDL_Keymod held = SDL_KMOD_NONE;
-    bool twice = false, undoHalfway = false, right = false, middle = false;
+    bool twice = false, undoHalfway = false, right = false, middle = false, hold = false;
     int repeat = 1, menuPick = -2;
     Uint8 firstClicks = 1;
     std::stringstream in(mods);
@@ -949,10 +965,11 @@ void sdlMouseShot(const std::string& spec, char kind) {
         else if (m == "Quick" && !drag && !moveOnly) firstClicks = 2;
         else if (m.rfind("Repeat", 0) == 0 && m.size() > 6 && !drag && !moveOnly) repeat = std::clamp(std::atoi(m.c_str() + 6), 1, 100);
         else if (m == "Undo" && drag) undoHalfway = true;
+        else if (m == "Hold" && drag && !lost) hold = true;
         else if (m == "Right" && !drag && !moveOnly) right = true;
         else if (m == "Middle" && !drag && !moveOnly) middle = true;
         else if (m.rfind("Menu", 0) == 0 && m.size() > 4 && !drag && !moveOnly) right = true, menuPick = std::atoi(m.c_str() + 4);
-        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Middle, Menu<n> or Undo\n", name.c_str(), spec.c_str(), m.c_str()));
+        else return void(std::fprintf(stderr, "--%s%s: %s is not Shift, Ctrl, Alt, Double, Quick, Repeat<n>, Right, Middle, Menu<n>, Undo or Hold\n", name.c_str(), spec.c_str(), m.c_str()));
     }
     std::vector<SDL_Event> events;
     float px = float(x0), py = float(y0);
@@ -975,8 +992,11 @@ void sdlMouseShot(const std::string& spec, char kind) {
     if (!moveOnly) {
         button(true, float(x0), float(y0), firstClicks);
         if (drag)
-            for (int i = 1; i <= 10; ++i) {
-                move(float(x0) + float(x1 - x0) * float(i) / 10, float(y0) + float(y1 - y0) * float(i) / 10, true);
+            for (int i = 1; i <= 10 * int(via.size()); ++i) {  // (10 steps to each point)
+                const auto [ax, ay] = i <= 10 ? std::pair<int, int>{x0, y0} : via[size_t((i - 1) / 10 - 1)];
+                const auto [bx, by] = via[size_t((i - 1) / 10)];
+                const float f = float((i - 1) % 10 + 1) / 10;
+                move(float(ax) + float(bx - ax) * f, float(ay) + float(by - ay) * f, true);
                 if (i == 5 && undoHalfway)
                     for (const bool down : {true, false}) {
                         SDL_Event k{};
@@ -994,7 +1014,7 @@ void sdlMouseShot(const std::string& spec, char kind) {
             SDL_Event e{};
             e.type = SDL_EVENT_WINDOW_FOCUS_LOST;
             events.push_back(e);
-        } else {
+        } else if (!hold) {
             button(false, float(x1), float(y1), firstClicks);
         }
         if (twice) button(true, float(x0), float(y0), 2), button(false, float(x0), float(y0), 2);

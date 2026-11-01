@@ -241,6 +241,9 @@ std::string shotMapState() {
     // rows as it shows them (# a group, ## a sub-group, then the items), and whether the panel shows the list.
     static const char* const kKinds[kTerrainKinds] = {"iso", "rect", "custom", "solid"};
     s += std::string(" kind=") + kKinds[terrainKind()] + " tselcount=" + std::to_string(terrainSelTiles().size());
+    // Terrain's shape under way (core/terrain_shapes.inc): its tool, points and the tiles that its preview changes.
+    s += " shape=" + std::string(gShape.tool == TLine ? "line" : gShape.tool == TContour ? "contour" : gShape.tool == TPolygon ? "polygon" : "none") + "/" +
+         std::to_string(gShape.points.size()) + "/" + std::to_string(gShape.ghost.size());
     if (gHistBox[0] >= 0 || gHistBox[0] == -2) {
         const bool around = gHistBox[0] == -2;
         const int x0 = around ? tx - gHistBox[1] : gHistBox[0], y0 = around ? ty - gHistBox[2] : gHistBox[1];

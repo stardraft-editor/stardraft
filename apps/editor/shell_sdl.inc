@@ -56,6 +56,17 @@ void shellSprayTimer(bool on) {
         gSprayTimerId = 0;
     }
 }
+// Terrain's shape preview made again later (core/terrain_shapes.inc: shapeUpdate waits after a preview that took long).
+int gShapeTimerId = 0;
+void invalidateMapView();
+void shellShapeLater(int ms) {
+    if (gShapeTimerId || !gHost) return;
+    gShapeTimerId = gHost->timer(ms, [] {
+        gShapeTimerId = 0;
+        shapeUpdate();
+        invalidateMapView();
+    });
+}
 void shellTrackMouseLeave() {}  // (the host sends the leave of a view that the mouse leaves)
 bool shellCtrlOrShiftDown() { return (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_SHIFT | SDL_KMOD_GUI)) != 0; }  // (Cmd: macOS's Ctrl)
 bool shellClearFilter() {  // the Locations filter is cleared (the Win32 filter's own rule: it is always there)

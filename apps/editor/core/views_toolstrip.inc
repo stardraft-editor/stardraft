@@ -214,6 +214,7 @@ void pickStripTool(const StripItem& it) {
         app.terrainPasting = false;
         fillToolCombo(app);  // the strip's rows (size, density) follow the tool
         if (app.palette < 0 && app.mode != Mode::Terrain) setMessage(L"Select what to place in the list");
+        if (app.mode == Mode::Terrain && isShapeTool(it.tool)) setMessage(it.tip);  // (Line, Contour, Polygon: how they work)
         updateStatus();
     }
     shellToolsChanged();
@@ -412,7 +413,7 @@ public:
             const draw::Rect r{x, y, x + b, y + b};
             iconButtonFace(c, r, it.icon, on, hot(square(r)));
             addHit(square(r), [it] { pickStripTool(it); },
-                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAF"[key]) + L")" : std::wstring(it.tip));
+                   key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOP"[key]) + L")" : std::wstring(it.tip));
             next();
         }
         if (x > 0) x = 0, y += b + gap;

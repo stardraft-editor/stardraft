@@ -3892,6 +3892,27 @@ CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--che
 CASES += [("map-isom-select-combine", ["--mode", "terrain", "--key", "V", "--drag", "520,640-600,700", "--drag", "700,640-780,700:Shift",
                                        "--drag", "520,640-560,700:Ctrl"], "map")]
 CASES += [("map-terrain-kind-key", ["--mode", "units", "--key", "Ctrl+Alt+T", "--key", "T"] + ["--key", "Ctrl+Alt+T"] * 3, "map")]
+# Terrain's shape tools (core/terrain_shapes.inc) with Solar Array (the palette at 202,759) on open ground: Line (I), a
+# drag from the start to the end; Contour (O), a drag round a shape; Polygon (P), clicks and a double click. The
+# previews (the button held: Hold; Polygon: the mouse at the next point) show the terrain over the map, which does not
+# change until the release or the double click (--wait: a slow preview is made again after a time); then the map has it,
+# one undo step. Esc stops a polygon with no change. Tile: the Line with a tile of the Tiles list.
+SHAPE_LINE = "480,610-700,740"
+SHAPE_CONTOUR = "500,610-660,620-690,700-600,760-500,720-500,630"
+SHAPE_POLY = ["--click", "500,610", "--click", "680,630", "--click", "660,750"]
+CASES += [("map-shape-line-preview", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--drag", SHAPE_LINE + ":Hold", "--wait", "200"], "map"),
+          ("map-shape-line", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--drag", SHAPE_LINE], "map"),
+          ("map-shape-line-undo", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--drag", SHAPE_LINE, "--key", "Ctrl+Z"], "map"),
+          ("map-shape-contour-preview", ["--mode", "terrain", "--click", "202,759", "--key", "O", "--drag", SHAPE_CONTOUR + ":Hold", "--wait", "200"], "map"),
+          ("map-shape-contour", ["--mode", "terrain", "--click", "202,759", "--key", "O", "--drag", SHAPE_CONTOUR], "map"),
+          ("map-shape-polygon-preview", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY + ["--move", "510,730"], "map"),
+          ("map-shape-polygon", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY + ["--click", "510,730:Double"], "map"),
+          ("map-shape-polygon-esc", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY + ["--move", "510,730", "--key", "Esc"], "map"),
+          ("map-shape-tile-line", ["--rect", "--click", "tile16", "--key", "I", "--drag", SHAPE_LINE], "map"),
+          # A Line click paints the brush at the point; a polygon under way goes when the mode changes (U, then T).
+          ("map-shape-line-click", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--click", "560,690"], "map"),
+          ("map-shape-polygon-mode", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY[:4] +
+           ["--key", "U", "--key", "T", "--click", "660,750"], "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
@@ -4052,6 +4073,33 @@ def check_isom_select_combine(output):
     if not 0 < removed < added:
         return f"Ctrl+drag left {removed} of {added} tiles"
     return None
+
+
+def shape_check(tool, preview, inputs, first=1, undo=False, cancel=False, message=None):
+    """A check of a shape case: `inputs` inputs, the shape tool picked by input `first`. A preview: the last state has the
+    shape under way with tiles, and the map as it was. Else the map changed (and `message` is in the output), with no
+    shape left; with `undo`, Undo then took the change back; with `cancel`, Esc stopped the shape with no change."""
+    def check(output):
+        def shape(st):
+            return st.get("shape", "").split("/")
+        rules = [("the key did not pick the tool", lambda s: s[first]["tool"] == str({"line": 5, "contour": 6, "polygon": 7}[tool]))]
+        if preview:
+            rules += [("no shape under way with tiles", lambda s: shape(s[-1])[0] == tool and int(shape(s[-1])[2]) > 0),
+                      ("the map changed before the end", lambda s: s[-1]["terrain"] == s[first]["terrain"])]
+        elif cancel:
+            rules += [("the shape had no tiles before Esc", lambda s: int(shape(s[-2])[2]) > 0),
+                      ("Esc left the shape or changed the map", lambda s: shape(s[-1])[0] == "none" and s[-1]["terrain"] == s[first]["terrain"]),
+                      ("Esc did not say it stopped", lambda s: "Stopped the " + tool in output)]
+        else:
+            end = -2 if undo else -1
+            rules += [("the shape did not change the map", lambda s: s[end]["terrain"] != s[first]["terrain"]),
+                      ("a shape is left after the end", lambda s: shape(s[end])[0] == "none")]
+            if message:
+                rules.append((f"no \"{message}\" message", lambda s: message in output))
+            if undo:
+                rules.append(("one Undo did not take the shape back", lambda s: s[-1]["terrain"] == s[first]["terrain"]))
+        return expect(output, inputs, rules)
+    return check
 
 
 def check_terrain_kind_key(output):
@@ -4718,6 +4766,16 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
           "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key, "map-isom-select-combine": check_isom_select_combine,
+          "map-shape-line-preview": shape_check("line", True, 4), "map-shape-line": shape_check("line", False, 3, message="Painted the line"),
+          "map-shape-line-undo": shape_check("line", False, 4, undo=True),
+          "map-shape-contour-preview": shape_check("contour", True, 4), "map-shape-contour": shape_check("contour", False, 3, message="Filled the contour"),
+          "map-shape-polygon-preview": shape_check("polygon", True, 6), "map-shape-polygon": shape_check("polygon", False, 6, message="Filled the polygon"),
+          "map-shape-polygon-esc": shape_check("polygon", False, 7, cancel=True),
+          "map-shape-tile-line": shape_check("line", False, 3, message="Placed"),
+          "map-shape-line-click": shape_check("line", False, 3, message="Painted the line"),
+          "map-shape-polygon-mode": lambda output: expect(output, 7, [
+              ("the polygon had no 2 points before the mode changed", lambda s: s[3]["shape"].startswith("polygon/2/")),
+              ("the polygon went on after the mode changed", lambda s: s[6]["shape"].startswith("polygon/1/") and s[6]["terrain"] == s[1]["terrain"])]),
           "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group, "data-flags-decimal": check_flags_decimal,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),

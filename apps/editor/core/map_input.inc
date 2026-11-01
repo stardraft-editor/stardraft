@@ -328,6 +328,10 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         break;
     }
     case Mode::Terrain: {
+        if (isShapeTool(currentTool(app)) && !(ctrl && !gTiles->stamps)) {  // Line, Contour, Polygon (Ctrl+click picks the terrain or tile, below)
+            shapeMouseDown(wx, wy);
+            break;
+        }
         // Rectangle: tiles as they are, no ISOM needed. (Solid's Ctrl+click picks the terrain, as Isometric's below.)
         if (app.terrainRect && !(gTiles->solid && ctrl && currentTool(app) != TSelect)) {
             tilesMouseDown(wx, wy, mods);
@@ -546,6 +550,7 @@ void mapMouseMove(AppState& app, int sx, int sy) {
         gPaintX = wx, gPaintY = wy;
     }
     if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);
+    if (app.mode == Mode::Terrain && gShape.tool >= 0) shapeMouseMove(wx, wy);
     if (app.drag == Drag::Spray && app.ed && std::hypot(sx - app.lastSprayX, sy - app.lastSprayY) > std::max(12.0, sprayRadius() * app.zoom * 0.5)) {
         app.lastSprayX = sx, app.lastSprayY = sy;
         app.sprayPlaced += sprayAt(wx, wy);  // along the path
@@ -665,6 +670,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             setMessage(app, L"Sprayed " + std::to_wstring(app.sprayPlaced) + (app.mode == Mode::Units ? L" units" : app.mode == Mode::Doodads ? L" doodads" : L" sprites"));
         break;
     case Drag::Tiles: tilesMouseUp(wx, wy); break;
+    case Drag::Shape: shapeMouseUp(wx, wy); break;
     case Drag::TerrainSelect: {
         // (Rectangle: a Ctrl+click on a tile that is not selected picks it, as with the Brush: the Tiles list shows it,
         // and the Brush places it; Custom and Solid: their list has no tiles)
@@ -800,6 +806,7 @@ void trigCancelUnitPick();
 // a stroke ended (the host lets the mouse go).
 bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
+    if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
     if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint)) {
         sprayHoldStop();

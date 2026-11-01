@@ -119,6 +119,7 @@ void showLocationEdit(int loc) {
 // opens one (after the click's event: the dialog's loop does not run inside the map's mouse event).
 bool mapDoubleClickSdl(int x, int y) {
     if (!gState.ed || !gState.ed->isOpen()) return false;
+    if (shapeDoubleClick()) return true;  // (Terrain's Polygon: it closes and is filled)
     float wx, wy;
     toWorld(x, y, wx, wy);
     Editor& ed = *gState.ed;

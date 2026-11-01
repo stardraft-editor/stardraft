@@ -122,6 +122,7 @@ void activateDoc(int i) {
     AppState& app = shellState();
     if (i < 0 || i >= int(gDocs.size()) || (i == gActive && app.ed)) return;
     stashActive();
+    shapeReset();  // (Terrain's shape under way is the other map's)
     gActive = i;
     Doc& d = gDocs[size_t(i)];
     app.ed = std::move(d.ed);

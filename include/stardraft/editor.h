@@ -174,6 +174,10 @@ public:
     bool brushAllTerrain(int px, int py, const Brush& brush, uint16_t terrain) const;
     void sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, int dabs, uint32_t seed);
     bool fillTerrain(int px, int py, uint16_t terrain);
+    // The ISOM corners inside the polygon `points` (map pixels; the last point joins the first) get the terrain, at every
+    // symmetric position, and the terrain around them is fitted to it (as the brush's). One undo step, or part of an
+    // open stroke. False: no corner is inside, or nothing changed.
+    bool fillTerrainPolygon(const std::vector<std::pair<int, int>>& points, uint16_t terrain);
     int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
     // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'

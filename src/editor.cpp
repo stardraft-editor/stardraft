@@ -2086,6 +2086,41 @@ bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     return true;
 }
 
+bool Editor::fillTerrainPolygon(const std::vector<std::pair<int, int>>& points, uint16_t terrain) {
+    if (!isomOk_ || points.size() < 3) return false;
+    int left = INT_MAX, top = INT_MAX, right = INT_MIN, bottom = INT_MIN;
+    double sx = 0, sy = 0;
+    for (const auto& [x, y] : points) left = std::min(left, x), top = std::min(top, y), right = std::max(right, x), bottom = std::max(bottom, y), sx += x, sy += y;
+    auto inside = [&](double px, double py) {  // (even-odd)
+        bool in = false;
+        for (size_t i = 0, j = points.size() - 1; i < points.size(); j = i++) {
+            const double xi = points[i].first, yi = points[i].second, xj = points[j].first, yj = points[j].second;
+            if ((yi > py) != (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) in = !in;
+        }
+        return in;
+    };
+    terrain = brushTerrain(int(sx / double(points.size())), int(sy / double(points.size())), terrain);
+    std::set<std::pair<int, int>> taken;
+    std::vector<CornerValue> corners;
+    for (int y = int(std::floor(top / 32.0)); y <= int(std::ceil(bottom / 32.0)); ++y)
+        for (int x = int(std::floor(left / 64.0)); x <= int(std::ceil(right / 64.0)); ++x) {
+            if (!isom_.isCorner(x, y) || !inside(x * 64.0, y * 32.0)) continue;
+            for (auto [px, py] : symmetricPoints(x * 64, y * 32)) {
+                int cx, cy;
+                isom_.cornerAtPixel(px, py, cx, cy);
+                if (isom_.isCorner(cx, cy) && taken.insert({cx, cy}).second) corners.push_back({cx, cy, terrain});
+            }
+        }
+    if (corners.empty()) return false;
+    const bool own = !inStroke_;
+    if (own) beginEdit();
+    if (!applyTerrain(corners, true)) {
+        if (own) dropLastUndo();  // nothing changed
+        return false;
+    }
+    return true;
+}
+
 int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int areaShape) {
     if (!isomOk_ || from == to) return 0;
     Rect r = area ? area->normalized() : Rect{-64, -32, width_ * 32 + 64, height_ * 32 + 64};

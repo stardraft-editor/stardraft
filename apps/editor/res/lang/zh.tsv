@@ -2655,3 +2655,21 @@ Te&rrain tools	地形工具(&R)
 &Next\tCtrl+Alt+T	下一个(&N)\tCtrl+Alt+T
 top left to bottom right	左上到右下
 top right to bottom left	右上到左下
+Line	直线
+Contour	轮廓
+Polygon	多边形
+Line: drag from the start to the end of the line. The release paints the line, with the brush's size and shape.	直线：从线的起点拖动到终点。松开按钮后，按画笔的大小和形状绘制直线。
+Contour: drag to draw a shape. The release closes the shape and fills it.	轮廓：拖动以绘制形状。松开按钮后，形状闭合并被填充。
+Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.	多边形：单击以添加点。双击闭合多边形并填充。按 Esc 停止多边形。
+Could not paint the terrain. The map has no isometric terrain data.	无法绘制地形。地图没有等距地形数据。
+Did not fill the polygon: a polygon has 3 points or more	未填充多边形：多边形需要 3 个或更多点
+Did not fill the contour: draw a larger shape	未填充轮廓：请绘制更大的形状
+The terrain is the same already	地形已经相同
+Painted the line	已绘制直线
+Filled the contour	已填充轮廓
+Filled the polygon	已填充多边形
+Line: release the button at the end of the line	直线：在线的终点松开按钮
+Contour: draw the shape, then release the button	轮廓：绘制形状，然后松开按钮
+Stopped the line	已停止直线
+Stopped the contour	已停止轮廓
+Stopped the polygon	已停止多边形
