@@ -15,6 +15,7 @@ const char* sdlCursorName(draw::Cursor c) {
     case draw::Cursor::SizeNESW: return "diagonal (top right)";
     case draw::Cursor::No: return "no";
     case draw::Cursor::Wait: return "wait";
+    case draw::Cursor::Fill: return "fill";
     default: return "arrow";
     }
 }
@@ -76,6 +77,26 @@ void sdlCursorChecks() {
         } else {
             std::printf("cursor: the map has fewer than two units: the unit cursors are not checked\n");
         }
+        // Fill (Units, then Terrain): the paint bucket over the map when a click fills (a pick in the list), else the arrow.
+        const float mx = ed.width() * 16.0f, my = ed.height() * 16.0f;
+        gState.toolByMode[int(Mode::Units)] = UFill;
+        report("the map with Units' Fill and no unit picked", atWorld(mx, my), draw::Cursor::Arrow);
+        gState.palette = 0;
+        report("the map with Units' Fill", atWorld(mx, my), draw::Cursor::Fill);
+        gState.palette = -1, gState.toolByMode[int(Mode::Units)] = UPlace;
+        setMode(Mode::Terrain);
+        gRoot->relayout();
+        const int terrainTool = gState.toolByMode[int(Mode::Terrain)], terrainPick = gState.palette;
+        gState.toolByMode[int(Mode::Terrain)] = TFill;
+        if (!gState.terrainRect && ed.canPaintTerrain()) {
+            gState.palette = 2;
+            report("the map with Terrain's Fill", atWorld(mx, my), draw::Cursor::Fill);
+        } else {
+            std::printf("cursor: the map has no isometric terrain data: Terrain's Fill is not checked\n");
+        }
+        gState.palette = terrainPick, gState.toolByMode[int(Mode::Terrain)] = terrainTool;
+        setMode(Mode::Units);
+        gRoot->relayout();
     }
     // A kit view: the palette's search field (shown in Units mode, and with no map: the start page has none).
     kit::TextField& field = gSearchSdl.field();

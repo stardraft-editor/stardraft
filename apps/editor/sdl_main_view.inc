@@ -316,7 +316,9 @@ struct MapView final : draw::View {
     // the resize cursors on the selected location's edges and corners), as the Windows map view's mapCursorAt.
     draw::Cursor cursor(draw::Point pt) override {
         if (panning) return draw::Cursor::SizeAll;
-        return open() ? mapCursorAt(gState, pt.x, pt.y) : draw::Cursor::Arrow;
+        if (!open()) return draw::Cursor::Arrow;
+        const draw::Cursor c = mapCursorAt(gState, pt.x, pt.y);
+        return c == draw::Cursor::Fill && simBarShown() ? draw::Cursor::Arrow : c;  // (a live game: left clicks do not fill)
     }
     // Each frame (drawMapOfRoot): Pan map moves the camera toward the mouse (core/map_input.inc). `dt`: the seconds
     // since the last step (a test gives them; else the clock's).

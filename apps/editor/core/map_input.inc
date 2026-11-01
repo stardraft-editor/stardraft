@@ -810,11 +810,24 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
 
 // The map view's cursor at a point of the view (both programs): the resize cursors on the selected location's edges and
 // corners (GitHub feedback #76), the move cursor while the camera moves and over a selected unit, doodad or sprite that
-// a press would move (and during that move), else the arrow.
+// a press would move (and during that move), the paint bucket while a click would fill (fillClickFills), else the arrow.
 bool trigUnitPickActive();
+// A Fill tool is on and a click on the map fills: Units' and Doodads' with a pick in the list (or Ctrl+click picks),
+// Terrain's with a pick (Rectangle: the list's; Isometric: a terrain, and the map has isometric data); the mode's layer
+// shown; nothing pasting or picking.
+bool fillClickFills(AppState& app) {
+    if (app.drag != Drag::None || !app.ed || !app.ed->isOpen() || app.pasting || app.pastingItems || trigUnitPickActive() ||
+        modeLayerHidden())
+        return false;
+    if (app.mode == Mode::Units) return currentTool() == UFill && !selectedPalette().empty();
+    if (app.mode == Mode::Doodads) return currentTool() == DFill && !selectedPalette().empty();
+    if (app.mode != Mode::Terrain || currentTool() != TFill) return false;
+    return app.terrainRect ? tilesHavePick() : app.ed->canPaintTerrain() && app.palette > 0;
+}
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return Cursor::SizeAll;
+    if (fillClickFills(app)) return Cursor::Fill;
     if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Over one that is not selected: the arrow (a click selects it).
         if (app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite) return Cursor::SizeAll;

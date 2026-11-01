@@ -52,6 +52,7 @@ struct Atlas {
 };
 std::vector<Atlas> gAtlases;
 SDL_GPUDevice* gAtlasDevice = nullptr;
+std::string gAtlasDir;  // (loadIconAtlases: iconCursorSurface reads the atlases from there again)
 
 // The program's own pictures (loadResourceIcon): {id, 0} keeps the source pixels; {id, px} a texture made at px.
 struct ResourceIcon {
@@ -737,7 +738,7 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 
 bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir) {
     unloadIconAtlases();
-    gAtlasDevice = device;
+    gAtlasDevice = device, gAtlasDir = dir;
     for (int size : {16, 20, 24, 32, 40, 48, 64}) {
         const std::vector<unsigned char> file = readFile(dir + "atlas-" + std::to_string(size) + ".png");
         if (file.empty()) continue;
@@ -759,6 +760,31 @@ void unloadIconAtlases() {
     for (auto& [key, r] : gResourceIcons)
         if (gAtlasDevice && r.tex) SDL_ReleaseGPUTexture(gAtlasDevice, r.tex);
     gResourceIcons.clear();
+}
+
+SDL_Surface* iconCursorSurface(int icon, int size) {
+    const std::vector<unsigned char> file = readFile(gAtlasDir + "atlas-" + std::to_string(size) + ".png");
+    int w = 0, h = 0, n = 0;
+    unsigned char* px = file.empty() ? nullptr : stbi_load_from_memory(file.data(), int(file.size()), &w, &h, &n, 4);
+    if (!px) return nullptr;
+    if ((icon + 1) * size > w || h < size) return stbi_image_free(px), nullptr;
+    SDL_Surface* s = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA32);
+    if (s) {
+        auto alpha = [&](int x, int y) { return x < 0 || y < 0 || x >= size || y >= size ? 0 : int(px[(size_t(y) * w + size_t(icon) * size + x) * 4 + 3]); };
+        for (int y = 0; y < size; ++y) {
+            auto* row = static_cast<unsigned char*>(s->pixels) + size_t(y) * s->pitch;
+            for (int x = 0; x < size; ++x) {
+                int edge = 0;  // (the white edge: the most of the shape within a pixel around)
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx) edge = std::max(edge, alpha(x + dx, y + dy));
+                const int v = 255 - alpha(x, y);  // (black where the shape is, white in its edge; straight alpha)
+                row[x * 4] = row[x * 4 + 1] = row[x * 4 + 2] = (unsigned char)v;
+                row[x * 4 + 3] = (unsigned char)edge;
+            }
+        }
+    }
+    stbi_image_free(px);
+    return s;
 }
 
 bool loadResourceIcon(int id, const std::string& file) {

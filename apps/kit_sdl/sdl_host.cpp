@@ -1366,6 +1366,17 @@ Point SdlHost::mouse(const draw::View& v) const {
 
 void SdlHost::setCursor(Cursor c) {
     SDL_Cursor*& cur = cursors_[int(c)];
+    if (!cur && c == Cursor::Fill) {
+        // The Fill icon (UiIcon::Fill = 14): 32 x 32 points, with the 48 and 64 pixel pictures for the larger scales (SDL
+        // picks the one of each display). Its hot spot: the drop's tip.
+        SDL_SetHint(SDL_HINT_MOUSE_DPI_SCALE_CURSORS, "1");
+        if (SDL_Surface* pic = kit_sdl::iconCursorSurface(14, 32)) {
+            for (int size : {48, 64})
+                if (SDL_Surface* big = kit_sdl::iconCursorSurface(14, size)) SDL_AddSurfaceAlternateImage(pic, big), SDL_DestroySurface(big);
+            cur = SDL_CreateColorCursor(pic, 27, 28);
+            SDL_DestroySurface(pic);
+        }
+    }
     if (!cur) cur = SDL_CreateSystemCursor(systemCursor(c));
     if (cur) SDL_SetCursor(cur);
 }
