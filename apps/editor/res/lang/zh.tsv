@@ -2695,3 +2695,5 @@ Fill: click a place to put units of the selected kinds at random on the connecte
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	填充：点击一个位置，在该地形相连的地面上随机放置所选类型的装饰物，仅放在能容纳的地方（密度：数量）。
 Mix	混合
 Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	混合：选择多个地形或图块时，填充放置色块的大小，从 1（大色块）到 10（最小：每个图块随机；等距：2 个菱形）。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+New floating 	新建浮动
+ panel	面板

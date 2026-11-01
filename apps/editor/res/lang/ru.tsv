@@ -2695,3 +2695,5 @@ Fill: click a place to put units of the selected kinds at random on the connecte
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	Заливка: щёлкните место, чтобы поставить декорации выбранных видов случайно на связанной земле её местности, где они помещаются (Плотность: сколько).
 Mix	Смесь
 Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	Смесь: если выбрано несколько местностей или тайлов, как Заливка ставит их пятнами, от 1 (большие пятна) до 10 (самые мелкие: каждый тайл случайно; изометрия: 2 ромба). Щёлкните, чтобы ввести число. - и + и колесо мыши меняют его.
+New floating 	Новая плавающая панель (
+ panel	)

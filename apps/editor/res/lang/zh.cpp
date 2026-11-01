@@ -2697,6 +2697,8 @@ constexpr UiText kRows[] = {
     {L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", L"\u586B\u5145\uFF1A\u70B9\u51FB\u4E00\u4E2A\u4F4D\u7F6E\uFF0C\u5728\u8BE5\u5730\u5F62\u76F8\u8FDE\u7684\u5730\u9762\u4E0A\u968F\u673A\u653E\u7F6E\u6240\u9009\u7C7B\u578B\u7684\u88C5\u9970\u7269\uFF0C\u4EC5\u653E\u5728\u80FD\u5BB9\u7EB3\u7684\u5730\u65B9\uFF08\u5BC6\u5EA6\uFF1A\u6570\u91CF\uFF09\u3002"},
     {L"Mix", L"\u6DF7\u5408"},
     {L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.", L"\u6DF7\u5408\uFF1A\u9009\u62E9\u591A\u4E2A\u5730\u5F62\u6216\u56FE\u5757\u65F6\uFF0C\u586B\u5145\u653E\u7F6E\u8272\u5757\u7684\u5927\u5C0F\uFF0C\u4ECE 1\uFF08\u5927\u8272\u5757\uFF09\u5230 10\uFF08\u6700\u5C0F\uFF1A\u6BCF\u4E2A\u56FE\u5757\u968F\u673A\uFF1B\u7B49\u8DDD\uFF1A2 \u4E2A\u83F1\u5F62\uFF09\u3002\u70B9\u51FB\u53EF\u8F93\u5165\u6570\u5B57\u3002- \u548C + \u4EE5\u53CA\u9F20\u6807\u6EDA\u8F6E\u53EF\u66F4\u6539\u3002"},
+    {L"New floating ", L"\u65B0\u5EFA\u6D6E\u52A8"},
+    {L" panel", L"\u9762\u677F"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -2727,6 +2727,8 @@ constexpr UiText kRows[] = {
     {L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", L"\uCC44\uC6B0\uAE30: \uD55C \uACF3\uC744 \uD074\uB9AD\uD558\uBA74 \uADF8 \uC9C0\uD615\uC73C\uB85C \uC774\uC5B4\uC9C4 \uB545\uC5D0 \uC120\uD0DD\uD55C \uC885\uB958\uC758 \uC7A5\uC2DD\uBB3C\uC744 \uBB34\uC791\uC704\uB85C, \uB4E4\uC5B4\uAC08 \uC218 \uC788\uB294 \uACF3\uC5D0 \uB193\uC2B5\uB2C8\uB2E4 (\uBC00\uB3C4: \uAC1C\uC218)."},
     {L"Mix", L"\uD63C\uD569"},
     {L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.", L"\uD63C\uD569: \uC5EC\uB7EC \uC9C0\uD615\uC774\uB098 \uD0C0\uC77C\uC744 \uC120\uD0DD\uD588\uC744 \uB54C \uCC44\uC6B0\uAE30\uAC00 \uB193\uB294 \uC870\uAC01\uC758 \uD06C\uAE30, 1 (\uD070 \uC870\uAC01)\uBD80\uD130 10 (\uAC00\uC7A5 \uC791\uC74C: \uD0C0\uC77C\uB9C8\uB2E4 \uBB34\uC791\uC704; \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD: \uB9C8\uB984\uBAA8 2\uAC1C)\uAE4C\uC9C0. \uD074\uB9AD\uD558\uC5EC \uC22B\uC790\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. - \uC640 + \uC640 \uB9C8\uC6B0\uC2A4 \uD720\uB85C \uBC14\uAFC9\uB2C8\uB2E4."},
+    {L"New floating ", L"\uC0C8 \uB5A0 \uC788\uB294 "},
+    {L" panel", L" \uD328\uB110"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

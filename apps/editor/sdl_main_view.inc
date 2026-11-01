@@ -559,8 +559,16 @@ struct MainView final : draw::View {
             return true;
         }
         const bool right = mini ? gDock.minimapRight : gDock.toolsRight[int(gState.mode)];
-        sdlPopupMenu(*this, e.pt, sdlModelItems(dockMenuModel(mini, right, gState.mode), [](int id) { command(id); }),
-                     mini ? L"the minimap" : sdlFeedbackOn(*this, e.pt, L""));
+        std::vector<kit::MenuItem> items = sdlModelItems(dockMenuModel(mini, right, gState.mode), [](int id) { command(id); });
+        if (!mini && gState.mode != Mode::Locations) {  // (the tool strip, the Isometric | Rectangle | Tile | Custom row, the modes: as a panel tab's menu)
+            const Mode m = gState.mode;
+            items.push_back(kit::MenuItem{}), items.back().separator = true;
+            items.push_back(sdlPaletteFloatItem(m));
+            items.push_back(kit::MenuItem{});
+            items.back().label = std::wstring(shellTr(L"New floating ")) + shellTr(kModeNames[int(m)]) + shellTr(L" panel");
+            items.back().run = [m] { shellNewPalettePanel(int(m)); };
+        }
+        sdlPopupMenu(*this, e.pt, std::move(items), mini ? L"the minimap" : sdlFeedbackOn(*this, e.pt, L""));
         return true;
     }
 

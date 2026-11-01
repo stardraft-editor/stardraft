@@ -2697,6 +2697,8 @@ constexpr UiText kRows[] = {
     {L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", L"Relleno: haga clic en un lugar para poner decorados de los tipos seleccionados al azar en el suelo conectado de su terreno, donde caben (Densidad: cu\u00E1ntos)."},
     {L"Mix", L"Mezcla"},
     {L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.", L"Mezcla: con varios terrenos o tiles seleccionados, c\u00F3mo Relleno los pone en manchas, de 1 (manchas grandes) a 10 (las m\u00E1s peque\u00F1as: cada tile al azar; Isom\u00E9trico: 2 rombos). Haga clic para escribir un n\u00FAmero. - y + y la rueda del rat\u00F3n lo cambian."},
+    {L"New floating ", L"Nuevo panel flotante ("},
+    {L" panel", L")"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

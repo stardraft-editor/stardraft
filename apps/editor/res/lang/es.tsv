@@ -2695,3 +2695,5 @@ Fill: click a place to put units of the selected kinds at random on the connecte
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	Relleno: haga clic en un lugar para poner decorados de los tipos seleccionados al azar en el suelo conectado de su terreno, donde caben (Densidad: cuántos).
 Mix	Mezcla
 Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	Mezcla: con varios terrenos o tiles seleccionados, cómo Relleno los pone en manchas, de 1 (manchas grandes) a 10 (las más pequeñas: cada tile al azar; Isométrico: 2 rombos). Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
+New floating 	Nuevo panel flotante (
+ panel	)
