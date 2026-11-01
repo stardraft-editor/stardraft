@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
     std::string err;
     GameData data;
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
+    if (const char* over = std::getenv("PAINT_OVERRIDE")) cmbw::useTerrainOverride(over);  // (a terrain rules file over the rules)
     Editor e(data);
     if (std::string(argv[2]).rfind("new:", 0) == 0) {  // (new:<era>: a new 128 x 128 map of that tileset)
         if (!e.newMap(128, 128, uint16_t(std::atoi(argv[2] + 4)), 1, err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
