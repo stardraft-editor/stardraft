@@ -7,7 +7,7 @@ ref = open('src/mods/cmbw_repaired_rules_prerelease.inc', 'rb').read()
 nl = '\r\n' if b'\r\n' in ref else '\n'
 lines = [
     "// The mod team's own fixes of the terrain rows (their terrains.isom, saved with the Custom isom terrain editor,",
-    "// 2026-11-01: Jungle, Ice, Badlands and Space Platform), as a terrain rules file (version 2) the program applies over the repaired rows.",
+    "// 2026-11-01: Badlands, Space Platform, Ash World, Jungle, Desert, Ice and Twilight), as a terrain rules file (version 2) the program applies over the repaired rows.",
     "// Do not edit by hand: tools/plugins/cmbw/cmbw_creator_rules.py makes it again from a newer file.",
     "",
 ]

@@ -1865,12 +1865,6 @@ void loadTileset(Tileset& t) {
         };
         if (!applyBytes(kRepairedPrerelease, sizeof kRepairedPrerelease)) applyBytes(kRepairedRelease, sizeof kRepairedRelease);
         applyBytes(kCreator, sizeof kCreator);
-        // Then the rows the mod team has not done yet: their NULL rects from the mod's unused groups right after each set,
-        // in the mod team's layouts (cmbw_tail_rules.inc; tools/plugins/cmbw/cmbw_tail_rules.py).
-        static const uint8_t kTail[] = {
-#include "cmbw_tail_rules.inc"
-        };
-        applyBytes(kTail, sizeof kTail);
     }
     applyTerrainFiles(t);
     forEachPieceNeighbor(t.era & 7, [&t](uint16_t a, uint16_t b, int place) {
