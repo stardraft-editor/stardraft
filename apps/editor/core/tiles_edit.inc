@@ -266,6 +266,13 @@ void tilesAt(float wx, float wy, int& tx, int& ty) {
     tx = std::clamp(int(std::floor(wx / 32)), 0, std::max(0, int(appState().ed->width()) - 1));
     ty = std::clamp(int(std::floor(wy / 32)), 0, std::max(0, int(appState().ed->height()) - 1));
 }
+// The tile where a paste of the copied tiles puts its top left tile: also past the map's edge (the part of the copy that
+// is off the map is left out), up to the copy's size.
+void tilesPasteAt(float wx, float wy, int& tx, int& ty) {
+    const Editor& ed = *appState().ed;
+    tx = std::clamp(int(std::floor(wx / 32)), 1 - ed.tileClipboardWidth(), std::max(0, int(ed.width()) - 1));
+    ty = std::clamp(int(std::floor(wy / 32)), 1 - ed.tileClipboardHeight(), std::max(0, int(ed.height()) - 1));
+}
 
 // The tool strip's mirrors and turns in Rectangle mode, as Isometric's brush has them: each tile is placed at the images of
 // its middle too (the same tile: a tile is not turned). The tiles themselves first, then their images where no tile of
@@ -593,6 +600,7 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
     if (tool == TSelect) {
         if (appState().terrainPasting && ed.hasTileClipboard()) {
             ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
+            tilesPasteAt(wx, wy, tx, ty);  // (it may hang over the map's edge)
             tilesPlacedMessage(ed.pasteTiles(tx, ty), L"Pasted");
             // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
             appState().drag = Drag::None;

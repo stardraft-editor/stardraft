@@ -1146,6 +1146,7 @@ void tilesScene(render::Scene& s, float wx, float wy) {
     const int tool = currentTool();
     if (tool == TSelect) {
         if (!app.terrainPasting || !ed.hasTileClipboard()) return;
+        tilesPasteAt(wx, wy, cx, cy);  // (it may hang over the map's edge: the tiles on the map show)
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
             for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
