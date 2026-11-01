@@ -1528,7 +1528,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     };
     // (and buildable as the game's tile is: a group of the mod's maps that is mostly dirt but unbuildable is a structure's
     // edge, not dirt: CV5 2661 and 2311 in Badlands, a gray piece in the dirt)
-    auto alike = [&](uint16_t a, uint16_t b) {
+    auto alike = [&](uint16_t a, uint16_t b, float within = 12.0f) {
         if ((a >> 4) >= tileset_.groups.size() || (b >> 4) >= tileset_.groups.size() ||
             ((tileset_.groups[a >> 4].buildability ^ tileset_.groups[b >> 4].buildability) & Tileset::kUnbuildable))
             return false;
@@ -1536,7 +1536,7 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
         const auto& y = lookOf(b);
         if (x[0] < 0 || y[0] < 0) return false;
         const float dr = x[0] - y[0], dg = x[1] - y[1], db = x[2] - y[2];
-        return dr * dr + dg * dg + db * db < 12.0f * 12.0f && std::abs(x[3] - y[3]) < 0.25f * std::max(x[3], y[3]);
+        return dr * dr + dg * dg + db * db < within * within && std::abs(x[3] - y[3]) < 0.25f * std::max(x[3], y[3]);
     };
     // The edges of a tile (its outer rows and columns of pixels: left, right, top, bottom): a mod's tile goes in only
     // where its edges are near the game tile's that it replaces, so that it joins the tiles around it as that one does
@@ -1646,9 +1646,11 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
             if (h % 20) continue;
             auto [found, fresh] = variantsFor.try_emplace(tile.tiles[k]);  // (once for each game tile value in an edit)
             std::vector<uint16_t>& fit = found->second;
+            // (closer than a border piece: the maps also put the mod's other grounds on a terrain's diamonds, as Ash World's
+            // brown mud on its Dirt, 4.6 to 9 from its mean color; the Dirt's own variants are within 3.5)
             if (fresh)
                 for (uint16_t v : it->second)
-                    if (alike(v, tile.tiles[k]) && edgesFit(v, tile.tiles[k], 0b1111) &&
+                    if (alike(v, tile.tiles[k], 4.0f) && edgesFit(v, tile.tiles[k], 0b1111) &&
                         edgeOutliers(v, lookOf(tile.tiles[k])) <= edgeOutliers(tile.tiles[k], lookOf(tile.tiles[k])))
                         fit.push_back(v);
             if (fit.empty()) continue;
