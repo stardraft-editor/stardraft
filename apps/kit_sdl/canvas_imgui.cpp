@@ -19,6 +19,7 @@
 #include <iterator>
 #include <map>
 #include <tuple>
+#include <unordered_map>
 
 #include "theme.h"
 
@@ -216,20 +217,48 @@ std::vector<std::string> wrapLines(const FontEntry& f, const std::string& text, 
 }
 
 // The text cut with "..." to fit `width`: at the end, or (path) in the middle, keeping the start and the end.
+// A binary search on the number of characters kept (the width grows with it); the last results are kept, as the
+// same cells are cut again each frame.
 std::string ellipsize(const FontEntry& f, const std::string& s, float width, bool path) {
     if (textWidth(f, s) <= width) return s;
+    struct Key {
+        const ImFont* face;
+        int px;
+        float width;
+        bool path;
+        std::string s;
+        bool operator==(const Key&) const = default;
+    };
+    struct KeyHash {
+        size_t operator()(const Key& k) const {
+            return std::hash<std::string>()(k.s) ^ (std::hash<const void*>()(k.face) * 31) ^ (size_t(k.px) << 8) ^
+                   std::hash<float>()(k.width) ^ size_t(k.path);
+        }
+    };
+    static std::unordered_map<Key, std::string, KeyHash> cache;
+    Key key{f.face, f.px, width, path, s};
+    if (auto it = cache.find(key); it != cache.end()) return it->second;
+    if (cache.size() > 4096) cache.clear();
     std::vector<size_t> cuts;  // byte index of each character, and the end
     for (size_t i = 0; i < s.size(); i = utf8Next(s, i)) cuts.push_back(i);
     cuts.push_back(s.size());
     const size_t n = cuts.size() - 1;
     const std::string dots = "...";
-    for (size_t kept = n; kept-- > 0;) {
+    auto cut = [&](size_t kept) {
         const size_t head = path ? (kept + 1) / 2 : kept;
         const size_t tail = path ? kept / 2 : 0;
-        const std::string cand = s.substr(0, cuts[head]) + dots + s.substr(cuts[n - tail]);
-        if (textWidth(f, cand) <= width) return cand;
+        return s.substr(0, cuts[head]) + dots + s.substr(cuts[n - tail]);
+    };
+    std::string best = dots;
+    size_t lo = 1, hi = n - 1;  // the most characters kept that fit, in [lo, hi]
+    while (lo <= hi && hi < n) {
+        const size_t mid = lo + (hi - lo) / 2;
+        std::string cand = cut(mid);
+        if (textWidth(f, cand) <= width) best = std::move(cand), lo = mid + 1;
+        else hi = mid - 1;
     }
-    return dots;
+    cache.emplace(std::move(key), best);
+    return best;
 }
 
 // A line or outline through `pts`, solid or dashed (dash: 6 on, 4 off in the width; dot: 1 on, 2 off).
