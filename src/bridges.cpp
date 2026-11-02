@@ -346,6 +346,11 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
     return out;
 }
 
+double bridgeSeams(const Editor& ed, const std::vector<Editor::TileAt>& tiles, bool around) {
+    Seams seams(ed.era() & 7, &ed.tileset());
+    return seamCost(seams, tiles, around ? &ed : nullptr);
+}
+
 bool bridgeMatches(const Editor& ed, bool u, int length, int width, int ox, int oy) {
     const BridgeKitData* k = kitOf(ed.era() & 7, u);
     if (!k) return false;

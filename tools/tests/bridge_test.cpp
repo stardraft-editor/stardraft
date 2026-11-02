@@ -7,6 +7,7 @@
 #include "stardraft/game_data.h"
 #include "stardraft/tileset.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -552,6 +553,49 @@ int main(int argc, char** argv) {
         corpusCheck(data, corpus, argc > 2 ? argv[2] : nullptr);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
+    }
+    if (std::getenv("BRIDGE_BENCH")) {  // the time of one drag's preview (plan, a copy of the map, the bridge on it), per tileset
+        for (const int era : {4, 1, 5, 6, 7, 0}) {
+            Editor ed(data);
+            std::string err;
+            uint16_t ground = era == 1 ? 2 : era == 6 ? 4 : 1, water = era == 1 ? 1 : era == 6 ? 5 : 3;
+            if (!ed.newMap(256, 256, uint16_t(era), ground, err)) continue;
+            Brush brush;
+            brush.size = 3;
+            const int cx = 128 * 32, cy = 128 * 32;
+            ed.paintTerrainLine(cx - 64 * 20, cy - 32 * 20, cx + 64 * 20, cy + 32 * 20, water, brush);
+            for (const int width : {1, 3}) {
+                double plan = 0, open = 0, apply = 0;
+                const int n = 20;
+                Editor copy(data);  // (as the editor keeps one: shapeCopy)
+                const auto ms = [](auto a, auto b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+                for (int i = 0; i < n; ++i) {
+                    const auto t0 = std::chrono::steady_clock::now();
+                    const BridgePlan p = planBridge(ed, cx - 64 * 8 + i * 8, cy + 32 * 8, cx + 64 * 8, cy - 32 * 8, width, 7);
+                    const auto t1 = std::chrono::steady_clock::now();
+                    copy.openChk(ed.chk(), err);
+                    const auto t2 = std::chrono::steady_clock::now();
+                    applyBridge(copy, p);
+                    const auto t3 = std::chrono::steady_clock::now();
+                    plan += ms(t0, t1), open += ms(t1, t2), apply += ms(t2, t3);
+                }
+                std::printf("bench era %d width %d: plan %.1f ms, copy %.1f ms, apply %.1f ms\n", era, width, plan / n, open / n, apply / n);
+            }
+            // the seams of every size (lengths 1 to 6, widths 0.5 to 3, both ways), alone (no map round them)
+            double seams = 0, ms = 0;
+            int bridges = 0;
+            for (const bool u : {false, true})
+                for (int length = 1; length <= 6; ++length)
+                    for (int width = 0; width <= 3; ++width) {
+                        const auto t0 = std::chrono::steady_clock::now();
+                        const std::vector<Editor::TileAt> t = bridgeTiles(era, u, length, width, 40, 40, 7, &ed);
+                        ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                        if (t.empty()) continue;
+                        seams += bridgeSeams(ed, t, false), ++bridges;
+                    }
+            std::printf("seams era %d: %.0f over %d bridges (%.0f each), %.2f ms each\n", era, seams, bridges, seams / std::max(1, bridges), ms / std::max(1, bridges));
+        }
+        return 0;
     }
     if (const char* spaced = std::getenv("BRIDGE_SPACED")) {  // <era>,<file>: up-right bridges (south-west to north-east), far apart
         int era = 0;

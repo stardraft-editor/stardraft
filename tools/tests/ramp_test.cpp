@@ -813,6 +813,34 @@ int main(int argc, char** argv) {
         dumpBlocks(data, blocks);
         return 0;
     }
+    if (std::getenv("RAMP_BENCH")) {  // a drag's preview times: the stroke so far planned again at each point (as the editor does)
+        for (const int era : {4, 7, 1}) {
+            Editor ed(data);
+            std::string err;
+            if (!ed.newMap(256, 256, uint16_t(era), 1, err)) continue;
+            uint16_t high = 0;
+            for (uint16_t id = 1; id < 64; ++id)
+                if (ed.terrainName(id) == (era == 1 ? "Elevated Catwalk" : era == 7 ? "Basilica" : "High Dirt")) high = id;
+            Brush b;
+            b.shape = Brush::Diamond, b.size = 40;
+            ed.paintBrush(128 * 32, 128 * 32, high, b);
+            // (a stroke from open ground to the plateau's north-east edge, then along it: mouse moves 8 px apart)
+            std::vector<std::pair<int, int>> stroke;
+            for (int i = 0; i < 160; ++i) stroke.push_back({128 * 32 + 1600 - i * 8, 128 * 32 - 1300 + i * 4});
+            for (int i = 0; i < 400; ++i) stroke.push_back({stroke.back().first + 8, stroke.back().second + 4 - (i % 2) * 0});
+            double total = 0, worst = 0;
+            for (size_t n = 1; n <= stroke.size(); n += 1) {
+                const auto t0 = std::chrono::steady_clock::now();
+                const std::vector<RampPlan> ramps = planRamps(ed, std::vector<std::pair<int, int>>(stroke.begin(), stroke.begin() + std::ptrdiff_t(n)));
+                const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                total += ms, worst = std::max(worst, ms);
+                if (n == 50 || n == 160 || n == 300 || n == stroke.size())
+                    std::printf("bench era %d: %zu points: %.1f ms (%zu ramps)\n", era, n, ms, ramps.size());
+            }
+            std::printf("bench era %d: whole drag %.0f ms, worst update %.1f ms\n", era, total, worst);
+        }
+        return 0;
+    }
     if (std::getenv("RAMP_BLOCKS_ONLY")) {  // (only the every-block check)
         everyBlock(data, std::getenv("RAMP_SHOTS"));
         std::printf("\n%d failures\n", failures);

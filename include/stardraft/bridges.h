@@ -21,6 +21,10 @@ bool bridgesAvailable(int era);
 // bridge (around). Without it: the approved bridge of that size, else the variants of the pairs the corpus has.
 std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on = nullptr,
                                         bool around = false);
+// How badly a bridge's tiles meet each other (and, around: the map's tiles round them): the sum over each two tiles side
+// by side or one above the other of 0 (the game's maps have them so) or 1 and the mean difference of the pixels at their
+// edge (0 to 255).
+double bridgeSeams(const Editor& ed, const std::vector<Editor::TileAt>& tiles, bool around);
 // Whether the map's tiles have that bridge at (ox, oy): each pair is one of its piece's variants.
 bool bridgeMatches(const Editor& ed, bool u, int length, int width, int ox, int oy);
 

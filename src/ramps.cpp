@@ -7,6 +7,8 @@
 #include <cstring>
 #include <map>
 #include <set>
+#include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace stardraft {
@@ -369,15 +371,37 @@ RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const st
     };
     // The ramp of no slope whose corners fit nearest the stroke's start: its kit (block and facing) and its edge.
     const auto [sx, sy] = stroke.front();
+    {
+        // (only one terrain round the start, as far as a ramp's pieces go: no cliff edge there)
+        const uint16_t t0 = ed.terrainAt(std::max(0, sx), std::max(0, sy));
+        bool two = false;
+        for (int py = sy - 12 * 32; py <= sy + 12 * 32 && !two; py += 32)
+            for (int px = sx - 16 * 32; px <= sx + 16 * 32 && !two; px += 32)
+                if (px >= 0 && py >= 0 && px < 32 * ed.width() && py < 32 * ed.height()) two = ed.terrainAt(px, py) != t0;
+        if (!two) return plan;
+    }
     double best = 1e18;
     int kit = -1;
-    for (const auto& [k, f] : fits)
-        for (int ay = sy / 32 - 10; ay <= sy / 32 + 6; ++ay)
-            for (int ax = sx / 32 - 12; ax <= sx / 32 + 6; ++ax) {
-                if (!f.ok || !placeFits(f, {0, ax, ay}) || !cornersFit(f, 0, ax, ay)) continue;  // (wall A first: most places end there)
-                const auto [mx, my] = middle(k, 0, ax, ay);
-                if (const double d = std::hypot(mx - sx, my - sy); d < best && d < 192) best = d, kit = k, plan.ax = ax, plan.ay = ay;
-            }
+    // (the same map and point as before, as each move of a drag asks again for the points so far: the answer then)
+    struct Near {
+        int kit, ax, ay;
+    };
+    static uint64_t cachedFor = 0;
+    static std::unordered_map<uint64_t, Near> cache;
+    if (cachedFor != ed.terrainRevision() || cache.size() > 100000) cache.clear(), cachedFor = ed.terrainRevision();
+    const uint64_t at = uint64_t(uint32_t(sx)) << 32 | uint32_t(sy);
+    if (const auto c = cache.find(at); c != cache.end()) {
+        kit = c->second.kit, plan.ax = c->second.ax, plan.ay = c->second.ay;
+    } else {
+        for (const auto& [k, f] : fits)
+            for (int ay = sy / 32 - 10; ay <= sy / 32 + 6; ++ay)
+                for (int ax = sx / 32 - 12; ax <= sx / 32 + 6; ++ax) {
+                    if (!f.ok || !placeFits(f, {0, ax, ay}) || !cornersFit(f, 0, ax, ay)) continue;  // (wall A first: most places end there)
+                    const auto [mx, my] = middle(k, 0, ax, ay);
+                    if (const double d = std::hypot(mx - sx, my - sy); d < best && d < 192) best = d, kit = k, plan.ax = ax, plan.ay = ay;
+                }
+        cache[at] = {kit, plan.ax, plan.ay};
+    }
     if (kit < 0) return plan;
     const Fit& fit = fits.at(kit);
     plan.kit = kit, plan.facing = fit.k.facing, plan.low = fit.k.low, plan.high = fit.k.high;
@@ -393,10 +417,23 @@ RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const st
     };
     const auto [ax0, ay0] = pieceMiddle(rampKitPieces(kit, 0, plan.ax, plan.ay).front());
     const auto along = [&](double x, double y) { return ((x - ax0) * ux + (y - ay0) * uy) / len; };
-    double lo = 1e18, hi = -1e18;
-    for (const auto& [x, y] : stroke) lo = std::min(lo, along(x, y)), hi = std::max(hi, along(x, y));
     const double vx = -uy / len, vy = ux / len;  // (across the edge)
     const auto across = [&](double x, double y) { return (x - ax0) * vx + (y - ay0) * vy; };
+    // (the stroke's stretch along the edge: from its start to where it goes 3 tiles or more away from the edge's line; the
+    // rest is for the next ramps)
+    double lo = 1e18, hi = -1e18;
+    for (const auto& [x, y] : stroke) {
+        if (std::fabs(across(x, y)) > 96) break;
+        lo = std::min(lo, along(x, y)), hi = std::max(hi, along(x, y));
+    }
+    if (lo > hi) lo = hi = along(sx, sy);
+    // (the same edge and stretch on the same map as before: the ramp then)
+    static uint64_t plannedFor = 0;
+    static std::map<std::tuple<int, int, int, long long, long long>, RampPlan> planned;
+    if (plannedFor != ed.terrainRevision() || planned.size() > 20000) planned.clear(), plannedFor = ed.terrainRevision();
+    const auto key = std::make_tuple(kit, plan.ax, plan.ay, std::llround(lo * 16), std::llround(hi * 16));
+    if (const auto c = planned.find(key); c != planned.end()) return c->second;
+    const auto done = [&](RampPlan& r) -> RampPlan& { return planned[key] = r, r; };
     const int x0 = plan.ax, y0 = plan.ay;
     double best2 = 1e18;
     const int reach = int(std::ceil((hi - lo) / 32)) + 8;
@@ -435,10 +472,10 @@ RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const st
             if (along(bx, by) > hi + len && !overRamp) break;
         }
     }
-    if (best2 > 1e17) return plan.facing = -1, plan.kit = -1, plan;  // (no ramp on that edge fits and joins the ground)
+    if (best2 > 1e17) return plan.facing = -1, plan.kit = -1, done(plan);  // (no ramp on that edge fits and joins the ground)
     plan.tiles = rampKitTiles(kit, plan.slopes, plan.ax, plan.ay);
     plan.problem = RampPlan::Problem::None;
-    return plan;
+    return done(plan);
 }
 
 }  // namespace
