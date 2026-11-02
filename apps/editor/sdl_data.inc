@@ -194,6 +194,9 @@ struct SdlSfxSound {
     int sfx = -1, total = 0;
     bool paused = false;
 } gSdlSfx;
+// The Data pictures that the last frame painted move (the image plays, a portrait shows): the next frames paint them again
+// (main_sdl.cpp: the frame clock; the frame hook clears it before each frame).
+bool gSdlDataMoving = false;
 void sdlSfxStop() {
     closeStreamSdl(gSdlSfx.stream);
     gSdlSfx = {};
@@ -511,10 +514,12 @@ public:
     std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
     std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gSdlDataState.entry); }
     draw::Image refIcon(const std::string& d, uint32_t v) override { return sdlDataImage(dataRefPicture(d, v)); }
-    int widgets(draw::Canvas& c, int section, int x, int y, int w) override {  // (the window paints each frame: the image plays on)
+    int widgets(draw::Canvas& c, int section, int x, int y, int w) override {  // (the window paints each frame while they move: the image plays on)
         if (dat() == "images") imagePlayerTick();
         bool moving = false;
-        return paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
+        const int bottom = paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
+        gSdlDataMoving |= moving;
+        return bottom;
     }
     void soundButton(draw::Canvas& c, draw::Rect r, int sfx) override {  // a play / pause button for a sound (main.cpp: soundButton)
         bool playing = false;

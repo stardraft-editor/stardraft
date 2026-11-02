@@ -1105,6 +1105,7 @@ void registerWorkspaceView(Workspace w, draw::View& v) {
 
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
+    gState.dirty = false;  // (a change that sets it gets this frame; one in this frame, the next: sdlFrameClock)
     if (!gRoot) return;
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();

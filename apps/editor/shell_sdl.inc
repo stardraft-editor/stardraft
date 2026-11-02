@@ -27,12 +27,15 @@ void shellViewSize(int& w, int& h) {
     h = shown ? gRoot->map.height() : 0;
 }
 
-// The posted work runs on the UI thread in the frame hook (sdl_main_view.inc: runPosted); the host paints each frame
-// while the editor runs (setAnimating), so the work runs soon.
+// The posted work runs on the UI thread before the next frame (sdl_main_view.inc: runPosted); the loop wakes for it
+// at once, and the windows paint after it as after an event.
 void shellPost(std::function<void()> fn) {
-    PostQueue& q = postQueue();
-    std::lock_guard<std::mutex> lock(q.mutex);
-    q.posted.push_back(std::move(fn));
+    {
+        PostQueue& q = postQueue();
+        std::lock_guard<std::mutex> lock(q.mutex);
+        q.posted.push_back(std::move(fn));
+    }
+    kit_sdl::SdlHost::wake();
 }
 
 // The spray held down: a timer every 25 ms while it is on (the host's timers run on the UI thread).
@@ -662,6 +665,7 @@ void sdlPickAnswered(void* data, const char* const* list, int) {
     auto* st = static_cast<SdlPickState*>(data);
     st->picked = list && list[0] ? list[0] : "";
     st->done = true;
+    kit_sdl::SdlHost::wake();  // (the waiting loop sees the answer at once)
 }
 // Waits for the dialog that `show` opens with the state; the picked path, or empty.
 std::filesystem::path sdlPickWait(const std::function<void(SdlPickState*)>& show) {

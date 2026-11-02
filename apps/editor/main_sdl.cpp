@@ -363,6 +363,29 @@ void sdlEnsureGameData() { ensureGameData(); }  // (sdl_options.inc)
 
 #include "sdl_window_test.inc"  // --noactivate, --frames, --wintest: tests of the real window
 
+// The window's frames (SdlHost::setFrameClock): after an event, a timer or posted work the windows paint as before; when
+// nothing happens, only what moves by itself gets frames. 0: every window each frame (a press or a drag on the map, a
+// pan, the spray, a live game, the map loading, its images or pathing still coming, a build, a sound that plays, the
+// Data pictures that move; the window tests count frames); else the units' idle animations paint the map view at the
+// game's speed; -1: nothing moves (the program draws nothing until the next event).
+int sdlFrameClock() {
+    if (gFramesArg > 0 || !gWinTestMap.empty()) return 0;
+    if (gState.dirty || gState.drag != Drag::None || gSprayOn || simBarShown() || gLoading.on || gBuilding) return 0;
+    if (gRoot && gRoot->map.panning) return 0;
+    const bool mapShown = gRoot && gWorkspace == Workspace::Map && gState.ed && gState.ed->isOpen();
+    if (mapShown && ((gRenderer && gRenderer->stats().imagesPending > 0) || pathOverlayBusy() || (pathingLayerOn() && gPathing.job.valid())))
+        return 0;
+    if (gSdlPreview.stream && SDL_GetTicks() - gSdlPreview.started < gSdlPreview.ms + 500) return 0;  // (its button: Stop, then Play)
+    if ((gSdlSfx.stream && !gSdlSfx.paused && gWorkspace == Workspace::Data) || gSdlDataMoving) return 0;  // (a sound's bar)
+    if (mapShown && gState.animate && !gAnims.empty()) {  // (one game tick each 42 ms: only the map view paints)
+        const uint64_t gone = animNowMs() - gAnimLast;
+        if (gone < kTickMs) return int(kTickMs - gone);
+        gRoot->map.invalidate();
+        return int(kTickMs);
+    }
+    return -1;
+}
+
 // STARDRAFT_START_TIME=1 prints how long each stage of the start took (for speed work).
 void startLap(const char* stage) {
     static const bool on = std::getenv("STARDRAFT_START_TIME") != nullptr;
@@ -696,8 +719,10 @@ int main(int argc, char** argv) {
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
+            sdlFollowSystemLook();  // (macOS, Linux: the system's look changed; also while no frame comes: sdl_window.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
+            gSdlDataMoving = false;  // (this frame's paint says it again: sdl_data.inc)
             drawMapOfRoot(cmd);
             sdlWindowFrame();  // (the title bar's file and edited dot, the system's look: sdl_window.inc)
         });
@@ -1042,7 +1067,8 @@ int main(int argc, char** argv) {
             if (!testRun) sdlHelpOnlineStart();  // (sdl_help.inc: the help pages from the web)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
-            host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
+            host.setAnimating(true);  // (the frames while something changes or moves: sdlFrameClock)
+            host.setFrameClock(sdlFrameClock);
             host.run();
             if (gWinTestWrong) status = 1;
         }
