@@ -2022,6 +2022,11 @@ struct Gen {
             }
             return d->id == "cond.unitalive" ? alive : "!" + alive;
         }
+        if (d->id == "cond.unitkilledby") {  // dying, the same unit as kept (a variable), and its last attacker
+            const std::string v = raw(c, *d, "unit"), u = unitRef(c, d->param("unit"), v), gen = unitGen(v);
+            const std::string same = gen.empty() ? "" : u + " != 0 && " + u + ".uniquenessIdentifier == " + gen + " && ";
+            return "(" + same + u + ".order == 0 && " + u + ".lastAttackingPlayer == " + arg(c, *d, "player") + ")";
+        }
         if (d->id == "cond.listitem") return "(" + listItem(c, *d) + " " + arg(c, *d, "cmp") + " " + arg(c, *d, "value") + ")";
         if (d->id == "cond.chatstarts" || d->id == "cond.chatcontains") {  // chatEvent's patterns (roadmap R51)
             std::string text = raw(c, *d, "text");
@@ -2447,6 +2452,11 @@ struct Gen {
             const std::string t = arg(c, *d, "var"), lo = arg(c, *d, "lo"), hi = arg(c, *d, "hi");
             return t + " = " + lo + " + rand() % (" + hi + " - " + lo + " + 1);" + tag + "\n";
         }
+        if (id == "act.setunitvartarget") {  // the unit its order is on (CUnit 0x5C), or no unit
+            const std::string var = arg(c, *d, "var"), u = unitRef(c, d->param("unit"), raw(c, *d, "unit"));
+            return "{" + tag + "\n    const ot = dwread(" + u + ".ptr + 0x5C);\n    if (ot == 0) {\n        " + var + " = 0;\n        " + var +
+                   "_gen = 0;\n    } else {\n        " + var + " = CUnit.from_ptr(ot);\n        " + var + "_gen = " + var + ".uniquenessIdentifier;\n    }\n}\n";
+        }
         if (id == "act.setunitvar") {
             const std::string var = arg(c, *d, "var"), from = raw(c, *d, "unit");
             std::string gen;
@@ -2575,7 +2585,7 @@ struct Gen {
             static const std::set<std::string> safe = {"act.comment", "act.donothing", "act.break",   "act.stop",
                                                        "act.unitcolor", "act.wireframe", "act.prop.image", "act.playername",
                                                        "act.btnreplace", "act.unitbuttons", "act.settbl", "act.share"};
-            static const std::set<std::string> variables = {"act.setvar", "act.setflag", "act.listset", "act.setunitvar"};
+            static const std::set<std::string> variables = {"act.setvar", "act.setflag", "act.listset", "act.setunitvar", "act.setunitvartarget"};
             static const std::set<std::string> unknown = {"act.setmemory", "act.setmemoryx", "act.raw", "act.runtrigger"};
             // A random number moves the game's random numbers: on one computer only, they are no longer the same.
             std::function<bool(const TriggerCall&)> random = [&](const TriggerCall& x) {
