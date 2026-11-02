@@ -158,7 +158,7 @@ void addProtectedLayer(const Editor& ed, render::Scene& s) {
             std::swap(open, next);
         }
     }
-    s.rects.insert(s.rects.end(), l.fills.begin(), l.fills.end());
+    addRectsInView(s.rects, l.fills);  // (only those the view shows: core/map_edit.inc)
 }
 
 // View > Layers > Protected terrain.

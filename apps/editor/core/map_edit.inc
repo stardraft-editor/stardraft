@@ -665,6 +665,25 @@ void outline(render::Scene& s, const Rect& r, uint32_t rgba, float thickness = 1
 
 void viewSize(int& w, int& h) { shellViewSize(w, h); }
 
+// The part of the map that the map view shows (map pixels), `margin` map pixels more on each side. False: the view has
+// no size yet (the caller then keeps all).
+bool mapViewBox(float& x0, float& y0, float& x1, float& y1, float margin = 0) {
+    int vw, vh;
+    viewSize(vw, vh);
+    const AppState& app = appState();
+    if (vw <= 0 || vh <= 0 || app.zoom <= 0) return false;
+    x0 = app.camX - margin, y0 = app.camY - margin, x1 = app.camX + vw / app.zoom + margin, y1 = app.camY + vh / app.zoom + margin;
+    return true;
+}
+
+// The rectangles of a kept list (an overlay's) that the map view shows, added to `out` (all when the view has no size).
+void addRectsInView(std::vector<render::RectDraw>& out, const std::vector<render::RectDraw>& in) {
+    float x0, y0, x1, y1;
+    if (!mapViewBox(x0, y0, x1, y1, 1)) return (void)out.insert(out.end(), in.begin(), in.end());
+    for (const render::RectDraw& d : in)
+        if (std::max(d.x0, d.x1) >= x0 && std::min(d.x0, d.x1) <= x1 && std::max(d.y0, d.y1) >= y0 && std::min(d.y0, d.y1) <= y1) out.push_back(d);
+}
+
 // A status-bar hint (what is under the mouse): not worth a log line.
 void setHint(const std::wstring& m) {
     appState().message = m;

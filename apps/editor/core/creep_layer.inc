@@ -9,6 +9,8 @@ struct CreepLayer {
     uint64_t terrain = ~0ull, buildings = 0;  // (the terrain's revision, the buildings' key)
     std::vector<uint8_t> creep, variants;
     uint64_t changes = 0;  // (the creep changed: the renderer's terrain again)
+    uint64_t mapRevision = ~0ull;  // (the map's revision and the drag's move the creep was last looked at for)
+    int dragX = 0, dragY = 0;
     uint32_t seed = 0;
     int variantsWidth = 0;
 } gCreep;
@@ -20,11 +22,17 @@ const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     CreepLayer& c = gCreep;
     const AppState& app = appState();
     std::vector<Unit> dragged;
+    int dx = 0, dy = 0;
     if (app.ed.get() == &ed && app.drag == Drag::MoveUnits && app.dragMoved) {
         float wx, wy, fx, fy;
         toWorld(app.mouseX, app.mouseY, wx, wy);
         dragMoveDelta(wx, wy, fx, fy);
-        const int dx = int(std::lround(fx)), dy = int(std::lround(fy));
+        dx = int(std::lround(fx)), dy = int(std::lround(fy));
+    }
+    // (asked several times a frame: the same map, terrain and drag as the last time keep the creep)
+    if (c.editor == &ed && c.terrain == ed.terrainRevision() && c.mapRevision == ed.revision() && c.dragX == dx && c.dragY == dy) return c.creep;
+    c.mapRevision = ed.revision(), c.dragX = dx, c.dragY = dy;
+    {
         if (dx || dy) {
             dragged = ed.units();
             for (int i : ed.selection())
@@ -137,11 +145,25 @@ const std::vector<render::SpriteDraw>& creepEdges(Editor& ed) {
     return e.draws;
 }
 
+// The creep edges that the map view shows (all when the view has no size yet): the list goes row by row, so only the
+// rows from the view's top to its bottom are looked at.
+template <class F>
+void forCreepEdgesInView(Editor& ed, F f) {
+    const std::vector<render::SpriteDraw>& edges = creepEdges(ed);
+    float x0, y0, x1, y1;
+    if (!mapViewBox(x0, y0, x1, y1, 32)) {  // (a frame is a tile's size: 32 more around the view)
+        for (const render::SpriteDraw& d : edges) f(d);
+        return;
+    }
+    auto it = std::lower_bound(edges.begin(), edges.end(), y0, [](const render::SpriteDraw& d, float y) { return d.y < y; });
+    for (; it != edges.end() && it->y <= y1; ++it)
+        if (it->x >= x0 && it->x <= x1) f(*it);
+}
+
 // The creep's edges in the scene (core/map_scene.inc: buildScene), while the creep and the terrain show.
 void addCreepEdges(Editor& ed, render::Scene& s) {
     if (!gLayers.creep || !gLayers.terrain || !ed.isOpen()) return;
-    const std::vector<render::SpriteDraw>& edges = creepEdges(ed);
-    s.sprites.insert(s.sprites.end(), edges.begin(), edges.end());
+    forCreepEdgesInView(ed, [&](const render::SpriteDraw& d) { s.sprites.push_back(d); });
 }
 
 // The number of creep tiles in the terrain the map shows (the snapshot tests' check).
@@ -194,11 +216,15 @@ bool creepCheck(const std::string& what, std::string& out) {
             expected += !creep[size_t(ty) * size_t(w) + size_t(tx)] && creepEdgeFrame(creepNeighbours(creep, w, h, tx, ty));
     const int image = ed.unitSprites().extraImage(creepGrpPath(ed.era()));
     const Grp* grp = ed.unitSprites().grp(image);
-    int drawn = 0;
+    // (the scene has the edges that the view shows: those of the list in the view's part of the map)
+    int drawn = 0, inView = 0;
     for (const render::SpriteDraw& d : buildScene().sprites) drawn += d.terrain && d.image == image;
+    forCreepEdgesInView(ed, [&](const render::SpriteDraw&) { ++inView; });
+    const int listed = int(creepEdges(ed).size());
     out += "creep: " + std::to_string(drawn) + " edge sprites in the scene, " + std::to_string(expected) +
-           " tiles with an edge; the edge GRP has " + std::to_string(grp ? grp->frames.size() : 0) + " frames" +
-           (drawn > 0 && drawn == expected && grp && grp->frames.size() == 37 ? " (yes)" : " (WRONG)") + "\n";
+           " tiles with an edge (" + std::to_string(listed) + " edges, " + std::to_string(inView) + " in the view); the edge GRP has " +
+           std::to_string(grp ? grp->frames.size() : 0) + " frames" +
+           (drawn > 0 && drawn == inView && listed == expected && grp && grp->frames.size() == 37 ? " (yes)" : " (WRONG)") + "\n";
     // The picture: the Hatchery in the middle of the view at 100%.
     app.zoom = 1;
     gFitPending = false;  // (not the whole map: the view's size comes later)
