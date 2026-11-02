@@ -2735,3 +2735,16 @@ Part of the bridge is on protected tiles	Parte del puente está sobre losetas pr
 Placed the bridge. Symmetry does not apply to bridges.	Puente colocado. La simetría no se aplica a los puentes.
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ahí.
 Could not make the bridge: %ls	No se pudo hacer el puente: %ls
+Ramp	Rampa
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	Rampa: pinte a lo largo del borde de un acantilado. La rampa ocupa el borde hasta donde pinte y mira hacia donde mira el borde.
+This tileset has no ramps	Este conjunto de losetas no tiene rampas
+Could not make a ramp. The map has no isometric terrain data.	No se pudo hacer una rampa. El mapa no tiene datos de terreno isométrico.
+Ramp: paint along a cliff edge between %ls and %ls	Rampa: pinte a lo largo del borde de un acantilado entre %ls y %ls
+Part of the ramp is on protected tiles	Parte de la rampa está sobre losetas protegidas
+Ramp facing %ls, width %ls. Release the button to place it.	Rampa hacia %ls, anchura %ls. Suelte el botón para colocarla.
+The ramp is there already	La rampa ya está ahí
+Placed the ramp. Removed the doodads and units under it that cannot stay there.	Rampa colocada. Se quitaron los adornos y las unidades debajo que no pueden quedarse ahí.
+Placed the ramp. Symmetry does not apply to ramps.	Rampa colocada. La simetría no se aplica a las rampas.
+Placed the ramp	Rampa colocada
+Ramp: paint along a cliff edge	Rampa: pinte a lo largo del borde de un acantilado
+Stopped the ramp	Rampa detenida

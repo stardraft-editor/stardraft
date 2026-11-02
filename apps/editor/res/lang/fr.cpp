@@ -2737,6 +2737,19 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"Pont plac\u00E9. La sym\u00E9trie ne s'applique pas aux ponts."},
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Pont plac\u00E9. Les d\u00E9cors et les unit\u00E9s dessous qui ne peuvent pas y rester ont \u00E9t\u00E9 retir\u00E9s."},
     {L"Could not make the bridge: %ls", L"Impossible de faire le pont : %ls"},
+    {L"Ramp", L"Rampe"},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"Rampe : peignez le long du bord d'une falaise. La rampe s'\u00E9tend sur le bord aussi loin que vous peignez et fait face au m\u00EAme c\u00F4t\u00E9 que le bord."},
+    {L"This tileset has no ramps", L"Ce jeu de tuiles n'a pas de rampes"},
+    {L"Could not make a ramp. The map has no isometric terrain data.", L"Impossible de faire une rampe. La carte n'a pas de donn\u00E9es de terrain isom\u00E9trique."},
+    {L"Ramp: paint along a cliff edge between %ls and %ls", L"Rampe : peignez le long du bord d'une falaise entre %ls et %ls"},
+    {L"Part of the ramp is on protected tiles", L"Une partie de la rampe est sur des tuiles prot\u00E9g\u00E9es"},
+    {L"Ramp facing %ls, width %ls. Release the button to place it.", L"Rampe vers %ls, largeur %ls. Rel\u00E2chez le bouton pour la placer."},
+    {L"The ramp is there already", L"La rampe est d\u00E9j\u00E0 l\u00E0"},
+    {L"Placed the ramp. Removed the doodads and units under it that cannot stay there.", L"Rampe plac\u00E9e. Les d\u00E9cors et les unit\u00E9s dessous qui ne peuvent pas y rester ont \u00E9t\u00E9 retir\u00E9s."},
+    {L"Placed the ramp. Symmetry does not apply to ramps.", L"Rampe plac\u00E9e. La sym\u00E9trie ne s'applique pas aux rampes."},
+    {L"Placed the ramp", L"Rampe plac\u00E9e"},
+    {L"Ramp: paint along a cliff edge", L"Rampe : peignez le long du bord d'une falaise"},
+    {L"Stopped the ramp", L"Rampe arr\u00EAt\u00E9e"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

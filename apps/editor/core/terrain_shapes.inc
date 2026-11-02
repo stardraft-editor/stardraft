@@ -9,6 +9,8 @@
 // shape, as the Brush gives them.
 // Bridge (any kind of terrain): the drag goes along one of the map's diagonals from the ground across water to the
 // ground; the preview is the bridge that fits the water there (src/bridges.cpp), with the brush's size as its width.
+// Ramp (any kind of terrain): a stroke along a cliff edge (as Contour's points); the preview is the ramp that fits the
+// edge there, as far as the stroke goes along it (src/ramps.cpp).
 
 struct TerrainShape {
     int tool = -1;                            // TLine, TContour, TPolygon, a box or TBridge while a shape is under way; -1: none
@@ -238,6 +240,28 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     setMessage(bridgeText(L"Bridge: length %ls, width %ls. Release the button to place it.", bridgeSize(p.length), bridgeSize(p.width)));
 }
 
+// Ramp: the ramp that the stroke paints (gShape.cells, gShape.ghost), and the status bar says it or why there is none.
+void rampMake(const std::vector<std::pair<int, int>>& pts) {
+    const Editor& ed = *appState().ed;
+    const RampPlan p = planRamp(ed, pts);
+    const std::wstring low = tr(widen(p.low)), high = tr(widen(p.high));
+    switch (p.problem) {
+    case RampPlan::Problem::None: break;
+    case RampPlan::Problem::NoKit: return setMessage(L"This tileset has no ramps");
+    case RampPlan::Problem::NoIsom: return setMessage(L"Could not make a ramp. The map has no isometric terrain data.");
+    case RampPlan::Problem::NoCliff: return setMessage(bridgeText(L"Ramp: paint along a cliff edge between %ls and %ls", high, low));
+    }
+    for (const Editor::TileAt& c : p.tiles)
+        if (ed.tileProtected(c.x, c.y)) {
+            for (const Editor::TileAt& r : p.tiles) gShape.red.push_back({r.x, r.y});
+            return setMessage(L"Part of the ramp is on protected tiles");
+        }
+    for (const Editor::TileAt& c : p.tiles)
+        if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
+    gShape.cells = p.tiles;
+    setMessage(bridgeText(L"Ramp facing %ls, width %ls. Release the button to place it.", widen(rampFacingName(p.facing)), bridgeSize(p.slopes)));
+}
+
 // The preview of the shape (gShape.ghost, gShape.cells): made again only when its points or settings changed. `now`: at
 // once; else an Isometric preview that takes long (a large map) is made at most every 2 times its time (shellShapeLater
 // makes the last one).
@@ -251,14 +275,14 @@ void shapeUpdate(bool now = false) {
     static double cost = 0;  // the last Isometric preview's time, ms
     static std::chrono::steady_clock::time_point last{};
     const auto t0 = std::chrono::steady_clock::now();
-    if (!now && (!app.terrainRect || gShape.tool == TBridge) && cost > 12 && std::chrono::duration<double, std::milli>(t0 - last).count() < 2 * cost)
+    if (!now && (!app.terrainRect || gShape.tool == TBridge || gShape.tool == TRamp) && cost > 12 && std::chrono::duration<double, std::milli>(t0 - last).count() < 2 * cost)
         return shellShapeLater(int(2 * cost));
     gShape.ghost.clear(), gShape.cells.clear(), gShape.red.clear(), gShape.copyHolds = false;
     gShape.madeFor = pts, gShape.madeKey = key, gShape.made = true;
     const std::vector<std::pair<int, int>> geo = shapeGeometry(pts);
-    if (geo.size() < (gShape.tool == TLine || gShape.tool == TBridge ? 2u : 3u)) return;
-    if (gShape.tool == TBridge) {  // (on a copy of the map in every kind of terrain: made at most every 2 times its time too)
-        bridgeMake(geo);
+    if (geo.size() < (gShape.tool == TRamp ? 1u : gShape.tool == TLine || gShape.tool == TBridge ? 2u : 3u)) return;
+    if (gShape.tool == TBridge || gShape.tool == TRamp) {  // (in every kind of terrain: made at most every 2 times its time too)
+        gShape.tool == TBridge ? bridgeMake(geo) : rampMake(geo);
         last = std::chrono::steady_clock::now();
         cost = std::chrono::duration<double, std::milli>(last - t0).count();
         return;
@@ -285,8 +309,11 @@ void shapeUpdate(bool now = false) {
 // the Tiles, Custom or terrain list. False: the status bar tells what to do.
 bool shapeHasPick() {
     AppState& app = appState();
-    if (currentTool(app) == TBridge) {  // (no pick: the bridge's tiles are the kit's)
-        if (!app.ed->canPaintTerrain()) return setMessage(L"Could not make a bridge. The map has no isometric terrain data."), false;
+    if (currentTool(app) == TBridge || currentTool(app) == TRamp) {  // (no pick: the bridge's and the ramp's tiles are the kits')
+        if (!app.ed->canPaintTerrain())
+            return setMessage(currentTool(app) == TBridge ? L"Could not make a bridge. The map has no isometric terrain data."
+                                                          : L"Could not make a ramp. The map has no isometric terrain data."),
+                   false;
         return true;
     }
     if (!app.terrainRect) {
@@ -312,7 +339,7 @@ void shapeFinish() {
     gShape.hasHover = false;  // (Polygon: the clicked points only)
     std::vector<std::pair<int, int>> pts = gShape.points;
     if (tool != TLine && tool != TBridge && !isBoxTool(tool)) pts.erase(std::unique(pts.begin(), pts.end()), pts.end());  // (a Line click: the brush at the point)
-    if (isBoxTool(tool) ? shapeBoxPoints(tool, pts).empty() : tool != TLine && tool != TBridge && pts.size() < 3) {
+    if (isBoxTool(tool) ? shapeBoxPoints(tool, pts).empty() : tool != TLine && tool != TBridge && tool != TRamp && pts.size() < 3) {
         setMessage(isBoxTool(tool)       ? L"Did not paint the shape: drag a larger box"
                    : tool == TPolygon    ? L"Did not fill the polygon: a polygon has 3 points or more"
                                          : L"Did not fill the contour: draw a larger shape");
@@ -323,7 +350,19 @@ void shapeFinish() {
     gShape.points = pts;
     gShape.made = false;  // (made again now, of the map as it is: the copy that the map takes holds it)
     shapeUpdate(true);
-    if (tool == TBridge) {
+    if (tool == TRamp) {
+        if (gShape.cells.empty()) {  // (the status bar says why: rampMake)
+            shapeReset();
+            app.dirty = true;
+            return;
+        }
+        const bool changed = ed.placeTileValues(gShape.cells) > 0;
+        const bool removed = ed.takeDoodadsRemovedByTerrain() + ed.takeUnitsRemovedByTerrain() > 0;
+        setMessage(!changed ? L"The ramp is there already"
+                   : removed ? L"Placed the ramp. Removed the doodads and units under it that cannot stay there."
+                   : ed.mirrors() || ed.turns() > 1 ? L"Placed the ramp. Symmetry does not apply to ramps."
+                                                    : L"Placed the ramp");
+    } else if (tool == TBridge) {
         if (gShape.cells.empty() || !gShape.copyHolds) {  // (the status bar says why: bridgeMake)
             shapeReset();
             app.dirty = true;
@@ -407,6 +446,7 @@ void shapeMouseDown(float wx, float wy, bool snap) {
     if (tool == TLine || tool == TBridge || isBoxTool(tool)) gShape.points.push_back(p);
     if (tool != TPolygon) app.drag = Drag::Shape;
     setMessage(tool == TBridge    ? L"Bridge: drag from the ground across the water to the ground on the other side"
+               : tool == TRamp    ? L"Ramp: paint along a cliff edge"
                : tool == TLine    ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
                : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape"
                : tool == TContour ? L"Contour: draw the shape, then release the button"
@@ -459,8 +499,11 @@ bool shapeDoubleClick() {
 // Esc: the shape under way stops, with no change to the map. True: there was one.
 bool shapeCancel() {
     if (!shapeOn()) return false;
-    setMessage(gShape.tool == TLine ? L"Stopped the line" : gShape.tool == TContour ? L"Stopped the contour" : gShape.tool == TBridge ? L"Stopped the bridge"
-                                                                                                                     : L"Stopped the polygon");
+    setMessage(gShape.tool == TLine      ? L"Stopped the line"
+               : gShape.tool == TContour ? L"Stopped the contour"
+               : gShape.tool == TBridge  ? L"Stopped the bridge"
+               : gShape.tool == TRamp    ? L"Stopped the ramp"
+                                         : L"Stopped the polygon");
     shapeReset();
     appState().drag = Drag::None;
     appState().dirty = true;

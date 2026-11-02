@@ -2767,6 +2767,19 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"\uB2E4\uB9AC\uB97C \uB193\uC558\uC2B5\uB2C8\uB2E4. \uB300\uCE6D\uC740 \uB2E4\uB9AC\uC5D0 \uC801\uC6A9\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."},
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"\uB2E4\uB9AC\uB97C \uB193\uC558\uC2B5\uB2C8\uB2E4. \uADF8 \uC544\uB798\uC5D0 \uC788\uC744 \uC218 \uC5C6\uB294 \uC7A5\uC2DD\uBB3C\uACFC \uC720\uB2DB\uC744 \uC81C\uAC70\uD588\uC2B5\uB2C8\uB2E4."},
     {L"Could not make the bridge: %ls", L"\uB2E4\uB9AC\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: %ls"},
+    {L"Ramp", L"\uACBD\uC0AC\uB85C"},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"\uACBD\uC0AC\uB85C: \uC808\uBCBD \uAC00\uC7A5\uC790\uB9AC\uB97C \uB530\uB77C \uCE60\uD569\uB2C8\uB2E4. \uCE60\uD55C \uB9CC\uD07C \uACBD\uC0AC\uB85C\uAC00 \uAC00\uC7A5\uC790\uB9AC\uC5D0 \uB193\uC774\uACE0, \uAC00\uC7A5\uC790\uB9AC\uAC00 \uD5A5\uD55C \uCABD\uC744 \uD5A5\uD569\uB2C8\uB2E4."},
+    {L"This tileset has no ramps", L"\uC774 \uD0C0\uC77C\uC14B\uC5D0\uB294 \uACBD\uC0AC\uB85C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Could not make a ramp. The map has no isometric terrain data.", L"\uACBD\uC0AC\uB85C\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9F5\uC5D0 \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD \uC9C0\uD615 \uB370\uC774\uD130\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."},
+    {L"Ramp: paint along a cliff edge between %ls and %ls", L"\uACBD\uC0AC\uB85C: %ls\uACFC(\uC640) %ls \uC0AC\uC774\uC758 \uC808\uBCBD \uAC00\uC7A5\uC790\uB9AC\uB97C \uB530\uB77C \uCE60\uD558\uC138\uC694"},
+    {L"Part of the ramp is on protected tiles", L"\uACBD\uC0AC\uB85C \uC77C\uBD80\uAC00 \uBCF4\uD638\uB41C \uD0C0\uC77C \uC704\uC5D0 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Ramp facing %ls, width %ls. Release the button to place it.", L"\uACBD\uC0AC\uB85C \uBC29\uD5A5 %ls, \uD3ED %ls. \uBC84\uD2BC\uC744 \uB193\uC73C\uBA74 \uACBD\uC0AC\uB85C\uB97C \uB193\uC2B5\uB2C8\uB2E4."},
+    {L"The ramp is there already", L"\uACBD\uC0AC\uB85C\uAC00 \uC774\uBBF8 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Placed the ramp. Removed the doodads and units under it that cannot stay there.", L"\uACBD\uC0AC\uB85C\uB97C \uB193\uC558\uC2B5\uB2C8\uB2E4. \uADF8 \uC544\uB798\uC5D0 \uC788\uC744 \uC218 \uC5C6\uB294 \uC7A5\uC2DD\uBB3C\uACFC \uC720\uB2DB\uC744 \uC81C\uAC70\uD588\uC2B5\uB2C8\uB2E4."},
+    {L"Placed the ramp. Symmetry does not apply to ramps.", L"\uACBD\uC0AC\uB85C\uB97C \uB193\uC558\uC2B5\uB2C8\uB2E4. \uB300\uCE6D\uC740 \uACBD\uC0AC\uB85C\uC5D0 \uC801\uC6A9\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."},
+    {L"Placed the ramp", L"\uACBD\uC0AC\uB85C\uB97C \uB193\uC558\uC2B5\uB2C8\uB2E4"},
+    {L"Ramp: paint along a cliff edge", L"\uACBD\uC0AC\uB85C: \uC808\uBCBD \uAC00\uC7A5\uC790\uB9AC\uB97C \uB530\uB77C \uCE60\uD558\uC138\uC694"},
+    {L"Stopped the ramp", L"\uACBD\uC0AC\uB85C\uB97C \uBA48\uCDC4\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

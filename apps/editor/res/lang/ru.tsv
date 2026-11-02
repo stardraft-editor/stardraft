@@ -2735,3 +2735,16 @@ Part of the bridge is on protected tiles	Часть моста стоит на �
 Placed the bridge. Symmetry does not apply to bridges.	Мост поставлен. Симметрия к мостам не применяется.
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	Мост поставлен. Убраны декорации и юниты под ним, которые не могут там остаться.
 Could not make the bridge: %ls	Не удалось сделать мост: %ls
+Ramp	Пандус
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	Пандус: ведите вдоль края обрыва. Пандус занимает край настолько, насколько вы ведёте, и смотрит туда же, куда край.
+This tileset has no ramps	В этом тайлсете нет пандусов
+Could not make a ramp. The map has no isometric terrain data.	Не удалось сделать пандус. В карте нет данных изометрической местности.
+Ramp: paint along a cliff edge between %ls and %ls	Пандус: ведите вдоль края обрыва между %ls и %ls
+Part of the ramp is on protected tiles	Часть пандуса стоит на защищённых тайлах
+Ramp facing %ls, width %ls. Release the button to place it.	Пандус в сторону %ls, ширина %ls. Отпустите кнопку, чтобы поставить его.
+The ramp is there already	Пандус уже здесь
+Placed the ramp. Removed the doodads and units under it that cannot stay there.	Пандус поставлен. Убраны декорации и юниты под ним, которые не могут там остаться.
+Placed the ramp. Symmetry does not apply to ramps.	Пандус поставлен. Симметрия к пандусам не применяется.
+Placed the ramp	Пандус поставлен
+Ramp: paint along a cliff edge	Пандус: ведите вдоль края обрыва
+Stopped the ramp	Пандус остановлен

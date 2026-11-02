@@ -488,11 +488,16 @@ constexpr const wchar_t* kDiamondTip = L"Diamond: drag across the box it fits in
 constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.";
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 constexpr const wchar_t* kBridgeTip = L"Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.";
-// The Terrain tools with the Bridge at their end, where the map's tileset has bridges (src/bridges.cpp).
+constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.";
+// The Terrain tools with the Bridge and the Ramp at their end, where the map's tileset has them (src/bridges.cpp,
+// src/ramps.cpp).
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     AppState& app = appState();
-    if (app.ed && bridgesAvailable(app.ed->era() & 7)) tools.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
+    const int era = app.ed ? app.ed->era() & 7 : -1;
+    if (app.ed && bridgesAvailable(era)) tools.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
     else if (app.toolByMode[int(Mode::Terrain)] == TBridge) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (a map of another tileset)
+    if (app.ed && rampsAvailable(era)) tools.push_back({UiIcon::Ramp, kRampTip, TRamp, false});
+    else if (app.toolByMode[int(Mode::Terrain)] == TRamp) app.toolByMode[int(Mode::Terrain)] = TBrush;
     return tools;
 }
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its

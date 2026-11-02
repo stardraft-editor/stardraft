@@ -101,6 +101,7 @@ add_library(stardraft
     src/locations.cpp
     src/doodads.cpp
     src/bridges.cpp
+    src/ramps.cpp
     src/hd_assets.cpp
     src/hd_preview.cpp
     src/png_writer.cpp
@@ -178,6 +179,8 @@ target_link_libraries(save_check PRIVATE stardraft)
 
 add_executable(bridge_test tools/tests/bridge_test.cpp)  # the Bridge tool: drags across the example maps' rivers
 target_link_libraries(bridge_test PRIVATE stardraft)
+add_executable(ramp_test tools/tests/ramp_test.cpp)  # the Ramp brush: strokes along the example maps' cliffs
+target_link_libraries(ramp_test PRIVATE stardraft)
 
 add_executable(tools_test tools/tests/tools_test.cpp)
 target_link_libraries(tools_test PRIVATE stardraft)

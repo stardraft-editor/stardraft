@@ -2737,6 +2737,19 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"Puente colocado. La simetr\u00EDa no se aplica a los puentes."},
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ah\u00ED."},
     {L"Could not make the bridge: %ls", L"No se pudo hacer el puente: %ls"},
+    {L"Ramp", L"Rampa"},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"Rampa: pinte a lo largo del borde de un acantilado. La rampa ocupa el borde hasta donde pinte y mira hacia donde mira el borde."},
+    {L"This tileset has no ramps", L"Este conjunto de losetas no tiene rampas"},
+    {L"Could not make a ramp. The map has no isometric terrain data.", L"No se pudo hacer una rampa. El mapa no tiene datos de terreno isom\u00E9trico."},
+    {L"Ramp: paint along a cliff edge between %ls and %ls", L"Rampa: pinte a lo largo del borde de un acantilado entre %ls y %ls"},
+    {L"Part of the ramp is on protected tiles", L"Parte de la rampa est\u00E1 sobre losetas protegidas"},
+    {L"Ramp facing %ls, width %ls. Release the button to place it.", L"Rampa hacia %ls, anchura %ls. Suelte el bot\u00F3n para colocarla."},
+    {L"The ramp is there already", L"La rampa ya est\u00E1 ah\u00ED"},
+    {L"Placed the ramp. Removed the doodads and units under it that cannot stay there.", L"Rampa colocada. Se quitaron los adornos y las unidades debajo que no pueden quedarse ah\u00ED."},
+    {L"Placed the ramp. Symmetry does not apply to ramps.", L"Rampa colocada. La simetr\u00EDa no se aplica a las rampas."},
+    {L"Placed the ramp", L"Rampa colocada"},
+    {L"Ramp: paint along a cliff edge", L"Rampa: pinte a lo largo del borde de un acantilado"},
+    {L"Stopped the ramp", L"Rampa detenida"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -2765,3 +2765,16 @@ Part of the bridge is on protected tiles	다리 일부가 보호된 타일 위�
 Placed the bridge. Symmetry does not apply to bridges.	다리를 놓았습니다. 대칭은 다리에 적용되지 않습니다.
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	다리를 놓았습니다. 그 아래에 있을 수 없는 장식물과 유닛을 제거했습니다.
 Could not make the bridge: %ls	다리를 만들 수 없습니다: %ls
+Ramp	경사로
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	경사로: 절벽 가장자리를 따라 칠합니다. 칠한 만큼 경사로가 가장자리에 놓이고, 가장자리가 향한 쪽을 향합니다.
+This tileset has no ramps	이 타일셋에는 경사로가 없습니다
+Could not make a ramp. The map has no isometric terrain data.	경사로를 만들 수 없습니다. 맵에 아이소메트릭 지형 데이터가 없습니다.
+Ramp: paint along a cliff edge between %ls and %ls	경사로: %ls과(와) %ls 사이의 절벽 가장자리를 따라 칠하세요
+Part of the ramp is on protected tiles	경사로 일부가 보호된 타일 위에 있습니다
+Ramp facing %ls, width %ls. Release the button to place it.	경사로 방향 %ls, 폭 %ls. 버튼을 놓으면 경사로를 놓습니다.
+The ramp is there already	경사로가 이미 있습니다
+Placed the ramp. Removed the doodads and units under it that cannot stay there.	경사로를 놓았습니다. 그 아래에 있을 수 없는 장식물과 유닛을 제거했습니다.
+Placed the ramp. Symmetry does not apply to ramps.	경사로를 놓았습니다. 대칭은 경사로에 적용되지 않습니다.
+Placed the ramp	경사로를 놓았습니다
+Ramp: paint along a cliff edge	경사로: 절벽 가장자리를 따라 칠하세요
+Stopped the ramp	경사로를 멈췄습니다

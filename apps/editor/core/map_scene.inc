@@ -463,7 +463,7 @@ void shapeScene(render::Scene& s) {
     for (const auto& [x, y] : gShape.red)  // (Bridge: no bridge fits there yet)
         s.rects.push_back({x * 32.f, y * 32.f, x * 32.f + 32, y * 32.f + 32, 0xE0303058u, true});
     const std::vector<std::pair<int, int>> pts = shapeGeometry(shapePath());  // (Rectangle, Ellipse: their outline)
-    const size_t lines = pts.size() < 2 ? 0 : gShape.tool == TLine || pts.size() < 3 ? pts.size() - 1 : pts.size();
+    const size_t lines = pts.size() < 2 ? 0 : gShape.tool == TLine || gShape.tool == TRamp || pts.size() < 3 ? pts.size() - 1 : pts.size();
     for (size_t i = 0; i < lines; ++i) {
         const auto& a = pts[i];
         const auto& b = pts[(i + 1) % pts.size()];

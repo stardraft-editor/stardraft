@@ -2735,3 +2735,16 @@ Part of the bridge is on protected tiles	Une partie du pont est sur des tuiles p
 Placed the bridge. Symmetry does not apply to bridges.	Pont placé. La symétrie ne s'applique pas aux ponts.
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	Pont placé. Les décors et les unités dessous qui ne peuvent pas y rester ont été retirés.
 Could not make the bridge: %ls	Impossible de faire le pont : %ls
+Ramp	Rampe
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	Rampe : peignez le long du bord d'une falaise. La rampe s'étend sur le bord aussi loin que vous peignez et fait face au même côté que le bord.
+This tileset has no ramps	Ce jeu de tuiles n'a pas de rampes
+Could not make a ramp. The map has no isometric terrain data.	Impossible de faire une rampe. La carte n'a pas de données de terrain isométrique.
+Ramp: paint along a cliff edge between %ls and %ls	Rampe : peignez le long du bord d'une falaise entre %ls et %ls
+Part of the ramp is on protected tiles	Une partie de la rampe est sur des tuiles protégées
+Ramp facing %ls, width %ls. Release the button to place it.	Rampe vers %ls, largeur %ls. Relâchez le bouton pour la placer.
+The ramp is there already	La rampe est déjà là
+Placed the ramp. Removed the doodads and units under it that cannot stay there.	Rampe placée. Les décors et les unités dessous qui ne peuvent pas y rester ont été retirés.
+Placed the ramp. Symmetry does not apply to ramps.	Rampe placée. La symétrie ne s'applique pas aux rampes.
+Placed the ramp	Rampe placée
+Ramp: paint along a cliff edge	Rampe : peignez le long du bord d'une falaise
+Stopped the ramp	Rampe arrêtée

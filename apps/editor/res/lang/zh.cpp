@@ -2737,6 +2737,19 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"\u5DF2\u653E\u7F6E\u6865\u3002\u5BF9\u79F0\u4E0D\u9002\u7528\u4E8E\u6865\u3002"},
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"\u5DF2\u653E\u7F6E\u6865\u3002\u5DF2\u79FB\u9664\u5176\u4E0B\u4E0D\u80FD\u7559\u4E0B\u7684\u88C5\u9970\u7269\u548C\u5355\u4F4D\u3002"},
     {L"Could not make the bridge: %ls", L"\u65E0\u6CD5\u751F\u6210\u6865\uFF1A%ls"},
+    {L"Ramp", L"\u5761\u9053"},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"\u5761\u9053\uFF1A\u6CBF\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236\u3002\u5761\u9053\u6CBF\u8FB9\u7F18\u5EF6\u4F38\u5230\u4F60\u7ED8\u5236\u7684\u4F4D\u7F6E\uFF0C\u5E76\u671D\u5411\u8FB9\u7F18\u6240\u671D\u7684\u65B9\u5411\u3002"},
+    {L"This tileset has no ramps", L"\u6B64\u5730\u5F62\u96C6\u6CA1\u6709\u5761\u9053"},
+    {L"Could not make a ramp. The map has no isometric terrain data.", L"\u65E0\u6CD5\u751F\u6210\u5761\u9053\u3002\u5730\u56FE\u6CA1\u6709\u7B49\u8DDD\u5730\u5F62\u6570\u636E\u3002"},
+    {L"Ramp: paint along a cliff edge between %ls and %ls", L"\u5761\u9053\uFF1A\u6CBF%ls\u548C%ls\u4E4B\u95F4\u7684\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236"},
+    {L"Part of the ramp is on protected tiles", L"\u5761\u9053\u7684\u4E00\u90E8\u5206\u4F4D\u4E8E\u53D7\u4FDD\u62A4\u7684\u56FE\u5757\u4E0A"},
+    {L"Ramp facing %ls, width %ls. Release the button to place it.", L"\u5761\u9053\u671D\u5411 %ls\uFF0C\u5BBD\u5EA6 %ls\u3002\u677E\u5F00\u6309\u94AE\u653E\u7F6E\u3002"},
+    {L"The ramp is there already", L"\u5761\u9053\u5DF2\u7ECF\u5728\u90A3\u91CC"},
+    {L"Placed the ramp. Removed the doodads and units under it that cannot stay there.", L"\u5DF2\u653E\u7F6E\u5761\u9053\u3002\u5DF2\u79FB\u9664\u5176\u4E0B\u4E0D\u80FD\u7559\u4E0B\u7684\u88C5\u9970\u7269\u548C\u5355\u4F4D\u3002"},
+    {L"Placed the ramp. Symmetry does not apply to ramps.", L"\u5DF2\u653E\u7F6E\u5761\u9053\u3002\u5BF9\u79F0\u4E0D\u9002\u7528\u4E8E\u5761\u9053\u3002"},
+    {L"Placed the ramp", L"\u5DF2\u653E\u7F6E\u5761\u9053"},
+    {L"Ramp: paint along a cliff edge", L"\u5761\u9053\uFF1A\u6CBF\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236"},
+    {L"Stopped the ramp", L"\u5DF2\u505C\u6B62\u5761\u9053"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
