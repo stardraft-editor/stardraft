@@ -445,6 +445,7 @@ void Editor::dropLastUndo() {
 void Editor::endStrokeStep() {
     const bool took = inStroke_ && strokeStep_;
     inStroke_ = strokeStep_ = false;
+    strokeTilesBefore_.clear();  // (a terrain stroke's: endTerrainStroke used them)
     if (!took || undo_.empty()) return;
     // The map as at the stroke's start (every section the same): the stroke placed or painted nothing.
     const Snapshot& s = undo_.back();

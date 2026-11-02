@@ -14,9 +14,13 @@ namespace stardraft {
 namespace {
 
 struct RampKitData {
-    int era;
-    const char* facing;
-    const char* low;
+    int era, base;          // the tileset, the block's first doodad
+    const char* group;      // the block's doodad group (Cliff, Temple Wall, Basilica...)
+    int facing;             // N, NE, E, SE, S, SW, W, NW
+    int mode;               // 0: the maps' corners and the corpus's edges; 1: the corners of the places the game's doodad
+                            // rule takes (it is not asked on the map: a ramp there has the tiles it asks for no more);
+                            // 2: the corners' layout of the spec's kit (a facing the rule takes nowhere)
+    const char* low;        // its ground below ("": any but the high) and above
     const char* high;
     int start[2], step[2];  // tiles
     int tiles[4];           // kRampTiles: wall A's first, the slope's, wall B's, the end
@@ -27,7 +31,8 @@ struct RampTileData {
     uint16_t value;
 };
 struct RampCornerData {
-    int era, facing, kind, px, py;
+    int kit, kind, px, py;
+    const char* terrain;  // "": any terrain but the kit's high ground
     bool high;
 };
 struct RampNeighborData {
@@ -36,35 +41,65 @@ struct RampNeighborData {
 };
 #include "data/ramp_kits.inc"
 
+constexpr int kKits = int(sizeof kRampKits / sizeof kRampKits[0]);
 const char* const kFacingNames[kRampFacings] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
 
-const RampKitData* kitOf(int era, int facing) {
-    if (facing < 0 || facing >= kRampFacings) return nullptr;
-    for (const RampKitData& k : kRampKits)
-        if (k.era == era && !std::strcmp(k.facing, kFacingNames[facing])) return &k;
-    return nullptr;
+const RampKitData* kitAt(int kit) { return kit >= 0 && kit < kKits ? &kRampKits[kit] : nullptr; }
+
+// The corners of a kit's piece (kRampCorners, by kit and piece).
+const std::vector<const RampCornerData*>& cornersOf(int kit, int kind) {
+    static const std::map<int, std::vector<const RampCornerData*>> index = [] {
+        std::map<int, std::vector<const RampCornerData*>> m;
+        for (const RampCornerData& c : kRampCorners) m[c.kit * 4 + c.kind].push_back(&c);
+        return m;
+    }();
+    static const std::vector<const RampCornerData*> none;
+    const auto i = index.find(kit * 4 + kind);
+    return i == index.end() ? none : i->second;
+}
+
+// A kit the brush offers: the maps show where its pieces go (corners for each piece).
+bool usable(int kit) { return !cornersOf(kit, 0).empty() && !cornersOf(kit, 1).empty() && !cornersOf(kit, 2).empty(); }
+
+// The first usable kit of a tileset and facing: a block the maps have ramps of first (the spec's), then the others.
+int firstKit(int era, int facing) {
+    for (const int mode : {0, 1, 2})
+        for (int k = 0; k < kKits; ++k)
+            if (kRampKits[k].era == era && kRampKits[k].facing == facing && kRampKits[k].mode == mode && usable(k)) return k;
+    return -1;
 }
 
 }  // namespace
 
 const char* rampFacingName(int facing) { return facing >= 0 && facing < kRampFacings ? kFacingNames[facing] : ""; }
 
-bool rampsAvailable(int era) {
-    for (int f = 0; f < kRampFacings; ++f)
-        if (!kitOf(era, f)) return false;
-    return true;
+std::vector<int> rampKitsOf(int era, bool all) {
+    std::vector<int> out;
+    for (int k = 0; k < kKits; ++k)
+        if (kRampKits[k].era == era && (all || usable(k))) out.push_back(k);
+    return out;
 }
+int rampKitFacing(int kit) { return kitAt(kit) ? kitAt(kit)->facing : -1; }
+int rampKitBase(int kit) { return kitAt(kit) ? kitAt(kit)->base : -1; }
+std::pair<std::string, std::string> rampKitTerrains(int kit) {
+    return kitAt(kit) ? std::pair<std::string, std::string>{kitAt(kit)->low, kitAt(kit)->high} : std::pair<std::string, std::string>{};
+}
+int rampKitDoodad(int kit, int kind) { return kitAt(kit) && kind >= 0 && kind < 3 ? kitAt(kit)->doodads[kind] : -1; }
+const char* rampKitGroup(int kit) { return kitAt(kit) ? kitAt(kit)->group : ""; }
+int rampKit(int era, int facing) { return firstKit(era, facing); }
 
-std::pair<int, int> rampPieceSize(int era, int facing, int kind) {
-    const RampKitData* k = kitOf(era, facing);
+bool rampsAvailable(int era) { return !rampKitsOf(era).empty(); }
+
+std::pair<int, int> rampKitPieceSize(int kit, int kind) {
+    const RampKitData* k = kitAt(kit);
     if (!k || kind < 0 || kind > 2) return {0, 0};
     int w = 0, h = 0;
     for (int i = k->tiles[kind]; i < k->tiles[kind + 1]; ++i) w = std::max(w, kRampTiles[i].x + 1), h = std::max(h, kRampTiles[i].y + 1);
     return {w, h};
 }
 
-std::vector<RampPiece> rampPieces(int era, int facing, int slopes, int ax, int ay) {
-    const RampKitData* k = kitOf(era, facing);
+std::vector<RampPiece> rampKitPieces(int kit, int slopes, int ax, int ay) {
+    const RampKitData* k = kitAt(kit);
     if (!k) return {};
     std::vector<RampPiece> out{{0, ax, ay}};
     for (int i = 0; i < slopes; ++i) out.push_back({1, ax + k->start[0] + i * k->step[0], ay + k->start[1] + i * k->step[1]});
@@ -72,81 +107,90 @@ std::vector<RampPiece> rampPieces(int era, int facing, int slopes, int ax, int a
     return out;
 }
 
-std::vector<Editor::TileAt> rampTiles(int era, int facing, int slopes, int ax, int ay) {
+std::vector<Editor::TileAt> rampKitTiles(int kit, int slopes, int ax, int ay) {
     std::vector<Editor::TileAt> out;
-    const RampKitData* k = kitOf(era, facing);
+    const RampKitData* k = kitAt(kit);
     if (!k) return out;
-    for (const RampPiece& p : rampPieces(era, facing, slopes, ax, ay))
+    for (const RampPiece& p : rampKitPieces(kit, slopes, ax, ay))
         for (int i = k->tiles[p.kind]; i < k->tiles[p.kind + 1]; ++i) out.push_back({p.x + kRampTiles[i].x, p.y + kRampTiles[i].y, kRampTiles[i].value});
     return out;
 }
 
-bool rampMatches(const Editor& ed, int facing, int slopes, int ax, int ay) {
-    const std::vector<Editor::TileAt> tiles = rampTiles(ed.era() & 7, facing, slopes, ax, ay);
+bool rampKitMatches(const Editor& ed, int kit, int slopes, int ax, int ay) {
+    const std::vector<Editor::TileAt> tiles = rampKitTiles(kit, slopes, ax, ay);
     for (const Editor::TileAt& c : tiles)
         if (c.x < 0 || c.y < 0 || c.x >= ed.width() || c.y >= ed.height() || ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) return false;
     return !tiles.empty();
 }
 
+std::pair<int, int> rampPieceSize(int era, int facing, int kind) { return rampKitPieceSize(firstKit(era, facing), kind); }
+std::vector<RampPiece> rampPieces(int era, int facing, int slopes, int ax, int ay) { return rampKitPieces(firstKit(era, facing), slopes, ax, ay); }
+std::vector<Editor::TileAt> rampTiles(int era, int facing, int slopes, int ax, int ay) { return rampKitTiles(firstKit(era, facing), slopes, ax, ay); }
+bool rampMatches(const Editor& ed, int facing, int slopes, int ax, int ay) { return rampKitMatches(ed, firstKit(ed.era() & 7, facing), slopes, ax, ay); }
+
 namespace {
 
-// A ramp on one map: its kit and the terrain ids of its high and low ground there.
+// The terrain ids of a map's tileset by name (once for each tileset).
+uint16_t terrainId(const Editor& ed, const char* name) {
+    static std::map<std::pair<int, std::string>, uint16_t> ids;
+    const auto key = std::make_pair(int(ed.era() & 7), std::string(name));
+    auto i = ids.find(key);
+    if (i == ids.end()) {
+        uint16_t v = 0;
+        for (uint16_t id = 1; id < 256 && !v; ++id)
+            if (ed.terrainName(id) == name) v = id;
+        i = ids.emplace(key, v).first;
+    }
+    return i->second;
+}
+
+// A kit on one map: the terrain id of each of its pieces' corners there (0: any but the high ground), its doodads.
 struct Fit {
     const Editor& ed;
+    int kit;
     const RampKitData& k;
-    int facing;
-    uint16_t low = 0, high = 0;
-    Fit(const Editor& e, const RampKitData& kit, int f) : ed(e), k(kit), facing(f) {
-        // (the ids by name, once for each kit)
-        static std::map<const RampKitData*, std::pair<uint16_t, uint16_t>> ids;
-        const RampKitData* key = &k;
-        auto i = ids.find(key);
-        if (i == ids.end()) {
-            std::pair<uint16_t, uint16_t> v{0, 0};
-            for (uint16_t id = 1; id < 256; ++id) {
-                const std::string n = ed.terrainName(id);
-                if (n == k.low && !v.first) v.first = id;
-                if (n == k.high && !v.second) v.second = id;
+    std::vector<std::vector<std::pair<const RampCornerData*, std::vector<uint16_t>>>> corners;  // by piece: the terrains it may be
+    uint16_t high = 0;
+    bool ok = true;
+    Fit(const Editor& e, int kitIndex) : ed(e), kit(kitIndex), k(kRampKits[kitIndex]), corners(3) {
+        high = terrainId(ed, k.high);
+        ok = high != 0;
+        for (int kind = 0; kind < 3; ++kind) {
+            for (const RampCornerData* c : cornersOf(kit, kind)) {
+                // (its terrains: names apart by "|")
+                std::vector<uint16_t> ids;
+                for (const char *s = c->terrain, *e = s; *s; s = *e ? e + 1 : e) {
+                    e = std::strchr(s, '|');
+                    if (!e) e = s + std::strlen(s);
+                    if (const uint16_t id = terrainId(ed, std::string(s, e).c_str())) ids.push_back(id);
+                }
+                corners[size_t(kind)].push_back({c, ids});
             }
-            i = ids.emplace(key, v).first;
         }
-        low = i->second.first, high = i->second.second;
     }
 };
 
-// The approved ramps' corners of a piece (kRampCorners, by era, facing and piece).
-const std::vector<const RampCornerData*>& cornersOf(int era, int facing, int kind) {
-    static const std::map<int, std::vector<const RampCornerData*>> index = [] {
-        std::map<int, std::vector<const RampCornerData*>> m;
-        for (const RampCornerData& c : kRampCorners) m[c.era * 100 + c.facing * 10 + c.kind].push_back(&c);
-        return m;
-    }();
-    static const std::vector<const RampCornerData*> none;
-    const auto i = index.find(era * 100 + facing * 10 + kind);
-    return i == index.end() ? none : i->second;
-}
-
-// Whether the ISOM corners under a piece (its top left at tile x, y) are the high and low ground of the approved ramps'.
+// Whether the ISOM corners under a piece (its top left at tile x, y) have the terrains of the maps' ramps' pieces.
 bool pieceFits(const Fit& f, int kind, int x, int y) {
-    const std::vector<const RampCornerData*>& corners = cornersOf(f.k.era, f.facing, kind);
-    for (const RampCornerData* c : corners) {
+    for (const auto& [c, ids] : f.corners[size_t(kind)]) {
         const int px = 32 * x + c->px, py = 32 * y + c->py;
         if (px % 64 || py % 32 || px < 0 || py < 0 || !((px / 64 + py / 32) & 1)) return false;  // (not a corner there: off the grid)
-        if (f.ed.terrainAt(px, py) != (c->high ? f.high : f.low)) return false;
+        const uint16_t t = f.ed.terrainAt(px, py);
+        if (ids.empty() ? (!t || t == f.high) : std::find(ids.begin(), ids.end(), t) == ids.end()) return false;
     }
-    return !corners.empty();
+    return !f.corners[size_t(kind)].empty();
 }
 
 // A piece is on the map and fits its corners.
 bool placeFits(const Fit& f, const RampPiece& p) {
-    const auto [w, h] = rampPieceSize(f.k.era, f.facing, p.kind);
+    const auto [w, h] = rampKitPieceSize(f.kit, p.kind);
     return p.x >= 0 && p.y >= 0 && p.x + w <= f.ed.width() && p.y + h <= f.ed.height() && pieceFits(f, p.kind, p.x, p.y);
 }
 
 // All the ramp's pieces fit their corners.
 bool cornersFit(const Fit& f, int slopes, int ax, int ay) {
-    if (!f.low || !f.high) return false;
-    for (const RampPiece& p : rampPieces(f.k.era, f.facing, slopes, ax, ay))
+    if (!f.ok) return false;
+    for (const RampPiece& p : rampKitPieces(f.kit, slopes, ax, ay))
         if (!placeFits(f, p)) return false;
     return true;
 }
@@ -172,15 +216,16 @@ bool kitNeighbors(int era, int way, uint16_t a, uint16_t b) {
     static std::map<int, std::unordered_set<uint64_t>> pairs;
     if (!pairs.count(era)) {
         std::unordered_set<uint64_t>& s = pairs[era];
-        for (int f = 0; f < kRampFacings; ++f)
-            for (int n = 0; n <= 2; ++n) {
-                std::map<std::pair<int, int>, uint16_t> at;
-                for (const Editor::TileAt& c : rampTiles(era, f, n, 0, 0)) at[{c.x, c.y}] = c.value;
-                for (const auto& [p, v] : at) {
-                    if (auto r = at.find({p.first + 1, p.second}); r != at.end()) s.insert(pairKey(era, 0, v, r->second));
-                    if (auto u = at.find({p.first, p.second + 1}); u != at.end()) s.insert(pairKey(era, 1, v, u->second));
+        for (int k = 0; k < kKits; ++k)
+            if (kRampKits[k].era == era)
+                for (int n = 0; n <= 2; ++n) {
+                    std::map<std::pair<int, int>, uint16_t> at;
+                    for (const Editor::TileAt& c : rampKitTiles(k, n, 0, 0)) at[{c.x, c.y}] = c.value;
+                    for (const auto& [p, v] : at) {
+                        if (auto r = at.find({p.first + 1, p.second}); r != at.end()) s.insert(pairKey(era, 0, v, r->second));
+                        if (auto u = at.find({p.first, p.second + 1}); u != at.end()) s.insert(pairKey(era, 1, v, u->second));
+                    }
                 }
-            }
     }
     return pairs[era].count(pairKey(era, way, a, b)) != 0;
 }
@@ -188,9 +233,12 @@ bool kitNeighbors(int era, int way, uint16_t a, uint16_t b) {
 // Whether a tile is a ramp piece's (of any kit of the tileset).
 bool isPiece(int era, uint16_t v) {
     static std::map<int, std::unordered_set<uint16_t>> pieces;
-    if (!pieces.count(era))
-        for (int f = 0; f < kRampFacings; ++f)
-            for (const Editor::TileAt& c : rampTiles(era, f, 1, 0, 0)) pieces[era].insert(c.value);
+    if (!pieces.count(era)) {
+        std::unordered_set<uint16_t>& s = pieces[era];
+        for (int k = 0; k < kKits; ++k)
+            if (kRampKits[k].era == era)
+                for (const Editor::TileAt& c : rampKitTiles(k, 1, 0, 0)) s.insert(c.value);
+    }
     return pieces[era].count(v) != 0;
 }
 
@@ -206,6 +254,40 @@ bool edgeFits(const Editor& ed, int era, const std::vector<Editor::TileAt>& tile
         if (c.x > 0 && !on.count({c.x - 1, c.y}) && !fits(0, at(c.x - 1, c.y), c.value)) return false;
         if (c.y + 1 < ed.height() && !on.count({c.x, c.y + 1}) && !fits(1, c.value, at(c.x, c.y + 1))) return false;
         if (c.y > 0 && !on.count({c.x, c.y - 1}) && !fits(1, at(c.x, c.y - 1), c.value)) return false;
+    }
+    return true;
+}
+
+// Whether a tile is a slope's (of any kit of the tileset) and no wall's: the walls of some blocks are their cliff's tiles.
+bool isSlope(int era, uint16_t v) {
+    static std::map<int, std::unordered_set<uint16_t>> slopes;
+    if (!slopes.count(era)) {
+        std::unordered_set<uint16_t>& s = slopes[era];
+        std::unordered_set<uint16_t> walls;
+        for (int k = 0; k < kKits; ++k)
+            if (kRampKits[k].era == era)
+                for (int kind = 0; kind < 3; ++kind)
+                    for (int i = kRampKits[k].tiles[kind]; i < kRampKits[k].tiles[kind + 1]; ++i) (kind == 1 ? s : walls).insert(kRampTiles[i].value);
+        for (uint16_t w : walls) s.erase(w);
+    }
+    return slopes[era].count(v) != 0;
+}
+
+// Whether the ramp goes over no slope that is there and meets the slopes round it as the kits' own ramps do (or as the
+// corpus has them): a new ramp does not end inside one that is there. (edgeFits does this and more for the kits the maps
+// show.)
+bool piecesFit(const Editor& ed, int era, const std::vector<Editor::TileAt>& tiles) {
+    std::set<std::pair<int, int>> on;
+    for (const Editor::TileAt& c : tiles) on.insert({c.x, c.y});
+    const auto at = [&](int x, int y) { return ed.terrain().tiles[size_t(y) * ed.width() + x]; };
+    const auto fits = [&](int way, uint16_t a, uint16_t b) { return kitNeighbors(era, way, a, b) || neighbors(era, way, a, b); };
+    const auto out = [&](int x, int y) { return !on.count({x, y}) && isSlope(era, at(x, y)); };
+    for (const Editor::TileAt& c : tiles) {
+        if (c.x >= 0 && c.y >= 0 && c.x < ed.width() && c.y < ed.height() && at(c.x, c.y) != c.value && isSlope(era, at(c.x, c.y))) return false;  // (over a slope)
+        if (c.x + 1 < ed.width() && out(c.x + 1, c.y) && !fits(0, c.value, at(c.x + 1, c.y))) return false;
+        if (c.x > 0 && out(c.x - 1, c.y) && !fits(0, at(c.x - 1, c.y), c.value)) return false;
+        if (c.y + 1 < ed.height() && out(c.x, c.y + 1) && !fits(1, c.value, at(c.x, c.y + 1))) return false;
+        if (c.y > 0 && out(c.x, c.y - 1) && !fits(1, at(c.x, c.y - 1), c.value)) return false;
     }
     return true;
 }
@@ -238,43 +320,67 @@ bool rampJoins(const Tileset& ts, const std::vector<Editor::TileAt>& tiles) {
     return false;
 }
 
-bool rampFits(const Editor& ed, int facing, int slopes, int ax, int ay) {
-    const RampKitData* k = kitOf(ed.era() & 7, facing);
-    if (!k || !ed.canPaintTerrain()) return false;
-    const Fit f(ed, *k, facing);
-    if (!cornersFit(f, slopes, ax, ay)) return false;
-    const std::vector<Editor::TileAt> tiles = rampTiles(k->era, facing, slopes, ax, ay);
-    return edgeFits(ed, k->era, tiles) && rampJoins(ed.tileset(), tiles);
+namespace {
+
+// Whether a ramp joins what it should: two ground levels, or (a kit whose pieces are all of one level: a pit's, as Sunken
+// Ground's, on the level of the ground round it) whatever it is.
+bool joinsAsKit(const Editor& ed, int kit, const std::vector<Editor::TileAt>& tiles) {
+    static std::map<std::pair<int, int>, bool> twoLevels;  // (kit, tileset: its own pieces join two levels)
+    const auto key = std::make_pair(kit, int(ed.era() & 7));
+    auto i = twoLevels.find(key);
+    if (i == twoLevels.end()) i = twoLevels.emplace(key, rampJoins(ed.tileset(), rampKitTiles(kit, 1, 0, 0))).first;
+    return !i->second || rampJoins(ed.tileset(), tiles);
 }
 
-RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) {
+}  // namespace
+
+bool rampKitFits(const Editor& ed, int kit, int slopes, int ax, int ay) {
+    if (!kitAt(kit) || !usable(kit) || !ed.canPaintTerrain() || kRampKits[kit].era != (ed.era() & 7)) return false;
+    const Fit f(ed, kit);
+    if (!cornersFit(f, slopes, ax, ay)) return false;
+    const std::vector<Editor::TileAt> tiles = rampKitTiles(kit, slopes, ax, ay);
+    return (f.k.mode ? piecesFit(ed, f.k.era, tiles) : edgeFits(ed, f.k.era, tiles)) && joinsAsKit(ed, kit, tiles);
+}
+
+bool rampFits(const Editor& ed, int facing, int slopes, int ax, int ay) { return rampKitFits(ed, firstKit(ed.era() & 7, facing), slopes, ax, ay); }
+
+namespace {
+
+// The usable kits of the map's tileset on the map.
+std::map<int, Fit> fitsOn(const Editor& ed) {
+    std::map<int, Fit> fits;
+    for (int k : rampKitsOf(ed.era() & 7)) fits.emplace(k, Fit(ed, k));
+    return fits;
+}
+
+RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const std::vector<std::pair<int, int>>& stroke) {
     RampPlan plan;
     const int era = ed.era() & 7;
-    if (!rampsAvailable(era)) return plan.problem = RampPlan::Problem::NoKit, plan;
-    plan.low = kitOf(era, 0)->low, plan.high = kitOf(era, 0)->high;
+    if (fits.empty()) return plan.problem = RampPlan::Problem::NoKit, plan;
+    plan.low = fits.begin()->second.k.low, plan.high = fits.begin()->second.k.high;
     if (!ed.canPaintTerrain()) return plan.problem = RampPlan::Problem::NoIsom, plan;
     if (stroke.empty()) return plan;
-    std::vector<Fit> fits;
-    for (int f = 0; f < kRampFacings; ++f) fits.emplace_back(ed, *kitOf(era, f), f);
     // The middle of a ramp (map pixels).
-    const auto middle = [&](int f, int n, int ax, int ay) {
+    const auto middle = [&](int kit, int n, int ax, int ay) {
         double cx = 0, cy = 0;
-        const std::vector<Editor::TileAt> t = rampTiles(era, f, n, ax, ay);
+        const std::vector<Editor::TileAt> t = rampKitTiles(kit, n, ax, ay);
         for (const Editor::TileAt& c : t) cx += 32.0 * c.x + 16, cy += 32.0 * c.y + 16;
         return std::pair<double, double>{cx / double(t.size()), cy / double(t.size())};
     };
-    // The ramp of no slope whose corners fit nearest the stroke's start: its facing and its edge.
+    // The ramp of no slope whose corners fit nearest the stroke's start: its kit (block and facing) and its edge.
     const auto [sx, sy] = stroke.front();
     double best = 1e18;
-    for (int f = 0; f < kRampFacings; ++f)
+    int kit = -1;
+    for (const auto& [k, f] : fits)
         for (int ay = sy / 32 - 10; ay <= sy / 32 + 6; ++ay)
             for (int ax = sx / 32 - 12; ax <= sx / 32 + 6; ++ax) {
-                if (!cornersFit(fits[size_t(f)], 0, ax, ay)) continue;
-                const auto [mx, my] = middle(f, 0, ax, ay);
-                if (const double d = std::hypot(mx - sx, my - sy); d < best && d < 192) best = d, plan.facing = f, plan.ax = ax, plan.ay = ay;
+                if (!f.ok || !placeFits(f, {0, ax, ay}) || !cornersFit(f, 0, ax, ay)) continue;  // (wall A first: most places end there)
+                const auto [mx, my] = middle(k, 0, ax, ay);
+                if (const double d = std::hypot(mx - sx, my - sy); d < best && d < 192) best = d, kit = k, plan.ax = ax, plan.ay = ay;
             }
-    if (plan.facing < 0) return plan;
-    const Fit& fit = fits[size_t(plan.facing)];
+    if (kit < 0) return plan;
+    const Fit& fit = fits.at(kit);
+    plan.kit = kit, plan.facing = fit.k.facing, plan.low = fit.k.low, plan.high = fit.k.high;
     // Along the edge (the slopes' step), from wall A's middle: how far the stroke goes each way. Of each anchor on this
     // edge (a whole tile from the first one along it) and each width there, the ramp whose wall A is nearest the stroke's
     // first end and wall B nearest its other end (an edge can have places half a slope apart that fit), of those that
@@ -282,10 +388,10 @@ RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stro
     const RampKitData& k = fit.k;
     const double ux = 32.0 * k.step[0], uy = 32.0 * k.step[1], len = std::hypot(ux, uy);
     const auto pieceMiddle = [&](const RampPiece& p) {
-        const auto [w, h] = rampPieceSize(era, plan.facing, p.kind);
+        const auto [w, h] = rampKitPieceSize(kit, p.kind);
         return std::pair<double, double>{p.x * 32.0 + w * 16.0, p.y * 32.0 + h * 16.0};
     };
-    const auto [ax0, ay0] = pieceMiddle(rampPieces(era, plan.facing, 0, plan.ax, plan.ay).front());
+    const auto [ax0, ay0] = pieceMiddle(rampKitPieces(kit, 0, plan.ax, plan.ay).front());
     const auto along = [&](double x, double y) { return ((x - ax0) * ux + (y - ay0) * uy) / len; };
     double lo = 1e18, hi = -1e18;
     for (const auto& [x, y] : stroke) lo = std::min(lo, along(x, y)), hi = std::max(hi, along(x, y));
@@ -318,29 +424,34 @@ RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stro
         if (std::fabs(a - lo) >= best2) break;  // (no width of it, or of those after it, can be nearer)
         // (each width adds one slope and moves wall B: only those two pieces are checked again)
         for (int n = 0; n <= 64; ++n) {
-            const std::vector<RampPiece> pieces = rampPieces(era, plan.facing, n, ax, ay);
+            const std::vector<RampPiece> pieces = rampKitPieces(kit, n, ax, ay);
             if (n && !placeFits(fit, pieces[size_t(n)])) break;  // (the new slope)
             const auto [bx, by] = pieceMiddle(pieces.back());
             const double cost = std::fabs(a - lo) + std::fabs(along(bx, by) - hi);
             if (cost < best2 && placeFits(fit, pieces.back())) {
-                const std::vector<Editor::TileAt> tiles = rampTiles(era, plan.facing, n, ax, ay);
-                if (edgeFits(ed, era, tiles) && rampJoins(ed.tileset(), tiles)) best2 = cost, plan.ax = ax, plan.ay = ay, plan.slopes = n;
+                const std::vector<Editor::TileAt> tiles = rampKitTiles(kit, n, ax, ay);
+                if ((k.mode ? piecesFit(ed, era, tiles) : edgeFits(ed, era, tiles)) && joinsAsKit(ed, kit, tiles)) best2 = cost, plan.ax = ax, plan.ay = ay, plan.slopes = n;
             }
             if (along(bx, by) > hi + len && !overRamp) break;
         }
     }
-    if (best2 > 1e17) return plan.facing = -1, plan;  // (no ramp on that edge fits and joins the ground)
-    plan.tiles = rampTiles(era, plan.facing, plan.slopes, plan.ax, plan.ay);
+    if (best2 > 1e17) return plan.facing = -1, plan.kit = -1, plan;  // (no ramp on that edge fits and joins the ground)
+    plan.tiles = rampKitTiles(kit, plan.slopes, plan.ax, plan.ay);
     plan.problem = RampPlan::Problem::None;
     return plan;
 }
 
+}  // namespace
+
+RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) { return planRampWith(ed, fitsOn(ed), stroke); }
+
 std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<int, int>>& stroke, RampPlan* why) {
     std::vector<RampPlan> out;
     std::set<std::pair<int, int>> taken;
+    const std::map<int, Fit> fits = fitsOn(ed);
     size_t i = 0;
     while (i < stroke.size() && out.size() < 32) {
-        const RampPlan p = planRamp(ed, std::vector<std::pair<int, int>>(stroke.begin() + std::ptrdiff_t(i), stroke.end()));
+        const RampPlan p = planRampWith(ed, fits, std::vector<std::pair<int, int>>(stroke.begin() + std::ptrdiff_t(i), stroke.end()));
         if (why && i == 0) *why = p;
         if (p.problem != RampPlan::Problem::None) {
             if (p.problem != RampPlan::Problem::NoCliff) break;
@@ -372,7 +483,6 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
 
 std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) {
     const int era = ed.era() & 7, w = ed.width(), h = ed.height();
-    if (!rampsAvailable(era)) return {};
     const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, ed.terrain().tiles[size_t(y) * w + x]); };
     // (the tiles within a diamond, 2 tiles across and 1 down, of each point and of the way between the points)
     std::set<std::pair<int, int>> seen;
@@ -398,12 +508,65 @@ std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vec
     return std::vector<std::pair<int, int>>(seen.begin(), seen.end());
 }
 
+std::vector<RampOnMap> rampsIn(int era, int w, int h, const std::vector<uint16_t>& tiles, const std::vector<uint8_t>* near) {
+    std::vector<RampOnMap> out;
+    if (tiles.size() != size_t(w) * h) return out;
+    const auto idx = [&](int x, int y) { return size_t(y) * w + x; };
+    const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, tiles[idx(x, y)]); };
+    std::vector<uint8_t> seen(tiles.size(), 0);
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            if ((near && !(*near)[idx(x, y)]) || seen[idx(x, y)] || !piece(x, y)) continue;
+            // (the ramp tiles joined to it: one ramp or more side by side)
+            std::vector<std::pair<int, int>> todo{{x, y}};
+            seen[idx(x, y)] = 1;
+            int x0 = x, y0 = y, x1 = x, y1 = y;
+            while (!todo.empty()) {
+                const auto [cx, cy] = todo.back();
+                todo.pop_back();
+                x0 = std::min(x0, cx), y0 = std::min(y0, cy), x1 = std::max(x1, cx), y1 = std::max(y1, cy);
+                for (const auto& [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
+                    if (piece(cx + dx, cy + dy) && !seen[idx(cx + dx, cy + dy)]) seen[idx(cx + dx, cy + dy)] = 1, todo.push_back({cx + dx, cy + dy});
+            }
+            // (each kit's ramps whose tiles all are there: wall A first, then the widest ramp from it; each tile in one)
+            std::set<std::pair<int, int>> taken;
+            const auto matches = [&](int k, int n, int ax, int ay) {
+                const std::vector<Editor::TileAt> t = rampKitTiles(k, n, ax, ay);
+                for (const Editor::TileAt& c : t)
+                    if (c.x < 0 || c.y < 0 || c.x >= w || c.y >= h || tiles[idx(c.x, c.y)] != c.value || taken.count({c.x, c.y})) return false;
+                return !t.empty();
+            };
+            const auto wallA = [&](int k, int ax, int ay) {
+                for (int i = kRampKits[k].tiles[0]; i < kRampKits[k].tiles[1]; ++i) {
+                    const int tx = ax + kRampTiles[i].x, ty = ay + kRampTiles[i].y;
+                    if (tx < 0 || ty < 0 || tx >= w || ty >= h || tiles[idx(tx, ty)] != kRampTiles[i].value || taken.count({tx, ty})) return false;
+                }
+                return true;
+            };
+            for (int k = 0; k < kKits; ++k) {
+                if (kRampKits[k].era != era) continue;
+                for (int ay = y0 - 6; ay <= y1; ++ay)
+                    for (int ax = x0 - 8; ax <= x1; ++ax) {
+                        if (!wallA(k, ax, ay)) continue;
+                        int n = -1;
+                        for (int s = 0; s <= 64; ++s)
+                            if (matches(k, s, ax, ay)) n = s;
+                            else if (n >= 0) break;  // (no wider one: its slopes go on from this one's)
+                        if (n < 0) continue;
+                        out.push_back({k, n, ax, ay});
+                        for (const Editor::TileAt& c : rampKitTiles(k, n, ax, ay)) taken.insert({c.x, c.y});
+                    }
+            }
+        }
+    return out;
+}
+
 int refitRamps(Editor& ed, const std::vector<uint16_t>& before) {
     const int era = ed.era() & 7, w = ed.width(), h = ed.height();
     const std::vector<uint16_t>& now = ed.terrain().tiles;
     if (!rampsAvailable(era) || !ed.canPaintTerrain() || before.size() != now.size() || before.size() != size_t(w) * h) return 0;
     const auto idx = [&](int x, int y) { return size_t(y) * w + x; };
-    // The ramp tiles of `before` next to a changed tile (or changed themselves), and the whole ramps they are part of.
+    // The ramps of `before` with a tile next to a changed tile (or changed itself).
     std::vector<uint8_t> near(before.size(), 0);
     bool any = false;
     for (int y = 0; y < h; ++y)
@@ -413,67 +576,25 @@ int refitRamps(Editor& ed, const std::vector<uint16_t>& before) {
                     for (int dx = -1; dx <= 1; ++dx)
                         if (x + dx >= 0 && y + dy >= 0 && x + dx < w && y + dy < h) near[idx(x + dx, y + dy)] = 1, any = true;
     if (!any) return 0;
-    const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, before[idx(x, y)]); };
-    std::vector<uint8_t> seen(before.size(), 0);
-    struct Old {
-        int facing, slopes, ax, ay;
-    };
-    std::vector<Old> olds;
-    for (int y = 0; y < h; ++y)
-        for (int x = 0; x < w; ++x) {
-            if (!near[idx(x, y)] || seen[idx(x, y)] || !piece(x, y)) continue;
-            // (the ramp tiles joined to it: one ramp or more side by side)
-            std::vector<std::pair<int, int>> todo{{x, y}}, comp;
-            seen[idx(x, y)] = 1;
-            int x0 = x, y0 = y, x1 = x, y1 = y;
-            while (!todo.empty()) {
-                const auto [cx, cy] = todo.back();
-                todo.pop_back();
-                comp.push_back({cx, cy});
-                x0 = std::min(x0, cx), y0 = std::min(y0, cy), x1 = std::max(x1, cx), y1 = std::max(y1, cy);
-                for (const auto& [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
-                    if (piece(cx + dx, cy + dy) && !seen[idx(cx + dx, cy + dy)]) seen[idx(cx + dx, cy + dy)] = 1, todo.push_back({cx + dx, cy + dy});
-            }
-            // (the kits' ramps whose tiles all are as in `before`, widest first: each tile in one ramp)
-            std::set<std::pair<int, int>> taken;
-            const auto matches = [&](int f, int n, int ax, int ay) {
-                const std::vector<Editor::TileAt> t = rampTiles(era, f, n, ax, ay);
-                for (const Editor::TileAt& c : t)
-                    if (c.x < 0 || c.y < 0 || c.x >= w || c.y >= h || before[idx(c.x, c.y)] != c.value || taken.count({c.x, c.y})) return false;
-                return !t.empty();
-            };
-            // (wall A first: its tiles as in `before`; then the widest ramp from it whose tiles all are)
-            const auto wallA = [&](int f, int ax, int ay) {
-                const RampKitData* k = kitOf(era, f);
-                for (int i = k->tiles[0]; i < k->tiles[1]; ++i) {
-                    const int x = ax + kRampTiles[i].x, y = ay + kRampTiles[i].y;
-                    if (x < 0 || y < 0 || x >= w || y >= h || before[idx(x, y)] != kRampTiles[i].value || taken.count({x, y})) return false;
-                }
-                return true;
-            };
-            for (int f = 0; f < kRampFacings; ++f)
-                for (int ay = y0 - 6; ay <= y1; ++ay)
-                    for (int ax = x0 - 8; ax <= x1; ++ax) {
-                        if (!wallA(f, ax, ay)) continue;
-                        int n = -1;
-                        for (int k = 0; k <= 64; ++k)
-                            if (matches(f, k, ax, ay)) n = k;
-                        if (n < 0) continue;
-                        olds.push_back({f, n, ax, ay});
-                        for (const Editor::TileAt& c : rampTiles(era, f, n, ax, ay)) taken.insert({c.x, c.y});
-                    }
-        }
     int made = 0;
-    for (const Old& o : olds) {
-        const std::vector<Editor::TileAt> old = rampTiles(era, o.facing, o.slopes, o.ax, o.ay);
-        // (as it was and still fits: nothing to do)
-        bool same = true;
-        for (const Editor::TileAt& c : old) same = same && ed.terrain().tiles[idx(c.x, c.y)] == c.value;
-        if (same && rampFits(ed, o.facing, o.slopes, o.ax, o.ay)) continue;
+    for (const RampOnMap& o : rampsIn(era, w, h, before, &near)) {
+        const std::vector<Editor::TileAt> old = rampKitTiles(o.kit, o.slopes, o.ax, o.ay);
+        // (a ramp joins two ground levels: walls alone that a cliff edge has, in the blocks whose walls are its tiles, are
+        // not a ramp)
+        if (!joinsAsKit(ed, o.kit, old)) continue;
+        // (the edit did not change its tiles and the ground under it is still the ground its pieces go on: it stays as it
+        // is, also where its edge or its join would not let the brush put it there, as on maps made in other editors; on
+        // protected tiles: it stays too)
+        bool same = true, kept = false;
+        for (const Editor::TileAt& c : old) {
+            same = same && ed.terrain().tiles[idx(c.x, c.y)] == c.value;
+            kept = kept || ed.tileProtected(c.x, c.y);
+        }
+        if (kept || (same && cornersFit(Fit(ed, o.kit), o.slopes, o.ax, o.ay))) continue;
         // its stretch of the edge: from wall A's middle to wall B's
         std::vector<std::pair<int, int>> stroke;
-        for (const RampPiece& p : rampPieces(era, o.facing, o.slopes, o.ax, o.ay)) {
-            const auto [pw, ph] = rampPieceSize(era, o.facing, p.kind);
+        for (const RampPiece& p : rampKitPieces(o.kit, o.slopes, o.ax, o.ay)) {
+            const auto [pw, ph] = rampKitPieceSize(o.kit, p.kind);
             stroke.push_back({p.x * 32 + pw * 16, p.y * 32 + ph * 16});
         }
         // the old ramp's tiles that are still there become the cliff; then the ramps that fit go in
@@ -482,6 +603,9 @@ int refitRamps(Editor& ed, const std::vector<uint16_t>& before) {
             if (ed.terrain().tiles[idx(c.x, c.y)] == c.value) left.push_back({c.x, c.y});
         ed.remakeTilesFromIsom(left);
         for (const RampPlan& p : planRamps(ed, stroke)) {
+            bool onProtected = false;
+            for (const Editor::TileAt& c : p.tiles) onProtected = onProtected || ed.tileProtected(c.x, c.y);
+            if (onProtected) continue;
             ed.placeTileValues(p.tiles);
             ++made;
         }

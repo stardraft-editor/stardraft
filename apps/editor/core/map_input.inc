@@ -716,7 +716,8 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     case Drag::Spray:
         sprayHoldStop();
         if (app.mode == Mode::Terrain && app.terrainRect) tilesMouseUp(wx, wy);
-        else ed.endStroke();  // the terrain's stroke, or the units' and doodads' (the press and hold: one undo step)
+        else if (app.mode == Mode::Terrain) ed.endTerrainStroke();  // (its ramps fit the new cliffs)
+        else ed.endStroke();  // the units' and doodads' stroke (the press and hold: one undo step)
         if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites)
             setMessage(app, L"Sprayed " + std::to_wstring(app.sprayPlaced) + (app.mode == Mode::Units ? L" units" : app.mode == Mode::Doodads ? L" doodads" : L" sprites"));
         break;

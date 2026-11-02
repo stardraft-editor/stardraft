@@ -2,6 +2,7 @@
 //   ramp_test <install dir> [<example maps folder: examples_<tileset>.scm>]
 // RAMP_LEARN=<file>: the ISOM corners under each piece of the example maps' ramps (on their plateaus), for
 // research/bridge-ramp/gen_ramp_kits.py.
+#include "stardraft/doodads.h"
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
 #include "stardraft/ramps.h"
@@ -133,14 +134,16 @@ static void examples(const GameData& data, const std::filesystem::path& dir) {
             continue;
         }
         const int era = ed.era() & 7;
-        const std::string high = planRamp(ed, {}).high;
         int tested = 0, walls = 0;
         for (const FoundRamp& r : findRamps(ed)) {
-            bool cliff = false;  // (on a plateau: high ground under it somewhere)
+            std::set<std::string> under;  // (on a plateau: two terrains under it)
             for (const auto& c : rampTiles(era, r.facing, r.slopes, r.ax, r.ay))
-                for (int dy = 0; dy <= 1 && !cliff; ++dy)
-                    for (int dx = 0; dx <= 1 && !cliff; ++dx) cliff = ed.terrainName(ed.terrainAt((c.x + dx) * 32, (c.y + dy) * 32)) == high;
-            if (!cliff) continue;
+                for (int dy = 0; dy <= 1; ++dy)
+                    for (int dx = 0; dx <= 1; ++dx) under.insert(ed.terrainName(ed.terrainAt((c.x + dx) * 32, (c.y + dy) * 32)));
+            under.erase("");
+            bool high = false;  // (and the high ground among them: the example plateaus are of High Dirt, High Snow, Elevated Catwalk)
+            for (const std::string& n : under) high |= n.rfind("High", 0) == 0 || n == "Elevated Catwalk";
+            if (under.size() < 2 || !high) continue;
             if (!rampJoins(ed.tileset(), rampTiles(era, r.facing, r.slopes, r.ax, r.ay))) {  // (the two walls only, where they join nothing)
                 ++walls;
                 continue;
@@ -207,7 +210,7 @@ static void paintedPlateaus(const GameData& data, const char* shots) {
                                              rampFacingName(f) + " ramp of " + std::to_string(slopes) + " slopes";
                     const RampPlan p = planRamp(ed, strokeAlong(set.era, f, slopes, bx, by, false));
                     check(p.problem == RampPlan::Problem::None && p.facing == f && p.slopes == slopes, what + ": the stroke's ramp (got " +
-                                                                                                            rampFacingName(p.facing) + " " + std::to_string(p.slopes) + ")");
+                                                                                                            rampFacingName(p.facing) + " " + std::to_string(p.slopes) + " of " + rampKitGroup(p.kit) + ")");
                     // low ground: 3 tiles out from the ramp, the way it faces (away from the plateau's middle)
                     const auto m = middleOf(p.tiles);
                     const double dx = m.first - top.first, dy = m.second - top.second, dl = std::hypot(dx, dy);
@@ -240,9 +243,9 @@ static void dumpNeighbors(const GameData& data, const std::filesystem::path& map
         files.push_back(std::filesystem::path(examples) / (std::string("examples_") + name + ".scm"));
     const auto variant = [](uint32_t v) { return (v >> 4) < 1024 ? v & ~15u : v; };
     std::map<int, std::set<uint32_t>> kit;  // era: the ramp pieces' tiles
-    for (const int era : {0, 1, 3, 4, 6})
-        for (int f = 0; f < kRampFacings; ++f)
-            for (const auto& c : rampTiles(era, f, 1, 0, 0)) kit[era].insert(variant(c.value));
+    for (int era = 0; era < 8; ++era)
+        for (const int k : rampKitsOf(era, true))
+            for (const auto& c : rampKitTiles(k, 1, 0, 0)) kit[era].insert(variant(c.value));
     std::set<std::tuple<int, int, uint32_t, uint32_t>> pairs;
     for (const auto& file : files) {
         Editor ed(data);
@@ -491,6 +494,302 @@ static void brushOverRamp(const GameData& data) {
     }
 }
 
+// RAMP_DOODADS: each tileset's doodads that have walkable ground of two levels (ramps and their pieces), with their
+// sizes and editor groups, for the ramp kits.
+static void listRampDoodads(const GameData& data) {
+    for (int era = 0; era < 8; ++era) {
+        Editor ed(data);
+        std::string err;
+        if (!ed.newMap(64, 64, uint16_t(era), 1, err)) continue;
+        const Tileset& ts = ed.tileset();
+        std::printf("era %d:", era);
+        for (const DoodadType& t : ed.doodadTypes().all()) {
+            if (!t.inPalette) continue;
+            int levels = 0;
+            for (int r = 0; r < t.height; ++r) {
+                const size_t g = size_t(t.firstGroup) + size_t(r);
+                if (g >= ts.groups.size()) continue;
+                for (int c = 0; c < t.width && c < 16; ++c) {
+                    const int m = int(ts.groups[g].megatiles[size_t(c)]);
+                    if (!m || size_t(m) >= ts.minitileFlags.size()) continue;
+                    for (uint16_t f : ts.minitileFlags[size_t(m)])
+                        if (f & Tileset::kWalkable) levels |= 1 << ((f & 4) ? 2 : (f & 2) ? 1 : 0);
+                }
+            }
+            if (levels && (levels & (levels - 1))) std::printf(" %d(%dx%d g%d L%d)", t.id, t.width, t.height, t.groupString, levels);
+        }
+        std::printf("\n");
+        std::set<int> groups;
+        for (const DoodadType& t : ed.doodadTypes().all())
+            if (t.inPalette && t.groupString && groups.insert(t.groupString).second)
+                std::printf("   g%d = %s\n", t.groupString, ed.unitTypes().statText(t.groupString - 1u).c_str());
+    }
+}
+
+// RAMP_BLOCKS=<file>: each tileset's ramp kits from its doodads: a block of 32 doodads in the game's order (the sizes
+// below); the pieces of each facing at their place in the block (Jungle's Cliff: 272 + them, the spec's ids). Each
+// piece's tiles: row r of the doodad is CV5 group firstGroup + r, column c its tile c. Written as lines:
+//   block <era> <base id> <group name>
+//   piece <era> <base> <facing N..NW> <kind 0 wall A, 1 slope, 2 wall B> <doodad> <width> <height> <tile>...
+static void dumpBlocks(const GameData& data, const char* out) {
+    static const int pattern[32][2] = {{8, 5}, {4, 5}, {6, 6}, {6, 6}, {4, 5}, {6, 6}, {6, 6}, {8, 5}, {8, 3}, {8, 5}, {8, 3},
+                                       {2, 5}, {4, 5}, {2, 5}, {4, 5}, {6, 5}, {6, 5}, {4, 5}, {6, 5}, {6, 5}, {2, 5}, {4, 5},
+                                       {2, 5}, {4, 5}, {6, 5}, {6, 5}, {4, 5}, {6, 5}, {6, 5}, {8, 3}, {8, 5}, {8, 3}};
+    // facing (N, NE, E, SE, S, SW, W, NW): the offsets of wall A, the slope, wall B in the block
+    static const int place[8][3] = {{13, 12, 11}, {14, 15, 16}, {8, 9, 10}, {23, 24, 25}, {20, 21, 22}, {26, 27, 28}, {29, 30, 31}, {17, 18, 19}};
+    std::FILE* f = std::fopen(out, "w");
+    for (int era = 0; era < 8; ++era) {
+        Editor ed(data);
+        std::string err;
+        if (!ed.newMap(64, 64, uint16_t(era), 1, err)) continue;
+        const DoodadTypes& types = ed.doodadTypes();
+        for (const DoodadType& first : types.all()) {
+            bool block = true;
+            for (int i = 0; i < 32 && block; ++i) {
+                const DoodadType* t = types.find(uint16_t(first.id + i));
+                block = t && t->inPalette && t->width == pattern[i][0] && t->height == pattern[i][1] && t->groupString == first.groupString;
+            }
+            if (!block) continue;
+            std::fprintf(f, "block %d %d %s\n", era, first.id, ed.unitTypes().statText(first.groupString - 1u).c_str());
+            for (int facing = 0; facing < 8; ++facing)
+                for (int kind = 0; kind < 3; ++kind) {
+                    const DoodadType* t = types.find(uint16_t(first.id + place[facing][kind]));
+                    // (the doodad's cells that have a megatile: its empty cells keep the tile under them; -1 here)
+                    std::fprintf(f, "piece %d %d %s %d %d %d %d", era, first.id, rampFacingName(facing), kind, t->id, t->width, t->height);
+                    for (int r = 0; r < t->height; ++r)
+                        for (int c = 0; c < t->width; ++c) {
+                            const size_t g = size_t(t->firstGroup) + size_t(r);
+                            const bool empty = g >= ed.tileset().groups.size() || !ed.tileset().groups[g].megatiles[size_t(c)];
+                            std::fprintf(f, " %d", empty ? -1 : int(((t->firstGroup + r) << 4) | c));
+                        }
+                    std::fprintf(f, "\n");
+                }
+        }
+    }
+    std::fclose(f);
+}
+
+// RAMP_LEARN_ALL=<file>: the ramps of every kit (all blocks) in the game's maps and the example maps, and the ISOM
+// corners under each of their pieces with their terrains, for research/bridge-ramp/gen_ramp_kits.py. Lines:
+//   ramp <era> <block's first doodad> <facing> <slopes> <ax> <ay>
+//   corner <piece> <px> <py> <terrain>   (the corner's pixel from the piece's top left)
+static void learnAll(const GameData& data, const std::filesystem::path& maps, const char* examples, const char* out) {
+    std::vector<std::filesystem::path> files;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+        std::string ext = e.path().extension().string();
+        for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+        if (ext == ".scm" || ext == ".scx") files.push_back(e.path());
+    }
+    for (const char* name : {"jungle", "badlands", "ashworld", "ice", "platform", "desert", "twilight"})
+        files.push_back(std::filesystem::path(examples) / (std::string("examples_") + name + ".scm"));
+    std::FILE* f = std::fopen(out, "w");
+    std::map<std::string, int> count;  // (block: ramps found)
+    for (const auto& file : files) {
+        Editor ed(data);
+        std::string err;
+        if (!ed.open(file.string(), err) || !ed.canPaintTerrain()) continue;
+        const int era = ed.era() & 7;
+        for (const RampOnMap& r : rampsIn(era, ed.width(), ed.height(), ed.terrain().tiles)) {
+            ++count[std::to_string(era) + " " + rampKitGroup(r.kit)];
+            std::fprintf(f, "ramp %d %d %s %d %d %d\n", era, rampKitBase(r.kit), rampFacingName(rampKitFacing(r.kit)), r.slopes, r.ax, r.ay);
+            for (const RampPiece& p : rampKitPieces(r.kit, r.slopes, r.ax, r.ay)) {
+                const auto [w, h] = rampKitPieceSize(r.kit, p.kind);
+                for (int cy = p.y; cy <= p.y + h; ++cy)
+                    for (int cx = (p.x * 32) / 64; cx <= (p.x + w) * 32 / 64; ++cx) {
+                        if (!((cx + cy) & 1)) continue;
+                        const int px = 64 * cx - 32 * p.x, py = 32 * cy - 32 * p.y;
+                        if (px < 0 || py < 0 || px > w * 32 || py > h * 32) continue;
+                        const std::string n = ed.terrainName(ed.terrainAt(64 * cx, 32 * cy));
+                        if (!n.empty()) std::fprintf(f, "corner %d %d %d %s\n", p.kind, px, py, n.c_str());
+                    }
+            }
+        }
+    }
+    std::fclose(f);
+    for (const auto& [block, n] : count) std::printf("%s: %d ramps\n", block.c_str(), n);
+}
+
+// RAMP_SYNTH=<file>: for each kit, ramps where the game's own doodad rule (dddata.bin: the tiles each doodad needs
+// under it) takes all its pieces: plateaus (a square and a diamond) of each pair of the tileset's terrains, on new maps.
+// Written as RAMP_LEARN_ALL's lines (the corners under them), for the blocks that no map has ramps of.
+static void synthAll(const GameData& data, const char* out) {
+    std::FILE* f = std::fopen(out, "w");
+    for (int era = 0; era < 8; ++era) {
+        const std::vector<int> kits = rampKitsOf(era, true);
+        if (kits.empty()) continue;
+        Editor probe(data);
+        std::string err;
+        if (!probe.newMap(64, 64, uint16_t(era), 1, err)) continue;
+        std::vector<uint16_t> terrains;
+        for (uint16_t id = 1; id < 64; ++id)
+            if (!probe.terrainName(id).empty()) terrains.push_back(id);
+        std::map<int, int> found;  // kit: ramps
+        for (const uint16_t lo : terrains)
+            for (const uint16_t hi : terrains) {
+                if (lo == hi) continue;
+                for (const Brush::Shape shape : {Brush::Square, Brush::Diamond}) {
+                    Editor ed(data);
+                    if (!ed.newMap(64, 64, uint16_t(era), lo, err)) continue;
+                    Brush b;
+                    b.shape = shape, b.size = shape == Brush::Square ? 8 : 9;
+                    if (!ed.paintBrush(32 * 32, 32 * 32, hi, b)) continue;
+                    for (const int k : kits) {
+                        if (found[k] >= 6) continue;
+                        // each place where the rule takes all the pieces of a ramp of 1 slope (each piece's own doodad)
+                        for (int ay = 0; ay < ed.height(); ++ay)
+                            for (int ax = 0; ax < ed.width(); ++ax) {
+                                bool all = true;
+                                for (const RampPiece& p : rampKitPieces(k, 1, ax, ay)) {
+                                    const DoodadType* t = ed.doodadTypes().find(uint16_t(rampKitDoodad(k, p.kind)));
+                                    all = all && t && doodadFits(ed.chk(), *t, p.x, p.y, true);
+                                    if (!all) break;
+                                }
+                                if (!all || found[k] >= 6) continue;
+                                ++found[k];
+                                std::fprintf(f, "ramp %d %d %s %d %d %d\n", era, rampKitBase(k), rampFacingName(rampKitFacing(k)), 1, ax, ay);
+                                for (const RampPiece& p : rampKitPieces(k, 1, ax, ay)) {
+                                    const auto [w, h] = rampKitPieceSize(k, p.kind);
+                                    for (int cy = p.y; cy <= p.y + h; ++cy)
+                                        for (int cx = (p.x * 32) / 64; cx <= (p.x + w) * 32 / 64; ++cx) {
+                                            if (!((cx + cy) & 1)) continue;
+                                            const int px = 64 * cx - 32 * p.x, py = 32 * cy - 32 * p.y;
+                                            if (px < 0 || py < 0 || px > w * 32 || py > h * 32) continue;
+                                            const std::string n = ed.terrainName(ed.terrainAt(64 * cx, 32 * cy));
+                                            if (!n.empty()) std::fprintf(f, "corner %d %d %d %s\n", p.kind, px, py, n.c_str());
+                                        }
+                                }
+                                std::printf("era %d %s %s: on %s / %s\n", era, rampKitGroup(k), rampFacingName(rampKitFacing(k)), ed.terrainName(lo).c_str(),
+                                            ed.terrainName(hi).c_str());
+                            }
+                    }
+                }
+            }
+        for (const int k : kits)
+            if (!found[k]) std::printf("era %d %s %s: nowhere\n", era, rampKitGroup(k), rampFacingName(rampKitFacing(k)));
+    }
+    std::fclose(f);
+}
+
+// Every block of every tileset (Cliff, Temple Wall, Basilica, ...), on plateaus of its own terrains (a square and a
+// diamond: all 8 facings): in each facing a ramp of 1 slope goes in where a stroke along the edge says, and a unit walks
+// up over it; Shift over it makes it the cliff again (no way up); high ground painted over it fits it to the new cliffs
+// (each ramp tile left in a ramp that fits). shots: the maps with every block's ramps, for pictures.
+static void everyBlock(const GameData& data, const char* shots) {
+    for (int era = 0; era < 8; ++era) {
+        std::map<int, std::vector<int>> blocks;  // first doodad: its kits
+        for (const int k : rampKitsOf(era)) blocks[rampKitBase(k)].push_back(k);
+        for (const auto& [base, kits] : blocks) {
+            const auto [lows, high] = rampKitTerrains(kits.front());
+            const std::string low = lows.substr(0, lows.find('|'));
+            const std::string name = std::string("era ") + std::to_string(era) + " " + rampKitGroup(kits.front()) + " (" + low + " / " + high + ")";
+            std::set<int> placed, erased, refitted, offered, notInside;
+            for (const Brush::Shape shape : {Brush::Square, Brush::Diamond}) {
+                Editor all(data);
+                std::string err;
+                uint16_t lo = 0, hi = 0;
+                for (const int k : kits) {
+                    const int f = rampKitFacing(k);
+                    const bool straight = f % 2 == 0;
+                    if (straight != (shape == Brush::Square)) continue;
+                    offered.insert(f);
+                    Editor ed(data);
+                    if (!ed.newMap(96, 96, uint16_t(era), 1, err)) continue;
+                    for (uint16_t id = 1; id < 64; ++id) {
+                        if (ed.terrainName(id) == low) lo = id;
+                        if (ed.terrainName(id) == high) hi = id;
+                    }
+                    if (!lo || !hi) continue;
+                    Brush b;
+                    b.shape = shape, b.size = shape == Brush::Square ? 14 : 16;
+                    // the place of a ramp of 1 slope nearest the middle: of a plateau of the high ground, else (a pit: the
+                    // low ground is the block's own, as Sunken Ground) of a pit of the low ground in the high ground
+                    int bx = -1, by = 0;
+                    bool pit = false;
+                    for (const bool p : {false, true}) {
+                        if (bx >= 0 || !ed.newMap(96, 96, uint16_t(era), p ? hi : lo, err)) continue;
+                        ed.paintBrush(48 * 32, 48 * 32, p ? lo : hi, b);
+                        pit = p;
+                        double bd = 1e18;
+                        for (int ay = 0; ay < ed.height(); ++ay)
+                            for (int ax = 0; ax < ed.width(); ++ax)
+                                if (rampKitFits(ed, k, 1, ax, ay)) {
+                                    const auto m = middleOf(rampKitTiles(k, 1, ax, ay));
+                                    if (const double d = std::hypot(m.first - 48 * 32, m.second - 48 * 32); d < bd) bd = d, bx = ax, by = ay;
+                                }
+                    }
+                    if (bx < 0) continue;
+                    if (all.width() == 0) all.newMap(96, 96, uint16_t(era), pit ? hi : lo, err), all.paintBrush(48 * 32, 48 * 32, pit ? lo : hi, b);
+                    std::vector<std::pair<int, int>> stroke;
+                    for (const RampPiece& p : rampKitPieces(k, 1, bx, by)) {
+                        const auto [w, h] = rampKitPieceSize(k, p.kind);
+                        stroke.push_back({p.x * 32 + w * 16, p.y * 32 + h * 16});
+                    }
+                    const RampPlan p = planRamp(ed, stroke);
+                    if (p.problem != RampPlan::Problem::None || p.facing != f) continue;
+                    const auto m = middleOf(p.tiles);
+                    const std::pair<int, int> top{48 * 32, 48 * 32};
+                    const double dx = m.first - top.first, dy = m.second - top.second, dl = std::hypot(dx, dy);
+                    const std::pair<int, int> out{int(m.first + dx / dl * 160), int(m.second + dy / dl * 160)};
+                    const bool before = walks(ed, out, top);
+                    ed.placeTileValues(p.tiles);
+                    all.placeTileValues(p.tiles);
+                    if (!before && walks(ed, out, top)) placed.insert(f);
+                    // a stroke from its slope on along the edge: the new ramp has all of the old one or none of it
+                    {
+                        const auto [ux, uy] = std::pair{stroke[2].first - stroke[1].first, stroke[2].second - stroke[1].second};
+                        const RampPlan q = planRamp(ed, {stroke[1], stroke[2], {stroke[2].first + 3 * ux, stroke[2].second + 3 * uy}});
+                        std::set<std::pair<int, int>> onNew;
+                        for (const auto& c : q.tiles) onNew.insert({c.x, c.y});
+                        size_t shared = 0;
+                        for (const auto& c : p.tiles) shared += onNew.count({c.x, c.y});
+                        if (shared == 0 || shared == p.tiles.size()) notInside.insert(f);
+                    }
+                    // Shift: the cliff again
+                    {
+                        Editor copy(data);
+                        copy.openChk(ed.chk(), err);
+                        copy.remakeTilesFromIsom(rampTilesUnder(copy, {stroke[1]}));
+                        if (!walks(copy, out, top) && rampTilesUnder(copy, stroke).empty()) erased.insert(f);
+                    }
+                    // high ground over the ramp's middle: each ramp tile left in a ramp that fits
+                    Brush small;
+                    small.size = 1;
+                    ed.beginTerrainStroke();
+                    ed.paintBrush(m.first, m.second, pit ? lo : hi, small);  // (the block's own ground over it)
+                    ed.endTerrainStroke();
+                    std::set<std::pair<int, int>> covered;
+                    for (const RampOnMap& r : rampsIn(era, ed.width(), ed.height(), ed.terrain().tiles))
+                        if (rampKitFits(ed, r.kit, r.slopes, r.ax, r.ay))
+                            for (const auto& c : rampKitTiles(r.kit, r.slopes, r.ax, r.ay)) covered.insert({c.x, c.y});
+                    bool broken = false;
+                    {
+                        // (a ramp tile that the terrain does not make there: the cliff of the wall blocks has their walls' tiles)
+                        Editor copy(data);
+                        copy.openChk(ed.chk(), err);
+                        const auto left = rampTilesUnder(ed, stroke);
+                        copy.remakeTilesFromIsom(left);
+                        for (const auto& q : left)
+                            broken |= !covered.count(q) && copy.terrain().tiles[size_t(q.second) * ed.width() + q.first] !=
+                                                               ed.terrain().tiles[size_t(q.second) * ed.width() + q.first];
+                    }
+                    if (!broken) refitted.insert(f);
+                }
+                if (shots && all.width())
+                    all.save(std::filesystem::path(shots) / ("block_" + std::to_string(era) + "_" + std::to_string(base) + (shape == Brush::Square ? "_square" : "_diamond") + ".scm"), err);
+            }
+            const auto list = [](const std::set<int>& s) {
+                std::string out;
+                for (int f : s) out += std::string(out.empty() ? "" : " ") + rampFacingName(f);
+                return out.empty() ? std::string("none") : out;
+            };
+            check(placed.size() >= offered.size() - 0 && !placed.empty(), name + ": ramps with a way up (" + list(placed) + " of " + list(offered) + ")");
+            check(erased == placed, name + ": Shift makes them the cliff again (" + list(erased) + ")");
+            check(refitted == placed, name + ": a brush over them refits them (" + list(refitted) + ")");
+            check(std::includes(notInside.begin(), notInside.end(), placed.begin(), placed.end()), name + ": a ramp over part of one has all of it (" + list(notInside) + ")");
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr, "usage: ramp_test <install dir> [<example maps folder>]\n");
@@ -501,6 +800,27 @@ int main(int argc, char** argv) {
     if (!data.open(argv[1], err)) {
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
+    }
+    if (const char* synth = std::getenv("RAMP_SYNTH")) {
+        synthAll(data, synth);
+        return 0;
+    }
+    if (const char* all = std::getenv("RAMP_LEARN_ALL"); all && argc > 2) {
+        learnAll(data, std::filesystem::path(argv[1]) / "Maps", argv[2], all);
+        return 0;
+    }
+    if (const char* blocks = std::getenv("RAMP_BLOCKS")) {
+        dumpBlocks(data, blocks);
+        return 0;
+    }
+    if (std::getenv("RAMP_BLOCKS_ONLY")) {  // (only the every-block check)
+        everyBlock(data, std::getenv("RAMP_SHOTS"));
+        std::printf("\n%d failures\n", failures);
+        return failures ? 1 : 0;
+    }
+    if (std::getenv("RAMP_DOODADS")) {
+        listRampDoodads(data);
+        return 0;
     }
     if (const char* wide = std::getenv("RAMP_WIDE")) {
         wideRamps(data, wide);
@@ -520,6 +840,7 @@ int main(int argc, char** argv) {
     roundCorner(data);
     backToCliff(data);
     brushOverRamp(data);
+    everyBlock(data, nullptr);
     if (argc > 2) examples(data, argv[2]);
     std::printf("\n%d failures\n", failures);
     return failures ? 1 : 0;
