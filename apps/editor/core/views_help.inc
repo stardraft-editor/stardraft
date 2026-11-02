@@ -281,8 +281,7 @@ private:
         for (stardraft::kit::Button* b : {&close_, &online_, &feedback_}) {
             if (!b->visible()) continue;
             const int bwid = bw(*b);
-            const draw::Rect r{x - bwid, y, x, y + bh}, f = b->frame();
-            if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) b->setFrame(r);
+            b->setFrame({x - bwid, y, x, y + bh});
             x -= bwid + gap;
         }
     }

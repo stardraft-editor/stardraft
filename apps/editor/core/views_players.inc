@@ -166,10 +166,10 @@ public:
         y += l.pitch;
         for (int p = 0; p < 8; ++p) {
             text(L"Player " + std::to_wstring(p + 1), l.c0, y, l.c1 - l.c0, kText);
-            place(controller_[p], {l.c1, y, l.c2 - gap, y + l.rowH});
-            place(race_[p], {l.c2, y, l.c3 - gap, y + l.rowH});
-            place(force_[p], {l.c3, y, l.c4 - gap, y + l.rowH});
-            place(color_[p], {l.c4, y, l.c5 - gap, y + l.rowH});
+            controller_[p].setFrame({l.c1, y, l.c2 - gap, y + l.rowH});
+            race_[p].setFrame({l.c2, y, l.c3 - gap, y + l.rowH});
+            force_[p].setFrame({l.c3, y, l.c4 - gap, y + l.rowH});
+            color_[p].setFrame({l.c4, y, l.c5 - gap, y + l.rowH});
             y += l.pitch;
         }
         // Forces: the name (a field), then the four flags.
@@ -178,10 +178,10 @@ public:
         c.fill({l.c0, y + l.rowH, l.right, y + l.rowH + 1}, kBorder);
         y += l.pitch;
         for (int f = 0; f < 4; ++f) {
-            place(name_[f], {l.c0, y, l.c1 + scale(110), y + l.rowH});
+            name_[f].setFrame({l.c0, y, l.c1 + scale(110), y + l.rowH});
             int fx = l.flagX;
             for (int b = 0; b < 4; ++b) {
-                place(flag_[f][b], {fx, y, fx + l.flagW[b] - gap, y + l.rowH});
+                flag_[f][b].setFrame({fx, y, fx + l.flagW[b] - gap, y + l.rowH});
                 fx += l.flagW[b];
             }
             y += l.pitch;
@@ -226,10 +226,6 @@ private:
         return l;
     }
     // A child's frame, set only when it differs (a set repaints).
-    void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
-    }
     // A value changed by the page: the copy's change into the map (the program), then the page again.
     void edited() {
         syncControls();

@@ -525,7 +525,7 @@ public:
     // bar). A field that goes from view lets the keyboard go too (the keys do not change a field that is not shown).
     void placeField(draw::View& f, draw::Rect r, bool show, int clipTop, int clipBottom) {
         show = show && r.top >= clipTop && r.bottom <= clipBottom;
-        if (show && !sameRect(f.frame(), r)) f.setFrame(r);
+        if (show) f.setFrame(r);
         if (!show && f.hasFocus())
             if (draw::Host* h = f.host()) h->focus(*this);  // (the page: its keys, then its parents')
         if (f.visible() != show) f.setVisible(show);
@@ -554,7 +554,6 @@ private:
         hits.push_back(std::move(h));
     }
     int dragging_ = -1;  // the hit with a press at a point (a slider) that the mouse holds
-    static bool sameRect(draw::Rect a, draw::Rect b) { return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom; }
     // The kit's button face (Normal, Primary; the states as the page had them).
     enum class BtnState { Normal, Hot, Down, Disabled };
     void buttonFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool primary, BtnState s);

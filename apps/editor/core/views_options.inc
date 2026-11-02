@@ -398,7 +398,7 @@ private:
         if (show && &v != &close_ && &v != &strip_) tabOrder_.push_back({&v, r});
         const bool vis = show && r.top >= (bottom < 0 ? contentTop_ : 0) && r.bottom <= (bottom < 0 ? contentBottom_ : bottom);
         if (v.visible() != vis) v.setVisible(vis);
-        if (vis && (v.frame().left != r.left || v.frame().top != r.top || v.frame().right != r.right || v.frame().bottom != r.bottom)) v.setFrame(r);
+        if (vis) v.setFrame(r);
     }
     void hideUnplaced() {
         for (draw::View* ch : children())  // (not the scroll bar: the paint's end shows or hides it)

@@ -847,7 +847,7 @@ public:
                 else if (e.pt.y > height() - edge) scrollTo(scroll_ + scale(12));
             }
             if (drag_.from >= 0) invalidate();  // (the drag moves the rows)
-            else if (const draw::Rect over = hoverRectAt(e.pt); !sameRect(over, hoverRect_)) hoverRect_ = over, invalidate();  // the hover moved to another part
+            else if (const draw::Rect over = hoverRectAt(e.pt); over != hoverRect_) hoverRect_ = over, invalidate();  // the hover moved to another part
             return true;
         case draw::MouseKind::Leave:
             if (hoverRect_.right > hoverRect_.left || hoverRect_.bottom > hoverRect_.top) hoverRect_ = {}, invalidate();
@@ -963,9 +963,6 @@ private:
     draw::Rect hoverRectAt(draw::Point pt) const {
         const CtHit* h = hitAt(pt, false);
         return h ? h->r : draw::Rect{};
-    }
-    static bool sameRect(const draw::Rect& a, const draw::Rect& b) {
-        return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom;
     }
     const CtHit* contextAt(draw::Point pt) const {
         for (auto it = hits_.rbegin(); it != hits_.rend(); ++it)

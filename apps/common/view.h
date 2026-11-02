@@ -238,7 +238,9 @@ public:
     void invalidate() {
         if (Host* h = host()) h->invalidate(*this);
     }
+    // The same frame again does nothing (no paint), so callers place their views each layout without a check.
     void setFrame(Rect r) {
+        if (r == frame_) return;
         const bool sized = r.width() != frame_.width() || r.height() != frame_.height();
         frame_ = r;
         if (sized) resized();

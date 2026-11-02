@@ -607,8 +607,7 @@ public:
         for (const DataFormHit& h : gSdlDataForm.hits())
             if (h.bit == -1 && h.field == gSdlDataState.editing) {
                 const draw::Rect r{h.r.left + scale(2), h.r.top + scale(3), h.r.right - scale(2), h.r.bottom - scale(3)};
-                const draw::Rect cur = gSdlDataEntry.frame();
-                if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) gSdlDataEntry.setFrame(r);
+                gSdlDataEntry.setFrame(r);
                 return;
             }
     }
@@ -863,14 +862,10 @@ struct SdlDataView final : draw::View {
 SdlDataView gSdlData;
 
 void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) {
-    auto place = [](draw::View& v, draw::Rect r) {
-        const draw::Rect cur = v.frame();
-        if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) v.setFrame(r);
-    };
-    place(gSdlData.listFrame, list);
+    gSdlData.listFrame.setFrame(list);
     // The Table view: in the form's and the References panel's place.
     if (gSdlDataState.table && sdlDataTableTab(gSdlDataState.datTab)) {
-        place(gSdlDataTable, {form.left, form.top, std::max(form.right, refs.right), form.bottom});
+        gSdlDataTable.setFrame({form.left, form.top, std::max(form.right, refs.right), form.bottom});
         gSdlDataTable.setVisible(true);
         if (gSdlData.formFrame.visible()) {
             const bool focused = sdlDataFocusIn(gSdlData.formFrame);  // (the keyboard goes to the table, not to the hidden form)
@@ -883,8 +878,8 @@ void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Re
     if (gSdlDataTable.visible()) sdlDataHide(gSdlDataTable);
     gSdlData.formFrame.setVisible(true);
     gSdlData.refsFrame.setVisible(true);
-    place(gSdlData.formFrame, form);
-    place(gSdlData.refsFrame, refs);
+    gSdlData.formFrame.setFrame(form);
+    gSdlData.refsFrame.setFrame(refs);
 }
 
 void sdlDataRepaint() {

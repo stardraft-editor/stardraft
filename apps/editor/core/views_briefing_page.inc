@@ -788,8 +788,7 @@ private:
                 text_.setBytes(a.text);
                 textDirty_ = false;
             }
-            const draw::Rect now = text_.frame();
-            if (now.left != r.left || now.top != r.top || now.right != r.right || now.bottom != r.bottom) text_.setFrame(r);
+            text_.setFrame(r);
             text_.setVisible(true);
         } else {
             text_.setVisible(false);

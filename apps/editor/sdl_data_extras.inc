@@ -252,8 +252,7 @@ void sdlPaintStringsForm(draw::Canvas& c, int& y) {
         gSdlStringsText.setBytes(stringEditBody(raw));
         x.textDirty = false;
     }
-    const draw::Rect now = gSdlStringsText.frame();
-    if (now.left != er.left || now.top != er.top || now.right != er.right || now.bottom != er.bottom) gSdlStringsText.setFrame(er);
+    gSdlStringsText.setFrame(er);
     gSdlStringsText.setColors(draw::rgb(184, 184, 232), draw::rgb(0x11, 0x11, 0x11));  // (main.cpp's kRichDefault and kRichBack, the dark theme's)
     gSdlStringsText.setChanged(x.strings.changed(id - 1));
     gSdlStringsText.setVisible(true);

@@ -181,8 +181,7 @@ private:
     }
     // Puts a child where it goes, and shows it only where it is on the page (a move that changes nothing repaints nothing).
     void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
+        v.setFrame(r);
         const bool on = r.bottom > 0 && r.top < height() && r.right > 0 && r.left < width();
         if (v.visible() != on) v.setVisible(on);
     }

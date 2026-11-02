@@ -108,20 +108,20 @@ public:
         heading(L"Terrain", l.terrainY);
         label(L"Tileset", l.tilesetY), label(L"Size (tiles)", l.sizeY), label(L"Map content at", l.anchorY), label(L"New ground", l.fillY);
         const int sw = scale(96);
-        place(tileset_, {l.x1, l.tilesetY, right, l.tilesetY + l.rowH});
-        place(wDrop_, {l.x1, l.sizeY, l.x1 + sw, l.sizeY + l.rowH});
+        tileset_.setFrame({l.x1, l.tilesetY, right, l.tilesetY + l.rowH});
+        wDrop_.setFrame({l.x1, l.sizeY, l.x1 + sw, l.sizeY + l.rowH});
         c.text({l.x1 + sw, l.sizeY, l.x1 + sw + scale(24), l.sizeY + l.rowH}, L"x", kDim, draw::kMiddle | draw::kCenter);
-        place(hDrop_, {l.x1 + sw + scale(24), l.sizeY, l.x1 + sw + scale(24) + sw, l.sizeY + l.rowH});
+        hDrop_.setFrame({l.x1 + sw + scale(24), l.sizeY, l.x1 + sw + scale(24) + sw, l.sizeY + l.rowH});
         const int cropX = l.x1 + sw + scale(24) + sw + scale(16);
-        place(crop_, {cropX, l.sizeY, cropX + crop_.preferredWidth(c), l.sizeY + l.rowH});
-        place(anchor_, {l.x1, l.anchorY, right, l.anchorY + l.rowH});
-        place(fill_, {l.x1, l.fillY, right, l.fillY + l.rowH});
+        crop_.setFrame({cropX, l.sizeY, cropX + crop_.preferredWidth(c), l.sizeY + l.rowH});
+        anchor_.setFrame({l.x1, l.anchorY, right, l.anchorY + l.rowH});
+        fill_.setFrame({l.x1, l.fillY, right, l.fillY + l.rowH});
         // The buttons, then what they do (only the size and the tileset wait for them).
         c.text({l.x1, l.infoY, right, l.infoY + l.infoH}, v_.infoText, kDim, draw::kWrap);
         const int bh = scale(stardraft::kit::kButtonH);
         const int cw = change_.preferredWidth(c), rw = reset_.preferredWidth(c);
-        place(change_, {l.x1, l.buttonsY, l.x1 + cw, l.buttonsY + bh});
-        place(reset_, {l.x1 + cw + scale(stardraft::kit::kButtonGap), l.buttonsY, l.x1 + cw + scale(stardraft::kit::kButtonGap) + rw, l.buttonsY + bh});
+        change_.setFrame({l.x1, l.buttonsY, l.x1 + cw, l.buttonsY + bh});
+        reset_.setFrame({l.x1 + cw + scale(stardraft::kit::kButtonGap), l.buttonsY, l.x1 + cw + scale(stardraft::kit::kButtonGap) + rw, l.buttonsY + bh});
     }
 
 private:
@@ -146,10 +146,6 @@ private:
         return l;
     }
     // A child's frame, set only when it differs (a set repaints).
-    void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
-    }
     // A value changed by the page: the copy's change into the map (the program), then the page again.
     void edited() {
         syncControls();

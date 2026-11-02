@@ -262,7 +262,7 @@ public:
             const int bw = scale(stardraft::kit::kIconBox), bhh = std::min(rowH, bw);
             const Rect rmR{r.right - scale(4) - bw, (r.top + r.bottom - bhh) / 2, r.right - scale(4), (r.top + r.bottom - bhh) / 2 + bhh};
             const int actionsLeft = rmR.left;
-            if (!sameRect(rm.frame(), rmR)) rm.setFrame(rmR);
+            rm.setFrame(rmR);
             rm.setVisible(it.date.empty() || over);
             rm.onClick = [this, project, i] {
                 if (onRemoveRecent) onRemoveRecent(project, i);
@@ -283,7 +283,7 @@ public:
         // Open: a project or a map that is not in the list.
         y += scale(12);
         const int ow = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Open\x2026") + scale(28));
-        if (!sameRect(open_.frame(), {x1, y, x1 + ow, y + bh})) open_.setFrame({x1, y, x1 + ow, y + bh});
+        open_.setFrame({x1, y, x1 + ow, y + bh});
         y += bh;
 
         // The alpha notice: under the recent list and Open.
@@ -422,7 +422,6 @@ private:
             if (hits_[i].r.contains(pt)) return int(i);
         return -1;
     }
-    static bool sameRect(draw::Rect a, draw::Rect b) { return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom; }
     // Whether the mouse is in `r` (the host's pointer, in this view's coordinates).
     bool hot(draw::Rect r) const { return host() && r.contains(host()->mouse(*this)); }
 
@@ -466,10 +465,10 @@ private:
         if (noteH)
             c.text({textL, ty + lineH + scale(2), textR, ty + lineH + scale(2) + noteH}, note, installNote.empty() ? kDim : kWarn, draw::kWrap | draw::kLeft);
         const draw::Rect br{x + w - inPad - bw, y + (h - bh) / 2, x + w - inPad, y + (h - bh) / 2 + bh};
-        if (!sameRect(browse_.frame(), br)) browse_.setFrame(br);
+        browse_.setFrame(br);
         browse_.setVisible(true);
         const draw::Rect mr{br.left - mw, br.top, br.left - scale(8), br.bottom};  // (Load mod: left of Browse)
-        if (mw && !sameRect(loadMod_.frame(), mr)) loadMod_.setFrame(mr);
+        if (mw) loadMod_.setFrame(mr);
         loadMod_.setVisible(mw > 0);
         return h;
     }

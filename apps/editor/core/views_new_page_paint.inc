@@ -510,8 +510,7 @@ void NewPageView::paint(draw::Canvas& c) {
     if (bar) {
         const int bw2 = scale(stardraft::kit::kScrollBarW);
         const draw::Rect br{W - bw2, 0, W, H};
-        const draw::Rect fr = bar_.frame();
-        if (fr.left != br.left || fr.top != br.top || fr.right != br.right || fr.bottom != br.bottom) bar_.setFrame(br);
+        bar_.setFrame(br);
         bar_.setRange(height_, H);
         bar_.setPos(scroll);
     }

@@ -429,15 +429,11 @@ public:
     }
     void paint(draw::Canvas& c) override {
         MapPropsView::paint(c);
-        place(name_, nameBox());
-        place(desc_, descBox());
+        name_.setFrame(nameBox());
+        desc_.setFrame(descBox());
     }
 
 private:
-    static void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
-    }
     MapPropsValues& val_;
     kit::TextField name_, desc_;
 };
@@ -716,12 +712,8 @@ struct SdlMapPagesView final : draw::View {
     void paintOver(draw::Canvas&) override { gSdlPageCanvas = nullptr; }
     void place() {
         const int top = std::min(height(), frame.headerH());
-        setRectIfChanged(frame, draw::Rect(0, 0, width(), height()));
-        setRectIfChanged(scrollFrame, draw::Rect(0, top, width(), height()));
-    }
-    static void setRectIfChanged(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
+        frame.setFrame(draw::Rect(0, 0, width(), height()));
+        scrollFrame.setFrame(draw::Rect(0, top, width(), height()));
     }
 };
 SdlMapPagesView gSdlMapPages;

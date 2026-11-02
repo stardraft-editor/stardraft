@@ -155,8 +155,7 @@ private:
     // A link's stop at its place (only when it moved: a frame change paints again).
     static void placeStop(PartStop& s, draw::Rect r, bool shown) {
         if (s.visible() != shown) s.setVisible(shown);
-        const draw::Rect f = s.frame();
-        if (shown && (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom)) s.setFrame(r);
+        if (shown) s.setFrame(r);
     }
 };
 
@@ -179,8 +178,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     const bool typing = stage_ == 0;
     if (typing) {
         if (text_.visible() != true) text_.setVisible(true);
-        if (text_.frame().left != editR.left || text_.frame().top != editR.top || text_.frame().right != editR.right || text_.frame().bottom != editR.bottom)
-            text_.setFrame(editR);
+        text_.setFrame(editR);
     } else if (text_.visible()) {
         text_.setVisible(false);
     }
@@ -226,9 +224,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     const draw::Rect sr{cr.left - gap - sw, y, cr.left - gap, y + bh};
     send_.setVisible(stage_ == 0), cancel_.setVisible(true);
     if (stage_ == 0) {
-        if (send_.frame().left != sr.left || send_.frame().top != sr.top || send_.frame().right != sr.right || send_.frame().bottom != sr.bottom)
-            send_.setFrame(sr);
+        send_.setFrame(sr);
     }
-    if (cancel_.frame().left != cr.left || cancel_.frame().top != cr.top || cancel_.frame().right != cr.right || cancel_.frame().bottom != cr.bottom)
-        cancel_.setFrame(cr);
+    cancel_.setFrame(cr);
 }

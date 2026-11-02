@@ -114,8 +114,8 @@ public:
         const int rw = revert_.preferredWidth(c), aw = apply_.preferredWidth(c);
         const draw::Rect rr{width() - pad - rw, by, width() - pad, by + bh};
         const draw::Rect ar{rr.left - scale(stardraft::kit::kButtonGap) - aw, by, rr.left - scale(stardraft::kit::kButtonGap), by + bh};
-        if (apply_.frame().left != ar.left || apply_.frame().top != ar.top || apply_.width() != ar.width()) apply_.setFrame(ar);
-        if (revert_.frame().left != rr.left || revert_.frame().top != rr.top || revert_.width() != rr.width()) revert_.setFrame(rr);
+        apply_.setFrame(ar);
+        revert_.setFrame(rr);
         if (apply_.enabled() != changed) apply_.setEnabled(changed);  // (a set invalidates: only on a change)
         if (revert_.enabled() != changed) revert_.setEnabled(changed);
         apply_.setVisible(true), revert_.setVisible(true);
