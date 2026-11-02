@@ -62,6 +62,37 @@ std::string wrapLocationName(const std::string& name, float w, float h) {
     return out;
 }
 
+// A location's name as the map shows it: in lines that fit in w x h screen pixels with Options > Locations > Wrap names
+// (wrapLocationName), and its size in screen pixels. Kept for each location until its name, its size or the map font's
+// size changes (the wrap measures each word).
+struct LocationLabel {
+    std::string raw;  // (the name as the map has it)
+    bool wrap = false;
+    float w = 0, h = 0, unit = 0;
+    std::string text;
+    float width = 0, height = 0;
+};
+const LocationLabel& locationLabel(int i, const std::string& raw, bool wrap, float w, float h) {
+    static std::vector<LocationLabel> labels;
+    if (i < 0) i = 0;
+    if (labels.size() <= size_t(i)) labels.resize(size_t(i) + 1);
+    LocationLabel& l = labels[size_t(i)];
+    const float unit = mapTextScale();
+    if (!l.raw.empty() && l.raw == raw && l.wrap == wrap && l.unit == unit && (!wrap || (l.w == w && l.h == h))) return l;
+    l.raw = raw, l.wrap = wrap, l.w = w, l.h = h, l.unit = unit;
+    l.text = narrow(widen(raw));
+    if (wrap) l.text = wrapLocationName(l.text, w, h);
+    int widest = 0, lines = 0;
+    for (size_t from = 0;; ++lines) {
+        const size_t to = l.text.find('\n', from);
+        widest = std::max(widest, render::textWidth(l.text.substr(from, to == std::string::npos ? std::string::npos : to - from)));
+        if (to == std::string::npos) break;
+        from = to + 1;
+    }
+    l.width = float(widest) * unit, l.height = float(lines + 1) * 12 * unit;
+    return l;
+}
+
 uint32_t playerRgba(int owner, uint8_t alpha) {
     AppState& app = shellState();
     // Players 1-8 in the map's own colors (Map properties > Players and forces).
@@ -554,6 +585,7 @@ render::Scene buildScene() {
     const float viewZoom = std::max(app.zoom, 0.001f);
     const float viewX0 = app.camX - kSpriteReach, viewY0 = app.camY - kSpriteReach;
     const float viewX1 = app.camX + float(viewW) / viewZoom + kSpriteReach, viewY1 = app.camY + float(viewH) / viewZoom + kSpriteReach;
+    const float viewLeft = app.camX, viewTop = app.camY, viewRight = app.camX + float(viewW) / viewZoom, viewBottom = app.camY + float(viewH) / viewZoom;
     auto inView = [&](float x, float y) { return x >= viewX0 && x <= viewX1 && y >= viewY0 && y <= viewY1; };
 
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
@@ -641,12 +673,21 @@ render::Scene buildScene() {
             const bool sel = active && ed.locationSelected(i), main = sel && ed.selectedLocation() == i;
             if (sel && app.drag == Drag::LocMove) r = {r.left + moveX, r.top + moveY, r.right + moveX, r.bottom + moveY};
             if (main && app.drag == Drag::LocResize) r = previewLocationRect(wx, wy);
+            // (not in the view: no box and no edges; its name starts in it and goes right and down, and can come out of it)
+            const float edge = 8 / viewZoom;  // (the resize handles and the outline: a few screen pixels out of the box)
+            const bool boxShows = float(r.right) + edge >= viewLeft && float(r.left) - edge <= viewRight && float(r.bottom) + edge >= viewTop &&
+                                  float(r.top) - edge <= viewBottom;
+            if (!boxShows && (float(r.left) > viewRight || float(r.top) > viewBottom)) continue;
+            const LocationLabel& label = locationLabel(i, ed.locationName(i), app.locationWrap, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
+            const float textX = float(r.left) + 3 / app.zoom, textY = float(r.top) + 3 / app.zoom;
+            const bool textShows = textX + label.width / viewZoom >= viewLeft && textY + label.height / viewZoom >= viewTop;
+            if (!boxShows && !textShows) continue;
             const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
-            s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
-            outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
-            std::string name = narrow(widen(ed.locationName(i)));
-            if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
-            s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
+            if (boxShows) {
+                s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
+                outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
+            }
+            if (textShows) s.texts.push_back({textX, textY, label.text, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
             if (main)  // (the edges of the selected one resize)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
