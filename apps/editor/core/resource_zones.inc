@@ -5,19 +5,15 @@
 //     hall or a start location may not reach into it.
 //   - Invalid resource node: around each town hall and start location, its box grown by 3 tiles. The box of a resource
 //     may not reach into it.
-// A Cosmonarchy BW map's Town Center Markers count as town halls: the mod's computer players build their town hall
-// (128 x 96: Ministry, Nexus, Hachirosk, Landlock) on each one.
 
 bool gResourceZones[2] = {false, false};  // (0: invalid resource depot, 1: invalid resource node)
 
-bool modTab();  // (core/cmbw.inc)
-// What a unit type is for the resource distance: 0 a resource, 1 a town hall (or a start location, or a mod's Town
-// Center Marker), -1 neither; with the box that keeps the distance.
+// What a unit type is for the resource distance, by its flags as the placement rule reads them (units.cpp): 0 a
+// resource, 1 a town hall (or a start location), -1 neither; with the box that keeps the distance.
 int resourceZoneKind(const Editor& ed, uint16_t type, int& w, int& h) {
     if (type >= ed.unitTypes().size()) return -1;
     const UnitType& t = ed.unitTypes()[type];
     w = t.placementWidth, h = t.placementHeight;
-    if (type == 192 && modTab()) return w = 128, h = 96, 1;  // (the mod's Town Center Marker)
     if (!t.is(UnitFlag::Building)) return -1;
     return t.is(UnitFlag::ResourceContainer) ? 0 : t.is(UnitFlag::ResourceDepot) ? 1 : -1;
 }
