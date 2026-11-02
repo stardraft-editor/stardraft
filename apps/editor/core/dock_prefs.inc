@@ -30,19 +30,19 @@ struct FloatPaletteNames {
 constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
     {"TerrainPalette", "view.floatPalette.terrain", L"&Terrain palette", L"Terrain palette",
      L"Put Terrain back in the side bar", L"Moved Terrain to its own window",
-     L"The terrain palette shows in its own window in Terrain mode", L"Put Terrain back in the side bar"},
+     L"The terrain palette shows in its own window in Terrain mode", L"Moved Terrain back to the side bar"},
     {"UnitPalette", "view.floatPalette.units", L"&Unit palette", L"Unit palette",
      L"Put Units back in the side bar", L"Moved Units to its own window",
-     L"The unit palette shows in its own window in Units mode", L"Put Units back in the side bar"},
+     L"The unit palette shows in its own window in Units mode", L"Moved Units back to the side bar"},
     {"DoodadPalette", "view.floatPalette.doodads", L"&Doodad palette", L"Doodad palette",
      L"Put Doodads back in the side bar", L"Moved Doodads to its own window",
-     L"The doodad palette shows in its own window in Doodads mode", L"Put Doodads back in the side bar"},
+     L"The doodad palette shows in its own window in Doodads mode", L"Moved Doodads back to the side bar"},
     {"LocationList", "view.floatPalette.locations", L"&Location list", L"Location list",
      L"Put Locations back in the side bar", L"Moved Locations to its own window",
-     L"The location list shows in its own window in Locations mode", L"Put Locations back in the side bar"},
+     L"The location list shows in its own window in Locations mode", L"Moved Locations back to the side bar"},
     {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette",
      L"Put Sprites back in the side bar", L"Moved Sprites to its own window",
-     L"The sprite palette shows in its own window in Sprites mode", L"Put Sprites back in the side bar"},
+     L"The sprite palette shows in its own window in Sprites mode", L"Moved Sprites back to the side bar"},
 };
 
 // Does the palette of `m` float in the active tab? (The program: Terrain, Units, Doodads and Sprites float as palettes of

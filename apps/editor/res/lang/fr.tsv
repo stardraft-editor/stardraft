@@ -2301,14 +2301,19 @@ New palette panel: 	Nouveau panneau de palette:
 Could not save the map's settings	Impossible d'enregistrer les paramètres de la carte
 Put Terrain back in the side bar	Remettre Terrain dans la barre latérale
 Moved Terrain to its own window	Terrain déplacé dans sa propre fenêtre
+Moved Terrain back to the side bar	Terrain remis dans la barre latérale
 Put Units back in the side bar	Remettre Unités dans la barre latérale
 Moved Units to its own window	Unités déplacé dans sa propre fenêtre
+Moved Units back to the side bar	Unités remis dans la barre latérale
 Put Doodads back in the side bar	Remettre Décors dans la barre latérale
 Moved Doodads to its own window	Décors déplacé dans sa propre fenêtre
+Moved Doodads back to the side bar	Décors remis dans la barre latérale
 Put Locations back in the side bar	Remettre Emplacements dans la barre latérale
 Moved Locations to its own window	Emplacements déplacé dans sa propre fenêtre
+Moved Locations back to the side bar	Emplacements remis dans la barre latérale
 Put Sprites back in the side bar	Remettre Sprites dans la barre latérale
 Moved Sprites to its own window	Sprites déplacé dans sa propre fenêtre
+Moved Sprites back to the side bar	Sprites remis dans la barre latérale
 &Walkable ground	Sol &praticable
 Ground &height	&Hauteur du sol
 Ground that blocks the line of &sight	Sol qui bloque la ligne de &vue

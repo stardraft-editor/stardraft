@@ -2301,14 +2301,19 @@ New palette panel: 	새 팔레트 패널:
 Could not save the map's settings	맵 설정을 저장할 수 없습니다
 Put Terrain back in the side bar	지형을(를) 사이드바로 되돌립니다
 Moved Terrain to its own window	지형을(를) 별도 창으로 옮겼습니다
+Moved Terrain back to the side bar	지형을(를) 사이드바로 되돌렸습니다
 Put Units back in the side bar	유닛을(를) 사이드바로 되돌립니다
 Moved Units to its own window	유닛을(를) 별도 창으로 옮겼습니다
+Moved Units back to the side bar	유닛을(를) 사이드바로 되돌렸습니다
 Put Doodads back in the side bar	장식물을(를) 사이드바로 되돌립니다
 Moved Doodads to its own window	장식물을(를) 별도 창으로 옮겼습니다
+Moved Doodads back to the side bar	장식물을(를) 사이드바로 되돌렸습니다
 Put Locations back in the side bar	위치을(를) 사이드바로 되돌립니다
 Moved Locations to its own window	위치을(를) 별도 창으로 옮겼습니다
+Moved Locations back to the side bar	위치을(를) 사이드바로 되돌렸습니다
 Put Sprites back in the side bar	스프라이트을(를) 사이드바로 되돌립니다
 Moved Sprites to its own window	스프라이트을(를) 별도 창으로 옮겼습니다
+Moved Sprites back to the side bar	스프라이트을(를) 사이드바로 되돌렸습니다
 &Walkable ground	걸을 수 있는 지형(&W)
 Ground &height	지형 높이(&H)
 Ground that blocks the line of &sight	시야를 가리는 지형(&S)

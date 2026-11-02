@@ -2301,14 +2301,19 @@ New palette panel: 	新的调色板面板：
 Could not save the map's settings	无法保存地图设置
 Put Terrain back in the side bar	将地形放回侧栏
 Moved Terrain to its own window	已将地形移到单独的窗口
+Moved Terrain back to the side bar	已将地形放回侧栏
 Put Units back in the side bar	将单位放回侧栏
 Moved Units to its own window	已将单位移到单独的窗口
+Moved Units back to the side bar	已将单位放回侧栏
 Put Doodads back in the side bar	将装饰物放回侧栏
 Moved Doodads to its own window	已将装饰物移到单独的窗口
+Moved Doodads back to the side bar	已将装饰物放回侧栏
 Put Locations back in the side bar	将位置放回侧栏
 Moved Locations to its own window	已将位置移到单独的窗口
+Moved Locations back to the side bar	已将位置放回侧栏
 Put Sprites back in the side bar	将精灵放回侧栏
 Moved Sprites to its own window	已将精灵移到单独的窗口
+Moved Sprites back to the side bar	已将精灵放回侧栏
 &Walkable ground	可行走地面(&W)
 Ground &height	地面高度(&H)
 Ground that blocks the line of &sight	阻挡视线的地面(&S)

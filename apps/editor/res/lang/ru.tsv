@@ -2301,14 +2301,19 @@ New palette panel: 	Новая панель палитры:
 Could not save the map's settings	Не удалось сохранить настройки карты
 Put Terrain back in the side bar	Вернуть Местность на боковую панель
 Moved Terrain to its own window	Местность перемещена в отдельное окно
+Moved Terrain back to the side bar	Местность: возвращено на боковую панель
 Put Units back in the side bar	Вернуть Юниты на боковую панель
 Moved Units to its own window	Юниты перемещены в отдельное окно
+Moved Units back to the side bar	Юниты: возвращено на боковую панель
 Put Doodads back in the side bar	Вернуть Декорации на боковую панель
 Moved Doodads to its own window	Декорации перемещены в отдельное окно
+Moved Doodads back to the side bar	Декорации: возвращено на боковую панель
 Put Locations back in the side bar	Вернуть Локации на боковую панель
 Moved Locations to its own window	Локации перемещены в отдельное окно
+Moved Locations back to the side bar	Локации: возвращено на боковую панель
 Put Sprites back in the side bar	Вернуть Спрайты на боковую панель
 Moved Sprites to its own window	Спрайты перемещены в отдельное окно
+Moved Sprites back to the side bar	Спрайты: возвращено на боковую панель
 &Walkable ground	&Проходимая земля
 Ground &height	&Высота земли
 Ground that blocks the line of &sight	Земля, закрывающая &обзор

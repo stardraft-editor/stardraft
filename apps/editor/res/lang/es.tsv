@@ -2301,14 +2301,19 @@ New palette panel: 	Nuevo panel de paleta:
 Could not save the map's settings	No se pudieron guardar los ajustes del mapa
 Put Terrain back in the side bar	Devolver Terreno a la barra lateral
 Moved Terrain to its own window	Se movió Terreno a su propia ventana
+Moved Terrain back to the side bar	Se movió Terreno de vuelta a la barra lateral
 Put Units back in the side bar	Devolver Unidades a la barra lateral
 Moved Units to its own window	Se movió Unidades a su propia ventana
+Moved Units back to the side bar	Se movió Unidades de vuelta a la barra lateral
 Put Doodads back in the side bar	Devolver Decorados a la barra lateral
 Moved Doodads to its own window	Se movió Decorados a su propia ventana
+Moved Doodads back to the side bar	Se movió Decorados de vuelta a la barra lateral
 Put Locations back in the side bar	Devolver Ubicaciones a la barra lateral
 Moved Locations to its own window	Se movió Ubicaciones a su propia ventana
+Moved Locations back to the side bar	Se movió Ubicaciones de vuelta a la barra lateral
 Put Sprites back in the side bar	Devolver Sprites a la barra lateral
 Moved Sprites to its own window	Se movió Sprites a su propia ventana
+Moved Sprites back to the side bar	Se movió Sprites de vuelta a la barra lateral
 &Walkable ground	Terreno &transitable
 Ground &height	&Altura del terreno
 Ground that blocks the line of &sight	Terreno que bloquea la línea de &visión
