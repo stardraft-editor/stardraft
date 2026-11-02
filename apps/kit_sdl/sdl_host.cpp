@@ -1028,9 +1028,14 @@ bool SdlHost::allMinimized() const {
     return any;
 }
 
+// A minimized or hidden window gives no swapchain texture: it stays dirty and paints when it shows again (an event).
+static bool unseen(SDL_Window* sdl) {
+    return sdl && (SDL_GetWindowFlags(sdl) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN));
+}
+
 bool SdlHost::anyDirty() const {
     for (const auto& w : wins_)
-        if (w->dirty) return true;
+        if (w->dirty && !unseen(w->sdl)) return true;
     return false;
 }
 
@@ -1058,7 +1063,7 @@ void SdlHost::paintNow() {
 void SdlHost::renderDirty() {
     std::vector<Win*> todo;
     for (const auto& w : wins_)
-        if (w->dirty && w->sdl) todo.push_back(w.get());  // (a snapshot's windows have none: snapshot() paints them)
+        if (w->dirty && w->sdl && !unseen(w->sdl)) todo.push_back(w.get());  // (a snapshot's windows have none: snapshot() paints them)
     if (todo.empty()) return;
     beginBitmapFrame();
     ImGuiIO& io = ImGui::GetIO();
