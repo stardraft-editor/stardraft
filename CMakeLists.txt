@@ -140,12 +140,6 @@ else()
     target_compile_options(stardraft PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
 endif()
 
-add_executable(chk_survey tools/chk_survey.cpp)
-target_link_libraries(chk_survey PRIVATE stardraft)
-
-add_executable(casc_ls tools/casc_ls.cpp)
-target_link_libraries(casc_ls PRIVATE stardraft)
-
 add_executable(render_map tools/render_map.cpp)
 target_link_libraries(render_map PRIVATE stardraft)
 
@@ -159,19 +153,8 @@ add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
 target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)
 target_link_libraries(isomterrain_test PRIVATE stardraft)
 
-add_executable(isom_core_probe tools/probes/isom_core_probe.cpp)
-target_link_libraries(isom_core_probe PRIVATE stardraft)
-add_executable(isom_paint tools/probes/isom_paint.cpp)
-target_link_libraries(isom_paint PRIVATE stardraft)
-
 add_executable(unit_test tools/tests/unit_test.cpp)
 target_link_libraries(unit_test PRIVATE stardraft)
-
-add_executable(isom_demo tools/probes/isom_demo.cpp)
-target_link_libraries(isom_demo PRIVATE stardraft)
-
-add_executable(unit_gallery tools/probes/unit_gallery.cpp)
-target_link_libraries(unit_gallery PRIVATE stardraft)
 
 add_executable(hd_test tools/tests/hd_test.cpp)
 target_link_libraries(hd_test PRIVATE stardraft)
@@ -197,16 +180,6 @@ target_link_libraries(tools_test PRIVATE stardraft)
 
 add_executable(gen_test tools/tests/gen_test.cpp)
 target_link_libraries(gen_test PRIVATE stardraft)
-add_executable(tile_swatch tools/probes/tile_swatch.cpp)
-target_link_libraries(tile_swatch PRIVATE stardraft)
-add_executable(thin_probe tools/probes/thin_probe.cpp)
-target_link_libraries(thin_probe PRIVATE stardraft)
-add_executable(connect_probe tools/probes/connect_probe.cpp)
-target_link_libraries(connect_probe PRIVATE stardraft)
-add_executable(preview_gallery tools/probes/preview_gallery.cpp)
-target_link_libraries(preview_gallery PRIVATE stardraft)
-add_executable(tbl_probe tools/probes/tbl_probe.cpp)
-target_link_libraries(tbl_probe PRIVATE stardraft)
 # The Cosmonarchy BW probes: studies of the mod's data and maps (terrain, scripts, CRIG commands, pictures), for
 # developers (tools/plugins/cmbw/cmbw_report.py runs cmbw_report). -Dcmbw_probes=ON builds them.
 option(cmbw_probes "Build the Cosmonarchy BW probes (tools/plugins/cmbw/probes)" OFF)
@@ -398,7 +371,7 @@ endif()
 
 # --- What the shells ask of the system (apps/common): HTTPS, dialogs (Windows), crash reports, updates -------
 if(WIN32)
-    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp apps/common/instance_win32.cpp)
+    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp apps/common/instance_win32.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp advapi32 shell32)
 else()
     add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/crash_posix.cpp apps/common/update_posix.cpp)
