@@ -202,7 +202,10 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     const Editor& ed = *appState().ed;
     const BridgePlan p = planBridge(ed, pts.front().first, pts.front().second, pts.back().first, pts.back().second, bridgeWidth(), gShape.seed);
     const std::wstring ground = tr(widen(p.ground)), water = tr(widen(p.water));  // (the terrains' names, as the list shows them)
-    for (const Editor::TileAt& c : p.draft) gShape.red.push_back({c.x, c.y});  // (no bridge yet: where one goes, in red)
+    for (const Editor::TileAt& c : p.draft) {  // (no bridge yet: where one goes, its tiles under red)
+        gShape.red.push_back({c.x, c.y});
+        gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
+    }
     switch (p.problem) {
     case BridgePlan::Problem::None: break;
     case BridgePlan::Problem::NoKit: return setMessage(L"This tileset has no bridges");
