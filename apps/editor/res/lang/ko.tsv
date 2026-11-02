@@ -2766,7 +2766,7 @@ Placed the bridge. Symmetry does not apply to bridges.	다리를 놓았습니다
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	다리를 놓았습니다. 그 아래에 있을 수 없는 장식물과 유닛을 제거했습니다.
 Could not make the bridge: %ls	다리를 만들 수 없습니다: %ls
 Ramp	경사로
-Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	경사로: 절벽 가장자리를 따라 칠합니다. 칠한 만큼 경사로가 가장자리에 놓이고, 가장자리가 향한 쪽을 향합니다.
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.	경사로: 절벽 가장자리를 따라 칠합니다. 칠한 만큼 경사로가 가장자리에 놓이고, 가장자리가 향한 쪽을 향합니다. Shift를 누르면 경사로가 다시 절벽이 됩니다.
 This tileset has no ramps	이 타일셋에는 경사로가 없습니다
 Could not make a ramp. The map has no isometric terrain data.	경사로를 만들 수 없습니다. 맵에 아이소메트릭 지형 데이터가 없습니다.
 Ramp: paint along a cliff edge between %ls and %ls	경사로: %ls과(와) %ls 사이의 절벽 가장자리를 따라 칠하세요
@@ -2779,3 +2779,7 @@ Placed the ramp	경사로를 놓았습니다
 Ramp: paint along a cliff edge	경사로: 절벽 가장자리를 따라 칠하세요
 Stopped the ramp	경사로를 멈췄습니다
 %ls ramps. Release the button to place them.	경사로 %ls개. 버튼을 놓으면 경사로를 놓습니다.
+Ramp with Shift: paint over a ramp to make it the cliff again	Shift를 누른 경사로: 경사로 위를 칠하면 다시 절벽이 됩니다
+Could not make the cliff again: %ls	절벽을 다시 만들 수 없습니다: %ls
+Release the button to make the ramp the cliff again	버튼을 놓으면 경사로가 다시 절벽이 됩니다
+Made the ramp the cliff again	경사로를 다시 절벽으로 만들었습니다

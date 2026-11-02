@@ -370,4 +370,32 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     return out;
 }
 
+std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) {
+    const int era = ed.era() & 7, w = ed.width(), h = ed.height();
+    if (!rampsAvailable(era)) return {};
+    const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, ed.terrain().tiles[size_t(y) * w + x]); };
+    // (the tiles within a diamond, 2 tiles across and 1 down, of each point and of the way between the points)
+    std::set<std::pair<int, int>> seen;
+    std::vector<std::pair<int, int>> todo;
+    for (size_t i = 0; i < stroke.size(); ++i) {
+        const auto [x1, y1] = stroke[i];
+        const auto [x0, y0] = i ? stroke[i - 1] : stroke[i];
+        const int n = std::max(1, int(std::hypot(x1 - x0, y1 - y0) / 16));
+        for (int k = 0; k <= n; ++k) {
+            const int px = x0 + (x1 - x0) * k / n, py = y0 + (y1 - y0) * k / n;
+            for (int ty = py / 32 - 1; ty <= py / 32 + 1; ++ty)
+                for (int tx = px / 32 - 2; tx <= px / 32 + 2; ++tx)
+                    if (piece(tx, ty) && seen.insert({tx, ty}).second) todo.push_back({tx, ty});
+        }
+    }
+    // (and the ramp tiles joined to them)
+    while (!todo.empty()) {
+        const auto [x, y] = todo.back();
+        todo.pop_back();
+        for (const auto& [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
+            if (piece(x + dx, y + dy) && seen.insert({x + dx, y + dy}).second) todo.push_back({x + dx, y + dy});
+    }
+    return std::vector<std::pair<int, int>>(seen.begin(), seen.end());
+}
+
 }  // namespace stardraft

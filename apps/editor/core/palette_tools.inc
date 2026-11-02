@@ -488,7 +488,7 @@ constexpr const wchar_t* kDiamondTip = L"Diamond: drag across the box it fits in
 constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.";
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
 constexpr const wchar_t* kBridgeTip = L"Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.";
-constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.";
+constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.";
 // The Terrain tools with the Bridge and the Ramp at their end, where the map's tileset has them (src/bridges.cpp,
 // src/ramps.cpp).
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {

@@ -59,4 +59,8 @@ RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stro
 // a ramp that overlaps an earlier one is left out. Empty: none (the first planRamp's problem says why).
 std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<int, int>>& stroke, RampPlan* why = nullptr);
 
+// The ramps a stroke (map pixels) touches: the ramp pieces' tiles within a diamond of it, and all the ramp tiles joined
+// to them (whole ramps). Shift with the Ramp brush makes them the cliff again (Editor::remakeTilesFromIsom).
+std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke);
+
 }  // namespace stardraft

@@ -2738,7 +2738,7 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ah\u00ED."},
     {L"Could not make the bridge: %ls", L"No se pudo hacer el puente: %ls"},
     {L"Ramp", L"Rampa"},
-    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"Rampa: pinte a lo largo del borde de un acantilado. La rampa ocupa el borde hasta donde pinte y mira hacia donde mira el borde."},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.", L"Rampa: pinte a lo largo del borde de un acantilado. La rampa ocupa el borde hasta donde pinte y mira hacia donde mira el borde. Mantenga May\u00FAs para volver una rampa acantilado."},
     {L"This tileset has no ramps", L"Este conjunto de losetas no tiene rampas"},
     {L"Could not make a ramp. The map has no isometric terrain data.", L"No se pudo hacer una rampa. El mapa no tiene datos de terreno isom\u00E9trico."},
     {L"Ramp: paint along a cliff edge between %ls and %ls", L"Rampa: pinte a lo largo del borde de un acantilado entre %ls y %ls"},
@@ -2751,6 +2751,10 @@ constexpr UiText kRows[] = {
     {L"Ramp: paint along a cliff edge", L"Rampa: pinte a lo largo del borde de un acantilado"},
     {L"Stopped the ramp", L"Rampa detenida"},
     {L"%ls ramps. Release the button to place them.", L"%ls rampas. Suelte el bot\u00F3n para colocarlas."},
+    {L"Ramp with Shift: paint over a ramp to make it the cliff again", L"Rampa con May\u00FAs: pinte sobre una rampa para volverla acantilado"},
+    {L"Could not make the cliff again: %ls", L"No se pudo rehacer el acantilado: %ls"},
+    {L"Release the button to make the ramp the cliff again", L"Suelte el bot\u00F3n para volver la rampa acantilado"},
+    {L"Made the ramp the cliff again", L"La rampa volvi\u00F3 a ser acantilado"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

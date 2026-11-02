@@ -28,6 +28,7 @@ struct TerrainShape {
     std::vector<int64_t> madeKey;  // (shapeSettingsKey)
     bool made = false;
     bool copyHolds = false;  // Isometric: the copy of the map (shapeCopy) holds this preview
+    bool unramp = false;     // Ramp with Shift (at the press): the ramps under the stroke become the cliff again
 };
 TerrainShape gShape;
 
@@ -243,6 +244,23 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
 // Ramp: the ramp that the stroke paints (gShape.cells, gShape.ghost), and the status bar says it or why there is none.
 void rampMake(const std::vector<std::pair<int, int>>& pts) {
     const Editor& ed = *appState().ed;
+    if (gShape.unramp) {  // (Shift: the ramps under the stroke, made the cliff again on the copy of the map)
+        const std::vector<std::pair<int, int>> under = rampTilesUnder(ed, pts);
+        if (under.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
+        Editor& copy = shapeCopy(ed.gameData());
+        std::string error;
+        if (!copy.openChk(ed.chk(), error)) return setMessage(bridgeText(L"Could not make the cliff again: %ls", widen(error)));
+        shapeCopySettings(copy, ed);
+        copy.setMirrors(0), copy.setTurns(1);
+        copy.remakeTilesFromIsom(under);
+        const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
+        if (a.size() == b.size())
+            for (size_t i = 0; i < a.size(); ++i)
+                if (a[i] != b[i]) gShape.ghost.push_back({int(i), b[i]});
+        gShape.copyHolds = true;
+        for (const auto& [x, y] : under) gShape.cells.push_back({x, y, 0});  // (not empty: there is something to do)
+        return setMessage(L"Release the button to make the ramp the cliff again");
+    }
     RampPlan why;  // (no ramp: why)
     const std::vector<RampPlan> ramps = planRamps(ed, pts, &why);
     const std::wstring low = tr(widen(why.low)), high = tr(widen(why.high));
@@ -356,7 +374,21 @@ void shapeFinish() {
     gShape.points = pts;
     gShape.made = false;  // (made again now, of the map as it is: the copy that the map takes holds it)
     shapeUpdate(true);
-    if (tool == TRamp) {
+    if (tool == TRamp && gShape.unramp) {
+        if (gShape.cells.empty() || !gShape.copyHolds || gShape.ghost.empty()) {  // (the status bar says why: rampMake)
+            shapeReset();
+            app.dirty = true;
+            return;
+        }
+        // (the map takes the copy's scenario: the units and the locations that were selected stay selected)
+        const std::vector<int> units = ed.selection(), locations = ed.selectedLocations();
+        const size_t unitCount = ed.units().size();
+        ed.takeScenario(shapeCopy(ed.gameData()));
+        if (ed.units().size() == unitCount)
+            for (int u : units) ed.select(u, true);
+        for (int l : locations) ed.addLocationSelection(l);
+        setMessage(L"Made the ramp the cliff again");
+    } else if (tool == TRamp) {
         if (gShape.cells.empty()) {  // (the status bar says why: rampMake)
             shapeReset();
             app.dirty = true;
@@ -448,11 +480,12 @@ void shapeMouseDown(float wx, float wy, bool snap) {
     }
     shapeReset();
     gShape.tool = tool, gShape.ed = app.ed.get(), gShape.seed = app.spraySeed++;
+    gShape.unramp = tool == TRamp && snap;
     gShape.points = {p};
     if (tool == TLine || tool == TBridge || isBoxTool(tool)) gShape.points.push_back(p);
     if (tool != TPolygon) app.drag = Drag::Shape;
     setMessage(tool == TBridge    ? L"Bridge: drag from the ground across the water to the ground on the other side"
-               : tool == TRamp    ? L"Ramp: paint along a cliff edge"
+               : tool == TRamp    ? (snap ? L"Ramp with Shift: paint over a ramp to make it the cliff again" : L"Ramp: paint along a cliff edge")
                : tool == TLine    ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
                : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape"
                : tool == TContour ? L"Contour: draw the shape, then release the button"

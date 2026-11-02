@@ -1612,6 +1612,30 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     return true;
 }
 
+int Editor::remakeTilesFromIsom(const std::vector<std::pair<int, int>>& tiles) {
+    if (!isomOk_ || tiles.empty()) return 0;
+    // (the ISOM corners of the tiles' rects, as they are: the edit changes no corner; its rects whose tiles are not the
+    // ISOM's are made again)
+    std::set<std::pair<int, int>> points;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& [tx, ty] : tiles) {
+        if (tx < 0 || ty < 0 || tx >= int(width_) || ty >= int(height_)) continue;
+        const int rx = tx / 2;
+        for (const auto& [cx, cy] : {std::pair{rx, ty}, {rx + 1, ty}, {rx, ty + 1}, {rx + 1, ty + 1}})
+            if ((cx + cy) & 1) points.insert({cx, cy}), x0 = std::min(x0, cx), y0 = std::min(y0, cy), x1 = std::max(x1, cx), y1 = std::max(y1, cy);
+    }
+    std::vector<CornerValue> corners;
+    for (const auto& [cx, cy] : points)
+        if (const uint16_t t = isom_.terrainAt(cx, cy)) corners.push_back({cx, cy, t});
+    if (corners.empty()) return 0;
+    const std::vector<uint16_t> before = readTerrain(chk_, "MTXM").tiles;
+    if (!applyOld(corners, x0, y0, x1, y1, true)) return 0;
+    const std::vector<uint16_t> after = readTerrain(chk_, "MTXM").tiles;
+    int changed = 0;
+    for (size_t i = 0; i < before.size() && i < after.size(); ++i) changed += before[i] != after[i];
+    return changed;
+}
+
 void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
     const TerrainLayer tiles = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     std::set<std::pair<int, int>> rects;

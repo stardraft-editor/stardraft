@@ -187,6 +187,9 @@ public:
     // These ISOM corners get their terrains (all of one terrain), and the terrain round them is fitted to them: one edit
     // (the Bridge tool's shore: src/bridges.cpp).
     bool setTerrainCorners(const std::vector<CornerValue>& corners) { return applyTerrain(corners); }
+    // These tiles (tile x, y) made again from the ISOM under them: tiles placed over the terrain there (a ramp's, in
+    // Rectangle mode) go back to the ISOM's own (a cliff edge's). Returns the tiles that changed; one undo step.
+    int remakeTilesFromIsom(const std::vector<std::pair<int, int>>& tiles);
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two

@@ -2736,7 +2736,7 @@ Placed the bridge. Symmetry does not apply to bridges.	Puente colocado. La simet
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ahí.
 Could not make the bridge: %ls	No se pudo hacer el puente: %ls
 Ramp	Rampa
-Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	Rampa: pinte a lo largo del borde de un acantilado. La rampa ocupa el borde hasta donde pinte y mira hacia donde mira el borde.
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.	Rampa: pinte a lo largo del borde de un acantilado. La rampa ocupa el borde hasta donde pinte y mira hacia donde mira el borde. Mantenga Mayús para volver una rampa acantilado.
 This tileset has no ramps	Este conjunto de losetas no tiene rampas
 Could not make a ramp. The map has no isometric terrain data.	No se pudo hacer una rampa. El mapa no tiene datos de terreno isométrico.
 Ramp: paint along a cliff edge between %ls and %ls	Rampa: pinte a lo largo del borde de un acantilado entre %ls y %ls
@@ -2749,3 +2749,7 @@ Placed the ramp	Rampa colocada
 Ramp: paint along a cliff edge	Rampa: pinte a lo largo del borde de un acantilado
 Stopped the ramp	Rampa detenida
 %ls ramps. Release the button to place them.	%ls rampas. Suelte el botón para colocarlas.
+Ramp with Shift: paint over a ramp to make it the cliff again	Rampa con Mayús: pinte sobre una rampa para volverla acantilado
+Could not make the cliff again: %ls	No se pudo rehacer el acantilado: %ls
+Release the button to make the ramp the cliff again	Suelte el botón para volver la rampa acantilado
+Made the ramp the cliff again	La rampa volvió a ser acantilado

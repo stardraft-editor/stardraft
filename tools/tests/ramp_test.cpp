@@ -341,6 +341,77 @@ static void roundCorner(const GameData& data) {
                                                                          std::to_string(plans.size()) + ")");
 }
 
+// RAMP_WIDE=<folder>: big plateaus (a square and a diamond) with each edge painted in one stroke from end to end (the
+// widest ramps), saved for pictures.
+static void wideRamps(const GameData& data, const std::filesystem::path& out) {
+    for (const Brush::Shape shape : {Brush::Square, Brush::Diamond}) {
+        Editor ed(data);
+        std::string err;
+        if (!ed.newMap(128, 128, 4, 1, err)) return;
+        Brush b;
+        b.shape = shape, b.size = shape == Brush::Square ? 30 : 34;
+        ed.paintBrush(64 * 32, 64 * 32, 2, b);  // (High Dirt)
+        int ramps = 0, slopes = 0;
+        for (int f = 0; f < kRampFacings; ++f) {
+            // the anchors of no slope that fit this facing: the stroke from the first to the last along the slopes' step
+            std::vector<std::pair<int, int>> fits;
+            for (int ay = 0; ay < ed.height(); ++ay)
+                for (int ax = 0; ax < ed.width(); ++ax)
+                    if (rampFits(ed, f, 0, ax, ay) || rampFits(ed, f, 1, ax, ay)) fits.push_back({ax, ay});
+            if (fits.empty()) continue;
+            const auto step = rampPieces(4, f, 1, 0, 0)[1];  // (the first slope's place: the step's way)
+            const auto key = [&](const std::pair<int, int>& p) { return p.first * step.x + p.second * step.y; };
+            const auto [lo, hi] = std::minmax_element(fits.begin(), fits.end(), [&](auto& p, auto& q) { return key(p) < key(q); });
+            std::vector<std::pair<int, int>> stroke = strokeAlong(4, f, 0, lo->first, lo->second, false);
+            const std::vector<std::pair<int, int>> end = strokeAlong(4, f, 0, hi->first, hi->second, false);
+            stroke.insert(stroke.end(), end.begin(), end.end());
+            for (const RampPlan& p : planRamps(ed, stroke)) {
+                ed.placeTileValues(p.tiles);
+                ++ramps, slopes += p.slopes;
+                std::printf("%s plateau: %s ramp of %d slopes\n", shape == Brush::Square ? "square" : "diamond", rampFacingName(p.facing), p.slopes);
+            }
+        }
+        ed.save(out / (shape == Brush::Square ? "wide_square.scm" : "wide_diamond.scm"), err);
+        std::printf("%d ramps, %d slopes\n", ramps, slopes);
+    }
+}
+
+// Shift: a stroke over part of a ramp makes the whole ramp the cliff again (no ramp tile left, no way up there).
+static void backToCliff(const GameData& data) {
+    for (const int f : {0, 3, 4, 6}) {  // N, SE, S, W
+        Editor ed(data);
+        std::string err;
+        if (!ed.newMap(96, 96, 4, 1, err)) return check(false, "new map: " + err);
+        Brush b;
+        b.shape = f == 3 ? Brush::Diamond : Brush::Square, b.size = 14;
+        ed.paintBrush(48 * 32, 48 * 32, 2, b);  // (High Dirt)
+        int bx = -1, by = 0;
+        for (int ay = 0; ay < ed.height() && bx < 0; ++ay)
+            for (int ax = 0; ax < ed.width() && bx < 0; ++ax)
+                if (rampFits(ed, f, 2, ax, ay)) bx = ax, by = ay;
+        const std::string what = std::string("Shift over a ") + rampFacingName(f) + " ramp";
+        if (bx < 0) {
+            check(false, what + ": a ramp fits");
+            continue;
+        }
+        const std::vector<Editor::TileAt> ramp = rampTiles(4, f, 2, bx, by);
+        ed.placeTileValues(ramp);
+        const auto m = middleOf(ramp);
+        const std::pair<int, int> top{48 * 32, 48 * 32};
+        const double dx = m.first - top.first, dy = m.second - top.second, dl = std::hypot(dx, dy);
+        const std::pair<int, int> out{int(m.first + dx / dl * 160), int(m.second + dy / dl * 160)};
+        check(walks(ed, out, top), what + ": a way up over it");
+        std::vector<std::pair<int, int>> half = strokeAlong(4, f, 2, bx, by, false);
+        half.resize(2);
+        const std::vector<std::pair<int, int>> under = rampTilesUnder(ed, half);
+        check(under.size() == ramp.size(), what + ": all its tiles (" + std::to_string(under.size()) + " of " + std::to_string(ramp.size()) + ")");
+        check(ed.remakeTilesFromIsom(under) > 0, what + ": tiles made again");
+        bool left = false;
+        for (const auto& c : ramp) left |= ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] == c.value;
+        check(!left && !walks(ed, out, top), what + ": the cliff again, no way up");
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr, "usage: ramp_test <install dir> [<example maps folder>]\n");
@@ -351,6 +422,10 @@ int main(int argc, char** argv) {
     if (!data.open(argv[1], err)) {
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
+    }
+    if (const char* wide = std::getenv("RAMP_WIDE")) {
+        wideRamps(data, wide);
+        return 0;
     }
     if (const char* out = std::getenv("RAMP_NEIGHBORS"); out && argc > 2) {  // RAMP_NEIGHBORS=<file>: the corpus's pairs
         dumpNeighbors(data, std::filesystem::path(argv[1]) / "Maps", argv[2], out);
@@ -364,6 +439,7 @@ int main(int argc, char** argv) {
     paintedPlateaus(data, std::getenv("RAMP_SHOTS"));
     longAndOver(data);
     roundCorner(data);
+    backToCliff(data);
     if (argc > 2) examples(data, argv[2]);
     std::printf("\n%d failures\n", failures);
     return failures ? 1 : 0;

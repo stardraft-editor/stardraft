@@ -2736,7 +2736,7 @@ Placed the bridge. Symmetry does not apply to bridges.	Pont placé. La symétrie
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	Pont placé. Les décors et les unités dessous qui ne peuvent pas y rester ont été retirés.
 Could not make the bridge: %ls	Impossible de faire le pont : %ls
 Ramp	Rampe
-Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	Rampe : peignez le long du bord d'une falaise. La rampe s'étend sur le bord aussi loin que vous peignez et fait face au même côté que le bord.
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.	Rampe : peignez le long du bord d'une falaise. La rampe s'étend sur le bord aussi loin que vous peignez et fait face au même côté que le bord. Maintenez Maj pour refaire une rampe en falaise.
 This tileset has no ramps	Ce jeu de tuiles n'a pas de rampes
 Could not make a ramp. The map has no isometric terrain data.	Impossible de faire une rampe. La carte n'a pas de données de terrain isométrique.
 Ramp: paint along a cliff edge between %ls and %ls	Rampe : peignez le long du bord d'une falaise entre %ls et %ls
@@ -2749,3 +2749,7 @@ Placed the ramp	Rampe placée
 Ramp: paint along a cliff edge	Rampe : peignez le long du bord d'une falaise
 Stopped the ramp	Rampe arrêtée
 %ls ramps. Release the button to place them.	%ls rampes. Relâchez le bouton pour les placer.
+Ramp with Shift: paint over a ramp to make it the cliff again	Rampe avec Maj : peignez sur une rampe pour la refaire en falaise
+Could not make the cliff again: %ls	Impossible de refaire la falaise : %ls
+Release the button to make the ramp the cliff again	Relâchez le bouton pour refaire la rampe en falaise
+Made the ramp the cliff again	La rampe est redevenue une falaise

@@ -2736,7 +2736,7 @@ Placed the bridge. Symmetry does not apply to bridges.	已放置桥。对称不�
 Placed the bridge. Removed the doodads and units under it that cannot stay there.	已放置桥。已移除其下不能留下的装饰物和单位。
 Could not make the bridge: %ls	无法生成桥：%ls
 Ramp	坡道
-Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.	坡道：沿悬崖边缘绘制。坡道沿边缘延伸到你绘制的位置，并朝向边缘所朝的方向。
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.	坡道：沿悬崖边缘绘制。坡道沿边缘延伸到你绘制的位置，并朝向边缘所朝的方向。 按住 Shift 使坡道变回悬崖。
 This tileset has no ramps	此地形集没有坡道
 Could not make a ramp. The map has no isometric terrain data.	无法生成坡道。地图没有等距地形数据。
 Ramp: paint along a cliff edge between %ls and %ls	坡道：沿%ls和%ls之间的悬崖边缘绘制
@@ -2749,3 +2749,7 @@ Placed the ramp	已放置坡道
 Ramp: paint along a cliff edge	坡道：沿悬崖边缘绘制
 Stopped the ramp	已停止坡道
 %ls ramps. Release the button to place them.	%ls 个坡道。松开按钮放置。
+Ramp with Shift: paint over a ramp to make it the cliff again	按住 Shift 的坡道：在坡道上绘制，使其变回悬崖
+Could not make the cliff again: %ls	无法恢复悬崖：%ls
+Release the button to make the ramp the cliff again	松开按钮，使坡道变回悬崖
+Made the ramp the cliff again	已将坡道变回悬崖

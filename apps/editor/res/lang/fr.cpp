@@ -2738,7 +2738,7 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Pont plac\u00E9. Les d\u00E9cors et les unit\u00E9s dessous qui ne peuvent pas y rester ont \u00E9t\u00E9 retir\u00E9s."},
     {L"Could not make the bridge: %ls", L"Impossible de faire le pont : %ls"},
     {L"Ramp", L"Rampe"},
-    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"Rampe : peignez le long du bord d'une falaise. La rampe s'\u00E9tend sur le bord aussi loin que vous peignez et fait face au m\u00EAme c\u00F4t\u00E9 que le bord."},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.", L"Rampe : peignez le long du bord d'une falaise. La rampe s'\u00E9tend sur le bord aussi loin que vous peignez et fait face au m\u00EAme c\u00F4t\u00E9 que le bord. Maintenez Maj pour refaire une rampe en falaise."},
     {L"This tileset has no ramps", L"Ce jeu de tuiles n'a pas de rampes"},
     {L"Could not make a ramp. The map has no isometric terrain data.", L"Impossible de faire une rampe. La carte n'a pas de donn\u00E9es de terrain isom\u00E9trique."},
     {L"Ramp: paint along a cliff edge between %ls and %ls", L"Rampe : peignez le long du bord d'une falaise entre %ls et %ls"},
@@ -2751,6 +2751,10 @@ constexpr UiText kRows[] = {
     {L"Ramp: paint along a cliff edge", L"Rampe : peignez le long du bord d'une falaise"},
     {L"Stopped the ramp", L"Rampe arr\u00EAt\u00E9e"},
     {L"%ls ramps. Release the button to place them.", L"%ls rampes. Rel\u00E2chez le bouton pour les placer."},
+    {L"Ramp with Shift: paint over a ramp to make it the cliff again", L"Rampe avec Maj : peignez sur une rampe pour la refaire en falaise"},
+    {L"Could not make the cliff again: %ls", L"Impossible de refaire la falaise : %ls"},
+    {L"Release the button to make the ramp the cliff again", L"Rel\u00E2chez le bouton pour refaire la rampe en falaise"},
+    {L"Made the ramp the cliff again", L"La rampe est redevenue une falaise"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

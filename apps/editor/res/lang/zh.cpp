@@ -2738,7 +2738,7 @@ constexpr UiText kRows[] = {
     {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"\u5DF2\u653E\u7F6E\u6865\u3002\u5DF2\u79FB\u9664\u5176\u4E0B\u4E0D\u80FD\u7559\u4E0B\u7684\u88C5\u9970\u7269\u548C\u5355\u4F4D\u3002"},
     {L"Could not make the bridge: %ls", L"\u65E0\u6CD5\u751F\u6210\u6865\uFF1A%ls"},
     {L"Ramp", L"\u5761\u9053"},
-    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces.", L"\u5761\u9053\uFF1A\u6CBF\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236\u3002\u5761\u9053\u6CBF\u8FB9\u7F18\u5EF6\u4F38\u5230\u4F60\u7ED8\u5236\u7684\u4F4D\u7F6E\uFF0C\u5E76\u671D\u5411\u8FB9\u7F18\u6240\u671D\u7684\u65B9\u5411\u3002"},
+    {L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.", L"\u5761\u9053\uFF1A\u6CBF\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236\u3002\u5761\u9053\u6CBF\u8FB9\u7F18\u5EF6\u4F38\u5230\u4F60\u7ED8\u5236\u7684\u4F4D\u7F6E\uFF0C\u5E76\u671D\u5411\u8FB9\u7F18\u6240\u671D\u7684\u65B9\u5411\u3002 \u6309\u4F4F Shift \u4F7F\u5761\u9053\u53D8\u56DE\u60AC\u5D16\u3002"},
     {L"This tileset has no ramps", L"\u6B64\u5730\u5F62\u96C6\u6CA1\u6709\u5761\u9053"},
     {L"Could not make a ramp. The map has no isometric terrain data.", L"\u65E0\u6CD5\u751F\u6210\u5761\u9053\u3002\u5730\u56FE\u6CA1\u6709\u7B49\u8DDD\u5730\u5F62\u6570\u636E\u3002"},
     {L"Ramp: paint along a cliff edge between %ls and %ls", L"\u5761\u9053\uFF1A\u6CBF%ls\u548C%ls\u4E4B\u95F4\u7684\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236"},
@@ -2751,6 +2751,10 @@ constexpr UiText kRows[] = {
     {L"Ramp: paint along a cliff edge", L"\u5761\u9053\uFF1A\u6CBF\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236"},
     {L"Stopped the ramp", L"\u5DF2\u505C\u6B62\u5761\u9053"},
     {L"%ls ramps. Release the button to place them.", L"%ls \u4E2A\u5761\u9053\u3002\u677E\u5F00\u6309\u94AE\u653E\u7F6E\u3002"},
+    {L"Ramp with Shift: paint over a ramp to make it the cliff again", L"\u6309\u4F4F Shift \u7684\u5761\u9053\uFF1A\u5728\u5761\u9053\u4E0A\u7ED8\u5236\uFF0C\u4F7F\u5176\u53D8\u56DE\u60AC\u5D16"},
+    {L"Could not make the cliff again: %ls", L"\u65E0\u6CD5\u6062\u590D\u60AC\u5D16\uFF1A%ls"},
+    {L"Release the button to make the ramp the cliff again", L"\u677E\u5F00\u6309\u94AE\uFF0C\u4F7F\u5761\u9053\u53D8\u56DE\u60AC\u5D16"},
+    {L"Made the ramp the cliff again", L"\u5DF2\u5C06\u5761\u9053\u53D8\u56DE\u60AC\u5D16"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
