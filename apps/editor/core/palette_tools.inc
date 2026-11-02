@@ -497,7 +497,7 @@ std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     std::vector<StripItem> group;
     if (app.ed && bridgesAvailable(era)) group.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
     else if (app.toolByMode[int(Mode::Terrain)] == TBridge) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (a map of another tileset)
-    if (app.ed && rampsAvailable(era)) group.push_back({UiIcon::Ramp, kRampTip, TRamp, false});
+    if (app.ed && rampsAvailable(*app.ed)) group.push_back({UiIcon::Ramp, kRampTip, TRamp, false});
     else if (app.toolByMode[int(Mode::Terrain)] == TRamp) app.toolByMode[int(Mode::Terrain)] = TBrush;
     if (group.size() == 1) tools.push_back(group.front());
     else if (group.size() == 2) tools.push_back(stripGroup(3, std::move(group)));

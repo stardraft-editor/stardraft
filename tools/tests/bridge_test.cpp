@@ -5,6 +5,8 @@
 #include "stardraft/bridges.h"
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
+#include "stardraft/mods/cmbw.h"
+#include "stardraft/ramps.h"
 #include "stardraft/tileset.h"
 
 #include <chrono>
@@ -402,11 +404,22 @@ int main(int argc, char** argv) {
     }
     GameData data;
     std::string err;
-    if (!data.open(argv[1], err)) {
+    if (std::getenv("MOD_CMBW") ? !cmbw::open(data, argv[1], err) : !data.open(argv[1], err)) {  // (MOD_CMBW: the mod's install)
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
     }
     check(bridgesAvailable(0) && !bridgesAvailable(2) && !bridgesAvailable(3), "bridges in Badlands; none in Installation and Ashworld");
+    if (std::getenv("BRIDGE_TERRAINS")) {  // each tileset's terrain ids 1 to 8 and their names
+        for (int era = 0; era < 8; ++era) {
+            Editor ed(data);
+            std::string e;
+            if (!ed.newMap(64, 64, uint16_t(era), 1, e)) continue;
+            std::printf("era %d:", era);
+            for (uint16_t id = 1; id <= 8; ++id) std::printf(" %d=%s", id, ed.terrainName(id).c_str());
+            std::printf("\n");
+        }
+        return 0;
+    }
     if (std::getenv("BRIDGE_DOODADS")) {  // each tileset's doodads in its "Bridge" groups: id, size, tiles (group.index, - null)
         for (const int era : {4, 1, 5, 6, 7, 0}) {
             Editor ed(data);
@@ -415,7 +428,7 @@ int main(int argc, char** argv) {
             for (const DoodadType& t : ed.doodadTypes().all()) {
                 if (!t.groupString || !t.inPalette) continue;
                 const std::string group = ed.unitTypes().statText(t.groupString - 1u);
-                if (group.find("ridge") == std::string::npos) continue;
+                if (const char* want = std::getenv("BRIDGE_DOODADS"); group.find(std::string(want) == "1" ? "ridge" : want) == std::string::npos) continue;
                 std::printf("doodad era %d id %d group %s first %d size %dx%d\n", era, t.id, group.c_str(), t.firstGroup, t.width, t.height);
                 for (int r = 0; r < t.height; ++r) {
                     for (int c = 0; c < t.width; ++c) {
@@ -553,6 +566,117 @@ int main(int argc, char** argv) {
         corpusCheck(data, corpus, argc > 2 ? argv[2] : nullptr);
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
+    }
+    if (const char* game = std::getenv("MOD_COMPARE")) {  // (with MOD_CMBW) the kits' tiles: the same pixels in the mod's tilesets as in the game's?
+        GameData vanilla;
+        if (!vanilla.open(game, err)) return std::printf("%s\n", err.c_str()), 1;
+        for (int era = 0; era < 8; ++era) {
+            Tileset a, b;
+            if (!a.load(vanilla, uint16_t(era), err) || !b.load(data, uint16_t(era), err)) continue;
+            const auto pixels = [](const Tileset& ts, uint16_t v) {
+                std::vector<uint8_t> out;
+                const int m = ts.megatileFor(v);
+                if (m < 0 || size_t(m) >= ts.megatiles.size()) return out;
+                for (int py = 0; py < 32; ++py)
+                    for (int px = 0; px < 32; ++px) {
+                        const uint32_t mini = ts.megatiles[size_t(m)][size_t((py / 8) * 4 + px / 8)];
+                        const int lx = (mini & 1) ? 7 - px % 8 : px % 8;
+                        const Rgb c = (mini >> 1) < ts.minitiles.size() ? ts.palette[ts.minitiles[mini >> 1][size_t((py % 8) * 8 + lx)]] : Rgb{};
+                        out.push_back(c.r), out.push_back(c.g), out.push_back(c.b);
+                    }
+                return out;
+            };
+            const auto same = [&](uint16_t v) { return pixels(a, v) == pixels(b, v); };
+            if (std::getenv("MOD_GROUPS")) {  // each game doodad group (1024 and up): the mod's group with the same 16 tiles' pixels
+                std::map<std::vector<uint8_t>, std::vector<uint16_t>> modBy;
+                const auto groupPixels = [&](const Tileset& ts, uint16_t g) {
+                    std::vector<uint8_t> all;
+                    bool any = false;
+                    for (int i = 0; i < 16; ++i) {
+                        const std::vector<uint8_t> p = pixels(ts, uint16_t(g << 4 | i));
+                        any |= ts.megatileFor(uint16_t(g << 4 | i)) > 0;
+                        all.insert(all.end(), p.begin(), p.end());
+                        all.push_back(0xFF);
+                    }
+                    return any ? all : std::vector<uint8_t>{};
+                };
+                for (uint16_t g = 1024; g < b.groups.size(); ++g)
+                    if (std::vector<uint8_t> p = groupPixels(b, g); !p.empty()) modBy[p].push_back(g);
+                int found = 0, missing = 0, sameNumber = 0;
+                std::map<int, int> shifts;
+                for (uint16_t g = 1024; g < a.groups.size(); ++g) {
+                    const std::vector<uint8_t> p = groupPixels(a, g);
+                    if (p.empty()) continue;
+                    const auto i = modBy.find(p);
+                    if (i == modBy.end()) {
+                        ++missing;
+                        continue;
+                    }
+                    ++found;
+                    sameNumber += std::find(i->second.begin(), i->second.end(), g) != i->second.end();
+                    ++shifts[int(i->second.front()) - g];
+                    if (const char* out = std::getenv("MOD_GROUPS_OUT"); out && *out)
+                        if (FILE* f = std::fopen(out, "a")) std::fprintf(f, "%d %d %d\n", era, g, i->second.front()), std::fclose(f);
+                }
+                std::printf("  doodad groups: %d found in the mod (%d at the same number), %d missing; shifts:", found, sameNumber, missing);
+                for (const auto& [s, n] : shifts) std::printf(" %+d x%d", s, n);
+                std::printf("\n");
+            }
+            std::printf("era %d: groups %zu game, %zu mod\n", era, a.groups.size(), b.groups.size());
+            for (const bool u : {false, true}) {
+                std::set<uint16_t> vs;
+                for (int length = 0; length <= 4; ++length)
+                    for (int width = 0; width <= 3; ++width)
+                        for (uint32_t seed = 1; seed <= 8; ++seed)
+                            for (const auto& c : bridgeTiles(era, u, length, width, 0, 0, seed)) vs.insert(c.value);
+                if (vs.empty()) continue;
+                int bad = 0;
+                for (uint16_t v : vs) bad += !same(v);
+                if (std::getenv("MOD_WHICH"))  // the tiles that differ: a mod tile with the same pixels (where)
+                    for (uint16_t v : vs)
+                        if (!same(v)) {
+                            const std::vector<uint8_t> want = pixels(a, v);
+                            int at = -1;
+                            long near = LONG_MAX;
+                            for (uint16_t g = 0; g < b.groups.size() && at < 0; ++g)
+                                for (int i = 0; i < 16 && at < 0; ++i) {
+                                    const std::vector<uint8_t> p = pixels(b, uint16_t(g << 4 | i));
+                                    if (p == want) at = g << 4 | i;
+                                }
+                            const std::vector<uint8_t> now = pixels(b, v);
+                            if (now.size() == want.size()) {
+                                near = 0;
+                                for (size_t j = 0; j < now.size(); ++j) near += std::abs(int(now[j]) - int(want[j]));
+                            }
+                            std::printf("    %d.%d: same pixels in the mod at %d.%d; the mod's own tile there differs by %ld\n", v >> 4, v & 15, at < 0 ? -1 : at >> 4,
+                                        at < 0 ? -1 : at & 15, near);
+                        }
+                std::printf("  bridge %s: %zu tiles, %d differ\n", u ? "u" : "d", vs.size(), bad);
+            }
+            if (std::getenv("MOD_NEAREST"))  // the first tile of each ramp block's wall A: the mod tile nearest in pixels
+                for (const int k : rampKitsOf(era, true)) {
+                    if (rampKitFacing(k) != 0) continue;
+                    const uint16_t v = rampKitTiles(k, 0, 0, 0).front().value;
+                    const std::vector<uint8_t> want = pixels(a, v);
+                    long best = LONG_MAX;
+                    uint16_t at = 0;
+                    for (uint16_t g = 0; g < b.groups.size(); ++g)
+                        for (int i = 0; i < 16; ++i) {
+                            const std::vector<uint8_t> p = pixels(b, uint16_t(g << 4 | i));
+                            if (p.size() != want.size()) continue;
+                            long d = 0;
+                            for (size_t j = 0; j < p.size() && d < best; ++j) d += std::abs(int(p[j]) - int(want[j]));
+                            if (d < best) best = d, at = uint16_t(g << 4 | i);
+                        }
+                    std::printf("  ramp %s: game tile %d.%d, nearest mod tile %d.%d, difference %ld\n", rampKitGroup(k), v >> 4, v & 15, at >> 4, at & 15, best);
+                }
+            for (const int k : rampKitsOf(era, true)) {
+                int bad = 0, n = 0;
+                for (const auto& c : rampKitTiles(k, 1, 0, 0)) bad += !same(c.value), ++n;
+                if (bad) std::printf("  ramp kit %d (%s %s): %d of %d tiles differ\n", k, rampKitGroup(k), rampFacingName(rampKitFacing(k)), bad, n);
+            }
+        }
+        return 0;
     }
     if (std::getenv("BRIDGE_BENCH")) {  // the time of one drag's preview (plan, a copy of the map, the bridge on it), per tileset
         for (const int era : {4, 1, 5, 6, 7, 0}) {

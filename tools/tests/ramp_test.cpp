@@ -5,10 +5,12 @@
 #include "stardraft/doodads.h"
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
+#include "stardraft/mods/cmbw.h"
 #include "stardraft/ramps.h"
 #include "stardraft/tileset.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include <cctype>
@@ -797,7 +799,7 @@ int main(int argc, char** argv) {
     }
     GameData data;
     std::string err;
-    if (!data.open(argv[1], err)) {
+    if (std::getenv("MOD_CMBW") ? !cmbw::open(data, argv[1], err) : !data.open(argv[1], err)) {  // (MOD_CMBW: the mod's install)
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
     }
@@ -811,6 +813,69 @@ int main(int argc, char** argv) {
     }
     if (const char* blocks = std::getenv("RAMP_BLOCKS")) {
         dumpBlocks(data, blocks);
+        return 0;
+    }
+    if (const char* maps = std::getenv("RAMP_MAPS")) {  // (a mod's maps) each ramp doodad taken away, then a stroke there: the ramp back?
+        std::map<std::pair<int, int>, std::array<int, 3>> by;  // (era, doodad): cases, a ramp placed there, the same doodad at the same place
+        int cases = 0;
+        for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+            std::string ext = e.path().extension().string();
+            for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+            if (ext != ".scm" && ext != ".scx") continue;
+            Editor ed(data);
+            std::string err;
+            if (!ed.open(e.path().string(), err) || !ed.canPaintTerrain()) continue;
+            const std::vector<uint16_t> ramps = rampDoodads(ed);
+            if (ramps.empty()) continue;
+            for (int i = 0; i < int(ed.doodads().size()) && cases < 4000; ++i) {
+                const Doodad d = ed.doodads()[size_t(i)];
+                if (std::find(ramps.begin(), ramps.end(), d.id) == ramps.end()) continue;
+                Editor copy(data);
+                if (!copy.openChk(ed.chk(), err) || !copy.deleteDoodad(i)) continue;
+                ++cases;
+                std::array<int, 3>& n = by[{ed.era() & 7, d.id}];
+                ++n[0];
+                const std::vector<RampPlan> plans = planRamps(copy, {{d.x, d.y}});
+                if (plans.empty() || plans.front().doodad < 0) continue;
+                const RampPlan& p = plans.front();
+                if (!copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true)) continue;
+                ++n[1];
+                n[2] += p.doodad == d.id && p.x == d.x && p.y == d.y;
+            }
+        }
+        int solved = 0;
+        for (const auto& [k, n] : by) {
+            std::printf("era %d doodad %d: %d cases, %d placed back, %d the same doodad at the same place\n", k.first, k.second, n[0], n[1], n[2]);
+            solved += n[1] > 0;
+        }
+        std::printf("%d ramp doodads placed by the brush (of %zu on the maps), %d cases\n", solved, by.size(), cases);
+        return 0;
+    }
+    if (const char* maps = std::getenv("RAMP_SURVEY")) {  // the doodads that join two ground levels (their own tiles), and how often maps place them
+        std::map<std::pair<int, int>, int> used;  // (era, doodad id): placed
+        for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+            std::string ext = e.path().extension().string();
+            for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+            if (ext != ".scm" && ext != ".scx") continue;
+            Editor ed(data);
+            std::string err;
+            if (!ed.open(e.path().string(), err)) continue;
+            for (const Doodad& d : ed.doodads()) ++used[{ed.era() & 7, d.id}];
+        }
+        for (int era = 0; era < 8; ++era) {
+            Editor ed(data);
+            std::string err;
+            if (!ed.newMap(64, 64, uint16_t(era), 1, err)) continue;
+            for (const DoodadType& t : ed.doodadTypes().all()) {
+                std::vector<Editor::TileAt> tiles;
+                for (int r = 0; r < t.height; ++r)
+                    for (int c = 0; c < t.width; ++c)
+                        if (const uint16_t v = uint16_t((t.firstGroup + r) << 4 | c); ed.tileset().megatileFor(v) > 0) tiles.push_back({c, r, v});
+                if (tiles.empty() || !rampJoins(ed.tileset(), tiles)) continue;
+                const auto u = used.find({era, t.id});
+                std::printf("joins era %d doodad %d first %d size %dx%d placed %d\n", era, t.id, t.firstGroup, t.width, t.height, u == used.end() ? 0 : u->second);
+            }
+        }
         return 0;
     }
     if (std::getenv("RAMP_BENCH")) {  // a drag's preview times: the stroke so far planned again at each point (as the editor does)

@@ -2755,6 +2755,8 @@ constexpr UiText kRows[] = {
     {L"Could not make the cliff again: %ls", L"No se pudo rehacer el acantilado: %ls"},
     {L"Release the button to make the ramp the cliff again", L"Suelte el bot\u00F3n para volver la rampa acantilado"},
     {L"Made the ramp the cliff again", L"La rampa volvi\u00F3 a ser acantilado"},
+    {L"Could not make the ramp: %ls", L"No se pudo hacer la rampa: %ls"},
+    {L"Ramp. Release the button to place it.", L"Rampa. Suelte el bot\u00F3n para colocarla."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -2753,3 +2753,5 @@ Ramp with Shift: paint over a ramp to make it the cliff again	Rampa con Mayús: 
 Could not make the cliff again: %ls	No se pudo rehacer el acantilado: %ls
 Release the button to make the ramp the cliff again	Suelte el botón para volver la rampa acantilado
 Made the ramp the cliff again	La rampa volvió a ser acantilado
+Could not make the ramp: %ls	No se pudo hacer la rampa: %ls
+Ramp. Release the button to place it.	Rampa. Suelte el botón para colocarla.

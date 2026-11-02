@@ -2783,3 +2783,5 @@ Ramp with Shift: paint over a ramp to make it the cliff again	Shift를 누른 �
 Could not make the cliff again: %ls	절벽을 다시 만들 수 없습니다: %ls
 Release the button to make the ramp the cliff again	버튼을 놓으면 경사로가 다시 절벽이 됩니다
 Made the ramp the cliff again	경사로를 다시 절벽으로 만들었습니다
+Could not make the ramp: %ls	경사로를 만들 수 없습니다: %ls
+Ramp. Release the button to place it.	경사로. 버튼을 놓으면 배치됩니다.

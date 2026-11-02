@@ -380,7 +380,11 @@ struct Diamond {
 struct Terrains {
     const Editor& ed;
     std::string water;
-    std::string at(int cx, int cy) const { return ed.terrainName(ed.terrainAt(64 * cx, 32 * cy)); }
+    // (a game terrain's name without the ground it stands on, which a mod's tab adds: "Water (Dirt)")
+    std::string at(int cx, int cy) const {
+        const std::string n = ed.terrainName(ed.terrainAt(64 * cx, 32 * cy));
+        return n.substr(0, n.find(" ("));
+    }
     // Water: all four corners are the water.
     bool water4(Diamond d) const {
         return at(d.x - 1, d.y) == water && at(d.x + 1, d.y) == water && at(d.x, d.y - 1) == water && at(d.x, d.y + 1) == water;
@@ -520,6 +524,8 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const auto terrainId = [&](const char* name) {
         for (uint16_t id = 1; id < 256; ++id)
             if (ed.terrainName(id) == name) return id;
+        for (uint16_t id = 1; id < 256; ++id)  // (in a mod's tab: "Water (Dirt)", the game terrains first)
+            if (ed.terrainName(id).rfind(std::string(name) + " (", 0) == 0) return id;
         return uint16_t(0);
     };
     const uint16_t ground = terrainId(d->ground), water = terrainId(d->water), road = *d->road ? terrainId(d->road) : ground;

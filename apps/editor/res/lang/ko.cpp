@@ -2785,6 +2785,8 @@ constexpr UiText kRows[] = {
     {L"Could not make the cliff again: %ls", L"\uC808\uBCBD\uC744 \uB2E4\uC2DC \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: %ls"},
     {L"Release the button to make the ramp the cliff again", L"\uBC84\uD2BC\uC744 \uB193\uC73C\uBA74 \uACBD\uC0AC\uB85C\uAC00 \uB2E4\uC2DC \uC808\uBCBD\uC774 \uB429\uB2C8\uB2E4"},
     {L"Made the ramp the cliff again", L"\uACBD\uC0AC\uB85C\uB97C \uB2E4\uC2DC \uC808\uBCBD\uC73C\uB85C \uB9CC\uB4E4\uC5C8\uC2B5\uB2C8\uB2E4"},
+    {L"Could not make the ramp: %ls", L"\uACBD\uC0AC\uB85C\uB97C \uB9CC\uB4E4 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4: %ls"},
+    {L"Ramp. Release the button to place it.", L"\uACBD\uC0AC\uB85C. \uBC84\uD2BC\uC744 \uB193\uC73C\uBA74 \uBC30\uCE58\uB429\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -2753,3 +2753,5 @@ Ramp with Shift: paint over a ramp to make it the cliff again	Пандус с Sh
 Could not make the cliff again: %ls	Не удалось снова сделать обрыв: %ls
 Release the button to make the ramp the cliff again	Отпустите кнопку, чтобы снова сделать обрыв на месте пандуса
 Made the ramp the cliff again	На месте пандуса снова обрыв
+Could not make the ramp: %ls	Не удалось сделать пандус: %ls
+Ramp. Release the button to place it.	Пандус. Отпустите кнопку, чтобы поставить его.

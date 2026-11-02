@@ -1,6 +1,8 @@
 // Ramps of any width (include/stardraft/ramps.h): the kits of src/data/ramp_kits.inc.
 #include "stardraft/ramps.h"
 
+#include "stardraft/doodads.h"
+
 #include <algorithm>
 #include <climits>
 #include <cmath>
@@ -132,15 +134,18 @@ bool rampMatches(const Editor& ed, int facing, int slopes, int ax, int ay) { ret
 
 namespace {
 
-// The terrain ids of a map's tileset by name (once for each tileset).
+// The terrain ids of a map's tileset by name (once for each tileset, and for a mod's: its names of the game terrains, as
+// "High Dirt (Dirt)", with the ground they stand on; the game terrains come first).
 uint16_t terrainId(const Editor& ed, const char* name) {
-    static std::map<std::pair<int, std::string>, uint16_t> ids;
-    const auto key = std::make_pair(int(ed.era() & 7), std::string(name));
+    static std::map<std::tuple<int, std::string, std::string>, uint16_t> ids;
+    const auto key = std::make_tuple(int(ed.era() & 7), ed.terrainName(2), std::string(name));
     auto i = ids.find(key);
     if (i == ids.end()) {
         uint16_t v = 0;
         for (uint16_t id = 1; id < 256 && !v; ++id)
             if (ed.terrainName(id) == name) v = id;
+        for (uint16_t id = 1; id < 256 && !v; ++id)
+            if (ed.terrainName(id).rfind(std::string(name) + " (", 0) == 0) v = id;
         i = ids.emplace(key, v).first;
     }
     return i->second;
@@ -349,10 +354,51 @@ bool rampFits(const Editor& ed, int facing, int slopes, int ax, int ay) { return
 namespace {
 
 // The usable kits of the map's tileset on the map.
+// Whether a kit's pieces are the map's tileset's: each piece's tile group belongs to the piece's doodad (CV5).
+bool kitOnTileset(const Editor& ed, int kit) {
+    const RampKitData& k = kRampKits[kit];
+    for (int kind = 0; kind < 3; ++kind) {
+        if (k.tiles[kind] >= k.tiles[kind + 1]) return false;
+        const size_t g = kRampTiles[k.tiles[kind]].value >> 4;
+        if (g >= ed.tileset().groups.size() || ed.tileset().groups[g].extra[0] != k.doodads[kind]) return false;
+    }
+    return true;
+}
+
 std::map<int, Fit> fitsOn(const Editor& ed) {
     std::map<int, Fit> fits;
-    for (int k : rampKitsOf(ed.era() & 7)) fits.emplace(k, Fit(ed, k));
+    for (int k : rampKitsOf(ed.era() & 7))
+        if (kitOnTileset(ed, k)) fits.emplace(k, Fit(ed, k));
     return fits;
+}
+
+// A ramp doodad's tiles with its top left at tile (x, y) (its empty cells left out).
+std::vector<Editor::TileAt> doodadTiles(const Editor& ed, const DoodadType& t, int x, int y) {
+    std::vector<Editor::TileAt> out;
+    for (int r = 0; r < t.height; ++r)
+        for (int c = 0; c < t.width; ++c)
+            if (const uint16_t v = uint16_t((t.firstGroup + r) << 4 | c); ed.tileset().megatileFor(v) > 0) out.push_back({x + c, y + r, v});
+    return out;
+}
+
+// The ramp doodad that fits nearest a stroke's point (3 tiles or nearer), where the game's rule lets it go.
+RampPlan planDoodadRamp(const Editor& ed, const std::vector<uint16_t>& ids, int sx, int sy) {
+    RampPlan plan;
+    double best = 3 * 32 + 1;
+    for (const uint16_t id : ids) {
+        const DoodadType* t = ed.doodadTypes().find(id);
+        if (!t) continue;
+        const auto at = ed.nearestDoodadFit(id, sx, sy, true, 3);
+        if (!at) continue;
+        if (const double d = std::hypot(at->first - sx, at->second - sy); d < best) {
+            best = d, plan.doodad = id, plan.x = at->first, plan.y = at->second;
+            int tx = 0, ty = 0;
+            ed.doodadOrigin(*t, at->first, at->second, tx, ty);
+            plan.tiles = doodadTiles(ed, *t, tx, ty);
+        }
+    }
+    if (plan.doodad >= 0) plan.problem = RampPlan::Problem::None;
+    return plan;
 }
 
 RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const std::vector<std::pair<int, int>>& stroke) {
@@ -486,9 +532,13 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     std::vector<RampPlan> out;
     std::set<std::pair<int, int>> taken;
     const std::map<int, Fit> fits = fitsOn(ed);
+    // (no kit on this tileset: its ramp doodads, one where the stroke is near the place it fits)
+    const std::vector<uint16_t> doodads = fits.empty() ? rampDoodads(ed) : std::vector<uint16_t>{};
+    if (fits.empty() && !doodads.empty() && why) why->problem = ed.canPaintTerrain() ? RampPlan::Problem::NoCliff : RampPlan::Problem::NoIsom;
     size_t i = 0;
     while (i < stroke.size() && out.size() < 32) {
-        const RampPlan p = planRampWith(ed, fits, std::vector<std::pair<int, int>>(stroke.begin() + std::ptrdiff_t(i), stroke.end()));
+        const RampPlan p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second)
+                                            : planRampWith(ed, fits, std::vector<std::pair<int, int>>(stroke.begin() + std::ptrdiff_t(i), stroke.end()));
         if (why && i == 0) *why = p;
         if (p.problem != RampPlan::Problem::None) {
             if (p.problem != RampPlan::Problem::NoCliff) break;
@@ -518,8 +568,26 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     return out;
 }
 
+bool rampsAvailable(const Editor& ed) { return !fitsOn(ed).empty() || !rampDoodads(ed).empty(); }
+
+std::vector<uint16_t> rampDoodads(const Editor& ed) {
+    if (!fitsOn(ed).empty()) return {};
+    // (once for each tileset: by its doodads' count and its groups')
+    static std::map<std::tuple<int, size_t, size_t>, std::vector<uint16_t>> cache;
+    const auto key = std::make_tuple(int(ed.era() & 7), ed.doodadTypes().all().size(), ed.tileset().groups.size());
+    if (const auto c = cache.find(key); c != cache.end()) return c->second;
+    std::vector<uint16_t>& out = cache[key];
+    for (const DoodadType& t : ed.doodadTypes().all()) {
+        if (!t.inPalette || !t.needsTiles() || t.width < 4 || t.height < 4) continue;  // (no rule for where it goes; small pieces: not ramps)
+        const std::vector<Editor::TileAt> tiles = doodadTiles(ed, t, 0, 0);
+        if (!tiles.empty() && rampJoins(ed.tileset(), tiles)) out.push_back(t.id);
+    }
+    return out;
+}
+
 std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) {
     const int era = ed.era() & 7, w = ed.width(), h = ed.height();
+    if (fitsOn(ed).empty()) return {};  // (the kits' tiles are not this tileset's: a mod's)
     const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, ed.terrain().tiles[size_t(y) * w + x]); };
     // (the tiles within a diamond, 2 tiles across and 1 down, of each point and of the way between the points)
     std::set<std::pair<int, int>> seen;
@@ -602,6 +670,7 @@ int refitRamps(Editor& ed, const std::vector<uint16_t>& before) {
     const int era = ed.era() & 7, w = ed.width(), h = ed.height();
     const std::vector<uint16_t>& now = ed.terrain().tiles;
     if (!rampsAvailable(era) || !ed.canPaintTerrain() || before.size() != now.size() || before.size() != size_t(w) * h) return 0;
+    if (fitsOn(ed).empty()) return 0;  // (the kits' tiles are not this tileset's: a mod's)
     const auto idx = [&](int x, int y) { return size_t(y) * w + x; };
     // The ramps of `before` with a tile next to a changed tile (or changed itself).
     std::vector<uint8_t> near(before.size(), 0);

@@ -2753,3 +2753,5 @@ Ramp with Shift: paint over a ramp to make it the cliff again	按住 Shift 的�
 Could not make the cliff again: %ls	无法恢复悬崖：%ls
 Release the button to make the ramp the cliff again	松开按钮，使坡道变回悬崖
 Made the ramp the cliff again	已将坡道变回悬崖
+Could not make the ramp: %ls	无法生成坡道：%ls
+Ramp. Release the button to place it.	坡道。松开按钮即可放置。
