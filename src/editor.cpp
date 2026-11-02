@@ -2596,10 +2596,12 @@ std::optional<std::pair<uint16_t, uint16_t>> Editor::findValidPosition(const Uni
     const UnitType& t = types_[unit.type];
     const bool building = t.is(UnitFlag::Building);
     const int step = building ? 32 : 8;
-    PlacementContext ctx = placementContext(units);
     Unit u = unit;
     uint16_t sx = unit.x, sy = unit.y;
     snapToGrid(t, sx, sy);
+    // (only the units near the spots tried can block them: within the radius, a step and the reach of a check of each)
+    const NearUnits near = unitsNear(units ? *units : units_, Rect{sx, sy, sx, sy}, radius + step + 32 + 2 * types_.boxReach() + 96 + 2);
+    PlacementContext ctx = placementContext(&near.units);
     const int maxX = width_ * 32 - 1, maxY = height_ * 32 - 1;
     // Rings of increasing Chebyshev radius; within a ring, nearest first.
     for (int r = 0; r * step <= radius; ++r) {

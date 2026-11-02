@@ -446,6 +446,68 @@ void shapeScene(render::Scene& s) {
 // sdl_simulation.inc): it adds its images to the scene. nullptr: the map's own.
 void (*gLiveScene)(render::Scene& s) = nullptr;
 
+// The unit to place at the mouse (Units mode, a unit picked): whether it fits where it is (ok), where correction moves it
+// (fix: only when it does not fit), and its copies at the mirror images and turns, each where a click puts it. The checks
+// look through the map's units (and correction tries up to 81 x 81 spots): the answer is kept until the unit, its place
+// (gx, gy: the mouse's point before the snap to the unit's grid), the map or the placement options change.
+struct PlaceGhost {
+    bool ok = false;
+    std::optional<std::pair<uint16_t, uint16_t>> fix;
+    std::vector<Unit> copies;
+};
+const PlaceGhost& placeGhost(const Unit& u, float gx, float gy) {
+    const AppState& app = appState();
+    const Editor& ed = *app.ed;
+    struct Key {
+        const Editor* ed = nullptr;
+        uint64_t revision = 0;
+        uint16_t type = 0, x = 0, y = 0;
+        uint8_t owner = 0;
+        int gx = 0, gy = 0, mirrors = 0, turns = 0, limit = 0;
+        bool illegal = false, correction = false, stacking = false, resourceDistance = false;
+        bool operator==(const Key&) const = default;
+    };
+    static Key cachedKey;
+    static PlaceGhost cached;
+    const PlacementContext ctx = ed.placementContext();
+    const Key key{&ed, ed.revision(), u.type, u.x, u.y, u.owner, int(gx), int(gy), ed.mirrors(), ed.turns(), ed.unitLimit(),
+                  app.allowIllegalUnits, app.correction, ctx.stacking, ctx.resourceDistance};
+    if (key == cachedKey) return cached;
+    cachedKey = key;
+    PlaceGhost& g = cached;
+    g = {};
+    g.ok = app.allowIllegalUnits || checkPlacement(ctx, u).empty();
+    // The main unit's place as a click puts it (where it fits, or where correction moves it). Without one, a click
+    // places no copies either, so none are drawn.
+    Unit main = u;
+    bool placed = g.ok;
+    if (!g.ok && app.correction)
+        if ((g.fix = ed.findValidPosition(u))) main.x = g.fix->first, main.y = g.fix->second, placed = true;
+    if (ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit()) placed = false;
+    // The copies at the mirror images and turns, each checked against the units placed before it (as placeUnit does).
+    const auto points = placed ? ed.symmetricPoints(int(gx), int(gy)) : std::vector<std::pair<int, int>>{};
+    if (points.size() > 1) {
+        const UnitType& t = ed.unitTypes()[u.type];
+        std::vector<Unit> placedSoFar = ed.units();
+        placedSoFar.push_back(main);
+        for (size_t k = 1; k < points.size(); ++k) {
+            if (ed.unitLimit() > 0 && int(placedSoFar.size()) >= ed.unitLimit()) break;
+            uint16_t mx = uint16_t(std::clamp(points[k].first, 0, ed.width() * 32 - 1)), my = uint16_t(std::clamp(points[k].second, 0, ed.height() * 32 - 1));
+            snapToGrid(t, mx, my);
+            Unit m = makeUnit(t, u.owner, mx, my);
+            if (!app.allowIllegalUnits && !checkPlacement(ed.placementContext(&placedSoFar), m).empty()) {
+                if (!app.correction) continue;
+                auto p = ed.findValidPosition(m);
+                if (!p) continue;
+                m.x = p->first, m.y = p->second;
+            }
+            g.copies.push_back(m);
+            placedSoFar.push_back(m);
+        }
+    }
+    return g;
+}
+
 render::Scene buildScene() {
     AppState& app = shellState();
     syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
@@ -644,44 +706,20 @@ render::Scene buildScene() {
             snapToGrid(t, ux, uy);
             uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
             Unit u = makeUnit(t, who, ux, uy);
-            bool ok = app.allowIllegalUnits || checkPlacement(ed.placementContext(), u).empty();
-            // The main unit's place as a click puts it (where it fits, or where correction moves it). Without one, a click
-            // places no copies either, so none are drawn.
-            Unit main = u;
-            bool placed = ok;
-            if (!ok && app.correction)
-                if (auto p = ed.findValidPosition(u)) main.x = p->first, main.y = p->second, placed = true;
-            if (ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit()) placed = false;
-            // The copies at the mirror images and turns, each checked against the units placed before it (as placeUnit does).
-            if (placed) {
-                std::vector<Unit> placedSoFar = ed.units();
-                placedSoFar.push_back(main);
-                const auto copies = ed.symmetricPoints(int(gx), int(gy));
-                for (size_t k = 1; k < copies.size(); ++k) {
-                    if (ed.unitLimit() > 0 && int(placedSoFar.size()) >= ed.unitLimit()) break;
-                    uint16_t mx = uint16_t(std::clamp(copies[k].first, 0, ed.width() * 32 - 1)), my = uint16_t(std::clamp(copies[k].second, 0, ed.height() * 32 - 1));
-                    snapToGrid(t, mx, my);
-                    Unit m = makeUnit(t, who, mx, my);
-                    if (!app.allowIllegalUnits && !checkPlacement(ed.placementContext(&placedSoFar), m).empty()) {
-                        if (!app.correction) continue;
-                        auto p = ed.findValidPosition(m);
-                        if (!p) continue;
-                        m.x = p->first, m.y = p->second;
-                    }
-                    addUnitSprites(s, m, 0, 0, 0.55f);
-                    outline(s, ed.unitBox(m), 0x40FF40C0u);
-                    placedSoFar.push_back(m);
-                }
+            const PlaceGhost& g = placeGhost(u, gx, gy);
+            for (const Unit& m : g.copies) {
+                addUnitSprites(s, m, 0, 0, 0.55f);
+                outline(s, ed.unitBox(m), 0x40FF40C0u);
             }
-            if (!ok && app.correction)
-                if (auto p = ed.findValidPosition(u)) {
-                    Unit c = u;
-                    c.x = p->first, c.y = p->second;
-                    addUnitSprites(s, c, 0, 0, 0.55f);
-                    outline(s, ed.unitBox(c), 0x40FF40C0u);
-                    outline(s, ed.unitBox(u), 0xFF4040A0u);
-                    return s;
-                }
+            const bool ok = g.ok;
+            if (g.fix) {
+                Unit c = u;
+                c.x = g.fix->first, c.y = g.fix->second;
+                addUnitSprites(s, c, 0, 0, 0.55f);
+                outline(s, ed.unitBox(c), 0x40FF40C0u);
+                outline(s, ed.unitBox(u), 0xFF4040A0u);
+                return s;
+            }
             addUnitSprites(s, u, 0, 0, 0.55f);
             outline(s, ed.unitBox(u), ok ? 0x40FF40C0u : 0xFF4040C0u);
         }
