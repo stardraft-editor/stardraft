@@ -34,6 +34,28 @@ void setStampsSort(int sort) {
     if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"CustomTerrainSort", gStampsSort);
     stampsPanelsRepaint();
 }
+// How the list shows its items (in the settings): 0 a list, 1 a grid of pictures; their size: 0 normal, 1 large, 2 extra
+// large (as the other palettes' View menu has them).
+int gStampsGrid = -1, gStampsSize = -1;
+int stampsGrid() {
+    if (gStampsGrid < 0) {
+        gStampsGrid = 0;
+        if (!gSelfTest && !gSettingsOff) prefs::number(L"CustomTerrainGrid", gStampsGrid, 0, 1);
+    }
+    return gStampsGrid;
+}
+int stampsSize() {
+    if (gStampsSize < 0) {
+        gStampsSize = 0;
+        if (!gSelfTest && !gSettingsOff) prefs::number(L"CustomTerrainSize", gStampsSize, 0, 2);
+    }
+    return gStampsSize;
+}
+void setStampsView(int grid, int size) {
+    gStampsGrid = std::clamp(grid, 0, 1), gStampsSize = std::clamp(size, 0, 2);
+    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"CustomTerrainGrid", gStampsGrid), prefs::setNumber(L"CustomTerrainSize", gStampsSize);
+    stampsPanelsRepaint();
+}
 
 const std::vector<TerrainStamp>& stampsList() {
     static const std::vector<TerrainStamp> none;
