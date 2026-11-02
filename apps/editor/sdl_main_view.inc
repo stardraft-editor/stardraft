@@ -110,8 +110,16 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     }
     // (a mod's colors: their own shades, Rainbow as the game shows it; a custom RGB color has no row: tinted)
     uint16_t exact = 0;
-    if (modTab())
-        for (int i = 0; i < 12; ++i) exact |= uint16_t((i >= 8 || ed.player(i).color.kind != Editor::PlayerColor::Custom) << i);
+    if (modTab()) {  // (the players' colors of the map's revision)
+        static const Editor* exactFor = nullptr;
+        static uint64_t exactRev = ~0ull;
+        static uint16_t exactBits = 0;
+        if (exactFor != &ed || exactRev != ed.revision()) {
+            exactFor = &ed, exactRev = ed.revision(), exactBits = 0;
+            for (int i = 0; i < 12; ++i) exactBits |= uint16_t((i >= 8 || ed.player(i).color.kind != Editor::PlayerColor::Custom) << i);
+        }
+        exact = exactBits;
+    }
     gRenderer->setExactTeamColors(exact);
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();

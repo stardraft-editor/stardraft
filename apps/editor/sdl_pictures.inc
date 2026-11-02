@@ -72,8 +72,10 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         gPaletteArt.ed = &ed, gPaletteArt.era = int(ed.era()), gPaletteArt.mode = mode;
     }
     if (!unitKind) sprite = false;
-    // (a unit's picture is its player's color: the key has it, so a color changed on the Players page shows)
-    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? int(owner) << 24 | int(ed.playerRgb(owner) & 0xFFFFFF) : 0, sprite);
+    // (a unit's picture is its player's color: the key has it, so a color changed on the Players page shows; players 1
+    // to 8: the colors kept for the map's revision, core/map_scene.inc playerRgba)
+    const uint32_t ownerRgb = !unitKind ? 0 : owner >= 0 && owner < 8 ? playerRgba(owner, 0) >> 8 : ed.playerRgb(owner);
+    const auto key = std::make_tuple(iconFrame ? 100 : int(what), value, unitKind ? int(owner) << 24 | int(ownerRgb & 0xFFFFFF) : 0, sprite);
     if (auto it = gPaletteArt.bitmaps.find(key); it != gPaletteArt.bitmaps.end()) return it->second.get();
 
     // The picture: a sprite of the game data (straight alpha), cropped to its opaque pixels below.
