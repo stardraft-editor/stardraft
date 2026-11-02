@@ -8,8 +8,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <tuple>
+#include <unordered_map>
 
 #include "stardraft/game_data.h"
 #include "stardraft/sprites.h"
@@ -191,8 +193,31 @@ struct Renderer::Impl {
     bool carbot = false, loadedCarbot = false;
     bool tilesetDirty = true;
 
-    std::map<int, ImageTex> images;
-    std::map<std::pair<int, int>, ImageTex> teamImages;  // (setExactTeamColors: an image in a color row's shades)
+    // The images by id: images.dat's, and UnitSprites::extraImage's (from kExtraImages). (A deque: an image's place
+    // stays when more come, as draw keeps pointers to them while it asks for others.)
+    std::deque<ImageTex> images, extraImages;
+    ImageTex& imageSlot(int id) {
+        std::deque<ImageTex>& list = id >= UnitSprites::kExtraImages ? extraImages : images;
+        const size_t at = size_t(id >= UnitSprites::kExtraImages ? id - UnitSprites::kExtraImages : id);
+        if (at >= list.size()) list.resize(at + 1);
+        return list[at];
+    }
+    int imagesResident = 0;  // (the images with a texture or SD frames: Stats)
+    // (setExactTeamColors: an image in a color row's shades; the key: the image's id << 16 | the row)
+    std::unordered_map<uint64_t, ImageTex> teamImages;
+    // The frame's lists, kept from frame to frame (their memory too).
+    struct Raw {
+        SDL_GPUTexture* diffuse;
+        SDL_GPUTexture* mask;
+        SDL_GPUTexture* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
+        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows, 3 those that bend what is under them
+        GpuInstance in;
+    };
+    struct Batch { SDL_GPUTexture* diffuse; SDL_GPUTexture* mask; SDL_GPUTexture* warp; uint32_t first, count; int order; };
+    std::vector<Raw> raw;
+    std::vector<uint32_t> rawOrder;  // (raw's indexes by batch)
+    std::vector<Batch> batches;
+    std::vector<GpuRect> rects;
     uint16_t exactTeam = 0;  // (a bit per owner)
     std::vector<AtlasPage> pages;
     bool pagesFull = false;  // (the next frame starts them again)
@@ -475,15 +500,15 @@ bool Renderer::initOffscreen(int width, int height, std::string& error) {
 }
 
 void Renderer::Impl::freeImages() {
-    for (auto& [id, t] : images) {
+    auto release = [&](ImageTex& t) {
         if (t.diffuse) SDL_ReleaseGPUTexture(device, t.diffuse);
         if (t.mask) SDL_ReleaseGPUTexture(device, t.mask);
-    }
-    for (auto& [key, t] : teamImages) {
-        if (t.diffuse) SDL_ReleaseGPUTexture(device, t.diffuse);
-        if (t.mask) SDL_ReleaseGPUTexture(device, t.mask);
-    }
-    images.clear(), teamImages.clear();
+    };
+    for (ImageTex& t : images) release(t);
+    for (ImageTex& t : extraImages) release(t);
+    for (auto& [key, t] : teamImages) release(t);
+    images.clear(), extraImages.clear(), teamImages.clear();
+    imagesResident = 0;
     freePages();
 }
 
@@ -494,8 +519,8 @@ void Renderer::Impl::freePages() {
         if (pg.mask) SDL_ReleaseGPUTexture(device, pg.mask);
     }
     pages.clear(), pageUploads.clear(), pagesFull = false;
-    for (auto* list : {&images})
-        for (auto& [id, t] : *list)
+    for (auto* list : {&images, &extraImages})
+        for (ImageTex& t : *list)
             for (ImageTex::Frame& f : t.frames) f.page = -1;
     for (auto& [key, t] : teamImages)
         for (ImageTex::Frame& f : t.frames) f.page = -1;
@@ -895,13 +920,14 @@ void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
 ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pending) {
     pending = false;
     if (id < 0) return nullptr;
-    ImageTex& t = images[id];
+    ImageTex& t = imageSlot(id);
     if (!t.loaded) {
         if (msSince(frameStart) > loadBudgetMs) {
             pending = true;
             return nullptr;
         }
         loadImage(id, t);
+        imagesResident += t.diffuse != nullptr || t.sd;
     }
     return t.failed || (!t.diffuse && !t.sd) ? nullptr : &t;
 }
@@ -918,14 +944,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     const float mapPxH = std::max<float>(mapH * 32.0f, 1);
 
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
-    struct Raw {
-        SDL_GPUTexture* diffuse;
-        SDL_GPUTexture* mask;
-        SDL_GPUTexture* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
-        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows, 3 those that bend what is under them
-        GpuInstance in;
-    };
-    std::vector<Raw> raw;
+    raw.clear();
     raw.reserve(scene.sprites.size());
     const float viewL = cam.x, viewT = cam.y, viewR = cam.x + w / cam.zoom, viewB = cam.y + h / cam.zoom;
     for (const SpriteDraw& s : scene.sprites) {
@@ -969,7 +988,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         // The owner's color row's own shades (the same GRP: the same box and frames, other places on the pages).
         if ((exactTeam >> std::min<int>(s.owner, 11) & 1) && t->sd && t->frames[fi].team && unitSprites && !s.ground && !s.terrain) {
             const int row = unitSprites->colorRow(s.owner);
-            ImageTex& e = teamImages[{s.image, row}];
+            ImageTex& e = teamImages[uint64_t(uint32_t(s.image)) << 16 | uint16_t(row)];
             if (!e.loaded) loadImage(s.image, e, row);
             // (the tinted picture until it is there)
             if (!e.failed && e.frames.size() == t->frames.size() && onPage(e, s.image, fi)) t = &e;
@@ -1020,22 +1039,26 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     // The terrain's sprites first (else the depth that they write would hide the shadows and circles over them), then
     // the others, then the sprites that bend what is under them (cloaks, the EMP shockwave: they read the picture of the
     // others), then glows in their own batches (additive pipeline; drawn last, as they write no depth).
-    std::map<std::tuple<int, SDL_GPUTexture*, SDL_GPUTexture*, SDL_GPUTexture*>, std::vector<GpuInstance>> buckets;
-    for (auto& [diffuse, mask, warp, order, in] : raw) buckets[{order, diffuse, mask, warp}].push_back(in);
-    std::vector<GpuInstance> instances;
-    instances.reserve(raw.size());
-    struct Batch { SDL_GPUTexture* diffuse; SDL_GPUTexture* mask; SDL_GPUTexture* warp; uint32_t first, count; int order; };
-    std::vector<Batch> batches;
-    for (auto& [key, list] : buckets) {
-        batches.push_back({std::get<1>(key), std::get<2>(key), std::get<3>(key), uint32_t(instances.size()), uint32_t(list.size()), std::get<0>(key)});
-        instances.insert(instances.end(), list.begin(), list.end());
+    // (raw's indexes sorted by batch, in the order the sprites came within one; the instances go to the upload in this
+    // order)
+    rawOrder.resize(raw.size());
+    for (size_t i = 0; i < raw.size(); ++i) rawOrder[i] = uint32_t(i);
+    auto key = [&](uint32_t i) { return std::make_tuple(raw[i].order, raw[i].diffuse, raw[i].mask, raw[i].warp, i); };
+    std::sort(rawOrder.begin(), rawOrder.end(), [&](uint32_t a, uint32_t b) { return key(a) < key(b); });
+    batches.clear();
+    for (uint32_t k = 0; k < uint32_t(rawOrder.size()); ++k) {
+        const Raw& r = raw[rawOrder[k]];
+        if (batches.empty() || batches.back().order != r.order || batches.back().diffuse != r.diffuse || batches.back().mask != r.mask ||
+            batches.back().warp != r.warp)
+            batches.push_back({r.diffuse, r.mask, r.warp, k, 0, r.order});
+        ++batches.back().count;
     }
     // Only a scene with such sprites draws into the backdrop first (and then copies it to the target).
     const bool bends = !batches.empty() && batches.back().order == 3 && ensureBackdrop(w, h);
-    stats.sprites = int(instances.size());
+    stats.sprites = int(raw.size());
 
     // Overlays -> screen-space rects (outlines become 4 thin rects, text becomes glyph quads).
-    std::vector<GpuRect> rects;
+    rects.clear();
     auto toScreen = [&](float x, float y, bool world, float& sx, float& sy) {
         sx = world ? (x - cam.x) * cam.zoom : x;
         sy = world ? (y - cam.y) * cam.zoom : y;
@@ -1082,6 +1105,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         float sx, sy;
         toScreen(td.x, td.y, td.world, sx, sy);
         if (sx > w || sy > h) continue;
+        char* text = const_cast<char*>(td.text.c_str());
+        if (sx + (stb_easy_font_width(text) + 1) * td.scale + 1 < 0 || sy + (stb_easy_font_height(text) + 1) * td.scale + 1 < 0) continue;  // (and its shadow)
         int quads = stb_easy_font_print(0, 0, const_cast<char*>(td.text.c_str()), nullptr, glyphBuf.data(), int(glyphBuf.size()));
         // Shadow first, then the text.
         for (int pass = 0; pass < 2; ++pass)
@@ -1095,7 +1120,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     }
 
     // Uploads: terrain indices (if changed), instances, rects.
-    uint32_t instBytes = uint32_t(instances.size() * sizeof(GpuInstance));
+    uint32_t instBytes = uint32_t(raw.size() * sizeof(GpuInstance));
     uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect));
     uint32_t terrainBytes = terrainDirty ? uint32_t(pendingTerrain.size() * 2) : 0;
     if (terrainDirty && (!tileIndex || tileIndexW != mapW || tileIndexH != mapH)) {  // the map's size changed
@@ -1108,7 +1133,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     uint32_t total = instBytes + rectBytes + terrainBytes;
     if (total && ensureUpload(total)) {
         uint8_t* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device, uploadBuf, true));
-        std::memcpy(p, instances.data(), instBytes);
+        GpuInstance* inst = reinterpret_cast<GpuInstance*>(p);
+        for (uint32_t i : rawOrder) std::memcpy(inst++, &raw[i].in, sizeof(GpuInstance));  // (batch by batch)
         std::memcpy(p + instBytes, rects.data(), rectBytes);
         if (terrainBytes) std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
         SDL_UnmapGPUTransferBuffer(device, uploadBuf);
@@ -1236,8 +1262,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     }
     SDL_EndGPURenderPass(pass);
 
-    stats.imagesResident = 0;
-    for (auto& [id, t] : images) stats.imagesResident += t.diffuse != nullptr || t.sd;
+    stats.imagesResident = imagesResident;
     stats.cpuMs = msSince(frameStart);
     return true;
 }
