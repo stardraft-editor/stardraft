@@ -132,7 +132,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
     const render::Scene scene = buildScene();
-    gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : std::vector<std::pair<int, uint16_t>>{});
+    static const std::vector<std::pair<int, uint16_t>> kNoTiles;
+    gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : kNoTiles);  // (both lists by reference: no copy each frame)
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);
     mapFrameDone(gState);  // the title, the Locations list and the status bar (core/map_scene.inc)
 }

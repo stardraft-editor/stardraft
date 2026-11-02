@@ -174,11 +174,21 @@ struct Renderer::Impl {
     float hdAtlasW = 0, hdAtlasH = 0, hdTile = 0, hdCols = 1;
     SDL_GPUTexture* sdAtlas = nullptr;
     float sdAtlasW = 0, sdAtlasH = 0, sdCols = 1;
-    std::vector<uint16_t> pendingTerrain;
-    bool terrainDirty = false;
+    std::vector<uint16_t> pendingTerrain;  // what the tile index shows: baseTerrain with the preview's cells
+    bool terrainDirty = false;  // the tile index needs pendingTerrain: all of it (terrainAll), else terrainBox's tiles
+    bool terrainAll = true;
+    int terrainBox[4] = {};  // (left, top, right, bottom: tiles, right and bottom past the box)
     std::vector<uint16_t> baseTerrain;                      // megatile per map tile, from updateTerrain
     std::vector<std::pair<int, uint16_t>> terrainPreview;  // (tile, megatile) shown instead
+    std::vector<std::pair<int, uint16_t>> previewNext;     // (setTerrainPreview's: its memory kept)
     void applyTerrainPreview();
+    void terrainCellChanged(int i) {
+        const int x = mapW ? i % mapW : 0, y = mapW ? i / mapW : 0;
+        if (!terrainDirty) terrainDirty = true, terrainAll = false, terrainBox[0] = x, terrainBox[1] = y, terrainBox[2] = x + 1, terrainBox[3] = y + 1;
+        else if (!terrainAll)
+            terrainBox[0] = std::min(terrainBox[0], x), terrainBox[1] = std::min(terrainBox[1], y), terrainBox[2] = std::max(terrainBox[2], x + 1),
+            terrainBox[3] = std::max(terrainBox[3], y + 1);
+    }
 
     // Sources
     const GameData* data = nullptr;
@@ -774,7 +784,7 @@ void Renderer::Impl::reloadTileset() {
     loadedQuality = quality;
     loadedCarbot = carbot;
     tilesetDirty = false;
-    terrainDirty = !pendingTerrain.empty();
+    terrainDirty = !pendingTerrain.empty(), terrainAll = true;
 }
 
 void Renderer::setQuality(GraphicsQuality q) {
@@ -821,19 +831,27 @@ void Renderer::Impl::applyTerrainPreview() {
     pendingTerrain = baseTerrain;
     for (auto [i, mega] : terrainPreview)
         if (i >= 0 && size_t(i) < pendingTerrain.size()) pendingTerrain[size_t(i)] = mega;
-    terrainDirty = !pendingTerrain.empty();
+    terrainDirty = !pendingTerrain.empty(), terrainAll = true;
 }
 
+// A new preview: its old cells show the terrain again and its new cells the preview; only the box of these cells goes
+// to the tile index (not the whole map at each move of a doodad or a shape).
 void Renderer::setTerrainPreview(const std::vector<std::pair<int, uint16_t>>& cells) {
     Impl& r = *impl_;
-    std::vector<std::pair<int, uint16_t>> megas;
+    std::vector<std::pair<int, uint16_t>>& megas = r.previewNext;
+    megas.clear();
     for (auto [i, tile] : cells) {
         const int mega = r.tileset ? r.tileset->megatileFor(tile) : -1;
         if (mega > 0) megas.push_back({i, uint16_t(mega)});
     }
     if (megas == r.terrainPreview) return;
-    r.terrainPreview = std::move(megas);
-    r.applyTerrainPreview();
+    std::swap(r.terrainPreview, megas);
+    if (r.pendingTerrain.size() != r.baseTerrain.size()) return r.applyTerrainPreview();
+    const size_t n = r.pendingTerrain.size();
+    for (auto [i, mega] : megas)  // (the old preview)
+        if (i >= 0 && size_t(i) < n) r.pendingTerrain[size_t(i)] = r.baseTerrain[size_t(i)], r.terrainCellChanged(i);
+    for (auto [i, mega] : r.terrainPreview)
+        if (i >= 0 && size_t(i) < n) r.pendingTerrain[size_t(i)] = mega, r.terrainCellChanged(i);
 }
 
 void Renderer::Impl::ensureDepth(uint32_t w, uint32_t h) {
@@ -1122,12 +1140,18 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     // Uploads: terrain indices (if changed), instances, rects.
     uint32_t instBytes = uint32_t(raw.size() * sizeof(GpuInstance));
     uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect));
-    uint32_t terrainBytes = terrainDirty ? uint32_t(pendingTerrain.size() * 2) : 0;
     if (terrainDirty && (!tileIndex || tileIndexW != mapW || tileIndexH != mapH)) {  // the map's size changed
         if (tileIndex) SDL_ReleaseGPUTexture(device, tileIndex);
         tileIndex = createTexture(SDL_GPU_TEXTUREFORMAT_R16_UINT, mapW, mapH, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
         tileIndexW = mapW, tileIndexH = mapH;
+        terrainAll = true;
     }
+    // (the whole map, or only the box of the tiles that changed: a preview's cells)
+    const bool part = terrainDirty && !terrainAll && pendingTerrain.size() == size_t(mapW) * mapH;
+    const int tx0 = part ? std::clamp(terrainBox[0], 0, int(mapW)) : 0, ty0 = part ? std::clamp(terrainBox[1], 0, int(mapH)) : 0;
+    const int tw = part ? std::clamp(terrainBox[2], tx0, int(mapW)) - tx0 : mapW, th = part ? std::clamp(terrainBox[3], ty0, int(mapH)) - ty0 : mapH;
+    uint32_t terrainBytes = !terrainDirty ? 0 : part ? uint32_t(tw * th * 2) : uint32_t(pendingTerrain.size() * 2);
+    if (terrainDirty && terrainBytes == 0) terrainDirty = false;  // (an empty box)
     if (instBytes) ensureBuffer(instanceBuf, instanceCap, instBytes);
     if (rectBytes) ensureBuffer(rectBuf, rectCap, rectBytes);
     uint32_t total = instBytes + rectBytes + terrainBytes;
@@ -1136,7 +1160,11 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         GpuInstance* inst = reinterpret_cast<GpuInstance*>(p);
         for (uint32_t i : rawOrder) std::memcpy(inst++, &raw[i].in, sizeof(GpuInstance));  // (batch by batch)
         std::memcpy(p + instBytes, rects.data(), rectBytes);
-        if (terrainBytes) std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
+        if (terrainBytes && part)
+            for (int y = 0; y < th; ++y)
+                std::memcpy(p + instBytes + rectBytes + size_t(y) * tw * 2, pendingTerrain.data() + size_t(ty0 + y) * mapW + tx0, size_t(tw) * 2);
+        else if (terrainBytes)
+            std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
         SDL_UnmapGPUTransferBuffer(device, uploadBuf);
         SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
         if (instBytes) {
@@ -1153,11 +1181,12 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             SDL_GPUTextureTransferInfo src{};
             src.transfer_buffer = uploadBuf;
             src.offset = instBytes + rectBytes;
+            src.pixels_per_row = uint32_t(tw), src.rows_per_layer = uint32_t(th);
             SDL_GPUTextureRegion dst{};
             dst.texture = tileIndex;
-            dst.w = mapW, dst.h = mapH, dst.d = 1;
+            dst.x = uint32_t(tx0), dst.y = uint32_t(ty0), dst.w = uint32_t(tw), dst.h = uint32_t(th), dst.d = 1;
             SDL_UploadToGPUTexture(copy, &src, &dst, false);
-            terrainDirty = false;
+            terrainDirty = false, terrainAll = false;
         }
         SDL_EndGPUCopyPass(copy);
     }
