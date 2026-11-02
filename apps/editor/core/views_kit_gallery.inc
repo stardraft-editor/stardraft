@@ -403,20 +403,8 @@ public:
         return true;
     }
     bool vscroll(int code, int /*pos*/, int track, int page) override {
-        enum { kLineUp = 0, kLineDown = 1, kPageUp = 2, kPageDown = 3, kThumbPosition = 4, kThumbTrack = 5, kTop = 6, kBottom = 7 };  // SB_*
         int s = scroll;
-        switch (code) {
-        case kLineUp: s -= scale(40); break;
-        case kLineDown: s += scale(40); break;
-        case kPageUp: s -= page; break;
-        case kPageDown: s += page; break;
-        case kThumbTrack:
-        case kThumbPosition: s = track; break;
-        case kTop: s = 0; break;
-        case kBottom: s = 1 << 30; break;
-        default: return true;
-        }
-        setScroll(s);
+        if (kitpaint::scrollRequest(code, s, scale(40), page, track)) setScroll(s);
         return true;
     }
 

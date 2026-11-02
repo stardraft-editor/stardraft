@@ -865,19 +865,9 @@ bool OptionsView::mouse(const draw::MouseEvent& e) {
     return false;
 }
 
-bool OptionsView::vscroll(int code, int pos, int track, int page) {
+bool OptionsView::vscroll(int code, int /*pos*/, int track, int page) {
     int s = scroll_;
-    switch (code) {
-    case 0: s = scroll_ - scale(40); break;  // SB_LINEUP
-    case 1: s = scroll_ + scale(40); break;  // SB_LINEDOWN
-    case 2: s = scroll_ - page; break;       // SB_PAGEUP
-    case 3: s = scroll_ + page; break;       // SB_PAGEDOWN
-    case 4: s = pos; break;                  // SB_THUMBPOSITION
-    case 5: s = track; break;                // SB_THUMBTRACK
-    case 6: s = 0; break;                    // SB_TOP
-    case 7: s = height_; break;              // SB_BOTTOM
-    default: return false;
-    }
+    if (!kitpaint::scrollRequest(code, s, scale(40), page, track)) return false;
     scrollTo(s);
     return true;
 }

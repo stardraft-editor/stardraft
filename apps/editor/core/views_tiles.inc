@@ -157,17 +157,7 @@ public:
     // The window's bar (the Win32 program's grid window): a line is 36 px, a page the visible height.
     bool vscroll(int code, int pos, int track, int page) override {
         const TilesScope scope = here();
-        switch (code) {
-        case 0: pos -= scale(36); break;  // SB_LINEUP
-        case 1: pos += scale(36); break;  // SB_LINEDOWN
-        case 2: pos -= page; break;       // SB_PAGEUP
-        case 3: pos += page; break;       // SB_PAGEDOWN
-        case 4:                           // SB_THUMBPOSITION
-        case 5: pos = track; break;       // SB_THUMBTRACK
-        case 6: pos = 0; break;           // SB_TOP
-        case 7: pos = gTiles->contentH; break;  // SB_BOTTOM
-        default: return false;
-        }
+        if (!kitpaint::scrollRequest(code, pos, scale(36), page, track)) return false;
         tilesScrollTo(pos);
         return true;
     }

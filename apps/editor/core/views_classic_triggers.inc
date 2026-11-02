@@ -923,18 +923,7 @@ public:
     }
     bool vscroll(int code, int /*pos*/, int track, int page) override {
         int s = scroll_;
-        switch (code) {  // the SB_* requests
-        case 0: s -= scale(26); break;  // SB_LINEUP: a row
-        case 1: s += scale(26); break;  // SB_LINEDOWN
-        case 2: s -= page; break;       // SB_PAGEUP
-        case 3: s += page; break;       // SB_PAGEDOWN
-        case 4:                         // SB_THUMBPOSITION
-        case 5: s = track; break;       // SB_THUMBTRACK
-        case 6: s = 0; break;           // SB_TOP
-        case 7: s = 1 << 30; break;     // SB_BOTTOM
-        default: return true;
-        }
-        scrollTo(s);
+        if (kitpaint::scrollRequest(code, s, scale(26), page, track)) scrollTo(s);  // a line is a row
         return true;
     }
 

@@ -188,17 +188,8 @@ bool DataListView::key(const draw::KeyEvent& e) {
 bool DataListView::vscroll(int code, int pos, int track, int page) {
     // The window's bar (the SB_* requests): a line is a row, a page is the visible height.
     int s = host_.scroll();
-    switch (code) {
-    case 0: s -= rowH(); break;  // SB_LINEUP
-    case 1: s += rowH(); break;  // SB_LINEDOWN
-    case 2: s -= page; break;    // SB_PAGEUP
-    case 3: s += page; break;    // SB_PAGEDOWN
-    case 4:                      // SB_THUMBPOSITION
-    case 5: s = track; break;    // SB_THUMBTRACK
-    case 6: s = 0; break;        // SB_TOP
-    case 7: s = 1 << 30; break;  // SB_BOTTOM
-    default: (void)pos; return false;
-    }
+    (void)pos;
+    if (!kitpaint::scrollRequest(code, s, rowH(), page, track)) return false;
     setScroll(s);
     return true;
 }

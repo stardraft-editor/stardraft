@@ -291,6 +291,22 @@ inline void drawScrollFace(draw::Canvas& c, draw::Rect track, draw::Rect thumb, 
     else thumb.left = thumb.right - std::max(2, int(thumb.right - thumb.left) / 2);
     c.roundBox(thumb, lit ? kThumbHot : kThumb, draw::kNone, float(scale(3)));
 }
+// A scroll bar's request (Win32's SB_* codes, which the hosts send to View::vscroll and hscroll): moves `pos` a line
+// (`line` px), a page (`page` px), to the thumb (`track`), to the top or to the bottom (a large value: the view clamps
+// it). Returns false for a code that does not scroll (`pos` stays).
+inline bool scrollRequest(int code, int& pos, int line, int page, int track) {
+    switch (code) {
+    case 0: pos -= line; return true;     // SB_LINEUP
+    case 1: pos += line; return true;     // SB_LINEDOWN
+    case 2: pos -= page; return true;     // SB_PAGEUP
+    case 3: pos += page; return true;     // SB_PAGEDOWN
+    case 4:                               // SB_THUMBPOSITION
+    case 5: pos = track; return true;     // SB_THUMBTRACK
+    case 6: pos = 0; return true;         // SB_TOP
+    case 7: pos = 1 << 30; return true;   // SB_BOTTOM
+    default: return false;
+    }
+}
 
 // --- Tables ---------------------------------------------------------------------------------------------------------
 // Rows with columns: a header (names in the dim color), rows with pills when selected or under the mouse.

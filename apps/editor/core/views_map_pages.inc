@@ -218,16 +218,7 @@ private:
     // The bar's request: a line is 32 px, a page is the bar's page, a dragged thumb is where it is.
     void scrollBy(int code, int track, int page, bool vertical) {
         int p = vertical ? y_ : x_;
-        switch (code) {
-        case 0: p -= scale(32); break;  // SB_LINEUP
-        case 1: p += scale(32); break;  // SB_LINEDOWN
-        case 2: p -= page; break;       // SB_PAGEUP
-        case 3: p += page; break;       // SB_PAGEDOWN
-        case 4:                         // SB_THUMBPOSITION
-        case 5: p = track; break;       // SB_THUMBTRACK: the thumb's place, as the old page read it
-        case 6: p = 0; break;           // SB_TOP
-        case 7: p = 1 << 30; break;     // SB_BOTTOM
-        }
+        kitpaint::scrollRequest(code, p, scale(32), page, track);
         vertical ? scrollTo(x_, p) : scrollTo(p, y_);
     }
 

@@ -783,19 +783,10 @@ bool ProjectPageView::mouse(const draw::MouseEvent& e) {
     }
 }
 
-bool ProjectPageView::vscroll(int code, int pos, int track, int) {
-    const int page = height();
-    switch (code) {
-    case 0: scrollTo(scroll_ - scale(32)); break;  // SB_LINEUP
-    case 1: scrollTo(scroll_ + scale(32)); break;  // SB_LINEDOWN
-    case 2: scrollTo(scroll_ - page); break;       // SB_PAGEUP
-    case 3: scrollTo(scroll_ + page); break;       // SB_PAGEDOWN
-    case 4: scrollTo(pos); break;                  // SB_THUMBPOSITION
-    case 5: scrollTo(track); break;                // SB_THUMBTRACK
-    case 6: scrollTo(0); break;                    // SB_TOP
-    case 7: scrollTo(contentH_); break;            // SB_BOTTOM
-    default: return false;
-    }
+bool ProjectPageView::vscroll(int code, int /*pos*/, int track, int) {
+    int s = scroll_;
+    if (!kitpaint::scrollRequest(code, s, scale(32), height(), track)) return false;
+    scrollTo(s);
     return true;
 }
 

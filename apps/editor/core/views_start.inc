@@ -369,19 +369,10 @@ public:
     }
 
     // The scroll bar of the window (the host calls this for its vertical scroll bar).
-    bool vscroll(int code, int pos, int track, int) override {
-        const int page = height();
-        switch (code) {
-        case 0: scrollTo(scroll_ - scale(32)); break;  // SB_LINEUP
-        case 1: scrollTo(scroll_ + scale(32)); break;  // SB_LINEDOWN
-        case 2: scrollTo(scroll_ - page); break;       // SB_PAGEUP
-        case 3: scrollTo(scroll_ + page); break;       // SB_PAGEDOWN
-        case 4: scrollTo(pos); break;                  // SB_THUMBPOSITION
-        case 5: scrollTo(track); break;                // SB_THUMBTRACK
-        case 6: scrollTo(0); break;                    // SB_TOP
-        case 7: scrollTo(height_); break;              // SB_BOTTOM
-        default: return false;
-        }
+    bool vscroll(int code, int /*pos*/, int track, int) override {
+        int s = scroll_;
+        if (!kitpaint::scrollRequest(code, s, scale(32), height(), track)) return false;
+        scrollTo(s);
         return true;
     }
 

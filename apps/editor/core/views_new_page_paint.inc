@@ -589,20 +589,10 @@ void NewPageView::captureLost() {
     if (dragging_ >= 0) dragging_ = -1, invalidate();
 }
 
-bool NewPageView::vscroll(int code, int pos, int track, int) {
+bool NewPageView::vscroll(int code, int /*pos*/, int track, int) {
     const int page = height();
     int s = scroll;
-    switch (code) {
-    case 0: s = scroll - scale(32); break;  // SB_LINEUP
-    case 1: s = scroll + scale(32); break;  // SB_LINEDOWN
-    case 2: s = scroll - page; break;       // SB_PAGEUP
-    case 3: s = scroll + page; break;       // SB_PAGEDOWN
-    case 4: s = pos; break;                 // SB_THUMBPOSITION
-    case 5: s = track; break;               // SB_THUMBTRACK
-    case 6: s = 0; break;                   // SB_TOP
-    case 7: s = height_; break;             // SB_BOTTOM
-    default: return false;
-    }
+    if (!kitpaint::scrollRequest(code, s, scale(32), page, track)) return false;
     const int s2 = std::clamp(s, 0, std::max(0, height_ - page));
     if (s2 != scroll) scroll = s2, invalidate();
     return true;
