@@ -105,79 +105,10 @@ private:
         draw::Rect r;
         FilesUse use;
     };
-    struct Col {
-        const wchar_t* name;
-        int width;  // at 100 %; 0: what the others leave
-        unsigned align;
-    };
-
     FilesHost& svc() { return host_; }
     static Editor* mapEditor() { return appState().ed.get(); }
-    static std::vector<Col> columns() {
+    static std::vector<kitpaint::Column> columns() {
         return {{L"", 40, draw::kLeft}, {L"Name", 0, draw::kLeft}, {L"Kind", 80, draw::kLeft}, {L"Length", 80, draw::kRight}, {L"Size", 80, draw::kRight}, {L"", 30, draw::kLeft}};
-    }
-    static draw::Rect squareOf(draw::Rect r) {
-        const int w = r.width(), h = r.height(), s = std::min(w, h);
-        const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
-        return {x, y, x + s, y + s};
-    }
-    // Where column k is in a row (the table's cells: 6 px in from the left, 6 px from the right).
-    static draw::Rect cellOf(draw::Rect row, const std::vector<Col>& cols, size_t k) {
-        int fixed = 0, flexible = 0;
-        for (const auto& c : cols) {
-            if (c.width) fixed += scale(c.width);
-            else ++flexible;
-        }
-        const int rest = std::max(0, row.width() - scale(12) - fixed);
-        int x = row.left + scale(6);
-        for (size_t i = 0; i < cols.size(); ++i) {
-            const int w = cols[i].width ? scale(cols[i].width) : rest / std::max(1, flexible);
-            if (i == k) return {x, row.top, x + w, row.bottom};
-            x += w;
-        }
-        return {x, row.top, x, row.bottom};
-    }
-    static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
-    static void tableHeader(draw::Canvas& c, draw::Rect row, const std::vector<Col>& cols) {
-        const draw::Font old = c.setFont(smallFont(c));
-        for (size_t k = 0; k < cols.size(); ++k) {
-            draw::Rect cr = cellOf(row, cols, k);
-            cr.left += scale(4), cr.right -= scale(4);
-            c.text(cr, cols[k].name, kDim, cols[k].align | draw::kMiddle);
-        }
-        c.setFont(old);
-        c.fill({row.left, row.bottom - 1, row.right, row.bottom}, kBorder);
-    }
-    // A row: on the page's ground; selected or under the mouse a rounded pill (as the lists and pickers).
-    static void tableRow(draw::Canvas& c, draw::Rect row, bool selected, bool over) {
-        const draw::Rect pill{row.left + scale(2), row.top + scale(1), row.right - scale(2), row.bottom - scale(1)};
-        if (selected) c.roundBox(pill, kSel, kSel, float(scale(6)));
-        else if (over) c.roundBox(pill, kRowHot, kRowHot, float(scale(6)));
-    }
-    // A bare icon button's face (ui_kit.inc's iconFace): a fill under the mouse, the glyph in the tone's color.
-    static void iconFace(draw::Canvas& c, draw::Rect r, int icon, stardraft::kit::Tone tone, bool on, bool over) {
-        using stardraft::kit::Tone;
-        if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
-        const draw::Color rest = tone == Tone::Quiet && on ? kWarn : on || tone == Tone::Primary ? kAccent : kDim;
-        const draw::Color lit = tone == Tone::Danger ? kBad : tone == Tone::Quiet && on ? kWarn : tone == Tone::Primary || on ? kAccentBright : kText;
-        c.icon(r, icon, over ? lit : rest, scale(16));
-    }
-    static int sectionHeader(draw::Canvas& c, int x0, int colRight, int y, int rowH, const std::wstring& name) {
-        c.text({x0, y, colRight, y + rowH}, name, kText, draw::kMiddle);
-        c.fill({x0, y + rowH - 1, colRight, y + rowH}, kBorder);
-        return y + rowH + scale(6);
-    }
-    // The References panel's heading: the title and the count, then a line when nothing uses the sound.
-    static int sideHeader(draw::Canvas& c, int x, int y, int w, const std::wstring& title, size_t count) {
-        const draw::Rect h{x, y, x + w, y + scale(22)};
-        c.text(h, title, kText, draw::kMiddle);
-        c.text(h, std::to_wstring(count), kDim, draw::kMiddle | draw::kRight);
-        y += scale(30);
-        if (!count) {
-            c.text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, draw::kMiddle | draw::kEllipsis);
-            y += scale(22);
-        }
-        return y;
     }
     // Puts a child where it goes, and shows it only where it is on the page (a move that changes nothing repaints nothing).
     void place(draw::View& v, draw::Rect r) {
@@ -303,7 +234,7 @@ void FilesPage::paint(draw::Canvas& c) {
     const int x0 = scale(18);
     const int colRight = w - refsW - scale(18), colW = colRight - x0;
     const auto cols = columns();
-    const int cEnd = cellOf({x0, 0, colRight, 1}, cols, 5).left;
+    const int cEnd = kitpaint::tableCell({x0, 0, colRight, 1}, cols, 5).left;
     const bool hovering = hasPointer_;
     const draw::Point hover = pointer_;
     rows_.clear();
@@ -321,18 +252,18 @@ void FilesPage::paint(draw::Canvas& c) {
         rw.missing = kind == 1 && !soundFileBytes(name);
         rw.over = over(rw.r);
         rw.playing = svc().previewPlaying(name);
-        tableRow(c, rw.r, rw.on, rw.over);
+        kitpaint::drawTableRow(c, rw.r, rw.on, rw.over);
 
-        rw.play = squareOf({x0 + scale(8), y + scale(1), x0 + scale(8 + stardraft::kit::kIconBox), y + rowH - scale(1)});
-        iconFace(c, rw.play, int(rw.playing ? UiIcon::Stop : UiIcon::Play), stardraft::kit::Tone::Primary, rw.playing, over(rw.play));
+        rw.play = kitpaint::square({x0 + scale(8), y + scale(1), x0 + scale(8 + stardraft::kit::kIconBox), y + rowH - scale(1)});
+        kitpaint::drawIconFace(c, rw.play, rw.playing ? UiIcon::Stop : UiIcon::Play, kitpaint::Tone::Primary, rw.playing, over(rw.play));
 
-        draw::Rect nt = cellOf(rw.r, cols, 1);
+        draw::Rect nt = kitpaint::tableCell(rw.r, cols, 1);
         nt.left += scale(4), nt.right -= scale(4);
         c.text(nt, widen(name), rw.on ? kAccent : kText, draw::kPathEllipsis | draw::kMiddle);
 
         std::string ext = name.size() >= 3 ? name.substr(name.size() - 3) : name;
         std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return char(std::toupper(ch)); });
-        draw::Rect kt = cellOf(rw.r, cols, 2);
+        draw::Rect kt = kitpaint::tableCell(rw.r, cols, 2);
         kt.left += scale(4), kt.right -= scale(4);
         rw.kindCell = kt;
         // A name the map lists that neither it nor the game holds: missing.
@@ -340,18 +271,18 @@ void FilesPage::paint(draw::Canvas& c) {
         c.text(kt, kindText, rw.missing ? kBad : kDim, draw::kMiddle);
 
         if (!rw.missing && (kind != 2 || rw.on)) {  // lengths: the map's, and the selected game sound's (reading every game sound takes long)
-            draw::Rect lt = cellOf(rw.r, cols, 3);
+            draw::Rect lt = kitpaint::tableCell(rw.r, cols, 3);
             lt.left += scale(4), lt.right -= scale(4);
             c.text(lt, lengthText(svc().soundLength(name)), kDim, draw::kRight | draw::kMiddle);
         }
-        draw::Rect st = cellOf(rw.r, cols, 4);
+        draw::Rect st = kitpaint::tableCell(rw.r, cols, 4);
         st.left += scale(4), st.right -= scale(4);
         c.text(st, kind == 0 ? sizeText(size) : std::wstring(L"\x2014"), kDim, draw::kRight | draw::kMiddle);
 
         const draw::Rect last{cEnd, y, colRight, y + rowH};
-        rw.last = squareOf(last);
+        rw.last = kitpaint::square(last);
         if (kind == 0 || kind == 1) {  // the remove cross: under the mouse only
-            if (rw.over) iconFace(c, rw.last, int(UiIcon::Close), stardraft::kit::Tone::Danger, false, over(rw.last));
+            if (rw.over) kitpaint::drawIconFace(c, rw.last, UiIcon::Close, kitpaint::Tone::Danger, false, over(rw.last));
         } else {
             const auto refs = mapEditor() ? mapEditor()->soundReferences() : std::vector<std::string>{};
             rw.hasCheck = std::find(refs.begin(), refs.end(), name) != refs.end();
@@ -360,9 +291,9 @@ void FilesPage::paint(draw::Canvas& c) {
             } else if (rw.over) {  // Add: under the mouse only, at the row's right edge
                 const int bh = std::min(rw.r.height(), scale(stardraft::kit::kIconBox));
                 const int top = (rw.r.top + rw.r.bottom - bh) / 2;
-                rw.add = squareOf({rw.r.right - scale(4) - scale(stardraft::kit::kIconBox), top, rw.r.right - scale(4), top + bh});
+                rw.add = kitpaint::square({rw.r.right - scale(4) - scale(stardraft::kit::kIconBox), top, rw.r.right - scale(4), top + bh});
                 rw.canAdd = true;
-                iconFace(c, rw.add, int(UiIcon::Add), stardraft::kit::Tone::Primary, false, over(rw.add));
+                kitpaint::drawIconFace(c, rw.add, UiIcon::Add, kitpaint::Tone::Primary, false, over(rw.add));
             }
         }
         rows_.push_back(rw);
@@ -370,8 +301,8 @@ void FilesPage::paint(draw::Canvas& c) {
     };
 
     // The map's sounds: its files, and the game sounds it names.
-    y = sectionHeader(c, x0, colRight, y, rowH, L"Sounds in the map");
-    tableHeader(c, {x0, y, colRight, y + rowH}, cols);
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, L"Sounds in the map");
+    kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, cols);
     y += rowH;
     const auto mine = mapSounds();
     for (const auto& n : mine) {
@@ -398,10 +329,10 @@ void FilesPage::paint(draw::Canvas& c) {
     y += rowH + scale(18);
 
     // The game's sounds: the search, then the list the search keeps.
-    y = sectionHeader(c, x0, colRight, y, rowH, modTab() ? L"Sounds of Cosmonarchy BW and the game" : L"Sounds of the game");
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, modTab() ? L"Sounds of Cosmonarchy BW and the game" : L"Sounds of the game");
     place(search_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
     y += scale(32);
-    tableHeader(c, {x0, y, colRight, y + rowH}, cols);
+    kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, cols);
     y += rowH;
     const std::wstring f = lowerText(filter_);
     int shown = 0;
@@ -420,24 +351,15 @@ void FilesPage::paint(draw::Canvas& c) {
 
     // References: what uses the selected sound.
     const draw::Rect side{w - refsW, 0, w, h};
-    c.fill(side, kPanel);
-    c.fill({side.left, side.top, side.left + 1, side.bottom}, kBorder);
+    kitpaint::drawSidePanel(c, side);
     const int sx = side.left + scale(14), sw = refsW - scale(24);
     const auto uses = svc().soundUses(selected_);
-    int ry = sideHeader(c, sx, scale(12), sw, L"References", uses.size());
+    int ry = kitpaint::drawSideHeader(c, sx, scale(12), sw, L"References", uses.size());
     if (!uses.empty()) {
-        const draw::Font old = c.setFont(smallFont(c));  // the group's heading: small and dim
-        c.text({sx, ry, sx + sw, ry + scale(15)}, L"Briefings", kDim, draw::kMiddle | draw::kEllipsis);
-        c.setFont(old);
-        ry += scale(18);
+        ry = kitpaint::drawSideGroup(c, sx, ry, sw, L"Briefings", true);
         for (const auto& u : uses) {
             const draw::Rect r{sx, ry, sx + sw, ry + scale(20)};
-            const bool lit = over(r);
-            c.text(r, u.text, lit ? kAccentBright : kAccent, draw::kMiddle | draw::kEllipsis);
-            if (lit) {
-                const int tw = std::min<int>(c.measure(u.text), r.width());
-                c.line(sx, r.bottom - scale(3), sx + tw, r.bottom - scale(3), kAccentBright);
-            }
+            kitpaint::drawSideLink(c, sx, ry, sw, u.text, {}, over(r));
             side_.push_back({r, u});
             ry += scale(22);
         }
