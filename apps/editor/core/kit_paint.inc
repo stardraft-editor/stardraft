@@ -216,11 +216,17 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
     return t;
 }
 
-// --- Small text ---------------------------------------------------------------------------------------------------
+// --- Small text and titles ----------------------------------------------------------------------------------------
 // The small font: the UI font at 5/6 of its height (captions, table headers, the side bar's groups).
 inline draw::FontDesc smallFontDesc() {
     draw::FontDesc d;
     d.px = -(shellUiFontLfHeight() * 5 / 6);
+    return d;
+}
+// The title font: the UI font at 3/2 of its height (a page's or a form's title).
+inline draw::FontDesc titleFontDesc() {
+    draw::FontDesc d;
+    d.px = -(shellUiFontLfHeight() * 3 / 2);
     return d;
 }
 

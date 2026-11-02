@@ -554,20 +554,10 @@ private:
         hits.push_back(std::move(h));
     }
     int dragging_ = -1;  // the hit with a press at a point (a slider) that the mouse holds
-    // The kit's button face (Normal, Primary; the states as the page had them).
-    enum class BtnState { Normal, Hot, Down, Disabled };
-    void buttonFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool primary, BtnState s);
-    int buttonWidth(draw::Canvas& c, const std::wstring& text) { return std::max(scale(stardraft::kit::kButtonMinW), c.measure(text) + scale(28)); }
     void button(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool primary, std::function<void()> click, const std::wstring& tip = L"", bool enabled = true);
     int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"");
     int labelAt(draw::Canvas& c, int x, int yy, int w, const wchar_t* t, bool enabled = true);
     int paragraph(draw::Canvas& c, draw::Rect r, const std::wstring& text, draw::Color color);
-    int titleBlock(draw::Canvas& c, int x, int y, int right, const std::wstring& text, const std::wstring& sub, UiIcon icon);
-    int sectionHeader(draw::Canvas& c, int x0, int colRight, int y, int rowH, const wchar_t* name);
-    void pickBoxFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool changed, bool over, bool enabled = true);
-    void sliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true);
-    void radioMark(draw::Canvas& c, draw::Rect b, bool on, bool over);
-    void listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over);
     void paintPreview(draw::Canvas& c, draw::Rect pv);
     void paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int right, const wchar_t* name, uint16_t& value, int which);
     void paintSliderRow(draw::Canvas& c, int x, int y, int labelW, int right, NewSlider& sl, bool percent);
@@ -626,7 +616,7 @@ void NewPageView::paintPreview(draw::Canvas& c, draw::Rect pv) {
     const std::wstring label = L"Larger preview";
     const int bw = c.measure(label) + scale(20), bh = scale(24);
     const draw::Rect br{pv.right - bw - scale(8), pv.top + scale(8), pv.right - scale(8), pv.top + scale(8) + bh};
-    buttonFace(c, br, label, false, hot(br) ? BtnState::Hot : BtnState::Normal);
+    kitpaint::drawButtonFace(c, br, label, kitpaint::Tone::Normal, hot(br) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
     hitAdd(br, [this] { shellPost([this] { showLargePreview(); }); }, L"Show the map larger, as it looks in the game");
 }
 
