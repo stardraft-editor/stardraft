@@ -90,11 +90,19 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     {  // (the palette's player list: each player's color square)
         extern kit::Dropdown gOwnerBox;  // (sdl_panels.inc)
         void palettePanelsOwnerItems(const std::vector<kit::DropdownItem>& owners);  // (sdl_palette_panels.inc)
-        std::vector<kit::DropdownItem> owners;  // (a Cosmonarchy map: more players, core/palette_tools.inc ownerChoices)
-        for (int i = 0; i < ownerChoices(); ++i) {
-            const uint32_t c = team[std::min(i, 11)];
-            owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
-                              draw::rgb(int(c >> 16 & 255), int(c >> 8 & 255), int(c & 255))});
+        // (a Cosmonarchy map: more players, core/palette_tools.inc ownerChoices; made again only when a color or the
+        // number of players changed)
+        static std::vector<kit::DropdownItem> owners;
+        static uint32_t ownersTeam[12] = {};
+        static int ownersCount = -1;
+        if (const int count = ownerChoices(); count != ownersCount || !std::equal(team, team + 12, ownersTeam)) {
+            ownersCount = count, std::copy(team, team + 12, ownersTeam);
+            owners.clear();
+            for (int i = 0; i < count; ++i) {
+                const uint32_t c = team[std::min(i, 11)];
+                owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
+                                  draw::rgb(int(c >> 16 & 255), int(c >> 8 & 255), int(c & 255))});
+            }
         }
         if (gState.playerOwner >= int(owners.size())) {  // (a standard map's tab: back to 12; the active panel keeps it)
             gState.playerOwner = 11;
@@ -104,7 +112,7 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         bool same = gOwnerBox.items().size() == owners.size();
         for (size_t i = 0; same && i < owners.size(); ++i) same = gOwnerBox.items()[i].swatch == owners[i].swatch;
         if (!same) {  // (setItems closes an open list: only when a color changed)
-            gOwnerBox.setItems(std::move(owners));
+            gOwnerBox.setItems(owners);
             gOwnerBox.setValue(gState.playerOwner);
         }
     }
