@@ -9,6 +9,8 @@
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <map>
+#include <unordered_set>
 #include <random>
 
 namespace stardraft {
@@ -34,7 +36,30 @@ struct BridgeChoiceData {
     uint16_t a, b;
     int weight;
 };
+struct BridgeExampleData {
+    int era;
+    bool u;
+    int length, width, first, cells;
+};
+struct BridgeExampleCellData {
+    int x, y;
+    uint16_t a, b;
+};
+struct BridgeNeighborData {
+    int era, way;  // way 0: b right of a; 1: b under a
+    uint16_t a, b;
+};
 #include "data/bridge_kits.inc"
+
+// Whether the map corpus has tile b next to tile a (right of it, or under it) in that tileset.
+bool neighbors(int era, int way, uint16_t a, uint16_t b) {
+    static const std::unordered_set<uint64_t> set = [] {
+        std::unordered_set<uint64_t> s;
+        for (const BridgeNeighborData& n : kBridgeNeighbors) s.insert(uint64_t(n.era) << 40 | uint64_t(n.way) << 32 | uint64_t(n.a) << 16 | n.b);
+        return s;
+    }();
+    return set.count(uint64_t(era) << 40 | uint64_t(way) << 32 | uint64_t(a) << 16 | b) != 0;
+}
 
 const BridgeKitData* kitOf(int era, bool u) {
     for (const BridgeKitData& k : kBridgeKits)
@@ -67,7 +92,9 @@ std::vector<Cell> cellsOf(const BridgeKitData& k, int length, int width) {
             const int wl = a + k.startLength, ww = c + k.startWidth;
             const int pn = wl * W[1] - ww * L[1], yn = L[0] * ww - W[0] * wl;
             if (pn % det || yn % det) continue;  // (not a cell: the axes meet between cells)
-            const std::string key = axisClass(a, extL, k.capStart, k.capFar, k.periodLength) + "|" + axisClass(c, extW, k.side0, k.side1, k.periodWidth);
+            // (the bridge's kind first: length 0.5 or not, width 0.5 or not; some pieces have variants only at 0.5)
+            const std::string key = std::string(length ? "n" : "h") + (width ? "n|" : "h|") + axisClass(a, extL, k.capStart, k.capFar, k.periodLength) +
+                                    "|" + axisClass(c, extW, k.side0, k.side1, k.periodWidth);
             for (int i = 0; i < k.keys; ++i)
                 if (!std::strcmp(kBridgeKeys[k.firstKey + i].key, key.c_str())) {
                     out.push_back({2 * (pn / det), yn / det, &kBridgeKeys[k.firstKey + i]});
@@ -95,15 +122,65 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
     std::vector<Editor::TileAt> out;
     const BridgeKitData* k = kitOf(era, u);
     if (!k) return out;
+    for (const BridgeExampleData& e : kBridgeExamples)  // (an approved bridge of this size: as it is)
+        if (e.era == era && e.u == u && e.length == length && e.width == width) {
+            for (int i = e.first; i < e.first + e.cells; ++i) {
+                const BridgeExampleCellData& c = kBridgeExampleCells[i];
+                out.push_back({ox + c.x, oy + c.y, c.a});
+                out.push_back({ox + c.x + 1, oy + c.y, c.b});
+            }
+            return out;
+        }
     std::mt19937 rng(seed);
-    for (const Cell& c : cellsOf(*k, length, width)) {
+    // Row by row, left to right: each piece takes a variant whose tiles the corpus has next to the tiles already placed
+    // left of it and above it (else the variant with the fewest pairs it does not have), by weight among them.
+    std::vector<Cell> cells = cellsOf(*k, length, width);
+    std::sort(cells.begin(), cells.end(), [](const Cell& p, const Cell& q) { return p.y != q.y ? p.y < q.y : p.x < q.x; });
+    // Then a few passes in which each piece with variants takes the one that fits all its neighbors best (also those
+    // right of it and under it), until no piece changes.
+    std::map<std::pair<int, int>, uint16_t> placed;
+    const auto misfits = [&](int x, int y, const BridgeChoiceData& v) {
+        const auto at = [&](int px, int py) { auto i = placed.find({px, py}); return i == placed.end() ? -1 : int(i->second); };
+        const auto no = [&](int way, int a, int b) { return a >= 0 && b >= 0 && !neighbors(era, way, uint16_t(a), uint16_t(b)); };
+        return int(no(0, v.a, v.b)) + no(0, at(x - 1, y), v.a) + no(0, v.b, at(x + 2, y)) + no(1, at(x, y - 1), v.a) + no(1, at(x + 1, y - 1), v.b) +
+               no(1, v.a, at(x, y + 1)) + no(1, v.b, at(x + 1, y + 1));
+    };
+    std::vector<int> picks(cells.size(), 0);
+    const auto choose = [&](size_t i) {
+        const Cell& c = cells[i];
         const BridgeChoiceData* ch = &kBridgeChoices[c.key->first];
-        int total = 0;
-        for (int i = 0; i < c.key->count; ++i) total += ch[i].weight;
-        int r = total > 0 ? int(rng() % uint32_t(total)) : 0, pick = 0;
-        for (; pick < c.key->count - 1 && r >= ch[pick].weight; ++pick) r -= ch[pick].weight;
-        out.push_back({ox + c.x, oy + c.y, ch[pick].a});
-        out.push_back({ox + c.x + 1, oy + c.y, ch[pick].b});
+        placed.erase({c.x, c.y}), placed.erase({c.x + 1, c.y});  // (this piece's own tiles do not count)
+        int best = INT_MAX, total = 0;
+        std::vector<int> score(size_t(c.key->count));
+        for (int j = 0; j < c.key->count; ++j) best = std::min(best, score[size_t(j)] = misfits(c.x, c.y, ch[j]));
+        for (int j = 0; j < c.key->count; ++j)
+            if (score[size_t(j)] == best) total += ch[j].weight;
+        int r = total > 0 ? int(rng() % uint32_t(total)) : 0, pick = -1;
+        for (int j = 0; j < c.key->count && pick < 0; ++j)
+            if (score[size_t(j)] == best && (r -= ch[j].weight) < 0) pick = j;
+        if (pick < 0) pick = 0;
+        const bool changed = picks[i] != pick;
+        picks[i] = pick;
+        placed[{c.x, c.y}] = ch[pick].a, placed[{c.x + 1, c.y}] = ch[pick].b;
+        return changed;
+    };
+    for (size_t i = 0; i < cells.size(); ++i) choose(i);
+    for (int pass = 0; pass < 6; ++pass) {
+        bool changed = false;
+        for (size_t i = 0; i < cells.size(); ++i)
+            if (cells[i].key->count > 1) {
+                const BridgeChoiceData* ch = &kBridgeChoices[cells[i].key->first];
+                placed.erase({cells[i].x, cells[i].y}), placed.erase({cells[i].x + 1, cells[i].y});
+                const int now = misfits(cells[i].x, cells[i].y, ch[picks[size_t(i)]]);
+                placed[{cells[i].x, cells[i].y}] = ch[picks[i]].a, placed[{cells[i].x + 1, cells[i].y}] = ch[picks[i]].b;
+                if (now > 0) changed |= choose(i);  // (a piece that fits keeps its variant)
+            }
+        if (!changed) break;
+    }
+    for (size_t i = 0; i < cells.size(); ++i) {
+        const BridgeChoiceData& v = kBridgeChoices[cells[i].key->first + picks[i]];
+        out.push_back({ox + cells[i].x, oy + cells[i].y, v.a});
+        out.push_back({ox + cells[i].x + 1, oy + cells[i].y, v.b});
     }
     return out;
 }

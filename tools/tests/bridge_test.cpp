@@ -5,11 +5,16 @@
 #include "stardraft/bridges.h"
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
+#include "stardraft/tileset.h"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <cctype>
 #include <filesystem>
+#include <map>
+#include <unordered_set>
 #include <set>
 #include <string>
 
@@ -108,13 +113,13 @@ static void paintedRivers(const GameData& data, const char* shots) {
     for (const Set& set : {Set{"jungle", 4, 1, 3}, Set{"platform", 1, 2, 1}, Set{"desert", 5, 1, 3}, Set{"ice", 6, 4, 5}, Set{"twilight", 7, 1, 3}}) {
         Editor ed(data);
         std::string err;
-        if (!ed.newMap(128, 112, set.era, set.ground, err)) {
+        if (!ed.newMap(128, 184, set.era, set.ground, err)) {
             check(false, std::string(set.name) + ": new map: " + err);
             continue;
         }
-        for (int row = 0; row < 3; ++row) {
-            const bool downRight = row != 1;
-            const int width = row == 2 ? 2 : 1;
+        for (int row = 0; row < 5; ++row) {
+            const bool downRight = row != 1 && row != 3;
+            const int width = row < 2 ? 1 : row == 2 ? 2 : 4;
             int last = -1, bridges = 0;
             for (int col = 0; col < 4; ++col) {
                 const float size = col ? float(col) : 0.5f;
@@ -146,6 +151,68 @@ static void paintedRivers(const GameData& data, const char* shots) {
     }
 }
 
+// The corpus (the game's maps and the example maps): the tiles side by side (a tile and the one right of it) and one
+// above the other in it, per tileset. Each pair of neighbors in a bridge (sizes 0.5 to 6, both kits, 8 seeds) must be a
+// pair that the corpus has: a pair it never has is a piece that does not fit its neighbor.
+static void corpusCheck(const GameData& data, const std::filesystem::path& maps, const char* examples) {
+    std::map<int, std::unordered_set<uint32_t>> right, below;
+    std::vector<std::filesystem::path> files;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+        std::string ext = e.path().extension().string();
+        for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+        if (ext == ".scm" || ext == ".scx") files.push_back(e.path());
+    }
+    if (examples)
+        for (const char* name : {"jungle", "platform", "desert", "ice", "twilight"})
+            files.push_back(std::filesystem::path(examples) / (std::string("examples_") + name + ".scm"));
+    int opened = 0;
+    for (const auto& f : files) {
+        Editor ed(data);
+        std::string err;
+        if (!ed.open(f.string(), err)) continue;
+        ++opened;
+        const int era = ed.era() & 7, w = ed.width(), h = ed.height();
+        if (!bridgesAvailable(era)) continue;
+        const std::vector<uint16_t>& t = ed.terrain().tiles;
+        for (int y = 0; y < h; ++y)
+            for (int x = 0; x < w; ++x) {
+                const uint16_t v = t[size_t(y) * w + x];
+                if (x + 1 < w) right[era].insert(uint32_t(v) << 16 | t[size_t(y) * w + x + 1]);
+                if (y + 1 < h) below[era].insert(uint32_t(v) << 16 | t[size_t(y + 1) * w + x]);
+            }
+    }
+    std::printf("corpus: %d maps\n", opened);
+    if (const char* out = std::getenv("BRIDGE_NEIGHBORS")) {  // the pairs, for research/bridge-ramp/gen_bridge_kits.py
+        std::FILE* f = std::fopen(out, "w");
+        for (const auto& [era, set] : right)
+            for (const uint32_t p : set) std::fprintf(f, "%d r %u %u\n", era, p >> 16, p & 0xFFFF);
+        for (const auto& [era, set] : below)
+            for (const uint32_t p : set) std::fprintf(f, "%d b %u %u\n", era, p >> 16, p & 0xFFFF);
+        std::fclose(f);
+        return;
+    }
+    for (const int era : {4, 1, 5, 6, 7})
+        for (const bool u : {false, true}) {
+            std::map<std::string, int> unseen;  // (the pair, the way and the sizes it is at: its count)
+            for (int length = 0; length <= 6; ++length)
+                for (int width = 0; width <= 6; ++width)
+                    for (uint32_t seed = 1; seed <= 8; ++seed) {
+                        std::map<std::pair<int, int>, uint16_t> at;
+                        for (const auto& c : bridgeTiles(era, u, length, width, 0, 0, seed)) at[{c.x, c.y}] = c.value;
+                        const std::string size = " at length " + sizeText(length) + ", width " + sizeText(width);
+                        for (const auto& [p, v] : at) {
+                            if (auto r = at.find({p.first + 1, p.second}); r != at.end() && !right[era].count(uint32_t(v) << 16 | r->second))
+                                ++unseen[std::to_string(v) + " | " + std::to_string(r->second) + " (side by side)" + size];
+                            if (auto b = at.find({p.first, p.second + 1}); b != at.end() && !below[era].count(uint32_t(v) << 16 | b->second))
+                                ++unseen[std::to_string(v) + " / " + std::to_string(b->second) + " (one above the other)" + size];
+                        }
+                    }
+            const std::string what = "era " + std::to_string(era) + (u ? " u" : " d") + ": every pair of neighbors is in the corpus";
+            check(unseen.empty(), what + (unseen.empty() ? "" : " (" + std::to_string(unseen.size()) + " pairs are not)"));
+            for (const auto& [pair, n] : unseen) std::printf("      %s: %d times\n", pair.c_str(), n);
+        }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr, "usage: bridge_test <install dir> [<example maps folder>]\n");
@@ -158,6 +225,24 @@ int main(int argc, char** argv) {
         return 1;
     }
     check(!bridgesAvailable(0) && !bridgesAvailable(2) && !bridgesAvailable(3), "no bridges in Badlands, Installation and Ashworld");
+    if (const char* walk = std::getenv("BRIDGE_WALK")) {  // era:tile,tile,...: the walkable minitiles of each tile (of 16)
+        Tileset ts;
+        std::string e;
+        const int era = std::atoi(walk);
+        if (ts.load(data, uint16_t(era), e))
+            for (const char* p = std::strchr(walk, ':'); p && *p; p = std::strchr(p + 1, ',')) {
+                const int v = std::atoi(p + 1), m = ts.megatileFor(uint16_t(v));
+                int n = 0;
+                for (int i = 0; m >= 0 && i < 16; ++i) n += (ts.minitileFlags[size_t(m)][size_t(i)] & Tileset::kWalkable) != 0;
+                std::printf("tile %d: %d walkable\n", v, n);
+            }
+        return 0;
+    }
+    if (const char* corpus = std::getenv("BRIDGE_CORPUS")) {  // the game's Maps folder: only the corpus check
+        corpusCheck(data, corpus, argc > 2 ? argv[2] : nullptr);
+        std::printf("\n%d failures\n", failures);
+        return failures ? 1 : 0;
+    }
     paintedRivers(data, std::getenv("BRIDGE_SHOTS"));
     if (argc > 2) examples(data, argv[2]);
     std::printf("\n%d failures\n", failures);
