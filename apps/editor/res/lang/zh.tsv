@@ -74,8 +74,8 @@ Select the StarCraft: Remastered folder. It contains .build.info.	请选择 Star
 Not a StarCraft: Remastered folder	这不是 StarCraft: Remastered 文件夹
 Could not read the game data in this folder:\r\n	无法读取此文件夹中的游戏数据：\r\n
 StarCraft folder	StarCraft 文件夹
-StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2 将在下次启动时使用此文件夹：\r\n
-\r\nTo use it now, restart StarDraft 2.	\r\n若要立即使用，请重新启动 StarDraft 2。
+StarDraft 2 uses this folder after a restart:	StarDraft 2 在重新启动后使用此文件夹：
+To use it now, restart StarDraft 2.	若要立即使用，请重新启动 StarDraft 2。
 Start	开始
 Untitled 	未命名 
  (project)	 (项目)
@@ -940,7 +940,7 @@ Sent the feedback as #	反馈已发送，编号为 #
 . Thank you.	. 谢谢.
 Sent the feedback. Thank you.	反馈已发送。谢谢。
 This build cannot send feedback. The feedback is in 	此版本无法发送反馈。反馈保存在 
-StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2 现在无法发送反馈。将在下次启动时发送。
+Could not send the feedback now. StarDraft 2 sends it at the next start.	现在无法发送反馈。StarDraft 2 将在下次启动时发送。
 Minimap	小地图
 Density: low	密度：低
 Density: medium	密度：中
@@ -1351,8 +1351,8 @@ The working folder: where new projects go	工作文件夹：新项目的保存�
 New projects go to 	新项目保存到 
 Documents\\StarDraft	Documents\\StarDraft
 Select the StarCraft: Remastered folder	选择 StarCraft: Remastered 文件夹
-From the next start: 	从下次启动开始: 
-A new folder is used from the next start	新文件夹从下次启动时开始使用
+After a restart: 	重新启动后: 
+A new folder is used after a restart	新文件夹在重新启动后使用
 Program options	程序选项
 Expansion	资料片
 Ground path from %s to %s: %.0f tiles (for a %hs)	从 %s 到 %s 的地面路径：%.0f 个图块（单位尺寸：%hs）
@@ -1527,7 +1527,7 @@ Check for updates	检查更新
 StarDraft 2 is up to date (	StarDraft 2 已是最新版本 (
 .\n\nThis is not a release build. Open the release page?	.\n\n这不是正式发布版本。要打开发布页面吗？
 &Open the release page	打开发布页面(&O)
-.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\n要下载并安装吗？安装后 StarDraft 2 会重新启动。
+Download and install it, then restart StarDraft 2?	要下载并安装，然后重新启动 StarDraft 2 吗？
 &Install	安装(&I)
 Downloading 	正在下载 
 \n\nThe release page opens: get the zip from there.	\n\n将打开发布页面：请从那里获取 zip 文件。
@@ -1707,13 +1707,11 @@ Make StarDraft 2 the program that opens .scm and .scx maps	将 StarDraft 2 设�
 Maps (.scm, .scx) open with StarDraft 2	地图（.scm, .scx）用 StarDraft 2 打开
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows 会保留您为 .scm 或 .scx 地图选择的程序。在“默认应用”中搜索 .scm 和 .scx，然后选择 StarDraft 2。
 Default apps	默认应用
-StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 在重新启动后显示新语言。现在重启吗？已打开的地图和项目会再次打开。
-The language changes when StarDraft 2 starts again	语言在 StarDraft 2 再次启动时更改
-StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 无法再次启动。请关闭后重新启动，以显示新语言。
+The new language shows after a restart. Restart now? Your open maps and projects open again.	重新启动后显示新语言。现在重启吗？已打开的地图和项目会再次打开。
+Could not restart StarDraft 2. Close it and start it again to show the new language.	无法重新启动 StarDraft 2。请关闭后重新启动，以显示新语言。
 Restart now	立即重启
 Start StarDraft 2 again in the new language. Your open maps and projects open again.	以新语言重新启动 StarDraft 2。已打开的地图和项目会再次打开。
 The new language shows after a restart	重新启动后显示新语言
-A new language shows after a restart	重新启动后显示新语言
 Text color	文字颜色
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次构建时，StarDraft 2 会从 GitHub 将 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会更改这台计算机上的其他副本。您打开的地图\r\n仍是普通地图。只能构建项目。
  accepts the current player or Player 1 to Player 12	 接受当前玩家或玩家 1 至 12
@@ -1999,7 +1997,6 @@ Open the Discord server	打开 Discord 服务器
 Sending your feedback…	正在发送反馈…
 Thank you for your feedback.	感谢您的反馈。
 Open it on GitHub (#	在 GitHub 上打开 (#
-StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 现在无法发送。StarDraft 2 下次启动时会发送。
 Bright yellow (Player 10)	亮黄色（玩家 10）
 Pink (Player 11)	粉色（玩家 11）
 Hidden (the game does not show this text)	隐藏（游戏不显示此文本）
@@ -2136,7 +2133,7 @@ Open on GitHub	在 GitHub 上打开
 Open the release page in the browser	在浏览器中打开发布页面
 Install	安装
 Download	下载
-Download and install it. StarDraft 2 starts again after it.	下载并安装。之后 StarDraft 2 会重新启动。
+Download and install it, then restart StarDraft 2	下载并安装，然后重新启动 StarDraft 2
 The download opens in the browser	在浏览器中打开下载
 This release has no release notes	此版本没有发行说明
 Getting the release notes from GitHub…	正在从 GitHub 获取发行说明…
@@ -2465,7 +2462,7 @@ Select the Cosmonarchy BW folder	选择 Cosmonarchy BW 文件夹
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	该文件夹没有 Cosmonarchy BW 数据（mpq\arr\units.datex）。
 The Cosmonarchy folder is set	Cosmonarchy 文件夹已设置
 The Prerelease or Release folder	Prerelease 或 Release 文件夹
-The Prerelease or Release folder. A new folder is used from the next start	Prerelease 或 Release 文件夹。新文件夹从下次启动起使用
+The Prerelease or Release folder. A new folder is used after a restart	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用
 The CRIG commands have no problems	CRIG 命令没有问题
 These CRIG commands in the trigger Comments have problems:	触发器注释中的这些 CRIG 命令有问题：
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
@@ -2526,17 +2523,17 @@ All	全部
 Unit %d	单位 %d
 Player %d	玩家 %d
 The simulation stopped: %ls	模拟已停止: %ls
-Computers (players %ls)	电脑 (玩家 %ls)
-Computer (player %ls)	电脑 (玩家 %ls)
-Humans (players %ls)	人类 (玩家 %ls)
-Humans (player %ls)	人类 (玩家 %ls)
+Computers (Players %ls)	电脑 (玩家 %ls)
+Computer (Player %ls)	电脑 (玩家 %ls)
+Humans (Players %ls)	人类 (玩家 %ls)
+Human (Player %ls)	人类 (玩家 %ls)
 Force %d	队伍 %d
-%ls (players %ls)	%ls (玩家 %ls)
-%ls (player %ls)	%ls (玩家 %ls)
+%ls (Players %ls)	%ls (玩家 %ls)
+%ls (Player %ls)	%ls (玩家 %ls)
 Player %ls	玩家 %ls
 %ls wins	%ls 获胜
 %ls (the others have only units that cannot attack)	%ls (其余玩家只剩无法攻击的单位)
-%ls of player %d is the last unit standing	%ls，玩家 %d 最后剩下的单位
+%ls of Player %d is the last unit standing	%ls，玩家 %d 最后剩下的单位
 No winner: %d unit is out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
 No winner: %d units are out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
 %ls after %ls game seconds	%ls，共 %ls 游戏秒
@@ -2626,10 +2623,10 @@ Select the StarCraft folder first (Browse, at the top): a new map needs the game
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 需要 StarCraft 的游戏文件才能打开地图。请在开始页面选择 StarCraft 文件夹（浏览）。
 Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面：浏览）：新地图需要游戏文件
 Reset all program settings…	重置所有程序设置…
-Every program setting gets its default value, and StarDraft 2 starts again (a question first)	所有程序设置恢复为默认值，然后 StarDraft 2 重新启动（会先询问）
+Every program setting gets its default value, and StarDraft 2 restarts (a question first)	所有程序设置恢复为默认值，然后 StarDraft 2 重新启动（会先询问）
 Your maps, projects and recent lists stay as they are	您的地图、项目和最近列表保持不变
 Reset all program settings	重置所有程序设置
-Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	所有程序设置将恢复为默认值，StarDraft 2 将重新启动。您的地图、项目和最近列表保持不变。
+Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	所有程序设置将恢复为默认值，StarDraft 2 将重新启动。您的地图、项目和最近列表保持不变。
 &Reset and restart	重置并重新启动(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。
 Rectangle	矩形

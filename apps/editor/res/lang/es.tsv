@@ -77,8 +77,8 @@ Select the StarCraft: Remastered folder. It contains .build.info.	Seleccione la 
 Not a StarCraft: Remastered folder	No es una carpeta de StarCraft: Remastered
 Could not read the game data in this folder:\r\n	No se pudieron leer los datos del juego de esta carpeta:\r\n
 StarCraft folder	Carpeta de StarCraft
-StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2 usará esta carpeta después del próximo inicio:\r\n
-\r\nTo use it now, restart StarDraft 2.	\r\nPara usarla ahora, reinicie StarDraft 2.
+StarDraft 2 uses this folder after a restart:	StarDraft 2 usa esta carpeta después de reiniciar:
+To use it now, restart StarDraft 2.	Para usarla ahora, reinicie StarDraft 2.
 Start	Inicio
 Untitled 	Sin título 
  (project)	 (proyecto)
@@ -975,7 +975,7 @@ Sent the feedback as #	Comentarios enviados como #
 . Thank you.	. Gracias.
 Sent the feedback. Thank you.	Comentarios enviados. Gracias.
 This build cannot send feedback. The feedback is in 	Esta compilación no puede enviar comentarios. Los comentarios están en 
-StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2 no puede enviar los comentarios ahora. Los enviará en el próximo inicio.
+Could not send the feedback now. StarDraft 2 sends it at the next start.	No se pudieron enviar los comentarios ahora. StarDraft 2 los envía en el próximo inicio.
 Minimap	Minimapa
 Density: low	Densidad: baja
 Density: medium	Densidad: media
@@ -1436,8 +1436,8 @@ Select the folder where StarDraft 2 makes new projects	Seleccione la carpeta don
 Documents\\StarDraft	Documents\\StarDraft
 StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 crea los proyectos nuevos en esta carpeta. No mueve un proyecto que abra desde otra carpeta.
 Select the StarCraft: Remastered folder	Seleccione la carpeta de StarCraft: Remastered
-From the next start: 	Desde el próximo inicio: 
-A new folder is used from the next start	Se usará una carpeta nueva desde el próximo inicio
+After a restart: 	Después de reiniciar: 
+A new folder is used after a restart	Se usará una carpeta nueva después de reiniciar
 Program options	Opciones del programa
 Expansion	Expansión
 %s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)	%s: %d casillas construibles, %d campos de minerales (%u minerales en total), %d géiseres (%u de gas en total)
@@ -1633,7 +1633,7 @@ Check for updates	Buscar actualizaciones
 StarDraft 2 is up to date (	StarDraft 2 está actualizado (
 .\n\nThis is not a release build. Open the release page?	.\n\nEsta no es una versión de lanzamiento. ¿Abrir la página de la versión?
 &Open the release page	&Abrir la página de la versión
-.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\n¿Descargarla e instalarla? StarDraft 2 se reinicia después.
+Download and install it, then restart StarDraft 2?	¿Descargarla, instalarla y reiniciar StarDraft 2?
 &Install	&Instalar
 Downloading 	Descargando 
 \n\nThe release page opens: get the zip from there.	\n\nSe abre la página de la versión: obtenga el zip desde allí.
@@ -1818,13 +1818,11 @@ Maps (.scm, .scx) open with StarDraft 2	Los mapas (.scm, .scx) se abren con Star
 Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Puede hacer que StarDraft 2 los abra más tarde en Opciones del programa > Mapas.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserva el programa que eligió para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2.
 Default apps	Aplicaciones predeterminadas
-StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 muestra el nuevo idioma después de reiniciar. ¿Reiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo.
-The language changes when StarDraft 2 starts again	El idioma cambia cuando StarDraft 2 se inicia de nuevo
-StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 no pudo iniciarse de nuevo. Ciérrelo e inícielo para ver el nuevo idioma.
+The new language shows after a restart. Restart now? Your open maps and projects open again.	El nuevo idioma se muestra después de reiniciar. ¿Reiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo.
+Could not restart StarDraft 2. Close it and start it again to show the new language.	No se pudo reiniciar StarDraft 2. Ciérrelo e inícielo de nuevo para ver el nuevo idioma.
 Restart now	Reiniciar ahora
 Start StarDraft 2 again in the new language. Your open maps and projects open again.	Iniciar StarDraft 2 de nuevo en el nuevo idioma. Sus mapas y proyectos abiertos se abren de nuevo.
 The new language shows after a restart	El nuevo idioma se muestra después de reiniciar
-A new language shows after a restart	Un nuevo idioma se muestra después de reiniciar
 Text color	Color del texto
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Con varios tiles seleccionados, el pincel los coloca como están en la lista; mantén Shift para colocarlos al azar.
 . At the next start, StarDraft 2 asks if you want to send the crash report.	. En el próximo inicio, StarDraft 2 le pregunta si quiere enviar el informe de fallo.
@@ -2000,7 +1998,6 @@ Open the Discord server	Abrir el servidor de Discord
 Sending your feedback…	Enviando sus comentarios…
 Thank you for your feedback.	Gracias por sus comentarios.
 Open it on GitHub (#	Abrirlo en GitHub (#
-StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 no pudo enviarlo ahora. Lo envía la próxima vez que StarDraft 2 se inicie.
 Bright yellow (Player 10)	Amarillo brillante (Jugador 10)
 Pink (Player 11)	Rosa (Jugador 11)
 Hidden (the game does not show this text)	Oculto (el juego no muestra este texto)
@@ -2136,7 +2133,7 @@ Open on GitHub	Abrir en GitHub
 Open the release page in the browser	Abrir la página de la versión en el navegador
 Install	Instalar
 Download	Descargar
-Download and install it. StarDraft 2 starts again after it.	Descargarla e instalarla. StarDraft 2 se inicia de nuevo después.
+Download and install it, then restart StarDraft 2	Descargarla e instalarla, y después reiniciar StarDraft 2
 The download opens in the browser	La descarga se abre en el navegador
 This release has no release notes	Esta versión no tiene notas
 Getting the release notes from GitHub…	Obteniendo las notas de la versión de GitHub…
@@ -2465,7 +2462,7 @@ Select the Cosmonarchy BW folder	Seleccione la carpeta de Cosmonarchy BW
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	Esa carpeta no tiene datos de Cosmonarchy BW (mpq\arr\units.datex).
 The Cosmonarchy folder is set	La carpeta de Cosmonarchy está establecida
 The Prerelease or Release folder	La carpeta Prerelease o Release
-The Prerelease or Release folder. A new folder is used from the next start	La carpeta Prerelease o Release. Una carpeta nueva se usa desde el próximo inicio
+The Prerelease or Release folder. A new folder is used after a restart	La carpeta Prerelease o Release. Una carpeta nueva se usa después de reiniciar
 The CRIG commands have no problems	Los comandos CRIG no tienen problemas
 These CRIG commands in the trigger Comments have problems:	Estos comandos CRIG de los comentarios de los disparadores tienen problemas:
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Simulación experimental; puede que aún no coincida del todo con el juego. Es una simulación propia de StarDraft, no el motor del juego.
@@ -2526,17 +2523,17 @@ All	Todos
 Unit %d	Unidad %d
 Player %d	Jugador %d
 The simulation stopped: %ls	La simulación se detuvo: %ls
-Computers (players %ls)	Computadoras (jugadores %ls)
-Computer (player %ls)	Computadora (jugador %ls)
-Humans (players %ls)	Humanos (jugadores %ls)
-Humans (player %ls)	Humanos (jugador %ls)
+Computers (Players %ls)	Computadoras (Jugadores %ls)
+Computer (Player %ls)	Computadora (Jugador %ls)
+Humans (Players %ls)	Humanos (Jugadores %ls)
+Human (Player %ls)	Humano (Jugador %ls)
 Force %d	Fuerza %d
-%ls (players %ls)	%ls (jugadores %ls)
-%ls (player %ls)	%ls (jugador %ls)
+%ls (Players %ls)	%ls (Jugadores %ls)
+%ls (Player %ls)	%ls (Jugador %ls)
 Player %ls	Jugador %ls
 %ls wins	%ls gana
 %ls (the others have only units that cannot attack)	%ls (los demás solo tienen unidades que no pueden atacar)
-%ls of player %d is the last unit standing	%ls, la última unidad en pie del jugador %d
+%ls of Player %d is the last unit standing	%ls, la última unidad en pie del Jugador %d
 No winner: %d unit is out of reach of their enemies	Sin ganador: %d unidad está fuera del alcance de sus enemigos
 No winner: %d units are out of reach of their enemies	Sin ganador: %d unidades están fuera del alcance de sus enemigos
 %ls after %ls game seconds	%ls tras %ls segundos de juego
@@ -2626,10 +2623,10 @@ Select the StarCraft folder first (Browse, at the top): a new map needs the game
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 necesita los archivos del juego StarCraft para abrir un mapa. Elija la carpeta de StarCraft en la página de inicio (Examinar).
 Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	Primero elija la carpeta de StarCraft (la página de inicio: Examinar): un mapa nuevo necesita los archivos del juego
 Reset all program settings…	Restablecer toda la configuración del programa…
-Every program setting gets its default value, and StarDraft 2 starts again (a question first)	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia (primero se pregunta)
+Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia (primero se pregunta)
 Your maps, projects and recent lists stay as they are	Sus mapas, proyectos y listas recientes no cambian
 Reset all program settings	Restablecer toda la configuración del programa
-Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia. Sus mapas, proyectos y listas recientes no cambian.
+Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia. Sus mapas, proyectos y listas recientes no cambian.
 &Reset and restart	&Restablecer y reiniciar
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	La configuración del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos.
 Rectangle	Rectángulo

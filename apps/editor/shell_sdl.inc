@@ -579,7 +579,7 @@ void shellChooseInstallFolder() {
     gInstallNext = dir;
     gOptionsView.invalidate();
     msgbox::ask(*gRoot, shellTr(L"StarCraft folder"),
-                shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                shellTr(L"StarDraft 2 uses this folder after a restart:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
@@ -611,7 +611,7 @@ void shellChooseCmbwFolder() {
     }
     gCmbwNext = in;
     msgbox::ask(*gRoot, shellTr(L"Cosmonarchy folder"),
-                shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                shellTr(L"StarDraft 2 uses this folder after a restart:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
 }

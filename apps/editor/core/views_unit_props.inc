@@ -16,7 +16,7 @@ const wchar_t* const kUnitStateNames[5] = {L"Cloaked", L"Burrowed", L"Lifted", L
 const wchar_t* const kModStateNames[5] = {L"AI layout", L"Resource area", L"Only for its race", L"Layout only (AI)", L"Main town (AI)"};
 const wchar_t* const kModStateTips[5] = {
     L"Cloaked: the computer player uses the unit as a layout (where to build or guard); the unit is not made",
-    L"Burrowed: on a resource of player 12, the Hit points field is the number of its resource area",
+    L"Burrowed: on a resource of Player 12, the Hit points field is the number of its resource area",
     L"Lifted: the unit is made only when its owner plays its race",
     L"Hallucinated: the computer player keeps the layout but does not ask for the unit",
     L"Invincible: the computer player's layout belongs to its main town"};

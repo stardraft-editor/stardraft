@@ -152,7 +152,7 @@ bool restartProcessSdl() {
 }
 void restartProgramSdl() {
     confirmQuit([] {
-        if (!restartProcessSdl()) setMessage(L"StarDraft 2 could not start again. Close it and start it to show the new language.");
+        if (!restartProcessSdl()) setMessage(L"Could not restart StarDraft 2. Close it and start it again to show the new language.");
     });
 }
 
@@ -162,7 +162,7 @@ void restartProgramSdl() {
 void resetSettingsSdl() {
     if (!gRoot || gNoBoxes) return;
     if (msgbox::ask(*gRoot, shellTr(L"Reset all program settings"),
-                    shellTr(L"Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are."),
+                    shellTr(L"Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are."),
                     {shellTr(L"&Reset and restart"), shellTr(L"Cancel")}, msgbox::Icon::Warning) != 0)
         return;
     confirmQuit([] {
@@ -237,10 +237,10 @@ bool sdlOptionsCommand(int id) {
         gOptionsView.invalidate();  // its Restart now button
         // (the core message box, as the Windows program's MB_YESNO | MB_ICONQUESTION: Yes has the focus)
         if (gRoot && !gNoBoxes &&
-            msgbox::ask(*gRoot, shellTr(L"Language"), shellTr(L"StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again."),
+            msgbox::ask(*gRoot, shellTr(L"Language"), shellTr(L"The new language shows after a restart. Restart now? Your open maps and projects open again."),
                         {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
             restartProgramSdl();
-        else setMessage(L"The language changes when StarDraft 2 starts again");
+        else setMessage(L"The new language shows after a restart");
         break;
     }
     gOptionsView.invalidate();

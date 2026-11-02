@@ -74,8 +74,8 @@ Select the StarCraft: Remastered folder. It contains .build.info.	Выберит
 Not a StarCraft: Remastered folder	Это не папка StarCraft: Remastered
 Could not read the game data in this folder:\r\n	Не удалось прочитать данные игры в этой папке:\r\n
 StarCraft folder	Папка StarCraft
-StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2 будет использовать эту папку после следующего запуска:\r\n
-\r\nTo use it now, restart StarDraft 2.	\r\nЧтобы использовать её сейчас, перезапустите StarDraft 2.
+StarDraft 2 uses this folder after a restart:	StarDraft 2 использует эту папку после перезапуска:
+To use it now, restart StarDraft 2.	Чтобы использовать её сейчас, перезапустите StarDraft 2.
 Start	Запуск
 Untitled 	Без названия 
  (project)	 (проект)
@@ -938,7 +938,7 @@ Sent the feedback as #	Отзыв отправлен как #
 . Thank you.	. Спасибо.
 Sent the feedback. Thank you.	Отзыв отправлен. Спасибо.
 This build cannot send feedback. The feedback is in 	Эта сборка не может отправлять отзывы. Отзыв находится в 
-StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2 сейчас не может отправить отзыв. Он будет отправлен при следующем запуске.
+Could not send the feedback now. StarDraft 2 sends it at the next start.	Не удалось отправить отзыв сейчас. StarDraft 2 отправит его при следующем запуске.
 Minimap	Миникарта
 Density: low	Плотность: низкая
 Density: medium	Плотность: средняя
@@ -1351,8 +1351,8 @@ The working folder: where new projects go	Рабочая папка: где со
 New projects go to 	Новые проекты сохраняются в 
 Documents\\StarDraft	Documents\\StarDraft
 Select the StarCraft: Remastered folder	Выберите папку StarCraft: Remastered
-From the next start: 	Начиная со следующего запуска: 
-A new folder is used from the next start	Новая папка используется со следующего запуска
+After a restart: 	После перезапуска: 
+A new folder is used after a restart	Новая папка используется после перезапуска
 Program options	Параметры программы
 Expansion	Дополнение
 Ground path from %s to %s: %.0f tiles (for a %hs)	Наземный путь от %s до %s: %.0f клеток (размер: %hs)
@@ -1527,7 +1527,7 @@ Check for updates	Проверить обновления
 StarDraft 2 is up to date (	У StarDraft 2 установлена последняя версия (
 .\n\nThis is not a release build. Open the release page?	.\n\nЭто не релизная сборка. Открыть страницу релиза?
 &Open the release page	&Открыть страницу релиза
-.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\nСкачать и установить? После этого StarDraft 2 запустится снова.
+Download and install it, then restart StarDraft 2?	Скачать, установить и перезапустить StarDraft 2?
 &Install	&Установить
 Downloading 	Скачивание 
 \n\nThe release page opens: get the zip from there.	\n\nОткроется страница релиза: скачайте zip-архив оттуда.
@@ -1707,13 +1707,11 @@ Make StarDraft 2 the program that opens .scm and .scx maps	Сделать StarDr
 Maps (.scm, .scx) open with StarDraft 2	Карты (.scm, .scx) открываются в StarDraft 2
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows сохраняет программу, которую вы выбрали для карт .scm или .scx. В разделе «Приложения по умолчанию» найдите .scm и .scx и выберите StarDraft 2.
 Default apps	Приложения по умолчанию
-StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 покажет новый язык после перезапуска. Перезапустить сейчас? Открытые карты и проекты откроются снова.
-The language changes when StarDraft 2 starts again	Язык меняется при следующем запуске StarDraft 2
-StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 не смог запуститься снова. Закройте его и запустите, чтобы показать новый язык.
+The new language shows after a restart. Restart now? Your open maps and projects open again.	Новый язык отображается после перезапуска. Перезапустить сейчас? Открытые карты и проекты откроются снова.
+Could not restart StarDraft 2. Close it and start it again to show the new language.	Не удалось перезапустить StarDraft 2. Закройте его и запустите снова, чтобы показать новый язык.
 Restart now	Перезапустить сейчас
 Start StarDraft 2 again in the new language. Your open maps and projects open again.	Запустить StarDraft 2 снова на новом языке. Открытые карты и проекты откроются снова.
 The new language shows after a restart	Новый язык отображается после перезапуска
-A new language shows after a restart	Новый язык отображается после перезапуска
 Text color	Цвет текста
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПри первой сборке StarDraft 2 загружает euddraft с GitHub в свою папку.\r\nStarDraft 2 не меняет другие копии на этом компьютере. Открытая карта\r\nостаётся обычной картой. Собрать можно только проект.
  accepts the current player or Player 1 to Player 12	 принимает текущего игрока или игроков с 1 по 12
@@ -2001,7 +1999,6 @@ Open the Discord server	Открыть сервер Discord
 Sending your feedback…	Отправка отзыва…
 Thank you for your feedback.	Спасибо за отзыв.
 Open it on GitHub (#	Открыть на GitHub (#
-StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 не смог отправить отзыв сейчас. Он отправит его при следующем запуске StarDraft 2.
 Bright yellow (Player 10)	Ярко-жёлтый (Игрок 10)
 Pink (Player 11)	Розовый (Игрок 11)
 Hidden (the game does not show this text)	Скрыто (игра не показывает этот текст)
@@ -2136,7 +2133,7 @@ Open on GitHub	Открыть на GitHub
 Open the release page in the browser	Открыть страницу выпуска в браузере
 Install	Установить
 Download	Скачать
-Download and install it. StarDraft 2 starts again after it.	Скачать и установить. После этого StarDraft 2 запустится снова.
+Download and install it, then restart StarDraft 2	Скачать и установить, затем перезапустить StarDraft 2
 The download opens in the browser	Загрузка откроется в браузере
 This release has no release notes	У этого выпуска нет примечаний
 Getting the release notes from GitHub…	Получение примечаний к выпуску с GitHub…
@@ -2465,7 +2462,7 @@ Select the Cosmonarchy BW folder	Выберите папку Cosmonarchy BW
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	В этой папке нет данных Cosmonarchy BW (mpq\arr\units.datex).
 The Cosmonarchy folder is set	Папка Cosmonarchy задана
 The Prerelease or Release folder	Папка Prerelease или Release
-The Prerelease or Release folder. A new folder is used from the next start	Папка Prerelease или Release. Новая папка используется со следующего запуска
+The Prerelease or Release folder. A new folder is used after a restart	Папка Prerelease или Release. Новая папка используется после перезапуска
 The CRIG commands have no problems	В командах CRIG нет проблем
 These CRIG commands in the trigger Comments have problems:	Эти команды CRIG в комментариях триггеров содержат проблемы:
 Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Экспериментальное моделирование, пока может не полностью совпадать с игрой. Это собственная симуляция StarDraft, а не движок игры.
@@ -2526,17 +2523,17 @@ All	Все
 Unit %d	Юнит %d
 Player %d	Игрок %d
 The simulation stopped: %ls	Моделирование остановлено: %ls
-Computers (players %ls)	Компьютеры (игроки %ls)
-Computer (player %ls)	Компьютер (игрок %ls)
-Humans (players %ls)	Люди (игроки %ls)
-Humans (player %ls)	Люди (игрок %ls)
+Computers (Players %ls)	Компьютеры (Игроки %ls)
+Computer (Player %ls)	Компьютер (Игрок %ls)
+Humans (Players %ls)	Люди (Игроки %ls)
+Human (Player %ls)	Человек (Игрок %ls)
 Force %d	Команда %d
-%ls (players %ls)	%ls (игроки %ls)
-%ls (player %ls)	%ls (игрок %ls)
+%ls (Players %ls)	%ls (Игроки %ls)
+%ls (Player %ls)	%ls (Игрок %ls)
 Player %ls	Игрок %ls
 %ls wins	%ls побеждает
 %ls (the others have only units that cannot attack)	%ls (остальные имеют только юниты, которые не могут атаковать)
-%ls of player %d is the last unit standing	%ls, последний уцелевший юнит игрока %d
+%ls of Player %d is the last unit standing	%ls, последний уцелевший юнит Игрока %d
 No winner: %d unit is out of reach of their enemies	Победителя нет: %d юнит вне досягаемости врагов
 No winner: %d units are out of reach of their enemies	Победителя нет: %d юнитов вне досягаемости врагов
 %ls after %ls game seconds	%ls, за %ls игровых секунд
@@ -2626,10 +2623,10 @@ Select the StarCraft folder first (Browse, at the top): a new map needs the game
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	Чтобы открыть карту, StarDraft 2 нужны файлы игры StarCraft. Выберите папку StarCraft на начальной странице (Обзор).
 Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	Сначала выберите папку StarCraft (начальная страница: Обзор): для новой карты нужны файлы игры
 Reset all program settings…	Сбросить все настройки программы…
-Every program setting gets its default value, and StarDraft 2 starts again (a question first)	Все настройки программы получают значения по умолчанию, и StarDraft 2 перезапускается (сначала с вопросом)
+Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Все настройки программы получают значения по умолчанию, и StarDraft 2 перезапускается (сначала с вопросом)
 Your maps, projects and recent lists stay as they are	Ваши карты, проекты и списки недавних файлов не меняются
 Reset all program settings	Сброс всех настроек программы
-Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	Все настройки программы получат значения по умолчанию, и StarDraft 2 перезапустится. Ваши карты, проекты и списки недавних файлов не изменятся.
+Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	Все настройки программы получат значения по умолчанию, и StarDraft 2 перезапустится. Ваши карты, проекты и списки недавних файлов не изменятся.
 &Reset and restart	&Сбросить и перезапустить
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	Настройки программы сброшены к значениям по умолчанию. Закройте StarDraft 2 и запустите снова, чтобы их применить.
 Rectangle	Прямоугольник

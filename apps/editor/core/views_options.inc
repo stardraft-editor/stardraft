@@ -227,7 +227,7 @@ public:
         add(bar_, {0, 0, 0, 0});
         bar_.setVisible(false);
         reset_.setText(L"Reset all program settings\x2026"), reset_.setTone(stardraft::kit::Tone::Danger);
-        reset_.setTip(L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)");
+        reset_.setTip(L"Every program setting gets its default value, and StarDraft 2 restarts (a question first)");
         reset_.onClick = [this] { host_.command(ID_OPT_RESETALL); };
         maps_.setText(L"Open maps with StarDraft 2"), maps_.setTip(L"Make StarDraft 2 the program that opens .scm and .scx maps");
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
@@ -587,7 +587,7 @@ void OptionsView::paint(draw::Canvas& c) {
             smallAt(restart_, x, y, "restart");
         }
         y += rowH;
-        note(fx, y - scale(4), v.restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
+        note(fx, y - scale(4), L"The new language shows after a restart");
         y += scale(20);
         // The accent: the swatches (a ring around the chosen one and the one under the mouse).
         label(L"Accent color");
@@ -712,7 +712,7 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["install"] = {colRight - bw, by, colRight, by + btnH};
         y += rowH;
         note(x0, y - scale(4),
-             !v.installNext.empty() ? L"From the next start: " + v.installNext : std::wstring(L"A new folder is used from the next start"));
+             !v.installNext.empty() ? L"After a restart: " + v.installNext : std::wstring(L"A new folder is used after a restart"));
         y += scale(20) + pad;
     }
 
@@ -777,8 +777,8 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["cmbwfolder"] = {colRight - cw, cy, colRight, cy + btnH};
         y += rowH;
         note(fx, y - scale(4),
-             !v.cmbwNext.empty() ? L"From the next start: " + v.cmbwNext
-             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used from the next start")
+             !v.cmbwNext.empty() ? L"After a restart: " + v.cmbwNext
+             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart")
                                  : std::wstring(L"The Prerelease or Release folder"));
         y += scale(20);
         // ISOM terrain rules override: a terrain rules file over the built-in rules (the maps opened from then on).

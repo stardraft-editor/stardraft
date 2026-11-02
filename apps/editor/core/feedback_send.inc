@@ -137,7 +137,7 @@ void feedbackSentResult(bool sent) {
         }
     } else {
         setMessage(issueToken().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
-                                        : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
+                                        : L"Could not send the feedback now. StarDraft 2 sends it at the next start.");
     }
     if (sent) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
 }

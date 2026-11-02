@@ -95,7 +95,7 @@ void sdlCheckForUpdates() {
             openReleasePage(r);
         return;
     }
-    if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download and install it? StarDraft 2 starts again after it."),
+    if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download and install it, then restart StarDraft 2?"),
                    {shellTr(L"&Install"), shellTr(L"Cancel")}, msgbox::Icon::Question) != 0)
         return;
     sdlInstallUpdate(r);
@@ -230,7 +230,7 @@ void sdlChangelogShow(const releases::Release& r, bool kept) {
     using releases::UpdateWay;
     std::wstring label, tip, note;
     switch (sdlUpdateWay(r)) {
-    case UpdateWay::Install: label = L"Install", tip = tr(L"Download and install it. StarDraft 2 starts again after it."); break;
+    case UpdateWay::Install: label = L"Install", tip = tr(L"Download and install it, then restart StarDraft 2"); break;
     case UpdateWay::Download: label = L"Download", tip = tr(L"The download opens in the browser"); break;
     case UpdateWay::Package: note = tr(L"Update StarDraft 2 in your software center."); break;
     default: break;
