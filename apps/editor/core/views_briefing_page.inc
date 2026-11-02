@@ -541,7 +541,7 @@ private:
     }
     // A group's name over the side panel's parts, in the small font. Returns the y under it.
     int sideGroup(draw::Canvas& c, int x, int y, int w, const std::wstring& name) {
-        const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));
+        const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
         c.text({x, y, x + w, y + scale(15)}, name, kDim, draw::kMiddle | draw::kEllipsis);
         c.setFont(of);
         return y + scale(18);

@@ -35,5 +35,5 @@ struct StubView final : stardraft::draw::View {
         c.setFont(old);
     }
     // The title's font height: the UI font's, at 3/2 (the old stub's big font).
-    static int titleHeight() { return -(shellUiFontLfHeight() * 3 / 2); }
+    static int titleHeight() { return kitpaint::titleFontDesc().px; }
 };

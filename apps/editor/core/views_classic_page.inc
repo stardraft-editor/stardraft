@@ -1195,7 +1195,7 @@ public:
         std::function<void(int param, int dir)> step;  // the wheel over a value's field (ctStepValue)
     };
     explicit CtEditorView(Callbacks cb) : cb_(std::move(cb)) {
-        title.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});  // the page's title font (ui::titleFont)
+        title.setFont(kitpaint::titleFontDesc());  // the page's title font (ui::titleFont)
         type.onChange = [this](int i) {
             if (cb_.type && i >= 0 && i < int(types_.size())) cb_.type(types_[size_t(i)]);
         };

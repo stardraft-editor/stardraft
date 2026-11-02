@@ -1355,7 +1355,7 @@ public:
           deleteTrig(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Delete)), stardraft::kit::IconStyle::Bare, L"Delete the trigger", std::move(cb.deleteTrig),
                      stardraft::kit::Tone::Danger),
           comment(L"", std::move(cb.comment), stardraft::kit::Tone::Quiet) {
-        title.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});  // the page's title font (ui::titleFont: 1.5 times the UI size)
+        title.setFont(kitpaint::titleFontDesc());  // the page's title font (ui::titleFont: 1.5 times the UI size)
         title.setText(L"None");
         count.setTone(stardraft::kit::LabelTone::Dim);  // the old count was the dim static (kCtDim)
         players.onOpen = std::move(cb.players);

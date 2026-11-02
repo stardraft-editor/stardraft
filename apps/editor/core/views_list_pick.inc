@@ -394,7 +394,7 @@ private:
             return;
         }
         if (idx < 0) {
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));  // (ui::smallFont)
+            const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));  // (ui::smallFont)
             c.text({r.left + scale(10), r.top + scale(6), r.right - scale(10), r.bottom}, rows_.headings[size_t(-idx - 1)], kDim, draw::kMiddle | draw::kEllipsis);
             c.setFont(of);
             return;

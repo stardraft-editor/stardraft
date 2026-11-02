@@ -430,7 +430,7 @@ public:
         // The search row: the icon, the count of results at the right, the line under it.
         const int is = scale(kIcon);
         c.icon({sr_.left, (sr_.top + sr_.bottom - is) / 2, sr_.left + is, (sr_.top + sr_.bottom + is) / 2}, int(UiIcon::Search), kDim, is);
-        const draw::Font of = c.setFont(smallFont(c));
+        const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
         const std::wstring count = std::to_wstring(shown_.size()) + (shown_.size() >= 400 ? L"+" : L"");
         c.text({sr_.right - scale(80), sr_.top, sr_.right, sr_.bottom}, count, kDim, draw::kRight | draw::kMiddle);
         if (pictures()) {  // (the view: List, Grid, the size)
@@ -466,7 +466,6 @@ public:
     }
 
 private:
-    static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
     // The rows' and the field's font: the UI font, a quarter larger.
     static int quickFontPx() { return -(shellUiFontLfHeight() * 5 / 4); }
 
@@ -521,7 +520,7 @@ private:
         const draw::Rect box{r.left + scale(6), r.top + scale(4), r.left + scale(6) + pic, r.top + scale(4) + pic};
         if (!(mode_ != Mode::Locations && host_->drawPicture(c, kind_, mode_, u, box)))
             c.icon(box, int(mode_ == Mode::Locations ? UiIcon::Locations : UiIcon::Units), kFaint, scale(20));
-        const draw::Font of = c.setFont(smallFont(c));
+        const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
         c.text({r.left + scale(3), box.bottom + scale(2), r.right - scale(3), r.bottom - scale(2)}, u.label, u.mark & kQuickMarkGray ? kFaint : kText,
                draw::kCenter | draw::kMiddle | draw::kEllipsis);
         c.setFont(of);
@@ -609,7 +608,7 @@ private:
         if (nameH != lineHeight_) lineHeight_ = nameH, layoutField();  // (the field's height follows the font)
         textRuns(c, u.label, x, mid - nameH + scale(2), u.mark & kQuickMarkGray ? kFaint : kText);  // (gray: it cannot run now)
         // The group, under the name (the typed words found in it in the accent too: "zerg spec").
-        c.setFont(smallFont(c));
+        c.setFont(c.font(kitpaint::smallFontDesc()));
         textRuns(c, u.section, x, mid + scale(2), kDim);
         c.setFont(of);
         c.popClip();

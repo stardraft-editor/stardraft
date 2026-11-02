@@ -319,7 +319,7 @@ public:
         const int w = width(), h = height(), pad = scale(stardraft::kit::kDialogPad);
         c.fill({0, 0, w, h}, kPanel);
         draw::FontDesc td;
-        td.px = -shellUiFontLfHeight() * 3 / 2, td.weight = 600;
+        td = kitpaint::titleFontDesc(), td.weight = 600;
         const draw::Font of = c.setFont(c.font(td));
         c.text({pad, pad, w - pad, pad + scale(30)}, title_, kText, draw::kMiddle | draw::kEllipsis);
         c.setFont(c.font({}));

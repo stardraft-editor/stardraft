@@ -64,7 +64,7 @@ public:
         // The header: the page's title; the tabs under it.
         const std::wstring title = host_.title();
         if (!title.empty()) {
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+            const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
             c.text({pad, 0, width() - pad, scale(56)}, title, kText, draw::kMiddle | draw::kEllipsis);
             c.setFont(of);
         }

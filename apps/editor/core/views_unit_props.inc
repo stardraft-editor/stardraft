@@ -336,7 +336,7 @@ public:
         const draw::Rect pic{rightPx, scale(kPad), rightPx + scale(kIcon), scale(kPad + kIcon)};
         if (icon_) c.fitted(icon_, pic);
         else if (paintIcon) paintIcon(c, pic);  // (a host whose pictures are its own pixels: the SDL program)
-        const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+        const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
         c.text({rightPx + scale(kTextX), scale(kNameY), scale(2000), scale(kNameB)}, unitDisplayName(first_.type), kText, draw::kLeft);
         c.setFont(of);
         const std::wstring sub = count_ > 1 ? std::to_wstring(count_) + tr(L" units selected. Changes apply to all of them.")

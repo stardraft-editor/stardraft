@@ -191,7 +191,7 @@ void sdlPaintStringsForm(draw::Canvas& c, int& y) {
         c.roundBox(pb, draw::kNone, draw::rgb(60, 64, 70), float(scale(4)));
         drawGameText(c, {pb.left + scale(10), pb.top + scale(8), pb.right - scale(10), pb.bottom}, previewRaw, draw::rgb(208, 208, 208));
         {  // which box is which: this one is the game's look (in the small font)
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));
+            const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
             c.text({pb.left + scale(10), pb.bottom - scale(18), pb.right - scale(8), pb.bottom - scale(3)}, L"Game preview", draw::rgb(120, 124, 130),
                    draw::kMiddle | draw::kRight);
             c.setFont(of);

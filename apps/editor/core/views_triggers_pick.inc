@@ -278,7 +278,7 @@ private:
         const std::wstring name = cn.empty() ? L"Everything" : cn == kRecentCategory ? L"Recent" : widen(cn);
         c.text(r, name, s.selected ? kAccent : kText, draw::kLeft | draw::kMiddle);
         if (cn != kRecentCategory) {  // how many blocks it has, small and dim at the right
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));
+            const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
             c.text(r, std::to_wstring(counts_[size_t(i)]), kDim, draw::kRight | draw::kMiddle);
             c.setFont(of);
         }

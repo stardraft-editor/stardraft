@@ -194,12 +194,12 @@ public:
             c.icon({card.left + inPad, card.top + inPad, card.left + inPad + iconS, card.top + inPad + iconS}, int(k == 3 && cmbwCard ? UiIcon::Map : icons[k]), enabled ? kAccent : kFaint, iconS);
             int ty = card.top + inPad + iconS + scale(12);
             {
-                const draw::Font of = c.setFont(titleFont(c));
+                const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
                 c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, cardName(k), enabled ? kText : kFaint, kMiddle | kEllipsis);
                 c.setFont(of);
             }
             if (soon) {  // the "Coming later" mark, at the top right
-                const draw::Font of = c.setFont(smallFont(c));
+                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
                 const int lw = c.measure(L"Coming later") + scale(16), lh = scale(20);
                 const Rect mark{card.right - inPad - lw, card.top + inPad, card.right - inPad, card.top + inPad + lh};
                 c.roundBox(mark, kChipDim, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
@@ -464,9 +464,6 @@ private:
         return h;
     }
 
-    // The title's font (the UI font at 3/2 of its height) and the small font (at 5/6), as the Windows program has them.
-    static draw::Font titleFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}); }
-    static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
 
     StartButton open_;              // (set up in the constructor; it never takes the keyboard)
     StartBrowse browse_;            // the banner's Browse (shown with the banner; a Tab stop)

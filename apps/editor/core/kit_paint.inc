@@ -28,6 +28,20 @@ inline draw::Rect square(draw::Rect r) {
     return {x, y, x + s, y + s};
 }
 
+// --- Small text and titles ----------------------------------------------------------------------------------------
+// The small font: the UI font at 5/6 of its height (captions, table headers, the side bar's groups).
+inline draw::FontDesc smallFontDesc() {
+    draw::FontDesc d;
+    d.px = -(shellUiFontLfHeight() * 5 / 6);
+    return d;
+}
+// The title font: the UI font at 3/2 of its height (a page's or a form's title).
+inline draw::FontDesc titleFontDesc() {
+    draw::FontDesc d;
+    d.px = -(shellUiFontLfHeight() * 3 / 2);
+    return d;
+}
+
 // --- Buttons ------------------------------------------------------------------------------------------------------
 // A button's state: resting, under the mouse, pressed, or not available.
 enum class ButtonState { Normal, Hot, Down, Disabled };
@@ -200,7 +214,7 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
         c.icon({x, y, x + scale(40), y + scale(40)}, int(kind), kDim, scale(32));
         tx += scale(52);
     }
-    const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+    const draw::Font of = c.setFont(c.font(titleFontDesc()));
     c.text({tx, y, right, y + scale(26)}, text.empty() ? L"(empty)" : text, kText, draw::kMiddle | draw::kEllipsis);
     c.setFont(of);
     TitleLayout t;
@@ -214,20 +228,6 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
     c.text(t.line, t.lineText, kDim, draw::kMiddle);
     t.next = y + scale(56);
     return t;
-}
-
-// --- Small text and titles ----------------------------------------------------------------------------------------
-// The small font: the UI font at 5/6 of its height (captions, table headers, the side bar's groups).
-inline draw::FontDesc smallFontDesc() {
-    draw::FontDesc d;
-    d.px = -(shellUiFontLfHeight() * 5 / 6);
-    return d;
-}
-// The title font: the UI font at 3/2 of its height (a page's or a form's title).
-inline draw::FontDesc titleFontDesc() {
-    draw::FontDesc d;
-    d.px = -(shellUiFontLfHeight() * 3 / 2);
-    return d;
 }
 
 // --- Buttons, chips and rows (the trigger pane, the briefing; ui_kit.inc's faces call these) ----------------------

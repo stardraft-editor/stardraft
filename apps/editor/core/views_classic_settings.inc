@@ -570,7 +570,7 @@ public:
             scrollToRow_ = -1;
         }
         // The title (the page's title font), and the rename button after its text.
-        const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+        const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
         c.text({l.x0, l.pad, l.right, l.pad + l.titleH}, title(), kText, draw::kEllipsis);
         if (renameShown()) {
             const int bs = scale(26), tw = c.measure(title());

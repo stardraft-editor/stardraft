@@ -544,7 +544,7 @@ private:
                 c.roundBox({rr.left + scale(2), rr.top + scale(1), rr.right - scale(2), rr.bottom - scale(1)}, kSel, kSel, float(scale(6)));
             const draw::Rect r{rr.left + scale(10), rr.top, rr.right - scale(10), rr.bottom};
             if (row.kind == ValueSuggestion::Kind::Heading) {
-                const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));  // (ui::smallFont)
+                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));  // (ui::smallFont)
                 c.text({r.left, r.top + scale(6), r.right, r.bottom}, row.name, kDim, draw::kMiddle);
                 c.setFont(of);
                 continue;

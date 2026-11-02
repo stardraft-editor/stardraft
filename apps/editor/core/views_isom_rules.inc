@@ -3723,7 +3723,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 const int x = ox + int(float(i % size_t(crop_.width())) * ts), y = oy + int(float(i / size_t(crop_.width())) * ts);
                 const uint16_t v = ids_[i];
                 const std::wstring text = v == kNullId ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15);
-                const draw::Font big = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+                const draw::Font big = c.setFont(c.font(kitpaint::titleFontDesc()));
                 const int tw = c.measure(text) + scale(16), th = scale(30), cx = x + int(ts) / 2;
                 int ty = y - th - scale(4);
                 if (ty < puzzle_.top) ty = y + int(ts) + scale(4);
