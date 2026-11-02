@@ -16,7 +16,6 @@ Brush	Кисть
 Spray	Спрей
 Fill	Заливка
 Replace (click terrain)	Замена (клик по местности)
-Select / copy	Выбор / копирование
 Place / select	Размещение / выбор
 Replace (click unit)	Замена (клик по юниту)
 Place	Размещение
@@ -202,13 +201,12 @@ snap to half tiles (16 px)	привязка к половине тайла (16 p
 snap to quarter tiles (8 px)	привязка к четверти тайла (8 px)
 Grid: 	Сетка: 
 Copied 	Скопировано 
-First, select an area with the Select tool	Сначала выделите область инструментом «Выделение»
+Select an area with the Select tool first	Сначала выделите область инструментом «Выбор»
 Copied the terrain selection	Выделенная местность скопирована
-First, select an area with the Select / copy tool	Сначала выделите область инструментом «Выделение / копирование»
-First, select doodads	Сначала выберите декорации
-First, select sprites	Сначала выберите спрайты
+Select doodads first	Сначала выберите декорации
+Select sprites first	Сначала выберите спрайты
 Copied the location	Локация скопирована
-First, select a location	Сначала выберите локацию
+Select a location first	Сначала выберите локацию
 Nothing to cut there: make the selection larger	Здесь нечего вырезать: увеличьте выделение
 Cut the terrain: 	Рельеф вырезан: 
  null tiles in its place (one undo step)	 null-тайлов на его месте (один шаг отмены)
@@ -971,7 +969,7 @@ Close	Закрыть
 About StarDraft 2	О программе StarDraft 2
 Force 	Группа 
 Nobody	Никто
-First, select the players of the briefing	Сначала выберите игроков брифинга
+Select the players of the briefing first	Сначала выберите игроков брифинга
 No action	Нет действия
 Wait	Пауза
 Play sound	Воспроизвести звук
@@ -1766,7 +1764,7 @@ Project settings need a project. Use File > Project > New EUD project or Open pr
 epScript (*.eps)*.epseudplib Python (*.py)*.py	epScript (*.eps)*.epseudplib Python (*.py)*.py
 StarDraft 2 project (*.stardraft)*.stardraft	Проект StarDraft 2 (*.stardraft)*.stardraft
 Could not create the location: all location slots are in use	Не удалось создать локацию: все слоты для локаций заняты
-Nothing copied: select terrain with the Select / copy tool and press Ctrl+C	Ничего не скопировано: выберите местность инструментом «Выбор / копирование» и нажмите Ctrl+C
+Nothing copied: select terrain with the Select tool and press Ctrl+C	Ничего не скопировано: выберите местность инструментом «Выбор» и нажмите Ctrl+C
 StarDraft 2 project (*.stardraft;*.eds)*.stardraft;*.eds	Проект StarDraft 2 (*.stardraft;*.eds)*.stardraft;*.eds
 Replace: select the new type in the list. Then click a unit. All units of the clicked unit's type change to the new type. If the clicked unit is one of several selected units, only the selected units of that type change.	Замена: выберите новый тип в списке. Затем щёлкните юнит. Все юниты того же типа, что и щёлкнутый юнит, меняют тип на новый. Если щёлкнутый юнит — один из нескольких выбранных юнитов, меняются только выбранные юниты этого типа.
 Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area.	Местность выбрана. Нажмите Ctrl+C, чтобы скопировать её. Замена меняет только выделенную область.
@@ -1782,14 +1780,14 @@ Variables, and triggers that a Run a trigger block runs	Переменные и 
 Build puts this code into generated\\triggers.eps unchanged.	«Сборка» помещает этот код в generated\\triggers.eps без изменений.
 The game calculates this value while it runs	Игра вычисляет это значение во время работы
 0 means all that match the other values	0 означает все, которые совпадают с другими значениями
-First, select the list. Then the index can be 0 to the number of items minus 1.	Сначала выберите список. Затем индекс может быть от 0 до числа элементов минус 1.
+Select the list first. Then the index can be 0 to the number of items minus 1.	Сначала выберите список. Затем индекс может быть от 0 до числа элементов минус 1.
 Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.	Каждая текстовая переменная резервирует в карте место под столько символов. Более длинный текст перезаписывает другие данные карты.
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.	Выбор: перетащите прямоугольник тайлов, чтобы скопировать (Ctrl+C). Esc возвращает к инструменту «Выбор».
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	Выбор: перетащите прямоугольник тайлов, чтобы скопировать (Ctrl+C). Esc возвращает к инструменту «Выбор».
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	Распыление: ставит тайл в случайных местах в области кисти (Плотность). Удерживайте кнопку, чтобы распылить больше.
 Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	Выбор: перетащите прямоугольник местности, чтобы скопировать (Ctrl+C) или переместить. Esc возвращает к инструменту «Выбор».
 Select units: click or drag a box; drag them to move. Esc returns to the Select tool.	Выбор юнитов: щёлкните или перетащите рамку; перетащите юниты, чтобы переместить их. Esc возвращает к инструменту «Выбор».
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	Выбор декорации: щёлкните её; перетащите, чтобы переместить. Esc возвращает к инструменту «Выбор».
-Select a sprite: click it; drag it to move. Esc goes to Select.	Выбор спрайта: щёлкните его; перетащите, чтобы переместить. Esc возвращает к инструменту «Выбор».
+Select a sprite: click it; drag it to move. Esc returns to the Select tool.	Выбор спрайта: щёлкните его; перетащите, чтобы переместить. Esc возвращает к инструменту «Выбор».
 Debug mode off: Build does not add index checks or the trace for epTrace	Режим отладки выключен: «Собрать» не добавляет проверки индексов и трассировку для epTrace
 &Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)…\tQ	&Быстрый выбор (юниты, местность, декорации, спрайты или локации текущего режима; в разделе «Данные» — любая запись)…\tQ
 Test	Тест
@@ -2619,9 +2617,8 @@ Turn &off all overlays	&Выключить все наложения
 All overlays are hidden	Все наложения скрыты
 Terrain &pie palette	&Круговая палитра местности
 The pie palette has no terrains for this tileset	В круговой палитре нет местности для этого набора тайлов
-Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	Сначала выберите папку StarCraft (Обзор, вверху): для новой карты нужны файлы игры
+Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Сначала выберите папку StarCraft (Обзор, на начальной странице): для новой карты нужны файлы игры
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	Чтобы открыть карту, StarDraft 2 нужны файлы игры StarCraft. Выберите папку StarCraft на начальной странице (Обзор).
-Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	Сначала выберите папку StarCraft (начальная страница: Обзор): для новой карты нужны файлы игры
 Reset all program settings…	Сбросить все настройки программы…
 Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Все настройки программы получают значения по умолчанию, и StarDraft 2 перезапускается (сначала с вопросом)
 Your maps, projects and recent lists stay as they are	Ваши карты, проекты и списки недавних файлов не меняются

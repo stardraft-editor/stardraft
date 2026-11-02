@@ -218,7 +218,7 @@ public:
             } else {
                 hits_.push_back({card, nullptr,
                                  !soon ? (cosmonarchyOnly ? L"Select the Cosmonarchy BW folder first (Options > Program options > Plugins)"
-                                                          : L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files")
+                                                          : L"Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files")
                                  : k == 2 ? L"Campaign projects come in a later version"
                                           : L"Mod projects come in a later version",
                                  Cursor::No});

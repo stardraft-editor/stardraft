@@ -229,7 +229,7 @@ bool shapeHasPick() {
     }
     tilesFresh();
     if (tilesHavePick()) return true;
-    setMessage(gTiles->stamps  ? L"First, select custom terrain in the Custom list"
+    setMessage(gTiles->stamps  ? L"Select custom terrain in the Custom list first"
                : gTiles->solid ? L"Select a terrain in the list first"
                                : L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
     return false;

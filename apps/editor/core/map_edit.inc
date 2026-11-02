@@ -274,7 +274,7 @@ void deleteSelectedLocations() {
     AppState& app = appState();
     Editor& ed = *app.ed;
     const std::vector<int> locs = ed.selectedLocations();
-    if (locs.empty()) return setMessage(L"First, select a location");
+    if (locs.empty()) return setMessage(L"Select a location first");
     const std::wstring what = locationsText(ed, locs);
     ed.beginStroke();
     for (int l : locs) ed.deleteLocation(l);

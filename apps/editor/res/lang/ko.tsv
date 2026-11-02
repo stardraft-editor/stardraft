@@ -16,7 +16,6 @@ Brush	브러시
 Spray	스프레이
 Fill	채우기
 Replace (click terrain)	바꾸기 (지형 클릭)
-Select / copy	선택 / 복사
 Place / select	배치 / 선택
 Replace (click unit)	바꾸기 (유닛 클릭)
 Place	배치
@@ -192,7 +191,7 @@ Paste: click to place the copy. Shift+click pastes again. Esc goes back to Selec
 Nothing copied: select a location and press Ctrl+C	복사된 항목이 없습니다. 위치를 선택하고 Ctrl+C를 누르세요
 Could not create the location: all location slots are in use	위치를 만들 수 없습니다: 모든 위치 슬롯이 사용 중입니다
 Pasted 	붙여넣음: 
-Nothing copied: select terrain with the Select / copy tool and press Ctrl+C	복사된 항목이 없습니다. 선택 / 복사 도구로 지형을 선택하고 Ctrl+C를 누르세요
+Nothing copied: select terrain with the Select tool and press Ctrl+C	복사된 항목이 없습니다. 선택 도구로 지형을 선택하고 Ctrl+C를 누르세요
 Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	타일 붙여넣기: 클릭하여 배치합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 취소됩니다.
 Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.	지형 붙여넣기: 클릭하여 배치합니다. R을 누르면 회전합니다. Shift+클릭하면 다시 붙여넣습니다. Esc를 누르면 취소됩니다.
 Paste 	붙여넣기 
@@ -215,13 +214,12 @@ snap to half tiles (16 px)	반 타일에 맞춤 (16 px)
 snap to quarter tiles (8 px)	1/4 타일에 맞춤 (8 px)
 Grid: 	격자: 
 Copied 	복사함: 
-First, select an area with the Select tool	먼저 선택 도구로 영역을 선택하세요
+Select an area with the Select tool first	먼저 선택 도구로 영역을 선택하세요
 Copied the terrain selection	지형 선택을 복사했습니다
-First, select an area with the Select / copy tool	먼저 선택 / 복사 도구로 영역을 선택하세요
-First, select doodads	먼저 장식물을 선택하세요
-First, select sprites	먼저 스프라이트를 선택하세요
+Select doodads first	먼저 장식물을 선택하세요
+Select sprites first	먼저 스프라이트를 선택하세요
 Copied the location	위치를 복사했습니다
-First, select a location	먼저 위치를 선택하세요
+Select a location first	먼저 위치를 선택하세요
 Nothing to cut there: make the selection larger	잘라낼 내용이 없습니다. 선택 영역을 더 크게 하세요
 Cut the terrain: 	지형을 잘라냈습니다: 
  null tiles in its place (one undo step)	 개의 null 타일로 대체했습니다 (실행 취소 1단계)
@@ -761,7 +759,7 @@ Raw	원시
 From the game…	게임에서…
 Insert value ▾	값 삽입 ▾
 No clear type yet (	아직 명확한 종류 없음 (
-First, select the list. Then the index can be 0 to the number of items minus 1.	먼저 목록을 선택합니다. 그러면 인덱스는 0부터 항목 수보다 1 작은 값까지입니다.
+Select the list first. Then the index can be 0 to the number of items minus 1.	먼저 목록을 선택합니다. 그러면 인덱스는 0부터 항목 수보다 1 작은 값까지입니다.
 Which item of 	어느 항목: 
   (0 to 	  (0 ~ 
 Other…	기타…
@@ -814,7 +812,7 @@ Brush size %g	브러시 크기 %g
 Turned the terrain; its 	지형을 회전했습니다. 그 
  doodads cannot turn, so they are not included	 장식물은 회전할 수 없어서 포함되지 않습니다
 Turned the terrain (R turns clockwise, Shift+R turns back)	지형을 회전했습니다 (R은 시계 방향, Shift+R은 반대 방향)
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.	선택: 복사(Ctrl+C)할 타일 영역을 드래그합니다. Esc를 누르면 선택으로 돌아갑니다.
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	선택: 복사(Ctrl+C)할 타일 영역을 드래그합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Brush: place the tile selected in the Tiles list, with the brush's size and shape	브러시: 타일 목록에서 선택한 타일을 브러시의 크기와 모양으로 배치합니다
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	스프레이: 브러시 안의 무작위 위치에 타일을 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
 Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	채우기: 같은 값으로 이어진 타일. Shift+클릭: 그 값의 모든 타일 (선택 영역이 있으면 그 안에서).
@@ -828,7 +826,7 @@ Spray: random units of the selected kinds (Density). Hold the button to spray mo
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	장식물 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Place the doodads selected in the list	목록에서 선택한 장식물을 배치합니다
 Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 장식물을 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
-Select a sprite: click it; drag it to move. Esc goes to Select.	스프라이트 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 선택으로 돌아갑니다.
+Select a sprite: click it; drag it to move. Esc returns to the Select tool.	스프라이트 선택: 클릭하면 선택되고 드래그하면 이동합니다. Esc를 누르면 선택 도구로 돌아갑니다.
 Place the sprites selected in the list (several: each one at random); drag to place more	목록에서 선택한 스프라이트를 배치합니다 (여러 개: 각각 무작위로). 드래그하면 더 배치합니다
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	스프레이: 선택한 종류의 스프라이트를 무작위로 놓습니다 (밀도). 버튼을 누르고 있으면 더 뿌립니다.
 Select, move and resize locations; drag on empty ground to make one	위치를 선택, 이동, 크기 조절합니다. 빈 땅에서 드래그하면 새 위치를 만듭니다
@@ -1022,7 +1020,7 @@ Close	닫기
 About StarDraft 2	StarDraft 2 정보
 Force 	포스 
 Nobody	없음
-First, select the players of the briefing	먼저 브리핑 대상 플레이어를 선택하십시오
+Select the players of the briefing first	먼저 브리핑 대상 플레이어를 선택하십시오
 No action	동작 없음
 Wait	대기
 Play sound	소리 재생
@@ -2619,9 +2617,8 @@ Turn &off all overlays	모든 오버레이 끄기(&O)
 All overlays are hidden	모든 오버레이가 숨겨졌습니다
 Terrain &pie palette	지형 원형 팔레트(&P)
 The pie palette has no terrains for this tileset	원형 팔레트에 이 타일셋의 지형이 없습니다
-Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(위의 찾아보기): 새 맵에는 게임 파일이 필요합니다
+Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(시작 페이지의 찾아보기): 새 맵에는 게임 파일이 필요합니다
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2에서 맵을 열려면 StarCraft 게임 파일이 필요합니다. 시작 페이지에서 StarCraft 폴더를 선택하세요(찾아보기).
-Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(시작 페이지: 찾아보기): 새 맵에는 게임 파일이 필요합니다
 Reset all program settings…	모든 프로그램 설정 초기화…
 Every program setting gets its default value, and StarDraft 2 restarts (a question first)	모든 프로그램 설정이 기본값이 되고 StarDraft 2가 다시 시작됩니다(먼저 확인합니다)
 Your maps, projects and recent lists stay as they are	맵, 프로젝트, 최근 목록은 그대로 유지됩니다

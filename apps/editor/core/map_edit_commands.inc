@@ -191,7 +191,7 @@ void pasteMapCopy(AppState& app) {
                 return setMessage(L"The copied terrain is " + std::wstring(kTilesetNames[gTerrainCopy.era & 7]) +
                                   L" terrain. You can paste it only in a map of that tileset");
             if (!(app.terrainRect ? app.ed->hasTerrainClipboard() : app.ed->hasTileClipboard()))
-                return setMessage(L"Nothing copied: select terrain with the Select / copy tool and press Ctrl+C");
+                return setMessage(L"Nothing copied: select terrain with the Select tool and press Ctrl+C");
             setTerrainRect(!app.terrainRect);
         }
         app.toolByMode[int(Mode::Terrain)] = TSelect;
@@ -232,7 +232,7 @@ bool copySelectedTiles(Editor& ed) {
 void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain && app.terrainRect) {
         if (!copySelectedTiles(*app.ed))
-            setMessage(L"First, select an area with the Select / copy tool");
+            setMessage(L"Select an area with the Select tool first");
         else if (gTiles->solid)  // (Solid: the Brush places the terrain; Ctrl+V pastes the copy)
             shareTerrainCopy(*app.ed), setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) + L" tiles");
         else
@@ -241,7 +241,7 @@ void copyMapSelection(AppState& app) {
         if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
         else
-            setMessage(L"First, select an area with the Select / copy tool");
+            setMessage(L"Select an area with the Select tool first");
     } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         const bool dd = app.mode == Mode::Doodads;
         std::vector<Editor::ItemAt> items;
@@ -254,7 +254,7 @@ void copyMapSelection(AppState& app) {
                 items.push_back({sp.id, sp.x, sp.y, sp.owner});
             }
         }
-        if (items.empty()) return setMessage(dd ? L"First, select doodads" : L"First, select sprites");
+        if (items.empty()) return setMessage(dd ? L"Select doodads first" : L"Select sprites first");
         // From the middle of the group: a paste puts the middle at the mouse.
         int cx = 0, cy = 0;
         for (const auto& it : items) cx += it.x, cy += it.y;
@@ -264,7 +264,7 @@ void copyMapSelection(AppState& app) {
         setMessage(L"Copied " + std::to_wstring(items.size()) + (dd ? L" doodads" : L" sprites"));
     } else if (app.mode == Mode::Locations) {
         const std::vector<int> locs = app.ed->selectedLocations();
-        if (locs.empty()) return setMessage(L"First, select a location");
+        if (locs.empty()) return setMessage(L"Select a location first");
         app.locationClip.clear();
         for (int l : locs) app.locationClip.push_back(locationCopyOf(*app.ed, l));
         setMessage(L"Copied " + locationsText(*app.ed, locs));
@@ -283,7 +283,7 @@ void cutMapSelection(AppState& app) {
         command(ID_EDIT_COPY), command(ID_EDIT_DELETE);
         return;
     }
-    if (!app.hasTerrainSel) return setMessage(L"First, select an area with the Select tool");
+    if (!app.hasTerrainSel) return setMessage(L"Select an area with the Select tool first");
     // Terrain: copy it, then null tiles in its place (black; nothing can walk or build there).
     const Rect& r = app.terrainSel;
     const bool copied = app.terrainRect ? copySelectedTiles(*app.ed) : app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());

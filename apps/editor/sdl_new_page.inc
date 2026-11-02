@@ -127,7 +127,7 @@ void openNewPageSdl(int kind) {
     if (cmbwMode() && kind != 2) kind = -1;  // (Cosmonarchy: the start page, its Cosmonarchy map card; 2: that card's page)
     if (kind >= 0 && !shellMapsReady()) {  // (no game files: no new map; the start page says why)
         kind = -1;
-        setMessage(tr(L"Select the StarCraft folder first (the start page: Browse): a new map needs the game's files"));
+        setMessage(tr(L"Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files"));
     }
     if (gWorkspace != Workspace::Map) setWorkspace(Workspace::Map);
     if (kind < 0) {

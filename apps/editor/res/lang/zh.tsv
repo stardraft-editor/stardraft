@@ -16,7 +16,6 @@ Brush	笔刷
 Spray	喷洒
 Fill	填充
 Replace (click terrain)	替换 (点击地形)
-Select / copy	选择 / 复制
 Place / select	放置 / 选择
 Replace (click unit)	替换 (点击单位)
 Place	放置
@@ -202,13 +201,12 @@ snap to half tiles (16 px)	吸附到半图块 (16 px)
 snap to quarter tiles (8 px)	吸附到四分之一图块 (8 px)
 Grid: 	网格：
 Copied 	已复制 
-First, select an area with the Select tool	请先用选择工具选择一个区域
+Select an area with the Select tool first	请先用选择工具选择一个区域
 Copied the terrain selection	已复制地形选区
-First, select an area with the Select / copy tool	请先用选择 / 复制工具选择一个区域
-First, select doodads	请先选择装饰物
-First, select sprites	请先选择精灵
+Select doodads first	请先选择装饰物
+Select sprites first	请先选择精灵
 Copied the location	已复制地点
-First, select a location	请先选择一个地点
+Select a location first	请先选择一个地点
 Nothing to cut there: make the selection larger	这里没有可剪切的内容: 请扩大选择区域
 Cut the terrain: 	已剪切地形: 
  null tiles in its place (one undo step)	 个空白瓦片放在原位 (一步撤销)
@@ -973,7 +971,7 @@ Close	关闭
 About StarDraft 2	关于 StarDraft 2
 Force 	势力 
 Nobody	无人
-First, select the players of the briefing	请先选择任务简报的玩家
+Select the players of the briefing first	请先选择任务简报的玩家
 No action	无动作
 Wait	等待
 Play sound	播放声音
@@ -1766,7 +1764,7 @@ Project settings need a project. Use File > Project > New EUD project or Open pr
 epScript (*.eps)*.epseudplib Python (*.py)*.py	epScript (*.eps)*.epseudplib Python (*.py)*.py
 StarDraft 2 project (*.stardraft)*.stardraft	StarDraft 2 项目 (*.stardraft)*.stardraft
 Could not create the location: all location slots are in use	无法创建位置：所有位置槽位都已占用
-Nothing copied: select terrain with the Select / copy tool and press Ctrl+C	未复制任何内容：请用“选择 / 复制”工具选择地形，然后按 Ctrl+C
+Nothing copied: select terrain with the Select tool and press Ctrl+C	未复制任何内容：请用“选择”工具选择地形，然后按 Ctrl+C
 StarDraft 2 project (*.stardraft;*.eds)*.stardraft;*.eds	StarDraft 2 项目 (*.stardraft;*.eds)*.stardraft;*.eds
 Replace: select the new type in the list. Then click a unit. All units of the clicked unit's type change to the new type. If the clicked unit is one of several selected units, only the selected units of that type change.	替换：先在列表中选择新类型，然后点击一个单位。所有与被点击单位类型相同的单位都会变为新类型。如果被点击的单位是多个已选单位之一，则只有已选中的该类型单位会改变。
 Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area.	已选择地形。按 Ctrl+C 复制。替换只改变所选区域。
@@ -1780,14 +1778,14 @@ Variables, and triggers that a Run a trigger block runs	变量，以及“执行
 Build puts this code into generated\\triggers.eps unchanged.	构建时，此代码会原样写入 generated\\triggers.eps。
 The game calculates this value while it runs	游戏在运行时计算此值
 0 means all that match the other values	0 表示所有与其他值匹配的项
-First, select the list. Then the index can be 0 to the number of items minus 1.	先选择列表。然后索引可以是 0 到项数减 1。
+Select the list first. Then the index can be 0 to the number of items minus 1.	先选择列表。然后索引可以是 0 到项数减 1。
 Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.	每个文本变量在地图中为这么多个字符预留空间。更长的文本会覆盖地图中的其他数据。
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.	选择：拖出图块矩形以复制 (Ctrl+C)。Esc 返回“选择”。
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	选择：拖出图块矩形以复制 (Ctrl+C)。Esc 返回“选择”工具。
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	喷洒：在笔刷范围内的随机位置放置图块 (密度)。按住按钮可喷洒更多。
 Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	选择：拖出地形矩形以复制 (Ctrl+C) 或移动。Esc 返回“选择”工具。
 Select units: click or drag a box; drag them to move. Esc returns to the Select tool.	选择单位：点击或拖出选框；拖动它们即可移动。Esc 返回“选择”工具。
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	选择装饰物：点击它；拖动即可移动。Esc 返回“选择”工具。
-Select a sprite: click it; drag it to move. Esc goes to Select.	选择精灵：点击它；拖动即可移动。Esc 返回“选择”。
+Select a sprite: click it; drag it to move. Esc returns to the Select tool.	选择精灵：点击它；拖动即可移动。Esc 返回“选择”工具。
 Debug mode off: Build does not add index checks or the trace for epTrace	调试模式关闭：构建时不添加索引检查和 epTrace 的跟踪信息
 &Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)…\tQ	快速选择(&Q) (当前模式的单位、地形、装饰物、精灵或位置；在数据中为任意条目)…\tQ
 Test	测试
@@ -2619,9 +2617,8 @@ Turn &off all overlays	关闭所有叠加层(&O)
 All overlays are hidden	所有叠加层已隐藏
 Terrain &pie palette	地形饼状调色板(&P)
 The pie palette has no terrains for this tileset	饼状调色板中没有此图块集的地形
-Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	请先选择 StarCraft 文件夹（上方的“浏览”）：新地图需要游戏文件
+Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面上的“浏览”）：新地图需要游戏文件
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 需要 StarCraft 的游戏文件才能打开地图。请在开始页面选择 StarCraft 文件夹（浏览）。
-Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面：浏览）：新地图需要游戏文件
 Reset all program settings…	重置所有程序设置…
 Every program setting gets its default value, and StarDraft 2 restarts (a question first)	所有程序设置恢复为默认值，然后 StarDraft 2 重新启动（会先询问）
 Your maps, projects and recent lists stay as they are	您的地图、项目和最近列表保持不变

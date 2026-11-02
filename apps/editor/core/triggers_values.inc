@@ -405,7 +405,7 @@ void trigEditText(TrigParamHit h, const std::string& value, bool, bool) {
     if (p.type == "Index") {
         const TriggerNode* list = trigIndexList(*d, *call);
         if (!list) {
-            setMessage(L"First, select the list. Then the index can be 0 to the number of items minus 1.");
+            setMessage(L"Select the list first. Then the index can be 0 to the number of items minus 1.");
             return;
         }
         const int size = triggerListSize(list->variable, gTE.set.variables());

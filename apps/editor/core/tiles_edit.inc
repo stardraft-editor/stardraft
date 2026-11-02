@@ -619,7 +619,7 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         return true;
     }
     if (!tilesHavePick()) {
-        setMessage(gTiles->stamps  ? L"First, select custom terrain in the Custom list"
+        setMessage(gTiles->stamps  ? L"Select custom terrain in the Custom list first"
                    : gTiles->solid ? (ed.canPaintTerrain() ? L"Select a terrain in the list first (or Ctrl+click the map)" : L"Select a terrain in the list first")
                                    : L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
         appState().drag = Drag::None;

@@ -6,7 +6,7 @@ enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, Pending
                   MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble, Erase };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select / copy", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond"};
+const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond"};
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
 enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill };  // (Line to Polygon: core/terrain_shapes.inc)

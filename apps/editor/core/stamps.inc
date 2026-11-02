@@ -115,7 +115,7 @@ void stampsSaveSelection() {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
     const std::vector<std::pair<int, int>> tiles = terrainSelTiles();
-    if (tiles.empty()) return setMessage(L"First, select tiles with the Select tool");
+    if (tiles.empty()) return setMessage(L"Select tiles with the Select tool first");
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     TerrainStamp s;

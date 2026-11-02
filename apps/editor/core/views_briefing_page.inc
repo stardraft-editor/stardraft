@@ -321,7 +321,7 @@ private:
     }
     void insert(int at, const std::vector<BriefingAction>& acts) {
         if (acts.empty()) return;
-        if (std::none_of(who.begin(), who.end(), [](bool v) { return v; })) return setMessage(L"First, select the players of the briefing");
+        if (std::none_of(who.begin(), who.end(), [](bool v) { return v; })) return setMessage(L"Select the players of the briefing first");
         edit([&](std::vector<BriefingTrigger>& b) { at = briefInsertRows(b, who, at, acts); });
         briefRows(who);
         selectRange(at, int(acts.size()));

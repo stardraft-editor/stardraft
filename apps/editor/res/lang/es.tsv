@@ -16,7 +16,6 @@ Brush	Pincel
 Spray	Spray
 Fill	Rellenar
 Replace (click terrain)	Reemplazar (clic en terreno)
-Select / copy	Seleccionar / copiar
 Place / select	Colocar / seleccionar
 Replace (click unit)	Reemplazar (clic en unidad)
 Place	Colocar
@@ -192,7 +191,7 @@ Paste: click to place the copy. Shift+click pastes again. Esc goes back to Selec
 Nothing copied: select a location and press Ctrl+C	No se copió nada: seleccione una ubicación y pulse Ctrl+C
 Could not create the location: all location slots are in use	No se pudo crear la ubicación: todas las ranuras de ubicación están en uso
 Pasted 	Pegado: 
-Nothing copied: select terrain with the Select / copy tool and press Ctrl+C	No se copió nada: seleccione terreno con la herramienta Seleccionar / copiar y pulse Ctrl+C
+Nothing copied: select terrain with the Select tool and press Ctrl+C	No se copió nada: seleccione terreno con la herramienta Seleccionar y pulse Ctrl+C
 Paste tiles: click to place them. Shift+click pastes again. Esc cancels.	Pegar tiles: haga clic para colocarlos. Mayús+clic vuelve a pegar. Esc cancela.
 Paste terrain: click to place it. Press R to turn it. Shift+click pastes again. Esc cancels.	Pegar terreno: haga clic para colocarlo. Pulse R para girarlo. Mayús+clic vuelve a pegar. Esc cancela.
 Paste 	Pegar 
@@ -215,13 +214,12 @@ snap to half tiles (16 px)	ajustar a medios tiles (16 px)
 snap to quarter tiles (8 px)	ajustar a cuartos de tile (8 px)
 Grid: 	Cuadrícula: 
 Copied 	Copiado: 
-First, select an area with the Select tool	Primero, seleccione un área con la herramienta Seleccionar
+Select an area with the Select tool first	Seleccione primero un área con la herramienta Seleccionar
 Copied the terrain selection	Selección de terreno copiada
-First, select an area with the Select / copy tool	Primero, seleccione un área con la herramienta Seleccionar / copiar
-First, select doodads	Primero, seleccione decorados
-First, select sprites	Primero, seleccione sprites
+Select doodads first	Primero, seleccione decorados
+Select sprites first	Primero, seleccione sprites
 Copied the location	Ubicación copiada
-First, select a location	Primero, seleccione una ubicación
+Select a location first	Primero, seleccione una ubicación
 Nothing to cut there: make the selection larger	No hay nada que cortar: haga la selección más grande
 Cut the terrain: 	Terreno cortado: 
  null tiles in its place (one undo step)	 tiles nulos en su lugar (un paso de deshacer)
@@ -761,7 +759,7 @@ Raw	Sin procesar
 From the game…	Del juego…
 Insert value ▾	Insertar valor ▾
 No clear type yet (	Aún sin un tipo claro (
-First, select the list. Then the index can be 0 to the number of items minus 1.	Primero seleccione la lista. Después el índice puede ser de 0 al número de elementos menos 1.
+Select the list first. Then the index can be 0 to the number of items minus 1.	Primero seleccione la lista. Después el índice puede ser de 0 al número de elementos menos 1.
 Which item of 	Qué elemento de 
   (0 to 	  (0 a 
 Other…	Otro…
@@ -814,7 +812,7 @@ Brush size %g	Tamaño del pincel %g
 Turned the terrain; its 	Se giró el terreno; sus 
  doodads cannot turn, so they are not included	 decorados no pueden girar, por lo que no se incluyen
 Turned the terrain (R turns clockwise, Shift+R turns back)	Se giró el terreno (R gira a la derecha, Shift+R gira hacia atrás)
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.	Seleccionar: arrastre un rectángulo de tiles para copiar (Ctrl+C). Esc vuelve a Seleccionar.
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	Seleccionar: arrastre un rectángulo de tiles para copiar (Ctrl+C). Esc vuelve a la herramienta Seleccionar.
 Brush: place the tile selected in the Tiles list, with the brush's size and shape	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	Spray: coloca el tile en lugares al azar dentro del pincel (Densidad). Mantenga pulsado el botón para rociar más.
 Fill: the connected tiles of one value. Shift+click: every tile of that value (in the selection, if there is one).	Relleno: los tiles conectados de un mismo valor. Shift+clic: todos los tiles de ese valor (dentro de la selección, si la hay).
@@ -828,7 +826,7 @@ Spray: random units of the selected kinds (Density). Hold the button to spray mo
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	Seleccionar un decorado: haga clic en él; arrástrelo para moverlo. Esc vuelve a la herramienta Seleccionar.
 Place the doodads selected in the list	Coloca los decorados seleccionados en la lista
 Spray: random doodads of the selected kinds (Density). Hold the button to spray more.	Spray: decorados al azar de los tipos seleccionados (Densidad). Mantenga pulsado el botón para rociar más.
-Select a sprite: click it; drag it to move. Esc goes to Select.	Seleccionar un sprite: haga clic en él; arrástrelo para moverlo. Esc vuelve a Seleccionar.
+Select a sprite: click it; drag it to move. Esc returns to the Select tool.	Seleccionar un sprite: haga clic en él; arrástrelo para moverlo. Esc vuelve a la herramienta Seleccionar.
 Place the sprites selected in the list (several: each one at random); drag to place more	Coloca los sprites seleccionados en la lista (varios: cada uno al azar); arrastre para colocar más
 Spray: random sprites of the selected kinds (Density). Hold the button to spray more.	Spray: sprites al azar de los tipos seleccionados (Densidad). Mantenga pulsado el botón para rociar más.
 Select, move and resize locations; drag on empty ground to make one	Seleccione, mueva y cambie el tamaño de las ubicaciones; arrastre sobre el suelo vacío para crear una
@@ -1022,7 +1020,7 @@ Close	Cerrar
 About StarDraft 2	Acerca de StarDraft 2
 Force 	Fuerza 
 Nobody	Nadie
-First, select the players of the briefing	Primero, seleccione los jugadores del briefing
+Select the players of the briefing first	Primero, seleccione los jugadores del briefing
 No action	Ninguna acción
 Wait	Esperar
 Play sound	Reproducir sonido
@@ -2619,9 +2617,8 @@ Turn &off all overlays	&Desactivar todas las superposiciones
 All overlays are hidden	Todas las superposiciones están ocultas
 Terrain &pie palette	&Paleta circular de terreno
 The pie palette has no terrains for this tileset	La paleta circular no tiene terrenos para este conjunto de casillas
-Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	Primero elija la carpeta de StarCraft (Examinar, arriba): un mapa nuevo necesita los archivos del juego
+Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Primero seleccione la carpeta de StarCraft (Examinar, en la página de inicio): un mapa nuevo necesita los archivos del juego
 StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 necesita los archivos del juego StarCraft para abrir un mapa. Elija la carpeta de StarCraft en la página de inicio (Examinar).
-Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	Primero elija la carpeta de StarCraft (la página de inicio: Examinar): un mapa nuevo necesita los archivos del juego
 Reset all program settings…	Restablecer toda la configuración del programa…
 Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia (primero se pregunta)
 Your maps, projects and recent lists stay as they are	Sus mapas, proyectos y listas recientes no cambian
