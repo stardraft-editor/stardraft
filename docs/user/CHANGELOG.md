@@ -2,6 +2,24 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.4
+
+### The program
+
+- Faster on big maps: scrolling, zooming, placing and dragging units stay smooth with thousands of units.
+- Much less CPU and GPU use when idle: the window paints again only when something changes.
+- Faster status bar, palette search, minimap, locations and overlays (unit ranges up to 6 times faster).
+- Clearer texts in all five languages; dialog buttons name their action (for example Apply).
+
+### Triggers
+
+- New EUD conditions: "A unit's order is on a unit" and "A unit was killed by a player".
+- New EUD action: "Set a unit variable to a unit's order target".
+
+### Fixes
+
+- A quick double-click on a recent map or a trigger command acts once.
+
 ## 0.8.3
 
 ### Map
