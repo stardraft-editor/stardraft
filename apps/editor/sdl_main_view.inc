@@ -681,6 +681,7 @@ struct MainView final : draw::View {
     // The map's own keys (the Windows map's WM_KEYDOWN; the core's functions, core/map_input.inc): Esc stops the step
     // or clears the selection, R and Shift+R turn the terrain to paste, the arrows move the selected units or the view.
     bool mapKey(const draw::KeyEvent& e) {
+        if (areaMeasureKey(e.key)) return true;
         const bool arrow = e.key == draw::Key::Left || e.key == draw::Key::Right || e.key == draw::Key::Up || e.key == draw::Key::Down;
         if (!map.open() || (e.mods & draw::kAlt) || ((e.mods & draw::kCtrl) && !arrow)) return false;
         const bool shift = (e.mods & draw::kShift) != 0, ctrl = (e.mods & draw::kCtrl) != 0;

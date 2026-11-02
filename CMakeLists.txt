@@ -119,6 +119,7 @@ add_library(stardraft
     src/project_import.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
+    src/area_measurement.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp
@@ -834,3 +835,6 @@ if(WIN32 AND STARDRAFT_RENDERER)
     endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
+
+add_executable(area_measurement_test tools/tests/area_measurement_test.cpp)
+target_link_libraries(area_measurement_test PRIVATE stardraft)

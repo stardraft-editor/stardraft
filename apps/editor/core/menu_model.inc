@@ -214,7 +214,10 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
     // The Tools menu: the checks of the map, doodads where they fit (roadmap R37), the map revealers and the simulation.
-    MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
+    MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map"),
+                    menuPopup(L"Measure area", {menuItem(ID_MEASURE_AREA,L"Draw area"),
+                        menuItem(ID_MEASURE_AREA_ALL,L"All area"), menuItem(ID_MEASURE_AREA_WALK,L"Walkable area"),
+                        menuItem(ID_MEASURE_AREA_BUILD,L"Buildable area"), menuItem(ID_MEASURE_AREA_CLEAR,L"Clear")})};
     {
         menuCommand(tools, "scen.checkPathing");
         tools.push_back(menuSeparator());

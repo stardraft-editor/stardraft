@@ -121,6 +121,7 @@
 #include "stardraft/campaign.h"
 #include "stardraft/project_import.h"
 #include "stardraft/editor.h"
+#include "stardraft/area_measurement.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/project_build.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
@@ -186,6 +187,7 @@ bool gKeysFromOpener = false;
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
 #include "sdl_simulation.inc"  // Tools > Simulate mining and combat: a live game run by StarDraft's simulation (experimental)
+#include "sdl_area_measure.inc"  // Tools > Measure area: read-only local selection and totals
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
 #include "sdl_data.inc"  // the Data workspace (the model is core/data_list.inc and core/views_data*.inc; the tables are the stock .dat files)
@@ -781,7 +783,7 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c == "protect" || c.rfind("drawfuncs:", 0) == 0;
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || areaMeasureControlsCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
