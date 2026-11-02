@@ -558,10 +558,18 @@ render::Scene buildScene() {
 
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
-    std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;  // (x, y, sprite) of the doodads' overlays
-    if (gLayers.doodads != gLayers.sprites)
-        for (const Doodad& dd : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
+    // (x, y, sprite) of the doodads' overlays: made again when the map changes
+    static std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
+    static std::tuple<const Editor*, uint64_t, const DoodadTypes*, size_t> overlaysFor{};
+    if (gLayers.doodads != gLayers.sprites) {
+        const std::tuple<const Editor*, uint64_t, const DoodadTypes*, size_t> key{&ed, ed.revision(), &ed.doodadTypes(), ed.doodadTypes().all().size()};
+        if (key != overlaysFor) {
+            overlaysFor = key;
+            overlays.clear();
+            for (const Doodad& dd : ed.doodads())
+                if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
+        }
+    }
     for (const MapSprite& m : ed.sprites()) {
         if (gLiveScene) break;
         if (!inView(m.x, m.y)) continue;
