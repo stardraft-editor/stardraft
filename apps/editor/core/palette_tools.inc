@@ -156,8 +156,8 @@ void updateStatus(AppState& app) {
         static uint64_t forRev = ~0ull, forTerrain = ~0ull;
         static int forX = 0, forY = 0;
         static std::wstring text;
-        if (forEd != app.ed.get() || forRev != app.ed->revision() || forTerrain != app.ed->terrainRevision() || forX != int(wx) || forY != int(wy)) {
-            forEd = app.ed.get(), forRev = app.ed->revision(), forTerrain = app.ed->terrainRevision(), forX = int(wx), forY = int(wy);
+        if (forEd != app.ed.get() || forRev != app.ed->revision() || forTerrain != app.ed->terrainRevision() || forX != int(std::floor(wx)) || forY != int(std::floor(wy))) {
+            forEd = app.ed.get(), forRev = app.ed->revision(), forTerrain = app.ed->terrainRevision(), forX = int(std::floor(wx)), forY = int(std::floor(wy));
             text = tileValueText(*app.ed, wx, wy);
         }
         if (!text.empty()) std::wcsncat(buf, (L"   " + text).c_str(), 255 - std::wcslen(buf));
