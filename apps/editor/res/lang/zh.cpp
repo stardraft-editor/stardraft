@@ -2750,6 +2750,7 @@ constexpr UiText kRows[] = {
     {L"Placed the ramp", L"\u5DF2\u653E\u7F6E\u5761\u9053"},
     {L"Ramp: paint along a cliff edge", L"\u5761\u9053\uFF1A\u6CBF\u60AC\u5D16\u8FB9\u7F18\u7ED8\u5236"},
     {L"Stopped the ramp", L"\u5DF2\u505C\u6B62\u5761\u9053"},
+    {L"%ls ramps. Release the button to place them.", L"%ls \u4E2A\u5761\u9053\u3002\u677E\u5F00\u6309\u94AE\u653E\u7F6E\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

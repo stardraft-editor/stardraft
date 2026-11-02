@@ -267,8 +267,8 @@ static void dumpNeighbors(const GameData& data, const std::filesystem::path& map
     std::printf("%zu pairs\n", pairs.size());
 }
 
-// A long stroke on a large map is planned in a frame or so; a stroke over half of a ramp already there does not give a
-// ramp that ends inside it (it gives that ramp again, or one clear of it).
+// A long stroke on a large map is planned in a frame or so; a stroke over half of a ramp already there gives that ramp
+// again (not one that ends inside it), and a stroke from it on along the edge a wider ramp over it.
 static void longAndOver(const GameData& data) {
     Editor ed(data);
     std::string err;
@@ -300,9 +300,45 @@ static void longAndOver(const GameData& data) {
     for (const auto& c : over.tiles) now.insert({c.x, c.y});
     bool shared = false;
     for (const auto& q : now) shared |= old.count(q) != 0;
-    check(over.problem != RampPlan::Problem::None || now == old || !shared,
-          "a stroke over half of a ramp: that ramp again or one clear of it (got " + std::to_string(over.slopes) + " slopes at " + std::to_string(over.ax) + "," +
+    check(over.problem == RampPlan::Problem::None && now == old,
+          "a stroke over half of a ramp: that ramp again (got " + std::to_string(over.slopes) + " slopes at " + std::to_string(over.ax) + "," +
               std::to_string(over.ay) + "; the ramp: " + std::to_string(four.slopes) + " at " + std::to_string(four.ax) + "," + std::to_string(four.ay) + ")");
+    (void)shared;
+    // from the ramp's wall A on past its wall B by two more slopes
+    std::vector<std::pair<int, int>> wider = strokeAlong(4, 0, 6, bx, by, false);
+    const RampPlan grown = planRamp(ed, wider);
+    check(grown.problem == RampPlan::Problem::None && grown.ax == four.ax && grown.ay == four.ay && grown.slopes == 6,
+          "a stroke along a ramp and on: a wider ramp over it (got " + std::to_string(grown.slopes) + " slopes at " + std::to_string(grown.ax) + "," +
+              std::to_string(grown.ay) + ")");
+}
+
+// One stroke along two edges of a plateau (round its corner): a ramp on each, facing its edge's way.
+static void roundCorner(const GameData& data) {
+    Editor ed(data);
+    std::string err;
+    if (!ed.newMap(96, 96, 4, 1, err)) return check(false, "new map: " + err);
+    Brush b;
+    b.shape = Brush::Square, b.size = 14;
+    ed.paintBrush(48 * 32, 48 * 32, 2, b);  // (High Dirt)
+    // a ramp of one slope that fits on the N edge and one on the E edge, nearest the NE corner
+    const auto nearest = [&](int f) {
+        std::pair<int, int> best{-1, 0};
+        double bd = 1e18;
+        for (int ay = 0; ay < ed.height(); ++ay)
+            for (int ax = 0; ax < ed.width(); ++ax)
+                if (rampFits(ed, f, 1, ax, ay))
+                    if (const double d = std::hypot(ax - 70.0, ay - 20.0); d < bd) bd = d, best = {ax, ay};
+        return best;
+    };
+    const auto n = nearest(0), e = nearest(2);
+    if (n.first < 0 || e.first < 0) return check(false, "a square plateau: N and E ramps fit");
+    std::vector<std::pair<int, int>> stroke = strokeAlong(4, 0, 1, n.first, n.second, false);
+    for (const auto& p : strokeAlong(4, 2, 1, e.first, e.second, false)) stroke.push_back(p);
+    const std::vector<RampPlan> plans = planRamps(ed, stroke);
+    std::set<int> facings;
+    for (const RampPlan& p : plans) facings.insert(p.facing);
+    check(plans.size() == 2 && facings.count(0) && facings.count(2), "a stroke along the N edge and on down the E edge: an N ramp and an E ramp (got " +
+                                                                         std::to_string(plans.size()) + ")");
 }
 
 int main(int argc, char** argv) {
@@ -327,6 +363,7 @@ int main(int argc, char** argv) {
     check(rampsAvailable(4), "ramps in Jungle");
     paintedPlateaus(data, std::getenv("RAMP_SHOTS"));
     longAndOver(data);
+    roundCorner(data);
     if (argc > 2) examples(data, argv[2]);
     std::printf("\n%d failures\n", failures);
     return failures ? 1 : 0;

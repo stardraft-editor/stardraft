@@ -243,23 +243,29 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
 // Ramp: the ramp that the stroke paints (gShape.cells, gShape.ghost), and the status bar says it or why there is none.
 void rampMake(const std::vector<std::pair<int, int>>& pts) {
     const Editor& ed = *appState().ed;
-    const RampPlan p = planRamp(ed, pts);
-    const std::wstring low = tr(widen(p.low)), high = tr(widen(p.high));
-    switch (p.problem) {
-    case RampPlan::Problem::None: break;
-    case RampPlan::Problem::NoKit: return setMessage(L"This tileset has no ramps");
-    case RampPlan::Problem::NoIsom: return setMessage(L"Could not make a ramp. The map has no isometric terrain data.");
-    case RampPlan::Problem::NoCliff: return setMessage(bridgeText(L"Ramp: paint along a cliff edge between %ls and %ls", high, low));
+    RampPlan why;  // (no ramp: why)
+    const std::vector<RampPlan> ramps = planRamps(ed, pts, &why);
+    const std::wstring low = tr(widen(why.low)), high = tr(widen(why.high));
+    if (ramps.empty()) {
+        switch (why.problem) {
+        case RampPlan::Problem::NoKit: return setMessage(L"This tileset has no ramps");
+        case RampPlan::Problem::NoIsom: return setMessage(L"Could not make a ramp. The map has no isometric terrain data.");
+        default: return setMessage(bridgeText(L"Ramp: paint along a cliff edge between %ls and %ls", high, low));
+        }
     }
-    for (const Editor::TileAt& c : p.tiles)
+    std::vector<Editor::TileAt> tiles;
+    for (const RampPlan& p : ramps) tiles.insert(tiles.end(), p.tiles.begin(), p.tiles.end());
+    for (const Editor::TileAt& c : tiles)
         if (ed.tileProtected(c.x, c.y)) {
-            for (const Editor::TileAt& r : p.tiles) gShape.red.push_back({r.x, r.y});
+            for (const Editor::TileAt& r : tiles) gShape.red.push_back({r.x, r.y});
             return setMessage(L"Part of the ramp is on protected tiles");
         }
-    for (const Editor::TileAt& c : p.tiles)
+    for (const Editor::TileAt& c : tiles)
         if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
-    gShape.cells = p.tiles;
-    setMessage(bridgeText(L"Ramp facing %ls, width %ls. Release the button to place it.", widen(rampFacingName(p.facing)), bridgeSize(p.slopes)));
+    gShape.cells = tiles;
+    const RampPlan& p = ramps.front();
+    setMessage(ramps.size() > 1 ? bridgeText(L"%ls ramps. Release the button to place them.", std::to_wstring(ramps.size()))
+                                : bridgeText(L"Ramp facing %ls, width %ls. Release the button to place it.", widen(rampFacingName(p.facing)), bridgeSize(p.slopes)));
 }
 
 // The preview of the shape (gShape.ghost, gShape.cells): made again only when its points or settings changed. `now`: at

@@ -185,6 +185,15 @@ bool kitNeighbors(int era, int way, uint16_t a, uint16_t b) {
     return pairs[era].count(pairKey(era, way, a, b)) != 0;
 }
 
+// Whether a tile is a ramp piece's (of any kit of the tileset).
+bool isPiece(int era, uint16_t v) {
+    static std::map<int, std::unordered_set<uint16_t>> pieces;
+    if (!pieces.count(era))
+        for (int f = 0; f < kRampFacings; ++f)
+            for (const Editor::TileAt& c : rampTiles(era, f, 1, 0, 0)) pieces[era].insert(c.value);
+    return pieces[era].count(v) != 0;
+}
+
 // Whether the ramp's edge meets the map's tiles round it as the corpus has them (a ramp out of step with the cliff's
 // pattern does not), or as the kits' own ramps do (a ramp there already).
 bool edgeFits(const Editor& ed, int era, const std::vector<Editor::TileAt>& tiles) {
@@ -299,6 +308,12 @@ RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stro
             anchors.push_back({x0 + dx, y0 + dy, along(wx, wy)});
         }
     std::sort(anchors.begin(), anchors.end(), [&](const Anchor& p, const Anchor& q) { return std::fabs(p.a - lo) < std::fabs(q.a - lo); });
+    // (a ramp there already, round the stroke: the widths go on past the stroke's end, so that the old ramp, or a wider one
+    // over it, can be the one; a new ramp may not end inside it)
+    bool overRamp = false;
+    for (int y = std::max(0, y0 - reach); y < std::min(int(ed.height()), y0 + reach) && !overRamp; ++y)
+        for (int x = std::max(0, x0 - reach); x < std::min(int(ed.width()), x0 + reach) && !overRamp; ++x)
+            overRamp = isPiece(era, ed.terrain().tiles[size_t(y) * ed.width() + x]);
     for (const auto& [ax, ay, a] : anchors) {
         if (std::fabs(a - lo) >= best2) break;  // (no width of it, or of those after it, can be nearer)
         // (each width adds one slope and moves wall B: only those two pieces are checked again)
@@ -311,13 +326,48 @@ RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stro
                 const std::vector<Editor::TileAt> tiles = rampTiles(era, plan.facing, n, ax, ay);
                 if (edgeFits(ed, era, tiles) && rampJoins(ed.tileset(), tiles)) best2 = cost, plan.ax = ax, plan.ay = ay, plan.slopes = n;
             }
-            if (along(bx, by) > hi + len) break;
+            if (along(bx, by) > hi + len && !overRamp) break;
         }
     }
     if (best2 > 1e17) return plan.facing = -1, plan;  // (no ramp on that edge fits and joins the ground)
     plan.tiles = rampTiles(era, plan.facing, plan.slopes, plan.ax, plan.ay);
     plan.problem = RampPlan::Problem::None;
     return plan;
+}
+
+std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<int, int>>& stroke, RampPlan* why) {
+    std::vector<RampPlan> out;
+    std::set<std::pair<int, int>> taken;
+    size_t i = 0;
+    while (i < stroke.size() && out.size() < 32) {
+        const RampPlan p = planRamp(ed, std::vector<std::pair<int, int>>(stroke.begin() + std::ptrdiff_t(i), stroke.end()));
+        if (why && i == 0) *why = p;
+        if (p.problem != RampPlan::Problem::None) {
+            if (p.problem != RampPlan::Problem::NoCliff) break;
+            ++i;  // (that point is on no edge: the next one)
+            continue;
+        }
+        // (the stroke's points by this ramp, 3 tiles or nearer, from i on: the next ramp starts after them)
+        size_t next = i + 1;
+        for (size_t j = i; j < stroke.size(); ++j) {
+            bool near = false;
+            for (const Editor::TileAt& c : p.tiles)
+                if (std::hypot(32.0 * c.x + 16 - stroke[j].first, 32.0 * c.y + 16 - stroke[j].second) <= 96) {
+                    near = true;
+                    break;
+                }
+            if (!near) break;
+            next = j + 1;
+        }
+        bool overlaps = false;
+        for (const Editor::TileAt& c : p.tiles) overlaps |= taken.count({c.x, c.y}) != 0;
+        if (!overlaps) {
+            for (const Editor::TileAt& c : p.tiles) taken.insert({c.x, c.y});
+            out.push_back(p);
+        }
+        i = next;
+    }
+    return out;
 }
 
 }  // namespace stardraft

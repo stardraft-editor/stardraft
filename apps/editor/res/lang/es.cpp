@@ -2750,6 +2750,7 @@ constexpr UiText kRows[] = {
     {L"Placed the ramp", L"Rampa colocada"},
     {L"Ramp: paint along a cliff edge", L"Rampa: pinte a lo largo del borde de un acantilado"},
     {L"Stopped the ramp", L"Rampa detenida"},
+    {L"%ls ramps. Release the button to place them.", L"%ls rampas. Suelte el bot\u00F3n para colocarlas."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

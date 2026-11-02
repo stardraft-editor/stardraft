@@ -54,4 +54,9 @@ struct RampPlan {
 // facing: the edge's), on the edge as far as the stroke goes along it, either way.
 RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stroke);
 
+// The ramps that a stroke paints along one edge or more (round a plateau's corner): a ramp for the stroke's first
+// stretch along an edge (planRamp), then for the rest of the stroke from its first point away from that ramp, and so on;
+// a ramp that overlaps an earlier one is left out. Empty: none (the first planRamp's problem says why).
+std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<int, int>>& stroke, RampPlan* why = nullptr);
+
 }  // namespace stardraft

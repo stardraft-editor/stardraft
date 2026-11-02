@@ -2780,6 +2780,7 @@ constexpr UiText kRows[] = {
     {L"Placed the ramp", L"\uACBD\uC0AC\uB85C\uB97C \uB193\uC558\uC2B5\uB2C8\uB2E4"},
     {L"Ramp: paint along a cliff edge", L"\uACBD\uC0AC\uB85C: \uC808\uBCBD \uAC00\uC7A5\uC790\uB9AC\uB97C \uB530\uB77C \uCE60\uD558\uC138\uC694"},
     {L"Stopped the ramp", L"\uACBD\uC0AC\uB85C\uB97C \uBA48\uCDC4\uC2B5\uB2C8\uB2E4"},
+    {L"%ls ramps. Release the button to place them.", L"\uACBD\uC0AC\uB85C %ls\uAC1C. \uBC84\uD2BC\uC744 \uB193\uC73C\uBA74 \uACBD\uC0AC\uB85C\uB97C \uB193\uC2B5\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
