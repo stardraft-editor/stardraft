@@ -16,8 +16,11 @@ bool bridgesAvailable(int era);
 
 // The tiles of a bridge with its origin (the kit's cell 0, 0) at tile (ox, oy). u: the mirror kit of d (the kits' decks
 // go along the two diagonals; which way is d depends on the tileset). seed: the choice among a piece's variants. Empty:
-// no kit.
-std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed);
+// no kit. on: the map's tileset; then each piece's variant is the one whose tiles meet the tiles round them best (a
+// pair the game's maps have; else the least difference of the pixels at their edge), also the map's tiles round the
+// bridge (around). Without it: the approved bridge of that size, else the variants of the pairs the corpus has.
+std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on = nullptr,
+                                        bool around = false);
 // Whether the map's tiles have that bridge at (ox, oy): each pair is one of its piece's variants.
 bool bridgeMatches(const Editor& ed, bool u, int length, int width, int ox, int oy);
 
@@ -30,6 +33,8 @@ struct BridgePlan {
     std::string ground, water;  // the kit's terrains (for the messages)
     bool u = false;
     int length = 0, width = 0;   // in middle pieces (0: size 0.5)
+    int ox = 0, oy = 0;          // the bridge's origin (bridgeTiles)
+    uint32_t seed = 0;
     std::vector<Editor::TileAt> tiles;
     // No bridge (after the drag started on the map): a bridge as long as the drag, with its middle on the drag's middle,
     // for a preview of where it goes (the tiles on the map only).

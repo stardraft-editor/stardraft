@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <tuple>
 #include <cstring>
 #include <cctype>
 #include <climits>
@@ -164,6 +165,30 @@ static void paintedRivers(const GameData& data, const char* shots) {
                 check(planBridge(ed, cx - vx, cy - vy, cx, cy, width, 7).problem == BridgePlan::Problem::ReachGround, what + ": a drag that ends on the water");
                 check(planBridge(ed, cx - vx, cy - vy, cx - vx / 2, cy - vy / 2, width, 7).problem == BridgePlan::Problem::Short, what + ": a drag before the water");
                 check(applyBridge(ed, p), what + ": the bridge goes on the map");
+                if (const char* corpus = std::getenv("BRIDGE_BLEND")) {  // (the bridge's tiles next to tiles the maps never have them by)
+                    static std::set<std::tuple<int, int, int, int>> pairs;
+                    const auto variant = [](int v) { return (v >> 4) < 1024 ? v & ~15 : v; };
+                    if (pairs.empty())
+                        if (FILE* f = std::fopen(corpus, "r")) {
+                            int e, a, b;
+                            char way;
+                            while (std::fscanf(f, "%d %c %d %d", &e, &way, &a, &b) == 4) pairs.insert({e, way == 'r' ? 0 : 1, variant(a), variant(b)});
+                            std::fclose(f);
+                        }
+                    const auto& t = ed.terrain().tiles;
+                    const int w = ed.width();
+                    std::set<std::pair<int, int>> on;
+                    for (const auto& c : p.tiles) on.insert({c.x, c.y});
+                    for (const auto& c : p.tiles)
+                        for (const auto& [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                            const int x = c.x + dx, y = c.y + dy;
+                            if (x < 0 || y < 0 || x >= w || y >= ed.height()) continue;
+                            const int a = dx + dy < 0 ? t[size_t(y) * w + x] : c.value, b = dx + dy < 0 ? c.value : t[size_t(y) * w + x];
+                            if (!pairs.count({set.era, dx ? 0 : 1, variant(a), variant(b)}))
+                                std::printf("BLEND %s: %s %d %d (%d.%d / %d.%d) at %d,%d %s\n", what.c_str(), dx ? "right" : "below", a, b, a >> 4, a & 15, b >> 4,
+                                            b & 15, c.x, c.y, on.count({x, y}) ? "in" : "edge");
+                        }
+                }
             }
             check(bridges >= 2, std::string(set.name) + " row " + std::to_string(row + 1) + ": bridges over 2 rivers or more (" + std::to_string(bridges) + ")");
         }
@@ -381,6 +406,45 @@ int main(int argc, char** argv) {
         return 1;
     }
     check(bridgesAvailable(0) && !bridgesAvailable(2) && !bridgesAvailable(3), "bridges in Badlands; none in Installation and Ashworld");
+    if (std::getenv("BRIDGE_DOODADS")) {  // each tileset's doodads in its "Bridge" groups: id, size, tiles (group.index, - null)
+        for (const int era : {4, 1, 5, 6, 7, 0}) {
+            Editor ed(data);
+            std::string e;
+            if (!ed.newMap(64, 64, uint16_t(era), 1, e)) continue;
+            for (const DoodadType& t : ed.doodadTypes().all()) {
+                if (!t.groupString || !t.inPalette) continue;
+                const std::string group = ed.unitTypes().statText(t.groupString - 1u);
+                if (group.find("ridge") == std::string::npos) continue;
+                std::printf("doodad era %d id %d group %s first %d size %dx%d\n", era, t.id, group.c_str(), t.firstGroup, t.width, t.height);
+                for (int r = 0; r < t.height; ++r) {
+                    for (int c = 0; c < t.width; ++c) {
+                        const uint16_t v = uint16_t((t.firstGroup + r) << 4 | c);
+                        const int m = ed.tileset().megatileFor(v);
+                        if (std::getenv("BRIDGE_MEGA")) std::printf(m <= 0 ? "     -" : " %5d", m);
+                        else std::printf(m <= 0 ? "  -" : " %2d", c);
+                    }
+                    std::printf("\n");
+                }
+            }
+        }
+        return 0;
+    }
+    if (const char* dump = std::getenv("BRIDGE_DUMP")) {  // a map's tiles in a box (BRIDGE_BOX=l,t,r,b): group.index
+        Editor ed(data);
+        std::string e;
+        if (!ed.open(dump, e)) return std::printf("%s\n", e.c_str()), 1;
+        int l = 0, t = 0, r = 0, b = 0;
+        std::sscanf(std::getenv("BRIDGE_BOX"), "%d,%d,%d,%d", &l, &t, &r, &b);
+        for (int y = t; y <= b; ++y) {
+            std::printf("%3d:", y);
+            for (int x = l; x <= r; ++x) {
+                const int v = ed.terrain().tiles[size_t(y) * ed.width() + x];
+                std::printf(" %4d.%-2d", v >> 4, v & 15);
+            }
+            std::printf("\n");
+        }
+        return 0;
+    }
     if (const char* scan = std::getenv("BRIDGE_SCAN")) {  // a map: the kits' bridges in it (u, length, width, origin)
         Editor ed(data);
         std::string e;

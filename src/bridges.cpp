@@ -6,6 +6,7 @@
 #include "stardraft/bridges.h"
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cmath>
 #include <cstring>
@@ -183,23 +184,92 @@ std::vector<Editor::TileAt> fromExample(const BridgeKitData& k, int era, bool u,
     return best;
 }
 
+// How well two tiles meet (b right of a: way 0; under it: way 1): 0 where the game's maps have them so, else 1 and the
+// mean difference of the pixels on the two sides of their edge (0 to 255; the tiles' graphics, `ts`; without them: 1).
+class Seams {
+public:
+    Seams(int era, const Tileset* ts) : era_(era), ts_(ts) {}
+    double cost(int way, uint16_t a, uint16_t b) {
+        if (neighbors(era_, way, a, b)) return 0;
+        if (!ts_) return 1;
+        const Edges& ea = edges(a);
+        const Edges& eb = edges(b);
+        const std::array<Rgb, 32>& p = way ? ea.bottom : ea.right;
+        const std::array<Rgb, 32>& q = way ? eb.top : eb.left;
+        int sum = 0;
+        for (size_t i = 0; i < 32; ++i) sum += std::abs(p[i].r - q[i].r) + std::abs(p[i].g - q[i].g) + std::abs(p[i].b - q[i].b);
+        return 1 + sum / (32.0 * 3);
+    }
+
+private:
+    struct Edges {
+        std::array<Rgb, 32> left, right, top, bottom;
+    };
+    const Edges& edges(uint16_t v) {
+        auto i = cache_.find(v);
+        if (i != cache_.end()) return i->second;
+        Edges e{};
+        const int m = ts_->megatileFor(v);
+        if (m >= 0 && size_t(m) < ts_->megatiles.size()) {
+            const auto pixel = [&](int px, int py) {
+                const uint32_t mini = ts_->megatiles[size_t(m)][size_t((py / 8) * 4 + px / 8)];
+                const size_t n = mini >> 1;
+                const int lx = (mini & 1) ? 7 - px % 8 : px % 8;
+                return n < ts_->minitiles.size() ? ts_->palette[ts_->minitiles[n][size_t((py % 8) * 8 + lx)]] : Rgb{};
+            };
+            for (int i = 0; i < 32; ++i)
+                e.left[size_t(i)] = pixel(0, i), e.right[size_t(i)] = pixel(31, i), e.top[size_t(i)] = pixel(i, 0), e.bottom[size_t(i)] = pixel(i, 31);
+        }
+        return cache_.emplace(v, e).first->second;
+    }
+    int era_;
+    const Tileset* ts_;
+    std::map<uint16_t, Edges> cache_;
+};
+
+// The seams of a bridge's tiles: of each two tiles side by side or one above the other in it, and (`map`) of each of its
+// tiles and the map's tile next to it.
+double seamCost(Seams& seams, const std::vector<Editor::TileAt>& tiles, const Editor* map) {
+    std::map<std::pair<int, int>, uint16_t> at;
+    for (const Editor::TileAt& c : tiles) at[{c.x, c.y}] = c.value;
+    const auto tile = [&](int x, int y) -> int {
+        if (auto i = at.find({x, y}); i != at.end()) return i->second;
+        if (!map || x < 0 || y < 0 || x >= map->width() || y >= map->height()) return -1;
+        return map->terrain().tiles[size_t(y) * map->width() + x];
+    };
+    double n = 0;
+    for (const auto& [p, v] : at) {
+        const auto [x, y] = p;
+        if (const int r = tile(x + 1, y); r >= 0) n += seams.cost(0, v, uint16_t(r));
+        if (const int b = tile(x, y + 1); b >= 0) n += seams.cost(1, v, uint16_t(b));
+        if (!at.count({x - 1, y}))
+            if (const int l = tile(x - 1, y); l >= 0) n += seams.cost(0, uint16_t(l), v);
+        if (!at.count({x, y - 1}))
+            if (const int t = tile(x, y - 1); t >= 0) n += seams.cost(1, uint16_t(t), v);
+    }
+    return n;
+}
+
 }  // namespace
 
 bool bridgesAvailable(int era) { return kitOf(era, false) && kitOf(era, true); }
 
-std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed) {
+std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on, bool around) {
     std::vector<Editor::TileAt> out;
     const BridgeKitData* k = kitOf(era, u);
     if (!k) return out;
-    for (const BridgeExampleData& e : kBridgeExamples)  // (an approved bridge of this size: as it is)
-        if (e.era == era && e.u == u && e.length == length && e.width == width) {
+    // (the map's tiles round the bridge count only when asked: `around`)
+    const Editor* map = around ? on : nullptr;
+    Seams seams(era, on ? &on->tileset() : nullptr);
+    std::vector<Editor::TileAt> example;  // (an approved bridge of this size: as it is)
+    for (const BridgeExampleData& e : kBridgeExamples)
+        if (e.era == era && e.u == u && e.length == length && e.width == width)
             for (int i = e.first; i < e.first + e.cells; ++i) {
                 const BridgeExampleCellData& c = kBridgeExampleCells[i];
-                out.push_back({ox + c.x, oy + c.y, c.a});
-                out.push_back({ox + c.x + 1, oy + c.y, c.b});
+                example.push_back({ox + c.x, oy + c.y, c.a});
+                example.push_back({ox + c.x + 1, oy + c.y, c.b});
             }
-            return out;
-        }
+    if (!on && !example.empty()) return example;
     std::mt19937 rng(seed);
     // Row by row, left to right: each piece takes a variant whose tiles the corpus has next to the tiles already placed
     // left of it and above it (else the variant with the fewest pairs it does not have), by weight among them.
@@ -208,10 +278,17 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
     // Then a few passes in which each piece with variants takes the one that fits all its neighbors best (also those
     // right of it and under it), until no piece changes.
     std::map<std::pair<int, int>, uint16_t> placed;
+    std::set<std::pair<int, int>> mine;  // (the bridge's tiles: the map's tiles there do not count)
+    for (const Cell& c : cells) mine.insert({c.x, c.y}), mine.insert({c.x + 1, c.y});
     const auto misfits = [&](int x, int y, const BridgeChoiceData& v) {
-        const auto at = [&](int px, int py) { auto i = placed.find({px, py}); return i == placed.end() ? -1 : int(i->second); };
-        const auto no = [&](int way, int a, int b) { return a >= 0 && b >= 0 && !neighbors(era, way, uint16_t(a), uint16_t(b)); };
-        return int(no(0, v.a, v.b)) + no(0, at(x - 1, y), v.a) + no(0, v.b, at(x + 2, y)) + no(1, at(x, y - 1), v.a) + no(1, at(x + 1, y - 1), v.b) +
+        const auto at = [&](int px, int py) {
+            if (auto i = placed.find({px, py}); i != placed.end()) return int(i->second);
+            const int mx = ox + px, my = oy + py;
+            if (!map || mine.count({px, py}) || mx < 0 || my < 0 || mx >= map->width() || my >= map->height()) return -1;
+            return int(map->terrain().tiles[size_t(my) * map->width() + mx]);
+        };
+        const auto no = [&](int way, int a, int b) { return a >= 0 && b >= 0 ? seams.cost(way, uint16_t(a), uint16_t(b)) : 0.0; };
+        return no(0, v.a, v.b) + no(0, at(x - 1, y), v.a) + no(0, v.b, at(x + 2, y)) + no(1, at(x, y - 1), v.a) + no(1, at(x + 1, y - 1), v.b) +
                no(1, v.a, at(x, y + 1)) + no(1, v.b, at(x + 1, y + 1));
     };
     std::vector<int> picks(cells.size(), 0);
@@ -219,8 +296,9 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         const Cell& c = cells[i];
         const BridgeChoiceData* ch = &kBridgeChoices[c.key->first];
         placed.erase({c.x, c.y}), placed.erase({c.x + 1, c.y});  // (this piece's own tiles do not count)
-        int best = INT_MAX, total = 0;
-        std::vector<int> score(size_t(c.key->count));
+        double best = 1e18;
+        int total = 0;
+        std::vector<double> score(size_t(c.key->count));
         for (int j = 0; j < c.key->count; ++j) best = std::min(best, score[size_t(j)] = misfits(c.x, c.y, ch[j]));
         for (int j = 0; j < c.key->count; ++j)
             if (score[size_t(j)] == best) total += ch[j].weight;
@@ -240,7 +318,7 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
             if (cells[i].key->count > 1) {
                 const BridgeChoiceData* ch = &kBridgeChoices[cells[i].key->first];
                 placed.erase({cells[i].x, cells[i].y}), placed.erase({cells[i].x + 1, cells[i].y});
-                const int now = misfits(cells[i].x, cells[i].y, ch[picks[size_t(i)]]);
+                const double now = misfits(cells[i].x, cells[i].y, ch[picks[size_t(i)]]);
                 placed[{cells[i].x, cells[i].y}] = ch[picks[i]].a, placed[{cells[i].x + 1, cells[i].y}] = ch[picks[i]].b;
                 if (now > 0) changed |= choose(i);  // (a piece that fits keeps its variant)
             }
@@ -252,9 +330,19 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         out.push_back({ox + cells[i].x + 1, oy + cells[i].y, v.b});
     }
     // The approved bridge made larger, where its pieces fit their neighbors better (fewer pairs that no map has).
-    if (std::vector<Editor::TileAt> grown = fromExample(*k, era, u, length, width, ox, oy);
-        !grown.empty() && grown.size() == out.size() && misfitCount(era, grown) < misfitCount(era, out))
-        return grown;
+    if (!on) {
+        if (std::vector<Editor::TileAt> grown = fromExample(*k, era, u, length, width, ox, oy);
+            !grown.empty() && grown.size() == out.size() && misfitCount(era, grown) < misfitCount(era, out))
+            return grown;
+        return out;
+    }
+    // With the tiles' graphics: of these, the approved bridge of this size and the approved bridge made larger, the one
+    // with the least seams (the pairs the game's maps have: none; else how much the pixels differ at the edge).
+    double least = seamCost(seams, out, map);
+    if (example.size() == out.size())
+        if (const double c = seamCost(seams, example, map); c < least) least = c, out = example;
+    if (std::vector<Editor::TileAt> grown = fromExample(*k, era, u, length, width, ox, oy); grown.size() == out.size() && seamCost(seams, grown, map) < least)
+        out = std::move(grown);
     return out;
 }
 
@@ -381,7 +469,10 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const Diamond first = s + step * (sameWay ? k1 : k1 + span - 1) + (half ? deck : Diamond{0, 0});
     const std::pair<int, int> dOff{d->offset[0], d->offset[1]};
     const std::pair<int, int> off = plan.u ? uOffset(*d, *uk, plan.length, plan.width, dOff) : dOff;
-    const auto tilesFrom = [&](Diamond r) { return bridgeTiles(era, plan.u, plan.length, plan.width, 2 * r.x + off.first, r.y + off.second, seed); };
+    const auto tilesFrom = [&](Diamond r) {
+        plan.ox = 2 * r.x + off.first, plan.oy = r.y + off.second, plan.seed = seed;
+        return bridgeTiles(era, plan.u, plan.length, plan.width, plan.ox, plan.oy, seed, &ed);
+    };
 
     // (the kit's shortest approved bridge: Badlands has none of length 0.5)
     int shortest = INT_MAX;
@@ -465,7 +556,10 @@ bool applyBridge(Editor& ed, const BridgePlan& plan) {
     if (plan.problem != BridgePlan::Problem::None) return false;
     bool changed = false;
     for (const std::vector<CornerValue>& corners : plan.shore) changed |= ed.setTerrainCorners(corners);
-    return ed.placeTileValues(plan.tiles) > 0 || changed;
+    // (the pieces again, with the shore's tiles round them: the ones that meet them best)
+    std::vector<Editor::TileAt> tiles = bridgeTiles(ed.era() & 7, plan.u, plan.length, plan.width, plan.ox, plan.oy, plan.seed, &ed, true);
+    if (tiles.size() != plan.tiles.size()) tiles = plan.tiles;
+    return ed.placeTileValues(tiles) > 0 || changed;
 }
 
 }  // namespace stardraft
