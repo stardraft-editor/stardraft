@@ -2755,3 +2755,6 @@ Release the button to make the ramp the cliff again	松开按钮，使坡道变�
 Made the ramp the cliff again	已将坡道变回悬崖
 Could not make the ramp: %ls	无法生成坡道：%ls
 Ramp. Release the button to place it.	坡道。松开按钮即可放置。
+Terrain flags: the ground that units cannot walk on is dark	地形属性：单位无法行走的地面显示为暗色
+Terrain flags: the tiles that the isometric terrain does not give (orange)	地形属性：等距地形不会生成的图块（橙色）
+&Isometric terrain	等距地形(&I)

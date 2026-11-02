@@ -88,6 +88,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Overlays/Terrain flags/Ground height", L"Ctrl+K, H"},
         {L"View/Overlays/Terrain flags/Ground that blocks the line of sight", L"Ctrl+K, B"},
         {L"View/Overlays/Terrain flags/Buildable ground", L"Ctrl+K, G"},
+        {L"View/Overlays/Terrain flags/Isometric terrain", L"Ctrl+K, F"},
         {L"View/Overlays/Unit vision and ranges/All ranges", L"Ctrl+K, R"},
         {L"View/Overlays/Unit vision and ranges/Sight", L"Ctrl+K, V"},
         {L"View/Overlays/Unit vision and ranges/Target acquisition", L"Ctrl+K, Q"},

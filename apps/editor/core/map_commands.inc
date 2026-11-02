@@ -342,9 +342,10 @@ void registerMapCommands() {
             const wchar_t* label;
             int view;
         } flags[] = {{"view.flags.walkable", L"&Walkable ground", 1}, {"view.flags.height", L"Ground &height", 2},
-                     {"view.flags.blocksview", L"Ground that blocks the line of &sight", 3}, {"view.flags.buildable", L"&Buildable ground", 4}};
-        // View > Overlays > Terrain flags: one of the four views (the one that shows, clicked again: off).
-        for (int k = 0; k < 4; ++k) {
+                     {"view.flags.blocksview", L"Ground that blocks the line of &sight", 3}, {"view.flags.buildable", L"&Buildable ground", 4},
+                     {"view.flags.isom", L"&Isometric terrain", 5}};
+        // View > Overlays > Terrain flags: one of the five views (the one that shows, clicked again: off).
+        for (int k = 0; k < 5; ++k) {
             const auto v = TerrainFlagsView(flags[k].view);
             addCommand(ID_TERRAIN_FLAGS + k, flags[k].id, flags[k].label, "View/Terrain flags", L"", [v] { terrainFlagsSet(v); },
                        [v] { return terrainFlagsView() == v; });

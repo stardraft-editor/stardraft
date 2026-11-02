@@ -191,6 +191,9 @@ public:
     // These tiles (tile x, y) made again from the ISOM under them: tiles placed over the terrain there (a ramp's, in
     // Rectangle mode) go back to the ISOM's own (a cliff edge's). Returns the tiles that changed; one undo step.
     int remakeTilesFromIsom(const std::vector<std::pair<int, int>>& tiles);
+    // Per tile (MTXM order): 1 where the ISOM does not give the tile there (placed as it is: Rectangle, Tile, a stamp, a
+    // mod's piece the ISOM has no rule for), else 0. All 1 when the map has no ISOM.
+    std::vector<uint8_t> tilesNotFromIsom() const;
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two

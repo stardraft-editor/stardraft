@@ -2755,3 +2755,6 @@ Release the button to make the ramp the cliff again	Relâchez le bouton pour ref
 Made the ramp the cliff again	La rampe est redevenue une falaise
 Could not make the ramp: %ls	Impossible de faire la rampe : %ls
 Ramp. Release the button to place it.	Rampe. Relâchez le bouton pour la placer.
+Terrain flags: the ground that units cannot walk on is dark	Propriétés du terrain : le sol où les unités ne peuvent pas marcher est sombre
+Terrain flags: the tiles that the isometric terrain does not give (orange)	Propriétés du terrain : les tuiles que le terrain isométrique ne donne pas (orange)
+&Isometric terrain	Terrain &isométrique

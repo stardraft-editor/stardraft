@@ -83,7 +83,7 @@ enum : int {
     ID_OVERLAYS_OFF = 1037,  // View > Overlays > Turn off all overlays (the ranges too)
     ID_COMMANDS = 1038,      // View > Find a command (Ctrl+P: the menus' items in a searchable list, sdl_menus.inc)
     ID_PIE_PALETTE = 1039,   // View > Terrain pie palette (Space held on the map; from the menu: until a click, sdl_main_view.inc)
-    ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable
+    ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable, 4 isometric terrain
     ID_SCEN_PATHCHECK = 997,  // Scenario > Check pathing (core/pathing_layer.inc)
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send

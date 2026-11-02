@@ -2755,3 +2755,6 @@ Release the button to make the ramp the cliff again	Отпустите кноп�
 Made the ramp the cliff again	На месте пандуса снова обрыв
 Could not make the ramp: %ls	Не удалось сделать пандус: %ls
 Ramp. Release the button to place it.	Пандус. Отпустите кнопку, чтобы поставить его.
+Terrain flags: the ground that units cannot walk on is dark	Свойства местности: земля, по которой юниты не могут ходить, затемнена
+Terrain flags: the tiles that the isometric terrain does not give (orange)	Свойства местности: тайлы, которые не даёт изометрическая местность (оранжевые)
+&Isometric terrain	&Изометрическая местность

@@ -2757,6 +2757,9 @@ constexpr UiText kRows[] = {
     {L"Made the ramp the cliff again", L"La rampa volvi\u00F3 a ser acantilado"},
     {L"Could not make the ramp: %ls", L"No se pudo hacer la rampa: %ls"},
     {L"Ramp. Release the button to place it.", L"Rampa. Suelte el bot\u00F3n para colocarla."},
+    {L"Terrain flags: the ground that units cannot walk on is dark", L"Marcas del terreno: el suelo por el que las unidades no pueden caminar est\u00E1 oscuro"},
+    {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"Marcas del terreno: las baldosas que el terreno isom\u00E9trico no da (naranja)"},
+    {L"&Isometric terrain", L"Terreno &isom\u00E9trico"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

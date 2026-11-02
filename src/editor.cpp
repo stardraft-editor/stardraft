@@ -1617,6 +1617,16 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     return true;
 }
 
+std::vector<uint8_t> Editor::tilesNotFromIsom() const {
+    std::vector<uint8_t> out(size_t(width_) * height_, 1);
+    if (!isomOk_) return out;
+    const TerrainLayer tile = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    for (int ty = 0; ty < int(height_); ++ty)
+        for (int tx = 0; tx < int(width_); ++tx)
+            if (size_t(ty) * width_ + tx < tile.tiles.size()) out[size_t(ty) * width_ + tx] = !isom_.tileFromIsom(chk_, tile, tx, ty);
+    return out;
+}
+
 int Editor::remakeTilesFromIsom(const std::vector<std::pair<int, int>>& tiles) {
     if (!isomOk_ || tiles.empty()) return 0;
     // (the ISOM corners of the tiles' rects, as they are: the edit changes no corner; its rects whose tiles are not the
