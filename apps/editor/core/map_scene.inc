@@ -458,8 +458,8 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
 // The Ramp brush's diamonds along a stroke (map pixels): the diamond under each point and on the way between them.
 std::set<std::pair<int, int>> rampBrushCorners(const std::vector<std::pair<int, int>>& pts) {
     const Editor& ed = *appState().ed;
-    Brush b;
-    b.shape = Brush::Diamond, b.size = 1;
+    Brush b = currentBrush();  // (the brush's size: Alt + wheel)
+    b.shape = Brush::Diamond;
     std::set<std::pair<int, int>> set;
     for (size_t i = 0; i < pts.size(); ++i) {
         const auto [x1, y1] = pts[i];

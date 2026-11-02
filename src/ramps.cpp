@@ -465,13 +465,10 @@ RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const st
     const auto along = [&](double x, double y) { return ((x - ax0) * ux + (y - ay0) * uy) / len; };
     const double vx = -uy / len, vy = ux / len;  // (across the edge)
     const auto across = [&](double x, double y) { return (x - ax0) * vx + (y - ay0) * vy; };
-    // (the stroke's stretch along the edge: from its start to where it goes 3 tiles or more away from the edge's line; the
-    // rest is for the next ramps)
+    // (the stroke's stretch along the edge: its points 3 tiles or nearer to the edge's line; the rest is for other ramps)
     double lo = 1e18, hi = -1e18;
-    for (const auto& [x, y] : stroke) {
-        if (std::fabs(across(x, y)) > 96) break;
-        lo = std::min(lo, along(x, y)), hi = std::max(hi, along(x, y));
-    }
+    for (const auto& [x, y] : stroke)
+        if (std::fabs(across(x, y)) <= 96) lo = std::min(lo, along(x, y)), hi = std::max(hi, along(x, y));
     if (lo > hi) lo = hi = along(sx, sy);
     // (the same edge and stretch on the same map as before: the ramp then)
     static uint64_t plannedFor = 0;
@@ -537,8 +534,22 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     if (fits.empty() && !doodads.empty() && why) why->problem = ed.canPaintTerrain() ? RampPlan::Problem::NoCliff : RampPlan::Problem::NoIsom;
     size_t i = 0;
     while (i < stroke.size() && out.size() < 32) {
-        const RampPlan p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second)
-                                            : planRampWith(ed, fits, std::vector<std::pair<int, int>>(stroke.begin() + std::ptrdiff_t(i), stroke.end()));
+        // (the stroke from i on without its points on the ramps planned already or next to them: the next ramp goes on to
+        // them, not over them)
+        const auto onTaken = [&](std::pair<int, int> q) {
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dx = -1; dx <= 1; ++dx)
+                    if (taken.count({q.first / 32 + dx, q.second / 32 + dy})) return true;
+            return false;
+        };
+        if (!taken.empty() && onTaken(stroke[i])) {
+            ++i;
+            continue;
+        }
+        std::vector<std::pair<int, int>> rest;
+        for (size_t j = i; j < stroke.size(); ++j)
+            if (taken.empty() || !onTaken(stroke[j])) rest.push_back(stroke[j]);
+        const RampPlan p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second) : planRampWith(ed, fits, rest);
         if (why && i == 0) *why = p;
         if (p.problem != RampPlan::Problem::None) {
             if (p.problem != RampPlan::Problem::NoCliff) break;
@@ -559,11 +570,36 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
         }
         bool overlaps = false;
         for (const Editor::TileAt& c : p.tiles) overlaps |= taken.count({c.x, c.y}) != 0;
-        if (!overlaps) {
-            for (const Editor::TileAt& c : p.tiles) taken.insert({c.x, c.y});
-            out.push_back(p);
+        if (overlaps) {  // (over a ramp planned already: the next point may give one beside it)
+            ++i;
+            continue;
         }
+        for (const Editor::TileAt& c : p.tiles) taken.insert({c.x, c.y});
+        out.push_back(p);
         i = next;
+    }
+    return out;
+}
+
+std::vector<std::pair<int, int>> rampBrushStroke(const std::vector<std::pair<int, int>>& pts, float size) {
+    size = std::max(0.5f, size);
+    const int rx = int(size * 32), ry = int(size * 16);
+    std::vector<std::pair<int, int>> offsets;
+    for (int dy = -ry; dy <= ry; dy += 16)
+        for (int dx = -rx; dx <= rx; dx += 32)
+            if (std::abs(dx) * ry + std::abs(dy) * rx <= rx * ry) offsets.push_back({dx, dy});
+    std::sort(offsets.begin(), offsets.end(), [](auto a, auto b) { return std::hypot(a.first, 2 * a.second) < std::hypot(b.first, 2 * b.second); });
+    std::vector<std::pair<int, int>> out;
+    std::set<std::pair<int, int>> seen;
+    for (size_t i = 0; i < pts.size(); ++i) {
+        const auto [x1, y1] = pts[i];
+        const auto [x0, y0] = i ? pts[i - 1] : pts[i];
+        const int n = std::max(1, int(std::hypot(x1 - x0, y1 - y0) / 32));
+        for (int k = i ? 1 : 0; k <= n; ++k) {
+            const int px = x0 + (x1 - x0) * k / n, py = y0 + (y1 - y0) * k / n;
+            for (const auto& [dx, dy] : offsets)
+                if (seen.insert({(px + dx) >> 4, (py + dy) >> 3}).second) out.push_back({px + dx, py + dy});
+        }
     }
     return out;
 }
@@ -580,7 +616,14 @@ std::vector<uint16_t> rampDoodads(const Editor& ed) {
     for (const DoodadType& t : ed.doodadTypes().all()) {
         if (!t.inPalette || !t.needsTiles() || t.width < 4 || t.height < 4) continue;  // (no rule for where it goes; small pieces: not ramps)
         const std::vector<Editor::TileAt> tiles = doodadTiles(ed, t, 0, 0);
-        if (!tiles.empty() && rampJoins(ed.tileset(), tiles)) out.push_back(t.id);
+        if (tiles.empty() || !rampJoins(ed.tileset(), tiles)) continue;
+        // (a ramp is mostly ground to walk on: the maps' ramps 60 % and more of their minitiles, the rocks and ruins that
+        // also join two levels 45 % and less)
+        int all = 0, walk = 0;
+        for (const Editor::TileAt& c : tiles)
+            if (const int m = ed.tileset().megatileFor(c.value); m >= 0 && size_t(m) < ed.tileset().minitileFlags.size())
+                for (const uint16_t f : ed.tileset().minitileFlags[size_t(m)]) ++all, walk += (f & Tileset::kWalkable) != 0;
+        if (2 * walk >= all) out.push_back(t.id);
     }
     return out;
 }

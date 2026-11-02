@@ -928,11 +928,11 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
     return true;
 }
 
-// Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down
-// (brushSizes). False when no brush is active.
+// Alt + wheel on the map: the active brush (the terrain brush or spray, Ramp's brush, Bridge's width, the unit and doodad
+// spray) one size up or down (brushSizes). False when no brush is active.
 bool mapBrushActive(const AppState& app) {
     return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || isStrokeShape(currentTool()) ||
-                                          (currentTool() == TJumble && !app.terrainRect))) ||
+                                          currentTool() == TBridge || currentTool() == TRamp || (currentTool() == TJumble && !app.terrainRect))) ||
            objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && currentTool() == TErase);
 }
 bool mapBrushWheel(AppState& app, bool up) {

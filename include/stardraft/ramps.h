@@ -23,7 +23,7 @@ bool rampsAvailable(int era);
 bool rampsAvailable(const Editor& ed);
 // The map's tileset's ramp doodads, for a tileset whose tiles are not the kits' (a mod's, made from the older game that
 // had only these): the doodads that need tiles under them (dddata.bin, the game's rule for where they go) and whose own
-// tiles join two ground levels. Empty where the kits are usable.
+// tiles join two ground levels, mostly walkable ground (half of their minitiles or more). Empty where the kits are usable.
 std::vector<uint16_t> rampDoodads(const Editor& ed);
 
 // The kits (indexes) of a tileset that the brush offers (all: also those the maps do not show); a kit's facing, its
@@ -78,6 +78,10 @@ struct RampPlan {
 // The ramp that a brush stroke (map pixels) paints: the ramp of the kit (any block of the tileset) that fits a cliff edge
 // nearest the stroke's start (its facing: the edge's), on the edge as far as the stroke goes along it, either way.
 RampPlan planRamp(const Editor& ed, const std::vector<std::pair<int, int>>& stroke);
+
+// The places a Ramp brush of `size` (the brush's: diamonds across) covers along a stroke (map pixels): every 32 pixels
+// along it, the middles of the brush's diamonds there, each brush's middle first; each place once. For planRamps.
+std::vector<std::pair<int, int>> rampBrushStroke(const std::vector<std::pair<int, int>>& stroke, float size);
 
 // The ramps that a stroke paints along one edge or more (round a plateau's corner): a ramp for the stroke's first
 // stretch along an edge (planRamp), then for the rest of the stroke from its first point away from that ramp, and so on;

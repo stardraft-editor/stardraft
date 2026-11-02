@@ -815,6 +815,53 @@ int main(int argc, char** argv) {
         dumpBlocks(data, blocks);
         return 0;
     }
+    if (const char* out = std::getenv("RAMP_PLATEAUS")) {  // <folder>: per tileset, a plateau and the brush (size 2) round its edge: the ramps, saved
+        for (int era = 0; era < 8; ++era) {
+            Editor ed(data);
+            std::string err;
+            if (!ed.newMap(96, 96, uint16_t(era), 1, err)) continue;
+            uint16_t high = 0;
+            for (uint16_t id = 2; id < 64 && !high; ++id)
+                if (ed.terrainName(id).rfind("High ", 0) == 0) high = id;
+            if (!high || !rampsAvailable(ed)) continue;
+            Brush b;
+            b.shape = Brush::Diamond, b.size = 16;
+            ed.paintBrush(48 * 32, 48 * 32, high, b);
+            // (round the plateau's edge: a diamond 16 * 64 px across, 16 * 32 px down)
+            std::vector<std::pair<int, int>> ring;
+            const int cx = 48 * 32, cy = 48 * 32;
+            int rx = 0, ry = 0;  // (the plateau's edge: right of the middle and under it)
+            while (rx < 40 * 32 && ed.terrainAt(cx + rx, cy) == high) rx += 8;
+            while (ry < 40 * 32 && ed.terrainAt(cx, cy + ry) == high) ry += 8;
+            for (int k = 0; k <= 64; ++k) {
+                const double t = k / 64.0 * 4;
+                const int side = int(t) % 4;
+                const double f = t - int(t);
+                const std::pair<double, double> c[5] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+                ring.push_back({cx + int((c[side].first + (c[side + 1].first - c[side].first) * f) * rx),
+                                cy + int((c[side].second + (c[side + 1].second - c[side].second) * f) * ry)});
+            }
+            int placed = 0;
+            {
+                RampPlan why;
+                const auto raw = planRamps(ed, ring, &why);
+                const auto wide = planRamps(ed, rampBrushStroke(ring, 2));
+                for (int off = -64; off <= 64; off += 32) {
+                    const RampPlan q = planRamp(ed, {{ring[8].first + off, ring[8].second - off}, {ring[8].first + off + 128, ring[8].second - off + 64}});
+                    std::printf("  single at offset %d: problem %d kit %d, terrain %d\n", off, int(q.problem), q.kit, ed.terrainAt(ring[8].first + off, ring[8].second - off));
+                }
+                std::printf("era %d: raw %zu (problem %d), brush %zu, ring %d,%d to %d,%d, terrain at middle %d, at ring %d\n", era, raw.size(), int(why.problem), wide.size(),
+                            ring.front().first, ring.front().second, ring[8].first, ring[8].second, ed.terrainAt(cx, cy), ed.terrainAt(ring[8].first, ring[8].second));
+            }
+            // (a short stroke in the middle of each edge, one after the other, as a user paints them)
+            for (int side = 0; side < 4; ++side)
+                for (const RampPlan& p : planRamps(ed, rampBrushStroke(std::vector<std::pair<int, int>>(ring.begin() + side * 16 + 6, ring.begin() + side * 16 + 11), 2)))
+                    placed += p.doodad >= 0 ? ed.placeDoodad(uint16_t(p.doodad), p.x, p.y, true) : ed.placeTileValues(p.tiles) > 0;
+            std::printf("era %d: %d ramps\n", era, placed);
+            ed.save(std::filesystem::path(out) / ("ramps_" + std::to_string(era) + ".scm"), err);
+        }
+        return 0;
+    }
     if (const char* maps = std::getenv("RAMP_MAPS")) {  // (a mod's maps) each ramp doodad taken away, then a stroke there: the ramp back?
         std::map<std::pair<int, int>, std::array<int, 3>> by;  // (era, doodad): cases, a ramp placed there, the same doodad at the same place
         int cases = 0;
@@ -873,7 +920,22 @@ int main(int argc, char** argv) {
                         if (const uint16_t v = uint16_t((t.firstGroup + r) << 4 | c); ed.tileset().megatileFor(v) > 0) tiles.push_back({c, r, v});
                 if (tiles.empty() || !rampJoins(ed.tileset(), tiles)) continue;
                 const auto u = used.find({era, t.id});
-                std::printf("joins era %d doodad %d first %d size %dx%d placed %d\n", era, t.id, t.firstGroup, t.width, t.height, u == used.end() ? 0 : u->second);
+                // (its minitiles: walkable ones per ground level, and those on the doodad's border)
+                int all = 0, level[3] = {}, border[3] = {};
+                for (const auto& c : tiles) {
+                    const int m = ed.tileset().megatileFor(c.value);
+                    for (int i = 0; i < 16; ++i, ++all) {
+                        const uint16_t f = ed.tileset().minitileFlags[size_t(m)][size_t(i)];
+                        if (!(f & Tileset::kWalkable)) continue;
+                        const int l = (f & 4) ? 2 : (f & 2) ? 1 : 0;
+                        ++level[l];
+                        const int mx = c.x * 4 + i % 4, my = c.y * 4 + i / 4;
+                        border[l] += mx == 0 || my == 0 || mx == t.width * 4 - 1 || my == t.height * 4 - 1;
+                    }
+                }
+                std::printf("joins era %d doodad %d first %d size %dx%d placed %d walk %d%% (low %d mid %d high %d) border low %d mid %d high %d\n", era, t.id, t.firstGroup,
+                            t.width, t.height, u == used.end() ? 0 : u->second, 100 * (level[0] + level[1] + level[2]) / std::max(1, all), level[0], level[1], level[2],
+                            border[0], border[1], border[2]);
             }
         }
         return 0;
@@ -893,10 +955,12 @@ int main(int argc, char** argv) {
             std::vector<std::pair<int, int>> stroke;
             for (int i = 0; i < 160; ++i) stroke.push_back({128 * 32 + 1600 - i * 8, 128 * 32 - 1300 + i * 4});
             for (int i = 0; i < 400; ++i) stroke.push_back({stroke.back().first + 8, stroke.back().second + 4 - (i % 2) * 0});
+            const float size = std::getenv("RAMP_SIZE") ? float(std::atof(std::getenv("RAMP_SIZE"))) : 1.0f;  // (the brush's size)
             double total = 0, worst = 0;
             for (size_t n = 1; n <= stroke.size(); n += 1) {
                 const auto t0 = std::chrono::steady_clock::now();
-                const std::vector<RampPlan> ramps = planRamps(ed, std::vector<std::pair<int, int>>(stroke.begin(), stroke.begin() + std::ptrdiff_t(n)));
+                const std::vector<RampPlan> ramps =
+                    planRamps(ed, rampBrushStroke(std::vector<std::pair<int, int>>(stroke.begin(), stroke.begin() + std::ptrdiff_t(n)), size));
                 const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
                 total += ms, worst = std::max(worst, ms);
                 if (n == 50 || n == 160 || n == 300 || n == stroke.size())

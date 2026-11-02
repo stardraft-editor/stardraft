@@ -242,8 +242,9 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
 }
 
 // Ramp: the ramp that the stroke paints (gShape.cells, gShape.ghost), and the status bar says it or why there is none.
-void rampMake(const std::vector<std::pair<int, int>>& pts) {
+void rampMake(const std::vector<std::pair<int, int>>& stroke) {
     const Editor& ed = *appState().ed;
+    const std::vector<std::pair<int, int>> pts = rampBrushStroke(stroke, currentBrush(appState()).size);
     // (a tileset whose ramps are doodads, a mod's: they go on the copy of the map as doodads, or Shift takes them away)
     if (const std::vector<uint16_t> doodads = rampDoodads(ed); !doodads.empty()) {
         std::vector<int> under;
