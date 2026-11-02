@@ -381,48 +381,6 @@ std::vector<Editor::TileAt> doodadTiles(const Editor& ed, const DoodadType& t, i
     return out;
 }
 
-// The ramp stamp (a mod's ramp of its own tiles) that covers a stroke's point where the ISOM corners under it are the
-// stamp's, or nearly (2 corners or fewer differ: they become the stamp's); of those, the fewest corners to change, then
-// the one the maps use most.
-RampPlan planStampRamp(const Editor& ed, int sx, int sy) {
-    RampPlan plan;
-    const std::vector<Tileset::RampStamp>& stamps = ed.tileset().rampStamps;
-    if (stamps.empty() || sx < 0 || sy < 0) return plan;
-    // (the same map and point as before: the answer then)
-    static uint64_t cachedFor = 0;
-    static std::unordered_map<uint64_t, RampPlan> cache;
-    if (cachedFor != ed.terrainRevision() || cache.size() > 50000) cache.clear(), cachedFor = ed.terrainRevision();
-    const uint64_t key = uint64_t(uint32_t(sx)) << 32 | uint32_t(sy);
-    if (const auto c = cache.find(key); c != cache.end()) return c->second;
-    const int px = sx / 32, py = sy / 32, w = ed.width(), h = ed.height();
-    double best = 1e18;
-    for (const Tileset::RampStamp& s : stamps) {
-        int sw = 0, sh = 0;
-        for (const auto& t : s.tiles) sw = std::max(sw, t[0] + 1), sh = std::max(sh, t[1] + 1);
-        std::vector<uint16_t> ids;
-        for (const auto& c : s.corners) ids.push_back(terrainId(ed, c.second.c_str()));
-        for (int ty = py - sh + 1; ty <= py; ++ty)
-            for (int tx = (px - sw + 1) & ~1; tx <= px; tx += 2) {
-                if (tx < 0 || ty < 0 || tx + sw > w || ty + sh > h || ((tx / 2 + ty) & 1) != s.parity) continue;
-                int off = 0;
-                for (size_t i = 0; i < s.corners.size() && off <= 2; ++i)
-                    off += !ids[i] || ed.terrainAt(64 * (tx / 2 + s.corners[i].first[0]), 32 * (ty + s.corners[i].first[1])) != ids[i];
-                if (off > 2) continue;
-                const double cost = off * 1000.0 - std::min(s.uses, 999) + std::hypot(32.0 * (tx + sw / 2.0) - sx, 32.0 * (ty + sh / 2.0) - sy) / 64;
-                if (cost >= best) continue;
-                best = cost;
-                plan.tiles.clear(), plan.corners.clear();
-                for (const auto& t : s.tiles) plan.tiles.push_back({tx + t[0], ty + t[1], uint16_t(t[2])});
-                for (size_t i = 0; i < s.corners.size(); ++i) {
-                    const int X = tx / 2 + s.corners[i].first[0], Y = ty + s.corners[i].first[1];
-                    if (ids[i] && ed.terrainAt(64 * X, 32 * Y) != ids[i]) plan.corners.push_back({X, Y, ids[i]});
-                }
-            }
-    }
-    if (!plan.tiles.empty()) plan.problem = RampPlan::Problem::None;
-    return cache[key] = plan;
-}
-
 // The ramp doodad that fits nearest a stroke's point (3 tiles or nearer), where the game's rule lets it go.
 RampPlan planDoodadRamp(const Editor& ed, const std::vector<uint16_t>& ids, int sx, int sy) {
     RampPlan plan;
@@ -571,10 +529,9 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     std::vector<RampPlan> out;
     std::set<std::pair<int, int>> taken;
     const std::map<int, Fit> fits = fitsOn(ed);
-    // (no kit on this tileset: its ramp stamps, else its ramp doodads, one where the stroke is near the place it fits)
+    // (no kit on this tileset: its ramp doodads, one where the stroke is near the place it fits)
     const std::vector<uint16_t> doodads = fits.empty() ? rampDoodads(ed) : std::vector<uint16_t>{};
-    const bool stamps = fits.empty() && !ed.tileset().rampStamps.empty();
-    if (fits.empty() && (stamps || !doodads.empty()) && why) why->problem = ed.canPaintTerrain() ? RampPlan::Problem::NoCliff : RampPlan::Problem::NoIsom;
+    if (fits.empty() && !doodads.empty() && why) why->problem = ed.canPaintTerrain() ? RampPlan::Problem::NoCliff : RampPlan::Problem::NoIsom;
     size_t i = 0;
     while (i < stroke.size() && out.size() < 32) {
         // (the stroke from i on without its points on the ramps planned already or next to them: the next ramp goes on to
@@ -592,9 +549,7 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
         std::vector<std::pair<int, int>> rest;
         for (size_t j = i; j < stroke.size(); ++j)
             if (taken.empty() || !onTaken(stroke[j])) rest.push_back(stroke[j]);
-        RampPlan p = stamps ? planStampRamp(ed, stroke[i].first, stroke[i].second) : RampPlan{};
-        if (p.problem != RampPlan::Problem::None)
-            p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second) : stamps ? p : planRampWith(ed, fits, rest);
+        const RampPlan p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second) : planRampWith(ed, fits, rest);
         if (why && i == 0) *why = p;
         if (p.problem != RampPlan::Problem::None) {
             if (p.problem != RampPlan::Problem::NoCliff) break;
@@ -649,31 +604,7 @@ std::vector<std::pair<int, int>> rampBrushStroke(const std::vector<std::pair<int
     return out;
 }
 
-bool rampKitsUsable(const Editor& ed) { return !fitsOn(ed).empty(); }
-
-bool rampsAvailable(const Editor& ed) { return !fitsOn(ed).empty() || !ed.tileset().rampStamps.empty() || !rampDoodads(ed).empty(); }
-
-std::vector<std::pair<int, int>> rampStampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) {
-    std::unordered_set<uint16_t> values;  // (the stamps' tiles that join two levels)
-    for (const Tileset::RampStamp& s : ed.tileset().rampStamps)
-        for (const auto& t : s.tiles) values.insert(uint16_t(t[2]));
-    const int w = ed.width(), h = ed.height();
-    const auto on = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && values.count(ed.terrain().tiles[size_t(y) * w + x]); };
-    std::set<std::pair<int, int>> seen;
-    std::vector<std::pair<int, int>> todo;
-    for (const auto& [px, py] : stroke)
-        for (int ty = py / 32 - 1; ty <= py / 32 + 1; ++ty)
-            for (int tx = px / 32 - 2; tx <= px / 32 + 2; ++tx)
-                if (on(tx, ty) && seen.insert({tx, ty}).second) todo.push_back({tx, ty});
-    while (!todo.empty()) {
-        const auto [x, y] = todo.back();
-        todo.pop_back();
-        for (int dy = -1; dy <= 1; ++dy)
-            for (int dx = -1; dx <= 1; ++dx)
-                if (on(x + dx, y + dy) && seen.insert({x + dx, y + dy}).second) todo.push_back({x + dx, y + dy});
-    }
-    return std::vector<std::pair<int, int>>(seen.begin(), seen.end());
-}
+bool rampsAvailable(const Editor& ed) { return !fitsOn(ed).empty() || !rampDoodads(ed).empty(); }
 
 std::vector<uint16_t> rampDoodads(const Editor& ed) {
     if (!fitsOn(ed).empty()) return {};

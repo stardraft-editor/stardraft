@@ -21,13 +21,6 @@ bool rampsAvailable(int era);
 // Whether the map's tileset has ramps for the brush: kits whose tiles are its doodads' (a mod's tileset can have other
 // doodads at those tiles), else its own ramp doodads (rampDoodads).
 bool rampsAvailable(const Editor& ed);
-// Whether the map's tileset takes the ramp kits (their tiles are its doodads'); else its ramp stamps (Tileset::
-// rampStamps, a mod's ramps of its own tiles) and its ramp doodads.
-bool rampKitsUsable(const Editor& ed);
-// The ramp tiles of the tileset's ramp stamps within a diamond of a stroke, and the stamp tiles joined to them: Shift
-// makes them the cliff again (Editor::remakeTilesFromIsom).
-std::vector<std::pair<int, int>> rampStampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke);
-
 // The map's tileset's ramp doodads, for a tileset whose tiles are not the kits' (a mod's, made from the older game that
 // had only these): the doodads that need tiles under them (dddata.bin, the game's rule for where they go) and whose own
 // tiles join two ground levels, mostly walkable ground (half of their minitiles or more). Empty where the kits are usable.
@@ -80,9 +73,6 @@ struct RampPlan {
     std::vector<Editor::TileAt> tiles;
     // A ramp doodad (rampDoodads; kit -1): its id and its middle (map pixels), placed as a doodad (Editor::placeDoodad).
     int doodad = -1, x = 0, y = 0;
-    // A ramp stamp (Tileset::rampStamps; kit -1, doodad -1): the ISOM corners to set first (where the cliff is not quite
-    // the stamp's), then its tiles.
-    std::vector<CornerValue> corners;
 };
 
 // The ramp that a brush stroke (map pixels) paints: the ramp of the kit (any block of the tileset) that fits a cliff edge

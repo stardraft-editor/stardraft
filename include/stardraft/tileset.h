@@ -84,15 +84,6 @@ struct Tileset {
     // keep the ids and the ISOM values that come from them).
     static constexpr uint16_t kModVariantIds = kModTerrainIds + 48;
     std::vector<ModTerrain> modTerrains;
-    // A mod's ramps made of its own tiles (from its maps: src/mods/cmbw_ramp_stamps.inc): each one's tiles from its top
-    // left, and the terrains of the ISOM corners under it; the Ramp brush puts one where a cliff's corners are those.
-    struct RampStamp {
-        int uses = 0;    // (how often the maps have it)
-        int parity = 0;  // (its top left's (x / 2 + y) & 1: the ISOM rects' pattern)
-        std::vector<std::array<int, 3>> tiles;                            // x, y, the tile (MTXM value)
-        std::vector<std::pair<std::array<int, 2>, std::string>> corners;  // the rect corner x, y from its top left; the terrain's name
-    };
-    std::vector<RampStamp> rampStamps;
     const ModTerrain* modTerrain(uint16_t id) const {
         for (const ModTerrain& m : modTerrains)
             if (m.id == id) return &m;
