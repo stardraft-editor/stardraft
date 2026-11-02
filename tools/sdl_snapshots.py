@@ -3913,6 +3913,12 @@ CASES += [("map-shape-line-preview", ["--mode", "terrain", "--click", "202,759",
           ("map-shape-line-click", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--click", "560,690"], "map"),
           ("map-shape-polygon-mode", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY[:4] +
            ["--key", "U", "--key", "T", "--click", "660,750"], "map")]
+# Release pictures (tools/shots): Fill with three terrains (Ctrl+click adds; Mix), the red ground where a picked mineral
+# field may not go, and the window in French.
+CASES += [("map-fill-mix", ["--mode", "terrain", "--click", "202,851", "--click", "202,805:Ctrl", "--click", "202,759:Ctrl", "--key", "F",
+                            "--click", "455,520", "--move", "1500,900"], "map"),
+          ("map-units-nogo", ["--mode", "units", "--wheel", "1199,595,0,5", "--key", "Q", "--type", "mineral field", "--key", "Enter", "--move", "1000,560"], "map"),
+          ("map-french", ["--mode", "terrain", "--lang", "fr"], "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
