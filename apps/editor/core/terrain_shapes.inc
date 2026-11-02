@@ -245,6 +245,39 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
 void rampMake(const std::vector<std::pair<int, int>>& stroke) {
     const Editor& ed = *appState().ed;
     const std::vector<std::pair<int, int>> pts = rampBrushStroke(stroke, currentBrush(appState()).size);
+    // (a tileset whose ramps are doodads, a mod's: they go on the copy of the map as doodads, or Shift takes them away)
+    if (const std::vector<uint16_t> doodads = rampDoodads(ed); !doodads.empty()) {
+        std::vector<int> under;
+        if (gShape.unramp) {
+            for (const auto& [x, y] : pts)
+                if (const int d = ed.doodadAt(x, y); d >= 0 && std::find(doodads.begin(), doodads.end(), ed.doodads()[size_t(d)].id) != doodads.end() &&
+                                                     std::find(under.begin(), under.end(), d) == under.end())
+                    under.push_back(d);
+            if (under.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
+        }
+        RampPlan why;
+        const std::vector<RampPlan> ramps = gShape.unramp ? std::vector<RampPlan>{} : planRamps(ed, pts, &why);
+        if (!gShape.unramp && ramps.empty())
+            return setMessage(why.problem == RampPlan::Problem::NoIsom ? L"Could not make a ramp. The map has no isometric terrain data."
+                                                                       : L"Ramp: paint along a cliff edge");
+        Editor& copy = shapeCopy(ed.gameData());
+        std::string error;
+        if (!copy.openChk(ed.chk(), error)) return setMessage(bridgeText(L"Could not make the ramp: %ls", widen(error)));
+        shapeCopySettings(copy, ed);
+        copy.setMirrors(0), copy.setTurns(1);
+        int placed = 0;
+        if (gShape.unramp) copy.deleteDoodads(under);
+        for (const RampPlan& p : ramps) placed += copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true);
+        const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
+        if (a.size() == b.size())
+            for (size_t i = 0; i < a.size(); ++i)
+                if (a[i] != b[i]) gShape.ghost.push_back({int(i), b[i]}), gShape.cells.push_back({int(i % ed.width()), int(i / ed.width()), b[i]});
+        gShape.copyHolds = true;
+        if (gShape.unramp) return setMessage(L"Release the button to make the ramp the cliff again");
+        if (!placed) return setMessage(L"Ramp: paint along a cliff edge");
+        return setMessage(placed > 1 ? bridgeText(L"%ls ramps. Release the button to place them.", std::to_wstring(placed))
+                                     : std::wstring(tr(L"Ramp. Release the button to place it.")));
+    }
     if (gShape.unramp) {  // (Shift: the ramps under the stroke, made the cliff again on the copy of the map)
         const std::vector<std::pair<int, int>> under = rampTilesUnder(ed, pts);
         if (under.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
@@ -392,6 +425,18 @@ void shapeFinish() {
         setMessage(L"Made the ramp the cliff again");
     } else if (tool == TRamp) {
         if (gShape.cells.empty()) {  // (the status bar says why: rampMake)
+            shapeReset();
+            app.dirty = true;
+            return;
+        }
+        if (gShape.copyHolds) {  // (doodad ramps: the map takes the copy's scenario, its doodads with it)
+            const std::vector<int> units = ed.selection(), locations = ed.selectedLocations();
+            const size_t unitCount = ed.units().size();
+            ed.takeScenario(shapeCopy(ed.gameData()));
+            if (ed.units().size() == unitCount)
+                for (int u : units) ed.select(u, true);
+            for (int l : locations) ed.addLocationSelection(l);
+            setMessage(L"Placed the ramp");
             shapeReset();
             app.dirty = true;
             return;

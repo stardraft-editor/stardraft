@@ -2755,6 +2755,8 @@ constexpr UiText kRows[] = {
     {L"Could not make the cliff again: %ls", L"\u65E0\u6CD5\u6062\u590D\u60AC\u5D16\uFF1A%ls"},
     {L"Release the button to make the ramp the cliff again", L"\u677E\u5F00\u6309\u94AE\uFF0C\u4F7F\u5761\u9053\u53D8\u56DE\u60AC\u5D16"},
     {L"Made the ramp the cliff again", L"\u5DF2\u5C06\u5761\u9053\u53D8\u56DE\u60AC\u5D16"},
+    {L"Could not make the ramp: %ls", L"\u65E0\u6CD5\u751F\u6210\u5761\u9053\uFF1A%ls"},
+    {L"Ramp. Release the button to place it.", L"\u5761\u9053\u3002\u677E\u5F00\u6309\u94AE\u5373\u53EF\u653E\u7F6E\u3002"},
     {L"Terrain flags: the ground that units cannot walk on is dark", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u5355\u4F4D\u65E0\u6CD5\u884C\u8D70\u7684\u5730\u9762\u663E\u793A\u4E3A\u6697\u8272"},
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u7B49\u8DDD\u5730\u5F62\u4E0D\u4F1A\u751F\u6210\u7684\u56FE\u5757\uFF08\u6A59\u8272\uFF09"},
     {L"&Isometric terrain", L"\u7B49\u8DDD\u5730\u5F62(&I)"},

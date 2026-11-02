@@ -856,10 +856,46 @@ int main(int argc, char** argv) {
             // (a short stroke in the middle of each edge, one after the other, as a user paints them)
             for (int side = 0; side < 4; ++side)
                 for (const RampPlan& p : planRamps(ed, rampBrushStroke(std::vector<std::pair<int, int>>(ring.begin() + side * 16 + 6, ring.begin() + side * 16 + 11), 2)))
-                    placed += ed.placeTileValues(p.tiles) > 0;
+                    placed += p.doodad >= 0 ? ed.placeDoodad(uint16_t(p.doodad), p.x, p.y, true) : ed.placeTileValues(p.tiles) > 0;
             std::printf("era %d: %d ramps\n", era, placed);
             ed.save(std::filesystem::path(out) / ("ramps_" + std::to_string(era) + ".scm"), err);
         }
+        return 0;
+    }
+    if (const char* maps = std::getenv("RAMP_MAPS")) {  // (a mod's maps) each ramp doodad taken away, then a stroke there: the ramp back?
+        std::map<std::pair<int, int>, std::array<int, 3>> by;  // (era, doodad): cases, a ramp placed there, the same doodad at the same place
+        int cases = 0;
+        for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+            std::string ext = e.path().extension().string();
+            for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+            if (ext != ".scm" && ext != ".scx") continue;
+            Editor ed(data);
+            std::string err;
+            if (!ed.open(e.path().string(), err) || !ed.canPaintTerrain()) continue;
+            const std::vector<uint16_t> ramps = rampDoodads(ed);
+            if (ramps.empty()) continue;
+            for (int i = 0; i < int(ed.doodads().size()) && cases < 4000; ++i) {
+                const Doodad d = ed.doodads()[size_t(i)];
+                if (std::find(ramps.begin(), ramps.end(), d.id) == ramps.end()) continue;
+                Editor copy(data);
+                if (!copy.openChk(ed.chk(), err) || !copy.deleteDoodad(i)) continue;
+                ++cases;
+                std::array<int, 3>& n = by[{ed.era() & 7, d.id}];
+                ++n[0];
+                const std::vector<RampPlan> plans = planRamps(copy, {{d.x, d.y}});
+                if (plans.empty() || plans.front().doodad < 0) continue;
+                const RampPlan& p = plans.front();
+                if (!copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true)) continue;
+                ++n[1];
+                n[2] += p.doodad == d.id && p.x == d.x && p.y == d.y;
+            }
+        }
+        int solved = 0;
+        for (const auto& [k, n] : by) {
+            std::printf("era %d doodad %d: %d cases, %d placed back, %d the same doodad at the same place\n", k.first, k.second, n[0], n[1], n[2]);
+            solved += n[1] > 0;
+        }
+        std::printf("%d ramp doodads placed by the brush (of %zu on the maps), %d cases\n", solved, by.size(), cases);
         return 0;
     }
     if (const char* maps = std::getenv("RAMP_SURVEY")) {  // the doodads that join two ground levels (their own tiles), and how often maps place them
