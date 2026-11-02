@@ -245,15 +245,19 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
 void rampMake(const std::vector<std::pair<int, int>>& stroke) {
     const Editor& ed = *appState().ed;
     const std::vector<std::pair<int, int>> pts = rampBrushStroke(stroke, currentBrush(appState()).size);
-    // (a tileset whose ramps are doodads, a mod's: they go on the copy of the map as doodads, or Shift takes them away)
-    if (const std::vector<uint16_t> doodads = rampDoodads(ed); !doodads.empty()) {
+    // (a tileset whose ramps are its own tiles and doodads, a mod's: they go on the copy of the map (a stamp's corners
+    // first), or Shift takes them away)
+    if (!rampKitsUsable(ed) && rampsAvailable(ed)) {
+        const std::vector<uint16_t> doodads = rampDoodads(ed);
         std::vector<int> under;
+        std::vector<std::pair<int, int>> stampTiles;
         if (gShape.unramp) {
             for (const auto& [x, y] : pts)
                 if (const int d = ed.doodadAt(x, y); d >= 0 && std::find(doodads.begin(), doodads.end(), ed.doodads()[size_t(d)].id) != doodads.end() &&
                                                      std::find(under.begin(), under.end(), d) == under.end())
                     under.push_back(d);
-            if (under.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
+            stampTiles = rampStampTilesUnder(ed, pts);
+            if (under.empty() && stampTiles.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
         }
         RampPlan why;
         const std::vector<RampPlan> ramps = gShape.unramp ? std::vector<RampPlan>{} : planRamps(ed, pts, &why);
@@ -266,8 +270,16 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         shapeCopySettings(copy, ed);
         copy.setMirrors(0), copy.setTurns(1);
         int placed = 0;
-        if (gShape.unramp) copy.deleteDoodads(under);
-        for (const RampPlan& p : ramps) placed += copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true);
+        if (gShape.unramp) {
+            if (!under.empty()) copy.deleteDoodads(under);
+            if (!stampTiles.empty()) copy.remakeTilesFromIsom(stampTiles);
+        }
+        for (const RampPlan& p : ramps)
+            if (p.doodad >= 0) placed += copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true);
+            else {
+                if (!p.corners.empty()) copy.setTerrainCorners(p.corners);
+                placed += copy.placeTileValues(p.tiles) > 0;
+            }
         const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
         if (a.size() == b.size())
             for (size_t i = 0; i < a.size(); ++i)

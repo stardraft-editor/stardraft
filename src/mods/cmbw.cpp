@@ -1826,7 +1826,36 @@ void applyTerrainFiles(Tileset& t) {
     }
 }
 
+// The mod's ramps made of its own tiles (cmbw_ramp_stamps.inc, learned from its maps): for the tilesets they were
+// learned on (the same count of tile groups).
+struct RampStampData {
+    int era, uses, parity, firstTile, tiles, firstCorner, corners;
+};
+struct RampStampTile {
+    int x, y, value;
+};
+struct RampStampCorner {
+    int x, y;
+    const char* terrain;
+};
+#include "cmbw_ramp_stamps.inc"
+
+void addRampStamps(Tileset& t) {
+    const int era = t.era & 7;
+    if (int(t.groups.size()) != kRampStampGroups[era]) return;
+    for (const RampStampData& d : kRampStamps) {
+        if (d.era != era) continue;
+        Tileset::RampStamp s;
+        s.uses = d.uses, s.parity = d.parity;
+        for (int i = d.firstTile; i < d.firstTile + d.tiles; ++i) s.tiles.push_back({kRampStampTiles[i].x, kRampStampTiles[i].y, kRampStampTiles[i].value});
+        for (int i = d.firstCorner; i < d.firstCorner + d.corners; ++i)
+            s.corners.push_back({{kRampStampCorners[i].x, kRampStampCorners[i].y}, kRampStampCorners[i].terrain});
+        t.rampStamps.push_back(std::move(s));
+    }
+}
+
 void loadTileset(Tileset& t) {
+    addRampStamps(t);
     for (const GroupTerrain& g : kGroupTerrains)
         if (g.era == (t.era & 7)) t.groupTerrains.push_back({g.group, g.terrain, g.other});
     for (const GroupPiece& p : kGroupPieces)

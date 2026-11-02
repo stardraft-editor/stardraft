@@ -815,6 +815,127 @@ int main(int argc, char** argv) {
         dumpBlocks(data, blocks);
         return 0;
     }
+    if (const char* maps = std::getenv("TILE_RAMPS")) {  // (a mod's maps) the mod's own tile groups whose tiles join two ground levels, and the ramps the maps make of them
+        std::map<int, std::map<int, int>> groupUse;  // era: mod group: tiles on the maps
+        std::map<int, std::vector<int>> sizes;        // era: each ramp's tile count (tiles of such groups side by side)
+        std::map<int, int> mapsWith;
+        std::map<std::pair<int, std::string>, int> example;  // (era, map): ramps
+        for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+            std::string ext = e.path().extension().string();
+            for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+            if (ext != ".scm" && ext != ".scx") continue;
+            Editor ed(data);
+            std::string err;
+            if (!ed.open(e.path().string(), err)) continue;
+            const int era = ed.era() & 7, w = ed.width(), h = ed.height();
+            const size_t game = cmbw::gameTileGroups(era);
+            if (!game) continue;
+            static std::map<std::pair<int, uint16_t>, bool> joins;
+            const auto rampTile = [&](uint16_t v) {
+                if ((v >> 4) < game) return false;
+                const auto key = std::make_pair(era, v);
+                if (auto i = joins.find(key); i != joins.end()) return i->second;
+                return joins[key] = rampJoins(ed.tileset(), {{0, 0, v}});
+            };
+            const auto& t = ed.terrain().tiles;
+            std::vector<uint8_t> seen(t.size(), 0);
+            int ramps = 0;
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x) {
+                    const size_t i = size_t(y) * w + x;
+                    if (seen[i] || !rampTile(t[i])) continue;
+                    std::vector<std::pair<int, int>> todo{{x, y}};
+                    seen[i] = 1;
+                    int n = 0;
+                    while (!todo.empty()) {
+                        const auto [cx, cy] = todo.back();
+                        todo.pop_back();
+                        ++n, ++groupUse[era][t[size_t(cy) * w + cx] >> 4];
+                        for (int dy = -1; dy <= 1; ++dy)
+                            for (int dx = -1; dx <= 1; ++dx) {
+                                const int nx = cx + dx, ny = cy + dy;
+                                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                                const size_t j = size_t(ny) * w + nx;
+                                if (!seen[j] && rampTile(t[j])) seen[j] = 1, todo.push_back({nx, ny});
+                            }
+                    }
+                    sizes[era].push_back(n), ++ramps;
+                }
+            // TILE_RAMPS_OUT: each ramp as a stamp: its tiles (the ones that join two levels and the mod's tiles round them,
+            // whole ISOM rects) and the terrains of the ISOM corners under it
+            if (const char* outFile = std::getenv("TILE_RAMPS_OUT"); outFile && ed.canPaintTerrain()) {
+                static std::map<std::string, int> stamps;
+                static std::map<std::string, int> stampEra;
+                std::vector<uint8_t> done(t.size(), 0);
+                for (int y = 0; y < h; ++y)
+                    for (int x = 0; x < w; ++x) {
+                        const size_t i = size_t(y) * w + x;
+                        if (done[i] || !rampTile(t[i])) continue;
+                        std::set<std::pair<int, int>> comp, todo2{{x, y}};
+                        done[i] = 1;
+                        while (!todo2.empty()) {
+                            const auto [cx, cy] = *todo2.begin();
+                            todo2.erase(todo2.begin());
+                            comp.insert({cx, cy});
+                            for (int dy = -1; dy <= 1; ++dy)
+                                for (int dx = -1; dx <= 1; ++dx) {
+                                    const int nx = cx + dx, ny = cy + dy;
+                                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                                    const size_t j = size_t(ny) * w + nx;
+                                    if (!done[j] && rampTile(t[j])) done[j] = 1, todo2.insert({nx, ny});
+                                }
+                        }
+                        std::set<std::pair<int, int>> cells = comp;  // (and the mod's tiles next to them; whole rects)
+                        for (const auto& [cx, cy] : comp)
+                            for (int dy = -1; dy <= 1; ++dy)
+                                for (int dx = -1; dx <= 1; ++dx) {
+                                    const int nx = cx + dx, ny = cy + dy;
+                                    if (nx >= 0 && ny >= 0 && nx < w && ny < h && (t[size_t(ny) * w + nx] >> 4) >= game) cells.insert({nx, ny});
+                                }
+                        for (const auto c : std::vector<std::pair<int, int>>(cells.begin(), cells.end()))
+                            if ((c.first ^ 1) < w && (t[size_t(c.second) * w + (c.first ^ 1)] >> 4) >= game) cells.insert({c.first ^ 1, c.second});
+                        int x0 = w, y0 = h, x1 = 0, y1 = 0;
+                        for (const auto& [cx, cy] : cells) x0 = std::min(x0, cx), y0 = std::min(y0, cy), x1 = std::max(x1, cx), y1 = std::max(y1, cy);
+                        x0 &= ~1;
+                        if (cells.size() > 120) continue;  // (a large field of the mod's tiles, not one ramp)
+                        std::string key = std::to_string((x0 / 2 + y0) & 1) + "\n";
+                        for (const auto& [cx, cy] : cells) key += "t " + std::to_string(cx - x0) + " " + std::to_string(cy - y0) + " " + std::to_string(t[size_t(cy) * w + cx]) + "\n";
+                        for (int Y = y0; Y <= y1 + 1; ++Y)
+                            for (int X = x0 / 2; X <= (x1 + 1) / 2 + 1; ++X)
+                                if (((X + Y) & 1) && X <= w / 2 && Y <= h)
+                                    key += "c " + std::to_string(X - x0 / 2) + " " + std::to_string(Y - y0) + " " + ed.terrainName(ed.terrainAt(64 * X, 32 * Y)) + "\n";
+                        ++stamps[key], stampEra[key] = era;
+                    }
+                static bool hooked = false;
+                if (!hooked) {
+                    hooked = true;
+                    std::atexit([] {
+                        if (FILE* f = std::fopen(std::getenv("TILE_RAMPS_OUT"), "w")) {
+                            for (const auto& [k, n] : stamps) std::fprintf(f, "stamp %d %d\n%send\n", stampEra[k], n, k.c_str());
+                            std::fclose(f);
+                        }
+                    });
+                }
+            }
+            if (ramps) ++mapsWith[era], example[{era, e.path().filename().string()}] = ramps;
+        }
+        for (const auto& [era, use] : groupUse) {
+            std::vector<int>& s = sizes[era];
+            std::sort(s.begin(), s.end());
+            std::printf("era %d: %zu mod groups with tiles that join two levels, %zu ramps on %d maps, tiles each: median %d, largest %d\n", era, use.size(), s.size(),
+                        mapsWith[era], s.empty() ? 0 : s[s.size() / 2], s.empty() ? 0 : s.back());
+            std::vector<std::pair<int, int>> top(use.begin(), use.end());
+            std::sort(top.begin(), top.end(), [](auto a, auto b) { return a.second > b.second; });
+            std::printf("  most used groups:");
+            for (size_t i = 0; i < top.size() && i < 12; ++i) std::printf(" %d(%d)", top[i].first, top[i].second);
+            std::printf("\n  maps:");
+            int k = 0;
+            for (const auto& [m, n] : example)
+                if (m.first == era && k++ < 4) std::printf(" %s(%d)", m.second.c_str(), n);
+            std::printf("\n");
+        }
+        return 0;
+    }
     if (const char* out = std::getenv("RAMP_PLATEAUS")) {  // <folder>: per tileset, a plateau and the brush (size 2) round its edge: the ramps, saved
         for (int era = 0; era < 8; ++era) {
             Editor ed(data);
@@ -860,6 +981,49 @@ int main(int argc, char** argv) {
             std::printf("era %d: %d ramps\n", era, placed);
             ed.save(std::filesystem::path(out) / ("ramps_" + std::to_string(era) + ".scm"), err);
         }
+        return 0;
+    }
+    if (const char* maps = std::getenv("STAMP_MAPS")) {  // (a mod's maps) each tile ramp made the cliff again, then a stroke there: a ramp back?
+        const int kStampCases = std::getenv("STAMP_CASES") ? std::atoi(std::getenv("STAMP_CASES")) : 300;
+        int cases = 0, placed = 0, same = 0, walk = 0;
+        std::map<int, std::array<int, 2>> byEra;
+        for (const auto& e : std::filesystem::recursive_directory_iterator(maps)) {
+            std::string ext = e.path().extension().string();
+            for (char& c : ext) c = char(std::tolower(static_cast<unsigned char>(c)));
+            if (ext != ".scm" && ext != ".scx") continue;
+            Editor ed(data);
+            std::string err;
+            if (!ed.open(e.path().string(), err) || !ed.canPaintTerrain() || ed.tileset().rampStamps.empty()) continue;
+            std::set<std::pair<int, int>> done;
+            const int w = ed.width();
+            for (int y = 0; y < ed.height() && cases < kStampCases; ++y)
+                for (int x = 0; x < w && cases < kStampCases; ++x) {
+                    if (done.count({x, y})) continue;
+                    const std::vector<std::pair<int, int>> ramp = rampStampTilesUnder(ed, {{x * 32 + 16, y * 32 + 16}});
+                    if (ramp.empty() || !std::count(ramp.begin(), ramp.end(), std::pair{x, y})) continue;
+                    for (const auto& c : ramp) done.insert(c);
+                    Editor copy(data);
+                    if (!copy.openChk(ed.chk(), err)) continue;
+                    copy.remakeTilesFromIsom(ramp);
+                    ++cases, ++byEra[ed.era() & 7][0];
+                    double mx = 0, my = 0;
+                    for (const auto& c : ramp) mx += c.first * 32 + 16, my += c.second * 32 + 16;
+                    const std::pair<int, int> mid{int(mx / ramp.size()), int(my / ramp.size())};
+                    const std::vector<RampPlan> plans = planRamps(copy, rampBrushStroke({mid}, 1));
+                    if (plans.empty()) continue;
+                    ++placed, ++byEra[ed.era() & 7][1];
+                    bool all = true;
+                    for (const RampPlan& p : plans) {
+                        if (!p.corners.empty()) copy.setTerrainCorners(p.corners);
+                        copy.placeTileValues(p.tiles);
+                    }
+                    for (const auto& c : ramp) all = all && copy.terrain().tiles[size_t(c.second) * w + c.first] == ed.terrain().tiles[size_t(c.second) * w + c.first];
+                    same += all;
+                    walk += rampJoins(copy.tileset(), plans.front().tiles);
+                }
+        }
+        for (const auto& [era, n] : byEra) std::printf("era %d: %d ramps taken away, %d painted back\n", era, n[0], n[1]);
+        std::printf("%d cases, %d painted back (%d the same tiles, %d that join two levels)\n", cases, placed, same, walk);
         return 0;
     }
     if (const char* maps = std::getenv("RAMP_MAPS")) {  // (a mod's maps) each ramp doodad taken away, then a stroke there: the ramp back?
