@@ -2755,8 +2755,6 @@ constexpr UiText kRows[] = {
     {L"Could not make the cliff again: %ls", L"Impossible de refaire la falaise : %ls"},
     {L"Release the button to make the ramp the cliff again", L"Rel\u00E2chez le bouton pour refaire la rampe en falaise"},
     {L"Made the ramp the cliff again", L"La rampe est redevenue une falaise"},
-    {L"Could not make the ramp: %ls", L"Impossible de faire la rampe : %ls"},
-    {L"Ramp. Release the button to place it.", L"Rampe. Rel\u00E2chez le bouton pour la placer."},
     {L"Terrain flags: the ground that units cannot walk on is dark", L"Propri\u00E9t\u00E9s du terrain : le sol o\u00F9 les unit\u00E9s ne peuvent pas marcher est sombre"},
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"Propri\u00E9t\u00E9s du terrain : les tuiles que le terrain isom\u00E9trique ne donne pas (orange)"},
     {L"&Isometric terrain", L"Terrain &isom\u00E9trique"},

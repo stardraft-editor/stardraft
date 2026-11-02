@@ -18,13 +18,9 @@ const char* rampFacingName(int facing);  // N, NE, E, SE, S, SW, W, NW
 
 // Whether the tileset (ERA value) has ramp kits that the maps show where they go.
 bool rampsAvailable(int era);
-// Whether the map's tileset has ramps for the brush: kits whose tiles are its doodads' (a mod's tileset can have other
-// doodads at those tiles), else its own ramp doodads (rampDoodads).
+// Whether the map's tileset takes the ramp kits: their tiles are its doodads' (a mod's tileset made from the older game
+// has other doodads at those tiles, and no ramps for the brush).
 bool rampsAvailable(const Editor& ed);
-// The map's tileset's ramp doodads, for a tileset whose tiles are not the kits' (a mod's, made from the older game that
-// had only these): the doodads that need tiles under them (dddata.bin, the game's rule for where they go) and whose own
-// tiles join two ground levels, mostly walkable ground (half of their minitiles or more). Empty where the kits are usable.
-std::vector<uint16_t> rampDoodads(const Editor& ed);
 
 // The kits (indexes) of a tileset that the brush offers (all: also those the maps do not show); a kit's facing, its
 // block's first doodad and its doodad group.
@@ -71,8 +67,6 @@ struct RampPlan {
     std::string low, high;  // the kit's ground (for the messages)
     int kit = -1, facing = -1, slopes = 0, ax = 0, ay = 0;
     std::vector<Editor::TileAt> tiles;
-    // A ramp doodad (rampDoodads; kit -1): its id and its middle (map pixels), placed as a doodad (Editor::placeDoodad).
-    int doodad = -1, x = 0, y = 0;
 };
 
 // The ramp that a brush stroke (map pixels) paints: the ramp of the kit (any block of the tileset) that fits a cliff edge
