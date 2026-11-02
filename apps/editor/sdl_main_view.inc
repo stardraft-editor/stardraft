@@ -135,6 +135,11 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     static const std::vector<std::pair<int, uint16_t>> kNoTiles;
     gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : kNoTiles);  // (both lists by reference: no copy each frame)
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);
+    {  // (the map's frames of the last second: the debug build's status bar shows them as fps)
+        const auto now = std::chrono::steady_clock::now();
+        gState.frameTimes.push_back(now);
+        while (now - gState.frameTimes.front() > std::chrono::seconds(1)) gState.frameTimes.pop_front();
+    }
     mapFrameDone(gState);  // the title, the Locations list and the status bar (core/map_scene.inc)
 }
 
