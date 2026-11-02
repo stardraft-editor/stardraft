@@ -396,9 +396,9 @@ Inverted on both	Invertido en ambos ejes
 Changed the location "	Ubicación cambiada: "
 Could not change the location: 	No se pudo cambiar la ubicación: 
 Location properties	Propiedades de la ubicación
-Read only. A change to this value has no effect in StarCraft: Remastered.	Solo lectura. Un cambio en este valor no tiene efecto en StarCraft: Remastered.
-Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Solo lectura para este sonido. El juego carga los sonidos con la marca Preload antes de que se ejecute el código del mapa, por lo que un cambio en el archivo no tiene efecto.
-Read only. StarDraft 2 does not know where the game keeps this value.	Solo lectura. StarDraft 2 no sabe dónde guarda el juego este valor.
+Read-only. A change to this value has no effect in StarCraft: Remastered.	Solo lectura. Un cambio en este valor no tiene efecto en StarCraft: Remastered.
+Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Solo lectura para este sonido. El juego carga los sonidos con la marca Preload antes de que se ejecute el código del mapa, por lo que un cambio en el archivo no tiene efecto.
+Read-only. StarDraft 2 does not know where the game keeps this value.	Solo lectura. StarDraft 2 no sabe dónde guarda el juego este valor.
 * Needs verification	* Necesita verificación
 1 tile: 32 x 32 px	1 tile: 32 x 32 px
 Drag to move the addon	Arrastre para mover el accesorio

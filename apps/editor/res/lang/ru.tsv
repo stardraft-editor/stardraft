@@ -379,8 +379,8 @@ Inverted on both	Инвертировано по обеим осям
 Changed the location "	Изменено местоположение "
 Could not change the location: 	Не удалось изменить местоположение: 
 Location properties	Свойства местоположения
-Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Этот звук только для чтения. Игра загружает звуки с флагом Preload до запуска кода карты, поэтому изменение файла не действует.
-Read only. StarDraft 2 does not know where the game keeps this value.	Только для чтения. StarDraft 2 не знает, где игра хранит это значение.
+Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Этот звук только для чтения. Игра загружает звуки с флагом Preload до запуска кода карты, поэтому изменение файла не действует.
+Read-only. StarDraft 2 does not know where the game keeps this value.	Только для чтения. StarDraft 2 не знает, где игра хранит это значение.
 * Needs verification	* Требуется проверка
 1 tile: 32 x 32 px	1 тайл: 32 x 32 пикс.
 Drag to move the addon	Перетащите, чтобы переместить аддон
@@ -1768,7 +1768,7 @@ Replace: select the new type in the list. Then click a unit. All units of the cl
 Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area.	Местность выбрана. Нажмите Ctrl+C, чтобы скопировать её. Замена меняет только выделенную область.
 Could not move the sprites: the new place is outside the map	Не удалось переместить спрайты: новое место за пределами карты
 Segoe MDL2 Assets	Segoe MDL2 Assets
-Read only. A change to this value has no effect in StarCraft: Remastered.	Только для чтения. Изменение этого значения не действует в StarCraft: Remastered.
+Read-only. A change to this value has no effect in StarCraft: Remastered.	Только для чтения. Изменение этого значения не действует в StarCraft: Remastered.
 The volume of every sound StarDraft 2 plays, from the next sound on	Громкость каждого звука, который воспроизводит StarDraft 2, начиная со следующего звука
 The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	Размер юнита округляется вверх до клеток ходьбы (по 8 пикселей). При движении вверх или вниз юниту нужен зазор %d клеток ходьбы (%d пикселей). При движении влево или вправо ему нужен зазор %d клеток ходьбы (%d пикселей).
 Follow the animation's current instruction	Следовать текущей инструкции анимации

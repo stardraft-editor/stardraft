@@ -396,9 +396,9 @@ Inverted on both	Inversé sur les deux axes
 Changed the location "	Emplacement modifié "
 Could not change the location: 	Impossible de modifier l'emplacement: 
 Location properties	Propriétés de l'emplacement
-Read only. A change to this value has no effect in StarCraft: Remastered.	Lecture seule. Une modification de cette valeur n'a aucun effet dans StarCraft: Remastered.
-Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Lecture seule pour ce son. Le jeu charge les sons ayant l'indicateur Preload avant l'exécution du code de la carte; une modification du fichier n'a donc aucun effet.
-Read only. StarDraft 2 does not know where the game keeps this value.	Lecture seule. StarDraft 2 ne sait pas où le jeu stocke cette valeur.
+Read-only. A change to this value has no effect in StarCraft: Remastered.	Lecture seule. Une modification de cette valeur n'a aucun effet dans StarCraft: Remastered.
+Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Lecture seule pour ce son. Le jeu charge les sons ayant l'indicateur Preload avant l'exécution du code de la carte; une modification du fichier n'a donc aucun effet.
+Read-only. StarDraft 2 does not know where the game keeps this value.	Lecture seule. StarDraft 2 ne sait pas où le jeu stocke cette valeur.
 * Needs verification	* À vérifier
 1 tile: 32 x 32 px	1 tuile: 32 x 32 px
 Drag to move the addon	Faites glisser pour déplacer l'extension

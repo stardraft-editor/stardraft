@@ -740,7 +740,7 @@ void sdlTableImportCsv(DatTable& t, const fs::path& folder, const std::wstring& 
     }
     auto count = [](int n, const wchar_t* one, const wchar_t* more) { return std::to_wstring(n) + shellTr(n == 1 ? one : more) + L"\n"; };
     if (res.notValues) problems += count(res.notValues, L" cell is not a value of its column.", L" cells are not values of their columns.");
-    if (res.locked) problems += count(res.locked, L" cell cannot change (read only, or not used by the entry).", L" cells cannot change (read only, or not used by the entry).");
+    if (res.locked) problems += count(res.locked, L" cell cannot change (read-only, or not used by the entry).", L" cells cannot change (read-only, or not used by the entry).");
     if (res.noEntry) problems += count(res.noEntry, L" row has an id that is not an entry.", L" rows have an id that is not an entry.");
     if (!res.firstProblem.empty()) problems += L"\n" + shellTr(L"First cell not imported: ") + res.firstProblem;
     if (!problems.empty()) shellWarningBox(done + L".\n\n" + problems, shellTr(L"Import CSV"));

@@ -261,7 +261,7 @@ public:
             using kitpaint::Field;
             label(L"Field");
             const std::pair<const wchar_t*, Field> fields[] = {{L"rest", Field::Normal}, {L"under the mouse", Field::Hot}, {L"focus", Field::Focus},
-                                                               {L"changed", Field::Changed}, {L"read only", Field::ReadOnly}};
+                                                               {L"changed", Field::Changed}, {L"read-only", Field::ReadOnly}};
             int x = col;
             for (const auto& [name, f] : fields) {
                 const Rect r{x, y + scale(4), x + scale(110), y + scale(30)};

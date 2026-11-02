@@ -387,7 +387,7 @@ CASES += [
     # Bordering and the name taken as offered (Enter): "Primary (Asphalt)", every rect NULL.
     ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--wait", "300",
                              "--key", "Enter"], "cmbw"),
-    # The New Terrain window: the template and the bordering terrain, each with its tile.
+    # The New terrain window: the template and the bordering terrain, each with its tile.
     # Solid on a new Cosmonarchy map (Badlands): Asphalt (Grass), a mod terrain, puts its fill pieces.
     ("cmbw-solid-brush", ["--cmbw", "--solid", "--key", "Q", "--type", "asphalt (grass)", "--key", "Enter", "--key", "B",
                           "--click", "560,690", "--move", "560,690"], "cmbw"),
@@ -408,8 +408,8 @@ CASES += [
     ("cmbw-isom-canvas-cliff", ["--cmbw", "--dialog", "isomrules:0/Structure (Dirt)", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-canvas-wall", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-canvas-field", ["--cmbw", "--dialog", "isomrules:4/Grass (Dirt)", "--size", "1600x1100"], "cmbw"),
-    # Remove From Canvas on the canvas's places from the bottom up until a strip (0.5 brush) goes, then Restore Removed
-    # Pieces: fewer places, then as many as before (CHECKS: check_isom_canvas_remove).
+    # Remove from canvas on the canvas's places from the bottom up until a strip (0.5 brush) goes, then Restore removed
+    # pieces: fewer places, then as many as before (CHECKS: check_isom_canvas_remove).
     ("cmbw-isom-canvas-remove", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)!remove", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247", "--click", "1110,290", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
@@ -1253,8 +1253,8 @@ def check_isom_canvas(output):
 
 
 def check_isom_canvas_remove(output):
-    """None when Remove From Canvas takes one tile at a time: the left tile (1 tile of the picture changes, the right
-    tile stays a place), then the right tile (2 changed, the place goes); and Restore Removed Pieces brings them back."""
+    """None when Remove from canvas takes one tile at a time: the left tile (1 tile of the picture changes, the right
+    tile stays a place), then the right tile (2 changed, the place goes); and Restore removed pieces brings them back."""
     m = re.search(r"remove test: places (\d+), left tile [\d,]+ removed: places (\d+), tiles changed (\d+), "
                   r"right tile removed: places (\d+), tiles changed (\d+), "
                   r"restored: places (\d+), tiles changed (\d+), removed (\d+)", output)

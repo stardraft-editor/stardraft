@@ -379,8 +379,8 @@ Inverted on both	两个方向都反转
 Changed the location "	已更改位置 "
 Could not change the location: 	无法更改位置: 
 Location properties	位置属性
-Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	此声音为只读。游戏会在地图代码运行前加载带有 Preload 标志的声音，因此更改文件不起作用。
-Read only. StarDraft 2 does not know where the game keeps this value.	只读。StarDraft 2 不知道游戏在哪里保存此值。
+Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	此声音为只读。游戏会在地图代码运行前加载带有 Preload 标志的声音，因此更改文件不起作用。
+Read-only. StarDraft 2 does not know where the game keeps this value.	只读。StarDraft 2 不知道游戏在哪里保存此值。
 * Needs verification	* 需要验证
 1 tile: 32 x 32 px	1 瓦片: 32 x 32 像素
 Drag to move the addon	拖动以移动附加组件
@@ -1768,7 +1768,7 @@ Replace: select the new type in the list. Then click a unit. All units of the cl
 Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area.	已选择地形。按 Ctrl+C 复制。替换只改变所选区域。
 Could not move the sprites: the new place is outside the map	无法移动精灵：新位置在地图之外
 Segoe MDL2 Assets	Segoe MDL2 Assets
-Read only. A change to this value has no effect in StarCraft: Remastered.	只读。更改此值在 StarCraft: Remastered 中不起作用。
+Read-only. A change to this value has no effect in StarCraft: Remastered.	只读。更改此值在 StarCraft: Remastered 中不起作用。
 The volume of every sound StarDraft 2 plays, from the next sound on	StarDraft 2 播放的每个声音的音量，从下一个声音起生效
 The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	单位大小会向上取整为行走格(每格 8 像素)。向上或向下移动时，单位需要 %d 个行走格 (%d 像素) 的间隙。向左或向右移动时，需要 %d 个行走格 (%d 像素) 的间隙。
 Follow the animation's current instruction	跟随动画的当前指令

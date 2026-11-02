@@ -456,7 +456,7 @@ void shellShowIsomRulesWindow() {
     gIsomRulesOpen = true;
     const draw::Point sz = IsomRulesView::size();
     draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())),
-                          L"Custom Isom Terrain Editor"};
+                          L"Custom isom terrain editor"};
     spec.resizable = true;
     gHost->openWindow(*gRoot, gIsomRulesView, spec, [] { gIsomRulesOpen = false; });
     // (where it was last time and its size, when that place is on a screen now; maximized: so again)
