@@ -553,6 +553,29 @@ int main(int argc, char** argv) {
         std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
+    if (const char* spaced = std::getenv("BRIDGE_SPACED")) {  // <era>,<file>: up-right bridges (south-west to north-east), far apart
+        int era = 0;
+        char file[512] = {};
+        std::sscanf(spaced, "%d,%511s", &era, file);
+        Editor ed(data);
+        std::string err;
+        uint16_t ground = 1, water = 3;
+        if (!ed.newMap(256, 256, uint16_t(era), ground, err)) return std::printf("%s\n", err.c_str()), 1;
+        for (int row = 0; row < 4; ++row)      // the bridge's width: 0.5, 1, 2, 3
+            for (int col = 0; col < 4; ++col) {  // the river's brush size: 0.5, 1, 2, 3
+                Brush brush;
+                brush.size = col ? float(col) : 0.5f;
+                const int cx = (32 + 60 * col) * 32, cy = (30 + 64 * row) * 32, rx = 64 * 7, ry = 32 * 7;
+                ed.paintTerrainLine(cx - rx, cy - ry, cx + rx, cy + ry, water, brush);  // (the river: down-right)
+                const int vx = 64 * 8, vy = -32 * 8;  // (the drag: from the south-west to the north-east)
+                const BridgePlan p = planBridge(ed, cx - vx, cy - vy, cx + vx, cy + vy, row, 7);
+                std::printf("width %s, river %s: %s\n", sizeText(row).c_str(), col ? std::to_string(col).c_str() : "0.5",
+                            p.problem == BridgePlan::Problem::None ? ("length " + sizeText(p.length)).c_str() : ("problem " + std::to_string(int(p.problem))).c_str());
+                if (p.problem == BridgePlan::Problem::None) applyBridge(ed, p);
+            }
+        if (!ed.save(file, err)) return std::printf("%s\n", err.c_str()), 1;
+        return 0;
+    }
     paintedRivers(data, std::getenv("BRIDGE_SHOTS"));
     allSizes(data);
     farDrags(data);
