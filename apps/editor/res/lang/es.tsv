@@ -2725,13 +2725,13 @@ Bridge: drag across the %ls to the %ls on the other side	Puente: arrastre a trav
 Bridge: drag on to the %ls on the other side	Puente: siga arrastrando hasta %ls del otro lado
 A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Un puente va de %ls a través de %ls hasta %ls, a lo largo de una diagonal del mapa
 The %ls is too narrow for a bridge. Paint it wider.	%ls es demasiado estrecho para un puente. Píntelo más ancho.
-The %ls must have the same width under all of the bridge and one diamond more at each side	%ls debe tener la misma anchura bajo todo el puente y un rombo más a cada lado
 The bridge does not fit on the map	El puente no cabe en el mapa
 Bridge: length %ls, width %ls. Release the button to place it.	Puente: longitud %ls, anchura %ls. Suelte el botón para colocarlo.
 Bridge: drag from the ground across the water to the ground on the other side	Puente: arrastre desde el suelo a través del agua hasta el suelo del otro lado
 Stopped the bridge	Puente detenido
 The bridge is there already	El puente ya está ahí
-Placed the bridge. Removed the doodads and units under it that cannot stay there.	Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ahí.
 Placed the bridge	Puente colocado
 Part of the bridge is on protected tiles	Parte del puente está sobre losetas protegidas
 Placed the bridge. Symmetry does not apply to bridges.	Puente colocado. La simetría no se aplica a los puentes.
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ahí.
+Could not make the bridge: %ls	No se pudo hacer el puente: %ls

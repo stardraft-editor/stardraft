@@ -12,6 +12,7 @@
 #include <map>
 #include <unordered_set>
 #include <random>
+#include <set>
 
 namespace stardraft {
 
@@ -24,6 +25,7 @@ struct BridgeKitData {
     int capStart, capFar, side0, side1, periodLength, periodWidth, startLength, startWidth, halfLength, halfWidth;
     const char* ground;
     const char* water;
+    const char* road;  // under the bridge's ends (Badlands: Asphalt); "": the ground
     int rowsAtSize1;  // the river's water diamonds (across it) under a bridge of length 1
     int offset[2];    // the d kit's origin from the river's first water diamond, in tiles
     int firstKey, keys;
@@ -51,8 +53,13 @@ struct BridgeNeighborData {
 };
 #include "data/bridge_kits.inc"
 
+// A tile of a terrain group (groups below 1024; above: doodads' pieces) as all of its group's tiles: they are random
+// variants of one piece (the corpus pairs are of groups there).
+uint16_t variant(uint16_t v) { return (v >> 4) < 1024 ? uint16_t(v & ~15) : v; }
+
 // Whether the map corpus has tile b next to tile a (right of it, or under it) in that tileset.
 bool neighbors(int era, int way, uint16_t a, uint16_t b) {
+    a = variant(a), b = variant(b);
     static const std::unordered_set<uint64_t> set = [] {
         std::unordered_set<uint64_t> s;
         for (const BridgeNeighborData& n : kBridgeNeighbors) s.insert(uint64_t(n.era) << 40 | uint64_t(n.way) << 32 | uint64_t(n.a) << 16 | n.b);
@@ -77,6 +84,7 @@ std::string axisClass(int w, int n, int capStart, int capFar, int period) {
 struct Cell {
     int x, y;  // the pair's first tile, from the origin
     const BridgeKeyData* key;
+    int a, c;  // its place along the length and along the width (from the start cap and side 0)
 };
 
 // The cells of a bridge with tiles (a key in the table), from its origin.
@@ -97,7 +105,7 @@ std::vector<Cell> cellsOf(const BridgeKitData& k, int length, int width) {
                                     "|" + axisClass(c, extW, k.side0, k.side1, k.periodWidth);
             for (int i = 0; i < k.keys; ++i)
                 if (!std::strcmp(kBridgeKeys[k.firstKey + i].key, key.c_str())) {
-                    out.push_back({2 * (pn / det), yn / det, &kBridgeKeys[k.firstKey + i]});
+                    out.push_back({2 * (pn / det), yn / det, &kBridgeKeys[k.firstKey + i], a, c});
                     break;
                 }
         }
@@ -112,6 +120,67 @@ std::pair<int, int> uOffset(const BridgeKitData& d, const BridgeKitData& u, int 
     for (const Cell& c : cellsOf(u, length, width)) ux = std::min(ux, c.x), uy = std::min(uy, c.y);
     if (dx == INT_MAX || ux == INT_MAX) return {0, 0};
     return {dx - ux - offset.first, dy - uy + offset.second};
+}
+
+// The pairs of neighbors (side by side, one above the other) in the tiles that the corpus does not have.
+int misfitCount(int era, const std::vector<Editor::TileAt>& tiles) {
+    std::map<std::pair<int, int>, uint16_t> at;
+    for (const Editor::TileAt& c : tiles) at[{c.x, c.y}] = c.value;
+    int n = 0;
+    for (const auto& [p, v] : at) {
+        if (auto r = at.find({p.first + 1, p.second}); r != at.end()) n += !neighbors(era, 0, v, r->second);
+        if (auto b = at.find({p.first, p.second + 1}); b != at.end()) n += !neighbors(era, 1, v, b->second);
+    }
+    return n;
+}
+
+// A place along one axis of a bridge of extent n, in an approved bridge of extent ne (n >= ne): the same place near the
+// caps (the cap and 2 more), from the far end near the far cap, and in the middle the approved bridge's middle places
+// after those again and again, q of them (q even: the same phase and parity). -1: the approved bridge is too short.
+int exampleAxis(int a, int n, int ne, int capStart, int capFar, int q) {
+    if (n == ne || a < capStart + 2) return a;
+    if (n - 1 - a < capFar + 2) return ne - 1 - (n - 1 - a);
+    if (capStart + 2 + q > ne - capFar - 2) return -1;
+    return capStart + 2 + (a - capStart - 2) % q;
+}
+
+// The bridge made of the approved bridge of the kit that is as large as it in each way or the largest: its caps as they
+// are, and its middle rows again as often as the size needs. Empty: no approved bridge of the kit.
+std::vector<Editor::TileAt> fromExample(const BridgeKitData& k, int era, bool u, int length, int width, int ox, int oy) {
+    int le = -1, we = -1;
+    for (const BridgeExampleData& e : kBridgeExamples)
+        if (e.era == era && e.u == u) le = std::max(le, std::min(length, e.length)), we = std::max(we, std::min(width, e.width));
+    const BridgeExampleData* e = nullptr;
+    for (const BridgeExampleData& x : kBridgeExamples)
+        if (x.era == era && x.u == u && x.length == le && x.width == we) e = &x;
+    if (!e) return {};
+    std::map<std::pair<int, int>, std::pair<int, int>> axes;  // (the approved bridge's cells: their places)
+    for (const Cell& c : cellsOf(k, le, we)) axes[{c.x, c.y}] = {c.a, c.c};
+    std::map<std::pair<int, int>, const BridgeExampleCellData*> byAxes;
+    for (int i = e->first; i < e->first + e->cells; ++i)
+        if (auto p = axes.find({kBridgeExampleCells[i].x, kBridgeExampleCells[i].y}); p != axes.end()) byAxes[p->second] = &kBridgeExampleCells[i];
+    const int extL = k.capStart + k.capFar + k.halfLength + 2 * length, extW = k.side0 + k.side1 + k.halfWidth + 2 * width;
+    const int extLe = k.capStart + k.capFar + k.halfLength + 2 * le, extWe = k.side0 + k.side1 + k.halfWidth + 2 * we;
+    // (the middle repeated every 2, 4 or 6 places each way: the one whose pieces fit their neighbors best)
+    std::vector<Editor::TileAt> best;
+    int fewest = INT_MAX;
+    for (const int qL : {2, 4, 6})
+        for (const int qW : {2, 4, 6}) {
+            std::vector<Editor::TileAt> out;
+            bool ok = true;
+            for (const Cell& c : cellsOf(k, length, width)) {
+                const auto p = byAxes.find({exampleAxis(c.a, extL, extLe, k.capStart, k.capFar, qL), exampleAxis(c.c, extW, extWe, k.side0, k.side1, qW)});
+                if (p == byAxes.end()) {
+                    ok = false;
+                    break;
+                }
+                out.push_back({ox + c.x, oy + c.y, p->second->a});
+                out.push_back({ox + c.x + 1, oy + c.y, p->second->b});
+            }
+            if (!ok) continue;
+            if (const int n = misfitCount(era, out); n < fewest) fewest = n, best = std::move(out);
+        }
+    return best;
 }
 
 }  // namespace
@@ -182,6 +251,10 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         out.push_back({ox + cells[i].x, oy + cells[i].y, v.a});
         out.push_back({ox + cells[i].x + 1, oy + cells[i].y, v.b});
     }
+    // The approved bridge made larger, where its pieces fit their neighbors better (fewer pairs that no map has).
+    if (std::vector<Editor::TileAt> grown = fromExample(*k, era, u, length, width, ox, oy);
+        !grown.empty() && grown.size() == out.size() && misfitCount(era, grown) < misfitCount(era, out))
+        return grown;
     return out;
 }
 
@@ -213,7 +286,7 @@ struct Diamond {
 
 struct Terrains {
     const Editor& ed;
-    std::string ground, water;
+    std::string ground, water, road;  // (road: also ground; "": none)
     std::string at(int cx, int cy) const { return ed.terrainName(ed.terrainAt(64 * cx, 32 * cy)); }
     // Water: all four corners are the water.
     bool water4(Diamond d) const {
@@ -223,9 +296,10 @@ struct Terrains {
     bool water1(Diamond d) const {
         return at(d.x - 1, d.y) == water || at(d.x + 1, d.y) == water || at(d.x, d.y - 1) == water || at(d.x, d.y + 1) == water;
     }
-    // Ground: a corner is the ground.
+    // Ground: a corner is the ground (or the road).
+    bool isGround(const std::string& n) const { return n == ground || (!road.empty() && n == road); }
     bool hasGround(Diamond d) const {
-        return at(d.x - 1, d.y) == ground || at(d.x + 1, d.y) == ground || at(d.x, d.y - 1) == ground || at(d.x, d.y + 1) == ground;
+        return isGround(at(d.x - 1, d.y)) || isGround(at(d.x + 1, d.y)) || isGround(at(d.x, d.y - 1)) || isGround(at(d.x, d.y + 1));
     }
 };
 
@@ -264,7 +338,7 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const Diamond across = plan.u ? Diamond{-d->widthStep[0], d->widthStep[1]} : Diamond{d->widthStep[0], d->widthStep[1]};
     plan.width = std::max(0, width);
 
-    const Terrains t{ed, d->ground, d->water};
+    const Terrains t{ed, d->ground, d->water, d->road};
     const Diamond s = nearestDiamond(x0, y0);
     const int steps = int((double(dx) * 64 * step.x + double(dy) * 32 * step.y) / (64.0 * 64 + 32.0 * 32));  // diamonds along the drag
     // No bridge: why, and the tiles of a bridge as long as the drag with its middle on the drag's middle (the red preview).
@@ -316,50 +390,89 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const std::pair<int, int> off = plan.u ? uOffset(*d, *uk, plan.length, plan.width, dOff) : dOff;
     const auto tilesFrom = [&](Diamond r) { return bridgeTiles(era, plan.u, plan.length, plan.width, 2 * r.x + off.first, r.y + off.second, seed); };
 
-    // Whether the river under the bridge whose first water diamond is r is straight: the same rows of water under the
-    // whole bridge, and one diamond more at each side.
-    const double vx = 64.0 * deck.x, vy = 32.0 * deck.y, rx = 64.0 * across.x, ry = 32.0 * across.y, det = vx * ry - vy * rx;
-    const auto straight = [&](Diamond r, const std::vector<Editor::TileAt>& tiles) {
-        double lo = 1e9, hi = -1e9;
-        for (const Editor::TileAt& c : tiles) {
-            const double ex = 32.0 * c.x + 16 - 64.0 * r.x, ey = 32.0 * c.y + 16 - 32.0 * r.y, b = (vx * ey - vy * ex) / det;
-            lo = std::min(lo, b), hi = std::max(hi, b);
-        }
-        for (int j = int(std::floor(lo)) - 1; j <= int(std::ceil(hi)) + 1; ++j) {
-            const Diamond line = r + across * j;
-            if (half) {
-                if (!t.water1(line) || !t.water1(line + deck * -1) || t.water1(line + deck) || t.water1(line + deck * -2)) return false;
-                continue;
-            }
-            if (t.water4(line + deck * -1) || t.water4(line + deck * rows)) return false;
-            for (int m = 0; m < rows; ++m)
-                if (!t.water4(line + deck * m)) return false;
-        }
-        return true;
-    };
-    // The bridge lies across the drag's line: its middle moves along the river to the line (else it stays where it is).
+    // (the kit's shortest approved bridge: Badlands has none of length 0.5)
+    int shortest = INT_MAX;
+    for (const BridgeExampleData& e : kBridgeExamples)
+        if (e.era == era && e.u == plan.u) shortest = std::min(shortest, e.length);
+    if (shortest != INT_MAX && plan.length < shortest) return fail(BridgePlan::Problem::TooNarrow);
+
+    // The bridge lies across the drag's line: its middle moves along the river to the line.
+    const double vx = 64.0 * deck.x, vy = 32.0 * deck.y, rx = 64.0 * across.x, ry = 32.0 * across.y;
     std::vector<Editor::TileAt> tiles = tilesFrom(first);
     if (tiles.empty()) return plan.problem = BridgePlan::Problem::NoKit, plan;
     double cx = 0, cy = 0;
     for (const Editor::TileAt& c : tiles) cx += 32.0 * c.x + 16, cy += 32.0 * c.y + 16;
     cx /= double(tiles.size()), cy /= double(tiles.size());
     const int shift = int(std::lround(-((cx - x0) * vy - (cy - y0) * vx) / (rx * vy - ry * vx)));
-    bool ok = false;
-    for (const int j : {shift, 0}) {
-        const Diamond r = first + across * j;
-        std::vector<Editor::TileAt> at = j ? tilesFrom(r) : tiles;
-        if (straight(r, at)) {
-            tiles = std::move(at), ok = true;
-            break;
-        }
-        if (!shift) break;
-    }
-    if (!ok) return fail(BridgePlan::Problem::NotStraight);
+    const Diamond r = first + across * shift;
+    if (shift) tiles = tilesFrom(r);
     for (const Editor::TileAt& c : tiles)
         if (c.x < 0 || c.y < 0 || c.x >= ed.width() || c.y >= ed.height()) return fail(BridgePlan::Problem::OffMap);
+
+    // The shore, in the ISOM corners' rows along the deck (a row: the corners on one line across the river, two apart;
+    // row 0: the back corners of the first water diamond r). The water: rows 0 to `rows` (the game's and the approved
+    // bridges: one row more than the water diamonds), from 3 corners before the bridge's side to 3 after; a bank of
+    // ground on each side of it; under the bridge's ends ground, or the road.
+    const auto along = [&](double X, double Y) { return X * deck.x + Y * deck.y; };   // (rect-grid points)
+    const auto side = [&](double X, double Y) { return X * across.x + Y * across.y; };
+    double s0 = INT_MAX, s1 = INT_MIN, t0 = INT_MAX, t1 = INT_MIN;
+    for (const Editor::TileAt& c : tiles) {
+        const double X = (c.x + 0.5) / 2, Y = c.y + 0.5;
+        s0 = std::min(s0, along(X, Y)), s1 = std::max(s1, along(X, Y)), t0 = std::min(t0, side(X, Y)), t1 = std::max(t1, side(X, Y));
+    }
+    // (each end's width: the tiles of its last row; the road goes on from the end as wide as it)
+    double n0 = INT_MAX, n1 = INT_MIN, f0 = INT_MAX, f1 = INT_MIN;
+    for (const Editor::TileAt& c : tiles) {
+        const double X = (c.x + 0.5) / 2, Y = c.y + 0.5, s = along(X, Y), tt = side(X, Y);
+        if (s <= s0 + 1) n0 = std::min(n0, tt), n1 = std::max(n1, tt);
+        if (s >= s1 - 1) f0 = std::min(f0, tt), f1 = std::max(f1, tt);
+    }
+    const int row0 = r.x * deck.x + r.y * deck.y - 1;
+    const auto terrainId = [&](const char* name) {
+        for (uint16_t id = 1; id < 256; ++id)
+            if (ed.terrainName(id) == name) return id;
+        return uint16_t(0);
+    };
+    const uint16_t ground = terrainId(d->ground), water = terrainId(d->water), road = *d->road ? terrainId(d->road) : ground;
+    std::vector<CornerValue> grounds, roads, waters;
+    int bx0 = INT_MAX, by0 = INT_MAX, bx1 = INT_MIN, by1 = INT_MIN;  // (the bridge's rect-grid box)
+    for (const Editor::TileAt& c : tiles) bx0 = std::min(bx0, c.x / 2), by0 = std::min(by0, c.y), bx1 = std::max(bx1, c.x / 2 + 1), by1 = std::max(by1, c.y + 1);
+    const int margin = 6;
+    std::set<std::pair<int, int>> roadCorners;
+    for (int Y = std::max(-1, by0 - margin); Y <= std::min(int(ed.height()), by1 + margin); ++Y)
+        for (int X = std::max(-1, bx0 - margin); X <= std::min(int(ed.width()) / 2, bx1 + margin); ++X) {
+            const double s = along(X, Y), tt = side(X, Y);
+            if (!((X + Y) & 1)) {
+                // A diamond's middle: the road is of whole diamonds (as wide as the bridge's end, on 3 diamonds past each
+                // end, as the game's bridges have it), clear of the banks.
+                const double row = (s - row0) / 2;
+                const bool nearEnd = s < (s0 + s1) / 2;
+                if (*d->road && (row <= -2.5 || row >= rows + 2.5) && s >= s0 - 6 && s <= s1 + 6 && tt >= (nearEnd ? n0 : f0) + 1 &&
+                    tt <= (nearEnd ? n1 : f1) - 1)
+                    for (const auto& [cx, cy] : {std::pair{X - 1, Y}, {X + 1, Y}, {X, Y - 1}, {X, Y + 1}}) roadCorners.insert({cx, cy});
+                continue;
+            }
+            const int row = int(std::lround((s - row0) / 2));
+            if (row >= 0 && row <= rows && tt >= t0 - 3 && tt <= t1 + 3) waters.push_back({X, Y, water});
+            else if ((row == -1 || row == rows + 1) && tt >= t0 - 3 && tt <= t1 + 3) grounds.push_back({X, Y, ground});
+            else if ((row < -1 || row > rows + 1) && s >= s0 - 1 && s <= s1 + 1 && tt >= t0 - 1 && tt <= t1 + 1) grounds.push_back({X, Y, ground});
+        }
+    // (the road's corners: not ground as well)
+    std::erase_if(grounds, [&](const CornerValue& c) { return roadCorners.count({c.x, c.y}) != 0; });
+    for (const auto& [cx, cy] : roadCorners) roads.push_back({cx, cy, road});
+    if (!ground || !water || !road) return fail(BridgePlan::Problem::NoKit);
+    for (auto* list : {&grounds, &roads, &waters})
+        if (!list->empty()) plan.shore.push_back(std::move(*list));
     plan.tiles = std::move(tiles);
     plan.problem = BridgePlan::Problem::None;
     return plan;
+}
+
+bool applyBridge(Editor& ed, const BridgePlan& plan) {
+    if (plan.problem != BridgePlan::Problem::None) return false;
+    bool changed = false;
+    for (const std::vector<CornerValue>& corners : plan.shore) changed |= ed.setTerrainCorners(corners);
+    return ed.placeTileValues(plan.tiles) > 0 || changed;
 }
 
 }  // namespace stardraft

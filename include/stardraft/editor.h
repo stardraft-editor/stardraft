@@ -184,6 +184,9 @@ public:
     // As paintTerrainLine along each line from a point to the next (closed: also from the last to the first), all lines
     // in one pass (Rectangle and Ellipse's outlines).
     bool paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool closed, uint16_t terrain, const Brush& brush);
+    // These ISOM corners get their terrains (all of one terrain), and the terrain round them is fitted to them: one edit
+    // (the Bridge tool's shore: src/bridges.cpp).
+    bool setTerrainCorners(const std::vector<CornerValue>& corners) { return applyTerrain(corners); }
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two

@@ -215,8 +215,6 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     case BridgePlan::Problem::NeedsTerrain:
         return setMessage(bridgeText(L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", ground, water, ground));
     case BridgePlan::Problem::TooNarrow: return setMessage(bridgeText(L"The %ls is too narrow for a bridge. Paint it wider.", water));
-    case BridgePlan::Problem::NotStraight:
-        return setMessage(bridgeText(L"The %ls must have the same width under all of the bridge and one diamond more at each side", water));
     case BridgePlan::Problem::OffMap: return setMessage(L"The bridge does not fit on the map");
     }
     for (const Editor::TileAt& c : p.tiles)
@@ -224,8 +222,18 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
             for (const Editor::TileAt& r : p.tiles) gShape.red.push_back({r.x, r.y});
             return setMessage(L"Part of the bridge is on protected tiles");
         }
-    for (const Editor::TileAt& c : p.tiles)
-        if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
+    // (the shore and the bridge on the copy of the map: the preview is what it changes, and the end takes the copy)
+    Editor& copy = shapeCopy(ed.gameData());
+    std::string error;
+    if (!copy.openChk(ed.chk(), error)) return setMessage(bridgeText(L"Could not make the bridge: %ls", widen(error)));
+    shapeCopySettings(copy, ed);
+    copy.setMirrors(0), copy.setTurns(1);  // (one bridge: symmetry does not apply to bridges)
+    applyBridge(copy, p);
+    const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
+    if (a.size() == b.size())
+        for (size_t i = 0; i < a.size(); ++i)
+            if (a[i] != b[i]) gShape.ghost.push_back({int(i), b[i]});
+    gShape.copyHolds = true;
     gShape.cells = p.tiles;
     setMessage(bridgeText(L"Bridge: length %ls, width %ls. Release the button to place it.", bridgeSize(p.length), bridgeSize(p.width)));
 }
@@ -243,13 +251,18 @@ void shapeUpdate(bool now = false) {
     static double cost = 0;  // the last Isometric preview's time, ms
     static std::chrono::steady_clock::time_point last{};
     const auto t0 = std::chrono::steady_clock::now();
-    if (!now && !app.terrainRect && cost > 12 && std::chrono::duration<double, std::milli>(t0 - last).count() < 2 * cost)
+    if (!now && (!app.terrainRect || gShape.tool == TBridge) && cost > 12 && std::chrono::duration<double, std::milli>(t0 - last).count() < 2 * cost)
         return shellShapeLater(int(2 * cost));
     gShape.ghost.clear(), gShape.cells.clear(), gShape.red.clear(), gShape.copyHolds = false;
     gShape.madeFor = pts, gShape.madeKey = key, gShape.made = true;
     const std::vector<std::pair<int, int>> geo = shapeGeometry(pts);
     if (geo.size() < (gShape.tool == TLine || gShape.tool == TBridge ? 2u : 3u)) return;
-    if (gShape.tool == TBridge) return bridgeMake(geo);
+    if (gShape.tool == TBridge) {  // (on a copy of the map in every kind of terrain: made at most every 2 times its time too)
+        bridgeMake(geo);
+        last = std::chrono::steady_clock::now();
+        cost = std::chrono::duration<double, std::milli>(last - t0).count();
+        return;
+    }
     if (app.terrainRect) return shapeMakeTiles(geo);
     Editor& c = shapeCopy(ed.gameData());
     std::string error;
@@ -311,17 +324,26 @@ void shapeFinish() {
     gShape.made = false;  // (made again now, of the map as it is: the copy that the map takes holds it)
     shapeUpdate(true);
     if (tool == TBridge) {
-        if (gShape.cells.empty()) {  // (the status bar says why: bridgeMake)
+        if (gShape.cells.empty() || !gShape.copyHolds) {  // (the status bar says why: bridgeMake)
             shapeReset();
             app.dirty = true;
             return;
         }
-        const bool changed = ed.placeTileValues(gShape.cells) > 0;
-        const bool removed = ed.takeDoodadsRemovedByTerrain() + ed.takeUnitsRemovedByTerrain() > 0;
+        const bool changed = !gShape.ghost.empty();
+        const Editor& copy = shapeCopy(ed.gameData());
+        const bool removed = copy.doodads().size() < ed.doodads().size() || copy.units().size() < ed.units().size();  // (by the shore)
+        if (changed) {  // (the map takes the copy's scenario: the units and the locations that were selected stay selected)
+            const std::vector<int> units = ed.selection(), locations = ed.selectedLocations();
+            const size_t unitCount = ed.units().size();
+            ed.takeScenario(shapeCopy(ed.gameData()));
+            if (ed.units().size() == unitCount)
+                for (int u : units) ed.select(u, true);
+            for (int l : locations) ed.addLocationSelection(l);
+        }
         setMessage(!changed ? L"The bridge is there already"
                    : removed ? L"Placed the bridge. Removed the doodads and units under it that cannot stay there."
                    : ed.mirrors() || ed.turns() > 1 ? L"Placed the bridge. Symmetry does not apply to bridges."
-                                                : L"Placed the bridge");
+                                                    : L"Placed the bridge");
     } else if (app.terrainRect) {
         ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
         tilesPlacedMessage(gShape.cells.empty() ? 0 : tilesPut(gShape.cells), L"Placed");

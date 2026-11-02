@@ -2727,16 +2727,16 @@ constexpr UiText kRows[] = {
     {L"Bridge: drag on to the %ls on the other side", L"Puente: siga arrastrando hasta %ls del otro lado"},
     {L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", L"Un puente va de %ls a trav\u00E9s de %ls hasta %ls, a lo largo de una diagonal del mapa"},
     {L"The %ls is too narrow for a bridge. Paint it wider.", L"%ls es demasiado estrecho para un puente. P\u00EDntelo m\u00E1s ancho."},
-    {L"The %ls must have the same width under all of the bridge and one diamond more at each side", L"%ls debe tener la misma anchura bajo todo el puente y un rombo m\u00E1s a cada lado"},
     {L"The bridge does not fit on the map", L"El puente no cabe en el mapa"},
     {L"Bridge: length %ls, width %ls. Release the button to place it.", L"Puente: longitud %ls, anchura %ls. Suelte el bot\u00F3n para colocarlo."},
     {L"Bridge: drag from the ground across the water to the ground on the other side", L"Puente: arrastre desde el suelo a trav\u00E9s del agua hasta el suelo del otro lado"},
     {L"Stopped the bridge", L"Puente detenido"},
     {L"The bridge is there already", L"El puente ya est\u00E1 ah\u00ED"},
-    {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ah\u00ED."},
     {L"Placed the bridge", L"Puente colocado"},
     {L"Part of the bridge is on protected tiles", L"Parte del puente est\u00E1 sobre losetas protegidas"},
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"Puente colocado. La simetr\u00EDa no se aplica a los puentes."},
+    {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ah\u00ED."},
+    {L"Could not make the bridge: %ls", L"No se pudo hacer el puente: %ls"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

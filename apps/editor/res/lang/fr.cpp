@@ -2727,16 +2727,16 @@ constexpr UiText kRows[] = {
     {L"Bridge: drag on to the %ls on the other side", L"Pont : continuez jusqu'\u00E0 %ls de l'autre c\u00F4t\u00E9"},
     {L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", L"Un pont va de %ls \u00E0 travers %ls jusqu'\u00E0 %ls, le long d'une diagonale de la carte"},
     {L"The %ls is too narrow for a bridge. Paint it wider.", L"%ls est trop \u00E9troit pour un pont. Peignez-le plus large."},
-    {L"The %ls must have the same width under all of the bridge and one diamond more at each side", L"%ls doit avoir la m\u00EAme largeur sous tout le pont et un losange de plus de chaque c\u00F4t\u00E9"},
     {L"The bridge does not fit on the map", L"Le pont ne tient pas sur la carte"},
     {L"Bridge: length %ls, width %ls. Release the button to place it.", L"Pont : longueur %ls, largeur %ls. Rel\u00E2chez le bouton pour le placer."},
     {L"Bridge: drag from the ground across the water to the ground on the other side", L"Pont : faites glisser du sol \u00E0 travers l'eau jusqu'au sol de l'autre c\u00F4t\u00E9"},
     {L"Stopped the bridge", L"Pont arr\u00EAt\u00E9"},
     {L"The bridge is there already", L"Le pont est d\u00E9j\u00E0 l\u00E0"},
-    {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Pont plac\u00E9. Les d\u00E9cors et les unit\u00E9s dessous qui ne peuvent pas y rester ont \u00E9t\u00E9 retir\u00E9s."},
     {L"Placed the bridge", L"Pont plac\u00E9"},
     {L"Part of the bridge is on protected tiles", L"Une partie du pont est sur des tuiles prot\u00E9g\u00E9es"},
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"Pont plac\u00E9. La sym\u00E9trie ne s'applique pas aux ponts."},
+    {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"Pont plac\u00E9. Les d\u00E9cors et les unit\u00E9s dessous qui ne peuvent pas y rester ont \u00E9t\u00E9 retir\u00E9s."},
+    {L"Could not make the bridge: %ls", L"Impossible de faire le pont : %ls"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

@@ -2727,16 +2727,16 @@ constexpr UiText kRows[] = {
     {L"Bridge: drag on to the %ls on the other side", L"\u6865\uFF1A\u7EE7\u7EED\u62D6\u5230\u5BF9\u5CB8\u7684%ls"},
     {L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", L"\u6865\u6CBF\u5730\u56FE\u7684\u5BF9\u89D2\u7EBF\u4ECE%ls\u8DE8\u8FC7%ls\u5230%ls"},
     {L"The %ls is too narrow for a bridge. Paint it wider.", L"%ls\u592A\u7A84\uFF0C\u65E0\u6CD5\u653E\u6865\u3002\u8BF7\u753B\u5BBD\u4E00\u4E9B\u3002"},
-    {L"The %ls must have the same width under all of the bridge and one diamond more at each side", L"%ls\u5728\u6574\u5EA7\u6865\u4E0B\u5FC5\u987B\u5BBD\u5EA6\u76F8\u540C\uFF0C\u5E76\u4E14\u4E24\u4FA7\u5404\u591A\u4E00\u4E2A\u83F1\u5F62"},
     {L"The bridge does not fit on the map", L"\u6865\u653E\u4E0D\u8FDB\u5730\u56FE"},
     {L"Bridge: length %ls, width %ls. Release the button to place it.", L"\u6865\uFF1A\u957F\u5EA6 %ls\uFF0C\u5BBD\u5EA6 %ls\u3002\u677E\u5F00\u6309\u94AE\u653E\u7F6E\u3002"},
     {L"Bridge: drag from the ground across the water to the ground on the other side", L"\u6865\uFF1A\u4ECE\u5730\u9762\u62D6\u8FC7\u6C34\u9762\u5230\u5BF9\u5CB8\u7684\u5730\u9762"},
     {L"Stopped the bridge", L"\u5DF2\u505C\u6B62\u6865"},
     {L"The bridge is there already", L"\u6865\u5DF2\u7ECF\u5728\u90A3\u91CC"},
-    {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"\u5DF2\u653E\u7F6E\u6865\u3002\u5DF2\u79FB\u9664\u5176\u4E0B\u4E0D\u80FD\u7559\u4E0B\u7684\u88C5\u9970\u7269\u548C\u5355\u4F4D\u3002"},
     {L"Placed the bridge", L"\u5DF2\u653E\u7F6E\u6865"},
     {L"Part of the bridge is on protected tiles", L"\u6865\u7684\u4E00\u90E8\u5206\u4F4D\u4E8E\u53D7\u4FDD\u62A4\u7684\u56FE\u5757\u4E0A"},
     {L"Placed the bridge. Symmetry does not apply to bridges.", L"\u5DF2\u653E\u7F6E\u6865\u3002\u5BF9\u79F0\u4E0D\u9002\u7528\u4E8E\u6865\u3002"},
+    {L"Placed the bridge. Removed the doodads and units under it that cannot stay there.", L"\u5DF2\u653E\u7F6E\u6865\u3002\u5DF2\u79FB\u9664\u5176\u4E0B\u4E0D\u80FD\u7559\u4E0B\u7684\u88C5\u9970\u7269\u548C\u5355\u4F4D\u3002"},
+    {L"Could not make the bridge: %ls", L"\u65E0\u6CD5\u751F\u6210\u6865\uFF1A%ls"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

@@ -2725,13 +2725,13 @@ Bridge: drag across the %ls to the %ls on the other side	Мост: протян�
 Bridge: drag on to the %ls on the other side	Мост: протяните дальше, до %ls на другой стороне
 A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Мост идёт с %ls через %ls на %ls, по диагонали карты
 The %ls is too narrow for a bridge. Paint it wider.	%ls слишком узкая для моста. Нарисуйте её шире.
-The %ls must have the same width under all of the bridge and one diamond more at each side	%ls должна быть одной ширины под всем мостом и на один ромб больше с каждой стороны
 The bridge does not fit on the map	Мост не помещается на карте
 Bridge: length %ls, width %ls. Release the button to place it.	Мост: длина %ls, ширина %ls. Отпустите кнопку, чтобы поставить его.
 Bridge: drag from the ground across the water to the ground on the other side	Мост: протяните от земли через воду до земли на другой стороне
 Stopped the bridge	Мост остановлен
 The bridge is there already	Мост уже здесь
-Placed the bridge. Removed the doodads and units under it that cannot stay there.	Мост поставлен. Убраны декорации и юниты под ним, которые не могут там остаться.
 Placed the bridge	Мост поставлен
 Part of the bridge is on protected tiles	Часть моста стоит на защищённых тайлах
 Placed the bridge. Symmetry does not apply to bridges.	Мост поставлен. Симметрия к мостам не применяется.
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	Мост поставлен. Убраны декорации и юниты под ним, которые не могут там остаться.
+Could not make the bridge: %ls	Не удалось сделать мост: %ls

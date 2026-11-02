@@ -2755,13 +2755,13 @@ Bridge: drag across the %ls to the %ls on the other side	다리: %ls을(를) 건
 Bridge: drag on to the %ls on the other side	다리: 맞은편 %ls까지 계속 드래그하세요
 A bridge goes from %ls across %ls to %ls, along a diagonal of the map	다리는 맵의 대각선을 따라 %ls에서 %ls을(를) 건너 %ls까지 놓입니다
 The %ls is too narrow for a bridge. Paint it wider.	%ls이(가) 다리를 놓기에 너무 좁습니다. 더 넓게 칠하세요.
-The %ls must have the same width under all of the bridge and one diamond more at each side	%ls은(는) 다리 전체 아래에서 폭이 같아야 하고, 양쪽으로 다이아몬드 하나만큼 더 있어야 합니다
 The bridge does not fit on the map	다리가 맵에 들어가지 않습니다
 Bridge: length %ls, width %ls. Release the button to place it.	다리: 길이 %ls, 폭 %ls. 버튼을 놓으면 다리를 놓습니다.
 Bridge: drag from the ground across the water to the ground on the other side	다리: 땅에서 물을 건너 맞은편 땅까지 드래그하세요
 Stopped the bridge	다리를 멈췄습니다
 The bridge is there already	다리가 이미 있습니다
-Placed the bridge. Removed the doodads and units under it that cannot stay there.	다리를 놓았습니다. 그 아래에 있을 수 없는 장식물과 유닛을 제거했습니다.
 Placed the bridge	다리를 놓았습니다
 Part of the bridge is on protected tiles	다리 일부가 보호된 타일 위에 있습니다
 Placed the bridge. Symmetry does not apply to bridges.	다리를 놓았습니다. 대칭은 다리에 적용되지 않습니다.
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	다리를 놓았습니다. 그 아래에 있을 수 없는 장식물과 유닛을 제거했습니다.
+Could not make the bridge: %ls	다리를 만들 수 없습니다: %ls
