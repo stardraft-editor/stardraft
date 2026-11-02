@@ -288,16 +288,7 @@ inline void reorderRow(draw::Canvas& c, Surface& s, const std::string& list, dra
     if (!can) return;
     Surface* sp = &s;
     s.add({g,
-           [sp, list, index](draw::Point pt) {
-               const auto& rs = sp->reorderRows[list];
-               int to = int(rs.size());
-               for (size_t i = 0; i < rs.size(); ++i)
-                   if (pt.y < (rs[i].top + rs[i].bottom) / 2) {
-                       to = int(i);
-                       break;
-                   }
-               sp->reorder = {list, index, to};
-           },
+           [sp, list, index](draw::Point pt) { sp->reorder = {list, index, kitpaint::dropIndex(sp->reorderRows[list], pt.y)}; },
            nullptr, L"Drag to move", draw::Cursor::SizeAll,
            [sp, moved] {
                const Reorder r = std::exchange(sp->reorder, {});

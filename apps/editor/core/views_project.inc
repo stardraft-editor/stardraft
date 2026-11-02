@@ -266,23 +266,9 @@ private:
     }
     // Whether the mouse is in `r` (the host's pointer, in this view's coordinates).
     bool hot(draw::Rect r) const { return host() && r.contains(host()->mouse(*this)); }
-    static draw::Rect squareOf(draw::Rect r) {
-        const int w = r.width(), h = r.height(), s = std::min(w, h);
-        const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
-        return {x, y, x + s, y + s};
-    }
-    static int buttonWidth(draw::Canvas& c, const std::wstring& text) {
-        return std::max(scale(stardraft::kit::kButtonMinW), c.measure(text) + scale(28));
-    }
-    // A button's face (the kit's look: a tone Normal button, lit under the mouse).
+    // A button's face (the kit's: a tone Normal button, lit under the mouse).
     static void drawButton(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool over) {
-        c.roundBox(r, over ? kCtlHot : kCtl, over ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
-        c.text(r, text, kText, draw::kMiddle | draw::kCenter | draw::kEllipsis);
-    }
-    // The preview's toggle: a bare icon, accent while the preview is on.
-    static void drawToggle(draw::Canvas& c, draw::Rect r, bool on, bool over) {
-        if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
-        c.icon(r, int(UiIcon::Code), over ? (on ? kAccentBright : kText) : (on ? kAccent : kDim), scale(16));
+        kitpaint::drawButtonFace(c, r, text, kitpaint::Tone::Normal, over ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
     }
     // The Build section (its heading, the options, the background music) from y; returns the y after it.
     int paintBuild(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
@@ -300,9 +286,6 @@ private:
     int paintTrace(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight);
     // A row's icon buttons at its right edge: shown under the mouse, or always when `show`.
     void paintRowActions(draw::Canvas& c, draw::Rect row, const std::vector<RowAct>& acts, bool show);
-    // A list row's ground (selected: the accent bar; under the mouse: the row's ground) and a grip's dots.
-    static void listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over);
-    static void paintGrip(draw::Canvas& c, int x, int y, bool on);
     // A small button in a row (as wide as its text; not enabled: faint, no click): returns its right edge.
     int smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip = L"",
                     bool enabled = true);
@@ -332,33 +315,28 @@ void ProjectPageView::paint(draw::Canvas& c) {
     const int x0 = scale(18), labelW = scale(170), rowH = scale(32), headH = scale(stardraft::kit::kRowH);
     const int colRight = std::min(pageW - x0, x0 + scale(1000));
     // The preview's toggle: </> at the top right of the page, as the Triggers workspace has it.
-    const draw::Rect tog = squareOf({pageW - scale(48), scale(10), pageW - scale(16), scale(42)});
+    const draw::Rect tog = kitpaint::square({pageW - scale(48), scale(10), pageW - scale(16), scale(42)});
     const bool on = host_.previewOn();
-    drawToggle(c, tog, on, hot(tog));
+    kitpaint::drawIconFace(c, tog, UiIcon::Code, kitpaint::Tone::Normal, on, hot(tog));
     hits_.push_back({tog, [this] { host_.togglePreview(); }, on ? L"Hide the script's code" : L"Show the selected script's code", draw::Cursor::Hand});
 
     int y = scale(16) - scroll_;
     const ProjectHost::Files f = host_.files();
     if (f.hasProject) {
         // The title: the project's name, and whether it is built.
-        const draw::Font old = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
-        c.text({x0, y, colRight, y + scale(26)}, f.name.empty() ? std::wstring(L"(empty)") : f.name, kText, draw::kMiddle | draw::kEllipsis);
-        c.setFont(old);
-        c.text({x0, y + scale(24), colRight, y + scale(42)}, f.built ? L"EUD project  \x00B7  built" : L"EUD project  \x00B7  not built yet", kDim, draw::kMiddle);
-        y += scale(56);
-
-        c.text({x0, y, colRight, y + headH}, L"Files", kText, draw::kMiddle);
-        c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
-        y += headH + scale(6);
+        y = kitpaint::drawTitle(c, x0, y, colRight, {}, false, UiIcon{}, f.name,
+                                f.built ? L"EUD project  \x00B7  built" : L"EUD project  \x00B7  not built yet", false)
+                .next;
+        y = kitpaint::drawSectionHeader(c, x0, colRight, y, headH, L"Files");
         // A row: its label, a field (read only, or one to click), and buttons on the right.
         auto row = [&](const wchar_t* label, const std::wstring& text, bool edit, const std::vector<Button>& buttons, const std::wstring& tip,
                        const std::function<void(draw::Rect)>& editAct) {
             c.text({x0, y, x0 + labelW, y + rowH}, label, kDim, draw::kMiddle | draw::kEllipsis);
             int bx = colRight;
-            for (auto it = buttons.rbegin(); it != buttons.rend(); ++it) bx -= buttonWidth(c, it->text) + scale(8);
+            for (auto it = buttons.rbegin(); it != buttons.rend(); ++it) bx -= kitpaint::buttonWidth(c, it->text) + scale(8);
             const draw::Rect field{x0 + labelW, y + scale(2), bx, y + rowH - scale(2)};
             if (edit) {
-                c.roundBox(field, kCtl, hot(field) ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
+                kitpaint::drawFieldBox(c, field, hot(field) ? kitpaint::Field::Hot : kitpaint::Field::Normal);
                 hits_.push_back({field, [editAct, field] { editAct(field); }, tip, draw::Cursor::IBeam});
             } else if (!tip.empty())
                 hits_.push_back({field, nullptr, tip, draw::Cursor::Arrow});
@@ -367,7 +345,7 @@ void ProjectPageView::paint(draw::Canvas& c) {
             const int by = y + (rowH - scale(stardraft::kit::kButtonH)) / 2;
             int rx = colRight;
             for (auto it = buttons.rbegin(); it != buttons.rend(); ++it) {
-                const int bw = buttonWidth(c, it->text);
+                const int bw = kitpaint::buttonWidth(c, it->text);
                 const draw::Rect br{rx - bw, by, rx, by + scale(stardraft::kit::kButtonH)};
                 drawButton(c, br, it->text, hot(br));
                 hits_.push_back({br, it->click, it->tip, draw::Cursor::Hand});
@@ -396,10 +374,7 @@ void ProjectPageView::paint(draw::Canvas& c) {
 int ProjectPageView::paintBuild(draw::Canvas& c, int y, int x0, int labelW, int rowH, int colRight) {
     using BO = ProjectHost::BuildOption;
     const int headH = scale(stardraft::kit::kRowH);
-    // A section heading: its name and a line to the column's edge.
-    c.text({x0, y, colRight, y + headH}, L"Build", kText, draw::kMiddle);
-    c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
-    y += headH + scale(6);
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, headH, L"Build");
     // The label column names the options (not an empty column).
     c.text({x0, y, x0 + labelW, y + rowH}, L"Options", kDim, draw::kMiddle | draw::kEllipsis);
     struct Option {
@@ -458,12 +433,12 @@ int ProjectPageView::paintMusic(draw::Canvas& c, int y, int x0, int labelW, int 
     // The dropdown (a box to click, the name and the arrow), as the Data forms' pick boxes have it.
     const draw::Rect box{x0 + labelW, y + scale(2), colRight - scale(stardraft::kit::kIconBox + 8), y + rowH - scale(2)};
     const bool over = hot(box);
-    c.roundBox(box, kCtl, over ? kBorderHot : kBorder, float(scale(stardraft::kit::kRadius)));
+    kitpaint::drawFieldBox(c, box, over ? kitpaint::Field::Hot : kitpaint::Field::Normal);
     c.text({box.left + scale(8), box.top, box.right - scale(22), box.bottom}, text, kText, draw::kMiddle | draw::kEllipsis);
     c.icon({box.right - scale(20), box.top, box.right - scale(6), box.bottom}, int(UiIcon::Dropdown), over ? kText : kDim, scale(9));
     hits_.push_back({box, [this] { host_.chooseMusic(); }, L"Plays again and again for every player (euddraft's bgmplayer)", draw::Cursor::Hand});
     if (m.hasFile) {  // the close button: no background music
-        const draw::Rect x = squareOf({box.right + scale(4), box.top, box.right + scale(4 + stardraft::kit::kIconBox), box.bottom});
+        const draw::Rect x = kitpaint::square({box.right + scale(4), box.top, box.right + scale(4 + stardraft::kit::kIconBox), box.bottom});
         const bool overX = hot(x);
         c.icon(x, int(UiIcon::Close), overX ? kBad : kDim, scale(14));
         hits_.push_back({x, [this] { host_.clearMusic(); }, L"No background music", draw::Cursor::Hand});
@@ -477,7 +452,7 @@ int ProjectPageView::paintMemory(draw::Canvas& c, int y, int x0, int labelW, int
     int ly = y;
     for (size_t i = 0; i < files.size(); ++i) {
         const draw::Rect r{x0 + labelW - scale(6), ly, colRight, ly + rowH};
-        listRowFace(c, r, false, hot(r));
+        kitpaint::drawListRow(c, r, false, hot(r));
         c.text({r.left + scale(6), r.top, r.right - scale(200), r.bottom}, files[i].file, kText, draw::kPathEllipsis | draw::kMiddle);
         c.text({r.right - scale(200), r.top, r.right - scale(40), r.bottom}, L"at " + files[i].at, kDim, draw::kRight | draw::kMiddle);
         paintRowActions(c, r, {{UiIcon::Close, L"Remove from the list", [this, i] { host_.removeMemoryFile(i); }, true}}, false);
@@ -492,9 +467,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
     const int headH = scale(stardraft::kit::kRowH);
     // The heading: its name and a line to the column's edge, with the tip that says what Build does with the list.
     const int hy = y;
-    c.text({x0, y, colRight, y + headH}, L"Scripts", kText, draw::kMiddle);
-    c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
-    y += headH + scale(6);
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, headH, L"Scripts");
     hits_.push_back({{x0, hy, x0 + scale(120), hy + headH}, nullptr,
                      L"Build runs these in order, from the top. onPluginStart runs once when the map starts; beforeTriggerExec and afterTriggerExec run each trigger cycle",
                      draw::Cursor::Arrow});
@@ -519,7 +492,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
         const draw::Rect r{x0 - scale(6), y, colRight, y + rowH};
         scriptRows_.push_back(r);
         const bool on = s.selected;
-        listRowFace(c, r, on, hot(r));
+        kitpaint::drawListRow(c, r, on, hot(r));
         // The name is the row's click (selects the script); a script's tip gives its file.
         const std::wstring tip = script ? (linked ? std::wstring(L"A linked file. StarDraft 2 does not copy or change it: ") : std::wstring()) + s.file
                                         : std::wstring();
@@ -528,7 +501,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
         const bool dragged = drag_.active && drag_.from == int(i);
         if (dragged) c.fill(r, kSel, 160);
         const bool can = !generated;
-        if (can && (hot(r) || dragged)) paintGrip(c, r.left + scale(5), (r.top + r.bottom) / 2 - scale(6), dragged);
+        if (can && (hot(r) || dragged)) kitpaint::drawGrip(c, r.left + scale(5), (r.top + r.bottom) / 2 - scale(6), dragged);
         if (can) {
             hits_.push_back({{r.left, r.top, r.left + scale(18), r.bottom}, nullptr, L"Drag to move", draw::Cursor::SizeAll, int(i)});
         }
@@ -567,7 +540,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
     // The drop line: where the dragged row goes.
     if (drag_.active && !scriptRows_.empty()) {
         const int ly = drag_.to < int(scriptRows_.size()) ? scriptRows_[size_t(drag_.to)].top : scriptRows_.back().bottom;
-        c.fill({scriptRows_.front().left, ly - scale(1), scriptRows_.front().right, ly + scale(1)}, kAccent);
+        kitpaint::drawDropLine(c, scriptRows_.front().left, scriptRows_.front().right, ly);
     }
     y += scale(4);
     const int ax = smallButton(c, x0, y, rowH, L"New script", [this] { host_.newScript(); });
@@ -580,10 +553,7 @@ int ProjectPageView::paintTrace(draw::Canvas& c, int y, int x0, int labelW, int 
     const ProjectHost::Trace t = host_.trace();
     if (!t.shown) return y;
     const int headH = scale(stardraft::kit::kRowH);
-    // A section heading: its name and a line to the column's edge.
-    c.text({x0, y, colRight, y + headH}, L"epTrace", kText, draw::kMiddle);
-    c.fill({x0, y + headH - 1, colRight, y + headH}, kBorder);
-    y += headH + scale(6);
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, headH, L"epTrace");
     auto label = [&](const wchar_t* text) { c.text({x0, y, x0 + labelW, y + rowH}, text, kDim, draw::kMiddle | draw::kEllipsis); };
     label(L"Trace file");
     {
@@ -623,7 +593,7 @@ int ProjectPageView::paintTrace(draw::Canvas& c, int y, int x0, int labelW, int 
     for (size_t i = 0; i < lines.size(); ++i) {
         const ProjectHost::TraceLine& ln = lines[i];
         const draw::Rect r{x0 - scale(6), y, colRight, y + rowH};
-        listRowFace(c, r, false, hot(r));
+        kitpaint::drawListRow(c, r, false, hot(r));
         int x = r.left + scale(6);
         c.text({x, r.top, x + countW, r.bottom}, std::to_wstring(ln.samples), kText, draw::kMiddle | draw::kEllipsis | draw::kRight);
         x += countW + scale(10);
@@ -642,48 +612,22 @@ int ProjectPageView::paintTrace(draw::Canvas& c, int y, int x0, int labelW, int 
     return y + scale(24);
 }
 
-void ProjectPageView::listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
-    if (selected) {
-        c.fill(r, kSel);
-        c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-    } else if (over) {
-        c.fill(r, kRowHot);
-    }
-}
-
-void ProjectPageView::paintGrip(draw::Canvas& c, int x, int y, bool on) {
-    for (int gx = 0; gx < 2; ++gx)
-        for (int gy = 0; gy < 3; ++gy) {
-            const int dx = x + gx * scale(5), dy = y + gy * scale(5);
-            c.fill({dx, dy, dx + scale(2), dy + scale(2)}, on ? kAccent : kGripDot);
-        }
-}
-
 void ProjectPageView::paintRowActions(draw::Canvas& c, draw::Rect row, const std::vector<RowAct>& acts, bool show) {
     if (!show && !hot(row)) return;
-    const int w = scale(stardraft::kit::kIconBox), h = std::min(row.height(), scale(stardraft::kit::kIconBox));
-    int x = row.right - scale(4) - w * int(acts.size());
-    const int y = (row.top + row.bottom - h) / 2;
-    for (const RowAct& a : acts) {
-        const draw::Rect r = squareOf({x, y, x + w, y + h});
-        const bool over = a.enabled && hot(r);
-        if (over) c.roundBox(r, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
-        c.icon(r, int(a.icon), !a.enabled ? kFaint : over ? (a.danger ? kBad : kText) : kDim, scale(16));
+    for (size_t k = 0; k < acts.size(); ++k) {
+        const RowAct& a = acts[k];
+        const draw::Rect r = kitpaint::square(kitpaint::rowActionRect(row, int(k), int(acts.size())));
+        kitpaint::drawIconFace(c, r, a.icon, a.danger ? kitpaint::Tone::Danger : kitpaint::Tone::Normal, false, a.enabled && hot(r), a.enabled);
         hits_.push_back({r, a.enabled ? a.click : nullptr, a.tip, a.enabled ? draw::Cursor::Hand : draw::Cursor::Arrow});
-        x += w;
     }
 }
 
 int ProjectPageView::smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click,
                                  const std::wstring& tip, bool enabled) {
-    const int bh = std::min(h, scale(24)), w = c.measure(text) + scale(20);
-    const draw::Rect r{x, y + (h - bh) / 2, x + w, y + (h - bh) / 2 + bh};
-    if (enabled) {
-        drawButton(c, r, text, hot(r));
-    } else {  // a button that cannot be pressed now: its ground and its text are faint
-        c.roundBox(r, kBg, kBorder, float(scale(stardraft::kit::kRadius)));
-        c.text(r, text, kFaint, draw::kMiddle | draw::kCenter | draw::kEllipsis);
-    }
+    const draw::Rect r = kitpaint::smallButtonRect(c, x, y, h, text);
+    // (not enabled: a button that cannot be pressed now, its ground and its text faint)
+    kitpaint::drawButtonFace(c, r, text, kitpaint::Tone::Normal,
+                             !enabled ? kitpaint::ButtonState::Disabled : hot(r) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
     hits_.push_back({r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow});
     return r.right;
 }
@@ -696,12 +640,7 @@ void ProjectPageView::startDrag(int from, draw::Point pt) {
 }
 
 void ProjectPageView::dragTo(draw::Point pt) {
-    int to = int(scriptRows_.size());
-    for (size_t i = 0; i < scriptRows_.size(); ++i)
-        if (pt.y < (scriptRows_[i].top + scriptRows_[i].bottom) / 2) {
-            to = int(i);
-            break;
-        }
+    const int to = kitpaint::dropIndex(scriptRows_, pt.y);
     if (to != drag_.to) drag_.to = to, invalidate();
 }
 
@@ -730,15 +669,7 @@ void ProjectPageView::paintCheck(draw::Canvas& c, draw::Rect r, const std::wstri
         hits_.push_back({r, nullptr, tip, draw::Cursor::Arrow});
         return;
     }
-    // The box: accent when on, its border lit under the mouse.
-    c.roundBox(b, on ? kAccentFill : kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong, float(scale(3)));
-    if (on) {
-        const int w = b.width(), h = b.height();
-        const draw::Point mark[3] = {
-            {b.left + w * 22 / 100, b.top + h * 52 / 100}, {b.left + w * 42 / 100, b.top + h * 72 / 100}, {b.left + w * 78 / 100, b.top + h * 30 / 100}};
-        c.polyline(mark, 3, kOnText, std::max(1, scale(2)));
-    }
-    c.text({b.right + scale(8), r.top, r.right, r.bottom}, label, on || over ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+    kitpaint::drawCheck(c, r, label, on, over);  // the box (accent when on, its border lit under the mouse) and the label
     hits_.push_back({r, std::move(click), tip, draw::Cursor::Hand});
 }
 

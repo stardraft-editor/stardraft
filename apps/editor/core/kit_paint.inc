@@ -433,6 +433,12 @@ inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
         }
 }
 inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
+// Where a dragged row goes for the mouse at `y`: the first row whose middle is below it (else after the last row).
+inline int dropIndex(const std::vector<draw::Rect>& rows, int y) {
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (y < (rows[i].top + rows[i].bottom) / 2) return int(i);
+    return int(rows.size());
+}
 
 // A slider: the track from x0 to x1 at cy, lit to `frac` (0..1), and its knob (ui_kit.inc's sliderFace).
 inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {
