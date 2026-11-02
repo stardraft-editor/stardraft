@@ -197,16 +197,20 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     int k1 = 1;
     while (k1 <= steps && !t.water1(s + step * k1)) ++k1;
     if (k1 > steps) return plan.problem = BridgePlan::Problem::Short, plan;
+    // (the bank's diamonds have water corners: the rows start at the first diamond that is all water, if there is one)
+    int k4 = k1;
+    while (k4 <= k1 + far && t.water1(s + step * k4) && !t.water4(s + step * k4)) ++k4;
+    if (t.water4(s + step * k4)) k1 = k4;
     int rows = 0;
     while (rows < far && t.water4(s + step * (k1 + rows))) ++rows;
-    if (!rows && t.water4(s + step * (k1 + 1))) k1++, rows = 1;  // (the bank's diamond has a water corner: the row is the next one)
-    while (rows && rows < far && t.water4(s + step * (k1 + rows))) ++rows;
+    // The ground: on a bank diamond next to the water, or the one after it (a wide river's banks are 2 diamonds deep).
+    const auto groundNear = [&](int k, int way) { return t.hasGround(s + step * k) || t.hasGround(s + step * (k + way)); };
     if (!rows && d->rowsAtSize1 > 1 && t.water1(s + step * (k1 + 1))) return plan.problem = BridgePlan::Problem::TooNarrow, plan;
     const bool half = !rows && d->rowsAtSize1 == 1 && deck.y == 1 && t.water1(s + step * (k1 + 1));
     if (!rows && !half) return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
     const int span = half ? 2 : rows;  // the diamonds with water on the drag's line
     if (steps < k1 + span) return plan.problem = BridgePlan::Problem::ReachGround, plan;
-    if (!t.hasGround(s + step * (k1 + span)) || !t.hasGround(s + step * (k1 - 1)) || (half && t.water1(s + step * (k1 + span))))
+    if (!groundNear(k1 + span, 1) || !groundNear(k1 - 1, -1) || (half && t.water1(s + step * (k1 + span))))
         return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
     plan.length = half ? 0 : rows - d->rowsAtSize1 + 1;
     if (plan.length < 0) return plan.problem = BridgePlan::Problem::TooNarrow, plan;

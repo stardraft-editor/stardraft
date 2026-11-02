@@ -312,7 +312,7 @@ void shapeFinish() {
         const bool removed = ed.takeDoodadsRemovedByTerrain() + ed.takeUnitsRemovedByTerrain() > 0;
         setMessage(!changed ? L"The bridge is there already"
                    : removed ? L"Placed the bridge. Removed the doodads and units under it that cannot stay there."
-                   : ed.mirrors() || ed.turns() ? L"Placed the bridge. Symmetry does not apply to bridges."
+                   : ed.mirrors() || ed.turns() > 1 ? L"Placed the bridge. Symmetry does not apply to bridges."
                                                 : L"Placed the bridge");
     } else if (app.terrainRect) {
         ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
