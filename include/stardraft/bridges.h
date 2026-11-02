@@ -1,0 +1,42 @@
+#pragma once
+// Bridges of any size, made of tile pieces (the Terrain tool strip's Bridge tool). A bridge has a length (along the deck)
+// and a width (across it), each a count of middle pieces: 0 is size 0.5 (the two ends only), n is size n. The pieces
+// are the bridge kits of src/data/bridge_kits.inc, learned from approved example bridges. A bridge goes over a straight
+// river that ISOM painting made: ground, then water, then ground; its length comes from the water's width.
+#include "stardraft/editor.h"
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace stardraft {
+
+// Whether the tileset (ERA value) has bridge kits.
+bool bridgesAvailable(int era);
+
+// The tiles of a bridge with its origin (the kit's cell 0, 0) at tile (ox, oy). u: the mirror kit of d (the kits' decks
+// go along the two diagonals; which way is d depends on the tileset). seed: the choice among a piece's variants. Empty:
+// no kit.
+std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed);
+// Whether the map's tiles have that bridge at (ox, oy): each pair is one of its piece's variants.
+bool bridgeMatches(const Editor& ed, bool u, int length, int width, int ox, int oy);
+
+struct BridgePlan {
+    // Why there is no bridge (None: there is one).
+    // Short: the drag has not crossed water yet; ReachGround: it ends on the water; NeedsTerrain: it does not go from the
+    // ground over the water to the ground; TooNarrow: less water than the shortest bridge; NotStraight: the water is not
+    // as wide under the whole bridge.
+    enum class Problem { None, NoKit, NoIsom, Short, ReachGround, NeedsTerrain, TooNarrow, NotStraight, OffMap };
+    Problem problem = Problem::Short;
+    std::string ground, water;  // the kit's terrains (for the messages)
+    bool u = false;
+    int length = 0, width = 0;   // in middle pieces (0: size 0.5)
+    std::vector<Editor::TileAt> tiles;
+};
+
+// The bridge that a drag from map pixel (x0, y0) to (x1, y1) makes: the drag goes from ground over water to the ground
+// on the other side, along one of the map's two diagonals (2:1). The bridge snaps to the river's diamonds and lies
+// across the drag's line; width: middle pieces across.
+BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int width, uint32_t seed);
+
+}  // namespace stardraft

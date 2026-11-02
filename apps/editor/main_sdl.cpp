@@ -142,6 +142,7 @@
 #include "stardraft/creep.h"
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/terrain_stamp.h"  // the user's terrain stamps (core/stamps.inc)
+#include "stardraft/bridges.h"  // the Terrain tool strip's Bridge (core/terrain_shapes.inc)
 #include "stardraft/tileset.h"
 #include "stardraft/triggers.h"  // the Triggers workspace's model (core/views_triggers_tree.inc)
 #include "stardraft/units.h"

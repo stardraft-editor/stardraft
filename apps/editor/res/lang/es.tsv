@@ -2717,3 +2717,21 @@ Painted the diamond	Se pintó el rombo
 Filled the diamond	Se rellenó el rombo
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Suelte el botón en la otra esquina. Mantenga Shift para un cuadrado, un círculo o un rombo con la forma del mapa
 Describe the issue and what you expect instead.	Describa el problema y lo que espera en su lugar.
+Bridge	Puente
+Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	Puente: arrastre desde el suelo a través del agua hasta el suelo del otro lado. El puente es tan largo como ancha es el agua; Tamaño define su anchura.
+This tileset has no bridges	Este conjunto de losetas no tiene puentes
+Could not make a bridge. The map has no isometric terrain data.	No se pudo hacer un puente. El mapa no tiene datos de terreno isométrico.
+Bridge: drag across the %ls to the %ls on the other side	Puente: arrastre a través de %ls hasta %ls del otro lado
+Bridge: drag on to the %ls on the other side	Puente: siga arrastrando hasta %ls del otro lado
+A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Un puente va de %ls a través de %ls hasta %ls, a lo largo de una diagonal del mapa
+The %ls is too narrow for a bridge. Paint it wider.	%ls es demasiado estrecho para un puente. Píntelo más ancho.
+The %ls must have the same width under all of the bridge and one diamond more at each side	%ls debe tener la misma anchura bajo todo el puente y un rombo más a cada lado
+The bridge does not fit on the map	El puente no cabe en el mapa
+Bridge: length %ls, width %ls. Release the button to place it.	Puente: longitud %ls, anchura %ls. Suelte el botón para colocarlo.
+Bridge: drag from the ground across the water to the ground on the other side	Puente: arrastre desde el suelo a través del agua hasta el suelo del otro lado
+Stopped the bridge	Puente detenido
+The bridge is there already	El puente ya está ahí
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	Puente colocado. Se quitaron los adornos y las unidades debajo que no pueden quedarse ahí.
+Placed the bridge	Puente colocado
+Part of the bridge is on protected tiles	Parte del puente está sobre losetas protegidas
+Placed the bridge. Symmetry does not apply to bridges.	Puente colocado. La simetría no se aplica a los puentes.

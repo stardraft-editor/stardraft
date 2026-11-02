@@ -94,6 +94,7 @@
 #include "stardraft/wireframes.h"
 #include "stardraft/terrain_gen.h"
 #include "stardraft/terrain_stamp.h"
+#include "stardraft/bridges.h"
 #include "stardraft/triggers.h"
 
 using namespace stardraft;

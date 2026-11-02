@@ -487,6 +487,14 @@ constexpr const wchar_t* kEllipseFillTip = L"Filled ellipse: drag across the box
 constexpr const wchar_t* kDiamondTip = L"Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.";
 constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.";
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
+constexpr const wchar_t* kBridgeTip = L"Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.";
+// The Terrain tools with the Bridge at their end, where the map's tileset has bridges (src/bridges.cpp).
+std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
+    AppState& app = appState();
+    if (app.ed && bridgesAvailable(app.ed->era() & 7)) tools.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
+    else if (app.toolByMode[int(Mode::Terrain)] == TBridge) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (a map of another tileset)
+    return tools;
+}
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
 std::vector<StripItem> stripTools(Mode m) {
@@ -494,7 +502,7 @@ std::vector<StripItem> stripTools(Mode m) {
     switch (m) {
     case Mode::Terrain:
         if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
-            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true},
+            return withBridge({{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
@@ -502,9 +510,9 @@ std::vector<StripItem> stripTools(Mode m) {
                     stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
-                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})};
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
-            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true},
+            return withBridge({{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true},
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
@@ -512,8 +520,8 @@ std::vector<StripItem> stripTools(Mode m) {
                     stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
-                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})};
-        return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
+        return withBridge({{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                 stripGroup(1, {{UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
@@ -522,7 +530,7 @@ std::vector<StripItem> stripTools(Mode m) {
                 stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
-                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})};
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},

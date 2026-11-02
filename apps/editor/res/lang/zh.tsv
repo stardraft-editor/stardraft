@@ -2717,3 +2717,21 @@ Painted the diamond	已绘制菱形
 Filled the diamond	已填充菱形
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	在另一个角松开按钮。按住 Shift 为正方形、圆形或地图形状的菱形
 Describe the issue and what you expect instead.	描述问题以及您期望的结果。
+Bridge	桥
+Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	桥：从地面拖过水面到对岸的地面。桥的长度等于水面的宽度；大小设置桥的宽度。
+This tileset has no bridges	此地形集没有桥
+Could not make a bridge. The map has no isometric terrain data.	无法生成桥。地图没有等距地形数据。
+Bridge: drag across the %ls to the %ls on the other side	桥：拖过%ls到对岸的%ls
+Bridge: drag on to the %ls on the other side	桥：继续拖到对岸的%ls
+A bridge goes from %ls across %ls to %ls, along a diagonal of the map	桥沿地图的对角线从%ls跨过%ls到%ls
+The %ls is too narrow for a bridge. Paint it wider.	%ls太窄，无法放桥。请画宽一些。
+The %ls must have the same width under all of the bridge and one diamond more at each side	%ls在整座桥下必须宽度相同，并且两侧各多一个菱形
+The bridge does not fit on the map	桥放不进地图
+Bridge: length %ls, width %ls. Release the button to place it.	桥：长度 %ls，宽度 %ls。松开按钮放置。
+Bridge: drag from the ground across the water to the ground on the other side	桥：从地面拖过水面到对岸的地面
+Stopped the bridge	已停止桥
+The bridge is there already	桥已经在那里
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	已放置桥。已移除其下不能留下的装饰物和单位。
+Placed the bridge	已放置桥
+Part of the bridge is on protected tiles	桥的一部分位于受保护的图块上
+Placed the bridge. Symmetry does not apply to bridges.	已放置桥。对称不适用于桥。

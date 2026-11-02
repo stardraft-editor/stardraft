@@ -7,9 +7,11 @@
 // so the edges are corrected; the end takes the copy's map (Editor::takeScenario), tile for tile as the preview showed it.
 // Rectangle, Tile and Custom: the tiles (Rectangle: the rects) that the line's brush covers or whose middle is in the
 // shape, as the Brush gives them.
+// Bridge (any kind of terrain): the drag goes along one of the map's diagonals from the ground across water to the
+// ground; the preview is the bridge that fits the water there (src/bridges.cpp), with the brush's size as its width.
 
 struct TerrainShape {
-    int tool = -1;                            // TLine, TContour or TPolygon while a shape is under way; -1: none
+    int tool = -1;                            // TLine, TContour, TPolygon, a box or TBridge while a shape is under way; -1: none
     const Editor* ed = nullptr;               // the map it is on
     std::vector<std::pair<int, int>> points;  // map pixels (Line: the press and the mouse)
     bool hasHover = false;                    // Polygon: the mouse is the next point
@@ -181,6 +183,45 @@ std::vector<int64_t> shapeSettingsKey() {
 
 void shellShapeLater(int ms);  // (the program: shapeUpdate again after ms, then the map view paints)
 
+// The bridge's width from the brush's size: size 0.5 the ends only, else as many middle pieces as the size.
+int bridgeWidth() {
+    const float size = currentBrush(appState()).size;
+    return size < 1 ? 0 : int(size);
+}
+std::wstring bridgeSize(int pieces) { return pieces ? std::to_wstring(pieces) : std::wstring(L"0.5"); }
+// A Bridge message: the translation of `format` with the texts in it (%ls).
+std::wstring bridgeText(const wchar_t* format, const std::wstring& a, const std::wstring& b = L"", const std::wstring& c = L"") {
+    wchar_t buf[512];
+    std::swprintf(buf, 512, tr(format), a.c_str(), b.c_str(), c.c_str());
+    return buf;
+}
+
+// Bridge: the bridge that the drag makes (gShape.cells, gShape.ghost), and the status bar says it or why there is none.
+void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
+    const Editor& ed = *appState().ed;
+    const BridgePlan p = planBridge(ed, pts.front().first, pts.front().second, pts.back().first, pts.back().second, bridgeWidth(), gShape.seed);
+    const std::wstring ground = tr(widen(p.ground)), water = tr(widen(p.water));  // (the terrains' names, as the list shows them)
+    switch (p.problem) {
+    case BridgePlan::Problem::None: break;
+    case BridgePlan::Problem::NoKit: return setMessage(L"This tileset has no bridges");
+    case BridgePlan::Problem::NoIsom: return setMessage(L"Could not make a bridge. The map has no isometric terrain data.");
+    case BridgePlan::Problem::Short: return setMessage(bridgeText(L"Bridge: drag across the %ls to the %ls on the other side", water, ground));
+    case BridgePlan::Problem::ReachGround: return setMessage(bridgeText(L"Bridge: drag on to the %ls on the other side", ground));
+    case BridgePlan::Problem::NeedsTerrain:
+        return setMessage(bridgeText(L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", ground, water, ground));
+    case BridgePlan::Problem::TooNarrow: return setMessage(bridgeText(L"The %ls is too narrow for a bridge. Paint it wider.", water));
+    case BridgePlan::Problem::NotStraight:
+        return setMessage(bridgeText(L"The %ls must have the same width under all of the bridge and one diamond more at each side", water));
+    case BridgePlan::Problem::OffMap: return setMessage(L"The bridge does not fit on the map");
+    }
+    for (const Editor::TileAt& c : p.tiles)
+        if (ed.tileProtected(c.x, c.y)) return setMessage(L"Part of the bridge is on protected tiles");
+    for (const Editor::TileAt& c : p.tiles)
+        if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
+    gShape.cells = p.tiles;
+    setMessage(bridgeText(L"Bridge: length %ls, width %ls. Release the button to place it.", bridgeSize(p.length), bridgeSize(p.width)));
+}
+
 // The preview of the shape (gShape.ghost, gShape.cells): made again only when its points or settings changed. `now`: at
 // once; else an Isometric preview that takes long (a large map) is made at most every 2 times its time (shellShapeLater
 // makes the last one).
@@ -199,7 +240,8 @@ void shapeUpdate(bool now = false) {
     gShape.ghost.clear(), gShape.cells.clear(), gShape.copyHolds = false;
     gShape.madeFor = pts, gShape.madeKey = key, gShape.made = true;
     const std::vector<std::pair<int, int>> geo = shapeGeometry(pts);
-    if (geo.size() < (gShape.tool == TLine ? 2u : 3u)) return;
+    if (geo.size() < (gShape.tool == TLine || gShape.tool == TBridge ? 2u : 3u)) return;
+    if (gShape.tool == TBridge) return bridgeMake(geo);
     if (app.terrainRect) return shapeMakeTiles(geo);
     Editor& c = shapeCopy(ed.gameData());
     std::string error;
@@ -222,6 +264,10 @@ void shapeUpdate(bool now = false) {
 // the Tiles, Custom or terrain list. False: the status bar tells what to do.
 bool shapeHasPick() {
     AppState& app = appState();
+    if (currentTool(app) == TBridge) {  // (no pick: the bridge's tiles are the kit's)
+        if (!app.ed->canPaintTerrain()) return setMessage(L"Could not make a bridge. The map has no isometric terrain data."), false;
+        return true;
+    }
     if (!app.terrainRect) {
         if (!app.ed->canPaintTerrain()) return setMessage(L"Could not paint the terrain. The map has no isometric terrain data."), false;
         if (app.palette <= 0) return setMessage(L"Select a terrain in the list first"), false;
@@ -244,8 +290,8 @@ void shapeFinish() {
     const int tool = gShape.tool;
     gShape.hasHover = false;  // (Polygon: the clicked points only)
     std::vector<std::pair<int, int>> pts = gShape.points;
-    if (tool != TLine && !isBoxTool(tool)) pts.erase(std::unique(pts.begin(), pts.end()), pts.end());  // (a Line click: the brush at the point)
-    if (isBoxTool(tool) ? shapeBoxPoints(tool, pts).empty() : tool != TLine && pts.size() < 3) {
+    if (tool != TLine && tool != TBridge && !isBoxTool(tool)) pts.erase(std::unique(pts.begin(), pts.end()), pts.end());  // (a Line click: the brush at the point)
+    if (isBoxTool(tool) ? shapeBoxPoints(tool, pts).empty() : tool != TLine && tool != TBridge && pts.size() < 3) {
         setMessage(isBoxTool(tool)       ? L"Did not paint the shape: drag a larger box"
                    : tool == TPolygon    ? L"Did not fill the polygon: a polygon has 3 points or more"
                                          : L"Did not fill the contour: draw a larger shape");
@@ -256,7 +302,19 @@ void shapeFinish() {
     gShape.points = pts;
     gShape.made = false;  // (made again now, of the map as it is: the copy that the map takes holds it)
     shapeUpdate(true);
-    if (app.terrainRect) {
+    if (tool == TBridge) {
+        if (gShape.cells.empty()) {  // (the status bar says why: bridgeMake)
+            shapeReset();
+            app.dirty = true;
+            return;
+        }
+        const bool changed = ed.placeTileValues(gShape.cells) > 0;
+        const bool removed = ed.takeDoodadsRemovedByTerrain() + ed.takeUnitsRemovedByTerrain() > 0;
+        setMessage(!changed ? L"The bridge is there already"
+                   : removed ? L"Placed the bridge. Removed the doodads and units under it that cannot stay there."
+                   : ed.mirrors() || ed.turns() ? L"Placed the bridge. Symmetry does not apply to bridges."
+                                                : L"Placed the bridge");
+    } else if (app.terrainRect) {
         ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
         tilesPlacedMessage(gShape.cells.empty() ? 0 : tilesPut(gShape.cells), L"Placed");
     } else if (!gShape.made || !gShape.copyHolds || gShape.ghost.empty()) {
@@ -290,6 +348,14 @@ std::pair<int, int> shapeSnap(std::pair<int, int> a, std::pair<int, int> p) {
     return {a.first + int(std::lround(ux * along)), a.second + int(std::lround(uy * along))};
 }
 
+// Bridge: the point from `a` on the nearer of the map's two diagonals (2:1), as far along it as the mouse.
+std::pair<int, int> bridgeSnap(std::pair<int, int> a, std::pair<int, int> p) {
+    const float dx = float(p.first - a.first), dy = float(p.second - a.second), n = std::hypot(2.f, 1.f);
+    const float down = (dx * 2 + dy) / n, up = (dx * 2 - dy) / n;  // (along (2, 1) and (2, -1))
+    if (std::fabs(down) >= std::fabs(up)) return {a.first + int(std::lround(down * 2 / n)), a.second + int(std::lround(down / n))};
+    return {a.first + int(std::lround(up * 2 / n)), a.second - int(std::lround(up / n))};
+}
+
 // A press on the map with a shape tool: Line and Contour start (Drag::Shape), Polygon adds a point (the first starts it).
 // snap: Shift held (shapeSnap).
 void shapeMouseDown(float wx, float wy, bool snap) {
@@ -308,9 +374,10 @@ void shapeMouseDown(float wx, float wy, bool snap) {
     shapeReset();
     gShape.tool = tool, gShape.ed = app.ed.get(), gShape.seed = app.spraySeed++;
     gShape.points = {p};
-    if (tool == TLine || isBoxTool(tool)) gShape.points.push_back(p);
+    if (tool == TLine || tool == TBridge || isBoxTool(tool)) gShape.points.push_back(p);
     if (tool != TPolygon) app.drag = Drag::Shape;
-    setMessage(tool == TLine      ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
+    setMessage(tool == TBridge    ? L"Bridge: drag from the ground across the water to the ground on the other side"
+               : tool == TLine    ? L"Line: release the button at the end of the line. Hold Shift to lock the angle"
                : isBoxTool(tool)  ? L"Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape"
                : tool == TContour ? L"Contour: draw the shape, then release the button"
                                   : L"Polygon: click to add points. Double-click to close the polygon and fill it. Hold Shift to lock the angle. Esc stops the polygon.");
@@ -328,6 +395,8 @@ void shapeMouseMove(float wx, float wy, bool snap) {
         return;
     } else if (gShape.tool == TLine) {
         gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
+    } else if (gShape.tool == TBridge) {
+        gShape.points.back() = bridgeSnap(gShape.points.front(), p);
     } else if (isBoxTool(gShape.tool)) {
         gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p, gShape.tool) : p;
     } else {
@@ -343,6 +412,7 @@ void shapeMouseUp(float wx, float wy, bool snap) {
     if (shapeOn()) {
         const std::pair<int, int> p{int(wx), int(wy)};
         if (gShape.tool == TLine) gShape.points.back() = snap ? shapeSnap(gShape.points.front(), p) : p;
+        else if (gShape.tool == TBridge) gShape.points.back() = bridgeSnap(gShape.points.front(), p);
         else if (isBoxTool(gShape.tool)) gShape.points.back() = snap ? shapeSquare(gShape.points.front(), p, gShape.tool) : p;
         else if (gShape.points.back() != p) gShape.points.push_back(p);
     }
@@ -359,7 +429,8 @@ bool shapeDoubleClick() {
 // Esc: the shape under way stops, with no change to the map. True: there was one.
 bool shapeCancel() {
     if (!shapeOn()) return false;
-    setMessage(gShape.tool == TLine ? L"Stopped the line" : gShape.tool == TContour ? L"Stopped the contour" : L"Stopped the polygon");
+    setMessage(gShape.tool == TLine ? L"Stopped the line" : gShape.tool == TContour ? L"Stopped the contour" : gShape.tool == TBridge ? L"Stopped the bridge"
+                                                                                                                     : L"Stopped the polygon");
     shapeReset();
     appState().drag = Drag::None;
     appState().dirty = true;

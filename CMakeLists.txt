@@ -100,6 +100,7 @@ add_library(stardraft
     src/strings.cpp
     src/locations.cpp
     src/doodads.cpp
+    src/bridges.cpp
     src/hd_assets.cpp
     src/hd_preview.cpp
     src/png_writer.cpp
@@ -174,6 +175,9 @@ add_executable(paint_stress tools/paint_stress.cpp)
 target_link_libraries(paint_stress PRIVATE stardraft)
 add_executable(save_check tools/tests/save_check.cpp)
 target_link_libraries(save_check PRIVATE stardraft)
+
+add_executable(bridge_test tools/tests/bridge_test.cpp)  # the Bridge tool: drags across the example maps' rivers
+target_link_libraries(bridge_test PRIVATE stardraft)
 
 add_executable(tools_test tools/tests/tools_test.cpp)
 target_link_libraries(tools_test PRIVATE stardraft)

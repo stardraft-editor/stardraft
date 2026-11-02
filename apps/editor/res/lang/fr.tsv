@@ -2717,3 +2717,21 @@ Painted the diamond	Losange peint
 Filled the diamond	Losange rempli
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Relâchez le bouton à l'autre coin. Maintenez Maj pour un carré, un cercle ou un losange de la forme de la carte
 Describe the issue and what you expect instead.	Décrivez le problème et ce que vous attendez à la place.
+Bridge	Pont
+Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	Pont : faites glisser du sol à travers l'eau jusqu'au sol de l'autre côté. Le pont est aussi long que l'eau est large ; Taille définit sa largeur.
+This tileset has no bridges	Ce jeu de tuiles n'a pas de ponts
+Could not make a bridge. The map has no isometric terrain data.	Impossible de faire un pont. La carte n'a pas de données de terrain isométrique.
+Bridge: drag across the %ls to the %ls on the other side	Pont : faites glisser à travers %ls jusqu'à %ls de l'autre côté
+Bridge: drag on to the %ls on the other side	Pont : continuez jusqu'à %ls de l'autre côté
+A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Un pont va de %ls à travers %ls jusqu'à %ls, le long d'une diagonale de la carte
+The %ls is too narrow for a bridge. Paint it wider.	%ls est trop étroit pour un pont. Peignez-le plus large.
+The %ls must have the same width under all of the bridge and one diamond more at each side	%ls doit avoir la même largeur sous tout le pont et un losange de plus de chaque côté
+The bridge does not fit on the map	Le pont ne tient pas sur la carte
+Bridge: length %ls, width %ls. Release the button to place it.	Pont : longueur %ls, largeur %ls. Relâchez le bouton pour le placer.
+Bridge: drag from the ground across the water to the ground on the other side	Pont : faites glisser du sol à travers l'eau jusqu'au sol de l'autre côté
+Stopped the bridge	Pont arrêté
+The bridge is there already	Le pont est déjà là
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	Pont placé. Les décors et les unités dessous qui ne peuvent pas y rester ont été retirés.
+Placed the bridge	Pont placé
+Part of the bridge is on protected tiles	Une partie du pont est sur des tuiles protégées
+Placed the bridge. Symmetry does not apply to bridges.	Pont placé. La symétrie ne s'applique pas aux ponts.
