@@ -277,7 +277,7 @@ browser, runs at once, or opens a page or a workspace. A progress status ends wi
 |---|---|
 | map ("scenario" only for the Scenario menu and the *.chk filter) | scenario |
 | Player 1 to Player 12 (a 0-based number only where people type the raw value) | P1, player 1 |
-| delete (an object); remove (from a list) | erase |
+| delete (an object); remove (from a list) ("Erase" only as the name of the brush tool) | erase |
 | trigger cycle ("frame" only for animation and the game's own frame counts; "tick" only in the image player) | trigger loop |
 | build | compile |
 | technology | tech (in prose) |
