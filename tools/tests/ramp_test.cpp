@@ -412,6 +412,85 @@ static void backToCliff(const GameData& data) {
     }
 }
 
+// Terrain brushes over a ramp: high ground painted over its middle splits it round the new cliff (the ramps left fit,
+// no tile of the old ramp is left where none fits); low ground painted away from it leaves it as it is. One undo step
+// takes back the stroke and the refit.
+static void brushOverRamp(const GameData& data) {
+    struct Set {
+        const char* name;
+        uint16_t era, low;
+        const char* high;
+    };
+    for (const Set& set : {Set{"jungle", 4, 1, "High Dirt"}, Set{"badlands", 0, 1, "High Dirt"}, Set{"ashworld", 3, 2, "High Dirt"},
+                           Set{"ice", 6, 1, "High Snow"}, Set{"platform", 1, 2, "Elevated Catwalk"}}) {
+        Editor ed(data);
+        std::string err;
+        if (!ed.newMap(96, 96, set.era, set.low, err)) {
+            check(false, "new map: " + err);
+            continue;
+        }
+        uint16_t high = 0;
+        for (uint16_t id = 1; id < 64; ++id)
+            if (ed.terrainName(id) == set.high) high = id;
+        Brush b;
+        b.shape = Brush::Square, b.size = 20;
+        ed.paintBrush(48 * 32, 48 * 32, high, b);
+        // a wide N ramp
+        int bx = -1, by = 0;
+        for (int ay = 0; ay < ed.height() && bx < 0; ++ay)
+            for (int ax = 0; ax < ed.width() && bx < 0; ++ax)
+                if (rampFits(ed, 0, 6, ax, ay)) bx = ax, by = ay;
+        const std::string what = std::string(set.name) + ": a brush over a ramp";
+        if (bx < 0) {
+            check(false, what + ": an N ramp of 6 slopes fits");
+            continue;
+        }
+        const std::vector<Editor::TileAt> ramp = rampTiles(set.era, 0, 6, bx, by);
+        ed.placeTileValues(ramp);
+        const size_t undo = ed.undoSteps();
+        // high ground over the ramp's middle (a diamond, its bottom reaching below the cliff)
+        const auto m = middleOf(ramp);
+        Brush small;
+        small.size = 2;
+        ed.beginTerrainStroke();
+        ed.paintBrush(m.first, m.second + 32, high, small);
+        ed.endTerrainStroke();
+        check(ed.undoSteps() == undo + 1, what + ": one undo step");
+        // each ramp tile on the map now: part of a ramp that fits (no broken piece of the old one)
+        bool broken = false;
+        int pieces = 0;
+        for (const auto& c : ramp) {
+            const uint16_t v = ed.terrain().tiles[size_t(c.y) * ed.width() + c.x];
+            if (v != c.value) continue;
+            ++pieces;
+        }
+        const std::vector<std::pair<int, int>> left = rampTilesUnder(ed, {{m.first - 400, m.second}, {m.first + 400, m.second}});
+        std::set<std::pair<int, int>> covered;
+        for (int f = 0; f < kRampFacings; ++f)
+            for (int ay = by - 6; ay <= by + 6; ++ay)
+                for (int ax = bx - 12; ax <= bx + 30; ++ax)
+                    for (int n = 0; n <= 6; ++n)
+                        if (rampMatches(ed, f, n, ax, ay) && rampFits(ed, f, n, ax, ay))
+                            for (const auto& c : rampTiles(set.era, f, n, ax, ay)) covered.insert({c.x, c.y});
+        for (const auto& q : left) broken |= !covered.count(q);
+        check(!broken, what + ": every ramp tile left is in a ramp that fits (" + std::to_string(left.size()) + " tiles, " + std::to_string(pieces) +
+                           " of the old ramp's)");
+        check(!left.empty(), what + ": ramps left on the edge beside the new cliff");
+        // low ground far away: the ramp as it is
+        const std::vector<uint16_t> keep = ed.terrain().tiles;
+        ed.beginTerrainStroke();
+        ed.paintBrush(10 * 32, 85 * 32, set.low, small);
+        ed.endTerrainStroke();
+        bool same = true;
+        for (const auto& q : left) same = same && ed.terrain().tiles[size_t(q.second) * ed.width() + q.first] == keep[size_t(q.second) * ed.width() + q.first];
+        check(same, what + ": a stroke away from the ramps leaves them");
+        ed.undo(), ed.undo();
+        bool back = true;
+        for (const auto& c : ramp) back = back && ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] == c.value;
+        check(back, what + ": undo brings the ramp back");
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::fprintf(stderr, "usage: ramp_test <install dir> [<example maps folder>]\n");
@@ -440,6 +519,7 @@ int main(int argc, char** argv) {
     longAndOver(data);
     roundCorner(data);
     backToCliff(data);
+    brushOverRamp(data);
     if (argc > 2) examples(data, argv[2]);
     std::printf("\n%d failures\n", failures);
     return failures ? 1 : 0;

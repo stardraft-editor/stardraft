@@ -222,7 +222,7 @@ void pickStripTool(const StripItem& it) {
     else {
         app.toolByMode[int(app.mode)] = it.tool;
         if (app.mode == Mode::Terrain)  // (its group's button shows it from now on)
-            for (int g : {1, 2})
+            for (int g : {1, 2, 3})
                 for (const StripItem& s : stripTools(app.mode))
                     for (const StripItem& m : s.members)
                         if (s.group == g && m.tool == it.tool) app.lastInGroup[g] = it.tool;

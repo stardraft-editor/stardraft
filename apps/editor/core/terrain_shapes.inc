@@ -320,6 +320,7 @@ void shapeUpdate(bool now = false) {
     }
     shapeCopySettings(c, ed);
     shapeIsoPaint(c, gShape.tool, geo, uint16_t(app.palette), currentBrush(app));
+    refitRamps(c, ed.terrain().tiles);  // (the ramps the shape touched: fitted to its cliffs again, in the preview too)
     const std::vector<uint16_t>&a = ed.terrain().tiles, &b = c.terrain().tiles;
     if (a.size() == b.size())
         for (size_t i = 0; i < a.size(); ++i)

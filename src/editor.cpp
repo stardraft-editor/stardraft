@@ -24,6 +24,7 @@
 
 #include "stardraft/game_data.h"
 #include "stardraft/new_map.h"
+#include "stardraft/ramps.h"  // (a terrain stroke's end fits the ramps again)
 #include "stardraft/terrain_gen.h"
 
 namespace stardraft {
@@ -718,6 +719,7 @@ void Editor::beginTerrainStroke() {
     inStroke_ = strokeStep_ = true;
     strokeAsked_ = strokeVariant_ = 0;
     isom_.beginStroke();
+    strokeTilesBefore_ = terrain_.tiles;
 }
 
 uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
@@ -774,6 +776,8 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
 }
 
 void Editor::endTerrainStroke() {
+    if (inStroke_ && !strokeTilesBefore_.empty()) refitRamps(*this, strokeTilesBefore_);  // (in the stroke's undo step)
+    strokeTilesBefore_.clear();
     endStrokeStep();
     isom_.beginStroke();  // (a paste or fill after it chooses its own ground)
 }

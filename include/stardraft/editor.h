@@ -143,7 +143,8 @@ public:
     // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
     // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
     static bool terrainCoreOn();
-    // A brush stroke: begin once (one undo step), paint any number of times, end.
+    // A brush stroke: begin once (one undo step), paint any number of times, end. The end fits the ramps that the
+    // stroke touched to the cliffs again (src/ramps.cpp, refitRamps), in the same undo step.
     void beginTerrainStroke();
     // The terrain a brush of the given terrain paints at a map pixel: a mod terrain's variant for the ground there
     // (Tileset::ModTerrain::variantOf), the same one for the whole stroke; else the terrain itself.
@@ -858,6 +859,7 @@ private:
     Chk chk_;
     uint16_t width_ = 0, height_ = 0, era_ = 0;
     TerrainLayer terrain_;
+    std::vector<uint16_t> strokeTilesBefore_;  // the tiles at a terrain stroke's begin (its end refits the ramps)
     IsomGrid isom_;
     bool isomOk_ = false;
     bool isomRebuilt_ = false;  // the map had no ISOM: reload() made it from the tiles

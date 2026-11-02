@@ -63,4 +63,10 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
 // to them (whole ramps). Shift with the Ramp brush makes them the cliff again (Editor::remakeTilesFromIsom).
 std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke);
 
+// After a terrain edit (the map's tiles before it: `before`, MTXM): each ramp of `before` that the edit touched (a
+// changed tile in it or next to it) is fitted to the cliffs again along the same stretch: its tiles become the cliff
+// (the ISOM's), then the ramps that fit there go in (shorter, moved or split round the new cliffs; none where none
+// fits). Returns the ramps made again. Part of the edit's undo step when the edit is a stroke.
+int refitRamps(Editor& ed, const std::vector<uint16_t>& before);
+
 }  // namespace stardraft

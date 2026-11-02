@@ -398,4 +398,95 @@ std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vec
     return std::vector<std::pair<int, int>>(seen.begin(), seen.end());
 }
 
+int refitRamps(Editor& ed, const std::vector<uint16_t>& before) {
+    const int era = ed.era() & 7, w = ed.width(), h = ed.height();
+    const std::vector<uint16_t>& now = ed.terrain().tiles;
+    if (!rampsAvailable(era) || !ed.canPaintTerrain() || before.size() != now.size() || before.size() != size_t(w) * h) return 0;
+    const auto idx = [&](int x, int y) { return size_t(y) * w + x; };
+    // The ramp tiles of `before` next to a changed tile (or changed themselves), and the whole ramps they are part of.
+    std::vector<uint8_t> near(before.size(), 0);
+    bool any = false;
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            if (before[idx(x, y)] != now[idx(x, y)])
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx)
+                        if (x + dx >= 0 && y + dy >= 0 && x + dx < w && y + dy < h) near[idx(x + dx, y + dy)] = 1, any = true;
+    if (!any) return 0;
+    const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, before[idx(x, y)]); };
+    std::vector<uint8_t> seen(before.size(), 0);
+    struct Old {
+        int facing, slopes, ax, ay;
+    };
+    std::vector<Old> olds;
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            if (!near[idx(x, y)] || seen[idx(x, y)] || !piece(x, y)) continue;
+            // (the ramp tiles joined to it: one ramp or more side by side)
+            std::vector<std::pair<int, int>> todo{{x, y}}, comp;
+            seen[idx(x, y)] = 1;
+            int x0 = x, y0 = y, x1 = x, y1 = y;
+            while (!todo.empty()) {
+                const auto [cx, cy] = todo.back();
+                todo.pop_back();
+                comp.push_back({cx, cy});
+                x0 = std::min(x0, cx), y0 = std::min(y0, cy), x1 = std::max(x1, cx), y1 = std::max(y1, cy);
+                for (const auto& [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
+                    if (piece(cx + dx, cy + dy) && !seen[idx(cx + dx, cy + dy)]) seen[idx(cx + dx, cy + dy)] = 1, todo.push_back({cx + dx, cy + dy});
+            }
+            // (the kits' ramps whose tiles all are as in `before`, widest first: each tile in one ramp)
+            std::set<std::pair<int, int>> taken;
+            const auto matches = [&](int f, int n, int ax, int ay) {
+                const std::vector<Editor::TileAt> t = rampTiles(era, f, n, ax, ay);
+                for (const Editor::TileAt& c : t)
+                    if (c.x < 0 || c.y < 0 || c.x >= w || c.y >= h || before[idx(c.x, c.y)] != c.value || taken.count({c.x, c.y})) return false;
+                return !t.empty();
+            };
+            // (wall A first: its tiles as in `before`; then the widest ramp from it whose tiles all are)
+            const auto wallA = [&](int f, int ax, int ay) {
+                const RampKitData* k = kitOf(era, f);
+                for (int i = k->tiles[0]; i < k->tiles[1]; ++i) {
+                    const int x = ax + kRampTiles[i].x, y = ay + kRampTiles[i].y;
+                    if (x < 0 || y < 0 || x >= w || y >= h || before[idx(x, y)] != kRampTiles[i].value || taken.count({x, y})) return false;
+                }
+                return true;
+            };
+            for (int f = 0; f < kRampFacings; ++f)
+                for (int ay = y0 - 6; ay <= y1; ++ay)
+                    for (int ax = x0 - 8; ax <= x1; ++ax) {
+                        if (!wallA(f, ax, ay)) continue;
+                        int n = -1;
+                        for (int k = 0; k <= 64; ++k)
+                            if (matches(f, k, ax, ay)) n = k;
+                        if (n < 0) continue;
+                        olds.push_back({f, n, ax, ay});
+                        for (const Editor::TileAt& c : rampTiles(era, f, n, ax, ay)) taken.insert({c.x, c.y});
+                    }
+        }
+    int made = 0;
+    for (const Old& o : olds) {
+        const std::vector<Editor::TileAt> old = rampTiles(era, o.facing, o.slopes, o.ax, o.ay);
+        // (as it was and still fits: nothing to do)
+        bool same = true;
+        for (const Editor::TileAt& c : old) same = same && ed.terrain().tiles[idx(c.x, c.y)] == c.value;
+        if (same && rampFits(ed, o.facing, o.slopes, o.ax, o.ay)) continue;
+        // its stretch of the edge: from wall A's middle to wall B's
+        std::vector<std::pair<int, int>> stroke;
+        for (const RampPiece& p : rampPieces(era, o.facing, o.slopes, o.ax, o.ay)) {
+            const auto [pw, ph] = rampPieceSize(era, o.facing, p.kind);
+            stroke.push_back({p.x * 32 + pw * 16, p.y * 32 + ph * 16});
+        }
+        // the old ramp's tiles that are still there become the cliff; then the ramps that fit go in
+        std::vector<std::pair<int, int>> left;
+        for (const Editor::TileAt& c : old)
+            if (ed.terrain().tiles[idx(c.x, c.y)] == c.value) left.push_back({c.x, c.y});
+        ed.remakeTilesFromIsom(left);
+        for (const RampPlan& p : planRamps(ed, stroke)) {
+            ed.placeTileValues(p.tiles);
+            ++made;
+        }
+    }
+    return made;
+}
+
 }  // namespace stardraft
