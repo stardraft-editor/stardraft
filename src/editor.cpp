@@ -1637,9 +1637,15 @@ uint16_t Editor::terrainAt(int px, int py) const {
 uint16_t Editor::paletteTerrainAt(int px, int py) const {
     const uint16_t t = terrainAt(px, py);
     if (tileset_.modTerrains.empty() || px < 0 || py < 0 || px >= width_ * 32 || py >= height_ * 32) return t;
-    const TerrainLayer tile = readTerrain(chk_, "TILE");
+    // The TILE value of the one tile (as readTerrain reads it: 0 past the section's end); the whole layer only for the
+    // ISOM's tile below.
     const size_t k = size_t(py / 32) * width_ + size_t(px / 32);
-    if (k >= tile.tiles.size()) return t;
+    uint16_t dw = 0, dh = 0;
+    readDimensions(chk_, dw, dh);
+    if (k >= size_t(dw) * size_t(dh)) return t;
+    uint16_t value = 0;
+    for (const auto& s : chk_.sections)
+        if (s.name == "TILE" && s.data.size() >= 2 * k + 2) value = uint16_t(s.data[2 * k] | s.data[2 * k + 1] << 8);
     // The ISOM: a mod terrain at the nearest corner, else at a corner of the tile's rect (on an edge the nearest corner may
     // be the ground); among those, one whose pieces the tile is (mod terrains may share tiles: the game's asphalt is the
     // fill of several). No ISOM of a mod terrain there: the first whose pieces the tile is (placed in Rectangle mode).
@@ -1654,15 +1660,15 @@ uint16_t Editor::paletteTerrainAt(int px, int py) const {
             }
     auto isPiece = [&](const Tileset::ModTerrain& m) {
         for (const auto& p : m.pieces)
-            if (p[1] == tile.tiles[k] || p[2] == tile.tiles[k]) return true;
+            if (p[1] == value || p[2] == value) return true;
         return false;
     };
     for (uint16_t c : near)
         if (isPiece(*tileset_.modTerrain(c))) return c;
     // (a tile the ISOM's own terrain gives there, as the game's asphalt in plain Asphalt: that terrain, not a mod terrain
     // whose fill it is too)
-    if (isom_.tileFromIsom(chk_, tile, px / 32, py / 32)) return t;
-    if (tile.tiles[k] < 2) return t;  // (the null tile, black: a mod terrain's fill (Chasm) only where its corners say so)
+    if (isom_.tileFromIsom(chk_, readTerrain(chk_, "TILE"), px / 32, py / 32)) return t;
+    if (value < 2) return t;  // (the null tile, black: a mod terrain's fill (Chasm) only where its corners say so)
     for (const Tileset::ModTerrain& m : tileset_.modTerrains)
         if (isPiece(m)) return m.id;
     return t;

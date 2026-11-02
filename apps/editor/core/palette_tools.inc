@@ -67,7 +67,19 @@ size_t unitStackCount(const AppState& app) {
     if (app.mode != Mode::Units || !app.mouseIn || !app.ed || !app.ed->isOpen() || app.palette >= 0 || app.pasting) return 0;
     float wx, wy;
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
-    return app.ed->unitsAt(int(wx), int(wy)).size();
+    // (the status bar asks each frame: counted again only when the map or the mouse's place changed)
+    static const Editor* forEd = nullptr;
+    static uint64_t forRev = ~0ull;
+    static int forX = 0, forY = 0;
+    static size_t count = 0;
+    const int x = int(wx), y = int(wy);
+    if (forEd != app.ed.get() || forRev != app.ed->revision() || forX != x || forY != y) {
+        forEd = app.ed.get(), forRev = app.ed->revision(), forX = x, forY = y;
+        count = 0;
+        for (size_t i = 0; i < app.ed->units().size(); ++i)
+            if (app.ed->pickable(int(i)) && app.ed->unitBox(app.ed->units()[i]).contains(x, y)) ++count;
+    }
+    return count;
 }
 
 bool docOpen();  // (documents.inc)
@@ -137,8 +149,19 @@ void updateStatus(AppState& app) {
                   : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
-    if (app.mode == Mode::Terrain && app.ed)  // the tile under the mouse: its group and index, its megatile, its terrain
-        if (const std::wstring t = tileValueText(*app.ed, wx, wy); !t.empty()) std::wcsncat(buf, (L"   " + t).c_str(), 255 - std::wcslen(buf));
+    // The tile under the mouse: its group and index, its megatile, its terrain (made again only when the map or the
+    // mouse's place changed: the status bar is made each frame).
+    if (app.mode == Mode::Terrain && app.ed) {
+        static const Editor* forEd = nullptr;
+        static uint64_t forRev = ~0ull, forTerrain = ~0ull;
+        static int forX = 0, forY = 0;
+        static std::wstring text;
+        if (forEd != app.ed.get() || forRev != app.ed->revision() || forTerrain != app.ed->terrainRevision() || forX != int(wx) || forY != int(wy)) {
+            forEd = app.ed.get(), forRev = app.ed->revision(), forTerrain = app.ed->terrainRevision(), forX = int(wx), forY = int(wy);
+            text = tileValueText(*app.ed, wx, wy);
+        }
+        if (!text.empty()) std::wcsncat(buf, (L"   " + text).c_str(), 255 - std::wcslen(buf));
+    }
     // Units mode: two or more units under the mouse (a stack) say how many, and how to see them.
     if (const size_t n = unitStackCount(app); n > 1) {
         wchar_t more[128];

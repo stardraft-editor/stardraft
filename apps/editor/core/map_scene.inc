@@ -899,9 +899,15 @@ std::wstring unitRangesText(const Unit& unit) {
     const DatTable* units = rangeTable("units");
     const DatTable* weapons = rangeTable("weapons");
     if (!units || !weapons || ut < 0 || ut >= 228) return L"";
-    const DatField *sight = units->field("Sight Range"), *acqF = units->field("Target Acquisition Range"), *ground = units->field("Ground Weapon"),
-                   *air = units->field("Air Weapon"), *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range"),
-                   *flags = units->field("Special Ability Flags");
+    // (the fields by name once for the tables' schemas: the status bar asks each frame)
+    static const DatSchema *unitsSchema = nullptr, *weaponsSchema = nullptr;
+    static const DatField *sight = nullptr, *acqF = nullptr, *ground = nullptr, *air = nullptr, *sub = nullptr, *range = nullptr, *flags = nullptr;
+    if (unitsSchema != &units->schema() || weaponsSchema != &weapons->schema()) {
+        unitsSchema = &units->schema(), weaponsSchema = &weapons->schema();
+        sight = units->field("Sight Range"), acqF = units->field("Target Acquisition Range"), ground = units->field("Ground Weapon");
+        air = units->field("Air Weapon"), sub = units->field("Subunit 1"), range = weapons->field("Maximum Range");
+        flags = units->field("Special Ability Flags");
+    }
     if (!sight || !acqF || !ground || !air || !sub || !range || !flags) return L"";
     auto weaponRange = [&](const DatField& f) {  // (pixels; as rangesScene's)
         int w = int(units->value(f, ut));
