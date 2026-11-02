@@ -1051,26 +1051,18 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     const DatTable* units = mod ? nullptr : rangeTable("units");
     const DatTable* weapons = mod ? nullptr : rangeTable("weapons");
     if (!mod && (!units || !weapons)) return;
-    auto field = [](const DatTable* t, const char* name) { return t ? t->field(name) : nullptr; };
-    const DatField *sight = field(units, "Sight Range"), *acqF = field(units, "Target Acquisition Range"), *ground = field(units, "Ground Weapon"),
-                   *air = field(units, "Air Weapon"), *sub = field(units, "Subunit 1"), *range = field(weapons, "Maximum Range"),
-                   *sl = field(units, "Unit Size Left"), *su = field(units, "Unit Size Up"), *sr = field(units, "Unit Size Right"),
-                   *sd = field(units, "Unit Size Down"), *flags = field(units, "Special Ability Flags");
+    // (the fields by name once for the tables' schemas: the map asks each frame)
+    static const DatSchema *unitsSchema = nullptr, *weaponsSchema = nullptr;
+    static const DatField *sight = nullptr, *acqF = nullptr, *ground = nullptr, *air = nullptr, *sub = nullptr, *range = nullptr, *sl = nullptr,
+                          *su = nullptr, *sr = nullptr, *sd = nullptr, *flags = nullptr;
+    if (!mod && (unitsSchema != &units->schema() || weaponsSchema != &weapons->schema())) {
+        unitsSchema = &units->schema(), weaponsSchema = &weapons->schema();
+        sight = units->field("Sight Range"), acqF = units->field("Target Acquisition Range"), ground = units->field("Ground Weapon");
+        air = units->field("Air Weapon"), sub = units->field("Subunit 1"), range = weapons->field("Maximum Range");
+        sl = units->field("Unit Size Left"), su = units->field("Unit Size Up"), sr = units->field("Unit Size Right");
+        sd = units->field("Unit Size Down"), flags = units->field("Special Ability Flags");
+    }
     if (!mod && (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd || !flags)) return;
-    auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
-        if (r <= 0) return;
-        // (a line about every 6 screen pixels: many units' shapes zoomed out are cheap)
-        const double around = 6.2832 * (r + (box.right - box.left + box.bottom - box.top) / 4.0) * app.zoom;
-        const int steps = std::clamp(int(around / 6) / 8 * 8, 16, 256);  // (a multiple of 8: the dashes)
-        const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r), steps);
-        for (size_t k = 1; k < pts.size(); ++k) {
-            if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
-            render::RectDraw l;
-            l.x0 = float(pts[k - 1].x), l.y0 = float(pts[k - 1].y), l.x1 = float(pts[k].x), l.y1 = float(pts[k].y);
-            l.rgba = color, l.thickness = width, l.line = true;
-            s.rects.push_back(l);
-        }
-    };
     auto weaponRange = [&](int ut, const DatField& f) {
         int w = int(units->value(f, ut));
         const int turret = int(units->value(*sub, ut));
@@ -1089,11 +1081,10 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         if (tx < 0 || ty < 0 || tx >= mtxm.width || ty >= mtxm.height || size_t(ty) * mtxm.width + tx >= mtxm.tiles.size()) return 0;
         return cmbw::tileHeight(ed.tileset(), mtxm.tiles[size_t(ty) * mtxm.width + tx]);
     };
-    std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
-    std::vector<uint8_t> psi;   // the map's tiles in the psi field of a selected Pylon
     // The ranges of the selected units in the view (or near it: a range reaches into it), nearest its middle first; a
     // very big selection: the first 2000 of them.
-    std::vector<std::pair<float, int>> closest;  // (distance to the view's middle, the unit)
+    static std::vector<std::pair<float, int>> closest;  // (distance to the view's middle, the unit)
+    closest.clear();
     {
         int vw, vh;
         viewSize(vw, vh);
@@ -1108,6 +1099,14 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         std::sort(closest.begin(), closest.end());
         if (closest.size() > 2000) closest.resize(2000);
     }
+    // Each unit's values for the overlay (each kind only when it shows: gRangeKinds). The same values as the last
+    // frame's (and the same kinds, zoom and map size): the last frame's lines and tiles again.
+    struct Item {
+        int cx, cy, sight, acq, g, a, detect, l, t, r, b;
+        bool pylon;
+    };
+    static std::vector<Item> items;
+    items.clear();
     for (const auto& [distance, i] : closest) {
         Unit u = list[size_t(i)];
         const int ut = u.type;
@@ -1118,70 +1117,134 @@ void rangesScene(render::Scene& s, float dx, float dy) {
             u.y = uint16_t(std::clamp(int(std::lround(u.y + dy)), 0, mh * 32 - 1));
             if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
         }
-        const int cx = u.x, cy = u.y;
-        // Sight: the tiles of the sight mask around the unit's tile. (Each kind only when it shows: gRangeKinds.)
-        if (const int tiles = mod ? mr.sight : int(units->value(*sight, ut)); tiles > 0 && rangeShown(0)) {
-            int n = 0;
-            const auto mask = sightMask(tiles, n);
-            const int tx0 = cx / 32 - n / 2, ty0 = cy / 32 - n / 2;
-            if (seen.empty()) seen.assign(size_t(mw) * size_t(mh), 0);
-            for (int y = 0; y < n; ++y)
-                for (int x = 0; x < n; ++x)
-                    if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
-                        seen[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
-        }
-        RECT box{LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)};
+        Item it{};
+        it.cx = u.x, it.cy = u.y;
+        const int tiles = mod ? mr.sight : int(units->value(*sight, ut));
+        it.sight = rangeShown(0) ? tiles : 0;
+        RECT box{LONG(it.cx), LONG(it.cy), LONG(it.cx + 1), LONG(it.cy + 1)};
         if (mod) {  // (the tab's unit types: the mod's sizes)
             if (size_t(ut) < ed.unitTypes().size()) {
                 const UnitType& t = ed.unitTypes()[size_t(ut)];
-                box = {LONG(cx - t.sizeLeft), LONG(cy - t.sizeUp), LONG(cx + t.sizeRight + 1), LONG(cy + t.sizeDown + 1)};
+                box = {LONG(it.cx - t.sizeLeft), LONG(it.cy - t.sizeUp), LONG(it.cx + t.sizeRight + 1), LONG(it.cy + t.sizeDown + 1)};
             }
         } else
-            box = {LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
-                   LONG(cy + int(units->value(*sd, ut)) + 1)};
+            box = {LONG(it.cx - int(units->value(*sl, ut))), LONG(it.cy - int(units->value(*su, ut))), LONG(it.cx + int(units->value(*sr, ut)) + 1),
+                   LONG(it.cy + int(units->value(*sd, ut)) + 1)};
+        it.l = int(box.left), it.t = int(box.top), it.r = int(box.right), it.b = int(box.bottom);
         int acq = 0, g = 0, a = 0;
         if (mod) {
-            const int h = heightAt(cx, cy);
+            const int h = heightAt(it.cx, it.cy);
             g = cmbw::cliffRange(mr.ground, h, mr.cliff), a = mr.air;
             acq = (mr.seek + (mr.cliff && h > 0 && mr.ground > 32 ? h : 0)) * 32;
         } else
             acq = int(units->value(*acqF, ut)) * 32, g = weaponRange(ut, *ground), a = weaponRange(ut, *air);
-        if (rangeShown(1)) shape(box, acq, 0xF0B446D0u, 1, false);
-        if (rangeShown(2)) shape(box, g, 0xEB5A50F0u, 2, false);
-        if (rangeShown(3)) shape(box, a, 0x5AAAF0F0u, 2, a == g && rangeShown(2));  // the same range as the ground weapon: blue dashes over the red line
+        it.acq = rangeShown(1) ? acq : 0, it.g = rangeShown(2) ? g : 0, it.a = rangeShown(3) ? a : 0;
         // Detection (green): a detector finds cloaked and burrowed units in its sight range; a detector building only
         // in 7 tiles (the game's rule). The game measures it from the unit's center.
         const uint32_t f = mod ? mr.flags : uint32_t(units->value(*flags, ut));
-        if ((f & 0x8000u) && rangeShown(4))
-            shape({LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)}, (f & 1u) ? 7 * 32 : (mod ? mr.sight : int(units->value(*sight, ut))) * 32, 0x50E070F0u, 2, true);
+        it.detect = (f & 0x8000u) && rangeShown(4) ? ((f & 1u) ? 7 * 32 : tiles * 32) : 0;
+        it.pylon = ut == 156 && rangeShown(5);
+        items.push_back(it);
+    }
+    static std::vector<Item> lastItems;
+    static std::vector<render::RectDraw> lastRects;
+    static int lastKinds = -1, lastW = -1, lastH = -1;
+    static float lastZoom = 0;
+    static bool lastMod = false;
+    auto same = [](const Item& p, const Item& q) {
+        return p.cx == q.cx && p.cy == q.cy && p.sight == q.sight && p.acq == q.acq && p.g == q.g && p.a == q.a && p.detect == q.detect &&
+               p.l == q.l && p.t == q.t && p.r == q.r && p.b == q.b && p.pylon == q.pylon;
+    };
+    if (lastKinds == int(gRangeKinds) && lastW == mw && lastH == mh && lastZoom == app.zoom && lastMod == mod &&
+        std::equal(items.begin(), items.end(), lastItems.begin(), lastItems.end(), same)) {
+        s.rects.insert(s.rects.end(), lastRects.begin(), lastRects.end());
+        return;
+    }
+    lastKinds = int(gRangeKinds), lastW = mw, lastH = mh, lastZoom = app.zoom, lastMod = mod;
+    lastItems = items;
+    std::vector<render::RectDraw>& out = lastRects;
+    out.clear();
+    auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
+        if (r <= 0) return;
+        // (a line about every 6 screen pixels: many units' shapes zoomed out are cheap)
+        const double around = 6.2832 * (r + (box.right - box.left + box.bottom - box.top) / 4.0) * app.zoom;
+        const int steps = std::clamp(int(around / 6) / 8 * 8, 16, 256);  // (a multiple of 8: the dashes)
+        const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r), steps);
+        for (size_t k = 1; k < pts.size(); ++k) {
+            if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
+            render::RectDraw l;
+            l.x0 = float(pts[k - 1].x), l.y0 = float(pts[k - 1].y), l.x1 = float(pts[k].x), l.y1 = float(pts[k].y);
+            l.rgba = color, l.thickness = width, l.line = true;
+            out.push_back(l);
+        }
+    };
+    // The sight masks by range (0..11 tiles; sightMask clamps to these), made once.
+    static std::vector<bool> masks[12];
+    static int maskSize[12] = {};
+    // The tiles that a selected unit sees (one area, so many units do not stack) and the tiles in the psi field of a
+    // selected Pylon: only in the box of the tiles that the units' masks touch (not the whole map).
+    int bx0 = mw, by0 = mh, bx1 = 0, by1 = 0;  // (the box: bx0 <= x < bx1)
+    auto grow = [&](int x0, int y0, int x1, int y1) {
+        bx0 = std::min(bx0, std::max(0, x0)), by0 = std::min(by0, std::max(0, y0));
+        bx1 = std::max(bx1, std::min(mw, x1)), by1 = std::max(by1, std::min(mh, y1));
+    };
+    for (Item& it : items) {
+        if (it.sight > 0) {
+            const int r = std::clamp(it.sight, 0, 11);
+            if (masks[r].empty()) masks[r] = sightMask(r, maskSize[r]);
+            const int n = maskSize[r];
+            grow(it.cx / 32 - n / 2, it.cy / 32 - n / 2, it.cx / 32 - n / 2 + n, it.cy / 32 - n / 2 + n);
+        }
+        if (it.pylon) grow(it.cx / 32 - 8, it.cy / 32 - 5, it.cx / 32 + 8, it.cy / 32 + 5);
+    }
+    const int bw = std::max(0, bx1 - bx0), bh = std::max(0, by1 - by0);
+    static std::vector<uint8_t> seen, psi;
+    seen.clear(), psi.clear();
+    for (const Item& it : items) {
+        const RECT box{LONG(it.l), LONG(it.t), LONG(it.r), LONG(it.b)};
+        // Sight: the tiles of the sight mask around the unit's tile.
+        if (it.sight > 0) {
+            const int r = std::clamp(it.sight, 0, 11), n = maskSize[r];
+            const std::vector<bool>& mask = masks[r];
+            const int tx0 = it.cx / 32 - n / 2, ty0 = it.cy / 32 - n / 2;
+            if (seen.empty()) seen.assign(size_t(bw) * size_t(bh), 0);
+            for (int y = 0; y < n; ++y)
+                for (int x = 0; x < n; ++x)
+                    if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
+                        seen[size_t(ty0 + y - by0) * size_t(bw) + size_t(tx0 + x - bx0)] = 1;
+        }
+        shape(box, it.acq, 0xF0B446D0u, 1, false);
+        shape(box, it.g, 0xEB5A50F0u, 2, false);
+        shape(box, it.a, 0x5AAAF0F0u, 2, it.a == it.g);  // the same range as the ground weapon: blue dashes over the red line
+        shape({LONG(it.cx), LONG(it.cy), LONG(it.cx + 1), LONG(it.cy + 1)}, it.detect, 0x50E070F0u, 2, true);
         // Psi field (purple): the tiles where a Pylon gives power, 16 by 10 tiles around its center (the game's mask).
-        if (ut == 156 && rangeShown(5)) {
+        if (it.pylon) {
             static const char* const kPsi[10] = {"0000011111100000", "0011111111111100", "0111111111111110", "1111111111111111", "1111111111111111",
                                                  "1111111111111111", "1111111111111111", "0111111111111110", "0011111111111100", "0000011111100000"};
-            if (psi.empty()) psi.assign(size_t(mw) * size_t(mh), 0);
-            const int tx0 = cx / 32 - 8, ty0 = cy / 32 - 5;  // (the Pylon's center is on a tile corner)
+            if (psi.empty()) psi.assign(size_t(bw) * size_t(bh), 0);
+            const int tx0 = it.cx / 32 - 8, ty0 = it.cy / 32 - 5;  // (the Pylon's center is on a tile corner)
             for (int y = 0; y < 10; ++y)
                 for (int x = 0; x < 16; ++x)
                     if (kPsi[y][x] == '1' && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
-                        psi[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
+                        psi[size_t(ty0 + y - by0) * size_t(bw) + size_t(tx0 + x - bx0)] = 1;
         }
     }
     // An area of tiles (the sight, the psi field): its tiles faintly filled (rows of tiles as one rectangle each) and
     // its outline.
     auto area = [&](const std::vector<uint8_t>& tiles, uint32_t fill, uint32_t line) {
         if (tiles.empty()) return;
-        auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < mw && y < mh && tiles[size_t(y) * size_t(mw) + size_t(x)]; };
+        auto at = [&](int x, int y) { return x >= bx0 && y >= by0 && x < bx1 && y < by1 && tiles[size_t(y - by0) * size_t(bw) + size_t(x - bx0)]; };
         auto edge = [&](float x0, float y0, float x1, float y1) {
             render::RectDraw l;
             l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = line, l.thickness = 1, l.line = true;
-            s.rects.push_back(l);
+            out.push_back(l);
         };
-        for (int y = 0; y < mh; ++y)
-            for (int x = 0; x < mw; ++x) {
+        for (int y = by0; y < by1; ++y)
+            for (int x = bx0; x < bx1; ++x) {
                 if (!at(x, y)) continue;
                 int run = x;
                 while (at(run + 1, y)) ++run;
-                s.rects.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), fill, true});
+                out.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), fill, true});
                 for (int k = x; k <= run; ++k) {
                     const float X = float(k * 32), Y = float(y * 32);
                     if (!at(k, y - 1)) edge(X, Y, X + 32, Y);
@@ -1194,6 +1257,7 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     };
     area(psi, 0xA070FF1Cu, 0xB080FFC0u);
     area(seen, 0xE0E0F014u, 0xFFE040C0u);
+    s.rects.insert(s.rects.end(), out.begin(), out.end());
 }
 
 
