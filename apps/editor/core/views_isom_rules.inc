@@ -2539,7 +2539,7 @@ private:
         if (first && !gSettingsOff && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them)
             msgbox::ask(*this, L"Save terrain rules",
                         L"Use " + f.filename().wstring() + L" as the ISOM terrain rules override? Maps then paint with its rules.\r\n"
-                        L"Program options > Plugins can change this later.",
+                        L"Options > Program options > Plugins can change this later.",
                         {L"&Use as Override", L"&Not Now"}, msgbox::Icon::Question) == 0)
             shellSetTerrainOverride(f);
         if (!gSettingsOff) prefs::setText(L"Layout/IsomRulesFile", f.wstring());  // (the next open opens it)

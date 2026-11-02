@@ -88,7 +88,7 @@ Cascadia Mono	Cascadia Mono
 (older lines dropped)\r\n	(오래된 줄 삭제됨)\r\n
 ERROR  	오류  
 Log	로그
-Build needs an EUD project. Use File > Project > New project or Open project.	빌드에는 EUD 프로젝트가 필요합니다. 파일 > 프로젝트 > 새 프로젝트 또는 프로젝트 열기를 사용하세요.
+Build needs an EUD project. Use File > Project > New EUD project or Open project.	빌드에는 EUD 프로젝트가 필요합니다. 파일 > 프로젝트 > 새 EUD 프로젝트 또는 프로젝트 열기를 사용하세요.
 A build is already running	이미 빌드가 실행 중입니다
 StarCraft will not start this map:\r\n\r\n	StarCraft에서 이 맵을 시작할 수 없습니다:\r\n\r\n
 \r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?	\r\n플레이어를 설정하려면 속성 페이지의 플레이어 및 포스를 사용하세요. 그래도 맵을 빌드하시겠습니까?
@@ -107,7 +107,7 @@ the map you edit here (Brood War format)	여기서 편집하는 맵 (Brood War �
 euddraft's build file: Build writes it	euddraft의 빌드 파일: 빌드가 이 파일을 씁니다
 the built map: Build (Ctrl+B) writes it to the Output file	빌드된 맵: 빌드(Ctrl+B)가 출력 파일에 씁니다
 the built map: Build (Ctrl+B) writes it	빌드된 맵: 빌드(Ctrl+B)가 이 파일을 씁니다
-your code (epScript). To add more, use File > Project > Add script.	사용자 코드(epScript). 더 추가하려면 파일 > 프로젝트 > 스크립트 추가를 사용하세요.
+your code (epScript). To add more, use File > Project > Add a script.	사용자 코드(epScript). 더 추가하려면 파일 > 프로젝트 > 스크립트 추가를 사용하세요.
 StarDraft 2 makes the folder 	StarDraft 2가 폴더를 만듭니다: 
 \\ in the location above:\r\n\r\n	\\ 위 위치에:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n첫 빌드에서 StarDraft 2는 GitHub에서 euddraft를 자신의 폴더로 내려받습니다.\r\nStarDraft 2는 이 컴퓨터의 다른 사본을 변경하지 않습니다. 열어 둔 맵은\r\n일반 맵으로 유지됩니다. 프로젝트만 빌드할 수 있습니다.
@@ -518,7 +518,7 @@ Can the player build this unit	플레이어가 이 유닛을 건설할 수 있�
 Is the technology available to the player	플레이어가 이 기술을 사용할 수 있는지 여부
 Does the player start with it researched	플레이어가 연구를 완료한 상태로 시작하는지 여부
 Could not read the .dat file of the game	게임의 .dat 파일을 읽을 수 없습니다
-To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	.dat 파일을 편집하려면 EUD 프로젝트를 사용하십시오.\r\n\r\n파일 > 프로젝트 > 새 프로젝트로 열린 맵에서 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. File > Project > Open project opens one.	.dat 파일을 편집하려면 EUD 프로젝트를 사용하십시오.\r\n\r\n파일 > 프로젝트 > 이 맵을 프로젝트로 만들기로 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
 .dat entry 	.dat 항목 
 Yes (	예 (
 not used by this entry	이 항목에서 사용하지 않음
@@ -540,7 +540,7 @@ Changed	변경됨
 Triggers are in the Triggers workspace of a project.	트리거는 프로젝트의 트리거 작업 공간에 있습니다.
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	아직 사용할 수 없음: 맵으로 가져오는 그래픽, 사운드, 초상화, 글꼴.
 Project: 	프로젝트: 
-No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	열린 프로젝트가 없습니다. 파일 > 프로젝트 > 새 프로젝트로 열린 맵에서 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
+No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	열린 프로젝트가 없습니다. 파일 > 프로젝트 > 이 맵을 프로젝트로 만들기로 프로젝트를 만듭니다. 파일 > 프로젝트 > 프로젝트 열기로 프로젝트를 엽니다.
 Did not save the triggers: a newer StarDraft 2 made triggers.json	트리거를 저장하지 않았습니다: 더 새로운 StarDraft가 triggers.json을 만들었습니다
   (off)	  (꺼짐)
 Added a variable. Press F2 to rename it.	변수를 추가했습니다. F2를 눌러 이름을 바꿉니다.
@@ -880,7 +880,7 @@ Debug mode: Build adds index checks and the trace for epTrace (Project page > Bu
 &Open project…	프로젝트 열기(&O)…
 &Make this map a project…	이 맵을 프로젝트로 만들기(&M)…
 &Build\tCtrl+B	빌드(&B)\tCtrl+B
-&Add script…	스크립트 추가(&A)…
+&Add a script…	스크립트 추가(&A)…
 Open project &folder	프로젝트 폴더 열기(&F)
 Project &settings	프로젝트 설정(&S)
 &New project\tCtrl+N	새 프로젝트(&N)\tCtrl+N
@@ -1814,7 +1814,7 @@ Maps	맵
 Open maps with StarDraft 2	StarDraft 2로 맵 열기
 Make StarDraft 2 the program that opens .scm and .scx maps	.scm 및 .scx 맵을 여는 프로그램을 StarDraft 2로 합니다
 Maps (.scm, .scx) open with StarDraft 2	맵(.scm, .scx)은 StarDraft 2로 열립니다
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	.scm 및 .scx 맵을 두 번 클릭할 때 StarDraft 2로 열까요? 나중에 프로그램 옵션 > 맵에서 StarDraft 2가 열도록 할 수 있습니다.
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	.scm 및 .scx 맵을 두 번 클릭할 때 StarDraft 2로 열까요? 나중에 옵션 > 프로그램 옵션 > 맵에서 StarDraft 2가 열도록 할 수 있습니다.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows는 .scm 또는 .scx 맵에 대해 선택한 프로그램을 유지합니다. 기본 앱에서 .scm 및 .scx를 검색하고 StarDraft 2를 선택하세요.
 Default apps	기본 앱
 The new language shows after a restart. Restart now? Your open maps and projects open again.	새 언어는 다시 시작한 후에 표시됩니다. 지금 다시 시작할까요? 열린 맵과 프로젝트가 다시 열립니다.
@@ -1835,7 +1835,7 @@ Un&pin	고정 해제(&P)
  tiles)	 타일)
  tiles: Brush, Spray and Fill place one of them at random	 타일: 브러시, 스프레이, 채우기는 그중 하나를 무작위로 배치합니다
  units: click to place them, and again to place more. Right-click or Esc stops.	 유닛: 클릭하여 배치합니다. 다시 클릭하면 더 배치합니다. 오른쪽 클릭 또는 Esc를 누르면 중지합니다.
- units: the limit (Program options > Map unit limit)	 유닛: 한도(프로그램 옵션 > 맵 유닛 한도)
+ units: the limit (Options > Program options > Map unit limit)	 유닛: 한도(옵션 > 프로그램 옵션 > 맵 유닛 한도)
 &Assets workspace	에셋 작업 공간(&A)
 &Briefing workspace	브리핑 작업 공간(&B)
 &Project page	프로젝트 페이지(&P)
@@ -2024,9 +2024,9 @@ Paste	붙여넣기
 Copy all	모두 복사
 Select all	모두 선택
 Could not find StarCraft on your system.	시스템에서 StarCraft를 찾을 수 없습니다.
-Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	찾아보기를 선택해 StarCraft 폴더를 찾거나, 모드 불러오기를 선택해 모드를 사용하세요 (프로그램 옵션 > 플러그인).
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).	찾아보기를 선택해 StarCraft 폴더를 찾거나, 모드 불러오기를 선택해 모드를 사용하세요 (옵션 > 프로그램 옵션 > 플러그인).
 Load mod…	모드 불러오기…
-Program options > Plugins: load a mod, as Cosmonarchy BW	프로그램 옵션 > 플러그인: Cosmonarchy BW 같은 모드를 불러옵니다
+Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)	Cosmonarchy BW 같은 모드를 불러옵니다 (옵션 > 프로그램 옵션 > 플러그인)
 That folder has no StarCraft game data.	이 폴더에는 StarCraft 게임 데이터가 없습니다.
 Select the StarCraft folder	StarCraft 폴더 선택
 Services	서비스

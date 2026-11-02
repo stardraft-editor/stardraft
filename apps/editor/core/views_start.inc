@@ -24,7 +24,7 @@ const wchar_t* const kCosmonarchyCard = L"Make maps with the units of the Cosmon
 // The banner when no StarCraft install was found (the start page's top).
 const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
 // (its second line: the two ways on, its two buttons)
-const wchar_t* const kNoInstallHint = L"Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).";
+const wchar_t* const kNoInstallHint = L"Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).";
 
 // (two lines: what to do first, then how to give feedback)
 const wchar_t* const kStartNotice = L"StarDraft 2 is alpha software: back up your maps and projects before you edit them.\n"
@@ -61,7 +61,7 @@ public:
         loadMod_.onClick = [this] {
             if (onLoadMod) onLoadMod();
         };
-        loadMod_.setTip(L"Program options > Plugins: load a mod, as Cosmonarchy BW");
+        loadMod_.setTip(L"Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)");
         add(loadMod_, draw::Rect(0, 0, 0, 0)), loadMod_.setVisible(false);
         open_.onClick = [this] {
             if (onOpen) onOpen();

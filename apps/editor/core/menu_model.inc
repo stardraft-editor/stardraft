@@ -67,7 +67,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"File/Project/Open project", L"Ctrl+Shift+K, O"},
         {L"File/Project/Make this map a project", L"Ctrl+Shift+K, M"},
         {L"File/Project/Import a project (experimental)", L"Ctrl+Shift+K, I"},
-        {L"File/Project/Add script", L"Ctrl+Shift+K, S"},
+        {L"File/Project/Add a script", L"Ctrl+Shift+K, S"},
         {L"File/Project/Open project folder", L"Ctrl+Shift+K, F"},
         {L"File/Project/Project settings", L"Ctrl+Shift+K, P"},
         {L"File/Exit", L"Ctrl+Shift+K, X"},
@@ -176,7 +176,7 @@ MenuModel buildMenuModel() {
                       menuItem(ID_PROJ_IMPORT, L"&Import a project (experimental)\x2026"),  // EUD Editor 2, euddraft (roadmap R52)
                       menuSeparator(),
                       menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
-                      menuItem(ID_PROJ_ADDSCRIPT, L"&Add script\x2026"),
+                      menuItem(ID_PROJ_ADDSCRIPT, L"&Add a script\x2026"),
                       menuItem(ID_PROJ_FOLDER, L"Open project &folder"),
                       menuSeparator(),
                       menuItem(ID_PROJ_SETTINGS, L"Project &settings")};

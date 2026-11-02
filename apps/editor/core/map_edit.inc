@@ -312,7 +312,7 @@ bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units()
 
 std::wstring unitLimitText(const Editor& ed) {
     if (modTab()) return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit of Cosmonarchy BW";
-    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Program options > Map unit limit)";
+    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Options > Program options > Map unit limit)";
 }
 
 // Moves the selected doodads by (dx, dy) by the same rule: with Move to the nearest place where it fits, a move that does

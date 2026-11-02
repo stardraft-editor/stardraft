@@ -24,7 +24,7 @@ struct StubView final : stardraft::draw::View {
             text.clear();  // the settings are the form's rows
         } else {
             title = L"Project";
-            text = L"No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.";
+            text = L"No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.";
         }
         // The title: the UI font at 3/2 of its height; the text: the UI font.
         const stardraft::draw::Font ui = c.font({Face::Ui, 0});

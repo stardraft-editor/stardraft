@@ -88,7 +88,7 @@ Cascadia Mono	Cascadia Mono
 (older lines dropped)\r\n	(anciennes lignes supprimées)\r\n
 ERROR  	ERREUR  
 Log	Journal
-Build needs an EUD project. Use File > Project > New project or Open project.	La compilation nécessite un projet EUD. Utilisez Fichier > Projet > Nouveau projet ou Ouvrir un projet.
+Build needs an EUD project. Use File > Project > New EUD project or Open project.	La compilation nécessite un projet EUD. Utilisez Fichier > Projet > Nouveau projet EUD ou Ouvrir un projet.
 A build is already running	Une compilation est déjà en cours
 StarCraft will not start this map:\r\n\r\n	StarCraft ne lancera pas cette carte:\r\n\r\n
 \r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?	\r\nPour définir les joueurs, utilisez Joueurs et forces dans la page Propriétés. Compiler la carte quand même?
@@ -107,7 +107,7 @@ the map you edit here (Brood War format)	la carte que vous modifiez ici (format 
 euddraft's build file: Build writes it	le fichier de compilation d'euddraft: Compiler l'écrit
 the built map: Build (Ctrl+B) writes it to the Output file	la carte compilée: Compiler (Ctrl+B) l'écrit dans le fichier de sortie
 the built map: Build (Ctrl+B) writes it	la carte compilée: Compiler (Ctrl+B) l'écrit
-your code (epScript). To add more, use File > Project > Add script.	votre code (epScript). Pour en ajouter, utilisez Fichier > Projet > Ajouter un script.
+your code (epScript). To add more, use File > Project > Add a script.	votre code (epScript). Pour en ajouter, utilisez Fichier > Projet > Ajouter un script.
 StarDraft 2 makes the folder 	StarDraft 2 crée le dossier 
 \\ in the location above:\r\n\r\n	\\ à l'emplacement ci-dessus:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nLors de la première compilation, StarDraft 2 télécharge euddraft depuis GitHub dans son propre dossier.\r\nStarDraft ne modifie pas les autres copies sur cet ordinateur. Une carte que vous ouvrez\r\nreste une carte normale. Seul un projet peut être compilé.
@@ -518,7 +518,7 @@ Can the player build this unit	Le joueur peut-il construire cette unité
 Is the technology available to the player	La technologie est-elle disponible pour le joueur
 Does the player start with it researched	Le joueur commence-t-il avec cette recherche effectuée
 Could not read the .dat file of the game	Impossible de lire le fichier .dat du jeu
-To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	Pour modifier les fichiers .dat, utilisez un projet EUD.\r\n\r\nFichier > Projet > Nouveau projet en crée un à partir de la carte ouverte. Fichier > Projet > Ouvrir un projet en ouvre un.
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. File > Project > Open project opens one.	Pour modifier les fichiers .dat, utilisez un projet EUD.\r\n\r\nFichier > Projet > Convertir cette carte en projet en crée un. Fichier > Projet > Ouvrir un projet en ouvre un.
 .dat entry 	Entrée .dat 
 Yes (	Oui (
 not used by this entry	non utilisé par cette entrée
@@ -540,7 +540,7 @@ Changed	Modifié
 Triggers are in the Triggers workspace of a project.	Les déclencheurs se trouvent dans l'espace de travail Déclencheurs d'un projet.
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Pas encore disponible: les graphismes, sons, portraits et polices que vous importez dans la carte.
 Project: 	Projet: 
-No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	Aucun projet ouvert. Fichier > Projet > Nouveau projet en crée un à partir de la carte ouverte. Fichier > Projet > Ouvrir un projet en ouvre un.
+No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	Aucun projet ouvert. Fichier > Projet > Convertir cette carte en projet en crée un. Fichier > Projet > Ouvrir un projet en ouvre un.
 Did not save the triggers: a newer StarDraft 2 made triggers.json	Déclencheurs non enregistrés: triggers.json a été créé par une version plus récente de StarDraft 2
   (off)	  (désactivé)
 Added a variable. Press F2 to rename it.	Variable ajoutée. Appuyez sur F2 pour la renommer.
@@ -880,7 +880,7 @@ Debug mode: Build adds index checks and the trace for epTrace (Project page > Bu
 &Open project…	&Ouvrir un projet…
 &Make this map a project…	&Convertir cette carte en projet…
 &Build\tCtrl+B	Co&mpiler\tCtrl+B
-&Add script…	&Ajouter un script…
+&Add a script…	&Ajouter un script…
 Open project &folder	Ouvrir le &dossier du projet
 Project &settings	&Paramètres du projet
 &New project\tCtrl+N	&Nouveau projet\tCtrl+N
@@ -1813,7 +1813,7 @@ Maps	Cartes
 Open maps with StarDraft 2	Ouvrir les cartes avec StarDraft 2
 Make StarDraft 2 the program that opens .scm and .scx maps	Faire de StarDraft 2 le programme qui ouvre les cartes .scm et .scx
 Maps (.scm, .scx) open with StarDraft 2	Les cartes (.scm, .scx) s'ouvrent avec StarDraft 2
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	Ouvrir les cartes .scm et .scx avec StarDraft 2 quand vous double-cliquez dessus? Vous pourrez aussi le faire plus tard dans Options du programme > Cartes.
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	Ouvrir les cartes .scm et .scx avec StarDraft 2 quand vous double-cliquez dessus? Vous pourrez aussi le faire plus tard dans Options > Options du programme > Cartes.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserve le programme que vous avez choisi pour les cartes .scm ou .scx. Dans Applications par défaut, recherchez .scm et .scx et sélectionnez StarDraft 2.
 Default apps	Applications par défaut
 The new language shows after a restart. Restart now? Your open maps and projects open again.	La nouvelle langue s'affiche après un redémarrage. Redémarrer maintenant? Vos cartes et projets ouverts se rouvriront.
@@ -1834,7 +1834,7 @@ Un&pin	&Désépingler
  tiles)	 tuiles)
  tiles: Brush, Spray and Fill place one of them at random	 tuiles: Pinceau, Aérographe et Remplissage en placent une au hasard
  units: click to place them, and again to place more. Right-click or Esc stops.	 unités: cliquez pour les placer, puis de nouveau pour en placer d'autres. Clic droit ou Esc arrête.
- units: the limit (Program options > Map unit limit)	 unités: la limite (Options du programme > Limite d'unités de la carte)
+ units: the limit (Options > Program options > Map unit limit)	 unités: la limite (Options > Options du programme > Limite d'unités de la carte)
 &Assets workspace	Espace de travail &Ressources
 &Briefing workspace	Espace de travail &Briefing
 &Project page	&Page du projet
@@ -2024,9 +2024,9 @@ Paste	Coller
 Copy all	Tout copier
 Select all	Tout sélectionner
 Could not find StarCraft on your system.	StarCraft est introuvable sur votre système.
-Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	Sélectionnez Parcourir pour trouver votre dossier StarCraft, ou Charger un mod pour utiliser un mod (Options du programme > Plugins).
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).	Sélectionnez Parcourir pour trouver votre dossier StarCraft, ou Charger un mod pour utiliser un mod (Options > Options du programme > Plugins).
 Load mod…	Charger un mod…
-Program options > Plugins: load a mod, as Cosmonarchy BW	Options du programme > Plugins: charger un mod, comme Cosmonarchy BW
+Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)	Charger un mod, comme Cosmonarchy BW (Options > Options du programme > Plugins)
 That folder has no StarCraft game data.	Ce dossier ne contient pas de données du jeu StarCraft.
 Select the StarCraft folder	Sélectionnez le dossier StarCraft
 Services	Services

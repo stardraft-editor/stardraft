@@ -188,7 +188,7 @@ void compileProject() {
     if (!dataCommitEdit()) return;
     EudProject* pr = activeProject();
     if (!app.ed || !pr) {
-        setMessage(L"Build needs an EUD project. Use File > Project > New project or Open project.");
+        setMessage(L"Build needs an EUD project. Use File > Project > New EUD project or Open project.");
         return;
     }
     if (gBuilding) {

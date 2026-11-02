@@ -40,7 +40,7 @@ inline std::wstring newProjectSketch(const std::wstring& name, bool output) {
         {n + L".scx", L"the map you edit here (Brood War format)"},
         {n + L".eds", L"euddraft's build file: Build writes it"},
         {n + L"_EUD.scx", output ? L"the built map: Build (Ctrl+B) writes it to the Output file" : L"the built map: Build (Ctrl+B) writes it"},
-        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add script."},
+        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add a script."},
     };
     size_t col = 0;
     for (const auto& r : rows) col = std::max(col, r.first.size());

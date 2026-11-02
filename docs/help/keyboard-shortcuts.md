@@ -253,7 +253,7 @@ Cosmonarchy BW mode.)
 | Ctrl+Shift+K, O | File > Project > Open project |
 | Ctrl+Shift+K, M | File > Project > Make this map a project |
 | Ctrl+Shift+K, I | File > Project > Import a project (experimental) |
-| Ctrl+Shift+K, S | File > Project > Add script |
+| Ctrl+Shift+K, S | File > Project > Add a script |
 | Ctrl+Shift+K, F | File > Project > Open project folder |
 | Ctrl+Shift+K, P | File > Project > Project settings |
 | Ctrl+Shift+K, X | File > Exit |

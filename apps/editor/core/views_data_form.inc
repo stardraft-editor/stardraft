@@ -302,7 +302,7 @@ inline void DataFormView::paint(draw::Canvas& c) {
     } else if (!tp) {
         c.text({x0, scale(40), rc.right - x0, rc.bottom},
                host_.projectOpen() ? L"Could not read the .dat file of the game" :
-                                     L"To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. "
+                                     L"To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. "
                                      L"File > Project > Open project opens one.",
                kDim, draw::kWrap);
     } else {

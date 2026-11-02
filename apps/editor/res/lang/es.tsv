@@ -88,7 +88,7 @@ Cascadia Mono	Cascadia Mono
 (older lines dropped)\r\n	(líneas antiguas eliminadas)\r\n
 ERROR  	ERROR  
 Log	Registro
-Build needs an EUD project. Use File > Project > New project or Open project.	Compilar necesita un proyecto EUD. Use Archivo > Proyecto > Nuevo proyecto o Abrir proyecto.
+Build needs an EUD project. Use File > Project > New EUD project or Open project.	Compilar necesita un proyecto EUD. Use Archivo > Proyecto > Nuevo proyecto EUD o Abrir proyecto.
 A build is already running	Ya hay una compilación en curso
 StarCraft will not start this map:\r\n\r\n	StarCraft no iniciará este mapa:\r\n\r\n
 \r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?	\r\nPara definir los jugadores, use Jugadores y fuerzas, en la página Propiedades. ¿Compilar el mapa de todos modos?
@@ -107,7 +107,7 @@ the map you edit here (Brood War format)	el mapa que se edita aquí (formato Bro
 euddraft's build file: Build writes it	archivo de compilación de euddraft: Compilar lo escribe
 the built map: Build (Ctrl+B) writes it to the Output file	el mapa compilado: Compilar (Ctrl+B) lo escribe en el archivo de salida
 the built map: Build (Ctrl+B) writes it	el mapa compilado: Compilar (Ctrl+B) lo escribe
-your code (epScript). To add more, use File > Project > Add script.	su código (epScript). Para añadir más, use Archivo > Proyecto > Añadir script.
+your code (epScript). To add more, use File > Project > Add a script.	su código (epScript). Para añadir más, use Archivo > Proyecto > Añadir un script.
 StarDraft 2 makes the folder 	StarDraft 2 crea la carpeta 
 \\ in the location above:\r\n\r\n	\\ en la ubicación de arriba:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nEn la primera compilación, StarDraft 2 descarga euddraft de GitHub a su propia carpeta.\r\nStarDraft 2 no cambia otras copias de este equipo. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
@@ -518,7 +518,7 @@ Can the player build this unit	Si el jugador puede construir esta unidad
 Is the technology available to the player	Si la tecnología está disponible para el jugador
 Does the player start with it researched	Si el jugador empieza con ella investigada
 Could not read the .dat file of the game	No se pudo leer el archivo .dat del juego
-To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	Para editar archivos .dat, use un proyecto EUD.\r\n\r\nArchivo > Proyecto > Nuevo proyecto crea uno a partir del mapa abierto. Archivo > Proyecto > Abrir proyecto abre uno.
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. File > Project > Open project opens one.	Para editar archivos .dat, use un proyecto EUD.\r\n\r\nArchivo > Proyecto > Convertir este mapa en proyecto crea uno. Archivo > Proyecto > Abrir proyecto abre uno.
 .dat entry 	Entrada .dat 
 Yes (	Sí (
 not used by this entry	no la usa esta entrada
@@ -540,7 +540,7 @@ Changed	Cambiado
 Triggers are in the Triggers workspace of a project.	Los disparadores están en el espacio de trabajo Disparadores de un proyecto.
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Aún no disponible: gráficos, sonidos, retratos y fuentes que se importan al mapa.
 Project: 	Proyecto: 
-No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	No hay ningún proyecto abierto. Archivo > Proyecto > Nuevo proyecto crea uno a partir del mapa abierto. Archivo > Proyecto > Abrir proyecto abre uno.
+No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	No hay ningún proyecto abierto. Archivo > Proyecto > Convertir este mapa en proyecto crea uno. Archivo > Proyecto > Abrir proyecto abre uno.
 Did not save the triggers: a newer StarDraft 2 made triggers.json	No se guardaron los disparadores: un StarDraft 2 más nuevo creó triggers.json
   (off)	  (desactivado)
 Added a variable. Press F2 to rename it.	Se añadió una variable. Pulse F2 para renombrarla.
@@ -880,7 +880,7 @@ Debug mode: Build adds index checks and the trace for epTrace (Project page > Bu
 &Open project…	&Abrir proyecto…
 &Make this map a project…	&Convertir este mapa en proyecto…
 &Build\tCtrl+B	&Compilar\tCtrl+B
-&Add script…	&Añadir script…
+&Add a script…	&Añadir un script…
 Open project &folder	Abrir &carpeta del proyecto
 Project &settings	&Configuración del proyecto
 &New project\tCtrl+N	&Nuevo proyecto\tCtrl+N
@@ -1813,7 +1813,7 @@ Maps	Mapas
 Open maps with StarDraft 2	Abrir mapas con StarDraft 2
 Make StarDraft 2 the program that opens .scm and .scx maps	Hacer de StarDraft 2 el programa que abre los mapas .scm y .scx
 Maps (.scm, .scx) open with StarDraft 2	Los mapas (.scm, .scx) se abren con StarDraft 2
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Puede hacer que StarDraft 2 los abra más tarde en Opciones del programa > Mapas.
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Puede hacer que StarDraft 2 los abra más tarde en Opciones > Opciones del programa > Mapas.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserva el programa que eligió para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2.
 Default apps	Aplicaciones predeterminadas
 The new language shows after a restart. Restart now? Your open maps and projects open again.	El nuevo idioma se muestra después de reiniciar. ¿Reiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo.
@@ -1834,7 +1834,7 @@ Un&pin	&Desfijar
  tiles)	 tiles)
  tiles: Brush, Spray and Fill place one of them at random	 tiles: Pincel, Spray y Relleno colocan uno de ellos al azar
  units: click to place them, and again to place more. Right-click or Esc stops.	 unidades: haga clic para colocarlas, y otra vez para colocar más. Clic derecho o Esc detiene.
- units: the limit (Program options > Map unit limit)	 unidades: el límite (Opciones del programa > Límite de unidades del mapa)
+ units: the limit (Options > Program options > Map unit limit)	 unidades: el límite (Opciones > Opciones del programa > Límite de unidades del mapa)
 &Assets workspace	Espacio de trabajo de &recursos
 &Briefing workspace	Espacio de trabajo de &briefing
 &Project page	&Página del proyecto
@@ -2024,9 +2024,9 @@ Paste	Pegar
 Copy all	Copiar todo
 Select all	Seleccionar todo
 Could not find StarCraft on your system.	No se encontró StarCraft en su sistema.
-Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	Seleccione Examinar para buscar la carpeta de StarCraft, o Cargar mod para usar un mod (Opciones del programa > Complementos).
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).	Seleccione Examinar para buscar la carpeta de StarCraft, o Cargar mod para usar un mod (Opciones > Opciones del programa > Complementos).
 Load mod…	Cargar mod…
-Program options > Plugins: load a mod, as Cosmonarchy BW	Opciones del programa > Complementos: cargar un mod, como Cosmonarchy BW
+Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)	Cargar un mod, como Cosmonarchy BW (Opciones > Opciones del programa > Complementos)
 That folder has no StarCraft game data.	Esa carpeta no tiene datos del juego de StarCraft.
 Select the StarCraft folder	Seleccione la carpeta de StarCraft
 Services	Servicios

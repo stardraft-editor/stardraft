@@ -84,7 +84,7 @@ Moved the tab "	Перемещена вкладка "
 (older lines dropped)\r\n	(старые строки удалены)\r\n
 ERROR  	ОШИБКА  
 Log	Журнал
-Build needs an EUD project. Use File > Project > New project or Open project.	Для сборки нужен проект EUD. Используйте Файл > Проект > Новый проект или Открыть проект.
+Build needs an EUD project. Use File > Project > New EUD project or Open project.	Для сборки нужен проект EUD. Используйте Файл > Проект > Новый проект EUD или Открыть проект.
 A build is already running	Сборка уже выполняется
 StarCraft will not start this map:\r\n\r\n	StarCraft не запустит эту карту:\r\n\r\n
 \r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?	\r\nЧтобы задать игроков, используйте раздел «Игроки и силы» на странице «Свойства». Всё равно собрать карту?
@@ -102,7 +102,7 @@ the project file	файл проекта
 the map you edit here (Brood War format)	карта, которую вы редактируете здесь (формат Brood War)
 euddraft's build file: Build writes it	файл сборки euddraft: его записывает «Сборка»
 the built map: Build (Ctrl+B) writes it	собранная карта: «Сборка» (Ctrl+B) записывает её
-your code (epScript). To add more, use File > Project > Add script.	ваш код (epScript). Чтобы добавить ещё, используйте Файл > Проект > Добавить скрипт.
+your code (epScript). To add more, use File > Project > Add a script.	ваш код (epScript). Чтобы добавить ещё, используйте Файл > Проект > Добавить скрипт.
 StarDraft 2 makes the folder 	StarDraft 2 создаёт папку 
 \\ in the location above:\r\n\r\n	\\ в указанном выше месте:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПри первой сборке StarDraft 2 загружает euddraft с GitHub в свою папку.\r\nStarDraft 2 не меняет другие копии на этом компьютере. Карта, которую вы открываете,\r\nостаётся обычной картой. Собрать можно только проект.
@@ -497,7 +497,7 @@ Can the player build this unit	Может ли игрок построить э�
 Is the technology available to the player	Доступна ли игроку эта технология
 Does the player start with it researched	Начинает ли игрок с уже исследованной технологией
 Could not read the .dat file of the game	Не удалось прочитать файл .dat игры
-To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	Чтобы редактировать файлы .dat, используйте проект EUD.\r\n\r\nФайл > Проект > Новый проект создаёт проект из открытой карты. Файл > Проект > Открыть проект открывает проект.
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. File > Project > Open project opens one.	Чтобы редактировать файлы .dat, используйте проект EUD.\r\n\r\nФайл > Проект > Сделать эту карту проектом создаёт проект. Файл > Проект > Открыть проект открывает проект.
 .dat entry 	.dat, запись 
 Yes (	Да (
 not used by this entry	не используется этой записью
@@ -519,7 +519,7 @@ Changed	Изменено
 Triggers are in the Triggers workspace of a project.	Триггеры находятся в рабочем пространстве «Триггеры» проекта.
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Пока недоступно: графика, звуки, портреты и шрифты, которые вы импортируете в карту.
 Project: 	Проект: 
-No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	Проект не открыт. Файл > Проект > Новый проект создаёт проект из открытой карты. Файл > Проект > Открыть проект открывает проект.
+No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	Проект не открыт. Файл > Проект > Сделать эту карту проектом создаёт проект. Файл > Проект > Открыть проект открывает проект.
 Did not save the triggers: a newer StarDraft 2 made triggers.json	Триггеры не сохранены: более новая версия StarDraft 2 создала triggers.json
   (off)	  (выкл.)
 Added a variable. Press F2 to rename it.	Добавлена переменная. Нажмите F2, чтобы переименовать её.
@@ -844,7 +844,7 @@ Debug mode: Build adds index checks and the trace for epTrace (Project page > Bu
 &Open project…	&Открыть проект…
 &Make this map a project…	&Сделать эту карту проектом…
 &Build\tCtrl+B	Со&брать\tCtrl+B
-&Add script…	&Добавить скрипт…
+&Add a script…	&Добавить скрипт…
 Open project &folder	Открыть &папку проекта
 Project &settings	&Настройки проекта
 &New project\tCtrl+N	&Новый проект\tCtrl+N
@@ -1719,7 +1719,7 @@ Text color	Цвет текста
  tiles)	 тайл(ов))
  tiles: Brush, Spray and Fill place one of them at random	 тайл(ов): Кисть, Спрей и Заливка ставят один из них случайно
  units: click to place them, and again to place more. Right-click or Esc stops.	 юнит(ов): щёлкните, чтобы разместить, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
- units: the limit (Program options > Map unit limit)	 юнит(ов): предел (Параметры программы > Предел юнитов карты)
+ units: the limit (Options > Program options > Map unit limit)	 юнит(ов): предел (Параметры > Параметры программы > Предел юнитов карты)
 &Assets workspace	Рабочая область &ресурсов
 &Briefing workspace	Рабочая область &брифингов
 &Project page	&Страница проекта
@@ -1864,7 +1864,7 @@ Accept: 	Accept:
 A value in the text is missing. Insert it again.	В тексте не хватает значения. Вставьте его снова.
 Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	Поместите «Паузу» в последовательность: вне последовательности она ничего не делает. Чтобы ждать вне последовательности, используйте «После задержки».
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	Заливка: щёлкните в выделении, чтобы залить всё выделение. Щёлкните в другом месте, чтобы залить связанные тайлы, совпадающие со щёлкнутым тайлом. Shift+щелчок заливает каждый совпадающий тайл (в выделении, если оно есть). Если в списке тайлов выбрано несколько тайлов, заливка повторяет их как узор.
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	Открывать карты .scm и .scx в StarDraft 2 при двойном щелчке по ним? Позже это можно настроить в разделе «Параметры программы > Карты».
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	Открывать карты .scm и .scx в StarDraft 2 при двойном щелчке по ним? Позже это можно настроить в разделе «Параметры > Параметры программы > Карты».
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	Кисть: ставит тайл, выбранный в списке тайлов, с размером и формой кисти. Если выбрано несколько тайлов, кисть ставит их так, как они расположены в списке; удерживайте Shift, чтобы ставить их случайно.
 . At the next start, StarDraft 2 asks if you want to send the crash report.	. При следующем запуске StarDraft 2 спросит, хотите ли вы отправить отчёт о сбое.
 &Pin to the top	&Закрепить вверху
@@ -2024,9 +2024,9 @@ Paste	Вставить
 Copy all	Копировать всё
 Select all	Выделить всё
 Could not find StarCraft on your system.	Не удалось найти StarCraft в системе.
-Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	Нажмите «Обзор», чтобы найти папку StarCraft, или «Загрузить мод», чтобы использовать мод (Параметры программы > Плагины).
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).	Нажмите «Обзор», чтобы найти папку StarCraft, или «Загрузить мод», чтобы использовать мод (Параметры > Параметры программы > Плагины).
 Load mod…	Загрузить мод…
-Program options > Plugins: load a mod, as Cosmonarchy BW	Параметры программы > Плагины: загрузить мод, например Cosmonarchy BW
+Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)	Загрузить мод, например Cosmonarchy BW (Параметры > Параметры программы > Плагины)
 That folder has no StarCraft game data.	В этой папке нет игровых данных StarCraft.
 Select the StarCraft folder	Выберите папку StarCraft
 Services	Службы

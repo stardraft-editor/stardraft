@@ -84,7 +84,7 @@ Moved the tab "	已移动标签页 "
 (older lines dropped)\r\n	(较早的行已删除)\r\n
 ERROR  	错误  
 Log	日志
-Build needs an EUD project. Use File > Project > New project or Open project.	构建需要 EUD 项目。请使用 文件 > 项目 > 新建项目 或 打开项目。
+Build needs an EUD project. Use File > Project > New EUD project or Open project.	构建需要 EUD 项目。请使用 文件 > 项目 > 新建 EUD 项目 或 打开项目。
 A build is already running	构建已在运行
 StarCraft will not start this map:\r\n\r\n	StarCraft 无法启动此地图：\r\n\r\n
 \r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?	\r\n若要设置玩家，请使用 “属性”页面中的玩家和势力。仍要构建地图吗？
@@ -102,7 +102,7 @@ the project file	项目文件
 the map you edit here (Brood War format)	在此编辑的地图(Brood War 格式)
 euddraft's build file: Build writes it	euddraft 的构建文件：构建会写入它
 the built map: Build (Ctrl+B) writes it	构建后的地图：构建(Ctrl+B)会写入它
-your code (epScript). To add more, use File > Project > Add script.	你的代码 (epScript)。要添加更多，请使用 文件 > 项目 > 添加脚本。
+your code (epScript). To add more, use File > Project > Add a script.	你的代码 (epScript)。要添加更多，请使用 文件 > 项目 > 添加脚本。
 StarDraft 2 makes the folder 	StarDraft 2 将创建文件夹 
 \\ in the location above:\r\n\r\n	\\ 在上面的位置：\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次编译时，StarDraft 2 会从 GitHub 把 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会改动这台电脑上的其他副本。你打开的地图\r\n仍然是普通地图。只能编译项目。
@@ -497,7 +497,7 @@ Can the player build this unit	玩家能否建造此单位
 Is the technology available to the player	此科技对玩家是否可用
 Does the player start with it researched	玩家开局时是否已研究此科技
 Could not read the .dat file of the game	无法读取游戏的 .dat 文件
-To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	要编辑 .dat 文件，请使用 EUD 项目。\r\n\r\n文件 > 项目 > 新建项目 会从打开的地图创建项目。文件 > 项目 > 打开项目 会打开一个项目。
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. File > Project > Open project opens one.	要编辑 .dat 文件，请使用 EUD 项目。\r\n\r\n文件 > 项目 > 将此地图设为项目 会创建项目。文件 > 项目 > 打开项目 会打开一个项目。
 .dat entry 	.dat 条目 
 Yes (	是 (
 not used by this entry	此条目不使用
@@ -519,7 +519,7 @@ Changed	已更改
 Triggers are in the Triggers workspace of a project.	触发器位于项目的触发器工作区中。
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	暂不可用：导入到地图中的图形、声音、头像和字体。
 Project: 	项目: 
-No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	没有打开的项目。文件 > 项目 > 新建项目 会从打开的地图创建项目。文件 > 项目 > 打开项目 会打开一个项目。
+No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	没有打开的项目。文件 > 项目 > 将此地图设为项目 会创建项目。文件 > 项目 > 打开项目 会打开一个项目。
 Did not save the triggers: a newer StarDraft 2 made triggers.json	未保存触发器：更新版本的 StarDraft 2 创建了 triggers.json
   (off)	  (关闭)
 Added a variable. Press F2 to rename it.	已添加变量。按 F2 重命名。
@@ -846,7 +846,7 @@ Debug mode: Build adds index checks and the trace for epTrace (Project page > Bu
 &Open project…	打开项目(&O)…
 &Make this map a project…	将此地图设为项目(&M)…
 &Build\tCtrl+B	生成(&B)\tCtrl+B
-&Add script…	添加脚本(&A)…
+&Add a script…	添加脚本(&A)…
 Open project &folder	打开项目文件夹(&F)
 Project &settings	项目设置(&S)
 &New project\tCtrl+N	新建项目(&N)\tCtrl+N
@@ -1719,7 +1719,7 @@ Text color	文字颜色
  tiles)	 个图块)
  tiles: Brush, Spray and Fill place one of them at random	 个图块：画笔、喷涂和填充各随机放置其中之一
  units: click to place them, and again to place more. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。右键单击或按 Esc 停止。
- units: the limit (Program options > Map unit limit)	 个单位：上限（程序选项 > 地图单位上限）
+ units: the limit (Options > Program options > Map unit limit)	 个单位：上限（选项 > 程序选项 > 地图单位上限）
 &Assets workspace	资源工作区(&A)
 &Briefing workspace	简报工作区(&B)
 &Project page	项目页面(&P)
@@ -1862,7 +1862,7 @@ Accept: 	Accept:
 A value in the text is missing. Insert it again.	文本中缺少一个值。请重新插入。
 Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	将暂停放入序列中：在序列外，它不起作用。若要在序列外等待，请使用“延迟后”。
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	填充：点击选区内以填充整个选区。点击其他位置会填充与被点击图块相连且相同的图块。Shift+点击会填充所有匹配的图块(若有选区，则仅限选区内)。若在图块列表中选择了多个图块，填充会将它们作为图案重复。
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 程序选项 > 地图 中设置。
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 选项 > 程序选项 > 地图 中设置。
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	笔刷：以笔刷的大小和形状放置图块列表中选中的图块。选中多个图块时，笔刷按它们在列表中的排列放置；按住 Shift 可随机放置。
 . At the next start, StarDraft 2 asks if you want to send the crash report.	。下次启动时，StarDraft 2 会询问您是否要发送崩溃报告。
 &Pin to the top	置顶(&P)
@@ -2024,9 +2024,9 @@ Paste	粘贴
 Copy all	全部复制
 Select all	全选
 Could not find StarCraft on your system.	在您的系统上找不到 StarCraft。
-Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	选择“浏览”查找 StarCraft 文件夹，或选择“加载模组”以使用模组（程序选项 > 插件）。
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).	选择“浏览”查找 StarCraft 文件夹，或选择“加载模组”以使用模组（选项 > 程序选项 > 插件）。
 Load mod…	加载模组…
-Program options > Plugins: load a mod, as Cosmonarchy BW	程序选项 > 插件：加载模组，例如 Cosmonarchy BW
+Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)	加载模组，例如 Cosmonarchy BW（选项 > 程序选项 > 插件）
 That folder has no StarCraft game data.	该文件夹中没有 StarCraft 游戏数据。
 Select the StarCraft folder	选择 StarCraft 文件夹
 Services	服务
