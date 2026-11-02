@@ -159,12 +159,14 @@ uint64_t animNowMs() {
 uint64_t gAnimLast = 0;
 constexpr uint64_t kTickMs = 42;
 
+// (the key has the graphics too: a unit that the remake plan makes or keeps after another unit's change gets the
+// animation of its new image)
+uint64_t unitAnimKey(const Unit& u) { return uint64_t(keepsGameGraphics(u)) << 63 | uint64_t(u.serial) << 16 | u.type; }
+
 UnitAnim& unitAnim(const Unit& u) {
     AppState& app = shellState();
     UnitSprites& sp = app.ed->unitSprites();
-    // (the key has the graphics too: a unit that the remake plan makes or keeps after another unit's change gets the
-    // animation of its new image)
-    auto [it, fresh] = gAnims.try_emplace(uint64_t(keepsGameGraphics(u)) << 63 | uint64_t(u.serial) << 16 | u.type);
+    auto [it, fresh] = gAnims.try_emplace(unitAnimKey(u));
     if (fresh) {
         const bool building = u.type < app.ed->unitTypes().size() && app.ed->unitTypes()[u.type].is(UnitFlag::Building);
         const int image = mapUnitImage(sp, u), sub = mapSubunitImage(sp, u), era = app.ed->tileset().era;
@@ -542,13 +544,27 @@ render::Scene buildScene() {
     addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
     addProtectedLayer(ed, s);  // (View > Layers > Protected terrain: core/protected_layer.inc)
 
+    // Only what can show in the view is drawn: the map's sprites and units whose point is in the view or less than
+    // kSpriteReach map pixels out of it. (A picture reaches at most 256 pixels from its point: a GRP frame's place and
+    // size in its box are bytes, in the game's data at most 128; its overlays and turret are at most 128 more each:
+    // iscript's offsets are signed bytes.)
+    constexpr float kSpriteReach = 512;
+    int viewW, viewH;
+    viewSize(viewW, viewH);
+    const float viewZoom = std::max(app.zoom, 0.001f);
+    const float viewX0 = app.camX - kSpriteReach, viewY0 = app.camY - kSpriteReach;
+    const float viewX1 = app.camX + float(viewW) / viewZoom + kSpriteReach, viewY1 = app.camY + float(viewH) / viewZoom + kSpriteReach;
+    auto inView = [&](float x, float y) { return x >= viewX0 && x <= viewX1 && y >= viewY0 && y <= viewY1; };
+
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
     std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;  // (x, y, sprite) of the doodads' overlays
     if (gLayers.doodads != gLayers.sprites)
         for (const Doodad& dd : ed.doodads())
             if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
-    for (const MapSprite& m : gLiveScene ? std::vector<MapSprite>{} : ed.sprites()) {
+    for (const MapSprite& m : ed.sprites()) {
+        if (gLiveScene) break;
+        if (!inView(m.x, m.y)) continue;
         if (!gLayers.doodads || !gLayers.sprites) {
             const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
             if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
@@ -575,6 +591,11 @@ render::Scene buildScene() {
             if (!moving[i]) others.push_back(units[i]);
     }
     ed.setMapRevealersHidden(!gLayers.revealers);  // (the layer's state: the revealers are not picked while hidden)
+    // (a unit out of the view keeps its idle animation: it goes on where it was when the unit comes into the view)
+    auto keepAnim = [&](const Unit& u) {
+        if (gAnims.empty()) return;
+        if (const auto it = gAnims.find(unitAnimKey(u)); it != gAnims.end()) it->second.seen = gSceneNo;
+    };
     for (size_t i = 0; i < units.size() && gLayers.units && !gLiveScene; ++i) {
         if (!gLayers.revealers && units[i].type == kMapRevealerUnit) continue;
         bool sel = (moveDX || moveDY) && moving[i];
@@ -584,8 +605,16 @@ render::Scene buildScene() {
             moved.x = uint16_t(std::clamp(int(std::lround(moved.x + moveDX)), 0, ed.width() * 32 - 1));
             moved.y = uint16_t(std::clamp(int(std::lround(moved.y + moveDY)), 0, ed.height() * 32 - 1));
             if (moved.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[moved.type], moved.x, moved.y);
+            if (!inView(moved.x, moved.y)) {
+                keepAnim(moved);
+                continue;
+            }
             red = !app.allowIllegalUnits && !checkPlacement(ed.placementContext(&others), moved).empty();
             addUnitSprites(s, moved, 0, 0, 1, red, true);
+            continue;
+        }
+        if (!inView(units[i].x, units[i].y)) {
+            keepAnim(units[i]);
             continue;
         }
         addUnitSprites(s, units[i], 0, 0, 1, false, true);
@@ -637,6 +666,7 @@ render::Scene buildScene() {
     // Selection boxes.
     // Selected units: the game's selection circle under the unit (the box where a unit has none).
     for (int i : ed.selection()) {
+        if (!inView(units[i].x + moveDX, units[i].y + moveDY)) continue;
         int img, off;
         if (sp.selectionCircle(units[i].type, img, off)) {
             // Where the unit is drawn: while dragging, its moved position snapped like the unit itself
