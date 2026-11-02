@@ -224,6 +224,7 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
     if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
+    if (terrain && has) item(ID_CREATE_MIRRORED, L"Create mirrored version", L"Ctrl+Shift+M", true);
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
     // (as the status bar shows it: tileValueText; with a selection, each of its tiles)
     if (terrain) item(ID_MAPMENU_COPYTILE, has ? L"Copy tile &values" : L"Copy tile &value", L"", true);

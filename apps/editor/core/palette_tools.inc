@@ -6,6 +6,7 @@
 
 void tilesSync();  // (tiles_view.inc: the Win32 TU until it moves into the core)
 void setMode(Mode m);
+void cancelMirroredCopy();
 // setMode's host parts (shell_win32.inc; the SDL host has no docked palettes yet): the side the mode's tools are docked
 // on, with the palette's view of the mode, and the windows that the mode shows (the Map workspace's).
 void shellModeSide(Mode m);
@@ -398,6 +399,7 @@ int selectPalette(AppState& app, int value) {
 // on the map places one (Spray and Replace keep their tool: they use the pick too). Ctrl adds units to
 // the pick (or removes them) for sprays.
 void pickUnit(AppState& app, int v, bool add) {
+    cancelMirroredCopy();
     if (!app.ed || v < 0) return;
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it. Ctrl adds it to the picks (or
@@ -572,6 +574,7 @@ bool inSelection() {
 // To the active mode's selection: its Select tool, nothing picked, no paste following the mouse (Esc, the Select
 // button, entering a mode).
 void enterSelection() {
+    cancelMirroredCopy();
     AppState& app = appState();
     for (const StripItem& it : stripTools(app.mode))
         if (it.select) app.toolByMode[int(app.mode)] = it.tool;
@@ -589,7 +592,7 @@ void enterSelection() {
 struct PanelState;
 PanelState* panelHomeOf(Mode m);
 void activatePanel(PanelState* p);
-void setMode(Mode m) { activatePanel(panelHomeOf(m)); }
+void setMode(Mode m) { cancelMirroredCopy(); activatePanel(panelHomeOf(m)); }
 
 // The palette's selection: the picked units or terrains (Ctrl+click), else the one picked; in Locations, the rows the
 // list has selected.
