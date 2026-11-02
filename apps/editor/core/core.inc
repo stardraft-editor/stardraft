@@ -16,6 +16,7 @@
 #include "palette_tools.inc"
 #include "kit_paint.inc"
 #include "item_focus.inc"  // the keyboard focus on a view's own parts: Tab between them, Enter and Space, the outline
+#include "kit_surface.inc"  // the kit's controls painted on a view, with their click areas (kitui::Surface)
 #include "views_loading.inc"  // the map's loading view: the file, a progress bar and the steps (openMap)
 #include "documents.inc"
 #include "cmbw.inc"  // Cosmonarchy BW maps: tabs with the mod's data (src/mods/cmbw.cpp)
@@ -128,7 +129,6 @@
 #include "views_changelog.inc"  // the release notes window (the top bar's Update, Help > What is new): the HTML view (html_view.h)
 #include "views_help.inc"  // the help window (Help > Documentation, F1): the pages of docs/help in the HTML view
 #include "views_tip.inc"
-#include "kit_surface.inc"
 #include "views_kit_gallery.inc"
 #include "title.inc"
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)

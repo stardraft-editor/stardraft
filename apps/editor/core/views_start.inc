@@ -149,7 +149,7 @@ public:
         using draw::Face;
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kBg);
-        hits_.clear();
+        surface_.begin();
         const bool banner = installMissing && !modReady;
         if (!banner && browse_.visible()) {
             if (browse_.hasFocus()) focus();  // (the keys go to the cards again)
@@ -210,13 +210,13 @@ public:
             c.text({card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, cardText(k), enabled ? kDim : kFaint, kWrap | kLeft);
             if (enabled) {
                 ++cardsEnabled_;
-                hits_.push_back({card, [this, k] {
-                                     if (k == 3) {
-                                         if (onCosmonarchy) onCosmonarchy();
-                                     } else if (onCard) onCard(k);
-                                 }, L"", Cursor::Hand, std::wstring(L"the ") + cardName(k) + L" card"});
+                surface_.add({card, nullptr, [this, k] {
+                                  if (k == 3) {
+                                      if (onCosmonarchy) onCosmonarchy();
+                                  } else if (onCard) onCard(k);
+                              }, L"", Cursor::Hand, nullptr, std::wstring(L"the ") + cardName(k) + L" card"});
             } else {
-                hits_.push_back({card, nullptr,
+                surface_.add({card, nullptr, nullptr,
                                  !soon ? (cosmonarchyOnly ? L"Select the Cosmonarchy BW folder first (Options > Program options > Plugins)"
                                                           : L"Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files")
                                  : k == 2 ? L"Campaign projects come in a later version"
@@ -251,10 +251,10 @@ public:
             const Rect r{x1, y, x1 + cw, y + rowH};
             const bool over = hot(r);
             if (over) c.fill(r, kRowHot);  // the list row under the mouse
-            hits_.push_back({r, [this, project, i] {
-                                 if (onOpenRecent) onOpenRecent(project, i);
-                             },
-                             fs::path(it.path).make_preferred().wstring(), Cursor::Hand});
+            surface_.add({r, nullptr, [this, project, i] {
+                              if (onOpenRecent) onOpenRecent(project, i);
+                          },
+                          fs::path(it.path).make_preferred().wstring(), Cursor::Hand});
             c.icon({x1 + scale(8), r.top + (rowH - scale(16)) / 2, x1 + scale(24), r.top + (rowH - scale(16)) / 2 + scale(16)},
                    int(project ? UiIcon::Project : UiIcon::Map), kDim, scale(16));
             // Remove: under the mouse; always where the file is not found (the one thing to do with it).
@@ -316,25 +316,11 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
-        case draw::MouseKind::Move:
-        case draw::MouseKind::Leave: {  // a row or a card under the mouse is painted again
-            const int hv = e.kind == draw::MouseKind::Leave ? -1 : hitAt(e.pt);
-            if (hv != hover_) hover_ = hv, invalidate();
-            return false;
-        }
-        case draw::MouseKind::Down:
-            if (e.button != 0) return false;
-            if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].click) {
-                // A copy: the click may repaint, which clears hits_ (and would destroy the function while it runs).
-                const std::function<void()> run = hits_[size_t(hi)].click;
-                run();
-                return true;
-            }
-            return false;
         case draw::MouseKind::Wheel:
             scrollBy(-int(draw::wheelDistance(e, float(scale(32) * 3))));
             return true;
-        default: return false;
+        case draw::MouseKind::DoubleClick: return false;  // (a card or a row opens once)
+        default: return surface_.mouse(*this, e);  // a row or a card under the mouse is painted again
         }
     }
 
@@ -380,39 +366,14 @@ public:
     void focusChanged(bool) override { invalidate(); }
     // The hover tooltip: a recent row shows its path, a disabled card and Open their tips (an enabled card has none).
     bool hoverTip() const override { return true; }
-    draw::Cursor cursor(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        return hi >= 0 ? hits_[size_t(hi)].cursor : draw::Cursor::Arrow;
-    }
-    std::wstring tip(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        return hi >= 0 ? hits_[size_t(hi)].tip : std::wstring();
-    }
+    draw::Cursor cursor(draw::Point pt) override { return surface_.cursor(pt); }
+    std::wstring tip(draw::Point pt) override { return surface_.tip(pt); }
     // Report feedback names what is under the mouse: an enabled card by its name (it has no tip), else the tip.
-    std::wstring feedbackName(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        if (hi < 0) return {};
-        const Hit& h = hits_[size_t(hi)];
-        return h.name.empty() ? h.tip : h.name;
-    }
+    std::wstring feedbackName(draw::Point pt) override { return surface_.feedbackName(pt); }
 
     int scrollPos() const { return scroll_; }  // (how far the page is scrolled down, in pixels)
 
 private:
-    struct Hit {
-        draw::Rect r;
-        std::function<void()> click;
-        std::wstring tip;
-        draw::Cursor cursor = draw::Cursor::Arrow;
-        std::wstring name;  // what Report feedback names here, when it is not the tip (an enabled card)
-    };
-
-    // The last hit under `pt` (the top one), or -1.
-    int hitAt(draw::Point pt) const {
-        for (size_t i = hits_.size(); i-- > 0;)
-            if (hits_[i].r.contains(pt)) return int(i);
-        return -1;
-    }
     // Whether the mouse is in `r` (the host's pointer, in this view's coordinates).
     bool hot(draw::Rect r) const { return host() && r.contains(host()->mouse(*this)); }
 
@@ -470,8 +431,7 @@ private:
     StartButton loadMod_;           // the banner's Load mod (shown with the banner, when the host gives onLoadMod)
     bool bannerShown_ = false;
     std::vector<std::unique_ptr<StartRemove>> removes_;
-    std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)
-    int hover_ = -1;                // the hit under the mouse at the last move
+    kitui::Surface surface_;        // what each paint put under the mouse
     int card_ = 0;
     // The cards the keys reach: the two projects, and Cosmonarchy map (the fourth) when it shows.
     int firstCard() const { return cosmonarchyOnly ? 3 : 0; }

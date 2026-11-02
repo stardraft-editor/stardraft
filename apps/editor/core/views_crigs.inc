@@ -217,7 +217,7 @@ public:
 
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
-        hits_.clear();
+        surface_.begin();
         const int step = scale(stardraft::kit::kFormRowH), rowH = scale(stardraft::kit::kFieldH);
         c.text({0, 0, width(), rowH}, single_ ? tr(L"Command") : tr(L"Commands in this comment"), kText,
                draw::kMiddle);
@@ -230,8 +230,8 @@ public:
             auto problem = [&](size_t k) { return note ? std::wstring() : widen(stardraft::cmbw::crigValueProblem(l, k, info_)); };
             int x = 0;
             const draw::Rect del{width() - rowH, y, width(), y + rowH};
-            kitpaint::drawIconFace(c, del, UiIcon::Delete, kitpaint::Tone::Danger, false, del.contains(mouse_));
-            hits_.push_back({del, [this, i] { deleteLine(int(i)); }, tr(L"Delete this command")});
+            kitpaint::drawIconFace(c, del, UiIcon::Delete, kitpaint::Tone::Danger, false, surface_.hot(del));
+            surface_.add({del, nullptr, [this, i] { deleteLine(int(i)); }, tr(L"Delete this command")});
             const int right = del.left - scale(8);
             if (!l.command) {  // plain text
                 chip(c, x, y, right, tr(L"Text"), widen(lines_[i]), [this, i] { editPlain(int(i)); });
@@ -271,39 +271,21 @@ public:
         }
         if (single_) return;  // (a row: the lists' Add adds commands)
         const draw::Rect addRow{0, y, std::min(width(), scale(320)), y + rowH};
-        kitpaint::drawAddRowFace(c, addRow, tr(L"Add a command"), addRow.contains(mouse_));
-        hits_.push_back({addRow, [this] { addCommand(); }, tr(L"A Cosmonarchy command or condition, as a new line of the comment")});
+        kitpaint::drawAddRowFace(c, addRow, tr(L"Add a command"), surface_.hot(addRow));
+        surface_.add({addRow, nullptr, [this] { addCommand(); }, tr(L"A Cosmonarchy command or condition, as a new line of the comment")});
     }
 
     bool mouse(const draw::MouseEvent& e) override {
-        mouse_ = e.pt;
-        if (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Leave) return invalidate(), true;
-        if (e.kind == draw::MouseKind::Down && e.button == 0)
-            for (const Hit& h : hits_)
-                if (h.r.contains(e.pt)) {
-                    auto run = h.run;  // (the run may paint the view again)
-                    run();
-                    return true;
-                }
-        return false;
+        return e.kind != draw::MouseKind::DoubleClick && surface_.mouse(*this, e);  // (a second quick press does not delete a second line)
     }
-    std::wstring tip(draw::Point p) override {
-        for (const Hit& h : hits_)
-            if (h.r.contains(p)) return h.tip;
-        return L"";
-    }
+    draw::Cursor cursor(draw::Point p) override { return surface_.cursor(p); }
+    std::wstring tip(draw::Point p) override { return surface_.tip(p); }
 
 private:
-    struct Hit {
-        draw::Rect r;
-        std::function<void()> run;
-        std::wstring tip;
-    };
     CtPageHost* host_ = nullptr;
     std::vector<std::string> lines_;
     bool single_ = false;  // a Cosmonarchy command's row (its one line), not a Comment's lines
-    std::vector<Hit> hits_;
-    draw::Point mouse_{-1, -1};
+    kitui::Surface surface_;
     draw::Rect lastChip_{};
     stardraft::cmbw::CrigMapInfo info_;
 
@@ -318,10 +300,10 @@ private:
         x += lw;
         const int vw = std::min(c.measure(value) + 2 * pad, std::max(scale(30), std::min(scale(260), right - x)));
         const draw::Rect r{x, y + scale(2), x + vw, y + rowH - scale(2)};
-        kitpaint::drawChipFace(c, r, r.contains(mouse_), false);
+        kitpaint::drawChipFace(c, r, surface_.hot(r), false);
         c.text({r.left + pad, r.top, r.right - pad, r.bottom}, value, problem.empty() ? kAccent : kBad, draw::kMiddle | draw::kEllipsis);
         if (!problem.empty()) c.fill({r.left, r.bottom, r.right, r.bottom + scale(2)}, kBad);  // (a mark under it: its tip says why)
-        hits_.push_back({r, [this, r, run] { lastChip_ = r, run(); }, problem.empty() ? name : problem});
+        surface_.add({r, nullptr, [this, r, run] { lastChip_ = r, run(); }, problem.empty() ? name : problem});
         return r.right + scale(10);
     }
 
