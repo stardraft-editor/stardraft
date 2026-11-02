@@ -362,18 +362,43 @@ PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt
                 Box b = placementBox(types[u.type], u.x, u.y);
                 keepOut.push_back({b.left - 96, b.top - 96, b.right + 96, b.bottom + 96});
             }
-        // The town hall's place for the resources of b; false if there is none.
+        // The ground level of a tile: the level of most of its walkable minitiles (-1: none is walkable).
+        auto tileLevel = [&](int tx, int ty) {
+            int n[3] = {};
+            for (int my = ty * 4; my < ty * 4 + 4; ++my)
+                for (int mx = tx * 4; mx < tx * 4 + 4; ++mx)
+                    if (a.grid.inside(mx, my) && (a.grid.cells[size_t(my) * a.grid.width + mx] & WalkGrid::kTerrainWalkable)) ++n[a.grid.elevation(mx, my)];
+            if (!n[0] && !n[1] && !n[2]) return -1;
+            return n[2] > n[1] && n[2] > n[0] ? 2 : n[1] > n[0] ? 1 : 0;
+        };
+        // The level of most of the resources of b (each by the tiles under its box).
+        auto resourceLevel = [&](const Base& b) {
+            int n[3] = {};
+            for (int i : b.resources) {
+                const Box box = placementBox(types[units[size_t(i)].type], units[size_t(i)].x, units[size_t(i)].y);
+                int m[3] = {};
+                for (int y = std::max(0, box.top / 32); y < std::min(mapH, (box.bottom + 31) / 32); ++y)
+                    for (int x = std::max(0, box.left / 32); x < std::min(mapW, (box.right + 31) / 32); ++x)
+                        if (const int l = tileLevel(x, y); l >= 0) ++m[l];
+                if (m[0] || m[1] || m[2]) ++n[m[2] > m[1] && m[2] > m[0] ? 2 : m[1] > m[0] ? 1 : 0];
+            }
+            return n[2] > n[1] && n[2] > n[0] ? 2 : n[1] > n[0] ? 1 : 0;
+        };
+        // The town hall's place for the resources of b; false if there is none. The place is on the resources' level
+        // when one is there (a town hall below or above a cliff does not mine them).
         auto findHall = [&](Base& b) {
             double cx = 0, cy = 0;
             for (int i : b.resources) cx += units[size_t(i)].x, cy += units[size_t(i)].y;
             cx /= double(b.resources.size()), cy /= double(b.resources.size());
             double bestScore = std::numeric_limits<double>::infinity();
             const int ctx = int(cx / 32), cty = int(cy / 32);
+            const int level = resourceLevel(b);
+            for (int pass = 0; pass < 2 && !std::isfinite(bestScore); ++pass)
             for (int ty = std::max(0, cty - 11); ty <= std::min(mapH - 3, cty + 9); ++ty)
                 for (int tx = std::max(0, ctx - 12); tx <= std::min(mapW - 4, ctx + 9); ++tx) {
                     bool fits = true;
                     for (int y = ty; y < ty + 3 && fits; ++y)
-                        for (int x = tx; x < tx + 4 && fits; ++x) fits = freeTiles[size_t(y) * mapW + x] != 0;
+                        for (int x = tx; x < tx + 4 && fits; ++x) fits = freeTiles[size_t(y) * mapW + x] != 0 && (pass || tileLevel(x, y) == level);
                     if (!fits) continue;
                     const Box hall{tx * 32, ty * 32, tx * 32 + 128, ty * 32 + 96};
                     for (const Box& k : keepOut)
