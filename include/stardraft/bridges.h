@@ -32,6 +32,9 @@ struct BridgePlan {
     bool u = false;
     int length = 0, width = 0;   // in middle pieces (0: size 0.5)
     std::vector<Editor::TileAt> tiles;
+    // No bridge (after the drag started on the map): a bridge as long as the drag, with its middle on the drag's middle,
+    // for a preview of where it goes (the tiles on the map only).
+    std::vector<Editor::TileAt> draft;
 };
 
 // The bridge that a drag from map pixel (x0, y0) to (x1, y1) makes: the drag goes from ground over water to the ground

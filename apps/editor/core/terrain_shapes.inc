@@ -21,6 +21,7 @@ struct TerrainShape {
     // places (before the mirrors' images). made: they are of the points madeFor on the map's revision madeRevision.
     std::vector<std::pair<int, uint16_t>> ghost;
     std::vector<Editor::TileAt> cells;
+    std::vector<std::pair<int, int>> red;  // Bridge: the tiles (x, y) where a bridge goes that does not fit there yet
     std::vector<std::pair<int, int>> madeFor;
     std::vector<int64_t> madeKey;  // (shapeSettingsKey)
     bool made = false;
@@ -201,6 +202,7 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     const Editor& ed = *appState().ed;
     const BridgePlan p = planBridge(ed, pts.front().first, pts.front().second, pts.back().first, pts.back().second, bridgeWidth(), gShape.seed);
     const std::wstring ground = tr(widen(p.ground)), water = tr(widen(p.water));  // (the terrains' names, as the list shows them)
+    for (const Editor::TileAt& c : p.draft) gShape.red.push_back({c.x, c.y});  // (no bridge yet: where one goes, in red)
     switch (p.problem) {
     case BridgePlan::Problem::None: break;
     case BridgePlan::Problem::NoKit: return setMessage(L"This tileset has no bridges");
@@ -215,7 +217,10 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     case BridgePlan::Problem::OffMap: return setMessage(L"The bridge does not fit on the map");
     }
     for (const Editor::TileAt& c : p.tiles)
-        if (ed.tileProtected(c.x, c.y)) return setMessage(L"Part of the bridge is on protected tiles");
+        if (ed.tileProtected(c.x, c.y)) {
+            for (const Editor::TileAt& r : p.tiles) gShape.red.push_back({r.x, r.y});
+            return setMessage(L"Part of the bridge is on protected tiles");
+        }
     for (const Editor::TileAt& c : p.tiles)
         if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
     gShape.cells = p.tiles;
@@ -237,7 +242,7 @@ void shapeUpdate(bool now = false) {
     const auto t0 = std::chrono::steady_clock::now();
     if (!now && !app.terrainRect && cost > 12 && std::chrono::duration<double, std::milli>(t0 - last).count() < 2 * cost)
         return shellShapeLater(int(2 * cost));
-    gShape.ghost.clear(), gShape.cells.clear(), gShape.copyHolds = false;
+    gShape.ghost.clear(), gShape.cells.clear(), gShape.red.clear(), gShape.copyHolds = false;
     gShape.madeFor = pts, gShape.madeKey = key, gShape.made = true;
     const std::vector<std::pair<int, int>> geo = shapeGeometry(pts);
     if (geo.size() < (gShape.tool == TLine || gShape.tool == TBridge ? 2u : 3u)) return;

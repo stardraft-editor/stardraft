@@ -267,13 +267,29 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const Terrains t{ed, d->ground, d->water};
     const Diamond s = nearestDiamond(x0, y0);
     const int steps = int((double(dx) * 64 * step.x + double(dy) * 32 * step.y) / (64.0 * 64 + 32.0 * 32));  // diamonds along the drag
-    if (t.water4(s) || !t.hasGround(s)) return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
+    // No bridge: why, and the tiles of a bridge as long as the drag with its middle on the drag's middle (the red preview).
+    const auto fail = [&](BridgePlan::Problem why) {
+        plan.problem = why;
+        const int length = std::clamp(steps - d->rowsAtSize1 - 1, 0, 64);
+        const std::pair<int, int> dOff{d->offset[0], d->offset[1]};
+        const std::pair<int, int> o = plan.u ? uOffset(*d, *uk, length, plan.width, dOff) : dOff;
+        const std::vector<Editor::TileAt> draft = bridgeTiles(era, plan.u, length, plan.width, o.first, o.second, seed);
+        if (draft.empty()) return plan;
+        double cx = 0, cy = 0;
+        for (const Editor::TileAt& c : draft) cx += 32.0 * c.x + 16, cy += 32.0 * c.y + 16;
+        cx /= double(draft.size()), cy /= double(draft.size());
+        const Diamond m = nearestDiamond(int(std::lround((x0 + x1) / 2.0 - cx)), int(std::lround((y0 + y1) / 2.0 - cy)));
+        for (const Editor::TileAt& c : draft)
+            if (const int x = c.x + 2 * m.x, y = c.y + m.y; x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) plan.draft.push_back({x, y, c.value});
+        return plan;
+    };
+    if (t.water4(s) || !t.hasGround(s)) return fail(BridgePlan::Problem::NeedsTerrain);
     const int far = std::max(ed.width(), ed.height());
     // The water: rows of whole water diamonds across the drag; or (half) a line of water corners, the edge between two
     // diamonds (the half-size brush's river: the shortest bridge where one row of diamonds is length 1).
     int k1 = 1;
     while (k1 <= steps && !t.water1(s + step * k1)) ++k1;
-    if (k1 > steps) return plan.problem = BridgePlan::Problem::Short, plan;
+    if (k1 > steps) return fail(BridgePlan::Problem::Short);
     // (the bank's diamonds have water corners: the rows start at the first diamond that is all water, if there is one)
     int k4 = k1;
     while (k4 <= k1 + far && t.water1(s + step * k4) && !t.water4(s + step * k4)) ++k4;
@@ -282,15 +298,15 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     while (rows < far && t.water4(s + step * (k1 + rows))) ++rows;
     // The ground: on a bank diamond next to the water, or the one after it (a wide river's banks are 2 diamonds deep).
     const auto groundNear = [&](int k, int way) { return t.hasGround(s + step * k) || t.hasGround(s + step * (k + way)); };
-    if (!rows && d->rowsAtSize1 > 1 && t.water1(s + step * (k1 + 1))) return plan.problem = BridgePlan::Problem::TooNarrow, plan;
+    if (!rows && d->rowsAtSize1 > 1 && t.water1(s + step * (k1 + 1))) return fail(BridgePlan::Problem::TooNarrow);
     const bool half = !rows && d->rowsAtSize1 == 1 && deck.y == 1 && t.water1(s + step * (k1 + 1));
-    if (!rows && !half) return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
+    if (!rows && !half) return fail(BridgePlan::Problem::NeedsTerrain);
     const int span = half ? 2 : rows;  // the diamonds with water on the drag's line
-    if (steps < k1 + span) return plan.problem = BridgePlan::Problem::ReachGround, plan;
+    if (steps < k1 + span) return fail(BridgePlan::Problem::ReachGround);
     if (!groundNear(k1 + span, 1) || !groundNear(k1 - 1, -1) || (half && t.water1(s + step * (k1 + span))))
-        return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
+        return fail(BridgePlan::Problem::NeedsTerrain);
     plan.length = half ? 0 : rows - d->rowsAtSize1 + 1;
-    if (plan.length < 0) return plan.problem = BridgePlan::Problem::TooNarrow, plan;
+    if (plan.length < 0) return fail(BridgePlan::Problem::TooNarrow);
 
     // The river's first water diamond along the deck (on the drag's line); the half river's: the second of its two (the
     // one whose top corner is the water).
@@ -338,9 +354,9 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
         }
         if (!shift) break;
     }
-    if (!ok) return plan.problem = BridgePlan::Problem::NotStraight, plan;
+    if (!ok) return fail(BridgePlan::Problem::NotStraight);
     for (const Editor::TileAt& c : tiles)
-        if (c.x < 0 || c.y < 0 || c.x >= ed.width() || c.y >= ed.height()) return plan.problem = BridgePlan::Problem::OffMap, plan;
+        if (c.x < 0 || c.y < 0 || c.x >= ed.width() || c.y >= ed.height()) return fail(BridgePlan::Problem::OffMap);
     plan.tiles = std::move(tiles);
     plan.problem = BridgePlan::Problem::None;
     return plan;
