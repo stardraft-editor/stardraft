@@ -142,21 +142,6 @@ inline std::vector<ValueSuggestion> valuePopSuggestions(const ValuePopSpec& spec
     return rows;
 }
 
-// A plain string's braces as a text with values has them ("{" is "{{"), and back.
-inline std::string valuePopBracesToWords(const std::string& s) {
-    std::string e;
-    for (char ch : s) e += ch == '{' ? "{{" : ch == '}' ? "}}" : std::string(1, ch);
-    return e;
-}
-inline std::string valuePopWordsToBraces(const std::string& s) {
-    std::string plain;
-    for (size_t i = 0; i < s.size(); ++i) {
-        plain += s[i];
-        if ((s[i] == '{' || s[i] == '}') && i + 1 < s.size() && s[i + 1] == s[i]) ++i;
-    }
-    return plain;
-}
-
 // What fits in a text (Insert value): the loop's values, the variables, a player's name, a text of the game, the
 // values from the game and a calculation. The values: "\x01tbl" a text of the game, "\x01v:<id>" a value from the game,
 // "\x01calc" a calculation, else the expression.

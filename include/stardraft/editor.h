@@ -72,7 +72,6 @@ constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All 
 }
 constexpr int kMaxTurns = 8;
 constexpr size_t kMaxSymmetricPlaces = 32;
-const char* symmetryName(Symmetry s);
 
 class Editor {
 public:
@@ -281,9 +280,6 @@ public:
     // modTiles: on a mod's tileset, the mod's pieces of a border go in as the isometric brush puts them
     // (sprinkleModTiles; tiles of one terrain alone stay the game's), for a brush of a terrain's tiles (Terrain's Rectangle).
     int placeTileValues(const std::vector<TileAt>& cells, bool modTiles = false);
-    // The tiles of tiles (tx0, ty0)-(tx1, ty1) (inclusive) made again from the ISOM, as its terrains give them (the
-    // tiles placed by hand there go: a Cosmonarchy doodad brush taken away). One undo step. False: nothing changed.
-    bool retileFromIsom(int tx0, int ty0, int tx1, int ty1);
     // The tile clipboard (Rectangle mode): the tiles of a rectangle (inclusive, in tiles) as they are.
     // (shape: the tiles whose middle is in it; the others are not pasted)
     bool copyTiles(int tx0, int ty0, int tx1, int ty1, SelectShape shape = SelectShape::Rect);
@@ -637,9 +633,8 @@ public:
     bool takeScenario(const Editor& edited, int shiftX = 0, int shiftY = 0);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
-    // Adds (or replaces) a file in the map archive, such as a briefing's sound; saved with the map. One undo step.
-    void setArchiveFile(const std::string& name, Bytes data);
-    void setArchiveFiles(std::vector<ArchiveFile> files);  // likewise, all in one undo step
+    // Adds (or replaces) files in the map archive, such as a briefing's sound; saved with the map. One undo step.
+    void setArchiveFiles(std::vector<ArchiveFile> files);
     bool removeArchiveFile(const std::string& name);      // one undo step
     bool removeArchiveFiles(const std::vector<std::string>& names);  // the ones that are there, all in one undo step
     // A new path for a file; the briefings that play it use the new path. One undo step. False: no such file, or

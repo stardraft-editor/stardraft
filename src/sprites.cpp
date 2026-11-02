@@ -498,15 +498,6 @@ int UnitSprites::facingDirection(uint16_t unitType, int direction) const {
                                                                              : 12;
 }
 
-int UnitSprites::animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip, int direction, int turned) const {
-    int facing = defaultFrame(unitType, image, flip, direction);
-    if (image < 0 || size_t(image) >= imageTurns_.size() || !imageTurns_[image]) return scriptFrame;
-    const int set = facingSet(image);
-    const int base = size_t(image) < scripts_.size() ? scripts_[image].initFrame / set * set : 0;
-    if (turned >= 0) facing = base + facingIndex(image, turned & 31, flip);
-    return scriptFrame / set * set + (facing - base);
-}
-
 int UnitSprites::facingSet(int image) const {
     if (image < 0) return 17;
     if (facingSet_.size() <= size_t(image)) facingSet_.resize(size_t(image) + 1, 0);

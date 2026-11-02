@@ -265,17 +265,6 @@ std::vector<uint8_t> clearance(const WalkGrid& g) {
     return c;
 }
 
-GroundPath findGroundPath(const WalkGrid& g, const std::vector<uint8_t>& clear, int cells, float x0, float y0, float x1, float y1) {
-    auto cellOf = [&](float px, float py, int& cx, int& cy) {  // the top-left cell of a unit with its middle at (px, py)
-        cx = int(std::floor(px / 8 - cells / 2.0f + 0.5f)), cy = int(std::floor(py / 8 - cells / 2.0f + 0.5f));
-    };
-    int ax, ay, bx, by;
-    cellOf(x0, y0, ax, ay), cellOf(x1, y1, bx, by);
-    const int from = nearestStandable(g, clear, cells, ax, ay, 24), to = nearestStandable(g, clear, cells, bx, by, 24);
-    if (from < 0 || to < 0) return {};
-    return aStar(g, clear, cells, from, to);
-}
-
 PathingAnalysis analyzePathing(const PathingInput& in, const PathingOptions& opt) {
     PathingAnalysis a;
     const auto t0 = Clock::now();

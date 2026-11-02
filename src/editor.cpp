@@ -40,20 +40,6 @@ std::string lower(std::string s) {
 }
 }  // namespace
 
-const char* symmetryName(Symmetry s) {
-    switch (s) {
-    case Symmetry::None: return "None";
-    case Symmetry::Horizontal: return "Mirror left/right";
-    case Symmetry::Vertical: return "Mirror top/bottom";
-    case Symmetry::Both: return "Mirror both (4-way)";
-    case Symmetry::Rotate180: return "Rotate 180";
-    case Symmetry::Diagonal: return "Mirror diagonal";
-    case Symmetry::AntiDiagonal: return "Mirror anti-diagonal";
-    case Symmetry::Rotate4: return "Rotate 4-way";
-    }
-    return "";
-}
-
 Rect Rect::normalized() const {
     return {std::min(left, right), std::min(top, bottom), std::max(left, right), std::max(top, bottom)};
 }
@@ -1572,18 +1558,6 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     for (uint16_t v : tile.tiles) appendU16(t, v);
     for (uint16_t v : mtxm.tiles) appendU16(m, v);
     chk_.set("TILE", std::move(t)), chk_.set("MTXM", std::move(m));
-}
-
-bool Editor::retileFromIsom(int tx0, int ty0, int tx1, int ty1) {
-    if (!isomOk_) return false;
-    std::vector<CornerValue> corners;  // (each corner of the area's rects, its own terrain: the edit changes no terrain)
-    for (int y = std::max(0, ty0); y <= std::min(int(height_), ty1 + 1); ++y)
-        for (int x = std::max(0, tx0 / 2); x <= std::min(int(width_) / 2, tx1 / 2 + 1); ++x)
-            if ((x + y) & 1) corners.push_back({x, y, isom_.terrainAt(x, y)});
-    if (corners.empty()) return false;
-    const TerrainLayer before = readTerrain(chk_, "TILE");
-    applyTerrain(corners, true);
-    return readTerrain(chk_, "TILE").tiles != before.tiles;
 }
 
 bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced) {
@@ -4117,12 +4091,6 @@ const ArchiveFile* Editor::archiveFile(const std::string& name) const {
             }))
             return &f;
     return nullptr;
-}
-
-void Editor::setArchiveFile(const std::string& name, Bytes data) {
-    std::vector<ArchiveFile> one;
-    one.push_back({name, std::move(data)});
-    setArchiveFiles(std::move(one));
 }
 
 void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {

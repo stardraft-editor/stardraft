@@ -50,12 +50,6 @@ const std::vector<TerrainStamp>& stampsList() {
     }
     return gStamps.list;
 }
-// The custom terrain of this name in the list (nullptr: none).
-const TerrainStamp* stampsFind(const std::wstring& name) {
-    for (const TerrainStamp& s : stampsList())
-        if (widen(s.name) == name) return &s;
-    return nullptr;
-}
 // The files changed (a save, a rename, a delete): the lists read them again.
 void stampsChanged() {
     gStamps.stale = true;

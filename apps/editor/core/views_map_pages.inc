@@ -51,14 +51,6 @@ public:
     }
     int footerH() { return host_.footerH(); }
 
-    // Clicks the bar's button as the mouse would (a test): false when the bar has no such button, or it is off.
-    bool clickBar(bool apply) {
-        stardraft::kit::Button& b = apply ? apply_ : revert_;
-        if (!b.visible() || !b.enabled() || !b.onClick) return false;
-        b.onClick();
-        return true;
-    }
-
     void paint(draw::Canvas& c) override {
         const int pad = scale(stardraft::kit::kDialogPad), headH = headerH(), footH = footerH();
         // The header: the page's title; the tabs under it.

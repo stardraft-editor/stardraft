@@ -248,13 +248,6 @@ public:
     // What the last paint showed (the self-tests read these).
     bool genShown = false, projectShown = false, createEnabled = true;
     std::string startOffered;  // the Start choices shown (blank, generate, import, terrain), joined with commas
-    bool fieldShown(const char* which) const {
-        if (!std::strcmp(which, "name")) return name_.visible();
-        if (!std::strcmp(which, "location")) return location_.visible();
-        if (!std::strcmp(which, "output")) return output_.visible();
-        if (!std::strcmp(which, "seed")) return seed_.visible();
-        return fromMap_.visible();
-    }
     draw::Rect terrainBox{}, footer{};  // the Blank row's terrain box; the Create and Cancel row (in the page's area)
     draw::Rect previewRect{}, genRect{};  // the preview; the generator's settings (empty when they do not show)
     int sizeX0 = 0, sizeX1 = 0, sizeY[2] = {0, 0};  // the Width and Height sliders: the track's ends and the middle of each
@@ -529,11 +522,6 @@ public:
         if (!show && f.hasFocus())
             if (draw::Host* h = f.host()) h->focus(*this);  // (the page: its keys, then its parents')
         if (f.visible() != show) f.setVisible(show);
-    }
-    // The fields are hidden (the page is not shown: the start page's).
-    void hideFields() {
-        for (stardraft::kit::TextField* f : {&name_, &location_, &output_, &seed_, &fromMap_}) placeField(*f, {}, false, 0, 0);
-        placeField(symmetry_, {}, false, 0, 0);
     }
 
 private:

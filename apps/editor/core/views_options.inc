@@ -274,21 +274,6 @@ public:
         return true;
     }
     bool hasPart(const std::string& name) const { return parts_.count(name) != 0; }
-    // A click at the middle of the part (the widget under it gets the press and the release, as a mouse does).
-    bool clickPart(const std::string& name) {
-        draw::Rect r;
-        if (!part(name, r)) return false;
-        const draw::Point c{(r.left + r.right) / 2, (r.top + r.bottom) / 2};
-        draw::Point local;
-        draw::View* v = viewAt(c, local);
-        if (v == this) return false;  // scrolled out of the content: no widget is there
-        draw::MouseEvent d;
-        d.kind = draw::MouseKind::Down, d.pt = local;
-        v->mouse(d);
-        d.kind = draw::MouseKind::Up;
-        v->mouse(d);
-        return true;
-    }
     // Scrolls the content to `s` (the tests scroll a part into view; the wheel and the bar do it too).
     void scrollTo(int s) {
         s = std::clamp(s, 0, maxScroll());

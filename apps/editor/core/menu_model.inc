@@ -22,11 +22,6 @@ int nativeCommandId(const std::string& id) {
     return 0;
 }
 
-// The menu item's text: the label, then a tab and the shortcut.
-std::wstring commandMenuText(const stardraft::Command& c) {
-    return widen(c.label) + (c.shortcut.empty() ? L"" : L"\t" + widen(c.shortcut));
-}
-
 // The menu bar as data: each menu's items in order (core/menu_model.inc). The Mode menu and the View items come from the
 // command table (commands.inc); the recent lists, the feedback glyph and the icons are the Win32 menu's own (buildMenu).
 void menuCommand(MenuModel& m, const char* id) {

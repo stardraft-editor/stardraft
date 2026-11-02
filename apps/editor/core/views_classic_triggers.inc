@@ -791,23 +791,6 @@ public:
         else if (top + h > scroll_ + height()) scroll_ = top + h - height();
         invalidate();
     }
-    // Drags row `from` of a list (0 the triggers, 1 the conditions, 2 the actions) to place `to` (in the list without it),
-    // through the click areas the last paint made, as the mouse does. `atPlace` runs while the row is at the place.
-    bool dragRow(int list, int from, int to, const std::function<void()>& atPlace) {
-        const auto& rows = rows_[list];
-        const int n = int(rows.size());
-        if (from < 0 || from >= n || to < 0 || to >= n) return false;
-        const draw::Point grip{rows[size_t(from)].left + scale(8), (rows[size_t(from)].top + rows[size_t(from)].bottom) / 2};
-        const CtHit* h = hitAt(grip, true);
-        if (!h || !h->drag) return false;
-        const int slot = to > from ? to + 1 : to;  // the row the dragged one goes before
-        const draw::Point at{grip.x, slot < n ? rows[size_t(slot)].top + 1 : rows.back().bottom - 1};
-        mouse({draw::MouseKind::Down, grip, 0, 0, false, 0});
-        mouse({draw::MouseKind::Move, at, 0, 0, false, 0});
-        if (atPlace) atPlace();
-        mouse({draw::MouseKind::Up, at, 0, 0, false, 0});
-        return true;
-    }
 
     // The conditions and actions at the Triggers workspace's zoom (Ctrl+mouse wheel; roadmap R23): sizes (scale) and
     // the UI font grow or shrink while they paint, as the workspace's pane does. The click areas are recorded as it paints.

@@ -27,17 +27,6 @@ void toWorld(int sx, int sy, float& wx, float& wy) {
 
 int currentTool() { return appState().toolByMode[int(appState().mode)]; }
 
-// After Undo or Redo: the selected doodads and sprites that are not on the map now (an Undo of a placed one) leave the
-// selection, so that the status bar, Delete and a drag do not count them.
-void dropGoneItems(AppState& app) {
-    if (!app.ed) return;
-    auto drop = [](std::vector<int>& sel, size_t n) {
-        sel.erase(std::remove_if(sel.begin(), sel.end(), [n](int i) { return i < 0 || size_t(i) >= n; }), sel.end());
-    };
-    drop(app.selDoodads, app.ed->doodads().size());
-    drop(app.selSprites, app.ed->sprites().size());
-}
-
 // After an undo or redo: the doodads and sprites that were selected (`doodads`, `sprites`: the map's before it) stay
 // selected where the same ones are now (the same kind, place and owner); with as many as before, one of the same kind
 // and owner in its place (a move taken back) stays too. One that is not there is no longer selected, so a selection

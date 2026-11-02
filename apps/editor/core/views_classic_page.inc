@@ -1471,7 +1471,7 @@ inline void ctEditComment(CtPageHost& h) {
 
 // The head's parts in the head (its coordinates, from 0) at the right column's width `rightW`.
 inline void ctPlaceHead(CtHeadView& hv, int rightW) {
-    const int rowH = scale(stardraft::kit::kFieldH), step = scale(stardraft::kit::kFormRowH), gap = scale(8);
+    const int rowH = scale(stardraft::kit::kFieldH), gap = scale(8);
     const int delW = scale(stardraft::kit::kIconBox), turnW = scale(stardraft::kit::kIconBox);
     const int headW = rightW - delW - turnW - 3 * gap;
     auto put = [](draw::View& v, int px, int py, int w, int hh) { v.setFrame({px, py, px + std::max(0, w), py + std::max(0, hh)}); };

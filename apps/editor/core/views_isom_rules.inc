@@ -3495,7 +3495,6 @@ void IsomRulesView::layout() {
     }
     {  // (the header buttons: at the header's right)
         const int bw = scale(170), by = top + (headH - barH) / 2;
-        const draw::Rect& r = colHead_[kColRects];
         const draw::Rect& t = colHead_[kColTiles];
         minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
         const int pr = minePick_.frame().left - pad;  // (the pick's width when there is room for it; else in Edit and Ctrl+T only)

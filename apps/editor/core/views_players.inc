@@ -128,17 +128,6 @@ public:
         syncControls();
     }
 
-    // The Tab order of the force names (the page's Tab goes from the description to Force 1's name, as the old EDITs did).
-    // The names are the page's Tab stops: true when the Tab moved to another name (false: it leaves the view).
-    bool tabName(bool back) {
-        int cur = -1;
-        for (int f = 0; f < 4; ++f)
-            if (name_[f].hasFocus()) cur = f;
-        const int next = cur + (back ? -1 : 1);
-        if (cur < 0 || next < 0 || next > 3) return false;
-        name_[next].focus();
-        return true;
-    }
     // A force name has the keyboard (its typing, as the program's own typing when the text goes into the map).
     bool typingName() const {
         for (const auto& n : name_)

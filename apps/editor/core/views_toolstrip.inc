@@ -150,8 +150,6 @@ void stripNumberChanged() {
     shellToolsChanged();
     appState().dirty = true;
 }
-// (Select has a shape of its own and makes its selection by a drag.)
-bool stripSelectTool() { return appState().mode == Mode::Terrain && currentTool() == TSelect; }
 // One step up (dir 1) or down (-1).
 void stripNumberStep(int which, int dir) {
     AppState& app = appState();
@@ -449,11 +447,6 @@ public:
     bool editing(int which) const { return editing_ == which && field_.visible(); }
     // A number is being typed: the field has the keyboard (the message loop leaves its keys to it).
     bool typing() const { return editing_ >= 0; }
-    // Tests: the typed text, then Enter.
-    void typeForTest(const std::wstring& t) {
-        field_.setText(t);
-        if (field_.onEnter) field_.onEnter();
-    }
 
     void paint(draw::Canvas& c) override {
         using namespace stripLook;

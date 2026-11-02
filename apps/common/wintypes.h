@@ -52,14 +52,6 @@ inline BOOL IsRectEmpty(const RECT* r) { return r->right <= r->left || r->bottom
 inline BOOL EqualRect(const RECT* a, const RECT* b) {
     return a->left == b->left && a->top == b->top && a->right == b->right && a->bottom == b->bottom;
 }
-inline BOOL SetRect(RECT* r, int l, int t, int rt, int b) {
-    *r = {l, t, rt, b};
-    return TRUE;
-}
-inline BOOL SetRectEmpty(RECT* r) {
-    *r = {0, 0, 0, 0};
-    return TRUE;
-}
 inline BOOL OffsetRect(RECT* r, int dx, int dy) {
     r->left += dx, r->right += dx, r->top += dy, r->bottom += dy;
     return TRUE;

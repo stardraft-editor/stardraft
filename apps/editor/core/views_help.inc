@@ -251,7 +251,6 @@ private:
     void relayout() {
         const int w = width(), h = height();
         if (w <= 0 || h <= 0) return;
-        const int pad = scale(stardraft::kit::kDialogPad), bh = scale(stardraft::kit::kButtonH), gap = scale(stardraft::kit::kButtonGap);
         const draw::Rect side = sideRect();
         const int sh = scale(30);
         // Back and Forward, then the search, in one row at the top of the side bar.
