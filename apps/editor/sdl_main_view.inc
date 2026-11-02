@@ -96,7 +96,10 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
             owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
                               draw::rgb(int(c >> 16 & 255), int(c >> 8 & 255), int(c & 255))});
         }
-        if (gState.playerOwner >= int(owners.size())) gState.playerOwner = 11;  // (a standard map's tab: back to 12)
+        if (gState.playerOwner >= int(owners.size())) {  // (a standard map's tab: back to 12; the active panel keeps it)
+            gState.playerOwner = 11;
+            if (gActivePanel) gActivePanel->owner = 11;
+        }
         palettePanelsOwnerItems(owners);
         bool same = gOwnerBox.items().size() == owners.size();
         for (size_t i = 0; same && i < owners.size(); ++i) same = gOwnerBox.items()[i].swatch == owners[i].swatch;

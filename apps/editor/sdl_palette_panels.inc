@@ -95,15 +95,18 @@ void palettePanelsOwner(int) {
     for (auto& p : gPanels)
         if (p->open && &p->view->state() == gActivePanel) p->view->owner.setValue(gState.playerOwner), p->view->list.invalidate();
 }
-// The players of the owner boxes follow the tab (a Cosmonarchy map has more: core/palette_tools.inc ownerChoices).
+// The players of the owner boxes follow the tab (a Cosmonarchy map has more: core/palette_tools.inc ownerChoices): the
+// active tab's panels get its players (the other tabs' panels keep theirs until their tab is active again).
 void palettePanelsOwnerItems(const std::vector<kit::DropdownItem>& owners) {
-    for (auto& p : gPanels)
-        if (p->view->owner.items().size() != owners.size()) {
-            std::vector<kit::DropdownItem> copy = owners;
-            for (kit::DropdownItem& d : copy) d.swatch = draw::kNone;  // (the panels' boxes have no color squares)
-            p->view->owner.setItems(std::move(copy));
-            p->view->owner.setValue(p->view->state().owner);
-        }
+    for (auto& p : gPanels) {
+        if (p->doc != activeDocKey() || p->view->owner.items().size() == owners.size()) continue;
+        std::vector<kit::DropdownItem> copy = owners;
+        for (kit::DropdownItem& d : copy) d.swatch = draw::kNone;  // (the panels' boxes have no color squares)
+        p->view->owner.setItems(std::move(copy));
+        int& owner = p->view->state().owner;
+        if (owner >= int(owners.size())) owner = 11;  // (a player the tab does not have: Player 12)
+        p->view->owner.setValue(&p->view->state() == gActivePanel ? gState.playerOwner : owner);
+    }
 }
 void palettePanelsReveal(int value) {
     for (auto& p : gPanels)
