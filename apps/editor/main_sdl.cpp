@@ -319,7 +319,7 @@ bool useInstallFolder(const std::string& picked) {
             gStartView.dataError.clear(), gStartView.installMissing = false, gStartView.installNote.clear();
             if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
             gStartView.invalidate();
-            setMessage(L"The StarCraft folder is set");
+            setMessage(L"Set the StarCraft folder");
             return true;
         }
     return false;

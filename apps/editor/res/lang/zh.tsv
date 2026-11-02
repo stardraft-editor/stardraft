@@ -1641,7 +1641,7 @@ Player 10	玩家 10
 Player 11	玩家 11
 Player 12	玩家 12
 Show ranges of the selected u&nits	显示所选单位的范围(&N)
-Ranges are hidden	范围已隐藏
+Hid the ranges	已隐藏范围
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	所选单位的范围：视野（黄色）、目标获取（橙色）、地面武器（红色）、空中武器（蓝色）、探测（绿色）、灵能场（紫色）
 Favorites	收藏
 Add to favorites	添加到收藏
@@ -2301,20 +2301,15 @@ No tier	无等级
 New palette panel: 	新的调色板面板：
 Could not save the map's settings	无法保存地图设置
 Put Terrain back in the side bar	将地形放回侧栏
-Terrain is in its own window	地形在单独的窗口中
-Terrain is back in the side bar	地形已回到侧栏
+Moved Terrain to its own window	已将地形移到单独的窗口
 Put Units back in the side bar	将单位放回侧栏
-Units is in its own window	单位在单独的窗口中
-Units is back in the side bar	单位已回到侧栏
+Moved Units to its own window	已将单位移到单独的窗口
 Put Doodads back in the side bar	将装饰物放回侧栏
-Doodads is in its own window	装饰物在单独的窗口中
-Doodads is back in the side bar	装饰物已回到侧栏
+Moved Doodads to its own window	已将装饰物移到单独的窗口
 Put Locations back in the side bar	将位置放回侧栏
-Locations is in its own window	位置在单独的窗口中
-Locations is back in the side bar	位置已回到侧栏
+Moved Locations to its own window	已将位置移到单独的窗口
 Put Sprites back in the side bar	将精灵放回侧栏
-Sprites is in its own window	精灵在单独的窗口中
-Sprites is back in the side bar	精灵已回到侧栏
+Moved Sprites to its own window	已将精灵移到单独的窗口
 &Walkable ground	可行走地面(&W)
 Ground &height	地面高度(&H)
 Ground that blocks the line of &sight	阻挡视线的地面(&S)
@@ -2456,7 +2451,7 @@ Mods	模组
 Cosmonarchy folder	Cosmonarchy 文件夹
 Select the Cosmonarchy BW folder	选择 Cosmonarchy BW 文件夹
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	该文件夹没有 Cosmonarchy BW 数据（mpq\arr\units.datex）。
-The Cosmonarchy folder is set	Cosmonarchy 文件夹已设置
+Set the Cosmonarchy folder	已设置 Cosmonarchy 文件夹
 The Prerelease or Release folder	Prerelease 或 Release 文件夹
 The Prerelease or Release folder. A new folder is used after a restart	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用
 The CRIG commands have no problems	CRIG 命令没有问题
@@ -2612,7 +2607,7 @@ Find a &command…	查找命令(&C)…
 Find a command or an option	查找命令或选项
 Not available now: 	现在不可用：
 Turn &off all overlays	关闭所有叠加层(&O)
-All overlays are hidden	所有叠加层已隐藏
+Hid all overlays	已隐藏所有叠加层
 Terrain &pie palette	地形饼状调色板(&P)
 The pie palette has no terrains for this tileset	饼状调色板中没有此图块集的地形
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面上的“浏览”）：新地图需要游戏文件

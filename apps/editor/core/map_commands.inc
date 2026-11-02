@@ -300,7 +300,7 @@ void registerMapCommands() {
     addCommand(ID_VIEW_RANGES, "view.ranges", L"&All ranges", "View/Unit vision and ranges/All", L"", [] {
         gRangeKinds = gRangeKinds == kRangeAll ? 0 : kRangeAll;
         setMessage(gRangeKinds ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)"
-                               : L"Ranges are hidden");
+                               : L"Hid the ranges");
         shellMenusChanged();
         shellState().dirty = true;
     }, [] { return gRangeKinds == kRangeAll; });
@@ -366,7 +366,7 @@ void registerMapCommands() {
         if (pathingLayerOn()) pathingLayerToggle();
         if (terrainFlagsView() != TerrainFlagsView(0)) terrainFlagsSet(terrainFlagsView());  // (the view again: off)
         gRangeKinds = 0;
-        setMessage(L"All overlays are hidden");
+        setMessage(L"Hid all overlays");
         shellMenusChanged();
         shellState().dirty = true;
     });

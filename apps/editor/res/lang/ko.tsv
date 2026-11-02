@@ -1751,7 +1751,7 @@ Player 10	플레이어 10
 Player 11	플레이어 11
 Player 12	플레이어 12
 Show ranges of the selected u&nits	선택한 유닛의 사거리 표시(&N)
-Ranges are hidden	사거리를 숨겼습니다
+Hid the ranges	사거리를 숨겼습니다
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	선택한 유닛의 사거리: 시야(노랑), 목표 탐지(주황), 지상 무기(빨강), 공중 무기(파랑), 탐지(초록), 사이오닉 필드(보라)
 Favorites	즐겨찾기
 Add to favorites	즐겨찾기에 추가
@@ -2301,20 +2301,15 @@ No tier	티어 없음
 New palette panel: 	새 팔레트 패널: 
 Could not save the map's settings	맵 설정을 저장할 수 없습니다
 Put Terrain back in the side bar	지형을(를) 사이드바로 되돌립니다
-Terrain is in its own window	지형이(가) 별도 창에 있습니다
-Terrain is back in the side bar	지형이(가) 사이드바로 돌아왔습니다
+Moved Terrain to its own window	지형을(를) 별도 창으로 옮겼습니다
 Put Units back in the side bar	유닛을(를) 사이드바로 되돌립니다
-Units is in its own window	유닛이(가) 별도 창에 있습니다
-Units is back in the side bar	유닛이(가) 사이드바로 돌아왔습니다
+Moved Units to its own window	유닛을(를) 별도 창으로 옮겼습니다
 Put Doodads back in the side bar	장식물을(를) 사이드바로 되돌립니다
-Doodads is in its own window	장식물이(가) 별도 창에 있습니다
-Doodads is back in the side bar	장식물이(가) 사이드바로 돌아왔습니다
+Moved Doodads to its own window	장식물을(를) 별도 창으로 옮겼습니다
 Put Locations back in the side bar	위치을(를) 사이드바로 되돌립니다
-Locations is in its own window	위치이(가) 별도 창에 있습니다
-Locations is back in the side bar	위치이(가) 사이드바로 돌아왔습니다
+Moved Locations to its own window	위치을(를) 별도 창으로 옮겼습니다
 Put Sprites back in the side bar	스프라이트을(를) 사이드바로 되돌립니다
-Sprites is in its own window	스프라이트이(가) 별도 창에 있습니다
-Sprites is back in the side bar	스프라이트이(가) 사이드바로 돌아왔습니다
+Moved Sprites to its own window	스프라이트을(를) 별도 창으로 옮겼습니다
 &Walkable ground	걸을 수 있는 지형(&W)
 Ground &height	지형 높이(&H)
 Ground that blocks the line of &sight	시야를 가리는 지형(&S)
@@ -2456,7 +2451,7 @@ Mods	모드
 Cosmonarchy folder	Cosmonarchy 폴더
 Select the Cosmonarchy BW folder	Cosmonarchy BW 폴더를 선택하십시오
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	이 폴더에는 Cosmonarchy BW 데이터(mpq\arr\units.datex)가 없습니다.
-The Cosmonarchy folder is set	Cosmonarchy 폴더가 설정되었습니다
+Set the Cosmonarchy folder	Cosmonarchy 폴더를 설정했습니다
 The Prerelease or Release folder	Prerelease 또는 Release 폴더입니다
 The Prerelease or Release folder. A new folder is used after a restart	Prerelease 또는 Release 폴더입니다. 새 폴더는 다시 시작한 후 사용됩니다
 The CRIG commands have no problems	CRIG 명령에 문제가 없습니다
@@ -2612,7 +2607,7 @@ Find a &command…	명령 찾기(&C)…
 Find a command or an option	명령 또는 옵션 찾기
 Not available now: 	지금은 사용할 수 없음: 
 Turn &off all overlays	모든 오버레이 끄기(&O)
-All overlays are hidden	모든 오버레이가 숨겨졌습니다
+Hid all overlays	모든 오버레이를 숨겼습니다
 Terrain &pie palette	지형 원형 팔레트(&P)
 The pie palette has no terrains for this tileset	원형 팔레트에 이 타일셋의 지형이 없습니다
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	먼저 StarCraft 폴더를 선택하세요(시작 페이지의 찾아보기): 새 맵에는 게임 파일이 필요합니다

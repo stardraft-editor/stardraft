@@ -4125,7 +4125,7 @@ def check_overlay_toggles(output):
     if not status[1].startswith("Pathing is hidden") or not status[3].startswith("Terrain flags are hidden"):
         return f"the second P and W did not hide their overlay: {status[1][:40]!r}, {status[3][:40]!r}"
     on = [l for l in output.splitlines() if l.startswith("menubar: View > Overlays") and l.endswith("(checked)")]
-    if not status[4].startswith("All overlays are hidden") or on:
+    if not status[4].startswith("Hid all overlays") or on:
         return f"Turn off all overlays: {status[4][:40]!r}, still on: {on}"
     return None
 

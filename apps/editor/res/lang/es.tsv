@@ -1750,7 +1750,7 @@ Player 10	Jugador 10
 Player 11	Jugador 11
 Player 12	Jugador 12
 Show ranges of the selected u&nits	Mostrar el alcance de las u&nidades seleccionadas
-Ranges are hidden	El alcance está oculto
+Hid the ranges	Se ocultó el alcance
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	Alcance de las unidades seleccionadas: visión (amarillo), adquisición de objetivo (naranja), arma terrestre (rojo), arma aérea (azul), detección (verde), campo psiónico (morado)
 Favorites	Favoritos
 Add to favorites	Agregar a favoritos
@@ -2301,20 +2301,15 @@ No tier	Sin nivel
 New palette panel: 	Nuevo panel de paleta: 
 Could not save the map's settings	No se pudieron guardar los ajustes del mapa
 Put Terrain back in the side bar	Devolver Terreno a la barra lateral
-Terrain is in its own window	Terreno está en su propia ventana
-Terrain is back in the side bar	Terreno vuelve a la barra lateral
+Moved Terrain to its own window	Se movió Terreno a su propia ventana
 Put Units back in the side bar	Devolver Unidades a la barra lateral
-Units is in its own window	Unidades está en su propia ventana
-Units is back in the side bar	Unidades vuelve a la barra lateral
+Moved Units to its own window	Se movió Unidades a su propia ventana
 Put Doodads back in the side bar	Devolver Decorados a la barra lateral
-Doodads is in its own window	Decorados está en su propia ventana
-Doodads is back in the side bar	Decorados vuelve a la barra lateral
+Moved Doodads to its own window	Se movió Decorados a su propia ventana
 Put Locations back in the side bar	Devolver Ubicaciones a la barra lateral
-Locations is in its own window	Ubicaciones está en su propia ventana
-Locations is back in the side bar	Ubicaciones vuelve a la barra lateral
+Moved Locations to its own window	Se movió Ubicaciones a su propia ventana
 Put Sprites back in the side bar	Devolver Sprites a la barra lateral
-Sprites is in its own window	Sprites está en su propia ventana
-Sprites is back in the side bar	Sprites vuelve a la barra lateral
+Moved Sprites to its own window	Se movió Sprites a su propia ventana
 &Walkable ground	Terreno &transitable
 Ground &height	&Altura del terreno
 Ground that blocks the line of &sight	Terreno que bloquea la línea de &visión
@@ -2456,7 +2451,7 @@ Mods	Mods
 Cosmonarchy folder	Carpeta de Cosmonarchy
 Select the Cosmonarchy BW folder	Seleccione la carpeta de Cosmonarchy BW
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	Esa carpeta no tiene datos de Cosmonarchy BW (mpq\arr\units.datex).
-The Cosmonarchy folder is set	La carpeta de Cosmonarchy está establecida
+Set the Cosmonarchy folder	Se estableció la carpeta de Cosmonarchy
 The Prerelease or Release folder	La carpeta Prerelease o Release
 The Prerelease or Release folder. A new folder is used after a restart	La carpeta Prerelease o Release. Una carpeta nueva se usa después de reiniciar
 The CRIG commands have no problems	Los comandos CRIG no tienen problemas
@@ -2612,7 +2607,7 @@ Find a &command…	Buscar un &comando…
 Find a command or an option	Buscar un comando o una opción
 Not available now: 	No disponible ahora: 
 Turn &off all overlays	&Desactivar todas las superposiciones
-All overlays are hidden	Todas las superposiciones están ocultas
+Hid all overlays	Se ocultaron todas las superposiciones
 Terrain &pie palette	&Paleta circular de terreno
 The pie palette has no terrains for this tileset	La paleta circular no tiene terrenos para este conjunto de casillas
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Primero seleccione la carpeta de StarCraft (Examinar, en la página de inicio): un mapa nuevo necesita los archivos del juego

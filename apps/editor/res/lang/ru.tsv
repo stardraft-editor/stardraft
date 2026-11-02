@@ -1641,7 +1641,7 @@ Player 10	Игрок 10
 Player 11	Игрок 11
 Player 12	Игрок 12
 Show ranges of the selected u&nits	Показать дальность выбранных ю&нитов
-Ranges are hidden	Дальность скрыта
+Hid the ranges	Дальность скрыта
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	Дальность выбранных юнитов: обзор (жёлтый), обнаружение цели (оранжевый), наземное оружие (красный), воздушное оружие (синий), обнаружение (зелёный), пси-поле (фиолетовый)
 Favorites	Избранное
 Add to favorites	Добавить в избранное
@@ -2301,20 +2301,15 @@ No tier	Без уровня
 New palette panel: 	Новая панель палитры: 
 Could not save the map's settings	Не удалось сохранить настройки карты
 Put Terrain back in the side bar	Вернуть Местность на боковую панель
-Terrain is in its own window	Местность в отдельном окне
-Terrain is back in the side bar	Местность снова на боковой панели
+Moved Terrain to its own window	Местность перемещена в отдельное окно
 Put Units back in the side bar	Вернуть Юниты на боковую панель
-Units is in its own window	Юниты в отдельном окне
-Units is back in the side bar	Юниты снова на боковой панели
+Moved Units to its own window	Юниты перемещены в отдельное окно
 Put Doodads back in the side bar	Вернуть Декорации на боковую панель
-Doodads is in its own window	Декорации в отдельном окне
-Doodads is back in the side bar	Декорации снова на боковой панели
+Moved Doodads to its own window	Декорации перемещены в отдельное окно
 Put Locations back in the side bar	Вернуть Локации на боковую панель
-Locations is in its own window	Локации в отдельном окне
-Locations is back in the side bar	Локации снова на боковой панели
+Moved Locations to its own window	Локации перемещены в отдельное окно
 Put Sprites back in the side bar	Вернуть Спрайты на боковую панель
-Sprites is in its own window	Спрайты в отдельном окне
-Sprites is back in the side bar	Спрайты снова на боковой панели
+Moved Sprites to its own window	Спрайты перемещены в отдельное окно
 &Walkable ground	&Проходимая земля
 Ground &height	&Высота земли
 Ground that blocks the line of &sight	Земля, закрывающая &обзор
@@ -2456,7 +2451,7 @@ Mods	Моды
 Cosmonarchy folder	Папка Cosmonarchy
 Select the Cosmonarchy BW folder	Выберите папку Cosmonarchy BW
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	В этой папке нет данных Cosmonarchy BW (mpq\arr\units.datex).
-The Cosmonarchy folder is set	Папка Cosmonarchy задана
+Set the Cosmonarchy folder	Папка Cosmonarchy задана
 The Prerelease or Release folder	Папка Prerelease или Release
 The Prerelease or Release folder. A new folder is used after a restart	Папка Prerelease или Release. Новая папка используется после перезапуска
 The CRIG commands have no problems	В командах CRIG нет проблем
@@ -2612,7 +2607,7 @@ Find a &command…	Найти &команду…
 Find a command or an option	Найти команду или параметр
 Not available now: 	Сейчас недоступно: 
 Turn &off all overlays	&Выключить все наложения
-All overlays are hidden	Все наложения скрыты
+Hid all overlays	Все наложения скрыты
 Terrain &pie palette	&Круговая палитра местности
 The pie palette has no terrains for this tileset	В круговой палитре нет местности для этого набора тайлов
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Сначала выберите папку StarCraft (Обзор, на начальной странице): для новой карты нужны файлы игры
