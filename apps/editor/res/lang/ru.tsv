@@ -2404,6 +2404,7 @@ Map &revealers	Открыватели карты (&R)
 Place &map revealers…	Разместить открыватели карты (&M)…
 &Remove all map revealers	&Удалить все открыватели карты
 Place map revealers	Разместить открыватели карты
+Place revealers	Разместить открыватели
 One map revealer on each square of 8 x 8 tiles.	Один открыватель карты на каждый квадрат 8 x 8 клеток.
 Map revealers show	Открыватели карты показываются
 Map revealers are hidden (View > Layers shows them again)	Открыватели карты скрыты (Вид > Слои показывает их снова)

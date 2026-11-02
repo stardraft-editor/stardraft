@@ -2404,6 +2404,7 @@ Map &revealers	地图揭示器(&R)
 Place &map revealers…	放置地图揭示器(&M)…
 &Remove all map revealers	删除所有地图揭示器(&R)
 Place map revealers	放置地图揭示器
+Place revealers	放置揭示器
 One map revealer on each square of 8 x 8 tiles.	每个 8 x 8 格的方格放置一个地图揭示器。
 Map revealers show	显示地图揭示器
 Map revealers are hidden (View > Layers shows them again)	地图揭示器已隐藏（视图 > 图层可再次显示）

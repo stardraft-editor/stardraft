@@ -2406,6 +2406,7 @@ constexpr UiText kRows[] = {
     {L"Place &map revealers\u2026", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uBC30\uCE58(&M)\u2026"},
     {L"&Remove all map revealers", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uBAA8\uB450 \uC81C\uAC70(&R)"},
     {L"Place map revealers", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uBC30\uCE58"},
+    {L"Place revealers", L"\uB9AC\uBE44\uC77C\uB7EC \uBC30\uCE58"},
     {L"One map revealer on each square of 8 x 8 tiles.", L"8 x 8 \uD0C0\uC77C \uCE78\uB9C8\uB2E4 \uB9F5 \uB9AC\uBE44\uC77C\uB7EC \uD558\uB098\uC529"},
     {L"Map revealers show", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4"},
     {L"Map revealers are hidden (View > Layers shows them again)", L"\uB9F5 \uB9AC\uBE44\uC77C\uB7EC\uB97C \uC228\uACBC\uC2B5\uB2C8\uB2E4 (\uBCF4\uAE30 > \uB808\uC774\uC5B4\uC5D0\uC11C \uB2E4\uC2DC \uD45C\uC2DC)"},

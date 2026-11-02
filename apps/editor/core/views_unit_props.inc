@@ -21,7 +21,7 @@ const wchar_t* const kModStateTips[5] = {
     L"Hallucinated: the computer player keeps the layout but does not ask for the unit",
     L"Invincible: the computer player's layout belongs to its main town"};
 
-// What the fields hold when OK is clicked (the values as typed, before the limits).
+// What the fields hold when Apply is clicked (the values as typed, before the limits).
 struct UnitPropsValues {
     uint32_t owner = 0, hp = 0, shields = 0, energy = 0, resources = 0, hangar = 0, x = 0, y = 0;
     uint32_t unitType = 0;  // the unit ID (the type): the units become this type when it differs from the shown one
@@ -71,8 +71,8 @@ constexpr int kStateStepX = 150, kStateColX = 232, kStateW = 200, kStateStepY = 
 constexpr int kContentW = kColW + kLabelW + kBoxW;          // 464: the window is 496 px wide inside
 constexpr int kListW = 300, kListGap = 16;                  // the Units list: the left column; the fields start after it
 constexpr int kRightX = kListW + kListGap;                  // the fields' column (and the picture, the name) from the left
-constexpr int kButtonH = 28;                                // ui::kButtonH: Edit unit type, OK and Cancel
-constexpr int kButtonsGap = 24;                             // Edit unit type to OK and Cancel
+constexpr int kButtonH = 28;                                // ui::kButtonH: Edit unit type, Apply and Cancel
+constexpr int kButtonsGap = 24;                             // Edit unit type to Apply and Cancel
 }  // namespace unitPropsLayout
 
 // The Units list's rows (Discord feedback #126): a plain click or Enter picks a row (the window shows that unit next),
@@ -192,7 +192,7 @@ public:
         label(labels_[0], L"Owner");
         std::vector<stardraft::kit::DropdownItem> players;
         // (the players units can be placed for, core/palette_tools.inc ownerChoices; and the unit's own player above them, so
-        // that OK keeps it)
+        // that Apply keeps it)
         for (int i = 0, n = std::max(ownerChoices(), int(u.owner) + 1); i < n; ++i)
             players.push_back({tr(L"Player ") + std::to_wstring(i + 1) + (i == 11 ? tr(L" (neutral)") : L""), -1, -1});
         owner_.setItems(players);
@@ -258,7 +258,7 @@ public:
     // host shows the next unit in the same window (no new window: no flicker).
     std::function<void(int)> onSwitch;
 
-    // What the fields hold (a call after OK).
+    // What the fields hold (a call after Apply).
     UnitPropsValues values() const {
         auto num = [](const stardraft::kit::TextField& f) { return uint32_t(std::wcstoul(f.text().c_str(), nullptr, 10)); };
         UnitPropsValues v;
@@ -569,7 +569,7 @@ private:
 };
 
 // Runs Unit properties from `from` (the program's anchor view) for `units`, showing `first` (the double-clicked unit)
-// with its picture `icon`. OK and Edit unit type put the changed values into the units (one undo step); Cancel and the
+// with its picture `icon`. Apply and Edit unit type put the changed values into the units (one undo step); Cancel and the
 // window's close box change nothing. Returns the button that closed it. `shown` is the content while the dialog is
 // open, so the host can find its window.
 // The dialog around `view`: its buttons and insets. Returns the window's size (the snapshots show it without a window).
@@ -578,7 +578,7 @@ inline draw::Point unitPropsDialogSetup(stardraft::kit::Dialog& dlg, UnitPropsVi
     dlg.setContent(view);
     view.setDialog(&dlg);
     std::vector<stardraft::kit::DialogButton> buttons;
-    buttons.push_back({tr(L"OK"), kUnitPropsOk, true, false, false, 0});
+    buttons.push_back({tr(L"Apply"), kUnitPropsOk, true, false, false, 0});
     buttons.push_back({tr(L"Cancel"), kUnitPropsCancel, false, true, false, 0});
     dlg.setButtons(std::move(buttons));
     dlg.setInsets({kPad, 0, kPad, kPad, kButtonsGap, 8});  // the content from the top edge (it places the picture at kPad)

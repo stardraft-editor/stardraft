@@ -2406,6 +2406,7 @@ constexpr UiText kRows[] = {
     {L"Place &map revealers\u2026", L"Placer des &r\u00E9v\u00E9lateurs de carte\u2026"},
     {L"&Remove all map revealers", L"&Supprimer tous les r\u00E9v\u00E9lateurs de carte"},
     {L"Place map revealers", L"Placer des r\u00E9v\u00E9lateurs de carte"},
+    {L"Place revealers", L"Placer des r\u00E9v\u00E9lateurs"},
     {L"One map revealer on each square of 8 x 8 tiles.", L"Un r\u00E9v\u00E9lateur de carte sur chaque carr\u00E9 de 8 x 8 cases."},
     {L"Map revealers show", L"Les r\u00E9v\u00E9lateurs de carte sont affich\u00E9s"},
     {L"Map revealers are hidden (View > Layers shows them again)", L"Les r\u00E9v\u00E9lateurs de carte sont masqu\u00E9s (Affichage > Calques les r\u00E9affiche)"},

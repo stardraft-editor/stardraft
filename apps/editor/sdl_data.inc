@@ -680,7 +680,7 @@ public:
                   std::function<void(const std::string&, bool, std::set<std::string>&)> toggle) override {
         ListPickView v(title, std::move(items), "");
         if (toggle) v.setLive(checked, shellTr(L"Close"), std::move(toggle)), v.setGroups(true);  // (Columns…: a heading toggles its group)
-        else v.setMulti(checked, shellTr(L"OK"));
+        else v.setMulti(checked, shellTr(L"Set"));
         const draw::Point o = gSdlDataTable.origin();
         if (!runListPick(v, {o.x + pt.x, o.y + pt.y})) return false;
         checked = v.checked();

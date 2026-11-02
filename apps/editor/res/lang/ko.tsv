@@ -2404,6 +2404,7 @@ Map &revealers	맵 리비일러(&R)
 Place &map revealers…	맵 리비일러 배치(&M)…
 &Remove all map revealers	맵 리비일러 모두 제거(&R)
 Place map revealers	맵 리비일러 배치
+Place revealers	리비일러 배치
 One map revealer on each square of 8 x 8 tiles.	8 x 8 타일 칸마다 맵 리비일러 하나씩
 Map revealers show	맵 리비일러를 표시합니다
 Map revealers are hidden (View > Layers shows them again)	맵 리비일러를 숨겼습니다 (보기 > 레이어에서 다시 표시)
