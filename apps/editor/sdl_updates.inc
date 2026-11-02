@@ -68,7 +68,7 @@ void sdlCheckForUpdates() {
     using releases::UpdateWay;
     const UpdateWay way = sdlUpdateWay(r);
     if (way == UpdateWay::UpToDate) {
-        updatesBox(shellTr(L"StarDraft 2 is up to date (") + title + L").", {L"OK"}, msgbox::Icon::Info);
+        updatesBox(shellTr(L"Up to date (") + title + L")", {L"OK"}, msgbox::Icon::Info);
         return;
     }
     // The browser gets this system's download: an AppImage, the new AppImage (the user puts it in place of the old
@@ -338,7 +338,7 @@ bool sdlUpdatesCommand(int id) {
     case ID_OPT_PREVIEWS: {
         const bool on = !sdlUpdatePreviews();
         if (!gSilent) prefs::setNumber(L"UpdatePreviews", on ? 1 : 0);  // (tests never change the user's settings)
-        setMessage(on ? L"StarDraft 2 offers pre-releases too" : L"StarDraft 2 offers the stable releases only");
+        setMessage(on ? L"Updates: offer pre-releases too" : L"Updates: offer the stable releases only");
         gOptionsView.invalidate();
         sdlLookForUpdate();  // (the newest release of the track now)
         return true;

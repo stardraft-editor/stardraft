@@ -166,7 +166,7 @@ void openDropped(const std::vector<std::filesystem::path>& files, const std::fun
         std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
         std::error_code ec;
         if (ext == L".scm" || ext == L".scx" || ext == L".chk" || ext == L".stardraft" || ext == L".eds" || fs::is_directory(f, ec)) open(f);
-        else setMessage(L"Did not open " + f.filename().wstring() + L": StarDraft 2 opens maps (.scm, .scx, .chk) and projects");
+        else setMessage(L"Did not open " + f.filename().wstring() + L": the file is not a map (.scm, .scx, .chk) or a project");
     }
 }
 
@@ -210,7 +210,7 @@ bool shellMapsReady();  // (the host: the game's files are there, sdl_start.inc)
 void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     AppState& app = shellState();
     if (!shellMapsReady()) {  // (no game files: a map cannot open; the start page's banner asks for the folder)
-        shellErrorBox(tr(L"StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse)."),
+        shellErrorBox(tr(L"No StarCraft game files found. Select the StarCraft folder on the start page (Browse)."),
                       tr(L"Could not open the map"));
         return;
     }
@@ -240,7 +240,7 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
     shellMapOpened(path);
     setMessage(L"Opened " + fs::path(path).filename().wstring() + L" (" + widen(tilesetName(app.ed->era())) + L")");
     if (app.ed->isomRebuilt())  // a map made by a tool that writes only the tiles (or protected)
-        shellLogLine(L"The map had no isometric terrain data (ISOM). StarDraft 2 made it from the tiles, so the isometric tools work. Saving the map keeps it.");
+        shellLogLine(L"The map had no isometric terrain data (ISOM). Made the ISOM data from the tiles, so the isometric tools work. Saving the map keeps it.");
 }
 
 // --- The unsaved project ---------------------------------------------------------------------------------------

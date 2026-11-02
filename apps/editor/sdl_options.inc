@@ -162,7 +162,7 @@ void restartProgramSdl() {
 void resetSettingsSdl() {
     if (!gRoot || gNoBoxes) return;
     if (msgbox::ask(*gRoot, shellTr(L"Reset all program settings"),
-                    shellTr(L"Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are."),
+                    shellTr(L"Give every program setting its default value, then restart? Your maps, projects and recent lists stay as they are."),
                     {shellTr(L"&Reset and restart"), shellTr(L"Cancel")}, msgbox::Icon::Warning) != 0)
         return;
     confirmQuit([] {
@@ -218,7 +218,7 @@ bool sdlOptionsCommand(int id) {
     case ID_OPT_LASTPROJECT:
         prefs::flag(L"OpenLastProject", flag);
         prefs::setNumber(L"OpenLastProject", flag ? 0 : 1);
-        setMessage(!flag ? L"The last project opens when StarDraft 2 starts" : L"StarDraft 2 starts with no project open");
+        setMessage(!flag ? L"At start: open the last project" : L"At start: open no project");
         break;
     case ID_GAME_MODE:
     case ID_GAME_MODE + 1:

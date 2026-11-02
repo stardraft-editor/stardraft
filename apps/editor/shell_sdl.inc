@@ -582,7 +582,7 @@ void shellChooseInstallFolder() {
     gInstallNext = dir;
     gOptionsView.invalidate();
     msgbox::ask(*gRoot, shellTr(L"StarCraft folder"),
-                shellTr(L"StarDraft 2 uses this folder after a restart:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                shellTr(L"The new folder applies after a restart:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
@@ -614,7 +614,7 @@ void shellChooseCmbwFolder() {
     }
     gCmbwNext = in;
     msgbox::ask(*gRoot, shellTr(L"Cosmonarchy folder"),
-                shellTr(L"StarDraft 2 uses this folder after a restart:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                shellTr(L"The new folder applies after a restart:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
 }
@@ -713,7 +713,7 @@ std::filesystem::path shellPickFile(const ShellFilePick& pick) {
 bool sdlSaveUnsavedProject() {
     if (!gState.ed || !isUnsavedProject(activeProject())) return false;
     ShellFilePick d;
-    d.title = shellTr(L"Save the project (StarDraft 2 makes a folder with its name here)");
+    d.title = shellTr(L"Save the project (a new folder with its name goes here)");
     d.filters = {{L"StarDraft 2 project (*.stardraft)", L"*.stardraft"}};
     d.defaultExtension = L"stardraft", d.fileName = L"Untitled", d.initialDir = defaultProjectsFolder(), d.save = true;
     std::error_code ec;

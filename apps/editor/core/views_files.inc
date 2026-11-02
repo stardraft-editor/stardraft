@@ -41,7 +41,7 @@ public:
             invalidate();
         };
         search_.setPlaceholder(L"Search the game's sounds");
-        importBtn_.setTip(L"WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).");
+        importBtn_.setTip(L"WAV or OGG files. They go into the map (staredit\\wav\\).");
         renameBtn_.setTip(L"Rename the file in the map. The briefings that play it also use the new name.");
         add(search_, {0, 0, 0, 0});
         add(importBtn_, {0, 0, 0, 0});
@@ -342,7 +342,7 @@ void FilesPage::paint(draw::Canvas& c) {
         ++shown;
     }
     if (!shown) {
-        const std::wstring none = f.empty() ? std::wstring(L"StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)") : std::wstring(L"No game sound name contains the search text");
+        const std::wstring none = f.empty() ? std::wstring(L"No game sounds found. Select the StarCraft folder in Options > Program options.") : std::wstring(L"No game sound name contains the search text");
         c.text({x0 + scale(50), y, colRight, y + rowH}, none, kDim, draw::kMiddle | draw::kEllipsis);
         y += rowH;
     }

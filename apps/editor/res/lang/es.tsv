@@ -76,7 +76,7 @@ Select the StarCraft: Remastered folder. It contains .build.info.	Seleccione la 
 Not a StarCraft: Remastered folder	No es una carpeta de StarCraft: Remastered
 Could not read the game data in this folder:\r\n	No se pudieron leer los datos del juego de esta carpeta:\r\n
 StarCraft folder	Carpeta de StarCraft
-StarDraft 2 uses this folder after a restart:	StarDraft 2 usa esta carpeta después de reiniciar:
+The new folder applies after a restart:	La nueva carpeta se usa después de reiniciar:
 To use it now, restart StarDraft 2.	Para usarla ahora, reinicie StarDraft 2.
 Start	Inicio
 Untitled 	Sin título 
@@ -108,7 +108,7 @@ euddraft's build file: Build writes it	archivo de compilación de euddraft: Comp
 the built map: Build (Ctrl+B) writes it to the Output file	el mapa compilado: Compilar (Ctrl+B) lo escribe en el archivo de salida
 the built map: Build (Ctrl+B) writes it	el mapa compilado: Compilar (Ctrl+B) lo escribe
 your code (epScript). To add more, use File > Project > Add a script.	su código (epScript). Para añadir más, use Archivo > Proyecto > Añadir un script.
-StarDraft 2 makes the folder 	StarDraft 2 crea la carpeta 
+The project goes into the new folder 	El proyecto va en la carpeta nueva 
 \\ in the location above:\r\n\r\n	\\ en la ubicación de arriba:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nEn la primera compilación, StarDraft 2 descarga euddraft de GitHub a su propia carpeta.\r\nStarDraft 2 no cambia otras copias de este equipo. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
 Name	Nombre
@@ -168,7 +168,7 @@ Could not create the map	No se pudo crear el mapa
 Created a new 	Creado un nuevo 
  map (	 mapa (
 StarDraft 2 project (*.stardraft)*.stardraft	Proyecto de StarDraft 2 (*.stardraft)*.stardraft
-Save the project (StarDraft 2 makes a folder with its name here)	Guardar el proyecto (StarDraft 2 crea aquí una carpeta con su nombre)
+Save the project (a new folder with its name goes here)	Guardar el proyecto (aquí va una carpeta nueva con su nombre)
 The name cannot hold \\ / : * ? " < > |	El nombre no puede contener \\ / : * ? " < > |
 Save project	Guardar proyecto
  is there already and is not empty.	 ya existe y no está vacía.
@@ -228,16 +228,16 @@ Deleted 	Eliminado:
 Selected 	Seleccionado: 
 StarDraft 2 looks for a newer release on start	StarDraft 2 busca una versión más reciente al iniciar
 StarDraft 2 does not look for a newer release on start	StarDraft 2 no busca una versión más reciente al iniciar
-StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 envía un informe anónimo cuando se bloquea
-StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 no envía informes de bloqueo (el informe se queda en este equipo)
-The last project opens when StarDraft 2 starts	El último proyecto se abre al iniciar StarDraft 2
-StarDraft 2 starts with no project open	StarDraft 2 se inicia sin ningún proyecto abierto
+Crash reports: send an anonymous report after a crash	Informes de errores: enviar un informe anónimo tras un error
+Crash reports: do not send (a report stays on this computer)	Informes de errores: no enviar (el informe se queda en este equipo)
+At start: open the last project	Al iniciar: abrir el último proyecto
+At start: open no project	Al iniciar: no abrir ningún proyecto
 Units: can be on top of others	Unidades: pueden estar encima de otras
 Units: cannot be on top of others (air units also)	Unidades: no pueden estar encima de otras (tampoco las aéreas)
 Units: place anywhere (terrain edits do not move them)	Unidades: colocar en cualquier lugar (las ediciones de terreno no las mueven)
 Units: place only where it fits	Unidades: colocar solo donde quepan
 Units: move to the nearest place where it fits	Unidades: mover al lugar más cercano donde quepan
-Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	Decorados: colocar en cualquier lugar del mapa (StarDraft 2 no comprueba el terreno)
+Doodads: place anywhere on the map (no terrain check)	Decorados: colocar en cualquier lugar del mapa (sin comprobar el terreno)
 Doodads: move to the nearest place where it fits	Decorados: mover al lugar más cercano donde quepan
 Doodads: place only where it fits	Decorados: colocar solo donde quepan
 Carbot (cartooned) graphics	Gráficos Carbot (estilo dibujo animado)
@@ -398,7 +398,7 @@ Could not change the location: 	No se pudo cambiar la ubicación:
 Location properties	Propiedades de la ubicación
 Read-only. A change to this value has no effect in StarCraft: Remastered.	Solo lectura. Un cambio en este valor no tiene efecto en StarCraft: Remastered.
 Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Solo lectura para este sonido. El juego carga los sonidos con la marca Preload antes de que se ejecute el código del mapa, por lo que un cambio en el archivo no tiene efecto.
-Read-only. StarDraft 2 does not know where the game keeps this value.	Solo lectura. StarDraft 2 no sabe dónde guarda el juego este valor.
+Read-only. The address of this value in the game memory is not known.	Solo lectura. No se conoce la dirección de este valor en la memoria del juego.
 * Needs verification	* Necesita verificación
 1 tile: 32 x 32 px	1 tile: 32 x 32 px
 Drag to move the addon	Arrastre para mover el accesorio
@@ -458,7 +458,7 @@ No sound device is available	No hay ningún dispositivo de sonido disponible
 Pause	Pausa
 Play	Reproducir
 Volume	Volumen
-The volume of every sound StarDraft 2 plays, from the next sound on	El volumen de todos los sonidos que reproduce StarDraft 2, a partir del siguiente sonido
+The volume of all sounds, from the next sound on	El volumen de todos los sonidos, a partir del siguiente sonido
 no file	sin archivo
 cannot read the file	no se puede leer el archivo
 Medium	Medio
@@ -541,7 +541,7 @@ Triggers are in the Triggers workspace of a project.	Los disparadores están en 
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Aún no disponible: gráficos, sonidos, retratos y fuentes que se importan al mapa.
 Project: 	Proyecto: 
 No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	No hay ningún proyecto abierto. Archivo > Proyecto > Convertir este mapa en proyecto crea uno. Archivo > Proyecto > Abrir proyecto abre uno.
-Did not save the triggers: a newer StarDraft 2 made triggers.json	No se guardaron los disparadores: un StarDraft 2 más nuevo creó triggers.json
+Did not save the triggers: triggers.json is from a newer version	No se guardaron los disparadores: triggers.json es de una versión más nueva
   (off)	  (desactivado)
 Added a variable. Press F2 to rename it.	Se añadió una variable. Pulse F2 para renombrarla.
 Added from a template: 	Añadido desde una plantilla: 
@@ -973,7 +973,7 @@ Sent the feedback as #	Comentarios enviados como #
 . Thank you.	. Gracias.
 Sent the feedback. Thank you.	Comentarios enviados. Gracias.
 This build cannot send feedback. The feedback is in 	Esta compilación no puede enviar comentarios. Los comentarios están en 
-Could not send the feedback now. StarDraft 2 sends it at the next start.	No se pudieron enviar los comentarios ahora. StarDraft 2 los envía en el próximo inicio.
+Could not send the feedback now. It is sent at the next start.	No se pudieron enviar los comentarios ahora. Se envían en el próximo inicio.
 Minimap	Minimapa
 Density: low	Densidad: baja
 Density: medium	Densidad: media
@@ -1142,11 +1142,11 @@ Set the classic triggers	Establecer los disparadores clásicos
 Hello from StarDraft 2	Hola desde StarDraft 2
 the menu item 	el elemento de menú 
 the menu item Copy	el elemento de menú Copiar
-StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 se detuvo por un error. El informe de fallo está en 
+An error stopped the program. The crash report is in 	Un error detuvo el programa. El informe de fallo está en 
  (crash reports are off).	 (los informes de fallo están desactivados).
 StarDraft 2 stopped	StarDraft 2 se detuvo
 " --send-crash "	" --send-crash "
-StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 se detuvo por un error. StarDraft 2 envía un informe de fallo a los desarrolladores para que puedan reparar el error.
+An error stopped the program. A crash report goes to the developers so that they can repair the error.	Un error detuvo el programa. Se envía un informe de fallo a los desarrolladores para que puedan reparar el error.
 Authorization: Bearer 	Authorization: Bearer 
 \r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n	\r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n
 Could not read 	No se pudo leer 
@@ -1268,7 +1268,6 @@ the code	el código
 Feedback on 	Comentarios sobre 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	Los comentarios son anónimos. No incluya información sensible ni privada. Ctrl+Enter los envía.
 Send	Enviar
-This build cannot send feedback. StarDraft 2 keeps it in 	Esta compilación no puede enviar comentarios. StarDraft 2 los guarda en 
 Sending the feedback…	Enviando los comentarios…
 Report feedback on 	Enviar comentarios sobre 
 %zu B	%zu B
@@ -1290,11 +1289,11 @@ The map has it	El mapa lo tiene
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	Añadir a los sonidos del mapa, por referencia: el juego reproduce su propio archivo, el mapa no lo contiene
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	El mapa no tiene sonidos propios. Importar sonidos añade archivos WAV u OGG.
 Import sounds…	Importar sonidos…
-WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	Archivos WAV u OGG. StarDraft 2 los guarda en el mapa (staredit\\wav\\).
+WAV or OGG files. They go into the map (staredit\\wav\\).	Archivos WAV u OGG. Se guardan en el mapa (staredit\\wav\\).
 Rename	Cambiar nombre
 Rename the file in the map. The briefings that play it also use the new name.	Cambia el nombre del archivo en el mapa. Los briefings que lo reproducen también usan el nombre nuevo.
 Sounds of the game	Sonidos del juego
-StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 no encontró sonidos del juego (Opciones > Opciones del programa: carpeta de StarCraft)
+No game sounds found. Select the StarCraft folder in Options > Program options.	No se encontraron sonidos del juego. Elija la carpeta de StarCraft en Opciones > Opciones del programa.
 No game sound name contains the search text	Ningún nombre de sonido del juego contiene el texto de búsqueda
 Briefings	Briefings
 Open it in the Briefing workspace	Abrir en el espacio de trabajo de Briefing
@@ -1327,9 +1326,9 @@ These pages have changes that are not applied: 	Estas páginas tienen cambios si
 Do &not apply	&No aplicar
 Changed by the test	Cambiado por la prueba
 The map becomes 	El mapa pasa a tener 
- tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 casillas. StarDraft 2 elimina las partes del mapa fuera del nuevo tamaño.\r\n
+ tiles. The parts of the map outside the new size are deleted.\r\n	 casillas. Las partes del mapa fuera del nuevo tamaño se eliminan.\r\n
 Each terrain becomes the 	Cada terreno pasa a ser el terreno del mismo nombre o del mismo tipo (por ejemplo agua o terreno alto) del tileset 
- terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n	del mismo nombre o del mismo tipo (por ejemplo agua o terreno alto). Si no hay ninguno, pasa a ser el terreno nuevo. StarDraft 2 elimina los decorados, porque cada tileset tiene sus propios decorados.\r\n
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads are deleted, because each tileset has its own doodads.\r\n	del mismo nombre o del mismo tipo (por ejemplo agua o terreno alto). Si no hay ninguno, pasa a ser el terreno nuevo. Los decorados se eliminan, porque cada tileset tiene sus propios decorados.\r\n
 The map keeps its size and tileset: 	El mapa conserva su tamaño y tileset: 
 Set the map properties: 	Establecer las propiedades del mapa: 
 Set the map properties	Establecer las propiedades del mapa
@@ -1384,8 +1383,8 @@ The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, 
 A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	Una copia de un mapa que tenga (.scm o .scx): su terreno, unidades, disparadores y ajustes
 Land, water and high ground from a seed and the settings next to the preview	Tierra, agua y terreno alto a partir de una semilla y los ajustes junto a la vista previa
 The terrain on the whole map	El terreno de todo el mapa
-The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file.	El mapa nuevo recibe el tamaño, el tileset, el terreno y los decorados del mapa. StarDraft 2 no cambia el archivo del mapa.
-StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.	StarDraft 2 copia el mapa en la carpeta del proyecto. No cambia el archivo original.
+The new map gets the map's size, tileset, terrain and doodads. The map's file does not change.	El mapa nuevo recibe el tamaño, el tileset, el terreno y los decorados del mapa. El archivo del mapa no cambia.
+The project gets a copy of the map in its folder. The original file does not change.	El proyecto recibe una copia del mapa en su carpeta. El archivo original no cambia.
 Seed	Semilla
 New seed	Nueva semilla
 Symmetry	Simetría
@@ -1399,7 +1398,7 @@ Make the project folder and its map	Crear la carpeta del proyecto y su mapa
 Make the map in this tab	Crear el mapa en esta pestaña
 Removed 	Se quitó 
  from the list	 de la lista
-StarDraft 2 is alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	StarDraft 2 es un software alfa: haga copias de seguridad de sus mapas y proyectos antes de editarlos.\nSus comentarios ayudan: haga clic con el botón derecho en cualquier elemento y seleccione "Enviar comentarios sobre …".
+Alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	Software alfa: haga copias de seguridad de sus mapas y proyectos antes de editarlos.\nSus comentarios ayudan: haga clic con el botón derecho en cualquier elemento y seleccione "Enviar comentarios sobre …".
 Coming later	Próximamente
 Campaign projects come in a later version	Los proyectos de campaña llegarán en una versión posterior
 Mod projects come in a later version	Los proyectos de mod llegarán en una versión posterior
@@ -1428,9 +1427,9 @@ The version, Windows, the video card, where it crashed and the last log lines; n
 Working folder	Carpeta de trabajo
 The working folder: where new projects go	La carpeta de trabajo: donde se guardan los proyectos nuevos
 New projects go to 	Los proyectos nuevos se guardan en 
-Select the folder where StarDraft 2 makes new projects	Seleccione la carpeta donde StarDraft 2 crea los proyectos nuevos
+Select the folder for new projects	Seleccione la carpeta de los proyectos nuevos
 Documents\\StarDraft	Documents\\StarDraft
-StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 crea los proyectos nuevos en esta carpeta. No mueve un proyecto que abra desde otra carpeta.
+New projects go into this folder. A project that you open from another folder stays where it is.	Los proyectos nuevos van en esta carpeta. Un proyecto que abra desde otra carpeta se queda donde está.
 Select the StarCraft: Remastered folder	Seleccione la carpeta de StarCraft: Remastered
 After a restart: 	Después de reiniciar: 
 A new folder is used after a restart	Se usará una carpeta nueva después de reiniciar
@@ -1451,7 +1450,7 @@ Linked 	Vinculado
  to the build	 a la compilación
 This code comes from the Data workspace. To remove it, undo the .dat edits.	Este código viene del espacio de trabajo Datos. Para quitarlo, deshaga las ediciones de .dat.
 Removed the link to 	Se quitó el vínculo con 
-. StarDraft 2 does not delete the file.	. StarDraft 2 no elimina el archivo.
+. The file stays on the disk.	. El archivo se queda en el disco.
  from the build. The file is still in the project folder.	 de la compilación. El archivo sigue en la carpeta del proyecto.
 euddraft found an error in 	euddraft encontró un error en 
 , line 	, línea 
@@ -1496,9 +1495,9 @@ Open folder	Abrir carpeta
 Source map	Mapa de origen
 In the project folder	En la carpeta del proyecto
 Where Build writes the map	Dónde escribe el mapa Compilar
-Found by StarDraft 2	Encontrado por StarDraft 2
+Found on this computer	Encontrado en este equipo
 Change…	Cambiar…
-The folder that StarDraft 2 reads game data from	La carpeta de la que StarDraft 2 lee los datos del juego
+The folder that the game data comes from	La carpeta de la que vienen los datos del juego
 Downloaded on the first build	Se descarga en la primera compilación
 Options	Opciones
 EUD Turbo	EUD Turbo
@@ -1538,15 +1537,15 @@ linked  ·  not found: Build stops	vinculado  ·  no encontrado: Compilar se det
 not found: Build stops	no encontrado: Compilar se detiene
 linked  ·  changed 	vinculado  ·  cambiado 
   after the last build	  después de la última compilación
-A linked file. StarDraft 2 does not copy or change it: 	Un archivo vinculado. StarDraft 2 no lo copia ni lo modifica: 
+A linked file. It stays where it is and does not change: 	Un archivo vinculado. Se queda donde está y no cambia: 
 Open in your editor	Abrir en su editor
 Show in folder	Mostrar en la carpeta
 Comes from the Data workspace	Procede del espacio de trabajo Datos
-Remove the link. StarDraft 2 does not delete the file.	Quitar el vínculo. StarDraft 2 no elimina el archivo.
+Remove the link (the file stays on the disk)	Quitar el vínculo (el archivo se queda en el disco)
 Remove from the build (the file stays in the project folder)	Quitar de la compilación (el archivo permanece en la carpeta del proyecto)
 New script	Nuevo script
 Link a file…	Vincular un archivo…
-Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.	Añadir un archivo .eps o .py de cualquier lugar del disco a la compilación. StarDraft 2 no lo copia ni lo modifica.
+Add an .eps or .py file from anywhere on disk to the build. The file stays where it is and does not change.	Añadir un archivo .eps o .py de cualquier lugar del disco a la compilación. El archivo se queda donde está y no cambia.
 Could not read the sound	No se pudo leer el sonido
 Sounds (WAV, OGG)*.wav;*.ogg	Sonidos (WAV, OGG)*.wav;*.ogg
 Could not read the sound: 	No se pudo leer el sonido: 
@@ -1625,7 +1624,7 @@ StarDraft 2.Project\\shell\\open\\command	StarDraft 2.Project\\shell\\open\\comm
 Accept: 	Aceptar: 
 Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	No se pudo obtener la última versión de GitHub. Compruebe que el equipo está conectado a Internet.
 Check for updates	Buscar actualizaciones
-StarDraft 2 is up to date (	StarDraft 2 está actualizado (
+Up to date (	Actualizado (
 .\n\nThis is not a release build. Open the release page?	.\n\nEsta no es una versión de lanzamiento. ¿Abrir la página de la versión?
 &Open the release page	&Abrir la página de la versión
 Download and install it, then restart StarDraft 2?	¿Descargarla, instalarla y reiniciar StarDraft 2?
@@ -1764,7 +1763,7 @@ Do not send	No enviar
 &Always send	Enviar &siempre
 Do &not send	&No enviar
 Crash report	Informe de error
-After a crash, StarDraft 2 asks at the next start if it can send the report (default)	Tras un error, StarDraft 2 pregunta al iniciar si puede enviar el informe (predeterminado)
+Ask at the next start after a crash (default)	Preguntar en el próximo inicio tras un error (predeterminado)
 The reports stay on this computer	Los informes se quedan en este equipo
 Show &minimap	Mostrar &minimapa
 Hide	Ocultar
@@ -1810,7 +1809,7 @@ Maps	Mapas
 Open maps with StarDraft 2	Abrir mapas con StarDraft 2
 Make StarDraft 2 the program that opens .scm and .scx maps	Hacer de StarDraft 2 el programa que abre los mapas .scm y .scx
 Maps (.scm, .scx) open with StarDraft 2	Los mapas (.scm, .scx) se abren con StarDraft 2
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Puede hacer que StarDraft 2 los abra más tarde en Opciones > Opciones del programa > Mapas.
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in Options > Program options > Maps.	¿Abrir los mapas .scm y .scx con StarDraft 2 al hacer doble clic? Puede cambiarlo más tarde en Opciones > Opciones del programa > Mapas.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserva el programa que eligió para los mapas .scm o .scx. En Aplicaciones predeterminadas, busque .scm y .scx y seleccione StarDraft 2.
 Default apps	Aplicaciones predeterminadas
 The new language shows after a restart. Restart now? Your open maps and projects open again.	El nuevo idioma se muestra después de reiniciar. ¿Reiniciar ahora? Sus mapas y proyectos abiertos se abren de nuevo.
@@ -1820,14 +1819,14 @@ Start StarDraft 2 again in the new language. Your open maps and projects open ag
 The new language shows after a restart	El nuevo idioma se muestra después de reiniciar
 Text color	Color del texto
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Con varios tiles seleccionados, el pincel los coloca como están en la lista; mantén Shift para colocarlos al azar.
-. At the next start, StarDraft 2 asks if you want to send the crash report.	. En el próximo inicio, StarDraft 2 le pregunta si quiere enviar el informe de fallo.
+. At the next start, you can send the crash report.	. En el próximo inicio, puede enviar el informe de fallo.
 &Pin to the top	&Fijar arriba
 Un&pin	&Desfijar
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nEn la primera compilación, StarDraft 2 descarga euddraft de GitHub a su propia carpeta.\r\nStarDraft 2 no cambia otras copias de este equipo. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
+\r\nThe first build downloads euddraft from GitHub into its own folder.\r\nOther copies of euddraft on this computer do not change. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nLa primera compilación descarga euddraft de GitHub a su propia carpeta.\r\nLas otras copias de euddraft de este equipo no cambian. Un mapa que abra\r\nsigue siendo un mapa normal. Solo se puede compilar un proyecto.
  accepts the current player or Player 1 to Player 12	 acepta el jugador actual o del Jugador 1 al Jugador 12
  accepts the current player, Player 1 to Player 8, all players, or a force	 acepta el jugador actual, del Jugador 1 al Jugador 8, todos los jugadores o una fuerza
  are hidden (View > Layers)	 se ocultan (Ver > Capas)
- has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 tiene el mismo tipo, propietario y posición. Mueva una de ellas, o StarDraft podría encontrar la unidad equivocada
+ has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 tiene el mismo tipo, propietario y posición. Mueva una de ellas, o los disparadores podrían encontrar la unidad equivocada
  tiles)	 tiles)
  tiles: Brush, Spray and Fill place one of them at random	 tiles: Pincel, Spray y Relleno colocan uno de ellos al azar
  units: click to place them, and again to place more. Right-click or Esc stops.	 unidades: haga clic para colocarlas, y otra vez para colocar más. Clic derecho o Esc detiene.
@@ -1837,12 +1836,12 @@ Un&pin	&Desfijar
 &Project page	&Página del proyecto
 . At the next start, StarDraft 2 asks if it can send it.	. En el próximo inicio, StarDraft 2 pregunta si puede enviarlo.
 . The Favorites filter shows them.	. El filtro Favoritos los muestra.
-: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 abre mapas (.scm, .scx, .chk) y proyectos
-: StarDraft cannot build this block yet	: StarDraft aún no puede compilar este bloque
+: the file is not a map (.scm, .scx, .chk) or a project	: el archivo no es un mapa (.scm, .scx, .chk) ni un proyecto
+: this block cannot be built yet	: este bloque aún no se puede compilar
 : this layer is hidden. View > Layers shows it again (then you can edit it).	: esta capa está oculta. Ver > Capas la muestra otra vez (así puede editarla).
 Add a script	Añadir un script
 Added to the favorites: 	Añadido a favoritos: 
-After a crash, StarDraft 2 asks at the next start if it can send the report	Tras un error, StarDraft 2 pregunta al iniciar si puede enviar el informe
+Crash reports: ask at the next start after a crash	Informes de errores: preguntar en el próximo inicio tras un error
 Automatic (the language of Windows)	Automático (el idioma de Windows)
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	Pincel: coloca el tile seleccionado en la lista Tiles, con el tamaño y la forma del pincel. Si hay varios tiles seleccionados, cada posición recibe uno de ellos al azar (dispersión).
 Could not write 	No se pudo escribir 
@@ -1856,10 +1855,10 @@ Paste terrain: click to place it, and again to place more. Press R to turn it. R
 Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	Pegar tiles: haga clic para colocarlos, y otra vez para colocar más. Clic derecho o Esc detiene.
 Paste: click to place the copy, and again to place more. Right-click or Esc stops.	Pegar: haga clic para colocar la copia, y otra vez para colocar más. Clic derecho o Esc detiene.
 Removed from the favorites: 	Quitado de favoritos: 
-Run local block: StarDraft cannot tell what 	Ejecutar bloque local: StarDraft no puede saber lo que 
+Run local block: it is not known what 	Ejecutar bloque local: no se sabe qué cambia 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	Enviar un informe anónimo tras un error: la versión, Windows, la tarjeta gráfica, dónde falló y las últimas líneas del registro; no los mapas
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	StarDraft 2 se detuvo la última vez por un error. ¿Enviar el informe de fallo a los desarrolladores para que puedan reparar el error?\n\nEl informe incluye la versión, el sistema operativo, la tarjeta gráfica, dónde falló y las últimas líneas del registro. Las líneas del registro pueden tener nombres de mapas y carpetas (tu carpeta de usuario aparece como ~). El informe es público en GitHub. No incluye mapas. Está en 
+An error stopped the program the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	La última vez, un error detuvo el programa. ¿Enviar el informe de fallo a los desarrolladores para que puedan reparar el error?\n\nEl informe incluye la versión, el sistema operativo, la tarjeta gráfica, dónde falló y las últimas líneas del registro. Las líneas del registro pueden tener nombres de mapas y carpetas (tu carpeta de usuario aparece como ~). El informe es público en GitHub. No incluye mapas. Está en 
 Terran Marine	Marine Terran
 The language of the program's texts	Idioma de los textos del programa
 The map has 	El mapa tiene 
@@ -2142,10 +2141,10 @@ At start and one time each hour (release builds only)	Al iniciar y una vez cada 
 Previews	Versiones preliminares
 Pre-releases too, not only the stable releases	También versiones preliminares, no solo las estables
 Updates	Actualizaciones
-StarDraft 2 offers pre-releases too	StarDraft 2 también ofrece versiones preliminares
-StarDraft 2 offers the stable releases only	StarDraft 2 solo ofrece las versiones estables
-StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 busca una versión más reciente al iniciar y cada hora
-StarDraft 2 does not look for newer releases	StarDraft 2 no busca versiones más recientes
+Updates: offer pre-releases too	Actualizaciones: ofrecer también versiones preliminares
+Updates: offer the stable releases only	Actualizaciones: ofrecer solo las versiones estables
+Updates: look for a newer release at start and each hour	Actualizaciones: buscar una versión más reciente al iniciar y cada hora
+Updates: do not look for newer releases	Actualizaciones: no buscar versiones más recientes
 &Export map image…\tCtrl+Shift+E	&Exportar imagen del mapa…\tCtrl+Shift+E
 Export map image	Exportar imagen del mapa
 Full size in HD (64 pixels a tile)	Tamaño completo en HD (64 píxeles por ficha)
@@ -2461,7 +2460,7 @@ The Prerelease or Release folder	La carpeta Prerelease o Release
 The Prerelease or Release folder. A new folder is used after a restart	La carpeta Prerelease o Release. Una carpeta nueva se usa después de reiniciar
 The CRIG commands have no problems	Los comandos CRIG no tienen problemas
 These CRIG commands in the trigger Comments have problems:	Estos comandos CRIG de los comentarios de los disparadores tienen problemas:
-Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Simulación experimental; puede que aún no coincida del todo con el juego. Es una simulación propia de StarDraft, no el motor del juego.
+Experimental simulation: the result can differ from the game. It is not the game's engine.	Simulación experimental: el resultado puede diferir del juego. No es el motor del juego.
 Simulation	Simulación
 Simulate mining	Simular extracción
 Simulate combat	Simular combate
@@ -2590,7 +2589,7 @@ The rest of the command	El resto del comando
 the values after these, as the command reads them	los valores después de estos, como los lee el comando
 Plugins	Complementos
 Early feature preview: report the issues that you find	Vista previa de una función temprana: informe de los problemas que encuentre
-Adjusts StarDraft to work with the CMBW environment when it is loaded	Ajusta StarDraft para trabajar con el entorno de CMBW cuando está cargado
+When loaded, maps open with the CMBW data, and new maps are CMBW maps	Cuando está cargado, los mapas se abren con los datos de CMBW y los mapas nuevos son mapas de CMBW
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Complemento Cosmonarchy BW cargado: los mapas se abren y se crean como mapas de Cosmonarchy BW (las pestañas abiertas no cambian)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Complemento Cosmonarchy BW descargado: los mapas se abren y se crean como mapas de StarCraft: Brood War (las pestañas abiertas no cambian)
 Type to search	Escribe para buscar
@@ -2616,12 +2615,12 @@ Hid all overlays	Se ocultaron todas las superposiciones
 Terrain &pie palette	&Paleta circular de terreno
 The pie palette has no terrains for this tileset	La paleta circular no tiene terrenos para este conjunto de casillas
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Primero seleccione la carpeta de StarCraft (Examinar, en la página de inicio): un mapa nuevo necesita los archivos del juego
-StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 necesita los archivos del juego StarCraft para abrir un mapa. Elija la carpeta de StarCraft en la página de inicio (Examinar).
+No StarCraft game files found. Select the StarCraft folder on the start page (Browse).	No se encontraron los archivos del juego StarCraft. Elija la carpeta de StarCraft en la página de inicio (Examinar).
 Reset all program settings…	Restablecer toda la configuración del programa…
-Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia (primero se pregunta)
+Give every program setting its default value and restart (a question first)	Devolver cada ajuste del programa a su valor predeterminado y reiniciar (primero se pregunta)
 Your maps, projects and recent lists stay as they are	Sus mapas, proyectos y listas recientes no cambian
 Reset all program settings	Restablecer toda la configuración del programa
-Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	Cada ajuste del programa vuelve a su valor predeterminado y StarDraft 2 se reinicia. Sus mapas, proyectos y listas recientes no cambian.
+Give every program setting its default value, then restart? Your maps, projects and recent lists stay as they are.	¿Devolver cada ajuste del programa a su valor predeterminado y reiniciar? Sus mapas, proyectos y listas recientes no cambian.
 &Reset and restart	&Restablecer y reiniciar
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	La configuración del programa tiene sus valores predeterminados. Cierre StarDraft 2 y vuelva a iniciarlo para usarlos.
 Rectangle	Rectángulo

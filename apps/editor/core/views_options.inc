@@ -120,7 +120,7 @@ public:
         lightSeg_[2].onClick = [this] { host_.command(ID_THEME_SYSTEM); };
         middleSeg_[0].setText(L"Drag map"), middleSeg_[0].setTip(L"The map moves with the mouse");
         middleSeg_[1].setText(L"Pan map"), middleSeg_[1].setTip(L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)");
-        crashSeg_[0].setText(L"Ask"), crashSeg_[0].setTip(L"After a crash, StarDraft 2 asks at the next start if it can send the report (default)");
+        crashSeg_[0].setText(L"Ask"), crashSeg_[0].setTip(L"Ask at the next start after a crash (default)");
         crashSeg_[1].setText(L"Send"), crashSeg_[1].setTip(L"Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps");
         crashSeg_[2].setText(L"Do not send"), crashSeg_[2].setTip(L"The reports stay on this computer");
         for (int i = 0; i < 2; ++i) {
@@ -209,7 +209,7 @@ public:
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
         add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0});
         folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false);
-        browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder where StarDraft 2 makes new projects");
+        browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder for new projects");
         browse_.onClick = [this] { host_.browseWorkingFolder(); };
         defaultFolder_.setText(L"Default"), defaultFolder_.setTip(L"Documents\\StarDraft");
         defaultFolder_.onClick = [this] { host_.useDefaultWorkingFolder(); };
@@ -227,7 +227,7 @@ public:
         add(bar_, {0, 0, 0, 0});
         bar_.setVisible(false);
         reset_.setText(L"Reset all program settings\x2026"), reset_.setTone(stardraft::kit::Tone::Danger);
-        reset_.setTip(L"Every program setting gets its default value, and StarDraft 2 restarts (a question first)");
+        reset_.setTip(L"Give every program setting its default value and restart (a question first)");
         reset_.onClick = [this] { host_.command(ID_OPT_RESETALL); };
         maps_.setText(L"Open maps with StarDraft 2"), maps_.setTip(L"Make StarDraft 2 the program that opens .scm and .scx maps");
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
@@ -697,7 +697,7 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["workfolder"] = field;
         parts_["browse.workfolder"] = browse_.frame(), parts_["default.workfolder"] = defaultFolder_.frame();
         y += rowH;
-        note(x0, y - scale(4), L"StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.");
+        note(x0, y - scale(4), L"New projects go into this folder. A project that you open from another folder stays where it is.");
         y += scale(20) + pad;
     }
 
@@ -763,7 +763,7 @@ void OptionsView::paint(draw::Canvas& c) {
         y += scale(20) + scale(6);
         checkRow(y, cmbwPlugin_, "plugin.cmbw");
         y += rowH;
-        note(x0 + scale(24), y - scale(4), L"Adjusts StarDraft to work with the CMBW environment when it is loaded");
+        note(x0 + scale(24), y - scale(4), L"When loaded, maps open with the CMBW data, and new maps are CMBW maps");
         y += scale(20);
         if (v.gameMode != 1) y += pad;  // (the section's end: no folder row below)
     }

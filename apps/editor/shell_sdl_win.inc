@@ -158,7 +158,7 @@ void askMapsDefault() {
     if (askedMapsDefault() || !gRoot) return;  // (two maps opened at once: one question)
     prefs::setNumber(L"AskedMapsDefault", 1);
     if (msgbox::ask(*gRoot, L"StarDraft 2",
-                        shellTr(L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in "
+                        shellTr(L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in "
                                 L"Options > Program options > Maps."),
                         {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
         makeMapsDefault();

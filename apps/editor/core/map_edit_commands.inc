@@ -512,7 +512,7 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_DOODAD_NEAREST:
     case ID_DOODAD_ANYWHERE:
         app.doodadCheck = id != ID_DOODAD_ANYWHERE, app.doodadNearest = id == ID_DOODAD_NEAREST;
-        setMessage(id == ID_DOODAD_ANYWHERE ? L"Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)"
+        setMessage(id == ID_DOODAD_ANYWHERE ? L"Doodads: place anywhere on the map (no terrain check)"
                    : id == ID_DOODAD_NEAREST ? L"Doodads: move to the nearest place where it fits"
                                              : L"Doodads: place only where it fits");
         break;

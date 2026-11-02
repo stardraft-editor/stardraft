@@ -333,7 +333,7 @@ std::wstring datFieldReadOnly(const std::string& dat, const DatField& f, int ent
     if (const DatTable* t = datTable(datTabOf(dat)); t && t->pointerField(f) && t->soundPreloaded(entry))
         return L"Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a "
                L"change to the file has no effect.";
-    if (!f.memory) return L"Read-only. StarDraft 2 does not know where the game keeps this value.";
+    if (!f.memory) return L"Read-only. The address of this value in the game memory is not known.";
     return L"";
 }
 

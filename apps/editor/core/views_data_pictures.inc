@@ -303,7 +303,7 @@ int paintTimeline(draw::Canvas& c, DataPicturesHost& host, int image, int x, int
     }
     if (!ends) c.text({x1 - scale(60), by + bh + scale(2), x1, cr.bottom - scale(2)}, L"\x2192 loops", kDim, draw::kMiddle | draw::kRight);
     needsVerification(c, host, {cr.right - scale(140), cr.top, cr.right, cr.top + scale(20)},
-                      L"Not checked against OpenBW: the waits and the order of the script, as StarDraft 2 plays it.");
+                      L"Not checked against OpenBW: the waits and the order of the script in this player");
     const int px = X(std::min(gImagePlayer.ticks, n - 1));
     c.line(px, cr.top + scale(4), px, by + bh + scale(2), draw::rgb(255, 255, 255), scale(2));
     host.pictureArea({x0, cr.top, x1, cr.bottom}, nullptr,

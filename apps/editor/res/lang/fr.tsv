@@ -76,7 +76,7 @@ Select the StarCraft: Remastered folder. It contains .build.info.	Sélectionnez 
 Not a StarCraft: Remastered folder	Ce n'est pas un dossier StarCraft: Remastered
 Could not read the game data in this folder:\r\n	Impossible de lire les données du jeu dans ce dossier:\r\n
 StarCraft folder	Dossier de StarCraft
-StarDraft 2 uses this folder after a restart:	StarDraft 2 utilise ce dossier après un redémarrage:
+The new folder applies after a restart:	Le nouveau dossier s'applique après un redémarrage:
 To use it now, restart StarDraft 2.	Pour l'utiliser maintenant, redémarrez StarDraft 2.
 Start	Accueil
 Untitled 	Sans titre 
@@ -108,7 +108,7 @@ euddraft's build file: Build writes it	le fichier de compilation d'euddraft: Com
 the built map: Build (Ctrl+B) writes it to the Output file	la carte compilée: Compiler (Ctrl+B) l'écrit dans le fichier de sortie
 the built map: Build (Ctrl+B) writes it	la carte compilée: Compiler (Ctrl+B) l'écrit
 your code (epScript). To add more, use File > Project > Add a script.	votre code (epScript). Pour en ajouter, utilisez Fichier > Projet > Ajouter un script.
-StarDraft 2 makes the folder 	StarDraft 2 crée le dossier 
+The project goes into the new folder 	Le projet va dans le nouveau dossier 
 \\ in the location above:\r\n\r\n	\\ à l'emplacement ci-dessus:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nLors de la première compilation, StarDraft 2 télécharge euddraft depuis GitHub dans son propre dossier.\r\nStarDraft ne modifie pas les autres copies sur cet ordinateur. Une carte que vous ouvrez\r\nreste une carte normale. Seul un projet peut être compilé.
 Name	Nom
@@ -168,7 +168,7 @@ Could not create the map	Impossible de créer la carte
 Created a new 	Nouvelle carte 
  map (	 créée (
 StarDraft 2 project (*.stardraft)*.stardraft	Projet StarDraft 2 (*.stardraft)*.stardraft
-Save the project (StarDraft 2 makes a folder with its name here)	Enregistrer le projet (StarDraft 2 crée ici un dossier portant son nom)
+Save the project (a new folder with its name goes here)	Enregistrer le projet (un nouveau dossier portant son nom va ici)
 The name cannot hold \\ / : * ? " < > |	Le nom ne peut pas contenir \\ / : * ? " < > |
 Save project	Enregistrer le projet
  is there already and is not empty.	 existe déjà et n'est pas vide.
@@ -228,16 +228,16 @@ Deleted 	Supprimé:
 Selected 	Sélectionné: 
 StarDraft 2 looks for a newer release on start	StarDraft 2 recherche une version plus récente au démarrage
 StarDraft 2 does not look for a newer release on start	StarDraft 2 ne recherche pas de version plus récente au démarrage
-StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 envoie un rapport anonyme en cas de plantage
-StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 n'envoie pas de rapports de plantage (le rapport reste sur cet ordinateur)
-The last project opens when StarDraft 2 starts	Le dernier projet s'ouvre au démarrage de StarDraft 2
-StarDraft 2 starts with no project open	StarDraft 2 démarre sans projet ouvert
+Crash reports: send an anonymous report after a crash	Rapports de plantage: envoyer un rapport anonyme après un plantage
+Crash reports: do not send (a report stays on this computer)	Rapports de plantage: ne pas envoyer (le rapport reste sur cet ordinateur)
+At start: open the last project	Au démarrage: ouvrir le dernier projet
+At start: open no project	Au démarrage: n'ouvrir aucun projet
 Units: can be on top of others	Unités: peuvent se superposer à d'autres
 Units: cannot be on top of others (air units also)	Unités: ne peuvent pas se superposer à d'autres (unités aériennes comprises)
 Units: place anywhere (terrain edits do not move them)	Unités: placer n'importe où (les modifications du terrain ne les déplacent pas)
 Units: place only where it fits	Unités: placer uniquement là où elles tiennent
 Units: move to the nearest place where it fits	Unités: déplacer vers l'endroit le plus proche où elles tiennent
-Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	Décors: placer n'importe où sur la carte (StarDraft 2 ne vérifie pas le terrain)
+Doodads: place anywhere on the map (no terrain check)	Décors: placer n'importe où sur la carte (sans vérifier le terrain)
 Doodads: move to the nearest place where it fits	Décors: déplacer vers l'endroit le plus proche où ils tiennent
 Doodads: place only where it fits	Décors: placer uniquement là où ils tiennent
 Carbot (cartooned) graphics	Graphismes Carbot (style dessin animé)
@@ -398,7 +398,7 @@ Could not change the location: 	Impossible de modifier l'emplacement:
 Location properties	Propriétés de l'emplacement
 Read-only. A change to this value has no effect in StarCraft: Remastered.	Lecture seule. Une modification de cette valeur n'a aucun effet dans StarCraft: Remastered.
 Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Lecture seule pour ce son. Le jeu charge les sons ayant l'indicateur Preload avant l'exécution du code de la carte; une modification du fichier n'a donc aucun effet.
-Read-only. StarDraft 2 does not know where the game keeps this value.	Lecture seule. StarDraft 2 ne sait pas où le jeu stocke cette valeur.
+Read-only. The address of this value in the game memory is not known.	Lecture seule. L'adresse de cette valeur dans la mémoire du jeu n'est pas connue.
 * Needs verification	* À vérifier
 1 tile: 32 x 32 px	1 tuile: 32 x 32 px
 Drag to move the addon	Faites glisser pour déplacer l'extension
@@ -458,7 +458,7 @@ No sound device is available	Aucun périphérique audio disponible
 Pause	Pause
 Play	Lire
 Volume	Volume
-The volume of every sound StarDraft 2 plays, from the next sound on	Le volume de tous les sons que StarDraft 2 joue, à partir du prochain son
+The volume of all sounds, from the next sound on	Le volume de tous les sons, à partir du prochain son
 no file	aucun fichier
 cannot read the file	impossible de lire le fichier
 Medium	Moyen
@@ -541,7 +541,7 @@ Triggers are in the Triggers workspace of a project.	Les déclencheurs se trouve
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Pas encore disponible: les graphismes, sons, portraits et polices que vous importez dans la carte.
 Project: 	Projet: 
 No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	Aucun projet ouvert. Fichier > Projet > Convertir cette carte en projet en crée un. Fichier > Projet > Ouvrir un projet en ouvre un.
-Did not save the triggers: a newer StarDraft 2 made triggers.json	Déclencheurs non enregistrés: triggers.json a été créé par une version plus récente de StarDraft 2
+Did not save the triggers: triggers.json is from a newer version	Déclencheurs non enregistrés: triggers.json vient d'une version plus récente
   (off)	  (désactivé)
 Added a variable. Press F2 to rename it.	Variable ajoutée. Appuyez sur F2 pour la renommer.
 Added from a template: 	Ajouté depuis un modèle: 
@@ -973,7 +973,7 @@ Sent the feedback as #	Commentaires envoyés sous le numéro #
 . Thank you.	. Merci.
 Sent the feedback. Thank you.	Commentaires envoyés. Merci.
 This build cannot send feedback. The feedback is in 	Cette version ne peut pas envoyer de commentaires. Les commentaires se trouvent dans 
-Could not send the feedback now. StarDraft 2 sends it at the next start.	Impossible d'envoyer les commentaires maintenant. StarDraft 2 les enverra au prochain démarrage.
+Could not send the feedback now. It is sent at the next start.	Impossible d'envoyer les commentaires maintenant. Ils seront envoyés au prochain démarrage.
 Minimap	Minicarte
 Density: low	Densité: faible
 Density: medium	Densité: moyenne
@@ -1142,11 +1142,11 @@ Set the classic triggers	Définir les déclencheurs classiques
 Hello from StarDraft 2	Bonjour de StarDraft 2
 the menu item 	l'élément de menu 
 the menu item Copy	l'élément de menu Copier
-StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 s'est arrêté à cause d'une erreur. Le rapport de plantage se trouve dans 
+An error stopped the program. The crash report is in 	Une erreur a arrêté le programme. Le rapport de plantage se trouve dans 
  (crash reports are off).	 (les rapports de plantage sont désactivés).
 StarDraft 2 stopped	StarDraft 2 s'est arrêté
 " --send-crash "	" --send-crash "
-StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 s'est arrêté à cause d'une erreur. StarDraft 2 envoie un rapport de plantage aux développeurs pour qu'ils puissent corriger l'erreur.
+An error stopped the program. A crash report goes to the developers so that they can repair the error.	Une erreur a arrêté le programme. Un rapport de plantage est envoyé aux développeurs pour qu'ils puissent corriger l'erreur.
 Authorization: Bearer 	Authorization: Bearer 
 \r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n	\r\nAccept: application/vnd.github+json\r\nContent-Type: application/json\r\n
 Could not read 	Impossible de lire 
@@ -1268,7 +1268,6 @@ the code	le code
 Feedback on 	Commentaires sur 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	Les commentaires sont anonymes. N'incluez pas d'informations sensibles ou privées. Ctrl+Enter les envoie.
 Send	Envoyer
-This build cannot send feedback. StarDraft 2 keeps it in 	Cette version ne peut pas envoyer de commentaires. StarDraft 2 les conserve dans 
 Sending the feedback…	Envoi des commentaires…
 Report feedback on 	Envoyer un commentaire sur 
 %zu B	%zu o
@@ -1290,11 +1289,11 @@ The map has it	La carte l'a
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	Ajouter aux sons de la carte, par référence: le jeu joue son propre fichier, la carte ne le contient pas
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	La carte n'a pas de sons propres. Importer des sons ajoute des fichiers WAV ou OGG.
 Import sounds…	Importer des sons…
-WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	Fichiers WAV ou OGG. StarDraft 2 les enregistre dans la carte (staredit\\wav\\).
+WAV or OGG files. They go into the map (staredit\\wav\\).	Fichiers WAV ou OGG. Ils sont enregistrés dans la carte (staredit\\wav\\).
 Rename	Renommer
 Rename the file in the map. The briefings that play it also use the new name.	Renomme le fichier dans la carte. Les briefings qui le jouent utilisent aussi le nouveau nom.
 Sounds of the game	Sons du jeu
-StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 n'a trouvé aucun son du jeu (Options > Options du programme: dossier StarCraft)
+No game sounds found. Select the StarCraft folder in Options > Program options.	Aucun son du jeu trouvé. Sélectionnez le dossier StarCraft dans Options > Options du programme.
 No game sound name contains the search text	Aucun nom de son du jeu ne contient le texte recherché
 Briefings	Briefings
 Open it in the Briefing workspace	L'ouvrir dans l'espace de travail Briefing
@@ -1327,9 +1326,9 @@ These pages have changes that are not applied: 	Ces pages ont des modifications 
 Do &not apply	&Ne pas appliquer
 Changed by the test	Modifié par le test
 The map becomes 	La carte passe à 
- tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 tuiles. StarDraft 2 supprime les parties de la carte hors de la nouvelle taille.\r\n
+ tiles. The parts of the map outside the new size are deleted.\r\n	 tuiles. Les parties de la carte hors de la nouvelle taille sont supprimées.\r\n
 Each terrain becomes the 	Chaque terrain devient le terrain du jeu de tuiles 
- terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n	 de même nom ou de même type (par exemple eau ou terrain élevé). S'il n'y en a aucun, il devient le terrain du nouveau sol. StarDraft 2 supprime les décors, car chaque jeu de tuiles a ses propres décors.\r\n
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads are deleted, because each tileset has its own doodads.\r\n	 de même nom ou de même type (par exemple eau ou terrain élevé). S'il n'y en a aucun, il devient le terrain du nouveau sol. Les décors sont supprimés, car chaque jeu de tuiles a ses propres décors.\r\n
 The map keeps its size and tileset: 	La carte garde sa taille et son jeu de tuiles: 
 Set the map properties: 	Définir les propriétés de la carte: 
 Set the map properties	Définir les propriétés de la carte
@@ -1384,8 +1383,8 @@ The terrain, tiles and doodads of a map that you have (.scm or .scx); no units, 
 A copy of a map that you have (.scm or .scx): its terrain, units, triggers and settings	Une copie d'une carte que vous avez (.scm ou .scx): son terrain, ses unités, ses déclencheurs et ses paramètres
 Land, water and high ground from a seed and the settings next to the preview	Terre, eau et terrain surélevé à partir d'une graine et des paramètres à côté de l'aperçu
 The terrain on the whole map	Le terrain de toute la carte
-The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file.	La nouvelle carte reprend la taille, le jeu de tuiles, le terrain et les décors de la carte. StarDraft 2 ne modifie pas le fichier de la carte.
-StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.	StarDraft 2 copie la carte dans le dossier du projet. StarDraft 2 ne modifie pas le fichier d'origine.
+The new map gets the map's size, tileset, terrain and doodads. The map's file does not change.	La nouvelle carte reprend la taille, le jeu de tuiles, le terrain et les décors de la carte. Le fichier de la carte ne change pas.
+The project gets a copy of the map in its folder. The original file does not change.	Le projet reçoit une copie de la carte dans son dossier. Le fichier d'origine ne change pas.
 Seed	Graine
 New seed	Nouvelle graine
 Symmetry	Symétrie
@@ -1399,7 +1398,7 @@ Make the project folder and its map	Créer le dossier du projet et sa carte
 Make the map in this tab	Créer la carte dans cet onglet
 Removed 	Retrait de 
  from the list	 de la liste
-StarDraft 2 is alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	StarDraft 2 est un logiciel en version alpha: sauvegardez vos cartes et vos projets avant de les modifier.\nVos retours nous aident: faites un clic droit sur n'importe quel élément et sélectionnez "Envoyer un commentaire sur …".
+Alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	Logiciel en version alpha: sauvegardez vos cartes et vos projets avant de les modifier.\nVos retours nous aident: faites un clic droit sur n'importe quel élément et sélectionnez "Envoyer un commentaire sur …".
 Coming later	Bientôt disponible
 Campaign projects come in a later version	Les projets de campagne arriveront dans une version ultérieure
 Mod projects come in a later version	Les projets de mod arriveront dans une version ultérieure
@@ -1428,9 +1427,9 @@ The version, Windows, the video card, where it crashed and the last log lines; n
 Working folder	Dossier de travail
 The working folder: where new projects go	Le dossier de travail: où vont les nouveaux projets
 New projects go to 	Les nouveaux projets vont dans 
-Select the folder where StarDraft 2 makes new projects	Sélectionnez le dossier où StarDraft 2 crée les nouveaux projets
+Select the folder for new projects	Sélectionnez le dossier des nouveaux projets
 Documents\\StarDraft	Documents\\StarDraft
-StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 crée les nouveaux projets dans ce dossier. Il ne déplace pas un projet que vous ouvrez depuis un autre dossier.
+New projects go into this folder. A project that you open from another folder stays where it is.	Les nouveaux projets vont dans ce dossier. Un projet que vous ouvrez depuis un autre dossier reste où il est.
 Select the StarCraft: Remastered folder	Sélectionnez le dossier de StarCraft: Remastered
 After a restart: 	Après un redémarrage: 
 A new folder is used after a restart	Un nouveau dossier est utilisé après un redémarrage
@@ -1451,7 +1450,7 @@ Linked 	Lié
  to the build	 à la compilation
 This code comes from the Data workspace. To remove it, undo the .dat edits.	Ce code vient de l'espace de travail Données. Pour le retirer, annulez les modifications .dat.
 Removed the link to 	Lien retiré vers 
-. StarDraft 2 does not delete the file.	. StarDraft 2 ne supprime pas le fichier.
+. The file stays on the disk.	. Le fichier reste sur le disque.
  from the build. The file is still in the project folder.	 de la compilation. Le fichier est toujours dans le dossier du projet.
 euddraft found an error in 	euddraft a trouvé une erreur dans 
 , line 	, ligne 
@@ -1496,9 +1495,9 @@ Open folder	Ouvrir le dossier
 Source map	Carte source
 In the project folder	Dans le dossier du projet
 Where Build writes the map	Où Compiler écrit la carte
-Found by StarDraft 2	Trouvé par StarDraft 2
+Found on this computer	Trouvé sur cet ordinateur
 Change…	Modifier…
-The folder that StarDraft 2 reads game data from	Le dossier dans lequel StarDraft 2 lit les données du jeu
+The folder that the game data comes from	Le dossier d'où viennent les données du jeu
 Downloaded on the first build	Téléchargé lors de la première compilation
 Options	Options
 EUD Turbo	EUD Turbo
@@ -1538,15 +1537,15 @@ linked  ·  not found: Build stops	lié  ·  introuvable: Compiler s'arrête
 not found: Build stops	introuvable: Compiler s'arrête
 linked  ·  changed 	lié  ·  modifié 
   after the last build	  après la dernière compilation
-A linked file. StarDraft 2 does not copy or change it: 	Un fichier lié. StarDraft 2 ne le copie pas et ne le modifie pas: 
+A linked file. It stays where it is and does not change: 	Un fichier lié. Il reste où il est et ne change pas: 
 Open in your editor	Ouvrir dans votre éditeur
 Show in folder	Afficher dans le dossier
 Comes from the Data workspace	Provient de l'espace de travail Données
-Remove the link. StarDraft 2 does not delete the file.	Retirer le lien. StarDraft 2 ne supprime pas le fichier.
+Remove the link (the file stays on the disk)	Retirer le lien (le fichier reste sur le disque)
 Remove from the build (the file stays in the project folder)	Retirer de la compilation (le fichier reste dans le dossier du projet)
 New script	Nouveau script
 Link a file…	Lier un fichier…
-Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.	Ajouter à la compilation un fichier .eps ou .py situé n'importe où sur le disque. StarDraft 2 ne le copie pas et ne le modifie pas.
+Add an .eps or .py file from anywhere on disk to the build. The file stays where it is and does not change.	Ajouter à la compilation un fichier .eps ou .py situé n'importe où sur le disque. Le fichier reste où il est et ne change pas.
 Could not read the sound	Impossible de lire le son
 Sounds (WAV, OGG)*.wav;*.ogg	Sons (WAV, OGG)*.wav;*.ogg
 Could not read the sound: 	Impossible de lire le son: 
@@ -1625,7 +1624,7 @@ StarDraft 2.Project\\shell\\open\\command	StarDraft 2.Project\\shell\\open\\comm
 Accept: 	Accepter: 
 Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	Impossible d'obtenir la dernière version depuis GitHub. Vérifiez que l'ordinateur est connecté à Internet.
 Check for updates	Rechercher des mises à jour
-StarDraft 2 is up to date (	StarDraft 2 est à jour (
+Up to date (	À jour (
 .\n\nThis is not a release build. Open the release page?	.\n\nCeci n'est pas une version publiée. Ouvrir la page de la version?
 &Open the release page	&Ouvrir la page de la version
 Download and install it, then restart StarDraft 2?	La télécharger, l'installer, puis redémarrer StarDraft 2?
@@ -1764,7 +1763,7 @@ Do not send	Ne pas envoyer
 &Always send	&Toujours envoyer
 Do &not send	&Ne pas envoyer
 Crash report	Rapport de plantage
-After a crash, StarDraft 2 asks at the next start if it can send the report (default)	Après un plantage, StarDraft 2 demande au prochain démarrage s'il peut envoyer le rapport (par défaut)
+Ask at the next start after a crash (default)	Demander au prochain démarrage après un plantage (par défaut)
 The reports stay on this computer	Les rapports restent sur cet ordinateur
 Show &minimap	Afficher la &minicarte
 Hide	Masquer
@@ -1810,7 +1809,7 @@ Maps	Cartes
 Open maps with StarDraft 2	Ouvrir les cartes avec StarDraft 2
 Make StarDraft 2 the program that opens .scm and .scx maps	Faire de StarDraft 2 le programme qui ouvre les cartes .scm et .scx
 Maps (.scm, .scx) open with StarDraft 2	Les cartes (.scm, .scx) s'ouvrent avec StarDraft 2
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	Ouvrir les cartes .scm et .scx avec StarDraft 2 quand vous double-cliquez dessus? Vous pourrez aussi le faire plus tard dans Options > Options du programme > Cartes.
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in Options > Program options > Maps.	Ouvrir les cartes .scm et .scx avec StarDraft 2 quand vous double-cliquez dessus? Vous pourrez changer cela plus tard dans Options > Options du programme > Cartes.
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows conserve le programme que vous avez choisi pour les cartes .scm ou .scx. Dans Applications par défaut, recherchez .scm et .scx et sélectionnez StarDraft 2.
 Default apps	Applications par défaut
 The new language shows after a restart. Restart now? Your open maps and projects open again.	La nouvelle langue s'affiche après un redémarrage. Redémarrer maintenant? Vos cartes et projets ouverts se rouvriront.
@@ -1820,14 +1819,14 @@ Start StarDraft 2 again in the new language. Your open maps and projects open ag
 The new language shows after a restart	La nouvelle langue s'affiche après un redémarrage
 Text color	Couleur du texte
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	Pinceau: place la tuile sélectionnée dans la liste Tuiles, avec la taille et la forme du pinceau. Avec plusieurs tuiles sélectionnées, le Pinceau les place comme dans la liste; maintenez Shift pour les placer au hasard.
-. At the next start, StarDraft 2 asks if you want to send the crash report.	. Au prochain démarrage, StarDraft 2 vous demandera si vous voulez envoyer le rapport de plantage.
+. At the next start, you can send the crash report.	. Au prochain démarrage, vous pourrez envoyer le rapport de plantage.
 &Pin to the top	É&pingler en haut
 Un&pin	&Désépingler
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nLors de la première compilation, StarDraft 2 télécharge euddraft depuis GitHub dans son propre dossier.\r\nStarDraft 2 ne modifie pas les autres copies sur cet ordinateur. Une carte que vous ouvrez\r\nreste une carte normale. Seul un projet peut être compilé.
+\r\nThe first build downloads euddraft from GitHub into its own folder.\r\nOther copies of euddraft on this computer do not change. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nLa première compilation télécharge euddraft depuis GitHub dans son propre dossier.\r\nLes autres copies d'euddraft sur cet ordinateur ne changent pas. Une carte que vous ouvrez\r\nreste une carte normale. Seul un projet peut être compilé.
  accepts the current player or Player 1 to Player 12	 accepte le joueur actuel ou Joueur 1 à Joueur 12
  accepts the current player, Player 1 to Player 8, all players, or a force	 accepte le joueur actuel, Joueur 1 à Joueur 8, tous les joueurs ou une force
  are hidden (View > Layers)	 sont masqués (Affichage > Calques)
- has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 a le même type, le même propriétaire et la même position. Déplacez l'une d'elles, sinon StarDraft risque de trouver la mauvaise unité
+ has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 a le même type, le même propriétaire et la même position. Déplacez l'une d'elles, sinon les déclencheurs risquent de trouver la mauvaise unité
  tiles)	 tuiles)
  tiles: Brush, Spray and Fill place one of them at random	 tuiles: Pinceau, Aérographe et Remplissage en placent une au hasard
  units: click to place them, and again to place more. Right-click or Esc stops.	 unités: cliquez pour les placer, puis de nouveau pour en placer d'autres. Clic droit ou Esc arrête.
@@ -1837,12 +1836,12 @@ Un&pin	&Désépingler
 &Project page	&Page du projet
 . At the next start, StarDraft 2 asks if it can send it.	. Au prochain démarrage, StarDraft 2 vous demandera s'il peut l'envoyer.
 . The Favorites filter shows them.	. Le filtre Favoris les affiche.
-: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 ouvre les cartes (.scm, .scx, .chk) et les projets
-: StarDraft cannot build this block yet	: StarDraft ne peut pas encore compiler ce bloc
+: the file is not a map (.scm, .scx, .chk) or a project	: le fichier n'est ni une carte (.scm, .scx, .chk) ni un projet
+: this block cannot be built yet	: ce bloc ne peut pas encore être compilé
 : this layer is hidden. View > Layers shows it again (then you can edit it).	: ce calque est masqué. Affichage > Calques l'affiche à nouveau (vous pourrez alors le modifier).
 Add a script	Ajouter un script
 Added to the favorites: 	Ajouté aux favoris: 
-After a crash, StarDraft 2 asks at the next start if it can send the report	Après un plantage, StarDraft 2 vous demande au démarrage suivant s'il peut envoyer le rapport
+Crash reports: ask at the next start after a crash	Rapports de plantage: demander au prochain démarrage après un plantage
 Automatic (the language of Windows)	Automatique (la langue de Windows)
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	Pinceau: place la tuile sélectionnée dans la liste Tuiles, avec la taille et la forme du pinceau. Plusieurs tuiles sélectionnées: chaque case reçoit l'une d'elles au hasard (dispersion).
 Could not write 	Impossible d'écrire 
@@ -1856,10 +1855,10 @@ Paste terrain: click to place it, and again to place more. Press R to turn it. R
 Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	Coller les tuiles: cliquez pour les placer, puis à nouveau pour en placer d'autres. Clic droit ou Échap pour arrêter.
 Paste: click to place the copy, and again to place more. Right-click or Esc stops.	Coller: cliquez pour placer la copie, puis à nouveau pour en placer d'autres. Clic droit ou Échap pour arrêter.
 Removed from the favorites: 	Retiré des favoris: 
-Run local block: StarDraft cannot tell what 	Exécuter le bloc local: StarDraft ne peut pas déterminer ce que 
+Run local block: it is not known what 	Exécuter le bloc local: on ne sait pas ce que 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	Envoyer un rapport anonyme après un plantage: la version, Windows, la carte graphique, l'endroit du plantage et les dernières lignes du journal; aucune carte
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	StarDraft 2 s'est arrêté à cause d'une erreur la dernière fois. Envoyer le rapport de plantage aux développeurs pour qu'ils puissent corriger l'erreur?\n\nLe rapport contient la version, le système d'exploitation, la carte graphique, l'endroit du plantage et les dernières lignes du journal. Les lignes du journal peuvent contenir des noms de cartes et de dossiers (votre dossier utilisateur apparaît comme ~). Le rapport est public sur GitHub. Il ne contient aucune carte. Il est rédigé en 
+An error stopped the program the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	La dernière fois, une erreur a arrêté le programme. Envoyer le rapport de plantage aux développeurs pour qu'ils puissent corriger l'erreur?\n\nLe rapport contient la version, le système d'exploitation, la carte graphique, l'endroit du plantage et les dernières lignes du journal. Les lignes du journal peuvent contenir des noms de cartes et de dossiers (votre dossier utilisateur apparaît comme ~). Le rapport est public sur GitHub. Il ne contient aucune carte. Il se trouve dans 
 Terran Marine	Marine terran
 The language of the program's texts	La langue des textes du programme
 The map has 	La carte a 
@@ -2142,10 +2141,10 @@ At start and one time each hour (release builds only)	Au démarrage et une fois 
 Previews	Préversions
 Pre-releases too, not only the stable releases	Les préversions aussi, pas seulement les versions stables
 Updates	Mises à jour
-StarDraft 2 offers pre-releases too	StarDraft 2 propose aussi les préversions
-StarDraft 2 offers the stable releases only	StarDraft 2 ne propose que les versions stables
-StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 recherche une version plus récente au démarrage et toutes les heures
-StarDraft 2 does not look for newer releases	StarDraft 2 ne recherche pas de versions plus récentes
+Updates: offer pre-releases too	Mises à jour: proposer aussi les préversions
+Updates: offer the stable releases only	Mises à jour: ne proposer que les versions stables
+Updates: look for a newer release at start and each hour	Mises à jour: rechercher une version plus récente au démarrage et toutes les heures
+Updates: do not look for newer releases	Mises à jour: ne pas rechercher de versions plus récentes
 &Export map image…\tCtrl+Shift+E	&Exporter l'image de la carte…\tCtrl+Shift+E
 Export map image	Exporter l'image de la carte
 Full size in HD (64 pixels a tile)	Taille réelle en HD (64 pixels par tuile)
@@ -2461,7 +2460,7 @@ The Prerelease or Release folder	Le dossier Prerelease ou Release
 The Prerelease or Release folder. A new folder is used after a restart	Le dossier Prerelease ou Release. Un nouveau dossier est utilisé après un redémarrage
 The CRIG commands have no problems	Les commandes CRIG ne présentent aucun problème
 These CRIG commands in the trigger Comments have problems:	Ces commandes CRIG dans les commentaires des déclencheurs présentent des problèmes:
-Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Simulation expérimentale, qui peut ne pas encore correspondre entièrement au jeu. C'est la propre simulation de StarDraft, pas le moteur du jeu.
+Experimental simulation: the result can differ from the game. It is not the game's engine.	Simulation expérimentale: le résultat peut différer du jeu. Ce n'est pas le moteur du jeu.
 Simulation	Simulation
 Simulate mining	Simuler la récolte
 Simulate combat	Simuler un combat
@@ -2590,7 +2589,7 @@ The rest of the command	Le reste de la commande
 the values after these, as the command reads them	les valeurs suivantes, telles que la commande les lit
 Plugins	Plugins
 Early feature preview: report the issues that you find	Aperçu d'une fonctionnalité précoce: signalez les problèmes que vous trouvez
-Adjusts StarDraft to work with the CMBW environment when it is loaded	Adapte StarDraft à l'environnement CMBW lorsqu'il est chargé
+When loaded, maps open with the CMBW data, and new maps are CMBW maps	Lorsqu'il est chargé, les cartes s'ouvrent avec les données de CMBW et les nouvelles cartes sont des cartes CMBW
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Plugin Cosmonarchy BW chargé: les cartes s'ouvrent et sont créées comme cartes Cosmonarchy BW (les onglets ouverts restent tels quels)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Plugin Cosmonarchy BW déchargé: les cartes s'ouvrent et sont créées comme cartes StarCraft: Brood War (les onglets ouverts restent tels quels)
 Type to search	Tapez pour rechercher
@@ -2616,12 +2615,12 @@ Hid all overlays	Toutes les superpositions masquées
 Terrain &pie palette	&Palette circulaire de terrain
 The pie palette has no terrains for this tileset	La palette circulaire n'a aucun terrain pour ce jeu de tuiles
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Sélectionnez d'abord le dossier StarCraft (Parcourir, sur la page d'accueil): une nouvelle carte a besoin des fichiers du jeu
-StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 a besoin des fichiers de StarCraft pour ouvrir une carte. Sélectionnez le dossier StarCraft sur la page d'accueil (Parcourir).
+No StarCraft game files found. Select the StarCraft folder on the start page (Browse).	Aucun fichier du jeu StarCraft trouvé. Sélectionnez le dossier StarCraft sur la page d'accueil (Parcourir).
 Reset all program settings…	Réinitialiser tous les paramètres du programme…
-Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Chaque paramètre du programme reprend sa valeur par défaut, et StarDraft 2 redémarre (avec une confirmation d'abord)
+Give every program setting its default value and restart (a question first)	Rendre à chaque paramètre du programme sa valeur par défaut et redémarrer (avec une confirmation d'abord)
 Your maps, projects and recent lists stay as they are	Vos cartes, projets et listes récentes restent tels quels
 Reset all program settings	Réinitialiser tous les paramètres du programme
-Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	Chaque paramètre du programme reprend sa valeur par défaut, et StarDraft 2 redémarre. Vos cartes, projets et listes récentes restent tels quels.
+Give every program setting its default value, then restart? Your maps, projects and recent lists stay as they are.	Rendre à chaque paramètre du programme sa valeur par défaut, puis redémarrer? Vos cartes, projets et listes récentes restent tels quels.
 &Reset and restart	&Réinitialiser et redémarrer
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	Les paramètres du programme ont leurs valeurs par défaut. Fermez StarDraft 2 et relancez-le pour les utiliser.
 Rectangle	Rectangle

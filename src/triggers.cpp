@@ -247,7 +247,7 @@ std::optional<TriggerType> familyType(const std::string& name) {
     if (family == "Unclear") {
         t.picker = TriggerPicker::Unclear;
         t.label = humanize(arg);
-        t.help = "StarDraft does not know these values yet (" + arg + "): typed as a number.";
+        t.help = "The values are not known yet (" + arg + "): type the number.";
         return t;
     }
     return std::nullopt;
@@ -1201,7 +1201,7 @@ std::string TriggerSet::text() const {
 
 bool TriggerSet::save(const fs::path& file, std::string& error) const {
     if (newerFormat()) {
-        error = file.string() + " was made by a newer StarDraft (format " + std::to_string(fileVersion) + "): not saved, so nothing in it is lost";
+        error = file.string() + " is from a newer version (format " + std::to_string(fileVersion) + "): not saved, so nothing in it is lost";
         return false;
     }
     if (loadFailed) {
@@ -1624,7 +1624,7 @@ struct Gen {
             return "sqrt(" + dx + " * " + dx + " + " + dy + " * " + dy + ")";
         }
         if (d->code.empty()) {
-            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": StarDraft cannot build this block yet");
+            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": this block cannot be built yet");
             return "0";
         }
         return fill(c, *d, d->code);
@@ -1837,7 +1837,7 @@ struct Gen {
         for (const auto& u : map.units)
             if (u.serial != serial && u.type == it->type && u.owner == it->owner && u.x == it->x && u.y == it->y) {
                 issue(TriggerIssue::Level::Warning, c, i,
-                      "Unit #" + std::to_string(u.serial) + " has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit");
+                      "Unit #" + std::to_string(u.serial) + " has the same type, owner and position. Move one of them, or the triggers can find the wrong unit");
                 return;
             }
     }
@@ -2609,7 +2609,7 @@ struct Gen {
                               "Run local block: the value changes on this computer only. Use it only for what this player sees: if a trigger that changes the game reads it, the game desyncs");
                     else if (unknown.count(id2->id))
                         issue(TriggerIssue::Level::Warning, &in, -1,
-                              "Run local block: StarDraft cannot tell what " + id2->title + " changes. Change only what this player sees, or the game desyncs");
+                              "Run local block: it is not known what " + id2->title + " changes. Change only what this player sees, or the game desyncs");
                     else
                         issue(TriggerIssue::Level::Error, &in, -1,
                               "Run local block: " + id2->title + " changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside");
@@ -2711,12 +2711,12 @@ struct Gen {
             const unsigned long long addr = a.empty() ? 0 : std::strtoull(a.c_str(), &end, 0);
             if (end && *end == 0 && !knownMemory(uint32_t(addr))) {
                 char m[200];
-                std::snprintf(m, sizeof m, "0x%06llX is outside the tables StarDraft knows (.dat data, deaths, locations, units, strings). A wrong address can crash the game", addr);
+                std::snprintf(m, sizeof m, "0x%06llX is outside the known tables (.dat data, deaths, locations, units, strings). A wrong address can crash the game", addr);
                 issue(TriggerIssue::Level::Warning, &c, d->param("addr"), m);
             }
         }
         if (d->code.empty()) {
-            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": StarDraft cannot build this block yet");
+            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": this block cannot be built yet");
             return "";
         }
         return fill(c, *d, d->code) + ";" + tag + "\n";

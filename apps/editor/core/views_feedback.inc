@@ -76,7 +76,7 @@ public:
             page_ = page;
             issue_ = number > 0 ? tr(L"Open it on GitHub (#") + std::to_wstring(number) + L")" : std::wstring();
         } else {
-            status_ = L"Could not send the feedback now. StarDraft 2 sends it at the next start.";
+            status_ = L"Could not send the feedback now. It is sent at the next start.";
         }
         cancel_.setText(L"Close");
         invalidate();

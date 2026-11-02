@@ -359,7 +359,7 @@ void ProjectPageView::paint(draw::Canvas& c) {
             {{L"Browse\x2026", L"", [this] { host_.browseOutput(); }}, {L"Default", L"In the project folder", [this] { host_.defaultOutput(); }}},
             L"Where Build writes the map", [this](draw::Rect field) { host_.editOutput(field); });
         row(L"StarCraft folder", f.install, false, {{L"Change\x2026", L"", [this] { host_.changeInstall(); }}},
-            L"The folder that StarDraft 2 reads game data from", nullptr);
+            L"The folder that the game data comes from", nullptr);
         row(L"euddraft", f.euddraft, false, {}, L"", nullptr);
         y += scale(12);
         y = paintBuild(c, y, x0, labelW, rowH, colRight);
@@ -494,7 +494,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
         const bool on = s.selected;
         kitpaint::drawListRow(c, r, on, hot(r));
         // The name is the row's click (selects the script); a script's tip gives its file.
-        const std::wstring tip = script ? (linked ? std::wstring(L"A linked file. StarDraft 2 does not copy or change it: ") : std::wstring()) + s.file
+        const std::wstring tip = script ? (linked ? std::wstring(L"A linked file. It stays where it is and does not change: ") : std::wstring()) + s.file
                                         : std::wstring();
         hits_.push_back({r, [this, name] { host_.selectScript(name); }, tip, draw::Cursor::Hand});
         // The grip (six dots, shown under the mouse) moves the row by a drag; a generated row does not move.
@@ -531,7 +531,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
         acts.push_back({UiIcon::MoveDown, L"Move down", [this, name] { host_.moveScript(name, 1); }, false, movable && i + 1 < list.size()});
         acts.push_back({UiIcon::Close,
                         generated ? L"Comes from the Data workspace"
-                        : linked  ? L"Remove the link. StarDraft 2 does not delete the file."
+                        : linked  ? L"Remove the link (the file stays on the disk)"
                                   : L"Remove from the build (the file stays in the project folder)",
                         [this, name] { host_.removeScript(name); }, true, !generated});
         paintRowActions(c, r, acts, on);
@@ -545,7 +545,7 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
     y += scale(4);
     const int ax = smallButton(c, x0, y, rowH, L"New script", [this] { host_.newScript(); });
     smallButton(c, ax + scale(8), y, rowH, L"Link a file\x2026", [this] { host_.linkScript(); },
-                L"Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.");
+                L"Add an .eps or .py file from anywhere on disk to the build. The file stays where it is and does not change.");
     return y + rowH + scale(24);
 }
 

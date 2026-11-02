@@ -223,7 +223,7 @@ void NewPageView::paint(draw::Canvas& c) {
                 fy = paragraph(c, {x1 + scale(22), fy, x1 + w1, fy + scale(200)}, warning, kWarn) + scale(8);
             } else {
                 const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
-                fy = paragraph(c, {x1, fy, x1 + w1, fy + scale(100)}, L"StarDraft 2 makes the folder " + projectFolder().make_preferred().wstring(), kDim) +
+                fy = paragraph(c, {x1, fy, x1 + w1, fy + scale(100)}, L"The project goes into the new folder " + projectFolder().make_preferred().wstring(), kDim) +
                      scale(8);
                 c.setFont(of);
             }
@@ -335,8 +335,8 @@ void NewPageView::paint(draw::Canvas& c) {
         y += scale(stardraft::kit::kFormRowH);
         const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
         y = paragraph(c, {x3, y, x3 + fw, y + scale(100)},
-                      terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file."
-                                  : L"StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.",
+                      terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. The map's file does not change."
+                                  : L"The project gets a copy of the map in its folder. The original file does not change.",
                       kDim) +
             scale(8);
         c.setFont(of);

@@ -38,7 +38,7 @@ bool parseJson(const std::string& text, const char* what, Json& j, std::string& 
     JsonParser p{text};
     j = p.value();
     if (!p.ok || j.type != Json::Type::Object) return error = std::string(what) + " is not valid", false;
-    if (j.integer("version", 1) > 1) return error = std::string(what) + " is from a newer StarDraft", false;
+    if (j.integer("version", 1) > 1) return error = std::string(what) + " is from a newer version", false;
     return true;
 }
 // A missing file is no edits.

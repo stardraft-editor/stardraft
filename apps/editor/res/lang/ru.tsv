@@ -73,7 +73,7 @@ Select the StarCraft: Remastered folder. It contains .build.info.	Выберит
 Not a StarCraft: Remastered folder	Это не папка StarCraft: Remastered
 Could not read the game data in this folder:\r\n	Не удалось прочитать данные игры в этой папке:\r\n
 StarCraft folder	Папка StarCraft
-StarDraft 2 uses this folder after a restart:	StarDraft 2 использует эту папку после перезапуска:
+The new folder applies after a restart:	Новая папка применяется после перезапуска:
 To use it now, restart StarDraft 2.	Чтобы использовать её сейчас, перезапустите StarDraft 2.
 Start	Запуск
 Untitled 	Без названия 
@@ -103,7 +103,7 @@ the map you edit here (Brood War format)	карта, которую вы ред�
 euddraft's build file: Build writes it	файл сборки euddraft: его записывает «Сборка»
 the built map: Build (Ctrl+B) writes it	собранная карта: «Сборка» (Ctrl+B) записывает её
 your code (epScript). To add more, use File > Project > Add a script.	ваш код (epScript). Чтобы добавить ещё, используйте Файл > Проект > Добавить скрипт.
-StarDraft 2 makes the folder 	StarDraft 2 создаёт папку 
+The project goes into the new folder 	Проект будет в новой папке 
 \\ in the location above:\r\n\r\n	\\ в указанном выше месте:\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПри первой сборке StarDraft 2 загружает euddraft с GitHub в свою папку.\r\nStarDraft 2 не меняет другие копии на этом компьютере. Карта, которую вы открываете,\r\nостаётся обычной картой. Собрать можно только проект.
 Name	Имя
@@ -158,7 +158,7 @@ Opened 	Открыто
 Could not create the map	Не удалось создать карту
 Created a new 	Создана новая 
  map (	 карта (
-Save the project (StarDraft 2 makes a folder with its name here)	Сохранить проект (StarDraft 2 создаёт здесь папку с его именем)
+Save the project (a new folder with its name goes here)	Сохранить проект (здесь будет новая папка с его именем)
 The name cannot hold \\ / : * ? " < > |	Имя не может содержать \\ / : * ? " < > |
 Save project	Сохранить проект
  is there already and is not empty.	 уже существует и не пуста.
@@ -215,16 +215,16 @@ Deleted 	Удалено
 Selected 	Выбрано 
 StarDraft 2 looks for a newer release on start	StarDraft 2 при запуске проверяет наличие новой версии
 StarDraft 2 does not look for a newer release on start	StarDraft 2 при запуске не проверяет наличие новой версии
-StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 отправляет анонимный отчёт о сбое
-StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 не отправляет отчёты о сбоях (отчёт остаётся на этом компьютере)
-The last project opens when StarDraft 2 starts	При запуске StarDraft 2 открывается последний проект
-StarDraft 2 starts with no project open	StarDraft 2 запускается без открытого проекта
+Crash reports: send an anonymous report after a crash	Отчёты о сбоях: отправлять анонимный отчёт после сбоя
+Crash reports: do not send (a report stays on this computer)	Отчёты о сбоях: не отправлять (отчёт остаётся на этом компьютере)
+At start: open the last project	При запуске: открывать последний проект
+At start: open no project	При запуске: не открывать проект
 Units: can be on top of others	Юниты: могут стоять поверх других
 Units: cannot be on top of others (air units also)	Юниты: нельзя ставить поверх других (в том числе воздушные)
 Units: place anywhere (terrain edits do not move them)	Юниты: размещать где угодно (изменения рельефа их не перемещают)
 Units: place only where it fits	Юниты: размещать только там, где они помещаются
 Units: move to the nearest place where it fits	Юниты: перемещать на ближайшее подходящее место
-Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	Декорации: размещать где угодно на карте (StarDraft 2 не проверяет рельеф)
+Doodads: place anywhere on the map (no terrain check)	Декорации: размещать где угодно на карте (без проверки рельефа)
 Doodads: move to the nearest place where it fits	Декорации: перемещать на ближайшее подходящее место
 Doodads: place only where it fits	Декорации: размещать только там, где они помещаются
 Carbot (cartooned) graphics	Графика Carbot (мультяшная)
@@ -380,7 +380,7 @@ Changed the location "	Изменено местоположение "
 Could not change the location: 	Не удалось изменить местоположение: 
 Location properties	Свойства местоположения
 Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	Этот звук только для чтения. Игра загружает звуки с флагом Preload до запуска кода карты, поэтому изменение файла не действует.
-Read-only. StarDraft 2 does not know where the game keeps this value.	Только для чтения. StarDraft 2 не знает, где игра хранит это значение.
+Read-only. The address of this value in the game memory is not known.	Только для чтения. Адрес этого значения в памяти игры неизвестен.
 * Needs verification	* Требуется проверка
 1 tile: 32 x 32 px	1 тайл: 32 x 32 пикс.
 Drag to move the addon	Перетащите, чтобы переместить аддон
@@ -520,7 +520,7 @@ Triggers are in the Triggers workspace of a project.	Триггеры наход
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	Пока недоступно: графика, звуки, портреты и шрифты, которые вы импортируете в карту.
 Project: 	Проект: 
 No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	Проект не открыт. Файл > Проект > Сделать эту карту проектом создаёт проект. Файл > Проект > Открыть проект открывает проект.
-Did not save the triggers: a newer StarDraft 2 made triggers.json	Триггеры не сохранены: более новая версия StarDraft 2 создала triggers.json
+Did not save the triggers: triggers.json is from a newer version	Триггеры не сохранены: triggers.json из более новой версии
   (off)	  (выкл.)
 Added a variable. Press F2 to rename it.	Добавлена переменная. Нажмите F2, чтобы переименовать её.
 Added from a template: 	Добавлено из шаблона: 
@@ -936,7 +936,7 @@ Sent the feedback as #	Отзыв отправлен как #
 . Thank you.	. Спасибо.
 Sent the feedback. Thank you.	Отзыв отправлен. Спасибо.
 This build cannot send feedback. The feedback is in 	Эта сборка не может отправлять отзывы. Отзыв находится в 
-Could not send the feedback now. StarDraft 2 sends it at the next start.	Не удалось отправить отзыв сейчас. StarDraft 2 отправит его при следующем запуске.
+Could not send the feedback now. It is sent at the next start.	Не удалось отправить отзыв сейчас. Он будет отправлен при следующем запуске.
 Minimap	Миникарта
 Density: low	Плотность: низкая
 Density: medium	Плотность: средняя
@@ -1083,10 +1083,10 @@ The project's map has these classic triggers. The built map keeps them; they run
 Classic triggers: no change	Классические триггеры: без изменений
 Set the classic triggers	Задать классические триггеры
 the menu item 	пункт меню 
-StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 остановлен из-за ошибки. Отчёт о сбое находится в 
+An error stopped the program. The crash report is in 	Программа остановлена из-за ошибки. Отчёт о сбое находится в 
  (crash reports are off).	 (отчёты о сбоях отключены).
 StarDraft 2 stopped	StarDraft 2 остановлен
-StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 остановлен из-за ошибки. StarDraft 2 отправляет разработчикам отчёт о сбое, чтобы они могли исправить ошибку.
+An error stopped the program. A crash report goes to the developers so that they can repair the error.	Программа остановлена из-за ошибки. Разработчикам отправляется отчёт о сбое, чтобы они могли исправить ошибку.
 Could not read 	Не удалось прочитать 
 Strings	Строки
 button set	набор кнопок
@@ -1195,7 +1195,6 @@ the code	коде
 Feedback on 	Отзыв о 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	Отзыв анонимный. Не указывайте конфиденциальные или личные данные. Ctrl+Enter отправляет его.
 Send	Отправить
-This build cannot send feedback. StarDraft 2 keeps it in 	Эта сборка не может отправлять отзывы. StarDraft 2 сохраняет его в 
 Sending the feedback…	Отправка отзыва…
 Report feedback on 	Оставить отзыв о 
 %zu B	%zu Б
@@ -1217,10 +1216,10 @@ The map has it	Есть в карте
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	Добавить в звуки карты по ссылке: игра воспроизводит свой файл, карта его не содержит
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	В карте нет собственных звуков. «Импортировать звуки» добавляет файлы WAV или OGG.
 Import sounds…	Импортировать звуки…
-WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	Файлы WAV или OGG. StarDraft 2 сохраняет их в карте (staredit\\wav\\).
+WAV or OGG files. They go into the map (staredit\\wav\\).	Файлы WAV или OGG. Они сохраняются в карте (staredit\\wav\\).
 Rename	Переименовать
 Sounds of the game	Звуки игры
-StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 не нашёл звуков игры (Параметры > Настройки программы: папка StarCraft)
+No game sounds found. Select the StarCraft folder in Options > Program options.	Звуки игры не найдены. Выберите папку StarCraft в разделе Параметры > Параметры программы.
 Briefings	Брифинги
 Open it in the Briefing workspace	Открыть в рабочей области брифингов
 Search the game's sounds	Поиск по звукам игры
@@ -1317,7 +1316,7 @@ Make the project folder and its map	Создать папку проекта и 
 Make the map in this tab	Создать карту на этой вкладке
 Removed 	Удалено 
  from the list	 из списка
-StarDraft 2 is alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	StarDraft 2 находится в альфа-версии: перед редактированием сделайте резервные копии карт и проектов.\nВаши отзывы помогают: щёлкните правой кнопкой мыши по любому элементу и выберите "Отправить отзыв о …".
+Alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	Альфа-версия: перед редактированием сделайте резервные копии карт и проектов.\nВаши отзывы помогают: щёлкните правой кнопкой мыши по любому элементу и выберите "Отправить отзыв о …".
 Coming later	Будет позже
 Campaign projects come in a later version	Проекты кампаний появятся в следующей версии
 Mod projects come in a later version	Проекты модов появятся в следующей версии
@@ -1405,7 +1404,7 @@ Open folder	Открыть папку
 Source map	Исходная карта
 In the project folder	В папке проекта
 Where Build writes the map	Куда сборка записывает карту
-Found by StarDraft 2	Найдено StarDraft 2
+Found on this computer	Найдено на этом компьютере
 Change…	Изменить…
 Downloaded on the first build	Загружается при первой сборке
 Options	Параметры
@@ -1520,7 +1519,7 @@ No other data uses this entry	Другие данные не использую�
 StarDraft 2 project	Проект StarDraft 2
 Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	Не удалось получить последнюю версию с GitHub. Проверьте, что компьютер подключён к Интернету.
 Check for updates	Проверить обновления
-StarDraft 2 is up to date (	У StarDraft 2 установлена последняя версия (
+Up to date (	Установлена последняя версия (
 .\n\nThis is not a release build. Open the release page?	.\n\nЭто не релизная сборка. Открыть страницу релиза?
 &Open the release page	&Открыть страницу релиза
 Download and install it, then restart StarDraft 2?	Скачать, установить и перезапустить StarDraft 2?
@@ -1655,7 +1654,7 @@ Do not send	Не отправлять
 &Always send	Отправлять &всегда
 Do &not send	&Не отправлять
 Crash report	Отчёт о сбое
-After a crash, StarDraft 2 asks at the next start if it can send the report (default)	После сбоя StarDraft 2 при следующем запуске спрашивает, можно ли отправить отчёт (по умолчанию)
+Ask at the next start after a crash (default)	Спрашивать при следующем запуске после сбоя (по умолчанию)
 The reports stay on this computer	Отчёты остаются на этом компьютере
 Show &minimap	Показать &миникарту
 Hide	Скрыть
@@ -1709,11 +1708,11 @@ Restart now	Перезапустить сейчас
 Start StarDraft 2 again in the new language. Your open maps and projects open again.	Запустить StarDraft 2 снова на новом языке. Открытые карты и проекты откроются снова.
 The new language shows after a restart	Новый язык отображается после перезапуска
 Text color	Цвет текста
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПри первой сборке StarDraft 2 загружает euddraft с GitHub в свою папку.\r\nStarDraft 2 не меняет другие копии на этом компьютере. Открытая карта\r\nостаётся обычной картой. Собрать можно только проект.
+\r\nThe first build downloads euddraft from GitHub into its own folder.\r\nOther copies of euddraft on this computer do not change. A map that you open\r\nstays a regular map. Only a project can be built.	\r\nПервая сборка загружает euddraft с GitHub в отдельную папку.\r\nДругие копии euddraft на этом компьютере не меняются. Открытая карта\r\nостаётся обычной картой. Собрать можно только проект.
  accepts the current player or Player 1 to Player 12	 принимает текущего игрока или игроков с 1 по 12
  accepts the current player, Player 1 to Player 8, all players, or a force	 принимает текущего игрока, игроков с 1 по 8, всех игроков или группу
  are hidden (View > Layers)	 скрыты (Вид > Слои)
- has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 имеет тот же тип, того же владельца и ту же позицию. Переместите один из них, иначе StarDraft может найти не тот юнит
+ has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 имеет тот же тип, того же владельца и ту же позицию. Переместите один из них, иначе триггеры могут найти не тот юнит
  tiles)	 тайл(ов))
  tiles: Brush, Spray and Fill place one of them at random	 тайл(ов): Кисть, Спрей и Заливка ставят один из них случайно
  units: click to place them, and again to place more. Right-click or Esc stops.	 юнит(ов): щёлкните, чтобы разместить, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
@@ -1723,12 +1722,12 @@ Text color	Цвет текста
 &Project page	&Страница проекта
 . At the next start, StarDraft 2 asks if it can send it.	. При следующем запуске StarDraft 2 спросит, можно ли его отправить.
 . The Favorites filter shows them.	. Фильтр «Избранное» их показывает.
-: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 открывает карты (.scm, .scx, .chk) и проекты
-: StarDraft cannot build this block yet	: StarDraft пока не может собрать этот блок
+: the file is not a map (.scm, .scx, .chk) or a project	: файл не является картой (.scm, .scx, .chk) или проектом
+: this block cannot be built yet	: этот блок пока нельзя собрать
 : this layer is hidden. View > Layers shows it again (then you can edit it).	: этот слой скрыт. Вид > Слои снова его показывает (тогда его можно редактировать).
 Add a script	Добавить скрипт
 Added to the favorites: 	Добавлено в избранное: 
-After a crash, StarDraft 2 asks at the next start if it can send the report	После сбоя StarDraft 2 при следующем запуске спрашивает, можно ли отправить отчёт
+Crash reports: ask at the next start after a crash	Отчёты о сбоях: спрашивать при следующем запуске после сбоя
 Automatic (the language of Windows)	Автоматически (язык Windows)
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	Кисть: ставит тайл, выбранный в списке «Тайлы», с размером и формой кисти. Если выбрано несколько тайлов, каждое место получает один из них случайно (разброс).
 Could not write 	Не удалось записать 
@@ -1742,10 +1741,10 @@ Paste terrain: click to place it, and again to place more. Press R to turn it. R
 Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	Вставка тайлов: щёлкните, чтобы разместить, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
 Paste: click to place the copy, and again to place more. Right-click or Esc stops.	Вставка: щёлкните, чтобы разместить копию, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
 Removed from the favorites: 	Удалено из избранного: 
-Run local block: StarDraft cannot tell what 	Локальный блок: StarDraft не может определить, что меняет 
+Run local block: it is not known what 	Локальный блок: неизвестно, что 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	Отправлять анонимный отчёт после сбоя: версию, Windows, видеокарту, место сбоя и последние строки журнала; карты не отправляются
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	StarDraft 2 в прошлый раз остановился из-за ошибки. Отправить отчёт о сбое разработчикам, чтобы они могли исправить ошибку?\n\nВ отчёте есть версия, операционная система, видеокарта, место сбоя и последние строки журнала. В строках журнала могут быть имена карт и папок (ваша папка пользователя показана как ~). Отчёт публикуется на GitHub. Карт в нём нет. Он находится в 
+An error stopped the program the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	В прошлый раз программа остановилась из-за ошибки. Отправить отчёт о сбое разработчикам, чтобы они могли исправить ошибку?\n\nВ отчёте есть версия, операционная система, видеокарта, место сбоя и последние строки журнала. В строках журнала могут быть имена карт и папок (ваша папка пользователя показана как ~). Отчёт публикуется на GitHub. Карт в нём нет. Он находится в 
 Terran Marine	Терранский морпех
 The language of the program's texts	Язык текстов программы
 The map has 	Карта содержит 
@@ -1769,7 +1768,7 @@ Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected
 Could not move the sprites: the new place is outside the map	Не удалось переместить спрайты: новое место за пределами карты
 Segoe MDL2 Assets	Segoe MDL2 Assets
 Read-only. A change to this value has no effect in StarCraft: Remastered.	Только для чтения. Изменение этого значения не действует в StarCraft: Remastered.
-The volume of every sound StarDraft 2 plays, from the next sound on	Громкость каждого звука, который воспроизводит StarDraft 2, начиная со следующего звука
+The volume of all sounds, from the next sound on	Громкость всех звуков, начиная со следующего звука
 The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	Размер юнита округляется вверх до клеток ходьбы (по 8 пикселей). При движении вверх или вниз юниту нужен зазор %d клеток ходьбы (%d пикселей). При движении влево или вправо ему нужен зазор %d клеток ходьбы (%d пикселей).
 Follow the animation's current instruction	Следовать текущей инструкции анимации
 Variables, and triggers that a Run a trigger block runs	Переменные и триггеры, которые запускает блок «Запустить триггер»
@@ -1829,26 +1828,26 @@ No game sound name contains the search text	Ни одно имя игровог�
 Revert the changes that are not applied	Откатить неприменённые изменения
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	Не удалось прочитать файлы данных игры units.dat, weapons.dat, upgrades.dat и techdata.dat. Выберите папку StarCraft в меню Параметры > Параметры программы, затем перезапустите StarDraft 2.
 Changed by the test	Изменено тестом
- tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 тайлов. StarDraft 2 удаляет части карты за пределами нового размера.\r\n
- terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n	 местности с тем же именем или того же вида (например, вода или возвышенность). Если такой нет, она становится основной наземной местностью нового тайлсета. StarDraft 2 удаляет декорации, потому что у каждого тайлсета свои декорации.\r\n
-The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file.	Новая карта получит размер, тайлсет, местность и декорации карты. StarDraft 2 не меняет файл карты.
-StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.	StarDraft 2 копирует карту в папку проекта. StarDraft 2 не меняет исходный файл.
+ tiles. The parts of the map outside the new size are deleted.\r\n	 тайлов. Части карты за пределами нового размера удаляются.\r\n
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads are deleted, because each tileset has its own doodads.\r\n	 местности с тем же именем или того же вида (например, вода или возвышенность). Если такой нет, она становится основной наземной местностью нового тайлсета. Декорации удаляются, потому что у каждого тайлсета свои декорации.\r\n
+The new map gets the map's size, tileset, terrain and doodads. The map's file does not change.	Новая карта получит размер, тайлсет, местность и декорации карты. Файл карты не меняется.
+The project gets a copy of the map in its folder. The original file does not change.	Проект получает копию карты в своей папке. Исходный файл не меняется.
 Randomize the tileset, the amounts, the shape and the seed (not the size)	Случайно задать тайлсет, количества, форму и сид (не размер)
-Select the folder where StarDraft 2 makes new projects	Выберите папку, в которой StarDraft 2 создаёт новые проекты
-StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 создаёт новые проекты в этой папке. Он не перемещает проект, который вы открываете из другой папки.
+Select the folder for new projects	Выберите папку для новых проектов
+New projects go into this folder. A project that you open from another folder stays where it is.	Новые проекты создаются в этой папке. Проект, который вы открываете из другой папки, остаётся на месте.
 %s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)	%s: %d тайлов, пригодных для строительства, %d минеральных полей (всего %u минералов), %d газовых гейзеров (всего %u газа)
 Shaded: units cannot walk there. Each tint marks a ground area that units cannot walk to from the largest area (no tint). 	Затенение: юниты там не могут ходить. Каждый оттенок отмечает наземную область, в которую юниты не могут дойти из самой большой области (без оттенка). 
-. StarDraft 2 does not delete the file.	. StarDraft 2 не удаляет файл.
+. The file stays on the disk.	. Файл остаётся на диске.
  from the build. The file is still in the project folder.	 из сборки. Файл остаётся в папке проекта.
 epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyAll files*.*	epScript (*.eps)*.epsСкрипты (*.eps;*.py)*.eps;*.pyВсе файлы*.*
 Sounds (*.ogg;*.wav)*.ogg;*.wav	Звуки (*.ogg;*.wav)*.ogg;*.wav
 Open the report in Notepad, which shows how often epTrace found each script line running	Открыть отчёт в «Блокноте»: в нём показано, как часто epTrace обнаруживал выполнение каждой строки скрипта
-The folder that StarDraft 2 reads game data from	Папка, из которой StarDraft 2 читает игровые данные
+The folder that the game data comes from	Папка, из которой берутся игровые данные
 All files*.*	Все файлы*.*
-A linked file. StarDraft 2 does not copy or change it: 	Связанный файл. StarDraft 2 его не копирует и не меняет: 
-Remove the link. StarDraft 2 does not delete the file.	Удалить ссылку. StarDraft 2 не удаляет файл.
+A linked file. It stays where it is and does not change: 	Связанный файл. Он остаётся на месте и не меняется: 
+Remove the link (the file stays on the disk)	Удалить ссылку (файл остаётся на диске)
 Remove from the build (the file stays in the project folder)	Удалить из сборки (файл остаётся в папке проекта)
-Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.	Добавить в сборку файл .eps или .py из любого места на диске. StarDraft 2 его не копирует и не меняет.
+Add an .eps or .py file from anywhere on disk to the build. The file stays where it is and does not change.	Добавить в сборку файл .eps или .py из любого места на диске. Файл остаётся на месте и не меняется.
 Sounds (WAV, OGG)*.wav;*.ogg	Звуки (WAV, OGG)*.wav;*.ogg
 Select a game sound…	Выберите игровой звук…
 Inside it, "the unit" is the unit that the loop handles now.	Внутри цикла «Текущий юнит» — это юнит, который цикл обрабатывает сейчас.
@@ -1861,9 +1860,9 @@ Accept: 	Accept:
 A value in the text is missing. Insert it again.	В тексте не хватает значения. Вставьте его снова.
 Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	Поместите «Паузу» в последовательность: вне последовательности она ничего не делает. Чтобы ждать вне последовательности, используйте «После задержки».
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	Заливка: щёлкните в выделении, чтобы залить всё выделение. Щёлкните в другом месте, чтобы залить связанные тайлы, совпадающие со щёлкнутым тайлом. Shift+щелчок заливает каждый совпадающий тайл (в выделении, если оно есть). Если в списке тайлов выбрано несколько тайлов, заливка повторяет их как узор.
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	Открывать карты .scm и .scx в StarDraft 2 при двойном щелчке по ним? Позже это можно настроить в разделе «Параметры > Параметры программы > Карты».
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in Options > Program options > Maps.	Открывать карты .scm и .scx в StarDraft 2 при двойном щелчке по ним? Позже это можно настроить в разделе «Параметры > Параметры программы > Карты».
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	Кисть: ставит тайл, выбранный в списке тайлов, с размером и формой кисти. Если выбрано несколько тайлов, кисть ставит их так, как они расположены в списке; удерживайте Shift, чтобы ставить их случайно.
-. At the next start, StarDraft 2 asks if you want to send the crash report.	. При следующем запуске StarDraft 2 спросит, хотите ли вы отправить отчёт о сбое.
+. At the next start, you can send the crash report.	. При следующем запуске вы можете отправить отчёт о сбое.
 &Pin to the top	&Закрепить вверху
 Un&pin	От&крепить
 player array	массив игроков
@@ -2142,10 +2141,10 @@ At start and one time each hour (release builds only)	При запуске и �
 Previews	Предварительные версии
 Pre-releases too, not only the stable releases	Также предварительные выпуски, а не только стабильные
 Updates	Обновления
-StarDraft 2 offers pre-releases too	StarDraft 2 предлагает и предварительные выпуски
-StarDraft 2 offers the stable releases only	StarDraft 2 предлагает только стабильные выпуски
-StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 ищет новую версию при запуске и каждый час
-StarDraft 2 does not look for newer releases	StarDraft 2 не ищет новые версии
+Updates: offer pre-releases too	Обновления: предлагать и предварительные выпуски
+Updates: offer the stable releases only	Обновления: предлагать только стабильные выпуски
+Updates: look for a newer release at start and each hour	Обновления: искать новую версию при запуске и каждый час
+Updates: do not look for newer releases	Обновления: не искать новые версии
 &Export map image…\tCtrl+Shift+E	&Экспорт изображения карты…\tCtrl+Shift+E
 Export map image	Экспорт изображения карты
 Full size in HD (64 pixels a tile)	Полный размер в HD (64 пикселя на тайл)
@@ -2461,7 +2460,7 @@ The Prerelease or Release folder	Папка Prerelease или Release
 The Prerelease or Release folder. A new folder is used after a restart	Папка Prerelease или Release. Новая папка используется после перезапуска
 The CRIG commands have no problems	В командах CRIG нет проблем
 These CRIG commands in the trigger Comments have problems:	Эти команды CRIG в комментариях триггеров содержат проблемы:
-Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	Экспериментальное моделирование, пока может не полностью совпадать с игрой. Это собственная симуляция StarDraft, а не движок игры.
+Experimental simulation: the result can differ from the game. It is not the game's engine.	Экспериментальное моделирование: результат может отличаться от игры. Это не движок игры.
 Simulation	Моделирование
 Simulate mining	Моделировать добычу
 Simulate combat	Моделировать бой
@@ -2590,7 +2589,7 @@ The rest of the command	Остальная часть команды
 the values after these, as the command reads them	значения после этих, как их читает команда
 Plugins	Плагины
 Early feature preview: report the issues that you find	Ранняя предварительная версия функции: сообщайте о найденных проблемах
-Adjusts StarDraft to work with the CMBW environment when it is loaded	Настраивает StarDraft для работы со средой CMBW, когда загружен
+When loaded, maps open with the CMBW data, and new maps are CMBW maps	Когда загружен, карты открываются с данными CMBW, а новые карты создаются как карты CMBW
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Плагин Cosmonarchy BW загружен: карты открываются и создаются как карты Cosmonarchy BW (открытые вкладки не меняются)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Плагин Cosmonarchy BW выгружен: карты открываются и создаются как карты StarCraft: Brood War (открытые вкладки не меняются)
 Type to search	Введите текст для поиска
@@ -2616,12 +2615,12 @@ Hid all overlays	Все наложения скрыты
 Terrain &pie palette	&Круговая палитра местности
 The pie palette has no terrains for this tileset	В круговой палитре нет местности для этого набора тайлов
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	Сначала выберите папку StarCraft (Обзор, на начальной странице): для новой карты нужны файлы игры
-StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	Чтобы открыть карту, StarDraft 2 нужны файлы игры StarCraft. Выберите папку StarCraft на начальной странице (Обзор).
+No StarCraft game files found. Select the StarCraft folder on the start page (Browse).	Файлы игры StarCraft не найдены. Выберите папку StarCraft на начальной странице (Обзор).
 Reset all program settings…	Сбросить все настройки программы…
-Every program setting gets its default value, and StarDraft 2 restarts (a question first)	Все настройки программы получают значения по умолчанию, и StarDraft 2 перезапускается (сначала с вопросом)
+Give every program setting its default value and restart (a question first)	Вернуть всем настройкам программы значения по умолчанию и перезапустить (сначала с вопросом)
 Your maps, projects and recent lists stay as they are	Ваши карты, проекты и списки недавних файлов не меняются
 Reset all program settings	Сброс всех настроек программы
-Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	Все настройки программы получат значения по умолчанию, и StarDraft 2 перезапустится. Ваши карты, проекты и списки недавних файлов не изменятся.
+Give every program setting its default value, then restart? Your maps, projects and recent lists stay as they are.	Вернуть всем настройкам программы значения по умолчанию и перезапустить? Ваши карты, проекты и списки недавних файлов не изменятся.
 &Reset and restart	&Сбросить и перезапустить
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	Настройки программы сброшены к значениям по умолчанию. Закройте StarDraft 2 и запустите снова, чтобы их применить.
 Rectangle	Прямоугольник

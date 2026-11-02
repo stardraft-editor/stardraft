@@ -589,7 +589,7 @@ int main(int argc, char** argv) {
 #else
         const wchar_t* needs = L"Vulkan";
 #endif
-        if (said.empty()) said = L"StarDraft 2 cannot start: it could not use the video card (" + widen(err) + L"). It needs " + needs + L".";
+        if (said.empty()) said = L"Could not start: the video card is not usable (" + widen(err) + L"). " + needs + L" is necessary.";
         std::printf("graphics: %s\n", narrow(said).c_str());
         if (!gNoBoxes) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "StarDraft 2", narrow(said).c_str(), nullptr);
         return 1;

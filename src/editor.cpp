@@ -2463,7 +2463,7 @@ void Editor::resizeShift(int& shiftX, int& shiftY) {
 }
 
 bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error) {
-    if (!isomOk_) return error = "the map's terrain has no ISOM data, so StarDraft cannot rebuild it", false;
+    if (!isomOk_) return error = "the map's terrain has no ISOM data, so the size and tileset cannot change", false;
     if (width < 16 || height < 16 || width > 256 || height > 256) return error = "the size must be 16 to 256 tiles", false;
     const IsomTerrainTable* oldTable = IsomTerrainTable::forEra(era_);
     const IsomTerrainTable* newTable = IsomTerrainTable::forEra(era);

@@ -73,7 +73,7 @@ Select the StarCraft: Remastered folder. It contains .build.info.	请选择 Star
 Not a StarCraft: Remastered folder	这不是 StarCraft: Remastered 文件夹
 Could not read the game data in this folder:\r\n	无法读取此文件夹中的游戏数据：\r\n
 StarCraft folder	StarCraft 文件夹
-StarDraft 2 uses this folder after a restart:	StarDraft 2 在重新启动后使用此文件夹：
+The new folder applies after a restart:	新文件夹在重新启动后生效：
 To use it now, restart StarDraft 2.	若要立即使用，请重新启动 StarDraft 2。
 Start	开始
 Untitled 	未命名 
@@ -103,7 +103,7 @@ the map you edit here (Brood War format)	在此编辑的地图(Brood War 格式)
 euddraft's build file: Build writes it	euddraft 的构建文件：构建会写入它
 the built map: Build (Ctrl+B) writes it	构建后的地图：构建(Ctrl+B)会写入它
 your code (epScript). To add more, use File > Project > Add a script.	你的代码 (epScript)。要添加更多，请使用 文件 > 项目 > 添加脚本。
-StarDraft 2 makes the folder 	StarDraft 2 将创建文件夹 
+The project goes into the new folder 	项目将放入新文件夹 
 \\ in the location above:\r\n\r\n	\\ 在上面的位置：\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次编译时，StarDraft 2 会从 GitHub 把 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会改动这台电脑上的其他副本。你打开的地图\r\n仍然是普通地图。只能编译项目。
 Name	名称
@@ -158,7 +158,7 @@ Opened 	已打开
 Could not create the map	无法创建地图
 Created a new 	已新建 
  map (	 地图 (
-Save the project (StarDraft 2 makes a folder with its name here)	保存项目 (StarDraft 2 会在此处创建一个以项目名称命名的文件夹)
+Save the project (a new folder with its name goes here)	保存项目 (此处会有一个以项目名称命名的新文件夹)
 The name cannot hold \\ / : * ? " < > |	名称不能包含 \\ / : * ? " < > |
 Save project	保存项目
  is there already and is not empty.	 已存在，且不为空。
@@ -215,16 +215,16 @@ Deleted 	已删除
 Selected 	已选择 
 StarDraft 2 looks for a newer release on start	StarDraft 2 启动时检查新版本
 StarDraft 2 does not look for a newer release on start	StarDraft 2 启动时不检查新版本
-StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 崩溃时发送匿名报告
-StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 不发送崩溃报告 (报告留在这台电脑上)
-The last project opens when StarDraft 2 starts	启动 StarDraft 2 时打开上次的项目
-StarDraft 2 starts with no project open	StarDraft 2 启动时不打开任何项目
+Crash reports: send an anonymous report after a crash	崩溃报告：崩溃后发送匿名报告
+Crash reports: do not send (a report stays on this computer)	崩溃报告：不发送 (报告留在这台电脑上)
+At start: open the last project	启动时：打开上次的项目
+At start: open no project	启动时：不打开任何项目
 Units: can be on top of others	单位: 可以叠放在其他单位上
 Units: cannot be on top of others (air units also)	单位: 不能叠放在其他单位上 (包括空中单位)
 Units: place anywhere (terrain edits do not move them)	单位: 可放在任何位置 (修改地形不会移动它们)
 Units: place only where it fits	单位: 只放在能容纳的位置
 Units: move to the nearest place where it fits	单位: 移动到最近的可用位置
-Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	装饰物: 可放在地图任意位置 (StarDraft 2 不检查地形)
+Doodads: place anywhere on the map (no terrain check)	装饰物: 可放在地图任意位置 (不检查地形)
 Doodads: move to the nearest place where it fits	装饰物: 移动到最近的可用位置
 Doodads: place only where it fits	装饰物: 只放在能容纳的位置
 Carbot (cartooned) graphics	Carbot (卡通风格) 图形
@@ -380,7 +380,7 @@ Changed the location "	已更改位置 "
 Could not change the location: 	无法更改位置: 
 Location properties	位置属性
 Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	此声音为只读。游戏会在地图代码运行前加载带有 Preload 标志的声音，因此更改文件不起作用。
-Read-only. StarDraft 2 does not know where the game keeps this value.	只读。StarDraft 2 不知道游戏在哪里保存此值。
+Read-only. The address of this value in the game memory is not known.	只读。此值在游戏内存中的地址未知。
 * Needs verification	* 需要验证
 1 tile: 32 x 32 px	1 瓦片: 32 x 32 像素
 Drag to move the addon	拖动以移动附加组件
@@ -520,7 +520,7 @@ Triggers are in the Triggers workspace of a project.	触发器位于项目的触
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	暂不可用：导入到地图中的图形、声音、头像和字体。
 Project: 	项目: 
 No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	没有打开的项目。文件 > 项目 > 将此地图设为项目 会创建项目。文件 > 项目 > 打开项目 会打开一个项目。
-Did not save the triggers: a newer StarDraft 2 made triggers.json	未保存触发器：更新版本的 StarDraft 2 创建了 triggers.json
+Did not save the triggers: triggers.json is from a newer version	未保存触发器：triggers.json 来自更新的版本
   (off)	  (关闭)
 Added a variable. Press F2 to rename it.	已添加变量。按 F2 重命名。
 Added from a template: 	从模板添加: 
@@ -938,7 +938,7 @@ Sent the feedback as #	反馈已发送，编号为 #
 . Thank you.	. 谢谢.
 Sent the feedback. Thank you.	反馈已发送。谢谢。
 This build cannot send feedback. The feedback is in 	此版本无法发送反馈。反馈保存在 
-Could not send the feedback now. StarDraft 2 sends it at the next start.	现在无法发送反馈。StarDraft 2 将在下次启动时发送。
+Could not send the feedback now. It is sent at the next start.	现在无法发送反馈。将在下次启动时发送。
 Minimap	小地图
 Density: low	密度：低
 Density: medium	密度：中
@@ -1085,10 +1085,10 @@ The project's map has these classic triggers. The built map keeps them; they run
 Classic triggers: no change	经典触发器：无变化
 Set the classic triggers	设置经典触发器
 the menu item 	菜单项 
-StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 因出错而停止。崩溃报告位于 
+An error stopped the program. The crash report is in 	程序因出错而停止。崩溃报告位于 
  (crash reports are off).	 （崩溃报告已关闭）。
 StarDraft 2 stopped	StarDraft 2 已停止
-StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 因出错而停止。StarDraft 2 会向开发者发送崩溃报告，以便他们修复错误。
+An error stopped the program. A crash report goes to the developers so that they can repair the error.	程序因出错而停止。崩溃报告会发送给开发者，以便他们修复错误。
 Could not read 	无法读取 
 Strings	字符串
 button set	按钮集
@@ -1197,7 +1197,6 @@ the code	代码
 Feedback on 	反馈: 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	反馈是匿名的。请勿包含敏感或私人信息。按 Ctrl+Enter 发送。
 Send	发送
-This build cannot send feedback. StarDraft 2 keeps it in 	此版本无法发送反馈。StarDraft 2 将其保存在 
 Sending the feedback…	正在发送反馈…
 Report feedback on 	提交反馈: 
 %zu B	%zu B
@@ -1219,10 +1218,10 @@ The map has it	地图中已有
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	按引用添加到地图的声音：游戏播放自己的文件，地图不包含该文件
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	地图没有自己的声音。“导入声音”会添加 WAV 或 OGG 文件。
 Import sounds…	导入声音…
-WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	WAV 或 OGG 文件。StarDraft 2 将其保存在地图中（staredit\\wav\\）。
+WAV or OGG files. They go into the map (staredit\\wav\\).	WAV 或 OGG 文件。它们保存在地图中（staredit\\wav\\）。
 Rename	重命名
 Sounds of the game	游戏声音
-StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 未找到游戏声音（选项 > 程序选项：StarCraft 文件夹）
+No game sounds found. Select the StarCraft folder in Options > Program options.	未找到游戏声音。请在 选项 > 程序选项 中选择 StarCraft 文件夹。
 Briefings	简报
 Open it in the Briefing workspace	在简报工作区中打开
 Search the game's sounds	搜索游戏声音
@@ -1317,7 +1316,7 @@ Shape	形状
 Make the project folder and its map	创建项目文件夹和地图
 Make the map in this tab	在此标签页中创建地图
 Removed 	已从列表中移除 
-StarDraft 2 is alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	StarDraft 2 是 alpha 版软件：编辑前请备份您的地图和项目。\n您的反馈很有帮助：在任意内容上右键单击，然后选择 "对…提交反馈"。
+Alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	alpha 版软件：编辑前请备份您的地图和项目。\n您的反馈很有帮助：在任意内容上右键单击，然后选择 "对…提交反馈"。
 Coming later	稍后推出
 Campaign projects come in a later version	战役项目将在之后的版本中推出
 Mod projects come in a later version	模组项目将在之后的版本中推出
@@ -1405,7 +1404,7 @@ Open folder	打开文件夹
 Source map	源地图
 In the project folder	在项目文件夹中
 Where Build writes the map	构建写入地图的位置
-Found by StarDraft 2	由 StarDraft 2 找到
+Found on this computer	在这台电脑上找到
 Change…	更改…
 Downloaded on the first build	在首次构建时下载
 Options	选项
@@ -1520,7 +1519,7 @@ No other data uses this entry	没有其他数据使用此条目
 StarDraft 2 project	StarDraft 2 项目
 Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	无法从 GitHub 获取最新版本。请确保电脑已连接到互联网。
 Check for updates	检查更新
-StarDraft 2 is up to date (	StarDraft 2 已是最新版本 (
+Up to date (	已是最新版本 (
 .\n\nThis is not a release build. Open the release page?	.\n\n这不是正式发布版本。要打开发布页面吗？
 &Open the release page	打开发布页面(&O)
 Download and install it, then restart StarDraft 2?	要下载并安装，然后重新启动 StarDraft 2 吗？
@@ -1655,7 +1654,7 @@ Do not send	不发送
 &Always send	始终发送(&A)
 Do &not send	不发送(&N)
 Crash report	崩溃报告
-After a crash, StarDraft 2 asks at the next start if it can send the report (default)	崩溃后，StarDraft 2 在下次启动时询问能否发送报告（默认）
+Ask at the next start after a crash (default)	崩溃后在下次启动时询问（默认）
 The reports stay on this computer	报告保留在这台计算机上
 Show &minimap	显示小地图(&M)
 Hide	隐藏
@@ -1709,11 +1708,11 @@ Restart now	立即重启
 Start StarDraft 2 again in the new language. Your open maps and projects open again.	以新语言重新启动 StarDraft 2。已打开的地图和项目会再次打开。
 The new language shows after a restart	重新启动后显示新语言
 Text color	文字颜色
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次构建时，StarDraft 2 会从 GitHub 将 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会更改这台计算机上的其他副本。您打开的地图\r\n仍是普通地图。只能构建项目。
+\r\nThe first build downloads euddraft from GitHub into its own folder.\r\nOther copies of euddraft on this computer do not change. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次构建会从 GitHub 将 euddraft 下载到它自己的文件夹。\r\n这台计算机上的其他 euddraft 副本不会更改。您打开的地图\r\n仍是普通地图。只能构建项目。
  accepts the current player or Player 1 to Player 12	 接受当前玩家或玩家 1 至 12
  accepts the current player, Player 1 to Player 8, all players, or a force	 接受当前玩家、玩家 1 至 8、所有玩家或一个势力
  are hidden (View > Layers)	 已隐藏（查看 > 图层）
- has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 与另一个单位的类型、拥有者和位置相同。请移动其中一个，否则 StarDraft 可能找错单位
+ has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 与另一个单位的类型、拥有者和位置相同。请移动其中一个，否则触发器可能找错单位
  tiles)	 个图块)
  tiles: Brush, Spray and Fill place one of them at random	 个图块：画笔、喷涂和填充各随机放置其中之一
  units: click to place them, and again to place more. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。右键单击或按 Esc 停止。
@@ -1723,12 +1722,12 @@ Text color	文字颜色
 &Project page	项目页面(&P)
 . At the next start, StarDraft 2 asks if it can send it.	. 下次启动时，StarDraft 2 会询问能否发送它。
 . The Favorites filter shows them.	. “收藏”筛选会显示它们。
-: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 可打开地图（.scm, .scx, .chk）和项目
-: StarDraft cannot build this block yet	: StarDraft 暂时无法构建此块
+: the file is not a map (.scm, .scx, .chk) or a project	: 该文件不是地图（.scm, .scx, .chk）或项目
+: this block cannot be built yet	: 此块暂时无法构建
 : this layer is hidden. View > Layers shows it again (then you can edit it).	: 此图层已隐藏。查看 > 图层可再次显示它（然后即可编辑）。
 Add a script	添加脚本
 Added to the favorites: 	已加入收藏: 
-After a crash, StarDraft 2 asks at the next start if it can send the report	崩溃后，StarDraft 2 在下次启动时询问能否发送报告
+Crash reports: ask at the next start after a crash	崩溃报告：崩溃后在下次启动时询问
 Automatic (the language of Windows)	自动（Windows 语言）
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	画笔：以画笔的大小和形状放置在“图块”列表中选中的图块。选中多个图块时，每个位置随机放置其中之一（散布）。
 Could not write 	无法写入 
@@ -1742,10 +1741,10 @@ Paste terrain: click to place it, and again to place more. Press R to turn it. R
 Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	粘贴图块：单击放置，再次单击可继续放置。右键单击或 Esc 停止。
 Paste: click to place the copy, and again to place more. Right-click or Esc stops.	粘贴：单击放置副本，再次单击可继续放置。右键单击或 Esc 停止。
 Removed from the favorites: 	已移出收藏: 
-Run local block: StarDraft cannot tell what 	运行本地块：StarDraft 无法判断 
+Run local block: it is not known what 	运行本地块：无法判断 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	崩溃后发送匿名报告：版本、Windows、显卡、崩溃位置和最后的日志行；不包含地图
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	StarDraft 2 上次因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、操作系统、显卡、崩溃位置和最后的日志行。日志行中可能有地图和文件夹的名称（你的用户文件夹显示为 ~）。报告在 GitHub 上公开。不包含地图。报告位于 
+An error stopped the program the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	上次程序因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、操作系统、显卡、崩溃位置和最后的日志行。日志行中可能有地图和文件夹的名称（你的用户文件夹显示为 ~）。报告在 GitHub 上公开。不包含地图。报告位于 
 Terran Marine	人类机枪兵
 The language of the program's texts	程序文本的语言
 The map has 	地图有 
@@ -1769,7 +1768,7 @@ Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected
 Could not move the sprites: the new place is outside the map	无法移动精灵：新位置在地图之外
 Segoe MDL2 Assets	Segoe MDL2 Assets
 Read-only. A change to this value has no effect in StarCraft: Remastered.	只读。更改此值在 StarCraft: Remastered 中不起作用。
-The volume of every sound StarDraft 2 plays, from the next sound on	StarDraft 2 播放的每个声音的音量，从下一个声音起生效
+The volume of all sounds, from the next sound on	所有声音的音量，从下一个声音起生效
 The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	单位大小会向上取整为行走格(每格 8 像素)。向上或向下移动时，单位需要 %d 个行走格 (%d 像素) 的间隙。向左或向右移动时，需要 %d 个行走格 (%d 像素) 的间隙。
 Follow the animation's current instruction	跟随动画的当前指令
 Variables, and triggers that a Run a trigger block runs	变量，以及“执行触发器”块运行的触发器
@@ -1827,26 +1826,26 @@ No game sound name contains the search text	没有游戏声音名称包含搜索
 Revert the changes that are not applied	还原未应用的更改
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	无法读取游戏数据文件 units.dat、weapons.dat、upgrades.dat 和 techdata.dat。请在 选项 > 程序选项 中选择 StarCraft 文件夹，然后重新启动 StarDraft 2。
 Changed by the test	由测试更改
- tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 图块。StarDraft 2 会删除超出新大小的地图部分。\r\n
- terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n	 地形，名称相同或同类(例如水域或高地)。若没有，则成为新地面的地形。StarDraft 2 会删除装饰物，因为每个图块集都有各自的装饰物。\r\n
-The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file.	新地图会获得原地图的大小、图块集、地形和装饰物。StarDraft 2 不会更改地图文件。
-StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.	StarDraft 2 会将地图复制到项目文件夹中。StarDraft 2 不会更改原始文件。
+ tiles. The parts of the map outside the new size are deleted.\r\n	 图块。超出新大小的地图部分会被删除。\r\n
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads are deleted, because each tileset has its own doodads.\r\n	 地形，名称相同或同类(例如水域或高地)。若没有，则成为新地面的地形。装饰物会被删除，因为每个图块集都有各自的装饰物。\r\n
+The new map gets the map's size, tileset, terrain and doodads. The map's file does not change.	新地图会获得原地图的大小、图块集、地形和装饰物。地图文件不会更改。
+The project gets a copy of the map in its folder. The original file does not change.	项目文件夹中会有地图的副本。原始文件不会更改。
 Randomize the tileset, the amounts, the shape and the seed (not the size)	随机设置图块集、数量、形状和种子(不包括大小)
-Select the folder where StarDraft 2 makes new projects	请选择 StarDraft 2 创建新项目的文件夹
-StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 会在此文件夹中创建新项目。它不会移动您从其他文件夹打开的项目。
+Select the folder for new projects	请选择新项目的文件夹
+New projects go into this folder. A project that you open from another folder stays where it is.	新项目会放在此文件夹中。您从其他文件夹打开的项目保持原位。
 %s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)	%s: %d 个可建造图块，%d 个矿物堆 (共 %u 矿物)，%d 个间歇泉 (共 %u 瓦斯)
 Shaded: units cannot walk there. Each tint marks a ground area that units cannot walk to from the largest area (no tint). 	阴影：单位无法在此行走。每种色调标出一块地面区域，单位无法从最大区域(无色调)走到该区域。 
-. StarDraft 2 does not delete the file.	。StarDraft 2 不会删除该文件。
+. The file stays on the disk.	。文件仍保留在磁盘上。
  from the build. The file is still in the project folder.	 从构建中移除。文件仍在项目文件夹中。
 epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyAll files*.*	epScript (*.eps)*.eps脚本 (*.eps;*.py)*.eps;*.py所有文件*.*
 Sounds (*.ogg;*.wav)*.ogg;*.wav	声音 (*.ogg;*.wav)*.ogg;*.wav
 Open the report in Notepad, which shows how often epTrace found each script line running	在记事本中打开报告，其中显示 epTrace 发现每行脚本运行的次数。
-The folder that StarDraft 2 reads game data from	StarDraft 2 读取游戏数据的文件夹
+The folder that the game data comes from	游戏数据所在的文件夹
 All files*.*	所有文件*.*
-A linked file. StarDraft 2 does not copy or change it: 	链接的文件。StarDraft 2 不会复制或更改它: 
-Remove the link. StarDraft 2 does not delete the file.	移除链接。StarDraft 2 不会删除该文件。
+A linked file. It stays where it is and does not change: 	链接的文件。它保持原位，不会更改: 
+Remove the link (the file stays on the disk)	移除链接（文件仍保留在磁盘上）
 Remove from the build (the file stays in the project folder)	从构建中移除(文件仍保留在项目文件夹中)
-Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.	将磁盘上任意位置的 .eps 或 .py 文件添加到构建中。StarDraft 2 不会复制或更改它。
+Add an .eps or .py file from anywhere on disk to the build. The file stays where it is and does not change.	将磁盘上任意位置的 .eps 或 .py 文件添加到构建中。文件保持原位，不会更改。
 Sounds (WAV, OGG)*.wav;*.ogg	声音 (WAV, OGG)*.wav;*.ogg
 Select a game sound…	选择游戏声音…
 Inside it, "the unit" is the unit that the loop handles now.	在循环内，“该单位”是循环当前处理的单位。
@@ -1859,9 +1858,9 @@ Accept: 	Accept:
 A value in the text is missing. Insert it again.	文本中缺少一个值。请重新插入。
 Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	将暂停放入序列中：在序列外，它不起作用。若要在序列外等待，请使用“延迟后”。
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	填充：点击选区内以填充整个选区。点击其他位置会填充与被点击图块相连且相同的图块。Shift+点击会填充所有匹配的图块(若有选区，则仅限选区内)。若在图块列表中选择了多个图块，填充会将它们作为图案重复。
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Options > Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 选项 > 程序选项 > 地图 中设置。
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in Options > Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 选项 > 程序选项 > 地图 中设置。
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	笔刷：以笔刷的大小和形状放置图块列表中选中的图块。选中多个图块时，笔刷按它们在列表中的排列放置；按住 Shift 可随机放置。
-. At the next start, StarDraft 2 asks if you want to send the crash report.	。下次启动时，StarDraft 2 会询问您是否要发送崩溃报告。
+. At the next start, you can send the crash report.	。下次启动时，您可以发送崩溃报告。
 &Pin to the top	置顶(&P)
 Un&pin	取消置顶(&P)
 player array	玩家数组
@@ -2142,10 +2141,10 @@ At start and one time each hour (release builds only)	启动时以及每小时�
 Previews	预览版
 Pre-releases too, not only the stable releases	也包括预发行版，而不仅是稳定版
 Updates	更新
-StarDraft 2 offers pre-releases too	StarDraft 2 也提供预发行版
-StarDraft 2 offers the stable releases only	StarDraft 2 仅提供稳定版
-StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 在启动时和每小时检查较新版本
-StarDraft 2 does not look for newer releases	StarDraft 2 不检查较新版本
+Updates: offer pre-releases too	更新：也提供预发行版
+Updates: offer the stable releases only	更新：仅提供稳定版
+Updates: look for a newer release at start and each hour	更新：在启动时和每小时检查较新版本
+Updates: do not look for newer releases	更新：不检查较新版本
 &Export map image…\tCtrl+Shift+E	导出地图图像(&E)…\tCtrl+Shift+E
 Export map image	导出地图图像
 Full size in HD (64 pixels a tile)	HD 原始大小（每图块 64 像素）
@@ -2461,7 +2460,7 @@ The Prerelease or Release folder	Prerelease 或 Release 文件夹
 The Prerelease or Release folder. A new folder is used after a restart	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用
 The CRIG commands have no problems	CRIG 命令没有问题
 These CRIG commands in the trigger Comments have problems:	触发器注释中的这些 CRIG 命令有问题：
-Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
+Experimental simulation: the result can differ from the game. It is not the game's engine.	实验性模拟：结果可能与游戏不同。这不是游戏引擎。
 Simulation	模拟
 Simulate mining	模拟采矿
 Simulate combat	模拟战斗
@@ -2590,7 +2589,7 @@ The rest of the command	命令的其余部分
 the values after these, as the command reads them	这些值之后的值，按命令读取的方式
 Plugins	插件
 Early feature preview: report the issues that you find	早期功能预览：报告您发现的问题
-Adjusts StarDraft to work with the CMBW environment when it is loaded	加载后，调整 StarDraft 以适配 CMBW 环境
+When loaded, maps open with the CMBW data, and new maps are CMBW maps	加载后，地图使用 CMBW 数据打开，新地图为 CMBW 地图
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	已加载 Cosmonarchy BW 插件：地图以 Cosmonarchy BW 地图打开和创建（已打开的标签页不变）
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	已卸载 Cosmonarchy BW 插件：地图以 StarCraft: Brood War 地图打开和创建（已打开的标签页不变）
 Type to search	输入以搜索
@@ -2616,12 +2615,12 @@ Hid all overlays	已隐藏所有叠加层
 Terrain &pie palette	地形饼状调色板(&P)
 The pie palette has no terrains for this tileset	饼状调色板中没有此图块集的地形
 Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面上的“浏览”）：新地图需要游戏文件
-StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 需要 StarCraft 的游戏文件才能打开地图。请在开始页面选择 StarCraft 文件夹（浏览）。
+No StarCraft game files found. Select the StarCraft folder on the start page (Browse).	未找到 StarCraft 的游戏文件。请在开始页面选择 StarCraft 文件夹（浏览）。
 Reset all program settings…	重置所有程序设置…
-Every program setting gets its default value, and StarDraft 2 restarts (a question first)	所有程序设置恢复为默认值，然后 StarDraft 2 重新启动（会先询问）
+Give every program setting its default value and restart (a question first)	将所有程序设置恢复为默认值并重新启动（会先询问）
 Your maps, projects and recent lists stay as they are	您的地图、项目和最近列表保持不变
 Reset all program settings	重置所有程序设置
-Every program setting gets its default value, and StarDraft 2 restarts. Your maps, projects and recent lists stay as they are.	所有程序设置将恢复为默认值，StarDraft 2 将重新启动。您的地图、项目和最近列表保持不变。
+Give every program setting its default value, then restart? Your maps, projects and recent lists stay as they are.	将所有程序设置恢复为默认值，然后重新启动？您的地图、项目和最近列表保持不变。
 &Reset and restart	重置并重新启动(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。
 Rectangle	矩形

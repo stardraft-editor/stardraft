@@ -1195,7 +1195,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
 }
 
 // The info icon's tip (it shows at once: the icon is there for it; sdl_tips.inc).
-const wchar_t* const kSimInfoTip = L"Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.";
+const wchar_t* const kSimInfoTip = L"Experimental simulation: the result can differ from the game. It is not the game's engine.";
 bool simTipIsQuick(const std::wstring& tip) { return tip == kSimInfoTip; }
 
 // The bar's tooltips: the info icon (what the simulation is) and the buttons.

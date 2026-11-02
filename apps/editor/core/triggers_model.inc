@@ -62,7 +62,7 @@ void trigSave() {
     trigRecheck();
     trigHistoryRecord();
     if (!gTE.project) return;
-    if (gTE.set.newerFormat()) return setMessage(L"Did not save the triggers: a newer StarDraft 2 made triggers.json");
+    if (gTE.set.newerFormat()) return setMessage(L"Did not save the triggers: triggers.json is from a newer version");
     std::string err;
     if (!gTE.set.save(triggersFile(*gTE.project), err)) shellLogError(widen(err));
 }
@@ -101,7 +101,7 @@ bool trigLoadSet() {
     std::string err;
     if (pr && !gTE.set.load(triggersFile(*pr), err)) shellLogError(widen(err));
     if (pr && gTE.set.newerFormat())
-        shellLogError(L"A newer StarDraft 2 made triggers.json. This StarDraft 2 shows what it can and does not save the file. Nothing in it is lost.");
+        shellLogError(L"triggers.json is from a newer version. The parts that this version can read show here. The file is not saved, so nothing in it is lost.");
     else if (pr && (gTE.set.upgradeNames(trigMapInfo()) > 0 || gTE.set.fileVersion < TriggerSet::kFormatVersion) && std::filesystem::exists(triggersFile(*pr))) {
         if (!gTE.set.save(triggersFile(*pr), err)) shellLogError(widen(err));
         else shellLogLine(L"triggers.json is now in the current format (version " + std::to_wstring(TriggerSet::kFormatVersion) + L")");
