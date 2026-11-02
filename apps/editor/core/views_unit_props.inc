@@ -191,9 +191,12 @@ public:
         };
         label(labels_[0], L"Owner");
         std::vector<stardraft::kit::DropdownItem> players;
-        for (int i = 0; i < 12; ++i) players.push_back({tr(L"Player ") + std::to_wstring(i + 1) + (i == 11 ? tr(L" (neutral)") : L""), -1, -1});
+        // (the players units can be placed for, core/palette_tools.inc ownerChoices; and the unit's own player above them, so
+        // that OK keeps it)
+        for (int i = 0, n = std::max(ownerChoices(), int(u.owner) + 1); i < n; ++i)
+            players.push_back({tr(L"Player ") + std::to_wstring(i + 1) + (i == 11 ? tr(L" (neutral)") : L""), -1, -1});
         owner_.setItems(players);
-        owner_.setValue(std::min<int>(u.owner, 11));
+        owner_.setValue(u.owner);
         owner_.setEnabled(true);  // (any unit can take a player, as in SCMDraft: a mod's unit types often lack StarEdit's Non-Neutral flag)
         add(owner_, {0, 0, 0, 0});
         const bool single = units.size() == 1;
