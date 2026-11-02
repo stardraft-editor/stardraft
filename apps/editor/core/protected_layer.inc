@@ -48,8 +48,19 @@ void protectedTerrainSync() {
     Doc& d = gDocs[size_t(gActive)];
     Editor& ed = *app.ed;
     EudProject* pr = d.project.get();
-    const fs::path place = pr ? pr->file() : mapPrefsFile(ed.path());
+    // (the map's settings file: worked out again only when the map's path changes, not each frame)
+    static fs::path prefsFor, prefsPlace;
+    static bool prefsOn = false, prefsSelfTest = false, prefsKnown = false;
+    if (!pr) {
+        if (!prefsKnown || prefsFor.native() != ed.path().native() || prefsOn != gMapPrefsOn || prefsSelfTest != gSelfTest) {
+            prefsKnown = true, prefsFor = ed.path(), prefsOn = gMapPrefsOn, prefsSelfTest = gSelfTest;
+            prefsPlace = mapPrefsFile(ed.path());
+        }
+    }
+    const fs::path& place = pr ? pr->file() : prefsPlace;
     if (place.empty()) return;
+    // (nothing changed since the last frame: the same place, the same protected tiles, or changes not saved)
+    if (d.protectLoaded && (ed.protectedRevision() == d.protectRev || ed.modified()) && d.protectPlace.native() == place.native()) return;
     if (!d.protectLoaded || d.protectPlace != place) {
         d.protectLoaded = true, d.protectPlace = place;
         if (!ed.hasProtectedTiles()) {  // (the kept tiles; with tiles protected already: they go to the new place)
