@@ -48,7 +48,7 @@ public:
         auto click = [this] { ++clicks, invalidate(); };
         auto section = [&](const wchar_t* name) { y = kitpaint::drawSectionHeader(c, x0, colRight, y, formRowH, name); };
 
-        y = kitui::title(c, s_, x0, y, colRight, {}, L"Control kit", L"apps/editor/ui_kit.inc  \x00B7  where each is used: docs/dev/CONTROLS.md");
+        y = kitui::title(c, s_, x0, y, colRight, {}, L"Control kit", L"apps/kit, apps/editor/core/kit_paint.inc  \x00B7  where each is used: docs/dev/CONTROLS.md");
 
         // Colors.
         section(L"Colors");

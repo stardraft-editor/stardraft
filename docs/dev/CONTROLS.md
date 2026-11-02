@@ -1,8 +1,8 @@
 # StarDraft's controls
 
-Every control has one look, from the kit in `apps/editor/ui_kit.inc`. A control takes what it needs to fit its
-place (a tone, an icon, a width), never its own colors: the colors are the tokens at the top of
-`apps/editor/main.cpp`. Native controls (push buttons, check boxes, radio buttons, edit boxes, list boxes) are
+Every control has one look, from the kit (the widgets in `apps/kit/`, the painted parts in
+`apps/editor/core/kit_paint.inc`). A control takes what it needs to fit its place (a tone, an icon, a width), never its
+own colors: the colors are the tokens in `apps/editor/core/colors.inc`. Native controls (push buttons, check boxes, radio buttons, edit boxes, list boxes) are
 painted to the same look by the dark-control subclass (`darkControl`), which calls the kit.
 
 The rules for the UI and its text are in PRINCIPLES.md. This file lists the controls and where each is used.

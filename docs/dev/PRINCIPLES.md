@@ -136,9 +136,10 @@ place for one feature.
 
 ## UI
 
-**One control kit.** The kit in `apps/editor/ui_kit.inc` draws each control, with the color tokens at the top of
-`main.cpp`. CONTROLS.md lists the controls and where each is used. A new kind of control goes into the kit (and the
-gallery, View > Control kit) first, then into CONTROLS.md.
+**One control kit.** The kit draws each control: the widgets in `apps/kit/`, the painted parts in
+`apps/editor/core/kit_paint.inc` and `kit_surface.inc`, with the color tokens in `apps/editor/core/colors.inc`.
+CONTROLS.md lists the controls and where each is used. A new kind of control goes into the kit (and the gallery,
+View > Control kit) first, then into CONTROLS.md.
 
 **No labels that explain.** A tooltip says what a control does. Empty states stay empty: an empty list or value shows
 only "None" (dim, no full stop).
