@@ -2723,7 +2723,7 @@ This tileset has no bridges	Ce jeu de tuiles n'a pas de ponts
 Could not make a bridge. The map has no isometric terrain data.	Impossible de faire un pont. La carte n'a pas de données de terrain isométrique.
 Bridge: drag across the %ls to the %ls on the other side	Pont : faites glisser à travers %ls jusqu'à %ls de l'autre côté
 Bridge: drag on to the %ls on the other side	Pont : continuez jusqu'à %ls de l'autre côté
-A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Un pont va de %ls à travers %ls jusqu'à %ls, le long d'une diagonale de la carte
+A bridge goes from land across the %ls to land, along a diagonal of the map	Un pont va de la terre à travers %ls jusqu'à la terre, le long d'une diagonale de la carte
 The %ls is too narrow for a bridge. Paint it wider.	%ls est trop étroit pour un pont. Peignez-le plus large.
 The bridge does not fit on the map	Le pont ne tient pas sur la carte
 Bridge: length %ls, width %ls. Release the button to place it.	Pont : longueur %ls, largeur %ls. Relâchez le bouton pour le placer.

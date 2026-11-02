@@ -2723,7 +2723,7 @@ This tileset has no bridges	В этом тайлсете нет мостов
 Could not make a bridge. The map has no isometric terrain data.	Не удалось сделать мост. В карте нет данных изометрической местности.
 Bridge: drag across the %ls to the %ls on the other side	Мост: протяните через %ls до %ls на другой стороне
 Bridge: drag on to the %ls on the other side	Мост: протяните дальше, до %ls на другой стороне
-A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Мост идёт с %ls через %ls на %ls, по диагонали карты
+A bridge goes from land across the %ls to land, along a diagonal of the map	Мост идёт с суши через %ls на сушу, по диагонали карты
 The %ls is too narrow for a bridge. Paint it wider.	%ls слишком узкая для моста. Нарисуйте её шире.
 The bridge does not fit on the map	Мост не помещается на карте
 Bridge: length %ls, width %ls. Release the button to place it.	Мост: длина %ls, ширина %ls. Отпустите кнопку, чтобы поставить его.

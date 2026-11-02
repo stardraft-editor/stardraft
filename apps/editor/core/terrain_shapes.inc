@@ -213,7 +213,7 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     case BridgePlan::Problem::Short: return setMessage(bridgeText(L"Bridge: drag across the %ls to the %ls on the other side", water, ground));
     case BridgePlan::Problem::ReachGround: return setMessage(bridgeText(L"Bridge: drag on to the %ls on the other side", ground));
     case BridgePlan::Problem::NeedsTerrain:
-        return setMessage(bridgeText(L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", ground, water, ground));
+        return setMessage(bridgeText(L"A bridge goes from land across the %ls to land, along a diagonal of the map", water));
     case BridgePlan::Problem::TooNarrow: return setMessage(bridgeText(L"The %ls is too narrow for a bridge. Paint it wider.", water));
     case BridgePlan::Problem::OffMap: return setMessage(L"The bridge does not fit on the map");
     }

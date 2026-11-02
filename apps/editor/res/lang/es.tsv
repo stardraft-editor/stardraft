@@ -2723,7 +2723,7 @@ This tileset has no bridges	Este conjunto de losetas no tiene puentes
 Could not make a bridge. The map has no isometric terrain data.	No se pudo hacer un puente. El mapa no tiene datos de terreno isométrico.
 Bridge: drag across the %ls to the %ls on the other side	Puente: arrastre a través de %ls hasta %ls del otro lado
 Bridge: drag on to the %ls on the other side	Puente: siga arrastrando hasta %ls del otro lado
-A bridge goes from %ls across %ls to %ls, along a diagonal of the map	Un puente va de %ls a través de %ls hasta %ls, a lo largo de una diagonal del mapa
+A bridge goes from land across the %ls to land, along a diagonal of the map	Un puente va de tierra a través de %ls hasta tierra, a lo largo de una diagonal del mapa
 The %ls is too narrow for a bridge. Paint it wider.	%ls es demasiado estrecho para un puente. Píntelo más ancho.
 The bridge does not fit on the map	El puente no cabe en el mapa
 Bridge: length %ls, width %ls. Release the button to place it.	Puente: longitud %ls, anchura %ls. Suelte el botón para colocarlo.

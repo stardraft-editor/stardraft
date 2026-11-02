@@ -2753,7 +2753,7 @@ This tileset has no bridges	이 타일셋에는 다리가 없습니다
 Could not make a bridge. The map has no isometric terrain data.	다리를 만들 수 없습니다. 맵에 아이소메트릭 지형 데이터가 없습니다.
 Bridge: drag across the %ls to the %ls on the other side	다리: %ls을(를) 건너 맞은편 %ls까지 드래그하세요
 Bridge: drag on to the %ls on the other side	다리: 맞은편 %ls까지 계속 드래그하세요
-A bridge goes from %ls across %ls to %ls, along a diagonal of the map	다리는 맵의 대각선을 따라 %ls에서 %ls을(를) 건너 %ls까지 놓입니다
+A bridge goes from land across the %ls to land, along a diagonal of the map	다리는 맵의 대각선을 따라 땅에서 %ls을(를) 건너 땅까지 놓입니다
 The %ls is too narrow for a bridge. Paint it wider.	%ls이(가) 다리를 놓기에 너무 좁습니다. 더 넓게 칠하세요.
 The bridge does not fit on the map	다리가 맵에 들어가지 않습니다
 Bridge: length %ls, width %ls. Release the button to place it.	다리: 길이 %ls, 폭 %ls. 버튼을 놓으면 다리를 놓습니다.

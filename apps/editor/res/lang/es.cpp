@@ -2725,7 +2725,7 @@ constexpr UiText kRows[] = {
     {L"Could not make a bridge. The map has no isometric terrain data.", L"No se pudo hacer un puente. El mapa no tiene datos de terreno isom\u00E9trico."},
     {L"Bridge: drag across the %ls to the %ls on the other side", L"Puente: arrastre a trav\u00E9s de %ls hasta %ls del otro lado"},
     {L"Bridge: drag on to the %ls on the other side", L"Puente: siga arrastrando hasta %ls del otro lado"},
-    {L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", L"Un puente va de %ls a trav\u00E9s de %ls hasta %ls, a lo largo de una diagonal del mapa"},
+    {L"A bridge goes from land across the %ls to land, along a diagonal of the map", L"Un puente va de tierra a trav\u00E9s de %ls hasta tierra, a lo largo de una diagonal del mapa"},
     {L"The %ls is too narrow for a bridge. Paint it wider.", L"%ls es demasiado estrecho para un puente. P\u00EDntelo m\u00E1s ancho."},
     {L"The bridge does not fit on the map", L"El puente no cabe en el mapa"},
     {L"Bridge: length %ls, width %ls. Release the button to place it.", L"Puente: longitud %ls, anchura %ls. Suelte el bot\u00F3n para colocarlo."},

@@ -2723,7 +2723,7 @@ This tileset has no bridges	此地形集没有桥
 Could not make a bridge. The map has no isometric terrain data.	无法生成桥。地图没有等距地形数据。
 Bridge: drag across the %ls to the %ls on the other side	桥：拖过%ls到对岸的%ls
 Bridge: drag on to the %ls on the other side	桥：继续拖到对岸的%ls
-A bridge goes from %ls across %ls to %ls, along a diagonal of the map	桥沿地图的对角线从%ls跨过%ls到%ls
+A bridge goes from land across the %ls to land, along a diagonal of the map	桥沿地图的对角线从陆地跨过%ls到陆地
 The %ls is too narrow for a bridge. Paint it wider.	%ls太窄，无法放桥。请画宽一些。
 The bridge does not fit on the map	桥放不进地图
 Bridge: length %ls, width %ls. Release the button to place it.	桥：长度 %ls，宽度 %ls。松开按钮放置。

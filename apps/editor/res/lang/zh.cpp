@@ -2725,7 +2725,7 @@ constexpr UiText kRows[] = {
     {L"Could not make a bridge. The map has no isometric terrain data.", L"\u65E0\u6CD5\u751F\u6210\u6865\u3002\u5730\u56FE\u6CA1\u6709\u7B49\u8DDD\u5730\u5F62\u6570\u636E\u3002"},
     {L"Bridge: drag across the %ls to the %ls on the other side", L"\u6865\uFF1A\u62D6\u8FC7%ls\u5230\u5BF9\u5CB8\u7684%ls"},
     {L"Bridge: drag on to the %ls on the other side", L"\u6865\uFF1A\u7EE7\u7EED\u62D6\u5230\u5BF9\u5CB8\u7684%ls"},
-    {L"A bridge goes from %ls across %ls to %ls, along a diagonal of the map", L"\u6865\u6CBF\u5730\u56FE\u7684\u5BF9\u89D2\u7EBF\u4ECE%ls\u8DE8\u8FC7%ls\u5230%ls"},
+    {L"A bridge goes from land across the %ls to land, along a diagonal of the map", L"\u6865\u6CBF\u5730\u56FE\u7684\u5BF9\u89D2\u7EBF\u4ECE\u9646\u5730\u8DE8\u8FC7%ls\u5230\u9646\u5730"},
     {L"The %ls is too narrow for a bridge. Paint it wider.", L"%ls\u592A\u7A84\uFF0C\u65E0\u6CD5\u653E\u6865\u3002\u8BF7\u753B\u5BBD\u4E00\u4E9B\u3002"},
     {L"The bridge does not fit on the map", L"\u6865\u653E\u4E0D\u8FDB\u5730\u56FE"},
     {L"Bridge: length %ls, width %ls. Release the button to place it.", L"\u6865\uFF1A\u957F\u5EA6 %ls\uFF0C\u5BBD\u5EA6 %ls\u3002\u677E\u5F00\u6309\u94AE\u653E\u7F6E\u3002"},

@@ -23,8 +23,8 @@ bool bridgeMatches(const Editor& ed, bool u, int length, int width, int ox, int 
 
 struct BridgePlan {
     // Why there is no bridge (None: there is one).
-    // Short: the drag has not crossed water yet; ReachGround: it ends on the water; NeedsTerrain: it does not go from the
-    // ground over the water to the ground; TooNarrow: less water than the shortest bridge.
+    // Short: the drag has not crossed water yet; ReachGround: it ends on the water; NeedsTerrain: it starts on the water
+    // (or crosses no whole water); TooNarrow: less water than the shortest bridge.
     enum class Problem { None, NoKit, NoIsom, Short, ReachGround, NeedsTerrain, TooNarrow, OffMap };
     Problem problem = Problem::Short;
     std::string ground, water;  // the kit's terrains (for the messages)
@@ -43,8 +43,8 @@ struct BridgePlan {
 // The bridge on the map: its shore, then its tiles. False: nothing changed.
 bool applyBridge(Editor& ed, const BridgePlan& plan);
 
-// The bridge that a drag from map pixel (x0, y0) to (x1, y1) makes: the drag goes from ground over water to the ground
-// on the other side, along one of the map's two diagonals (2:1). The bridge is as long as the water on the drag's line is
+// The bridge that a drag from map pixel (x0, y0) to (x1, y1) makes: the drag goes from land (any land terrain, as far
+// from the water as it likes) over water to the land on the other side, along one of the map's two diagonals (2:1). The bridge is as long as the water on the drag's line is
 // wide, snaps to the river's diamonds and lies across the drag's line (its shore makes the river straight under it);
 // width: middle pieces across.
 BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int width, uint32_t seed);

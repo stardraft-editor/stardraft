@@ -219,6 +219,38 @@ static void gameBridges(const GameData& data, const std::filesystem::path& insta
     }
 }
 
+// A drag from far away on other land (Jungle, Sand Dunes, Grass: not the kit's ground) across the river to far away on
+// the other side gives the same bridge as a drag from bank to bank, and a ground unit walks from one end to the other.
+static void farDrags(const GameData& data) {
+    struct Set {
+        const char* name;
+        uint16_t era, ground, water, land;
+    };
+    for (const Set& set : {Set{"jungle", 4, 1, 3, 4}, Set{"desert", 5, 1, 3, 4}, Set{"badlands", 0, 1, 3, 4}})
+        for (const bool downRight : {true, false}) {
+            Editor ed(data);
+            std::string err;
+            if (!ed.newMap(96, 96, set.era, set.ground, err)) {
+                check(false, std::string(set.name) + ": new map: " + err);
+                continue;
+            }
+            const int cx = 48 * 32, cy = 48 * 32, rx = 64 * 14, ry = downRight ? -32 * 14 : 32 * 14;
+            Brush river, land;
+            river.size = 2, land.size = 6;
+            ed.paintTerrainLine(cx - rx, cy - ry, cx + rx, cy + ry, set.water, river);
+            const int fx = 64 * 12, fy = downRight ? 32 * 12 : -32 * 12, nx = 64 * 4, ny = downRight ? 32 * 4 : -32 * 4;
+            ed.paintBrush(cx - fx, cy - fy, set.land, land), ed.paintBrush(cx + fx, cy + fy, set.land, land);  // (other land round both ends)
+            const std::string what = std::string(set.name) + (downRight ? " down-right" : " up-right") + ": a drag from far away on " +
+                                     ed.terrainName(set.land);
+            const BridgePlan nearPlan = planBridge(ed, cx - nx, cy - ny, cx + nx, cy + ny, 1, 3);
+            const BridgePlan p = planBridge(ed, cx - fx, cy - fy, cx + fx, cy + fy, 1, 3);
+            check(p.problem == BridgePlan::Problem::None, what + ": a bridge (problem " + std::to_string(int(p.problem)) + ")");
+            check(p.length == nearPlan.length && outline(p.tiles) == outline(nearPlan.tiles), what + ": the bridge of a drag from bank to bank");
+            const int box[4] = {cx - fx - 64, std::min(cy - fy, cy + fy) - 64, cx + fx + 64, std::max(cy - fy, cy + fy) + 64};
+            check(applyBridge(ed, p) && walks(ed, {cx - fx, cy - fy}, {cx + fx, cy + fy}, box[0], box[1], box[2], box[3]), what + ": a way from end to end");
+        }
+}
+
 // Every tileset, both diagonals, rivers of brush size 0.5 to 8 and bridges of width 0.5 to 6, each on a map of its own:
 // a drag across the river gives a bridge as long as the river is wide (not shorter over a wider river), and once it is on the
 // map (its shore, then its tiles) a ground unit walks over it from one end of the drag to the other, where it could
@@ -459,6 +491,7 @@ int main(int argc, char** argv) {
     }
     paintedRivers(data, std::getenv("BRIDGE_SHOTS"));
     allSizes(data);
+    farDrags(data);
     gameBridges(data, argv[1]);
     if (argc > 2) examples(data, argv[2]);
     std::printf("\n%d failures\n", failures);

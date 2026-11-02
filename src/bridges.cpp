@@ -286,7 +286,7 @@ struct Diamond {
 
 struct Terrains {
     const Editor& ed;
-    std::string ground, water, road;  // (road: also ground; "": none)
+    std::string water;
     std::string at(int cx, int cy) const { return ed.terrainName(ed.terrainAt(64 * cx, 32 * cy)); }
     // Water: all four corners are the water.
     bool water4(Diamond d) const {
@@ -295,11 +295,6 @@ struct Terrains {
     // A corner is the water.
     bool water1(Diamond d) const {
         return at(d.x - 1, d.y) == water || at(d.x + 1, d.y) == water || at(d.x, d.y - 1) == water || at(d.x, d.y + 1) == water;
-    }
-    // Ground: a corner is the ground (or the road).
-    bool isGround(const std::string& n) const { return n == ground || (!road.empty() && n == road); }
-    bool hasGround(Diamond d) const {
-        return isGround(at(d.x - 1, d.y)) || isGround(at(d.x + 1, d.y)) || isGround(at(d.x, d.y - 1)) || isGround(at(d.x, d.y + 1));
     }
 };
 
@@ -338,7 +333,7 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const Diamond across = plan.u ? Diamond{-d->widthStep[0], d->widthStep[1]} : Diamond{d->widthStep[0], d->widthStep[1]};
     plan.width = std::max(0, width);
 
-    const Terrains t{ed, d->ground, d->water, d->road};
+    const Terrains t{ed, d->water};
     const Diamond s = nearestDiamond(x0, y0);
     const int steps = int((double(dx) * 64 * step.x + double(dy) * 32 * step.y) / (64.0 * 64 + 32.0 * 32));  // diamonds along the drag
     // No bridge: why, and the tiles of a bridge as long as the drag with its middle on the drag's middle (the red preview).
@@ -357,7 +352,8 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
             if (const int x = c.x + 2 * m.x, y = c.y + m.y; x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) plan.draft.push_back({x, y, c.value});
         return plan;
     };
-    if (t.water4(s) || !t.hasGround(s)) return fail(BridgePlan::Problem::NeedsTerrain);
+    // (the drag starts on land, of any terrain: the shore makes the banks the kit's ground)
+    if (t.water4(s)) return fail(BridgePlan::Problem::NeedsTerrain);
     const int far = std::max(ed.width(), ed.height());
     // The water: rows of whole water diamonds across the drag; or (half) a line of water corners, the edge between two
     // diamonds (the half-size brush's river: the shortest bridge where one row of diamonds is length 1).
@@ -370,15 +366,12 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     if (t.water4(s + step * k4)) k1 = k4;
     int rows = 0;
     while (rows < far && t.water4(s + step * (k1 + rows))) ++rows;
-    // The ground: on a bank diamond next to the water, or the one after it (a wide river's banks are 2 diamonds deep).
-    const auto groundNear = [&](int k, int way) { return t.hasGround(s + step * k) || t.hasGround(s + step * (k + way)); };
     if (!rows && d->rowsAtSize1 > 1 && t.water1(s + step * (k1 + 1))) return fail(BridgePlan::Problem::TooNarrow);
     const bool half = !rows && d->rowsAtSize1 == 1 && deck.y == 1 && t.water1(s + step * (k1 + 1));
     if (!rows && !half) return fail(BridgePlan::Problem::NeedsTerrain);
     const int span = half ? 2 : rows;  // the diamonds with water on the drag's line
     if (steps < k1 + span) return fail(BridgePlan::Problem::ReachGround);
-    if (!groundNear(k1 + span, 1) || !groundNear(k1 - 1, -1) || (half && t.water1(s + step * (k1 + span))))
-        return fail(BridgePlan::Problem::NeedsTerrain);
+    if (half && t.water1(s + step * (k1 + span))) return fail(BridgePlan::Problem::NeedsTerrain);
     plan.length = half ? 0 : rows - d->rowsAtSize1 + 1;
     if (plan.length < 0) return fail(BridgePlan::Problem::TooNarrow);
 
