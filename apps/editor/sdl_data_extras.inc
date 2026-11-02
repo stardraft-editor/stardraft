@@ -439,9 +439,9 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
             const int w = scale(stardraft::kit::kIconBox), h = std::min(r.height(), scale(stardraft::kit::kIconBox));
             int ax = r.right - scale(4) - w * 3;
             const int ay = (r.top + r.bottom - h) / 2;
-            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveUp, move(-1), L"Earlier: checked before the one above", kitpaint::Tone::Normal, i > 0);
+            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveUp, move(-1), L"Move up: checked before the one above", kitpaint::Tone::Normal, i > 0);
             ax += w;
-            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveDown, move(1), L"Later", kitpaint::Tone::Normal, i + 1 < bs.size());
+            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveDown, move(1), L"Move down", kitpaint::Tone::Normal, i + 1 < bs.size());
             ax += w;
             sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::Close,
                              [set, bi] {

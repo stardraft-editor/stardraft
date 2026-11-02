@@ -1200,8 +1200,7 @@ The picture inside a transport	L'image à l'intérieur d'un transport
  buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 boutons à cet endroit. Le jeu affiche le premier dont la condition est remplie. Cliquez à nouveau pour voir le suivant.
 Add a button here	Ajouter un bouton ici
 Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	Partage sa place avec un autre bouton: le jeu affiche le premier dont la condition est remplie (le plus haut dans cette liste)
-Earlier: checked before the one above	Plus tôt: vérifié avant celui du dessus
-Later	Plus tard
+Move up: checked before the one above	Monter: vérifié avant celui du dessus
 Remove the button	Supprimer le bouton
 Add a button	Ajouter un bouton
 Button	Bouton
@@ -1543,7 +1542,6 @@ linked  ·  changed 	lié  ·  modifié
 A linked file. StarDraft 2 does not copy or change it: 	Un fichier lié. StarDraft 2 ne le copie pas et ne le modifie pas: 
 Open in your editor	Ouvrir dans votre éditeur
 Show in folder	Afficher dans le dossier
-Earlier	Précédent
 Comes from the Data workspace	Provient de l'espace de travail Données
 Remove the link. StarDraft 2 does not delete the file.	Retirer le lien. StarDraft 2 ne supprime pas le fichier.
 Remove from the build (the file stays in the project folder)	Retirer de la compilation (le fichier reste dans le dossier du projet)

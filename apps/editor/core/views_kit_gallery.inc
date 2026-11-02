@@ -163,7 +163,7 @@ public:
                     kitui::rowActions(c, s_, r,
                                       {{L"\xE7E8", L"Turn off", click, Tone::Quiet},
                                        {UiIcon::Duplicate, L"Duplicate", click},
-                                       {UiIcon::MoveUp, L"Earlier", click, Tone::Normal, false, false},
+                                       {UiIcon::MoveUp, L"Move up", click, Tone::Normal, false, false},
                                        {UiIcon::Close, L"Remove", click, Tone::Danger}},
                                       kind == 3);
                 y += scale(stardraft::kit::kRowH);
@@ -228,8 +228,8 @@ public:
                     invalidate();
                 }, !fixed);
                 kitui::rowActions(c, s_, r,
-                                  {{UiIcon::MoveUp, L"Earlier", click, Tone::Normal, false, i > 1},
-                                   {UiIcon::MoveDown, L"Later", click, Tone::Normal, false, i > 0 && i + 1 < order.size()}},
+                                  {{UiIcon::MoveUp, L"Move up", click, Tone::Normal, false, i > 1},
+                                   {UiIcon::MoveDown, L"Move down", click, Tone::Normal, false, i > 0 && i + 1 < order.size()}},
                                   false);
                 y += scale(stardraft::kit::kRowH);
             }

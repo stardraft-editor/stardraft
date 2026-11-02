@@ -1200,8 +1200,7 @@ The picture inside a transport	수송선 안의 그림
  buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 개의 버튼이 이 위치에 있습니다. 게임은 조건이 맞는 첫 번째 버튼을 표시합니다. 다시 클릭하면 다음 버튼입니다.
 Add a button here	여기에 버튼 추가
 Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	다른 버튼과 위치를 공유합니다: 게임은 조건이 맞는 첫 번째 버튼(목록에서 위쪽)을 표시합니다
-Earlier: checked before the one above	앞: 위의 버튼보다 먼저 확인
-Later	뒤
+Move up: checked before the one above	위로: 위의 버튼보다 먼저 확인
 Remove the button	버튼 제거
 Add a button	버튼 추가
 Button	버튼
@@ -1544,7 +1543,6 @@ linked  ·  changed 	연결됨  ·  변경됨
 A linked file. StarDraft 2 does not copy or change it: 	연결된 파일입니다. StarDraft는 이 파일을 복사하거나 변경하지 않습니다: 
 Open in your editor	편집기에서 열기
 Show in folder	폴더에서 보기
-Earlier	이전
 Comes from the Data workspace	데이터 작업 공간에서 가져옴
 Remove the link. StarDraft 2 does not delete the file.	링크를 제거합니다. StarDraft는 파일을 삭제하지 않습니다.
 Remove from the build (the file stays in the project folder)	빌드에서 제거 (파일은 프로젝트 폴더에 남습니다)

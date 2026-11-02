@@ -3334,7 +3334,7 @@ private:
     }
     // A header's right-click menu: move the column, hide it, show a hidden one.
     void columnMenu(int c, draw::Point at) {
-        std::vector<std::wstring> items = {L"Move Left", L"Move Right", L"Hide"};
+        std::vector<std::wstring> items = {L"Move left", L"Move right", L"Hide"};
         std::vector<int> hidden;
         for (int k = 0; k < 4; ++k)
             if (!colShown_[k]) hidden.push_back(k), items.push_back(std::wstring(L"Show ") + colName(k));

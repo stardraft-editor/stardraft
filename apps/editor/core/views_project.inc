@@ -527,8 +527,8 @@ int ProjectPageView::paintScripts(draw::Canvas& c, int y, int x0, int rowH, int 
             acts.push_back({UiIcon::Folder, L"Show in folder", [this, name] { host_.showScript(name); }});
         }
         const bool movable = !generated;
-        acts.push_back({UiIcon::MoveUp, L"Earlier", [this, name] { host_.moveScript(name, -1); }, false, movable && i > 0 && !list[i - 1].generated});
-        acts.push_back({UiIcon::MoveDown, L"Later", [this, name] { host_.moveScript(name, 1); }, false, movable && i + 1 < list.size()});
+        acts.push_back({UiIcon::MoveUp, L"Move up", [this, name] { host_.moveScript(name, -1); }, false, movable && i > 0 && !list[i - 1].generated});
+        acts.push_back({UiIcon::MoveDown, L"Move down", [this, name] { host_.moveScript(name, 1); }, false, movable && i + 1 < list.size()});
         acts.push_back({UiIcon::Close,
                         generated ? L"Comes from the Data workspace"
                         : linked  ? L"Remove the link. StarDraft 2 does not delete the file."

@@ -1135,8 +1135,7 @@ The picture inside a transport	Изображение внутри трансп�
  buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 кнопок в этом месте. Игра показывает первую, у которой выполнено условие. Нажмите ещё раз, чтобы увидеть следующую.
 Add a button here	Добавить кнопку здесь
 Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	Делит место с другой кнопкой: игра показывает первую, у которой выполнено условие (та, что выше в списке)
-Earlier: checked before the one above	Раньше: проверяется до кнопки выше
-Later	Позже
+Move up: checked before the one above	Вверх: проверяется до кнопки выше
 Remove the button	Удалить кнопку
 Add a button	Добавить кнопку
 Button	Кнопка
@@ -1448,7 +1447,6 @@ linked  ·  changed 	связан  ·  изменён
   after the last build	  после последней сборки
 Open in your editor	Открыть в редакторе
 Show in folder	Показать в папке
-Earlier	Ранее
 Comes from the Data workspace	Взято из рабочей области «Данные»
 New script	Новый скрипт
 Link a file…	Добавить ссылку на файл…

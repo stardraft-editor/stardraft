@@ -1137,8 +1137,7 @@ The picture inside a transport	运输单位内部的图片
  buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 个按钮在此位置。游戏显示第一个条件满足的按钮。再次点击可查看下一个。
 Add a button here	在此添加按钮
 Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	与另一按钮共用位置：游戏显示第一个条件满足的按钮（此列表中更靠上的那个）
-Earlier: checked before the one above	提前：先于上方的按钮检查
-Later	延后
+Move up: checked before the one above	上移：先于上方的按钮检查
 Remove the button	删除按钮
 Add a button	添加按钮
 Button	按钮
@@ -1448,7 +1447,6 @@ linked  ·  changed 	已关联  ·  已更改
   after the last build	  自上次构建后
 Open in your editor	在编辑器中打开
 Show in folder	在文件夹中显示
-Earlier	更早
 Comes from the Data workspace	来自数据工作区
 New script	新建脚本
 Link a file…	链接文件…
