@@ -412,7 +412,8 @@ void pickUnit(AppState& app, int v, bool add) {
             app.palette = v;
         }
         app.terrainPasting = false;
-        if (app.mode == Mode::Terrain && currentTool(app) == TSelect) {
+        // (Select, and the tools that change the terrain there without the pick: Bridge, Ramp, Jumble: the Brush paints it)
+        if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || terrainToolIgnoresPick(currentTool(app)))) {
             app.toolByMode[int(Mode::Terrain)] = TBrush;
             fillToolCombo(app);
         }
@@ -563,7 +564,7 @@ std::vector<StripItem> stripTools(Mode m) {
     return {};
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
-// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase; -1 none.
+// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -574,6 +575,8 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Polygon) return 6;
     if (it.icon == UiIcon::Jumble) return 7;
     if (it.icon == UiIcon::Erase) return 8;
+    if (it.icon == UiIcon::Bridge) return 9;
+    if (it.icon == UiIcon::Ramp) return 10;
     return -1;
 }
 

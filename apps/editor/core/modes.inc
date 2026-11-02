@@ -16,6 +16,9 @@ inline bool isBoxTool(int tool) { return tool == TRect || tool == TRectFill || t
 inline bool isStrokeShape(int tool) { return tool == TLine || tool == TRect || tool == TEllipse || tool == TDiamond; }
 // Bridge: a drag from the ground across water to the ground (src/bridges.cpp), as Line with the angle locked to the
 // map's diagonals. Ramp: a stroke along a cliff edge (src/ramps.cpp), as Contour's.
+// The Terrain tools that change the terrain there without the list's pick (it stays picked, faded in the list):
+// Bridge and Ramp (their kits' tiles), Jumble (the terrains under the brush).
+inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble; }
 inline bool isShapeTool(int tool) { return tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool) || tool == TBridge || tool == TRamp; }
 // The Terrain tool strip's choices (core/views_toolstrip.inc: terrainKind): 0 Isometric, 1 Tile, 2 Custom, 3 Rectangle,
 // and their order in the strip and Mode > Terrain tools: Isometric, Rectangle, Tile, Custom.

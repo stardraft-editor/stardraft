@@ -112,7 +112,13 @@ struct PaletteGridView : draw::View {
             const bool isPick = (units && e.value == pick) || (locs && e.value == app.ed->selectedLocation());
             const bool isChosen = (units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end()) ||
                                   (locs && app.ed->locationSelected(e.value));
-            if (isPick || isChosen || int(i) == hover_) {
+            // (a tool that does not use the pick, Bridge, Ramp, Jumble: the pick shows faded, a frame only)
+            const bool faded = mode == Mode::Terrain && terrainToolIgnoresPick(app.toolByMode[int(Mode::Terrain)]) && (isPick || isChosen);
+            if (faded) {
+                const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
+                if (int(i) == hover_) c.fill(f, kRowHot);
+                c.frame(f, kBorder, scale(1));
+            } else if (isPick || isChosen || int(i) == hover_) {
                 const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
                 if (isPick) kitpaint::drawListRow(c, f, true, false);
                 else c.fill(f, isChosen ? kSel : kRowHot);

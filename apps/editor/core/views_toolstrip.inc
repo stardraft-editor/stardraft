@@ -352,7 +352,7 @@ struct ToolPopoutView final : draw::View {
         if (i < 0) return {};
         const StripItem& m = group.members[size_t(i)];
         const int key = stripToolKey(m);
-        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXE"[key]) + L")" : L"");
+        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJ"[key]) + L")" : L"");
     }
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
@@ -520,7 +520,7 @@ public:
             addHit(square(r), [this, it, sq = square(r)] {
                 pickStripTool(it);
                 if (!it.members.empty()) stripGroupPopout(it, *this, sq);
-            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXE"[key]) + L")" : std::wstring(it.tip)) +
+            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJ"[key]) + L")" : std::wstring(it.tip)) +
                    (it.members.empty() ? L"" : tr(L" A click also shows the tools of this button.")));
             if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
                 const draw::Rect sq = square(r);
