@@ -110,17 +110,46 @@ void locationPasteShift(const AppState& app, float wx, float wy, int& dx, int& d
     dx = int(snapRound(wx - w / 2.0f, app.locationGrid)) - box.left, dy = int(snapRound(wy - hgt / 2.0f, app.locationGrid)) - box.top;
 }
 
+// The selection and its buildings' add-ons (a building's add-on goes with it): the units a drag moves, by index.
+std::vector<bool> movingUnits() {
+    Editor& ed = *appState().ed;
+    std::vector<bool> moving(ed.units().size(), false);
+    for (int i : ed.withLinkedAddons(ed.selection()))
+        if (i >= 0 && size_t(i) < moving.size()) moving[size_t(i)] = true;
+    return moving;
+}
+
+// The units that stay while the `moving` ones move by (dx, dy), and are near where those go: the others are too far away
+// to block them (checkPlacement looks at the units within twice UnitTypes::boxReach and the resource distance).
+std::vector<Unit> unitsNearMoved(const std::vector<bool>& moving, float dx, float dy) {
+    Editor& ed = *appState().ed;
+    const auto& units = ed.units();
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (size_t i = 0; i < units.size(); ++i)
+        if (moving[i]) {
+            const int x = std::clamp(int(std::lround(units[i].x + dx)), 0, ed.width() * 32 - 1), y = std::clamp(int(std::lround(units[i].y + dy)), 0, ed.height() * 32 - 1);
+            x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+        }
+    std::vector<Unit> nearby;
+    if (x0 > x1) return nearby;
+    const int grow = 2 * ed.unitTypes().boxReach() + 96 + 32 + 2;  // (32: a building's snap to the tile edges)
+    for (size_t i = 0; i < units.size(); ++i) {
+        const Unit& u = units[i];
+        if (!moving[i] && u.x >= x0 - grow && u.x <= x1 + grow && u.y >= y0 - grow && u.y <= y1 + grow) nearby.push_back(u);
+    }
+    return nearby;
+}
+
 // Would the selected units all be placeable moved by (dx, dy)?
 bool selectionFitsAt(float dx, float dy) {
     Editor& ed = *appState().ed;
     const auto& units = ed.units();
-    const std::vector<int> moving = ed.withLinkedAddons(ed.selection());  // a building's add-on goes with it
-    std::vector<Unit> others;
-    for (size_t i = 0; i < units.size(); ++i)
-        if (std::find(moving.begin(), moving.end(), int(i)) == moving.end()) others.push_back(units[i]);
+    const std::vector<bool> moving = movingUnits();
+    const std::vector<Unit> others = unitsNearMoved(moving, dx, dy);
     const PlacementContext ctx = ed.placementContext(&others);
-    for (int i : moving) {
-        Unit m = units[size_t(i)];
+    for (size_t i = 0; i < units.size(); ++i) {
+        if (!moving[i]) continue;
+        Unit m = units[i];
         m.x = uint16_t(std::clamp(int(std::lround(m.x + dx)), 0, ed.width() * 32 - 1));
         m.y = uint16_t(std::clamp(int(std::lround(m.y + dy)), 0, ed.height() * 32 - 1));
         if (m.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[m.type], m.x, m.y);

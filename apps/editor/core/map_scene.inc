@@ -591,13 +591,9 @@ render::Scene buildScene() {
     }
     // Units (selected ones follow the cursor while being dragged).
     const auto& units = ed.units();
-    std::vector<Unit> others;  // unselected units, to check dragged ones against
-    std::vector<bool> moving(units.size(), false);  // the selection and its buildings' add-ons
-    if (moveDX || moveDY) {
-        for (int i : ed.withLinkedAddons(ed.selection())) moving[size_t(i)] = true;
-        for (size_t i = 0; i < units.size(); ++i)
-            if (!moving[i]) others.push_back(units[i]);
-    }
+    std::vector<Unit> others;  // the units that stay near the dragged ones, to check those against
+    std::vector<bool> moving;  // the selection and its buildings' add-ons
+    if (moveDX || moveDY) moving = movingUnits(), others = unitsNearMoved(moving, moveDX, moveDY);
     ed.setMapRevealersHidden(!gLayers.revealers);  // (the layer's state: the revealers are not picked while hidden)
     // (a unit out of the view keeps its idle animation: it goes on where it was when the unit comes into the view)
     auto keepAnim = [&](const Unit& u) {
