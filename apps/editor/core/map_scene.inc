@@ -497,14 +497,14 @@ const PlaceGhost& placeGhost(const Unit& u, float gx, float gy) {
         uint16_t type = 0, x = 0, y = 0;
         uint8_t owner = 0;
         int gx = 0, gy = 0, mirrors = 0, turns = 0, limit = 0;
-        bool illegal = false, correction = false, stacking = false, resourceDistance = false;
+        bool illegal = false, correction = false, stacking = false, resourceDistance = false, snapBuildings = false;
         bool operator==(const Key&) const = default;
     };
     static Key cachedKey;
     static PlaceGhost cached;
     const PlacementContext ctx = ed.placementContext();
     const Key key{&ed, ed.revision(), u.type, u.x, u.y, u.owner, int(gx), int(gy), ed.mirrors(), ed.turns(), ed.unitLimit(),
-                  app.allowIllegalUnits, app.correction, ctx.stacking, ctx.resourceDistance};
+                  app.allowIllegalUnits, app.correction, ctx.stacking, ctx.resourceDistance, app.snapBuildings};
     if (key == cachedKey) return cached;
     cachedKey = key;
     PlaceGhost& g = cached;
