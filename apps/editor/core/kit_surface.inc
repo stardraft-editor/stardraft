@@ -158,6 +158,8 @@ public:
             if (!h.tip.empty() && h.r.contains(pt)) return h.tip;
         return {};
     }
+    // Whether two points are on the same part that acts (a view's sameItem: a quick press on another part is a new press).
+    bool sameItem(draw::Point a, draw::Point b) const { return at(a) == at(b); }
     // What Report feedback names at `pt`: the part's name, else its tip.
     std::wstring feedbackName(draw::Point pt) const {
         for (auto it = hits.rbegin(); it != hits.rend(); ++it)

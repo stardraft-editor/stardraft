@@ -319,7 +319,7 @@ public:
         case draw::MouseKind::Wheel:
             scrollBy(-int(draw::wheelDistance(e, float(scale(32) * 3))));
             return true;
-        case draw::MouseKind::DoubleClick: return false;  // (a card or a row opens once)
+        case draw::MouseKind::DoubleClick: return true;  // (a card or a row opens once; a quick press on another part is a new press: sameItem)
         default: return surface_.mouse(*this, e);  // a row or a card under the mouse is painted again
         }
     }
@@ -368,6 +368,7 @@ public:
     bool hoverTip() const override { return true; }
     draw::Cursor cursor(draw::Point pt) override { return surface_.cursor(pt); }
     std::wstring tip(draw::Point pt) override { return surface_.tip(pt); }
+    bool sameItem(draw::Point a, draw::Point b) const override { return surface_.sameItem(a, b); }
     // Report feedback names what is under the mouse: an enabled card by its name (it has no tip), else the tip.
     std::wstring feedbackName(draw::Point pt) override { return surface_.feedbackName(pt); }
 

@@ -276,10 +276,11 @@ public:
     }
 
     bool mouse(const draw::MouseEvent& e) override {
-        return e.kind != draw::MouseKind::DoubleClick && surface_.mouse(*this, e);  // (a second quick press does not delete a second line)
+        return e.kind == draw::MouseKind::DoubleClick || surface_.mouse(*this, e);  // (a second quick press on the same part does not delete a second line)
     }
     draw::Cursor cursor(draw::Point p) override { return surface_.cursor(p); }
     std::wstring tip(draw::Point p) override { return surface_.tip(p); }
+    bool sameItem(draw::Point a, draw::Point b) const override { return surface_.sameItem(a, b); }
 
 private:
     CtPageHost* host_ = nullptr;
