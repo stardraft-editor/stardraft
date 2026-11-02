@@ -1,0 +1,50 @@
+{
+  "runs": [
+    {
+      "map": "Maps/(2)Bottleneck.scm",
+      "cases": [
+        "map-fill-mix",
+        "map-units-nogo",
+        "map-french"
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "run": 0,
+      "from": "map-fill-mix.png",
+      "to": "fill-mix.png",
+      "crop": [
+        64,
+        440,
+        700,
+        480
+      ],
+      "alt": "Fill with three terrains selected (Ctrl+click) and Mix: the ground gets patches of each"
+    },
+    {
+      "run": 0,
+      "from": "map-units-nogo.png",
+      "to": "resource-no-go.png",
+      "crop": [
+        740,
+        430,
+        580,
+        330
+      ],
+      "alt": "Placing a mineral field: the red ground round the start location where it may not go"
+    },
+    {
+      "run": 0,
+      "from": "map-french.png",
+      "to": "french.png",
+      "crop": [
+        0,
+        0,
+        1000,
+        600
+      ],
+      "alt": "StarDraft in French"
+    }
+  ]
+}

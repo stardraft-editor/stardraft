@@ -2,6 +2,45 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.3
+
+### Map
+
+- New shape tools: Line, Contour, Polygon, Rectangle, Ellipse and Diamond, outline or filled. Shift locks the angle or
+  makes a square, circle or map-shaped diamond. Video: https://www.youtube.com/watch?v=rWf2oNXWwzk
+- New Jumble tool (X): mixes the terrains under the brush.
+- Erase (E) in every mode: Dirt on Terrain; deletes units, doodads, sprites and locations.
+- Select several terrains or tiles (Ctrl+click): Spray and Fill use them all; Fill puts them in patches (Mix).
+
+  ![Fill with three terrains selected (Ctrl+click) and Mix: the ground gets patches of each](images/0.8.3/fill-mix.png)
+- Placing a resource, town hall or start location shows the red ground where it may not go.
+
+  ![Placing a mineral field: the red ground round the start location where it may not go](images/0.8.3/resource-no-go.png)
+- Isometric Select: Shift+drag adds, Ctrl+drag takes out.
+- Tiles list: Shift adds to the selection, Ctrl takes out.
+- Fill shows a paint bucket pointer; Fill of units and doodads is much faster.
+- Tool strip: Spray/Jumble and the shapes share buttons; a click shows the group's tools.
+- Pasted terrain can hang over any map edge.
+- Protected terrain shows only in Terrain mode.
+- Invalid resource depot and node: overlapping zones show as one area.
+- An expansion's town preview stays on the ground level of its resources.
+- Quick picker: Left and Right move through the grid.
+
+### The program
+
+- New language: French.
+
+  ![StarDraft in French](images/0.8.3/french.png)
+- Windows: starts on video cards without Direct3D 12 (Vulkan or software).
+- About shows the right version.
+- Map tabs scroll with the mouse wheel when they don't fit.
+
+### CMBW mod
+
+- The mod team's terrain fixes for every tileset but Installation: 821 black pieces get tiles.
+- Units can belong to players above 12.
+- Custom isom terrain editor: Ctrl+E works while the search box is in use.
+
 ## 0.8.2
 
 ### Map
