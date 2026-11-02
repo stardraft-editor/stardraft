@@ -757,7 +757,7 @@ Cut 	Вырезать
 Duplicated	Продублировано
 Pasted	Вставлено
 This project's map has no classic triggers. Use the Triggers workspace.	В карте этого проекта нет классических триггеров. Используйте рабочее пространство «Триггеры».
-The map's Data page is for classic maps. In a project, use the Data workspace.	Страница «Данные» карты предназначена для классических карт. В проекте используйте рабочее пространство «Данные».
+The Map data page is for classic maps. In a project, use the Data workspace.	Страница «Данные карты» предназначена для классических карт. В проекте используйте рабочее пространство «Данные».
 This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	Эта вкладка — классическая карта. «Данные», «Триггеры» и «Проект» доступны только в проекте. Файл > Проект > Сделать эту карту проектом создаст проект.
 Let go: no change	Отпустить: без изменений
  unit (	 юнит (
@@ -1826,8 +1826,7 @@ The text box shows the string as the game stores it: a button's text starts with
 Size of all strings together. The game has room for at most the number after the slash.	Размер всех строк вместе. Игра вмещает не больше числа после косой черты.
 Rename the file in the map. The briefings that play it also use the new name.	Переименовать файл в карте. Брифинги, которые его воспроизводят, тоже будут использовать новое имя.
 No game sound name contains the search text	Ни одно имя игрового звука не содержит текст поиска
-Discard the changes that are not applied and show the map's values	Отменить неприменённые изменения и показать значения карты
-Discard the changes that are not applied	Отменить неприменённые изменения
+Revert the changes that are not applied	Откатить неприменённые изменения
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	Не удалось прочитать файлы данных игры units.dat, weapons.dat, upgrades.dat и techdata.dat. Выберите папку StarCraft в меню Параметры > Параметры программы, затем перезапустите StarDraft 2.
 Changed by the test	Изменено тестом
  tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 тайлов. StarDraft 2 удаляет части карты за пределами нового размера.\r\n
@@ -2214,7 +2213,7 @@ No pathing problems: %d regions, %d connected areas	Проблем проход�
 Passage that only small units fit through, at tile %d, %d	Проход, в который проходят только малые юниты, тайл %d, %d
 Pathing is hidden (View > Overlays)	Проходимость скрыта (Вид > Наложения)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Регион проходимости %d: тайлов %d, %ls; связанная область %d (регионов %d)
-Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	Проходимость: проблем %d (регионов %d, связанных областей %d). Выберите одну, чтобы показать её на карте
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Проходимость: у каждой связанной области (земли, по которой юниты могут пройти) свой цвет. Тёмное: здесь юниты не ходят
 Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Проходимость: у каждого региона проходимости игры свой цвет. Тёмное: здесь юниты не ходят
 Pathing: units cannot walk here	Проходимость: здесь юниты не ходят
@@ -2584,14 +2583,14 @@ more	ещё
 The rest of the command	Остальная часть команды
 the values after these, as the command reads them	значения после этих, как их читает команда
 Plugins	Плагины
-Early feature preview: please report issues	Ранняя предварительная версия функции: сообщайте о проблемах
+Early feature preview: report the issues that you find	Ранняя предварительная версия функции: сообщайте о найденных проблемах
 Adjusts StarDraft to work with the CMBW environment when it is loaded	Настраивает StarDraft для работы со средой CMBW, когда загружен
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Плагин Cosmonarchy BW загружен: карты открываются и создаются как карты Cosmonarchy BW (открытые вкладки не меняются)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Плагин Cosmonarchy BW выгружен: карты открываются и создаются как карты StarCraft: Brood War (открытые вкладки не меняются)
 Type to search	Введите текст для поиска
-Opening map…	Открытие карты…
-Creating map…	Создание карты…
-Generating map…	Генерация карты…
+Opening the map…	Открытие карты…
+Creating the map…	Создание карты…
+Generating the map…	Генерация карты…
 Creating Cosmonarchy map…	Создание карты Cosmonarchy…
 Loading game data (CASC/MPQ)…	Загрузка данных игры (CASC/MPQ)…
 Extracting scenario.chk from the MPQ…	Извлечение scenario.chk из MPQ…
@@ -2712,4 +2711,4 @@ Filled diamond: drag across the box it fits in. The release fills it. Hold Shift
 Painted the diamond	Ромб нарисован
 Filled the diamond	Ромб залит
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Отпустите кнопку в другом углу. Удерживайте Shift для квадрата, круга или ромба в форме карты
-Please describe what the issue is and what you would expect instead.	Опишите, в чём проблема и что вы ожидали бы вместо этого.
+Describe the issue and what you expect instead.	Опишите проблему и что вы ожидаете вместо этого.

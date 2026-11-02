@@ -13,7 +13,7 @@ public:
         add_.setText(tr(L"Add an establishing shot"));
         add_.setTip(tr(L"Pages with a picture and text that Cosmonarchy shows before the map starts"));
         add_.onClick = [this] { create(); };
-        picture_.setText(tr(L"Choose picture\x2026"));
+        picture_.setText(tr(L"Select a picture\x2026"));
         picture_.setTip(tr(L"An 8-bit PCX picture of 1920 x 1080 pixels, the game's screen. It goes into the map as it is."));
         picture_.onClick = [this] { choosePicture(); };
         text_.setText(tr(L"Edit text\x2026"));
@@ -29,9 +29,9 @@ public:
         deletePage_.setText(tr(L"Delete page"));
         deletePage_.setTone(stardraft::kit::Tone::Danger);
         deletePage_.onClick = [this] { deletePage(); };
-        remove_.setText(tr(L"Remove shot"));
+        remove_.setText(tr(L"Delete shot"));
         remove_.setTone(stardraft::kit::Tone::Danger);
-        remove_.setTip(tr(L"Take the establishing shot out of the map (its pictures too)"));
+        remove_.setTip(tr(L"Delete the establishing shot from the map (its pictures too)"));
         remove_.onClick = [this] { removeShot(); };
         std::vector<stardraft::kit::DropdownItem> places;
         for (const auto& [tag, name] : stardraft::cmbw::establishingShotPlaces()) places.push_back({tr(widen(name).c_str())});
@@ -122,10 +122,10 @@ public:
             if (b) {
                 info += L"   " + std::to_wstring(picW) + L" x " + std::to_wstring(picH);
                 if (picW == kShotW && picH == kShotH) info += tr(L": the game's screen");
-                else info += tr(L": not 1920 x 1080 (choose the picture again to make it so)"), infoColor = kWarn;
+                else info += tr(L": not 1920 x 1080 (select the picture again to make it so)"), infoColor = kWarn;
             }
         } else if (has) {
-            info = tr(L"Choose a picture of 1920 x 1080 pixels, the game's screen"), infoColor = kWarn;
+            info = tr(L"Select a picture of 1920 x 1080 pixels, the game's screen"), infoColor = kWarn;
         }
         c.text({pad, iy, pad + pw, iy + rowH}, info, infoColor, draw::kMiddle | draw::kEllipsis);
 
@@ -226,7 +226,7 @@ private:
                 p.background = "est\\est.pcx", p.displayMs = 6500, p.place = "SCREENLOWERLEFT";
                 if (p.lines.empty()) p.lines = {"MAP TITLE", "", "A place, a time"};
             },
-            tr(L"Added an establishing shot: choose its picture (1920 x 1080) and edit its text"));
+            tr(L"Added an establishing shot: select its picture (1920 x 1080) and edit its text"));
     }
     void addPage() {
         Editor* ed = appState().ed.get();
@@ -362,7 +362,7 @@ private:
                 if (!f.empty() && ed->archiveFile(f) && std::find(names.begin(), names.end(), mapName(*ed, f)) == names.end()) names.push_back(mapName(*ed, f));
         ed->removeArchiveFiles(names);
         page = 0;
-        setMessage(tr(L"Removed the establishing shot"));
+        setMessage(tr(L"Deleted the establishing shot"));
         invalidate();
     }
 };

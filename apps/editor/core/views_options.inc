@@ -759,7 +759,7 @@ void OptionsView::paint(draw::Canvas& c) {
     // mod's) and the mod's folder (core/cmbw.inc).
     if (shown & optionsview::kPlugins) {
         header(L"Plugins");
-        c.text({x0, y, colRight, y + scale(20)}, L"Early feature preview: please report issues", kText, draw::kMiddle | draw::kEllipsis);
+        c.text({x0, y, colRight, y + scale(20)}, L"Early feature preview: report the issues that you find", kText, draw::kMiddle | draw::kEllipsis);
         y += scale(20) + scale(6);
         checkRow(y, cmbwPlugin_, "plugin.cmbw");
         y += rowH;

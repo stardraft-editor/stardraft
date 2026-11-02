@@ -786,7 +786,7 @@ Cut 	Cortar
 Duplicated	Duplicado
 Pasted	Pegado
 This project's map has no classic triggers. Use the Triggers workspace.	El mapa de este proyecto no tiene disparadores clásicos. Use el espacio de trabajo Disparadores.
-The map's Data page is for classic maps. In a project, use the Data workspace.	La página Datos del mapa es para mapas clásicos. En un proyecto, use el espacio de trabajo Datos.
+The Map data page is for classic maps. In a project, use the Data workspace.	La página Datos del mapa es para mapas clásicos. En un proyecto, use el espacio de trabajo Datos.
 This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	Esta pestaña es un mapa clásico. Datos, Disparadores y Proyecto necesitan un proyecto. Archivo > Proyecto > Convertir este mapa en proyecto crea uno.
 Let go: no change	Suelte: sin cambios
  unit (	 unidad (
@@ -1313,14 +1313,13 @@ New ground	Terreno nuevo
 Change the size and tileset	Cambiar el tamaño y el tileset
 Reset	Restablecer
 Set the new size and tileset in the map (one undo step)	Aplica el nuevo tamaño y tileset en el mapa (un paso de deshacer)
-Discard the changes that are not applied and show the map's values	Descarta los cambios sin aplicar y muestra los valores del mapa
 Map properties	Propiedades del mapa
 Players and forces	Jugadores y fuerzas
 Changes that are not applied	Cambios sin aplicar
 Apply	Aplicar
 Revert	Revertir
 Set these values in the map (one undo step)	Aplica estos valores en el mapa (un paso de deshacer)
-Discard the changes that are not applied	Descarta los cambios sin aplicar
+Revert the changes that are not applied	Revierte los cambios sin aplicar
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	No se pudieron leer los archivos de datos del juego units.dat, weapons.dat, upgrades.dat y techdata.dat. Seleccione la carpeta de StarCraft en Opciones > Opciones del programa y reinicie StarDraft 2.
 These pages have changes that are not applied: 	Estas páginas tienen cambios sin aplicar: 
 .\n\nApply them to the map?	.\n\n¿Desea aplicarlos al mapa?
@@ -2214,7 +2213,7 @@ No pathing problems: %d regions, %d connected areas	No hay problemas de rutas: %
 Passage that only small units fit through, at tile %d, %d	Paso por el que solo caben las unidades pequeñas, en el tile %d, %d
 Pathing is hidden (View > Overlays)	Las rutas están ocultas (Ver > Superposiciones)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Región de rutas %d: %d tiles, %ls; zona conectada %d (%d regiones)
-Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	Rutas: %d problemas (%d regiones, %d zonas conectadas). Elija uno para verlo en el mapa
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	Rutas: %d problemas (%d regiones, %d zonas conectadas). Seleccione uno para verlo en el mapa
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Rutas: cada zona conectada (el suelo que las unidades pueden recorrer) tiene su color. Oscuro: las unidades no pueden caminar aquí
 Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Rutas: cada región de rutas del juego tiene su color. Oscuro: las unidades no pueden caminar aquí
 Pathing: units cannot walk here	Rutas: las unidades no pueden caminar aquí
@@ -2584,14 +2583,14 @@ more	más
 The rest of the command	El resto del comando
 the values after these, as the command reads them	los valores después de estos, como los lee el comando
 Plugins	Complementos
-Early feature preview: please report issues	Vista previa de una función temprana: informe de los problemas
+Early feature preview: report the issues that you find	Vista previa de una función temprana: informe de los problemas que encuentre
 Adjusts StarDraft to work with the CMBW environment when it is loaded	Ajusta StarDraft para trabajar con el entorno de CMBW cuando está cargado
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Complemento Cosmonarchy BW cargado: los mapas se abren y se crean como mapas de Cosmonarchy BW (las pestañas abiertas no cambian)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Complemento Cosmonarchy BW descargado: los mapas se abren y se crean como mapas de StarCraft: Brood War (las pestañas abiertas no cambian)
 Type to search	Escribe para buscar
-Opening map…	Abriendo mapa…
-Creating map…	Creando mapa…
-Generating map…	Generando mapa…
+Opening the map…	Abriendo el mapa…
+Creating the map…	Creando el mapa…
+Generating the map…	Generando el mapa…
 Creating Cosmonarchy map…	Creando mapa de Cosmonarchy…
 Loading game data (CASC/MPQ)…	Cargando datos del juego (CASC/MPQ)…
 Extracting scenario.chk from the MPQ…	Extrayendo scenario.chk del MPQ…
@@ -2712,4 +2711,4 @@ Filled diamond: drag across the box it fits in. The release fills it. Hold Shift
 Painted the diamond	Se pintó el rombo
 Filled the diamond	Se rellenó el rombo
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Suelte el botón en la otra esquina. Mantenga Shift para un cuadrado, un círculo o un rombo con la forma del mapa
-Please describe what the issue is and what you would expect instead.	Describa cuál es el problema y qué esperaría en su lugar.
+Describe the issue and what you expect instead.	Describa el problema y lo que espera en su lugar.

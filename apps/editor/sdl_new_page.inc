@@ -69,7 +69,7 @@ bool NewHostSdl::make() {
     const GameData* data = &gState.data;
     const bool copy = gNewView.project && gNewView.copyMap;  // Import an existing map: the project's map is a copy of it (the file stays as it is)
     // (the loading view while the map is made: what, each step, the bar)
-    loadingStart(copy ? tr(L"Opening map\x2026") : gNewView.generate ? tr(L"Generating map\x2026") : tr(L"Creating map\x2026"),
+    loadingStart(copy ? tr(L"Opening the map\x2026") : gNewView.generate ? tr(L"Generating the map\x2026") : tr(L"Creating the map\x2026"),
                  copy ? fs::path(gNewView.fromMapText()).filename().wstring() : std::wstring());
     if (gNewView.cosmonarchy && !(data = loadingTimed(tr(L"Loading game data (CASC/MPQ)\x2026"), 0.2f, [&] { return cmbwGameData(err); }))) {  // (the mod's units and tiles)
         loadingEnd();

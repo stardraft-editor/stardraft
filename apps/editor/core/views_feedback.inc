@@ -169,7 +169,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     c.text({pad + scale(26), pad + scale(1), pad + w, pad + scale(21)}, tr(L"Feedback on ") + on_, kText, draw::kMiddle | draw::kEllipsis);
     int y = pad + scale(24);
     if (stage_ == 0) {  // what to write (the box's height less its line: the dialog keeps its size)
-        c.text({pad, y, pad + w, y + scale(20)}, tr(L"Please describe what the issue is and what you would expect instead."), kText, draw::kMiddle | draw::kEllipsis);
+        c.text({pad, y, pad + w, y + scale(20)}, tr(L"Describe the issue and what you expect instead."), kText, draw::kMiddle | draw::kEllipsis);
         y += scale(24);
     } else {
         y += scale(24);

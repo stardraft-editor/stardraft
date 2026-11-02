@@ -148,7 +148,7 @@ void buildFinished(euddraft::BuildResult* r) {
         shellLogLine(L"Built " + out);
         setMessage(L"Built " + fs::path(out).filename().wstring());
     } else {
-        shellLogError(L"Build failed" + (r->errors.empty() ? L"" : L": " + widen(r->errors.front())));
+        shellLogError(L"Could not build the map" + (r->errors.empty() ? L"" : L": " + widen(r->errors.front())));
         buildStatus(L"Could not build the map (see the log)");
         // An error in a script (a linked file, a file it imports, scripts/...): its file and line (R5). The triggers'
         // generated code selects its block instead (T.1).

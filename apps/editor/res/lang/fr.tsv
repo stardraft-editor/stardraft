@@ -786,7 +786,7 @@ Cut 	Couper
 Duplicated	Dupliqué
 Pasted	Collé
 This project's map has no classic triggers. Use the Triggers workspace.	La carte de ce projet n'a pas de déclencheurs classiques. Utilisez l'espace de travail Déclencheurs.
-The map's Data page is for classic maps. In a project, use the Data workspace.	La page Données de la carte est destinée aux cartes classiques. Dans un projet, utilisez l'espace de travail Données.
+The Map data page is for classic maps. In a project, use the Data workspace.	La page Données de la carte est destinée aux cartes classiques. Dans un projet, utilisez l'espace de travail Données.
 This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	Cet onglet est une carte classique. Données, Déclencheurs et Projet nécessitent un projet. Fichier > Projet > Convertir cette carte en projet en crée un.
 Let go: no change	Relâchez: aucun changement
  unit (	 unité (
@@ -1313,14 +1313,13 @@ New ground	Nouveau sol
 Change the size and tileset	Modifier la taille et le jeu de tuiles
 Reset	Réinitialiser
 Set the new size and tileset in the map (one undo step)	Applique la nouvelle taille et le nouveau jeu de tuiles à la carte (une étape d'annulation)
-Discard the changes that are not applied and show the map's values	Abandonne les modifications non appliquées et affiche les valeurs de la carte
 Map properties	Propriétés de la carte
 Players and forces	Joueurs et forces
 Changes that are not applied	Modifications non appliquées
 Apply	Appliquer
 Revert	Revenir
 Set these values in the map (one undo step)	Applique ces valeurs à la carte (une étape d'annulation)
-Discard the changes that are not applied	Abandonne les modifications non appliquées
+Revert the changes that are not applied	Annule les modifications non appliquées
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	Impossible de lire les fichiers de données du jeu units.dat, weapons.dat, upgrades.dat et techdata.dat. Sélectionnez le dossier StarCraft dans Options > Options du programme, puis redémarrez StarDraft 2.
 These pages have changes that are not applied: 	Ces pages ont des modifications non appliquées: 
 .\n\nApply them to the map?	.\n\nLes appliquer à la carte?
@@ -2214,7 +2213,7 @@ No pathing problems: %d regions, %d connected areas	Aucun problème de chemineme
 Passage that only small units fit through, at tile %d, %d	Passage où seules les petites unités passent, à la tuile %d, %d
 Pathing is hidden (View > Overlays)	Le cheminement est masqué (Affichage > Superpositions)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	Région de cheminement %d: %d tuiles, %ls; zone connectée %d (%d régions)
-Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	Cheminement: %d problèmes (%d régions, %d zones connectées). Choisissez-en un pour l'afficher sur la carte
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	Cheminement: %d problèmes (%d régions, %d zones connectées). Sélectionnez-en un pour l'afficher sur la carte
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	Cheminement: chaque zone connectée (le sol que les unités peuvent parcourir) a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici
 Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	Cheminement: chaque région de cheminement du jeu a sa propre couleur. Sombre: les unités ne peuvent pas marcher ici
 Pathing: units cannot walk here	Cheminement: les unités ne peuvent pas marcher ici
@@ -2584,14 +2583,14 @@ more	plus
 The rest of the command	Le reste de la commande
 the values after these, as the command reads them	les valeurs suivantes, telles que la commande les lit
 Plugins	Plugins
-Early feature preview: please report issues	Aperçu d'une fonctionnalité précoce: veuillez signaler les problèmes
+Early feature preview: report the issues that you find	Aperçu d'une fonctionnalité précoce: signalez les problèmes que vous trouvez
 Adjusts StarDraft to work with the CMBW environment when it is loaded	Adapte StarDraft à l'environnement CMBW lorsqu'il est chargé
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Plugin Cosmonarchy BW chargé: les cartes s'ouvrent et sont créées comme cartes Cosmonarchy BW (les onglets ouverts restent tels quels)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Plugin Cosmonarchy BW déchargé: les cartes s'ouvrent et sont créées comme cartes StarCraft: Brood War (les onglets ouverts restent tels quels)
 Type to search	Tapez pour rechercher
-Opening map…	Ouverture de la carte…
-Creating map…	Création de la carte…
-Generating map…	Génération de la carte…
+Opening the map…	Ouverture de la carte…
+Creating the map…	Création de la carte…
+Generating the map…	Génération de la carte…
 Creating Cosmonarchy map…	Création de la carte Cosmonarchy…
 Loading game data (CASC/MPQ)…	Chargement des données du jeu (CASC/MPQ)…
 Extracting scenario.chk from the MPQ…	Extraction de scenario.chk depuis le MPQ…
@@ -2712,4 +2711,4 @@ Filled diamond: drag across the box it fits in. The release fills it. Hold Shift
 Painted the diamond	Losange peint
 Filled the diamond	Losange rempli
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	Relâchez le bouton à l'autre coin. Maintenez Maj pour un carré, un cercle ou un losange de la forme de la carte
-Please describe what the issue is and what you would expect instead.	Veuillez décrire le problème et ce que vous attendiez à la place.
+Describe the issue and what you expect instead.	Décrivez le problème et ce que vous attendez à la place.

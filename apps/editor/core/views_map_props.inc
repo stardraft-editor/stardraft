@@ -65,7 +65,7 @@ public:
         change_.setText(L"Change the size and tileset"), change_.setTone(stardraft::kit::Tone::Primary);
         change_.setTip(L"Set the new size and tileset in the map (one undo step)");
         change_.onClick = [this] { host_.applyTerrain(); };
-        reset_.setText(L"Reset"), reset_.setTip(L"Discard the changes that are not applied and show the map's values");
+        reset_.setText(L"Revert"), reset_.setTip(L"Revert the changes that are not applied");
         reset_.onClick = [this] { host_.reset(); };
         crop_.setText(L"Crop or extend\x2026");
         crop_.setTip(L"Change the size on a picture of the map: drag the edges of a rectangle (one undo step)");

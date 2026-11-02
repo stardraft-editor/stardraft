@@ -759,7 +759,7 @@ Cut 	剪切
 Duplicated	已创建副本
 Pasted	已粘贴
 This project's map has no classic triggers. Use the Triggers workspace.	本项目的地图没有经典触发器。请使用触发器工作区。
-The map's Data page is for classic maps. In a project, use the Data workspace.	地图的数据页仅用于经典地图。在项目中，请使用数据工作区。
+The Map data page is for classic maps. In a project, use the Data workspace.	地图数据页仅用于经典地图。在项目中，请使用数据工作区。
 This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	此标签页是经典地图。数据、触发器和项目需要先有一个项目。文件 > 项目 > 将此地图设为项目 即可创建。
 Let go: no change	松开：不做更改
  unit (	 个单位 (
@@ -1824,8 +1824,7 @@ The text box shows the string as the game stores it: a button's text starts with
 Size of all strings together. The game has room for at most the number after the slash.	所有字符串的总大小。游戏最多能容纳斜杠后的数字。
 Rename the file in the map. The briefings that play it also use the new name.	在地图中重命名此文件。播放它的简报也会使用新名称。
 No game sound name contains the search text	没有游戏声音名称包含搜索文本
-Discard the changes that are not applied and show the map's values	放弃未应用的更改，并显示地图的值
-Discard the changes that are not applied	放弃未应用的更改
+Revert the changes that are not applied	还原未应用的更改
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	无法读取游戏数据文件 units.dat、weapons.dat、upgrades.dat 和 techdata.dat。请在 选项 > 程序选项 中选择 StarCraft 文件夹，然后重新启动 StarDraft 2。
 Changed by the test	由测试更改
  tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 图块。StarDraft 2 会删除超出新大小的地图部分。\r\n
@@ -2214,7 +2213,7 @@ No pathing problems: %d regions, %d connected areas	没有寻路问题：%d 个�
 Passage that only small units fit through, at tile %d, %d	只有小型单位能通过的通道，位于图块 %d, %d
 Pathing is hidden (View > Overlays)	寻路已隐藏（视图 > 叠加层）
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	寻路区域 %d：%d 个图块，%ls；连通区域 %d（%d 个区域）
-Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走
 Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	寻路：游戏的每个寻路区域各有其颜色。暗处：单位不能在此行走
 Pathing: units cannot walk here	寻路：单位不能在此行走
@@ -2584,14 +2583,14 @@ more	更多
 The rest of the command	命令的其余部分
 the values after these, as the command reads them	这些值之后的值，按命令读取的方式
 Plugins	插件
-Early feature preview: please report issues	早期功能预览：请报告问题
+Early feature preview: report the issues that you find	早期功能预览：报告您发现的问题
 Adjusts StarDraft to work with the CMBW environment when it is loaded	加载后，调整 StarDraft 以适配 CMBW 环境
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	已加载 Cosmonarchy BW 插件：地图以 Cosmonarchy BW 地图打开和创建（已打开的标签页不变）
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	已卸载 Cosmonarchy BW 插件：地图以 StarCraft: Brood War 地图打开和创建（已打开的标签页不变）
 Type to search	输入以搜索
-Opening map…	正在打开地图…
-Creating map…	正在创建地图…
-Generating map…	正在生成地图…
+Opening the map…	正在打开地图…
+Creating the map…	正在创建地图…
+Generating the map…	正在生成地图…
 Creating Cosmonarchy map…	正在创建 Cosmonarchy 地图…
 Loading game data (CASC/MPQ)…	正在加载游戏数据 (CASC/MPQ)…
 Extracting scenario.chk from the MPQ…	正在从 MPQ 提取 scenario.chk…
@@ -2712,4 +2711,4 @@ Filled diamond: drag across the box it fits in. The release fills it. Hold Shift
 Painted the diamond	已绘制菱形
 Filled the diamond	已填充菱形
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	在另一个角松开按钮。按住 Shift 为正方形、圆形或地图形状的菱形
-Please describe what the issue is and what you would expect instead.	请描述问题是什么，以及您期望的结果是什么。
+Describe the issue and what you expect instead.	描述问题以及您期望的结果。

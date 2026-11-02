@@ -38,7 +38,7 @@ public:
         apply_.setTip(L"Set these values in the map (one undo step)");
         apply_.onClick = [this] { host_.apply(); };
         revert_.setText(L"Revert");
-        revert_.setTip(L"Discard the changes that are not applied");
+        revert_.setTip(L"Revert the changes that are not applied");
         revert_.onClick = [this] { host_.revert(); };
         add(apply_, {0, 0, 0, 0});
         add(revert_, {0, 0, 0, 0});

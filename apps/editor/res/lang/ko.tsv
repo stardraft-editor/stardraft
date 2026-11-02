@@ -786,7 +786,7 @@ Cut 	잘라내기
 Duplicated	복제됨
 Pasted	붙여넣음
 This project's map has no classic triggers. Use the Triggers workspace.	이 프로젝트의 맵에는 클래식 트리거가 없습니다. 트리거 작업 공간을 사용합니다.
-The map's Data page is for classic maps. In a project, use the Data workspace.	맵의 데이터 페이지는 클래식 맵용입니다. 프로젝트에서는 데이터 작업 공간을 사용합니다.
+The Map data page is for classic maps. In a project, use the Data workspace.	맵 데이터 페이지는 클래식 맵용입니다. 프로젝트에서는 데이터 작업 공간을 사용합니다.
 This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	이 탭은 클래식 맵입니다. 데이터, 트리거, 프로젝트는 프로젝트가 필요합니다. 파일 > 프로젝트 > 이 맵을 프로젝트로 만들기를 선택하면 프로젝트가 만들어집니다.
 Let go: no change	놓으면 변경 없음
  unit (	 유닛 (
@@ -1313,14 +1313,13 @@ New ground	새 지면
 Change the size and tileset	크기와 타일셋 변경
 Reset	초기화
 Set the new size and tileset in the map (one undo step)	새 크기와 타일셋을 맵에 적용합니다 (실행 취소 1단계)
-Discard the changes that are not applied and show the map's values	적용되지 않은 변경 사항을 버리고 맵의 값을 표시합니다
 Map properties	맵 속성
 Players and forces	플레이어와 포스
 Changes that are not applied	적용되지 않은 변경 사항
 Apply	적용
 Revert	되돌리기
 Set these values in the map (one undo step)	이 값을 맵에 적용합니다 (실행 취소 1단계)
-Discard the changes that are not applied	적용되지 않은 변경 사항을 버립니다
+Revert the changes that are not applied	적용되지 않은 변경 사항을 되돌립니다
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	게임 데이터 파일 units.dat, weapons.dat, upgrades.dat, techdata.dat을 읽을 수 없습니다. 옵션 > 프로그램 옵션에서 StarCraft 폴더를 선택하고 StarDraft 2를 다시 시작하세요.
 These pages have changes that are not applied: 	다음 페이지에 적용되지 않은 변경 사항이 있습니다: 
 .\n\nApply them to the map?	.\n\n맵에 적용하시겠습니까?
@@ -2214,7 +2213,7 @@ No pathing problems: %d regions, %d connected areas	경로 문제 없음: 지역
 Passage that only small units fit through, at tile %d, %d	소형 유닛만 지나갈 수 있는 통로, 타일 %d, %d
 Pathing is hidden (View > Overlays)	경로가 숨겨졌습니다 (보기 > 오버레이)
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	경로 지역 %d: 타일 %d개, %ls; 연결된 영역 %d (지역 %d개)
-Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 고르면 맵에 표시합니다
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	경로: 문제 %d개 (지역 %d개, 연결된 영역 %d개). 하나를 선택하면 맵에 표시합니다
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	경로: 연결된 영역(유닛이 걸어서 지나갈 수 있는 땅)마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
 Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	경로: 게임의 경로 지역마다 색이 다릅니다. 어두운 곳: 유닛이 걸을 수 없습니다
 Pathing: units cannot walk here	경로: 유닛이 이곳을 걸을 수 없습니다
@@ -2584,14 +2583,14 @@ more	나머지
 The rest of the command	명령의 나머지
 the values after these, as the command reads them	이 값들 뒤의 값 (명령이 읽는 대로)
 Plugins	플러그인
-Early feature preview: please report issues	초기 기능 미리 보기: 문제가 있으면 알려 주세요
+Early feature preview: report the issues that you find	초기 기능 미리 보기: 발견한 문제를 알려 주세요
 Adjusts StarDraft to work with the CMBW environment when it is loaded	로드되면 StarDraft를 CMBW 환경에 맞게 조정합니다
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	Cosmonarchy BW 플러그인을 로드했습니다: 맵은 Cosmonarchy BW 맵으로 열리고 만들어집니다 (열린 탭은 그대로입니다)
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	Cosmonarchy BW 플러그인을 내렸습니다: 맵은 StarCraft: Brood War 맵으로 열리고 만들어집니다 (열린 탭은 그대로입니다)
 Type to search	입력해서 검색
-Opening map…	맵 여는 중…
-Creating map…	맵 생성 중…
-Generating map…	맵 생성(제너레이터) 중…
+Opening the map…	맵 여는 중…
+Creating the map…	맵 생성 중…
+Generating the map…	맵 생성(제너레이터) 중…
 Creating Cosmonarchy map…	Cosmonarchy 맵 생성 중…
 Loading game data (CASC/MPQ)…	게임 데이터 로드 중 (CASC/MPQ)…
 Extracting scenario.chk from the MPQ…	MPQ에서 scenario.chk 추출 중…
@@ -2742,4 +2741,4 @@ Filled diamond: drag across the box it fits in. The release fills it. Hold Shift
 Painted the diamond	마름모를 칠했습니다
 Filled the diamond	마름모를 채웠습니다
 Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	반대 모서리에서 버튼을 놓으십시오. Shift를 누르고 있으면 정사각형, 원 또는 맵의 모양을 한 마름모가 됩니다
-Please describe what the issue is and what you would expect instead.	어떤 문제인지, 그리고 대신 어떻게 되기를 기대하는지 적어 주십시오.
+Describe the issue and what you expect instead.	문제와 대신 기대하는 결과를 적으십시오.

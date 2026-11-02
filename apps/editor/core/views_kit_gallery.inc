@@ -357,7 +357,7 @@ public:
             y = kitui::title(c, s_, x0, y, x0 + scale(500), icon("units", 0), L"Terran Marine", L"units.dat entry 0", true, click);
             y = kitpaint::drawSectionHeader(c, x0, x0 + scale(500), y, formRowH, L"Combat");
             const int lw = scale(200);
-            kitpaint::drawFieldLabel(c, {x0, y, x0 + lw, y + formRowH}, L"Hit Points", false);
+            kitpaint::drawFieldLabel(c, {x0, y, x0 + lw, y + formRowH}, L"Hit points", false);
             kitpaint::drawFieldLabel(c, {x0 + scale(200), y, x0 + scale(200) + lw, y + formRowH}, L"Armor (changed)", true);
             y += formRowH;
             kitpaint::drawFieldLabel(c, {x0, y, x0 + lw, y + formRowH}, L"Infestation (not usable)", false, false);

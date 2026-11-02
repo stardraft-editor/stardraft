@@ -221,7 +221,7 @@ void openMap(const std::wstring& path, bool switchToOpen, bool project) {
         return;
     }
     // (the loading view over the workspace: each step with its time, as it is done)
-    loadingStart(tr(L"Opening map\x2026"), fs::path(path).filename().wstring());
+    loadingStart(tr(L"Opening the map\x2026"), fs::path(path).filename().wstring());
     shellWaitCursor();
     const GameData& data = *loadingTimed(tr(L"Loading game data (CASC/MPQ)\x2026"), 0.15f, [&]() -> const GameData* { return project ? &app.data : &gameDataForMap(fs::path(path)); });
     auto ed = std::make_unique<Editor>(data);
