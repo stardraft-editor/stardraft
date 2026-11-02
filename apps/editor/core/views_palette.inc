@@ -66,7 +66,11 @@ struct PaletteGridView : draw::View {
     int rowAt(draw::Point p) const {
         if (p.y >= height() - paletteFooterHeight(view()) || (bar_.shown() && p.x >= bar_.frame().left)) return -1;
         const draw::Point at{p.x, p.y + scroll_};
-        for (size_t i = 0; i < rows.size() && i < rects_.size(); ++i)
+        // (paletteLayout's rows go down: their tops and bottoms do not get smaller; the first row under the point, then
+        // the cells of its line)
+        const size_t n = std::min(rows.size(), rects_.size());
+        const auto first = std::partition_point(rects_.begin(), rects_.begin() + std::ptrdiff_t(n), [&](const draw::Rect& r) { return r.bottom <= at.y; });
+        for (size_t i = size_t(first - rects_.begin()); i < n && rects_[i].top <= at.y; ++i)
             if (rows[i].value >= 0 && rects_[i].contains(at)) return int(i);
         return -1;
     }
@@ -85,11 +89,12 @@ struct PaletteGridView : draw::View {
         c.pushClip({0, 0, width(), viewH});
         const bool units = app.ed && mode != Mode::Locations;  // the picked item shows
         const int pick = second && !own ? -1 : app.palette;
-        std::vector<std::wstring> words;
-        {
+        if (wordsOf_ != searchWords) {  // (the search's words: once for each search, not at each paint)
+            wordsOf_ = searchWords, words_.clear();
             std::wistringstream in(searchWords);
-            for (std::wstring w; in >> w;) words.push_back(w);
+            for (std::wstring w; in >> w;) words_.push_back(w);
         }
+        const std::vector<std::wstring>& words = words_;
         for (size_t i = 0; app.ed && i < rows.size() && i < rects_.size(); ++i) {
             const PaletteRow& e = rows[i];
             draw::Rect r = rects_[i];
@@ -271,6 +276,8 @@ private:
     kit::ScrollBar bar_{kit::Axis::Vertical};
     std::vector<draw::Rect> rects_;
     int scroll_ = 0, contentH_ = 0, hover_ = -1;
+    std::wstring wordsOf_;  // (paint: the search that words_ has the words of)
+    std::vector<std::wstring> words_;
 };
 
 // The pie palette's ring (core/palette_view.inc: pieTerrains, pieSliceAt): ringSize() px wide, the ring at the top
