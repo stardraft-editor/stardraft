@@ -727,7 +727,7 @@ int main(int argc, char** argv) {
         std::sscanf(spaced, "%d,%511s", &era, file);
         Editor ed(data);
         std::string err;
-        uint16_t ground = 1, water = 3;
+        uint16_t ground = std::getenv("BRIDGE_SPACED_GROUND") ? uint16_t(std::atoi(std::getenv("BRIDGE_SPACED_GROUND"))) : 1, water = 3;  // (the land round the rivers)
         if (!ed.newMap(256, 256, uint16_t(era), ground, err)) return std::printf("%s\n", err.c_str()), 1;
         for (int row = 0; row < 4; ++row)      // the bridge's width: 0.5, 1, 2, 3
             for (int col = 0; col < 4; ++col) {  // the river's brush size: 0.5, 1, 2, 3

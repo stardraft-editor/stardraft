@@ -503,9 +503,10 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
         if (c.x < 0 || c.y < 0 || c.x >= ed.width() || c.y >= ed.height()) return fail(BridgePlan::Problem::OffMap);
 
     // The shore, in the ISOM corners' rows along the deck (a row: the corners on one line across the river, two apart;
-    // row 0: the back corners of the first water diamond r). The water: rows 0 to `rows` (the game's and the approved
-    // bridges: one row more than the water diamonds), from 3 corners before the bridge's side to 3 after; a bank of
-    // ground on each side of it; under the bridge's ends ground, or the road.
+    // row 0: the back corners of the first water diamond r): only what the bridge needs, the terrain round it stays. The
+    // water: rows 0 to `rows` (the game's and the approved bridges: one row more than the water diamonds), from 1 corner
+    // before the bridge's side to 1 after; a bank of ground on each side of it, as wide; under the bridge's ends ground
+    // where there is water (other land stays), or the road (one diamond past each end).
     const auto along = [&](double X, double Y) { return X * deck.x + Y * deck.y; };   // (rect-grid points)
     const auto side = [&](double X, double Y) { return X * across.x + Y * across.y; };
     double s0 = INT_MAX, s1 = INT_MIN, t0 = INT_MAX, t1 = INT_MIN;
@@ -542,15 +543,16 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
                 // end, as the game's bridges have it), clear of the banks.
                 const double row = (s - row0) / 2;
                 const bool nearEnd = s < (s0 + s1) / 2;
-                if (*d->road && (row <= -2.5 || row >= rows + 2.5) && s >= s0 - 6 && s <= s1 + 6 && tt >= (nearEnd ? n0 : f0) + 1 &&
+                if (*d->road && (row <= -2.5 || row >= rows + 2.5) && s >= s0 - 2 && s <= s1 + 2 && tt >= (nearEnd ? n0 : f0) + 1 &&
                     tt <= (nearEnd ? n1 : f1) - 1)
                     for (const auto& [cx, cy] : {std::pair{X - 1, Y}, {X + 1, Y}, {X, Y - 1}, {X, Y + 1}}) roadCorners.insert({cx, cy});
                 continue;
             }
             const int row = int(std::lround((s - row0) / 2));
-            if (row >= 0 && row <= rows && tt >= t0 - 3 && tt <= t1 + 3) waters.push_back({X, Y, water});
-            else if ((row == -1 || row == rows + 1) && tt >= t0 - 3 && tt <= t1 + 3) grounds.push_back({X, Y, ground});
-            else if ((row < -1 || row > rows + 1) && s >= s0 - 1 && s <= s1 + 1 && tt >= t0 - 1 && tt <= t1 + 1) grounds.push_back({X, Y, ground});
+            if (row >= 0 && row <= rows && tt >= t0 - 1 && tt <= t1 + 1) waters.push_back({X, Y, water});
+            else if ((row == -1 || row == rows + 1) && tt >= t0 - 1 && tt <= t1 + 1) grounds.push_back({X, Y, ground});
+            else if ((row < -1 || row > rows + 1) && s >= s0 - 1 && s <= s1 + 1 && tt >= t0 - 1 && tt <= t1 + 1 && ed.terrainAt(64 * X, 32 * Y) == water)
+                grounds.push_back({X, Y, ground});
         }
     // (the road's corners: not ground as well)
     std::erase_if(grounds, [&](const CornerValue& c) { return roadCorners.count({c.x, c.y}) != 0; });
