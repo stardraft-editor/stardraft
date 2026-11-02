@@ -525,9 +525,7 @@ void OptionsView::paint(draw::Canvas& c) {
     auto fieldTop = [&](int rowY) { return rowY + (rowH - fieldH) / 2; };
     auto buttonTop = [&](int rowY) { return rowY + (rowH - btnH) / 2; };
     auto header = [&](const wchar_t* name) {
-        c.text({x0, y, colRight, y + rowH}, name, kText, draw::kMiddle);
-        c.fill({x0, y + rowH - 1, colRight, y + rowH}, kBorder);
-        y += rowH + scale(6);
+        y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, name);
     };
     auto label = [&](const wchar_t* name) { c.text({x0, y, x0 + labelW, y + rowH}, name, kDim, draw::kMiddle | draw::kEllipsis); };
     // A note under a row: the labels' size and color (a smaller font was too small to read).

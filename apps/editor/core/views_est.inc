@@ -47,9 +47,7 @@ public:
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
         const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kRowH), bh = scale(stardraft::kit::kButtonH);
-        c.text({pad, pad, width() - pad, pad + rowH}, tr(L"Establishing shot"), kText, draw::kMiddle);
-        c.fill({pad, pad + rowH - 1, width() - pad, pad + rowH}, kBorder);
-        const int noteY = pad + rowH + scale(6);
+        const int noteY = kitpaint::drawSectionHeader(c, pad, width() - pad, pad, rowH, tr(L"Establishing shot"));
         c.text({pad, noteY, width() - pad, noteY + rowH},
                tr(L"Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map)."), kDim,
                draw::kMiddle | draw::kEllipsis);

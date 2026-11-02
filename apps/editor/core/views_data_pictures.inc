@@ -244,8 +244,7 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
         if (a > 0 && !sp.animOffset(image, a)) continue;
         const draw::Rect r{lx + 1, ly, lx + listW - 1, ly + rowH};
         const bool on = a == gImagePlayer.anim;
-        if (on) c.fill(r, kSel), c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-        else if (over(host, r)) c.fill(r, kRowHot);
+        kitpaint::drawListRow(c, r, on, !on && over(host, r));
         if (on) kitpaint::drawGlyph(c, {r.left + scale(6), r.top, r.left + scale(24), r.bottom}, kitpaint::Ico(gImagePlayer.playing ? UiIcon::Play : UiIcon::Pause), kAccent);
         c.text({r.left + scale(26), r.top, r.right - scale(6), r.bottom}, kAnimNames[a], on ? kAccent : kText, draw::kMiddle | draw::kEllipsis);
         host.pictureArea(r, [image, a, &host] { imagePlayerStart(image, a), gImagePlayer.playing = true, host.pictureRepaint(); }, nullptr, L"", draw::Cursor::Hand);

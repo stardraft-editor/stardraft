@@ -97,15 +97,6 @@ int title(draw::Canvas& c, const kitpaint::FormLayout& l, int y, const std::wstr
 void fieldLabel(draw::Canvas& c, const kitpaint::FormLayout& l, int y, const std::wstring& name, bool changed) {
     kitpaint::drawFieldLabel(c, {l.x0, y, l.x0 + l.labelW, y + l.rowH}, name, changed);
 }
-// A list row's ground: selected (with the accent bar), under the mouse, or none (ui::listRow).
-void listRow(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
-    if (selected) {
-        c.fill(r, kSel);
-        c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-    } else if (over) {
-        c.fill(r, kRowHot);
-    }
-}
 
 }  // namespace sdlx
 
@@ -413,7 +404,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
         const Button& b = bs[i];
         const draw::Rect r{l.x0 - scale(6), y, l.colRight, y + l.rowH};
         const bool on = int(i) == x.button, hot = sdlFormHot(r);
-        sdlx::listRow(c, r, on, hot);
+        kitpaint::drawListRow(c, r, on, hot);
         int sharing = 0;  // others in the same place
         for (const Button& o : bs) sharing += o.pos == b.pos;
         const int gx = l.x0 + scale(14);  // after the grip

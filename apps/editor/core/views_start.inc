@@ -228,7 +228,7 @@ public:
         y += cardH + scale(32);
 
         // The recent projects and maps: a heading, then one row each (projects and maps together, the newest first).
-        y = sectionHeader(c, x1, y, x1 + cw, rowH, L"Recent");
+        y = kitpaint::drawSectionHeader(c, x1, x1 + cw, y, rowH, L"Recent");
         struct Recent {
             bool project;
             size_t index;
@@ -467,13 +467,6 @@ private:
     // The title's font (the UI font at 3/2 of its height) and the small font (at 5/6), as the Windows program has them.
     static draw::Font titleFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}); }
     static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
-
-    // A section heading: its name and a line to the column's edge (the form's heading).
-    static int sectionHeader(draw::Canvas& c, int x0, int y, int colRight, int rowH, const wchar_t* name) {
-        c.text({x0, y, colRight, y + rowH}, name, kText, draw::kMiddle);
-        c.fill({x0, y + rowH - 1, colRight, y + rowH}, kBorder);
-        return y + rowH + scale(6);
-    }
 
     StartButton open_;              // (set up in the constructor; it never takes the keyboard)
     StartBrowse browse_;            // the banner's Browse (shown with the banner; a Tab stop)

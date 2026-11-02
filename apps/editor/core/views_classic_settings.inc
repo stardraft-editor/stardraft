@@ -949,8 +949,7 @@ private:
         const int ring = scale(1) + 1;
         c.fill(r, kCtl);
         if (sel) {
-            c.fill(r, kSel);
-            c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
+            kitpaint::drawListRow(c, r, true, false);
             c.fill({r.left + ring, r.top, r.left + ring + scale(2), r.bottom}, kAccent);
         }
         const draw::Rect box{r.left + scale(6), r.top + scale(2), r.left + scale(30), r.bottom - scale(2)};
