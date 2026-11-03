@@ -913,11 +913,18 @@ void mapTurnPaste(AppState& app, bool back) {
 }
 
 // An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units snap a
-// grid cell; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
+// grid cell; a building that snaps to the tiles: a tile at least; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
 // False: Ctrl and no units to move (the key is not the map's).
 bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
     if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && !app.pasting) {
-        const int d = app.unitGrid ? app.unitGrid : ctrl ? 16 : big ? 8 : 1;
+        int d = app.unitGrid ? app.unitGrid : ctrl ? 16 : big ? 8 : 1;
+        // (a building on the tile grid moves a whole tile: a smaller step snaps back to the nearest tile edge, so up and
+        // left did not move it at all, GitHub #227)
+        if (app.snapBuildings)
+            for (int i : app.ed->selection())
+                if (i >= 0 && size_t(i) < app.ed->units().size() && app.ed->units()[size_t(i)].type < app.ed->unitTypes().size() &&
+                    app.ed->unitTypes()[app.ed->units()[size_t(i)].type].is(UnitFlag::Building))
+                    d = std::max(d, 32);
         const int moved = app.ed->moveSelection(dx * d, dy * d, false);
         setMessage(app, moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
         return true;
