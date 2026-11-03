@@ -10,20 +10,21 @@
 
 int tilesFooterH() { return scale(26); }
 
-// The grid's places (GitHub #128, #139): always 16 tiles in a row, a tile group in each row (its tiles 0 to 15, as
-// StarEdit and ScmDraft show them), no padding, 1 px between the tiles and between the rows. The tiles scale so that
+// The grid's places (GitHub #128, #139): 16 tiles in a row, a tile group in each row (its tiles 0 to 15, as
+// StarEdit and ScmDraft show them; Ctrl+wheel over the list: 8 or 4 in a row, so the tiles are larger, a group on 2 or
+// 4 rows, GitHub #239), no padding, 1 px between the tiles and between the rows. The tiles scale so that
 // 16 tiles and 15 gaps fill the list's width (gTiles->listW) exactly: column i is from tilesEdge(i) to
 // tilesEdge(i + 1) - 1, and the pixel after it is the gap (the tiles' widths differ by 1 px at most). Rows use the
 // same edges, so the tiles are square (or 1 px from it). A tile is tilesMinCell() at least: a list narrower than 16 of
 // them and the gaps shows the left part of the rows (the side bar's minimum width has more room than that).
-constexpr int kTilesPerRow = 16;
+int gTilesPerRow = 16;  // (16, 8 or 4; in the settings: TilesPerRow)
 int tilesMinCell() { return scale(8); }
-int tilesEdge(int i) { return int(int64_t(i) * (gTiles->listW + 1) / kTilesPerRow); }
+int tilesEdge(int i) { return int(int64_t(i) * (gTiles->listW + 1) / gTilesPerRow); }
 // The column (or row) at content pixel p (the gap after a tile counts as that tile's); p < 0: -1.
-int tilesIndexAt(int p) { return p < 0 ? -1 : int((int64_t(p + 1) * kTilesPerRow - 1) / (gTiles->listW + 1)); }
+int tilesIndexAt(int p) { return p < 0 ? -1 : int((int64_t(p + 1) * gTilesPerRow - 1) / (gTiles->listW + 1)); }
 // The tile's place in the grid's content: the k-th slot of the grid.
 draw::Rect tilesSlotRect(int k) {
-    const int col = k % kTilesPerRow, row = k / kTilesPerRow;
+    const int col = k % gTilesPerRow, row = k / gTilesPerRow;
     return {tilesEdge(col), tilesEdge(row), tilesEdge(col + 1) - 1, tilesEdge(row + 1) - 1};
 }
 
@@ -178,8 +179,8 @@ public:
         tilesFresh();
         if (!appState().ed || y < 0 || y >= tilesViewH() || gTiles->values.empty()) return -1;
         const int cy = y + gTiles->scroll, col = tilesIndexAt(x), row = tilesIndexAt(cy);
-        if (col < 0 || row < 0 || col >= kTilesPerRow || x >= tilesEdge(col + 1) - 1 || cy >= tilesEdge(row + 1) - 1) return -1;
-        const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
+        if (col < 0 || row < 0 || col >= gTilesPerRow || x >= tilesEdge(col + 1) - 1 || cy >= tilesEdge(row + 1) - 1) return -1;
+        const size_t k = size_t(row) * size_t(gTilesPerRow) + size_t(col);
         if (k >= gTiles->values.size() || gTiles->values[k] == kTilesNone) return -1;
         // (a null tile shown black in a terrain's or a doodad's rows: no pick, a box starts there)
         const int kind = gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) ? gTiles->filters[size_t(gTiles->filter)].kind : 0;
@@ -405,7 +406,7 @@ void tilesRebuild() {
     gTiles->hover = -1;
     if (!app.ed || !app.ed->isOpen()) return;
     const int w = gTilesGrid->width();
-    gTiles->listW = std::max(w, kTilesPerRow * tilesMinCell() + kTilesPerRow - 1);
+    gTiles->listW = std::max(w, gTilesPerRow * tilesMinCell() + gTilesPerRow - 1);
     // A row is a tile group (the tiles that the filter hides are empty slots), but the favorites follow one another.
     const bool byGroup = !(gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5);
     const bool hideNull = gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 4;
@@ -436,7 +437,7 @@ void tilesRebuild() {
             if (tilesInFilter(uint16_t(g << 4 | s)) || (byGroup && !hideNull && tilesIsNull(g << 4 | s))) gTiles->values.push_back(uint16_t(g << 4 | s));
             else if (byGroup) gTiles->values.push_back(kTilesNone);
     }
-    const int rows = (int(gTiles->values.size()) + kTilesPerRow - 1) / kTilesPerRow;
+    const int rows = (int(gTiles->values.size()) + gTilesPerRow - 1) / gTilesPerRow;
     gTiles->contentH = rows ? tilesEdge(rows) - 1 : 0;
     gTiles->layoutW = w;
     gTiles->builtFor = app.ed.get(), gTiles->builtEra = app.ed->era();
@@ -492,12 +493,12 @@ void tilesSetChosen(std::vector<uint16_t> chosen) {
     if (at.size() < 2) return;
     size_t r0 = SIZE_MAX, r1 = 0, c0 = SIZE_MAX, c1 = 0;
     for (size_t k : at) {
-        const size_t r = k / kTilesPerRow, c = k % kTilesPerRow;
+        const size_t r = k / gTilesPerRow, c = k % gTilesPerRow;
         r0 = std::min(r0, r), r1 = std::max(r1, r), c0 = std::min(c0, c), c1 = std::max(c1, c);
     }
     const size_t w = c1 - c0 + 1, h = r1 - r0 + 1;
     gTiles->stamp.assign(w * h, uint16_t(0xFFFF));
-    for (size_t k : at) gTiles->stamp[(k / kTilesPerRow - r0) * w + (k % kTilesPerRow - c0)] = gTiles->values[k];
+    for (size_t k : at) gTiles->stamp[(k / gTilesPerRow - r0) * w + (k % gTilesPerRow - c0)] = gTiles->values[k];
     gTiles->stampW = int(w), gTiles->stampH = int(h);
 }
 
@@ -516,13 +517,13 @@ void TilesGridView::boxSelect() {
     const TilesScope scope = here();
     const int x0 = std::min(gTiles->boxFrom.x, gTiles->boxTo.x), x1 = std::max(gTiles->boxFrom.x, gTiles->boxTo.x);
     const int y0 = std::min(gTiles->boxFrom.y, gTiles->boxTo.y), y1 = std::max(gTiles->boxFrom.y, gTiles->boxTo.y);
-    const int c0 = std::max(0, tilesIndexAt(x0)), c1 = std::min(kTilesPerRow - 1, tilesIndexAt(x1));
+    const int c0 = std::max(0, tilesIndexAt(x0)), c1 = std::min(gTilesPerRow - 1, tilesIndexAt(x1));
     const int r0 = std::max(0, tilesIndexAt(y0)), r1 = std::max(0, tilesIndexAt(y1));
     std::vector<uint16_t> box;
     std::vector<bool> inBox(65536);
     for (int r = r0; r <= r1; ++r)
         for (int c = c0; c <= c1; ++c) {
-            const size_t k = size_t(r) * size_t(kTilesPerRow) + size_t(c);
+            const size_t k = size_t(r) * size_t(gTilesPerRow) + size_t(c);
             if (k < gTiles->values.size() && gTiles->values[k] != kTilesNone && !inBox[gTiles->values[k]] && !tileIsNull(gTiles->values[k]))
                 box.push_back(gTiles->values[k]), inBox[gTiles->values[k]] = true;
         }
@@ -553,12 +554,12 @@ void TilesGridView::paint(draw::Canvas& c) {
         const int firstRow = std::max(0, tilesIndexAt(gTiles->scroll)), lastRow = tilesIndexAt(gTiles->scroll + viewH);
         // The pictures scale to the tiles: nearest pixels when each tile is a whole number of the picture's pixels (2x,
         // 3x), else filtered (smaller, or a part of a pixel more). One rule for all the tiles of the list.
-        const int nominal = gTiles->listW - (kTilesPerRow - 1);
+        const int nominal = gTiles->listW - (gTilesPerRow - 1);
         int whole = -1;  // (the first tile drawn sets it: the picture's size is the art's)
         std::vector<std::pair<draw::Rect, uint16_t>> marks;  // the outlines go over the tiles next to them: after them
         for (int row = firstRow; row <= lastRow; ++row)
-            for (int col = 0; col < kTilesPerRow; ++col) {
-                const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
+            for (int col = 0; col < gTilesPerRow; ++col) {
+                const size_t k = size_t(row) * size_t(gTilesPerRow) + size_t(col);
                 if (k >= gTiles->values.size()) break;
                 const uint16_t v = gTiles->values[k];
                 if (v == kTilesNone) continue;
@@ -567,7 +568,7 @@ void TilesGridView::paint(draw::Canvas& c) {
                 draw::Rect src;
                 draw::Bitmap& px = tilesPixels(v, src);
                 const int size = src.right - src.left;
-                if (whole < 0) whole = size > 0 && nominal % kTilesPerRow == 0 && (nominal / kTilesPerRow) % size == 0;
+                if (whole < 0) whole = size > 0 && nominal % gTilesPerRow == 0 && (nominal / gTilesPerRow) % size == 0;
                 c.bitmap(px, src, cell, !whole);
                 for (int m = 0; m < 16; ++m) {  // (the map's terrain flags overlay, on its tiles too: GitHub #176)
                     draw::Color tint;
@@ -612,6 +613,15 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
     case draw::MouseKind::Pinch: case draw::MouseKind::SmartZoom: case draw::MouseKind::Swipe: return false;
     case draw::MouseKind::Wheel:
         if (e.horizontal) return false;
+        if (e.mods & draw::kCtrl) {  // (Ctrl+wheel: larger or smaller tiles, 16, 8 or 4 in a row)
+            const int was = gTilesPerRow, notches = draw::wheelDistance(e, 1.0f) > 0 ? 1 : -1;
+            gTilesPerRow = std::clamp(notches > 0 ? gTilesPerRow / 2 : gTilesPerRow * 2, 4, 16);
+            if (gTilesPerRow != was) {
+                tilesRebuild(), invalidate(), shellSettingsChanged();
+                setMessage(L"Tiles list: " + std::to_wstring(gTilesPerRow) + L" tiles in a row (Ctrl+wheel changes it)");
+            }
+            return true;
+        }
         tilesScrollTo(gTiles->scroll - int(draw::wheelDistance(e, float(scale(90)))));
         return true;
     case draw::MouseKind::Move: {
@@ -660,7 +670,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
         }
         // A drag from here: a box (Shift: added to the tiles selected before; Ctrl: taken out of them). It starts on an
         // empty slot too (a null tile: black, or one the filter hides): a box over a doodad's tiles is one stamp.
-        const bool inGrid = e.pt.y >= 0 && e.pt.y < tilesViewH() && e.pt.x >= 0 && e.pt.x < tilesEdge(kTilesPerRow) &&
+        const bool inGrid = e.pt.y >= 0 && e.pt.y < tilesViewH() && e.pt.x >= 0 && e.pt.x < tilesEdge(gTilesPerRow) &&
                             e.pt.y + gTiles->scroll < gTiles->contentH;
         if (v >= 0 || inGrid) {
             gTiles->boxing = true, gTiles->boxed = false;
