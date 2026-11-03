@@ -347,6 +347,19 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
                 return true;
         return false;
     };
+    // (the deck inside the caps and the sides is walkable: there, where some variants have only walkable minitiles, the
+    // others do not go)
+    const Tileset* ts = on ? &on->tileset() : nullptr;
+    const auto walkable = [&](uint16_t v) {
+        const int m = ts->megatileFor(v);
+        if (m < 0 || size_t(m) >= ts->minitileFlags.size()) return false;
+        for (int i = 0; i < 16; ++i)
+            if (!(ts->minitileFlags[size_t(m)][size_t(i)] & Tileset::kWalkable)) return false;
+        return true;
+    };
+    const auto deck = [&](const Cell& c) {
+        return c.a >= k->capStart && extL - 1 - c.a >= k->capFar && c.c >= k->side0 && extW - 1 - c.c >= k->side1;
+    };
     std::vector<int> picks(cells.size(), 0);
     const auto choose = [&](size_t i) {
         const Cell& c = cells[i];
@@ -355,10 +368,15 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         double best = 1e18;
         int total = 0;
         std::vector<double> score(size_t(c.key->count));
-        bool any = false;
-        for (int j = 0; j < c.key->count; ++j) any |= placeFits(c, ch[j]);
+        std::vector<char> ok(size_t(c.key->count));
+        bool any = false, walk = false;
+        for (int j = 0; j < c.key->count; ++j) any |= ok[size_t(j)] = placeFits(c, ch[j]);
+        for (int j = 0; j < c.key->count; ++j) ok[size_t(j)] = !any || ok[size_t(j)];  // (none fits: all may go)
+        if (ts && deck(c))
+            for (int j = 0; j < c.key->count; ++j) walk |= ok[size_t(j)] && walkable(ch[j].a) && walkable(ch[j].b);
         for (int j = 0; j < c.key->count; ++j)
-            best = std::min(best, score[size_t(j)] = !any || placeFits(c, ch[j]) ? misfits(c.x, c.y, ch[j]) : 1e17);
+            if (walk && !(walkable(ch[j].a) && walkable(ch[j].b))) ok[size_t(j)] = false;
+        for (int j = 0; j < c.key->count; ++j) best = std::min(best, score[size_t(j)] = ok[size_t(j)] ? misfits(c.x, c.y, ch[j]) : 1e17);
         for (int j = 0; j < c.key->count; ++j)
             if (score[size_t(j)] == best) total += ch[j].weight;
         int r = total > 0 ? int(rng() % uint32_t(total)) : 0, pick = -1;

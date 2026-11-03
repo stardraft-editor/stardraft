@@ -549,6 +549,25 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    if (const char* era0 = std::getenv("BRIDGE_DECKWALK")) {  // <era>: wide bridges' tiles that are not all walkable, each way
+        const int era = std::atoi(era0);
+        Editor ed(data);
+        std::string e;
+        if (!ed.newMap(128, 128, uint16_t(era), 1, e)) return 1;
+        const Tileset& ts = ed.tileset();
+        for (const bool u : {false, true})
+            for (const int width : {4, 6, 8}) {
+                int part = 0, all = 0;
+                for (const Editor::TileAt& c : bridgeTiles(era, u, 4, width, 40, 40, 7, &ed, false)) {
+                    const int m = ts.megatileFor(c.value);
+                    int n = 0;
+                    for (int i = 0; m >= 0 && i < 16; ++i) n += (ts.minitileFlags[size_t(m)][size_t(i)] & Tileset::kWalkable) != 0;
+                    ++all, part += n > 0 && n < 16;
+                }
+                std::printf("era %d %s width %d: %d of %d tiles partly walkable\n", era, u ? "up" : "down", width, part, all);
+            }
+        return 0;
+    }
     if (const char* walk = std::getenv("BRIDGE_WALK")) {  // era:tile,tile,...: the walkable minitiles of each tile (of 16)
         Tileset ts;
         std::string e;
