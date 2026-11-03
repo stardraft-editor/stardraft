@@ -63,9 +63,9 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
-| 1 to 9, 0 | Player 1 to 10 for what you place (in Terrain mode, the palette's terrain) |
+| 1 to 9, 0, and the two keys after 0 | Player 1 to 12 for what you place (in Terrain mode, the palette's terrain). The keys go by their place on the keyboard, so they work on all layouts |
 | G | Show or hide the grid |
-| + and - | Zoom in and out |
+| Ctrl++ and Ctrl+-, or + and - on the number pad | Zoom in and out |
 | Ctrl+0 | Actual size |
 | Ctrl+H | Fit the map in the window |
 | Arrows | Move the selected units by one pixel, else scroll the map |

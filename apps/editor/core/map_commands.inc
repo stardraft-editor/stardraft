@@ -393,13 +393,14 @@ void registerMapCommands() {
     addCommand(ID_CMBW_ISOMRULES, "tools.cmbw.isomRules", L"Custom isom &terrain editor\x2026", "Cosmonarchy", L"", [] { isomRulesShow(); });
     addCommand(ID_CMBW_PASSAGES, "tools.cmbw.passages", L"Ramp and &bridge mapper\x2026", "Cosmonarchy", L"", [] { passagesShow(); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
-    // View: the camera. + and - are the map view's own keys (they also work with the number pad).
-    addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"+", [] {
+    // View: the camera. Ctrl with + or - (the layout's keys), and the number pad's + and -, are the map view's own keys:
+    // the number row's - is player 11 (sdl_main_view.inc).
+    addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"Ctrl++", [] {
         int w, h;
         viewSize(w, h);
         zoomAt(1.25f, w / 2, h / 2);
     }, {}, false, false);
-    addCommand(ID_VIEW_ZOOMOUT, "view.zoomOut", L"Zoom &out", "View", L"-", [] {
+    addCommand(ID_VIEW_ZOOMOUT, "view.zoomOut", L"Zoom &out", "View", L"Ctrl+-", [] {
         int w, h;
         viewSize(w, h);
         zoomAt(0.8f, w / 2, h / 2);
