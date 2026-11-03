@@ -549,6 +549,28 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    if (std::getenv("BRIDGE_FIDELITY")) {  // each tileset: the tiles of the bridges made on an open map that differ from the approved bridges of their size
+        for (const int era : {0, 1, 4, 5, 6, 7}) {
+            Editor ed(data);
+            std::string e;
+            if (!ed.newMap(128, 128, uint16_t(era), 1, e)) continue;
+            int differ = 0, all = 0;
+            for (const bool u : {false, true})
+                for (int length = 0; length <= 3; ++length)
+                    for (int width = 0; width <= 3; ++width) {
+                        const std::vector<Editor::TileAt> approved = bridgeTiles(era, u, length, width, 40, 40, 7, nullptr, false);
+                        std::map<std::pair<int, int>, uint16_t> at;
+                        for (const Editor::TileAt& c : approved) at[{c.x, c.y}] = c.value;
+                        for (const Editor::TileAt& c : bridgeTiles(era, u, length, width, 40, 40, 7, &ed, false)) {
+                            ++all;
+                            const auto a = at.find({c.x, c.y});
+                            differ += a == at.end() || (a->second >> 4) != (c.value >> 4);
+                        }
+                    }
+            std::printf("era %d: %d of %d tiles differ from the approved bridges (tile group)\n", era, differ, all);
+        }
+        return 0;
+    }
     if (const char* era0 = std::getenv("BRIDGE_DECKWALK")) {  // <era>: wide bridges' tiles that are not all walkable, each way
         const int era = std::atoi(era0);
         Editor ed(data);
