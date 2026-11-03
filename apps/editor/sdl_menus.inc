@@ -468,6 +468,8 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
             if (it.recent == "maps") k.sub = recentItems(false);
             else if (it.recent == "projects") k.sub = recentItems(true);
             else k.sub = toKit(it.items);
+            // (gray when none of its items can run: Tools > Decorate the terrain with no map)
+            k.enabled = std::any_of(k.sub.begin(), k.sub.end(), [](const kit::MenuItem& s) { return !s.separator && s.enabled; });
             break;
         case MenuItem::Kind::Command: {
             k.label = accessFree(it.label), k.shortcut = platformShortcut(it.id, it.shortcut);  // (the menus show it with shortcutText)

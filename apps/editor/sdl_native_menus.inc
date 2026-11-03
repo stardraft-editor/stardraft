@@ -249,6 +249,7 @@ void sdlMenuCheckLines(const std::vector<kit::MenuItem>& items, const std::strin
         if (it.separator) continue;
         const std::string at = path + " > " + narrow(it.label);
         if (!it.sub.empty()) {
+            if (!it.enabled) std::printf("menubar: %s (gray)\n", at.c_str());
             sdlMenuCheckLines(it.sub, at);
             continue;
         }

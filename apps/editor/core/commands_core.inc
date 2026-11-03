@@ -124,5 +124,5 @@ bool mapCommand(int id) {
            (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK || id == ID_PIE_PALETTE || (id >= ID_PROJ_COMPILE && id <= ID_PROJ_FROMMAP) ||
            (id >= ID_WS_MAP && id <= ID_WS_HELP) || (id >= ID_DOCK_MINI_LEFT && id <= ID_DOCK_TOOLS_RIGHT) || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_CHECK || id == ID_SCEN_PATHCHECK || id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_VIEW_TRIGCODE || id == ID_DATA_TABLE || id == ID_DATA_ENTRY ||
-           id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SIM_MINING || id == ID_SIM_COMBAT;
+           id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SIM_MINING || id == ID_SIM_COMBAT || (id >= ID_DECORATE && id < ID_DECORATE + 3);
 }
