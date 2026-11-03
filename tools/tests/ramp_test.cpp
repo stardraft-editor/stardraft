@@ -803,6 +803,20 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
     }
+    if (const char* ids = std::getenv("UNIT_SIZES")) {  // id,id,...: those unit types' placement boxes (MOD_CMBW: the mod's)
+        Editor ed(data);
+        std::string e;
+        if (!ed.newMap(64, 64, 3, 1, e)) return 1;
+        for (const char* p = ids; p && *p; p = std::strchr(p, ',') ? std::strchr(p, ',') + 1 : nullptr) {
+            const int id = std::atoi(p);
+            if (id >= 0 && size_t(id) < ed.unitTypes().size()) {
+                const UnitType& t = ed.unitTypes()[size_t(id)];
+                std::printf("unit %d %s: placement %dx%d depot %d resource %d\n", id, t.name.c_str(), int(t.placementWidth), int(t.placementHeight),
+                            int(t.is(UnitFlag::ResourceDepot)), int(t.is(UnitFlag::ResourceContainer)));
+            }
+        }
+        return 0;
+    }
     if (const char* synth = std::getenv("RAMP_SYNTH")) {
         synthAll(data, synth);
         return 0;
