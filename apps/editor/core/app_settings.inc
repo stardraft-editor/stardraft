@@ -9,8 +9,6 @@ void setPaletteViewBits(int v);
 int paletteSortBits();
 void setPaletteSortBits(int v);
 
-extern int gTilesPerRow;  // (views_tiles.inc: the Tiles list's tiles in a row)
-
 struct AppSetting {
     const wchar_t* name;
     int (*get)();
@@ -49,7 +47,6 @@ const std::vector<AppSetting>& appSettings() {
         {L"ShowRanges", [] { return int(gRangeKinds != 0); }, [](int v) { if (v && !gRangeKinds) gRangeKinds = kRangeAll; }},
         SD_SETTING("RangeKindsShown", gRangeKinds, int),
         SD_SETTING("LayerTerrain", gLayers.terrain, bool),
-        {L"TilesPerRow", [] { return gTilesPerRow; }, [](int v) { gTilesPerRow = v == 4 || v == 8 ? v : 16; }},
         SD_SETTING("LayerDoodads", gLayers.doodads, bool),
         SD_SETTING("LayerSprites", gLayers.sprites, bool),
         SD_SETTING("LayerUnits", gLayers.units, bool),
