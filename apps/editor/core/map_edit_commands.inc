@@ -240,7 +240,15 @@ void copyMapSelection(AppState& app) {
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
-        else
+        else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {  // (no ISOM to copy there: its tiles, in Tile, GitHub #235)
+            void setTerrainKind(int kind);  // (views_toolstrip.inc)
+            const Rect sel = app.terrainSel;
+            shareTerrainCopy(*app.ed);
+            setTerrainKind(1);
+            app.hasTerrainSel = true, app.terrainSel = sel;  // (the selection stays, as in Tile)
+            tilesStampFromCopy();
+            setMessage(L"Copied the tiles of the selection, in Tile: the map has no isometric terrain there to copy");
+        } else
             setMessage(L"Select an area with the Select tool first");
     } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         const bool dd = app.mode == Mode::Doodads;
