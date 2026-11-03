@@ -348,6 +348,8 @@ std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
 }
 
 int gTilesStrokePlaced = 0;
+bool gTilesPasteDrag = false;           // (a drag with the copied tiles on the mouse: tilesMouseMove pastes them along it)
+int gTilesPasteX = 0, gTilesPasteY = 0;  // (its first copy's top left: the grid of the copies along the drag)
 
 // The message after tiles went down: how many, and the doodads and units that went with them.
 void tilesPlacedMessage(int n, const wchar_t* verb) {
@@ -614,9 +616,14 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         if (appState().terrainPasting && ed.hasTileClipboard()) {
             ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
             tilesPasteAt(wx, wy, tx, ty);  // (it may hang over the map's edge)
-            tilesPlacedMessage(ed.pasteTiles(tx, ty), L"Pasted");
             // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
-            appState().drag = Drag::None;
+            // A drag pastes it again along the way, each copy next to the last (on a grid of its size from the first),
+            // all in one undo step (GitHub #237).
+            ed.beginStroke();
+            gTilesStrokePlaced = ed.pasteTiles(tx, ty);
+            gTilesPasteDrag = true, gTilesPasteX = tx, gTilesPasteY = ty;
+            gTiles->lastX = tx, gTiles->lastY = ty;
+            appState().drag = Drag::Tiles;
         } else {
             // Shift adds the drag's tiles to the selection, Ctrl takes them out (they need not touch): a stamp of any shape.
             appState().terrainSelOp = (mods & draw::kShift) ? 1 : (mods & draw::kCtrl) ? 2 : 0;
@@ -668,7 +675,18 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
 // The drag: the footprint at the mouse; the stamp: each block of its pattern along the way from the last tile (a fast
 // drag leaves no gaps).
 void tilesMouseMove(float wx, float wy) {
-    if (!appState().ed || !tilesHavePick()) return;
+    if (!appState().ed) return;
+    if (gTilesPasteDrag) {  // (a drag with the copy on the mouse: the copies on its grid from the first, each once)
+        Editor& ed = *appState().ed;
+        int tx, ty;
+        tilesPasteAt(wx, wy, tx, ty);
+        const int w = std::max(1, ed.tileClipboardWidth()), h = std::max(1, ed.tileClipboardHeight());
+        const auto cell = [](int v, int at, int n) { return at + int(std::floor(double(v - at) / n)) * n; };
+        const int cx = cell(tx, gTilesPasteX, w), cy = cell(ty, gTilesPasteY, h);
+        if (cx != gTiles->lastX || cy != gTiles->lastY) gTilesStrokePlaced += ed.pasteTiles(cx, cy), gTiles->lastX = cx, gTiles->lastY = cy;
+        return;
+    }
+    if (!tilesHavePick()) return;
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
     if (tilesStampOn() && !gTiles->scatter) {
@@ -694,6 +712,7 @@ void tilesMouseMove(float wx, float wy) {
 void tilesMouseUp(float, float) {
     if (!appState().ed) return;
     appState().ed->endStroke();
-    tilesPlacedMessage(gTilesStrokePlaced, L"Placed");
+    tilesPlacedMessage(gTilesStrokePlaced, gTilesPasteDrag ? L"Pasted" : L"Placed");
+    gTilesPasteDrag = false;
 }
 
