@@ -775,6 +775,10 @@ void sdlPressKey(const std::string& chord) {
     draw::KeyEvent e;
     if (!gRoot || !gHost || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
+    if (const char ch = c->key.size() == 1 ? c->key[0] : 0; ch >= '0' && ch <= '9')  // (the keys' places on a US keyboard)
+        e.numberRow = ch == '0' ? 10 : ch - '0';
+    else if (ch == '-' || ch == '=')
+        e.numberRow = ch == '-' ? 11 : 12;
     draw::Point size;
     draw::View& target = sdlShotTarget(size);
     gHost->snapshotLayout(target);  // (a window that an input opened has painted before a key comes, as on the screen)

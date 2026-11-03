@@ -503,6 +503,8 @@ int main(int argc, char** argv) {
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
         else if (a == "--frames") gFramesArg = std::atoll(next().c_str());  // with --noactivate: the program ends after that many frames
         else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
+        else if (a == "--hovertest") gHoverTest = true, gNoActivate = true;  // with a map: the frames while the mouse moves over it (sdl_window_test.inc)
+        else if (a == "--rowkeytest") gRowKeyTest = true, gNoActivate = true;  // with a map: the number row's keys of an AZERTY keyboard pick the players (sdl_window_test.inc)
         else if (a == "--wintest-fullscreen") gWinTestFull = true;  // with --wintest: full screen on and off too (sdl_window_test.inc)
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--loading") loadingArg = true;  // the loading view of the map that opened, with its steps, for a snapshot

@@ -158,6 +158,10 @@ public:
     SDL_Window* sdlWindow(const draw::View& v) const;
     // The window that show() made (the program's main window), or nullptr.
     SDL_Window* mainWindow() const;
+    // True when the window that shows `v` paints on this frame and `v` may have changed: the window is not minimized
+    // or hidden, and it is dirty for more than invalidate() calls, or one of them named `v` or a view that `v` is in (a
+    // snapshot's window, or a view in no window: always). The frame hook skips a texture that did not change.
+    bool paintsNow(const draw::View& v) const;
     // Called for each window that show() makes and each dialog window, before it shows (the program's title bar look).
     void setWindowMadeHook(std::function<void(SDL_Window*)> fn) { windowMade_ = std::move(fn); }
     // For a test with real windows (--noactivate): no window that the host makes takes the keyboard focus or comes to

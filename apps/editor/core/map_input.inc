@@ -614,7 +614,9 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
             app.lastPlaceX = wx, app.lastPlaceY = wy;
         }
     }
-    app.dirty = true;
+    // (a move with no drag changes only the map's picture and the status bar, which the map view paints again; the
+    // other windows paint only for a drag)
+    if (app.drag != Drag::None) app.dirty = true;
     updateStatus(app);
     if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy), pathingLayerMouseMove(wx, wy);
 }

@@ -70,6 +70,9 @@ struct KeyEvent {
     bool down = true;
     bool repeat = false;
     unsigned mods = 0;
+    // The key's place on the number row over the letters, for any keyboard layout (the system's scan code): 1 to 10
+    // the keys 1 to 0, 11 and 12 the two keys after 0 (- and = on a US keyboard); 0 another key (the number pad's too).
+    int numberRow = 0;
 };
 // Text from the keyboard or the input method, committed.
 struct TextEvent {

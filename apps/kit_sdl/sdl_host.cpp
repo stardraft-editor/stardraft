@@ -37,6 +37,10 @@ struct SdlHost::Win {
     std::function<void()> closed;  // (popups: when the user dismisses them)
     SDL_WindowID parent = 0;       // the window this one is opened from (0: a top window)
     bool dirty = true;             // to paint on the next turn
+    // Dirty for more than the views in `parts` (an event, a timer, a new size): all of it changed. Else only the views
+    // that invalidate() named since the last paint changed, with what is in them (paintsNow).
+    bool whole = true;
+    std::vector<const draw::View*> parts;
     bool claimed = false;          // claimed for the GPU device (a swapchain)
     bool composing = false;        // an input method's text is not committed yet
     bool inputOn = false;          // a view that types text has the keyboard (textInput): the input method is on
@@ -340,7 +344,7 @@ void SdlHost::applyScale(float displayScaleOfWindow) {
             for (draw::View* c : v.children()) relayout(*c);
         };
         relayout(*w->root);
-        w->dirty = true;
+        w->dirty = w->whole = true;
     }
 }
 
@@ -617,7 +621,8 @@ void SdlHost::paintShot(Win& w) {
     ImGui::NewFrame();
     auto list = recordView(device_, *w.root, w.pw, w.ph);
     ImGui::Render();
-    w.dirty = false;
+    w.dirty = w.whole = false;
+    w.parts.clear();
 }
 
 // --- Windows ------------------------------------------------------------------------------------------------------
@@ -661,7 +666,7 @@ void SdlHost::resize(Win& w) {
     w.density = d > 0 ? d : 1.0f;
     w.pw = std::max(1, pw), w.ph = std::max(1, ph);
     w.root->setFrame(Rect(0, 0, w.pw, w.ph));  // (marks the window dirty)
-    w.dirty = true;
+    w.dirty = w.whole = true;
 }
 
 SdlHost::Win* SdlHost::findWin(SDL_WindowID id) const {
@@ -986,10 +991,12 @@ void SdlHost::pump(bool block) {
     // clock or the second's frame wants the next frame.
     const bool asleep = allMinimized();
     const int due = asleep ? -1 : frameDue();
-    // (an event, but a timer's, keeps every window painted for a while: the views may change after it without saying so)
+    // (an event, but a timer's, keeps every window painted for a while: the views may change after it without saying so.
+    // Not a move with no button down: the views that it changes ask for their frame (invalidate), and a hover then
+    // paints only their window, at most once a frame of the display)
     auto noted = [this](const SDL_Event& ev) {
         if (gTimerEvent && ev.type == gTimerEvent) timerFrame_ = true;
-        else activeAt_ = SDL_GetTicks();
+        else if (ev.type != SDL_EVENT_MOUSE_MOTION || ev.motion.state) activeAt_ = SDL_GetTicks();
         return true;
     };
     if (block && (asleep || (due != 0 && !anyDirty())) &&
@@ -1000,7 +1007,7 @@ void SdlHost::pump(bool block) {
     if (beforePump_) beforePump_();
     if (asleep && allMinimized()) return;
     if (std::exchange(timerFrame_, false) || frameDue() == 0) {
-        for (const auto& w : wins_) w->dirty = true;
+        for (const auto& w : wins_) w->dirty = w->whole = true;
         allPaintedAt_ = SDL_GetTicks();
     }
     runFrameHook();
@@ -1031,6 +1038,17 @@ bool SdlHost::allMinimized() const {
 // A minimized or hidden window gives no swapchain texture: it stays dirty and paints when it shows again (an event).
 static bool unseen(SDL_Window* sdl) {
     return sdl && (SDL_GetWindowFlags(sdl) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN));
+}
+
+bool SdlHost::paintsNow(const draw::View& v) const {
+    const Win* w = rootWin(v);
+    if (!w || !w->sdl) return true;
+    if (!w->dirty || unseen(w->sdl)) return false;
+    if (w->whole) return true;
+    // (`v` or a view that it is in; the parts are only compared: one may have gone since it asked)
+    for (const draw::View* in = &v; in; in = in->parent())
+        if (std::find(w->parts.begin(), w->parts.end(), in) != w->parts.end()) return true;
+    return false;
 }
 
 bool SdlHost::anyDirty() const {
@@ -1086,7 +1104,8 @@ void SdlHost::renderDirty() {
             ++missed_;
             continue;
         }
-        w->dirty = false;
+        w->dirty = w->whole = false;
+        w->parts.clear();
         ++presented_;
         submit(device_, *lists[i], w->pw, w->ph, cmd, tex);
         if (todo.size() > 1) SDL_WaitForGPUIdle(device_);  // (the windows share one vertex buffer)
@@ -1162,7 +1181,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
             if (w->kind != WindowKind::Tool) applyScale(displayScale(w->sdl));
             if (w->sdl) resize(*w);  // (a snapshot's window keeps its size: snapshotScaleChanged)
         }
-        for (const auto& w : wins_) w->dirty = true;
+        for (const auto& w : wins_) w->dirty = w->whole = true;
         return;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         if (keyFilter_) keyFilter_(KeyEvent{});  // (no second key: setKeyFilter)
@@ -1184,7 +1203,7 @@ void SdlHost::dispatch(const SDL_Event& e) {
         }
         return;
     case SDL_EVENT_WINDOW_EXPOSED:
-        if (Win* w = findWin(wid)) w->dirty = true;
+        if (Win* w = findWin(wid)) w->dirty = w->whole = true;
         return;
     case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
         Win* w = findWin(wid);
@@ -1311,6 +1330,13 @@ void SdlHost::dispatch(const SDL_Event& e) {
         if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE && w->popup()) return dismiss(wid);
         KeyEvent k;
         k.key = keyOf(e.key.key);
+        const SDL_Scancode sc = e.key.scancode;
+        if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_0) k.numberRow = 1 + int(sc - SDL_SCANCODE_1);
+        else if (sc == SDL_SCANCODE_MINUS) k.numberRow = 11;
+        else if (sc == SDL_SCANCODE_EQUALS) k.numberRow = 12;
+        // (a number row key that the layout gives no kit key, as an AZERTY ')' or a dead key: the US key at its place)
+        if (k.key == Key::None && k.numberRow)
+            k.key = k.numberRow <= 10 ? Key('0' + k.numberRow % 10) : k.numberRow == 11 ? Key::Minus : Key::Equals;
         if (k.key == Key::None) return;
         k.down = e.type == SDL_EVENT_KEY_DOWN;
         k.repeat = e.key.repeat;
@@ -1390,7 +1416,10 @@ void SdlHost::pushGesture(draw::MouseKind kind, int swipe, SDL_WindowID window) 
 // --- draw::Host ---------------------------------------------------------------------------------------------------
 
 void SdlHost::invalidate(draw::View& v) {
-    if (Win* w = rootWin(v)) w->dirty = true;
+    Win* w = rootWin(v);
+    if (!w) return;
+    w->dirty = true;
+    if (!w->whole && std::find(w->parts.begin(), w->parts.end(), &v) == w->parts.end()) w->parts.push_back(&v);
 }
 
 void SdlHost::focus(draw::View& v) {

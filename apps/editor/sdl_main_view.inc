@@ -392,6 +392,7 @@ struct MapView final : draw::View {
 
 // The shortcuts and the menus (sdl_menus.inc).
 bool shortcutRun(const draw::KeyEvent& e);
+bool sdlEnabled(int id);  // (sdl_menus.inc)
 bool sequenceKey(const draw::KeyEvent& e);
 void menusIfDirty();
 bool sdlNativeMenuBar();  // (sdl_native_menus.inc: the menus are in the system's menu bar, macOS)
@@ -552,6 +553,21 @@ struct MainView final : draw::View {
             (map.hasFocus() || !hasFocusIn(*this))) {
             if (!e.repeat) pieOpen();
             return pie.shown();
+        }
+        // The number row in the Map workspace, by the key's place for any keyboard layout: 1 to 0 and the two keys
+        // after 0 (- and = on a US keyboard) are the players 1 to 12 (also with Shift: AZERTY's digits), before the
+        // zoom keys + and -; Ctrl (macOS: Cmd) with - zooms out, with + or = in (the layout's keys). The number pad's
+        // + and - still zoom. While a field types, a number row key that it does not take runs no shortcut (German ß
+        // or a dead key at those places).
+        const bool ctrl = (e.mods & (draw::kCtrl | draw::kSuper)) != 0;
+        const bool zoomKey = ctrl && (e.key == draw::Key::Minus || e.key == draw::Key::Plus || e.key == draw::Key::Equals);
+        if (typing && e.numberRow && !ctrl && !(e.mods & draw::kAlt)) return false;
+        if ((e.numberRow || zoomKey) && e.down && !typing && gWorkspace == Workspace::Map && !(e.mods & draw::kAlt)) {
+            const int id = !ctrl ? ID_PLAYER_1 + e.numberRow - 1 : !zoomKey ? 0 : e.key == draw::Key::Minus ? ID_VIEW_ZOOMOUT : ID_VIEW_ZOOMIN;
+            if (id && sdlEnabled(id)) {
+                if (!e.repeat) command(id);  // (as the shortcuts: a held key runs once)
+                return true;
+            }
         }
         if (shortcutRun(e)) return true;  // (the menus' keys first, as the Windows accelerators run before the map's keys)
         // The map's keys (Esc, R, the arrows) run only when the map has the keyboard, or no view has it (as the Windows
@@ -1119,5 +1135,7 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
-    if (gWorkspace == Workspace::Map) drawMapFrame(cmd, w, h);  // (the other workspaces hide the map: no frame)
+    // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or
+    // a palette window: SdlHost::paintsNow)
+    if (gWorkspace == Workspace::Map && (!gHost || gHost->paintsNow(gRoot->map))) drawMapFrame(cmd, w, h);
 }

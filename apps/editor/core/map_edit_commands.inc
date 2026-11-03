@@ -53,6 +53,8 @@ constexpr ProgramKey kProgramKeys[] = {
     {"4", ID_PLAYER_1 + 3},        {"5", ID_PLAYER_1 + 4},           {"6", ID_PLAYER_1 + 5},             {"7", ID_PLAYER_1 + 6},
     {"8", ID_PLAYER_1 + 7},        {"9", ID_PLAYER_1 + 8},           {"0", ID_PLAYER_1 + 9},
     {"=", ID_PLAYER_1 + 11},       {"Shift+=", ID_PLAYER_1 + 11},  // (player 12: the key after 0 and - on a US keyboard, with or without Shift; + and - stay the zoom keys)
+    // (In the Map workspace the number row goes by the key's place first, for any layout: 1 to 0, then - and = for the
+    // players 11 and 12, sdl_main_view.inc: MainView::key. These keys are the number pad's digits and the other workspaces'.)
 };
 
 void command(int id);
