@@ -97,6 +97,7 @@
 #include "views_palette.inc"  // the palette's list and grid (PaletteGridView) and the pie palette (PieView): the SDL program's
 #include "views_palette_float.inc"  // the floating palettes' window and its note in the side bar
 #include "views_classic_page.inc"
+#include "views_map_strings.inc"  // Data > Strings of a classic map: the map's string table (the move of a string renumbers its uses)
 #include "views_triggers_tree.inc"
 #include "views_triggers_pane.inc"
 #include "views_triggers_pick.inc"

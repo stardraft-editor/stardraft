@@ -142,6 +142,18 @@ The box at the top filters the columns by name. **Changed** shows only the colum
 | Alt+Up, Alt+Down | Move the selected action up or down |
 | Del | Delete the selected action |
 
+## Strings of a classic map
+
+The Strings tab of Data shows the map's string table. A string that moves gets a new id, and each use in the map
+changes to the new id. Drag a row to move the string.
+
+| Key | What it does |
+|---|---|
+| Up, Down | The string before or after |
+| Alt+Up, Alt+Down | Move the selected string up or down |
+| Enter | Edit the text of the selected string |
+| Del | Delete the selected string (only a string that the map does not use) |
+
 ## Lists, dropdowns and the help
 
 | Key | What it does |

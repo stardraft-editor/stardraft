@@ -40,7 +40,7 @@ int gOpenLists = 0;  // the dropdowns whose list is open (Dropdown::anyListOpen)
 class Dropdown::List final : public View {
 public:
     List(std::vector<DropdownItem> items, int current, bool search, std::function<void(int)> pick, std::function<void()> cancel)
-        : items_(std::move(items)), current_(current), search_(search), pick_(std::move(pick)), cancel_(std::move(cancel)) {
+        : items_(std::move(items)), base_(int(items_.size())), current_(current), search_(search), pick_(std::move(pick)), cancel_(std::move(cancel)) {
         add(bar_, Rect{});
         bar_.onScroll = [this](int pos) {  // (the bar's position: the top row)
             if (pos != top_) top_ = pos, invalidate();
@@ -53,7 +53,8 @@ public:
         c.roundBox({0, 0, width(), height()}, th.ctl, th.border, px(kRadius));
         if (search_) {  // (the search row: what is typed, or what to do; a line under it)
             const Rect r{px(2), px(2), width() - px(2), px(2) + rowH()};
-            c.text({r.left + px(10), r.top, r.right - px(10), r.bottom}, query_.empty() ? std::wstring(L"Type to search") : query_ + L"|",
+            c.text({r.left + px(10), r.top, r.right - px(10), r.bottom},
+                   query_.empty() ? std::wstring(L"Type to search") : query_ + L"|",
                    query_.empty() ? th.dim : th.text, draw::kMiddle | draw::kEllipsis);
             c.fill({r.left, r.bottom - px(1), r.right, r.bottom}, th.border);
             if (shown_.empty())
@@ -86,7 +87,7 @@ public:
                 const int s = px(12), sx = r.left + px(10), sy = (r.top + r.bottom - s) / 2;
                 c.fill({sx, sy, sx + s, sy + s}, it.swatch);
             }
-            const bool hasNumber = it.number >= 0;
+            const bool hasNumber = it.number >= 0 && !it.numberHidden;
             c.text({r.left + px(32), r.top, r.right - (hasNumber ? px(56) : px(10)), r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
             if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(10), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
         }
@@ -116,7 +117,7 @@ public:
         case MouseKind::Up:
             if (e.button == 0 && std::exchange(barPress_, false)) return true;  // (the press was on the scroll bar: no pick)
             if (e.button == 0)
-                if (const int k = rowAt(e.pt); k >= 0 && !items_[size_t(shown_[size_t(k)])].heading) pick_(shown_[size_t(k)]);
+                if (const int k = rowAt(e.pt); k >= 0 && !items_[size_t(shown_[size_t(k)])].heading) choose(shown_[size_t(k)]);
             return e.button == 0;
         case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up; a part of a notch waits
             int notches = 0;
@@ -180,7 +181,7 @@ public:
         case Key::End: setHot(item(n - 1, -1)); return true;
         case Key::Enter:
         case Key::Space:
-            if (hot_ >= 0 && hot_ < n && !items_[size_t(shown_[size_t(hot_)])].heading) pick_(shown_[size_t(hot_)]);
+            if (hot_ >= 0 && hot_ < n && !items_[size_t(shown_[size_t(hot_)])].heading) choose(shown_[size_t(hot_)]);
             return true;
         case Key::Backspace:
             if (!search_ || query_.empty()) return search_;
@@ -198,6 +199,12 @@ public:
         case Key::Tab: cancel_(); return true;
         default: return false;
         }
+    }
+
+    // A value typed as its number (Dropdown::onNumber): the row of a typed number that is no item's, and its pick.
+    void setNumberPick(std::function<DropdownItem(int)> item, int most, std::function<void(int)> pick) {
+        numberItem_ = std::move(item), numberMax_ = most, numberPick_ = std::move(pick);
+        refilter();
     }
 
     // The rows it shows at most (the room in the window: fewer than kVisibleRows; it scrolls).
@@ -253,21 +260,41 @@ private:
         show(k);
         invalidate();
     }
+    // A pick of item i: the typed number's row (numberPick_), else the item.
+    void choose(int i) {
+        if (i >= base_ && numberPick_) numberPick_(typedNumber_);
+        else if (i < base_) pick_(i);
+    }
     // The shown items: those whose name or number has the search (any case); the current value hot, else the first.
+    // A search that is a number: the item with that number hot; no such item (and numberPick_): the number's own row
+    // first, hot.
     void refilter() {
         auto lower = [](std::wstring s) {
             for (wchar_t& ch : s) ch = wchar_t(std::towlower(ch));
             return s;
         };
         const std::wstring q = lower(query_);
+        items_.resize(size_t(base_));  // (the typed number's row of the search before goes)
+        typedNumber_ = -1;
+        if (!q.empty() && q.size() <= 6 && std::all_of(q.begin(), q.end(), [](wchar_t ch) { return ch >= L'0' && ch <= L'9'; }))
+            typedNumber_ = std::stoi(q);
+        int exact = -1;  // (the item whose number is the typed number)
+        for (int i = 0; i < base_ && typedNumber_ >= 0; ++i)
+            if (!items_[size_t(i)].heading && items_[size_t(i)].number == typedNumber_) exact = i;
         shown_.clear();
+        if (numberPick_ && exact < 0 && typedNumber_ >= 0 && typedNumber_ <= numberMax_) {
+            items_.push_back(numberItem_ ? numberItem_(typedNumber_) : DropdownItem{std::to_wstring(typedNumber_), -1, typedNumber_});
+            items_.back().heading = false;
+            shown_.push_back(base_);
+            exact = base_;
+        }
         int heading = -1;  // (the section's heading, shown once over its first match)
-        for (int i = 0; i < int(items_.size()); ++i) {
+        for (int i = 0; i < base_; ++i) {
             if (items_[size_t(i)].heading) {
                 heading = i;
                 continue;
             }
-            if (q.empty() || lower(items_[size_t(i)].label).find(q) != std::wstring::npos ||
+            if (q.empty() || i == exact || lower(items_[size_t(i)].label).find(q) != std::wstring::npos ||  // (exact: "07" too)
                 (items_[size_t(i)].number >= 0 && std::to_wstring(items_[size_t(i)].number).find(q) != std::wstring::npos)) {
                 if (heading >= 0) shown_.push_back(heading), heading = -1;
                 shown_.push_back(i);
@@ -276,16 +303,20 @@ private:
         hot_ = -1;
         hot_ = item(0, 1);
         for (int k = 0; k < int(shown_.size()); ++k)
-            if (shown_[size_t(k)] == current_) hot_ = k;
+            if (shown_[size_t(k)] == (exact >= 0 ? exact : current_)) hot_ = k;
         top_ = 0;
         show(hot_);
         syncBar();
         invalidate();
     }
 
-    std::vector<DropdownItem> items_;
+    std::vector<DropdownItem> items_;  // the field's items (base_), then the typed number's row when it shows
+    int base_ = 0;
     std::vector<int> shown_;  // the items the rows show (all, or the search's)
     int current_ = -1, hot_ = -1, top_ = 0;  // (hot_ and top_: rows of shown_)
+    std::function<DropdownItem(int)> numberItem_;
+    std::function<void(int)> numberPick_;
+    int numberMax_ = 255, typedNumber_ = -1;  // (typedNumber_: the search as a number; -1: it is not one)
     bool search_ = false;
     std::wstring query_;  // the search's text
     float wheelAcc_ = 0;  // the wheel's notches that are not a whole one yet
@@ -379,6 +410,7 @@ void Dropdown::openList() {
     retireList();  // the list made before (closed) goes now
     list_ = std::make_unique<List>(
         items_, value_, searchable, [this](int i) { pick(i); }, [this] { closeList(); });
+    if (searchable && onNumber) list_->setNumberPick(numberItem, numberMax, [this](int n) { pickNumber(n); });
     listHost_ = h;
     // (the list stays in the window: under the field, or over it when there is more room there; fewer rows when
     // neither has room for all: it scrolls)
@@ -428,6 +460,12 @@ void Dropdown::pick(int i) {
     if (onChange) onChange(i);
 }
 
+void Dropdown::pickNumber(int n) {
+    closeList();
+    invalidate();
+    if (onNumber) onNumber(n);  // (the host sets the items and the value that show the number)
+}
+
 // Up and Down: the next or the previous item (from none: the first or the last). No wrap.
 void Dropdown::step(int dir) {
     const int n = int(items_.size());
@@ -470,7 +508,7 @@ void Dropdown::paint(Canvas& c) {
             c.fill({sx, sy, sx + s, sy + s}, it.swatch);
         }
         if (squares) tx = r.left + px(8) + c.measure(L"       ");
-        const bool hasNumber = it.number >= 0;
+        const bool hasNumber = it.number >= 0 && !it.numberHidden;
         c.text({tx, r.top, r.right - (hasNumber ? px(56) : px(22)), r.bottom}, it.label, !enabled_ ? th.faint : changed_ ? th.good : th.text,
                draw::kMiddle | draw::kEllipsis);
         if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(22), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);

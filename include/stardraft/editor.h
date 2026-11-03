@@ -576,11 +576,16 @@ public:
 
     // --- Players and forces ---------------------------------------------------------------------
     // Players 1-8 (index 0-7): who controls the slot (OWNR, mirrored to IOWN), the race (SIDE) and the
-    // force (FORC). Forces 1-4: a name (a map string) and their properties.
-    enum class Controller : uint8_t { Inactive = 0, Rescue = 3, Computer = 5, Human = 6, Neutral = 7, Closed = 8 };
-    enum class Race : uint8_t { Zerg = 0, Terran = 1, Protoss = 2, UserSelect = 5, Random = 6 };
+    // force (FORC). Players 9-12 (index 8-11): the slot and the race only (no force, no color). Forces 1-4: a name (a
+    // map string) and their properties. A byte with no name here stays as it is (Controller(9), Race(69)).
+    // (GameComputer, Occupied and Unused: the values the game sets while it runs.)
+    enum class Controller : uint8_t {
+        Inactive = 0, GameComputer = 1, Occupied = 2, Rescue = 3, Unused = 4, Computer = 5, Human = 6, Neutral = 7, Closed = 8
+    };
+    enum class Race : uint8_t { Zerg = 0, Terran = 1, Protoss = 2, Independent = 3, Neutral = 4, UserSelect = 5, Random = 6, Inactive = 7 };
     // A player's color (COLR; Remastered's CRGB when the map has it): random, the player's choice, one of the game's
-    // colors (0-21; 12 and up only through CRGB), or any RGB.
+    // colors (0-21; 12 and up only through CRGB), or any RGB. An id past the named colors (a byte of COLR, as an old
+    // map's black) goes into COLR as it is (and CRGB's id when the map has CRGB).
     struct PlayerColor {
         enum Kind : uint8_t { Random = 0, Choice = 1, Custom = 2, Id = 3 };
         Kind kind = Id;
@@ -608,11 +613,12 @@ public:
         std::string name;
         uint8_t flags = 0;
     };
-    Player player(int p) const;
+    Player player(int p) const;  // p 0-11 (8-11: the controller and the race)
     Force force(int f) const;
-    void setPlayer(int p, const Player& player);  // one undo step
+    void setPlayer(int p, const Player& player);  // p 0-11; one undo step
     void setForce(int f, const Force& force);     // one undo step
-    void setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces);  // 8 and 4; one undo step
+    // 8 or 12 players (9-12: the controller and the race) and 4 forces; one undo step.
+    void setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces);
     // --- Mission briefings (MBRF) ---------------------------------------------------------------
     std::vector<BriefingTrigger> briefings() const;
     void setBriefings(const std::vector<BriefingTrigger>& briefings);  // one undo step
@@ -701,6 +707,16 @@ public:
     // One text of the map string table (id 1 and up; `get strings`). One undo step; false when nothing changed.
     bool setMapString(uint32_t id, const std::string& text);
     std::vector<uint32_t> soundStrings() const;
+    // The map string table's own edits (Data > Strings of a classic map). Each is one undo step. The uses come from
+    // strings.h (mapStringUses): the same fields that a move renumbers.
+    std::vector<StringUse> mapStringUses() const;
+    // A new string in the first empty id that nothing uses (else after the last); its id, 0 for an empty text.
+    uint32_t addMapString(const std::string& text);
+    // Empties a string that nothing uses; false when it is used or empty.
+    bool deleteMapString(uint32_t id);
+    // String `from` goes to id `to` and the strings between move one id to fill its place; every use in the map follows
+    // its string. False (no undo step) when nothing moves, an id is not in the table, or a new id does not fit its field.
+    bool moveMapString(uint32_t from, uint32_t to);
 
     // --- Undo -----------------------------------------------------------------------------------
     bool canUndo() const { return !undo_.empty(); }

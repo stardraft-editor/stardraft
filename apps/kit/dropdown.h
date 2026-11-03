@@ -15,7 +15,7 @@ namespace stardraft::kit {
 struct DropdownItem {
     std::wstring label;
     int icon = -1;    // a UI icon (apps/editor/res/ui_icons.h); -1: none
-    int number = -1;  // shown at the right in dim; -1: none
+    int number = -1;  // shown at the right in dim (numberHidden: not shown, only typed); -1: none
     // A color square before the label, on the closed field (a player's color); kNone: none.
     draw::Color swatch = draw::kNone;
     // A picture before the label, in the list and on the closed field (a map tile); null: none.
@@ -23,6 +23,7 @@ struct DropdownItem {
     // A section heading in the list (dim, not an item to pick: the keys and the clicks pass it by; a search shows it
     // over its matches).
     bool heading = false;
+    bool numberHidden = false;  // the number is not shown, only typed (an advanced pick: a byte's value)
 };
 
 class Dropdown : public draw::View {
@@ -46,6 +47,12 @@ public:
     // The open list has a search row: typing shows only the items whose name (or number) has the typed text (a long
     // list: the players' colors). Off: typing jumps to the next item that starts with it.
     bool searchable = false;
+    // Set (with searchable): a value typed as its number. A search that is a whole number from 0 to numberMax, and that
+    // is no item's number, gives a row of its own at the top (numberItem(n): its name and look). A pick of that row calls
+    // onNumber(n), not onChange (a byte of the map that has no name in the list).
+    std::function<void(int)> onNumber;
+    std::function<DropdownItem(int)> numberItem;
+    int numberMax = 255;
     // The rows the open list shows at most (then it scrolls), and whether it stays in the window (the default: fewer
     // rows when the window has no room). Off: the list may go past a small window (a dialog's long list).
     int listRows = 12;
@@ -82,6 +89,7 @@ public:
 private:
     class List;
     void pick(int i);
+    void pickNumber(int n);
     void step(int dir);
     void setOpen(bool on);
 

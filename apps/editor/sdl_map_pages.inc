@@ -212,7 +212,7 @@ void sdlPlayersRefresh(PlayersValues& d) {
 }
 void sdlPlayersLoad(PlayersValues& d) {
     d = PlayersValues{};
-    for (int p = 0; p < 8; ++p) d.players.push_back(gState.ed->player(p));
+    for (int p = 0; p < 12; ++p) d.players.push_back(gState.ed->player(p));  // (9-12: the type and the race)
     for (int f = 0; f < 4; ++f) d.forces.push_back(gState.ed->force(f));
     sdlPlayersRefresh(d);
     d.baseSet = true, d.basePlayers = d.players, d.baseForces = d.forces;  // (the values the page first shows are the map's)
@@ -496,8 +496,11 @@ struct SdlPageState {
     std::unique_ptr<ClassicPageView> classic[kClassicTabCount];
     DataTableView* classicTable = nullptr;  // Map data's Table view (sdl_classic_table.inc: one view, kept with its selection and scroll when the page is made again)
     std::unique_ptr<SdlClassicTrigPage> classicTrig;
+    std::unique_ptr<MapStringsView> strings;  // Map data's Strings tab (sdl_map_strings.inc)
 };
 SdlPageState gSdlPage;
+#include "sdl_map_strings.inc"
+bool sdlStringsShown() { return gSdlPage.kind == kSdlClassic && gSdlStringsTab && gSdlPage.strings; }
 DataTableView& sdlClassicTableView();  // (sdl_classic_table.inc)
 bool gSdlClassicTableFocus = false;  // the table had the keyboard when the page's views went (an undo: they are made again)
 bool sdlClassicTableShown() { return gSdlPage.kind == kSdlClassic && gClassicTableOn && gSdlPage.classicTable; }
@@ -591,6 +594,7 @@ void sdlDropViews() {
         t->parent()->remove(*t);
     }
     gSdlPage.classicTrig.reset();
+    gSdlPage.strings.reset();
     gClassic = nullptr;
 }
 void sdlShowTab(int k);
@@ -607,7 +611,9 @@ std::vector<draw::View*> sdlParts() {
     } else if (gSdlPage.kind == kSdlPlayers) {
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
     } else if (gSdlPage.kind == kSdlClassic) {
-        if (sdlClassicTableShown()) {
+        if (sdlStringsShown()) {
+            out.push_back(gSdlPage.strings.get());
+        } else if (sdlClassicTableShown()) {
             out.push_back(gSdlPage.classicTable);
         } else {
             for (auto& v : gSdlPage.classic)
@@ -644,15 +650,18 @@ public:
         std::vector<Tab> out;
         if (gSdlPage.kind == kSdlClassic)
             for (int k : sdlClassicTabsShown()) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
+        if (gSdlPage.kind == kSdlClassic) out.push_back({L"Strings", UiIcon::DatStrings});  // (the last: the map's string table)
         return out;
     }
     int tab() override {  // (the tab's place in the ones that show)
         const std::vector<int> shown = sdlClassicTabsShown();
+        if (gSdlStringsTab) return int(shown.size());
         const auto it = std::find(shown.begin(), shown.end(), gClassic ? gClassic->tab : 0);
         return it == shown.end() ? 0 : int(it - shown.begin());
     }
     void showTab(int k) override {
         const std::vector<int> shown = sdlClassicTabsShown();
+        if (k == int(shown.size())) return sdlShowStringsTab();
         if (k >= 0 && k < int(shown.size())) sdlShowTab(shown[size_t(k)]);
     }
     bool changed() override {
@@ -672,6 +681,7 @@ public:
         return {w, h};
     }
     void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need; Map data's table fills it)
+        if (sdlStringsShown()) return gSdlPage.strings->setSize(w, h);
         if (sdlClassicTableShown()) return gSdlPage.classicTable->setSize(w, h);
         if (gSdlPage.kind == kSdlClassic && h != gClassicFitH) {  // Map data: its list goes down to the view's bottom
             gClassicFitH = h;
@@ -689,7 +699,7 @@ public:
             parts[k]->setFrame({-x, top, -x + parts[k]->width(), top + parts[k]->height()});
         }
     }
-    int viewKind() override { return gSdlPage.kind == kSdlClassic ? (gClassicTableOn ? 1 : 0) : -1; }
+    int viewKind() override { return gSdlPage.kind == kSdlClassic && !gSdlStringsTab ? (gClassicTableOn ? 1 : 0) : -1; }
     void setViewKind(int k) override;
     static inline const wchar_t* const kSdlTitles[kSdlPageCount] = {L"Map properties", L"Players and forces", L"Data", L"Classic triggers"};
 };
@@ -936,6 +946,7 @@ void sdlMapPageReload() {
 void sdlReloadIfStale() {
     MapPageCopies* all = sdlOpenCopies();
     if (!all || gSdlPage.ed != gState.ed.get() || gSdlPage.typing) return;
+    if (sdlStringsShown()) return;  // (the Strings tab reads the map itself; the other tabs read it again when they show)
     SdlCopy& c = *all->kinds[gSdlPage.kind];
     if (c.revision != gState.ed->revision() && !c.changed) sdlMapPageReload();
 }
@@ -985,7 +996,11 @@ void sdlMakeContent() {
         }
         gSdlPage.classicTable = &sdlClassicTableView();
         scroll.add(*gSdlPage.classicTable, draw::Rect(0, 0, 0, 0));
-        sdlShowTab(gClassic->tab);
+        gMapStringGoTo = sdlStringsGoTo;
+        gSdlPage.strings = std::make_unique<MapStringsView>();
+        scroll.add(*gSdlPage.strings, draw::Rect(0, 0, 0, 0));
+        if (gSdlStringsTab) sdlShowStringsTab();
+        else sdlShowTab(gClassic->tab);
         if (gClassicTableOn && std::exchange(gSdlClassicTableFocus, false)) gSdlPage.classicTable->focus();
         break;
     }
@@ -1008,6 +1023,15 @@ void sdlMapDataShowUnit(int type) {
 // Map data: the tab that shows (the others are hidden).
 void sdlShowTab(int k) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    if (std::exchange(gSdlStringsTab, false)) {
+        if (gSdlPage.strings) gSdlPage.strings->setVisible(false);
+        // The Strings tab changed the map (a name's text or id): the tab shows the map's values again.
+        if (MapPageCopies* all = sdlOpenCopies(); all && all->kinds[kSdlClassic]->revision != gState.ed->revision() && !all->kinds[kSdlClassic]->changed) {
+            gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
+            return shellPost([] { sdlMapPageReload(); });
+        }
+    }
+    if (gSdlPage.strings) gSdlPage.strings->setVisible(false);
     gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
     if (gClassic->tab == kClassicUpgrades && modTab()) gClassic->tab = kClassicUnits;  // (not a Cosmonarchy map's)
     for (int t = 0; t < kClassicTabCount; ++t)
@@ -1019,9 +1043,20 @@ void sdlShowTab(int k) {
     sdlPageRelayoutParts();
     gSdlMapPages.invalidate();
 }
+// Map data: the Strings tab shows (the other tabs and the Table view are hidden).
+void sdlShowStringsTab() {
+    if (gSdlPage.kind != kSdlClassic || !gClassic || !gSdlPage.strings) return;
+    gSdlStringsTab = true;
+    for (auto& v : gSdlPage.classic)
+        if (v) v->setVisible(false);
+    if (gSdlPage.classicTable) gSdlPage.classicTable->setVisible(false);
+    gSdlPage.strings->setVisible(true);
+    sdlPageRelayoutParts();
+    gSdlMapPages.invalidate();
+}
 // Form | Table (the icons at the tabs' right, Ctrl+E): the selected entry's form, or the tab's Table view.
 void sdlClassicSetTable(bool on) {
-    if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    if (gSdlPage.kind != kSdlClassic || !gClassic || gSdlStringsTab) return;
     gClassicTableOn = on;
     sdlShowTab(gClassic->tab);
     if (on && gSdlPage.classicTable) gSdlPage.classicTable->focus();
@@ -1033,7 +1068,7 @@ void SdlPageFrameHost::setViewKind(int k) { sdlClassicSetTable(k == 1); }
 // Edit > Copy and Edit > Paste on the Map data page (core/commands_core.inc): the selected entry's values of the tab that
 // shows (the page's own menu has them too).
 ClassicPageView* sdlClassicShownTab() {
-    if (gSdlPage.kind != kSdlClassic || !gSdlPage.ready || !gClassic) return nullptr;
+    if (gSdlPage.kind != kSdlClassic || !gSdlPage.ready || !gClassic || gSdlStringsTab) return nullptr;
     return gSdlPage.classic[gClassic->tab].get();
 }
 void classicCopySelected() {

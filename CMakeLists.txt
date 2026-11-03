@@ -167,6 +167,9 @@ target_link_libraries(editor_test PRIVATE stardraft)
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
 
+add_executable(strings_test tools/tests/strings_test.cpp)  # the map string table's editor: moves renumber every use
+target_link_libraries(strings_test PRIVATE stardraft)
+
 add_executable(classic_trigger_test tools/tests/classic_trigger_test.cpp)
 target_link_libraries(classic_trigger_test PRIVATE stardraft storm)  # storm: reading the protected maps euddraft writes
 

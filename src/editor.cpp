@@ -3841,10 +3841,11 @@ void Editor::syncColorRows() {
 
 Editor::Player Editor::player(int p) const {
     Player out;
-    if (p < 0 || p >= 8) return out;
+    if (p < 0 || p >= 12) return out;
     const Bytes ownr = sectionOr(chk_, "OWNR", 12, 6), side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
     out.controller = Controller(ownr[size_t(p)]);
     out.race = Race(side[size_t(p)]);
+    if (p >= 8) return out;  // (players 9-12: no force, no color)
     out.force = std::min<int>(forc[size_t(p)], 3);
     if (const Section* crgb = chk_.find("CRGB"); crgb && crgb->data.size() >= 32) {
         const uint8_t* d = crgb->data.data();
@@ -3876,13 +3877,15 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
     // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is made
     // only when a color needs it (random, the player's choice, RGB, or ids 12 and up).
     // (a mod's colors, more than 12 by number: COLR holds them, the game it runs on reads COLR only)
+    // An id past the named colors (colorCount: a byte typed as a number, as an old map's black) goes into COLR as it is.
     const bool modColors = data_.unitDataLoader() && data_.unitDataLoader()->colorNames;
-    const int colrIds = modColors ? colorCount() : 12;
+    const int colrIds = modColors ? colorCount() : 12, named = colorCount();
+    auto inColr = [&](const PlayerColor& c) { return c.kind == PlayerColor::Id && (c.id < colrIds || c.id >= named); };
     bool colorsChanged = false, needCrgb = chk_.find("CRGB") != nullptr;
     for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
         const PlayerColor& c = players[p].color;
         colorsChanged |= !(c == player(int(p)).color);
-        needCrgb |= c.kind != PlayerColor::Id || c.id >= colrIds;
+        needCrgb |= !inColr(c);
     }
     Bytes colr, crgb;
     if (colorsChanged) {
@@ -3894,7 +3897,7 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         }
         for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
             const PlayerColor& c = players[p].color;
-            if (c.kind == PlayerColor::Id && c.id < colrIds) colr[p] = c.id;  // the leaderboard's color too
+            if (inColr(c)) colr[p] = c.id;  // the leaderboard's color too
             if (crgb.empty()) continue;
             crgb[24 + p] = c.kind;
             if (c.kind == PlayerColor::Custom)
@@ -3909,10 +3912,10 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         if (!crgb.empty()) chk_.set("CRGB", std::move(crgb));
     }
     Bytes ownr = sectionOr(chk_, "OWNR", 12, 6), side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
-    for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
+    for (size_t p = 0; p < std::min<size_t>(players.size(), 12); ++p) {
         ownr[p] = uint8_t(players[p].controller);
         side[p] = uint8_t(players[p].race);
-        forc[p] = uint8_t(std::clamp(players[p].force, 0, 3));
+        if (p < 8) forc[p] = uint8_t(std::clamp(players[p].force, 0, 3));
     }
     for (size_t f = 0; f < std::min<size_t>(forces.size(), 4); ++f) {
         uint16_t str = uint16_t(forc[8 + 2 * f] | forc[9 + 2 * f] << 8);
@@ -3930,10 +3933,10 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
 }
 
 void Editor::setPlayer(int p, const Player& pl) {
-    if (p < 0 || p >= 8) return;
+    if (p < 0 || p >= 12) return;
     std::vector<Player> players;
     std::vector<Force> forces;
-    for (int i = 0; i < 8; ++i) players.push_back(i == p ? pl : player(i));
+    for (int i = 0; i < 12; ++i) players.push_back(i == p ? pl : player(i));
     for (int i = 0; i < 4; ++i) forces.push_back(force(i));
     setPlayersAndForces(players, forces);
 }
@@ -4113,6 +4116,60 @@ bool Editor::setMapString(uint32_t id, const std::string& text) {
     beginEdit();
     strings_.set(id, text);
     strings_.write(chk_);
+    commit(false);
+    return true;
+}
+
+std::vector<StringUse> Editor::mapStringUses() const { return stardraft::mapStringUses(chk_); }
+
+uint32_t Editor::addMapString(const std::string& text) {
+    if (text.empty()) return 0;
+    std::vector<bool> used(strings_.size() + 1, false);
+    for (const StringUse& u : mapStringUses())
+        if (u.id < used.size()) used[u.id] = true;
+    uint32_t id = 0;
+    for (uint32_t i = 1; i <= strings_.size() && !id; ++i)
+        if (strings_.get(i).empty() && !used[i]) id = i;  // (an empty string that a field holds stays that field's)
+    if (!id) id = uint32_t(strings_.size() + 1);
+    beginEdit();
+    strings_.set(id, text);
+    strings_.write(chk_);
+    commit(false);
+    return id;
+}
+
+bool Editor::deleteMapString(uint32_t id) {
+    if (id < 1 || id > strings_.size() || strings_.get(id).empty()) return false;
+    for (const StringUse& u : mapStringUses())
+        if (u.id == id) return false;
+    beginEdit();
+    strings_.set(id, "");
+    strings_.write(chk_);
+    commit(false);
+    return true;
+}
+
+bool Editor::moveMapString(uint32_t from, uint32_t to) {
+    const size_t n = strings_.size();
+    if (from == to || from < 1 || to < 1 || from > n || to > n) return false;
+    std::vector<uint32_t> order;  // order[k]: the string that gets id k + 1
+    order.reserve(n);
+    for (uint32_t i = 1; i <= n; ++i)
+        if (i != from) order.push_back(i);
+    order.insert(order.begin() + std::ptrdiff_t(to - 1), from);
+    std::vector<uint32_t> newId(n + 1, 0);
+    for (size_t k = 0; k < n; ++k) newId[order[k]] = uint32_t(k + 1);
+    StringTable moved = strings_;
+    if (!moved.reorder(order)) return false;
+    if (n > 0xFFFF) {  // (STRx only: a new id may not fit a u16 field; the check on a copy changes nothing)
+        Chk trial = chk_;
+        if (!renumberMapStrings(trial, newId)) return false;
+    }
+    beginEdit();
+    renumberMapStrings(chk_, newId);
+    strings_ = std::move(moved);
+    strings_.write(chk_);
+    if (chk_.has("MRGN")) locations_ = readLocations(chk_);  // (the names' ids)
     commit(false);
     return true;
 }
