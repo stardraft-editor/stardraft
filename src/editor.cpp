@@ -1794,10 +1794,14 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         if (tx < 0 || ty < 0 || tx >= w || ty >= h) return nullptr;
         return tileset_.groupFor(tile.tiles[size_t(ty) * w + tx]);
     };
+    // A terrain group: below 1024 in the game's tilesets (doodads after); a mod's terrains have groups after 1024 too
+    // (Temple (Ruins)), so there the ISOM's own tile counts (tileFromIsom, below), not the group's number (GitHub #234).
+    const bool mod = !tileset_.groupTerrains.empty();
+    auto terrainGroup = [&](uint16_t v) { return mod || (v >> 4) < 1024; };
     // CV5 field 8 (extra[1]) is a tile's top stack connection, field 10 (extra[3]) its bottom one.
     auto stacked = [&](int tx, int ty) {  // does (tx, ty) sit in a stack under (tx, ty - 1)?
         const TileGroup *up = group(tx, ty - 1), *me = group(tx, ty);
-        return up && me && (tile.tiles[size_t(ty - 1) * w + tx] >> 4) < 1024 && up->extra[3] && me->extra[1];
+        return up && me && terrainGroup(tile.tiles[size_t(ty - 1) * w + tx]) && up->extra[3] && me->extra[1];
     };
     auto hasSub = [&](int tx, int ty, int sub) {
         const TileGroup* g = group(tx, ty);
@@ -1821,7 +1825,8 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         const TileGroup* g = group(rx * 2, top);
         if (rectProtected(rx, top)) continue;  // (a protected stack top: the stack keeps its variant)
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
-        if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
+        const size_t at = size_t(top) * w + rx * 2;
+        if (!g || !terrainGroup(tile.tiles[at]) || !terrainGroup(mtxm.tiles[at]) || (mod && mtxm.tiles[at] != tile.tiles[at])) continue;
         if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
         // (the new variant as the brush picks one (IsomTerrain's getRandomSubtile, as StarEdit): a common one (before the
         // group's first empty megatile) most of the time, a rare one (after it) 1 time in 20; not the one there now. Each
@@ -1845,7 +1850,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
                 if (!hasSub(tx, ty, sub)) continue;
                 if ((tx != rx * 2 || ty != top) && !isom_.tileFromIsom(chk_, tile, tx, ty)) continue;  // placed tiles stay
                 size_t i = size_t(ty) * w + tx;
-                if ((mtxm.tiles[i] >> 4) >= 1024) continue;  // under a doodad: the doodad's tile stays
+                if (!terrainGroup(mtxm.tiles[i]) || (mod && mtxm.tiles[i] != tile.tiles[i])) continue;  // under a doodad: the doodad's tile stays
                 if (tileProtected(tx, ty)) continue;
                 uint16_t v = uint16_t((tile.tiles[i] & 0xFFF0) | sub);
                 if (tile.tiles[i] != v) tile.tiles[i] = mtxm.tiles[i] = v, ++changed;

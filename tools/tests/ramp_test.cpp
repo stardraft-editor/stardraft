@@ -803,6 +803,27 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", err.c_str());
         return 1;
     }
+    if (const char* name = std::getenv("REROLL_TERRAIN")) {  // <terrain name>: a patch of it on Jungle, then the brush's re-roll along its edge
+        Editor ed(data);
+        std::string e;
+        if (!ed.newMap(64, 64, 4, 1, e)) return 1;
+        uint16_t t = 0;
+        for (uint16_t id = 1; id < 256 && !t; ++id)
+            if (ed.terrainName(id) == name) t = id;
+        if (!t) return std::printf("no terrain %s\n", name), 1;
+        Brush b;
+        b.shape = Brush::Diamond, b.size = 6;
+        ed.paintBrush(32 * 32, 32 * 32, t, b);
+        int changed = 0, groups1024 = 0;
+        for (const uint16_t v : ed.terrain().tiles) groups1024 += (v >> 4) >= 1024;
+        b.size = 2;
+        const std::vector<uint16_t> before = ed.terrain().tiles;
+        for (int i = 0; i < 24; ++i) changed += ed.rerollTerrain(32 * 32 + int(std::cos(i * 0.26) * 6 * 32), 32 * 32 + int(std::sin(i * 0.26) * 3 * 32), b, uint32_t(i + 1));
+        int high = 0;  // (re-rolled tiles of groups from 1024)
+        for (size_t i = 0; i < before.size(); ++i) high += before[i] != ed.terrain().tiles[i] && (before[i] >> 4) >= 1024;
+        std::printf("reroll %s: %d tiles of groups from 1024 on the map, %d tiles re-rolled, %d of them from 1024\n", name, groups1024, changed, high);
+        return 0;
+    }
     if (const char* ids = std::getenv("UNIT_SIZES")) {  // id,id,...: those unit types' placement boxes (MOD_CMBW: the mod's)
         Editor ed(data);
         std::string e;
