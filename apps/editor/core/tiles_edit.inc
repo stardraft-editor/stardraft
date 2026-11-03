@@ -561,10 +561,22 @@ void tilesFillSelection() {
 // a scatter: each tile of the footprint one of them at random (GitHub feedback #120).
 int tilesBrushAt(int tx, int ty) {
     if (gTiles->solid) {  // Solid: the terrain's tiles in the footprint's rects that the stroke has not given tiles yet
+        // (a rect the stroke gave tiles stays as it is while both are wholly the terrain; one that no tile fitted yet, by
+        // the tiles round it, or that took an edge's tile, is made again when the stroke comes back over it)
+        const Editor& ed = *appState().ed;
+        const auto& gt = solidGroupTerrains();
+        const auto whole = [&](int x, int y) {
+            if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return true;
+            const size_t g = ed.terrain().tiles[size_t(y) * ed.width() + x] >> 4;
+            const int p = appState().palette;
+            return g < gt.size() && gt[g][0] == p && (gt[g][1] == 0 || gt[g][1] == p);
+        };
         std::vector<std::pair<int, int>> fresh;
-        for (const auto& rc : solidFootprint(tx, ty))
-            if (gSolidStrokeRects.insert(rc).second) fresh.push_back(rc);
-        return tilesPut(solidTiles(fresh));
+        for (const auto& [rx, ry] : solidFootprint(tx, ty))
+            if (!gSolidStrokeRects.count({rx, ry}) || !(whole(2 * rx, ry) && whole(2 * rx + 1, ry))) fresh.push_back({rx, ry});
+        const std::vector<Editor::TileAt> cells = solidTiles(fresh);
+        for (const Editor::TileAt& c : cells) gSolidStrokeRects.insert({c.x / 2, c.y});
+        return tilesPut(cells);
     }
     if (tilesStampOn() && !gTiles->scatter) {  // the stamp: its block of the pattern at the mouse
         int x0, y0;
