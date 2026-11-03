@@ -9,6 +9,7 @@
 #include <cstring>
 #include <map>
 #include <set>
+#include <span>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -401,7 +402,19 @@ RampPlan planDoodadRamp(const Editor& ed, const std::vector<uint16_t>& ids, int 
     return plan;
 }
 
-RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const std::vector<std::pair<int, int>>& stroke) {
+// The edges one planRamps call has tried: an edge where no ramp fit (its kit and a wall A's place on it) is not tried
+// again for the stroke's other points on it, and the call makes at most kMaxEdgeTries full searches of an edge (a drag
+// back and forth over cliffs where no ramp fits asked for one at each of its points: the program stopped answering).
+struct EdgeTries {
+    struct Edge {
+        int kit, ax, ay;
+    };
+    std::vector<Edge> failed;
+    int searches = 0;
+};
+constexpr int kMaxEdgeTries = 24;
+
+RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, std::span<const std::pair<int, int>> stroke, EdgeTries* tries = nullptr) {
     RampPlan plan;
     const int era = ed.era() & 7;
     if (fits.empty()) return plan.problem = RampPlan::Problem::NoKit, plan;
@@ -449,6 +462,14 @@ RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const st
         cache[at] = {kit, plan.ax, plan.ay};
     }
     if (kit < 0) return plan;
+    if (tries) {  // (an edge where no ramp fit already, the wall A on its line; or the searches all made)
+        const RampKitData& kd = kRampKits[kit];
+        const int spacing = std::max(std::abs(kd.step[0]), std::abs(kd.step[1]));
+        for (const EdgeTries::Edge& f : tries->failed)
+            if (f.kit == kit && std::abs((plan.ax - f.ax) * kd.step[1] - (plan.ay - f.ay) * kd.step[0]) < spacing) return plan.kit = -1, plan;
+        if (tries->searches >= kMaxEdgeTries) return plan.kit = -1, plan;
+        ++tries->searches;
+    }
     const Fit& fit = fits.at(kit);
     plan.kit = kit, plan.facing = fit.k.facing, plan.low = fit.k.low, plan.high = fit.k.high;
     // Along the edge (the slopes' step), from wall A's middle: how far the stroke goes each way. Of each anchor on this
@@ -515,7 +536,10 @@ RampPlan planRampWith(const Editor& ed, const std::map<int, Fit>& fits, const st
             if (along(bx, by) > hi + len && !overRamp) break;
         }
     }
-    if (best2 > 1e17) return plan.facing = -1, plan.kit = -1, done(plan);  // (no ramp on that edge fits and joins the ground)
+    if (best2 > 1e17) {  // (no ramp on that edge fits and joins the ground)
+        if (tries) tries->failed.push_back({kit, x0, y0});
+        return plan.facing = -1, plan.kit = -1, done(plan);
+    }
     plan.tiles = rampKitTiles(kit, plan.slopes, plan.ax, plan.ay);
     plan.problem = RampPlan::Problem::None;
     return done(plan);
@@ -532,6 +556,12 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     // (no kit on this tileset: its ramp doodads, one where the stroke is near the place it fits)
     const std::vector<uint16_t> doodads = fits.empty() ? rampDoodads(ed) : std::vector<uint16_t>{};
     if (fits.empty() && !doodads.empty() && why) why->problem = ed.canPaintTerrain() ? RampPlan::Problem::NoCliff : RampPlan::Problem::NoIsom;
+    EdgeTries tries;
+    // (the stroke's points that are not on the ramps planned so far or next to them, with their places in the stroke:
+    // made again only when a ramp goes in, not for each point)
+    std::vector<std::pair<int, int>> live;
+    std::vector<size_t> liveAt;
+    size_t livePos = 0, liveFor = size_t(-1);
     size_t i = 0;
     while (i < stroke.size() && out.size() < 32) {
         // (the stroke from i on without its points on the ramps planned already or next to them: the next ramp goes on to
@@ -546,10 +576,14 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
             ++i;
             continue;
         }
-        std::vector<std::pair<int, int>> rest;
-        for (size_t j = i; j < stroke.size(); ++j)
-            if (taken.empty() || !onTaken(stroke[j])) rest.push_back(stroke[j]);
-        const RampPlan p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second) : planRampWith(ed, fits, rest);
+        if (liveFor != taken.size()) {
+            live.clear(), liveAt.clear(), livePos = 0, liveFor = taken.size();
+            for (size_t j = i; j < stroke.size(); ++j)
+                if (taken.empty() || !onTaken(stroke[j])) live.push_back(stroke[j]), liveAt.push_back(j);
+        }
+        while (livePos < liveAt.size() && liveAt[livePos] < i) ++livePos;
+        const std::span<const std::pair<int, int>> rest(live.data() + livePos, live.size() - livePos);
+        const RampPlan p = !doodads.empty() ? planDoodadRamp(ed, doodads, stroke[i].first, stroke[i].second) : planRampWith(ed, fits, rest, &tries);
         if (why && i == 0) *why = p;
         if (p.problem != RampPlan::Problem::None) {
             if (p.problem != RampPlan::Problem::NoCliff) break;

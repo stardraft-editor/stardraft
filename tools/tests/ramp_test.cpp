@@ -964,6 +964,32 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    if (std::getenv("RAMP_SCRUB")) {  // a drag back and forth over a small plateau with no room for a ramp: each update's time
+        Editor ed(data);
+        std::string err;
+        if (!ed.newMap(128, 128, 0, 1, err)) return 1;
+        Brush b;
+        b.shape = Brush::Diamond, b.size = std::getenv("RAMP_PLATEAU") ? float(std::atof(std::getenv("RAMP_PLATEAU"))) : 3.0f;
+        ed.paintBrush(64 * 32, 64 * 32, 2, b);  // (Badlands High Dirt)
+        const int amp = std::getenv("RAMP_AMP") ? std::atoi(std::getenv("RAMP_AMP")) : 140;
+        std::vector<std::pair<int, int>> stroke;
+        double worst = 0, total = 0;
+        for (int i = 0; i < 3000; ++i) {
+            const double t = i * 0.05;
+            stroke.push_back({64 * 32 + int(std::sin(t) * amp), 64 * 32 + int(std::cos(t * 1.3) * amp / 2)});
+            const auto t0 = std::chrono::steady_clock::now();
+            planRamps(ed, rampBrushStroke(stroke, std::getenv("RAMP_SIZE") ? float(std::atof(std::getenv("RAMP_SIZE"))) : 2.0f));
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+            worst = std::max(worst, ms), total += ms;
+            if (i == 100 || i == 500 || i == 1000 || i == 2000 || i == 2999) std::printf("scrub %d points: %.1f ms\n", i + 1, ms);
+            if (total > 60000) {
+                std::printf("scrub: stopped at %d points, a minute in all\n", i + 1);
+                break;
+            }
+        }
+        std::printf("scrub: worst %.1f ms, all %.0f ms\n", worst, total);
+        return 0;
+    }
     if (std::getenv("RAMP_BENCH")) {  // a drag's preview times: the stroke so far planned again at each point (as the editor does)
         for (const int era : {4, 7, 1}) {
             Editor ed(data);
