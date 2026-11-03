@@ -879,7 +879,9 @@ bool mapCancelStep(AppState& app) {
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
     if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
-                   app.drag == Drag::Jumble || app.drag == Drag::Erase)) {
+                   app.drag == Drag::Jumble || app.drag == Drag::Erase || app.drag == Drag::Tiles)) {
+        void tilesStrokeCancelled();  // (tiles_edit.inc)
+        if (app.drag == Drag::Tiles) tilesStrokeCancelled();
         sprayHoldStop();
         // (the press so far is one undo step; later edits are steps of their own; a terrain stroke's ground is chosen anew)
         if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray || app.drag == Drag::Jumble)) app.ed->endTerrainStroke();

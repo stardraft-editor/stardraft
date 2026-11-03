@@ -114,7 +114,8 @@ struct SharedTerrainCopy {
 SharedTerrainCopy gTerrainCopy;
 extern const wchar_t* kTilesetNames[8];  // (palette_items.inc)
 // After a copy (or a turn of it) in `ed`: it is the copy of all maps.
-void shareTerrainCopy(const Editor& ed) { gTerrainCopy = {ed.terrainCopies(), ed.era(), true}; }
+uint64_t gTerrainCopyRevision = 0;  // (each copy, cut or turn of the terrain copy: the paste's preview is made again)
+void shareTerrainCopy(const Editor& ed) { gTerrainCopy = {ed.terrainCopies(), ed.era(), true}, ++gTerrainCopyRevision; }
 // The copy of all maps into `ed` (a map that shows, or a paste): nothing when it is of another tileset. True when the
 // copy is of another tileset.
 bool takeTerrainCopy(Editor& ed) {

@@ -152,7 +152,7 @@ public:
     }
     void resized() override {
         const TilesScope scope = here();
-        if (width() != gTiles->layoutW) tilesRebuild();
+        if (width() != gTiles->layoutW || gTiles->layoutPerRow != gTilesPerRow) tilesRebuild();
         else tilesScrollTo(gTiles->scroll);
     }
     // The window's bar (the Win32 program's grid window): a line is 36 px, a page the visible height.
@@ -409,6 +409,7 @@ void tilesRebuild() {
     gTiles->listW = std::max(w, gTilesPerRow * tilesMinCell() + gTilesPerRow - 1);
     // A row is a tile group (the tiles that the filter hides are empty slots), but the favorites follow one another.
     const bool byGroup = !(gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5);
+    gTiles->byGroup = byGroup;
     const bool hideNull = gTiles->filter > 0 && gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 4;
     std::wstring text = gTilesPanel->search().text();
     std::transform(text.begin(), text.end(), text.begin(), ::towlower);
@@ -439,7 +440,7 @@ void tilesRebuild() {
     }
     const int rows = (int(gTiles->values.size()) + gTilesPerRow - 1) / gTilesPerRow;
     gTiles->contentH = rows ? tilesEdge(rows) - 1 : 0;
-    gTiles->layoutW = w;
+    gTiles->layoutW = w, gTiles->layoutPerRow = gTilesPerRow;
     gTiles->builtFor = app.ed.get(), gTiles->builtEra = app.ed->era();
     tilesScrollTo(gTiles->scroll);
 }
@@ -491,14 +492,17 @@ void tilesSetChosen(std::vector<uint16_t> chosen) {
     gTiles->picked = chosen.empty() ? -1 : chosen.back();
     gTiles->chosen = std::move(chosen);
     if (at.size() < 2) return;
+    // (a slot's place in the stamp: a tile group's 16 slots are one row of it, also when the list shows 8 or 4 tiles in a
+    // row; the favorites, one after another, by the list's own rows)
+    const size_t per = gTiles->byGroup ? 16 : size_t(gTilesPerRow);
     size_t r0 = SIZE_MAX, r1 = 0, c0 = SIZE_MAX, c1 = 0;
     for (size_t k : at) {
-        const size_t r = k / gTilesPerRow, c = k % gTilesPerRow;
+        const size_t r = k / per, c = k % per;
         r0 = std::min(r0, r), r1 = std::max(r1, r), c0 = std::min(c0, c), c1 = std::max(c1, c);
     }
     const size_t w = c1 - c0 + 1, h = r1 - r0 + 1;
     gTiles->stamp.assign(w * h, uint16_t(0xFFFF));
-    for (size_t k : at) gTiles->stamp[(k / gTilesPerRow - r0) * w + (k % gTilesPerRow - c0)] = gTiles->values[k];
+    for (size_t k : at) gTiles->stamp[(k / per - r0) * w + (k % per - c0)] = gTiles->values[k];
     gTiles->stampW = int(w), gTiles->stampH = int(h);
 }
 

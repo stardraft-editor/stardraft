@@ -83,6 +83,7 @@ PanelState panelNew(Mode m) {
     s.mode = m, s.owner = a.playerOwner;
     s.brushSize = 2, s.brushHeight = 0, s.brushShape = a.brushShape;
     s.otherBrushSize = 2, s.otherBrushHeight = 0, s.otherBrushShape = a.otherBrushShape;
+    if (a.terrainRect) std::swap(s.brushShape, s.otherBrushShape);  // (a new panel is in Isometric: Isometric's shape in use)
     s.density = m == Mode::Terrain ? 5 : 10;
     return s;
 }

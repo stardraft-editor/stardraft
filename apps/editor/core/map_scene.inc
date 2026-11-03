@@ -944,17 +944,26 @@ render::Scene buildScene() {
             const auto corners = ed.terrainPasteCorners(int(wx), int(wy));
             // (the pasted terrain itself, as the map would have it: the paste on a copy of the map, its changed tiles
             // over the terrain; made again only when the paste's place, the map or the copy changes; GitHub #238)
+            // The key: the map and its change, the copy (each copy and turn: gTerrainCopyRevision), the paste's places
+            // (also the mirrors'), Correction. A large map's paste is made at most every 2 times its last time (as the
+            // shapes' preview), the last one when the mouse rests.
+            extern uint64_t gTerrainCopyRevision;  // (map_edit_commands.inc)
             struct PasteGhost {
-                const Editor* ed = nullptr;
-                uint64_t revision = ~0ull;
-                std::pair<int, int> at{INT_MIN, INT_MIN};
-                size_t corners = 0;
+                std::vector<int64_t> key;
                 std::vector<std::pair<int, uint16_t>> cells;
+                double cost = 0;
+                std::chrono::steady_clock::time_point last{};
             };
             static PasteGhost g;
-            const std::pair<int, int> at = corners.empty() ? std::pair{INT_MIN, INT_MIN} : corners.front();
-            if (g.ed != &ed || g.revision != ed.revision() || g.at != at || g.corners != corners.size()) {
-                g.ed = &ed, g.revision = ed.revision(), g.at = at, g.corners = corners.size(), g.cells.clear();
+            std::vector<int64_t> key = {int64_t(reinterpret_cast<uintptr_t>(&ed)), int64_t(ed.revision()), int64_t(gTerrainCopyRevision), int64_t(app.correction),
+                                        int64_t(corners.size())};
+            if (!corners.empty()) key.push_back(corners.front().first), key.push_back(corners.front().second);
+            for (const auto& [px, py] : pts) key.push_back(px / 64), key.push_back(py / 32);
+            const auto now = std::chrono::steady_clock::now();
+            const bool soon = g.cost > 12 && std::chrono::duration<double, std::milli>(now - g.last).count() < 2 * g.cost;
+            if (g.key != key && soon) appState().dirty = true;  // (again on a later frame)
+            else if (g.key != key) {
+                g.key = std::move(key), g.cells.clear();
                 Editor& copy = shapeCopy(ed.gameData());
                 std::string error;
                 if (copy.openChk(ed.chk(), error)) {
@@ -966,6 +975,8 @@ render::Scene buildScene() {
                         for (size_t i = 0; i < a.size(); ++i)
                             if (a[i] != c[i]) g.cells.push_back({int(i), c[i]});
                 }
+                g.last = std::chrono::steady_clock::now();
+                g.cost = std::chrono::duration<double, std::milli>(g.last - now).count();
             }
             ghostTiles = g.cells;
             diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0x40FF40FFu);

@@ -2,6 +2,7 @@
 // the fill and the stroke of a press, a drag and a release. The Tiles panel (the grid, the search and the filter boxes)
 // is core/views_tiles.inc; this file calls it through the functions declared here.
 
+extern int gTilesPerRow;            // the grid's tiles in a row (views_tiles.inc)
 void tilesRebuild();                // the panel's grid is made again for the map
 int tilesViewH();                   // the grid's visible height in device pixels
 void tilesScrollTo(int pos);        // the grid scrolls to a position
@@ -15,7 +16,8 @@ struct TilesView {
     // The grid's slots, 16 in a row (views_tiles.inc): the tile values shown (group << 4 | index) in the tileset's
     // order, each group in a row of its own (kTilesNone: a tile that the filter hides).
     std::vector<uint16_t> values;
-    int scroll = 0, contentH = 0, layoutW = -1;
+    int scroll = 0, contentH = 0, layoutW = -1, layoutPerRow = 16;  // (layoutPerRow: gTilesPerRow when it was built)
+    bool byGroup = true;  // (each tile group on its own 16 slots: not the favorites)
     int listW = 16 * 32 + 15;  // the grid's width for the tiles: the view's, or more (tilesMinCell)
     int picked = -1;        // the tile value to place (group << 4 | subtile), -1: none
     std::vector<uint16_t> chosen;  // the selected tiles (a box, Shift adds, Ctrl takes out); Spray places one of them at random (#81)
@@ -257,7 +259,9 @@ void tilesReveal(int value) {
 
 // The grid is for the open map's tileset (another map, or Map properties changed the tileset: build it again).
 void tilesFresh() {
-    if (!appState().ed || !appState().ed->isOpen() || (gTiles->builtFor == appState().ed.get() && gTiles->builtEra == appState().ed->era())) return;
+    if (!appState().ed || !appState().ed->isOpen() ||
+        (gTiles->builtFor == appState().ed.get() && gTiles->builtEra == appState().ed->era() && gTiles->layoutPerRow == gTilesPerRow))
+        return;
     if (gTiles->builtEra != appState().ed->era()) gTiles->picked = -1, gTiles->scroll = 0;
     tilesRebuild();
 }
@@ -657,7 +661,7 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
     }
     ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
     ed.beginStroke();
-    gTilesStrokePlaced = 0;
+    gTilesStrokePlaced = 0, gTilesPasteDrag = false;
     if (tool == TSpray) {
         tilesSprayAt(wx, wy);
         appState().drag = Drag::Spray;
@@ -715,4 +719,6 @@ void tilesMouseUp(float, float) {
     tilesPlacedMessage(gTilesStrokePlaced, gTilesPasteDrag ? L"Pasted" : L"Placed");
     gTilesPasteDrag = false;
 }
+// The stroke ended another way (Esc): no paste goes on along a later drag.
+void tilesStrokeCancelled() { gTilesPasteDrag = false; }
 
