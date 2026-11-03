@@ -167,12 +167,14 @@ public:
     // The map's tileset again (another tab, another map): the lists, the pictures.
     void refresh() {
         const AppState& app = shellState();
+        const stardraft::Tileset* before = tilesFor_;
         ed_ = app.ed && app.ed->isOpen() ? app.ed.get() : nullptr;
         era_ = ed_ ? ed_->era() & 7 : -1;
         tilesFor_ = ed_ ? &ed_->tileset() : nullptr;
         groupsFor_ = ed_ ? ed_->tileset().groups.size() : 0;
         target_ = -1, activePiece_ = -1;  // (another row may be the selected one now: undo sets its target after this)
-        modPics_.clear(), rowPics_.clear(), gamePics_.clear(), palScroll_ = 0, gridScroll_ = 0;
+        modPics_.clear(), rowPics_.clear(), gamePics_.clear();
+        if (tilesFor_ != before) palScroll_ = 0, gridScroll_ = 0;  // (an edit or an undo: the lists stay where they are; another tileset: their tops)
         terrainNames_.clear(), terrainIds_.clear();
         modSigs_.clear(), gameSigs_.clear(), rampRows_.clear(), rampRowsFor_ = size_t(-1), plainRows_.clear(), plainRowsFor_ = size_t(-1), suggest_.clear(), menuKey_.clear();  // (the tileset's)
         std::vector<stardraft::kit::DropdownItem> names{{L"(none)"}};
