@@ -593,6 +593,11 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         for (int k = 1; k <= n; ++k) app.sprayPlaced += eraseAt(gPaintX + dx * k / n, gPaintY + dy * k / n);
         if (n > 0) gPaintX = wx, gPaintY = wy;
     }
+    if (app.drag == Drag::TerrainSelect && app.dragMoved) {  // (the box's size while it is dragged, GitHub #240)
+        const Rect r = terrainSelectRect(wx, wy);
+        setMessage(app, L"Selecting " + std::to_wstring(std::max(0, int(r.right - r.left) / 32)) + L" x " +
+                            std::to_wstring(std::max(0, int(r.bottom - r.top) / 32)) + L" tiles");
+    }
     if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);
     if (app.mode == Mode::Terrain && gShape.tool >= 0) shapeMouseMove(wx, wy, (mods & draw::kShift) != 0);
     if (app.drag == Drag::Spray && app.ed && std::hypot(sx - app.lastSprayX, sy - app.lastSprayY) > std::max(12.0, sprayRadius() * app.zoom * 0.5)) {

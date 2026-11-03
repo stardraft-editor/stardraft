@@ -99,10 +99,20 @@ std::wstring unitsListOwner(int owner);  // (units_list.inc)
 std::wstring unitRangesText(const Unit& u);  // (map_scene.inc)
 // The status bar's selection: one unit or doodad, what it is (its name, owner, place, and a unit's hit points, shields
 // and energy where they are not full, a resource's amount, its ranges); more: how many.
+std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
 std::wstring selectionStatus(const AppState& app) {
     if (!app.ed) return L"";
     const Editor& ed = *app.ed;
     wchar_t buf[256];
+    // (Terrain: the terrain selection's box, and the tiles in it when it is not a whole box; GitHub #240)
+    if (app.mode == Mode::Terrain) {
+        if (!app.hasTerrainSel) return tr(L"Nothing selected");
+        const Rect& r = app.terrainSel;
+        const int w = int(r.right - r.left) / 32, h = int(r.bottom - r.top) / 32;
+        std::wstring out = std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L" tiles selected");
+        if (!app.terrainSelMask.empty()) out += L"  \x00b7  " + std::to_wstring(terrainSelTiles().size()) + tr(L" in the selection");
+        return out;
+    }
     const bool doodads = app.mode == Mode::Doodads || (ed.selection().empty() && !app.selDoodads.empty());
     if (doodads && !app.selDoodads.empty()) {
         if (app.selDoodads.size() > 1) return std::to_wstring(app.selDoodads.size()) + tr(L" doodads selected");
