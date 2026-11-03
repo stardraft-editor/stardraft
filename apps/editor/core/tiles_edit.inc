@@ -569,6 +569,7 @@ int tilesBrushAt(int tx, int ty) {
             if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return true;
             const size_t g = ed.terrain().tiles[size_t(y) * ed.width() + x] >> 4;
             const int p = appState().palette;
+            if (ed.tileset().modTerrain(uint16_t(p))) return true;  // (a mod's terrain: its tiles are its stand-in's groups)
             return g < gt.size() && gt[g][0] == p && (gt[g][1] == 0 || gt[g][1] == p);
         };
         std::vector<std::pair<int, int>> fresh;

@@ -338,7 +338,9 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         // nearer end as there, or both as deep as the deepest)
         const auto axis = [](int oa, int of, int od, int on, int ca, int cf, int cd, int n, int most, int deep) {
             if (n <= most) return on == n && oa == ca;
-            if (cd >= deep && od >= deep) return true;
+            // (the cells of a row of one depth are on one parity: the deepest two rows of the approved bridges are as
+            // deep, each for its parity)
+            if (cd >= deep - 1 && od >= deep - 1 && !((cd - od) & 1)) return true;
             return ca <= cf ? oa == ca && oa <= of : of == cf && of <= oa;
         };
         for (const Seen& o : s->second)
