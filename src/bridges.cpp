@@ -631,6 +631,20 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
             else if ((row < -1 || row > rows + 1) && s >= s0 - 1 && s <= s1 + 1 && tt >= t0 - 1 && tt <= t1 + 1 && ed.terrainAt(64 * X, 32 * Y) == water)
                 grounds.push_back({X, Y, ground});
         }
+    // (a third terrain next to the bridge's tiles, as Snow past an Ice river's Dirt shore: the kit's ground there, one
+    // diamond round them, so that the bridge's edge meets the ground it has on the game's maps; the rest stays)
+    {
+        std::set<std::pair<int, int>> asked;
+        for (const std::vector<CornerValue>* v : {&grounds, &waters})
+            for (const CornerValue& c : *v) asked.insert({c.x, c.y});
+        for (const Editor::TileAt& c : tiles)
+            for (int Y = c.y - 1; Y <= c.y + 2; ++Y)
+                for (int X = (32 * c.x - 64) / 64; X <= (32 * c.x + 96) / 64; ++X) {
+                    if (!((X + Y) & 1) || X < 0 || Y < 0 || X > ed.width() / 2 || Y > ed.height() || !asked.insert({X, Y}).second) continue;
+                    const uint16_t t = ed.terrainAt(64 * X, 32 * Y);
+                    if (t && t != ground && t != water && t != road) grounds.push_back({X, Y, ground});
+                }
+    }
     // (the road's corners: not ground as well)
     std::erase_if(grounds, [&](const CornerValue& c) { return roadCorners.count({c.x, c.y}) != 0; });
     for (const auto& [cx, cy] : roadCorners) roads.push_back({cx, cy, road});
