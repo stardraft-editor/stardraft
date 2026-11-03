@@ -5,7 +5,7 @@
 // in it stay as they are on the map), a click places it, a drag places it again along the way (one undo step), Esc or a
 // right click stops. To make one: select tiles with the Select tool (Shift adds tiles, Ctrl takes them out: any shape),
 // then right-click the selection > Save as custom terrain.
-// Each is a file in the user's folder (shellStampsFolder: <folder>/<tileset>/<name>.sdstamp; the format is
+// Each is a file in the user's folder (shellStampsFolder: <folder>/<tileset>/<name>.scterrain; the format is
 // stardraft/terrain_stamp.h). "_" in a name makes groups in the list: "Jungle_Bridges_Left" is Left in Bridges in Jungle.
 
 // The custom terrain of the open map's tileset, read from the folder when the tileset or the folder changes, or after
