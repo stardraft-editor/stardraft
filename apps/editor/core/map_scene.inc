@@ -455,30 +455,24 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     return s.rects.size() - from;
 }
 
-// The Ramp brush's diamonds along a stroke (map pixels): the diamond under each point and on the way between them.
-std::set<std::pair<int, int>> rampBrushCorners(const std::vector<std::pair<int, int>>& pts) {
-    const Editor& ed = *appState().ed;
-    Brush b = currentBrush();  // (the brush's size: Alt + wheel)
-    b.shape = Brush::Diamond;
-    std::set<std::pair<int, int>> set;
-    for (size_t i = 0; i < pts.size(); ++i) {
-        const auto [x1, y1] = pts[i];
-        const auto [x0, y0] = i ? pts[i - 1] : pts[i];
-        const int n = std::max(1, int(std::hypot(x1 - x0, y1 - y0) / 32));
-        for (int k = 0; k <= n; ++k)
-            for (auto c : ed.brushCorners(x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n, b)) set.insert(c);
-    }
-    return set;
+// The Ramp brush's outline at a point (map pixels): the brush as the paint brush shows it (its shape and size: Alt + wheel),
+// with no trail along the stroke.
+std::set<std::pair<int, int>> rampBrushCorners(std::pair<int, int> at) {
+    const std::vector<std::pair<int, int>> c = appState().ed->brushCorners(at.first, at.second, currentBrush());
+    return std::set<std::pair<int, int>>(c.begin(), c.end());
 }
 
 // The shape under way (core/terrain_shapes.inc): its tiles over the terrain (ghostTiles), its lines between its points,
-// and Polygon's points. Ramp: its brush's diamonds along the stroke, in place of the lines.
+// and Polygon's points. Ramp: its brush where the mouse is, in place of the lines.
 void shapeScene(render::Scene& s) {
     shapeUpdate();
     ghostTiles = gShape.ghost;
     for (const auto& [x, y] : gShape.red)  // (Bridge: no bridge fits there yet; Ramp: on protected tiles)
         s.rects.push_back({x * 32.f, y * 32.f, x * 32.f + 32, y * 32.f + 32, 0xE0303058u, true});
-    if (gShape.tool == TRamp) return diamondOutline(s, rampBrushCorners(gShape.points), gShape.unramp ? 0xFF6060F0u : 0xFFFFFFF0u);
+    if (gShape.tool == TRamp) {  // (the brush where the mouse is, as the paint brush shows it)
+        if (!gShape.points.empty()) diamondOutline(s, rampBrushCorners(gShape.points.back()), gShape.unramp ? 0xFF6060F0u : 0xFFFFFFF0u);
+        return;
+    }
     const std::vector<std::pair<int, int>> pts = shapeGeometry(shapePath());  // (Rectangle, Ellipse: their outline)
     const size_t lines = pts.size() < 2 ? 0 : gShape.tool == TLine || pts.size() < 3 ? pts.size() - 1 : pts.size();
     for (size_t i = 0; i < lines; ++i) {
@@ -935,7 +929,7 @@ render::Scene buildScene() {
     } else if (app.mode == Mode::Terrain && shapeOn()) {
         shapeScene(s);
     } else if (app.mode == Mode::Terrain && currentTool() == TRamp) {  // Ramp: its brush, a diamond (any kind of terrain)
-        diamondOutline(s, rampBrushCorners({{int(wx), int(wy)}}), 0xFFFFFFF0u);
+        diamondOutline(s, rampBrushCorners({int(wx), int(wy)}), 0xFFFFFFF0u);
     } else if (app.mode == Mode::Terrain && currentTool() == TErase) {  // Erase: the isometric brush's diamonds (any kind), in red
         std::set<std::pair<int, int>> set;
         for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
