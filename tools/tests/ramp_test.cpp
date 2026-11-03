@@ -857,7 +857,31 @@ int main(int argc, char** argv) {
             for (int side = 0; side < 4; ++side)
                 for (const RampPlan& p : planRamps(ed, rampBrushStroke(std::vector<std::pair<int, int>>(ring.begin() + side * 16 + 6, ring.begin() + side * 16 + 11), 2)))
                     placed += p.doodad >= 0 ? ed.placeDoodad(uint16_t(p.doodad), p.x, p.y, true) : ed.placeTileValues(p.tiles) > 0;
-            std::printf("era %d: %d ramps\n", era, placed);
+            // (RAMP_CORNERS: a short stroke over each corner too, where the straight cliff pieces are)
+            if (std::getenv("RAMP_CORNERS"))
+                for (int side = 0; side < 4; ++side) {
+                    const int k = side * 16;
+                    std::vector<std::pair<int, int>> s(ring.begin() + std::max(0, k - 2), ring.begin() + std::min(64, k + 3));
+                    for (const RampPlan& p : planRamps(ed, rampBrushStroke(s, 2)))
+                        placed += p.doodad >= 0 ? ed.placeDoodad(uint16_t(p.doodad), p.x, p.y, true) : ed.placeTileValues(p.tiles) > 0;
+                }
+            std::printf("era %d: %d ramps (plateau %s)\n", era, placed, ed.terrainName(high).c_str());
+            if (std::getenv("RAMP_WHY"))  // (each ramp doodad: does the game's rule let it go anywhere on the map, and what it needs under it)
+                for (const uint16_t id : rampDoodads(ed)) {
+                    const DoodadType* t = ed.doodadTypes().find(id);
+                    int fits = 0;
+                    for (int y = 0; y < ed.height() * 32; y += 32)
+                        for (int x = 0; x < ed.width() * 32; x += 64) fits += ed.nearestDoodadFit(id, x, y, true, 0).has_value();
+                    std::set<std::string> under;  // (the terrains of the tile groups it needs)
+                    for (const uint16_t g : t->required)
+                        if (g && g < ed.tileset().groups.size()) {
+                            const uint16_t v = uint16_t(g << 4);
+                            under.insert(std::to_string(g) + ":" + std::to_string(ed.tileset().groups[g].type));
+                        }
+                    std::string u;
+                    for (const auto& s : under) u += s + " ";
+                    std::printf("  doodad %d (%dx%d): fits at %d places; needs groups (group:type) %s\n", id, t->width, t->height, fits, u.c_str());
+                }
             ed.save(std::filesystem::path(out) / ("ramps_" + std::to_string(era) + ".scm"), err);
         }
         return 0;
