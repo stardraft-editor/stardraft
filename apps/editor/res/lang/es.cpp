@@ -2760,6 +2760,8 @@ constexpr UiText kRows[] = {
     {L"Terrain flags: the ground that units cannot walk on is dark", L"Marcas del terreno: el suelo por el que las unidades no pueden caminar est\u00E1 oscuro"},
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"Marcas del terreno: las baldosas que el terreno isom\u00E9trico no da (naranja)"},
     {L"&Isometric terrain", L"Terreno &isom\u00E9trico"},
+    {L"Copy as text", L"Copiar como texto"},
+    {L"Import from text", L"Importar desde texto"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -162,7 +162,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
 // The Custom list's right click (core/views_stamps.inc): on an item Rename, Delete, Show in folder; then the View items
 // as the other palettes have them (List, Grid; Normal, Large, Extra large), kept in the settings.
 void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
-    enum { kRename = 1, kDelete, kReveal };
+    enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText };
     MenuModel m;
     const bool own = s && !s->file.empty();  // (a mod's brush: not the user's file)
     if (own) {
@@ -171,14 +171,23 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
         m.push_back(menuItem(kReveal, L"Show in folder"));
         m.push_back(menuSeparator());
     }
+    if (s) m.push_back(menuItem(kCopyText, L"Copy as text"));
+    m.push_back(menuItem(kImportText, L"Import from text"));
+    m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
     m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, stampsSize() == 0));
     m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, stampsSize() == 1));
     m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, stampsSize() == 2));
-    const TerrainStamp copy = own ? *s : TerrainStamp{};  // (a menu's run reads the list again)
-    sdlPopupMenu(from, at, sdlModelItems(m, [copy](int id) {
+    const TerrainStamp copy = s ? *s : TerrainStamp{};  // (a menu's run reads the list again)
+    draw::Host* host = from.host();
+    sdlPopupMenu(from, at, sdlModelItems(m, [copy, host](int id) {
+        if (id == kCopyText) return stampsCopyText(copy, host);
+        if (id == kImportText) {
+            const std::string text = host ? host->clipboardText() : std::string();
+            return shellPost([text] { stampsImportText(text); });
+        }
         if (id == kRename) return shellPost([copy] { stampsRename(copy); });
         if (id == kDelete) return shellPost([copy] { stampsDelete(copy); });
         if (id == kReveal) return shellRevealFile(copy.file);

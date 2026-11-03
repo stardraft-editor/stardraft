@@ -52,6 +52,8 @@ std::filesystem::path terrainStampPath(const std::filesystem::path& folder, uint
 
 std::string terrainStampText(const TerrainStamp& s);  // the file's text
 bool readTerrainStamp(const std::filesystem::path& file, TerrainStamp& out, std::string& error);
+// A stamp from the file's text (terrainStampText: copied as text, to give to other people); out.file stays empty.
+bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& error);
 // Writes the stamp to terrainStampPath(folder, s.era, s.name) (makes the folders), and sets s.file.
 bool writeTerrainStamp(const std::filesystem::path& folder, TerrainStamp& s, std::string& error);
 // Every stamp of tileset `era` in `folder` (files that cannot be read are left out).

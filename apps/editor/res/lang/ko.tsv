@@ -2788,3 +2788,5 @@ Ramp. Release the button to place it.	경사로. 버튼을 놓으면 배치됩�
 Terrain flags: the ground that units cannot walk on is dark	지형 속성: 유닛이 걸을 수 없는 지면은 어둡게 표시됩니다
 Terrain flags: the tiles that the isometric terrain does not give (orange)	지형 속성: 아이소메트릭 지형이 만들지 않는 타일(주황)
 &Isometric terrain	아이소메트릭 지형(&I)
+Copy as text	텍스트로 복사
+Import from text	텍스트에서 가져오기

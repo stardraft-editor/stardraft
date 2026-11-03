@@ -205,6 +205,33 @@ void stampsDelete(const TerrainStamp& s) {
     setMessage(tr(L"Deleted the custom terrain ") + name);
 }
 
+// The list's menu: Copy as text (the file's text, JSON, on the clipboard: to give to other people).
+void stampsCopyText(const TerrainStamp& s, draw::Host* host) {
+    if (!host) return;
+    host->setClipboardText(terrainStampText(s));
+    setMessage(tr(L"Copied the custom terrain ") + widen(s.name) + tr(L" as text"));
+}
+
+// The list's menu: Import from text (custom terrain copied as text, from the clipboard). It goes to the folder of its
+// tileset, under its name (a name that is there already: Replace?).
+void stampsImportText(const std::string& text) {
+    static const wchar_t* const kTitle = L"Import custom terrain";
+    TerrainStamp s;
+    std::string err;
+    if (!parseTerrainStamp(text, s, err))
+        return shellErrorBox(tr(L"The clipboard has no custom terrain. Copy custom terrain as text first."), tr(kTitle));
+    s.created = int64_t(std::time(nullptr));
+    const std::wstring name = widen(s.name);
+    const fs::path folder = shellStampsFolder();
+    if (!stampsReplaceAsked(terrainStampPath(folder, s.era, s.name), name, kTitle)) return setMessage(L"The custom terrain is not imported");
+    if (!writeTerrainStamp(folder, s, err)) return shellErrorBox(widen(err), tr(kTitle));
+    stampsChanged();
+    AppState& app = appState();
+    const bool here = app.ed && app.ed->isOpen() && (app.ed->era() & 7) == s.era;
+    setMessage(tr(L"Imported the custom terrain ") + name + L" (" + std::to_wstring(s.count()) +
+               tr(here ? L" tiles)" : L" tiles). It is for another tileset: the Custom list shows it on maps of that tileset."));
+}
+
 // The menu of an item of the list (Rename, Delete, Show in folder).
 void stampsItemMenu(const TerrainStamp& s) {
     if (s.file.empty()) return;  // (a mod's brush: not the user's file)

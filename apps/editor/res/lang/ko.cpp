@@ -2790,6 +2790,8 @@ constexpr UiText kRows[] = {
     {L"Terrain flags: the ground that units cannot walk on is dark", L"\uC9C0\uD615 \uC18D\uC131: \uC720\uB2DB\uC774 \uAC78\uC744 \uC218 \uC5C6\uB294 \uC9C0\uBA74\uC740 \uC5B4\uB461\uAC8C \uD45C\uC2DC\uB429\uB2C8\uB2E4"},
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"\uC9C0\uD615 \uC18D\uC131: \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD \uC9C0\uD615\uC774 \uB9CC\uB4E4\uC9C0 \uC54A\uB294 \uD0C0\uC77C(\uC8FC\uD669)"},
     {L"&Isometric terrain", L"\uC544\uC774\uC18C\uBA54\uD2B8\uB9AD \uC9C0\uD615(&I)"},
+    {L"Copy as text", L"\uD14D\uC2A4\uD2B8\uB85C \uBCF5\uC0AC"},
+    {L"Import from text", L"\uD14D\uC2A4\uD2B8\uC5D0\uC11C \uAC00\uC838\uC624\uAE30"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

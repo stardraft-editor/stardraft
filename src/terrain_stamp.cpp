@@ -117,9 +117,15 @@ bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& erro
     std::ifstream in(file, std::ios::binary);
     if (!in) return error = "cannot read " + pathText(file), false;
     const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (!parseTerrainStamp(text, out, error)) return error = pathText(file) + ": " + error, false;
+    out.file = file;
+    return true;
+}
+
+bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& error) {
     JsonParser p{text};
     const Json j = p.value();
-    if (!p.ok || j.type != Json::Type::Object || j.str("format") != "StarDraft terrain stamp") return error = pathText(file) + " is not a terrain stamp", false;
+    if (!p.ok || j.type != Json::Type::Object || j.str("format") != "StarDraft terrain stamp") return error = "it is not custom terrain", false;
     TerrainStamp s;
     s.name = j.str("name");
     s.era = uint16_t(std::clamp(j.integer("era", -1), -1, 7));
@@ -132,13 +138,12 @@ bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& erro
     if (j.integer("era", -1) < 0 || !terrainStampNameOk(s.name, why) || s.width < 1 || s.height < 1 || s.width > kTerrainStampSizeMax ||
         s.height > kTerrainStampSizeMax || !tiles || tiles->type != Json::Type::Array || tiles->items.size() != size_t(s.width) * size_t(s.height) ||
         mask.size() != tiles->items.size())
-        return error = pathText(file) + ": the stamp's fields are not complete", false;
+        return error = "the fields of the custom terrain are not complete", false;
     for (size_t i = 0; i < mask.size(); ++i) {
         const Json& t = tiles->items[i];
         s.tiles.push_back(t.type == Json::Type::Number && t.n >= 0 && t.n <= 0xFFFF ? uint16_t(t.n) : 0);
         s.mask.push_back(mask[i] == '1' ? 1 : 0);
     }
-    s.file = file;
     out = std::move(s);
     return true;
 }
