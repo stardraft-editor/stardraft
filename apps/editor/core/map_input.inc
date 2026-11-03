@@ -124,6 +124,15 @@ void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, 
 constexpr UINT_PTR kSprayTimer = 78;
 float gRerollX = -1e9f, gRerollY = -1e9f;  // where the brush last redrew its own terrain (new variants) in this stroke
 float gPaintX = 0, gPaintY = 0;             // where the brush last painted in this stroke (a fast move paints the way between)
+std::vector<std::pair<int, int>> gPaintCorners;  // the ISOM corners the brush last painted (a move that keeps them paints nothing)
+uint16_t gPaintTerrain = 0;                      // and the terrain it painted there
+// The ISOM corners that the brush covers at the map point (wx, wy), at each symmetric position: the brush's place.
+std::vector<std::pair<int, int>> brushPlace(const Editor& ed, float wx, float wy, const Brush& brush) {
+    std::vector<std::pair<int, int>> corners;
+    for (auto [x, y] : ed.terrainSymmetricPoints(int(wx), int(wy), brush))
+        for (auto c : ed.brushCorners(x, y, brush)) corners.push_back(c);
+    return corners;
+}
 // Jumble at the map point (wx, wy): the terrains under the brush mixed at random (Editor::jumbleTerrain).
 void jumbleAt(AppState& app, float wx, float wy) {
     const int n = app.ed->jumbleTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
@@ -341,6 +350,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             ed.beginTerrainStroke();
             ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app));
             gPaintX = wx, gPaintY = wy, gRerollX = wx, gRerollY = wy;
+            gPaintCorners = brushPlace(ed, wx, wy, currentBrush(app)), gPaintTerrain = eraseTerrain(ed);
             app.drag = Drag::Paint;
             break;
         }
@@ -419,6 +429,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             gRerollX = wx, gRerollY = wy;
             ed.paintBrush(int(wx), int(wy), t, currentBrush(app));
             gPaintX = wx, gPaintY = wy;
+            gPaintCorners = brushPlace(ed, wx, wy, currentBrush(app)), gPaintTerrain = t;
             app.drag = Drag::Paint;
         } else if (tool == TSpray) {
             ed.beginTerrainStroke();
@@ -576,10 +587,17 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         // A fast move skips ground: paint the way from the last point too, at most half a brush apart, and at most 8
         // more steps a move (zoomed far out, one move crosses much of the map; the next moves paint the rest).
         const float step = std::max(32.0f, extent * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
+        // A point where the brush covers the corners it last painted paints nothing: a held brush that moves a little
+        // keeps its tiles (each paint makes them again); a move away and back paints again.
         const int n = std::clamp(int(len / step), 0, 8);
-        for (int k = 1; k <= n; ++k)
-            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), paint, currentBrush(app));
-        app.ed->paintBrush(int(wx), int(wy), paint, currentBrush(app));
+        auto paintAt = [&](float x, float y) {
+            std::vector<std::pair<int, int>> place = brushPlace(*app.ed, x, y, currentBrush(app));
+            if (place == gPaintCorners && paint == gPaintTerrain) return;
+            app.ed->paintBrush(int(x), int(y), paint, currentBrush(app));
+            gPaintCorners = std::move(place), gPaintTerrain = paint;
+        };
+        for (int k = 1; k <= n; ++k) paintAt(gPaintX + dx * k / (n + 1), gPaintY + dy * k / (n + 1));
+        paintAt(wx, wy);
         gPaintX = wx, gPaintY = wy;
     }
     if (app.drag == Drag::Jumble && app.ed &&
