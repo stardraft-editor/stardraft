@@ -2760,3 +2760,9 @@ Terrain flags: the tiles that the isometric terrain does not give (orange)	Propr
 &Isometric terrain	Terrain &isométrique
 Copy as text	Copier en texte
 Import from text	Importer depuis du texte
+Units: %d	Unités: %d
+Start locations: %d	Positions de départ: %d
+Doodads: %d	Décors: %d
+Sprites: %d	Sprites: %d
+Locations: %d / %d	Emplacements: %d / %d
+Map size: %d x %d	Taille de la carte: %d x %d

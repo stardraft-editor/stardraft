@@ -1,13 +1,13 @@
 // The status bar as a view (portable, core.inc): moved from main.cpp. A flat strip drawn in full, the panel color, a
 // hairline on top and between the parts, no bevels. The map's parts (mode and tool, the mouse's place, the zoom, the
-// selection, frames) show in the Map workspace only; the message shows only when there is no log line (which shows it
+// selection, the mode's count, frames) show in the Map workspace only; the message shows only when there is no log line (which shows it
 // already). The corner keeps room for the size grip, which the bar does not draw: over it, the window resizes from the
 // corner (sizeGrip). The instance (gStatus) is made in main.cpp, where the app state is.
 
 // Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 int activePage();
 
-// The status bar's view: its texts are the app state's (AppState::statusText, the bar's six parts).
+// The status bar's view: its texts are the app state's (AppState::statusText, the bar's seven parts).
 struct StatusView final : stardraft::draw::View {
     explicit StatusView(AppState& s) : st(s) {}
     AppState& st;
@@ -24,9 +24,13 @@ struct StatusView final : stardraft::draw::View {
         auto sep = [&](int x) { c.fill({x, scale(4), x + 1, h - scale(3)}, kBorder); };
         int x = scale(4), right = w - scale(16);  // room for the size grip
         if (map) {
-            const int mins[4] = {150, 200, 110, 100};
-            for (int i = 0; i < 4; ++i) {
-                const int pw = std::max(scale(mins[i]), c.measure(st.statusText[i]) + 2 * pad);
+            // (mode and tool, the mouse's place, the zoom, the selection, the mode's count)
+            const int parts[5] = {0, 1, 2, 3, 6}, mins[5] = {150, 200, 110, 100, 100};
+            for (int k = 0; k < 5; ++k) {
+                const int i = parts[k];
+                if (i == 6 && st.statusText[i].empty()) continue;
+                const int pw = std::max(scale(mins[k]), c.measure(st.statusText[i]) + 2 * pad);
+                if (i == 6 && x + pw > right) continue;  // (a narrow window: no count, not over the size grip)
                 part(x, x + pw, i, i == 0 ? kText : kDim);
                 x += pw;
                 sep(x);

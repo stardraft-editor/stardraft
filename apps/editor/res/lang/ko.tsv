@@ -2790,3 +2790,9 @@ Terrain flags: the tiles that the isometric terrain does not give (orange)	지�
 &Isometric terrain	아이소메트릭 지형(&I)
 Copy as text	텍스트로 복사
 Import from text	텍스트에서 가져오기
+Units: %d	유닛: %d
+Start locations: %d	시작 위치: %d
+Doodads: %d	장식물: %d
+Sprites: %d	스프라이트: %d
+Locations: %d / %d	위치: %d / %d
+Map size: %d x %d	맵 크기: %d x %d

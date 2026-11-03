@@ -2760,3 +2760,9 @@ Terrain flags: the tiles that the isometric terrain does not give (orange)	Св�
 &Isometric terrain	&Изометрическая местность
 Copy as text	Копировать как текст
 Import from text	Импортировать из текста
+Units: %d	Юниты: %d
+Start locations: %d	Начальные позиции: %d
+Doodads: %d	Декорации: %d
+Sprites: %d	Спрайты: %d
+Locations: %d / %d	Локации: %d / %d
+Map size: %d x %d	Размер карты: %d x %d

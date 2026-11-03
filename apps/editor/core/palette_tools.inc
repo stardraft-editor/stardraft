@@ -143,10 +143,59 @@ std::wstring selectionStatus(const AppState& app) {
         out += L"  \x00b7  " + r;
     return out;
 }
+// The status bar's count of the mode's things: Units, the units with no start locations (the Units list gives them no
+// Index) and then the start locations; Doodads, the doodads; Sprites, the sprites with no doodad overlays (they go with
+// their doodads); Locations, the used locations of the slots the map has (with no Anywhere); Terrain, the map's size.
+// Made again only when the map or the mode changed: the status bar is made on each mouse move.
+std::wstring modeCountStatus(const AppState& app) {
+    if (!app.ed || !app.ed->isOpen()) return L"";
+    const Editor& ed = *app.ed;
+    static const Editor* forEd = nullptr;
+    static uint64_t forRev = ~0ull;
+    static int forMode = -1;
+    static std::wstring text;
+    if (forEd == &ed && forRev == ed.revision() && forMode == int(app.mode)) return text;
+    forEd = &ed, forRev = ed.revision(), forMode = int(app.mode);
+    wchar_t buf[128];
+    switch (app.mode) {
+    case Mode::Units: {
+        int starts = 0;
+        for (const Unit& u : ed.units()) starts += u.type == 214 /* Start Location */;
+        std::swprintf(buf, 128, tr(L"Units: %d"), int(ed.units().size()) - starts);
+        text = buf;
+        if (starts) {
+            std::swprintf(buf, 128, tr(L"Start locations: %d"), starts);
+            text += L"  \x00b7  " + std::wstring(buf);
+        }
+        break;
+    }
+    case Mode::Doodads: std::swprintf(buf, 128, tr(L"Doodads: %d"), int(ed.doodads().size())), text = buf; break;
+    case Mode::Sprites: {
+        // (a doodad's overlay: its overlay sprite at the doodad's place, as Editor::spriteIsDoodadOverlay finds it)
+        auto key = [](uint16_t id, uint16_t x, uint16_t y) { return uint64_t(id) << 32 | uint64_t(x) << 16 | y; };
+        std::set<uint64_t> overlays;
+        for (const Doodad& d : ed.doodads())
+            if (const DoodadType* t = ed.doodadTypes().find(d.id)) overlays.insert(key(t->overlaySprite, d.x, d.y));
+        int n = 0;
+        for (const MapSprite& s : ed.sprites()) n += !overlays.count(key(s.id, s.x, s.y));
+        std::swprintf(buf, 128, tr(L"Sprites: %d"), n), text = buf;
+        break;
+    }
+    case Mode::Locations: {
+        int used = 0;
+        for (int i = 0; i < ed.locationCount(); ++i) used += ed.locationUsed(i);
+        const int slots = ed.locationCount() - (ed.locationCount() > kAnywhereLocation ? 1 : 0);
+        std::swprintf(buf, 128, tr(L"Locations: %d / %d"), used, slots), text = buf;
+        break;
+    }
+    case Mode::Terrain: std::swprintf(buf, 128, tr(L"Map size: %d x %d"), ed.width(), ed.height()), text = buf; break;
+    }
+    return text;
+}
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
     if (!docOpen()) {  // no map shows (the start page, the New page): no part of a map's status
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < int(std::size(app.statusText)); ++i)
             if (!app.statusText[i].empty()) setStatusPart(app, i, L"");
         return;
     }
@@ -184,6 +233,7 @@ void updateStatus(AppState& app) {
     setStatusPart(app, 2, buf);
     setStatusPart(app, 3, selectionStatus(app).c_str());
     setStatusPart(app, 4, app.message.c_str());
+    setStatusPart(app, 6, modeCountStatus(app).c_str());
     const int sprites = shellSpriteCount();
     // Frames drawn in the last second (the map draws when something changes, so this is low when nothing moves).
     const auto now = std::chrono::steady_clock::now();

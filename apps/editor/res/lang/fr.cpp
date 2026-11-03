@@ -2762,6 +2762,12 @@ constexpr UiText kRows[] = {
     {L"&Isometric terrain", L"Terrain &isom\u00E9trique"},
     {L"Copy as text", L"Copier en texte"},
     {L"Import from text", L"Importer depuis du texte"},
+    {L"Units: %d", L"Unit\u00E9s: %d"},
+    {L"Start locations: %d", L"Positions de d\u00E9part: %d"},
+    {L"Doodads: %d", L"D\u00E9cors: %d"},
+    {L"Sprites: %d", L"Sprites: %d"},
+    {L"Locations: %d / %d", L"Emplacements: %d / %d"},
+    {L"Map size: %d x %d", L"Taille de la carte: %d x %d"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

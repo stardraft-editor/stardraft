@@ -2760,3 +2760,9 @@ Terrain flags: the tiles that the isometric terrain does not give (orange)	地�
 &Isometric terrain	等距地形(&I)
 Copy as text	复制为文本
 Import from text	从文本导入
+Units: %d	单位: %d
+Start locations: %d	起始位置: %d
+Doodads: %d	装饰物: %d
+Sprites: %d	精灵: %d
+Locations: %d / %d	位置: %d / %d
+Map size: %d x %d	地图大小: %d x %d

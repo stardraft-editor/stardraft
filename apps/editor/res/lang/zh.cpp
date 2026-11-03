@@ -2762,6 +2762,12 @@ constexpr UiText kRows[] = {
     {L"&Isometric terrain", L"\u7B49\u8DDD\u5730\u5F62(&I)"},
     {L"Copy as text", L"\u590D\u5236\u4E3A\u6587\u672C"},
     {L"Import from text", L"\u4ECE\u6587\u672C\u5BFC\u5165"},
+    {L"Units: %d", L"\u5355\u4F4D: %d"},
+    {L"Start locations: %d", L"\u8D77\u59CB\u4F4D\u7F6E: %d"},
+    {L"Doodads: %d", L"\u88C5\u9970\u7269: %d"},
+    {L"Sprites: %d", L"\u7CBE\u7075: %d"},
+    {L"Locations: %d / %d", L"\u4F4D\u7F6E: %d / %d"},
+    {L"Map size: %d x %d", L"\u5730\u56FE\u5927\u5C0F: %d x %d"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

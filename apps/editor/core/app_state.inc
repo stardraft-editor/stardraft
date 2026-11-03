@@ -1,6 +1,6 @@
 // The editor's state (what struct App held apart from its windows): portable (core.inc).
 struct AppState {
-    std::wstring statusText[6];
+    std::wstring statusText[7];
     std::vector<uint32_t> megatileColor;  // average color per megatile (0x00RRGGBB)
     const Tileset* megatileColorsFor = nullptr;
     int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
