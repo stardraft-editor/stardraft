@@ -250,6 +250,39 @@ double seamCost(Seams& seams, const std::vector<Editor::TileAt>& tiles, const Ed
     return n;
 }
 
+// Where the approved bridges of a kit have each variant of each piece: its places along each axis (from the start and
+// from the far end) and its depth there (the places to the nearer cap); the deepest place of the approved bridges along
+// each axis (`deepL`, `deepW`: a place as deep or deeper in a larger bridge is as that one).
+struct Seen {
+    int a, f, c, g, dL, dW, length, width;  // (length, width: the approved bridge's)
+};
+struct SeenMap {
+    std::map<std::tuple<const BridgeKeyData*, uint16_t, uint16_t>, std::vector<Seen>> at;
+    int deepL = 0, deepW = 0, longest = 0, widest = 0;
+};
+const SeenMap& seenIn(const BridgeKitData& k) {
+    static std::map<const BridgeKitData*, SeenMap> all;
+    if (auto i = all.find(&k); i != all.end()) return i->second;
+    SeenMap& m = all[&k];
+    for (const BridgeExampleData& e : kBridgeExamples) {
+        if (e.era != k.era || e.u != k.u) continue;
+        const int extL = k.capStart + k.capFar + k.halfLength + 2 * e.length, extW = k.side0 + k.side1 + k.halfWidth + 2 * e.width;
+        std::map<std::pair<int, int>, Cell> cells;
+        for (const Cell& c : cellsOf(k, e.length, e.width)) cells[{c.x, c.y}] = c;
+        for (int i = e.first; i < e.first + e.cells; ++i) {
+            const BridgeExampleCellData& x = kBridgeExampleCells[i];
+            const auto c = cells.find({x.x, x.y});
+            if (c == cells.end()) continue;
+            const int a = c->second.a, f = extL - 1 - a, w = c->second.c, g = extW - 1 - w;
+            const int dL = std::min(a - k.capStart, f - k.capFar), dW = std::min(w - k.side0, g - k.side1);
+            m.at[{c->second.key, x.a, x.b}].push_back({a, f, w, g, dL, dW, e.length, e.width});
+            m.longest = std::max(m.longest, e.length), m.widest = std::max(m.widest, e.width);
+            m.deepL = std::max(m.deepL, dL), m.deepW = std::max(m.deepW, dW);
+        }
+    }
+    return m;
+}
+
 }  // namespace
 
 bool bridgesAvailable(int era) { return kitOf(era, false) && kitOf(era, true); }
@@ -291,6 +324,29 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         return no(0, v.a, v.b) + no(0, at(x - 1, y), v.a) + no(0, v.b, at(x + 2, y)) + no(1, at(x, y - 1), v.a) + no(1, at(x + 1, y - 1), v.b) +
                no(1, v.a, at(x, y + 1)) + no(1, v.b, at(x + 1, y + 1));
     };
+    // (a variant goes only where the approved bridges have it: as far from the start or from the far end; a place deeper
+    // than the approved bridges' deepest is as the deepest. A piece of the far cap's row in the middle rows does not
+    // join them, though the table has both there)
+    const SeenMap& seen = seenIn(*k);
+    const int extL = k->capStart + k->capFar + k->halfLength + 2 * length, extW = k->side0 + k->side1 + k->halfWidth + 2 * width;
+    const auto placeFits = [&](const Cell& c, const BridgeChoiceData& v) {
+        const auto s = seen.at.find({c.key, v.a, v.b});
+        if (s == seen.at.end()) return true;
+        const int f = extL - 1 - c.a, g = extW - 1 - c.c;
+        const int dL = std::min(c.a - k->capStart, f - k->capFar), dW = std::min(c.c - k->side0, g - k->side1);
+        // (along one axis: in an approved bridge of this extent, at the same place; in a larger bridge, as far from the
+        // nearer end as there, or both as deep as the deepest)
+        const auto axis = [](int oa, int of, int od, int on, int ca, int cf, int cd, int n, int most, int deep) {
+            if (n <= most) return on == n && oa == ca;
+            if (cd >= deep && od >= deep) return true;
+            return ca <= cf ? oa == ca && oa <= of : of == cf && of <= oa;
+        };
+        for (const Seen& o : s->second)
+            if (axis(o.a, o.f, o.dL, o.length, c.a, f, dL, length, seen.longest, seen.deepL) &&
+                axis(o.c, o.g, o.dW, o.width, c.c, g, dW, width, seen.widest, seen.deepW))
+                return true;
+        return false;
+    };
     std::vector<int> picks(cells.size(), 0);
     const auto choose = [&](size_t i) {
         const Cell& c = cells[i];
@@ -299,7 +355,10 @@ std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, 
         double best = 1e18;
         int total = 0;
         std::vector<double> score(size_t(c.key->count));
-        for (int j = 0; j < c.key->count; ++j) best = std::min(best, score[size_t(j)] = misfits(c.x, c.y, ch[j]));
+        bool any = false;
+        for (int j = 0; j < c.key->count; ++j) any |= placeFits(c, ch[j]);
+        for (int j = 0; j < c.key->count; ++j)
+            best = std::min(best, score[size_t(j)] = !any || placeFits(c, ch[j]) ? misfits(c.x, c.y, ch[j]) : 1e17);
         for (int j = 0; j < c.key->count; ++j)
             if (score[size_t(j)] == best) total += ch[j].weight;
         int r = total > 0 ? int(rng() % uint32_t(total)) : 0, pick = -1;
