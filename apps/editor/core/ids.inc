@@ -115,6 +115,7 @@ struct Dock {
     bool minimapRight = false;
     bool minimapHidden = false;  // View > Show minimap off: its side has the panel only (GitHub feedback #127)
     bool toolsRight[kModeCount] = {false, true, false, false, false};  // units on the right, the rest on the left
+    int tabOrder[kModeCount] = {0, 1, 2, 4, 3};  // each mode's place in the side bars' tabs (by int(Mode); a drag of a tab changes it)
     int leftW = 280, rightW = 280, dataListW = 300;    // column widths, 96-dpi pixels; drag their edges
     bool triggerCode = false;                          // the Triggers workspace's code pane is shown
     bool scriptPreview = false;                        // the Project page's preview of the selected script is shown
@@ -136,5 +137,14 @@ int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1
 // the end (that crashed saveDock when Sprites came).
 constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
 static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
+// The settings' name of each mode's place in the tabs (Dock::tabOrder; Mode order).
+constexpr const wchar_t* kDockOrderNames[] = {L"TerrainTabOrder", L"UnitsTabOrder", L"DoodadsTabOrder", L"LocationsTabOrder", L"SpritesTabOrder"};
+static_assert(std::size(kDockOrderNames) == kModeCount, "a tab order name for each mode");
+// The modes in the order of the side bars' tabs (Dock::tabOrder; the mode bar's order for equal places).
+inline std::vector<Mode> dockTabOrder(const Dock& d) {
+    std::vector<Mode> out(std::begin(kModeOrder), std::end(kModeOrder));
+    std::stable_sort(out.begin(), out.end(), [&](Mode a, Mode b) { return d.tabOrder[int(a)] < d.tabOrder[int(b)]; });
+    return out;
+}
 enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Help, Properties, Players, ClassicTriggers, ClassicSettings };
 constexpr int kRecentMax = 10;

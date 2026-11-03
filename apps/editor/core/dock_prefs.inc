@@ -93,6 +93,7 @@ void loadDock() {
     get(L"MinimapHidden", gDock.minimapHidden);
     for (int i = 0; i < kModeCount; ++i) get(kDockSideNames[i], gDock.toolsRight[i]);
     auto number = [](const wchar_t* name, int& v, int lo, int hi) { prefs::number(std::wstring(L"Layout/") + name, v, lo, hi); };
+    for (int i = 0; i < kModeCount; ++i) number(kDockOrderNames[i], gDock.tabOrder[i], 0, kModeCount - 1);
     number(L"LeftWidth", gDock.leftW, kMinSideW, kMaxSideW), number(L"RightWidth", gDock.rightW, kMinSideW, kMaxSideW);
     number(L"DataListWidth", gDock.dataListW, kMinSideW, kMaxSideW);
     number(L"MinimapHeight", gDock.minimapH, 0, 4000);
@@ -117,6 +118,7 @@ void saveDock() {
     put(L"UnitNames", gDock.unitNames);
     put(L"Volume", gDock.volume);
     for (int i = 0; i < kModeCount; ++i) put(kDockSideNames[i], gDock.toolsRight[i]);
+    for (int i = 0; i < kModeCount; ++i) put(kDockOrderNames[i], gDock.tabOrder[i]);
     put(L"LeftWidth", gDock.leftW), put(L"RightWidth", gDock.rightW), put(L"DataListWidth", gDock.dataListW);
     put(L"MinimapHeight", gDock.minimapH);
     put(L"LogHeight", gDock.logH);

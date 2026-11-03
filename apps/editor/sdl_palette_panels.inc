@@ -241,11 +241,18 @@ void palettePanelsSync() {
     }
 }
 
+void tabDragWindowFrame(Mode m, SDL_Window* w);  // (below)
+PanelWindow* floatingPanelOf(int doc, Mode m);
 // Each turn of the event loop: each open panel's place as the user moves it (kept on a screen), and the
 // active tab's panels in its map's own file when they changed.
 void sdlPalettePanelsFrame() {
     palettePanelsSync();
     palettePanelsSave();
+    for (const Mode m : kModeOrder) {  // (a floating palette moved over the side bars' tabs docks: tabDragWindowFrame)
+        PanelWindow* f = m == Mode::Locations ? nullptr : floatingPanelOf(activeDocKey(), m);
+        SDL_Window* fw = !gHost ? nullptr : m == Mode::Locations ? (gFloatPalOpen ? gHost->sdlWindow(gFloatPalView) : nullptr) : f && f->open ? gHost->sdlWindow(*f->view) : nullptr;
+        tabDragWindowFrame(m, fw);
+    }
     if (gFloatPalSaveAt && SDL_GetTicks() >= gFloatPalSaveAt) gFloatPalSaveAt = 0, saveDock();
     SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;
     if (!main) return;
@@ -598,6 +605,7 @@ bool paletteFloats(Mode m) {
 // A floating palette's place: its window's kept place (gFloatPal: the last used, in points on the screens), else over
 // the map by its side bar (as the floating palettes opened before).
 draw::Rect floatingPanelPlace(Mode m) {
+    if (gFloatDropAt) return *gFloatDropAt;  // (a tab dropped off the side bars: where it was dropped)
     const draw::Rect map = gRoot ? gRoot->map.frame() : draw::Rect();
     const FloatPalette& kept = gFloatPal[int(m)];
     int w = scale(280), h = std::clamp(map.height() - scale(32), scale(300), scale(600));
@@ -723,4 +731,214 @@ void palettePanelsSetup() {
     if (done) return;
     done = true;
     SDL_AddEventWatch(palettePanelsPress, nullptr);
+}
+
+// --- A side bar tab's drag (core/views_panel_tabs.inc: PanelTabsView): it docks or floats --------------------------
+// While a tab is dragged, the side bar under the mouse shows a blue outline (a side with no room: a band at the map's
+// edge), and its tabs a line where the tab goes. The release there docks the mode's panel on that side, at that place
+// in its tabs (in its own tabs: a new order); elsewhere its panel floats, its window's strip under the mouse. A
+// floating palette's window that is moved (by its strip) and let go over a side's tab strip docks there too. The tabs'
+// order and sides are in the settings (Layout/<Mode>TabOrder, <Mode>Right: dock_prefs.inc); a floating palette's
+// place is its kept place (gFloatPal).
+struct PanelDragState {
+    bool on = false;
+    bool window = false;  // a floating palette's window is moved (else: a tab of the side bars)
+    Mode m = Mode::Terrain;
+    draw::Point at;       // the mouse, in the main window's pixels
+    int side = -1;        // the drop target: 0 left, 1 right; -1 none (it floats)
+    int index = 0;        // ... the place in that side's tabs (the dragged one not counted)
+};
+PanelDragState gPanelDrag;
+
+// The tabs of side `s` with their places in the main window, less the dragged mode's.
+std::vector<std::pair<Mode, draw::Rect>> tabDragTabs(int s) {
+    std::vector<std::pair<Mode, draw::Rect>> out;
+    const PanelTabsView& t = gPanelTabsSdl[s];
+    if (!t.shown() || t.frame().empty()) return out;
+    const draw::Point o = t.origin();
+    for (const auto& tab : t.tabs)
+        if (tab.m != gPanelDrag.m) out.push_back({tab.m, draw::Rect(tab.r.left + o.x, tab.r.top + o.y, tab.r.right + o.x, tab.r.bottom + o.y)});
+    return out;
+}
+// The place that takes a drop on side `s`: its column, else (no room) a band at the map's edge; empty: none.
+draw::Rect tabDropRect(int s) {
+    if (!gRoot || gRoot->mapAt.empty()) return {};
+    if (!gRoot->docks[s].empty()) return gRoot->docks[s];
+    const draw::Rect m = gRoot->mapAt;
+    const int band = scale(48);
+    return s == 0 ? draw::Rect(m.left, m.top, m.left + band, m.bottom) : draw::Rect(m.right - band, m.top, m.right, m.bottom);
+}
+// The drop target under the mouse. A window's drag docks only over a side's tabs.
+void tabDragTarget() {
+    gPanelDrag.side = -1, gPanelDrag.index = 0;
+    for (int s = 0; s < 2; ++s) {
+        const draw::Rect r = tabDropRect(s);
+        if (r.empty() || !r.contains(gPanelDrag.at)) continue;
+        const std::vector<std::pair<Mode, draw::Rect>> tabs = tabDragTabs(s);
+        const PanelTabsView& pt = gPanelTabsSdl[s];
+        const draw::Point o = pt.origin();
+        const bool stripShown = pt.shown() && !pt.frame().empty();
+        const draw::Rect strip = stripShown ? draw::Rect(o.x, o.y - scale(8), o.x + pt.width(), o.y + pt.height() + scale(8)) : draw::Rect();
+        const bool overTabs = stripShown && strip.contains(gPanelDrag.at);
+        if (gPanelDrag.window && !overTabs) return;  // (a window put by the side bar or the map's edge stays floating)
+        gPanelDrag.side = s;
+        if (overTabs) {  // the place between the tabs nearest to the mouse
+            for (const auto& [m, tr] : tabs)
+                if ((tr.left + tr.right) / 2 < gPanelDrag.at.x) ++gPanelDrag.index;
+            return;
+        }
+        // Elsewhere on the side: at the end; on its own side the tab keeps its place.
+        gPanelDrag.index = int(tabs.size());
+        if (gDock.toolsRight[int(gPanelDrag.m)] == (s == 1) && !paletteFloats(gPanelDrag.m)) {
+            gPanelDrag.index = 0;
+            for (Mode m : dockTabOrder(gDock)) {
+                if (m == gPanelDrag.m) break;
+                if (gDock.toolsRight[int(m)] == (s == 1) && !paletteFloats(m)) ++gPanelDrag.index;
+            }
+        }
+        return;
+    }
+}
+
+// The panel of `m` docks on side `s`, at place `index` of its tabs (the other tabs keep their order); it is the mode.
+void tabDockAt(Mode m, int s, int index) {
+    if (paletteFloats(m)) shellFloatPalette(m, false);
+    std::vector<Mode> order = dockTabOrder(gDock);
+    order.erase(std::find(order.begin(), order.end(), m));
+    std::vector<Mode> on;
+    for (Mode x : order)
+        if (gDock.toolsRight[int(x)] == (s == 1) && !paletteFloats(x)) on.push_back(x);
+    auto at = order.end();
+    if (index < int(on.size())) at = std::find(order.begin(), order.end(), on[size_t(std::max(0, index))]);
+    else if (!on.empty()) at = std::find(order.begin(), order.end(), on.back()) + 1;
+    order.insert(at, m);
+    for (size_t k = 0; k < order.size(); ++k) gDock.tabOrder[int(order[k])] = int(k);
+    gDock.toolsRight[int(m)] = s == 1;
+    gLastOnSide[s] = m;
+    saveDock();
+    setMode(m);
+    shellRelayout();
+    setMessage(std::wstring(kModeNames[int(m)]) + L" panel on the " + (s == 1 ? L"right" : L"left"));
+}
+
+// The panel of `m` floats, its window's strip under `at` (the main window's pixels): its kept size, else the program's.
+void tabFloatAt(Mode m, draw::Point at) {
+    if (paletteFloats(m) || !gRoot || (m != Mode::Locations && !docOpen())) return;
+    FloatPalette& kept = gFloatPal[int(m)];
+    SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;
+    const float d = main ? SDL_GetWindowPixelDensity(main) : 1.0f;
+    const bool sized = kept.w > 0 && kept.h > 0;
+    const int w = sized ? int(kept.w * d) : scale(280), h = sized ? int(kept.h * d) : scale(420);
+    const int x = at.x - std::min(w / 2, scale(60)), y = at.y - scale(12);
+    gFloatDropAt = draw::Rect(x, y, x + w, y + h);
+    if (main) {  // (the kept place too: on the screens, in points)
+        int mx = 0, my = 0;
+        SDL_GetWindowPosition(main, &mx, &my);
+        kept.x = mx + int(x / d), kept.y = my + int(y / d), kept.w = int(w / d), kept.h = int(h / d);
+    }
+    shellFloatPalette(m, true);
+    gFloatDropAt.reset();
+}
+
+void shellTabDrag(int phase, int mode, int x, int y) {
+    if (mode < 0 || mode >= kModeCount) return;
+    gPanelDrag.m = Mode(mode), gPanelDrag.window = false;
+    gPanelDrag.at = {x, y};
+    if (phase == 0 || phase == 1) {
+        gPanelDrag.on = true;
+        tabDragTarget();
+    } else {
+        const bool drop = phase == 2;
+        if (drop) tabDragTarget();
+        gPanelDrag.on = false;
+        if (drop && gPanelDrag.side >= 0) tabDockAt(gPanelDrag.m, gPanelDrag.side, gPanelDrag.index);
+        else if (drop) tabFloatAt(gPanelDrag.m, gPanelDrag.at);
+        else setMessage(L"The panel did not move");
+    }
+    if (gRoot) gRoot->invalidate();
+}
+
+// Over the main window (MainView::paintOver): the drop target's outline and its place in the tabs, and the ghost at the
+// mouse (the tab; with no target, the outline of the window it becomes).
+void paintTabDrag(draw::Canvas& c) {
+    if (!gPanelDrag.on) return;
+    auto frame = [&](draw::Rect r, int width) {
+        c.fill({r.left, r.top, r.right, r.top + width}, kAccent), c.fill({r.left, r.bottom - width, r.right, r.bottom}, kAccent);
+        c.fill({r.left, r.top, r.left + width, r.bottom}, kAccent), c.fill({r.right - width, r.top, r.right, r.bottom}, kAccent);
+    };
+    if (gPanelDrag.side >= 0) {
+        const draw::Rect r = tabDropRect(gPanelDrag.side);
+        c.fill(r, kAccent, 40);
+        frame(r, scale(2));
+        const std::vector<std::pair<Mode, draw::Rect>> tabs = tabDragTabs(gPanelDrag.side);
+        if (!tabs.empty()) {  // the line where the tab goes
+            const size_t i = size_t(std::clamp(gPanelDrag.index, 0, int(tabs.size())));
+            const draw::Rect& ref = tabs[std::min(i, tabs.size() - 1)].second;
+            const int lx = i < tabs.size() ? ref.left : ref.right;
+            c.fill({lx - scale(2), ref.top, lx + scale(2), ref.bottom}, kAccent);
+        }
+    }
+    if (gPanelDrag.window) return;  // (the window itself follows the mouse)
+    const draw::Point p = gPanelDrag.at;
+    if (gPanelDrag.side < 0) {  // the window's outline, where it opens
+        const FloatPalette& kept = gFloatPal[int(gPanelDrag.m)];
+        const bool sized = kept.w > 0 && kept.h > 0;
+        SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;  // (the size tabFloatAt gives the window)
+        const float d = main ? SDL_GetWindowPixelDensity(main) : 1.0f;
+        const int w = sized ? int(kept.w * d) : scale(280), h = sized ? int(kept.h * d) : scale(420);
+        const int x = p.x - std::min(w / 2, scale(60)), y = p.y - scale(12);
+        c.fill({x, y, x + w, y + h}, kPanel, 120);
+        frame({x, y, x + w, y + h}, scale(1));
+    }
+    const std::wstring name = shellTr(kModeNames[int(gPanelDrag.m)]);
+    const int gw = c.measure(name) + scale(20), gh = scale(26);
+    const draw::Rect g(p.x + scale(12), p.y + scale(14), p.x + scale(12) + gw, p.y + scale(14) + gh);  // (below the mouse: the line stays in view)
+    c.fill(g, kSel, 220);
+    frame(g, scale(1));
+    c.text(g, name, kText, draw::kCenter | draw::kMiddle);
+}
+
+// Each turn of the event loop, for a floating palette's window `w` (null: it is not open): while the user moves it with
+// the left button held, the drop target shows; let go over a side's tabs, the palette docks there.
+void tabDragWindowFrame(Mode m, SDL_Window* w) {
+    struct Kept {
+        SDL_Window* win = nullptr;
+        int x = 0, y = 0, wi = 0, he = 0;
+        bool known = false, moving = false;
+    };
+    static Kept kept[kModeCount];
+    Kept& k = kept[int(m)];
+    SDL_Window* main = gHost ? gHost->mainWindow() : nullptr;
+    if (!w || !main || !gRoot) {
+        if (k.moving && gPanelDrag.on && gPanelDrag.window && gPanelDrag.m == m) {
+            gPanelDrag.on = false;
+            if (gRoot) gRoot->invalidate();
+        }
+        k = Kept{};
+        return;
+    }
+    if (k.win != w) k = Kept{}, k.win = w;  // (another window: the tab's own, or a new one)
+    int x = 0, y = 0, ww = 0, wh = 0;
+    SDL_GetWindowPosition(w, &x, &y), SDL_GetWindowSize(w, &ww, &wh);
+    float gx = 0, gy = 0;
+    const bool down = (SDL_GetGlobalMouseState(&gx, &gy) & SDL_BUTTON_LMASK) != 0;
+    // A move (not a change of its size while the button is held; the system's move loop may change its size on a
+    // screen of another scale, seen only after the release).
+    const bool moved = k.known && (x != k.x || y != k.y) && ((ww == k.wi && wh == k.he) || !down);
+    k.known = true, k.x = x, k.y = y, k.wi = ww, k.he = wh;
+    if (moved) k.moving = true;
+    if (!k.moving) return;
+    int mx = 0, my = 0;
+    SDL_GetWindowPosition(main, &mx, &my);
+    const float d = SDL_GetWindowPixelDensity(main);
+    gPanelDrag.on = true, gPanelDrag.window = true, gPanelDrag.m = m;
+    gPanelDrag.at = {int((gx - float(mx)) * d), int((gy - float(my)) * d)};
+    tabDragTarget();
+    gRoot->invalidate();
+    if (down) return;
+    k.moving = false, gPanelDrag.on = false;
+    if (gPanelDrag.side >= 0) {
+        const int s = gPanelDrag.side, i = gPanelDrag.index;
+        shellPost([m, s, i] { tabDockAt(m, s, i); });  // (after the frame: the window closes)
+    }
 }

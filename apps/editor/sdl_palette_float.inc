@@ -20,6 +20,7 @@ bool gFloatPalClosing = false;   // the program closes the window (another mode)
 bool gFloatPalLines = false;     // a snapshot's input lines have the palette's line (sdlFloatPaletteLine)
 draw::Rect gFloatPalShotAt;      // where the window opened, in the main window's pixels (a snapshot shows it there)
 Uint64 gFloatPalSaveAt = 0;      // the moved or resized window's place is saved then (0: nothing to save)
+std::optional<draw::Rect> gFloatDropAt;  // a tab dropped off the side bars: the window opens there (the main window's pixels)
 
 // The short name of a mode's palette (the end of its command's name: terrain, units, ...).
 std::string floatPaletteShort(Mode m) {
@@ -231,7 +232,7 @@ bool locationListSync(bool shown, draw::Rect slot) {
     if (kept.w > 0 && kept.h > 0) w = kept.w, h = kept.h;
     const bool right = slot.left >= map.right;  // (the palette's side bar is on the right of the map)
     const int x = right ? std::max(map.left, map.right - scale(16) - w) : std::max(slot.right, map.left) + scale(16), y = map.top + scale(16);
-    gFloatPalShotAt = draw::Rect(x, y, x + w, y + h);
+    gFloatPalShotAt = gFloatDropAt ? *gFloatDropAt : draw::Rect(x, y, x + w, y + h);
     gHost->openWindow(*gRoot, gFloatPalView, draw::WindowSpec{draw::WindowKind::Tool, gFloatPalShotAt, kModeNames[int(m)]}, [] {
         if (!gFloatPalClosing) floatPaletteClosedByUser();
     });

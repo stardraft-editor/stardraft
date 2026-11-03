@@ -407,6 +407,8 @@ LogPaneView gLogPane;
 bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot);
 void palettePanelsSync();  // (sdl_palette_panels.inc: the active tab's panels show in the Map workspace)
 
+void paintTabDrag(draw::Canvas& c);  // (sdl_palette_panels.inc: a side bar tab's drag, over the main window)
+
 // The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
@@ -626,6 +628,8 @@ struct MainView final : draw::View {
     // The minimap's bottom edge (splitter 2): the height cursor; a drag changes its height (more room for the panel
     // under it, or a bigger minimap); a double click gives it the map's shape again.
     draw::Rect splitters[3] = {};
+    draw::Rect docks[2], mapAt;  // the side bars' columns (empty: the side takes no room) and the map, in the Map workspace
+    void paintOver(draw::Canvas& c) override { paintTabDrag(c); }  // (a tab's drag: its drop target and its ghost)
     int splitDrag = -1, splitGrab = 0;
     int splitAt(draw::Point pt) const {
         for (int i = 0; i < 3; ++i)
@@ -796,8 +800,12 @@ struct MainView final : draw::View {
         in.hasPal3 = true;
         in.pal3Shown = gPal3Shown, in.pal3Mode = gPal3Mode;
         for (int k = 0; k < kModeCount; ++k) in.floats[k] = paletteFloats(Mode(k));  // (a floating panel has no tab)
+        const std::vector<Mode> order = dockTabOrder(gDock);
+        std::copy(order.begin(), order.end(), in.order);
         const MainLayout L = computeLayout(in);
         for (int i = 0; i < 3; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
+        for (int i = 0; i < 2; ++i) docks[i] = mapWs ? draw::Rect(L.dockRects[i]) : draw::Rect{};
+        mapAt = mapWs ? draw::Rect(L.view.rc) : draw::Rect{};
         // The state the layout sets (as the Win32 layout): the sides' tabs, the second palette's mode and its shown state.
         gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
         gPal2Shown = L.palette2.visible;
