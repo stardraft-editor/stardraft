@@ -4,7 +4,9 @@
 #include <chrono>
 #include <cwctype>
 #include <memory>
+#include <utility>
 
+#include "scroll_bar.h"
 #include "text_model.h"
 #include "theme.h"
 
@@ -34,10 +36,15 @@ int gOpenLists = 0;  // the dropdowns whose list is open (Dropdown::anyListOpen)
 // The list under the field: one row per item, the current value highlighted. Its callbacks pick a row or cancel. With
 // `search` it has a search row at its top: the typed text shows only the items whose name (or number) has it; Backspace
 // takes a letter off, Esc empties it (then closes the list). The rows are the shown items (shown_: their indices).
+// More rows than it shows: a scroll bar (scroll_bar.h) at the right of the rows, which the mouse drags and clicks.
 class Dropdown::List final : public View {
 public:
     List(std::vector<DropdownItem> items, int current, bool search, std::function<void(int)> pick, std::function<void()> cancel)
         : items_(std::move(items)), current_(current), search_(search), pick_(std::move(pick)), cancel_(std::move(cancel)) {
+        add(bar_, Rect{});
+        bar_.onScroll = [this](int pos) {  // (the bar's position: the top row)
+            if (pos != top_) top_ = pos, invalidate();
+        };
         refilter();
     }
 
@@ -83,12 +90,9 @@ public:
             c.text({r.left + px(32), r.top, r.right - (hasNumber ? px(56) : px(10)), r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
             if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(10), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
         }
-        if (const int n = int(shown_.size()); n > visible()) {  // (more rows than it shows: where the shown ones are)
-            const int y0 = px(2) + headH(), h = visible() * rowH();
-            const int th0 = std::max(px(16), h * visible() / n), ty = y0 + (h - th0) * top_ / std::max(1, maxTop());
-            c.fill({width() - px(6), ty, width() - px(3), ty + th0}, th.thumb);
-        }
     }
+
+    void resized() override { syncBar(); }
 
     bool mouse(const MouseEvent& e) override {
         switch (e.kind) {
@@ -99,11 +103,18 @@ public:
             }
             return true;
         case MouseKind::Leave:
+            if (host()) {  // (onto the scroll bar, which is in the list: the hot row stays, for Enter)
+                const Point p = host()->mouse(*this);
+                if (p.x >= 0 && p.y >= 0 && p.x < width() && p.y < height()) return true;
+            }
             if (hot_ != -1) hot_ = -1, invalidate();
             return true;
         case MouseKind::Down:
-        case MouseKind::DoubleClick: return e.button == 0;
+        case MouseKind::DoubleClick:
+            if (e.button == 0) barPress_ = false;
+            return e.button == 0;
         case MouseKind::Up:
+            if (e.button == 0 && std::exchange(barPress_, false)) return true;  // (the press was on the scroll bar: no pick)
             if (e.button == 0)
                 if (const int k = rowAt(e.pt); k >= 0 && !items_[size_t(shown_[size_t(k)])].heading) pick_(shown_[size_t(k)]);
             return e.button == 0;
@@ -117,7 +128,7 @@ public:
             }
             const int before = top_;
             top_ = std::clamp(top_ - notches, 0, maxTop());
-            if (top_ != before) invalidate();
+            if (top_ != before) bar_.setPos(top_), invalidate();
             return true;
         }
         default: return false;
@@ -190,7 +201,12 @@ public:
     }
 
     // The rows it shows at most (the room in the window: fewer than kVisibleRows; it scrolls).
-    void setMaxRows(int n) { maxRows_ = std::max(1, n); }
+    void setMaxRows(int n) {
+        maxRows_ = std::max(1, n);
+        top_ = std::min(top_, maxTop());
+        show(hot_);  // (the current value in view in the fewer rows)
+        syncBar();
+    }
 
 private:
     int maxRows_ = kVisibleRows;
@@ -198,9 +214,19 @@ private:
     int headH() const { return search_ ? rowH() : 0; }
     int visible() const { return std::min(int(shown_.size()), maxRows_); }
     int maxTop() const { return std::max(0, int(shown_.size()) - visible()); }
+    // The scroll bar's width when it shows (the rows end at its left edge: a click on it picks no row).
+    int barW() const { return int(shown_.size()) > visible() ? px(kScrollBarW) : 0; }
     Rect row(int k) const {
         const int y = px(2) + headH() + (k - top_) * rowH();
-        return {px(2), y, width() - px(2), y + rowH()};
+        return {px(2), y, width() - px(2) - barW(), y + rowH()};
+    }
+    // The scroll bar: beside the rows (not the search row), its range the shown rows, its position the top row.
+    void syncBar() {
+        const int y0 = px(2) + headH();
+        bar_.setFrame({width() - px(2) - px(kScrollBarW), y0, width() - px(2), y0 + visible() * rowH()});
+        bar_.setRange(int(shown_.size()), visible());
+        bar_.setPos(top_);
+        bar_.setVisible(barW() > 0);
     }
     int rowAt(Point p) const {
         for (int k = top_; k < std::min(int(shown_.size()), top_ + visible()); ++k)
@@ -211,6 +237,7 @@ private:
         if (k < 0) return;
         if (k < top_) top_ = k;
         else if (k >= top_ + visible()) top_ = k - visible() + 1;
+        bar_.setPos(top_);
     }
     // The row k, or the next one in `dir` that is an item (not a heading); else the nearest one the other way; -1: none.
     int item(int k, int dir) const {
@@ -252,6 +279,7 @@ private:
             if (shown_[size_t(k)] == current_) hot_ = k;
         top_ = 0;
         show(hot_);
+        syncBar();
         invalidate();
     }
 
@@ -265,6 +293,18 @@ private:
     std::chrono::steady_clock::time_point typedAt_;
     std::function<void(int)> pick_;
     std::function<void()> cancel_;
+    // The scroll bar; a press on it is kept, so that its release (on a row too, after a click on the track) picks no row.
+    struct Bar final : ScrollBar {
+        explicit Bar(bool& pressed) : ScrollBar(Axis::Vertical), pressed_(pressed) {}
+        bool mouse(const MouseEvent& e) override {
+            const bool taken = ScrollBar::mouse(e);
+            if (taken && e.button == 0 && (e.kind == MouseKind::Down || e.kind == MouseKind::DoubleClick)) pressed_ = true;
+            return taken;
+        }
+        bool& pressed_;
+    };
+    bool barPress_ = false;  // the last press was on the scroll bar
+    Bar bar_{barPress_};
 };
 
 Dropdown::Dropdown() = default;

@@ -205,6 +205,36 @@ KIT_TEST(dropdown_list_scrolls_with_the_wheel_and_keys) {
     host.runTimers();
 }
 
+KIT_TEST(dropdown_list_scroll_bar_takes_drags_and_clicks) {
+    draw::View root;
+    FakeHost host(root);
+    std::vector<kit::DropdownItem> many;
+    for (int i = 0; i < 20; ++i) many.push_back(item(L"Item " + std::to_wstring(i)));
+    kit::Dropdown dd(many, 0);
+    root.add(dd, {10, 10, 210, 34});
+    dd.openList();
+    draw::Router r(list(host));  // (the list's window: a press goes to the view under it, the bar)
+    // The bar: 12 px at the right of the rows (2 px from the list's edge); the thumb at the top.
+    const int x = 200 - 2 - 6;
+    r.mouse(ev(MouseKind::Down, x, 20));
+    r.mouse(ev(MouseKind::Move, x, 300));  // the thumb to the end (the list is 12 rows high)
+    r.mouse(ev(MouseKind::Up, x, 300));
+    CHECK(host.paintWindow(0).drew("'Item 19'"));
+    CHECK(!host.paintWindow(0).drew("'Item 7'"));
+    CHECK(dd.listOpen() && dd.value() == 0);  // a drag on the bar picks no row
+    r.mouse(ev(MouseKind::Down, x, 20));  // the track over the thumb: one page up
+    r.mouse(ev(MouseKind::Up, x, 20));
+    CHECK(host.paintWindow(0).drew("'Item 0'"));
+    CHECK(dd.listOpen() && dd.value() == 0);  // a click on the bar picks no row
+    r.mouse(ev(MouseKind::Down, x, 300));  // the track under the thumb, released on a row: no pick either
+    r.mouse(ev(MouseKind::Up, 20, 300));
+    CHECK(dd.listOpen() && dd.value() == 0);
+    list(host).mouse(ev(MouseKind::Wheel, 20, 20, -3));  // the wheel moves the thumb too
+    CHECK(dd.listOpen());
+    host.press(Key::Escape);
+    host.runTimers();
+}
+
 KIT_TEST(dropdown_host_closing_the_list_does_not_reopen_on_its_press) {
     draw::View root;
     FakeHost host(root);
