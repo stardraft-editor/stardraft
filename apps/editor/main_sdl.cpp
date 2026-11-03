@@ -143,6 +143,7 @@
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/terrain_stamp.h"  // the user's terrain stamps (core/stamps.inc)
 #include "stardraft/bridges.h"  // the Terrain tool strip's Bridge (core/terrain_shapes.inc)
+#include "stardraft/passages.h"  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc)
 #include "stardraft/ramps.h"    // and its Ramp
 #include "stardraft/tileset.h"
 #include "stardraft/triggers.h"  // the Triggers workspace's model (core/views_triggers_tree.inc)
@@ -309,6 +310,13 @@ void fitMainWindow(int w, int h) {
     SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)), SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)));
 }
 
+// The game's own data when it is not open (Cosmonarchy mode opens only the mod's): the Ramp and bridge mapper's templates.
+bool openGameDataNow() {
+    if (gState.data.isOpen()) return true;
+    std::string err;
+    return openInstall("", err);
+}
+
 bool useInstallFolder(const std::string& picked) {
     if (picked.empty()) return false;
     std::string err;
@@ -360,6 +368,7 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 }
 
 }  // namespace
+bool shellOpenGameData() { return openGameDataNow(); }  // (core/views_passages.inc)
 
 void sdlEnsureGameData() { ensureGameData(); }  // (sdl_options.inc)
 
@@ -404,6 +413,7 @@ int main(int argc, char** argv) {
     // --update-test <zip> [options]: the update's install with a zip on this computer (sdl_updates.inc), then the end.
     if (argc > 2 && std::string(argv[1]) == "--update-test")
         return sdlUpdateTest(fs::path(widen(argv[2])), std::vector<std::string>(argv + 3, argv + argc));
+    std::string passagesArg;  // --passages: a passages file the tools use, for a snapshot (Program options' Ramp and bridge mappings)
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
@@ -498,6 +508,7 @@ int main(int argc, char** argv) {
         else if (a == "--loading") loadingArg = true;  // the loading view of the map that opened, with its steps, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
+        else if (a == "--passages") passagesArg = next();  // a passages file (.scpass) for the Ramp brush and the Bridge tool, for a snapshot
         else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
@@ -680,7 +691,16 @@ int main(int argc, char** argv) {
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)
-        cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting();  // (Program options' Cosmonarchy folder: core/cmbw.inc)
+        cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting(), cmbwUsePassagesSetting();
+        if (!passagesArg.empty()) {  // (--passages: as Program options' Ramp and bridge mappings with that file)
+            stardraft::passages::Passages p;
+            std::string err;
+            if (stardraft::passages::load(fs::u8path(passagesArg), p, err)) {
+                stardraft::passages::use(p), PassagesView::inUseFile() = fs::u8path(passagesArg), PassagesView::inUseOn() = true;
+                std::printf("passages: %zu ramps, %zu bridges\n", p.ramps.size(), p.bridges.size());
+            }
+            else std::printf("passages: %s\n", err.c_str());
+        }  // (Program options' Cosmonarchy folder: core/cmbw.inc)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
         gMapPrefsOn = !gSilent || settingsArg;  // (the maps' own files: a snapshot's next to its --settings file, core/map_prefs.inc)
         // A settings file that is not JSON (a hand edit): the Log says so; its first save keeps a copy of it.
@@ -719,6 +739,7 @@ int main(int argc, char** argv) {
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
+            sdlPassagesFrame();   // (the Ramp and bridge mapper follows the open map)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
             sdlFollowSystemLook();  // (macOS, Linux: the system's look changed; also while no frame comes: sdl_window.inc)
@@ -858,6 +879,12 @@ int main(int argc, char** argv) {
                 if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
                 if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
                 std::printf("%s\n", gIsomRulesView.state().c_str());
+            } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file (--cmbw, a map open)
+                std::string f = dialogArg.substr(9);
+                int row = 0;
+                if (const size_t bar = f.rfind('|'); bar != std::string::npos) row = std::atoi(f.c_str() + bar + 1), f.resize(bar);
+                gPassagesView.openForShot(std::filesystem::u8path(f), row);
+                shown = &gPassagesView;
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;

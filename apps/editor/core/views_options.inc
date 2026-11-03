@@ -46,6 +46,8 @@ struct OptionsValues {
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
     bool overrideOn = false;      // ... ISOM terrain rules override: a terrain rules file over the built-in rules
     std::wstring overrideFile;    // ... its file ("": none chosen)
+    bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
+    std::wstring passagesFile;    // ... its file ("": none chosen)
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
     int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
@@ -143,13 +145,16 @@ public:
         override_.setLabel(L"ISOM terrain rules override");
         override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
         override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
+        passages_.setLabel(L"Ramp and bridge mappings");
+        passages_.setTip(L"The mod's ramps and bridges from a file (Tools > Cosmonarchy > Ramp and bridge mapper) for the Ramp brush and the Bridge tool");
+        passages_.onChange = [this](bool) { host_.command(ID_OPT_PASSAGES); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -207,8 +212,9 @@ public:
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
-        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0});
-        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false);
+        passagesFile_.setReadOnly(true), passagesFile_.setTabStop(false);
+        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0}), add(passagesFile_, {0, 0, 0, 0});
+        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false), passagesFile_.setVisible(false);
         browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder for new projects");
         browse_.onClick = [this] { host_.browseWorkingFolder(); };
         defaultFolder_.setText(L"Default"), defaultFolder_.setTip(L"Documents\\StarDraft");
@@ -219,6 +225,8 @@ public:
         cmbwBrowse_.onClick = [this] { host_.command(ID_OPT_CMBWFOLDER); };
         overrideBrowse_.setText(L"Browse\x2026"), overrideBrowse_.setTip(L"Select a terrain rules file (*.isom)");
         overrideBrowse_.onClick = [this] { host_.command(ID_OPT_TERRAINOVERRIDEFILE); };
+        passagesBrowse_.setText(L"Browse\x2026"), passagesBrowse_.setTip(L"Select a passages file (*.scpass)");
+        passagesBrowse_.onClick = [this] { host_.command(ID_OPT_PASSAGESFILE); };
         check_.setText(L"Check now"), check_.setTip(L"Look for a newer release now");
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };
         restart_.setText(L"Restart now"), restart_.setTip(L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
@@ -233,7 +241,7 @@ public:
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
         // The tabs (showTabStrip): fixed pages, in the order of kTabs.
         std::vector<stardraft::kit::Tab> tabs;
         for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
@@ -358,7 +366,7 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
     int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_ - contentTop_)); }
@@ -394,14 +402,14 @@ private:
 
     OptionsHost& host_;
     stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
-    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, check_, restart_, reset_, maps_, close_;
+    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_;
+    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -449,6 +457,8 @@ void OptionsView::sync(const OptionsValues& v) {
     }
     cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
+    passages_.setOn(v.passagesOn);
+    if (const std::wstring f = v.passagesFile.empty() ? std::wstring(L"\x2014") : v.passagesFile; passagesFile_.text() != f) passagesFile_.setText(f);
     accents_ = v.accents;
     lastProject_.setOn(v.openLast), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
@@ -792,6 +802,17 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["overridefile"] = {colRight - ow, oy, colRight, oy + btnH};
         y += rowH;
         note(x0 + scale(24), y - scale(4), L"Maps opened after a change use the file's terrain rules");
+        y += scale(20);
+        // Ramp and bridge mappings: a passages file for the Ramp brush and the Bridge tool (at once, in the open maps too).
+        checkRow(y, passages_, "plugin.passages");
+        y += rowH;
+        const int pw = passagesBrowse_.preferredWidth(c);
+        place(passagesFile_, {x0 + scale(24), fieldTop(y), colRight - pw - gap, fieldTop(y) + fieldH}, true);
+        const int py = buttonTop(y);
+        place(passagesBrowse_, {colRight - pw, py, colRight, py + btnH}, true);
+        parts_["passagesfile"] = {colRight - pw, py, colRight, py + btnH};
+        y += rowH;
+        note(x0 + scale(24), y - scale(4), L"The Ramp brush and the Bridge tool use its ramps and bridges at once");
         y += scale(20) + pad;
     }
 

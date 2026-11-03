@@ -290,6 +290,7 @@ public:
             v.cmbwOpen = !inUse.empty();
             v.cmbwNext = !gCmbwNext.empty() && gCmbwNext != mod ? gCmbwNext.wstring() : std::wstring();
             v.overrideOn = gTerrainOverrideOn, v.overrideFile = gTerrainOverride.wstring();
+            v.passagesOn = passagesOn(), v.passagesFile = passagesFile().wstring();
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
@@ -444,6 +445,40 @@ void shellShowCampaignWindow() {
                       [] { gCampaignWindowOpen = false; });
 }
 
+// A tool window beside the map (the Custom isom terrain editor, the Ramp and bridge mapper): its place and size from the
+// last time (the settings <prefix>X, Y, W, H and Max), when that place is on a screen now; maximized: so again.
+void restoreWindowPlace(SDL_Window* win, const std::wstring& prefix) {
+    int64_t x = 0, y = 0, w = 0, h = 0, max = 0;
+    if (!win || gSilent || !prefs::number(prefix + L"X", x) || !prefs::number(prefix + L"Y", y) || !prefs::number(prefix + L"W", w) ||
+        !prefs::number(prefix + L"H", h) || w < 400 || h < 300)
+        return;
+    const SDL_Point mid{int(x + w / 2), int(y + 16)};
+    if (SDL_GetDisplayForPoint(&mid)) SDL_SetWindowSize(win, int(w), int(h)), SDL_SetWindowPosition(win, int(x), int(y));
+    if (prefs::number(prefix + L"Max", max) && max) SDL_MaximizeWindow(win);
+}
+// Each turn of the event loop: the window's place and size as the user moves it, saved half a second after the last
+// change (not at each step of a drag; maximized: the place and size before it stay).
+struct WindowPlace {
+    std::wstring prefix;
+    int lastX = 0, lastY = 0, lastW = 0, lastH = 0, lastMax = -1;
+    uint64_t saveAt = 0;
+};
+void keepWindowPlace(SDL_Window* win, WindowPlace& p) {
+    if (!win || gSilent) return;
+    const int max = (SDL_GetWindowFlags(win) & SDL_WINDOW_MAXIMIZED) ? 1 : 0;
+    int x = p.lastX, y = p.lastY, w = p.lastW, h = p.lastH;
+    if (!max && !(SDL_GetWindowFlags(win) & SDL_WINDOW_MINIMIZED)) SDL_GetWindowPosition(win, &x, &y), SDL_GetWindowSize(win, &w, &h);
+    if (x != p.lastX || y != p.lastY || w != p.lastW || h != p.lastH || max != p.lastMax) {
+        if (p.lastMax >= 0) p.saveAt = SDL_GetTicks() + 500;  // (not the first look: the window as it opened)
+        p.lastX = x, p.lastY = y, p.lastW = w, p.lastH = h, p.lastMax = max;
+    }
+    if (p.saveAt && SDL_GetTicks() >= p.saveAt) {
+        p.saveAt = 0;
+        prefs::setNumber(p.prefix + L"X", x), prefs::setNumber(p.prefix + L"Y", y);
+        prefs::setNumber(p.prefix + L"W", w), prefs::setNumber(p.prefix + L"H", h), prefs::setNumber(p.prefix + L"Max", max);
+    }
+}
+
 // Tools > Cosmonarchy > Custom isom terrain editor (core/views_isom_rules.inc; one window, beside the map). Its close
 // button asks about unsaved rules (IsomRulesView::closeRequested).
 bool gIsomRulesOpen = false;
@@ -459,37 +494,43 @@ void shellShowIsomRulesWindow() {
                           L"Custom isom terrain editor"};
     spec.resizable = true;
     gHost->openWindow(*gRoot, gIsomRulesView, spec, [] { gIsomRulesOpen = false; });
-    // (where it was last time and its size, when that place is on a screen now; maximized: so again)
-    int64_t x = 0, y = 0, w = 0, h = 0, max = 0;
     SDL_Window* win = gHost->sdlWindow(gIsomRulesView);
     if (win) sdlNoMinimizeButton(win);  // (a tool window beside the map: maximize and close only)
-    if (win && !gSilent && prefs::number(L"Layout/IsomWindowX", x) && prefs::number(L"Layout/IsomWindowY", y) && prefs::number(L"Layout/IsomWindowW", w) &&
-        prefs::number(L"Layout/IsomWindowH", h) && w >= 400 && h >= 300) {
-        const SDL_Point mid{int(x + w / 2), int(y + 16)};
-        if (SDL_GetDisplayForPoint(&mid)) SDL_SetWindowSize(win, int(w), int(h)), SDL_SetWindowPosition(win, int(x), int(y));
-        if (prefs::number(L"Layout/IsomWindowMax", max) && max) SDL_MaximizeWindow(win);
-    }
+    restoreWindowPlace(win, L"Layout/IsomWindow");
 }
-// Each turn of the event loop: the window's place and size as the user moves it, saved half a second after the last
-// change (not at each step of a drag; maximized: the place and size before it stay).
 void sdlIsomRulesFrame() {
-    static int lastX = 0, lastY = 0, lastW = 0, lastH = 0, lastMax = -1;
-    static uint64_t saveAt = 0;
-    SDL_Window* win = gIsomRulesOpen && gHost && !gSilent ? gHost->sdlWindow(gIsomRulesView) : nullptr;
-    if (!win) return;
-    const int max = (SDL_GetWindowFlags(win) & SDL_WINDOW_MAXIMIZED) ? 1 : 0;
-    int x = lastX, y = lastY, w = lastW, h = lastH;
-    if (!max && !(SDL_GetWindowFlags(win) & SDL_WINDOW_MINIMIZED)) SDL_GetWindowPosition(win, &x, &y), SDL_GetWindowSize(win, &w, &h);
-    if (x != lastX || y != lastY || w != lastW || h != lastH || max != lastMax) {
-        if (lastMax >= 0) saveAt = SDL_GetTicks() + 500;  // (not the first look: the window as it opened)
-        lastX = x, lastY = y, lastW = w, lastH = h, lastMax = max;
-    }
-    if (saveAt && SDL_GetTicks() >= saveAt) {
-        saveAt = 0;
-        prefs::setNumber(L"Layout/IsomWindowX", x), prefs::setNumber(L"Layout/IsomWindowY", y);
-        prefs::setNumber(L"Layout/IsomWindowW", w), prefs::setNumber(L"Layout/IsomWindowH", h), prefs::setNumber(L"Layout/IsomWindowMax", max);
-    }
+    static WindowPlace place{L"Layout/IsomWindow"};
+    if (gIsomRulesOpen && gHost) keepWindowPlace(gHost->sdlWindow(gIsomRulesView), place);
 }
+// Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc; one window, beside the map). Its close button
+// asks about unsaved passages (PassagesView::closeRequested).
+bool gPassagesOpen = false;
+void shellShowPassagesWindow() {
+    if (!gRoot || !gHost) return;
+    if (gPassagesOpen) {
+        if (SDL_Window* w = gHost->sdlWindow(gPassagesView)) SDL_RaiseWindow(w);
+        return;
+    }
+    gPassagesOpen = true;
+    const draw::Point sz = PassagesView::size();
+    draw::WindowSpec spec{draw::WindowKind::Dialog, draw::Rect(0, 0, std::min(sz.x, gRoot->width()), std::min(sz.y, gRoot->height())), L"Ramp and bridge mapper"};
+    spec.resizable = true;
+    gHost->openWindow(*gRoot, gPassagesView, spec, [] { gPassagesOpen = false; });
+    SDL_Window* win = gHost->sdlWindow(gPassagesView);
+    if (win) sdlNoMinimizeButton(win);
+    restoreWindowPlace(win, L"Layout/PassagesWindow");
+}
+void shellSetPassagesTitle(const std::wstring& title) {
+    if (SDL_Window* w = gPassagesOpen && gHost ? gHost->sdlWindow(gPassagesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
+}
+// Each turn of the event loop: the mapper follows the main window's map.
+void sdlPassagesFrame() {
+    static WindowPlace place{L"Layout/PassagesWindow"};
+    if (!gPassagesOpen || !gHost) return;
+    passagesFollow();
+    keepWindowPlace(gHost->sdlWindow(gPassagesView), place);
+}
+
 // The window's title ("*terrains.isom - Custom Isom Terrain Editor": the asterisk, unsaved changes).
 void shellSetIsomRulesTitle(const std::wstring& title) {
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gIsomRulesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());

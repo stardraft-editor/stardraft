@@ -267,7 +267,8 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         copy.setMirrors(0), copy.setTurns(1);
         int placed = 0;
         if (gShape.unramp) copy.deleteDoodads(under);
-        for (const RampPlan& p : ramps) placed += copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true);
+        for (const RampPlan& p : ramps)  // (a ramp doodad, or a passage's ramp: its tiles)
+            placed += p.doodad >= 0 ? copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true) : copy.placeTileValues(p.tiles) > 0;
         const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
         if (a.size() == b.size())
             for (size_t i = 0; i < a.size(); ++i)

@@ -13,6 +13,10 @@ namespace stardraft {
 
 // Whether the tileset (ERA value) has bridge kits.
 bool bridgesAvailable(int era);
+// Whether the map's tileset has bridges: the game's kits, or the passages' (stardraft/passages.h: a mod's).
+bool bridgesAvailable(const Editor& ed);
+// All the tiles a tileset's bridge kits (both orientations) can put down: the tiles a passage maps.
+std::vector<uint16_t> bridgeKitTileValues(int era);
 
 // The tiles of a bridge with its origin (the kit's cell 0, 0) at tile (ox, oy). u: the mirror kit of d (the kits' decks
 // go along the two diagonals; which way is d depends on the tileset). seed: the choice among a piece's variants. Empty:
@@ -35,6 +39,7 @@ struct BridgePlan {
     enum class Problem { None, NoKit, NoIsom, Short, ReachGround, NeedsTerrain, TooNarrow, OffMap };
     Problem problem = Problem::Short;
     std::string ground, water;  // the kit's terrains (for the messages)
+    int kit = -1;               // -1: the game's kit; else the passages' bridge kit it is
     bool u = false;
     int length = 0, width = 0;   // in middle pieces (0: size 0.5)
     int ox = 0, oy = 0;          // the bridge's origin (bridgeTiles)

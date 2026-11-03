@@ -5,6 +5,8 @@
 // the u kit is the d kit's mirror, so its offset is the mirror of d's (found from the two kits' outlines).
 #include "stardraft/bridges.h"
 
+#include "stardraft/passages.h"
+
 #include <algorithm>
 #include <array>
 #include <climits>
@@ -287,6 +289,77 @@ const SeenMap& seenIn(const BridgeKitData& k) {
 
 bool bridgesAvailable(int era) { return kitOf(era, false) && kitOf(era, true); }
 
+std::vector<uint16_t> bridgeKitTileValues(int era) {
+    std::set<uint16_t> v;
+    for (const bool u : {false, true})
+        if (const BridgeKitData* k = kitOf(era, u))
+            for (int i = 0; i < k->keys; ++i)
+                for (int c = 0; c < kBridgeKeys[k->firstKey + i].count; ++c) {
+                    const BridgeChoiceData& ch = kBridgeChoices[kBridgeKeys[k->firstKey + i].first + c];
+                    v.insert(ch.a), v.insert(ch.b);
+                }
+    for (const BridgeExampleData& e : kBridgeExamples)
+        if (e.era == era)
+            for (int i = e.first; i < e.first + e.cells; ++i) v.insert(kBridgeExampleCells[i].a), v.insert(kBridgeExampleCells[i].b);
+    return std::vector<uint16_t>(v.begin(), v.end());
+}
+
+namespace {
+
+// A kit planBridge uses: the game's kit of the map's tileset (index -1), or a passage's (stardraft/passages.h): its
+// template kit with the mod's tiles, on its terrains (coast A under the start cap, coast B under the far cap).
+struct KitUse {
+    int index = -1;  // -1: the game's; else the passages' bridge kit (bridgeKitUses)
+    int era = 0;     // the kit's tileset (a passage's: its template's)
+    const BridgeKitData* d = nullptr;
+    const BridgeKitData* u = nullptr;
+    std::string coastA, water, coastB, road;
+    const passages::TileMap* tiles = nullptr;  // (a passage's: the template tile -> the mod's tile)
+};
+// The passages' bridge kits for a map's tileset: each mapping with all its template's tiles mapped, once for each of
+// its terrains.
+std::vector<KitUse> passageKits(int era) {
+    std::vector<KitUse> out;
+    for (const passages::BridgeMapping& m : passages::inUse().bridges) {
+        if (m.era != era || !bridgesAvailable(m.templateEra)) continue;
+        bool all = true;
+        uint16_t to = 0;
+        for (const uint16_t v : bridgeKitTileValues(m.templateEra)) all = all && passages::mapTile(m.tiles, v, to);
+        if (!all) continue;
+        for (const passages::BridgeTerrains& t : m.terrains) {
+            if (t.coastA.empty() || t.water.empty()) continue;
+            KitUse k;
+            k.index = int(out.size()), k.era = m.templateEra, k.d = kitOf(m.templateEra, false), k.u = kitOf(m.templateEra, true);
+            k.coastA = t.coastA, k.water = t.water, k.coastB = t.coastB.empty() ? t.coastA : t.coastB, k.tiles = &m.tiles;
+            out.push_back(std::move(k));
+        }
+    }
+    return out;
+}
+KitUse gameKit(int era) {
+    KitUse k;
+    k.era = era, k.d = kitOf(era, false), k.u = kitOf(era, true);
+    if (k.d) k.coastA = k.coastB = k.d->ground, k.water = k.d->water, k.road = k.d->road;
+    return k;
+}
+KitUse kitUse(int era, int index) {
+    if (index < 0) return gameKit(era);
+    std::vector<KitUse> p = passageKits(era);
+    return index < int(p.size()) ? p[size_t(index)] : KitUse{};
+}
+// A kit's tiles: a passage's are its template's (the approved bridges or the corpus's variants: the map's tiles are the
+// mod's, other tiles than the template's) with the mod's tiles.
+std::vector<Editor::TileAt> kitTiles(const KitUse& k, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on, bool around) {
+    if (!k.tiles) return bridgeTiles(k.era, u, length, width, ox, oy, seed, on, around);
+    std::vector<Editor::TileAt> t = bridgeTiles(k.era, u, length, width, ox, oy, seed);
+    for (Editor::TileAt& c : t) passages::mapTile(*k.tiles, c.value, c.value);
+    return t;
+}
+
+}  // namespace
+
+bool bridgesAvailable(const Editor& ed) { return bridgesAvailable(ed.era() & 7) || !passageKits(ed.era() & 7).empty(); }
+
 std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on, bool around) {
     std::vector<Editor::TileAt> out;
     const BridgeKitData* k = kitOf(era, u);
@@ -459,19 +532,17 @@ struct Diamond {
 struct Terrains {
     const Editor& ed;
     std::string water;
+    uint16_t waterId = 0;  // (a passage's water: that terrain, by its whole name)
     // (a game terrain's name without the ground it stands on, which a mod's tab adds: "Water (Dirt)")
     std::string at(int cx, int cy) const {
         const std::string n = ed.terrainName(ed.terrainAt(64 * cx, 32 * cy));
         return n.substr(0, n.find(" ("));
     }
+    bool wet(int cx, int cy) const { return waterId ? ed.terrainAt(64 * cx, 32 * cy) == waterId : at(cx, cy) == water; }
     // Water: all four corners are the water.
-    bool water4(Diamond d) const {
-        return at(d.x - 1, d.y) == water && at(d.x + 1, d.y) == water && at(d.x, d.y - 1) == water && at(d.x, d.y + 1) == water;
-    }
+    bool water4(Diamond d) const { return wet(d.x - 1, d.y) && wet(d.x + 1, d.y) && wet(d.x, d.y - 1) && wet(d.x, d.y + 1); }
     // A corner is the water.
-    bool water1(Diamond d) const {
-        return at(d.x - 1, d.y) == water || at(d.x + 1, d.y) == water || at(d.x, d.y - 1) == water || at(d.x, d.y + 1) == water;
-    }
+    bool water1(Diamond d) const { return wet(d.x - 1, d.y) || wet(d.x + 1, d.y) || wet(d.x, d.y - 1) || wet(d.x, d.y + 1); }
 };
 
 Diamond nearestDiamond(int px, int py) {
@@ -489,13 +560,16 @@ Diamond nearestDiamond(int px, int py) {
 
 }  // namespace
 
-BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int width, uint32_t seed) {
+namespace {
+
+BridgePlan planWith(const Editor& ed, const KitUse& use, int x0, int y0, int x1, int y1, int width, uint32_t seed) {
     BridgePlan plan;
-    const int era = ed.era() & 7;
-    const BridgeKitData* d = kitOf(era, false);
-    const BridgeKitData* uk = kitOf(era, true);
+    const int era = use.era;
+    const BridgeKitData* d = use.d;
+    const BridgeKitData* uk = use.u;
     if (!d || !uk) return plan.problem = BridgePlan::Problem::NoKit, plan;
-    plan.ground = d->ground, plan.water = d->water;
+    plan.kit = use.index;
+    plan.ground = use.coastA, plan.water = use.water;
     if (!ed.canPaintTerrain()) return plan.problem = BridgePlan::Problem::NoIsom, plan;
     const int dx = x1 - x0, dy = y1 - y0;
     // The drag's diagonal: down-right (1, 1) or up-right (1, -1), and its way along it.
@@ -509,7 +583,16 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const Diamond across = plan.u ? Diamond{-d->widthStep[0], d->widthStep[1]} : Diamond{d->widthStep[0], d->widthStep[1]};
     plan.width = std::max(0, width);
 
-    const Terrains t{ed, d->water};
+    // (the map's terrain ids by name: a mod's tab has the ground in the game terrains' names, "Water (Dirt)")
+    const auto terrainId = [&](const std::string& name) {
+        for (uint16_t id = 1; id < 256; ++id)
+            if (ed.terrainName(id) == name) return id;
+        for (uint16_t id = 1; id < 256; ++id)
+            if (ed.terrainName(id).rfind(name + " (", 0) == 0) return id;
+        return uint16_t(0);
+    };
+    Terrains t{ed, use.water};
+    if (use.tiles && !(t.waterId = terrainId(use.water))) return plan.problem = BridgePlan::Problem::NoKit, plan;
     const Diamond s = nearestDiamond(x0, y0);
     const int steps = int((double(dx) * 64 * step.x + double(dy) * 32 * step.y) / (64.0 * 64 + 32.0 * 32));  // diamonds along the drag
     // No bridge: why, and the tiles of a bridge as long as the drag with its middle on the drag's middle (the red preview).
@@ -518,7 +601,7 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
         const int length = std::clamp(steps - d->rowsAtSize1 - 1, 0, 64);
         const std::pair<int, int> dOff{d->offset[0], d->offset[1]};
         const std::pair<int, int> o = plan.u ? uOffset(*d, *uk, length, plan.width, dOff) : dOff;
-        const std::vector<Editor::TileAt> draft = bridgeTiles(era, plan.u, length, plan.width, o.first, o.second, seed);
+        const std::vector<Editor::TileAt> draft = kitTiles(use, plan.u, length, plan.width, o.first, o.second, seed, nullptr, false);
         if (draft.empty()) return plan;
         double cx = 0, cy = 0;
         for (const Editor::TileAt& c : draft) cx += 32.0 * c.x + 16, cy += 32.0 * c.y + 16;
@@ -559,7 +642,7 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
     const std::pair<int, int> off = plan.u ? uOffset(*d, *uk, plan.length, plan.width, dOff) : dOff;
     const auto tilesFrom = [&](Diamond r) {
         plan.ox = 2 * r.x + off.first, plan.oy = r.y + off.second, plan.seed = seed;
-        return bridgeTiles(era, plan.u, plan.length, plan.width, plan.ox, plan.oy, seed, &ed);
+        return kitTiles(use, plan.u, plan.length, plan.width, plan.ox, plan.oy, seed, &ed, false);
     };
 
     // (the kit's shortest approved bridge: Badlands has none of length 0.5)
@@ -601,15 +684,10 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
         if (s >= s1 - 1) f0 = std::min(f0, tt), f1 = std::max(f1, tt);
     }
     const int row0 = r.x * deck.x + r.y * deck.y - 1;
-    const auto terrainId = [&](const char* name) {
-        for (uint16_t id = 1; id < 256; ++id)
-            if (ed.terrainName(id) == name) return id;
-        for (uint16_t id = 1; id < 256; ++id)  // (in a mod's tab: "Water (Dirt)", the game terrains first)
-            if (ed.terrainName(id).rfind(std::string(name) + " (", 0) == 0) return id;
-        return uint16_t(0);
-    };
-    const uint16_t ground = terrainId(d->ground), water = terrainId(d->water), road = *d->road ? terrainId(d->road) : ground;
-    std::vector<CornerValue> grounds, roads, waters;
+    // (coast A on the start cap's side of the river, coast B on the far cap's: the game's kits have one ground)
+    const uint16_t groundA = terrainId(use.coastA), groundB = terrainId(use.coastB), water = terrainId(use.water),
+                   road = !use.road.empty() ? terrainId(use.road) : groundA;
+    std::vector<CornerValue> grounds, groundsB, roads, waters;
     int bx0 = INT_MAX, by0 = INT_MAX, bx1 = INT_MIN, by1 = INT_MIN;  // (the bridge's rect-grid box)
     for (const Editor::TileAt& c : tiles) bx0 = std::min(bx0, c.x / 2), by0 = std::min(by0, c.y), bx1 = std::max(bx1, c.x / 2 + 1), by1 = std::max(by1, c.y + 1);
     const int margin = 6;
@@ -622,41 +700,63 @@ BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int widt
                 // end, as the game's bridges have it), clear of the banks.
                 const double row = (s - row0) / 2;
                 const bool nearEnd = s < (s0 + s1) / 2;
-                if (*d->road && (row <= -2.5 || row >= rows + 2.5) && s >= s0 - 2 && s <= s1 + 2 && tt >= (nearEnd ? n0 : f0) + 1 &&
+                if (!use.road.empty() && (row <= -2.5 || row >= rows + 2.5) && s >= s0 - 2 && s <= s1 + 2 && tt >= (nearEnd ? n0 : f0) + 1 &&
                     tt <= (nearEnd ? n1 : f1) - 1)
                     for (const auto& [cx, cy] : {std::pair{X - 1, Y}, {X + 1, Y}, {X, Y - 1}, {X, Y + 1}}) roadCorners.insert({cx, cy});
                 continue;
             }
             const int row = int(std::lround((s - row0) / 2));
+            std::vector<CornerValue>& bank = row < 0 ? grounds : groundsB;
+            const uint16_t ground = row < 0 ? groundA : groundB;
             if (row >= 0 && row <= rows && tt >= t0 - 1 && tt <= t1 + 1) waters.push_back({X, Y, water});
-            else if ((row == -1 || row == rows + 1) && tt >= t0 - 1 && tt <= t1 + 1) grounds.push_back({X, Y, ground});
+            else if ((row == -1 || row == rows + 1) && tt >= t0 - 1 && tt <= t1 + 1) bank.push_back({X, Y, ground});
             else if ((row < -1 || row > rows + 1) && s >= s0 - 1 && s <= s1 + 1 && tt >= t0 - 1 && tt <= t1 + 1 && ed.terrainAt(64 * X, 32 * Y) == water)
-                grounds.push_back({X, Y, ground});
+                bank.push_back({X, Y, ground});
         }
     // (a third terrain near the bridge's tiles, as Snow past an Ice river's Dirt shore: the kit's ground there, two
     // diamonds round them, as the game's maps have round their bridges (Spring Thaw), so that the bridge's edge meets
     // that ground; the rest stays)
     {
         std::set<std::pair<int, int>> asked;
-        for (const std::vector<CornerValue>* v : {&grounds, &waters})
+        for (const std::vector<CornerValue>* v : {&grounds, &groundsB, &waters})
             for (const CornerValue& c : *v) asked.insert({c.x, c.y});
         for (const Editor::TileAt& c : tiles)
             for (int Y = c.y - 2; Y <= c.y + 3; ++Y)
                 for (int X = std::max(0, 32 * c.x - 128) / 64; X <= (32 * c.x + 160) / 64; ++X) {
                     if (!((X + Y) & 1) || X < 0 || Y < 0 || X > ed.width() / 2 || Y > ed.height() || !asked.insert({X, Y}).second) continue;
                     const uint16_t t = ed.terrainAt(64 * X, 32 * Y);
-                    if (t && t != ground && t != water && t != road) grounds.push_back({X, Y, ground});
+                    const bool a = along(X, Y) - row0 < rows;  // (the start cap's side)
+                    if (t && t != groundA && t != groundB && t != water && t != road) (a ? grounds : groundsB).push_back({X, Y, a ? groundA : groundB});
                 }
     }
     // (the road's corners: not ground as well)
-    std::erase_if(grounds, [&](const CornerValue& c) { return roadCorners.count({c.x, c.y}) != 0; });
+    for (auto* list : {&grounds, &groundsB}) std::erase_if(*list, [&](const CornerValue& c) { return roadCorners.count({c.x, c.y}) != 0; });
     for (const auto& [cx, cy] : roadCorners) roads.push_back({cx, cy, road});
-    if (!ground || !water || !road) return fail(BridgePlan::Problem::NoKit);
-    for (auto* list : {&grounds, &roads, &waters})
+    if (!groundA || !groundB || !water || !road) return fail(BridgePlan::Problem::NoKit);
+    for (auto* list : {&grounds, &groundsB, &roads, &waters})
         if (!list->empty()) plan.shore.push_back(std::move(*list));
     plan.tiles = std::move(tiles);
     plan.problem = BridgePlan::Problem::None;
     return plan;
+}
+
+}  // namespace
+
+BridgePlan planBridge(const Editor& ed, int x0, int y0, int x1, int y1, int width, uint32_t seed) {
+    // The passages' kits (a mod's bridges: a mapping is the user's choice for its water), then the game's kit: the first
+    // that makes a bridge; else the one that found its water on the drag (its reason), else the first's.
+    std::vector<KitUse> kits = passageKits(ed.era() & 7);
+    kits.push_back(gameKit(ed.era() & 7));
+    BridgePlan first, found;
+    bool haveFound = false;
+    for (size_t i = 0; i < kits.size(); ++i) {
+        BridgePlan p = planWith(ed, kits[i], x0, y0, x1, y1, width, seed);
+        if (p.problem == BridgePlan::Problem::None) return p;
+        if (!haveFound && p.problem != BridgePlan::Problem::NoKit && p.problem != BridgePlan::Problem::Short && p.problem != BridgePlan::Problem::NeedsTerrain)
+            found = p, haveFound = true;
+        if (!i || first.problem == BridgePlan::Problem::NoKit) first = std::move(p);
+    }
+    return haveFound ? found : first;
 }
 
 bool applyBridge(Editor& ed, const BridgePlan& plan) {
@@ -664,7 +764,7 @@ bool applyBridge(Editor& ed, const BridgePlan& plan) {
     bool changed = false;
     for (const std::vector<CornerValue>& corners : plan.shore) changed |= ed.setTerrainCorners(corners);
     // (the pieces again, with the shore's tiles round them: the ones that meet them best)
-    std::vector<Editor::TileAt> tiles = bridgeTiles(ed.era() & 7, plan.u, plan.length, plan.width, plan.ox, plan.oy, plan.seed, &ed, true);
+    std::vector<Editor::TileAt> tiles = kitTiles(kitUse(ed.era() & 7, plan.kit), plan.u, plan.length, plan.width, plan.ox, plan.oy, plan.seed, &ed, true);
     if (tiles.size() != plan.tiles.size()) tiles = plan.tiles;
     return ed.placeTileValues(tiles) > 0 || changed;
 }

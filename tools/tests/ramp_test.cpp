@@ -6,6 +6,8 @@
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/bridges.h"
+#include "stardraft/passages.h"
 #include "stardraft/ramps.h"
 #include "stardraft/tileset.h"
 
@@ -848,6 +850,190 @@ int main(int argc, char** argv) {
     }
     if (const char* blocks = std::getenv("RAMP_BLOCKS")) {
         dumpBlocks(data, blocks);
+        return 0;
+    }
+    if (const char* out = std::getenv("PASSAGES_SAMPLE")) {  // <file>: a passages file for the mapper's snapshot (Badlands: a ramp half mapped, a bridge)
+        stardraft::passages::Passages ps;
+        stardraft::passages::RampMapping r;
+        r.name = "Cliff (sample)", r.era = 0, r.block = rampKitBase(rampKitsOf(0, true).front());
+        std::set<uint16_t> all;
+        for (const int k : rampKitsOf(0, true))
+            if (rampKitBase(k) == r.block)
+                for (const Editor::TileAt& c : rampKitTiles(k, 1, 0, 0)) all.insert(c.value);
+        size_t i = 0;
+        for (const uint16_t v : all)
+            if (i++ < all.size() / 2) r.tiles[v] = v;
+        r.terrains.push_back({"Dirt", "High Dirt"});
+        if (std::getenv("MOD_CMBW")) {  // (the mod's data: a mod cliff that stands in for High Dirt, on its ground)
+            Editor ed(data);
+            std::string e;
+            if (ed.newMap(64, 64, 0, 1, e))
+                for (const Tileset::ModTerrain& m : ed.tileset().modTerrains)
+                    if (ed.terrainName(m.standIn).rfind("High Dirt", 0) == 0 && m.ground && !m.variantOf) {
+                        r.name = "Mod cliff (sample)", r.terrains[0] = {ed.terrainName(m.ground), ed.terrainName(m.id)};
+                        std::printf("sample cliff: %s on %s\n", ed.terrainName(m.id).c_str(), ed.terrainName(m.ground).c_str());
+                        break;
+                    }
+        }
+        ps.ramps.push_back(r);
+        stardraft::passages::BridgeMapping b;
+        b.name = "Bridge (sample)", b.era = 0, b.templateEra = 0;
+        for (const uint16_t v : bridgeKitTileValues(0)) b.tiles[v] = v;
+        b.terrains.push_back({"Dirt", "Water", "Dirt"});
+        ps.bridges.push_back(b);
+        std::string err;
+        if (!stardraft::passages::save(out, ps, err)) return std::printf("%s\n", err.c_str()), 1;
+        return 0;
+    }
+    if (const char* out = std::getenv("RAMP_MOD_PLATEAU")) {  // <folder> (MOD_CMBW): Badlands, a plateau of a mod cliff on its ground and a
+        // mapping for it with no tiles yet: for the mapper's Map all and the program's Ramp brush
+        Editor probe(data);
+        std::string err;
+        if (!probe.newMap(64, 64, 0, 1, err)) return std::printf("%s\n", err.c_str()), 1;
+        if (std::getenv("RAMP_MOD_GROUPS")) {  // (the isometric terrains of the first tile groups)
+            const auto t = tileGroupTerrains(probe.tileset());
+            for (size_t g = 0; g < 24 && g < t.size(); ++g) std::printf("group %zu: %d %d\n", g, t[g][0], t[g][1]);
+            return 0;
+        }
+        for (const Tileset::ModTerrain& m : probe.tileset().modTerrains) {
+            if (probe.terrainName(m.standIn).rfind("High Dirt", 0) != 0 || !m.ground || m.variantOf) continue;
+            Editor ed(data);
+            if (!ed.newMap(96, 96, 0, m.ground, err)) continue;
+            Brush b;
+            b.shape = Brush::Diamond, b.size = 16;
+            ed.paintBrush(48 * 32, 48 * 32, m.id, b);
+            stardraft::passages::Passages ps;
+            stardraft::passages::RampMapping r;
+            r.name = "Mod cliff ramp", r.era = 0, r.block = rampKitBase(rampKitsOf(0, true).front());
+            r.terrains.push_back({ed.terrainName(m.ground), ed.terrainName(m.id)});
+            ps.ramps.push_back(r);
+            const bool ok = ed.save(std::filesystem::path(out) / "plateau.scx", err) && stardraft::passages::save(std::filesystem::path(out) / "plateau.scpass", ps, err);
+            std::printf("plateau of %s on %s: %s\n", ed.terrainName(m.id).c_str(), ed.terrainName(m.ground).c_str(), ok ? "saved" : err.c_str());
+            // (RAMP_MOD_FILE=<a mapped .scpass>: its ramps round the plateau's edge, as the Ramp brush makes them)
+            if (const char* file = std::getenv("RAMP_MOD_FILE")) {
+                stardraft::passages::Passages mapped;
+                if (std::string(file) == "identity") {  // (the template's tiles as they are)
+                    mapped = ps;
+                    for (const int k : rampKitsOf(0, true))
+                        if (rampKitBase(k) == r.block)
+                            for (const Editor::TileAt& c : rampKitTiles(k, 1, 0, 0)) mapped.ramps[0].tiles[c.value] = c.value;
+                } else if (!stardraft::passages::load(file, mapped, err)) return std::printf("%s\n", err.c_str()), 1;
+                stardraft::passages::use(mapped);
+                int rx = 0, ry = 0;
+                while (rx < 40 * 32 && ed.terrainAt(48 * 32 + rx, 48 * 32) == m.id) rx += 8;
+                while (ry < 40 * 32 && ed.terrainAt(48 * 32, 48 * 32 + ry) == m.id) ry += 8;
+                std::vector<std::pair<int, int>> ring;
+                for (int k = 0; k <= 64; ++k) {
+                    const double t = k / 64.0 * 4, f = t - int(t);
+                    const int side = int(t) % 4;
+                    const std::pair<double, double> c[5] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+                    ring.push_back({48 * 32 + int((c[side].first + (c[side + 1].first - c[side].first) * f) * rx),
+                                    48 * 32 + int((c[side].second + (c[side + 1].second - c[side].second) * f) * ry)});
+                }
+                for (const uint16_t want : {m.ground, m.id}) {  // (the first id of each name: the one a name finds)
+                    uint16_t first = 0;
+                    for (uint16_t id = 1; id < 256 && !first; ++id)
+                        if (ed.terrainName(id) == ed.terrainName(want)) first = id;
+                    std::printf("%s: id %d, first of its name %d\n", ed.terrainName(want).c_str(), want, first);
+                }
+                std::printf("edge right of the middle: %d at +%d, then %d\n", ed.terrainAt(48 * 32 + rx - 8, 48 * 32), rx, ed.terrainAt(48 * 32 + rx + 8, 48 * 32));
+                RampPlan why;
+                const std::vector<RampPlan> plans = planRamps(ed, rampBrushStroke(ring, 2), &why);
+                int passage = 0;
+                for (const RampPlan& p : plans) passage += p.kit >= 0 && rampKitFromPassage(p.kit);
+                std::printf("ring: %zu ramps, %d of the passage (why %d; doodads: %zu)\n", plans.size(), passage, int(why.problem),
+                            rampDoodads(ed).size());
+                stardraft::passages::use({});
+            }
+            return ok ? 0 : 1;
+        }
+        return std::printf("no mod cliff\n"), 1;
+    }
+    if (std::getenv("RAMP_PASSAGES")) {  // each tileset: a passage ramp (the first block, its tiles as they are) on each cliff that no game kit has
+        int made = 0, tried = 0;
+        bool savedOne = false;
+        for (int era = 0; era < 8; ++era) {
+            Editor probe(data);
+            std::string err;
+            if (!probe.newMap(64, 64, uint16_t(era), 1, err)) continue;
+            int block = -1;
+            std::set<std::string> kitHighs;
+            for (const int k : rampKitsOf(era, true)) {
+                if (block < 0) block = rampKitBase(k);
+                kitHighs.insert(rampKitTerrains(k).second);
+            }
+            if (block < 0) continue;
+            for (uint16_t high = 2; high < 64; ++high) {
+                const std::string hn = probe.terrainName(high);
+                if (hn.rfind("High ", 0) != 0 || kitHighs.count(hn)) continue;
+                uint16_t low = 0;
+                for (uint16_t id = 1; id < 64 && !low; ++id)
+                    if (probe.terrainName(id) == hn.substr(5)) low = id;
+                if (!low) continue;
+                stardraft::passages::Passages ps;
+                stardraft::passages::RampMapping m;
+                m.name = "probe", m.era = era, m.block = block;
+                for (const int k : rampKitsOf(era, true))
+                    if (rampKitBase(k) == block)
+                        for (const Editor::TileAt& c : rampKitTiles(k, 1, 0, 0)) m.tiles[c.value] = c.value;
+                m.terrains.push_back({probe.terrainName(low), hn});
+                ps.ramps.push_back(m);
+                stardraft::passages::use(ps);
+                Editor ed(data);
+                ed.newMap(96, 96, uint16_t(era), low, err);
+                Brush b;
+                b.shape = Brush::Diamond, b.size = 16;
+                ed.paintBrush(48 * 32, 48 * 32, high, b);
+                int rx = 0;
+                while (rx < 40 * 32 && ed.terrainAt(48 * 32 + rx, 48 * 32) == high) rx += 8;
+                // (along the plateau's south-east edge)
+                std::vector<std::pair<int, int>> stroke;
+                for (int k = 2; k <= 6; ++k) stroke.push_back({48 * 32 + rx * (8 - k) / 8, 48 * 32 + rx / 2 * k / 8});
+                ++tried;
+                int passage = 0;
+                // (the whole ring round the plateau, as RAMP_PLATEAUS)
+                int ry = 0;
+                while (ry < 40 * 32 && ed.terrainAt(48 * 32, 48 * 32 + ry) == high) ry += 8;
+                stroke.clear();
+                for (int k = 0; k <= 64; ++k) {
+                    const double t = k / 64.0 * 4;
+                    const int side = int(t) % 4;
+                    const double f = t - int(t);
+                    const std::pair<double, double> c[5] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
+                    stroke.push_back({48 * 32 + int((c[side].first + (c[side + 1].first - c[side].first) * f) * rx),
+                                      48 * 32 + int((c[side].second + (c[side + 1].second - c[side].second) * f) * ry)});
+                }
+                // (the terrains at the plateau's edge, right of its middle: the cliff there is not the pair asked for when
+                // the brush put other terrains between them)
+                {
+                    int x = 48 * 32;
+                    while (x < 95 * 32 && ed.terrainAt(x, 48 * 32) == high) x += 16;
+                    const uint16_t next = ed.terrainAt(x, 48 * 32);
+                    if (next != low) {
+                        std::printf("era %d cliff %-22s: skipped, the edge is %s next to %s\n", era, hn.c_str(), probe.terrainName(next).c_str(), hn.c_str());
+                        --tried;
+                        continue;
+                    }
+                }
+                // (RAMP_PASSAGES_OUT=<folder>: the first plateau, before its ramps, and its mapping with no tiles yet: for the
+                // mapper's Map all and the program's Ramp brush)
+                if (const char* out = std::getenv("RAMP_PASSAGES_OUT"); out && *out && !savedOne) {
+                    stardraft::passages::Passages empty = ps;
+                    empty.ramps[0].name = "Mod cliff ramp", empty.ramps[0].tiles.clear();
+                    std::string e2;
+                    savedOne = ed.save(std::filesystem::path(out) / "plateau.scx", e2) && stardraft::passages::save(std::filesystem::path(out) / "plateau.scpass", empty, e2);
+                    std::printf("saved plateau of %s on %s (era %d): %s\n", hn.c_str(), probe.terrainName(low).c_str(), era, savedOne ? "ok" : e2.c_str());
+                }
+                RampPlan why;
+                const std::vector<RampPlan> plans = planRamps(ed, rampBrushStroke(stroke, 2), &why);
+                if (plans.empty()) std::printf("  (why %d; kits on the map: %d)\n", int(why.problem), int(rampKitsOf(era).size()));
+                for (const RampPlan& p : plans) passage += p.kit >= 0 && rampKitFromPassage(p.kit);
+                made += passage > 0;
+                std::printf("era %d cliff %-22s on %-16s: %zu ramps, %d of a passage\n", era, hn.c_str(), probe.terrainName(low).c_str(), plans.size(), passage);
+            }
+        }
+        stardraft::passages::use({});
+        std::printf("%d of %d cliffs got a passage ramp\n", made, tried);
         return 0;
     }
     if (const char* out = std::getenv("RAMP_PLATEAUS")) {  // <folder>: per tileset, a plateau and the brush (size 2) round its edge: the ramps, saved

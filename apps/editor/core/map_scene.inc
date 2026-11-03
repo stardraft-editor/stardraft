@@ -455,7 +455,7 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     return s.rects.size() - from;
 }
 
-// The Ramp brush's outline at a point (map pixels): the brush as the paint brush shows it (its shape and size: Alt + wheel),
+// The Ramp brush's and the Bridge's outline at a point (map pixels): the brush as the paint brush shows it (its shape and size: Alt + wheel),
 // with no trail along the stroke.
 std::set<std::pair<int, int>> rampBrushCorners(std::pair<int, int> at) {
     const std::vector<std::pair<int, int>> c = appState().ed->brushCorners(at.first, at.second, currentBrush());
@@ -471,6 +471,17 @@ void shapeScene(render::Scene& s) {
         s.rects.push_back({x * 32.f, y * 32.f, x * 32.f + 32, y * 32.f + 32, 0xE0303058u, true});
     if (gShape.tool == TRamp) {  // (the brush where the mouse is, as the paint brush shows it)
         if (!gShape.points.empty()) diamondOutline(s, rampBrushCorners(gShape.points.back()), gShape.unramp ? 0xFF6060F0u : 0xFFFFFFF0u);
+        return;
+    }
+    if (gShape.tool == TBridge) {  // (the drag as an isometric line of the brush (its size: the bridge's width), over the bridge's tiles)
+        if (gShape.points.empty()) return;
+        const auto [x0, y0] = gShape.points.front();
+        const auto [x1, y1] = gShape.points.back();
+        const int n = std::max(1, int(std::hypot(x1 - x0, y1 - y0) / 16));
+        std::set<std::pair<int, int>> line;
+        for (int k = 0; k <= n; ++k)
+            for (const auto& c : rampBrushCorners({x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n})) line.insert(c);
+        diamondOutline(s, line, gShape.red.empty() ? 0xFFFFFFF0u : 0xFF6060F0u);
         return;
     }
     const std::vector<std::pair<int, int>> pts = shapeGeometry(shapePath());  // (Rectangle, Ellipse: their outline)
@@ -928,7 +939,7 @@ render::Scene buildScene() {
         }
     } else if (app.mode == Mode::Terrain && shapeOn()) {
         shapeScene(s);
-    } else if (app.mode == Mode::Terrain && currentTool() == TRamp) {  // Ramp: its brush, a diamond (any kind of terrain)
+    } else if (app.mode == Mode::Terrain && (currentTool() == TRamp || currentTool() == TBridge)) {  // Ramp, Bridge: the brush, a diamond (any kind of terrain)
         diamondOutline(s, rampBrushCorners({int(wx), int(wy)}), 0xFFFFFFF0u);
     } else if (app.mode == Mode::Terrain && currentTool() == TErase) {  // Erase: the isometric brush's diamonds (any kind), in red
         std::set<std::pair<int, int>> set;

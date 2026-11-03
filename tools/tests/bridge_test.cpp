@@ -6,6 +6,7 @@
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/passages.h"
 #include "stardraft/ramps.h"
 #include "stardraft/tileset.h"
 
@@ -784,6 +785,49 @@ int main(int argc, char** argv) {
                 if (p.problem == BridgePlan::Problem::None) applyBridge(ed, p);
             }
         if (!ed.save(file, err)) return std::printf("%s\n", err.c_str()), 1;
+        return 0;
+    }
+    if (std::getenv("BRIDGE_PASSAGES")) {  // each tileset: a passage bridge (the Jungle kit, its tiles as they are) over each water-like terrain
+        int made = 0, tried = 0;
+        bool savedOne = false;
+        for (int era = 0; era < 8; ++era) {
+            Editor probe(data);
+            std::string err;
+            if (!probe.newMap(64, 64, uint16_t(era), 1, err)) continue;
+            for (uint16_t w = 2; w < 256; ++w) {  // (a mod's terrains too: 64 and up)
+                const std::string name = probe.terrainName(w);
+                if (name.empty() || (name.find("Water") == std::string::npos && name.find("Lava") == std::string::npos && name.find("Magma") == std::string::npos &&
+                                     name.find("Tar") == std::string::npos && name.find("Mud") == std::string::npos))
+                    continue;
+                stardraft::passages::Passages ps;
+                stardraft::passages::BridgeMapping m;
+                m.name = "probe", m.era = era, m.templateEra = bridgesAvailable(era) ? era : 4;
+                for (const uint16_t v : bridgeKitTileValues(m.templateEra)) m.tiles[v] = v;
+                m.terrains.push_back({probe.terrainName(1), name, probe.terrainName(1)});
+                ps.bridges.push_back(m);
+                stardraft::passages::use(ps);
+                Editor ed(data);
+                ed.newMap(128, 128, uint16_t(era), 1, err);
+                Brush brush;
+                brush.size = 2;
+                const int cx = 64 * 32, cy = 64 * 32;
+                ed.paintTerrainLine(cx - 64 * 7, cy - 32 * 7, cx + 64 * 7, cy + 32 * 7, w, brush);
+                // (BRIDGE_PASSAGES_OUT=<folder>: the first river of a terrain no game kit has, before its bridge, and its passages file:
+                // for a drag of the program's Bridge tool)
+                if (const char* out = std::getenv("BRIDGE_PASSAGES_OUT"); out && *out && w >= 4 && !savedOne) {
+                    std::string e2;
+                    savedOne = ed.save(std::filesystem::path(out) / "river.scx", e2) && stardraft::passages::save(std::filesystem::path(out) / "river.scpass", ps, e2);
+                    std::printf("saved river of %s: %s\n", name.c_str(), savedOne ? "ok" : e2.c_str());
+                }
+                const BridgePlan p = planBridge(ed, cx - 64 * 8, cy + 32 * 8, cx + 64 * 8, cy - 32 * 8, 1, 7);
+                ++tried;
+                const bool ok = p.problem == BridgePlan::Problem::None && p.kit >= 0 && applyBridge(ed, p);
+                made += ok;
+                std::printf("era %d water %-22s: problem %d kit %d tiles %zu%s\n", era, name.c_str(), int(p.problem), p.kit, p.tiles.size(), ok ? " (passage bridge placed)" : "");
+            }
+        }
+        stardraft::passages::use({});
+        std::printf("%d of %d passage bridges made\n", made, tried);
         return 0;
     }
     paintedRivers(data, std::getenv("BRIDGE_SHOTS"));

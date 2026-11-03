@@ -30,6 +30,8 @@ std::vector<uint16_t> rampDoodads(const Editor& ed);
 // block's first doodad and its doodad group.
 std::vector<int> rampKitsOf(int era, bool all = false);
 int rampKitFacing(int kit);
+// Whether a kit is a passage's (stardraft/passages.h: a mod's ramp on the shape of a game kit), not the game's.
+bool rampKitFromPassage(int kit);
 int rampKitBase(int kit);
 int rampKitDoodad(int kit, int kind);  // a piece's doodad (0 wall A, 1 slope, 2 wall B)
 // A kit's ground below (several: apart by "|") and above.
@@ -46,6 +48,9 @@ struct RampPiece {
 std::vector<RampPiece> rampKitPieces(int kit, int slopes, int ax, int ay);
 std::pair<int, int> rampKitPieceSize(int kit, int kind);
 std::vector<Editor::TileAt> rampKitTiles(int kit, int slopes, int ax, int ay);
+// A piece's own tiles (kind 0 wall A, 1 slope, 2 wall B), from its top left: the pieces' boxes can overlap (the diagonal
+// facings), so a box's tiles may be another piece's.
+std::vector<Editor::TileAt> rampKitPieceTiles(int kit, int kind);
 // Whether the map's tiles have that ramp: each tile of each piece as the kit has it.
 bool rampKitMatches(const Editor& ed, int kit, int slopes, int ax, int ay);
 // Whether the ramp fits the map's cliff there: under each piece the ISOM corners have the terrains of the maps' ramps'

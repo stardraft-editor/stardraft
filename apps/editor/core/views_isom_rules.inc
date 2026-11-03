@@ -87,6 +87,15 @@ inline std::unique_ptr<draw::Bitmap> tilesBitmap(const stardraft::Tileset& ts, c
     return b;
 }
 
+// A terrain's picture for a list (its solid tile; null: none), as the terrain dropdowns show it (also the Ramp and bridge
+// mapper's).
+inline std::shared_ptr<draw::Bitmap> terrainPicture(const stardraft::Tileset& ts, uint16_t terrain) {
+    if (ts.groups.empty()) return nullptr;
+    const int g = stardraft::solidTileGroup(ts, terrain);
+    const uint16_t v = g >= 0 ? stardraft::terrainrules::gameTile(ts, uint32_t(g)) : 0;
+    return v ? std::shared_ptr<draw::Bitmap>(tilesBitmap(ts, {v}, 1, 1)) : nullptr;
+}
+
 // The window's worker thread: the tileset loads and the examples paint there, one job after the other (the window stays
 // open and answers meanwhile). It is never stopped: the program's end stops it.
 class Worker {
@@ -1812,12 +1821,7 @@ private:
     // The game's own tile groups of a tileset (the mod's groups past them: not in a game tileset); 0: unknown.
     static size_t gameGroups(int e) { return stardraft::cmbw::gameTileGroups(e); }
     // A game terrain's tile (its solid group's), as a picture; null: none.
-    static std::shared_ptr<draw::Bitmap> terrainPic(const stardraft::Tileset& ts, uint16_t terrain) {
-        if (ts.groups.empty()) return nullptr;
-        const int g = stardraft::solidTileGroup(ts, terrain);
-        const uint16_t v = g >= 0 ? stardraft::terrainrules::gameTile(ts, uint32_t(g)) : 0;
-        return v ? std::shared_ptr<draw::Bitmap>(isomrules::tilesBitmap(ts, {v}, 1, 1)) : nullptr;
-    }
+    static std::shared_ptr<draw::Bitmap> terrainPic(const stardraft::Tileset& ts, uint16_t terrain) { return isomrules::terrainPicture(ts, terrain); }
     // The other tilesets load on the worker one after the other (a job each: an example waits for one at most); each
     // gives the list its borders' tiles, then goes.
     void loadRefTilesets() {

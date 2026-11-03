@@ -248,6 +248,8 @@ bool sdlRuns(int id) {
     case ID_OPT_CMBWFOLDER:
     case ID_OPT_TERRAINOVERRIDE:
     case ID_OPT_TERRAINOVERRIDEFILE:
+    case ID_OPT_PASSAGES:
+    case ID_OPT_PASSAGESFILE:
     case ID_SCEN_CHECK:
     case ID_RECENT_CLEAR_MAPS:
     case ID_RECENT_CLEAR_PROJECTS:
@@ -321,7 +323,7 @@ bool simLocksCommand(int id) {
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
-    if (id == ID_CMBW_ISOMRULES && !cmbwMode()) return false;  // (the mod loaded)
+    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
@@ -1416,7 +1418,7 @@ void confirmQuit(std::function<void()> then) {
     if (gQuitPrompt || sdlFileDialogOpen()) return;
     gQuitPrompt = true;
     gQuitRetry = [then] { confirmQuit(then); };
-    const bool ok = !gRoot || (isomRulesConfirmQuit() && confirmAllDocs());
+    const bool ok = !gRoot || (isomRulesConfirmQuit() && passagesConfirmQuit() && confirmAllDocs());
     gQuitRetry = {};
     gQuitPrompt = false;
     if (ok) then();
@@ -1506,6 +1508,8 @@ void commandSdl(int id) {
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
     case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
     case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
+    case ID_OPT_PASSAGES: passagesToggle(); return;  // (core/views_passages.inc)
+    case ID_OPT_PASSAGESFILE: passagesChoose(); return;
     case ID_SCEN_CHECK: {
         const std::wstring problems = playabilityText();
         if (problems.empty()) setMessage(L"StarCraft can start this map");

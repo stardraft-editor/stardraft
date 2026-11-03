@@ -125,6 +125,7 @@
 #include "views_new_project.inc"
 #include "views_message_box.inc"
 #include "views_isom_rules.inc"  // Tools > Cosmonarchy > Custom isom terrain editor (the mod's terrain rules files)
+#include "views_passages.inc"    // Tools > Cosmonarchy > Ramp and bridge mapper (the mod's passages files)
 #include "views_about.inc"
 #include "views_changelog.inc"  // the release notes window (the top bar's Update, Help > What is new): the HTML view (html_view.h)
 #include "views_help.inc"  // the help window (Help > Documentation, F1): the pages of docs/help in the HTML view

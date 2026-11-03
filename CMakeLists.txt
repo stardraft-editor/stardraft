@@ -121,6 +121,7 @@ add_library(stardraft
     src/project_import.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
+    src/passages.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp

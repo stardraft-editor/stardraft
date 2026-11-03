@@ -504,9 +504,8 @@ constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp g
 // src/ramps.cpp): one group's button when it has both.
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     AppState& app = appState();
-    const int era = app.ed ? app.ed->era() & 7 : -1;
     std::vector<StripItem> group;
-    if (app.ed && bridgesAvailable(era)) group.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
+    if (app.ed && bridgesAvailable(*app.ed)) group.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
     else if (app.toolByMode[int(Mode::Terrain)] == TBridge) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (a map of another tileset)
     if (app.ed && rampsAvailable(*app.ed)) group.push_back({UiIcon::Ramp, kRampTip, TRamp, false});
     else if (app.toolByMode[int(Mode::Terrain)] == TRamp) app.toolByMode[int(Mode::Terrain)] = TBrush;
