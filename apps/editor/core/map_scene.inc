@@ -942,6 +942,32 @@ render::Scene buildScene() {
             Rect b = ed.terrainClipboardBox();
             const auto pts = ed.symmetricPoints(int(wx), int(wy));
             const auto corners = ed.terrainPasteCorners(int(wx), int(wy));
+            // (the pasted terrain itself, as the map would have it: the paste on a copy of the map, its changed tiles
+            // over the terrain; made again only when the paste's place, the map or the copy changes; GitHub #238)
+            struct PasteGhost {
+                const Editor* ed = nullptr;
+                uint64_t revision = ~0ull;
+                std::pair<int, int> at{INT_MIN, INT_MIN};
+                size_t corners = 0;
+                std::vector<std::pair<int, uint16_t>> cells;
+            };
+            static PasteGhost g;
+            const std::pair<int, int> at = corners.empty() ? std::pair{INT_MIN, INT_MIN} : corners.front();
+            if (g.ed != &ed || g.revision != ed.revision() || g.at != at || g.corners != corners.size()) {
+                g.ed = &ed, g.revision = ed.revision(), g.at = at, g.corners = corners.size(), g.cells.clear();
+                Editor& copy = shapeCopy(ed.gameData());
+                std::string error;
+                if (copy.openChk(ed.chk(), error)) {
+                    shapeCopySettings(copy, ed);
+                    copy.setTerrainCopies(ed.terrainCopies());
+                    copy.pasteTerrain(int(wx), int(wy), app.correction);
+                    const std::vector<uint16_t>&a = ed.terrain().tiles, &c = copy.terrain().tiles;
+                    if (a.size() == c.size())
+                        for (size_t i = 0; i < a.size(); ++i)
+                            if (a[i] != c[i]) g.cells.push_back({int(i), c[i]});
+                }
+            }
+            ghostTiles = g.cells;
             diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0x40FF40FFu);
             for (size_t k = 1; k < pts.size(); ++k) outline(s, {pts[k].first, pts[k].second, pts[k].first + b.right, pts[k].second + b.bottom}, 0x40FF40FFu, 2);
         }
