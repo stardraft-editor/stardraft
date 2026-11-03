@@ -964,6 +964,70 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    if (std::getenv("RAMP_RESHAPE")) {  // a ragged plateau: of the strokes round its edge, those with a ramp before and after the cliff smoothing
+        int bad = 0;
+        for (const int era : {4, 0, 1, 2, 3, 5, 6, 7}) {
+            Editor ed(data);
+            std::string err;
+            if (!ed.newMap(128, 128, uint16_t(era), 1, err)) continue;
+            if (rampKitsOf(era).empty()) continue;
+            const auto [lowName, highName] = rampKitTerrains(rampKitsOf(era).front());
+            uint16_t high = 0, low = 0;
+            const std::string low0 = lowName.substr(0, lowName.find('|'));
+            for (uint16_t id = 1; id < 128; ++id) {
+                if (!high && ed.terrainName(id) == highName) high = id;
+                if (!low && ed.terrainName(id) == low0) low = id;
+            }
+            if (!high) continue;
+            Brush b;
+            b.shape = Brush::Diamond;
+            if (low) b.size = 24, ed.paintBrush(64 * 32, 64 * 32, low, b);  // (the kit's ground below round the plateau)
+            b.size = 8;
+            ed.paintBrush(64 * 32, 64 * 32, high, b);
+            uint32_t seed = 12345;
+            for (int i = 0; i < 40; ++i) {  // (a ragged edge: small dabs round the plateau's rim)
+                seed = seed * 1103515245 + 12345;
+                const double a = (seed >> 8) % 6283 / 1000.0;
+                b.size = 1 + float((seed >> 20) % 2);
+                ed.paintBrush(64 * 32 + int(std::cos(a) * 8 * 64), 64 * 32 + int(std::sin(a) * 8 * 32), high, b);
+            }
+            int before = 0, after = 0, strokes = 0;
+            double worst = 0;
+            // (RAMP_SHOTS: the plateau with the ramps of all the strokes, without and with the smoothing)
+            Editor plain(data), smooth(data);
+            if (!plain.openChk(ed.chk(), err) || !smooth.openChk(ed.chk(), err)) return 1;
+            for (int i = 0; i < 48; ++i) {
+                const double a = i * 6.2832 / 48;
+                const std::vector<std::pair<int, int>> stroke =
+                    rampBrushStroke({{64 * 32 + int(std::cos(a) * 8 * 64), 64 * 32 + int(std::sin(a) * 8 * 32)}}, 1.0f);
+                const std::vector<RampPlan> r0 = planRamps(ed, stroke);
+                ++strokes, before += !r0.empty();
+                Editor c(data);
+                if (!c.openChk(ed.chk(), err)) return 1;
+                const auto t0 = std::chrono::steady_clock::now();
+                const int made = reshapeForRamps(c, stroke, r0);
+                const std::vector<RampPlan> r1 = made ? planRamps(c, stroke) : r0;
+                worst = std::max(worst, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+                after += !r1.empty();
+                if (c.invalidTerrain()) ++bad, std::printf("era %d stroke %d: invalid ISOM after the smoothing\n", era, i);
+                if (made && r1.empty()) ++bad, std::printf("era %d stroke %d: smoothed, but no ramp\n", era, i);
+                if (std::getenv("RAMP_SHOTS")) {
+                    for (const RampPlan& p : planRamps(plain, stroke)) plain.placeTileValues(p.tiles);
+                    std::vector<RampPlan> s = planRamps(smooth, stroke);
+                    if (reshapeForRamps(smooth, stroke, s)) s = planRamps(smooth, stroke);
+                    for (const RampPlan& p : s) smooth.placeTileValues(p.tiles);
+                }
+            }
+            if (const char* shots = std::getenv("RAMP_SHOTS")) {
+                if (smooth.invalidTerrain()) ++bad, std::printf("era %d: invalid ISOM after all the strokes\n", era);
+                plain.save(std::filesystem::path(shots) / ("reshape_" + std::to_string(era) + "_before.scm"), err);
+                smooth.save(std::filesystem::path(shots) / ("reshape_" + std::to_string(era) + "_after.scm"), err);
+            }
+            std::printf("era %d (%s on %s): %d strokes: a ramp at %d before, %d after the smoothing (worst %.1f ms)\n", era, highName.c_str(), lowName.c_str(), strokes, before, after, worst);
+        }
+        std::printf("%d failures\n", bad);
+        return bad ? 1 : 0;
+    }
     if (std::getenv("RAMP_SCRUB")) {  // a drag back and forth over a small plateau with no room for a ramp: each update's time
         Editor ed(data);
         std::string err;
@@ -978,7 +1042,12 @@ int main(int argc, char** argv) {
             const double t = i * 0.05;
             stroke.push_back({64 * 32 + int(std::sin(t) * amp), 64 * 32 + int(std::cos(t * 1.3) * amp / 2)});
             const auto t0 = std::chrono::steady_clock::now();
-            planRamps(ed, rampBrushStroke(stroke, std::getenv("RAMP_SIZE") ? float(std::atof(std::getenv("RAMP_SIZE"))) : 2.0f));
+            const std::vector<std::pair<int, int>> pts = rampBrushStroke(stroke, std::getenv("RAMP_SIZE") ? float(std::atof(std::getenv("RAMP_SIZE"))) : 2.0f);
+            const std::vector<RampPlan> r = planRamps(ed, pts);
+            if (std::getenv("RAMP_SCRUB_SMOOTH")) {  // (and the cliff smoothing on a copy of the map, as the editor's preview)
+                Editor c(data);
+                if (c.openChk(ed.chk(), err) && reshapeForRamps(c, pts, r)) planRamps(c, pts);
+            }
             const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
             worst = std::max(worst, ms), total += ms;
             if (i == 100 || i == 500 || i == 1000 || i == 2000 || i == 2999) std::printf("scrub %d points: %.1f ms\n", i + 1, ms);

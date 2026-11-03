@@ -296,7 +296,30 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         return setMessage(L"Release the button to make the ramp the cliff again");
     }
     RampPlan why;  // (no ramp: why)
-    const std::vector<RampPlan> ramps = planRamps(ed, pts, &why);
+    std::vector<RampPlan> ramps = planRamps(ed, pts, &why);
+    // (where the stroke has no ramp: the cliff there changed a little on the copy of the map so that one fits, and the
+    // ramps planned again on it; the map takes the copy)
+    Editor* reshaped = nullptr;
+    bool left = false;  // (a point of the stroke 3 tiles or more from the ramps)
+    for (size_t i = 0; i < pts.size() && !left; ++i) {
+        left = true;
+        for (const RampPlan& p : ramps)
+            for (const Editor::TileAt& c : p.tiles)
+                if (std::hypot(32.0 * c.x + 16 - pts[i].first, 32.0 * c.y + 16 - pts[i].second) <= 96) left = false;
+    }
+    if (left && ed.canPaintTerrain()) {
+        Editor& copy = shapeCopy(ed.gameData());
+        std::string error;
+        if (copy.openChk(ed.chk(), error)) {
+            shapeCopySettings(copy, ed);
+            copy.setMirrors(0), copy.setTurns(1);
+            if (reshapeForRamps(copy, pts, ramps)) {
+                RampPlan why2;
+                ramps = planRamps(copy, pts, &why2);
+                reshaped = &copy;
+            }
+        }
+    }
     const std::wstring low = tr(widen(why.low)), high = tr(widen(why.high));
     if (ramps.empty()) {
         switch (why.problem) {
@@ -312,8 +335,17 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
             for (const Editor::TileAt& r : tiles) gShape.red.push_back({r.x, r.y});
             return setMessage(L"Part of the ramp is on protected tiles");
         }
-    for (const Editor::TileAt& c : tiles)
-        if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
+    if (reshaped) {  // (the changed cliff and the ramps on the copy: the map takes it)
+        reshaped->placeTileValues(tiles);
+        const std::vector<uint16_t>&a = ed.terrain().tiles, &b = reshaped->terrain().tiles;
+        if (a.size() == b.size())
+            for (size_t i = 0; i < a.size(); ++i)
+                if (a[i] != b[i]) gShape.ghost.push_back({int(i), b[i]});
+        gShape.copyHolds = true;
+    } else {
+        for (const Editor::TileAt& c : tiles)
+            if (ed.terrain().tiles[size_t(c.y) * ed.width() + c.x] != c.value) gShape.ghost.push_back({c.y * ed.width() + c.x, c.value});
+    }
     gShape.cells = tiles;
     const RampPlan& p = ramps.front();
     setMessage(ramps.size() > 1 ? bridgeText(L"%ls ramps. Release the button to place them.", std::to_wstring(ramps.size()))
@@ -429,14 +461,18 @@ void shapeFinish() {
             app.dirty = true;
             return;
         }
-        if (gShape.copyHolds) {  // (doodad ramps: the map takes the copy's scenario, its doodads with it)
+        if (gShape.copyHolds) {  // (doodad ramps, or a cliff changed to fit: the map takes the copy's scenario, its doodads with it)
+            const Editor& copy = shapeCopy(ed.gameData());
+            const bool removed = copy.doodads().size() < ed.doodads().size() || copy.units().size() < ed.units().size();  // (by the changed cliff)
             const std::vector<int> units = ed.selection(), locations = ed.selectedLocations();
             const size_t unitCount = ed.units().size();
             ed.takeScenario(shapeCopy(ed.gameData()));
             if (ed.units().size() == unitCount)
                 for (int u : units) ed.select(u, true);
             for (int l : locations) ed.addLocationSelection(l);
-            setMessage(L"Placed the ramp");
+            setMessage(removed ? L"Placed the ramp. Removed the doodads and units under it that cannot stay there."
+                       : ed.mirrors() || ed.turns() > 1 ? L"Placed the ramp. Symmetry does not apply to ramps."
+                                                        : L"Placed the ramp");
             shapeReset();
             app.dirty = true;
             return;

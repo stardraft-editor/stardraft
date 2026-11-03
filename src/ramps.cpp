@@ -615,6 +615,174 @@ std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<in
     return out;
 }
 
+namespace {
+
+// A ramp that fits once a few ISOM corners under its pieces get the terrains they need: its kit, width, wall A's place
+// and those corners.
+struct Reshape {
+    int kit = -1, slopes = 1, ax = 0, ay = 0;
+    std::vector<CornerValue> corners;
+};
+
+// Of the kits' ramps (one slope) near a point (map pixels), the one whose pieces' ISOM corners need the fewest changes
+// (1 to 4, and 2 more for each slope's width of straight cliff past each wall (`straight`); a third of its corners at
+// most: the cliff is near, a small change), nearest the point; none on protected tiles, on the ramps there or planned
+// (`taken`) or next to them. kit -1: none.
+Reshape findReshape(const Editor& ed, const std::map<int, Fit>& fits, int sx, int sy, const std::set<std::pair<int, int>>& taken, int straight) {
+    const int era = ed.era() & 7;
+    Reshape best;
+    double bestCost = 1e18;
+    for (const auto& [kit, f] : fits) {
+        if (!f.ok) continue;
+        // (a corner that may be any but the high ground and is not: the kit's first ground below)
+        std::string lowName = f.k.low;
+        lowName = lowName.substr(0, lowName.find('|'));
+        const uint16_t low = lowName.empty() ? 0 : terrainId(ed, lowName.c_str());
+        for (int ay = sy / 32 - 10; ay <= sy / 32 + 6; ++ay)
+            for (int ax = sx / 32 - 12; ax <= sx / 32 + 6; ++ax) {
+                std::vector<RampPiece> pieces = rampKitPieces(kit, best.slopes, ax, ay);
+                // (and the cliff `straight` slopes' width past each wall, straight: the corners of a slope there, as the tiles
+                // round a ramp on the game's maps are a straight cliff's)
+                const RampKitData& kd = f.k;
+                for (int i = 1; i <= straight; ++i)
+                    for (const int at : {-i, best.slopes + i}) pieces.push_back({1, ax + kd.start[0] + at * kd.step[0], ay + kd.start[1] + at * kd.step[1]});
+                std::map<std::pair<int, int>, uint16_t> need;  // (each corner once: the pieces share some)
+                int total = 0;
+                bool bad = false;
+                double mx = 0, my = 0;
+                for (const RampPiece& p : pieces) {
+                    const auto [w, h] = rampKitPieceSize(kit, p.kind);
+                    if (p.x < 0 || p.y < 0 || p.x + w > ed.width() || p.y + h > ed.height()) bad = true;
+                    mx += p.x * 32.0 + w * 16.0, my += p.y * 32.0 + h * 16.0;
+                    for (const auto& [c, ids] : f.corners[size_t(p.kind)]) {
+                        if (bad) break;
+                        const int px = 32 * p.x + c->px, py = 32 * p.y + c->py;
+                        if (px % 64 || py % 32 || !((px / 64 + py / 32) & 1)) bad = true;  // (off the corners' grid)
+                        if (bad) break;
+                        ++total;
+                        const uint16_t t = ed.terrainAt(px, py);
+                        const bool ok = ids.empty() ? (t && t != f.high) : std::find(ids.begin(), ids.end(), t) != ids.end();
+                        if (ok) continue;
+                        const uint16_t to = ids.empty() ? low : ids.front();
+                        if (!to) bad = true;
+                        const auto [it, added] = need.insert({{px / 64, py / 32}, to});
+                        if (!added && it->second != to) bad = true;
+                    }
+                    if (bad) break;
+                }
+                const int changes = int(need.size());
+                if (bad || !changes || changes > 4 + 2 * straight || 3 * changes > total) continue;
+                mx /= double(pieces.size()), my /= double(pieces.size());
+                const double cost = 64.0 * changes + std::hypot(mx - sx, my - sy);
+                if (std::hypot(mx - sx, my - sy) > 128 || cost >= bestCost) continue;
+                // (its tiles and those round them: not protected, no ramp there or planned)
+                bool clear = true;
+                for (const Editor::TileAt& c : rampKitTiles(kit, best.slopes, ax, ay))
+                    for (int dy = -2; dy <= 2 && clear; ++dy)
+                        for (int dx = -2; dx <= 2 && clear; ++dx) {
+                            const int x = c.x + dx, y = c.y + dy;
+                            if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) continue;
+                            clear = !ed.tileProtected(x, y) && !taken.count({x, y}) && !isPiece(era, ed.terrain().tiles[size_t(y) * ed.width() + x]);
+                        }
+                // (nor round the corners that change: the terrain fitted to them reaches a few tiles further)
+                for (auto n = need.begin(); n != need.end() && clear; ++n)
+                    for (int dy = -4; dy <= 4 && clear; ++dy)
+                        for (int dx = -6; dx <= 6 && clear; ++dx) {
+                            const int x = 2 * n->first.first + dx, y = n->first.second + dy;
+                            if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) continue;
+                            clear = !ed.tileProtected(x, y) && !taken.count({x, y}) && !isPiece(era, ed.terrain().tiles[size_t(y) * ed.width() + x]);
+                        }
+                if (!clear) continue;
+                bestCost = cost, best.kit = kit, best.ax = ax, best.ay = ay, best.corners.clear();
+                for (const auto& [at, t] : need) best.corners.push_back({at.first, at.second, t});
+            }
+    }
+    return best;
+}
+
+}  // namespace
+
+int reshapeForRamps(Editor& ed, const std::vector<std::pair<int, int>>& stroke, const std::vector<RampPlan>& ramps) {
+    if (!ed.canPaintTerrain()) return 0;
+    const std::map<int, Fit> fits = fitsOn(ed);
+    if (fits.empty()) return 0;
+    std::set<std::pair<int, int>> taken;
+    for (const RampPlan& p : ramps)
+        for (const Editor::TileAt& c : p.tiles) taken.insert({c.x, c.y});
+    // (the stroke's points away from the ramps planned, each 4 tiles or more from the points tried before: at most
+    // kMaxReshapeTries, as a drag back and forth asks again at each move)
+    constexpr int kMaxReshapeTries = 12;
+    // (a point's answer on the same tiles, with the same ramps planned, as before: the answer then, as each move of a drag
+    // asks again for the whole stroke on a new copy of the map; kit -1: no change there makes a ramp fit)
+    static std::unordered_map<uint64_t, Reshape> answers;
+    if (answers.size() > 50000) answers.clear();
+    const auto hashOf = [](uint64_t h, uint64_t v) { return (h ^ v) * 1099511628211ull; };
+    const auto tilesHash = [&] {
+        uint64_t h = 14695981039346656037ull ^ (uint64_t(ed.era() & 7) << 32 | uint64_t(ed.width()) << 16 | ed.height());
+        for (const char ch : ed.terrainName(2)) h = hashOf(h, uint8_t(ch));  // (the tileset: a mod's has other names)
+        const std::vector<uint16_t>& tiles = ed.terrain().tiles;
+        for (size_t i = 0; i < tiles.size(); ++i)  // (each tile and whether it is protected)
+            h = hashOf(h, uint64_t(tiles[i]) << 1 | uint64_t(ed.tileProtected(int(i % ed.width()), int(i / ed.width()))));
+        return h;
+    };
+    const auto takenHash = [&] {
+        uint64_t h = 1469598103934665603ull;
+        for (const auto& [x, y] : taken) h = hashOf(h, uint64_t(uint32_t(x)) << 32 | uint32_t(y));
+        return h;
+    };
+    uint64_t mapHash = hashOf(tilesHash(), takenHash());
+    // (the corners of each terrain in one edit: the terrain round them fitted to them, so the ISOM stays valid; one undo
+    // step, taken back where no ramp fits after it)
+    const auto apply = [&](const Reshape& r) {
+        std::map<uint16_t, std::vector<CornerValue>> by;
+        for (const CornerValue& c : r.corners) by[c.terrain].push_back(c);
+        bool changed = false;
+        ed.beginStroke();
+        for (const auto& [t, cs] : by) changed |= ed.setTerrainCorners(cs);
+        ed.endStroke();
+        return changed;
+    };
+    std::vector<std::pair<int, int>> tried;
+    int made = 0, tries = 0;
+    for (const auto& [x, y] : stroke) {
+        if (tries >= kMaxReshapeTries) break;
+        bool skip = false;
+        for (const auto& [tx, ty] : tried) skip = skip || std::hypot(double(x - tx), double(y - ty)) < 128;
+        for (auto c = taken.begin(); c != taken.end() && !skip; ++c) skip = std::hypot(32.0 * c->first + 16 - x, 32.0 * c->second + 16 - y) <= 96;
+        if (skip) continue;
+        tried.push_back({x, y});
+        ++tries;
+        const uint64_t key = hashOf(mapHash, uint64_t(uint32_t(x)) << 32 | uint32_t(y));
+        Reshape found;
+        if (const auto a = answers.find(key); a != answers.end()) {
+            if (a->second.kit < 0 || !apply(a->second)) continue;
+            if (!rampKitFits(ed, a->second.kit, a->second.slopes, a->second.ax, a->second.ay)) {  // (as the first time; else as it was)
+                ed.undo(1);
+                continue;
+            }
+            found = a->second;
+        } else {
+            // (the smallest change first: the ramp's own corners; then with the cliff straight past its walls, as the
+            // tiles round it must join it as on the game's maps)
+            for (int straight = 0; straight <= 2 && found.kit < 0; ++straight) {
+                const Reshape r = findReshape(ed, fits, x, y, taken, straight);
+                if (r.kit < 0 || !apply(r)) continue;
+                if (!rampKitFits(ed, r.kit, r.slopes, r.ax, r.ay)) {  // (the fitting moved the cliff again, or the edge does not join: as it was)
+                    ed.undo(1);
+                    continue;
+                }
+                found = r;
+            }
+            answers[key] = found;
+            if (found.kit < 0) continue;
+        }
+        for (const Editor::TileAt& c : rampKitTiles(found.kit, found.slopes, found.ax, found.ay)) taken.insert({c.x, c.y});
+        mapHash = hashOf(tilesHash(), takenHash());
+        ++made;
+    }
+    return made;
+}
+
 std::vector<std::pair<int, int>> rampBrushStroke(const std::vector<std::pair<int, int>>& pts, float size) {
     size = std::max(0.5f, size);
     const int rx = int(size * 32), ry = int(size * 16);

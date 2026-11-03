@@ -88,6 +88,12 @@ std::vector<std::pair<int, int>> rampBrushStroke(const std::vector<std::pair<int
 // a ramp that overlaps an earlier one is left out. Empty: none (the first planRamp's problem says why).
 std::vector<RampPlan> planRamps(const Editor& ed, const std::vector<std::pair<int, int>>& stroke, RampPlan* why = nullptr);
 
+// The Ramp brush's cliff smoothing: where a stroke (map pixels) is away from the ramps planned for it (`ramps`), the cliff
+// near it changes a little so that a ramp fits: the ISOM corners under a ramp's pieces (a few, 4 at most) get the
+// terrains its pieces need, and the terrain round them is fitted to them (the ISOM stays valid). Only where the ramp then
+// fits; never on protected tiles or by other ramps. Returns the places changed; plan the ramps again after it.
+int reshapeForRamps(Editor& ed, const std::vector<std::pair<int, int>>& stroke, const std::vector<RampPlan>& ramps);
+
 // The ramps a stroke (map pixels) touches: the ramp pieces' tiles within a diamond of it, and all the ramp tiles joined
 // to them (whole ramps). Shift with the Ramp brush makes them the cliff again (Editor::remakeTilesFromIsom).
 std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke);
