@@ -23,6 +23,7 @@ struct AppState {
     // reverse). Each keeps its own (GitHub #155).
     float otherBrushSize = 2, otherBrushHeight = 0;
     Brush::Shape brushShape = Brush::Diamond;
+    Brush::Shape otherBrushShape = Brush::Square;  // the other terrain tools' (Isometric or Rectangle) shape, GitHub #236
     Brush::Shape selectShape = Brush::Square;
     bool terrainSelFlip = false;  // the diamond selection's drag went between the box's top right and bottom left (IsoRectFlip)  // the terrain Select tool's shape: its own, not the brushes' (shapeOf)
     int toolByMode[kModeCount] = {};

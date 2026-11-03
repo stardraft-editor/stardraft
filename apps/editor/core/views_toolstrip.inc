@@ -118,6 +118,7 @@ void setTerrainKind(int kind) {
     if (app.terrainRect != rect) {
         app.terrainRect = rect;
         std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
+        std::swap(app.brushShape, app.otherBrushShape);  // (and shape: a Diamond for Isometric, a Square for Rectangle, GitHub #236)
     }
     if (rect && app.toolByMode[int(Mode::Terrain)] == TJumble) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (Isometric's only)
     app.terrainPasting = false;

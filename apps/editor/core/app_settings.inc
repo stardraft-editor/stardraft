@@ -38,6 +38,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("CopyUnitsWithTerrain", shellState().copyUnitsWithTerrain, bool),
         SD_SETTING("CopyDoodadsWithTerrain", shellState().copyDoodadsWithTerrain, bool),
         SD_SETTING("BrushShape", shellState().brushShape, Brush::Shape),
+        SD_SETTING("OtherBrushShape", shellState().otherBrushShape, Brush::Shape),
         SD_SETTING("SelectShape", shellState().selectShape, Brush::Shape),
         // (the one switch before the ranges had kinds: on, all of them; RangeKindsShown, read after it, decides once it is saved)
         {L"ShowRanges", [] { return int(gRangeKinds != 0); }, [](int v) { if (v && !gRangeKinds) gRangeKinds = kRangeAll; }},
