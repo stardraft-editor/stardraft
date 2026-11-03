@@ -564,10 +564,10 @@ int main(int argc, char** argv) {
                         for (const Editor::TileAt& c : bridgeTiles(era, u, length, width, 40, 40, 7, &ed, false)) {
                             ++all;
                             const auto a = at.find({c.x, c.y});
-                            differ += a == at.end() || (a->second >> 4) != (c.value >> 4);
+                            differ += a == at.end() || (c.value >> 4 >= 1024 ? a->second != c.value : (a->second >> 4) != (c.value >> 4));
                         }
                     }
-            std::printf("era %d: %d of %d tiles differ from the approved bridges (tile group)\n", era, differ, all);
+            std::printf("era %d: %d of %d tiles differ from the approved bridges (doodad tiles exact, others by group)\n", era, differ, all);
         }
         return 0;
     }
