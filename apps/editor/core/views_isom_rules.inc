@@ -91,6 +91,18 @@ inline std::unique_ptr<draw::Bitmap> tilesBitmap(const stardraft::Tileset& ts, c
 // mapper's).
 inline std::shared_ptr<draw::Bitmap> terrainPicture(const stardraft::Tileset& ts, uint16_t terrain) {
     if (ts.groups.empty()) return nullptr;
+    if (const stardraft::Tileset::ModTerrain* m = ts.modTerrain(terrain); m && !m->pieces.empty()) {
+        // (a mod's terrain, which the CV5 gives no group: its piece for its stand-in's solid rect (its fill), else its
+        // first piece, as the Terrain palette's picture: previews.cpp)
+        const int fill = stardraft::solidTileGroup(ts, m->standIn, 0);
+        uint16_t v = m->pieces.front()[1];
+        for (const auto& p : m->pieces)
+            if (int(p[0]) == fill) {
+                v = p[1];
+                break;
+            }
+        if (ts.megatileFor(v) > 0) return std::shared_ptr<draw::Bitmap>(tilesBitmap(ts, {v}, 1, 1));
+    }
     const int g = stardraft::solidTileGroup(ts, terrain);
     const uint16_t v = g >= 0 ? stardraft::terrainrules::gameTile(ts, uint32_t(g)) : 0;
     return v ? std::shared_ptr<draw::Bitmap>(tilesBitmap(ts, {v}, 1, 1)) : nullptr;

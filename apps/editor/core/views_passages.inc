@@ -84,8 +84,10 @@ public:
         emptyRamp_ = stardraft::kit::Button(L"New ramp", stardraft::kit::Tone::Primary, [this] { addMapping(false); });
         emptyBridge_ = stardraft::kit::Button(L"New bridge", stardraft::kit::Tone::Primary, [this] { addMapping(true); });
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &addRow_, &removeRow_, &list_, &name_, &template_, &view_, &jump_, &guideA_, &guideB_, &guideHide_,
-                                                                 &emptyRamp_, &emptyBridge_})
+                                                                 &emptyRamp_, &emptyBridge_, &palBar_, &gridBar_})
             add(*v, {0, 0, 0, 0});
+        palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
+        gridBar_.onScroll = [this](int pos) { gridScroll_ = pos, invalidate(); };
     }
     static draw::Point size() { return {scale(1280), scale(800)}; }
 
@@ -206,6 +208,7 @@ public:
     void resized() override;
     void paint(draw::Canvas& c) override;
     bool mouse(const draw::MouseEvent& e) override;
+    draw::Cursor cursor(draw::Point pt) override;
     bool key(const draw::KeyEvent& e) override {
         // (the text fields have the keys: their typing and their text keys; the Ctrl keys they do not take are the window's)
         if (!e.down || ((name_.hasFocus() || jump_.hasFocus()) && !(e.mods & draw::kCtrl))) return false;
@@ -1267,7 +1270,20 @@ private:
         invalidate();
     }
     void clampPalette() { palScroll_ = std::clamp(palScroll_, 0, std::max(0, paletteRows() * palRowH() - pal_.height())); }
-    int palTile() const { return scale(20); }
+    int palTile() const { return scale(palTileW_); }
+    // The columns' widths (a drag at the edge between two columns): the mappings' list, and the tile list's tile size
+    // (its width: 16 tiles a row); kept in the settings.
+    int sideW_ = 260, palTileW_ = 20;
+    int colDrag_ = -1;  // (0: the list's right edge is being dragged, 1: the tile list's left edge; -1: none)
+    bool colsRead_ = false;
+    // The column edge under a point: 0 the mappings' list's, 1 the tile list's, -1 none.
+    int colEdge(draw::Point pt) const {
+        const int pad = scale(12);
+        if (pt.y < side_.top || pt.y > side_.bottom) return -1;
+        if (pt.x >= side_.right && pt.x < side_.right + 2 * pad) return 0;
+        if (pt.x >= pal_.left - 2 * pad && pt.x < pal_.left) return 1;
+        return -1;
+    }
     int palRowH() const { return palTile() + scale(2); }
     int cell() const { return scale(32); }
 
@@ -1327,6 +1343,8 @@ private:
     std::map<uint32_t, Sig> gameSigs_;
     stardraft::kit::Button addRow_, removeRow_;
     stardraft::kit::Button guideA_, guideB_, guideHide_, emptyRamp_, emptyBridge_;
+    stardraft::kit::ScrollBar palBar_, gridBar_;  // (the tile list's and the pieces' scroll bars, at their right edges)
+    int palRange_[2] = {-1, -1}, gridRange_[2] = {-1, -1};  // (their last total and page)
     std::function<void()> guideRunA_, guideRunB_;
     bool guideOn_ = true;
     bool guideShown_ = false;              // (resized() made room for it)
@@ -1341,7 +1359,13 @@ private:
 };
 
 inline void PassagesView::resized() {
-    const int pad = scale(12), gap = scale(8), bh = scale(stardraft::kit::kButtonH), sideW = scale(260), palW = scale(44) + 16 * palTile() + scale(14);
+    if (!colsRead_) {  // (the columns' widths of the last time)
+        int64_t v = 0;
+        colsRead_ = true;
+        if (!gSettingsOff && prefs::number(L"Layout/PassagesListWidth", v)) sideW_ = std::clamp(int(v), 140, 600);
+        if (!gSettingsOff && prefs::number(L"Layout/PassagesTileSize", v)) palTileW_ = std::clamp(int(v), 10, 40);
+    }
+    const int pad = scale(12), gap = scale(8), bh = scale(stardraft::kit::kButtonH), sideW = scale(sideW_), palW = scale(44) + 16 * palTile() + scale(14);
     const int menuH = scale(28), bottom = height() - statusH() - pad;  // (the menu bar, as the main window's; the status bar)
     bar_.setFrame({0, 0, width(), menuH});
     const int y0 = menuH + pad;
@@ -1401,6 +1425,10 @@ inline void PassagesView::resized() {
     templatePic_ = {mx, y, mx + half, y + picH};
     resultPic_ = {mx + half + gap, y, mr, y + picH};
     grid_ = {mx, y + picH + gap + scale(18), mr, bottom};
+    const int barW = scale(stardraft::kit::kScrollBarW);
+    palBar_.setFrame(sel_ >= 0 || ed_ ? draw::Rect{pal_.right - barW, pal_.top, pal_.right, pal_.bottom} : draw::Rect{0, 0, 0, 0});
+    gridBar_.setFrame(sel_ >= 0 ? draw::Rect{grid_.right - barW, grid_.top, grid_.right, grid_.bottom} : draw::Rect{0, 0, 0, 0});
+    palBar_.setVisible(!palBar_.frame().empty()), gridBar_.setVisible(!gridBar_.frame().empty());
     clampPalette();
 }
 
@@ -1410,6 +1438,8 @@ inline void PassagesView::paint(draw::Canvas& c) {
         shellPost([this] { refresh(); });
         return;
     }
+    for (const int x : {side_.right + scale(12), pal_.left - scale(12)})  // (the columns' edges: a drag there resizes them)
+        c.fill({x, side_.top, x + 1, side_.bottom}, colDrag_ >= 0 ? kAccent : kBorder);
     const int lw = scale(80), mx = side_.right + scale(24);
     const auto label = [&](draw::Rect r, const std::wstring& t, draw::Color col = kDim) { c.text(r, t, col, draw::kLeft | draw::kMiddle | draw::kEllipsis); };
     updateMenus();
@@ -1539,8 +1569,15 @@ inline void PassagesView::paint(draw::Canvas& c) {
         label({grid_.left, grid_.top - scale(18), grid_.right, grid_.top}, L"Pieces  " + std::to_wstring(mapped) + L"/" + std::to_wstring(all) + how);
     }
     c.fill(grid_, kPanel);
+    std::vector<draw::Rect> cards = pieceCards(ps);
+    {  // (the pieces' scroll bar: their cards' height; a scroll past their end (fewer cards now) comes back)
+        int bottom = 0;
+        for (const draw::Rect& r : cards) bottom = std::max(bottom, r.bottom + gridScroll_ - grid_.top + scale(6));
+        if (const int most = std::max(0, bottom - grid_.height()); gridScroll_ > most) gridScroll_ = most, cards = pieceCards(ps);
+        if (bottom != gridRange_[0] || grid_.height() != gridRange_[1]) gridBar_.setRange(bottom, grid_.height()), gridRange_[0] = bottom, gridRange_[1] = grid_.height();
+        gridBar_.setPos(gridScroll_);
+    }
     c.pushClip(grid_);
-    const std::vector<draw::Rect> cards = pieceCards(ps);
     const int t = miniTile();
     for (size_t i = 0; i < ps.size(); ++i) {
         const Piece& q = ps[i];
@@ -1572,6 +1609,9 @@ inline void PassagesView::paint(draw::Canvas& c) {
     c.popClip();
     // The tileset's tiles: a group a row.
     c.fill(pal_, kPanel);
+    if (const int total = paletteRows() * palRowH(); total != palRange_[0] || pal_.height() != palRange_[1])  // (a new range repaints the bar: only when it changes)
+        palBar_.setRange(total, pal_.height()), palRange_[0] = total, palRange_[1] = pal_.height();
+    palBar_.setPos(palScroll_);
     c.pushClip(pal_);
     const int first = palScroll_ / palRowH(), last = std::min(paletteRows(), (palScroll_ + pal_.height()) / palRowH() + 1);
     uint16_t targetTo = 0;
@@ -1633,7 +1673,31 @@ inline void PassagesView::paint(draw::Canvas& c) {
     c.popClip();
 }
 
+inline draw::Cursor PassagesView::cursor(draw::Point pt) {
+    return colDrag_ >= 0 || colEdge(pt) >= 0 ? draw::Cursor::SizeWE : draw::Cursor::Arrow;
+}
+
 inline bool PassagesView::mouse(const draw::MouseEvent& e) {
+    // The columns: a drag at the edge between two makes the mappings' list wider or narrower, or the tile list's tiles
+    // larger or smaller.
+    if (colDrag_ >= 0 && (e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Up)) {
+        const int unit = scale(1000);  // (screen pixels to the widths' 100 % pixels)
+        if (colDrag_ == 0) sideW_ = std::clamp((e.pt.x - scale(12)) * 1000 / unit, 140, 600);
+        else palTileW_ = std::clamp(((width() - scale(12) - e.pt.x - scale(12)) * 1000 / unit - 58) / 16, 10, 40);
+        if (e.kind == draw::MouseKind::Up) {
+            colDrag_ = -1;
+            if (host()) host()->capture(*this, false);
+            if (!gSettingsOff) prefs::setNumber(L"Layout/PassagesListWidth", sideW_), prefs::setNumber(L"Layout/PassagesTileSize", palTileW_);
+        }
+        resized(), invalidate();
+        return true;
+    }
+    if (e.kind == draw::MouseKind::Down && e.button == 0)
+        if (const int edge = colEdge(e.pt); edge >= 0) {
+            colDrag_ = edge;
+            if (host()) host()->capture(*this, true);
+            return true;
+        }
     if (e.kind == draw::MouseKind::Wheel) {
         const int d = int(std::lround(-e.wheel * 3 * palRowH()));
         if (pal_.contains(e.pt)) {

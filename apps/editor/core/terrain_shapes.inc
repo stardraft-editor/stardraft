@@ -248,12 +248,14 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
     // (a tileset whose ramps are doodads, a mod's: they go on the copy of the map as doodads, or Shift takes them away)
     if (const std::vector<uint16_t> doodads = rampDoodads(ed); !doodads.empty()) {
         std::vector<int> under;
+        std::vector<std::pair<int, int>> tilesUnder;  // (the passages' ramps under the stroke: their tiles, made from the ISOM again)
         if (gShape.unramp) {
             for (const auto& [x, y] : pts)
                 if (const int d = ed.doodadAt(x, y); d >= 0 && std::find(doodads.begin(), doodads.end(), ed.doodads()[size_t(d)].id) != doodads.end() &&
                                                      std::find(under.begin(), under.end(), d) == under.end())
                     under.push_back(d);
-            if (under.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
+            tilesUnder = rampTilesUnder(ed, pts);
+            if (under.empty() && tilesUnder.empty()) return setMessage(L"Ramp with Shift: paint over a ramp to make it the cliff again");
         }
         RampPlan why;
         const std::vector<RampPlan> ramps = gShape.unramp ? std::vector<RampPlan>{} : planRamps(ed, pts, &why);
@@ -266,7 +268,10 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         shapeCopySettings(copy, ed);
         copy.setMirrors(0), copy.setTurns(1);
         int placed = 0;
-        if (gShape.unramp) copy.deleteDoodads(under);
+        if (gShape.unramp) {
+            if (!under.empty()) copy.deleteDoodads(under);
+            if (!tilesUnder.empty()) copy.remakeTilesFromIsom(tilesUnder);
+        }
         for (const RampPlan& p : ramps)  // (a ramp doodad, or a passage's ramp: its tiles)
             placed += p.doodad >= 0 ? copy.placeDoodad(uint16_t(p.doodad), p.x, p.y, true) : copy.placeTileValues(p.tiles) > 0;
         const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
@@ -274,7 +279,10 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
             for (size_t i = 0; i < a.size(); ++i)
                 if (a[i] != b[i]) gShape.ghost.push_back({int(i), b[i]}), gShape.cells.push_back({int(i % ed.width()), int(i / ed.width()), b[i]});
         gShape.copyHolds = true;
-        if (gShape.unramp) return setMessage(L"Release the button to make the ramp the cliff again");
+        if (gShape.unramp) {
+            for (const auto& [x, y] : tilesUnder) gShape.cells.push_back({x, y, 0});  // (not empty: there is something to do)
+            return setMessage(L"Release the button to make the ramp the cliff again");
+        }
         if (!placed) return setMessage(L"Ramp: paint along a cliff edge");
         return setMessage(placed > 1 ? bridgeText(L"%ls ramps. Release the button to place them.", std::to_wstring(placed))
                                      : std::wstring(tr(L"Ramp. Release the button to place it.")));

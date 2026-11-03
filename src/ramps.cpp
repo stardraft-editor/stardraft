@@ -384,6 +384,7 @@ bool isSlope(int era, uint16_t v) {
 // the pairs side by side and one above the other in their own ramps.
 struct UserSets {
     std::unordered_set<uint16_t> slopes;
+    std::unordered_set<uint16_t> all;  // (every tile of their pieces: Shift's ramps on the map)
     std::unordered_set<uint64_t> pairs;
 };
 const UserSets& userSets(int era) {
@@ -397,7 +398,7 @@ const UserSets& userSets(int era) {
         const RampKitData& d = *kitAt(k);
         if (d.era != era) continue;
         for (int kind = 0; kind < 3; ++kind)
-            for (int i = d.tiles[kind]; i < d.tiles[kind + 1]; ++i) (kind == 1 ? s.slopes : walls).insert(tilesOf(k)[i].value);
+            for (int i = d.tiles[kind]; i < d.tiles[kind + 1]; ++i) (kind == 1 ? s.slopes : walls).insert(tilesOf(k)[i].value), s.all.insert(tilesOf(k)[i].value);
         for (int n = 0; n <= 2; ++n) {
             std::map<std::pair<int, int>, uint16_t> at;
             for (const Editor::TileAt& c : rampKitTiles(k, n, 0, 0)) at[{c.x, c.y}] = c.value;
@@ -985,8 +986,15 @@ std::vector<uint16_t> rampDoodads(const Editor& ed) {
 
 std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vector<std::pair<int, int>>& stroke) {
     const int era = ed.era() & 7, w = ed.width(), h = ed.height();
-    if (!gameKitsOn(ed)) return {};  // (the kits' tiles are not this tileset's: a mod's)
-    const auto piece = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && isPiece(era, ed.terrain().tiles[size_t(y) * w + x]); };
+    // (a mod's tileset, where the game's kits' tiles are other tiles: the passages' ramps' tiles)
+    const bool game = gameKitsOn(ed);
+    const std::unordered_set<uint16_t>& user = userSets(era).all;
+    if (!game && user.empty()) return {};
+    const auto piece = [&](int x, int y) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+        const uint16_t v = ed.terrain().tiles[size_t(y) * w + x];
+        return game ? isPiece(era, v) : user.count(v) != 0;
+    };
     // (the tiles within a diamond, 2 tiles across and 1 down, of each point and of the way between the points)
     std::set<std::pair<int, int>> seen;
     std::vector<std::pair<int, int>> todo;
@@ -1000,6 +1008,31 @@ std::vector<std::pair<int, int>> rampTilesUnder(const Editor& ed, const std::vec
                 for (int tx = px / 32 - 2; tx <= px / 32 + 2; ++tx)
                     if (piece(tx, ty) && seen.insert({tx, ty}).second) todo.push_back({tx, ty});
         }
+    }
+    if (!game) {
+        // (a passage's ramp: its walls may be the mod's own cliff tiles, so the tiles under the stroke and the slope
+        // tiles joined to them, then the other tiles 3 tiles or nearer to those; not along the whole cliff)
+        const std::unordered_set<uint16_t>& slopes = userSets(era).slopes;
+        const auto at = [&](int x, int y) { return ed.terrain().tiles[size_t(y) * w + x]; };
+        std::map<std::pair<int, int>, int> dist;  // (0: under the stroke or a slope tile; else the steps from those)
+        std::vector<std::pair<int, int>> next;
+        for (const auto& p : todo) dist[p] = 0, next.push_back(p);
+        while (!next.empty()) {
+            const auto p = next.back();
+            next.pop_back();
+            const int d = dist[p];
+            for (const auto& [dx, dy] : {std::pair{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                const std::pair<int, int> q{p.first + dx, p.second + dy};
+                if (!piece(q.first, q.second)) continue;
+                const int dq = slopes.count(at(q.first, q.second)) ? 0 : d + 1;
+                if (dq > 3) continue;
+                if (const auto o = dist.find(q); o != dist.end() && o->second <= dq) continue;
+                dist[q] = dq, next.push_back(q);
+            }
+        }
+        std::vector<std::pair<int, int>> out;
+        for (const auto& [p, d] : dist) out.push_back(p);
+        return out;
     }
     // (and the ramp tiles joined to them)
     while (!todo.empty()) {

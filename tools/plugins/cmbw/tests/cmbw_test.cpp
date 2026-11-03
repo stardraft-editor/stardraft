@@ -19,6 +19,7 @@
 #include "stardraft/isom_core.h"
 #include "stardraft/map_file.h"
 #include "stardraft/mods/cmbw.h"
+#include "stardraft/mods/terrain_rules.h"
 #include "stardraft/terrain.h"
 #include "stardraft/tileset.h"
 
@@ -39,6 +40,50 @@ int main(int argc, char** argv) {
     std::string err;
     GameData data;
     if (!cmbw::open(data, argv[1], err)) return std::fprintf(stderr, "cannot open the Cosmonarchy data: %s\n", err.c_str()), 1;
+    // CMBW_NULLS=<era>:<terrain name> (CMBW_OVERRIDE=<a .isom file>): that terrain's pieces with no tiles (Null) or half
+    // (Partial), with the override file and without it.
+    if (const char* q = std::getenv("CMBW_NULLS")) {
+        const std::string s = q, name = s.substr(s.find(':') + 1);
+        const int era = std::atoi(s.c_str());
+        for (const int pass : {0, 1, 2}) {  // (0: the plain rows, not repaired; 1: as the program has them; 2: with the file)
+            const bool on = pass == 2;
+            const char* file = std::getenv("CMBW_OVERRIDE");
+            if (on && !file) break;
+            cmbw::skipRepairedRules(pass == 0);
+            cmbw::useTerrainOverride(on ? std::filesystem::u8path(file) : std::filesystem::path());
+            Tileset t;
+            if (!t.load(data, uint16_t(era), err)) return std::printf("%s\n", err.c_str()), 1;
+            for (const Tileset::ModTerrain& m : t.modTerrains)
+                if (m.name == name) {
+                    int nulls = 0, partial = 0;
+                    for (const auto& p : m.pieces)
+                        nulls += terrainrules::stateOf(p) == terrainrules::PieceState::Null, partial += terrainrules::stateOf(p) == terrainrules::PieceState::Partial;
+                    std::printf("%s, %s: id %d, %zu pieces, %d null, %d partial; null rects:", name.c_str(), pass == 0 ? "plain rows" : on ? "with the file" : "built in", m.id,
+                                m.pieces.size(), nulls, partial);
+                    for (const auto& p : m.pieces)
+                        if (terrainrules::stateOf(p) == terrainrules::PieceState::Null) std::printf(" %d", p[0]);
+                    std::printf("\n");
+                }
+            if (on) {  // (the file's own: whether it applies to this tileset, and its terrain of that name)
+                terrainrules::Rules r;
+                std::string why;
+                if (!terrainrules::load(std::filesystem::u8path(file), r, err)) return std::printf("%s\n", err.c_str()), 1;
+                for (const terrainrules::TilesetRules& ts : r.tilesets) {
+                    if (ts.era != era) continue;
+                    std::printf("file: era %d, %u groups (tileset %zu), fingerprint %s\n", era, ts.groups, t.groups.size(),
+                                ts.fingerprint == terrainrules::fingerprint(t) ? "same" : "differs");
+                    for (const terrainrules::Terrain& x : ts.terrains)
+                        if (x.t.name == name) {
+                            int nulls = 0;
+                            for (const auto& p : x.t.pieces) nulls += terrainrules::stateOf(p) == terrainrules::PieceState::Null;
+                            std::printf("file: %s id %d, %zu pieces, %d null\n", name.c_str(), x.t.id, x.t.pieces.size(), nulls);
+                        }
+                }
+            }
+        }
+        cmbw::useTerrainOverride({}), cmbw::skipRepairedRules(false);
+        return 0;
+    }
 
     // The learned terrains: badlands group 1665 is High Dirt (5) and its border with 8 (src/mods/cmbw_isom.inc).
     Tileset badlands;

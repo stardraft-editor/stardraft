@@ -943,6 +943,15 @@ int main(int argc, char** argv) {
                 for (const RampPlan& p : plans) passage += p.kit >= 0 && rampKitFromPassage(p.kit);
                 std::printf("ring: %zu ramps, %d of the passage (why %d; doodads: %zu)\n", plans.size(), passage, int(why.problem),
                             rampDoodads(ed).size());
+                // (Shift: the ramps placed, then the stroke again: the cliff as it was)
+                const std::vector<uint16_t> before = ed.terrain().tiles;
+                int placedTiles = 0;
+                for (const RampPlan& p : plans) placedTiles += ed.placeTileValues(p.tiles);
+                const std::vector<std::pair<int, int>> under = rampTilesUnder(ed, rampBrushStroke(ring, 2));
+                ed.remakeTilesFromIsom(under);
+                size_t left = 0, groups = 0;  // (a tile made again may be another variant of its group)
+                for (size_t i = 0; i < before.size(); ++i) left += before[i] != ed.terrain().tiles[i], groups += (before[i] >> 4) != (ed.terrain().tiles[i] >> 4);
+                std::printf("shift: %d tiles placed, %zu under the stroke, %zu tiles not as before (%zu of another group)\n", placedTiles, under.size(), left, groups);
                 stardraft::passages::use({});
             }
             return ok ? 0 : 1;
