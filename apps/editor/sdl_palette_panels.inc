@@ -161,6 +161,15 @@ void palettePanelHide(PanelWindow& p) {
     p.open = false;
 }
 
+// A panel goes (it closes, or its tab closes): when its Tiles list is the program's (its Terrain was active last:
+// panelLoad), the side bar's is, before it goes.
+void palettePanelTilesGone(PalettePanelView& v) {
+    if (gTiles == &v.tilesData || gTilesGrid == &v.tilesGrid || gTilesPanel == &v.tilesPanel) {
+        PanelState& t = dockedPanel(Mode::Terrain);
+        gTiles = t.tiles, gTilesGrid = t.tilesGrid, gTilesPanel = t.tilesPanel;
+    }
+}
+
 // The panel goes: its window closes and it is forgotten (a floating palette: the side bar shows the mode's palette
 // again).
 void palettePanelClose(PalettePanelView& v) {
@@ -170,6 +179,7 @@ void palettePanelClose(PalettePanelView& v) {
             const Mode mode = v.mode;
             panelSaveToDocked(v);  // (a floating palette: the side bar's panel goes on from where it was)
             for (PanelState& st : v.states) panelForget(&st);
+            palettePanelTilesGone(v);
             palettePanelHide(**it);
             gPanels.erase(it);
             // Its panel was the active one: the side bar's of its mode (it docked), else the mode's panel used last.
@@ -229,6 +239,8 @@ void palettePanelsSync() {
     std::erase_if(gPanels, [](const std::unique_ptr<PanelWindow>& p) {
         for (const Doc& d : gDocs)
             if (d.key == p->doc) return false;
+        palettePanelTilesGone(*p->view);
+        for (PanelState& st : p->view->states) panelForget(&st);  // (no pointer to its states stays: the active panel, each mode's last)
         if (p->open && gHost) p->closing = true, gHost->closeWindow(*p->view);
         return true;
     });
@@ -289,14 +301,28 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     v.type.onChange = [pv](int i) {
         if (i < 0 || i >= int(std::size(kPanelModes)) || kPanelModes[i] == pv->mode) return;
         const Mode from = pv->mode, to = kPanelModes[i];
-        const bool wasActive = panelHasActive(*pv);
+        const bool wasFloating = pv->floating;
+        // The type changes only the panel: the active mode (and the side bar's tab) stays. When the panel's state of the
+        // old mode was the active panel, the mode's panel in another place is (the side bar's, or another window's).
+        const bool oldActive = gActivePanel == &pv->states[size_t(from)];
         // A mode's floating palette becomes the new mode's: that mode's floating palette (if it has one) takes the old
-        // mode (the two swap), else the old mode's panel goes back to the side bar and the new mode's comes from it.
+        // mode (the two swap), else the old mode's panel goes back to the side bar and the window becomes a palette
+        // panel of the new mode, like its side bar panel (a copy of its state, view, order, section, search and
+        // scroll): the new mode's side bar panel stays docked.
         PanelWindow* other = nullptr;
         if (pv->floating)
             for (auto& q : gPanels)
                 if (q->view.get() != pv && q->doc == activeDocKey() && q->view->floating && q->view->mode == to) other = q.get();
-        if (pv->floating && !other) panelSaveToDocked(*pv);
+        const bool docks = wasFloating && !other;
+        PanelState* activeNext = nullptr;  // (the active panel after the change, when it moves)
+        if (docks) {
+            panelSaveToDocked(*pv);
+            if (oldActive) activeNext = &dockedPanel(from);
+        } else if (!other && oldActive) {
+            panelFresh(pv->states[size_t(from)]);  // (its state of the old mode stays the panel's)
+        }
+        if (!other) panelForget(&pv->states[size_t(from)]);  // (the old mode's panel is in another place now)
+        if (!other && oldActive && !activeNext) activeNext = panelHomeOf(from);
         auto retitle = [](PalettePanelView& w) {
             if (SDL_Window* sw = gHost ? gHost->sdlWindow(w) : nullptr) SDL_SetWindowTitle(sw, narrow(shellTr(w.name.c_str())).c_str());
         };
@@ -309,7 +335,13 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             gPanelLoading = true;
             o.search.setText(ps), pv->search.setText(os);
             gPanelLoading = false;
-            if (&o.state() == gActivePanel) gActivePanel = nullptr, activatePanel(&o.states[size_t(from)]);  // (its state went to pv)
+            // The active state goes with its data: pv's of the old mode to o, o's of the new mode to pv.
+            if (oldActive) gActivePanel = nullptr, activeNext = &o.states[size_t(from)];
+            else if (&o.state() == gActivePanel) gActivePanel = nullptr, activeNext = &pv->states[size_t(to)];
+            // (and each mode's panel used last goes with its data too: setMode goes to the window that shows it now)
+            std::array<PanelState*, kModeCount>& last = dockedPanelsOf(activeDocKey()).lastOfMode;
+            if (last[size_t(to)] == &o.states[size_t(to)]) last[size_t(to)] = &pv->states[size_t(to)];
+            if (last[size_t(from)] == &pv->states[size_t(from)]) last[size_t(from)] = &o.states[size_t(from)];
             o.mode = from;
             o.list.scrollTo(0);
             palettePanelRebuild(o);
@@ -322,11 +354,10 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             pv->list.scrollTo(0);
         }
         palettePanelRebuild(*pv);
-        if (pv->floating && !other) panelLoadFromDocked(*pv, palettePanelOf(*pv)->doc);
+        if (docks) panelLoadFromDocked(*pv, palettePanelOf(*pv)->doc), pv->floating = false;
         retitle(*pv);
-        // The panel was the active one, or a mode's floating palette: its new mode's state is the active panel.
-        if (wasActive || pv->floating) activatePanel(&pv->state());
-        if (pv->floating && gRoot) gRoot->relayout(), shellMenusChanged();
+        if (activeNext) activatePanel(activeNext);  // (the same mode: its panel in its new place)
+        if (wasFloating && gRoot) gRoot->relayout(), shellMenusChanged();
     };
     v.search.onChange = [pv] {
         if (gPanelLoading) return;
@@ -715,7 +746,8 @@ bool SDLCALL palettePanelsPress(void*, SDL_Event* e) {
     draw::Point pt;
     for (auto& p : gPanels)
         if (p->open && at(*p->view, pt)) {
-            if (pt.y >= p->view->titleH && &p->view->state() != gActivePanel) activatePanel(&p->view->state());
+            // (not the type box: its change keeps the mode, v.type.onChange)
+            if (pt.y >= p->view->titleH && !p->view->type.frame().contains(pt) && &p->view->state() != gActivePanel) activatePanel(&p->view->state());
             return true;
         }
     if (gRoot && at(*gRoot, pt))
