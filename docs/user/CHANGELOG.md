@@ -2,6 +2,24 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.6
+
+A stability release for Windows.
+
+### Fixes
+
+- Starting no longer stops the whole computer on older video cards (for example the GeForce GTX 770): drawing now
+  uses Vulkan first, then Direct3D 12, then software drawing.
+- When a start does not show its window, the next start uses another graphics driver.
+- Too much memory use now ends StarDraft 2 with a crash report; the computer keeps working.
+
+### The program
+
+- Program options > General > Graphics: Automatic, Direct3D 12 or Software. The driver and video card in use show there
+  and in the Log.
+
+  ![Program options > General > Graphics: Automatic, Direct3D 12 or Software, with the driver and video card in use](images/0.8.6/graphics.png)
+
 ## 0.8.5
 
 ### Map
