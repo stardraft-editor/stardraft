@@ -536,7 +536,8 @@ bool Dropdown::mouse(const MouseEvent& e) {
         return true;
     case MouseKind::DoubleClick: return enabled_;  // the press has opened (or closed) the list already
     case MouseKind::Wheel: {
-        if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
+        // (a field without the focus: the wheel scrolls the page under it, so that a scroll past a field changes nothing)
+        if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps || !hasFocus()) return false;
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);
         while (wheelAcc_ <= -1) wheelAcc_ += 1, step(1);

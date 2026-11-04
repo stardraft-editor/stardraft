@@ -1,7 +1,8 @@
 #pragma once
 // A dropdown (docs/dev/CONTROLS.md, "Dropdown"): a field with the value's icon and name, its number at the right and a
 // chevron. A click, Alt+Down, Space or Enter opens the list under it (a popup window of up to 12 rows; the wheel
-// scrolls it). Up and Down, and the mouse wheel over the closed field, step the value to the next or the previous item.
+// scrolls it). Up and Down, and the mouse wheel over the closed field when it has the focus, step the value to the next
+// or the previous item (a field without the focus passes the wheel on: the page under it scrolls).
 
 #include <functional>
 #include <memory>
@@ -41,7 +42,7 @@ public:
     std::function<void()> onOpen;
     // Enter opens the list (the default). Off: a closed list passes Enter on, as a Windows combo box does in a dialog.
     bool enterOpens = true;
-    // The mouse wheel over the closed field steps the value (the default). Off: the wheel goes on to the view under it (a
+    // The mouse wheel over the closed field with the focus steps the value (the default). Off: the wheel goes on to the view under it (a
     // choice that changes much, as Program options' Game, changes only by the list or the keys).
     bool wheelSteps = true;
     // The open list has a search row: typing shows only the items whose name (or number) has the typed text (a long
