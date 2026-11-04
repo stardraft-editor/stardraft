@@ -2782,6 +2782,16 @@ constexpr UiText kRows[] = {
     {L"Graphics: Software after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A\u8F6F\u4EF6"},
     {L"The custom terrain on the clipboard is for another tileset: ", L"\u526A\u8D34\u677F\u4E2D\u7684\u81EA\u5B9A\u4E49\u5730\u5F62\u5C5E\u4E8E\u53E6\u4E00\u4E2A\u56FE\u5757\u96C6\uFF1A"},
     {L"The custom terrain on the clipboard has no tiles to place", L"\u526A\u8D34\u677F\u4E2D\u7684\u81EA\u5B9A\u4E49\u5730\u5F62\u6CA1\u6709\u53EF\u653E\u7F6E\u7684\u56FE\u5757"},
+    {L"Turn clockwise what is on the cursor (R)", L"\u987A\u65F6\u9488\u65CB\u8F6C\u5149\u6807\u4E0A\u7684\u5185\u5BB9 (R)"},
+    {L"Turn back what is on the cursor (Shift+R)", L"\u9006\u65F6\u9488\u65CB\u8F6C\u5149\u6807\u4E0A\u7684\u5185\u5BB9 (Shift+R)"},
+    {L"Mirror left and right what is on the cursor (M)", L"\u5DE6\u53F3\u955C\u50CF\u5149\u6807\u4E0A\u7684\u5185\u5BB9 (M)"},
+    {L"Mirror top and bottom what is on the cursor (Shift+M)", L"\u4E0A\u4E0B\u955C\u50CF\u5149\u6807\u4E0A\u7684\u5185\u5BB9 (Shift+M)"},
+    {L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush", L"\u6CA1\u6709\u53EF\u65CB\u8F6C\u7684\u5185\u5BB9\uFF1A\u590D\u5236\u5730\u5F62 (Ctrl+C)\uFF0C\u6216\u4E3A\u753B\u7B14\u9009\u62E9\u81EA\u5B9A\u4E49\u5730\u5F62\u6216\u590D\u5236\u7684\u56FE\u5757"},
+    {L"Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.", L"\u7C98\u8D34\u56FE\u5757\uFF1A\u5355\u51FB\u653E\u7F6E\uFF0C\u518D\u6B21\u5355\u51FB\u653E\u7F6E\u66F4\u591A\u3002R \u65CB\u8F6C\uFF0CM \u955C\u50CF\u3002\u53F3\u952E\u6216 Esc \u505C\u6B62\u3002"},
+    {L"Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"\u7C98\u8D34\u5730\u5F62\uFF1A\u5355\u51FB\u653E\u7F6E\uFF0C\u518D\u6B21\u5355\u51FB\u653E\u7F6E\u66F4\u591A\u3002R \u65CB\u8F6C\uFF0CM \u955C\u50CF\u3002\u53F3\u952E\u6216 Esc \u505C\u6B62\u3002"},
+    {L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u65CB\u8F6C\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
+    {L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u4E0A\u4E0B\u955C\u50CF\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
+    {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u5DE6\u53F3\u955C\u50CF\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

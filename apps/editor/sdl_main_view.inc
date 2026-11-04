@@ -700,7 +700,8 @@ struct MainView final : draw::View {
     }
 
     // The map's own keys (the Windows map's WM_KEYDOWN; the core's functions, core/map_input.inc): Esc stops the step
-    // or clears the selection, R and Shift+R turn the terrain to paste, the arrows move the selected units or the view.
+    // or clears the selection, R and Shift+R turn what is on the cursor (M and Shift+M mirror it), the arrows move the
+    // selected units or the view.
     bool mapKey(const draw::KeyEvent& e) {
         const bool arrow = e.key == draw::Key::Left || e.key == draw::Key::Right || e.key == draw::Key::Up || e.key == draw::Key::Down;
         if (!map.open() || (e.mods & draw::kAlt) || ((e.mods & draw::kCtrl) && !arrow)) return false;
@@ -711,6 +712,10 @@ struct MainView final : draw::View {
                 if (draw::Host* h = host()) h->capture(map, false);
             break;
         case draw::Key('R'): mapTurnPaste(gState, shift); break;
+        case draw::Key('M'):  // (mirror what is on the cursor; else the key is not the map's)
+            if (!cursorTurnable(gState)) return false;
+            mapMirrorPaste(gState, shift);
+            break;
         case draw::Key::Left:
         case draw::Key::Right:
         case draw::Key::Up:

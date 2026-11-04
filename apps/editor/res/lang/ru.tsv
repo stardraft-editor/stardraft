@@ -2780,3 +2780,13 @@ Graphics: Direct3D 12 after a restart	Графика: Direct3D 12 после п�
 Graphics: Software after a restart	Графика: программно после перезапуска
 The custom terrain on the clipboard is for another tileset: 	Пользовательский рельеф в буфере обмена для другого набора тайлов: 
 The custom terrain on the clipboard has no tiles to place	В пользовательском рельефе из буфера обмена нет тайлов для размещения
+Turn clockwise what is on the cursor (R)	Повернуть по часовой стрелке то, что на курсоре (R)
+Turn back what is on the cursor (Shift+R)	Повернуть обратно то, что на курсоре (Shift+R)
+Mirror left and right what is on the cursor (M)	Отразить слева направо то, что на курсоре (M)
+Mirror top and bottom what is on the cursor (Shift+M)	Отразить сверху вниз то, что на курсоре (Shift+M)
+Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	Нечего поворачивать: скопируйте рельеф (Ctrl+C) или выберите для кисти пользовательский рельеф или скопированные тайлы
+Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Вставка тайлов: щелкните, чтобы разместить их, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
+Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Вставка рельефа: щелкните, чтобы разместить его, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
+Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы повернуты: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены сверху вниз: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены слева направо: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть

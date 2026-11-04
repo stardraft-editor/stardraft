@@ -928,16 +928,64 @@ bool mapCancelStep(AppState& app) {
 
 void shareTerrainCopy(const Editor& ed);  // (map_edit_commands.inc)
 
-// R (back: Shift+R) while terrain is about to be pasted: the copy turns clockwise (back: the other way). Tiles
-// (Rectangle) do not turn.
-void mapTurnPaste(AppState& app, bool back) {
-    if (!app.terrainPasting || app.terrainRect || !app.ed || !app.ed->hasTerrainClipboard()) return;
-    int dropped = 0;
-    for (int k = back ? 3 : 1; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
-    shareTerrainCopy(*app.ed);
-    setMessage(app, dropped ? L"Turned the terrain; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
-                            : L"Turned the terrain (R turns clockwise, Shift+R turns back)");
+// What is on the cursor to turn or mirror: 1 isometric terrain to paste (its corners: the edges are made again), 2
+// tiles to paste (Tile), 3 the Brush's tiles (copied tiles, custom terrain); 0 nothing.
+bool tilesStampOn();  // (tiles_edit.inc)
+int cursorTurnable(const AppState& app) {
+    if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain) return 0;
+    if (app.terrainPasting) return !app.terrainRect ? (app.ed->hasTerrainClipboard() ? 1 : 0) : app.ed->hasTileClipboard() ? 2 : 0;
+    return app.terrainRect && currentTool(app) == TBrush && tilesStampOn() ? 3 : 0;
 }
+// A box of tiles (w x h, row by row) turned a quarter clockwise (back: the other way), or mirrored left and right
+// (turn 0, upDown false) or top and bottom; w and h follow.
+void turnTileBox(std::vector<uint16_t>& v, int& w, int& h, int turn, bool upDown) {
+    if (w <= 0 || h <= 0 || v.size() != size_t(w) * size_t(h)) return;
+    std::vector<uint16_t> out(v.size());
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            const uint16_t t = v[size_t(y) * size_t(w) + size_t(x)];
+            if (turn > 0) out[size_t(x) * size_t(h) + size_t(h - 1 - y)] = t;        // clockwise: (x, y) -> (h - 1 - y, x)
+            else if (turn < 0) out[size_t(w - 1 - x) * size_t(h) + size_t(y)] = t;   // back: (x, y) -> (y, w - 1 - x)
+            else if (upDown) out[size_t(h - 1 - y) * size_t(w) + size_t(x)] = t;
+            else out[size_t(y) * size_t(w) + size_t(w - 1 - x)] = t;
+        }
+    v = std::move(out);
+    if (turn) std::swap(w, h);
+}
+void tilesStampTurned(int turn, bool upDown);  // (tiles_edit.inc: the Brush's stamp)
+// R (back: Shift+R): what is on the cursor turns a quarter clockwise (back: the other way). Isometric terrain turns
+// its corners (the edges are made again); tiles move to their turned places, each tile's picture as it is.
+// M (Shift+M): it mirrors left and right (top and bottom).
+void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
+    const int what = cursorTurnable(app);
+    if (!what) return setMessage(app, L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush");
+    if (what == 1) {
+        int dropped = 0;
+        if (turn) {
+            for (int k = turn > 0 ? 1 : 3; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
+        } else {
+            dropped = app.ed->mirrorTerrainClipboard(upDown);
+        }
+        shareTerrainCopy(*app.ed);
+        const std::wstring done = turn ? L"Turned the terrain" : upDown ? L"Mirrored the terrain top and bottom" : L"Mirrored the terrain left and right";
+        setMessage(app, dropped ? done + L"; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
+                                : done + L" (R and Shift+R turn it, M and Shift+M mirror it)");
+    } else if (what == 2) {
+        Editor::TerrainCopies c = app.ed->terrainCopies();
+        turnTileBox(c.tiles.values, c.tiles.width, c.tiles.height, turn, upDown);
+        app.ed->setTerrainCopies(c);
+        shareTerrainCopy(*app.ed);
+    } else {
+        tilesStampTurned(turn, upDown);
+    }
+    if (what != 1)
+        setMessage(app, turn     ? L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit"
+                        : upDown ? L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit"
+                                 : L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit");
+    app.dirty = true;
+}
+void mapTurnPaste(AppState& app, bool back) { mapTurnOrMirror(app, back ? -1 : 1, false); }
+void mapMirrorPaste(AppState& app, bool upDown) { mapTurnOrMirror(app, 0, upDown); }
 
 // An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units snap a
 // grid cell; a building that snaps to the tiles: a tile at least; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.

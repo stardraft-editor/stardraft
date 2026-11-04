@@ -225,6 +225,16 @@ void tilesStampFromCopy() {
     tilesPanelRepaint();
 }
 
+// The Brush's stamp (copied tiles, custom terrain) turned or mirrored (map_input.inc mapTurnOrMirror): its tiles in
+// their new places; a custom terrain becomes a copy (its name: not the turned one).
+void turnTileBox(std::vector<uint16_t>& v, int& w, int& h, int turn, bool upDown);  // (map_input.inc)
+void tilesStampTurned(int turn, bool upDown) {
+    if (gTiles->stamp.empty()) return;
+    turnTileBox(gTiles->stamp, gTiles->stampW, gTiles->stampH, turn, upDown);
+    if (!gTiles->stampName.empty()) gTiles->stampName.clear(), gTiles->stampCopied = true;
+    tilesPanelRepaint();
+}
+
 void tilesPick(int value, bool fromMap) {
     gTiles->picked = value, gTiles->stampCopied = false;
     gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();

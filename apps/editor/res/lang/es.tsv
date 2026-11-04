@@ -2780,3 +2780,13 @@ Graphics: Direct3D 12 after a restart	Gráficos: Direct3D 12 tras reiniciar
 Graphics: Software after a restart	Gráficos: software tras reiniciar
 The custom terrain on the clipboard is for another tileset: 	El terreno personalizado del portapapeles es de otro tileset: 
 The custom terrain on the clipboard has no tiles to place	El terreno personalizado del portapapeles no tiene casillas que colocar
+Turn clockwise what is on the cursor (R)	Girar en sentido horario lo que hay en el cursor (R)
+Turn back what is on the cursor (Shift+R)	Girar en sentido antihorario lo que hay en el cursor (Shift+R)
+Mirror left and right what is on the cursor (M)	Reflejar de izquierda a derecha lo que hay en el cursor (M)
+Mirror top and bottom what is on the cursor (Shift+M)	Reflejar de arriba abajo lo que hay en el cursor (Shift+M)
+Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	No hay nada que girar: copia terreno (Ctrl+C) o elige terreno personalizado o casillas copiadas para el pincel
+Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Pegar casillas: haz clic para colocarlas y otra vez para colocar más. R las gira, M las refleja. Clic derecho o Esc para parar.
+Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Pegar terreno: haz clic para colocarlo y otra vez para colocar más. R lo gira, M lo refleja. Clic derecho o Esc para parar.
+Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas giradas: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas reflejadas de arriba abajo: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas reflejadas de izquierda a derecha: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar

@@ -222,6 +222,10 @@ public:
     // Units turn with it; doodads cannot (their tiles face one way) and are dropped. Returns how many
     // doodads were dropped.
     int rotateTerrainClipboard();
+    // The terrain clipboard mirrored left and right ((x, y) -> (-x, y)), or (upDown) top and bottom ((x, -y)): the
+    // diamond grid mirrors onto itself (x + y keeps its parity), so the terrain stays valid ISOM. Units mirror with
+    // it; doodads cannot (their tiles face one way) and are dropped. Returns how many doodads were dropped.
+    int mirrorTerrainClipboard(bool upDown);
     // Corners a terrain paste at (px, py) would set (the unmirrored copy), for previews.
     std::vector<std::pair<int, int>> terrainPasteCorners(int px, int py) const;
     // Paste with the clipboard's top-left corner snapped near (px, py). The clipboard's units obey the placement

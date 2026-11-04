@@ -71,7 +71,8 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+arrows | Move the selected units by 16 pixels, or by a grid cell when units snap |
 | Enter | Properties of the selected location or unit |
 | Esc | Cancel what is under way: a paste, a drag, a selection |
-| R, Shift+R | Turn the terrain that is about to be pasted, the other way |
+| R, Shift+R | Turn what is on the cursor (terrain or tiles to paste, the Brush's copied tiles or custom terrain) clockwise, the other way. Isometric terrain makes its edges again; tiles keep their pictures |
+| M, Shift+M | Mirror what is on the cursor left and right, top and bottom |
 | Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice) |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad; otherwise nothing (it never zooms) |
 

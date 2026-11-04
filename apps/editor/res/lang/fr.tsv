@@ -2780,3 +2780,13 @@ Graphics: Direct3D 12 after a restart	Graphismes : Direct3D 12 après un redéma
 Graphics: Software after a restart	Graphismes : logiciel après un redémarrage
 The custom terrain on the clipboard is for another tileset: 	Le terrain personnalisé du presse-papiers est pour un autre tileset : 
 The custom terrain on the clipboard has no tiles to place	Le terrain personnalisé du presse-papiers n'a aucune tuile à placer
+Turn clockwise what is on the cursor (R)	Tourner dans le sens horaire ce qui est sur le curseur (R)
+Turn back what is on the cursor (Shift+R)	Tourner dans l'autre sens ce qui est sur le curseur (Shift+R)
+Mirror left and right what is on the cursor (M)	Retourner gauche-droite ce qui est sur le curseur (M)
+Mirror top and bottom what is on the cursor (Shift+M)	Retourner haut-bas ce qui est sur le curseur (Shift+M)
+Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	Rien à tourner : copiez du terrain (Ctrl+C), ou choisissez un terrain personnalisé ou des tuiles copiées pour le pinceau
+Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	Coller des tuiles : cliquez pour les placer, et encore pour en placer d'autres. R les tourne, M les retourne. Clic droit ou Échap arrête.
+Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Coller du terrain : cliquez pour le placer, et encore pour en placer d'autres. R le tourne, M le retourne. Clic droit ou Échap arrête.
+Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles tournées : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles retournées haut-bas : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Tuiles retournées gauche-droite : l'image de chaque tuile reste la même, les bords et falaises peuvent ne pas s'accorder

@@ -2782,6 +2782,16 @@ constexpr UiText kRows[] = {
     {L"Graphics: Software after a restart", L"Graphismes : logiciel apr\u00E8s un red\u00E9marrage"},
     {L"The custom terrain on the clipboard is for another tileset: ", L"Le terrain personnalis\u00E9 du presse-papiers est pour un autre tileset : "},
     {L"The custom terrain on the clipboard has no tiles to place", L"Le terrain personnalis\u00E9 du presse-papiers n'a aucune tuile \u00E0 placer"},
+    {L"Turn clockwise what is on the cursor (R)", L"Tourner dans le sens horaire ce qui est sur le curseur (R)"},
+    {L"Turn back what is on the cursor (Shift+R)", L"Tourner dans l'autre sens ce qui est sur le curseur (Shift+R)"},
+    {L"Mirror left and right what is on the cursor (M)", L"Retourner gauche-droite ce qui est sur le curseur (M)"},
+    {L"Mirror top and bottom what is on the cursor (Shift+M)", L"Retourner haut-bas ce qui est sur le curseur (Shift+M)"},
+    {L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush", L"Rien \u00E0 tourner : copiez du terrain (Ctrl+C), ou choisissez un terrain personnalis\u00E9 ou des tuiles copi\u00E9es pour le pinceau"},
+    {L"Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.", L"Coller des tuiles : cliquez pour les placer, et encore pour en placer d'autres. R les tourne, M les retourne. Clic droit ou \u00C9chap arr\u00EAte."},
+    {L"Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"Coller du terrain : cliquez pour le placer, et encore pour en placer d'autres. R le tourne, M le retourne. Clic droit ou \u00C9chap arr\u00EAte."},
+    {L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit", L"Tuiles tourn\u00E9es : l'image de chaque tuile reste la m\u00EAme, les bords et falaises peuvent ne pas s'accorder"},
+    {L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit", L"Tuiles retourn\u00E9es haut-bas : l'image de chaque tuile reste la m\u00EAme, les bords et falaises peuvent ne pas s'accorder"},
+    {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"Tuiles retourn\u00E9es gauche-droite : l'image de chaque tuile reste la m\u00EAme, les bords et falaises peuvent ne pas s'accorder"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

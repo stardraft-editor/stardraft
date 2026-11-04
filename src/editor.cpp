@@ -2372,6 +2372,24 @@ int Editor::rotateTerrainClipboard() {
     return dropped;
 }
 
+int Editor::mirrorTerrainClipboard(bool upDown) {
+    TerrainClip& c = terrainClip_;
+    if (c.corners.empty()) return 0;
+    for (auto& v : c.corners) (upDown ? v.y : v.x) = -(upDown ? v.y : v.x);
+    int ox = c.corners.front().x, oy = c.corners.front().y;  // (the top-left-most corner: the origin again, as rotate)
+    for (const auto& v : c.corners)
+        if (v.y < oy || (v.y == oy && v.x < ox)) ox = v.x, oy = v.y;
+    for (auto& v : c.corners) v.x -= ox, v.y -= oy;
+    for (Unit& u : c.units) {  // (pixel offsets from the origin: mirrored and shifted the same way)
+        const int px = int16_t(u.x), py = int16_t(u.y);
+        const int nx = (upDown ? px : -px) - ox * 64, ny = (upDown ? -py : py) - oy * 32;
+        u.x = uint16_t(int16_t(nx)), u.y = uint16_t(int16_t(ny));
+    }
+    const int dropped = int(c.doodads.size());
+    c.doodads.clear();
+    return dropped;
+}
+
 std::vector<std::pair<int, int>> Editor::terrainPasteCorners(int px, int py) const {
     std::vector<std::pair<int, int>> out;
     if (!isomOk_) return out;

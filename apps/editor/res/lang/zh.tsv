@@ -2780,3 +2780,13 @@ Graphics: Direct3D 12 after a restart	图形：重新启动后为 Direct3D 12
 Graphics: Software after a restart	图形：重新启动后为软件
 The custom terrain on the clipboard is for another tileset: 	剪贴板中的自定义地形属于另一个图块集：
 The custom terrain on the clipboard has no tiles to place	剪贴板中的自定义地形没有可放置的图块
+Turn clockwise what is on the cursor (R)	顺时针旋转光标上的内容 (R)
+Turn back what is on the cursor (Shift+R)	逆时针旋转光标上的内容 (Shift+R)
+Mirror left and right what is on the cursor (M)	左右镜像光标上的内容 (M)
+Mirror top and bottom what is on the cursor (Shift+M)	上下镜像光标上的内容 (Shift+M)
+Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	没有可旋转的内容：复制地形 (Ctrl+C)，或为画笔选择自定义地形或复制的图块
+Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	粘贴图块：单击放置，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
+Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	粘贴地形：单击放置，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
+Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	已旋转图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	已上下镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	已左右镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合

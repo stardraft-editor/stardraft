@@ -203,8 +203,8 @@ void pasteMapCopy(AppState& app) {
         fillToolCombo(app);
         app.terrainPasting = true;
         app.dirty = true;
-        setMessage(app.terrainRect ? L"Paste tiles: click to place them, and again to place more. Right-click or Esc stops."
-                                   : L"Paste terrain: click to place it, and again to place more. Press R to turn it. Right-click or Esc stops.");
+        setMessage(app.terrainRect ? L"Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops."
+                                   : L"Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.");
         return;
     }
     if (!app.ed || !app.ed->canPaste()) return;

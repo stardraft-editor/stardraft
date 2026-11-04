@@ -2782,6 +2782,16 @@ constexpr UiText kRows[] = {
     {L"Graphics: Software after a restart", L"Gr\u00E1ficos: software tras reiniciar"},
     {L"The custom terrain on the clipboard is for another tileset: ", L"El terreno personalizado del portapapeles es de otro tileset: "},
     {L"The custom terrain on the clipboard has no tiles to place", L"El terreno personalizado del portapapeles no tiene casillas que colocar"},
+    {L"Turn clockwise what is on the cursor (R)", L"Girar en sentido horario lo que hay en el cursor (R)"},
+    {L"Turn back what is on the cursor (Shift+R)", L"Girar en sentido antihorario lo que hay en el cursor (Shift+R)"},
+    {L"Mirror left and right what is on the cursor (M)", L"Reflejar de izquierda a derecha lo que hay en el cursor (M)"},
+    {L"Mirror top and bottom what is on the cursor (Shift+M)", L"Reflejar de arriba abajo lo que hay en el cursor (Shift+M)"},
+    {L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush", L"No hay nada que girar: copia terreno (Ctrl+C) o elige terreno personalizado o casillas copiadas para el pincel"},
+    {L"Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.", L"Pegar casillas: haz clic para colocarlas y otra vez para colocar m\u00E1s. R las gira, M las refleja. Clic derecho o Esc para parar."},
+    {L"Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"Pegar terreno: haz clic para colocarlo y otra vez para colocar m\u00E1s. R lo gira, M lo refleja. Clic derecho o Esc para parar."},
+    {L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas giradas: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
+    {L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas reflejadas de arriba abajo: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
+    {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas reflejadas de izquierda a derecha: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
