@@ -583,12 +583,22 @@ def cmd_publish(args):
             run(s)
     tries = int(args[args.index("--platform-tries") + 1]) if "--platform-tries" in args else PLATFORM_TRIES
     off = {} if "--no-preflight" in args else preflight(version, env, dry, tries)
+    interrupted = False
     try:
         publish_tag(version, tag, env, dry)
+    except KeyboardInterrupt:
+        interrupted = True
+        raise
     finally:
-        for name, value in off.items():  # (the systems that this release left out: on again for the next)
-            set_repo_var(name, value, env)
-            print(f"{name}: {value} again")
+        # (the systems that this release left out: on again for the next; not while the tag's release run may still
+        # read them, after a stop of this wait: then the command to run when it is over)
+        tagged = bool(run(["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"], env=env, check=False).strip())
+        for name, value in off.items():
+            if interrupted and tagged:
+                print(f"{name} is off for the release run of {tag}: when it is over, gh variable set {name} --repo {REPO} --body {value}")
+            else:
+                set_repo_var(name, value, env, check=False)
+                print(f"{name}: {value} again")
 
 
 def publish_tag(version, tag, env, dry):
@@ -692,8 +702,36 @@ def repo_var(name, env):
     return run(["gh", "variable", "get", name, "--repo", REPO], env=env, check=False).strip()
 
 
-def set_repo_var(name, value, env):
-    run(["gh", "variable", "set", name, "--repo", REPO, "--body", value], env=env)
+def set_repo_var(name, value, env, check=True):
+    run(["gh", "variable", "set", name, "--repo", REPO, "--body", value], env=env, check=check)
+
+
+def wait_preflight(run_id, env, stuck_s=30 * 60):
+    """wait_run for the preflight: when only another system's jobs are open, for `stuck_s` after the Windows job ended
+    (a macOS runner that never came: GitHub keeps such a job queued for hours), the run is cancelled, so those jobs
+    count as failed (tried again, or that system left out)."""
+    t, alone_at, cancelled = time.time(), None, False
+    while time.time() - t < 3 * 3600:
+        out = run(["gh", "run", "view", str(run_id), "--repo", REPO, "--json", "status,conclusion,jobs"], env=env, check=False)
+        try:
+            st = json.loads(out)
+        except ValueError:
+            st = {}
+        if st.get("status") == "completed":
+            return st.get("conclusion") or "unknown"
+        jobs = st.get("jobs") or []
+        still = [j["name"] for j in jobs if j.get("status") != "completed" and j["name"] not in PREFLIGHT_IGNORED]
+        windows_done = any(j["name"] == "windows" and j.get("status") == "completed" for j in jobs)
+        if still and windows_done and all(platform_var(n) for n in still):
+            alone_at = alone_at or time.time()
+            if not cancelled and time.time() - alone_at > stuck_s:
+                print(f"preflight build: {', '.join(still)} still waiting {stuck_s // 60} minutes after the others: cancelled")
+                run(["gh", "run", "cancel", str(run_id), "--repo", REPO], env=env, check=False)
+                cancelled = True
+        else:
+            alone_at = None
+        time.sleep(30)
+    return "timed out"
 
 
 def bad_jobs(run_id, env):
@@ -733,7 +771,7 @@ def preflight(version, env, dry, tries=PLATFORM_TRIES):
         if not run_id:
             raise Fail(f"no preflight build for {branch} after 5 minutes: gh run list --workflow build.yml --branch {branch}")
         print(f"preflight build {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (about 15 minutes)")
-        conclusion = wait_run(run_id, env)
+        conclusion = wait_preflight(run_id, env)
         tried = 1
         while conclusion != "success":
             bad = bad_jobs(run_id, env)
@@ -749,16 +787,19 @@ def preflight(version, env, dry, tries=PLATFORM_TRIES):
             print(f"preflight build: {', '.join(bad)} {conclusion} (try {tried} of {tries}); they run again")
             run(["gh", "run", "rerun", str(run_id), "--repo", REPO, "--failed"], env=env, check=False)
             time.sleep(20)
-            conclusion = wait_run(run_id, env)
+            conclusion = wait_preflight(run_id, env)
             tried += 1
         if conclusion == "success":
             print("preflight build: passed")
             return {}
-        off = {}
-        for v in sorted(systems):
-            if (was := repo_var(v, env)) == "on":
+        off = {v: "on" for v in sorted(systems) if repo_var(v, env) == "on"}
+        try:
+            for v in off:
                 set_repo_var(v, "off", env)
-                off[v] = was
+        except BaseException:
+            for v, was in off.items():
+                set_repo_var(v, was, env, check=False)
+            raise
         print(f"preflight build: {', '.join(bad)} still failed after {tries} tries: this release leaves out "
               f"{', '.join(off) or 'nothing more'} (Windows ships; on again after the release)\n{failed_summary(run_id, env)}")
         return off
