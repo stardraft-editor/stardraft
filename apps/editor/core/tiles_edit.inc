@@ -229,7 +229,7 @@ void tilesStampFromCopy() {
 // their new places; a custom terrain becomes a copy (its name: not the turned one).
 void turnTileBox(std::vector<uint16_t>& v, int& w, int& h, int turn, bool upDown);  // (map_input.inc)
 void tilesStampTurned(int turn, bool upDown) {
-    if (gTiles->stamp.empty()) return;
+    if (gTiles->stamp.empty() || gTiles->stamp.size() == 1) return;  // (one tile: the same after it; it stays the Brush's)
     turnTileBox(gTiles->stamp, gTiles->stampW, gTiles->stampH, turn, upDown);
     if (!gTiles->stampName.empty()) gTiles->stampName.clear(), gTiles->stampCopied = true;
     tilesPanelRepaint();
