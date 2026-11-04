@@ -45,7 +45,9 @@ Brush currentBrush(const AppState& app) {
 // The terrain selection's shape: the Select tool's own (diamond, square, circle; a square at first), kept apart from the
 // brushes' so that a painting brush's shape does not change how Select selects.
 Editor::SelectShape selectShape(const AppState& app) {
-    // (the diamond: the area along the map's diamonds between the drag's two corners, so that it starts where the drag does)
+    // (the diamond: Isometric's fills the drag's box, its points at the middle of the box's sides, as the circle fills it;
+    // Rectangle's is the area along the map's diamonds between the drag's two corners)
+    if (app.selectShape == Brush::Diamond && !app.terrainRect) return Editor::SelectShape::Diamond;
     if (app.selectShape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
     return app.selectShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
 }

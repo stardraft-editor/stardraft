@@ -226,6 +226,7 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.brushSize = std::clamp(float(std::atof(part[at + 2].c_str())), 0.5f, 32.0f), s.brushHeight = std::clamp(float(std::atof(part[at + 3].c_str())), 0.0f, 32.0f);
     s.brushShape = Brush::Shape(std::clamp(num(4), 0, int(Brush::Circle)));
     s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & Mirror::All, s.terrainRect = num(7) != 0;
+    if (s.terrainRect && m == Mode::Terrain) s.brushSize = std::max(1.0f, s.brushSize);  // (the Rectangle tools: a tile is the least)
     if (m == Mode::Terrain && (s.tool > TRamp || (s.terrainRect && s.tool == TJumble))) s.tool = TBrush;  // (Jumble: Isometric's only)
     if ((m == Mode::Units && s.tool > UErase) || (m == Mode::Doodads && s.tool > DErase) || (m == Mode::Sprites && s.tool > SErase) ||
         (m == Mode::Locations && s.tool > LErase))

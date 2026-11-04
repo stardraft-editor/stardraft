@@ -234,18 +234,19 @@ void stampsImportText(const std::string& text) {
 
 // Ctrl+V in Terrain mode with custom terrain as text on the clipboard (Copy as text, or text from other people): it
 // is the Brush's stamp in Tile mode, as tiles copied with Ctrl+C are (not imported: Import from clipboard keeps it).
-// The same text again, when the map has a copy of its own (Ctrl+C after it): that copy pastes. False: no such text.
+// When the map's own copy (Ctrl+C) is newer, it pastes: the clipboard's text at that Ctrl+C (gClipboardAtCopy) is the
+// same as now. False: no such text, or the copy is newer.
 std::string shellClipboardText();  // (shell_sdl.inc)
+std::string gClipboardAtCopy;      // (copyMapSelection: the clipboard's text at the map's last Ctrl+C)
+bool gMapCopied = false;
 bool stampsPasteText() {
-    static std::string pasted;  // (the text that the last such paste took)
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return false;
     const std::string text = shellClipboardText();
     TerrainStamp s;
     std::string err;
-    if (text.empty() || !parseTerrainStamp(text, s, err)) return false;
-    if (text == pasted && (app.ed->hasTileClipboard() || app.ed->hasTerrainClipboard())) return false;
-    pasted = text;
+    if (text.empty() || text.find('{') == std::string::npos || !parseTerrainStamp(text, s, err)) return false;
+    if (gMapCopied && text == gClipboardAtCopy) return false;  // (the map's Ctrl+C came after the text)
     if ((app.ed->era() & 7) != s.era) {
         setMessage(tr(L"The custom terrain on the clipboard is for another tileset: ") + widen(tilesetName(s.era)));
         return true;

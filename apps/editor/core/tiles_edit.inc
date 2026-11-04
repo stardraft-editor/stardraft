@@ -592,7 +592,10 @@ int tilesBrushAt(int tx, int ty) {
         std::set<std::pair<int, int>> fresh;  // (the footprint's tiles that go, and their rects)
         std::vector<std::pair<int, int>> rects;
         for (const auto& [x, y] : solidBrushTiles(tx, ty))
-            if (!gSolidStrokeRects.count({x, y}) || !whole(x, y)) fresh.insert({x, y}), rects.push_back({x >> 1, y});
+            if (!gSolidStrokeRects.count({x, y}) || !whole(x, y)) {
+                fresh.insert({x, y}), rects.push_back({x >> 1, y});
+                if (gSolidStrokeRects.count({x ^ 1, y})) fresh.insert({x ^ 1, y});  // (its other half, by this stroke: a pair again)
+            }
         const std::vector<Editor::TileAt> cells = solidTiles(rects, &fresh);
         for (const Editor::TileAt& c : cells) gSolidStrokeRects.insert({c.x, c.y});
         return tilesPut(cells);
@@ -714,8 +717,8 @@ void tilesMouseMove(float wx, float wy) {
             tilesStampOrigin(x, y, x0, y0);
             if (x0 != bx || y0 != by) bx = x0, by = y0, gTilesStrokePlaced += tilesPut(tilesStampCells(x0, y0));
         }
-    } else if (gTiles->solid) {  // each rect along the way from the last tile (a fast drag leaves no gaps)
-        const int steps = std::max(std::abs(tx / 2 - gTiles->lastX / 2), std::abs(ty - gTiles->lastY));
+    } else if (gTiles->solid) {  // each tile along the way from the last one (a fast drag leaves no gaps)
+        const int steps = std::max(std::abs(tx - gTiles->lastX), std::abs(ty - gTiles->lastY));
         for (int i = 1; i <= steps; ++i)
             gTilesStrokePlaced += tilesBrushAt(gTiles->lastX + (tx - gTiles->lastX) * i / steps, gTiles->lastY + (ty - gTiles->lastY) * i / steps);
     } else {

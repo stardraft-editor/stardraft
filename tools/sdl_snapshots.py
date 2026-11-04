@@ -604,7 +604,7 @@ CASES += [
     ("map-terrain-select-square", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
     ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,-1", "--drag", "520,600-700,720"], "map"),
     ("map-terrain-select-circle", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,1", "--drag", "520,600-700,720"], "map"),
-    ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    ("map-tiles-select-circle", ["--rect", "--key", "V", "--wheel", "90,491,0,1", "--drag", "520,600-700,720"], "map"),  # (Select's own shape: Square, then Circle)
     # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
     ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "246,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
                              "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),

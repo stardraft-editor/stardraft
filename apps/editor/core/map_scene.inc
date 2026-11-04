@@ -1001,6 +1001,30 @@ render::Scene buildScene() {
             for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
                 for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);
             diamondOutline(s, set, currentTool() == TSpray ? 0xFFD040E0u : 0xFFFFFFF0u);
+            // The Square and the Circle: their own shape too (a thin line, as IsomGrid::brushCorners measures it: half
+            // extents of size x 64 and height x 32 pixels), round the diamonds that they paint.
+            const Brush b = currentBrush();
+            if (b.shape != Brush::Diamond && !b.starEdit()) {
+                const float hw = std::max(0.5f, float(b.size)) * 64, hh = std::max(0.5f, float(b.height())) * 32;
+                const uint32_t rgba = currentTool() == TSpray ? 0xFFD040A0u : 0xFFFFFFA0u;
+                auto line = [&](float x0, float y0, float x1, float y1) {
+                    render::RectDraw l;
+                    l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = 1, l.line = true;
+                    s.rects.push_back(l);
+                };
+                for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), b)) {
+                    if (b.shape == Brush::Square) {
+                        line(px - hw, py - hh, px + hw, py - hh), line(px + hw, py - hh, px + hw, py + hh);
+                        line(px + hw, py + hh, px - hw, py + hh), line(px - hw, py + hh, px - hw, py - hh);
+                        continue;
+                    }
+                    const int n = std::clamp(int(6.2831853f * std::max(hw, hh) * app.zoom / 4), 24, 360);  // (about 4 screen pixels a part)
+                    for (int k = 0; k < n; ++k) {
+                        const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
+                        line(px + hw * std::cos(a0), py + hh * std::sin(a0), px + hw * std::cos(a1), py + hh * std::sin(a1));
+                    }
+                }
+            }
         }
     }
     if (objectSprayOn() || objectEraseOn()) {

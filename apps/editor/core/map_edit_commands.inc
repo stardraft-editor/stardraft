@@ -234,7 +234,11 @@ bool copySelectedTiles(Editor& ed) {
 }
 
 // Edit > Copy in the active mode (the terrain selection, the tiles, the doodads, the sprites, the location or the units).
+std::string shellClipboardText();  // (shell_sdl.inc)
+extern std::string gClipboardAtCopy;  // (stamps.inc: the clipboard's text at the map's last Ctrl+C)
+extern bool gMapCopied;
 void copyMapSelection(AppState& app) {
+    if (app.mode == Mode::Terrain) gClipboardAtCopy = shellClipboardText(), gMapCopied = true;  // (newer than that text)
     if (app.mode == Mode::Terrain && app.terrainRect) {
         if (!copySelectedTiles(*app.ed))
             setMessage(L"Select an area with the Select tool first");
