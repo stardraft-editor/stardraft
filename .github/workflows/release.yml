@@ -60,6 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_MAC: ${{ vars.RELEASE_MAC }}  # (not "on": the macOS jobs need not pass)
+          RELEASE_LINUX: ${{ vars.RELEASE_LINUX }}  # (not "on": the Linux jobs need not pass)
         run: |
           case "$GITHUB_REF_NAME" in
             ci-test-*) want=(--any-version) ;;
@@ -94,9 +95,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN: ${{ needs.tested.outputs.run_id }}
           RELEASE_MAC: ${{ vars.RELEASE_MAC }}
+          RELEASE_LINUX: ${{ vars.RELEASE_LINUX }}
         run: |
-          names=("stardraft-$GITHUB_SHA:dl" "stardraft-symbols-$GITHUB_SHA:dl" "stardraft-appimage-$GITHUB_SHA:dl/appimage")
+          names=("stardraft-$GITHUB_SHA:dl" "stardraft-symbols-$GITHUB_SHA:dl")
           if [ "$RELEASE_MAC" = on ]; then names+=("stardraft-dmg-$GITHUB_SHA:dl/dmg"); fi  # (off: no macOS disk image)
+          if [ "$RELEASE_LINUX" = on ]; then names+=("stardraft-appimage-$GITHUB_SHA:dl/appimage"); fi  # (off: no AppImage)
           for a in "${names[@]}"; do
             gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --name "${a%%:*}" --dir "${a#*:}"
           done

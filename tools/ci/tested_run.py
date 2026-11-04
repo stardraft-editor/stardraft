@@ -29,6 +29,13 @@ if os.environ.get("RELEASE_MAC", "") != "on":
     REQUIRED = REQUIRED - {"macos"}
     IGNORED = IGNORED | {"macos", "release-test-macos"}
     VERSIONS = ("windows",)
+# RELEASE_LINUX not "on" (the release has no AppImage): the Linux jobs are not waited for and need not pass.
+NO_LINUX = os.environ.get("RELEASE_LINUX", "") != "on"
+LINUX_JOBS = {"linux", "linux-clang", "linux-appimage", "flatpak", "extras", "linux-appimage-run (ubuntu-22.04)",
+              "linux-appimage-run (ubuntu-rolling)"}
+if NO_LINUX:
+    REQUIRED = REQUIRED - LINUX_JOBS
+    IGNORED = IGNORED | LINUX_JOBS
 
 
 def gh(*args):
@@ -63,7 +70,7 @@ def state(run):
     required = set(REQUIRED)
     # The heavy extras (build.yml's job extras): a release takes a run of master or port/kit only when they passed (a job
     # that waits for another is listed late; on master they run for a release's commit pushed with its tag).
-    if branch in ("master", "port/kit"):
+    if branch in ("master", "port/kit") and not NO_LINUX:
         required |= {"flatpak", "linux-appimage-run (ubuntu-22.04)", "linux-appimage-run (ubuntu-rolling)"}
     if branch == "port/kit" or branch.startswith("port/t-"):
         required.add("release-test-macos")

@@ -13,7 +13,10 @@ the same way each time, after the owner approves the scope and the release notes
     publish <version> --yes     check, then commit the changelog and its pictures ("Changelog <version>"); the
                                 preflight: the commit pushed to the branch release-check/<version>, and its build.yml
                                 run (every system, Clang too) must pass before any tag (a failure: its errors, no
-                                tag; --no-preflight skips it); then tag
+                                tag; --no-preflight skips it). A failed job of another system than Windows runs
+                                again, up to --platform-tries <n> tries (default 3); then that system (RELEASE_MAC,
+                                RELEASE_LINUX) is off for this release: Windows ships, the variable is on again after.
+                                A failed Windows job stops the release. Then tag
                                 v<version>, push master and the tag together, wait for CI and confirm the release.
                                 --dry-run: show the commands and change nothing.
     untag <version>             Delete the tag v<version> here and on GitHub, when its run stopped before the release
@@ -578,8 +581,17 @@ def cmd_publish(args):
         print(("would run: " if dry else "> ") + " ".join(x if " " not in x else f'"{x}"' for x in s))
         if not dry:
             run(s)
-    if "--no-preflight" not in args:
-        preflight(version, env, dry)
+    tries = int(args[args.index("--platform-tries") + 1]) if "--platform-tries" in args else PLATFORM_TRIES
+    off = {} if "--no-preflight" in args else preflight(version, env, dry, tries)
+    try:
+        publish_tag(version, tag, env, dry)
+    finally:
+        for name, value in off.items():  # (the systems that this release left out: on again for the next)
+            set_repo_var(name, value, env)
+            print(f"{name}: {value} again")
+
+
+def publish_tag(version, tag, env, dry):
     steps = [["git", "tag", tag], ["git", *push_git_args(), "push", "--atomic", "origin", "master", tag]]
     # master can move during the build: look again just before the tag
     git("fetch", "--quiet", "origin", "master", check=False)
@@ -652,7 +664,7 @@ def failed_summary(run_id, env):
     """The failed jobs of a run and the first error lines of their logs."""
     out = run(["gh", "run", "view", str(run_id), "--repo", REPO, "--json", "jobs"], env=env, check=False)
     try:
-        jobs = [j["name"] for j in json.loads(out)["jobs"] if j.get("conclusion") == "failure"]
+        jobs = [j["name"] for j in json.loads(out)["jobs"] if j.get("conclusion") in BAD_CONCLUSIONS]
     except (ValueError, KeyError):
         jobs = []
     log = run(["gh", "run", "view", str(run_id), "--repo", REPO, "--log-failed"], env=env, check=False)
@@ -661,16 +673,49 @@ def failed_summary(run_id, env):
     return "failed jobs: " + (", ".join(jobs) or "(none listed)") + ("\n  " + "\n  ".join(errors) if errors else "")
 
 
-def preflight(version, env, dry):
+PLATFORM_TRIES = 3  # the preflight's tries of another system's failed jobs before that system is left out
+BAD_CONCLUSIONS = ("failure", "cancelled", "timed_out", "startup_failure")
+# The jobs that only report (continue-on-error) or run elsewhere: their result does not count.
+PREFLIGHT_IGNORED = {"wine", "linux-data"}
+
+
+def platform_var(job):
+    """The repository variable that puts a job's system in a release (None: Windows', or not known: it must pass)."""
+    if "macos" in job:
+        return "RELEASE_MAC"
+    if job.startswith(("linux", "flatpak")) or job == "extras":
+        return "RELEASE_LINUX"
+    return None
+
+
+def repo_var(name, env):
+    return run(["gh", "variable", "get", name, "--repo", REPO], env=env, check=False).strip()
+
+
+def set_repo_var(name, value, env):
+    run(["gh", "variable", "set", name, "--repo", REPO, "--body", value], env=env)
+
+
+def bad_jobs(run_id, env):
+    out = run(["gh", "run", "view", str(run_id), "--repo", REPO, "--json", "jobs"], env=env, check=False)
+    try:
+        return sorted({j["name"] for j in json.loads(out)["jobs"] if j.get("conclusion") in BAD_CONCLUSIONS} - PREFLIGHT_IGNORED)
+    except (ValueError, KeyError):
+        return []
+
+
+def preflight(version, env, dry, tries=PLATFORM_TRIES):
     """The commit to release, built and tested by build.yml on the branch release-check/<version> before any tag: a
     break that this computer's build does not see (Clang, Linux, macOS) stops the release with its errors, and nothing
-    is tagged. The branch is deleted after."""
+    is tagged. The branch is deleted after. A failed job of another system than Windows (a macOS runner that never
+    came, a Linux break) runs again, up to `tries` tries in all; then that system is off for this release (its
+    repository variable: off), and the release has the others. Returns those variables with their values before."""
     sha = git("rev-parse", "HEAD")
     branch = f"release-check/{version}"
     push = ["git", *push_git_args(), "push", "--force", "origin", f"HEAD:refs/heads/{branch}"]
     print(("would run: " if dry else "> ") + " ".join(push[-4:]) + "   (the preflight build)")
     if dry:
-        return
+        return {}
     pushed_at = time.time()
     run(push, env=env)
     try:
@@ -689,15 +734,34 @@ def preflight(version, env, dry):
             raise Fail(f"no preflight build for {branch} after 5 minutes: gh run list --workflow build.yml --branch {branch}")
         print(f"preflight build {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (about 15 minutes)")
         conclusion = wait_run(run_id, env)
-        if conclusion != "success":
-            print(f"preflight build: {conclusion}; its failed jobs run again once")
+        tried = 1
+        while conclusion != "success":
+            bad = bad_jobs(run_id, env)
+            systems = {platform_var(j) for j in bad}
+            if not bad or None in systems:  # (Windows, or a job of no system: its errors, no tag)
+                raise Fail(f"the preflight build failed ({conclusion}); nothing is tagged.\n{failed_summary(run_id, env)}\n"
+                           f"Fix it, commit, then publish {version} --yes again.")
+            if all(repo_var(v, env) != "on" for v in systems):  # (systems that the release leaves out already)
+                print(f"preflight build: {', '.join(bad)} failed, of systems this release leaves out")
+                return {}
+            if tried >= tries:
+                break
+            print(f"preflight build: {', '.join(bad)} {conclusion} (try {tried} of {tries}); they run again")
             run(["gh", "run", "rerun", str(run_id), "--repo", REPO, "--failed"], env=env, check=False)
             time.sleep(20)
             conclusion = wait_run(run_id, env)
-        if conclusion != "success":
-            raise Fail(f"the preflight build failed ({conclusion}); nothing is tagged.\n{failed_summary(run_id, env)}\n"
-                       f"Fix it, commit, then publish {version} --yes again.")
-        print("preflight build: passed")
+            tried += 1
+        if conclusion == "success":
+            print("preflight build: passed")
+            return {}
+        off = {}
+        for v in sorted(systems):
+            if (was := repo_var(v, env)) == "on":
+                set_repo_var(v, "off", env)
+                off[v] = was
+        print(f"preflight build: {', '.join(bad)} still failed after {tries} tries: this release leaves out "
+              f"{', '.join(off) or 'nothing more'} (Windows ships; on again after the release)\n{failed_summary(run_id, env)}")
+        return off
     finally:
         run(["git", *push_git_args(), "push", "origin", f":refs/heads/{branch}"], env=env, check=False)
 
