@@ -443,6 +443,12 @@ CASES += [
 CASES += [
     ("map-data-strings", ["--size", "1400x700", "--click", "31,190", "--click", "422,175"], "map"),
     ("map-props-players", ["--size", "1400x1300", "--workspace", "props"], "map"),
+    # A floating Terrain palette moved over the right side bar's tabs: the outline and the tab's place show (no release).
+    ("map-panel-dock-shot", ["--mode", "terrain", "--script", "{script:floatdockshot}"], "map"),
+    # A custom terrain saved, then a right click on it in the Custom list: Copy as text, Import from text.
+    ("map-custom-copy-shot", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
+                              "--click", "540,655:Menu7", "--type", "Plain", "--key", "Enter", "--key", "Esc",
+                              "--rclick", "200,624"], "map"),
 ]
 CASES += [
     ("map-palette-float", ["--mode", "terrain", "--script", "{script:floatpal}"], "map"),
@@ -1656,6 +1662,7 @@ stats
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
     "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,512\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
                 "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,412\n",
+    "floatdockshot": "command view.floatPalette.terrain\nwait 0\nfloatmove 1400,120\nframe\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then

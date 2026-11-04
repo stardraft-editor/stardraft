@@ -4,23 +4,59 @@
       "map": "Maps/(2)Bottleneck.scm",
       "cases": [
         "map-data-strings",
-        "map-props-players"
+        "map-props-players",
+        "map-panel-dock-shot",
+        "map-custom-copy-shot"
       ]
     }
   ],
   "shots": [
     {
       "run": 0,
+      "from": "map-panel-dock-shot.png",
+      "to": "panel-dock.png",
+      "crop": [
+        340,
+        90,
+        1260,
+        870
+      ],
+      "alt": "A floating palette dragged over the right side bar: the blue outline shows where it docks"
+    },
+    {
+      "run": 0,
+      "from": "map-custom-copy-shot.png",
+      "to": "custom-copy.png",
+      "crop": [
+        60,
+        380,
+        640,
+        520
+      ],
+      "alt": "Custom list: Copy as text and Import from text in the right-click menu"
+    },
+    {
+      "run": 0,
       "from": "map-data-strings.png",
       "to": "map-strings.png",
-      "crop": [64, 100, 1336, 545],
+      "crop": [
+        64,
+        100,
+        1336,
+        545
+      ],
       "alt": "Data > Strings of a classic map: each string with its uses, New string, Delete, Move up and Move down"
     },
     {
       "run": 0,
       "from": "map-props-players.png",
       "to": "players.png",
-      "crop": [64, 600, 900, 460],
+      "crop": [
+        64,
+        600,
+        900,
+        460
+      ],
       "alt": "Map properties > Players: Type and Race for all 12 players"
     }
   ]
