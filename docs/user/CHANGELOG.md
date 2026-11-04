@@ -2,6 +2,44 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.5
+
+### Map
+
+- Drag a side bar tab out to float it, or onto a side bar to dock it; a blue outline shows where it goes.
+
+  ![A floating palette dragged over the right side bar: the blue outline shows where it docks](images/0.8.5/panel-dock.png)
+- The status bar shows the mode's count: units and start locations, doodads, sprites, locations used of the slots.
+- Terrain selections show their size; the Isometric paste preview shows the pasted terrain.
+- Rectangle mode: drag copied tiles to paste them along the way.
+- Isometric and Rectangle each keep their own brush shape.
+- Custom list: Copy as text and Import from text, to share custom terrain.
+
+  ![Custom list: Copy as text and Import from text in the right-click menu](images/0.8.5/custom-copy.png)
+- The number row picks players 1 to 12 on any keyboard layout; zoom is Ctrl++ and Ctrl+-.
+
+### Data
+
+- Data > Strings for classic maps: edit, add, delete unused strings and change their order; every use follows.
+
+  ![Data > Strings of a classic map: each string with its uses, New string, Delete, Move up and Move down](images/0.8.5/map-strings.png)
+- Map properties > Players: every player type and race, Type and Race for players 9 to 12, extended colors. Type a
+  number for a value with no name.
+
+  ![Map properties > Players: Type and Race for all 12 players](images/0.8.5/players.png)
+- Assets: search the map's sounds.
+
+### Fixes
+
+- Maps with Computer players that have no start location now start in StarCraft.
+- Walkable black tiles no longer show as Zerg creep.
+- Scrolling past a dropdown no longer changes it (rest the mouse on it to use the wheel).
+- Less CPU and GPU use while the mouse moves.
+- Check for updates works with user names in other alphabets and on older Windows 10.
+- A held isometric brush no longer paints the same place again and again.
+- Arrow keys move buildings up and left; the trigger type list's scroll bar works.
+- Requirements with many "Always" entries fit in the map.
+
 ## 0.8.4
 
 ### The program
