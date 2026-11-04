@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <tuple>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <map>
 #include <memory>
