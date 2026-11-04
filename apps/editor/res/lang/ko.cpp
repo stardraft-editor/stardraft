@@ -2822,6 +2822,8 @@ constexpr UiText kRows[] = {
     {L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit", L"\uD0C0\uC77C\uC744 \uB3CC\uB838\uC2B5\uB2C8\uB2E4: \uAC01 \uD0C0\uC77C\uC758 \uADF8\uB9BC\uC740 \uADF8\uB300\uB85C\uC774\uBBC0\uB85C \uAC00\uC7A5\uC790\uB9AC\uC640 \uC808\uBCBD\uC774 \uB9DE\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4"},
     {L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit", L"\uD0C0\uC77C\uC744 \uC0C1\uD558\uB85C \uB4A4\uC9D1\uC5C8\uC2B5\uB2C8\uB2E4: \uAC01 \uD0C0\uC77C\uC758 \uADF8\uB9BC\uC740 \uADF8\uB300\uB85C\uC774\uBBC0\uB85C \uAC00\uC7A5\uC790\uB9AC\uC640 \uC808\uBCBD\uC774 \uB9DE\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4"},
     {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"\uD0C0\uC77C\uC744 \uC88C\uC6B0\uB85C \uB4A4\uC9D1\uC5C8\uC2B5\uB2C8\uB2E4: \uAC01 \uD0C0\uC77C\uC758 \uADF8\uB9BC\uC740 \uADF8\uB300\uB85C\uC774\uBBC0\uB85C \uAC00\uC7A5\uC790\uB9AC\uC640 \uC808\uBCBD\uC774 \uB9DE\uC9C0 \uC54A\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Moved the symmetry center. Double-click it to put it in the middle of the map", L"\uB300\uCE6D \uC911\uC2EC\uC744 \uC62E\uACBC\uC2B5\uB2C8\uB2E4. \uB354\uBE14 \uD074\uB9AD\uD558\uBA74 \uB9F5 \uAC00\uC6B4\uB370\uB85C \uB3CC\uC544\uAC11\uB2C8\uB2E4"},
+    {L"The symmetry center is in the middle of the map", L"\uB300\uCE6D \uC911\uC2EC\uC774 \uB9F5 \uAC00\uC6B4\uB370\uC5D0 \uC788\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

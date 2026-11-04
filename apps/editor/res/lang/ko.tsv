@@ -2820,3 +2820,5 @@ Paste terrain: click to place it, and again to place more. R turns it, M mirrors
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 돌렸습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
 Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 상하로 뒤집었습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
 Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	타일을 좌우로 뒤집었습니다: 각 타일의 그림은 그대로이므로 가장자리와 절벽이 맞지 않을 수 있습니다
+Moved the symmetry center. Double-click it to put it in the middle of the map	대칭 중심을 옮겼습니다. 더블 클릭하면 맵 가운데로 돌아갑니다
+The symmetry center is in the middle of the map	대칭 중심이 맵 가운데에 있습니다

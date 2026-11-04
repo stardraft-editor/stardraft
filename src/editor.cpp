@@ -838,13 +838,27 @@ void Editor::endStroke() { endStrokeStep(); }
 
 // --- Symmetry ------------------------------------------------------------------------------------
 
-std::pair<int, int> Editor::mirror(int px, int py, int which) const {
+void Editor::setSymmetryCenter(int px, int py) {
+    if (px < 0 || py < 0) return void(symmetryX_ = symmetryY_ = -1);
+    symmetryX_ = std::clamp(int(std::lround(px / 64.0)) * 64, 0, width_ * 32);
+    symmetryY_ = std::clamp(int(std::lround(py / 32.0)) * 32, 0, height_ * 32);
+}
+
+std::pair<int, int> Editor::symmetryCenter() const {
     const int W = width_ * 32, H = height_ * 32;
+    if (symmetryX_ < 0 || symmetryX_ > W || symmetryY_ < 0 || symmetryY_ > H) return {W / 2, H / 2};  // (another map's size: the middle)
+    return {symmetryX_, symmetryY_};
+}
+
+std::pair<int, int> Editor::mirror(int px, int py, int which) const {
+    const double W = width_ * 32.0, H = height_ * 32.0;
+    const auto [cx, cy] = symmetryCenter();
+    const double u = (px - cx) / W, v = (py - cy) / H;  // (the diagonals: in the map's proportions)
     switch (which) {
-    case 0: return {W - px, py};  // left/right
-    case 1: return {px, H - py};  // top/bottom
-    case 3: return {int(std::lround(double(py) / H * W)), int(std::lround(double(px) / W * H))};                  // diagonal
-    case 4: return {int(std::lround((1 - double(py) / H) * W)), int(std::lround((1 - double(px) / W) * H))};    // other diagonal
+    case 0: return {2 * cx - px, py};  // left/right
+    case 1: return {px, 2 * cy - py};  // top/bottom
+    case 3: return {int(std::lround(cx + v * W)), int(std::lround(cy + u * H))};  // diagonal
+    case 4: return {int(std::lround(cx - v * W)), int(std::lround(cy - u * H))};  // other diagonal
     }
     return {px, py};
 }
@@ -853,8 +867,9 @@ std::pair<int, int> Editor::turnPoint(int px, int py, int k) const {
     constexpr double kTau = 6.283185307179586;
     const double W = width_ * 32.0, H = height_ * 32.0;
     const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a);
-    const double u = px / W - 0.5, v = py / H - 0.5;  // from the middle, in the map's proportions
-    return {int(std::lround((0.5 + u * c - v * s) * W)), int(std::lround((0.5 + u * s + v * c) * H))};
+    const auto [cx, cy] = symmetryCenter();
+    const double u = (px - cx) / W, v = (py - cy) / H;  // from the center, in the map's proportions
+    return {int(std::lround(cx + (u * c - v * s) * W)), int(std::lround(cy + (u * s + v * c) * H))};
 }
 
 void Editor::setSymmetry(Symmetry s) {

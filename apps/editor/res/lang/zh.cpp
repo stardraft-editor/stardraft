@@ -2792,6 +2792,8 @@ constexpr UiText kRows[] = {
     {L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u65CB\u8F6C\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
     {L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u4E0A\u4E0B\u955C\u50CF\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
     {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u5DE6\u53F3\u955C\u50CF\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
+    {L"Moved the symmetry center. Double-click it to put it in the middle of the map", L"\u5DF2\u79FB\u52A8\u5BF9\u79F0\u4E2D\u5FC3\u3002\u53CC\u51FB\u5B83\u53EF\u56DE\u5230\u5730\u56FE\u4E2D\u592E"},
+    {L"The symmetry center is in the middle of the map", L"\u5BF9\u79F0\u4E2D\u5FC3\u4F4D\u4E8E\u5730\u56FE\u4E2D\u592E"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

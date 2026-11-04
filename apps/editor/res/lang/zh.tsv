@@ -2790,3 +2790,5 @@ Paste terrain: click to place it, and again to place more. R turns it, M mirrors
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	已旋转图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
 Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	已上下镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
 Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	已左右镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Moved the symmetry center. Double-click it to put it in the middle of the map	已移动对称中心。双击它可回到地图中央
+The symmetry center is in the middle of the map	对称中心位于地图中央

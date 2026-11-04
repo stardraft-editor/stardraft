@@ -3,7 +3,7 @@
 const wchar_t* kModeNames[] = {L"Terrain", L"Units", L"Doodads", L"Locations", L"Sprites"};
 
 enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, PendingPlace, Paint, Spray, TerrainSelect, LocCreate, LocMove, LocResize,
-                  MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble, Erase };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
+                  MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble, Erase, SymmetryCenter };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
 const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp"};

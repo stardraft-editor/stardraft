@@ -2790,3 +2790,5 @@ Paste terrain: click to place it, and again to place more. R turns it, M mirrors
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas giradas: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar
 Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas reflejadas de arriba abajo: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar
 Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Casillas reflejadas de izquierda a derecha: la imagen de cada casilla no cambia, así que los bordes y acantilados pueden no encajar
+Moved the symmetry center. Double-click it to put it in the middle of the map	Centro de simetría movido. Haz doble clic en él para volver al centro del mapa
+The symmetry center is in the middle of the map	El centro de simetría está en el centro del mapa

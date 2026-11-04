@@ -314,6 +314,11 @@ public:
     // turns, 3: a third of a turn...), 1 to kMaxTurns. With the mirrors, each turned copy is mirrored too.
     void setTurns(int n) { turns_ = std::clamp(n, 1, kMaxTurns); }
     int turns() const { return turns_; }
+    // The point that the mirrors and the turns go round, in pixels: the map's middle at first. setSymmetryCenter puts it
+    // on the nearest point of the diamonds' grid (x: 64 pixels, y: 32), so that the mirror images of the diamonds are
+    // diamonds; inside the map. A value below 0: the map's middle again.
+    void setSymmetryCenter(int px, int py);
+    std::pair<int, int> symmetryCenter() const;
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
@@ -814,6 +819,7 @@ private:
     TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
+    int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
     struct SymmetricPlace {
         int x, y;
         bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way

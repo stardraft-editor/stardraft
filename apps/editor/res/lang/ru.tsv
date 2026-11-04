@@ -2790,3 +2790,5 @@ Paste terrain: click to place it, and again to place more. R turns it, M mirrors
 Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы повернуты: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
 Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены сверху вниз: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
 Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены слева направо: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
+Moved the symmetry center. Double-click it to put it in the middle of the map	Центр симметрии перемещен. Дважды щелкните его, чтобы вернуть в середину карты
+The symmetry center is in the middle of the map	Центр симметрии находится в середине карты

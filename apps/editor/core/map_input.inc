@@ -238,6 +238,17 @@ int stackUnitAt(const Editor& ed, float wx, float wy) {
     return stack.empty() ? -1 : stack.front();
 }
 
+// The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
+bool symmetryHandleAt(const AppState& app, int sx, int sy) {
+    if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain || currentTool(app) != TSelect || app.terrainPasting ||
+        (!app.ed->mirrors() && app.ed->turns() <= 1))
+        return false;
+    float wx, wy;
+    toWorld(app, sx, sy, wx, wy);
+    const auto [cx, cy] = app.ed->symmetryCenter();
+    return std::hypot(wx - cx, wy - cy) * app.zoom <= float(scale(10));
+}
+
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
@@ -277,6 +288,20 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     }
     app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
     app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
+    if (symmetryHandleAt(app, sx, sy)) {  // the symmetry center: a drag moves it; a double click puts it in the map's middle
+        static std::chrono::steady_clock::time_point lastPress{};
+        const auto now = std::chrono::steady_clock::now();
+        if (now - lastPress < std::chrono::milliseconds(400)) {
+            ed.setSymmetryCenter(-1, -1);
+            setMessage(app, L"The symmetry center is in the middle of the map");
+            lastPress = {};
+        } else {
+            lastPress = now;
+            app.drag = Drag::SymmetryCenter;
+        }
+        app.dirty = true;
+        return;
+    }
     bool shift = mods & draw::kShift, ctrl = mods & draw::kCtrl;
     if (objectEraseOn() && !app.pastingItems && !app.pasting) {  // Erase: the brush's circle; a drag erases along the way (one undo step)
         ed.beginStroke();
@@ -575,6 +600,15 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.drag == Drag::SymmetryCenter && app.ed) {
+        if (app.dragMoved) app.ed->setSymmetryCenter(std::max(0, int(wx)), std::max(0, int(wy)));
+        app.dirty = true;
+        return;
+    }
+    {  // (the handle shows while the mouse is on it)
+        static bool onHandle = false;
+        if (const bool on = symmetryHandleAt(app, sx, sy); on != onHandle) onHandle = on, app.dirty = true;
+    }
     if (app.drag == Drag::Paint && app.ed) {
         const uint16_t paint = currentTool(app) == TErase ? eraseTerrain(*app.ed) : uint16_t(app.palette);  // (Erase: Dirt)
         // Over the same terrain: new variants each half brush along the drag (not on every small move).
@@ -648,6 +682,12 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     bool shift = mods & draw::kShift;
+    if (app.drag == Drag::SymmetryCenter) {
+        app.drag = Drag::None;
+        if (app.dragMoved) setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
+        app.dirty = true;
+        return;
+    }
     switch (app.drag) {
     case Drag::MoveUnits:
         if (!app.dragMoved && gStackNext >= 0 && gStackNext < int(ed.units().size())) {  // a click again on a stack: the next unit
@@ -852,7 +892,8 @@ bool fillClickFills(AppState& app) {
 }
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
-    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return Cursor::SizeAll;
+    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;
+    if (app.drag == Drag::None && symmetryHandleAt(app, x, y)) return Cursor::SizeAll;
     if (fillClickFills(app)) return Cursor::Fill;
     if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Over one that is not selected: the arrow (a click selects it).

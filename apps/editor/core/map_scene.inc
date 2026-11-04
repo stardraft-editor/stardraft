@@ -794,22 +794,37 @@ render::Scene buildScene() {
     // Symmetry axes.
     if (const int mm = ed.mirrors(); mm || ed.turns() > 1) {
         float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
+        const float cx = float(ed.symmetryCenter().first), cy = float(ed.symmetryCenter().second);  // (through the center)
         uint32_t c = 0x80C0FF70u;
-        auto vline = [&] { s.rects.push_back({W / 2 - t, 0, W / 2 + t, H, c, true}); };
-        auto hline = [&] { s.rects.push_back({0, H / 2 - t, W, H / 2 + t, c, true}); };
+        auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
+        auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
         auto diag = [&](bool anti) {
-            for (int k = 0; k <= 200; ++k) {
-                float f = k / 200.0f, x = f * W, y = anti ? (1 - f) * H : f * H;
-                s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
+            for (int k = -200; k <= 200; ++k) {
+                const float f = k / 200.0f, x = cx + f * W, y = anti ? cy - f * H : cy + f * H;
+                if (x >= 0 && x <= W && y >= 0 && y <= H) s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
             }
         };
         if (mm & Mirror::LeftRight) vline();
         if (mm & Mirror::TopBottom) hline();
         if (mm & Mirror::Diagonal) diag(false);
         if (mm & Mirror::AntiDiagonal) diag(true);
-        if (ed.turns() > 1) {  // a turn: a mark at the middle
+        if (ed.turns() > 1) {  // a turn: a mark at the center
             const float r = 10 / app.zoom;
-            s.rects.push_back({W / 2 - r, H / 2 - r, W / 2 + r, H / 2 + r, c, true});
+            s.rects.push_back({cx - r, cy - r, cx + r, cy + r, c, true});
+        }
+        // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
+        if (app.drag == Drag::SymmetryCenter || (app.mouseIn && app.drag == Drag::None && symmetryHandleAt(app, app.mouseX, app.mouseY))) {
+            const float r = float(scale(10)) / app.zoom;
+            auto line = [&](float x0, float y0, float x1, float y1) {
+                render::RectDraw l;
+                l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
+                s.rects.push_back(l);
+            };
+            for (int k = 0; k < 32; ++k) {
+                const float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32;
+                line(cx + r * std::cos(a0), cy + r * std::sin(a0), cx + r * std::cos(a1), cy + r * std::sin(a1));
+            }
+            line(cx - r * 0.6f, cy, cx + r * 0.6f, cy), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f);
         }
     }
 

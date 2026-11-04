@@ -2792,6 +2792,8 @@ constexpr UiText kRows[] = {
     {L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas giradas: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
     {L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas reflejadas de arriba abajo: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
     {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas reflejadas de izquierda a derecha: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
+    {L"Moved the symmetry center. Double-click it to put it in the middle of the map", L"Centro de simetr\u00EDa movido. Haz doble clic en \u00E9l para volver al centro del mapa"},
+    {L"The symmetry center is in the middle of the map", L"El centro de simetr\u00EDa est\u00E1 en el centro del mapa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
