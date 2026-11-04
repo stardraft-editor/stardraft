@@ -135,6 +135,7 @@ void shellPanelsChanged() {
     if (gFloatPalOpen) gFloatPalView.invalidate();
 }
 void shellToolsChanged() {
+    if (gRoot) gRoot->topBar.invalidate();  // (its turn and mirror buttons)
     gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
     palettePanelsToolsChanged();
 }

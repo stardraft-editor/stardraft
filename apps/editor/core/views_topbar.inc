@@ -2,13 +2,16 @@
 // Windows program shows it in its own view window under the menu; the SDL program places it under its menu bar.
 //
 // The bar: file and edit commands as icons, then (in the Map workspace) the modes' control (its own view, placed at
-// topBarModesRect), then Build and Debug mode (a project), and Report feedback at the right end.
+// topBarModesRect), the turn and mirror buttons while something is on the cursor to place, then Build and Debug mode (a
+// project), and Report feedback at the right end.
 
 // Defined by each program (main.cpp, sdl_menus.inc and sdl_main_view.inc).
 void command(int id);
 bool commandEnabled(int id);  // the command's menu item is enabled now (the icons are gray when it is not)
 bool topBarModesShown();      // the modes' control shows in the bar now (Build goes after it then)
 bool modeBarTabIn(bool back);  // Tab gives the modes' control the focus: its first mode (back: its last)
+int cursorTurnable(const AppState& app);  // (map_input.inc: what is on the cursor to turn or mirror)
+void mapTurnOrMirror(AppState& app, int turn, bool upDown);
 
 int topBarHeight() { return scale(40); }
 
@@ -69,15 +72,43 @@ struct TopBarView final : stardraft::draw::View {
                               commandEnabled(cmd), kitui::Tone::Normal);
             x += b + gap;
         }
-        // The right end: Build (a project; its icon and name), then Report feedback in the corner.
+        // After the modes: turn and mirror what is on the cursor to place (the terrain, tiles, units, doodads or sprites to
+        // paste, the Brush's copied tiles or custom terrain). Only then.
         const Font ui = c.font({draw::Face::Ui, 0});  // the UI font (the message font)
+        int afterModes = int(topBarModesRect().right);
+        if (topBarModesShown() && cursorTurnable(appState()) != 0) {
+            static const struct {
+                UiIcon icon;
+                int turn;
+                bool upDown;
+                const wchar_t* tip;
+            } kTurns[] = {{UiIcon::TurnRight, 1, false, L"Turn clockwise what is on the cursor (R)"},
+                          {UiIcon::TurnLeft, -1, false, L"Turn back what is on the cursor (Shift+R)"},
+                          {UiIcon::MirrorLeftRight, 0, false, L"Mirror left and right what is on the cursor (M)"},
+                          {UiIcon::MirrorTopBottom, 0, true, L"Mirror top and bottom what is on the cursor (Shift+M)"}};
+            const RECT mr = topBarModesRect();
+            const int side = int(mr.bottom - mr.top);
+            int tx = int(mr.right) + scale(10);
+            for (const auto& k : kTurns) {
+                const RECT r{tx, mr.top, tx + side, mr.bottom};
+                const bool over = surface.hot(r);
+                kitpaint::drawBox(c, r, over ? kCtlHot : kCtl, over ? kBorderHot : kBorder);
+                c.icon(r, int(k.icon), over ? kText : kDim, scale(16));
+                const int turn = k.turn;
+                const bool upDown = k.upDown;
+                surface.add({r, nullptr, [turn, upDown] { mapTurnOrMirror(appState(), turn, upDown); }, k.tip, draw::Cursor::Hand});
+                tx += side + scale(3);
+            }
+            afterModes = tx - scale(3);
+        }
+        // The right end: Build (a project; its icon and name), then Report feedback in the corner.
         if (activeProject()) {
             const std::wstring text = gBuilding ? L"Building" : L"Build";
             const Font of2 = c.setFont(ui);
             const int w2 = scale(16) + scale(8) + c.measure(text) + scale(24);
             const RECT mr = topBarModesRect();
             // After the modes; where they are hidden (Data, Triggers, the pages), after the icons.
-            const int divX = (topBarModesShown() ? int(mr.right) : topBarIconsWidth()) + scale(10);
+            const int divX = (topBarModesShown() ? afterModes : topBarIconsWidth()) + scale(10);
             c.fill({divX, y + scale(6), divX + 1, y + b - scale(6)}, kBorder);  // the divider between the modes and Build
             const int bx = divX + scale(10);
             const RECT bb{bx, mr.top, bx + w2, mr.bottom};

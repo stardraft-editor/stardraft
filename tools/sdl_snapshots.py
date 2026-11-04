@@ -703,7 +703,7 @@ CASES += [
     # map's) and to the left (the next: the project's), as macOS's monitor gives them (--swipe); then two fingers to
     # the right on the tabs' strip (a scroll as macOS gives it), the map's tab again.
     ("map-swipe", ["--newproject", "{newdir}", "--swipe", "800,500,right", "--swipe", "800,500,left",
-                   "--wheel", "100,83,-8,0:precise:mac"], "map"),
+                   "--wheel", "100,43,-8,0:precise:mac"], "map"),
 ]
 # The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
 # the view with the focus; --wait ms lets the program's timers run. A dialog or pop-out that an input opened (a list

@@ -263,8 +263,7 @@ int toolStripHeight(int width, bool titled) {
     const bool turnsBeside = width - (5 * (scale(28) + scale(3)) + scale(6)) >= scale(84);
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
-                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
-                      (stripHasMirrors() ? scale(28) + gap : 0);  // turn and mirror what is on the cursor
+                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
@@ -739,35 +738,6 @@ public:
                 turnsBox({lw, y + scale(1), std::min(W, lw + scale(120)), y + h - scale(1)});
                 y += h + gap;
             }
-        }
-        // Turn and mirror what is on the cursor (the terrain, tiles, units, doodads or sprites to paste, the Brush's copied
-        // tiles or custom terrain): four buttons, gray while nothing is on it (cursorTurnable).
-        if (stripHasMirrors()) {
-            static const struct {
-                const wchar_t* face;
-                int turn;
-                bool upDown;
-                const wchar_t* tip;
-            } kTurns[] = {{L"\x21BB", 1, false, L"Turn clockwise what is on the cursor (R)"},
-                          {L"\x21BA", -1, false, L"Turn back what is on the cursor (Shift+R)"},
-                          {L"\x21C6", 0, false, L"Mirror left and right what is on the cursor (M)"},
-                          {L"\x21C5", 0, true, L"Mirror top and bottom what is on the cursor (Shift+M)"}};
-            const int mb = scale(28), bw = scale(34);
-            const bool can = cursorTurnable(app) != 0;
-            for (const auto& k : kTurns) {
-                const int i = int(&k - kTurns);
-                const draw::Rect br{i * (bw + scale(3)), y, i * (bw + scale(3)) + bw, y + mb};
-                const bool over2 = can && hot(br);
-                box(c, br, over2 ? kCtlHot : kCtl, kBorder);
-                c.text(br, k.face, can ? (over2 ? kText : kDim) : kFaint, draw::kMiddle | draw::kCenter);
-                const int turn = k.turn;
-                const bool upDown = k.upDown;
-                addHit(br, [turn, upDown] {
-                    mapTurnOrMirror(appState(), turn, upDown);
-                    shellFocusView();
-                }, tr(k.tip));
-            }
-            y += mb + gap;
         }
         c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.

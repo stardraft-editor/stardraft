@@ -117,10 +117,14 @@ enum class UiIcon : int {
   Bridge = 111,  // Tools: Bridge (added by hand)
   Ramp = 112,  // Tools: Ramp (added by hand)
   Wand = 113,  // Tools: Magic wand (added by hand)
-  Count = 114,
+  TurnRight = 114,  // Top bar: turn clockwise (added by hand)
+  TurnLeft = 115,  // Top bar: turn back (added by hand)
+  MirrorLeftRight = 116,  // Top bar: mirror left and right (added by hand)
+  MirrorTopBottom = 117,  // Top bar: mirror top and bottom (added by hand)
+  Count = 118,
 };
 inline const char* uiIconId(UiIcon i) {
-  static const char* const ids[] = {"map", "data", "triggers", "briefing", "assets", "project", "build", "new-project", "terrain", "units", "doodads", "locations", "brush", "spray", "fill", "replace", "select", "shape-diamond", "shape-square", "shape-circle", "owner", "filter", "new", "open", "save", "save-as", "close", "recent", "generate", "folder", "open-external", "undo", "redo", "cut", "copy", "paste", "duplicate", "delete", "select-all", "rename", "search", "align-right", "align-center", "zoom-in", "zoom-out", "actual-size", "fit", "grid", "show", "log", "code", "control-kit", "play", "pause", "stop", "to-start", "to-end", "loop", "sound", "mute", "attack", "timeline", "dat-units", "dat-weapons", "dat-flingy", "dat-sprites", "dat-images", "dat-upgrades", "dat-tech", "dat-orders", "dat-sfx", "dat-portraits", "dat-strings", "dat-buttons", "add", "remove", "check", "edit", "back", "forward", "move-up", "move-down", "dropdown", "chevron-up", "chevron-down", "power", "error", "warning", "help", "tag", "settings", "feedback", "update", "issue", "debug", "align-left", "chevron-right", "info", "pin", "link", "line", "contour", "polygon", "jumble", "erase", "rect", "rect-fill", "ellipse", "ellipse-fill", "diamond", "diamond-fill", "bridge", "ramp", "wand"};
+  static const char* const ids[] = {"map", "data", "triggers", "briefing", "assets", "project", "build", "new-project", "terrain", "units", "doodads", "locations", "brush", "spray", "fill", "replace", "select", "shape-diamond", "shape-square", "shape-circle", "owner", "filter", "new", "open", "save", "save-as", "close", "recent", "generate", "folder", "open-external", "undo", "redo", "cut", "copy", "paste", "duplicate", "delete", "select-all", "rename", "search", "align-right", "align-center", "zoom-in", "zoom-out", "actual-size", "fit", "grid", "show", "log", "code", "control-kit", "play", "pause", "stop", "to-start", "to-end", "loop", "sound", "mute", "attack", "timeline", "dat-units", "dat-weapons", "dat-flingy", "dat-sprites", "dat-images", "dat-upgrades", "dat-tech", "dat-orders", "dat-sfx", "dat-portraits", "dat-strings", "dat-buttons", "add", "remove", "check", "edit", "back", "forward", "move-up", "move-down", "dropdown", "chevron-up", "chevron-down", "power", "error", "warning", "help", "tag", "settings", "feedback", "update", "issue", "debug", "align-left", "chevron-right", "info", "pin", "link", "line", "contour", "polygon", "jumble", "erase", "rect", "rect-fill", "ellipse", "ellipse-fill", "diamond", "diamond-fill", "bridge", "ramp", "wand", "turn-right", "turn-left", "mirror-left-right", "mirror-top-bottom"};
   return ids[static_cast<int>(i)];
 }
 constexpr int kUiIconSizes[] = {16, 20, 24, 32};

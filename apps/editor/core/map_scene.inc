@@ -592,7 +592,7 @@ const PlaceGhost& placeGhost(const Unit& u, float gx, float gy) {
 
 int cursorTurnable(const AppState& app);  // (map_input.inc)
 render::Scene buildScene() {
-    // (the tool strip's turn and mirror buttons: on or gray as soon as something comes onto the cursor or goes)
+    // (the top bar's turn and mirror buttons: as soon as something comes onto the cursor or goes)
     static int turnable = -1;
     if (const int now = cursorTurnable(appState()) != 0; now != turnable) turnable = now, shellToolsChanged();
     AppState& app = shellState();

@@ -409,7 +409,7 @@ void palettePanelsSync();  // (sdl_palette_panels.inc: the active tab's panels s
 
 void paintTabDrag(draw::Canvas& c);  // (sdl_palette_panels.inc: a side bar tab's drag, over the main window)
 
-// The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
+// The main window: the menu bar, the document tabs under it, the top tool bar (core/views_topbar.inc), the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
     kit::MenuBar menus;
@@ -474,7 +474,7 @@ struct MainView final : draw::View {
     // the workspace rail, the left side bar from the top down, the map (or the workspace's view), the right side bar from
     // the top down, then the Log's bar. (The status bar has nothing to click.)
     std::vector<View*> tabChildren() const override {
-        std::vector<View*> first{const_cast<kit::MenuBar*>(&menus), const_cast<TopBarView*>(&topBar), const_cast<TabsView*>(&tabs),
+        std::vector<View*> first{const_cast<kit::MenuBar*>(&menus), const_cast<TabsView*>(&tabs), const_cast<TopBarView*>(&topBar),
                                  const_cast<RailView*>(&rail)};
         std::vector<View*> rest;
         for (View* c : children())
@@ -764,10 +764,11 @@ struct MainView final : draw::View {
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
     // macOS: none, the menus are in the system's menu bar (sdl_native_menus.inc).
     static int menuBarHeight() { return sdlNativeMenuBar() ? 0 : scale(28); }
-    // The modes' bar: in the top tool bar, after its icons (core/views_topbar.inc), in the window's coordinates.
+    // The modes' bar: in the top tool bar, after its icons (core/views_topbar.inc), in the window's coordinates (the tool
+    // bar is under the menus and the tabs).
     RECT modeBarRect() const {
         RECT r = topBarModesRect();
-        r.top += menuBarHeight(), r.bottom += menuBarHeight();
+        r.top += menuBarHeight() + tabStripHeight(), r.bottom += menuBarHeight() + tabStripHeight();
         return r;
     }
 
@@ -840,12 +841,14 @@ struct MainView final : draw::View {
         if (owners) gOwnerBox.setValue(panelFresh(dockedPanel(m)).owner);  // (its panel's player)
         const bool sections = m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites;
         const bool toolsRight = gDock.toolsRight[int(m)];
-        PaneSlot menuSlot = L.topBar, barSlot = L.topBar;  // the menus, then the tool bar under them
+        // The top, down: the menus, the tabs, the tool bar (the layout gives the three one height: L.topBar and L.tabs).
+        PaneSlot menuSlot = L.topBar, tabsSlot = L.tabs, barSlot = L.topBar;
         menuSlot.rc.bottom = menuSlot.rc.top + menuBarHeight();
-        barSlot.rc.top = menuSlot.rc.bottom;
+        tabsSlot.rc.top = menuSlot.rc.bottom, tabsSlot.rc.bottom = tabsSlot.rc.top + (L.tabs.rc.bottom - L.tabs.rc.top);
+        barSlot.rc.top = tabsSlot.rc.bottom, barSlot.rc.bottom = L.tabs.rc.bottom;
         apply(menus, menuSlot, !sdlNativeMenuBar());
+        apply(tabs, tabsSlot, true);
         apply(topBar, barSlot, true);
-        apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
         apply(gLogPane, L.log, true);
