@@ -40,12 +40,12 @@ public:
             scroll_ = 0;
             invalidate();
         };
-        search_.setPlaceholder(L"Search the game's sounds");
+        search_.setPlaceholder(L"Search game sounds");
         mapSearch_.onChange = [this] {
             mapFilter_ = mapSearch_.text();
             invalidate();
         };
-        mapSearch_.setPlaceholder(L"Search the map's sounds");
+        mapSearch_.setPlaceholder(L"Search map sounds");
         importBtn_.setTip(L"WAV or OGG files. They go into the map (staredit\\wav\\).");
         renameBtn_.setTip(L"Rename the file in the map. The briefings that play it also use the new name.");
         add(search_, {0, 0, 0, 0});
@@ -308,7 +308,7 @@ void FilesPage::paint(draw::Canvas& c) {
     };
 
     // The map's sounds: its files, and the game sounds it names.
-    y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, L"Sounds in the map");
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, L"Map sounds");
     const auto mine = mapSounds();
     if (!mine.empty()) {  // (the search: when the map has sounds)
         place(mapSearch_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
@@ -349,7 +349,7 @@ void FilesPage::paint(draw::Canvas& c) {
     y += rowH + scale(18);
 
     // The game's sounds: the search, then the list the search keeps.
-    y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, modTab() ? L"Sounds of Cosmonarchy BW and the game" : L"Sounds of the game");
+    y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, modTab() ? L"Cosmonarchy BW and game sounds" : L"Game sounds");
     place(search_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
     y += scale(32);
     kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, cols);

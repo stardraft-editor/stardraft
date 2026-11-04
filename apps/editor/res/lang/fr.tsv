@@ -448,7 +448,7 @@ Start again	Recommencer
 Play or pause	Lecture ou pause
 One game tick	Un tick de jeu
 Play on as a unit does: attacks repeat, and a script that waits for its order starts again	Continuer comme le fait une unité: les attaques se répètent et un script qui attend son ordre recommence
-Sounds of the script: on or off	Sons du script: activer ou désactiver
+Script sounds: on or off	Sons du script: activer ou désactiver
 The code of the script: show or hide	Code du script: afficher ou masquer
 frame %d  ·  tick %d%s	image %d  ·  tick %d%s
   ·  end	  ·  fin
@@ -669,11 +669,11 @@ Type a number or an expression…	Saisissez un nombre ou une expression…
 A value from the game…	Une valeur du jeu…
 Groups	Groupes
 Search unit types	Rechercher des types d'unité
-Search the map's locations	Rechercher les emplacements de la carte
+Search map locations	Rechercher les emplacements de la carte
 Switch number	Numéro d'interrupteur
-Sounds in the map	Sons de la carte
+Map sounds	Sons de la carte
 The map has no sounds. Type the path of a sound.	La carte ne contient aucun son. Saisissez le chemin d'un son.
-Search the map's sounds	Rechercher les sons de la carte
+Search map sounds	Rechercher les sons de la carte
 There is no variable of this kind. Right-click Definitions, then New variable.	Aucune variable de ce type. Cliquez avec le bouton droit sur Définitions, puis sur Nouvelle variable.
 Search variables	Rechercher des variables
 Definitions	Définitions
@@ -1292,12 +1292,12 @@ Import sounds…	Importer des sons…
 WAV or OGG files. They go into the map (staredit\\wav\\).	Fichiers WAV ou OGG. Ils sont enregistrés dans la carte (staredit\\wav\\).
 Rename	Renommer
 Rename the file in the map. The briefings that play it also use the new name.	Renomme le fichier dans la carte. Les briefings qui le jouent utilisent aussi le nouveau nom.
-Sounds of the game	Sons du jeu
+Game sounds	Sons du jeu
 No game sounds found. Select the StarCraft folder in Options > Program options.	Aucun son du jeu trouvé. Sélectionnez le dossier StarCraft dans Options > Options du programme.
 No game sound name contains the search text	Aucun nom de son du jeu ne contient le texte recherché
 Briefings	Briefings
 Open it in the Briefing workspace	L'ouvrir dans l'espace de travail Briefing
-Search the game's sounds	Rechercher dans les sons du jeu
+Search game sounds	Rechercher dans les sons du jeu
 Controller	Contrôleur
 Race	Race
 Force	Force

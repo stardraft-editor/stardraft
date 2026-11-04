@@ -354,7 +354,8 @@ an icon: a text or a tooltip says it too.
 1. Read the text in its place, with its window title, label and section. Delete the words that these already say:
    in "Unit properties", the label is "Name", not "Unit name".
 2. Delete the filler words (see Words) and the words that the reader does not need to do the task.
-3. Put the important word first: "Damage of the weapon", not "The weapon's amount of damage".
+3. Use a noun before a noun in place of "of the", "in the" or "'s": "Game sounds", not "Sounds of the game";
+   "Map sounds", not "Sounds in the map"; "Weapon damage", not "Damage of the weapon".
 4. One sentence, one fact. Split a sentence with "and" when each part is a different fact.
 5. If a label needs an explanation, change the control or put the explanation in the tooltip.
 

@@ -430,7 +430,7 @@ Start again	重新开始
 Play or pause	播放或暂停
 One game tick	一个游戏刻
 Play on as a unit does: attacks repeat, and a script that waits for its order starts again	像单位一样持续播放：攻击会重复，等待命令的脚本会重新开始
-Sounds of the script: on or off	脚本的声音：开或关
+Script sounds: on or off	脚本的声音：开或关
 The code of the script: show or hide	脚本的代码：显示或隐藏
 frame %d  ·  tick %d%s	帧 %d  ·  刻 %d%s
   ·  end	  ·  结束
@@ -647,11 +647,11 @@ Type a number or an expression…	输入数字或表达式…
 A value from the game…	游戏中的值…
 Groups	群组
 Search unit types	搜索单位类型
-Search the map's locations	搜索地图中的位置
+Search map locations	搜索地图中的位置
 Switch number	开关编号
-Sounds in the map	地图中的声音
+Map sounds	地图中的声音
 The map has no sounds. Type the path of a sound.	地图中没有声音。输入声音的路径。
-Search the map's sounds	搜索地图中的声音
+Search map sounds	搜索地图中的声音
 There is no variable of this kind. Right-click Definitions, then New variable.	没有这种类型的变量。右键单击定义，然后选择新建变量。
 Search variables	搜索变量
 Definitions	定义
@@ -1220,11 +1220,11 @@ The map has no sounds of its own. Import sounds adds WAV or OGG files.	地图没
 Import sounds…	导入声音…
 WAV or OGG files. They go into the map (staredit\\wav\\).	WAV 或 OGG 文件。它们保存在地图中（staredit\\wav\\）。
 Rename	重命名
-Sounds of the game	游戏声音
+Game sounds	游戏声音
 No game sounds found. Select the StarCraft folder in Options > Program options.	未找到游戏声音。请在 选项 > 程序选项 中选择 StarCraft 文件夹。
 Briefings	简报
 Open it in the Briefing workspace	在简报工作区中打开
-Search the game's sounds	搜索游戏声音
+Search game sounds	搜索游戏声音
 Controller	控制者
 Race	种族
 Force	队伍

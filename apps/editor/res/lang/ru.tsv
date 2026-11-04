@@ -430,7 +430,7 @@ Start again	Начать заново
 Play or pause	Воспроизвести или приостановить
 One game tick	Один игровой тик
 Play on as a unit does: attacks repeat, and a script that waits for its order starts again	Воспроизводить, как юнит: атаки повторяются, а скрипт, который ждёт свой приказ, начинается снова
-Sounds of the script: on or off	Звуки скрипта: вкл. или выкл.
+Script sounds: on or off	Звуки скрипта: вкл. или выкл.
 The code of the script: show or hide	Код скрипта: показать или скрыть
 frame %d  ·  tick %d%s	кадр %d  ·  тик %d%s
   ·  end	  ·  конец
@@ -645,11 +645,11 @@ Type a number or an expression…	Введите число или выраже�
 A value from the game…	Значение из игры…
 Groups	Группы
 Search unit types	Поиск типов юнитов
-Search the map's locations	Поиск локаций карты
+Search map locations	Поиск локаций карты
 Switch number	Номер переключателя
-Sounds in the map	Звуки на карте
+Map sounds	Звуки на карте
 The map has no sounds. Type the path of a sound.	На карте нет звуков. Введите путь к звуку.
-Search the map's sounds	Поиск звуков карты
+Search map sounds	Поиск звуков карты
 There is no variable of this kind. Right-click Definitions, then New variable.	Переменных такого типа нет. Щёлкните правой кнопкой по пункту «Определения», затем выберите «Новая переменная».
 Search variables	Поиск переменных
 Definitions	Определения
@@ -1218,11 +1218,11 @@ The map has no sounds of its own. Import sounds adds WAV or OGG files.	В кар
 Import sounds…	Импортировать звуки…
 WAV or OGG files. They go into the map (staredit\\wav\\).	Файлы WAV или OGG. Они сохраняются в карте (staredit\\wav\\).
 Rename	Переименовать
-Sounds of the game	Звуки игры
+Game sounds	Звуки игры
 No game sounds found. Select the StarCraft folder in Options > Program options.	Звуки игры не найдены. Выберите папку StarCraft в разделе Параметры > Параметры программы.
 Briefings	Брифинги
 Open it in the Briefing workspace	Открыть в рабочей области брифингов
-Search the game's sounds	Поиск по звукам игры
+Search game sounds	Поиск по звукам игры
 Controller	Управление
 Race	Раса
 Force	Команда

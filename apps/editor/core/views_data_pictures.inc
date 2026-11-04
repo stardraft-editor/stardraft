@@ -214,7 +214,7 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
                 L"Play on as a unit does: attacks repeat, and a script that waits for its order starts again");
     next();
     glyphButton(c, host, {bx, by, bx + bs, by + bs}, gImagePlayer.muted ? UiIcon::Mute : UiIcon::Sound, !gImagePlayer.muted,
-                [&host] { gImagePlayer.muted = !gImagePlayer.muted, host.pictureRepaint(); }, L"Sounds of the script: on or off");
+                [&host] { gImagePlayer.muted = !gImagePlayer.muted, host.pictureRepaint(); }, L"Script sounds: on or off");
     next();
     glyphButton(c, host, {bx, by, bx + bs, by + bs}, UiIcon::Code, gImagePlayer.showCode,
                 [&host] { gImagePlayer.showCode = !gImagePlayer.showCode, host.pictureRepaint(); }, L"The code of the script: show or hide");
