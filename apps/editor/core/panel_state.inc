@@ -183,7 +183,6 @@ void activatePanel(PanelState* p) {
         if (gActivePanel) panelStore(*gActivePanel);
         gActivePanel = p;
         panelLoad(*p);
-        if (p->mode == Mode::Terrain && !app.terrainRect && !app.terrainSelMask.empty()) app.hasTerrainSel = false, app.terrainSelMask.clear();  // (Isometric has no selection of any shape)
     }
     DockedPanels& d = dockedPanelsOf(activeDocKey());
     d.lastOfMode[size_t(p->mode)] = p;

@@ -2796,6 +2796,12 @@ constexpr UiText kRows[] = {
     {L"The symmetry center is in the middle of the map", L"Le centre de sym\u00E9trie est au milieu de la carte"},
     {L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", L"Baguette magique : cliquez sur un terrain pour s\u00E9lectionner ce qui est accessible depuis l\u00E0 (isom\u00E9trique : ce terrain avec ses bords et falaises ; les autres outils : les tuiles connect\u00E9es de ce terrain). Maj+clic ajoute, Ctrl+clic retire."},
     {L"Magic wand", L"Baguette magique"},
+    {L"Nothing to copy there: make the selection larger", L"Rien \u00E0 copier l\u00E0 : agrandissez la s\u00E9lection"},
+    {L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)", L"Rien \u00E0 tourner : copiez d'abord, puis collez (Ctrl+C, Ctrl+V)"},
+    {L"Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)", L"Copie tourn\u00E9e (R et Shift+R la tournent, M et Shift+M la retournent)"},
+    {L"Mirrored the copy top and bottom", L"Copie retourn\u00E9e haut-bas"},
+    {L"Mirrored the copy left and right", L"Copie retourn\u00E9e gauche-droite"},
+    {L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"Coller : cliquez pour placer la copie, et encore pour en placer d'autres. R la tourne, M la retourne. Clic droit ou \u00C9chap arr\u00EAte."},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

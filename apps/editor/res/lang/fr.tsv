@@ -2794,3 +2794,9 @@ Moved the symmetry center. Double-click it to put it in the middle of the map	Ce
 The symmetry center is in the middle of the map	Le centre de symétrie est au milieu de la carte
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	Baguette magique : cliquez sur un terrain pour sélectionner ce qui est accessible depuis là (isométrique : ce terrain avec ses bords et falaises ; les autres outils : les tuiles connectées de ce terrain). Maj+clic ajoute, Ctrl+clic retire.
 Magic wand	Baguette magique
+Nothing to copy there: make the selection larger	Rien à copier là : agrandissez la sélection
+Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)	Rien à tourner : copiez d'abord, puis collez (Ctrl+C, Ctrl+V)
+Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	Copie tournée (R et Shift+R la tournent, M et Shift+M la retournent)
+Mirrored the copy top and bottom	Copie retournée haut-bas
+Mirrored the copy left and right	Copie retournée gauche-droite
+Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Coller : cliquez pour placer la copie, et encore pour en placer d'autres. R la tourne, M la retourne. Clic droit ou Échap arrête.

@@ -2826,6 +2826,12 @@ constexpr UiText kRows[] = {
     {L"The symmetry center is in the middle of the map", L"\uB300\uCE6D \uC911\uC2EC\uC774 \uB9F5 \uAC00\uC6B4\uB370\uC5D0 \uC788\uC2B5\uB2C8\uB2E4"},
     {L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", L"\uB9C8\uC220\uBD09: \uC9C0\uD615\uC744 \uD074\uB9AD\uD558\uBA74 \uAC70\uAE30\uC11C \uB2FF\uB294 \uACF3\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4(\uB4F1\uAC01: \uADF8 \uC9C0\uD615\uACFC \uAC00\uC7A5\uC790\uB9AC, \uC808\uBCBD. \uB2E4\uB978 \uB3C4\uAD6C: \uADF8 \uC9C0\uD615\uC758 \uC774\uC5B4\uC9C4 \uD0C0\uC77C). Shift+\uD074\uB9AD\uC740 \uCD94\uAC00, Ctrl+\uD074\uB9AD\uC740 \uC81C\uAC70\uD569\uB2C8\uB2E4."},
     {L"Magic wand", L"\uB9C8\uC220\uBD09"},
+    {L"Nothing to copy there: make the selection larger", L"\uBCF5\uC0AC\uD560 \uAC83\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: \uC120\uD0DD \uC601\uC5ED\uC744 \uB354 \uD06C\uAC8C \uD558\uC138\uC694"},
+    {L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)", L"\uB3CC\uB9B4 \uAC83\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: \uBA3C\uC800 \uBCF5\uC0AC\uD55C \uB2E4\uC74C \uBD99\uC5EC\uB123\uC73C\uC138\uC694 (Ctrl+C, Ctrl+V)"},
+    {L"Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)", L"\uBCF5\uC0AC\uBCF8\uC744 \uB3CC\uB838\uC2B5\uB2C8\uB2E4 (R, Shift+R\uB85C \uB3CC\uB9AC\uACE0 M, Shift+M\uC73C\uB85C \uB4A4\uC9D1\uC2B5\uB2C8\uB2E4)"},
+    {L"Mirrored the copy top and bottom", L"\uBCF5\uC0AC\uBCF8\uC744 \uC0C1\uD558\uB85C \uB4A4\uC9D1\uC5C8\uC2B5\uB2C8\uB2E4"},
+    {L"Mirrored the copy left and right", L"\uBCF5\uC0AC\uBCF8\uC744 \uC88C\uC6B0\uB85C \uB4A4\uC9D1\uC5C8\uC2B5\uB2C8\uB2E4"},
+    {L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"\uBD99\uC5EC\uB123\uAE30: \uD074\uB9AD\uD558\uBA74 \uBCF5\uC0AC\uBCF8\uC774 \uB193\uC774\uACE0, \uB2E4\uC2DC \uD074\uB9AD\uD558\uBA74 \uB354 \uB193\uC785\uB2C8\uB2E4. R\uB85C \uB3CC\uB9AC\uACE0 M\uC73C\uB85C \uB4A4\uC9D1\uC2B5\uB2C8\uB2E4. \uC624\uB978\uCABD \uD074\uB9AD\uC774\uB098 Esc\uB85C \uBA48\uCDA5\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

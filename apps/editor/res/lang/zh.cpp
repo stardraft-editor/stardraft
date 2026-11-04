@@ -2796,6 +2796,12 @@ constexpr UiText kRows[] = {
     {L"The symmetry center is in the middle of the map", L"\u5BF9\u79F0\u4E2D\u5FC3\u4F4D\u4E8E\u5730\u56FE\u4E2D\u592E"},
     {L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", L"\u9B54\u68D2\uFF1A\u5355\u51FB\u5730\u5F62\u53EF\u9009\u62E9\u4ECE\u8BE5\u5904\u53EF\u5230\u8FBE\u7684\u533A\u57DF\uFF08\u7B49\u8DDD\uFF1A\u8BE5\u5730\u5F62\u53CA\u5176\u8FB9\u7F18\u548C\u60AC\u5D16\uFF1B\u5176\u4ED6\u5DE5\u5177\uFF1A\u8BE5\u5730\u5F62\u76F8\u8FDE\u7684\u56FE\u5757\uFF09\u3002Shift+\u5355\u51FB\u6DFB\u52A0\uFF0CCtrl+\u5355\u51FB\u79FB\u9664\u3002"},
     {L"Magic wand", L"\u9B54\u68D2"},
+    {L"Nothing to copy there: make the selection larger", L"\u90A3\u91CC\u6CA1\u6709\u53EF\u590D\u5236\u7684\u5185\u5BB9\uFF1A\u8BF7\u6269\u5927\u9009\u533A"},
+    {L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)", L"\u6CA1\u6709\u53EF\u65CB\u8F6C\u7684\u5185\u5BB9\uFF1A\u8BF7\u5148\u590D\u5236\uFF0C\u518D\u7C98\u8D34 (Ctrl+C, Ctrl+V)"},
+    {L"Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)", L"\u5DF2\u65CB\u8F6C\u526F\u672C\uFF08R \u548C Shift+R \u65CB\u8F6C\uFF0CM \u548C Shift+M \u955C\u50CF\uFF09"},
+    {L"Mirrored the copy top and bottom", L"\u5DF2\u4E0A\u4E0B\u955C\u50CF\u526F\u672C"},
+    {L"Mirrored the copy left and right", L"\u5DF2\u5DE6\u53F3\u955C\u50CF\u526F\u672C"},
+    {L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"\u7C98\u8D34\uFF1A\u5355\u51FB\u653E\u7F6E\u526F\u672C\uFF0C\u518D\u6B21\u5355\u51FB\u653E\u7F6E\u66F4\u591A\u3002R \u65CB\u8F6C\uFF0CM \u955C\u50CF\u3002\u53F3\u952E\u6216 Esc \u505C\u6B62\u3002"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

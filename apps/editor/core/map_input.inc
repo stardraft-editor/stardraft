@@ -239,6 +239,8 @@ int stackUnitAt(const Editor& ed, float wx, float wy) {
 }
 
 std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom);  // (below)
+std::chrono::steady_clock::time_point gSymmetryPressAt{};  // the handle's last click (a drag is not one: a double click's)
+std::pair<int, int> gSymmetryFrom{-1, -1};                  // the center when its drag began (Esc puts it back)
 // The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
 bool symmetryHandleAt(const AppState& app, int sx, int sy) {
     if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain || currentTool(app) != TSelect || app.terrainPasting ||
@@ -289,15 +291,15 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     }
     app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
     app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
-    if (symmetryHandleAt(app, sx, sy)) {  // the symmetry center: a drag moves it; a double click puts it in the map's middle
-        static std::chrono::steady_clock::time_point lastPress{};
+    if (!(mods & (draw::kShift | draw::kCtrl)) && symmetryHandleAt(app, sx, sy)) {  // the symmetry center: a drag moves it; a double click puts it in the map's middle
         const auto now = std::chrono::steady_clock::now();
-        if (now - lastPress < std::chrono::milliseconds(400)) {
+        if (now - gSymmetryPressAt < std::chrono::milliseconds(400)) {
             ed.setSymmetryCenter(-1, -1);
             setMessage(app, L"The symmetry center is in the middle of the map");
-            lastPress = {};
+            gSymmetryPressAt = {};
         } else {
-            lastPress = now;
+            gSymmetryPressAt = now;
+            gSymmetryFrom = ed.symmetryCenter();
             app.drag = Drag::SymmetryCenter;
         }
         app.dirty = true;
@@ -491,7 +493,10 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         } else if (tool == TReplace || tool == TFill) {  // Fill with Shift: every place of that terrain
             uint16_t from = ed.terrainAt(int(wx), int(wy));
             const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
-            int n = ed.replaceTerrain(from, t, area, int(selectShape(app)));  // (in the selection's shape)
+            // (in the selection's shape, or its tiles: a selection of any form)
+            int n = app.hasTerrainSel && !app.terrainSelMask.empty()
+                        ? ed.replaceTerrain(from, t, area, int(Editor::SelectShape::Rect), [](int x, int y) { return terrainSelHas(x, y); })
+                        : ed.replaceTerrain(from, t, area, int(selectShape(app)));
             // (the clicked terrain by the map's isometric data: a mod's tiles drawn over another terrain count as that one)
             if (from == t) setMessage(app, L"Did not fill: the clicked terrain is " + widen(ed.terrainName(from)) + L" already");
             else setMessage(app, L"Replaced " + widen(ed.terrainName(from)) + L" with " + itemLabel(app, app.palette) + L" (" +
@@ -622,6 +627,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     toWorld(app, sx, sy, wx, wy);
     if (app.drag == Drag::SymmetryCenter && app.ed) {
         if (app.dragMoved) app.ed->setSymmetryCenter(std::max(0, int(wx)), std::max(0, int(wy)));
+        updateStatus(app);
         app.dirty = true;
         return;
     }
@@ -740,7 +746,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     bool shift = mods & draw::kShift;
     if (app.drag == Drag::SymmetryCenter) {
         app.drag = Drag::None;
-        if (app.dragMoved) setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
+        if (app.dragMoved) gSymmetryPressAt = {}, setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
         app.dirty = true;
         return;
     }
@@ -993,6 +999,12 @@ void trigCancelUnitPick();
 // a stroke ended (the host lets the mouse go).
 bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
+    if (app.drag == Drag::SymmetryCenter) {  // (the center's drag: it goes back; the selection stays)
+        if (app.ed) app.ed->setSymmetryCenter(gSymmetryFrom.first, gSymmetryFrom.second);
+        app.drag = Drag::None;
+        app.dirty = true;
+        return true;
+    }
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
     if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
@@ -1026,10 +1038,14 @@ bool mapCancelStep(AppState& app) {
 void shareTerrainCopy(const Editor& ed);  // (map_edit_commands.inc)
 
 // What is on the cursor to turn or mirror: 1 isometric terrain to paste (its corners: the edges are made again), 2
-// tiles to paste (Tile), 3 the Brush's tiles (copied tiles, custom terrain); 0 nothing.
+// tiles to paste (Tile), 3 the Brush's tiles (copied tiles, custom terrain), 4 units, 5 doodads, 6 sprites to paste; 0 nothing.
 bool tilesStampOn();  // (tiles_edit.inc)
 int cursorTurnable(const AppState& app) {
-    if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain) return 0;
+    if (!app.ed || !app.ed->isOpen()) return 0;
+    if (app.mode == Mode::Units) return app.pasting && app.ed->canPaste() ? 4 : 0;
+    if (app.mode == Mode::Doodads) return app.pastingItems && !app.doodadClip.empty() ? 5 : 0;
+    if (app.mode == Mode::Sprites) return app.pastingItems && !app.spriteClip.empty() ? 6 : 0;
+    if (app.mode != Mode::Terrain) return 0;
     if (app.terrainPasting) return !app.terrainRect ? (app.ed->hasTerrainClipboard() ? 1 : 0) : app.ed->hasTileClipboard() ? 2 : 0;
     return app.terrainRect && currentTool(app) == TBrush && tilesStampOn() ? 3 : 0;
 }
@@ -1055,7 +1071,23 @@ void tilesStampTurned(int turn, bool upDown);  // (tiles_edit.inc: the Brush's s
 // M (Shift+M): it mirrors left and right (top and bottom).
 void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
     const int what = cursorTurnable(app);
-    if (!what) return setMessage(app, L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush");
+    if (!what)
+        return setMessage(app, app.mode == Mode::Terrain ? L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush"
+                                                         : L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)");
+    if (what >= 4) {  // units, doodads, sprites: their places round the group's middle (their pictures do not turn)
+        if (what == 4) {
+            app.ed->turnUnitClipboard(turn, upDown);
+        } else {
+            for (Editor::ItemAt& it : what == 5 ? app.doodadClip : app.spriteClip) {
+                const int x = it.x, y = it.y;
+                it.x = turn > 0 ? -y : turn < 0 ? y : upDown ? x : -x, it.y = turn > 0 ? x : turn < 0 ? -x : upDown ? -y : y;
+            }
+        }
+        setMessage(app, turn ? L"Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)"
+                             : upDown ? L"Mirrored the copy top and bottom" : L"Mirrored the copy left and right");
+        app.dirty = true;
+        return;
+    }
     if (what == 1) {
         int dropped = 0;
         if (turn) {

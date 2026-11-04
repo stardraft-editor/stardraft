@@ -2794,3 +2794,9 @@ Moved the symmetry center. Double-click it to put it in the middle of the map	Ce
 The symmetry center is in the middle of the map	El centro de simetría está en el centro del mapa
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	Varita mágica: haz clic en un terreno para seleccionar lo que se alcanza desde ahí (isométrico: ese terreno con sus bordes y acantilados; las demás herramientas: las casillas conectadas de ese terreno). Mayús+clic añade, Ctrl+clic quita.
 Magic wand	Varita mágica
+Nothing to copy there: make the selection larger	No hay nada que copiar ahí: amplía la selección
+Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)	No hay nada que girar: copia primero y después pega (Ctrl+C, Ctrl+V)
+Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	Copia girada (R y Shift+R la giran, M y Shift+M la reflejan)
+Mirrored the copy top and bottom	Copia reflejada de arriba abajo
+Mirrored the copy left and right	Copia reflejada de izquierda a derecha
+Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Pegar: haz clic para colocar la copia y otra vez para colocar más. R la gira, M la refleja. Clic derecho o Esc para parar.

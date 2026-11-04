@@ -2796,6 +2796,12 @@ constexpr UiText kRows[] = {
     {L"The symmetry center is in the middle of the map", L"El centro de simetr\u00EDa est\u00E1 en el centro del mapa"},
     {L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", L"Varita m\u00E1gica: haz clic en un terreno para seleccionar lo que se alcanza desde ah\u00ED (isom\u00E9trico: ese terreno con sus bordes y acantilados; las dem\u00E1s herramientas: las casillas conectadas de ese terreno). May\u00FAs+clic a\u00F1ade, Ctrl+clic quita."},
     {L"Magic wand", L"Varita m\u00E1gica"},
+    {L"Nothing to copy there: make the selection larger", L"No hay nada que copiar ah\u00ED: ampl\u00EDa la selecci\u00F3n"},
+    {L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)", L"No hay nada que girar: copia primero y despu\u00E9s pega (Ctrl+C, Ctrl+V)"},
+    {L"Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)", L"Copia girada (R y Shift+R la giran, M y Shift+M la reflejan)"},
+    {L"Mirrored the copy top and bottom", L"Copia reflejada de arriba abajo"},
+    {L"Mirrored the copy left and right", L"Copia reflejada de izquierda a derecha"},
+    {L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"Pegar: haz clic para colocar la copia y otra vez para colocar m\u00E1s. R la gira, M la refleja. Clic derecho o Esc para parar."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

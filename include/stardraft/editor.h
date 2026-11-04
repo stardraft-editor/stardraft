@@ -204,7 +204,8 @@ public:
     // (2 at the least: finer loses a terrain's edges; 10: large), each terrain's patches fitted together. One undo step.
     // False: nothing changed. One terrain: fillTerrain.
     bool fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed);
-    int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
+    // corners replaced; areaShape: SelectShape; tileIn: a selection of any form (as copyTerrain's)
+    int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0, const std::function<bool(int, int)>& tileIn = nullptr);
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
     // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'
     // edges) whose opposite corners are the box's top left and bottom right; IsoRectFlip: its top right and bottom left
@@ -323,6 +324,8 @@ public:
     // diamonds; inside the map. A value below 0: the map's middle again.
     void setSymmetryCenter(int px, int py);
     std::pair<int, int> symmetryCenter() const;
+    // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
+    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_; }
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
@@ -416,6 +419,9 @@ public:
     // The units a paste at (x, y) puts down, before the placement checks: the copy, then its symmetric copies.
     std::vector<Unit> pasteUnits(int x, int y) const;
     const std::vector<Unit>& clipboard() const { return clipboard_; }  // positions relative to group center
+    // The copied units' places round their middle: a quarter turn clockwise (turn 1) or back (-1), or (turn 0) mirrored
+    // left and right, or top and bottom (upDown).
+    void turnUnitClipboard(int turn, bool upDown);
     // The copied units go to `owner` when pasted (those that can have an owner: not resources or critters). Returns how
     // many of them changed; the map does not change.
     int setClipboardOwner(uint8_t owner);
@@ -828,7 +834,8 @@ private:
         int x, y;
         bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way
     };
-    std::vector<SymmetricPlace> symmetricPlaces(int px, int py) const;
+    // margin: how far past the map's edges a place may be (terrain: a brush or a copy there still reaches the map).
+    std::vector<SymmetricPlace> symmetricPlaces(int px, int py, int margin = 0) const;
 
     // Protected terrain (protectTiles): the mask, its count of protected tiles and its revision.
     std::vector<uint8_t> protected_;

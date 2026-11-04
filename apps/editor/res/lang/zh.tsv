@@ -2794,3 +2794,9 @@ Moved the symmetry center. Double-click it to put it in the middle of the map	�
 The symmetry center is in the middle of the map	对称中心位于地图中央
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	魔棒：单击地形可选择从该处可到达的区域（等距：该地形及其边缘和悬崖；其他工具：该地形相连的图块）。Shift+单击添加，Ctrl+单击移除。
 Magic wand	魔棒
+Nothing to copy there: make the selection larger	那里没有可复制的内容：请扩大选区
+Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)	没有可旋转的内容：请先复制，再粘贴 (Ctrl+C, Ctrl+V)
+Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	已旋转副本（R 和 Shift+R 旋转，M 和 Shift+M 镜像）
+Mirrored the copy top and bottom	已上下镜像副本
+Mirrored the copy left and right	已左右镜像副本
+Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	粘贴：单击放置副本，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。

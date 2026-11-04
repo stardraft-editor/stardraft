@@ -95,7 +95,7 @@ Editor& shapeCopy(const GameData& data) {
 void shapeCopySettings(Editor& c, const Editor& ed) {
     c.setProtectedTiles(ed.protectedTiles());
     c.setMirrors(ed.mirrors()), c.setTurns(ed.turns());
-    c.setSymmetryCenter(ed.symmetryCenter().first, ed.symmetryCenter().second);
+    c.copySymmetryCenter(ed);
     c.setAllowIllegalUnits(ed.allowIllegalUnits()), c.setAllowStacking(ed.allowStacking());
     c.setResourceDistance(ed.resourceDistance()), c.setManyStartLocations(ed.manyStartLocations()), c.setUnitLimit(ed.unitLimit());
 }

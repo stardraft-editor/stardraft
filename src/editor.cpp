@@ -840,8 +840,8 @@ void Editor::endStroke() { endStrokeStep(); }
 
 void Editor::setSymmetryCenter(int px, int py) {
     if (px < 0 || py < 0) return void(symmetryX_ = symmetryY_ = -1);
-    symmetryX_ = std::clamp(int(std::lround(px / 64.0)) * 64, 0, width_ * 32);
-    symmetryY_ = std::clamp(int(std::lround(py / 32.0)) * 32, 0, height_ * 32);
+    symmetryX_ = std::clamp(int(std::lround(px / 64.0)), 0, width_ / 2) * 64;  // (an odd width: its last grid point inside)
+    symmetryY_ = std::clamp(int(std::lround(py / 32.0)), 0, int(height_)) * 32;
 }
 
 std::pair<int, int> Editor::symmetryCenter() const {
@@ -896,12 +896,12 @@ Symmetry Editor::symmetry() const {
 // The places a point repeats at: the point, then every place the chosen mirrors and turns reach from it and from
 // each other (their group), at most kMaxSymmetricPlaces. A place outside the map is left out. Each carries whether
 // it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
-std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py) const {
+std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int margin) const {
     std::vector<SymmetricPlace> out{{px, py, false, false}};
     const int W = width_ * 32, H = height_ * 32;
     // A place is added when it is inside the map and no place is there yet (1 px).
     auto add = [&](int x, int y, bool fx, bool fy) {
-        if (x < 0 || y < 0 || x > W || y > H || out.size() >= kMaxSymmetricPlaces) return;
+        if (x < -margin || y < -margin || x > W + margin || y > H + margin || out.size() >= kMaxSymmetricPlaces) return;
         for (const SymmetricPlace& p : out)
             if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
         out.push_back({x, y, fx, fy});
@@ -941,7 +941,10 @@ std::vector<std::pair<int, int>> Editor::terrainSymmetricPoints(int px, int py, 
         const auto [x, y] = starEditCenter(px, py, int(brush.size));
         px = x * 64, py = y * 32;
     }
-    return symmetricPoints(px, py);
+    // (a place off the map still paints what reaches the map, with the center away from the middle)
+    std::vector<std::pair<int, int>> out;
+    for (const SymmetricPlace& p : symmetricPlaces(px, py, int(std::max(brush.size, brush.height())) * 64)) out.push_back({p.x, p.y});
+    return out;
 }
 
 // --- Terrain tools -------------------------------------------------------------------------------
@@ -2293,12 +2296,19 @@ bool Editor::paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool 
     return true;
 }
 
-int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int areaShape) {
+int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int areaShape, const std::function<bool(int, int)>& tileIn) {
     if (!isomOk_ || from == to) return 0;
     Rect r = area ? area->normalized() : Rect{-64, -32, width_ * 32 + 64, height_ * 32 + 64};
     std::vector<CornerValue> corners;
     for (auto [x, y] : isom_.cornersInRect(r.left, r.top, r.right, r.bottom))
         if (isom_.terrainAt(x, y) == from && (!area || inSelectShape(r, SelectShape(areaShape), x * 64, y * 32))) corners.push_back({x, y, to});
+    if (tileIn)
+        std::erase_if(corners, [&](const CornerValue& c) {
+            for (int y = c.y - 1; y <= c.y; ++y)
+                for (int x = 2 * c.x - 2; x <= 2 * c.x + 1; ++x)
+                    if (x >= 0 && y >= 0 && x < width_ && y < height_ && !tileIn(x, y)) return true;
+            return false;
+        });
     if (corners.empty()) return 0;
     beginEdit();
     if (!applyTerrain(corners)) {
@@ -2429,7 +2439,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
     beginEdit();
     std::vector<std::pair<int, int>> origins;  // corner-lattice origin of each (mirrored) copy
     std::vector<std::pair<int, int>> flips;    // (flipX, flipY) per copy
-    const auto places = symmetricPlaces(px, py);
+    const auto places = symmetricPlaces(px, py, std::max(terrainClip_.width, terrainClip_.height));  // (off the map: what reaches it)
     std::vector<std::pair<int, int>> pts;
     for (const auto& p : places) pts.push_back({p.x, p.y});
     for (size_t k = 0; k < pts.size(); ++k) {
@@ -2437,16 +2447,14 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         // only move it.
         const int fx = places[k].flipX ? 1 : 0, fy = places[k].flipY ? 1 : 0;
         int x, y;
-        isom_.cornerAtPixel(pts[k].first - (fx ? terrainClip_.width : 0), pts[k].second - (fy ? terrainClip_.height : 0), x, y);
+        isom_.cornerAtPixel(pts[k].first, pts[k].second, x, y);
         origins.push_back({x, y});
         flips.push_back({fx, fy});
     }
     std::vector<CornerValue> corners;
-    int spanX = 0, spanY = 0;
-    for (const auto& c : terrainClip_.corners) spanX = std::max(spanX, c.x), spanY = std::max(spanY, c.y);
     for (size_t k = 0; k < origins.size(); ++k)
         for (const auto& c : terrainClip_.corners) {
-            int dx = flips[k].first ? spanX - c.x : c.x, dy = flips[k].second ? spanY - c.y : c.y;
+            int dx = flips[k].first ? -c.x : c.x, dy = flips[k].second ? -c.y : c.y;  // (from the image of the mouse)
             int x = origins[k].first + dx, y = origins[k].second + dy;
             if (!((x + y) & 1)) ++x;  // corners have x + y odd; a flip can break that
             corners.push_back({x, y, c.terrain});
@@ -2469,7 +2477,8 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         const int opx = origins[k].first * 64, opy = origins[k].second * 32;
         for (const Doodad& d : terrainClip_.doodads)
             if (const DoodadType* t = doodadTypes_.find(d.id)) {
-                int cx = opx + int16_t(d.x), cy = opy + int16_t(d.y);
+                int cx = opx + (flips[k].first ? -int16_t(d.x) : int16_t(d.x)), cy = opy + (flips[k].second ? -int16_t(d.y) : int16_t(d.y));
+                if (cx < 0 || cy < 0 || cx >= width_ * 32 || cy >= height_ * 32) continue;
                 int tx, ty;
                 doodadOrigin(*t, cx, cy, tx, ty);
                 bool onProtected = false;  // (a doodad's tiles go into MTXM: not over protected tiles)
@@ -2483,7 +2492,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         const int opx = origins[k].first * 64, opy = origins[k].second * 32;
         for (Unit u : terrainClip_.units) {
             if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
-            int ux = opx + int16_t(u.x), uy = opy + int16_t(u.y);
+            int ux = opx + (flips[k].first ? -int16_t(u.x) : int16_t(u.x)), uy = opy + (flips[k].second ? -int16_t(u.y) : int16_t(u.y));
             if (ux < 0 || uy < 0 || ux >= width_ * 32 || uy >= height_ * 32) continue;
             u.x = uint16_t(ux), u.y = uint16_t(uy);
             std::optional<Unit> f = fitted(u, correct, units_);
@@ -3327,6 +3336,14 @@ void Editor::copySelection() {
         u.relatedSerial = 0;
         u.links = 0;
         clipboard_.push_back(u);
+    }
+}
+
+void Editor::turnUnitClipboard(int turn, bool upDown) {
+    for (Unit& u : clipboard_) {
+        const int x = int16_t(u.x), y = int16_t(u.y);
+        const int nx = turn > 0 ? -y : turn < 0 ? y : upDown ? x : -x, ny = turn > 0 ? x : turn < 0 ? -x : upDown ? -y : y;
+        u.x = uint16_t(int16_t(nx)), u.y = uint16_t(int16_t(ny));
     }
 }
 

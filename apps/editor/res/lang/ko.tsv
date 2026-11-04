@@ -2824,3 +2824,9 @@ Moved the symmetry center. Double-click it to put it in the middle of the map	�
 The symmetry center is in the middle of the map	대칭 중심이 맵 가운데에 있습니다
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	마술봉: 지형을 클릭하면 거기서 닿는 곳을 선택합니다(등각: 그 지형과 가장자리, 절벽. 다른 도구: 그 지형의 이어진 타일). Shift+클릭은 추가, Ctrl+클릭은 제거합니다.
 Magic wand	마술봉
+Nothing to copy there: make the selection larger	복사할 것이 없습니다: 선택 영역을 더 크게 하세요
+Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)	돌릴 것이 없습니다: 먼저 복사한 다음 붙여넣으세요 (Ctrl+C, Ctrl+V)
+Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	복사본을 돌렸습니다 (R, Shift+R로 돌리고 M, Shift+M으로 뒤집습니다)
+Mirrored the copy top and bottom	복사본을 상하로 뒤집었습니다
+Mirrored the copy left and right	복사본을 좌우로 뒤집었습니다
+Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	붙여넣기: 클릭하면 복사본이 놓이고, 다시 클릭하면 더 놓입니다. R로 돌리고 M으로 뒤집습니다. 오른쪽 클릭이나 Esc로 멈춥니다.

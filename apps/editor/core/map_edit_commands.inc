@@ -176,7 +176,7 @@ void pasteMapCopy(AppState& app) {
         app.pastingItems = true;
         shellPaletteChanged(), fillToolCombo(app);
         app.dirty = true;
-        setMessage(L"Paste: click to place the copy, and again to place more. Right-click or Esc stops.");
+        setMessage(L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.");
         return;
     }
     if (app.ed && app.mode == Mode::Locations) {  // the copy follows the mouse: click to paste it (Discord #dev feedback #151)
@@ -213,7 +213,7 @@ void pasteMapCopy(AppState& app) {
     app.pasting = true;
     app.dirty = true;
     setMessage(L"Paste " + std::to_wstring(app.ed->clipboard().size()) +
-               L" units: click to place them, and again to place more. Right-click or Esc stops.");
+               L" units: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.");
 }
 
 // Rectangle's copy of the terrain selection (the tile clipboard): the tiles of its box, those outside its shape or (a
@@ -254,6 +254,8 @@ void copyMapSelection(AppState& app) {
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && copySelectedTerrain(app, app.terrainSel))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
+        else if (app.hasTerrainSel && !app.terrainSelMask.empty())  // (a form with no whole diamond in it)
+            setMessage(L"Nothing to copy there: make the selection larger");
         else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {  // (no ISOM to copy there: its tiles, in Tile, GitHub #235)
             void setTerrainKind(int kind);  // (views_toolstrip.inc)
             const Rect sel = app.terrainSel;
@@ -315,7 +317,8 @@ void cutMapSelection(AppState& app) {
     if (app.copyUnitsWithTerrain && !app.terrainRect) {  // the copied units go too (air units: the null tiles would not remove them)
         app.ed->clearSelection();
         for (int i = 0; i < int(app.ed->units().size()); ++i)
-            if (Editor::inSelectShape(r, selectShape(), app.ed->units()[size_t(i)].x, app.ed->units()[size_t(i)].y)) app.ed->select(i, true);
+            if (const Unit& u = app.ed->units()[size_t(i)]; app.terrainSelMask.empty() ? Editor::inSelectShape(r, selectShape(), u.x, u.y) : terrainSelHas(u.x / 32, u.y / 32))
+                app.ed->select(i, true);
         app.ed->deleteSelection();
     }
     const std::vector<std::pair<int, int>> cells = terrainSelTiles();  // the tiles whose middle is in the selection's shape (or its mask)

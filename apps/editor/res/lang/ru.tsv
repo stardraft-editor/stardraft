@@ -2794,3 +2794,9 @@ Moved the symmetry center. Double-click it to put it in the middle of the map	Ц
 The symmetry center is in the middle of the map	Центр симметрии находится в середине карты
 Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	Волшебная палочка: щелкните рельеф, чтобы выбрать все, что достижимо оттуда (изометрия: этот рельеф с его краями и обрывами; другие инструменты: соединенные тайлы этого рельефа). Shift+щелчок добавляет, Ctrl+щелчок убирает.
 Magic wand	Волшебная палочка
+Nothing to copy there: make the selection larger	Там нечего копировать: увеличьте выделение
+Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)	Нечего поворачивать: сначала скопируйте, затем вставьте (Ctrl+C, Ctrl+V)
+Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	Копия повернута (R и Shift+R поворачивают, M и Shift+M отражают)
+Mirrored the copy top and bottom	Копия отражена сверху вниз
+Mirrored the copy left and right	Копия отражена слева направо
+Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Вставка: щелкните, чтобы разместить копию, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.

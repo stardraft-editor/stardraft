@@ -711,8 +711,8 @@ struct MainView final : draw::View {
             if (mapCancelStep(gState))
                 if (draw::Host* h = host()) h->capture(map, false);
             break;
-        case draw::Key('R'):  // (Terrain mode's: turn what is on the cursor)
-            if (gState.mode != Mode::Terrain) return false;
+        case draw::Key('R'):  // (turn what is on the cursor; Terrain mode: or say what can be)
+            if (gState.mode != Mode::Terrain && !cursorTurnable(gState)) return false;
             mapTurnPaste(gState, shift);
             break;
         case draw::Key('M'):  // (mirror what is on the cursor; else the key is not the map's)

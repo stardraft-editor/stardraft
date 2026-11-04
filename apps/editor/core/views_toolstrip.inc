@@ -116,7 +116,6 @@ void setTerrainKind(int kind) {
         gTiles->stamps = kind == 2;
     }
     gTiles->solid = kind == 3;
-    if (!rect && !app.terrainSelMask.empty()) app.hasTerrainSel = false, app.terrainSelMask.clear();  // (Isometric has no such selection)
     if (app.terrainRect != rect) {
         app.terrainRect = rect;
         std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
@@ -265,7 +264,7 @@ int toolStripHeight(int width, bool titled) {
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
                       (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
-                      (app.mode == Mode::Terrain ? scale(28) + gap : 0);  // Terrain: turn and mirror what is on the cursor
+                      (stripHasMirrors() ? scale(28) + gap : 0);  // turn and mirror what is on the cursor
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
@@ -741,9 +740,9 @@ public:
                 y += h + gap;
             }
         }
-        // Terrain: turn and mirror what is on the cursor (the terrain or tiles to paste, the Brush's copied tiles or custom
-        // terrain): four buttons, gray while nothing is on it (cursorTurnable).
-        if (app.mode == Mode::Terrain) {
+        // Turn and mirror what is on the cursor (the terrain, tiles, units, doodads or sprites to paste, the Brush's copied
+        // tiles or custom terrain): four buttons, gray while nothing is on it (cursorTurnable).
+        if (stripHasMirrors()) {
             static const struct {
                 const wchar_t* face;
                 int turn;
