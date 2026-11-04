@@ -2577,7 +2577,6 @@ Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open ta
 Connected &areas	&Zones connectées
 Town a&reas	Zones de &base
 &Terrain flags	&Propriétés du terrain
-Copy tile &value	Copier la &valeur de la tuile
 Copied: 	Copié: 
 Report feedback on the selected terrain…	Envoyer un avis sur le terrain sélectionné…
 The selected terrain (tile x, y):	Le terrain sélectionné (tuile x, y):
@@ -2759,7 +2758,7 @@ Terrain flags: the ground that units cannot walk on is dark	Propriétés du terr
 Terrain flags: the tiles that the isometric terrain does not give (orange)	Propriétés du terrain : les tuiles que le terrain isométrique ne donne pas (orange)
 &Isometric terrain	Terrain &isométrique
 Copy as text	Copier en texte
-Import from text	Importer depuis du texte
+Import from clipboard	Importer depuis le presse-papiers
 Units: %d	Unités: %d
 Start locations: %d	Positions de départ: %d
 Doodads: %d	Décors: %d
@@ -2779,3 +2778,5 @@ The change applies after a restart	Le changement s'applique après un redémarra
 Graphics: Automatic after a restart	Graphismes : automatique après un redémarrage
 Graphics: Direct3D 12 after a restart	Graphismes : Direct3D 12 après un redémarrage
 Graphics: Software after a restart	Graphismes : logiciel après un redémarrage
+The custom terrain on the clipboard is for another tileset: 	Le terrain personnalisé du presse-papiers est pour un autre tileset : 
+The custom terrain on the clipboard has no tiles to place	Le terrain personnalisé du presse-papiers n'a aucune tuile à placer

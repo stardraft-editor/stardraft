@@ -99,18 +99,20 @@ fs::path terrainStampPath(const fs::path& folder, uint16_t era, const std::strin
     return folder / tilesetName(era) / fs::path(terrainStampFileName(name) + ".scterrain");
 }
 
+// (no "format": the fields say what it is; the mask only when some tiles are not in it: else every tile is)
 std::string terrainStampText(const TerrainStamp& s) {
     std::string tiles, mask;
+    bool whole = true;
     const size_t n = size_t(s.width) * size_t(s.height);
     for (size_t i = 0; i < n; ++i) {
         const bool in = i < s.mask.size() && s.mask[i];
         tiles += (i ? ", " : "") + std::to_string(in && i < s.tiles.size() ? s.tiles[i] : 0);
         mask += in ? '1' : '0';
+        whole = whole && in;
     }
-    return "{\"format\": \"StarCraft custom terrain\", \"version\": " + std::to_string(kTerrainStampVersion) + ", \"name\": " + quote(s.name) +
-           ", \"tileset\": " + quote(tilesetName(s.era)) + ", \"era\": " + std::to_string(s.era & 7) + ", \"created\": " + std::to_string(s.created) +
-           ", \"width\": " + std::to_string(s.width) + ", \"height\": " + std::to_string(s.height) + ",\n \"tiles\": [" + tiles + "],\n \"mask\": \"" + mask +
-           "\"}\n";
+    return "{\"version\": " + std::to_string(kTerrainStampVersion) + ", \"name\": " + quote(s.name) + ", \"tileset\": " + quote(tilesetName(s.era)) +
+           ", \"era\": " + std::to_string(s.era & 7) + ", \"created\": " + std::to_string(s.created) + ", \"width\": " + std::to_string(s.width) +
+           ", \"height\": " + std::to_string(s.height) + ",\n \"tiles\": [" + tiles + "]" + (whole ? "" : ",\n \"mask\": \"" + mask + "\"") + "}\n";
 }
 
 bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& error) {
@@ -125,7 +127,10 @@ bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& erro
 bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& error) {
     JsonParser p{text};
     const Json j = p.value();
-    if (!p.ok || j.type != Json::Type::Object || (j.str("format") != "StarCraft custom terrain" && j.str("format") != "StarDraft terrain stamp"))
+    // (custom terrain: its fields; a "format" of the earlier texts, when there, is one of theirs)
+    const std::string format = j.type == Json::Type::Object ? j.str("format") : std::string();
+    if (!p.ok || j.type != Json::Type::Object || !j.get("tiles") || !j.get("width") || !j.get("height") || !j.get("era") ||
+        (!format.empty() && format != "StarCraft custom terrain" && format != "StarDraft terrain stamp"))
         return error = "it is not custom terrain", false;
     TerrainStamp s;
     s.name = j.str("name");
@@ -134,7 +139,8 @@ bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& 
     const Json* created = j.get("created");
     s.created = created && created->type == Json::Type::Number ? int64_t(created->n) : 0;
     const Json* tiles = j.get("tiles");
-    const std::string mask = j.str("mask");
+    std::string mask = j.str("mask");
+    if (!j.get("mask") && tiles && tiles->type == Json::Type::Array) mask.assign(tiles->items.size(), '1');  // (no mask: every tile)
     std::string why;
     if (j.integer("era", -1) < 0 || !terrainStampNameOk(s.name, why) || s.width < 1 || s.height < 1 || s.width > kTerrainStampSizeMax ||
         s.height > kTerrainStampSizeMax || !tiles || tiles->type != Json::Type::Array || tiles->items.size() != size_t(s.width) * size_t(s.height) ||

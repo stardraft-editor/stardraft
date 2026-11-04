@@ -2579,7 +2579,6 @@ constexpr UiText kRows[] = {
     {L"Connected &areas", L"\u8FDE\u901A\u533A\u57DF(&A)"},
     {L"Town a&reas", L"\u57FA\u5730\u533A\u57DF(&R)"},
     {L"&Terrain flags", L"\u5730\u5F62\u5C5E\u6027(&T)"},
-    {L"Copy tile &value", L"\u590D\u5236\u56FE\u5757\u503C(&V)"},
     {L"Copied: ", L"\u5DF2\u590D\u5236\uFF1A"},
     {L"Report feedback on the selected terrain\u2026", L"\u5BF9\u6240\u9009\u5730\u5F62\u62A5\u544A\u53CD\u9988\u2026"},
     {L"The selected terrain (tile x, y):", L"\u6240\u9009\u5730\u5F62\uFF08\u56FE\u5757 x, y\uFF09\uFF1A"},
@@ -2761,7 +2760,7 @@ constexpr UiText kRows[] = {
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"\u5730\u5F62\u5C5E\u6027\uFF1A\u7B49\u8DDD\u5730\u5F62\u4E0D\u4F1A\u751F\u6210\u7684\u56FE\u5757\uFF08\u6A59\u8272\uFF09"},
     {L"&Isometric terrain", L"\u7B49\u8DDD\u5730\u5F62(&I)"},
     {L"Copy as text", L"\u590D\u5236\u4E3A\u6587\u672C"},
-    {L"Import from text", L"\u4ECE\u6587\u672C\u5BFC\u5165"},
+    {L"Import from clipboard", L"\u4ECE\u526A\u8D34\u677F\u5BFC\u5165"},
     {L"Units: %d", L"\u5355\u4F4D: %d"},
     {L"Start locations: %d", L"\u8D77\u59CB\u4F4D\u7F6E: %d"},
     {L"Doodads: %d", L"\u88C5\u9970\u7269: %d"},
@@ -2781,6 +2780,8 @@ constexpr UiText kRows[] = {
     {L"Graphics: Automatic after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A\u81EA\u52A8"},
     {L"Graphics: Direct3D 12 after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A Direct3D 12"},
     {L"Graphics: Software after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A\u8F6F\u4EF6"},
+    {L"The custom terrain on the clipboard is for another tileset: ", L"\u526A\u8D34\u677F\u4E2D\u7684\u81EA\u5B9A\u4E49\u5730\u5F62\u5C5E\u4E8E\u53E6\u4E00\u4E2A\u56FE\u5757\u96C6\uFF1A"},
+    {L"The custom terrain on the clipboard has no tiles to place", L"\u526A\u8D34\u677F\u4E2D\u7684\u81EA\u5B9A\u4E49\u5730\u5F62\u6CA1\u6709\u53EF\u653E\u7F6E\u7684\u56FE\u5757"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

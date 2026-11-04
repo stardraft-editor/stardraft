@@ -2577,7 +2577,6 @@ Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open ta
 Connected &areas	연결된 구역(&A)
 Town a&reas	기지 구역(&R)
 &Terrain flags	지형 속성(&T)
-Copy tile &value	타일 값 복사(&V)
 Copied: 	복사함: 
 Report feedback on the selected terrain…	피드백 보고: 선택한 지형…
 The selected terrain (tile x, y):	선택한 지형 (타일 x, y):
@@ -2789,7 +2788,7 @@ Terrain flags: the ground that units cannot walk on is dark	지형 속성: 유�
 Terrain flags: the tiles that the isometric terrain does not give (orange)	지형 속성: 아이소메트릭 지형이 만들지 않는 타일(주황)
 &Isometric terrain	아이소메트릭 지형(&I)
 Copy as text	텍스트로 복사
-Import from text	텍스트에서 가져오기
+Import from clipboard	클립보드에서 가져오기
 Units: %d	유닛: %d
 Start locations: %d	시작 위치: %d
 Doodads: %d	장식물: %d
@@ -2809,3 +2808,5 @@ The change applies after a restart	변경 사항은 다시 시작한 후에 적�
 Graphics: Automatic after a restart	그래픽: 다시 시작한 후 자동
 Graphics: Direct3D 12 after a restart	그래픽: 다시 시작한 후 Direct3D 12
 Graphics: Software after a restart	그래픽: 다시 시작한 후 소프트웨어
+The custom terrain on the clipboard is for another tileset: 	클립보드의 사용자 지형은 다른 타일셋용입니다: 
+The custom terrain on the clipboard has no tiles to place	클립보드의 사용자 지형에 배치할 타일이 없습니다

@@ -2577,7 +2577,6 @@ Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open ta
 Connected &areas	Связанные &области
 Town a&reas	Зоны &баз
 &Terrain flags	&Свойства местности
-Copy tile &value	Копировать &значение тайла
 Copied: 	Скопировано: 
 Report feedback on the selected terrain…	Отзыв о выбранной местности…
 The selected terrain (tile x, y):	Выбранная местность (тайл x, y):
@@ -2759,7 +2758,7 @@ Terrain flags: the ground that units cannot walk on is dark	Свойства м�
 Terrain flags: the tiles that the isometric terrain does not give (orange)	Свойства местности: тайлы, которые не даёт изометрическая местность (оранжевые)
 &Isometric terrain	&Изометрическая местность
 Copy as text	Копировать как текст
-Import from text	Импортировать из текста
+Import from clipboard	Импортировать из буфера обмена
 Units: %d	Юниты: %d
 Start locations: %d	Начальные позиции: %d
 Doodads: %d	Декорации: %d
@@ -2779,3 +2778,5 @@ The change applies after a restart	Изменение применяется п�
 Graphics: Automatic after a restart	Графика: автоматически после перезапуска
 Graphics: Direct3D 12 after a restart	Графика: Direct3D 12 после перезапуска
 Graphics: Software after a restart	Графика: программно после перезапуска
+The custom terrain on the clipboard is for another tileset: 	Пользовательский рельеф в буфере обмена для другого набора тайлов: 
+The custom terrain on the clipboard has no tiles to place	В пользовательском рельефе из буфера обмена нет тайлов для размещения

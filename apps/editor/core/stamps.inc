@@ -212,8 +212,8 @@ void stampsCopyText(const TerrainStamp& s, draw::Host* host) {
     setMessage(tr(L"Copied the custom terrain ") + widen(s.name) + tr(L" as text"));
 }
 
-// The list's menu: Import from text (custom terrain copied as text, from the clipboard). It goes to the folder of its
-// tileset, under its name (a name that is there already: Replace?).
+// The list's menu: Import from clipboard (custom terrain copied as text). It goes to the folder of its tileset, under
+// its name (a name that is there already: Replace?).
 void stampsImportText(const std::string& text) {
     static const wchar_t* const kTitle = L"Import custom terrain";
     TerrainStamp s;
@@ -230,6 +230,35 @@ void stampsImportText(const std::string& text) {
     const bool here = app.ed && app.ed->isOpen() && (app.ed->era() & 7) == s.era;
     setMessage(tr(L"Imported the custom terrain ") + name + L" (" + std::to_wstring(s.count()) +
                tr(here ? L" tiles)" : L" tiles). It is for another tileset: the Custom list shows it on maps of that tileset."));
+}
+
+// Ctrl+V in Terrain mode with custom terrain as text on the clipboard (Copy as text, or text from other people): it
+// is the Brush's stamp in Tile mode, as tiles copied with Ctrl+C are (not imported: Import from clipboard keeps it).
+// The same text again, when the map has a copy of its own (Ctrl+C after it): that copy pastes. False: no such text.
+std::string shellClipboardText();  // (shell_sdl.inc)
+bool stampsPasteText() {
+    static std::string pasted;  // (the text that the last such paste took)
+    AppState& app = appState();
+    if (!app.ed || !app.ed->isOpen()) return false;
+    const std::string text = shellClipboardText();
+    TerrainStamp s;
+    std::string err;
+    if (text.empty() || !parseTerrainStamp(text, s, err)) return false;
+    if (text == pasted && (app.ed->hasTileClipboard() || app.ed->hasTerrainClipboard())) return false;
+    pasted = text;
+    if ((app.ed->era() & 7) != s.era) {
+        setMessage(tr(L"The custom terrain on the clipboard is for another tileset: ") + widen(tilesetName(s.era)));
+        return true;
+    }
+    if (terrainKind() != 1) setTerrainKind(1);  // (Tile: the tiles as they are)
+    stampsUse(s);
+    if (gTiles->stamp.empty()) {
+        setMessage(L"The custom terrain on the clipboard has no tiles to place");
+        return true;
+    }
+    gTiles->stampName.clear(), gTiles->stampCopied = true;  // (as a copy: in no list)
+    stampsPanelsRepaint();
+    return true;
 }
 
 // The menu of an item of the list (Rename, Delete, Show in folder).

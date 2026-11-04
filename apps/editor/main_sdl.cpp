@@ -594,6 +594,10 @@ int main(int argc, char** argv) {
         else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &width, &height), sizeArg = true;
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--install") installArg = next();
+        else if (a == "--clipboard") {  // a file: the clipboard's text in a test (shell_sdl.inc shellClipboardText)
+            std::ifstream in(fs::u8path(next()), std::ios::binary);
+            gClipboardArg.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
         else if (a == "--noinstall") noInstallArg = true;  // no StarCraft install is searched for (the start page's banner asks for it), for a snapshot
         else if (a == "--pickinstall") pickInstallArg = next();  // a folder: the start page's Browse picks it (the folder dialog's answer), for a snapshot; "found": the folder that the search finds
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot

@@ -2577,7 +2577,6 @@ Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open ta
 Connected &areas	连通区域(&A)
 Town a&reas	基地区域(&R)
 &Terrain flags	地形属性(&T)
-Copy tile &value	复制图块值(&V)
 Copied: 	已复制：
 Report feedback on the selected terrain…	对所选地形报告反馈…
 The selected terrain (tile x, y):	所选地形（图块 x, y）：
@@ -2759,7 +2758,7 @@ Terrain flags: the ground that units cannot walk on is dark	地形属性：单�
 Terrain flags: the tiles that the isometric terrain does not give (orange)	地形属性：等距地形不会生成的图块（橙色）
 &Isometric terrain	等距地形(&I)
 Copy as text	复制为文本
-Import from text	从文本导入
+Import from clipboard	从剪贴板导入
 Units: %d	单位: %d
 Start locations: %d	起始位置: %d
 Doodads: %d	装饰物: %d
@@ -2779,3 +2778,5 @@ The change applies after a restart	更改在重新启动后生效
 Graphics: Automatic after a restart	图形：重新启动后为自动
 Graphics: Direct3D 12 after a restart	图形：重新启动后为 Direct3D 12
 Graphics: Software after a restart	图形：重新启动后为软件
+The custom terrain on the clipboard is for another tileset: 	剪贴板中的自定义地形属于另一个图块集：
+The custom terrain on the clipboard has no tiles to place	剪贴板中的自定义地形没有可放置的图块

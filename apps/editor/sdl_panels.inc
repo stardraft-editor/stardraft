@@ -172,7 +172,7 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
         m.push_back(menuSeparator());
     }
     if (s) m.push_back(menuItem(kCopyText, L"Copy as text"));
-    m.push_back(menuItem(kImportText, L"Import from text"));
+    m.push_back(menuItem(kImportText, L"Import from clipboard"));
     m.push_back(menuSeparator());
     m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
     m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));

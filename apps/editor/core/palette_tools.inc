@@ -84,7 +84,7 @@ size_t unitStackCount(const AppState& app) {
 
 bool docOpen();  // (documents.inc)
 // The tile at map point (wx, wy) as text: its CV5 group and index, its VX4 megatile, its terrain, and the tile value
-// (the status bar; the map menu's Copy tile value). "" outside the map.
+// (the status bar; Report feedback on the selected terrain). "" outside the map.
 std::wstring tileValueText(const Editor& ed, float wx, float wy) {
     const int tx = int(wx) / 32, ty = int(wy) / 32;
     if (wx < 0 || wy < 0 || tx >= ed.width() || ty >= ed.height() || size_t(ty) * ed.width() + tx >= ed.terrain().tiles.size()) return L"";

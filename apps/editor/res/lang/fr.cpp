@@ -2579,7 +2579,6 @@ constexpr UiText kRows[] = {
     {L"Connected &areas", L"&Zones connect\u00E9es"},
     {L"Town a&reas", L"Zones de &base"},
     {L"&Terrain flags", L"&Propri\u00E9t\u00E9s du terrain"},
-    {L"Copy tile &value", L"Copier la &valeur de la tuile"},
     {L"Copied: ", L"Copi\u00E9: "},
     {L"Report feedback on the selected terrain\u2026", L"Envoyer un avis sur le terrain s\u00E9lectionn\u00E9\u2026"},
     {L"The selected terrain (tile x, y):", L"Le terrain s\u00E9lectionn\u00E9 (tuile x, y):"},
@@ -2761,7 +2760,7 @@ constexpr UiText kRows[] = {
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"Propri\u00E9t\u00E9s du terrain : les tuiles que le terrain isom\u00E9trique ne donne pas (orange)"},
     {L"&Isometric terrain", L"Terrain &isom\u00E9trique"},
     {L"Copy as text", L"Copier en texte"},
-    {L"Import from text", L"Importer depuis du texte"},
+    {L"Import from clipboard", L"Importer depuis le presse-papiers"},
     {L"Units: %d", L"Unit\u00E9s: %d"},
     {L"Start locations: %d", L"Positions de d\u00E9part: %d"},
     {L"Doodads: %d", L"D\u00E9cors: %d"},
@@ -2781,6 +2780,8 @@ constexpr UiText kRows[] = {
     {L"Graphics: Automatic after a restart", L"Graphismes : automatique apr\u00E8s un red\u00E9marrage"},
     {L"Graphics: Direct3D 12 after a restart", L"Graphismes : Direct3D 12 apr\u00E8s un red\u00E9marrage"},
     {L"Graphics: Software after a restart", L"Graphismes : logiciel apr\u00E8s un red\u00E9marrage"},
+    {L"The custom terrain on the clipboard is for another tileset: ", L"Le terrain personnalis\u00E9 du presse-papiers est pour un autre tileset : "},
+    {L"The custom terrain on the clipboard has no tiles to place", L"Le terrain personnalis\u00E9 du presse-papiers n'a aucune tuile \u00E0 placer"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

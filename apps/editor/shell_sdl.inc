@@ -188,10 +188,11 @@ void shellOwnerSelect(int i) {
     palettePanelsOwner(i);
 }
 void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text);  // (sdl_options.inc)
-// The text on the system's clipboard (Copy tile value).
-void shellCopyText(const std::wstring& text) {
-    if (gSilent) std::printf("copied:%c%s%c", 10, narrow(text).c_str(), 10);  // (a test's output shows it)
-    if (gHost) gHost->setClipboardText(narrow(text));
+// The text on the system's clipboard; a test run (--clipboard <file>): that file's text, never the system's.
+std::string gClipboardArg;
+std::string shellClipboardText() {
+    if (gSilent) return gClipboardArg;
+    return gHost ? gHost->clipboardText() : std::string();
 }
 // Report feedback on `on`, the box holding `text` already (Report feedback on the selected terrain: its tiles).
 void shellReportFeedback(const std::wstring& on, const std::wstring& text) {

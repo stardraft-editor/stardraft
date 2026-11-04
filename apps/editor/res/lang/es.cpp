@@ -2579,7 +2579,6 @@ constexpr UiText kRows[] = {
     {L"Connected &areas", L"Zonas &conectadas"},
     {L"Town a&reas", L"Zonas de &base"},
     {L"&Terrain flags", L"&Propiedades del terreno"},
-    {L"Copy tile &value", L"Copiar el &valor de la casilla"},
     {L"Copied: ", L"Copiado: "},
     {L"Report feedback on the selected terrain\u2026", L"Enviar comentarios sobre el terreno seleccionado\u2026"},
     {L"The selected terrain (tile x, y):", L"El terreno seleccionado (casilla x, y):"},
@@ -2761,7 +2760,7 @@ constexpr UiText kRows[] = {
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"Marcas del terreno: las baldosas que el terreno isom\u00E9trico no da (naranja)"},
     {L"&Isometric terrain", L"Terreno &isom\u00E9trico"},
     {L"Copy as text", L"Copiar como texto"},
-    {L"Import from text", L"Importar desde texto"},
+    {L"Import from clipboard", L"Importar desde el portapapeles"},
     {L"Units: %d", L"Unidades: %d"},
     {L"Start locations: %d", L"Posiciones de inicio: %d"},
     {L"Doodads: %d", L"Decorados: %d"},
@@ -2781,6 +2780,8 @@ constexpr UiText kRows[] = {
     {L"Graphics: Automatic after a restart", L"Gr\u00E1ficos: autom\u00E1tico tras reiniciar"},
     {L"Graphics: Direct3D 12 after a restart", L"Gr\u00E1ficos: Direct3D 12 tras reiniciar"},
     {L"Graphics: Software after a restart", L"Gr\u00E1ficos: software tras reiniciar"},
+    {L"The custom terrain on the clipboard is for another tileset: ", L"El terreno personalizado del portapapeles es de otro tileset: "},
+    {L"The custom terrain on the clipboard has no tiles to place", L"El terreno personalizado del portapapeles no tiene casillas que colocar"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

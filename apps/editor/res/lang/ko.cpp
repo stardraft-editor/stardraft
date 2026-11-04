@@ -2579,7 +2579,6 @@ constexpr UiText kRows[] = {
     {L"Connected &areas", L"\uC5F0\uACB0\uB41C \uAD6C\uC5ED(&A)"},
     {L"Town a&reas", L"\uAE30\uC9C0 \uAD6C\uC5ED(&R)"},
     {L"&Terrain flags", L"\uC9C0\uD615 \uC18D\uC131(&T)"},
-    {L"Copy tile &value", L"\uD0C0\uC77C \uAC12 \uBCF5\uC0AC(&V)"},
     {L"Copied: ", L"\uBCF5\uC0AC\uD568: "},
     {L"Report feedback on the selected terrain\u2026", L"\uD53C\uB4DC\uBC31 \uBCF4\uACE0: \uC120\uD0DD\uD55C \uC9C0\uD615\u2026"},
     {L"The selected terrain (tile x, y):", L"\uC120\uD0DD\uD55C \uC9C0\uD615 (\uD0C0\uC77C x, y):"},
@@ -2791,7 +2790,7 @@ constexpr UiText kRows[] = {
     {L"Terrain flags: the tiles that the isometric terrain does not give (orange)", L"\uC9C0\uD615 \uC18D\uC131: \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD \uC9C0\uD615\uC774 \uB9CC\uB4E4\uC9C0 \uC54A\uB294 \uD0C0\uC77C(\uC8FC\uD669)"},
     {L"&Isometric terrain", L"\uC544\uC774\uC18C\uBA54\uD2B8\uB9AD \uC9C0\uD615(&I)"},
     {L"Copy as text", L"\uD14D\uC2A4\uD2B8\uB85C \uBCF5\uC0AC"},
-    {L"Import from text", L"\uD14D\uC2A4\uD2B8\uC5D0\uC11C \uAC00\uC838\uC624\uAE30"},
+    {L"Import from clipboard", L"\uD074\uB9BD\uBCF4\uB4DC\uC5D0\uC11C \uAC00\uC838\uC624\uAE30"},
     {L"Units: %d", L"\uC720\uB2DB: %d"},
     {L"Start locations: %d", L"\uC2DC\uC791 \uC704\uCE58: %d"},
     {L"Doodads: %d", L"\uC7A5\uC2DD\uBB3C: %d"},
@@ -2811,6 +2810,8 @@ constexpr UiText kRows[] = {
     {L"Graphics: Automatic after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 \uC790\uB3D9"},
     {L"Graphics: Direct3D 12 after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 Direct3D 12"},
     {L"Graphics: Software after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 \uC18C\uD504\uD2B8\uC6E8\uC5B4"},
+    {L"The custom terrain on the clipboard is for another tileset: ", L"\uD074\uB9BD\uBCF4\uB4DC\uC758 \uC0AC\uC6A9\uC790 \uC9C0\uD615\uC740 \uB2E4\uB978 \uD0C0\uC77C\uC14B\uC6A9\uC785\uB2C8\uB2E4: "},
+    {L"The custom terrain on the clipboard has no tiles to place", L"\uD074\uB9BD\uBCF4\uB4DC\uC758 \uC0AC\uC6A9\uC790 \uC9C0\uD615\uC5D0 \uBC30\uCE58\uD560 \uD0C0\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

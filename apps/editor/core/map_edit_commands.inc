@@ -165,6 +165,7 @@ void pasteLocationsAt(AppState& app, float wx, float wy) {
 
 // Edit > Paste in the active mode: the copy follows the mouse (click to place it; again for more; right-click or Esc
 // stops).
+bool stampsPasteText();  // (stamps.inc: custom terrain as text on the clipboard)
 void pasteMapCopy(AppState& app) {
     if (app.ed && (app.mode == Mode::Doodads || app.mode == Mode::Sprites)) {  // the copy follows the mouse: click to place it
         const bool dd = app.mode == Mode::Doodads;
@@ -185,6 +186,7 @@ void pasteMapCopy(AppState& app) {
         setMessage(L"Paste: click to place the copy, and again to place more. Right-click or Esc stops.");
         return;
     }
+    if (app.ed && app.mode == Mode::Terrain && stampsPasteText()) return;  // (custom terrain as text: the Brush)
     if (app.ed && app.mode == Mode::Terrain) {
         // The copy of the other terrain mode (tiles copied in Rectangle, terrain in Isometric): to that mode, then paste
         // it (GitHub feedback #83: Ctrl+V did nothing).
@@ -638,7 +640,8 @@ bool mapMenuGrayed(int id) {
             return false;
         const bool open = app.ed && app.ed->isOpen();
         // Every kind of copy (a gray item also stops Ctrl+V): units, terrain, tiles, locations, doodads, sprites (#83).
-        return !(open && (app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || (gTerrainCopy.any && app.mode == Mode::Terrain) || !app.locationClip.empty() ||
+        // (Terrain: custom terrain as text on the clipboard too, stampsPasteText: not read for each menu; else a message)
+        return !(open && (app.mode == Mode::Terrain || app.ed->canPaste() || app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard() || !app.locationClip.empty() ||
                           !app.doodadClip.empty() || !app.spriteClip.empty()));
     }
     if (id == ID_OPT_DRAGBACK) return app.allowIllegalUnits;  // (not used when units go anywhere)

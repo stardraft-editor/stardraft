@@ -3853,10 +3853,7 @@ CASES += [
     ("map-building-snap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
                            "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
 ]
-# The map's menu over a terrain selection: Copy tile values (its 8th item) copies each selected tile, a line each with
-# its place (x, y: CV5 ...), and the status bar says how many.
-CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
-# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 9th item); then the
+# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 8th item); then the
 # isometric brush (Solar Array) is dragged over it and around it, the fill clicks in it (nothing) and next to it, and
 # Rectangle's brush puts a tile of the Tiles list in it (nothing) and next to it. --check protect: none of the
 # protected tiles has another tile than the map file, the tiles around them do; the right click at the end shows
@@ -3864,7 +3861,7 @@ CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag",
 SCRIPTS["protectterrain"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:8
+rclick 590,665:7
 click 202,759
 key B
 drag 470,600-710,740
@@ -3884,18 +3881,18 @@ click 720,730
 SCRIPTS["protectundo"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:8
+rclick 590,665:7
 key Ctrl+Z
 key Ctrl+Y
 """
-# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 10th
+# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 9th
 # item) then unprotects every protected tile.
 SCRIPTS["protectselectall"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:8
+rclick 590,665:7
 key Ctrl+A
-rclick 900,300:9
+rclick 900,300:8
 """
 CASES += [("map-protect-selectall", ["--script", "{script:protectselectall}", "--check", "protect"], "map")]
 CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--check", "protect", "--mode", "terrain", "--key", "V",
@@ -4174,15 +4171,6 @@ def check_loading_view(output):
 def check_find_command_list(output):
     """None when the list is open with the search typed."""
     return None if " quick=open " in output and 'text field at 53,19 "walk"' in output else "the list is not open with walk"
-
-
-def check_copy_tile_values(output):
-    """None when the copied text has a line (x, y: CV5 ...) for each tile that the status bar says it copied."""
-    m = re.search(r"Copied the values of (\d+) tiles", output)
-    lines = re.findall(r"^\d+, \d+: CV5 \d+\.\d+ ", output, re.M)
-    if not m:
-        return "no status Copied the values of N tiles"
-    return None if int(m.group(1)) == len(lines) > 1 else f"{len(lines)} lines, the status says {m.group(1)}"
 
 
 def check_building_snap(snapped):
@@ -4788,7 +4776,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
-          "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key, "map-isom-select-combine": check_isom_select_combine,
+          "map-terrain-kind-key": check_terrain_kind_key, "map-isom-select-combine": check_isom_select_combine,
           "map-shape-line-preview": shape_check("line", True, 4), "map-shape-line": shape_check("line", False, 3, message="Painted the line"),
           "map-shape-line-undo": shape_check("line", False, 4, undo=True),
           "map-shape-contour-preview": shape_check("contour", True, 4), "map-shape-contour": shape_check("contour", False, 3, message="Filled the contour"),
