@@ -5,6 +5,7 @@
 //
 // Coordinates in events and in paint() are the view's own: (0, 0) is its top left corner.
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -47,6 +48,26 @@ struct MouseEvent {
 // How far a vertical scroll moves a view's content down, in pixels (a scroll position goes up by it): a wheel's
 // notches times `notchPx` (a notch away from the user: positive), or the system's exact distance (MouseEvent::exact).
 inline float wheelDistance(const MouseEvent& e, float notchPx) { return e.exact ? e.panY : e.wheel * notchPx; }
+
+// The time from the wheel event before the one that the router now gives out (to any view) to it, in ms (a long
+// time: none before). A field that the wheel can change sees from it whether a page scroll goes on: a scroll that
+// moves the field under a still pointer does not change the field.
+inline double& wheelGapMs() {
+    static double gap = 1e9;
+    return gap;
+}
+// The time of the wheel event before the one that the router now gives out (none: the clock's zero).
+inline std::chrono::steady_clock::time_point& wheelBeforeAt() {
+    static std::chrono::steady_clock::time_point at{};
+    return at;
+}
+inline void noteWheel() {
+    static std::chrono::steady_clock::time_point last{};
+    const auto now = std::chrono::steady_clock::now();
+    wheelGapMs() = last == std::chrono::steady_clock::time_point{} ? 1e9 : std::chrono::duration<double, std::milli>(now - last).count();
+    wheelBeforeAt() = last;
+    last = now;
+}
 // The same distance in whole steps of `stepPx` (a list that scrolls by rows); the part of a step that is left waits in
 // `carry` for the next event. Only for an exact scroll (else 0).
 inline int exactSteps(const MouseEvent& e, float stepPx, float& carry) {
@@ -353,6 +374,7 @@ public:
     }
 
     bool mouse(MouseEvent e) {
+        if (e.kind == MouseKind::Wheel) noteWheel();
         if (e.kind == MouseKind::Leave) {
             if (View* h = std::exchange(hovered_, nullptr)) h->mouse(e);
             return true;
@@ -376,6 +398,10 @@ public:
                 hovered_->mouse(leave);
             }
             hovered_ = v;
+        } else if (v != hovered_ && e.kind == MouseKind::Wheel && hovered_) {  // (a scroll moved the view away: it is
+            MouseEvent leave;                                                  // not under the pointer any more)
+            leave.kind = MouseKind::Leave;
+            std::exchange(hovered_, nullptr)->mouse(leave);
         }
         if (e.kind == MouseKind::Down || e.kind == MouseKind::DoubleClick)  // the focus: the first focusable view up from it
             for (View* f = v; f; f = f->parent())

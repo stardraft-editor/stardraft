@@ -149,6 +149,7 @@ KIT_TEST(dropdown_wheel_steps_the_closed_field) {
     int changes = 0;
     dd.onChange = [&](int) { ++changes; };
     root.add(dd, {10, 10, 210, 34});
+    dd.focus();  // (a field with the focus: the wheel steps it at once; without, only after a rest on it)
     host.wheel(50, 20, -1);  // toward the user: the next item
     CHECK(dd.value() == 1 && changes == 1);
     host.wheel(50, 20, 1);  // away from the user: the previous item

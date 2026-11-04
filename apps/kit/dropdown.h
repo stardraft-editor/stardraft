@@ -1,9 +1,11 @@
 #pragma once
 // A dropdown (docs/dev/CONTROLS.md, "Dropdown"): a field with the value's icon and name, its number at the right and a
 // chevron. A click, Alt+Down, Space or Enter opens the list under it (a popup window of up to 12 rows; the wheel
-// scrolls it). Up and Down, and the mouse wheel over the closed field when it has the focus, step the value to the next
-// or the previous item (a field without the focus passes the wheel on: the page under it scrolls).
+// scrolls it). Up and Down, and the mouse wheel over the closed field, step the value to the next or the previous item.
+// A field without the focus steps by the wheel only when the pointer has rested on it and no page scroll goes on; else
+// the page under it scrolls.
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -42,7 +44,7 @@ public:
     std::function<void()> onOpen;
     // Enter opens the list (the default). Off: a closed list passes Enter on, as a Windows combo box does in a dialog.
     bool enterOpens = true;
-    // The mouse wheel over the closed field with the focus steps the value (the default). Off: the wheel goes on to the view under it (a
+    // The mouse wheel over the closed field steps the value (the default; see above). Off: the wheel goes on to the view under it (a
     // choice that changes much, as Program options' Game, changes only by the list or the keys).
     bool wheelSteps = true;
     // The open list has a search row: typing shows only the items whose name (or number) has the typed text (a long
@@ -98,6 +100,7 @@ private:
     std::wstring tip_;
     int value_ = -1;
     bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false, changed_ = false;
+    std::chrono::steady_clock::time_point hoverAt_{};  // (the pointer came onto the field: the wheel's rest)
     float wheelAcc_ = 0;
     // Lets go of the list (the host forgets it) and drops the host: a closed list keeps no host, so nothing touches a
     // host that is gone (a page's window goes before its views). The list is deleted by a timer on the host: its own

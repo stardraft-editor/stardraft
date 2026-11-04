@@ -520,6 +520,7 @@ bool Dropdown::mouse(const MouseEvent& e) {
     switch (e.kind) {
     case MouseKind::Move:
         justClosed_ = false;
+        hoverAt_ = std::chrono::steady_clock::now();  // (each move: the wheel's rest starts again)
         if (!hover_) hover_ = true, invalidate();
         return true;
     case MouseKind::Leave:
@@ -536,8 +537,18 @@ bool Dropdown::mouse(const MouseEvent& e) {
         return true;
     case MouseKind::DoubleClick: return enabled_;  // the press has opened (or closed) the list already
     case MouseKind::Wheel: {
-        // (a field without the focus: the wheel scrolls the page under it, so that a scroll past a field changes nothing)
-        if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps || !hasFocus()) return false;
+        // A field without the focus steps only when the pointer has rested on it and no page scroll goes on (the wheel
+        // still for a moment); else the wheel scrolls the page under it, so that a scroll past a field changes nothing.
+        if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
+        // (the rest: the pointer still on the field for a moment, begun after the last wheel event: a field that a scroll
+        // brought under the pointer does not step; a trackpad's or a sideways scroll goes to the page)
+        if (!hasFocus()) {
+            constexpr double kRestMs = 350;
+            const double rested = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - hoverAt_).count();
+            if (!hover_ || e.precise || e.exact || e.horizontal || rested < kRestMs || draw::wheelGapMs() < kRestMs ||
+                hoverAt_ <= draw::wheelBeforeAt())
+                return wheelAcc_ = 0, false;
+        }
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);
         while (wheelAcc_ <= -1) wheelAcc_ += 1, step(1);
