@@ -406,6 +406,10 @@ A release is a tag `v<version>`. The owner says when, and approves the scope and
    pictures), tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
    as it is). Then it waits for the tag's run of `.github/workflows/release.yml` (it waits for the build and tests
    of master's push, then releases in a few minutes) and confirms the release. `--dry-run` shows the commands only.
+6. Tell the users who reported what the release fixes: run a feedback round (the stardraft-feedback skill, step 1
+   gets the latest), then for each item that the release fixed, reply in its #feedback thread (and comment on its
+   GitHub issue) that the fix is in `v<version>` and to get it (Help > Check for updates, or the release link), and
+   tag the post `Implemented`. Only items that the release really fixed; one short reply each.
 
 CI (`.github/workflows/release.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
 a commit on `main`). Then it takes the files that build.yml built and tested for that commit as that version (see
