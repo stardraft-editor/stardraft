@@ -1,3 +1,6 @@
+std::wstring sdlGraphicsInUse();  // (main_sdl.cpp: Program options > Graphics, the driver in use)
+void sdlGpuUnskip(const std::string& driver);  // (main_sdl.cpp: a driver left out after a start is tried again; "": all)
+
 // Options > Program options and Options > Report feedback on this system: the views are the core's (core/views_options.inc,
 // core/views_feedback.inc); this file is their SDL host. Each opens as a dialog window over the root (the kit's windows, as
 // the Windows program's dialogs). The options keep their values in the settings file (prefs, the same names as the Windows
@@ -170,6 +173,7 @@ void resetSettingsSdl() {
         s.reload();
         for (const std::string& name : s.names())
             if (name != "RecentMaps" && name != "RecentProjects") s.remove(name);
+        sdlGpuUnskip("");  // (Graphics: every driver is tried again; main_sdl.cpp)
         gSettingsOff = true;
         if (!restartProcessSdl()) setMessage(L"The program settings have their default values. Close StarDraft 2 and start it again to use them.");
     });
@@ -282,6 +286,11 @@ public:
         v.previews = sdlUpdatePreviews();  // (sdl_updates.inc)
         int crash = 0;
         prefs::number(L"CrashReports", crash, 0, 2), v.crashReports = crash;
+#ifdef _WIN32
+        v.gpuRow = true;
+        prefs::number(L"GraphicsDriver", v.gpuDriver, 0, 2);
+        v.gpuInUse = sdlGraphicsInUse();  // (main_sdl.cpp)
+#endif
         v.installInUse = gInstallInUse.empty() ? std::wstring() : gInstallInUse.wstring();
         v.installNext = !gInstallNext.empty() && gInstallNext != gInstallInUse ? gInstallNext.wstring() : std::wstring();
         if (v.gameMode == 1) {  // (Mods: the Cosmonarchy folder, shown in that game only)

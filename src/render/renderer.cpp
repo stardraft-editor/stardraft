@@ -12,6 +12,7 @@
 #include <map>
 #include <tuple>
 #include <unordered_map>
+#include <vector>
 
 #include "stardraft/game_data.h"
 #include "stardraft/sprites.h"
@@ -142,6 +143,10 @@ uint32_t mipCount(uint32_t w, uint32_t h) {
 struct Renderer::Impl {
     SDL_Window* window = nullptr;
     SDL_GPUDevice* device = nullptr;
+    std::string skipped;           // setSkippedDrivers
+    const char* tried = "";        // driverTried
+    std::string preferred;         // setPreferredDriver
+    void (*tryHook)(const char*) = nullptr;  // setTryHook
     SDL_GPUTextureFormat colorFormat = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
     bool pipelinesReady = false;  // made for colorFormat
     SDL_GPUTexture* offscreen = nullptr;
@@ -295,9 +300,11 @@ static SDL_PropertiesID deviceProperties() {
 }
 
 bool Renderer::Impl::createDevice(std::string& err) {
-    // Windows: Direct3D 12 on the video card, else Vulkan, else Direct3D 12 on WARP (the software device of Windows:
-    // slow, but the program starts on video cards that have neither). STARDRAFT_GPU_DRIVER "direct3d12", "vulkan" or
-    // "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
+    // Windows: Vulkan, else Direct3D 12 on the video card, else Direct3D 12 on WARP (the software device of Windows:
+    // slow, but the program starts on video cards that have neither). Vulkan first: an old video card's Direct3D 12
+    // (feature level 11_0, as the GeForce GTX 770's) stopped the whole computer (0.8.5). setPreferredDriver (Program
+    // options) goes first; the skipped drivers go only when no other is left. STARDRAFT_GPU_DRIVER "direct3d12",
+    // "vulkan" or "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
 #ifdef STARDRAFT_SHADERS_DXIL
     const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
     std::string only = asked ? asked : "";
@@ -319,8 +326,16 @@ bool Renderer::Impl::createDevice(std::string& err) {
         },
         &reasons);
     std::string errors;
-    for (const char* driver : {"direct3d12", "vulkan", "warp"}) {
+    std::vector<const char*> order = {"vulkan", "direct3d12", "warp"};
+    for (size_t i = 1; i < order.size(); ++i)
+        if (preferred == order[i]) std::rotate(order.begin(), order.begin() + std::ptrdiff_t(i), order.begin() + std::ptrdiff_t(i + 1));
+    std::vector<const char*> tries;
+    for (const char* d : order)
+        if (!only.empty() || ("," + skipped + ",").find(std::string(",") + d + ",") == std::string::npos) tries.push_back(d);
+    if (tries.empty()) tries = order;
+    for (const char* driver : tries) {
         if (!only.empty() && only != driver) continue;
+        if (tryHook) tryHook(driver);
         const bool vulkan = std::string(driver) == "vulkan";
         SDL_SetHint("STARDRAFT_D3D12_WARP", std::string(driver) == "warp" ? "1" : "0");  // (cmake/patch_sdl.cmake)
         SDL_PropertiesID props = deviceProperties();
@@ -330,7 +345,10 @@ bool Renderer::Impl::createDevice(std::string& err) {
         reasons.text.clear();
         device = SDL_CreateGPUDeviceWithProperties(props);
         SDL_DestroyProperties(props);
-        if (device) break;
+        if (device) {
+            tried = driver;
+            break;
+        }
         errors += std::string(errors.empty() ? "" : "; ") + driver + ": " + (reasons.text.empty() ? SDL_GetError() : reasons.text);
     }
     SDL_SetLogOutputFunction(reasons.next, reasons.nextData);
@@ -350,6 +368,7 @@ bool Renderer::Impl::createDevice(std::string& err) {
         err = std::string("SDL_CreateGPUDevice: ") + SDL_GetError();
         return false;
     }
+    tried = SDL_GetGPUDeviceDriver(device);
 #endif
     const SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(device);
     shaderFormat = formats & SDL_GPU_SHADERFORMAT_DXIL    ? SDL_GPU_SHADERFORMAT_DXIL
@@ -793,6 +812,10 @@ void Renderer::setQuality(GraphicsQuality q) {
 GraphicsQuality Renderer::quality() const { return impl_->quality; }
 bool Renderer::hdArt() const { return impl_->bcTextures; }
 const char* Renderer::driver() const { return impl_->device ? SDL_GetGPUDeviceDriver(impl_->device) : ""; }
+void Renderer::setSkippedDrivers(const std::string& drivers) { impl_->skipped = drivers; }
+const char* Renderer::driverTried() const { return impl_->tried; }
+void Renderer::setTryHook(void (*hook)(const char*)) { impl_->tryHook = hook; }
+void Renderer::setPreferredDriver(const std::string& driver) { impl_->preferred = driver; }
 
 void Renderer::setCarbot(bool carbot) {
     if (impl_->carbot != carbot) impl_->carbot = carbot, impl_->tilesetDirty = true;

@@ -2768,3 +2768,14 @@ Locations: %d / %d	Emplacements: %d / %d
 Map size: %d x %d	Taille de la carte: %d x %d
 No map sound has the search text	Aucun son de la carte ne contient le texte recherché
 Cosmonarchy BW and game sounds	Sons de Cosmonarchy BW et du jeu
+Graphics	Graphismes
+Software	Logiciel
+Direct3D 12	Direct3D 12
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan. Si la carte graphique ne peut pas l'utiliser : Direct3D 12, puis le dessin logiciel (par défaut)
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12. Si la carte graphique ne peut pas l'utiliser : Vulkan, puis le dessin logiciel
+Software drawing (WARP): slow, but it does not use the video card	Dessin logiciel (WARP) : lent, mais n'utilise pas la carte graphique
+In use	Utilisé
+The change applies after a restart	Le changement s'applique après un redémarrage
+Graphics: Automatic after a restart	Graphismes : automatique après un redémarrage
+Graphics: Direct3D 12 after a restart	Graphismes : Direct3D 12 après un redémarrage
+Graphics: Software after a restart	Graphismes : logiciel après un redémarrage

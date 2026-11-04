@@ -373,6 +373,142 @@ bool shellOpenGameData() { return openGameDataNow(); }  // (core/views_passages.
 
 void sdlEnsureGameData() { ensureGameData(); }  // (sdl_options.inc)
 
+// The graphics driver and the video card in use, for the Log and Program options > Graphics ("Vulkan, NVIDIA GeForce
+// GTX 770"; "" before the device).
+std::wstring sdlGraphicsInUse() {
+    if (!gRenderer || !gRenderer->device()) return L"";
+    const std::string d = gRenderer->driverTried();
+    std::wstring out = d == "vulkan" ? L"Vulkan" : d == "direct3d12" ? L"Direct3D 12" : d == "warp" ? L"software (WARP)" : d == "metal" ? L"Metal" : widen(d);
+    const char* name = SDL_GetStringProperty(SDL_GetGPUDeviceProperties(gRenderer->device()), SDL_PROP_GPU_DEVICE_NAME_STRING, nullptr);
+    if (name && *name) out += L", " + widen(name);
+    return out;
+}
+
+// Windows: a start whose window did not show (a video card's driver that stopped: an old GeForce's Direct3D 12 stopped
+// the whole computer, 0.8.5): the next starts do not try its driver. gpu-start.txt (next to the crashes folder) names
+// the driver while the start tries it (each try, written to the disk first) and while the window shows its first
+// frames; not while the map loads between them (a long load that the user ends is not the driver's). It goes when the
+// frames show, the program ends, or a crash report is written after the device was made (a crash in a try keeps it:
+// the next start does not try that driver). gpu-skip.txt keeps the drivers left out, one a line (Program options >
+// Graphics takes the chosen one out, Automatic all). Not for test runs, nor when STARDRAFT_GPU_DRIVER asks for one.
+#ifdef _WIN32
+fs::path sdlCrashFolder();  // (shell_sdl_win.inc)
+namespace gpustart {
+bool on = false;
+std::wstring note;   // (the Log's line about a driver left out)
+Uint64 madeAt = 0;
+std::string driver;  // the driver of the device (made)
+HANDLE owner = nullptr;  // the start's mutex while its mark is on (before)
+fs::path folder() {
+    const fs::path c = sdlCrashFolder();
+    return c.empty() ? fs::path() : c.parent_path();
+}
+bool known(const std::string& d) { return d == "direct3d12" || d == "vulkan" || d == "warp"; }
+// (on the disk at once: a computer that stops right after and is reset keeps it)
+void writeNow(const wchar_t* name, const std::string& text) {
+    std::error_code ec;
+    fs::create_directories(folder(), ec);
+    HANDLE f = CreateFileW((folder() / name).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return;
+    DWORD wrote = 0;
+    WriteFile(f, text.data(), DWORD(text.size()), &wrote, nullptr);
+    FlushFileBuffers(f);
+    CloseHandle(f);
+}
+void mark(const char* d) {
+    if (on) writeNow(L"gpu-start.txt", std::string(d) + "\n");
+}
+void removeMark() {
+    std::error_code ec;
+    fs::remove(folder() / "gpu-start.txt", ec);
+}
+std::vector<std::string> skipList() {
+    std::vector<std::string> out;
+    std::ifstream in(folder() / "gpu-skip.txt");
+    for (std::string line; std::getline(in, line);) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (known(line) && std::find(out.begin(), out.end(), line) == out.end()) out.push_back(line);
+    }
+    return out;
+}
+void writeSkips(const std::vector<std::string>& list) {
+    if (list.empty()) {
+        std::error_code ec;
+        fs::remove(folder() / "gpu-skip.txt", ec);
+        return;
+    }
+    std::string text;
+    for (const std::string& d : list) text += d + "\n";
+    writeNow(L"gpu-skip.txt", text);
+}
+void before(render::Renderer& r) {
+    // (STARDRAFT_GPU_START_TEST: a --noactivate test of this, with its own LOCALAPPDATA)
+    if ((gSilent && !(gNoActivate && std::getenv("STARDRAFT_GPU_START_TEST"))) || std::getenv("STARDRAFT_GPU_DRIVER") || folder().empty()) return;
+    // (one start at a time: a second one while the first starts (a double click again) leaves its mark as it is)
+    owner = CreateMutexW(nullptr, TRUE, L"Local\\StarDraftGpuStart");
+    if (!owner || GetLastError() == ERROR_ALREADY_EXISTS) {
+        if (owner) CloseHandle(owner), owner = nullptr;
+        return;
+    }
+    on = true;
+    std::vector<std::string> skips = skipList();
+    std::string last;
+    {
+        std::ifstream in(folder() / "gpu-start.txt");
+        std::getline(in, last);
+    }
+    if (!last.empty() && last.back() == '\r') last.pop_back();
+    if (known(last) && std::find(skips.begin(), skips.end(), last) == skips.end()) {
+        skips.push_back(last);
+        writeSkips(skips);
+        note = L"The last start with " + widen(last) + L" did not show its window: that driver is not used now (Program options > Graphics)";
+    }
+    std::string skip;
+    for (const std::string& d : skips) skip += (skip.empty() ? "" : ",") + d;
+    r.setSkippedDrivers(skip);
+    r.setTryHook(mark);
+}
+void made(const render::Renderer& r) {  // (the device works: the map loads with no mark)
+    madeAt = SDL_GetTicks(), driver = r.driverTried();
+    if (on) removeMark();
+}
+void presentingNow() {  // (just before the window shows: its first frames)
+    if (on && !driver.empty()) mark(driver.c_str());
+}
+void ended() {  // (the program ends as it should: its driver did not stop the computer)
+    if (!on) return;
+    on = false;
+    removeMark();
+    if (owner) ReleaseMutex(owner), CloseHandle(owner), owner = nullptr;
+}
+void crashed() {  // (a crash report: in a driver's try the mark stays, so the next start does not try that driver)
+    if (on && madeAt != 0) ended();
+}
+void shown(long long frames) {  // (each turn: 60 frames, or 10 and 5 seconds (a start page that waits for events))
+    if (!on || (frames < 60 && (frames < 10 || SDL_GetTicks() - madeAt < 5000))) return;
+    ended();
+    if (!note.empty()) shellLogLine(note);
+}
+}  // namespace gpustart
+void sdlGpuStartCrashed() { gpustart::crashed(); }  // (shell_sdl_win.inc: crashWritten)
+// Program options > Graphics: the chosen driver ("": Automatic, all of them) is no longer left out.
+void sdlGpuUnskip(const std::string& d) {
+    if (gpustart::folder().empty()) return;
+    std::vector<std::string> list = gpustart::skipList();
+    std::erase_if(list, [&](const std::string& s) { return d.empty() || s == d; });
+    gpustart::writeSkips(list);
+}
+#else
+namespace gpustart {
+void before(render::Renderer&) {}
+void made(const render::Renderer&) {}
+void presentingNow() {}
+void shown(long long) {}
+void ended() {}
+}  // namespace gpustart
+void sdlGpuUnskip(const std::string&) {}
+#endif
+
 #include "sdl_window_test.inc"  // --noactivate, --frames, --wintest: tests of the real window
 
 // The window's frames (SdlHost::setFrameClock): after an event, a timer or posted work the windows paint as before; when
@@ -590,10 +726,20 @@ int main(int argc, char** argv) {
     render::Renderer renderer;
     std::string err;
     if (gFailDeviceArg) err = "a test: no graphics device";  // (--fail-device: as a computer without Direct3D 12 or Vulkan)
+    gpustart::before(renderer);
+#ifdef _WIN32
+    {  // (Program options > Graphics: the driver tried first)
+        int pick = 0;
+        prefs::number(L"GraphicsDriver", pick, 0, 2);
+        static const char* const drivers[] = {"", "direct3d12", "warp"};
+        renderer.setPreferredDriver(drivers[pick]);
+    }
+#endif
     if (gFailDeviceArg || !renderer.createDevice(err)) {
         // The window cannot show: a message box says why (the program has no console). After an update, the program
         // before it goes back in its place and starts (core/releases.inc: rollBackUpdate).
         std::fprintf(stderr, "%s\n", err.c_str());
+        gpustart::ended();  // (no driver stopped the computer: the box says why)
         std::vector<std::string> args;
         for (int i = 1; i < argc; ++i)
             if (std::string(argv[i]) != "--fail-device") args.push_back(argv[i]);
@@ -611,6 +757,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     startLap("graphics device");
+    gpustart::made(renderer);
     sdlRemoveOldProgram();  // (an update's old program file: the new program works here; sdl_updates.inc)
     SDL_GPUDevice* device = renderer.device();
     gRenderer = &renderer;
@@ -741,6 +888,7 @@ int main(int argc, char** argv) {
             sdlDockWatchBuild();  // (macOS: Build's bar and badge on the Dock icon)
             sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
+            gpustart::shown(gHost ? gHost->presentedFrames() : 0);  // (the driver showed the window)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
@@ -801,6 +949,7 @@ int main(int argc, char** argv) {
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
+        shellLogLine(L"Graphics: " + sdlGraphicsInUse());  // (a report's Log says which driver and video card)
         // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
         // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.) The
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
@@ -1090,6 +1239,7 @@ int main(int argc, char** argv) {
             int showW = width, showH = height;
             if (SDL_Rect area{}; !sizeArg && SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &area) && area.w > 0 && area.h > 0)
                 showW = std::min(width, area.w * 9 / 10), showH = std::min(height, area.h * 9 / 10);
+            gpustart::presentingNow();  // (the first frames: the driver may stop there)
             if (!host.show(root, L"StarDraft", showW, showH)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
@@ -1120,6 +1270,7 @@ int main(int argc, char** argv) {
     gRenderer = nullptr;
     gDevice = nullptr;
     renderer.shutdown();
+    gpustart::ended();
     SDL_Quit();
     return status;
 }

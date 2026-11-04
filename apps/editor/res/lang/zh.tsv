@@ -2768,3 +2768,14 @@ Locations: %d / %d	位置: %d / %d
 Map size: %d x %d	地图大小: %d x %d
 No map sound has the search text	没有含有搜索文字的地图声音
 Cosmonarchy BW and game sounds	Cosmonarchy BW 和游戏声音
+Graphics	图形
+Software	软件
+Direct3D 12	Direct3D 12
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan。显卡无法使用时：Direct3D 12，然后是软件绘制（默认）
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12。显卡无法使用时：Vulkan，然后是软件绘制
+Software drawing (WARP): slow, but it does not use the video card	软件绘制（WARP）：较慢，但不使用显卡
+In use	正在使用
+The change applies after a restart	更改在重新启动后生效
+Graphics: Automatic after a restart	图形：重新启动后为自动
+Graphics: Direct3D 12 after a restart	图形：重新启动后为 Direct3D 12
+Graphics: Software after a restart	图形：重新启动后为软件

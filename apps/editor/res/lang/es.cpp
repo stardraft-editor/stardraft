@@ -2770,6 +2770,17 @@ constexpr UiText kRows[] = {
     {L"Map size: %d x %d", L"Tama\u00F1o del mapa: %d x %d"},
     {L"No map sound has the search text", L"Ning\u00FAn sonido del mapa tiene el texto buscado"},
     {L"Cosmonarchy BW and game sounds", L"Sonidos de Cosmonarchy BW y del juego"},
+    {L"Graphics", L"Gr\u00E1ficos"},
+    {L"Software", L"Software"},
+    {L"Direct3D 12", L"Direct3D 12"},
+    {L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)", L"Vulkan. Si la tarjeta gr\u00E1fica no puede usarlo: Direct3D 12 y despu\u00E9s dibujo por software (predeterminado)"},
+    {L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing", L"Direct3D 12. Si la tarjeta gr\u00E1fica no puede usarlo: Vulkan y despu\u00E9s dibujo por software"},
+    {L"Software drawing (WARP): slow, but it does not use the video card", L"Dibujo por software (WARP): lento, pero no usa la tarjeta gr\u00E1fica"},
+    {L"In use", L"En uso"},
+    {L"The change applies after a restart", L"El cambio se aplica tras reiniciar"},
+    {L"Graphics: Automatic after a restart", L"Gr\u00E1ficos: autom\u00E1tico tras reiniciar"},
+    {L"Graphics: Direct3D 12 after a restart", L"Gr\u00E1ficos: Direct3D 12 tras reiniciar"},
+    {L"Graphics: Software after a restart", L"Gr\u00E1ficos: software tras reiniciar"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

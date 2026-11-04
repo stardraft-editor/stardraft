@@ -8,6 +8,7 @@
 // Included by main_sdl.cpp after sdl_updates.inc.
 
 fs::path sdlCrashFolder();                 // the crash reports' folder (each system's)
+void sdlGpuStartCrashed();                 // (main_sdl.cpp: Windows; the start's graphics driver did not stop it)
 void sdlInstallCrashHandler(bool quiet);   // the system's crash handler (a test run: the report stays on disk)
 void sdlAskToSendCrashes();                // the question at start about an earlier crash's reports (the end of this file)
 
@@ -44,6 +45,7 @@ fs::path crashFolder() {
 // After the crash's report is written (in the crashed program: little is safe now): send it now (a new process sends
 // it), or say where it is (the next start asks, or crash reports are off). Test runs keep it on disk only.
 void crashWritten(const fs::path& dir) {
+    sdlGpuStartCrashed();  // (a crash: the next start keeps its graphics driver, main_sdl.cpp)
     if (gQuiet) {
         std::ofstream(dir / "sent") << "a test run: not sent";
         return;
@@ -77,6 +79,7 @@ void installCrashHandler(bool quiet) {
     h.log = sdlCrashLogText;
     h.written = crashWritten;
     stardraft::platform::installCrashHandler(std::move(h));
+    stardraft::platform::limitMemory();  // (a runaway ends the program with a report, not the computer)
 }
 
 // --- One program for all maps -----------------------------------------------------------------------------------------
@@ -521,6 +524,14 @@ int sdlWindowsFirst(int argc, char** argv, bool testRun) {
     prefs::number(L"CrashReports", gSdlCrashReports, 0, 2);
     sdlInstallCrashHandler(testRun || a1 == "--crash-test");
     if (a1 == "--crash-test" && a2 == "stack") return sdlCrashTestDepth(1);
+    if (a1 == "--crash-test" && a2 == "memory") {  // (Windows: past the memory limit; only with STARDRAFT_MEMORY_LIMIT_MB's small one)
+        if (!std::getenv("STARDRAFT_MEMORY_LIMIT_MB")) return 2;
+        std::vector<std::unique_ptr<char[]>> eaten;
+        for (;;) {
+            eaten.push_back(std::make_unique<char[]>(64u << 20));
+            std::memset(eaten.back().get(), 1, 64u << 20);
+        }
+    }
     if (a1 == "--crash-test") *static_cast<volatile int*>(nullptr) = 1;
     return -1;
 }

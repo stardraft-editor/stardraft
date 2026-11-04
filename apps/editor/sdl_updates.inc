@@ -323,6 +323,7 @@ void sdlApplyReleaseFixture() {
 bool sdlUpdatesRuns(int id) {
 #ifdef _WIN32
     if (id == ID_OPT_MAPSDEFAULT) return true;  // (the map files are Windows only)
+    if (id >= ID_GPU_DRIVER && id <= ID_GPU_DRIVER + 2) return true;  // (Graphics: the drivers are Windows' choice)
 #endif
     return id == ID_OPT_UPDATECHECK || id == ID_OPT_PREVIEWS || id == ID_HELP_WHATSNEW || id == ID_UPDATE_NOTES ||
            (id >= ID_CRASH_MODE && id <= ID_CRASH_MODE + 2);
@@ -361,6 +362,20 @@ bool sdlUpdatesCommand(int id) {
         gOptionsView.invalidate();
         return true;
     case ID_OPT_MAPSDEFAULT: return sdlMakeMapsDefault();
+    case ID_GPU_DRIVER:
+    case ID_GPU_DRIVER + 1:
+    case ID_GPU_DRIVER + 2: {
+        static const wchar_t* const said[] = {L"Graphics: Automatic after a restart", L"Graphics: Direct3D 12 after a restart",
+                                               L"Graphics: Software after a restart"};
+        static const char* const drivers[] = {"", "direct3d12", "warp"};
+        if (!gSilent) {  // (tests never change the user's settings)
+            prefs::setNumber(L"GraphicsDriver", id - ID_GPU_DRIVER);
+            sdlGpuUnskip(drivers[id - ID_GPU_DRIVER]);  // (the chosen one is tried again after a start that it stopped)
+        }
+        setMessage(said[id - ID_GPU_DRIVER]);
+        gOptionsView.invalidate();
+        return true;
+    }
     default: return false;
     }
 }

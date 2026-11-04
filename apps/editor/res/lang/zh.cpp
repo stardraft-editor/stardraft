@@ -2770,6 +2770,17 @@ constexpr UiText kRows[] = {
     {L"Map size: %d x %d", L"\u5730\u56FE\u5927\u5C0F: %d x %d"},
     {L"No map sound has the search text", L"\u6CA1\u6709\u542B\u6709\u641C\u7D22\u6587\u5B57\u7684\u5730\u56FE\u58F0\u97F3"},
     {L"Cosmonarchy BW and game sounds", L"Cosmonarchy BW \u548C\u6E38\u620F\u58F0\u97F3"},
+    {L"Graphics", L"\u56FE\u5F62"},
+    {L"Software", L"\u8F6F\u4EF6"},
+    {L"Direct3D 12", L"Direct3D 12"},
+    {L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)", L"Vulkan\u3002\u663E\u5361\u65E0\u6CD5\u4F7F\u7528\u65F6\uFF1ADirect3D 12\uFF0C\u7136\u540E\u662F\u8F6F\u4EF6\u7ED8\u5236\uFF08\u9ED8\u8BA4\uFF09"},
+    {L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing", L"Direct3D 12\u3002\u663E\u5361\u65E0\u6CD5\u4F7F\u7528\u65F6\uFF1AVulkan\uFF0C\u7136\u540E\u662F\u8F6F\u4EF6\u7ED8\u5236"},
+    {L"Software drawing (WARP): slow, but it does not use the video card", L"\u8F6F\u4EF6\u7ED8\u5236\uFF08WARP\uFF09\uFF1A\u8F83\u6162\uFF0C\u4F46\u4E0D\u4F7F\u7528\u663E\u5361"},
+    {L"In use", L"\u6B63\u5728\u4F7F\u7528"},
+    {L"The change applies after a restart", L"\u66F4\u6539\u5728\u91CD\u65B0\u542F\u52A8\u540E\u751F\u6548"},
+    {L"Graphics: Automatic after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A\u81EA\u52A8"},
+    {L"Graphics: Direct3D 12 after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A Direct3D 12"},
+    {L"Graphics: Software after a restart", L"\u56FE\u5F62\uFF1A\u91CD\u65B0\u542F\u52A8\u540E\u4E3A\u8F6F\u4EF6"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

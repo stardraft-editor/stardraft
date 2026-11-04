@@ -2800,6 +2800,17 @@ constexpr UiText kRows[] = {
     {L"Map size: %d x %d", L"\uB9F5 \uD06C\uAE30: %d x %d"},
     {L"No map sound has the search text", L"\uAC80\uC0C9\uC5B4\uAC00 \uC788\uB294 \uB9F5 \uC0AC\uC6B4\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
     {L"Cosmonarchy BW and game sounds", L"Cosmonarchy BW \uBC0F \uAC8C\uC784 \uC0AC\uC6B4\uB4DC"},
+    {L"Graphics", L"\uADF8\uB798\uD53D"},
+    {L"Software", L"\uC18C\uD504\uD2B8\uC6E8\uC5B4"},
+    {L"Direct3D 12", L"Direct3D 12"},
+    {L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)", L"Vulkan. \uADF8\uB798\uD53D \uCE74\uB4DC\uAC00 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC73C\uBA74 Direct3D 12, \uADF8\uB2E4\uC74C \uC18C\uD504\uD2B8\uC6E8\uC5B4 \uADF8\uB9AC\uAE30 (\uAE30\uBCF8\uAC12)"},
+    {L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing", L"Direct3D 12. \uADF8\uB798\uD53D \uCE74\uB4DC\uAC00 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC73C\uBA74 Vulkan, \uADF8\uB2E4\uC74C \uC18C\uD504\uD2B8\uC6E8\uC5B4 \uADF8\uB9AC\uAE30"},
+    {L"Software drawing (WARP): slow, but it does not use the video card", L"\uC18C\uD504\uD2B8\uC6E8\uC5B4 \uADF8\uB9AC\uAE30 (WARP): \uB290\uB9AC\uC9C0\uB9CC \uADF8\uB798\uD53D \uCE74\uB4DC\uB97C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4"},
+    {L"In use", L"\uC0AC\uC6A9 \uC911"},
+    {L"The change applies after a restart", L"\uBCC0\uACBD \uC0AC\uD56D\uC740 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4"},
+    {L"Graphics: Automatic after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 \uC790\uB3D9"},
+    {L"Graphics: Direct3D 12 after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 Direct3D 12"},
+    {L"Graphics: Software after a restart", L"\uADF8\uB798\uD53D: \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 \uC18C\uD504\uD2B8\uC6E8\uC5B4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
