@@ -253,6 +253,11 @@ std::string mapSaveRoundTrip(const fs::path& path) {
 void shellFloatPalette(Mode m, bool on);
 
 void registerMapCommands() {
+    addCommand(ID_DOODAD_AVAILABILITY, "options.doodad.availability", L"Show available placement areas", "Options/Doodads", L"", [] {
+        gShowDoodadAvailability = !gShowDoodadAvailability;
+        shellState().dirty = true;
+        shellMenusChanged();
+    }, [] { return gShowDoodadAvailability; });
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });
     addCommand(ID_MODE_UNITS, "mode.units", L"&Units", "Mode", L"U", [] { setMode(Mode::Units); });

@@ -858,3 +858,7 @@ if(WIN32 AND STARDRAFT_RENDERER)
     endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
+
+# The footprint union is independent of game data; optional arguments generate a synthetic screenshot fixture.
+add_executable(doodad_coverage_test tools/tests/doodad_coverage_test.cpp)
+target_link_libraries(doodad_coverage_test PRIVATE stardraft)

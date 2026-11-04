@@ -63,6 +63,7 @@
 #include "terrain_flags_layer.inc"  // View > Overlays > Terrain flags (walkable, height, blocks view, buildable)
 #include "creep_layer.inc"  // View > Layers > Creep: the start creep of the map's Zerg buildings
 #include "protected_layer.inc"  // Protected terrain: the menu, View > Layers > Protected terrain, kept in the project
+#include "doodad_availability.inc"
 #include "map_scene.inc"
 #include "resource_zones.inc"  // View > Overlays > Invalid resource depot, Invalid resource node (GitHub feedback #181)
 #include "fog_layer.inc"  // View > Overlays > Fog of war of the selected player (roadmap R32)  // the map's scene: the grid, the sprites, the units and their animations, the locations, the selection, the ghosts (buildScene)

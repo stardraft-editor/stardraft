@@ -72,6 +72,7 @@
 #include "stardraft/project_import.h"
 #include "stardraft/creep.h"
 #include "stardraft/editor.h"
+#include "stardraft/doodad_coverage.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/project_build.h"  // the build's steps (core/project_build.inc, core/triggers_model.inc)
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
