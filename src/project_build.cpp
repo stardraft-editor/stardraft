@@ -277,7 +277,7 @@ bool prepareBuild(EudProject& pr, Editor& ed, const GameData& data, const BuildO
     if (!writeTriggerCode(pr, ed, open.triggers, report, error)) return report.failedStep = "triggers", false;
     if (!writeDatEdits(pr, data, open, report, error)) return report.failedStep = "dat", false;
     if (!writeRemakeCode(pr, ed, data, open, report, error)) return report.failedStep = "remake", false;
-    if ((ed.modified() || ed.path() != pr.inputMap()) && !ed.save(pr.inputMap(), error)) return report.failedStep = "save", false;
+    if ((ed.modified() || ed.path() != pr.inputMap() || !ed.slotsSaved()) && !ed.save(pr.inputMap(), error)) return report.failedStep = "save", false;
     // The map that euddraft gets: the project's map without the units that the remake code makes.
     if (!pr.writeBuildMap(report.leaveOut, error)) return report.failedStep = "map", false;
     return true;

@@ -1538,13 +1538,14 @@ void checkStartLocations(Session& s, const Editor& ed) {
 Json cmdSave(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
     Work w = loadWork(t);  // (first: a map that is not open gives that error)
-    checkStartLocations(s, s.load(t));
+    Editor& ed = s.load(t);
+    checkStartLocations(s, ed);
     const fs::path dst = s.args.has("to") ? fs::absolute(upath(s.args.get("to"))) : w.source;
     const bool toSource = samePath(dst, w.source);
     if (toSource && fileStamp(w.source) != w.stamp && !s.args.has("force"))
         fail(ustr(w.source) + " changed after `open` (another program saved it): `save --force` writes over it, or `save --to` "
              "writes another file");
-    const Bytes chk = readBytes(w.current());
+    const Bytes chk = ed.savedChk();  // (the working copy, with the slots the game reads: Editor::gameSlots)
     if (isChk(dst)) {
         writeBytes(dst, chk);
     } else {

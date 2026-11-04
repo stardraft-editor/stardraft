@@ -251,8 +251,49 @@ bool Editor::generateMap(const TerrainGenParams& params, std::string& error) {
     return true;
 }
 
+// The slots the game reads (OWNR) as StarEdit writes them: a player of 1-8 with a start location has the slot that the
+// editor's copy (IOWN) gives; every other slot is Inactive. A Computer slot with no start location makes the game
+// refuse the map. The editor's copy keeps the slots that the Players page shows.
+// The editor's slots: IOWN's, or OWNR's byte where IOWN is missing or has Inactive while OWNR has a slot (a tool
+// that writes only OWNR, which is the one the game reads).
+Bytes Editor::editorSlots() const {
+    const Section* iown = chk_.find("IOWN");
+    const Section* ownr = chk_.find("OWNR");
+    Bytes out(12, 6);
+    for (size_t p = 0; p < 12; ++p) {
+        const bool hasI = iown && iown->data.size() >= 12, hasO = ownr && ownr->data.size() >= 12;
+        if (hasI) out[p] = iown->data[p];
+        if (hasO && (!hasI || (iown->data[p] == 0 && ownr->data[p] != 0))) out[p] = ownr->data[p];
+    }
+    return out;
+}
+
+Bytes Editor::gameSlots() const {
+    const Bytes slots = editorSlots();
+    Bytes out(12, 0);
+    if (!chk_.find("IOWN") && !chk_.find("OWNR")) return out;
+    bool starts[8] = {};
+    for (const Unit& u : units_)
+        if (u.type == 214 /* Start Location */ && u.owner < 8) starts[u.owner] = true;
+    for (size_t p = 0; p < 8; ++p)
+        if (starts[p]) out[p] = slots[p];
+    return out;
+}
+
+bool Editor::slotsSaved() const {
+    const Section* ownr = chk_.find("OWNR");
+    return ownr && ownr->data == gameSlots();
+}
+
+Bytes Editor::savedChk() const {
+    if (slotsSaved()) return chk_.serialize();
+    Chk out = chk_;
+    out.set("OWNR", gameSlots());
+    return out.serialize();
+}
+
 bool Editor::save(const std::filesystem::path& path, std::string& error) {
-    const Bytes raw = chk_.serialize();
+    const Bytes raw = savedChk();
     bool archive = lower(path.extension().string()) != ".chk";
     if (archive) {
         finishFiles();
@@ -3842,7 +3883,8 @@ void Editor::syncColorRows() {
 Editor::Player Editor::player(int p) const {
     Player out;
     if (p < 0 || p >= 12) return out;
-    const Bytes ownr = sectionOr(chk_, "OWNR", 12, 6), side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
+    const Bytes ownr = editorSlots();  // (the editor's copy: OWNR has Inactive for the slots with no start location)
+    const Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
     out.controller = Controller(ownr[size_t(p)]);
     out.race = Race(side[size_t(p)]);
     if (p >= 8) return out;  // (players 9-12: no force, no color)
@@ -3911,7 +3953,8 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         chk_.set("COLR", std::move(colr));
         if (!crgb.empty()) chk_.set("CRGB", std::move(crgb));
     }
-    Bytes ownr = sectionOr(chk_, "OWNR", 12, 6), side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
+    Bytes ownr = editorSlots();
+    Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
     for (size_t p = 0; p < std::min<size_t>(players.size(), 12); ++p) {
         ownr[p] = uint8_t(players[p].controller);
         side[p] = uint8_t(players[p].race);
@@ -3925,7 +3968,7 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         forc[16 + f] = forces[f].flags;
     }
     strings_.write(chk_);
-    chk_.set("IOWN", ownr);  // the editor's copy of the slots; StarEdit keeps it equal to OWNR
+    chk_.set("IOWN", ownr);  // the editor's copy of the slots (a save writes OWNR from it: gameSlots)
     chk_.set("OWNR", std::move(ownr));
     chk_.set("SIDE", std::move(side));
     chk_.set("FORC", std::move(forc));
@@ -4317,8 +4360,9 @@ std::vector<std::string> Editor::startLocationProblems() const {
 std::vector<std::string> Editor::playabilityProblems(bool startLocations) const {
     std::vector<std::string> out = startLocations ? startLocationProblems() : std::vector<std::string>{};
     int playing = 0, humans = 0;
+    const Bytes slots = gameSlots();  // (the slots the game gets: a player with no start location is Inactive)
     for (int p = 0; p < 8; ++p) {
-        const Controller c = player(p).controller;
+        const Controller c = Controller(slots[size_t(p)]);
         playing += c == Controller::Human || c == Controller::Computer;
         humans += c == Controller::Human;
     }

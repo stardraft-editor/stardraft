@@ -149,6 +149,9 @@ target_link_libraries(render_map PRIVATE stardraft)
 add_executable(terrain_check tools/probes/terrain_check.cpp)
 target_link_libraries(terrain_check PRIVATE stardraft)
 
+add_executable(chk_sections tools/probes/chk_sections.cpp)  # the scenario.chk sections of a map, or the differences of two maps
+target_link_libraries(chk_sections PRIVATE stardraft)
+
 add_executable(isom_test tools/tests/isom_test.cpp)
 target_link_libraries(isom_test PRIVATE stardraft)
 # The isometric terrain core against StarEdit: IsomTerrain's reference brush tests (needs the game data).
