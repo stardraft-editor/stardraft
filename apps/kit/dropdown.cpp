@@ -521,9 +521,11 @@ bool Dropdown::mouse(const MouseEvent& e) {
     case MouseKind::Move:
         justClosed_ = false;
         hoverAt_ = std::chrono::steady_clock::now();  // (each move: the wheel's rest starts again)
+        wheelHeld_ = false;
         if (!hover_) hover_ = true, invalidate();
         return true;
     case MouseKind::Leave:
+        wheelHeld_ = false;
         if (hover_) hover_ = false, invalidate();
         return true;
     case MouseKind::Down:
@@ -542,12 +544,14 @@ bool Dropdown::mouse(const MouseEvent& e) {
         if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
         // (the rest: the pointer still on the field for a moment, begun after the last wheel event: a field that a scroll
         // brought under the pointer does not step; a trackpad's or a sideways scroll goes to the page)
+        // Once it steps, the next notches step it too, until the pointer moves.
         if (!hasFocus()) {
             constexpr double kRestMs = 350;
             const double rested = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - hoverAt_).count();
-            if (!hover_ || e.precise || e.exact || e.horizontal || rested < kRestMs || draw::wheelGapMs() < kRestMs ||
-                hoverAt_ <= draw::wheelBeforeAt())
-                return wheelAcc_ = 0, false;
+            if (!hover_ || e.precise || e.exact || e.horizontal ||
+                (!wheelHeld_ && (rested < kRestMs || draw::wheelGapMs() < kRestMs || hoverAt_ <= draw::wheelBeforeAt())))
+                return wheelAcc_ = 0, wheelHeld_ = false, false;
+            wheelHeld_ = true;
         }
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);

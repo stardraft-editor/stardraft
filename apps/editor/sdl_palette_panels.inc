@@ -316,6 +316,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         const bool docks = wasFloating && !other;
         PanelState* activeNext = nullptr;  // (the active panel after the change, when it moves)
         if (docks) {
+            if (oldActive) panelFresh(pv->states[size_t(from)]);  // (what the app has now, not the state at the activation)
             panelSaveToDocked(*pv);
             if (oldActive) activeNext = &dockedPanel(from);
         } else if (!other && oldActive) {

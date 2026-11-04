@@ -979,6 +979,7 @@ private:
     // The map's state: a new number at each change (an undo or redo gives the number of the state it restores), and the
     // state at the last open or save. Undo or Redo back to that state: the map is not modified.
     uint64_t state_ = nextRevision(), savedState_ = state_;
+    Bytes savedSlots_;  // the OWNR that the last save wrote (slotsSaved)
     std::vector<int> selectionAfterRestore(const std::vector<Unit>& before) const;  // the same units selected (by serial)
     std::vector<std::pair<const char*, double>> openSteps_;
     mutable std::unique_ptr<SettingDefaults> settingDefaults_;

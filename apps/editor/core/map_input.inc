@@ -613,7 +613,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     }
     if (app.drag == Drag::TerrainSelect && app.dragMoved) {  // (the box's size while it is dragged, GitHub #240)
         const Rect r = terrainSelectRect(wx, wy);
-        setMessage(app, L"Selecting " + std::to_wstring(std::max(0, int(r.right - r.left) / 32)) + L" x " +
+        setHint(L"Selecting " + std::to_wstring(std::max(0, int(r.right - r.left) / 32)) + L" x " +
                             std::to_wstring(std::max(0, int(r.bottom - r.top) / 32)) + L" tiles");
     }
     if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);

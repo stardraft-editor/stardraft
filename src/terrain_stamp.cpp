@@ -170,12 +170,16 @@ std::vector<TerrainStamp> terrainStamps(const fs::path& folder, uint16_t era) {
     std::error_code ec;
     const fs::path dir = folder / tilesetName(era);
     if (folder.empty() || !fs::is_directory(dir, ec)) return out;
+    std::vector<fs::path> files;  // (listed first: an old file's move adds a file to the folder)
     for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
         const fs::path ext = it->path().extension();
-        if ((ext != ".scterrain" && ext != ".sdstamp") || !it->is_regular_file(ec)) continue;
+        if ((ext == ".scterrain" || ext == ".sdstamp") && it->is_regular_file(ec)) files.push_back(it->path());
+    }
+    for (const fs::path& file : files) {
+        const fs::path ext = file.extension();
         TerrainStamp s;
         std::string err;
-        if (!readTerrainStamp(it->path(), s, err) || s.era != (era & 7)) continue;  // (one that cannot be read: left out)
+        if (!readTerrainStamp(file, s, err) || s.era != (era & 7)) continue;  // (one that cannot be read: left out)
         // (a file of StarDraft 0.8 and before: written again under the new name, when there is none of that name yet)
         if (ext == ".sdstamp" && !fs::exists(terrainStampPath(folder, s.era, s.name), ec)) {
             const fs::path old = s.file;

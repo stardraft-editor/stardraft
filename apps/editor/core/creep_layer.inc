@@ -140,6 +140,9 @@ const std::vector<render::SpriteDraw>& creepEdges(Editor& ed) {
     for (int y = 0; y < h; ++y)
         for (int x = 0; x < w; ++x) {
             if (creep[size_t(y) * size_t(w) + size_t(x)]) continue;
+            if (size_t(y) * size_t(w) + size_t(x) < ed.terrain().tiles.size() &&
+                (ed.terrain().tiles[size_t(y) * size_t(w) + size_t(x)] >> 4) == kCreepGroup)
+                continue;  // (a creep group tile of the map's own: its picture, no edge over it)
             const int frame = creepEdgeFrame(creepNeighbours(creep, w, h, x, y));
             if (!frame) continue;
             d.frame = frame - 1;  // (the GRP's frames from 0)

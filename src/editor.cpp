@@ -282,7 +282,8 @@ Bytes Editor::gameSlots() const {
 
 bool Editor::slotsSaved() const {
     const Section* ownr = chk_.find("OWNR");
-    return ownr && ownr->data == gameSlots();
+    const Bytes slots = gameSlots();
+    return (ownr && ownr->data == slots) || (state_ == savedState_ && savedSlots_ == slots);  // (the file has them)
 }
 
 Bytes Editor::savedChk() const {
@@ -294,6 +295,7 @@ Bytes Editor::savedChk() const {
 
 bool Editor::save(const std::filesystem::path& path, std::string& error) {
     const Bytes raw = savedChk();
+    const Bytes slots = gameSlots();
     bool archive = lower(path.extension().string()) != ".chk";
     if (archive) {
         finishFiles();
@@ -308,6 +310,7 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     path_ = path;
     modified_ = false;
     savedState_ = state_;
+    savedSlots_ = slots;
     return true;
 }
 

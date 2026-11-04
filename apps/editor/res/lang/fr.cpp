@@ -2768,6 +2768,8 @@ constexpr UiText kRows[] = {
     {L"Sprites: %d", L"Sprites: %d"},
     {L"Locations: %d / %d", L"Emplacements: %d / %d"},
     {L"Map size: %d x %d", L"Taille de la carte: %d x %d"},
+    {L"No map sound has the search text", L"Aucun son de la carte ne contient le texte recherch\u00E9"},
+    {L"Cosmonarchy BW and game sounds", L"Sons de Cosmonarchy BW et du jeu"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

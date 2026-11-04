@@ -562,10 +562,11 @@ struct MainView final : draw::View {
         // + and - still zoom. While a field types, a number row key that it does not take runs no shortcut (German ß
         // or a dead key at those places).
         const bool ctrl = (e.mods & (draw::kCtrl | draw::kSuper)) != 0;
-        const bool zoomKey = ctrl && (e.key == draw::Key::Minus || e.key == draw::Key::Plus || e.key == draw::Key::Equals);
+        const bool padZoom = !e.numberRow && !ctrl && (e.key == draw::Key::Minus || e.key == draw::Key::Plus);  // (the number pad's)
+        const bool zoomKey = padZoom || (ctrl && (e.key == draw::Key::Minus || e.key == draw::Key::Plus || e.key == draw::Key::Equals));
         if (typing && e.numberRow && !ctrl && !(e.mods & draw::kAlt)) return false;
         if ((e.numberRow || zoomKey) && e.down && !typing && gWorkspace == Workspace::Map && !(e.mods & draw::kAlt)) {
-            const int id = !ctrl ? ID_PLAYER_1 + e.numberRow - 1 : !zoomKey ? 0 : e.key == draw::Key::Minus ? ID_VIEW_ZOOMOUT : ID_VIEW_ZOOMIN;
+            const int id = zoomKey ? (e.key == draw::Key::Minus ? ID_VIEW_ZOOMOUT : ID_VIEW_ZOOMIN) : !ctrl ? ID_PLAYER_1 + e.numberRow - 1 : 0;
             if (id && sdlEnabled(id)) {
                 if (!e.repeat) command(id);  // (as the shortcuts: a held key runs once)
                 return true;

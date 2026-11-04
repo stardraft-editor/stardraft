@@ -2768,6 +2768,8 @@ constexpr UiText kRows[] = {
     {L"Sprites: %d", L"\u7CBE\u7075: %d"},
     {L"Locations: %d / %d", L"\u4F4D\u7F6E: %d / %d"},
     {L"Map size: %d x %d", L"\u5730\u56FE\u5927\u5C0F: %d x %d"},
+    {L"No map sound has the search text", L"\u6CA1\u6709\u542B\u6709\u641C\u7D22\u6587\u5B57\u7684\u5730\u56FE\u58F0\u97F3"},
+    {L"Cosmonarchy BW and game sounds", L"Cosmonarchy BW \u548C\u6E38\u620F\u58F0\u97F3"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

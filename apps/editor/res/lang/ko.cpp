@@ -2798,6 +2798,8 @@ constexpr UiText kRows[] = {
     {L"Sprites: %d", L"\uC2A4\uD504\uB77C\uC774\uD2B8: %d"},
     {L"Locations: %d / %d", L"\uC704\uCE58: %d / %d"},
     {L"Map size: %d x %d", L"\uB9F5 \uD06C\uAE30: %d x %d"},
+    {L"No map sound has the search text", L"\uAC80\uC0C9\uC5B4\uAC00 \uC788\uB294 \uB9F5 \uC0AC\uC6B4\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
+    {L"Cosmonarchy BW and game sounds", L"Cosmonarchy BW \uBC0F \uAC8C\uC784 \uC0AC\uC6B4\uB4DC"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }
