@@ -571,7 +571,7 @@ public:
         };
         static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
         static const wchar_t* const kTurnsTip =
-            L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
+            L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         if (stripHasSize() && app.mode == Mode::Terrain) {
@@ -708,6 +708,22 @@ public:
                 }, std::wstring(tr(k.tip)) + L" (Alt+" + std::to_wstring(int(&k - kinds)) + L")");  // (the key: Alt+0 none, Alt+1 to Alt+4 the mirrors)
             }
             mx = std::max(mx, count * (mb + scale(3)));  // (Turns where it was: the strip's height counts on it)
+            // Turns: a list of 1 to kMaxTurns (the mouse wheel steps it, as the shape's).
+            auto turnsBox = [&](const draw::Rect& r) {
+                box(c, r, hot(r) ? kCtlHot : kCtl, kBorder);
+                c.text({r.left + scale(8), r.top, r.right - scale(20), r.bottom}, stripNumberText(kNumTurns), kText, draw::kMiddle);
+                glyph(c, {r.right - scale(20), r.top, r.right - scale(4), r.bottom}, L'\xE70D', kDim, 7);
+                addHit(r, [r] {
+                    AppState& a = appState();
+                    if (!a.ed) return;
+                    std::vector<std::wstring> names;
+                    for (int n = 1; n <= kMaxTurns; ++n) names.push_back(std::to_wstring(n));
+                    const int pick = shellPopupPick(names, a.ed->turns() - 1, r.left, r.bottom + scale(2));
+                    if (pick >= 0) a.ed->setTurns(pick + 1), stripNumberChanged();
+                    shellFocusView();
+                }, tr(kTurnsTip));
+                numbers_.push_back({r, kNumTurns});
+            };
             // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
             // too narrow.
             const int name = c.measure(tr(L"Turns")) + scale(8), minStep = scale(84), left = mx + scale(6);
@@ -715,11 +731,14 @@ public:
                 const bool named = W - left - name >= minStep;
                 if (named) c.text({left, y, left + name, y + mb}, tr(L"Turns"), kDim, draw::kMiddle);
                 const int sx = named ? left + name : left;
-                stepper(kNumTurns, {sx, y + scale(1), std::min(W, sx + scale(120)), y + mb - scale(1)}, kTurnsTip, scale(26));
+                turnsBox({sx, y + scale(1), std::min(W, sx + scale(120)), y + mb - scale(1)});
                 y += mb + gap;
             } else {
                 y += mb + gap;
-                numberRow(kNumTurns, L"Turns", kTurnsTip);
+                const int h = scale(26), lw = scale(64);
+                c.text({0, y, lw, y + h}, tr(L"Turns"), kDim, draw::kMiddle);
+                turnsBox({lw, y + scale(1), std::min(W, lw + scale(120)), y + h - scale(1)});
+                y += h + gap;
             }
         }
         // Terrain: turn and mirror what is on the cursor (the terrain or tiles to paste, the Brush's copied tiles or custom

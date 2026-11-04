@@ -2425,7 +2425,7 @@ constexpr UiText kRows[] = {
     {L"Jump to linked unit", L"Aller \u00E0 l'unit\u00E9 li\u00E9e"},
     {L" locations", L" emplacements"},
     {L"Turns", L"Rotations"},
-    {L"Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Rotations: les copies tournent autour du centre de la carte par pas \u00E9gaux. 1: aucune, 2: un demi-tour, 4: des quarts de tour, de 1 \u00E0 8. Cliquez pour saisir un nombre. - et + et la molette de la souris le modifient. Sur un terrain isom\u00E9trique, une copie va au losange le plus proche, sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute)."},
+    {L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Rotations : les copies tournent autour du centre de sym\u00E9trie \u00E0 pas \u00E9gaux. 1 : aucune, 2 : un demi-tour, 4 : des quarts de tour, de 1 \u00E0 8. Cliquez pour choisir un nombre ; la molette le change. Sur le terrain isom\u00E9trique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute)."},
     {L"Start locations", L"Positions de d\u00E9part"},
     {L"&Place them", L"&Les placer"},
     {L"&Save anyway", L"&Enregistrer quand m\u00EAme"},

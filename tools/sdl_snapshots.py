@@ -106,8 +106,8 @@ CASES += [
     # a drag from the first one; the list shows them.
     ("map-locations-group", ["--mode", "locations", "--drag", "480,280-560,340", "--drag", "620,260-700,320", "--click", "520,310",
                              "--click", "660,290:Shift", "--drag", "520,310-560,350", "--wait", "300"], "map"),
-    # The Turns number (feedback #111): 3 turns (the stepper's + twice) with a top and bottom mirror, two strokes.
-    ("map-terrain-turns", ["--mode", "terrain", "--click", "146,521", "--click", "240,553", "--click", "240,553", "--click", "118,459",
+    # The Turns number (feedback #111): 3 turns (the wheel on its list, twice) with a top and bottom mirror, two strokes.
+    ("map-terrain-turns", ["--mode", "terrain", "--click", "146,521", "--wheel", "284,521,0,1", "--wheel", "284,521,0,1", "--click", "118,459",
                            "--click", "195,697", "--click", "830,300", "--click", "1000,600", "--wait", "300"], "map"),
     ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),

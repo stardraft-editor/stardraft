@@ -2423,7 +2423,7 @@ Link selected units	Lier les unités sélectionnées
 Jump to linked unit	Aller à l'unité liée
  locations	 emplacements
 Turns	Rotations
-Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Rotations: les copies tournent autour du centre de la carte par pas égaux. 1: aucune, 2: un demi-tour, 4: des quarts de tour, de 1 à 8. Cliquez pour saisir un nombre. - et + et la molette de la souris le modifient. Sur un terrain isométrique, une copie va au losange le plus proche, sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute).
+Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Rotations : les copies tournent autour du centre de symétrie à pas égaux. 1 : aucune, 2 : un demi-tour, 4 : des quarts de tour, de 1 à 8. Cliquez pour choisir un nombre ; la molette le change. Sur le terrain isométrique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute).
 Start locations	Positions de départ
 &Place them	&Les placer
 &Save anyway	&Enregistrer quand même
