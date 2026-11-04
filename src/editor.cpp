@@ -2334,10 +2334,17 @@ std::vector<std::pair<int, int>> Editor::cornersInShape(const Rect& area, Select
     return cs;
 }
 
-bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape) {
+bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape, const std::function<bool(int, int)>& tileIn) {
     if (!isomOk_) return false;
     Rect r = area.normalized();
     auto cs = cornersInShape(r, shape);
+    if (tileIn)  // (a corner: the tiles of the four rects round it, those on the map)
+        std::erase_if(cs, [&](const std::pair<int, int>& c) {
+            for (int y = c.second - 1; y <= c.second; ++y)
+                for (int x = 2 * c.first - 2; x <= 2 * c.first + 1; ++x)
+                    if (x >= 0 && y >= 0 && x < width_ && y < height_ && !tileIn(x, y)) return true;
+            return false;
+        });
     if (cs.empty()) return false;
     // Origin: the top-left-most corner; offsets keep the corner lattice parity.
     int ox = cs.front().first, oy = cs.front().second;
@@ -2349,14 +2356,14 @@ bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, Sel
     const int opx = ox * 64, opy = oy * 32;
     if (withUnits)
         for (Unit u : units_)
-            if (inSelectShape(r, shape, u.x, u.y)) {
+            if (inSelectShape(r, shape, u.x, u.y) && (!tileIn || tileIn(u.x / 32, u.y / 32))) {
                 u.x = uint16_t(int(u.x) - opx), u.y = uint16_t(int(u.y) - opy);  // signed offsets
                 u.relatedSerial = 0, u.links = 0;
                 clip.units.push_back(u);
             }
     if (withDoodads)
         for (Doodad d : doodads_)
-            if (inSelectShape(r, shape, d.x, d.y)) {
+            if (inSelectShape(r, shape, d.x, d.y) && (!tileIn || tileIn(d.x / 32, d.y / 32))) {
                 d.x = uint16_t(int(d.x) - opx), d.y = uint16_t(int(d.y) - opy);
                 clip.doodads.push_back(d);
             }

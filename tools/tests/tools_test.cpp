@@ -45,6 +45,19 @@ int main(int argc, char** argv) {
         check(!parseTerrainStamp(R"({"a": 1})", back, err) && !parseTerrainStamp("hello", back, err), "other text is not custom terrain");
     }
 
+    // copyTerrain with a selection of any form: only the corners whose tiles are all in it.
+    {
+        Editor ed(data);
+        ed.newMap(64, 64, 0, Dirt, err);
+        const Rect box{0, 0, 1024, 1024};
+        check(ed.copyTerrain(box, false, false), "copy of a box");
+        const size_t whole = ed.terrainCopies().terrain.corners.size();
+        check(ed.copyTerrain(box, false, false, Editor::SelectShape::Rect, [](int x, int y) { return x < 8 && y < 8; }), "copy of a form");
+        const size_t part = ed.terrainCopies().terrain.corners.size();
+        check(part > 0 && part < whole / 2, "the form's copy has only the corners of its tiles");
+        check(ed.terrainRegionCorners(512, 512).size() >= whole, "the reachable corners of one terrain: all of a flat map");
+    }
+
     // 1.1 / 1.2 / 1.3: brush footprint.
     {
         Editor ed(data);

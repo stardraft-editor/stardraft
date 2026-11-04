@@ -615,7 +615,7 @@ CASES += [
     # Custom list then places it (exactly its 28 tiles: its box is 13 x 10), Ctrl+Z takes it back; Q finds "bridges
     # right"; Rename (item 0) of Plain; Delete (item 1) of Test_Ramp (--box 0: Delete): its file is gone.
     ("map-custom-terrain", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
-                            "--click", "600,700:Shift", "--click", "540,650:Ctrl",
+                            "--drag", "600,700-602,703:Shift", "--click", "540,650:Ctrl",
                             "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter",
                             "--click", "540,655:Menu7", "--type", "Test_Bridges_Left", "--key", "Enter", "--box", "0",
                             "--click", "540,655:Menu7", "--type", "Test_Bridges_Right", "--key", "Enter",
@@ -4910,12 +4910,12 @@ def check_custom_terrain(output):
     if len(steps) < 30:
         return f"{len(steps)} input lines, not 30 or more (the program stopped?)"
     by = lambda name, k=0: [f for i, f in steps if i == name][k]
-    drag, shift, ctrl = by("drag 520,640-560,660"), by("click 600,700:Shift"), by("click 540,650:Ctrl")
+    drag, shift, ctrl = by("drag 520,640-560,660"), by("drag 600,700-602,703:Shift"), by("click 540,650:Ctrl")
     if drag.get("kind") != "custom":
         return f"the strip's choice is {drag.get('kind')}, not custom"
     n = int(drag.get("tselcount", 0))
     if n != 28 or int(shift.get("tselcount", 0)) != n + 1 or int(ctrl.get("tselcount", 0)) != n:
-        return f"the selection: {n} tiles, after Shift+click {shift.get('tselcount')}, after Ctrl+click {ctrl.get('tselcount')} (not 28, 29, 28)"
+        return f"the selection: {n} tiles, after Shift+drag {shift.get('tselcount')}, after Ctrl+click {ctrl.get('tselcount')} (not 28, 29, 28)"
     saves = [f for i, f in steps if i == "click 540,655:Menu7"]
     if len(saves) != 5 or saves[0].get("customfiles") != "Test_Bridges_Left:28":
         return f"the first save: files {saves[0].get('customfiles') if saves else '-'}, not Test_Bridges_Left:28"
@@ -5174,7 +5174,16 @@ def png_check(path):
         prev = line
     return f"the picture is one flat color ({first.hex()})"
 
+# Shift+click with Select: what is reachable from the click (Isometric: that terrain with the tiles round it; Tile: the
+# tiles of that terrain next to each other), not one tile; Ctrl+C of it copies its shape.
+CASES += [("map-select-reachable-iso", ["--mode", "terrain", "--key", "V", "--click", "700,440:Shift", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "900,700"], "map"),
+          ("map-select-reachable-tile", ["--mode", "terrain", "--click", "246,427", "--wait", "200", "--key", "V", "--click", "700,440:Shift"], "map")]
+def check_select_reachable(output):
+    m = re.search(r"Selected (\d+) tiles \((\d+) reachable from the click\)", output)
+    return None if m and int(m.group(2)) > 50 else "Shift+click did not select what is reachable"
 CHECKS.update({
+    "map-select-reachable-iso": check_select_reachable,
+    "map-select-reachable-tile": check_select_reachable,
     "map-protect-terrain": lambda o: (
         "the protected tiles changed, or none is protected" if not re.search(r"protect: [1-9]\d* protected tiles, 0 of them changed \(yes\); [1-9]\d* other tiles changed", o)
         else "the menu has no Unprotect terrain" if "Unprotect terrain" not in o.replace("&", "") else None),

@@ -237,6 +237,11 @@ bool copySelectedTiles(Editor& ed) {
 std::string shellClipboardText();  // (shell_sdl.inc)
 extern std::string gClipboardAtCopy;  // (stamps.inc: the clipboard's text at the map's last Ctrl+C)
 extern bool gMapCopied;
+// Isometric's copy of the terrain selection: its box in its shape, or (a selection of any form: its mask) its tiles.
+bool copySelectedTerrain(AppState& app, const Rect& r) {
+    if (app.terrainSelMask.empty()) return app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
+    return app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, Editor::SelectShape::Rect, [](int x, int y) { return terrainSelHas(x, y); });
+}
 void copyMapSelection(AppState& app) {
     if (app.mode == Mode::Terrain) gClipboardAtCopy = shellClipboardText(), gMapCopied = true;  // (newer than that text)
     if (app.mode == Mode::Terrain && app.terrainRect) {
@@ -247,7 +252,7 @@ void copyMapSelection(AppState& app) {
         else
             shareTerrainCopy(*app.ed), tilesStampFromCopy();  // the copy is the Brush's stamp too (Discord feedback #49)
     } else if (app.mode == Mode::Terrain) {
-        if (app.hasTerrainSel && app.ed->copyTerrain(app.terrainSel, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape()))
+        if (app.hasTerrainSel && copySelectedTerrain(app, app.terrainSel))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
         else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {  // (no ISOM to copy there: its tiles, in Tile, GitHub #235)
             void setTerrainKind(int kind);  // (views_toolstrip.inc)
@@ -303,7 +308,7 @@ void cutMapSelection(AppState& app) {
     if (!app.hasTerrainSel) return setMessage(L"Select an area with the Select tool first");
     // Terrain: copy it, then null tiles in its place (black; nothing can walk or build there).
     const Rect& r = app.terrainSel;
-    const bool copied = app.terrainRect ? copySelectedTiles(*app.ed) : app.ed->copyTerrain(r, app.copyUnitsWithTerrain, app.copyDoodadsWithTerrain, selectShape());
+    const bool copied = app.terrainRect ? copySelectedTiles(*app.ed) : copySelectedTerrain(app, r);
     if (!copied) return setMessage(L"Nothing to cut there: make the selection larger");  // (a small diamond with no corner)
     shareTerrainCopy(*app.ed);
     app.ed->beginStroke();  // the units and the tiles: one undo step

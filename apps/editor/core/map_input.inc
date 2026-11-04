@@ -673,6 +673,42 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy), pathingLayerMouseMove(wx, wy);
 }
 
+// Shift+click with the Select tool: what is reachable from the click goes into the selection. Isometric: the corners of
+// that terrain along the diamonds' edges, and the tiles round them (so its cliffs and edges too). The Rectangle tools:
+// the tiles next to each other of the same tile or the same terrain (Fill's match, for any kind).
+std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom) {
+    const int w = ed.width(), h = ed.height();
+    std::set<std::pair<int, int>> out;
+    if (isom) {
+        for (const auto& [cx, cy] : ed.terrainRegionCorners(int(wx), int(wy)))
+            for (int y = cy - 1; y <= cy; ++y)
+                for (int x = 2 * cx - 2; x <= 2 * cx + 1; ++x)
+                    if (x >= 0 && y >= 0 && x < w && y < h) out.insert({x, y});
+        if (!out.empty()) return {out.begin(), out.end()};
+    }
+    const int tx = int(wx) / 32, ty = int(wy) / 32;
+    if (wx < 0 || wy < 0 || tx >= w || ty >= h) return {};
+    const std::vector<uint16_t>& t = ed.terrain().tiles;
+    const auto& gt = solidGroupTerrains();
+    const uint16_t from = t[size_t(ty) * w + tx];
+    auto same = [&](uint16_t v) {
+        if (v == from) return true;
+        const size_t a = v >> 4, b = from >> 4;
+        return a < gt.size() && b < gt.size() && gt[b][0] && gt[a] == gt[b];
+    };
+    std::vector<std::pair<int, int>> todo{{tx, ty}};
+    out.insert({tx, ty});
+    while (!todo.empty()) {
+        const auto [x, y] = todo.back();
+        todo.pop_back();
+        const int nx[4] = {x - 1, x + 1, x, x}, ny[4] = {y, y, y - 1, y + 1};
+        for (int k = 0; k < 4; ++k)
+            if (nx[k] >= 0 && ny[k] >= 0 && nx[k] < w && ny[k] < h && same(t[size_t(ny[k]) * w + nx[k]]) && out.insert({nx[k], ny[k]}).second)
+                todo.push_back({nx[k], ny[k]});
+    }
+    return {out.begin(), out.end()};
+}
+
 void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) {
         app.drag = Drag::None;
@@ -797,6 +833,19 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             app.terrainSelOp = 0;
             const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
             tilesPick(v, true), tilesToBrush(), tilesReveal(v);
+            break;
+        }
+        if (app.terrainSelOp == 1 && !app.dragMoved) {  // Shift+click: what is reachable from it goes into the selection
+            app.terrainSelOp = 0;
+            std::vector<std::pair<int, int>> tiles = terrainSelTiles();
+            const size_t had = tiles.size();
+            const std::vector<std::pair<int, int>> more = terrainReachable(ed, wx, wy, !app.terrainRect);
+            tiles.insert(tiles.end(), more.begin(), more.end());
+            std::sort(tiles.begin(), tiles.end());
+            tiles.erase(std::unique(tiles.begin(), tiles.end()), tiles.end());
+            setTerrainSelTiles(tiles);
+            setMessage(app, L"Selected " + std::to_wstring(tiles.size()) + L" tiles (" + std::to_wstring(tiles.size() - had) +
+                                L" reachable from the click). Shift+click adds more. Ctrl+drag removes tiles.");
             break;
         }
         if (app.terrainSelOp) {  // Shift: the tiles go into the selection; Ctrl: out of it (a click: one tile)

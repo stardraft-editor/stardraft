@@ -214,7 +214,11 @@ public:
     // The ISOM corners (rect-grid points) in the shape of `area` (map pixels): those copyTerrain copies.
     std::vector<std::pair<int, int>> cornersInShape(const Rect& area, SelectShape shape) const;
     // Terrain clipboard: the ISOM corners of `area` (in its shape) plus (optionally) the units and doodads in it.
-    bool copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape = SelectShape::Rect);
+    // tileIn: a selection of any form: only the corners whose tiles round them are all in it, and what stands on its tiles.
+    bool copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape = SelectShape::Rect,
+                     const std::function<bool(int, int)>& tileIn = nullptr);
+    // The ISOM corners of the terrain at the pixel that are reachable from it along the diamonds' edges (one terrain).
+    std::vector<std::pair<int, int>> terrainRegionCorners(int px, int py) const { return isomOk_ ? isom_.floodCorners(px, py) : std::vector<std::pair<int, int>>{}; }
     bool hasTerrainClipboard() const { return !terrainClip_.corners.empty(); }
     Rect terrainClipboardBox() const { return {0, 0, terrainClip_.width, terrainClip_.height}; }
     // Turn the terrain clipboard a quarter turn clockwise as seen in the game (corner (x, y) goes to
