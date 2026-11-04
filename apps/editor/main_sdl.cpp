@@ -695,6 +695,7 @@ int main(int argc, char** argv) {
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)
         cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting(), cmbwUsePassagesSetting();
+        stardraft::rampRefitOn() = kRampBridgeTools;  // (the ramps hidden: a terrain edit leaves them as they are)
         if (!passagesArg.empty()) {  // (--passages: as Program options' Ramp and bridge mappings with that file)
             stardraft::passages::Passages p;
             std::string err;

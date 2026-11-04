@@ -555,6 +555,11 @@ constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp g
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     AppState& app = appState();
     std::vector<StripItem> group;
+    if (!kRampBridgeTools) {  // (hidden: ids.inc)
+        int& tool = app.toolByMode[int(Mode::Terrain)];
+        if (tool == TBridge || tool == TRamp) tool = TBrush;
+        return tools;
+    }
     if (app.ed && bridgesAvailable(*app.ed)) group.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
     else if (app.toolByMode[int(Mode::Terrain)] == TBridge) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (a map of another tileset)
     if (app.ed && rampsAvailable(*app.ed)) group.push_back({UiIcon::Ramp, kRampTip, TRamp, false});

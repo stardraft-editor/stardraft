@@ -803,17 +803,24 @@ void OptionsView::paint(draw::Canvas& c) {
         y += rowH;
         note(x0 + scale(24), y - scale(4), L"Maps opened after a change use the file's terrain rules");
         y += scale(20);
-        // Ramp and bridge mappings: a passages file for the Ramp brush and the Bridge tool (at once, in the open maps too).
-        checkRow(y, passages_, "plugin.passages");
-        y += rowH;
-        const int pw = passagesBrowse_.preferredWidth(c);
-        place(passagesFile_, {x0 + scale(24), fieldTop(y), colRight - pw - gap, fieldTop(y) + fieldH}, true);
-        const int py = buttonTop(y);
-        place(passagesBrowse_, {colRight - pw, py, colRight, py + btnH}, true);
-        parts_["passagesfile"] = {colRight - pw, py, colRight, py + btnH};
-        y += rowH;
-        note(x0 + scale(24), y - scale(4), L"The Ramp brush and the Bridge tool use its ramps and bridges at once");
-        y += scale(20) + pad;
+        // Ramp and bridge mappings: a passages file for the Ramp brush and the Bridge tool (at once, in the open maps too;
+        // hidden with the tools: ids.inc).
+        if (kRampBridgeTools) {
+            checkRow(y, passages_, "plugin.passages");
+            y += rowH;
+            const int pw = passagesBrowse_.preferredWidth(c);
+            place(passagesFile_, {x0 + scale(24), fieldTop(y), colRight - pw - gap, fieldTop(y) + fieldH}, true);
+            const int py = buttonTop(y);
+            place(passagesBrowse_, {colRight - pw, py, colRight, py + btnH}, true);
+            parts_["passagesfile"] = {colRight - pw, py, colRight, py + btnH};
+            y += rowH;
+            note(x0 + scale(24), y - scale(4), L"The Ramp brush and the Bridge tool use its ramps and bridges at once");
+            y += scale(20);
+        } else {
+            for (draw::View* v : {static_cast<draw::View*>(&passages_), static_cast<draw::View*>(&passagesFile_), static_cast<draw::View*>(&passagesBrowse_)})
+                if (v->visible()) v->setVisible(false);
+        }
+        y += pad;
     }
 
     height_ = y + scroll_ - contentTop_;

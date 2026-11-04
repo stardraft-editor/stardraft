@@ -121,5 +121,10 @@ std::vector<RampOnMap> rampsIn(int era, int w, int h, const std::vector<uint16_t
 // same stretch: its tiles become the cliff (the ISOM's), then the ramps that fit there go in (shorter, moved or split
 // round the new cliffs; none where none fits). Returns the ramps made again. Part of the edit's undo step when the edit is a stroke.
 int refitRamps(Editor& ed, const std::vector<uint16_t>& before);
+// Whether refitRamps works (the default: on; off: it does nothing, as a program that hides the ramps has it).
+inline bool& rampRefitOn() {
+    static bool on = true;
+    return on;
+}
 
 }  // namespace stardraft

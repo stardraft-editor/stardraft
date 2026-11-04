@@ -1167,6 +1167,7 @@ std::vector<RampOnMap> rampsIn(int era, int w, int h, const std::vector<uint16_t
 }
 
 int refitRamps(Editor& ed, const std::vector<uint16_t>& before) {
+    if (!rampRefitOn()) return 0;
     const int era = ed.era() & 7, w = ed.width(), h = ed.height();
     const std::vector<uint16_t>& now = ed.terrain().tiles;
     if (!rampsAvailable(era) || !ed.canPaintTerrain() || before.size() != now.size() || before.size() != size_t(w) * h) return 0;

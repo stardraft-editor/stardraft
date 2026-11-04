@@ -1,6 +1,10 @@
 // The command ids, the grid presets, the modes and the dock layout: portable (core.inc), moved from main.cpp as they
 // were.
 
+// The Ramp and Bridge tools, the ramps that a terrain edit fits again, and Tools > Cosmonarchy > Ramp and bridge mapper:
+// hidden until they are reviewed (the code stays; true shows them again).
+constexpr bool kRampBridgeTools = false;
+
 // --- Ids -----------------------------------------------------------------------------------------
 
 enum : int {
