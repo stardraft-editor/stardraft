@@ -12,12 +12,14 @@ the same way each time, after the owner approves the scope and the release notes
                                 changelog section and its pictures, the UI text, the translation tables, the build.
     publish <version> --yes     check, then commit the changelog and its pictures ("Changelog <version>"); the
                                 preflight: the commit pushed to the branch release-check/<version>, and its build.yml
-                                run (every system, Clang too) must pass before any tag (a failure: its errors, no
-                                tag; --no-preflight skips it). A failed job of another system than Windows runs
-                                again, up to --platform-tries <n> tries (default 3); then that system (RELEASE_MAC,
-                                RELEASE_LINUX) is off for this release: Windows ships, the variable is on again after.
-                                A failed Windows job stops the release. Then tag
-                                v<version>, push master and the tag together, wait for CI and confirm the release.
+                                run's Windows job must pass before any tag (a failure: its errors, no tag; the run's
+                                other jobs are cancelled then; --no-preflight skips it); then tag v<version>, push
+                                master and the tag together: Windows ships first (RELEASE_MAC and RELEASE_LINUX off
+                                for the release run). Then the other systems: master's run of the commit, its failed
+                                macOS and Linux jobs run again up to --platform-tries <n> tries (default 3; a job that
+                                waits 30 minutes for a runner is cancelled: a failed one); each system that passed is
+                                added to the release (its variable on, the release run again: the zip stays, no second
+                                Discord post). Both variables are on again at the end.
                                 --dry-run: show the commands and change nothing.
     untag <version>             Delete the tag v<version> here and on GitHub, when its run stopped before the release
                                 was made (then publish again). Refused when the release is there.
@@ -582,23 +584,34 @@ def cmd_publish(args):
         if not dry:
             run(s)
     tries = int(args[args.index("--platform-tries") + 1]) if "--platform-tries" in args else PLATFORM_TRIES
-    off = {} if "--no-preflight" in args else preflight(version, env, dry, tries)
+    if "--no-preflight" not in args:
+        preflight(version, env, dry)
+    # Windows first: the other systems are off for the tag's release run, and added after it (add_other_systems).
+    others = [] if dry else [v for v in SYSTEM_VARS if repo_var(v, env) == "on"]
     interrupted = False
     try:
-        publish_tag(version, tag, env, dry)
+        try:
+            for v in others:
+                set_repo_var(v, "off", env)
+        except BaseException:
+            for v in others:
+                set_repo_var(v, "on", env, check=False)
+            raise
+        release_run = publish_tag(version, tag, env, dry)
+        if release_run and others:
+            add_other_systems(version, release_run, others, tries, env)
     except KeyboardInterrupt:
         interrupted = True
         raise
     finally:
-        # (the systems that this release left out: on again for the next; not while the tag's release run may still
-        # read them, after a stop of this wait: then the command to run when it is over)
-        tagged = bool(run(["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"], env=env, check=False).strip())
-        for name, value in off.items():
+        # (on again for the next release; not while a release run may still read them, after a stop of this wait:
+        # then the command to run when it is over)
+        tagged = bool(others) and bool(run(["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"], env=env, check=False).strip())
+        for name in others:
             if interrupted and tagged:
-                print(f"{name} is off for the release run of {tag}: when it is over, gh variable set {name} --repo {REPO} --body {value}")
+                print(f"{name} may be off for a release run of {tag}: when it is over, gh variable set {name} --repo {REPO} --body on")
             else:
-                set_repo_var(name, value, env, check=False)
-                print(f"{name}: {value} again")
+                set_repo_var(name, "on", env, check=False)
 
 
 def publish_tag(version, tag, env, dry):
@@ -623,7 +636,7 @@ def publish_tag(version, tag, env, dry):
             raise
     if dry:
         print("dry run: nothing changed")
-        return
+        return None
     sha = git("rev-parse", "HEAD")
     # CI: the tag's run (its branch is the tag) made after the push, to its end. An older run of the same commit (a tag
     # pushed again after untag) does not count.
@@ -653,6 +666,7 @@ def publish_tag(version, tag, env, dry):
                    f"Fix it on master, then: release.py untag {version}, release.py publish {version} --yes "
                    "(docs/dev/DEVELOPING.md, \"When a release run fails\")")
     confirm(version, sha, env)
+    return run_id
 
 
 def wait_run(run_id, env, limit_s=3 * 3600):
@@ -742,69 +756,111 @@ def bad_jobs(run_id, env):
         return []
 
 
-def preflight(version, env, dry, tries=PLATFORM_TRIES):
+def preflight(version, env, dry):
     """The commit to release, built and tested by build.yml on the branch release-check/<version> before any tag: a
-    break that this computer's build does not see (Clang, Linux, macOS) stops the release with its errors, and nothing
-    is tagged. The branch is deleted after. A failed job of another system than Windows (a macOS runner that never
-    came, a Linux break) runs again, up to `tries` tries in all; then that system is off for this release (its
-    repository variable: off), and the release has the others. Returns those variables with their values before."""
+    break of the Windows build that this computer's build does not see stops the release with its errors, and nothing
+    is tagged. Only its Windows job is waited for: then the run is cancelled (the other systems are master's run's,
+    after the release: add_other_systems; their runners are free for it). The branch is deleted after."""
     sha = git("rev-parse", "HEAD")
     branch = f"release-check/{version}"
     push = ["git", *push_git_args(), "push", "--force", "origin", f"HEAD:refs/heads/{branch}"]
     print(("would run: " if dry else "> ") + " ".join(push[-4:]) + "   (the preflight build)")
     if dry:
-        return {}
+        return
     pushed_at = time.time()
     run(push, env=env)
     try:
-        run_id, t = None, time.time()
-        while not run_id and time.time() - t < 300:
-            out = run(["gh", "run", "list", "--repo", REPO, "--workflow", "build.yml", "--branch", branch, "--limit", "5",
-                       "--json", "databaseId,headSha,createdAt"], env=env, check=False)
-            for r in json.loads(out or "[]"):
-                made = calendar.timegm(time.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ"))
-                if r["headSha"] == sha and made >= pushed_at - 30:
-                    run_id = r["databaseId"]
-                    break
-            if not run_id:
-                time.sleep(10)
+        run_id = find_run("build.yml", branch, sha, pushed_at, env)
         if not run_id:
             raise Fail(f"no preflight build for {branch} after 5 minutes: gh run list --workflow build.yml --branch {branch}")
-        print(f"preflight build {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (about 15 minutes)")
-        conclusion = wait_preflight(run_id, env)
-        tried = 1
-        while conclusion != "success":
-            bad = bad_jobs(run_id, env)
-            systems = {platform_var(j) for j in bad}
-            if not bad or None in systems:  # (Windows, or a job of no system: its errors, no tag)
-                raise Fail(f"the preflight build failed ({conclusion}); nothing is tagged.\n{failed_summary(run_id, env)}\n"
-                           f"Fix it, commit, then publish {version} --yes again.")
-            if all(repo_var(v, env) != "on" for v in systems):  # (systems that the release leaves out already)
-                print(f"preflight build: {', '.join(bad)} failed, of systems this release leaves out")
-                return {}
-            if tried >= tries:
-                break
-            print(f"preflight build: {', '.join(bad)} {conclusion} (try {tried} of {tries}); they run again")
-            run(["gh", "run", "rerun", str(run_id), "--repo", REPO, "--failed"], env=env, check=False)
-            time.sleep(20)
-            conclusion = wait_preflight(run_id, env)
-            tried += 1
-        if conclusion == "success":
-            print("preflight build: passed")
-            return {}
-        off = {v: "on" for v in sorted(systems) if repo_var(v, env) == "on"}
-        try:
-            for v in off:
-                set_repo_var(v, "off", env)
-        except BaseException:
-            for v, was in off.items():
-                set_repo_var(v, was, env, check=False)
-            raise
-        print(f"preflight build: {', '.join(bad)} still failed after {tries} tries: this release leaves out "
-              f"{', '.join(off) or 'nothing more'} (Windows ships; on again after the release)\n{failed_summary(run_id, env)}")
-        return off
+        print(f"preflight build {run_id}: https://github.com/{REPO}/actions/runs/{run_id} (its Windows job: about 15 minutes)")
+        conclusion = wait_job(run_id, "windows", env)
+        if conclusion != "success":
+            run(["gh", "run", "cancel", str(run_id), "--repo", REPO], env=env, check=False)
+            raise Fail(f"the preflight build's Windows job: {conclusion}; nothing is tagged.\n{failed_summary(run_id, env)}\n"
+                       f"Fix it, commit, then publish {version} --yes again.")
+        print("preflight build: Windows passed (the run's other jobs are cancelled)")
+        run(["gh", "run", "cancel", str(run_id), "--repo", REPO], env=env, check=False)
     finally:
         run(["git", *push_git_args(), "push", "origin", f":refs/heads/{branch}"], env=env, check=False)
+
+
+SYSTEM_VARS = ("RELEASE_MAC", "RELEASE_LINUX")  # the systems added after Windows (release.yml reads them)
+
+
+def find_run(workflow, branch, sha, after, env):
+    """The run of `workflow` for `sha` on `branch` made after `after` (it may take a moment to show), or None."""
+    t = time.time()
+    while time.time() - t < 300:
+        out = run(["gh", "run", "list", "--repo", REPO, "--workflow", workflow, "--branch", branch, "--limit", "10",
+                   "--json", "databaseId,headSha,createdAt"], env=env, check=False)
+        try:
+            runs = json.loads(out or "[]")
+        except ValueError:
+            runs = []
+        for r in runs:  # newest first
+            made = calendar.timegm(time.strptime(r["createdAt"], "%Y-%m-%dT%H:%M:%SZ"))
+            if r["headSha"] == sha and made >= after - 30:
+                return r["databaseId"]
+        time.sleep(10)
+    return None
+
+
+def wait_job(run_id, name, env, limit_s=3 * 3600):
+    """The conclusion of the job `name` of a run when it is done (the run's, when the run ends without it)."""
+    t = time.time()
+    while time.time() - t < limit_s:
+        out = run(["gh", "run", "view", str(run_id), "--repo", REPO, "--json", "status,conclusion,jobs"], env=env, check=False)
+        try:
+            st = json.loads(out)
+        except ValueError:
+            st = {}
+        for j in st.get("jobs") or []:
+            if j["name"] == name and j.get("status") == "completed":
+                return j.get("conclusion") or "unknown"
+        if st.get("status") == "completed":
+            return st.get("conclusion") or "unknown"
+        time.sleep(30)
+    return "timed out"
+
+
+def add_other_systems(version, release_run, systems, tries, env):
+    """After the Windows release: master's run of the commit (the tag's tested run) to its end, its failed jobs of the
+    other systems again up to `tries` tries (a job that waits 30 minutes for a runner: cancelled, a failed one); each
+    system in `systems` (their variables, off now) whose jobs passed is turned on and added to the release by its
+    release run again (release_make.ps1: the zip stays, no second Discord post). The ones that failed stay out."""
+    tag, sha = f"v{version}", git("rev-parse", "HEAD")
+    run_id = find_run("build.yml", "master", sha, 0, env)
+    if not run_id:
+        print(f"no master build of {sha[:7]}: {', '.join(systems)} not added (gh run rerun {release_run} with them on, later)")
+        return
+    print(f"the other systems: master's build {run_id}: https://github.com/{REPO}/actions/runs/{run_id}")
+    conclusion, tried = wait_preflight(run_id, env), 1
+    while conclusion != "success":
+        bad = bad_jobs(run_id, env)
+        if not bad or tried >= tries:
+            break
+        print(f"{', '.join(bad)}: {conclusion} (try {tried} of {tries}); they run again")
+        run(["gh", "run", "rerun", str(run_id), "--repo", REPO, "--failed"], env=env, check=False)
+        time.sleep(20)
+        conclusion, tried = wait_preflight(run_id, env), tried + 1
+    failed = set() if conclusion == "success" else {platform_var(j) for j in bad_jobs(run_id, env)}
+    if None in failed:  # (a job of no system failed: the tested run is not good for any)
+        failed = set(systems)
+    ok = [v for v in systems if v not in failed]
+    if failed & set(systems):
+        print(f"left out of {tag}: {', '.join(sorted(failed & set(systems)))}\n{failed_summary(run_id, env)}")
+    if not ok:
+        return
+    for v in ok:
+        set_repo_var(v, "on", env)
+    print(f"adding {', '.join(ok)} to {tag}: its release run {release_run} again")
+    run(["gh", "run", "rerun", str(release_run), "--repo", REPO], env=env, check=False)
+    time.sleep(20)
+    result = wait_run(release_run, env)
+    names = [a["name"] for a in json.loads(run(["gh", "release", "view", tag, "--repo", REPO, "--json", "assets"], env=env,
+                                                   check=False) or '{"assets": []}').get("assets", [])]
+    print(f"release run again: {result}; the downloads of {tag}: {', '.join(names)}")
 
 
 def cmd_untag(args):
