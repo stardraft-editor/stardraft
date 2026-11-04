@@ -438,6 +438,12 @@ CASES += [
 # floatpalette writes two palettes' states into a new settings file and reads them back, with the rule of the kept
 # place on the screens. -units: the unit palette in its window, with the owner and section boxes; a pick in it places
 # that unit type on the map; then the location list floats too, and each mode shows only its own window.
+# 0.8.5's pictures: a classic map's strings (Data > Strings: the side bar's Data, then the Strings tab), the Players
+# of Map properties (all 12).
+CASES += [
+    ("map-data-strings", ["--size", "1400x700", "--click", "31,190", "--click", "422,175"], "map"),
+    ("map-props-players", ["--size", "1400x1300", "--workspace", "props"], "map"),
+]
 CASES += [
     ("map-palette-float", ["--mode", "terrain", "--script", "{script:floatpal}"], "map"),
     ("map-palette-docked", ["--mode", "terrain", "--script", "{script:floatpaldock}"], "map"),
