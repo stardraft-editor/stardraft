@@ -559,24 +559,26 @@ CASES += [
     ("map-tiles-grid-480-scale15", ["--settings", "{leftwidth:332}", "--scale", "1.5", "--size", "2400x1500", "--rect",
                                     "--click", "tile37", "--click", "tile63"], "map"),
     # The Diamond's height (#dev, 2026-10-27): two clicks on the height's up arrow make it 2 x 4 (no longer linked), the
-    # size's up arrow makes it 3 x 4 (diamonds, Isometric); in Rectangle (its own size, GitHub #155; linked: the map's
-    # diamond shape, GitHub #138; its up arrow from 2 to 3) it is 3 x 2 tiles.
+    # size's up arrow makes it 3 x 4 (diamonds, Isometric); Rectangle keeps its own brush (GitHub #155): 2 x 1 tiles,
+    # its up arrow makes it 3 x 1.
     ("map-brush-diamond-height", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
                                   "--click", "246,427", "--click", "198,487"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
-    # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
-    # it was: its tiles and a box.
-    ("map-tiles-brush-diamond", ["--rect", "--click", "tile16", "--key", "B", "--click", "198,487:Repeat5", "--move", "700,600"], "map"),
-    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,-1", "--click", "198,487:Repeat5",
+    # (GitHub #135, #136): size 7 (five clicks on the size's up arrow) with the height linked (330,487: the link; the
+    # Rectangle brush is 2 x 1 at first), the mouse over the map. The Square (Rectangle's first shape) stays as it
+    # was: its tiles and a box.
+    ("map-tiles-brush-diamond", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,-1", "--click", "330,487",
+                                 "--click", "198,487:Repeat5", "--move", "700,600"], "map"),
+    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "330,487", "--click", "198,487:Repeat5",
                                 "--move", "700,600"], "map"),
-    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "198,487:Repeat5",
+    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--click", "330,487", "--click", "198,487:Repeat5",
                                 "--move", "700,600"], "map"),
     # Rect (the code's Solid, docs/dev/solid-terrain-brush.md): Solar Array from the terrain list (the quick picker), the
-    # Brush at size 1 puts one rect (2 x 1 tiles) of Solar Array's own tiles; Undo takes them back; Ctrl+Alt+T goes to
-    # Tile, Custom, then Isometric (the strip's order), whose list has the same terrains.
+    # Brush at size 1 (1 x 1: the brush is in tiles) puts one tile of Solar Array's own; Undo takes it back; Ctrl+Alt+T
+    # goes to Tile, Custom, then Isometric (the strip's order), whose list has the same terrains.
     ("map-solid-brush", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
                          "--click", "560,690", "--key", "Ctrl+Z", "--key", "Ctrl+Alt+T", "--key", "Ctrl+Alt+T", "--key", "Ctrl+Alt+T"], "map"),
-    # Solid at size 3: 3 x 3 rects (6 x 3 tiles) in one click (the Diamond of 3 rects is all of them).
+    # Solid at size 3 (3 x 1 tiles: the Rectangle brush's height is 1 at first) in one click.
     ("map-solid-size3", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B",
                          "--wheel", "560,690,0,1:Alt", "--click", "560,690", "--move", "560,690"], "map"),
     # Rectangle's variants as the game's maps have them (the game's rule: the common variants all as often, the variants
@@ -584,10 +586,11 @@ CASES += [
     # tile of that terrain), the tiles counted (--histbox: tilehist=).
     ("map-rect-variants", ["{install}/Maps/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "187,459",
                            "--click", "800,500:Shift"], "data"),
-    # Rectangle painted over its own tiles again and again (60 clicks at one place, brush size 4): the rare variants stay
+    # Rectangle painted over its own tiles again and again (60 clicks at one place, brush 4 x 4: the height linked at 330,487;
+    # one row takes the tiles above it, the map's: the same ones each time): the rare variants stay
     # rare (the tiles in the brush counted after each click: --histbox mouse,2,1).
     ("map-rect-variants-repeat", ["{install}/Maps/(2)Road War.scm", "--histbox", "mouse,2,1", "--solid", "--click", "800,500:Ctrl", "--key", "B",
-                                  "--wheel", "800,500,0,1:Alt", "--wheel", "800,500,0,1:Alt"] + ["--click", "800,500"] * 60, "data"),
+                                  "--wheel", "800,500,0,1:Alt", "--wheel", "800,500,0,1:Alt", "--click", "330,487"] + ["--click", "800,500"] * 60, "data"),
     # Mode > Terrain tools' keys: from Units mode, Ctrl+Alt+3 is Terrain mode with Tile, then Ctrl+Alt+2 Rectangle, Ctrl+Alt+4
     # Custom and Ctrl+Alt+1 Isometric; the picture: Find a command (Ctrl+P) with the items, their keys and the one on.
     ("map-terrain-kind-keys", ["--mode", "units", "--key", "Ctrl+Alt+3", "--key", "Ctrl+Alt+2", "--key", "Ctrl+Alt+4", "--key", "Ctrl+Alt+1",
@@ -2025,14 +2028,13 @@ def check_tiles_grid(width):
 
 def check_diamond_height(output):
     """The Diamond's height has a value of its own (#dev, 2026-10-27): 2 x 4, 3 x 4; linked in Rectangle it keeps the
-    map's diamond shape (GitHub #138; its own size: 2, GitHub #155): 2 x 1, and its up arrow makes it 3 x 2 tiles, which
-    it paints as 2 full rows of 3 tiles."""
+    brush of its own (GitHub #155): 2 x 1 tiles, and its up arrow makes it 3 x 1, which it paints as a row of 3."""
     return expect(output, 4, [
         ("the height's up arrow did not make the diamond 2 x 4", lambda s: s[0]["brush"] == "2x4"),
         ("the size's up arrow did not make it 3 x 4", lambda s: s[1]["brush"] == "3x4"),
         ("Rectangle did not keep its own size (2 x 1)", lambda s: s[2]["brush"] == "2x1"),
-        ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[3]["brush"] == "3x2"),
-        ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[3].get("brushrows") == "3,3"),
+        ("in Rectangle the brush is not 3 x 1 tiles", lambda s: s[3]["brush"] == "3x1"),
+        ("in Rectangle the 3 x 1 brush does not paint a row of 3 tiles", lambda s: s[3].get("brushrows") == "3"),
     ])
 
 
@@ -2056,7 +2058,7 @@ def solid_step(steps, inp):
 
 
 def check_solid_brush(output):
-    """Solid: the list is Isometric's, size 1 puts one rect of the terrain's own tiles, Undo takes it back."""
+    """Solid: the list is Isometric's, size 1 (1 x 1) puts one tile of the terrain's own, Undo takes it back."""
     steps = solid_steps(output)
     _, before = solid_step(steps, "wheel 560,690,0,-1:Alt")
     msg, click = solid_step(steps, "click 560,690")
@@ -2067,8 +2069,8 @@ def check_solid_brush(output):
     iso = [s for i, _, s in steps if i == "key Ctrl+Alt+T"][-1]
     if before.get("kind") != "solid" or before.get("brush") != "1x1":
         return f"not Solid at size 1 (kind={before.get('kind')} brush={before.get('brush')})"
-    if msg != "Placed 2 tiles":
-        return f"the click: {msg!r}, not 2 tiles placed"
+    if msg != "Placed 1 tile":
+        return f"the click: {msg!r}, not 1 tile placed"
     if click.get("solidfill") != "yes":
         return f"the tile under the mouse is not one of Solar Array's own (solidfill={click.get('solidfill')})"
     if undo.get("terrain") != before.get("terrain"):
@@ -2079,10 +2081,10 @@ def check_solid_brush(output):
 
 
 def check_solid_size3(output):
-    """Solid at size 3: 3 x 3 rects (6 x 3 tiles) of the terrain."""
+    """Solid at size 3: 3 x 1 tiles of the terrain."""
     msg, click = solid_step(solid_steps(output), "click 560,690")
-    if msg != "Placed 18 tiles" or click.get("brush") != "3x3" or click.get("solidfill") != "yes":
-        return f"the click: {msg!r} (brush {click.get('brush')}, solidfill={click.get('solidfill')}), not 18 tiles of the terrain at size 3"
+    if msg != "Placed 3 tiles" or click.get("brush") != "3x1" or click.get("solidfill") != "yes":
+        return f"the click: {msg!r} (brush {click.get('brush')}, solidfill={click.get('solidfill')}), not 3 tiles of the terrain at size 3"
     return None
 
 

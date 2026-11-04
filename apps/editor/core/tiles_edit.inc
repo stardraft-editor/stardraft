@@ -365,11 +365,26 @@ void tilesPlacedMessage(int n, const wchar_t* verb) {
 
 // --- Solid (docs/dev/solid-terrain-brush.md): the tiles inside a terrain, in ISOM rects of 2 x 1 tiles ---------------
 
-// The brush's rects (rx, ry: tiles 2rx and 2rx + 1 of row ry) around the rect that has tile (tx, ty): the footprint's
-// shape on the rect grid (size n: n rects wide; a rect is 2 to 1, so a linked Diamond keeps the map's diamonds).
-std::vector<std::pair<int, int>> solidFootprint(int tx, int ty) { return tilesFootprint(tx / 2, ty); }
+// The brush's rects (rx, ry: tiles 2rx and 2rx + 1 of row ry) around tile (tx, ty): the rects of its tiles (the
+// footprint in tiles, as the other Rectangle tools': size 1 and Height 1 is one tile). The shapes and the spray use
+// whole rects; the Brush gives only the footprint's tiles (a rect it covers half of keeps its other tile).
+// The Brush's tiles in Solid: the footprint in tiles; an even width on whole rects (2 x 1: the rect at the mouse), so
+// that only an odd width gives a rect's half (its edge's: the other half keeps its tile).
+std::vector<std::pair<int, int>> solidBrushTiles(int tx, int ty) {
+    std::vector<std::pair<int, int>> out = tilesFootprint(tx, ty);
+    const int n = std::max(1, int(std::lround(appState().brushSize)));
+    if (n % 2 == 0 && ((tx - (n - 1) / 2) & 1))  // (its left edge in the middle of a rect: one tile left)
+        for (auto& c : out) --c.first;
+    return out;
+}
+std::vector<std::pair<int, int>> solidFootprint(int tx, int ty) {
+    std::vector<std::pair<int, int>> out;
+    for (const auto& [x, y] : solidBrushTiles(tx, ty))
+        if (std::find(out.begin(), out.end(), std::pair{x >> 1, y}) == out.end()) out.push_back({x >> 1, y});
+    return out;
+}
 
-// The rects that the Brush stroke under way gave tiles: a drag over them does not make them again.
+// The tiles that the Brush stroke under way gave: a drag over them does not make them again.
 std::set<std::pair<int, int>> gSolidStrokeRects;
 
 // One of n picks for cell (x, y), in patches of about `size` cells (Fill's Mix): the pick of the nearest of random points,
@@ -574,11 +589,12 @@ int tilesBrushAt(int tx, int ty) {
             if (ed.tileset().modTerrain(uint16_t(p))) return true;  // (a mod's terrain: its tiles are its stand-in's groups)
             return g < gt.size() && gt[g][0] == p && (gt[g][1] == 0 || gt[g][1] == p);
         };
-        std::vector<std::pair<int, int>> fresh;
-        for (const auto& [rx, ry] : solidFootprint(tx, ty))
-            if (!gSolidStrokeRects.count({rx, ry}) || !(whole(2 * rx, ry) && whole(2 * rx + 1, ry))) fresh.push_back({rx, ry});
-        const std::vector<Editor::TileAt> cells = solidTiles(fresh);
-        for (const Editor::TileAt& c : cells) gSolidStrokeRects.insert({c.x / 2, c.y});
+        std::set<std::pair<int, int>> fresh;  // (the footprint's tiles that go, and their rects)
+        std::vector<std::pair<int, int>> rects;
+        for (const auto& [x, y] : solidBrushTiles(tx, ty))
+            if (!gSolidStrokeRects.count({x, y}) || !whole(x, y)) fresh.insert({x, y}), rects.push_back({x >> 1, y});
+        const std::vector<Editor::TileAt> cells = solidTiles(rects, &fresh);
+        for (const Editor::TileAt& c : cells) gSolidStrokeRects.insert({c.x, c.y});
         return tilesPut(cells);
     }
     if (tilesStampOn() && !gTiles->scatter) {  // the stamp: its block of the pattern at the mouse

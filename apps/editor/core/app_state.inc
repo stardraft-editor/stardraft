@@ -20,8 +20,8 @@ struct AppState {
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
     // Terrain: the brush size and height of the other terrain tools (Rectangle's while Isometric is on, and the
-    // reverse). Each keeps its own (GitHub #155).
-    float otherBrushSize = 2, otherBrushHeight = 0;
+    // reverse). Each keeps its own (GitHub #155). Rectangle's: 2 x 1 tiles (the map's diamonds are 2 to 1).
+    float otherBrushSize = 2, otherBrushHeight = 1;
     Brush::Shape brushShape = Brush::Diamond;
     Brush::Shape otherBrushShape = Brush::Square;  // the other terrain tools' (Isometric or Rectangle) shape, GitHub #236
     Brush::Shape selectShape = Brush::Square;

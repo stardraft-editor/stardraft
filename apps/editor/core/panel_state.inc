@@ -11,7 +11,7 @@ struct PanelState {
     std::vector<int> chosen;          // (shellPaletteChosen)
     int owner = 0;
     float brushSize = 2, brushHeight = 0;
-    float otherBrushSize = 2, otherBrushHeight = 0;  // (AppState's: the other terrain tools' brush)
+    float otherBrushSize = 2, otherBrushHeight = 1;  // (AppState's: the other terrain tools' brush; Rectangle's 2 x 1)
     Brush::Shape brushShape = Brush::Diamond, otherBrushShape = Brush::Square;
     int tool = 0;                     // (AppState::toolByMode of its mode)
     int density = 10;
@@ -82,7 +82,7 @@ PanelState panelNew(Mode m) {
     PanelState s;
     s.mode = m, s.owner = a.playerOwner;
     s.brushSize = 2, s.brushHeight = 0, s.brushShape = a.brushShape;
-    s.otherBrushSize = 2, s.otherBrushHeight = 0, s.otherBrushShape = a.otherBrushShape;
+    s.otherBrushSize = 2, s.otherBrushHeight = 1, s.otherBrushShape = a.otherBrushShape;
     if (a.terrainRect) std::swap(s.brushShape, s.otherBrushShape);  // (a new panel is in Isometric: Isometric's shape in use)
     s.density = m == Mode::Terrain ? 5 : 10;
     return s;

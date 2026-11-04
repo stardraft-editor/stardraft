@@ -19,6 +19,8 @@ const std::vector<float>& brushSizes() {
         for (int i = 18; i <= 32; i += 2) o.push_back(float(i));
         return o;
     }();
+    static const std::vector<float> tiles(v.begin() + 1, v.end());  // (the Rectangle tools: a tile is the least, no 0.5)
+    if (appState().mode == Mode::Terrain && appState().terrainRect) return tiles;
     return v;
 }
 int brushSizeIndex(float size) {  // the nearest size in the list
@@ -119,6 +121,7 @@ void setTerrainKind(int kind) {
         app.terrainRect = rect;
         std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
         std::swap(app.brushShape, app.otherBrushShape);  // (and shape: a Diamond for Isometric, a Square for Rectangle, GitHub #236)
+        if (rect && app.brushSize < 1) app.brushSize = 1;  // (a tile is the least: no half)
     }
     if (rect && app.toolByMode[int(Mode::Terrain)] == TJumble) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (Isometric's only)
     app.terrainPasting = false;
@@ -202,7 +205,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
         return false;
     }
     if (which == kNumSize) {
-        app.brushSize = v < 1 ? 0.5f : float(std::clamp(std::round(v), 1.0, 32.0));
+        app.brushSize = v < 1 && !(app.mode == Mode::Terrain && app.terrainRect) ? 0.5f : float(std::clamp(std::round(v), 1.0, 32.0));
     } else if (which == kNumHeight) {
         app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
     } else if (which == kNumTurns) {

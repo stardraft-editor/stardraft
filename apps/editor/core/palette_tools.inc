@@ -30,11 +30,11 @@ int currentTool(const AppState& app) { return app.toolByMode[int(app.mode)]; }
 
 // The brush's height: its Height (GitHub #113), or when linked (0) the same as the size. A linked Diamond keeps the
 // shape of the map's diamonds (GitHub #138): 2 to 1 in pixels, as the ISOM cells: in diamonds (Isometric) its height is
-// the size; in tiles (Rectangle) half the size, rounded up; in ISOM rects (Solid: 2 to 1 already) the size.
+// the size; in tiles (the Rectangle tools) half the size, rounded up.
 bool tilesSolidOn();  // (tiles_edit.inc)
 float brushHeightOf(const AppState& app) {
     if (app.brushHeight > 0) return app.brushHeight;
-    if (app.brushShape == Brush::Diamond && app.terrainRect && !tilesSolidOn()) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
+    if (app.brushShape == Brush::Diamond && app.terrainRect) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
     return app.brushSize;
 }
 

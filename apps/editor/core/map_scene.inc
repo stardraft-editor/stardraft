@@ -1405,9 +1405,12 @@ void tilesScene(render::Scene& s, float wx, float wy) {
     } else if (gTiles->solid && (tool == TBrush || tool == TSpray)) {  // Solid: the outline of the brush's rects (each rect at random)
         if (app.palette <= 0) return;
         std::vector<Editor::TileAt> foot;
-        for (auto [rx, ry] : solidFootprint(cx, cy))
-            for (int x = 2 * rx; x <= 2 * rx + 1; ++x)
-                if (x >= 0 && ry >= 0 && x < ed.width() && ry < ed.height()) foot.push_back({x, ry, 0});
+        for (auto [x, y] : solidBrushTiles(cx, cy))  // (the Brush's tiles; the spray's rects are whole)
+            if (tool == TBrush && x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) foot.push_back({x, y, 0});
+        if (tool == TSpray)
+            for (auto [rx, ry] : solidFootprint(cx, cy))
+                for (int x = 2 * rx; x <= 2 * rx + 1; ++x)
+                    if (x >= 0 && ry >= 0 && x < ed.width() && ry < ed.height()) foot.push_back({x, ry, 0});
         std::vector<std::pair<int, int>> tiles;
         for (const auto& t : solidMirrored(foot)) tiles.push_back({t.x, t.y});  // (and the mirrors' images)
         ghostTiles.clear();
