@@ -23,6 +23,12 @@ REQUIRED = {"windows", "macos", "linux-appimage", "linux", "linux-clang"}
 # (The job extras only decides whether the heavy extras run: it must pass.)
 IGNORED = {"linux-data", "wine"}
 VERSIONS = ("windows", "macos")  # (the jobs that build with the version name: build-version-<job>-<commit>)
+# RELEASE_MAC not "on" (the release has no macOS disk image: GitHub's macOS runners can be out of capacity for hours):
+# the macOS jobs are not waited for and need not pass.
+if os.environ.get("RELEASE_MAC", "") != "on":
+    REQUIRED = REQUIRED - {"macos"}
+    IGNORED = IGNORED | {"macos", "release-test-macos"}
+    VERSIONS = ("windows",)
 
 
 def gh(*args):
