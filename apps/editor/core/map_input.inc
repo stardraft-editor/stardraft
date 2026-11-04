@@ -238,6 +238,7 @@ int stackUnitAt(const Editor& ed, float wx, float wy) {
     return stack.empty() ? -1 : stack.front();
 }
 
+std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom);  // (below)
 // The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
 bool symmetryHandleAt(const AppState& app, int sx, int sy) {
     if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain || currentTool(app) != TSelect || app.terrainPasting ||
@@ -381,6 +382,25 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         }
         if (isShapeTool(currentTool(app)) && !(ctrl && !gTiles->stamps)) {  // Line, Contour, Polygon (Ctrl+click picks the terrain or tile, below)
             shapeMouseDown(wx, wy, (mods & draw::kShift) != 0);
+            break;
+        }
+        if (currentTool(app) == TWand) {  // the Magic wand: a click selects what is reachable; Shift adds, Ctrl removes
+            const std::vector<std::pair<int, int>> more = terrainReachable(ed, wx, wy, !app.terrainRect);
+            std::vector<std::pair<int, int>> tiles;
+            if (shift || ctrl) tiles = terrainSelTiles();
+            if (ctrl) {
+                const std::set<std::pair<int, int>> out(more.begin(), more.end());
+                std::erase_if(tiles, [&](const std::pair<int, int>& t) { return out.count(t) != 0; });
+            } else {
+                tiles.insert(tiles.end(), more.begin(), more.end());
+                std::sort(tiles.begin(), tiles.end());
+                tiles.erase(std::unique(tiles.begin(), tiles.end()), tiles.end());
+            }
+            setTerrainSelTiles(tiles);
+            setMessage(app, tiles.empty() ? std::wstring(L"Cleared the terrain selection")
+                                          : L"Selected " + std::to_wstring(tiles.size()) + (tiles.size() == 1 ? L" tile" : L" tiles") +
+                                                L". Shift+click adds. Ctrl+click removes.");
+            app.drag = Drag::None;
             break;
         }
         // Rectangle: tiles as they are, no ISOM needed. (Solid's Ctrl+click picks the terrain, as Isometric's below.)
@@ -673,9 +693,9 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy), pathingLayerMouseMove(wx, wy);
 }
 
-// Shift+click with the Select tool: what is reachable from the click goes into the selection. Isometric: the corners of
-// that terrain along the diamonds' edges, and the tiles round them (so its cliffs and edges too). The Rectangle tools:
-// the tiles next to each other of the same tile or the same terrain (Fill's match, for any kind).
+// The Magic wand: what is reachable from the click. Isometric: the corners of that terrain along the diamonds' edges,
+// and the tiles round them (so its cliffs and edges too). The Rectangle tools: the tiles next to each other of the same
+// tile or the same terrain (Fill's match, for any kind).
 std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom) {
     const int w = ed.width(), h = ed.height();
     std::set<std::pair<int, int>> out;
@@ -833,19 +853,6 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
             app.terrainSelOp = 0;
             const uint16_t v = ed.terrain().tiles[size_t(ty) * ed.width() + tx];
             tilesPick(v, true), tilesToBrush(), tilesReveal(v);
-            break;
-        }
-        if (app.terrainSelOp == 1 && !app.dragMoved) {  // Shift+click: what is reachable from it goes into the selection
-            app.terrainSelOp = 0;
-            std::vector<std::pair<int, int>> tiles = terrainSelTiles();
-            const size_t had = tiles.size();
-            const std::vector<std::pair<int, int>> more = terrainReachable(ed, wx, wy, !app.terrainRect);
-            tiles.insert(tiles.end(), more.begin(), more.end());
-            std::sort(tiles.begin(), tiles.end());
-            tiles.erase(std::unique(tiles.begin(), tiles.end()), tiles.end());
-            setTerrainSelTiles(tiles);
-            setMessage(app, L"Selected " + std::to_wstring(tiles.size()) + L" tiles (" + std::to_wstring(tiles.size() - had) +
-                                L" reachable from the click). Shift+click adds more. Ctrl+drag removes tiles.");
             break;
         }
         if (app.terrainSelOp) {  // Shift: the tiles go into the selection; Ctrl: out of it (a click: one tile)

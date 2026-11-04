@@ -2792,3 +2792,5 @@ Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges 
 Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	Тайлы отражены слева направо: рисунок каждого тайла не меняется, поэтому края и обрывы могут не совпасть
 Moved the symmetry center. Double-click it to put it in the middle of the map	Центр симметрии перемещен. Дважды щелкните его, чтобы вернуть в середину карты
 The symmetry center is in the middle of the map	Центр симметрии находится в середине карты
+Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	Волшебная палочка: щелкните рельеф, чтобы выбрать все, что достижимо оттуда (изометрия: этот рельеф с его краями и обрывами; другие инструменты: соединенные тайлы этого рельефа). Shift+щелчок добавляет, Ctrl+щелчок убирает.
+Magic wand	Волшебная палочка

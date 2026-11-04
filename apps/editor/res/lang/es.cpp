@@ -2794,6 +2794,8 @@ constexpr UiText kRows[] = {
     {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"Casillas reflejadas de izquierda a derecha: la imagen de cada casilla no cambia, as\u00ED que los bordes y acantilados pueden no encajar"},
     {L"Moved the symmetry center. Double-click it to put it in the middle of the map", L"Centro de simetr\u00EDa movido. Haz doble clic en \u00E9l para volver al centro del mapa"},
     {L"The symmetry center is in the middle of the map", L"El centro de simetr\u00EDa est\u00E1 en el centro del mapa"},
+    {L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", L"Varita m\u00E1gica: haz clic en un terreno para seleccionar lo que se alcanza desde ah\u00ED (isom\u00E9trico: ese terreno con sus bordes y acantilados; las dem\u00E1s herramientas: las casillas conectadas de ese terreno). May\u00FAs+clic a\u00F1ade, Ctrl+clic quita."},
+    {L"Magic wand", L"Varita m\u00E1gica"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

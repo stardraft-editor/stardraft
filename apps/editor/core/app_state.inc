@@ -27,7 +27,7 @@ struct AppState {
     Brush::Shape selectShape = Brush::Square;
     bool terrainSelFlip = false;  // the diamond selection's drag went between the box's top right and bottom left (IsoRectFlip)  // the terrain Select tool's shape: its own, not the brushes' (shapeOf)
     int toolByMode[kModeCount] = {};
-    int lastInGroup[4] = {0, TSpray, TLine, TBridge};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon; 3 Bridge, Ramp): the tool used last
+    int lastInGroup[5] = {0, TSpray, TLine, TBridge, TSelect};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon; 3 Bridge, Ramp): the tool used last
     int fillMix = 5;  // Fill with several picks (Terrain): how fine their patches are, 1 (large) to 10 (each diamond or tile)
     int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
     uint32_t spraySeed = 1;

@@ -61,7 +61,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
-| Shift+click with Select | Add what is reachable from the click to the selection. Isometric: that terrain, with its cliffs and edges. Rectangle, Tile and Custom: the tiles next to each other of that tile or terrain |
+| W | Terrain mode's Magic wand: a click selects what is reachable from there. Isometric: that terrain, with its edges and cliffs. Rectangle, Tile and Custom: the connected tiles of that terrain. Shift+click adds, Ctrl+click removes |
 | 1 to 9, 0, and the two keys after 0 | Player 1 to 12 for what you place (in Terrain mode, the palette's terrain). The keys go by their place on the keyboard, so they work on all layouts |
 | G | Show or hide the grid |
 | Ctrl++ and Ctrl+-, or + and - on the number pad | Zoom in and out |

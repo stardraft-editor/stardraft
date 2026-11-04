@@ -6,10 +6,10 @@ enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, Pending
                   MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble, Erase, SymmetryCenter };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
-const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp"};
+const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand"};
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
-enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp };  // (Line to Polygon, Bridge, Ramp: core/terrain_shapes.inc)
+enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand };  // (Line to Polygon, Bridge, Ramp: core/terrain_shapes.inc)
 // Rectangle, Ellipse and Diamond, outline or filled: a drag from one corner to the other (core/terrain_shapes.inc).
 inline bool isBoxTool(int tool) { return tool == TRect || tool == TRectFill || tool == TEllipse || tool == TEllipseFill || tool == TDiamond || tool == TDiamondFill; }
 // The shapes' outlines that the brush paints (Line, Rectangle, Ellipse, Diamond); the others fill.
@@ -18,7 +18,7 @@ inline bool isStrokeShape(int tool) { return tool == TLine || tool == TRect || t
 // map's diagonals. Ramp: a stroke along a cliff edge (src/ramps.cpp), as Contour's.
 // The Terrain tools that change the terrain there without the list's pick (it stays picked, faded in the list):
 // Bridge and Ramp (their kits' tiles), Jumble (the terrains under the brush).
-inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble; }
+inline bool terrainToolIgnoresPick(int tool) { return tool == TBridge || tool == TRamp || tool == TJumble || tool == TWand; }
 inline bool isShapeTool(int tool) { return tool == TLine || tool == TContour || tool == TPolygon || isBoxTool(tool) || tool == TBridge || tool == TRamp; }
 // The Terrain tool strip's choices (core/views_toolstrip.inc: terrainKind): 0 Isometric, 1 Tile, 2 Custom, 3 Rectangle,
 // and their order in the strip and Mode > Terrain tools: Isometric, Rectangle, Tile, Custom.

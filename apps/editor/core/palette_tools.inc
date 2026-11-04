@@ -570,6 +570,10 @@ std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     else if (group.size() == 2) tools.push_back(stripGroup(3, std::move(group)));
     return tools;
 }
+// Terrain's Select and Magic wand: one group's button (4). Select stays the mode's selection (select: true).
+StripItem selectGroup(StripItem select) {
+    return stripGroup(4, {std::move(select), {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
+}
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
 std::vector<StripItem> stripTools(Mode m) {
@@ -577,7 +581,7 @@ std::vector<StripItem> stripTools(Mode m) {
     switch (m) {
     case Mode::Terrain:
         if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
-            return withBridge({{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true},
+            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
                     {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
@@ -587,7 +591,7 @@ std::vector<StripItem> stripTools(Mode m) {
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
                                    {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
-            return withBridge({{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true},
+            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
@@ -596,7 +600,7 @@ std::vector<StripItem> stripTools(Mode m) {
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
                                    {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
                                    {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
-        return withBridge({{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
+        return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true}),
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                 stripGroup(1, {{UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
@@ -630,7 +634,7 @@ std::vector<StripItem> stripTools(Mode m) {
     return {};
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
-// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp; -1 none.
+// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -643,23 +647,30 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Erase) return 8;
     if (it.icon == UiIcon::Bridge) return 9;
     if (it.icon == UiIcon::Ramp) return 10;
+    if (it.icon == UiIcon::Wand) return 11;
     return -1;
 }
 
 // Whether the active mode is in its selection: its Select tool with nothing picked.
 bool inSelection() {
     AppState& app = appState();
-    for (const StripItem& it : stripTools(app.mode))
-        if (it.select)
-            return currentTool(app) == it.tool && (app.mode == Mode::Terrain || app.palette < 0) && !app.pasting && !app.terrainPasting && !app.pastingItems;
+    for (const StripItem& it : stripTools(app.mode)) {
+        if (it.select || (!it.members.empty() && it.members.front().select)) {  // (Terrain: the first of its group)
+            const int tool = it.select ? it.tool : it.members.front().tool;
+            return currentTool(app) == tool && (app.mode == Mode::Terrain || app.palette < 0) && !app.pasting && !app.terrainPasting && !app.pastingItems;
+        }
+    }
     return true;
 }
 // To the active mode's selection: its Select tool, nothing picked, no paste following the mouse (Esc, the Select
 // button, entering a mode).
 void enterSelection() {
     AppState& app = appState();
-    for (const StripItem& it : stripTools(app.mode))
+    for (const StripItem& it : stripTools(app.mode)) {
         if (it.select) app.toolByMode[int(app.mode)] = it.tool;
+        else if (!it.members.empty() && it.members.front().select) app.toolByMode[int(app.mode)] = it.members.front().tool;  // (Terrain's group)
+    }
+    if (app.mode == Mode::Terrain) app.lastInGroup[4] = TSelect;
     app.pasting = app.terrainPasting = app.pastingItems = false;
     app.palette = -1;
     if (app.mode != Mode::Locations) shellPaletteChosen().clear(), shellPaletteChanged();

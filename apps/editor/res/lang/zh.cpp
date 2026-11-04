@@ -2794,6 +2794,8 @@ constexpr UiText kRows[] = {
     {L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit", L"\u5DF2\u5DE6\u53F3\u955C\u50CF\u56FE\u5757\uFF1A\u6BCF\u4E2A\u56FE\u5757\u7684\u56FE\u50CF\u4FDD\u6301\u4E0D\u53D8\uFF0C\u56E0\u6B64\u8FB9\u7F18\u548C\u60AC\u5D16\u53EF\u80FD\u4E0D\u543B\u5408"},
     {L"Moved the symmetry center. Double-click it to put it in the middle of the map", L"\u5DF2\u79FB\u52A8\u5BF9\u79F0\u4E2D\u5FC3\u3002\u53CC\u51FB\u5B83\u53EF\u56DE\u5230\u5730\u56FE\u4E2D\u592E"},
     {L"The symmetry center is in the middle of the map", L"\u5BF9\u79F0\u4E2D\u5FC3\u4F4D\u4E8E\u5730\u56FE\u4E2D\u592E"},
+    {L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", L"\u9B54\u68D2\uFF1A\u5355\u51FB\u5730\u5F62\u53EF\u9009\u62E9\u4ECE\u8BE5\u5904\u53EF\u5230\u8FBE\u7684\u533A\u57DF\uFF08\u7B49\u8DDD\uFF1A\u8BE5\u5730\u5F62\u53CA\u5176\u8FB9\u7F18\u548C\u60AC\u5D16\uFF1B\u5176\u4ED6\u5DE5\u5177\uFF1A\u8BE5\u5730\u5F62\u76F8\u8FDE\u7684\u56FE\u5757\uFF09\u3002Shift+\u5355\u51FB\u6DFB\u52A0\uFF0CCtrl+\u5355\u51FB\u79FB\u9664\u3002"},
+    {L"Magic wand", L"\u9B54\u68D2"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

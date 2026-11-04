@@ -226,7 +226,7 @@ void pickStripTool(const StripItem& it) {
     else {
         app.toolByMode[int(app.mode)] = it.tool;
         if (app.mode == Mode::Terrain)  // (its group's button shows it from now on)
-            for (int g : {1, 2, 3})
+            for (int g : {1, 2, 3, 4})
                 for (const StripItem& s : stripTools(app.mode))
                     for (const StripItem& m : s.members)
                         if (s.group == g && m.tool == it.tool) app.lastInGroup[g] = it.tool;
@@ -357,7 +357,7 @@ struct ToolPopoutView final : draw::View {
         if (i < 0) return {};
         const StripItem& m = group.members[size_t(i)];
         const int key = stripToolKey(m);
-        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJ"[key]) + L")" : L"");
+        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJW"[key]) + L")" : L"");
     }
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
@@ -524,9 +524,9 @@ public:
             // A group: a click selects its tool and shows its tools under it.
             addHit(square(r), [this, it, sq = square(r)] {
                 pickStripTool(it);
-                if (!it.members.empty()) stripGroupPopout(it, *this, sq);
-            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJ"[key]) + L")" : std::wstring(it.tip)) +
-                   (it.members.empty() ? L"" : tr(L" A click also shows the tools of this button.")));
+                if (!it.members.empty() && it.group != 4) stripGroupPopout(it, *this, sq);  // (Select: its arrow lists them)
+            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJW"[key]) + L")" : std::wstring(it.tip)) +
+                   (it.members.empty() || it.group == 4 ? L"" : tr(L" A click also shows the tools of this button.")));
             if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
                 const draw::Rect sq = square(r);
                 // (a small smooth triangle in the corner, its right angle at the corner)

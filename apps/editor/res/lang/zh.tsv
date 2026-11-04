@@ -2792,3 +2792,5 @@ Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges 
 Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	已左右镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
 Moved the symmetry center. Double-click it to put it in the middle of the map	已移动对称中心。双击它可回到地图中央
 The symmetry center is in the middle of the map	对称中心位于地图中央
+Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	魔棒：单击地形可选择从该处可到达的区域（等距：该地形及其边缘和悬崖；其他工具：该地形相连的图块）。Shift+单击添加，Ctrl+单击移除。
+Magic wand	魔棒

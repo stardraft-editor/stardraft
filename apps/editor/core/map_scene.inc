@@ -1458,6 +1458,7 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         for (size_t i = brush.size(); i < all.size(); ++i) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
     };
     const int tool = currentTool();
+    if (tool == TWand) return;  // (its selection only)
     if (tool == TSelect) {
         if (!app.terrainPasting || !ed.hasTileClipboard()) return;
         tilesPasteAt(wx, wy, cx, cy);  // (it may hang over the map's edge: the tiles on the map show)
