@@ -41,9 +41,15 @@ public:
             invalidate();
         };
         search_.setPlaceholder(L"Search the game's sounds");
+        mapSearch_.onChange = [this] {
+            mapFilter_ = mapSearch_.text();
+            invalidate();
+        };
+        mapSearch_.setPlaceholder(L"Search the map's sounds");
         importBtn_.setTip(L"WAV or OGG files. They go into the map (staredit\\wav\\).");
         renameBtn_.setTip(L"Rename the file in the map. The briefings that play it also use the new name.");
         add(search_, {0, 0, 0, 0});
+        add(mapSearch_, {0, 0, 0, 0});
         add(importBtn_, {0, 0, 0, 0});
         add(renameBtn_, {0, 0, 0, 0});
         importBtn_.setVisible(false);
@@ -53,7 +59,7 @@ public:
     // The program sets the search text and the selection (the self-tests' "files:" steps).
     void setSearch(std::wstring t) { search_.setText(std::move(t)); }
     // The search box has the keyboard: the message loop leaves the typed keys to it (as to an edit control).
-    bool typing() { return search_.field().hasFocus(); }
+    bool typing() { return search_.field().hasFocus() || mapSearch_.field().hasFocus(); }
     // The search text, and how many of the game's sounds the list shows for it (the snapshots' input lines).
     const std::wstring& searchText() const { return filter_; }
     int gameSoundsShown() const {
@@ -213,9 +219,10 @@ private:
     }
 
     FilesHost& host_;
-    SearchBox search_;
+    SearchBox search_, mapSearch_;  // (the game's sounds, the map's sounds)
     stardraft::kit::Button importBtn_, renameBtn_;
     std::wstring filter_;   // the search text (the game's sounds it keeps)
+    std::wstring mapFilter_;  // the map's sounds' search text
     std::string selected_;  // a path: a map file or a game sound
     int scroll_ = 0, contentH_ = 0;
     draw::Point pointer_;
@@ -302,15 +309,28 @@ void FilesPage::paint(draw::Canvas& c) {
 
     // The map's sounds: its files, and the game sounds it names.
     y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, L"Sounds in the map");
+    const auto mine = mapSounds();
+    if (!mine.empty()) {  // (the search: when the map has sounds)
+        place(mapSearch_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
+        y += scale(32);
+    } else {
+        hide(mapSearch_);
+    }
     kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, cols);
     y += rowH;
-    const auto mine = mapSounds();
+    const std::wstring mf = lowerText(mapFilter_);
+    int mineShown = 0;
     for (const auto& n : mine) {
+        if (!soundMatches(n, mf)) continue;
         const ArchiveFile* f = mapEditor() ? mapEditor()->archiveFile(n) : nullptr;
         soundRow(n, f ? f->data.size() : 0, f ? 0 : 1);
+        ++mineShown;
     }
     if (mine.empty()) {
         c.text({x0 + scale(50), y, colRight, y + rowH}, L"The map has no sounds of its own. Import sounds adds WAV or OGG files.", kDim, draw::kMiddle | draw::kEllipsis);
+        y += rowH;
+    } else if (!mineShown) {
+        c.text({x0 + scale(50), y, colRight, y + rowH}, L"No sound of the map has the search text", kDim, draw::kMiddle | draw::kEllipsis);
         y += rowH;
     }
     y += scale(8);  // the table's end
