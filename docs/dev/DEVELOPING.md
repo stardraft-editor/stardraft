@@ -403,7 +403,9 @@ A release is a tag `v<version>`. The owner says when, and approves the scope and
    account works, nothing else is open, the section and its pictures are good, the UI text and the translation tables
    pass, and all targets build (in `build`, the testing build).
 5. `release.py publish <version> --yes` checks again, then commits "Changelog <version>" (the section and its
-   pictures), tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
+   pictures). The preflight: it pushes that commit to the branch `release-check/<version>` and waits for its build.yml
+   run (all systems, Clang too); a failed job runs again once, and a failure stops the release with its errors before
+   any tag (`--no-preflight` skips it). Then it tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
    as it is). Then it waits for the tag's run of `.github/workflows/release.yml` (it waits for the build and tests
    of master's push, then releases in a few minutes) and confirms the release. `--dry-run` shows the commands only.
 6. Tell the users who reported what the release fixes: run a feedback round (the stardraft-feedback skill, step 1
