@@ -56,6 +56,10 @@ const std::vector<uint8_t>& mapCreep(const Editor& ed) {
     const TerrainLayer& terrain = ed.terrain();
     std::vector<uint8_t> creep = startCreep(ed.tileset(), terrain, units, ed.unitTypes());
     const size_t n = creep.size();
+    // A tile of the creep group in the map's terrain shows its own picture, as in the game (the walkable black tile
+    // of many maps): no creep tile of a variant over it, no creep edges round it.
+    for (size_t i = 0; i < n && i < terrain.tiles.size(); ++i)
+        if ((terrain.tiles[i] >> 4) == kCreepGroup) creep[i] = 0;
     if (c.variants.size() != n || c.variantsWidth != int(ed.width())) {  // (the variants: drawn once a session, 256x256)
         static std::vector<uint8_t> all;
         if (all.empty()) {
