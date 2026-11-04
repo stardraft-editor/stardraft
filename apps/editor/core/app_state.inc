@@ -29,7 +29,7 @@ struct AppState {
     int toolByMode[kModeCount] = {};
     int lastInGroup[5] = {0, TSpray, TLine, TBridge, TSelect};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon; 3 Bridge, Ramp): the tool used last
     int fillMix = 5;  // Fill with several picks (Terrain): how fine their patches are, 1 (large) to 10 (each diamond or tile)
-    int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
+    int sprayDensity = 10;  // the active panel's: how much of the brush one spray puts down, 1 to 100%
     uint32_t spraySeed = 1;
     int lastSprayX = -100000, lastSprayY = -100000;
     double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due

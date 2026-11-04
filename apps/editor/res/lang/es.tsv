@@ -844,11 +844,8 @@ Brush shape: square	Forma del pincel: cuadrado
 Brush shape: circle	Forma del pincel: círculo
 One step more	Un paso más
 One step less	Un paso menos
-Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	Tamaño del pincel: 1 a 32. Haga clic para escribir un tamaño. - y + y la rueda del ratón lo cambian (Alt+rueda también en el mapa).
+Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).	Tamaño del pincel: de 1 a 32. Haz clic para escribir un tamaño. Las flechas y la rueda del ratón lo cambian (también Alt+rueda en el mapa).
 Density	Densidad
-Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de toques (Tile: tiles; Rectángulo: rectángulos) que deja cada spray, de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
-Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de unidades que deja cada spray (donde quepan), de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
-Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Densidad: el número de decorados que deja cada spray (donde quepan), de 1 a 50. Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
 No symmetry	Sin simetría
 Mirror left and right	Reflejar izquierda y derecha
 Mirror top and bottom	Reflejar arriba y abajo
@@ -1829,7 +1826,7 @@ Un&pin	&Desfijar
  has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 tiene el mismo tipo, propietario y posición. Mueva una de ellas, o los disparadores podrían encontrar la unidad equivocada
  tiles)	 tiles)
  tiles: Brush, Spray and Fill place one of them at random	 tiles: Pincel, Spray y Relleno colocan uno de ellos al azar
- units: click to place them, and again to place more. Right-click or Esc stops.	 unidades: haga clic para colocarlas, y otra vez para colocar más. Clic derecho o Esc detiene.
+ units: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	 unidades: haga clic para colocarlas, y otra vez para colocar más. R las gira, M las refleja. Clic derecho o Esc detiene.
  units: the limit (Options > Program options > Map unit limit)	 unidades: el límite (Opciones > Opciones del programa > Límite de unidades del mapa)
 &Assets workspace	Espacio de trabajo de &recursos
 &Briefing workspace	Espacio de trabajo de &briefing
@@ -2423,7 +2420,7 @@ Link selected units	Enlazar las unidades seleccionadas
 Jump to linked unit	Ir a la unidad enlazada
  locations	 ubicaciones
 Turns	Giros
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Giros: las copias giran alrededor del centro de simetría a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haz clic para elegir un número; la rueda del ratón lo cambia. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
+Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Giros: las copias giran alrededor del centro de simetría a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
 Start locations	Posiciones de inicio
 &Place them	&Colocarlas
 &Save anyway	&Guardar de todos modos
@@ -2684,7 +2681,7 @@ Fill: the connected area of one terrain. Shift+click: every place of that terrai
 Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	Relleno: haga clic en un lugar para poner unidades de los tipos seleccionados al azar en el suelo conectado de su terreno, donde caben (Densidad: cuántas).
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	Relleno: haga clic en un lugar para poner decorados de los tipos seleccionados al azar en el suelo conectado de su terreno, donde caben (Densidad: cuántos).
 Mix	Mezcla
-Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	Mezcla: con varios terrenos o tiles seleccionados, cómo Relleno los pone en manchas, de 1 (manchas grandes) a 10 (las más pequeñas: cada tile al azar; Isométrico: 2 rombos). Haga clic para escribir un número. - y + y la rueda del ratón lo cambian.
+Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.	Mezcla: con varios terrenos o casillas seleccionados, cómo los pone Relleno en parches, de 1 (parches grandes) a 10 (lo más pequeño: cada casilla al azar; isométrico: 2 rombos). Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian.
 New floating 	Nuevo panel flotante (
  panel	)
 Could not erase: the map has no isometric terrain data	No se pudo borrar: el mapa no tiene datos de terreno isométrico
@@ -2800,3 +2797,5 @@ Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	Copia girada (R
 Mirrored the copy top and bottom	Copia reflejada de arriba abajo
 Mirrored the copy left and right	Copia reflejada de izquierda a derecha
 Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Pegar: haz clic para colocar la copia y otra vez para colocar más. R la gira, M la refleja. Clic derecho o Esc para parar.
+Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.	Densidad: cuánto del pincel pinta cada rociado, de 1 a 100%. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian.
+Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.	Densidad: cuánto del pincel llena cada rociado, de 1 a 100% (solo donde cabe); Relleno: cuánto del suelo. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian.

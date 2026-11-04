@@ -184,7 +184,9 @@ void stripNumberStep(int which, int dir) {
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(app.fillMix + dir, 1, 10);
     } else {
-        app.sprayDensity = std::clamp(app.sprayDensity + dir, 1, kDensityMax);
+        // (in fives: 1, 5, 10, ... 100; typed: any number)
+        const int d = app.sprayDensity;
+        app.sprayDensity = std::clamp(dir > 0 ? (d / 5 + 1) * 5 : d <= 5 ? 1 : (d - 1) / 5 * 5, 1, kDensityMax);
     }
     stripNumberChanged();
 }
@@ -199,6 +201,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
     wchar_t* end = nullptr;
     const double v = std::wcstod(text.c_str(), &end);
     while (end && *end == L' ') ++end;
+    if (which == kNumDensity && end && *end == L'%') ++end;  // (as it shows)
     if (text.empty() || !end || end == text.c_str() || *end || !std::isfinite(v)) {
         setMessage(L"Not a number: " + text);
         return false;
@@ -540,36 +543,52 @@ public:
         if (x > 0) x = 0, y += b + gap;
         // The brush size and the spray's density: number boxes (the name, the value, up and down arrows).
         // A stepper: - and + at the ends of the box, the value between them (a click there types one).
-        auto stepper = [&](int which, const draw::Rect& vb, const wchar_t* tip, int sw) {
+        // A number's box: its name inside at the left, its value (and a small unit) at the right, the spin's arrows after it,
+        // as the brush's width and height. A click on the box types the value; the arrows and the wheel step it.
+        auto spinner = [&](int which, const draw::Rect& vb, const wchar_t* name, const wchar_t* unit, const wchar_t* tip) {
             const bool editing = editing_ == which;
+            const int spin = scale(14), pad = scale(4), mid = (vb.top + vb.bottom) / 2;
             box(c, vb, kCtl, editing ? kAccent : kBorder);
-            const draw::Rect down{vb.left, vb.top, vb.left + sw, vb.bottom}, up{vb.right - sw, vb.top, vb.right, vb.bottom},
-                value{down.right, vb.top, up.left, vb.bottom};
-            if (!editing) c.text(value, stripNumberText(which), kText, draw::kCenter | draw::kMiddle);
-            for (const bool plus : {false, true}) {
-                const draw::Rect k = plus ? up : down;
-                const bool over = hot(k);
-                if (over) box(c, {k.left + scale(3), k.top + scale(3), k.right - scale(3), k.bottom - scale(3)}, kCtlHot, kNoLine, 4);
-                glyph(c, k, plus ? L'\xE710' : L'\xE738', over ? kText : kDim, 9);  // + and -
+            const draw::Rect value{vb.left, vb.top, vb.right - spin, vb.bottom}, up{vb.right - spin, vb.top + pad, vb.right - scale(2), mid},
+                down{vb.right - spin, mid, vb.right - scale(2), vb.bottom - pad};
+            const int unitW = [&] {
+                if (!*unit) return 0;
+                const draw::Font of = c.setFont(c.font({draw::Face::Ui, smallPx()}));
+                const int w = c.measure(unit);
+                c.setFont(of);
+                return w + scale(2);
+            }();
+            const draw::Rect typed{std::max(value.left, value.right - scale(52)), value.top, value.right, value.bottom};  // (the field over the value)
+            const std::wstring t = stripNumberText(which);
+            const int nw = c.measure(t), nx = value.right - scale(6) - unitW - nw;
+            c.text({value.left + scale(8), value.top, (editing ? typed.left : nx) - scale(4), value.bottom}, name, kDim, draw::kMiddle | draw::kEllipsis);
+            if (!editing) {
+                c.text({nx, value.top, nx + nw, value.bottom}, t, kText, draw::kMiddle | draw::kLeft);
+                if (*unit) {
+                    const draw::Font of = c.setFont(c.font({draw::Face::Ui, smallPx()}));
+                    c.text({nx + nw + scale(2), value.top + scale(2), value.right, value.bottom}, unit, kFaint, draw::kMiddle | draw::kLeft);
+                    c.setFont(of);
+                }
             }
-            addHitC(value, [this, which, value] { beginEdit(which, value); }, tip, draw::Cursor::IBeam);
+            for (const bool more : {true, false}) {
+                const draw::Rect k = more ? up : down;
+                const bool over = hot(k);
+                if (over) box(c, k, kCtlHot, kNoLine, 2);
+                glyph(c, k, more ? L'\xE70E' : L'\xE70D', over ? kText : kDim, 6);  // chevrons up and down
+            }
+            addHitC(value, [this, which, typed] { beginEdit(which, typed); }, tip, draw::Cursor::IBeam);
             addHit(up, [which] { stripNumberStep(which, 1); }, L"One step more");
             addHit(down, [which] { stripNumberStep(which, -1); }, L"One step less");
             numbers_.push_back({vb, which});
         };
-        auto numberRow = [&](int which, const wchar_t* name, const wchar_t* tip, const wchar_t* unit = nullptr) {
-            const int h = scale(26), lw = scale(64);
-            c.text({0, y, lw, y + h}, name, kDim, draw::kMiddle);
-            const draw::Rect vb{lw, y + scale(1), std::min(W, lw + scale(120)), y + h - scale(1)};
-            stepper(which, vb, tip, scale(26));
-            if (unit && vb.right + scale(6) < W) {  // what the number counts (GitHub feedback #121)
-                c.text({vb.right + scale(6), y, W, y + h}, unit, kDim, draw::kMiddle | draw::kEllipsis);
-            }
+        auto numberRow = [&](int which, const wchar_t* name, const wchar_t* tip, const wchar_t* unit = L"") {
+            const int h = scale(26);
+            spinner(which, {0, y + scale(1), std::min(W, scale(184)), y + h - scale(1)}, name, unit, tip);
             y += h + gap;
         };
-        static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).";
+        static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).";
         static const wchar_t* const kTurnsTip =
-            L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
+            L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         if (stripHasSize() && app.mode == Mode::Terrain) {
@@ -657,12 +676,11 @@ public:
         }
         if (stripHasDensity())
             numberRow(kNumDensity, L"Density",
-                      app.mode == Mode::Terrain ? L"Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it."
-                      : app.mode == Mode::Units ? L"Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it."
-                                                : L"Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.");
+                      app.mode == Mode::Terrain ? L"Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it."
+                                                : L"Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.", L"%");
         if (stripHasMix())
             numberRow(kNumMix, L"Mix",
-                      L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.");
+                      L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.");
         // The mirrors: they combine (left/right and top/bottom together mirror both ways); None turns them all off.
         if (stripHasMirrors() && app.ed) {
             static const struct {
@@ -706,37 +724,15 @@ public:
                 }, std::wstring(tr(k.tip)) + L" (Alt+" + std::to_wstring(int(&k - kinds)) + L")");  // (the key: Alt+0 none, Alt+1 to Alt+4 the mirrors)
             }
             mx = std::max(mx, count * (mb + scale(3)));  // (Turns where it was: the strip's height counts on it)
-            // Turns: a list of 1 to kMaxTurns (the mouse wheel steps it, as the shape's).
-            auto turnsBox = [&](const draw::Rect& r) {
-                box(c, r, hot(r) ? kCtlHot : kCtl, kBorder);
-                c.text({r.left + scale(8), r.top, r.right - scale(20), r.bottom}, stripNumberText(kNumTurns), kText, draw::kMiddle);
-                glyph(c, {r.right - scale(20), r.top, r.right - scale(4), r.bottom}, L'\xE70D', kDim, 7);
-                addHit(r, [r] {
-                    AppState& a = appState();
-                    if (!a.ed) return;
-                    std::vector<std::wstring> names;
-                    for (int n = 1; n <= kMaxTurns; ++n) names.push_back(std::to_wstring(n));
-                    const int pick = shellPopupPick(names, a.ed->turns() - 1, r.left, r.bottom + scale(2));
-                    if (pick >= 0) a.ed->setTurns(pick + 1), stripNumberChanged();
-                    shellFocusView();
-                }, tr(kTurnsTip));
-                numbers_.push_back({r, kNumTurns});
-            };
             // Turns: on the same row, after the mirrors (its name too where it fits); the row below when the strip is
             // too narrow.
-            const int name = c.measure(tr(L"Turns")) + scale(8), minStep = scale(84), left = mx + scale(6);
+            const int minStep = scale(84), left = mx + scale(6);
             if (W - left >= minStep) {
-                const bool named = W - left - name >= minStep;
-                if (named) c.text({left, y, left + name, y + mb}, tr(L"Turns"), kDim, draw::kMiddle);
-                const int sx = named ? left + name : left;
-                turnsBox({sx, y + scale(1), std::min(W, sx + scale(120)), y + mb - scale(1)});
+                spinner(kNumTurns, {left, y + scale(1), W, y + mb - scale(1)}, L"Turns", L"", kTurnsTip);
                 y += mb + gap;
             } else {
                 y += mb + gap;
-                const int h = scale(26), lw = scale(64);
-                c.text({0, y, lw, y + h}, tr(L"Turns"), kDim, draw::kMiddle);
-                turnsBox({lw, y + scale(1), std::min(W, lw + scale(120)), y + h - scale(1)});
-                y += h + gap;
+                numberRow(kNumTurns, L"Turns", kTurnsTip);
             }
         }
         c.setFont(prevFont);

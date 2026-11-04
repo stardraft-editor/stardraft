@@ -2064,6 +2064,34 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
     if (own) endTerrainStroke();
 }
 
+void Editor::sprayTerrainPart(int px, int py, const std::vector<uint16_t>& terrains, const Brush& brush, int percent, uint32_t seed) {
+    if (!isomOk_ || terrains.empty()) return;
+    bool own = !inStroke_;
+    if (own) beginTerrainStroke();
+    std::vector<std::pair<int, int>> all = isom_.brushCorners(px, py, brush);
+    std::mt19937 rng(seed);
+    std::shuffle(all.begin(), all.end(), rng);
+    const size_t n = std::min(all.size(), size_t(std::max(1, int(std::ceil(double(all.size()) * std::clamp(percent, 1, 100) / 100.0)))));
+    // (a corner that is the image of one sprayed already: not again, so that a brush on a mirror's line keeps the share;
+    // each terrain's corners by themselves, as Fill's mix: an edit fits the ground around one terrain)
+    std::vector<std::vector<CornerValue>> each(terrains.size());
+    std::set<std::pair<int, int>> taken;
+    size_t done = 0;
+    for (const auto& [ax, ay] : all) {
+        if (done >= n) break;
+        if (taken.count({ax, ay})) continue;
+        const size_t k = done % terrains.size();
+        const uint16_t t = brushTerrain(px, py, terrains[k]);
+        for (auto [x, y] : symmetricPoints(ax * 64, ay * 32))
+            for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 0.5f}))
+                if (taken.insert({cx, cy}).second) each[k].push_back({cx, cy, t});
+        ++done;
+    }
+    for (const std::vector<CornerValue>& corners : each)
+        if (!corners.empty()) applyTerrain(corners);
+    if (own) endTerrainStroke();
+}
+
 bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     if (!isomOk_) return false;
     if (protectedCount_) {  // (a fill that starts on protected terrain: nothing)
@@ -2861,13 +2889,14 @@ int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float 
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     const float r = float(radius);
-    int n = 0;
+    std::vector<ItemAt> items;  // (one write of the list for the spray: a large brush places hundreds)
     for (int k = 0; k < count; ++k) {
         const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
         const uint16_t id = ids[size_t(rng() % ids.size())];
-        n += placeSprite(id, int(snapToCell(x + d * std::cos(a), grid)), int(snapToCell(y + d * std::sin(a), grid)), owner);
+        for (auto [px, py] : symmetricPoints(int(snapToCell(x + d * std::cos(a), grid)), int(snapToCell(y + d * std::sin(a), grid))))
+            items.push_back({id, px, py, owner});
     }
-    return n;
+    return placeSprites(items);
 }
 
 int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x, int y, int radius, int count, uint32_t seed) {

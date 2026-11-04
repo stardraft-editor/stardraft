@@ -173,6 +173,9 @@ public:
     // Is every corner under the brush (at every symmetric position) already this terrain?
     bool brushAllTerrain(int px, int py, const Brush& brush, uint16_t terrain) const;
     void sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, int dabs, uint32_t seed);
+    // One spray: `percent` of the brush's corners at the pixel, chosen at random, each once; with several terrains, each
+    // corner one of them in turn (at least one corner).
+    void sprayTerrainPart(int px, int py, const std::vector<uint16_t>& terrains, const Brush& brush, int percent, uint32_t seed);
     bool fillTerrain(int px, int py, uint16_t terrain);
     // The ISOM corners inside the polygon `points` (map pixels; the last point joins the first) get the terrain, at every
     // symmetric position, and the terrain around them is fitted to it (as the brush's). One undo step, or part of an
@@ -326,6 +329,7 @@ public:
     std::pair<int, int> symmetryCenter() const;
     // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
     void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_; }
+    std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).

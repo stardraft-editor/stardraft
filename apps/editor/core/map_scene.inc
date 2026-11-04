@@ -1035,7 +1035,6 @@ render::Scene buildScene() {
             }
             ghostTiles = g.cells;
             diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0x40FF40FFu);
-            for (size_t k = 1; k < pts.size(); ++k) outline(s, {pts[k].first, pts[k].second, pts[k].first + b.right, pts[k].second + b.bottom}, 0x40FF40FFu, 2);
         }
     } else if (app.mode == Mode::Terrain && (app.palette > 0 || (currentTool() == TJumble && !app.terrainRect))) {  // (Jumble: no pick)
         // Brush footprint as diamonds: the outline of the diamonds whose four corners the brush sets, at

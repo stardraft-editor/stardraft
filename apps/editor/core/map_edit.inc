@@ -56,14 +56,20 @@ void keepItemSelection(AppState& app, const std::vector<Doodad>& doodads, const 
     });
 }
 
-// The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
-// kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
-// (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").
-constexpr int kDensityMax = 50;
+// The spray's density: how much of the brush one spray puts down (each tick of a held spray too), 1 to 100%. Terrain:
+// that part of the brush's diamonds, tiles or rects (sprayShare), each once. Units, doodads and sprites: that part of the
+// brush's tiles, one thing for each (sprayCount; only where they fit, so fewer can land). The defaults: 25% for terrain,
+// 10% for the others.
+constexpr int kDensityMax = 100;
 
-int sprayCount() { return std::clamp(appState().sprayDensity, 1, kDensityMax); }
+// `whole` things of the brush at the density: at least one.
+int sprayShare(size_t whole) { return std::max(1, int(std::ceil(double(whole) * std::clamp(appState().sprayDensity, 1, kDensityMax) / 100.0))); }
 
-int sprayDabs() { return std::clamp(appState().sprayDensity, 1, kDensityMax); }
+int sprayRadius();
+int sprayCount() {
+    const double tiles = 3.14159265 * sprayRadius() * sprayRadius() / (32.0 * 32.0);
+    return std::min(sprayShare(size_t(std::max(1.0, tiles))), 500);
+}
 
 int sprayRadius() { return int(appState().brushSize * 64); }
 
@@ -629,11 +635,7 @@ int sprayAt(float wx, float wy) {
             for (int v : selectedPalette())
                 if (v > 0) picks.push_back(uint16_t(v));
             if (picks.empty()) picks.push_back(uint16_t(appState().palette));
-            const int dabs = sprayDabs(), n = int(picks.size());
-            const uint32_t first = appState().spraySeed++;
-            for (int i = 0; i < n; ++i)
-                if (const int share = dabs / n + ((int(first % uint32_t(n)) + i) % n < dabs % n ? 1 : 0); share > 0)
-                    ed.sprayTerrain(int(wx), int(wy), picks[(first + uint32_t(i)) % uint32_t(n)], currentBrush(), share, appState().spraySeed++);
+            ed.sprayTerrainPart(int(wx), int(wy), picks, currentBrush(), std::clamp(appState().sprayDensity, 1, kDensityMax), appState().spraySeed++);
         }
         return 0;
     }

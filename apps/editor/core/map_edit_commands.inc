@@ -254,7 +254,7 @@ void copyMapSelection(AppState& app) {
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && copySelectedTerrain(app, app.terrainSel))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
-        else if (app.hasTerrainSel && !app.terrainSelMask.empty())  // (a form with no whole diamond in it)
+        else if (app.hasTerrainSel && !app.terrainSelMask.empty() && app.ed->canPaintTerrain())  // (a form with no whole diamond in it)
             setMessage(L"Nothing to copy there: make the selection larger");
         else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {  // (no ISOM to copy there: its tiles, in Tile, GitHub #235)
             void setTerrainKind(int kind);  // (views_toolstrip.inc)

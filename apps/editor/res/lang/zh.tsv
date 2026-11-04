@@ -811,11 +811,8 @@ Brush shape: square	笔刷形状：方形
 Brush shape: circle	笔刷形状：圆形
 One step more	增加一步
 One step less	减少一步
-Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	笔刷大小：1 至 32。点击可输入大小。- 和 + 以及鼠标滚轮可更改（地图上也可用 Alt+滚轮）。
+Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).	画笔大小：1 到 32。单击可输入大小。箭头和鼠标滚轮可更改（在地图上也可用 Alt+滚轮）。
 Density	密度
-Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的点数（图块：图块数；矩形：矩形数），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
-Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的单位数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
-Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的装饰物数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
 No symmetry	无对称
 Mirror left and right	左右镜像
 Mirror top and bottom	上下镜像
@@ -1715,7 +1712,7 @@ Text color	文字颜色
  has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 与另一个单位的类型、拥有者和位置相同。请移动其中一个，否则触发器可能找错单位
  tiles)	 个图块)
  tiles: Brush, Spray and Fill place one of them at random	 个图块：画笔、喷涂和填充各随机放置其中之一
- units: click to place them, and again to place more. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。右键单击或按 Esc 停止。
+ units: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。R 旋转，M 镜像。右键单击或按 Esc 停止。
  units: the limit (Options > Program options > Map unit limit)	 个单位：上限（选项 > 程序选项 > 地图单位上限）
 &Assets workspace	资源工作区(&A)
 &Briefing workspace	简报工作区(&B)
@@ -2423,7 +2420,7 @@ Link selected units	连接所选单位
 Jump to linked unit	跳到连接的单位
  locations	 个位置
 Turns	旋转次数
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	旋转：副本以相等步长绕对称中心旋转。1：无，2：半圈，4：四分之一圈，1 到 8。单击选择数字；鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
+Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	旋转：副本以相等步长绕对称中心旋转。1：无，2：半圈，4：四分之一圈，1 到 8。单击可输入数字。箭头和鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
 Start locations	起始位置
 &Place them	放置(&P)
 &Save anyway	仍然保存(&S)
@@ -2684,7 +2681,7 @@ Fill: the connected area of one terrain. Shift+click: every place of that terrai
 Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	填充：点击一个位置，在该地形相连的地面上随机放置所选类型的单位，仅放在能容纳的地方（密度：数量）。
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	填充：点击一个位置，在该地形相连的地面上随机放置所选类型的装饰物，仅放在能容纳的地方（密度：数量）。
 Mix	混合
-Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	混合：选择多个地形或图块时，填充放置色块的大小，从 1（大色块）到 10（最小：每个图块随机；等距：2 个菱形）。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.	混合：选择多个地形或图块时，填充如何成块放置，1（大块）到 10（最小：每个图块随机；等距：2 个菱形）。单击可输入数字。箭头和鼠标滚轮可更改。
 New floating 	新建浮动
  panel	面板
 Could not erase: the map has no isometric terrain data	无法擦除：地图没有等距地形数据
@@ -2800,3 +2797,5 @@ Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	已旋转副本
 Mirrored the copy top and bottom	已上下镜像副本
 Mirrored the copy left and right	已左右镜像副本
 Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	粘贴：单击放置副本，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
+Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.	密度：每次喷涂绘制画笔的比例，1 到 100%。单击可输入数字。箭头和鼠标滚轮可更改。
+Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.	密度：每次喷涂填充画笔的比例，1 到 100%（仅限能放下的地方）；填充：地面的比例。单击可输入数字。箭头和鼠标滚轮可更改。

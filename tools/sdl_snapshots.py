@@ -3827,7 +3827,7 @@ CASES += [
                             "--click", "1162,800"], "project"),
     # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
     ("map-start-over-map", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+N", "--key", "Del", "--key", "Esc"], "map"),
-    ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,84", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
+    ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,44", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
     ("project-open-new", ["--key", "Ctrl+O", "--pick", "{project}", "--key", "Ctrl+N", "--click", "711,430", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
     ("project-triggers-neweud", ["--workspace", "triggers", "--key", "Ctrl+Shift+N", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
     ("project-close-new", ["--workspace", "data", "--key", "Ctrl+W", "--click", "711,430", "--click", "30,190", "--key", "Ctrl+2",

@@ -76,7 +76,16 @@ struct TopBarView final : stardraft::draw::View {
         // paste, the Brush's copied tiles or custom terrain). Only then.
         const Font ui = c.font({draw::Face::Ui, 0});  // the UI font (the message font)
         int afterModes = int(topBarModesRect().right);
-        if (topBarModesShown() && cursorTurnable(appState()) != 0) {
+        const int turnsRoom = [&] {  // (the window's width less the right end's items: Report feedback, Update, Build and Debug)
+            const Font of = c.setFont(ui);
+            int used = scale(8) + b + c.measure(L"Report feedback") + scale(12);
+            if (releases::available()) used += scale(8) + scale(50) + c.measure(topBarUpdateLabel());
+            if (activeProject()) used += scale(30) + scale(48) + c.measure(gBuilding ? L"Building" : L"Build") + scale(6) + int(topBarModesRect().bottom - topBarModesRect().top);
+            c.setFont(of);
+            return w - used;
+        }();
+        const int turnsWidth = scale(10) + 4 * (int(topBarModesRect().bottom - topBarModesRect().top) + scale(3));
+        if (topBarModesShown() && cursorTurnable(appState()) != 0 && afterModes + turnsWidth <= turnsRoom) {
             static const struct {
                 UiIcon icon;
                 int turn;

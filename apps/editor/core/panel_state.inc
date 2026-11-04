@@ -84,7 +84,7 @@ PanelState panelNew(Mode m) {
     s.brushSize = 2, s.brushHeight = 0, s.brushShape = a.brushShape;
     s.otherBrushSize = 2, s.otherBrushHeight = 1, s.otherBrushShape = a.otherBrushShape;
     if (a.terrainRect) std::swap(s.brushShape, s.otherBrushShape);  // (a new panel is in Isometric: Isometric's shape in use)
-    s.density = m == Mode::Terrain ? 5 : 10;
+    s.density = m == Mode::Terrain ? 25 : 10;
     return s;
 }
 // Another panel's settings (a new panel like it, a palette floating or docked again): all but its tiles' place (each

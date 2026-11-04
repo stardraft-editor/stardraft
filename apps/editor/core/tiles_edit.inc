@@ -473,8 +473,11 @@ void tilesSprayAt(float wx, float wy) {
         const auto foot = solidFootprint(tx, ty);
         if (foot.empty()) return;
         std::mt19937 rng(appState().spraySeed++);
-        std::vector<std::pair<int, int>> rects;
-        for (int i = 0; i < sprayDabs(); ++i) rects.push_back(foot[rng() % foot.size()]);
+        std::vector<std::pair<int, int>> rects = foot;  // (that part of the brush's rects on the map, each once)
+        std::erase_if(rects, [](const std::pair<int, int>& q) { return q.first < 0 || q.second < 0 || q.first * 2 >= appState().ed->width() || q.second >= appState().ed->height(); });
+        if (rects.empty()) return;
+        std::shuffle(rects.begin(), rects.end(), rng);
+        rects.resize(size_t(std::min(sprayShare(rects.size()), int(rects.size()))));
         const std::vector<int> picks = selectedPalette();  // (several terrains: each rect one of them at random)
         const uint32_t seed = uint32_t(rng());
         gTilesStrokePlaced += tilesPut(solidTiles(rects, nullptr, [&](int rx, int ry) {
@@ -482,14 +485,16 @@ void tilesSprayAt(float wx, float wy) {
         }));
         return;
     }
-    const auto foot = tilesFootprint(tx, ty);
+    auto foot = tilesFootprint(tx, ty);
+    std::erase_if(foot, [](const std::pair<int, int>& q) { return q.first < 0 || q.second < 0 || q.first >= appState().ed->width() || q.second >= appState().ed->height(); });
     if (foot.empty()) return;
     std::mt19937 rng(appState().spraySeed++);
-    // Each dab: one of the selected tiles, at random (one tile: that tile).
+    std::shuffle(foot.begin(), foot.end(), rng);
+    // That part of the brush's tiles on the map, each once: one of the selected tiles, at random (one tile: that tile).
     std::vector<Editor::TileAt> cells;
-    for (int i = 0; i < sprayDabs(); ++i) {
+    for (int i = 0; i < std::min(sprayShare(foot.size()), int(foot.size())); ++i) {
         const uint16_t v = gTiles->chosen.size() > 1 ? gTiles->chosen[rng() % gTiles->chosen.size()] : uint16_t(gTiles->picked);
-        const auto [x, y] = foot[rng() % foot.size()];
+        const auto [x, y] = foot[size_t(i)];
         cells.push_back({x, y, v});
     }
     gTilesStrokePlaced += tilesPut(cells);

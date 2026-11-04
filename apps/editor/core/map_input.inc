@@ -29,7 +29,6 @@ bool inSelection();
 int sprayRadius();
 int brushSizeIndex(float size);
 const std::vector<float>& brushSizes();
-int sprayDabs();
 void dragMoveDelta(float wx, float wy, float& dx, float& dy);
 Rect terrainSelectRect(float wx, float wy);
 bool moveSelectedDoodads(int dx, int dy, std::string& why);
@@ -299,7 +298,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             gSymmetryPressAt = {};
         } else {
             gSymmetryPressAt = now;
-            gSymmetryFrom = ed.symmetryCenter();
+            gSymmetryFrom = ed.symmetryCenterSet();
             app.drag = Drag::SymmetryCenter;
         }
         app.dirty = true;

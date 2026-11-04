@@ -809,11 +809,8 @@ Brush shape: square	Форма кисти: квадрат
 Brush shape: circle	Форма кисти: круг
 One step more	Ещё на один шаг
 One step less	На один шаг меньше
-Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	Размер кисти: от 1 до 32. Щёлкните, чтобы ввести размер. Клавиши - и + и колесо мыши меняют его (на карте также Alt+колесо).
+Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).	Размер кисти: от 1 до 32. Щелкните, чтобы ввести размер. Стрелки и колесо мыши меняют его (на карте также Alt+колесо).
 Density	Плотность
-Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число мазков (для тайла: тайлов; для прямоугольника: прямоугольников), которое ставит каждое распыление, от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
-Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число юнитов, которое ставит каждое распыление (там, где они помещаются), от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
-Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	Плотность: число декораций, которое ставит каждое распыление (там, где они помещаются), от 1 до 50. Щёлкните, чтобы ввести число. Клавиши - и + и колесо мыши меняют его.
 No symmetry	Без симметрии
 Mirror left and right	Зеркально слева направо
 Mirror top and bottom	Зеркально сверху вниз
@@ -1715,7 +1712,7 @@ Text color	Цвет текста
  has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 имеет тот же тип, того же владельца и ту же позицию. Переместите один из них, иначе триггеры могут найти не тот юнит
  tiles)	 тайл(ов))
  tiles: Brush, Spray and Fill place one of them at random	 тайл(ов): Кисть, Спрей и Заливка ставят один из них случайно
- units: click to place them, and again to place more. Right-click or Esc stops.	 юнит(ов): щёлкните, чтобы разместить, и снова, чтобы разместить ещё. Правый клик или Esc — остановка.
+ units: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	 юнит(ов): щёлкните, чтобы разместить, и снова, чтобы разместить ещё. R поворачивает их, M отражает. Правый клик или Esc — остановка.
  units: the limit (Options > Program options > Map unit limit)	 юнит(ов): предел (Параметры > Параметры программы > Предел юнитов карты)
 &Assets workspace	Рабочая область &ресурсов
 &Briefing workspace	Рабочая область &брифингов
@@ -2423,7 +2420,7 @@ Link selected units	Связать выбранные юниты
 Jump to linked unit	Перейти к связанному юниту
  locations	 местоположение(й)
 Turns	Повороты
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to select a number; the mouse wheel changes it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Повороты: копии идут вокруг центра симметрии равными шагами. 1: нет, 2: пол-оборота, 4: четверти оборота, от 1 до 8. Щелкните, чтобы выбрать число; колесо мыши меняет его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
+Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Повороты: копии идут вокруг центра симметрии равными шагами. 1: нет, 2: пол-оборота, 4: четверти оборота, от 1 до 8. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
 Start locations	Начальные позиции
 &Place them	&Разместить их
 &Save anyway	&Всё равно сохранить
@@ -2684,7 +2681,7 @@ Fill: the connected area of one terrain. Shift+click: every place of that terrai
 Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	Заливка: щёлкните место, чтобы поставить юниты выбранных видов случайно на связанной земле её местности, где они помещаются (Плотность: сколько).
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	Заливка: щёлкните место, чтобы поставить декорации выбранных видов случайно на связанной земле её местности, где они помещаются (Плотность: сколько).
 Mix	Смесь
-Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	Смесь: если выбрано несколько местностей или тайлов, как Заливка ставит их пятнами, от 1 (большие пятна) до 10 (самые мелкие: каждый тайл случайно; изометрия: 2 ромба). Щёлкните, чтобы ввести число. - и + и колесо мыши меняют его.
+Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.	Смесь: при нескольких выбранных рельефах или тайлах — как заливка размещает их пятнами, от 1 (большие пятна) до 10 (самые мелкие: каждый тайл случайно; изометрия: 2 ромба). Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
 New floating 	Новая плавающая панель (
  panel	)
 Could not erase: the map has no isometric terrain data	Не удалось стереть: на карте нет данных изометрической местности
@@ -2800,3 +2797,5 @@ Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	Копия по
 Mirrored the copy top and bottom	Копия отражена сверху вниз
 Mirrored the copy left and right	Копия отражена слева направо
 Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Вставка: щелкните, чтобы разместить копию, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
+Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.	Плотность: какую часть кисти закрашивает каждое распыление, от 1 до 100%. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
+Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.	Плотность: какую часть кисти заполняет каждое распыление, от 1 до 100% (только где помещается); заливка: какую часть земли. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
