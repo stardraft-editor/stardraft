@@ -101,7 +101,10 @@ private:
     int value_ = -1;
     bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false, changed_ = false;
     std::chrono::steady_clock::time_point hoverAt_{};  // (the pointer's last move on the field: the wheel's rest)
+    draw::Point restAt_{-1 << 20, -1 << 20};  // (where that rest began: a move of a few pixels from it, as the wheel's roll
+                                        // pushes the mouse, does not start it again)
     bool wheelHeld_ = false;  // (a rested wheel stepped the field: its next notches step it too, until a move)
+    bool scrolledInRest_ = false;  // (a page scroll went on over the field in its rest: no step until a move)
     float wheelAcc_ = 0;
     // Lets go of the list (the host forgets it) and drops the host: a closed list keeps no host, so nothing touches a
     // host that is gone (a page's window goes before its views). The list is deleted by a timer on the host: its own

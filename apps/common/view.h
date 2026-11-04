@@ -50,22 +50,15 @@ struct MouseEvent {
 inline float wheelDistance(const MouseEvent& e, float notchPx) { return e.exact ? e.panY : e.wheel * notchPx; }
 
 // The time from the wheel event before the one that the router now gives out (to any view) to it, in ms (a long
-// time: none before). A field that the wheel can change sees from it whether a page scroll goes on: a scroll that
-// moves the field under a still pointer does not change the field.
+// time: none before). A field that the wheel can change sees from it whether a page scroll goes on.
 inline double& wheelGapMs() {
     static double gap = 1e9;
     return gap;
-}
-// The time of the wheel event before the one that the router now gives out (none: the clock's zero).
-inline std::chrono::steady_clock::time_point& wheelBeforeAt() {
-    static std::chrono::steady_clock::time_point at{};
-    return at;
 }
 inline void noteWheel() {
     static std::chrono::steady_clock::time_point last{};
     const auto now = std::chrono::steady_clock::now();
     wheelGapMs() = last == std::chrono::steady_clock::time_point{} ? 1e9 : std::chrono::duration<double, std::milli>(now - last).count();
-    wheelBeforeAt() = last;
     last = now;
 }
 // The same distance in whole steps of `stepPx` (a list that scrolls by rows); the part of a step that is left waits in

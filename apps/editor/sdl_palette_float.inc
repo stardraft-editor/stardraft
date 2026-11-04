@@ -99,6 +99,7 @@ bool sdlPanelKeepOnScreen(SDL_Window* w, int* x = nullptr, int* y = nullptr) {
 }
 
 void sdlPanelCollapse(PanelStripView& v, bool on, int& fullH);  // (sdl_palette_panels.inc)
+void sdlPanelDragNoSnap(SDL_Window* w);  // (shell_sdl_win.inc)
 
 // The height of a palette window's strip (core/views_palette_float.inc: PanelStripView): 32 px and its line.
 int panelStripH() { return scale(32) + 1; }
@@ -139,6 +140,7 @@ void sdlPanelWindowSetup(PanelStripView& v) {
         v.drawFrame = true;
     }
     SDL_SetWindowHitTest(sw, sdlPanelHitTest, &v);
+    sdlPanelDragNoSnap(sw);  // (Windows: the strip's drag does not snap the window to half of the screen)
 }
 // After a drag (no mouse button down): the window back on its screen.
 void sdlPanelKeepOnScreenAfterDrag(SDL_Window* w) {

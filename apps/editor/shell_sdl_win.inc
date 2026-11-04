@@ -311,6 +311,75 @@ bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
 // The title bars follow the theme: the windows open now, and each dialog window before it shows (sdlSetLook calls it
 // again when the theme changes).
 void sdlTitleBarsDark(bool dark) { winsdl::titleBarsDark(dark); }
+// A palette window's strip (the caption of its hit test: sdlPanelHitTest) moves the window with the mouse here, not by
+// the system's move: the system's move snaps a window dragged to a screen's edge to half of the screen or all of it
+// (Snap, and Windows 11's snap layouts at the top). Each mouse move while the button is down puts the window at the
+// mouse, at the place where the strip was pressed.
+namespace winsdl {
+LRESULT CALLBACK panelDragProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    static HWND dragging = nullptr;
+    static POINT grab{};  // the mouse in the window when the press came (screen pixels from its top left)
+    static RECT start{};  // the window's place then (Esc puts it back)
+    switch (msg) {
+    case WM_NCLBUTTONDOWN:
+        if (wp == HTCAPTION) {
+            RECT r{};
+            POINT p{};
+            GetWindowRect(hwnd, &r), GetCursorPos(&p);
+            grab = {p.x - r.left, p.y - r.top}, start = r, dragging = hwnd;
+            SetCapture(hwnd);
+            return 0;
+        }
+        break;
+    case WM_MOUSEMOVE:
+        if (dragging == hwnd) {
+            POINT p{};
+            GetCursorPos(&p);
+            SetWindowPos(hwnd, nullptr, p.x - grab.x, p.y - grab.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            return 0;
+        }
+        break;
+    case WM_LBUTTONUP:
+        if (dragging == hwnd) {
+            dragging = nullptr;
+            ReleaseCapture();
+            return 0;
+        }
+        break;
+    case WM_KEYDOWN:
+        if (dragging == hwnd && wp == VK_ESCAPE) {  // (as the system's move: the window goes back, the drag ends)
+            dragging = nullptr;
+            ReleaseCapture();
+            SetWindowPos(hwnd, nullptr, start.left, start.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            return 0;
+        }
+        break;
+    case WM_DPICHANGED:  // (a screen of another scale: the window gets its new size; the mouse keeps its place in it)
+        if (dragging == hwnd) {
+            const RECT* to = reinterpret_cast<const RECT*>(lp);
+            RECT now{};
+            GetWindowRect(hwnd, &now);
+            if (now.right > now.left && now.bottom > now.top) {
+                grab.x = MulDiv(grab.x, to->right - to->left, now.right - now.left);
+                grab.y = MulDiv(grab.y, to->bottom - to->top, now.bottom - now.top);
+            }
+        }
+        break;
+    case WM_CAPTURECHANGED:
+        if (dragging == hwnd) dragging = nullptr;
+        break;
+    case WM_NCDESTROY:
+        if (dragging == hwnd) dragging = nullptr;
+        RemoveWindowSubclass(hwnd, panelDragProc, 1);
+        break;
+    default: break;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+}  // namespace winsdl
+void sdlPanelDragNoSnap(SDL_Window* w) {
+    if (HWND hwnd = winsdl::windowHandle(w)) SetWindowSubclass(hwnd, winsdl::panelDragProc, 1, 0);
+}
 void sdlNoMinimizeButton(SDL_Window* w) {
     if (HWND hwnd = winsdl::windowHandle(w)) {
         SetWindowLongPtrW(hwnd, GWL_STYLE, GetWindowLongPtrW(hwnd, GWL_STYLE) & ~LONG_PTR(WS_MINIMIZEBOX));
@@ -418,6 +487,7 @@ bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
 #endif
 void sdlTitleBarsDark(bool) {}
 void sdlNoMinimizeButton(SDL_Window*) {}
+void sdlPanelDragNoSnap(SDL_Window*) {}  // (Windows only: Snap)
 #if defined(STARDRAFT_XDG)
 // Each window gets the program's icon (X11: the task bar and Alt+Tab show it also when no .desktop file matches the
 // window, as an AppImage that is not installed).

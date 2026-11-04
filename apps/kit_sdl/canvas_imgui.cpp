@@ -21,6 +21,21 @@
 #include <tuple>
 #include <unordered_map>
 
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>  // (the font files mapped: mappedFile)
+#else
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 #include "theme.h"
 
 namespace stardraft::kit_sdl {
@@ -466,13 +481,54 @@ std::string desktopUiFont() {
 // Emoji and the other characters past U+FFFF (two UTF-16 units) are the fonts' glyphs, not the replacement mark.
 static_assert(sizeof(ImWchar) == 4, "ImGui needs IMGUI_USE_WCHAR32 (CMakeLists.txt) for the characters past U+FFFF");
 
-// A font from a file, or from the program's own bytes (not copied: ImGui only reads them).
+// A font file mapped into memory, once for the program (the same file for two fonts: one map), never unmapped: the
+// fonts are used until the end. The system reads only the pages of the glyphs that are drawn, and they are the file's,
+// not the program's memory (a whole read of the Korean and Chinese fonts was 80 MB at each start). {nullptr, 0}: it
+// cannot be mapped.
+std::pair<const void*, size_t> mappedFile(const std::string& utf8) {
+    static std::unordered_map<std::string, std::pair<const void*, size_t>> maps;
+    if (const auto it = maps.find(utf8); it != maps.end()) return it->second;
+    std::pair<const void*, size_t> out{nullptr, 0};
+#if defined(_WIN32)
+    const int n = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), nullptr, 0);
+    std::wstring wide(size_t(n), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), wide.data(), n);
+    HANDLE f = CreateFileW(wide.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER size{};
+        if (GetFileSizeEx(f, &size) && size.QuadPart > 0 && size.QuadPart < (1ll << 31)) {
+            if (HANDLE m = CreateFileMappingW(f, nullptr, PAGE_READONLY, 0, 0, nullptr)) {
+                if (const void* v = MapViewOfFile(m, FILE_MAP_READ, 0, 0, 0)) out = {v, size_t(size.QuadPart)};
+                CloseHandle(m);  // (the view keeps the mapping)
+            }
+        }
+        CloseHandle(f);
+    }
+#else
+    const int fd = open(utf8.c_str(), O_RDONLY);
+    if (fd >= 0) {
+        struct stat st{};
+        if (fstat(fd, &st) == 0 && st.st_size > 0 && st.st_size < (1ll << 31))
+            if (void* v = mmap(nullptr, size_t(st.st_size), PROT_READ, MAP_PRIVATE, fd, 0); v != MAP_FAILED) out = {v, size_t(st.st_size)};
+        close(fd);  // (the map stays)
+    }
+#endif
+    if (out.first) maps[utf8] = out;
+    return out;
+}
+
+// A font from a file (mapped, not read: mappedFile), or from the program's own bytes (not copied: ImGui only reads them).
 ImFont* addFont(const std::string& path, float size, const ImFontConfig* cfg = nullptr, const ImWchar* ranges = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
     if (const auto e = embeddedFile(path); e.first) {
         ImFontConfig c = cfg ? *cfg : ImFontConfig();
         c.FontDataOwnedByAtlas = false;
         return io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(e.first), int(e.second), size, &c, ranges);
+    }
+    if (const auto m = mappedFile(path); m.first) {
+        ImFontConfig c = cfg ? *cfg : ImFontConfig();
+        c.FontDataOwnedByAtlas = false;
+        return io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(m.first), int(m.second), size, &c, ranges);
     }
     return io.Fonts->AddFontFromFileTTF(path.c_str(), size, cfg, ranges);
 }

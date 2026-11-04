@@ -1,4 +1,6 @@
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "dropdown.h"
@@ -161,6 +163,60 @@ KIT_TEST(dropdown_wheel_steps_the_closed_field) {
     host.wheel(50, 20, -0.5f);
     CHECK(dd.value() == 1 && changes == 3);
     CHECK(host.windows.empty());
+    host.runTimers();
+}
+
+// Without the focus: the wheel steps the field after the pointer rests on it, also when the pointer moves a few
+// pixels (a finger on the wheel pushes the mouse); a move away from the rest's place starts the rest again.
+KIT_TEST(dropdown_wheel_steps_after_a_rest_with_small_moves) {
+    draw::View root;
+    FakeHost host(root);
+    kit::Dropdown dd(colours(), 0);
+    root.add(dd, {10, 10, 210, 34});
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));  // (the wheel of the tests before: still a while ago)
+    host.move(50, 20);
+    host.wheel(50, 20, -1);  // no rest yet: the page gets it (one early notch)
+    CHECK(dd.value() == 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    host.move(52, 21);  // (a few pixels: the rest goes on)
+    host.wheel(52, 21, -1);
+    CHECK(dd.value() == 1);
+    host.move(54, 22), host.wheel(54, 22, -1);  // (stepping: small moves keep it)
+    CHECK(dd.value() == 2);
+    host.move(120, 20), host.wheel(120, 20, -1);  // a move along the field: the rest starts again
+    CHECK(dd.value() == 2);
+    host.runTimers();
+}
+
+// A page scroll that went on over the hovered field (a page at its end: the field stays under the pointer) keeps the
+// field from stepping after a pause too, until the pointer moves.
+KIT_TEST(dropdown_wheel_skips_after_a_scroll_over_it) {
+    draw::View root;
+    FakeHost host(root);
+    kit::Dropdown dd(colours(), 0);
+    root.add(dd, {10, 10, 210, 34});
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    host.move(50, 20);
+    host.wheel(50, 20, -1), host.wheel(50, 20, -1), host.wheel(50, 20, -1);  // a scroll goes on
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    host.wheel(50, 20, 1);  // back up after a pause: the page's, not the field's
+    CHECK(dd.value() == 0);
+    host.move(90, 20);  // a move: a new rest
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    host.wheel(90, 20, -1);
+    CHECK(dd.value() == 1);
+    host.runTimers();
+}
+
+// A field that a scroll brought under a still pointer (no move came to it) does not step, after any time.
+KIT_TEST(dropdown_wheel_skips_a_field_not_moved_onto) {
+    draw::View root;
+    FakeHost host(root);
+    kit::Dropdown dd(colours(), 0);
+    root.add(dd, {10, 10, 210, 34});
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    host.wheel(50, 20, -1);
+    CHECK(dd.value() == 0);
     host.runTimers();
 }
 

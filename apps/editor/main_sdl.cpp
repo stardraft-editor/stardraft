@@ -89,6 +89,7 @@
 #include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
 #include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
 #include <shellapi.h>    // the elevated start (shell_sdl_win.inc)
+#include <commctrl.h>    // SetWindowSubclass: a palette window's drag (shell_sdl_win.inc)
 #include <psapi.h>       // the working set (sdl_soak.inc: --script stats)
 #include <dxgi1_4.h>     // the GPU memory (sdl_soak.inc: --script stats)
 #else
