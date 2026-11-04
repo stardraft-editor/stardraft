@@ -211,6 +211,14 @@ Rect terrainSelectRect(float wx, float wy) {
     // (Rectangle, and the square in Isometric: whole tiles; the diamond and the circle: as dragged)
     if ((!appState().terrainRect && selectShape() != Editor::SelectShape::Rect) || !appState().ed) return r;
     const int w = appState().ed->width(), h = appState().ed->height();
+    if (!appState().terrainRect) {  // Isometric's square: its sides on the tile lines nearest the press and the mouse (it
+                                    // starts where the press was, not a tile up and left of it)
+        auto line = [](float v, int most) { return std::clamp(int(std::lround(v / 32.0f)), 0, most) * 32; };
+        Rect q = Rect{line(appState().dragWX, w), line(appState().dragWY, h), line(wx, w), line(wy, h)}.normalized();
+        if (q.right == q.left) q.right = std::min(w * 32, q.left + 32), q.left = q.right - 32;  // (at least a tile)
+        if (q.bottom == q.top) q.bottom = std::min(h * 32, q.top + 32), q.top = q.bottom - 32;
+        return q;
+    }
     const int x0 = std::clamp(r.left / 32, 0, w - 1), y0 = std::clamp(r.top / 32, 0, h - 1);
     const int x1 = std::clamp((r.right - 1) / 32, x0, w - 1), y1 = std::clamp((r.bottom - 1) / 32, y0, h - 1);
     return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};

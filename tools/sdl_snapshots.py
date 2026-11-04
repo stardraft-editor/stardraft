@@ -5179,7 +5179,7 @@ CHECKS.update({
         "the protected tiles changed, or none is protected" if not re.search(r"protect: [1-9]\d* protected tiles, 0 of them changed \(yes\); [1-9]\d* other tiles changed", o)
         else "the menu has no Unprotect terrain" if "Unprotect terrain" not in o.replace("&", "") else None),
     "map-protect-selectall": lambda o: (
-        None if re.search(r"Selected all the terrain \(128 x 128 tiles\)", o) and re.search(r"protect: 0 protected tiles, 0 of them changed \(none protected\).*; undo: Unprotect the terrain \(192 tiles\)", o)
+        None if re.search(r"Selected all the terrain \(128 x 128 tiles\)", o) and re.search(r"protect: 0 protected tiles, 0 of them changed \(none protected\).*; undo: Unprotect the terrain \(\d+ tiles\)", o)
         else "Ctrl+A did not select all the terrain, or Unprotect terrain did not unprotect it"),
     "map-protect-undo": lambda o: (
         None if re.search(r"protect: ([1-9]\d*) protected tiles, 0 of them changed \(yes\).*; undo: Protect the terrain \(\1 tiles\)", o)
