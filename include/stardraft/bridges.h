@@ -4,6 +4,7 @@
 // are the bridge kits of src/data/bridge_kits.inc, learned from approved example bridges. A bridge goes over a straight
 // river that ISOM painting made: ground, then water, then ground; its length comes from the water's width.
 #include "stardraft/editor.h"
+#include "stardraft/passages.h"
 
 #include <cstdint>
 #include <string>
@@ -17,6 +18,10 @@ bool bridgesAvailable(int era);
 bool bridgesAvailable(const Editor& ed);
 // All the tiles a tileset's bridge kits (both orientations) can put down: the tiles a passage maps.
 std::vector<uint16_t> bridgeKitTileValues(int era);
+// A game bridge kit (length 1, width 1) as a mapping's canvas (stardraft/passages.h): its tiles as the start cap, the
+// deck and the end cap (by their places along the deck), the deck and the cells over the river's water marked water,
+// the others coast; its grid and terrains. A start for a mod's tileset that has the game's bridge tiles, and the tests' canvas.
+passages::BridgeMapping bridgeCanvasOfKit(int era, bool u);
 
 // The tiles of a bridge with its origin (the kit's cell 0, 0) at tile (ox, oy). u: the mirror kit of d (the kits' decks
 // go along the two diagonals; which way is d depends on the tileset). seed: the choice among a piece's variants. Empty:

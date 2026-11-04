@@ -523,7 +523,7 @@ void shellShowPassagesWindow() {
 void shellSetPassagesTitle(const std::wstring& title) {
     if (SDL_Window* w = gPassagesOpen && gHost ? gHost->sdlWindow(gPassagesView) : nullptr) SDL_SetWindowTitle(w, narrow(title).c_str());
 }
-// Each turn of the event loop: the mapper follows the main window's map.
+// Each turn of the event loop: the mapper's window place (the mapper has a tileset of its own: it follows no map).
 void sdlPassagesFrame() {
     static WindowPlace place{L"Layout/PassagesWindow"};
     if (!gPassagesOpen || !gHost) return;

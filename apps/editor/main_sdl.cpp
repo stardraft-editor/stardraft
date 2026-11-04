@@ -310,7 +310,8 @@ void fitMainWindow(int w, int h) {
     SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)), SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)));
 }
 
-// The game's own data when it is not open (Cosmonarchy mode opens only the mod's): the Ramp and bridge mapper's templates.
+// The game's own data when it is not open (Cosmonarchy mode opens only the mod's): the Ramp and bridge mapper's tileset
+// outside Cosmonarchy mode.
 bool openGameDataNow() {
     if (gState.data.isOpen()) return true;
     std::string err;
@@ -741,7 +742,7 @@ int main(int argc, char** argv) {
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
-            sdlPassagesFrame();   // (the Ramp and bridge mapper follows the open map)
+            sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
             sdlFollowSystemLook();  // (macOS, Linux: the system's look changed; also while no frame comes: sdl_window.inc)
@@ -881,7 +882,7 @@ int main(int argc, char** argv) {
                 if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
                 if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
                 std::printf("%s\n", gIsomRulesView.state().c_str());
-            } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file (--cmbw, a map open)
+            } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file, on the tileset of its first mapping (--cmbw: the mod's)
                 std::string f = dialogArg.substr(9);
                 int row = 0;
                 if (const size_t bar = f.rfind('|'); bar != std::string::npos) row = std::atoi(f.c_str() + bar + 1), f.resize(bar);

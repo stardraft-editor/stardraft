@@ -5,6 +5,7 @@
 // game's ramp doodads (a tileset has one or more: Cliff, Temple Wall, Basilica...) in each facing. Where a piece fits is
 // learned from the ramps of the game's maps and the approved example maps: the terrains of the ISOM corners under it.
 #include "stardraft/editor.h"
+#include "stardraft/passages.h"
 
 #include <cstdint>
 #include <string>
@@ -30,8 +31,13 @@ std::vector<uint16_t> rampDoodads(const Editor& ed);
 // block's first doodad and its doodad group.
 std::vector<int> rampKitsOf(int era, bool all = false);
 int rampKitFacing(int kit);
-// Whether a kit is a passage's (stardraft/passages.h: a mod's ramp on the shape of a game kit), not the game's.
+// Whether a kit is a passage's (stardraft/passages.h: a mod's ramp painted in the Ramp and bridge mapper's canvas), not the
+// game's.
 bool rampKitFromPassage(int kit);
+// A game kit's ramp (one slope) as a mapping's canvas (stardraft/passages.h): its tiles with their pieces, the cells
+// marked cliff where most of their kit's corners are the high ground, its facing, its grid and its terrains (the first
+// ground below): a start for a mod's tileset that has the game's ramp tiles, and the tests' canvas.
+passages::RampMapping rampCanvasOfKit(int kit);
 int rampKitBase(int kit);
 int rampKitDoodad(int kit, int kind);  // a piece's doodad (0 wall A, 1 slope, 2 wall B)
 // A kit's ground below (several: apart by "|") and above.

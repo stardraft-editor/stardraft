@@ -787,6 +787,46 @@ int main(int argc, char** argv) {
         if (!ed.save(file, err)) return std::printf("%s\n", err.c_str()), 1;
         return 0;
     }
+    if (std::getenv("BRIDGE_CANVAS")) {  // each tileset's game kit as a canvas (bridgeCanvasOfKit): its bridge over a river, as the game kit's
+        int same = 0, all = 0;
+        for (int era = 0; era < 8; ++era) {
+            if (!bridgesAvailable(era)) continue;
+            for (const int brushSize : {2, 4, 6}) {
+                Editor ed(data);
+                std::string err;
+                if (!ed.newMap(128, 128, uint16_t(era), 1, err)) continue;
+                uint16_t water = 0;
+                for (uint16_t id = 1; id < 64 && !water; ++id)
+                    if (ed.terrainName(id) == "Water") water = id;
+                if (!water) continue;
+                Brush brush;
+                brush.size = float(brushSize);
+                const int cx = 64 * 32, cy = 64 * 32;
+                ed.paintTerrainLine(cx - 64 * 7, cy - 32 * 7, cx + 64 * 7, cy + 32 * 7, water, brush);
+                stardraft::passages::use({});
+                const BridgePlan g = planBridge(ed, cx - 64 * 8, cy + 32 * 8, cx + 64 * 8, cy - 32 * 8, 1, 7);
+                stardraft::passages::Passages ps;
+                stardraft::passages::BridgeMapping m = bridgeCanvasOfKit(era, g.u);
+                m.terrains = {{ed.terrainName(1), "Water", ed.terrainName(1)}};
+                ps.bridges.push_back(m);
+                stardraft::passages::use(ps);
+                const BridgePlan c = planBridge(ed, cx - 64 * 8, cy + 32 * 8, cx + 64 * 8, cy - 32 * 8, 1, 7);
+                std::map<std::pair<int, int>, uint16_t> at;
+                for (const Editor::TileAt& t : g.tiles) at[{t.x, t.y}] = t.value;
+                int match = 0, place = 0;
+                for (const Editor::TileAt& t : c.tiles) {
+                    const auto i = at.find({t.x, t.y});
+                    place += i != at.end(), match += i != at.end() && (i->second >> 4) == (t.value >> 4);
+                }
+                ++all, same += c.kit >= 0 && place == int(g.tiles.size()) && c.tiles.size() == g.tiles.size();  // (the same places; a piece's variant may differ: the game's kit picks by the tiles round it)
+                std::printf("era %d river %d: game length %d (%zu tiles, origin %d,%d); canvas kit %d problem %d length %d (%zu tiles, origin %d,%d): %d on its places, %d of its group\n", era,
+                            brushSize, g.length, g.tiles.size(), g.ox, g.oy, c.kit, int(c.problem), c.length, c.tiles.size(), c.ox, c.oy, place, match);
+            }
+        }
+        stardraft::passages::use({});
+        std::printf("%d of %d canvas bridges are the game's\n", same, all);
+        return 0;
+    }
     if (std::getenv("BRIDGE_PASSAGES")) {  // each tileset: a passage bridge (the Jungle kit, its tiles as they are) over each water-like terrain
         int made = 0, tried = 0;
         bool savedOne = false;
@@ -800,11 +840,12 @@ int main(int argc, char** argv) {
                                      name.find("Tar") == std::string::npos && name.find("Mud") == std::string::npos))
                     continue;
                 stardraft::passages::Passages ps;
-                stardraft::passages::BridgeMapping m;
-                m.name = "probe", m.era = era, m.templateEra = bridgesAvailable(era) ? era : 4;
-                for (const uint16_t v : bridgeKitTileValues(m.templateEra)) m.tiles[v] = v;
-                m.terrains.push_back({probe.terrainName(1), name, probe.terrainName(1)});
-                ps.bridges.push_back(m);
+                const int from = bridgesAvailable(era) ? era : 4;  // (the kit of the canvas: the tileset's, else Jungle's)
+                for (const bool u : {false, true}) {  // (both decks: the drag goes up-right)
+                    stardraft::passages::BridgeMapping m = bridgeCanvasOfKit(from, u);
+                    m.name = "probe", m.era = era, m.terrains = {{probe.terrainName(1), name, probe.terrainName(1)}};
+                    ps.bridges.push_back(m);
+                }
                 stardraft::passages::use(ps);
                 Editor ed(data);
                 ed.newMap(128, 128, uint16_t(era), 1, err);

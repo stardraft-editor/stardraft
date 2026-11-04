@@ -306,31 +306,48 @@ std::vector<uint16_t> bridgeKitTileValues(int era) {
 
 namespace {
 
-// A kit planBridge uses: the game's kit of the map's tileset (index -1), or a passage's (stardraft/passages.h): its
-// template kit with the mod's tiles, on its terrains (coast A under the start cap, coast B under the far cap).
+// A passage's bridge (stardraft/passages.h): its canvas's shape and grid (passages::bridgeShape), of one tileset.
+struct CanvasBridge {
+    passages::BridgeShape shape;
+    int era = 0, grid = 0;
+    std::vector<passages::BridgeTerrains> terrains;
+};
+// The passages' bridges whose canvas makes a shape (made again when the passages change).
+const std::vector<CanvasBridge>& canvasBridges() {
+    static std::vector<CanvasBridge> out;
+    static int madeFor = -1;
+    if (madeFor == passages::revision()) return out;
+    madeFor = passages::revision(), out.clear();
+    for (const passages::BridgeMapping& m : passages::inUse().bridges) {
+        CanvasBridge c;
+        c.shape = passages::bridgeShape(m);
+        if (!c.shape.ok) continue;
+        c.era = m.era & 7, c.grid = m.grid & 3, c.terrains = m.terrains;
+        out.push_back(std::move(c));
+    }
+    return out;
+}
+
+// A kit planBridge uses: the game's kit of the map's tileset (index -1), or a passage's canvas (stardraft/passages.h),
+// on its terrains (coast A under the start cap, coast B under the end cap).
 struct KitUse {
-    int index = -1;  // -1: the game's; else the passages' bridge kit (bridgeKitUses)
-    int era = 0;     // the kit's tileset (a passage's: its template's)
+    int index = -1;  // -1: the game's; else the passages' bridge kit (passageKits)
+    int era = 0;     // the kit's tileset
     const BridgeKitData* d = nullptr;
     const BridgeKitData* u = nullptr;
     std::string coastA, water, coastB, road;
-    const passages::TileMap* tiles = nullptr;  // (a passage's: the template tile -> the mod's tile)
+    const CanvasBridge* canvas = nullptr;  // (a passage's)
 };
-// The passages' bridge kits for a map's tileset: each mapping with all its template's tiles mapped, once for each of
-// its terrains.
+// The passages' bridge kits for a map's tileset: each canvas bridge of it, once for each of its terrains.
 std::vector<KitUse> passageKits(int era) {
     std::vector<KitUse> out;
-    for (const passages::BridgeMapping& m : passages::inUse().bridges) {
-        if (m.era != era || !bridgesAvailable(m.templateEra)) continue;
-        bool all = true;
-        uint16_t to = 0;
-        for (const uint16_t v : bridgeKitTileValues(m.templateEra)) all = all && passages::mapTile(m.tiles, v, to);
-        if (!all) continue;
-        for (const passages::BridgeTerrains& t : m.terrains) {
+    for (const CanvasBridge& c : canvasBridges()) {
+        if (c.era != era) continue;
+        for (const passages::BridgeTerrains& t : c.terrains) {
             if (t.coastA.empty() || t.water.empty()) continue;
             KitUse k;
-            k.index = int(out.size()), k.era = m.templateEra, k.d = kitOf(m.templateEra, false), k.u = kitOf(m.templateEra, true);
-            k.coastA = t.coastA, k.water = t.water, k.coastB = t.coastB.empty() ? t.coastA : t.coastB, k.tiles = &m.tiles;
+            k.index = int(out.size()), k.era = era, k.canvas = &c;
+            k.coastA = t.coastA, k.water = t.water, k.coastB = t.coastB.empty() ? t.coastA : t.coastB;
             out.push_back(std::move(k));
         }
     }
@@ -347,18 +364,64 @@ KitUse kitUse(int era, int index) {
     std::vector<KitUse> p = passageKits(era);
     return index < int(p.size()) ? p[size_t(index)] : KitUse{};
 }
-// A kit's tiles: a passage's are its template's (the approved bridges or the corpus's variants: the map's tiles are the
-// mod's, other tiles than the template's) with the mod's tiles.
+// A game kit's tiles (a canvas bridge's are its plan's).
 std::vector<Editor::TileAt> kitTiles(const KitUse& k, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on, bool around) {
-    if (!k.tiles) return bridgeTiles(k.era, u, length, width, ox, oy, seed, on, around);
-    std::vector<Editor::TileAt> t = bridgeTiles(k.era, u, length, width, ox, oy, seed);
-    for (Editor::TileAt& c : t) passages::mapTile(*k.tiles, c.value, c.value);
-    return t;
+    if (k.canvas) return {};
+    return bridgeTiles(k.era, u, length, width, ox, oy, seed, on, around);
 }
 
 }  // namespace
 
 bool bridgesAvailable(const Editor& ed) { return bridgesAvailable(ed.era() & 7) || !passageKits(ed.era() & 7).empty(); }
+
+passages::BridgeMapping bridgeCanvasOfKit(int era, bool u) {
+    passages::BridgeMapping m;
+    const BridgeKitData* d = kitOf(era, false);
+    const BridgeKitData* uk = kitOf(era, true);
+    if (!d || !uk) return m;
+    const BridgeKitData& k = u ? *uk : *d;
+    m.name = "Bridge", m.era = era, m.gridAuto = false;
+    m.terrains.push_back({k.ground, k.water, k.ground});
+    const int length = 1, width = 1;
+    std::map<std::pair<int, int>, uint16_t> at;
+    for (const Editor::TileAt& c : bridgeTiles(era, u, length, width, 0, 0, 0)) at[{c.x, c.y}] = c.value;
+    // (the river's first water diamond, from the origin; the deck's way along the river's rows)
+    const std::pair<int, int> dOff{d->offset[0], d->offset[1]};
+    const std::pair<int, int> off = u ? uOffset(*d, *uk, length, width, dOff) : dOff;
+    const double rx = -off.first / 2.0, ry = -off.second;
+    const int deckX = u ? -d->lengthStep[0] : d->lengthStep[0], deckY = d->lengthStep[1];
+    const int rows = d->rowsAtSize1 + length - 1;
+    const auto along = [&](double X, double Y) { return (X * deckX + Y * deckY) / 2; };
+    const double a0 = along(rx, ry) - 0.5, a1 = along(rx + deckX * (rows - 1), ry + deckY * (rows - 1)) + 0.5;
+    int x0 = INT_MAX, y0 = INT_MAX;
+    for (const auto& [p, v] : at) x0 = std::min(x0, p.first), y0 = std::min(y0, p.second);
+    for (const Cell& c : cellsOf(k, length, width)) {
+        const int extL = k.capStart + k.capFar + k.halfLength + 2 * length;
+        const char cls = axisClass(c.a, extL, k.capStart, k.capFar, k.periodLength)[0];
+        // (the middle: a length's 2 places a deck; its half past them (halfLength) goes with the end cap)
+        const uint8_t role = cls == 'S' ? passages::kStart : cls == 'F' || c.a - k.capStart >= 2 * length ? passages::kEnd : passages::kDeck;
+        for (int h = 0; h < 2; ++h) {
+            const auto i = at.find({c.x + h, c.y});
+            if (i == at.end()) continue;
+            passages::Cell pc;
+            pc.x = c.x + h - x0, pc.y = c.y - y0, pc.tile = i->second, pc.role = role;
+            // (the deck over the water; the caps and the cells of the river's own rows (a deck of length 1) as the river's)
+            const double a = along((c.x + h + 0.5) / 2, c.y + 0.5);
+            pc.mark = role == passages::kDeck || (std::min(a0, a1) < a && a < std::max(a0, a1)) ? passages::kHigh : passages::kLow;
+            m.cells.push_back(pc);
+        }
+    }
+    for (int g = 0; g < 4; ++g) {  // (the grid of the map's corners: the origin is the river's first water diamond and the offset)
+        bool same = true;
+        for (int y = 0; y < 4 && same; ++y)
+            for (int x = 0; x < 8 && same; ++x) same = passages::cornerOnGrid(g, x, y) == passages::cornerOnGrid(0, x + x0 + off.first, y + y0 + off.second);
+        if (same) {
+            m.grid = g;
+            break;
+        }
+    }
+    return m;
+}
 
 std::vector<Editor::TileAt> bridgeTiles(int era, bool u, int length, int width, int ox, int oy, uint32_t seed, const Editor* on, bool around) {
     std::vector<Editor::TileAt> out;
@@ -562,7 +625,135 @@ Diamond nearestDiamond(int px, int py) {
 
 namespace {
 
+// A map terrain's id by its name (a mod's tab has the ground in the game terrains' names, "Water (Dirt)").
+uint16_t terrainIdOf(const Editor& ed, const std::string& name) {
+    if (name.empty()) return 0;
+    for (uint16_t id = 1; id < 256; ++id)
+        if (ed.terrainName(id) == name) return id;
+    for (uint16_t id = 1; id < 256; ++id)
+        if (ed.terrainName(id).rfind(name + " (", 0) == 0) return id;
+    return 0;
+}
+
+// A canvas bridge (a passage's): the drag goes along its deck's diagonal over a river (as planWith finds it); the deck
+// repeats so that the canvas's water corners are as long as the river's (its water diamonds on the drag's line, and
+// the corner row past them); the bridge lies on the river's first water corner row and its middle on the drag's line.
+// Its shore: each corner of the canvas on the map (water; coast A by the start cap, coast B by the end cap).
+BridgePlan planCanvas(const Editor& ed, const KitUse& use, int x0, int y0, int x1, int y1, uint32_t seed) {
+    BridgePlan plan;
+    const CanvasBridge& cb = *use.canvas;
+    const passages::BridgeShape& sh = cb.shape;
+    plan.kit = use.index, plan.ground = use.coastA, plan.water = use.water, plan.seed = seed;
+    if (!ed.canPaintTerrain()) return plan.problem = BridgePlan::Problem::NoIsom, plan;
+    const int dx = x1 - x0, dy = y1 - y0;
+    const bool downRight = (dx >= 0) == (dy >= 0);
+    if (downRight != (sh.deck == 0)) return plan.problem = BridgePlan::Problem::NoKit, plan;  // (another diagonal: this canvas's deck does not go that way)
+    plan.u = sh.deck == 1;
+    const Diamond step{dx >= 0 ? 1 : -1, downRight == (dx >= 0) ? 1 : -1};
+    const Diamond D{sh.stepX > 0 ? 1 : -1, sh.stepY > 0 ? 1 : -1};  // (the deck's way: from the start cap to the end cap)
+    const Diamond A{D.x, -D.y};                                       // (across it)
+    const int kd = std::max(1, std::abs(sh.stepX) / 2);              // (diamonds from one deck to the next)
+    Terrains t{ed, use.water};
+    if (!(t.waterId = terrainIdOf(ed, use.water))) return plan.problem = BridgePlan::Problem::NoKit, plan;
+    const Diamond s = nearestDiamond(x0, y0);
+    const int steps = int((double(dx) * 64 * step.x + double(dy) * 32 * step.y) / (64.0 * 64 + 32.0 * 32));
+    if (t.water4(s)) return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
+    const int far = std::max(ed.width(), ed.height());
+    int k1 = 1;
+    while (k1 <= steps && !t.water1(s + step * k1)) ++k1;
+    if (k1 > steps) return plan.problem = BridgePlan::Problem::Short, plan;
+    int k4 = k1;
+    while (k4 <= k1 + far && t.water1(s + step * k4) && !t.water4(s + step * k4)) ++k4;
+    if (t.water4(s + step * k4)) k1 = k4;
+    int rows = 0;
+    while (rows < far && t.water4(s + step * (k1 + rows))) ++rows;
+    if (!rows) return plan.problem = BridgePlan::Problem::NeedsTerrain, plan;
+    if (steps < k1 + rows) return plan.problem = BridgePlan::Problem::ReachGround, plan;
+    // (rect-grid points along the deck and across it, in diamonds)
+    const auto along = [&](double X, double Y) { return (X * D.x + Y * D.y) / 2; };
+    const auto side = [&](double X, double Y) { return (X * A.x + Y * A.y) / 2; };
+    const Diamond F = s + step * k1, L = s + step * (k1 + rows - 1);
+    const double ra0 = std::min(along(F.x, F.y), along(L.x, L.y)) - 0.5;  // (the river's first water corner row along the deck)
+    // The canvas with n decks, its cell (0, 0) on the map's tile (gx + 2 X, gy + Y) for a diamond (X, Y): its pieces'
+    // tiles and its corners (map tile points).
+    const int gx = cb.grid & 1, gy = cb.grid >> 1;
+    using Placed = std::pair<passages::CanvasCorner, std::pair<int, int>>;
+    using Marked = std::tuple<int, int, uint8_t>;  // (a piece's cell on the map and its mark)
+    const auto build = [&](int n, int X, int Y, std::vector<Editor::TileAt>* tiles, std::vector<Placed>* corners, std::vector<Marked>* marks = nullptr) {
+        for (int piece = 0; piece < 3; ++piece)
+            for (int i = 0; i < (piece == 1 ? n : 1); ++i) {
+                const int sx = piece == 1 ? i * sh.stepX : piece == 2 ? (n - 1) * sh.stepX : 0;
+                const int sy = piece == 1 ? i * sh.stepY : piece == 2 ? (n - 1) * sh.stepY : 0;
+                if (tiles)
+                    for (const passages::Cell& c : sh.pieces[size_t(piece)]) tiles->push_back({gx + 2 * X + c.x + sx, gy + Y + c.y + sy, uint16_t(c.tile)});
+                if (marks)
+                    for (const passages::Cell& c : sh.pieces[size_t(piece)])
+                        if (c.mark != passages::kUnmarked) marks->push_back({gx + 2 * X + c.x + sx, gy + Y + c.y + sy, c.mark});
+                if (corners)
+                    for (const passages::CanvasCorner& c : sh.corners)
+                        if (c.piece == piece) corners->push_back({c, {gx + 2 * X + c.x + sx, gy + Y + c.y + sy}});
+            }
+    };
+    // (one deck's cells along the deck, at diamond 0: a first guess of the decks that cover the river's water rows)
+    double d0 = 1e18, d1 = -1e18;
+    for (const passages::Cell& c : sh.pieces[1])
+        for (const auto& [ex, ey] : {std::pair{0, 0}, {1, 0}, {0, 1}, {1, 1}}) {
+            const double v = along((gx + c.x + ex) / 2.0, gy + c.y + ey);
+            d0 = std::min(d0, v), d1 = std::max(d1, v);
+        }
+    // (the water's cells of one deck along it, their middles: as long as the river's water rows that one deck covers)
+    double w0 = 1e18, w1 = -1e18;
+    {
+        std::vector<Marked> ms;
+        build(1, 0, 0, nullptr, nullptr, &ms);
+        for (const auto& [x, y, mark] : ms)
+            if (mark == passages::kHigh) w0 = std::min(w0, along((x + 0.5) / 2, y + 0.5)), w1 = std::max(w1, along((x + 0.5) / 2, y + 0.5));
+    }
+    // (no water marks: the deck's cells are the water's)
+    if (w0 > w1) w0 = d0 + 0.25, w1 = d1 - 0.25;
+    // The decks: the water's cells of n decks span the river's water rows (a cell's middle is a quarter row in from its
+    // edge: one deck of the game's kits has rowsAtSize1 - 0.25 between its water cells' middles).
+    const int n = std::clamp(int(std::lround((rows - (w1 - w0) - 0.25) / kd)) + 1, 1, 64);
+    plan.length = n, plan.width = 0;
+    // (across: the bridge's middle on the drag's line; along: its water's middle on the river's)
+    std::vector<Editor::TileAt> tiles;
+    build(n, 0, 0, &tiles, nullptr);
+    if (tiles.empty()) return plan.problem = BridgePlan::Problem::NoKit, plan;
+    double c0 = 0;
+    for (const Editor::TileAt& c : tiles) c0 += side((c.x + 0.5) / 2, c.y + 0.5);
+    c0 /= double(tiles.size());
+    const double waterMiddle = (w0 + w1) / 2 + (n - 1) * kd / 2.0, riverMiddle = ra0 + rows / 2.0;
+    const int a = int(std::lround(riverMiddle - waterMiddle)), b = int(std::lround(side(s.x, s.y) - c0));
+    const int X = a * D.x + b * A.x, Y = a * D.y + b * A.y;
+    std::vector<Placed> cs;
+    tiles.clear();
+    build(n, X, Y, &tiles, &cs);
+    for (const Editor::TileAt& c : tiles)
+        if (c.x < 0 || c.y < 0 || c.x >= ed.width() || c.y >= ed.height()) return plan.problem = BridgePlan::Problem::OffMap, plan;
+    const uint16_t water = t.waterId, coastA = terrainIdOf(ed, use.coastA), coastB = terrainIdOf(ed, use.coastB);
+    if (!coastA || !coastB) return plan.problem = BridgePlan::Problem::NoKit, plan;
+    // (the shore: the canvas's corners; a deck's coast corner is coast A on the start cap's half)
+    const double mid = ra0 + rows / 2.0;
+    std::vector<CornerValue> grounds, groundsB, waters;
+    std::set<std::pair<int, int>> seen;
+    for (const auto& [c, at] : cs) {
+        if (at.first % 2 || !seen.insert(at).second) continue;
+        const int cx = at.first / 2, cy = at.second;
+        if (cx < 0 || cy < 0 || cx > ed.width() / 2 || cy > ed.height()) continue;
+        if (c.high) waters.push_back({cx, cy, water});
+        else if (c.piece == 0 || (c.piece == 1 && along(cx, cy) < mid)) grounds.push_back({cx, cy, coastA});
+        else groundsB.push_back({cx, cy, coastB});
+    }
+    for (auto* list : {&grounds, &groundsB, &waters})
+        if (!list->empty()) plan.shore.push_back(std::move(*list));
+    plan.ox = gx + 2 * X, plan.oy = gy + Y;
+    plan.tiles = std::move(tiles);
+    plan.problem = BridgePlan::Problem::None;
+    return plan;
+}
+
 BridgePlan planWith(const Editor& ed, const KitUse& use, int x0, int y0, int x1, int y1, int width, uint32_t seed) {
+    if (use.canvas) return planCanvas(ed, use, x0, y0, x1, y1, seed);
     BridgePlan plan;
     const int era = use.era;
     const BridgeKitData* d = use.d;
@@ -592,7 +783,6 @@ BridgePlan planWith(const Editor& ed, const KitUse& use, int x0, int y0, int x1,
         return uint16_t(0);
     };
     Terrains t{ed, use.water};
-    if (use.tiles && !(t.waterId = terrainId(use.water))) return plan.problem = BridgePlan::Problem::NoKit, plan;
     const Diamond s = nearestDiamond(x0, y0);
     const int steps = int((double(dx) * 64 * step.x + double(dy) * 32 * step.y) / (64.0 * 64 + 32.0 * 32));  // diamonds along the drag
     // No bridge: why, and the tiles of a bridge as long as the drag with its middle on the drag's middle (the red preview).
