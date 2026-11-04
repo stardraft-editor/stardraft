@@ -535,6 +535,13 @@ endif()
 # The version name that the editors say: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
 # .github/workflows/build.yml); other builds say the newest release tag before their commit (v0.8.2: "0.8.2"), or the
 # newest release tag of the checkout (a shallow one: CI's checkout gets the tags only), else "dev".
+# A public build: a release's (CI gives its version name, -DSTARDRAFT_VERSION_NAME); the others are not (built here,
+# master's builds, the hidden test build). The tools that wait for a review are only in the others (core/ids.inc).
+if(STARDRAFT_VERSION_NAME)
+    set(publicBuild 1)
+else()
+    set(publicBuild 0)
+endif()
 if(NOT STARDRAFT_VERSION_NAME)
     find_package(Git QUIET)
     if(GIT_FOUND)
@@ -649,7 +656,8 @@ if(STARDRAFT_RENDERER)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
-    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
+                               STARDRAFT_PUBLIC_BUILD=${publicBuild})
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)

@@ -2,8 +2,13 @@
 // were.
 
 // The Ramp and Bridge tools, the ramps that a terrain edit fits again, and Tools > Cosmonarchy > Ramp and bridge mapper:
-// hidden until they are reviewed (the code stays; true shows them again).
+// in the builds that are not public (built here, master's builds, the hidden test build), hidden in release builds
+// (STARDRAFT_PUBLIC_BUILD, CMakeLists.txt) until they are reviewed.
+#if defined(STARDRAFT_PUBLIC_BUILD) && STARDRAFT_PUBLIC_BUILD
 constexpr bool kRampBridgeTools = false;
+#else
+constexpr bool kRampBridgeTools = true;
+#endif
 
 // --- Ids -----------------------------------------------------------------------------------------
 
