@@ -642,11 +642,14 @@ public:
                 const int mid = (boxR.top + boxR.bottom) / 2;
                 const draw::Rect value{left, boxR.top, right - spin, boxR.bottom}, up{right - spin, boxR.top + pad, right - scale(2), mid},
                     down{right - spin, mid, right - scale(2), boxR.bottom - pad};
-                // Its name inside at the left, the number at the right (as the other number boxes).
-                const int nameRight = value.left + scale(7) + c.measure(tr(name));
-                c.text({value.left + scale(7), value.top, nameRight, value.bottom}, name, kDim, draw::kMiddle | draw::kLeft);
+                // Its name inside at the left, the number at the right (as the other number boxes); the one Size: the two together in the middle.
+                const std::wstring number = stripNumberText(which);
+                const int nameW = c.measure(tr(name)), numberW = c.measure(number), between = scale(6);
+                const int nameLeft = linked ? (value.left + value.right - nameW - between - numberW) / 2 : value.left + scale(7);
+                const int nameRight = nameLeft + nameW;
+                c.text({nameLeft, value.top, nameRight, value.bottom}, name, kDim, draw::kMiddle | draw::kLeft);
                 const draw::Rect typed{nameRight + scale(1), value.top, value.right, value.bottom};  // (the field over the number)
-                if (editing_ != which) c.text({typed.left, value.top, value.right - scale(4), value.bottom}, stripNumberText(which), kText, draw::kMiddle | draw::kRight);
+                if (editing_ != which) c.text({typed.left, value.top, linked ? nameRight + between + numberW : value.right - scale(4), value.bottom}, number, kText, draw::kMiddle | draw::kRight);
                 for (const bool more : {true, false}) {
                     const draw::Rect k = more ? up : down;
                     const bool over = hot(k);
