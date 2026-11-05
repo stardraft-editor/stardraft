@@ -1448,14 +1448,14 @@ void tilesScene(render::Scene& s, float wx, float wy) {
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     auto add = [&](int x, int y, uint16_t v) {
         if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return;
-        if (app.terrainPasting || tilesMaskLets(x, y)) cells.push_back({y * ed.width() + x, v});  // (the mask, not for a paste: what a click would place; the frame stays the brush's)
+        if (app.terrainPasting || tilesMaskLets(x, y, v)) cells.push_back({y * ed.width() + x, v});  // (the mask, not for a paste: what a click would place; the frame stays the brush's)
         x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     };
     // The mirrors' images of the brush's tiles (tilesMirrored): ghosts too, outside the brush's frame.
     auto addMirrors = [&](const std::vector<Editor::TileAt>& brush) {
         const std::vector<Editor::TileAt> all = tilesMirrored(brush);
         for (size_t i = brush.size(); i < all.size(); ++i)
-            if (app.terrainPasting || tilesMaskLets(all[i].x, all[i].y)) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
+            if (app.terrainPasting || tilesMaskLets(all[i].x, all[i].y, all[i].value)) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
     };
     const int tool = currentTool();
     if (tool == TWand) return;  // (its selection only)

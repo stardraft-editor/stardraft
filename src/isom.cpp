@@ -629,6 +629,8 @@ bool IsomGrid::paint(int x, int y, uint16_t terrain, int brushSize) {
 }
 
 bool IsomGrid::apply(const std::vector<CornerValue>& locked) {
+    const std::vector<std::pair<int, int>> hold = std::move(holdNext_);
+    holdNext_.clear();
     if (!table_ || locked.empty()) return false;
     for (const auto& c : locked)
         if (!table_->isTerrain(c.terrain)) return false;
@@ -639,6 +641,10 @@ bool IsomGrid::apply(const std::vector<CornerValue>& locked) {
     fixFailed_.clear();
     for (const auto& c : locked)
         if (isCorner(c.x, c.y)) locked_[size_t(c.y + 1) * (rectCols_ + 3) + (c.x + 1)] = 1;
+    held_.clear();
+    if (!hold.empty()) held_.assign(n, 0);
+    for (const auto& [x, y] : hold)
+        if (isCorner(x, y)) held_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)] = locked_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)] = 1;
     // (a terrain with twin grounds: the one most around the stroke's first edit is its ground for the whole stroke; the
     // settle does not take the others, so the stroke's ring is one terrain: Caution dragged from Substructure on Jungle
     // out onto Dirt keeps that Substructure, with Jungle around it, and not a seam of the two Substructures that cannot be)
@@ -669,6 +675,7 @@ bool IsomGrid::apply(const std::vector<CornerValue>& locked) {
     lastTerrain_ = locked.front().terrain;
     repairUntileable();
     avoid_.clear();
+    held_.clear();
     return true;
 }
 
@@ -704,6 +711,8 @@ void IsomGrid::settleFrom(const std::vector<CornerValue>& seeds, bool markSource
         if (markSource) sourceAt(c.x, c.y) = c.terrain;
         queue.push_back({c.x, c.y});
     }
+    for (size_t i = 0; i < held_.size(); ++i)  // (settled as they are: the wave fits round them, and they do not start it)
+        if (held_[i]) processed[i] = 1;
     const uint16_t terrains = table_->terrainCount();
     for (size_t head = 0; head < queue.size(); ++head) {
         auto [x, y] = queue[head];
@@ -1048,6 +1057,7 @@ bool IsomGrid::pushRectToward(int rx, int ry, uint16_t terrain) {
     if (far <= 1) return false;
     std::vector<CornerValue> moved;
     for (const auto& p : pts) {
+        if (!held_.empty() && held_[size_t(p[1] + 1) * (rectCols_ + 3) + (p[0] + 1)]) continue;
         auto path = table_->path(terrain, corner(p[0], p[1]), avoid);
         if (path.size() == far) moved.push_back({p[0], p[1], path[path.size() - 2]});
     }

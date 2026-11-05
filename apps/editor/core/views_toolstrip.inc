@@ -593,9 +593,9 @@ public:
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         if (stripHasSize() && app.mode == Mode::Terrain) {
             // Terrain: the brush in one field the width of the strip (GitHub #113):
-            //   [ shape v | width w ^v | height h ^v | link ]
+            //   [ shape v | W n ^v | H n ^v | link ], with the link on: [ shape v | Size n ^v | link ]
             // The shape opens a list; each number has a spin at its right, takes the mouse wheel and a click types it. The
-            // link keeps the height the same as the width (the height then shows in the dim color).
+            // link makes the width and the height one number.
             const int h = scale(26), seg = scale(40), linkW = scale(34), spin = scale(14), pad = scale(4);
             const bool linked = app.brushHeight <= 0;
             const bool editing = editing_ == kNumSize || editing_ == kNumHeight;
@@ -636,40 +636,35 @@ public:
             }, linked ? L"The height is the same as the size. Click to give the height a value of its own."
                         : L"The height has a value of its own. Click to make it the same as the size.");
             divider(lk.left);
-            // The width and the height, a divider between them.
+            // One size, or the width and the height with a divider between them.
             const int mx = (sr.right + lk.left) / 2;
-            auto part = [&](int which, int left, int right, const wchar_t* suffix, const wchar_t* tip) {
+            auto part = [&](int which, int left, int right, const wchar_t* name, const wchar_t* tip) {
                 const int mid = (boxR.top + boxR.bottom) / 2;
                 const draw::Rect value{left, boxR.top, right - spin, boxR.bottom}, up{right - spin, boxR.top + pad, right - scale(2), mid},
                     down{right - spin, mid, right - scale(2), boxR.bottom - pad};
-                if (editing_ != which) {
-                    // The number and a small suffix after it (w: width, h: height), centered together.
-                    const std::wstring t = stripNumberText(which);
-                    const int nw = c.measure(t);
-                    const draw::Font of = c.setFont(c.font({draw::Face::Ui, smallPx()}));
-                    const int sw = c.measure(suffix);
-                    c.setFont(of);
-                    const int gx = (value.left + value.right - nw - scale(2) - sw) / 2;
-                    c.text({gx, value.top, gx + nw, value.bottom}, t, which == kNumHeight && linked ? kDim : kText, draw::kMiddle | draw::kLeft);
-                    const draw::Font of2 = c.setFont(c.font({draw::Face::Ui, smallPx()}));
-                    const int sx = gx + nw + scale(2);  // near the numbers' baseline
-                    c.text({sx, value.top + scale(2), sx + sw, value.bottom}, suffix, kFaint, draw::kMiddle | draw::kLeft);
-                    c.setFont(of2);
-                }
+                // Its name inside at the left, the number at the right (as the other number boxes).
+                const int nameRight = value.left + scale(7) + c.measure(tr(name));
+                c.text({value.left + scale(7), value.top, nameRight, value.bottom}, name, kDim, draw::kMiddle | draw::kLeft);
+                const draw::Rect typed{nameRight + scale(1), value.top, value.right, value.bottom};  // (the field over the number)
+                if (editing_ != which) c.text({typed.left, value.top, value.right - scale(4), value.bottom}, stripNumberText(which), kText, draw::kMiddle | draw::kRight);
                 for (const bool more : {true, false}) {
                     const draw::Rect k = more ? up : down;
                     const bool over = hot(k);
                     if (over) box(c, k, kCtlHot, kNoLine, 2);
                     glyph(c, k, more ? L'\xE70E' : L'\xE70D', over ? kText : kDim, 6);  // chevrons up and down
                 }
-                addHitC(value, [this, which, value] { beginEdit(which, value); }, tip, draw::Cursor::IBeam);
+                addHitC(value, [this, which, typed] { beginEdit(which, typed); }, tip, draw::Cursor::IBeam);
                 addHit(up, [which] { stripNumberStep(which, 1); }, L"One step more");
                 addHit(down, [which] { stripNumberStep(which, -1); }, L"One step less");
                 numbers_.push_back({{left, boxR.top, right, boxR.bottom}, which});
             };
-            part(kNumSize, sr.right + 1, mx, L"w", kSizeTip);
-            divider(mx);
-            part(kNumHeight, mx + 1, lk.left, L"h", kHeightTip);
+            if (linked) {
+                part(kNumSize, sr.right + 1, lk.left, L"Size", kSizeTip);
+            } else {
+                part(kNumSize, sr.right + 1, mx, L"W", kSizeTip);
+                divider(mx);
+                part(kNumHeight, mx + 1, lk.left, L"H", kHeightTip);
+            }
             y += h + gap;
         } else if (stripHasSize()) {
             numberRow(kNumSize, L"Size", kSizeTip);

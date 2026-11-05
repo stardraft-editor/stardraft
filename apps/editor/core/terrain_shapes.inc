@@ -175,7 +175,7 @@ void shapeMakeTiles(const std::vector<std::pair<int, int>>& pts) {
         }
     }
     for (const auto& c : gTiles->solid ? solidMirrored(cells) : tilesMirrored(cells))
-        if (ed.terrain().tiles[size_t(c.y) * w + c.x] != c.value && tilesMaskLets(c.x, c.y)) gShape.ghost.push_back({c.y * w + c.x, c.value});
+        if (ed.terrain().tiles[size_t(c.y) * w + c.x] != c.value && tilesMaskLets(c.x, c.y, c.value)) gShape.ghost.push_back({c.y * w + c.x, c.value});
     gShape.cells = std::move(cells);
 }
 

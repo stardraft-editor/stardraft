@@ -146,7 +146,7 @@ struct PaletteGridView : draw::View {
                 else drawMatched(c, t, e.label, words, kText);
             }
             if (mode == Mode::Terrain && app.ed && std::ranges::find(app.ed->terrainMask(), uint16_t(e.value)) != app.ed->terrainMask().end())
-                c.frame({r.left + 1, r.top + 1, r.right - 1, r.bottom - 1}, kWarn, scale(2));  // (in the mask: paletteMaskToggle)
+                maskMarker(c, r);  // (in the mask: paletteMaskToggle)
         }
         if (app.ed && rows.empty())  // nothing agrees with the search: only None, dim, where the first row goes
             c.text({scale(6), 0, width() - scale(6), scale(30)}, L"None", kDim, draw::kMiddle);

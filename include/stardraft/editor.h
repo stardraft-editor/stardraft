@@ -846,6 +846,7 @@ private:
     std::optional<IsomGrid> maskGround_;            // (a stroke's ground when it began: what it paints round does not join the mask)
     void clearMasks();
     void maskCorners(std::vector<CornerValue>& corners) const;  // (only the corners that the mask lets change)
+    void holdMasked(const std::vector<CornerValue>& corners);  // (the corners near them that the mask keeps: for the next isom_.apply)
     struct SymmetricPlace {
         int x, y;
         bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way

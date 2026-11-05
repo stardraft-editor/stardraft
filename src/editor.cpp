@@ -1656,7 +1656,41 @@ bool Editor::terrainMaskAllows(uint16_t terrain) const {
 void Editor::maskCorners(std::vector<CornerValue>& corners) const {
     if (terrainMask_.empty()) return;
     const IsomGrid& ground = maskGround_ ? *maskGround_ : isom_;
-    std::erase_if(corners, [&](const CornerValue& c) { return !terrainMaskAllows(ground.terrainAt(c.x, c.y)); });
+    // (the terrain it paints with stays in: without its corners, the edges would leave thin stripes along it)
+    const IsomTerrainTable* table = modTable_ ? modTable_.get() : IsomTerrainTable::forEra(era_);
+    const int reach = table ? std::min(table->diameter(), int(kProtectMargin)) : 0;
+    std::erase_if(corners, [&](const CornerValue& c) {
+        const uint16_t t = ground.terrainAt(c.x, c.y);
+        if (t != c.terrain && !terrainMaskAllows(t)) return true;
+        // (and room for its edge: a terrain the mask keeps, nearer than the borders between the two need, would be a hard seam)
+        for (int dy = -2 * reach; dy <= 2 * reach; ++dy)
+            for (int dx = -2 * reach; dx <= 2 * reach; ++dx) {
+                const int x = c.x + dx, y = c.y + dy;
+                if (!isom_.isCorner(x, y)) continue;
+                const uint16_t kept = ground.terrainAt(x, y);
+                if (kept != c.terrain && !terrainMaskAllows(kept) && table->isTerrain(kept) && table->distance(c.terrain, kept) > (std::abs(dx) + std::abs(dy) + 1) / 2) return true;
+            }
+        return false;
+    });
+}
+
+void Editor::holdMasked(const std::vector<CornerValue>& corners) {
+    if (terrainMask_.empty() || corners.empty()) return;
+    const IsomGrid& ground = maskGround_ ? *maskGround_ : isom_;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    std::set<std::pair<int, int>> listed;
+    for (const auto& c : corners) {
+        listed.insert({c.x, c.y});
+        x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    }
+    const uint16_t painted = corners.front().terrain;  // (the edit's own come first: pinProtected)
+    std::vector<std::pair<int, int>> hold;
+    for (int cy = std::max(-1, y0 - kProtectMargin); cy <= std::min(isom_.rectRows() + 1, y1 + kProtectMargin); ++cy)
+        for (int cx = std::max(-1, x0 - kProtectMargin); cx <= std::min(isom_.rectCols() + 1, x1 + kProtectMargin); ++cx) {
+            if (!isom_.isCorner(cx, cy) || listed.contains({cx, cy})) continue;
+            if (const uint16_t was = ground.terrainAt(cx, cy); was != painted && !terrainMaskAllows(was)) hold.push_back({cx, cy});
+        }
+    isom_.holdNextApply(std::move(hold));
 }
 
 bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced) {
@@ -1700,6 +1734,7 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     const std::optional<ProtectedBefore> kept = protectedBefore();
+    holdMasked(corners);  // (the mask: the repair changes only what it lets change)
     if (!isom_.apply(corners)) return false;
     if (overPlaced)  // (the edit's own corners: not the protected ones it keeps)
         markPlacedTilesDirty(own < corners.size() ? std::vector<CornerValue>(corners.begin(), corners.begin() + long(own)) : corners);
@@ -2290,7 +2325,9 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
         for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
         if (same) continue;
         const int mine = pinProtected(dab, kProtectMargin);  // (near protected tiles: their corners stay; -1: none near)
-        if (mine == 0 || !isom_.apply(dab)) continue;
+        if (mine == 0) continue;
+        holdMasked(dab);
+        if (!isom_.apply(dab)) continue;
         markPlacedTilesDirty(std::vector<CornerValue>(dab.begin(), mine > 0 ? dab.begin() + mine : dab.end()));
         std::string err;
         isom_.store(chk_, err);

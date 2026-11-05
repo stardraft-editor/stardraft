@@ -320,13 +320,14 @@ std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cel
 // The mask (Alt+click in the lists; none for Custom): only the cells it lets change. Rectangle: a tile of a masked terrain
 // (its group's; a mod's terrains have no groups of their own: the terrain there); Tile: a tile of a masked value.
 const std::vector<std::array<uint16_t, 2>>& solidGroupTerrains();
-bool tilesMaskLets(int x, int y) {
+bool tilesMaskLets(int x, int y, uint16_t value) {
     const Editor& ed = *appState().ed;
     const std::vector<uint16_t>& mask = gTiles->solid ? ed.terrainMask() : ed.tileMask();
     if (mask.empty() || gTiles->stamps) return true;
     if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return false;
     const auto in = [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); };
     const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
+    if (v >> 4 == value >> 4) return true;  // (what it paints with is always in the mask)
     if (!gTiles->solid) return in(v);
     if (!ed.tileset().modTerrains.empty()) return ed.terrainMaskAllows(ed.terrainAt(x * 32 + 16, y * 32 + 16));
     const auto& gt = solidGroupTerrains();
@@ -334,7 +335,7 @@ bool tilesMaskLets(int x, int y) {
     return g < gt.size() && (in(gt[g][0]) || in(gt[g][1]));
 }
 std::vector<Editor::TileAt> tilesMasked(std::vector<Editor::TileAt> cells) {
-    std::erase_if(cells, [](const Editor::TileAt& c) { return !tilesMaskLets(c.x, c.y); });
+    std::erase_if(cells, [](const Editor::TileAt& c) { return !tilesMaskLets(c.x, c.y, c.value); });
     return cells;
 }
 

@@ -111,6 +111,8 @@ CASES += [
                            "--click", "195,697", "--click", "830,300", "--click", "1000,600", "--wait", "300"], "map"),
     # The mask: Space on Platform only (Alt+click in the list; the rest under the brush stays); its row has an outline.
     ("map-terrain-mask", ["--mode", "terrain", "--wheel", "145,491,0,6", "--click", "120,622", "--click", "120,668:Alt", "--click", "830,450", "--wait", "300"], "map"),
+    # What it paints with is always in the mask: a second dab next to the first has no stripes between them.
+    ("map-terrain-mask-own", ["--mode", "terrain", "--wheel", "145,491,0,6", "--click", "120,622", "--click", "120,668:Alt", "--click", "830,450", "--click", "900,470", "--wait", "300"], "map"),
     ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
@@ -563,17 +565,17 @@ CASES += [
     # The Diamond's height (#dev, 2026-10-27): two clicks on the height's up arrow make it 2 x 4 (no longer linked), the
     # size's up arrow makes it 3 x 4 (diamonds, Isometric); Rectangle keeps its own brush (GitHub #155): 2 x 1 tiles,
     # its up arrow makes it 3 x 1.
-    ("map-brush-diamond-height", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
+    ("map-brush-diamond-height", ["--mode", "terrain", "--click", "330,487", "--click", "296,485:Repeat2", "--click", "198,485",
                                   "--click", "246,427", "--click", "198,487"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
     # (GitHub #135, #136): size 7 (five clicks on the size's up arrow) with the height linked (330,487: the link; the
     # Rectangle brush is 2 x 1 at first), the mouse over the map. The Square (Rectangle's first shape) stays as it
     # was: its tiles and a box.
     ("map-tiles-brush-diamond", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,-1", "--click", "330,487",
-                                 "--click", "198,487:Repeat5", "--move", "700,600"], "map"),
-    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "330,487", "--click", "198,487:Repeat5",
+                                 "--click", "296,487:Repeat5", "--move", "700,600"], "map"),
+    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "330,487", "--click", "296,487:Repeat5",
                                 "--move", "700,600"], "map"),
-    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--click", "330,487", "--click", "198,487:Repeat5",
+    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--click", "330,487", "--click", "296,487:Repeat5",
                                 "--move", "700,600"], "map"),
     # Rect (the code's Solid, docs/dev/solid-terrain-brush.md): Solar Array from the terrain list (the quick picker), the
     # Brush at size 1 (1 x 1: the brush is in tiles) puts one tile of Solar Array's own; Undo takes it back; Ctrl+Alt+T
@@ -2031,12 +2033,12 @@ def check_tiles_grid(width):
 def check_diamond_height(output):
     """The Diamond's height has a value of its own (#dev, 2026-10-27): 2 x 4, 3 x 4; linked in Rectangle it keeps the
     brush of its own (GitHub #155): 2 x 1 tiles, and its up arrow makes it 3 x 1, which it paints as a row of 3."""
-    return expect(output, 4, [
-        ("the height's up arrow did not make the diamond 2 x 4", lambda s: s[0]["brush"] == "2x4"),
-        ("the size's up arrow did not make it 3 x 4", lambda s: s[1]["brush"] == "3x4"),
-        ("Rectangle did not keep its own size (2 x 1)", lambda s: s[2]["brush"] == "2x1"),
-        ("in Rectangle the brush is not 3 x 1 tiles", lambda s: s[3]["brush"] == "3x1"),
-        ("in Rectangle the 3 x 1 brush does not paint a row of 3 tiles", lambda s: s[3].get("brushrows") == "3"),
+    return expect(output, 5, [
+        ("the height's up arrow did not make the diamond 2 x 4", lambda s: s[1]["brush"] == "2x4"),
+        ("the size's up arrow did not make it 3 x 4", lambda s: s[2]["brush"] == "3x4"),
+        ("Rectangle did not keep its own size (2 x 1)", lambda s: s[3]["brush"] == "2x1"),
+        ("in Rectangle the brush is not 3 x 1 tiles", lambda s: s[4]["brush"] == "3x1"),
+        ("in Rectangle the 3 x 1 brush does not paint a row of 3 tiles", lambda s: s[4].get("brushrows") == "3"),
     ])
 
 
@@ -4792,7 +4794,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group, "data-flags-decimal": check_flags_decimal,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
-          "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),
+          "map-quick-arrow": quick_check(" brush=10x10", "the square, then eight clicks on the size's up arrow"),
           "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
           "map-location-inverted": check_location_inverted,
           "map-props-caret": check_caret_lines(2), "data-text-caret": check_caret_lines(2),

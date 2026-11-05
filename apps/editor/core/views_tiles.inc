@@ -133,6 +133,17 @@ struct TilesScope {
     TilesScope& operator=(const TilesScope&) = delete;
 };
 
+// A terrain or tile in the mask: its frame, and an M in the corner (the color alone is not enough).
+void maskMarker(draw::Canvas& c, const draw::Rect& r) {
+    c.frame({r.left + 1, r.top + 1, r.right - 1, r.bottom - 1}, kWarn, std::max(2, scale(2)));
+    const int e = std::min({scale(14), r.right - r.left, r.bottom - r.top});
+    const draw::Rect m{r.right - e, r.top, r.right, r.top + e};
+    c.fill(m, kWarn);
+    const draw::Font of = c.setFont(c.font({draw::Face::Ui, scale(11)}));
+    c.text(m, L"M", kBg, draw::kMiddle | draw::kCenter);
+    c.setFont(of);
+}
+
 class TilesGridView final : public draw::View {
 public:
     TilesView* data = &gTilesDocked;  // its tiles (the panel that holds it binds them)
@@ -590,7 +601,7 @@ void TilesGridView::paint(draw::Canvas& c) {
             if (sel) c.frame(around, kAccent, std::max(2, scale(2)));
             else c.frame(around, kBorderStrong, 1);
         }
-        for (const draw::Rect& cell : masked) c.frame({cell.left + 1, cell.top + 1, cell.right - 1, cell.bottom - 1}, kWarn, std::max(2, scale(2)));  // (inside the tile: the selection's frame is round it)
+        for (const draw::Rect& cell : masked) maskMarker(c, cell);  // (inside the tile: the selection's frame is round it)
         c.popClip();
         if (gTiles->values.empty()) c.text({scale(8), scale(8), w - scale(8), viewH}, shellTr(L"None"), kDim, draw::kLeft);
     }
