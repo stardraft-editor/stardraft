@@ -2801,6 +2801,12 @@ constexpr UiText kRows[] = {
     {L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"\u7C98\u8D34\uFF1A\u5355\u51FB\u653E\u7F6E\u526F\u672C\uFF0C\u518D\u6B21\u5355\u51FB\u653E\u7F6E\u66F4\u591A\u3002R \u65CB\u8F6C\uFF0CM \u955C\u50CF\u3002\u53F3\u952E\u6216 Esc \u505C\u6B62\u3002"},
     {L"Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.", L"\u5BC6\u5EA6\uFF1A\u6BCF\u6B21\u55B7\u6D82\u7ED8\u5236\u753B\u7B14\u7684\u6BD4\u4F8B\uFF0C1 \u5230 100%\u3002\u5355\u51FB\u53EF\u8F93\u5165\u6570\u5B57\u3002\u7BAD\u5934\u548C\u9F20\u6807\u6EDA\u8F6E\u53EF\u66F4\u6539\u3002"},
     {L"Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.", L"\u5BC6\u5EA6\uFF1A\u6BCF\u6B21\u55B7\u6D82\u586B\u5145\u753B\u7B14\u7684\u6BD4\u4F8B\uFF0C1 \u5230 100%\uFF08\u4EC5\u9650\u80FD\u653E\u4E0B\u7684\u5730\u65B9\uFF09\uFF1B\u586B\u5145\uFF1A\u5730\u9762\u7684\u6BD4\u4F8B\u3002\u5355\u51FB\u53EF\u8F93\u5165\u6570\u5B57\u3002\u7BAD\u5934\u548C\u9F20\u6807\u6EDA\u8F6E\u53EF\u66F4\u6539\u3002"},
+    {L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.", L"\u8499\u7248\uFF1A\u7ED8\u5236\u53EA\u66F4\u6539\u5E26\u8F6E\u5ED3\u7684\u5730\u5F62\u3002Alt+\u5355\u51FB\u53EF\u79FB\u9664\u4E00\u4E2A\u3002"},
+    {L"No mask: painting changes all terrains", L"\u65E0\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u5730\u5F62"},
+    {L"Mask: painting changes only the tiles with an outline. Alt+click takes one out.", L"\u8499\u7248\uFF1A\u7ED8\u5236\u53EA\u66F4\u6539\u5E26\u8F6E\u5ED3\u7684\u56FE\u5757\u3002Alt+\u5355\u51FB\u53EF\u79FB\u9664\u4E00\u4E2A\u3002"},
+    {L"No mask: painting changes all tiles", L"\u65E0\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u56FE\u5757"},
+    {L"Nothing changed: the mask keeps these tiles", L"\u6CA1\u6709\u66F4\u6539\uFF1A\u8499\u7248\u4FDD\u7559\u4E86\u8FD9\u4E9B\u56FE\u5757"},
+    {L"Nothing changed: the mask keeps this terrain", L"\u6CA1\u6709\u66F4\u6539\uFF1A\u8499\u7248\u4FDD\u7559\u4E86\u6B64\u5730\u5F62"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

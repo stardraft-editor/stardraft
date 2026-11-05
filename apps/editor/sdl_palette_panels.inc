@@ -389,6 +389,11 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
         const int value = pv->list.rows[size_t(row)].value;
         if (value < 0) return;
         activatePanel(&pv->state());  // (its own picks)
+        if ((mods & draw::kAlt) && pv->list.mode == Mode::Terrain) {  // (the mask; the pick stays)
+            paletteMaskToggle(gState, value);
+            pv->list.invalidate();
+            return invalidateMapView();
+        }
         // Ctrl adds to the pick; Shift picks every item from the last pick (as the side bar's palette).
         const bool ctrl = (mods & draw::kCtrl) != 0;
         const bool second = (mods & draw::kShift) && gState.mode == Mode::Terrain && !gState.terrainRect;  // (no pick before: adds it, as the side bar's)

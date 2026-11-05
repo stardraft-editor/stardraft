@@ -330,6 +330,13 @@ public:
     // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
     void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_; }
     std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
+    // The masks (Alt+click in the lists): painting changes only the corners of these terrains (Isometric; the tool strip's
+    // Rectangle checks its tiles' terrains) and the tiles of these values (Tile). Empty: all. Not in the map: a new map has none.
+    const std::vector<uint16_t>& terrainMask() const { return terrainMask_; }
+    void setTerrainMask(std::vector<uint16_t> terrains);
+    bool terrainMaskAllows(uint16_t terrain) const;  // (the mask lets this terrain change; a mod terrain's variants with it)
+    const std::vector<uint16_t>& tileMask() const { return tileMask_; }
+    void setTileMask(std::vector<uint16_t> tiles) { tileMask_ = std::move(tiles); }
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
     // The points a terrain brush paints at (a StarEdit brush is centered on its lattice point first; see editor.cpp).
@@ -834,6 +841,11 @@ private:
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
+    std::vector<uint16_t> terrainMask_, tileMask_;  // setTerrainMask, setTileMask
+    std::vector<uint16_t> terrainMaskIds_;          // (terrainMask_ with the mod terrains' variants)
+    std::optional<IsomGrid> maskGround_;            // (a stroke's ground when it began: what it paints round does not join the mask)
+    void clearMasks();
+    void maskCorners(std::vector<CornerValue>& corners) const;  // (only the corners that the mask lets change)
     struct SymmetricPlace {
         int x, y;
         bool flipX, flipY;  // a mirror image across a vertical (horizontal) axis: a pasted copy flips that way

@@ -2799,3 +2799,9 @@ Mirrored the copy left and right	Копия отражена слева напр
 Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Вставка: щелкните, чтобы разместить копию, и еще раз, чтобы разместить больше. R поворачивает, M отражает. Правый щелчок или Esc — стоп.
 Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.	Плотность: какую часть кисти закрашивает каждое распыление, от 1 до 100%. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
 Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.	Плотность: какую часть кисти заполняет каждое распыление, от 1 до 100% (только где помещается); заливка: какую часть земли. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
+Mask: painting changes only the terrains with an outline. Alt+click takes one out.	Маска: рисование меняет только рельефы с контуром. Alt+щелчок убирает один.
+No mask: painting changes all terrains	Без маски: рисование меняет весь рельеф
+Mask: painting changes only the tiles with an outline. Alt+click takes one out.	Маска: рисование меняет только тайлы с контуром. Alt+щелчок убирает один.
+No mask: painting changes all tiles	Без маски: рисование меняет все тайлы
+Nothing changed: the mask keeps these tiles	Без изменений: маска сохраняет эти тайлы
+Nothing changed: the mask keeps this terrain	Без изменений: маска сохраняет этот рельеф

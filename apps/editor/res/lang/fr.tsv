@@ -2799,3 +2799,9 @@ Mirrored the copy left and right	Copie retournée gauche-droite
 Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	Coller : cliquez pour placer la copie, et encore pour en placer d'autres. R la tourne, M la retourne. Clic droit ou Échap arrête.
 Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.	Densité : la part du pinceau que chaque pulvérisation peint, de 1 à 100 %. Cliquez pour saisir un nombre. Les flèches et la molette le changent.
 Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.	Densité : la part du pinceau que chaque pulvérisation remplit, de 1 à 100 % (seulement là où ça tient) ; Remplir : la part du sol. Cliquez pour saisir un nombre. Les flèches et la molette le changent.
+Mask: painting changes only the terrains with an outline. Alt+click takes one out.	Masque : peindre ne change que les terrains avec un contour. Alt+clic en retire un.
+No mask: painting changes all terrains	Sans masque : peindre change tous les terrains
+Mask: painting changes only the tiles with an outline. Alt+click takes one out.	Masque : peindre ne change que les tuiles avec un contour. Alt+clic en retire une.
+No mask: painting changes all tiles	Sans masque : peindre change toutes les tuiles
+Nothing changed: the mask keeps these tiles	Aucun changement : le masque garde ces tuiles
+Nothing changed: the mask keeps this terrain	Aucun changement : le masque garde ce terrain

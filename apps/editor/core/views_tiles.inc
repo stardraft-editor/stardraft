@@ -556,6 +556,7 @@ void TilesGridView::paint(draw::Canvas& c) {
         const int nominal = gTiles->listW - (kTilesPerRow - 1);
         int whole = -1;  // (the first tile drawn sets it: the picture's size is the art's)
         std::vector<std::pair<draw::Rect, uint16_t>> marks;  // the outlines go over the tiles next to them: after them
+        std::vector<draw::Rect> masked;  // (in the mask: Alt+click)
         for (int row = firstRow; row <= lastRow; ++row)
             for (int col = 0; col < kTilesPerRow; ++col) {
                 const size_t k = size_t(row) * size_t(kTilesPerRow) + size_t(col);
@@ -579,6 +580,7 @@ void TilesGridView::paint(draw::Canvas& c) {
                 }
                 const bool sel = v == gTiles->picked || (gTiles->chosen.size() > 1 && std::find(gTiles->chosen.begin(), gTiles->chosen.end(), v) != gTiles->chosen.end());
                 if (sel || v == gTiles->hover) marks.push_back({cell, v});  // (a null tile has no frame: 1 px between all tiles)
+                if (std::ranges::find(app.ed->tileMask(), uint16_t(v)) != app.ed->tileMask().end()) masked.push_back(cell);
             }
         // The selection: an accent frame on the gaps around the tile and its edge; the tile under the mouse: a line on
         // the gaps around it.
@@ -588,6 +590,7 @@ void TilesGridView::paint(draw::Canvas& c) {
             if (sel) c.frame(around, kAccent, std::max(2, scale(2)));
             else c.frame(around, kBorderStrong, 1);
         }
+        for (const draw::Rect& cell : masked) c.frame({cell.left + 1, cell.top + 1, cell.right - 1, cell.bottom - 1}, kWarn, std::max(2, scale(2)));  // (inside the tile: the selection's frame is round it)
         c.popClip();
         if (gTiles->values.empty()) c.text({scale(8), scale(8), w - scale(8), viewH}, shellTr(L"None"), kDim, draw::kLeft);
     }
@@ -631,6 +634,17 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
     case draw::MouseKind::Down:
     case draw::MouseKind::DoubleClick: {
         if (e.button != 0) return e.button == 1;
+        if ((e.mods & draw::kAlt) && !gTiles->stamps) {  // Alt: the tile goes into the mask (painting changes only those tiles) or out of it
+            if (const int v = hit(e.pt.x, e.pt.y); v >= 0 && appState().ed) {
+                std::vector<uint16_t> mask = appState().ed->tileMask();
+                if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(v)); it != mask.end()) mask.erase(it);
+                else mask.push_back(uint16_t(v));
+                setMessage(mask.empty() ? L"No mask: painting changes all tiles" : L"Mask: painting changes only the tiles with an outline. Alt+click takes one out.");
+                appState().ed->setTileMask(std::move(mask));
+                invalidate();
+            }
+            return true;
+        }
         if (appState().mode != Mode::Terrain) {  // (the list of Terrain's in another mode: a pick goes to Terrain, as a palette's)
             const int v = hit(e.pt.x, e.pt.y);
             if (v < 0) return true;

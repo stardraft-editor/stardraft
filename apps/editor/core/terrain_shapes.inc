@@ -96,6 +96,7 @@ void shapeCopySettings(Editor& c, const Editor& ed) {
     c.setProtectedTiles(ed.protectedTiles());
     c.setMirrors(ed.mirrors()), c.setTurns(ed.turns());
     c.copySymmetryCenter(ed);
+    c.setTerrainMask(ed.terrainMask());
     c.setAllowIllegalUnits(ed.allowIllegalUnits()), c.setAllowStacking(ed.allowStacking());
     c.setResourceDistance(ed.resourceDistance()), c.setManyStartLocations(ed.manyStartLocations()), c.setUnitLimit(ed.unitLimit());
 }
@@ -174,7 +175,7 @@ void shapeMakeTiles(const std::vector<std::pair<int, int>>& pts) {
         }
     }
     for (const auto& c : gTiles->solid ? solidMirrored(cells) : tilesMirrored(cells))
-        if (ed.terrain().tiles[size_t(c.y) * w + c.x] != c.value) gShape.ghost.push_back({c.y * w + c.x, c.value});
+        if (ed.terrain().tiles[size_t(c.y) * w + c.x] != c.value && tilesMaskLets(c.x, c.y)) gShape.ghost.push_back({c.y * w + c.x, c.value});
     gShape.cells = std::move(cells);
 }
 
@@ -182,8 +183,13 @@ void shapeMakeTiles(const std::vector<std::pair<int, int>>& pts) {
 std::vector<int64_t> shapeSettingsKey() {
     const AppState& app = appState();
     const Brush b = currentBrush(app);
-    return {int64_t(app.ed->revision()), terrainKind(), app.palette, gTiles->picked, int64_t(gTiles->chosen.size()), int64_t(gTiles->stamp.size()),
-            int64_t(b.shape), int64_t(b.size * 64), int64_t(b.height() * 64), app.ed->mirrors(), app.ed->turns()};
+    std::vector<int64_t> key{int64_t(app.ed->revision()), terrainKind(), app.palette, gTiles->picked, int64_t(gTiles->chosen.size()), int64_t(gTiles->stamp.size()),
+                             int64_t(b.shape), int64_t(b.size * 64), int64_t(b.height() * 64), app.ed->mirrors(), app.ed->turns()};
+    for (const std::vector<uint16_t>* mask : {&app.ed->terrainMask(), &app.ed->tileMask()}) {
+        key.push_back(int64_t(mask->size()));
+        key.insert(key.end(), mask->begin(), mask->end());
+    }
+    return key;
 }
 
 void shellShapeLater(int ms);  // (the program: shapeUpdate again after ms, then the map view paints)
@@ -231,7 +237,7 @@ void bridgeMake(const std::vector<std::pair<int, int>>& pts) {
     std::string error;
     if (!copy.openChk(ed.chk(), error)) return setMessage(bridgeText(L"Could not make the bridge: %ls", widen(error)));
     shapeCopySettings(copy, ed);
-    copy.setMirrors(0), copy.setTurns(1);  // (one bridge: symmetry does not apply to bridges)
+    copy.setMirrors(0), copy.setTurns(1), copy.setTerrainMask({});  // (one bridge: symmetry does not apply to bridges)
     applyBridge(copy, p);
     const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
     if (a.size() == b.size())
@@ -267,7 +273,7 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         std::string error;
         if (!copy.openChk(ed.chk(), error)) return setMessage(bridgeText(L"Could not make the ramp: %ls", widen(error)));
         shapeCopySettings(copy, ed);
-        copy.setMirrors(0), copy.setTurns(1);
+        copy.setMirrors(0), copy.setTurns(1), copy.setTerrainMask({});
         int placed = 0;
         if (gShape.unramp) {
             if (!under.empty()) copy.deleteDoodads(under);
@@ -295,7 +301,7 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         std::string error;
         if (!copy.openChk(ed.chk(), error)) return setMessage(bridgeText(L"Could not make the cliff again: %ls", widen(error)));
         shapeCopySettings(copy, ed);
-        copy.setMirrors(0), copy.setTurns(1);
+        copy.setMirrors(0), copy.setTurns(1), copy.setTerrainMask({});
         copy.remakeTilesFromIsom(under);
         const std::vector<uint16_t>&a = ed.terrain().tiles, &b = copy.terrain().tiles;
         if (a.size() == b.size())
@@ -322,7 +328,7 @@ void rampMake(const std::vector<std::pair<int, int>>& stroke) {
         std::string error;
         if (copy.openChk(ed.chk(), error)) {
             shapeCopySettings(copy, ed);
-            copy.setMirrors(0), copy.setTurns(1);
+            copy.setMirrors(0), copy.setTurns(1), copy.setTerrainMask({});
             if (reshapeForRamps(copy, pts, ramps)) {
                 RampPlan why2;
                 ramps = planRamps(copy, pts, &why2);
@@ -518,7 +524,7 @@ void shapeFinish() {
         ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
         tilesPlacedMessage(gShape.cells.empty() ? 0 : tilesPut(gShape.cells), L"Placed");
     } else if (!gShape.made || !gShape.copyHolds || gShape.ghost.empty()) {
-        setMessage(L"The terrain is the same already");
+        setMessage(ed.terrainMask().empty() ? L"The terrain is the same already" : L"Nothing changed: the mask keeps this terrain");
     } else {
         // (the map takes the copy's scenario: the units and the locations that were selected stay selected)
         const std::vector<int> units = ed.selection(), locations = ed.selectedLocations();

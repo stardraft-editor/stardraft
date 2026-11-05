@@ -468,7 +468,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             // Painting a terrain onto itself redraws its tiles with new variants (a click, and on along the drag); the
             // stroke is one undo step.
             ed.beginTerrainStroke();
-            if (ed.brushAllTerrain(int(wx), int(wy), currentBrush(app), t)) {
+            if (ed.terrainMask().empty() && ed.brushAllTerrain(int(wx), int(wy), currentBrush(app), t)) {
                 int n = ed.rerollTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
                 setMessage(app, L"New variants for " + std::to_wstring(n) + L" tiles");
             }
@@ -489,6 +489,8 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                 if (v > 0) picks.push_back(uint16_t(v));
             if (picks.size() > 1 ? ed.fillTerrainMix(int(wx), int(wy), picks, fillPatch(), app.spraySeed++) : ed.fillTerrain(int(wx), int(wy), t))
                 setMessage(app, picks.size() > 1 ? L"Filled with " + std::to_wstring(picks.size()) + L" terrains" : L"Filled with " + itemLabel(app, app.palette));
+            else if (!ed.terrainMask().empty())
+                setMessage(app, L"Nothing changed: the mask keeps this terrain");
         } else if (tool == TReplace || tool == TFill) {  // Fill with Shift: every place of that terrain
             uint16_t from = ed.terrainAt(int(wx), int(wy));
             const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
@@ -638,7 +640,7 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         const uint16_t paint = currentTool(app) == TErase ? eraseTerrain(*app.ed) : uint16_t(app.palette);  // (Erase: Dirt)
         // Over the same terrain: new variants each half brush along the drag (not on every small move).
         const float extent = std::min(app.brushSize, currentBrush(app).height());  // a flat brush: its smaller side
-        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) &&
+        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) && app.ed->terrainMask().empty() &&
             app.ed->brushAllTerrain(int(wx), int(wy), currentBrush(app), paint)) {
             app.ed->rerollTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
             gRerollX = wx, gRerollY = wy;

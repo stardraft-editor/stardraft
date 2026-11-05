@@ -365,6 +365,17 @@ bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int ro
     return true;
 }
 
+// Alt+click in Terrain's list: the terrain goes into the mask (painting changes only the masked terrains) or out of it.
+void paletteMaskToggle(AppState& app, int value) {
+    if (!app.ed || value < 0) return;
+    std::vector<uint16_t> mask = app.ed->terrainMask();
+    if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(value)); it != mask.end()) mask.erase(it);
+    else mask.push_back(uint16_t(value));
+    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.");
+    app.ed->setTerrainMask(std::move(mask));
+    app.dirty = true;
+}
+
 // --- The pie palette (roadmap 1.9) ---------------------------------------------------------------------------------
 // Terrain mode: hold Space and a ring of the tileset's terrains comes up in the middle of the map; move the mouse toward
 // one (its slice lights up) and let go of Space: the brush paints with it. Let go in the middle: no change. The ring's

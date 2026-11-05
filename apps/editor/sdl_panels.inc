@@ -368,6 +368,11 @@ void initPanels() {
     // SetFocus on the view), so the map's keys and undo run.
     gPalList.picked = [](int row, unsigned mods) {
         const int v = gPalList.rows[size_t(row)].value;
+        if ((mods & draw::kAlt) && gPalList.mode == Mode::Terrain) {  // (the mask; the pick stays)
+            paletteMaskToggle(gState, v);
+            gPalList.invalidate();
+            return invalidateMapView();
+        }
         const bool ctrl = (mods & draw::kCtrl) != 0;
         // (isometric terrain: Shift+click with no pick before adds it, as Ctrl+click)
         const bool second = (mods & draw::kShift) && gState.mode == Mode::Terrain && !gState.terrainRect;
@@ -377,6 +382,11 @@ void initPanels() {
     };
     gPal2List.picked = [](int row, unsigned mods) {
         const int v = gPal2List.rows[size_t(row)].value;
+        if ((mods & draw::kAlt) && gPal2List.mode == Mode::Terrain) {  // (the mask)
+            paletteMaskToggle(gState, v);
+            gPal2List.invalidate();
+            return invalidateMapView();
+        }
         pickInOtherMode(gPal2List.state, v, (mods & draw::kCtrl) != 0);
         gPal2List.invalidate();
         invalidateMapView();
@@ -386,6 +396,11 @@ void initPanels() {
     gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
     gPal3List.picked = [](int row, unsigned mods) {
         const int v = gPal3List.rows[size_t(row)].value;
+        if ((mods & draw::kAlt) && gPal3List.mode == Mode::Terrain) {  // (the mask)
+            paletteMaskToggle(gState, v);
+            gPal3List.invalidate();
+            return invalidateMapView();
+        }
         pickInOtherMode(gPal3List.state, v, (mods & draw::kCtrl) != 0);
         gPal3List.invalidate();
         invalidateMapView();

@@ -317,11 +317,32 @@ std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cel
 }
 // (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts
 // them; a mod terrain's fill stays as it is, as the isometric brush keeps it)
+// The mask (Alt+click in the lists; none for Custom): only the cells it lets change. Rectangle: a tile of a masked terrain
+// (its group's; a mod's terrains have no groups of their own: the terrain there); Tile: a tile of a masked value.
+const std::vector<std::array<uint16_t, 2>>& solidGroupTerrains();
+bool tilesMaskLets(int x, int y) {
+    const Editor& ed = *appState().ed;
+    const std::vector<uint16_t>& mask = gTiles->solid ? ed.terrainMask() : ed.tileMask();
+    if (mask.empty() || gTiles->stamps) return true;
+    if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return false;
+    const auto in = [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); };
+    const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
+    if (!gTiles->solid) return in(v);
+    if (!ed.tileset().modTerrains.empty()) return ed.terrainMaskAllows(ed.terrainAt(x * 32 + 16, y * 32 + 16));
+    const auto& gt = solidGroupTerrains();
+    const size_t g = v >> 4;
+    return g < gt.size() && (in(gt[g][0]) || in(gt[g][1]));
+}
+std::vector<Editor::TileAt> tilesMasked(std::vector<Editor::TileAt> cells) {
+    std::erase_if(cells, [](const Editor::TileAt& c) { return !tilesMaskLets(c.x, c.y); });
+    return cells;
+}
+
 int tilesPut(const std::vector<Editor::TileAt>& cells) {
     Editor& ed = *appState().ed;
-    if (!gTiles->solid) return ed.placeTileValues(tilesMirrored(cells));
+    if (!gTiles->solid) return ed.placeTileValues(tilesMasked(tilesMirrored(cells)));
     const Tileset::ModTerrain* m = ed.tileset().modTerrain(uint16_t(std::max(0, appState().palette)));
-    return ed.placeTileValues(solidMirrored(cells), !m || !m->fill);  // (no fill of its own: its stand-in's tiles, as a game terrain's)
+    return ed.placeTileValues(tilesMasked(solidMirrored(cells)), !m || !m->fill);  // (no fill of its own: its stand-in's tiles, as a game terrain's)
 }
 int tilesPutCells(const std::vector<std::pair<int, int>>& cells, uint16_t value) {
     std::vector<Editor::TileAt> v;
@@ -366,7 +387,7 @@ void tilesPlacedMessage(int n, const wchar_t* verb) {
     Editor& ed = *appState().ed;
     const int doodads = ed.takeDoodadsRemovedByTerrain(), units = ed.takeUnitsRemovedByTerrain();
     std::wstring m = std::wstring(verb) + (n == 1 ? L" 1 tile" : L" " + std::to_wstring(n) + L" tiles");
-    if (!n) m = L"The tiles are the same already";
+    if (!n) m = !gTiles->stamps && !(gTiles->solid ? ed.terrainMask() : ed.tileMask()).empty() ? L"Nothing changed: the mask keeps these tiles" : L"The tiles are the same already";
     if (doodads) m += L". Removed " + std::to_wstring(doodads) + (doodads == 1 ? L" doodad under them" : L" doodads under them");
     if (units) m += L". Removed " + std::to_wstring(units) + (units == 1 ? L" unit that cannot stand there" : L" units that cannot stand there");
     if (doodads || units) m += L".";

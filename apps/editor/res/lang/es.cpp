@@ -2801,6 +2801,12 @@ constexpr UiText kRows[] = {
     {L"Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.", L"Pegar: haz clic para colocar la copia y otra vez para colocar m\u00E1s. R la gira, M la refleja. Clic derecho o Esc para parar."},
     {L"Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.", L"Densidad: cu\u00E1nto del pincel pinta cada rociado, de 1 a 100%. Haz clic para escribir un n\u00FAmero. Las flechas y la rueda del rat\u00F3n lo cambian."},
     {L"Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.", L"Densidad: cu\u00E1nto del pincel llena cada rociado, de 1 a 100% (solo donde cabe); Relleno: cu\u00E1nto del suelo. Haz clic para escribir un n\u00FAmero. Las flechas y la rueda del rat\u00F3n lo cambian."},
+    {L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.", L"M\u00E1scara: pintar cambia solo los terrenos con contorno. Alt+clic quita uno."},
+    {L"No mask: painting changes all terrains", L"Sin m\u00E1scara: pintar cambia todos los terrenos"},
+    {L"Mask: painting changes only the tiles with an outline. Alt+click takes one out.", L"M\u00E1scara: pintar cambia solo las casillas con contorno. Alt+clic quita una."},
+    {L"No mask: painting changes all tiles", L"Sin m\u00E1scara: pintar cambia todas las casillas"},
+    {L"Nothing changed: the mask keeps these tiles", L"Sin cambios: la m\u00E1scara conserva estas casillas"},
+    {L"Nothing changed: the mask keeps this terrain", L"Sin cambios: la m\u00E1scara conserva este terreno"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

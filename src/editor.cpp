@@ -51,6 +51,7 @@ Editor::~Editor() = default;
 // --- File --------------------------------------------------------------------------------------
 
 bool Editor::open(const std::filesystem::path& path, std::string& error) {
+    clearMasks();
     openSteps_.clear();
     auto t0 = std::chrono::steady_clock::now();
     auto step = [&](const char* what) {
@@ -119,6 +120,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
 }
 
 bool Editor::openChk(const Chk& chk, std::string& error) {
+    clearMasks();
     finishFiles();
     uint16_t w = 0, h = 0;
     if (!readDimensions(chk, w, h) || !w || !h) return error = "map has no valid DIM section", false;
@@ -176,6 +178,7 @@ void Editor::finishFiles() const {
 }
 
 bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error) {
+    clearMasks();
     finishFiles();
     Chk chk;
     if (!createNewScenario(chk, data_, width, height, era, terrain, error)) return false;
@@ -356,6 +359,7 @@ void Editor::buildModTable() {
 }
 
 void Editor::useModTerrains(std::vector<Tileset::ModTerrain> terrains) {
+    clearMasks();  // (its ids are others)
     modTerrainsOverride_ = std::move(terrains);
     if (loadedEra_ == era_ && !tileset_.groups.empty()) {  // (the tileset is loaded: only its mod terrains change)
         tileset_.modTerrains = *modTerrainsOverride_;
@@ -370,6 +374,7 @@ void Editor::reload() {
     readDimensions(chk_, width_, height_);
     era_ = readEra(chk_);
     if (era_ != loadedEra_) {
+        clearMasks();  // (another tileset: the ids mean other terrains and tiles)
         std::string err;
         if (tileset_.load(data_, era_, err)) {
             if (modTerrainsOverride_) tileset_.modTerrains = *modTerrainsOverride_;
@@ -765,6 +770,7 @@ void Editor::beginTerrainStroke() {
     strokeAsked_ = strokeVariant_ = 0;
     isom_.beginStroke();
     strokeTilesBefore_ = terrain_.tiles;
+    if (!terrainMask_.empty()) maskGround_ = isom_;
 }
 
 uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
@@ -788,7 +794,7 @@ uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
 
 void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (!isomOk_) return;
-    if (protectedCount_) {  // (the corner path keeps the protected tiles: applyTerrain)
+    if (protectedCount_ || !terrainMask_.empty()) {  // (the corner path keeps the protected tiles and the mask: applyTerrain)
         paintBrush(px, py, terrain, Brush{Brush::Diamond, float(std::max(1, brushSize))});
         return;
     }
@@ -823,6 +829,7 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
 void Editor::endTerrainStroke() {
     if (inStroke_ && !strokeTilesBefore_.empty()) refitRamps(*this, strokeTilesBefore_);  // (in the stroke's undo step)
     strokeTilesBefore_.clear();
+    maskGround_.reset();
     endStrokeStep();
     isom_.beginStroke();  // (a paste or fill after it chooses its own ground)
 }
@@ -1627,11 +1634,38 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     chk_.set("TILE", std::move(t)), chk_.set("MTXM", std::move(m));
 }
 
+void Editor::clearMasks() {
+    terrainMask_.clear(), terrainMaskIds_.clear(), tileMask_.clear();
+    maskGround_.reset();
+}
+
+void Editor::setTerrainMask(std::vector<uint16_t> terrains) {
+    terrainMask_ = std::move(terrains);
+    terrainMaskIds_ = terrainMask_;
+    // (as brushTerrain: a mod terrain's brush can paint the terrains with its set)
+    for (uint16_t t : terrainMask_)
+        if (const Tileset::ModTerrain* own = tileset_.modTerrain(t); own && !own->pieces.empty())
+            for (const Tileset::ModTerrain& m : tileset_.modTerrains)
+                if (m.id != t && !m.pieces.empty() && m.pieces[0] == own->pieces[0] && m.fillKey == own->fillKey) terrainMaskIds_.push_back(m.id);
+}
+
+bool Editor::terrainMaskAllows(uint16_t terrain) const {
+    return terrainMaskIds_.empty() || std::find(terrainMaskIds_.begin(), terrainMaskIds_.end(), terrain) != terrainMaskIds_.end();
+}
+
+void Editor::maskCorners(std::vector<CornerValue>& corners) const {
+    if (terrainMask_.empty()) return;
+    const IsomGrid& ground = maskGround_ ? *maskGround_ : isom_;
+    std::erase_if(corners, [&](const CornerValue& c) { return !terrainMaskAllows(ground.terrainAt(c.x, c.y)); });
+}
+
 bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced) {
     if (!isomOk_ || asked.empty()) return false;
     // Protected tiles near the edit: their rects' corners stay as they are (the old engine locks them, and the repair
     // fits the terrain around them); the edit's corners on them go.
     std::vector<CornerValue> corners = asked;
+    maskCorners(corners);
+    if (corners.empty()) return false;
     if (const int kept = pinProtected(corners, kProtectMargin); kept >= 0) {
         if (!kept) return false;
         int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
@@ -1645,7 +1679,7 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced
     // Whole diamonds of one terrain: the terrain core paints them as StarEdit's brush would.
     // The core makes the tiles of each diamond it paints again: other edits than the brush's (fill, replace) give it only
     // the diamonds whose terrain changes, so that the tiles placed in Rectangle mode stay where the terrain stays.
-    if (useCore()) {
+    if (useCore() && terrainMask_.empty()) {
         auto diamonds = wholeDiamonds(isom_, corners);
         const uint16_t terrain = corners.front().terrain;
         if (!overPlaced)
@@ -1828,7 +1862,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
         for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
         nearProtected = protectedNear(x0, y0, x1, y1, kProtectMargin);
     }
-    if (useCore() && brush.starEdit() && !nearProtected) ok = applyCoreBrush(px, py, terrain, int(brush.size));
+    if (useCore() && brush.starEdit() && !nearProtected && terrainMask_.empty()) ok = applyCoreBrush(px, py, terrain, int(brush.size));
     else ok = applyTerrain(corners, true);
     if (own) endTerrainStroke();
     return ok;
@@ -2186,6 +2220,15 @@ int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
 bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed) {
     if (terrains.size() < 2) return !terrains.empty() && fillTerrain(px, py, terrains[0]);
     if (!isomOk_) return false;
+    // (the mask's ground: as before the fill, also for the patches on what the fill's first pass paints)
+    struct MaskGround {
+        std::optional<IsomGrid>& ground;
+        bool own;
+        ~MaskGround() {
+            if (own) ground.reset();
+        }
+    } maskGround{maskGround_, !maskGround_ && !terrainMask_.empty()};
+    if (maskGround.own) maskGround_ = isom_;
     if (protectedCount_) {  // (a fill that starts on protected terrain: nothing)
         int cx, cy;
         isom_.cornerAtPixel(px, py, cx, cy);
@@ -2241,6 +2284,8 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
     const std::optional<ProtectedBefore> kept = protectedBefore();
     int changed = 0;
     for (std::vector<CornerValue> dab : dabs) {
+        maskCorners(dab);
+        if (dab.empty()) continue;
         bool same = true;
         for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
         if (same) continue;
@@ -2283,7 +2328,7 @@ bool Editor::paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool 
     // The corners of each step; with StarEdit's brush, also each step's block of diamonds for the terrain core. The core
     // paints the line (as the brush paints each step: applyCoreBrush) unless a step is near protected tiles or has no
     // block (at the map's edge); then the corner path paints all of it (applyTerrain).
-    const bool core = useCore() && brush.starEdit();
+    const bool core = useCore() && brush.starEdit() && terrainMask_.empty();
     bool coreOk = core;
     std::set<std::pair<int, int>> taken, takenDiamonds;
     std::vector<CornerValue> corners;

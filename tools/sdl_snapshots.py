@@ -109,6 +109,8 @@ CASES += [
     # The Turns number (feedback #111): 3 turns (the wheel on its list, twice) with a top and bottom mirror, two strokes.
     ("map-terrain-turns", ["--mode", "terrain", "--click", "146,521", "--wheel", "284,521,0,1", "--wheel", "284,521,0,1", "--click", "118,459",
                            "--click", "195,697", "--click", "830,300", "--click", "1000,600", "--wait", "300"], "map"),
+    # The mask: Space on Platform only (Alt+click in the list; the rest under the brush stays); its row has an outline.
+    ("map-terrain-mask", ["--mode", "terrain", "--wheel", "145,491,0,6", "--click", "120,622", "--click", "120,668:Alt", "--click", "830,450", "--wait", "300"], "map"),
     ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
