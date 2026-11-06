@@ -1,5 +1,7 @@
 void mapLayersDragStop();
 void mapLayersDelete();
+void mapLayersCurrentDuplicate();
+void mapLayersCurrentRename();
 void mapLayersSync();
 bool mapLayersOnLayer();
 bool mapLayersActiveLocked();
@@ -335,7 +337,9 @@ void cutMapSelection(AppState& app) {
 bool commandMapEdit(AppState& app, int id) {
     const bool open = app.ed && app.ed->isOpen();
     mapLayersSync();  // (the last edit is in its layer before the next one: core/map_layers.inc)
-    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_SELECTALL)) return true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_DUPLICATE) return mapLayersCurrentDuplicate(), true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_RENAME) return mapLayersCurrentRename(), true;
+    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_SELECTALL)) return true;
     if (app.mode == Mode::Layers && id == ID_EDIT_DELETE) return mapLayersDelete(), true;
     auto done = [&app] {
         shellMenusChanged();

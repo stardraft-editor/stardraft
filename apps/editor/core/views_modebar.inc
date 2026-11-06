@@ -14,6 +14,19 @@ constexpr int kModeBoxRadius = 4;
 // (kModeOrder) with a line between them. Each segment is part of one box, rounded only at the two ends; the chosen
 // mode is primary. A click picks the segment's mode (on the release, while the mouse is still on it, as a button);
 // the tip is the mode's name. The icon alone when the names do not fit.
+// Map Layers' icon: three isometric tiles stacked: the top one whole, of the two under it what shows.
+void drawMapLayersIcon(stardraft::draw::Canvas& c, stardraft::draw::Rect r, stardraft::draw::Color col, int size) {
+    using P = stardraft::draw::Canvas::PointF;
+    const float cx = (r.left + r.right) / 2.0f, cy = (r.top + r.bottom) / 2.0f, hw = size * 0.5f, hh = size * 0.25f, step = size * 0.22f;
+    const float line = std::max(1.0f, size / 12.0f), top = cy - step;
+    c.smoothLine(P{cx - hw, top}, P{cx, top - hh}, col, line), c.smoothLine(P{cx, top - hh}, P{cx + hw, top}, col, line);
+    c.smoothLine(P{cx + hw, top}, P{cx, top + hh}, col, line), c.smoothLine(P{cx, top + hh}, P{cx - hw, top}, col, line);
+    for (int k = 1; k <= 2; ++k) {
+        const float y = top + k * step;
+        c.smoothLine(P{cx - hw, y}, P{cx, y + hh}, col, line), c.smoothLine(P{cx, y + hh}, P{cx + hw, y}, col, line);
+    }
+}
+
 struct ModeBarView final : stardraft::draw::View {
     using Canvas = stardraft::draw::Canvas;
     using Point = stardraft::draw::Point;
@@ -57,7 +70,8 @@ struct ModeBarView final : stardraft::draw::View {
             const int nameW = c.measure(kModeNames[i]);
             const bool showName = is + gap + widest + scale(10) <= r.right - r.left;
             const int x0 = showName ? r.left + (r.right - r.left - (is + gap + nameW)) / 2 : r.left + (r.right - r.left - is) / 2;
-            c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[i]), col, is);
+            if (Mode(i) == Mode::Layers) drawMapLayersIcon(c, {x0, r.top, x0 + is, r.bottom}, col, is);
+            else c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[i]), col, is);
             if (showName) c.text({x0 + is + gap, r.top, r.right, r.bottom}, kModeNames[i], col, stardraft::draw::kMiddle);
             c.popClip();
         }

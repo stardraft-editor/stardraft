@@ -15,6 +15,7 @@ struct MapLayersState {
     std::set<int> picked;  // the rows selected (-1: the Background), with the active one
     std::map<fs::path, int> activeOf;  // the active row of each map, while the program runs
     uint64_t revision = 0;
+    size_t undoSteps = 0;
     int width = 0, height = 0, era = 0;
     std::vector<uint16_t> corners;  // the flattened map's corners after the last sync
     std::vector<uint16_t> tiles;    // and its tiles
@@ -32,7 +33,6 @@ struct MapLayersState {
     std::optional<LayerArea> areaFrom;
 } gMapLayers;
 
-bool gLayersPanelOn = false;  // View > Floating palettes > Layer list: the list over the map, in the other modes
 void layersPanelChanged();    // (views_layers.inc)
 
 static void layerCornerGrid(const Editor& ed, std::vector<uint16_t>& out) {
@@ -52,6 +52,7 @@ static void layersRememberMap(Editor& ed) {
     s.tileSection = ed.layerTileSection().tiles;
     s.objects = layerObjectsOf(ed);
     s.revision = ed.revision();
+    s.undoSteps = ed.undoSteps();
     s.width = ed.width(), s.height = ed.height(), s.era = ed.era();
 }
 static void layersRemember(Editor& ed) {
@@ -65,6 +66,7 @@ static void layersRead(Editor& ed) {
     const ArchiveFile* base = ed.archiveFile(kLayersBaseFile);
     s.on = file && base && LayerStack::parse(file->data, s.stack);
     s.fitted.clear();
+    ed.noteAskedCorners(s.on);
     if (!s.on) {
         s.stack = {}, s.base.clear(), s.active = -1, s.picked.clear(), s.area.reset();
         return;
@@ -144,6 +146,7 @@ static void layersEdit(const std::function<bool(Editor&)>& edit) {
     if (changed) layersCompose(ed), layersKeepSelections(ed, before);
     ed.endLayerEdit(changed, changed ? layersFiles(true) : std::vector<ArchiveFile>{});
     if (changed) layersRemember(ed);
+    ed.noteAskedCorners(gMapLayers.on);
     layersPanelChanged();
     shellMenusChanged();
     app.dirty = true;
@@ -216,6 +219,7 @@ void mapLayersSync() {
         s.area.reset();  // (it was of the map before the undo)
         const bool was = s.on;
         s.on = false, s.stack = {}, s.filesPending = true;
+        ed.noteAskedCorners(false);
         if (was) layersPanelChanged();
         if (!ed.filesRead() || ed.archiveFile(kLayersFile)) layersRememberMap(ed);  // (what is painted while the files are read is an edit)
     }
@@ -256,7 +260,13 @@ void mapLayersSync() {
     const bool objectsChanged = !sameUnits(objects.units, s.objects.units) || doodadsChanged || !sameSprites(objects.sprites, s.objects.sprites);
     // Tiles that changed where the corners did not: placed tiles (not a doodad's: the doodad places them again).
     std::map<std::pair<int, int>, uint16_t> placed;
+    // (a brush over the same terrain: the layer has it now; a tool that changed no tile takes no undo step)
+    if (s.active >= 0)
+        for (const auto& [x, y] : ed.takeAskedCorners())
+            if (const uint16_t terrain = ed.isomGrid().terrainAt(x, y)) changed[{x, y}] = terrain;
+    const bool stepTaken = ed.undoSteps() != s.undoSteps;
     const std::vector<uint16_t> nowSection = ed.layerTileSection().tiles;
+    const std::vector<uint8_t> notTerrain = ed.tilesNotFromIsom();
     if (ed.terrain().tiles.size() == s.tiles.size() && nowSection.size() == s.tileSection.size() && nowSection.size() == s.tiles.size()) {
         const int tw = int(ed.width());
         const std::vector<uint16_t>& nowTiles = ed.terrain().tiles;
@@ -267,7 +277,7 @@ void mapLayersSync() {
             bool nearChange = false;  // (an edge's tiles depend on the corners around them too)
             for (int cy = ty - 3; !nearChange && cy <= ty + 4; ++cy)
                 for (int cx = rx - 3; !nearChange && cx <= rx + 4; ++cx) nearChange = changed.count({cx, cy}) > 0;
-            if (!nearChange) placed[{tx, ty}] = nowTiles[k];
+            if (!nearChange && k < notTerrain.size() && notTerrain[k]) placed[{tx, ty}] = nowTiles[k];  // (not the terrain's other variant)
         }
     }
     if (changed.empty() && placed.empty() && !objectsChanged) {
@@ -277,7 +287,7 @@ void mapLayersSync() {
     // A locked layer does not change: the edit goes back.
     if (const MapLayer& activeLayer = s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background;
         activeLayer.locked && (!changed.empty() || !placed.empty())) {
-        ed.refuseLastEdit();
+        if (stepTaken) ed.refuseLastEdit();
         setMessage(L"The layer is locked: nothing changed");
         return;
     }
@@ -312,9 +322,11 @@ void mapLayersSync() {
             baseChanged = true;
         }
     }
+    if (!stepTaken) ed.beginLayerEdit();
     layersCompose(ed);
     layersKeepSelections(ed, objects);
-    ed.amendLastStep(layersFiles(baseChanged));
+    if (stepTaken) ed.amendLastStep(layersFiles(baseChanged));
+    else ed.endLayerEdit(true, layersFiles(baseChanged));
     layersRemember(ed);
     layersPanelChanged();
 }
@@ -335,7 +347,15 @@ void mapLayersFrame() {
 
 // --- The panel's commands ---------------------------------------------------------------------------------------------
 
+// What to do with the layers to play the map. The panel's (?), and once by itself with the first new layer.
+void mapLayersInfo() {
+    shellInfoBox(L"Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. "
+                 L"All layers that show become one map, and the layer data stays out of it.",
+                 L"Map Layers");
+}
+
 void mapLayersNew() {
+    const size_t layersBefore = gMapLayers.stack.layers.size();
     layersEdit([](Editor& ed) {
         MapLayersState& s = gMapLayers;
         if (!s.on) {  // the map becomes the Background: its terrain in its file, its objects in the stack
@@ -356,6 +376,10 @@ void mapLayersNew() {
         setMessage(L"New layer: the tools now change this layer");
         return true;
     });
+    if (gMapLayers.stack.layers.size() > layersBefore && !prefs::store().has("MapLayersInfoShown")) {
+        prefs::store().set("MapLayersInfoShown", int64_t(1));
+        mapLayersInfo();
+    }
 }
 
 void mapLayersPick(int row, unsigned mods) {
@@ -526,6 +550,40 @@ void mapLayersMerge() {
         setMessage(L"Merged the layers");
         return true;
     });
+}
+
+// The commands of the current layer (the keys of Mode > Layer).
+static bool layersHaveCurrent() {
+    const MapLayersState& s = gMapLayers;
+    if (s.on && s.active >= 0 && s.active < int(s.stack.layers.size())) return true;
+    setMessage(L"Select a layer first");
+    return false;
+}
+void mapLayersCurrentHide() {
+    if (layersHaveCurrent()) mapLayersToggleVisible(gMapLayers.active);
+}
+void mapLayersCurrentLock() {
+    if (gMapLayers.on) mapLayersToggleLock(gMapLayers.active);
+}
+void mapLayersCurrentRename() {
+    if (layersHaveCurrent()) mapLayersRename(gMapLayers.active);
+}
+void mapLayersCurrentDuplicate() {
+    if (layersHaveCurrent()) mapLayersDuplicate(gMapLayers.active);
+}
+void mapLayersMergeDown(int row);
+void mapLayersCurrentMergeDown() {
+    if (layersHaveCurrent()) mapLayersMergeDown(gMapLayers.active);
+}
+// The layer over (+1) or under (-1) the current one is the current one. Under the lowest: the Background.
+void mapLayersSelectStep(int step) {
+    MapLayersState& s = gMapLayers;
+    if (!s.on) return;
+    mapLayersPick(std::clamp(s.active + step, -1, int(s.stack.layers.size()) - 1), 0);
+}
+// The current layer goes up or down in the list.
+void mapLayersMoveStep(int step) {
+    if (layersHaveCurrent()) mapLayersMoveRow(gMapLayers.active, gMapLayers.active + step);
 }
 
 // The layer goes into the one under it.
@@ -713,16 +771,43 @@ void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
         const int hw = int(b.size * 32), hh = int(b.height() * 16);
         layerBox(s, int(wx) - hw, int(wy) - hh, int(wx) + hw, int(wy) + hh, 0xFFFFFFA0u);
     }
-    if (!m.on || m.ed != &ed || (!here && !gLayersPanelOn)) return;
-    // The edges: where the terrain is fitted to a layer or to what is under its NULL corners.
+    if (!m.on || m.ed != &ed || (!here && !gFloatPal[int(Mode::Layers)].floating)) return;  // (in the mode, or with its window)
+    // The edges: where the terrain is fitted to a layer or to what is under its NULL corners: a faint diamond at each.
+    const auto line = [&s](float x0, float y0, float x1, float y1, uint32_t rgba, float thick) {
+        render::RectDraw l;
+        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = thick, l.line = true;
+        s.rects.push_back(l);
+    };
     for (const auto& [x, y] : m.fitted) {
-        render::RectDraw d;
-        d.x0 = x * 64.0f - 16, d.y0 = y * 32.0f - 8, d.x1 = x * 64.0f + 16, d.y1 = y * 32.0f + 8;
-        d.rgba = 0xFFD04060u, d.fill = true;
-        s.rects.push_back(d);
+        const float cx = x * 64.0f, cy = y * 32.0f, hw = 32, hh = 16;
+        const uint32_t amber = 0xFFD04070u;
+        line(cx - hw, cy, cx, cy - hh, amber, 1), line(cx, cy - hh, cx + hw, cy, amber, 1);
+        line(cx + hw, cy, cx, cy + hh, amber, 1), line(cx, cy + hh, cx - hw, cy, amber, 1);
     }
-    if (m.active >= 0 && m.active < int(m.stack.layers.size()))
-        if (const LayerBounds b = layerBounds(m.stack.layers[size_t(m.active)]); b.any) layerBox(s, b.left, b.top, b.right, b.bottom, 0x60C0FFC0u);
+    // The active layer's outline: round its diamonds and its placed tiles, as the layer's shape is. With only objects: a box.
+    if (m.active >= 0 && m.active < int(m.stack.layers.size())) {
+        const MapLayer& l = m.stack.layers[size_t(m.active)];
+        const uint32_t edge = 0x60D0FFFFu;
+        // (a corner's diamond: its four sides are shared with the corners diagonally beside it)
+        for (const auto& [at, terrain] : l.corners) {
+            const auto [x, y] = at;
+            const float cx = x * 64.0f, cy = y * 32.0f, hw = 64, hh = 32;
+            if (!l.corners.count({x - 1, y - 1})) line(cx - hw, cy, cx, cy - hh, edge, 2);
+            if (!l.corners.count({x + 1, y - 1})) line(cx, cy - hh, cx + hw, cy, edge, 2);
+            if (!l.corners.count({x + 1, y + 1})) line(cx + hw, cy, cx, cy + hh, edge, 2);
+            if (!l.corners.count({x - 1, y + 1})) line(cx, cy + hh, cx - hw, cy, edge, 2);
+        }
+        for (const auto& [at, tile] : l.tiles) {
+            const auto [x, y] = at;
+            const float x0 = x * 32.0f, y0 = y * 32.0f, x1 = x0 + 32, y1 = y0 + 32;
+            if (!l.tiles.count({x, y - 1})) line(x0, y0, x1, y0, edge, 2);
+            if (!l.tiles.count({x, y + 1})) line(x0, y1, x1, y1, edge, 2);
+            if (!l.tiles.count({x - 1, y})) line(x0, y0, x0, y1, edge, 2);
+            if (!l.tiles.count({x + 1, y})) line(x1, y0, x1, y1, edge, 2);
+        }
+        if (l.corners.empty() && l.tiles.empty())
+            if (const LayerBounds b = layerBounds(l); b.any) layerBox(s, b.left, b.top, b.right, b.bottom, edge);
+    }
     if (m.selecting) layerBox(s, std::min(m.startX, m.nowX), std::min(m.startY, m.nowY), std::max(m.startX, m.nowX), std::max(m.startY, m.nowY), 0xFFFFFFE0u);
     else if (m.area) layerBox(s, m.area->left, m.area->top, m.area->right, m.area->bottom, 0xFFFFFFE0u);
 }

@@ -731,6 +731,10 @@ public:
     Bytes layerBaseNow() const;
     // The map's sprites without its doodads' own sprites.
     std::vector<MapSprite> layerSprites() const;
+    // The corners the terrain tools asked for since the last call (on: they are noted), also those that already had that
+    // terrain: painting a terrain over the same terrain under a layer puts it in the layer.
+    void noteAskedCorners(bool on) { noteAsked_ = on; if (!on) askedCorners_.clear(); }
+    std::vector<std::pair<int, int>> takeAskedCorners() { return std::exchange(askedCorners_, {}); }
     // Changes when the map is read anew (open, new, undo, redo): what changed then is not an edit.
     uint64_t loadMark() const { return loadMark_; }
     // The map's other files have been read (archiveFile would not wait for them).
@@ -908,6 +912,12 @@ private:
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
     std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
     uint64_t loadMark_ = 0;
+    bool noteAsked_ = false;
+    std::vector<std::pair<int, int>> askedCorners_;
+    void noteCorners(const std::vector<CornerValue>& corners) {
+        if (noteAsked_)
+            for (const CornerValue& c : corners) askedCorners_.push_back({c.x, c.y});
+    }
     std::set<std::pair<int, int>> layerPlaced_;  // the tiles the last composeLayers placed from layers
     std::optional<std::pair<IsomGrid, TerrainLayer>> layerHeld_;  // composeLayers' hold
     std::pair<int, int> anchorOnGrid(int px, int py) const;

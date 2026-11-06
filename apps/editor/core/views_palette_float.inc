@@ -227,7 +227,7 @@ struct FloatPaletteView final : PanelStripView {
             if (fill) fill->setFrame({pad, y, std::max(pad, right), y + rowH}), fill->setVisible(!alt);
             y += rowH + pad;
         }
-        if (parts_.rows.empty()) y = top + pad + rowH + pad;
+        if (parts_.rows.empty() && !toolsMode) y = top + pad + rowH + pad;
         if (parts_.list) parts_.list->setFrame({pad, y, w - pad, std::max(y + 1, h - pad)}), parts_.list->setVisible(!alt);
         const int below = top + pad + rowH + pad;
         if (parts_.alt) parts_.alt->setFrame({pad, below, w - pad, std::max(below + 1, h - pad)}), parts_.alt->setVisible(alt);

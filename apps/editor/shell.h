@@ -257,6 +257,7 @@ bool shellUiIconMask(int size, int icon, std::vector<uint8_t>& out);
 
 // --- Build and the Log (core/project_build.inc, core/views_log.inc) ---
 // A question with two answers, as a warning: true when the first (`yes`) is chosen. The second is the default (Enter).
+void shellInfoBox(const std::wstring& text, const std::wstring& title);  // a message with OK
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
 // A build starts: the Log's error count goes to 0 (the lines stay).
 void shellLogNewBuild();

@@ -850,6 +850,10 @@ bool shellUiIconMask(int, int, std::vector<uint8_t>&) { return false; }  // (the
 msgbox::Box sdlYesNoBox(const std::wstring& text, const std::wstring& yes, const std::wstring& no) {
     return msgbox::makeBox(text, {shellTr(yes.c_str()), shellTr(no.c_str())}, msgbox::Icon::Warning, 1);
 }
+void shellInfoBox(const std::wstring& text, const std::wstring& title) {
+    if (!gRoot) return;
+    msgbox::runMessageBox(*gRoot, shellTr(title.c_str()), msgbox::makeBox(shellTr(text.c_str()), {shellTr(L"OK")}, msgbox::Icon::Info), nullptr);
+}
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no) {
     if (!gRoot) return false;
     return msgbox::runMessageBox(*gRoot, shellTr(title.c_str()), sdlYesNoBox(text, yes, no), nullptr) == 0;

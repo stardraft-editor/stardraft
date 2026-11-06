@@ -417,7 +417,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
 // A new panel like a palette (its mode, view and order), of the active tab; by the window `nearView` (a floating palette or
 // a panel: a step down and right of it), else over the map by the side bar.
 void palettePanelNew(Mode m, const PaletteView& view, PaletteSort sort, draw::View* nearView) {
-    if (!gRoot || !docOpen() || m == Mode::Locations) return;
+    if (!gRoot || !docOpen() || m == Mode::Locations || m == Mode::Layers) return;
     auto p = palettePanelMake(m, view, sort, activeDocKey());
     PalettePanelView& v = *p->view;
     // Its place: a step from the window it comes from (its size too), else over the map by the side bar.
@@ -632,7 +632,7 @@ PanelWindow* floatingPanelOf(int doc, Mode m) {
     return nullptr;
 }
 bool paletteFloats(Mode m) {
-    if (m == Mode::Locations) return gFloatPal[int(m)].floating;
+    if (m == Mode::Locations || m == Mode::Layers) return gFloatPal[int(m)].floating;
     return floatingPanelOf(activeDocKey(), m) != nullptr;
 }
 
@@ -691,15 +691,15 @@ void floatPalettesTiles() {
 bool floatPalettesSync(Mode active, bool shown, bool, draw::Rect) {
     gPanelsShown = shown;
     floatPalettesTiles();  // (each Terrain panel in Rectangle shows its own Tiles list)
-    return active != Mode::Locations && floatingPanelOf(activeDocKey(), active) != nullptr;
+    return active != Mode::Locations && active != Mode::Layers && floatingPanelOf(activeDocKey(), active) != nullptr;
 }
 PanelState* floatingPanelStateOf(Mode m) {
-    PanelWindow* p = m == Mode::Locations ? nullptr : floatingPanelOf(activeDocKey(), m);
+    PanelWindow* p = m == Mode::Locations || m == Mode::Layers ? nullptr : floatingPanelOf(activeDocKey(), m);
     return p ? &p->view->states[size_t(m)] : nullptr;
 }
 
 draw::View* floatingWindowOf(Mode m) {
-    if (m == Mode::Locations) return gFloatPalOpen ? &gFloatPalView : nullptr;
+    if (m == Mode::Locations || m == Mode::Layers) return gFloatPalOpen && gFloatPalMode == m ? &gFloatPalView : nullptr;
     PanelWindow* p = floatingPanelOf(activeDocKey(), m);
     return p && p->open ? p->view.get() : nullptr;
 }

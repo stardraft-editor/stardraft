@@ -142,6 +142,8 @@ bool keyOfChord(const std::string& name, draw::Key& out) {
     else if (name == "Right") out = draw::Key::Right;
     else if (name == "Up") out = draw::Key::Up;
     else if (name == "Down") out = draw::Key::Down;
+    else if (name == "PgUp") out = draw::Key::PageUp;
+    else if (name == "PgDn") out = draw::Key::PageDown;
     else if (name.size() >= 2 && name[0] == 'F' && std::isdigit(static_cast<unsigned char>(name[1]))) {
         const int n = std::atoi(name.c_str() + 1);
         if (n < 1 || n > 12) return false;

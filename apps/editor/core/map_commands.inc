@@ -97,7 +97,12 @@ void pathingCheckCommand();
 void showUnitsList();   // View > Units list: the Unit properties window with the list (core/units_list.inc)
 
 void toggleCreep();  // View > Layers > Creep (core/creep_layer.inc)
-extern bool gLayersPanelOn;  // (core/map_layers.inc)
+void mapLayersNew();  // (core/map_layers.inc)
+void mapLayersCurrentHide();
+void mapLayersCurrentLock();
+void mapLayersCurrentMergeDown();
+void mapLayersSelectStep(int step);
+void mapLayersMoveStep(int step);
 void toggleProtectedLayer();  // View > Layers > Protected terrain (core/protected_layer.inc)
 void protectedTerrainSync();  // (core/protected_layer.inc)
 
@@ -260,7 +265,15 @@ void registerMapCommands() {
     addCommand(ID_MODE_DOODADS, "mode.doodads", L"&Doodads", "Mode", L"D", [] { setMode(Mode::Doodads); });
     addCommand(ID_MODE_SPRITES, "mode.sprites", L"&Sprites", "Mode", L"S", [] { setMode(Mode::Sprites); });
     addCommand(ID_MODE_LOCATIONS, "mode.locations", L"&Locations", "Mode", L"L", [] { setMode(Mode::Locations); });
-    addCommand(ID_MODE_LAYERS, "mode.layers", L"&Map Layers", "Mode", L"", [] { setMode(Mode::Layers); });
+    addCommand(ID_MODE_LAYERS, "mode.layers", L"&Map Layers", "Mode", L"Ctrl+Alt+M", [] { setMode(Mode::Layers); });
+    addCommand(ID_LAYER_CMD, "layer.new", L"&New layer", "Mode/Layer", L"Ctrl+Alt+N", [] { mapLayersNew(); });
+    addCommand(ID_LAYER_CMD + 1, "layer.hide", L"&Hide or show", "Mode/Layer", L"Ctrl+Alt+H", [] { mapLayersCurrentHide(); });
+    addCommand(ID_LAYER_CMD + 2, "layer.lock", L"&Lock or unlock", "Mode/Layer", L"Ctrl+Alt+L", [] { mapLayersCurrentLock(); });
+    addCommand(ID_LAYER_CMD + 3, "layer.merge", L"&Merge down", "Mode/Layer", L"Ctrl+Alt+E", [] { mapLayersCurrentMergeDown(); });
+    addCommand(ID_LAYER_CMD + 4, "layer.up", L"The layer &above", "Mode/Layer", L"Alt+PgUp", [] { mapLayersSelectStep(1); });
+    addCommand(ID_LAYER_CMD + 5, "layer.down", L"The layer &below", "Mode/Layer", L"Alt+PgDn", [] { mapLayersSelectStep(-1); });
+    addCommand(ID_LAYER_CMD + 6, "layer.moveup", L"Move &up", "Mode/Layer", L"Alt+Shift+PgUp", [] { mapLayersMoveStep(1); });
+    addCommand(ID_LAYER_CMD + 7, "layer.movedown", L"Move &down", "Mode/Layer", L"Alt+Shift+PgDn", [] { mapLayersMoveStep(-1); });
     // Mode > Terrain tools: the Terrain tool strip's choices, each with its key (Terrain mode first), and the next one
     // (Ctrl+Alt+T: kProgramKeys runs it, as before)
     static const struct {
@@ -322,7 +335,7 @@ void registerMapCommands() {
     }, [] { return !gDock.minimapHidden; });
     addCommand(ID_VIEW_UNITLIST, "view.unitsList", L"&Units list", "View", L"", [] { showUnitsList(); });
     for (const Mode m : kModeOrder)  // View > Floating palettes: an item for each mode's palette
-        if (m != Mode::Layers) addCommand(ID_VIEW_FLOATPAL + int(m), kFloatPalNames[int(m)].command, kFloatPalNames[int(m)].menu, "View/Floating palettes", L"",
+        addCommand(ID_VIEW_FLOATPAL + int(m), kFloatPalNames[int(m)].command, kFloatPalNames[int(m)].menu, "View/Floating palettes", L"",
                    [m] { shellFloatPalette(m, !paletteFloats(m)); }, [m] { return paletteFloats(m); });
     addCommand(ID_LAYER, "view.layer.terrain", L"&Terrain", "View/Layers", L"", [] { toggleLayer(0); }, [] { return gLayers.terrain; });
     addCommand(ID_LAYER + 1, "view.layer.doodads", L"&Doodads", "View/Layers", L"", [] { toggleLayer(1); }, [] { return gLayers.doodads; });
@@ -330,11 +343,6 @@ void registerMapCommands() {
     addCommand(ID_LAYER + 3, "view.layer.units", L"&Units", "View/Layers", L"", [] { toggleLayer(3); }, [] { return gLayers.units; });
     addCommand(ID_LAYER_REVEALERS, "view.layer.revealers", L"Map &revealers", "View/Layers", L"", [] { toggleRevealers(); }, [] { return gLayers.revealers; });
     addCommand(ID_LAYER_CREEP, "view.layer.creep", L"&Creep", "View/Layers", L"", [] { toggleCreep(); }, [] { return gLayers.creep; });
-    addCommand(ID_LAYERS_PANEL, "view.layerlist", L"La&yer list", "View/Floating palettes", L"", [] {
-        gLayersPanelOn = !gLayersPanelOn;
-        shellMenusChanged();
-        shellRelayout();
-    }, [] { return gLayersPanelOn; });
     addCommand(ID_LAYER_PROTECTED, "view.layer.protected", L"&Protected terrain", "View/Layers", L"", [] { toggleProtectedLayer(); },
                [] { return gLayers.protectedTerrain; });
     // View > Overlays > Pathing: the regions or the connected areas (one of them; the one that shows, clicked again: off).

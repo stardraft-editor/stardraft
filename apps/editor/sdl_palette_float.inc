@@ -31,6 +31,10 @@ std::string floatPaletteShort(Mode m) {
 // The side bar's views of the palette of `m`, as the window holds them (from the top).
 FloatPaletteParts floatPaletteParts(Mode m) {
     FloatPaletteParts p;
+    if (m == Mode::Layers) {
+        p.list = &gLayersPanel;
+        return p;
+    }
     if (m == Mode::Locations) {
         p.rows = {{&gFilterSdl, nullptr, &gLocSortBtnSdl}};
         p.list = &gLocList;
@@ -201,16 +205,16 @@ bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot) {
     const bool others = floatPalettesSync(m, shown, alt, slot);
     busy = false;
     const bool loc = locationListSync(shown, slot);
-    return m == Mode::Locations ? loc : others;
+    return m == Mode::Locations || m == Mode::Layers ? loc && gFloatPalMode == m : others;
 }
 
 // The location list's window (gFloatPalView, with the side bar's location views) while the list floats.
 bool locationListSync(bool shown, draw::Rect slot) {
-    const Mode m = Mode::Locations;
+    const Mode m = gFloatPal[int(Mode::Layers)].floating ? Mode::Layers : Mode::Locations;  // (the Layer List uses this window too)
     static bool busy = false;
     if (busy) return gFloatPalOpen;
     const bool want = gFloatPal[int(m)].floating && shown && gHost && gRoot;
-    if (gFloatPalOpen && !want) {
+    if (gFloatPalOpen && (!want || gFloatPalMode != m)) {
         busy = true;
         floatPaletteClose();
         busy = false;
@@ -224,8 +228,8 @@ bool locationListSync(bool shown, draw::Rect slot) {
     gFloatPalView.dock.setTip(kFloatPalNames[int(m)].tip);
     gFloatPalView.altShown = false;
     gFloatPalView.collapsed = false;  // (a window opens whole)
-    gFloatPalView.toolsMode = Mode::Locations;  // (its whole panel: Locations' tools over the filter and the list)
-    gFloatPalView.toolsState = &dockedPanel(Mode::Locations);
+    gFloatPalView.toolsMode = m;  // (its whole panel: the mode's tools over the list)
+    gFloatPalView.toolsState = &dockedPanel(m);
     gFloatPalView.hold(floatPaletteParts(m));
     // The first place: over the map, at the side bar's edge, as wide as the side bar or more; the size that the settings
     // keep (points; a snapshot's window has one pixel to a point).
@@ -261,7 +265,7 @@ bool floatingPanelSet(Mode m, bool on);  // (sdl_palette_panels.inc: the active 
 void shellFloatPalette(Mode m, bool on) {
     gFloatPalLines = true;
     FloatPalette& p = gFloatPal[int(m)];
-    if (m != Mode::Locations) {  // (a palette window of the active tab: each map's own, kept with the map's panels)
+    if (m != Mode::Locations && m != Mode::Layers) {  // (a palette window of the active tab: each map's own, kept with the map's panels)
         if (!floatingPanelSet(m, on)) return;
         if (gRoot) gRoot->relayout();
         shellMenusChanged();
@@ -270,6 +274,7 @@ void shellFloatPalette(Mode m, bool on) {
     }
     if (p.floating == on) return;
     p.floating = on;
+    if (on) gFloatPal[int(m == Mode::Layers ? Mode::Locations : Mode::Layers)].floating = false;  // (one window for the two)
     saveDock();
     if (gRoot) gRoot->relayout();
     shellMenusChanged();
@@ -350,7 +355,7 @@ void sdlFloatPaletteLine() {
                                 inSide ? "in the side bar" : "not in the side bar (WRONG)", narrow(gSearchSdl.text()).c_str(), narrow(gPalSection).c_str(),
                                 gState.palette, floating.c_str()));
     }
-    if (a != Mode::Locations) return void(std::printf("  palette: floating %s, %s; pick=%d; floating=%s\n", name.c_str(), floatingPanelLine(a).c_str(), gState.palette, floating.c_str()));
+    if (a != Mode::Locations && a != Mode::Layers) return void(std::printf("  palette: floating %s, %s; pick=%d; floating=%s\n", name.c_str(), floatingPanelLine(a).c_str(), gState.palette, floating.c_str()));
     if (!gFloatPalOpen) return void(std::printf("  palette: floating %s, no window; pick=%d; floating=%s\n", name.c_str(), gState.palette, floating.c_str()));
     int x = gFloatPalShotAt.left, y = gFloatPalShotAt.top;
     if (SDL_Window* w = gHost ? gHost->sdlWindow(gFloatPalView) : nullptr) SDL_GetWindowPosition(w, &x, &y);

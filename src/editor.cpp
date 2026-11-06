@@ -1818,6 +1818,7 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced
     std::vector<CornerValue> corners = asked;
     maskCorners(corners);
     if (corners.empty()) return false;
+    noteCorners(corners);
     if (const int kept = pinProtected(corners, kProtectMargin); kept >= 0) {
         if (!kept) return false;
         int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
@@ -2015,6 +2016,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush) {
         for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
         nearProtected = protectedNear(x0, y0, x1, y1, kProtectMargin);
     }
+    if (useCore() && brush.starEdit() && !nearProtected && terrainMask_.empty()) noteCorners(corners);
     if (useCore() && brush.starEdit() && !nearProtected && terrainMask_.empty()) ok = applyCoreBrush(px, py, terrain, int(brush.size));
     else ok = applyTerrain(corners, true);
     if (own) endTerrainStroke();
@@ -2439,6 +2441,7 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
     for (std::vector<CornerValue> dab : dabs) {
         maskCorners(dab);
         if (dab.empty()) continue;
+        noteCorners(dab);
         bool same = true;
         for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
         if (same) continue;

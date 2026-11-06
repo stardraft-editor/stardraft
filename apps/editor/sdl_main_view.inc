@@ -854,25 +854,6 @@ struct MainView final : draw::View {
         apply(status, L.status, true);
         apply(gLogPane, L.log, true);
         apply(map, L.view, mapWs);
-        {  // The Layer List: Map Layers' list in the side bar (also as the other side's list), else with the View menu's item
-            // over the map's top right corner.
-            PaneSlot slot = L.view;
-            bool shown = mapWs && gLayersPanelOn;
-            if (gState.mode == Mode::Layers) {
-                slot = L.palette, slot.rc.top = L.search.rc.top, shown = mapWs;
-            } else if (L.palette2.visible && L.secondMode == Mode::Layers) {
-                slot = L.palette2, shown = mapWs;
-            } else if (L.palette3.visible && L.thirdMode == Mode::Layers) {
-                slot = L.palette3, shown = mapWs;
-            } else {
-                const int pw = scale(230), ph = gLayersPanel.preferredHeight();
-                slot.rc.left = std::max(slot.rc.left, slot.rc.right - pw - scale(8));
-                slot.rc.right -= scale(8);
-                slot.rc.top += scale(8);
-                slot.rc.bottom = std::min(slot.rc.bottom, slot.rc.top + ph);
-            }
-            apply(gLayersPanel, slot, shown);
-        }
         apply(minimap, L.minimap, L.minimap.visible && mapWs);
         apply(modes, L.modeBar, mapWs);
         apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible && mapWs);
@@ -892,6 +873,14 @@ struct MainView final : draw::View {
         noteSlot.rc.top = L.tool.rc.top;
         const bool floated = floatPaletteSync(m, mapWs && noteSlot.placed, tiles, draw::Rect(noteSlot.rc));
         palettePanelsSync();
+        if (gLayersPanel.parent() == this) {  // The Layer List: Map Layers' list in the side bar, also as the other side's list
+            PaneSlot slot = L.palette;
+            bool shown = false;
+            if (gState.mode == Mode::Layers && !floated) slot.rc.top = L.search.rc.top, shown = mapWs;
+            else if (L.palette2.visible && L.secondMode == Mode::Layers) slot = L.palette2, shown = mapWs;
+            else if (L.palette3.visible && L.thirdMode == Mode::Layers) slot = L.palette3, shown = mapWs;
+            apply(gLayersPanel, slot, shown);
+        }
         const bool here = mapWs && !floated;  // (the active mode's panel is in the side bar)
         apply(gToolStripView, L.tool, here);
         const auto side = [this](draw::View& v, const PaneSlot& s, bool shown) {
