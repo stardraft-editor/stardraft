@@ -47,28 +47,18 @@ uint32_t colorIdSwatch(int id) {
     return s.ed ? s.ed->colorRgb(id) : Editor::colorIdRgb(id);
 }
 
-// The rows of a player's color list: the colors by number, then Random, Player's choice and Custom (an RGB of your
-// choice); a number past the colors (typed: a byte of COLR with no name) is a last row, Unknown.
+// The rows of a player's color list: the colors by number, then Random and Player's choice; a last row only when the
+// player has that color: Custom (a map's RGB), or Unknown (a number past the colors, a byte of COLR with no name).
 int playerColorRow(const Editor::PlayerColor& c) {
     switch (c.kind) {
     case Editor::PlayerColor::Random: return colorIds();
     case Editor::PlayerColor::Choice: return colorIds() + 1;
     case Editor::PlayerColor::Custom: return colorIds() + 2;
-    default: return c.id < colorIds() ? int(c.id) : colorIds() + 3;
+    default: return c.id < colorIds() ? int(c.id) : colorIds() + 2;
     }
 }
 // The name of a byte that has no name in its list (its number shows at the right).
 const wchar_t* const kUnknownValue = L"Unknown";
-std::wstring playerColorName(const Editor::PlayerColor& c) {
-    const int row = playerColorRow(c);
-    if (row < colorIds()) return colorIdText(row);
-    if (row == colorIds()) return L"Random";
-    if (row == colorIds() + 1) return L"Player's choice";
-    if (row == colorIds() + 3) return kUnknownValue;
-    wchar_t hex[16];
-    std::swprintf(hex, 16, L"#%06X", unsigned(c.rgb));
-    return L"Custom " + std::wstring(hex) + L" (multiplayer only)";
-}
 
 // The page's values: the working copy (the program's copy is a PlayersDialog, which holds these).
 struct PlayersValues {
@@ -89,8 +79,6 @@ public:
     virtual void changed() = 0;
     // A force name typed: the program puts it into the map when the typing stops.
     virtual void typed() = 0;
-    // The Custom color: the color picker for player p, which sets c (true) or not (false: c stays).
-    virtual bool pickCustomColor(int p, Editor::PlayerColor& c) = 0;
     // The width of t in the page's font (the page's columns are measured with it).
     virtual int textWidth(const std::wstring& t) = 0;
     // The page's content is w x h (the program sizes the window it is in).
@@ -126,10 +114,6 @@ public:
                 edited();
             };
             color_[p].onChange = [this, p](int row) { colorPicked(p, row); };
-            // Custom again (it is the color already): its picker opens again, as the old list's Custom row did.
-            color_[p].onSame = [this, p](int row) {
-                if (row == colorIds() + 2) colorPicked(p, row);
-            };
             for (stardraft::kit::Dropdown* d : {&force_[p], &color_[p]}) add(*d, {0, 0, 0, 0});
         }
         for (int f = 0; f < 4; ++f) {
@@ -247,17 +231,13 @@ private:
         host_.changed();
         invalidate();
     }
-    // A color chosen in a player's list: the copy's color (Custom: the program's picker, which may keep the old one).
+    // A color chosen in a player's list: the copy's color.
     void colorPicked(int p, int row) {
         Editor::PlayerColor& c = v_.players[size_t(p)].color;
-        if (row == colorIds() + 3) return;  // (Unknown: the typed number that it is already)
+        if (row >= colorIds() + 2) return;  // (Custom, Unknown: the color that it is already)
         if (row < colorIds()) c.kind = Editor::PlayerColor::Id, c.id = uint8_t(row);
         else if (row == colorIds()) c.kind = Editor::PlayerColor::Random;
-        else if (row == colorIds() + 1) c.kind = Editor::PlayerColor::Choice;
-        else if (!host_.pickCustomColor(p, c)) {
-            invalidate();  // the list's choice is not the copy's: the field shows the copy's color again
-            return;
-        }
+        else c.kind = Editor::PlayerColor::Choice;
         edited();
     }
     // The dropdowns and fields show the copy's values (the program may have changed them too).
@@ -313,15 +293,18 @@ private:
         built = items;
         d.setItems(items);
     }
-    // A player's color list: the colors by number with their squares, Random, Player's choice, and Custom (its color when it is one).
+    // A player's color list: the colors by number with their squares, Random, Player's choice, and the color that the player has when it is neither.
     static std::vector<stardraft::kit::DropdownItem> colorItems(const Editor::PlayerColor& c) {
         auto bgr = [](uint32_t rgb) { return draw::rgb(int(rgb >> 16), int(rgb >> 8), int(rgb)); };
         std::vector<stardraft::kit::DropdownItem> items;
         for (int i = 0, n = colorIds(); i < n; ++i) items.push_back({colorIdText(i), -1, i, bgr(colorIdSwatch(i))});
         items.push_back({L"Random", -1, -1});
         items.push_back({L"Player's choice", -1, -1});
-        const bool custom = c.kind == Editor::PlayerColor::Custom;
-        items.push_back({custom ? playerColorName(c) : std::wstring(L"Custom color\x2026 (multiplayer only)"), -1, -1, custom ? bgr(c.rgb) : draw::kNone});
+        if (c.kind == Editor::PlayerColor::Custom) {
+            wchar_t hex[16];
+            std::swprintf(hex, 16, L"#%06X", unsigned(c.rgb));
+            items.push_back({L"Custom " + std::wstring(hex) + L" (multiplayer only)", -1, -1, bgr(c.rgb)});
+        }
         if (c.kind == Editor::PlayerColor::Id && c.id >= colorIds()) items.push_back({kUnknownValue, -1, int(c.id)});  // (a byte of COLR with no name)
         return items;
     }

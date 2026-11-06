@@ -2261,6 +2261,58 @@ int main(int argc, char** argv) {
             pc.undo();
             CHECK(sameExcept(original, pc.chk(), {}, &which) && pc.chk().effective("CRGB") == original.effective("CRGB"),
                   ("player colors: undo gives the map back " + which).c_str());
+            // (Discord feedback #227) Back to colors that COLR has: CRGB goes, COLR has them; undo gives it back.
+            pc.setPlayersAndForces(players, forces);
+            const Chk withCrgb = pc.chk();
+            CHECK(withCrgb.find("CRGB"), "player colors: a color that needs CRGB makes it");
+            for (int p = 0; p < 8; ++p) players[size_t(p)].color = {Editor::PlayerColor::Id, uint8_t(7 - p), 0};
+            pc.setPlayersAndForces(players, forces);
+            CHECK(!pc.chk().find("CRGB") && pc.chk().effective("COLR") == Bytes({7, 6, 5, 4, 3, 2, 1, 0}) && pc.player(0).color.id == 7,
+                  "player colors: all in COLR, CRGB goes");
+            pc.undo();
+            CHECK(pc.chk().effective("CRGB") == withCrgb.effective("CRGB"), "player colors: undo gives CRGB back");
+            pc.undo();
+        }
+    }
+    // A slot that OWNR has as Inactive and IOWN as a type: a change on the page keeps IOWN's, a start location gives it.
+    {
+        Editor io(data);
+        std::string e1;
+        if (io.open(argv[2], e1) && io.chk().effective("IOWN").size() >= 12 && io.chk().effective("IOWN")[2] &&
+            io.player(2).controller == Editor::Controller::Inactive) {
+            const uint8_t type = io.chk().effective("IOWN")[2];
+            std::vector<Editor::Player> players;
+            std::vector<Editor::Force> forces;
+            for (int p = 0; p < 8; ++p) players.push_back(io.player(p));
+            for (int f = 0; f < 4; ++f) forces.push_back(io.force(f));
+            players[0].force = 1;
+            io.setPlayersAndForces(players, forces);
+            CHECK(io.chk().effective("IOWN")[2] == type && io.player(2).controller == Editor::Controller::Inactive, "player types: a change elsewhere keeps IOWN's type");
+            io.placeUnit(214, 2, 640, 640);
+            CHECK(uint8_t(io.player(2).controller) == type && io.gameSlots()[2] == type, "player types: a start location gives the slot IOWN's type");
+        }
+    }
+    // A save keeps each player's type, with a start location or not (Discord feedback #228).
+    {
+        Editor sl(data);
+        std::string e1;
+        if (sl.newMap(64, 64, 0, 1, e1)) {
+            std::vector<Editor::Player> players;
+            std::vector<Editor::Force> forces;
+            for (int p = 0; p < 8; ++p) players.push_back(sl.player(p));
+            for (int f = 0; f < 4; ++f) forces.push_back(sl.force(f));
+            players[0].controller = Editor::Controller::Human;
+            players[1].controller = Editor::Controller::Computer;
+            players[2].controller = Editor::Controller::Inactive;
+            sl.setPlayersAndForces(players, forces);
+            const Bytes slots = sl.gameSlots();
+            CHECK(slots[0] == uint8_t(Editor::Controller::Human) && slots[1] == uint8_t(Editor::Controller::Computer) &&
+                      slots[2] == uint8_t(Editor::Controller::Inactive) && slots[8] == 0,
+                  "player types: no start location, and a save keeps the type");
+            CHECK(sl.player(1).controller == Editor::Controller::Computer, "player types: the page shows the type the game reads");
+            CHECK(!sl.playabilityProblems(false).empty(), "player types: players with no start location do not count as playing");
+        } else {
+            CHECK(false, ("player types: " + e1).c_str());
         }
     }
     // Terrain by kind through a change of tileset (1.10): water and high ground painted on a new badlands map stay

@@ -254,39 +254,36 @@ bool Editor::generateMap(const TerrainGenParams& params, std::string& error) {
     return true;
 }
 
-// The slots the game reads (OWNR) as StarEdit writes them: a player of 1-8 with a start location has the slot that the
-// editor's copy (IOWN) gives; every other slot is Inactive. A Computer slot with no start location makes the game
-// refuse the map. The editor's copy keeps the slots that the Players page shows.
-// The editor's slots: IOWN's, or OWNR's byte where IOWN is missing or has Inactive while OWNR has a slot (a tool
-// that writes only OWNR, which is the one the game reads).
+// The slots the Players page shows: the ones the game reads (OWNR), with a start location or not (the checks warn about
+// a player with units and no start location); IOWN's when the map has no OWNR.
+// A slot that OWNR has as Inactive and IOWN as a type (StarEdit's way for a player with no start location) has IOWN's
+// type when the player has a start location, or when OWNR has no player at all.
 Bytes Editor::editorSlots() const {
     const Section* iown = chk_.find("IOWN");
     const Section* ownr = chk_.find("OWNR");
-    Bytes out(12, 6);
-    for (size_t p = 0; p < 12; ++p) {
-        const bool hasI = iown && iown->data.size() >= 12, hasO = ownr && ownr->data.size() >= 12;
-        if (hasI) out[p] = iown->data[p];
-        if (hasO && (!hasI || (iown->data[p] == 0 && ownr->data[p] != 0))) out[p] = ownr->data[p];
-    }
-    return out;
-}
-
-Bytes Editor::gameSlots() const {
-    const Bytes slots = editorSlots();
-    Bytes out(12, 0);
-    if (!chk_.find("IOWN") && !chk_.find("OWNR")) return out;
+    const bool hasI = iown && iown->data.size() >= 12, hasO = ownr && ownr->data.size() >= 12;
+    if (!hasO) return hasI ? Bytes(iown->data.begin(), iown->data.begin() + 12) : Bytes(12, 6);
+    Bytes out(ownr->data.begin(), ownr->data.begin() + 12);
+    if (!hasI) return out;
+    const bool none = std::all_of(out.begin(), out.begin() + 8, [](uint8_t v) { return v == 0; });
     bool starts[8] = {};
     for (const Unit& u : units_)
         if (u.type == 214 /* Start Location */ && u.owner < 8) starts[u.owner] = true;
     for (size_t p = 0; p < 8; ++p)
-        if (starts[p]) out[p] = slots[p];
+        if (!out[p] && (none || starts[p])) out[p] = iown->data[p];
     return out;
+}
+
+Bytes Editor::gameSlots() const {
+    if (!chk_.find("IOWN") && !chk_.find("OWNR")) return Bytes(12, 0);
+    return editorSlots();
 }
 
 bool Editor::slotsSaved() const {
     const Section* ownr = chk_.find("OWNR");
     const Bytes slots = gameSlots();
-    return (ownr && ownr->data == slots) || (state_ == savedState_ && savedSlots_ == slots);  // (the file has them)
+    return (ownr && ownr->data.size() >= 12 && std::equal(slots.begin(), slots.end(), ownr->data.begin())) ||
+           (state_ == savedState_ && savedSlots_ == slots);  // (the file has them)
 }
 
 Bytes Editor::savedChk() const {
@@ -4054,7 +4051,7 @@ void Editor::syncColorRows() {
 Editor::Player Editor::player(int p) const {
     Player out;
     if (p < 0 || p >= 12) return out;
-    const Bytes ownr = editorSlots();  // (the editor's copy: OWNR has Inactive for the slots with no start location)
+    const Bytes ownr = editorSlots();
     const Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
     out.controller = Controller(ownr[size_t(p)]);
     out.race = Race(side[size_t(p)]);
@@ -4087,14 +4084,15 @@ Editor::Force Editor::force(int f) const {
 }
 
 void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces) {
-    // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is made
-    // only when a color needs it (random, the player's choice, RGB, or ids 12 and up).
+    // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is there
+    // only when a color needs it (random, the player's choice, RGB, or ids 12 and up): else it goes, and the lobby has
+    // the map's colors again.
     // (a mod's colors, more than 12 by number: COLR holds them, the game it runs on reads COLR only)
     // An id past the named colors (colorCount: a byte typed as a number, as an old map's black) goes into COLR as it is.
     const bool modColors = data_.unitDataLoader() && data_.unitDataLoader()->colorNames;
     const int colrIds = modColors ? colorCount() : 12, named = colorCount();
     auto inColr = [&](const PlayerColor& c) { return c.kind == PlayerColor::Id && (c.id < colrIds || c.id >= named); };
-    bool colorsChanged = false, needCrgb = chk_.find("CRGB") != nullptr;
+    bool colorsChanged = false, needCrgb = players.size() < 8 && chk_.find("CRGB");  // (a player not given keeps its color)
     for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
         const PlayerColor& c = players[p].color;
         colorsChanged |= !(c == player(int(p)).color);
@@ -4103,7 +4101,8 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
     Bytes colr, crgb;
     if (colorsChanged) {
         colr = colorSection(chk_);
-        if (const Section* s = chk_.find("CRGB"); s && s->data.size() >= 32) crgb.assign(s->data.begin(), s->data.begin() + 32);
+        const Section* s = chk_.find("CRGB");
+        if (needCrgb && s && s->data.size() >= 32) crgb.assign(s->data.begin(), s->data.begin() + 32);
         else if (needCrgb) {  // made from COLR: each player its COLR color by id
             crgb.assign(32, 0);
             for (size_t p = 0; p < 8; ++p) crgb[3 * p + 2] = colr[p], crgb[24 + p] = PlayerColor::Id;
@@ -4123,8 +4122,10 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
     if (colorsChanged) {
         chk_.set("COLR", std::move(colr));
         if (!crgb.empty()) chk_.set("CRGB", std::move(crgb));
+        else chk_.remove("CRGB");
     }
-    Bytes ownr = editorSlots();
+    const Bytes slotsBefore = editorSlots();
+    Bytes ownr = slotsBefore;
     Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
     for (size_t p = 0; p < std::min<size_t>(players.size(), 12); ++p) {
         ownr[p] = uint8_t(players[p].controller);
@@ -4139,7 +4140,13 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         forc[16 + f] = forces[f].flags;
     }
     strings_.write(chk_);
-    chk_.set("IOWN", ownr);  // the editor's copy of the slots (a save writes OWNR from it: gameSlots)
+    Bytes iown = ownr;  // (IOWN keeps its type for a player whose slot did not change: editorSlots)
+    if (const Section* s = chk_.find("IOWN"); s && s->data.size() >= 12) {
+        iown.assign(s->data.begin(), s->data.begin() + 12);
+        for (size_t p = 0; p < 12; ++p)
+            if (ownr[p] != slotsBefore[p]) iown[p] = ownr[p];
+    }
+    chk_.set("IOWN", std::move(iown));
     chk_.set("OWNR", std::move(ownr));
     chk_.set("SIDE", std::move(side));
     chk_.set("FORC", std::move(forc));
@@ -4531,11 +4538,14 @@ std::vector<std::string> Editor::startLocationProblems() const {
 std::vector<std::string> Editor::playabilityProblems(bool startLocations) const {
     std::vector<std::string> out = startLocations ? startLocationProblems() : std::vector<std::string>{};
     int playing = 0, humans = 0;
-    const Bytes slots = gameSlots();  // (the slots the game gets: a player with no start location is Inactive)
-    for (int p = 0; p < 8; ++p) {
+    const Bytes slots = gameSlots();
+    bool starts[8] = {};
+    for (const Unit& u : units_)
+        if (u.type == kStartLocationUnit && u.owner < 8) starts[u.owner] = true;
+    for (int p = 0; p < 8; ++p) {  // (a player with no start location does not play, whatever the slot's type)
         const Controller c = Controller(slots[size_t(p)]);
-        playing += c == Controller::Human || c == Controller::Computer;
-        humans += c == Controller::Human;
+        playing += starts[p] && (c == Controller::Human || c == Controller::Computer);
+        humans += starts[p] && c == Controller::Human;
     }
     if (playing < 2) out.push_back("At least two players must be human or computer (" + std::to_string(playing) + " now)");
     if (!humans) out.push_back("At least one player must be human");

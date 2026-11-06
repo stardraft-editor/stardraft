@@ -345,44 +345,6 @@ private:
     int hot_ = -1;
 };
 
-// The swatches of a color (the Custom color's picker): a click picks it.
-class SdlSwatchGrid final : public draw::View {
-public:
-    explicit SdlSwatchGrid(kit::Dialog& dlg) : dlg_(dlg) {}
-    static constexpr int kCols = 8, kRows = 2;
-    static constexpr uint32_t kColors[kCols * kRows] = {0x000000, 0x404040, 0x808080, 0xC0C0C0, 0xFFFFFF, 0xFF0000, 0xFF8000, 0xFFFF00,
-                                                       0x00FF00, 0x008000, 0x00FFFF, 0x0000FF, 0x000080, 0x800080, 0xFF00FF, 0x804000};
-    int picked = -1;
-    static int cell() { return scale(40); }
-    int preferredWidth() const { return kCols * cell(); }
-    int preferredHeight() const { return kRows * cell(); }
-    void paint(draw::Canvas& c) override {
-        c.fill({0, 0, width(), height()}, kBg);
-        for (int i = 0; i < kCols * kRows; ++i) {
-            const draw::Rect r = cellRect(i);
-            const uint32_t v = kColors[i];
-            c.fill(r, draw::rgb(int(v >> 16) & 255, int(v >> 8) & 255, int(v) & 255));
-            c.fill({r.left, r.top, r.right, r.top + 1}, kBorder), c.fill({r.left, r.bottom - 1, r.right, r.bottom}, kBorder);
-            c.fill({r.left, r.top, r.left + 1, r.bottom}, kBorder), c.fill({r.right - 1, r.top, r.right, r.bottom}, kBorder);
-        }
-    }
-    bool mouse(const draw::MouseEvent& e) override {
-        if (e.kind != draw::MouseKind::Down || e.button != 0) return false;
-        const int col = e.pt.x / cell(), row = e.pt.y / cell();
-        if (col < 0 || col >= kCols || row < 0 || row >= kRows) return false;
-        picked = row * kCols + col;
-        dlg_.close(0);
-        return true;
-    }
-
-private:
-    draw::Rect cellRect(int i) const {
-        const int x = (i % kCols) * cell(), y = (i / kCols) * cell();
-        return {x + scale(3), y + scale(3), x + cell() - scale(3), y + cell() - scale(3)};
-    }
-    kit::Dialog& dlg_;
-};
-
 // The list picker's answer: the row picked, or -1 (Cancel, or the window closed).
 int sdlPickFromList(const std::vector<std::wstring>& rows, int checked, const std::wstring& title) {
     if (!gRoot || rows.empty()) return -1;
@@ -394,20 +356,6 @@ int sdlPickFromList(const std::vector<std::wstring>& rows, int checked, const st
     list.setSize(scale(260), list.preferredHeight());
     dlg.run(*gRoot, title, draw::Point{scale(260) + scale(32), h + scale(96)});
     return list.picked;
-}
-
-// The Custom color's picker: the color picked from the swatches, or false (the color stays).
-bool sdlPickColor(uint32_t& rgb) {
-    if (!gRoot) return false;
-    kit::Dialog dlg;
-    SdlSwatchGrid grid(dlg);
-    dlg.setContent(grid);
-    dlg.setButtons({{shellTr(L"Cancel"), 1, false, true}});
-    grid.setSize(grid.preferredWidth(), grid.preferredHeight());
-    dlg.run(*gRoot, shellTr(L"Custom color"), draw::Point{grid.preferredWidth() + scale(32), grid.preferredHeight() + scale(96)});
-    if (grid.picked < 0) return false;
-    rgb = SdlSwatchGrid::kColors[grid.picked];
-    return true;
 }
 
 // --- The page's views -----------------------------------------------------------------------------------------------
@@ -453,7 +401,6 @@ class SdlPlayersHost final : public PlayersHost {
 public:
     void changed() override;
     void typed() override;
-    bool pickCustomColor(int p, Editor::PlayerColor& c) override;
     int textWidth(const std::wstring& t) override { return sdlTextWidth(t); }
     void fitSize(int w, int h) override;
 };
@@ -763,14 +710,6 @@ void SdlPlayersHost::changed() {
     sdlMapPageChanged();
 }
 void SdlPlayersHost::typed() { sdlMapPageTyped(); }
-bool SdlPlayersHost::pickCustomColor(int p, Editor::PlayerColor& c) {
-    uint32_t rgb = 0;
-    if (!sdlPickColor(rgb)) return false;
-    (void)p;
-    c.kind = Editor::PlayerColor::Custom;
-    c.rgb = rgb;
-    return true;
-}
 void SdlPlayersHost::fitSize(int w, int h) {
     if (!gSdlPage.players) return;
     gSdlPage.players->setSize(w, h);

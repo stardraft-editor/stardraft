@@ -906,7 +906,6 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
             if (c->type == Json::Type::Number) pl.color = {Editor::PlayerColor::Id, byteOf(*c, "color"), 0};
             else if (s == "random") pl.color.kind = Editor::PlayerColor::Random;
             else if (s == "choice") pl.color.kind = Editor::PlayerColor::Choice;
-            else if (s.size() == 7 && s[0] == '#') pl.color = {Editor::PlayerColor::Custom, 0, uint32_t(std::strtoul(s.c_str() + 1, nullptr, 16))};
             else {
                 bool ok = false;
                 for (int id = 0; id < Editor::kColorIds; ++id)
@@ -1655,7 +1654,7 @@ const char* kOps = R"OPS([
   {"op": "create_location", "params": {"area": "[left, top, right, bottom] px", "name": "text"}, "result": {"location": "its number"}},
   {"op": "set_location", "params": {"location": "number", "name": "text", "area": "[left, top, right, bottom] px", "excluded_elevations": "bits: 1 low, 2 medium, 4 high ground, 8 low, 16 medium, 32 high air"}},
   {"op": "delete_location", "params": {"location": "number"}},
-  {"op": "set_player", "params": {"player": "1-12", "controller": "human | computer | rescue | neutral | closed | inactive | 0-255", "race": "zerg | terran | protoss | user_select | random | 0-255", "force": "1-4 (players 1-8)", "color": "a color name, 0-255, random, choice or #RRGGBB (players 1-8)"}},
+  {"op": "set_player", "params": {"player": "1-12", "controller": "human | computer | rescue | neutral | closed | inactive | 0-255", "race": "zerg | terran | protoss | user_select | random | 0-255", "force": "1-4 (players 1-8)", "color": "a color name, 0-255, random or choice (players 1-8)"}},
   {"op": "set_force", "params": {"force": "1-4", "name": "text", "allies": "bool", "allied_victory": "bool", "shared_vision": "bool", "random_start": "bool"}},
   {"op": "set_scenario", "params": {"name": "text", "description": "text"}},
   {"op": "add_trigger", "params": {"trigger": {"players": "[1-8 or group names]", "conditions": "[{type, ...params}] (see trigger-types; none: Always)", "actions": "[{type, ...params}]", "disabled": "bool"}, "at": "index (default: the end)"}, "result": {"index": "its index"}},

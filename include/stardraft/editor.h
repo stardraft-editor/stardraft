@@ -605,10 +605,10 @@ public:
     void removeLocationSelection(int i);  // (the selected location: another of them, or none)
 
     // --- Players and forces ---------------------------------------------------------------------
-    // The slots the game reads (OWNR), as a save writes them: IOWN's slot for each player of 1-8 with a start
-    // location, else Inactive (as StarEdit; a Computer slot with no start location makes the game refuse the map).
+    // The slots the game reads (OWNR), as a save writes them: the map's, with a start location or not (IOWN's for
+    // players 1-8 when the map has no OWNR).
     Bytes gameSlots() const;
-    Bytes editorSlots() const;  // the slots the Players page shows (IOWN; OWNR's where IOWN is missing or Inactive)
+    Bytes editorSlots() const;  // the slots the Players page shows (OWNR; IOWN's when the map has none)
     bool slotsSaved() const;    // whether the map's OWNR is gameSlots already
     Bytes savedChk() const;  // the scenario.chk that a save writes (OWNR: gameSlots)
     // Players 1-8 (index 0-7): who controls the slot (IOWN, the editor's copy; OWNR when the map has no IOWN), the race (SIDE) and the

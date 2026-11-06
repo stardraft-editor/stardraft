@@ -452,10 +452,7 @@ void Dropdown::closeList() {
 void Dropdown::pick(int i) {
     closeList();
     if (i < 0 || i >= int(items_.size())) return;
-    if (i == value_) {
-        if (onSame) onSame(i);
-        return;
-    }
+    if (i == value_) return;
     value_ = i;
     invalidate();
     if (onChange) onChange(i);
