@@ -416,6 +416,11 @@ public:
     // Else, with `correct`, each unit goes to the nearest spot where it fits (a unit with no spot stays); without
     // it, the move is refused and no unit moves. Returns how many units moved (0: refused, no undo step).
     int moveSelection(int dx, int dy, bool correct = true);
+    // Move each selected unit's origin to the nearest crossing of a grid (cell size gw x gh, offset ox, oy, map pixels) on
+    // the map; a building's box to the grid's lines, on the tiles, with its linked add-on. A unit that does not fit among the
+    // others stays where it is (with "units anywhere": it goes).
+    // Returns how many moved. One undo step.
+    int snapSelection(int gw, int gh, int ox, int oy);
     // Terran add-ons: the selected buildings' linked add-ons (they move with them), and the links that are no longer
     // true (a partner deleted, or an add-on off its building's add-on spot) cleared on both sides.
     std::vector<int> withLinkedAddons(std::vector<int> sel) const;
@@ -525,6 +530,11 @@ public:
     int placeDoodads(const std::vector<ItemAt>& items, bool checkTerrain, bool nearest = false);
     // Sprites: move by (dx, dy) (those that stay on the map), delete, place.
     bool moveSprites(const std::vector<int>& indices, int dx, int dy);
+    // To a grid (cell size gw x gh, offset ox, oy, map pixels), one undo step. Returns how many moved. Doodads: the edges of
+    // each box on the grid's lines, on the tiles; all or none, as moveDoodads (after it they are the last doodads()). Sprites:
+    // each origin on the nearest crossing that is on the map.
+    int snapDoodads(const std::vector<int>& indices, int gw, int gh, int ox, int oy, bool checkTerrain, std::string* reason = nullptr);
+    int snapSprites(const std::vector<int>& indices, int gw, int gh, int ox, int oy);
     bool deleteSprites(const std::vector<int>& indices);
     // Replace with another type (Replace with...), one undo step each. Doodads: each where it was, when the new one
     // fits there (else it stays as it was); returns how many changed. Sprites: the same places.
@@ -953,6 +963,7 @@ private:
     // tiles) are made again from the ISOM on the next store (GitHub #143).
     void markPlacedTilesDirty(const std::vector<CornerValue>& corners);
     void removeDoodads(const std::vector<int>& indices);  // DD2, overlay sprites, tiles back to TILE
+    bool moveDoodadsBy(const std::vector<int>& indices, const std::function<std::pair<int, int>(const Doodad&)>& delta, bool checkTerrain, std::string* reason);
     std::vector<int> placeableUnitsIn(const Rect& area) const;
     void pruneUnits(const std::vector<int>& wasPlaceable);
     int removedByTerrain_ = 0;

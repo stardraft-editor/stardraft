@@ -1262,7 +1262,41 @@ bool Editor::moveDoodad(int index, int x, int y, bool checkTerrain, std::string*
     return true;
 }
 
+namespace {
+// The crossing of a grid (cell g, offset o) nearest to v that is inside 0 to size, and how far v is from the nearest line.
+int gridCrossing(int v, int g, int o, int size) {
+    int c = int(std::lround(double(v - o) / g)) * g + o;
+    if (c >= size) c -= g;
+    if (c < 0) c += g;
+    return std::clamp(c, 0, size - 1);
+}
+int gridDistance(int v, int g, int o) { return std::abs(v - (int(std::lround(double(v - o) / g)) * g + o)); }
+}  // namespace
+
 bool Editor::moveDoodads(const std::vector<int>& indices, int dx, int dy, bool checkTerrain, std::string* reason) {
+    return moveDoodadsBy(indices, [dx, dy](const Doodad&) { return std::pair(dx, dy); }, checkTerrain, reason);
+}
+
+int Editor::snapDoodads(const std::vector<int>& indices, int gw, int gh, int ox, int oy, bool checkTerrain, std::string* reason) {
+    if (gw <= 0 || gh <= 0) return 0;
+    // (on the tiles, as doodads are; only when that brings the edge nearer to a line: a grid between the tiles has no place for it)
+    auto axis = [](int edge, int g, int o, int size) {
+        const int to = int(std::lround(gridCrossing(edge, g, o, size) / 32.0)) * 32;
+        return gridDistance(to, g, o) < gridDistance(edge, g, o) ? to - edge : 0;
+    };
+    auto delta = [&](const Doodad& d) {
+        const DoodadType* t = doodadTypes_.find(d.id);
+        if (!t) return std::pair(0, 0);
+        return std::pair(axis(int(d.x) - t->width * 16, gw, ox, width_ * 32), axis(int(d.y) - t->height * 16, gh, oy, height_ * 32));
+    };
+    int count = 0;
+    for (int i : indices)
+        if (i >= 0 && i < int(doodads_.size())) count += delta(doodads_[size_t(i)]) != std::pair(0, 0);
+    if (!count || !moveDoodadsBy(indices, delta, checkTerrain, reason)) return 0;
+    return count;
+}
+
+bool Editor::moveDoodadsBy(const std::vector<int>& indices, const std::function<std::pair<int, int>(const Doodad&)>& delta, bool checkTerrain, std::string* reason) {
     std::vector<int> idx;
     for (int i : indices)
         if (i >= 0 && i < int(doodads_.size())) idx.push_back(i);
@@ -1277,6 +1311,7 @@ bool Editor::moveDoodads(const std::vector<int>& indices, int dx, int dy, bool c
     for (const Doodad& d : moving) {
         const DoodadType* t = doodadTypes_.find(d.id);
         if (!t) continue;
+        const auto [dx, dy] = delta(d);
         int tx, ty;
         doodadOrigin(*t, int(d.x) + dx, int(d.y) + dy, tx, ty);
         if (doodadOverlaps(*t, tx, ty)) why = "overlaps another doodad";
@@ -1419,6 +1454,25 @@ bool Editor::moveSprites(const std::vector<int>& indices, int dx, int dy) {
     sprites_ = readSprites(chk_);
     commit(false);
     return true;
+}
+
+int Editor::snapSprites(const std::vector<int>& indices, int gw, int gh, int ox, int oy) {
+    if (gw <= 0 || gh <= 0) return 0;
+    const Chk before = chk_;
+    int count = 0;
+    for (int i : indices) {
+        if (i < 0 || i >= int(sprites_.size())) continue;
+        MapSprite& sp = sprites_[size_t(i)];
+        const int x = gridCrossing(sp.x, gw, ox, width_ * 32), y = gridCrossing(sp.y, gh, oy, height_ * 32);
+        if (x == sp.x && y == sp.y) continue;
+        sp.x = uint16_t(x), sp.y = uint16_t(y), ++count;
+    }
+    if (!count) return 0;
+    writeSprites(chk_, sprites_);
+    pushUndo(before);
+    sprites_ = readSprites(chk_);
+    commit(false);
+    return count;
 }
 
 bool Editor::deleteSprites(const std::vector<int>& indices) {
@@ -3440,6 +3494,80 @@ int Editor::moveSelection(int dx, int dy, bool correct) {
     if (!count) return 0;
     beginEdit();
     for (size_t k = 0; k < sel.size(); ++k) units_[sel[k]] = moved[k];
+    fixAddonLinks();  // an add-on that did not keep its place on its building is not linked any more
+    writeUnits(chk_, units_);
+    commit(false);
+    return count;
+}
+
+int Editor::snapSelection(int gw, int gh, int ox, int oy) {
+    if (selection_.empty() || gw <= 0 || gh <= 0) return 0;
+    std::vector<int> sel = withLinkedAddons(selection_);  // a building's add-on goes with it
+    std::sort(sel.begin(), sel.end());
+    std::vector<bool> selected(units_.size(), false);
+    for (int i : sel) selected[size_t(i)] = true;
+    std::vector<Unit> others;  // the units that do not move
+    for (size_t i = 0; i < units_.size(); ++i)
+        if (!selected[i]) others.push_back(units_[i]);
+    std::vector<Unit> now, to;
+    for (int i : sel) now.push_back(units_[size_t(i)]);
+    to = now;
+    std::vector<std::vector<size_t>> groups;  // (a building and its linked add-on go together, or stay together)
+    std::vector<size_t> addons;
+    for (size_t k = 0; k < sel.size(); ++k) {
+        Unit& u = to[k];
+        if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0) {
+            addons.push_back(k);
+            continue;
+        }
+        groups.push_back({k});
+        if (u.type >= types_.size() || !types_[u.type].is(UnitFlag::Building)) {
+            u.x = uint16_t(gridCrossing(u.x, gw, ox, width_ * 32)), u.y = uint16_t(gridCrossing(u.y, gh, oy, height_ * 32));
+            continue;
+        }
+        // A building: the edges of its box on the grid's lines, on the tiles; only when that brings them nearer to a line
+        // (a grid between the tiles has no place for it: it stays, also when snapped again).
+        const int halfW = types_[u.type].placementWidth / 2, halfH = types_[u.type].placementHeight / 2;
+        Unit t = u;
+        t.x = uint16_t(std::clamp(gridCrossing(u.x - halfW, gw, ox, width_ * 32) + halfW, 0, width_ * 32 - 1));
+        t.y = uint16_t(std::clamp(gridCrossing(u.y - halfH, gh, oy, height_ * 32) + halfH, 0, height_ * 32 - 1));
+        snapToGrid(types_[u.type], t.x, t.y);
+        if (gridDistance(t.x - halfW, gw, ox) < gridDistance(u.x - halfW, gw, ox)) u.x = t.x;
+        if (gridDistance(t.y - halfH, gh, oy) < gridDistance(u.y - halfH, gh, oy)) u.y = t.y;
+    }
+    for (size_t k : addons)  // (with its building in the selection; alone it stays, and it stays linked)
+        for (size_t j = 0; j < sel.size(); ++j)
+            if (now[j].serial == now[k].relatedSerial && to[j].type < types_.size() && now[k].type < types_.size()) {
+                const auto [ax, ay] = addonSpot(types_[to[j].type], to[j], types_[now[k].type]);
+                to[k].x = uint16_t(std::clamp(ax, 0, width_ * 32 - 1)), to[k].y = uint16_t(std::clamp(ay, 0, height_ * 32 - 1));
+                for (std::vector<size_t>& g : groups)
+                    if (g[0] == j) g.push_back(k);
+            }
+    // Each one goes when it fits among all the others as they are then, so that no snap makes units overlap. Twice: one
+    // may leave the place that another one wants.
+    for (int pass = 0; pass < 2; ++pass)
+        for (const std::vector<size_t>& g : groups) {
+            bool differs = false;
+            for (size_t k : g) differs = differs || to[k].x != now[k].x || to[k].y != now[k].y;
+            if (!differs) continue;
+            bool fits = true;
+            if (!allowIllegalUnits_) {
+                std::vector<Unit> against = others;
+                for (size_t k = 0; k < now.size(); ++k)
+                    if (std::find(g.begin(), g.end(), k) == g.end()) against.push_back(now[k]);
+                for (size_t k : g) {
+                    fits = fits && placementOk(placementContext(&against), to[k]);
+                    against.push_back(to[k]);
+                }
+            }
+            if (fits)
+                for (size_t k : g) now[k] = to[k];
+        }
+    int count = 0;
+    for (size_t k = 0; k < sel.size(); ++k) count += now[k].x != units_[size_t(sel[k])].x || now[k].y != units_[size_t(sel[k])].y;
+    if (!count) return 0;
+    beginEdit();
+    for (size_t k = 0; k < sel.size(); ++k) units_[size_t(sel[k])] = now[k];
     fixAddonLinks();  // an add-on that did not keep its place on its building is not linked any more
     writeUnits(chk_, units_);
     commit(false);

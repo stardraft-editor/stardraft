@@ -276,7 +276,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
         // units are not selected, so the next paste does not move them.
         float pwx = wx, pwy = wy;
-        snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy in the middle of a grid cell
+        snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy on the grid lines
         applyUnitLimit(ed);
         const int copied = int(ed.pasteUnits(int(pwx), int(pwy)).size());  // (the symmetric copies too)
         const int pasted = ed.paste(int(pwx), int(pwy), app.correction);

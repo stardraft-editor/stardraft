@@ -387,6 +387,34 @@ void registerMapCommands() {
     addCommand(ID_SIM_MINING, "edit.simulate.mining", L"Simulate melee &mining (experimental)", "Edit/Tools", L"Ctrl+Alt+M", [] { simulateMiningCommand(); });
     addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units (experimental)", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
 #endif
+    addCommand(ID_EDIT_SNAPGRID, "edit.snapToGrid", L"&Snap to the grid", "Edit/Tools", L"", [] {
+        AppState& app = shellState();
+        if (!canSnapToGrid(app)) return;
+        Editor& ed = *app.ed;
+        const int gw = gDock.gridW, gh = gDock.gridH, ox = gDock.gridX, oy = gDock.gridY;
+        const wchar_t* one = L" unit";
+        const wchar_t* many = L" units";
+        int n = 0;
+        std::string why;
+        if (app.mode == Mode::Units) {
+            n = ed.snapSelection(gw, gh, ox, oy);
+        } else if (app.mode == Mode::Sprites) {
+            one = L" sprite", many = L" sprites";
+            n = ed.snapSprites(app.selSprites, gw, gh, ox, oy);
+        } else {
+            one = L" doodad", many = L" doodads";
+            const int selected = int(app.selDoodads.size());
+            n = ed.snapDoodads(app.selDoodads, gw, gh, ox, oy, app.doodadCheck, &why);
+            if (n) {  // the moved ones are the last ones now
+                app.selDoodads.clear();
+                for (int i = int(ed.doodads().size()) - selected; i < int(ed.doodads().size()); ++i) app.selDoodads.push_back(i);
+            }
+        }
+        setMessage(n ? L"Snapped " + std::to_wstring(n) + (n == 1 ? one : many) + L" to the grid"
+                     : !why.empty() ? L"The doodads stay: " + widen(why)
+                                    : std::wstring(L"The selection is on the grid, or does not fit on it."));
+        app.dirty = true;
+    });
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_CMBW_REPAIRISOM, "edit.cmbw.repairIsom", L"Try to repair the &ISOM", "Cosmonarchy", L"", [] { cmbwRepairIsomCommand(); });
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });

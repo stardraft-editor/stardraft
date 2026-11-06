@@ -2292,6 +2292,48 @@ int main(int argc, char** argv) {
             CHECK(uint8_t(io.player(2).controller) == type && io.gameSlots()[2] == type, "player types: a start location gives the slot IOWN's type");
         }
     }
+    // Snap selected units to the grid (GitHub #244): each origin on the nearest crossing, the offset too; one undo step.
+    {
+        Editor sn(data);
+        std::string e1;
+        if (sn.newMap(64, 64, 0, 1, e1)) {
+            const uint16_t marine = *sn.unitTypes().findByName("Terran Marine");
+            sn.placeUnit(marine, 0, 333, 341), sn.placeUnit(marine, 0, 700, 701);
+            sn.selectAll();
+            CHECK(sn.snapSelection(32, 32, 0, 0) == 2 && sn.units()[0].x == 320 && sn.units()[0].y == 352 && sn.units()[1].x == 704 && sn.units()[1].y == 704,
+                  "snap to grid: each unit on the nearest crossing");
+            CHECK(sn.snapSelection(32, 32, 0, 0) == 0, "snap to grid: on the grid already");
+            CHECK(sn.snapSelection(16, 64, 8, 4) == 2 && sn.units()[0].x == 328 && sn.units()[0].y == 324, "snap to grid: another grid, with its offset");
+            sn.undo();
+            CHECK(sn.units()[0].x == 320, "snap to grid: undo");
+            CHECK(sn.placeSprite(1, 333, 341, 0) && sn.snapSprites({0}, 32, 32, 0, 0) == 1 && sn.sprites()[0].x == 320 && sn.sprites()[0].y == 352, "snap to grid: a sprite");
+            sn.undo();
+            CHECK(sn.sprites()[0].x == 333, "snap to grid: a sprite's undo");
+            CHECK(sn.placeSprite(1, 2040, 333, 0) && sn.snapSprites({1}, 32, 32, 0, 0) == 1 && sn.sprites()[1].x == 2016, "snap to grid: the crossing on the map");
+            // (two that would come to one place stay apart; a building on a grid between the tiles stays)
+            Editor ov(data);
+            if (ov.newMap(64, 64, 0, 1, e1)) {
+                const uint16_t m = *ov.unitTypes().findByName("Terran Marine"), depot = *ov.unitTypes().findByName("Terran Supply Depot");
+                ov.placeUnit(m, 0, 336, 320), ov.placeUnit(m, 0, 353, 320);
+                ov.selectAll();
+                ov.snapSelection(32, 32, 0, 0);
+                CHECK(std::abs(int(ov.units()[0].x) - int(ov.units()[1].x)) >= 17, "snap to grid: units do not come onto each other");
+                ov.clearSelection();
+                ov.placeUnit(depot, 0, 800, 800);
+                ov.selectUnitsOfType(depot);
+                const Unit before = ov.units().back();
+                ov.snapSelection(32, 32, 16, 16);
+                CHECK(ov.units().back().x == before.x && ov.units().back().y == before.y, "snap to grid: a building stays on a grid between the tiles");
+            }
+            Editor dd(data);
+            if (dd.open(argv[2], e1) && !dd.doodads().empty()) {
+                std::vector<int> all;
+                for (int i = 0; i < int(dd.doodads().size()); ++i) all.push_back(i);
+                CHECK(dd.snapDoodads(all, 32, 32, 0, 0, false) == 0, "snap to grid: doodads on the tiles stay on a tile grid");
+                CHECK(dd.snapDoodads(all, 32, 32, 16, 16, false) == 0, "snap to grid: a grid between the tiles has no place for doodads");
+            }
+        }
+    }
     // A save keeps each player's type, with a start location or not (Discord feedback #228).
     {
         Editor sl(data);

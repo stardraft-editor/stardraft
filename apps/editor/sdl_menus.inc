@@ -314,7 +314,7 @@ bool sdlRuns(int id) {
 // the map shows the game, not the map. Saving, the view, the tabs and the other workspaces stay.
 bool simBarShown();  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
-    return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
+    return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
            (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
@@ -327,6 +327,7 @@ bool sdlEnabled(int id) {
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    if (id == ID_EDIT_SNAPGRID && (gWorkspace != Workspace::Map || !canSnapToGrid(gState))) return false;  // (a selection in the map)
     if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
     // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
     // Windows program's page tabs (a Delete or Paste would change the map nobody sees).

@@ -97,10 +97,16 @@ Rect previewLocationRect(float wx, float wy) {
     return r;
 }
 
-// Unit snap (Options > Units): placement in the middle of a grid cell, moves in whole cells.
+// Unit snap (Options > Units): placement with the unit's origin on the grid lines, moves in whole cells.
 // Buildings snap to tile edges (snapToGrid) while Options > Units > Snap buildings to tile edges is on (the default, as in
 // StarEdit); with it off they go where they are placed, as other units (setBuildingSnap: core/views_tabs.inc, the command).
-void snapUnitPoint(float& x, float& y) { x = snapToCell(x, appState().unitGrid), y = snapToCell(y, appState().unitGrid); }
+void snapUnitPoint(float& x, float& y) {
+    const int g = appState().unitGrid;
+    if (g <= 0 || !appState().ed) return;
+    // (the map's edge is a line, but a unit does not fit on it: the first line inside)
+    x = std::clamp(snapRound(x, g), float(g), float(appState().ed->width() * 32 - g));
+    y = std::clamp(snapRound(y, g), float(g), float(appState().ed->height() * 32 - g));
+}
 
 float snapUnitDelta(float d) { return snapRound(d, appState().unitGrid); }
 
@@ -459,10 +465,16 @@ void strokeMove(float wx, float wy) {
     if (appState().mode != Mode::Units) appState().lastPlaceX = wx, appState().lastPlaceY = wy;  // boxes decide the room: follow the mouse
 }
 
-// Distance between units placed while dragging: the unit's footprint; with a snap, a tile (32 px snap) or the footprint
-// in whole grid cells.
+// Edit > Snap to the grid: units, doodads or sprites are selected in their mode, and that layer shows.
+bool modeLayerHidden();
+bool canSnapToGrid(const AppState& app) {
+    if (!app.ed || !app.ed->isOpen() || app.pasting || app.pastingItems || modeLayerHidden()) return false;
+    return (app.mode == Mode::Units && !app.ed->selection().empty()) || (app.mode == Mode::Doodads && !app.selDoodads.empty()) ||
+           (app.mode == Mode::Sprites && !app.selSprites.empty());
+}
+
+// Distance between units placed while dragging: the unit's footprint; with a snap, the footprint in whole grid cells.
 float placeSpacing() {
-    if (appState().unitGrid == 32) return 32;
     const UnitType& t = appState().ed->unitTypes()[uint16_t(appState().palette)];
     const int foot = std::max({int(t.placementWidth), int(t.placementHeight), 16});
     return appState().unitGrid > 0 ? float((foot + appState().unitGrid - 1) / appState().unitGrid * appState().unitGrid) : float(foot);
