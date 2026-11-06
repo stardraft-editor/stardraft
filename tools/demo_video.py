@@ -10,7 +10,7 @@ A demo is a JSON file. Places are in the window's client area:
 
     {"map": "<map file>", "size": [1600, 1000], "steps": [
         {"text": "Pick a Marine", "click": [1386, 429]},
-        {"rclick": [700, 650]}, {"altclick": [120, 668]}, {"move": [700, 650]},
+        {"rclick": [700, 650]}, {"altclick": [120, 668]}, {"shiftclick": [700, 650]}, {"ctrlclick": [700, 650]}, {"move": [700, 650]},
         {"drag": [640, 560, 820, 700]}, {"wheel": [145, 491, 3]}, {"key": "^a"}, {"wait": 500}]}
 
 A step's "text" is the caption from that step on; "hold" is how long the step stays, in ms (default 900).
@@ -81,7 +81,7 @@ def step_code(step):
         lines.append(f"Say({quoted(step['text'])})")
     if "move" in step:
         lines.append("MouseMove {}, {}".format(*step["move"]))
-    for name, button, mods in (("click", "Left", ""), ("rclick", "Right", ""), ("altclick", "Left", "Alt")):
+    for name, button, mods in (("click", "Left", ""), ("rclick", "Right", ""), ("altclick", "Left", "Alt"), ("shiftclick", "Left", "Shift"), ("ctrlclick", "Left", "Ctrl")):
         if name in step:
             x, y = step[name]
             lines += [f"MouseMove {x}, {y}", "Sleep 250", "Guard()"]
