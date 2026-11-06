@@ -2,6 +2,45 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.7
+
+[Video: the new features of 0.8.7](images/0.8.7/whats-new.mp4)
+
+### Map
+
+- One grid for the whole map: View > Grid has sizes from 2 to 256 pixels. Options > Units, Sprites and Locations each
+  have Snap to the grid, on or off.
+- Snap to the grid in the Edit menu and the right-click menu, for selected units, doodads and sprites.
+- Magic wand (W), under Select: a click selects connected terrain, Shift+click adds, Ctrl+click removes.
+- Terrain mask (experimental): Alt+click terrains or tiles, then painting changes only those.
+
+  ![Terrain mask: only High Plating, which has the outline in the list, changes under the brush](images/0.8.7/mask.png)
+- Turn and mirror what is on the cursor: R, M and top bar buttons, for terrain, units, doodads and sprites. Turning
+  is experimental.
+
+  ![Copied terrain on the cursor after a turn and a mirror, with the buttons on the top bar](images/0.8.7/turn.png)
+- Symmetry: a movable center, and Turns from 1 to 8.
+
+  ![Four turns round a center that has moved: four brushes paint at the same time](images/0.8.7/symmetry.png)
+- Spray density from 1 to 100%.
+- Isometric: the Square and Circle brushes show their own shape, and Select keeps its own shape.
+- Rectangle: the brush is in tiles, from 1 x 1.
+- Ctrl+V makes custom terrain text on the clipboard the brush.
+
+### Data
+
+- Map properties > Players: a save keeps each player's type. The Custom (RGB) color is gone from the color list.
+
+### Triggers
+
+- Classic triggers: all the game's AI scripts are in the list, with Turn ON and Turn OFF Shared Vision by name.
+- Classic triggers: a scroll past a value no longer changes it.
+
+### Fixes
+
+- Selected doodads and sprites keep their boxes when the mouse leaves the map.
+- Windows: a drag of a palette window to a screen's edge no longer snaps it to half of the screen.
+
 ## 0.8.6
 
 A stability release for Windows.
