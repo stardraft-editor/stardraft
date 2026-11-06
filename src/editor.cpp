@@ -257,7 +257,8 @@ bool Editor::generateMap(const TerrainGenParams& params, std::string& error) {
 // The slots the Players page shows: the ones the game reads (OWNR), with a start location or not (the checks warn about
 // a player with units and no start location); IOWN's when the map has no OWNR.
 // A slot that OWNR has as Inactive and IOWN as a type (StarEdit's way for a player with no start location) has IOWN's
-// type when the player has a start location, or when OWNR has no player at all.
+// type when the player has a start location, when OWNR has no player at all, or when that type is Computer (the pick
+// stays on the page: gameSlots).
 Bytes Editor::editorSlots() const {
     const Section* iown = chk_.find("IOWN");
     const Section* ownr = chk_.find("OWNR");
@@ -270,13 +271,19 @@ Bytes Editor::editorSlots() const {
     for (const Unit& u : units_)
         if (u.type == 214 /* Start Location */ && u.owner < 8) starts[u.owner] = true;
     for (size_t p = 0; p < 8; ++p)
-        if (!out[p] && (none || starts[p])) out[p] = iown->data[p];
+        if (!out[p] && (none || starts[p] || iown->data[p] == uint8_t(Controller::Computer))) out[p] = iown->data[p];
     return out;
 }
 
 Bytes Editor::gameSlots() const {
     if (!chk_.find("IOWN") && !chk_.find("OWNR")) return Bytes(12, 0);
-    return editorSlots();
+    Bytes out = editorSlots();
+    bool used[8] = {};  // (a Computer player with no units, a start location being one, is Inactive for the game)
+    for (const Unit& u : units_)
+        if (u.owner < 8) used[u.owner] = true;
+    for (size_t p = 0; p < 8; ++p)
+        if (out[p] == uint8_t(Controller::Computer) && !used[p]) out[p] = 0;
+    return out;
 }
 
 bool Editor::slotsSaved() const {
@@ -287,9 +294,19 @@ bool Editor::slotsSaved() const {
 }
 
 Bytes Editor::savedChk() const {
-    if (slotsSaved()) return chk_.serialize();
+    const Bytes game = gameSlots(), shown = editorSlots();
+    // (not slotsSaved: the file may have the slots while the working copy has the page's)
+    if (const Section* ownr = chk_.find("OWNR"); ownr && ownr->data.size() >= 12 && std::equal(game.begin(), game.end(), ownr->data.begin()))
+        return chk_.serialize();
     Chk out = chk_;
-    out.set("OWNR", gameSlots());
+    out.set("OWNR", game);
+    Bytes iown = shown;  // (IOWN has the type that the game's slot does not have: the page shows it after a reopen)
+    if (const Section* s = chk_.find("IOWN"); s && s->data.size() >= 12) {
+        iown.assign(s->data.begin(), s->data.begin() + 12);
+        for (size_t p = 0; p < 12; ++p)
+            if (game[p] != shown[p]) iown[p] = shown[p];
+    }
+    out.set("IOWN", std::move(iown));
     return out.serialize();
 }
 

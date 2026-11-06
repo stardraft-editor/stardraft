@@ -195,7 +195,7 @@ std::vector<std::wstring> sdlPlayersProblems(const PlayersValues& d) {
     int playing = 0, humans = 0;
     for (int p = 0; p < 8; ++p) {
         const auto c = d.players[size_t(p)].controller;
-        playing += c == Editor::Controller::Human || c == Editor::Controller::Computer;
+        playing += c == Editor::Controller::Human || (c == Editor::Controller::Computer && (units[p] || starts[p]));  // (a Computer with neither: Inactive for the game)
         humans += c == Editor::Controller::Human;
         if (units[p] && !starts[p]) out.push_back(L"Player " + std::to_wstring(p + 1) + L" owns units but has no start location");
     }

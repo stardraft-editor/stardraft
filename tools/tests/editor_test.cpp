@@ -2306,9 +2306,19 @@ int main(int argc, char** argv) {
             players[2].controller = Editor::Controller::Inactive;
             sl.setPlayersAndForces(players, forces);
             const Bytes slots = sl.gameSlots();
-            CHECK(slots[0] == uint8_t(Editor::Controller::Human) && slots[1] == uint8_t(Editor::Controller::Computer) &&
-                      slots[2] == uint8_t(Editor::Controller::Inactive) && slots[8] == 0,
-                  "player types: no start location, and a save keeps the type");
+            CHECK(slots[0] == uint8_t(Editor::Controller::Human) && slots[1] == 0 && slots[2] == uint8_t(Editor::Controller::Inactive) && slots[8] == 0,
+                  "player types: no start location, and a save keeps the type; a Computer with no units is Inactive for the game");
+            const fs::path file = fs::path(argv[3]) / "editor_test_slots.scm";
+            Editor back(data);
+            const bool saved = sl.save(file, e1) && back.open(file, e1);
+            CHECK(saved && back.player(1).controller == Editor::Controller::Computer && back.chk().effective("OWNR")[1] == 0,
+                  "player types: saved and opened again, the page has the Computer and OWNR has Inactive");
+            const fs::path file2 = fs::path(argv[3]) / "editor_test_slots2.scm";  // (Save as with no edit: the same slots)
+            Editor back2(data);
+            CHECK(sl.save(file2, e1) && back2.open(file2, e1) && back2.chk().effective("OWNR")[1] == 0, "player types: a second save has Inactive too");
+            const uint16_t marine = *sl.unitTypes().findByName("Terran Marine");
+            sl.placeUnit(marine, 1, 320, 320);
+            CHECK(sl.gameSlots()[1] == uint8_t(Editor::Controller::Computer), "player types: a Computer with units is a Computer for the game");
             CHECK(sl.player(1).controller == Editor::Controller::Computer, "player types: the page shows the type the game reads");
             CHECK(!sl.playabilityProblems(false).empty(), "player types: players with no start location do not count as playing");
         } else {
