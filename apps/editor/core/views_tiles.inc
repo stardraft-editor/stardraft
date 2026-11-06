@@ -650,7 +650,7 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
                 std::vector<uint16_t> mask = appState().ed->tileMask();
                 if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(v)); it != mask.end()) mask.erase(it);
                 else mask.push_back(uint16_t(v));
-                setMessage(mask.empty() ? L"No mask: painting changes all tiles" : L"Mask: painting changes only the tiles with an outline. Alt+click takes one out.");
+                setMessage(mask.empty() ? L"No mask: painting changes all tiles" : L"Mask (experimental): painting changes only the tiles with an outline. Alt+click takes one out.");
                 appState().ed->setTileMask(std::move(mask));
                 invalidate();
             }

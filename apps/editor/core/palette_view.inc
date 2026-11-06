@@ -371,7 +371,7 @@ void paletteMaskToggle(AppState& app, int value) {
     std::vector<uint16_t> mask = app.ed->terrainMask();
     if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(value)); it != mask.end()) mask.erase(it);
     else mask.push_back(uint16_t(value));
-    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.");
+    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask (experimental): painting changes only the terrains with an outline. Alt+click takes one out.");
     app.ed->setTerrainMask(std::move(mask));
     app.dirty = true;
 }

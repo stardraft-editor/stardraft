@@ -91,8 +91,8 @@ struct TopBarView final : stardraft::draw::View {
                 int turn;
                 bool upDown;
                 const wchar_t* tip;
-            } kTurns[] = {{UiIcon::TurnRight, 1, false, L"Turn clockwise what is on the cursor (R)"},
-                          {UiIcon::TurnLeft, -1, false, L"Turn back what is on the cursor (Shift+R)"},
+            } kTurns[] = {{UiIcon::TurnRight, 1, false, L"Turn clockwise what is on the cursor (R, experimental)"},
+                          {UiIcon::TurnLeft, -1, false, L"Turn back what is on the cursor (Shift+R, experimental)"},
                           {UiIcon::MirrorLeftRight, 0, false, L"Mirror left and right what is on the cursor (M)"},
                           {UiIcon::MirrorTopBottom, 0, true, L"Mirror top and bottom what is on the cursor (Shift+M)"}};
             const RECT mr = topBarModesRect();

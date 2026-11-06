@@ -1084,7 +1084,7 @@ void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
                 it.x = turn > 0 ? -y : turn < 0 ? y : upDown ? x : -x, it.y = turn > 0 ? x : turn < 0 ? -x : upDown ? -y : y;
             }
         }
-        setMessage(app, turn ? L"Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)"
+        setMessage(app, turn ? L"Turned the copy, experimental (R and Shift+R turn it, M and Shift+M mirror it)"
                              : upDown ? L"Mirrored the copy top and bottom" : L"Mirrored the copy left and right");
         app.dirty = true;
         return;
@@ -1097,7 +1097,7 @@ void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
             dropped = app.ed->mirrorTerrainClipboard(upDown);
         }
         shareTerrainCopy(*app.ed);
-        const std::wstring done = turn ? L"Turned the terrain" : upDown ? L"Mirrored the terrain top and bottom" : L"Mirrored the terrain left and right";
+        const std::wstring done = turn ? L"Turned the terrain, experimental" : upDown ? L"Mirrored the terrain top and bottom" : L"Mirrored the terrain left and right";
         setMessage(app, dropped ? done + L"; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
                                 : done + L" (R and Shift+R turn it, M and Shift+M mirror it)");
     } else if (what == 2) {
@@ -1109,7 +1109,7 @@ void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
         tilesStampTurned(turn, upDown);
     }
     if (what != 1)
-        setMessage(app, turn     ? L"Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit"
+        setMessage(app, turn     ? L"Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs may not fit"
                         : upDown ? L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit"
                                  : L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit");
     app.dirty = true;
