@@ -828,7 +828,20 @@ render::Scene buildScene() {
         }
     }
 
-    if (!app.mouseIn) return s;
+    if (!app.mouseIn) {  // (on a menu or a panel: the selected sprites and doodads keep their boxes, as the units do)
+        if (app.mode == Mode::Sprites) {
+            for (int i : app.selSprites)
+                if (i >= 0 && i < int(ed.sprites().size())) outline(s, mapSpriteBox(ed, ed.sprites()[size_t(i)]), 0x40FF40FFu, 2);
+        } else if (app.mode == Mode::Doodads && app.palette < 0) {
+            for (int i : app.selDoodads)
+                if (i >= 0 && i < int(ed.doodads().size())) {
+                    const Doodad& sd = ed.doodads()[size_t(i)];
+                    if (const DoodadType* t = ed.doodadTypes().find(sd.id))
+                        outline(s, {sd.x - t->width * 16, sd.y - t->height * 16, sd.x + t->width * 16, sd.y + t->height * 16}, 0x40FF40FFu, 2);
+                }
+        }
+        return s;
+    }
     if (app.pasting && ed.canPaste()) {
         // Ghost of the clipboard at the cursor; red where a unit could not be placed as is.
         for (const PasteGhostUnit& g : unitPasteGhost(wx, wy)) {
