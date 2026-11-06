@@ -118,9 +118,8 @@ bool readLayer(Reader& r, MapLayer& l) {
 }
 
 template <class T>
-void moveObjects(std::vector<LayerObject<T>>& list, int px, int py, const std::optional<LayerArea>& area) {
-    for (auto& o : list)
-        if (!area || area->contains(o.x, o.y)) o.x += px, o.y += py;
+void moveObjects(std::vector<LayerObject<T>>& list, int px, int py) {
+    for (auto& o : list) o.x += px, o.y += py;
 }
 
 template <class T>
@@ -251,26 +250,15 @@ LayerOwners LayerStack::owners() const {
     return o;
 }
 
-void moveLayerContents(MapLayer& layer, int dx, int dy, const std::optional<LayerArea>& area) {
-    std::map<std::pair<int, int>, uint16_t> moved, kept;
-    for (const auto& [at, terrain] : layer.corners) {
-        if (!area || area->contains(at.first * 64, at.second * 32)) moved[{at.first + dx, at.second + dy}] = terrain;
-        else kept[at] = terrain;
-    }
-    // (what moves goes over what stays there)
-    for (const auto& [at, terrain] : moved) kept[at] = terrain;
-    layer.corners = std::move(kept);
-    std::map<std::pair<int, int>, uint16_t> movedTiles, keptTiles;
-    for (const auto& [at, tile] : layer.tiles) {
-        if (!area || area->contains(at.first * 32, at.second * 32)) movedTiles[{at.first + dx * 2, at.second + dy}] = tile;
-        else keptTiles[at] = tile;
-    }
-    for (const auto& [at, tile] : movedTiles) keptTiles[at] = tile;
-    layer.tiles = std::move(keptTiles);
+void moveLayerContents(MapLayer& layer, int dx, int dy) {
+    std::map<std::pair<int, int>, uint16_t> corners, tiles;
+    for (const auto& [at, terrain] : layer.corners) corners[{at.first + dx, at.second + dy}] = terrain;
+    for (const auto& [at, tile] : layer.tiles) tiles[{at.first + dx * 2, at.second + dy}] = tile;
+    layer.corners = std::move(corners), layer.tiles = std::move(tiles);
     const int px = dx * 64, py = dy * 32;
-    moveObjects(layer.units, px, py, area);
-    moveObjects(layer.doodads, px, py, area);
-    moveObjects(layer.sprites, px, py, area);
+    moveObjects(layer.units, px, py);
+    moveObjects(layer.doodads, px, py);
+    moveObjects(layer.sprites, px, py);
 }
 
 void snapLayerMove(int px, int py, int& dx, int& dy) {

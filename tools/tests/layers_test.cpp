@@ -62,8 +62,6 @@ int main(int argc, char** argv) {
         moveLayerContents(l, -4, 2);
         check(l.corners.count({-1, 4}) && l.corners.count({6, 13}), "the corners move, also out of the map");
         check(l.units[0].x == 192 - 256 && l.units[0].y == 128, "the units move with them");
-        moveLayerContents(l, 2, 0, LayerArea{0, 0, 1000, 1000});
-        check(l.corners.count({-1, 4}) && l.corners.count({8, 13}) && l.corners.count({6, 13}) == 0, "an area moves only what is in it");
     }
 
     // A merge: the upper layer wins.
@@ -155,6 +153,29 @@ int main(int argc, char** argv) {
         ed.composeLayers(base, s);
         check(ed.isomGrid().terrainAt(9, 16) != Water, "what is under NULL shows");
         check(ed.invalidTerrain() == 0, "the terrain stays valid");
+
+        // A null tile over a layer's terrain does not stay when the map is made again (a cut on a layer above it).
+        {
+            const size_t at = size_t(11) * 64 + 14;
+            ed.composeLayers(base, s);
+            std::vector<std::pair<int, int>> one{{14, 11}};
+            check(ed.placeTileCells(one, 0) == 1 && ed.terrain().tiles[at] == 0, "a null tile is placed");
+            ed.composeLayers(base, s);
+            check(ed.terrain().tiles[at] != 0, "made again, the terrain shows there");
+        }
+
+        // The Background hidden: black where no layer has terrain; nothing showing: all black.
+        {
+            s.background.visible = false;
+            ed.composeLayers(base, s);
+            check(ed.terrain().tiles[size_t(60) * 64 + 60] == 0, "the Background hidden: black outside of the layers");
+            s.layers[0].visible = false;
+            ed.composeLayers(base, s);
+            check(std::all_of(ed.terrain().tiles.begin(), ed.terrain().tiles.end(), [](uint16_t t) { return t == 0; }), "nothing showing: all black");
+            s.background.visible = true, s.layers[0].visible = true;
+            ed.composeLayers(base, s);
+            check(ed.terrain().tiles[size_t(60) * 64 + 60] != 0, "shown again: the Background's tiles");
+        }
 
         // Undo: the files and the map go back together.
         ed.beginLayerEdit();

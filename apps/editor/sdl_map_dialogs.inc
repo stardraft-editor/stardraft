@@ -223,6 +223,7 @@ void mapRightClickSdl(draw::View& map, draw::Point at) {
     float wx, wy;
     toWorld(at.x, at.y, wx, wy);
     const MenuModel model = mapMenuModel(wx, wy);
+    if (model.empty() && gState.mode == Mode::Layers) return;  // (no layers in the map: no menu)
     const std::vector<kit::MenuItem> items = mapMenuKit(model);
     gState.dirty = true;
     map.invalidate();

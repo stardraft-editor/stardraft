@@ -45,7 +45,7 @@ struct PanelTabsView final : stardraft::draw::View {
         c.fill(rc, kBg);
         tabs.clear();
         const std::vector<Mode> ms = modes();
-        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
+        static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites, UiIcon::Layers};
         int widest = 0;
         for (Mode m : ms) widest = std::max<int>(widest, c.measure(kModeNames[int(m)]));
         const int n = std::max<int>(1, int(ms.size()));
@@ -63,8 +63,7 @@ struct PanelTabsView final : stardraft::draw::View {
             else if (on) c.fill({r.left, r.bottom - scale(1), r.right, r.bottom}, kBorderStrong);
             const Color col = active ? kAccent : on || hot ? kText : kDim;
             const int w = names ? is + gap + c.measure(kModeNames[int(m)]) : is, x0 = (r.left + r.right - w) / 2;
-            if (m == Mode::Layers) drawMapLayersIcon(c, {x0, r.top, x0 + is, r.bottom}, col, is);
-            else c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[int(m)]), col, is);
+            c.icon({x0, r.top, x0 + is, r.bottom}, int(icons[int(m)]), col, is);
             if (names) c.text({x0 + is + gap, r.top, r.right, r.bottom}, kModeNames[int(m)], col, stardraft::draw::kMiddle);
             tabs.push_back({r, m});
         }

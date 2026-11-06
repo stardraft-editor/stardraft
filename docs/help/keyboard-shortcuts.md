@@ -48,7 +48,10 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 
 | Key | What it does |
 |---|---|
-| T, U, D, S, L | Terrain, Units, Doodads, Sprites and Locations mode |
+| T, U, D, S, L, Y | Terrain, Units, Doodads, Sprites, Locations and Map Layers mode |
+| Ctrl+Alt+N, Ctrl+Alt+H, Ctrl+Alt+L, Ctrl+Alt+E | New layer; hide or show, lock or unlock the selected layer; merge it down |
+| Alt+Page Up, Alt+Page Down | The layer above or below |
+| Alt+Shift+Page Up, Alt+Shift+Page Down | Move the selected layer up or down in the list |
 | Ctrl+T, Ctrl+U, Ctrl+G, Ctrl+R, Ctrl+L | Terrain, Units, Doodads, Sprites and Locations mode (as SCMDraft's layer keys, but Doodads on Ctrl+G; in the Map workspace) |
 | Ctrl+F | Show or hide the fog of war of the selected player |
 | V, B, A, F | The mode's tools: Select, Brush (place), Spray and Fill |

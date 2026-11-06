@@ -632,9 +632,7 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Erase, L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", SErase, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
     case Mode::Layers:
-        return {{UiIcon::Select, L"Move Layer: drag on the map to move the selected layers (with an area: only what is in it)", LayersMove, true},
-                {UiIcon::Rect, L"Select an area of the layer: drag a rectangle, then Move Layer moves only what is in it", LayersArea, false},
-                {UiIcon::Erase, L"Erase: the brush makes the layer NULL under it, so what is under the layer shows (Size: the brush's size)", LayersErase, false}};
+        return {{UiIcon::MoveAll, L"Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.", LayersMove, true}};
     case Mode::Locations:
         return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", LSelect, true},
                 {UiIcon::Erase, L"Erase: drag the brush over locations to delete them (Size: the brush's size)", LErase, false}};

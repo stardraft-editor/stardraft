@@ -7,11 +7,11 @@ enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, Pending
 
 // Tools per mode (index into these lists).
 const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand"};
-const wchar_t* kLayersTools[] = {L"Move Layer", L"Select an area", L"Erase"};
+const wchar_t* kLayersTools[] = {L"Move Layer"};
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
 enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand };
-enum LayersTool { LayersMove, LayersArea, LayersErase };  // Map Layers (core/map_layers.inc)  // (Line to Polygon, Bridge, Ramp: core/terrain_shapes.inc)
+enum LayersTool { LayersMove };  // Map Layers (core/map_layers.inc)  // (Line to Polygon, Bridge, Ramp: core/terrain_shapes.inc)
 // Rectangle, Ellipse and Diamond, outline or filled: a drag from one corner to the other (core/terrain_shapes.inc).
 inline bool isBoxTool(int tool) { return tool == TRect || tool == TRectFill || tool == TEllipse || tool == TEllipseFill || tool == TDiamond || tool == TDiamondFill; }
 // The shapes' outlines that the brush paints (Line, Rectangle, Ellipse, Diamond); the others fill.

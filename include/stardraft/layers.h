@@ -49,12 +49,6 @@ struct LayerBounds {
     bool any = false;
 };
 
-// A rectangle of map pixels (right and bottom are not in it).
-struct LayerArea {
-    int left = 0, top = 0, right = 0, bottom = 0;
-    bool contains(int x, int y) const { return x >= left && y >= top && x < right && y < bottom; }
-};
-
 // Which layer has each object of the flattened map: -1 the Background, else the index in LayerStack::layers.
 struct LayerOwners {
     std::vector<int> units, doodads, sprites;
@@ -83,9 +77,9 @@ struct LayerStack {
     LayerOwners owners() const;
 };
 
-// The contents of the layer (of the area, or all) move by (dx, dy) rects (64 x 32 px). The grid of ISOM corners moves
+// The contents of the layer move by (dx, dy) rects (64 x 32 px). The grid of ISOM corners moves
 // onto itself: dx + dy must be even.
-void moveLayerContents(MapLayer& layer, int dx, int dy, const std::optional<LayerArea>& area = std::nullopt);
+void moveLayerContents(MapLayer& layer, int dx, int dy);
 // The nearest move in rects (dx + dy even) for a drag in pixels.
 void snapLayerMove(int px, int py, int& dx, int& dy);
 LayerBounds layerBounds(const MapLayer& layer);

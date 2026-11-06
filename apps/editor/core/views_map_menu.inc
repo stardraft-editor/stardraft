@@ -61,6 +61,8 @@ void locationMenuPick(int loc, int pick) {
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
        ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR };
+constexpr int ID_MAPMENU_LAYERROW = 9300;  // + a layer's row + 1 (0: the Background), Map Layers' menu on the map
+
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
 std::wstring tileValueText(const Editor& ed, float wx, float wy);  // (palette_tools.inc)
 void shellReportFeedback(const std::wstring& on, const std::wstring& text);
@@ -185,6 +187,18 @@ MenuModel mapMenuModel(float wx, float wy) {
     gMapMenuStack = 0;
     if (!app.ed || !app.ed->isOpen()) return m;
     Editor& ed = *app.ed;
+    if (app.mode == Mode::Layers) {  // The layers under the click, to select one (no layers in the map: no menu)
+        mapLayersSync();
+        const MapLayersState& s = gMapLayers;
+        if (!s.on || s.stack.layers.empty()) return m;
+        for (int r : mapLayersAt(int(wx), int(wy))) {
+            std::wstring name = widen(s.stack.layers[size_t(r)].name);
+            for (size_t at = name.find(L'&'); at != std::wstring::npos; at = name.find(L'&', at + 2)) name.insert(at, 1, L'&');
+            m.push_back(menuItem(ID_MAPMENU_LAYERROW + r + 1, name, {}, false, r == s.active));
+        }
+        m.push_back(menuItem(ID_MAPMENU_LAYERROW, tr(L"Background"), {}, false, s.active < 0));
+        return m;
+    }
     bool has = false, canPaste = false;
     switch (app.mode) {
     case Mode::Units: {
@@ -277,6 +291,7 @@ MenuModel mapMenuModel(float wx, float wy) {
 // What a pick of the map's menu does (the id of its item).
 void mapMenuPick(int pick) {
     AppState& app = appState();
+    if (pick >= ID_MAPMENU_LAYERROW && pick <= ID_MAPMENU_LAYERROW + int(gMapLayers.stack.layers.size())) return mapLayersPick(pick - ID_MAPMENU_LAYERROW - 1, 0);
     if (pick == ID_MAPMENU_PROPS && gMapMenuUnit >= 0) showUnitProperties(gMapMenuUnit);
     else if (pick == ID_MAPMENU_STACK) showUnitStack(gMapMenuWX, gMapMenuWY, app.mouseX, app.mouseY, false);
     else if (pick == ID_MAPMENU_SELECT) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");

@@ -265,7 +265,7 @@ void registerMapCommands() {
     addCommand(ID_MODE_DOODADS, "mode.doodads", L"&Doodads", "Mode", L"D", [] { setMode(Mode::Doodads); });
     addCommand(ID_MODE_SPRITES, "mode.sprites", L"&Sprites", "Mode", L"S", [] { setMode(Mode::Sprites); });
     addCommand(ID_MODE_LOCATIONS, "mode.locations", L"&Locations", "Mode", L"L", [] { setMode(Mode::Locations); });
-    addCommand(ID_MODE_LAYERS, "mode.layers", L"&Map Layers", "Mode", L"Ctrl+Alt+M", [] { setMode(Mode::Layers); });
+    addCommand(ID_MODE_LAYERS, "mode.layers", L"&Map Layers", "Mode", L"Y", [] { setMode(Mode::Layers); });
     addCommand(ID_LAYER_CMD, "layer.new", L"&New layer", "Mode/Layer", L"Ctrl+Alt+N", [] { mapLayersNew(); });
     addCommand(ID_LAYER_CMD + 1, "layer.hide", L"&Hide or show", "Mode/Layer", L"Ctrl+Alt+H", [] { mapLayersCurrentHide(); });
     addCommand(ID_LAYER_CMD + 2, "layer.lock", L"&Lock or unlock", "Mode/Layer", L"Ctrl+Alt+L", [] { mapLayersCurrentLock(); });

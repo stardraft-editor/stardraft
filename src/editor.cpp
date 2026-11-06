@@ -4676,9 +4676,16 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
                         background = background && under.terrainAt(cx, cy) == isom_.terrainAt(cx, cy);
                     }
                 if (!same || background) continue;  // (where the Background shows: its own tiles)
-                for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
-                    if (!layerPlaced_.count({tx, ry})) setTile(tx, ry, lastTiles.tiles[size_t(ry) * width_ + size_t(tx)]);
+                for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx) {
+                    const uint16_t last = lastTiles.tiles[size_t(ry) * width_ + size_t(tx)];
+                    if (last && !layerPlaced_.count({tx, ry})) setTile(tx, ry, last);  // (not a null tile: a cut's goes away)
+                }
             }
+    if (!stack.background.visible)
+        for (int ry = 0; ry < int(height_); ++ry)
+            for (int rx = 0; rx * 2 < int(width_); ++rx)
+                if (!asked.count({rx, ry}) && !asked.count({rx + 1, ry}) && !asked.count({rx, ry + 1}) && !asked.count({rx + 1, ry + 1}))
+                    for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx) setTile(tx, ry, 0);
     layerPlaced_.clear();
     for (const MapLayer& l : stack.layers)
         if (l.visible)
@@ -4694,7 +4701,7 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
     // (the Background's objects come back as they were, also those that are not on the map or do not fit)
     const auto addObjects = [&](MapLayer& l, bool show, bool background) {
         for (auto& o : l.units) {
-            o.shown = background || (show && onMap(o.x, o.y));
+            o.shown = show && (background || onMap(o.x, o.y));
             if (!o.shown) continue;
             Unit u = o.item;
             u.x = uint16_t(o.x), u.y = uint16_t(o.y);
@@ -4708,7 +4715,7 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
                 doodadOrigin(*t, o.x, o.y, tx, ty);
                 o.shown = stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, o.item.owner, false);
             }
-            if (!o.shown && !background) continue;
+            if (!show || (!o.shown && !background)) continue;
             // (its entry as it is: its place to the pixel, its flags; without its tiles when it does not fit)
             Doodad d = o.item;
             d.x = uint16_t(o.x), d.y = uint16_t(o.y);
@@ -4717,20 +4724,20 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
         }
     };
     // (the sprites after all doodads: their own sprites go into THG2 first, in the doodads' order)
-    addObjects(stack.background, true, true);
+    addObjects(stack.background, stack.background.visible, true);
     for (MapLayer& l : stack.layers) addObjects(l, l.visible, false);
     writeDoodads(chk_, doodadList);
     std::vector<MapSprite> sprites = readSprites(chk_);
     const auto addSprites = [&](MapLayer& l, bool show, bool background) {
         for (auto& o : l.sprites) {
-            o.shown = background || (show && onMap(o.x, o.y));
+            o.shown = show && (background || onMap(o.x, o.y));
             if (!o.shown) continue;
             MapSprite s = o.item;
             s.x = uint16_t(o.x), s.y = uint16_t(o.y);
             sprites.push_back(s);
         }
     };
-    addSprites(stack.background, true, true);
+    addSprites(stack.background, stack.background.visible, true);
     for (MapLayer& l : stack.layers) addSprites(l, l.visible, false);
     writeSprites(chk_, sprites);
     writeUnits(chk_, units_);

@@ -2,7 +2,7 @@
 // a prototype; the model: map_layers.inc): a row of icons (new, delete, help), then the layers from the top down, with
 // the Background at the bottom. Each row: the eye (show or hide), the name, and under the mouse the grip and the lock (a
 // locked layer always shows it). A click selects (Ctrl: one more; Shift: a run), a double click renames, a drag moves a
-// layer in the list, a right click opens the menu with the rest. The Background cannot be renamed, moved or hidden.
+// layer in the list, a right click opens the menu with the rest. The Background cannot be renamed or moved.
 
 int shellContextMenuAt(draw::View& from, draw::Point at, const std::vector<std::wstring>& items);  // (shell_sdl.inc)
 
@@ -28,14 +28,12 @@ public:
             kitpaint::drawListRow(c, row, picked || r == s.active, over);
             const MapLayer* layer = r >= 0 ? &s.stack.layers[size_t(r)] : &s.stack.background;
             const draw::Rect eye = eyeRect(y), lock = lockRect(y);
-            if (r >= 0) {
-                kitpaint::drawIconFace(c, eye, UiIcon::Show, kitpaint::Tone::Quiet, false, over && eye.contains(pointer_), layer->visible);
-                if (!layer->visible) c.line(eye.left + scale(4), eye.bottom - scale(5), eye.right - scale(4), eye.top + scale(5), kDim, std::max(1, scale(2)));
-            }
+            kitpaint::drawIconFace(c, eye, layer->visible ? UiIcon::Show : UiIcon::ShowOff, kitpaint::Tone::Quiet, false, over && eye.contains(pointer_));
             const int nameLeft = eye.right + scale(6), nameRight = lock.left - scale(4);
             const std::wstring name = r >= 0 ? widen(layer->name) : tr(L"Background");
-            c.text({nameLeft, y, nameRight, y + rowH}, name, r >= 0 && !layer->visible ? kDim : r == s.active ? kOnText : kText, draw::kMiddle | draw::kEllipsis);
-            if (layer->locked || over) drawLock(c, lock, layer->locked, over && lock.contains(pointer_));
+            c.text({nameLeft, y, nameRight, y + rowH}, name, !layer->visible ? kDim : r == s.active ? kOnText : kText, draw::kMiddle | draw::kEllipsis);
+            if (layer->locked || over)
+                kitpaint::drawIconFace(c, lock, layer->locked ? UiIcon::Lock : UiIcon::Unlock, layer->locked ? kitpaint::Tone::Primary : kitpaint::Tone::Quiet, false, over && lock.contains(pointer_));
             // The grip: the row can be dragged. Under the mouse, or while it is dragged.
             if (r >= 0 && (over || r == dragRow_)) {
                 const draw::Rect g = gripRect(y);
@@ -57,6 +55,15 @@ public:
                 }
     }
     bool mouse(const draw::MouseEvent& e) override {
+        // A press in the list goes to Map Layers, after what it does (the list can move with the mode). A right click: before
+        // its menu.
+        using draw::MouseKind;
+        if (e.kind == MouseKind::Down && e.button == 1 && appState().mode != Mode::Layers) setMode(Mode::Layers);
+        const bool handled = press(e);
+        if (e.kind == MouseKind::Down && e.button == 0 && appState().mode != Mode::Layers && dragRow_ < 0) setMode(Mode::Layers);
+        return handled;
+    }
+    bool press(const draw::MouseEvent& e) {
         using draw::MouseKind;
         const auto rowAt = [&](draw::Point p, int& index, draw::Rect* rect = nullptr) {
             for (const Row& rw : rows_)
@@ -80,7 +87,7 @@ public:
             }
             if (e.button == 1) return rowMenu(index), true;
             if (e.button != 0) return true;
-            if (index >= 0 && eyeRect(row.top).contains(e.pt)) return mapLayersToggleVisible(index), true;
+            if (eyeRect(row.top).contains(e.pt)) return mapLayersToggleVisible(index), true;
             if (lockRect(row.top).contains(e.pt)) return mapLayersToggleLock(index), true;
             mapLayersPick(index, e.mods);
             if (index >= 0) {
@@ -102,12 +109,13 @@ public:
             if (dragRow_ >= 0 && dragTo_ != dragRow_) mapLayersMoveRow(dragRow_, dragTo_);
             dragRow_ = dragTo_ = -2;
             invalidate();
+            if (appState().mode != Mode::Layers) setMode(Mode::Layers);
             return true;
         case MouseKind::DoubleClick:
             dragRow_ = dragTo_ = -2;
             if (e.button != 0 || !rowAt(e.pt, index, &row)) return true;
             // (two quick clicks on the eye or the lock are two clicks)
-            if (index >= 0 && eyeRect(row.top).contains(e.pt)) mapLayersToggleVisible(index);
+            if (eyeRect(row.top).contains(e.pt)) mapLayersToggleVisible(index);
             else if (lockRect(row.top).contains(e.pt)) mapLayersToggleLock(index);
             else mapLayersRename(index);
             return true;
@@ -120,7 +128,7 @@ public:
         for (const Row& rw : rows_)
             if (rw.r.contains(p)) {
                 if (rw.index >= 0 && gripRect(rw.r.top).contains(p)) return draw::Cursor::SizeNS;
-                if ((rw.index >= 0 && eyeRect(rw.r.top).contains(p)) || lockRect(rw.r.top).contains(p)) return draw::Cursor::Hand;
+                if (eyeRect(rw.r.top).contains(p) || lockRect(rw.r.top).contains(p)) return draw::Cursor::Hand;
             }
         return draw::Cursor::Arrow;
     }
@@ -130,7 +138,7 @@ public:
         if (helpRect().contains(p)) return L"How layers get into the map that you play";
         for (const Row& rw : rows_)
             if (rw.r.contains(p)) {
-                if (rw.index >= 0 && eyeRect(rw.r.top).contains(p)) return L"Show or hide the layer (Ctrl+Alt+H)";
+                if (eyeRect(rw.r.top).contains(p)) return L"Show or hide (Ctrl+Alt+H). With nothing showing, the map is black";
                 if (lockRect(rw.r.top).contains(p)) return L"Lock or unlock: a locked layer does not change (Ctrl+Alt+L)";
                 if (rw.index >= 0 && gripRect(rw.r.top).contains(p)) return L"Drag to move the layer in the list";
             }
@@ -149,17 +157,6 @@ private:
     draw::Rect eyeRect(int y) const { return {scale(4), y + scale(3), scale(26), y + scale(25)}; }
     draw::Rect gripRect(int y) const { return {width() - scale(16), y + scale(8), width() - scale(4), y + scale(22)}; }
     draw::Rect lockRect(int y) const { return {width() - scale(40), y + scale(3), width() - scale(18), y + scale(25)}; }
-    // A padlock: closed when locked, its bow open when not.
-    void drawLock(draw::Canvas& c, draw::Rect r, bool locked, bool over) {
-        const draw::Color col = locked ? kAccentBright : over ? kText : kDim;
-        const int cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2, t = std::max(1, scale(2));
-        c.fill({cx - scale(5), cy - scale(1), cx + scale(5), cy + scale(6)}, col);
-        const int bowL = cx - scale(4), bowR = cx + scale(2), top = cy - scale(6);
-        c.fill({bowL, top, bowL + t, cy - scale(1)}, col);
-        c.fill({bowL, top, bowR + t, top + t}, col);
-        if (locked) c.fill({bowR + scale(1), top, bowR + scale(1) + t, cy - scale(1)}, col);
-        else c.fill({bowR + scale(1), top, bowR + scale(1) + t, top + scale(3)}, col);
-    }
     // The rest of the commands. index -2: under the rows.
     void rowMenu(int index) {
         const MapLayersState& s = gMapLayers;
@@ -177,8 +174,8 @@ private:
             add(say(L"Rename\x2026") + L"\tF2", [index] { mapLayersRename(index); });
             add(say(L"Duplicate") + L"\tCtrl+D", [index] { mapLayersDuplicate(index); });
             add(say(L"Delete") + L"\tDel", [] { mapLayersDelete(); });
-            add(say(layer.visible ? L"Hide" : L"Show") + L"\tCtrl+Alt+H", [index] { mapLayersToggleVisible(index); });
         }
+        if (index >= -1) add(say((index >= 0 ? s.stack.layers[size_t(index)] : s.stack.background).visible ? L"Hide" : L"Show") + L"\tCtrl+Alt+H", [index] { mapLayersToggleVisible(index); });
         if (index >= -1) add(say((index >= 0 ? s.stack.layers[size_t(index)] : s.stack.background).locked ? L"Unlock" : L"Lock") + L"\tCtrl+Alt+L", [index] { mapLayersToggleLock(index); });
         if (s.picked.size() > 1 && index >= -1) add(say(L"Merge the selected layers"), [] { mapLayersMerge(); });
         else if (index >= 0) add(say(L"Merge down") + L"\tCtrl+Alt+E", [index] { mapLayersMergeDown(index); });

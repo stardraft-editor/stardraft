@@ -16,7 +16,7 @@ bool mapLayersEraseOn(AppState& app);  // (core/map_layers.inc)
 void mapLayersSync();
 void mapLayersDragCancel(AppState& app);
 void mapLayersEraseDown(AppState& app, float wx, float wy);
-void mapLayersMoveDown(AppState& app, float wx, float wy, unsigned mods);
+void mapLayersMoveDown(AppState& app, float wx, float wy);
 void mapLayersDragMove(AppState& app, float wx, float wy);
 void mapLayersDragUp(AppState& app);
 void tilesMouseUp(float wx, float wy);
@@ -286,7 +286,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (trigUnitPickClick(wx, wy)) return;
     if (mapLayersEraseOn(app)) return mapLayersEraseDown(app, wx, wy);
-    if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy, currentTool(app) == LayersArea ? mods | draw::kShift : mods);
+    if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
         // units are not selected, so the next paste does not move them.
@@ -987,7 +987,7 @@ bool fillClickFills(AppState& app) {
 }
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
-    if (app.mode == Mode::Layers && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return currentTool(app) == LayersMove ? Cursor::SizeAll : Cursor::Arrow;  // (Move Layer)
+    if (app.mode == Mode::Layers && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;  // (Move Layer)
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;
     if (app.drag == Drag::None && symmetryHandleAt(app, x, y)) return Cursor::SizeAll;
     if (fillClickFills(app)) return Cursor::Fill;

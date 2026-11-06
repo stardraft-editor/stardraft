@@ -756,6 +756,10 @@ bool SDLCALL palettePanelsPress(void*, SDL_Event* e) {
             if (pt.y >= p->view->titleH && !p->view->type.frame().contains(pt) && &p->view->state() != gActivePanel) activatePanel(&p->view->state());
             return true;
         }
+    if (gFloatPalOpen && at(gFloatPalView, pt)) {
+        if (pt.y >= gFloatPalView.titleH && gFloatPalMode != Mode::Layers && gState.mode != gFloatPalMode) setMode(gFloatPalMode);  // (Map Layers': its list does it)
+        return true;
+    }
     if (gRoot && at(*gRoot, pt))
         if (PanelState* s = sidePanelAt(pt); s && s != gActivePanel && s->mode == gState.mode) activatePanel(s);  // (another mode's: its pick)
     // (The location list's window: its pick makes Locations the mode, locationListPicked.)
