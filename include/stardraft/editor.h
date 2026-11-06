@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -37,18 +38,27 @@ namespace stardraft {
 
 class GameData;
 
-// Snap (Options > Units, Sprites, Locations): `grid` is the grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a
-// quarter tile). snapToCell gives the middle of the grid cell that `v` is in (where a unit or sprite goes);
-// snapRound gives the nearest grid line (a move, a location edge).
-inline float snapToCell(float v, int grid) {
+// Snap to a grid of `grid` px (0: no snap) with its lines at `offset`: snapRound gives the nearest grid line.
+inline float snapRound(float v, int grid, int offset = 0) {
     if (grid <= 0) return v;
-    const float g = float(grid);
-    return float(int(v >= 0 ? v / g : v / g - 1)) * g + g / 2;
+    const float g = float(grid), q = (v - offset) / g;
+    return float(int(q >= 0 ? q + 0.5f : q - 0.5f)) * g + offset;
 }
-inline float snapRound(float v, int grid) {
-    if (grid <= 0) return v;
-    const float g = float(grid), q = v / g;
-    return float(int(q >= 0 ? q + 0.5f : q - 0.5f)) * g;
+// The nearest grid line on a side of the map, `size` px: a line past the map's edge gives the line before it.
+inline int gridCrossing(int v, int g, int o, int size) {
+    int c = int(std::lround(double(v - o) / g)) * g + o;
+    if (c >= size) c -= g;
+    if (c < 0) c += g;
+    return std::clamp(c, 0, size - 1);
+}
+// A point on the map goes to its grid line. A point outside the map stays, so that placing there is refused, and so does
+// a point on a side of the map with no line.
+inline int snapOnMap(float v, int g, int o, int size) {
+    if (g <= 0 || v < 0 || v >= size) return int(v);
+    int c = int(std::lround(double(int(v) - o) / g)) * g + o;
+    if (c >= size) c -= g;
+    if (c < 0) c += g;
+    return c >= 0 && c < size ? c : int(v);
 }
 
 struct Rect {
@@ -397,8 +407,9 @@ public:
     int sprayUnitsAt(const std::vector<uint16_t>& types, uint8_t owner, const std::vector<std::pair<int, int>>& points, uint32_t seed,
                      const std::vector<uint16_t>* typeOfPoint = nullptr);
     // Spray `count` sprites of the given kinds (random pick) at random points within `radius` px of (x, y), each point
-    // snapped to a grid of `grid` px (snapToCell). Only spots where the sprite can go are used. Returns sprites placed.
-    int spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid);
+    // on a line of a grid of gw x gh px at offset (ox, oy); gw or gh 0: not on that grid. Only spots where the sprite can go
+    // are used. Returns sprites placed.
+    int spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int gw, int gh, int ox, int oy);
 
     // --- Selection ------------------------------------------------------------------------------
     const std::vector<int>& selection() const { return selection_; }

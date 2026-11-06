@@ -53,9 +53,9 @@ enum : int {
     ID_OPT_RANDOMFACING,  // Options > Units > Randomize unit direction when placed (a check item)
     ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
     ID_OPT_MANYSTARTS,    // Program options > Placing units > Many start locations for each player (a check box)
-    // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
+    // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
-    ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
+    ID_SNAP_UNITS = 910, ID_SNAP_SPRITES, ID_SNAP_LOCATIONS, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
     ID_FIXED_DOODAD_SNAP, ID_FIXED_DOODAD_STACK, ID_FIXED_SPRITE_PLACE, ID_FIXED_SPRITE_STACK, ID_FIXED_LOC_PLACE, ID_FIXED_LOC_STACK,
     ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
     ID_PAL_SORT_CATEGORY = 625, ID_PAL_SORT_NAME, ID_PAL_SORT_NUMBER,  // the palette's View menu: its order (PaletteSort)
@@ -63,7 +63,7 @@ enum : int {
     ID_PAL_XLARGE = 630,  // ... Extra large (Discord feedback, GitHub #150)
     ID_PAL_SORT_TIER = 631,  // ... Sort by tier (a mod's units with tiers: Cosmonarchy BW)
     ID_PAL_SORT_NAME_DOWN = 632, ID_PAL_SORT_NUMBER_DOWN,  // ... the names Z to A, the numbers high to low
-    ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
+    ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
@@ -107,12 +107,13 @@ enum : int {
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry
 };
-// View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
+// View > Grid: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
-    const wchar_t* name;
     int px;
+    const wchar_t* tiles;  // (the size in tiles, or nothing when it is not a simple part of a tile)
 };
-constexpr GridPreset kGridPresets[] = {{L"Fine", 8}, {L"Small", 16}, {L"Normal", 32}, {L"Large", 64}, {L"Huge", 128}};
+constexpr GridPreset kGridPresets[] = {{2, L""}, {4, L""}, {8, L"quarter tile"}, {16, L"half tile"}, {24, L""}, {32, L"tile"},
+                                       {48, L""}, {64, L"2 tiles"}, {96, L"3 tiles"}, {128, L"4 tiles"}, {256, L"8 tiles"}};
 
 enum class Mode { Terrain, Units, Doodads, Locations, Sprites };
 constexpr int kModeCount = 5;

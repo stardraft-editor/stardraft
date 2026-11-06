@@ -302,7 +302,7 @@ bool sdlRuns(int id) {
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
-    if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) return true;
+    if (id >= ID_SNAP_UNITS && id <= ID_SNAP_LOCATIONS) return true;
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) return true;
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
     if (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax) return true;
@@ -1187,7 +1187,7 @@ void sdlCommandShot(const std::string& name) {
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
-                                                         {"options.unitsnap.tiles", ID_SNAP_UNITS + 1},  // (Options > Units > Snap to tiles)
+                                                         {"options.unitsnap", ID_SNAP_UNITS},  // (Options > Units > Snap to the grid)
                                                          {"options.stack", ID_OPT_STACK}};  // (Options > Units > Can be on top of others)
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)

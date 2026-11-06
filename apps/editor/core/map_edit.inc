@@ -78,37 +78,84 @@ Brush currentBrush() { return currentBrush(appState()); }
 // The terrain selection's shape: the Select tool's own (palette_tools.inc).
 Editor::SelectShape selectShape() { return selectShape(appState()); }
 
+// The grid of View > Grid: what Options > Units, Sprites and Locations > Snap to the grid use.
+float snapGridX(float v, bool on) { return on ? snapRound(v, gDock.gridW, gDock.gridX) : v; }
+float snapGridY(float v, bool on) { return on ? snapRound(v, gDock.gridH, gDock.gridY) : v; }
+
+// A location's edge (Options > Locations > Snap to the grid): the nearest line from the map's edge to its other edge. A
+// grid larger than the map has no lines to use.
+int locationEdge(float v, int g, int o, int size) {
+    if (!appState().snapLocations || g >= size) return int(v);
+    int c = int(snapRound(v, g, o));
+    if (c > size) c -= g;
+    if (c < 0) c += g;
+    return c >= 0 && c <= size ? c : int(v);
+}
+int locationEdgeX(float v) { return locationEdge(v, gDock.gridW, gDock.gridX, appState().ed->width() * 32); }
+int locationEdgeY(float v) { return locationEdge(v, gDock.gridH, gDock.gridY, appState().ed->height() * 32); }
+// A drag inside one grid cell: the side is one cell long, in the direction of the drag (a click stays a click).
+void locationSideAtLeastACell(int& lo, int& hi, float from, float to, int g, int size) {
+    if (!appState().snapLocations || lo != hi || std::abs(to - from) < 8) return;
+    if (to > from ? lo + g <= size : lo - g < 0) hi = lo + g;
+    else lo -= g;
+}
+
 Rect previewLocationRect(float wx, float wy) {
     Rect r = appState().locStart;
     float dx = wx - appState().dragWX, dy = wy - appState().dragWY;
-    auto sn = [](float v) { return int(snapRound(v, appState().locationGrid)); };
+    auto snx = [](float v) { return locationEdgeX(v); };
+    auto sny = [](float v) { return locationEdgeY(v); };
     if (appState().drag == Drag::LocCreate) {
-        r = Rect{sn(appState().dragWX), sn(appState().dragWY), sn(wx), sn(wy)}.normalized();
+        r = Rect{snx(appState().dragWX), sny(appState().dragWY), snx(wx), sny(wy)}.normalized();
+        locationSideAtLeastACell(r.left, r.right, appState().dragWX, wx, gDock.gridW, appState().ed->width() * 32);
+        locationSideAtLeastACell(r.top, r.bottom, appState().dragWY, wy, gDock.gridH, appState().ed->height() * 32);
     } else if (appState().drag == Drag::LocMove) {
-        int mx = sn(r.left + dx) - r.left, my = sn(r.top + dy) - r.top;
+        // (a line where the whole location stays on the map)
+        auto place = [](int to, int len, int g, int size) { return appState().snapLocations && g < size && to + len > size ? to - (to + len - size + g - 1) / g * g : to; };
+        int mx = place(snx(r.left + dx), r.right - r.left, gDock.gridW, appState().ed->width() * 32) - r.left,
+            my = place(sny(r.top + dy), r.bottom - r.top, gDock.gridH, appState().ed->height() * 32) - r.top;
         r = {r.left + mx, r.top + my, r.right + mx, r.bottom + my};
     } else if (appState().drag == Drag::LocResize) {
-        if (appState().locEdges & 1) r.left = sn(r.left + dx);
-        if (appState().locEdges & 2) r.top = sn(r.top + dy);
-        if (appState().locEdges & 4) r.right = sn(r.right + dx);
-        if (appState().locEdges & 8) r.bottom = sn(r.bottom + dy);
+        if (appState().locEdges & 1) r.left = snx(r.left + dx);
+        if (appState().locEdges & 2) r.top = sny(r.top + dy);
+        if (appState().locEdges & 4) r.right = snx(r.right + dx);
+        if (appState().locEdges & 8) r.bottom = sny(r.bottom + dy);
         r = r.normalized();
     }
     return r;
 }
 
-// Unit snap (Options > Units): placement with the unit's origin on the grid lines, moves in whole cells.
+// Unit snap (Options > Units > Snap to the grid): the grid of View > Grid. Placement with the unit's origin on the grid
+// lines; a drag puts the first selected unit on the lines, and the others keep their places around it.
 // Buildings snap to tile edges (snapToGrid) while Options > Units > Snap buildings to tile edges is on (the default, as in
 // StarEdit); with it off they go where they are placed, as other units (setBuildingSnap: core/views_tabs.inc, the command).
 void snapUnitPoint(float& x, float& y) {
-    const int g = appState().unitGrid;
-    if (g <= 0 || !appState().ed) return;
-    // (the map's edge is a line, but a unit does not fit on it: the first line inside)
-    x = std::clamp(snapRound(x, g), float(g), float(appState().ed->width() * 32 - g));
-    y = std::clamp(snapRound(y, g), float(g), float(appState().ed->height() * 32 - g));
+    if (!appState().snapUnits || !appState().ed) return;
+    // (the map's edge is a line, but a unit does not fit on it: the first line inside; no line inside: the point stays)
+    auto inside = [](float v, int g, int o, int size) {
+        v = std::clamp(v, 0.0f, float(size - 1));
+        int c = int(snapRound(v, g, o));
+        if (c <= 0) c += g;
+        if (c >= size) c -= g;
+        return c > 0 && c < size ? float(c) : v;
+    };
+    x = inside(x, gDock.gridW, gDock.gridX, appState().ed->width() * 32);
+    y = inside(y, gDock.gridH, gDock.gridY, appState().ed->height() * 32);
 }
 
-float snapUnitDelta(float d) { return snapRound(d, appState().unitGrid); }
+// Options > Sprites > Snap to the grid: where a sprite goes for a point on the map, and how far a drag of the selected
+// sprites goes (the first one ends on the lines, the others keep their places around it).
+int spriteSnapX(float x) { return appState().snapSprites ? snapOnMap(x, gDock.gridW, gDock.gridX, appState().ed->width() * 32) : int(x); }
+int spriteSnapY(float y) { return appState().snapSprites ? snapOnMap(y, gDock.gridH, gDock.gridY, appState().ed->height() * 32) : int(y); }
+void spriteDragDelta(float wx, float wy, int& dx, int& dy) {
+    const AppState& app = appState();
+    float fx = wx - app.dragWX, fy = wy - app.dragWY;
+    if (app.snapSprites && !app.selSprites.empty() && size_t(app.selSprites.front()) < app.ed->sprites().size()) {
+        const MapSprite& sp = app.ed->sprites()[size_t(app.selSprites.front())];
+        fx = float(spriteSnapX(sp.x + fx) - sp.x), fy = float(spriteSnapY(sp.y + fy) - sp.y);
+    }
+    dx = int(fx), dy = int(fy);
+}
 
 // Pasting locations: how far the copied locations move so that the copy's middle is at the mouse (its top left snapped:
 // Options > Locations snap), each location where it was in the copy.
@@ -119,7 +166,7 @@ void locationPasteShift(const AppState& app, float wx, float wy, int& dx, int& d
     for (const auto& c : app.locationClip)
         box = {std::min(box.left, c.rect.left), std::min(box.top, c.rect.top), std::max(box.right, c.rect.right), std::max(box.bottom, c.rect.bottom)};
     const int w = box.right - box.left, hgt = box.bottom - box.top;
-    dx = int(snapRound(wx - w / 2.0f, app.locationGrid)) - box.left, dy = int(snapRound(wy - hgt / 2.0f, app.locationGrid)) - box.top;
+    dx = locationEdgeX(wx - w / 2.0f) - box.left, dy = locationEdgeY(wy - hgt / 2.0f) - box.top;
 }
 
 // The selection and its buildings' add-ons (a building's add-on goes with it): the units a drag moves, by index.
@@ -173,7 +220,19 @@ bool selectionFitsAt(float dx, float dy) {
 // Offset of a unit drag with the cursor at (wx, wy). With "snap back" on, a spot where the units do
 // not fit holds them at the last spot along the drag where they did.
 void dragMoveDelta(float wx, float wy, float& dx, float& dy) {
-    dx = snapUnitDelta(wx - appState().dragWX), dy = snapUnitDelta(wy - appState().dragWY);
+    dx = wx - appState().dragWX, dy = wy - appState().dragWY;
+    if (appState().snapUnits) {  // (the first unit that has no snap of its own: a building on the tile grid has one)
+        const Editor& ed = *appState().ed;
+        const Unit* first = nullptr;
+        for (int i : ed.selection()) {
+            if (i < 0 || size_t(i) >= ed.units().size()) continue;
+            const Unit& u = ed.units()[size_t(i)];
+            if (appState().snapBuildings && u.type < ed.unitTypes().size() && ed.unitTypes()[u.type].is(UnitFlag::Building)) continue;
+            first = &u;
+            break;
+        }
+        if (first) dx = snapGridX(first->x + dx, true) - first->x, dy = snapGridY(first->y + dy, true) - first->y;
+    }
     if (!appState().dragSnapBack || appState().allowIllegalUnits) return;
     if (selectionFitsAt(dx, dy)) appState().lastValidDX = dx, appState().lastValidDY = dy;
     else dx = appState().lastValidDX, dy = appState().lastValidDY;
@@ -401,7 +460,7 @@ bool strokePlace(float x, float y) {
     const RECT box = strokeBox(x, y);
     RECT overlap;
     if (appState().mode == Mode::Sprites) {  // sprites: one at each new place of the mouse (feedback #54, #78), with no gaps
-        const int px = int(snapToCell(x, appState().spriteGrid)), py = int(snapToCell(y, appState().spriteGrid));
+        const int px = spriteSnapX(x), py = spriteSnapY(y);
         if (appState().placedInStroke && px == appState().lastPlacedBox.left && py == appState().lastPlacedBox.top) return false;  // the same place again
         const bool placed = ed.placeSprite(uint16_t(appState().palette), px, py, uint8_t(appState().playerOwner));
         if (placed) {
@@ -422,7 +481,7 @@ bool strokePlace(float x, float y) {
             appState().palette = paletteChosen()[std::uniform_int_distribution<size_t>(0, paletteChosen().size() - 1)(rng)];
         }
     } else if (appState().mode == Mode::Sprites) {
-        placed = ed.placeSprite(uint16_t(appState().palette), int(snapToCell(x, appState().spriteGrid)), int(snapToCell(y, appState().spriteGrid)), uint8_t(appState().playerOwner));
+        placed = ed.placeSprite(uint16_t(appState().palette), spriteSnapX(x), spriteSnapY(y), uint8_t(appState().playerOwner));
     }
     if (placed) appState().lastPlacedBox = box;
     return placed;
@@ -433,7 +492,7 @@ bool strokePlace(float x, float y) {
 // they do not touch the last one). A place that does not fit now is tried again as the mouse moves on.
 void strokeMove(float wx, float wy) {
     if (appState().mode == Mode::Sprites) {  // sprites: one at each place on the path, one pixel (or one snap cell) apart (#78)
-        const float step = float(std::max(1, appState().spriteGrid));
+        const float step = appState().snapSprites ? float(std::min(gDock.gridW, gDock.gridH)) : 1.0f;
         const float dx = wx - appState().lastPlaceX, dy = wy - appState().lastPlaceY, len = std::hypot(dx, dy);
         if (!appState().placedInStroke || len < step) {
             if (strokePlace(wx, wy)) ++appState().placedInStroke;
@@ -477,7 +536,9 @@ bool canSnapToGrid(const AppState& app) {
 float placeSpacing() {
     const UnitType& t = appState().ed->unitTypes()[uint16_t(appState().palette)];
     const int foot = std::max({int(t.placementWidth), int(t.placementHeight), 16});
-    return appState().unitGrid > 0 ? float((foot + appState().unitGrid - 1) / appState().unitGrid * appState().unitGrid) : float(foot);
+    if (!appState().snapUnits) return float(foot);
+    const int g = std::max(gDock.gridW, gDock.gridH);
+    return float((foot + g - 1) / g * g);
 }
 
 // Places the palette unit at a map point (grid-snapped if on, corrected if on) and reports it.
@@ -662,7 +723,8 @@ int sprayAt(float wx, float wy) {
     }
     if (appState().mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), appState().spraySeed++, appState().doodadCheck);
     if (appState().mode == Mode::Sprites && !picks.empty())  // random sprites of the selected kinds in the circle
-        return ed.spraySprites(picks, uint8_t(appState().playerOwner), wx, wy, sprayRadius(), sprayCount(), appState().spraySeed++, appState().spriteGrid);
+        return ed.spraySprites(picks, uint8_t(appState().playerOwner), wx, wy, sprayRadius(), sprayCount(), appState().spraySeed++, appState().snapSprites ? gDock.gridW : 0,
+                               appState().snapSprites ? gDock.gridH : 0, gDock.gridX, gDock.gridY);
     return 0;
 }
 

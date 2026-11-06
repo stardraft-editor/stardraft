@@ -276,7 +276,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
         // units are not selected, so the next paste does not move them.
         float pwx = wx, pwy = wy;
-        snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy on the grid lines
+        snapUnitPoint(pwx, pwy);  // Options > Units > Snap to the grid: the middle of the copy on the grid lines
         applyUnitLimit(ed);
         const int copied = int(ed.pasteUnits(int(pwx), int(pwy)).size());  // (the symmetric copies too)
         const int pasted = ed.paste(int(pwx), int(pwy), app.correction);
@@ -527,7 +527,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             app.drag = Drag::PlaceStroke;
         } else if (app.pastingItems) {
             std::vector<Editor::ItemAt> items = app.spriteClip;
-            for (auto& it : items) it.x += int(snapToCell(wx, app.spriteGrid)), it.y += int(snapToCell(wy, app.spriteGrid));
+            for (auto& it : items) it.x += spriteSnapX(wx), it.y += spriteSnapY(wy);
             const int n = ed.placeSprites(items);
             setMessage(app, L"Pasted " + std::to_wstring(n) + L" sprites");
             // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
@@ -925,9 +925,13 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         break;
     case Drag::MoveSprite:
         if (app.dragMoved && !app.selSprites.empty()) {
-            if (ed.moveSprites(app.selSprites, int(snapRound(wx - app.dragWX, app.spriteGrid)), int(snapRound(wy - app.dragWY, app.spriteGrid))))
-                setMessage(app, L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
-            else setMessage(app, L"Could not move the sprites: the new place is outside the map");
+            int sdx, sdy;
+            spriteDragDelta(wx, wy, sdx, sdy);
+            if (sdx || sdy) {  // (a drag that stays on the same grid line changes nothing)
+                if (ed.moveSprites(app.selSprites, sdx, sdy))
+                    setMessage(app, L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
+                else setMessage(app, L"Could not move the sprites: the new place is outside the map");
+            }
         }
         break;
     default: break;
@@ -1117,20 +1121,21 @@ void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
 void mapTurnPaste(AppState& app, bool back) { mapTurnOrMirror(app, back ? -1 : 1, false); }
 void mapMirrorPaste(AppState& app, bool upDown) { mapTurnOrMirror(app, 0, upDown); }
 
-// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units snap a
+// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units > Snap to the grid a
 // grid cell; a building that snaps to the tiles: a tile at least; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
 // False: Ctrl and no units to move (the key is not the map's).
 bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
     if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && !app.pasting) {
-        int d = app.unitGrid ? app.unitGrid : ctrl ? 16 : big ? 8 : 1;
+        const int free = ctrl ? 16 : big ? 8 : 1;
+        int dw = app.snapUnits ? gDock.gridW : free, dh = app.snapUnits ? gDock.gridH : free;
         // (a building on the tile grid moves a whole tile: a smaller step snaps back to the nearest tile edge, so up and
         // left did not move it at all, GitHub #227)
         if (app.snapBuildings)
             for (int i : app.ed->selection())
                 if (i >= 0 && size_t(i) < app.ed->units().size() && app.ed->units()[size_t(i)].type < app.ed->unitTypes().size() &&
                     app.ed->unitTypes()[app.ed->units()[size_t(i)].type].is(UnitFlag::Building))
-                    d = std::max(d, 32);
-        const int moved = app.ed->moveSelection(dx * d, dy * d, false);
+                    dw = (dw + 31) / 32 * 32, dh = (dh + 31) / 32 * 32;
+        const int moved = app.ed->moveSelection(dx * dw, dy * dh, false);
         setMessage(app, moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
         return true;
     }

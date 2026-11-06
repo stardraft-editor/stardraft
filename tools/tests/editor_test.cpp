@@ -281,8 +281,11 @@ static void placementOptions(const GameData& data, const char* map) {
 // checked); never on top of another doodad. Sprites: anywhere on the map.
 static void placementRules(const GameData& data, const char* map) {
     // Snap: the middle of the grid cell (a click), the nearest grid line (a move, a location edge).
-    CHECK(snapToCell(39, 0) == 39 && snapRound(39, 0) == 39, "snap: Do not snap keeps the point");
-    CHECK(snapToCell(39, 32) == 48 && snapToCell(39, 16) == 40 && snapToCell(39, 8) == 36, "snap: tiles, half and quarter tiles put a point in the middle of its cell");
+    CHECK(snapRound(39, 0) == 39 && snapOnMap(39, 0, 0, 2048) == 39, "snap: no grid keeps the point");
+    CHECK(snapRound(39, 32, 16) == 48 && snapRound(38, 24, 3) == 27, "snap: a grid with an offset has its lines at the offset");
+    CHECK(snapOnMap(2040, 32, 0, 2048) == 2016 && snapOnMap(5, 32, 0, 2048) == 0, "snap: a point on the map goes to a line on the map");
+    CHECK(snapOnMap(-5, 32, 0, 2048) == -5 && snapOnMap(2050, 32, 0, 2048) == 2050, "snap: a point outside the map stays, so that placing there is refused");
+    CHECK(snapOnMap(300, 8192, 8191, 2048) == 300, "snap: a side of the map with no line keeps the point");
     CHECK(snapRound(39, 32) == 32 && snapRound(39, 16) == 32 && snapRound(39, 8) == 40 && snapRound(-20, 16) == -16,
           "snap: a move or a location edge goes to the nearest grid line");
     std::string err;

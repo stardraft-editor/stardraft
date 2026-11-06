@@ -1264,12 +1264,6 @@ bool Editor::moveDoodad(int index, int x, int y, bool checkTerrain, std::string*
 
 namespace {
 // The crossing of a grid (cell g, offset o) nearest to v that is inside 0 to size, and how far v is from the nearest line.
-int gridCrossing(int v, int g, int o, int size) {
-    int c = int(std::lround(double(v - o) / g)) * g + o;
-    if (c >= size) c -= g;
-    if (c < 0) c += g;
-    return std::clamp(c, 0, size - 1);
-}
 int gridDistance(int v, int g, int o) { return std::abs(v - (int(std::lround(double(v - o) / g)) * g + o)); }
 }  // namespace
 
@@ -3034,7 +3028,7 @@ int Editor::replaceUnits(uint16_t from, uint16_t to, bool selectionOnly) {
     return int(targets.size());
 }
 
-int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid) {
+int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int gw, int gh, int ox, int oy) {
     if (ids.empty() || count <= 0) return 0;
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
@@ -3043,7 +3037,7 @@ int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float 
     for (int k = 0; k < count; ++k) {
         const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
         const uint16_t id = ids[size_t(rng() % ids.size())];
-        for (auto [px, py] : symmetricPoints(int(snapToCell(x + d * std::cos(a), grid)), int(snapToCell(y + d * std::sin(a), grid))))
+        for (auto [px, py] : symmetricPoints(snapOnMap(x + d * std::cos(a), gw, ox, width_ * 32), snapOnMap(y + d * std::sin(a), gh, oy, height_ * 32)))
             items.push_back({id, px, py, owner});
     }
     return placeSprites(items);

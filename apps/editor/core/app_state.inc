@@ -61,7 +61,7 @@ struct AppState {
     std::vector<LocationCopy> locationClip;
     bool allowStacking = false;     // Options: units may overlap
     bool resourceDistance = true;   // Options: town halls and resources keep 3 tiles apart
-    bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)
+    bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: snapUnits)
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
     bool randomFacing = true;        // Options > Units: units with a random units.dat facing each face their own way
@@ -69,8 +69,8 @@ struct AppState {
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
-    // Options > Units, Sprites, Locations: the snap grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a quarter tile).
-    int unitGrid = 0, spriteGrid = 0, locationGrid = 32;
+    // Options > Units, Sprites, Locations > Snap to the grid: they go on the lines of the grid of View > Grid.
+    bool snapUnits = false, snapSprites = false, snapLocations = true;
     bool carbot = false;  // Cartooned (Carbot) graphics
     float lastPlaceX = 0, lastPlaceY = 0;  // where the last unit of a placing drag went (cursor)
     int placedInStroke = 0;

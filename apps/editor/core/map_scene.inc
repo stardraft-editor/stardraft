@@ -884,10 +884,10 @@ render::Scene buildScene() {
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
     } else if (app.mode == Mode::Sprites) {
         // The selected sprites (where a drag puts them); the copy being pasted; the box of a box selection.
-        // Options > Sprites snap: a click (or a paste) goes to the middle of a grid cell, a drag moves in whole cells.
-        const int ddx = app.drag == Drag::MoveSprite && app.dragMoved ? int(snapRound(wx - app.dragWX, app.spriteGrid)) : 0,
-                  ddy = app.drag == Drag::MoveSprite && app.dragMoved ? int(snapRound(wy - app.dragWY, app.spriteGrid)) : 0;
-        const float cx = snapToCell(wx, app.spriteGrid), cy = snapToCell(wy, app.spriteGrid);
+        // Options > Sprites > Snap to the grid: a click (or a paste) goes on the grid lines, and so does a drag.
+        int ddx = 0, ddy = 0;
+        if (app.drag == Drag::MoveSprite && app.dragMoved) spriteDragDelta(wx, wy, ddx, ddy);
+        const float cx = float(spriteSnapX(wx)), cy = float(spriteSnapY(wy));
         for (int i : app.selSprites)
             if (i >= 0 && i < int(ed.sprites().size())) {
                 const MapSprite& sp = ed.sprites()[size_t(i)];

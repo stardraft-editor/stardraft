@@ -270,7 +270,7 @@ the mouse.
 
 | Item | Units | Doodads | Sprites | Locations |
 |---|---|---|---|---|
-| Do not snap; Snap to tiles (32 px); Snap to half tiles (16 px); Snap to quarter tiles (8 px) | Choice (default: Do not snap) | Always tiles: a doodad is made of tiles | Choice (default: Do not snap) | Choice (default: tiles) |
+| Snap to the grid (the grid of View > Grid) | On or off (default: off) | Always tiles: a doodad is made of tiles | On or off (default: off) | On or off (default: on) |
 | Place only where it fits; Move to the nearest place where it fits; Place anywhere | Choice (default: Place only where it fits) | Choice (default: Place only where it fits). Place anywhere does not check the terrain; a doodad stays on the map | Always Place anywhere (on the map) | Always Place anywhere |
 | Can be on top of others | On or off (default: off) | Never: a doodad replaces the tiles under it | Always | Always |
 | Dragged units go back to the last place where they fit | On or off (default: on; grayed with Place anywhere) | — | — | — |

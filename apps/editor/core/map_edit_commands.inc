@@ -5,14 +5,6 @@
 // command() call commandMapEdit after commandPortable. mapMenuCheck and mapMenuGrayed are these items' checks and gray
 // rules for both programs' menus, and kProgramKeys is the keys of the commands (both programs' accelerators).
 
-// Options menu: the snap choices (the same for units, sprites and locations) and the grid of each, in px.
-constexpr int kSnapGrids[] = {0, 32, 16, 8};
-int snapChoice(int grid) {
-    for (int i = 0; i < 4; ++i)
-        if (kSnapGrids[i] == grid) return i;
-    return 0;
-}
-
 // The keys of the commands, as the Windows accelerators had them (the menus show some of them too). The first key that
 // matches runs: Ctrl+1 to Ctrl+9 are the side bar's items (the tab's mode: Map data for a classic map, Data for a project).
 struct ProgramKey {
@@ -379,21 +371,21 @@ bool commandMapEdit(AppState& app, int id) {
         setPlayer(app, player);
         return true;
     }
-    // Options menu: the snap of units, sprites or locations (each a grid choice).
-    if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) {
-        const int kind = (id - ID_SNAP_UNITS) / 4, choice = (id - ID_SNAP_UNITS) % 4;
-        (kind == 0 ? app.unitGrid : kind == 1 ? app.spriteGrid : app.locationGrid) = kSnapGrids[choice];
+    // Options menu: Snap to the grid of units, sprites or locations (the grid of View > Grid).
+    if (id >= ID_SNAP_UNITS && id <= ID_SNAP_LOCATIONS) {
+        const int kind = id - ID_SNAP_UNITS;
+        bool& on = kind == 0 ? app.snapUnits : kind == 1 ? app.snapSprites : app.snapLocations;
+        on = !on;
         static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
-        static const wchar_t* snaps[] = {L"do not snap", L"snap to tiles (32 px)", L"snap to half tiles (16 px)", L"snap to quarter tiles (8 px)"};
-        setMessage(std::wstring(kinds[kind]) + L": " + snaps[choice]);
+        setMessage(std::wstring(kinds[kind]) + (on ? L": snap to the grid" : L": do not snap"));
         return done();
     }
-    if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) {  // View > Grid size: a preset
+    if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) {  // View > Grid: a preset
         const GridPreset& g = kGridPresets[id - ID_GRID_SIZE];
         gDock.gridW = gDock.gridH = g.px, gDock.gridX = gDock.gridY = 0;
         app.showGrid = true, app.dirty = true;
         saveDock();
-        setMessage(L"Grid: " + std::wstring(g.name) + L", " + std::to_wstring(g.px) + L" pixels");
+        setMessage(L"Grid: " + std::to_wstring(g.px) + L" pixels");
         return done();
     }
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
@@ -531,8 +523,8 @@ bool commandMapEdit(AppState& app, int id) {
                                          : L"Units: move to the nearest place where it fits");
         break;
     case ID_EDIT_DOODADCHECK: app.doodadCheck = !app.doodadCheck, app.doodadNearest = false; break;
-    case ID_EDIT_SNAPLOC: command(ID_SNAP_LOCATIONS + (app.locationGrid ? 0 : 1)); return true;  // on and off (a tile)
-    case ID_EDIT_SNAPUNITS: command(ID_SNAP_UNITS + (app.unitGrid ? 0 : 1)); return true;
+    case ID_EDIT_SNAPLOC: command(ID_SNAP_LOCATIONS); return true;
+    case ID_EDIT_SNAPUNITS: command(ID_SNAP_UNITS); return true;
     case ID_DOODAD_FIT:
     case ID_DOODAD_NEAREST:
     case ID_DOODAD_ANYWHERE:
@@ -596,10 +588,9 @@ bool dataTableViewOn();  // (core/data_table.inc: the Data workspace shows its T
 extern bool gClassicTableOn;  // (classic_table.inc: Map data's Form | Table)
 int mapMenuCheck(int id) {
     const AppState& app = shellState();
-    auto snap = [](int first, int grid) { return first + snapChoice(grid); };
-    if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 4) return id == snap(ID_SNAP_UNITS, app.unitGrid);
-    if (id >= ID_SNAP_SPRITES && id < ID_SNAP_SPRITES + 4) return id == snap(ID_SNAP_SPRITES, app.spriteGrid);
-    if (id >= ID_SNAP_LOCATIONS && id < ID_SNAP_LOCATIONS + 4) return id == snap(ID_SNAP_LOCATIONS, app.locationGrid);
+    if (id == ID_SNAP_UNITS) return app.snapUnits;
+    if (id == ID_SNAP_SPRITES) return app.snapSprites;
+    if (id == ID_SNAP_LOCATIONS) return app.snapLocations;
     bool preset = false;
     for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
         const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].px && !gDock.gridX && !gDock.gridY;

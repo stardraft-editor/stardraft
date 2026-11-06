@@ -3494,7 +3494,7 @@ def check_settings_read(expected):
 
 # The settings file of 0.5.0.8 that write_old_settings writes: the lines of --check settings (and the working folder).
 OLD_SETTINGS_LINES = ["settings: language es", "settings: theme light, accent Red", "settings: Quality 1", "settings: Carbot 1",
-                      "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: UnitGrid 16", "settings: BrushShape 1",
+                      "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: SnapUnits 1", "settings: BrushShape 1",
                       "settings: LayerDoodads 0", "settings: PaletteViews 12345",
                       "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right",
                       "settings: layout widths 411 248 333, log 294, grid 48x16+3+5, trigger zoom 90, volume 40, unit names 1, code pane yes, "
@@ -5078,7 +5078,7 @@ def write_old_settings(path, out):
         "LightTheme": 1, "MiddleDrag": 1, "OpenLastProject": 1, "ProjectsFolder": os.path.join(out, "projects"),
         "RecentMaps": ["C:\\Maps\\(2)Bottleneck.scm", "/home/user/maps/Ice \uc5bc\uc74c.scx"], "RecentProjects": ["C:\\StarDraft\\AshenCrown"],
         "Settings/AllowStacking": 1, "Settings/BrushShape": 1, "Settings/Carbot": 1, "Settings/LayerDoodads": 0,
-        "Settings/PaletteViews": 12345, "Settings/Quality": 1, "Settings/ShowGrid": 1, "Settings/UnitGrid": 16,
+        "Settings/PaletteViews": 12345, "Settings/Quality": 1, "Settings/ShowGrid": 1, "Settings/SnapUnits": 1,
         "UnitLimitClassic": 2000, "UnitLimitEud": 1500}
     with open(path, "w", encoding="utf-8") as f:
         json.dump(values, f, ensure_ascii=False, indent=2)
