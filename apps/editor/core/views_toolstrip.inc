@@ -456,6 +456,7 @@ public:
     bool typing() const { return editing_ >= 0; }
 
     void paint(draw::Canvas& c) override {
+        const MutedAccent muted(state && state != gActivePanel);  // (no focus: gray)
         using namespace stripLook;
         PanelScope scope(state);
         AppState& app = appState();

@@ -551,6 +551,7 @@ void TilesGridView::boxSelect() {
 }
 
 void TilesGridView::paint(draw::Canvas& c) {
+    const MutedAccent muted(state && state != gActivePanel);  // (no focus: gray)
     const TilesScope scope = here();
     tilesFresh();
     tilesPixelsTrim();

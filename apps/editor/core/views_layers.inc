@@ -10,6 +10,7 @@ class LayersPanelView final : public draw::View {
 public:
     void changed() { invalidate(); }
     void paint(draw::Canvas& c) override {
+        const MutedAccent muted(appState().mode != Mode::Layers);  // (no focus: gray)
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kPanel);
         const auto hot = [this](draw::Rect r) { return hasPointer_ && r.contains(pointer_); };

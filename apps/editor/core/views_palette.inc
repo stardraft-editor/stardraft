@@ -79,6 +79,7 @@ struct PaletteGridView : draw::View {
 
     void resized() override { layout(); }
     void paint(draw::Canvas& c) override {
+        const MutedAccent muted(state && state != gActivePanel);  // (no focus: gray)
         const PanelScope scope(state);  // (its panel's picks)
         const bool own = state != nullptr;
         const std::vector<int>* chosen = own ? &shellPaletteChosen() : this->chosen;
