@@ -6,6 +6,7 @@
 // Coordinates in events and in paint() are the view's own: (0, 0) is its top left corner.
 
 #include <chrono>
+#include <cstdlib>
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -61,6 +62,36 @@ inline void noteWheel() {
     wheelGapMs() = last == std::chrono::steady_clock::time_point{} ? 1e9 : std::chrono::duration<double, std::milli>(now - last).count();
     last = now;
 }
+// When the wheel may change a field that has no focus: the pointer moved onto it and stayed on it for a moment, and the
+// wheel was still for a moment. A field that a scroll brought under the pointer has had no move: it does not step. One
+// early notch that went to the page does not stop a later one; a scroll that went on in the rest (notches one after
+// another: at a page's end, the field stays under the pointer) does, until a move. A trackpad's or a sideways scroll
+// goes to the page. Once it steps, the next notches step it too, until a move.
+struct WheelRest {
+    std::chrono::steady_clock::time_point at{};  // (the pointer's last move: the rest began here)
+    Point place{-1 << 20, -1 << 20};  // (where it began: a move of a few pixels, as the wheel's roll pushes the mouse, does not start it again)
+    bool over = false;
+    bool held = false;      // (a rested wheel stepped the field)
+    bool scrolled = false;  // (a page scroll went on over the field in its rest)
+
+    void moved(Point pt, int slop) {
+        if (!over || std::abs(pt.x - place.x) > slop || std::abs(pt.y - place.y) > slop)
+            at = std::chrono::steady_clock::now(), place = pt, held = scrolled = false;
+        over = true;
+    }
+    void left() { over = held = false; }
+    bool allows(const MouseEvent& e) {
+        constexpr double kRestMs = 350;
+        const double rested = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - at).count();
+        const bool scrolling = wheelGapMs() < kRestMs;
+        if (!over || e.precise || e.exact || e.horizontal || (!held && (rested < kRestMs || scrolling || scrolled))) {
+            if (over && scrolling) scrolled = true;
+            held = false;
+            return false;
+        }
+        return held = true;
+    }
+};
 // The same distance in whole steps of `stepPx` (a list that scrolls by rows); the part of a step that is left waits in
 // `carry` for the next event. Only for an exact scroll (else 0).
 inline int exactSteps(const MouseEvent& e, float stepPx, float& carry) {

@@ -521,13 +521,11 @@ bool Dropdown::mouse(const MouseEvent& e) {
     switch (e.kind) {
     case MouseKind::Move:
         justClosed_ = false;
-        // (a move: the wheel's rest starts again; not a move of a few pixels, as a finger on the wheel pushes the mouse)
-        if (!hover_ || std::abs(e.pt.x - restAt_.x) > px(6) || std::abs(e.pt.y - restAt_.y) > px(6))
-            hoverAt_ = std::chrono::steady_clock::now(), restAt_ = e.pt, wheelHeld_ = scrolledInRest_ = false;
+        wheelRest_.moved(e.pt, px(6));
         if (!hover_) hover_ = true, invalidate();
         return true;
     case MouseKind::Leave:
-        wheelHeld_ = false;
+        wheelRest_.left();
         if (hover_) hover_ = false, invalidate();
         return true;
     case MouseKind::Down:
@@ -541,24 +539,10 @@ bool Dropdown::mouse(const MouseEvent& e) {
         return true;
     case MouseKind::DoubleClick: return enabled_;  // the press has opened (or closed) the list already
     case MouseKind::Wheel: {
-        // A field without the focus steps only when the pointer has rested on it and no page scroll goes on (the wheel
-        // still for a moment); else the wheel scrolls the page under it, so that a scroll past a field changes nothing.
+        // A field without the focus steps only after a rest (draw::WheelRest); else the wheel scrolls the page under it,
+        // so that a scroll past a field changes nothing.
         if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
-        // (the rest: the pointer moved onto the field and stayed on it for a moment, and the wheel was still for a
-        // moment. A field that a scroll brought under the pointer is not hovered (no move came to it): it does not
-        // step. One early notch in the rest that went to the page does not stop a later one; a scroll that went on in
-        // it (notches one after another: at a page's end, the field stays under the pointer) does, until a move. A
-        // trackpad's or a sideways scroll goes to the page.) Once it steps, the next notches step it too, until a move.
-        if (!hasFocus()) {
-            constexpr double kRestMs = 350;
-            const double rested = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - hoverAt_).count();
-            const bool scrolling = draw::wheelGapMs() < kRestMs;
-            if (!hover_ || e.precise || e.exact || e.horizontal || (!wheelHeld_ && (rested < kRestMs || scrolling || scrolledInRest_))) {
-                if (hover_ && scrolling) scrolledInRest_ = true;
-                return wheelAcc_ = 0, wheelHeld_ = false, false;
-            }
-            wheelHeld_ = true;
-        }
+        if (!hasFocus() && !wheelRest_.allows(e)) return wheelAcc_ = 0, false;
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);
         while (wheelAcc_ <= -1) wheelAcc_ += 1, step(1);

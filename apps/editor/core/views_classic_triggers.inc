@@ -823,6 +823,7 @@ public:
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
         case draw::MouseKind::Move:
+            wheelRest_.moved(e.pt, scale(6));
             if (drag_.from >= 0) {  // a row dragged: its place follows, and the list scrolls at its edges
                 drag_.to = toIndex(drag_.list, e.pt.y);
                 const int edge = scale(20);
@@ -833,6 +834,7 @@ public:
             else if (const draw::Rect over = hoverRectAt(e.pt); over != hoverRect_) hoverRect_ = over, invalidate();  // the hover moved to another part
             return true;
         case draw::MouseKind::Leave:
+            wheelRest_.left();
             if (hoverRect_.right > hoverRect_.left || hoverRect_.bottom > hoverRect_.top) hoverRect_ = {}, invalidate();
             return true;
         case draw::MouseKind::Down: {
@@ -873,17 +875,22 @@ public:
                 setMessage(L"Zoom " + std::to_wstring(z) + L"%");
                 return true;
             }
-            // Over a value chip: its value steps (as a dropdown's: away from the user, the one before); a part of a notch waits.
+            // Over a value chip after a rest (draw::WheelRest; a scroll past a chip changes nothing): its value steps (as a
+            // dropdown's: away from the user, the one before); a part of a notch waits.
             if (!triggers_ && !e.horizontal && !(e.mods & draw::kCtrl))
                 for (const Chip& ch : chips_)
-                    if (ch.r.contains(e.pt)) {
+                    if (ch.r.contains(e.pt) && wheelRest_.allows(e)) {
                         wheelAcc_ += e.wheel;
                         while (wheelAcc_ >= 1) wheelAcc_ -= 1, host_.chipStep(ch.kind, ch.i, ch.pi, -1);
                         while (wheelAcc_ <= -1) wheelAcc_ += 1, host_.chipStep(ch.kind, ch.i, ch.pi, 1);
                         return true;
                     }
             wheelAcc_ = 0;
-            scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(26)) * 3.0f))));
+            {
+                const int was = scroll_;
+                scrollTo(scroll_ - int(std::lround(draw::wheelDistance(e, float(scale(26)) * 3.0f))));
+                if (scroll_ != was) wheelRest_.scrolled = true, wheelRest_.held = false;  // (a chip may have come under the pointer, which did not rest on it)
+            }
             return true;
         default: return false;
         }
@@ -1275,6 +1282,7 @@ private:
     };
     std::vector<Chip> chips_;
     float wheelAcc_ = 0;
+    draw::WheelRest wheelRest_;
     int scroll_ = 0, height_ = 0, laid_ = -1;
 };
 

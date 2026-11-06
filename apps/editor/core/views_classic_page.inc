@@ -1001,8 +1001,10 @@ public:
         switch (e.kind) {
         case draw::MouseKind::Move:
             if (inside != hot_) hot_ = inside, invalidate();
+            wheelRest().moved(e.pt, scale(6));
             return true;
         case draw::MouseKind::Leave:
+            wheelRest().left();
             if (hot_ && !down_) hot_ = false, invalidate();
             return true;
         case draw::MouseKind::Down:
@@ -1021,10 +1023,15 @@ public:
             return true;
         case draw::MouseKind::Wheel: {  // away from the user: the one before; a part of a notch waits
             if (!onStep || e.horizontal) return false;
+            // (no focus: only after a rest, so that a scroll past a field changes nothing)
+            if (hasFocus()) wheelRest().held = true;
+            else if (!wheelRest().allows(e)) return wheel_ = 0, false;
             wheel_ += e.wheel;
             const std::function<void(int)> step = onStep;  // (a step makes the editor's fields again: this one goes)
+            wheelStepping() = true;
             while (wheel_ >= 1) wheel_ -= 1, step(-1);
             while (wheel_ <= -1) wheel_ += 1, step(1);
+            wheelStepping() = false;
             return true;
         }
         default: return false;
@@ -1039,8 +1046,21 @@ public:
     std::wstring tip(draw::Point) override { return tip_; }
     bool focusable() const override { return true; }
     void focusChanged(bool) override { invalidate(); }
+    // The fields go (no Leave comes to them): a new one under the pointer has had no rest, unless a wheel step made it.
+    static void fieldsGo() {
+        if (!wheelStepping()) wheelRest().left();
+    }
 
 private:
+    // (one for all the fields: a step makes them again, and the next notches go to the new one under the pointer)
+    static draw::WheelRest& wheelRest() {
+        static draw::WheelRest rest;
+        return rest;
+    }
+    static bool& wheelStepping() {
+        static bool stepping = false;
+        return stepping;
+    }
     std::wstring text_, tip_;
     bool hot_ = false, down_ = false;
     float wheel_ = 0;  // (a part of a wheel notch)
@@ -1244,6 +1264,7 @@ public:
     // The selected entry of the page's model (ctBuildEditor of the native page).
     void show(CtPageHost& h) {
         CtModel& m = h.model();
+        CtPickButton::fieldsGo();
         for (Value& v : values_) remove(*v.label), remove(*v.field);
         for (Value& v : values_) retired_.push_back(std::move(v));  // (a field's click may be the one that runs: it goes at the next paint)
         values_.clear();
