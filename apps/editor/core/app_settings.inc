@@ -42,7 +42,8 @@ const std::vector<AppSetting>& appSettings() {
          [](int v) { auto& a = shellState(); (a.terrainRect ? a.otherBrushShape : a.brushShape) = Brush::Shape(std::clamp(v, 0, int(Brush::Circle))); }},
         {L"OtherBrushShape", [] { auto& a = shellState(); return int(a.terrainRect ? a.brushShape : a.otherBrushShape); },
          [](int v) { auto& a = shellState(); (a.terrainRect ? a.brushShape : a.otherBrushShape) = Brush::Shape(std::clamp(v, 0, int(Brush::Circle))); }},
-        SD_SETTING("SelectShape", shellState().selectShape, Brush::Shape),
+        SD_SETTING("SelectShape", shellState().selectShapes[0], Brush::Shape),
+        SD_SETTING("SelectShapeRectangle", shellState().selectShapes[1], Brush::Shape),
         // (the one switch before the ranges had kinds: on, all of them; RangeKindsShown, read after it, decides once it is saved)
         {L"ShowRanges", [] { return int(gRangeKinds != 0); }, [](int v) { if (v && !gRangeKinds) gRangeKinds = kRangeAll; }},
         SD_SETTING("RangeKindsShown", gRangeKinds, int),

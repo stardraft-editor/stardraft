@@ -180,9 +180,12 @@ void activatePanel(PanelState* p) {
     // The selected units are Units mode's: they show in each mode, so they are let go when another mode starts.
     if (changed && app.mode == Mode::Units && app.ed) app.ed->clearSelection();
     if (p != gActivePanel) {
+        // (another terrain kind in the same tab: it has its own Select shape, and the selection would change)
+        const bool otherKind = gActivePanel && gActivePanel->mode == Mode::Terrain && p->mode == Mode::Terrain && app.terrainRect != p->terrainRect;
         if (gActivePanel) panelStore(*gActivePanel);
         gActivePanel = p;
         panelLoad(*p);
+        if (otherKind) app.hasTerrainSel = false, app.terrainSelMask.clear();
     }
     DockedPanels& d = dockedPanelsOf(activeDocKey());
     d.lastOfMode[size_t(p->mode)] = p;

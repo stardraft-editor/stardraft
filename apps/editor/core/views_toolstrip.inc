@@ -118,6 +118,7 @@ void setTerrainKind(int kind) {
     gTiles->solid = kind == 3;
     if (app.terrainRect != rect) {
         app.terrainRect = rect;
+        app.hasTerrainSel = false, app.terrainSelMask.clear();  // (each has its own Select shape: the selection would change)
         std::swap(app.brushSize, app.otherBrushSize), std::swap(app.brushHeight, app.otherBrushHeight);  // (each its own size)
         std::swap(app.brushShape, app.otherBrushShape);  // (and shape: a Diamond for Isometric, a Square for Rectangle, GitHub #236)
         if (rect && app.brushSize < 1) app.brushSize = 1;  // (a tile is the least: no half)

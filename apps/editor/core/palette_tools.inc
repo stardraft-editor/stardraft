@@ -43,18 +43,19 @@ Brush currentBrush(const AppState& app) {
 }
 
 // The terrain selection's shape: the Select tool's own (diamond, square, circle; a square at first), kept apart from the
-// brushes' so that a painting brush's shape does not change how Select selects.
+// brushes' so that a painting brush's shape does not change how Select selects; Isometric and Rectangle have one each.
 Editor::SelectShape selectShape(const AppState& app) {
     // (the diamond: Isometric's fills the drag's box, its points at the middle of the box's sides, as the circle fills it;
     // Rectangle's is the area along the map's diamonds between the drag's two corners)
-    if (app.selectShape == Brush::Diamond && !app.terrainRect) return Editor::SelectShape::Diamond;
-    if (app.selectShape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
-    return app.selectShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
+    const Brush::Shape shape = app.selectShapes[app.terrainRect];
+    if (shape == Brush::Diamond && !app.terrainRect) return Editor::SelectShape::Diamond;
+    if (shape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
+    return shape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
 }
 // The shape the tool strip's shape box shows and changes: the Select tool's while it is the terrain's tool, else the
 // brushes'.
 Brush::Shape& shapeOf(AppState& app) {
-    return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShape : app.brushShape;
+    return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShapes[app.terrainRect] : app.brushShape;
 }
 
 void setStatusPart(AppState& app, int i, const wchar_t* text) {
