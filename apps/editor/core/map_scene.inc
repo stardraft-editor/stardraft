@@ -1,6 +1,6 @@
 // The map's scene (portable, core.inc; moved from main.cpp's buildScene and tiles_view.inc): what the renderer draws on
 // the terrain each frame. The grid (View > Show grid, Grid size), the pathing overlays, the doodads' overlays and the
-// sprites (View > Layers), the units with their overlays, shadows, add-on connectors, turrets and idle animations (the
+// sprites (View > Modes), the units with their overlays, shadows, add-on connectors, turrets and idle animations (the
 // game's ticks: advanceAnims), a moved selection in red where it does not fit, the locations with their names, the
 // selection circles, the terrain selection, the ranges (View > Show ranges), the symmetry axes, the paste ghosts, the
 // unit, sprite or doodad to place (the doodad's tiles: ghostTiles, the renderer's terrain preview), the Rectangle mode's
@@ -12,7 +12,7 @@ void dataLoadForProject();
 void applyProjectGraphics(UnitSprites& sp);  // the project's graphics edits on `sp` (core/project_build.inc)
 int gUnitGraphics = 0;  // changes when syncMapUnitGraphics gives the map other unit graphics
 
-// View > Layers: the terrain the renderer gets when a layer is off: no terrain (black), or the terrain without the
+// View > Modes: the terrain the renderer gets when a layer is off: no terrain (black), or the terrain without the
 // doodads' tiles (StarEdit's copy, TILE); with the start creep's tiles (Creep: core/creep_layer.inc).
 TerrainLayer terrainWithLayers(const Editor& ed) {
     TerrainLayer t = !gLayers.terrain || gLayers.doodads ? ed.terrain()
@@ -625,8 +625,9 @@ render::Scene buildScene() {
     addTerrainFlagsLayer(s);  // (View > Overlays > Terrain flags: core/terrain_flags_layer.inc)
     addPathingLayer(s);
     addPathOverlays(s);
-    addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
-    addProtectedLayer(ed, s);  // (View > Layers > Protected terrain: core/protected_layer.inc)
+    addCreepEdges(ed, s);  // (View > Modes > Creep: core/creep_layer.inc)
+    addMapLayersOverlay(ed, s);  // (core/map_layers.inc)
+    addProtectedLayer(ed, s);  // (View > Modes > Protected terrain: core/protected_layer.inc)
 
     // Only what can show in the view is drawn: the map's sprites and units whose point is in the view or less than
     // kSpriteReach map pixels out of it. (A picture reaches at most 256 pixels from its point: a GRP frame's place and
@@ -641,7 +642,7 @@ render::Scene buildScene() {
     const float viewLeft = app.camX, viewTop = app.camY, viewRight = app.camX + float(viewW) / viewZoom, viewBottom = app.camY + float(viewH) / viewZoom;
     auto inView = [&](float x, float y) { return x >= viewX0 && x <= viewX1 && y >= viewY0 && y <= viewY1; };
 
-    // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
+    // Doodad overlays and other map sprites (THG2). View > Modes: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
     // (x, y, sprite) of the doodads' overlays: made again when the map changes
     static std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
@@ -794,37 +795,40 @@ render::Scene buildScene() {
     // Symmetry axes.
     if (const int mm = ed.mirrors(); mm || ed.turns() > 1) {
         float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
-        const float cx = float(ed.symmetryCenter().first), cy = float(ed.symmetryCenter().second);  // (through the center)
-        uint32_t c = 0x80C0FF70u;
-        auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
-        auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
-        auto diag = [&](bool anti) {
-            for (int k = -200; k <= 200; ++k) {
-                const float f = k / 200.0f, x = cx + f * W, y = anti ? cy - f * H : cy + f * H;
-                if (x >= 0 && x <= W && y >= 0 && y <= H) s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
-            }
-        };
-        if (mm & Mirror::LeftRight) vline();
-        if (mm & Mirror::TopBottom) hline();
-        if (mm & Mirror::Diagonal) diag(false);
-        if (mm & Mirror::AntiDiagonal) diag(true);
-        if (ed.turns() > 1) {  // a turn: a mark at the center
-            const float r = 10 / app.zoom;
-            s.rects.push_back({cx - r, cy - r, cx + r, cy + r, c, true});
-        }
-        // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
-        if (app.drag == Drag::SymmetryCenter || (app.mouseIn && app.drag == Drag::None && symmetryHandleAt(app, app.mouseX, app.mouseY))) {
-            const float r = float(scale(10)) / app.zoom;
-            auto line = [&](float x0, float y0, float x1, float y1) {
-                render::RectDraw l;
-                l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
-                s.rects.push_back(l);
+        const auto anchors = ed.symmetryAnchors();
+        for (int anchor = 0; anchor < int(anchors.size()); ++anchor) {
+            const float cx = float(anchors[size_t(anchor)].first), cy = float(anchors[size_t(anchor)].second);  // (through the anchor)
+            uint32_t c = 0x80C0FF70u;
+            auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
+            auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
+            auto diag = [&](bool anti) {
+                for (int k = -200; k <= 200; ++k) {
+                    const float f = k / 200.0f, x = cx + f * W, y = anti ? cy - f * H : cy + f * H;
+                    if (x >= 0 && x <= W && y >= 0 && y <= H) s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
+                }
             };
-            for (int k = 0; k < 32; ++k) {
-                const float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32;
-                line(cx + r * std::cos(a0), cy + r * std::sin(a0), cx + r * std::cos(a1), cy + r * std::sin(a1));
+            if (mm & Mirror::LeftRight) vline();
+            if (mm & Mirror::TopBottom) hline();
+            if (mm & Mirror::Diagonal) diag(false);
+            if (mm & Mirror::AntiDiagonal) diag(true);
+            if (ed.turns() > 1) {  // a turn: a mark at the center
+                const float r = 10 / app.zoom;
+                s.rects.push_back({cx - r, cy - r, cx + r, cy + r, c, true});
             }
-            line(cx - r * 0.6f, cy, cx + r * 0.6f, cy), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f);
+            // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
+            if ((app.drag == Drag::SymmetryCenter && gSymmetryDragged == anchor) || (app.mouseIn && app.drag == Drag::None && symmetryHandleIndex(app, app.mouseX, app.mouseY) == anchor)) {
+                const float r = float(scale(10)) / app.zoom;
+                auto line = [&](float x0, float y0, float x1, float y1) {
+                    render::RectDraw l;
+                    l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
+                    s.rects.push_back(l);
+                };
+                for (int k = 0; k < 32; ++k) {
+                    const float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32;
+                    line(cx + r * std::cos(a0), cy + r * std::sin(a0), cx + r * std::cos(a1), cy + r * std::sin(a1));
+                }
+                line(cx - r * 0.6f, cy, cx + r * 0.6f, cy), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f);
+            }
         }
     }
 

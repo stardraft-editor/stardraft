@@ -185,7 +185,7 @@ inline draw::Point mapImageSize(const MapImageOptions& o) {
     return {std::max(0, w), std::max(0, h)};
 }
 
-// The terrain of the picture: with the doodads' tiles (MTXM), or without them (TILE, as View > Layers > Doodads off).
+// The terrain of the picture: with the doodads' tiles (MTXM), or without them (TILE, as View > Modes > Doodads off).
 inline TerrainLayer mapImageTerrain(const Editor& ed, bool doodads) {
     if (doodads || !ed.chk().has("TILE")) return ed.terrain();
     return readTerrain(ed.chk(), "TILE");
@@ -209,7 +209,7 @@ inline render::Scene mapImageScene(const MapImageOptions& o, float x, float y, f
         for (float gx = std::ceil((x0 - ox) / gw) * gw + ox; gx <= x1; gx += gw) s.rects.push_back({gx, y0, gx + t, y1, 0xFFFFFF30u, true});
         for (float gy = std::ceil((y0 - oy) / gh) * gh + oy; gy <= y1; gy += gh) s.rects.push_back({x0, gy, x1, gy + t, 0xFFFFFF30u, true});
     }
-    // The doodads' overlays go with the doodads, the other map sprites with the sprites (as View > Layers).
+    // The doodads' overlays go with the doodads, the other map sprites with the sprites (as View > Modes).
     std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
     for (const Doodad& dd : ed.doodads())
         if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});

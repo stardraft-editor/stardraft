@@ -728,7 +728,7 @@ int sprayAt(float wx, float wy) {
     return 0;
 }
 
-// View > Layers: the active mode's layer is hidden. Its map edits are refused (nothing changes that does not show).
+// View > Modes: the active mode's layer is hidden. Its map edits are refused (nothing changes that does not show).
 bool modeLayerHidden() {
     switch (appState().mode) {
     case Mode::Terrain: return !gLayers.terrain;
@@ -741,21 +741,21 @@ bool modeLayerHidden() {
 }
 
 void modeLayerHiddenMessage() {
-    setMessage(std::wstring(kModeNames[int(appState().mode)]) + L": this layer is hidden. View > Layers shows it again (then you can edit it).");
+    setMessage(std::wstring(kModeNames[int(appState().mode)]) + L": this layer is hidden. View > Modes shows it again (then you can edit it).");
 }
 
 // A click on the map while the mode's layer is hidden (Discord feedback #88): the first time after the layer went
 // hidden, a question offers to show it; then the status bar's message only.
 bool shellAskYesNo(const std::wstring& text, const std::wstring& title, const std::wstring& yes, const std::wstring& no);
 void shellMenusChanged();
-int gLayerShows = 0;  // +1 each time a layer shows again (View > Layers): the question asks again after it
+int gLayerShows = 0;  // +1 each time a layer shows again (View > Modes): the question asks again after it
 void modeLayerHiddenClick() {
     AppState& app = appState();
-    static int asked[kModeCount] = {-1, -1, -1, -1, -1};  // the gLayerShows of each mode's last question
+    static int asked[kModeCount] = {-1, -1, -1, -1, -1, -1};  // the gLayerShows of each mode's last question
     if (asked[int(app.mode)] == gLayerShows || gSelfTest) return modeLayerHiddenMessage();
     asked[int(app.mode)] = gLayerShows;
     const std::wstring name = kModeNames[int(app.mode)];
-    if (!shellAskYesNo(name + L": this layer is hidden (View > Layers), so you cannot edit it. Show the layer?", L"Hidden layer", L"Show the layer", L"Cancel"))
+    if (!shellAskYesNo(name + L": this layer is hidden (View > Modes), so you cannot edit it. Show the layer?", L"Hidden layer", L"Show the layer", L"Cancel"))
         return modeLayerHiddenMessage();
     switch (app.mode) {
     case Mode::Terrain: gLayers.terrain = true; break;

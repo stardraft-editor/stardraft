@@ -217,17 +217,17 @@ Cosmonarchy BW mode.)
 | Ctrl+K, L | View > Data > Entry view |
 | Ctrl+K, X | View > Triggers > Trigger code pane |
 
-### Ctrl+Shift+L: View > Layers and View > Floating palettes
+### Ctrl+Shift+L: View > Modes and View > Floating palettes
 
 | Keys | Menu command |
 |---|---|
-| Ctrl+Shift+L, T | View > Layers > Terrain |
-| Ctrl+Shift+L, D | View > Layers > Doodads |
-| Ctrl+Shift+L, S | View > Layers > Sprites |
-| Ctrl+Shift+L, U | View > Layers > Units |
-| Ctrl+Shift+L, R | View > Layers > Map revealers |
-| Ctrl+Shift+L, C | View > Layers > Creep |
-| Ctrl+Shift+L, L | View > Layers > Locations |
+| Ctrl+Shift+L, T | View > Modes > Terrain |
+| Ctrl+Shift+L, D | View > Modes > Doodads |
+| Ctrl+Shift+L, S | View > Modes > Sprites |
+| Ctrl+Shift+L, U | View > Modes > Units |
+| Ctrl+Shift+L, R | View > Modes > Map revealers |
+| Ctrl+Shift+L, C | View > Modes > Creep |
+| Ctrl+Shift+L, L | View > Modes > Locations |
 | Ctrl+Shift+L, 1 | View > Floating palettes > Terrain palette |
 | Ctrl+Shift+L, 2 | View > Floating palettes > Unit palette |
 | Ctrl+Shift+L, 3 | View > Floating palettes > Doodad palette |

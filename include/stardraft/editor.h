@@ -5,6 +5,8 @@
 // undo/redo. GPU-free and UI-free, so it can be driven by any shell, tests or agents.
 
 #include <algorithm>
+#include <chrono>
+#include <set>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -26,6 +28,7 @@
 #include "stardraft/doodads.h"
 #include "stardraft/isom.h"
 #include "stardraft/isom_core.h"
+#include "stardraft/layers.h"
 #include "stardraft/locations.h"
 #include "stardraft/map_file.h"
 #include "stardraft/sprites.h"
@@ -338,8 +341,15 @@ public:
     void setSymmetryCenter(int px, int py);
     std::pair<int, int> symmetryCenter() const;
     // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
-    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_; }
+    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_, moreAnchors_ = other.moreAnchors_; }
     std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
+    // More anchors: an edit also repeats round each of them, each on its own (its images are not repeated round the
+    // others), at most kMaxSymmetricPlaces places in all. Anchor 0 is the center above; each on the grid as it is.
+    std::vector<std::pair<int, int>> symmetryAnchors() const;
+    int addSymmetryAnchor(int px, int py);  // its index; -1: there are kMaxSymmetryAnchors, or one is at that point
+    void setSymmetryAnchor(int index, int px, int py);
+    void removeSymmetryAnchor(int index);  // (not anchor 0: it is the center)
+    static constexpr int kMaxSymmetryAnchors = 8;
     // The masks (Alt+click in the lists): painting changes only the corners of these terrains (Isometric; the tool strip's
     // Rectangle checks its tiles' terrains) and the tiles of these values (Tile). Empty: all. Not in the map: a new map has none.
     const std::vector<uint16_t>& terrainMask() const { return terrainMask_; }
@@ -704,6 +714,40 @@ public:
     // selects some tiles at random). The archive's other files stay. False when `edited` is not open. The protected
     // tiles move by (shiftX, shiftY) tiles (as resizeShift gives them); a new tileset unprotects them.
     bool takeScenario(const Editor& edited, int shiftX = 0, int shiftY = 0);
+    // --- Map layers (layers.h) -------------------------------------------------------------------
+    const IsomGrid& isomGrid() const { return isom_; }
+    // The map's terrain and objects are made again: the Background (`base`, as layerBaseNow gives it) with its objects,
+    // then each visible layer, from the bottom up, with the terrain fitted to it as a brush's. What is outside of the map
+    // is left out, and each object's `shown` says whether it is on the map. Where the corners stay, the terrain's tiles
+    // stay. `fitted`: the corners on the map where an edge is. No undo step of its own: inside beginLayerEdit, or after an
+    // edit whose step amendLastStep gets. Protected tiles keep their tiles.
+    // `hold`: a step on the way to a new Background; the next call takes its tiles from the map as it is before this one.
+    bool composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted = nullptr, bool hold = false);
+    // Tiles that are a layer's placed tiles: not the terrain's (they are not reused when a layer goes). After a read.
+    void noteLayerPlaced(std::set<std::pair<int, int>> tiles) { layerPlaced_ = std::move(tiles); }
+    // The tiles under the doodads (TILE; a map without it: MTXM).
+    TerrainLayer layerTileSection() const { return readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM"); }
+    // The map's terrain without its doodads' tiles, for the Background file.
+    Bytes layerBaseNow() const;
+    // The map's sprites without its doodads' own sprites.
+    std::vector<MapSprite> layerSprites() const;
+    // Changes when the map is read anew (open, new, undo, redo): what changed then is not an edit.
+    uint64_t loadMark() const { return loadMark_; }
+    // The map's other files have been read (archiveFile would not wait for them).
+    bool filesRead() const { return !pendingFiles_.valid() || pendingFiles_.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }
+    // An undo step for an edit of the layers (a panel's button, a drag): `end` with the files as they are after it.
+    // endLayerEdit(false): nothing changed, no step.
+    void beginLayerEdit();
+    void endLayerEdit(bool changed, std::vector<ArchiveFile> files = {}, const std::vector<std::string>& removed = {});
+    // The last edit goes back, and Redo does not give it again (a locked layer).
+    void refuseLastEdit() {
+        undo();
+        if (!redo_.empty()) redo_.pop_back();
+    }
+    // The files change as part of the undo step that the last edit took.
+    void amendLastStep(std::vector<ArchiveFile> files, const std::vector<std::string>& removed = {});
+    // The map as the layers flatten it, without the layers' files, to another file; the open map stays as it is.
+    bool exportFlattened(const std::filesystem::path& path, std::string& error);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
     // Adds (or replaces) files in the map archive, such as a briefing's sound; saved with the map. One undo step.
@@ -853,15 +897,21 @@ private:
     // applyTerrain's.
     bool applyOld(const std::vector<CornerValue>& corners, int x0, int y0, int x1, int y1, bool overPlaced = false, size_t own = SIZE_MAX);
     IsomCore core_;
-    std::pair<int, int> mirror(int px, int py, int which) const;
+    std::pair<int, int> mirror(int px, int py, int which, std::pair<int, int> center) const;
     // The point turned `k` steps of 360 / turns() degrees about the map's middle (in the map's proportions: on a square map a
     // true turn; on another the copies stay in the map's box).
-    std::pair<int, int> turnPoint(int px, int py, int k) const;
+    std::pair<int, int> turnPoint(int px, int py, int k, std::pair<int, int> center) const;
     TerrainClip terrainClip_;
     TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
+    std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
+    uint64_t loadMark_ = 0;
+    std::set<std::pair<int, int>> layerPlaced_;  // the tiles the last composeLayers placed from layers
+    std::optional<std::pair<IsomGrid, TerrainLayer>> layerHeld_;  // composeLayers' hold
+    std::pair<int, int> anchorOnGrid(int px, int py) const;
+    int moreAnchorOf(int index) const;
     std::vector<uint16_t> terrainMask_, tileMask_;  // setTerrainMask, setTileMask
     std::vector<uint16_t> terrainMaskIds_;          // (terrainMask_ with the mod terrains' variants)
     std::optional<IsomGrid> maskGround_;            // (a stroke's ground when it began: what it paints round does not join the mask)

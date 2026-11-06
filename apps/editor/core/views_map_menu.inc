@@ -60,11 +60,18 @@ void locationMenuPick(int loc, int pick) {
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
-       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT };
+       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
 std::wstring tileValueText(const Editor& ed, float wx, float wy);  // (palette_tools.inc)
 void shellReportFeedback(const std::wstring& on, const std::wstring& text);
 int protectedInSelection(const Editor& ed);  // (core/protected_layer.inc)
+// The symmetry anchor at a map pixel, or -1.
+int symmetryAnchorNear(const Editor& ed, float wx, float wy, float zoom) {
+    const auto anchors = ed.symmetryAnchors();
+    for (int i = int(anchors.size()) - 1; i >= 0; --i)
+        if (std::hypot(wx - anchors[size_t(i)].first, wy - anchors[size_t(i)].second) * zoom <= float(scale(10))) return i;
+    return -1;
+}
 void protectSelection(bool on);
 std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
 
@@ -225,6 +232,10 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
+    if (terrain && (ed.mirrors() || ed.turns() > 1)) {  // (with mirrors or turns: more points they go round)
+        item(ID_MAPMENU_ADDANCHOR, L"Add symmetry &anchor here", L"", int(ed.symmetryAnchors().size()) < Editor::kMaxSymmetryAnchors);
+        if (symmetryAnchorNear(ed, gMapMenuWX, gMapMenuWY, app.zoom) > 0) item(ID_MAPMENU_REMOVEANCHOR, L"Remove this symmetry anchor", L"", true);
+    }
     // (the selection's tiles: no terrain edit changes them; core/protected_layer.inc)
     if (terrain && has) {
         const int protectedTiles = protectedInSelection(ed);
@@ -272,6 +283,14 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_REPLACE) shellShowQuickPicker(true, false);
     else if (pick == ID_MAPMENU_FILLSEL) tilesFillSelection();
     else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
+    else if (pick == ID_MAPMENU_ADDANCHOR && app.ed) {
+        if (app.ed->addSymmetryAnchor(int(gMapMenuWX), int(gMapMenuWY)) >= 0) setMessage(L"Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it");
+        app.dirty = true;
+    } else if (pick == ID_MAPMENU_REMOVEANCHOR && app.ed) {
+        app.ed->removeSymmetryAnchor(symmetryAnchorNear(*app.ed, gMapMenuWX, gMapMenuWY, app.zoom));
+        setMessage(L"Removed the symmetry anchor");
+        app.dirty = true;
+    }
     else if (pick == ID_MAPMENU_PROTECT || pick == ID_MAPMENU_UNPROTECT) protectSelection(pick == ID_MAPMENU_PROTECT);
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);

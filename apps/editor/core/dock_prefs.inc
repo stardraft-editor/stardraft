@@ -43,6 +43,9 @@ constexpr FloatPaletteNames kFloatPalNames[kModeCount] = {
     {"SpritePalette", "view.floatPalette.sprites", L"&Sprite palette", L"Sprite palette",
      L"Put Sprites back in the side bar", L"Moved Sprites to its own window",
      L"The sprite palette shows in its own window in Sprites mode", L"Moved Sprites back to the side bar"},
+    {"MapLayersPalette", "view.floatPalette.layers", L"&Layer list", L"Layer list",
+     L"Put the layers back in the side bar", L"Moved the layers to their own window",
+     L"The layer list shows in its own window", L"Moved the layers back to the side bar"},
 };
 
 // Does the palette of `m` float in the active tab? (The program: Terrain, Units, Doodads and Sprites float as palettes of

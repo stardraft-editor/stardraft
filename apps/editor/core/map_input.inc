@@ -12,6 +12,13 @@ std::wstring unitLimitText(const Editor& ed);
 bool trigUnitPickClick(float wx, float wy);
 int sprayAt(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
+bool mapLayersEraseOn(AppState& app);  // (core/map_layers.inc)
+void mapLayersSync();
+void mapLayersDragCancel(AppState& app);
+void mapLayersEraseDown(AppState& app, float wx, float wy);
+void mapLayersMoveDown(AppState& app, float wx, float wy, unsigned mods);
+void mapLayersDragMove(AppState& app, float wx, float wy);
+void mapLayersDragUp(AppState& app);
 void tilesMouseUp(float wx, float wy);
 bool tilesMouseDown(float wx, float wy, unsigned mods);
 void tilesPick(int value, bool fromMap);
@@ -239,21 +246,27 @@ int stackUnitAt(const Editor& ed, float wx, float wy) {
 
 std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom);  // (below)
 std::chrono::steady_clock::time_point gSymmetryPressAt{};  // the handle's last click (a drag is not one: a double click's)
+int gSymmetryDragged = 0;                                    // the anchor that the drag moves
 std::pair<int, int> gSymmetryFrom{-1, -1};                  // the center when its drag began (Esc puts it back)
 // The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
-bool symmetryHandleAt(const AppState& app, int sx, int sy) {
+// The anchor whose handle is at this place of the window (Terrain's Select tool), or -1. The last one first: on top.
+int symmetryHandleIndex(const AppState& app, int sx, int sy) {
     if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain || currentTool(app) != TSelect || app.terrainPasting ||
         (!app.ed->mirrors() && app.ed->turns() <= 1))
-        return false;
+        return -1;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
-    const auto [cx, cy] = app.ed->symmetryCenter();
-    return std::hypot(wx - cx, wy - cy) * app.zoom <= float(scale(10));
+    const auto anchors = app.ed->symmetryAnchors();
+    for (int i = int(anchors.size()) - 1; i >= 0; --i)
+        if (std::hypot(wx - anchors[size_t(i)].first, wy - anchors[size_t(i)].second) * app.zoom <= float(scale(10))) return i;
+    return -1;
 }
+bool symmetryHandleAt(const AppState& app, int sx, int sy) { return symmetryHandleIndex(app, sx, sy) >= 0; }
 
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
+    mapLayersSync();  // (the last edit is in its layer before the next one)
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     gStackNext = -1;
@@ -272,6 +285,8 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     }
     if (modeLayerHidden()) return modeLayerHiddenClick();  // (core/map_edit.inc)
     if (trigUnitPickClick(wx, wy)) return;
+    if (mapLayersEraseOn(app)) return mapLayersEraseDown(app, wx, wy);
+    if (app.mode == Mode::Layers) return mapLayersMoveDown(app, wx, wy, currentTool(app) == LayersArea ? mods | draw::kShift : mods);
     if (app.pasting) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
         // units are not selected, so the next paste does not move them.
@@ -292,13 +307,20 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
     if (!(mods & (draw::kShift | draw::kCtrl)) && symmetryHandleAt(app, sx, sy)) {  // the symmetry center: a drag moves it; a double click puts it in the map's middle
         const auto now = std::chrono::steady_clock::now();
-        if (now - gSymmetryPressAt < std::chrono::milliseconds(400)) {
-            ed.setSymmetryCenter(-1, -1);
-            setMessage(app, L"The symmetry center is in the middle of the map");
+        const int anchor = symmetryHandleIndex(app, sx, sy);
+        if (now - gSymmetryPressAt < std::chrono::milliseconds(400) && anchor == gSymmetryDragged) {
+            if (anchor > 0) {
+                ed.removeSymmetryAnchor(anchor);
+                setMessage(app, L"Removed the symmetry anchor");
+            } else {
+                ed.setSymmetryCenter(-1, -1);
+                setMessage(app, L"The symmetry center is in the middle of the map");
+            }
             gSymmetryPressAt = {};
         } else {
             gSymmetryPressAt = now;
-            gSymmetryFrom = ed.symmetryCenterSet();
+            gSymmetryDragged = anchor;
+            gSymmetryFrom = anchor > 0 ? ed.symmetryAnchors()[size_t(anchor)] : ed.symmetryCenterSet();
             app.drag = Drag::SymmetryCenter;
         }
         app.dirty = true;
@@ -626,8 +648,13 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.drag == Drag::LayerTool && app.ed) {
+        mapLayersDragMove(app, wx, wy);
+        updateStatus(app);
+        return;
+    }
     if (app.drag == Drag::SymmetryCenter && app.ed) {
-        if (app.dragMoved) app.ed->setSymmetryCenter(std::max(0, int(wx)), std::max(0, int(wy)));
+        if (app.dragMoved) app.ed->setSymmetryAnchor(gSymmetryDragged, std::max(0, int(wx)), std::max(0, int(wy)));
         updateStatus(app);
         app.dirty = true;
         return;
@@ -745,6 +772,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     bool shift = mods & draw::kShift;
+    if (app.drag == Drag::LayerTool) return mapLayersDragUp(app);
     if (app.drag == Drag::SymmetryCenter) {
         app.drag = Drag::None;
         if (app.dragMoved) gSymmetryPressAt = {}, setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
@@ -959,6 +987,7 @@ bool fillClickFills(AppState& app) {
 }
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
+    if (app.mode == Mode::Layers && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return currentTool(app) == LayersMove ? Cursor::SizeAll : Cursor::Arrow;  // (Move Layer)
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;
     if (app.drag == Drag::None && symmetryHandleAt(app, x, y)) return Cursor::SizeAll;
     if (fillClickFills(app)) return Cursor::Fill;
@@ -1004,8 +1033,9 @@ void trigCancelUnitPick();
 // a stroke ended (the host lets the mouse go).
 bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
+    if (app.drag == Drag::LayerTool) return mapLayersDragCancel(app), true;
     if (app.drag == Drag::SymmetryCenter) {  // (the center's drag: it goes back; the selection stays)
-        if (app.ed) app.ed->setSymmetryCenter(gSymmetryFrom.first, gSymmetryFrom.second);
+        if (app.ed) app.ed->setSymmetryAnchor(gSymmetryDragged, gSymmetryFrom.first, gSymmetryFrom.second);
         app.drag = Drag::None;
         app.dirty = true;
         return true;

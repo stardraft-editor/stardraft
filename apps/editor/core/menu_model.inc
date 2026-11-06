@@ -60,7 +60,7 @@ std::vector<std::pair<int, std::wstring>> railMenuItems();  // (core/views_rail.
 
 // The two-key shortcuts of the menu items that have no key of their own (sdl_menus.inc: the first key, then the
 // second: always one letter or digit, with no Shift), by the item's menu path in English: Ctrl+K the View menu's (but
-// View > Layers and View > Floating palettes: Ctrl+Shift+L), Ctrl+J the Options menu's, Ctrl+Shift+K the others' (File,
+// View > Modes and View > Floating palettes: Ctrl+Shift+L), Ctrl+J the Options menu's, Ctrl+Shift+K the others' (File,
 // Tools, Help).
 void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
     static const std::map<std::wstring, std::wstring> kKeys = {
@@ -187,6 +187,7 @@ MenuModel buildMenuModel() {
                    menuSeparator(),
                    menuItem(ID_FILE_SAVE, L"&Save", L"Ctrl+S"),
                    menuItem(ID_FILE_SAVEAS, L"Save &as\x2026", L"Ctrl+Shift+S"),
+                   menuItem(ID_FILE_EXPORTMAP, L"E&xport map\x2026"),
                    menuItem(ID_FILE_EXPORTIMAGE, L"&Export map image\x2026", L"Ctrl+Shift+E"),
                    menuSeparator(),
                    menuItem(ID_FILE_CLOSE, L"&Close", L"Ctrl+W"),
@@ -277,7 +278,7 @@ MenuModel buildMenuModel() {
         MenuModel layers;
         menuCommands(layers, "View/Layers");
         layers.push_back(menuItem(ID_VIEW_LOCATIONS, L"&Locations"));
-        view.push_back(menuPopup(L"La&yers", layers));
+        view.push_back(menuPopup(L"&Modes", layers));
     }
     view.push_back(menuItem(ID_OPT_ANIMATE, L"A&nimate units"));  // (the units' idle animations on the map)
     view.push_back(menuSeparator());

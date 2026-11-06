@@ -195,6 +195,7 @@ bool sdlRuns(int id) {
     case ID_FILE_SAVE:
     case ID_FILE_SAVEAS:
     case ID_FILE_EXPORTIMAGE:  // (core/map_image.inc)
+    case ID_FILE_EXPORTMAP:
     case ID_FILE_EXIT:
     case ID_EDIT_UNDO:
     case ID_EDIT_REDO:
@@ -1463,6 +1464,13 @@ void commandSdl(int id) {
         return;
     case ID_FILE_SAVE: saveOpenMap(false); return;
     case ID_FILE_SAVEAS: saveOpenMap(true); return;
+    case ID_FILE_EXPORTMAP:
+        showFileDialog(true, [](const fs::path& picked) {
+            fs::path p = picked;
+            if (!p.empty() && !p.has_extension()) p += ".scx";
+            if (!p.empty()) mapLayersExport(p);
+        });
+        return;
     case ID_FILE_EXPORTIMAGE:
         sdlExportMapImage();  // (sdl_map_image.inc; as Save as, its dialogs run here)
         return;

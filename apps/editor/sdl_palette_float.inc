@@ -65,7 +65,7 @@ std::optional<Mode> floatPaletteDockedAt(const draw::View* v) {
         if (std::find(views.begin(), views.end(), v) != views.end()) return v->shown() ? std::optional<Mode>(m) : std::nullopt;
     return std::nullopt;
 }
-void shellFloatPalette(Mode m, bool on);
+void shellFloatPalette(Mode m, bool on);  // (Map Layers: the Layer list instead, core/views_layers.inc)
 std::wstring accessFree(std::wstring s);  // (sdl_menus.inc)
 // The context menus' item that floats the palette of `m` (or docks it while it floats).
 kit::MenuItem sdlPaletteFloatItem(Mode m) {

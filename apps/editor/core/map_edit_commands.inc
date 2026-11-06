@@ -1,3 +1,9 @@
+void mapLayersDragStop();
+void mapLayersDelete();
+void mapLayersSync();
+bool mapLayersOnLayer();
+bool mapLayersActiveLocked();
+bool mapLayersDeleteSelection(const std::vector<std::pair<int, int>>& tiles);  // (core/map_layers.inc)
 // The Map workspace's Edit and Options commands (portable, core.inc; moved from main.cpp's commandBody): copy, cut,
 // paste, duplicate, delete and select all of the active mode, the snap and place rules of each kind, the terrain copy,
 // View > Grid size and the town areas, the player keys (1 to 0; in Terrain mode they pick a terrain), the tool keys (V, B, A, F), the side bar's keys
@@ -87,6 +93,7 @@ bool closeAllDocs(std::vector<std::wstring>* reopen = nullptr) {
             else if (app.ed && !app.ed->path().empty()) reopen->push_back(app.ed->path().wstring());
         }
         mapPageClose();
+        mapLayersDragStop();  // (before its editor goes; core/map_layers.inc)
         app.ed.reset();
         shellForgetAnims();
         forgetProject(gDocs[size_t(i)].project.get());
@@ -300,6 +307,7 @@ void cutMapSelection(AppState& app) {
         return;
     }
     if (!app.hasTerrainSel) return setMessage(L"Select an area with the Select tool first");
+    if (mapLayersActiveLocked()) return setMessage(L"The layer is locked: nothing changed");
     // Terrain: copy it, then null tiles in its place (black; nothing can walk or build there).
     const Rect& r = app.terrainSel;
     const bool copied = app.terrainRect ? copySelectedTiles(*app.ed) : copySelectedTerrain(app, r);
@@ -317,13 +325,18 @@ void cutMapSelection(AppState& app) {
     const int n = app.ed->placeTileCells(cells, 0);  // tile 0: the null tile
     app.ed->endStroke();
     app.ed->takeUnitsRemovedByTerrain();  // (the next paint's message counts only what it removes)
-    setMessage(L"Cut the terrain: " + std::to_wstring(n) + L" null tiles in its place (one undo step)");
+    mapLayersSync();  // (on a layer: NULL in its place, at once; core/map_layers.inc)
+    setMessage(mapLayersOnLayer() ? L"Cut the terrain: what is under the layer shows in its place (one undo step)"
+                                  : L"Cut the terrain: " + std::to_wstring(n) + L" null tiles in its place (one undo step)");
     app.dirty = true;
 }
 
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
 bool commandMapEdit(AppState& app, int id) {
     const bool open = app.ed && app.ed->isOpen();
+    mapLayersSync();  // (the last edit is in its layer before the next one: core/map_layers.inc)
+    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_DUPLICATE || id == ID_EDIT_SELECTALL)) return true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_DELETE) return mapLayersDelete(), true;
     auto done = [&app] {
         shellMenusChanged();
         app.dirty = true;
@@ -451,7 +464,7 @@ bool commandMapEdit(AppState& app, int id) {
         } else if (app.mode == Mode::Doodads) {
             if (app.ed->deleteDoodads(app.selDoodads)) setMessage(L"Deleted " + std::to_wstring(app.selDoodads.size()) + L" doodads");
             app.selDoodads.clear();
-        } else app.ed->deleteSelection();
+        } else if (app.mode != Mode::Terrain || !app.hasTerrainSel || !mapLayersDeleteSelection(terrainSelTiles())) app.ed->deleteSelection();
         break;
     case ID_EDIT_SELECTALL:  // the active mode's things
         if (!open) break;

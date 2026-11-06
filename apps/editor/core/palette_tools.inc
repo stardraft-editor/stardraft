@@ -207,6 +207,7 @@ void updateStatus(AppState& app) {
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
     std::swprintf(buf, 256, L"%ls: %ls", kModeNames[int(app.mode)],
                   app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
+                  : app.mode == Mode::Layers ? kLayersTools[currentTool(app)]
                   : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : currentTool(app) == SErase || (app.mode == Mode::Locations && currentTool(app) == LErase) ? L"Erase"
                   : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
@@ -324,6 +325,7 @@ std::wstring itemLabel(const AppState& app, int v) {
     case Mode::Locations:
         return widen(ed.locationName(v));
     case Mode::Sprites: break;
+    case Mode::Layers: break;
     }
     return L"";
 }
@@ -355,6 +357,7 @@ void rebuildList(AppState& app) {
             for (auto* d : ds) all.push_back(d->id);
             break;
         }
+        case Mode::Layers: break;  // (its list is the layers: core/views_layers.inc)
         case Mode::Locations:
             for (int i = 0; i < ed.locationCount(); ++i)
                 if (ed.locationUsed(i)) all.push_back(i);
@@ -628,6 +631,10 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
                 {UiIcon::Erase, L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", SErase, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
+    case Mode::Layers:
+        return {{UiIcon::Select, L"Move Layer: drag on the map to move the selected layers (with an area: only what is in it)", LayersMove, true},
+                {UiIcon::Rect, L"Select an area of the layer: drag a rectangle, then Move Layer moves only what is in it", LayersArea, false},
+                {UiIcon::Erase, L"Erase: the brush makes the layer NULL under it, so what is under the layer shows (Size: the brush's size)", LayersErase, false}};
     case Mode::Locations:
         return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", LSelect, true},
                 {UiIcon::Erase, L"Erase: drag the brush over locations to delete them (Size: the brush's size)", LErase, false}};

@@ -71,8 +71,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     }
     Editor& ed = *gState.ed;
     clampCamera();
-    // The terrain when it changed, or a layer (View > Layers: no terrain, or no doodads' tiles) went on or off.
-    // (and the creep when it changed: View > Layers > Creep, core/creep_layer.inc)
+    // The terrain when it changed, or a layer (View > Modes: no terrain, or no doodads' tiles) went on or off.
+    // (and the creep when it changed: View > Modes > Creep, core/creep_layer.inc)
     static MapLayers uploaded;
     static uint64_t uploadedCreep = 0;
     const uint64_t creepRev = creepRevision(ed);
@@ -436,6 +436,7 @@ struct MainView final : draw::View {
         add(gToolStripView, draw::Rect(0, 0, 0, 0));  // the tool strip (core/views_toolstrip.inc)
         add(gToolStripView2, draw::Rect(0, 0, 0, 0));  // the other side's mode's strip
         add(gToolStripView3, draw::Rect(0, 0, 0, 0));
+        add(gLayersPanel, draw::Rect(0, 0, 0, 0));  // (core/views_layers.inc)
         add(modes, draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[0], draw::Rect(0, 0, 0, 0));
         add(gPanelTabsSdl[1], draw::Rect(0, 0, 0, 0));
@@ -610,7 +611,7 @@ struct MainView final : draw::View {
         }
         const bool right = mini ? gDock.minimapRight : gDock.toolsRight[int(gState.mode)];
         std::vector<kit::MenuItem> items = sdlModelItems(dockMenuModel(mini, right, gState.mode), [](int id) { command(id); });
-        if (!mini && gState.mode != Mode::Locations) {  // (the tool strip, the Isometric | Rectangle | Tile | Custom row, the modes: as a panel tab's menu)
+        if (!mini && gState.mode != Mode::Locations && gState.mode != Mode::Layers) {  // (the tool strip, the Isometric | Rectangle | Tile | Custom row, the modes: as a panel tab's menu)
             const Mode m = gState.mode;
             items.push_back(kit::MenuItem{}), items.back().separator = true;
             items.push_back(sdlPaletteFloatItem(m));
@@ -853,6 +854,25 @@ struct MainView final : draw::View {
         apply(status, L.status, true);
         apply(gLogPane, L.log, true);
         apply(map, L.view, mapWs);
+        {  // The Layer List: Map Layers' list in the side bar (also as the other side's list), else with the View menu's item
+            // over the map's top right corner.
+            PaneSlot slot = L.view;
+            bool shown = mapWs && gLayersPanelOn;
+            if (gState.mode == Mode::Layers) {
+                slot = L.palette, slot.rc.top = L.search.rc.top, shown = mapWs;
+            } else if (L.palette2.visible && L.secondMode == Mode::Layers) {
+                slot = L.palette2, shown = mapWs;
+            } else if (L.palette3.visible && L.thirdMode == Mode::Layers) {
+                slot = L.palette3, shown = mapWs;
+            } else {
+                const int pw = scale(230), ph = gLayersPanel.preferredHeight();
+                slot.rc.left = std::max(slot.rc.left, slot.rc.right - pw - scale(8));
+                slot.rc.right -= scale(8);
+                slot.rc.top += scale(8);
+                slot.rc.bottom = std::min(slot.rc.bottom, slot.rc.top + ph);
+            }
+            apply(gLayersPanel, slot, shown);
+        }
         apply(minimap, L.minimap, L.minimap.visible && mapWs);
         apply(modes, L.modeBar, mapWs);
         apply(gPanelTabsSdl[toolsRight ? 1 : 0], L.panelTabActive, L.panelTabActive.visible && mapWs);
@@ -885,18 +905,19 @@ struct MainView final : draw::View {
         const bool tiles3 = !tiles && !tiles2 && rectT && L.palette3.visible && L.thirdMode == Mode::Terrain;
         if (tiles2 || tiles3) gTilesShown = true;
         side(gTilesDockPanel, tiles2 ? L.palette2 : tiles3 ? L.palette3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
-        side(gSearchSdl, L.search, !locs && here && !tiles);
-        side(gViewBtnSdl, L.viewBtn, !locs && here && !tiles);
+        const bool layersMode = m == Mode::Layers;  // (its list: the Layer List, above)
+        side(gSearchSdl, L.search, !locs && !layersMode && here && !tiles);
+        side(gViewBtnSdl, L.viewBtn, !locs && !layersMode && here && !tiles);
         sortTipsSdl();
-        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && here && !tiles);
+        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles);
         side(gLocSortBtnSdl, L.sortBtn, locs && here);
-        side(gPalList, L.palette, !locs && here && !tiles);
+        side(gPalList, L.palette, !locs && !layersMode && here && !tiles);
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
-        apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2);
+        apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2 && L.secondMode != Mode::Layers);
         apply(gToolStripView2, L.tool2, L.tool2.visible && mapWs);
         apply(gToolStripView3, L.tool3, L.tool3.visible && mapWs);
-        apply(gPal3List, L.palette3, L.palette3.visible && mapWs && !tiles3);
+        apply(gPal3List, L.palette3, L.palette3.visible && mapWs && !tiles3 && L.thirdMode != Mode::Layers);
         // The workspace area: the registered view of the workspace shown, else the "Not on this system yet" view.
         const auto found = gWorkspaceViews.find(gWorkspace);
         draw::View* wsView = mapWs || found == gWorkspaceViews.end() ? nullptr : found->second;

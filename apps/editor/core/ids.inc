@@ -76,11 +76,11 @@ enum : int {
     ID_VIEW_RANGEKIND = 1090,  // + the kind (modes.inc: kRangeKinds): View > Ranges > Sight, Target acquisition, ...
     ID_VIEW_MINIMAP = 976,  // View > Show minimap (GitHub feedback #127)
     ID_VIEW_FLOATPAL = 1020,  // + int(Mode): View > Floating palettes (Roadmap R40: a mode's palette in a window of its own)
-    ID_LAYER = 990,         // + View > Layers: 0 terrain, 1 doodads, 2 sprites, 3 units, 4 pathing; 5, 6 pathing shows the regions, the connected areas
+    ID_LAYER = 990,         // + View > Modes: 0 terrain, 1 doodads, 2 sprites, 3 units, 4 pathing; 5, 6 pathing shows the regions, the connected areas
     ID_DECORATE = 1040,  // + Edit > Decorate the terrain: 0 a few, 1 some, 2 many doodads (roadmap R37)
-    ID_LAYER_CREEP = 989,  // View > Layers > Creep (the start creep of the map's Zerg buildings: core/creep_layer.inc)
-    ID_LAYER_PROTECTED = 1048,  // View > Layers > Protected terrain (the tiles no terrain edit changes: core/protected_layer.inc)
-    ID_LAYER_REVEALERS = 988,  // View > Layers > Map revealers (the map's Map Revealer units: drawn and picked, or not)
+    ID_LAYER_CREEP = 989,  // View > Modes > Creep (the start creep of the map's Zerg buildings: core/creep_layer.inc)
+    ID_LAYER_PROTECTED = 1048,  // View > Modes > Protected terrain (the tiles no terrain edit changes: core/protected_layer.inc)
+    ID_LAYER_REVEALERS = 988,  // View > Modes > Map revealers (the map's Map Revealer units: drawn and picked, or not)
     ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
@@ -103,6 +103,9 @@ enum : int {
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
     ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
     ID_OPT_RESETALL = 1045,    // Program options > General > Reset all program settings (a question, then a restart)
+    ID_FILE_EXPORTMAP = 231,  // File > Export map: the layers flattened (core/views_layers.inc)
+    ID_LAYERS_PANEL = 232,    // View > Floating palettes > Layer list (core/views_layers.inc)
+    ID_MODE_LAYERS = 233,     // Mode > Map Layers
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry
@@ -115,10 +118,10 @@ struct GridPreset {
 constexpr GridPreset kGridPresets[] = {{2, L""}, {4, L""}, {8, L"quarter tile"}, {16, L"half tile"}, {24, L""}, {32, L"tile"},
                                        {48, L""}, {64, L"2 tiles"}, {96, L"3 tiles"}, {128, L"4 tiles"}, {256, L"8 tiles"}};
 
-enum class Mode { Terrain, Units, Doodads, Locations, Sprites };
-constexpr int kModeCount = 5;
+enum class Mode { Terrain, Units, Doodads, Locations, Sprites, Layers };
+constexpr int kModeCount = 6;
 // The modes in the order the mode bar shows them.
-constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations};
+constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations, Mode::Layers};
 
 // Where the map workspace's panels sit. The minimap is always at the top of its side; each layer's toolbar
 // (Terrain / Units / Doodads / Locations: the layer buttons, its options, its palette) docks left or right
@@ -126,8 +129,8 @@ constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Dooda
 struct Dock {
     bool minimapRight = false;
     bool minimapHidden = false;  // View > Show minimap off: its side has the panel only (GitHub feedback #127)
-    bool toolsRight[kModeCount] = {false, true, false, false, false};  // units on the right, the rest on the left
-    int tabOrder[kModeCount] = {0, 1, 2, 4, 3};  // each mode's place in the side bars' tabs (by int(Mode); a drag of a tab changes it)
+    bool toolsRight[kModeCount] = {false, true, false, false, false, false};  // units on the right, the rest on the left
+    int tabOrder[kModeCount] = {0, 1, 2, 4, 3, 5};  // each mode's place in the side bars' tabs (by int(Mode); a drag of a tab changes it)
     int leftW = 280, rightW = 280, dataListW = 300;    // column widths, 96-dpi pixels; drag their edges
     bool triggerCode = false;                          // the Triggers workspace's code pane is shown
     bool scriptPreview = false;                        // the Project page's preview of the selected script is shown
@@ -147,10 +150,10 @@ int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1
 
 // The registry name of each mode's tool bar side (Mode order). One entry per mode: a mode without one would read past
 // the end (that crashed saveDock when Sprites came).
-constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
+constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight", L"MapLayersRight"};
 static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
 // The settings' name of each mode's place in the tabs (Dock::tabOrder; Mode order).
-constexpr const wchar_t* kDockOrderNames[] = {L"TerrainTabOrder", L"UnitsTabOrder", L"DoodadsTabOrder", L"LocationsTabOrder", L"SpritesTabOrder"};
+constexpr const wchar_t* kDockOrderNames[] = {L"TerrainTabOrder", L"UnitsTabOrder", L"DoodadsTabOrder", L"LocationsTabOrder", L"SpritesTabOrder", L"MapLayersTabOrder"};
 static_assert(std::size(kDockOrderNames) == kModeCount, "a tab order name for each mode");
 // The modes in the order of the side bars' tabs (Dock::tabOrder; the mode bar's order for equal places).
 inline std::vector<Mode> dockTabOrder(const Dock& d) {

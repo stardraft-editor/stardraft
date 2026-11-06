@@ -74,7 +74,7 @@ bool objectSprayOn() {
            (app.mode == Mode::Sprites && currentTool() == SSpray);
 }
 // The brush size: Terrain, and the sprays and Erase of Units, Doodads, Sprites and Locations (their radius).
-bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn() || objectEraseOn(); }
+bool stripHasSize() { return appState().mode == Mode::Terrain || objectSprayOn() || objectEraseOn() || (appState().mode == Mode::Layers && currentTool() == LayersErase); }
 // Density: the sprays (Terrain, Units, Doodads, Sprites) and the Fill of Units and Doodads (how many).
 bool stripHasDensity() {
     const AppState& app = appState();

@@ -898,6 +898,7 @@ int main(int argc, char** argv) {
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
             sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
+            mapLayersFrame();  // (the map's layers: core/map_layers.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
             sdlFollowSystemLook();  // (macOS, Linux: the system's look changed; also while no frame comes: sdl_window.inc)
         });

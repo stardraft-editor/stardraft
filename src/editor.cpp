@@ -20,6 +20,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <map>
 #include <set>
 
 #include "stardraft/game_data.h"
@@ -116,6 +117,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
+    loadMark_ = nextRevision();
     return true;
 }
 
@@ -148,6 +150,7 @@ bool Editor::openChk(const Chk& chk, std::string& error) {
     open_ = true;
     modified_ = false;
     state_ = savedState_ = nextRevision();
+    loadMark_ = nextRevision();
     return true;
 }
 
@@ -206,6 +209,7 @@ bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terr
     error.clear();
     modified_ = false;
     state_ = savedState_ = nextRevision();
+    loadMark_ = nextRevision();
     if (!open_) {
         error = "could not load tileset " + std::string(tilesetName(era_));
         if (!tilesetError_.empty()) error += ": " + tilesetError_;
@@ -732,6 +736,7 @@ void Editor::undo(size_t steps) {
     const std::vector<Unit> before = units_;
     for (size_t i = 0; i < steps && !undo_.empty(); ++i) undoOne();
     reload();
+    loadMark_ = nextRevision();
     selection_ = selectionAfterRestore(before);
     modified_ = state_ != savedState_;
 }
@@ -756,6 +761,7 @@ void Editor::redo(size_t steps) {
     const std::vector<Unit> before = units_;
     for (size_t i = 0; i < steps && !redo_.empty(); ++i) redoOne();
     reload();
+    loadMark_ = nextRevision();
     selection_ = selectionAfterRestore(before);
     modified_ = state_ != savedState_;
 }
@@ -859,10 +865,48 @@ void Editor::endStroke() { endStrokeStep(); }
 
 // --- Symmetry ------------------------------------------------------------------------------------
 
+std::pair<int, int> Editor::anchorOnGrid(int px, int py) const {
+    return {std::clamp(int(std::lround(px / 64.0)), 0, width_ / 2) * 64,  // (an odd width: its last grid point inside)
+            std::clamp(int(std::lround(py / 32.0)), 0, int(height_)) * 32};
+}
+
 void Editor::setSymmetryCenter(int px, int py) {
     if (px < 0 || py < 0) return void(symmetryX_ = symmetryY_ = -1);
-    symmetryX_ = std::clamp(int(std::lround(px / 64.0)), 0, width_ / 2) * 64;  // (an odd width: its last grid point inside)
-    symmetryY_ = std::clamp(int(std::lround(py / 32.0)), 0, int(height_)) * 32;
+    std::tie(symmetryX_, symmetryY_) = anchorOnGrid(px, py);
+}
+
+std::vector<std::pair<int, int>> Editor::symmetryAnchors() const {
+    std::vector<std::pair<int, int>> out{symmetryCenter()};
+    const int W = width_ * 32, H = height_ * 32;
+    for (const auto& a : moreAnchors_)  // (another map's size: those outside do nothing)
+        if (a.first <= W && a.second <= H) out.push_back(a);
+    return out;
+}
+
+int Editor::addSymmetryAnchor(int px, int py) {
+    const auto at = anchorOnGrid(px, py);
+    const auto now = symmetryAnchors();
+    if (int(now.size()) >= kMaxSymmetryAnchors || std::find(now.begin(), now.end(), at) != now.end()) return -1;
+    moreAnchors_.push_back(at);
+    return int(moreAnchors_.size());
+}
+
+// The place in moreAnchors_ of symmetryAnchors()'s index (those on this map), or -1.
+int Editor::moreAnchorOf(int index) const {
+    const int W = width_ * 32, H = height_ * 32;
+    for (int i = 0, on = 0; i < int(moreAnchors_.size()); ++i)
+        if (moreAnchors_[size_t(i)].first <= W && moreAnchors_[size_t(i)].second <= H && ++on == index) return i;
+    return -1;
+}
+
+void Editor::setSymmetryAnchor(int index, int px, int py) {
+    if (index == 0) return setSymmetryCenter(px, py);
+    if (const int at = moreAnchorOf(index); at >= 0) moreAnchors_[size_t(at)] = anchorOnGrid(px, py);
+}
+
+void Editor::removeSymmetryAnchor(int index) {
+    if (index <= 0) return;
+    if (const int at = moreAnchorOf(index); at >= 0) moreAnchors_.erase(moreAnchors_.begin() + at);
 }
 
 std::pair<int, int> Editor::symmetryCenter() const {
@@ -871,9 +915,9 @@ std::pair<int, int> Editor::symmetryCenter() const {
     return {symmetryX_, symmetryY_};
 }
 
-std::pair<int, int> Editor::mirror(int px, int py, int which) const {
+std::pair<int, int> Editor::mirror(int px, int py, int which, std::pair<int, int> center) const {
     const double W = width_ * 32.0, H = height_ * 32.0;
-    const auto [cx, cy] = symmetryCenter();
+    const auto [cx, cy] = center;
     const double u = (px - cx) / W, v = (py - cy) / H;  // (the diagonals: in the map's proportions)
     switch (which) {
     case 0: return {2 * cx - px, py};  // left/right
@@ -884,11 +928,11 @@ std::pair<int, int> Editor::mirror(int px, int py, int which) const {
     return {px, py};
 }
 
-std::pair<int, int> Editor::turnPoint(int px, int py, int k) const {
+std::pair<int, int> Editor::turnPoint(int px, int py, int k, std::pair<int, int> center) const {
     constexpr double kTau = 6.283185307179586;
     const double W = width_ * 32.0, H = height_ * 32.0;
     const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a);
-    const auto [cx, cy] = symmetryCenter();
+    const auto [cx, cy] = center;
     const double u = (px - cx) / W, v = (py - cy) / H;  // from the center, in the map's proportions
     return {int(std::lround(cx + (u * c - v * s) * W)), int(std::lround(cy + (u * s + v * c) * H))};
 }
@@ -927,25 +971,37 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
             if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
         out.push_back({x, y, fx, fy});
     };
-    // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half turn
-    // flips a pasted copy both ways.
-    for (int k = 1; k < turns_; ++k) {
-        const auto [x, y] = turnPoint(px, py, k);
-        add(x, y, 2 * k == turns_, 2 * k == turns_);
-    }
-    // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
-    // How each flips a pasted copy.
+    // How each mirror flips a pasted copy.
     static const struct {
         int flag, which;
         bool fx, fy;
     } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Diagonal, 3, false, false},
                      {Mirror::AntiDiagonal, 4, false, false}};
-    for (size_t k = 0; k < out.size(); ++k)
-        for (const auto& m : mirrorsOf) {
-            if (!(mirrors_ & m.flag)) continue;
-            const auto [x, y] = mirror(out[k].x, out[k].y, m.which);
-            add(x, y, out[k].flipX != m.fx, out[k].flipY != m.fy);
+    // Each anchor on its own: the point's images round it, not the images round the other anchors.
+    for (const auto& center : symmetryAnchors()) {
+        std::vector<SymmetricPlace> own{{px, py, false, false}};
+        auto addOwn = [&](int x, int y, bool fx, bool fy) {
+            if (own.size() >= kMaxSymmetricPlaces) return;
+            for (const SymmetricPlace& p : own)
+                if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
+            own.push_back({x, y, fx, fy});
+            add(x, y, fx, fy);
+        };
+        // The turns: the point turned k steps, each from the point itself (so the copies do not drift apart). A half
+        // turn flips a pasted copy both ways.
+        for (int k = 1; k < turns_; ++k) {
+            const auto [x, y] = turnPoint(px, py, k, center);
+            addOwn(x, y, 2 * k == turns_, 2 * k == turns_);
         }
+        // The mirrors: each place mirrored across the chosen axes, and the mirror images in turn, until no place is new.
+        for (size_t k = 0; k < own.size(); ++k)
+            for (const auto& m : mirrorsOf) {
+                if (!(mirrors_ & m.flag)) continue;
+                const SymmetricPlace from = own[k];
+                const auto [x, y] = mirror(from.x, from.y, m.which, center);
+                addOwn(x, y, from.flipX != m.fx, from.flipY != m.fy);
+            }
+    }
     return out;
 }
 
@@ -4560,6 +4616,234 @@ const ArchiveFile* Editor::archiveFile(const std::string& name) const {
             }))
             return &f;
     return nullptr;
+}
+
+bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted, bool hold) {
+    std::vector<std::pair<std::string, Bytes>> sections;
+    if (!unpackLayerBase(base, sections)) return false;
+    // (the map as it is: where the corners stay, the tiles stay, so that the terrain's random tiles do not change with
+    // each edit. TILE: without the doodads' tiles.)
+    const IsomGrid lastGrid = layerHeld_ ? layerHeld_->first : isom_;
+    const bool hadGrid = isomOk_;
+    const TerrainLayer lastTiles = layerHeld_ ? layerHeld_->second : layerTileSection();
+    if (hold) layerHeld_ = {lastGrid, lastTiles};
+    else layerHeld_.reset();
+    const std::optional<ProtectedBefore> kept = protectedBefore();
+    for (auto& [name, data] : sections) chk_.set(layerSectionName(name), std::move(data));
+    chk_.set("UNIT", {}), chk_.set("DD2 ", {}), chk_.set("THG2", {});
+    const std::vector<int> selectedUnits = selection_;
+    reload();
+    const TerrainLayer baseTiles = readTerrain(chk_, "MTXM");
+    const int w = int(width_) * 32, h = int(height_) * 32;
+    std::map<std::pair<int, int>, uint16_t> asked;
+    const IsomGrid under = isom_;  // (the Background's: the corners that no layer has keep their terrain, but for the edges)
+    if (isomOk_) {
+        const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        for (const MapLayer& l : stack.layers) {
+            if (!l.visible) continue;
+            // (each terrain in turn, fitted to the ones before: two terrains that cannot touch are never both locked)
+            std::map<uint16_t, std::vector<CornerValue>> byTerrain;
+            for (const auto& [at, terrain] : l.corners)
+                if (isom_.isCorner(at.first, at.second)) {
+                    byTerrain[terrain].push_back({at.first, at.second, terrain});
+                    asked[at] = terrain;
+                }
+            for (const auto& [terrain, corners] : byTerrain) isom_.apply(corners);
+        }
+        std::string err;
+        isom_.store(chk_, err);
+        if (!tileset_.groupTerrains.empty()) sprinkleModTiles(before);
+    }
+    // A tile of both tile sections.
+    const auto setTile = [&](int tx, int ty, uint16_t tile) {
+        const size_t at = (size_t(ty) * width_ + size_t(tx)) * 2;
+        for (const SectionName name : {SectionName("MTXM"), SectionName("TILE")})
+            if (Section* s = chk_.find(name); s && at + 1 < s->data.size()) s->data[at] = uint8_t(tile), s->data[at + 1] = uint8_t(tile >> 8);
+    };
+    for (const MapLayer& l : stack.layers)  // (also a hidden layer's: they are not the terrain's)
+        for (const auto& [at, tile] : l.tiles) layerPlaced_.insert(at);
+    if (hadGrid && isomOk_ && lastTiles.tiles.size() == baseTiles.tiles.size())
+        for (int ry = 0; ry < int(height_); ++ry)
+            for (int rx = 0; rx * 2 < int(width_); ++rx) {
+                bool same = true, background = true;
+                // (the rect's corners and those around them: an edge's tiles depend on them too)
+                for (int cy = ry - 1; same && cy <= ry + 2; ++cy)
+                    for (int cx = rx - 1; same && cx <= rx + 2; ++cx) {
+                        same = lastGrid.terrainAt(cx, cy) == isom_.terrainAt(cx, cy);
+                        background = background && under.terrainAt(cx, cy) == isom_.terrainAt(cx, cy);
+                    }
+                if (!same || background) continue;  // (where the Background shows: its own tiles)
+                for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx)
+                    if (!layerPlaced_.count({tx, ry})) setTile(tx, ry, lastTiles.tiles[size_t(ry) * width_ + size_t(tx)]);
+            }
+    layerPlaced_.clear();
+    for (const MapLayer& l : stack.layers)
+        if (l.visible)
+            for (const auto& [at, tile] : l.tiles)
+                if (at.first >= 0 && at.second >= 0 && at.first < int(width_) && at.second < int(height_)) {
+                    setTile(at.first, at.second, tile);
+                    layerPlaced_.insert(at);
+                }
+    restoreProtected(kept, false);
+    const auto onMap = [&](int x, int y) { return x >= 0 && y >= 0 && x < w && y < h && x <= 0xFFFF && y <= 0xFFFF; };
+    units_.clear(), sprites_.clear();
+    std::vector<Doodad> doodadList;
+    // (the Background's objects come back as they were, also those that are not on the map or do not fit)
+    const auto addObjects = [&](MapLayer& l, bool show, bool background) {
+        for (auto& o : l.units) {
+            o.shown = background || (show && onMap(o.x, o.y));
+            if (!o.shown) continue;
+            Unit u = o.item;
+            u.x = uint16_t(o.x), u.y = uint16_t(o.y);
+            units_.push_back(u);
+        }
+        for (auto& o : l.doodads) {
+            const DoodadType* t = doodadTypes_.find(o.item.id);
+            o.shown = false;
+            if (t && show && onMap(o.x, o.y)) {
+                int tx, ty;
+                doodadOrigin(*t, o.x, o.y, tx, ty);
+                o.shown = stardraft::placeDoodad(chk_, *t, tileset_, tx, ty, o.item.owner, false);
+            }
+            if (!o.shown && !background) continue;
+            // (its entry as it is: its place to the pixel, its flags; without its tiles when it does not fit)
+            Doodad d = o.item;
+            d.x = uint16_t(o.x), d.y = uint16_t(o.y);
+            doodadList.push_back(d);
+            o.shown = true;
+        }
+    };
+    // (the sprites after all doodads: their own sprites go into THG2 first, in the doodads' order)
+    addObjects(stack.background, true, true);
+    for (MapLayer& l : stack.layers) addObjects(l, l.visible, false);
+    writeDoodads(chk_, doodadList);
+    std::vector<MapSprite> sprites = readSprites(chk_);
+    const auto addSprites = [&](MapLayer& l, bool show, bool background) {
+        for (auto& o : l.sprites) {
+            o.shown = background || (show && onMap(o.x, o.y));
+            if (!o.shown) continue;
+            MapSprite s = o.item;
+            s.x = uint16_t(o.x), s.y = uint16_t(o.y);
+            sprites.push_back(s);
+        }
+    };
+    addSprites(stack.background, true, true);
+    for (MapLayer& l : stack.layers) addSprites(l, l.visible, false);
+    writeSprites(chk_, sprites);
+    writeUnits(chk_, units_);
+    doodads_ = readDoodads(chk_);
+    sprites_ = readSprites(chk_);
+    selection_ = selectedUnits;
+    std::erase_if(selection_, [&](int i) { return i < 0 || i >= int(units_.size()); });
+    commit(true);
+    if (fitted) {
+        fitted->clear();
+        for (int y = -1; isomOk_ && y <= int(height_) + 1; ++y)
+            for (int x = -1; x <= int(width_) / 2 + 1; ++x)
+                if (isom_.isCorner(x, y)) {
+                    const auto it = asked.find({x, y});
+                    // (a corner the fit changed, or a NULL corner beside a layer's: the edge is there)
+                    const bool beside = it == asked.end() && (asked.count({x - 1, y - 1}) || asked.count({x + 1, y - 1}) ||
+                                                              asked.count({x - 1, y + 1}) || asked.count({x + 1, y + 1}));
+                    if (beside || (it != asked.end() ? it->second : under.terrainAt(x, y)) != isom_.terrainAt(x, y)) fitted->push_back({x, y});
+                }
+    }
+    return true;
+}
+
+Bytes Editor::layerBaseNow() const {
+    TerrainLayer mtxm = readTerrain(chk_, "MTXM");
+    const TerrainLayer tile = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    // (as removeDoodads: the doodads' tiles give way to the terrain under them)
+    for (const Doodad& d : doodads_)
+        if (const DoodadType* t = doodadTypes_.find(d.id)) {
+            const int tx = (int(d.x) - t->width * 16) / 32, ty = (int(d.y) - t->height * 16) / 32;
+            for (int r = 0; r < t->height; ++r)
+                for (int c = 0; c < t->width; ++c) {
+                    const int x = tx + c, y = ty + r;
+                    if (x < 0 || y < 0 || x >= width_ || y >= height_) continue;
+                    const size_t k = size_t(y) * width_ + x;
+                    if (k < mtxm.tiles.size() && k < tile.tiles.size() && (mtxm.tiles[k] >> 4) == t->firstGroup + r) mtxm.tiles[k] = tile.tiles[k];
+                }
+        }
+    const auto pack = [](const std::vector<uint16_t>& tiles) {
+        Bytes out;
+        for (uint16_t v : tiles) appendU16(out, v);
+        return out;
+    };
+    std::vector<std::pair<std::string, Bytes>> sections;
+    sections.emplace_back("MTXM", pack(mtxm.tiles));
+    if (chk_.has("TILE")) sections.emplace_back("TILE", pack(tile.tiles));
+    if (chk_.has("ISOM")) sections.emplace_back("ISOM", chk_.effective("ISOM"));
+    return packLayerBase(sections);
+}
+
+std::vector<MapSprite> Editor::layerSprites() const {
+    std::vector<MapSprite> out = sprites_;
+    for (const Doodad& d : doodads_)
+        if (const DoodadType* t = doodadTypes_.find(d.id); t && t->overlaySprite)
+            for (size_t s = 0; s < out.size(); ++s)
+                if ((out[s].flags & SpriteFlag::DrawAsSprite) && out[s].id == t->overlaySprite && out[s].x == d.x && out[s].y == d.y) {
+                    out.erase(out.begin() + long(s));
+                    break;
+                }
+    return out;
+}
+
+void Editor::beginLayerEdit() {
+    pushUndo(chk_, {kLayersFile, kLayersBaseFile});
+    inStroke_ = strokeStep_ = true;
+}
+
+void Editor::endLayerEdit(bool changed, std::vector<ArchiveFile> files, const std::vector<std::string>& removed) {
+    inStroke_ = strokeStep_ = false;
+    if (!changed) {
+        dropLastUndo();
+        return;
+    }
+    finishFiles();
+    for (const std::string& name : removed) std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    for (ArchiveFile& n : files) {
+        auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n.name; });
+        if (it != files_.end()) it->data = std::move(n.data);
+        else files_.push_back(std::move(n));
+    }
+    commit(false);
+}
+
+void Editor::amendLastStep(std::vector<ArchiveFile> files, const std::vector<std::string>& removed) {
+    finishFiles();
+    if (!undo_.empty()) {
+        std::vector<std::string> all = removed, names;
+        for (const ArchiveFile& f : files) all.push_back(f.name);
+        for (const std::string& name : all)
+            if (std::none_of(undo_.back().files.begin(), undo_.back().files.end(), [&](const Snapshot::File& k) { return k.name == name; }))
+                names.push_back(name);
+        for (Snapshot::File& f : fileStates(names)) {
+            undo_.back().ownBytes += f.data.size();
+            undoBytes_ += f.data.size();
+            undo_.back().files.push_back(std::move(f));
+        }
+    }
+    for (const std::string& name : removed) std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    for (ArchiveFile& n : files) {
+        auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n.name; });
+        if (it != files_.end()) it->data = std::move(n.data);
+        else files_.push_back(std::move(n));
+    }
+    commit(false);
+}
+
+bool Editor::exportFlattened(const std::filesystem::path& path, std::string& error) {
+    finishFiles();
+    if (!filesError_.empty()) {
+        error = filesError_ + " (the export would lose them)";
+        return false;
+    }
+    std::vector<ArchiveFile> keep;
+    for (const ArchiveFile& f : files_)
+        if (f.name != kLayersFile && f.name != kLayersBaseFile) keep.push_back(f);
+    return writeMap(path, savedChk(), keep, error);
 }
 
 void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {

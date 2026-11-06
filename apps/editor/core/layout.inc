@@ -25,7 +25,7 @@ struct LayoutInput {
     std::function<int(int, Mode)> toolStripOf;  // another mode's tool strip height at a width (none: no strip for it)
     Mode mode = Mode::Units;       // the active mode
     bool mapWs = false;            // the Map workspace is shown
-    bool toolsRight[kModeCount] = {false, true, false, false, false};  // the dock: each mode's tools side (true: right)
+    bool toolsRight[kModeCount] = {false, true, false, false, false, false};  // the dock: each mode's tools side (true: right)
     bool minimapRight = false, minimapHidden = false;
     int leftW = 280, rightW = 280;                       // the side widths (96-dpi pixels)
     int minimapH = 0;                                    // the minimap's height (96-dpi pixels; 0: the map's shape)
@@ -41,7 +41,7 @@ struct LayoutInput {
     bool pal3Shown = false;        // ... and was shown before (for "changed")
     Mode pal3Mode = Mode::Terrain; // ... and what it showed before
     bool floats[kModeCount] = {};  // each mode's panel is in a window of its own (no tab, not the other side's list)
-    Mode order[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations};  // the tabs' order (dockTabOrder)
+    Mode order[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations, Mode::Layers};  // the tabs' order (dockTabOrder)
 };
 
 // The layout's result: every pane's place and state, and the state the layout sets (the sides' tabs, the splitters,

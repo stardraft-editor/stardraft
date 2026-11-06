@@ -99,9 +99,11 @@ void applyManyStartLocations() {
     if (shellState().ed) shellState().ed->setManyStartLocations(many);
 }
 
+void mapLayersDragStop();  // (core/map_layers.inc)
 // Shows the active editor: renderer sources, palette (the tileset may differ), title and tabs.
 void showActive() {
     AppState& app = shellState();
+    mapLayersDragStop();  // (core/map_layers.inc)
     app.drag = Drag::None;
     app.ed->setAllowIllegalUnits(app.allowIllegalUnits);
     app.ed->setAllowStacking(app.allowStacking);
@@ -148,6 +150,7 @@ bool closeDoc(int i) {
     protectedTerrainSync();  // (its protected terrain kept when its question saved it: core/protected_layer.inc)
     const std::wstring closed = docTitle(i);
     mapPageClose();
+    mapLayersDragStop();  // (before its editor goes)
     app.ed.reset();
     shellForgetAnims();  // they held that editor's sprites (a new editor can get the same address)
     const auto pr = gDocs[size_t(i)].project;
