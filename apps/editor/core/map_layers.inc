@@ -349,6 +349,18 @@ void mapLayersSync() {
 }
 
 bool mapLayersOn() { return gMapLayers.on; }
+
+// The status bar's words on the current layer: with layers in the map, always; none: nothing.
+std::wstring mapLayersStatusText() {
+    const MapLayersState& s = gMapLayers;
+    if (!s.on || s.stack.layers.empty() || s.ed != shellState().ed.get()) return {};
+    const bool row = s.active >= 0 && s.active < int(s.stack.layers.size());
+    const MapLayer& l = row ? s.stack.layers[size_t(s.active)] : s.stack.background;
+    std::wstring t = L"   |   " + (row ? widen(l.name) : std::wstring(tr(L"Background")));
+    if (!l.visible) t += std::wstring(L" (") + tr(L"hidden") + L")";
+    if (l.locked) t += std::wstring(L" (") + tr(L"locked") + L")";
+    return t;
+}
 bool mapLayersOnLayer() { return gMapLayers.on && gMapLayers.active >= 0; }
 bool mapLayersActiveLocked() {
     const MapLayersState& s = gMapLayers;

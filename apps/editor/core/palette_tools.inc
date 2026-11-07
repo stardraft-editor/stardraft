@@ -58,6 +58,7 @@ Brush::Shape& shapeOf(AppState& app) {
     return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShapes[app.terrainRect] : app.brushShape;
 }
 
+std::wstring mapLayersStatusText();  // (core/map_layers.inc)
 void setStatusPart(AppState& app, int i, const wchar_t* text) {
     if (app.statusText[i] == text) return;
     app.statusText[i] = text;
@@ -210,7 +211,7 @@ void updateStatus(AppState& app) {
                   : app.mode == Mode::Layers ? kLayersTools[currentTool(app)]
                   : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : currentTool(app) == SErase || (app.mode == Mode::Locations && currentTool(app) == LErase) ? L"Erase"
                   : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
-    setStatusPart(app, 0, buf);
+    setStatusPart(app, 0, (std::wstring(buf) + mapLayersStatusText()).c_str());  // (the layer that the tools change)
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
     // The tile under the mouse: its group and index, its megatile, its terrain (made again only when the map or the
     // mouse's place changed: the status bar is made each frame).
@@ -560,6 +561,8 @@ constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp g
 // src/ramps.cpp): one group's button when it has both.
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     AppState& app = appState();
+    // Move: beside Select, as it works on what Select selected.
+    tools.insert(tools.begin() + 1, StripItem{UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false});
     std::vector<StripItem> group;
     if (!kRampBridgeTools) {  // (hidden: ids.inc)
         int& tool = app.toolByMode[int(Mode::Terrain)];
@@ -576,7 +579,7 @@ std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
 }
 // Terrain's Select and Magic wand: one group's button (4). Select stays the mode's selection (select: true).
 StripItem selectGroup(StripItem select) {
-    return stripGroup(4, {std::move(select), {UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false}, {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
+    return stripGroup(4, {std::move(select), {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
 }
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
