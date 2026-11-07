@@ -180,8 +180,8 @@ struct PaletteRow {
 // with a heading at each section's start; the search's words first, the fuzzy match when no item has them. Doodads in a
 // project: the pinned ones first, under "Pinned", in the order they were pinned (each stays in its place below too);
 // `pinned` is how many (they are rows 1 to pinned).
-std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
-                                    int& pinned, PaletteSort sort = PaletteSort::Category) {
+std::vector<PaletteRow> paletteRowsOf(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
+                                      int& pinned, PaletteSort sort) {
     if (mode == Mode::Terrain) sort = PaletteSort::Category;  // (terrains: in their own order; Terrain has no Sort)
     std::vector<PaletteRow> rows;
     const bool literal = paletteLiteralSearch(units, filter);
@@ -246,6 +246,18 @@ std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode 
         rows.push_back({u.value, u.label});
         prev = &u;
     }
+    return rows;
+}
+// The rows (paletteRowsOf); items of one name that are there more than once get their number after it ("Duke Turret  #19"),
+// so that the user can tell them apart.
+std::vector<PaletteRow> paletteRows(const std::vector<PaletteUnit>& units, Mode mode, const std::wstring& filter, const std::wstring& section,
+                                    int& pinned, PaletteSort sort = PaletteSort::Category) {
+    std::vector<PaletteRow> rows = paletteRowsOf(units, mode, filter, section, pinned, sort);
+    std::map<std::wstring, std::set<int>> values;
+    for (const PaletteRow& r : rows)
+        if (r.value >= 0) values[r.label].insert(r.value);
+    for (PaletteRow& r : rows)
+        if (r.value >= 0 && values[r.label].size() > 1) r.label += L"  #" + std::to_wstring(r.value);
     return rows;
 }
 

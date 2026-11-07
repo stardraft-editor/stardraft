@@ -166,6 +166,12 @@ struct PaletteGridView : draw::View {
             const int show = hover_ >= 0 && hover_ < int(rows.size()) ? rows[size_t(hover_)].value : units ? pick : -1;
             f.left += scale(6);
             if (app.ed && show >= 0) c.text(f, paletteItemNameOf(mode, show), kText, draw::kMiddle | draw::kEllipsis);  // (the rows' mode: GitHub #101)
+            else if (app.ed) {  // (nothing under the mouse or picked: how many the grid has, dim)
+                size_t n = 0;
+                for (const PaletteRow& r : rows) n += r.value >= 0;
+                static const wchar_t* const kinds[] = {L" terrains", L" units", L" doodads", L" locations", L" sprites", L" layers"};
+                c.text(f, std::to_wstring(n) + tr(kinds[std::clamp(int(mode), 0, 5)]), kFaint, draw::kMiddle | draw::kEllipsis);
+            }
         }
     }
     bool mouse(const draw::MouseEvent& e) override {

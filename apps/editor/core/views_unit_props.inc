@@ -220,7 +220,7 @@ public:
         }
         // The unit's type: in a project, open it in the Data workspace; on a classic map, on the Map data page (its unit
         // settings: hit points, costs, names).
-        type_.setText((project ? tr(L"Edit unit type in Data (") : tr(L"Edit unit type in Map data (")) + unitDisplayName(u.type) + L")");
+        type_.setText(tr(project ? L"Edit unit type in Data" : L"Edit unit type in Map data"));  // (the header names the type)
         type_.onClick = [this] {
             if (dlg_) dlg_->close(kUnitPropsEditType);
         };
@@ -408,7 +408,7 @@ private:
     // The header: the five columns, the sorted one with its arrow. The list is in the index's order at first.
     void setHeaders() {
         static const wchar_t* const names[5] = {L"Unit type", L"Owner", L"X", L"Y", L"Index"};
-        static const int widths[5] = {0, 70, 52, 52, 46};
+        static const int widths[5] = {0, 62, 44, 44, 44};  // (the numbers narrow: the unit type gets the rest)
         static const stardraft::kit::ColAlign aligns[5] = {stardraft::kit::ColAlign::Left, stardraft::kit::ColAlign::Left,
                                                            stardraft::kit::ColAlign::Right, stardraft::kit::ColAlign::Right,
                                                            stardraft::kit::ColAlign::Right};
