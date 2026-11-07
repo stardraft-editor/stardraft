@@ -1485,7 +1485,12 @@ void commandSdl(int id) {
     case ID_EDIT_HISTORY: sdlShowUndoHistory(); return;
     case ID_WS_ASSETS: setWorkspace(Workspace::Files); return;  // Assets is part of Files
     case ID_SCEN_PROPS: setWorkspace(Workspace::Properties); return;
-    case ID_SCEN_PLAYERS: setWorkspace(Workspace::Players); return;
+    case ID_SCEN_PLAYERS: {  // (Map properties at its Players and forces tab: one place for the page, the rail's Properties on)
+        extern int gSdlPropsTab;
+        gSdlPropsTab = 1;
+        setWorkspace(Workspace::Properties);
+        return;
+    }
     case ID_SCEN_CLASSIC: setWorkspace(Workspace::ClassicSettings); return;
     case ID_SCEN_CLASSICTRIG: setWorkspace(Workspace::ClassicTriggers); return;
     // The keys of the pages: a project's Triggers and Data workspaces, a classic map's Classic triggers and Map data pages.
