@@ -78,6 +78,9 @@ public:
     // The GPU API in use ("direct3d12", "vulkan", "metal"); "" before createDevice.
     const char* driver() const;
 
+    // No map is open: the tileset's atlases, the terrain and the sprites' images go (their GPU memory); the next map's
+    // setSources and updateTerrain make them again.
+    void releaseMapData();
     // Data sources. The tileset is (re)loaded when the era or quality changes.
     void setSources(const GameData* data, UnitSprites* sprites, const Tileset* tileset, uint16_t era);
     // The sprites' images changed (other draw functions or remappings): load each image again when it shows.

@@ -58,6 +58,11 @@ void runPosted() {
 
 // The map into its texture (w x h pixels), in the command buffer the host submits before the windows are painted.
 void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
+    if (gRenderer && gMapEd && !gState.ed && gDocs.empty()) {  // (the last map closed: its GPU memory goes; the next map makes it again)
+        gRenderer->releaseMapData();
+        releaseMapTexture();
+        gMapEd = nullptr;
+    }
     if (!gRenderer || !gState.ed || !gState.ed->isOpen() || w <= 0 || h <= 0) return;
     if (!gMapTex || gMapW != w || gMapH != h) {
         releaseMapTexture();

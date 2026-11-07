@@ -841,6 +841,20 @@ void Renderer::setSources(const GameData* data, UnitSprites* sprites, const Tile
 
 void Renderer::reloadImages() { impl_->freeImages(); }
 
+void Renderer::releaseMapData() {
+    Impl& r = *impl_;
+    if (!r.device) return;
+    r.freeImages();
+    for (SDL_GPUTexture** t : {&r.sdAtlas, &r.hdAtlas, &r.hdDown, &r.tileIndex})
+        if (*t) SDL_ReleaseGPUTexture(r.device, *t), *t = nullptr;
+    r.tileIndexW = r.tileIndexH = 0;
+    r.data = nullptr, r.unitSprites = nullptr, r.tileset = nullptr, r.era = 0xFFFF;
+    r.loadedTileset = nullptr, r.loadedEra = 0xFFFF, r.loadedTilesetSize = 0, r.tilesetDirty = true;
+    r.baseTerrain.clear(), r.baseTerrain.shrink_to_fit(), r.pendingTerrain.clear(), r.pendingTerrain.shrink_to_fit();
+    r.terrainPreview.clear(), r.previewNext.clear(), r.terrainDirty = false;
+    r.mapW = r.mapH = 0, r.realW = r.realH = 0, r.originX = r.originY = 0;
+}
+
 void Renderer::updateTerrain(const TerrainLayer& mtxm) { updateTerrainExtended(mtxm, 0, 0, mtxm.width, mtxm.height); }
 
 void Renderer::updateTerrainExtended(const TerrainLayer& mtxm, int originX, int originY, int mapW, int mapH) {
