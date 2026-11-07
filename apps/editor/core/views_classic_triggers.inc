@@ -824,13 +824,13 @@ public:
         switch (e.kind) {
         case draw::MouseKind::Move:
             wheelRest_.moved(e.pt, scale(6));
-            if (drag_.from >= 0) {  // a row dragged: its place follows, and the list scrolls at its edges
+            if (drag_.from >= 0 && grip_.move(*this, e.pt)) {  // a row dragged: its place follows, and the list scrolls at its edges
                 drag_.to = toIndex(drag_.list, e.pt.y);
                 const int edge = scale(20);
                 if (e.pt.y < edge) scrollTo(scroll_ - scale(12));
                 else if (e.pt.y > height() - edge) scrollTo(scroll_ + scale(12));
             }
-            if (drag_.from >= 0) invalidate();  // (the drag moves the rows)
+            if (grip_.dragging()) invalidate();  // (the drag moves the rows)
             else if (const draw::Rect over = hoverRectAt(e.pt); over != hoverRect_) hoverRect_ = over, invalidate();  // the hover moved to another part
             return true;
         case draw::MouseKind::Leave:
@@ -844,7 +844,7 @@ public:
             if (!hit) return true;
             if (hit->drag) {
                 hit->drag(e.pt);
-                if (draw::Host* h = host()) h->capture(*this, true);
+                grip_.press(drag_.from, e.pt);  // (kitui::ItemDrag: a drag after 4 px, the mouse captured, Esc ends it)
             } else if (hit->click) {
                 auto click = hit->click;  // (the click may repaint, which clears the hits)
                 gCtClickMods = e.mods;    // (Ctrl and Shift of the click itself, also for a posted click)
@@ -863,8 +863,8 @@ public:
             }
             if (e.button != 0 || drag_.from < 0) return true;
             const Drag d = std::exchange(drag_, Drag{});
-            if (draw::Host* h = host()) h->capture(*this, false);
-            if (d.to != d.from && d.to != d.from + 1 && d.moved) d.moved(d.from, d.to > d.from ? d.to - 1 : d.to);
+            const bool dropped = grip_.release(*this, e.pt) >= 0;  // (a click on the grip, or a release outside: no move)
+            if (dropped && d.to != d.from && d.to != d.from + 1 && d.moved) d.moved(d.from, d.to > d.from ? d.to - 1 : d.to);
             invalidate();
             return true;
         }
@@ -958,7 +958,7 @@ private:
     // A row that can be reordered: its grip (on the row under the mouse, or while it is dragged) and the drag by the grip.
     void reorderRow(draw::Canvas& c, int list, draw::Rect row, int index, std::function<void(int, int)> moved) {
         rows_[list].push_back(row);
-        const bool dragging = drag_.from >= 0 && drag_.list == list;
+        const bool dragging = drag_.from >= 0 && grip_.dragging() && drag_.list == list;
         const bool me = dragging && drag_.from == index;
         if (me) c.fill(row, kSel, 160);
         if (hot(row) || me) kitpaint::drawGrip(c, row.left + scale(5), (row.top + row.bottom) / 2 - scale(6), me);
@@ -971,7 +971,7 @@ private:
     }
     // After a list's rows: the line where the dragged row goes.
     void dropLine(draw::Canvas& c, int list) {
-        if (drag_.from < 0 || drag_.list != list) return;
+        if (drag_.from < 0 || !grip_.dragging() || drag_.list != list) return;
         const auto& rs = rows_[list];
         if (rs.empty()) return;
         const int y = drag_.to < int(rs.size()) ? rs[size_t(drag_.to)].top : rs.back().bottom;
@@ -1273,6 +1273,12 @@ private:
     std::vector<CtHit> hits_;
     std::vector<draw::Rect> rows_[3];  // the rows of each list as painted: the triggers, the conditions, the actions
     Drag drag_;
+    kitui::ItemDrag grip_;  // (the drag of drag_'s row: its threshold, the capture, Esc)
+public:
+    void captureLost() override {
+        if (grip_.dragging()) grip_.cancel(*this), drag_ = {}, invalidate();
+    }
+private:
     draw::Rect hoverRect_;  // the part the mouse is over (its hit's rectangle at the last move)
     draw::Rect addLink_[2];  // the entries' add links as last painted: the conditions', the actions'
     struct Chip {  // a value chip as last painted: its entry and its value (the wheel steps it)

@@ -283,7 +283,7 @@ inline void removeCross(draw::Canvas& c, Surface& s, draw::Rect row, draw::Rect 
 
 // The drag of an item in a view (docs/dev/PATTERNS.md, "Drag and drop"): a press arms it (press), a move of 4 px starts
 // it and captures the mouse (move: true while it drags), the release ends it (release: the item dragged, or -1 for a
-// click or a release outside the view); a lost capture or Esc cancels it (cancel). The view paints the grip and the drop
+// click or a release outside the view); a lost capture or Esc (escape, from the key filter) cancels it (cancel). The view paints the grip and the drop
 // line (kitpaint::drawGrip, drawDropLine) while dragging() is on.
 struct ItemDrag {
     int item = -1;
@@ -294,7 +294,7 @@ struct ItemDrag {
     bool move(draw::View& v, draw::Point p) {
         if (item < 0) return false;
         if (!on && std::abs(p.x - at.x) + std::abs(p.y - at.y) > scale(4)) {
-            on = true;
+            on = true, sActive = this, sView = &v;
             if (draw::Host* h = v.host()) h->capture(v, true);
         }
         return on;
@@ -302,6 +302,7 @@ struct ItemDrag {
     int release(draw::View& v, draw::Point p) {
         const int i = std::exchange(item, -1);
         const bool was = std::exchange(on, false);
+        if (sActive == this) sActive = nullptr, sView = nullptr;
         if (!was) return -1;
         if (draw::Host* h = v.host()) h->capture(v, false);
         return p.x < 0 || p.y < 0 || p.x >= v.width() || p.y >= v.height() ? -1 : i;
@@ -310,7 +311,24 @@ struct ItemDrag {
         if (on)
             if (draw::Host* h = v.host()) h->capture(v, false);
         item = -1, on = false;
+        if (sActive == this) sActive = nullptr, sView = nullptr;
     }
+    // Esc while a drag is on (the program's key filter: the dragging view has no keyboard): the view ends what the drag
+    // was for (its captureLost), and the drag ends. True: a drag was cancelled.
+    static bool escape() {
+        if (!sActive || !sView) return false;
+        ItemDrag* d = sActive;
+        draw::View* v = sView;
+        v->captureLost();
+        d->cancel(*v);
+        v->invalidate();
+        return true;
+    }
+    ~ItemDrag() {
+        if (sActive == this) sActive = nullptr, sView = nullptr;
+    }
+    inline static ItemDrag* sActive = nullptr;  // the drag that is on, and its view
+    inline static draw::View* sView = nullptr;
 };
 
 // A row of a list that can be reordered (`index` from 0, in order): its grip at the left, shown on the row under the

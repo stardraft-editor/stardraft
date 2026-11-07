@@ -650,6 +650,7 @@ bool shortcutRun(const draw::KeyEvent& e) {
 // The second key of a two-key shortcut, before any view takes the key (a search box would type it): its command, or
 // nothing (Esc, or a key that no shortcut has). True when the key was the second key.
 bool sequenceKey(const draw::KeyEvent& e) {
+    if (e.down && e.key == draw::Key::Escape && kitui::ItemDrag::escape()) return true;  // (Esc ends a list's drag)
     if (!gSequenceFirst) return false;
     if (e.key == draw::Key::None) return gSequenceFirst.reset(), setMessage(L""), false;  // (a press or a lost keyboard: SdlHost::setKeyFilter)
     if (!e.down) return false;

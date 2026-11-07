@@ -93,26 +93,24 @@ struct UnitRowsView final : stardraft::kit::ListView {
         }
         if (draggable && e.kind == draw::MouseKind::Down && e.button == 0 && !(e.mods & (draw::kCtrl | draw::kShift))) {
             const int r = rowAt(e.pt);
-            if (r >= 0 && isSelected(r)) return pressed_ = true, dragging_ = false, down_ = e, true;
+            if (r >= 0 && isSelected(r)) return drag_.press(r, e.pt), down_ = e, true;
         }
-        if (pressed_ && e.kind == draw::MouseKind::Move) {
-            const int dx = e.pt.x - down_.pt.x, dy = e.pt.y - down_.pt.y;
-            if (!dragging_ && (dx * dx + dy * dy > 16)) dragging_ = true;
-            if (dragging_) {
+        if (drag_.item >= 0 && e.kind == draw::MouseKind::Move) {
+            if (drag_.move(*this, e.pt)) {
                 dropAt_ = dropRowAt(e.pt);
                 invalidate();
             }
             return true;
         }
-        if (pressed_ && e.kind == draw::MouseKind::Up && e.button == 0) {
-            pressed_ = false;
-            if (dragging_) {
+        if (drag_.item >= 0 && e.kind == draw::MouseKind::Up && e.button == 0) {
+            if (drag_.dragging()) {
                 const int at = dropAt_;
-                dragging_ = false, dropAt_ = -1;
+                dropAt_ = -1;
                 invalidate();
-                if (onDrop) onDrop(at);
+                if (drag_.release(*this, e.pt) >= 0 && onDrop) onDrop(at);  // (released outside the list: no move)
                 return true;
             }
+            drag_.cancel(*this);
             stardraft::kit::ListView::mouse(down_);  // (a click: the press, then the release, as the list gets them)
             return stardraft::kit::ListView::mouse(e);
         }
@@ -132,12 +130,15 @@ struct UnitRowsView final : stardraft::kit::ListView {
     }
     void paint(draw::Canvas& c) override {
         stardraft::kit::ListView::paint(c);
-        if (dragging_ && dropAt_ >= 0) {  // the line where the rows go
+        if (drag_.dragging() && dropAt_ >= 0) {  // the line where the rows go
             const int y = dropAt_ < count() ? rowRect(dropAt_).top : rowRect(count() - 1).bottom;
-            c.fill({0, y - 1, width(), y + 1}, stardraft::kit::theme().accent);
+            kitpaint::drawDropLine(c, 0, width(), y);
         }
     }
-    bool pressed_ = false, dragging_ = false;
+    void captureLost() override {
+        if (drag_.dragging()) drag_.cancel(*this), dropAt_ = -1, invalidate();
+    }
+    kitui::ItemDrag drag_;  // (the selected rows' drag: the row pressed)
     int dropAt_ = -1;
     draw::MouseEvent down_{};
     bool key(const draw::KeyEvent& e) override {

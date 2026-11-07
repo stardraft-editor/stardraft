@@ -613,8 +613,8 @@ public:
         case draw::MouseKind::Up:
             if (e.button == 0) {
                 pressed_ = false;
-                if (draw::Host* h = host()) h->capture(*this, false);
-                if (gTP.dragging) host_.drop();
+                const bool dropped = blockDrag_.release(*this, e.pt) >= 0;  // (released outside the pane: no move)
+                if (gTP.dragging && dropped) host_.drop();
                 gTP.dragging = false, gTP.drag = {}, gTP.dropIdx = -1;
                 invalidate();
                 return true;
@@ -741,7 +741,10 @@ public:
         range = std::max(0, gTE.contentH - 1), page = height(), pos = gTE.scroll;
         return true;
     }
-    void captureLost() override { pressed_ = false; }
+    void captureLost() override {
+        pressed_ = false;
+        if (blockDrag_.dragging()) blockDrag_.cancel(*this), gTP.dragging = false, gTP.drag = {}, gTP.dropIdx = -1, invalidate();
+    }
 
     void scrollTo(int pos) {
         gTE.scroll = std::clamp(pos, 0, std::max(0, gTE.contentH - height()));
@@ -753,6 +756,7 @@ private:
     int uiLf_ = -12;           // the UI font's height (LOGFONT) at the pane's zoom
     draw::Color lastText_ = 0;  // the color of the last text drawn (a container's chevron takes it, as it did on the DC)
     bool pressed_ = false;     // the left button is down (since a press on the pane)
+    kitui::ItemDrag blockDrag_;  // a block's drag (gTP.drag): 4 px before it starts, the mouse captured, Esc ends it
     bool overTitle_ = false;   // the mouse on the name at the top
     int overAdd_ = -1;         // the category page's button under the mouse
     int overTip_ = -1;         // the tip under the mouse
@@ -844,7 +848,7 @@ private:
         gTP.sel = l ? l->ref : TrigBlockRef{};
         if (l) {
             gTP.drag = l->ref, gTP.dragFromY = pt.y;
-            if (draw::Host* h = host()) h->capture(*this, true);
+            blockDrag_.press(0, {pt.x, pt.y});
         }
         invalidate();
         host_.infoChanged();
@@ -893,7 +897,7 @@ private:
             if (!trigSameHit(over, gTP.hover)) gTP.hover = over, invalidate();
         }
         if (gTP.drag.index >= 0 && pressed_) {
-            if (!gTP.dragging && std::abs(pt.y - gTP.dragFromY) > scale(5)) gTP.dragging = true;
+            if (blockDrag_.move(*this, {pt.x, pt.y})) gTP.dragging = true;
             if (gTP.dragging) {
                 if (trigDropTarget(pt.y)) invalidate();
                 if (draw::Host* h = host()) h->setCursor(draw::Cursor::SizeAll);

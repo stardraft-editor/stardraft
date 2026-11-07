@@ -126,7 +126,7 @@ A mask or a filter changes what the next edit or the list does. The user must al
 ## Drag and drop
 
 - **One helper:** kitui::ItemDrag (core/kit_surface.inc). A press becomes a drag after 4 pixels; the view captures the
-  mouse while it drags; a release outside the view, or a lost capture, cancels it.
+  mouse while it drags; a release outside the view, a lost capture or Esc cancels it.
 - **The sign:** a row that moves shows the grip and the kit's drop line (kitui::reorderRow, kitui::reorderDropLine). A
   drop into a group (a folder, a layer) outlines the group's row.
 - **The cursor** shows the move (SizeAll for a move on the map, SizeNS for a row).
@@ -177,6 +177,6 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Drag and drop**
 
-- kitui::ItemDrag is used by the Layer list and the Custom list. Classic triggers, Map strings, the Units list, the
-  Triggers pane, the Triggers tree and the Map tabs have their own drag code (thresholds of 4 and 6 pixels).
+- kitui::ItemDrag is used by the Layer list, the Custom list, Map strings, the Units list, Classic triggers and the
+  Triggers pane. The kit's own drags (the tree, the tab strip) and the Map tabs have their own code, with the same 4 px.
 - Doodad pins move with Move up and Move down only.

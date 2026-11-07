@@ -348,7 +348,7 @@ struct TabsView final : stardraft::draw::View {
         switch (e.kind) {
         case MouseKind::Move: {
             if (gTabDrag >= 0) {  // a tab is dragged: past the middle of another tab, it takes that place
-                if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(6)) gTabDragging = true;
+                if (!gTabDragging && std::abs(pt.x - gTabDragX) > scale(4)) gTabDragging = true;  // (4 px: as every drag)
                 if (gTabDragging)
                     for (int i = 0; i < int(gTabHits.size()); ++i) {
                         const RECT& r = gTabHits[size_t(i)].tab;
