@@ -36,7 +36,9 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+T", ID_MODE_TERRAIN, true}, {"Ctrl+G", ID_MODE_DOODADS, true}, {"Ctrl+L", ID_MODE_LOCATIONS, true},
     {"Ctrl+U", ID_MODE_UNITS, true}, {"Ctrl+R", ID_MODE_SPRITES, true},
     {"T", ID_CT_ADD_TRIGGER},      {"C", ID_CT_ADD_CONDITION},       {"A", ID_CT_ADD_ACTION},  // (before the tools' A: on the Classic triggers page only)
-    {"V", ID_TOOL_KEY},            {"K", ID_SHAPE_KEY + 8},
+    {"V", ID_TOOL_KEY},            {"K", ID_SHAPE_KEY + 8},        {"M", ID_SHAPE_KEY + 9},          {"N", ID_SHAPE_KEY + 10},
+    {"Shift+N", ID_SHAPE_KEY + 11}, {"C", ID_SHAPE_KEY + 12},        {"Shift+C", ID_SHAPE_KEY + 13},     {"Z", ID_SHAPE_KEY + 14},
+    {"Shift+Z", ID_SHAPE_KEY + 15},
     {"B", ID_TOOL_KEY + 1},        {"A", ID_TOOL_KEY + 2},           {"F", ID_TOOL_KEY + 3},             {"I", ID_SHAPE_KEY},          {"W", ID_SHAPE_KEY + 7},
     {"O", ID_SHAPE_KEY + 1},       {"P", ID_SHAPE_KEY + 2},          {"X", ID_SHAPE_KEY + 3},            {"E", ID_SHAPE_KEY + 4},            {"H", ID_SHAPE_KEY + 5},            {"J", ID_SHAPE_KEY + 6},            {"Ctrl+1", ID_RAIL_KEY},
     {"Ctrl+2", ID_RAIL_KEY + 1},   {"Ctrl+3", ID_RAIL_KEY + 2},      {"Ctrl+4", ID_RAIL_KEY + 3},        {"Ctrl+5", ID_RAIL_KEY + 4},
@@ -651,7 +653,19 @@ bool commandMapEdit(AppState& app, int id) {
     case ID_SHAPE_KEY + 5:
     case ID_SHAPE_KEY + 6:
     case ID_SHAPE_KEY + 7:
-    case ID_SHAPE_KEY + 8: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
+    case ID_SHAPE_KEY + 8:
+    case ID_SHAPE_KEY + 9:
+        if (id == ID_SHAPE_KEY + 9 && cursorTurnable(app)) {  // (M: what is on the cursor mirrors)
+            mapMirrorPaste(app, false);
+            break;
+        }
+        [[fallthrough]];
+    case ID_SHAPE_KEY + 10:
+    case ID_SHAPE_KEY + 11:
+    case ID_SHAPE_KEY + 12:
+    case ID_SHAPE_KEY + 13:
+    case ID_SHAPE_KEY + 14:
+    case ID_SHAPE_KEY + 15: stripToolByKey(4 + id - ID_SHAPE_KEY); break;
     case ID_TERRAIN_KIND_NEXT:  // (the Terrain tool strip's choice: another mode has none)
         if (app.mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         break;

@@ -247,6 +247,7 @@ void pickStripTool(const StripItem& it) {
 void stripToolByKey(int key) {
     if (gWorkspace != Workspace::Map) return;
     for (const StripItem& it : stripTools(appState().mode)) {
+        if (it.disabled && stripToolKey(it) == key) return setMessage(L"Select terrain first, with Select, the Lasso or the Magic wand");
         if (it.members.empty() && stripToolKey(it) == key) return pickStripTool(it);
         for (const StripItem& m : it.members)  // (a group: each of its tools by its own key)
             if (stripToolKey(m) == key) return pickStripTool(m);
@@ -360,7 +361,7 @@ struct ToolPopoutView final : draw::View {
         if (i < 0) return {};
         const StripItem& m = group.members[size_t(i)];
         const int key = stripToolKey(m);
-        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJWK"[key]) + L")" : L"");
+        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + stripKeyName(key) + L")" : L"");
     }
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
@@ -527,7 +528,7 @@ public:
             iconButtonFace(c, r, it.icon, on, hot(square(r)), it.disabled);
             if (it.disabled) {  // (Move with nothing selected)
                 addHit(square(r), [] { setMessage(L"Select terrain first, with Select, the Lasso or the Magic wand"); },
-                       std::wstring(tr(it.tip)) + L" " + tr(L"Not available: no terrain is selected."));
+                       std::wstring(tr(it.tip)) + (key >= 0 ? std::wstring(L" (") + stripKeyName(key) + L")" : L"") + L" " + tr(L"Not available: no terrain is selected."));
                 next();
                 continue;
             }
@@ -535,7 +536,7 @@ public:
             addHit(square(r), [this, it, sq = square(r)] {
                 pickStripTool(it);
                 if (!it.members.empty()) stripGroupPopout(it, *this, sq);
-            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJWK"[key]) + L")" : std::wstring(it.tip)) +
+            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + stripKeyName(key) + L")" : std::wstring(it.tip)) +
                    (it.members.empty() ? L"" : tr(L" A click also shows the tools of this button.")));
             if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
                 const draw::Rect sq = square(r);

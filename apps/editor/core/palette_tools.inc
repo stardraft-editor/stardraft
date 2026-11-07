@@ -645,7 +645,8 @@ std::vector<StripItem> stripTools(Mode m) {
     return {};
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
-// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand; -1 none.
+// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand, 12 K lasso,
+// 13 M move, 14 N rectangle (Shift: filled), 16 C ellipse (Shift: filled), 18 Z diamond (Shift: filled); -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -660,7 +661,20 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Ramp) return 10;
     if (it.icon == UiIcon::Wand) return 11;
     if (it.icon == UiIcon::Lasso) return 12;
+    if (it.icon == UiIcon::MoveAll) return 13;
+    if (it.icon == UiIcon::Rect) return 14;
+    if (it.icon == UiIcon::RectFill) return 15;
+    if (it.icon == UiIcon::Ellipse) return 16;
+    if (it.icon == UiIcon::EllipseFill) return 17;
+    if (it.icon == UiIcon::Diamond) return 18;
+    if (it.icon == UiIcon::DiamondFill) return 19;
     return -1;
+}
+
+// The name of that key, for a tool's tip.
+const wchar_t* stripKeyName(int key) {
+    static const wchar_t* const names[] = {L"V", L"B", L"A", L"F", L"I", L"O", L"P", L"X", L"E", L"H", L"J", L"W", L"K", L"M", L"N", L"Shift+N", L"C", L"Shift+C", L"Z", L"Shift+Z"};
+    return names[key];
 }
 
 // Whether the active mode is in its selection: its Select tool with nothing picked.

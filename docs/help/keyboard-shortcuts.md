@@ -65,6 +65,10 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Alt+click in the palette | Add a terrain (Tile: a tile) to the mask, or remove it. It gets an outline. Painting then changes only the terrains (or tiles) in the mask |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
+| M | Terrain mode's Move tool, when a terrain is selected (with something on the cursor: M mirrors it) |
+| N, Shift+N | Terrain mode's Rectangle and Filled rectangle tools |
+| C, Shift+C | Terrain mode's Ellipse and Filled ellipse tools |
+| Z, Shift+Z | Terrain mode's Diamond and Filled diamond tools |
 | K | Terrain mode's Lasso: draw round the tiles to select. Shift adds, Ctrl removes. |
 | W | Terrain mode's Magic wand: a click selects what is reachable from there. Isometric: that terrain, with its edges and cliffs. Rectangle, Tile and Custom: the connected tiles of that terrain. Shift+click adds, Ctrl+click removes |
 | 1 to 9, 0, and the two keys after 0 | Player 1 to 12 for what you place (in Terrain mode, the palette's terrain). The keys go by their place on the keyboard, so they work on all layouts |
