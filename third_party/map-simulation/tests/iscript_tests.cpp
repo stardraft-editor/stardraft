@@ -68,6 +68,22 @@ int main() {
     require(p.instruction(32).arguments == std::vector<int>({2, 100, 101}));
     require(p.instruction(24).arguments[0] == 16 &&
             p.instruction(50).opcode == 54);
+    {
+      auto detached = [&] {
+        Program local(p);
+        return Program(local);
+      }();
+      require(&detached.instruction(32) == &detached.instructions().at(32) &&
+              &detached.instruction(32) != &p.instruction(32));
+      Program assigned(p);
+      assigned = detached;
+      assigned = assigned;
+      Program moved(std::move(assigned));
+      require(&moved.instruction(32) == &moved.instructions().at(32) &&
+              moved.instruction(32).arguments == p.instruction(32).arguments);
+      rejects([&] { moved.instruction(31); });
+      rejects([&] { moved.instruction(65536); });
+    }
     using namespace mapeditor::simulation;
     Random random;
     iscript::Animation vm(p, random);
@@ -204,6 +220,114 @@ int main() {
     imageTypes[0].script = 7;
     imageTypes[0].directional = true;
     imageTypes[0].animated = true;
+    // Compare compiled image-only blocks against the full VM, including RNG,
+    // wait timing, self/main frame dependencies and a changing main image.
+    for (int variant = 0; variant < 2; ++variant) {
+      std::vector<std::uint8_t> basic(128);
+      word(basic, 0, 116);
+      basic[4] = 'S';
+      basic[5] = 'C';
+      basic[6] = 'P';
+      basic[7] = 'E';
+      word(basic, 12, 16);
+      word(basic, 14, 80);
+      basic[16] = 0;
+      word(basic, 17, 7);
+      basic[19] = 2;
+      basic[20] = 253;
+      basic[21] = 3;
+      basic[22] = 5;
+      basic[23] = 4;
+      basic[24] = 252;
+      basic[25] = 8;
+      if (variant == 0) {
+        basic[26] = 29;
+        basic[27] = 43;
+        basic[28] = 9;
+      } else {
+        basic[26] = 43;
+        basic[27] = 9;
+        basic[28] = 29;
+      }
+      basic[29] = 6;
+      basic[30] = 1;
+      basic[31] = 3;
+      basic[32] = 7;
+      word(basic, 33, 16);
+      basic[80] = 22;
+      word(basic, 116, 7);
+      word(basic, 118, 4);
+      word(basic, 120, 65535);
+      Program basicProgram(basic);
+      SpriteResources data{imageTypes, basicProgram, {}, {}};
+      Random fastRandom, fullRandom;
+      Sprite fast;
+      fast.initialize(0, data, fastRandom);
+      const auto child = fast.underlay(0, data, fastRandom);
+      std::array<SpriteImage, 2> full{};
+      iscript::Animation reference(basicProgram, fullRandom);
+      auto advance = [&](std::size_t id) {
+        iscript::AnimationHost host;
+        host.apply = [&](const iscript::Instruction &i) {
+          auto &image = full[id];
+          const auto &a = i.arguments;
+          switch (i.opcode) {
+          case 0:
+            image.baseFrame = a[0];
+            break;
+          case 2:
+            image.offset.x = a[0];
+            break;
+          case 3:
+            image.offset.y = a[0];
+            break;
+          case 4:
+            image.offset = {a[0], a[1]};
+            break;
+          case 29:
+            image.baseFrame = full[0].baseFrame;
+            image.direction = full[0].direction;
+            image.flip = full[0].flip;
+            break;
+          case 43:
+            image.baseFrame = a[0];
+            image.direction = full[0].direction;
+            image.flip = full[0].flip;
+            break;
+          default:
+            throw std::runtime_error("Unexpected image-only fixture effect");
+          }
+          return iscript::HostAction::Continue;
+        };
+        reference.tick(full[id].cursor, host);
+      };
+      for (std::size_t id = 0; id < 2; ++id) {
+        full[id].cursor.script = 7;
+        require(reference.select(full[id].cursor, 0));
+        advance(id);
+      }
+      require(child == 1 && fastRandom.state() == fullRandom.state());
+      for (int frame = 0; frame < 128; ++frame) {
+        full[0].baseFrame = fast.images[0].baseFrame = 17 + frame % 3;
+        full[0].direction = fast.images[0].direction = frame % 5;
+        full[0].flip = fast.images[0].flip = frame % 7 == 0;
+        fast.tick(data, fastRandom);
+        advance(0);
+        advance(1);
+        require(fastRandom.state() == fullRandom.state());
+        for (std::size_t id = 0; id < 2; ++id) {
+          const auto &a = fast.images[id], &b = full[id];
+          require(a.baseFrame == b.baseFrame && a.direction == b.direction &&
+                  a.flip == b.flip && a.offset.x == b.offset.x &&
+                  a.offset.y == b.offset.y && a.cursor.pc == b.cursor.pc &&
+                  a.cursor.wait == b.cursor.wait &&
+                  a.cursor.returnTo == b.cursor.returnTo &&
+                  a.cursor.ended == b.cursor.ended);
+        }
+      }
+      fast.animate(1, data, fastRandom);
+      require(fast.order.empty());
+    }
     {
       auto frames = fixture();
       word(frames, 14, 40); frames[40] = 22;

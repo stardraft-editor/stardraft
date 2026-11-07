@@ -20,6 +20,17 @@ public:
   int width() const { return width_; }
   int height() const { return height_; }
   bool walkable(int miniX, int miniY) const;
+  // Conservative fast query: every covered build tile must be fully walkable.
+  bool fullyWalkableTiles(Point first, Point last) const {
+    if (first.x < 0 || first.y < 0 || last.x < first.x || last.y < first.y ||
+        last.x >= width_ * 32 || last.y >= height_ * 32)
+      return false;
+    for (int y = first.y / 32; y <= last.y / 32; ++y)
+      for (int x = first.x / 32; x <= last.x / 32; ++x)
+        if (tiles_[std::size_t(y) * width_ + x].blocked)
+          return false;
+    return true;
+  }
   const TerrainTile &tile(int x, int y) const;
   int groundHeight(Point pixel) const {
     const auto &value = tile(pixel.x / 32, pixel.y / 32);

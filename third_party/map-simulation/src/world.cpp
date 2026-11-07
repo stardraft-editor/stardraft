@@ -7,6 +7,54 @@
 #include <tuple>
 namespace mapeditor::simulation {
 namespace {
+bool permitsTerrain(const std::shared_ptr<const WorldMap> &map, Point p,
+                    const dat::Extents &shape) {
+  // The extra pixel includes convex contour endpoints. Partial tiles retain
+  // the precise contour query; its cache owns the immutable map identity.
+  if (map->terrain.fullyWalkableTiles(
+          {p.x - shape.left - 1, p.y - shape.top - 1},
+          {p.x + shape.right + 1, p.y + shape.bottom + 1}))
+    return true;
+  struct Entry {
+    std::array<int, 6> key{};
+    bool valid = false, result = false;
+  };
+  struct Memo {
+    std::shared_ptr<const WorldMap> map;
+    std::array<Entry, 1024> entries{};
+  };
+  thread_local Memo memo;
+  if (memo.map.get() != map.get()) {
+    memo.map = map;
+    for (auto &entry : memo.entries)
+      entry.valid = false;
+  }
+  const std::array<int, 6> key{p.x,       p.y,         shape.left,
+                               shape.top, shape.right, shape.bottom};
+  std::size_t hash = 0;
+  for (int v : key)
+    hash = hash * 16777619U ^ std::size_t(v);
+  auto &entry = memo.entries[hash % memo.entries.size()];
+  if (entry.valid && entry.key == key)
+    return entry.result;
+  const bool result = map->contours.permits(p, shape);
+  entry = {key, true, result};
+  return result;
+}
+int widestBody(const std::shared_ptr<const Definitions> &definitions) {
+  struct Memo {
+    std::shared_ptr<const Definitions> definitions;
+    int width = 0;
+  };
+  thread_local Memo memo;
+  if (memo.definitions.get() != definitions.get()) {
+    memo.definitions = definitions;
+    memo.width = 0;
+    for (const auto &type : definitions->units)
+      memo.width = std::max(memo.width, type.bounds.left + type.bounds.right);
+  }
+  return memo.width;
+}
 template <class Container> void anchoredInsert(Container &values, int id) {
   auto position = values.begin();
   if (position != values.end())
@@ -43,10 +91,7 @@ World::World(std::shared_ptr<const Definitions> definitions,
   }
 }
 UnitState *World::get(UnitHandle handle) {
-  if (handle.index < 0 || handle.index >= int(units_.size()))
-    return nullptr;
-  auto &slot = units_[handle.index];
-  return slot && slot->handle == handle ? &*slot : nullptr;
+  return const_cast<UnitState *>(peekUnit(*this, handle));
 }
 std::uint8_t World::exploredAt(Point tile) const {
   map_->terrain.tile(tile.x, tile.y);
@@ -90,9 +135,45 @@ void World::revealSightAt(Point position, int owner, int range, bool airborne) {
     return point.x >= 0 && point.y >= 0 && point.x < map_->terrain.width() &&
            point.y < map_->terrain.height();
   };
+  struct Entry {
+    std::array<int, 5> key{};
+    bool valid = false;
+    std::vector<std::size_t> tiles;
+  };
+  struct Memo {
+    std::shared_ptr<const WorldMap> map;
+    std::array<Entry, 256> entries;
+  };
+  thread_local Memo memo;
+  if (memo.map.get() != map_.get()) {
+    memo.map = map_;
+    for (auto &entry : memo.entries) {
+      entry.valid = false;
+      entry.tiles.clear();
+    }
+  }
+  const int observerHeight =
+      airborne ? 0 : map_->terrain.groundHeight(position);
+  const std::array<int, 5> key{origin.x, origin.y, range, int(airborne),
+                               observerHeight};
+  std::size_t hash = 0;
+  for (int v : key)
+    hash = hash * 16777619U ^ std::size_t(v);
+  auto &entry = memo.entries[hash % memo.entries.size()];
+  const auto bit = std::uint8_t(1U << owner);
+  if (entry.valid && entry.key == key) {
+    for (auto index : entry.tiles) {
+      explored_[index] |= bit;
+      visibleTo_[index] |= bit;
+    }
+    return;
+  }
+  entry.valid = false;
+  entry.key = key;
+  entry.tiles.clear();
   auto reveal = [&](Point tile) {
     auto index = std::size_t(tile.y) * map_->terrain.width() + tile.x;
-    auto bit = std::uint8_t(1U << owner);
+    entry.tiles.push_back(index);
     explored_[index] |= bit;
     visibleTo_[index] |= bit;
   };
@@ -102,6 +183,7 @@ void World::revealSightAt(Point position, int owner, int range, bool airborne) {
       if (inMap(tile))
         reveal(tile);
     }
+    entry.valid = true;
     return;
   }
   // Evaluate inward visibility dependencies in expanding square bands. Each
@@ -110,7 +192,6 @@ void World::revealSightAt(Point position, int owner, int range, bool airborne) {
   std::array<std::array<bool, 25>, 25> allowed{}, lit{};
   for (auto offset : sightFootprint(range, false))
     allowed[offset.y + 12][offset.x + 12] = true;
-  int observerHeight = map_->terrain.groundHeight(position);
   auto transmits = [&](Point offset) {
     Point tile{origin.x + offset.x, origin.y + offset.y};
     return lit[offset.y + 12][offset.x + 12] && inMap(tile) &&
@@ -136,9 +217,10 @@ void World::revealSightAt(Point position, int owner, int range, bool airborne) {
         if (visible)
           reveal(tile);
       }
+  entry.valid = true;
 }
 const UnitState *World::get(UnitHandle handle) const {
-  return const_cast<World *>(this)->get(handle);
+  return peekUnit(*this, handle);
 }
 Population World::population(int owner) const {
   if (owner < 0 || owner >= 12)
@@ -250,8 +332,19 @@ void World::moveSpatial(const UnitState &unit, bool initial) {
 }
 const GroundGeometry &World::terrainGeometry(const dat::Extents &shape) {
   if (groundCreep_ != creep_.cells()) {
-    groundCache_.clear();
-    groundCreep_ = creep_.cells();
+    // Creep only removes blocked minitile centers from this geometry.
+    // Changes on fully walkable tiles leave both obstacles and walls intact.
+    const auto &cells = creep_.cells();
+    bool changed = groundCreep_.size() != cells.size();
+    for (std::size_t i = 0; !changed && i < cells.size(); ++i)
+      changed = groundCreep_[i] != cells[i] &&
+                map_->terrain
+                        .tile(int(i % map_->terrain.width()),
+                              int(i / map_->terrain.width()))
+                        .blocked != 0;
+    if (changed)
+      groundCache_.clear();
+    groundCreep_ = cells;
   }
   std::array<int, 4> key{shape.left, shape.top, shape.right, shape.bottom};
   for (const auto &entry : groundCache_)
@@ -261,6 +354,14 @@ const GroundGeometry &World::terrainGeometry(const dat::Extents &shape) {
       groundGeometry(map_->terrain, map_->contours, shape, groundCreep_));
   groundCache_.push_back({key, std::move(geometry)});
   return *groundCache_.back().geometry;
+}
+void World::moveSpatial(const UnitState &unit, Point previous) {
+  const auto &b = definitions_->units[unit.type].bounds;
+  spatial_.move(unit.handle.index,
+                {unit.position.x - b.left, unit.position.y - b.top},
+                {unit.position.x + b.right, unit.position.y + b.bottom},
+                {previous.x - b.left, previous.y - b.top},
+                {previous.x + b.right, previous.y + b.bottom});
 }
 void World::prepareNavigation(UnitHandle handle) {
   const auto *unit = get(handle);
@@ -758,15 +859,16 @@ void World::advance(int frames) {
     throw std::invalid_argument("Negative frame count");
   if (!frames)
     return;
+  static constexpr auto implemented = [] {
+    std::array<bool, 190> result{};
+    for (int order : {0,  2,  3,  6,  10, 14, 18, 19,  22,  23, 166, 133, 79,
+                      81, 85, 86, 87, 88, 89, 84, 90,  151, 77, 93,  101, 41,
+                      42, 49, 25, 30, 31, 70, 48, 164, 26,  45, 150})
+      result[order] = true;
+    return result;
+  }();
   auto supported = [](int order) {
-    return order == 0 || order == 2 || order == 3 || order == 6 || order == 10 || order == 14 || order == 18 || order == 19 || order == 22 ||
-           order == 23 || order == 166 || order == 133 || order == 79 || order == 81 || order == 85 ||
-           order == 86 || order == 87 || order == 88 || order == 89 ||
-           order == 84 || order == 90 || order == 151 || order == 77 || order == 93 ||
-           order == 101 || order == 41 || order == 42 || order == 49 ||
-           order == 25 || order == 30 || order == 31 || order == 70 ||
-           order == 48 || order == 164 || order == 26 || order == 45 ||
-           order == 150;
+    return unsigned(order) < implemented.size() && implemented[unsigned(order)];
   };
   const UnitState *unsupported = nullptr;
   for (int id : visible_) {
@@ -1407,18 +1509,21 @@ void World::advance(int frames) {
             const auto &space = *cachedSpace;
             std::optional<PixelBox> contact;
             std::optional<std::pair<int, int>> contactRank;
-            auto encounter = spatial_.encounters(unit.position);
-            int widest = 0;
-            for (const auto &type : definitions_->units)
-              widest = std::max(widest, type.bounds.left + type.bounds.right + 1);
+            const bool targeted = get(unit.moveTargetUnit) != nullptr;
             std::unordered_map<std::uint32_t, int> destinationOrder;
-            const int range = widest / 2 + 1;
-            const auto &boundaries = spatial_.axes()[0];
-            for (int index = 0; index < int(boundaries.size()); ++index) {
-              const auto &boundary = boundaries[index];
-              if (boundary.coordinate >= destination.x - range &&
-                  boundary.coordinate < destination.x + range)
-                destinationOrder.try_emplace(boundary.key, index);
+            if (!targeted) {
+              int widest = 0;
+              for (const auto &type : definitions_->units)
+                widest =
+                    std::max(widest, type.bounds.left + type.bounds.right + 1);
+              const int range = widest / 2 + 1;
+              const auto &boundaries = spatial_.axes()[0];
+              for (int index = 0; index < int(boundaries.size()); ++index) {
+                const auto &boundary = boundaries[index];
+                if (boundary.coordinate >= destination.x - range &&
+                    boundary.coordinate < destination.x + range)
+                  destinationOrder.try_emplace(boundary.key, index);
+              }
             }
             for (const auto &body : contactBodies) {
               if (body.flying || !body.collides)
@@ -1453,13 +1558,9 @@ void World::advance(int frames) {
                                  destination.x != perimeter.right &&
                                  destination.y != perimeter.top &&
                                  destination.y != perimeter.bottom);
-                Point gap{std::max({0, expanded.left - unit.position.x,
-                                    unit.position.x - expanded.right}),
-                          std::max({0, expanded.top - unit.position.y,
-                                    unit.position.y - expanded.bottom})};
-                std::pair rank{distance(gap), encounter.at(body.key)};
-                if (!get(unit.moveTargetUnit))
-                  rank = {destinationOrder.at(body.key), 0};
+                // A targeted query admits exactly one body. Point orders use
+                // destination-boundary order, so neither needs full-map ranks.
+                std::pair rank{targeted ? 0 : destinationOrder.at(body.key), 0};
                 if (!contactRank || rank < *contactRank) {
                   contact = approach ? std::optional(perimeter) : std::nullopt;
                   contactRank = rank;
@@ -1471,9 +1572,10 @@ void World::advance(int frames) {
                         : adjustGroundTarget(map_->terrain, map_->regions,
                                              shape, destination);
             try {
-              plan = planGroundRoute(space, map_->regions, unit.position,
-                                     destination, contact, adjusted, nullptr,
-                                     continuation ? &*unit.path : nullptr);
+              plan = space.route(
+                  std::shared_ptr<const Regions>(map_, &map_->regions),
+                  unit.position, destination, contact, adjusted,
+                  continuation ? &*unit.path : nullptr);
             } catch (const std::exception &failure) {
               throw std::runtime_error(
                   "Unit " + std::to_string(unit.type) + " route from " +
@@ -1682,73 +1784,61 @@ void World::advance(int frames) {
             if (p.x < shape.left || p.y < shape.top ||
                 p.x + shape.right >= map_->terrain.width() * 32 ||
                 p.y + shape.bottom >= map_->terrain.height() * 32 - 32 ||
-                (terrain && !map_->contours.permits(p, shape)) ||
+                (terrain && !permitsTerrain(map_, p, shape)) ||
                 (terrain && !map_->terrain.walkable(p.x / 8, p.y / 8) &&
                  !creep_
                       .cells()[(p.y / 32) * map_->terrain.width() + p.x / 32]))
               return false;
-            using Hit = std::tuple<int, int, int, int>;
-            std::optional<Hit> firstHit;
             std::array<int, 2> nextLow{p.x - shape.left, p.y - shape.top},
                 nextHigh{p.x + shape.right, p.y + shape.bottom},
                 delta{p.x - origin.x, p.y - origin.y},
                 oldLow{origin.x - shape.left, origin.y - shape.top},
                 oldHigh{origin.x + shape.right, origin.y + shape.bottom};
-            for (int otherId : visible_) {
-              if (otherId == id)
+            if (collider) {
+              auto hit = spatial_.firstCrossed(
+                  oldLow, oldHigh, delta, [&](auto otherId, int cross) {
+                    if (otherId == std::uint32_t(id))
+                      return false;
+                    const auto &other = *units_[otherId];
+                    const auto &type = definitions_->units[other.type];
+                    if (((unit.gathering || unit.type == 35) &&
+                         !type.building()) ||
+                        other.type == 35 || (type.flags & 4))
+                      return false;
+                    const int low = cross ? other.position.y - type.bounds.top
+                                          : other.position.x - type.bounds.left;
+                    const int high = cross
+                                         ? other.position.y + type.bounds.bottom
+                                         : other.position.x + type.bounds.right;
+                    return low <= nextHigh[cross] && high >= nextLow[cross];
+                  });
+              if (hit) {
+                *collider = int(*hit);
+                return false;
+              }
+              return true;
+            }
+            // Any intersecting body's maximum x lies in this interval,
+            // including bodies spanning both query edges. Boolean clearance
+            // has no encounter-order side effects.
+            const auto &events = spatial_.axes()[0];
+            auto at = std::lower_bound(
+                events.begin(), events.end(), nextLow[0],
+                [](const auto &e, int x) { return e.coordinate < x; });
+            const auto end =
+                std::int64_t(nextHigh[0]) + widestBody(definitions_);
+            for (; at != events.end() && at->coordinate <= end; ++at) {
+              if (!at->maximum || at->key == std::uint32_t(id))
                 continue;
-              const auto &other = *units_[otherId];
+              const auto &other = *units_[at->key];
               const auto &type = definitions_->units[other.type];
               if (((unit.gathering || unit.type == 35) && !type.building()) ||
                   other.type == 35 || (type.flags & 4))
                 continue;
-              std::array<int, 2> low{other.position.x - type.bounds.left,
-                                     other.position.y - type.bounds.top},
-                  high{other.position.x + type.bounds.right,
-                       other.position.y + type.bounds.bottom};
-              if (!collider) {
-                if (nextLow[0] <= high[0] && nextHigh[0] >= low[0] &&
-                    nextLow[1] <= high[1] && nextHigh[1] >= low[1])
-                  return false;
-                continue;
-              }
-              // Rank crossed footprint boundaries, with X before Y. This
-              // distinguishes simultaneous corner contacts without relying on
-              // the world's allocation/list order.
-              for (int axis = 0; axis < 2; ++axis) {
-                if (!delta[axis])
-                  continue;
-                int cross = 1 - axis;
-                if (low[cross] > nextHigh[cross] ||
-                    high[cross] < nextLow[cross])
-                  continue;
-                int sign = delta[axis] > 0 ? 1 : -1;
-                int leading = sign > 0 ? oldHigh[axis] : oldLow[axis];
-                for (bool maximum : {false, true}) {
-                  int edge = maximum ? high[axis] : low[axis];
-                  int away = sign * (edge - leading);
-                  if (away < 0 || away > std::abs(delta[axis]))
-                    continue;
-                  // Equal edges retain their spatial ordering as bodies move.
-                  // Allocation age alone cannot distinguish a moving body
-                  // joining an already occupied boundary.
-                  const auto &events = spatial_.axes()[axis];
-                  auto entry = std::find_if(
-                      events.begin(), events.end(), [&](const auto &event) {
-                        return event.key == otherId && event.maximum == maximum;
-                      });
-                  if (entry == events.end())
-                    throw std::logic_error("Missing collision boundary");
-                  int sequence = int(entry - events.begin()) * sign;
-                  Hit hit{axis, away, sequence, otherId};
-                  if (!firstHit || hit < *firstHit)
-                    firstHit = hit;
-                }
-              }
-            }
-            if (firstHit) {
-              *collider = std::get<3>(*firstHit);
-              return false;
+              if (other.position.x - type.bounds.left <= nextHigh[0] &&
+                  other.position.y - type.bounds.top <= nextHigh[1] &&
+                  other.position.y + type.bounds.bottom >= nextLow[1])
+                return false;
             }
             return true;
           };
@@ -2204,6 +2294,7 @@ void World::advance(int frames) {
           motion.acceptedGroundStep();
         if (!samePoint(previousRaw, motion.rawPosition()))
           motion.acceptMovement();
+        const auto previousPosition = unit.position;
         unit.position = motion.position();
         if (refreshVision || previousRaw.x / 8192 != unit.position.x / 32 ||
             previousRaw.y / 8192 != unit.position.y / 32)
@@ -2230,8 +2321,10 @@ void World::advance(int frames) {
             motion.settling() && !motion.moving() &&
             samePoint(unit.position, unit.moveTargetPosition))
           discardPath(unit);
-        moveSpatial(unit);
-        spriteRows_.move(unit.sprite.sceneKey, unit.position);
+        if (!samePoint(previousPosition, unit.position))
+          moveSpatial(unit, previousPosition);
+        if (previousPosition.y / 32 != unit.position.y / 32)
+          spriteRows_.move(unit.sprite.sceneKey, unit.position);
         if (!planning &&
             (motion.updatesHeading() || motion.terrainSlidingStep())) {
           if (unit.sprite.context.heading != motion.facing())
@@ -2283,6 +2376,16 @@ void World::advance(int frames) {
         --unit.mainTimer;
       if (unit.followTimer > 0)
         --unit.followTimer;
+      // Idle has no periodic order action. Keep its exact timer update,
+      // then share the normal secondary/vision/animation tail. Animation can
+      // still issue commands or change motion in that common tail.
+      if (unit.order == 23 && unit.queuedCommands.empty()) {
+        if (unit.orderTimer > 0)
+          --unit.orderTimer;
+        else
+          unit.orderTimer = 8;
+        goto unitOrdersComplete;
+      }
       if (unit.order == 166) {
         if (unit.orderState == 0) {
           bool flying = unit.type == 94;
@@ -2329,7 +2432,8 @@ void World::advance(int frames) {
         processConstruction(unit);
       if (unit.order == 48 || unit.order == 164)
         processWarp(unit);
-      activateQueuedCommand(unit);
+      if (!unit.queuedCommands.empty())
+        activateQueuedCommand(unit);
       if (unit.orderTimer > 0)
         --unit.orderTimer;
       else {
@@ -2530,7 +2634,8 @@ void World::advance(int frames) {
             unit.followTimer = 0;
             unit.target = {};
             unit.targetPosition = {};
-            activateQueuedCommand(unit);
+            if (!unit.queuedCommands.empty())
+              activateQueuedCommand(unit);
             break;
           }
           if (distance(gap) > 96) {
@@ -2564,10 +2669,13 @@ void World::advance(int frames) {
         if (unit.order == 14)
           processAttackMove(unit);
       }
-      activateQueuedCommand(unit);
+      if (!unit.queuedCommands.empty())
+        activateQueuedCommand(unit);
+    unitOrdersComplete:
       if (refreshVision && !unit.motion)
         revealSight(unit);
-      processSecondary(unit);
+      if (unit.secondaryOrder == 38 || unit.spawnLarvae || unit.creepGrowth)
+        processSecondary(unit);
       const auto *animationTarget = get(unit.target);
       unit.sprite.context.target = animationTarget && !animationTarget->dead &&
                                    animationTarget->visible;
@@ -2576,7 +2684,8 @@ void World::advance(int frames) {
                          return effect(unit.handle, i, layer);
                        });
       if (unit.queuedUserOverride)
-        activateQueuedCommand(unit);
+        if (!unit.queuedCommands.empty())
+          activateQueuedCommand(unit);
       if (unit.motion)
         unit.motion->setTopSpeed(unit.sprite.context.topSpeed);
       if (unit.motion && unit.motion->scriptDriven() &&

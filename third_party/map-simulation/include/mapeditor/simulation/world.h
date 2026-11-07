@@ -307,6 +307,7 @@ private:
   void recordPath(UnitState &, const LocalRouteResult &);
   void recordEscape(UnitState &);
   void moveSpatial(const UnitState &, bool initial = false);
+  void moveSpatial(const UnitState &, Point previous);
   UnitHandle freeMineral(const UnitState &, bool requireFree = true,
                          int range = 256) const;
   void processLarva(UnitState &);
@@ -339,4 +340,13 @@ private:
   bool spawnEffect(const iscript::Instruction &, const SpriteImage &, Point,
                    int, UnitHandle = {});
 };
+// Read-only search sampling keeps handle validation inline. Mutable access
+// remains available through World::get.
+inline const UnitState *peekUnit(const World &world, UnitHandle handle) {
+  const auto &unitRecords = world.units();
+  if (handle.index < 0 || handle.index >= int(unitRecords.size()))
+    return nullptr;
+  const auto &slot = unitRecords[handle.index];
+  return slot && slot->handle == handle ? &*slot : nullptr;
+}
 } // namespace mapeditor::simulation

@@ -25,8 +25,8 @@ struct MiningControl {
     return distance({dx, dy});
   }
   bool apply(World &world) {
-    auto *unit = world.get(worker);
-    const auto *mineral = world.get(field);
+    const auto *unit = peekUnit(world, worker);
+    const auto *mineral = peekUnit(world, field);
     if (!unit || unit->dead || !unit->visible || !unit->completed ||
         !unit->motion || !(world.definitions().units[unit->type].flags & 8))
       return false;
@@ -34,7 +34,7 @@ struct MiningControl {
       return u && !u->dead && u->visible && u->type >= 176 && u->type <= 178;
     };
     if (cycle) {
-      const auto *other = world.get(neighbor);
+      const auto *other = peekUnit(world, neighbor);
       if (!validMineral(mineral) || !validMineral(other))
         return false;
       bool carrying = (unit->cargo & 3) == 2;

@@ -251,6 +251,45 @@ int main() {
         groundGeometry(terrain, Contours(terrain), {11, 11, 11, 11});
     auto columnSpace = terrainGeometry.withBodies(column);
     auto noColumn = terrainGeometry.withBodies({});
+    {
+      auto ownedRegions = std::make_shared<const Regions>(regions);
+      auto samePoint = [](Point a, Point b) {
+        return a.x == b.x && a.y == b.y;
+      };
+      auto equal = [&](const LocalRouteResult &a, const LocalRouteResult &b) {
+        check(a.itinerary == b.itinerary &&
+                  a.itineraryTruncated == b.itineraryTruncated &&
+                  a.retained.regions == b.retained.regions &&
+                  a.retained.cursor == b.retained.cursor &&
+                  a.retained.fullSize == b.retained.fullSize &&
+                  a.reached == b.reached && a.stuck == b.stuck &&
+                  a.nodes == b.nodes && a.peakFrontier == b.peakFrontier &&
+                  samePoint(a.source, b.source) &&
+                  samePoint(a.destination, b.destination) &&
+                  a.points.size() == b.points.size(),
+              "Cached route changed regional or local state");
+        for (std::size_t i = 0; i < a.points.size(); ++i)
+          check(samePoint(a.points[i], b.points[i]),
+                "Cached route changed a waypoint");
+      };
+      auto previous =
+          planGroundRoute(noColumn, regions, {500, 500}, {1100, 1100});
+      for (int i = 0; i < 48; ++i) {
+        Point source{500 + i, 600}, target{1100, 1100 + i};
+        auto contact = i % 3 == 0
+                           ? std::optional<PixelBox>{{1090, 1090, 1120, 1160}}
+                           : std::nullopt;
+        auto adjusted =
+            i % 3 == 1 ? std::optional<Point>{{1110, 1120}} : std::nullopt;
+        const auto *prior = i % 2 ? &previous : nullptr;
+        auto direct = planGroundRoute(noColumn, regions, source, target,
+                                      contact, adjusted, nullptr, prior);
+        equal(direct, noColumn.route(ownedRegions, source, target, contact,
+                                     adjusted, prior));
+        equal(direct, noColumn.route(ownedRegions, source, target, contact,
+                                     adjusted, prior));
+      }
+    }
     auto changedColumn = column;
     changedColumn[0].position = {1600, 880};
     auto movedColumn = terrainGeometry.withBodies(changedColumn);

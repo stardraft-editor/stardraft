@@ -3,14 +3,100 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
-#include <map>
-#include <mutex>
 #include <deque>
+#include <map>
 #include <mapeditor/simulation/local_route.h>
 #include <mapeditor/simulation/region_route.h>
+#include <mutex>
 #include <stdexcept>
 #include <tuple>
+#include <unordered_map>
 namespace mapeditor::simulation {
+struct LocalRouteMemo {
+  using Key = std::vector<std::int64_t>;
+  struct Hash {
+    std::size_t operator()(const Key &key) const {
+      std::size_t h = 0;
+      for (auto v : key)
+        h ^= std::size_t(v) + 0x9e3779b9U + (h << 6) + (h >> 2);
+      return h;
+    }
+  };
+  struct Entry {
+    std::shared_ptr<const Regions> regions;
+    std::shared_ptr<const LocalRouteResult> result;
+  };
+  std::mutex mutex;
+  std::unordered_map<Key, Entry, Hash> entries;
+  std::deque<Key> order;
+};
+std::shared_ptr<LocalRouteMemo> makeLocalRouteMemo() {
+  return std::make_shared<LocalRouteMemo>();
+}
+LocalRouteResult LocalSpace::route(std::shared_ptr<const Regions> regions,
+                                   Point source, Point target,
+                                   std::optional<PixelBox> contact,
+                                   std::optional<Point> adjusted,
+                                   const LocalRouteResult *previous) const {
+  if (!regions)
+    throw std::invalid_argument("Missing route regions");
+  LocalRouteMemo::Key key{
+      std::int64_t(reinterpret_cast<std::uintptr_t>(regions.get())),
+      source.x,
+      source.y,
+      target.x,
+      target.y,
+      bool(contact),
+      bool(adjusted),
+      bool(previous)};
+  if (contact)
+    key.insert(key.end(),
+               {contact->left, contact->top, contact->right, contact->bottom});
+  if (adjusted)
+    key.insert(key.end(), {adjusted->x, adjusted->y});
+  if (previous) {
+    key.push_back(std::int64_t(previous->retained.cursor));
+    key.push_back(previous->retained.fullSize);
+    key.push_back(previous->itineraryTruncated);
+    key.push_back(std::int64_t(previous->retained.regions.size()));
+    key.insert(key.end(), previous->retained.regions.begin(),
+               previous->retained.regions.end());
+    key.push_back(std::int64_t(previous->itinerary.size()));
+    key.insert(key.end(), previous->itinerary.begin(),
+               previous->itinerary.end());
+  }
+  std::shared_ptr<const LocalRouteResult> cached;
+  {
+    std::lock_guard lock(routes_->mutex);
+    if (auto it = routes_->entries.find(key); it != routes_->entries.end())
+      cached = it->second.result;
+  }
+  // Copy waypoint vectors after releasing the shared cache lock. Parallel
+  // worlds must not serialize their allocations on a cache hit.
+  if (cached)
+    return *cached;
+  auto result = planGroundRoute(*this, *regions, source, target, contact,
+                                adjusted, nullptr, previous);
+  auto saved = std::make_shared<const LocalRouteResult>(result);
+  {
+    std::lock_guard lock(routes_->mutex);
+    if (auto it = routes_->entries.find(key); it != routes_->entries.end())
+      cached = it->second.result;
+    else {
+      if (routes_->entries.size() == 4096) {
+        routes_->entries.erase(routes_->order.front());
+        routes_->order.pop_front();
+      }
+      routes_->order.push_back(key);
+      routes_->entries.emplace(
+          std::move(key),
+          LocalRouteMemo::Entry{std::move(regions), std::move(saved)});
+    }
+  }
+  if (cached)
+    return *cached;
+  return result;
+}
 namespace {
 PixelBox between(Point a, Point b) {
   return {std::min(a.x, b.x), std::min(a.y, b.y), std::max(a.x, b.x),

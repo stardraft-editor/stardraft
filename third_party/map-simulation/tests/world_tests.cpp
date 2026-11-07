@@ -73,6 +73,61 @@ int main() {
     SpatialBounds boundaries;
     {
       SpatialBounds sweep;
+      std::array<Point, 72> first{}, last{};
+      std::uint32_t seed = 271828;
+      auto next = [&] {
+        seed = seed * 1664525U + 1013904223U;
+        return seed;
+      };
+      for (unsigned i = 0; i < first.size(); ++i) {
+        first[i] = {int(next() % 160), int(next() % 160)};
+        last[i] = {first[i].x + int(next() % 24),
+                   first[i].y + int(next() % 24)};
+        sweep.insert(i, first[i], last[i]);
+      }
+      for (int n = 0; n < 12000; ++n) {
+        if (n % 17 == 0) {
+          auto id = next() % first.size();
+          first[id] = {int(next() % 160), int(next() % 160)};
+          last[id] = {first[id].x + 16, first[id].y + 16};
+          sweep.move(unsigned(id), first[id], last[id]);
+        }
+        std::array<int, 2> low{int(next() % 180) - 12, int(next() % 180) - 12};
+        std::array<int, 2> high{low[0] + 19, low[1] + 17};
+        std::array<int, 2> delta{int(next() % 31) - 15, int(next() % 31) - 15};
+        auto eligible = [&](unsigned id, int cross) {
+          if (id % 7 == unsigned(n % 7))
+            return false;
+          int a = cross ? first[id].y : first[id].x,
+              b = cross ? last[id].y : last[id].x;
+          return a <= high[cross] + delta[cross] &&
+                 b >= low[cross] + delta[cross];
+        };
+        std::optional<std::tuple<int, int, int, unsigned>> expected;
+        for (int axis = 0; axis < 2; ++axis)
+          if (delta[axis]) {
+            const auto &events = sweep.axes()[axis];
+            int sign = delta[axis] > 0 ? 1 : -1,
+                leading = sign > 0 ? high[axis] : low[axis];
+            for (std::size_t i = 0; i < events.size(); ++i) {
+              const auto &e = events[i];
+              int away = sign * (e.coordinate - leading);
+              if (away >= 0 && away <= std::abs(delta[axis]) &&
+                  eligible(e.key, 1 - axis)) {
+                auto hit = std::tuple{axis, away, int(i) * sign, e.key};
+                if (!expected || hit < *expected)
+                  expected = hit;
+              }
+            }
+          }
+        const auto actual = sweep.firstCrossed(low, high, delta, eligible);
+        check(bool(actual) == bool(expected));
+        if (expected)
+          check(*actual == std::get<3>(*expected));
+      }
+    }
+    {
+      SpatialBounds sweep;
       for(unsigned i=0;i<60;++i)sweep.insert(i,{int(i*3),int(i*5)},{int(i*3+12),int(i*5+12)});
       auto expected=sweep.axes();
       std::uint32_t state=314159;
@@ -80,11 +135,21 @@ int main() {
       for(int n=0;n<5000;++n) {
         const auto id=next()%60;Point first{int(next()%80),int(next()%80)};
         Point last{first.x+int(next()%20),first.y+int(next()%20)};
+        Point oldFirst{}, oldLast{};
+        for (int axis = 0; axis < 2; ++axis)
+          for (const auto &e : expected[axis])
+            if (e.key == id) {
+              auto &p = e.maximum ? oldLast : oldFirst;
+              (axis ? p.y : p.x) = e.coordinate;
+            }
         for(int axis=0;axis<2;++axis) {
           for(auto& e:expected[axis])if(e.key==id){auto p=e.maximum?last:first;e.coordinate=axis?p.y:p.x;}
           std::stable_sort(expected[axis].begin(),expected[axis].end(),[](auto a,auto b){return a.coordinate<b.coordinate;});
         }
-        sweep.move(id,first,last);
+        if (n % 2)
+          sweep.move(id, first, last, oldFirst, oldLast);
+        else
+          sweep.move(id, first, last);
         for(int axis=0;axis<2;++axis)for(std::size_t i=0;i<expected[axis].size();++i){const auto a=sweep.axes()[axis][i],b=expected[axis][i];check(a.coordinate==b.coordinate&&a.key==b.key&&a.maximum==b.maximum);}
       }
     }
@@ -199,6 +264,34 @@ int main() {
     auto map = std::make_shared<WorldMap>(
         Terrain(64, 64, std::vector<std::uint16_t>(4096, 16), cv, vf));
     testProduction(*definitions, map);
+    {
+      auto sightData = std::make_shared<Definitions>(*definitions);
+      sightData->units[7].humanIdle = sightData->units[7].returnIdle = 23;
+      sightData->units[7].sightRange = 7;
+      // Reuse a footprint across worlds and owners, then across fog refreshes.
+      // A cached footprint must never retain another world's owner bits.
+      for (bool flying : {false, true}) {
+        if (flying)
+          sightData->units[7].flags |= 4;
+        else
+          sightData->units[7].flags &= ~4U;
+        for (int owner : {0, 3, 7}) {
+          World sight(sightData, map);
+          sight.createFinished(7, {48, 48}, owner);
+          sight.advance(201);
+          for (int y = 0; y < 64; ++y)
+            for (int x = 0; x < 64; ++x) {
+              bool covered = false;
+              for (auto p : sightFootprint(7, flying))
+                covered |= x == p.x + 1 && y == p.y + 1;
+              auto expected =
+                  covered ? std::uint8_t(1U << owner) : std::uint8_t(0);
+              check(sight.exploredAt({x, y}) == expected);
+              check(sight.visibleAt({x, y}) == expected);
+            }
+        }
+      }
+    }
 
     {
     auto world = std::make_unique<World>(definitions, map);

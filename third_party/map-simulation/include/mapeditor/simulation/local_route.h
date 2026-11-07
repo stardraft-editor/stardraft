@@ -30,6 +30,9 @@ struct LocalExpansion {
   // search direction.
   std::vector<Point> terminal;
 };
+struct LocalRouteMemo;
+std::shared_ptr<LocalRouteMemo> makeLocalRouteMemo();
+struct LocalRouteResult;
 class LocalSpace {
 public:
   // Immutable terrain precedes dynamic bodies in the obstacle list. Terrain
@@ -38,6 +41,10 @@ public:
              std::optional<std::vector<NavigationWall>> navigation = {},
              std::optional<std::size_t> terrainObstacleCount = {});
   bool clear(PixelBox) const;
+  LocalRouteResult route(std::shared_ptr<const Regions>, Point source,
+                         Point target, std::optional<PixelBox> contact = {},
+                         std::optional<Point> adjustedTarget = {},
+                         const LocalRouteResult *previous = nullptr) const;
   // Bits 0..3 select N/E/S/W faces, bits 4..7 select NE/SE/SW/NW.
   LocalExpansion expand(Point, int radius = 64,
                         unsigned directions = 255) const;
@@ -51,6 +58,7 @@ private:
   std::vector<std::vector<std::size_t>> obstacleCells_;
   bool blocked(PixelBox, std::size_t limit) const;
   std::span<const NavigationWall> walls(int normal, int firstLine, int lastLine) const;
+  std::shared_ptr<LocalRouteMemo> routes_ = makeLocalRouteMemo();
 };
 LocalSpace groundSpace(const Terrain &, const Contours &, const dat::Extents &,
                        std::span<const CollisionBody> bodies = {},

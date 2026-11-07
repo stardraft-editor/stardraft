@@ -146,16 +146,16 @@ struct MiningTrial {
   void advance(int budget) {
     if (budget < 0)
       throw std::invalid_argument("Negative mining trial frame budget");
+    std::vector<int> cargo(assignments.size());
+    std::vector<Point> positions(assignments.size());
     while (budget-- > 0 && !done()) {
       for (auto &r : background)
         r.apply(world);
       for (std::size_t i = 0; i < rules.size(); ++i)
         if (rules[i].apply(world))
           ++metrics[i].tripCommands;
-      std::vector<int> cargo(assignments.size());
-      std::vector<Point> positions(assignments.size());
       for (std::size_t i = 0; i < assignments.size(); ++i) {
-        const auto *worker = world.get(assignments[i].worker);
+        const auto *worker = peekUnit(world, assignments[i].worker);
         if (!worker || worker->dead)
           continue;
         cargo[i] = worker->cargo;
@@ -183,14 +183,14 @@ struct MiningTrial {
       bool impossible = false;
       for (std::size_t i = 0; i < assignments.size(); ++i) {
         auto &m = metrics[i];
-        const auto *worker = world.get(assignments[i].worker);
-        const auto *field = world.get(assignments[i].field);
+        const auto *worker = peekUnit(world, assignments[i].worker);
+        const auto *field = peekUnit(world, assignments[i].field);
         if (!worker || worker->dead || !worker->visible || !field ||
             field->dead) {
           m.switched = true;
           continue;
         }
-        if (world.get(worker->resourceTarget) &&
+        if (peekUnit(world, worker->resourceTarget) &&
             worker->resourceTarget != assignments[i].field) {
           bool detouring = i < rules.size() && rules[i].cycle &&
                            rules[i].enabled && !(worker->cargo & 3) &&

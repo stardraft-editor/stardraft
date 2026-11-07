@@ -354,7 +354,7 @@ struct Plan {
         // every candidate, so these trials are independent. Consume in original
         // order below to preserve the serial greedy selection and tie breaking
         // exactly.
-        batchEnd = std::min(candidates[worker].size(), candidate + 32);
+        batchEnd = std::min(candidates[worker].size(), candidate + 128);
         for (std::size_t j = candidate; j < batchEnd; ++j) {
           auto rule = candidates[worker][j];
           auto r = chosen;
@@ -463,7 +463,8 @@ struct Plan {
       return;
     if (executor && (phase == 1 || phase == 5)) {
       auto &task = searches[phase == 1 ? candidate - batchStart : candidate];
-      if (task.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+      if (task.wait_for(std::chrono::milliseconds(1)) !=
+          std::future_status::ready)
         return;
       trial->metrics = task.get();
     } else {

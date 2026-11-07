@@ -8,6 +8,9 @@ add_library(map-simulation STATIC src/regions.cpp src/contours.cpp src/local_rou
 find_package(Threads REQUIRED)
 target_link_libraries(map-simulation PUBLIC map-simulation-base Threads::Threads)
 target_compile_features(map-simulation PUBLIC cxx_std_20)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(map-simulation PRIVATE "$<$<CONFIG:Release>:/Ob3>")
+endif()
 
 if(BUILD_TESTING)
 add_executable(map-simulation-scenario-tests tests/scenario_tests.cpp)

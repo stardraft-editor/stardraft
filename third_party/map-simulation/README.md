@@ -8,12 +8,23 @@ This is a source extraction from Map Editor revision
 `cdc6bd99ab80f836c1d3fded991b013ec66d0fae`. SOURCE.json fingerprints the extracted
 engine files. The build change in the initial extraction is a standalone CMake
 project, optional tests, and removal of a test that used a script outside this
-library. Subsequent navigation performance changes are recorded separately in
+library. Subsequent performance changes are recorded separately in
 SOURCE.json's `localChanges`, retaining the initial extraction fingerprints:
 bounded immutable navigation-space reuse, indexed obstacle queries, stable
 incremental spatial ordering and allocation-free overlap checks. Navigation
 geometry is warmed before parallel mining searches. These changes retain the
 simulation rules, search candidates and validation horizons.
+
+Cargo/cycle search performance also uses bounded memoization of complete pure
+route queries, conservative walkable-tile checks, immutable visibility footprints,
+and decoded image-only animation blocks. Other animation blocks use the full VM;
+waits, script cursors, image order and random draws remain observable state.
+Creep changes invalidate navigation geometry when they change blocked centers.
+Spatial queries retain the existing axis, distance and stable sweep tie ordering.
+Search tasks are consumed in their original order, with batches of up to 128
+independent candidates. The executor uses at most 15 workers and reserves one
+logical CPU when available. It waits briefly for pending results rather than
+busy-polling. Cancellation and pause still run at each 128-frame chunk.
 
 Fingerprints use LF-normalized text. Run `python -I
 third_party/map-simulation/verify_source.py` to check them, including after

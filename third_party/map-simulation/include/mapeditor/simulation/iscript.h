@@ -23,10 +23,25 @@ struct Instruction {
   std::uint8_t opcode = 0;
   std::vector<int> arguments;
 };
+struct SpriteStep {
+  enum : unsigned {
+    Frame = 1,
+    X = 2,
+    Y = 4,
+    MainFrame = 8,
+    MainDirection = 16
+  };
+  std::uint32_t next = 0;
+  int wait = 0, span = 0;
+  std::uint8_t terminal = 0;
+  int frame = 0, x = 0, y = 0;
+  unsigned flags = 0;
+};
 class Program {
 public:
   explicit Program(std::span<const std::uint8_t> bytes)
       : bytes_(bytes.begin(), bytes.end()) {
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> reserved;
     if (bytes.size() < 8 || bytes.size() > 16u * 1024 * 1024)
       fail("Invalid IScript size");
     const auto table = word(0) | std::uint32_t(word(2)) << 16;
@@ -42,7 +57,7 @@ public:
       Script script{id, word(at + 4), {}};
       const int count = animationCount(script.type);
       require(at, 8 + count * 2);
-      reserved_.emplace_back(at, at + 8 + count * 2);
+      reserved.emplace_back(at, at + 8 + count * 2);
       for (int n = 0; n < count; ++n) {
         auto entry = word(at + 8 + n * 2);
         if ((!n && !entry) || entry >= bytes_.size())
@@ -51,8 +66,8 @@ public:
       }
       scripts_.emplace(id, std::move(script));
     }
-    reserved_.emplace_back(0, 4);
-    reserved_.emplace_back(table, cursor);
+    reserved.emplace_back(0, 4);
+    reserved.emplace_back(table, cursor);
     std::vector<std::uint32_t> pending;
     for (const auto &[id, script] : scripts_)
       for (auto entry : script.animations)
@@ -62,7 +77,7 @@ public:
       auto at = pending.back(); pending.pop_back();
       if (instructions_.contains(at)) continue;
       auto instruction = decode(at);
-      for (auto [begin, end] : reserved_)
+      for (auto [begin, end] : reserved)
         if (at < end && instruction.next > begin)
           fail("Instruction overlaps IScript metadata");
       auto next = instructions_.lower_bound(at);
@@ -77,16 +92,110 @@ public:
         pending.push_back(instruction.next);
       instructions_.emplace(at, std::move(instruction));
     }
+    indexInstructions();
+  }
+  Program(const Program &other)
+      : bytes_(other.bytes_), scripts_(other.scripts_),
+        instructions_(other.instructions_) {
+    indexInstructions();
+  }
+  Program(Program &&) = default;
+  Program &operator=(Program other) {
+    bytes_.swap(other.bytes_);
+    scripts_.swap(other.scripts_);
+    instructions_.swap(other.instructions_);
+    instructionIndex_.swap(other.instructionIndex_);
+    return *this;
   }
   const std::map<std::uint16_t, Script> &scripts() const { return scripts_; }
   const std::map<std::uint32_t, Instruction> &instructions() const { return instructions_; }
   const Script &script(std::uint16_t id) const { return scripts_.at(id); }
-  const Instruction &instruction(std::uint32_t offset) const { return instructions_.at(offset); }
+  const Instruction &instruction(std::uint32_t offset) const {
+    if (offset >= instructionIndex_.size() ||
+        !instructionIndex_[offset].instruction)
+      throw std::out_of_range("Unknown IScript instruction offset");
+    return *instructionIndex_[offset].instruction;
+  }
+  // Compile short image-only blocks ending in wait/end. They cannot call the
+  // world or branch on its state; all other blocks retain full VM dispatch.
+  const SpriteStep *spriteStep(std::uint32_t offset) const {
+    if (offset >= instructionIndex_.size())
+      return nullptr;
+    const auto &step = instructionIndex_[offset].sprite;
+    return step.terminal ? &step : nullptr;
+  }
+
 private:
   std::vector<std::uint8_t> bytes_;
   std::map<std::uint16_t, Script> scripts_;
   std::map<std::uint32_t, Instruction> instructions_;
-  std::vector<std::pair<std::uint32_t, std::uint32_t>> reserved_;
+  struct IndexedInstruction {
+    const Instruction *instruction = nullptr;
+    SpriteStep sprite;
+  };
+  std::vector<IndexedInstruction> instructionIndex_;
+  void indexInstructions() {
+    instructionIndex_.assign(
+        instructions_.empty() ? 0 : instructions_.rbegin()->first + 1, {});
+    for (const auto &[offset, instruction] : instructions_)
+      instructionIndex_[offset].instruction = &instruction;
+    for (const auto &[offset, instruction] : instructions_) {
+      const auto *current = &instruction;
+      SpriteStep step;
+      for (int jumps = 0; jumps < 32; ++jumps) {
+        if (current->opcode == 5 || current->opcode == 6 ||
+            current->opcode == 22) {
+          step.terminal = current->opcode;
+          step.next = current->next;
+          if (step.terminal != 22)
+            step.wait = current->arguments[0] - 1;
+          if (step.terminal == 6)
+            step.span = current->arguments[1] - current->arguments[0] + 1;
+          instructionIndex_[offset].sprite = step;
+          break;
+        }
+        const auto &a = current->arguments;
+        switch (current->opcode) {
+        case 0:
+          step.flags =
+              (step.flags | SpriteStep::Frame) & ~SpriteStep::MainFrame;
+          step.frame = a[0];
+          break;
+        case 2:
+          step.flags |= SpriteStep::X;
+          step.x = a[0];
+          break;
+        case 3:
+          step.flags |= SpriteStep::Y;
+          step.y = a[0];
+          break;
+        case 4:
+          step.flags |= SpriteStep::X | SpriteStep::Y;
+          step.x = a[0];
+          step.y = a[1];
+          break;
+        case 29:
+          step.flags |= SpriteStep::MainFrame | SpriteStep::MainDirection;
+          break;
+        case 43:
+          step.flags =
+              (step.flags | SpriteStep::Frame | SpriteStep::MainDirection) &
+              ~SpriteStep::MainFrame;
+          step.frame = a[0];
+          break;
+        case 7:
+          current = &this->instruction(std::uint32_t(a[0]));
+          continue;
+        default:
+          current = nullptr;
+          break;
+        }
+        if (!current)
+          break;
+        current = &this->instruction(current->next);
+      }
+    }
+  }
   [[noreturn]] static void fail(const char *why) { throw std::runtime_error(why); }
   void require(std::size_t at, std::size_t count) const {
     if (at > bytes_.size() || count > bytes_.size() - at)

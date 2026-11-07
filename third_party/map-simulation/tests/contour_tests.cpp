@@ -56,6 +56,19 @@ int main() {
           "Swept clearance detects a wall crossed between separated endpoints");
     check(flat.edges() == original,
           "Contour instances retain independent values");
+    for (int y = 250; y < 420; ++y)
+      for (int x = 250; x < 420; ++x)
+        for (const auto &body :
+             {dat::Extents{0, 0, 0, 0}, dat::Extents{7, 4, 8, 11},
+              dat::Extents{32, 17, 31, 16}})
+          if (hole.fullyWalkableTiles(
+                  {x - body.left - 1, y - body.top - 1},
+                  {x + body.right + 1, y + body.bottom + 1}))
+            check(edges.permits({x, y}, body),
+                  "Whole-tile shortcut admitted a contour collision");
+    check(!hole.fullyWalkableTiles({-1, 0}, {20, 20}) &&
+              !hole.fullyWalkableTiles({0, 0}, {2048, 20}),
+          "Whole-tile shortcut crossed the map boundary");
     std::cout << "PASS: native terrain boundary runs and corner metadata\n";
   } catch (const std::exception &error) {
     std::cerr << error.what() << '\n';

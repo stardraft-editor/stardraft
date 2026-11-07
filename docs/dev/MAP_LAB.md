@@ -74,7 +74,13 @@ spaces are reused through a bounded, synchronized cache keyed by complete body
 geometry and departure state. Clearance uses a spatial index; sweep boundary
 updates preserve stable tie order. These optimizations retain the search
 candidates, simulation rules and full-lineup validation horizons. Engine-local
-changes and their fingerprints are recorded in `third_party/map-simulation/SOURCE.json`.
+changes include exact route/visibility memoization, short image-only animation
+blocks and smaller stable spatial updates. The cargo/cycle executor admits up to
+128 independent candidates per batch, consumes results in the original order,
+and uses at most 15 workers (one fewer than the logical CPU count). Its pending
+result wait is bounded to one millisecond; pause/cancellation checks remain at
+128-frame chunk boundaries. Cache hits copy value results, leaving mutable
+worlds and controller state private. These changes and their fingerprints are recorded in `third_party/map-simulation/SOURCE.json`.
 
 Synthetic engine tests and the session lifecycle test can be built without
 StarDraft's renderer or third-party downloads:

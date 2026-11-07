@@ -23,6 +23,17 @@ struct AnimationHost {
   std::function<bool(const Instruction &)> condition;
   bool motionOnly = false;
 };
+template <class Apply, class Condition> struct DirectAnimationHost {
+  Apply apply;
+  Condition condition;
+  bool motionOnly = false;
+};
+template <class Callback> bool callbackPresent(const Callback &callback) {
+  if constexpr (requires { bool(callback); })
+    return bool(callback);
+  else
+    return true;
+}
 class Animation {
 public:
   Animation(const Program &program, Random &random)
@@ -67,8 +78,8 @@ public:
     }
     return int(total / frames);
   }
-  void tick(Cursor &cursor, const AnimationHost &host,
-            unsigned budget = 4096) const {
+  template <class Host = AnimationHost>
+  void tick(Cursor &cursor, const Host &host, unsigned budget = 4096) const {
     if (cursor.ended)
       return;
     if (cursor.wait) {
@@ -80,7 +91,7 @@ public:
       const auto &args = instruction.arguments;
       cursor.pc = instruction.next;
       auto dispatch = [&](const Instruction &event) {
-        if (!host.apply)
+        if (!callbackPresent(host.apply))
           throw std::runtime_error("Missing animation side-effect host");
         auto action = host.apply(event);
         if (action == HostAction::End)
@@ -152,7 +163,7 @@ public:
       case 48:
         // Host switches to idle when there is no target; otherwise this opcode
         // remains at the current address and polls after eleven frames.
-        if (!host.condition)
+        if (!callbackPresent(host.condition))
           throw std::runtime_error("Missing animation condition host");
         if (host.condition(instruction)) {
           cursor.pc = instruction.offset;
@@ -176,7 +187,7 @@ public:
       case 59:
       case 60:
       case 63:
-        if (!host.condition)
+        if (!callbackPresent(host.condition))
           throw std::runtime_error("Missing animation condition host");
         if (host.condition(instruction))
           cursor.pc = args.back();

@@ -163,11 +163,55 @@ public:
             context.signal |= 1;
         }
       }
-      execute(id, data, random, external);
+      if (!image.cursor.ended && image.cursor.wait)
+        --image.cursor.wait;
+      else if (!tickPassive(id, data, random))
+        execute(id, data, random, external, true);
     }
   }
 
 private:
+  bool tickPassive(std::size_t id, const SpriteResources &data,
+                   Random &random) {
+    auto &image = images[id];
+    auto &cursor = image.cursor;
+    if (!cursor.ended) {
+      if (cursor.wait) {
+        --cursor.wait;
+        return true;
+      }
+      const auto *step = data.program.spriteStep(cursor.pc);
+      if (!step)
+        return false;
+      if ((step->flags & iscript::SpriteStep::MainFrame) && id != main)
+        image.baseFrame = images[main].baseFrame;
+      else if (step->flags & iscript::SpriteStep::Frame)
+        image.baseFrame = step->frame;
+      if ((step->flags & iscript::SpriteStep::MainDirection) && id != main) {
+        image.direction = images[main].direction;
+        image.flip = images[main].flip;
+      }
+      if (step->flags & iscript::SpriteStep::X)
+        image.offset.x = step->x;
+      if (step->flags & iscript::SpriteStep::Y)
+        image.offset.y = step->y;
+      cursor.pc = step->next;
+      if (step->terminal == 5)
+        cursor.wait = step->wait;
+      else if (step->terminal == 6) {
+        if (step->span <= 0)
+          throw std::runtime_error("Inverted animation wait range");
+        cursor.wait = step->wait + int((random.next() & 255) % step->span);
+      } else
+        cursor.ended = true;
+    }
+    if (cursor.ended) {
+      order.remove(id);
+      if (id == main && !order.empty())
+        main = order.front();
+    }
+    return true;
+  }
   std::vector<bool> directional_;
   void orient(std::size_t id, int index) {
     if (id >= directional_.size() || !directional_[id])
@@ -215,7 +259,9 @@ private:
     return id;
   }
   void execute(std::size_t id, const SpriteResources &data, Random &random,
-               const External &external) {
+               const External &external, bool active = false) {
+    if (!active && tickPassive(id, data, random))
+      return;
     auto &image = images[id];
     // Waiting cannot dispatch an event or change image membership. Preserve
     // the cursor's exact frame count without constructing callback wrappers.
@@ -223,8 +269,7 @@ private:
       --image.cursor.wait;
       return;
     }
-    iscript::AnimationHost host;
-    host.condition = [&](const iscript::Instruction &i) {
+    auto condition = [&](const iscript::Instruction &i) {
       auto &a = i.arguments;
       switch (i.opcode) {
       case 48:
@@ -246,7 +291,7 @@ private:
         throw std::runtime_error("Invalid image branch");
       }
     };
-    host.apply = [&](const iscript::Instruction &i) {
+    auto apply = [&](const iscript::Instruction &i) {
       const auto &a = i.arguments;
       switch (i.opcode) {
       case 0:
@@ -393,6 +438,8 @@ private:
       }
       return iscript::HostAction::Continue;
     };
+    const iscript::DirectAnimationHost host{std::move(apply),
+                                            std::move(condition)};
     iscript::Animation(data.program, random).tick(image.cursor, host);
     if (image.cursor.ended) {
       order.remove(id);

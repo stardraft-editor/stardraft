@@ -37,7 +37,7 @@ struct Executor {
   bool stopping = false;
   static unsigned concurrency() {
     unsigned n = std::thread::hardware_concurrency();
-    return std::min(9u, n > 1 ? n - 1 : 1u);
+    return std::min(15u, n > 1 ? n - 1 : 1u);
   }
   explicit Executor(unsigned n = concurrency()) {
     try {
