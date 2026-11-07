@@ -210,6 +210,9 @@ public:
     // Per tile (MTXM order): 1 where the ISOM does not give the tile there (placed as it is: Rectangle, Tile, a stamp, a
     // mod's piece the ISOM has no rule for), else 0. All 1 when the map has no ISOM.
     std::vector<uint8_t> tilesNotFromIsom() const;
+    // The same for one tile, with the tile section (layerTileSection) given: true where the ISOM gives the tile there.
+    // (A few tiles of an edit: not the whole map's check.)
+    bool tileIsFromIsom(const TerrainLayer& section, int tx, int ty) const { return isomOk_ && isom_.tileFromIsom(chk_, section, tx, ty); }
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two

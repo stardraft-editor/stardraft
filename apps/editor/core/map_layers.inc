@@ -346,8 +346,11 @@ static void layersCapture(Editor& ed, bool live) {
     }
     const bool stepTaken = ed.undoSteps() != s.undoSteps;
     const bool kitTool = app.mode == Mode::Terrain && (currentTool(app) == TBridge || currentTool(app) == TRamp);
-    const std::vector<uint16_t> nowSection = ed.layerTileSection().tiles;
-    const std::vector<uint8_t> notTerrain = ed.tilesNotFromIsom();
+    const TerrainLayer section = ed.layerTileSection();
+    const std::vector<uint16_t>& nowSection = section.tiles;
+    // (a tile the ISOM does not give: asked only for the tiles that changed, not the whole map's at each stroke step)
+    const int sectionW = int(section.width);
+    const auto notTerrain = [&](size_t k) { return !ed.tileIsFromIsom(section, int(k) % sectionW, int(k) / sectionW); };
     if (ed.terrain().tiles.size() == s.tiles.size() && nowSection.size() == s.tileSection.size() && nowSection.size() == s.tiles.size()) {
         const int tw = int(ed.width());
         const std::vector<uint16_t>& nowTiles = ed.terrain().tiles;
@@ -355,14 +358,14 @@ static void layersCapture(Editor& ed, bool live) {
             // (under the doodads: a tile placed where a doodad goes away too; a doodad's own tiles are not there)
             if (doodadsChanged ? nowSection[k] == s.tileSection[k] : nowTiles[k] == s.tiles[k]) continue;
             if (kitTool) {  // (a bridge's or a ramp's tiles are its own, also beside the corners it changes; not the terrain's)
-                if (k < notTerrain.size() && notTerrain[k]) placed[{int(k) % tw, int(k) / tw}] = nowTiles[k];
+                if (notTerrain(k)) placed[{int(k) % tw, int(k) / tw}] = nowTiles[k];
                 continue;
             }
             const int tx = int(k) % tw, ty = int(k) / tw, rx = tx / 2;
             bool nearChange = false;  // (an edge's tiles depend on the corners around them too)
             for (int cy = ty - 3; !nearChange && cy <= ty + 4; ++cy)
                 for (int cx = rx - 3; !nearChange && cx <= rx + 4; ++cx) nearChange = fitted.count({cx, cy}) > 0;
-            if ((!nearChange && k < notTerrain.size() && notTerrain[k]) || !nowTiles[k]) placed[{tx, ty}] = nowTiles[k];  // (not the terrain's other variant; a null tile: a cut)
+            if ((!nearChange && notTerrain(k)) || !nowTiles[k]) placed[{tx, ty}] = nowTiles[k];  // (not the terrain's other variant; a null tile: a cut)
         }
     }
     if (changed.empty() && placed.empty() && !objectsChanged) {
