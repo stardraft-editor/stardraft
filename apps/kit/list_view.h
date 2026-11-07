@@ -29,6 +29,7 @@ struct Column {
     std::wstring name;
     int width = 0;
     ColAlign align = ColAlign::Left;
+    int sortIcon = -1;  // a UI icon after the name (the order of the rows: a chevron up or down); -1: none
 };
 
 // What a row looks like: selected; under the mouse; the cursor's row while the list has the focus.

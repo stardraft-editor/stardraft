@@ -9,6 +9,8 @@
 struct PaletteGridView : draw::View {
     std::vector<PaletteRow> rows;
     int pinned = 0;            // rows 1 to pinned are the pinned doodads' copies
+    kitui::ItemDrag pinDrag_;  // a pinned doodad's drag (its row), among the pins
+    int pinTo_ = -1;           // ... the pinned row it goes to
     Mode mode = Mode::Units;   // the mode of the rows (their pictures are of it)
     bool second = false;       // the second palette: no pick of its own shows (its picks are its own list)
     std::vector<int>* chosen = nullptr;  // the picks it shows (the first palette: the shell's; the second: its own)
@@ -152,6 +154,11 @@ struct PaletteGridView : draw::View {
             r.top -= scroll_, r.bottom -= scroll_;
             paintFocusOutline(c, {r.left + 1, r.top + 1, r.right - 1, r.bottom - 1});
         }
+        if (pinDrag_.dragging() && pinTo_ >= 1 && pinTo_ != pinDrag_.item) {  // a pin's drag: the line where it goes
+            draw::Rect r = rowRect(pinTo_);
+            r.top -= scroll_, r.bottom -= scroll_;
+            kitpaint::drawDropLine(c, r.left, r.right, pinTo_ < pinDrag_.item ? r.top + scale(1) : r.bottom - scale(1));
+        }
         c.popClip();
         if (const int fh = paletteFooterHeight(v)) {  // grid: the hovered (or picked) item's name
             draw::Rect f{0, viewH, width(), viewH + fh};
@@ -169,6 +176,10 @@ struct PaletteGridView : draw::View {
         case draw::MouseKind::Move: {
             const int h = rowAt(e.pt);
             if (h != hover_) hover_ = h, invalidate();
+            if (pinDrag_.item >= 0 && pinDrag_.move(*this, e.pt)) {  // a pin's drag: the pinned row it goes to
+                const int to = std::clamp(h >= 1 && h <= pinned ? h : e.pt.y + scroll_ < rowRect(1).top ? 1 : pinned, 1, std::max(1, pinned));
+                if (to != pinTo_) pinTo_ = to, invalidate();
+            }
             return true;
         }
         case draw::MouseKind::Leave:
@@ -185,15 +196,31 @@ struct PaletteGridView : draw::View {
             keys_.pressed();
             if (h >= 0) keys_.at = h;
             if (h >= 0 && picked) picked(h, e.mods);
+            // (a pinned doodad's copy at the top: a drag moves it among the pins, as Move up and Move down)
+            if (e.kind == draw::MouseKind::Down && mode == Mode::Doodads && pinned > 1 && h >= 1 && h <= pinned) pinDrag_.press(h, e.pt), pinTo_ = h;
             invalidate();
             return true;
         }
         case draw::MouseKind::Up:
+            if (e.button == 0 && pinDrag_.item >= 0) {
+                const bool dragged = pinDrag_.dragging();
+                const int from = pinDrag_.release(*this, e.pt), to = std::exchange(pinTo_, -1);
+                if (dragged && from >= 1 && to >= 1 && to != from && from < int(rows.size())) {
+                    const int value = rows[size_t(from)].value;
+                    const std::vector<uint16_t> shown = paletteShownDoodads(rows);
+                    for (int k = 0; k < std::abs(to - from); ++k) doodadPinMove(value, to > from ? 1 : -1, shown);
+                }
+                invalidate();
+                return true;
+            }
             if (e.button != 1) return false;
             if (context) context(rowAt(e.pt), e.pt);
             return true;
         default: return false;
         }
+    }
+    void captureLost() override {
+        if (pinDrag_.dragging()) pinDrag_.cancel(*this), pinTo_ = -1, invalidate();
     }
     std::wstring tip(draw::Point p) override {  // (Report feedback names the entry under the mouse)
         const int h = rowAt(p);

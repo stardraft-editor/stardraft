@@ -414,9 +414,7 @@ private:
                                                            stardraft::kit::ColAlign::Right};
         std::vector<stardraft::kit::Column> cols;
         for (int k = 0; k < 5; ++k) {
-            std::wstring name(tr(names[k]));
-            if (k == sortCol_) name += sortDesc_ ? L" \u25BC" : L" \u25B2";
-            cols.push_back({name, widths[k], aligns[k]});
+            cols.push_back({std::wstring(tr(names[k])), widths[k], aligns[k], k == sortCol_ ? int(sortDesc_ ? UiIcon::ChevronDown : UiIcon::ChevronUp) : -1});
         }
         list_.setColumns(cols);
         list_.draggable = sortCol_ == 4 && !sortDesc_;  // (the rows move in the index's order only)

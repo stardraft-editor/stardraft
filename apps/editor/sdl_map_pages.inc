@@ -333,8 +333,8 @@ public:
             const draw::Rect r{0, int(i) * rowH(), width(), int(i + 1) * rowH()};
             const bool hot = int(i) == hot_;
             if (hot) c.fill(r, kRowHot);
-            const std::wstring label = (int(i) == checked_ ? L"✓  " : L"    ") + rows_[i];
-            c.text({r.left + scale(8), r.top, r.right - scale(8), r.bottom}, label, hot ? kText : kDim, draw::kMiddle | draw::kEllipsis);
+            if (int(i) == checked_) c.icon({r.left + scale(6), r.top, r.left + scale(24), r.bottom}, int(UiIcon::Check), hot ? kText : kDim, scale(16));  // (the check: an icon)
+            c.text({r.left + scale(28), r.top, r.right - scale(8), r.bottom}, rows_[i], hot ? kText : kDim, draw::kMiddle | draw::kEllipsis);
         }
     }
     bool mouse(const draw::MouseEvent& e) override {

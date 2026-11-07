@@ -179,4 +179,3 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 - kitui::ItemDrag is used by the Layer list, the Custom list, Map strings, the Units list, Classic triggers and the
   Triggers pane. The kit's own drags (the tree, the tab strip) and the Map tabs have their own code, with the same 4 px.
-- Doodad pins move with Move up and Move down only.
