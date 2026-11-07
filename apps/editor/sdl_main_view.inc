@@ -75,14 +75,32 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     // The terrain when it changed, or a layer (View > Modes: no terrain, or no doodads' tiles) went on or off.
     // (and the creep when it changed: View > Modes > Creep, core/creep_layer.inc)
     static MapLayers uploaded;
-    static uint64_t uploadedCreep = 0;
+    static uint64_t uploadedCreep = 0, uploadedOutside = 0;
     const uint64_t creepRev = creepRevision(ed);
+    const LayersOutside& outside = mapLayersOutside(ed);  // (map layers' terrain outside of the map: core/map_layers.inc)
     if (gMapEd != &ed || gTerrainRev != ed.terrainRevision() || uploaded.terrain != gLayers.terrain ||
-        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev) {
+        uploaded.doodads != gLayers.doodads || uploaded.creep != gLayers.creep || uploadedCreep != creepRev || uploadedOutside != outside.gen) {
         gRenderer->setSources(&ed.gameData(), &ed.unitSprites(), &ed.tileset(), ed.era());
-        if (gLayers.terrain && gLayers.doodads && !gLayers.creep) gRenderer->updateTerrain(ed.terrain());
-        else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
-        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev;
+        const bool plain = gLayers.terrain && gLayers.doodads && !gLayers.creep;
+        if (!outside.any) {
+            if (plain) gRenderer->updateTerrain(ed.terrain());
+            else gRenderer->updateTerrain(terrainWithLayers(ed));  // (core/map_scene.inc)
+        } else {  // a grid larger than the map: the map, and the layers' tiles outside of it (tile 0 elsewhere: black)
+            const TerrainLayer map = plain ? ed.terrain() : terrainWithLayers(ed);
+            const int ex0 = std::min(0, outside.x0), ey0 = std::min(0, outside.y0);
+            const int ex1 = std::max(int(map.width), outside.x0 + outside.w), ey1 = std::max(int(map.height), outside.y0 + outside.h);
+            TerrainLayer grid;
+            grid.width = uint16_t(ex1 - ex0), grid.height = uint16_t(ey1 - ey0);
+            grid.tiles.assign(size_t(grid.width) * grid.height, 0);
+            for (int y = 0; y < map.height; ++y)
+                std::copy_n(map.tiles.begin() + ptrdiff_t(y) * map.width, map.width, grid.tiles.begin() + ptrdiff_t(y - ey0) * grid.width - ex0);
+            for (int y = 0; y < outside.h; ++y)
+                for (int x = 0; x < outside.w; ++x)
+                    if (const uint16_t v = outside.tiles[size_t(y) * outside.w + x]; v != 0xFFFF)
+                        grid.tiles[size_t(outside.y0 + y - ey0) * grid.width + size_t(outside.x0 + x - ex0)] = v;
+            gRenderer->updateTerrainExtended(grid, -ex0, -ey0, map.width, map.height);
+        }
+        gMapEd = &ed, gTerrainRev = ed.terrainRevision(), uploaded = gLayers, uploadedCreep = creepRev, uploadedOutside = outside.gen;
     }
     // The players' colors: the map's own for players 1 to 8, the fixed ones for the rest (core/map_scene.inc: playerRgba).
     uint32_t team[12];

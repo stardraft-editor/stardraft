@@ -4,6 +4,18 @@
 // on a layer takes corners out of it (NULL: see-through); the Layers tool moves contents. Each change is one undo step
 // with the layers' files.
 
+// The layers' terrain outside of the map (mapLayersOutside): its box in tiles (x0, y0 can be negative), its tiles
+// (0xFFFF: none there), and a number that changes when it changes.
+struct LayersOutside {
+    int x0 = 0, y0 = 0, w = 0, h = 0;
+    std::vector<uint16_t> tiles;
+    bool any = false;
+    uint64_t gen = 0;
+};
+const LayersOutside& mapLayersOutside(const Editor& ed);
+bool& mapLayersHideOutside();
+void setMapLayersHideOutside(bool hide);
+
 struct MapLayersState {
     const Editor* ed = nullptr;
     uint64_t loadMark = 0;  // Editor::loadMark when the map was last taken as it is
@@ -947,6 +959,30 @@ static void layersDragEnd(Editor& ed) {
 }
 
 // Move Layer: a drag moves the selected layers.
+// A move of layers by (dx, dy) rects (Move Layer): their terrain can go outside of the map (a place to try things out:
+// mapLayersOutside), their units, doodads and sprites cannot. The move becomes the nearest one that keeps every object
+// of the layers on the map (dx + dy stays even, as the rect grid).
+void layersKeepObjectsOnMap(const Editor& ed, const std::map<int, MapLayer>& from, int& dx, int& dy) {
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    const auto take = [&](const auto& list) {
+        for (const auto& o : list) x0 = std::min(x0, o.x), y0 = std::min(y0, o.y), x1 = std::max(x1, o.x), y1 = std::max(y1, o.y);
+    };
+    for (const auto& [r, l] : from) take(l.units), take(l.doodads), take(l.sprites);
+    if (x0 > x1) return;  // (terrain only)
+    const int mw = ed.width() * 32, mh = ed.height() * 32;
+    const auto ceilDiv = [](int a, int b) { return a >= 0 ? (a + b - 1) / b : -(-a / b); };
+    const auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
+    const int dxLo = ceilDiv(-x0, 64), dxHi = floorDiv(mw - 1 - x1, 64), dyLo = ceilDiv(-y0, 32), dyHi = floorDiv(mh - 1 - y1, 32);
+    const int wantX = dx, wantY = dy;
+    dx = std::clamp(dx, std::min(dxLo, 0), std::max(dxHi, 0)), dy = std::clamp(dy, std::min(dyLo, 0), std::max(dyHi, 0));
+    if ((dx + dy) & 1) {  // (back on the grid: one row toward the start)
+        if (dy != 0 && dy - (dy > 0 ? 1 : -1) >= std::min(dyLo, 0) && dy - (dy > 0 ? 1 : -1) <= std::max(dyHi, 0)) dy -= dy > 0 ? 1 : -1;
+        else dx -= dx > 0 ? 1 : dx < 0 ? -1 : 0, dy = (dx + dy) & 1 ? dy - (dy > 0 ? 1 : dy < 0 ? -1 : 0) : dy;
+        if ((dx + dy) & 1) dx = dy = 0;
+    }
+    if (dx != wantX || dy != wantY) setMessage(L"Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it");
+}
+
 void mapLayersMoveDown(AppState& app, float wx, float wy) {
     MapLayersState& s = gMapLayers;
     mapLayersSync();
@@ -973,6 +1009,7 @@ void mapLayersDragMove(AppState& app, float wx, float wy) {
     } else if (s.moving) {
         int dx, dy;
         snapLayerMove(int(wx) - s.startX, int(wy) - s.startY, dx, dy);
+        layersKeepObjectsOnMap(*app.ed, s.moveFrom, dx, dy);
         if (dx == s.moveDX && dy == s.moveDY) return;
         s.moveDX = dx, s.moveDY = dy;
         for (const auto& [r, from] : s.moveFrom) {
@@ -1061,6 +1098,129 @@ static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
     return out;
 }
 
+// --- The layers' terrain outside of the map --------------------------------------------------------------------------
+// A layer's terrain can be outside of the map: a place to try things out (Move Layer takes it there; units, doodads and
+// sprites stay on the map). The map's file has none of it. The map view shows it on a grid larger than the map
+// (sdl_main_view.inc), with tiles that a scratch map makes from the layers as the map makes them, and the view scrolls to
+// it (clampCamera). Layers panel > Settings > Hide what is outside of the map.
+bool& mapLayersHideOutside() {
+    static bool hide = [] {
+        bool v = false;
+        if (!gSelfTest && !gSettingsOff) prefs::flag(L"LayersHideOutside", v);
+        return v;
+    }();
+    return hide;
+}
+void setMapLayersHideOutside(bool hide) {
+    mapLayersHideOutside() = hide;
+    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"LayersHideOutside", hide ? 1 : 0);
+    setMessage(hide ? L"Layers: what is outside of the map is hidden" : L"Layers: what is outside of the map shows");
+    shellState().dirty = true;
+}
+
+// The tiles of a layer: those of the rects round its corners, and its placed tiles.
+static std::set<std::pair<int, int>> layerTileCells(const MapLayer& l) {
+    std::set<std::pair<int, int>> tiles;
+    for (const auto& [at, terrain] : l.corners)
+        for (int ry = at.second - 1; ry <= at.second; ++ry)
+            for (int rx = at.first - 1; rx <= at.first; ++rx) tiles.insert({rx * 2, ry}), tiles.insert({rx * 2 + 1, ry});
+    for (const auto& [at, tile] : l.tiles) tiles.insert(at);
+    return tiles;
+}
+
+const LayersOutside& mapLayersOutside(const Editor& ed) {
+    static LayersOutside out;
+    static const Editor* forEd = nullptr;
+    static uint64_t forRevision = ~0ull, gen = 0;
+    static bool forHide = false, forOn = false;
+    const MapLayersState& m = gMapLayers;
+    const bool hide = mapLayersHideOutside(), on = m.on && m.ed == &ed;
+    if (forEd == &ed && forRevision == ed.revision() && forHide == hide && forOn == on) return out;
+    forEd = &ed, forRevision = ed.revision(), forHide = hide, forOn = on;
+    LayersOutside next;
+    const int W = ed.width(), H = ed.height();
+    // The visible layers with tiles outside of the map, and the box of all their tiles (in tiles).
+    std::vector<const MapLayer*> layers;
+    std::set<std::pair<int, int>> outside;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (size_t i = 0; on && !hide && i < m.stack.layers.size(); ++i) {
+        const MapLayer& l = m.stack.layers[i];
+        if (!l.visible) continue;
+        const auto cells = layerTileCells(l);
+        bool any = false;
+        for (const auto& [x, y] : cells)
+            if (x < 0 || y < 0 || x >= W || y >= H) outside.insert({x, y}), any = true;
+        if (!any) continue;
+        layers.push_back(&l);
+        for (const auto& [x, y] : cells) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+    }
+    if (!outside.empty()) {
+        // The scratch map: the box in rects, a rect more each way (the edges), dx + dy even (the rect grid), 256 x 256
+        // tiles at most (the farthest parts of a larger box do not show).
+        const auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
+        int rx0 = floorDiv(x0, 2) - 1, ry0 = y0 - 1;
+        if ((rx0 + ry0) & 1) --rx0;
+        const int sw = std::min(256, 2 * (floorDiv(x1, 2) + 1 - rx0 + 1)), sh = std::min(256, y1 + 1 - ry0 + 1);
+        std::map<uint16_t, int> count;  // (its ground: the terrain the layers have most)
+        for (const MapLayer* l : layers)
+            for (const auto& [at, t] : l->corners) ++count[t];
+        uint16_t ground = 0;
+        int most = -1;
+        for (const auto& [t, n] : count)
+            if (n > most) ground = t, most = n;
+        static std::unique_ptr<Editor> scratch;
+        static const GameData* forData = nullptr;
+        static Bytes base;
+        static std::array<int, 4> baseKey{-1, -1, -1, -1};
+        const std::array<int, 4> key{sw, sh, int(ed.era() & 7), int(ground)};
+        bool ok = true;
+        if (!scratch || forData != &ed.gameData() || key != baseKey) {
+            if (!scratch || forData != &ed.gameData()) scratch = std::make_unique<Editor>(ed.gameData()), forData = &ed.gameData();
+            Chk chk;
+            std::string err;
+            ok = ground && createNewScenario(chk, ed.gameData(), uint16_t(sw), uint16_t(sh), uint16_t(ed.era() & 7), ground, err) && scratch->openChk(chk, err);
+            if (ok) base = scratch->layerBaseNow(), baseKey = key;
+            else baseKey = {-1, -1, -1, -1};
+        }
+        if (ok) {
+            LayerStack stack;
+            for (const MapLayer* l : layers) {
+                MapLayer c;
+                c.id = l->id, c.corners = l->corners, c.tiles = l->tiles;  // (its terrain only)
+                moveLayerContents(c, -rx0, -ry0);
+                stack.layers.push_back(std::move(c));
+            }
+            ok = scratch->composeLayers(base, stack);
+        }
+        if (ok) {
+            const TerrainLayer& t = scratch->terrain();
+            int ox0 = INT_MAX, oy0 = INT_MAX, ox1 = INT_MIN, oy1 = INT_MIN;
+            for (const auto& [x, y] : outside) ox0 = std::min(ox0, x), oy0 = std::min(oy0, y), ox1 = std::max(ox1, x), oy1 = std::max(oy1, y);
+            next.x0 = ox0, next.y0 = oy0, next.w = ox1 - ox0 + 1, next.h = oy1 - oy0 + 1;
+            next.tiles.assign(size_t(next.w) * size_t(next.h), 0xFFFF);
+            for (const auto& [x, y] : outside) {
+                const int sx = x - 2 * rx0, sy = y - ry0;
+                if (sx < 0 || sy < 0 || sx >= t.width || sy >= t.height) continue;
+                next.tiles[size_t(y - oy0) * size_t(next.w) + size_t(x - ox0)] = t.tiles[size_t(sy) * t.width + size_t(sx)];
+                next.any = true;
+            }
+        }
+    }
+    if (next.any != out.any || next.x0 != out.x0 || next.y0 != out.y0 || next.w != out.w || next.h != out.h || next.tiles != out.tiles) {
+        next.gen = ++gen;
+        out = std::move(next);
+    }
+    return out;
+}
+
+// The box of the layers' terrain outside of the map, in tiles (x1, y1 past it); false: none (or it is hidden).
+bool mapLayersOutsideBox(const Editor& ed, int& x0, int& y0, int& x1, int& y1) {
+    const LayersOutside& o = mapLayersOutside(ed);
+    if (!o.any) return false;
+    x0 = o.x0, y0 = o.y0, x1 = o.x0 + o.w, y1 = o.y0 + o.h;
+    return true;
+}
+
 void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
     const MapLayersState& m = gMapLayers;
     if (shellState().drag == Drag::TerrainLasso && gLassoPoints.size() > 1) {  // (Lasso: the line drawn so far, closed)
@@ -1073,6 +1233,7 @@ void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
             s.rects.push_back(d);
         }
     }
+    if (mapLayersOutside(ed).any) layerBox(s, 0, 0, ed.width() * 32, ed.height() * 32, 0xFFFFFF50u);  // (terrain outside: the map's edge)
     const AppState& app = shellState();
     const bool here = app.mode == Mode::Layers;
     if (!m.on || m.ed != &ed || (!here && !gFloatPal[int(Mode::Layers)].floating)) return;  // (in the mode, or with its window)

@@ -171,7 +171,9 @@ struct Renderer::Impl {
 
     // Terrain
     SDL_GPUTexture* tileIndex = nullptr;
-    uint16_t mapW = 0, mapH = 0;
+    uint16_t mapW = 0, mapH = 0;  // the tile index's grid (the map, or a larger grid: updateTerrainExtended)
+    int originX = 0, originY = 0;  // ... the map's tile (0, 0) in it
+    uint16_t realW = 0, realH = 0;  // ... the map's own size (the previews' indices, the sprites' depth)
     uint16_t tileIndexW = 0, tileIndexH = 0;  // size the tile index texture was created at
     SDL_GPUTexture* hdAtlas = nullptr;
     SDL_GPUTexture* hdDown = nullptr;  // HD atlas box-filtered to 32 px tiles, mipmapped
@@ -839,9 +841,13 @@ void Renderer::setSources(const GameData* data, UnitSprites* sprites, const Tile
 
 void Renderer::reloadImages() { impl_->freeImages(); }
 
-void Renderer::updateTerrain(const TerrainLayer& mtxm) {
+void Renderer::updateTerrain(const TerrainLayer& mtxm) { updateTerrainExtended(mtxm, 0, 0, mtxm.width, mtxm.height); }
+
+void Renderer::updateTerrainExtended(const TerrainLayer& mtxm, int originX, int originY, int mapW, int mapH) {
     Impl& r = *impl_;
+    if (r.originX != originX || r.originY != originY) r.terrainPreview.clear();  // (its indices are of the old grid)
     r.mapW = mtxm.width, r.mapH = mtxm.height;
+    r.originX = originX, r.originY = originY, r.realW = uint16_t(mapW), r.realH = uint16_t(mapH);
     r.baseTerrain.resize(mtxm.tiles.size());
     for (size_t i = 0; i < mtxm.tiles.size(); ++i) {
         int mega = r.tileset ? r.tileset->megatileFor(mtxm.tiles[i]) : -1;
@@ -863,9 +869,15 @@ void Renderer::setTerrainPreview(const std::vector<std::pair<int, uint16_t>>& ce
     Impl& r = *impl_;
     std::vector<std::pair<int, uint16_t>>& megas = r.previewNext;
     megas.clear();
+    const bool shifted = r.originX || r.originY || r.realW != r.mapW;
     for (auto [i, tile] : cells) {
         const int mega = r.tileset ? r.tileset->megatileFor(tile) : -1;
-        if (mega > 0) megas.push_back({i, uint16_t(mega)});
+        if (mega <= 0) continue;
+        if (shifted) {  // (the map's index: the cell's index in the larger grid)
+            if (!r.realW || i < 0) continue;
+            i = (i / r.realW + r.originY) * r.mapW + i % r.realW + r.originX;
+        }
+        megas.push_back({i, uint16_t(mega)});
     }
     if (megas == r.terrainPreview) return;
     std::swap(r.terrainPreview, megas);
@@ -982,7 +994,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     if (tilesetDirty) reloadTileset();
     ensureDepth(w, h);
     const Camera& cam = scene.camera;
-    const float mapPxH = std::max<float>(mapH * 32.0f, 1);
+    const float mapPxH = std::max<float>((realH ? realH : mapH) * 32.0f, 1);
 
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
     raw.clear();
@@ -1238,7 +1250,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         bool hdSmall = !hdFull && hdDown;
         SDL_GPUTexture* atlasTex = hdFull ? hdAtlas : hdSmall ? hdDown : sdAtlas;
         TerrainUniforms u{};
-        u.camera[0] = cam.x, u.camera[1] = cam.y, u.zoom = cam.zoom;
+        u.camera[0] = cam.x + float(originX) * 32.0f, u.camera[1] = cam.y + float(originY) * 32.0f, u.zoom = cam.zoom;  // (a larger grid: the map at its origin)
         u.viewport[0] = float(w), u.viewport[1] = float(h);
         u.mapTiles[0] = mapW, u.mapTiles[1] = mapH;
         u.atlasSize[0] = hdFull ? hdAtlasW : hdSmall ? hdDownW : sdAtlasW;

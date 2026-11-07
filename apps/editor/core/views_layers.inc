@@ -17,6 +17,7 @@ public:
         const MapLayersState& s = gMapLayers;
         kitpaint::drawIconFace(c, newRect(), UiIcon::Add, kitpaint::Tone::Quiet, false, hot(newRect()));
         kitpaint::drawIconFace(c, deleteRect(), UiIcon::Delete, kitpaint::Tone::Quiet, false, hot(deleteRect()), s.on && s.active >= 0);
+        kitpaint::drawIconFace(c, settingsRect(), UiIcon::Settings, kitpaint::Tone::Quiet, false, hot(settingsRect()));
         kitpaint::drawIconFace(c, helpRect(), UiIcon::Help, kitpaint::Tone::Quiet, false, hot(helpRect()));
         rows_.clear();
         int y = listTop();
@@ -74,6 +75,7 @@ public:
             if (e.button == 0 && newRect().contains(e.pt)) return mapLayersNew(), true;
             if (e.button == 0 && deleteRect().contains(e.pt)) return mapLayersDelete(), true;
             if (e.button == 0 && helpRect().contains(e.pt)) return mapLayersInfo(), true;
+            if (e.button == 0 && settingsRect().contains(e.pt)) return settingsMenu(), true;
             if (!rowAt(e.pt, index, &row)) {
                 if (e.button == 1) rowMenu(-2);
                 return true;
@@ -83,7 +85,7 @@ public:
             if (eyeRect(row.top).contains(e.pt)) return mapLayersToggleVisible(index), true;
             if (lockRect(row.top).contains(e.pt)) return mapLayersToggleLock(index), true;
             mapLayersPick(index, e.mods);
-            if (index >= 0) drag_.press(index, e.pt), dragTo_ = index;
+            if (index >= 0) drag_.press(*this, index, e.pt), dragTo_ = index;
             return true;
         case MouseKind::Move:
             pointer_ = e.pt, hasPointer_ = true;
@@ -125,6 +127,7 @@ public:
         if (newRect().contains(p)) return L"New layer (Ctrl+Alt+N)";
         if (deleteRect().contains(p)) return L"Delete the selected layers (Del in Map Layers)";
         if (helpRect().contains(p)) return L"How layers get into the map that you play";
+        if (settingsRect().contains(p)) return L"Settings of the layers";
         for (const Row& rw : rows_)
             if (rw.r.contains(p)) {
                 if (eyeRect(rw.r.top).contains(p)) return L"Show or hide (Ctrl+Alt+H). With nothing showing, the map is black";
@@ -143,6 +146,17 @@ private:
     draw::Rect newRect() const { return {scale(2), scale(2), scale(26), scale(26)}; }
     draw::Rect deleteRect() const { return {scale(28), scale(2), scale(52), scale(26)}; }
     draw::Rect helpRect() const { return {width() - scale(26), scale(2), width() - scale(2), scale(26)}; }
+    draw::Rect settingsRect() const { return {width() - scale(52), scale(2), width() - scale(28), scale(26)}; }
+    // Settings: Hide what is outside of the map (a layer's terrain can be outside of it: core/map_layers.inc).
+    void settingsMenu() {
+        MenuModel m;
+        m.push_back(menuItem(1, L"&Hide what is outside of the map", {}, false, mapLayersHideOutside()));
+        void shellMenuAt(draw::View& from, draw::Point at, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick);
+        const draw::Rect r = settingsRect();
+        shellMenuAt(*this, {r.left, r.bottom + scale(2)}, m, L"the Layers settings", [](int id) {
+            if (id == 1) setMapLayersHideOutside(!mapLayersHideOutside());
+        });
+    }
     draw::Rect eyeRect(int y) const { return {scale(4), y + scale(3), scale(26), y + scale(25)}; }
     draw::Rect gripRect(int y) const { return {width() - scale(16), y + scale(8), width() - scale(4), y + scale(22)}; }
     draw::Rect lockRect(int y) const { return {width() - scale(40), y + scale(3), width() - scale(18), y + scale(25)}; }
@@ -185,7 +199,7 @@ private:
     int dragTo_ = -2;
     int dragRow() const { return drag_.dragging() ? drag_.item : -2; }
     void captureLost() override {
-        if (drag_.dragging()) drag_.cancel(*this), dragTo_ = -2, invalidate();
+        if (drag_.armed()) drag_.cancel(*this), dragTo_ = -2, invalidate();
     }
 };
 LayersPanelView gLayersPanel;

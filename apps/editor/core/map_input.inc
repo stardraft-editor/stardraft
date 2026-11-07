@@ -61,21 +61,26 @@ std::wstring unitShortName(const UnitType& t);
 
 // The view stays near the map: at most half a view past each edge; a map smaller than the view keeps its middle in
 // the view's middle on that axis. Every way the camera moves (drag, wheel, minimap, keys) passes here each frame.
+bool mapLayersOutsideBox(const Editor& ed, int& x0, int& y0, int& x1, int& y1);  // (map_layers.inc)
 void clampCamera() {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen() || app.zoom <= 0) return;
     int viewW = 0, viewH = 0;
     shellViewSize(viewW, viewH);
-    const float vw = viewW / app.zoom, vh = viewH / app.zoom, mw = app.ed->width() * 32.0f, mh = app.ed->height() * 32.0f;
-    auto clampAxis = [](float& cam, float view, float map) {
-        if (map < view) {  // all of the map fits: its middle stays inside the view
-            cam = std::clamp(cam, map / 2 - view, map / 2);
+    const float vw = viewW / app.zoom, vh = viewH / app.zoom;
+    // (the map, and the map layers' terrain outside of it: the view can go to it)
+    float lx = 0, ly = 0, hx = app.ed->width() * 32.0f, hy = app.ed->height() * 32.0f;
+    if (int ox0, oy0, ox1, oy1; mapLayersOutsideBox(*app.ed, ox0, oy0, ox1, oy1))
+        lx = std::min(lx, ox0 * 32.0f), ly = std::min(ly, oy0 * 32.0f), hx = std::max(hx, ox1 * 32.0f), hy = std::max(hy, oy1 * 32.0f);
+    auto clampAxis = [](float& cam, float view, float lo, float hi) {
+        if (hi - lo < view) {  // all of it fits: its middle stays inside the view
+            cam = std::clamp(cam, (lo + hi) / 2 - view, (lo + hi) / 2);
             return;
         }
-        cam = std::clamp(cam, -view / 2, map - view / 2);
+        cam = std::clamp(cam, lo - view / 2, hi - view / 2);
     };
-    clampAxis(app.camX, vw, mw);
-    clampAxis(app.camY, vh, mh);
+    clampAxis(app.camX, vw, lx, hx);
+    clampAxis(app.camY, vh, ly, hy);
 }
 
 // Options > Middle mouse click and hold > Pan map (both programs): while the middle button is held, the camera moves

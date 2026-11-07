@@ -131,8 +131,8 @@ public:
         return scale(kCell[viewSize()]);
     }
     // Its view (each panel's own; a new panel: the last one chosen, stampsGrid and stampsSize): a list or a grid, its size.
-    int viewGrid() const { return grid_; }
-    int viewSize() const { return size_; }
+    int viewGrid() const { return grid_ < 0 ? (grid_ = stampsGrid()) : grid_; }  // (at its first use: the settings are read then)
+    int viewSize() const { return size_ < 0 ? (size_ = stampsSize()) : size_; }
     void setView(int grid, int size) {
         grid_ = std::clamp(grid, 0, 1), size_ = std::clamp(size, 0, 2);
         setStampsView(grid_, size_);  // (the default for a new panel; the others keep theirs)
@@ -288,7 +288,7 @@ public:
             if (r < 0) return true;
             if (!rows_[size_t(r)].heading && rows_[size_t(r)].index >= 0 && rows_[size_t(r)].index < int(stampsList().size()) &&
                 !stampsList()[size_t(rows_[size_t(r)].index)].file.empty())
-                drag_.press(rows_[size_t(r)].index, e.pt);  // (the user's own: a drag moves it to a folder)
+                drag_.press(*this, rows_[size_t(r)].index, e.pt);  // (the user's own: a drag moves it to a folder)
             const StampRow row = rows_[size_t(r)];
             if (row.heading) {  // close it, or open it again
                 if (!gStampsClosed.erase(row.key)) gStampsClosed.insert(row.key);
@@ -358,7 +358,7 @@ public:
         return row.index >= 0 && row.index < int(list.size()) ? list[size_t(row.index)].folder : std::string();
     }
     void captureLost() override {
-        if (drag_.dragging()) drag_.cancel(*this), dropShown_ = false, invalidate();
+        if (drag_.armed()) drag_.cancel(*this), dropShown_ = false, invalidate();
     }
     // The files changed: the rows again at the next paint.
     void changed() {
@@ -390,7 +390,7 @@ private:
     std::vector<int> tops_;
     std::vector<draw::Rect> rects_;  // (each row's place in the content: a list's row, a grid's cell)
     int contentH_ = 0, scroll_ = 0, hover_ = -1, viewShown_ = -1, builtFor_ = -2;
-    int grid_ = stampsGrid(), size_ = stampsSize();  // (its view: setView)
+    mutable int grid_ = -1, size_ = -1;  // (its view: setView; -1: the default, read at its first use)
     kitui::ItemDrag drag_;        // the item pressed (its index in stampsList()): a drag moves it to a folder
     bool dropShown_ = false;
     std::string drop_;            // the folder that the drop goes into (shown while dragging_)

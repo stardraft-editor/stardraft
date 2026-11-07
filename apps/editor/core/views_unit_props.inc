@@ -93,7 +93,7 @@ struct UnitRowsView final : stardraft::kit::ListView {
         }
         if (draggable && e.kind == draw::MouseKind::Down && e.button == 0 && !(e.mods & (draw::kCtrl | draw::kShift))) {
             const int r = rowAt(e.pt);
-            if (r >= 0 && isSelected(r)) return drag_.press(r, e.pt), down_ = e, true;
+            if (r >= 0 && isSelected(r)) return drag_.press(*this, r, e.pt), down_ = e, true;
         }
         if (drag_.item >= 0 && e.kind == draw::MouseKind::Move) {
             if (drag_.move(*this, e.pt)) {
@@ -136,7 +136,7 @@ struct UnitRowsView final : stardraft::kit::ListView {
         }
     }
     void captureLost() override {
-        if (drag_.dragging()) drag_.cancel(*this), dropAt_ = -1, invalidate();
+        if (drag_.armed()) drag_.cancel(*this), dropAt_ = -1, invalidate();
     }
     kitui::ItemDrag drag_;  // (the selected rows' drag: the row pressed)
     int dropAt_ = -1;

@@ -85,6 +85,10 @@ public:
     void setPlayerColors(const uint32_t rgb[12]);  // each owner's team color, 0xRRGGBB (the map's player colors)
     // Upload the terrain (MTXM values); call again whenever it changes.
     void updateTerrain(const TerrainLayer& mtxm);
+    // The terrain on a grid larger than the map (map layers' terrain outside of it): `tiles` the grid's tiles (tile 0
+    // where there is none), the map's tile (0, 0) at (originX, originY) of it, the map mapW x mapH tiles. The previews
+    // (setTerrainPreview) stay in the map's tile indices.
+    void updateTerrainExtended(const TerrainLayer& tiles, int originX, int originY, int mapW, int mapH);
     // Tiles shown instead of the map's (a doodad about to be placed): (tile index y * width + x, CV5
     // tile value). Replaces the previous preview; empty clears it.
     void setTerrainPreview(const std::vector<std::pair<int, uint16_t>>& cells);

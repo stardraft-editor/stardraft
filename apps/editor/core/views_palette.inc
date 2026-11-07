@@ -197,7 +197,7 @@ struct PaletteGridView : draw::View {
             if (h >= 0) keys_.at = h;
             if (h >= 0 && picked) picked(h, e.mods);
             // (a pinned doodad's copy at the top: a drag moves it among the pins, as Move up and Move down)
-            if (e.kind == draw::MouseKind::Down && mode == Mode::Doodads && pinned > 1 && h >= 1 && h <= pinned) pinDrag_.press(h, e.pt), pinTo_ = h;
+            if (e.kind == draw::MouseKind::Down && mode == Mode::Doodads && pinned > 1 && h >= 1 && h <= pinned) pinDrag_.press(*this, h, e.pt), pinTo_ = h;
             invalidate();
             return true;
         }
@@ -208,7 +208,7 @@ struct PaletteGridView : draw::View {
                 if (dragged && from >= 1 && to >= 1 && to != from && from < int(rows.size())) {
                     const int value = rows[size_t(from)].value;
                     const std::vector<uint16_t> shown = paletteShownDoodads(rows);
-                    for (int k = 0; k < std::abs(to - from); ++k) doodadPinMove(value, to > from ? 1 : -1, shown);
+                    doodadPinMoveBy(value, to - from, shown);
                 }
                 invalidate();
                 return true;
@@ -220,7 +220,7 @@ struct PaletteGridView : draw::View {
         }
     }
     void captureLost() override {
-        if (pinDrag_.dragging()) pinDrag_.cancel(*this), pinTo_ = -1, invalidate();
+        if (pinDrag_.armed()) pinDrag_.cancel(*this), pinTo_ = -1, invalidate();
     }
     std::wstring tip(draw::Point p) override {  // (Report feedback names the entry under the mouse)
         const int h = rowAt(p);

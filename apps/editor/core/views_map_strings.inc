@@ -161,7 +161,7 @@ public:
         using draw::MouseKind;
         if (e.kind == MouseKind::Down && e.button == 0 && !e.mods) {
             const bool r = ListView::mouse(e);  // (the row is selected first)
-            if (const int row = rowAt(e.pt); row >= 0) drag_.press(row, e.pt);
+            if (const int row = rowAt(e.pt); row >= 0) drag_.press(*this, row, e.pt);
             return r;
         }
         if (e.kind == MouseKind::Move && drag_.item >= 0) {
@@ -183,7 +183,7 @@ public:
         return ListView::mouse(e);
     }
     void captureLost() override {
-        if (drag_.dragging()) drag_.cancel(*this), slot_ = -1, invalidate();
+        if (drag_.armed()) drag_.cancel(*this), slot_ = -1, invalidate();
     }
     bool key(const draw::KeyEvent& e) override {
         if (e.down && (e.mods & draw::kAlt) && (e.key == draw::Key::Up || e.key == draw::Key::Down)) {

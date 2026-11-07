@@ -2998,3 +2998,8 @@ More	Ещё
 Hide the less used values	Скрыть редко используемые значения
 Show the less used values: Detailed tiles	Показать редко используемые значения: Детальные тайлы
 Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	Детальные тайлы: как часто изометрическое и прямоугольное рисование ставит детальный тайл, от 0 до 100%. StarCraft: 5%. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.
+Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it	Юниты, дудады и спрайты остаются на карте: за её пределы выходит только местность слоя
+&Hide what is outside of the map	&Скрыть то, что за пределами карты
+Settings of the layers	Настройки слоёв
+Layers: what is outside of the map is hidden	Слои: то, что за пределами карты, скрыто
+Layers: what is outside of the map shows	Слои: то, что за пределами карты, видно

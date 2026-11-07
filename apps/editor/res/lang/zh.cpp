@@ -3000,6 +3000,11 @@ constexpr UiText kRows[] = {
     {L"Hide the less used values", L"\u9690\u85CF\u4E0D\u5E38\u7528\u7684\u503C"},
     {L"Show the less used values: Detailed tiles", L"\u663E\u793A\u4E0D\u5E38\u7528\u7684\u503C\uFF1A\u7EC6\u8282\u56FE\u5757"},
     {L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.", L"\u7EC6\u8282\u56FE\u5757\uFF1A\u7B49\u8DDD\u548C\u77E9\u5F62\u7ED8\u5236\u653E\u7F6E\u7EC6\u8282\u56FE\u5757\u7684\u9891\u7387\uFF0C0 \u5230 100%\u3002\u661F\u9645\u4E89\u9738\uFF1A5%\u3002\u5355\u51FB\u53EF\u8F93\u5165\u6570\u5B57\u3002\u7BAD\u5934\u548C\u9F20\u6807\u6EDA\u8F6E\u53EF\u66F4\u6539\u5B83\u3002"},
+    {L"Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it", L"\u5355\u4F4D\u3001\u88C5\u9970\u7269\u548C\u7CBE\u7075\u7559\u5728\u5730\u56FE\u4E0A\uFF1A\u53EA\u6709\u56FE\u5C42\u7684\u5730\u5F62\u53EF\u4EE5\u79FB\u51FA\u5730\u56FE"},
+    {L"&Hide what is outside of the map", L"\u9690\u85CF\u5730\u56FE\u5916\u7684\u5185\u5BB9(&H)"},
+    {L"Settings of the layers", L"\u56FE\u5C42\u8BBE\u7F6E"},
+    {L"Layers: what is outside of the map is hidden", L"\u56FE\u5C42\uFF1A\u5730\u56FE\u5916\u7684\u5185\u5BB9\u5DF2\u9690\u85CF"},
+    {L"Layers: what is outside of the map shows", L"\u56FE\u5C42\uFF1A\u5730\u56FE\u5916\u7684\u5185\u5BB9\u5DF2\u663E\u793A"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

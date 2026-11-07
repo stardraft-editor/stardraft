@@ -281,37 +281,41 @@ inline void removeCross(draw::Canvas& c, Surface& s, draw::Rect row, draw::Rect 
     iconButton(c, s, at, UiIcon::Close, std::move(click), tip, Icon::Bare, false, true, Tone::Danger);
 }
 
-// The drag of an item in a view (docs/dev/PATTERNS.md, "Drag and drop"): a press arms it (press), a move of 4 px starts
-// it and captures the mouse (move: true while it drags), the release ends it (release: the item dragged, or -1 for a
-// click or a release outside the view); a lost capture or Esc (escape, from the key filter) cancels it (cancel). The view paints the grip and the drop
+// The drag of an item in a view (docs/dev/PATTERNS.md, "Drag and drop"): a press arms it and captures the mouse (press:
+// the release comes to the view, also outside it), a move of 4 px starts it (move: true while it drags), the release
+// ends it and gives the mouse back (release: the item dragged, or -1 for a click or a release outside the view); a lost
+// capture or Esc (escape, from the key filter) cancels it (cancel). The view paints the grip and the drop
 // line (kitpaint::drawGrip, drawDropLine) while dragging() is on.
 struct ItemDrag {
     int item = -1;
     draw::Point at{};
     bool on = false;
-    void press(int i, draw::Point p) { item = i, at = p, on = false; }
+    void press(draw::View& v, int i, draw::Point p) {
+        item = i, at = p, on = false;
+        if (draw::Host* h = v.host()) h->capture(v, true);
+    }
+    bool armed() const { return item >= 0; }  // (a press that is not released yet: a drag or a click)
     bool dragging() const { return on; }
     bool move(draw::View& v, draw::Point p) {
         if (item < 0) return false;
-        if (!on && std::abs(p.x - at.x) + std::abs(p.y - at.y) > scale(4)) {
-            on = true, sActive = this, sView = &v;
-            if (draw::Host* h = v.host()) h->capture(v, true);
-        }
+        if (!on && std::abs(p.x - at.x) + std::abs(p.y - at.y) > scale(4)) on = true, sActive = this, sView = &v;
         return on;
     }
     int release(draw::View& v, draw::Point p) {
         const int i = std::exchange(item, -1);
         const bool was = std::exchange(on, false);
         if (sActive == this) sActive = nullptr, sView = nullptr;
+        if (i >= 0)
+            if (draw::Host* h = v.host()) h->capture(v, false);
         if (!was) return -1;
-        if (draw::Host* h = v.host()) h->capture(v, false);
         return p.x < 0 || p.y < 0 || p.x >= v.width() || p.y >= v.height() ? -1 : i;
     }
     void cancel(draw::View& v) {
-        if (on)
-            if (draw::Host* h = v.host()) h->capture(v, false);
+        const bool held = item >= 0;
         item = -1, on = false;
         if (sActive == this) sActive = nullptr, sView = nullptr;
+        if (held)
+            if (draw::Host* h = v.host()) h->capture(v, false);
     }
     // Esc while a drag is on (the program's key filter: the dragging view has no keyboard): the view ends what the drag
     // was for (its captureLost), and the drag ends. True: a drag was cancelled.

@@ -3030,6 +3030,11 @@ constexpr UiText kRows[] = {
     {L"Hide the less used values", L"\uB35C \uC4F0\uB294 \uAC12 \uC228\uAE30\uAE30"},
     {L"Show the less used values: Detailed tiles", L"\uB35C \uC4F0\uB294 \uAC12 \uBCF4\uAE30: \uC138\uBD80 \uD0C0\uC77C"},
     {L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.", L"\uC138\uBD80 \uD0C0\uC77C: \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD\uACFC \uC0AC\uAC01\uD615 \uCE60\uD558\uAE30\uAC00 \uC138\uBD80 \uD0C0\uC77C\uC744 \uB193\uB294 \uBE48\uB3C4, 0~100%. \uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8: 5%. \uD074\uB9AD\uD558\uBA74 \uC22B\uC790\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. \uD654\uC0B4\uD45C\uC640 \uB9C8\uC6B0\uC2A4 \uD720\uB85C \uBC14\uAFC9\uB2C8\uB2E4."},
+    {L"Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it", L"\uC720\uB2DB, \uB450\uB300\uB4DC, \uC2A4\uD504\uB77C\uC774\uD2B8\uB294 \uB9F5\uC5D0 \uB0A8\uC2B5\uB2C8\uB2E4: \uB808\uC774\uC5B4\uC758 \uC9C0\uD615\uB9CC \uB9F5 \uBC16\uC73C\uB85C \uB098\uAC11\uB2C8\uB2E4"},
+    {L"&Hide what is outside of the map", L"\uB9F5 \uBC16\uC5D0 \uC788\uB294 \uAC83 \uC228\uAE30\uAE30(&H)"},
+    {L"Settings of the layers", L"\uB808\uC774\uC5B4 \uC124\uC815"},
+    {L"Layers: what is outside of the map is hidden", L"\uB808\uC774\uC5B4: \uB9F5 \uBC16\uC5D0 \uC788\uB294 \uAC83\uC774 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
+    {L"Layers: what is outside of the map shows", L"\uB808\uC774\uC5B4: \uB9F5 \uBC16\uC5D0 \uC788\uB294 \uAC83\uC774 \uBCF4\uC785\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

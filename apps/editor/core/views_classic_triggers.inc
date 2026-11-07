@@ -844,7 +844,7 @@ public:
             if (!hit) return true;
             if (hit->drag) {
                 hit->drag(e.pt);
-                grip_.press(drag_.from, e.pt);  // (kitui::ItemDrag: a drag after 4 px, the mouse captured, Esc ends it)
+                grip_.press(*this, drag_.from, e.pt);  // (kitui::ItemDrag: a drag after 4 px, the mouse captured, Esc ends it)
             } else if (hit->click) {
                 auto click = hit->click;  // (the click may repaint, which clears the hits)
                 gCtClickMods = e.mods;    // (Ctrl and Shift of the click itself, also for a posted click)
@@ -1276,7 +1276,7 @@ private:
     kitui::ItemDrag grip_;  // (the drag of drag_'s row: its threshold, the capture, Esc)
 public:
     void captureLost() override {
-        if (grip_.dragging()) grip_.cancel(*this), drag_ = {}, invalidate();
+        if (grip_.armed()) grip_.cancel(*this), drag_ = {}, invalidate();
     }
 private:
     draw::Rect hoverRect_;  // the part the mouse is over (its hit's rectangle at the last move)

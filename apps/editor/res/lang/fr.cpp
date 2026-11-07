@@ -3000,6 +3000,11 @@ constexpr UiText kRows[] = {
     {L"Hide the less used values", L"Masquer les valeurs moins utilis\u00E9es"},
     {L"Show the less used values: Detailed tiles", L"Afficher les valeurs moins utilis\u00E9es : Tuiles d\u00E9taill\u00E9es"},
     {L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.", L"Tuiles d\u00E9taill\u00E9es : la fr\u00E9quence \u00E0 laquelle la peinture isom\u00E9trique et rectangulaire place une tuile d\u00E9taill\u00E9e, de 0 \u00E0 100 %. StarCraft : 5 %. Cliquez pour taper un nombre. Les fl\u00E8ches et la molette le changent."},
+    {L"Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it", L"Les unit\u00E9s, doodads et sprites restent sur la carte : seul le terrain d'un calque en sort"},
+    {L"&Hide what is outside of the map", L"&Masquer ce qui est hors de la carte"},
+    {L"Settings of the layers", L"R\u00E9glages des calques"},
+    {L"Layers: what is outside of the map is hidden", L"Calques : ce qui est hors de la carte est masqu\u00E9"},
+    {L"Layers: what is outside of the map shows", L"Calques : ce qui est hors de la carte s'affiche"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

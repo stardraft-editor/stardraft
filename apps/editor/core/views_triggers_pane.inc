@@ -743,7 +743,7 @@ public:
     }
     void captureLost() override {
         pressed_ = false;
-        if (blockDrag_.dragging()) blockDrag_.cancel(*this), gTP.dragging = false, gTP.drag = {}, gTP.dropIdx = -1, invalidate();
+        if (blockDrag_.armed()) blockDrag_.cancel(*this), gTP.dragging = false, gTP.drag = {}, gTP.dropIdx = -1, invalidate();
     }
 
     void scrollTo(int pos) {
@@ -848,7 +848,7 @@ private:
         gTP.sel = l ? l->ref : TrigBlockRef{};
         if (l) {
             gTP.drag = l->ref, gTP.dragFromY = pt.y;
-            blockDrag_.press(0, {pt.x, pt.y});
+            blockDrag_.press(*this, 0, {pt.x, pt.y});
         }
         invalidate();
         host_.infoChanged();

@@ -2998,3 +2998,8 @@ More	更多
 Hide the less used values	隐藏不常用的值
 Show the less used values: Detailed tiles	显示不常用的值：细节图块
 Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	细节图块：等距和矩形绘制放置细节图块的频率，0 到 100%。星际争霸：5%。单击可输入数字。箭头和鼠标滚轮可更改它。
+Units, doodads and sprites stay on the map: only a layer's terrain goes outside of it	单位、装饰物和精灵留在地图上：只有图层的地形可以移出地图
+&Hide what is outside of the map	隐藏地图外的内容(&H)
+Settings of the layers	图层设置
+Layers: what is outside of the map is hidden	图层：地图外的内容已隐藏
+Layers: what is outside of the map shows	图层：地图外的内容已显示

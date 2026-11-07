@@ -118,6 +118,7 @@
 #include "stardraft/dat_edit.h"
 #include "stardraft/dat_extras.h"
 #include "stardraft/dat_units.h"  // the converted values on the Data form (core/data_model.inc)
+#include "stardraft/new_map.h"  // (core/map_layers.inc: the scratch map of the layers' terrain outside of the map)
 #include "stardraft/help.h"  // the help pages (core/views_help.inc)
 #include "stardraft/campaign.h"
 #include "stardraft/project_import.h"

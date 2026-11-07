@@ -81,6 +81,8 @@ private:
             std::replace(t.begin(), t.end(), L',', L'.');
             wchar_t* end = nullptr;
             const double v = std::wcstod(t.c_str(), &end);
+            while (end && *end == L' ') ++end;
+            if (end && *end) end = const_cast<wchar_t*>(t.c_str());  // (text after the number: not a number)
             const double step = std::pow(10.0, asks_[i].decimals);
             const double r = std::round(v * step) / step;
             if (t.empty() || end == t.c_str() || !(r >= asks_[i].min && r <= asks_[i].max)) {

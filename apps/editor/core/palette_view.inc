@@ -310,6 +310,19 @@ int doodadPinMovesOff(int value, const std::vector<uint16_t>& shown) {
     const std::vector<uint16_t> pins = doodadPinsNow();
     return (pinCanMove(pins, uint16_t(value), -1, shown) ? 0 : 1) | (pinCanMove(pins, uint16_t(value), 1, shown) ? 0 : 2);
 }
+// Moves a pinned doodad `steps` places up (less than 0) or down among the pinned doodads that the palette shows (a drag
+// of its row), saved once.
+void doodadPinMoveBy(int value, int steps, const std::vector<uint16_t>& shown) {
+    if (value < 0 || !steps || !canPinDoodads()) return;
+    std::vector<uint16_t> pins = doodadPinsNow();
+    bool moved = false;
+    for (int k = 0; k < std::abs(steps); ++k) moved |= pinMove(pins, uint16_t(value), steps > 0 ? 1 : -1, shown);
+    if (!moved) return;
+    std::string err;
+    if (!setDoodadPinsNow(pins, err)) shellErrorBox(widen(err), shellTr(activeProject() ? L"Could not save the project" : L"Could not save the map's settings"));
+    shellPaletteRebuilt();
+    shellPaletteChanged();
+}
 // Moves a pinned doodad one place up (dir -1) or down (1) among the pinned doodads that the palette shows; kept as its
 // pin is.
 void doodadPinMove(int value, int dir, const std::vector<uint16_t>& shown) {
