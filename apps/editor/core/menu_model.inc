@@ -346,6 +346,7 @@ MenuModel buildMenuModel() {
     units.push_back(menuItem(ID_OPT_RESDIST, L"Keep &resources 3 tiles from town halls"));
     units.push_back(menuItem(ID_OPT_RANDOMFACING, L"&Randomize unit direction when placed"));
     units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
+    units.push_back(menuItem(ID_OPT_MANYSTARTS, L"Many start &locations for each player"));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
     doodads.push_back(menuSeparator());
     append(doodads, placeItems(ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE));

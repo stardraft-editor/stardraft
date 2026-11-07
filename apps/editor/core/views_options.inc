@@ -729,9 +729,6 @@ void OptionsView::paint(draw::Canvas& c) {
         }
         note(x0, y - scale(4), L"StarCraft without mods takes at most 3400 units in a map.");
         y += scale(20) + pad;
-        header(L"Placing units");
-        checkRow(y, manyStarts_, "manystartlocations");
-        y += rowH + pad;
         header(L"Saving maps");
         checkRow(y, askStart_, "askstartlocations");
         y += rowH + pad;

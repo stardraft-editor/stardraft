@@ -298,7 +298,7 @@ void shellStampsButtonMenu(draw::View& from, bool sort) {
     MenuModel m;
     if (sort) {
         m.push_back(menuItem(ID_PAL_SORT_NAME, L"Name: &A to Z", {}, false, stampsSort() == 0));
-        m.push_back(menuItem(ID_PAL_SORT_NUMBER, L"Date: &newest first", {}, false, stampsSort() == 1));
+        m.push_back(menuItem(ID_PAL_SORT_DATE, L"Date: &newest first", {}, false, stampsSort() == 1));
     } else {
         m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
         m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));
@@ -309,7 +309,7 @@ void shellStampsButtonMenu(draw::View& from, bool sort) {
     }
     const draw::Point at{0, from.height()};
     sdlPopupMenu(from, at, sdlModelItems(m, [](int id) {
-        if (id == ID_PAL_SORT_NAME || id == ID_PAL_SORT_NUMBER) return setStampsSort(id == ID_PAL_SORT_NUMBER ? 1 : 0);
+        if (id == ID_PAL_SORT_NAME || id == ID_PAL_SORT_DATE) return setStampsSort(id == ID_PAL_SORT_DATE ? 1 : 0);
         if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
         if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
     }), sdlFeedbackOn(from, at, sort ? L"the Custom list's Sort button" : L"the Custom list's View button"));

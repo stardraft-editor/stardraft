@@ -84,7 +84,7 @@ void stashActive() {
     panelsStash();  // (its active panel keeps its state for when the tab is back: panel_state.inc)
     d.ed = std::move(app.ed);
 }
-// Program options > Placing units > Many start locations for each player (ManyStartLocations; off: a player's new start
+// Options > Units > Many start locations for each player (ManyStartLocations; off: a player's new start
 // location moves the one that the player has).
 bool manyStartLocations() {
     bool many = false;

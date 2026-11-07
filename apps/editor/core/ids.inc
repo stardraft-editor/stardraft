@@ -52,7 +52,7 @@ enum : int {
     ID_OPT_RESDIST,  // Options > Units > Keep resources 3 tiles from town halls (a check item; Discord feedback #97)
     ID_OPT_RANDOMFACING,  // Options > Units > Randomize unit direction when placed (a check item)
     ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
-    ID_OPT_MANYSTARTS,    // Program options > Placing units > Many start locations for each player (a check box)
+    ID_OPT_MANYSTARTS,    // Options > Units > Many start locations for each player (a check item)
     ID_OPT_DRAGOBJECTS,   // Options > Drag objects to move them (units, doodads, sprites, locations; GitHub #256)
     // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
@@ -64,6 +64,7 @@ enum : int {
     ID_PAL_XLARGE = 630,  // ... Extra large (Discord feedback, GitHub #150)
     ID_PAL_SORT_TIER = 631,  // ... Sort by tier (a mod's units with tiers: Cosmonarchy BW)
     ID_PAL_SORT_NAME_DOWN = 632, ID_PAL_SORT_NUMBER_DOWN,  // ... the names Z to A, the numbers high to low
+    ID_PAL_SORT_DATE = 634,  // ... the newest first (the Custom list's Sort menu)
     ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French

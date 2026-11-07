@@ -104,7 +104,8 @@ On the map, outside the area selection tools:
 - **An error box** uses shellErrorBox. A typed value that is not valid is refused in its field; it does not open a box.
 - **"Do not ask again"** is a check box in the question. The same setting is a check box in Program options, and the
   status bar tells where it is when the user checks it.
-- Do not call msgbox or runMessageBox directly from a view.
+- A core view (core/) asks through the shell's helpers (shellAskYesNo, shellErrorBox, shellAskSaveChanges). Only the
+  host (the sdl_*.inc and shell_*.inc files) calls msgbox::ask, with buttons named by their actions.
 
 ## Masks and filters
 
@@ -146,11 +147,10 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
   an order.
 - Data table, Units list: sort by a click on a column header (correct for a table: a table is not a list).
 - Quick picker: its own S, M, L buttons for the view.
-- Custom list: its view is one value for all panels; "Date: newest first" uses the command id of "Number: low to high".
+- Custom list: its view is one value for all panels.
 
 **Settings**
 
-- "Many start locations for each player" is in Program options; it is a placement rule (Options > Units).
 - "Detailed tiles" is in Program options; it is a value of the terrain tools (tool strip). It is there for now, as the
   user asked (2026-11-07), until the tool strip has a place for the tools' less used values.
 - "Animate units" is in the View menu, but it is saved as a preference (correct: it changes what the map shows).
@@ -173,7 +173,7 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Messages**
 
-- Direct msgbox::ask in Program options, Simulate mining, updates, the Briefing and the Ramp and bridge mapper.
+- Direct msgbox::ask in two core views: the Custom isom terrain editor and the Ramp and bridge mapper (mod tools).
 - A bad typed value: a status message on the New page, an error box in the establishing shot.
 
 **Drag and drop**

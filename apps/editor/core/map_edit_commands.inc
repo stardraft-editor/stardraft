@@ -734,6 +734,10 @@ int mapMenuCheck(int id) {
     case ID_OPT_STACK: return app.allowStacking;
     case ID_OPT_RESDIST: return app.resourceDistance;
     case ID_OPT_RANDOMFACING: return app.randomFacing;
+    case ID_OPT_MANYSTARTS: {
+        bool manyStartLocations();  // (views_tabs.inc)
+        return manyStartLocations();
+    }
     case ID_OPT_ANIMATE: return app.animate;
     case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;

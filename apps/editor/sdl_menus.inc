@@ -287,6 +287,7 @@ bool sdlRuns(int id) {
     case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
     case ID_OPT_DRAGOBJECTS:
+    case ID_OPT_MANYSTARTS:
     case ID_OPT_ANIMATE:
     case ID_DOODAD_FIT:
     case ID_DOODAD_NEAREST:
