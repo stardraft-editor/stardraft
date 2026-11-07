@@ -59,10 +59,9 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
         uint16_t* const target = p;
         const std::wstring what = name;
         NewPageView* const self = this;
-        std::wstring text = std::to_wstring(*target);
-        if (!shellPromptText(what + L" (16 to 256 tiles)", text)) return;
-        const int v = std::wcstol(text.c_str(), nullptr, 10);
-        if (v < 16 || v > 256) return setMessage(what + L": type a size from 16 to 256");
+        std::vector<NumberAsk> asks{{what, tr(L"tiles"), double(*target), 16, 256}};
+        if (!shellAskNumbers(tr(L"Map size"), asks)) return;
+        const int v = int(asks[0].value);
         if (v != *target) *target = uint16_t(v), self->changed();
     };
     hits.push_back(typed);

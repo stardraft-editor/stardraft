@@ -220,6 +220,15 @@ struct ShellFilePick {
 std::filesystem::path shellPickFile(const ShellFilePick& pick);
 // A line of text typed in a small dialog with OK and Cancel (`text` holds what the field shows first). False: Cancel.
 bool shellPromptText(const std::wstring& title, std::wstring& text);
+// The number form (core/views_number_prompt.inc): each number a row with its name, field, unit and range. OK: the values
+// in `asks`, true; Cancel: false.
+struct NumberAsk {
+    std::wstring label;  // its name ("Width")
+    std::wstring unit;   // after the field ("pixels", "tiles", "seconds"); empty: none
+    double value = 0, min = 0, max = 0;
+    int decimals = 0;    // 0: a whole number; 1 or more: that many digits after the point at most
+};
+bool shellAskNumbers(const std::wstring& title, std::vector<NumberAsk>& asks);
 // A value typed in the pop-out under `field` (a part of the view `v`, in its coordinates), as the Data form's values.
 // False: Cancel.
 bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);

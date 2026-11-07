@@ -114,6 +114,7 @@
 #include "views_location_props.inc"
 #include "views_revealers_dialog.inc"  // Tools > Place map revealers: the players' dialog (Discord feedback #125)
 #include "views_text_prompt.inc"
+#include "views_number_prompt.inc"  // the number form: numbers with their ranges and units, OK and Cancel (shellAskNumbers)
 #include "views_map_menu.inc"
 #include "views_quick_pick.inc"
 #include "views_campaign.inc"  // File > Campaign: the campaign's maps (roadmap R25)

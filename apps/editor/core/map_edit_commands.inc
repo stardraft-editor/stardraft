@@ -675,22 +675,12 @@ bool commandMapEdit(AppState& app, int id) {
         if (app.mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         break;
     case ID_GRID_CUSTOM: {  // the grid's width, height and offset, in map pixels
-        std::wstring text = std::to_wstring(gDock.gridW) + L", " + std::to_wstring(gDock.gridH) + L", " + std::to_wstring(gDock.gridX) + L", " +
-                            std::to_wstring(gDock.gridY);
-        if (!shellPromptText(L"Grid: width, height, x offset, y offset (map pixels)", text)) break;
-        int v[4] = {gDock.gridW, gDock.gridH, gDock.gridX, gDock.gridY}, n = 0;
-        for (const wchar_t* c = text.c_str(); *c && n < 4;) {
-            if (iswdigit(*c)) {
-                v[n++] = int(std::wcstol(c, nullptr, 10));
-                while (iswdigit(*c)) ++c;
-            } else ++c;
-        }
-        if (n < 2) {
-            setMessage(L"Type the width and the height (and the offsets), for example 48, 48, 16, 0");
-            break;
-        }
-        gDock.gridW = std::clamp(v[0], 1, 8192), gDock.gridH = std::clamp(v[1], 1, 8192);
-        gDock.gridX = n > 2 ? std::clamp(v[2], 0, 8191) : 0, gDock.gridY = n > 3 ? std::clamp(v[3], 0, 8191) : 0;
+        std::vector<NumberAsk> asks{{tr(L"Width"), tr(L"pixels"), double(gDock.gridW), 1, 8192},
+                                    {tr(L"Height"), tr(L"pixels"), double(gDock.gridH), 1, 8192},
+                                    {tr(L"X offset"), tr(L"pixels"), double(gDock.gridX), 0, 8191},
+                                    {tr(L"Y offset"), tr(L"pixels"), double(gDock.gridY), 0, 8191}};
+        if (!shellAskNumbers(tr(L"Custom grid"), asks)) break;
+        gDock.gridW = int(asks[0].value), gDock.gridH = int(asks[1].value), gDock.gridX = int(asks[2].value), gDock.gridY = int(asks[3].value);
         app.showGrid = true, app.dirty = true;
         saveDock();
         setMessage(L"Grid: " + std::to_wstring(gDock.gridW) + L" x " + std::to_wstring(gDock.gridH) + L" pixels, offset " + std::to_wstring(gDock.gridX) +

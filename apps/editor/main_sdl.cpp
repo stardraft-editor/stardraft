@@ -1004,6 +1004,8 @@ int main(int argc, char** argv) {
             if (docOpen()) projectStart.openMap = docTitle(gActive, false);
             NewProjectView projectShot(projectStart);
             TextPromptView promptShot(L"0x", false);
+            std::vector<NumberAsk> numberAsks{{L"Width", L"pixels", 64, 1, 8192}, {L"Height", L"pixels", 32, 1, 8192}, {L"X offset", L"pixels", 0, 0, 8191}, {L"Y offset", L"pixels", 0, 0, 8191}};
+            NumberPromptView numbersShot(numberAsks);  // numbers: the number form (View > Grid > Custom; --size 385x205)
             // listpick: the list picker as a multi-pick of unit types (classictrig:values on Windows; --size 378x494).
             std::vector<ListPickItem> pickItems;
             for (int u = 0; u <= 227; ++u) pickItems.push_back(ListPickItem{unitDisplayName(u), L"", std::to_string(u), "", -1});
@@ -1048,6 +1050,7 @@ int main(int argc, char** argv) {
                 shown = &gPassagesView;
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
+            else if (dialogArg == "numbers") shown = &numbersShot;
             else if (dialogArg == "listpick") shown = &pickShot;
             else if (dialogArg == "toolpopout") shown = toolPopoutShot();  // (core/views_toolstrip.inc)
             else if (dialogArg == "blockpick") shown = &blockShot;

@@ -326,15 +326,11 @@ private:
         change([&](stardraft::cmbw::EstablishingShot& s) { cur(s).place = places[size_t(i)].first; },
                tr(L"The text of page ") + std::to_wstring(page + 1) + tr(L" is at ") + tr(widen(places[size_t(i)].second).c_str()));
     }
-    // A time in seconds (0 to 600) typed in a prompt; -1 when nothing (or nothing valid) was typed.
+    // A time in seconds (0 to 600, to a thousandth) in the number form; -1: Cancel.
     static int promptSeconds(const std::wstring& title, int ms) {
-        wchar_t now[32];
-        std::swprintf(now, 32, L"%g", (ms < 0 ? 0 : ms) / 1000.0);
-        std::wstring typed = now;
-        if (!shellPromptText(title, typed)) return -1;
-        const double v = std::wcstod(typed.c_str(), nullptr);
-        if (!(v >= 0) || v > 600) return shellErrorBox(tr(L"Type a number of seconds from 0 to 600, for example 5"), title), -1;
-        return int(std::lround(v * 1000));
+        std::vector<NumberAsk> asks{{tr(L"Time"), tr(L"seconds"), (ms < 0 ? 0 : ms) / 1000.0, 0, 600, 3}};
+        if (!shellAskNumbers(title, asks)) return -1;
+        return int(std::lround(asks[0].value * 1000));
     }
     void editDisplay() {
         const Editor* ed = appState().ed.get();

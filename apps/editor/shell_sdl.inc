@@ -741,6 +741,7 @@ bool shellPromptText(const std::wstring& title, std::wstring& text) {
     TextPromptView* shown = nullptr;
     return gRoot && runTextPrompt(*gRoot, title, text, true, shown);
 }
+bool shellAskNumbers(const std::wstring& title, std::vector<NumberAsk>& asks) { return gRoot && runNumberPrompt(*gRoot, title, asks); }
 // The value pop-out (core/views_value_pop.inc) 2 px under the field, in the main window; "A text of the game..." lists
 // the Strings tab's entries. A text that is not changed is no change (as the Windows editTextValue).
 bool shellEditValue(stardraft::draw::View& v, stardraft::draw::Rect field, const ValuePopSpec& spec, std::string& out) {

@@ -82,7 +82,9 @@ On the map, outside the area selection tools:
   shellContextMenu or kit::Menu::popup for new menus.
 - **A choice of a few values** that the user sees all the time is a dropdown or a segmented control, not a menu.
 - **A typed value** (a number, a size, a percent) is a kit text field in its place, with its range and its unit
-  beside it. It refuses values out of range. Do not ask for a number in a prompt.
+  beside it. It refuses values out of range. Where there is no place for it, the number form asks for it
+  (shellAskNumbers: a row for each number, its range, OK refuses a value out of it). Do not ask for a number in a text
+  prompt.
 - **A name** (rename, a new name) uses shellPromptText. The same text is the title of the prompt and of its error box.
 - **A pick from game data** (a unit, a sound, a string) uses runListPick or a value pop-out (PRINCIPLES.md, "Edit
   values in pop-outs").
@@ -161,8 +163,7 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Menus and pickers**
 
-- Typed numbers in prompts: View > Grid > Custom (four numbers in one field), the new map size, the seconds of an
-  establishing shot, a memory address.
+- A memory address in a text prompt (a hex number).
 
 **Buttons and icons**
 
@@ -174,7 +175,6 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 **Messages**
 
 - Direct msgbox::ask in two core views: the Custom isom terrain editor and the Ramp and bridge mapper (mod tools).
-- A bad typed value: a status message on the New page, an error box in the establishing shot.
 
 **Drag and drop**
 
