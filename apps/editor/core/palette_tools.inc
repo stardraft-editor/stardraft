@@ -576,7 +576,7 @@ std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
 }
 // Terrain's Select and Magic wand: one group's button (4). Select stays the mode's selection (select: true).
 StripItem selectGroup(StripItem select) {
-    return stripGroup(4, {std::move(select), {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
+    return stripGroup(4, {std::move(select), {UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false}, {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
 }
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.

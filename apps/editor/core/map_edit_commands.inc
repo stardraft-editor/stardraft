@@ -333,13 +333,83 @@ void cutMapSelection(AppState& app) {
     app.dirty = true;
 }
 
+// Terrain's Move: the selected terrain goes (dx, dy) pixels on, one undo step. Isometric: on the diamonds' grid, the terrain
+// fitted there, and the Erase terrain where it was (on a layer: NULL). The other kinds: the tiles as they are, null tiles
+// where they were. The copy that Ctrl+V pastes stays. Mirrors and turns do not repeat a move.
+void moveSelectedTerrain(AppState& app, int dx, int dy) {
+    if (!app.ed || !app.hasTerrainSel || (!dx && !dy)) return;
+    Editor& ed = *app.ed;
+    if (mapLayersActiveLocked()) return setMessage(L"The layer is locked: nothing changed");
+    const bool iso = !app.terrainRect;
+    if (iso && !ed.canPaintTerrain()) return setMessage(L"The map has no isometric terrain data: use Rectangle or Tile");
+    int rx = 0, ry = 0, tileDx, tileDy;
+    if (iso) {
+        snapLayerMove(dx, dy, rx, ry);
+        tileDx = rx * 2, tileDy = ry;
+    } else {
+        tileDx = int(std::lround(dx / 32.0)), tileDy = int(std::lround(dy / 32.0));
+    }
+    if (!tileDx && !tileDy) return;
+    const std::vector<std::pair<int, int>> cells = terrainSelTiles();
+    const Editor::TerrainCopies held = ed.terrainCopies();
+    const int mirrors = ed.mirrors(), turns = ed.turns();
+    const bool copied = iso ? copySelectedTerrain(app, app.terrainSel) : copySelectedTiles(ed);
+    if (!copied) {
+        ed.setTerrainCopies(held);
+        return setMessage(L"Nothing to move there: make the selection larger");
+    }
+    const int tileX = iso ? 0 : app.terrainSel.left / 32 + tileDx, tileY = iso ? 0 : app.terrainSel.top / 32 + tileDy;
+    const auto origin = ed.terrainCopyOrigin();
+    ed.setMirrors(0), ed.setTurns(1);
+    ed.beginStroke();  // one undo step
+    if (iso && app.copyUnitsWithTerrain) {  // the copied units go with it
+        ed.clearSelection();
+        const Rect& r = app.terrainSel;
+        for (int i = 0; i < int(ed.units().size()); ++i)
+            if (const Unit& u = ed.units()[size_t(i)]; app.terrainSelMask.empty() ? Editor::inSelectShape(r, selectShape(), u.x, u.y) : terrainSelHas(u.x / 32, u.y / 32))
+                ed.select(i, true);
+        ed.deleteSelection();
+    }
+    if (iso && !mapLayersOnLayer()) {
+        std::set<std::pair<int, int>> rects;
+        for (const auto& [tx, ty] : cells) rects.insert({tx / 2, ty});
+        std::vector<CornerValue> corners;
+        const uint16_t ground = eraseTerrain(ed);
+        std::set<std::pair<int, int>> seen;
+        for (const auto& [cx, cy] : rects)
+            for (const auto& at : {std::pair{cx, cy}, {cx + 1, cy}, {cx, cy + 1}, {cx + 1, cy + 1}})
+                if (((at.first + at.second) & 1) && seen.insert(at).second) corners.push_back({at.first, at.second, ground});
+        ed.setTerrainCorners(corners);
+    } else {
+        ed.placeTileCells(cells, 0);
+    }
+    if (iso) ed.pasteTerrain((origin.first + rx) * 64, (origin.second + ry) * 32, app.correction);
+    else ed.pasteTiles(tileX, tileY);
+    ed.endStroke();
+    ed.takeUnitsRemovedByTerrain();
+    ed.setMirrors(mirrors), ed.setTurns(turns);
+    ed.setTerrainCopies(held);
+    std::vector<std::pair<int, int>> moved;
+    for (const auto& [tx, ty] : cells) moved.push_back({tx + tileDx, ty + tileDy});
+    std::erase_if(moved, [&ed](const auto& c) { return c.first < 0 || c.second < 0 || c.first >= int(ed.width()) || c.second >= int(ed.height()); });
+    setTerrainSelTiles(moved);
+    mapLayersSync();
+    setMessage(L"Moved the terrain (one undo step)");
+    app.terrainRev = 0;
+    app.dirty = true;
+}
+
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
 bool commandMapEdit(AppState& app, int id) {
     const bool open = app.ed && app.ed->isOpen();
     mapLayersSync();  // (the last edit is in its layer before the next one: core/map_layers.inc)
     if (app.mode == Mode::Layers && id == ID_EDIT_DUPLICATE) return mapLayersCurrentDuplicate(), true;
     if (app.mode == Mode::Layers && id == ID_EDIT_RENAME) return mapLayersCurrentRename(), true;
-    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_PASTE || id == ID_EDIT_SELECTALL)) return true;
+    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_SELECTALL)) return true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_PASTE) {  // (the copy goes on the selected layer: in the mode that pastes it)
+        if (!open || !(app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard())) return true;
+        setMode(Mode::Terrain);
+    }
     if (app.mode == Mode::Layers && id == ID_EDIT_DELETE) return mapLayersDelete(), true;
     auto done = [&app] {
         shellMenusChanged();

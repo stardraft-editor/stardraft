@@ -236,6 +236,7 @@ public:
                      const std::function<bool(int, int)>& tileIn = nullptr);
     // The ISOM corners of the terrain at the pixel that are reachable from it along the diamonds' edges (one terrain).
     std::vector<std::pair<int, int>> terrainRegionCorners(int px, int py) const { return isomOk_ ? isom_.floodCorners(px, py) : std::vector<std::pair<int, int>>{}; }
+    std::pair<int, int> terrainCopyOrigin() const { return terrainCopyOrigin_; }  // (the corner the last copyTerrain's offsets are from)
     bool hasTerrainClipboard() const { return !terrainClip_.corners.empty(); }
     Rect terrainClipboardBox() const { return {0, 0, terrainClip_.width, terrainClip_.height}; }
     // Turn the terrain clipboard a quarter turn clockwise as seen in the game (corner (x, y) goes to
@@ -912,6 +913,7 @@ private:
     int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
     std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
     uint64_t loadMark_ = 0;
+    std::pair<int, int> terrainCopyOrigin_{0, 0};
     bool noteAsked_ = false;
     std::vector<std::pair<int, int>> askedCorners_;
     void noteCorners(const std::vector<CornerValue>& corners) {

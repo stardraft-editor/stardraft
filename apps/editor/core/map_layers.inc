@@ -279,7 +279,7 @@ void mapLayersSync() {
             bool nearChange = false;  // (an edge's tiles depend on the corners around them too)
             for (int cy = ty - 3; !nearChange && cy <= ty + 4; ++cy)
                 for (int cx = rx - 3; !nearChange && cx <= rx + 4; ++cx) nearChange = changed.count({cx, cy}) > 0;
-            if (!nearChange && k < notTerrain.size() && notTerrain[k]) placed[{tx, ty}] = nowTiles[k];  // (not the terrain's other variant)
+            if ((!nearChange && k < notTerrain.size() && notTerrain[k]) || !nowTiles[k]) placed[{tx, ty}] = nowTiles[k];  // (not the terrain's other variant; a null tile: a cut)
         }
     }
     if (changed.empty() && placed.empty() && !objectsChanged) {
@@ -776,6 +776,18 @@ static void layerBox(render::Scene& s, int x0, int y0, int x1, int y1, uint32_t 
 
 void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
     const MapLayersState& m = gMapLayers;
+    if (shellState().drag == Drag::TerrainMove && shellState().hasTerrainSel) {  // (Terrain's Move: where the selection goes)
+        const Rect& r = shellState().terrainSel;
+        int dx = gTerrainMoveDX, dy = gTerrainMoveDY;
+        if (!shellState().terrainRect) {
+            int rx, ry;
+            snapLayerMove(dx, dy, rx, ry);
+            dx = rx * 64, dy = ry * 32;
+        } else {
+            dx = int(std::lround(dx / 32.0)) * 32, dy = int(std::lround(dy / 32.0)) * 32;
+        }
+        layerBox(s, r.left + dx, r.top + dy, r.right + dx, r.bottom + dy, 0xFFFFFFE0u);
+    }
     const AppState& app = shellState();
     const bool here = app.mode == Mode::Layers;
     if (!m.on || m.ed != &ed || (!here && !gFloatPal[int(Mode::Layers)].floating)) return;  // (in the mode, or with its window)

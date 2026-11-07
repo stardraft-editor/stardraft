@@ -2591,6 +2591,7 @@ bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, Sel
     int ox = cs.front().first, oy = cs.front().second;
     for (auto [x, y] : cs)
         if (y < oy || (y == oy && x < ox)) ox = x, oy = y;
+    terrainCopyOrigin_ = {ox, oy};
     TerrainClip clip;
     for (auto [x, y] : cs) clip.corners.push_back({x - ox, y - oy, isom_.terrainAt(x, y)});
     clip.width = r.right - r.left, clip.height = r.bottom - r.top;
@@ -2700,6 +2701,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         if (!inStroke_) dropLastUndo();  // nothing changed (a stroke keeps its step)
         return false;
     }
+    noteCorners(corners);
     std::string err;
     isom_.store(chk_, err);
     restoreProtected(kept);

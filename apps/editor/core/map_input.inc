@@ -14,6 +14,8 @@ int sprayAt(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 bool mapLayersEraseOn(AppState& app);  // (core/map_layers.inc)
 void mapLayersSync();
+void moveSelectedTerrain(AppState& app, int dx, int dy);  // (core/map_edit_commands.inc)
+int gTerrainMoveDX = 0, gTerrainMoveDY = 0;  // Terrain's Move: the drag so far
 void mapLayersDragCancel(AppState& app);
 void mapLayersEraseDown(AppState& app, float wx, float wy);
 void mapLayersMoveDown(AppState& app, float wx, float wy);
@@ -391,6 +393,15 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         break;
     }
     case Mode::Terrain: {
+        if (currentTool(app) == TMoveSel) {  // Move: the selection follows the drag; it moves at the release
+            if (!app.hasTerrainSel) {
+                setMessage(app, L"Select terrain first, with Select or the Magic wand");
+                break;
+            }
+            gTerrainMoveDX = gTerrainMoveDY = 0;
+            app.drag = Drag::TerrainMove;
+            break;
+        }
         if (currentTool(app) == TErase) {  // Erase: Dirt with the isometric brush (in Rectangle, Tile and Custom too)
             if (!ed.canPaintTerrain()) {
                 setMessage(app, L"Could not erase: the map has no isometric terrain data");
@@ -648,6 +659,12 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.drag == Drag::TerrainMove && app.ed) {
+        gTerrainMoveDX = int(wx - app.dragWX), gTerrainMoveDY = int(wy - app.dragWY);
+        updateStatus(app);
+        app.dirty = true;
+        return;
+    }
     if (app.drag == Drag::LayerTool && app.ed) {
         mapLayersDragMove(app, wx, wy);
         updateStatus(app);
@@ -773,6 +790,12 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     toWorld(app, sx, sy, wx, wy);
     bool shift = mods & draw::kShift;
     if (app.drag == Drag::LayerTool) return mapLayersDragUp(app);
+    if (app.drag == Drag::TerrainMove) {
+        app.drag = Drag::None;
+        moveSelectedTerrain(app, int(wx - app.dragWX), int(wy - app.dragWY));
+        app.dirty = true;
+        return;
+    }
     if (app.drag == Drag::SymmetryCenter) {
         app.drag = Drag::None;
         if (app.dragMoved) gSymmetryPressAt = {}, setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
@@ -988,6 +1011,7 @@ bool fillClickFills(AppState& app) {
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
     if (app.mode == Mode::Layers && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;  // (Move Layer)
+    if (app.mode == Mode::Terrain && currentTool(app) == TMoveSel && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;
     if (app.drag == Drag::None && symmetryHandleAt(app, x, y)) return Cursor::SizeAll;
     if (fillClickFills(app)) return Cursor::Fill;
@@ -1034,6 +1058,7 @@ void trigCancelUnitPick();
 bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
     if (app.drag == Drag::LayerTool) return mapLayersDragCancel(app), true;
+    if (app.drag == Drag::TerrainMove) return app.drag = Drag::None, app.dirty = true, true;
     if (app.drag == Drag::SymmetryCenter) {  // (the center's drag: it goes back; the selection stays)
         if (app.ed) app.ed->setSymmetryAnchor(gSymmetryDragged, gSymmetryFrom.first, gSymmetryFrom.second);
         app.drag = Drag::None;
