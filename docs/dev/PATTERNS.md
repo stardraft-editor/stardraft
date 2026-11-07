@@ -150,7 +150,8 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 - Locations list: no View button (a list only: correct). Layer list: no search and no Sort button (kept: a map has a
   few layers, and their order is the order they paint in; "Sort by name" in its menu reorders them, an edit).
 - Data table, Units list: sort by a click on a column header (correct for a table: a table is not a list).
-- Quick picker: its own S, M, L buttons for the view.
+- Quick picker: its own S, M, L buttons for the view (kept: it is a keyboard window, Ctrl+L and Ctrl+G change it; a
+  View menu there would take the keyboard from its search).
 
 **Settings**
 
@@ -162,18 +163,20 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Menus and pickers**
 
-- A memory address in a text prompt (a hex number).
+- A memory address in a text prompt (kept: it is a hex number or an expression, which the number form does not take).
 
 **Buttons and icons**
 
-- The trigger sentences' value brackets (⟨ ⟩) are characters of the UI font. The kit still has
-  IconGlyph::ofGlyph and the canvas's glyph swap (setGlyphIcons); no view uses them now.
+- The trigger sentences' value brackets (⟨ ⟩) are characters of the UI font (kept: they are punctuation of the
+  sentence, as an arrow in "Label → type", not a symbol).
 - Painted buttons: the tool strip, the Layer list's top row, the Data table's bar, the Files rows, the quick picker,
-  the New page.
+  the New page (kept: they are dense rows that the kit's widgets cannot make yet; each has the kit's faces, hover,
+  focus and tooltips through kitpaint).
 
 **Messages**
 
-- Direct msgbox::ask in two core views: the Custom isom terrain editor and the Ramp and bridge mapper (mod tools).
+- Direct msgbox::ask in two core views: the Custom isom terrain editor and the Ramp and bridge mapper (kept: mod
+  tools for the mod team, terse on purpose).
 
 **Drag and drop**
 

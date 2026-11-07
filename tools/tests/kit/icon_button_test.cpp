@@ -101,19 +101,6 @@ KIT_TEST(icon_button_boxed_look) {
     CHECK(host.paint().drew("icon 0,0,24,24 9 " + C(th.bad)));
 }
 
-KIT_TEST(icon_button_glyph_from_glyphs_face) {
-    draw::View root;
-    FakeHost host(root);
-    const wchar_t g = wchar_t(0xE70F);  // a Segoe MDL2 Assets code point
-    kit::IconButton b(kit::IconGlyph::ofGlyph(g), kit::IconStyle::Bare, L"Edit", nullptr);
-    root.add(b, {0, 0, 24, 24});
-    auto c = host.paint();
-    CHECK(c.texts().size() == 1 && c.texts()[0] == utf8(std::wstring(1, g)));
-    bool iconDrawn = false;
-    for (const auto& o : c.ops) iconDrawn = iconDrawn || o.rfind("icon ", 0) == 0;
-    CHECK(!iconDrawn);  // a glyph is text in the Glyphs face, not a UI icon
-}
-
 KIT_TEST(icon_button_focus_ring) {
     const auto& th = kit::theme();
     draw::View root;

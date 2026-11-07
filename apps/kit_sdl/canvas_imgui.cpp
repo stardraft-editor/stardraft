@@ -548,23 +548,6 @@ const FontEntry* fontEntry(const draw::FontDesc& d) {
 }
 
 TextTranslator gTranslator = nullptr;  // setTextTranslator
-GlyphIcons gGlyphIcons = nullptr;      // setGlyphIcons
-
-// The UI icon that stands for the text `t` (one glyph of the program's table), or -1.
-int glyphIconOf(std::wstring_view t) { return gGlyphIcons && t.size() == 1 ? gGlyphIcons(t[0]) : -1; }
-
-// The atlas that a glyph of `px` pixels is drawn with: the smallest that is as large (else the largest); null: none.
-// Only the atlases of 32 px and less (the text's glyph icons keep their sizes; the large atlases are for Canvas::icon).
-const Atlas* glyphAtlas(int px) {
-    const Atlas* best = nullptr;
-    for (const Atlas& a : gAtlases)
-        if (a.size <= 32 && a.size >= px && (!best || a.size < best->size)) best = &a;
-    if (!best)
-        for (const Atlas& a : gAtlases)
-            if (a.size <= 32 && (!best || a.size > best->size)) best = &a;
-    return best;
-}
-
 // The size that Canvas::icon draws an icon of `px` pixels at: up to 32 px, the Win32 editor's (its uiIconSize: 32 from
 // 32 px, 24 from 28, else 16); larger, px itself.
 int iconDrawnPx(int px) { return px >= 33 ? px : px >= 32 ? 32 : px >= 28 ? 24 : 16; }
@@ -590,7 +573,6 @@ bool missingGlyph(const FontEntry& f, std::wstring_view t) {
 }  // namespace
 
 void setTextTranslator(TextTranslator translator) { gTranslator = translator; }
-void setGlyphIcons(GlyphIcons icons) { gGlyphIcons = icons; }
 
 std::wstring_view uiText(std::wstring_view t, std::wstring& buf) {
     if (!gTranslator || t.empty() || !gTranslator(t, buf)) return t;
@@ -1102,20 +1084,6 @@ void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
         return;
     }
     if (c == kNone || r.empty()) return;
-    if (const int gi = glyphIconOf(t); gi >= 0) {  // a glyph that has a UI icon: the icon, placed as the glyph
-        const Atlas* a = glyphAtlas(cur_->px);
-        if (!a || gi >= a->w / a->size) return;
-        const float n = float(a->size);
-        float x = float(r.left), y = float(r.top);
-        if (flags & draw::kCenter) x += (float(r.width()) - n) / 2;
-        else if (flags & draw::kRight) x += float(r.width()) - n;
-        if (flags & draw::kMiddle) y += (float(r.height()) - n) / 2;
-        else if (flags & draw::kBottom) y += float(r.height()) - n;
-        const ImVec2 p0 = at(std::floor(x), std::floor(y));
-        const float u0 = float(gi * a->size) / float(a->w), u1 = float((gi + 1) * a->size) / float(a->w);
-        dl_->AddImage(texRef(a->tex), p0, ImVec2(p0.x + n, p0.y + n), ImVec2(u0, 0), ImVec2(u1, 1), colorOf(c));
-        return;
-    }
     if (missingGlyph(*cur_, t)) return;
     std::wstring tb;  // (the translation, uiText)
     const std::string s = utf8Text(uiText(t, tb));
@@ -1153,8 +1121,6 @@ void ImguiCanvas::text(Rect r, std::wstring_view t, Color c, unsigned flags) {
 }
 
 int ImguiCanvas::measure(std::wstring_view t) {
-    if (glyphIconOf(t) >= 0)
-        if (const Atlas* a = glyphAtlas(cur_->px)) return a->size;
     std::wstring tb;
     return int(std::ceil(textWidth(*cur_, utf8Text(uiText(t, tb)))));
 }
@@ -1186,8 +1152,6 @@ int ImguiCanvas::measureAt(std::wstring_view t) {
 
 Point ImguiCanvas::measureBox(std::wstring_view t, int width, unsigned flags) {
     if (flags & (draw::kPrefix | draw::kPrefixHidden)) return measureBox(withoutPrefix(t, nullptr), width, flags & ~(draw::kPrefix | draw::kPrefixHidden));
-    if (glyphIconOf(t) >= 0)
-        if (const Atlas* a = glyphAtlas(cur_->px)) return {a->size, std::max(a->size, int(std::ceil(lineHeight(*cur_))))};
     std::wstring tb;
     const std::string s = utf8Text(uiText(t, tb));
     const float lh = lineHeight(*cur_);

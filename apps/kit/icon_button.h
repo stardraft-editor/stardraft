@@ -16,12 +16,10 @@ namespace stardraft::kit {
 
 enum class IconStyle { Bare, Boxed, Face };
 
-// What the button shows: a UI icon, or a glyph (when icon is -1).
+// What the button shows: a UI icon (a symbol is an icon, never a font's glyph: docs/dev/PATTERNS.md).
 struct IconGlyph {
     int icon = -1;
-    wchar_t glyph = 0;
-    static IconGlyph ofIcon(int id) { return IconGlyph{id, 0}; }
-    static IconGlyph ofGlyph(wchar_t g) { return IconGlyph{-1, g}; }
+    static IconGlyph ofIcon(int id) { return IconGlyph{id}; }
 };
 
 class IconButton : public draw::View {
