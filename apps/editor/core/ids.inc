@@ -114,9 +114,12 @@ enum : int {
 struct GridPreset {
     int px;
     const wchar_t* tiles;  // (the size in tiles, or nothing when it is not a simple part of a tile)
+    int py = 0;            // its height (0: px; 64 x 32: the isometric terrain's diamonds, GitHub #250)
+    int h() const { return py ? py : px; }
 };
 constexpr GridPreset kGridPresets[] = {{2, L""}, {4, L""}, {8, L"quarter tile"}, {16, L"half tile"}, {24, L""}, {32, L"tile"},
-                                       {48, L""}, {64, L"2 tiles"}, {96, L"3 tiles"}, {128, L"4 tiles"}, {256, L"8 tiles"}};
+                                       {48, L""}, {64, L"2 x 1 tiles", 32}, {64, L"2 tiles"}, {96, L"3 tiles"}, {128, L"4 tiles"},
+                                       {256, L"8 tiles"}};
 
 enum class Mode { Terrain, Units, Doodads, Locations, Sprites, Layers };
 constexpr int kModeCount = 6;

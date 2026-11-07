@@ -2951,6 +2951,9 @@ constexpr UiText kRows[] = {
     {L"Moved the symmetry anchor. Double-click it to remove it", L"\u5DF2\u79FB\u52A8\u5BF9\u79F0\u951A\u70B9\u3002\u53CC\u51FB\u53EF\u5C06\u5176\u79FB\u9664"},
     {L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more", L"\u5BF9\u79F0\u4E2D\u5FC3\uFF1A\u62D6\u52A8\u4EE5\u79FB\u52A8\uFF0C\u53CC\u51FB\u653E\u5230\u4E2D\u95F4\uFF0C\u53F3\u952E\u5355\u51FB\u67E5\u770B\u66F4\u591A"},
     {L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more", L"\u5BF9\u79F0\u951A\u70B9\uFF1A\u62D6\u52A8\u4EE5\u79FB\u52A8\uFF0C\u53CC\u51FB\u5C06\u5176\u79FB\u9664\uFF0C\u53F3\u952E\u5355\u51FB\u67E5\u770B\u66F4\u591A"},
+    {L"Clear the terrain mas&k", L"\u6E05\u9664\u5730\u5F62\u906E\u7F69(&K)"},
+    {L"Do not &ask again", L"\u4E0D\u518D\u8BE2\u95EE(&A)"},
+    {L"A save does not ask about missing start locations. To ask again: Program options > Saving maps", L"\u4FDD\u5B58\u65F6\u4E0D\u518D\u8BE2\u95EE\u7F3A\u5C11\u7684\u8D77\u59CB\u4F4D\u7F6E\u3002\u8981\u518D\u6B21\u8BE2\u95EE\uFF1A\u7A0B\u5E8F\u9009\u9879 > \u4FDD\u5B58\u5730\u56FE"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

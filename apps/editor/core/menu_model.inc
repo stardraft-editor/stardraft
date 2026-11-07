@@ -242,7 +242,8 @@ MenuModel buildMenuModel() {
         menuCommand(grid, "view.grid");
         grid.push_back(menuSeparator());
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
-            grid.push_back(menuItem(ID_GRID_SIZE + k, std::to_wstring(kGridPresets[k].px) + L" pixels" +
+            grid.push_back(menuItem(ID_GRID_SIZE + k, std::to_wstring(kGridPresets[k].px) +
+                                                          (kGridPresets[k].py ? L" x " + std::to_wstring(kGridPresets[k].py) : std::wstring()) + L" pixels" +
                                                           (*kGridPresets[k].tiles ? L" (" + std::wstring(kGridPresets[k].tiles) + L")" : std::wstring())));
         grid.push_back(menuSeparator());
         grid.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));

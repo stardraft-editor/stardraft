@@ -1552,13 +1552,29 @@ void tilesScene(render::Scene& s, float wx, float wy) {
         tilesPasteAt(wx, wy, cx, cy);  // (it may hang over the map's edge: the tiles on the map show)
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
-            for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
+            for (int x = 0; x < cw; ++x) {
+                const uint16_t v = ed.tileClipboard()[size_t(y) * cw + x];
+                add(cx + x, cy + y, v);
+                const int tx = cx + x, ty = cy + y;  // (a null tile has no picture: black, as the paste makes it; GitHub #254)
+                if (v != 0xFFFF && tileIsNull(v) && tx >= 0 && ty >= 0 && tx < ed.width() && ty < ed.height())
+                    s.rects.push_back({float(tx * 32), float(ty * 32), float(tx * 32 + 32), float(ty * 32 + 32), 0x000000FFu, true});
+            }
     } else if (tool == TBrush && tilesStampOn() && !(appState().drag == Drag::Tiles && gTiles->scatter)) {  // the stamp at the mouse
         int sx, sy;
         tilesStampOrigin(cx, cy, sx, sy);
         const std::vector<Editor::TileAt> stamp = tilesStampCells(sx, sy);
         for (const auto& t : stamp) add(t.x, t.y, t.value);
         addMirrors(stamp);
+        if (gTiles->stampCopied)  // a copy's null tiles: holes (the map keeps its tiles there), each with a line across (GitHub #254)
+            for (int y = 0; y < gTiles->stampH; ++y)
+                for (int x = 0; x < gTiles->stampW; ++x)
+                    if (const int tx = sx + x, ty = sy + y; gTiles->stamp[size_t(y) * size_t(gTiles->stampW) + size_t(x)] == 0xFFFF && tx >= 0 &&
+                                                            ty >= 0 && tx < ed.width() && ty < ed.height()) {
+                        render::RectDraw l;
+                        l.x0 = float(tx * 32), l.y0 = float(ty * 32 + 32), l.x1 = float(tx * 32 + 32), l.y1 = float(ty * 32);
+                        l.rgba = 0xFFFFFF60u, l.thickness = 1, l.line = true;
+                        s.rects.push_back(l);
+                    }
     } else if (gTiles->solid && (tool == TBrush || tool == TSpray)) {  // Solid: the outline of the brush's rects (each rect at random)
         if (app.palette <= 0) return;
         std::vector<Editor::TileAt> foot;

@@ -150,8 +150,9 @@ bool saveMapFileOf(const Editor* asked, const fs::path& path, std::string& err) 
     return saveMapFile(path, err);
 }
 
-// The start locations question before a save (shell_sdl.inc): 0 Place them, 1 Save anyway, 2 Cancel.
-int shellAskStartLocations(const std::wstring& text);
+// The start locations question before a save (shell_sdl.inc): 0 Place them, 1 Save anyway, 2 Cancel; noMore: Do not ask
+// again.
+int shellAskStartLocations(const std::wstring& text, bool* noMore);
 // The start locations question's text: the problems (startLocationProblems), and the offer.
 std::wstring startLocationsQuestion(const std::vector<std::string>& problems) {
     std::wstring text = std::wstring(tr(L"StarCraft will not start this map:")) + L"\r\n\r\n";
@@ -177,15 +178,20 @@ bool confirmTriggerComments() {
 }
 bool confirmStartLocations() {
     if (!confirmTriggerComments()) return false;
-    if (bool ask = true; prefs::flag(L"AskStartLocations", ask) && !ask) return true;  // (Program options > Saving maps: off)
     AppState& app = shellState();
     for (;;) {
+        if (bool ask = true; prefs::flag(L"AskStartLocations", ask) && !ask) return true;  // (Program options > Saving maps: off)
         if (!app.ed || !app.ed->isOpen()) return true;
         const std::vector<std::string> problems = app.ed->startLocationProblems();
         if (problems.empty()) return true;
-        const int r = shellAskStartLocations(startLocationsQuestion(problems));
+        bool noMore = false;
+        const int r = shellAskStartLocations(startLocationsQuestion(problems), &noMore);
         if (r == 2) return false;
-        if (r != 0) return true;  // Save anyway
+        if (noMore) prefs::setNumber(L"AskStartLocations", 0);  // (Program options > Saving maps turns it on again)
+        if (r != 0) {  // Save anyway
+            if (noMore) setMessage(L"A save does not ask about missing start locations. To ask again: Program options > Saving maps");
+            return true;
+        }
         const int n = app.ed->placeStartLocations();
         app.dirty = true;
         setMessage(n ? L"Placed " + std::to_wstring(n) + L" start locations" : std::wstring(tr(L"No start location fits the map")));

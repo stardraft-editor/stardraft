@@ -2981,6 +2981,9 @@ constexpr UiText kRows[] = {
     {L"Moved the symmetry anchor. Double-click it to remove it", L"\uB300\uCE6D \uC575\uCEE4\uB97C \uC62E\uACBC\uC2B5\uB2C8\uB2E4. \uB450 \uBC88 \uD074\uB9AD\uD558\uBA74 \uC81C\uAC70\uB429\uB2C8\uB2E4"},
     {L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more", L"\uB300\uCE6D \uC911\uC2EC: \uB04C\uC5B4\uC11C \uC62E\uAE30\uACE0, \uB450 \uBC88 \uD074\uB9AD\uD558\uBA74 \uAC00\uC6B4\uB370\uB85C, \uC624\uB978\uCABD \uD074\uB9AD\uD558\uBA74 \uB354 \uBCF4\uAE30"},
     {L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more", L"\uB300\uCE6D \uC575\uCEE4: \uB04C\uC5B4\uC11C \uC62E\uAE30\uACE0, \uB450 \uBC88 \uD074\uB9AD\uD558\uBA74 \uC81C\uAC70, \uC624\uB978\uCABD \uD074\uB9AD\uD558\uBA74 \uB354 \uBCF4\uAE30"},
+    {L"Clear the terrain mas&k", L"\uC9C0\uD615 \uB9C8\uC2A4\uD06C \uC9C0\uC6B0\uAE30(&K)"},
+    {L"Do not &ask again", L"\uB2E4\uC2DC \uBB3B\uC9C0 \uC54A\uAE30(&A)"},
+    {L"A save does not ask about missing start locations. To ask again: Program options > Saving maps", L"\uC800\uC7A5\uD560 \uB54C \uC5C6\uB294 \uC2DC\uC791 \uC704\uCE58\uB97C \uBB3B\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB2E4\uC2DC \uBB3B\uAC8C \uD558\uB824\uBA74: \uD504\uB85C\uADF8\uB7A8 \uC635\uC158 > \uB9F5 \uC800\uC7A5"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

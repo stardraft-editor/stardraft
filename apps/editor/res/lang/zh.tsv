@@ -2949,3 +2949,6 @@ Merged the symmetry anchors	已合并对称锚点
 Moved the symmetry anchor. Double-click it to remove it	已移动对称锚点。双击可将其移除
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	对称中心：拖动以移动，双击放到中间，右键单击查看更多
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	对称锚点：拖动以移动，双击将其移除，右键单击查看更多
+Clear the terrain mas&k	清除地形遮罩(&K)
+Do not &ask again	不再询问(&A)
+A save does not ask about missing start locations. To ask again: Program options > Saving maps	保存时不再询问缺少的起始位置。要再次询问：程序选项 > 保存地图

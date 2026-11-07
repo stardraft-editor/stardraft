@@ -272,11 +272,13 @@ int shellAskSaveChanges(bool project) {
 }
 // The start locations question before a save (core/map_commands.inc: confirmStartLocations): 0 Place them, 1 Save anyway,
 // 2 Cancel. Without a window (a test run) the map is saved as it is.
-int shellAskStartLocations(const std::wstring& text) {
+// noMore: Do not ask again was checked (GitHub #253).
+int shellAskStartLocations(const std::wstring& text, bool* noMore) {
     if (!gRoot) return 1;
     if (gShotDialogs) std::printf("question: Start locations (the map has no start location for every player)\n");
-    return msgbox::ask(*gRoot, shellTr(L"Start locations"), text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")},
-                       msgbox::Icon::Question);
+    msgbox::Box box = msgbox::makeBox(text, {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Question);
+    box.check = shellTr(L"Do not &ask again"), box.checkedOut = noMore;
+    return msgbox::runMessageBox(*gRoot, shellTr(L"Start locations"), std::move(box), nullptr);
 }
 // The trigger comments question before a save of a Cosmonarchy map (map_commands.inc confirmTriggerComments): 0 Save
 // anyway, 1 Cancel.

@@ -60,7 +60,7 @@ void locationMenuPick(int loc, int pick) {
 // buffer. Units add Properties; a location adds its own menu (rename, elevations).
 enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMENU_SAMETYPE, ID_MAPMENU_SAMETYPE_PLAYER, ID_MAPMENU_TOTERRAIN,
        ID_MAPMENU_FILLSEL, ID_MAPMENU_STACK, ID_MAPMENU_SAVESTAMP, ID_MAPMENU_COPYTILE, ID_MAPMENU_FEEDBACKSEL,
-       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR };
+       ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT, ID_MAPMENU_ADDANCHOR, ID_MAPMENU_REMOVEANCHOR, ID_MAPMENU_CENTERANCHOR, ID_MAPMENU_CLEARMASK };
 constexpr int ID_MAPMENU_LAYERROW = 9300;  // + a layer's row + 1 (0: the Background), Map Layers' menu on the map
 
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
@@ -89,6 +89,7 @@ bool addAnchorNextTo(Editor& ed, int anchor, float zoom) {
     return false;
 }
 void protectSelection(bool on);
+void tilesPanelRepaint();
 std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
 
 // The selected terrain's tiles for a feedback report: each tile value once (as the status bar shows it) with the places
@@ -260,6 +261,8 @@ MenuModel mapMenuModel(float wx, float wy) {
     if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
+    // (while a mask is on: painting that changes nothing may be the mask's; GitHub #248)
+    if (terrain && (!ed.terrainMask().empty() || !ed.tileMask().empty())) item(ID_MAPMENU_CLEARMASK, L"Clear the terrain mas&k", L"", true);
     gMapMenuAnchor = -1;
     if (terrain && (ed.mirrors() || ed.turns() > 1)) {  // (with mirrors or turns: more points they go round)
         const int anchors = int(ed.symmetryAnchors().size());
@@ -332,6 +335,11 @@ void mapMenuPick(int pick) {
     } else if (pick == ID_MAPMENU_CENTERANCHOR && app.ed) {
         if (app.ed->centerSymmetryAnchor(gMapMenuAnchor)) setMessage(L"Recentered the symmetry anchor");
         app.dirty = true;
+    } else if (pick == ID_MAPMENU_CLEARMASK && app.ed) {  // (the terrains' mask and the tiles' mask)
+        app.ed->setTerrainMask({}), app.ed->setTileMask({});
+        setMessage(L"No mask: painting changes all terrains");
+        app.dirty = true;
+        shellPaletteChanged(), tilesPanelRepaint();
     }
     else if (pick == ID_MAPMENU_PROTECT || pick == ID_MAPMENU_UNPROTECT) protectSelection(pick == ID_MAPMENU_PROTECT);
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));

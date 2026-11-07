@@ -2951,6 +2951,9 @@ constexpr UiText kRows[] = {
     {L"Moved the symmetry anchor. Double-click it to remove it", L"Ancla de simetr\u00EDa movida. Haga doble clic para quitarla"},
     {L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more", L"Centro de simetr\u00EDa: arr\u00E1strelo para moverlo, haga doble clic para ponerlo en el medio, clic derecho para m\u00E1s"},
     {L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more", L"Ancla de simetr\u00EDa: arr\u00E1strela para moverla, haga doble clic para quitarla, clic derecho para m\u00E1s"},
+    {L"Clear the terrain mas&k", L"Quitar la m\u00E1s&cara del terreno"},
+    {L"Do not &ask again", L"No volver a pregunt&ar"},
+    {L"A save does not ask about missing start locations. To ask again: Program options > Saving maps", L"Al guardar no se pregunta por las ubicaciones de inicio que faltan. Para volver a preguntar: Opciones del programa > Guardar mapas"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -2979,3 +2979,6 @@ Merged the symmetry anchors	대칭 앵커를 합쳤습니다
 Moved the symmetry anchor. Double-click it to remove it	대칭 앵커를 옮겼습니다. 두 번 클릭하면 제거됩니다
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	대칭 중심: 끌어서 옮기고, 두 번 클릭하면 가운데로, 오른쪽 클릭하면 더 보기
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	대칭 앵커: 끌어서 옮기고, 두 번 클릭하면 제거, 오른쪽 클릭하면 더 보기
+Clear the terrain mas&k	지형 마스크 지우기(&K)
+Do not &ask again	다시 묻지 않기(&A)
+A save does not ask about missing start locations. To ask again: Program options > Saving maps	저장할 때 없는 시작 위치를 묻지 않습니다. 다시 묻게 하려면: 프로그램 옵션 > 맵 저장

@@ -1111,6 +1111,7 @@ int main(int argc, char** argv) {
                 if (problems.empty()) problems = {"Player 1 owns units but has no start location"};  // (a map that has them: a sample)
                 messageShot.b = msgbox::makeBox(startLocationsQuestion(problems),
                                                 {shellTr(L"&Place them"), shellTr(L"&Save anyway"), shellTr(L"Cancel")}, msgbox::Icon::Question);
+                messageShot.b.check = shellTr(L"Do not &ask again");
                 const draw::Point sz = messageShot.layout(kit_sdl::measuringCanvas());
                 width = sz.x, height = sz.y;
             } else if (dialogArg == "error") {  // an error box (shellErrorBox: the error icon and OK)

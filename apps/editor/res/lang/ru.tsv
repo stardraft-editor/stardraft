@@ -2949,3 +2949,6 @@ Merged the symmetry anchors	Якоря симметрии объединены
 Moved the symmetry anchor. Double-click it to remove it	Якорь симметрии перемещен. Дважды щелкните его, чтобы удалить
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Центр симметрии: перетащите, чтобы переместить; двойной щелчок — в середину; правый щелчок — еще
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Якорь симметрии: перетащите, чтобы переместить; двойной щелчок — удалить; правый щелчок — еще
+Clear the terrain mas&k	Сбросить мас&ку ландшафта
+Do not &ask again	Больше не спр&ашивать
+A save does not ask about missing start locations. To ask again: Program options > Saving maps	При сохранении больше нет вопроса о недостающих стартовых точках. Чтобы вернуть: Параметры программы > Сохранение карт

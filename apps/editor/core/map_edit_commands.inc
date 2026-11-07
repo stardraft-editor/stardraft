@@ -492,10 +492,10 @@ bool commandMapEdit(AppState& app, int id) {
     }
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) {  // View > Grid: a preset
         const GridPreset& g = kGridPresets[id - ID_GRID_SIZE];
-        gDock.gridW = gDock.gridH = g.px, gDock.gridX = gDock.gridY = 0;
+        gDock.gridW = g.px, gDock.gridH = g.h(), gDock.gridX = gDock.gridY = 0;
         app.showGrid = true, app.dirty = true;
         saveDock();
-        setMessage(L"Grid: " + std::to_wstring(g.px) + L" pixels");
+        setMessage(L"Grid: " + std::to_wstring(g.px) + (g.py ? L" x " + std::to_wstring(g.py) : std::wstring()) + L" pixels");
         return done();
     }
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
@@ -716,7 +716,7 @@ int mapMenuCheck(int id) {
     if (id == ID_SNAP_LOCATIONS) return app.snapLocations;
     bool preset = false;
     for (int k = 0; k < int(std::size(kGridPresets)); ++k) {
-        const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].px && !gDock.gridX && !gDock.gridY;
+        const bool on = gDock.gridW == kGridPresets[k].px && gDock.gridH == kGridPresets[k].h() && !gDock.gridX && !gDock.gridY;
         if (id == ID_GRID_SIZE + k) return on;
         preset |= on;
     }

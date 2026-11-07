@@ -2949,3 +2949,6 @@ Merged the symmetry anchors	Ancrages de symétrie fusionnés
 Moved the symmetry anchor. Double-click it to remove it	Ancrage de symétrie déplacé. Double-cliquez dessus pour le retirer
 Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Centre de symétrie : faites-le glisser pour le déplacer, double-cliquez pour le mettre au milieu, clic droit pour plus
 Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Ancrage de symétrie : faites-le glisser pour le déplacer, double-cliquez pour le retirer, clic droit pour plus
+Clear the terrain mas&k	Effacer le mas&que de terrain
+Do not &ask again	Ne plus dem&ander
+A save does not ask about missing start locations. To ask again: Program options > Saving maps	L'enregistrement ne demande plus pour les positions de départ manquantes. Pour le réactiver : Options du programme > Enregistrement des cartes
