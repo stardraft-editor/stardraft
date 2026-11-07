@@ -137,6 +137,8 @@ struct PaletteGridView : draw::View {
                 const int bw = (r.bottom - r.top) * (mode == Mode::Terrain ? 2 : 1);
                 box = {r.left + scale(4), r.top + scale(2), r.left + scale(4) + bw, r.bottom - scale(2)};
             }
+            if (v.grid && !(isPick || isChosen || int(i) == hover_))  // (a grid: each cell a quiet tile, so the pictures of any shape sit in a grid)
+                c.roundBox({r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kCtl, draw::kNone, float(scale(4)));
             const bool drawn = picture && picture(c, mode, e.value, v.grid && v.sprites, box);
             if (!drawn && mode == Mode::Terrain) c.roundBox(box, draw::rgb(6, 6, 10), kBorder, float(scale(3)));  // nothing to show (Space): an empty swatch
             if (!v.grid) {
