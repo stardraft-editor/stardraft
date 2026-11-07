@@ -236,6 +236,8 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
 // The Custom list's right click (core/views_stamps.inc): on an item Rename, Delete, Show in folder; then the View items
 // as the other palettes have them (List, Grid; Normal, Large, Extra large), kept in the settings.
 void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, const std::string& folder, bool onFolder) {
+    StampsListView* list = stampsListOf(&from);  // (its view: the panel's own)
+    const int vg = list ? list->viewGrid() : stampsGrid(), vs = list ? list->viewSize() : stampsSize();
     enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText, kNewFolder, kRenameFolder, kDeleteFolder, kMask };
     MenuModel m;
     const bool own = s && !s->file.empty();  // (a mod's brush: not the user's file)
@@ -259,15 +261,15 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
     if (s) m.push_back(menuItem(kCopyText, L"Copy as text"));
     m.push_back(menuItem(kImportText, L"Import from clipboard"));
     m.push_back(menuSeparator());
-    m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
-    m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));
+    m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !vg));
+    m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, vg != 0));
     m.push_back(menuSeparator());
-    m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, stampsSize() == 0));
-    m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, stampsSize() == 1));
-    m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, stampsSize() == 2));
+    m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, vs == 0));
+    m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, vs == 1));
+    m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, vs == 2));
     const TerrainStamp copy = s ? *s : TerrainStamp{};  // (a menu's run reads the list again)
     draw::Host* host = from.host();
-    sdlPopupMenu(from, at, sdlModelItems(m, [copy, host, folder](int id) {
+    sdlPopupMenu(from, at, sdlModelItems(m, [copy, host, folder, list](int id) {
         if (id == kMask) return tilesMaskToggle(stampTilesOf(copy));
         if (id == kNewFolder) return shellPost([folder] { stampsNewFolder(folder); });
         if (id == kRenameFolder) return shellPost([folder] { stampsRenameFolder(folder); });
@@ -280,8 +282,8 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
         if (id == kRename) return shellPost([copy] { stampsRename(copy); });
         if (id == kDelete) return shellPost([copy] { stampsDelete(copy); });
         if (id == kReveal) return shellRevealFile(copy.file);
-        if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
-        if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
+        if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return list ? list->setView(id == ID_PAL_ICONS, list->viewSize()) : void();
+        if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return list ? list->setView(list->viewGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2) : void();
     }), sdlFeedbackOn(from, at, L"the Custom list"));
 }
 
@@ -296,23 +298,25 @@ void shellMenu(draw::View& from, const MenuModel& m, const std::wstring& on, std
 
 // The Custom list's Sort and View buttons (core/views_stamps.inc): their menus under the button.
 void shellStampsButtonMenu(draw::View& from, bool sort) {
+    StampsListView* list = stampsListOf(&from);  // (its view: the panel's own)
+    const int vg = list ? list->viewGrid() : stampsGrid(), vs = list ? list->viewSize() : stampsSize();
     MenuModel m;
     if (sort) {
         m.push_back(menuItem(ID_PAL_SORT_NAME, L"Name: &A to Z", {}, false, stampsSort() == 0));
         m.push_back(menuItem(ID_PAL_SORT_DATE, L"Date: &newest first", {}, false, stampsSort() == 1));
     } else {
-        m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
-        m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));
+        m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !vg));
+        m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, vg != 0));
         m.push_back(menuSeparator());
-        m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, stampsSize() == 0));
-        m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, stampsSize() == 1));
-        m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, stampsSize() == 2));
+        m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, vs == 0));
+        m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, vs == 1));
+        m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, vs == 2));
     }
     const draw::Point at{0, from.height()};
-    sdlPopupMenu(from, at, sdlModelItems(m, [](int id) {
+    sdlPopupMenu(from, at, sdlModelItems(m, [list](int id) {
         if (id == ID_PAL_SORT_NAME || id == ID_PAL_SORT_DATE) return setStampsSort(id == ID_PAL_SORT_DATE ? 1 : 0);
-        if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
-        if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
+        if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return list ? list->setView(id == ID_PAL_ICONS, list->viewSize()) : void();
+        if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return list ? list->setView(list->viewGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2) : void();
     }), sdlFeedbackOn(from, at, sort ? L"the Custom list's Sort button" : L"the Custom list's View button"));
 }
 

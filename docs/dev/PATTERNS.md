@@ -145,12 +145,12 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Lists**
 
-- Tiles grid: no Sort and no View button; its right-click menu has no View items.
-- Locations list: no View button (a list only: correct). Layer list: no search, and "Sort by name" is an action, not
-  an order.
+- Tiles grid: no Sort and no View button (kept: each row is a tile group of 16 tiles, in the tileset's order, so it is
+  always this grid; its size follows the panel's width).
+- Locations list: no View button (a list only: correct). Layer list: no search and no Sort button (kept: a map has a
+  few layers, and their order is the order they paint in; "Sort by name" in its menu reorders them, an edit).
 - Data table, Units list: sort by a click on a column header (correct for a table: a table is not a list).
 - Quick picker: its own S, M, L buttons for the view.
-- Custom list: its view is one value for all panels.
 
 **Settings**
 

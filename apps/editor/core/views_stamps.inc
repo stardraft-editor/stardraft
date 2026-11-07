@@ -122,13 +122,20 @@ public:
     TilesScope here() { return {data, grid, panel}; }
     static int topH() { return scale(24) + scale(6); }  // (the row: the search, Sort, View)
     // An item's height in the list, and a cell's side in the grid, by the size (normal, large, extra large).
-    static int rowH(bool heading) {
+    int rowH(bool heading) const {
         static const int kRow[] = {44, 72, 112};
-        return heading ? scale(24) : scale(kRow[stampsSize()]);
+        return heading ? scale(24) : scale(kRow[viewSize()]);
     }
-    static int cellW() {
+    int cellW() const {
         static const int kCell[] = {64, 96, 144};
-        return scale(kCell[stampsSize()]);
+        return scale(kCell[viewSize()]);
+    }
+    // Its view (each panel's own; a new panel: the last one chosen, stampsGrid and stampsSize): a list or a grid, its size.
+    int viewGrid() const { return grid_; }
+    int viewSize() const { return size_; }
+    void setView(int grid, int size) {
+        grid_ = std::clamp(grid, 0, 1), size_ = std::clamp(size, 0, 2);
+        setStampsView(grid_, size_);  // (the default for a new panel; the others keep theirs)
     }
     const std::vector<StampRow>& rows() const { return rows_; }
 
@@ -149,7 +156,7 @@ public:
         const int cols = std::max(1, w / cell);
         int y = 0, col = 0;
         for (const StampRow& r : rows_) {
-            if (!stampsGrid() || r.heading) {
+            if (!viewGrid() || r.heading) {
                 if (col) y += cell, col = 0;
                 tops_.push_back(y), rects_.push_back({0, y, w, y + rowH(r.heading)}), y += rowH(r.heading);
                 continue;
@@ -182,7 +189,7 @@ public:
 
     void paint(draw::Canvas& c) override {
         const TilesScope scope = here();
-        if (viewShown_ != stampsGrid() * 3 + stampsSize()) viewShown_ = stampsGrid() * 3 + stampsSize(), stale_ = true;
+        if (viewShown_ != viewGrid() * 3 + viewSize()) viewShown_ = viewGrid() * 3 + viewSize(), stale_ = true;
         const auto& list = stampsList();
         if (listShown_ != &list || builtFor_ != gStamps.era || listSize_ != list.size() || stale_) {
             listShown_ = &list, builtFor_ = gStamps.era, listSize_ = list.size(), stale_ = false;
@@ -230,11 +237,11 @@ public:
             if (r.index < 0 || r.index >= int(list.size())) continue;
             const TerrainStamp& s = list[size_t(r.index)];
             const bool picked = !data->stampName.empty() && widen(s.name) == data->stampName;
-            if (stampsGrid()) {  // a cell: the picture, the name under it (medium and large)
+            if (viewGrid()) {  // a cell: the picture, the name under it (medium and large)
                 const draw::Rect f{rects_[i].left + 1, top + 1, rects_[i].right - 1, bottom - 1};
                 if (picked) kitpaint::drawListRow(c, f, true, false);
                 else if (int(i) == hover_) c.fill(f, kRowHot);
-                const int nameH = stampsSize() ? scale(16) : 0;
+                const int nameH = viewSize() ? scale(16) : 0;
                 const draw::Rect pic{f.left + scale(3), f.top + scale(3), f.right - scale(3), f.bottom - scale(3) - nameH};
                 stampsDrawPicture(c, s, pic);
                 if (nameH) c.text({f.left + scale(3), pic.bottom, f.right - scale(3), f.bottom}, r.label, kText, draw::kCenter | draw::kMiddle | draw::kEllipsis);
@@ -383,6 +390,7 @@ private:
     std::vector<int> tops_;
     std::vector<draw::Rect> rects_;  // (each row's place in the content: a list's row, a grid's cell)
     int contentH_ = 0, scroll_ = 0, hover_ = -1, viewShown_ = -1, builtFor_ = -2;
+    int grid_ = stampsGrid(), size_ = stampsSize();  // (its view: setView)
     kitui::ItemDrag drag_;        // the item pressed (its index in stampsList()): a drag moves it to a folder
     bool dropShown_ = false;
     std::string drop_;            // the folder that the drop goes into (shown while dragging_)
@@ -391,6 +399,12 @@ private:
     bool stale_ = true;
 };
 
+// The Custom list that `v` is in (a menu's view: the list, or its Sort or View button); null: none.
+StampsListView* stampsListOf(draw::View* v) {
+    for (; v; v = v->parent())
+        if (auto* s = dynamic_cast<StampsListView*>(v)) return s;
+    return nullptr;
+}
 void stampsPanelsRepaint() {
     for (StampsListView* v : gStampsViews) v->changed();
 }
