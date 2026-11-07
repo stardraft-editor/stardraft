@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Compact Rush widget. Mining Lab is the separate bottom widget below.
+// Compact Rush widget. Mining Lab uses a separate floating tool window.
 #include "../../tools/map_lab/session.h"
 #include "../../tools/map_lab/guide_geometry.h"
 #include "../kit/label.h"

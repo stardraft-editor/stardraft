@@ -6,6 +6,11 @@
 #include <cmath>
 
 namespace maplab {
+inline std::uint32_t miningGuideColor(int worker) {
+    constexpr std::uint32_t colors[]{0xFFB54CFF,0xFFEF75FF,0xFF91D0FF,
+                                    0xC7F56BFF,0xFFA88BFF,0xE5ABFFFF};
+    return colors[unsigned(worker)%6];
+}
 inline std::uint32_t workerGuideColor(int worker,int saturation=110,int alpha=150) {
     const float hue = float((worker * 137) % 360) / 60.f;
     const float c = (245.f / 255.f) * (float(saturation) / 255.f);
@@ -28,20 +33,38 @@ void appendMiningGuides(stardraft::render::Scene& scene, const MiningFrame& fram
     auto line = [&](float ax, float ay, float bx, float by, std::uint32_t color) {
         stardraft::render::RectDraw d;
         d.x0=ax; d.y0=ay; d.x1=bx; d.y1=by; d.line=true; d.rgba=color;
+        d.thickness=4; d.rgba=0x101014F0;
         scene.rects.push_back(d);
+        d.thickness=2; d.rgba=color;
+        scene.rects.push_back(d);
+    };
+    auto label = [&](float x,float y,const std::string& text,std::uint32_t color) {
+        stardraft::render::RectDraw plate;
+        // Fixed screen-size backplate keeps text legible on bright minerals,
+        // snow, terrain and workers at any map zoom.
+        plate.x0=x-2/zoom;plate.y0=y-2/zoom;
+        plate.x1=x+(text.size()*10.f+2)/zoom;plate.y1=y+14/zoom;
+        plate.fill=true;plate.rgba=0x101014E8;scene.rects.push_back(plate);
+        scene.texts.push_back({x,y,text,color});
     };
     for (const auto& guide : frame.guides) {
         if (guide.kind < 0 || guide.kind > 2 || !(mask & (1u << guide.kind))) continue;
         ghost(guide);
-        const auto color = workerGuideColor(guide.worker);
+        const auto color=miningGuideColor(guide.worker);
         const float x = float(guide.x), y = float(guide.y);
+        if(guide.kind==0) {
+            stardraft::render::RectDraw ring;
+            ring.x0=x-10/zoom;ring.y0=y-10/zoom;ring.x1=x+10/zoom;ring.y1=y+10/zoom;
+            ring.rgba=0x101014F0;ring.thickness=4;scene.rects.push_back(ring);
+            ring.rgba=0xFFDA65FF;ring.thickness=2;scene.rects.push_back(ring);
+        }
         if (guide.kind == 1) {
             // The map's text renderer is ASCII. Draw the return glyph as lines.
             const float k=1/zoom;
-            line(x+7*k,y-19*k,x+7*k,y-13*k,0x8ED7F6FF);
-            line(x+7*k,y-13*k,x-6*k,y-13*k,0x8ED7F6FF);
-            line(x-6*k,y-13*k,x-2*k,y-17*k,0x8ED7F6FF);
-            line(x-6*k,y-13*k,x-2*k,y-9*k,0x8ED7F6FF);
+            line(x+7*k,y-19*k,x+7*k,y-13*k,0xFFDA65FF);
+            line(x+7*k,y-13*k,x-6*k,y-13*k,0xFFDA65FF);
+            line(x-6*k,y-13*k,x-2*k,y-17*k,0xFFDA65FF);
+            line(x-6*k,y-13*k,x-2*k,y-9*k,0xFFDA65FF);
         }
         if (guide.kind == 2) {
             const float dx=float(guide.targetX)-x, dy=float(guide.targetY)-y;
@@ -54,11 +77,11 @@ void appendMiningGuides(stardraft::render::Scene& scene, const MiningFrame& fram
                 line(tx,ty,tx-ux*7/zoom-uy*4/zoom,ty-uy*7/zoom+ux*4/zoom,color);
                 line(tx,ty,tx-ux*7/zoom+uy*4/zoom,ty-uy*7/zoom-ux*4/zoom,color);
             }
-            scene.texts.push_back({x,y-14/zoom,std::to_string(guide.stage),color});
+            label(x,y-14/zoom,std::to_string(guide.stage),color);
         }
     }
     for (const auto& patch : frame.patches)
         if (patch.lastCycle)
-            scene.texts.push_back({float(patch.x),float(patch.y),std::to_string(patch.lastCycle),0x8ED7F6FF});
+            label(float(patch.x),float(patch.y),std::to_string(patch.lastCycle),0xFFF2B8FF);
 }
 }

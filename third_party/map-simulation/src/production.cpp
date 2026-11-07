@@ -783,15 +783,19 @@ bool World::clearOverlap(const UnitState &unit, Point point) const {
   const auto &shape = definitions_->units[unit.type].bounds;
   if (!Placement(map_->terrain, map_->regions, {}).terrainFits(point, shape))
     return false;
-  for (const auto &body : bodies(unit.handle.index)) {
-    if (body.flying || units_[body.key]->type == 35 ||
-        (unit.gathering &&
-         !definitions_->units[units_[body.key]->type].building()))
+  // This is a boolean overlap query on every idle/recovering worker frame.
+  // Read the active units directly instead of allocating/sorting a body list.
+  for (int id : visible_) {
+    const auto &other = *units_[id];
+    const auto &type = definitions_->units[other.type];
+    if (other.handle == unit.handle || !other.visible || other.dead ||
+        (type.flags & 4) || other.gasLanding || other.type == 35 ||
+        (unit.gathering && !type.building()))
       continue;
-    if (point.x + shape.right >= body.position.x - body.bounds.left &&
-        point.x - shape.left <= body.position.x + body.bounds.right &&
-        point.y + shape.bottom >= body.position.y - body.bounds.top &&
-        point.y - shape.top <= body.position.y + body.bounds.bottom)
+    if (point.x + shape.right >= other.position.x - type.bounds.left &&
+        point.x - shape.left <= other.position.x + type.bounds.right &&
+        point.y + shape.bottom >= other.position.y - type.bounds.top &&
+        point.y - shape.top <= other.position.y + type.bounds.bottom)
       return false;
   }
   return true;

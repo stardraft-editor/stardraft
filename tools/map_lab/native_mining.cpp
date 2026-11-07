@@ -98,6 +98,7 @@ NativeMining::create(const FileReader &read, const Bytes &scenario,
     result->assignments_.push_back({workers[i], patch});
   }
   result->start_ = world.frame();
+  world.prepareNavigation(workers.front());
   result->searchSeed_ = std::make_unique<sim::World>(world);
   return result;
 }

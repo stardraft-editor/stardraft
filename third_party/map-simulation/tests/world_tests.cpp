@@ -71,6 +71,23 @@ int main() {
     check(repeatedRelease && paths.acquire() == secondPath &&
           paths.acquire() == firstPath && paths.firstRegion(firstPath) == 18);
     SpatialBounds boundaries;
+    {
+      SpatialBounds sweep;
+      for(unsigned i=0;i<60;++i)sweep.insert(i,{int(i*3),int(i*5)},{int(i*3+12),int(i*5+12)});
+      auto expected=sweep.axes();
+      std::uint32_t state=314159;
+      auto next=[&]{state=state*1664525U+1013904223U;return state;};
+      for(int n=0;n<5000;++n) {
+        const auto id=next()%60;Point first{int(next()%80),int(next()%80)};
+        Point last{first.x+int(next()%20),first.y+int(next()%20)};
+        for(int axis=0;axis<2;++axis) {
+          for(auto& e:expected[axis])if(e.key==id){auto p=e.maximum?last:first;e.coordinate=axis?p.y:p.x;}
+          std::stable_sort(expected[axis].begin(),expected[axis].end(),[](auto a,auto b){return a.coordinate<b.coordinate;});
+        }
+        sweep.move(id,first,last);
+        for(int axis=0;axis<2;++axis)for(std::size_t i=0;i<expected[axis].size();++i){const auto a=sweep.axes()[axis][i],b=expected[axis][i];check(a.coordinate==b.coordinate&&a.key==b.key&&a.maximum==b.maximum);}
+      }
+    }
     boundaries.insert(1, {100, 100}, {120, 120});
     boundaries.insert(2, {100, 100}, {120, 120});
     check(boundaries.axes()[0][0].key == 2 && boundaries.axes()[0][1].key == 1);

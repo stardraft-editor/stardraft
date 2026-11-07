@@ -4,6 +4,7 @@
 #include "placement.h"
 #include "regions.h"
 #include <optional>
+#include <memory>
 #include <span>
 namespace mapeditor::simulation {
 // Inclusive configuration-space rectangle. Obstacles have already been
@@ -46,21 +47,31 @@ private:
   std::vector<PixelBox> obstacles_;
   std::size_t terrainObstacleCount_;
   std::vector<NavigationWall> navigation_;
+  int obstacleColumns_ = 0, obstacleRows_ = 0;
+  std::vector<std::vector<std::size_t>> obstacleCells_;
+  bool blocked(PixelBox, std::size_t limit) const;
+  std::span<const NavigationWall> walls(int normal, int firstLine, int lastLine) const;
 };
 LocalSpace groundSpace(const Terrain &, const Contours &, const dat::Extents &,
                        std::span<const CollisionBody> bodies = {},
                        std::span<const std::uint8_t> creep = {});
 // Immutable terrain contribution, before terrain/unit wall unions are formed.
 // Each request appends current units and performs the complete union afresh.
+struct GroundSpaceCache;
+std::shared_ptr<GroundSpaceCache> makeGroundSpaceCache();
 struct GroundGeometry {
   PixelBox domain;
   dat::Extents shape;
   std::vector<PixelBox> obstacles;
   std::vector<NavigationWall> navigation;
+  std::shared_ptr<GroundSpaceCache> cache = makeGroundSpaceCache();
   // A departing center can follow a body face it already touches. Opening
   // that face leaves the body's interior and terrain obstacles blocked.
   LocalSpace withBodies(std::span<const CollisionBody>,
                         std::optional<Point> departure = {}) const;
+  std::shared_ptr<const LocalSpace>
+  cachedWithBodies(std::span<const CollisionBody>,
+                   std::optional<Point> departure = {}) const;
 };
 GroundGeometry groundGeometry(const Terrain &, const Contours &,
                               const dat::Extents &,

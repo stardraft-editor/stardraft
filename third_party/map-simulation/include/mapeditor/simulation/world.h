@@ -205,6 +205,9 @@ public:
   // Experimental position-search queries for completed ground workers.
   bool workerPositionBlocked(UnitHandle, Point) const;
   UnitHandle mineralDepot(UnitHandle) const;
+  // Warm immutable terrain geometry before making parallel search snapshots.
+  // Does not advance frames, consume randomness or change unit state.
+  void prepareNavigation(UnitHandle);
   // Untouched frame-zero ground workers only; retains orders and facing.
   void relocateWorkerForSearch(UnitHandle, Point);
   void harvest(UnitHandle worker, UnitHandle mineral,

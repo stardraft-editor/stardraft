@@ -192,8 +192,6 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r);
 bool simKey(const draw::KeyEvent& e);
 void simFrame();
 void mapLabFrame();
-int miningDockHeight(int clientHeight);
-void miningDockLayout(draw::Rect, bool);
 bool mapLabMouse(const draw::MouseEvent&);
 bool mapLabKey(const draw::KeyEvent&);
 
@@ -799,8 +797,6 @@ struct MainView final : draw::View {
         const bool startShown = gWorkspace == Workspace::Map && (!mapOpen || gStartOpen) && !newShown;  // (File > New over a map)
         const bool mapWs = gWorkspace == Workspace::Map && mapOpen && !newShown && !startShown;
         in.mapWs = mapWs;
-        const int miningH = mapWs ? miningDockHeight(height()) : 0;
-        in.logH += miningH;
         // Each docked list's tools are its side bar panel's (panel_state.inc: its tools, sizes and options).
         in.toolStrip = [](int width) { return toolStripHeight(width, &dockedPanel(gState.mode)); };
         in.toolStripOf = [](int width, Mode m) { return toolStripHeight(width, &dockedPanel(m)); };
@@ -860,10 +856,7 @@ struct MainView final : draw::View {
         apply(topBar, barSlot, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
-        PaneSlot logSlot = L.log;
-        logSlot.rc.top += miningH;
-        apply(gLogPane, logSlot, true);
-        miningDockLayout({L.log.rc.left,L.log.rc.top,L.log.rc.right,L.log.rc.top+miningH}, miningH>0);
+        apply(gLogPane, L.log, true);
         apply(map, L.view, mapWs);
         apply(minimap, L.minimap, L.minimap.visible && mapWs);
         apply(modes, L.modeBar, mapWs);

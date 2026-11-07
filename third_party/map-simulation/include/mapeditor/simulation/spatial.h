@@ -50,11 +50,21 @@ public:
           changed |= coordinate != entry.coordinate;
           entry.coordinate = coordinate;
         }
-      if (changed)
-        std::stable_sort(events.begin(), events.end(),
-                         [](const auto &a, const auto &b) {
-                           return a.coordinate < b.coordinate;
-                         });
+      if (changed) {
+        // Only this body's two boundaries changed. Restore the nearly sorted
+        // sweep without allocating a merge buffer for every movement frame.
+        // Strict comparison retains the same equal-coordinate order as a
+        // stable sort, including when the two boundaries cross other bodies.
+        for (std::size_t i = 1; i < events.size(); ++i) {
+          const auto entry = events[i];
+          std::size_t j = i;
+          while (j && events[j - 1].coordinate > entry.coordinate) {
+            events[j] = events[j - 1];
+            --j;
+          }
+          events[j] = entry;
+        }
+      }
     }
   }
   void remove(Key key) {

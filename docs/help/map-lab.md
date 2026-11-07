@@ -1,12 +1,13 @@
 # Mining Lab and rush distance
 
-Open **Tools > Mining Lab** for the compact bottom widget. Select a start location
+Open **Tools > Mining Lab** for the compact, movable popup. Select a start location
 or a placed depot, a race, and a worker count, then select **Start mining**.
 **One / field** assigns one worker to each nearby mineral field. You can also
 right-click a start location or depot in Units mode and select **Mining Lab**.
 
-Start another base to compare independent tests. **Tests** shows the table;
-select a row to return to that base. **Stop test** ends the selected test and
+Start another base to compare independent tests. **Tests** switches to the table;
+select a row to return to that base. **Boosts** returns to the search controls.
+**Stop test** ends the selected test and
 **Stop all** ends all tests. **Hide** keeps the tests running and hides the widget.
 Open Mining Lab again to show it.
 
@@ -22,13 +23,13 @@ same search more time. **Exhausted** means that search has no more candidates.
 Results are applied automatically. For combined plans, run position, cargo, then
 cycle searches. Updating an earlier plan clears the later plans.
 
-- **Position boost:** translucent workers mark the selected starting positions.
-- **Return cargo:** translucent workers and return arrows mark cargo commands.
+- **Position boost:** translucent workers and yellow boxes mark starting positions.
+- **Return cargo:** translucent workers and yellow return arrows mark cargo commands.
 - **Cycle boost:** translucent workers, colored arrows and numbers show the two
   command stages. Each worker keeps its own arrow color.
 
 The check boxes only show or hide guides; they do not turn off an applied plan.
-Blue numbers at mineral fields show the last delivery-to-delivery cycle in game
+Cream numbers on dark backplates at mineral fields show the last delivery-to-delivery cycle in game
 frames. Income includes travel at the start. These tests use a completed depot,
 fixed workers and mineral fields that do not run out during the measurement.
 They do not include gas or worker production.

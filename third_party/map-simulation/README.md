@@ -6,9 +6,14 @@ game data supplied by its caller; no game data is included here.
 
 This is a source extraction from Map Editor revision
 `cdc6bd99ab80f836c1d3fded991b013ec66d0fae`. SOURCE.json fingerprints the extracted
-engine files. The only build change in the extraction is a standalone CMake
+engine files. The build change in the initial extraction is a standalone CMake
 project, optional tests, and removal of a test that used a script outside this
-library. The implementation files are unchanged.
+library. Subsequent navigation performance changes are recorded separately in
+SOURCE.json's `localChanges`, retaining the initial extraction fingerprints:
+bounded immutable navigation-space reuse, indexed obstacle queries, stable
+incremental spatial ordering and allocation-free overlap checks. Navigation
+geometry is warmed before parallel mining searches. These changes retain the
+simulation rules, search candidates and validation horizons.
 
 Fingerprints use LF-normalized text. Run `python -I
 third_party/map-simulation/verify_source.py` to check them, including after

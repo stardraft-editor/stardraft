@@ -262,6 +262,12 @@ const GroundGeometry &World::terrainGeometry(const dat::Extents &shape) {
   groundCache_.push_back({key, std::move(geometry)});
   return *groundCache_.back().geometry;
 }
+void World::prepareNavigation(UnitHandle handle) {
+  const auto *unit = get(handle);
+  if (!unit || unit->dead || !unit->visible || !unit->motion)
+    throw std::invalid_argument("Missing navigation worker");
+  terrainGeometry(definitions_->units[unit->type].bounds);
+}
 std::vector<RenderedImage>
 World::renderUnits(std::span<const UnitHandle> handles) const {
   std::map<std::uint64_t, const UnitState *> selected;
@@ -1394,10 +1400,11 @@ void World::advance(int frames) {
             plan.reached = true;
           } else {
             const auto &shape = definitions_->units[unit.type].bounds;
-            auto space = terrainGeometry(shape).withBodies(
+            auto cachedSpace = terrainGeometry(shape).cachedWithBodies(
                 obstacles, motion.reroutesRecordedObstacle()
                                ? std::optional<Point>(unit.position)
                                : std::nullopt);
+            const auto &space = *cachedSpace;
             std::optional<PixelBox> contact;
             std::optional<std::pair<int, int>> contactRank;
             auto encounter = spatial_.encounters(unit.position);
@@ -2734,19 +2741,26 @@ iscript::HostAction World::effectSprite(int id,
 }
 std::vector<CollisionBody> World::bodies(int ignore) const {
   std::vector<CollisionBody> result;
-  for (const auto &slot : units_)
+  result.reserve(visible_.size());
+  for (int id : visible_) {
+    const auto &slot = units_[id];
     if (slot && slot->visible && !slot->dead && slot->handle.index != ignore) {
       const auto &unit = *slot;
       const auto &type = definitions_->units[unit.type];
       result.push_back({std::uint32_t(unit.handle.index), unit.position,
                         type.bounds, bool(type.flags & 4) || unit.gasLanding});
     }
+  }
+  // Placement and route ties use slot order, independently of update order.
+  std::sort(result.begin(), result.end(),
+            [](const auto &a, const auto &b) { return a.key < b.key; });
   return result;
 }
 std::vector<std::uint8_t> World::occupancy(int ignore) const {
   int w = map_->terrain.width(), h = map_->terrain.height();
   std::vector<std::uint8_t> result(std::size_t(w) * h);
-  for (const auto &slot : units_)
+  for (int id : visible_) {
+    const auto &slot = units_[id];
     if (slot && slot->visible && !slot->dead && slot->handle.index != ignore) {
       const auto &unit = *slot;
       const auto &type = definitions_->units[unit.type];
@@ -2763,6 +2777,7 @@ std::vector<std::uint8_t> World::occupancy(int ignore) const {
              x < std::min(w, left + type.placementWidth / 32); ++x)
           result[std::size_t(y) * w + x] = 1;
     }
+  }
   return result;
 }
 iscript::HostAction World::effect(UnitHandle handle,

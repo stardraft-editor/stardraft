@@ -79,5 +79,39 @@
     "tests/search_tests.cpp": "30e2174b24660abb17d31726f5e2d1841eb07cc1aea4c05fff9e5e8e79cd1b12",
     "tests/world_tests.cpp": "12141f59525f520f5b2d595b8e6ed8e6f4a7714628d821adc22fd06da56f1a61"
   },
-  "hashNormalization": "CRLF to LF"
+  "hashNormalization": "CRLF to LF",
+  "localChanges": {
+    "include/mapeditor/simulation/local_route.h": {
+      "sha256": "ca415ae6e7219739655b8aa2c182a532cc0ea04da33bef1f1d290d0226f3aac3",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "include/mapeditor/simulation/spatial.h": {
+      "sha256": "b911c7b12b9c7576df1a13659c7201f14ff6f55354726e67bff9592d822b1304",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "include/mapeditor/simulation/world.h": {
+      "sha256": "82053e73521c3703f6bfee02ff4070044414a7b6ae17894c50b8954775b18839",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "src/local_route.cpp": {
+      "sha256": "dfee434e1dd8e69f9e18e910ce159cff87f827e5a2fbf76f6700ecb7bbb1ed0e",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "src/production.cpp": {
+      "sha256": "d9f6bff9b6f368485ed4706f618d7d12316617bd9108804d9dd46ec8902765ea",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "src/world.cpp": {
+      "sha256": "9bf5a21de8eeaf635e109f54f039721c76a99876e1e66fd8007bf8b387de8bdb",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "tests/local_route_tests.cpp": {
+      "sha256": "c1b40df1526ab06f691939075de777bd75f4d3825a14cb650802a1d0d39cfb26",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    },
+    "tests/world_tests.cpp": {
+      "sha256": "d06c82c5ef9a98daee3816d27df01bba22d93854309b59e451992f76d95e9178",
+      "reason": "Navigation performance: immutable space cache, indexed clearance and wall queries, stable incremental spatial updates, active-unit overlap queries; corresponding regression coverage."
+    }
+  }
 }

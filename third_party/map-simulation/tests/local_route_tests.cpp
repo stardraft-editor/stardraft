@@ -10,6 +10,33 @@ void check(bool ok, const char *why) {
 }
 int main() {
   try {
+    // Compare indexed collision queries with a flat scan, including cell
+    // borders, long rectangles, negative edges and partially clipped walls.
+    {
+      std::vector<PixelBox> boxes{{-20,-10,0,600},{250,255,258,514},{511,0,512,1000}};
+      std::uint32_t state=42;
+      auto next=[&]{state=state*1664525U+1013904223U;return state;};
+      for(int i=0;i<180;++i){int x=int(next()%1024),y=int(next()%1024);boxes.push_back({x,y,x+int(next()%80),y+int(next()%80)});}
+      LocalSpace indexed({0,0,1023,1023},boxes);
+      for(int i=0;i<12000;++i) {
+        int x=int(next()%1080)-20,y=int(next()%1080)-20;
+        PixelBox area{x,y,x+int(next()%70),y+int(next()%70)};
+        bool flat=area.left>=0&&area.top>=0&&area.right<=1023&&area.bottom<=1023;
+        for(const auto& b:boxes) if(area.left<=b.right&&area.right>=b.left&&area.top<=b.bottom&&area.bottom>=b.top)flat=false;
+        check(indexed.clear(area)==flat,"Spatial collision index changed clearance");
+      }
+      GroundGeometry geometry{{0,0,1023,1023},{8,4,7,11},boxes,{}};
+      std::vector<CollisionBody> bodies{{1,{100,120},{8,4,7,11},false,true}};
+      auto a=geometry.cachedWithBodies(bodies);
+      check(a==geometry.cachedWithBodies(bodies),"Identical obstacle state was not reused");
+      bodies[0].position.x=130;
+      auto b=geometry.cachedWithBodies(bodies);
+      check(a!=b,"Changed body position reused a stale navigation space");
+      auto c=geometry.cachedWithBodies(bodies,Point{115,120});
+      check(b!=c,"Departure state missing from the navigation cache key");
+      auto direct=geometry.withBodies(bodies,Point{115,120});
+      for(int i=0;i<1200;++i){int x=int(next()%1024),y=int(next()%1024);check(c->clear({x,y,x,y})==direct.clear({x,y,x,y}),"Cached clearance differs");}
+    }
     LocalRouteResult stored;
     for (int i = 0; i < 21; ++i)
       stored.retained.regions.push_back(i);

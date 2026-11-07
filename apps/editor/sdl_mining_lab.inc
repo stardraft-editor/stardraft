@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Mining Lab's dock follows the source editor: parallel base tests and three
+// Compact floating Mining Lab: parallel base tests and three
 // independent timed searches. The worlds remain owned by Session workers.
 #include "../../tools/map_lab/guide_geometry.h"
 #include "../kit/check_box.h"
@@ -134,13 +134,16 @@ public:
         };
         close_.setText(L"Hide"); close_.onClick=[this] { close(); };
         detailsButton_.setText(L"Tests"); detailsButton_.onClick=[this] {
-            details_=!details_; table_.setVisible(details_); if(gRoot)gRoot->relayout();
+            details_=!details_; table_.setVisible(details_);
+            detailsButton_.setText(details_?L"Boosts":L"Tests");
+            for(int k=0;k<3;++k)for(auto* v:std::initializer_list<draw::View*>{&guides_[k],&budget_[k],&search_[k],&status_[k],&progress_[k]})v->setVisible(!details_);
+            invalidate();
         };
         copy_.setText(L"Copy"); copy_.onClick=[this] { if (host()) host()->setClipboardText(narrow(report())); };
         for (auto* v : std::initializer_list<draw::View*>{&base_,&race_,&workers_,&speed_,&run_,&stopAll_,&pause_,&close_,&copy_,&detailsButton_,&stats_,&table_}) add(*v,{});
         table_.setVisible(false);
-        table_.setColumns({{L"Base",230},{L"Race",100},{L"Workers",100},{L"Minerals/min",120,stardraft::kit::ColAlign::Right},
-                           {L"Time",90,stardraft::kit::ColAlign::Right},{L"Status",0}});
+        table_.setColumns({{L"Base",150},{L"Race",70},{L"Workers",70},{L"Minerals/min",90,stardraft::kit::ColAlign::Right},
+                           {L"Time",65,stardraft::kit::ColAlign::Right},{L"Status",0}});
         table_.setEmptyHint(L"Select a start location or depot, then select Start mining.");
         table_.cell=[this](int row,size_t col) {
             if (row<0 || row>=int(tests_.size())) return std::wstring();
@@ -199,8 +202,7 @@ public:
         stats_.setText(L"Select a base. Each test uses a separate copy of the current map.");
     }
     void close() {
-        open=false; setVisible(false);
-        if (gRoot) gRoot->relayout();
+        open=false; if (host()) host()->closeWindow(*this);
     }
     void beginSearch(int k) {
         if (auto* t=selected();t && t->value.ready && !t->value.searching && !t->value.mining.searches[k].exhausted) {
@@ -254,28 +256,33 @@ public:
     void paint(draw::Canvas& c) override {
         update(); c.fill({0,0,width(),height()},kPanel); c.fill({0,0,width(),1},kBorder);
         c.text({scale(16),scale(4),scale(130),scale(26)},L"MINING LAB",kText,draw::kMiddle);
-        const int pad=scale(16), gap=scale(10), col=(width()-2*pad-2*gap)/3;
-        const int y=height()-scale(97);
-        for(int k=0;k<3;++k) c.text({pad+k*(col+gap)+col-scale(22),y,pad+k*(col+gap)+col,y+scale(24)},L"s",kDim,draw::kMiddle);
+        if(details_)return;
+        const int top=168;
+        for(int k=0;k<3;++k) {
+            const int y=scale(top+k*92);
+            c.fill({scale(16),y-scale(5),width()-scale(16),y-scale(4)},kBorder);
+            c.text({width()-scale(32),y,width()-scale(16),y+scale(24)},L"s",kDim,draw::kMiddle);
+        }
     }
     void resized() override {
         const int pad=scale(16), gap=scale(8), fh=scale(24), bh=scale(28);
         int x=pad,y=scale(32);
         auto field=[&](draw::View& v,int w) { v.setFrame({x,y,x+scale(w),y+bh});x+=scale(w)+gap; };
-        field(base_,std::clamp(width()*96/int(gDpi)-474,140,260)); field(race_,100); field(workers_,115); field(run_,110); field(stopAll_,85);
-        if (width()<scale(1160)) x=pad,y+=bh+gap;
+        base_.setFrame({pad,y,width()-pad,y+bh});
+        x=pad;y=scale(68);
+        field(race_,100); field(workers_,115); field(run_,110); field(stopAll_,85);
+        x=pad;y=scale(104);
         field(speed_,100); field(pause_,80); field(copy_,70); field(detailsButton_,70); field(close_,70);
-        const int bottom=height()-scale(100);
-        stats_.setFrame({pad,y+bh+scale(4),width()-pad,y+bh+scale(28)});
-        table_.setFrame({pad,y+bh+scale(30),width()-pad,std::max(y+bh+scale(64),bottom-scale(8))});
-        const int cw=(width()-2*pad-2*gap)/3, sy=height()-scale(97);
+        stats_.setFrame({pad,scale(136),width()-pad,scale(160)});
+        table_.setFrame({pad,scale(168),width()-pad,height()-pad});
+        const int top=168;
         for(int k=0;k<3;++k) {
-            const int sx=pad+k*(cw+gap);
-            guides_[k].setFrame({sx,sy,sx+cw-scale(90),sy+fh});
-            budget_[k].setFrame({sx+cw-scale(80),sy,sx+cw-scale(26),sy+fh});
-            search_[k].setFrame({sx,sy+scale(32),sx+scale(100),sy+scale(32)+bh});
-            status_[k].setFrame({sx+scale(108),sy+scale(32),sx+cw,sy+scale(32)+bh});
-            progress_[k].setFrame({sx,sy+scale(70),sx+cw,sy+scale(75)});
+            const int sy=scale(top+k*92);
+            guides_[k].setFrame({pad,sy,width()-scale(98),sy+fh});
+            budget_[k].setFrame({width()-scale(90),sy,width()-scale(36),sy+fh});
+            search_[k].setFrame({pad,sy+scale(30),pad+scale(100),sy+scale(30)+bh});
+            status_[k].setFrame({pad+scale(108),sy+scale(30),width()-pad,sy+scale(30)+bh});
+            progress_[k].setFrame({pad,sy+scale(65),width()-pad,sy+scale(69)});
         }
     }
     void scene(render::Scene& scene) {
@@ -294,9 +301,6 @@ public:
                 addUnitSprites(scene,unit,0,0,.4f);
             });
         }
-    }
-    int preferredHeight(int clientWidth) const {
-        return scale(210+(details_?90:0)+(clientWidth<scale(1160)?36:0));
     }
 };
 MiningLabPanel gMiningPanel;
@@ -332,19 +336,15 @@ void MiningLabPanel::start() {
 }
 
 void showMiningLabPanel() {
-    if (!gRoot || !gState.ed || !gState.ed->isOpen()) return;
+    if (!gRoot || !gHost || !gState.ed || !gState.ed->isOpen()) return;
     simClose();
     if (!gMiningPanel.current()) gMiningPanel.setup();
+    if (gMiningPanel.open) return;
     gMiningPanel.open=true;
-    if (!gMiningPanel.parent()) gRoot->add(gMiningPanel,{});
-    gRoot->relayout(); gMiningPanel.focus();
+    draw::WindowSpec spec{draw::WindowKind::Tool,{scale(40),scale(120),scale(580),scale(560)},L"Mining Lab"};
+    if(gNoBoxes)gHost->snapshotInput(*gRoot,gRoot->width(),gRoot->height(),{});
+    gHost->openWindow(*gRoot,gMiningPanel,spec,[]{gMiningPanel.open=false;});
     if(gNoBoxes)std::printf("map-lab: opened mining\n");
 }
 void miningPanelFrame() { gMiningPanel.update(); }
 void miningLabForUnit(int index) { showMiningLabPanel(); gMiningPanel.openForUnit(index); }
-int miningDockHeight(int clientHeight) {
-    return gMiningPanel.open?std::min(gMiningPanel.preferredHeight(gRoot?gRoot->width():1600),std::max(scale(210),clientHeight/2)):0;
-}
-void miningDockLayout(draw::Rect rect,bool visible) {
-    gMiningPanel.setFrame(rect); gMiningPanel.setVisible(visible);
-}

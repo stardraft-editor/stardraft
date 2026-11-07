@@ -7,7 +7,11 @@ from pathlib import Path
 root = Path(__file__).resolve().parent
 manifest = json.loads((root / "SOURCE.json").read_text(encoding="utf-8"))
 failed = []
+changes = manifest.get("localChanges", {})
+if not set(changes).issubset(manifest["files"]):
+    raise SystemExit("Local change refers to an unknown extracted file")
 for name, expected in manifest["files"].items():
+    expected = changes.get(name, {}).get("sha256", expected)
     path = (root / name).resolve()
     if not path.is_relative_to(root):
         raise SystemExit("Source manifest contains a path outside the engine")
@@ -16,4 +20,4 @@ for name, expected in manifest["files"].items():
         failed.append(name)
 if failed:
     raise SystemExit("Engine source differs: " + ", ".join(failed))
-print(f"Verified {len(manifest['files'])} engine files (LF-normalized SHA-256)")
+print(f"Verified {len(manifest['files'])} engine files ({len(changes)} documented local updates; LF-normalized SHA-256)")

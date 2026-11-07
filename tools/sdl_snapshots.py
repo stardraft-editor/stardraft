@@ -117,9 +117,9 @@ CASES += [
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
-    ("map-mining-lab", ["--dialog", "mininglab", "--size", "1100x250"], "map"),
+    ("map-mining-lab", ["--dialog", "mininglab", "--size", "540x440"], "map"),
     ("map-rush-measure", ["--dialog", "rushmeasure", "--size", "520x300"], "map"),
-    ("map-mining-lab-running", ["--dialog", "mininglab", "--size", "1100x250", "--click", "560,46", "--wait", "2000"], "map"),
+    ("map-mining-lab-running", ["--dialog", "mininglab", "--size", "540x440", "--click", "310,82", "--wait", "2000"], "map"),
     ("map-rush-measure-running", ["--dialog", "rushmeasure", "--size", "520x300", "--click", "60,270", "--wait", "2000"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
     ("map-dialog-mapimage", ["--dialog", "mapimage"], "map"),  # File > Export map image (core/map_image.inc)
@@ -5208,7 +5208,7 @@ CHECKS.update({
 for _lab in ("mining", "rush"):
     SCRIPTS["map_lab_" + _lab] = (
         "history\ncommand edit.measure." + _lab + "\nwait 200\n"
-        + ("click 560,788\n" if _lab == "mining" else "click 100,390\n") + "wait 2000\nhistory\n"
+        + ("click 350,202\n" if _lab == "mining" else "click 100,390\n") + "wait 2000\nhistory\n"
     )
     _case = "map-lab-menu-" + _lab
     CASES.append((_case, ["--script", "{script:map_lab_" + _lab + "}", "--check", "menus"], "map"))
@@ -5229,8 +5229,8 @@ for _lab in ("mining", "rush"):
 
 
 SCRIPTS["mining_multi_base"] = (
-    "history\ncommand edit.measure.mining\nwait 200\nclick 560,788\nwait 2000\n"
-    "click 100,788\nkey Down\nkey Enter\nclick 560,788\nwait 2000\nclick 1030,788\nhistory\n"
+    "history\ncommand edit.measure.mining\nwait 200\nclick 350,202\nwait 2000\n"
+    "click 100,166\nkey Down\nkey Enter\nclick 350,202\nwait 2000\nclick 350,238\nhistory\n"
 )
 CASES.append(("map-mining-multi-base", ["--script", "{script:mining_multi_base}"], "map"))
 def check_mining_multi(output):
@@ -5241,12 +5241,14 @@ def check_mining_multi(output):
 CHECKS["map-mining-multi-base"] = check_mining_multi
 
 for _kind, _name in enumerate(("position", "cargo", "cycle")):
-    _budget_x = 479 + _kind * 525
-    _button_x = 66 + _kind * 525
+    _budget_x = 516
+    _budget_y = 300 + _kind * 92
+    _button_x = 100
+    _button_y = 332 + _kind * 92
     SCRIPTS["mining_boost_" + _name] = (
-        "history\ncommand edit.measure.mining\nwait 200\nclick 560,788\nwait 2000\n"
-        + f"click {_budget_x},867\nkey Ctrl+A\ntype {_kind + 2}\nclick {_button_x},900\nwait 22000\n"
-        + (f"click {_button_x},900\nwait 12000\n" if _kind == 0 else "")
+        "history\ncommand edit.measure.mining\nwait 200\nclick 350,202\nwait 2000\n"
+        + f"click {_budget_x},{_budget_y}\nkey Ctrl+A\ntype {_kind + 2}\nclick {_button_x},{_button_y}\nwait 22000\n"
+        + (f"click {_button_x},{_button_y}\nwait 12000\n" if _kind == 0 else "")
         + "history\n"
     )
     _case = "map-mining-boost-" + _name

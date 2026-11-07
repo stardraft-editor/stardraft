@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <mutex>
+#include <deque>
 #include <mapeditor/simulation/local_route.h>
 #include <mapeditor/simulation/region_route.h>
 #include <stdexcept>
@@ -133,12 +135,39 @@ LocalSpace::LocalSpace(PixelBox domain, std::vector<PixelBox> obstacles,
       merged.push_back(wall);
   }
   navigation_ = std::move(merged);
+  obstacleColumns_ = domain_.right / 256 + 1;
+  obstacleRows_ = domain_.bottom / 256 + 1;
+  obstacleCells_.resize(std::size_t(obstacleColumns_) * obstacleRows_);
+  for (std::size_t i = 0; i < obstacles_.size(); ++i) {
+    const auto b = obstacles_[i];
+    if (!overlaps(b, domain_)) continue;
+    for (int y = std::max(0, b.top) / 256;
+         y <= std::min(domain_.bottom, b.bottom) / 256; ++y)
+      for (int x = std::max(0, b.left) / 256;
+           x <= std::min(domain_.right, b.right) / 256; ++x)
+        obstacleCells_[std::size_t(y) * obstacleColumns_ + x].push_back(i);
+  }
+}
+bool LocalSpace::blocked(PixelBox area, std::size_t limit) const {
+  for (int y = std::max(0, area.top) / 256;
+       y <= std::min(domain_.bottom, area.bottom) / 256; ++y)
+    for (int x = std::max(0, area.left) / 256;
+         x <= std::min(domain_.right, area.right) / 256; ++x)
+      for (auto i : obstacleCells_[std::size_t(y) * obstacleColumns_ + x])
+        if (i < limit && overlaps(area, obstacles_[i])) return true;
+  return false;
+}
+std::span<const NavigationWall> LocalSpace::walls(int normal, int low, int high) const {
+  auto first=std::lower_bound(navigation_.begin(),navigation_.end(),std::pair{normal,low},
+      [](const auto& wall,const auto& key){return std::pair{wall.normal,wall.line}<key;});
+  auto last=std::upper_bound(first,navigation_.end(),std::pair{normal,high},
+      [](const auto& key,const auto& wall){return key<std::pair{wall.normal,wall.line};});
+  return {first,last};
 }
 bool LocalSpace::clear(PixelBox area) const {
   return valid(area) && domain_.contains({area.left, area.top}) &&
          domain_.contains({area.right, area.bottom}) &&
-         std::none_of(obstacles_.begin(), obstacles_.end(),
-                      [&](auto b) { return overlaps(area, b); });
+         !blocked(area, obstacles_.size());
 }
 LocalExpansion LocalSpace::expand(Point origin, int radius,
                                   unsigned allowed) const {
@@ -163,7 +192,10 @@ LocalExpansion LocalSpace::expand(Point origin, int radius,
     window.left = origin.x;
   std::vector<NavigationWall> activeWalls;
   std::vector<PixelBox> barriers;
-  for (const auto &wall : navigation_) {
+  for (int normal=0;normal<4;++normal)
+  for (const auto &wall : walls(normal,
+       (normal%2==0?window.top:window.left)-1,
+       (normal%2==0?window.bottom:window.right)+1)) {
     bool horizontal = wall.normal % 2 == 0;
     int axis = horizontal ? origin.y : origin.x;
     bool facesOrigin = wall.normal == 0 || wall.normal == 3 ? wall.line < axis
@@ -204,9 +236,12 @@ LocalExpansion LocalSpace::expand(Point origin, int radius,
       return;
     auto area = seen.value_or(between(origin, p));
     int forward = p.y > origin.y ? 1 : -1;
+    const int backNormal=forward>0?0:2;
+    const int backLine=p.y+neighborSteps[backNormal].y;
+    const auto backWalls=walls(backNormal,backLine,backLine);
     bool backFaceJunction =
         openBeyondWindow &&
-        std::any_of(navigation_.begin(), navigation_.end(),
+        std::any_of(backWalls.begin(), backWalls.end(),
                     [&](const auto &wall) {
                       if (wall.normal != (forward > 0 ? 0 : 2))
                         return false;
@@ -304,9 +339,7 @@ LocalExpansion LocalSpace::expand(Point origin, int radius,
           domain_.contains(q) &&
           (!constrainedExit ||
            (outsideHorizon && windowCorner && !knownContact) ||
-           std::none_of(obstacles_.begin(),
-                        obstacles_.begin() + terrainObstacleCount_,
-                        [&](auto box) { return box.contains(q); }));
+           !blocked({q.x,q.y,q.x,q.y}, terrainObstacleCount_));
       if (!area.contains(q) &&
           (boundaryPort || (retreat & (1U << i)) || (free && clearExit)))
         mask |= 1U << i;
@@ -814,6 +847,42 @@ GroundGeometry::withBodies(std::span<const CollisionBody> bodies,
     }
   return LocalSpace(domain, std::move(obstacles), std::move(navigation),
                     this->obstacles.size());
+}
+// Geometry is immutable. Its bounded cache shares only immutable derived
+// navigation spaces; mutable worlds, orders and random state stay private.
+struct GroundSpaceCache {
+  struct Entry {
+    std::vector<int> key;
+    std::shared_ptr<const LocalSpace> space;
+  };
+  std::mutex mutex;
+  std::deque<Entry> entries;
+};
+std::shared_ptr<GroundSpaceCache> makeGroundSpaceCache() {
+  return std::make_shared<GroundSpaceCache>();
+}
+std::shared_ptr<const LocalSpace>
+GroundGeometry::cachedWithBodies(std::span<const CollisionBody> bodies,
+                                 std::optional<Point> departure) const {
+  std::vector<int> key;
+  key.reserve(3+bodies.size()*9);
+  key.push_back(bool(departure));
+  if (departure) {key.push_back(departure->x);key.push_back(departure->y);}
+  for (const auto &b : bodies) {
+    key.insert(key.end(), {int(b.key),b.position.x,b.position.y,b.bounds.left,
+                          b.bounds.top,b.bounds.right,b.bounds.bottom,
+                          int(b.flying),int(b.collides)});
+  }
+  {
+    std::lock_guard lock(cache->mutex);
+    for (const auto &e : cache->entries) if(e.key==key) return e.space;
+  }
+  auto space=std::make_shared<const LocalSpace>(withBodies(bodies,departure));
+  std::lock_guard lock(cache->mutex);
+  for (const auto &e : cache->entries) if(e.key==key) return e.space;
+  if(cache->entries.size()==16) cache->entries.pop_front();
+  cache->entries.push_back({std::move(key),space});
+  return space;
 }
 LocalSpace groundSpace(const Terrain &terrain, const Contours &contours,
                        const dat::Extents &shape,

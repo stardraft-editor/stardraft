@@ -7,7 +7,7 @@ existing simulator.
 
 ## Use
 
-Mining Lab is a compact bottom widget with an optional test table. It includes
+Mining Lab is a compact floating tool window; Tests and Boosts switch its view. It includes
 start locations and placed depots and can run independent tests at several bases.
 The Rush widget is a compact floating tool with two-point picking, per-run timing,
 launch interval and retained-result controls. The map and its undo history are unchanged. The tool uses the map's
@@ -68,6 +68,13 @@ objects on a worker thread. The UI receives value snapshots under a mutex and
 sends search/speed commands; it never touches the worker's world. Stop joins the
 worker and cancels its owned searches. A dedicated GameData object keeps input
 storage alive independently of editor tabs. No game process is launched.
+
+Navigation geometry is warmed before search snapshots. Immutable navigation
+spaces are reused through a bounded, synchronized cache keyed by complete body
+geometry and departure state. Clearance uses a spatial index; sweep boundary
+updates preserve stable tie order. These optimizations retain the search
+candidates, simulation rules and full-lineup validation horizons. Engine-local
+changes and their fingerprints are recorded in `third_party/map-simulation/SOURCE.json`.
 
 Synthetic engine tests and the session lifecycle test can be built without
 StarDraft's renderer or third-party downloads:
