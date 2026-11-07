@@ -3020,6 +3020,7 @@ constexpr UiText kRows[] = {
     {L"Only", L"Solo"},
     {L"Edit unit type in Data", L"Editar el tipo de unidad en Datos"},
     {L"Edit unit type in Map data", L"Editar el tipo de unidad en Datos del mapa"},
+    {L"Projects", L"Proyectos"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

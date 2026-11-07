@@ -3020,6 +3020,7 @@ constexpr UiText kRows[] = {
     {L"Only", L"\u0422\u043E\u043B\u044C\u043A\u043E"},
     {L"Edit unit type in Data", L"\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0438\u043F \u044E\u043D\u0438\u0442\u0430 \u0432 \u0414\u0430\u043D\u043D\u044B\u0445"},
     {L"Edit unit type in Map data", L"\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0438\u043F \u044E\u043D\u0438\u0442\u0430 \u0432 \u0414\u0430\u043D\u043D\u044B\u0445 \u043A\u0430\u0440\u0442\u044B"},
+    {L"Projects", L"\u041F\u0440\u043E\u0435\u043A\u0442\u044B"},
 };
 }  // namespace
 std::span<const UiText> langTableRu() { return kRows; }

@@ -598,7 +598,12 @@ void OptionsView::paint(draw::Canvas& c) {
     // Start.
     if (shown & optionsview::kStart) {
         header(L"Start");
-        checkRow(y, lastProject_, "lastproject");
+        label(L"Projects");  // (a label and its value, as the Maps row under it)
+        {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(lastProject_.label()), y + rowH};
+            place(lastProject_, cr, true);
+            parts_["lastproject"] = cr;
+        }
         y += rowH;
         // Maps (.scm, .scx): the program a double-click opens them with (where the system lets the program say it).
         if (v.mapsRow) {
@@ -628,17 +633,17 @@ void OptionsView::paint(draw::Canvas& c) {
             smallAt(restart_, x, y, "restart");
         }
         y += rowH;
-        note(fx, y - scale(4), L"The new language shows after a restart");
-        y += scale(20);
+        if (v.restartDue) {  // (only while the chosen language waits for a restart: Restart now is beside it)
+            note(fx, y - scale(4), L"The new language shows after a restart");
+            y += scale(20);
+        }
         // Graphics (Windows): the driver that draws the program (a computer that stopped with an old video card's
         // Direct3D 12, 0.8.5); the one in use under it.
         if (v.gpuRow) {
             label(L"Graphics");
             segmented(y, gpuSeg_, 3, "graphics");
             y += rowH;
-            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names)
-            y += scale(20);
-            note(fx, y - scale(4), L"The change applies after a restart");
+            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names; a new choice shows here after a restart)
             y += scale(20);
         }
         // The accent: the swatches (a ring around the chosen one and the one under the mouse).

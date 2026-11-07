@@ -3050,6 +3050,7 @@ constexpr UiText kRows[] = {
     {L"Only", L"\uB9CC"},
     {L"Edit unit type in Data", L"\uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC720\uD615 \uD3B8\uC9D1"},
     {L"Edit unit type in Map data", L"\uB9F5 \uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC720\uD615 \uD3B8\uC9D1"},
+    {L"Projects", L"\uD504\uB85C\uC81D\uD2B8"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

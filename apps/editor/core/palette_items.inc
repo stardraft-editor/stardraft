@@ -98,7 +98,7 @@ std::pair<int, std::wstring> spriteSection(int i, const std::wstring& name, uint
                 if (w == word) tileset = t;
         }
         if (tileset < 0) tileset = era & 7;
-        const std::wstring section = std::wstring(kTilesetNames[tileset & 7]) + L" doodads";
+        const std::wstring section = std::wstring(kTilesetNames[tileset & 7]) + L" doodad sprites";  // (the Sprites list: the sprites of its doodads)
         return {tileset == (era & 7) ? 0 : 100 + tileset, section};
     }
     if ((i >= 225 && i <= 274) || (i >= 489 && i <= 491) || i == 496) return {1, L"Terran"};
