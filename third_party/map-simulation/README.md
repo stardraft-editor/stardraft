@@ -10,6 +10,12 @@ engine files. The only build change in the extraction is a standalone CMake
 project, optional tests, and removal of a test that used a script outside this
 library. The implementation files are unchanged.
 
+Fingerprints use LF-normalized text. Run `python -I
+third_party/map-simulation/verify_source.py` to check them, including after
+`git am` on Windows (which can materialize new files with CRLF before applying
+the patch's attributes). The source manifest does not fingerprint this README,
+the verifier, or itself.
+
 StarDraft's integration is in `tools/map_lab/`. Its FileReader callback replaces
 the original editor's CASC wrapper. Its map import uses this library's Scenario
 reader in place of the original editor's editable document. The mining and Rush

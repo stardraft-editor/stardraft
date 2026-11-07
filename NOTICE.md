@@ -26,6 +26,13 @@ reference tests use, unchanged, and StarDraft's stand-ins for the two Chkdraft h
 
 ## Documents and data
 
+`third_party/map-simulation/` is the independently written MIT simulation engine
+contributed by Map Editor contributors. Its LICENSE and README describe the
+source extraction and provenance. `tools/map_lab/` adapts its Mining Lab and Rush
+diagnostics to StarDraft. It contains no OpenBW or BWAPI code and includes no game
+assets. OpenBW was used as an optional behavioral reference during development;
+the contribution does not build or link it.
+
 | Source | Use | Link |
 |---|---|---|
 | staredit.net wiki: Scenario.chk | The map format | http://staredit.net/wiki/index.php/Scenario.chk |

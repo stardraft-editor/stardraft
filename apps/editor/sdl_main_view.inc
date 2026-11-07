@@ -191,6 +191,9 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r);
 std::wstring simBarTip(draw::Point pt, draw::Rect r);
 bool simKey(const draw::KeyEvent& e);
 void simFrame();
+void mapLabFrame();
+bool mapLabMouse(const draw::MouseEvent&);
+bool mapLabKey(const draw::KeyEvent&);
 
 // The map view: the texture of the map (drawn by the frame hook) and the core's map input.
 struct MapView final : draw::View {
@@ -232,6 +235,7 @@ struct MapView final : draw::View {
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
+        if (mapLabMouse(e)) return true;
         if (e.kind == draw::MouseKind::Down && sdlPieClickAway()) return true;  // (a click away from the pie palette closes it)
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
@@ -512,6 +516,7 @@ struct MainView final : draw::View {
     // The menus' keys run when no view takes the key (the focused view first, then up to here). A search box takes the
     // letters and digits it types: the map's one-letter shortcuts (T, U, G, Q...) wait while it has the keyboard.
     bool key(const draw::KeyEvent& e) override {
+        if (mapLabKey(e)) return true;
         if (simKey(e)) return true;  // (Esc ends a live game)
         if (simBarShown()) return shortcutRun(e);  // (a live game: the menus' keys only, not the map's)
         const int k = int(e.key);
@@ -1153,6 +1158,7 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     const int w = gRoot->map.width(), h = gRoot->map.height();
     if (gFitPending && w > 0 && h > 0) fitMap(), updateStatus();  // (the map opened before the view had its size: the zoom it fit)
     if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
+    mapLabFrame();
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
     // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or

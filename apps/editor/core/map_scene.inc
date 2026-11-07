@@ -527,6 +527,8 @@ void shapeScene(render::Scene& s) {
 // A live game shows in place of the map's units and sprites while it runs (experimental: Tools > Simulate,
 // sdl_simulation.inc): it adds its images to the scene. nullptr: the map's own.
 void (*gLiveScene)(render::Scene& s) = nullptr;
+// Measurements add an overlay to the unchanged map.
+void (*gLabScene)(render::Scene& s) = nullptr;
 
 // The unit to place at the mouse (Units mode, a unit picked): whether it fits where it is (ok), where correction moves it
 // (fix: only when it does not fit), and its copies at the mirror images and turns, each where a click puts it. The checks
@@ -710,6 +712,7 @@ render::Scene buildScene() {
     }
     std::erase_if(gAnims, [](const auto& kv) { return kv.second.seen != gSceneNo; });
     if (gLiveScene) gLiveScene(s);  // (the live game's units and sprites)
+    if (gLabScene) gLabScene(s);
 
     // Locations.
     if (app.showLocations || app.mode == Mode::Locations) {

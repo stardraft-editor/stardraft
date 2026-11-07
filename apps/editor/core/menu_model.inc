@@ -222,6 +222,9 @@ MenuModel buildMenuModel() {
         menuCommand(tools, "edit.revealers.place");
         menuCommand(tools, "edit.revealers.removeAll");
 #ifdef STARDRAFT_SIMULATION
+        tools.push_back(menuSeparator());
+        menuCommand(tools, "edit.measure.mining");
+        menuCommand(tools, "edit.measure.rush");
         tools.push_back(menuSeparator());  // (experimental: the game simulated)
         menuCommand(tools, "edit.simulate.mining");
         menuCommand(tools, "edit.simulate.combat");

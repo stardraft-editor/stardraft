@@ -78,5 +78,6 @@
     "tests/scenario_tests.cpp": "1585748d42ac493f07eb68ade485389fe54e787cc527e918bdd20604ab26b1c0",
     "tests/search_tests.cpp": "30e2174b24660abb17d31726f5e2d1841eb07cc1aea4c05fff9e5e8e79cd1b12",
     "tests/world_tests.cpp": "12141f59525f520f5b2d595b8e6ed8e6f4a7714628d821adc22fd06da56f1a61"
-  }
+  },
+  "hashNormalization": "CRLF to LF"
 }

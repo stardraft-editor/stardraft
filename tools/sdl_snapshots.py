@@ -117,6 +117,10 @@ CASES += [
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
+    ("map-mining-lab", ["--dialog", "mininglab", "--size", "620x650"], "map"),
+    ("map-rush-measure", ["--dialog", "rushmeasure", "--size", "620x650"], "map"),
+    ("map-mining-lab-running", ["--dialog", "mininglab", "--size", "620x650", "--click", "60,620", "--wait", "2000"], "map"),
+    ("map-rush-measure-running", ["--dialog", "rushmeasure", "--size", "620x650", "--click", "60,620", "--wait", "2000"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
     ("map-dialog-mapimage", ["--dialog", "mapimage"], "map"),  # File > Export map image (core/map_image.inc)
     ("map-dialog-mapimage-progress", ["--dialog", "mapimage-progress"], "map"),  # ... its progress window, at part 3 of 16
@@ -5199,6 +5203,29 @@ CHECKS.update({
         None if re.search(r"protect: ([1-9]\d*) protected tiles, 0 of them changed \(yes\).*; undo: Protect the terrain \(\1 tiles\)", o)
         else "Ctrl+Z and Ctrl+Y did not give back the protected tiles as one step"),
 })
+
+
+for _lab in ("mining", "rush"):
+    SCRIPTS["map_lab_" + _lab] = (
+        "history\ncommand edit.measure." + _lab + "\nwait 200\n"
+        "click 100,660\nwait 2000\nhistory\n"
+    )
+    _case = "map-lab-menu-" + _lab
+    CASES.append((_case, ["--script", "{script:map_lab_" + _lab + "}", "--check", "menus"], "map"))
+    def _check_lab(output, lab=_lab):
+        menu = output.replace("&", "")
+        for label in ("Mining Lab", "Measure rush distance"):
+            if not any(line.startswith("menubar: Tools > ") and label in line for line in menu.splitlines()):
+                return "the Tools menu is missing " + label
+        if "map-lab: opened " + lab not in output:
+            return "the measurement window did not open"
+        if "map-lab: ready " + lab not in output:
+            return "the menu's measurement did not start its engine"
+        history = re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)", output)
+        if len(history) != 2 or history[0] != history[1]:
+            return "the measurement changed the map or undo history"
+        return None
+    CHECKS[_case] = _check_lab
 
 
 def main():

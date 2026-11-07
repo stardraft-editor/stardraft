@@ -1,0 +1,17 @@
+# This subdirectory can also be built alone, with no renderer or game install.
+cmake_minimum_required(VERSION 3.20)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    project(stardraft_map_lab LANGUAGES CXX)
+    include(CTest)
+endif()
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../../third_party/map-simulation
+                 ${CMAKE_CURRENT_BINARY_DIR}/engine)
+add_library(stardraft_map_lab STATIC native_world.cpp native_mining.cpp native_rush.cpp session.cpp)
+target_include_directories(stardraft_map_lab PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(stardraft_map_lab PUBLIC map-simulation)
+target_compile_features(stardraft_map_lab PUBLIC cxx_std_20)
+if(BUILD_TESTING)
+    add_executable(map_lab_session_test session_test.cpp)
+    target_link_libraries(map_lab_session_test PRIVATE stardraft_map_lab)
+    add_test(NAME map-lab-session COMMAND map_lab_session_test)
+endif()
