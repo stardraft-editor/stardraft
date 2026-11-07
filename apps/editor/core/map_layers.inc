@@ -964,8 +964,10 @@ static void layersDragEnd(Editor& ed) {
 // of the layers on the map (dx + dy stays even, as the rect grid).
 void layersKeepObjectsOnMap(const Editor& ed, const std::map<int, MapLayer>& from, int& dx, int& dy) {
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
-    const auto take = [&](const auto& list) {
-        for (const auto& o : list) x0 = std::min(x0, o.x), y0 = std::min(y0, o.y), x1 = std::max(x1, o.x), y1 = std::max(y1, o.y);
+    const int mw0 = ed.width() * 32, mh0 = ed.height() * 32;
+    const auto take = [&](const auto& list) {  // (an object off the map already, as after a crop: it does not hold the layer)
+        for (const auto& o : list)
+            if (o.x >= 0 && o.y >= 0 && o.x < mw0 && o.y < mh0) x0 = std::min(x0, o.x), y0 = std::min(y0, o.y), x1 = std::max(x1, o.x), y1 = std::max(y1, o.y);
     };
     for (const auto& [r, l] : from) take(l.units), take(l.doodads), take(l.sprites);
     if (x0 > x1) return;  // (terrain only)
@@ -1099,8 +1101,8 @@ static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
 }
 
 // --- The layers' terrain outside of the map --------------------------------------------------------------------------
-// A layer's terrain can be outside of the map: a place to try things out (Move Layer takes it there; units, doodads and
-// sprites stay on the map). The map's file has none of it. The map view shows it on a grid larger than the map
+// A layer's terrain can be outside of the map, up to 256 tiles from it: a place to try things out (Move Layer takes it
+// there; units, doodads and sprites stay on the map). The map's file has none of it. The map view shows it on a grid larger than the map
 // (sdl_main_view.inc), with tiles that a scratch map makes from the layers as the map makes them, and the view scrolls to
 // it (clampCamera). Layers panel > Settings > Hide what is outside of the map.
 bool& mapLayersHideOutside() {
@@ -1131,80 +1133,108 @@ static std::set<std::pair<int, int>> layerTileCells(const MapLayer& l) {
 const LayersOutside& mapLayersOutside(const Editor& ed) {
     static LayersOutside out;
     static const Editor* forEd = nullptr;
-    static uint64_t forRevision = ~0ull, gen = 0;
+    static uint64_t forRevision = ~0ull, forHash = 0, gen = 0;
     static bool forHide = false, forOn = false;
     const MapLayersState& m = gMapLayers;
     const bool hide = mapLayersHideOutside(), on = m.on && m.ed == &ed;
     if (forEd == &ed && forRevision == ed.revision() && forHide == hide && forOn == on) return out;
     forEd = &ed, forRevision = ed.revision(), forHide = hide, forOn = on;
-    LayersOutside next;
     const int W = ed.width(), H = ed.height();
-    // The visible layers with tiles outside of the map, and the box of all their tiles (in tiles).
+    constexpr int kReach = 256;  // (tiles: how far outside of the map a layer's terrain shows; the grid stays small)
+    // The visible layers with terrain outside of the map: a scan of their corners and tiles (no sets: this runs at each
+    // edit), and a hash of their terrain (the scratch maps' work only when it changes).
     std::vector<const MapLayer*> layers;
-    std::set<std::pair<int, int>> outside;
-    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    uint64_t hash = 1469598103934665603ull;
+    const auto mix = [&](uint64_t v) { hash = (hash ^ v) * 1099511628211ull; };
     for (size_t i = 0; on && !hide && i < m.stack.layers.size(); ++i) {
         const MapLayer& l = m.stack.layers[i];
         if (!l.visible) continue;
-        const auto cells = layerTileCells(l);
         bool any = false;
-        for (const auto& [x, y] : cells)
-            if (x < 0 || y < 0 || x >= W || y >= H) outside.insert({x, y}), any = true;
+        for (const auto& [at, t] : l.corners)  // (a corner's rects: tiles 2rx-2 to 2rx+1, rows ry-1 to ry)
+            if (any = 2 * at.first - 2 < 0 || at.second - 1 < 0 || 2 * at.first + 1 >= W || at.second >= H; any) break;
+        for (auto it = l.tiles.begin(); !any && it != l.tiles.end(); ++it)
+            any = it->first.first < 0 || it->first.second < 0 || it->first.first >= W || it->first.second >= H;
         if (!any) continue;
         layers.push_back(&l);
-        for (const auto& [x, y] : cells) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+        mix(l.id);
+        for (const auto& [at, t] : l.corners) mix(uint64_t(uint32_t(at.first)) << 32 | uint32_t(at.second)), mix(t);
+        for (const auto& [at, t] : l.tiles) mix(uint64_t(uint32_t(at.first)) << 32 | uint32_t(at.second)), mix(t | 0x10000);
     }
-    if (!outside.empty()) {
-        // The scratch map: the box in rects, a rect more each way (the edges), dx + dy even (the rect grid), 256 x 256
-        // tiles at most (the farthest parts of a larger box do not show).
+    mix(uint64_t(W) << 32 | uint32_t(H)), mix(ed.era() & 7);
+    if (hash == forHash && out.any == !layers.empty()) return out;
+    forHash = hash;
+    LayersOutside next;
+    if (!layers.empty()) {
+        // The tiles outside of the map (as far as kReach), and their box.
+        std::set<std::pair<int, int>> outside;
+        const auto add = [&](int x, int y) {
+            if ((x < 0 || y < 0 || x >= W || y >= H) && x >= -kReach && y >= -kReach && x < W + kReach && y < H + kReach) outside.insert({x, y});
+        };
+        for (const MapLayer* l : layers) {
+            for (const auto& [at, t] : l->corners)
+                for (int ry = at.second - 1; ry <= at.second; ++ry)
+                    for (int x = 2 * at.first - 2; x <= 2 * at.first + 1; ++x) add(x, ry);
+            for (const auto& [at, t] : l->tiles) add(at.first, at.second);
+        }
+        int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+        for (const auto& [x, y] : outside) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+        if (!outside.empty()) next.x0 = x0, next.y0 = y0, next.w = x1 - x0 + 1, next.h = y1 - y0 + 1, next.tiles.assign(size_t(next.w) * next.h, 0xFFFF);
+        // The tiles: in scratch maps of 256 x 256 tiles, each a part of the box with a margin round it (the edges there are
+        // made as on the map), one for each ground terrain (made once). Placed tiles need no scratch map.
+        constexpr int kSide = 256, kMargin = 4;  // (tiles; the margin: 2 rects)
+        struct Scratch {
+            std::unique_ptr<Editor> ed;
+            Bytes base;
+        };
+        static std::map<std::pair<const GameData*, uint32_t>, Scratch> scratches;  // (by the game data and era << 16 | ground)
         const auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
-        int rx0 = floorDiv(x0, 2) - 1, ry0 = y0 - 1;
-        if ((rx0 + ry0) & 1) --rx0;
-        const int sw = std::min(256, 2 * (floorDiv(x1, 2) + 1 - rx0 + 1)), sh = std::min(256, y1 + 1 - ry0 + 1);
-        std::map<uint16_t, int> count;  // (its ground: the terrain the layers have most)
-        for (const MapLayer* l : layers)
-            for (const auto& [at, t] : l->corners) ++count[t];
-        uint16_t ground = 0;
-        int most = -1;
-        for (const auto& [t, n] : count)
-            if (n > most) ground = t, most = n;
-        static std::unique_ptr<Editor> scratch;
-        static const GameData* forData = nullptr;
-        static Bytes base;
-        static std::array<int, 4> baseKey{-1, -1, -1, -1};
-        const std::array<int, 4> key{sw, sh, int(ed.era() & 7), int(ground)};
-        bool ok = true;
-        if (!scratch || forData != &ed.gameData() || key != baseKey) {
-            if (!scratch || forData != &ed.gameData()) scratch = std::make_unique<Editor>(ed.gameData()), forData = &ed.gameData();
-            Chk chk;
-            std::string err;
-            ok = ground && createNewScenario(chk, ed.gameData(), uint16_t(sw), uint16_t(sh), uint16_t(ed.era() & 7), ground, err) && scratch->openChk(chk, err);
-            if (ok) base = scratch->layerBaseNow(), baseKey = key;
-            else baseKey = {-1, -1, -1, -1};
-        }
-        if (ok) {
-            LayerStack stack;
-            for (const MapLayer* l : layers) {
-                MapLayer c;
-                c.id = l->id, c.corners = l->corners, c.tiles = l->tiles;  // (its terrain only)
-                moveLayerContents(c, -rx0, -ry0);
-                stack.layers.push_back(std::move(c));
+        const uint16_t mapGround = ed.terrainAt(16, 16);
+        for (int cy = y0; !outside.empty() && cy <= y1; cy += kSide - 2 * kMargin)
+            for (int cx = x0; cx <= x1; cx += kSide - 2 * kMargin) {
+                // (the part's scratch map: rects from rx0, rows from ry0, rx0 + ry0 even)
+                int rx0 = floorDiv(cx - kMargin, 2), ry0 = cy - kMargin;
+                if ((rx0 + ry0) & 1) --rx0;
+                const int ix0 = cx, iy0 = cy, ix1 = std::min(x1, cx + kSide - 2 * kMargin - 1), iy1 = std::min(y1, cy + kSide - 2 * kMargin - 1);
+                bool here = false;
+                for (auto it = outside.lower_bound({ix0, INT_MIN}); !here && it != outside.end() && it->first <= ix1; ++it) here = it->second >= iy0 && it->second <= iy1;
+                if (!here) continue;
+                LayerStack stack;
+                std::map<uint16_t, int> count;
+                for (const MapLayer* l : layers) {
+                    MapLayer c;
+                    c.id = l->id;
+                    for (const auto& [at, t] : l->corners)
+                        if (at.first >= rx0 && at.first < rx0 + kSide / 2 && at.second >= ry0 && at.second < ry0 + kSide) c.corners[at] = t, ++count[t];
+                    for (const auto& [at, t] : l->tiles)
+                        if (at.first >= 2 * rx0 && at.first < 2 * rx0 + kSide && at.second >= ry0 && at.second < ry0 + kSide) c.tiles[at] = t;
+                    if (c.corners.empty() && c.tiles.empty()) continue;
+                    moveLayerContents(c, -rx0, -ry0);
+                    stack.layers.push_back(std::move(c));
+                }
+                if (stack.layers.empty()) continue;
+                uint16_t ground = mapGround;  // (the terrain the layers have most here; only placed tiles: the map's)
+                int most = 0;
+                for (const auto& [t, n] : count)
+                    if (n > most) ground = t, most = n;
+                if (!ground) continue;
+                Scratch& sc = scratches[{&ed.gameData(), uint32_t(ed.era() & 7) << 16 | ground}];
+                if (!sc.ed) {
+                    sc.ed = std::make_unique<Editor>(ed.gameData());
+                    Chk chk;
+                    std::string err;
+                    if (!createNewScenario(chk, ed.gameData(), kSide, kSide, uint16_t(ed.era() & 7), ground, err) || !sc.ed->openChk(chk, err)) continue;
+                    sc.base = sc.ed->layerBaseNow();
+                }
+                if (sc.base.empty() || !sc.ed->composeLayers(sc.base, stack)) continue;
+                const TerrainLayer& t = sc.ed->terrain();
+                for (auto it = outside.lower_bound({ix0, INT_MIN}); it != outside.end() && it->first <= ix1; ++it) {
+                    const auto [x, y] = *it;
+                    const int sx = x - 2 * rx0, sy = y - ry0;
+                    if (y < iy0 || y > iy1 || sx < 0 || sy < 0 || sx >= t.width || sy >= t.height) continue;
+                    next.tiles[size_t(y - y0) * size_t(next.w) + size_t(x - x0)] = t.tiles[size_t(sy) * t.width + size_t(sx)];
+                    next.any = true;
+                }
             }
-            ok = scratch->composeLayers(base, stack);
-        }
-        if (ok) {
-            const TerrainLayer& t = scratch->terrain();
-            int ox0 = INT_MAX, oy0 = INT_MAX, ox1 = INT_MIN, oy1 = INT_MIN;
-            for (const auto& [x, y] : outside) ox0 = std::min(ox0, x), oy0 = std::min(oy0, y), ox1 = std::max(ox1, x), oy1 = std::max(oy1, y);
-            next.x0 = ox0, next.y0 = oy0, next.w = ox1 - ox0 + 1, next.h = oy1 - oy0 + 1;
-            next.tiles.assign(size_t(next.w) * size_t(next.h), 0xFFFF);
-            for (const auto& [x, y] : outside) {
-                const int sx = x - 2 * rx0, sy = y - ry0;
-                if (sx < 0 || sy < 0 || sx >= t.width || sy >= t.height) continue;
-                next.tiles[size_t(y - oy0) * size_t(next.w) + size_t(x - ox0)] = t.tiles[size_t(sy) * t.width + size_t(sx)];
-                next.any = true;
-            }
-        }
     }
     if (next.any != out.any || next.x0 != out.x0 || next.y0 != out.y0 || next.w != out.w || next.h != out.h || next.tiles != out.tiles) {
         next.gen = ++gen;

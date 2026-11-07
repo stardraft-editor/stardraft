@@ -174,7 +174,6 @@ private:
         };
         const auto say = [](const wchar_t* text) { return std::wstring(text); };  // (the menu translates its labels)
         if (index >= 0) {
-            const MapLayer& layer = s.stack.layers[size_t(index)];
             add(say(L"Rename\x2026") + L"\tF2", [index] { mapLayersRename(index); });
             add(say(L"Duplicate") + L"\tCtrl+D", [index] { mapLayersDuplicate(index); });
             add(say(L"Delete") + L"\tDel", [] { mapLayersDelete(); });
