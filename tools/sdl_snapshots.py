@@ -4708,7 +4708,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "cmbw-isom-canvas-field": check_isom_canvas,
           "cmbw-isom-canvas-remove": check_isom_canvas_remove,
           "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
-          "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=39),
+          "map-feedback-cycle": check_dialog_cycle(["StarDraft Discord server", "Cancel"], skip=39),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
           "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
           "text-input-cjk": check_text_cjk, "script-nodata": check_soak_nodata,

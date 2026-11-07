@@ -3046,6 +3046,10 @@ constexpr UiText kRows[] = {
     {L"Search tiles", L"\uD0C0\uC77C \uAC80\uC0C9"},
     {L"Search custom terrain", L"\uC0AC\uC6A9\uC790 \uC9C0\uD615 \uAC80\uC0C9"},
     {L"Search tiles by their group number, terrain or doodad", L"\uADF8\uB8F9 \uBC88\uD638, \uC9C0\uD615, \uB450\uB300\uB4DC\uB85C \uD0C0\uC77C \uAC80\uC0C9"},
+    {L"StarDraft Discord server", L"StarDraft \uB514\uC2A4\uCF54\uB4DC \uC11C\uBC84"},
+    {L"Only", L"\uB9CC"},
+    {L"Edit unit type in Data", L"\uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC720\uD615 \uD3B8\uC9D1"},
+    {L"Edit unit type in Map data", L"\uB9F5 \uB370\uC774\uD130\uC5D0\uC11C \uC720\uB2DB \uC720\uD615 \uD3B8\uC9D1"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

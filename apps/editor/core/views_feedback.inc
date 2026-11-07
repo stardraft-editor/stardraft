@@ -44,7 +44,7 @@ public:
         add(send_, {0, 0, 0, 0}), add(cancel_, {0, 0, 0, 0});
         // The links are Tab stops too (Enter and Space open them), in the order of the screen: tabChildren.
         discordStop_.press = [this] { host_.openDiscord(); };
-        discordStop_.name = L"Open the Discord server";
+        discordStop_.name = L"StarDraft Discord server";
         issueStop_.press = [this] {
             if (!page_.empty()) host_.openIssue(page_);
         };
@@ -212,7 +212,7 @@ void FeedbackView::paint(draw::Canvas& c) {
            kDim, draw::kWrap);
     y += scale(38);
     // The Discord link: its width is its text's.
-    const std::wstring discord = tr(L"Open the Discord server");
+    const std::wstring discord = tr(L"StarDraft Discord server");
     discordRect_ = {pad, y, pad + c.measure(discord) + scale(4), y + scale(20)};
     c.text(discordRect_, discord, kAccent, draw::kMiddle);
     placeStop(discordStop_, discordRect_, true);

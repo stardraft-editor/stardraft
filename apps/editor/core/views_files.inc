@@ -432,7 +432,7 @@ void FilesPage::paint(draw::Canvas& c) {
         ++mineShown;
     }
     if (mine.empty()) {
-        c.text({x0 + scale(50), y, colRight, y + rowH}, L"The map has no sounds of its own. Import sounds adds WAV or OGG files.", kDim, draw::kMiddle | draw::kEllipsis);
+        c.text({x0 + scale(50), y, colRight, y + rowH}, L"None", kDim, draw::kMiddle | draw::kEllipsis);
         y += rowH;
     } else if (!mineShown) {
         c.text({x0 + scale(50), y, colRight, y + rowH}, L"No map sound has the search text", kDim, draw::kMiddle | draw::kEllipsis);

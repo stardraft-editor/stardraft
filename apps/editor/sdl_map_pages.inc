@@ -389,7 +389,6 @@ public:
         desc_.setText(widen(v.descText));
         desc_.onChange = [this] { val_.descText = narrow(desc_.text()), sdlMapPageTyped(); };
         notes_.setMultiline(true), notes_.setWrap(true);
-        notes_.setPlaceholder(L"Notes for the mappers. Not in the game. File > Export leaves them out.");
         notes_.setText(widen(v.notesText));
         notes_.setReadOnly(!gState.ed || !gState.ed->filesRead());
         notes_.onChange = [this] { val_.notesText = narrow(notes_.text()), sdlMapPageTyped(); };

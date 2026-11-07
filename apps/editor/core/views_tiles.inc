@@ -615,7 +615,7 @@ void TilesGridView::paint(draw::Canvas& c) {
     // The tile under the mouse (or the picked one).
     c.fill({0, viewH, w, h}, kCtl);
     const int show = gTiles->hover >= 0 ? gTiles->hover : gTiles->picked;
-    const std::wstring name = !app.ed || !app.ed->isOpen() ? L"" : show >= 0 ? tilesValueLabel(show) : L"Click a tile to place it";
+    const std::wstring name = !app.ed || !app.ed->isOpen() ? L"" : show >= 0 ? tilesValueLabel(show) : L"";
     c.text({scale(6), viewH, w - scale(4), h}, name, show >= 0 ? kText : kDim, draw::kMiddle | draw::kEllipsis);
 }
 

@@ -370,7 +370,7 @@ inline int drawSideHeader(draw::Canvas& c, int x, int y, int w, const std::wstri
     c.text(h, std::to_wstring(count), kDim, draw::kMiddle | draw::kRight);
     y += scale(30);
     if (!count) {
-        c.text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, draw::kMiddle | draw::kEllipsis);
+        c.text({x, y, x + w, y + scale(20)}, L"None", kDim, draw::kMiddle | draw::kEllipsis);
         y += scale(22);
     }
     return y;

@@ -84,7 +84,7 @@ public:
     void paint(draw::Canvas& c) override {
         boxes_.clear();
         if (names_.empty()) {
-            c.text({0, 0, width(), height()}, tr(L"No unit excluded"), kDim, draw::kMiddle);
+            c.text({0, 0, width(), height()}, tr(L"None"), kDim, draw::kMiddle);
             return;
         }
         const int pad = scale(6), gap = scale(4);
@@ -352,7 +352,7 @@ public:
         }
         // The units in the picture: all, or only the start locations and Player 12's units (each on or off).
         unitModes_[0] = std::make_unique<stardraft::kit::RadioButton>(tr(L"All units"), unitGroup_, !o.someUnits);
-        unitModes_[1] = std::make_unique<stardraft::kit::RadioButton>(tr(L"Only:"), unitGroup_, o.someUnits);
+        unitModes_[1] = std::make_unique<stardraft::kit::RadioButton>(tr(L"Only"), unitGroup_, o.someUnits);
         for (auto& m : unitModes_) m->setPlainLabel(true), add(*m, {0, 0, 0, 0});
         unitGroup_.onChange = [this](stardraft::kit::RadioButton& b) {
             opts_.someUnits = &b == unitModes_[1].get();

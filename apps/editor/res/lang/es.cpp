@@ -3016,6 +3016,10 @@ constexpr UiText kRows[] = {
     {L"Search tiles", L"Buscar casillas"},
     {L"Search custom terrain", L"Buscar terreno personalizado"},
     {L"Search tiles by their group number, terrain or doodad", L"Buscar casillas por su n\u00FAmero de grupo, terreno o doodad"},
+    {L"StarDraft Discord server", L"Servidor de Discord de StarDraft"},
+    {L"Only", L"Solo"},
+    {L"Edit unit type in Data", L"Editar el tipo de unidad en Datos"},
+    {L"Edit unit type in Map data", L"Editar el tipo de unidad en Datos del mapa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

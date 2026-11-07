@@ -3016,6 +3016,10 @@ constexpr UiText kRows[] = {
     {L"Search tiles", L"\u641C\u7D22\u56FE\u5757"},
     {L"Search custom terrain", L"\u641C\u7D22\u81EA\u5B9A\u4E49\u5730\u5F62"},
     {L"Search tiles by their group number, terrain or doodad", L"\u6309\u7EC4\u53F7\u3001\u5730\u5F62\u6216\u88C5\u9970\u7269\u641C\u7D22\u56FE\u5757"},
+    {L"StarDraft Discord server", L"StarDraft Discord \u670D\u52A1\u5668"},
+    {L"Only", L"\u4EC5"},
+    {L"Edit unit type in Data", L"\u5728\u6570\u636E\u4E2D\u7F16\u8F91\u5355\u4F4D\u7C7B\u578B"},
+    {L"Edit unit type in Map data", L"\u5728\u5730\u56FE\u6570\u636E\u4E2D\u7F16\u8F91\u5355\u4F4D\u7C7B\u578B"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

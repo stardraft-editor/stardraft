@@ -764,7 +764,7 @@ private:
                              nullptr, L"", false});
         }
         if (rows.empty()) {  // no actions: what a briefing does, above the button
-            const wchar_t* note = L"This briefing has no actions. Add actions to show text, portraits and sounds before the game starts.";
+            const wchar_t* note = L"None";  // (empty: None, dim; Add an action says what to do)
             const int h = c.measureBox(note, colRight - (x0 + gutter), draw::kWrap).y;
             c.text({x0 + gutter, y + scale(4), colRight, y + scale(4) + h}, note, kDim, draw::kWrap);
             y += scale(4) + h + scale(6);
