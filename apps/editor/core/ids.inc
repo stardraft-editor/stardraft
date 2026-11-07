@@ -105,7 +105,7 @@ enum : int {
     ID_OPT_RESETALL = 1045,    // Program options > General > Reset all program settings (a question, then a restart)
     ID_FILE_EXPORTMAP = 231,  // File > Export map: the layers flattened (core/views_layers.inc)
     ID_MODE_LAYERS = 233,     // Mode > Map Layers
-    ID_LAYER_CMD = 234,       // + 0 to 7: Mode > Layer (core/map_layers.inc)
+    ID_LAYER_CMD = 234,       // + 0 to 8: Mode > Layer (core/map_layers.inc)
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry

@@ -115,6 +115,8 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
         if (!same) {  // (setItems closes an open list: only when a color changed)
             gOwnerBox.setItems(owners);
             gOwnerBox.setValue(gState.playerOwner);
+            void otherRowsOwnerItems(const std::vector<kit::DropdownItem>& owners);  // (sdl_panels.inc)
+            otherRowsOwnerItems(owners);
         }
     }
     // (a mod's colors: their own shades, Rainbow as the game shows it; a custom RGB color has no row: tinted)
@@ -477,6 +479,16 @@ struct MainView final : draw::View {
         add(gLocList, draw::Rect(0, 0, 0, 0));
         add(gPal2List, draw::Rect(0, 0, 0, 0));
         add(gPal3List, draw::Rect(0, 0, 0, 0));
+        for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) {
+            add(r->owner, draw::Rect(0, 0, 0, 0));
+            add(r->ownerCatch, draw::Rect(0, 0, 0, 0));
+            add(r->section, draw::Rect(0, 0, 0, 0));
+            add(r->sectionCatch, draw::Rect(0, 0, 0, 0));
+            add(r->box, draw::Rect(0, 0, 0, 0));
+            add(r->catcher, draw::Rect(0, 0, 0, 0));  // (over the box)
+            add(r->view, draw::Rect(0, 0, 0, 0));
+            add(r->sort, draw::Rect(0, 0, 0, 0));
+        }
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
         add(gNewView, draw::Rect(0, 0, 0, 0));    // the New page (sdl_new_page.inc): File > New project, a card
@@ -917,7 +929,10 @@ struct MainView final : draw::View {
         const bool tiles2 = !tiles && rectT && L.palette2.visible && L.secondMode == Mode::Terrain;
         const bool tiles3 = !tiles && !tiles2 && rectT && L.palette3.visible && L.thirdMode == Mode::Terrain;
         if (tiles2 || tiles3) gTilesShown = true;
-        side(gTilesDockPanel, tiles2 ? L.palette2 : tiles3 ? L.palette3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
+        // (the Tiles panel has its own search row: it takes the list's row too)
+        PaneSlot tilesSlot2 = L.palette2, tilesSlot3 = L.palette3;
+        tilesSlot2.rc.top = L.search2.rc.top, tilesSlot3.rc.top = L.search3.rc.top;
+        side(gTilesDockPanel, tiles2 ? tilesSlot2 : tiles3 ? tilesSlot3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
         const bool layersMode = m == Mode::Layers;  // (its list: the Layer List, above)
         side(gSearchSdl, L.search, !locs && !layersMode && here && !tiles);
         side(gViewBtnSdl, L.viewBtn, !locs && !layersMode && here && !tiles);
@@ -928,6 +943,19 @@ struct MainView final : draw::View {
         side(gFilterSdl, L.filter, locs && here);
         side(gLocList, L.list, locs && here);
         apply(gPal2List, L.palette2, L.palette2.visible && mapWs && !tiles2 && L.secondMode != Mode::Layers);
+        const auto searchRow = [&](OtherSearchRow& r, const PaneSlot& owner, const PaneSlot& section, const PaneSlot& box, const PaneSlot& view, const PaneSlot& sort, bool shown) {
+            if (shown && owner.visible) r.owner.setValue(panelFresh(dockedPanel(r.mode)).owner);  // (the panel's player, as now)
+            apply(r.owner, owner, shown && owner.visible);
+            apply(r.ownerCatch, owner, shown && owner.visible);
+            apply(r.section, section, shown && section.visible);
+            apply(r.sectionCatch, section, shown && section.visible);
+            apply(r.box, box, shown && box.visible);
+            apply(r.catcher, box, shown && box.visible);
+            apply(r.view, view, shown && view.visible);
+            apply(r.sort, sort, shown && sort.visible);
+        };
+        searchRow(gSearchRow2, L.owner2, L.section2, L.search2, L.view2, L.sort2, mapWs && !tiles2);
+        searchRow(gSearchRow3, L.owner3, L.section3, L.search3, L.view3, L.sort3, mapWs && !tiles3);
         apply(gToolStripView2, L.tool2, L.tool2.visible && mapWs);
         apply(gToolStripView3, L.tool3, L.tool3.visible && mapWs);
         apply(gPal3List, L.palette3, L.palette3.visible && mapWs && !tiles3 && L.thirdMode != Mode::Layers);

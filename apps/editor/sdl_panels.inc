@@ -70,8 +70,47 @@ void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel = n
 // filter row's (the order of the locations; its floating window shows in every mode).
 kit::IconButton gSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(gState.mode, gSortBtnSdl); }};
 kit::IconButton gLocSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(Mode::Locations, gLocSortBtnSdl); }};
+// The rows of the panels that are not active (the other side's list, the third list), in the place where the panel has
+// them when it is active. A click in a box goes to that mode, in that box (the search box: its keyboard; the Owner and the
+// section: its list open). The View and Sort menus are of that list, and leave the mode as it is.
+struct OtherSearchCatch final : draw::View {
+    enum What { Search, Owner, Section } what = Search;
+    Mode mode = Mode::Terrain;
+    bool mouse(const draw::MouseEvent& e) override {
+        if (e.kind != draw::MouseKind::Down || e.button != 0) return true;
+        void setMode(Mode m);
+        setMode(mode);
+        if (what == Owner) gOwnerBox.openList();
+        else if (what == Section) gSectionDropSdl.dropdown().openList();
+        else (mode == Mode::Locations ? gFilterSdl : gSearchSdl).field().focus();
+        return true;
+    }
+};
+struct OtherSearchRow {
+    kit::Dropdown owner, section;
+    OtherSearchCatch ownerCatch, sectionCatch;
+    SearchBox box;
+    OtherSearchCatch catcher;
+    kit::Button view;
+    kit::IconButton sort;
+    Mode mode = Mode::Terrain;
+    explicit OtherSearchRow(PalettePanel& list)
+        : view(L"View", kit::Tone::Normal, [this, &list] { paletteMenuSdl(list, view, {0, view.height()}, -1); }),
+          sort(kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [this] { paletteSortMenuSdl(mode, sort); }) {
+        ownerCatch.what = OtherSearchCatch::Owner, sectionCatch.what = OtherSearchCatch::Section;
+    }
+};
+OtherSearchRow gSearchRow2{gPal2List}, gSearchRow3{gPal3List};
+void otherRowsOwnerItems(const std::vector<kit::DropdownItem>& owners) {
+    for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) {
+        const int value = panelFresh(dockedPanel(r->mode)).owner;
+        r->owner.setItems(owners);
+        r->owner.setValue(value);
+    }
+}
 // The Sort buttons' tips: the orders now.
 void sortTipsSdl() {
+    for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) r->sort.setTip(paletteSortTip(r->mode, gSortByMode[int(r->mode)]));
     gSortBtnSdl.setTip(paletteSortTip(gState.mode, gSortByMode[int(gState.mode)]));
     gLocSortBtnSdl.setTip(paletteSortTip(Mode::Locations, gSortByMode[int(Mode::Locations)]));
 }
@@ -286,10 +325,17 @@ void rebuildPaletteRows() {
     if (switched) gPalList.scrollTo(m >= 0 && m < kModeCount ? gPalMemoryByTab[tab][size_t(m)].scroll : 0);
 }
 
-// The second (or the third) palette's rows: its mode's items, unfiltered (it has no search box). Locations: the map's
-// locations, in Locations' order (as the Locations list).
+// The second (or the third) palette's rows: its mode's items, with its mode's search (the box of its row shows it).
+// Locations: the map's locations, in Locations' order (as the Locations list).
+PaletteMemory dockedPaletteGet(int tab, Mode m);
 void rebuildOtherRows(PalettePanel& list, Mode m) {
     int pinned = 0;
+    OtherSearchRow& row = &list == &gPal2List ? gSearchRow2 : gSearchRow3;
+    const std::wstring search = m == Mode::Locations || m == Mode::Layers ? std::wstring() : dockedPaletteGet(activeDocKey(), m).search;
+    row.mode = row.catcher.mode = row.ownerCatch.mode = row.sectionCatch.mode = m;
+    row.box.setPlaceholder(m == Mode::Locations ? L"Filter" : L"Search");
+    if (row.box.text() != search) row.box.setText(search);
+    sortTipsSdl();
     if (m == Mode::Locations) {
         std::vector<PaletteRow> rows;
         if (gState.ed && gState.ed->isOpen()) {
@@ -302,7 +348,21 @@ void rebuildOtherRows(PalettePanel& list, Mode m) {
         list.setRows(std::move(rows), m, 0);
         return;
     }
-    std::vector<PaletteRow> rows = paletteRows(paletteUnitsOf(m), m, std::wstring(), std::wstring(), pinned, gSortByMode[int(m)]);
+    const std::vector<PaletteUnit> units = paletteUnitsOf(m);
+    std::wstring section;
+    if (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites) {
+        const std::vector<std::wstring> names = paletteSectionNames(units);
+        std::vector<kit::DropdownItem> items;
+        items.push_back({m == Mode::Doodads ? shellTr(L"All doodads") : m == Mode::Sprites ? shellTr(L"All sprites") : shellTr(L"All units")});
+        for (const auto& n : names) items.push_back({n});
+        row.section.setItems(std::move(items));
+        section = dockedPaletteGet(activeDocKey(), m).section;
+        const auto it = std::find(names.begin(), names.end(), section);
+        if (it == names.end()) section.clear();
+        row.section.setValue(it == names.end() ? 0 : int(1 + (it - names.begin())));
+    }
+    list.searchWords = lowerPanelText(search);
+    std::vector<PaletteRow> rows = paletteRows(units, m, list.searchWords, section, pinned, gSortByMode[int(m)]);
     list.setRows(std::move(rows), m, pinned);
 }
 void rebuildSecondRows() { rebuildOtherRows(gPal2List, gPal2Mode); }

@@ -84,7 +84,7 @@ static void layersRead(Editor& ed) {
 // The map from the Background and the layers.
 static void layersCompose(Editor& ed) {
     MapLayersState& s = gMapLayers;
-    ed.composeLayers(s.base, s.stack);
+    ed.composeLayers(s.base, s.stack, nullptr, false, s.ed == &ed ? &s.tileSection : nullptr, s.active);  // (the tiles as they were before this edit)
     shellState().terrainRev = 0;
     shellState().dirty = true;
 }
@@ -245,7 +245,7 @@ void mapLayersSync() {
     layersCapture(ed, false);
 }
 
-// While a terrain stroke goes on: the layers over the active one stay as they are on the map, not only at its end.
+// While a terrain stroke goes on: the other layers stay as they are on the map, not only at its end.
 void mapLayersLiveStroke(AppState& app) {
     MapLayersState& s = gMapLayers;
     if (!s.on || s.filesPending || !app.ed || s.ed != app.ed.get() || !app.ed->inStroke() || s.erasing || s.moving || app.mode != Mode::Terrain) return;
@@ -255,9 +255,9 @@ void mapLayersLiveStroke(AppState& app) {
     if (s.active >= int(s.stack.layers.size())) return;
     const MapLayer& active = s.active >= 0 ? s.stack.layers[size_t(s.active)] : s.stack.background;
     if (active.locked || !active.visible) return;  // (its end refuses it)
-    bool above = false;
-    for (int r = s.active + 1; r < int(s.stack.layers.size()); ++r) above = above || (s.stack.layers[size_t(r)].visible && !s.stack.layers[size_t(r)].corners.empty());
-    if (!above) return;
+    bool others = false;  // (they stay as they are on the map)
+    for (int r = 0; r < int(s.stack.layers.size()); ++r) others = others || (r != s.active && s.stack.layers[size_t(r)].visible && !s.stack.layers[size_t(r)].corners.empty());
+    if (!others) return;
     layersCapture(ed, true);
 }
 
@@ -761,6 +761,17 @@ static bool layersHaveCurrent() {
     if (s.on && s.active >= 0 && s.active < int(s.stack.layers.size())) return true;
     setMessage(L"Select a layer first");
     return false;
+}
+// All the layers are selected (not the Background, which does not move): Move Layer moves them, and Merge merges them.
+void mapLayersSelectAll() {
+    MapLayersState& s = gMapLayers;
+    if (!s.on || s.stack.layers.empty()) return setMessage(L"The map has no layers: nothing to select");
+    s.picked.clear();
+    for (int i = 0; i < int(s.stack.layers.size()); ++i) s.picked.insert(i);
+    if (s.active < 0) s.active = int(s.stack.layers.size()) - 1;
+    setMessage(L"Selected all " + std::to_wstring(s.stack.layers.size()) + L" layers");
+    layersPanelChanged();
+    shellState().dirty = true;
 }
 void mapLayersCurrentHide() { mapLayersToggleVisible(gMapLayers.active); }
 void mapLayersCurrentLock() { mapLayersToggleLock(gMapLayers.active); }

@@ -723,7 +723,11 @@ public:
     // stay. `fitted`: the corners on the map where an edge is. No undo step of its own: inside beginLayerEdit, or after an
     // edit whose step amendLastStep gets. Protected tiles keep their tiles.
     // `hold`: a step on the way to a new Background; the next call takes its tiles from the map as it is before this one.
-    bool composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted = nullptr, bool hold = false);
+    // `keepTiles` (the tile section before this edit, with `activeLayer`, the row of the layer being edited; -1: the
+    // Background): the tiles of the other layers stay as they were while they keep their shape, so that their variants
+    // do not change with an edit of another layer.
+    bool composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted = nullptr, bool hold = false,
+                       const std::vector<uint16_t>* keepTiles = nullptr, int activeLayer = -1);
     // Tiles that are a layer's placed tiles: not the terrain's (they are not reused when a layer goes). After a read.
     void noteLayerPlaced(std::set<std::pair<int, int>> tiles) { layerPlaced_ = std::move(tiles); }
     // The tiles under the doodads (TILE; a map without it: MTXM).

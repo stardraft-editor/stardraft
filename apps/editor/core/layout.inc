@@ -51,6 +51,7 @@ struct MainLayout {
     PaneSlot panelTabActive, tool, owner, sectionBox, search, viewBtn, sortBtn, filter, palette, list;
     PaneSlot panelTabOther, palette2, palette3, view;
     PaneSlot tool2, tool3;  // the other side's mode's tools over its list, and the third list's mode's tools
+    PaneSlot owner2, section2, search2, view2, sort2, owner3, section3, search3, view3, sort3;  // their rows, as the active panel's
     RECT splitters[3] = {};  // the left side's edge, the right side's, the minimap's bottom edge
     RECT dockRects[2] = {};
     Mode panelTab[2] = {Mode::Terrain, Mode::Units};  // the tab each side shows
@@ -168,12 +169,28 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     y += rowH + pad;
     L.palette = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);
     L.list = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);
+    // A list's rows under its mode's tools, in the same place as when the panel is active. (The Layer List has none.)
+    const auto searchRow = [&](int x, int& top, int width, Mode m, bool shown, PaneSlot& owner, PaneSlot& section, PaneSlot& box, PaneSlot& view, PaneSlot& sort) {
+        const bool on = shown && m != Mode::Layers, locs = m == Mode::Locations;
+        const bool hasOwner = on && (m == Mode::Units || m == Mode::Sprites);
+        owner = S(x, top, width, rowH, hasOwner, hasOwner);
+        if (hasOwner) top += rowH + pad;
+        const bool hasSection = on && in.hasSectionBox && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites);
+        section = S(x, top, width, rowH, hasSection, hasSection);
+        if (hasSection) top += rowH + pad;
+        const int viewW = locs ? 0 : btnW + pad, orderW = m == Mode::Terrain ? 0 : rowH + pad;
+        box = S(x, top, width - viewW - orderW, rowH, on, on);
+        view = S(x + width - btnW, top, btnW, rowH, on && !locs, on && !locs);
+        sort = S(x + width - viewW - rowH, top, rowH, rowH, on && m != Mode::Terrain, on && m != Mode::Terrain);
+        if (on) top += rowH + pad;
+    };
     int ty = L.tool.rc.top;  // (the floated mode's tools are not here: the third list's mode's tools, then its list)
     const bool tools3 = floated && !mine.empty() && in.mapWs && in.toolStripOf;
     const int h3 = tools3 ? in.toolStripOf(inner, third) : 0;
     L.tool3 = S(sx + pad, ty, inner, std::max(1, h3), tools3, tools3);
     if (tools3) ty += h3 + pad;
     const bool show3 = floated && !mine.empty() && in.mapWs;  // (Locations: its locations, by name)
+    searchRow(sx + pad, ty, inner, third, in.hasPal3 && show3, L.owner3, L.section3, L.search3, L.view3, L.sort3);
     L.palette3Changed = third != in.pal3Mode || show3 != in.pal3Shown;
     L.palette3 = S(sx + pad, ty, inner, std::max(1, h - ty - pad), in.hasPal3 && show3, show3);
 
@@ -190,6 +207,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     L.tool2 = S(ox + pad, oy, ow - 2 * pad, std::max(1, h2), tools2, tools2);
     if (tools2) oy += h2 + pad;
     const bool show = secondShown && in.mapWs;  // (Locations: its locations, by name)
+    searchRow(ox + pad, oy, ow - 2 * pad, second, in.hasPal2 && show, L.owner2, L.section2, L.search2, L.view2, L.sort2);
     L.palette2Changed = second != in.pal2Mode || show != in.pal2Shown;
     L.palette2 = S(ox + pad, oy, ow - 2 * pad, std::max(1, h - oy - pad), in.hasPal2 && show, show);
 

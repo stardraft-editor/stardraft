@@ -4,6 +4,7 @@ void mapLayersCurrentDuplicate();
 void mapLayersCurrentRename();
 void mapLayersSync();
 bool mapLayersOnLayer();
+void mapLayersSelectAll();
 bool mapLayersHaveStack(const Editor& ed);
 bool mapLayersActiveRefuses();
 bool mapLayersMoveTerrain(Editor& ed, const std::vector<std::pair<int, int>>& cells, bool iso, int rx, int ry, int tileDx, int tileDy);
@@ -426,7 +427,8 @@ bool commandMapEdit(AppState& app, int id) {
     mapLayersSync();  // (the last edit is in its layer before the next one: core/map_layers.inc)
     if (app.mode == Mode::Layers && id == ID_EDIT_DUPLICATE) return mapLayersCurrentDuplicate(), true;
     if (app.mode == Mode::Layers && id == ID_EDIT_RENAME) return mapLayersCurrentRename(), true;
-    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY || id == ID_EDIT_SELECTALL)) return true;
+    if (app.mode == Mode::Layers && id == ID_EDIT_SELECTALL) return mapLayersSelectAll(), true;
+    if (app.mode == Mode::Layers && (id == ID_EDIT_CUT || id == ID_EDIT_COPY)) return true;
     if (app.mode == Mode::Layers && id == ID_EDIT_PASTE) {  // (the copy goes on the selected layer: in the mode that pastes it)
         if (!open || !(app.ed->hasTerrainClipboard() || app.ed->hasTileClipboard())) return true;
         setMode(Mode::Terrain);

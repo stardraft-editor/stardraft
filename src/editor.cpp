@@ -4623,7 +4623,7 @@ const ArchiveFile* Editor::archiveFile(const std::string& name) const {
     return nullptr;
 }
 
-bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted, bool hold) {
+bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std::pair<int, int>>* fitted, bool hold, const std::vector<uint16_t>* keepTiles, int activeLayer) {
     std::vector<std::pair<std::string, Bytes>> sections;
     if (!unpackLayerBase(base, sections)) return false;
     // (the map as it is: where the corners stay, the tiles stay, so that the terrain's random tiles do not change with
@@ -4683,6 +4683,24 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
                     if (last && !layerPlaced_.count({tx, ry})) setTile(tx, ry, last);  // (not a null tile: a cut's goes away)
                 }
             }
+    if (keepTiles && isomOk_ && keepTiles->size() == baseTiles.tiles.size()) {
+        const TerrainLayer now = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        const std::map<std::pair<int, int>, uint16_t>* own = activeLayer >= 0 && activeLayer < int(stack.layers.size()) ? &stack.layers[size_t(activeLayer)].corners : nullptr;
+        for (int ry = 0; now.tiles.size() == keepTiles->size() && ry < int(height_); ++ry)
+            for (int rx = 0; rx * 2 < int(width_); ++rx) {
+                bool layered = false, mine = false;
+                for (const auto& c : {std::pair{rx, ry}, {rx + 1, ry}, {rx, ry + 1}, {rx + 1, ry + 1}}) {
+                    layered = layered || asked.count(c);
+                    mine = mine || (own && own->count(c));
+                }
+                if (!layered || mine) continue;
+                for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx) {
+                    const size_t at = size_t(ry) * width_ + size_t(tx);
+                    const uint16_t last = (*keepTiles)[at];
+                    if (last && !layerPlaced_.count({tx, ry}) && (last >> 4) == (now.tiles[at] >> 4)) setTile(tx, ry, last);  // (its group: the same shape)
+                }
+            }
+    }
     if (!stack.background.visible)
         for (int ry = 0; ry < int(height_); ++ry)
             for (int rx = 0; rx * 2 < int(width_); ++rx)
