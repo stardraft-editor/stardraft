@@ -2132,12 +2132,12 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         if (!g || !terrainGroup(tile.tiles[at]) || !terrainGroup(mtxm.tiles[at]) || (mod && mtxm.tiles[at] != tile.tiles[at])) continue;
         if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
         // (the new variant as the brush picks one (IsomTerrain's getRandomSubtile, as StarEdit): a common one (before the
-        // group's first empty megatile) most of the time, a rare one (after it) 1 time in 20; not the one there now. Each
+        // group's first empty megatile) most of the time, a rare one (after it) as detailedTileRoll picks; not the one there now. Each
         // pass over the same ground draws again: an even pick of all of them filled the ground with the rare ones)
         int common = 0, rare = 0;
         while (common < 16 && g->megatiles[size_t(common)]) ++common;
         while (common + rare + 1 < 16 && g->megatiles[size_t(common + rare + 1)]) ++rare;
-        const bool pickRare = rare > 0 && rng() % 20 == 0;
+        const bool pickRare = rare > 0 && detailedTileRoll(uint32_t(rng()));
         const int from = pickRare ? common + 1 : 0, to = pickRare ? common + 1 + rare : common;
         std::vector<int> subs;
         const int cur = tile.tiles[size_t(top) * w + rx * 2] & 15;

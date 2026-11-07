@@ -1,13 +1,16 @@
 // The Custom list (portable; views_tiles.inc includes it before the Tiles panel, which shows it in place of its grid
 // while its panel's Custom is on): the custom terrain of the map's tileset (core/stamps.inc), a picture of each, under
-// headings made from the names ("Jungle_Bridges_Left": Left under Bridges under Jungle); a click on a heading closes or
-// opens it. The box at the top sorts by name (A to Z) or the newest first; the search under it shows only the custom
-// terrain whose name has the typed text (any case; GitHub #175), its closed headings open. A click on an item makes it the Brush's
-// stamp. A right click: the View menu as the other palettes have it (List or Grid; Normal, Large, Extra large), on an item
+// a heading for each of its folders (GitHub #252: right-click > New folder; drag custom terrain onto a folder to put it
+// there, or below the folders to take it out); a click on a heading closes or opens it. The row at the top, as the other lists have it (GitHub #258): the search, which shows only the custom terrain
+// whose name has the typed text (any case; GitHub #175), its closed headings open; the Sort button (by name, A to Z, or
+// the newest first); the View button (List or Grid; Normal, Large, Extra large). A click on an item makes it the Brush's
+// stamp; Alt+click makes its tiles the mask (GitHub #247: painting in Tile and Custom changes only the tiles of those
+// values; Alt+click on it again clears the mask). A right click: the View menu as the other palettes have it (List or Grid; Normal, Large, Extra large), on an item
 // Rename, Delete, Show in folder first. With no custom terrain for the tileset, two dim lines say how to make it.
 
-// The picture of custom terrain in `box` (its shape kept, in the middle): its tiles as the Tiles list draws them. A
-// large one draws every n-th tile only, each over the n x n tiles it stands for.
+// The picture of custom terrain in `box` (its shape kept, in the middle, on a dark area of its own size: the rest of
+// the box stays the panel's color, GitHub #259): its tiles as the Tiles list draws them. A large one draws every n-th
+// tile only, each over the n x n tiles it stands for.
 void stampsDrawPicture(draw::Canvas& c, const TerrainStamp& s, draw::Rect box) {
     if (s.width <= 0 || s.height <= 0 || !appState().ed) return;
     const int bw = box.right - box.left, bh = box.bottom - box.top;
@@ -15,6 +18,7 @@ void stampsDrawPicture(draw::Canvas& c, const TerrainStamp& s, draw::Rect box) {
     if (cell <= 0) return;
     const int step = std::max(1, int(std::ceil(2.0 / cell)));  // (2 px a drawn tile at least)
     const double ox = box.left + (bw - cell * s.width) / 2, oy = box.top + (bh - cell * s.height) / 2;
+    c.fill({int(ox), int(oy), int(ox + cell * s.width), int(oy + cell * s.height)}, draw::rgb(6, 6, 10));  // (its holes: dark)
     for (int y = 0; y < s.height; y += step)
         for (int x = 0; x < s.width; x += step) {
             if (!s.has(x, y)) continue;
@@ -26,15 +30,14 @@ void stampsDrawPicture(draw::Canvas& c, const TerrainStamp& s, draw::Rect box) {
         }
 }
 
-// The list's rows: the headings (a group, a group's sub-group) and the items, in the order of the sort.
+// The list's rows: the headings (the folders) and the items, in the order of the sort.
 struct StampRow {
-    int depth = 0;        // a heading: 0 a group, 1 a sub-group; an item: how many headings are over it
+    int depth = 0;        // a heading: how many folders it is in; an item: how many headings are over it
     bool heading = false;
-    std::wstring label;   // a heading's name, or the item's (its name's part after its groups)
-    std::wstring key;     // a heading's: its groups ("Jungle", "Jungle_Bridges"), for closing it
+    std::wstring label;   // a heading's name (its folder's last name), or the item's name
+    std::wstring key;     // a heading's: its folder ("Jungle/Bridges"), for closing it
     int index = -1;       // an item's: its index in stampsList()
 };
-std::set<std::wstring> gStampsClosed;  // the headings closed (by key), for this run
 
 std::vector<StampRow> stampsRows(std::wstring search = {}) {
     const auto& list = stampsList();
@@ -51,52 +54,46 @@ std::vector<StampRow> stampsRows(std::wstring search = {}) {
         std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return list[size_t(a)].created > list[size_t(b)].created; });
     else
         std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return lower(list[size_t(a)].name) < lower(list[size_t(b)].name); });
-    // The groups in the order of their first item (by name: A to Z; the newest first: the group with the newest item
-    // first); the custom terrain with no group first.
-    struct Item {
-        int index;
-        std::wstring group, sub, label;
-    };
-    std::vector<Item> items;
-    for (int i : order) {
-        const std::vector<std::string> parts = terrainStampNameParts(list[size_t(i)].name);
-        Item it{i, L"", L"", L""};
-        size_t used = 0;
-        if (parts.size() >= 2) it.group = widen(parts[0]), used = 1;
-        if (parts.size() >= 3) it.sub = widen(parts[1]), used = 2;
-        for (size_t k = used; k < parts.size(); ++k) it.label += (k > used ? L"_" : L"") + widen(parts[k]);
-        items.push_back(std::move(it));
-    }
-    std::stable_partition(items.begin(), items.end(), [](const Item& it) { return it.group.empty(); });
-    std::vector<std::wstring> groups;
-    for (const Item& it : items)
-        if (!it.group.empty() && std::find(groups.begin(), groups.end(), it.group) == groups.end()) groups.push_back(it.group);
+    // The custom terrain in no folder first, then each folder (by name), its items in the order, then its folders. A
+    // search shows only the folders with a match, open.
+    std::vector<std::string> folders = stampsFolders();
+    for (int i : order)
+        if (const std::string& f = list[size_t(i)].folder; !f.empty() && std::find(folders.begin(), folders.end(), f) == folders.end()) folders.push_back(f);
+    std::sort(folders.begin(), folders.end(), [&](const std::string& a, const std::string& b) { return lower(a) < lower(b); });
     std::vector<StampRow> rows;
-    for (const Item& it : items)
-        if (it.group.empty()) rows.push_back({0, false, it.label, L"", it.index});
-    for (const std::wstring& g : groups) {
-        rows.push_back({0, true, g, g, -1});
-        if (gStampsClosed.count(g) && search.empty()) continue;
-        for (const Item& it : items)  // its own items first, then its sub-groups
-            if (it.group == g && it.sub.empty()) rows.push_back({1, false, it.label, L"", it.index});
-        std::vector<std::wstring> subs;
-        for (const Item& it : items)
-            if (it.group == g && !it.sub.empty() && std::find(subs.begin(), subs.end(), it.sub) == subs.end()) subs.push_back(it.sub);
-        for (const std::wstring& sub : subs) {
-            const std::wstring key = g + L"_" + sub;
-            rows.push_back({1, true, sub, key, -1});
+    for (int i : order)
+        if (list[size_t(i)].folder.empty()) rows.push_back({0, false, widen(list[size_t(i)].name), L"", i});
+    const auto parentOf = [](const std::string& f) {
+        const size_t cut = f.rfind('/');
+        return cut == std::string::npos ? std::string() : f.substr(0, cut);
+    };
+    const auto hasMatch = [&](const std::string& f) {
+        for (int i : order)
+            if (const std::string& g = list[size_t(i)].folder; g == f || g.rfind(f + "/", 0) == 0) return true;
+        return false;
+    };
+    std::function<void(const std::string&, int)> folderRows = [&](const std::string& parent, int depth) {
+        for (const std::string& f : folders) {
+            if (parentOf(f) != parent || (!search.empty() && !hasMatch(f))) continue;
+            const std::wstring key = widen(f);
+            rows.push_back({depth, true, widen(f.substr(parent.empty() ? 0 : parent.size() + 1)), key, -1});
             if (gStampsClosed.count(key) && search.empty()) continue;
-            for (const Item& it : items)
-                if (it.group == g && it.sub == sub) rows.push_back({2, false, it.label, L"", it.index});
+            for (int i : order)
+                if (list[size_t(i)].folder == f) rows.push_back({depth + 1, false, widen(list[size_t(i)].name), L"", i});
+            folderRows(f, depth + 1);
         }
-    }
+    };
+    folderRows({}, 0);
     return rows;
 }
 
 class StampsListView;
-// The right click's menu at `at` of `from` (the host: sdl_panels.inc): on an item (`s`) Rename, Delete, Show in folder,
+// The right click's menu at `at` of `from` (the host: sdl_panels.inc): on an item (`s`) Rename, Delete, Show in folder;
+// New folder (in `folder`: the folder clicked, or the item's); on a folder (`onFolder`) Rename folder, Delete folder;
 // then the View items (List, Grid; Normal, Large, Extra large).
-void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s);
+void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, const std::string& folder = {}, bool onFolder = false);
+// The Sort button's menu (`sort`) or the View button's menu under `from` (the host: sdl_panels.inc).
+void shellStampsButtonMenu(draw::View& from, bool sort);
 std::vector<StampsListView*> gStampsViews;  // (each panel's list: stampsPanelsRepaint)
 void stampsPanelsRepaint();
 
@@ -109,15 +106,12 @@ public:
 
     StampsListView() {
         gStampsViews.push_back(this);
-        sort_.setItems({{L"Sort by name (A to Z)"}, {L"Sort by date (newest first)"}});
-        sort_.onChange = [](int i) {
-            setStampsSort(i);
-            shellFocusView();
-        };
-        add(sort_, {0, 0, 0, 0});
         search_.setPlaceholder(tr(L"Search"));
         search_.onChange = [this] { scroll_ = 0, layout(); };
         add(search_, {0, 0, 0, 0});
+        sort_.setTip(tr(L"Sort the custom terrain: by name or by date"));
+        add(sort_, {0, 0, 0, 0});
+        add(view_, {0, 0, 0, 0});
         add(bar_, {0, 0, 0, 0});
         bar_.onScroll = [this](int pos) { scrollTo(pos); };
     }
@@ -126,7 +120,7 @@ public:
     StampsListView& operator=(const StampsListView&) = delete;
 
     TilesScope here() { return {data, grid, panel}; }
-    static int topH() { return 2 * scale(24) + 2 * scale(6); }  // (the sort box, the search)
+    static int topH() { return scale(24) + scale(6); }  // (the row: the search, Sort, View)
     // An item's height in the list, and a cell's side in the grid, by the size (normal, large, extra large).
     static int rowH(bool heading) {
         static const int kRow[] = {44, 72, 112};
@@ -139,8 +133,11 @@ public:
     const std::vector<StampRow>& rows() const { return rows_; }
 
     void resized() override {
-        sort_.setFrame({0, 0, width(), scale(24)});
-        search_.setFrame({0, scale(24) + scale(6), width(), 2 * scale(24) + scale(6)});
+        // (as the side bar's search row, core/layout.inc: the View button 64 wide, the Sort button a square before it)
+        const int rowH = scale(24), pad = scale(4), btnW = scale(64);
+        view_.setFrame({width() - btnW, 0, width(), rowH});
+        sort_.setFrame({width() - btnW - pad - rowH, 0, width() - btnW - pad, rowH});
+        search_.setFrame({0, 0, std::max(0, width() - btnW - 2 * pad - rowH), rowH});
         layout();
     }
     // The rows again (the files, the sort, a heading closed): their places, the scroll kept where it can be.
@@ -185,7 +182,6 @@ public:
 
     void paint(draw::Canvas& c) override {
         const TilesScope scope = here();
-        if (sortShown_ != stampsSort()) sortShown_ = stampsSort(), sort_.setValue(sortShown_);
         if (viewShown_ != stampsGrid() * 3 + stampsSize()) viewShown_ = stampsGrid() * 3 + stampsSize(), stale_ = true;
         const auto& list = stampsList();
         if (listShown_ != &list || builtFor_ != gStamps.era || listSize_ != list.size() || stale_) {
@@ -207,6 +203,16 @@ public:
             return;
         }
         c.pushClip({0, topH(), w, h});
+        if (dragging_ && dropShown_) {  // the drop's place: its folder's heading with an outline, or (no folder) the list's top edge
+            bool shownOn = false;
+            for (size_t i = 0; i < rows_.size() && i < rects_.size(); ++i)
+                if (rows_[i].heading && narrow(rows_[i].key) == drop_) {
+                    const int top = topH() + rects_[i].top - scroll_;
+                    c.roundBox({1, top + 1, w - 1, topH() + rects_[i].bottom - scroll_ - 1}, kSel, kAccent, float(scale(3)));
+                    shownOn = true;
+                }
+            if (!shownOn && drop_.empty()) c.fill({0, topH(), w, topH() + scale(2)}, kAccent);
+        }
         draw::FontDesc glyphs;
         glyphs.face = draw::Face::Glyphs, glyphs.px = scale(9);
         for (size_t i = 0; i < rows_.size(); ++i) {
@@ -234,7 +240,6 @@ public:
                 else if (int(i) == hover_) c.fill(f, kRowHot);
                 const int nameH = stampsSize() ? scale(16) : 0;
                 const draw::Rect pic{f.left + scale(3), f.top + scale(3), f.right - scale(3), f.bottom - scale(3) - nameH};
-                c.fill(pic, draw::rgb(6, 6, 10));
                 stampsDrawPicture(c, s, pic);
                 if (nameH) c.text({f.left + scale(3), pic.bottom, f.right - scale(3), f.bottom}, r.label, kText, draw::kCenter | draw::kMiddle | draw::kEllipsis);
                 continue;
@@ -243,7 +248,6 @@ public:
             if (picked) kitpaint::drawListRow(c, f, true, false);
             else if (int(i) == hover_) c.fill(f, kRowHot);
             const draw::Rect pic{indent + scale(2), top + scale(3), indent + scale(2) + (bottom - top) - scale(6), bottom - scale(3)};
-            c.fill(pic, draw::rgb(6, 6, 10));
             stampsDrawPicture(c, s, pic);
             const std::wstring size = std::to_wstring(s.width) + L" x " + std::to_wstring(s.height);
             const int sw = c.measure(size) + scale(8);
@@ -264,6 +268,14 @@ public:
         case draw::MouseKind::Move: {
             const int r = rowAt(e.pt);
             if (r != hover_) hover_ = r, invalidate();
+            if (press_ >= 0 && !dragging_ && std::abs(e.pt.x - pressAt_.x) + std::abs(e.pt.y - pressAt_.y) > scale(6)) {
+                dragging_ = true;
+                if (draw::Host* h = host()) h->capture(*this, true);  // (the release comes here, also outside the list)
+            }
+            if (dragging_) {  // (the folder it goes into: under the mouse)
+                const std::string to = dropFolder(e.pt);
+                if (!dropShown_ || to != drop_) drop_ = to, dropShown_ = true, invalidate();
+            }
             return true;
         }
         case draw::MouseKind::Leave:
@@ -273,7 +285,11 @@ public:
         case draw::MouseKind::DoubleClick: {
             if (e.button != 0) return e.button == 1;
             const int r = rowAt(e.pt);
+            press_ = -1, dragging_ = dropShown_ = false;
             if (r < 0) return true;
+            if (!rows_[size_t(r)].heading && rows_[size_t(r)].index >= 0 && rows_[size_t(r)].index < int(stampsList().size()) &&
+                !stampsList()[size_t(rows_[size_t(r)].index)].file.empty())
+                press_ = rows_[size_t(r)].index, pressAt_ = e.pt;  // (the user's own: a drag moves it to a folder)
             const StampRow row = rows_[size_t(r)];
             if (row.heading) {  // close it, or open it again
                 if (!gStampsClosed.erase(row.key)) gStampsClosed.insert(row.key);
@@ -282,6 +298,21 @@ public:
             }
             const auto& list = stampsList();
             if (row.index < 0 || row.index >= int(list.size())) return true;
+            if ((e.mods & draw::kAlt) && appState().ed) {  // its tiles: the mask (each value once), or no mask (the same again)
+                const TerrainStamp& s = list[size_t(row.index)];
+                std::vector<uint16_t> mask;
+                for (size_t i = 0; i < s.tiles.size() && i < s.mask.size(); ++i)  // (its holes are not in it)
+                    if (const uint16_t v = s.tiles[i]; s.mask[i] && std::find(mask.begin(), mask.end(), v) == mask.end()) mask.push_back(v);
+                std::vector<uint16_t> now = appState().ed->tileMask(), sorted = mask;
+                std::sort(now.begin(), now.end()), std::sort(sorted.begin(), sorted.end());
+                if (now == sorted) mask.clear();
+                setMessage(mask.empty() ? std::wstring(tr(L"No mask: painting changes all tiles"))
+                                        : tr(L"Mask: painting in Tile and Custom changes only the tiles of ") + widen(s.name) + L" (" +
+                                              std::to_wstring(mask.size()) + tr(L" tiles). Alt+click it again: no mask"));
+                appState().ed->setTileMask(std::move(mask));
+                tilesPanelRepaint();
+                return true;
+            }
             if (appState().mode != Mode::Terrain) {  // (another mode: the pick goes to Terrain, as a palette's)
                 if (state) activatePanel(state);
                 else setMode(Mode::Terrain);
@@ -291,11 +322,29 @@ public:
             return true;
         }
         case draw::MouseKind::Up: {
+            if (e.button == 0) {
+                const int index = std::exchange(press_, -1);
+                const bool dropped = std::exchange(dragging_, false);
+                dropShown_ = false;
+                if (dropped)
+                    if (draw::Host* h = host()) h->capture(*this, false);
+                invalidate();
+                if (dropped && (e.pt.x < 0 || e.pt.y < topH() || e.pt.x >= width() || e.pt.y >= height())) return true;  // (out of the list: no move)
+                const auto& list = stampsList();
+                if (dropped && index >= 0 && index < int(list.size())) {
+                    const TerrainStamp s = list[size_t(index)];
+                    const std::string to = dropFolder(e.pt);
+                    shellPost([s, to] { stampsMoveTo(s, to); });
+                }
+                return true;
+            }
             if (e.button != 1) return false;
             const int r = rowAt(e.pt);
             const auto& list = stampsList();
             const bool item = r >= 0 && !rows_[size_t(r)].heading && rows_[size_t(r)].index >= 0 && rows_[size_t(r)].index < int(list.size());
-            shellStampsMenu(*this, e.pt, item ? &list[size_t(rows_[size_t(r)].index)] : nullptr);
+            const bool folder = r >= 0 && rows_[size_t(r)].heading;
+            const std::string in = folder ? narrow(rows_[size_t(r)].key) : item ? list[size_t(rows_[size_t(r)].index)].folder : std::string();
+            shellStampsMenu(*this, e.pt, item ? &list[size_t(rows_[size_t(r)].index)] : nullptr, in, folder);
             return true;
         }
         default: return false;
@@ -306,6 +355,25 @@ public:
         const auto& list = stampsList();
         if (r >= 0 && !rows_[size_t(r)].heading && rows_[size_t(r)].index < int(list.size())) return widen(list[size_t(rows_[size_t(r)].index)].name);
         return L"the Custom list";
+    }
+    // The folder that a drop at `p` puts custom terrain into: a heading's folder, an item's folder, else none (out of the
+    // folders).
+    std::string dropFolder(draw::Point p) const {
+        int r = rowAt(p);
+        if (r < 0 && p.y >= topH()) {  // (between a grid's cells, or after a folder's last cell: the row before it; under all rows: none)
+            const int y = p.y - topH() + scroll_;
+            if (y >= contentH_) return {};
+            for (size_t i = 0; i < rows_.size() && i < rects_.size(); ++i)
+                if (rects_[i].top <= y && (rects_[i].top < y || rects_[i].left <= p.x)) r = int(i);
+        }
+        if (r < 0) return {};
+        const StampRow& row = rows_[size_t(r)];
+        if (row.heading) return narrow(row.key);
+        const auto& list = stampsList();
+        return row.index >= 0 && row.index < int(list.size()) ? list[size_t(row.index)].folder : std::string();
+    }
+    void captureLost() override {
+        if (dragging_) press_ = -1, dragging_ = dropShown_ = false, invalidate();
     }
     // The files changed: the rows again at the next paint.
     void changed() {
@@ -328,13 +396,19 @@ public:
     }
 
 private:
-    stardraft::kit::Dropdown sort_;
+    stardraft::kit::IconButton sort_{stardraft::kit::IconGlyph::ofGlyph(L'\xE8CB'), stardraft::kit::IconStyle::Boxed, L"",
+                                     [this] { shellStampsButtonMenu(sort_, true); }};
+    stardraft::kit::Button view_{L"View", stardraft::kit::Tone::Normal, [this] { shellStampsButtonMenu(view_, false); }};
     stardraft::kit::TextField search_;
     stardraft::kit::ScrollBar bar_;
     std::vector<StampRow> rows_;
     std::vector<int> tops_;
     std::vector<draw::Rect> rects_;  // (each row's place in the content: a list's row, a grid's cell)
-    int contentH_ = 0, scroll_ = 0, hover_ = -1, sortShown_ = -1, viewShown_ = -1, builtFor_ = -2;
+    int contentH_ = 0, scroll_ = 0, hover_ = -1, viewShown_ = -1, builtFor_ = -2;
+    int press_ = -1;              // the item pressed (its index in stampsList()): a drag moves it to a folder
+    draw::Point pressAt_{};
+    bool dragging_ = false, dropShown_ = false;
+    std::string drop_;            // the folder that the drop goes into (shown while dragging_)
     const std::vector<TerrainStamp>* listShown_ = nullptr;
     size_t listSize_ = 0;
     bool stale_ = true;

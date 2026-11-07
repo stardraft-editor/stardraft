@@ -2952,3 +2952,22 @@ Symmetry anchor: drag it to move it, double-click it to remove it, right-click i
 Clear the terrain mas&k	Сбросить мас&ку ландшафта
 Do not &ask again	Больше не спр&ашивать
 A save does not ask about missing start locations. To ask again: Program options > Saving maps	При сохранении больше нет вопроса о недостающих стартовых точках. Чтобы вернуть: Параметры программы > Сохранение карт
+D&rag objects to move them	Пе&ретаскивать объекты для перемещения
+A drag moves units, doodads, sprites and locations	Перетаскивание перемещает юниты, дудады, спрайты и локации
+A drag does not move units, doodads, sprites or locations	Перетаскивание не перемещает юниты, дудады, спрайты и локации
+A drag does not move objects. To move them: Options > Drag objects to move them	Перетаскивание не перемещает объекты. Чтобы перемещать: Параметры > Перетаскивать объекты для перемещения
+Painting terrain	Рисование местности
+Detailed tiles	Детальные тайлы
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	Как часто изометрическое и прямоугольное рисование ставит детальный тайл. StarCraft: 5%.
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	Круговая палитра местности: местности по кругу; щелкните одну, чтобы рисовать ею (на карте: удерживайте Пробел)
+Sort the custom terrain: by name or by date	Сортировка своей местности: по имени или по дате
+Date: &newest first	Дата: сначала &новые
+Rename folder…	Переименовать папку…
+Delete folder	Удалить папку
+New folder…	Новая папка…
+New folder in this folder…	Новая папка в этой папке…
+Rename folder	Переименовать папку
+Move custom terrain	Переместить свою местность
+A folder with this name is already there.	Папка с таким именем уже есть.
+The folder has custom terrain: drag it out of the folder first, or delete it	В папке есть своя местность: сначала перетащите ее из папки или удалите
+The folder has other files: it stays	В папке есть другие файлы: она остается

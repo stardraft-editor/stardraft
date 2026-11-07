@@ -768,7 +768,7 @@ render::Scene buildScene() {
         bool active = app.mode == Mode::Locations;
         // A move: each selected location by the selected one's way; a resize: the selected one.
         int moveX = 0, moveY = 0;
-        if (app.drag == Drag::LocMove && ed.locationUsed(ed.selectedLocation())) {
+        if (app.drag == Drag::LocMove && app.dragMoved && ed.locationUsed(ed.selectedLocation())) {
             const Rect to = previewLocationRect(wx, wy);
             moveX = to.left - app.locStart.left, moveY = to.top - app.locStart.top;
         }

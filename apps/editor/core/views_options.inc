@@ -32,6 +32,7 @@ struct OptionsValues {
     bool openLast = false;
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
+    int detailedTiles = 5;    // Painting terrain: the chance (0 to 100%) of a detailed tile variant (stardraft/isom.h)
     int gameMode = 0;         // Plugins > Cosmonarchy BW: 0 not loaded, 1 loaded (core/cmbw.inc cmbwMode)
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
@@ -71,6 +72,8 @@ public:
     virtual void setUnitNames(int i) = 0;
     virtual void setUnitLimit(int k, int v) = 0;
     virtual void setVolume(int v) = 0;
+    // Painting terrain's Detailed tiles (0 to 100%; GitHub #257).
+    virtual void setDetailedTiles(int percent) { (void)percent; }
     // Simulate mining's settings (which: 0 workers, 1 gas workers, 2 minutes, 3 races; OptionsValues::sim*).
     virtual void setSimulation(int which, int value) { (void)which, (void)value; }
     // The working folder: a folder chosen by the user, or the default one.
@@ -216,6 +219,12 @@ public:
             limit_[k].onEscape = [this, k] { limit_[k].setText(std::to_wstring(limitValue_[k])); };
             add(limit_[k], {0, 0, 0, 0}), limit_[k].setVisible(false);
         }
+        detail_.setFilter([](wchar_t c) { return c >= L'0' && c <= L'9'; });
+        detail_.setMaxLength(3);
+        detail_.onEnter = [this] { commitDetail(); };
+        detail_.onFocusLost = [this] { commitDetail(); };
+        detail_.onEscape = [this] { detail_.setText(std::to_wstring(detailValue_)); };
+        add(detail_, {0, 0, 0, 0}), detail_.setVisible(false);
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
@@ -391,6 +400,13 @@ private:
         limitValue_[k] = v;
         limit_[k].setText(std::to_wstring(v));
     }
+    void commitDetail() {
+        const std::wstring t = detail_.text();
+        const int v = t.empty() ? detailValue_ : std::clamp(int(std::wcstol(t.c_str(), nullptr, 10)), 0, 100);
+        if (v != detailValue_) host_.setDetailedTiles(v);
+        detailValue_ = v;
+        detail_.setText(std::to_wstring(v));
+    }
     // Places a child at `r` (view coordinates) for this paint; a child is shown when it is wholly in the content (the
     // tab strip and the footer are not drawn over; `bottom`: a child out of the content, the strip and Close). A child
     // that is not placed in a paint is hidden at its end.
@@ -417,7 +433,7 @@ private:
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_, passagesFile_;
+    stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -429,6 +445,7 @@ private:
     int systemThemeShown_ = -1;  // (the Theme buttons' tips were set for systemTheme)
     int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1, gpuChosen_ = -1;  // the segmented choices' Primary buttons (sync)
     int limitValue_[2] = {3400, 1700};
+    int detailValue_ = 5;
     int tab_ = -1;          // setTab
     bool stripOn_ = false;  // showTabStrip
     int tabHeight_ = 0;     // the height that onTabHeight got last
@@ -491,6 +508,8 @@ void OptionsView::sync(const OptionsValues& v) {
         limitValue_[k] = v.unitLimit[k];
         if (!limit_[k].hasFocus() && limit_[k].text() != std::to_wstring(v.unitLimit[k])) limit_[k].setText(std::to_wstring(v.unitLimit[k]));
     }
+    detailValue_ = v.detailedTiles;
+    if (!detail_.hasFocus() && detail_.text() != std::to_wstring(v.detailedTiles)) detail_.setText(std::to_wstring(v.detailedTiles));
     if (slider_.value() != v.volume) slider_.setValue(v.volume);
     auto pick = [](stardraft::kit::Dropdown& d, const int* values, size_t n, int value) {
         int at = -1;
@@ -716,6 +735,17 @@ void OptionsView::paint(draw::Canvas& c) {
         header(L"Saving maps");
         checkRow(y, askStart_, "askstartlocations");
         y += rowH + pad;
+        header(L"Painting terrain");
+        label(L"Detailed tiles");
+        {
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(120)), fieldTop(y) + fieldH};
+            place(detail_, box, true);
+            c.text({box.right + scale(6), y, box.right + scale(60), y + rowH}, L"%", kDim, draw::kMiddle);
+            parts_["detailedtiles"] = box;
+            y += rowH;
+        }
+        note(x0, y - scale(4), L"How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.");
+        y += scale(20) + pad;
     }
 
     // The working folder: where new projects go.

@@ -367,6 +367,8 @@ MenuModel buildMenuModel() {
                       menuPopup(L"&Sprites", sprites),
                       menuPopup(L"&Locations", locations),
                       menuSeparator(),
+                      menuItem(ID_OPT_DRAGOBJECTS, L"D&rag objects to move them"),
+                      menuSeparator(),
                       menuItem(ID_EDIT_TERRAINUNITS, L"Terrain copy includes u&nits"),
                       menuItem(ID_EDIT_TERRAINDOODADS, L"Terrain copy includes d&oodads"),
                       menuSeparator(),

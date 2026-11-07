@@ -2952,3 +2952,22 @@ Symmetry anchor: drag it to move it, double-click it to remove it, right-click i
 Clear the terrain mas&k	Effacer le mas&que de terrain
 Do not &ask again	Ne plus dem&ander
 A save does not ask about missing start locations. To ask again: Program options > Saving maps	L'enregistrement ne demande plus pour les positions de départ manquantes. Pour le réactiver : Options du programme > Enregistrement des cartes
+D&rag objects to move them	Faire &glisser les objets pour les déplacer
+A drag moves units, doodads, sprites and locations	Un glisser déplace les unités, doodads, sprites et emplacements
+A drag does not move units, doodads, sprites or locations	Un glisser ne déplace pas les unités, doodads, sprites ni emplacements
+A drag does not move objects. To move them: Options > Drag objects to move them	Un glisser ne déplace pas les objets. Pour les déplacer : Options > Faire glisser les objets pour les déplacer
+Painting terrain	Peindre le terrain
+Detailed tiles	Tuiles détaillées
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	La fréquence à laquelle la peinture isométrique et rectangulaire place une tuile détaillée. StarCraft : 5 %.
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	Palette circulaire de terrain : les terrains en cercle ; cliquez sur l'un pour peindre avec (sur la carte : maintenez Espace)
+Sort the custom terrain: by name or by date	Trier le terrain personnalisé : par nom ou par date
+Date: &newest first	Date : le plus &récent d'abord
+Rename folder…	Renommer le dossier…
+Delete folder	Supprimer le dossier
+New folder…	Nouveau dossier…
+New folder in this folder…	Nouveau dossier dans ce dossier…
+Rename folder	Renommer le dossier
+Move custom terrain	Déplacer le terrain personnalisé
+A folder with this name is already there.	Un dossier de ce nom existe déjà.
+The folder has custom terrain: drag it out of the folder first, or delete it	Le dossier contient du terrain personnalisé : sortez-le du dossier d'abord, ou supprimez-le
+The folder has other files: it stays	Le dossier contient d'autres fichiers : il reste

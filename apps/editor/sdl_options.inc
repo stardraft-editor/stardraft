@@ -274,6 +274,7 @@ public:
         v.restartDue = sdlLanguageChosen(gLanguage) != gUiLang;  // another language than the one in use
         v.unitNames = gDock.unitNames;
         v.unitLimit[0] = gUnitLimitClassic, v.unitLimit[1] = gUnitLimitEud;
+        v.detailedTiles = stardraft::detailedTilePercent();
         flag = false;
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
         flag = true;
@@ -317,6 +318,11 @@ public:
     }
     void setUnitNames(int i) override;
     void setUnitLimit(int k, int value) override;
+    void setDetailedTiles(int percent) override {
+        stardraft::setDetailedTilePercent(percent);
+        shellSettingsChanged();  // (the settings table: DetailedTiles)
+        gOptionsView.invalidate();
+    }
     void setVolume(int value) override;
     void setSimulation(int which, int value) override;
     void browseWorkingFolder() override;

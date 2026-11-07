@@ -471,6 +471,7 @@ struct MainView final : draw::View {
         add(gSearchSdl, draw::Rect(0, 0, 0, 0));
         add(gSectionDropSdl, draw::Rect(0, 0, 0, 0));
         add(gSortBtnSdl, draw::Rect(0, 0, 0, 0));  // (Tab goes in the order of the screen: Sort, then View)
+        add(gPieBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gLocSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gPalList, draw::Rect(0, 0, 0, 0));
@@ -944,7 +945,8 @@ struct MainView final : draw::View {
         side(gSearchSdl, L.search, !locs && !layersMode && here && !tiles);
         side(gViewBtnSdl, L.viewBtn, !locs && !layersMode && here && !tiles);
         sortTipsSdl();
-        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles);
+        side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles && m != Mode::Terrain);
+        side(gPieBtnSdl, L.sortBtn, here && !tiles && m == Mode::Terrain);
         side(gLocSortBtnSdl, L.sortBtn, locs && here);
         side(gPalList, L.palette, !locs && !layersMode && here && !tiles);
         side(gFilterSdl, L.filter, locs && here);
@@ -1023,7 +1025,7 @@ PanelState* sidePanelAt(draw::Point pt) {
     for (PaletteGridView* l : {static_cast<PaletteGridView*>(&gPalList), static_cast<PaletteGridView*>(&gPal2List), static_cast<PaletteGridView*>(&gPal3List)})
         if (in(*l)) return l->state;
     if (in(gTilesDockPanel)) return &dockedPanel(Mode::Terrain);
-    for (draw::View* v : std::initializer_list<draw::View*>{&gSearchSdl, &gViewBtnSdl, &gSortBtnSdl, &gSectionDropSdl, &gOwnerBox})
+    for (draw::View* v : std::initializer_list<draw::View*>{&gSearchSdl, &gViewBtnSdl, &gSortBtnSdl, &gPieBtnSdl, &gSectionDropSdl, &gOwnerBox})
         if (in(*v)) return &dockedPanel(gState.mode);
     if (in(gLocList) || in(gFilterSdl) || in(gLocSortBtnSdl)) return &dockedPanel(Mode::Locations);
     return nullptr;

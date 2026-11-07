@@ -2952,3 +2952,22 @@ Symmetry anchor: drag it to move it, double-click it to remove it, right-click i
 Clear the terrain mas&k	Quitar la más&cara del terreno
 Do not &ask again	No volver a pregunt&ar
 A save does not ask about missing start locations. To ask again: Program options > Saving maps	Al guardar no se pregunta por las ubicaciones de inicio que faltan. Para volver a preguntar: Opciones del programa > Guardar mapas
+D&rag objects to move them	A&rrastrar objetos para moverlos
+A drag moves units, doodads, sprites and locations	Arrastrar mueve unidades, doodads, sprites y ubicaciones
+A drag does not move units, doodads, sprites or locations	Arrastrar no mueve unidades, doodads, sprites ni ubicaciones
+A drag does not move objects. To move them: Options > Drag objects to move them	Arrastrar no mueve objetos. Para moverlos: Opciones > Arrastrar objetos para moverlos
+Painting terrain	Pintar terreno
+Detailed tiles	Casillas detalladas
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	Con qué frecuencia la pintura isométrica y rectangular coloca una casilla detallada. StarCraft: 5%.
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	Paleta circular de terreno: los terrenos en un círculo; haga clic en uno para pintar con él (en el mapa: mantenga Espacio)
+Sort the custom terrain: by name or by date	Ordenar el terreno personalizado: por nombre o por fecha
+Date: &newest first	Fecha: más &nuevo primero
+Rename folder…	Cambiar nombre de carpeta…
+Delete folder	Eliminar carpeta
+New folder…	Nueva carpeta…
+New folder in this folder…	Nueva carpeta en esta carpeta…
+Rename folder	Cambiar nombre de carpeta
+Move custom terrain	Mover terreno personalizado
+A folder with this name is already there.	Ya hay una carpeta con este nombre.
+The folder has custom terrain: drag it out of the folder first, or delete it	La carpeta tiene terreno personalizado: sáquelo de la carpeta primero, o elimínelo
+The folder has other files: it stays	La carpeta tiene otros archivos: se queda

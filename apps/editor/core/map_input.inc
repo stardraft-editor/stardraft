@@ -259,7 +259,8 @@ std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, fl
 int symmetryAnchorNear(const Editor& ed, float wx, float wy, float zoom);  // (views_map_menu.inc)
 std::chrono::steady_clock::time_point gSymmetryPressAt{};  // the handle's last click (a drag is not one: a double click's)
 int gSymmetryDragged = 0;                                    // the anchor that the drag moves
-int gSymmetryHover = -1;                                     // the anchor under the mouse at the last move, or -1
+int gSymmetryHover = -1;
+bool gDragOffTold = false;  // (Options > Drag objects to move them off: the status bar told it in this press)                                     // the anchor under the mouse at the last move, or -1
 std::pair<int, int> gSymmetryFrom{-1, -1};                  // the center when its drag began (Esc puts it back)
 // The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
 // The anchor whose handle is at this place of the window (Terrain's Select tool), or -1. The last one first: on top.
@@ -315,7 +316,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         app.dirty = true;
         return;
     }
-    app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
+    app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false, gDragOffTold = false;
     app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
     if (!(mods & (draw::kShift | draw::kCtrl)) && symmetryHandleAt(app, sx, sy)) {  // the symmetry center: a drag moves it; a double click puts it in the map's middle
         const auto now = std::chrono::steady_clock::now();
@@ -691,7 +692,12 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         app.mouseIn = true;
         shellTrackMouseLeave();
     }
-    if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
+    if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) {
+        // (Options > Drag objects to move them off: a press on an object selects it and a drag does not move it)
+        const bool objectMove = app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite || app.drag == Drag::LocMove;
+        if (!objectMove || app.dragObjects) app.dragMoved = true;
+        else if (!std::exchange(gDragOffTold, true)) setMessage(app, L"A drag does not move objects. To move them: Options > Drag objects to move them");
+    }
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     if (app.drag == Drag::TerrainLasso) {
@@ -885,7 +891,7 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     }
     switch (app.drag) {
     case Drag::MoveUnits:
-        if (!app.dragMoved && gStackNext >= 0 && gStackNext < int(ed.units().size())) {  // a click again on a stack: the next unit
+        if (!app.dragMoved && !gDragOffTold && gStackNext >= 0 && gStackNext < int(ed.units().size())) {  // a click again on a stack: the next unit
             const std::vector<int> stack = ed.unitsAt(int(app.dragWX), int(app.dragWY));
             const auto at = std::find(stack.begin(), stack.end(), gStackNext);
             if (at != stack.end()) {

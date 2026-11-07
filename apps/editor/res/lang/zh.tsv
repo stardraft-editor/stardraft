@@ -2952,3 +2952,22 @@ Symmetry anchor: drag it to move it, double-click it to remove it, right-click i
 Clear the terrain mas&k	清除地形遮罩(&K)
 Do not &ask again	不再询问(&A)
 A save does not ask about missing start locations. To ask again: Program options > Saving maps	保存时不再询问缺少的起始位置。要再次询问：程序选项 > 保存地图
+D&rag objects to move them	拖动对象以移动(&R)
+A drag moves units, doodads, sprites and locations	拖动会移动单位、装饰物、精灵和位置
+A drag does not move units, doodads, sprites or locations	拖动不会移动单位、装饰物、精灵或位置
+A drag does not move objects. To move them: Options > Drag objects to move them	拖动不会移动对象。要移动：选项 > 拖动对象以移动
+Painting terrain	绘制地形
+Detailed tiles	细节图块
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	等距和矩形绘制放置细节图块的频率。星际争霸：5%。
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	地形饼状调色板：地形排成一圈；单击一个即可用它绘制（在地图上：按住空格）
+Sort the custom terrain: by name or by date	排序自定义地形：按名称或按日期
+Date: &newest first	日期：最新的在前(&N)
+Rename folder…	重命名文件夹…
+Delete folder	删除文件夹
+New folder…	新建文件夹…
+New folder in this folder…	在此文件夹中新建文件夹…
+Rename folder	重命名文件夹
+Move custom terrain	移动自定义地形
+A folder with this name is already there.	已有同名文件夹。
+The folder has custom terrain: drag it out of the folder first, or delete it	文件夹中有自定义地形：请先将其拖出文件夹或删除
+The folder has other files: it stays	文件夹中有其他文件：保留该文件夹

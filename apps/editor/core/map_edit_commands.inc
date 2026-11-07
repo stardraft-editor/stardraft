@@ -264,16 +264,15 @@ void copyMapSelection(AppState& app) {
     } else if (app.mode == Mode::Terrain) {
         if (app.hasTerrainSel && copySelectedTerrain(app, app.terrainSel))
             shareTerrainCopy(*app.ed), setMessage(L"Copied the terrain selection");
-        else if (app.hasTerrainSel && !app.terrainSelMask.empty() && app.ed->canPaintTerrain())  // (a form with no whole diamond in it)
-            setMessage(L"Nothing to copy there: make the selection larger");
-        else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {  // (no ISOM to copy there: its tiles, in Tile, GitHub #235)
+        else if (app.hasTerrainSel && copySelectedTiles(*app.ed)) {
+            // (no whole diamond in the selection, or no ISOM there to copy: its tiles, in Rectangle; GitHub #235)
             void setTerrainKind(int kind);  // (views_toolstrip.inc)
-            const Rect sel = app.terrainSel;
+            const std::vector<std::pair<int, int>> tiles = terrainSelTiles();  // (in Isometric's shape: the tiles copied)
             shareTerrainCopy(*app.ed);
-            setTerrainKind(1);
-            app.hasTerrainSel = true, app.terrainSel = sel;  // (the selection stays, as in Tile)
-            tilesStampFromCopy();
-            setMessage(L"Copied the tiles of the selection, in Tile: the map has no isometric terrain there to copy");
+            setTerrainKind(3);
+            setTerrainSelTiles(tiles);  // (the selection stays: those tiles, in Rectangle)
+            setMessage(L"Copied " + std::to_wstring(app.ed->tileClipboardWidth()) + L" x " + std::to_wstring(app.ed->tileClipboardHeight()) +
+                       L" tiles, in Rectangle: the selection has no whole isometric diamond. Ctrl+V pastes them");
         } else
             setMessage(L"Select an area with the Select tool first");
     } else if (app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
@@ -591,6 +590,10 @@ bool commandMapEdit(AppState& app, int id) {
         break;
     case ID_EDIT_CORRECTION: app.correction = !app.correction; break;
     case ID_OPT_DRAGBACK: app.dragSnapBack = !app.dragSnapBack; break;
+    case ID_OPT_DRAGOBJECTS:
+        app.dragObjects = !app.dragObjects;
+        setMessage(app.dragObjects ? L"A drag moves units, doodads, sprites and locations" : L"A drag does not move units, doodads, sprites or locations");
+        break;
     case ID_OPT_SNAPBUILDINGS:  // buildings on tile edges, or where they are placed (the unit snap is for the other units)
         app.snapBuildings = !app.snapBuildings;
         setBuildingSnap(app.snapBuildings);
@@ -734,6 +737,7 @@ int mapMenuCheck(int id) {
     case ID_OPT_ANIMATE: return app.animate;
     case ID_OPT_SNAPBUILDINGS: return app.snapBuildings;
     case ID_OPT_DRAGBACK: return app.dragSnapBack && !app.allowIllegalUnits;
+    case ID_OPT_DRAGOBJECTS: return app.dragObjects;
     case ID_EDIT_TERRAINUNITS: return app.copyUnitsWithTerrain;
     case ID_OPT_LOCWRAP: return app.locationWrap;
     case ID_EDIT_TERRAINDOODADS: return app.copyDoodadsWithTerrain;

@@ -1756,7 +1756,7 @@ bool solidRectTiles(const Tileset& tileset, uint16_t terrain, const TerrainLayer
             }
             // Pieces with rules of the mod's maps: as the brush picks them. Else the game's rule (getRandomSubtile) on the
             // pieces' subtiles, as the mod's maps have them: a piece whose left tile is before the first empty megatile of
-            // its group is common (all as often), the others rare (1 time in 20).
+            // its group is common (all as often), the others rare (detailedTileRoll).
             const auto& ruled = tileset.pieceNeighborTiles;
             if (std::any_of(fill.begin(), fill.end(), [&](const auto& p) { return ruled.count(p.first) != 0; })) {
                 std::tie(left, right) = pickModPiece(tileset, fill, tile, rx, ry, next());
@@ -1770,7 +1770,7 @@ bool solidRectTiles(const Tileset& tileset, uint16_t terrain, const TerrainLayer
                 auto& to = (p.first & 15) < run ? common : rare;
                 if (std::find(to.begin(), to.end(), p) == to.end()) to.push_back(p);  // (the fill lists a piece more times to weight it)
             }
-            const auto& from = !rare.empty() && (common.empty() || next() % 20 == 0) ? rare : common;
+            const auto& from = !rare.empty() && (common.empty() || detailedTileRoll(next())) ? rare : common;
             std::tie(left, right) = from[next() % uint32_t(from.size())];
             return true;
         }
@@ -1788,7 +1788,7 @@ bool solidRectTiles(const Tileset& tileset, uint16_t terrain, const TerrainLayer
             }
     if (size_t(g) + 1 >= tileset.groups.size()) return false;
     // Its variant, by IsomTerrain's rule (getRandomSubtile): the common variants (before the first empty megatile), and
-    // 1 time in 20 a rare one (the variants after that gap).
+    // as detailedTileRoll picks a rare one (the variants after that gap).
     const auto& mega = tileset.groups[g].megatiles;
     int common = 0, rare = 0;
     while (common < 16 && mega[size_t(common)]) ++common;
@@ -1797,7 +1797,7 @@ bool solidRectTiles(const Tileset& tileset, uint16_t terrain, const TerrainLayer
     // (under the group above in its stack: the stack's variant, as StarEdit gives a whole stack one variant)
     if (above != SIZE_MAX && tiles->stackTop(g) && tiles->stackTop(g) == tiles->stackBottom(uint16_t(tile.tiles[above] >> 4)) && mega[tile.tiles[above] & 15])
         sub = uint16_t(tile.tiles[above] & 15);
-    else if (rare && next() % 20 == 0) sub = uint16_t(common + 1 + int(next() % uint32_t(rare)));
+    else if (rare && detailedTileRoll(next())) sub = uint16_t(common + 1 + int(next() % uint32_t(rare)));
     else if (common) sub = uint16_t(next() % uint32_t(common));
     left = uint16_t(g << 4 | sub), right = uint16_t((g + 1) << 4 | sub);
     return true;

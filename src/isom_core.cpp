@@ -7,7 +7,8 @@
 #include <type_traits>
 #include <unordered_map>
 
-#include "IsomApi.h"  // third_party/IsomTerrain/IsomTerrain (unchanged; its includes are StarDraft's stand-ins beside it)
+#include "IsomApi.h"  // third_party/IsomTerrain/IsomTerrain (one change: rareSubtilePercent; its includes are StarDraft's stand-ins beside it)
+#include "stardraft/isom.h"
 #include "stardraft/terrain.h"
 
 Logger logger;  // (IsomApi.h's; it writes nothing: third_party/IsomTerrain/CrossCutLib/Logger.h)
@@ -376,4 +377,14 @@ bool IsomTiles::beside(uint16_t leftGroup, uint16_t rightGroup) const {
 }
 uint16_t IsomTiles::shapeCount() const { return uint16_t(d_->tables->isomLinks.size()); }
 
+}  // namespace stardraft
+
+// The detailed tiles' chance (stardraft/isom.h): IsomTerrain's too.
+namespace stardraft {
+void setDetailedTilePercent(int percent) { ::Chk::rareSubtilePercent = percent < 0 ? 0 : percent > 100 ? 100 : percent; }
+int detailedTilePercent() { return ::Chk::rareSubtilePercent; }
+bool detailedTileRoll(uint32_t rnd) {
+    const int p = ::Chk::rareSubtilePercent;
+    return p == 5 ? rnd % 20 == 0 : p > 0 && rnd % 100 < uint32_t(p);  // (5: the game's 1 in 20, the same picks as before)
+}
 }  // namespace stardraft

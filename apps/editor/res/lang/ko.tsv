@@ -2982,3 +2982,22 @@ Symmetry anchor: drag it to move it, double-click it to remove it, right-click i
 Clear the terrain mas&k	지형 마스크 지우기(&K)
 Do not &ask again	다시 묻지 않기(&A)
 A save does not ask about missing start locations. To ask again: Program options > Saving maps	저장할 때 없는 시작 위치를 묻지 않습니다. 다시 묻게 하려면: 프로그램 옵션 > 맵 저장
+D&rag objects to move them	끌어서 개체 이동(&R)
+A drag moves units, doodads, sprites and locations	끌면 유닛, 두대드, 스프라이트, 로케이션이 이동합니다
+A drag does not move units, doodads, sprites or locations	끌어도 유닛, 두대드, 스프라이트, 로케이션이 이동하지 않습니다
+A drag does not move objects. To move them: Options > Drag objects to move them	끌어도 개체가 이동하지 않습니다. 이동하려면: 옵션 > 끌어서 개체 이동
+Painting terrain	지형 칠하기
+Detailed tiles	세부 타일
+How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.	아이소메트릭과 사각형 칠하기가 세부 타일을 놓는 빈도. 스타크래프트: 5%.
+Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)	지형 원형 팔레트: 원 안의 지형; 하나를 클릭하면 그것으로 칠합니다 (맵에서: Space 누르고 있기)
+Sort the custom terrain: by name or by date	사용자 지형 정렬: 이름 또는 날짜
+Date: &newest first	날짜: 최신 순(&N)
+Rename folder…	폴더 이름 바꾸기…
+Delete folder	폴더 삭제
+New folder…	새 폴더…
+New folder in this folder…	이 폴더에 새 폴더…
+Rename folder	폴더 이름 바꾸기
+Move custom terrain	사용자 지형 이동
+A folder with this name is already there.	이 이름의 폴더가 이미 있습니다.
+The folder has custom terrain: drag it out of the folder first, or delete it	폴더에 사용자 지형이 있습니다: 먼저 폴더 밖으로 끌거나 삭제하십시오
+The folder has other files: it stays	폴더에 다른 파일이 있습니다: 그대로 둡니다

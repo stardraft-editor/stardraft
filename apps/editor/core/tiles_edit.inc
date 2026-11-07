@@ -317,13 +317,14 @@ std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cel
 }
 // (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts
 // them; a mod terrain's fill stays as it is, as the isometric brush keeps it)
-// The mask (Alt+click in the lists; none for Custom): only the cells it lets change. Rectangle: a tile of a masked terrain
-// (its group's; a mod's terrains have no groups of their own: the terrain there); Tile: a tile of a masked value.
+// The mask (Alt+click in the lists): only the cells it lets change. Rectangle: a tile of a masked terrain (its group's; a
+// mod's terrains have no groups of their own: the terrain there); Tile and Custom: a tile of a masked value (Alt+click
+// on a custom terrain: its tiles, GitHub #247).
 const std::vector<std::array<uint16_t, 2>>& solidGroupTerrains();
 bool tilesMaskLets(int x, int y, uint16_t value) {
     const Editor& ed = *appState().ed;
     const std::vector<uint16_t>& mask = gTiles->solid ? ed.terrainMask() : ed.tileMask();
-    if (mask.empty() || gTiles->stamps) return true;
+    if (mask.empty()) return true;
     if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return false;
     const auto in = [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); };
     const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
@@ -388,7 +389,7 @@ void tilesPlacedMessage(int n, const wchar_t* verb) {
     Editor& ed = *appState().ed;
     const int doodads = ed.takeDoodadsRemovedByTerrain(), units = ed.takeUnitsRemovedByTerrain();
     std::wstring m = std::wstring(verb) + (n == 1 ? L" 1 tile" : L" " + std::to_wstring(n) + L" tiles");
-    if (!n) m = !gTiles->stamps && !(gTiles->solid ? ed.terrainMask() : ed.tileMask()).empty() ? L"Nothing changed: the mask keeps these tiles" : L"The tiles are the same already";
+    if (!n) m = !(gTiles->solid ? ed.terrainMask() : ed.tileMask()).empty() ? L"Nothing changed: the mask keeps these tiles" : L"The tiles are the same already";
     if (doodads) m += L". Removed " + std::to_wstring(doodads) + (doodads == 1 ? L" doodad under them" : L" doodads under them");
     if (units) m += L". Removed " + std::to_wstring(units) + (units == 1 ? L" unit that cannot stand there" : L" units that cannot stand there");
     if (doodads || units) m += L".";
@@ -748,18 +749,30 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
     return true;
 }
 
+// A paste drag's next copy at (tx, ty): its tiles, but not its null tiles: the map keeps its tiles there (GitHub #255).
+// The tiles changed.
+int tilesPasteNoNull(Editor& ed, int tx, int ty) {
+    const int w = ed.tileClipboardWidth(), h = ed.tileClipboardHeight();
+    const std::vector<uint16_t>& clip = ed.tileClipboard();
+    std::vector<Editor::TileAt> cells;
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x)
+            if (const uint16_t v = clip[size_t(y) * size_t(w) + size_t(x)]; v != 0xFFFF && !tileIsNull(v)) cells.push_back({tx + x, ty + y, v});
+    return ed.placeTileValues(cells);
+}
+
 // The drag: the footprint at the mouse; the stamp: each block of its pattern along the way from the last tile (a fast
 // drag leaves no gaps).
 void tilesMouseMove(float wx, float wy) {
     if (!appState().ed) return;
-    if (gTilesPasteDrag) {  // (a drag with the copy on the mouse: the copies on its grid from the first, each once)
+    if (gTilesPasteDrag) {  // (a drag with the copy on the mouse: the copies on its grid from the first, each once; no null tiles)
         Editor& ed = *appState().ed;
         int tx, ty;
         tilesPasteAt(wx, wy, tx, ty);
         const int w = std::max(1, ed.tileClipboardWidth()), h = std::max(1, ed.tileClipboardHeight());
         const auto cell = [](int v, int at, int n) { return at + int(std::floor(double(v - at) / n)) * n; };
         const int cx = cell(tx, gTilesPasteX, w), cy = cell(ty, gTilesPasteY, h);
-        if (cx != gTiles->lastX || cy != gTiles->lastY) gTilesStrokePlaced += ed.pasteTiles(cx, cy), gTiles->lastX = cx, gTiles->lastY = cy;
+        if (cx != gTiles->lastX || cy != gTiles->lastY) gTilesStrokePlaced += tilesPasteNoNull(ed, cx, cy), gTiles->lastX = cx, gTiles->lastY = cy;
         return;
     }
     if (!tilesHavePick()) return;

@@ -286,6 +286,7 @@ bool sdlRuns(int id) {
     case ID_OPT_RANDOMFACING:
     case ID_OPT_SNAPBUILDINGS:
     case ID_OPT_DRAGBACK:
+    case ID_OPT_DRAGOBJECTS:
     case ID_OPT_ANIMATE:
     case ID_DOODAD_FIT:
     case ID_DOODAD_NEAREST:
@@ -1186,7 +1187,7 @@ void sdlPinchShot(const std::string& spec) {
 // view.grid, view.ranges...) or one of the names below, as its menu item runs it. The output says whether the item is
 // enabled (a gray item: "(WRONG)").
 void sdlCommandShot(const std::string& name) {
-    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
+    static const std::pair<const char*, int> kNames[] = {{"view.towns", ID_VIEW_TOWNS}, {"view.animate", ID_OPT_ANIMATE}, {"options.dragobjects", ID_OPT_DRAGOBJECTS}, {"view.log", ID_VIEW_LOG}, {"scen.check", ID_SCEN_CHECK},
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},

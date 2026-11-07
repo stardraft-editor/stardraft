@@ -158,13 +158,13 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const bool sectionShown = in.hasSectionBox && (in.mode == Mode::Units || in.mode == Mode::Doodads || in.mode == Mode::Sprites);
     L.sectionBox = S(sx + pad, y, inner, sc(400), sectionShown, true);
     if (sectionShown) y += rowH + pad;
-    // The search row: the search, the Sort button (a square: the lists of objects, not Terrain's), the View button;
-    // Locations: the filter, then the Sort button.
-    const int btnW = sc(64), sortW = in.mode == Mode::Terrain ? 0 : rowH + pad;
+    // The search row: the search, the Sort button (a square: the lists of objects; Terrain: the pie palette's button
+    // in its place), the View button; Locations: the filter, then the Sort button.
+    const int btnW = sc(64), sortW = rowH + pad;
     L.search = S(sx + pad, y, inner - pad - btnW - sortW, rowH, true, true);
     L.viewBtn = S(sx + sideW - pad - btnW, y, btnW, rowH, true, true);
     const int sortX = in.mode == Mode::Locations ? sx + sideW - pad - rowH : sx + sideW - pad - btnW - pad - rowH;
-    L.sortBtn = S(sortX, y, rowH, rowH, in.mode != Mode::Terrain, true);
+    L.sortBtn = S(sortX, y, rowH, rowH, true, true);
     L.filter = S(sx + pad, y, inner - rowH - pad, rowH, true, true);
     y += rowH + pad;
     L.palette = S(sx + pad, y, inner, std::max(1, h - y - pad), true, true);
@@ -178,10 +178,10 @@ inline MainLayout computeLayout(const LayoutInput& in) {
         const bool hasSection = on && in.hasSectionBox && (m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites);
         section = S(x, top, width, rowH, hasSection, hasSection);
         if (hasSection) top += rowH + pad;
-        const int viewW = locs ? 0 : btnW + pad, orderW = m == Mode::Terrain ? 0 : rowH + pad;
+        const int viewW = locs ? 0 : btnW + pad, orderW = rowH + pad;  // (Terrain: the pie palette's button in the Sort button's place)
         box = S(x, top, width - viewW - orderW, rowH, on, on);
         view = S(x + width - btnW, top, btnW, rowH, on && !locs, on && !locs);
-        sort = S(x + width - viewW - rowH, top, rowH, rowH, on && m != Mode::Terrain, on && m != Mode::Terrain);
+        sort = S(x + width - viewW - rowH, top, rowH, rowH, on, on);
         if (on) top += rowH + pad;
     };
     int ty = L.tool.rc.top;  // (the floated mode's tools are not here: the third list's mode's tools, then its list)

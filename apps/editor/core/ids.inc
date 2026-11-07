@@ -53,6 +53,7 @@ enum : int {
     ID_OPT_RANDOMFACING,  // Options > Units > Randomize unit direction when placed (a check item)
     ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
     ID_OPT_MANYSTARTS,    // Program options > Placing units > Many start locations for each player (a check box)
+    ID_OPT_DRAGOBJECTS,   // Options > Drag objects to move them (units, doodads, sprites, locations; GitHub #256)
     // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
     ID_SNAP_UNITS = 910, ID_SNAP_SPRITES, ID_SNAP_LOCATIONS, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,

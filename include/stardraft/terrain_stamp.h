@@ -32,6 +32,7 @@ struct TerrainStamp {
     std::vector<uint8_t> mask;    // width x height: 1 in the stamp, 0 not
     int64_t created = 0;          // seconds since 1970 (UTC)
     std::filesystem::path file;   // where it was read from or written to
+    std::string folder;           // its folder in the tileset's folder: names (UTF-8) with "/" between them; empty: none
 
     bool has(int x, int y) const { return x >= 0 && y >= 0 && x < width && y < height && mask[size_t(y) * size_t(width) + size_t(x)]; }
     int count() const;  // the tiles in it
@@ -50,16 +51,24 @@ bool terrainStampNameOk(const std::string& name, std::string& why);
 // with its first letter as %XX. Two names that differ only in case (Windows and macOS do not tell them apart) get
 // the same file; terrainStampFind finds a stamp by its name in the same way.
 std::string terrainStampFileName(const std::string& name);
-// The stamp's file in `folder`: folder/<tileset>/<file name>.scterrain.
-std::filesystem::path terrainStampPath(const std::filesystem::path& folder, uint16_t era, const std::string& name);
+// The stamp's file in `folder`: folder/<tileset>/<sub>/<file name>.scterrain (`sub`: a folder of custom terrain, as
+// TerrainStamp::folder has it; each of its names on the disk as terrainStampFileName makes it, its case kept).
+std::filesystem::path terrainStampPath(const std::filesystem::path& folder, uint16_t era, const std::string& name, const std::string& sub = {});
+// The folder `sub` of tileset `era` on the disk (as terrainStampPath puts its files).
+std::filesystem::path terrainStampFolderPath(const std::filesystem::path& folder, uint16_t era, const std::string& sub);
+// The name of a folder or file on the disk (without ".scterrain") as terrainStampFileName made it: each %XX as its byte.
+std::string terrainStampNameFromFile(const std::string& fileName);
+// Every folder of custom terrain of tileset `era` in `folder` (also the empty ones), as TerrainStamp::folder has them, by name.
+std::vector<std::string> terrainStampFolders(const std::filesystem::path& folder, uint16_t era);
 
 std::string terrainStampText(const TerrainStamp& s);  // the file's text
 bool readTerrainStamp(const std::filesystem::path& file, TerrainStamp& out, std::string& error);
 // A stamp from the file's text (terrainStampText: copied as text, to give to other people); out.file stays empty.
 bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& error);
-// Writes the stamp to terrainStampPath(folder, s.era, s.name) (makes the folders), and sets s.file.
+// Writes the stamp to terrainStampPath(folder, s.era, s.name, s.folder) (makes the folders), and sets s.file.
 bool writeTerrainStamp(const std::filesystem::path& folder, TerrainStamp& s, std::string& error);
-// Every stamp of tileset `era` in `folder` (files that cannot be read are left out).
+// Every stamp of tileset `era` in `folder` and its folders (each with its TerrainStamp::folder; files that cannot be read
+// are left out).
 std::vector<TerrainStamp> terrainStamps(const std::filesystem::path& folder, uint16_t era);
 // Two names that are the same stamp (the same file name: case does not count).
 bool terrainStampSameName(const std::string& a, const std::string& b);

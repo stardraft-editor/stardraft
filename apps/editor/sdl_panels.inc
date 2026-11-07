@@ -69,6 +69,9 @@ void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel = n
 // The Sort buttons: the search row's (the order of the active mode's palette: Units, Doodads, Sprites) and the Locations
 // filter row's (the order of the locations; its floating window shows in every mode).
 kit::IconButton gSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(gState.mode, gSortBtnSdl); }};
+void sdlPieFromMenu();
+// Terrain's search row: the pie palette's button in the Sort button's place (GitHub #257): a click shows the pie.
+kit::IconButton gPieBtnSdl{kit::IconGlyph::ofGlyph(L'\xEB05'), kit::IconStyle::Boxed, L"", [] { sdlPieFromMenu(); }};
 kit::IconButton gLocSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(Mode::Locations, gLocSortBtnSdl); }};
 // The rows of the panels that are not active (the other side's list, the third list), in the place where the panel has
 // them when it is active. A click in a box goes to that mode, in that box (the search box: its keyboard; the Owner and the
@@ -100,7 +103,10 @@ struct OtherSearchRow {
     Mode mode = Mode::Terrain;
     explicit OtherSearchRow(PalettePanel& list)
         : view(L"View", kit::Tone::Normal, [this, &list] { paletteMenuSdl(list, view, {0, view.height()}, -1); }),
-          sort(kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [this] { paletteSortMenuSdl(mode, sort); }) {
+          sort(kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [this] {
+              if (mode == Mode::Terrain) sdlPieFromMenu();  // (Terrain: the pie palette's button, as the active row's)
+              else paletteSortMenuSdl(mode, sort);
+          }) {
         ownerCatch.what = OtherSearchCatch::Owner, sectionCatch.what = OtherSearchCatch::Section;
         box.field().setTabStop(false);
     }
@@ -115,9 +121,14 @@ void otherRowsOwnerItems(const std::vector<kit::DropdownItem>& owners) {
 }
 // The Sort buttons' tips: the orders now.
 void sortTipsSdl() {
-    for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) r->sort.setTip(paletteSortTip(r->mode, gSortByMode[int(r->mode)]));
+    for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) {
+        r->sort.setGlyph(kit::IconGlyph::ofGlyph(r->mode == Mode::Terrain ? L'\xEB05' : L'\xE8CB'));
+        r->sort.setTip(r->mode == Mode::Terrain ? std::wstring(tr(L"Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)"))
+                                                : paletteSortTip(r->mode, gSortByMode[int(r->mode)]));
+    }
     gSortBtnSdl.setTip(paletteSortTip(gState.mode, gSortByMode[int(gState.mode)]));
     gLocSortBtnSdl.setTip(paletteSortTip(Mode::Locations, gSortByMode[int(Mode::Locations)]));
+    gPieBtnSdl.setTip(tr(L"Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)"));
 }
 // The lists after a change of an order: Locations' everywhere (the list, the other palettes), else the palettes.
 void sortChangedSdl(Mode mode) {
@@ -205,16 +216,23 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
 
 // The Custom list's right click (core/views_stamps.inc): on an item Rename, Delete, Show in folder; then the View items
 // as the other palettes have them (List, Grid; Normal, Large, Extra large), kept in the settings.
-void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
-    enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText };
+void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, const std::string& folder, bool onFolder) {
+    enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText, kNewFolder, kRenameFolder, kDeleteFolder };
     MenuModel m;
     const bool own = s && !s->file.empty();  // (a mod's brush: not the user's file)
+    const bool modFolder = folder == "Cosmonarchy" && modTab();  // (the mod's brushes: not a folder of the user's)
     if (own) {
         m.push_back(menuItem(kRename, L"Rename\x2026"));
         m.push_back(menuItem(kDelete, L"Delete\x2026"));
         m.push_back(menuItem(kReveal, L"Show in folder"));
         m.push_back(menuSeparator());
     }
+    if (onFolder && !modFolder) {
+        m.push_back(menuItem(kRenameFolder, L"Rename folder\x2026"));
+        m.push_back(menuItem(kDeleteFolder, L"Delete folder"));
+    }
+    if (!modFolder) m.push_back(menuItem(kNewFolder, folder.empty() ? L"New folder\x2026" : L"New folder in this folder\x2026"));
+    m.push_back(menuSeparator());
     if (s) m.push_back(menuItem(kCopyText, L"Copy as text"));
     m.push_back(menuItem(kImportText, L"Import from clipboard"));
     m.push_back(menuSeparator());
@@ -226,7 +244,10 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
     m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, stampsSize() == 2));
     const TerrainStamp copy = s ? *s : TerrainStamp{};  // (a menu's run reads the list again)
     draw::Host* host = from.host();
-    sdlPopupMenu(from, at, sdlModelItems(m, [copy, host](int id) {
+    sdlPopupMenu(from, at, sdlModelItems(m, [copy, host, folder](int id) {
+        if (id == kNewFolder) return shellPost([folder] { stampsNewFolder(folder); });
+        if (id == kRenameFolder) return shellPost([folder] { stampsRenameFolder(folder); });
+        if (id == kDeleteFolder) return shellPost([folder] { stampsDeleteFolder(folder); });
         if (id == kCopyText) return stampsCopyText(copy, host);
         if (id == kImportText) {
             const std::string text = host ? host->clipboardText() : std::string();
@@ -238,6 +259,28 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
         if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
         if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
     }), sdlFeedbackOn(from, at, L"the Custom list"));
+}
+
+// The Custom list's Sort and View buttons (core/views_stamps.inc): their menus under the button.
+void shellStampsButtonMenu(draw::View& from, bool sort) {
+    MenuModel m;
+    if (sort) {
+        m.push_back(menuItem(ID_PAL_SORT_NAME, L"Name: &A to Z", {}, false, stampsSort() == 0));
+        m.push_back(menuItem(ID_PAL_SORT_NUMBER, L"Date: &newest first", {}, false, stampsSort() == 1));
+    } else {
+        m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
+        m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));
+        m.push_back(menuSeparator());
+        m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, stampsSize() == 0));
+        m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, stampsSize() == 1));
+        m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, stampsSize() == 2));
+    }
+    const draw::Point at{0, from.height()};
+    sdlPopupMenu(from, at, sdlModelItems(m, [](int id) {
+        if (id == ID_PAL_SORT_NAME || id == ID_PAL_SORT_NUMBER) return setStampsSort(id == ID_PAL_SORT_NUMBER ? 1 : 0);
+        if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
+        if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
+    }), sdlFeedbackOn(from, at, sort ? L"the Custom list's Sort button" : L"the Custom list's View button"));
 }
 
 // The Sort button's menu (core/palette_view.inc: paletteSortMenuModel) under `from`: the order of the list of `mode`, or

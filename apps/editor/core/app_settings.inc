@@ -27,6 +27,8 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("ResourceDistance", shellState().resourceDistance, bool),
         SD_SETTING("SnapBuildings", shellState().snapBuildings, bool),
         SD_SETTING("DragSnapBack", shellState().dragSnapBack, bool),
+        SD_SETTING("DragObjects", shellState().dragObjects, bool),
+        {L"DetailedTiles", [] { return stardraft::detailedTilePercent(); }, [](int v) { stardraft::setDetailedTilePercent(v); }},
         SD_SETTING("RandomFacing", shellState().randomFacing, bool),
         SD_SETTING("Animate", shellState().animate, bool),
         SD_SETTING("DoodadCheck", shellState().doodadCheck, bool),
