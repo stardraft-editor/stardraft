@@ -806,6 +806,9 @@ int main(int argc, char** argv) {
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
         host.setKeyFilter(sequenceKey);  // the second key of a two-key shortcut (Ctrl+K, G: sdl_menus.inc)
+        host.setModifierHook([] {  // the modifier key's mark at the mouse (core/map_mod_mark.inc), with no move of the mouse
+            if (gRoot && gState.mouseIn) ++gRoot->map.modRepaints, gRoot->map.invalidate();
+        });
         host.setRightClickHook(sdlWindowRightClick);  // Report feedback in the dialogs and pop-outs (sdl_menus.inc)
 #ifdef __APPLE__
         if (snapshot.empty()) {  // a trackpad's scroll moves the map, a wheel zooms it: macOS tells them apart (mac_input.mm)

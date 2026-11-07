@@ -1040,6 +1040,13 @@ static bool unseen(SDL_Window* sdl) {
     return sdl && (SDL_GetWindowFlags(sdl) & (SDL_WINDOW_MINIMIZED | SDL_WINDOW_HIDDEN));
 }
 
+unsigned SdlHost::modifiers() const { return modsOf(mouseModState()); }
+
+bool SdlHost::textInputOn() const {
+    const SDL_Window* keys = SDL_GetKeyboardFocus();
+    return std::any_of(wins_.begin(), wins_.end(), [keys](const std::unique_ptr<Win>& w) { return w->inputOn && w->sdl == keys; });
+}
+
 bool SdlHost::paintsNow(const draw::View& v) const {
     const Win* w = rootWin(v);
     if (!w || !w->sdl) return true;
@@ -1124,6 +1131,10 @@ void SdlHost::fireTimer(int id) {
 void SdlHost::dispatch(const SDL_Event& e) {
     if (gTimerEvent && e.type == gTimerEvent) return fireTimer(int(reinterpret_cast<intptr_t>(e.user.data1)));
     if (gWakeEvent.load() && e.type == gWakeEvent.load()) return;  // (wake: the loop runs the posted work)
+    if ((e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) && modifiers() != modsSeen_) {
+        modsSeen_ = modifiers();
+        if (modifierHook_) modifierHook_();
+    }
     const SDL_WindowID wid = windowOf(e);
     // A key, typed text or the input method's text while a modal pop-out is open over the window that SDL gives them
     // (Windows: a pop-out does not take the system's keyboard focus): the pop-out takes them (its search field types).
