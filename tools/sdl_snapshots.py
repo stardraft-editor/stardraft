@@ -3502,7 +3502,7 @@ def check_settings_read(expected):
 OLD_SETTINGS_LINES = ["settings: language es", "settings: theme light, accent Red", "settings: Quality 1", "settings: Carbot 1",
                       "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: SnapUnits 1", "settings: BrushShape 1",
                       "settings: LayerDoodads 0", "settings: PaletteViews 12345",
-                      "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right, Map Layers left",
+                      "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right, Map layers left",
                       "settings: layout widths 411 248 333, log 294, grid 48x16+3+5, trigger zoom 90, volume 40, unit names 1, code pane yes, "
                       "script preview yes",
                       "settings: recent map C:\\Maps\\(2)Bottleneck.scm", "settings: recent map /home/user/maps/Ice \uc5bc\uc74c.scx",
@@ -3534,7 +3534,7 @@ def check_update_checks(output):
 # The registry of 0.5.0.7 that write_legacy_hive writes: the lines of --check settings.
 LEGACY_LINES = ["settings: language ko", "settings: theme light, accent Green", "settings: Quality 0", "settings: ShowGrid 1",
                 "settings: BrushShape 1", "settings: PaletteViews 777", "settings: layout minimap right; Terrain left, Units left, Doodads left, "
-                "Locations left, Sprites left, Map Layers left",
+                "Locations left, Sprites left, Map layers left",
                 "settings: layout widths 350 280 300, log 220, grid 64x32+0+0, trigger zoom 150, volume 25, unit names 2, code pane no, "
                 "script preview no",
                 "settings: recent map C:\\Maps\\(2)Bottleneck.scm", "settings: recent map C:\\Maps\\Ice \uc5bc\uc74c.scx",

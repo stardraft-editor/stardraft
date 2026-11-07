@@ -3003,3 +3003,14 @@ Units, doodads and sprites stay on the map: only a layer's terrain goes outside 
 Settings of the layers	Réglages des calques
 Layers: what is outside of the map is hidden	Calques : ce qui est hors de la carte est masqué
 Layers: what is outside of the map shows	Calques : ce qui est hors de la carte s'affiche
+Map layers	Calques de la carte
+&Map layers	Calques de la &carte
+Move layer	Déplacer le calque
+Search terrains	Rechercher des terrains
+Search doodads	Rechercher des doodads
+Search locations	Rechercher des emplacements
+Search sprites	Rechercher des sprites
+Search layers	Rechercher des calques
+Search tiles	Rechercher des tuiles
+Search custom terrain	Rechercher du terrain personnalisé
+Search tiles by their group number, terrain or doodad	Rechercher des tuiles par numéro de groupe, terrain ou doodad

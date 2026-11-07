@@ -106,7 +106,7 @@ public:
 
     StampsListView() {
         gStampsViews.push_back(this);
-        search_.setPlaceholder(tr(L"Search"));
+        search_.setPlaceholder(tr(L"Search custom terrain"));
         search_.onChange = [this] { scroll_ = 0, layout(); };
         add(search_, {0, 0, 0, 0});
         sort_.setTip(tr(L"Sort the custom terrain: by name or by date"));

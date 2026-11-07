@@ -317,7 +317,7 @@ struct PalettePanelView final : PanelStripView {
         tilesPanel.bind(&tilesData);
         list.ownView = &view;
         for (draw::View* v : std::initializer_list<draw::View*>{&tools, &type, &owner, &sections, &search, &sortButton, &viewButton, &list}) add(*v, {});
-        search.setPlaceholder(L"Search");
+        search.setPlaceholder(paletteSearchCue(mode));
     }
     ~PalettePanelView() override {
         attach(nullptr);

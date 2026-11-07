@@ -3005,6 +3005,17 @@ constexpr UiText kRows[] = {
     {L"Settings of the layers", L"\u56FE\u5C42\u8BBE\u7F6E"},
     {L"Layers: what is outside of the map is hidden", L"\u56FE\u5C42\uFF1A\u5730\u56FE\u5916\u7684\u5185\u5BB9\u5DF2\u9690\u85CF"},
     {L"Layers: what is outside of the map shows", L"\u56FE\u5C42\uFF1A\u5730\u56FE\u5916\u7684\u5185\u5BB9\u5DF2\u663E\u793A"},
+    {L"Map layers", L"\u5730\u56FE\u56FE\u5C42"},
+    {L"&Map layers", L"\u5730\u56FE\u56FE\u5C42(&M)"},
+    {L"Move layer", L"\u79FB\u52A8\u56FE\u5C42"},
+    {L"Search terrains", L"\u641C\u7D22\u5730\u5F62"},
+    {L"Search doodads", L"\u641C\u7D22\u88C5\u9970\u7269"},
+    {L"Search locations", L"\u641C\u7D22\u4F4D\u7F6E"},
+    {L"Search sprites", L"\u641C\u7D22\u7CBE\u7075"},
+    {L"Search layers", L"\u641C\u7D22\u56FE\u5C42"},
+    {L"Search tiles", L"\u641C\u7D22\u56FE\u5757"},
+    {L"Search custom terrain", L"\u641C\u7D22\u81EA\u5B9A\u4E49\u5730\u5F62"},
+    {L"Search tiles by their group number, terrain or doodad", L"\u6309\u7EC4\u53F7\u3001\u5730\u5F62\u6216\u88C5\u9970\u7269\u641C\u7D22\u56FE\u5757"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

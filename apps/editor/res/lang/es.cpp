@@ -3005,6 +3005,17 @@ constexpr UiText kRows[] = {
     {L"Settings of the layers", L"Ajustes de las capas"},
     {L"Layers: what is outside of the map is hidden", L"Capas: lo que est\u00E1 fuera del mapa est\u00E1 oculto"},
     {L"Layers: what is outside of the map shows", L"Capas: lo que est\u00E1 fuera del mapa se muestra"},
+    {L"Map layers", L"Capas del mapa"},
+    {L"&Map layers", L"Capas del &mapa"},
+    {L"Move layer", L"Mover capa"},
+    {L"Search terrains", L"Buscar terrenos"},
+    {L"Search doodads", L"Buscar doodads"},
+    {L"Search locations", L"Buscar ubicaciones"},
+    {L"Search sprites", L"Buscar sprites"},
+    {L"Search layers", L"Buscar capas"},
+    {L"Search tiles", L"Buscar casillas"},
+    {L"Search custom terrain", L"Buscar terreno personalizado"},
+    {L"Search tiles by their group number, terrain or doodad", L"Buscar casillas por su n\u00FAmero de grupo, terreno o doodad"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

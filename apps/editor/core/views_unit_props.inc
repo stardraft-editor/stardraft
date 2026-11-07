@@ -155,7 +155,7 @@ public:
         ed_ = &ed;
         const Unit& u = first;
         // The Units list (the left column): the search box over the rows, a row for each unit of the map.
-        search_.setPlaceholder(std::wstring(tr(L"Search the units")));
+        search_.setPlaceholder(std::wstring(tr(L"Search units")));
         search_.onChange = [this] { rebuild(); };
         list_.setMode(stardraft::kit::SelectMode::Multiple);
         setHeaders();

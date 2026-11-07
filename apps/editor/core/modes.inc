@@ -1,13 +1,13 @@
 // The drags on the map, the tools of each mode and the layers: portable (core.inc), moved from main.cpp as they were.
 
-const wchar_t* kModeNames[] = {L"Terrain", L"Units", L"Doodads", L"Locations", L"Sprites", L"Map Layers"};
+const wchar_t* kModeNames[] = {L"Terrain", L"Units", L"Doodads", L"Locations", L"Sprites", L"Map layers"};
 
 enum class Drag { None, Pan, AutoPan, PlaceStroke, MoveUnits, BoxSelect, PendingPlace, Paint, Spray, TerrainSelect, LocCreate, LocMove, LocResize,
                   MoveDoodad, MoveSprite, Tiles, PasteStroke, Shape, Jumble, Erase, SymmetryCenter, LayerTool, TerrainMove, TerrainLasso };  // Erase: Units, Doodads, Sprites, Locations  // Shape: a Line or Contour press (core/terrain_shapes.inc)
 
 // Tools per mode (index into these lists).
 const wchar_t* kTerrainTools[] = {L"Brush", L"Spray", L"Fill", L"Replace (click terrain)", L"Select", L"Line", L"Contour", L"Polygon", L"Jumble", L"Erase", L"Rectangle", L"Filled rectangle", L"Ellipse", L"Filled ellipse", L"Diamond", L"Filled diamond", L"Bridge", L"Ramp", L"Magic wand", L"Move", L"Lasso"};
-const wchar_t* kLayersTools[] = {L"Move Layer"};
+const wchar_t* kLayersTools[] = {L"Move layer"};
 const wchar_t* kUnitTools[] = {L"Place / select", L"Spray", L"Replace (click unit)", L"Fill", L"Erase"};
 const wchar_t* kDoodadTools[] = {L"Place", L"Spray", L"Fill", L"Erase"};
 enum TerrainTool { TBrush, TSpray, TFill, TReplace, TSelect, TLine, TContour, TPolygon, TJumble, TErase, TRect, TRectFill, TEllipse, TEllipseFill, TDiamond, TDiamondFill, TBridge, TRamp, TWand, TMoveSel, TLasso };

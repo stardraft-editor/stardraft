@@ -206,13 +206,18 @@ void updateStatus(AppState& app) {
     wchar_t buf[256];
     float wx, wy;
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
+    // (Units, Doodads and Sprites: their first tool selects with nothing picked and places with a pick: its name says which)
+    const bool placeTool = (app.mode == Mode::Units && currentTool(app) == UPlace) || (app.mode == Mode::Doodads && currentTool(app) == DPlace) ||
+                           (app.mode == Mode::Sprites && currentTool(app) == SPlace);
     std::swprintf(buf, 256, L"%ls: %ls", kModeNames[int(app.mode)],
-                  app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
+                  placeTool ? (app.palette >= 0 ? L"Place" : L"Select")
+                  : app.mode == Mode::Terrain ? kTerrainTools[currentTool(app)] : app.mode == Mode::Units ? kUnitTools[currentTool(app)]
                   : app.mode == Mode::Layers ? kLayersTools[currentTool(app)]
                   : app.mode == Mode::Doodads ? kDoodadTools[currentTool(app)] : currentTool(app) == SErase || (app.mode == Mode::Locations && currentTool(app) == LErase) ? L"Erase"
-                  : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
+                  : L"Edit");
     setStatusPart(app, 0, (std::wstring(buf) + mapLayersStatusText()).c_str());  // (the layer that the tools change)
-    std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
+    if (!app.mouseIn) std::swprintf(buf, 256, L"\x2014");  // (the mouse is not on the map: no place)
+    else std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
     // The tile under the mouse: its group and index, its megatile, its terrain (made again only when the map or the
     // mouse's place changed: the status bar is made each frame).
     if (app.mode == Mode::Terrain && app.ed) {
@@ -627,7 +632,7 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Fill, L"Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", UFill, false}};
     case Mode::Doodads:
         return {{UiIcon::Select, L"Select a doodad: click it; drag it to move. Esc returns to the Select tool.", DPlace, true},
-                {UiIcon::Brush, L"Place the doodads selected in the list", DPlace, false},
+                {UiIcon::Add, L"Place the doodads selected in the list", DPlace, false},
                 {UiIcon::Erase, L"Erase: drag the brush over doodads to delete them (Size: the brush's size)", DErase, false},
                 {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false},
                 {UiIcon::Fill, L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", DFill, false}};
@@ -637,7 +642,7 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Erase, L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", SErase, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
     case Mode::Layers:
-        return {{UiIcon::MoveAll, L"Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.", LayersMove, true}};
+        return {{UiIcon::MoveAll, L"Move layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.", LayersMove, true}};
     case Mode::Locations:
         return {{UiIcon::Select, L"Select, move and resize locations; drag on empty ground to make one", LSelect, true},
                 {UiIcon::Erase, L"Erase: drag the brush over locations to delete them (Size: the brush's size)", LErase, false}};

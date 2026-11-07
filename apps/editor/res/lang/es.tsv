@@ -3003,3 +3003,14 @@ Units, doodads and sprites stay on the map: only a layer's terrain goes outside 
 Settings of the layers	Ajustes de las capas
 Layers: what is outside of the map is hidden	Capas: lo que está fuera del mapa está oculto
 Layers: what is outside of the map shows	Capas: lo que está fuera del mapa se muestra
+Map layers	Capas del mapa
+&Map layers	Capas del &mapa
+Move layer	Mover capa
+Search terrains	Buscar terrenos
+Search doodads	Buscar doodads
+Search locations	Buscar ubicaciones
+Search sprites	Buscar sprites
+Search layers	Buscar capas
+Search tiles	Buscar casillas
+Search custom terrain	Buscar terreno personalizado
+Search tiles by their group number, terrain or doodad	Buscar casillas por su número de grupo, terreno o doodad

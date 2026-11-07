@@ -3033,3 +3033,14 @@ Units, doodads and sprites stay on the map: only a layer's terrain goes outside 
 Settings of the layers	레이어 설정
 Layers: what is outside of the map is hidden	레이어: 맵 밖에 있는 것이 숨겨졌습니다
 Layers: what is outside of the map shows	레이어: 맵 밖에 있는 것이 보입니다
+Map layers	맵 레이어
+&Map layers	맵 레이어(&M)
+Move layer	레이어 이동
+Search terrains	지형 검색
+Search doodads	두대드 검색
+Search locations	로케이션 검색
+Search sprites	스프라이트 검색
+Search layers	레이어 검색
+Search tiles	타일 검색
+Search custom terrain	사용자 지형 검색
+Search tiles by their group number, terrain or doodad	그룹 번호, 지형, 두대드로 타일 검색

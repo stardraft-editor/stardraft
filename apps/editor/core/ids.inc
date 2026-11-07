@@ -124,6 +124,11 @@ constexpr GridPreset kGridPresets[] = {{2, L""}, {4, L""}, {8, L"quarter tile"},
                                        {256, L"8 tiles"}};
 
 enum class Mode { Terrain, Units, Doodads, Locations, Sprites, Layers };
+// The cue of a mode's search box (docs/dev/PATTERNS.md: "Search <things>").
+inline const wchar_t* paletteSearchCue(Mode m) {
+    static const wchar_t* const cues[] = {L"Search terrains", L"Search units", L"Search doodads", L"Search locations", L"Search sprites", L"Search layers"};
+    return cues[std::clamp(int(m), 0, 5)];
+}
 constexpr int kModeCount = 6;
 // The modes in the order the mode bar shows them.
 constexpr Mode kModeOrder[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations, Mode::Layers};

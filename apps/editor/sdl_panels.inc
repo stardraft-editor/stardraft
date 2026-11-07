@@ -418,7 +418,7 @@ void rebuildOtherRows(PalettePanel& list, Mode m) {
     OtherSearchRow& row = &list == &gPal2List ? gSearchRow2 : gSearchRow3;
     const std::wstring search = m == Mode::Locations || m == Mode::Layers ? std::wstring() : dockedPaletteGet(activeDocKey(), m).search;
     row.mode = row.catcher.mode = row.ownerCatch.mode = row.sectionCatch.mode = m;
-    row.box.setPlaceholder(m == Mode::Locations ? L"Filter" : L"Search");
+    row.box.setPlaceholder(paletteSearchCue(m));
     if (row.box.text() != search) row.box.setText(search);
     sortTipsSdl();
     if (m == Mode::Locations) {
@@ -565,7 +565,7 @@ void initPanels() {
         shellFocusView();  // (the keyboard goes to the map after a pick, as Win32's SetFocus on the view)
     };
 
-    gFilterSdl.setPlaceholder(L"Filter");
+    gFilterSdl.setPlaceholder(paletteSearchCue(Mode::Locations));
     gFilterSdl.onChange = [] { rebuildList(gState); };
     gSearchSdl.setPlaceholder(L"Search");
     gSearchSdl.onChange = [] {

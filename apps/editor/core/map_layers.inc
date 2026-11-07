@@ -619,7 +619,7 @@ void mapLayersFrame() {
 void mapLayersInfo() {
     shellInfoBox(L"Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. "
                  L"All layers that show become one map, and the layer data stays out of it.",
-                 L"Map Layers");
+                 L"Map layers");
 }
 
 // The map becomes the Background: its terrain in its file, its objects in the stack.

@@ -2,6 +2,7 @@
 // window). The Win32 program's instances are in search_box.inc; the SDL program makes its own (sdl_panels.inc).
 
 class SearchBox final : public draw::View {
+    std::wstring tip_;
 public:
     SearchBox() {
         field_.onChange = [this] {
@@ -14,6 +15,9 @@ public:
         add(field_, {0, 0, 0, 0});
     }
     std::function<void()> onChange;  // the text changed
+    // Its tooltip (what the search looks in, when the cue is too short to say it).
+    void setTip(std::wstring t) { tip_ = std::move(t); }
+    std::wstring tip(draw::Point) override { return tip_; }
 
     stardraft::kit::TextField& field() { return field_; }
     std::wstring text() const { return field_.text(); }

@@ -3035,6 +3035,17 @@ constexpr UiText kRows[] = {
     {L"Settings of the layers", L"\uB808\uC774\uC5B4 \uC124\uC815"},
     {L"Layers: what is outside of the map is hidden", L"\uB808\uC774\uC5B4: \uB9F5 \uBC16\uC5D0 \uC788\uB294 \uAC83\uC774 \uC228\uACA8\uC84C\uC2B5\uB2C8\uB2E4"},
     {L"Layers: what is outside of the map shows", L"\uB808\uC774\uC5B4: \uB9F5 \uBC16\uC5D0 \uC788\uB294 \uAC83\uC774 \uBCF4\uC785\uB2C8\uB2E4"},
+    {L"Map layers", L"\uB9F5 \uB808\uC774\uC5B4"},
+    {L"&Map layers", L"\uB9F5 \uB808\uC774\uC5B4(&M)"},
+    {L"Move layer", L"\uB808\uC774\uC5B4 \uC774\uB3D9"},
+    {L"Search terrains", L"\uC9C0\uD615 \uAC80\uC0C9"},
+    {L"Search doodads", L"\uB450\uB300\uB4DC \uAC80\uC0C9"},
+    {L"Search locations", L"\uB85C\uCF00\uC774\uC158 \uAC80\uC0C9"},
+    {L"Search sprites", L"\uC2A4\uD504\uB77C\uC774\uD2B8 \uAC80\uC0C9"},
+    {L"Search layers", L"\uB808\uC774\uC5B4 \uAC80\uC0C9"},
+    {L"Search tiles", L"\uD0C0\uC77C \uAC80\uC0C9"},
+    {L"Search custom terrain", L"\uC0AC\uC6A9\uC790 \uC9C0\uD615 \uAC80\uC0C9"},
+    {L"Search tiles by their group number, terrain or doodad", L"\uADF8\uB8F9 \uBC88\uD638, \uC9C0\uD615, \uB450\uB300\uB4DC\uB85C \uD0C0\uC77C \uAC80\uC0C9"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

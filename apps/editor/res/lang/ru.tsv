@@ -3003,3 +3003,14 @@ Units, doodads and sprites stay on the map: only a layer's terrain goes outside 
 Settings of the layers	Настройки слоёв
 Layers: what is outside of the map is hidden	Слои: то, что за пределами карты, скрыто
 Layers: what is outside of the map shows	Слои: то, что за пределами карты, видно
+Map layers	Слои карты
+&Map layers	&Слои карты
+Move layer	Перемещение слоя
+Search terrains	Поиск местностей
+Search doodads	Поиск дудадов
+Search locations	Поиск локаций
+Search sprites	Поиск спрайтов
+Search layers	Поиск слоёв
+Search tiles	Поиск тайлов
+Search custom terrain	Поиск своей местности
+Search tiles by their group number, terrain or doodad	Поиск тайлов по номеру группы, местности или дудаду

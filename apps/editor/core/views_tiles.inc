@@ -220,7 +220,8 @@ public:
 class TilesPanelView final : public draw::View {
 public:
     TilesPanelView() {
-        search_.setPlaceholder(L"Search tiles: group number, terrain, doodad");
+        search_.setPlaceholder(L"Search tiles");
+        search_.setTip(L"Search tiles by their group number, terrain or doodad");
         search_.onChange = [this] {
             const TilesScope scope = here();
             gTiles->search = search_.text(), gTiles->scroll = 0, tilesRebuild();

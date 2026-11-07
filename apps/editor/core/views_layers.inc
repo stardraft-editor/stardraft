@@ -125,7 +125,7 @@ public:
     }
     std::wstring tip(draw::Point p) override {
         if (newRect().contains(p)) return L"New layer (Ctrl+Alt+N)";
-        if (deleteRect().contains(p)) return L"Delete the selected layers (Del in Map Layers)";
+        if (deleteRect().contains(p)) return L"Delete the selected layers (Del in Map layers)";
         if (helpRect().contains(p)) return L"How layers get into the map that you play";
         if (settingsRect().contains(p)) return L"Settings of the layers";
         for (const Row& rw : rows_)

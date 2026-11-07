@@ -994,6 +994,7 @@ struct MainView final : draw::View {
         side(gTilesDockPanel, tiles2 ? tilesSlot2 : tiles3 ? tilesSlot3 : tilesSlot, (tiles && !floated) || tiles2 || tiles3);
         const bool layersMode = m == Mode::Layers;  // (its list: the Layer List, above)
         side(gSearchSdl, L.search, !locs && !layersMode && here && !tiles);
+        gSearchSdl.setPlaceholder(paletteSearchCue(m));  // (the mode's: "Search units")
         side(gViewBtnSdl, L.viewBtn, !locs && !layersMode && here && !tiles);
         sortTipsSdl();
         side(gSortBtnSdl, L.sortBtn, L.sortBtn.visible && !locs && !layersMode && here && !tiles && m != Mode::Terrain);
