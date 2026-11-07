@@ -36,6 +36,7 @@ Use the first line of this table that agrees with the setting.
 |---|---|
 | It changes what the map shows, not the map | View menu |
 | It is a value of the tool in use, and the user changes it while working (size, density, shape, symmetry) | Tool strip |
+| It is a value of the tools that the user changes seldom (Detailed tiles) | Tool strip, under More (a fold at its end) |
 | It is a rule for one kind of object (units, doodads, sprites, locations) | Options > that kind |
 | It is a rule for all kinds of objects | Options, under the kinds |
 | It is a preference that the user sets once (folders, limits, updates, language) | Program options |
@@ -153,8 +154,6 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Settings**
 
-- "Detailed tiles" is in Program options; it is a value of the terrain tools (tool strip). It is there for now, as the
-  user asked (2026-11-07), until the tool strip has a place for the tools' less used values.
 - "Animate units" is in the View menu, but it is saved as a preference (correct: it changes what the map shows).
 
 **Modifier keys**

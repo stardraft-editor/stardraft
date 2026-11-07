@@ -732,17 +732,6 @@ void OptionsView::paint(draw::Canvas& c) {
         header(L"Saving maps");
         checkRow(y, askStart_, "askstartlocations");
         y += rowH + pad;
-        header(L"Painting terrain");
-        label(L"Detailed tiles");
-        {
-            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(120)), fieldTop(y) + fieldH};
-            place(detail_, box, true);
-            c.text({box.right + scale(6), y, box.right + scale(60), y + rowH}, L"%", kDim, draw::kMiddle);
-            parts_["detailedtiles"] = box;
-            y += rowH;
-        }
-        note(x0, y - scale(4), L"How often Isometric and Rectangle painting places a detailed tile. StarCraft: 5%.");
-        y += scale(20) + pad;
     }
 
     // The working folder: where new projects go.

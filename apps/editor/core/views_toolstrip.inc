@@ -33,7 +33,7 @@ int brushSizeIndex(float size) {  // the nearest size in the list
 }
 
 // The tool strip's number boxes (Size, Density, the Terrain height and the brush shape, for the wheel).
-enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns, kNumMix };
+enum StripNumber { kNumSize, kNumDensity, kNumHeight, kNumShape, kNumTurns, kNumMix, kNumDetail };
 
 // A click area of the strip, as painted: what it does, its tip, its cursor.
 struct StripHit {
@@ -84,6 +84,17 @@ bool stripHasDensity() {
 }
 // Mix: Terrain's Fill (several picks in patches).
 bool stripHasMix() { return appState().mode == Mode::Terrain && currentTool() == TFill && terrainKind() != 2; }  // (not Custom)
+// More: the terrain tools' less used values, under a fold at the strip's end (Isometric and Rectangle: Detailed tiles,
+// GitHub #257). Its fold, open or closed, is kept in the settings (ToolStripMore).
+bool stripHasMore() { return appState().mode == Mode::Terrain && (terrainKind() == 0 || terrainKind() == 3); }
+bool& stripMoreOpen() {
+    static bool open = [] {
+        bool v = false;
+        if (!gSelfTest && !gSettingsOff) prefs::flag(L"ToolStripMore", v);
+        return v;
+    }();
+    return open;
+}
 // The mirrors: the modes whose edits repeat with them (Rectangle too: its tiles at the mirror images; sprites as units do).
 bool stripHasMirrors() {
     const AppState& app = appState();
@@ -148,6 +159,7 @@ std::wstring stripNumberText(int which) {
     else if (which == kNumHeight) std::swprintf(t, 24, L"%g", brushHeightOf(app));  // linked: the size; the Diamond: its own rule
     else if (which == kNumTurns) std::swprintf(t, 24, L"%d", app.ed ? app.ed->turns() : 1);
     else if (which == kNumMix) std::swprintf(t, 24, L"%d", app.fillMix);
+    else if (which == kNumDetail) std::swprintf(t, 24, L"%d", stardraft::detailedTilePercent());
     else std::swprintf(t, 24, L"%d", app.sprayDensity);
     return t;
 }
@@ -185,6 +197,9 @@ void stripNumberStep(int which, int dir) {
         if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(app.fillMix + dir, 1, 10);
+    } else if (which == kNumDetail) {
+        stardraft::setDetailedTilePercent(stardraft::detailedTilePercent() + dir);
+        shellSettingsChanged();
     } else {
         // (in fives: 1, 5, 10, ... 100; typed: any number)
         const int d = app.sprayDensity;
@@ -203,7 +218,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
     wchar_t* end = nullptr;
     const double v = std::wcstod(text.c_str(), &end);
     while (end && *end == L' ') ++end;
-    if (which == kNumDensity && end && *end == L'%') ++end;  // (as it shows)
+    if ((which == kNumDensity || which == kNumDetail) && end && *end == L'%') ++end;  // (as it shows)
     if (text.empty() || !end || end == text.c_str() || *end || !std::isfinite(v)) {
         setMessage(L"Not a number: " + text);
         return false;
@@ -216,6 +231,9 @@ bool stripNumberSet(int which, const std::wstring& text) {
         if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0))));
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, 10);
+    } else if (which == kNumDetail) {
+        stardraft::setDetailedTilePercent(int(std::lround(std::clamp(v, 0.0, 100.0))));
+        shellSettingsChanged();
     } else {
         app.sprayDensity = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, kDensityMax);
     }
@@ -286,7 +304,8 @@ int toolStripHeight(int width, bool titled) {
     const bool turnsBeside = width - (5 * (scale(28) + scale(3)) + scale(6)) >= scale(84);
     const int extra = (stripHasSize() ? scale(26) + gap : 0) + (stripHasMirrors() ? scale(28) + gap + (turnsBeside ? 0 : scale(26) + gap) : 0) +
                       (stripHasDensity() ? scale(26) + gap : 0) +
-                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0);  // Terrain: Isometric | Rectangle
+                      (stripHasMix() ? scale(26) + gap : 0) + (app.mode == Mode::Terrain ? scale(26) + gap : 0) +  // Terrain: Isometric | Rectangle
+                      (stripHasMore() ? scale(22) + gap + (stripMoreOpen() ? scale(26) + gap : 0) : 0);  // (More, and its rows)
     return (titled ? scale(24) : 0) + rows * b + (rows - 1) * gap + extra;
 }
 // The strip's height for a panel (its tools, its sizes, its options: panel_state.inc).
@@ -760,6 +779,29 @@ public:
                 y += mb + gap;
                 numberRow(kNumTurns, L"Brushes", kTurnsTip);
             }
+        }
+        // More: a fold (a chevron and its name, then a line), and its rows when it is open.
+        if (stripHasMore()) {
+            const int fh = scale(22);
+            const draw::Rect fold{0, y, W, y + fh};
+            const bool open = stripMoreOpen();
+            c.icon({0, y, scale(16), y + fh}, int(open ? UiIcon::ChevronDown : UiIcon::ChevronRight), hot(fold) ? kText : kDim, scale(16));
+            c.text({scale(18), y, W, y + fh}, tr(L"More"), hot(fold) ? kText : kDim, draw::kMiddle);
+            const int lineL = scale(18) + c.measure(tr(L"More")) + scale(8);
+            if (lineL < W) c.fill({lineL, y + fh / 2, W, y + fh / 2 + 1}, kBorder);
+            addHit(fold, [] {
+                bool& o = stripMoreOpen();
+                o = !o;
+                if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"ToolStripMore", o ? 1 : 0);
+                shellToolsChanged();
+                void shellRelayout();
+                shellRelayout();
+            }, open ? L"Hide the less used values" : L"Show the less used values: Detailed tiles");
+            y += fh + gap;
+            if (open)
+                numberRow(kNumDetail, L"Detailed tiles",
+                          L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.",
+                          L"%");
         }
         c.setFont(prevFont);
         // The hits (their tips and cursors) are the last paint's; a hover change repaints.
