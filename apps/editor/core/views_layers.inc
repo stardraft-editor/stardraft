@@ -36,24 +36,16 @@ public:
             if (layer->locked || over)
                 kitpaint::drawIconFace(c, lock, layer->locked ? UiIcon::Lock : UiIcon::Unlock, layer->locked ? kitpaint::Tone::Primary : kitpaint::Tone::Quiet, false, over && lock.contains(pointer_));
             // The grip: the row can be dragged. Under the mouse, or while it is dragged.
-            if (r >= 0 && (over || r == dragRow_)) {
+            if (r >= 0 && (over || r == dragRow())) {
                 const draw::Rect g = gripRect(y);
-                const int dot = std::max(2, scale(2));
-                for (int gy = 0; gy < 3; ++gy)
-                    for (int gx = 0; gx < 2; ++gx) {
-                        const int x0 = g.left + gx * scale(5), y0 = g.top + gy * scale(5);
-                        c.fill({x0, y0, x0 + dot, y0 + dot}, kDim);
-                    }
+                kitpaint::drawGrip(c, g.left, g.top, r == dragRow());
             }
             y += rowH;
         }
         // The list's drag: where the layer goes.
-        if (dragRow_ >= 0 && dragTo_ != dragRow_)
+        if (dragRow() >= 0 && dragTo_ != dragRow())
             for (const Row& rw : rows_)
-                if (rw.index == dragTo_) {
-                    const int ly = dragTo_ > dragRow_ ? rw.r.top : rw.r.bottom - scale(2);
-                    c.fill({0, ly, w, ly + scale(2)}, kAccentBright);
-                }
+                if (rw.index == dragTo_) kitpaint::drawDropLine(c, 0, w, dragTo_ > dragRow() ? rw.r.top + scale(1) : rw.r.bottom - scale(1));
     }
     bool mouse(const draw::MouseEvent& e) override {
         // A press in the list goes to Map Layers, after what it does (the list can move with the mode). A right click: before
@@ -61,7 +53,7 @@ public:
         using draw::MouseKind;
         if (e.kind == MouseKind::Down && e.button == 1 && appState().mode != Mode::Layers) setMode(Mode::Layers);
         const bool handled = press(e);
-        if (e.kind == MouseKind::Down && e.button == 0 && appState().mode != Mode::Layers && dragRow_ < 0) setMode(Mode::Layers);
+        if (e.kind == MouseKind::Down && e.button == 0 && appState().mode != Mode::Layers && dragRow() < 0) setMode(Mode::Layers);
         return handled;
     }
     bool press(const draw::MouseEvent& e) {
@@ -91,14 +83,11 @@ public:
             if (eyeRect(row.top).contains(e.pt)) return mapLayersToggleVisible(index), true;
             if (lockRect(row.top).contains(e.pt)) return mapLayersToggleLock(index), true;
             mapLayersPick(index, e.mods);
-            if (index >= 0) {
-                dragRow_ = index, dragTo_ = index;
-                if (host()) host()->capture(*this, true);
-            }
+            if (index >= 0) drag_.press(index, e.pt), dragTo_ = index;
             return true;
         case MouseKind::Move:
             pointer_ = e.pt, hasPointer_ = true;
-            if (dragRow_ >= 0 && rowAt(e.pt, index) && index >= 0) dragTo_ = index;
+            if (drag_.move(*this, e.pt) && rowAt(e.pt, index) && index >= 0) dragTo_ = index;
             invalidate();
             return true;
         case MouseKind::Leave:
@@ -106,14 +95,13 @@ public:
             invalidate();
             return false;
         case MouseKind::Up:
-            if (host()) host()->capture(*this, false);
-            if (dragRow_ >= 0 && dragTo_ != dragRow_) mapLayersMoveRow(dragRow_, dragTo_);
-            dragRow_ = dragTo_ = -2;
+            if (const int from = drag_.release(*this, e.pt); from >= 0 && dragTo_ != from) mapLayersMoveRow(from, dragTo_);
+            dragTo_ = -2;
             invalidate();
             if (appState().mode != Mode::Layers) setMode(Mode::Layers);
             return true;
         case MouseKind::DoubleClick:
-            dragRow_ = dragTo_ = -2;
+            drag_.cancel(*this), dragTo_ = -2;
             if (e.button != 0 || !rowAt(e.pt, index, &row)) return true;
             // (two quick clicks on the eye or the lock are two clicks)
             if (eyeRect(row.top).contains(e.pt)) mapLayersToggleVisible(index);
@@ -124,7 +112,7 @@ public:
         }
     }
     draw::Cursor cursor(draw::Point p) override {
-        if (dragRow_ >= 0) return draw::Cursor::SizeNS;
+        if (dragRow() >= 0) return draw::Cursor::SizeNS;
         if (newRect().contains(p) || deleteRect().contains(p) || helpRect().contains(p)) return draw::Cursor::Hand;
         for (const Row& rw : rows_)
             if (rw.r.contains(p)) {
@@ -193,7 +181,12 @@ private:
     std::vector<Row> rows_;
     draw::Point pointer_{};
     bool hasPointer_ = false;
-    int dragRow_ = -2, dragTo_ = -2;
+    kitui::ItemDrag drag_;  // (a row's drag: its index)
+    int dragTo_ = -2;
+    int dragRow() const { return drag_.dragging() ? drag_.item : -2; }
+    void captureLost() override {
+        if (drag_.dragging()) drag_.cancel(*this), dragTo_ = -2, invalidate();
+    }
 };
 LayersPanelView gLayersPanel;
 void layersPanelChanged() {

@@ -281,6 +281,38 @@ inline void removeCross(draw::Canvas& c, Surface& s, draw::Rect row, draw::Rect 
     iconButton(c, s, at, UiIcon::Close, std::move(click), tip, Icon::Bare, false, true, Tone::Danger);
 }
 
+// The drag of an item in a view (docs/dev/PATTERNS.md, "Drag and drop"): a press arms it (press), a move of 4 px starts
+// it and captures the mouse (move: true while it drags), the release ends it (release: the item dragged, or -1 for a
+// click or a release outside the view); a lost capture or Esc cancels it (cancel). The view paints the grip and the drop
+// line (kitpaint::drawGrip, drawDropLine) while dragging() is on.
+struct ItemDrag {
+    int item = -1;
+    draw::Point at{};
+    bool on = false;
+    void press(int i, draw::Point p) { item = i, at = p, on = false; }
+    bool dragging() const { return on; }
+    bool move(draw::View& v, draw::Point p) {
+        if (item < 0) return false;
+        if (!on && std::abs(p.x - at.x) + std::abs(p.y - at.y) > scale(4)) {
+            on = true;
+            if (draw::Host* h = v.host()) h->capture(v, true);
+        }
+        return on;
+    }
+    int release(draw::View& v, draw::Point p) {
+        const int i = std::exchange(item, -1);
+        const bool was = std::exchange(on, false);
+        if (!was) return -1;
+        if (draw::Host* h = v.host()) h->capture(v, false);
+        return p.x < 0 || p.y < 0 || p.x >= v.width() || p.y >= v.height() ? -1 : i;
+    }
+    void cancel(draw::View& v) {
+        if (on)
+            if (draw::Host* h = v.host()) h->capture(v, false);
+        item = -1, on = false;
+    }
+};
+
 // A row of a list that can be reordered (`index` from 0, in order): its grip at the left, shown on the row under the
 // mouse; dragging the grip moves the row, and `moved(from, to)` gets where it was and where it goes (an index in the
 // list without it). The caller paints the row first.

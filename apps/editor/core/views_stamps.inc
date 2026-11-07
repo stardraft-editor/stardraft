@@ -203,7 +203,7 @@ public:
             return;
         }
         c.pushClip({0, topH(), w, h});
-        if (dragging_ && dropShown_) {  // the drop's place: its folder's heading with an outline, or (no folder) the list's top edge
+        if (drag_.dragging() && dropShown_) {  // the drop's place: its folder's heading with an outline, or (no folder) the list's top edge
             bool shownOn = false;
             for (size_t i = 0; i < rows_.size() && i < rects_.size(); ++i)
                 if (rows_[i].heading && narrow(rows_[i].key) == drop_) {
@@ -264,11 +264,7 @@ public:
         case draw::MouseKind::Move: {
             const int r = rowAt(e.pt);
             if (r != hover_) hover_ = r, invalidate();
-            if (press_ >= 0 && !dragging_ && std::abs(e.pt.x - pressAt_.x) + std::abs(e.pt.y - pressAt_.y) > scale(6)) {
-                dragging_ = true;
-                if (draw::Host* h = host()) h->capture(*this, true);  // (the release comes here, also outside the list)
-            }
-            if (dragging_) {  // (the folder it goes into: under the mouse)
+            if (drag_.move(*this, e.pt)) {  // (the folder it goes into: under the mouse)
                 const std::string to = dropFolder(e.pt);
                 if (!dropShown_ || to != drop_) drop_ = to, dropShown_ = true, invalidate();
             }
@@ -281,11 +277,11 @@ public:
         case draw::MouseKind::DoubleClick: {
             if (e.button != 0) return e.button == 1;
             const int r = rowAt(e.pt);
-            press_ = -1, dragging_ = dropShown_ = false;
+            drag_.cancel(*this), dropShown_ = false;
             if (r < 0) return true;
             if (!rows_[size_t(r)].heading && rows_[size_t(r)].index >= 0 && rows_[size_t(r)].index < int(stampsList().size()) &&
                 !stampsList()[size_t(rows_[size_t(r)].index)].file.empty())
-                press_ = rows_[size_t(r)].index, pressAt_ = e.pt;  // (the user's own: a drag moves it to a folder)
+                drag_.press(rows_[size_t(r)].index, e.pt);  // (the user's own: a drag moves it to a folder)
             const StampRow row = rows_[size_t(r)];
             if (row.heading) {  // close it, or open it again
                 if (!gStampsClosed.erase(row.key)) gStampsClosed.insert(row.key);
@@ -308,15 +304,12 @@ public:
         }
         case draw::MouseKind::Up: {
             if (e.button == 0) {
-                const int index = std::exchange(press_, -1);
-                const bool dropped = std::exchange(dragging_, false);
+                const bool inList = e.pt.y >= topH();
+                const int index = drag_.release(*this, e.pt);  // (-1: a click, or out of the list: no move)
                 dropShown_ = false;
-                if (dropped)
-                    if (draw::Host* h = host()) h->capture(*this, false);
                 invalidate();
-                if (dropped && (e.pt.x < 0 || e.pt.y < topH() || e.pt.x >= width() || e.pt.y >= height())) return true;  // (out of the list: no move)
                 const auto& list = stampsList();
-                if (dropped && index >= 0 && index < int(list.size())) {
+                if (inList && index >= 0 && index < int(list.size())) {
                     const TerrainStamp s = list[size_t(index)];
                     const std::string to = dropFolder(e.pt);
                     shellPost([s, to] { stampsMoveTo(s, to); });
@@ -358,7 +351,7 @@ public:
         return row.index >= 0 && row.index < int(list.size()) ? list[size_t(row.index)].folder : std::string();
     }
     void captureLost() override {
-        if (dragging_) press_ = -1, dragging_ = dropShown_ = false, invalidate();
+        if (drag_.dragging()) drag_.cancel(*this), dropShown_ = false, invalidate();
     }
     // The files changed: the rows again at the next paint.
     void changed() {
@@ -390,9 +383,8 @@ private:
     std::vector<int> tops_;
     std::vector<draw::Rect> rects_;  // (each row's place in the content: a list's row, a grid's cell)
     int contentH_ = 0, scroll_ = 0, hover_ = -1, viewShown_ = -1, builtFor_ = -2;
-    int press_ = -1;              // the item pressed (its index in stampsList()): a drag moves it to a folder
-    draw::Point pressAt_{};
-    bool dragging_ = false, dropShown_ = false;
+    kitui::ItemDrag drag_;        // the item pressed (its index in stampsList()): a drag moves it to a folder
+    bool dropShown_ = false;
     std::string drop_;            // the folder that the drop goes into (shown while dragging_)
     const std::vector<TerrainStamp>* listShown_ = nullptr;
     size_t listSize_ = 0;
