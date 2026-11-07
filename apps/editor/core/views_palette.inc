@@ -127,11 +127,7 @@ struct PaletteGridView : draw::View {
                 if (isChosen && units && chosen->size() > 1) c.frame(f, kAccentBright, scale(2));
             }
             if (pinned && i >= 1 && i <= size_t(pinned)) {  // a pinned doodad's copy at the top: the pin at its right
-                draw::FontDesc glyphs;
-                glyphs.face = draw::Face::Glyphs, glyphs.px = scale(11);
-                const draw::Font of = c.setFont(c.font(glyphs));
-                c.text({r.right - scale(22), r.top, r.right - scale(6), r.bottom}, L"\xE718", kDim, draw::kRight | draw::kMiddle);
-                c.setFont(of);
+                c.icon({r.right - scale(22), r.top, r.right - scale(6), r.bottom}, int(UiIcon::Pin), kDim, scale(16));
             }
             draw::Rect box = r;
             if (v.grid) box = {r.left + scale(3), r.top + scale(3), r.right - scale(3), r.bottom - scale(3)};

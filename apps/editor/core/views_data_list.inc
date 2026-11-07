@@ -111,9 +111,7 @@ void DataListView::paint(draw::Canvas& c) {
         const bool isPinned = i < pinned;
         const draw::Rect t{box.right + scale(8), r.top, w - scale(isPinned ? 34 : 16), r.bottom};
         if (isPinned) {  // a pin at the right; a line under the last pinned row
-            const draw::Font old = c.setFont(c.font({draw::Face::Glyphs, scale(11)}));
-            c.text({w - scale(33), r.top, w - scale(18), r.bottom}, L"\xE718", kDim, draw::kCenter | draw::kMiddle);
-            c.setFont(old);
+            c.icon({w - scale(33), r.top, w - scale(18), r.bottom}, int(UiIcon::Pin), kDim, scale(16));
             if (i == pinned - 1 && i + 1 < n) c.fill({scale(6), r.bottom - 1, w - scale(6), r.bottom}, kBorder);
         }
         std::wstring name = host_.name(u);

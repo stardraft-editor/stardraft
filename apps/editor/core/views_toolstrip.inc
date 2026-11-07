@@ -291,11 +291,10 @@ Rect square(Rect r) {
     const int x = r.left + (w - s) / 2, y = r.top + (h - s) / 2;
     return {x, y, x + s, y + s};
 }
-// A glyph of the Segoe MDL2 face, centered, at `size` (96-dpi pixels).
-void glyph(Canvas& c, Rect r, wchar_t g, Color col, int size) {
-    const draw::Font prev = c.setFont(c.font({draw::Face::Glyphs, scale(size)}));
-    c.text(r, std::wstring_view(&g, 1), col, draw::kMiddle | draw::kCenter);
-    c.setFont(prev);
+// A small UI icon (a chevron, the link), centered: the 16 px icon (`size`: kept for the callers).
+void glyph(Canvas& c, Rect r, UiIcon g, Color col, int size) {
+    (void)size;
+    c.icon(r, int(g), col, scale(16));
 }
 // A UI icon, centered, at the size of 16 (the strip's icon buttons) or `px`.
 void icon(Canvas& c, Rect r, UiIcon i, Color col, int px = 16) { c.icon(r, int(i), col, scale(px)); }
@@ -584,7 +583,7 @@ public:
                 const draw::Rect k = more ? up : down;
                 const bool over = hot(k);
                 if (over) box(c, k, kCtlHot, kNoLine, 2);
-                glyph(c, k, more ? L'\xE70E' : L'\xE70D', over ? kText : kDim, 6);  // chevrons up and down
+                glyph(c, k, more ? UiIcon::ChevronUp : UiIcon::ChevronDown, over ? kText : kDim, 6);  // chevrons up and down
             }
             addHitC(value, [this, which, typed] { beginEdit(which, typed); }, tip, draw::Cursor::IBeam);
             addHit(up, [which] { stripNumberStep(which, 1); }, L"One step more");
@@ -620,7 +619,7 @@ public:
             const draw::Rect sr{boxR.left, boxR.top, boxR.left + seg, boxR.bottom};
             hotFill(sr);
             c.icon({sr.left + scale(4), sr.top, sr.left + scale(24), sr.bottom}, int(shapeIcons[int(shapeOf(app)) % 3]), kText, scale(14));
-            glyph(c, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, L'\xE70D', kDim, 7);
+            glyph(c, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, UiIcon::ChevronDown, kDim, 7);
             addHit(sr, [this, sr] {
                 std::vector<std::wstring> names;
                 for (const wchar_t* n : kStripShapeNames) names.push_back(std::wstring(tr(n)));
@@ -637,7 +636,7 @@ public:
             // The link.
             const draw::Rect lk{boxR.right - linkW, boxR.top, boxR.right, boxR.bottom};
             hotFill(lk);
-            glyph(c, lk, L'\xE71B', linked ? kAccent : kFaint, 10);
+            glyph(c, lk, UiIcon::Link, linked ? kAccent : kFaint, 10);
             addHit(lk, [] {
                 AppState& a = appState();
                 a.brushHeight = a.brushHeight <= 0 ? brushHeightOf(a) : 0;  // as it is now (a typed height may just have been set)
@@ -664,7 +663,7 @@ public:
                     const draw::Rect k = more ? up : down;
                     const bool over = hot(k);
                     if (over) box(c, k, kCtlHot, kNoLine, 2);
-                    glyph(c, k, more ? L'\xE70E' : L'\xE70D', over ? kText : kDim, 6);  // chevrons up and down
+                    glyph(c, k, more ? UiIcon::ChevronUp : UiIcon::ChevronDown, over ? kText : kDim, 6);  // chevrons up and down
                 }
                 addHitC(value, [this, which, typed] { beginEdit(which, typed); }, tip, draw::Cursor::IBeam);
                 addHit(up, [which] { stripNumberStep(which, 1); }, L"One step more");

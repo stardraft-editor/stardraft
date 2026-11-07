@@ -35,13 +35,13 @@ struct Box {
     draw::Rect checkRc{};
 };
 
-// The icon for the box's icon kind: an icon of the set (or a Segoe MDL2 glyph, for the information icon) and its color.
+// The icon for the box's icon kind: an icon of the set, and its color.
 inline bool iconFor(Icon i, kitpaint::Ico& ico, draw::Color& c) {
     switch (i) {
     case Icon::Error: ico = UiIcon::Error, c = kBad; return true;
     case Icon::Warning: ico = UiIcon::Warning, c = kWarn; return true;
     case Icon::Question: ico = UiIcon::Help, c = kAccent; return true;
-    case Icon::Info: ico = L"\xE946", c = kAccent; return true;  // Info
+    case Icon::Info: ico = UiIcon::Info, c = kAccent; return true;
     default: return false;
     }
 }
@@ -82,7 +82,7 @@ public:
         const int checkW = b.check.empty() ? 0 : scale(14) + scale(8) + c.measureBox(b.check, 0, draw::kPrefixHidden).x;
         c.setFont(of);
 
-        kitpaint::Ico ico = L"";
+        kitpaint::Ico ico{};
         draw::Color ic = kText;
         const bool icon = iconFor(b.icon, ico, ic);
         const int iconW = icon ? scale(32) : 0, iconGap = icon ? scale(12) : 0;
@@ -125,7 +125,7 @@ public:
         if (!laidOut_) layout(c);
         c.fill({0, 0, width(), height()}, kBg);
         const bool alt = host() && (host()->modifiers() & draw::kAlt) != 0;
-        kitpaint::Ico ico = L"";
+        kitpaint::Ico ico{};
         draw::Color ic = kText;
         if (iconFor(b.icon, ico, ic)) {
             if (ico.icon >= 0) c.icon(b.iconRc, ico.icon, ic, scale(32));

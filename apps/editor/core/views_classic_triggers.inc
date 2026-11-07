@@ -1031,11 +1031,10 @@ private:
         c.text({0, y, w, y + rowH}, name, kDim, draw::kMiddle);  // (quiet: dim, no rule)
         return y + rowH;
     }
-    // A glyph of the Segoe MDL2 glyph font, centered in its box.
-    static void glyphText(draw::Canvas& c, draw::Rect r, const wchar_t* g, draw::Color col, int px) {
-        const draw::Font of = c.setFont(c.font({draw::Face::Glyphs, px}));
-        c.text(r, std::wstring_view(g, 1), col, draw::kMiddle | draw::kCenter);
-        c.setFont(of);
+    // A UI icon, centered in its box.
+    static void glyphText(draw::Canvas& c, draw::Rect r, UiIcon g, draw::Color col, int px) {
+        (void)px;
+        c.icon(r, int(g), col, scale(16));
     }
 
     // A sentence's words and value chips (ctSentenceParts): each chip is a click area (its value's picker).
@@ -1217,7 +1216,7 @@ private:
                     const bool shut = host_.collapsed(i);
                     const draw::Rect column{0, r.top, indent + scale(14), r.bottom};
                     const draw::Rect glyphBox{indent, r.top, indent + scale(14), r.bottom};
-                    glyphText(c, glyphBox, shut ? L"\xE76C" : L"\xE70D", kitpaint::rowText(sel), scale(12));
+                    glyphText(c, glyphBox, shut ? UiIcon::ChevronRight : UiIcon::ChevronDown, kitpaint::rowText(sel), scale(12));
                     hit(column, [this, i] { host_.toggleCollapsed(i); }, shut ? L"Show the actions of the block" : L"Hide the actions of the block",
                         draw::Cursor::Hand);
                 }

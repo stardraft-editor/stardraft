@@ -254,7 +254,7 @@ inline void iconButton(draw::Canvas& c, Surface& s, draw::Rect r, Ico g, std::fu
 
 // The actions at a row's right edge, shown on the row under the mouse (or when `show`). Returns their left edge.
 struct RowAction {
-    Ico glyph = L"";
+    Ico glyph{};
     std::wstring tip;
     std::function<void()> click;
     Tone tone = Tone::Normal;

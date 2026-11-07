@@ -289,9 +289,7 @@ public:
         // The alpha notice: under the recent list and Open.
         const int ny = y + scale(24);
         {
-            const draw::Font of = c.setFont(c.font({Face::Glyphs, scale(14)}));
-            c.text({x1, ny + scale(2), x1 + scale(16), ny + scale(18)}, L"\xE946", kAccent, kMiddle | kCenter);
-            c.setFont(of);
+            c.icon({x1, ny + scale(2), x1 + scale(16), ny + scale(18)}, int(UiIcon::Info), kAccent, scale(16));
         }
         const Rect nr{x1 + scale(22), ny, x1 + cw, ny + scale(200)};
         c.text(nr, kStartNotice, kDim, kWrap | kLeft);

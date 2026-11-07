@@ -372,7 +372,7 @@ public:
             add(n.field, {0, 0, 0, 0});
         }
         if (tab_ == kClassicUnits) {  // the name (the rename button) after the fields, as the old Name box
-            rename_.setText(L"\x270E"), rename_.setTone(stardraft::kit::Tone::Normal);
+            rename_.setGlyph(stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Edit))), rename_.setStyle(stardraft::kit::IconStyle::Boxed);
             rename_.setTip(L"Rename the unit (empty: the game's name)");
             rename_.onClick = [this] { renameUnit(); };
             add(rename_, {0, 0, 0, 0});
@@ -503,7 +503,7 @@ public:
     stardraft::kit::CheckBox& globalB() { return globalCheckB_; }
     stardraft::kit::TextField& globalLevelA() { return globalA_.field; }
     stardraft::kit::TextField& globalLevelB() { return globalB_.field; }
-    stardraft::kit::Button& renameButton() { return rename_; }
+    stardraft::kit::IconButton& renameButton() { return rename_; }
     stardraft::kit::TextField& search() { return search_.field(); }
     bool renameShown() const { return tab_ == kClassicUnits; }
     // Use default: on takes the game's values, off the entry's own (the page's Use default, as a change does it).
@@ -957,9 +957,7 @@ private:
         const bool pinned = i < pinnedShown_;
         const draw::Rect t{box.right + scale(8), r.top, r.right - scale(pinned ? 34 : 16), r.bottom};
         if (pinned) {  // a pin at the right, and a line under the last pinned row (as the Data workspace's list)
-            const draw::Font old = c.setFont(c.font({draw::Face::Glyphs, scale(11)}));
-            c.text({r.right - scale(33), r.top, r.right - scale(18), r.bottom}, L"\xE718", kDim, draw::kCenter | draw::kMiddle);
-            c.setFont(old);
+            c.icon({r.right - scale(33), r.top, r.right - scale(18), r.bottom}, int(UiIcon::Pin), kDim, scale(16));
             if (i == pinnedShown_ - 1 && i + 1 < int(shown_.size())) c.fill({r.left + scale(6), r.bottom - 1, r.right - scale(6), r.bottom}, kBorder);
         }
         c.text(t, host_.entryName(tab_, e), sel ? kAccent : kText, draw::kMiddle | draw::kEllipsis);
@@ -979,7 +977,7 @@ private:
     std::vector<int> shown_;  // the entries in the list, in order
     int pinnedShown_ = 0;     // how many of the first rows are pinned
     int scrollToRow_ = -1;    // the selected row, to bring in view at the next paint (-1: none)
-    stardraft::kit::Button rename_;
+    stardraft::kit::IconButton rename_;
     ClassicNumber fields_[6];
     ClassicNumber weaponDamage_[kCsWeaponRows], weaponBonus_[kCsWeaponRows];
     std::vector<int> weapons_;  // the weapon of each weapon row (-1: none)

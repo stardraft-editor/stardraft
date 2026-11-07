@@ -213,8 +213,6 @@ public:
                 }
             if (!shownOn && drop_.empty()) c.fill({0, topH(), w, topH() + scale(2)}, kAccent);
         }
-        draw::FontDesc glyphs;
-        glyphs.face = draw::Face::Glyphs, glyphs.px = scale(9);
         for (size_t i = 0; i < rows_.size(); ++i) {
             const StampRow& r = rows_[i];
             const int top = topH() + rects_[i].top - scroll_, bottom = topH() + rects_[i].bottom - scroll_;
@@ -222,9 +220,7 @@ public:
             const int indent = scale(4) + r.depth * scale(14);
             if (r.heading) {  // a chevron (open: down, closed: right), the name, then a line to the right edge
                 const bool closed = gStampsClosed.count(r.key) != 0;
-                const draw::Font of = c.setFont(c.font(glyphs));
-                c.text({indent, top, indent + scale(14), bottom}, closed ? L"\xE76C" : L"\xE70D", int(i) == hover_ ? kText : kDim, draw::kCenter | draw::kMiddle);
-                c.setFont(of);
+                c.icon({indent, top, indent + scale(14), bottom}, int(closed ? UiIcon::ChevronRight : UiIcon::ChevronDown), int(i) == hover_ ? kText : kDim, scale(16));
                 const draw::Rect t{indent + scale(16), top, w - scale(6), bottom};
                 c.text(t, r.label, kText, draw::kMiddle | draw::kEllipsis);
                 const int mid = (top + bottom) / 2, lineL = t.left + c.measure(r.label) + scale(8);
@@ -396,7 +392,7 @@ public:
     }
 
 private:
-    stardraft::kit::IconButton sort_{stardraft::kit::IconGlyph::ofGlyph(L'\xE8CB'), stardraft::kit::IconStyle::Boxed, L"",
+    stardraft::kit::IconButton sort_{stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Sort)), stardraft::kit::IconStyle::Boxed, L"",
                                      [this] { shellStampsButtonMenu(sort_, true); }};
     stardraft::kit::Button view_{L"View", stardraft::kit::Tone::Normal, [this] { shellStampsButtonMenu(view_, false); }};
     stardraft::kit::TextField search_;

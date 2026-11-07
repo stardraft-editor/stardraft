@@ -68,11 +68,11 @@ kit::Button gViewBtnSdl{L"View", kit::Tone::Normal, [] {  // the View menu under
 void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel = nullptr);
 // The Sort buttons: the search row's (the order of the active mode's palette: Units, Doodads, Sprites) and the Locations
 // filter row's (the order of the locations; its floating window shows in every mode).
-kit::IconButton gSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(gState.mode, gSortBtnSdl); }};
+kit::IconButton gSortBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Sort)), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(gState.mode, gSortBtnSdl); }};
 void sdlPieFromMenu();
 // Terrain's search row: the pie palette's button in the Sort button's place (GitHub #257): a click shows the pie.
-kit::IconButton gPieBtnSdl{kit::IconGlyph::ofGlyph(L'\xEB05'), kit::IconStyle::Boxed, L"", [] { sdlPieFromMenu(); }};
-kit::IconButton gLocSortBtnSdl{kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(Mode::Locations, gLocSortBtnSdl); }};
+kit::IconButton gPieBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Pie)), kit::IconStyle::Boxed, L"", [] { sdlPieFromMenu(); }};
+kit::IconButton gLocSortBtnSdl{kit::IconGlyph::ofIcon(int(UiIcon::Sort)), kit::IconStyle::Boxed, L"", [] { paletteSortMenuSdl(Mode::Locations, gLocSortBtnSdl); }};
 // The rows of the panels that are not active (the other side's list, the third list), in the place where the panel has
 // them when it is active. A click in a box goes to that mode, in that box (the search box: its keyboard; the Owner and the
 // section: its list open). The View and Sort menus are of that list, and leave the mode as it is.
@@ -103,7 +103,7 @@ struct OtherSearchRow {
     Mode mode = Mode::Terrain;
     explicit OtherSearchRow(PalettePanel& list)
         : view(L"View", kit::Tone::Normal, [this, &list] { paletteMenuSdl(list, view, {0, view.height()}, -1); }),
-          sort(kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [this] {
+          sort(kit::IconGlyph::ofIcon(int(UiIcon::Sort)), kit::IconStyle::Boxed, L"", [this] {
               if (mode == Mode::Terrain) sdlPieFromMenu();  // (Terrain: the pie palette's button, as the active row's)
               else paletteSortMenuSdl(mode, sort);
           }) {
@@ -122,7 +122,7 @@ void otherRowsOwnerItems(const std::vector<kit::DropdownItem>& owners) {
 // The Sort buttons' tips: the orders now.
 void sortTipsSdl() {
     for (OtherSearchRow* r : {&gSearchRow2, &gSearchRow3}) {
-        r->sort.setGlyph(kit::IconGlyph::ofGlyph(r->mode == Mode::Terrain ? L'\xEB05' : L'\xE8CB'));
+        r->sort.setGlyph(kit::IconGlyph::ofIcon(int(r->mode == Mode::Terrain ? UiIcon::Pie : UiIcon::Sort)));
         r->sort.setTip(r->mode == Mode::Terrain ? std::wstring(tr(L"Terrain pie palette: the terrains in a circle; click one to paint with it (on the map: hold Space)"))
                                                 : paletteSortTip(r->mode, gSortByMode[int(r->mode)]));
     }

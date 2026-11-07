@@ -932,7 +932,8 @@ private:
         int putToken = -1;                              // the next hit's part of a text with values
         int topDepth = 0;                               // the depth whose values are the block's own (a value in a text: 1)
         auto put = [&](const std::wstring& word, COLORREF col, bool link, int param, const std::vector<int>& inner, bool bracket) {
-            const int cx = c.measure(word);
+            const bool pencil = word == L"\x270E ";  // (the Edit icon, not a font's character)
+            const int cx = pencil ? scale(16) + c.measure(L" ") : c.measure(word);
             const bool chip = link && !bracket;
             const draw::Image icon = chip ? chipIcon : draw::Image{};
             chipIcon = {};
@@ -953,7 +954,8 @@ private:
                 }
                 if (icon) c.fitted(icon, {r.left + padX - scale(1), r.top + scale(3), r.left + padX + scale(17), r.bottom - scale(3)});
                 const RECT tr{r.left + padX + iconW, r.top, r.right - padX, r.bottom};
-                text(c, tr, word, col, draw::kMiddle);
+                if (pencil) c.icon({tr.left, tr.top, tr.left + scale(16), tr.bottom}, int(UiIcon::Edit), col, scale(16)), lastText_ = col;
+                else text(c, tr, word, col, draw::kMiddle);
                 if (link && bracket && trigSameHit(gTP.hover, TrigParamHit{curRef, param, r, inner, bracket, putToken}))  // a value block under the mouse: underlined
                     c.line(tr.left, r.bottom - scale(4), tr.left + cx, r.bottom - scale(4), col);
             }
@@ -1138,7 +1140,7 @@ private:
             if (!dim && !note) c.fill({head.left + scale(2), head.top + scale(5), head.left + scale(4), head.bottom - scale(5)}, trigCategoryColor(d));
             // On the row under the mouse, or selected: on/off, duplicate, delete.
             if ((on || trigSameBlock(gTP.hoverRow, me)) && !gTP.dragging) {
-                const kitpaint::Ico glyphs[3] = {L"\xE7E8", UiIcon::Duplicate, UiIcon::Delete};
+                const kitpaint::Ico glyphs[3] = {UiIcon::Power, UiIcon::Duplicate, UiIcon::Delete};
                 const wchar_t* tips[3] = {call.enabled ? L"Turn off" : L"Turn on", L"Duplicate", L"Delete"};
                 const kitpaint::Tone tones[3] = {kitpaint::Tone::Quiet, kitpaint::Tone::Normal, kitpaint::Tone::Danger};
                 const RECT line{head.left, head.top + padY - scale(2), head.right - scale(4), head.top + padY + scale(24)};
@@ -1154,7 +1156,7 @@ private:
                 for (int k = 0; k < 3; ++k) {
                     const RECT br = toRect(kitpaint::rowActionRect(line, cond ? k + 1 : k, cond ? 4 : 3));
                     const draw::Color gc = kitpaint::drawIconFace(c, br, glyphs[k], tones[k], k == 0 && !call.enabled, hot(br));
-                    if (glyphs[k].icon < 0) lastText_ = gc;
+                    if (k == 0) lastText_ = gc;  // (the fold chevron after it: the on/off face's color)
                     gTP.rowButtons.push_back({me, k, br});
                     gTP.tips.push_back({br, tips[k], kBorderHot});
                 }
@@ -1163,7 +1165,7 @@ private:
             int sx = textX;
             if (container) {
                 RECT arrow{textX, y + padY, textX + scale(16), y + padY + scale(22)};
-                glyph(c, arrow, call.folded ? L"\xE76C" : L"\xE70D", lastText_, 9);  // chevron right / down, as the trees
+                glyph(c, arrow, call.folded ? UiIcon::ChevronRight : UiIcon::ChevronDown, lastText_, 9);  // chevron right / down, as the trees
                 gTP.folds.push_back({me, arrow});
                 sx += scale(18);
             }
@@ -1385,7 +1387,7 @@ private:
                 RECT hr{x0, y, x0 + w, y + scale(28)};
                 gTP.heading[sec] = hr;
                 // A section heading (ui::sectionHeader's text and line) with its fold chevron.
-                glyph(c, {hr.left, hr.top, hr.left + scale(16), hr.bottom}, gTP.collapsed[sec] ? L"\xE76C" : L"\xE70D", kDim, 9);
+                glyph(c, {hr.left, hr.top, hr.left + scale(16), hr.bottom}, gTP.collapsed[sec] ? UiIcon::ChevronRight : UiIcon::ChevronDown, kDim, 9);
                 text(c, {hr.left + scale(20), hr.top, hr.right, hr.bottom}, titles[sec], kText, draw::kMiddle);
                 c.fill({x0, hr.bottom, x0 + w, hr.bottom + 1}, kBorder);
                 y += scale(36);

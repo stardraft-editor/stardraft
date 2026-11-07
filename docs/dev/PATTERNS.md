@@ -46,21 +46,32 @@ Use the first line of this table that agrees with the setting.
 
 ## Modifier keys
 
-Each modifier key has one meaning on the map and in the lists.
+A modifier key has one meaning for each kind of surface. There are two kinds:
 
-| Key | On the map | On a list's row |
+- **A list or grid of items:** rows or cells that are things to pick (the palettes, the Custom list, the Layer list,
+  the Data lists). A click selects an item.
+- **An area selection:** a surface where the user selects an area of cells, with a box, a lasso or a wand (the map's
+  Select, Lasso and Magic wand, and the Tiles grid).
+
+| Key | A list or grid of items | An area selection |
 |---|---|---|
-| Click | Select one, or place one | Select it |
-| Shift+click, Shift+drag | Add to the selection | Select a range |
-| Ctrl+click | Terrain: pick the terrain or the tile under the mouse (the eyedropper). Other modes: add or remove one object | Add or remove one item |
-| Ctrl+drag | Take out of the selection | - |
-| Alt+click | The pipette (other modes than Terrain) | The row's alternate action: for terrains, tiles and custom terrain, add it to the mask or remove it |
-| Alt+wheel | The brush size | - |
+| Click | Select one item | Select the area (a drag), or the cell |
+| Shift | Shift+click: select a range | Shift+drag: add an area |
+| Ctrl | Ctrl+click: add or remove one item | Ctrl+drag: take an area out |
+| Alt | Alt+click: the item's alternate action (terrains, tiles, custom terrain: in or out of the mask) | - |
 
-- **Ctrl+click is the eyedropper in Terrain**, as in SCMDraft: the mappers know it. This is a known difference from
+On the map, outside the area selection tools:
+
+| Key | Meaning |
+|---|---|
+| Ctrl+click | Terrain: pick the terrain or the tile under the mouse (the eyedropper). Other modes: add or remove one object |
+| Alt+click | The pipette (the modes other than Terrain) |
+| Alt+wheel | The brush size |
+
+- **Ctrl+click is the eyedropper in Terrain**, as in SCMDraft: the mappers know it. It is a known difference from
   Ctrl+click in the other modes, and it stays (the user, 2026-11-07).
-- **Alt+click on a row** does the row's alternate action. Each list that has one names it in the row's tooltip and
-  has the same action in the row's right-click menu.
+- **Alt+click on an item** does its alternate action. Each list that has one names it in the item's tooltip and has
+  the same action in the item's right-click menu.
 - A tool can give a modifier key a second meaning only while it is the tool in use, and its tooltip and the status
   bar say so.
 
@@ -144,7 +155,6 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Modifier keys**
 
-- Ctrl takes out of the selection in the Tiles grid (a list), but adds or removes one item in the other lists.
 - Alt+click on a Custom list row replaces the whole mask; in the terrain list and the Tiles grid it adds or removes
   one item. No list has the mask in the row's right-click menu yet.
 - The second and third palettes do not take Shift ranges.
@@ -159,9 +169,8 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Buttons and icons**
 
-- Symbols from the glyph font: the Sort button (E8CB), the terrain pie button (EB05), the headings' chevrons, the
-  tool strip's arrows and link, and the glyphs of the start page, Data list, Classic settings and Classic triggers
-  (about 25 places; kit_paint.inc's glyphIcon maps some of them to icons, the others have none).
+- The trigger sentences' value brackets (⟨ ⟩) are characters of the UI font. The kit still has
+  IconGlyph::ofGlyph and the canvas's glyph swap (setGlyphIcons); no view uses them now.
 - Painted buttons: the tool strip, the Layer list's top row, the Data table's bar, the Files rows, the quick picker,
   the New page.
 

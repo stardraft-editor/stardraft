@@ -275,7 +275,7 @@ struct PalettePanelView final : PanelStripView {
     stardraft::kit::Button viewButton{L"View", stardraft::kit::Tone::Normal, [this] {
                                           if (onView) onView();
                                       }};
-    stardraft::kit::IconButton sortButton{stardraft::kit::IconGlyph::ofGlyph(L'\xE8CB'), stardraft::kit::IconStyle::Boxed, L"", [this] {
+    stardraft::kit::IconButton sortButton{stardraft::kit::IconGlyph::ofIcon(int(UiIcon::Sort)), stardraft::kit::IconStyle::Boxed, L"", [this] {
                                               if (onSort) onSort();
                                           }};
     PaletteGridView list;

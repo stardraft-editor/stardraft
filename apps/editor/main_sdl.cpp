@@ -802,7 +802,6 @@ int main(int argc, char** argv) {
         // 32 px atlas, and the Start page's 32 px card icon 64 px from the 64 px atlas, sharp on a Retina display).
         std::printf("stardraft_editor: icons %d px from the %d px atlas, card icons %d px from the %d px atlas\n", kit::px(16),
                     kit_sdl::iconAtlasCell(0, kit::px(16)), kit::px(32), kit_sdl::iconAtlasCell(0, kit::px(32)));
-        kit_sdl::setGlyphIcons(kitpaint::glyphIcon);  // the glyphs as UI icons (no system has to have Segoe MDL2 Assets)
         if (!kit_sdl::loadResourceIcon(1, base + "res/stardraft.ico")) std::printf("stardraft_editor: no app icon in res/\n");  // (About's)
         host.setHoverHook(sdlHover);  // the views' tooltips (sdl_tips.inc)
         host.setKeyFilter(sequenceKey);  // the second key of a two-key shortcut (Ctrl+K, G: sdl_menus.inc)
