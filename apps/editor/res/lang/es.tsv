@@ -2988,3 +2988,13 @@ Clear the mask	Quitar la máscara
 &Circle	&Círculo
 &Left	&Izquierda
 &Right	&Derecha
+X offset	Desplazamiento X
+Y offset	Desplazamiento Y
+seconds	segundos
+Map size	Tamaño del mapa
+Custom grid	Cuadrícula personalizada
+ to 	 a 
+More	Más
+Hide the less used values	Ocultar los valores menos usados
+Show the less used values: Detailed tiles	Mostrar los valores menos usados: Casillas detalladas
+Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	Casillas detalladas: con qué frecuencia la pintura isométrica y rectangular coloca una casilla detallada, de 0 a 100%. StarCraft: 5%. Haga clic para escribir un número. Las flechas y la rueda del ratón lo cambian.

@@ -2988,3 +2988,13 @@ Clear the mask	清除蒙版
 &Circle	圆形(&C)
 &Left	左(&L)
 &Right	右(&R)
+X offset	X 偏移
+Y offset	Y 偏移
+seconds	秒
+Map size	地图大小
+Custom grid	自定义网格
+ to 	 至 
+More	更多
+Hide the less used values	隐藏不常用的值
+Show the less used values: Detailed tiles	显示不常用的值：细节图块
+Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	细节图块：等距和矩形绘制放置细节图块的频率，0 到 100%。星际争霸：5%。单击可输入数字。箭头和鼠标滚轮可更改它。

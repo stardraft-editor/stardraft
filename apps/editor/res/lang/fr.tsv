@@ -2988,3 +2988,13 @@ Clear the mask	Effacer le masque
 &Circle	&Cercle
 &Left	&Gauche
 &Right	&Droite
+X offset	Décalage X
+Y offset	Décalage Y
+seconds	secondes
+Map size	Taille de la carte
+Custom grid	Grille personnalisée
+ to 	 à 
+More	Plus
+Hide the less used values	Masquer les valeurs moins utilisées
+Show the less used values: Detailed tiles	Afficher les valeurs moins utilisées : Tuiles détaillées
+Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	Tuiles détaillées : la fréquence à laquelle la peinture isométrique et rectangulaire place une tuile détaillée, de 0 à 100 %. StarCraft : 5 %. Cliquez pour taper un nombre. Les flèches et la molette le changent.

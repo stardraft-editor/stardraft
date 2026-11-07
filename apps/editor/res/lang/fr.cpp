@@ -2990,6 +2990,16 @@ constexpr UiText kRows[] = {
     {L"&Circle", L"&Cercle"},
     {L"&Left", L"&Gauche"},
     {L"&Right", L"&Droite"},
+    {L"X offset", L"D\u00E9calage X"},
+    {L"Y offset", L"D\u00E9calage Y"},
+    {L"seconds", L"secondes"},
+    {L"Map size", L"Taille de la carte"},
+    {L"Custom grid", L"Grille personnalis\u00E9e"},
+    {L" to ", L" \u00E0 "},
+    {L"More", L"Plus"},
+    {L"Hide the less used values", L"Masquer les valeurs moins utilis\u00E9es"},
+    {L"Show the less used values: Detailed tiles", L"Afficher les valeurs moins utilis\u00E9es : Tuiles d\u00E9taill\u00E9es"},
+    {L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.", L"Tuiles d\u00E9taill\u00E9es : la fr\u00E9quence \u00E0 laquelle la peinture isom\u00E9trique et rectangulaire place une tuile d\u00E9taill\u00E9e, de 0 \u00E0 100 %. StarCraft : 5 %. Cliquez pour taper un nombre. Les fl\u00E8ches et la molette le changent."},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

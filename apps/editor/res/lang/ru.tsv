@@ -2988,3 +2988,13 @@ Clear the mask	Снять маску
 &Circle	&Круг
 &Left	&Слева
 &Right	&Справа
+X offset	Смещение X
+Y offset	Смещение Y
+seconds	секунд
+Map size	Размер карты
+Custom grid	Своя сетка
+ to 	 до 
+More	Ещё
+Hide the less used values	Скрыть редко используемые значения
+Show the less used values: Detailed tiles	Показать редко используемые значения: Детальные тайлы
+Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.	Детальные тайлы: как часто изометрическое и прямоугольное рисование ставит детальный тайл, от 0 до 100%. StarCraft: 5%. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его.

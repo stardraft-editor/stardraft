@@ -3020,6 +3020,16 @@ constexpr UiText kRows[] = {
     {L"&Circle", L"\uC6D0(&C)"},
     {L"&Left", L"\uC67C\uCABD(&L)"},
     {L"&Right", L"\uC624\uB978\uCABD(&R)"},
+    {L"X offset", L"X \uC624\uD504\uC14B"},
+    {L"Y offset", L"Y \uC624\uD504\uC14B"},
+    {L"seconds", L"\uCD08"},
+    {L"Map size", L"\uB9F5 \uD06C\uAE30"},
+    {L"Custom grid", L"\uC0AC\uC6A9\uC790 \uACA9\uC790"},
+    {L" to ", L" ~ "},
+    {L"More", L"\uB354 \uBCF4\uAE30"},
+    {L"Hide the less used values", L"\uB35C \uC4F0\uB294 \uAC12 \uC228\uAE30\uAE30"},
+    {L"Show the less used values: Detailed tiles", L"\uB35C \uC4F0\uB294 \uAC12 \uBCF4\uAE30: \uC138\uBD80 \uD0C0\uC77C"},
+    {L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.", L"\uC138\uBD80 \uD0C0\uC77C: \uC544\uC774\uC18C\uBA54\uD2B8\uB9AD\uACFC \uC0AC\uAC01\uD615 \uCE60\uD558\uAE30\uAC00 \uC138\uBD80 \uD0C0\uC77C\uC744 \uB193\uB294 \uBE48\uB3C4, 0~100%. \uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8: 5%. \uD074\uB9AD\uD558\uBA74 \uC22B\uC790\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. \uD654\uC0B4\uD45C\uC640 \uB9C8\uC6B0\uC2A4 \uD720\uB85C \uBC14\uAFC9\uB2C8\uB2E4."},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

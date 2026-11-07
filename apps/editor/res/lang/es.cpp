@@ -2990,6 +2990,16 @@ constexpr UiText kRows[] = {
     {L"&Circle", L"&C\u00EDrculo"},
     {L"&Left", L"&Izquierda"},
     {L"&Right", L"&Derecha"},
+    {L"X offset", L"Desplazamiento X"},
+    {L"Y offset", L"Desplazamiento Y"},
+    {L"seconds", L"segundos"},
+    {L"Map size", L"Tama\u00F1o del mapa"},
+    {L"Custom grid", L"Cuadr\u00EDcula personalizada"},
+    {L" to ", L" a "},
+    {L"More", L"M\u00E1s"},
+    {L"Hide the less used values", L"Ocultar los valores menos usados"},
+    {L"Show the less used values: Detailed tiles", L"Mostrar los valores menos usados: Casillas detalladas"},
+    {L"Detailed tiles: how often Isometric and Rectangle painting places a detailed tile, 0 to 100%. StarCraft: 5%. Click to type a number. The arrows and the mouse wheel change it.", L"Casillas detalladas: con qu\u00E9 frecuencia la pintura isom\u00E9trica y rectangular coloca una casilla detallada, de 0 a 100%. StarCraft: 5%. Haga clic para escribir un n\u00FAmero. Las flechas y la rueda del rat\u00F3n lo cambian."},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
