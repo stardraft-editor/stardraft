@@ -2419,8 +2419,8 @@ Lifted	升起
 Link selected units	连接所选单位
 Jump to linked unit	跳到连接的单位
  locations	 个位置
-Turns	旋转次数
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	旋转：副本以相等步长绕对称中心旋转。1：无，2：半圈，4：四分之一圈，1 到 8。单击可输入数字。箭头和鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
+Brushes	画笔数
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	画笔数：画笔以相等步长绕对称中心旋转。1：一个画笔，2：两个（半圈），4：四个（四分之一圈），1 到 8。单击可输入数字。箭头和鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
 Start locations	起始位置
 &Place them	放置(&P)
 &Save anyway	仍然保存(&S)
@@ -2942,3 +2942,10 @@ View	视图
 \nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\n单击: 选择列\n拖动已选中的列: 移动它\n双击: 按它排序 (升序、降序，然后是默认顺序)\n拖动右边缘: 更改宽度 (所有选中的列)\n双击右边缘: 使宽度适合文本\n右键单击: 隐藏它
 hidden	已隐藏
 locked	已锁定
+Re&center this anchor	将此锚点重新居中(&C)
+Recentered the symmetry anchor	对称锚点已重新居中
+Add symmetry &anchor	添加对称锚点(&A)
+Merged the symmetry anchors	已合并对称锚点
+Moved the symmetry anchor. Double-click it to remove it	已移动对称锚点。双击可将其移除
+Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	对称中心：拖动以移动，双击放到中间，右键单击查看更多
+Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	对称锚点：拖动以移动，双击将其移除，右键单击查看更多

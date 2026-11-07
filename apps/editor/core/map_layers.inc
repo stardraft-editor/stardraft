@@ -50,7 +50,7 @@ static void layerCornerGrid(const Editor& ed, std::vector<uint16_t>& out) {
         for (int x = -1; x <= int(ed.width()) / 2 + 1; ++x) out.push_back(g.terrainAt(x, y));
 }
 
-static LayerObjectLists layerObjectsOf(const Editor& ed) { return {ed.units(), ed.doodads(), ed.layerSprites()}; }
+static LayerObjectLists layerObjectsOf(const Editor& ed) { return {ed.units(), ed.layerDoodads(), ed.layerSprites()}; }
 
 // The map as it is now, to compare the next edit with.
 static void layersRememberMap(Editor& ed) {
@@ -311,7 +311,7 @@ static void layersCapture(Editor& ed, bool live) {
     };
     const auto sameDoodads = [](const std::vector<Doodad>& a, const std::vector<Doodad>& b) {
         return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin(), [](const Doodad& p, const Doodad& q) {
-                   return p.id == q.id && p.x == q.x && p.y == q.y && p.owner == q.owner && p.disabled == q.disabled;
+                   return p.id == q.id && p.x == q.x && p.y == q.y && p.owner == q.owner && p.disabled == q.disabled && p.noOverlay == q.noOverlay;
                });
     };
     const auto sameSprites = [](const std::vector<MapSprite>& a, const std::vector<MapSprite>& b) {
@@ -617,7 +617,7 @@ static void layersStart(Editor& ed) {
     s.base = ed.layerBaseNow(), s.on = true;
     s.stack = {};
     for (const Unit& u : ed.units()) s.stack.background.units.push_back({u, int(u.x), int(u.y), true});
-    for (const Doodad& d : ed.doodads()) s.stack.background.doodads.push_back({d, int(d.x), int(d.y), true});
+    for (const Doodad& d : ed.layerDoodads()) s.stack.background.doodads.push_back({d, int(d.x), int(d.y), true});
     for (const MapSprite& m : ed.layerSprites()) s.stack.background.sprites.push_back({m, int(m.x), int(m.y), true});
 }
 

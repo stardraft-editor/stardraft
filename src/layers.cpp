@@ -71,7 +71,7 @@ void writeLayer(Writer& w, const MapLayer& l) {
         o.item.encode(w.out);
     }
     w.u32(uint32_t(l.doodads.size()));
-    for (const auto& o : l.doodads) w.i32(o.x), w.i32(o.y), w.u8(o.shown), w.u16(o.item.id), w.u8(o.item.owner), w.u8(o.item.disabled);
+    for (const auto& o : l.doodads) w.i32(o.x), w.i32(o.y), w.u8(uint8_t(o.shown) | (o.item.noOverlay ? 2 : 0)), w.u16(o.item.id), w.u8(o.item.owner), w.u8(o.item.disabled);
     w.u32(uint32_t(l.sprites.size()));
     for (const auto& o : l.sprites) w.i32(o.x), w.i32(o.y), w.u8(o.shown), w.u16(o.item.id), w.u8(o.item.owner), w.u8(o.item.unused), w.u16(o.item.flags);
 }
@@ -103,7 +103,9 @@ bool readLayer(Reader& r, MapLayer& l) {
     const uint32_t doodads = r.count(13);
     for (uint32_t k = 0; r.ok && k < doodads; ++k) {
         LayerObject<Doodad> o;
-        o.x = r.i32(), o.y = r.i32(), o.shown = r.u8() != 0;
+        o.x = r.i32(), o.y = r.i32();
+        const uint8_t bits = r.u8();
+        o.shown = (bits & 1) != 0, o.item.noOverlay = (bits & 2) != 0;
         o.item.id = r.u16(), o.item.owner = r.u8(), o.item.disabled = r.u8();
         l.doodads.push_back(o);
     }

@@ -2421,8 +2421,8 @@ constexpr UiText kRows[] = {
     {L"Link selected units", L"Enlazar las unidades seleccionadas"},
     {L"Jump to linked unit", L"Ir a la unidad enlazada"},
     {L" locations", L" ubicaciones"},
-    {L"Turns", L"Giros"},
-    {L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Giros: las copias giran alrededor del centro de simetr\u00EDa a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haz clic para escribir un n\u00FAmero. Las flechas y la rueda del rat\u00F3n lo cambian. En terreno isom\u00E9trico, una copia va al rombo m\u00E1s cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto)."},
+    {L"Brushes", L"Pinceles"},
+    {L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Pinceles: los pinceles giran alrededor del centro de simetr\u00EDa a pasos iguales. 1: un pincel, 2: dos (media vuelta), 4: cuatro (cuartos de vuelta), de 1 a 8. Haz clic para escribir un n\u00FAmero. Las flechas y la rueda del rat\u00F3n lo cambian. En terreno isom\u00E9trico, una copia va al rombo m\u00E1s cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto)."},
     {L"Start locations", L"Posiciones de inicio"},
     {L"&Place them", L"&Colocarlas"},
     {L"&Save anyway", L"&Guardar de todos modos"},
@@ -2944,6 +2944,13 @@ constexpr UiText kRows[] = {
     {L"\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it", L"\nClic: seleccionar la columna\nArrastrar una columna seleccionada: moverla\nDoble clic: ordenar por ella (ascendente, descendente y luego el orden predeterminado)\nArrastrar el borde derecho: cambiar el ancho (de todas las columnas seleccionadas)\nDoble clic en el borde derecho: ajustar el ancho al texto\nClic derecho: ocultarla"},
     {L"hidden", L"oculta"},
     {L"locked", L"bloqueada"},
+    {L"Re&center this anchor", L"Re&centrar esta ancla"},
+    {L"Recentered the symmetry anchor", L"Ancla de simetr\u00EDa recentrada"},
+    {L"Add symmetry &anchor", L"A\u00F1adir un &ancla de simetr\u00EDa"},
+    {L"Merged the symmetry anchors", L"Anclas de simetr\u00EDa unidas"},
+    {L"Moved the symmetry anchor. Double-click it to remove it", L"Ancla de simetr\u00EDa movida. Haga doble clic para quitarla"},
+    {L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more", L"Centro de simetr\u00EDa: arr\u00E1strelo para moverlo, haga doble clic para ponerlo en el medio, clic derecho para m\u00E1s"},
+    {L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more", L"Ancla de simetr\u00EDa: arr\u00E1strela para moverla, haga doble clic para quitarla, clic derecho para m\u00E1s"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

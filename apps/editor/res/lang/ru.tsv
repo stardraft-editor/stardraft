@@ -2419,8 +2419,8 @@ Lifted	Поднята
 Link selected units	Связать выбранные юниты
 Jump to linked unit	Перейти к связанному юниту
  locations	 местоположение(й)
-Turns	Повороты
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Повороты: копии идут вокруг центра симметрии равными шагами. 1: нет, 2: пол-оборота, 4: четверти оборота, от 1 до 8. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
+Brushes	Кисти
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Кисти: кисти идут вокруг центра симметрии равными шагами. 1: одна кисть, 2: две (пол-оборота), 4: четыре (четверти оборота), от 1 до 8. Щелкните, чтобы ввести число. Стрелки и колесо мыши меняют его. На изометрическом рельефе копия идет к ближайшему ромбу, если поворот не сохраняет ромбы (2, и 4 на карте вдвое шире своей высоты).
 Start locations	Начальные позиции
 &Place them	&Разместить их
 &Save anyway	&Всё равно сохранить
@@ -2942,3 +2942,10 @@ View	Вид
 \nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\nЩелчок: выбрать столбец\nПеретаскивание выбранного столбца: переместить его\nДвойной щелчок: сортировать по нему (по возрастанию, по убыванию, затем порядок по умолчанию)\nПеретаскивание правого края: изменить ширину (всех выбранных столбцов)\nДвойной щелчок по правому краю: подогнать ширину под текст\nПравый щелчок: скрыть его
 hidden	скрыт
 locked	заблокирован
+Re&center this anchor	&Отцентровать этот якорь
+Recentered the symmetry anchor	Якорь симметрии отцентрован
+Add symmetry &anchor	Добавить &якорь симметрии
+Merged the symmetry anchors	Якоря симметрии объединены
+Moved the symmetry anchor. Double-click it to remove it	Якорь симметрии перемещен. Дважды щелкните его, чтобы удалить
+Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Центр симметрии: перетащите, чтобы переместить; двойной щелчок — в середину; правый щелчок — еще
+Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Якорь симметрии: перетащите, чтобы переместить; двойной щелчок — удалить; правый щелчок — еще

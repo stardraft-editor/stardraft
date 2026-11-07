@@ -2419,8 +2419,8 @@ Lifted	들어 올림
 Link selected units	선택한 유닛 연결
 Jump to linked unit	연결된 유닛으로 이동
  locations	 위치
-Turns	회전 수
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	회전: 복사본이 대칭 중심을 같은 간격으로 돕니다. 1: 없음, 2: 반 바퀴, 4: 1/4 바퀴, 1~8. 클릭하여 숫자를 입력합니다. 화살표와 마우스 휠로 바꿉니다. 등각 지형에서는 회전이 다이아몬드를 유지하지 않으면(2, 그리고 너비가 높이의 두 배인 맵의 4는 유지) 복사본이 가장 가까운 다이아몬드로 갑니다.
+Brushes	브러시 수
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	브러시 수: 브러시가 대칭 중심을 같은 간격으로 돕니다. 1: 브러시 하나, 2: 둘(반 바퀴), 4: 넷(1/4 바퀴), 1~8. 클릭하여 숫자를 입력합니다. 화살표와 마우스 휠로 바꿉니다. 등각 지형에서는 회전이 다이아몬드를 유지하지 않으면(2, 그리고 너비가 높이의 두 배인 맵의 4는 유지) 복사본이 가장 가까운 다이아몬드로 갑니다.
 Start locations	시작 위치
 &Place them	배치(&P)
 &Save anyway	그래도 저장(&S)
@@ -2972,3 +2972,10 @@ View	보기
 \nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\n클릭: 열 선택\n선택한 열 끌기: 이동\n더블클릭: 해당 열로 정렬 (오름차순, 내림차순, 기본 순서)\n오른쪽 가장자리 끌기: 너비 변경 (선택한 모든 열)\n오른쪽 가장자리 더블클릭: 텍스트에 맞춰 너비 조정\n오른쪽 클릭: 숨기기
 hidden	숨김
 locked	잠금
+Re&center this anchor	이 앵커 다시 가운데로(&C)
+Recentered the symmetry anchor	대칭 앵커를 다시 가운데로 옮겼습니다
+Add symmetry &anchor	대칭 앵커 추가(&A)
+Merged the symmetry anchors	대칭 앵커를 합쳤습니다
+Moved the symmetry anchor. Double-click it to remove it	대칭 앵커를 옮겼습니다. 두 번 클릭하면 제거됩니다
+Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	대칭 중심: 끌어서 옮기고, 두 번 클릭하면 가운데로, 오른쪽 클릭하면 더 보기
+Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	대칭 앵커: 끌어서 옮기고, 두 번 클릭하면 제거, 오른쪽 클릭하면 더 보기

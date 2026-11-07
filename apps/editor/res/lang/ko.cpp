@@ -2421,8 +2421,8 @@ constexpr UiText kRows[] = {
     {L"Link selected units", L"\uC120\uD0DD\uD55C \uC720\uB2DB \uC5F0\uACB0"},
     {L"Jump to linked unit", L"\uC5F0\uACB0\uB41C \uC720\uB2DB\uC73C\uB85C \uC774\uB3D9"},
     {L" locations", L" \uC704\uCE58"},
-    {L"Turns", L"\uD68C\uC804 \uC218"},
-    {L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"\uD68C\uC804: \uBCF5\uC0AC\uBCF8\uC774 \uB300\uCE6D \uC911\uC2EC\uC744 \uAC19\uC740 \uAC04\uACA9\uC73C\uB85C \uB3D5\uB2C8\uB2E4. 1: \uC5C6\uC74C, 2: \uBC18 \uBC14\uD034, 4: 1/4 \uBC14\uD034, 1~8. \uD074\uB9AD\uD558\uC5EC \uC22B\uC790\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. \uD654\uC0B4\uD45C\uC640 \uB9C8\uC6B0\uC2A4 \uD720\uB85C \uBC14\uAFC9\uB2C8\uB2E4. \uB4F1\uAC01 \uC9C0\uD615\uC5D0\uC11C\uB294 \uD68C\uC804\uC774 \uB2E4\uC774\uC544\uBAAC\uB4DC\uB97C \uC720\uC9C0\uD558\uC9C0 \uC54A\uC73C\uBA74(2, \uADF8\uB9AC\uACE0 \uB108\uBE44\uAC00 \uB192\uC774\uC758 \uB450 \uBC30\uC778 \uB9F5\uC758 4\uB294 \uC720\uC9C0) \uBCF5\uC0AC\uBCF8\uC774 \uAC00\uC7A5 \uAC00\uAE4C\uC6B4 \uB2E4\uC774\uC544\uBAAC\uB4DC\uB85C \uAC11\uB2C8\uB2E4."},
+    {L"Brushes", L"\uBE0C\uB7EC\uC2DC \uC218"},
+    {L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"\uBE0C\uB7EC\uC2DC \uC218: \uBE0C\uB7EC\uC2DC\uAC00 \uB300\uCE6D \uC911\uC2EC\uC744 \uAC19\uC740 \uAC04\uACA9\uC73C\uB85C \uB3D5\uB2C8\uB2E4. 1: \uBE0C\uB7EC\uC2DC \uD558\uB098, 2: \uB458(\uBC18 \uBC14\uD034), 4: \uB137(1/4 \uBC14\uD034), 1~8. \uD074\uB9AD\uD558\uC5EC \uC22B\uC790\uB97C \uC785\uB825\uD569\uB2C8\uB2E4. \uD654\uC0B4\uD45C\uC640 \uB9C8\uC6B0\uC2A4 \uD720\uB85C \uBC14\uAFC9\uB2C8\uB2E4. \uB4F1\uAC01 \uC9C0\uD615\uC5D0\uC11C\uB294 \uD68C\uC804\uC774 \uB2E4\uC774\uC544\uBAAC\uB4DC\uB97C \uC720\uC9C0\uD558\uC9C0 \uC54A\uC73C\uBA74(2, \uADF8\uB9AC\uACE0 \uB108\uBE44\uAC00 \uB192\uC774\uC758 \uB450 \uBC30\uC778 \uB9F5\uC758 4\uB294 \uC720\uC9C0) \uBCF5\uC0AC\uBCF8\uC774 \uAC00\uC7A5 \uAC00\uAE4C\uC6B4 \uB2E4\uC774\uC544\uBAAC\uB4DC\uB85C \uAC11\uB2C8\uB2E4."},
     {L"Start locations", L"\uC2DC\uC791 \uC704\uCE58"},
     {L"&Place them", L"\uBC30\uCE58(&P)"},
     {L"&Save anyway", L"\uADF8\uB798\uB3C4 \uC800\uC7A5(&S)"},
@@ -2974,6 +2974,13 @@ constexpr UiText kRows[] = {
     {L"\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it", L"\n\uD074\uB9AD: \uC5F4 \uC120\uD0DD\n\uC120\uD0DD\uD55C \uC5F4 \uB04C\uAE30: \uC774\uB3D9\n\uB354\uBE14\uD074\uB9AD: \uD574\uB2F9 \uC5F4\uB85C \uC815\uB82C (\uC624\uB984\uCC28\uC21C, \uB0B4\uB9BC\uCC28\uC21C, \uAE30\uBCF8 \uC21C\uC11C)\n\uC624\uB978\uCABD \uAC00\uC7A5\uC790\uB9AC \uB04C\uAE30: \uB108\uBE44 \uBCC0\uACBD (\uC120\uD0DD\uD55C \uBAA8\uB4E0 \uC5F4)\n\uC624\uB978\uCABD \uAC00\uC7A5\uC790\uB9AC \uB354\uBE14\uD074\uB9AD: \uD14D\uC2A4\uD2B8\uC5D0 \uB9DE\uCDB0 \uB108\uBE44 \uC870\uC815\n\uC624\uB978\uCABD \uD074\uB9AD: \uC228\uAE30\uAE30"},
     {L"hidden", L"\uC228\uAE40"},
     {L"locked", L"\uC7A0\uAE08"},
+    {L"Re&center this anchor", L"\uC774 \uC575\uCEE4 \uB2E4\uC2DC \uAC00\uC6B4\uB370\uB85C(&C)"},
+    {L"Recentered the symmetry anchor", L"\uB300\uCE6D \uC575\uCEE4\uB97C \uB2E4\uC2DC \uAC00\uC6B4\uB370\uB85C \uC62E\uACBC\uC2B5\uB2C8\uB2E4"},
+    {L"Add symmetry &anchor", L"\uB300\uCE6D \uC575\uCEE4 \uCD94\uAC00(&A)"},
+    {L"Merged the symmetry anchors", L"\uB300\uCE6D \uC575\uCEE4\uB97C \uD569\uCCE4\uC2B5\uB2C8\uB2E4"},
+    {L"Moved the symmetry anchor. Double-click it to remove it", L"\uB300\uCE6D \uC575\uCEE4\uB97C \uC62E\uACBC\uC2B5\uB2C8\uB2E4. \uB450 \uBC88 \uD074\uB9AD\uD558\uBA74 \uC81C\uAC70\uB429\uB2C8\uB2E4"},
+    {L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more", L"\uB300\uCE6D \uC911\uC2EC: \uB04C\uC5B4\uC11C \uC62E\uAE30\uACE0, \uB450 \uBC88 \uD074\uB9AD\uD558\uBA74 \uAC00\uC6B4\uB370\uB85C, \uC624\uB978\uCABD \uD074\uB9AD\uD558\uBA74 \uB354 \uBCF4\uAE30"},
+    {L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more", L"\uB300\uCE6D \uC575\uCEE4: \uB04C\uC5B4\uC11C \uC62E\uAE30\uACE0, \uB450 \uBC88 \uD074\uB9AD\uD558\uBA74 \uC81C\uAC70, \uC624\uB978\uCABD \uD074\uB9AD\uD558\uBA74 \uB354 \uBCF4\uAE30"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

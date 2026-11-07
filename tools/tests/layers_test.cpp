@@ -387,6 +387,77 @@ int main(int argc, char** argv) {
         }
     }
 
+    // A doodad's overlay sprite: it comes with the doodad, and one that was removed stays out.
+    {
+        Editor ed(data);
+        check(ed.newMap(64, 64, 0, Dirt, err), "a map for the overlays");
+        bool placed = false;
+        for (const DoodadType& t : ed.doodadTypes().all())
+            if (t.overlaySprite && ed.placeDoodad(t.id, 640, 640, false)) {
+                placed = true;
+                break;
+            }
+        check(placed && ed.sprites().size() == 1, "a doodad with its overlay");
+        if (placed && ed.sprites().size() == 1) {
+            const uint16_t overlay = ed.sprites()[0].id;
+            check(!ed.layerDoodads()[0].noOverlay && ed.layerSprites().empty(), "the overlay is the doodad's");
+            const Bytes base = ed.layerBaseNow();
+            LayerStack s;
+            s.background.doodads.push_back({ed.layerDoodads()[0], int(ed.doodads()[0].x), int(ed.doodads()[0].y), true});
+            ed.composeLayers(base, s);
+            check(ed.sprites().size() == 1 && ed.sprites()[0].id == overlay && !ed.layerDoodads()[0].noOverlay, "flattened: the overlay is back");
+            // (off the grid: the overlay stays at the doodad's place, so it stays the doodad's)
+            s.background.doodads[0].x += 5;
+            ed.composeLayers(base, s);
+            check(ed.sprites().size() == 1 && ed.sprites()[0].x == ed.doodads()[0].x && !ed.layerDoodads()[0].noOverlay && ed.layerSprites().empty(), "off the grid: the overlay with it");
+            s.background.doodads[0].x -= 5;
+            // (a Background doodad that does not fit keeps its overlay too)
+            const int fitsX = s.background.doodads[0].x, fitsY = s.background.doodads[0].y;
+            s.background.doodads[0].x = ed.width() * 32 - 1, s.background.doodads[0].y = ed.height() * 32 - 1;
+            ed.composeLayers(base, s);
+            check(ed.doodads().size() == 1 && ed.sprites().size() == 1 && !ed.layerDoodads()[0].noOverlay && ed.layerSprites().empty(), "one that does not fit: the overlay with it");
+            s.background.doodads[0].x = fitsX, s.background.doodads[0].y = fitsY;
+            ed.composeLayers(base, s);
+
+            check(ed.deleteSprite(0) && ed.sprites().empty(), "the overlay is removed");
+            const std::vector<Doodad> without = ed.layerDoodads();
+            check(without.size() == 1 && without[0].noOverlay, "the doodad knows");
+            s.background.doodads[0].item = without[0];
+            ed.composeLayers(base, s);
+            check(ed.doodads().size() == 1 && ed.sprites().empty() && ed.layerDoodads()[0].noOverlay, "flattened: it stays out");
+
+            LayerStack back;
+            check(LayerStack::parse(s.serialize(), back) && back.background.doodads[0].item.noOverlay && back.background.doodads[0].shown, "in the file too");
+
+            // A move keeps it out.
+            check(ed.moveDoodad(0, 960, 960, false) && ed.sprites().empty() && ed.layerDoodads()[0].noOverlay, "moved: it stays out");
+            check(ed.moveDoodads({0}, 64, 64, false) && ed.sprites().empty() && ed.layerDoodads()[0].noOverlay, "moved by a drag: it stays out");
+            s.background.doodads[0] = {ed.layerDoodads()[0], int(ed.doodads()[0].x), int(ed.doodads()[0].y), true};
+
+            // Two at one spot, with one sprite: the stack says what the map says, so nothing looks changed at the next edit.
+            MapLayer& over = s.add("over", 0);
+            Doodad same = s.background.doodads[0].item;
+            same.noOverlay = false;
+            over.doodads.push_back({same, s.background.doodads[0].x, s.background.doodads[0].y, false});
+            ed.composeLayers(base, s);
+            const std::vector<Doodad> both = ed.layerDoodads();
+            check(ed.sprites().size() == 1 && both.size() == 2 && !both[0].noOverlay && both[1].noOverlay, "two at one spot: the sprite is the first one's");
+            check(s.background.doodads[0].item.noOverlay && !s.layers[0].doodads[0].item.noOverlay, "flattening does not change the stack");
+            s.layers.clear();
+
+            // A sprite of its own on a doodad with no overlay reads as that overlay: the lists stay in step, the stack keeps both.
+            MapLayer& onto = s.add("onto", 0);
+            onto.sprites.push_back({MapSprite{overlay, 0, 0, 0, 0, SpriteFlag::DrawAsSprite}, s.background.doodads[0].x, s.background.doodads[0].y, false});
+            onto.sprites.push_back({MapSprite{overlay, 0, 0, 0, 0, SpriteFlag::DrawAsSprite}, 100, 100, false});
+            ed.composeLayers(base, s);
+            check(s.background.doodads[0].item.noOverlay && s.layers[0].sprites.size() == 2 && !s.layers[0].sprites[0].shown && s.layers[0].sprites[1].shown, "a sprite on the spot: the stack keeps both");
+            check(ed.sprites().size() == 2 && ed.layerSprites().size() == 1 && s.owners().sprites.size() == 1, "the sprites' owners stay in step");
+            s.layers[0].sprites[0].x = 200;
+            ed.composeLayers(base, s);
+            check(ed.layerDoodads()[0].noOverlay && ed.layerSprites().size() == 2 && s.owners().sprites.size() == 2 && s.layers[0].sprites[0].shown, "moved off: the sprite is its own again, and the doodad has no overlay");
+        }
+    }
+
     std::printf(failures ? "%d FAILED\n" : "all passed\n", failures);
     return failures ? 1 : 0;
 }

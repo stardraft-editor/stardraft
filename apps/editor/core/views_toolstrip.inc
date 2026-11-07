@@ -598,7 +598,7 @@ public:
         };
         static const wchar_t* const kSizeTip = L"Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).";
         static const wchar_t* const kTurnsTip =
-            L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
+            L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).";
         static const wchar_t* const kHeightTip =
             L"Brush height: 1 to 32. Click to type a height (empty: the same as the size). The arrows and the mouse wheel change it.";
         if (stripHasSize() && app.mode == Mode::Terrain) {
@@ -736,11 +736,11 @@ public:
             // too narrow.
             const int minStep = scale(84), left = mx + scale(6);
             if (W - left >= minStep) {
-                spinner(kNumTurns, {left, y + scale(1), W, y + mb - scale(1)}, L"Turns", L"", kTurnsTip);
+                spinner(kNumTurns, {left, y + scale(1), W, y + mb - scale(1)}, L"Brushes", L"", kTurnsTip);
                 y += mb + gap;
             } else {
                 y += mb + gap;
-                numberRow(kNumTurns, L"Turns", kTurnsTip);
+                numberRow(kNumTurns, L"Brushes", kTurnsTip);
             }
         }
         c.setFont(prevFont);

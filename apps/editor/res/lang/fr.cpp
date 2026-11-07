@@ -2421,8 +2421,8 @@ constexpr UiText kRows[] = {
     {L"Link selected units", L"Lier les unit\u00E9s s\u00E9lectionn\u00E9es"},
     {L"Jump to linked unit", L"Aller \u00E0 l'unit\u00E9 li\u00E9e"},
     {L" locations", L" emplacements"},
-    {L"Turns", L"Rotations"},
-    {L"Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Rotations : les copies tournent autour du centre de sym\u00E9trie \u00E0 pas \u00E9gaux. 1 : aucune, 2 : un demi-tour, 4 : des quarts de tour, de 1 \u00E0 8. Cliquez pour saisir un nombre. Les fl\u00E8ches et la molette le changent. Sur le terrain isom\u00E9trique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute)."},
+    {L"Brushes", L"Pinceaux"},
+    {L"Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).", L"Pinceaux : les pinceaux tournent autour du centre de sym\u00E9trie \u00E0 pas \u00E9gaux. 1 : un pinceau, 2 : deux (un demi-tour), 4 : quatre (des quarts de tour), de 1 \u00E0 8. Cliquez pour saisir un nombre. Les fl\u00E8ches et la molette le changent. Sur le terrain isom\u00E9trique, une copie va au losange le plus proche sauf si la rotation conserve les losanges (2, et 4 sur une carte deux fois plus large que haute)."},
     {L"Start locations", L"Positions de d\u00E9part"},
     {L"&Place them", L"&Les placer"},
     {L"&Save anyway", L"&Enregistrer quand m\u00EAme"},
@@ -2944,6 +2944,13 @@ constexpr UiText kRows[] = {
     {L"\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it", L"\nClic: s\u00E9lectionner la colonne\nGlisser une colonne s\u00E9lectionn\u00E9e: la d\u00E9placer\nDouble-clic: trier selon elle (croissant, d\u00E9croissant, puis l'ordre par d\u00E9faut)\nGlisser le bord droit: changer la largeur (de toutes les colonnes s\u00E9lectionn\u00E9es)\nDouble-clic sur le bord droit: ajuster la largeur au texte\nClic droit: la masquer"},
     {L"hidden", L"masqu\u00E9"},
     {L"locked", L"verrouill\u00E9"},
+    {L"Re&center this anchor", L"Re&centrer cet ancrage"},
+    {L"Recentered the symmetry anchor", L"Ancrage de sym\u00E9trie recentr\u00E9"},
+    {L"Add symmetry &anchor", L"Ajouter un &ancrage de sym\u00E9trie"},
+    {L"Merged the symmetry anchors", L"Ancrages de sym\u00E9trie fusionn\u00E9s"},
+    {L"Moved the symmetry anchor. Double-click it to remove it", L"Ancrage de sym\u00E9trie d\u00E9plac\u00E9. Double-cliquez dessus pour le retirer"},
+    {L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more", L"Centre de sym\u00E9trie : faites-le glisser pour le d\u00E9placer, double-cliquez pour le mettre au milieu, clic droit pour plus"},
+    {L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more", L"Ancrage de sym\u00E9trie : faites-le glisser pour le d\u00E9placer, double-cliquez pour le retirer, clic droit pour plus"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

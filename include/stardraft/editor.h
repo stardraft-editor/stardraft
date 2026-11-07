@@ -349,7 +349,12 @@ public:
     std::vector<std::pair<int, int>> symmetryAnchors() const;
     int addSymmetryAnchor(int px, int py);  // its index; -1: there are kMaxSymmetryAnchors, or one is at that point
     void setSymmetryAnchor(int index, int px, int py);
-    void removeSymmetryAnchor(int index);  // (not anchor 0: it is the center)
+    void removeSymmetryAnchor(int index);  // (anchor 0: the next one becomes the center; the last one stays)
+    // Puts the anchor in the map's middle (the center: as at first), and merges it with one that is there. False: it is there.
+    bool centerSymmetryAnchor(int index);
+    bool canCenterSymmetryAnchor(int index) const;
+    // Anchors at exactly one point become one (the center stays the center). The number that went.
+    int mergeSymmetryAnchors();
     static constexpr int kMaxSymmetryAnchors = 8;
     // The masks (Alt+click in the lists): painting changes only the corners of these terrains (Isometric; the tool strip's
     // Rectangle checks its tiles' terrains) and the tiles of these values (Tile). Empty: all. Not in the map: a new map has none.
@@ -736,6 +741,7 @@ public:
     Bytes layerBaseNow() const;
     // The map's sprites without its doodads' own sprites.
     std::vector<MapSprite> layerSprites() const;
+    std::vector<Doodad> layerDoodads() const;  // (noOverlay set on those that have no overlay sprite on the map)
     // The corners the terrain tools asked for since the last call (on: they are noted), also those that already had that
     // terrain: painting a terrain over the same terrain under a layer puts it in the layer.
     void noteAskedCorners(bool on) { noteAsked_ = on; if (!on) askedCorners_.clear(); }
@@ -946,6 +952,7 @@ private:
     std::optional<std::pair<IsomGrid, TerrainLayer>> layerHeld_;  // composeLayers' hold
     std::pair<int, int> anchorOnGrid(int px, int py) const;
     int moreAnchorOf(int index) const;
+    std::pair<int, int> anchorMiddle(int index) const;
     std::vector<uint16_t> terrainMask_, tileMask_;  // setTerrainMask, setTileMask
     std::vector<uint16_t> terrainMaskIds_;          // (terrainMask_ with the mod terrains' variants)
     std::optional<IsomGrid> maskGround_;            // (a stroke's ground when it began: what it paints round does not join the mask)

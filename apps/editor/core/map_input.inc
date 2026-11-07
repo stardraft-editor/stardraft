@@ -256,8 +256,10 @@ int stackUnitAt(const Editor& ed, float wx, float wy) {
 }
 
 std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom);  // (below)
+int symmetryAnchorNear(const Editor& ed, float wx, float wy, float zoom);  // (views_map_menu.inc)
 std::chrono::steady_clock::time_point gSymmetryPressAt{};  // the handle's last click (a drag is not one: a double click's)
 int gSymmetryDragged = 0;                                    // the anchor that the drag moves
+int gSymmetryHover = -1;                                     // the anchor under the mouse at the last move, or -1
 std::pair<int, int> gSymmetryFrom{-1, -1};                  // the center when its drag began (Esc puts it back)
 // The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
 // The anchor whose handle is at this place of the window (Terrain's Select tool), or -1. The last one first: on top.
@@ -267,10 +269,7 @@ int symmetryHandleIndex(const AppState& app, int sx, int sy) {
         return -1;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
-    const auto anchors = app.ed->symmetryAnchors();
-    for (int i = int(anchors.size()) - 1; i >= 0; --i)
-        if (std::hypot(wx - anchors[size_t(i)].first, wy - anchors[size_t(i)].second) * app.zoom <= float(scale(10))) return i;
-    return -1;
+    return symmetryAnchorNear(*app.ed, wx, wy, app.zoom);
 }
 bool symmetryHandleAt(const AppState& app, int sx, int sy) { return symmetryHandleIndex(app, sx, sy) >= 0; }
 
@@ -325,8 +324,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             if (anchor > 0) {
                 ed.removeSymmetryAnchor(anchor);
                 setMessage(app, L"Removed the symmetry anchor");
-            } else {
-                ed.setSymmetryCenter(-1, -1);
+            } else if (ed.centerSymmetryAnchor(0)) {  // (not when another anchor is in the middle)
                 setMessage(app, L"The symmetry center is in the middle of the map");
             }
             gSymmetryPressAt = {};
@@ -718,9 +716,12 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         app.dirty = true;
         return;
     }
-    {  // (the handle shows while the mouse is on it)
-        static bool onHandle = false;
-        if (const bool on = symmetryHandleAt(app, sx, sy); on != onHandle) onHandle = on, app.dirty = true;
+    {  // (the handle shows while the mouse is on it; the status bar tells what it does)
+        if (const int on = app.drag == Drag::None ? symmetryHandleIndex(app, sx, sy) : -1; on != gSymmetryHover) {
+            gSymmetryHover = on, app.dirty = true;
+            if (on == 0) setMessage(app, L"Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more");
+            else if (on > 0) setMessage(app, L"Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more");
+        }
     }
     if (app.drag == Drag::Paint && app.ed) {
         const uint16_t paint = currentTool(app) == TErase ? eraseTerrain(*app.ed) : uint16_t(app.palette);  // (Erase: Dirt)
@@ -874,7 +875,11 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     }
     if (app.drag == Drag::SymmetryCenter) {
         app.drag = Drag::None;
-        if (app.dragMoved) gSymmetryPressAt = {}, setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
+        if (app.dragMoved && app.ed && app.ed->mergeSymmetryAnchors()) gSymmetryPressAt = {}, setMessage(app, L"Merged the symmetry anchors");
+        else if (app.dragMoved)
+            gSymmetryPressAt = {}, setMessage(app, gSymmetryDragged > 0 ? L"Moved the symmetry anchor. Double-click it to remove it"
+                                                                         : L"Moved the symmetry center. Double-click it to put it in the middle of the map");
+        gSymmetryHover = symmetryHandleIndex(app, sx, sy);  // (after a merge too: the next move keeps this message)
         app.dirty = true;
         return;
     }

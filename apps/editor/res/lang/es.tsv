@@ -2419,8 +2419,8 @@ Lifted	Elevada
 Link selected units	Enlazar las unidades seleccionadas
 Jump to linked unit	Ir a la unidad enlazada
  locations	 ubicaciones
-Turns	Giros
-Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Giros: las copias giran alrededor del centro de simetría a pasos iguales. 1: ninguno, 2: media vuelta, 4: cuartos de vuelta, de 1 a 8. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
+Brushes	Pinceles
+Brushes: the brushes go round the symmetry center in equal steps. 1: one brush, 2: two (a half turn), 4: four (quarter turns), 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	Pinceles: los pinceles giran alrededor del centro de simetría a pasos iguales. 1: un pincel, 2: dos (media vuelta), 4: cuatro (cuartos de vuelta), de 1 a 8. Haz clic para escribir un número. Las flechas y la rueda del ratón lo cambian. En terreno isométrico, una copia va al rombo más cercano salvo que el giro conserve los rombos (2, y 4 en un mapa el doble de ancho que de alto).
 Start locations	Posiciones de inicio
 &Place them	&Colocarlas
 &Save anyway	&Guardar de todos modos
@@ -2942,3 +2942,10 @@ View	Ver
 \nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\nClic: seleccionar la columna\nArrastrar una columna seleccionada: moverla\nDoble clic: ordenar por ella (ascendente, descendente y luego el orden predeterminado)\nArrastrar el borde derecho: cambiar el ancho (de todas las columnas seleccionadas)\nDoble clic en el borde derecho: ajustar el ancho al texto\nClic derecho: ocultarla
 hidden	oculta
 locked	bloqueada
+Re&center this anchor	Re&centrar esta ancla
+Recentered the symmetry anchor	Ancla de simetría recentrada
+Add symmetry &anchor	Añadir un &ancla de simetría
+Merged the symmetry anchors	Anclas de simetría unidas
+Moved the symmetry anchor. Double-click it to remove it	Ancla de simetría movida. Haga doble clic para quitarla
+Symmetry center: drag it to move it, double-click it to put it in the middle, right-click it for more	Centro de simetría: arrástrelo para moverlo, haga doble clic para ponerlo en el medio, clic derecho para más
+Symmetry anchor: drag it to move it, double-click it to remove it, right-click it for more	Ancla de simetría: arrástrela para moverla, haga doble clic para quitarla, clic derecho para más
