@@ -117,10 +117,10 @@ CASES += [
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
     ("map-dialog-unitprops", ["--dialog", "unitprops"], "map"),
-    ("map-mining-lab", ["--dialog", "mininglab", "--size", "620x650"], "map"),
-    ("map-rush-measure", ["--dialog", "rushmeasure", "--size", "620x650"], "map"),
-    ("map-mining-lab-running", ["--dialog", "mininglab", "--size", "620x650", "--click", "60,620", "--wait", "2000"], "map"),
-    ("map-rush-measure-running", ["--dialog", "rushmeasure", "--size", "620x650", "--click", "60,620", "--wait", "2000"], "map"),
+    ("map-mining-lab", ["--dialog", "mininglab", "--size", "1100x250"], "map"),
+    ("map-rush-measure", ["--dialog", "rushmeasure", "--size", "520x300"], "map"),
+    ("map-mining-lab-running", ["--dialog", "mininglab", "--size", "1100x250", "--click", "560,46", "--wait", "2000"], "map"),
+    ("map-rush-measure-running", ["--dialog", "rushmeasure", "--size", "520x300", "--click", "60,270", "--wait", "2000"], "map"),
     ("map-dialog-locprops", ["--dialog", "locprops"], "map"),
     ("map-dialog-mapimage", ["--dialog", "mapimage"], "map"),  # File > Export map image (core/map_image.inc)
     ("map-dialog-mapimage-progress", ["--dialog", "mapimage-progress"], "map"),  # ... its progress window, at part 3 of 16
@@ -5208,7 +5208,7 @@ CHECKS.update({
 for _lab in ("mining", "rush"):
     SCRIPTS["map_lab_" + _lab] = (
         "history\ncommand edit.measure." + _lab + "\nwait 200\n"
-        "click 100,660\nwait 2000\nhistory\n"
+        + ("click 560,788\n" if _lab == "mining" else "click 100,390\n") + "wait 2000\nhistory\n"
     )
     _case = "map-lab-menu-" + _lab
     CASES.append((_case, ["--script", "{script:map_lab_" + _lab + "}", "--check", "menus"], "map"))
@@ -5226,6 +5226,63 @@ for _lab in ("mining", "rush"):
             return "the measurement changed the map or undo history"
         return None
     CHECKS[_case] = _check_lab
+
+
+SCRIPTS["mining_multi_base"] = (
+    "history\ncommand edit.measure.mining\nwait 200\nclick 560,788\nwait 2000\n"
+    "click 100,788\nkey Down\nkey Enter\nclick 560,788\nwait 2000\nclick 1030,788\nhistory\n"
+)
+CASES.append(("map-mining-multi-base", ["--script", "{script:mining_multi_base}"], "map"))
+def check_mining_multi(output):
+    if "mining-lab: started tests=2" not in output:
+        return "a second independent base test did not start"
+    states = re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)", output)
+    return None if len(states) == 2 and states[0] == states[1] else "mining changed the map or undo history"
+CHECKS["map-mining-multi-base"] = check_mining_multi
+
+for _kind, _name in enumerate(("position", "cargo", "cycle")):
+    _budget_x = 479 + _kind * 525
+    _button_x = 66 + _kind * 525
+    SCRIPTS["mining_boost_" + _name] = (
+        "history\ncommand edit.measure.mining\nwait 200\nclick 560,788\nwait 2000\n"
+        + f"click {_budget_x},867\nkey Ctrl+A\ntype {_kind + 2}\nclick {_button_x},900\nwait 22000\n"
+        + (f"click {_button_x},900\nwait 12000\n" if _kind == 0 else "")
+        + "history\n"
+    )
+    _case = "map-mining-boost-" + _name
+    CASES.append((_case, ["--script", "{script:mining_boost_" + _name + "}"], "map"))
+    def check_boost(output, kind=_kind):
+        if f"mining-lab: search kind={kind} budget={kind + 2}" not in output:
+            return "the selected search allowance was not used"
+        finished = re.findall(rf"mining-lab: finished kind={kind} found=(\d+) elapsed=([\d.]+) guides=(\d+)", output)
+        if not finished:
+            return "the search did not publish its verified result"
+        if kind == 0 and len(finished) < 2 and not re.search(r"finished kind=0[^\n]*exhausted=1", output):
+            return "Continue did not resume the previous search"
+        if len(finished) > 1 and float(finished[-1][1]) < float(finished[0][1]):
+            return "search continuation reset its accumulated time"
+        states = re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)", output)
+        return None if len(states) == 2 and states[0] == states[1] else "the boost search changed the map or undo history"
+    CHECKS[_case] = check_boost
+
+
+SCRIPTS["rush_widget_controls"] = (
+    "history\ncommand edit.measure.rush\ncommand view.fit\nwait 200\n"
+    "click 100,214\nclick 1198,594\nclick 1155,594\nwait 8000\n"
+    "click 370,176\nkey Ctrl+A\ntype 1.25\nclick 510,176\nkey Ctrl+A\ntype 3\n"
+    "click 196,390\nwait 500\nclick 196,390\nwait 2000\nmove 1198,594\nhistory\n"
+)
+CASES.append(("map-rush-widget-controls", ["--script", "{script:rush_widget_controls}"], "map"))
+def check_rush_widget(output):
+    if "rush-lab: settings interval=1.25 retained=3" not in output:
+        return "the live launch/retention settings did not reach the engine"
+    if not re.search(r"rush-lab: completed=[1-9]\d* average=", output):
+        return "the short route did not produce a completed timing result"
+    if not re.search(r"rush-lab: hover run=[1-9]\d*", output):
+        return "hovering the trail did not identify its timing row"
+    states = re.findall(r"history: (\d+) done, (\d+) to redo, map ([0-9a-f]+)", output)
+    return None if len(states) == 2 and states[0] == states[1] else "the Rush widget changed the map or undo history"
+CHECKS["map-rush-widget-controls"] = check_rush_widget
 
 
 def main():

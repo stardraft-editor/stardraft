@@ -30,6 +30,14 @@ int main() {
             try { invalid.search(technique, 1); } catch (const std::invalid_argument&) { refused = true; }
             check(refused);
         }
+        invalid.search(0,600); // Valid allowance, ignored on a finished session.
+        bool refused=false;
+        try { invalid.search(0,601); } catch(const std::invalid_argument&) { refused=true; }
+        check(refused);
+        invalid.configureRush(.5,50);
+        refused=false;
+        try { invalid.configureRush(.4,10); } catch(const std::invalid_argument&) { refused=true; }
+        check(refused);
         request.race = 1;
         request.scenario = {1, 2, 3};
         const auto original = request.scenario;

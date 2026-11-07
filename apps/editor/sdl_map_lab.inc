@@ -1,340 +1,278 @@
 // SPDX-License-Identifier: MIT
-// A value snapshot of the current map, simulated on a worker. No edit or undo step.
+// Compact Rush widget. Mining Lab is the separate bottom widget below.
 #include "../../tools/map_lab/session.h"
-#include "../kit/form.h"
+#include "../../tools/map_lab/guide_geometry.h"
+#include "../kit/label.h"
+#include "../kit/list_view.h"
 #include <iomanip>
 #include <sstream>
+void showMiningLabPanel();
+void miningPanelFrame();
 
 namespace {
-class MapLabView final : public draw::View {
-public:
-    bool open = false, rush = false;
-    int picking = 0;
-    bool consumeUp = false;
-    MapLabView() {
-        race_.setItems({{L"Zerg"}, {L"Terran"}, {L"Protoss"}});
-        race_.setValue(1);
-        workers_.setItems({{L"One per mineral field"}, {L"4"}, {L"8"}, {L"9"}, {L"12"},
-                           {L"16"}, {L"18"}, {L"24"}, {L"27"}, {L"32"}, {L"60"}});
-        workers_.setValue(0);
-        speed_.setItems({{L"1x"}, {L"4x"}, {L"16x"}});
-        speed_.setValue(0);
-        speed_.onChange = [this](int) { if (session_) session_->speed(paused_ ? 0 : speed()); };
-        base_.onChange = [this](int n) {
-            if (n >= 0 && n < int(bases_.size())) start_ = bases_[size_t(n)];
-            coordinates();
-        };
-        startPoint_.setText(L"Select the start on the map");
-        endPoint_.setText(L"Select the end on the map");
-        startPoint_.onClick = [this] { picking = 1; setMessage(L"Click the start point on the map. Esc cancels."); };
-        endPoint_.onClick = [this] { picking = 2; setMessage(L"Click the end point on the map. Esc cancels."); };
-        run_.setText(L"Start");
-        run_.setTone(stardraft::kit::Tone::Primary);
-        run_.onClick = [this] { start(); };
-        pause_.setText(L"Pause");
-        pause_.onClick = [this] {
-            paused_ = !paused_;
-            pause_.setText(paused_ ? L"Resume" : L"Pause");
-            if (session_) session_->speed(paused_ ? 0 : speed());
-        };
-        stop_.setText(L"Stop");
-        stop_.onClick = [this] { stop(); };
-        copy_.setText(L"Copy");
-        copy_.onClick = [this] { if (host()) host()->setClipboardText(narrow(report_.text())); };
-        close_.setText(L"Close");
-        close_.onClick = [this] { close(); };
-        const wchar_t* names[]{L"Optimize positions", L"Optimize cargo", L"Optimize cycles"};
-        for (int i = 0; i < 3; ++i) {
-            search_[i].setText(names[i]);
-            search_[i].setTip(L"Search for one second. The report shows the result.");
-            search_[i].onClick = [this, i] { if (session_) session_->search(i, 1); };
-            add(search_[i], {});
-        }
-        report_.setReadOnly(true);
-        report_.setMultiline(true);
-        report_.setCopyWhole(true);
-        report_.setWrap(false);
-        add(form_, {});
-        add(report_, {});
-        for (auto* button : {&run_, &pause_, &stop_, &copy_, &close_}) add(*button, {});
+void labScene(render::Scene&);
+class RushWidget final : public draw::View {
+    const Editor* editor_=nullptr;
+    uint64_t revision_=0;
+    bool paused_=false, both_=false, haveStart_=false, haveEnd_=false;
+    int consume_=-1, hovered_=-1;
+    maplab::RushPoint start_,end_;
+    maplab::Snapshot latest_;
+    std::unique_ptr<maplab::Session> session_;
+    stardraft::kit::Dropdown race_,speed_;
+    stardraft::kit::TextField interval_,retained_;
+    stardraft::kit::Button choose_,pickStart_,pickEnd_,measure_,pause_,clear_,copy_,hide_;
+    stardraft::kit::Label status_;
+    stardraft::kit::ListView results_;
+    std::vector<const maplab::RushPath*> rows_;
+    static std::wstring number(double n,int digits=2) {
+        std::wostringstream out;out<<std::fixed<<std::setprecision(digits)<<n;return out.str();
     }
-    void setup(bool forRush) {
-        stop();
-        rush = forRush;
-        editor_ = gState.ed.get();
-        revision_ = editor_->revision();
-        bases_.clear();
-        std::vector<stardraft::kit::DropdownItem> items;
-        for (const auto& u : editor_->units()) if (u.type == 214) {
-            bases_.push_back({u.x, u.y});
-            items.push_back({L"Player " + std::to_wstring(u.owner + 1) + L" (" +
-                             std::to_wstring(u.x) + L", " + std::to_wstring(u.y) + L")"});
+    double interval() {
+        const auto& text=interval_.text();
+        double n=text.empty()?2:std::wcstod(text.c_str(),nullptr);
+        n=std::isfinite(n)?std::clamp(n,.5,60.):2;
+        n=std::round(n*100)/100;
+        auto display=number(n,2);while(display.back()==L'0')display.pop_back();if(display.back()==L'.')display.pop_back();
+        interval_.setText(display);return n;
+    }
+    int retained() {
+        const auto& text=retained_.text();
+        const int n=std::clamp(text.empty()?10:int(std::wcstol(text.c_str(),nullptr,10)),1,50);
+        retained_.setText(std::to_wstring(n));return n;
+    }
+    int speed() const {return 1<<std::clamp(speed_.value(),0,2);}
+    void configure() {
+        if(session_){const double seconds=interval();const int keep=retained();session_->configureRush(seconds,keep);
+            if(gNoBoxes)std::printf("rush-lab: settings interval=%g retained=%d\n",seconds,keep);}
+    }
+    static double distance(const maplab::RushPath& path) {
+        double value=0;
+        for(size_t i=1;i<path.points.size();++i)
+            value+=std::hypot(double(path.points[i].x-path.points[i-1].x),double(path.points[i].y-path.points[i-1].y));
+        return value;
+    }
+    std::wstring state(const maplab::RushPath& path) const {
+        return path.reached?L"Reached":path.finished?L"Not reached":L"Moving";
+    }
+    void controls() {
+        pickStart_.setText(haveStart_?L"A: "+std::to_wstring(start_.x)+L", "+std::to_wstring(start_.y):L"Set start");
+        pickEnd_.setText(haveEnd_?L"B: "+std::to_wstring(end_.x)+L", "+std::to_wstring(end_.y):L"Set end");
+        measure_.setEnabled(haveStart_&&haveEnd_);
+        pause_.setEnabled(session_ && latest_.ready && !latest_.done);
+        pause_.setText(paused_?L"Resume":L"Pause");
+        clear_.setEnabled(bool(session_) || haveStart_ || haveEnd_);
+    }
+    void rowSelection() {
+        rows_.clear();
+        for(const auto& path:latest_.rush.paths) if(path.finished)rows_.push_back(&path);
+        const int count=std::clamp(int(std::wcstol(retained_.text().c_str(),nullptr,10)),1,50);
+        if(int(rows_.size())>count)rows_.erase(rows_.begin(),rows_.end()-count);
+        if(hovered_>=0 && std::none_of(rows_.begin(),rows_.end(),[&](const auto* p){return p->id==hovered_;}))
+            for(const auto& path:latest_.rush.paths)if(path.id==hovered_)rows_.push_back(&path);
+        results_.setCount(int(rows_.size()));
+        for(size_t i=0;i<rows_.size();++i)if(rows_[i]->id==hovered_)results_.selectOnly(int(i));
+    }
+    void start();
+public:
+    bool open=false;
+    int picking=0;
+    RushWidget() {
+        race_.setItems({{L"Zerg Drone"},{L"Terran SCV"},{L"Protoss Probe"}});race_.setValue(1);
+        speed_.setItems({{L"1x speed"},{L"2x speed"},{L"4x speed"}});speed_.setValue(0);
+        speed_.onChange=[this](int){if(session_)session_->speed(paused_?0:speed());};
+        race_.onChange=[this](int){if(session_)start();};
+        interval_.setText(L"2");interval_.setMaxLength(5);
+        interval_.setFilter([](wchar_t c){return (c>=L'0'&&c<=L'9')||c==L'.';});
+        retained_.setText(L"10");retained_.setMaxLength(2);
+        retained_.setFilter([](wchar_t c){return c>=L'0'&&c<=L'9';});
+        interval_.onFocusLost=[this]{interval();configure();};retained_.onFocusLost=[this]{retained();configure();};
+        interval_.onEnter=interval_.onFocusLost;retained_.onEnter=retained_.onFocusLost;
+        choose_.setText(L"Set endpoints");choose_.onClick=[this]{beginPick();};
+        pickStart_.onClick=[this]{stop();both_=false;picking=1;gLabScene=labScene;status_.setText(L"Click the starting point. Esc cancels.");};
+        pickEnd_.onClick=[this]{stop();both_=false;picking=2;gLabScene=labScene;status_.setText(L"Click the destination. Esc cancels.");};
+        measure_.setText(L"Measure");measure_.setTone(stardraft::kit::Tone::Primary);measure_.onClick=[this]{start();};
+        pause_.setText(L"Pause");pause_.onClick=[this]{paused_=!paused_;if(session_)session_->speed(paused_?0:speed());controls();};
+        clear_.setText(L"Clear");clear_.onClick=[this]{stop();haveStart_=haveEnd_=false;controls();status_.setText(L"Measurement cleared.");};
+        copy_.setText(L"Copy");copy_.onClick=[this]{
+            std::wstring text=L"Rush distance / "+race_.items()[size_t(race_.value())].label+
+                L"\r\nA: "+std::to_wstring(start_.x)+L", "+std::to_wstring(start_.y)+
+                L"\r\nB: "+std::to_wstring(end_.x)+L", "+std::to_wstring(end_.y)+L"\r\nRun\tSeconds\tPixels\tResult\r\n";
+            for(const auto& p:latest_.rush.paths)text+=std::to_wstring(p.id)+L'\t'+number(p.seconds())+L'\t'+number(distance(p))+L'\t'+state(p)+L"\r\n";
+            if(host())host()->setClipboardText(narrow(text));
+        };
+        hide_.setText(L"Hide");hide_.onClick=[this]{hide();};
+        status_.setTone(stardraft::kit::LabelTone::Dim);
+        results_.setColumns({{L"Run",48},{L"Seconds",80,stardraft::kit::ColAlign::Right},
+                             {L"Pixels",86,stardraft::kit::ColAlign::Right},{L"Result",0}});
+        results_.setEmptyHint(L"Waiting for completed trips. Hover a trail to inspect it.");
+        results_.cell=[this](int row,size_t col){
+            if(row<0||row>=int(rows_.size()))return std::wstring();
+            const auto& p=*rows_[size_t(row)];
+            return col==0?std::to_wstring(p.id):col==1?number(p.seconds()):col==2?number(distance(p)):state(p);
+        };
+        results_.onSelect=[this]{const int n=results_.cursor();if(n>=0&&n<int(rows_.size())){hovered_=rows_[size_t(n)]->id;simRedraw();}};
+        for(auto* v:std::initializer_list<draw::View*>{&race_,&speed_,&interval_,&retained_,&choose_,&pickStart_,&pickEnd_,
+                                                     &measure_,&pause_,&clear_,&copy_,&hide_,&status_,&results_})add(*v,{});
+        controls();
+    }
+    bool current() const {return gState.ed&&editor_==gState.ed.get()&&editor_->revision()==revision_;}
+    void setup(bool=true) {
+        stop();editor_=gState.ed.get();revision_=editor_?editor_->revision():0;
+        haveStart_=haveEnd_=false;
+        if(editor_)for(const auto& u:editor_->units())if(u.type==214){
+            if(!haveStart_){start_={u.x,u.y};haveStart_=true;}else{end_={u.x,u.y};haveEnd_=true;break;}
         }
-        base_.setItems(std::move(items));
-        base_.setValue(bases_.empty() ? -1 : 0);
-        start_ = bases_.empty() ? maplab::RushPoint{} : bases_[0];
-        end_ = bases_.size() > 1 ? bases_[1] : start_;
-        form_.clear();
-        form_.addSection(rush ? L"Rush distance" : L"Mining Lab");
-        form_.addRow(L"Race", race_);
-        form_.addRow(L"Start location", base_);
-        form_.addRow(L"Start point", startPoint_);
-        if (rush) form_.addRow(L"End point", endPoint_);
-        else form_.addRow(L"Workers", workers_);
-        form_.addRow(L"Speed", speed_);
-        form_.addNote(rush ? L"Select two open points. Each worker runs in its own copy of the map. Time is game time at Fastest."
-                          : L"Mineral mining only. The depot is placed at the start point. Rates include the opening travel time.");
-        report_.setText(L"Set the values, then select Start. The map keeps all edits.");
-        coordinates();
-        buttons();
-        relayout();
+        status_.setText(L"Select two open points. Times use Fastest speed.");controls();
+    }
+    void stop() {
+        session_.reset();latest_={};rows_.clear();results_.setCount(0);
+        picking=0;both_=false;paused_=false;hovered_=-1;
+        gLabScene=nullptr;controls();simRedraw();
+    }
+    void hide(){picking=0;if(host())host()->closeWindow(*this);open=false;}
+    bool closeRequested() override {picking=0;open=false;return true;}
+    bool key(const draw::KeyEvent& e) override {
+        if(e.down&&e.key==draw::Key::Escape){if(picking)picking=0;else hide();return true;}return false;
+    }
+    void beginPick(){stop();haveStart_=haveEnd_=false;both_=true;picking=1;gLabScene=labScene;controls();status_.setText(L"Click the starting point. Esc cancels.");}
+    void point(int x,int y) {
+        if(picking==1){start_={x,y};haveStart_=true;if(both_){picking=2;status_.setText(L"Click the destination.");controls();return;}}
+        else {end_={x,y};haveEnd_=true;}
+        picking=0;both_=false;controls();if(haveStart_&&haveEnd_)start();
+    }
+    void update() {
+        if(!current()){if(session_||picking)stop();return;}
+        if(simBarShown()){if(session_)stop();return;}
+        if(!session_)return;
+        const bool ready=latest_.ready;
+        const bool hadResult=std::any_of(latest_.rush.paths.begin(),latest_.rush.paths.end(),[](const auto& p){return p.finished;});
+        latest_=session_->snapshot();
+        if(gNoBoxes&&latest_.ready&&!ready)std::printf("map-lab: ready rush\n");
+        if(!latest_.error.empty()){const auto error=widen(latest_.error);stop();status_.setText(error);return;}
+        if(!latest_.ready)return;
+        rowSelection();double sum=0;int count=0;
+        for(const auto& p:latest_.rush.paths)if(p.reached){sum+=p.seconds();++count;}
+        if(gNoBoxes&&!hadResult&&count)std::printf("rush-lab: completed=%d average=%.2f\n",count,sum/count);
+        status_.setText(count?L"Average: "+number(sum/count)+L" s / "+std::to_wstring(count)+L" arrivals":
+                             paused_?L"Playback paused.":L"Measuring / Fastest / Hover a trail to inspect it.");
+        results_.invalidate();controls();simRedraw();
     }
     void paint(draw::Canvas& c) override {
-        update();
-        form_.layout(c);
-        placeResults();
-        c.fill({0, 0, width(), height()}, kPanel);
+        update();c.fill({0,0,width(),height()},kPanel);
+        c.text({scale(16),scale(8),scale(230),scale(32)},L"RUSH DISTANCE",kText,draw::kMiddle);
+        c.text({scale(300),scale(20),scale(400),scale(44)},L"Launch (s)",kDim,draw::kMiddle);
+        c.text({width()-scale(70),scale(20),width()-scale(16),scale(44)},L"Keep",kDim,draw::kMiddle);
     }
-    void resized() override { relayout(); }
-    bool key(const draw::KeyEvent& e) override {
-        if (e.down && e.key == draw::Key::Escape) {
-            if (picking) picking = 0;
-            else close();
-            return true;
+    void resized() override {
+        const int p=scale(16),gap=scale(8),fh=scale(24),bh=scale(28),w=width();
+        race_.setFrame({p,scale(44),scale(160),scale(44)+fh});
+        speed_.setFrame({scale(168),scale(44),scale(280),scale(44)+fh});
+        interval_.setFrame({scale(300),scale(44),scale(370),scale(44)+fh});
+        retained_.setFrame({w-scale(70),scale(44),w-p,scale(44)+fh});
+        choose_.setFrame({p,scale(80),scale(164),scale(80)+bh});
+        pickStart_.setFrame({scale(172),scale(80),(w+scale(172))/2-gap/2,scale(80)+bh});
+        pickEnd_.setFrame({(w+scale(172))/2+gap/2,scale(80),w-p,scale(80)+bh});
+        status_.setFrame({p,scale(112),w-p,scale(138)});
+        results_.setFrame({p,scale(142),w-p,height()-scale(52)});
+        int x=p;for(auto* b:{&measure_,&pause_,&clear_,&copy_,&hide_}){b->setFrame({x,height()-p-bh,x+scale(88),height()-p});x+=scale(88)+gap;}
+    }
+    bool mapMouse(const draw::MouseEvent& e) {
+        if(e.kind==draw::MouseKind::Up&&e.button==consume_){consume_=-1;return true;}
+        if(picking){
+            if(e.kind==draw::MouseKind::Down&&(e.button==0||e.button==1)){
+                consume_=e.button;
+                if(e.button==1){picking=0;both_=false;status_.setText(L"Point selection canceled.");return true;}
+                float x,y;toWorld(gState,float(e.pt.x),float(e.pt.y),x,y);
+                if(gState.ed&&x>=0&&y>=0&&x<gState.ed->width()*32&&y<gState.ed->height()*32)point(int(x),int(y));
+                else status_.setText(L"Click a point inside the map.");
+                return true;
+            }
+            return e.button!=2&&(e.kind==draw::MouseKind::Down||e.kind==draw::MouseKind::DoubleClick);
+        }
+        if(e.kind==draw::MouseKind::Move&&session_){
+            float x,y;toWorld(gState,float(e.pt.x),float(e.pt.y),x,y);
+            double nearest=9/std::max(.01f,gState.zoom);int hover=-1,newest=0;
+            for(const auto& p:latest_.rush.paths)newest=std::max(newest,p.id);
+            const int keep=std::clamp(int(std::wcstol(retained_.text().c_str(),nullptr,10)),1,50);
+            for(const auto& p:latest_.rush.paths)if(p.id>newest-keep)
+                for(size_t i=1;i<p.points.size();++i){
+                    const auto a=p.points[i-1],b=p.points[i];const double dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;
+                    const double t=length?std::clamp(((x-a.x)*dx+(y-a.y)*dy)/length,0.,1.):0;
+                    const double d=std::hypot(x-a.x-t*dx,y-a.y-t*dy);
+                    if(d<=nearest){nearest=d;hover=p.id;}
+                }
+            if(hover!=hovered_){hovered_=hover;rowSelection();simRedraw();if(gNoBoxes&&hover>=0)std::printf("rush-lab: hover run=%d\n",hover);}
         }
         return false;
     }
-    bool closeRequested() override { stop(); open = false; return true; }
-    void close() {
-        stop();
-        if (host()) host()->closeWindow(*this);
-        open = false;
-    }
-    void stop() {
-        session_.reset();
-        picking = 0;
-        paused_ = false;
-        pause_.setText(L"Pause");
-        gLabScene = nullptr;
-        buttons();
-        simRedraw();
-    }
-    void point(int x, int y) {
-        (picking == 1 ? start_ : end_) = {x, y};
-        picking = 0;
-        coordinates();
-    }
-    void update() {
-        if (!open) return;
-        if (editor_ != gState.ed.get() || !gState.ed || !gState.ed->isOpen() ||
-            editor_->revision() != revision_ || simBarShown()) {
-            if (session_ || picking) {
-                stop();
-                report_.setText(L"The map or simulation changed. Open the tool again to measure the current map.");
-            }
-            return;
-        }
-        if (!session_) return;
-        const bool wasReady = latest_.ready;
-        latest_ = session_->snapshot();
-        if (gNoBoxes && latest_.ready && !wasReady)
-            std::printf("map-lab: ready %s\n", rush ? "rush" : "mining");
-        if (!latest_.error.empty()) {
-            report_.setText(widen(latest_.error));
-            stop();
-            return;
-        }
-        if (!latest_.ready) return;
-        std::wostringstream text;
-        text << std::fixed << std::setprecision(2);
-        text << (rush ? L"Rush distance" : L"Mining Lab") << L"\r\n";
-        text << L"Race: " << race_.items()[size_t(race_.value())].label << L"\r\n";
-        if (!rush) text << L"Workers: " << latest_.mining.units.size()-1 << L"\r\n";
-        text << L"Start: " << start_.x << L", " << start_.y << L"\r\n";
-        if (rush) {
-            text << L"End: " << end_.x << L", " << end_.y << L"\r\n";
-            text << L"Run\tSeconds\tPixels\tResult\r\n";
-            for (const auto& path : latest_.rush.paths) {
-                double length = 0;
-                for (size_t i = 1; i < path.points.size(); ++i)
-                    length += std::hypot(double(path.points[i].x - path.points[i-1].x),
-                                         double(path.points[i].y - path.points[i-1].y));
-                text << path.id << L'\t' << path.seconds() << L'\t' << length << L'\t'
-                     << (path.reached ? L"Reached" : path.finished ? L"Not reached" : L"Running") << L"\r\n";
-            }
-        } else {
-            const auto& mine = latest_.mining;
-            text << L"Game seconds: " << mine.frame * .042 << L"\r\n"
-                 << L"Minerals per minute: " << mine.income << L"\r\n\r\n"
-                 << L"Field X\tField Y\tCycle seconds\tMinerals per minute\r\n";
-            for (const auto& field : mine.patches)
-                text << field.x << L'\t' << field.y << L'\t' << field.lastCycle * .042
-                     << L'\t' << field.perMinute << L"\r\n";
-            const wchar_t* names[]{L"Positions", L"Cargo", L"Cycles"};
-            for (int i = 0; i < 3; ++i) {
-                const auto& search = mine.searches[i];
-                if (search.running || search.finished)
-                    text << L"\r\n" << names[i] << L": " << (search.running ? L"Searching" : L"Finished")
-                         << L", " << search.score << L" minerals per minute";
-            }
-        }
-        if (latest_.done) text << L"\r\nMeasurement complete.";
-        const auto value = text.str();
-        if (value != report_.text()) report_.setText(value);
-        buttons();
-        simRedraw();
-    }
-    void scene(render::Scene& scene) const {
-        auto drawSprite = [&](const maplab::MiningFrame::Sprite& image) {
-            render::SpriteDraw sprite;
-            sprite.x = float(image.x), sprite.y = float(image.y);
-            sprite.image = image.image, sprite.frame = image.frame, sprite.owner = uint8_t(image.owner);
-            sprite.flip = image.flip, sprite.shadow = image.shadow;
-            sprite.drawFunction = gState.ed->unitSprites().drawFunction(image.image);
-            scene.sprites.push_back(sprite);
+    void scene(render::Scene& scene) {
+        if(!current())return;
+        auto marker=[&](maplab::RushPoint point,const char* label){
+            const float half=5/std::max(.01f,gState.zoom);
+            render::RectDraw box;box.x0=float(point.x)-half;box.y0=float(point.y)-half;box.x1=float(point.x)+half;box.y1=float(point.y)+half;
+            box.rgba=0x9CEBD0FF;scene.rects.push_back(box);scene.texts.push_back({float(point.x),float(point.y)-16/std::max(.01f,gState.zoom),label,0x9CEBD0FF});
         };
-        if (!rush) for (const auto& sprite : latest_.mining.sprites) drawSprite(sprite);
-        else for (const auto& path : latest_.rush.paths) {
-            for (const auto& sprite : path.sprites) drawSprite(sprite);
-            const size_t stride = std::max<size_t>(1, path.points.size()/512);
-            for (size_t i = 1; i < path.points.size(); i += stride) {
-                render::RectDraw line;
-                line.x0 = float(path.points[i-1].x), line.y0 = float(path.points[i-1].y);
-                const auto& to = path.points[std::min(i+stride-1, path.points.size()-1)];
-                line.x1 = float(to.x), line.y1 = float(to.y);
-                line.line = true, line.thickness = 2;
-                line.rgba = path.reached ? 0x60E080FFu : 0xE0B060FFu;
-                scene.rects.push_back(line);
+        if(haveStart_)marker(start_,"A");if(haveEnd_)marker(end_,"B");
+        int newest=0;for(const auto& p:latest_.rush.paths)newest=std::max(newest,p.id);
+        const int keep=std::clamp(int(std::wcstol(retained_.text().c_str(),nullptr,10)),1,50);
+        for(const auto& path:latest_.rush.paths){
+            for(const auto& image:path.sprites){
+                render::SpriteDraw d;d.x=float(image.x);d.y=float(image.y);d.image=image.image;d.frame=image.frame;
+                d.owner=uint8_t(image.owner);d.flip=image.flip;d.shadow=image.shadow;d.alpha=.45f;
+                d.drawFunction=gState.ed->unitSprites().drawFunction(image.image);scene.sprites.push_back(d);
+            }
+            if(path.id>newest-keep){
+                const size_t stride=std::max<size_t>(1,path.points.size()/512);
+                for(size_t i=1;i<path.points.size();i+=stride){
+                    const auto a=path.points[i-1],b=path.points[std::min(i+stride-1,path.points.size()-1)];
+                    render::RectDraw line;line.x0=float(a.x);line.y0=float(a.y);line.x1=float(b.x);line.y1=float(b.y);
+                    line.line=true;line.thickness=path.id==hovered_?3.f:1.f;line.rgba=maplab::workerGuideColor(path.id,125,path.id==hovered_?255:135);
+                    scene.rects.push_back(line);
+                }
+            }
+            if((!path.finished||path.id==hovered_)&&!path.points.empty()){
+                const auto p=path.points.back();scene.texts.push_back({float(p.x)+8/std::max(.01f,gState.zoom),float(p.y)-22/std::max(.01f,gState.zoom),
+                    (path.id==hovered_?"#"+std::to_string(path.id)+" / ":std::string())+narrow(number(path.seconds()))+" s",0xC8F5E8FF});
             }
         }
     }
-private:
-    const Editor* editor_ = nullptr;
-    uint64_t revision_ = 0;
-    bool paused_ = false;
-    maplab::RushPoint start_, end_;
-    std::vector<maplab::RushPoint> bases_;
-    maplab::Snapshot latest_;
-    std::unique_ptr<maplab::Session> session_;
-    stardraft::kit::Form form_;
-    stardraft::kit::Dropdown race_, base_, workers_, speed_;
-    stardraft::kit::Button startPoint_, endPoint_, run_, pause_, stop_, copy_, close_, search_[3];
-    stardraft::kit::TextField report_;
-    int speed() const { return speed_.value() == 2 ? 16 : speed_.value() == 1 ? 4 : 1; }
-    void coordinates() {
-        startPoint_.setText(L"Select start (" + std::to_wstring(start_.x) + L", " + std::to_wstring(start_.y) + L")");
-        endPoint_.setText(L"Select end (" + std::to_wstring(end_.x) + L", " + std::to_wstring(end_.y) + L")");
-    }
-    void buttons() {
-        const bool running = session_ && !latest_.done;
-        race_.setEnabled(!session_);
-        workers_.setEnabled(!session_);
-        base_.setEnabled(!session_);
-        startPoint_.setEnabled(!session_);
-        endPoint_.setEnabled(!session_);
-        pause_.setEnabled(running);
-        stop_.setEnabled(bool(session_));
-        for (auto& button : search_) button.setEnabled(running && latest_.ready && !rush);
-    }
-    void relayout() {
-        const int pad = scale(stardraft::kit::kDialogPad);
-        form_.setFrame({pad, pad, width()-pad, pad + scale(270)});
-        placeResults();
-    }
-    void placeResults() {
-        const int pad = scale(stardraft::kit::kDialogPad), bh = scale(stardraft::kit::kButtonH);
-        const int gap = scale(stardraft::kit::kButtonGap), bw = scale(stardraft::kit::kButtonMinW);
-        const int y = pad + form_.contentHeight() + gap;
-        for (int i = 0; i < 3; ++i) search_[i].setFrame(rush ? draw::Rect{} : draw::Rect(pad + i*scale(175), y, pad + i*scale(175) + scale(165), y+bh));
-        report_.setFrame({pad, y + (rush ? 0 : bh+gap), width()-pad, height()-pad-bh-gap});
-        int x = pad;
-        for (auto* b : {&run_, &pause_, &stop_, &copy_, &close_}) {
-            b->setFrame({x, height()-pad-bh, x+bw, height()-pad});
-            x += bw+gap;
-        }
-    }
-    void start();
 };
-MapLabView gMapLab;
-void labScene(render::Scene& scene) { gMapLab.scene(scene); }
-void MapLabView::start() {
-    if (!gState.ed || editor_ != gState.ed.get() || revision_ != editor_->revision()) {
-        report_.setText(L"Open the tool again to use the current map.");
-        return;
-    }
+RushWidget gMapLab;
+void labScene(render::Scene& scene){gMapLab.scene(scene);}
+void RushWidget::start(){
+    if(!current()||!haveStart_||!haveEnd_)return;
     stop();
-    if (gState.data.unitDataLoader()) {
-        report_.setText(L"These measurements need the standard Brood War data.");
-        return;
-    }
-    try {
-        auto data = std::make_shared<GameData>();
-        std::string error;
-        if (!data->open(gInstallInUse, error)) throw std::runtime_error(error);
-        auto files = std::make_shared<const std::map<std::string, Bytes>>(simDataFiles());
-        maplab::Request request;
-        request.mode = rush ? maplab::Mode::Rush : maplab::Mode::Mining;
-        request.scenario = editor_->chk().serialize();
-        request.start = start_, request.end = end_, request.race = race_.value();
-        static const int counts[]{0, 4, 8, 9, 12, 16, 18, 24, 27, 32, 60};
-        request.workers = counts[std::clamp(workers_.value(), 0, 10)];
-        request.read = [data, files](std::string name) {
-            std::replace(name.begin(), name.end(), '\\', '/');
-            for (char& c : name) c = char(std::tolower(static_cast<unsigned char>(c)));
-            if (auto found = files->find(name); found != files->end()) return found->second;
-            Bytes bytes;
-            std::string error;
-            if (!data->readFile(name, bytes, error)) throw std::runtime_error(error);
-            return bytes;
+    if(gState.data.unitDataLoader()){status_.setText(L"These measurements need the standard Brood War data.");return;}
+    try{
+        auto data=std::make_shared<GameData>();std::string error;
+        if(!data->open(gInstallInUse,error))throw std::runtime_error(error);
+        auto files=std::make_shared<const std::map<std::string,Bytes>>(simDataFiles());
+        maplab::Request request;request.mode=maplab::Mode::Rush;request.scenario=editor_->chk().serialize();
+        request.start=start_;request.end=end_;request.race=race_.value();request.launchInterval=interval();request.retained=retained();
+        request.read=[data,files](std::string name){
+            std::replace(name.begin(),name.end(),'\\','/');for(char& c:name)c=char(std::tolower(static_cast<unsigned char>(c)));
+            if(auto it=files->find(name);it!=files->end())return it->second;
+            Bytes bytes;std::string error;if(!data->readFile(name,bytes,error))throw std::runtime_error(error);return bytes;
         };
-        latest_ = {};
-        session_ = std::make_unique<maplab::Session>(std::move(request));
-        session_->speed(speed());
-        gLabScene = labScene;
-        report_.setText(L"Loading the map and game data\u2026");
-        buttons();
-    } catch (const std::exception& e) { report_.setText(widen(e.what())); }
+        session_=std::make_unique<maplab::Session>(std::move(request));session_->speed(speed());gLabScene=labScene;
+        status_.setText(L"Loading the map and game data\u2026");controls();
+    }catch(const std::exception& e){status_.setText(widen(e.what()));}
 }
-void showMapLab(bool rush) {
-    if (!gRoot || !gHost || !gState.ed || !gState.ed->isOpen()) return;
-    simClose();
-    gMapLab.setup(rush);
-    if (gMapLab.open) return;
-    gMapLab.open = true;
-    draw::WindowSpec spec{draw::WindowKind::Tool, {scale(40), scale(40), scale(660), scale(690)}, L"Map measurements"};
-    spec.resizable = true;
-    // Register the snapshot's root before a menu opens a floating tool. This also
-    // gives the tool its own input router, as a real window has.
-    if (gNoBoxes) gHost->snapshotInput(*gRoot, gRoot->width(), gRoot->height(), {});
-    gHost->openWindow(*gRoot, gMapLab, spec, [] { gMapLab.stop(); gMapLab.open = false; });
-    if (gNoBoxes) std::printf("map-lab: opened %s\n", rush ? "rush" : "mining");
+void showRush(){
+    if(!gRoot||!gHost||!gState.ed||!gState.ed->isOpen())return;
+    simClose();if(!gMapLab.current())gMapLab.setup();if(gMapLab.open)return;
+    gMapLab.open=true;
+    draw::WindowSpec spec{draw::WindowKind::Tool,{scale(40),scale(120),scale(560),scale(420)},L"Rush distance"};
+    if(gNoBoxes)gHost->snapshotInput(*gRoot,gRoot->width(),gRoot->height(),{});
+    gHost->openWindow(*gRoot,gMapLab,spec,[]{gMapLab.open=false;gMapLab.picking=0;});
+    if(gNoBoxes)std::printf("map-lab: opened rush\n");
 }
 }
-void miningLabCommand() { showMapLab(false); }
-void rushMeasureCommand() { showMapLab(true); }
-void mapLabFrame() { gMapLab.update(); }
-bool mapLabKey(const draw::KeyEvent& e) {
-    if (gMapLab.picking && e.down && e.key == draw::Key::Escape) {
-        gMapLab.picking = 0;
-        setMessage(L"Point selection canceled");
-        return true;
-    }
-    return false;
+void miningLabCommand(){showMiningLabPanel();}
+void rushMeasureCommand(){showRush();}
+void mapLabFrame(){gMapLab.update();miningPanelFrame();}
+bool mapLabKey(const draw::KeyEvent& e){
+    if(gMapLab.picking&&e.down&&e.key==draw::Key::Escape){gMapLab.picking=0;setMessage(L"Point selection canceled");return true;}return false;
 }
-bool mapLabMouse(const draw::MouseEvent& e) {
-    if (gMapLab.consumeUp && e.kind == draw::MouseKind::Up && e.button == 0) {
-        gMapLab.consumeUp = false;
-        return true;
-    }
-    if (!gMapLab.open || !gMapLab.picking) return false;
-    if (e.kind == draw::MouseKind::Down && e.button == 0 && gState.ed) {
-        float x, y;
-        toWorld(gState, float(e.pt.x), float(e.pt.y), x, y);
-        gMapLab.point(std::clamp(int(x), 0, gState.ed->width()*32-1),
-                      std::clamp(int(y), 0, gState.ed->height()*32-1));
-        gMapLab.consumeUp = true;
-    }
-    return e.button != 2 && (e.kind == draw::MouseKind::Down ||
-                            e.kind == draw::MouseKind::Up ||
-                            e.kind == draw::MouseKind::DoubleClick);
-}
+bool mapLabMouse(const draw::MouseEvent& e){return gMapLab.mapMouse(e);}

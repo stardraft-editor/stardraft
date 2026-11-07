@@ -18,12 +18,20 @@ Snapshot Session::snapshot() const {
     return state_;
 }
 void Session::speed(int value) { speed_ = std::clamp(value, 0, 16); }
+void Session::configureRush(double interval,int retained) {
+    if (!std::isfinite(interval) || interval < .5 || interval > 60 || retained < 1 || retained > 50)
+        throw std::invalid_argument("Invalid rush settings");
+    std::lock_guard lock(mutex_);
+    interval_=interval; retained_=retained; configure_=true;
+}
 void Session::search(int technique, double seconds) {
-    if (technique < 0 || technique > 2 || !std::isfinite(seconds) || seconds <= 0 || seconds > 60)
+    if (technique < 0 || technique > 2 || !std::isfinite(seconds) || seconds <= 0 || seconds > 600)
         throw std::invalid_argument("Invalid search settings");
     std::lock_guard lock(mutex_);
+    if (!state_.ready || state_.done || state_.searching) return;
     search_ = technique;
     budget_ = seconds;
+    state_.searching = true;
 }
 void Session::run(Request request) {
     try {
@@ -32,10 +40,11 @@ void Session::run(Request request) {
         if (request.mode == Mode::Mining)
             mining = NativeMining::create(request.read, request.scenario, request.start.x,
                                           request.start.y, request.race, request.workers);
-        else
+        else {
             rush = NativeRush::create(request.read, request.scenario, request.start,
                                       request.end, request.race);
-        int elapsed = 0;
+            rush->configure(request.launchInterval,request.retained);
+        }
         while (!stop_) {
             int technique;
             double seconds;
@@ -43,9 +52,10 @@ void Session::run(Request request) {
                 std::lock_guard lock(mutex_);
                 technique = std::exchange(search_, -1);
                 seconds = budget_;
+                if (rush && configure_) { rush->configure(interval_,retained_); configure_=false; }
             }
             if (mining && technique >= 0) mining->search(technique, seconds);
-            const int frames = std::min(speed_.load(), (mining ? 10000 : 24000) - elapsed);
+            const int frames = speed_.load();
             if (mining) mining->advance(frames);
             else rush->advance(frames);
             // Searches pause the mining clock; use the engine's clock in its snapshot.
@@ -53,18 +63,14 @@ void Session::run(Request request) {
             next.ready = true;
             if (mining) {
                 next.mining = mining->snapshot();
-                elapsed = next.mining.frame;
             } else {
-                elapsed += frames;
                 next.rush = rush->snapshot();
             }
-            next.done = elapsed >= (mining ? 10000 : 24000);
-            const bool done = next.done;
             {
                 std::lock_guard lock(mutex_);
+                next.searching = (mining && mining->searching()) || search_ >= 0;
                 state_ = std::move(next);
             }
-            if (done) break;
             std::unique_lock lock(mutex_);
             wake_.wait_for(lock, std::chrono::milliseconds(42), [&] { return stop_.load(); });
         }

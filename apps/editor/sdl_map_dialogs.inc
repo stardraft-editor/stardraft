@@ -211,6 +211,7 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
 
 // The right button let go on the map (the Windows map's WM_RBUTTONUP): placing, pasting or painting stops (back to the
 // mode's selection); else the map's menu opens at the mouse for what is under it.
+void miningLabForUnit(int index);
 void mapRightClickSdl(draw::View& map, draw::Point at) {
     if (!gState.ed || !gState.ed->isOpen() || gState.drag != Drag::None) return;
     if (trigUnitPickActive()) return trigCancelUnitPick();  // (cancelStep: a unit pick for a trigger stops first)
@@ -223,7 +224,15 @@ void mapRightClickSdl(draw::View& map, draw::Point at) {
     float wx, wy;
     toWorld(at.x, at.y, wx, wy);
     const MenuModel model = mapMenuModel(wx, wy);
-    const std::vector<kit::MenuItem> items = mapMenuKit(model);
+    std::vector<kit::MenuItem> items = mapMenuKit(model);
+    if (gState.mode == Mode::Units && gMapMenuUnit >= 0 && gMapMenuUnit < int(gState.ed->units().size())) {
+        const int index = gMapMenuUnit, type = gState.ed->units()[size_t(index)].type;
+        if (type == 214 || type == 106 || type == 131 || type == 132 || type == 133 || type == 154) {
+            items.push_back(kit::MenuItem{}); items.back().separator = true;
+            items.push_back(kit::MenuItem{}); items.back().label = L"Mining Lab";
+            items.back().run = [index] { shellPost([index] { miningLabForUnit(index); }); };
+        }
+    }
     gState.dirty = true;
     map.invalidate();
     // (Report feedback, as on Windows; on a terrain selection: the menu's own, on the selected terrain, in its place)

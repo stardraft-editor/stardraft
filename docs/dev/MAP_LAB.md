@@ -7,19 +7,22 @@ existing simulator.
 
 ## Use
 
-Open a standard Brood War map and open one of the two tools. Select the race and
-a start location, or select the start directly on the map. Rush also needs an end
-point. Mining accepts a worker count or one worker per nearby mineral field.
-Select Start. The map and its undo history are unchanged. The tool uses the map's
+Mining Lab is a compact bottom widget with an optional test table. It includes
+start locations and placed depots and can run independent tests at several bases.
+The Rush widget is a compact floating tool with two-point picking, per-run timing,
+launch interval and retained-result controls. The map and its undo history are unchanged. The tool uses the map's
 current CHK, including unsaved edits, and data from the user's game installation.
 
 The results window has speed, pause, stop and copy controls. Mining has position,
-cargo and cycle searches, with a one-second search budget per click. Rush sends
+cargo and cycle searches, each with a 1-600 second budget (default 15), progress,
+verification and continuation. Ghosts, cargo-return markers, numbered cycle arrows
+and field-cycle labels follow the source editor's display contract. Rush sends
 successive workers in separate worlds: they do not block one another. Its table
 shows actual traveled pixels, elapsed game seconds, and whether the worker reached
 the endpoint. A failed or blocked route is not reported as a successful arrival.
-The overlay shows workers and route trails on the map. Editing the map, changing
-tabs, closing the tool or starting the old simulator stops the measurement.
+The overlay shows workers and route trails on the map. Hiding either widget keeps
+its sessions running. Editing the map, changing tabs or starting the old simulator
+stops the measurement.
 
 The mining table reports income from the start of the run, including travel to
 the minerals. It reports the last completed delivery-to-delivery cycle per
@@ -30,8 +33,11 @@ with a completed depot and no worker production. It does not measure the
 existing experimental simulator's warm-up, gas or multi-base scenario.
 
 At Fastest, one game frame is 42 ms. Playback speed changes only how quickly the
-results appear. Mining stops at 10,000 frames; Rush at 24,000. Search controls can
-restart mining from a saved search state, so its clock can move back. Copy keeps
+results appear. Both sessions run until stopped; each Rush runner still has its
+own failure/stall limit. Search controls can
+restart mining from a saved search state, so its clock can move back. Continue
+extends the existing frontier, and changing an earlier plan invalidates its dependent
+later plans as in the source adapter. Copy keeps
 table columns separated by tabs.
 
 ## Boundaries
