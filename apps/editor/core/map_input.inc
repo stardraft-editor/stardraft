@@ -20,6 +20,10 @@ struct LayersLiveAfter {  // (when the mouse's event ends: what it painted is un
     ~LayersLiveAfter() { mapLayersLiveStroke(app); }
 };
 void moveSelectedTerrain(AppState& app, int dx, int dy);  // (core/map_edit_commands.inc)
+bool mapLayersOnLayer();
+bool mapLayersActiveRefuses();
+std::vector<std::pair<float, float>> gLassoPoints;  // Lasso: the line drawn so far
+bool gLassoAdd = false, gLassoRemove = false;      // (Shift, Ctrl at its press)
 int gTerrainMoveDX = 0, gTerrainMoveDY = 0;  // Terrain's Move: the drag so far
 void mapLayersDragCancel(AppState& app);
 void mapLayersEraseDown(AppState& app, float wx, float wy);
@@ -402,9 +406,10 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     case Mode::Terrain: {
         if (currentTool(app) == TMoveSel) {  // Move: the selection follows the drag; it moves at the release
             if (!app.hasTerrainSel) {
-                setMessage(app, L"Select terrain first, with Select or the Magic wand");
+                setMessage(app, L"Select terrain first, with Select, the Lasso or the Magic wand");
                 break;
             }
+            if (mapLayersActiveRefuses()) break;
             gTerrainMoveDX = gTerrainMoveDY = 0;
             app.drag = Drag::TerrainMove;
             break;
@@ -423,6 +428,12 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         }
         if (isShapeTool(currentTool(app)) && !(ctrl && !gTiles->stamps)) {  // Line, Contour, Polygon (Ctrl+click picks the terrain or tile, below)
             shapeMouseDown(wx, wy, (mods & draw::kShift) != 0);
+            break;
+        }
+        if (currentTool(app) == TLasso) {  // Lasso: the line, then the tiles inside it at the release
+            gLassoPoints = {{wx, wy}};
+            gLassoAdd = shift, gLassoRemove = ctrl;
+            app.drag = Drag::TerrainLasso;
             break;
         }
         if (currentTool(app) == TWand) {  // the Magic wand: a click selects what is reachable; Shift adds, Ctrl removes
@@ -484,6 +495,24 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         }
         int tool = currentTool(app);
         if (tool == TSelect) {
+            if (app.terrainPasting && mapLayersActiveRefuses()) {
+                app.drag = Drag::None;
+                break;
+            }
+            if (app.terrainPasting && mapLayersOnLayer() && !ed.mirrors() && ed.turns() <= 1) {  // (with symmetry: a brush, as on the Background)
+                std::set<std::pair<int, int>> tiles;  // (the tiles of the four rects round each corner: what copies these corners again)
+                for (const auto& [cx, cy] : ed.terrainPasteCorners(int(wx), int(wy)))
+                    for (int ty = cy - 1; ty <= cy; ++ty)
+                        for (int tx = 2 * cx - 2; tx <= 2 * cx + 1; ++tx)
+                            if (tx >= 0 && ty >= 0 && tx < int(ed.width()) && ty < int(ed.height())) tiles.insert({tx, ty});
+                ed.beginStroke();
+                applyUnitLimit(ed);
+                const bool pasted = ed.pasteTerrain(int(wx), int(wy), app.correction);
+                ed.endStroke();
+                if (pasted) terrainPastedOnLayer({tiles.begin(), tiles.end()});
+                app.drag = Drag::None;
+                break;
+            }
             if (app.terrainPasting) {  // a brush of the copy: a click pastes it, a drag pastes it along the way (one undo step)
                 ed.beginStroke();
                 applyUnitLimit(ed);
@@ -667,6 +696,11 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.drag == Drag::TerrainLasso) {
+        if (std::hypot(wx - gLassoPoints.back().first, wy - gLassoPoints.back().second) * app.zoom >= 3) gLassoPoints.push_back({wx, wy}), app.dirty = true;
+        updateStatus(app);
+        return;
+    }
     if (app.drag == Drag::TerrainMove && app.ed) {
         gTerrainMoveDX = int(wx - app.dragWX), gTerrainMoveDY = int(wy - app.dragWY);
         updateStatus(app);
@@ -798,6 +832,40 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     toWorld(app, sx, sy, wx, wy);
     bool shift = mods & draw::kShift;
     if (app.drag == Drag::LayerTool) return mapLayersDragUp(app);
+    if (app.drag == Drag::TerrainLasso) {
+        app.drag = Drag::None;
+        // The tiles whose middle is inside the line, closed from its end to its start.
+        std::vector<std::pair<int, int>> inside;
+        float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
+        for (const auto& [x, y] : gLassoPoints) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+        for (int ty = std::max(0, int(y0) / 32); ty <= std::min(int(ed.height()) - 1, int(y1) / 32); ++ty)
+            for (int tx = std::max(0, int(x0) / 32); tx <= std::min(int(ed.width()) - 1, int(x1) / 32); ++tx) {
+                const float px = tx * 32 + 16.0f, py = ty * 32 + 16.0f;
+                bool in = false;
+                for (size_t i = 0, j = gLassoPoints.size() - 1; i < gLassoPoints.size(); j = i++) {
+                    const auto [ax, ay] = gLassoPoints[i];
+                    const auto [bx, by] = gLassoPoints[j];
+                    if ((ay > py) != (by > py) && px < (bx - ax) * (py - ay) / (by - ay) + ax) in = !in;
+                }
+                if (in) inside.push_back({tx, ty});
+            }
+        gLassoPoints.clear();
+        std::vector<std::pair<int, int>> tiles;
+        if (gLassoAdd || gLassoRemove) tiles = terrainSelTiles();
+        if (gLassoRemove) {
+            const std::set<std::pair<int, int>> out(inside.begin(), inside.end());
+            std::erase_if(tiles, [&](const std::pair<int, int>& t) { return out.count(t) != 0; });
+        } else {
+            tiles.insert(tiles.end(), inside.begin(), inside.end());
+            std::sort(tiles.begin(), tiles.end());
+            tiles.erase(std::unique(tiles.begin(), tiles.end()), tiles.end());
+        }
+        setTerrainSelTiles(tiles);
+        setMessage(app, tiles.empty() ? std::wstring(L"Cleared the terrain selection")
+                                      : L"Selected " + std::to_wstring(tiles.size()) + (tiles.size() == 1 ? L" tile" : L" tiles") + L". Shift adds. Ctrl removes.");
+        app.dirty = true;
+        return;
+    }
     if (app.drag == Drag::TerrainMove) {
         app.drag = Drag::None;
         moveSelectedTerrain(app, int(wx - app.dragWX), int(wy - app.dragWY));
@@ -1067,6 +1135,7 @@ bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
     if (app.drag == Drag::LayerTool) return mapLayersDragCancel(app), true;
     if (app.drag == Drag::TerrainMove) return app.drag = Drag::None, app.dirty = true, true;
+    if (app.drag == Drag::TerrainLasso) return gLassoPoints.clear(), app.drag = Drag::None, app.dirty = true, true;
     if (app.drag == Drag::SymmetryCenter) {  // (the center's drag: it goes back; the selection stays)
         if (app.ed) app.ed->setSymmetryAnchor(gSymmetryDragged, gSymmetryFrom.first, gSymmetryFrom.second);
         app.drag = Drag::None;

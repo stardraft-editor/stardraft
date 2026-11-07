@@ -84,7 +84,7 @@ UiIcon terrainModMark(AppState& app, float wx, float wy, bool shift, bool ctrl) 
         }
         return shapeShiftMark(tool);
     }
-    if (tool == TWand) return ctrl ? (app.hasTerrainSel ? UiIcon::Remove : kNoModMark) : shift ? UiIcon::Add : kNoModMark;
+    if (tool == TWand || tool == TLasso) return ctrl ? (app.hasTerrainSel ? UiIcon::Remove : kNoModMark) : shift ? UiIcon::Add : kNoModMark;
     if (app.terrainRect && !(gTiles->solid && ctrl && tool != TSelect)) {  // (tilesMouseDown)
         if (tool == TSelect) {
             if (app.terrainPasting && ed.hasTileClipboard()) return kNoModMark;

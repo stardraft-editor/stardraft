@@ -301,7 +301,7 @@ bool sdlRuns(int id) {
     }
     if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) return true;  // the keys 1 to 0 and = (player 12)
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
-    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) return true;  // I, O, P, X, E, H, J, W
+    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 9) return true;  // I, O, P, X, E, H, J, W, K
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
@@ -319,7 +319,7 @@ bool simBarShown();  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
     return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
-           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
+           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 9) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
 }
 

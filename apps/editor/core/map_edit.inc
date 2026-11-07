@@ -318,6 +318,17 @@ std::vector<std::pair<int, int>> terrainSelTiles() {
             if (terrainSelHas(x, y)) out.push_back({x, y});
     return out;
 }
+void setTerrainSelTiles(const std::vector<std::pair<int, int>>& tiles);
+// A paste on a layer is one copy, and then it is the selection under Move: it shows what was placed, and a drag moves it.
+void terrainPastedOnLayer(const std::vector<std::pair<int, int>>& tiles) {
+    AppState& app = appState();
+    app.terrainPasting = false;
+    app.toolByMode[int(Mode::Terrain)] = TMoveSel;
+    fillToolCombo(app);
+    setTerrainSelTiles(tiles);
+    setMessage(app, L"Pasted on the layer. Drag to move it. Ctrl+V pastes again.");
+    app.dirty = true;
+}
 // The terrain selection becomes these tiles (a mask over their box; none: no selection).
 void setTerrainSelTiles(const std::vector<std::pair<int, int>>& tiles) {
     AppState& app = appState();

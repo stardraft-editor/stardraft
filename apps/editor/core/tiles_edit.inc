@@ -141,7 +141,7 @@ bool tilesStampOn() { return !gTiles->solid && (gTiles->stamp.size() > 1 || (!gT
 void tilesToBrush() {
     AppState& app = appState();
     app.terrainPasting = false;
-    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand)) {
+    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand || currentTool(app) == TLasso)) {
         app.toolByMode[int(Mode::Terrain)] = TBrush;
         fillToolCombo(app);
     }
@@ -672,6 +672,26 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         if (appState().terrainPasting && ed.hasTileClipboard()) {
             ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
             tilesPasteAt(wx, wy, tx, ty);  // (it may hang over the map's edge)
+            bool mapLayersOnLayer();  // (map_layers.inc)
+            bool mapLayersActiveRefuses();
+            if (mapLayersActiveRefuses()) {
+                appState().drag = Drag::None;
+                return true;
+            }
+            if (mapLayersOnLayer()) {
+                std::vector<std::pair<int, int>> tiles;
+                const int cw = ed.tileClipboardWidth();
+                for (int y = 0; y < ed.tileClipboardHeight(); ++y)
+                    for (int x = 0; x < cw; ++x)
+                        if (const int at = tx + x, row = ty + y; ed.tileClipboard()[size_t(y) * cw + x] != 0xFFFF && at >= 0 && row >= 0 && at < int(ed.width()) && row < int(ed.height()))
+                            tiles.push_back({at, row});
+                ed.beginStroke();
+                const int pasted = ed.pasteTiles(tx, ty);
+                ed.endStroke();
+                if (pasted) terrainPastedOnLayer(tiles);
+                appState().drag = Drag::None;
+                return true;
+            }
             // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
             // A drag pastes it again along the way, each copy next to the last (on a grid of its size from the first),
             // all in one undo step (GitHub #237).

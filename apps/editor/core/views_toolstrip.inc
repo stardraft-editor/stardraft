@@ -308,8 +308,9 @@ void buttonFace(Canvas& c, Rect r, const std::wstring& text, bool primary, bool 
     c.text(r, text, primary ? kAccent : kText, draw::kMiddle | draw::kCenter | draw::kEllipsis);
 }
 // A flat icon button (ui::iconButton, Boxed): a fill when on (the accent) or under the mouse.
-void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over) {
+void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over, bool disabled = false) {
     r = square(r);
+    if (disabled) return icon(c, r, g, kFaint, 16);
     if (on) box(c, r, kSel, kAccentLine);
     else if (over) box(c, r, kCtlHot, kNoLine);
     icon(c, r, g, on ? kAccentBright : over ? kText : kDim, 16);  // (a UI icon is always at 16, as the Win32 glyph was)
@@ -359,7 +360,7 @@ struct ToolPopoutView final : draw::View {
         if (i < 0) return {};
         const StripItem& m = group.members[size_t(i)];
         const int key = stripToolKey(m);
-        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJW"[key]) + L")" : L"");
+        return std::wstring(tr(m.tip)) + (key >= 0 ? std::wstring(L" (") + wchar_t(L"VBAFIOPXEHJWK"[key]) + L")" : L"");
     }
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
@@ -523,13 +524,19 @@ public:
             const bool on = currentTool() == it.tool && (!shared || it.select != picked) && (app.mode == Mode::Terrain || !it.select || !picked);
             const int key = stripToolKey(it);
             const draw::Rect r{x, y, x + b, y + b};
-            iconButtonFace(c, r, it.icon, on, hot(square(r)));
+            iconButtonFace(c, r, it.icon, on, hot(square(r)), it.disabled);
+            if (it.disabled) {  // (Move with nothing selected)
+                addHit(square(r), [] { setMessage(L"Select terrain first, with Select, the Lasso or the Magic wand"); },
+                       std::wstring(tr(it.tip)) + L" " + tr(L"Not available: no terrain is selected."));
+                next();
+                continue;
+            }
             // A group: a click selects its tool and shows its tools under it.
             addHit(square(r), [this, it, sq = square(r)] {
                 pickStripTool(it);
-                if (!it.members.empty() && it.group != 4) stripGroupPopout(it, *this, sq);  // (Select: its arrow lists them)
-            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJW"[key]) + L")" : std::wstring(it.tip)) +
-                   (it.members.empty() || it.group == 4 ? L"" : tr(L" A click also shows the tools of this button.")));
+                if (!it.members.empty()) stripGroupPopout(it, *this, sq);
+            }, (key >= 0 ? std::wstring(tr(it.tip)) + L" (" + wchar_t(L"VBAFIOPXEHJWK"[key]) + L")" : std::wstring(it.tip)) +
+                   (it.members.empty() ? L"" : tr(L" A click also shows the tools of this button.")));
             if (!it.members.empty()) {  // its arrow: a small triangle in the corner, a click lists the tools
                 const draw::Rect sq = square(r);
                 // (a small smooth triangle in the corner, its right angle at the corner)

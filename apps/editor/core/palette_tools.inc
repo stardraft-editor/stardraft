@@ -531,6 +531,7 @@ struct StripItem {
     // arrow and a right click list them (core/views_toolstrip.inc).
     int group = 0;
     std::vector<StripItem> members;
+    bool disabled = false;  // (Move with nothing selected: it shows, and a click does not pick it)
 };
 // The group's button: the member that is the tool, else the one used last, else the first.
 StripItem stripGroup(int group, std::vector<StripItem> members) {
@@ -561,8 +562,9 @@ constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp g
 // src/ramps.cpp): one group's button when it has both.
 std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
     AppState& app = appState();
-    // Move: beside Select, as it works on what Select selected.
-    tools.insert(tools.begin() + 1, StripItem{UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false});
+    // Move: first, beside Select, as it works on what Select selected.
+    tools.insert(tools.begin(), StripItem{UiIcon::MoveAll, L"Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.", TMoveSel, false});
+    tools.front().disabled = !app.hasTerrainSel;
     std::vector<StripItem> group;
     if (!kRampBridgeTools) {  // (hidden: ids.inc)
         int& tool = app.toolByMode[int(Mode::Terrain)];
@@ -579,7 +581,7 @@ std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
 }
 // Terrain's Select and Magic wand: one group's button (4). Select stays the mode's selection (select: true).
 StripItem selectGroup(StripItem select) {
-    return stripGroup(4, {std::move(select), {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
+    return stripGroup(4, {std::move(select), {UiIcon::Lasso, L"Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.", TLasso, false}, {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
 }
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
@@ -657,6 +659,7 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Bridge) return 9;
     if (it.icon == UiIcon::Ramp) return 10;
     if (it.icon == UiIcon::Wand) return 11;
+    if (it.icon == UiIcon::Lasso) return 12;
     return -1;
 }
 

@@ -13,6 +13,8 @@ struct MapLayersState {
     LayerStack stack;
     Bytes base;
     int active = -1;       // -1: the Background; else the index in stack.layers
+    const Editor* selEd = nullptr;
+    uint32_t selLayer = 0;  // the layer that the terrain selection is of (0: the Background)
     std::set<int> picked;  // the rows selected (-1: the Background), with the active one
     std::map<fs::path, int> activeOf;  // the active row of each map, while the program runs
     uint64_t revision = 0;
@@ -195,10 +197,20 @@ static bool layerEraseTiles(MapLayer& layer, const std::vector<std::pair<int, in
 
 static void layersCapture(Editor& ed, bool live);
 
+// Terrain's Move follows the selection: its button shows if it can be used, and with no selection the tool is Select.
+static void terrainMoveFollowsSelection(AppState& app) {
+    void shellToolsChanged();  // (the shell)
+    static bool had = false;
+    const bool lost = !app.hasTerrainSel && app.toolByMode[int(Mode::Terrain)] == TMoveSel && app.drag != Drag::TerrainMove;
+    if (lost) app.toolByMode[int(Mode::Terrain)] = TSelect, fillToolCombo(app);
+    if (lost || had != app.hasTerrainSel) had = app.hasTerrainSel, shellToolsChanged();
+}
+
 // What the last edit changed goes into the active layer.
 void mapLayersSync() {
     AppState& app = shellState();
     MapLayersState& s = gMapLayers;
+    terrainMoveFollowsSelection(app);
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
     if (s.ed != &ed || ed.loadMark() != s.loadMark) {  // another map, or an undo or a redo: the map is as the step left it
@@ -206,6 +218,7 @@ void mapLayersSync() {
             s.active = -1, s.picked.clear();
             if (const auto it = s.activeOf.find(ed.path()); it != s.activeOf.end()) s.active = it->second, s.picked = {s.active};
         }
+        if (s.ed == &ed && s.on) setTerrainSelTiles({});  // (an undo or a redo: the selection may be where nothing is now)
         s.ed = &ed, s.loadMark = ed.loadMark(), s.liveDirty = false;
         const bool was = s.on;
         s.on = false, s.stack = {}, s.filesPending = true;
@@ -217,6 +230,11 @@ void mapLayersSync() {
         if (!ed.filesRead()) return;
         s.filesPending = false;
         layersRead(ed);
+    }
+    // Another layer: the selection goes, as it was of the last one. (The copy stays.)
+    if (const uint32_t layer = s.on && s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)].id : 0; s.selEd != &ed || s.selLayer != layer) {
+        if (s.selEd == &ed && app.hasTerrainSel) setTerrainSelTiles({}), app.dirty = true;
+        s.selEd = &ed, s.selLayer = layer;
     }
     if (!s.on || ed.inStroke()) return;  // (no layers: nothing to compare)
     if (ed.revision() == s.revision) {
@@ -399,6 +417,118 @@ std::wstring mapLayersStatusText() {
     return t;
 }
 bool mapLayersOnLayer() { return gMapLayers.on && gMapLayers.active >= 0; }
+
+// Whether the active layer refuses an edit (locked or hidden); the message says so.
+bool mapLayersActiveRefuses() {
+    const MapLayersState& s = gMapLayers;
+    if (mapLayersActiveLocked()) return setMessage(L"The layer is locked: nothing changed"), true;
+    if (!s.on) return false;
+    const MapLayer& active = s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background;
+    if (!active.visible) return setMessage(L"The layer is hidden: nothing changed"), true;
+    return false;
+}
+
+// Terrain's Move with layers: the map's selection moves in the active layer only, and the rest of the stack stays. The
+// release and the preview both go through this (mapLayersMoveTerrain, mapLayersMovePreview). False: the layer has nothing there.
+static bool layersMoveSelection(Editor& copy, const Editor& ed, LayerStack& stack, Bytes& base, const std::vector<std::pair<int, int>>& cells, bool iso, int rx, int ry, int tileDx, int tileDy, bool& baseChanged) {
+    const AppState& app = shellState();
+    const MapLayersState& s = gMapLayers;
+    const Rect& r = app.terrainSel;
+    const bool masked = !app.terrainSelMask.empty();
+    const auto inSelection = [&](int x, int y) { return masked ? terrainSelHas(x / 32, y / 32) : Editor::inSelectShape(r, selectShape(), x, y); };
+    MapLayer& l = s.active >= 0 ? stack.layers[size_t(s.active)] : stack.background;
+    bool any = false;
+    if (iso) {  // (the objects copied with terrain go with it, also on the Background)
+        MapLayer goes;
+        const auto split = [&](auto& from, auto& to, bool with) {
+            if (!with) return;
+            for (size_t i = from.size(); i-- > 0;)
+                if (inSelection(from[i].x, from[i].y)) to.push_back(from[i]), from.erase(from.begin() + i);
+        };
+        split(l.units, goes.units, app.copyUnitsWithTerrain);
+        split(l.doodads, goes.doodads, app.copyDoodadsWithTerrain);
+        any = !goes.units.empty() || !goes.doodads.empty();
+        moveLayerContents(goes, rx, ry);
+        l.units.insert(l.units.end(), goes.units.begin(), goes.units.end());
+        l.doodads.insert(l.doodads.end(), goes.doodads.begin(), goes.doodads.end());
+    }
+    if (s.active < 0) {  // the Background: as on a map with no layers, on its terrain alone
+        std::string error;
+        LayerStack none;
+        copy.composeLayers(base, none);
+        if (iso ? copySelectedTerrainOf(copy, app, r) : copySelectedTiles(copy)) {
+            terrainMoveApply(copy, cells, iso, rx, ry, r.left / 32 + tileDx, r.top / 32 + tileDy);
+            base = copy.layerBaseNow(), baseChanged = true;
+            any = true;
+        }
+        return any && copy.openChk(ed.chk(), error);
+    }
+    if (iso) {  // whole diamonds in the selection, as a copy takes them
+        std::map<std::pair<int, int>, uint16_t> corners;
+        for (const auto& c : ed.cornersInShape(r, masked ? Editor::SelectShape::Rect : selectShape())) {
+            const auto it = l.corners.find(c);
+            if (it == l.corners.end()) continue;
+            bool whole = true;
+            for (int y = c.second - 1; whole && masked && y <= c.second; ++y)
+                for (int x = 2 * c.first - 2; whole && x <= 2 * c.first + 1; ++x)
+                    whole = x < 0 || y < 0 || x >= int(ed.width()) || y >= int(ed.height()) || terrainSelHas(x, y);
+            if (whole) corners[c] = it->second;
+        }
+        for (const auto& [c, terrain] : corners) l.corners.erase(c);
+        for (const auto& [c, terrain] : corners) l.corners[{c.first + rx, c.second + ry}] = terrain;
+        std::map<std::pair<int, int>, uint16_t> tiles;
+        for (const auto& c : cells)
+            if (const auto it = l.tiles.find(c); it != l.tiles.end()) tiles[c] = it->second, l.tiles.erase(it);
+        for (const auto& [c, tile] : tiles) l.tiles[{c.first + tileDx, c.second + tileDy}] = tile;
+        return any || !corners.empty() || !tiles.empty();
+    }
+    // (Rectangle and Tile: the tiles that the layer shows there, as they are; NULL where they were)
+    std::map<std::pair<int, int>, uint16_t> tiles;
+    const int w = int(ed.width());
+    for (const auto& [x, y] : cells) {
+        const int cx = x / 2;
+        const bool layers = l.tiles.count({x, y}) || l.corners.count({cx, y}) || l.corners.count({cx + 1, y}) || l.corners.count({cx, y + 1}) || l.corners.count({cx + 1, y + 1});
+        if (layers) tiles[{x, y}] = ed.terrain().tiles[size_t(y) * w + x];
+    }
+    if (tiles.empty()) return any;
+    layerEraseTiles(l, cells);
+    for (const auto& [c, tile] : tiles) l.tiles[{c.first + tileDx, c.second + tileDy}] = tile;
+    return true;
+}
+
+bool mapLayersHaveStack(const Editor& ed) { return gMapLayers.on && gMapLayers.ed == &ed && !gMapLayers.filesPending; }
+
+// The preview: `copy` (a copy of the map) as the release would leave it.
+void mapLayersMovePreview(Editor& copy, const Editor& ed, const std::vector<std::pair<int, int>>& cells, bool iso, int rx, int ry, int tileDx, int tileDy) {
+    LayerStack stack = gMapLayers.stack;
+    Bytes base = gMapLayers.base;
+    bool baseChanged = false;
+    if (layersMoveSelection(copy, ed, stack, base, cells, iso, rx, ry, tileDx, tileDy, baseChanged)) copy.composeLayers(base, stack);
+}
+
+// The release: one undo step. False: nothing to move.
+bool mapLayersMoveTerrain(Editor& ed, const std::vector<std::pair<int, int>>& cells, bool iso, int rx, int ry, int tileDx, int tileDy) {
+    MapLayersState& s = gMapLayers;
+    Editor& copy = shapeCopy(ed.gameData());
+    std::string error;
+    if (!copy.openChk(ed.chk(), error)) return false;
+    shapeCopySettings(copy, ed);
+    copy.setMirrors(0), copy.setTurns(1);
+    LayerStack stack = s.stack;
+    Bytes base = s.base;
+    bool baseChanged = false;
+    if (!layersMoveSelection(copy, ed, stack, base, cells, iso, rx, ry, tileDx, tileDy, baseChanged)) return false;
+    AppState& app = shellState();
+    app.selDoodads.clear(), app.selSprites.clear(), ed.clearSelection();  // (the lists change)
+    ed.beginLayerEdit();
+    s.stack = std::move(stack), s.base = std::move(base);
+    layersCompose(ed);
+    ed.endLayerEdit(true, layersFiles(baseChanged));
+    layersRemember(ed);
+    layersPanelChanged();
+    return true;
+}
+
 bool mapLayersActiveLocked() {
     const MapLayersState& s = gMapLayers;
     return s.on && (s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background).locked;
@@ -862,17 +992,15 @@ static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
 
 void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
     const MapLayersState& m = gMapLayers;
-    if (shellState().drag == Drag::TerrainMove && shellState().hasTerrainSel) {  // (Terrain's Move: where the selection goes)
-        const Rect& r = shellState().terrainSel;
-        int dx = gTerrainMoveDX, dy = gTerrainMoveDY;
-        if (!shellState().terrainRect) {
-            int rx, ry;
-            snapLayerMove(dx, dy, rx, ry);
-            dx = rx * 64, dy = ry * 32;
-        } else {
-            dx = int(std::lround(dx / 32.0)) * 32, dy = int(std::lround(dy / 32.0)) * 32;
+    if (shellState().drag == Drag::TerrainLasso && gLassoPoints.size() > 1) {  // (Lasso: the line drawn so far, closed)
+        for (size_t i = 0; i < gLassoPoints.size(); ++i) {
+            const auto& a = gLassoPoints[i];
+            const auto& b = gLassoPoints[(i + 1) % gLassoPoints.size()];
+            render::RectDraw d;
+            d.x0 = a.first, d.y0 = a.second, d.x1 = b.first, d.y1 = b.second, d.thickness = 2, d.line = true;
+            d.rgba = i + 1 == gLassoPoints.size() ? 0xFFFFFF80u : 0xFFFFFFFFu;
+            s.rects.push_back(d);
         }
-        layerBox(s, r.left + dx, r.top + dy, r.right + dx, r.bottom + dy, 0xFFFFFFE0u);
     }
     const AppState& app = shellState();
     const bool here = app.mode == Mode::Layers;
