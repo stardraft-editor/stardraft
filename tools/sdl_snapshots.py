@@ -348,8 +348,9 @@ CASES += [
     ("map-view-carbot", ["--command", "view.carbot", "--key", "+", "--key", "+", "--key", "+"], "map"),
     # File > Project > New EUD project (--newproject: the project Sample with a new map, in a new folder {newdir}), then
     # Build (Ctrl+B) when this computer has euddraft (else the output says that the build is skipped); the Log shows
-    # euddraft's lines.
-    ("data-newproject-build", ["--newproject", "{newdir}", "--workspace", "project", "--box", "1", "--build", "--log"], "data"),
+    # euddraft's lines. (--box 0: the build's question for the new map, which has no start locations: Place them. A map
+    # with none does not build.)
+    ("data-newproject-build", ["--newproject", "{newdir}", "--workspace", "project", "--box", "0", "--build", "--log"], "data"),
 ]
 # The left mouse button (--click x,y[:mods], --drag x0,y0-x1,y1[:mods], in the window's pixels at scale 1, in their order
 # with the --key options): each goes the host's way for a window's events (down, moves, up) and writes the same line as
@@ -370,16 +371,16 @@ CASES += [
     # (700,650); the status bar counts the three under the mouse. Alt+click there: the list of the three, Down and
     # Enter select the second; Alt+click again, Down and Shift+Enter add the third. A click again at the same point
     # selects the next unit of the stack (the top one after the last); a drag moves the selected unit (under the top
-    # one). The map's right-click menu has "Select a unit here..." (item 10): its list, Down and Enter select the second.
+    # one). The map's right-click menu has "Select a unit here..." (item 11): its list, Down and Enter select the second.
     ("map-stack-list", ["--mode", "units", "--script", "{script:stacklist}"], "map"),
     ("map-stack-cycle", ["--mode", "units", "--script", "{script:stackcycle}"], "map"),
     ("map-stack-menu", ["--mode", "units", "--script", "{script:stackmenu}"], "map"),
     # While the Marine is picked for placing, Alt+click on the stack is the pipette (no list, no new unit).
     ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
-    # Cosmonarchy BW maps (--cmbwmap: a map of the mod whose trigger 1 has a Comment with CRIGs, as Butcher's Ballad's
-    # "01. Clenched Fist.scx"; the mod's install is found as the program finds it). The Players
+    # Cosmonarchy BW maps (--cmbwmap: a map of the mod; {crigmap}: the mod's map whose trigger 1 has a Comment with CRIGs,
+    # Butcher's Ballad's "01. Clenched Fist.scx", found from --cmbwmap; the mod's install is found as the program finds it). The Players
     # page's race list has Askosi (the mod's race 69) last, after the game's races 0-7; player 1's race set to it is the map's.
-    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "420,677"] + ["--key", "Up"] * 9 +
+    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "240,174", "--click", "420,287"] + ["--key", "Up"] * 9 +
                             ["--key", "Down"] * 8 + ["--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
     # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
@@ -398,7 +399,7 @@ CASES += [
     # Rectangle's variants of a Cosmonarchy terrain's fill (Structure (Dirt), the game's Structure tiles), as the mod's maps
     # have them: subtiles 0 to 8 all as often, 10 to 14 seldom (the game's rule).
     ("cmbw-rect-variants", ["--cmbw", "--histbox", "8,8,119,119", "--solid", "--key", "Q", "--type", "structure (dirt)", "--key", "Enter",
-                            "--click", "187,459", "--click", "800,500:Shift"], "cmbw"),
+                            "--click", "255,459", "--click", "800,500:Shift"], "cmbw"),
     ("cmbw-isom-new-dialog", ["--cmbw", "--dialog", "isomnew:Structure (Halfsphalt)", "--size", "460x200"], "cmbw"),
     # The pictures of 0.8.1 (tools/shots/0.8.1.json): the Tiles list's terrain flags, a briefing text in the preview
     # (it wraps as the game's).
@@ -425,10 +426,10 @@ CASES += [
     # mod's commands too (a section of their own): "set race" finds Set race, Enter adds it as a row, written back into
     # the trigger's Comment of commands.
     ("cmbw-crig-words", ["--cmbw", "--size", "1500x1000", "--workspace", "classictriggers", "--classictrig", "1:1:0", "--click", "700,513",
-                         "--type", "set race", "--key", "Enter", "--check", "classicrows", "{cmbwmap}"], "cmbw"),
+                         "--type", "set race", "--key", "Enter", "--check", "classicrows", "{crigmap}"], "cmbw"),
     # Quick add (Q) lists the mod's commands too: "set race" then Enter adds Set race after the selected action (row 1).
     ("cmbw-crig-quickadd", ["--cmbw", "--size", "1500x1000", "--workspace", "classictriggers", "--classictrig", "1:1:0", "--key", "Q",
-                            "--type", "set race", "--key", "Enter", "--check", "classicrows", "{cmbwmap}"], "cmbw"),
+                            "--type", "set race", "--key", "Enter", "--check", "classicrows", "{crigmap}"], "cmbw"),
 ]
 # The floating palettes (Roadmap R40; sdl_palette_float.inc): View > Floating palettes > Terrain palette puts the
 # Terrain palette in a window of its own over the map (a snapshot shows it there); a pick in it paints with that
@@ -446,7 +447,12 @@ CASES += [
 # of Map properties (all 12).
 CASES += [
     ("map-data-strings", ["--size", "1400x700", "--click", "31,190", "--click", "422,175"], "map"),
-    ("map-props-players", ["--size", "1400x1300", "--workspace", "props"], "map"),
+    ("map-props-players", ["--size", "1400x1300", "--workspace", "props", "--click", "240,174"], "map"),
+    # Map properties in a narrow window: Terrain under Map; in a wide one, Forces beside the players.
+    ("map-props-narrow", ["--size", "1000x900", "--workspace", "props"], "map"),
+    ("map-props-players-wide", ["--size", "1900x900", "--workspace", "props", "--click", "240,174"], "map"),
+    # Assets > All files: the map's files, what File > Export keeps.
+    ("map-assets-allfiles", ["--workspace", "files", "--click", "177,124"], "map"),
     # A floating Terrain palette moved over the right side bar's tabs: the outline and the tab's place show (no release).
     ("map-panel-dock-shot", ["--mode", "terrain", "--script", "{script:floatdockshot}"], "map"),
     # A custom terrain saved, then a right click on it in the Custom list: Copy as text, Import from text.
@@ -477,15 +483,15 @@ CASES += [
 CASES += [
     ("map-palette-second-pick", ["--click", "196,640", "--click", "700,500"], "map"),
     # Each docked side shows its mode's tools (Terrain left, Units right): in Units mode, a click on the Terrain side's
-    # Spray (153,459) makes Terrain the mode with Spray as its tool.
-    ("map-strip-other-side", ["--mode", "units", "--click", "153,459"], "map"),
+    # Spray (221,459) makes Terrain the mode with Spray as its tool.
+    ("map-strip-other-side", ["--mode", "units", "--click", "221,459"], "map"),
     # Several locations: three made; a click selects one, Ctrl+click and Shift+click add two; a drag moves the three; Ctrl+C,
     # Ctrl+V pastes three copies (selected); Del deletes them (one undo step: Ctrl+Z gives them back); Ctrl+A selects
     # every location, Esc none; in the list a click selects one and Ctrl+click adds one.
     ("map-location-multi", ["--script", "{script:locmulti}"], "map"),
-    # Each panel is its own (its pick, tools, brush, Isometric or Rectangle): a new Terrain panel's Rectangle (1231,196)
+    # Each panel is its own (its pick, tools, brush, Isometric or Rectangle): a new Terrain panel's Rectangle (1144,196)
     # and its bigger brush (1157,254) are its own (the side bar's Terrain stays Isometric, size 2); a pick in the side bar's
-    # list (Dirt, 200,652) makes the side bar's panel the active one and is its own; the window's + makes the window the
+    # list (Space, 200,621) makes the side bar's panel the active one and is its own; the window's + makes the window the
     # active one again; U, then T, goes back to the Terrain panel used last (the window).
     ("map-panels-own", ["--script", "{script:panelsown}"], "map"),
     # Floating moves the side bar's panel into its window (its Rectangle and size 3), and docking moves the window's back
@@ -528,10 +534,9 @@ CASES += [
     # Terrain: a palette pick (Solar Array), the brush (B) and a drag paints; Undo takes the paint back.
     ("map-terrain-brush", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--drag", "520,650-640,690", "--key", "Ctrl+Z"], "map"),
     # The window loses the focus during a stroke (--lostdrag: Alt+Tab before the release, which does not come): the
-    # Shift stroke with the second terrain (Ctrl+click on Solar Array) ends at once, as the Windows program's
-    # WM_CAPTURECHANGED: the mouse that moves after it paints nothing, the first terrain is the pick again, and one Undo
-    # takes the stroke back.
-    ("map-terrain-lostdrag", ["--mode", "terrain", "--click", "202,759:Ctrl", "--key", "B", "--lostdrag", "520,650-640,690:Shift",
+    # stroke with Solar Array ends at once, as the Windows program's WM_CAPTURECHANGED: the mouse that moves after it
+    # paints nothing, the pick stays, and one Undo takes the stroke back.
+    ("map-terrain-lostdrag", ["--mode", "terrain", "--click", "202,759", "--key", "B", "--lostdrag", "520,650-640,690",
                               "--move", "700,650", "--key", "Ctrl+Z"], "map"),
     # Rectangle: a tile of the Tiles list, the brush and a click puts the tile there; Undo takes it back.
     ("map-terrain-rect-paint", ["--rect", "--click", "tile16", "--key", "B", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
@@ -551,8 +556,8 @@ CASES += [
     ("map-terrain-rect-quick", ["--rect", "--key", "Q", "--type", "solar array", "--key", "Enter"], "map"),
     # The quick picker (Q) in Rectangle mode scrolled to its end with the wheel, notch by notch with only the picker's
     # window painting (as when it scrolls; the Tiles list does not paint): it keeps the pictures of a few tile groups,
-    # not of each group it showed (each is 16 tiles).
-    ("map-terrain-rect-quick-scroll", ["--rect", "--key", "Q", "--wheel", "832,500,0,-1:Repeat200"], "map"),
+    # not of each group it showed (each is 16 tiles). The last notch shows that it is at its end: the list stays.
+    ("map-terrain-rect-quick-scroll", ["--rect", "--key", "Q", "--wheel", "832,500,0,-1:Repeat200", "--wheel", "832,500,0,-1"], "map"),
     # The Tiles list at the side bar's widths that give it 240, 320 and 480 px ({leftwidth:<n>}: a settings file with
     # that side width; the list is the side less 6 px at each side, and less its scroll bar), and 480 px at the scale 1.5 (GitHub #128, #139):
     # 16 tiles in a row, the tiles scaled to fill the width with 1 px between them; a click at the middle of slot 37
@@ -588,7 +593,7 @@ CASES += [
     # Rectangle's variants as the game's maps have them (the game's rule: the common variants all as often, the variants
     # after the group's first empty megatile 1 time in 20): Road War's Asphalt filled with Rectangle (Shift+Fill: every
     # tile of that terrain), the tiles counted (--histbox: tilehist=).
-    ("map-rect-variants", ["{install}/Maps/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "187,459",
+    ("map-rect-variants", ["{install}/Maps/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "255,459",
                            "--click", "800,500:Shift"], "data"),
     # Rectangle painted over its own tiles again and again (60 clicks at one place, brush 4 x 4: the height linked at 330,487;
     # one row takes the tiles above it, the map's: the same ones each time): the rare variants stay
@@ -765,14 +770,14 @@ CASES += [
     # A double click needs both clicks on the same row (--click x,y:Quick: a click that comes quickly after the one
     # before, which SDL counts as a double click): two quick clicks on two rows select the second one and play nothing;
     # a double click on one row plays its sound. The Assets page's game sounds and the SFX data list.
-    ("files-double-click", ["--workspace", "files", "--click", "300,375", "--click", "300,401:Quick", "--click", "300,453:Double"], "map"),
+    ("files-double-click", ["--workspace", "files", "--click", "300,411", "--click", "300,437:Quick", "--click", "300,489:Double"], "map"),
     ("data-sfx-double-click", ["--newproject", "{newdir}", "--workspace", "data", "--data", "sfxdata:1", "--click", "200,239",
                                "--click", "200,265:Quick", "--click", "200,317:Double"], "data"),
     # The caret is where the drawn letters end, after a long text (51 letters, no spaces) is typed (--check caret: each
     # focus line has the caret's x and the x where the letters of its line end): Map properties' Title and Description,
     # the Strings tab's text (a game text field) and the Data list's search box.
-    ("map-props-caret", ["--check", "caret", "--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox",
-                         "--click", "420,300", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
+    ("map-props-caret", ["--check", "caret", "--workspace", "props", "--click", "420,254", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox",
+                         "--click", "420,320", "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "map"),
     # Crop or extend (Map properties; Discord feedback #140; core/views_resize.inc): the map's picture with the crop
     # rectangle (--dialog resize: the dialog is the picture and takes the inputs). The bottom right handle dragged to the
     # right (the size snaps to 192 x 128), then the rectangle dragged up and to the left (the offset snaps to one that
@@ -787,9 +792,9 @@ CASES += [
     # Crop or extend from the page (its button beside the size), the same drags, Left, then Enter (Change the size):
     # the map is 192 x 128, the units that stay moved by the offset, and the preview at OK is the minimap of the map
     # after the change. Then Ctrl+Z takes the change back in one step.
-    ("map-resize-apply", ["--workspace", "props", "--click", "494,424", "--drag", "499,498-700,480", "--drag", "300,300-200,200",
+    ("map-resize-apply", ["--workspace", "props", "--click", "1082,286", "--drag", "499,498-700,480", "--drag", "300,300-200,200",
                           "--key", "Left", "--key", "Enter", "--check", "resize"], "map"),
-    ("map-resize-undo", ["--workspace", "props", "--click", "494,424", "--drag", "499,498-700,480", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
+    ("map-resize-undo", ["--workspace", "props", "--click", "1082,286", "--drag", "499,498-700,480", "--key", "Enter", "--key", "Ctrl+Z"], "map"),
     ("data-text-caret", ["--check", "caret", "--newproject", "{newdir}", "--workspace", "data", "--data", "strings:5", "--click", "800,360",
                          "--key", "Ctrl+A", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox", "--click", "190,152", "--type", "ThequickbrownfoxjumpsoverthelazydogThequickbrownfox"], "data"),
     # The diagrams' handles (the small squares) are only on parts that the mouse drags: the flingy's turn path has none
@@ -826,7 +831,7 @@ CASES += [
     ("map-classictrig-edits", ["--workspace", "classictriggers", "--click", "150,219", "--click", "1058,184", "--key", "Ctrl+Z",
                                "--wait", "400"], "map"),
     # The Files workspace: the search box of the game's sounds, "marine" typed.
-    ("map-files-search", ["--workspace", "files", "--click", "240,289", "--type", "marine"], "map"),
+    ("map-files-search", ["--workspace", "files", "--click", "240,325", "--type", "marine"], "map"),
     # The Briefing: Add an action (the list picker: Text message), then Undo.
     ("map-briefing-add", ["--workspace", "briefing", "--click", "543,166", "--type", "Text message", "--key", "Enter",
                           "--key", "Ctrl+Z"], "map"),
@@ -838,31 +843,32 @@ CASES += [
 CASES += [
     # The Files search box: a composition (its caret at its end, then after its first syllable), the commit, more text,
     # Backspace over an emoji, select, copy, paste, select all, cut, paste, then Undo twice.
-    ("map-text-input", ["--workspace", "files", "--click", "240,289", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+    ("map-text-input", ["--workspace", "files", "--click", "240,325", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
                         "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--type", " \u041f\u0440\u0438\u0432\u0435\u0442 \u4f60\u597d \U0001f600",
                         "--key", "Backspace", "--key", "Shift+Home", "--key", "Ctrl+C", "--key", "End", "--key", "Ctrl+V",
                         "--key", "Ctrl+A", "--key", "Ctrl+X", "--key", "Ctrl+V", "--key", "Ctrl+Z", "--key", "Ctrl+Z"], "map"),
     # The map's title (Properties) and the Marine's name (Map data > Units: the game text pop-out) in Korean, File > Save
     # as into a folder with a Korean name ({kodir}; the save dialog's answer, --pick: a name without .scx), the tab closed,
     # File > Open of that file: --check names says the title and the name that the map has again.
-    ("map-text-korean-save", ["--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--ime", "\ubcd1",
+    ("map-text-korean-save", ["--workspace", "props", "--click", "420,254", "--key", "Ctrl+A", "--ime", "\ubcd1",
                               "--type", "\ubcd1\ubaa9 \uc9c0\ub3c4 \U0001f600", "--click", "30,190", "--click", "474,224",
                               "--ime", "\ub9c8\ub9b0", "--type", "\ub9c8\ub9b0 \ud574\ubcd1", "--key", "Tab", "--key", "Enter",
                               "--key", "Ctrl+Shift+S", "--pick", "{kodir}/\ubcd1\ubaa9 \uc9c0\ub3c4", "--key", "Ctrl+W",
                               "--key", "Ctrl+O", "--pick", "{kodir}/\ubcd1\ubaa9 \uc9c0\ub3c4.scx", "--check", "names"], "map"),
     # Unit properties (a double click on the unit): Tab into a number selects it, so that 50 takes its place; Tab and
-    # Shift+Tab go through the fields in order. (The first Tab goes from the Units list's search box to its rows.)
-    ("map-dialog-tab", ["--mode", "units", "--click", "825,128:Double", "--key", "Tab", "--key", "Tab", "--type", "50", "--key", "Tab",
+    # Shift+Tab go through the fields in order. (The first Tab goes from the Units list's search box to its rows, the
+    # second to the owner's list.)
+    ("map-dialog-tab", ["--mode", "units", "--click", "825,128:Double", "--key", "Tab", "--key", "Tab", "--key", "Tab", "--type", "50", "--key", "Tab",
                         "--key", "Shift+Tab", "--key", "Escape"], "map"),
-    # The main window's Tab order (CHECKS: check_main_tab): from the map, Tab goes round the whole window (the menu bar,
-    # the top bar's parts and the modes, the tabs, the rail, the left side bar, the map, the right side bar, the Log's
-    # bar) and back to the map; Shift+Tab goes the same way back; Esc on a part gives the keyboard to the map.
-    ("map-tab-focus", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 80 + ["--key", "Shift+Tab"] * 80 +
+    # The main window's Tab order (CHECKS: check_main_tab): from the map, Tab goes round the whole window (84 stops in Units
+    # mode: the right side bar, the Log's bar, the menu bar, the tabs, the top bar's parts and the modes, the rail, the left
+    # side bar) and back to the map; Shift+Tab goes the same way back; Esc on a part gives the keyboard to the map.
+    ("map-tab-focus", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 100 + ["--key", "Shift+Tab"] * 100 +
      ["--key", "Tab", "--key", "Tab", "--key", "Esc"], "map"),
     # Enter and Space press the part with the focus, and the focus stays on it: Tab from the map to the modes in the top
-    # bar (27 stops in Units mode), Enter picks Terrain; Shift+Tab to the top bar's Quick search, Space opens the quick
+    # bar (33 stops in Units mode), Enter picks Terrain; Shift+Tab to the top bar's Quick search, Space opens the quick
     # picker, Esc closes it, and Esc on Quick search gives the keyboard to the map (CHECKS: check_tab_press).
-    ("map-tab-press", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 27 + ["--key", "Enter", "--key", "Shift+Tab",
+    ("map-tab-press", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 33 + ["--key", "Enter", "--key", "Shift+Tab",
                        "--key", "Space", "--key", "Esc", "--key", "Esc"], "map"),
     # The save question (msgbox::ask: Save, Do not save, Cancel) after a change and Ctrl+W: Tab and Shift+Tab move the
     # focus between the buttons, round again at the ends; Enter presses Cancel (the tab stays); the second time, Tab to
@@ -883,7 +889,7 @@ CASES += [
     # (not to a hidden option of the tab before).
     ("map-options-ctrltab", ["--key", "Ctrl+,", "--key", "Tab", "--key", "Tab", "--key", "Ctrl+Tab", "--key", "Ctrl+Shift+Tab",
                              "--key", "Esc"], "map"),
-    ("map-feedback-cycle", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 32 + ["--key", "Enter"] +
+    ("map-feedback-cycle", ["--mode", "units", "--click", "800,500"] + ["--key", "Tab"] * 39 + ["--key", "Enter"] +
      ["--key", "Tab"] * 10 + ["--key", "Shift+Tab"] * 3 + ["--key", "Esc"], "map"),
     # The Triggers tree takes typed letters (type-ahead) after a text field of the window had the keyboard: New trigger
     # (its name's field), Enter, then "o" goes to On every trigger cycle.
@@ -899,7 +905,7 @@ CASES += [
 # With no game data and no map (as on GitHub's machines): the Files workspace's search box takes Korean and Japanese
 # compositions (each shows in the field, not in its text, until the commit), and emoji (one Backspace removes one).
 CASES += [
-    ("text-input-cjk", ["--noinstall", "--workspace", "files", "--click", "240,289", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
+    ("text-input-cjk", ["--noinstall", "--workspace", "files", "--click", "240,325", "--type", "abc", "--ime", "\u314e", "--ime", "\ud55c",
                         "--ime", "\ud55c\u3131@1", "--type", "\ud55c\uad6d", "--ime", "\u306b", "--ime", "\u306b\u307b\u3093",
                         "--ime", "\u65e5\u672c@1", "--type", "\u65e5\u672c\u8a9e", "--type", " \U0001f600\U0001f3ae", "--key", "Backspace"], ""),
 ]
@@ -912,7 +918,7 @@ CASES += [
     ("map-quit-tabs", ["--newproject", "{newdir}", "--script", "{script:quittabs}"], "map"),
     # Save as with the Properties page's title still being typed (no wait for its timer): the file has the title (the
     # tab closes with no question, and the map that opens again has it).
-    ("map-save-typing", ["--workspace", "props", "--click", "420,214", "--key", "Ctrl+A", "--type", "Typed title", "--key", "Ctrl+Shift+S",
+    ("map-save-typing", ["--workspace", "props", "--click", "420,254", "--key", "Ctrl+A", "--type", "Typed title", "--key", "Ctrl+Shift+S",
                          "--pick", "{out}/typed.scx", "--key", "Ctrl+W", "--key", "Ctrl+O", "--pick", "{out}/typed.scx", "--check", "names"], "map"),
     # The Briefing's text being typed in a saved map, then quit: the map has a change, so the quit asks.
     ("map-briefing-quit", ["--pick", "{out}/brief.scx", "--script", "{script:briefquit}"], "map"),
@@ -1147,25 +1153,25 @@ def check_korean_save(output):
 
 # The kinds of the main window's views in Tab's order from the menu bar, in Units mode (side bars: Terrain at the left,
 # Units at the right). A view with parts of its own is one entry for all its parts.
-MAIN_TAB_KINDS = ["menu bar", "top bar", "modes", "top bar", "tabs", "rail", "minimap", "panel tabs", "tool strip", "palette", "map",
-                  "panel tabs", "tool strip", "dropdown", "text field", "button", "palette", "log"]
+MAIN_TAB_KINDS = ["menu bar", "tabs", "top bar", "modes", "top bar", "rail", "minimap", "panel tabs", "tool strip", "button", "palette", "map",
+                  "panel tabs", "tool strip", "dropdown", "text field", "view", "button", "palette", "log"]
 
 
 def check_main_tab(output):
     """Tab goes round the main window in the order of the screen (MAIN_TAB_KINDS) and back to the map; Shift+Tab goes
     the same way back; Esc on a part gives the keyboard to the map."""
     got = [(inp, kind, text) for inp, kind, text, _, _ in focus_lines(output)]
-    fwd = [(k, t) for i, k, t in got if i.startswith("key Tab")][:80]
+    fwd = [(k, t) for i, k, t in got if i.startswith("key Tab")][:100]
     back = [(k, t) for i, k, t in got if i.startswith("key Shift+Tab")]
-    if len(fwd) != 80 or len(back) != 80:
-        return f"{len(fwd)} Tab and {len(back)} Shift+Tab focus lines, not 80 each"
+    if len(fwd) != 100 or len(back) != 100:
+        return f"{len(fwd)} Tab and {len(back)} Shift+Tab focus lines, not 100 each"
     if ("map", "Map") not in fwd:
         return f"Tab did not come back to the map: {fwd}"
     cycle = [("map", "Map")] + fwd[:fwd.index(("map", "Map"))]
     for i, item in enumerate(fwd):  # (round again after the map)
         if item != cycle[(i + 1) % len(cycle)]:
             return f"Tab {i + 1}: {item}, not {cycle[(i + 1) % len(cycle)]} (the second time round)"
-    pos = 80 % len(cycle)
+    pos = 100 % len(cycle)
     for i, item in enumerate(back):
         pos = (pos - 1) % len(cycle)
         if item != cycle[pos]:
@@ -1322,7 +1328,7 @@ def check_dialog_cycle(want, skip=0):
 
 def check_dialog_tab(output):
     """Tab into a number selects it; the typed number takes its place; Tab and Shift+Tab select the next and the one before."""
-    got = focus_lines(output)[1:]  # (after the Tab to the Units list's rows)
+    got = focus_lines(output)[2:]  # (after the Tabs to the Units list's rows and the owner's list)
     if len(got) < 4:
         return f"{len(got)} focus lines: {got}"
     (_, k1, t1, s1, _), (_, k2, t2, s2, _), (_, k3, t3, s3, _), (_, k4, t4, s4, _) = got[:4]
@@ -1509,7 +1515,7 @@ key Tab
 key Tab
 key Shift+Tab
 workspace files
-click 240,289
+click 240,325
 type marine {n}
 key Ctrl+A
 key Backspace
@@ -1552,7 +1558,7 @@ key Ctrl+Tab
 click 1386,429
 click 700,650
 workspace props
-click 420,214
+click 420,254
 key Ctrl+A
 type Undo title
 command edit.undo
@@ -1664,31 +1670,31 @@ stats
     # A stack of three Marines at 700,650 (map-stack-list, map-stack-cycle, map-stack-menu).
     "stacklist": STACK_PLACE + "click 700,650:Alt\nkey Down\nkey Enter\nclick 700,650:Alt\nkey Down\nkey Shift+Enter\n",
     "stackcycle": STACK_PLACE + "click 700,650\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650\ndrag 700,650-640,680\n",
-    "stackmenu": STACK_PLACE + "click 700,650:Menu10\nkey Down\nkey Enter\n",
+    "stackmenu": STACK_PLACE + "click 700,650:Menu11\nkey Down\nkey Enter\n",
     # The Marine stays picked (no Esc): Alt+click on the stack is the pipette (map-stack-pipette).
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
-    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,512\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
+    "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,482\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
                 "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,412\n",
     "floatdockshot": "command view.floatPalette.terrain\nwait 0\nfloatmove 1400,120\nframe\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
-    # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
+    # (map-palette-float-keys: the window's search box, then High Platform's row in the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
     # Locations mode with the location list floating, and back in Units mode)
-    "floatpalshared": "click 1420,310\ntype marine\ncommand view.floatPalette.units\nwait 0\npanel search goliath\n"
+    "floatpalshared": "click 1420,281\ntype marine\ncommand view.floatPalette.units\nwait 0\npanel search goliath\n"
                       "command view.floatPalette.units\nwait 0\n",
-    "floatpalmulti": "command view.floatPalette.units\nwait 0\nclick 1100,472\nclick 1100,530:Ctrl\nclick 1100,590:Shift\n",
-    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,472\nclick 600,500\n"
+    "floatpalmulti": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 1100,502:Ctrl\nclick 1100,562:Shift\n",
+    "floatpalunits": "command view.floatPalette.units\nwait 0\nclick 1100,442\nclick 600,500\n"
                      "command view.floatPalette.locations\nmode locations\nmode units\n",
     # (map-palette-float-settings: nothing floats at the start; popped out, each mode's palette opens at its kept size and
     # stays in the other modes)
     "floatpaltwo": "wait 0\ncommand view.floatPalette.terrain\nwait 0\nmode units\ncommand view.floatPalette.units\nwait 0\nmode doodads\nmode terrain\n",
-    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1231,196\nclick 1157,254\nclick 200,652\nclick 1157,254\nkey U\nkey T\n",
+    "panelsown": "mode terrain\npanel new\nwait 0\nclick 1144,196\nclick 1157,254\nclick 200,621\nclick 1157,254\nkey U\nkey T\n",
     "panelsfloat": "mode terrain\nclick 246,427\nclick 198,485\ncommand view.floatPalette.terrain\nwait 0\nclick 400,196\n"
                    "command view.floatPalette.terrain\nwait 0\n",
     "locmulti": "mode locations\ndrag 500,200-600,280\ndrag 650,200-760,300\ndrag 520,500-640,600\nclick 540,240\n"
                 "click 700,250:Ctrl\nclick 560,540:Shift\ndrag 560,540-620,600\nkey Ctrl+C\nmove 900,700\nkey Ctrl+V\nclick 900,700\nkey Esc\nkey Del\n"
                 "key Ctrl+Z\nkey Ctrl+A\nkey Esc\nclick 200,495\nclick 200,525:Ctrl\n",
-    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,353\ntype plat\nclick 490,466\nkey F\npalette scale 150\n",
+    "floatpalkeys": "command view.floatPalette.terrain\nwait 0\nclick 400,323\ntype plat\nclick 490,436\nkey F\npalette scale 150\n",
     "stackpipette": "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nclick 700,650:Alt\nkey Esc\n",
 }
 
@@ -1960,11 +1966,11 @@ def check_terrain_brush(output):
 
 
 def check_terrain_lostdrag(output):
-    """A Shift stroke with the second terrain ends when the window loses the focus: one undo step, the first pick again."""
+    """A stroke ends when the window loses the focus: one undo step, the pick stays."""
     return expect(output, 5, [
-        ("Ctrl+click picked no second terrain", lambda s: "Shift+drag paints" in output),
+        ("the click picked no terrain", lambda s: "Painting Solar Array" in output),
         ("the stroke did not paint", lambda s: s[2]["terrain"] != s[1]["terrain"]),
-        ("the first terrain is not the pick after the stroke", lambda s: s[2]["palette"] == s[1]["palette"]),
+        ("the pick is not the same after the stroke", lambda s: s[2]["palette"] == s[1]["palette"]),
         ("the stroke did not end: the mouse paints after the focus went", lambda s: s[3]["terrain"] == s[2]["terrain"]),
         ("one Undo did not take the stroke back", lambda s: s[4]["terrain"] == s[1]["terrain"]),
     ])
@@ -2248,8 +2254,8 @@ def check_rect_quick_scroll(output):
     if s[0]["quick"] != "open" or s[-1]["quick"] != "open":
         return "Q did not open the quick picker, or it closed"
     last, rows = top[-1]
-    if rows < 300 or last < rows - 20:
-        return f"the picker did not come to its end (row {last} of {rows})"
+    if rows < 300 or last < rows - 30 or top[-2][0] != last:  # (its last page of the grid: about 30 of the rows)
+        return f"the picker did not come to its end (row {top[-2][0]}, then {last} of {rows})"
     if pics > 100:
         return f"the picker kept the pictures of {pics} tile groups"
     if freed:
@@ -2272,7 +2278,7 @@ def check_terrain_paste(output):
 
 def check_terrain_paste_ghost(output):
     """The terrain paste follows the mouse (the picture shows its ghost)."""
-    return expect(output, 5, [("the paste is not on", lambda s: s[4]["paste"] == "terrain" and s[4]["tsel"] != "-")])
+    return expect(output, 5, [("the paste is not on", lambda s: s[4]["paste"] == "terrain")])  # (the selection goes: the copy follows the mouse)
 
 
 def paste_ghost(step):
@@ -3378,8 +3384,8 @@ def check_menubar(output):
         m = re.search(r"\[[^\]]*, ([^\]]*)\]", l)
         if m and not (len(m.group(1)) == 1 and m.group(1).isalnum()):
             return f"the second key of {l!r} is not one letter or digit"
-    if sys.platform != "darwin" and not any(l.startswith("View > Layers > Terrain [Ctrl+Shift+L, T]") for l in lines):
-        return "no item View > Layers > Terrain [Ctrl+Shift+L, T]"
+    if sys.platform != "darwin" and not any(l.startswith("View > Modes > Terrain [Ctrl+Shift+L, T]") for l in lines):
+        return "no item View > Modes > Terrain [Ctrl+Shift+L, T]"
     snap = [l for l in lines if l.startswith("Options > Units > Snap buildings to tile edges")]
     if not snap or "(checked)" not in snap[0]:
         return f"no checked item Options > Units > Snap buildings to tile edges: {snap}"
@@ -3496,7 +3502,7 @@ def check_settings_read(expected):
 OLD_SETTINGS_LINES = ["settings: language es", "settings: theme light, accent Red", "settings: Quality 1", "settings: Carbot 1",
                       "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: SnapUnits 1", "settings: BrushShape 1",
                       "settings: LayerDoodads 0", "settings: PaletteViews 12345",
-                      "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right",
+                      "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right, Map Layers left",
                       "settings: layout widths 411 248 333, log 294, grid 48x16+3+5, trigger zoom 90, volume 40, unit names 1, code pane yes, "
                       "script preview yes",
                       "settings: recent map C:\\Maps\\(2)Bottleneck.scm", "settings: recent map /home/user/maps/Ice \uc5bc\uc74c.scx",
@@ -3528,7 +3534,7 @@ def check_update_checks(output):
 # The registry of 0.5.0.7 that write_legacy_hive writes: the lines of --check settings.
 LEGACY_LINES = ["settings: language ko", "settings: theme light, accent Green", "settings: Quality 0", "settings: ShowGrid 1",
                 "settings: BrushShape 1", "settings: PaletteViews 777", "settings: layout minimap right; Terrain left, Units left, Doodads left, "
-                "Locations left, Sprites left",
+                "Locations left, Sprites left, Map Layers left",
                 "settings: layout widths 350 280 300, log 220, grid 64x32+0+0, trigger zoom 150, volume 25, unit names 2, code pane no, "
                 "script preview no",
                 "settings: recent map C:\\Maps\\(2)Bottleneck.scm", "settings: recent map C:\\Maps\\Ice \uc5bc\uc74c.scx",
@@ -4075,8 +4081,8 @@ def check_resize_apply(output):
 def check_resize_undo(output):
     """None when Enter made the map 192 x 128 and one Ctrl+Z made it 128 x 128 again."""
     sizes = {what: ui.get("size") for what, ui in ui_lines(output)}
-    if sizes.get("click 494,424") != "192x128":
-        return f"after Change the size: {sizes.get('click 494,424')}"
+    if sizes.get("click 1082,286") != "192x128" and sizes.get("key Enter") != "192x128":
+        return f"after Change the size: {sizes.get('key Enter')}"
     if sizes.get("key Ctrl+Z") != "128x128":
         return f"after Ctrl+Z: {sizes.get('key Ctrl+Z')}"
     return None
@@ -4433,7 +4439,7 @@ def check_palette_float(output):
     """Floating: the window, a pick in it (High Platform, the brush), U and T from it, Dock, the close button, Rectangle
     mode's tiles in it and a tile picked there."""
     s = palette_steps(output)
-    want = ["wait 0", "click 510,512", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,412"]
+    want = ["wait 0", "click 510,482", "key U", "key T", "click 371,126", "wait 0", "palette close", "wait 0", "rect on", "click 386,412"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -4462,7 +4468,7 @@ def check_palette_keys(output):
     """A pick after typing in the window's search box: the search box loses the keyboard, F goes to the map (Fill) and
     the search keeps its text; the window on a screen of 150 % leaves the program's scale at 1."""
     s = palette_steps(output)
-    want = ["wait 0", "click 400,353", "type plat", "click 490,466", "key F", "palette scale 150"]
+    want = ["wait 0", "click 400,323", "type plat", "click 490,436", "key F", "palette scale 150"]
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -4588,7 +4594,7 @@ def check_palette_float_shared(output):
 
 def check_palette_float_multi(output):
     """Ctrl+click and Shift+click in the floating unit palette pick several units (the side bar's palette does)."""
-    if "click 1100,530:Ctrl: " not in output or "Placing Terran SCV and 1 more" not in output:
+    if "click 1100,502:Ctrl: " not in output or "Placing Terran SCV and 1 more" not in output:
         return "Ctrl+click in the floating unit palette did not add the SCV to the pick"
     if "Selected 3 units" not in output:
         return "Shift+click in the floating unit palette did not pick the units from the SCV to the Siege Tank"
@@ -4600,7 +4606,7 @@ def check_palette_units(output):
     picks the Marine and a click on the map places one; the location list floats too: Locations mode shows its window,
     Units mode the unit palette's window again."""
     s = palette_steps(output)
-    want = ["wait 0", "click 1100,472", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
+    want = ["wait 0", "click 1100,442", "click 600,500", "mode locations", "mode units"]  # (a command has no input line)
     got = [d["input"] for d in s]
     if got != want:
         return f"the inputs are {got}, not {want}"
@@ -4702,7 +4708,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "cmbw-isom-canvas-field": check_isom_canvas,
           "cmbw-isom-canvas-remove": check_isom_canvas_remove,
           "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
-          "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=32),
+          "map-feedback-cycle": check_dialog_cycle(["Open the Discord server", "Cancel"], skip=39),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
           "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,
           "text-input-cjk": check_text_cjk, "script-nodata": check_soak_nodata,
@@ -5201,6 +5207,17 @@ CHECKS.update({
 })
 
 
+def crig_map(cmbwmap):
+    """The mod's map whose trigger 1 has a Comment with CRIGs: in the mod's map folders, above the map --cmbwmap (else that map)."""
+    folder = os.path.dirname(cmbwmap)
+    while folder and os.path.dirname(folder) != folder:
+        path = os.path.join(folder, "campaign", "Butcher's Ballad", "01. Clenched Fist.scx")
+        if os.path.isfile(path):
+            return path
+        folder = os.path.dirname(folder)
+    return cmbwmap
+
+
 def main():
     # (the cases' text is not all ASCII: Korean, Chinese, emoji; a Windows console's code page cannot show it all)
     for stream in (sys.stdout, sys.stderr):
@@ -5306,7 +5323,7 @@ def main():
             write_once(oldsettings, lambda: write_old_settings(oldsettings, a.out))
         if any("{legacyhive}" in x for x in args):
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
-        paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
+        paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
                      releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage)
 

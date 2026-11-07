@@ -115,10 +115,11 @@ void sdlPropsLoad(MapPropsValues& d) {
     d = MapPropsValues{};
     const Editor& ed = *gState.ed;
     d.nameText = ed.scenarioName(), d.descText = ed.scenarioDescription();
+    if (ed.filesRead()) d.notesText = ed.notes();  // (else the page's timer brings them, without a wait here)
     d.era = ed.era() & 7, d.w = ed.width(), d.h = ed.height();
     d.fillTerrain = mapPropsFirstTerrain(d.era);
     d.baseSet = true;  // (the values the page first shows are the map's: a change is a difference from them)
-    d.nameBase = d.nameText, d.descBase = d.descText;
+    d.nameBase = d.nameText, d.descBase = d.descText, d.notesBase = d.notesText;
     d.eraBase = d.era, d.wBase = d.w, d.hBase = d.h;
     sdlPropsInfo(d);
 }
@@ -137,16 +138,25 @@ void sdlPropsInfo(MapPropsValues& d) {
 
 // The title and the description into the map (one undo step); then they are the map's values.
 // A text the page did not change keeps the map's bytes (the box can write a code in another, equal way).
-bool sdlPropsTextChanged(const MapPropsValues& d) { return d.baseSet && (d.nameText != d.nameBase || d.descText != d.descBase); }
+bool sdlPropsTextChanged(const MapPropsValues& d) { return d.baseSet && (d.nameText != d.nameBase || d.descText != d.descBase || d.notesText != d.notesBase); }
+void sdlPropsApplyNotes(MapPropsValues& d) {  // (a file of the map: an undo step of its own)
+    if (d.notesText != d.notesBase) gState.ed->setNotes(d.notesText);
+    d.notesBase = d.notesText;
+}
 void sdlPropsApplyText(MapPropsValues& d) {
     Editor& ed = *gState.ed;
-    const std::string name = d.nameText != d.nameBase ? sdlTextLineEnds(d.nameText) : ed.scenarioName();
-    const std::string desc = d.descText != d.descBase ? sdlTextLineEnds(d.descText) : ed.scenarioDescription();
-    ed.setScenarioText(name, desc);
+    if (d.nameText != d.nameBase || d.descText != d.descBase) {
+        const std::string name = d.nameText != d.nameBase ? sdlTextLineEnds(d.nameText) : ed.scenarioName();
+        const std::string desc = d.descText != d.descBase ? sdlTextLineEnds(d.descText) : ed.scenarioDescription();
+        ed.setScenarioText(name, desc);
+    }
     d.nameBase = d.nameText, d.descBase = d.descText;
+    sdlPropsApplyNotes(d);
     updateTitle();
 }
 
+void mapLayersBeforeResize(Editor& ed, int w, int h, int era, int shiftX, int shiftY, uint16_t fill);  // (core/map_layers.inc)
+void mapLayersResizeFailed();
 // Apply: the text with \r\n (the game's line ends), and the size and tileset, as one undo step. False: the map stays as it was.
 bool sdlPropsApplyAll(MapPropsValues& d) {
     Editor& ed = *gState.ed;
@@ -154,8 +164,12 @@ bool sdlPropsApplyAll(MapPropsValues& d) {
     const bool resize = d.w != ed.width() || d.h != ed.height() || d.era != int(ed.era());
     if (!text && !resize) return true;
     std::string err;
+    if (resize && d.era == int(ed.era())) {
+        const int ax = d.anchorIndex % 3, ay = d.anchorIndex / 3;
+        mapLayersBeforeResize(ed, d.w, d.h, d.era, (d.w - ed.width()) * ax / 2, (d.h - ed.height()) * ay / 2, d.fillTerrain);
+    }
     ed.beginStroke();
-    if (text) {
+    if (text && (d.nameText != d.nameBase || d.descText != d.descBase)) {
         const std::string name = d.nameText != d.nameBase ? sdlTextLineEnds(d.nameText) : ed.scenarioName();
         const std::string desc = d.descText != d.descBase ? sdlTextLineEnds(d.descText) : ed.scenarioDescription();
         ed.setScenarioText(name, desc);
@@ -169,11 +183,13 @@ bool sdlPropsApplyAll(MapPropsValues& d) {
     }
     ed.endStroke();
     if (!ok) {
+        mapLayersResizeFailed();
         // The title and description of the same step stay set; the size and tileset do not.
         shellWarningBox(L"The map keeps its size and tileset: " + widen(err), L"Map properties");  // (the warning icon, as on Windows)
         return false;
     }
     if (text) d.nameBase = d.nameText, d.descBase = d.descText;
+    sdlPropsApplyNotes(d);
     if (resize) {
         shellRelayout();  // the minimap takes the new shape
         fitMap();
@@ -365,25 +381,36 @@ int sdlPickFromList(const std::vector<std::wstring>& rows, int checked, const st
 class SdlPropsView final : public MapPropsView {
 public:
     // The title or the description has the keyboard (the program's shortcuts wait for it).
-    bool typingField() const { return name_.hasFocus() || desc_.hasFocus(); }
+    bool typingField() const { return name_.hasFocus() || desc_.hasFocus() || notes_.hasFocus(); }
     SdlPropsView(MapPropsHost& host, MapPropsValues& v) : MapPropsView(host, v), val_(v) {
         name_.setText(widen(v.nameText));
         name_.onChange = [this] { val_.nameText = narrow(name_.text()), sdlMapPageTyped(); };
         desc_.setMultiline(true), desc_.setWrap(true);
         desc_.setText(widen(v.descText));
         desc_.onChange = [this] { val_.descText = narrow(desc_.text()), sdlMapPageTyped(); };
+        notes_.setMultiline(true), notes_.setWrap(true);
+        notes_.setPlaceholder(L"Notes for the mappers. Not in the game. File > Export leaves them out.");
+        notes_.setText(widen(v.notesText));
+        notes_.setReadOnly(!gState.ed || !gState.ed->filesRead());
+        notes_.onChange = [this] { val_.notesText = narrow(notes_.text()), sdlMapPageTyped(); };
         add(name_, draw::Rect(0, 0, 0, 0));
         add(desc_, draw::Rect(0, 0, 0, 0));
+        add(notes_, draw::Rect(0, 0, 0, 0));
+    }
+    void showNotes(const std::string& text) { notes_.setText(widen(text)); }
+    void notesReady() {  // (they cannot be typed over before the map's own are read)
+        if (notes_.readOnly()) notes_.setReadOnly(false);
     }
     void paint(draw::Canvas& c) override {
         MapPropsView::paint(c);
         name_.setFrame(nameBox());
         desc_.setFrame(descBox());
+        notes_.setFrame(notesBox());
     }
 
 private:
     MapPropsValues& val_;
-    kit::TextField name_, desc_;
+    kit::TextField name_, desc_, notes_;
 };
 
 // The program's part of the Map properties view (core/views_map_props.inc: MapPropsHost).
@@ -395,6 +422,7 @@ public:
     void cropOrExtend() override;
     int textHeight(bool, int, int boxH) override { return boxH; }
     void fitHeight(int w, int h) override;
+    int availableWidth() override;
 };
 
 class SdlPlayersHost final : public PlayersHost {
@@ -403,6 +431,7 @@ public:
     void typed() override;
     int textWidth(const std::wstring& t) override { return sdlTextWidth(t); }
     void fitSize(int w, int h) override;
+    int availableWidth() override;
 };
 
 class SdlClassicHost final : public ClassicHost {
@@ -547,14 +576,21 @@ void sdlDropViews() {
 void sdlShowTab(int k);
 void sdlMakeContent();
 
-// The page frame's scroll view holds the page's parts: the Map properties page has two (its fields, then players and
-// forces), the others one; Map data has its three tabs (one shows).
+// The page frame's scroll view holds the page's parts: the Map properties page has a part for each of its tabs (its
+// fields, players and forces, the establishing shot), the others one; Map data has its three tabs (one shows).
+int gSdlPropsTab = 0;
+void sdlPropsTabSync() {
+    if (gSdlPropsTab == 2 && !gSdlPage.est) gSdlPropsTab = 0;
+    if (gSdlPage.props) gSdlPage.props->setVisible(gSdlPropsTab == 0);
+    if (gSdlPage.players) gSdlPage.players->setVisible(gSdlPropsTab == 1);
+    if (gSdlPage.est) gSdlPage.est->setVisible(gSdlPropsTab == 2);
+}
 std::vector<draw::View*> sdlParts() {
     std::vector<draw::View*> out;
-    if (gSdlPage.kind == kSdlProps) {
-        if (gSdlPage.props) out.push_back(gSdlPage.props.get());
-        if (gSdlPage.players) out.push_back(gSdlPage.players.get());
-        if (gSdlPage.est) out.push_back(gSdlPage.est.get());
+    if (gSdlPage.kind == kSdlProps) {  // (its tab's part)
+        if (gSdlPropsTab == 0 && gSdlPage.props) out.push_back(gSdlPage.props.get());
+        if (gSdlPropsTab == 1 && gSdlPage.players) out.push_back(gSdlPage.players.get());
+        if (gSdlPropsTab == 2 && gSdlPage.est) out.push_back(gSdlPage.est.get());
     } else if (gSdlPage.kind == kSdlPlayers) {
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
     } else if (gSdlPage.kind == kSdlClassic) {
@@ -590,23 +626,36 @@ std::vector<int> sdlClassicTabsShown() {
     return out;
 }
 
+void gSdlMapPages_scrollTop();  // (below: the new tab's part from its top)
 class SdlPageFrameHost final : public MapPagesHost {
 public:
     std::wstring title() override { return gSdlPage.kind >= 0 ? kSdlTitles[gSdlPage.kind] : L""; }
     std::vector<Tab> tabs() override {
         std::vector<Tab> out;
+        if (gSdlPage.kind == kSdlProps) {
+            out.push_back({L"General", UiIcon::Tag});
+            out.push_back({L"Players and forces", UiIcon::Units});
+            if (gSdlPage.est) out.push_back({L"Establishing shot", UiIcon::DatImages});
+        }
         if (gSdlPage.kind == kSdlClassic)
             for (int k : sdlClassicTabsShown()) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
         if (gSdlPage.kind == kSdlClassic) out.push_back({L"Strings", UiIcon::DatStrings});  // (the last: the map's string table)
         return out;
     }
     int tab() override {  // (the tab's place in the ones that show)
+        if (gSdlPage.kind == kSdlProps) return gSdlPropsTab;
         const std::vector<int> shown = sdlClassicTabsShown();
         if (gSdlStringsTab) return int(shown.size());
         const auto it = std::find(shown.begin(), shown.end(), gClassic ? gClassic->tab : 0);
         return it == shown.end() ? 0 : int(it - shown.begin());
     }
     void showTab(int k) override {
+        if (gSdlPage.kind == kSdlProps) {
+            gSdlPropsTab = k;
+            sdlPropsTabSync();
+            gSdlMapPages_scrollTop();
+            return;
+        }
         const std::vector<int> shown = sdlClassicTabsShown();
         if (k == int(shown.size())) return sdlShowStringsTab();
         if (k >= 0 && k < int(shown.size())) sdlShowTab(shown[size_t(k)]);
@@ -628,6 +677,13 @@ public:
         return {w, h};
     }
     void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need; Map data's table fills it)
+        // (the columns follow the width: a part's paint sizes it)
+        static int columnsFor = -1;
+        if (w != columnsFor && (gSdlPage.kind == kSdlProps || gSdlPage.kind == kSdlPlayers)) {
+            columnsFor = w;
+            if (gSdlPage.props) gSdlPage.props->invalidate();
+            if (gSdlPage.players) gSdlPage.players->invalidate();
+        }
         if (sdlStringsShown()) return gSdlPage.strings->setSize(w, h);
         if (sdlClassicTableShown()) return gSdlPage.classicTable->setSize(w, h);
         if (gSdlPage.kind == kSdlClassic && h != gClassicFitH) {  // Map data: its list goes down to the view's bottom
@@ -675,6 +731,12 @@ struct SdlMapPagesView final : draw::View {
 };
 SdlMapPagesView gSdlMapPages;
 
+void gSdlMapPages_scrollTop() {
+    gSdlMapPages.scroll.scrollTo(0, 0);
+    gSdlMapPages.invalidate();
+}
+int SdlPropsHost::availableWidth() { return gSdlMapPages.scroll.width(); }
+int SdlPlayersHost::availableWidth() { return gSdlMapPages.scroll.width(); }
 // The scroll view again: the parts are placed where it says (after a part changes its size).
 void sdlPageRelayoutParts() {
     gSdlMapPages.scroll.scrollTo(gSdlMapPages.scroll.scrollX(), gSdlMapPages.scroll.scrollY());
@@ -834,10 +896,12 @@ void sdlMapPageResize() {
     int sx = v.shiftX, sy = v.shiftY;
     Editor::resizeShift(sx, sy);
     gResizeRecord.shiftPxX = sx * 32, gResizeRecord.shiftPxY = sy * 32;
+    mapLayersBeforeResize(ed, v.w, v.h, ed.era(), v.shiftX, v.shiftY, v.fill);
     // The map that the preview showed (the copy's, tile for tile); else (the copy holds another map) the same change.
     std::string err;
     const bool taken = resizeCopyHolds(gResizeRecord.preview, ed) && ed.takeScenario(resizeCopy(ed.gameData()), sx, sy);
     if (!taken && !ed.resizeMap(uint16_t(v.w), uint16_t(v.h), ed.era(), v.shiftX, v.shiftY, v.fill, err)) {
+        mapLayersResizeFailed();
         shellWarningBox(L"The map keeps its size: " + widen(err), L"Crop or extend the map");
         return;
     }
@@ -887,6 +951,14 @@ void sdlReloadIfStale() {
     if (!all || gSdlPage.ed != gState.ed.get() || gSdlPage.typing) return;
     if (sdlStringsShown()) return;  // (the Strings tab reads the map itself; the other tabs read it again when they show)
     SdlCopy& c = *all->kinds[gSdlPage.kind];
+    if (gSdlPage.kind == kSdlProps && gSdlPage.props && gState.ed->filesRead()) {  // (the notes follow the map also while the page keeps a change of the size)
+        auto& pc = sdlPropsCopy(*all);
+        gSdlPage.props->notesReady();
+        if (const std::string now = gState.ed->notes(); pc.d && pc.d->notesText == pc.d->notesBase && now != pc.d->notesBase) {
+            pc.d->notesText = pc.d->notesBase = now;
+            gSdlPage.props->showNotes(now);
+        }
+    }
     if (c.revision != gState.ed->revision() && !c.changed) sdlMapPageReload();
 }
 void sdlArmReload() {
@@ -903,6 +975,8 @@ void sdlMakeContent() {
     switch (gSdlPage.kind) {
     case kSdlProps: {
         auto& pc = sdlPropsCopy(*all);
+        // (a copy from while the map's files were being read: the notes as they are now, before they can be typed over)
+        if (pc.d && gState.ed->filesRead() && pc.d->notesText == pc.d->notesBase) pc.d->notesText = pc.d->notesBase = gState.ed->notes();
         gSdlPage.props = std::make_unique<SdlPropsView>(gSdlPropsHost, *pc.d);
         scroll.add(*gSdlPage.props, draw::Rect(0, 0, gSdlPage.props->preferredWidth(), gSdlPage.props->baseHeight()));
         auto& pl = sdlPlayersCopy(*all);
@@ -912,6 +986,7 @@ void sdlMakeContent() {
             gSdlPage.est = std::make_unique<EstShotView>();
             scroll.add(*gSdlPage.est, draw::Rect(0, 0, gSdlPage.est->preferredWidth(), gSdlPage.est->preferredHeight()));
         }
+        sdlPropsTabSync();
         break;
     }
     case kSdlPlayers: {

@@ -117,6 +117,10 @@ bool readMapFile(const std::filesystem::path& mapPath, Bytes& out, std::string& 
     return readFromArchive(mpq.get(), nameInArchive, out, error);
 }
 
+bool archiveNameUsable(const std::string& name) {
+    return !name.empty() && !isInternalName(name) && !isPseudoName(name) && lower(name) != lower(kChkArchivePath);
+}
+
 bool readMapFiles(const std::filesystem::path& mapPath, std::vector<ArchiveFile>& out, std::string& error,
                   const std::vector<std::string>& extraNames, std::vector<std::string>* unreadable) {
     Archive mpq;

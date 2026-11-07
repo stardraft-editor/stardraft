@@ -24,6 +24,10 @@ inline bool readMapChk(const std::filesystem::path& mapPath, Bytes& chkOut, std:
     return readMapFile(mapPath, chkOut, error);
 }
 
+// Can a file of this name go into a map and come back? Not the scenario, the archive's internal files, or a name that
+// looks like StormLib's name for a file with no name.
+bool archiveNameUsable(const std::string& name);
+
 // Read every file in the archive except the internal (listfile)/(attributes)/(signature).
 // Files are found through the archive's listfile plus `extraNames` (e.g. WAV paths taken
 // from the string table, for maps whose listfile was removed). Names that are not

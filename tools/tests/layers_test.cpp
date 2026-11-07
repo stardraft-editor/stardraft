@@ -8,6 +8,7 @@
 
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
+#include "stardraft/isom.h"
 
 using namespace stardraft;
 namespace fs = std::filesystem;
@@ -82,6 +83,110 @@ int main(int argc, char** argv) {
     if (!data.open(argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
     const uint16_t Dirt = 1, HighDirt = 2, Water = 3;
 
+    // The map's files: notes, and what File > Export keeps.
+    {
+        namespace fs = std::filesystem;
+        Editor ed(data);
+        check(ed.newMap(64, 64, 0, Dirt, err), "a new map");
+        check(ed.notes().empty(), "no notes");
+        ed.setNotes("Notes \xC3\xA5 here");
+        check(ed.notes() == "Notes \xC3\xA5 here" && ed.archiveFile(kNotesFile), "the notes are a file of the map");
+        ed.undo();
+        check(ed.notes().empty(), "an undo takes them away");
+        ed.redo();
+        check(!ed.notes().empty(), "a redo brings them back");
+        ed.setArchiveFiles({{"staredit\\wav\\a.wav", Bytes{1, 2, 3}}, {"est.pcx", Bytes{4}}, {kLayersFile, Bytes{5}}});
+        check(ed.keepInExport("staredit\\wav\\a.wav") && ed.keepInExport("est.pcx"), "a file goes by default");
+        check(!ed.keepInExport(kNotesFile), "the notes do not go by default");
+        check(!ed.keepInExport(kLayersFile) && !Editor::canKeepInExport(kLayersFile), "the layers never go");
+        ed.setKeepInExport("est.pcx", false);
+        ed.setKeepInExport(kNotesFile, true);
+        check(!ed.keepInExport("est.pcx") && ed.keepInExport(kNotesFile), "the settings hold");
+        const fs::path out = fs::path(argv[2]) / "export-files.scx";
+        std::vector<std::string> leftOut, inUse;
+        check(ed.exportFlattened(out, err, &leftOut, &inUse), "the export");
+        check(leftOut.size() == 1 && leftOut[0] == "est.pcx" && inUse.empty(), "it says what stays out");
+        std::vector<ArchiveFile> back;
+        check(readMapFiles(out, back, err), "the export reads");
+        const auto has = [&](const std::string& n) { return std::any_of(back.begin(), back.end(), [&](const ArchiveFile& f) { return f.name == n; }); };
+        check(has("staredit\\wav\\a.wav") && has(kNotesFile), "the export has what it keeps");
+        check(!has("est.pcx") && !has(kLayersFile) && !has(kExportListFile), "and not the others");
+        ed.renameArchiveFile("est.pcx", "est2.pcx");
+        check(!ed.keepInExport("est2.pcx") && ed.keepInExport("est.pcx"), "the setting goes with the new name");
+        ed.undo();
+        check(!ed.keepInExport("est.pcx") && ed.archiveFile("est.pcx"), "an undo brings the name and the setting back");
+        check(!archiveNameUsable("staredit\\scenario.chk") && !archiveNameUsable("(listfile)") && !archiveNameUsable("File00000001.pcx") && archiveNameUsable("est.pcx"), "names a map cannot keep");
+        ed.setKeepInExport("est.pcx", true);
+        ed.setKeepInExport(kNotesFile, false);
+        check(!ed.archiveFile(kExportListFile), "all as by default: no list");
+        ed.setQuietArchiveFile(kMapSettingsFile, Bytes{9});
+        check(!ed.keepInExport(kMapSettingsFile) && ed.archiveFile(kMapSettingsFile), "the map's settings are a file that does not go");
+    }
+    // A save's check of the terrain; and a layered map whose terrain is not as at its last save (open it to see the message).
+    {
+        namespace fs = std::filesystem;
+        Editor ed(data);
+        check(ed.newMap(64, 64, 0, Dirt, err), "a new map");
+        LayerStack s;
+        s.add("One", 0).corners[{8, 15}] = HighDirt;
+        ed.setArchiveFiles({{kLayersFile, s.serialize()}, {kLayersBaseFile, ed.layerBaseNow()}});
+        const fs::path saved = fs::path(argv[2]) / "saved-layers.scx";
+        check(ed.save(saved, err), "a layered map saves");
+        Editor back(data);
+        check(back.open(saved, err), "and opens");
+        const ArchiveFile* mark = back.archiveFiles().empty() ? nullptr : back.archiveFile(kLayersCheckFile);
+        check(mark && std::string(mark->data.begin(), mark->data.end()) == back.terrainCheck(), "a save's check is the terrain's");
+        std::vector<ArchiveFile> other = back.archiveFiles();
+        for (ArchiveFile& f : other)
+            if (f.name == kLayersCheckFile) f.data = {'0', '0'};
+        check(writeMap(fs::path(argv[2]) / "stale-layers.scx", back.savedChk(), other, err), "a map with a check that differs");
+    }
+    // An edit of the Background under a layer: the cliff on the layer keeps its tiles, and its stacks stay whole.
+    {
+        Editor ed(data);
+        check(ed.newMap(64, 64, 0, Dirt, err), "a new map");
+        LayerStack s;
+        MapLayer& high = s.add("High", 0);
+        for (int y = 10; y < 26; ++y)
+            for (int x = 6; x < 16; ++x)
+                if ((x + y) & 1) high.corners[{x, y}] = HighDirt;
+        const Bytes base = ed.layerBaseNow();
+        check(ed.composeLayers(base, s), "the cliff is on the map");
+        const std::vector<uint16_t> before = ed.layerTileSection().tiles;
+        uint16_t Grass = 0;
+        const IsomTerrainTable* table = IsomTerrainTable::forEra(ed.era());
+        for (uint16_t t = 1; table && t < 64 && !Grass; ++t)
+            if (table->isTerrain(t) && table->terrainName(t) == std::string("Grass")) Grass = t;
+        check(Grass != 0, "Badlands has Grass");
+        Bytes painted = base;
+        ed.noteAskedCorners(true);
+        for (const uint16_t ground : {Grass, Water, Dirt, Grass, Grass, Dirt}) {
+            std::vector<uint16_t> last = ed.layerTileSection().tiles;
+            // (the Brush over the cliff's foot and past it)
+            Brush brush;
+            brush.size = 2;
+            ed.beginTerrainStroke();
+            for (int px = 256; px <= 1200; px += 64) ed.paintBrush(px, 860, ground, brush);
+            ed.endTerrainStroke();
+            std::map<std::pair<int, int>, uint16_t> asked;
+            for (const auto& [x, y] : ed.takeAskedCorners()) asked[{x, y}] = ground;
+            LayerStack one;
+            one.add("", 0).corners = asked;
+            ed.composeLayers(painted, one, nullptr, true);
+            painted = ed.layerBaseNow();
+            ed.composeLayers(painted, s, nullptr, false, &last, -1);
+            std::vector<std::pair<int, int>> where;
+            const int misfits = countTileMisfits(ed.chk(), ed.tileset(), &where);
+            std::printf("  ground %d: %d tiles do not fit\n", int(ground), misfits);
+            check(misfits == 0, "the stacks fit after an edit under the layer");
+            int kept = 0, top = 0;
+            const std::vector<uint16_t>& nowTiles = ed.layerTileSection().tiles;
+            for (int y = 8; y < 16; ++y)
+                for (int x = 8; x < 36; ++x, ++top) kept += nowTiles[size_t(y) * 64 + x] == before[size_t(y) * 64 + x];
+            std::printf("  the top of the layer: %d of %d tiles kept\n", kept, top);
+            check(kept == top, "the top of the layer does not change");
+        }
+    }
     // Flattening.
     {
         Editor ed(data);

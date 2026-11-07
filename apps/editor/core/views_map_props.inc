@@ -20,6 +20,7 @@ inline uint16_t mapPropsFirstTerrain(int era) {
 // The page's values: the working copy (the program's copy is a MapPropsDialog, which holds these and its editors).
 struct MapPropsValues {
     std::string nameText, descText;  // the title and the description as bytes (the game's codes)
+    std::string notesText, notesBase;  // the map's notes (UTF-8)
     int era = 0, w = 0, h = 0, anchorIndex = 0;
     uint16_t fillTerrain = 1;
     std::wstring infoText;  // what "Change the size and tileset" will do ("": the size and tileset are the map's)
@@ -42,6 +43,8 @@ public:
     virtual int textHeight(bool description, int boxW, int boxH) = 0;
     // The page's content is w x h (the program sizes the window it is in).
     virtual void fitHeight(int w, int h) = 0;
+    // The width that the page can use (Terrain goes beside Map where both fit). 0: not known.
+    virtual int availableWidth() { return 0; }
 };
 
 class MapPropsView : public draw::View {
@@ -88,6 +91,10 @@ public:
         const PropsRows l = rows(0);
         return {l.x1, l.descY, l.x1 + l.boxW, l.descY + l.descH};
     }
+    draw::Rect notesBox() {
+        const PropsRows l = rows(0);
+        return {l.x1, l.notesY, l.x1 + l.boxW, l.notesY + l.notesH};
+    }
     // The page's height with no text under the buttons (its first paint makes it as tall as the text needs).
     int baseHeight() { return rows(0).height; }
 
@@ -96,38 +103,39 @@ public:
         syncControls();  // the dropdowns show the copy's values
         const int textH = v_.infoText.empty() ? 0 : c.measureBox(v_.infoText, scale(440), draw::kWrap).y + scale(4);
         const PropsRows l = rows(textH);
-        if (height() != l.height) host_.fitHeight(width(), l.height);  // the text under the buttons is taller or shorter
-        const int right = l.x1 + l.boxW;
-        auto heading = [&](const wchar_t* t, int y) {
-            c.text({l.pad, y, right, y + l.rowH}, t, kText, draw::kMiddle);
-            c.fill({l.pad, y + l.rowH, right, y + l.rowH + 1}, kBorder);
+        if (height() != l.height || width() != l.width) host_.fitHeight(l.width, l.height);  // the text under the buttons is taller or shorter; the columns
+        const int right = l.x1 + l.boxW, tx = l.tx0, tRight = l.tx1 + l.boxW;
+        auto heading = [&](const wchar_t* t, int y, int x0, int x1) {
+            c.text({x0, y, x1, y + l.rowH}, t, kText, draw::kMiddle);
+            c.fill({x0, y + l.rowH, x1, y + l.rowH + 1}, kBorder);
         };
-        auto label = [&](const wchar_t* t, int y) { c.text({l.pad, y, l.x1 - scale(8), y + l.rowH}, t, kDim, draw::kMiddle); };
-        heading(L"Map", l.pad);
-        label(L"Title", l.nameY), label(L"Description", l.descY);  // (the editors are the program's windows, in their boxes)
-        heading(L"Terrain", l.terrainY);
-        label(L"Tileset", l.tilesetY), label(L"Size (tiles)", l.sizeY), label(L"Map content at", l.anchorY), label(L"New ground", l.fillY);
+        auto label = [&](const wchar_t* t, int y, int x0, int x1) { c.text({x0, y, x1 - scale(8), y + l.rowH}, t, kDim, draw::kMiddle); };
+        heading(L"Map", l.pad, l.pad, right);
+        // (the editors are the program's windows, in their boxes)
+        label(L"Title", l.nameY, l.pad, l.x1), label(L"Description", l.descY, l.pad, l.x1), label(L"Notes", l.notesY, l.pad, l.x1);
+        heading(L"Terrain", l.terrainY, tx, tRight);
+        label(L"Tileset", l.tilesetY, tx, l.tx1), label(L"Size (tiles)", l.sizeY, tx, l.tx1), label(L"Map content at", l.anchorY, tx, l.tx1), label(L"New ground", l.fillY, tx, l.tx1);
         const int sw = scale(96);
-        tileset_.setFrame({l.x1, l.tilesetY, right, l.tilesetY + l.rowH});
-        wDrop_.setFrame({l.x1, l.sizeY, l.x1 + sw, l.sizeY + l.rowH});
-        c.text({l.x1 + sw, l.sizeY, l.x1 + sw + scale(24), l.sizeY + l.rowH}, L"x", kDim, draw::kMiddle | draw::kCenter);
-        hDrop_.setFrame({l.x1 + sw + scale(24), l.sizeY, l.x1 + sw + scale(24) + sw, l.sizeY + l.rowH});
-        const int cropX = l.x1 + sw + scale(24) + sw + scale(16);
+        tileset_.setFrame({l.tx1, l.tilesetY, tRight, l.tilesetY + l.rowH});
+        wDrop_.setFrame({l.tx1, l.sizeY, l.tx1 + sw, l.sizeY + l.rowH});
+        c.text({l.tx1 + sw, l.sizeY, l.tx1 + sw + scale(24), l.sizeY + l.rowH}, L"x", kDim, draw::kMiddle | draw::kCenter);
+        hDrop_.setFrame({l.tx1 + sw + scale(24), l.sizeY, l.tx1 + sw + scale(24) + sw, l.sizeY + l.rowH});
+        const int cropX = l.tx1 + sw + scale(24) + sw + scale(16);
         crop_.setFrame({cropX, l.sizeY, cropX + crop_.preferredWidth(c), l.sizeY + l.rowH});
-        anchor_.setFrame({l.x1, l.anchorY, right, l.anchorY + l.rowH});
-        fill_.setFrame({l.x1, l.fillY, right, l.fillY + l.rowH});
+        anchor_.setFrame({l.tx1, l.anchorY, tRight, l.anchorY + l.rowH});
+        fill_.setFrame({l.tx1, l.fillY, tRight, l.fillY + l.rowH});
         // The buttons, then what they do (only the size and the tileset wait for them).
-        c.text({l.x1, l.infoY, right, l.infoY + l.infoH}, v_.infoText, kDim, draw::kWrap);
+        c.text({l.tx1, l.infoY, tRight, l.infoY + l.infoH}, v_.infoText, kDim, draw::kWrap);
         const int bh = scale(stardraft::kit::kButtonH);
         const int cw = change_.preferredWidth(c), rw = reset_.preferredWidth(c);
-        change_.setFrame({l.x1, l.buttonsY, l.x1 + cw, l.buttonsY + bh});
-        reset_.setFrame({l.x1 + cw + scale(stardraft::kit::kButtonGap), l.buttonsY, l.x1 + cw + scale(stardraft::kit::kButtonGap) + rw, l.buttonsY + bh});
+        change_.setFrame({l.tx1, l.buttonsY, l.tx1 + cw, l.buttonsY + bh});
+        reset_.setFrame({l.tx1 + cw + scale(stardraft::kit::kButtonGap), l.buttonsY, l.tx1 + cw + scale(stardraft::kit::kButtonGap) + rw, l.buttonsY + bh});
     }
 
 private:
     // The page's rows (the same at each paint); textH: the text under the buttons.
     struct PropsRows {
-        int pad, rowH, pitch, x1, boxW, right, nameY, nameH, descY, descH, terrainY, tilesetY, sizeY, anchorY, fillY, buttonsY, infoY, infoH, height;
+        int pad, rowH, pitch, x1, boxW, right, tx0, tx1, width, nameY, nameH, descY, descH, notesY, notesH, terrainY, tilesetY, sizeY, anchorY, fillY, buttonsY, infoY, infoH, height;
     };
     PropsRows rows(int textH) {
         PropsRows l{};
@@ -136,13 +144,20 @@ private:
         l.nameY = l.pad + l.pitch;  // under the "Map" heading (each editor: its box, then its colors under it)
         l.nameH = host_.textHeight(false, l.boxW, l.rowH);
         l.descY = l.nameY + l.nameH + scale(10), l.descH = host_.textHeight(true, l.boxW, scale(96));
-        l.terrainY = l.descY + l.descH + l.pad;
+        l.notesY = l.descY + l.descH + scale(10), l.notesH = scale(96);
+        // Terrain: beside Map where both fit, else under it.
+        const int oneW = l.right + l.pad, twoW = l.right + 2 * l.pad + (l.x1 - l.pad) + l.boxW + l.pad;
+        const bool beside = host_.availableWidth() >= twoW;
+        l.width = beside ? twoW : oneW;
+        l.tx0 = beside ? l.right + 2 * l.pad : l.pad, l.tx1 = l.tx0 + (l.x1 - l.pad);
+        const int mapEnd = l.notesY + l.notesH;
+        l.terrainY = beside ? l.pad : mapEnd + l.pad;
         l.tilesetY = l.terrainY + l.pitch;
         l.sizeY = l.tilesetY + l.pitch, l.anchorY = l.sizeY + l.pitch, l.fillY = l.anchorY + l.pitch;
         l.buttonsY = l.fillY + l.pitch + scale(4);
         l.infoY = l.buttonsY + scale(stardraft::kit::kButtonH) + scale(8);
         l.infoH = std::max(scale(20), textH);  // as tall as the text, at least one line
-        l.height = l.infoY + l.infoH + l.pad;
+        l.height = std::max(l.infoY + l.infoH, beside ? mapEnd : 0) + l.pad;
         return l;
     }
     // A child's frame, set only when it differs (a set repaints).

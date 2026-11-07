@@ -2835,3 +2835,140 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	마스크 없음: 모든 타일을 칠합니다
 Nothing changed: the mask keeps these tiles	변경 없음: 마스크가 이 타일을 유지합니다
 Nothing changed: the mask keeps this terrain	변경 없음: 마스크가 이 지형을 유지합니다
+ file	 개 파일
+ files	 개 파일
+ files of the archive have no name that can be read, or could not be read. A save leaves them out.	 개 파일은 아카이브에서 읽을 수 있는 이름이 없거나 읽을 수 없습니다. 저장하면 제외됩니다.
+ layers	 개 레이어
+ left out (Assets > All files)	 제외됨 (에셋 > 모든 파일)
+ of them: 	 개 중:
+ replaced)	 개 교체됨)
+ tile	 개 타일
+ tiles	 개 타일
+&Hide or show	숨기기/표시(&H)
+&Layer list	레이어 목록(&L)
+&Lock or unlock	잠금/해제(&L)
+&Map Layers	맵 레이어(&M)
+&Merge down	아래로 병합(&M)
+&Modes	모드(&M)
+&New layer	새 레이어(&N)
+&Select all layers	모든 레이어 선택(&S)
+, and more	 외 더 있음
+. It has no changed values: it does not show while Changed is on	. 변경된 값이 없습니다: 변경됨이 켜져 있으면 표시되지 않습니다
+. Shift adds. Ctrl removes.	. Shift는 추가, Ctrl은 제거입니다.
+. The map uses 	. 맵이 사용함:
+1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1개 파일은 아카이브에서 읽을 수 있는 이름이 없거나 읽을 수 없습니다. 저장하면 제외됩니다.
+: the Sounds tab imports only sounds (WAV, OGG). The All files tab takes any file.	: 사운드 탭은 사운드(WAV, OGG)만 가져옵니다. 모든 파일 탭은 어떤 파일이든 받습니다.
+: the game uses that name	: 게임이 그 이름을 사용합니다
+: the layers are flattened	: 레이어가 평탄화됩니다
+: this layer is hidden (View > Modes), so you cannot edit it. Show the layer?	: 이 레이어는 숨겨져 있어 편집할 수 없습니다 (보기 > 모드). 레이어를 표시하시겠습니까?
+: this layer is hidden. View > Modes shows it again (then you can edit it).	: 이 레이어는 숨겨져 있습니다. 보기 > 모드에서 다시 표시할 수 있습니다 (그러면 편집할 수 있습니다).
+A bridge or a ramp needs its ground in the same layer: paint the terrain in this layer, or select the layer that has it	다리나 경사로는 같은 레이어에 지반이 있어야 합니다: 이 레이어에 지형을 칠하거나, 지반이 있는 레이어를 선택하십시오
+A locked layer cannot be deleted	잠긴 레이어는 삭제할 수 없습니다
+A locked layer cannot be merged	잠긴 레이어는 병합할 수 없습니다
+Add files…	파일 추가…
+Add symmetry &anchor here	여기에 대칭 앵커 추가(&A)
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	대칭 앵커를 추가했습니다. 선택 도구: 끌어서 이동, 더블클릭하여 제거
+All files	모든 파일
+All layers that show become one map, and the layer data stays out of it.	표시 중인 모든 레이어가 하나의 맵이 되며, 레이어 데이터는 포함되지 않습니다.
+All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	맵의 모든 파일: 추가, 추출, 교체, 이름 바꾸기, 제거, 그리고 파일 > 내보내기에서 유지할 항목
+Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.	다른 프로그램이 마지막으로 여기에 저장한 뒤 이 맵의 지형을 변경했습니다. 레이어에는 그 변경이 없습니다: 다음 편집 때 레이어에서 지형을 다시 만듭니다.
+Any files. They go into the map with their names; a file of that name is replaced.	모든 종류의 파일. 이름 그대로 맵에 들어가며, 같은 이름의 파일은 교체됩니다.
+Background	배경
+Could not export the map: 	맵을 내보낼 수 없습니다:
+Could not read the file: 	파일을 읽을 수 없습니다:
+Could not save 	저장할 수 없음:
+Creep is hidden (View > Modes shows it again)	점막이 숨겨졌습니다 (보기 > 모드에서 다시 표시)
+Cut the terrain: what is under the layer shows in its place (one undo step)	지형을 잘라냈습니다: 레이어 아래에 있던 것이 그 자리에 표시됩니다 (실행 취소 1단계)
+Delete the selected layers (Del in Map Layers)	선택한 레이어 삭제 (맵 레이어에서 Del)
+Did not add 	추가하지 못함:
+Drag to move the layer in the list	끌어서 목록에서 레이어 이동
+E&xport map…	맵 내보내기(&X)…
+Establishing shot	설정 샷
+Export settings	내보내기 설정
+Exported 	내보냄:
+Extract…	추출…
+File	파일
+File > Export keeps this file in the exported map	파일 > 내보내기에서 이 파일을 내보낸 맵에 유지합니다
+File > Export never keeps this file: the exported map has no layers	파일 > 내보내기는 이 파일을 유지하지 않습니다: 내보낸 맵에는 레이어가 없습니다
+Flatten	평탄화
+Flattened the layers into the Background	레이어를 배경으로 평탄화했습니다
+How layers get into the map that you play	레이어가 플레이하는 맵에 들어가는 방식
+Keep in export	내보내기에 유지
+La&yer	레이어(&Y)
+Lasso	올가미
+Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.	올가미: 타일 주위를 그려 선택합니다. Shift는 추가, Ctrl은 제거입니다. 그런 다음 Ctrl+C로 복사하고, 이동으로 옮깁니다.
+Layer list	레이어 목록
+Layers	레이어
+Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	레이어는 작업하는 동안 이 맵 파일 안에 있습니다.\n\nStarCraft에서 플레이할 맵을 만들려면 파일 > 맵 내보내기를 사용하십시오.
+Lock	잠금
+Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	잠금/해제: 잠긴 레이어는 변경되지 않습니다 (Ctrl+Alt+L)
+Map Layers	맵 레이어
+Map settings	맵 설정
+Merge down	아래로 병합
+Merge the selected layers	선택한 레이어 병합
+Merged the layers	레이어를 병합했습니다
+Merged the layers into the Background	레이어를 배경에 병합했습니다
+Move	이동
+Move Layer	레이어 이동
+Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	레이어 이동: 맵에서 끌면 선택한 레이어가 이동합니다. 다른 모드의 도구는 선택한 레이어를 변경합니다.
+Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	이동: 선택한 지형을 다른 곳으로 끕니다. 아이소메트릭: 가장자리가 그곳에 맞춰지며, 그 아래 지형도 유효하게 유지됩니다. 다른 종류: 타일이 그대로 옮겨지고, 있던 자리에는 null 타일이 남습니다. 레이어에서는 레이어 아래에 있던 것이 있던 자리에 표시됩니다.
+Moved the layers back to the side bar	레이어를 사이드바로 되돌렸습니다
+Moved the layers to their own window	레이어를 별도 창으로 옮겼습니다
+Moved the terrain (one undo step)	지형을 이동했습니다 (실행 취소 1단계)
+New layer	새 레이어
+New layer (Ctrl+Alt+N)	새 레이어 (Ctrl+Alt+N)
+New layer: the tools now change this layer	새 레이어: 이제 도구가 이 레이어를 변경합니다
+No file has the search text	검색어가 있는 파일이 없습니다
+Not available: no terrain is selected.	사용할 수 없음: 선택한 지형이 없습니다.
+Notes	메모
+Notes for the mappers. Not in the game. File > Export leaves them out.	맵 제작자를 위한 메모입니다. 게임에는 들어가지 않습니다. 파일 > 내보내기에서 제외됩니다.
+Nothing to move there: make the selection larger	그곳에는 이동할 것이 없습니다: 선택 영역을 더 크게 하십시오
+Nothing to move there: this layer has no terrain in the selection	그곳에는 이동할 것이 없습니다: 이 레이어에는 선택 영역 안에 지형이 없습니다
+Open a map first: the files go into the map	먼저 맵을 여십시오: 파일이 맵에 들어갑니다
+Paste on the layer: click to place it, and then drag to move it. R turns it, M mirrors it. Right-click or Esc stops.	레이어에 붙여넣기: 클릭하여 놓고, 끌어서 이동합니다. R은 회전, M은 좌우 반전입니다. 오른쪽 클릭 또는 Esc로 중지합니다.
+Pasted on the layer. Drag to move it. Ctrl+V pastes again.	레이어에 붙여넣었습니다. 끌어서 이동합니다. Ctrl+V로 다시 붙여넣을 수 있습니다.
+Protected terrain is hidden (View > Modes shows it again)	보호된 지형이 숨겨져 있습니다 (보기 > 모드에서 다시 표시)
+Put the layers back in the side bar	레이어를 사이드바로 되돌립니다
+Remove this symmetry anchor	이 대칭 앵커 제거
+Removed the file	파일을 제거했습니다
+Removed the symmetry anchor	대칭 앵커를 제거했습니다
+Rename the file	파일 이름 바꾸기
+Rename the layer	레이어 이름 바꾸기
+Rename…	이름 바꾸기…
+Replace…	교체…
+Replaced the data of 	교체한 데이터:
+Save a copy of the file on the computer	파일 사본을 컴퓨터에 저장
+Search map files	맵 파일 검색
+Select a layer first	먼저 레이어를 선택하십시오
+Select another file: an export over the open map would remove its layers	다른 파일을 선택하십시오: 열린 맵 위에 내보내면 그 맵의 레이어가 제거됩니다
+Select terrain first, with Select, the Lasso or the Magic wand	먼저 선택, 올가미 또는 마술봉으로 지형을 선택하십시오
+Selected all 	모두 선택함:
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	표시 또는 숨기기 (Ctrl+Alt+H). 표시 중인 것이 없으면 맵이 검게 나옵니다
+Sort by name	이름순 정렬
+That belongs to a locked layer, or the active layer is locked: nothing changed	잠긴 레이어에 속하거나 활성 레이어가 잠겨 있습니다: 변경되지 않았습니다
+The Background does not move. Select a layer in the list	배경은 이동하지 않습니다. 목록에서 레이어를 선택하십시오
+The Background is hidden: nothing changed	배경이 숨겨져 있습니다: 변경되지 않았습니다
+The game or StarDraft uses that name: select another name	게임 또는 StarDraft가 그 이름을 사용합니다: 다른 이름을 선택하십시오
+The layer &above	위 레이어(&A)
+The layer &below	아래 레이어(&B)
+The layer is hidden: nothing changed	레이어가 숨겨져 있습니다: 변경되지 않았습니다
+The layer is locked	레이어가 잠겨 있습니다
+The layer is locked: nothing changed	레이어가 잠겨 있습니다: 변경되지 않았습니다
+The layer list shows in its own window	레이어 목록이 별도 창에 표시됩니다
+The map changed while you selected the file: nothing changed	파일을 선택하는 동안 맵이 변경되었습니다: 변경되지 않았습니다
+The map changed while you selected the files: nothing was added	파일을 선택하는 동안 맵이 변경되었습니다: 추가되지 않았습니다
+The map changed while you selected the place: nothing was saved	위치를 선택하는 동안 맵이 변경되었습니다: 저장되지 않았습니다
+The map has no files other than its terrain and triggers. Add files puts files into it.	맵에는 지형과 트리거 외의 파일이 없습니다. 파일 추가로 파일을 넣을 수 있습니다.
+The map has no isometric terrain data: use Rectangle or Tile	맵에 아이소메트릭 지형 데이터가 없습니다: 사각형 또는 타일을 사용하십시오
+The map has no layers: nothing to select	맵에 레이어가 없습니다: 선택할 것이 없습니다
+The map uses this file: without it, the exported map cannot play it	맵이 이 파일을 사용합니다: 이 파일이 없으면 내보낸 맵에서 재생할 수 없습니다
+The map's files are still being read	맵의 파일을 아직 읽는 중입니다
+The map's size or tileset changed: the layers are flattened. Undo brings them back	맵의 크기 또는 타일셋이 변경되었습니다: 레이어가 평탄화됩니다. 실행 취소로 되돌릴 수 있습니다
+The map's text names this file	맵의 텍스트가 이 파일의 이름을 사용합니다
+The map's tileset changed: the layers are flattened. Undo brings them back	맵의 타일셋이 변경되었습니다: 레이어가 평탄화됩니다. 실행 취소로 되돌릴 수 있습니다
+Unlock	잠금 해제
+Use a file of the computer as this file's data. The name stays.	컴퓨터의 파일을 이 파일의 데이터로 사용합니다. 이름은 그대로입니다.
+View	보기
+\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\n클릭: 열 선택\n선택한 열 끌기: 이동\n더블클릭: 해당 열로 정렬 (오름차순, 내림차순, 기본 순서)\n오른쪽 가장자리 끌기: 너비 변경 (선택한 모든 열)\n오른쪽 가장자리 더블클릭: 텍스트에 맞춰 너비 조정\n오른쪽 클릭: 숨기기
+hidden	숨김
+locked	잠금

@@ -470,8 +470,8 @@ struct MainView final : draw::View {
         add(gFilterSdl, draw::Rect(0, 0, 0, 0));
         add(gSearchSdl, draw::Rect(0, 0, 0, 0));
         add(gSectionDropSdl, draw::Rect(0, 0, 0, 0));
+        add(gSortBtnSdl, draw::Rect(0, 0, 0, 0));  // (Tab goes in the order of the screen: Sort, then View)
         add(gViewBtnSdl, draw::Rect(0, 0, 0, 0));
-        add(gSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gLocSortBtnSdl, draw::Rect(0, 0, 0, 0));
         add(gPalList, draw::Rect(0, 0, 0, 0));
         gTilesDockPanel.holdGrid(gTilesDockGrid);  // the Tiles panel (core/views_tiles.inc): the grid is in the panel on this system
@@ -486,8 +486,8 @@ struct MainView final : draw::View {
             add(r->sectionCatch, draw::Rect(0, 0, 0, 0));
             add(r->box, draw::Rect(0, 0, 0, 0));
             add(r->catcher, draw::Rect(0, 0, 0, 0));  // (over the box)
-            add(r->view, draw::Rect(0, 0, 0, 0));
             add(r->sort, draw::Rect(0, 0, 0, 0));
+            add(r->view, draw::Rect(0, 0, 0, 0));
         }
         add(notHere, draw::Rect(0, 0, 0, 0));
         add(gStartView, draw::Rect(0, 0, 0, 0));  // the start page (sdl_start.inc): no map open
@@ -507,7 +507,7 @@ struct MainView final : draw::View {
 
     void resized() override { relayout(); }
 
-    // Tab's order follows the screen: the menu bar, the top bar (with the modes in it: TopBarView), the document tabs,
+    // Tab's order follows the screen: the menu bar, the document tabs, the top bar (with the modes in it: TopBarView),
     // the workspace rail, the left side bar from the top down, the map (or the workspace's view), the right side bar from
     // the top down, then the Log's bar. (The status bar has nothing to click.)
     std::vector<View*> tabChildren() const override {
@@ -583,7 +583,7 @@ struct MainView final : draw::View {
         // lost the keyboard (Alt+Tab: SDL lets go of the held keys), the ring closes with no change (the Windows
         // WM_KILLFOCUS).
         if (e.key == draw::Key::Space && !e.down && pie.shown()) {
-            if (SDL_GetKeyboardFocus()) return pieRelease(), true;
+            if (SDL_GetKeyboardFocus()) return pieRelease((e.mods & (draw::kShift | draw::kCtrl)) != 0), true;
             pie.setVisible(false);
             invalidate();
             return true;
@@ -775,7 +775,9 @@ struct MainView final : draw::View {
     // The pie palette (core/palette_view.inc: pieTerrains): the ring in the middle of the map, its slice the one the
     // mouse points at. Nothing when the map has no terrain to paint (or the mode is not Terrain).
     void pieOpen() {
-        pie.onClick = [this] { pieRelease(); };  // (from the menu: a click picks; with Space held, a click picks too)
+        pie.onClick = [this] {  // (from the menu: a click picks; with Space held, a click picks too)
+            pieRelease(shellCtrlOrShiftDown());
+        };
         pie.items = pieTerrains(gState);
         if (pie.items.empty() || !map.shown()) return;
         const draw::Rect m = map.frame();
@@ -790,12 +792,17 @@ struct MainView final : draw::View {
         pie.hot = pie.sliceAt(at);
         pie.invalidate();
     }
-    // Space is let go: the brush paints with the slice's terrain (none in the middle).
-    void pieRelease() {
+    // Space is let go: the brush paints with the slice's terrain (none in the middle). `add` (Shift or Ctrl held, as a
+    // click in the palette): it goes into the picks that Spray and Fill use; the terrain in use stays a pick.
+    void pieRelease(bool add = false) {
         const int h = pie.hot;
         pie.setVisible(false);
         invalidate();
-        if (h >= 0 && h < int(pie.items.size())) pickUnit(gState, pie.items[size_t(h)], false), invalidateMapView();
+        if (h < 0 || h >= int(pie.items.size())) return;
+        const bool picks = add && !gState.terrainRect;
+        if (picks && pie.items[size_t(h)] == gState.palette) return;  // (the terrain in use: it stays a pick, and the others too)
+        pickUnit(gState, pie.items[size_t(h)], picks);
+        invalidateMapView();
     }
 
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).

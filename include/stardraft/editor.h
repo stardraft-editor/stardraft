@@ -755,8 +755,26 @@ public:
     }
     // The files change as part of the undo step that the last edit took.
     void amendLastStep(std::vector<ArchiveFile> files, const std::vector<std::string>& removed = {});
-    // The map as the layers flatten it, without the layers' files, to another file; the open map stays as it is.
-    bool exportFlattened(const std::filesystem::path& path, std::string& error);
+    // The map as the layers flatten it, without the layers' files, to another file; the open map stays as it is. The
+    // files set not to go (keepInExport) stay out: `leftOut`, and of them `leftOutInUse`, those the map names.
+    bool exportFlattened(const std::filesystem::path& path, std::string& error, std::vector<std::string>* leftOut = nullptr,
+                         std::vector<std::string>* leftOutInUse = nullptr);
+    // Does File > Export keep this file? By default yes, but not StarDraft's own files. The layers and the list itself
+    // never go (canKeepInExport). The setting is a file of the map; one undo step.
+    bool keepInExport(const std::string& name) const;
+    static bool canKeepInExport(const std::string& name);
+    void setKeepInExport(const std::string& name, bool keep);
+    // A number for the map's terrain now (the layers' check: another editor changed the map after the last save here).
+    std::string terrainCheck() const;
+    // The map's text (the string table) names this file: a trigger's or a briefing's sound, for example.
+    bool namedInMap(const std::string& name) const;
+    // A file of the map that is no edit: no undo step, and the map does not count as changed (the map's own settings).
+    void setQuietArchiveFile(const std::string& name, Bytes data);
+    // The files the archive has with no name to read them by, or that could not be read: a save leaves them out.
+    const std::vector<std::string>& unreadableFiles() const { return finishFiles(), unreadable_; }
+    // The map's notes (UTF-8; none: empty). Set: one undo step; empty notes remove the file.
+    std::string notes() const;
+    void setNotes(const std::string& text);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
     // Adds (or replaces) files in the map archive, such as a briefing's sound; saved with the map. One undo step.
@@ -1003,6 +1021,8 @@ private:
     // The archive's files while they are read (after open); filesError_: why they could not be (save refuses then).
     mutable std::future<std::vector<ArchiveFile>> pendingFiles_;
     mutable std::string filesError_;
+    mutable std::vector<std::string> unreadable_;
+    std::shared_ptr<std::vector<std::string>> pendingUnreadable_;
     void finishFiles() const;
     bool open_ = false, modified_ = false, asArchive_ = false;
 

@@ -515,8 +515,11 @@ std::vector<std::string> sidePanelsText(int doc) {
 }
 
 // The tab's panels from its map's file, the first time the tab shows (none kept: none).
+bool mapPrefsFromMap(const Editor& ed);  // (core/map_prefs.inc)
 void palettePanelsLoad(int doc) {
     if (!doc || gPanelsLoaded.count(doc)) return;
+    for (size_t i = 0; i < gDocs.size(); ++i)  // (settings that came with the map: when its files are read, at a later turn)
+        if (const Editor* ed = gDocs[i].key != doc ? nullptr : int(i) == gActive ? gState.ed.get() : gDocs[i].ed.get(); ed && !gDocs[i].page && !mapPrefsFromMap(*ed)) return;
     gPanelsLoaded.insert(doc);
     const fs::path f = palettePanelsFile(doc);
     std::error_code ec;

@@ -84,7 +84,7 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Esc | Cancel what is under way: a paste, a drag, a selection |
 | R, Shift+R | Turn what is on the cursor (terrain or tiles to paste, the Brush's copied tiles or custom terrain) clockwise, the other way. Isometric terrain makes its edges again; tiles keep their pictures |
 | M, Shift+M | Mirror what is on the cursor left and right, top and bottom |
-| Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice) |
+| Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice). With Shift held (or Ctrl, pressed after Space): the terrain goes into the selected terrains that Spray and Fill use, or comes out of them, as a Ctrl+click in the palette |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad; otherwise nothing (it never zooms) |
 
 The mouse: the wheel zooms the map at the mouse; a trackpad scrolls it with two fingers and zooms with a pinch; the
@@ -231,6 +231,7 @@ Cosmonarchy BW mode.)
 | Keys | Menu command |
 |---|---|
 | Ctrl+Shift+L, T | View > Modes > Terrain |
+| Ctrl+Shift+L, P | View > Modes > Protected terrain |
 | Ctrl+Shift+L, D | View > Modes > Doodads |
 | Ctrl+Shift+L, S | View > Modes > Sprites |
 | Ctrl+Shift+L, U | View > Modes > Units |

@@ -129,11 +129,13 @@ void zoomAt(float factor, int sx, int sy) {
     app.dirty = true;
 }
 
+void mapPrefsIntoMap(Editor& ed, const fs::path& savedAs);  // (core/map_prefs.inc)
 // The save of the open map (File > Save and Save as): the Editor writes the file, then the title, the recent list and
 // the message follow. False, with the error text in err, when the file could not be written.
 bool saveMapFile(const fs::path& path, std::string& err) {
     AppState& app = shellState();
     if (!app.ed) return err = "No map is open.", false;
+    mapPrefsIntoMap(*app.ed, path);
     if (!app.ed->save(path, err)) return false;
     protectedTerrainSync();  // (the protected terrain of the saved map: core/protected_layer.inc)
     updateTitle();

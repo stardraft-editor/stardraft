@@ -1,6 +1,7 @@
-// The Files workspace (portable, core.inc): the map's sound files, to import (WAV, OGG), play, rename and remove; and
-// the game's sounds, to listen to, which the briefings can name without the map holding them. The References panel on
-// the right lists the briefings that use the selected sound.
+// The Files workspace (portable, core.inc). Its Sounds tab: the map's sound files, to import (WAV, OGG), play, rename and
+// remove; and the game's sounds, to listen to, which the briefings can name without the map holding them. Its All files
+// tab: every file of the map, to add, extract, replace, rename and remove, and for each one if File > Export keeps it.
+// The References panel on the right lists the briefings that use the selected sound.
 //
 // The page is one view (apps/common/view.h) in a view window; the window's vertical bar is the native one, and the
 // window's host sets it from scrollBar(). The program's parts (the audio, the file dialog, the briefings) come in
@@ -20,6 +21,9 @@ public:
     virtual void togglePreview(const std::string& name) = 0;
     virtual void previewStop() = 0;
     virtual std::vector<std::string> importSounds() = 0;  // the file dialog; the names added to the map
+    virtual void addFiles() = 0;                          // the file dialog: any files (they come in later)
+    virtual void extractFile(const std::string& name) = 0;  // the save dialog: the file of the map to a file
+    virtual void replaceFile(const std::string& name) = 0;  // the file dialog: the file's new data
     virtual bool askName(const std::wstring& title, std::wstring& text) = 0;
     virtual std::vector<FilesUse> soundUses(const std::string& name) = 0;
     virtual void showUse(const FilesUse& use) = 0;  // the Briefing workspace, at the action
@@ -34,7 +38,23 @@ public:
           renameBtn_(L"Rename", stardraft::kit::Tone::Quiet, [this] {
               const std::string from = selected_;
               renameSound(from);
-          }) {
+          }),
+          addBtn_(L"Add files\x2026", stardraft::kit::Tone::Normal, [this] { svc().addFiles(); }),
+          extractBtn_(L"Extract\x2026", stardraft::kit::Tone::Quiet, [this] { svc().extractFile(selected_); }),
+          replaceBtn_(L"Replace\x2026", stardraft::kit::Tone::Quiet, [this] { svc().replaceFile(selected_); }) {
+        fileSearch_.onChange = [this] {
+            fileFilter_ = fileSearch_.text();
+            invalidate();
+        };
+        fileSearch_.setPlaceholder(L"Search map files");
+        addBtn_.setTip(L"Any files. They go into the map with their names; a file of that name is replaced.");
+        extractBtn_.setTip(L"Save a copy of the file on the computer");
+        replaceBtn_.setTip(L"Use a file of the computer as this file's data. The name stays.");
+        add(fileSearch_, {0, 0, 0, 0});
+        add(addBtn_, {0, 0, 0, 0});
+        add(extractBtn_, {0, 0, 0, 0});
+        add(replaceBtn_, {0, 0, 0, 0});
+        for (draw::View* v : std::initializer_list<draw::View*>{&fileSearch_, &addBtn_, &extractBtn_, &replaceBtn_}) v->setVisible(false);
         search_.onChange = [this] {
             filter_ = search_.text();
             scroll_ = 0;
@@ -59,7 +79,14 @@ public:
     // The program sets the search text and the selection (the self-tests' "files:" steps).
     void setSearch(std::wstring t) { search_.setText(std::move(t)); }
     // The search box has the keyboard: the message loop leaves the typed keys to it (as to an edit control).
-    bool typing() { return search_.field().hasFocus() || mapSearch_.field().hasFocus(); }
+    bool typing() { return search_.field().hasFocus() || mapSearch_.field().hasFocus() || fileSearch_.field().hasFocus(); }
+    // The All files tab shows (a dropped file goes into the map whatever it is).
+    bool allFiles() const { return tab_ == 1; }
+    void setAllFiles(bool on) {
+        if ((tab_ == 1) == on) return;
+        tab_ = on ? 1 : 0, scroll_ = 0;
+        invalidate();
+    }
     // The search text, and how many of the game's sounds the list shows for it (the snapshots' input lines).
     const std::wstring& searchText() const { return filter_; }
     int gameSoundsShown() const {
@@ -103,8 +130,10 @@ private:
     struct Row {
         draw::Rect r, kindCell, last, play, add;
         std::string name;
-        int kind = 0;  // 0 a file in the map, 1 a game sound the map names, 2 a game sound (the list to add from)
+        int kind = 0;  // 0 a file in the map, 1 a game sound the map names, 2 a game sound (the list to add from), 3 a row of All files
         size_t size = 0;
+        draw::Rect keep;  // (All files: the box of "Keep in export")
+        bool canKeep = false, kept = false, own = false;
         bool on = false, missing = false, over = false, playing = false, hasCheck = false, canAdd = false;
     };
     struct Side {
@@ -136,7 +165,7 @@ private:
             if (r.r.contains(pt) || r.play.contains(pt) || (r.over && (r.last.contains(pt) || r.add.contains(pt)))) return true;
         for (const auto& s : side_)
             if (s.r.contains(pt)) return true;
-        return false;
+        return tabs_[0].contains(pt) || tabs_[1].contains(pt);
     }
     // What the pointer is over, for the repaint: a row's index, a briefing link's (10000 + index), or none.
     int hoverKey() const {
@@ -145,6 +174,8 @@ private:
             if (rows_[i].r.contains(pointer_)) return int(i);
         for (size_t j = 0; j < side_.size(); ++j)
             if (side_[j].r.contains(pointer_)) return 10000 + int(j);
+        for (int i = 0; i < 2; ++i)
+            if (tabs_[i].contains(pointer_)) return 20000 + i;
         return -2;
     }
     void setPointer(draw::Point p) {
@@ -186,12 +217,42 @@ private:
             invalidate();
         });
     }
+    // StarDraft's own files have their own places (the layers, Notes): not renamed, replaced or removed here.
+    static bool ownFile(const std::string& name) { return name.rfind("stardraft\\", 0) == 0; }
+    static bool isSound(const std::string& name) {
+        std::string ext = name.size() >= 4 ? name.substr(name.size() - 4) : name;
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
+        return ext == ".wav" || ext == ".ogg";
+    }
+    static std::wstring fileKind(const std::string& name) {
+        if (name == kLayersFile || name == kLayersBaseFile || name == kLayersCheckFile) return L"Layers";
+        if (name == kNotesFile) return L"Notes";
+        if (name == kMapSettingsFile) return L"Map settings";
+        if (name == kExportListFile) return L"Export settings";
+        const size_t dot = name.rfind('.');
+        std::string ext = dot == std::string::npos ? std::string() : name.substr(dot + 1);
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return char(std::toupper(ch)); });
+        return ext.empty() ? std::wstring(L"File") : widen(ext);
+    }
+    void toggleKeep(const Row& rw) {
+        if (!mapEditor() || !rw.canKeep) return;
+        mapEditor()->setKeepInExport(rw.name, !rw.kept);
+        selected_ = rw.name;
+        if (rw.kept && (mapEditor()->namedInMap(rw.name) || !svc().soundUses(rw.name).empty()))
+            setMessage(L"The map uses this file: without it, the exported map cannot play it");
+        updateTitle();
+        invalidate();
+    }
+    void paintAllFiles(draw::Canvas& c, int x0, int colRight, int& y, int rowH, int h, const std::function<bool(draw::Rect)>& over);
     void renameSound(const std::string& from) {
         if (!mapEditor()) return;  // (no map is open: the sounds are the game's)
         std::wstring name = widen(from);
-        if (!svc().askName(L"Rename the sound", name) || name.empty()) return;
+        if (!svc().askName(tab_ == 1 ? L"Rename the file" : L"Rename the sound", name) || name.empty()) return;
         const std::string to = narrow(name);
         if (to == from) return;
+        std::string low = to;
+        std::transform(low.begin(), low.end(), low.begin(), [](unsigned char ch) { return char(std::tolower(ch)); });
+        if (!archiveNameUsable(to) || low.rfind("stardraft\\", 0) == 0) return setMessage(L"The game or StarDraft uses that name: select another name");
         // One undo step: the file and the briefings that play it get the new path.
         if (!mapEditor()->renameArchiveFile(from, to)) return setMessage(L"A file of that name is in the map already");
         svc().soundsChanged();
@@ -202,11 +263,12 @@ private:
     void removeRow(const Row& rw) {
         if (!mapEditor()) return;  // (no map is open)
         svc().previewStop();
-        if (rw.kind == 0) mapEditor()->removeArchiveFile(rw.name);
+        if (rw.kind == 0 || rw.kind == 3) mapEditor()->removeArchiveFile(rw.name);
         else mapEditor()->removeSoundReference(rw.name);
         if (selected_ == rw.name) selected_.clear();
         const size_t uses = svc().soundUses(rw.name).size();
-        setMessage(uses ? L"Removed the sound. " + std::to_wstring(uses) + L" briefings still use it." : std::wstring(L"Removed the sound"));
+        const std::wstring what = rw.kind == 3 ? L"Removed the file" : L"Removed the sound";
+        setMessage(uses ? what + L". " + std::to_wstring(uses) + L" briefings still use it." : what);
         updateTitle();
         invalidate();
     }
@@ -219,8 +281,11 @@ private:
     }
 
     FilesHost& host_;
-    SearchBox search_, mapSearch_;  // (the game's sounds, the map's sounds)
-    stardraft::kit::Button importBtn_, renameBtn_;
+    SearchBox search_, mapSearch_, fileSearch_;  // (the game's sounds, the map's sounds, All files)
+    stardraft::kit::Button importBtn_, renameBtn_, addBtn_, extractBtn_, replaceBtn_;
+    int tab_ = 0;                  // 0 Sounds, 1 All files
+    draw::Rect tabs_[2];           // the tabs of the last paint
+    std::wstring fileFilter_;      // All files' search text
     std::wstring filter_;   // the search text (the game's sounds it keeps)
     std::wstring mapFilter_;  // the map's sounds' search text
     std::string selected_;  // a path: a map file or a game sound
@@ -248,6 +313,46 @@ void FilesPage::paint(draw::Canvas& c) {
     side_.clear();
     int y = scale(12) - scroll_;
     auto over = [&](draw::Rect r) { return hovering && r.contains(hover); };
+
+    // The tabs: the sounds, and all the files of the map.
+    {
+        int tx = x0;
+        const wchar_t* names[] = {L"Sounds", L"All files"};
+        for (int i = 0; i < 2; ++i) {
+            const int tw = c.measure(names[i]) + scale(24);
+            tabs_[i] = {tx, y, tx + tw, y + rowH};
+            c.text(tabs_[i], names[i], tab_ == i ? kAccent : over(tabs_[i]) ? kText : kDim, draw::kMiddle | draw::kCenter);
+            if (tab_ == i) c.fill({tabs_[i].left, tabs_[i].bottom - scale(2), tabs_[i].right, tabs_[i].bottom}, kAccent);
+            tx += tw;
+        }
+        c.fill({x0, y + rowH, colRight, y + rowH + 1}, kBorder);
+        y += rowH + scale(10);
+    }
+    if (tab_ == 1) {
+        for (draw::View* v : std::initializer_list<draw::View*>{&search_, &mapSearch_, &importBtn_}) hide(*v);
+        paintAllFiles(c, x0, colRight, y, rowH, h, over);
+        contentH_ = y + scroll_ + scale(20);
+        const draw::Rect side{w - refsW, 0, w, h};
+        kitpaint::drawSidePanel(c, side);
+        const int sx = side.left + scale(14), sw = refsW - scale(24);
+        const auto uses = selected_.empty() ? std::vector<FilesUse>{} : svc().soundUses(selected_);
+        const bool named = !selected_.empty() && mapEditor() && mapEditor()->namedInMap(selected_);
+        int ry = kitpaint::drawSideHeader(c, sx, scale(12), sw, L"References", uses.size() + (named && uses.empty() ? 1 : 0));
+        if (!uses.empty()) {
+            ry = kitpaint::drawSideGroup(c, sx, ry, sw, L"Briefings", true);
+            for (const auto& u : uses) {
+                const draw::Rect r{sx, ry, sx + sw, ry + scale(20)};
+                kitpaint::drawSideLink(c, sx, ry, sw, u.text, {}, over(r));
+                side_.push_back({r, u});
+                ry += scale(22);
+            }
+        } else if (named) {
+            c.text({sx, ry, sx + sw, ry + scale(40)}, L"The map's text names this file", kDim, draw::kWrap);
+        }
+        if (scroll_ > maxScroll()) scroll_ = maxScroll(), invalidate();
+        return;
+    }
+    for (draw::View* v : std::initializer_list<draw::View*>{&fileSearch_, &addBtn_, &extractBtn_, &replaceBtn_}) hide(*v);
 
     // A row of the table: the Play button, the name, the kind, the length, the size and the row's own action.
     auto soundRow = [&](const std::string& name, size_t size, int kind) {
@@ -388,6 +493,87 @@ void FilesPage::paint(draw::Canvas& c) {
     if (scroll_ > maxScroll()) scroll_ = maxScroll(), invalidate();
 }
 
+// All files: the map's files, with the search over them, what each one is, its size and if File > Export keeps it.
+void FilesPage::paintAllFiles(draw::Canvas& c, int x0, int colRight, int& y, int rowH, int h, const std::function<bool(draw::Rect)>& over) {
+    const std::vector<kitpaint::Column> cols = {{L"", 40, draw::kLeft}, {L"Name", 0, draw::kLeft}, {L"Kind", 110, draw::kLeft}, {L"Size", 80, draw::kRight}, {L"Keep in export", 110, draw::kCenter}, {L"", 30, draw::kLeft}};
+    const int colW = colRight - x0;
+    place(fileSearch_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
+    y += scale(32);
+    kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, cols);
+    y += rowH;
+    Editor* ed = mapEditor();
+    const std::wstring f = lowerText(fileFilter_);
+    std::vector<const ArchiveFile*> files;
+    if (ed)
+        for (const ArchiveFile& a : ed->archiveFiles())
+            if (soundMatches(a.name, f)) files.push_back(&a);
+    std::sort(files.begin(), files.end(), [](const ArchiveFile* a, const ArchiveFile* b) { return a->name < b->name; });
+    for (const ArchiveFile* a : files) {
+        Row rw;
+        rw.r = {x0, y, colRight, y + rowH};
+        rw.name = a->name, rw.kind = 3, rw.size = a->data.size();
+        if (rw.r.bottom < 0 || rw.r.top > h) {
+            y += rowH;
+            continue;
+        }
+        rw.on = a->name == selected_;
+        rw.over = over(rw.r);
+        rw.own = ownFile(a->name);
+        kitpaint::drawTableRow(c, rw.r, rw.on, rw.over);
+        if (isSound(a->name)) {
+            rw.playing = svc().previewPlaying(a->name);
+            rw.play = kitpaint::square({x0 + scale(8), y + scale(1), x0 + scale(8 + stardraft::kit::kIconBox), y + rowH - scale(1)});
+            kitpaint::drawIconFace(c, rw.play, rw.playing ? UiIcon::Stop : UiIcon::Play, kitpaint::Tone::Primary, rw.playing, over(rw.play));
+        }
+        auto cell = [&](int i) {
+            draw::Rect t = kitpaint::tableCell(rw.r, cols, i);
+            t.left += scale(4), t.right -= scale(4);
+            return t;
+        };
+        c.text(cell(1), widen(a->name), rw.on ? kAccent : kText, draw::kPathEllipsis | draw::kMiddle);
+        c.text(cell(2), fileKind(a->name), kDim, draw::kMiddle);
+        c.text(cell(3), sizeText(rw.size), kDim, draw::kRight | draw::kMiddle);
+        rw.canKeep = Editor::canKeepInExport(a->name);
+        rw.kept = ed->keepInExport(a->name);
+        const draw::Rect kc = kitpaint::tableCell(rw.r, cols, 4);
+        const int bs = scale(14), bx = (kc.left + kc.right - bs) / 2, by = (kc.top + kc.bottom - bs) / 2;
+        rw.keep = {bx - scale(4), by - scale(4), bx + bs + scale(4), by + bs + scale(4)};
+        if (rw.canKeep) kitpaint::drawCheckMark(c, {bx, by, bx + bs, by + bs}, rw.kept, over(rw.keep), true);
+        else c.text(kc, L"\x2014", kFaint, draw::kCenter | draw::kMiddle);
+        rw.last = kitpaint::square(kitpaint::tableCell(rw.r, cols, 5));
+        if (rw.over && !rw.own) kitpaint::drawIconFace(c, rw.last, UiIcon::Close, kitpaint::Tone::Danger, false, over(rw.last));
+        rows_.push_back(rw);
+        y += rowH;
+    }
+    if (files.empty()) {
+        c.text({x0 + scale(50), y, colRight, y + rowH}, fileFilter_.empty() ? L"The map has no files other than its terrain and triggers. Add files puts files into it." : L"No file has the search text", kDim, draw::kMiddle | draw::kEllipsis);
+        y += rowH;
+    }
+    y += scale(8);
+    const int bh = std::min(rowH, scale(24)), top = y + (rowH - bh) / 2;
+    int bx = x0;
+    const auto button = [&](stardraft::kit::Button& b, const wchar_t* text, bool on) {
+        if (!on) return hide(b);
+        const int bw = c.measure(text) + scale(20);
+        place(b, {bx, top, bx + bw, top + bh});
+        bx += bw + scale(8);
+    };
+    const bool has = !selected_.empty() && ed && ed->archiveFile(selected_);
+    const bool mine = has && !ownFile(selected_);
+    button(addBtn_, L"Add files\x2026", true);
+    button(extractBtn_, L"Extract\x2026", has);
+    button(replaceBtn_, L"Replace\x2026", mine);
+    button(renameBtn_, L"Rename", mine);
+    y += rowH + scale(10);
+    if (ed && !ed->unreadableFiles().empty()) {
+        const size_t n = ed->unreadableFiles().size();
+        const std::wstring note = n == 1 ? L"1 file of the archive has no name that can be read, or could not be read. A save leaves it out."
+                                         : std::to_wstring(n) + L" files of the archive have no name that can be read, or could not be read. A save leaves them out.";
+        c.text({x0, y, colRight, y + scale(40)}, note, kDim, draw::kWrap);
+        y += scale(40);
+    }
+}
+
 bool FilesPage::mouse(const draw::MouseEvent& e) {
     using draw::MouseKind;
     switch (e.kind) {
@@ -406,10 +592,20 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
     case MouseKind::Down: {
         setPointer(e.pt);
         if (e.button != 0) return false;
+        for (int i = 0; i < 2; ++i)
+            if (tabs_[i].contains(e.pt)) {
+                setAllFiles(i == 1);
+                return true;
+            }
         for (size_t i = 0; i < rows_.size(); ++i) {
             const Row rw = rows_[i];
             if (!rw.r.contains(e.pt)) continue;
-            if (rw.play.contains(e.pt)) {
+            if (rw.kind == 3 && rw.keep.contains(e.pt)) {
+                toggleKeep(rw);
+            } else if (rw.kind == 3 && rw.own && rw.last.contains(e.pt)) {
+                selected_ = rw.name;
+                invalidate();
+            } else if (rw.play.contains(e.pt)) {
                 togglePlay(rw.name);
             } else if (rw.over && rw.canAdd && rw.add.contains(e.pt)) {
                 addReference(rw.name);
@@ -431,7 +627,7 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
     }
     case MouseKind::DoubleClick: {  // a sound's row (not its Play button): the sound plays; Rename is its button
         const Row* rw = rowAt(e.pt);
-        if (rw && e.pt.x > rw->r.left + scale(8 + stardraft::kit::kIconBox)) {
+        if (rw && e.pt.x > rw->r.left + scale(8 + stardraft::kit::kIconBox) && (rw->kind != 3 || (isSound(rw->name) && !rw->keep.contains(e.pt)))) {
             const std::string name = rw->name;
             togglePlay(name);
             return true;
@@ -444,7 +640,8 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
 
 bool FilesPage::key(const draw::KeyEvent& e) {
     if (!e.down || e.key != draw::Key::Space || selected_.empty()) return false;
-    if (typing() || importBtn_.hasFocus() || renameBtn_.hasFocus()) return false;  // the field takes the space; a button its own press
+    if (typing() || importBtn_.hasFocus() || renameBtn_.hasFocus() || addBtn_.hasFocus() || extractBtn_.hasFocus() || replaceBtn_.hasFocus()) return false;  // the field takes the space; a button its own press
+    if (tab_ == 1 && !isSound(selected_)) return false;
     togglePlay(selected_);  // Space: the selected sound plays, or stops
     return true;
 }
@@ -453,6 +650,9 @@ std::wstring FilesPage::tip(draw::Point pt) {
     for (const auto& rw : rows_) {
         if (rw.missing && rw.kindCell.contains(pt)) return L"The map names this sound, but neither the map nor the game has the file";
         if (rw.r.contains(pt) && rw.play.contains(pt)) return rw.playing ? L"Stop" : L"Play";
+        if (rw.kind == 3 && rw.r.contains(pt) && rw.keep.contains(pt))
+            return rw.canKeep ? L"File > Export keeps this file in the exported map" : L"File > Export never keeps this file: the exported map has no layers";
+        if (rw.kind == 3 && rw.own && rw.over && rw.last.contains(pt)) return L"";
         if (rw.over && rw.last.contains(pt)) {
             if (rw.kind == 2) return rw.hasCheck ? L"The map has it" : L"";
             return rw.kind == 0 ? L"Remove the file from the map" : L"Remove the reference from the map";
@@ -462,6 +662,7 @@ std::wstring FilesPage::tip(draw::Point pt) {
     }
     for (const auto& s : side_)
         if (s.r.contains(pt)) return L"Open it in the Briefing workspace";
+    if (tabs_[1].contains(pt)) return L"All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps";
     return {};
 }
 

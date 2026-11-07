@@ -2805,3 +2805,140 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	Без маски: рисование меняет все тайлы
 Nothing changed: the mask keeps these tiles	Без изменений: маска сохраняет эти тайлы
 Nothing changed: the mask keeps this terrain	Без изменений: маска сохраняет этот рельеф
+ file	 файл
+ files	 файлов
+ files of the archive have no name that can be read, or could not be read. A save leaves them out.	 файлов архива не имеют читаемого имени или их не удалось прочитать. При сохранении они пропускаются.
+ layers	 слоёв
+ left out (Assets > All files)	 пропущено (Ассеты > Все файлы)
+ of them: 	 из них:
+ replaced)	 заменено)
+ tile	 тайл
+ tiles	 тайлов
+&Hide or show	&Скрыть или показать
+&Layer list	&Список слоёв
+&Lock or unlock	&Заблокировать или разблокировать
+&Map Layers	&Слои карты
+&Merge down	Слить &вниз
+&Modes	&Режимы
+&New layer	&Новый слой
+&Select all layers	Выбрать &все слои
+, and more	 и другие
+. It has no changed values: it does not show while Changed is on	. Изменённых значений нет: пока включено «Изменено», он не показывается
+. Shift adds. Ctrl removes.	. Shift добавляет. Ctrl убирает.
+. The map uses 	. Карта использует
+1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 файл архива не имеет читаемого имени или его не удалось прочитать. При сохранении он пропускается.
+: the Sounds tab imports only sounds (WAV, OGG). The All files tab takes any file.	: вкладка «Звуки» импортирует только звуки (WAV, OGG). Вкладка «Все файлы» принимает любые файлы.
+: the game uses that name	: игра использует это имя
+: the layers are flattened	: слои сводятся в один
+: this layer is hidden (View > Modes), so you cannot edit it. Show the layer?	: этот слой скрыт (Вид > Режимы), поэтому его нельзя изменять. Показать слой?
+: this layer is hidden. View > Modes shows it again (then you can edit it).	: этот слой скрыт. Вид > Режимы снова показывает его (тогда его можно изменять).
+A bridge or a ramp needs its ground in the same layer: paint the terrain in this layer, or select the layer that has it	Мосту или пандусу нужна поверхность в том же слое: нарисуйте рельеф в этом слое или выберите слой, где он есть
+A locked layer cannot be deleted	Заблокированный слой нельзя удалить
+A locked layer cannot be merged	Заблокированный слой нельзя слить
+Add files…	Добавить файлы…
+Add symmetry &anchor here	Добавить &якорь симметрии здесь
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	Якорь симметрии добавлен. Инструмент «Выбор»: перетащите его, чтобы переместить, дважды щёлкните, чтобы удалить
+All files	Все файлы
+All layers that show become one map, and the layer data stays out of it.	Все видимые слои становятся одной картой, а данные слоёв в неё не входят.
+All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	Все файлы карты: добавить, извлечь, заменить, переименовать, удалить, и что сохраняет Файл > Экспорт
+Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.	Другая программа изменила рельеф этой карты после её последнего сохранения здесь. В слоях этих изменений нет: при следующем изменении рельеф будет создан из слоёв заново.
+Any files. They go into the map with their names; a file of that name is replaced.	Любые файлы. Они попадают в карту под своими именами; файл с таким именем заменяется.
+Background	Фон
+Could not export the map: 	Не удалось экспортировать карту:
+Could not read the file: 	Не удалось прочитать файл:
+Could not save 	Не удалось сохранить
+Creep is hidden (View > Modes shows it again)	Слизь скрыта (Вид > Режимы снова показывает его)
+Cut the terrain: what is under the layer shows in its place (one undo step)	Рельеф вырезан: на его месте показывается то, что под слоем (один шаг отмены)
+Delete the selected layers (Del in Map Layers)	Удалить выбранные слои (Del в «Слоях карты»)
+Did not add 	Не добавлено:
+Drag to move the layer in the list	Перетащите, чтобы переместить слой в списке
+E&xport map…	&Экспорт карты…
+Establishing shot	Общий план
+Export settings	Параметры экспорта
+Exported 	Экспортировано:
+Extract…	Извлечь…
+File	Файл
+File > Export keeps this file in the exported map	Файл > Экспорт сохраняет этот файл в экспортированной карте
+File > Export never keeps this file: the exported map has no layers	Файл > Экспорт никогда не сохраняет этот файл: в экспортированной карте нет слоёв
+Flatten	Свести
+Flattened the layers into the Background	Слои сведены в «Фон»
+How layers get into the map that you play	Как слои попадают в карту, в которую вы играете
+Keep in export	Сохранять при экспорте
+La&yer	С&лой
+Lasso	Лассо
+Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.	Лассо: обведите тайлы, чтобы выбрать их. Shift добавляет, Ctrl убирает. Затем Ctrl+C копирует, а «Перемещение» перемещает их.
+Layer list	Список слоёв
+Layers	Слои
+Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	Слои хранятся в этом файле карты, пока вы с ними работаете.\n\nЧтобы создать карту для игры в StarCraft, используйте Файл > Экспорт карты.
+Lock	Блокировка
+Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	Заблокировать или разблокировать: заблокированный слой не изменяется (Ctrl+Alt+L)
+Map Layers	Слои карты
+Map settings	Настройки карты
+Merge down	Слить вниз
+Merge the selected layers	Слить выбранные слои
+Merged the layers	Слои слиты
+Merged the layers into the Background	Слои слиты с «Фоном»
+Move	Перемещение
+Move Layer	Перемещение слоя
+Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	Перемещение слоя: перетаскивание на карте перемещает выбранные слои. Инструменты других режимов изменяют выбранный слой.
+Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	Перемещение: перетащите выбранный рельеф на другое место. Изометрия: его края подгоняются там, а рельеф под ним остаётся допустимым. Другие виды: его тайлы как есть, с null-тайлами на прежнем месте. На слое то, что под слоем, показывается там, где он был.
+Moved the layers back to the side bar	Слои возвращены на боковую панель
+Moved the layers to their own window	Слои перенесены в отдельное окно
+Moved the terrain (one undo step)	Рельеф перемещён (один шаг отмены)
+New layer	Новый слой
+New layer (Ctrl+Alt+N)	Новый слой (Ctrl+Alt+N)
+New layer: the tools now change this layer	Новый слой: теперь инструменты изменяют этот слой
+No file has the search text	Нет файла с таким текстом поиска
+Not available: no terrain is selected.	Недоступно: рельеф не выбран.
+Notes	Заметки
+Notes for the mappers. Not in the game. File > Export leaves them out.	Заметки для авторов карты. В игре их нет. Файл > Экспорт их не включает.
+Nothing to move there: make the selection larger	Там нечего перемещать: увеличьте выделение
+Nothing to move there: this layer has no terrain in the selection	Там нечего перемещать: в этом слое нет рельефа в выделении
+Open a map first: the files go into the map	Сначала откройте карту: файлы попадают в карту
+Paste on the layer: click to place it, and then drag to move it. R turns it, M mirrors it. Right-click or Esc stops.	Вставка в слой: щёлкните, чтобы разместить, затем перетащите для перемещения. R поворачивает, M отражает. Правый щелчок или Esc отменяет.
+Pasted on the layer. Drag to move it. Ctrl+V pastes again.	Вставлено в слой. Перетащите для перемещения. Ctrl+V вставляет снова.
+Protected terrain is hidden (View > Modes shows it again)	Защищённый рельеф скрыт (Вид > Режимы снова показывает его)
+Put the layers back in the side bar	Вернуть слои на боковую панель
+Remove this symmetry anchor	Удалить этот якорь симметрии
+Removed the file	Файл удалён
+Removed the symmetry anchor	Якорь симметрии удалён
+Rename the file	Переименовать файл
+Rename the layer	Переименовать слой
+Rename…	Переименовать…
+Replace…	Заменить…
+Replaced the data of 	Заменены данные:
+Save a copy of the file on the computer	Сохранить копию файла на компьютере
+Search map files	Поиск файлов карты
+Select a layer first	Сначала выберите слой
+Select another file: an export over the open map would remove its layers	Выберите другой файл: экспорт поверх открытой карты удалил бы её слои
+Select terrain first, with Select, the Lasso or the Magic wand	Сначала выберите рельеф с помощью «Выбора», «Лассо» или «Волшебной палочки»
+Selected all 	Выбраны все
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	Показать или скрыть (Ctrl+Alt+H). Если ничего не показано, карта чёрная
+Sort by name	Сортировать по имени
+That belongs to a locked layer, or the active layer is locked: nothing changed	Это относится к заблокированному слою, или активный слой заблокирован: ничего не изменилось
+The Background does not move. Select a layer in the list	«Фон» не перемещается. Выберите слой в списке
+The Background is hidden: nothing changed	«Фон» скрыт: ничего не изменилось
+The game or StarDraft uses that name: select another name	Игра или StarDraft использует это имя: выберите другое имя
+The layer &above	Слой &выше
+The layer &below	Слой &ниже
+The layer is hidden: nothing changed	Слой скрыт: ничего не изменилось
+The layer is locked	Слой заблокирован
+The layer is locked: nothing changed	Слой заблокирован: ничего не изменилось
+The layer list shows in its own window	Список слоёв показывается в отдельном окне
+The map changed while you selected the file: nothing changed	Карта изменилась, пока вы выбирали файл: ничего не изменилось
+The map changed while you selected the files: nothing was added	Карта изменилась, пока вы выбирали файлы: ничего не добавлено
+The map changed while you selected the place: nothing was saved	Карта изменилась, пока вы выбирали место: ничего не сохранено
+The map has no files other than its terrain and triggers. Add files puts files into it.	В карте нет файлов, кроме рельефа и триггеров. «Добавить файлы» помещает файлы в неё.
+The map has no isometric terrain data: use Rectangle or Tile	В карте нет данных изометрического рельефа: используйте «Прямоугольник» или «Тайл»
+The map has no layers: nothing to select	В карте нет слоёв: выбирать нечего
+The map uses this file: without it, the exported map cannot play it	Карта использует этот файл: без него экспортированная карта не сможет его воспроизвести
+The map's files are still being read	Файлы карты ещё читаются
+The map's size or tileset changed: the layers are flattened. Undo brings them back	Размер или тайлсет карты изменился: слои сводятся в один. «Отменить» возвращает их
+The map's text names this file	Текст карты называет этот файл
+The map's tileset changed: the layers are flattened. Undo brings them back	Тайлсет карты изменился: слои сводятся в один. «Отменить» возвращает их
+Unlock	Разблокировать
+Use a file of the computer as this file's data. The name stays.	Использовать файл с компьютера как данные этого файла. Имя остаётся.
+View	Вид
+\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\nЩелчок: выбрать столбец\nПеретаскивание выбранного столбца: переместить его\nДвойной щелчок: сортировать по нему (по возрастанию, по убыванию, затем порядок по умолчанию)\nПеретаскивание правого края: изменить ширину (всех выбранных столбцов)\nДвойной щелчок по правому краю: подогнать ширину под текст\nПравый щелчок: скрыть его
+hidden	скрыт
+locked	заблокирован

@@ -13,6 +13,14 @@ struct MapLayersState {
     LayerStack stack;
     Bytes base;
     int active = -1;       // -1: the Background; else the index in stack.layers
+    bool staleCheck = false;  // the map is new here: compare its terrain with the last save's
+    // A change of the map's size (mapLayersBeforeResize): the Background and the layers as they are after it.
+    struct Resized {
+        bool on = false;
+        int w = 0, h = 0;
+        Bytes base;
+        LayerStack stack;
+    } resized;
     const Editor* selEd = nullptr;
     uint32_t selLayer = 0;  // the layer that the terrain selection is of (0: the Background)
     std::set<int> picked;  // the rows selected (-1: the Background), with the active one
@@ -65,6 +73,11 @@ static void layersRead(Editor& ed) {
     const ArchiveFile* file = ed.archiveFile(kLayersFile);
     const ArchiveFile* base = ed.archiveFile(kLayersBaseFile);
     s.on = file && base && LayerStack::parse(file->data, s.stack);
+    // (another editor saved the map after this program did: it keeps our files, not their meaning)
+    if (const ArchiveFile* check = s.on && s.staleCheck && !ed.modified() ? ed.archiveFile(kLayersCheckFile) : nullptr)
+        if (const std::string now = ed.terrainCheck(); std::string(check->data.begin(), check->data.end()) != now)
+            setMessage(L"Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.");
+    s.staleCheck = false;
     ed.noteAskedCorners(s.on);
     if (!s.on) {
         s.stack = {}, s.base.clear(), s.active = -1, s.picked.clear();
@@ -147,6 +160,19 @@ static void layersEdit(const std::function<bool(Editor&)>& edit) {
 // Undo brings them back.
 static void layersFlattenForResize(Editor& ed) {
     MapLayersState& s = gMapLayers;
+    // A new size: the layers stay, moved as the map's content moved (the resize's own undo step takes the files).
+    if (s.resized.on && s.resized.w == ed.width() && s.resized.h == ed.height() && ed.era() == s.era) {
+        s.resized.on = false;
+        s.base = std::move(s.resized.base), s.stack = std::move(s.resized.stack);
+        ed.composeLayers(s.base, s.stack);  // (no tiles to keep: the last ones are of the old places)
+        shellState().terrainRev = 0;
+        shellState().dirty = true;
+        ed.amendLastStep(layersFiles(true));
+        layersRemember(ed);
+        layersPanelChanged();
+        return;
+    }
+    s.resized.on = false;
     ed.amendLastStep({}, {kLayersFile, kLayersBaseFile});
     s.active = -1;
     layersRead(ed);
@@ -215,6 +241,8 @@ void mapLayersSync() {
     Editor& ed = *app.ed;
     if (s.ed != &ed || ed.loadMark() != s.loadMark) {  // another map, or an undo or a redo: the map is as the step left it
         if (s.ed != &ed) {
+            s.staleCheck = true;
+            s.resized.on = false;
             s.active = -1, s.picked.clear();
             if (const auto it = s.activeOf.find(ed.path()); it != s.activeOf.end()) s.active = it->second, s.picked = {s.active};
         }
@@ -241,7 +269,8 @@ void mapLayersSync() {
         if (s.liveDirty) s.liveDirty = false, ed.amendLastStep(layersFiles(true)), layersRemember(ed);  // (a stroke that ended as the last flattening left it)
         return;
     }
-    if (ed.width() != s.width || ed.height() != s.height || ed.era() != s.era) return layersFlattenForResize(ed);
+    // (a new size or tileset; or Crop or extend with the same size and another offset)
+    if (ed.width() != s.width || ed.height() != s.height || ed.era() != s.era || s.resized.on) return layersFlattenForResize(ed);
     layersCapture(ed, false);
 }
 
@@ -495,6 +524,37 @@ static bool layersMoveSelection(Editor& copy, const Editor& ed, LayerStack& stac
     for (const auto& [c, tile] : tiles) l.tiles[{c.first + tileDx, c.second + tileDy}] = tile;
     return true;
 }
+
+// Before the map's size changes (Crop or extend, Map properties): the Background with the same change, and the layers'
+// contents moved with the map's. (A new tileset has other terrains: its map is flat.)
+void mapLayersBeforeResize(Editor& ed, int w, int h, int era, int shiftX, int shiftY, uint16_t fill) {
+    MapLayersState& s = gMapLayers;
+    (void)ed.archiveFiles();  // (the layers' files: this one wait, at the user's OK)
+    mapLayersSync();
+    s.resized.on = false;
+    if (!s.on || s.ed != &ed || s.filesPending || era != int(ed.era())) return;
+    Editor& copy = shapeCopy(ed.gameData());
+    std::string error;
+    LayerStack none;
+    if (!copy.openChk(ed.chk(), error) || !copy.composeLayers(s.base, none) || !copy.resizeMap(uint16_t(w), uint16_t(h), uint16_t(era), shiftX, shiftY, fill, error)) {
+        s.resized.on = true, s.resized.w = -1;  // (the Background cannot follow, as a damaged file: the layers flatten, also with the same size)
+        return;
+    }
+    Editor::resizeShift(shiftX, shiftY);
+    LayerStack stack = s.stack;
+    const int dx = shiftX / 2, dy = shiftY;
+    for (MapLayer& l : stack.layers) moveLayerContents(l, dx, dy);
+    moveLayerContents(stack.background, dx, dy);
+    // (the Background's objects off the new map go, as a resize takes them away)
+    const auto gone = [&](const auto& o) { return o.x < 0 || o.y < 0 || o.x >= w * 32 || o.y >= h * 32; };
+    std::erase_if(stack.background.units, gone);
+    std::erase_if(stack.background.doodads, gone);
+    std::erase_if(stack.background.sprites, gone);
+    s.resized.base = copy.layerBaseNow(), s.resized.stack = std::move(stack), s.resized.w = w, s.resized.h = h, s.resized.on = true;
+}
+
+// The size did not change after all (mapLayersBeforeResize).
+void mapLayersResizeFailed() { gMapLayers.resized.on = false; }
 
 bool mapLayersHaveStack(const Editor& ed) { return gMapLayers.on && gMapLayers.ed == &ed && !gMapLayers.filesPending; }
 

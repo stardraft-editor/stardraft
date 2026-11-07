@@ -685,8 +685,9 @@ inline bool DataTableView::mouse(const draw::MouseEvent& e) {
     case MouseKind::Move: {
         if (drag_ == Drag::Width) {
             const int nw = std::max(scale(36), dragW0_ + e.pt.x - dragX_);
-            const DataTableColumn& col = cols_[size_t(dragCol_)];
-            if (const DatTable* t = host_.table()) dataTableLayout(dat_).widths[dataColumnKey(t->schema(), col)] = std::max(36, nw * 96 / std::max(1, scale(96)));
+            // (the column, or all the columns selected with it: the same width)
+            if (const DatTable* t = host_.table())
+                for (int k : selectedColumns(dragCol_)) dataTableLayout(dat_).widths[dataColumnKey(t->schema(), cols_[size_t(k)])] = std::max(36, nw * 96 / std::max(1, scale(96)));
             clampScroll();
             invalidate();
             return true;
@@ -835,7 +836,7 @@ inline std::wstring DataTableView::tip(draw::Point pt) {
             return datLabel(f->name) + L": " + widen(f->flags[size_t(hit.bit)]) + L" (bit " + std::to_wstring(hit.bit) + L", " + mask + L")";
         }
         return dataColumnTitle(t->schema(), col) +
-               L"\nA click selects the column, a drag of a selected column moves it. A double click sorts by it: ascending, descending, then the default order. A drag of its right edge changes its width, a double click on the edge fits the width to the text. The right button hides it.";
+               L"\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it";
     }
     if (hit.row < 0) return L"";
     const int e = rows_[size_t(hit.row)];
@@ -1392,6 +1393,12 @@ inline void DataTableView::pickColumns(draw::Point pt) {
         }
         dataTableLayoutSave(dat);
         now = checks();
+        // (Changed on: a column with no changed value does not show; the status bar says why)
+        if (on && changedOnly_ && value.rfind(kListPickGroup, 0) != 0 && value != "\x01all")
+            if (const DatTable* table = host_.table())
+                for (const DataTableColumn& col : all)
+                    if (narrow(dataColumnKey(sch, col)) == value && !dataColumnChanged(*table, col))
+                        what += L". It has no changed values: it does not show while Changed is on";
         host_.status(what);
         refresh();
         if (on && value != "\x01all" && value.rfind(kListPickGroup, 0) != 0)  // a column that shows: at the right end, scrolled to (it may be past the edge)

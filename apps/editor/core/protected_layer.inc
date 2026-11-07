@@ -62,6 +62,7 @@ void protectedTerrainSync() {
     // (nothing changed since the last frame: the same place, the same protected tiles, or changes not saved)
     if (d.protectLoaded && (ed.protectedRevision() == d.protectRev || ed.modified()) && d.protectPlace.native() == place.native()) return;
     if (!d.protectLoaded || d.protectPlace != place) {
+        if (!pr && !mapPrefsFromMap(ed)) return;  // (settings that came with the map: when its files are read, at a later frame)
         d.protectLoaded = true, d.protectPlace = place;
         if (!ed.hasProtectedTiles()) {  // (the kept tiles; with tiles protected already: they go to the new place)
             std::string text;

@@ -208,10 +208,14 @@ bool mapLayersExport(const fs::path& path) {
         return false;
     }
     std::string err;
-    if (!app.ed->exportFlattened(path, err)) {
+    std::vector<std::string> leftOut, inUse;
+    if (!app.ed->exportFlattened(path, err, &leftOut, &inUse)) {
         setMessage(L"Could not export the map: " + widen(err));
         return false;
     }
-    setMessage(L"Exported " + path.filename().wstring() + L": the layers are flattened");
+    std::wstring text = L"Exported " + path.filename().wstring() + L": the layers are flattened";
+    if (!leftOut.empty()) text += L", " + std::to_wstring(leftOut.size()) + (leftOut.size() == 1 ? L" file" : L" files") + L" left out (Assets > All files)";
+    if (!inUse.empty()) text += L". The map uses " + std::to_wstring(inUse.size()) + L" of them: " + widen(inUse.front()) + (inUse.size() > 1 ? L", and more" : L"");
+    setMessage(text);
     return true;
 }

@@ -21,6 +21,10 @@ namespace stardraft {
 
 inline constexpr const char* kLayersFile = "stardraft\\layers.bin";
 inline constexpr const char* kLayersBaseFile = "stardraft\\layers-base.bin";
+inline constexpr const char* kLayersCheckFile = "stardraft\\layers-map.txt";  // what the map's terrain was at the last save
+inline constexpr const char* kNotesFile = "stardraft\\notes.txt";          // the map's notes (UTF-8)
+inline constexpr const char* kMapSettingsFile = "stardraft\\map.json";     // the map's own settings, as at its last save
+inline constexpr const char* kExportListFile = "stardraft\\export.txt";    // lines "on <path>" and "off <path>": File > Export
 
 // An object of a layer: x, y are its place, also outside of the map (the object's own x, y cannot be negative). shown:
 // the last flattening put it on the map (Editor::composeLayers); an object that is not on the map stays in the layer.

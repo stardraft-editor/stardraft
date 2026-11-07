@@ -1,4 +1,5 @@
 #include "stardraft/editor.h"
+#include "stardraft/isom_core.h"
 
 #include <climits>
 #include <cstdlib>
@@ -92,11 +93,13 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
     chk_ = std::move(chk);
     files_.clear();
     filesError_.clear();
+    unreadable_.clear();
+    pendingUnreadable_ = std::make_shared<std::vector<std::string>>();
     if (archive)
-        pendingFiles_ = std::async(std::launch::async, [path] {
+        pendingFiles_ = std::async(std::launch::async, [path, unreadable = pendingUnreadable_] {
             std::vector<ArchiveFile> files;
             std::string err;
-            if (!readMapFiles(path, files, err)) throw std::runtime_error(err);
+            if (!readMapFiles(path, files, err, {}, unreadable.get())) throw std::runtime_error(err);
             return files;
         });
     asArchive_ = archive;
@@ -173,6 +176,7 @@ void Editor::finishFiles() const {
     if (!pendingFiles_.valid()) return;
     try {
         files_ = pendingFiles_.get();
+        if (pendingUnreadable_) unreadable_ = *pendingUnreadable_;
         // The archive holds the scenario too: the editor has its own.
         files_.erase(std::remove_if(files_.begin(), files_.end(), [](const ArchiveFile& f) { return lower(f.name) == lower(kChkArchivePath); }), files_.end());
     } catch (const std::exception& e) {
@@ -318,12 +322,16 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     const Bytes raw = savedChk();
     const Bytes slots = gameSlots();
     bool archive = lower(path.extension().string()) != ".chk";
+    finishFiles();
+    if (archive && !filesError_.empty()) {
+        error = filesError_ + " (saving would lose them)";
+        return false;
+    }
+    if (filesError_.empty() && archiveFile(kLayersFile)) {  // (what the layers made: another editor's save differs)
+        const std::string check = terrainCheck();
+        setQuietArchiveFile(kLayersCheckFile, Bytes(check.begin(), check.end()));
+    }
     if (archive) {
-        finishFiles();
-        if (!filesError_.empty()) {
-            error = filesError_ + " (saving would lose them)";
-            return false;
-        }
         if (!writeMap(path, raw, files_, error)) return false;
     } else if (!writeFile(path, std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()), error)) {
         return false;
@@ -4684,22 +4692,115 @@ bool Editor::composeLayers(const Bytes& base, LayerStack& stack, std::vector<std
                 }
             }
     if (keepTiles && isomOk_ && keepTiles->size() == baseTiles.tiles.size()) {
+        // The other layers' tiles as they were, while a rect keeps its shape. A cliff is a stack of rects with one variant:
+        // from the top down, a rect takes the tile that fits under the rect above as it is now; when no tile of its shape
+        // does, the stack is the new tiles, all of it. (The new tiles fit together: IsomGrid::store.)
         const TerrainLayer now = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+        const IsomTiles* tiles = IsomTiles::forTileset(tileset_);
         const std::map<std::pair<int, int>, uint16_t>* own = activeLayer >= 0 && activeLayer < int(stack.layers.size()) ? &stack.layers[size_t(activeLayer)].corners : nullptr;
-        for (int ry = 0; now.tiles.size() == keepTiles->size() && ry < int(height_); ++ry)
-            for (int rx = 0; rx * 2 < int(width_); ++rx) {
-                bool layered = false, mine = false;
-                for (const auto& c : {std::pair{rx, ry}, {rx + 1, ry}, {rx, ry + 1}, {rx + 1, ry + 1}}) {
-                    layered = layered || asked.count(c);
-                    mine = mine || (own && own->count(c));
+        if (tiles && now.tiles.size() == keepTiles->size()) {
+            const int tw = int(width_), th = int(height_);
+            const auto sameShape = [&](uint16_t a, uint16_t b) {
+                if (a == b) return true;
+                if (a >= tileset_.groups.size() || b >= tileset_.groups.size()) return false;
+                for (const IsomTiles::Rect& x : tiles->rectsOf(a))
+                    for (const IsomTiles::Rect& y : tiles->rectsOf(b))
+                        if (x.parity == y.parity && x.left == y.left && x.right == y.right) return true;
+                return false;
+            };
+            const auto hasVariant = [&](uint16_t g, uint16_t sub) { return g < tileset_.groups.size() && tileset_.groups[g].megatiles[sub & 15]; };
+            std::vector<uint16_t> result = now.tiles;       // left tiles and right tiles
+            std::vector<uint8_t> changedHere(result.size(), 0);  // not the new tile
+            const auto at = [&](int tx, int ty) { return size_t(ty) * size_t(tw) + size_t(tx); };
+            const auto setRect = [&](int rx, int ry, uint16_t left, uint16_t right) {
+                const size_t a = at(rx * 2, ry);
+                result[a] = left, changedHere[a] = left != now.tiles[a];
+                if (rx * 2 + 1 < tw) result[a + 1] = right, changedHere[a + 1] = right != now.tiles[a + 1];
+            };
+            // Back to the new tiles: this rect and the rects above it in its stack.
+            const auto stackBack = [&](int rx, int ry) {
+                for (int y = ry; y >= 0; --y) {
+                    const size_t a = at(rx * 2, y);
+                    const bool was = changedHere[a] != 0;
+                    setRect(rx, y, now.tiles[a], rx * 2 + 1 < tw ? now.tiles[a + 1] : uint16_t(0));
+                    if (y == 0) break;
+                    const uint16_t top = uint16_t(now.tiles[a] >> 4);
+                    if (!was && !changedHere[at(rx * 2, y - 1)]) break;
+                    if (!tiles->stackTop(top) || tiles->stackTop(top) != tiles->stackBottom(uint16_t(now.tiles[at(rx * 2, y - 1)] >> 4))) break;
                 }
-                if (!layered || mine) continue;
-                for (int tx = rx * 2; tx <= rx * 2 + 1 && tx < int(width_); ++tx) {
-                    const size_t at = size_t(ry) * width_ + size_t(tx);
-                    const uint16_t last = (*keepTiles)[at];
-                    if (last && !layerPlaced_.count({tx, ry}) && (last >> 4) == (now.tiles[at] >> 4)) setTile(tx, ry, last);  // (its group: the same shape)
+            };
+            for (int rx = 0; rx * 2 < tw; ++rx)
+                for (int ry = 0; ry < th; ++ry) {
+                    const size_t a = at(rx * 2, ry);
+                    const bool hasRight = rx * 2 + 1 < tw;
+                    const uint16_t nowLeft = now.tiles[a], nowRight = hasRight ? now.tiles[a + 1] : uint16_t(0);
+                    const uint16_t lastLeft = (*keepTiles)[a], lastRight = hasRight ? (*keepTiles)[a + 1] : uint16_t(0);
+                    if (layerPlaced_.count({rx * 2, ry}) || (hasRight && layerPlaced_.count({rx * 2 + 1, ry}))) continue;
+                    bool layered = false, mine = false;
+                    for (const auto& c : {std::pair{rx, ry}, {rx + 1, ry}, {rx, ry + 1}, {rx + 1, ry + 1}}) {
+                        layered = layered || asked.count(c);
+                        mine = mine || (own && own->count(c));
+                    }
+                    const uint16_t above = ry > 0 ? uint16_t(result[at(rx * 2, ry - 1)] >> 4) : uint16_t(0xFFFF);
+                    const bool aboveChanged = ry > 0 && changedHere[at(rx * 2, ry - 1)];
+                    const auto fits = [&](uint16_t g) { return ry == 0 || above >= tileset_.groups.size() || tiles->stackBottom(above) == tiles->stackTop(g); };
+                    const uint16_t nowGroup = uint16_t(nowLeft >> 4), lastGroup = uint16_t(lastLeft >> 4);
+                    if (lastLeft && (!hasRight || lastRight) && lastGroup < tileset_.groups.size() && (layered ? !mine : aboveChanged) && sameShape(lastGroup, nowGroup) && fits(lastGroup)) {
+                        setRect(rx, ry, lastLeft, lastRight);
+                        continue;
+                    }
+                    if (!aboveChanged || fits(nowGroup)) {
+                        // (under a stack that stays: the stack's variant)
+                        if (aboveChanged && tiles->stackTop(nowGroup)) {
+                            const uint16_t sub = uint16_t(result[at(rx * 2, ry - 1)] & 15);
+                            if (hasVariant(nowGroup, sub) && (!hasRight || hasVariant(uint16_t(nowRight >> 4), sub)))
+                                setRect(rx, ry, uint16_t((nowLeft & ~15) | sub), uint16_t((nowRight & ~15) | sub));
+                        }
+                        continue;
+                    }
+                    // A tile of its shape that fits under the rect above; none: the new tiles.
+                    bool found = false;
+                    for (const IsomTiles::Rect& r : nowGroup < tileset_.groups.size() ? tiles->rectsOf(nowGroup) : std::vector<IsomTiles::Rect>{}) {
+                        for (uint16_t g : tiles->groups(r.parity, r.left, r.right)) {
+                            const uint16_t sub = uint16_t(result[at(rx * 2, ry - 1)] & 15);
+                            if (!fits(g) || !hasVariant(g, sub) || !hasVariant(uint16_t(g + 1), sub)) continue;
+                            setRect(rx, ry, uint16_t(g << 4 | sub), uint16_t((g + 1) << 4 | sub));
+                            found = true;
+                            break;
+                        }
+                        if (found) break;
+                    }
+                    if (!found) stackBack(rx, ry - 1);
                 }
+            // Rects side by side and stacks that do not fit now: the new tiles there.
+            const auto misfits = [&](std::vector<std::pair<int, int>>& where) {
+                Chk trial = chk_;
+                for (int ty = 0; ty < th; ++ty)
+                    for (int tx = 0; tx < tw; ++tx)
+                        if (changedHere[at(tx, ty)]) {
+                            const size_t o = at(tx, ty) * 2;
+                            for (const SectionName name : {SectionName("MTXM"), SectionName("TILE")})
+                                if (Section* sec = trial.find(name); sec && o + 1 < sec->data.size()) sec->data[o] = uint8_t(result[at(tx, ty)]), sec->data[o + 1] = uint8_t(result[at(tx, ty)] >> 8);
+                        }
+                countTileMisfits(trial, tileset_, &where);
+            };
+            for (int pass = 0; pass < 4; ++pass) {
+                std::vector<std::pair<int, int>> where;
+                misfits(where);
+                bool any = false;
+                for (const auto& [tx, ty] : where) {
+                    const int rx = tx / 2;
+                    for (const auto& [ox, oy] : {std::pair{rx, ty}, {rx, ty - 1}, {(tx - 1) / 2, ty}})
+                        if (ox >= 0 && oy >= 0 && ox * 2 < tw && (changedHere[at(ox * 2, oy)] || (ox * 2 + 1 < tw && changedHere[at(ox * 2 + 1, oy)])))
+                            stackBack(ox, oy), any = true;
+                }
+                if (!any) break;
+                if (pass == 3) std::fill(changedHere.begin(), changedHere.end(), uint8_t(0));  // (it does not settle: all the new tiles, which fit)
             }
+            for (int ty = 0; ty < th; ++ty)
+                for (int tx = 0; tx < tw; ++tx)
+                    if (changedHere[at(tx, ty)]) setTile(tx, ty, result[at(tx, ty)]);
+        }
     }
     if (!stack.background.visible)
         for (int ry = 0; ry < int(height_); ++ry)
@@ -4864,16 +4965,115 @@ void Editor::amendLastStep(std::vector<ArchiveFile> files, const std::vector<std
     commit(false);
 }
 
-bool Editor::exportFlattened(const std::filesystem::path& path, std::string& error) {
+bool Editor::exportFlattened(const std::filesystem::path& path, std::string& error, std::vector<std::string>* leftOut, std::vector<std::string>* leftOutInUse) {
     finishFiles();
     if (!filesError_.empty()) {
         error = filesError_ + " (the export would lose them)";
         return false;
     }
     std::vector<ArchiveFile> keep;
-    for (const ArchiveFile& f : files_)
-        if (f.name != kLayersFile && f.name != kLayersBaseFile) keep.push_back(f);
+    for (const ArchiveFile& f : files_) {
+        if (keepInExport(f.name)) {
+            keep.push_back(f);
+            continue;
+        }
+        if (!canKeepInExport(f.name)) continue;  // (the layers: the export is flat; they are not the user's to count)
+        if (leftOut) leftOut->push_back(f.name);
+        if (leftOutInUse && namedInMap(f.name)) leftOutInUse->push_back(f.name);
+    }
     return writeMap(path, savedChk(), keep, error);
+}
+
+namespace {
+// The lines of the export list: path -> on or off.
+std::map<std::string, bool> readExportList(const ArchiveFile* file) {
+    std::map<std::string, bool> out;
+    if (!file) return out;
+    std::string line;
+    const auto take = [&] {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.rfind("on ", 0) == 0) out[line.substr(3)] = true;
+        else if (line.rfind("off ", 0) == 0) out[line.substr(4)] = false;
+        line.clear();
+    };
+    for (uint8_t b : file->data) {
+        if (b == '\n') take();
+        else line.push_back(char(b));
+    }
+    take();
+    return out;
+}
+std::string exportListText(const std::map<std::string, bool>& list) {
+    std::string text;
+    for (const auto& [path, on] : list) text += (on ? "on " : "off ") + path + "\n";
+    return text;
+}
+// The list as a file of the map, inside an undo step already taken. (No lines: no file.)
+void storeExportList(std::vector<ArchiveFile>& files, const std::map<std::string, bool>& list) {
+    std::erase_if(files, [](const ArchiveFile& f) { return f.name == kExportListFile; });
+    const std::string text = exportListText(list);
+    if (!text.empty()) files.push_back({kExportListFile, Bytes(text.begin(), text.end())});
+}
+bool ownFile(const std::string& name) { return name.rfind("stardraft\\", 0) == 0; }
+}  // namespace
+
+bool Editor::canKeepInExport(const std::string& name) { return name != kLayersFile && name != kLayersBaseFile && name != kLayersCheckFile && name != kExportListFile; }
+
+std::string Editor::terrainCheck() const {
+    uint32_t h = 2166136261u;  // FNV-1a
+    if (const Section* s = chk_.find(SectionName("MTXM")))
+        for (uint8_t b : s->data) h = (h ^ b) * 16777619u;
+    char text[16];
+    std::snprintf(text, sizeof text, "%08x", h);
+    return text;
+}
+
+bool Editor::keepInExport(const std::string& name) const {
+    if (!canKeepInExport(name)) return false;
+    const std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    const auto it = list.find(name);
+    return it != list.end() ? it->second : !ownFile(name);
+}
+
+void Editor::setKeepInExport(const std::string& name, bool keep) {
+    if (!canKeepInExport(name) || keepInExport(name) == keep) return;
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    if (keep == !ownFile(name)) list.erase(name);  // (the default: no line)
+    else list[name] = keep;
+    const std::string text = exportListText(list);
+    if (text.empty()) removeArchiveFile(kExportListFile);
+    else setArchiveFiles({{kExportListFile, Bytes(text.begin(), text.end())}});
+}
+
+bool Editor::namedInMap(const std::string& name) const {
+    const std::string wanted = lower(name);
+    for (const SectionName section : {SectionName("STR "), SectionName("STRx")})
+        if (const Section* s = chk_.find(section))
+            for (auto it = s->data.begin(); it != s->data.end(); ++it) {
+                it = std::search(it, s->data.end(), wanted.begin(), wanted.end(), [](uint8_t a, char b) { return char(std::tolower(a)) == b; });
+                if (it == s->data.end()) break;
+                const auto end = it + std::ptrdiff_t(wanted.size());
+                if ((it == s->data.begin() || !*(it - 1)) && (end == s->data.end() || !*end)) return true;  // (the whole string, not a part of a text)
+            }
+    return false;
+}
+
+void Editor::setQuietArchiveFile(const std::string& name, Bytes data) {
+    finishFiles();
+    const auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == name; });
+    if (it != files_.end()) it->data = std::move(data);
+    else files_.push_back({name, std::move(data)});
+}
+
+std::string Editor::notes() const {
+    const ArchiveFile* f = archiveFile(kNotesFile);
+    return f ? std::string(f->data.begin(), f->data.end()) : std::string();
+}
+
+void Editor::setNotes(const std::string& text) {
+    if (text == notes()) return;
+    if (text.empty()) removeArchiveFile(kNotesFile);
+    else setArchiveFiles({{kNotesFile, Bytes(text.begin(), text.end())}});
 }
 
 void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {
@@ -4892,8 +5092,12 @@ void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {
 bool Editor::removeArchiveFile(const std::string& name) {
     finishFiles();
     if (std::none_of(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == name; })) return false;
-    pushUndo(chk_, {name});  // the undo step keeps the file
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    const bool listed = list.erase(name) > 0;
+    if (listed) pushUndo(chk_, {name, kExportListFile});  // the undo step keeps the file
+    else pushUndo(chk_, {name});
     std::erase_if(files_, [&](const ArchiveFile& f) { return f.name == name; });
+    if (listed) storeExportList(files_, list);
     commit(false);
     return true;
 }
@@ -4904,8 +5108,14 @@ bool Editor::removeArchiveFiles(const std::vector<std::string>& names) {
     for (const std::string& n : names)
         if (std::any_of(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == n; })) there.push_back(n);
     if (there.empty()) return false;
-    pushUndo(chk_, there);  // the undo step keeps the files
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    bool listed = false;
+    for (const std::string& n : there) listed = list.erase(n) > 0 || listed;
+    std::vector<std::string> kept = there;
+    if (listed) kept.push_back(kExportListFile);
+    pushUndo(chk_, kept);  // the undo step keeps the files
     std::erase_if(files_, [&](const ArchiveFile& f) { return std::find(there.begin(), there.end(), f.name) != there.end(); });
+    if (listed) storeExportList(files_, list);
     commit(false);
     return true;
 }
@@ -4914,9 +5124,19 @@ bool Editor::renameArchiveFile(const std::string& from, const std::string& to) {
     if (to.empty() || archiveFile(to)) return false;
     auto it = std::find_if(files_.begin(), files_.end(), [&](const ArchiveFile& f) { return f.name == from; });
     if (it == files_.end()) return false;
-    // One step: the file's new path, and the briefings that play it name the new path.
-    pushUndo(chk_, {from, to});
+    // One step: the file's new path, the briefings that play it name the new path, and its export setting goes with it.
+    std::map<std::string, bool> list = readExportList(archiveFile(kExportListFile));
+    const auto line = list.find(from);
+    const bool listed = line != list.end();
+    if (listed) {
+        list[to] = line->second;
+        list.erase(from);
+        pushUndo(chk_, {from, to, kExportListFile});
+    } else {
+        pushUndo(chk_, {from, to});
+    }
     it->name = to;
+    if (listed) storeExportList(files_, list);
     std::vector<BriefingTrigger> b = readBriefings(chk_, strings_);
     bool used = false;
     for (auto& t : b)

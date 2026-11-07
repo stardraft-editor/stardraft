@@ -51,8 +51,8 @@ std::vector<draw::View*> floatPaletteViews(const FloatPaletteParts& p) {
     std::vector<draw::View*> out;
     for (auto [fill, button, sort] : p.rows) {
         if (fill) out.push_back(fill);
+        if (sort) out.push_back(sort);  // (Tab as the screen has them: Sort, then View)
         if (button) out.push_back(button);
-        if (sort) out.push_back(sort);
     }
     if (p.list) out.push_back(p.list);
     if (p.alt) out.push_back(p.alt);

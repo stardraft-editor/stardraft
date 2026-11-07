@@ -86,8 +86,12 @@ struct OtherSearchCatch final : draw::View {
         return true;
     }
 };
+// (Their boxes show what the panel has; the keys go to them in the active panel: no Tab stops here.)
+struct OtherRowDropdown final : kit::Dropdown {
+    bool focusable() const override { return false; }
+};
 struct OtherSearchRow {
-    kit::Dropdown owner, section;
+    OtherRowDropdown owner, section;
     OtherSearchCatch ownerCatch, sectionCatch;
     SearchBox box;
     OtherSearchCatch catcher;
@@ -98,6 +102,7 @@ struct OtherSearchRow {
         : view(L"View", kit::Tone::Normal, [this, &list] { paletteMenuSdl(list, view, {0, view.height()}, -1); }),
           sort(kit::IconGlyph::ofGlyph(L'\xE8CB'), kit::IconStyle::Boxed, L"", [this] { paletteSortMenuSdl(mode, sort); }) {
         ownerCatch.what = OtherSearchCatch::Owner, sectionCatch.what = OtherSearchCatch::Section;
+        box.field().setTabStop(false);
     }
 };
 OtherSearchRow gSearchRow2{gPal2List}, gSearchRow3{gPal3List};

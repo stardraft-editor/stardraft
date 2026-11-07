@@ -2805,3 +2805,140 @@ Mask: painting changes only the tiles with an outline. Alt+click takes one out.	
 No mask: painting changes all tiles	无蒙版：绘制会更改所有图块
 Nothing changed: the mask keeps these tiles	没有更改：蒙版保留了这些图块
 Nothing changed: the mask keeps this terrain	没有更改：蒙版保留了此地形
+ file	 个文件
+ files	 个文件
+ files of the archive have no name that can be read, or could not be read. A save leaves them out.	 个文件的名称无法读取，或文件无法读取。保存时会略过它们。
+ layers	 个图层
+ left out (Assets > All files)	 个已略过 (素材 > 所有文件)
+ of them: 	 个，其中:
+ replaced)	 个已替换)
+ tile	 个图块
+ tiles	 个图块
+&Hide or show	隐藏或显示(&H)
+&Layer list	图层列表(&L)
+&Lock or unlock	锁定或解锁(&L)
+&Map Layers	地图图层(&M)
+&Merge down	向下合并(&M)
+&Modes	模式(&M)
+&New layer	新建图层(&N)
+&Select all layers	选择所有图层(&S)
+, and more	 等
+. It has no changed values: it does not show while Changed is on	。它没有已更改的值: 开启“已更改”时不显示
+. Shift adds. Ctrl removes.	。Shift 添加。Ctrl 移除。
+. The map uses 	。地图使用
+1 file of the archive has no name that can be read, or could not be read. A save leaves it out.	1 个文件的名称无法读取，或文件无法读取。保存时会略过它。
+: the Sounds tab imports only sounds (WAV, OGG). The All files tab takes any file.	: “声音”选项卡只导入声音 (WAV、OGG)。“所有文件”选项卡接受任何文件。
+: the game uses that name	: 游戏使用该名称
+: the layers are flattened	: 图层会被拼合
+: this layer is hidden (View > Modes), so you cannot edit it. Show the layer?	: 此图层已隐藏 (视图 > 模式)，因此无法编辑。显示该图层吗？
+: this layer is hidden. View > Modes shows it again (then you can edit it).	: 此图层已隐藏。视图 > 模式可再次显示它 (然后就能编辑)。
+A bridge or a ramp needs its ground in the same layer: paint the terrain in this layer, or select the layer that has it	桥或坡道的地面需要在同一图层: 请在此图层绘制地形，或选择含有该地面的图层
+A locked layer cannot be deleted	已锁定的图层无法删除
+A locked layer cannot be merged	已锁定的图层无法合并
+Add files…	添加文件…
+Add symmetry &anchor here	在此添加对称锚点(&A)
+Added a symmetry anchor. Select tool: drag it to move it, double-click it to remove it	已添加对称锚点。选择工具: 拖动可移动，双击可移除
+All files	所有文件
+All layers that show become one map, and the layer data stays out of it.	所有显示的图层合并为一张地图，图层数据不会包含在内。
+All the files of the map: add, extract, replace, rename, remove, and what File > Export keeps	地图的所有文件: 添加、提取、替换、重命名、移除，以及文件 > 导出保留的内容
+Another program changed this map's terrain after its last save here. The layers do not have those changes: the next edit makes the terrain from the layers again.	另一个程序在此处上次保存后更改了此地图的地形。图层中没有这些更改: 下次编辑时会根据图层重新生成地形。
+Any files. They go into the map with their names; a file of that name is replaced.	任何文件。它们以原名放入地图；同名文件会被替换。
+Background	背景
+Could not export the map: 	无法导出地图:
+Could not read the file: 	无法读取文件:
+Could not save 	无法保存
+Creep is hidden (View > Modes shows it again)	菌毯已隐藏 (视图 > 模式可再次显示)
+Cut the terrain: what is under the layer shows in its place (one undo step)	已剪切地形: 图层下方的内容显示在其位置 (一步撤销)
+Delete the selected layers (Del in Map Layers)	删除所选图层 (在地图图层中按 Del)
+Did not add 	未添加
+Drag to move the layer in the list	拖动可在列表中移动图层
+E&xport map…	导出地图(&X)…
+Establishing shot	定场镜头
+Export settings	导出设置
+Exported 	已导出
+Extract…	提取…
+File	文件
+File > Export keeps this file in the exported map	文件 > 导出会把此文件保留在导出的地图中
+File > Export never keeps this file: the exported map has no layers	文件 > 导出从不保留此文件: 导出的地图没有图层
+Flatten	拼合
+Flattened the layers into the Background	已将图层拼合到背景
+How layers get into the map that you play	图层如何进入你所玩的地图
+Keep in export	导出时保留
+La&yer	图层(&Y)
+Lasso	套索
+Lasso: draw round the tiles to select. Shift adds, Ctrl removes. Then Ctrl+C copies, and Move moves them.	套索: 围绕图块绘制以选择。Shift 添加，Ctrl 移除。然后 Ctrl+C 复制，“移动”可移动它们。
+Layer list	图层列表
+Layers	图层
+Layers stay in this map file while you work on them.\n\nTo make the map that you play in StarCraft, use File > Export map. 	处理期间，图层保存在此地图文件中。\n\n要制作在 StarCraft 中游玩的地图，请使用 文件 > 导出地图。
+Lock	锁定
+Lock or unlock: a locked layer does not change (Ctrl+Alt+L)	锁定或解锁: 已锁定的图层不会更改 (Ctrl+Alt+L)
+Map Layers	地图图层
+Map settings	地图设置
+Merge down	向下合并
+Merge the selected layers	合并所选图层
+Merged the layers	已合并图层
+Merged the layers into the Background	已将图层合并到背景
+Move	移动
+Move Layer	移动图层
+Move Layer: a drag on the map moves the selected layers. The other modes' tools change the selected layer.	移动图层: 在地图上拖动会移动所选图层。其他模式的工具会更改所选图层。
+Move: drag the selected terrain to another place. Isometric: with its edges fitted there, and the terrain under it stays valid. The other kinds: its tiles as they are, with null tiles where they were. On a layer, what is under the layer shows where it was.	移动: 将所选地形拖到其他位置。等距: 其边缘在该处对齐，其下的地形保持有效。其他类型: 图块保持原样，原位置留下空白图块。在图层上，图层下方的内容显示在它原来的位置。
+Moved the layers back to the side bar	已将图层移回侧栏
+Moved the layers to their own window	已将图层移到独立窗口
+Moved the terrain (one undo step)	已移动地形 (一步撤销)
+New layer	新建图层
+New layer (Ctrl+Alt+N)	新建图层 (Ctrl+Alt+N)
+New layer: the tools now change this layer	新建图层: 现在工具会更改此图层
+No file has the search text	没有文件包含搜索文本
+Not available: no terrain is selected.	不可用: 未选择地形。
+Notes	备注
+Notes for the mappers. Not in the game. File > Export leaves them out.	给地图作者的备注。不在游戏中。文件 > 导出会将其排除。
+Nothing to move there: make the selection larger	那里没有可移动的内容: 请扩大选区
+Nothing to move there: this layer has no terrain in the selection	那里没有可移动的内容: 此图层在选区内没有地形
+Open a map first: the files go into the map	请先打开地图: 文件会放入地图
+Paste on the layer: click to place it, and then drag to move it. R turns it, M mirrors it. Right-click or Esc stops.	粘贴到图层: 点击放置，然后拖动移动。R 旋转，M 镜像。右键单击或 Esc 停止。
+Pasted on the layer. Drag to move it. Ctrl+V pastes again.	已粘贴到图层。拖动可移动。Ctrl+V 可再次粘贴。
+Protected terrain is hidden (View > Modes shows it again)	受保护的地形已隐藏 (视图 > 模式可再次显示)
+Put the layers back in the side bar	将图层放回侧栏
+Remove this symmetry anchor	移除此对称锚点
+Removed the file	已移除文件
+Removed the symmetry anchor	已移除对称锚点
+Rename the file	重命名文件
+Rename the layer	重命名图层
+Rename…	重命名…
+Replace…	替换…
+Replaced the data of 	已替换数据:
+Save a copy of the file on the computer	将文件的副本保存到电脑
+Search map files	搜索地图文件
+Select a layer first	请先选择图层
+Select another file: an export over the open map would remove its layers	请选择其他文件: 覆盖已打开地图的导出会移除其图层
+Select terrain first, with Select, the Lasso or the Magic wand	请先选择地形，使用选择、套索或魔棒
+Selected all 	已全选
+Show or hide (Ctrl+Alt+H). With nothing showing, the map is black	显示或隐藏 (Ctrl+Alt+H)。没有任何显示时，地图为黑色
+Sort by name	按名称排序
+That belongs to a locked layer, or the active layer is locked: nothing changed	该内容属于已锁定的图层，或活动图层已锁定: 未做更改
+The Background does not move. Select a layer in the list	背景不能移动。请在列表中选择图层
+The Background is hidden: nothing changed	背景已隐藏: 未做更改
+The game or StarDraft uses that name: select another name	游戏或 StarDraft 使用该名称: 请选择其他名称
+The layer &above	上方的图层(&A)
+The layer &below	下方的图层(&B)
+The layer is hidden: nothing changed	图层已隐藏: 未做更改
+The layer is locked	图层已锁定
+The layer is locked: nothing changed	图层已锁定: 未做更改
+The layer list shows in its own window	图层列表显示在独立窗口中
+The map changed while you selected the file: nothing changed	选择文件时地图发生了变化: 未做更改
+The map changed while you selected the files: nothing was added	选择文件时地图发生了变化: 未添加任何内容
+The map changed while you selected the place: nothing was saved	选择位置时地图发生了变化: 未保存任何内容
+The map has no files other than its terrain and triggers. Add files puts files into it.	地图除地形和触发器外没有其他文件。“添加文件”可将文件放入其中。
+The map has no isometric terrain data: use Rectangle or Tile	地图没有等距地形数据: 请使用矩形或图块
+The map has no layers: nothing to select	地图没有图层: 没有可选择的内容
+The map uses this file: without it, the exported map cannot play it	地图使用此文件: 没有它，导出的地图无法播放它
+The map's files are still being read	地图的文件仍在读取中
+The map's size or tileset changed: the layers are flattened. Undo brings them back	地图的大小或图块集已更改: 图层已被拼合。撤销可恢复它们
+The map's text names this file	地图的文本引用了此文件
+The map's tileset changed: the layers are flattened. Undo brings them back	地图的图块集已更改: 图层已被拼合。撤销可恢复它们
+Unlock	解锁
+Use a file of the computer as this file's data. The name stays.	使用电脑上的文件作为此文件的数据。名称保持不变。
+View	视图
+\nClick: select the column\nDrag a selected column: move it\nDouble-click: sort by it (ascending, descending, then the default order)\nDrag the right edge: change the width (of all the selected columns)\nDouble-click the right edge: fit the width to the text\nRight-click: hide it	\n单击: 选择列\n拖动已选中的列: 移动它\n双击: 按它排序 (升序、降序，然后是默认顺序)\n拖动右边缘: 更改宽度 (所有选中的列)\n双击右边缘: 使宽度适合文本\n右键单击: 隐藏它
+hidden	已隐藏
+locked	已锁定
