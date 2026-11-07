@@ -24,7 +24,8 @@ void pickInOtherMode(PanelState* panel, int v, bool add) {
 }
 bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int row, bool ctrl);  // (core/palette_view.inc)
 // A click in the second or third palette with its keys: Ctrl adds to the pick, Shift picks a range (as the first palette).
-void pickInOtherModeMods(PanelState* panel, const std::vector<PaletteRow>& rows, int row, int v, unsigned mods) {
+void pickInOtherModeMods(PanelState* panel, std::vector<PaletteRow> rows, int row, int v, unsigned mods) {
+    // (`rows`: a copy, the list's rows at the click; activatePanel's relayout fills the second and third lists again)
     const bool ctrl = (mods & draw::kCtrl) != 0;
     if (panel && panel->mode == Mode::Locations) return pickLocationElsewhere(v, ctrl);
     if (panel) activatePanel(panel);

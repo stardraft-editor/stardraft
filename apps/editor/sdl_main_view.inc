@@ -255,10 +255,11 @@ struct MapView final : draw::View {
     // The mask's chip (Terrain, a mask on: core/views_toolstrip.inc stripMaskShown) at the map's top left: what is in the
     // mask, and a close button that clears it (masksClear). Drawn over the map, so that no list moves when a mask starts.
     draw::Rect maskChip{}, maskClose{};
-    bool maskCloseHot = false;
+    draw::Rect maskClosedAt{};  // (the chip's place after its close: the second press of a double-click stays off the map)
+    bool maskCloseHot = false, maskPressed = false;
     void paintMaskChip(draw::Canvas& c) {
         maskChip = maskClose = {};
-        if (!open() || !stripMaskShown()) return;
+        if (!open() || !stripMaskShown()) return void(maskCloseHot = false);
         const std::wstring text = stripMaskText();
         const int h = scale(26), pad = scale(8), closeW = h;
         const int w = std::min(width() - 2 * pad, c.measure(text) + scale(16) + closeW);
@@ -276,13 +277,20 @@ struct MapView final : draw::View {
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
         if (e.kind == draw::MouseKind::Down && sdlPieClickAway()) return true;  // (a click away from the pie palette closes it)
-        if (maskChip.right > maskChip.left && gState.drag == Drag::None) {  // the mask's chip: its close button clears the mask; no paint under it
-            const bool onChip = maskChip.contains(e.pt), onClose = maskClose.contains(e.pt);
-            if (e.kind == draw::MouseKind::Move && onClose != maskCloseHot) maskCloseHot = onClose, invalidate();
-            if (onChip && (e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick || e.kind == draw::MouseKind::Up)) {
-                if (e.kind == draw::MouseKind::Down && e.button == 0 && onClose) masksClear(), maskCloseHot = false, invalidateMapView();
+        {  // the mask's chip: a press on it stays off the map (its close button clears the mask), with its release
+            const bool shown = maskChip.right > maskChip.left, onChip = shown && maskChip.contains(e.pt), onClose = shown && maskClose.contains(e.pt);
+            if ((e.kind == draw::MouseKind::Move || e.kind == draw::MouseKind::Leave) && (onClose && e.kind == draw::MouseKind::Move) != maskCloseHot)
+                maskCloseHot = !maskCloseHot, invalidate();
+            if (e.kind == draw::MouseKind::Move && !maskClosedAt.contains(e.pt)) maskClosedAt = {};
+            const bool press = e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick;
+            if (press && gState.drag == Drag::None && (onChip || (e.kind == draw::MouseKind::DoubleClick && maskClosedAt.contains(e.pt)))) {
+                maskPressed = true;
+                if (e.kind == draw::MouseKind::Down && e.button == 0 && onClose)
+                    maskClosedAt = maskChip, masksClear(), maskCloseHot = false, invalidateMapView();
                 return true;
             }
+            if (press) maskClosedAt = {};
+            if (e.kind == draw::MouseKind::Up && maskPressed) return maskPressed = false, true;
         }
         // While a live game shows: its bar's buttons; on the map only the view moves (middle button, wheel, pinch).
         if (simBarShown()) {
