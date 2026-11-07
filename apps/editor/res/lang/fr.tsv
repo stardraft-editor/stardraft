@@ -2983,3 +2983,8 @@ Cleared the masks: painting changes all terrains and tiles	Masques effacés : la
 Cleared the tile mask: painting changes all tiles	Masque de tuiles effacé : la peinture change toutes les tuiles
 Cleared the terrain mask: painting changes all terrains	Masque de terrain effacé : la peinture change tous les terrains
 Clear the mask	Effacer le masque
+&Diamond	&Losange
+&Square	&Carré
+&Circle	&Cercle
+&Left	&Gauche
+&Right	&Droite

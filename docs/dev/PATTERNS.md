@@ -78,7 +78,8 @@ On the map, outside the area selection tools:
 ## Menus and pickers
 
 - **A popup menu** is a MenuModel, shown with sdlPopupMenu. Then it has access keys, check marks, gray items and
-  "Report feedback on…" at its end. Do not use shellPopupPick, shellContextMenu or kit::Menu::popup for new menus.
+  "Report feedback on…" at its end. A core view opens it with shellMenu (at the mouse) or shellMenuAt. Do not use
+  shellContextMenu or kit::Menu::popup for new menus.
 - **A choice of a few values** that the user sees all the time is a dropdown or a segmented control, not a menu.
 - **A typed value** (a number, a size, a percent) is a kit text field in its place, with its range and its unit
   beside it. It refuses values out of range. Do not ask for a number in a prompt.
@@ -160,11 +161,8 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Menus and pickers**
 
-- The brush shape box uses shellPopupPick; the Layer list uses shellContextMenu; the panel tab side menu uses
-  kit::Menu::popup. None of them has "Report feedback". (A core view's menu: shellMenu, as the Tiles list's.)
 - Typed numbers in prompts: View > Grid > Custom (four numbers in one field), the new map size, the seconds of an
   establishing shot, a memory address.
-- stampsItemMenu (core/stamps.inc) has no callers.
 
 **Buttons and icons**
 

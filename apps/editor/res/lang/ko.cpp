@@ -3015,6 +3015,11 @@ constexpr UiText kRows[] = {
     {L"Cleared the tile mask: painting changes all tiles", L"\uD0C0\uC77C \uB9C8\uC2A4\uD06C\uB97C \uC9C0\uC6E0\uC2B5\uB2C8\uB2E4: \uCE60\uD558\uAE30\uAC00 \uBAA8\uB4E0 \uD0C0\uC77C\uC744 \uBC14\uAFC9\uB2C8\uB2E4"},
     {L"Cleared the terrain mask: painting changes all terrains", L"\uC9C0\uD615 \uB9C8\uC2A4\uD06C\uB97C \uC9C0\uC6E0\uC2B5\uB2C8\uB2E4: \uCE60\uD558\uAE30\uAC00 \uBAA8\uB4E0 \uC9C0\uD615\uC744 \uBC14\uAFC9\uB2C8\uB2E4"},
     {L"Clear the mask", L"\uB9C8\uC2A4\uD06C \uC9C0\uC6B0\uAE30"},
+    {L"&Diamond", L"\uB9C8\uB984\uBAA8(&D)"},
+    {L"&Square", L"\uC815\uC0AC\uAC01\uD615(&S)"},
+    {L"&Circle", L"\uC6D0(&C)"},
+    {L"&Left", L"\uC67C\uCABD(&L)"},
+    {L"&Right", L"\uC624\uB978\uCABD(&R)"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

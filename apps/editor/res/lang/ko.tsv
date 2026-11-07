@@ -3013,3 +3013,8 @@ Cleared the masks: painting changes all terrains and tiles	마스크를 지웠�
 Cleared the tile mask: painting changes all tiles	타일 마스크를 지웠습니다: 칠하기가 모든 타일을 바꿉니다
 Cleared the terrain mask: painting changes all terrains	지형 마스크를 지웠습니다: 칠하기가 모든 지형을 바꿉니다
 Clear the mask	마스크 지우기
+&Diamond	마름모(&D)
+&Square	정사각형(&S)
+&Circle	원(&C)
+&Left	왼쪽(&L)
+&Right	오른쪽(&R)

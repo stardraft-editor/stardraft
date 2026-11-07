@@ -163,13 +163,14 @@ private:
         const MapLayersState& s = gMapLayers;
         if (index >= int(s.stack.layers.size())) return;  // (an undo took it away)
         if (index >= -1 && !s.picked.count(index)) mapLayersPick(index, 0);
-        std::vector<std::wstring> items;
+        MenuModel items;
         std::vector<std::function<void()>> runs;
-        const auto add = [&](const std::wstring& text, std::function<void()> run) {
-            items.push_back(text);
+        const auto add = [&](const std::wstring& text, std::function<void()> run) {  // (the text: the label, a tab, the shortcut)
+            const size_t tab = text.find(L'\t');
             runs.push_back(std::move(run));
+            items.push_back(menuItem(int(runs.size()), text.substr(0, tab), tab == std::wstring::npos ? std::wstring() : text.substr(tab + 1)));
         };
-        const auto say = [](const wchar_t* text) { return std::wstring(tr(text)); };
+        const auto say = [](const wchar_t* text) { return std::wstring(text); };  // (the menu translates its labels)
         if (index >= 0) {
             const MapLayer& layer = s.stack.layers[size_t(index)];
             add(say(L"Rename\x2026") + L"\tF2", [index] { mapLayersRename(index); });
@@ -184,8 +185,10 @@ private:
         if (s.stack.layers.size() > 1) add(say(L"Sort by name"), [] { mapLayersSort(); });
         if (s.on) add(say(L"Flatten"), [] { mapLayersFlatten(); });
         if (items.empty()) return;
-        const int pick = shellContextMenuAt(*this, pointer_, items);
-        if (pick >= 1 && pick <= int(runs.size())) runs[size_t(pick - 1)]();
+        void shellMenuAt(draw::View& from, draw::Point at, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick);
+        shellMenuAt(*this, pointer_, items, L"the Layer list", [runs](int id) {
+            if (id >= 1 && id <= int(runs.size())) runs[size_t(id - 1)]();
+        });
     }
     std::vector<Row> rows_;
     draw::Point pointer_{};

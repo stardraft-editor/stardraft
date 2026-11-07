@@ -2985,6 +2985,11 @@ constexpr UiText kRows[] = {
     {L"Cleared the tile mask: painting changes all tiles", L"\u5DF2\u6E05\u9664\u56FE\u5757\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u56FE\u5757"},
     {L"Cleared the terrain mask: painting changes all terrains", L"\u5DF2\u6E05\u9664\u5730\u5F62\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u5730\u5F62"},
     {L"Clear the mask", L"\u6E05\u9664\u8499\u7248"},
+    {L"&Diamond", L"\u83F1\u5F62(&D)"},
+    {L"&Square", L"\u6B63\u65B9\u5F62(&S)"},
+    {L"&Circle", L"\u5706\u5F62(&C)"},
+    {L"&Left", L"\u5DE6(&L)"},
+    {L"&Right", L"\u53F3(&R)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

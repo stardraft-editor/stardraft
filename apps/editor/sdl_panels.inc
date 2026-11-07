@@ -286,9 +286,11 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
 
 // A right click's menu of a core view: `m` at the mouse in `from`, with Report feedback on `on`; `pick` runs with the
 // item's id.
-void shellMenu(draw::View& from, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick) {
-    const draw::Point at = gHost ? gHost->mouse(from) : draw::Point{};
+void shellMenuAt(draw::View& from, draw::Point at, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick) {
     sdlPopupMenu(from, at, sdlModelItems(m, std::move(pick)), sdlFeedbackOn(from, at, on));
+}
+void shellMenu(draw::View& from, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick) {
+    shellMenuAt(from, gHost ? gHost->mouse(from) : draw::Point{}, m, on, std::move(pick));
 }
 
 // The Custom list's Sort and View buttons (core/views_stamps.inc): their menus under the button.

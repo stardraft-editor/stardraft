@@ -10,6 +10,7 @@ constexpr double kStripPi = 3.14159265358979323846;
 
 void setTerrainRect(bool rect);
 bool objectSprayOn();
+void shellMenuAt(draw::View& from, draw::Point at, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick);  // (sdl_panels.inc)
 
 // The brush sizes (diamonds; the sprays' radius too): 0.5 (half a diamond: one corner), 1 to 16, then every other to 32.
 const std::vector<float>& brushSizes() {
@@ -65,7 +66,7 @@ public:
 };
 
 // The shape list's entries: the names as the menu shows them.
-static const wchar_t* const kStripShapeNames[3] = {L"Diamond", L"Square", L"Circle"};
+static const wchar_t* const kStripShapeNames[3] = {L"&Diamond", L"&Square", L"&Circle"};
 
 // --- Rules of the strip (no drawing) ------------------------------------------------------------------------------------
 bool objectSprayOn() {
@@ -638,15 +639,16 @@ public:
             c.icon({sr.left + scale(4), sr.top, sr.left + scale(24), sr.bottom}, int(shapeIcons[int(shapeOf(app)) % 3]), kText, scale(14));
             glyph(c, {sr.left + scale(24), sr.top, sr.right - scale(4), sr.bottom}, UiIcon::ChevronDown, kDim, 7);
             addHit(sr, [this, sr] {
-                std::vector<std::wstring> names;
-                for (const wchar_t* n : kStripShapeNames) names.push_back(std::wstring(tr(n)));
-                const int pick = shellPopupPick(names, int(shapeOf(appState())), sr.left, sr.bottom + scale(2));
-                if (pick >= 0) {
-                    shapeOf(appState()) = Brush::Shape(pick);
+                MenuModel m;
+                for (int k = 0; k < 3; ++k) m.push_back(menuItem(k + 1, kStripShapeNames[k], {}, false, int(shapeOf(appState())) == k));
+                PanelState* panel = state;
+                shellMenuAt(*this, {sr.left, sr.bottom + scale(2)}, m, L"the brush shape", [panel](int id) {
+                    PanelScope scope(panel);
+                    shapeOf(appState()) = Brush::Shape(std::clamp(id - 1, 0, 2));
                     shellSettingsChanged();
                     shellToolsChanged();
-                }
-                shellFocusView();
+                    shellFocusView();
+                });
             }, L"Brush shape: diamond, square or circle. Click to select one; the mouse wheel changes it.");
             numbers_.push_back({sr, kNumShape});
             divider(sr.right);

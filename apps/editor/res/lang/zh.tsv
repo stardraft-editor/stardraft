@@ -2983,3 +2983,8 @@ Cleared the masks: painting changes all terrains and tiles	已清除蒙版：绘
 Cleared the tile mask: painting changes all tiles	已清除图块蒙版：绘制会更改所有图块
 Cleared the terrain mask: painting changes all terrains	已清除地形蒙版：绘制会更改所有地形
 Clear the mask	清除蒙版
+&Diamond	菱形(&D)
+&Square	正方形(&S)
+&Circle	圆形(&C)
+&Left	左(&L)
+&Right	右(&R)

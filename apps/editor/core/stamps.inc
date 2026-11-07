@@ -381,16 +381,6 @@ bool stampsPasteText() {
     return true;
 }
 
-// The menu of an item of the list (Rename, Delete, Show in folder).
-void stampsItemMenu(const TerrainStamp& s) {
-    if (s.file.empty()) return;  // (a mod's brush: not the user's file)
-    const TerrainStamp copy = s;  // (a menu's run reads the list again)
-    const int pick = shellContextMenu({tr(L"Rename\x2026"), tr(L"Delete\x2026"), tr(L"Show in folder")});
-    if (pick == 1) stampsRename(copy);
-    else if (pick == 2) stampsDelete(copy);
-    else if (pick == 3) shellRevealFile(copy.file);
-}
-
 // The quick picker's rows in Custom (Q): each custom terrain of the tileset, found by its name; the value is its index
 // in stampsList().
 std::vector<PaletteUnit> quickPickStamps() {

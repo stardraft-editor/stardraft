@@ -168,10 +168,6 @@ int sdlMenuPick(draw::View& from, draw::Point at, const std::vector<std::wstring
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->index;
 }
-// The tool strip's dropdown (the brush shape): a menu under the box (x, y: the strip's coordinates), as on Windows.
-int shellPopupPick(const std::vector<std::wstring>& items, int checked, int x, int y) {
-    return sdlMenuPick(gStripInUse && gStripInUse->host() ? *gStripInUse : gToolStripView, {x, y}, items, checked, false);
-}
 // A context menu at the mouse (the Tiles panel's favorites), with Report feedback: the item from 1, 0 for none.
 int shellContextMenu(const std::vector<std::wstring>& items) {
     if (!gRoot || !gHost) return 0;
@@ -385,23 +381,18 @@ int shellTabSideMenu(const std::wstring& title, int side, int mode) {
         int id = 0;
     };
     auto pick = std::make_shared<Pick>();
-    std::vector<stardraft::kit::MenuItem> items(4);
-    items[0].label = title, items[0].enabled = false;
-    items[1].separator = true;
-    items[2].label = shellTr(L"Left"), items[2].checked = side == 0, items[2].run = [pick] { pick->id = 1; };
-    items[3].label = shellTr(L"Right"), items[3].checked = side == 1, items[3].run = [pick] { pick->id = 2; };
-    items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
-    items.push_back(stardraft::kit::MenuItem{});
-    items.back().label = accessFree(floatPaletteMenuLabel(m)), items.back().run = [pick] { pick->id = 3; };
-    if (m != Mode::Locations) {
-        items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = accessFree(L"&New panel like this"), items.back().run = [pick] { pick->id = 4; };
-    }
+    MenuModel model;
+    model.push_back(menuItem(0, title, {}, true));
+    model.push_back(menuSeparator());
+    model.push_back(menuItem(1, L"&Left", {}, false, side == 0));
+    model.push_back(menuItem(2, L"&Right", {}, false, side == 1));
+    model.push_back(menuSeparator());
+    model.push_back(menuItem(3, floatPaletteMenuLabel(m)));
+    if (m != Mode::Locations) model.push_back(menuItem(4, L"&New panel like this"));
     stardraft::kit::MenuOptions opts;
     opts.closed = [pick](bool) { shellPost([pick] { pick->closed = true; }); };  // (after the picked item ran)
-    ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
-    kit_sdl::ImguiCanvas measure(list, nullptr);
-    if (!stardraft::kit::Menu::popup(*gRoot, gHost->mouse(*gRoot), items, stardraft::kit::Menu::measure(items, &measure), opts)) return 0;
+    const draw::Point at = gHost->mouse(*gRoot);
+    if (!sdlPopupMenu(*gRoot, at, sdlModelItems(model, [pick](int id) { pick->id = id; }), sdlFeedbackOn(*gRoot, at, title), opts)) return 0;
     gHost->waitUntil([pick] { return pick->closed; });
     return pick->id;
 }

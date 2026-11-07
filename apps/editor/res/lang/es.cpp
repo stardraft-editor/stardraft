@@ -2985,6 +2985,11 @@ constexpr UiText kRows[] = {
     {L"Cleared the tile mask: painting changes all tiles", L"M\u00E1scara de casillas quitada: pintar cambia todas las casillas"},
     {L"Cleared the terrain mask: painting changes all terrains", L"M\u00E1scara de terreno quitada: pintar cambia todos los terrenos"},
     {L"Clear the mask", L"Quitar la m\u00E1scara"},
+    {L"&Diamond", L"&Rombo"},
+    {L"&Square", L"&Cuadrado"},
+    {L"&Circle", L"&C\u00EDrculo"},
+    {L"&Left", L"&Izquierda"},
+    {L"&Right", L"&Derecha"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
