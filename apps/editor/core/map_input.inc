@@ -14,6 +14,11 @@ int sprayAt(float wx, float wy);
 void tilesMouseMove(float wx, float wy);
 bool mapLayersEraseOn(AppState& app);  // (core/map_layers.inc)
 void mapLayersSync();
+void mapLayersLiveStroke(AppState& app);
+struct LayersLiveAfter {  // (when the mouse's event ends: what it painted is under the layers over it)
+    AppState& app;
+    ~LayersLiveAfter() { mapLayersLiveStroke(app); }
+};
 void moveSelectedTerrain(AppState& app, int dx, int dy);  // (core/map_edit_commands.inc)
 int gTerrainMoveDX = 0, gTerrainMoveDY = 0;  // Terrain's Move: the drag so far
 void mapLayersDragCancel(AppState& app);
@@ -266,6 +271,7 @@ int symmetryHandleIndex(const AppState& app, int sx, int sy) {
 bool symmetryHandleAt(const AppState& app, int sx, int sy) { return symmetryHandleIndex(app, sx, sy) >= 0; }
 
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
+    LayersLiveAfter live{app};
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
     mapLayersSync();  // (the last edit is in its layer before the next one)
@@ -651,6 +657,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
 }
 
 void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
+    LayersLiveAfter live{app};
     app.mouseX = sx, app.mouseY = sy;
     if (!app.mouseIn) {
         app.mouseIn = true;

@@ -8,6 +8,7 @@ struct MapLayersState {
     const Editor* ed = nullptr;
     uint64_t loadMark = 0;  // Editor::loadMark when the map was last taken as it is
     bool filesPending = false;  // the layers' files are still to be read
+    bool liveDirty = false;     // a stroke's flattening changed the layers: its files go with the stroke's undo step at its end
     bool on = false;
     LayerStack stack;
     Bytes base;
@@ -22,7 +23,6 @@ struct MapLayersState {
     std::vector<uint16_t> tileSection;  // and those under the doodads
     LayerObjectLists objects;
     LayerOwners owners;
-    std::vector<std::pair<int, int>> fitted;
     // A drag on the map.
     Editor* dragEd = nullptr;
     bool erasing = false, moving = false, dragChanged = false;
@@ -63,7 +63,6 @@ static void layersRead(Editor& ed) {
     const ArchiveFile* file = ed.archiveFile(kLayersFile);
     const ArchiveFile* base = ed.archiveFile(kLayersBaseFile);
     s.on = file && base && LayerStack::parse(file->data, s.stack);
-    s.fitted.clear();
     ed.noteAskedCorners(s.on);
     if (!s.on) {
         s.stack = {}, s.base.clear(), s.active = -1, s.picked.clear();
@@ -72,14 +71,6 @@ static void layersRead(Editor& ed) {
     s.base = base->data;
     if (s.active >= int(s.stack.layers.size())) s.active = int(s.stack.layers.size()) - 1;
     std::erase_if(s.picked, [&](int i) { return i >= int(s.stack.layers.size()); });
-    std::set<std::pair<int, int>> asked;
-    for (const MapLayer& l : s.stack.layers)
-        if (l.visible)
-            for (const auto& [at, terrain] : l.corners) asked.insert(at);
-    const IsomGrid& grid = ed.isomGrid();
-    for (const auto& [x, y] : asked)
-        for (const auto& beside : {std::pair{x - 1, y - 1}, {x + 1, y - 1}, {x - 1, y + 1}, {x + 1, y + 1}})
-            if (!asked.count(beside) && grid.isCorner(beside.first, beside.second)) s.fitted.push_back(beside);
     s.owners = s.stack.owners();
     std::set<std::pair<int, int>> placed;
     for (const MapLayer& l : s.stack.layers)
@@ -88,10 +79,10 @@ static void layersRead(Editor& ed) {
     layersPanelChanged();
 }
 
-// The map from the Background and the layers; the edges show from it.
+// The map from the Background and the layers.
 static void layersCompose(Editor& ed) {
     MapLayersState& s = gMapLayers;
-    ed.composeLayers(s.base, s.stack, &s.fitted);
+    ed.composeLayers(s.base, s.stack);
     shellState().terrainRev = 0;
     shellState().dirty = true;
 }
@@ -202,6 +193,8 @@ static bool layerEraseTiles(MapLayer& layer, const std::vector<std::pair<int, in
     return any;
 }
 
+static void layersCapture(Editor& ed, bool live);
+
 // What the last edit changed goes into the active layer.
 void mapLayersSync() {
     AppState& app = shellState();
@@ -213,7 +206,7 @@ void mapLayersSync() {
             s.active = -1, s.picked.clear();
             if (const auto it = s.activeOf.find(ed.path()); it != s.activeOf.end()) s.active = it->second, s.picked = {s.active};
         }
-        s.ed = &ed, s.loadMark = ed.loadMark();
+        s.ed = &ed, s.loadMark = ed.loadMark(), s.liveDirty = false;
         const bool was = s.on;
         s.on = false, s.stack = {}, s.filesPending = true;
         ed.noteAskedCorners(false);
@@ -225,8 +218,34 @@ void mapLayersSync() {
         s.filesPending = false;
         layersRead(ed);
     }
-    if (!s.on || ed.inStroke() || ed.revision() == s.revision) return;  // (no layers: nothing to compare)
+    if (!s.on || ed.inStroke()) return;  // (no layers: nothing to compare)
+    if (ed.revision() == s.revision) {
+        if (s.liveDirty) s.liveDirty = false, ed.amendLastStep(layersFiles(true)), layersRemember(ed);  // (a stroke that ended as the last flattening left it)
+        return;
+    }
     if (ed.width() != s.width || ed.height() != s.height || ed.era() != s.era) return layersFlattenForResize(ed);
+    layersCapture(ed, false);
+}
+
+// While a terrain stroke goes on: the layers over the active one stay as they are on the map, not only at its end.
+void mapLayersLiveStroke(AppState& app) {
+    MapLayersState& s = gMapLayers;
+    if (!s.on || s.filesPending || !app.ed || s.ed != app.ed.get() || !app.ed->inStroke() || s.erasing || s.moving || app.mode != Mode::Terrain) return;
+    if (app.drag != Drag::Paint && app.drag != Drag::Spray && app.drag != Drag::Jumble) return;
+    Editor& ed = *app.ed;
+    if (ed.revision() == s.revision) return;
+    if (s.active >= int(s.stack.layers.size())) return;
+    const MapLayer& active = s.active >= 0 ? s.stack.layers[size_t(s.active)] : s.stack.background;
+    if (active.locked || !active.visible) return;  // (its end refuses it)
+    bool above = false;
+    for (int r = s.active + 1; r < int(s.stack.layers.size()); ++r) above = above || (s.stack.layers[size_t(r)].visible && !s.stack.layers[size_t(r)].corners.empty());
+    if (!above) return;
+    layersCapture(ed, true);
+}
+
+static void layersCapture(Editor& ed, bool live) {
+    AppState& app = shellState();
+    MapLayersState& s = gMapLayers;
     std::vector<uint16_t> now;
     layerCornerGrid(ed, now);
     const LayerObjectLists objects = layerObjectsOf(ed);
@@ -257,10 +276,15 @@ void mapLayersSync() {
     const bool objectsChanged = !sameUnits(objects.units, s.objects.units) || doodadsChanged || !sameSprites(objects.sprites, s.objects.sprites);
     // Tiles that changed where the corners did not: placed tiles (not a doodad's: the doodad places them again).
     std::map<std::pair<int, int>, uint16_t> placed;
-    // (a brush over the same terrain: the layer has it now; a tool that changed no tile takes no undo step)
-    if (s.active >= 0)
-        for (const auto& [x, y] : ed.takeAskedCorners())
+    // What a tool asked for goes into the layer, also over the same terrain, and not the terrain around it that was fitted
+    // to the map as it shows: flattening fits that again, to what is under the layer. (A tool that notes nothing, such as a
+    // shape's copy: what changed.) A tool that changed no tile takes no undo step.
+    const std::map<std::pair<int, int>, uint16_t> fitted = changed;
+    if (const auto askedCorners = ed.takeAskedCorners(); !askedCorners.empty()) {
+        changed.clear();
+        for (const auto& [x, y] : askedCorners)
             if (const uint16_t terrain = ed.isomGrid().terrainAt(x, y)) changed[{x, y}] = terrain;
+    }
     const bool stepTaken = ed.undoSteps() != s.undoSteps;
     const bool kitTool = app.mode == Mode::Terrain && (currentTool(app) == TBridge || currentTool(app) == TRamp);
     const std::vector<uint16_t> nowSection = ed.layerTileSection().tiles;
@@ -278,16 +302,17 @@ void mapLayersSync() {
             const int tx = int(k) % tw, ty = int(k) / tw, rx = tx / 2;
             bool nearChange = false;  // (an edge's tiles depend on the corners around them too)
             for (int cy = ty - 3; !nearChange && cy <= ty + 4; ++cy)
-                for (int cx = rx - 3; !nearChange && cx <= rx + 4; ++cx) nearChange = changed.count({cx, cy}) > 0;
+                for (int cx = rx - 3; !nearChange && cx <= rx + 4; ++cx) nearChange = fitted.count({cx, cy}) > 0;
             if ((!nearChange && k < notTerrain.size() && notTerrain[k]) || !nowTiles[k]) placed[{tx, ty}] = nowTiles[k];  // (not the terrain's other variant; a null tile: a cut)
         }
     }
     if (changed.empty() && placed.empty() && !objectsChanged) {
+        if (!live && s.liveDirty) s.liveDirty = false, ed.amendLastStep(layersFiles(true));
         s.revision = ed.revision();
         return;
     }
     // A bridge or a ramp stands on its ground: on a layer, only where that layer has terrain.
-    if (kitTool && s.active >= 0 && s.active < int(s.stack.layers.size()) && stepTaken) {
+    if (!live && kitTool && s.active >= 0 && s.active < int(s.stack.layers.size()) && stepTaken) {
         const auto& have = s.stack.layers[size_t(s.active)].corners;
         bool on = true;
         for (const auto& [at, tile] : placed) {
@@ -303,12 +328,14 @@ void mapLayersSync() {
     }
     // A locked layer does not change: the edit goes back.
     if (const MapLayer& activeLayer = s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background;
-        (activeLayer.locked || (s.active < 0 && !activeLayer.visible)) && (!changed.empty() || !placed.empty())) {
+        !live && (activeLayer.locked || (s.active < 0 && !activeLayer.visible)) && (!changed.empty() || !placed.empty())) {
         if (stepTaken) ed.refuseLastEdit();
         setMessage(activeLayer.locked ? L"The layer is locked: nothing changed" : L"The Background is hidden: nothing changed");
         return;
     }
-    if (objectsChanged) {
+    if (objectsChanged && live) {
+        captureLayerObjects(s.stack, s.objects, objects, s.owners, s.active);
+    } else if (objectsChanged) {
         LayerStack trial = s.stack;
         captureLayerObjects(trial, s.objects, objects, s.owners, s.active);
         if (layerLockedBytes(trial) != layerLockedBytes(s.stack)) {
@@ -339,9 +366,19 @@ void mapLayersSync() {
             baseChanged = true;
         }
     }
+    if (live) {  // (the stroke's undo step gets the files at its end)
+        layersCompose(ed);
+        const size_t steps = s.undoSteps;
+        layersRemember(ed);
+        s.undoSteps = steps;
+        s.liveDirty = true;
+        return;
+    }
     if (!stepTaken) ed.beginLayerEdit();
     layersCompose(ed);
     layersKeepSelections(ed, objects);
+    baseChanged = baseChanged || s.liveDirty;
+    s.liveDirty = false;
     if (stepTaken) ed.amendLastStep(layersFiles(baseChanged));
     else ed.endLayerEdit(true, layersFiles(baseChanged));
     layersRemember(ed);
@@ -786,6 +823,43 @@ static void layerBox(render::Scene& s, int x0, int y0, int x1, int y1, uint32_t 
     }
 }
 
+// The outline of a layer's tiles (those of the rects round its corners, and its placed tiles), in tile corners: the sides
+// between a tile of the layer and the outside. The holes in it have none.
+static std::vector<std::array<int, 4>> layerOutline(const MapLayer& l) {
+    std::set<std::pair<int, int>> tiles;
+    for (const auto& [at, terrain] : l.corners)
+        for (int ry = at.second - 1; ry <= at.second; ++ry)
+            for (int rx = at.first - 1; rx <= at.first; ++rx) tiles.insert({rx * 2, ry}), tiles.insert({rx * 2 + 1, ry});
+    for (const auto& [at, tile] : l.tiles) tiles.insert(at);
+    std::vector<std::array<int, 4>> out;
+    if (tiles.empty()) return out;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+    // The outside: all that the border of the box (a tile wider each way) reaches without going through the layer.
+    --x0, --y0, ++x1, ++y1;
+    const int w = x1 - x0 + 1, h = y1 - y0 + 1;
+    std::vector<uint8_t> outside(size_t(w) * h, 0);
+    std::vector<std::pair<int, int>> open{{x0, y0}};
+    outside[0] = 1;
+    while (!open.empty()) {
+        const auto [x, y] = open.back();
+        open.pop_back();
+        for (const auto& n : {std::pair{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}}) {
+            if (n.first < x0 || n.second < y0 || n.first > x1 || n.second > y1 || tiles.count(n)) continue;
+            uint8_t& seen = outside[size_t(n.second - y0) * w + size_t(n.first - x0)];
+            if (!seen) seen = 1, open.push_back(n);
+        }
+    }
+    const auto isOut = [&](int x, int y) { return outside[size_t(y - y0) * w + size_t(x - x0)] != 0; };
+    for (const auto& [x, y] : tiles) {
+        if (isOut(x, y - 1)) out.push_back({x, y, x + 1, y});
+        if (isOut(x, y + 1)) out.push_back({x, y + 1, x + 1, y + 1});
+        if (isOut(x - 1, y)) out.push_back({x, y, x, y + 1});
+        if (isOut(x + 1, y)) out.push_back({x + 1, y, x + 1, y + 1});
+    }
+    return out;
+}
+
 void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
     const MapLayersState& m = gMapLayers;
     if (shellState().drag == Drag::TerrainMove && shellState().hasTerrainSel) {  // (Terrain's Move: where the selection goes)
@@ -803,40 +877,24 @@ void addMapLayersOverlay(const Editor& ed, render::Scene& s) {
     const AppState& app = shellState();
     const bool here = app.mode == Mode::Layers;
     if (!m.on || m.ed != &ed || (!here && !gFloatPal[int(Mode::Layers)].floating)) return;  // (in the mode, or with its window)
-    // The edges: where the terrain is fitted to a layer or to what is under its NULL corners: a faint diamond at each.
-    const auto line = [&s](float x0, float y0, float x1, float y1, uint32_t rgba, float thick) {
-        render::RectDraw l;
-        l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = thick, l.line = true;
-        s.rects.push_back(l);
-    };
-    for (const auto& [x, y] : m.fitted) {
-        const float cx = x * 64.0f, cy = y * 32.0f, hw = 32, hh = 16;
-        const uint32_t amber = 0xFFD04070u;
-        line(cx - hw, cy, cx, cy - hh, amber, 1), line(cx, cy - hh, cx + hw, cy, amber, 1);
-        line(cx + hw, cy, cx, cy + hh, amber, 1), line(cx, cy + hh, cx - hw, cy, amber, 1);
-    }
-    // The active layer's outline: round its diamonds and its placed tiles, as the layer's shape is. With only objects: a box.
+    // The active layer's outline: round its outermost tiles, only. With only objects: a box.
     if (m.active >= 0 && m.active < int(m.stack.layers.size())) {
         const MapLayer& l = m.stack.layers[size_t(m.active)];
         const uint32_t edge = 0x60D0FFFFu;
-        // (a corner's diamond: its four sides are shared with the corners diagonally beside it)
-        for (const auto& [at, terrain] : l.corners) {
-            const auto [x, y] = at;
-            const float cx = x * 64.0f, cy = y * 32.0f, hw = 64, hh = 32;
-            if (!l.corners.count({x - 1, y - 1})) line(cx - hw, cy, cx, cy - hh, edge, 2);
-            if (!l.corners.count({x + 1, y - 1})) line(cx, cy - hh, cx + hw, cy, edge, 2);
-            if (!l.corners.count({x + 1, y + 1})) line(cx + hw, cy, cx, cy + hh, edge, 2);
-            if (!l.corners.count({x - 1, y + 1})) line(cx, cy + hh, cx - hw, cy, edge, 2);
+        static const Editor* forEd = nullptr;
+        static uint64_t forRevision = 0;
+        static uint32_t forLayer = 0;
+        static std::vector<std::array<int, 4>> lines;  // tile corners (made again when the layer or the map changes)
+        if (forEd != &ed || forRevision != ed.revision() || forLayer != l.id) {
+            forEd = &ed, forRevision = ed.revision(), forLayer = l.id;
+            lines = layerOutline(l);
         }
-        for (const auto& [at, tile] : l.tiles) {
-            const auto [x, y] = at;
-            const float x0 = x * 32.0f, y0 = y * 32.0f, x1 = x0 + 32, y1 = y0 + 32;
-            if (!l.tiles.count({x, y - 1})) line(x0, y0, x1, y0, edge, 2);
-            if (!l.tiles.count({x, y + 1})) line(x0, y1, x1, y1, edge, 2);
-            if (!l.tiles.count({x - 1, y})) line(x0, y0, x0, y1, edge, 2);
-            if (!l.tiles.count({x + 1, y})) line(x1, y0, x1, y1, edge, 2);
+        for (const auto& [x0, y0, x1, y1] : lines) {
+            render::RectDraw d;
+            d.x0 = x0 * 32.0f, d.y0 = y0 * 32.0f, d.x1 = x1 * 32.0f, d.y1 = y1 * 32.0f, d.rgba = edge, d.thickness = 2, d.line = true;
+            s.rects.push_back(d);
         }
         if (l.corners.empty() && l.tiles.empty())
             if (const LayerBounds b = layerBounds(l); b.any) layerBox(s, b.left, b.top, b.right, b.bottom, edge);
-    }
+}
 }
