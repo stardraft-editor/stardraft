@@ -2971,3 +2971,15 @@ Move custom terrain	Déplacer le terrain personnalisé
 A folder with this name is already there.	Un dossier de ce nom existe déjà.
 The folder has custom terrain: drag it out of the folder first, or delete it	Le dossier contient du terrain personnalisé : sortez-le du dossier d'abord, ou supprimez-le
 The folder has other files: it stays	Le dossier contient d'autres fichiers : il reste
+Add to &favorites	&Ajouter aux favoris
+Remove from &favorites	&Retirer des favoris
+&Show the favorites	&Afficher les favoris
+Make f&loating	&Rendre flottant
+Clear the mas&k	Effacer le mas&que de terrain
+Add to the &mask	Ajouter au &masque
+Remove from the &mask	Retirer du &masque
+Mask: 	Masque : 
+Cleared the masks: painting changes all terrains and tiles	Masques effacés : la peinture change tous les terrains et toutes les tuiles
+Cleared the tile mask: painting changes all tiles	Masque de tuiles effacé : la peinture change toutes les tuiles
+Cleared the terrain mask: painting changes all terrains	Masque de terrain effacé : la peinture change tous les terrains
+Clear the mask	Effacer le masque

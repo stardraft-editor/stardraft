@@ -111,8 +111,9 @@ A mask or a filter changes what the next edit or the list does. The user must al
 
 - **Set:** Alt+click on the item's row adds it to the mask or removes it (a toggle, the same in each list). The row's
   right-click menu has the same action ("Add to the mask", "Remove from the mask").
-- **Show:** while a mask is on, the tool strip shows it (a chip with its name and a close button). The items in the
-  mask have an outline in their list.
+- **Show:** while a mask is on, the map shows a chip at its top left with what is in it and a close button. It is on
+  the map, not in a panel, so that no list moves under the mouse when the mask starts. The items in the mask have an
+  outline in their list.
 - **Clear:** the close button of the chip, and the map's right-click menu ("Clear the mask"). The message names what
   was cleared.
 - One mask kind for each terrain kind: the terrain mask for Isometric and Rectangle, the tile mask for Tile and Custom.
@@ -155,6 +156,7 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Modifier keys**
 
+- Ctrl+click is the eyedropper in Terrain, as in SCMDraft (kept: see "Modifier keys").
 
 **Menus and pickers**
 
@@ -175,7 +177,6 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 - Direct msgbox::ask in Program options, Simulate mining, updates, the Briefing and the Ramp and bridge mapper.
 - A bad typed value: a status message on the New page, an error box in the establishing shot.
-- Masks have no sign on the tool strip; "Clear the terrain mask" says "all terrains" also when it clears the tile mask.
 
 **Drag and drop**
 

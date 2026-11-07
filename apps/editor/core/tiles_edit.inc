@@ -764,6 +764,27 @@ int tilesPasteNoNull(Editor& ed, int tx, int ty) {
 // Alt+click on a tile or a custom terrain (and the row's right-click item): its tiles go into the tile mask, or out of it
 // when they are all in it already (a toggle, as a terrain in the terrain list). Painting in Tile and Custom then changes
 // only the tiles of the mask.
+// A mask changed: the tool strip's chip shows it (the strip's height changes with it).
+void shellRelayout();
+void shellToolsChanged();
+void masksChanged() {
+    shellToolsChanged();
+    shellRelayout();
+}
+// The chip's close button and the map's right-click item Clear the mask: no terrain mask and no tile mask.
+void shellPaletteChanged();
+void masksClear() {
+    AppState& app = appState();
+    if (!app.ed) return;
+    const bool terrains = !app.ed->terrainMask().empty(), tiles = !app.ed->tileMask().empty();
+    app.ed->setTerrainMask({}), app.ed->setTileMask({});
+    setMessage(terrains && tiles ? L"Cleared the masks: painting changes all terrains and tiles"
+               : tiles           ? L"Cleared the tile mask: painting changes all tiles"
+                                 : L"Cleared the terrain mask: painting changes all terrains");
+    app.dirty = true;
+    shellPaletteChanged(), tilesPanelRepaint();
+    masksChanged();
+}
 bool tilesMaskHas(const std::vector<uint16_t>& tiles) {
     const std::vector<uint16_t>& mask = appState().ed->tileMask();
     return !tiles.empty() && std::all_of(tiles.begin(), tiles.end(), [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); });
@@ -781,6 +802,7 @@ void tilesMaskToggle(const std::vector<uint16_t>& tiles) {
     appState().ed->setTileMask(std::move(mask));
     tilesPanelRepaint();
     appState().dirty = true;
+    masksChanged();
 }
 // The tiles of custom terrain (each value once; its holes are not in it).
 std::vector<uint16_t> stampTilesOf(const TerrainStamp& s) {

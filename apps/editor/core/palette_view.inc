@@ -380,6 +380,7 @@ void paletteMaskToggle(AppState& app, int value) {
     setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.");
     app.ed->setTerrainMask(std::move(mask));
     app.dirty = true;
+    masksChanged();
 }
 
 // --- The pie palette (roadmap 1.9) ---------------------------------------------------------------------------------

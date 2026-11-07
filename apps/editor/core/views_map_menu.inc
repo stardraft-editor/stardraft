@@ -262,7 +262,7 @@ MenuModel mapMenuModel(float wx, float wy) {
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
     // (while a mask is on: painting that changes nothing may be the mask's; GitHub #248)
-    if (terrain && (!ed.terrainMask().empty() || !ed.tileMask().empty())) item(ID_MAPMENU_CLEARMASK, L"Clear the terrain mas&k", L"", true);
+    if (terrain && (!ed.terrainMask().empty() || !ed.tileMask().empty())) item(ID_MAPMENU_CLEARMASK, L"Clear the mas&k", L"", true);
     gMapMenuAnchor = -1;
     if (terrain && (ed.mirrors() || ed.turns() > 1)) {  // (with mirrors or turns: more points they go round)
         const int anchors = int(ed.symmetryAnchors().size());
@@ -336,10 +336,7 @@ void mapMenuPick(int pick) {
         if (app.ed->centerSymmetryAnchor(gMapMenuAnchor)) setMessage(L"Recentered the symmetry anchor");
         app.dirty = true;
     } else if (pick == ID_MAPMENU_CLEARMASK && app.ed) {  // (the terrains' mask and the tiles' mask)
-        app.ed->setTerrainMask({}), app.ed->setTileMask({});
-        setMessage(L"No mask: painting changes all terrains");
-        app.dirty = true;
-        shellPaletteChanged(), tilesPanelRepaint();
+        masksClear();
     }
     else if (pick == ID_MAPMENU_PROTECT || pick == ID_MAPMENU_UNPROTECT) protectSelection(pick == ID_MAPMENU_PROTECT);
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));

@@ -258,6 +258,23 @@ void stripToolByKey(int key) {
 // paints its buttons again while the row is open.)
 void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button);
 
+// Terrain with a mask on (the terrain mask or the tile mask): the map shows a chip with what is in it, at its top left
+// (sdl_main_view.inc: MapView; on the map, so that the lists do not move when a mask starts).
+bool stripMaskShown() {
+    const AppState& app = appState();
+    return app.mode == Mode::Terrain && app.ed && app.ed->isOpen() && (!app.ed->terrainMask().empty() || !app.ed->tileMask().empty());
+}
+// The chip's text: "Mask: Dirt, Mud" (the terrains), "3 tiles" (the tiles), or both.
+std::wstring stripMaskText() {
+    const Editor& ed = *appState().ed;
+    std::wstring t;
+    const auto& tm = ed.terrainMask();
+    for (size_t i = 0; i < tm.size() && i < 3; ++i) t += (i ? L", " : L"") + widen(ed.terrainName(tm[i]));
+    if (tm.size() > 3) t += L" +" + std::to_wstring(tm.size() - 3);
+    if (const size_t n = ed.tileMask().size()) t += (t.empty() ? L"" : L"  \x00b7  ") + std::to_wstring(n) + (n == 1 ? tr(L" tile") : tr(L" tiles"));
+    return tr(L"Mask: ") + t;
+}
+
 int toolStripHeight(int width, bool titled) {
     const AppState& app = appState();
     const int b = scale(30), gap = scale(4);

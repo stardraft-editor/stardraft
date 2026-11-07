@@ -3003,6 +3003,18 @@ constexpr UiText kRows[] = {
     {L"A folder with this name is already there.", L"\uC774 \uC774\uB984\uC758 \uD3F4\uB354\uAC00 \uC774\uBBF8 \uC788\uC2B5\uB2C8\uB2E4."},
     {L"The folder has custom terrain: drag it out of the folder first, or delete it", L"\uD3F4\uB354\uC5D0 \uC0AC\uC6A9\uC790 \uC9C0\uD615\uC774 \uC788\uC2B5\uB2C8\uB2E4: \uBA3C\uC800 \uD3F4\uB354 \uBC16\uC73C\uB85C \uB04C\uAC70\uB098 \uC0AD\uC81C\uD558\uC2ED\uC2DC\uC624"},
     {L"The folder has other files: it stays", L"\uD3F4\uB354\uC5D0 \uB2E4\uB978 \uD30C\uC77C\uC774 \uC788\uC2B5\uB2C8\uB2E4: \uADF8\uB300\uB85C \uB461\uB2C8\uB2E4"},
+    {L"Add to &favorites", L"&\uC990\uACA8\uCC3E\uAE30\uC5D0 \uCD94\uAC00"},
+    {L"Remove from &favorites", L"&\uC990\uACA8\uCC3E\uAE30\uC5D0\uC11C \uC81C\uAC70"},
+    {L"&Show the favorites", L"&\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"},
+    {L"Make f&loating", L"&\uB5A0 \uC788\uAC8C \uD558\uAE30"},
+    {L"Clear the mas&k", L"\uC9C0\uD615 \uB9C8\uC2A4\uD06C \uC9C0\uC6B0\uAE30(&K)"},
+    {L"Add to the &mask", L"\uB9C8\uC2A4\uD06C\uC5D0 \uCD94\uAC00(&M)"},
+    {L"Remove from the &mask", L"\uB9C8\uC2A4\uD06C\uC5D0\uC11C \uC81C\uAC70(&M)"},
+    {L"Mask: ", L"\uB9C8\uC2A4\uD06C: "},
+    {L"Cleared the masks: painting changes all terrains and tiles", L"\uB9C8\uC2A4\uD06C\uB97C \uC9C0\uC6E0\uC2B5\uB2C8\uB2E4: \uCE60\uD558\uAE30\uAC00 \uBAA8\uB4E0 \uC9C0\uD615\uACFC \uD0C0\uC77C\uC744 \uBC14\uAFC9\uB2C8\uB2E4"},
+    {L"Cleared the tile mask: painting changes all tiles", L"\uD0C0\uC77C \uB9C8\uC2A4\uD06C\uB97C \uC9C0\uC6E0\uC2B5\uB2C8\uB2E4: \uCE60\uD558\uAE30\uAC00 \uBAA8\uB4E0 \uD0C0\uC77C\uC744 \uBC14\uAFC9\uB2C8\uB2E4"},
+    {L"Cleared the terrain mask: painting changes all terrains", L"\uC9C0\uD615 \uB9C8\uC2A4\uD06C\uB97C \uC9C0\uC6E0\uC2B5\uB2C8\uB2E4: \uCE60\uD558\uAE30\uAC00 \uBAA8\uB4E0 \uC9C0\uD615\uC744 \uBC14\uAFC9\uB2C8\uB2E4"},
+    {L"Clear the mask", L"\uB9C8\uC2A4\uD06C \uC9C0\uC6B0\uAE30"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

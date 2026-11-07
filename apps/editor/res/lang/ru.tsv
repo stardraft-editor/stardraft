@@ -2971,3 +2971,15 @@ Move custom terrain	Переместить свою местность
 A folder with this name is already there.	Папка с таким именем уже есть.
 The folder has custom terrain: drag it out of the folder first, or delete it	В папке есть своя местность: сначала перетащите ее из папки или удалите
 The folder has other files: it stays	В папке есть другие файлы: она остается
+Add to &favorites	&Добавить в избранное
+Remove from &favorites	&Удалить из избранного
+&Show the favorites	&Показать избранное
+Make f&loating	&Сделать плавающей
+Clear the mas&k	Сбросить мас&ку ландшафта
+Add to the &mask	Добавить в &маску
+Remove from the &mask	Убрать из &маски
+Mask: 	Маска: 
+Cleared the masks: painting changes all terrains and tiles	Маски сняты: рисование меняет все местности и тайлы
+Cleared the tile mask: painting changes all tiles	Маска тайлов снята: рисование меняет все тайлы
+Cleared the terrain mask: painting changes all terrains	Маска местности снята: рисование меняет все местности
+Clear the mask	Снять маску

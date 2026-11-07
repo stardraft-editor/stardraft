@@ -2973,6 +2973,18 @@ constexpr UiText kRows[] = {
     {L"A folder with this name is already there.", L"\u5DF2\u6709\u540C\u540D\u6587\u4EF6\u5939\u3002"},
     {L"The folder has custom terrain: drag it out of the folder first, or delete it", L"\u6587\u4EF6\u5939\u4E2D\u6709\u81EA\u5B9A\u4E49\u5730\u5F62\uFF1A\u8BF7\u5148\u5C06\u5176\u62D6\u51FA\u6587\u4EF6\u5939\u6216\u5220\u9664"},
     {L"The folder has other files: it stays", L"\u6587\u4EF6\u5939\u4E2D\u6709\u5176\u4ED6\u6587\u4EF6\uFF1A\u4FDD\u7559\u8BE5\u6587\u4EF6\u5939"},
+    {L"Add to &favorites", L"&\u6DFB\u52A0\u5230\u6536\u85CF"},
+    {L"Remove from &favorites", L"&\u4ECE\u6536\u85CF\u4E2D\u79FB\u9664"},
+    {L"&Show the favorites", L"&\u663E\u793A\u6536\u85CF"},
+    {L"Make f&loating", L"&\u8BBE\u4E3A\u6D6E\u52A8"},
+    {L"Clear the mas&k", L"\u6E05\u9664\u5730\u5F62\u906E\u7F69(&K)"},
+    {L"Add to the &mask", L"\u6DFB\u52A0\u5230\u8499\u7248(&M)"},
+    {L"Remove from the &mask", L"\u4ECE\u8499\u7248\u4E2D\u79FB\u9664(&M)"},
+    {L"Mask: ", L"\u8499\u7248\uFF1A"},
+    {L"Cleared the masks: painting changes all terrains and tiles", L"\u5DF2\u6E05\u9664\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u5730\u5F62\u548C\u56FE\u5757"},
+    {L"Cleared the tile mask: painting changes all tiles", L"\u5DF2\u6E05\u9664\u56FE\u5757\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u56FE\u5757"},
+    {L"Cleared the terrain mask: painting changes all terrains", L"\u5DF2\u6E05\u9664\u5730\u5F62\u8499\u7248\uFF1A\u7ED8\u5236\u4F1A\u66F4\u6539\u6240\u6709\u5730\u5F62"},
+    {L"Clear the mask", L"\u6E05\u9664\u8499\u7248"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

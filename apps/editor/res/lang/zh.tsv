@@ -2971,3 +2971,15 @@ Move custom terrain	移动自定义地形
 A folder with this name is already there.	已有同名文件夹。
 The folder has custom terrain: drag it out of the folder first, or delete it	文件夹中有自定义地形：请先将其拖出文件夹或删除
 The folder has other files: it stays	文件夹中有其他文件：保留该文件夹
+Add to &favorites	&添加到收藏
+Remove from &favorites	&从收藏中移除
+&Show the favorites	&显示收藏
+Make f&loating	&设为浮动
+Clear the mas&k	清除地形遮罩(&K)
+Add to the &mask	添加到蒙版(&M)
+Remove from the &mask	从蒙版中移除(&M)
+Mask: 	蒙版：
+Cleared the masks: painting changes all terrains and tiles	已清除蒙版：绘制会更改所有地形和图块
+Cleared the tile mask: painting changes all tiles	已清除图块蒙版：绘制会更改所有图块
+Cleared the terrain mask: painting changes all terrains	已清除地形蒙版：绘制会更改所有地形
+Clear the mask	清除蒙版

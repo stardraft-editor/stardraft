@@ -2973,6 +2973,18 @@ constexpr UiText kRows[] = {
     {L"A folder with this name is already there.", L"Ya hay una carpeta con este nombre."},
     {L"The folder has custom terrain: drag it out of the folder first, or delete it", L"La carpeta tiene terreno personalizado: s\u00E1quelo de la carpeta primero, o elim\u00EDnelo"},
     {L"The folder has other files: it stays", L"La carpeta tiene otros archivos: se queda"},
+    {L"Add to &favorites", L"&Agregar a favoritos"},
+    {L"Remove from &favorites", L"&Quitar de favoritos"},
+    {L"&Show the favorites", L"&Mostrar los favoritos"},
+    {L"Make f&loating", L"&Hacer flotante"},
+    {L"Clear the mas&k", L"Quitar la m\u00E1s&cara del terreno"},
+    {L"Add to the &mask", L"A\u00F1adir a la &m\u00E1scara"},
+    {L"Remove from the &mask", L"Quitar de la &m\u00E1scara"},
+    {L"Mask: ", L"M\u00E1scara: "},
+    {L"Cleared the masks: painting changes all terrains and tiles", L"M\u00E1scaras quitadas: pintar cambia todos los terrenos y casillas"},
+    {L"Cleared the tile mask: painting changes all tiles", L"M\u00E1scara de casillas quitada: pintar cambia todas las casillas"},
+    {L"Cleared the terrain mask: painting changes all terrains", L"M\u00E1scara de terreno quitada: pintar cambia todos los terrenos"},
+    {L"Clear the mask", L"Quitar la m\u00E1scara"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }
