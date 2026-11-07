@@ -270,6 +270,7 @@ int symmetryHandleIndex(const AppState& app, int sx, int sy) {
 }
 bool symmetryHandleAt(const AppState& app, int sx, int sy) { return symmetryHandleIndex(app, sx, sy) >= 0; }
 
+// (A modifier key that changes what a press does here has its mark next to the mouse: core/map_mod_mark.inc.)
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     LayersLiveAfter live{app};
     if (!app.ed || !app.ed->isOpen()) return;

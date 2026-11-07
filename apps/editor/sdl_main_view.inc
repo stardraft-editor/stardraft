@@ -20,6 +20,7 @@ struct MainView;
 MainView* gRoot = nullptr;
 LoadingView gLoadingView;  // the map's loading view (core/views_loading.inc): over the workspace while a map opens
 bool sdlPieClickAway();  // (the pie palette that shows: a click on the map closes it, below)
+bool sdlPieShown();
 bool gTilesShown = false;  // the Tiles panel shows (Rectangle mode, in the Map workspace with a map: MainView::relayout)
 
 // The map's texture: the renderer draws the open map into it each frame, and the map view shows it.
@@ -227,8 +228,31 @@ struct MapView final : draw::View {
         if (!has) tabbed = false;
         invalidate();
     }
+    // The modifier key's mark at the mouse (core/map_mod_mark.inc). None while a text field has the keyboard (Shift only
+    // types capital letters there), and where a press does not reach the map: a modal window, the pie palette.
+    int modRepaints = 0;  // (the modifier keys' changes that asked for a new paint; the script's hold reads it)
+    UiIcon modMark() const {
+        if (!open() || !gState.mouseIn || panning || rightDown || simBarShown() || sdlPieShown() || !host() || (gHost && (gHost->textInputOn() || gHost->modalOpen())))
+            return kNoModMark;
+        return mapModMark(gState, gState.mouseX, gState.mouseY, host()->modifiers());
+    }
+    // In the view's pixels at the UI's scale, so the map's zoom does not change its size: next to the system's cursor, on
+    // the other side at the view's edges.
+    void paintModMark(draw::Canvas& c) {
+        const UiIcon mark = modMark();
+        if (mark == kNoModMark) return;
+        const int size = scale(20), off = scale(14);
+        int x = gState.mouseX + off, y = gState.mouseY + off;
+        if (x + size > width()) x = gState.mouseX - off - size;
+        if (y + size > height()) y = gState.mouseY - off - size;
+        x = std::clamp(x, 0, std::max(0, width() - size)), y = std::clamp(y, 0, std::max(0, height() - size));
+        const draw::Rect r(x, y, x + size, y + size);
+        c.roundBox(r, kCtl, kBorderStrong, float(scale(4)));
+        c.icon(r, int(mark), kText, scale(16));
+    }
     void paintOver(draw::Canvas& c) override {
         if (tabbed && hasFocus()) paintFocusOutline(c, {0, 0, width(), height()});
+        paintModMark(c);
     }
     std::wstring focusedItem() const override { return L"Map"; }
     bool mouse(const draw::MouseEvent& e) override {
@@ -1033,6 +1057,7 @@ void shellLoadingDone() {
     gRoot->relayout();
     gRoot->invalidate();
 }
+bool sdlPieShown() { return gRoot && gRoot->pie.shown(); }
 bool sdlPieClickAway() {
     if (!gRoot || !gRoot->pie.shown()) return false;
     gRoot->pie.setVisible(false);

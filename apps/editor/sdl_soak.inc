@@ -16,6 +16,9 @@
 //   minimap            the minimap's terrain is made again: a line with its time
 //   simstep <frames>   the simulation that shows (Tools > Simulate) runs that many game frames at once (pictures of a
 //                      game in progress): a line with the game's frame
+//   hold <keys>|none   modifier keys go down (Shift, Ctrl, Alt, joined with +) and stay down, or all go up, with no move
+//                      of the mouse: a line with the map's mark at the mouse (core/map_mod_mark.inc). A click or a drag
+//                      has only the keys of its own value while it runs
 //   frame <file>       the picture of the frame after this line goes to that PNG file (videos: one line for each frame)
 //   stats              a line with the memory (the working set, the GPU's, the bitmaps with a texture), the undo
 //                      steps and the frame times since the last stats line
@@ -94,7 +97,7 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
         {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'},
-        {"floatmove", 'V'}};
+        {"floatmove", 'V'}, {"hold", 'K'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -379,6 +382,25 @@ bool sdlScriptStep(char kind, const std::string& value) {
     }
     case 'G': std::printf("%s\n", pathingStateLine().c_str()); return true;  // the pathing layer and check (core/pathing_layer.inc)
     case 'S': sdlSoakStats(); return true;
+    case 'K': {
+        SDL_Keymod held = SDL_KMOD_NONE;
+        if (value.find("Shift") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LSHIFT);
+#ifdef __APPLE__
+        if (value.find("Ctrl") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LGUI);
+#else
+        if (value.find("Ctrl") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LCTRL);
+#endif
+        if (value.find("Alt") != std::string::npos) held = SDL_Keymod(held | SDL_KMOD_LALT);
+        SDL_SetModState(held);
+        SDL_Event k{};  // (as SDL gives a modifier key: no kit key, only the host's hook sees it)
+        k.type = held ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        k.key.key = SDLK_LSHIFT, k.key.down = held != SDL_KMOD_NONE, k.key.mod = held;
+        const int asked = gRoot->map.modRepaints;
+        gHost->snapshotMouse(sdlShotRoot(), {k});
+        const UiIcon mark = gRoot->map.modMark();
+        std::printf("hold %s: mark %s; new paint %s\n", value.c_str(), mark != kNoModMark ? uiIconId(mark) : "(none)", gRoot->map.modRepaints != asked ? "yes" : "no");
+        return true;
+    }
     case 'F': sdlFloatPaletteScript(value); return true;
     case 'J': sdlPanelScript(value); return true;
     default: return false;  // (an input option's verb)

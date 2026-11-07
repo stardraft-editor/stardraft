@@ -126,6 +126,10 @@ public:
     // window lost the keyboard: a key to come is no second key then.
     using KeyFilter = std::function<bool(const draw::KeyEvent&)>;
     void setKeyFilter(KeyFilter fn) { keyFilter_ = std::move(fn); }
+    // A modifier key went down or up (no kit key has them, so no view gets a key event): `fn` runs. modifiers() has them.
+    void setModifierHook(std::function<void()> fn) { modifierHook_ = std::move(fn); }
+    // A view that types text has the keyboard, in the window that has the system's keyboard (Shift gives capital letters there).
+    bool textInputOn() const;
     // A file dropped on a window, or (macOS) a file that Finder opens with the program, also at its start: `fn` gets its
     // path (UTF-8). Not while a modal dialog is open (runModal): the drop then does nothing.
     void setDropHook(std::function<void(const std::string& path)> fn) { drop_ = std::move(fn); }
@@ -205,6 +209,7 @@ public:
     // opened from it belongs to it: a click in the pop-out keeps it, and the keys go back to it when the pop-out closes.
     draw::View* modalView() const;
     void forget(const draw::View& v) override;
+    unsigned modifiers() const override;
 
 private:
     struct Win;
@@ -269,6 +274,8 @@ private:
     std::function<void()> quitRequest_;  // setQuitRequest
     HoverHook hover_;                    // setHoverHook
     KeyFilter keyFilter_;                // setKeyFilter
+    std::function<void()> modifierHook_;  // setModifierHook
+    unsigned modsSeen_ = 0;              // (the modifier keys that the hook knows)
     bool dropText_ = false;              // (a key that keyFilter_ took: the text it types goes nowhere)
     std::function<void(const std::string&)> drop_;  // setDropHook
     RightClickHook rightClick_;                     // setRightClickHook
