@@ -646,15 +646,8 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
     case draw::MouseKind::Down:
     case draw::MouseKind::DoubleClick: {
         if (e.button != 0) return e.button == 1;
-        if ((e.mods & draw::kAlt) && !gTiles->stamps) {  // Alt: the tile goes into the mask (painting changes only those tiles) or out of it
-            if (const int v = hit(e.pt.x, e.pt.y); v >= 0 && appState().ed) {
-                std::vector<uint16_t> mask = appState().ed->tileMask();
-                if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(v)); it != mask.end()) mask.erase(it);
-                else mask.push_back(uint16_t(v));
-                setMessage(mask.empty() ? L"No mask: painting changes all tiles" : L"Mask (experimental): painting changes only the tiles with an outline. Alt+click takes one out.");
-                appState().ed->setTileMask(std::move(mask));
-                invalidate();
-            }
+        if ((e.mods & draw::kAlt) && !gTiles->stamps) {  // Alt: the tile goes into the mask, or out of it (tilesMaskToggle)
+            if (const int v = hit(e.pt.x, e.pt.y); v >= 0 && appState().ed) tilesMaskToggle({uint16_t(v)}), invalidate();
             return true;
         }
         if (appState().mode != Mode::Terrain) {  // (the list of Terrain's in another mode: a pick goes to Terrain, as a palette's)
@@ -716,29 +709,40 @@ bool TilesGridView::mouse(const draw::MouseEvent& e) {
     return false;
 }
 
+void shellMenu(draw::View& from, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick);  // (sdl_panels.inc)
 void TilesGridView::favoritesMenu(int v) {
     const TilesScope scope = here();
     std::vector<uint16_t> which{uint16_t(v)};
     if (gTiles->chosen.size() > 1 && std::find(gTiles->chosen.begin(), gTiles->chosen.end(), uint16_t(v)) != gTiles->chosen.end()) which = gTiles->chosen;
     const int era = appState().ed->era();
-    auto& fav = tilesFavorites(era);
+    const auto& fav = tilesFavorites(era);
     const bool in = std::find(fav.begin(), fav.end(), uint16_t(v)) != fav.end();
     const std::wstring n = which.size() > 1 ? L" (" + std::to_wstring(which.size()) + L" tiles)" : L"";
-    const int pick = shellContextMenu({(in ? L"Remove from favorites" : L"Add to favorites") + n, L"Show the favorites",
-                                       paletteFloats(Mode::Terrain) ? L"Dock in the side bar" : L"Make floating"});
-    if (pick == 3) return shellFloatPalette(Mode::Terrain, !paletteFloats(Mode::Terrain));
-    if (pick == 1) {
-        for (uint16_t t : which) {
-            const auto it = std::find(fav.begin(), fav.end(), t);
-            if (in && it != fav.end()) fav.erase(it);
-            else if (!in && it == fav.end()) fav.push_back(t);
+    MenuModel m;
+    m.push_back(menuItem(1, (in ? L"Remove from &favorites" : L"Add to &favorites") + n));
+    m.push_back(menuItem(2, L"&Show the favorites"));
+    m.push_back(menuSeparator());
+    m.push_back(menuItem(4, (tilesMaskHas(which) ? L"Remove from the &mask" : L"Add to the &mask") + n, L"Alt+click"));
+    m.push_back(menuSeparator());
+    m.push_back(menuItem(3, paletteFloats(Mode::Terrain) ? L"&Dock in the side bar" : L"Make f&loating"));
+    shellMenu(*this, m, L"the Tiles list", [this, which, in, era](int pick) {
+        const TilesScope scope = here();  // (the pick runs later: this panel's tiles again)
+        if (pick == 3) shellFloatPalette(Mode::Terrain, !paletteFloats(Mode::Terrain));
+        else if (pick == 4) tilesMaskToggle(which);
+        else if (pick == 1) {
+            auto& f = tilesFavorites(era);
+            for (uint16_t t : which) {
+                const auto it = std::find(f.begin(), f.end(), t);
+                if (in && it != f.end()) f.erase(it);
+                else if (!in && it == f.end()) f.push_back(t);
+            }
+            tilesSaveFavorites(era);
+            setMessage(std::wstring(in ? L"Removed from the favorites: " : L"Added to the favorites: ") + std::to_wstring(which.size()) +
+                       (which.size() == 1 ? L" tile" : L" tiles") + L". The Favorites filter shows them.");
+            if (gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5) tilesRebuild();
+        } else if (pick == 2) {
+            for (size_t i = 0; i < gTiles->filters.size(); ++i)
+                if (gTiles->filters[i].kind == 5) tilesSetFilter(int(i));
         }
-        tilesSaveFavorites(era);
-        setMessage(std::wstring(in ? L"Removed from the favorites: " : L"Added to the favorites: ") + std::to_wstring(which.size()) +
-                   (which.size() == 1 ? L" tile" : L" tiles") + L". The Favorites filter shows them.");
-        if (gTiles->filter < int(gTiles->filters.size()) && gTiles->filters[size_t(gTiles->filter)].kind == 5) tilesRebuild();
-    } else if (pick == 2) {
-        for (size_t i = 0; i < gTiles->filters.size(); ++i)
-            if (gTiles->filters[i].kind == 5) tilesSetFilter(int(i));
-    }
+    });
 }

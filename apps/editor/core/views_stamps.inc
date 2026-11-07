@@ -4,8 +4,8 @@
 // there, or below the folders to take it out); a click on a heading closes or opens it. The row at the top, as the other lists have it (GitHub #258): the search, which shows only the custom terrain
 // whose name has the typed text (any case; GitHub #175), its closed headings open; the Sort button (by name, A to Z, or
 // the newest first); the View button (List or Grid; Normal, Large, Extra large). A click on an item makes it the Brush's
-// stamp; Alt+click makes its tiles the mask (GitHub #247: painting in Tile and Custom changes only the tiles of those
-// values; Alt+click on it again clears the mask). A right click: the View menu as the other palettes have it (List or Grid; Normal, Large, Extra large), on an item
+// stamp; Alt+click puts its tiles into the mask, or takes them out (GitHub #247: painting in Tile and Custom changes only
+// the tiles of the mask; tilesMaskToggle). A right click: the View menu as the other palettes have it (List or Grid; Normal, Large, Extra large), on an item
 // Rename, Delete, Show in folder first. With no custom terrain for the tileset, two dim lines say how to make it.
 
 // The picture of custom terrain in `box` (its shape kept, in the middle, on a dark area of its own size: the rest of
@@ -294,19 +294,8 @@ public:
             }
             const auto& list = stampsList();
             if (row.index < 0 || row.index >= int(list.size())) return true;
-            if ((e.mods & draw::kAlt) && appState().ed) {  // its tiles: the mask (each value once), or no mask (the same again)
-                const TerrainStamp& s = list[size_t(row.index)];
-                std::vector<uint16_t> mask;
-                for (size_t i = 0; i < s.tiles.size() && i < s.mask.size(); ++i)  // (its holes are not in it)
-                    if (const uint16_t v = s.tiles[i]; s.mask[i] && std::find(mask.begin(), mask.end(), v) == mask.end()) mask.push_back(v);
-                std::vector<uint16_t> now = appState().ed->tileMask(), sorted = mask;
-                std::sort(now.begin(), now.end()), std::sort(sorted.begin(), sorted.end());
-                if (now == sorted) mask.clear();
-                setMessage(mask.empty() ? std::wstring(tr(L"No mask: painting changes all tiles"))
-                                        : tr(L"Mask: painting in Tile and Custom changes only the tiles of ") + widen(s.name) + L" (" +
-                                              std::to_wstring(mask.size()) + tr(L" tiles). Alt+click it again: no mask"));
-                appState().ed->setTileMask(std::move(mask));
-                tilesPanelRepaint();
+            if ((e.mods & draw::kAlt) && appState().ed) {  // its tiles into the mask, or out of it (tilesMaskToggle)
+                tilesMaskToggle(stampTilesOf(list[size_t(row.index)]));
                 return true;
             }
             if (appState().mode != Mode::Terrain) {  // (another mode: the pick goes to Terrain, as a palette's)

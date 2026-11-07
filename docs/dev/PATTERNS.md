@@ -155,14 +155,11 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 
 **Modifier keys**
 
-- Alt+click on a Custom list row replaces the whole mask; in the terrain list and the Tiles grid it adds or removes
-  one item. No list has the mask in the row's right-click menu yet.
-- The second and third palettes do not take Shift ranges.
 
 **Menus and pickers**
 
-- The brush shape box uses shellPopupPick; the Tiles favorites and the Layer list use shellContextMenu; the panel tab
-  side menu uses kit::Menu::popup. None of them has "Report feedback".
+- The brush shape box uses shellPopupPick; the Layer list uses shellContextMenu; the panel tab side menu uses
+  kit::Menu::popup. None of them has "Report feedback". (A core view's menu: shellMenu, as the Tiles list's.)
 - Typed numbers in prompts: View > Grid > Custom (four numbers in one field), the new map size, the seconds of an
   establishing shot, a memory address.
 - stampsItemMenu (core/stamps.inc) has no callers.

@@ -22,6 +22,14 @@ void pickInOtherMode(PanelState* panel, int v, bool add) {
     if (panel) activatePanel(panel);
     pickUnit(gState, v, add);
 }
+bool paletteShiftPick(AppState& app, const std::vector<PaletteRow>& rows, int row, bool ctrl);  // (core/palette_view.inc)
+// A click in the second or third palette with its keys: Ctrl adds to the pick, Shift picks a range (as the first palette).
+void pickInOtherModeMods(PanelState* panel, const std::vector<PaletteRow>& rows, int row, int v, unsigned mods) {
+    const bool ctrl = (mods & draw::kCtrl) != 0;
+    if (panel && panel->mode == Mode::Locations) return pickLocationElsewhere(v, ctrl);
+    if (panel) activatePanel(panel);
+    if (!((mods & draw::kShift) && paletteShiftPick(gState, rows, row, ctrl))) pickUnit(gState, v, ctrl);
+}
 
 std::vector<std::wstring> gListRows;  // the Locations list's rows (rebuildList fills them)
 std::vector<int> gLocItems;           // ... and their locations (in every mode: shellListFill)
@@ -190,10 +198,20 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
     const bool tiers = mode == Mode::Units && paletteHasTiers();  // (a mod's units with tech tiers: Sort by tier)
     const int pin = palettePinState(mode, value);
     const std::vector<uint16_t> shown = paletteShownDoodads(pal.rows);  // (Move up and Move down: among the pins shown)
-    const MenuModel model = paletteMenuModel(mode, view, pin, sort, panel && !panel->floating, tiers, pin == 1 ? doodadPinMovesOff(value, shown) : 0);
+    int mask = -1;  // (a terrain: in the mask or not)
+    if (mode == Mode::Terrain && value >= 0 && gState.ed) {
+        const auto& tm = gState.ed->terrainMask();
+        mask = std::find(tm.begin(), tm.end(), uint16_t(value)) != tm.end() ? 1 : 0;
+    }
+    const MenuModel model = paletteMenuModel(mode, view, pin, sort, panel && !panel->floating, tiers, pin == 1 ? doodadPinMovesOff(value, shown) : 0, mask);
     const std::wstring on = sdlFeedbackOn(from, at, panel ? L"a palette panel" : L"the palette");
     sdlPopupMenu(from, at, sdlModelItems(model, [value, mode, panel, view, sort, shown](int id) {
         if (id == kPalPin) return doodadPinToggle(value);
+        if (id == kPalMask) {
+            paletteMaskToggle(gState, value);
+            gPalList.invalidate(), gPal2List.invalidate(), gPal3List.invalidate();
+            return invalidateMapView();
+        }
         if (id == kPalPinUp || id == kPalPinDown) return doodadPinMove(value, id == kPalPinUp ? -1 : 1, shown);
         if (id == ID_PAL_NEW_PANEL) return palettePanelNew(mode, view, sort, panel);
         if (id == ID_PAL_CLOSE_PANEL && panel) return shellPost([panel] { palettePanelClose(*panel); });
@@ -217,7 +235,7 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
 // The Custom list's right click (core/views_stamps.inc): on an item Rename, Delete, Show in folder; then the View items
 // as the other palettes have them (List, Grid; Normal, Large, Extra large), kept in the settings.
 void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, const std::string& folder, bool onFolder) {
-    enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText, kNewFolder, kRenameFolder, kDeleteFolder };
+    enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText, kNewFolder, kRenameFolder, kDeleteFolder, kMask };
     MenuModel m;
     const bool own = s && !s->file.empty();  // (a mod's brush: not the user's file)
     const bool modFolder = folder == "Cosmonarchy" && modTab();  // (the mod's brushes: not a folder of the user's)
@@ -225,6 +243,10 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
         m.push_back(menuItem(kRename, L"Rename\x2026"));
         m.push_back(menuItem(kDelete, L"Delete\x2026"));
         m.push_back(menuItem(kReveal, L"Show in folder"));
+        m.push_back(menuSeparator());
+    }
+    if (s && gState.ed) {  // (its tiles into the mask, or out of it: as Alt+click)
+        m.push_back(menuItem(kMask, tilesMaskHas(stampTilesOf(*s)) ? L"Remove from the &mask" : L"Add to the &mask", L"Alt+click"));
         m.push_back(menuSeparator());
     }
     if (onFolder && !modFolder) {
@@ -245,6 +267,7 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
     const TerrainStamp copy = s ? *s : TerrainStamp{};  // (a menu's run reads the list again)
     draw::Host* host = from.host();
     sdlPopupMenu(from, at, sdlModelItems(m, [copy, host, folder](int id) {
+        if (id == kMask) return tilesMaskToggle(stampTilesOf(copy));
         if (id == kNewFolder) return shellPost([folder] { stampsNewFolder(folder); });
         if (id == kRenameFolder) return shellPost([folder] { stampsRenameFolder(folder); });
         if (id == kDeleteFolder) return shellPost([folder] { stampsDeleteFolder(folder); });
@@ -259,6 +282,13 @@ void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s, co
         if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
         if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
     }), sdlFeedbackOn(from, at, L"the Custom list"));
+}
+
+// A right click's menu of a core view: `m` at the mouse in `from`, with Report feedback on `on`; `pick` runs with the
+// item's id.
+void shellMenu(draw::View& from, const MenuModel& m, const std::wstring& on, std::function<void(int)> pick) {
+    const draw::Point at = gHost ? gHost->mouse(from) : draw::Point{};
+    sdlPopupMenu(from, at, sdlModelItems(m, std::move(pick)), sdlFeedbackOn(from, at, on));
 }
 
 // The Custom list's Sort and View buttons (core/views_stamps.inc): their menus under the button.
@@ -495,7 +525,7 @@ void initPanels() {
             gPal2List.invalidate();
             return invalidateMapView();
         }
-        pickInOtherMode(gPal2List.state, v, (mods & draw::kCtrl) != 0);
+        pickInOtherModeMods(gPal2List.state, gPal2List.rows, row, v, mods);
         gPal2List.invalidate();
         invalidateMapView();
         shellFocusView();
@@ -509,7 +539,7 @@ void initPanels() {
             gPal3List.invalidate();
             return invalidateMapView();
         }
-        pickInOtherMode(gPal3List.state, v, (mods & draw::kCtrl) != 0);
+        pickInOtherModeMods(gPal3List.state, gPal3List.rows, row, v, mods);
         gPal3List.invalidate();
         invalidateMapView();
         shellFocusView();

@@ -761,6 +761,35 @@ int tilesPasteNoNull(Editor& ed, int tx, int ty) {
     return ed.placeTileValues(cells);
 }
 
+// Alt+click on a tile or a custom terrain (and the row's right-click item): its tiles go into the tile mask, or out of it
+// when they are all in it already (a toggle, as a terrain in the terrain list). Painting in Tile and Custom then changes
+// only the tiles of the mask.
+bool tilesMaskHas(const std::vector<uint16_t>& tiles) {
+    const std::vector<uint16_t>& mask = appState().ed->tileMask();
+    return !tiles.empty() && std::all_of(tiles.begin(), tiles.end(), [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); });
+}
+void tilesMaskToggle(const std::vector<uint16_t>& tiles) {
+    if (!appState().ed || tiles.empty()) return;
+    std::vector<uint16_t> mask = appState().ed->tileMask();
+    if (tilesMaskHas(tiles)) std::erase_if(mask, [&](uint16_t v) { return std::find(tiles.begin(), tiles.end(), v) != tiles.end(); });
+    else
+        for (uint16_t v : tiles)
+            if (std::find(mask.begin(), mask.end(), v) == mask.end()) mask.push_back(v);
+    setMessage(mask.empty() ? L"No mask: painting changes all tiles"
+                            : L"Mask: painting in Tile and Custom changes only the tiles with an outline (" + std::to_wstring(mask.size()) +
+                                  L"). Alt+click takes them out.");
+    appState().ed->setTileMask(std::move(mask));
+    tilesPanelRepaint();
+    appState().dirty = true;
+}
+// The tiles of custom terrain (each value once; its holes are not in it).
+std::vector<uint16_t> stampTilesOf(const TerrainStamp& s) {
+    std::vector<uint16_t> out;
+    for (size_t i = 0; i < s.tiles.size() && i < s.mask.size(); ++i)
+        if (const uint16_t v = s.tiles[i]; s.mask[i] && std::find(out.begin(), out.end(), v) == out.end()) out.push_back(v);
+    return out;
+}
+
 // The drag: the footprint at the mouse; the stamp: each block of its pattern along the way from the last tile (a fast
 // drag leaves no gaps).
 void tilesMouseMove(float wx, float wy) {

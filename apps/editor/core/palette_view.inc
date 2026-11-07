@@ -66,6 +66,7 @@ bool applyPaletteViewCommand(Mode mode, int id) { return applyPaletteViewCommand
 
 constexpr int kPalPin = 0xDF00;  // the View menu's Pin / Unpin item
 constexpr int kPalPinUp = 0xDF01, kPalPinDown = 0xDF02;  // ... a pinned doodad's Move up and Move down
+constexpr int kPalMask = 0xDF03;  // ... a terrain's Add to the mask / Remove from the mask (as Alt+click)
 
 // The orders of the palette in `mode` (the Sort button's menu, and in the View menu): `sort` checked; `tiers`: the units
 // have tech tiers (a mod's), so Sort by tier is there. Locations have no categories: by number is their first order.
@@ -132,8 +133,13 @@ void sortLocationItems(const AppState& app, std::vector<int>& all) {
 // Large, the order, and the panel's items. (The palette's section dropdown goes to a section.) `sort`: the order shown
 // checked; `panel`: the menu of a palette panel (Close panel in place of the floating palette's item); `tiers`: the
 // units have tech tiers (a mod's), so Sort by tier is there.
-MenuModel paletteMenuModel(Mode mode, const PaletteView& v, int pin, PaletteSort sort, bool panel, bool tiers = false, int pinMoves = 0) {
+MenuModel paletteMenuModel(Mode mode, const PaletteView& v, int pin, PaletteSort sort, bool panel, bool tiers = false, int pinMoves = 0,
+                           int mask = -1) {
     MenuModel m;
+    if (mask >= 0) {  // (a terrain's row: its mask item, as Alt+click; mask 1: it is in the mask)
+        m.push_back(menuItem(kPalMask, mask ? L"Remove from the &mask" : L"Add to the &mask", L"Alt+click"));
+        m.push_back(menuSeparator());
+    }
     if (pin >= 0) {
         m.push_back(menuItem(kPalPin, pin ? L"Un&pin" : L"&Pin to the top"));
         if (pin) {  // (a pinned doodad: its place in the pinned doodads; pinMove: up -1, down 1)
@@ -371,7 +377,7 @@ void paletteMaskToggle(AppState& app, int value) {
     std::vector<uint16_t> mask = app.ed->terrainMask();
     if (const auto it = std::find(mask.begin(), mask.end(), uint16_t(value)); it != mask.end()) mask.erase(it);
     else mask.push_back(uint16_t(value));
-    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask (experimental): painting changes only the terrains with an outline. Alt+click takes one out.");
+    setMessage(mask.empty() ? L"No mask: painting changes all terrains" : L"Mask: painting changes only the terrains with an outline. Alt+click takes one out.");
     app.ed->setTerrainMask(std::move(mask));
     app.dirty = true;
 }
