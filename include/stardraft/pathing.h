@@ -83,10 +83,6 @@ struct GroundPath {
     std::vector<std::pair<float, float>> points;  // map pixels, from `from` to `to`; corners only
 };
 
-// The shortest 8-connected path (A*; no corner cutting) for a unit of `cells` from (x0, y0) to (x1, y1) (map pixels).
-// The ends move to the nearest cell the unit can stand on (at most 6 tiles away).
-GroundPath findGroundPath(const WalkGrid& grid, const std::vector<uint8_t>& clear, int cells, float x0, float y0, float x1, float y1);
-
 struct Base {
     bool start = false;  // a start location (else an expansion: a resource group with no start location)
     int owner = -1;      // the start location's player (0-based), -1 for an expansion

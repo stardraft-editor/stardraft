@@ -137,7 +137,7 @@ void feedbackSentResult(bool sent) {
         }
     } else {
         setMessage(issueToken().empty() ? L"This build cannot send feedback. The feedback is in " + feedbackFolder().wstring()
-                                        : L"StarDraft 2 cannot send the feedback now. It sends it at the next start.");
+                                        : L"Could not send the feedback now. It is sent at the next start.");
     }
     if (sent) sendPendingFeedback();  // GitHub can be reached now: feedback that waits goes too
 }
@@ -150,7 +150,7 @@ void feedbackSend(FeedbackView& v, const std::filesystem::path& file, std::funct
     if (issueToken().empty()) {
         v.sending(L"");
         v.done(false, 0, L"");
-        v.showStatus(L"This build cannot send feedback. StarDraft 2 keeps it in " + file.wstring() + L".");
+        v.showStatus(L"This build cannot send feedback. The feedback is in " + file.wstring() + L".");
         return;
     }
     v.sending(L"Sending your feedback\x2026");

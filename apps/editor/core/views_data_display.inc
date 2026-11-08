@@ -57,7 +57,7 @@ int paintWireframePreviews(UnitDisplayHost& h, const RequirementLayout& l, int u
     const bool under = x + 3 * pic + 2 * gap > l.colRight;
     if (under) x = l.x0 + l.labelW, top = bottom + scale(4);
     const bool shields = h.hasShields(u);
-    const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));  // ui::smallFont
+    const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));  // ui::smallFont
     for (int k = 0; k < 3; ++k) {
         const draw::Rect r{x + k * (pic + gap), top, x + k * (pic + gap) + pic, top + pic};
         c.fill(r, draw::rgb(0, 0, 0));  // the status panel's black, in both themes

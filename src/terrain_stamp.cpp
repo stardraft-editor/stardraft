@@ -96,30 +96,42 @@ std::string terrainStampFileName(const std::string& name) {
 bool terrainStampSameName(const std::string& a, const std::string& b) { return terrainStampFileName(a) == terrainStampFileName(b); }
 
 fs::path terrainStampPath(const fs::path& folder, uint16_t era, const std::string& name) {
-    return folder / tilesetName(era) / fs::path(terrainStampFileName(name) + ".sdstamp");
+    return folder / tilesetName(era) / fs::path(terrainStampFileName(name) + ".scterrain");
 }
 
+// (no "format": the fields say what it is; the mask only when some tiles are not in it: else every tile is)
 std::string terrainStampText(const TerrainStamp& s) {
     std::string tiles, mask;
+    bool whole = true;
     const size_t n = size_t(s.width) * size_t(s.height);
     for (size_t i = 0; i < n; ++i) {
         const bool in = i < s.mask.size() && s.mask[i];
         tiles += (i ? ", " : "") + std::to_string(in && i < s.tiles.size() ? s.tiles[i] : 0);
         mask += in ? '1' : '0';
+        whole = whole && in;
     }
-    return "{\"format\": \"StarDraft terrain stamp\", \"version\": " + std::to_string(kTerrainStampVersion) + ", \"name\": " + quote(s.name) +
-           ", \"tileset\": " + quote(tilesetName(s.era)) + ", \"era\": " + std::to_string(s.era & 7) + ", \"created\": " + std::to_string(s.created) +
-           ", \"width\": " + std::to_string(s.width) + ", \"height\": " + std::to_string(s.height) + ",\n \"tiles\": [" + tiles + "],\n \"mask\": \"" + mask +
-           "\"}\n";
+    return "{\"version\": " + std::to_string(kTerrainStampVersion) + ", \"name\": " + quote(s.name) + ", \"tileset\": " + quote(tilesetName(s.era)) +
+           ", \"era\": " + std::to_string(s.era & 7) + ", \"created\": " + std::to_string(s.created) + ", \"width\": " + std::to_string(s.width) +
+           ", \"height\": " + std::to_string(s.height) + ",\n \"tiles\": [" + tiles + "]" + (whole ? "" : ",\n \"mask\": \"" + mask + "\"") + "}\n";
 }
 
 bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& error) {
     std::ifstream in(file, std::ios::binary);
     if (!in) return error = "cannot read " + pathText(file), false;
     const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (!parseTerrainStamp(text, out, error)) return error = pathText(file) + ": " + error, false;
+    out.file = file;
+    return true;
+}
+
+bool parseTerrainStamp(const std::string& text, TerrainStamp& out, std::string& error) {
     JsonParser p{text};
     const Json j = p.value();
-    if (!p.ok || j.type != Json::Type::Object || j.str("format") != "StarDraft terrain stamp") return error = pathText(file) + " is not a terrain stamp", false;
+    // (custom terrain: its fields; a "format" of the earlier texts, when there, is one of theirs)
+    const std::string format = j.type == Json::Type::Object ? j.str("format") : std::string();
+    if (!p.ok || j.type != Json::Type::Object || !j.get("tiles") || !j.get("width") || !j.get("height") || !j.get("era") ||
+        (!format.empty() && format != "StarCraft custom terrain" && format != "StarDraft terrain stamp"))
+        return error = "it is not custom terrain", false;
     TerrainStamp s;
     s.name = j.str("name");
     s.era = uint16_t(std::clamp(j.integer("era", -1), -1, 7));
@@ -127,18 +139,18 @@ bool readTerrainStamp(const fs::path& file, TerrainStamp& out, std::string& erro
     const Json* created = j.get("created");
     s.created = created && created->type == Json::Type::Number ? int64_t(created->n) : 0;
     const Json* tiles = j.get("tiles");
-    const std::string mask = j.str("mask");
+    std::string mask = j.str("mask");
+    if (!j.get("mask") && tiles && tiles->type == Json::Type::Array) mask.assign(tiles->items.size(), '1');  // (no mask: every tile)
     std::string why;
     if (j.integer("era", -1) < 0 || !terrainStampNameOk(s.name, why) || s.width < 1 || s.height < 1 || s.width > kTerrainStampSizeMax ||
         s.height > kTerrainStampSizeMax || !tiles || tiles->type != Json::Type::Array || tiles->items.size() != size_t(s.width) * size_t(s.height) ||
         mask.size() != tiles->items.size())
-        return error = pathText(file) + ": the stamp's fields are not complete", false;
+        return error = "the fields of the custom terrain are not complete", false;
     for (size_t i = 0; i < mask.size(); ++i) {
         const Json& t = tiles->items[i];
         s.tiles.push_back(t.type == Json::Type::Number && t.n >= 0 && t.n <= 0xFFFF ? uint16_t(t.n) : 0);
         s.mask.push_back(mask[i] == '1' ? 1 : 0);
     }
-    s.file = file;
     out = std::move(s);
     return true;
 }
@@ -164,11 +176,23 @@ std::vector<TerrainStamp> terrainStamps(const fs::path& folder, uint16_t era) {
     std::error_code ec;
     const fs::path dir = folder / tilesetName(era);
     if (folder.empty() || !fs::is_directory(dir, ec)) return out;
+    std::vector<fs::path> files;  // (listed first: an old file's move adds a file to the folder)
     for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
-        if (it->path().extension() != ".sdstamp" || !it->is_regular_file(ec)) continue;
+        const fs::path ext = it->path().extension();
+        if ((ext == ".scterrain" || ext == ".sdstamp") && it->is_regular_file(ec)) files.push_back(it->path());
+    }
+    for (const fs::path& file : files) {
+        const fs::path ext = file.extension();
         TerrainStamp s;
         std::string err;
-        if (readTerrainStamp(it->path(), s, err) && s.era == (era & 7)) out.push_back(std::move(s));  // (one that cannot be read: left out)
+        if (!readTerrainStamp(file, s, err) || s.era != (era & 7)) continue;  // (one that cannot be read: left out)
+        // (a file of StarDraft 0.8 and before: written again under the new name, when there is none of that name yet)
+        if (ext == ".sdstamp" && !fs::exists(terrainStampPath(folder, s.era, s.name), ec)) {
+            const fs::path old = s.file;
+            if (writeTerrainStamp(folder, s, err)) fs::remove(old, ec);
+        }
+        if (ext == ".sdstamp" && s.file.extension() == ".sdstamp") continue;  // (the new file is there already: it is the one)
+        out.push_back(std::move(s));
     }
     std::sort(out.begin(), out.end(), [](const TerrainStamp& a, const TerrainStamp& b) { return a.name < b.name; });
     return out;

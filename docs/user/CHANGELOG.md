@@ -2,6 +2,152 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.8.7
+
+[Video: the new features of 0.8.7](images/0.8.7/whats-new.mp4)
+
+### Map
+
+- One grid for the whole map: View > Grid has sizes from 2 to 256 pixels. Options > Units, Sprites and Locations each
+  have Snap to the grid, on or off.
+- Snap to the grid in the Edit menu and the right-click menu, for selected units, doodads and sprites.
+- Magic wand (W), under Select: a click selects connected terrain, Shift+click adds, Ctrl+click removes.
+- Terrain mask (experimental): Alt+click terrains or tiles, then painting changes only those.
+- Turn and mirror what is on the cursor: R, M and top bar buttons, for terrain, units, doodads and sprites. Turning
+  is experimental.
+- Symmetry: a movable center, and Turns from 1 to 8.
+- Spray density from 1 to 100%.
+- Isometric: the Square and Circle brushes show their own shape, and Select keeps its own shape.
+- Rectangle: the brush is in tiles, from 1 x 1.
+- Ctrl+V makes custom terrain text on the clipboard the brush.
+
+### Data
+
+- Map properties > Players: a save keeps each player's type. The Custom (RGB) color is gone from the color list.
+
+### Triggers
+
+- Classic triggers: all the game's AI scripts are in the list, with Turn ON and Turn OFF Shared Vision by name.
+- Classic triggers: a scroll past a value no longer changes it.
+
+### Fixes
+
+- Selected doodads and sprites keep their boxes when the mouse leaves the map.
+- Windows: a drag of a palette window to a screen's edge no longer snaps it to half of the screen.
+
+## 0.8.6
+
+A stability release for Windows.
+
+### Fixes
+
+- Starting no longer stops the whole computer on older video cards (for example the GeForce GTX 770): drawing now
+  uses Vulkan first, then Direct3D 12, then software drawing.
+- When a start does not show its window, the next start uses another graphics driver.
+- Too much memory use now ends StarDraft 2 with a crash report; the computer keeps working.
+
+### The program
+
+- Program options > General > Graphics: Automatic, Direct3D 12 or Software. The driver and video card in use show there
+  and in the Log.
+
+  ![Program options > General > Graphics: Automatic, Direct3D 12 or Software, with the driver and video card in use](images/0.8.6/graphics.png)
+
+## 0.8.5
+
+### Map
+
+- Drag a side bar tab out to float it, or onto a side bar to dock it; a blue outline shows where it goes.
+
+  ![A floating palette dragged over the right side bar: the blue outline shows where it docks](images/0.8.5/panel-dock.png)
+- The status bar shows the mode's count: units and start locations, doodads, sprites, locations used of the slots.
+- Terrain selections show their size; the Isometric paste preview shows the pasted terrain.
+- Rectangle mode: drag copied tiles to paste them along the way.
+- Isometric and Rectangle each keep their own brush shape.
+- Custom list: Copy as text and Import from text, to share custom terrain.
+
+  ![Custom list: Copy as text and Import from text in the right-click menu](images/0.8.5/custom-copy.png)
+- The number row picks players 1 to 12 on any keyboard layout; zoom is Ctrl++ and Ctrl+-.
+
+### Data
+
+- Data > Strings for classic maps: edit, add, delete unused strings and change their order; every use follows.
+
+  ![Data > Strings of a classic map: each string with its uses, New string, Delete, Move up and Move down](images/0.8.5/map-strings.png)
+- Map properties > Players: every player type and race, Type and Race for players 9 to 12, extended colors. Type a
+  number for a value with no name.
+
+  ![Map properties > Players: Type and Race for all 12 players](images/0.8.5/players.png)
+- Assets: search the map's sounds.
+
+### Fixes
+
+- Maps with Computer players that have no start location now start in StarCraft.
+- Walkable black tiles no longer show as Zerg creep.
+- Scrolling past a dropdown no longer changes it (rest the mouse on it to use the wheel).
+- Less CPU and GPU use while the mouse moves.
+- Check for updates works with user names in other alphabets and on older Windows 10.
+- A held isometric brush no longer paints the same place again and again.
+- Arrow keys move buildings up and left; the trigger type list's scroll bar works.
+- Requirements with many "Always" entries fit in the map.
+
+## 0.8.4
+
+### The program
+
+- Faster on big maps: scrolling, zooming, placing and dragging units stay smooth with thousands of units.
+- Much less CPU and GPU use when idle: the window paints again only when something changes.
+- Faster status bar, palette search, minimap, locations and overlays (unit ranges up to 6 times faster).
+- Clearer texts in all five languages; dialog buttons name their action (for example Apply).
+
+### Triggers
+
+- New EUD conditions: "A unit's order is on a unit" and "A unit was killed by a player".
+- New EUD action: "Set a unit variable to a unit's order target".
+
+### Fixes
+
+- A quick double-click on a recent map or a trigger command acts once.
+
+## 0.8.3
+
+### Map
+
+- New shape tools: Line, Contour, Polygon, Rectangle, Ellipse and Diamond, outline or filled. Shift locks the angle or
+  makes a square, circle or map-shaped diamond. Video: https://www.youtube.com/watch?v=rWf2oNXWwzk
+- New Jumble tool (X): mixes the terrains under the brush.
+- Erase (E) in every mode: Dirt on Terrain; deletes units, doodads, sprites and locations.
+- Select several terrains or tiles (Ctrl+click): Spray and Fill use them all; Fill puts them in patches (Mix).
+
+  ![Fill with three terrains selected (Ctrl+click) and Mix: the ground gets patches of each](images/0.8.3/fill-mix.png)
+- Placing a resource, town hall or start location shows the red ground where it may not go.
+
+  ![Placing a mineral field: the red ground round the start location where it may not go](images/0.8.3/resource-no-go.png)
+- Isometric Select: Shift+drag adds, Ctrl+drag takes out.
+- Tiles list: Shift adds to the selection, Ctrl takes out.
+- Fill shows a paint bucket pointer; Fill of units and doodads is much faster.
+- Tool strip: Spray/Jumble and the shapes share buttons; a click shows the group's tools.
+- Pasted terrain can hang over any map edge.
+- Protected terrain shows only in Terrain mode.
+- Invalid resource depot and node: overlapping zones show as one area.
+- An expansion's town preview stays on the ground level of its resources.
+- Quick picker: Left and Right move through the grid.
+
+### The program
+
+- New language: French.
+
+  ![StarDraft in French](images/0.8.3/french.png)
+- Windows: starts on video cards without Direct3D 12 (Vulkan or software).
+- About shows the right version.
+- Map tabs scroll with the mouse wheel when they don't fit.
+
+### CMBW mod
+
+- The mod team's terrain fixes for every tileset but Installation: 821 black pieces get tiles.
+- Units can belong to players above 12.
+- Custom isom terrain editor: Ctrl+E works while the search box is in use.
+
 ## 0.8.2
 
 ### Map

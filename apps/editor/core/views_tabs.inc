@@ -230,17 +230,52 @@ struct TabsView final : stardraft::draw::View {
         const int h = height();
         c.fill({0, 0, width(), h}, kBg);
         gTabHits.clear();
-        int x = 0, pad = scale(10), closeW = scale(16);
+        int pad = scale(10), closeW = scale(16);
         const wchar_t* page = shellPageTab();
         gPageTabHit = {};
         if ((page != nullptr) != hadPage_) gTabHot = gTabHotClose = -1, hadPage_ = page != nullptr;  // (the tabs moved)
-        for (int i = 0; i <= int(gDocs.size()); ++i) {
-            if (i == int(gDocs.size()) && !page) break;
+        // The tabs' titles and widths first: wider than the strip, the tabs scroll sideways (the wheel: scrollBy), and
+        // a newly active tab comes into view.
+        const int tabs = int(gDocs.size()) + (page ? 1 : 0);
+        std::vector<std::wstring> tabTitles(static_cast<size_t>(tabs));
+        std::vector<int> tabWidths(static_cast<size_t>(tabs));
+        int total = scale(30);  // (the +)
+        for (int i = 0; i < tabs; ++i) {
+            tabTitles[size_t(i)] = i == int(gDocs.size()) ? std::wstring(page) : docTitle(i);
+            const std::wstring& t = tabTitles[size_t(i)];
+            tabWidths[size_t(i)] = std::clamp(c.measure(t.rfind(L"* ", 0) == 0 ? t.substr(2) : t) + pad * 3 + closeW, scale(90), scale(260));
+            total += tabWidths[size_t(i)] + 1;
+        }
+        // The span from `left` for `w` px comes into view.
+        auto bringIntoView = [&](int left, int w) {
+            if (left < scroll_) scroll_ = left;
+            else if (left + w > scroll_ + width()) scroll_ = left + w - width();
+        };
+        auto leftOf = [&](int tab) {
+            int left = 0;
+            for (int i = 0; i < tab; ++i) left += tabWidths[size_t(i)] + 1;
+            return left;
+        };
+        const int shown = page ? int(gDocs.size()) : gActive;
+        // (the active tab changed, also another document at the same place after a close: it comes into view)
+        if (shown >= 0 && shown < tabs && (shown != shownActive_ || tabTitles[size_t(shown)] != shownTitle_)) {
+            shownActive_ = shown, shownTitle_ = tabTitles[size_t(shown)];
+            bringIntoView(leftOf(shown), tabWidths[size_t(shown)]);
+        }
+        // (the keyboard's tab or + changed: it comes into view)
+        if (keys.shows(*this, int(gDocs.size()) * 2 + 1) && keys.at != shownKey_) {
+            shownKey_ = keys.at;
+            const int k = std::min(keys.at / 2, int(gDocs.size()));
+            bringIntoView(leftOf(k), k < int(gDocs.size()) ? tabWidths[size_t(k)] : scale(30));
+        }
+        scroll_ = std::clamp(scroll_, 0, std::max(0, total - width()));
+        int x = -scroll_;
+        for (int i = 0; i < tabs; ++i) {
             const bool pageTab = i == int(gDocs.size());  // (the page's tab is the last, and the active one)
-            std::wstring t = pageTab ? std::wstring(page) : docTitle(i);
+            std::wstring t = tabTitles[size_t(i)];
             const bool unsaved = t.rfind(L"* ", 0) == 0;  // unsaved: a dot where the close button is (the x under the mouse)
             if (unsaved) t.erase(0, 2);
-            const int w = std::clamp(c.measure(t) + pad * 3 + closeW, scale(90), scale(260));
+            const int w = tabWidths[size_t(i)];
             const RECT r{x, 0, x + w, h};
             const bool active = page ? pageTab : i == gActive;
             c.fill(r, active ? kCtl : (i == gTabHot ? kHot : kBg));
@@ -338,7 +373,8 @@ struct TabsView final : stardraft::draw::View {
             invalidate();
             return true;
         case MouseKind::Wheel:  // macOS's trackpad: a swipe of two fingers to the left or right on the strip changes the tab
-            return e.exact && swipeStep(e);
+            if (e.exact) return swipeStep(e);
+            return scrollBy(int(std::lround((e.horizontal ? e.wheel : -e.wheel) * float(scale(60)))));  // the wheel: the tabs scroll sideways (a tilt: positive is right)
         case MouseKind::Down:
         case MouseKind::DoubleClick:  // (the old tab strip had no double clicks: a second press is a press)
             if (e.button == 2) {  // the middle button closes the tab under the mouse (a map page's tab too)
@@ -378,6 +414,18 @@ struct TabsView final : stardraft::draw::View {
 
 private:
     bool hadPage_ = false;  // the last paint had the page's tab
+    int scroll_ = 0;        // the tabs' sideways scroll, px (when they are wider than the strip)
+    int shownActive_ = -1;  // the active tab the scroll last brought into view, and its title
+    std::wstring shownTitle_;
+    int shownKey_ = -1;  // the keyboard's item the scroll last brought into view
+    // The wheel over the strip: the tabs move sideways by `dx` (paint keeps the scroll in bounds). False: no wheel.
+    bool scrollBy(int dx) {
+        if (dx == 0) return false;
+        scroll_ += dx;
+        gTabHot = gTabHotClose = -1;  // (the tabs moved under the mouse)
+        invalidate();
+        return true;
+    }
     // A two-finger scroll on the strip (its exact distance: MouseEvent::exact): once it went 50 px sideways (more than
     // up or down), one tab to that side (swipeTabs). The rest of that scroll and its momentum change no more tabs: a
     // new swipe starts after a pause of 0.3 s.

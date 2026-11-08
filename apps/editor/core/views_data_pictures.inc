@@ -214,7 +214,7 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
                 L"Play on as a unit does: attacks repeat, and a script that waits for its order starts again");
     next();
     glyphButton(c, host, {bx, by, bx + bs, by + bs}, gImagePlayer.muted ? UiIcon::Mute : UiIcon::Sound, !gImagePlayer.muted,
-                [&host] { gImagePlayer.muted = !gImagePlayer.muted, host.pictureRepaint(); }, L"Sounds of the script: on or off");
+                [&host] { gImagePlayer.muted = !gImagePlayer.muted, host.pictureRepaint(); }, L"Script sounds: on or off");
     next();
     glyphButton(c, host, {bx, by, bx + bs, by + bs}, UiIcon::Code, gImagePlayer.showCode,
                 [&host] { gImagePlayer.showCode = !gImagePlayer.showCode, host.pictureRepaint(); }, L"The code of the script: show or hide");
@@ -244,8 +244,7 @@ int paintImagePlayer(draw::Canvas& c, DataPicturesHost& host, int image, int x, 
         if (a > 0 && !sp.animOffset(image, a)) continue;
         const draw::Rect r{lx + 1, ly, lx + listW - 1, ly + rowH};
         const bool on = a == gImagePlayer.anim;
-        if (on) c.fill(r, kSel), c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-        else if (over(host, r)) c.fill(r, kRowHot);
+        kitpaint::drawListRow(c, r, on, !on && over(host, r));
         if (on) kitpaint::drawGlyph(c, {r.left + scale(6), r.top, r.left + scale(24), r.bottom}, kitpaint::Ico(gImagePlayer.playing ? UiIcon::Play : UiIcon::Pause), kAccent);
         c.text({r.left + scale(26), r.top, r.right - scale(6), r.bottom}, kAnimNames[a], on ? kAccent : kText, draw::kMiddle | draw::kEllipsis);
         host.pictureArea(r, [image, a, &host] { imagePlayerStart(image, a), gImagePlayer.playing = true, host.pictureRepaint(); }, nullptr, L"", draw::Cursor::Hand);
@@ -304,7 +303,7 @@ int paintTimeline(draw::Canvas& c, DataPicturesHost& host, int image, int x, int
     }
     if (!ends) c.text({x1 - scale(60), by + bh + scale(2), x1, cr.bottom - scale(2)}, L"\x2192 loops", kDim, draw::kMiddle | draw::kRight);
     needsVerification(c, host, {cr.right - scale(140), cr.top, cr.right, cr.top + scale(20)},
-                      L"Not checked against OpenBW: the waits and the order of the script, as StarDraft 2 plays it.");
+                      L"Not checked against OpenBW: the waits and the order of the script in this player");
     const int px = X(std::min(gImagePlayer.ticks, n - 1));
     c.line(px, cr.top + scale(4), px, by + bh + scale(2), draw::rgb(255, 255, 255), scale(2));
     host.pictureArea({x0, cr.top, x1, cr.bottom}, nullptr,

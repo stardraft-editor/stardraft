@@ -20,5 +20,5 @@ To set the crops: `shots <version> --measure` captures only and lists each captu
 
 Pictures show sample data, not the user's files.
 
-The files of 0.5.0.7 and 0.5.0.8 have `specs` in place of `cases`: they were made with `--datashots` of the old Win32
-program, which is gone. They are a record of those releases and do not run again.
+The pictures of 0.5.0.7 and 0.5.0.8 (in `docs/user/images/`) were made with the old Win32 program, which is gone;
+those releases have no file here.

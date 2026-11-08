@@ -248,6 +248,8 @@ bool sdlRuns(int id) {
     case ID_OPT_CMBWFOLDER:
     case ID_OPT_TERRAINOVERRIDE:
     case ID_OPT_TERRAINOVERRIDEFILE:
+    case ID_OPT_PASSAGES:
+    case ID_OPT_PASSAGESFILE:
     case ID_SCEN_CHECK:
     case ID_RECENT_CLEAR_MAPS:
     case ID_RECENT_CLEAR_PROJECTS:
@@ -296,11 +298,11 @@ bool sdlRuns(int id) {
     }
     if (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) return true;  // the keys 1 to 0 and = (player 12)
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
-    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 5) return true;  // I, O, P, X, E
+    if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) return true;  // I, O, P, X, E, H, J, W
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
-    if (id >= ID_SNAP_UNITS && id < ID_SNAP_UNITS + 12) return true;
+    if (id >= ID_SNAP_UNITS && id <= ID_SNAP_LOCATIONS) return true;
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) return true;
     if (id >= ID_RECENT_MAP && id < ID_RECENT_MAP + kRecentMax) return true;
     if (id >= ID_RECENT_PROJECT && id < ID_RECENT_PROJECT + kRecentMax) return true;
@@ -312,19 +314,20 @@ bool sdlRuns(int id) {
 // the map shows the game, not the map. Saving, the view, the tabs and the other workspaces stay.
 bool simBarShown();  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
-    return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
+    return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
-           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 5) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
+           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 8) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
 }
 
 bool sdlEnabled(int id) {
     if (!sdlRuns(id)) return false;
     if ((id == ID_CMBW_REPAIRISOM || id == ID_CMBW_CHECKCOMMENTS) && !modTab()) return false;  // (a Cosmonarchy map's tab only)
-    if (id == ID_CMBW_ISOMRULES && !cmbwMode()) return false;  // (the mod loaded)
+    if ((id == ID_CMBW_ISOMRULES || id == ID_CMBW_PASSAGES) && !cmbwMode()) return false;  // (the mod loaded)
     if ((id == ID_VIEW_HD || id == ID_VIEW_HD2 || id == ID_VIEW_CARBOT) && cmbwMode()) return false;  // (SD art only: cmbwKeepSd)
     if (simBarShown() && simLocksCommand(id)) return false;
     if (mapCommand(id) && !docOpen()) return false;
+    if (id == ID_EDIT_SNAPGRID && (gWorkspace != Workspace::Map || !canSnapToGrid(gState))) return false;  // (a selection in the map)
     if (!editInWorkspace(id)) return false;  // (the map's Edit commands in another workspace: core/commands_core.inc)
     // The start page or the New page over the open map (File > New, the tabs' +): the map's commands are gray, as on the
     // Windows program's page tabs (a Delete or Paste would change the map nobody sees).
@@ -466,6 +469,8 @@ std::vector<kit::MenuItem> toKit(const MenuModel& items) {
             if (it.recent == "maps") k.sub = recentItems(false);
             else if (it.recent == "projects") k.sub = recentItems(true);
             else k.sub = toKit(it.items);
+            // (gray when none of its items can run: Tools > Decorate the terrain with no map)
+            k.enabled = std::any_of(k.sub.begin(), k.sub.end(), [](const kit::MenuItem& s) { return !s.separator && s.enabled; });
             break;
         case MenuItem::Kind::Command: {
             k.label = accessFree(it.label), k.shortcut = platformShortcut(it.id, it.shortcut);  // (the menus show it with shortcutText)
@@ -773,6 +778,10 @@ void sdlPressKey(const std::string& chord) {
     draw::KeyEvent e;
     if (!gRoot || !gHost || !c || !keyOfChord(c->key, e.key)) return void(std::fprintf(stderr, "--key %s: no such key\n", chord.c_str()));
     e.mods = (c->ctrl ? kShortcutCtrl : 0) | (c->shift ? draw::kShift : 0) | (c->alt ? draw::kAlt : 0);
+    if (const char ch = c->key.size() == 1 ? c->key[0] : 0; ch >= '0' && ch <= '9')  // (the keys' places on a US keyboard)
+        e.numberRow = ch == '0' ? 10 : ch - '0';
+    else if (ch == '-' || ch == '=')
+        e.numberRow = ch == '-' ? 11 : 12;
     draw::Point size;
     draw::View& target = sdlShotTarget(size);
     gHost->snapshotLayout(target);  // (a window that an input opened has painted before a key comes, as on the screen)
@@ -1178,7 +1187,7 @@ void sdlCommandShot(const std::string& name) {
                                                          {"edit.undo", ID_EDIT_UNDO}, {"edit.redo", ID_EDIT_REDO}, {"edit.history", ID_EDIT_HISTORY},
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
-                                                         {"options.unitsnap.tiles", ID_SNAP_UNITS + 1},  // (Options > Units > Snap to tiles)
+                                                         {"options.unitsnap", ID_SNAP_UNITS},  // (Options > Units > Snap to the grid)
                                                          {"options.stack", ID_OPT_STACK}};  // (Options > Units > Can be on top of others)
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
@@ -1389,7 +1398,7 @@ void saveOpenMap(bool as, std::function<void(bool)> done = {}) {
         if (done) done(ok);
         return;
     }
-    if (!as && !path.empty()) setMessage(L"StarDraft 2 cannot write to the map's folder. Select another place for the map.");
+    if (!as && !path.empty()) setMessage(L"Cannot write to the map's folder. Select another place for the map.");
     const Editor* asked = gState.ed.get();  // (the answer saves this map, not the tab that is active then)
     showFileDialog(true, [done, asked](const fs::path& picked) {
         fs::path p = picked;
@@ -1416,7 +1425,7 @@ void confirmQuit(std::function<void()> then) {
     if (gQuitPrompt || sdlFileDialogOpen()) return;
     gQuitPrompt = true;
     gQuitRetry = [then] { confirmQuit(then); };
-    const bool ok = !gRoot || (isomRulesConfirmQuit() && confirmAllDocs());
+    const bool ok = !gRoot || (isomRulesConfirmQuit() && passagesConfirmQuit() && confirmAllDocs());
     gQuitRetry = {};
     gQuitPrompt = false;
     if (ok) then();
@@ -1506,6 +1515,8 @@ void commandSdl(int id) {
     case ID_OPT_CMBWFOLDER: shellChooseCmbwFolder(); return;
     case ID_OPT_TERRAINOVERRIDE: shellToggleTerrainOverride(); return;
     case ID_OPT_TERRAINOVERRIDEFILE: shellChooseTerrainOverride(); return;
+    case ID_OPT_PASSAGES: passagesToggle(); return;  // (core/views_passages.inc)
+    case ID_OPT_PASSAGESFILE: passagesChoose(); return;
     case ID_SCEN_CHECK: {
         const std::wstring problems = playabilityText();
         if (problems.empty()) setMessage(L"StarCraft can start this map");

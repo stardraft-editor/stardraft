@@ -1,6 +1,6 @@
 // The editor's state (what struct App held apart from its windows): portable (core.inc).
 struct AppState {
-    std::wstring statusText[6];
+    std::wstring statusText[7];
     std::vector<uint32_t> megatileColor;  // average color per megatile (0x00RRGGBB)
     const Tileset* megatileColorsFor = nullptr;
     int megatileColorsEra = -1;  // the tileset object is loaded again in place when the map's tileset changes
@@ -20,15 +20,16 @@ struct AppState {
     float brushSize = 2;  // diamonds, whole numbers 1 to 32
     float brushHeight = 0;  // terrain: the brush's height, 1 to 32; 0: the same as its size (GitHub #113)
     // Terrain: the brush size and height of the other terrain tools (Rectangle's while Isometric is on, and the
-    // reverse). Each keeps its own (GitHub #155).
-    float otherBrushSize = 2, otherBrushHeight = 0;
+    // reverse). Each keeps its own (GitHub #155). Rectangle's: 2 x 1 tiles (the map's diamonds are 2 to 1).
+    float otherBrushSize = 2, otherBrushHeight = 1;
     Brush::Shape brushShape = Brush::Diamond;
-    Brush::Shape selectShape = Brush::Square;
+    Brush::Shape otherBrushShape = Brush::Square;  // the other terrain tools' (Isometric or Rectangle) shape, GitHub #236
+    Brush::Shape selectShapes[2] = {Brush::Square, Brush::Square};  // the terrain Select tool's shape: Isometric's, Rectangle's
     bool terrainSelFlip = false;  // the diamond selection's drag went between the box's top right and bottom left (IsoRectFlip)  // the terrain Select tool's shape: its own, not the brushes' (shapeOf)
     int toolByMode[kModeCount] = {};
-    int lastInGroup[3] = {0, TSpray, TLine};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon): the tool used last
+    int lastInGroup[5] = {0, TSpray, TLine, TBridge, TSelect};  // the tool strip's groups (1 Spray, Jumble; 2 Line, Contour, Polygon; 3 Bridge, Ramp): the tool used last
     int fillMix = 5;  // Fill with several picks (Terrain): how fine their patches are, 1 (large) to 10 (each diamond or tile)
-    int sprayDensity = 10;  // the active panel's: how many things one spray puts down (kDensityMax at most)
+    int sprayDensity = 10;  // the active panel's: how much of the brush one spray puts down, 1 to 100%
     uint32_t spraySeed = 1;
     int lastSprayX = -100000, lastSprayY = -100000;
     double sprayHeld = 0, sprayCredit = 0;  // a held spray: the seconds it is held, and the sprays due
@@ -60,7 +61,7 @@ struct AppState {
     std::vector<LocationCopy> locationClip;
     bool allowStacking = false;     // Options: units may overlap
     bool resourceDistance = true;   // Options: town halls and resources keep 3 tiles apart
-    bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: unitGrid)
+    bool snapBuildings = true;      // Options > Units: buildings snap to tile edges (on every path; other units: snapUnits)
     bool animate = true;             // Options: units play their idle animations
     bool dragSnapBack = true;        // Options: dragged units go back to the last position where they fit
     bool randomFacing = true;        // Options > Units: units with a random units.dat facing each face their own way
@@ -68,8 +69,8 @@ struct AppState {
     bool correction = false, doodadCheck = true, showLocations = false;  // units: Place only where it fits (the default)
     bool doodadNearest = false;  // Options > Doodads > Move to the nearest place where it fits (with doodadCheck)
     bool showGrid = false;
-    // Options > Units, Sprites, Locations: the snap grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a quarter tile).
-    int unitGrid = 0, spriteGrid = 0, locationGrid = 32;
+    // Options > Units, Sprites, Locations > Snap to the grid: they go on the lines of the grid of View > Grid.
+    bool snapUnits = false, snapSprites = false, snapLocations = true;
     bool carbot = false;  // Cartooned (Carbot) graphics
     float lastPlaceX = 0, lastPlaceY = 0;  // where the last unit of a placing drag went (cursor)
     int placedInStroke = 0;

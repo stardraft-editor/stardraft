@@ -217,6 +217,12 @@ public:
         return h && (h->hasFocus(rich_) || h->hasFocus(raw_));
     }
     void focusText() { (rawMode_ ? static_cast<draw::View&>(raw_) : rich_).focus(); }
+    // The keyboard in the text with all of it selected (a new text: what is typed replaces it).
+    void selectAllText() {
+        focusText();
+        rawMode_ ? raw_.model().selectAll() : rich_.selectAll();
+        invalidate();
+    }
 
     // The text changed (typed, a swatch, an alignment); the focus left the editor.
     std::function<void()> onChange;

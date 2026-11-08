@@ -56,9 +56,6 @@ void shellInvalidateWorkspaceBar();
 void shellRendererReloadImages();
 // The side bar's items are made now (Ctrl+1 to Ctrl+9 read them: railItemId).
 void shellRailUpdateNow();
-// The mouse over the map view, in its pixels; false when it is not over the map (Paste puts a location's copy in the
-// middle of the view then).
-bool shellViewMouse(int& x, int& y);
 // The tab strip's native window is updated now (a tab moved under the mouse), for the view `v` that is in it (the
 // including file has apps/common/view.h).
 void shellUpdateTabs(stardraft::draw::View& v);
@@ -77,6 +74,10 @@ void shellFocusView();
 // 4 New panel like this; 0 none.
 int shellTabSideMenu(const std::wstring& title, int side, int mode);
 void shellNewPalettePanel(int mode);  // a palette panel of the mode (int(Mode)), as its palette (sdl_palette_panels.inc)
+// The drag of a side bar tab of mode `mode` (int(Mode)), at x, y (the main window's root view, pixels): phase 0 it
+// starts, 1 the mouse moved, 2 the button went up (it docks at the drop target, else it floats there), 3 it is
+// cancelled (Esc: no change). sdl_palette_panels.inc.
+void shellTabDrag(int phase, int mode, int x, int y);
 // Runs `fn` on the UI thread, later. Safe to call from any thread; `fn` runs once.
 void shellPost(std::function<void()> fn);
 // The map view's timer for a held spray (25 ms): on starts it, off stops it.

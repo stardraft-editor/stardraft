@@ -359,7 +359,7 @@ public:
             update();
         };
         const std::pair<bool MapImageOptions::*, const wchar_t*> keeps[2] = {{&MapImageOptions::keepStarts, L"Start locations"},
-                                                                             {&MapImageOptions::keepNeutral, L"Player 12 (Neutral)"}};
+                                                                             {&MapImageOptions::keepNeutral, L"Player 12 (neutral)"}};
         for (int k = 0; k < 2; ++k) {
             bool MapImageOptions::*field = keeps[k].first;
             keeps_[k].setLabel(tr(keeps[k].second));

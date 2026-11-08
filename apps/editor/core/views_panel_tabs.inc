@@ -29,7 +29,7 @@ struct PanelTabsView final : stardraft::draw::View {
     // The modes docked on this side, in the order of the tabs.
     std::vector<Mode> modes() const {
         std::vector<Mode> out;
-        for (Mode m : kModeOrder)  // (a mode whose panel floats has no tab: its window is its place until it closes)
+        for (Mode m : dockTabOrder(gDock))  // (a mode whose panel floats has no tab: its window is its place until it closes)
             if (gDock.toolsRight[int(m)] == (side == 1) && !paletteFloats(m)) out.push_back(m);
         return out;
     }
@@ -79,6 +79,7 @@ struct PanelTabsView final : stardraft::draw::View {
     void tabbedTo(bool back) override { keys.enter(back, int(tabs.size())), invalidate(); }
     bool tabWithin(bool back) override { return keys.step(back, int(tabs.size())) && (invalidate(), true); }
     bool key(const stardraft::draw::KeyEvent& e) override {
+        if (dragging_ && e.down && e.key == stardraft::draw::Key::Escape) return dragEnd(3, {}), true;  // (the drag stops: no change)
         const int k = keys.index(int(tabs.size()));
         if (k < 0) return false;
         if (pressKey(e)) {
@@ -102,24 +103,44 @@ struct PanelTabsView final : stardraft::draw::View {
     bool mouse(const MouseEvent& e) override {
         switch (e.kind) {
         case MouseKind::Move: {
+            if (pressed_) {  // the button is held on a tab: a move of more than a few pixels drags it
+                const Point o = origin(), at{e.pt.x + o.x, e.pt.y + o.y};
+                if (!dragging_ && std::abs(e.pt.x - pressAt_.x) + std::abs(e.pt.y - pressAt_.y) >= scale(6)) {
+                    dragging_ = true;
+                    focus();  // (Esc comes here while the drag goes on)
+                    shellTabDrag(0, int(pressMode_), at.x, at.y);
+                }
+                if (dragging_) shellTabDrag(1, int(pressMode_), at.x, at.y);
+                return true;
+            }
             const int k = tabAt(e.pt);
             if (k != over) over = k, invalidate();
             return true;
         }
-        case MouseKind::Leave: over = -1, invalidate(); return true;
+        case MouseKind::Leave:
+            if (!pressed_) over = -1, invalidate();
+            return true;
         case MouseKind::Down:
         case MouseKind::DoubleClick: {  // (the class has CS_DBLCLKS: a second click comes as a double click)
             if (e.button != 0) return false;
             keys.pressed();
             const int k = tabAt(e.pt);
-            if (k >= 0) {
-                const Mode m = tabs[size_t(k)].m;
-                setMode(m);
-                shellFocusView();
+            if (k >= 0) {  // (the tab shows its panel when the button goes up with no drag)
+                pressed_ = true, pressAt_ = e.pt, pressMode_ = tabs[size_t(k)].m;
+                if (stardraft::draw::Host* h = host()) h->capture(*this, true);
             }
             return true;
         }
         case MouseKind::Up: {  // right-click: the tab's mode moves to the other side (its menu)
+            if (e.button == 0 && pressed_) {
+                const Point o = origin();
+                if (dragging_) return dragEnd(2, {e.pt.x + o.x, e.pt.y + o.y}), true;
+                const Mode m = pressMode_;
+                dragEnd(-1, {});
+                setMode(m);
+                shellFocusView();
+                return true;
+            }
             if (e.button != 1) return false;
             const std::vector<Mode> ms = modes();
             if (ms.empty()) return true;
@@ -146,4 +167,24 @@ struct PanelTabsView final : stardraft::draw::View {
         return std::wstring(kModeNames[int(tabs[size_t(k)].m)]) + L". Right-click: move it to the other side.";
     }
     bool hoverTip() const override { return true; }
+    // The system or another view took the mouse during a drag: it stops with no change.
+    void captureLost() override {
+        if (pressed_) dragEnd(3, {});
+    }
+
+private:
+    bool pressed_ = false;   // the left button went down on a tab and is held
+    bool dragging_ = false;  // ... and the tab is dragged (it moved past a few pixels)
+    Point pressAt_;
+    Mode pressMode_ = Mode::Terrain;
+    // The press ends: `phase` 2 drops the tab at `at` (the root's pixels), 3 cancels the drag, -1 none (a click).
+    void dragEnd(int phase, Point at) {
+        const bool was = dragging_;
+        const Mode m = pressMode_;
+        pressed_ = dragging_ = false;  // (first: the capture's release calls captureLost)
+        if (stardraft::draw::Host* h = host()) h->capture(*this, false);
+        if (was && phase >= 2) shellTabDrag(phase, int(m), at.x, at.y);
+        if (was) shellFocusView();
+        invalidate();
+    }
 };

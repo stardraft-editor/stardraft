@@ -108,6 +108,14 @@ void minimapJump(int mx, int my) {
 struct MinimapView final : stardraft::draw::View {
     stardraft::draw::Bitmap terrain;  // the map's tiles, one pixel each
     uint64_t terrainRev = 0;
+    // The map's units as dots, at the minimap's own pixels (kDotMargin more on each side: a dot at the map's edge goes
+    // past it): made again only when the map or the minimap's size changes, not each frame.
+    static constexpr int kDotMargin = 3;
+    stardraft::draw::Bitmap dots;
+    const Editor* dotsFor = nullptr;
+    uint64_t dotsRev = ~0ull;
+    RECT dotsRect{};
+    float dotsScale = 0;
     bool dragging = false;
 
     void paint(stardraft::draw::Canvas& c) override {
@@ -127,17 +135,36 @@ struct MinimapView final : stardraft::draw::View {
         minimapRect(r, sc);
         c.bitmap(terrain, {0, 0, terrain.width(), terrain.height()}, r, true);
         // Units as player-colored dots.
-        auto dot = [&](int ux, int uy, int size, int owner) {
+        auto dotBox = [&](int ux, int uy, int size) {
             const int x = r.left + int(ux * sc), y = r.top + int(uy * sc);
             const int d = std::clamp(std::max(2, size * int(sc * 100) / 100), 2, 6);
-            c.fill({x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d}, kMinimapPlayerColors[std::clamp(owner, 0, 11)]);
+            return RECT{x - d / 2, y - d / 2, x - d / 2 + d, y - d / 2 + d};
         };
         static std::vector<MinimapDot> live;
         live.clear();
-        if (gLiveMinimap && gLiveMinimap(live))
-            for (const MinimapDot& u : live) dot(u.x, u.y, u.size, u.owner);
-        else
-            for (const Unit& u : ed.units()) dot(u.x, u.y, int(ed.unitBox(u).right - ed.unitBox(u).left), u.owner);
+        if (gLiveMinimap && gLiveMinimap(live)) {  // (a live game's units move each frame)
+            for (const MinimapDot& u : live) c.fill(dotBox(u.x, u.y, u.size), kMinimapPlayerColors[std::clamp(u.owner, 0, 11)]);
+        } else {
+            const int bw = int(r.right - r.left) + 2 * kDotMargin, bh = int(r.bottom - r.top) + 2 * kDotMargin;
+            if (dotsFor != &ed || dotsRev != ed.revision() || dotsScale != sc || dotsRect.left != r.left || dotsRect.top != r.top ||
+                dots.width() != bw || dots.height() != bh) {
+                dotsFor = &ed, dotsRev = ed.revision(), dotsScale = sc, dotsRect = r;
+                dots.resize(bw, bh);  // (transparent)
+                uint32_t* px = dots.pixels();
+                for (const Unit& u : ed.units()) {
+                    const auto box = ed.unitBox(u);
+                    const RECT d = dotBox(u.x, u.y, int(box.right - box.left));
+                    const COLORREF color = kMinimapPlayerColors[std::clamp(int(u.owner), 0, 11)];
+                    const uint32_t v = 0xFF000000u | uint32_t(GetRValue(color)) | uint32_t(GetGValue(color)) << 8 | uint32_t(GetBValue(color)) << 16;  // (0xAABBGGRR)
+                    for (int y = std::max(0, int(d.top - r.top) + kDotMargin); y < std::min(bh, int(d.bottom - r.top) + kDotMargin); ++y)
+                        for (int x = std::max(0, int(d.left - r.left) + kDotMargin); x < std::min(bw, int(d.right - r.left) + kDotMargin); ++x)
+                            px[size_t(y) * size_t(bw) + size_t(x)] = v;
+                }
+                dots.changed();
+            }
+            if (!ed.units().empty())
+                c.bitmap(dots, {0, 0, bw, bh}, {int(r.left) - kDotMargin, int(r.top) - kDotMargin, int(r.left) - kDotMargin + bw, int(r.top) - kDotMargin + bh});
+        }
         // The current view: a light tint, the line in the accent.
         const RECT v = minimapView(r, sc);
         c.fill(v, kAccent, 36);

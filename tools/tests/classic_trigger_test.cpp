@@ -110,6 +110,15 @@ int main(int argc, char** argv) {
     std::vector<ClassicAiScript> ai;
     if (haveData) ai = loadClassicAiScripts(data);
     std::printf("AI scripts from aiscript.bin: %zu\n", ai.size());
+    if (haveData) {  // (StarEdit does not list the shared vision scripts; they work in the game, and the list has them, named)
+        bool vision = false;
+        for (const ClassicAiScript& s : ai)
+            vision |= classicFourCC(s.id) == "+Vi0" && s.name == "Turn ON Shared Vision for Player 1" && !s.location;
+        if (!vision) {
+            std::printf("FAILED: the AI scripts have no Turn ON Shared Vision for Player 1\n");
+            return 1;
+        }
+    }
     bool survey = false;
     std::vector<fs::path> files;
     for (int i = 2; i < argc; ++i) {

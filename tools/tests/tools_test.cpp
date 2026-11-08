@@ -9,6 +9,7 @@
 
 #include "stardraft/editor.h"
 #include "stardraft/game_data.h"
+#include "stardraft/terrain_stamp.h"
 
 using namespace stardraft;
 namespace fs = std::filesystem;
@@ -27,6 +28,35 @@ int main(int argc, char** argv) {
     GameData data;
     if (!data.open(argv[1], err)) return std::fprintf(stderr, "%s\n", err.c_str()), 1;
     const uint16_t Dirt = 1, HighDirt = 2, Water = 3, Grass = 4, Structure = 8, Mud = 9;
+
+    // Custom terrain as text (Copy as text, Ctrl+V): no "format", a mask only with a hole; the texts before (with
+    // "format" and a mask) still read; other JSON does not.
+    {
+        TerrainStamp t;
+        t.name = "Two", t.era = 1, t.width = 2, t.height = 1, t.tiles = {368, 384}, t.mask = {1, 1};
+        const std::string text = terrainStampText(t);
+        TerrainStamp back;
+        check(text.find("format") == std::string::npos && text.find("mask") == std::string::npos, "custom terrain text: no format, no mask when whole");
+        check(parseTerrainStamp(text, back, err) && back.width == 2 && back.tiles == t.tiles && back.mask == t.mask, "custom terrain text reads back");
+        t.mask = {1, 0};
+        check(terrainStampText(t).find("\"mask\": \"10\"") != std::string::npos, "custom terrain text: the mask with a hole");
+        const std::string old = R"({"format": "StarCraft custom terrain", "version": 1, "name": "Old", "tileset": "platform", "era": 1, "width": 1, "height": 1, "tiles": [5], "mask": "1"})";
+        check(parseTerrainStamp(old, back, err) && back.tiles == std::vector<uint16_t>{5}, "custom terrain text of 0.8.5 reads");
+        check(!parseTerrainStamp(R"({"a": 1})", back, err) && !parseTerrainStamp("hello", back, err), "other text is not custom terrain");
+    }
+
+    // copyTerrain with a selection of any form: only the corners whose tiles are all in it.
+    {
+        Editor ed(data);
+        ed.newMap(64, 64, 0, Dirt, err);
+        const Rect box{0, 0, 1024, 1024};
+        check(ed.copyTerrain(box, false, false), "copy of a box");
+        const size_t whole = ed.terrainCopies().terrain.corners.size();
+        check(ed.copyTerrain(box, false, false, Editor::SelectShape::Rect, [](int x, int y) { return x < 8 && y < 8; }), "copy of a form");
+        const size_t part = ed.terrainCopies().terrain.corners.size();
+        check(part > 0 && part < whole / 2, "the form's copy has only the corners of its tiles");
+        check(ed.terrainRegionCorners(512, 512).size() >= whole, "the reachable corners of one terrain: all of a flat map");
+    }
 
     // 1.1 / 1.2 / 1.3: brush footprint.
     {

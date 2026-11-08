@@ -8,6 +8,7 @@
 #endif
 #include <windows.h>
 #include <dbghelp.h>
+#include <psapi.h>
 
 #include <csignal>
 #include <cstdio>
@@ -15,6 +16,8 @@
 #include <algorithm>
 #include <exception>
 #include <fstream>
+#include <new>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -45,6 +48,7 @@ const char* exceptionName(DWORD code) {
     case 0xE5D0000B: return "C++ exception not caught (terminate)";
     case 0xE5D0000C: return "pure virtual call";
     case 0xE5D0000D: return "invalid parameter to the C library";
+    case 0xE5D0000E: return "out of memory (the program's limit)";
     default: return "exception";
     }
 }
@@ -136,7 +140,13 @@ DWORD WINAPI crashWork(void* p) {
     return 0;
 }
 
+// limitMemory: the room kept for the report (freed when a crash starts: the report has it at the limit too) and the limit.
+void* gReserve = nullptr;
+unsigned long long gLimit = 0;
+void freeReserve() { std::free(InterlockedExchangePointer(&gReserve, nullptr)); }
+
 LONG WINAPI onCrash(EXCEPTION_POINTERS* ep) {
+    freeReserve();
     static LONG once = 0;
     if (InterlockedExchange(&once, 1)) return EXCEPTION_EXECUTE_HANDLER;
     // The report is written by a new thread with a stack of its own: after a stack overflow the crashed thread has
@@ -174,6 +184,40 @@ void installCrashHandler(CrashHandler handler) {
     _set_invalid_parameter_handler([](const wchar_t*, const wchar_t*, const wchar_t*, unsigned, uintptr_t) { raise(0xE5D0000D); });
     signal(SIGABRT, [](int) { raise(0xE5D0000A); });
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+}
+
+void limitMemory() {
+    MEMORYSTATUSEX ms{sizeof ms};
+    if (!GlobalMemoryStatusEx(&ms) || ms.ullTotalPhys == 0) return;
+    unsigned long long limit = std::max<unsigned long long>(ms.ullTotalPhys / 4 * 3, 3ull << 30);
+    if (const char* test = std::getenv("STARDRAFT_MEMORY_LIMIT_MB"); test && std::atoi(test) > 0) limit = (unsigned long long)std::atoi(test) << 20;  // (a test)
+    if (limit >= ms.ullTotalPhys) return;  // (a computer with 3 GB or less: no limit under its memory)
+    HANDLE job = CreateJobObjectW(nullptr, nullptr);  // (kept open: the limit lasts as long as the program)
+    if (!job) return;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+    // (the programs it starts leave the job: euddraft, Restart now, an update, a browser have no limit of it)
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK;
+    info.ProcessMemoryLimit = SIZE_T(limit);
+    if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &info, sizeof info) || !AssignProcessToJobObject(job, GetCurrentProcess())) {
+        CloseHandle(job);
+        return;
+    }
+    // A failed new near the limit: the report ("out of memory", where it was), with the room kept for it. Far from the
+    // limit, the one request is too large by itself (a size read from a file): std::bad_alloc, as without the limit.
+    // Only the first failure writes the report: a failure of another thread after it waits (the report ends the program).
+    gLimit = limit;
+    gReserve = std::malloc(64u << 20);
+    std::set_new_handler([] {
+        PROCESS_MEMORY_COUNTERS_EX pm{};
+        pm.cb = sizeof pm;
+        if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pm), sizeof pm) &&
+            pm.PrivateUsage + (256ull << 20) < gLimit)
+            throw std::bad_alloc();
+        static LONG first = 0;
+        if (InterlockedExchange(&first, 1)) Sleep(INFINITE);
+        freeReserve();
+        raise(0xE5D0000E);
+    });
 }
 
 std::string systemName() {

@@ -29,6 +29,11 @@ struct CrashHandler {
 // pure virtual call, an invalid parameter).
 void installCrashHandler(CrashHandler handler);
 
+// Windows: the program may use at most 3/4 of the computer's memory (at least 3 GB): past it, an allocation fails and
+// the crash handler writes the report ("out of memory", where it was), so a runaway of the program ends it and not the
+// whole computer (a computer that stopped at 0.8.5's start). Nothing elsewhere.
+void limitMemory();
+
 // The system and its version ("Windows 10.0.26200", "macOS 15.1", "Linux 6.6.87").
 std::string systemName();
 

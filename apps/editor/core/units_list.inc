@@ -35,8 +35,18 @@ std::vector<int> unitsListRows(const Editor& ed, const std::wstring& search) {
     return rows;
 }
 
-// The text of a list cell: the unit type, the owner, x, y and the index (the unit's place in the map's UNIT section, from 0,
-// as StarEdit and SCMDraft number them).
+// The unit's index: its place in the map's UNIT section, from 0, with no start locations (the game makes no unit for a
+// start location, so it takes no number; the units after it keep their numbers). -1 for a start location.
+constexpr uint16_t kUnitsListStartLocation = 214;
+int unitsListIndex(const Editor& ed, int unit) {
+    const auto& units = ed.units();
+    if (units[size_t(unit)].type == kUnitsListStartLocation) return -1;
+    int n = 0;
+    for (int i = 0; i < unit; ++i) n += units[size_t(i)].type != kUnitsListStartLocation;
+    return n;
+}
+
+// The text of a list cell: the unit type, the owner, x, y and the index (unitsListIndex; a start location has none).
 std::wstring unitsListCell(const Editor& ed, int unit, size_t column) {
     const Unit& u = ed.units()[size_t(unit)];
     switch (column) {
@@ -44,7 +54,10 @@ std::wstring unitsListCell(const Editor& ed, int unit, size_t column) {
     case 1: return unitsListOwner(u.owner);
     case 2: return std::to_wstring(u.x);
     case 3: return std::to_wstring(u.y);
-    default: return std::to_wstring(unit);
+    default: {
+        const int index = unitsListIndex(ed, unit);
+        return index < 0 ? std::wstring() : std::to_wstring(index);
+    }
     }
 }
 

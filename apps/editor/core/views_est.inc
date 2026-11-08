@@ -13,7 +13,7 @@ public:
         add_.setText(tr(L"Add an establishing shot"));
         add_.setTip(tr(L"Pages with a picture and text that Cosmonarchy shows before the map starts"));
         add_.onClick = [this] { create(); };
-        picture_.setText(tr(L"Choose picture\x2026"));
+        picture_.setText(tr(L"Select a picture\x2026"));
         picture_.setTip(tr(L"An 8-bit PCX picture of 1920 x 1080 pixels, the game's screen. It goes into the map as it is."));
         picture_.onClick = [this] { choosePicture(); };
         text_.setText(tr(L"Edit text\x2026"));
@@ -29,9 +29,9 @@ public:
         deletePage_.setText(tr(L"Delete page"));
         deletePage_.setTone(stardraft::kit::Tone::Danger);
         deletePage_.onClick = [this] { deletePage(); };
-        remove_.setText(tr(L"Remove shot"));
+        remove_.setText(tr(L"Delete shot"));
         remove_.setTone(stardraft::kit::Tone::Danger);
-        remove_.setTip(tr(L"Take the establishing shot out of the map (its pictures too)"));
+        remove_.setTip(tr(L"Delete the establishing shot from the map (its pictures too)"));
         remove_.onClick = [this] { removeShot(); };
         std::vector<stardraft::kit::DropdownItem> places;
         for (const auto& [tag, name] : stardraft::cmbw::establishingShotPlaces()) places.push_back({tr(widen(name).c_str())});
@@ -47,9 +47,7 @@ public:
     void paint(draw::Canvas& c) override {
         c.fill({0, 0, width(), height()}, kBg);
         const int pad = scale(stardraft::kit::kDialogPad), rowH = scale(stardraft::kit::kRowH), bh = scale(stardraft::kit::kButtonH);
-        c.text({pad, pad, width() - pad, pad + rowH}, tr(L"Establishing shot"), kText, draw::kMiddle);
-        c.fill({pad, pad + rowH - 1, width() - pad, pad + rowH}, kBorder);
-        const int noteY = pad + rowH + scale(6);
+        const int noteY = kitpaint::drawSectionHeader(c, pad, width() - pad, pad, rowH, tr(L"Establishing shot"));
         c.text({pad, noteY, width() - pad, noteY + rowH},
                tr(L"Pages that Cosmonarchy shows before the map starts: each a 1920 x 1080 picture with text (rez\\est.txt in the map)."), kDim,
                draw::kMiddle | draw::kEllipsis);
@@ -79,10 +77,10 @@ public:
         if (page_.value() != page) page_.setValue(pages ? page : 0);
         // (no shot: Add where the page list is; the page's parts below it, off)
         page_.setVisible(has);
-        place(page_, {pad, top, pad + pw - scale(2 * 100 + 16), top + bh});
-        place(add_, {pad, top, pad + pw - scale(2 * 100 + 16), top + bh});
-        place(addPage_, {pad + pw - scale(200 + 8), top, pad + pw - scale(100 + 8), top + bh});
-        place(deletePage_, {pad + pw - scale(100), top, pad + pw, top + bh});
+        page_.setFrame({pad, top, pad + pw - scale(2 * 100 + 16), top + bh});
+        add_.setFrame({pad, top, pad + pw - scale(2 * 100 + 16), top + bh});
+        addPage_.setFrame({pad + pw - scale(200 + 8), top, pad + pw - scale(100 + 8), top + bh});
+        deletePage_.setFrame({pad + pw - scale(100), top, pad + pw, top + bh});
 
         // The preview: the page's picture (the page before's when it has none of its own), its text at its place.
         const int py = top + bh + scale(8);
@@ -124,10 +122,10 @@ public:
             if (b) {
                 info += L"   " + std::to_wstring(picW) + L" x " + std::to_wstring(picH);
                 if (picW == kShotW && picH == kShotH) info += tr(L": the game's screen");
-                else info += tr(L": not 1920 x 1080 (choose the picture again to make it so)"), infoColor = kWarn;
+                else info += tr(L": not 1920 x 1080 (select the picture again to make it so)"), infoColor = kWarn;
             }
         } else if (has) {
-            info = tr(L"Choose a picture of 1920 x 1080 pixels, the game's screen"), infoColor = kWarn;
+            info = tr(L"Select a picture of 1920 x 1080 pixels, the game's screen"), infoColor = kWarn;
         }
         c.text({pad, iy, pad + pw, iy + rowH}, info, infoColor, draw::kMiddle | draw::kEllipsis);
 
@@ -136,23 +134,23 @@ public:
         int y = py;
         c.text({x, top, x + w, top + bh}, pg ? tr(L"Page ") + std::to_wstring(page + 1) + tr(L" of ") + std::to_wstring(pages) : std::wstring(), kText,
                draw::kMiddle);
-        place(picture_, {x, y, x + w, y + bh}), y += bh + scale(4);
+        picture_.setFrame({x, y, x + w, y + bh}), y += bh + scale(4);
         c.text({x, y, x + w, y + rowH}, tr(L"1920 x 1080, 8-bit PCX"), kDim, draw::kMiddle), y += rowH + scale(6);
-        place(text_, {x, y, x + w, y + bh}), y += bh + scale(8);
+        text_.setFrame({x, y, x + w, y + bh}), y += bh + scale(8);
         c.text({x, y, x + w, y + rowH}, tr(L"Place of the text"), kDim, draw::kMiddle), y += rowH;
         int placeIndex = 0;
         const auto& places = stardraft::cmbw::establishingShotPlaces();
         for (size_t i = 0; i < places.size(); ++i)
             if (pg && places[i].first == pg->place) placeIndex = int(i);
         if (place_.value() != placeIndex) place_.setValue(placeIndex);
-        place(place_, {x, y, x + w, y + bh}), y += bh + scale(8);
+        place_.setFrame({x, y, x + w, y + bh}), y += bh + scale(8);
         display_.setText(tr(L"Shown for: ") + seconds(pg ? pg->displayMs : -1));
-        place(display_, {x, y, x + w, y + bh}), y += bh + scale(20);
+        display_.setFrame({x, y, x + w, y + bh}), y += bh + scale(20);
         c.text({x, y, x + w, y + rowH}, tr(L"All pages"), kDim, draw::kMiddle), y += rowH;
         c.fill({x, y - 1, x + w, y}, kBorder), y += scale(6);
         fade_.setText(tr(L"Fade: ") + seconds(shot.fadeMs));
-        place(fade_, {x, y, x + w, y + bh}), y += bh + scale(8);
-        place(remove_, {x, y, x + w, y + bh});
+        fade_.setFrame({x, y, x + w, y + bh}), y += bh + scale(8);
+        remove_.setFrame({x, y, x + w, y + bh});
     }
 
 private:
@@ -169,10 +167,6 @@ private:
         wchar_t s[32];
         std::swprintf(s, 32, L"%g s", ms / 1000.0);
         return s;
-    }
-    static void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
     }
     // The picture of the map's file `name` (decoded again when the file changes), and its size.
     draw::Bitmap* pictureOf(const Editor& ed, const std::string& name, int& w, int& h) {
@@ -232,7 +226,7 @@ private:
                 p.background = "est\\est.pcx", p.displayMs = 6500, p.place = "SCREENLOWERLEFT";
                 if (p.lines.empty()) p.lines = {"MAP TITLE", "", "A place, a time"};
             },
-            tr(L"Added an establishing shot: choose its picture (1920 x 1080) and edit its text"));
+            tr(L"Added an establishing shot: select its picture (1920 x 1080) and edit its text"));
     }
     void addPage() {
         Editor* ed = appState().ed.get();
@@ -368,7 +362,7 @@ private:
                 if (!f.empty() && ed->archiveFile(f) && std::find(names.begin(), names.end(), mapName(*ed, f)) == names.end()) names.push_back(mapName(*ed, f));
         ed->removeArchiveFiles(names);
         page = 0;
-        setMessage(tr(L"Removed the establishing shot"));
+        setMessage(tr(L"Deleted the establishing shot"));
         invalidate();
     }
 };

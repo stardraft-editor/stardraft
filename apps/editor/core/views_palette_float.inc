@@ -196,11 +196,6 @@ struct FloatPaletteView final : PanelStripView {
         return false;
     }
     const FloatPaletteParts& parts() const { return parts_; }
-    void setAltShown(bool on) {
-        if (altShown == on) return;
-        altShown = on;
-        place();
-    }
 
     // The same sizes as the side bar's rows (core/layout.inc: the search row, the View button).
     void place() {
@@ -329,7 +324,6 @@ struct PalettePanelView final : PanelStripView {
         const auto kids = children();
         for (View* c : kids) remove(*c);
     }
-    std::vector<draw::View*> ownViews() { return {&type, &owner, &sections, &search, &sortButton, &viewButton, &list}; }
     bool hasOwner() const { return mode == Mode::Units || mode == Mode::Sprites; }
     bool hasSections() const { return mode != Mode::Terrain; }
     // The same sizes as the side bar's rows (core/layout.inc).

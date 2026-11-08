@@ -58,46 +58,6 @@ private:
         std::wstring feedback;
     };
 
-    static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
-    static int sideHeader(draw::Canvas& c, int x, int y, int w, const std::wstring& title, size_t count) {
-        const draw::Rect h{x, y, x + w, y + scale(22)};
-        c.text(h, title, kText, draw::kMiddle);
-        c.text(h, std::to_wstring(count), kDim, draw::kMiddle | draw::kRight);
-        y += scale(30);
-        if (!count) {
-            c.text({x, y, x + w, y + scale(20)}, L"No other data uses this entry", kDim, draw::kMiddle | draw::kEllipsis);
-            y += scale(22);
-        }
-        return y;
-    }
-    // A group's heading: its icon and its .dat's title, small and dim; the first group has no gap above it.
-    static int sideGroup(draw::Canvas& c, int x, int y, int w, const std::wstring& name, bool first, std::optional<UiIcon> icon) {
-        if (!first) y += scale(8);
-        const draw::Font old = c.setFont(smallFont(c));
-        if (icon) {
-            c.icon({x, y - scale(1), x + scale(16), y + scale(16)}, int(*icon), kDim, scale(16));
-            x += scale(22), w -= scale(22);
-        }
-        c.text({x, y, x + w, y + scale(15)}, name, kDim, draw::kMiddle | draw::kEllipsis);
-        c.setFont(old);
-        return y + scale(18);
-    }
-    // One reference: its icon and name in the accent; underlined while the pointer is over it.
-    static void sideLink(draw::Canvas& c, int x, int y, int w, const std::wstring& text, const draw::Image& icon, bool over) {
-        const int h = scale(20);
-        int tx = x;
-        if (icon) {
-            c.fitted(icon, {x, y + scale(1), x + scale(18), y + h - scale(1)});
-            tx += scale(22);
-        }
-        const draw::Rect nr{tx, y, x + w, y + h};
-        c.text(nr, text, over ? kAccentBright : kAccent, draw::kMiddle | draw::kEllipsis);
-        if (over) {
-            const int tw = std::min<int>(c.measure(text), nr.width());
-            c.line(tx, nr.bottom - scale(3), tx + tw, nr.bottom - scale(3), kAccentBright);
-        }
-    }
-
     const Link* linkAt(draw::Point pt) const {
         for (const auto& l : links_)
             if (l.r.contains(pt)) return &l;
@@ -120,21 +80,21 @@ private:
 
 void DataRefsPage::paint(draw::Canvas& c) {
     const int w = width(), h = height();
-    c.fill({0, 0, w, h}, kPanel);
-    c.fill({0, 0, 1, h}, kBorder);
+    kitpaint::drawSidePanel(c, {0, 0, w, h});
     const int x = scale(14), sw = w - scale(14) - scale(10);
     int y = scale(12) - scroll_;
     links_.clear();
     bool shown = false;
     const auto refs = host_.refs(shown);
     if (shown) {
-        y = sideHeader(c, x, y, sw, L"References", refs.size());
+        y = kitpaint::drawSideHeader(c, x, y, sw, L"References", refs.size());
         std::string group;
         for (const auto& r : refs) {
-            if (r.dat != group) y = sideGroup(c, x, y, sw, r.group, group.empty(), r.groupIcon), group = r.dat;
+            if (r.dat != group)
+                y = kitpaint::drawSideGroup(c, x, y, sw, r.group, group.empty(), r.groupIcon.has_value(), r.groupIcon.value_or(UiIcon{})), group = r.dat;
             const draw::Rect row{x, y, x + sw, y + scale(20)};
             const bool over = hasPointer_ && row.contains(pointer_);
-            sideLink(c, x, y, sw, r.name, r.icon, over);
+            kitpaint::drawSideLink(c, x, y, sw, r.name, r.icon, over);
             links_.push_back({row, r.dat, r.entry, r.feedback});
             y += scale(22);
         }
@@ -179,17 +139,8 @@ bool DataRefsPage::mouse(const draw::MouseEvent& e) {
 bool DataRefsPage::vscroll(int code, int pos, int track, int page) {
     // The window's bar (the SB_* requests): a line is a row, a page is the visible height.
     int s = scroll_;
-    switch (code) {
-    case 0: s -= scale(20); break;   // SB_LINEUP
-    case 1: s += scale(20); break;   // SB_LINEDOWN
-    case 2: s -= page; break;        // SB_PAGEUP
-    case 3: s += page; break;        // SB_PAGEDOWN
-    case 4:                          // SB_THUMBPOSITION
-    case 5: s = track; break;        // SB_THUMBTRACK
-    case 6: s = 0; break;            // SB_TOP
-    case 7: s = 1 << 30; break;      // SB_BOTTOM
-    default: (void)pos; return false;
-    }
+    (void)pos;
+    if (!kitpaint::scrollRequest(code, s, scale(20), page, track)) return false;
     setScroll(s);
     return true;
 }

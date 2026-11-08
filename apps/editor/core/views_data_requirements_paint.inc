@@ -44,24 +44,6 @@ public:
     virtual void fillAlpha(draw::Rect r, draw::Color c, uint8_t alpha) = 0;
 };
 
-// The section's heading and a field's label (the kit's sectionHeader and fieldLabel).
-int requirementSectionHeader(draw::Canvas& c, const RequirementLayout& l, int y, const std::wstring& name, bool changed) {
-    c.text({l.x0, y, l.colRight, y + l.rowH}, name, changed ? kGood : kText, draw::kMiddle);
-    c.fill({l.x0, y + l.rowH - 1, l.colRight, y + l.rowH}, kBorder);
-    return y + l.rowH + scale(6);
-}
-void requirementFieldLabel(draw::Canvas& c, const RequirementLayout& l, int y, const std::wstring& name, bool changed) {
-    c.text({l.x0, y, l.x0 + l.labelW, y + l.rowH}, name, changed ? kGood : kDim, draw::kMiddle | draw::kEllipsis);
-}
-
-// A radio mark (the kit's radioMark).
-void requirementRadio(draw::Canvas& c, draw::Rect b, bool on, bool over) {
-    c.ellipse(b, kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong);
-    if (!on) return;
-    const int in = (b.right - b.left) * 3 / 10;
-    c.ellipse({b.left + in, b.top + in, b.right - in + 1, b.bottom - in + 1}, kAccent, draw::kNone);
-}
-
 // Picks a step: the opcodes, then "End of the level's list". `then` gets the new step.
 void requirementPickOp(RequirementsPaintHost& h, draw::Rect box, uint16_t current, std::function<void(RequirementOp)> then) {
     std::vector<ListPickItem> items;
@@ -98,14 +80,14 @@ int paintRequirementList(RequirementsPaintHost& h, const RequirementLayout& l, i
     const bool changed = h.reqs().changed(k, entry);
     static const wchar_t* titles[] = {L"Requirements to make", L"Requirements to research", L"Requirements to research",
                                       L"Requirements to use", L"Requirements"};
-    y = requirementSectionHeader(c, l, y, titles[k], changed);
+    y = kitpaint::drawSectionHeader(c, l.x0, l.colRight, y, l.rowH, titles[k], changed);
     auto setList = [&h, k, entry](RequirementList n) {
         h.reqs().set(k, entry, std::move(n));
         h.edited();
     };
     const int mode = requirementWay(changed, list);  // the four ways
     {
-        requirementFieldLabel(c, l, y, L"Use", changed);
+        kitpaint::drawFieldLabel(c, {l.x0, y, l.x0 + l.labelW, y + l.rowH}, L"Use", changed);
         struct Way {
             const wchar_t* name;
             const wchar_t* tip;
@@ -121,7 +103,7 @@ int paintRequirementList(RequirementsPaintHost& h, const RequirementLayout& l, i
             const int s = scale(14), tw = c.measure(ways[w].name);
             const draw::Rect r{x, y, x + s + scale(8) + tw + scale(4), y + l.rowH};
             const draw::Rect b{r.left, (r.top + r.bottom - s) / 2, r.left + s, (r.top + r.bottom - s) / 2 + s};
-            requirementRadio(c, b, mode == w, h.hot(r));
+            kitpaint::drawRadioMark(c, b, mode == w, h.hot(r));
             const draw::Rect t{b.right + scale(8), r.top, r.right, r.bottom};
             c.text(t, ways[w].name, mode == w ? (w == kReqDefault ? kText : kGood) : h.hot(r) ? kText : kDim, draw::kMiddle);
             h.hit(r,

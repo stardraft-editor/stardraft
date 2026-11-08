@@ -463,7 +463,7 @@ inline bool placeReleaseCli(const fs::path& self, const fs::path& dir) {
 inline std::wstring installRelease(const fs::path& self, const fs::path& fresh, const std::function<bool(const fs::path&)>& start) {
     if (const std::wstring failed = placeRelease(self, fresh); !failed.empty()) return failed;
     if (start(self)) return placeReleaseCli(self, fresh.parent_path()), std::wstring();
-    if (stardraft::platform::restoreProgram(self)) return L"The new program did not start. StarDraft 2 did not change.";
+    if (stardraft::platform::restoreProgram(self)) return L"The new program did not start. The old program is in its place again.";
     return tr(L"The new program did not start. The old program is ") + stardraft::platform::oldProgramFile(self).wstring() + L".";
 }
 
@@ -490,22 +490,22 @@ inline std::wstring rollBackUpdate(const fs::path& self, const std::vector<std::
     std::error_code ec;
     if (self.empty() || !fs::exists(stardraft::platform::oldProgramFile(self), ec) || !stardraft::platform::rollBackUpdate(self)) return {};
     const bool started = stardraft::platform::startProgram(self, args);
-    return L"StarDraft 2 could not start the new release on this computer: it could not use the video card (" + widen(why) +
+    return L"Could not start the new release on this computer: the video card is not usable (" + widen(why) +
            L").\n\nThe release before the update is in its place again" + (started ? L" and starts now." : L". Start StarDraft 2 again.");
 }
 
 // Program options > Updates > Look for updates: the status bar's text after a change.
 inline std::wstring updateCheckMessage(bool on) {
-    return on ? L"StarDraft 2 looks for a newer release at start and each hour" : L"StarDraft 2 does not look for newer releases";
+    return on ? L"Updates: look for a newer release at start and each hour" : L"Updates: do not look for newer releases";
 }
 
 // --- Crash reports ---------------------------------------------------------------------------------------------------
 
 // Program options > Crash reports (0 ask, 1 send, 2 do not send): the status bar's text after a change.
 inline std::wstring crashModeMessage(int mode) {
-    return mode == 1 ? L"StarDraft 2 sends an anonymous report when it crashes"
-           : mode == 2 ? L"StarDraft 2 does not send crash reports (a report stays on this computer)"
-                       : L"After a crash, StarDraft 2 asks at the next start if it can send the report";
+    return mode == 1 ? L"Crash reports: send an anonymous report after a crash"
+           : mode == 2 ? L"Crash reports: do not send (a report stays on this computer)"
+                       : L"Crash reports: ask at the next start after a crash";
 }
 
 // The report's first lines: the program, its build and commit, the system and the video card.
@@ -518,16 +518,16 @@ inline std::string crashHeader(const std::string& build, const std::wstring& gpu
 inline std::wstring crashStoppedText(const fs::path& dir, int mode) {
     // A build with no token (made from the source, as the Flatpak) sends nothing and asks nothing (Discord feedback #102).
     if (issueToken().empty())
-        return L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
+        return L"An error stopped the program. The crash report is in " + dir.wstring() +
                L". This build cannot send it: attach report.txt to a report on GitHub or Discord.";
-    if (mode == 1) return L"StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.";
-    return L"StarDraft 2 stopped because of an error. The crash report is in " + dir.wstring() +
-           (mode == 2 ? L" (crash reports are off)." : L". At the next start, StarDraft 2 asks if you want to send the crash report.");
+    if (mode == 1) return L"An error stopped the program. A crash report goes to the developers so that they can repair the error.";
+    return L"An error stopped the program. The crash report is in " + dir.wstring() +
+           (mode == 2 ? L" (crash reports are off)." : L". At the next start, you can send the crash report.");
 }
 
 // The question at the next start (Options > Crash reports: Ask), about the reports in `folder`.
 inline std::wstring crashAskText(const fs::path& folder) {
-    return L"StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can "
+    return L"An error stopped the program the last time. Send the crash report to the developers, so that they can "
            L"repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last "
            L"log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public "
            L"on GitHub. It has no maps. It is in " + folder.wstring() + L".";

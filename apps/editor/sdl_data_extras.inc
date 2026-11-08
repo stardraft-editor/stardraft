@@ -97,15 +97,6 @@ int title(draw::Canvas& c, const kitpaint::FormLayout& l, int y, const std::wstr
 void fieldLabel(draw::Canvas& c, const kitpaint::FormLayout& l, int y, const std::wstring& name, bool changed) {
     kitpaint::drawFieldLabel(c, {l.x0, y, l.x0 + l.labelW, y + l.rowH}, name, changed);
 }
-// A list row's ground: selected (with the accent bar), under the mouse, or none (ui::listRow).
-void listRow(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
-    if (selected) {
-        c.fill(r, kSel);
-        c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-    } else if (over) {
-        c.fill(r, kRowHot);
-    }
-}
 
 }  // namespace sdlx
 
@@ -200,7 +191,7 @@ void sdlPaintStringsForm(draw::Canvas& c, int& y) {
         c.roundBox(pb, draw::kNone, draw::rgb(60, 64, 70), float(scale(4)));
         drawGameText(c, {pb.left + scale(10), pb.top + scale(8), pb.right - scale(10), pb.bottom}, previewRaw, draw::rgb(208, 208, 208));
         {  // which box is which: this one is the game's look (in the small font)
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));
+            const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
             c.text({pb.left + scale(10), pb.bottom - scale(18), pb.right - scale(8), pb.bottom - scale(3)}, L"Game preview", draw::rgb(120, 124, 130),
                    draw::kMiddle | draw::kRight);
             c.setFont(of);
@@ -252,8 +243,7 @@ void sdlPaintStringsForm(draw::Canvas& c, int& y) {
         gSdlStringsText.setBytes(stringEditBody(raw));
         x.textDirty = false;
     }
-    const draw::Rect now = gSdlStringsText.frame();
-    if (now.left != er.left || now.top != er.top || now.right != er.right || now.bottom != er.bottom) gSdlStringsText.setFrame(er);
+    gSdlStringsText.setFrame(er);
     gSdlStringsText.setColors(draw::rgb(184, 184, 232), draw::rgb(0x11, 0x11, 0x11));  // (main.cpp's kRichDefault and kRichBack, the dark theme's)
     gSdlStringsText.setChanged(x.strings.changed(id - 1));
     gSdlStringsText.setVisible(true);
@@ -414,7 +404,7 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
         const Button& b = bs[i];
         const draw::Rect r{l.x0 - scale(6), y, l.colRight, y + l.rowH};
         const bool on = int(i) == x.button, hot = sdlFormHot(r);
-        sdlx::listRow(c, r, on, hot);
+        kitpaint::drawListRow(c, r, on, hot);
         int sharing = 0;  // others in the same place
         for (const Button& o : bs) sharing += o.pos == b.pos;
         const int gx = l.x0 + scale(14);  // after the grip
@@ -449,9 +439,9 @@ void sdlPaintButtonsForm(draw::Canvas& c, int& y) {
             const int w = scale(stardraft::kit::kIconBox), h = std::min(r.height(), scale(stardraft::kit::kIconBox));
             int ax = r.right - scale(4) - w * 3;
             const int ay = (r.top + r.bottom - h) / 2;
-            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveUp, move(-1), L"Earlier: checked before the one above", kitpaint::Tone::Normal, i > 0);
+            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveUp, move(-1), L"Move up: checked before the one above", kitpaint::Tone::Normal, i > 0);
             ax += w;
-            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveDown, move(1), L"Later", kitpaint::Tone::Normal, i + 1 < bs.size());
+            sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::MoveDown, move(1), L"Move down", kitpaint::Tone::Normal, i + 1 < bs.size());
             ax += w;
             sdlx::iconButton(c, {ax, ay, ax + w, ay + h}, UiIcon::Close,
                              [set, bi] {

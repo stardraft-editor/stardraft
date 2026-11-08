@@ -2,7 +2,7 @@
 // edges in pixels as the location has them (Left, Top, Right, Bottom, typed freely: left more than right inverts it
 // left and right, top more than bottom inverts it top and bottom), the Type list (Normal or which inversion: it shows
 // the type the edges give, and a type picked in it swaps the edges to give it) and the elevations in the location (MRGN
-// flags). OK sets all of them as one undo step
+// flags). Apply sets all of them as one undo step
 // (Editor::editLocation). The dialog is a kit Dialog (Host::runModal); the host (main.cpp: showLocationEdit on Windows)
 // selects the location, sets the owner window and refreshes the list after it.
 
@@ -82,10 +82,10 @@ constexpr int kTypeY = kSizeY + kPitch;                    // 144: the type line
 constexpr int kHeadingY = kTypeY + kPitch + 8;             // 184: the elevations' heading, a line under it at 208
 constexpr int kElevY = kHeadingY + 24 + 8;                 // 216: the elevations' check boxes, 3 to a row
 constexpr int kElevStepX = kContentW / 3, kElevW = kElevStepX - 8;
-constexpr int kButtonsY = kElevY + 2 * kPitch + 16;        // 296: OK and Cancel (ui::kButtonH, 28 px)
+constexpr int kButtonsY = kElevY + 2 * kPitch + 16;        // 296: Apply and Cancel (ui::kButtonH, 28 px)
 constexpr int kButtonH = 28;
 constexpr int kWindowH = kButtonsY + kButtonH + kPad;      // 340
-constexpr int kErrorW = kContentW - 2 * 88 - 8 - 8;        // the error line: up to OK (two buttons of ui::kButtonMinW)
+constexpr int kErrorW = kContentW - 2 * 88 - 8 - 8;        // the error line: up to Apply (two buttons of ui::kButtonMinW)
 }  // namespace locPropsLayout
 
 class LocationPropsView final : public draw::View {
@@ -139,15 +139,15 @@ public:
         check();
     }
 
-    // The dialog this view is in (OK turns off while the edges are wrong).
+    // The dialog this view is in (Apply turns off while the edges are wrong).
     void setDialog(stardraft::kit::Dialog* d) {
         dlg_ = d;
         check();
     }
 
-    // Whether the edges are right (OK may close the dialog).
+    // Whether the edges are right (Apply may close the dialog).
     bool valid() const { return valid_; }
-    // What the fields hold (a call after OK).
+    // What the fields hold (a call after Apply).
     Editor::LocationEdit values() const {
         Editor::LocationEdit e;
         e.name = narrow(name_.text());
@@ -157,8 +157,8 @@ public:
         return e;
     }
 
-    // For the self-tests: an edge's text (as typed), an elevation's check box, the type line, whether OK is on, and a
-    // press of OK (it does nothing while the edges are wrong) or Cancel.
+    // For the self-tests: an edge's text (as typed), an elevation's check box, the type line, whether Apply is on, and a
+    // press of Apply (it does nothing while the edges are wrong) or Cancel.
     void setEdge(int k, int v) {
         edge_[k].setText(std::to_wstring(v));
         check();
@@ -224,7 +224,7 @@ public:
     }
 
 private:
-    // The size and error lines from the edges; OK is off while they are wrong.
+    // The size and error lines from the edges; Apply is off while they are wrong.
     void check() {
         std::wstring t[4];
         for (int k = 0; k < 4; ++k) t[k] = edge_[k].text();
@@ -264,17 +264,17 @@ private:
     bool valid_ = false, focusName_ = true, focused_ = false;
 };
 
-// Runs Location properties of location `loc` from `from` (the program's anchor view). OK puts the edit into the
+// Runs Location properties of location `loc` from `from` (the program's anchor view). Apply puts the edit into the
 // location (one undo step; it is off while the edges are wrong); Cancel and the window's close box change nothing.
 // `focusName`: the name has the keyboard, selected (not in a background run). Returns the button that closed it.
 // `shown` is the content while the dialog is open, so the host can find its window.
-// The dialog around `view`: its buttons, the OK rule and the insets. Returns the window's size (the snapshots show it
+// The dialog around `view`: its buttons, the Apply rule and the insets. Returns the window's size (the snapshots show it
 // without a window).
 inline draw::Point locPropsDialogSetup(stardraft::kit::Dialog& dlg, LocationPropsView& view) {
     using namespace locPropsLayout;
     dlg.setContent(view);
     std::vector<stardraft::kit::DialogButton> buttons;
-    buttons.push_back({tr(L"OK"), kLocPropsOk, true, false, false, 0});
+    buttons.push_back({tr(L"Apply"), kLocPropsOk, true, false, false, 0});
     buttons.push_back({tr(L"Cancel"), kLocPropsCancel, false, true, false, 0});
     dlg.setButtons(std::move(buttons));
     dlg.setAllow([&view](int r) { return r != kLocPropsOk || view.valid(); });

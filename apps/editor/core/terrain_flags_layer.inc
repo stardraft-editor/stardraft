@@ -1,13 +1,15 @@
 // View > Overlays > Terrain flags (roadmap R34; portable, core.inc): what the tileset says about each place of the
 // terrain, in one of four views:
-//   - Walkable: the minitiles (8 px) that ground units can walk on (green) and the others (red), VF4 flag 0x1.
+//   - Walkable: the minitiles (8 px) that ground units cannot walk on, dark (VF4 flag 0x1); the walkable ground as it is.
 //   - Height: low (blue), middle (yellow) and high ground (red), VF4 flags 0x2 and 0x4. Units on lower ground do not
 //     see up, and their attacks up can miss.
 //   - Blocks view: the minitiles that block the line of sight (VF4 flag 0x8).
 //   - Buildable: the tiles (32 px) where buildings can go (green) and the others (red), from the CV5 group.
+//   - Isometric terrain: the tiles that the ISOM does not give (orange): placed as they are (Rectangle, Tile, Custom,
+//     ramps of tiles), which a brush stroke near them can change.
 // The shapes are made again when the terrain changes (its revision), the tileset or the view changes.
 
-enum class TerrainFlagsView { Off, Walkable, Height, BlocksView, Buildable };
+enum class TerrainFlagsView { Off, Walkable, Height, BlocksView, Buildable, Isom };
 
 struct TerrainFlagsLayer {
     TerrainFlagsView view = TerrainFlagsView::Off;
@@ -69,6 +71,14 @@ void makeTerrainFlagsShapes(const Editor& ed) {
     const int tw = ter.width, th = ter.height;
     const uint8_t a = gLightTheme ? 0x70 : 0x60;
     const uint32_t good = 0x30D05000u | a, bad = 0xE0303000u | a;
+    if (gTerrainFlags.view == TerrainFlagsView::Isom) {
+        const std::vector<uint8_t> not_ = ed.tilesNotFromIsom();
+        std::vector<uint8_t> kind(size_t(tw) * th, 0);
+        for (size_t i = 0; i < kind.size() && i < not_.size(); ++i) kind[i] = not_[i] ? 1 : 0;
+        const uint32_t colors[2] = {0, 0xF0901000u | uint8_t(a + 0x20)};
+        terrainFlagsFills(kind, tw, th, 32, colors);
+        return;
+    }
     if (gTerrainFlags.view == TerrainFlagsView::Buildable) {
         std::vector<uint8_t> kind(size_t(tw) * th, 0);
         for (int i = 0; i < tw * th; ++i) {
@@ -91,7 +101,7 @@ void makeTerrainFlagsShapes(const Editor& ed) {
                 const uint16_t f = known ? ts.minitileFlags[size_t(mega)][size_t(k)] : 0;
                 uint8_t& out = kind[size_t(ty * 4 + k / 4) * w + size_t(tx * 4 + k % 4)];
                 switch (gTerrainFlags.view) {
-                case TerrainFlagsView::Walkable: out = (f & Tileset::kWalkable) ? 1 : 2; break;
+                case TerrainFlagsView::Walkable: out = (f & Tileset::kWalkable) ? 0 : 2; break;
                 case TerrainFlagsView::Height: out = !known ? 0 : (f & 4) ? 3 : (f & 2) ? 2 : 1; break;
                 case TerrainFlagsView::BlocksView: out = (f & 8) ? 1 : 0; break;
                 default: break;
@@ -104,8 +114,8 @@ void makeTerrainFlagsShapes(const Editor& ed) {
     } else if (gTerrainFlags.view == TerrainFlagsView::BlocksView) {
         const uint32_t colors[2] = {0, 0xE040F000u | uint8_t(a + 0x30)};
         terrainFlagsFills(kind, w, h, 8, colors);
-    } else {
-        const uint32_t colors[3] = {0, good, bad};
+    } else {  // (Walkable: the ground units cannot walk on, dark)
+        const uint32_t colors[3] = {0, 0, 0x000000A8u};
         terrainFlagsFills(kind, w, h, 8, colors);
     }
 }
@@ -124,7 +134,7 @@ bool terrainFlagsMinitile(const Tileset& ts, uint16_t v, int k, draw::Color& col
     const bool known = mega >= 0 && size_t(mega) < ts.minitileFlags.size();
     const uint16_t f = known ? ts.minitileFlags[size_t(mega)][size_t(k)] : 0;
     switch (gTerrainFlags.view) {
-    case TerrainFlagsView::Walkable: return rgb((f & Tileset::kWalkable) ? 0x30D05000u : 0xE0303000u, a);
+    case TerrainFlagsView::Walkable: return !(f & Tileset::kWalkable) && rgb(0x00000000u, 0xA8);
     case TerrainFlagsView::Height: return known && rgb((f & 4) ? 0xF0502800u : (f & 2) ? 0xE8C83000u : 0x4080FF00u, a);
     case TerrainFlagsView::BlocksView: return (f & 8) && rgb(0xE040F000u, uint8_t(a + 0x30));
     default: return false;
@@ -151,9 +161,10 @@ void terrainFlagsSet(TerrainFlagsView v) {
     shellPaletteRebuilt();  // (the Tiles list shows the overlay on its tiles too)
     switch (gTerrainFlags.view) {
     case TerrainFlagsView::Off: setMessage(tr(L"Terrain flags are hidden (View > Overlays)")); break;
-    case TerrainFlagsView::Walkable: setMessage(tr(L"Terrain flags: walkable (green), not walkable (red)")); break;
+    case TerrainFlagsView::Walkable: setMessage(tr(L"Terrain flags: the ground that units cannot walk on is dark")); break;
     case TerrainFlagsView::Height: setMessage(tr(L"Terrain flags: low ground (blue), middle ground (yellow), high ground (red)")); break;
     case TerrainFlagsView::BlocksView: setMessage(tr(L"Terrain flags: the ground that blocks the line of sight (purple)")); break;
     case TerrainFlagsView::Buildable: setMessage(tr(L"Terrain flags: buildable (green), not buildable (red)")); break;
+    case TerrainFlagsView::Isom: setMessage(tr(L"Terrain flags: the tiles that the isometric terrain does not give (orange)")); break;
     }
 }

@@ -1,0 +1,67 @@
+# The macOS disk image of the newest release, when a runner comes after the release: GitHub's macOS arm64 runners can be
+# out of capacity for hours, and a job that gets none is cancelled after 15 minutes. So each 20 minutes, while the newest
+# release has no disk image (and RELEASE_MAC is "on"):
+#   - the macos job of the tag's tested run was cancelled: that run's failed jobs run again;
+#   - the macos job passed: the tag's release run runs again, once (release_make.ps1 adds the disk image; the zip stays,
+#     no second Discord post).
+# A macos job that failed (not cancelled) is not run again: a person must look at it.
+name: macOS disk image of the release
+
+on:
+  schedule:
+    - cron: '7,27,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write  # to run the jobs again
+
+concurrency:
+  group: mac-release
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run the job that is missing again
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_MAC: ${{ vars.RELEASE_MAC }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$RELEASE_MAC" != on ]; then echo "RELEASE_MAC is not on"; exit 0; fi
+          tag=$(gh release view --repo "$REPO" --json tagName --jq .tagName)
+          if gh release view "$tag" --repo "$REPO" --json assets --jq '.assets[].name' | grep -q 'macos-arm64\.dmg$'; then
+            echo "$tag has its disk image"; exit 0
+          fi
+          sha=$(gh api "repos/$REPO/commits/$tag" --jq .sha)
+          build=$(gh api "repos/$REPO/actions/workflows/build.yml/runs?head_sha=$sha&event=push&per_page=100" \
+            --jq '[.workflow_runs[] | select(.head_branch == "master")][0].id // empty')
+          if [ -z "$build" ]; then echo "$tag: no master build of $sha"; exit 0; fi
+          job=$(gh api "repos/$REPO/actions/runs/$build/jobs?per_page=100" --jq '.jobs[] | select(.name == "macos")')
+          status=$(jq -r .status <<< "$job")
+          conclusion=$(jq -r .conclusion <<< "$job")
+          echo "$tag: build $build, macos $status $conclusion"
+          if [ "$status" != completed ]; then exit 0; fi
+          case "$conclusion" in
+            cancelled)
+              gh run rerun "$build" --repo "$REPO" --failed
+              ;;
+            success)
+              release=$(gh api "repos/$REPO/actions/workflows/release.yml/runs?head_sha=$sha&per_page=100" \
+                --jq "[.workflow_runs[] | select(.head_branch == \"$tag\")][0]")
+              id=$(jq -r .id <<< "$release")
+              updated=$(jq -r .updated_at <<< "$release")
+              done_at=$(jq -r .completed_at <<< "$job")
+              # (ISO times in one format compare as text; a release run after the job has had its try)
+              if [ "$(jq -r .status <<< "$release")" = completed ] && [[ "$updated" < "$done_at" ]]; then
+                gh run rerun "$id" --repo "$REPO"
+              else
+                echo "release run $id: running, or it ran after the macos job"
+              fi
+              ;;
+            *)
+              echo "::warning::macos of $tag: $conclusion (build $build): a person must look at it"
+              ;;
+          esac

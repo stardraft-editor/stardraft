@@ -106,9 +106,13 @@ CASES += [
     # a drag from the first one; the list shows them.
     ("map-locations-group", ["--mode", "locations", "--drag", "480,280-560,340", "--drag", "620,260-700,320", "--click", "520,310",
                              "--click", "660,290:Shift", "--drag", "520,310-560,350", "--wait", "300"], "map"),
-    # The Turns number (feedback #111): 3 turns (the stepper's + twice) with a top and bottom mirror, two strokes.
-    ("map-terrain-turns", ["--mode", "terrain", "--click", "146,521", "--click", "240,553", "--click", "240,553", "--click", "118,459",
+    # The Turns number (feedback #111): 3 turns (the wheel on its list, twice) with a top and bottom mirror, two strokes.
+    ("map-terrain-turns", ["--mode", "terrain", "--click", "146,521", "--wheel", "284,521,0,1", "--wheel", "284,521,0,1", "--click", "118,459",
                            "--click", "195,697", "--click", "830,300", "--click", "1000,600", "--wait", "300"], "map"),
+    # The mask: Space on Platform only (Alt+click in the list; the rest under the brush stays); its row has an outline.
+    ("map-terrain-mask", ["--mode", "terrain", "--wheel", "145,491,0,6", "--click", "120,622", "--click", "120,668:Alt", "--click", "830,450", "--wait", "300"], "map"),
+    # What it paints with is always in the mask: a second dab next to the first has no stripes between them.
+    ("map-terrain-mask-own", ["--mode", "terrain", "--wheel", "145,491,0,6", "--click", "120,622", "--click", "120,668:Alt", "--click", "830,450", "--click", "900,470", "--wait", "300"], "map"),
     ("map-terrain-mirror", ["--mode", "terrain", "--click", "146,521", "--click", "118,459", "--click", "120,667",
                            "--click", "830,300", "--click", "1000,600", "--wait", "500"], "map"),
     ("map-classictrig", ["--workspace", "classictriggers", "--classictrig", "1:1:0"], "map"),
@@ -374,9 +378,9 @@ CASES += [
     ("map-stack-pipette", ["--mode", "units", "--script", "{script:stackpipette}"], "map"),
     # Cosmonarchy BW maps (--cmbwmap: a map of the mod whose trigger 1 has a Comment with CRIGs, as Butcher's Ballad's
     # "01. Clenched Fist.scx"; the mod's install is found as the program finds it). The Players
-    # page's race list has Askosi (the mod's race 69) after Protoss; player 1's race set to it is the map's.
-    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "370,677"] + ["--key", "Up"] * 5 +
-                            ["--key", "Down"] * 3 + ["--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
+    # page's race list has Askosi (the mod's race 69) last, after the game's races 0-7; player 1's race set to it is the map's.
+    ("cmbw-players-askosi", ["--cmbw", "--size", "1400x1100", "--workspace", "props", "--click", "420,677"] + ["--key", "Up"] * 9 +
+                            ["--key", "Down"] * 8 + ["--key", "Enter", "--check", "players", "{cmbwmap}"], "cmbw"),
     # Tools > Cosmonarchy > Custom isom terrain editor: Structure (Halfsphalt)'s example (20 of 36 rects, 16 NULL: the
     # repaired drafts leave the rects a row had none for as holes); a click on a hole, then on tile 2.0 of the palette:
     # in pair mode (T) the rect takes a palette tile and the next one and the target moves on (CHECKS: check_isom_rules).
@@ -387,7 +391,7 @@ CASES += [
     # Bordering and the name taken as offered (Enter): "Primary (Asphalt)", every rect NULL.
     ("cmbw-isom-rules-new", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "129,852", "--wait", "300",
                              "--key", "Enter"], "cmbw"),
-    # The New Terrain window: the template and the bordering terrain, each with its tile.
+    # The New terrain window: the template and the bordering terrain, each with its tile.
     # Solid on a new Cosmonarchy map (Badlands): Asphalt (Grass), a mod terrain, puts its fill pieces.
     ("cmbw-solid-brush", ["--cmbw", "--solid", "--key", "Q", "--type", "asphalt (grass)", "--key", "Enter", "--key", "B",
                           "--click", "560,690", "--move", "560,690"], "cmbw"),
@@ -408,8 +412,8 @@ CASES += [
     ("cmbw-isom-canvas-cliff", ["--cmbw", "--dialog", "isomrules:0/Structure (Dirt)", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-canvas-wall", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-canvas-field", ["--cmbw", "--dialog", "isomrules:4/Grass (Dirt)", "--size", "1600x1100"], "cmbw"),
-    # Remove From Canvas on the canvas's places from the bottom up until a strip (0.5 brush) goes, then Restore Removed
-    # Pieces: fewer places, then as many as before (CHECKS: check_isom_canvas_remove).
+    # Remove from canvas on the canvas's places from the bottom up until a strip (0.5 brush) goes, then Restore removed
+    # pieces: fewer places, then as many as before (CHECKS: check_isom_canvas_remove).
     ("cmbw-isom-canvas-remove", ["--cmbw", "--dialog", "isomrules:0/Floor (Substructure)!remove", "--size", "1600x1100"], "cmbw"),
     ("cmbw-isom-rules-undo", ["--cmbw", "--dialog", "isomrules:Structure (Halfsphalt)", "--size", "1500x900", "--click", "746,247", "--click", "1110,290", "--key", "Ctrl+Z",
                               "--key", "Ctrl+Y"], "cmbw"),
@@ -438,6 +442,18 @@ CASES += [
 # floatpalette writes two palettes' states into a new settings file and reads them back, with the rule of the kept
 # place on the screens. -units: the unit palette in its window, with the owner and section boxes; a pick in it places
 # that unit type on the map; then the location list floats too, and each mode shows only its own window.
+# 0.8.5's pictures: a classic map's strings (Data > Strings: the side bar's Data, then the Strings tab), the Players
+# of Map properties (all 12).
+CASES += [
+    ("map-data-strings", ["--size", "1400x700", "--click", "31,190", "--click", "422,175"], "map"),
+    ("map-props-players", ["--size", "1400x1300", "--workspace", "props"], "map"),
+    # A floating Terrain palette moved over the right side bar's tabs: the outline and the tab's place show (no release).
+    ("map-panel-dock-shot", ["--mode", "terrain", "--script", "{script:floatdockshot}"], "map"),
+    # A custom terrain saved, then a right click on it in the Custom list: Copy as text, Import from text.
+    ("map-custom-copy-shot", ["--custom", "--stamps", "{newdir}", "--wheel", "90,491,0,1", "--key", "V", "--drag", "520,640-560,660",
+                              "--click", "540,655:Menu7", "--type", "Plain", "--key", "Enter", "--key", "Esc",
+                              "--rclick", "200,624"], "map"),
+]
 CASES += [
     ("map-palette-float", ["--mode", "terrain", "--script", "{script:floatpal}"], "map"),
     ("map-palette-docked", ["--mode", "terrain", "--script", "{script:floatpaldock}"], "map"),
@@ -547,24 +563,26 @@ CASES += [
     ("map-tiles-grid-480-scale15", ["--settings", "{leftwidth:332}", "--scale", "1.5", "--size", "2400x1500", "--rect",
                                     "--click", "tile37", "--click", "tile63"], "map"),
     # The Diamond's height (#dev, 2026-10-27): two clicks on the height's up arrow make it 2 x 4 (no longer linked), the
-    # size's up arrow makes it 3 x 4 (diamonds, Isometric); in Rectangle (its own size, GitHub #155; linked: the map's
-    # diamond shape, GitHub #138; its up arrow from 2 to 3) it is 3 x 2 tiles.
-    ("map-brush-diamond-height", ["--mode", "terrain", "--click", "296,485:Repeat2", "--click", "198,485",
+    # size's up arrow makes it 3 x 4 (diamonds, Isometric); Rectangle keeps its own brush (GitHub #155): 2 x 1 tiles,
+    # its up arrow makes it 3 x 1.
+    ("map-brush-diamond-height", ["--mode", "terrain", "--click", "330,487", "--click", "296,485:Repeat2", "--click", "198,485",
                                   "--click", "246,427", "--click", "198,487"], "map"),
     # The Circle's and the Diamond's brush in Rectangle mode drawn as their outline on the tile edges, not as tiles
-    # (GitHub #135, #136): size 7 (five clicks on the size's up arrow), the mouse over the map. The Square stays as
-    # it was: its tiles and a box.
-    ("map-tiles-brush-diamond", ["--rect", "--click", "tile16", "--key", "B", "--click", "198,487:Repeat5", "--move", "700,600"], "map"),
-    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,-1", "--click", "198,487:Repeat5",
+    # (GitHub #135, #136): size 7 (five clicks on the size's up arrow) with the height linked (330,487: the link; the
+    # Rectangle brush is 2 x 1 at first), the mouse over the map. The Square (Rectangle's first shape) stays as it
+    # was: its tiles and a box.
+    ("map-tiles-brush-diamond", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,-1", "--click", "330,487",
+                                 "--click", "296,487:Repeat5", "--move", "700,600"], "map"),
+    ("map-tiles-brush-circle", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "330,487", "--click", "296,487:Repeat5",
                                 "--move", "700,600"], "map"),
-    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--wheel", "90,491,0,1", "--click", "198,487:Repeat5",
+    ("map-tiles-brush-square", ["--rect", "--click", "tile16", "--key", "B", "--click", "330,487", "--click", "296,487:Repeat5",
                                 "--move", "700,600"], "map"),
     # Rect (the code's Solid, docs/dev/solid-terrain-brush.md): Solar Array from the terrain list (the quick picker), the
-    # Brush at size 1 puts one rect (2 x 1 tiles) of Solar Array's own tiles; Undo takes them back; Ctrl+Alt+T goes to
-    # Tile, Custom, then Isometric (the strip's order), whose list has the same terrains.
+    # Brush at size 1 (1 x 1: the brush is in tiles) puts one tile of Solar Array's own; Undo takes it back; Ctrl+Alt+T
+    # goes to Tile, Custom, then Isometric (the strip's order), whose list has the same terrains.
     ("map-solid-brush", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
                          "--click", "560,690", "--key", "Ctrl+Z", "--key", "Ctrl+Alt+T", "--key", "Ctrl+Alt+T", "--key", "Ctrl+Alt+T"], "map"),
-    # Solid at size 3: 3 x 3 rects (6 x 3 tiles) in one click (the Diamond of 3 rects is all of them).
+    # Solid at size 3 (3 x 1 tiles: the Rectangle brush's height is 1 at first) in one click.
     ("map-solid-size3", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B",
                          "--wheel", "560,690,0,1:Alt", "--click", "560,690", "--move", "560,690"], "map"),
     # Rectangle's variants as the game's maps have them (the game's rule: the common variants all as often, the variants
@@ -572,10 +590,11 @@ CASES += [
     # tile of that terrain), the tiles counted (--histbox: tilehist=).
     ("map-rect-variants", ["{install}/Maps/(2)Road War.scm", "--histbox", "0,0,255,255", "--solid", "--click", "800,500:Ctrl", "--click", "187,459",
                            "--click", "800,500:Shift"], "data"),
-    # Rectangle painted over its own tiles again and again (60 clicks at one place, brush size 4): the rare variants stay
+    # Rectangle painted over its own tiles again and again (60 clicks at one place, brush 4 x 4: the height linked at 330,487;
+    # one row takes the tiles above it, the map's: the same ones each time): the rare variants stay
     # rare (the tiles in the brush counted after each click: --histbox mouse,2,1).
     ("map-rect-variants-repeat", ["{install}/Maps/(2)Road War.scm", "--histbox", "mouse,2,1", "--solid", "--click", "800,500:Ctrl", "--key", "B",
-                                  "--wheel", "800,500,0,1:Alt", "--wheel", "800,500,0,1:Alt"] + ["--click", "800,500"] * 60, "data"),
+                                  "--wheel", "800,500,0,1:Alt", "--wheel", "800,500,0,1:Alt", "--click", "330,487"] + ["--click", "800,500"] * 60, "data"),
     # Mode > Terrain tools' keys: from Units mode, Ctrl+Alt+3 is Terrain mode with Tile, then Ctrl+Alt+2 Rectangle, Ctrl+Alt+4
     # Custom and Ctrl+Alt+1 Isometric; the picture: Find a command (Ctrl+P) with the items, their keys and the one on.
     ("map-terrain-kind-keys", ["--mode", "units", "--key", "Ctrl+Alt+3", "--key", "Ctrl+Alt+2", "--key", "Ctrl+Alt+4", "--key", "Ctrl+Alt+1",
@@ -589,7 +608,7 @@ CASES += [
     ("map-terrain-select-square", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
     ("map-terrain-select-diamond", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,-1", "--drag", "520,600-700,720"], "map"),
     ("map-terrain-select-circle", ["--mode", "terrain", "--key", "V", "--wheel", "90,485,0,1", "--drag", "520,600-700,720"], "map"),
-    ("map-tiles-select-circle", ["--rect", "--wheel", "90,491,0,-1", "--key", "V", "--drag", "520,600-700,720"], "map"),
+    ("map-tiles-select-circle", ["--rect", "--key", "V", "--wheel", "90,491,0,1", "--drag", "520,600-700,720"], "map"),  # (Select's own shape: Square, then Circle)
     # Rectangle: Ctrl+C of a box makes the copied tiles the Brush's stamp (Discord feedback #49): a click places them there.
     ("map-rect-copy-stamp", ["--mode", "terrain", "--click", "246,427", "--wait", "300", "--key", "V", "--drag", "520,640-600,700",
                              "--key", "Ctrl+C", "--click", "900,800", "--move", "1000,850", "--wait", "200"], "map"),
@@ -688,7 +707,7 @@ CASES += [
     # map's) and to the left (the next: the project's), as macOS's monitor gives them (--swipe); then two fingers to
     # the right on the tabs' strip (a scroll as macOS gives it), the map's tab again.
     ("map-swipe", ["--newproject", "{newdir}", "--swipe", "800,500,right", "--swipe", "800,500,left",
-                   "--wheel", "100,83,-8,0:precise:mac"], "map"),
+                   "--wheel", "100,43,-8,0:precise:mac"], "map"),
 ]
 # The workspaces' edits with the mouse and the keys (the Windows self-test's steps off the map). --type types text into
 # the view with the focus; --wait ms lets the program's timers run. A dialog or pop-out that an input opened (a list
@@ -1253,8 +1272,8 @@ def check_isom_canvas(output):
 
 
 def check_isom_canvas_remove(output):
-    """None when Remove From Canvas takes one tile at a time: the left tile (1 tile of the picture changes, the right
-    tile stays a place), then the right tile (2 changed, the place goes); and Restore Removed Pieces brings them back."""
+    """None when Remove from canvas takes one tile at a time: the left tile (1 tile of the picture changes, the right
+    tile stays a place), then the right tile (2 changed, the place goes); and Restore removed pieces brings them back."""
     m = re.search(r"remove test: places (\d+), left tile [\d,]+ removed: places (\d+), tiles changed (\d+), "
                   r"right tile removed: places (\d+), tiles changed (\d+), "
                   r"restored: places (\d+), tiles changed (\d+), removed (\d+)", output)
@@ -1650,6 +1669,7 @@ stats
     # (map-palette-float: the window is at 360,114 of the main window: High Platform's row, Dock, the first tile)
     "floatpal": "command view.floatPalette.terrain\nwait 0\nclick 510,512\nkey U\nkey T\nclick 371,126\ncommand view.floatPalette.terrain\nwait 0\n"
                 "palette close\ncommand view.floatPalette.terrain\nwait 0\nrect on\nclick 386,412\n",
+    "floatdockshot": "command view.floatPalette.terrain\nwait 0\nfloatmove 1400,120\nframe\n",
     "floatpaldock": "command view.floatPalette.terrain\nwait 0\ncommand view.floatPalette.terrain\nwait 0\n",
     # (map-palette-float-keys: the window's search box, then the first row of the list that it filters)
     # (map-palette-float-units: the window over the map at the right side bar: the Marine's row, then the map; then
@@ -2012,14 +2032,13 @@ def check_tiles_grid(width):
 
 def check_diamond_height(output):
     """The Diamond's height has a value of its own (#dev, 2026-10-27): 2 x 4, 3 x 4; linked in Rectangle it keeps the
-    map's diamond shape (GitHub #138; its own size: 2, GitHub #155): 2 x 1, and its up arrow makes it 3 x 2 tiles, which
-    it paints as 2 full rows of 3 tiles."""
-    return expect(output, 4, [
-        ("the height's up arrow did not make the diamond 2 x 4", lambda s: s[0]["brush"] == "2x4"),
-        ("the size's up arrow did not make it 3 x 4", lambda s: s[1]["brush"] == "3x4"),
-        ("Rectangle did not keep its own size (2 x 1)", lambda s: s[2]["brush"] == "2x1"),
-        ("in Rectangle the diamond is not 3 x 2 tiles", lambda s: s[3]["brush"] == "3x2"),
-        ("in Rectangle the 3 x 2 diamond does not paint 2 rows of 3 tiles", lambda s: s[3].get("brushrows") == "3,3"),
+    brush of its own (GitHub #155): 2 x 1 tiles, and its up arrow makes it 3 x 1, which it paints as a row of 3."""
+    return expect(output, 5, [
+        ("the height's up arrow did not make the diamond 2 x 4", lambda s: s[1]["brush"] == "2x4"),
+        ("the size's up arrow did not make it 3 x 4", lambda s: s[2]["brush"] == "3x4"),
+        ("Rectangle did not keep its own size (2 x 1)", lambda s: s[3]["brush"] == "2x1"),
+        ("in Rectangle the brush is not 3 x 1 tiles", lambda s: s[4]["brush"] == "3x1"),
+        ("in Rectangle the 3 x 1 brush does not paint a row of 3 tiles", lambda s: s[4].get("brushrows") == "3"),
     ])
 
 
@@ -2043,7 +2062,7 @@ def solid_step(steps, inp):
 
 
 def check_solid_brush(output):
-    """Solid: the list is Isometric's, size 1 puts one rect of the terrain's own tiles, Undo takes it back."""
+    """Solid: the list is Isometric's, size 1 (1 x 1) puts one tile of the terrain's own, Undo takes it back."""
     steps = solid_steps(output)
     _, before = solid_step(steps, "wheel 560,690,0,-1:Alt")
     msg, click = solid_step(steps, "click 560,690")
@@ -2054,8 +2073,8 @@ def check_solid_brush(output):
     iso = [s for i, _, s in steps if i == "key Ctrl+Alt+T"][-1]
     if before.get("kind") != "solid" or before.get("brush") != "1x1":
         return f"not Solid at size 1 (kind={before.get('kind')} brush={before.get('brush')})"
-    if msg != "Placed 2 tiles":
-        return f"the click: {msg!r}, not 2 tiles placed"
+    if msg != "Placed 1 tile":
+        return f"the click: {msg!r}, not 1 tile placed"
     if click.get("solidfill") != "yes":
         return f"the tile under the mouse is not one of Solar Array's own (solidfill={click.get('solidfill')})"
     if undo.get("terrain") != before.get("terrain"):
@@ -2066,10 +2085,10 @@ def check_solid_brush(output):
 
 
 def check_solid_size3(output):
-    """Solid at size 3: 3 x 3 rects (6 x 3 tiles) of the terrain."""
+    """Solid at size 3: 3 x 1 tiles of the terrain."""
     msg, click = solid_step(solid_steps(output), "click 560,690")
-    if msg != "Placed 18 tiles" or click.get("brush") != "3x3" or click.get("solidfill") != "yes":
-        return f"the click: {msg!r} (brush {click.get('brush')}, solidfill={click.get('solidfill')}), not 18 tiles of the terrain at size 3"
+    if msg != "Placed 3 tiles" or click.get("brush") != "3x1" or click.get("solidfill") != "yes":
+        return f"the click: {msg!r} (brush {click.get('brush')}, solidfill={click.get('solidfill')}), not 3 tiles of the terrain at size 3"
     return None
 
 
@@ -3475,7 +3494,7 @@ def check_settings_read(expected):
 
 # The settings file of 0.5.0.8 that write_old_settings writes: the lines of --check settings (and the working folder).
 OLD_SETTINGS_LINES = ["settings: language es", "settings: theme light, accent Red", "settings: Quality 1", "settings: Carbot 1",
-                      "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: UnitGrid 16", "settings: BrushShape 1",
+                      "settings: ShowGrid 1", "settings: AllowStacking 1", "settings: SnapUnits 1", "settings: BrushShape 1",
                       "settings: LayerDoodads 0", "settings: PaletteViews 12345",
                       "settings: layout minimap right hidden; Terrain right, Units left, Doodads right, Locations right, Sprites right",
                       "settings: layout widths 411 248 333, log 294, grid 48x16+3+5, trigger zoom 90, volume 40, unit names 1, code pane yes, "
@@ -3812,7 +3831,7 @@ CASES += [
                             "--click", "1162,800"], "project"),
     # The map's commands do nothing while the start page shows over the map (Del after Select all deletes no unit).
     ("map-start-over-map", ["--mode", "units", "--key", "Ctrl+A", "--key", "Ctrl+N", "--key", "Del", "--key", "Esc"], "map"),
-    ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,84", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
+    ("project-newpage-esc", ["--key", "Ctrl+N", "--key", "Esc", "--click", "176,44", "--key", "Esc", "--key", "Ctrl+Shift+N", "--key", "Esc"], "project"),
     ("project-open-new", ["--key", "Ctrl+O", "--pick", "{project}", "--key", "Ctrl+N", "--click", "711,430", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
     ("project-triggers-neweud", ["--workspace", "triggers", "--key", "Ctrl+Shift+N", "--click", "437,421", "--key", "Ctrl+A", "--type", "{newdir}", "--click", "1162,800"], "project"),
     ("project-close-new", ["--workspace", "data", "--key", "Ctrl+W", "--click", "711,430", "--click", "30,190", "--key", "Ctrl+2",
@@ -3838,10 +3857,7 @@ CASES += [
     ("map-building-snap", ["--mode", "units", "--key", "Q", "--type", "Command Center", "--key", "Enter",
                            "--click", "701,651", "--key", "Esc", "--drag", "701,651-713,659"], "map"),
 ]
-# The map's menu over a terrain selection: Copy tile values (its 8th item) copies each selected tile, a line each with
-# its place (x, y: CV5 ...), and the status bar says how many.
-CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag", "700,500-770,540", "--rclick", "720,520:7"], "map")]
-# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 9th item); then the
+# Protected terrain (core/protected_layer.inc): a terrain selection's menu > Protect terrain (its 8th item); then the
 # isometric brush (Solar Array) is dragged over it and around it, the fill clicks in it (nothing) and next to it, and
 # Rectangle's brush puts a tile of the Tiles list in it (nothing) and next to it. --check protect: none of the
 # protected tiles has another tile than the map file, the tiles around them do; the right click at the end shows
@@ -3849,7 +3865,7 @@ CASES += [("map-copy-tile-values", ["--mode", "terrain", "--key", "V", "--drag",
 SCRIPTS["protectterrain"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:8
+rclick 590,665:7
 click 202,759
 key B
 drag 470,600-710,740
@@ -3869,18 +3885,18 @@ click 720,730
 SCRIPTS["protectundo"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:8
+rclick 590,665:7
 key Ctrl+Z
 key Ctrl+Y
 """
-# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 10th
+# Edit > Select all (Ctrl+A) in Terrain mode selects every tile of the map: its menu's Unprotect terrain (the 9th
 # item) then unprotects every protected tile.
 SCRIPTS["protectselectall"] = """mode terrain
 key V
 drag 540,630-640,700
-rclick 590,665:8
+rclick 590,665:7
 key Ctrl+A
-rclick 900,300:9
+rclick 900,300:8
 """
 CASES += [("map-protect-selectall", ["--script", "{script:protectselectall}", "--check", "protect"], "map")]
 CASES += [("map-protect-terrain", ["--script", "{script:protectterrain}", "--check", "protect", "--mode", "terrain", "--key", "V",
@@ -3913,6 +3929,12 @@ CASES += [("map-shape-line-preview", ["--mode", "terrain", "--click", "202,759",
           ("map-shape-line-click", ["--mode", "terrain", "--click", "202,759", "--key", "I", "--click", "560,690"], "map"),
           ("map-shape-polygon-mode", ["--mode", "terrain", "--click", "202,759", "--key", "P"] + SHAPE_POLY[:4] +
            ["--key", "U", "--key", "T", "--click", "660,750"], "map")]
+# Release pictures (tools/shots): Fill with three terrains (Ctrl+click adds; Mix), the red ground where a picked mineral
+# field may not go, and the window in French.
+CASES += [("map-fill-mix", ["--mode", "terrain", "--click", "202,851", "--click", "202,805:Ctrl", "--click", "202,759:Ctrl", "--key", "F",
+                            "--click", "455,520", "--move", "1500,900"], "map"),
+          ("map-units-nogo", ["--mode", "units", "--wheel", "1199,595,0,5", "--key", "Q", "--type", "mineral field", "--key", "Enter", "--move", "1000,560"], "map"),
+          ("map-french", ["--mode", "terrain", "--lang", "fr"], "map")]
 # View > Overlays: a pathing or terrain flags view turns off when its item is chosen again (Ctrl+K, P twice; W twice);
 # Turn off all overlays (Ctrl+K, O) hides the pathing, the town areas and the ranges that are on.
 CASES += [("map-overlay-toggles", ["--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "P", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "W", "--key", "Ctrl+K", "--key", "A",
@@ -4119,7 +4141,7 @@ def check_overlay_toggles(output):
     if not status[1].startswith("Pathing is hidden") or not status[3].startswith("Terrain flags are hidden"):
         return f"the second P and W did not hide their overlay: {status[1][:40]!r}, {status[3][:40]!r}"
     on = [l for l in output.splitlines() if l.startswith("menubar: View > Overlays") and l.endswith("(checked)")]
-    if not status[4].startswith("All overlays are hidden") or on:
+    if not status[4].startswith("Hid all overlays") or on:
         return f"Turn off all overlays: {status[4][:40]!r}, still on: {on}"
     return None
 
@@ -4153,15 +4175,6 @@ def check_loading_view(output):
 def check_find_command_list(output):
     """None when the list is open with the search typed."""
     return None if " quick=open " in output and 'text field at 53,19 "walk"' in output else "the list is not open with walk"
-
-
-def check_copy_tile_values(output):
-    """None when the copied text has a line (x, y: CV5 ...) for each tile that the status bar says it copied."""
-    m = re.search(r"Copied the values of (\d+) tiles", output)
-    lines = re.findall(r"^\d+, \d+: CV5 \d+\.\d+ ", output, re.M)
-    if not m:
-        return "no status Copied the values of N tiles"
-    return None if int(m.group(1)) == len(lines) > 1 else f"{len(lines)} lines, the status says {m.group(1)}"
 
 
 def check_building_snap(snapped):
@@ -4326,12 +4339,12 @@ def check_stack_menu(output):
 
 
 def check_players_askosi(output):
-    """In a Cosmonarchy map the race list is Zerg, Terran, Protoss, Askosi, User select, Random; up to the top (Zerg,
-    whatever race the map gives player 1), three steps down and Enter make player 1 Askosi (69)."""
+    """In a Cosmonarchy map the race list is the game's races 0-7, then Askosi; up to the top (Zerg, whatever race the
+    map gives player 1), eight steps down and Enter make player 1 Askosi (69)."""
     m = re.search(r"^players: races=([\d,]+) list=(.*)$", output, re.M)
     if not m:
         return "no players line"
-    if m.group(2).strip() != "Zerg,Terran,Protoss,Askosi,User select,Random":
+    if m.group(2).strip() != "Zerg,Terran,Protoss,Independent,Neutral,User select,Random,Inactive,Askosi":
         return f"the race list is {m.group(2)}"
     if m.group(1).split(",")[0] != "69":
         return f"player 1's race is {m.group(1).split(',')[0]}, not Askosi (69)"
@@ -4343,7 +4356,7 @@ def check_players_classic(output):
     m = re.search(r"^players: races=[\d,]+ list=(.*)$", output, re.M)
     if not m:
         return "no players line"
-    return None if m.group(1).strip() == "Zerg,Terran,Protoss,User select,Random" else f"the race list is {m.group(1)}"
+    return None if m.group(1).strip() == "Zerg,Terran,Protoss,Independent,Neutral,User select,Random,Inactive" else f"the race list is {m.group(1)}"
 
 
 def check_crig_quickadd(output):
@@ -4668,15 +4681,17 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
-          "check-dock": check_dock, "map-check-desktop": check_desktop, "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
+          "check-dock": check_dock, "map-check-desktop": check_desktop, "check-bundle": check_bundle,
+          "map-check-preview": check_preview, "map-check-spotlight": check_spotlight,
+          "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
           "dialog-options-tab-keyboard": check_options_tab, "dialog-options-tab-folders": check_options_tab,
           "dialog-options-tab-updates": check_options_tab, "dialog-options-tab-plugins": check_options_tab,
           "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_release,
           "update-registry": check_settings_read(LEGACY_LINES),
           "map-text-input": check_text_input, "map-text-korean-save": check_korean_save, "map-dialog-tab": check_dialog_tab,
           "map-tab-focus": check_main_tab, "map-tab-press": check_tab_press, "map-message-tab": check_message_tab,
-          "map-unitprops-cycle": check_dialog_cycle(["Invincible", "OK", "Cancel"]),
-          "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "OK", "Cancel"]),
+          "map-unitprops-cycle": check_dialog_cycle(["Invincible", "Apply", "Cancel"]),
+          "map-locprops-cycle": check_dialog_cycle(["Location 2", "Low ground", "High air", "Apply", "Cancel"]),
           "map-prompt-cycle": check_dialog_cycle(["Location 2", "OK", "Cancel"]),
           "map-options-ctrltab": check_options_ctrltab,
           "cmbw-isom-rules": check_isom_rules,
@@ -4765,7 +4780,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "project-edit-data": check_edit_elsewhere("data", {"copy", "paste", "quick"}, "data"),
           "project-edit-triggers": check_edit_elsewhere("triggers", {"cut", "copy", "paste", "dup"}),
           "map-building-nosnap": check_building_snap(False), "map-building-snap": check_building_snap(True),
-          "map-copy-tile-values": check_copy_tile_values, "map-terrain-kind-key": check_terrain_kind_key, "map-isom-select-combine": check_isom_select_combine,
+          "map-terrain-kind-key": check_terrain_kind_key, "map-isom-select-combine": check_isom_select_combine,
           "map-shape-line-preview": shape_check("line", True, 4), "map-shape-line": shape_check("line", False, 3, message="Painted the line"),
           "map-shape-line-undo": shape_check("line", False, 4, undo=True),
           "map-shape-contour-preview": shape_check("contour", True, 4), "map-shape-contour": shape_check("contour", False, 3, message="Filled the contour"),
@@ -4779,7 +4794,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-overlay-toggles": check_overlay_toggles, "map-find-command": check_find_command, "map-find-command-list": check_find_command_list, "map-loading-view": check_loading_view, "data-columns-group": check_columns_group, "data-flags-decimal": check_flags_decimal,
           "data-quick-armor": quick_check("damage table armor 8;", "eight clicks on More armor"),
           "data-quick-toggle": quick_check("no changed values; 8 undo steps", "eight clicks on Shield enable"),
-          "map-quick-arrow": quick_check(" brush=2x10", "the square, then eight clicks on the height's up arrow"),
+          "map-quick-arrow": quick_check(" brush=10x10", "the square, then eight clicks on the size's up arrow"),
           "data-turn-nohandle": check_no_still_handles, "data-range-handles": check_range_handles,
           "map-location-inverted": check_location_inverted,
           "map-props-caret": check_caret_lines(2), "data-text-caret": check_caret_lines(2),
@@ -5063,7 +5078,7 @@ def write_old_settings(path, out):
         "LightTheme": 1, "MiddleDrag": 1, "OpenLastProject": 1, "ProjectsFolder": os.path.join(out, "projects"),
         "RecentMaps": ["C:\\Maps\\(2)Bottleneck.scm", "/home/user/maps/Ice \uc5bc\uc74c.scx"], "RecentProjects": ["C:\\StarDraft\\AshenCrown"],
         "Settings/AllowStacking": 1, "Settings/BrushShape": 1, "Settings/Carbot": 1, "Settings/LayerDoodads": 0,
-        "Settings/PaletteViews": 12345, "Settings/Quality": 1, "Settings/ShowGrid": 1, "Settings/UnitGrid": 16,
+        "Settings/PaletteViews": 12345, "Settings/Quality": 1, "Settings/ShowGrid": 1, "Settings/SnapUnits": 1,
         "UnitLimitClassic": 2000, "UnitLimitEud": 1500}
     with open(path, "w", encoding="utf-8") as f:
         json.dump(values, f, ensure_ascii=False, indent=2)
@@ -5163,12 +5178,22 @@ def png_check(path):
         prev = line
     return f"the picture is one flat color ({first.hex()})"
 
+# The Magic wand (W): a click selects what is reachable (Isometric: that terrain with the tiles round it; Tile: the tiles
+# of that terrain next to each other), a second click elsewhere replaces it, Shift+click adds; Ctrl+C copies its shape.
+CASES += [("map-select-reachable-iso", ["--mode", "terrain", "--key", "W", "--click", "700,440", "--click", "620,640:Shift", "--key", "Ctrl+C", "--key", "Ctrl+V", "--move", "900,700"], "map"),
+          ("map-select-reachable-tile", ["--mode", "terrain", "--click", "246,427", "--wait", "200", "--key", "W", "--click", "700,440", "--click", "620,640:Shift"], "map")]
+def check_select_reachable(output):
+    counts = [int(n) for n in re.findall(r"Selected (\d+) tiles\. Shift\+click adds", output)]
+    counts = sorted(set(counts))  # (a message shows twice in the output)
+    return None if len(counts) == 2 and 50 < counts[0] < counts[1] else f"the wand's selections: {counts}, not what is reachable, then more"
 CHECKS.update({
+    "map-select-reachable-iso": check_select_reachable,
+    "map-select-reachable-tile": check_select_reachable,
     "map-protect-terrain": lambda o: (
         "the protected tiles changed, or none is protected" if not re.search(r"protect: [1-9]\d* protected tiles, 0 of them changed \(yes\); [1-9]\d* other tiles changed", o)
         else "the menu has no Unprotect terrain" if "Unprotect terrain" not in o.replace("&", "") else None),
     "map-protect-selectall": lambda o: (
-        None if re.search(r"Selected all the terrain \(128 x 128 tiles\)", o) and re.search(r"protect: 0 protected tiles, 0 of them changed \(none protected\).*; undo: Unprotect the terrain \(192 tiles\)", o)
+        None if re.search(r"Selected all the terrain \(128 x 128 tiles\)", o) and re.search(r"protect: 0 protected tiles, 0 of them changed \(none protected\).*; undo: Unprotect the terrain \(\d+ tiles\)", o)
         else "Ctrl+A did not select all the terrain, or Unprotect terrain did not unprotect it"),
     "map-protect-undo": lambda o: (
         None if re.search(r"protect: ([1-9]\d*) protected tiles, 0 of them changed \(yes\).*; undo: Protect the terrain \(\1 tiles\)", o)

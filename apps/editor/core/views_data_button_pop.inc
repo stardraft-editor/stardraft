@@ -1,6 +1,6 @@
 // The button pop-out (portable, core.inc): a whole button, as a trigger's Replace a button gives it, in a window of its
 // own. The button as the command card shows it and its tooltip, "Copy a button from a set...", the button's fields as
-// the Buttons tab has them (place, icon, condition and action with their values, the two tooltips), then OK and Cancel.
+// the Buttons tab has them (place, icon, condition and action with their values, the two tooltips), then Apply and Cancel.
 // The view paints them on the Canvas with the Windows pop-out's arithmetic and keeps their click areas; the program's
 // parts come in through ButtonPopHost (the Win32 one is in data_extras.inc: the icons, the names, the list pickers). The
 // program makes the window and runs it (the window fits the height that onFit asks for); onDone says how it closed.
@@ -46,7 +46,7 @@ public:
     ButtonPopView(ButtonPopHost& h, const Button& b) : host_(h), button_(b) {}
 
     const Button& button() const { return button_; }
-    // OK, Enter (true); Cancel, Escape (false).
+    // Apply, Enter (true); Cancel, Escape (false).
     std::function<void(bool accepted)> onDone;
     // The client height that fits the fields (they change with the functions' values), after each paint.
     std::function<void(int height)> onFit;
@@ -136,7 +136,7 @@ public:
                     (which ? x.disabledString : x.enabledString) = uint16_t(std::stoul(picked));
             }, {}, s ? s : -1);
         }
-        // OK, Cancel: from the right edge (OK the rightmost but one).
+        // Apply, Cancel: from the right edge (Apply the rightmost but one).
         y += scale(10);
         const int bh = scale(stardraft::kit::kButtonH);
         {
@@ -145,7 +145,7 @@ public:
                 kitpaint::Tone tone;
                 bool ok;
             };
-            const Spec specs[2] = {{L"OK", kitpaint::Tone::Primary, true}, {L"Cancel", kitpaint::Tone::Normal, false}};
+            const Spec specs[2] = {{L"Apply", kitpaint::Tone::Primary, true}, {L"Cancel", kitpaint::Tone::Normal, false}};
             int x = colRight;
             for (int k = 1; k >= 0; --k) {
                 const int w = kitpaint::buttonWidth(c, specs[k].text);

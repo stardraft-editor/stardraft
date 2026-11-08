@@ -38,7 +38,7 @@ bool parseJson(const std::string& text, const char* what, Json& j, std::string& 
     JsonParser p{text};
     j = p.value();
     if (!p.ok || j.type != Json::Type::Object) return error = std::string(what) + " is not valid", false;
-    if (j.integer("version", 1) > 1) return error = std::string(what) + " is from a newer StarDraft", false;
+    if (j.integer("version", 1) > 1) return error = std::string(what) + " is from a newer version", false;
     return true;
 }
 // A missing file is no edits.
@@ -288,9 +288,11 @@ int Requirements::changedCount() const {
     return n;
 }
 
-bool Requirements::layout(Bytes& block, std::vector<std::vector<uint16_t>>& offsets) const {
+bool Requirements::layout(Bytes& block, std::vector<std::vector<uint16_t>>& offsets, size_t* size) const {
     // Kind by kind, at its own start or after the kind before it (an offset counts words from the kind's start, so
     // a list cannot sit before it): a zero word, then per entry its id and its steps, ended by 0xFFFF; then 0xFFFF.
+    // The entries of a kind with no steps (Always) share one empty list: the game reads a list from its offset to its
+    // 0xFFFF (GitHub #229: many entries set to Always did not fit).
     std::vector<uint16_t> words;
     bool fits = true;
     offsets.assign(kKinds, {});
@@ -302,13 +304,19 @@ bool Requirements::layout(Bytes& block, std::vector<std::vector<uint16_t>>& offs
     for (int k = 0; k < kKinds; ++k) {
         const size_t base = (kKindTable[k].address - kBlock) / 2;
         if (cur <= base) cur = base, put(cur++, 0);
+        uint16_t empty = 0;  // (the kind's empty list, once one is written)
         for (int e = 0; e < kKindTable[k].entries; ++e) {
             const RequirementList& l = list(k, e);
             if (!l.used) {
                 offsets[size_t(k)].push_back(0);
                 continue;
             }
+            if (l.ops.empty() && empty) {
+                offsets[size_t(k)].push_back(empty);
+                continue;
+            }
             put(cur++, uint16_t(e));
+            if (l.ops.empty()) empty = uint16_t(cur - base);
             offsets[size_t(k)].push_back(uint16_t(cur - base));
             for (const RequirementOp& r : l.ops) {
                 put(cur++, r.op);
@@ -319,12 +327,21 @@ bool Requirements::layout(Bytes& block, std::vector<std::vector<uint16_t>>& offs
         put(cur++, 0xFFFF);
     }
     if (cur * 2 > capacity()) fits = false;
+    if (size) *size = cur * 2;
     block.assign(std::max(capacity(), words.size() * 2), 0);
     for (size_t i = 0; i < words.size(); ++i) block[2 * i] = uint8_t(words[i]), block[2 * i + 1] = uint8_t(words[i] >> 8);
     return fits;
 }
 
 size_t Requirements::used() const {
+    Bytes block;
+    std::vector<std::vector<uint16_t>> offsets;
+    size_t n = 0;
+    layout(block, offsets, &n);
+    return n;
+}
+
+size_t Requirements::listBytes() const {
     size_t n = 0;
     for (int k = 0; k < kKinds; ++k) {
         n += 4;  // the leading zero and the closing 0xFFFF
@@ -388,7 +405,8 @@ std::string Requirements::editsScript(std::string& error) const {
     Bytes block, stockBlock;
     std::vector<std::vector<uint16_t>> offsets, stockOffsets;
     if (!layout(block, offsets)) {
-        error = "The requirements take " + std::to_string(used()) + " bytes; the game has room for " + std::to_string(capacity()) + ".";
+        error = "The requirements take " + std::to_string(used()) + " bytes; the game has room for " + std::to_string(capacity()) +
+                ". Each kind's lists start at the kind's own place in the block, so room left by one kind is not room for the kinds before it.";
         return {};
     }
     stockImage(stockBlock, stockOffsets);

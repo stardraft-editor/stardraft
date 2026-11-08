@@ -40,15 +40,15 @@ inline std::wstring newProjectSketch(const std::wstring& name, bool output) {
         {n + L".scx", L"the map you edit here (Brood War format)"},
         {n + L".eds", L"euddraft's build file: Build writes it"},
         {n + L"_EUD.scx", output ? L"the built map: Build (Ctrl+B) writes it to the Output file" : L"the built map: Build (Ctrl+B) writes it"},
-        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add script."},
+        {L"scripts\\main.eps", L"your code (epScript). To add more, use File > Project > Add a script."},
     };
     size_t col = 0;
     for (const auto& r : rows) col = std::max(col, r.first.size());
     std::wstring sketch;
     for (const auto& r : rows) sketch += L"  " + r.first + std::wstring(col + 3 - r.first.size(), L' ') + r.second + L"\r\n";
-    return L"StarDraft 2 makes the folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
-           L"On the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\n"
-           L"StarDraft 2 does not change other copies on this computer. A map that you open\r\n"
+    return L"The project goes into the new folder " + n + L"\\ in the location above:\r\n\r\n" + sketch + L"\r\n"
+           L"The first build downloads euddraft from GitHub into its own folder.\r\n"
+           L"Other copies of euddraft on this computer do not change. A map that you open\r\n"
            L"stays a regular map. Only a project can be built.";
 }
 

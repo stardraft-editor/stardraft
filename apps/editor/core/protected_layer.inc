@@ -48,8 +48,19 @@ void protectedTerrainSync() {
     Doc& d = gDocs[size_t(gActive)];
     Editor& ed = *app.ed;
     EudProject* pr = d.project.get();
-    const fs::path place = pr ? pr->file() : mapPrefsFile(ed.path());
+    // (the map's settings file: worked out again only when the map's path changes, not each frame)
+    static fs::path prefsFor, prefsPlace;
+    static bool prefsOn = false, prefsSelfTest = false, prefsKnown = false;
+    if (!pr) {
+        if (!prefsKnown || prefsFor.native() != ed.path().native() || prefsOn != gMapPrefsOn || prefsSelfTest != gSelfTest) {
+            prefsKnown = true, prefsFor = ed.path(), prefsOn = gMapPrefsOn, prefsSelfTest = gSelfTest;
+            prefsPlace = mapPrefsFile(ed.path());
+        }
+    }
+    const fs::path& place = pr ? pr->file() : prefsPlace;
     if (place.empty()) return;
+    // (nothing changed since the last frame: the same place, the same protected tiles, or changes not saved)
+    if (d.protectLoaded && (ed.protectedRevision() == d.protectRev || ed.modified()) && d.protectPlace.native() == place.native()) return;
     if (!d.protectLoaded || d.protectPlace != place) {
         d.protectLoaded = true, d.protectPlace = place;
         if (!ed.hasProtectedTiles()) {  // (the kept tiles; with tiles protected already: they go to the new place)
@@ -99,7 +110,8 @@ void protectSelection(bool on) {
 }
 
 // View > Layers > Protected terrain: a yellow fill over the protected tiles, put together into rectangles (the same run
-// of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes.
+// of tiles on rows one under the other: one rectangle). Made again when the mask or the theme changes. Only in Terrain
+// mode (the protection is for the terrain tools).
 struct ProtectedLayer {
     const Editor* editor = nullptr;
     uint64_t revision = 0;
@@ -108,7 +120,7 @@ struct ProtectedLayer {
 } gProtectedLayer;
 
 void addProtectedLayer(const Editor& ed, render::Scene& s) {
-    if (!gLayers.protectedTerrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
+    if (!gLayers.protectedTerrain || shellState().mode != Mode::Terrain || !ed.isOpen() || !ed.hasProtectedTiles()) return;
     ProtectedLayer& l = gProtectedLayer;
     if (l.editor != &ed || l.revision != ed.protectedRevision() || l.light != gLightTheme) {
         l.editor = &ed, l.revision = ed.protectedRevision(), l.light = gLightTheme;
@@ -146,7 +158,7 @@ void addProtectedLayer(const Editor& ed, render::Scene& s) {
             std::swap(open, next);
         }
     }
-    s.rects.insert(s.rects.end(), l.fills.begin(), l.fills.end());
+    addRectsInView(s.rects, l.fills);  // (only those the view shows: core/map_edit.inc)
 }
 
 // View > Layers > Protected terrain.

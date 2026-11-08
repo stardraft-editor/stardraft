@@ -5,6 +5,8 @@
 //
 // Coordinates in events and in paint() are the view's own: (0, 0) is its top left corner.
 
+#include <chrono>
+#include <cstdlib>
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -17,7 +19,8 @@
 namespace stardraft::draw {
 
 // SizeNWSE: from the top left to the bottom right (a rectangle's top left or bottom right corner); SizeNESW: the other diagonal.
-enum class Cursor { Arrow, Hand, IBeam, SizeAll, SizeWE, SizeNS, No, Wait, SizeNWSE, SizeNESW };
+// Fill: a paint bucket (the Fill tools over the map).
+enum class Cursor { Arrow, Hand, IBeam, SizeAll, SizeWE, SizeNS, No, Wait, SizeNWSE, SizeNESW, Fill };
 
 enum Mods : unsigned { kShift = 1, kCtrl = 2, kAlt = 4, kSuper = 8 };
 
@@ -46,6 +49,49 @@ struct MouseEvent {
 // How far a vertical scroll moves a view's content down, in pixels (a scroll position goes up by it): a wheel's
 // notches times `notchPx` (a notch away from the user: positive), or the system's exact distance (MouseEvent::exact).
 inline float wheelDistance(const MouseEvent& e, float notchPx) { return e.exact ? e.panY : e.wheel * notchPx; }
+
+// The time from the wheel event before the one that the router now gives out (to any view) to it, in ms (a long
+// time: none before). A field that the wheel can change sees from it whether a page scroll goes on.
+inline double& wheelGapMs() {
+    static double gap = 1e9;
+    return gap;
+}
+inline void noteWheel() {
+    static std::chrono::steady_clock::time_point last{};
+    const auto now = std::chrono::steady_clock::now();
+    wheelGapMs() = last == std::chrono::steady_clock::time_point{} ? 1e9 : std::chrono::duration<double, std::milli>(now - last).count();
+    last = now;
+}
+// When the wheel may change a field that has no focus: the pointer moved onto it and stayed on it for a moment, and the
+// wheel was still for a moment. A field that a scroll brought under the pointer has had no move: it does not step. One
+// early notch that went to the page does not stop a later one; a scroll that went on in the rest (notches one after
+// another: at a page's end, the field stays under the pointer) does, until a move. A trackpad's or a sideways scroll
+// goes to the page. Once it steps, the next notches step it too, until a move.
+struct WheelRest {
+    std::chrono::steady_clock::time_point at{};  // (the pointer's last move: the rest began here)
+    Point place{-1 << 20, -1 << 20};  // (where it began: a move of a few pixels, as the wheel's roll pushes the mouse, does not start it again)
+    bool over = false;
+    bool held = false;      // (a rested wheel stepped the field)
+    bool scrolled = false;  // (a page scroll went on over the field in its rest)
+
+    void moved(Point pt, int slop) {
+        if (!over || std::abs(pt.x - place.x) > slop || std::abs(pt.y - place.y) > slop)
+            at = std::chrono::steady_clock::now(), place = pt, held = scrolled = false;
+        over = true;
+    }
+    void left() { over = held = false; }
+    bool allows(const MouseEvent& e) {
+        constexpr double kRestMs = 350;
+        const double rested = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - at).count();
+        const bool scrolling = wheelGapMs() < kRestMs;
+        if (!over || e.precise || e.exact || e.horizontal || (!held && (rested < kRestMs || scrolling || scrolled))) {
+            if (over && scrolling) scrolled = true;
+            held = false;
+            return false;
+        }
+        return held = true;
+    }
+};
 // The same distance in whole steps of `stepPx` (a list that scrolls by rows); the part of a step that is left waits in
 // `carry` for the next event. Only for an exact scroll (else 0).
 inline int exactSteps(const MouseEvent& e, float stepPx, float& carry) {
@@ -69,6 +115,9 @@ struct KeyEvent {
     bool down = true;
     bool repeat = false;
     unsigned mods = 0;
+    // The key's place on the number row over the letters, for any keyboard layout (the system's scan code): 1 to 10
+    // the keys 1 to 0, 11 and 12 the two keys after 0 (- and = on a US keyboard); 0 another key (the number pad's too).
+    int numberRow = 0;
 };
 // Text from the keyboard or the input method, committed.
 struct TextEvent {
@@ -237,7 +286,9 @@ public:
     void invalidate() {
         if (Host* h = host()) h->invalidate(*this);
     }
+    // The same frame again does nothing (no paint), so callers place their views each layout without a check.
     void setFrame(Rect r) {
+        if (r == frame_) return;
         const bool sized = r.width() != frame_.width() || r.height() != frame_.height();
         frame_ = r;
         if (sized) resized();
@@ -347,6 +398,7 @@ public:
     }
 
     bool mouse(MouseEvent e) {
+        if (e.kind == MouseKind::Wheel) noteWheel();
         if (e.kind == MouseKind::Leave) {
             if (View* h = std::exchange(hovered_, nullptr)) h->mouse(e);
             return true;
@@ -370,6 +422,10 @@ public:
                 hovered_->mouse(leave);
             }
             hovered_ = v;
+        } else if (v != hovered_ && e.kind == MouseKind::Wheel && hovered_) {  // (a scroll moved the view away: it is
+            MouseEvent leave;                                                  // not under the pointer any more)
+            leave.kind = MouseKind::Leave;
+            std::exchange(hovered_, nullptr)->mouse(leave);
         }
         if (e.kind == MouseKind::Down || e.kind == MouseKind::DoubleClick)  // the focus: the first focusable view up from it
             for (View* f = v; f; f = f->parent())

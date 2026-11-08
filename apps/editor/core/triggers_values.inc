@@ -254,7 +254,7 @@ void trigEditParam(TrigParamHit h) {
             for (int i = 0; i < ed->locationCount(); ++i)
                 if (ed->locationUsed(i) || i == kAnywhereLocation) items.push_back({widen(ed->locationName(i)), L"", std::to_string(i + 1)});
         for (auto& it : trigPerPlayerItems("Location")) items.insert(items.begin(), it);
-        got = trigPopList(L"Search the map's locations", items, value, at, picked);
+        got = trigPopList(L"Search map locations", items, value, at, picked);
         break;
     }
     case TriggerPicker::Switch: {
@@ -265,12 +265,12 @@ void trigEditParam(TrigParamHit h) {
     }
     case TriggerPicker::Sound: {
         std::vector<ListPickItem> items;
-        for (const auto& s : trigMapInfo().sounds) items.push_back({widen(s), L"Sounds in the map", s});
+        for (const auto& s : trigMapInfo().sounds) items.push_back({widen(s), L"Map sounds", s});
         if (items.empty()) {
             setMessage(L"The map has no sounds. Type the path of a sound.");
             return trigEditText(h, value, false, true);
         }
-        got = trigPopList(L"Search the map's sounds", items, value, at, picked);
+        got = trigPopList(L"Search map sounds", items, value, at, picked);
         break;
     }
     case TriggerPicker::Variable: {
@@ -405,7 +405,7 @@ void trigEditText(TrigParamHit h, const std::string& value, bool, bool) {
     if (p.type == "Index") {
         const TriggerNode* list = trigIndexList(*d, *call);
         if (!list) {
-            setMessage(L"First, select the list. Then the index can be 0 to the number of items minus 1.");
+            setMessage(L"Select the list first. Then the index can be 0 to the number of items minus 1.");
             return;
         }
         const int size = triggerListSize(list->variable, gTE.set.variables());

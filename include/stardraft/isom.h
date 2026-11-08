@@ -191,6 +191,8 @@ public:
     // widens transitions where no tiles exist, and (in store()) fixes cliff stacks. Returns false
     // if a terrain is not valid for the tileset.
     bool apply(const std::vector<CornerValue>& locked);
+    // The next apply keeps these corners as they are: its repair fits round them, and they do not start it (the terrain mask).
+    void holdNextApply(std::vector<std::pair<int, int>> corners) { holdNext_ = std::move(corners); }
 
     // Corner queries.
     bool isCorner(int x, int y) const { return ((x + y) & 1) && x >= -1 && y >= -1 && x <= rectCols_ + 1 && y <= rectRows_ + 1; }
@@ -290,6 +292,8 @@ private:
     uint16_t strokeTerrain_ = 0, strokeGround_ = 0;  // the stroke's terrain and the ground it chose (beginStroke)
     std::vector<uint16_t> source_;  // per corner: terrain of the edit that last changed it
     std::vector<uint8_t> locked_;   // per corner: set by the last edit itself (repairs keep these)
+    std::vector<std::pair<int, int>> holdNext_;  // holdNextApply
+    std::vector<uint8_t> held_;     // per corner, during an apply: holdNextApply's (empty: none)
     uint16_t sourceNear(int rx, int ry) const;
     uint16_t& sourceAt(int x, int y) { return source_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)]; }
     uint16_t sourceAt(int x, int y) const { return source_[size_t(y + 1) * (rectCols_ + 3) + (x + 1)]; }
