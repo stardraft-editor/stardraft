@@ -1,17 +1,27 @@
 // The command ids, the grid presets, the modes and the dock layout: portable (core.inc), moved from main.cpp as they
 // were.
 
+// The Ramp and Bridge tools, the ramps that a terrain edit fits again, and Tools > Cosmonarchy > Ramp and bridge mapper:
+// in the builds that are not public (built here, master's builds, the hidden test build), hidden in release builds
+// (STARDRAFT_PUBLIC_BUILD, CMakeLists.txt) until they are reviewed.
+#if defined(STARDRAFT_PUBLIC_BUILD) && STARDRAFT_PUBLIC_BUILD
+constexpr bool kRampBridgeTools = false;
+#else
+constexpr bool kRampBridgeTools = true;
+#endif
+
 // --- Ids -----------------------------------------------------------------------------------------
 
 enum : int {
-    ID_CREATE_MIRRORED = 1410,
     IDC_TABS = 100, IDC_OWNER, IDC_BRUSH, IDC_FILTER, IDC_LIST, IDC_STATUS, IDC_VIEW, IDC_TOOL, IDC_SHAPE, IDC_SYM, IDC_DENSITY, IDC_UNITSEARCH, IDC_PALVIEW, IDC_PALSECTION,
     ID_EDIT_TERRAINUNITS = 350, ID_EDIT_TERRAINDOODADS, ID_OPT_LOCWRAP,
+    ID_CREATE_MIRRORED = 1410,
     ID_FILE_OPEN = 200, ID_FILE_NEW, ID_FILE_SAVE, ID_FILE_SAVEAS, ID_FILE_EXIT, ID_FILE_CLOSE, ID_FILE_CLOSEALL, ID_TAB_NEXT,
     ID_TAB_PREV,
     ID_EDIT_UNDO = 300, ID_EDIT_REDO, ID_EDIT_CUT, ID_EDIT_COPY, ID_EDIT_PASTE, ID_EDIT_DELETE, ID_EDIT_SELECTALL,
     ID_EDIT_CORRECTION, ID_EDIT_DOODADCHECK, ID_EDIT_SNAPLOC, ID_EDIT_RENAME, ID_EDIT_SNAPUNITS, ID_EDIT_DUPLICATE,
     ID_EDIT_HISTORY,  // Edit > Undo history (core/undo_history.inc)
+    ID_EDIT_SNAPGRID,  // Edit > Snap to the grid: the selected units, doodads or sprites (View > Grid size's grid)
     ID_VIEW_HD = 400, ID_VIEW_HD2, ID_VIEW_SD, ID_VIEW_CARBOT, ID_VIEW_LOCATIONS, ID_VIEW_ZOOMIN, ID_VIEW_ZOOMOUT, ID_VIEW_ZOOM100, ID_VIEW_FIT, ID_VIEW_GRID,
     ID_VIEW_WALK, ID_VIEW_PATHS, ID_VIEW_TOWNS, ID_PATHSIZE_SMALL, ID_PATHSIZE_MEDIUM, ID_PATHSIZE_LARGE,  // the R24 overlays (path_overlay.inc)
     ID_MODE_TERRAIN = 500, ID_MODE_UNITS, ID_MODE_DOODADS, ID_MODE_LOCATIONS, ID_MODE_SPRITES,
@@ -44,9 +54,9 @@ enum : int {
     ID_OPT_RANDOMFACING,  // Options > Units > Randomize unit direction when placed (a check item)
     ID_OPT_ASKSTARTLOC,   // Program options > Saving maps > Ask about missing start locations (a check box)
     ID_OPT_MANYSTARTS,    // Program options > Placing units > Many start locations for each player (a check box)
-    // The Options menu: the snap of units, sprites and locations (+ the choice in kSnapGrids), the place rule of doodads,
+    // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
-    ID_SNAP_UNITS = 910, ID_SNAP_SPRITES = 914, ID_SNAP_LOCATIONS = 918, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
+    ID_SNAP_UNITS = 910, ID_SNAP_SPRITES, ID_SNAP_LOCATIONS, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
     ID_FIXED_DOODAD_SNAP, ID_FIXED_DOODAD_STACK, ID_FIXED_SPRITE_PLACE, ID_FIXED_SPRITE_STACK, ID_FIXED_LOC_PLACE, ID_FIXED_LOC_STACK,
     ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,
     ID_PAL_SORT_CATEGORY = 625, ID_PAL_SORT_NAME, ID_PAL_SORT_NUMBER,  // the palette's View menu: its order (PaletteSort)
@@ -54,13 +64,13 @@ enum : int {
     ID_PAL_XLARGE = 630,  // ... Extra large (Discord feedback, GitHub #150)
     ID_PAL_SORT_TIER = 631,  // ... Sort by tier (a mod's units with tiers: Cosmonarchy BW)
     ID_PAL_SORT_NAME_DOWN = 632, ID_PAL_SORT_NUMBER_DOWN,  // ... the names Z to A, the numbers high to low
-    ID_GRID_SIZE = 950,  // + the preset (kGridPresets); View > Grid size
+    ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French
     ID_TOOL_KEY = 970,  // + the tool of the keys V, B, A, F: select, brush or place, spray, fill (GitHub feedback #98)
     ID_TERRAIN_KIND_NEXT = 977,  // Ctrl+Alt+T: Terrain mode's Isometric, Rectangle, Tile, Custom, each in turn
     ID_TERRAIN_KIND = 1130,  // + the place in the tool strip: Mode > Terrain tools > Isometric, Rectangle, Tile, Custom (Ctrl+Alt+1 to 4)
-    ID_SHAPE_KEY = 1140,  // + the tool of the keys I, O, P, X, E: Line, Contour, Polygon (core/terrain_shapes.inc), Jumble; Erase (every mode)
+    ID_SHAPE_KEY = 1140,  // + the tool of the keys I, O, P, X, E, H, J, W: Line, Contour, Polygon (core/terrain_shapes.inc), Jumble; Erase (every mode); Bridge, Ramp
     ID_MIRROR_KEY = 1120,  // + n: the tool strip's symmetry: 0 none (Alt+0), 1 left and right (Alt+1), 2 top and bottom, 3 the line from top left to bottom right, 4 the line from top right to bottom left
     ID_VIEW_RANGES = 975,  // View > Ranges > All ranges (of the selected units: GitHub feedback #109)
     ID_GO_TRIGGERS = 1100, ID_GO_BRIEFING, ID_GO_PROPS, ID_GO_ASSETS, ID_GO_DATA,  // Ctrl+Shift+T, B, Enter, A, D: the tab's page or workspace
@@ -75,6 +85,7 @@ enum : int {
     ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)
+    ID_CMBW_PASSAGES = 1113, ID_OPT_PASSAGES, ID_OPT_PASSAGESFILE,  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc); Program options > Plugins > Ramp and bridge mappings: on or off, Browse
     ID_OPT_TERRAINOVERRIDE = 1110, ID_OPT_TERRAINOVERRIDEFILE, ID_CMBW_ISOMRULES,  // Program options > Plugins > ISOM terrain rules override: on or off, Browse; Tools > Cosmonarchy > Custom isom terrain editor
     ID_OPT_CMBWFOLDER = 1097,  // Program options > Cosmonarchy folder's Browse (Cosmonarchy only: shell_sdl.inc)
     ID_CMBW_CHECKCOMMENTS = 1098,  // Tools > Cosmonarchy > Check the CRIG commands (a Cosmonarchy map's tab only: core/cmbw.inc)
@@ -84,10 +95,11 @@ enum : int {
     ID_OVERLAYS_OFF = 1037,  // View > Overlays > Turn off all overlays (the ranges too)
     ID_COMMANDS = 1038,      // View > Find a command (Ctrl+P: the menus' items in a searchable list, sdl_menus.inc)
     ID_PIE_PALETTE = 1039,   // View > Terrain pie palette (Space held on the map; from the menu: until a click, sdl_main_view.inc)
-    ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable
+    ID_TERRAIN_FLAGS = 1030,  // + View > Overlays > Terrain flags: 0 walkable, 1 height, 2 blocks view, 3 buildable, 4 isometric terrain
     ID_SCEN_PATHCHECK = 997,  // Scenario > Check pathing (core/pathing_layer.inc)
     ID_RAIL_KEY = 1000,     // + n: Ctrl+1 to Ctrl+9, the n-th item of the side bar (the tab's mode: a classic map or a project)
     ID_CRASH_MODE = 980,   // + Options > Crash reports: 0 ask, 1 send, 2 do not send
+    ID_GPU_DRIVER = 1054,  // + Program options > Graphics (Windows): 0 automatic (Vulkan first), 1 Direct3D 12, 2 software (WARP)
     ID_MIDDLE_MODE = 984,  // + Options > Middle mouse click and hold: 0 pan the map (the default), 1 drag the map
     ID_OPT_MAPSDEFAULT = 986,  // Options > Maps: .scm and .scx open with StarDraft 2
     ID_OPT_RESTART = 987,      // Options > Language > Restart now: StarDraft 2 starts again in the chosen language
@@ -96,12 +108,13 @@ enum : int {
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry
 };
-// View > Grid size: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
+// View > Grid: the sizes of the map grid (GitHub feedback #87), then Custom (width, height and offsets).
 struct GridPreset {
-    const wchar_t* name;
     int px;
+    const wchar_t* tiles;  // (the size in tiles, or nothing when it is not a simple part of a tile)
 };
-constexpr GridPreset kGridPresets[] = {{L"Fine", 8}, {L"Small", 16}, {L"Normal", 32}, {L"Large", 64}, {L"Huge", 128}};
+constexpr GridPreset kGridPresets[] = {{2, L""}, {4, L""}, {8, L"quarter tile"}, {16, L"half tile"}, {24, L""}, {32, L"tile"},
+                                       {48, L""}, {64, L"2 tiles"}, {96, L"3 tiles"}, {128, L"4 tiles"}, {256, L"8 tiles"}};
 
 enum class Mode { Terrain, Units, Doodads, Locations, Sprites };
 constexpr int kModeCount = 5;
@@ -115,6 +128,7 @@ struct Dock {
     bool minimapRight = false;
     bool minimapHidden = false;  // View > Show minimap off: its side has the panel only (GitHub feedback #127)
     bool toolsRight[kModeCount] = {false, true, false, false, false};  // units on the right, the rest on the left
+    int tabOrder[kModeCount] = {0, 1, 2, 4, 3};  // each mode's place in the side bars' tabs (by int(Mode); a drag of a tab changes it)
     int leftW = 280, rightW = 280, dataListW = 300;    // column widths, 96-dpi pixels; drag their edges
     bool triggerCode = false;                          // the Triggers workspace's code pane is shown
     bool scriptPreview = false;                        // the Project page's preview of the selected script is shown
@@ -136,5 +150,14 @@ int gSplitDrag = -1, gSplitGrab = 0;  // which strip is being dragged (0 left, 1
 // the end (that crashed saveDock when Sprites came).
 constexpr const wchar_t* kDockSideNames[] = {L"TerrainRight", L"UnitsRight", L"DoodadsRight", L"LocationsRight", L"SpritesRight"};
 static_assert(std::size(kDockSideNames) == kModeCount, "a dock side name for each mode");
+// The settings' name of each mode's place in the tabs (Dock::tabOrder; Mode order).
+constexpr const wchar_t* kDockOrderNames[] = {L"TerrainTabOrder", L"UnitsTabOrder", L"DoodadsTabOrder", L"LocationsTabOrder", L"SpritesTabOrder"};
+static_assert(std::size(kDockOrderNames) == kModeCount, "a tab order name for each mode");
+// The modes in the order of the side bars' tabs (Dock::tabOrder; the mode bar's order for equal places).
+inline std::vector<Mode> dockTabOrder(const Dock& d) {
+    std::vector<Mode> out(std::begin(kModeOrder), std::end(kModeOrder));
+    std::stable_sort(out.begin(), out.end(), [&](Mode a, Mode b) { return d.tabOrder[int(a)] < d.tabOrder[int(b)]; });
+    return out;
+}
 enum class Workspace { Map, Data, Triggers, Assets, Project, Briefing, Files, Help, Properties, Players, ClassicTriggers, ClassicSettings };
 constexpr int kRecentMax = 10;

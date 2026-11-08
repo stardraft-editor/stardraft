@@ -2,7 +2,10 @@
 // A dropdown (docs/dev/CONTROLS.md, "Dropdown"): a field with the value's icon and name, its number at the right and a
 // chevron. A click, Alt+Down, Space or Enter opens the list under it (a popup window of up to 12 rows; the wheel
 // scrolls it). Up and Down, and the mouse wheel over the closed field, step the value to the next or the previous item.
+// A field without the focus steps by the wheel only when the pointer has rested on it and no page scroll goes on; else
+// the page under it scrolls.
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -15,7 +18,7 @@ namespace stardraft::kit {
 struct DropdownItem {
     std::wstring label;
     int icon = -1;    // a UI icon (apps/editor/res/ui_icons.h); -1: none
-    int number = -1;  // shown at the right in dim; -1: none
+    int number = -1;  // shown at the right in dim (numberHidden: not shown, only typed); -1: none
     // A color square before the label, on the closed field (a player's color); kNone: none.
     draw::Color swatch = draw::kNone;
     // A picture before the label, in the list and on the closed field (a map tile); null: none.
@@ -23,6 +26,7 @@ struct DropdownItem {
     // A section heading in the list (dim, not an item to pick: the keys and the clicks pass it by; a search shows it
     // over its matches).
     bool heading = false;
+    bool numberHidden = false;  // the number is not shown, only typed (an advanced pick: a byte's value)
 };
 
 class Dropdown : public draw::View {
@@ -33,19 +37,23 @@ public:
 
     // The value changed to index (by the list, the wheel or the keys). Not for setValue.
     std::function<void(int)> onChange;
-    // The item that is already the value was picked again (the list closes, no change): a Custom color's picker opens.
-    std::function<void(int)> onSame;
     // Set: the field opens a picker of its own instead of its list (a click, Alt+Down, Space or Enter calls it; the wheel
     // and Up and Down do nothing). Its one item is the text the field shows (a multi-pick's checked items).
     std::function<void()> onOpen;
     // Enter opens the list (the default). Off: a closed list passes Enter on, as a Windows combo box does in a dialog.
     bool enterOpens = true;
-    // The mouse wheel over the closed field steps the value (the default). Off: the wheel goes on to the view under it (a
+    // The mouse wheel over the closed field steps the value (the default; see above). Off: the wheel goes on to the view under it (a
     // choice that changes much, as Program options' Game, changes only by the list or the keys).
     bool wheelSteps = true;
     // The open list has a search row: typing shows only the items whose name (or number) has the typed text (a long
     // list: the players' colors). Off: typing jumps to the next item that starts with it.
     bool searchable = false;
+    // Set (with searchable): a value typed as its number. A search that is a whole number from 0 to numberMax, and that
+    // is no item's number, gives a row of its own at the top (numberItem(n): its name and look). A pick of that row calls
+    // onNumber(n), not onChange (a byte of the map that has no name in the list).
+    std::function<void(int)> onNumber;
+    std::function<DropdownItem(int)> numberItem;
+    int numberMax = 255;
     // The rows the open list shows at most (then it scrolls), and whether it stays in the window (the default: fewer
     // rows when the window has no room). Off: the list may go past a small window (a dialog's long list).
     int listRows = 12;
@@ -82,6 +90,7 @@ public:
 private:
     class List;
     void pick(int i);
+    void pickNumber(int n);
     void step(int dir);
     void setOpen(bool on);
 
@@ -89,6 +98,7 @@ private:
     std::wstring tip_;
     int value_ = -1;
     bool enabled_ = true, listOpen_ = false, hover_ = false, justClosed_ = false, changed_ = false;
+    draw::WheelRest wheelRest_;
     float wheelAcc_ = 0;
     // Lets go of the list (the host forgets it) and drops the host: a closed list keeps no host, so nothing touches a
     // host that is gone (a page's window goes before its views). The list is deleted by a timer on the host: its own

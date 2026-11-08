@@ -48,6 +48,8 @@ public:
 
 private:
     std::vector<DoodadType> types_;
+    std::vector<uint32_t> byId_;  // a doodad id's index in types_ (kNone: no doodad of that id), for find
+    static constexpr uint32_t kNone = ~0u;
 };
 
 // DD2 entry (8 bytes).

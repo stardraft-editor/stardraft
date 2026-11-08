@@ -72,7 +72,7 @@ public:
         if (!gSdlPage.classicTable) return false;
         ListPickView v(title, std::move(items), "");
         if (toggle) v.setLive(checked, shellTr(L"Close"), std::move(toggle));
-        else v.setMulti(checked, shellTr(L"OK"));
+        else v.setMulti(checked, shellTr(L"Set"));
         const draw::Point o = gSdlPage.classicTable->origin();
         if (!runListPick(v, {o.x + pt.x, o.y + pt.y})) return false;
         checked = v.checked();

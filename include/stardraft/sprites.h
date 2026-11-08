@@ -279,9 +279,6 @@ public:
     int facingDirection(uint16_t unitType, int direction = -1) const;
     // Whether units.dat gives the unit type a random facing (its Unit Direction 32 or more), as most units have.
     bool randomDirection(uint16_t unitType) const { return unitType < unitDirection_.size() && unitDirection_[unitType] >= 32; }
-    // The same with the frame an ImageAnim shows: its frame plus the facing for turning images; `turned` (0 to 31): the
-    // direction that its script turned the unit to (ImageAnim::direction), in place of defaultFrame's.
-    int animatedFrame(uint16_t unitType, int image, int scriptFrame, bool& flip, int direction = -1, int turned = -1) const;
     // Frames in one facing set of a turning image: 17 (up .. down on the right; the left side mirrored), or 32 (every
     // direction, none mirrored: a mod's graphics whose scripts step their frames by 32, as Cosmonarchy's do).
     int facingSet(int image) const;

@@ -97,13 +97,21 @@ public:
     void setSnapshotModalHook(std::function<bool(draw::View& content)> hook) { modalHook_ = std::move(hook); }
     // Called once per frame, before the windows are painted, with a command buffer the host submits after the call.
     // The program draws its own GPU textures here (the views show them with draw::Canvas::externalImage). It runs on
-    // the frames that paint, and on every frame while setAnimating(true); snapshot() calls it too.
+    // the frames that paint (while animating with no frame clock: every frame); snapshot() calls it too.
     void setFrameHook(std::function<void(SDL_GPUCommandBuffer*)> hook) { frameHook_ = std::move(hook); }
     // Called once per pump, before the frame hook: work that may open a modal (its nested loop pumps frames) runs here,
     // not in the frame hook, which holds a command buffer.
     void setBeforePump(std::function<void()> fn) { beforePump_ = std::move(fn); }
     // True: frames keep coming (no waiting for events), every window is painted each frame. For views that animate.
     void setAnimating(bool on) { animating_ = on; }
+    // While animating: the frames come only while something can change. For a second after each event (input, a
+    // window's change, wake()) every window is painted each frame; after a timer, once; and each second once (what
+    // changes with the time alone). Else `clock` says: it invalidates the views that move now and returns the
+    // milliseconds until it wants to be asked again (0: every window each frame, as with no clock; -1: no need, the
+    // invalidated views and the events give the frames). Unset: every window each frame.
+    void setFrameClock(std::function<int()> clock) { frameClock_ = std::move(clock); }
+    // Any thread: the loop wakes at once (work posted for the UI thread; its frames follow, as after an event).
+    static void wake();
     // The program's quit: the close button of the window that show() made, and the system's quit request, call `fn`
     // instead of closing (the program asks about unsaved changes, then calls quit()). Unset: they close.
     void setQuitRequest(std::function<void()> fn) { quitRequest_ = std::move(fn); }
@@ -150,6 +158,10 @@ public:
     SDL_Window* sdlWindow(const draw::View& v) const;
     // The window that show() made (the program's main window), or nullptr.
     SDL_Window* mainWindow() const;
+    // True when the window that shows `v` paints on this frame and `v` may have changed: the window is not minimized
+    // or hidden, and it is dirty for more than invalidate() calls, or one of them named `v` or a view that `v` is in (a
+    // snapshot's window, or a view in no window: always). The frame hook skips a texture that did not change.
+    bool paintsNow(const draw::View& v) const;
     // Called for each window that show() makes and each dialog window, before it shows (the program's title bar look).
     void setWindowMadeHook(std::function<void(SDL_Window*)> fn) { windowMade_ = std::move(fn); }
     // For a test with real windows (--noactivate): no window that the host makes takes the keyboard focus or comes to
@@ -242,6 +254,10 @@ private:
     std::function<void(SDL_GPUCommandBuffer*)> frameHook_;
     std::function<void()> beforePump_;  // setBeforePump
     bool animating_ = false;
+    std::function<int()> frameClock_;  // setFrameClock
+    Uint64 activeAt_ = 0, allPaintedAt_ = 0;  // (SDL's ms: the last event; the last frame that painted every window)
+    bool timerFrame_ = false;  // a timer ran: every window is painted on this turn
+    int frameDue();  // ms until every window is painted (0: this turn; -1: none due)
     SDL_WindowID modal_ = 0;  // the dialog that takes all input (runModal), or 0
     int sheets_ = 0;          // the system sheets that are open (setSheetOpen)
     Uint8 eatUp_ = 0;  // the mouse button whose release goes to no view (its press closed a modal pop-out), or 0

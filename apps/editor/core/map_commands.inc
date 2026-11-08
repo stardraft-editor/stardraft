@@ -252,11 +252,9 @@ std::string mapSaveRoundTrip(const fs::path& path) {
 // program's (sdl_palette_float.inc).
 void shellFloatPalette(Mode m, bool on);
 
-bool commandMapEdit(AppState& app, int id);
+bool commandMapEdit(AppState&, int);
 
 void registerMapCommands() {
-    addCommand(ID_CREATE_MIRRORED, "edit.terrain.mirrored", L"Create mirrored version", "Edit/Terrain", L"Ctrl+Shift+M",
-               [] { commandMapEdit(appState(), ID_CREATE_MIRRORED); });
 
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });
@@ -283,6 +281,8 @@ void registerMapCommands() {
             if (gWorkspace == Workspace::Map && shellState().ed && shellState().mode == Mode::Terrain) setTerrainKind(nextTerrainKind(terrainKind()));
         }, {}, false, false);
     // View: the graphics (one of four)
+    addCommand(ID_CREATE_MIRRORED, "edit.terrain.mirrored", L"Create mirrored version", "Edit/Terrain", L"Ctrl+Shift+M",
+               [] { commandMapEdit(appState(), ID_CREATE_MIRRORED); });
     addCommand(ID_VIEW_HD2, "view.hd2", L"&High definition (2x, default)", "View", L"", [] { setGraphics(GraphicsQuality::HD2, false); },
                [] { return !shellState().carbot && shellState().quality == GraphicsQuality::HD2; }, true);
     addCommand(ID_VIEW_HD, "view.hd", L"High definition (&4x)", "View", L"", [] { setGraphics(GraphicsQuality::HD, false); },
@@ -305,7 +305,7 @@ void registerMapCommands() {
     addCommand(ID_VIEW_RANGES, "view.ranges", L"&All ranges", "View/Unit vision and ranges/All", L"", [] {
         gRangeKinds = gRangeKinds == kRangeAll ? 0 : kRangeAll;
         setMessage(gRangeKinds ? L"Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)"
-                               : L"Ranges are hidden");
+                               : L"Hid the ranges");
         shellMenusChanged();
         shellState().dirty = true;
     }, [] { return gRangeKinds == kRangeAll; });
@@ -347,9 +347,10 @@ void registerMapCommands() {
             const wchar_t* label;
             int view;
         } flags[] = {{"view.flags.walkable", L"&Walkable ground", 1}, {"view.flags.height", L"Ground &height", 2},
-                     {"view.flags.blocksview", L"Ground that blocks the line of &sight", 3}, {"view.flags.buildable", L"&Buildable ground", 4}};
-        // View > Overlays > Terrain flags: one of the four views (the one that shows, clicked again: off).
-        for (int k = 0; k < 4; ++k) {
+                     {"view.flags.blocksview", L"Ground that blocks the line of &sight", 3}, {"view.flags.buildable", L"&Buildable ground", 4},
+                     {"view.flags.isom", L"&Isometric terrain", 5}};
+        // View > Overlays > Terrain flags: one of the five views (the one that shows, clicked again: off).
+        for (int k = 0; k < 5; ++k) {
             const auto v = TerrainFlagsView(flags[k].view);
             addCommand(ID_TERRAIN_FLAGS + k, flags[k].id, flags[k].label, "View/Terrain flags", L"", [v] { terrainFlagsSet(v); },
                        [v] { return terrainFlagsView() == v; });
@@ -371,7 +372,7 @@ void registerMapCommands() {
         if (pathingLayerOn()) pathingLayerToggle();
         if (terrainFlagsView() != TerrainFlagsView(0)) terrainFlagsSet(terrainFlagsView());  // (the view again: off)
         gRangeKinds = 0;
-        setMessage(L"All overlays are hidden");
+        setMessage(L"Hid all overlays");
         shellMenusChanged();
         shellState().dirty = true;
     });
@@ -391,18 +392,48 @@ void registerMapCommands() {
     addCommand(ID_SIM_MINING, "edit.simulate.mining", L"Simulate melee &mining (experimental)", "Edit/Tools", L"Ctrl+Alt+M", [] { simulateMiningCommand(); });
     addCommand(ID_SIM_COMBAT, "edit.simulate.combat", L"Simulate com&bat of the selected units (experimental)", "Edit/Tools", L"Ctrl+Alt+C", [] { simulateCombatCommand(); });
 #endif
+    addCommand(ID_EDIT_SNAPGRID, "edit.snapToGrid", L"&Snap to the grid", "Edit/Tools", L"", [] {
+        AppState& app = shellState();
+        if (!canSnapToGrid(app)) return;
+        Editor& ed = *app.ed;
+        const int gw = gDock.gridW, gh = gDock.gridH, ox = gDock.gridX, oy = gDock.gridY;
+        const wchar_t* one = L" unit";
+        const wchar_t* many = L" units";
+        int n = 0;
+        std::string why;
+        if (app.mode == Mode::Units) {
+            n = ed.snapSelection(gw, gh, ox, oy);
+        } else if (app.mode == Mode::Sprites) {
+            one = L" sprite", many = L" sprites";
+            n = ed.snapSprites(app.selSprites, gw, gh, ox, oy);
+        } else {
+            one = L" doodad", many = L" doodads";
+            const int selected = int(app.selDoodads.size());
+            n = ed.snapDoodads(app.selDoodads, gw, gh, ox, oy, app.doodadCheck, &why);
+            if (n) {  // the moved ones are the last ones now
+                app.selDoodads.clear();
+                for (int i = int(ed.doodads().size()) - selected; i < int(ed.doodads().size()); ++i) app.selDoodads.push_back(i);
+            }
+        }
+        setMessage(n ? L"Snapped " + std::to_wstring(n) + (n == 1 ? one : many) + L" to the grid"
+                     : !why.empty() ? L"The doodads stay: " + widen(why)
+                                    : std::wstring(L"The selection is on the grid, or does not fit on it."));
+        app.dirty = true;
+    });
     addCommand(ID_REVEAL_REMOVE, "edit.revealers.removeAll", L"&Remove all map revealers", "Edit/Tools", L"", [] { removeMapRevealersCommand(); });
     addCommand(ID_CMBW_REPAIRISOM, "edit.cmbw.repairIsom", L"Try to repair the &ISOM", "Cosmonarchy", L"", [] { cmbwRepairIsomCommand(); });
     addCommand(ID_CMBW_CHECKCOMMENTS, "scen.cmbw.checkComments", L"&Check the CRIG commands", "Cosmonarchy", L"", [] { cmbwCheckCommentsCommand(); });
     addCommand(ID_CMBW_ISOMRULES, "tools.cmbw.isomRules", L"Custom isom &terrain editor\x2026", "Cosmonarchy", L"", [] { isomRulesShow(); });
+    if (kRampBridgeTools) addCommand(ID_CMBW_PASSAGES, "tools.cmbw.passages", L"Ramp and &bridge mapper\x2026", "Cosmonarchy", L"", [] { passagesShow(); });
     addCommand(ID_SCEN_PATHCHECK, "scen.checkPathing", L"Check &pathing (nooks and crannies)", "Scenario", L"", [] { pathingCheckCommand(); });
-    // View: the camera. + and - are the map view's own keys (they also work with the number pad).
-    addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"+", [] {
+    // View: the camera. Ctrl with + or - (the layout's keys), and the number pad's + and -, are the map view's own keys:
+    // the number row's - is player 11 (sdl_main_view.inc).
+    addCommand(ID_VIEW_ZOOMIN, "view.zoomIn", L"Zoom &in", "View", L"Ctrl++", [] {
         int w, h;
         viewSize(w, h);
         zoomAt(1.25f, w / 2, h / 2);
     }, {}, false, false);
-    addCommand(ID_VIEW_ZOOMOUT, "view.zoomOut", L"Zoom &out", "View", L"-", [] {
+    addCommand(ID_VIEW_ZOOMOUT, "view.zoomOut", L"Zoom &out", "View", L"Ctrl+-", [] {
         int w, h;
         viewSize(w, h);
         zoomAt(0.8f, w / 2, h / 2);

@@ -142,21 +142,6 @@ inline std::vector<ValueSuggestion> valuePopSuggestions(const ValuePopSpec& spec
     return rows;
 }
 
-// A plain string's braces as a text with values has them ("{" is "{{"), and back.
-inline std::string valuePopBracesToWords(const std::string& s) {
-    std::string e;
-    for (char ch : s) e += ch == '{' ? "{{" : ch == '}' ? "}}" : std::string(1, ch);
-    return e;
-}
-inline std::string valuePopWordsToBraces(const std::string& s) {
-    std::string plain;
-    for (size_t i = 0; i < s.size(); ++i) {
-        plain += s[i];
-        if ((s[i] == '{' || s[i] == '}') && i + 1 < s.size() && s[i + 1] == s[i]) ++i;
-    }
-    return plain;
-}
-
 // What fits in a text (Insert value): the loop's values, the variables, a player's name, a text of the game, the
 // values from the game and a calculation. The values: "\x01tbl" a text of the game, "\x01v:<id>" a value from the game,
 // "\x01calc" a calculation, else the expression.
@@ -544,7 +529,7 @@ private:
                 c.roundBox({rr.left + scale(2), rr.top + scale(1), rr.right - scale(2), rr.bottom - scale(1)}, kSel, kSel, float(scale(6)));
             const draw::Rect r{rr.left + scale(10), rr.top, rr.right - scale(10), rr.bottom};
             if (row.kind == ValueSuggestion::Kind::Heading) {
-                const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));  // (ui::smallFont)
+                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));  // (ui::smallFont)
                 c.text({r.left, r.top + scale(6), r.right, r.bottom}, row.name, kDim, draw::kMiddle);
                 c.setFont(of);
                 continue;

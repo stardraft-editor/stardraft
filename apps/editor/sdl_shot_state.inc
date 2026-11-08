@@ -212,6 +212,7 @@ std::string shotMapState() {
          " tab=" + quoted(narrow(docTitle(gActive, false)));
     s += std::string(" quick=") + (gQuickHostSdl.open ? "open" : "-");  // the quick picker (Q): a pop-out over the map
     s += " quicktop=" + std::to_string(gQuickViewSdl.top()) + "/" + std::to_string(gQuickViewSdl.shown().size());  // its first row shown, of its rows
+    s += " quicksel=" + std::to_string(gQuickViewSdl.selected());  // (its chosen row)
     s += " lastat=" + (!ed.units().empty() ? std::to_string(ed.units().back().x) + "," + std::to_string(ed.units().back().y) : std::string("-"));  // the last unit's place
     s += " brush=" + narrow(stripNumberText(kNumSize)) + "x" + narrow(stripNumberText(kNumHeight));  // (Terrain: the brush's size and height)
     static const char* const kShapes[3] = {"diamond", "square", "circle"};
@@ -225,7 +226,7 @@ std::string shotMapState() {
         s += " brushrows=";
         for (auto it = rows.begin(); it != rows.end(); ++it) s += (it == rows.begin() ? "" : ",") + std::to_string(it->second);
     }
-    s += std::string(" brushshape=") + kShapes[int(app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShape : app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
+    s += std::string(" brushshape=") + kShapes[int(app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShapes[app.terrainRect] : app.brushShape) % 3] + " tilepreview=" + std::to_string(gTilesPreview.tiles) + "/" + std::to_string(gTilesPreview.lines);  // (Rectangle: the brush preview's tiles and lines)
     // The Tiles list (Rectangle): its scroll, its pictures kept, the tile picked; and the bitmaps that went while the
     // frame that drew them was not yet drawn by the GPU (none should: GitHub #148).
     s += " tilescroll=" + std::to_string(gTiles->scroll) + "/" + std::to_string(std::max(0, gTiles->contentH - tilesViewH())) +

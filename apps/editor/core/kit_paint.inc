@@ -28,6 +28,20 @@ inline draw::Rect square(draw::Rect r) {
     return {x, y, x + s, y + s};
 }
 
+// --- Small text and titles ----------------------------------------------------------------------------------------
+// The small font: the UI font at 5/6 of its height (captions, table headers, the side bar's groups).
+inline draw::FontDesc smallFontDesc() {
+    draw::FontDesc d;
+    d.px = -(shellUiFontLfHeight() * 5 / 6);
+    return d;
+}
+// The title font: the UI font at 3/2 of its height (a page's or a form's title).
+inline draw::FontDesc titleFontDesc() {
+    draw::FontDesc d;
+    d.px = -(shellUiFontLfHeight() * 3 / 2);
+    return d;
+}
+
 // --- Buttons ------------------------------------------------------------------------------------------------------
 // A button's state: resting, under the mouse, pressed, or not available.
 enum class ButtonState { Normal, Hot, Down, Disabled };
@@ -200,7 +214,7 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
         c.icon({x, y, x + scale(40), y + scale(40)}, int(kind), kDim, scale(32));
         tx += scale(52);
     }
-    const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+    const draw::Font of = c.setFont(c.font(titleFontDesc()));
     c.text({tx, y, right, y + scale(26)}, text.empty() ? L"(empty)" : text, kText, draw::kMiddle | draw::kEllipsis);
     c.setFont(of);
     TitleLayout t;
@@ -214,14 +228,6 @@ inline TitleLayout drawTitle(draw::Canvas& c, int x, int y, int right, draw::Ima
     c.text(t.line, t.lineText, kDim, draw::kMiddle);
     t.next = y + scale(56);
     return t;
-}
-
-// --- Small text ---------------------------------------------------------------------------------------------------
-// The small font: the UI font at 5/6 of its height (captions, table headers, the side bar's groups).
-inline draw::FontDesc smallFontDesc() {
-    draw::FontDesc d;
-    d.px = -(shellUiFontLfHeight() * 5 / 6);
-    return d;
 }
 
 // --- Buttons, chips and rows (the trigger pane, the briefing; ui_kit.inc's faces call these) ----------------------
@@ -290,6 +296,22 @@ inline void drawScrollFace(draw::Canvas& c, draw::Rect track, draw::Rect thumb, 
     if (lit) c.fill(track, kPanel);
     else thumb.left = thumb.right - std::max(2, int(thumb.right - thumb.left) / 2);
     c.roundBox(thumb, lit ? kThumbHot : kThumb, draw::kNone, float(scale(3)));
+}
+// A scroll bar's request (Win32's SB_* codes, which the hosts send to View::vscroll and hscroll): moves `pos` a line
+// (`line` px), a page (`page` px), to the thumb (`track`), to the top or to the bottom (a large value: the view clamps
+// it). Returns false for a code that does not scroll (`pos` stays).
+inline bool scrollRequest(int code, int& pos, int line, int page, int track) {
+    switch (code) {
+    case 0: pos -= line; return true;     // SB_LINEUP
+    case 1: pos += line; return true;     // SB_LINEDOWN
+    case 2: pos -= page; return true;     // SB_PAGEUP
+    case 3: pos += page; return true;     // SB_PAGEDOWN
+    case 4:                               // SB_THUMBPOSITION
+    case 5: pos = track; return true;     // SB_THUMBTRACK
+    case 6: pos = 0; return true;         // SB_TOP
+    case 7: pos = 1 << 30; return true;   // SB_BOTTOM
+    default: return false;
+    }
 }
 
 // --- Tables ---------------------------------------------------------------------------------------------------------
@@ -411,6 +433,12 @@ inline void drawGrip(draw::Canvas& c, int x, int y, bool on) {
         }
 }
 inline void drawDropLine(draw::Canvas& c, int x0, int x1, int y) { c.fill({x0, y - scale(1), x1, y + scale(1)}, kAccent); }
+// Where a dragged row goes for the mouse at `y`: the first row whose middle is below it (else after the last row).
+inline int dropIndex(const std::vector<draw::Rect>& rows, int y) {
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (y < (rows[i].top + rows[i].bottom) / 2) return int(i);
+    return int(rows.size());
+}
 
 // A slider: the track from x0 to x1 at cy, lit to `frac` (0..1), and its knob (ui_kit.inc's sliderFace).
 inline void drawSliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled = true) {

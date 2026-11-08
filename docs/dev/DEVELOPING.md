@@ -178,10 +178,15 @@ Give each test a new, empty scratch folder.
 | `settings_test` | `settings_test <dir>` | Without game data: the settings file (each kind of value written and read again). |
 | `render_smoke_test` | `render_smoke_test [out.png]` | Without game data: the renderer's device and pipelines (each shader in the GPU API's format), and rectangles, lines and text in an offscreen frame. GitHub runs it on Linux (Vulkan on lavapipe). |
 | `terrain_render_test` | `terrain_render_test <install> [<maps folder>...]` | The map view's renderer, offscreen: no tile grid when zoomed out (mipmaps), every megatile in the HD, HD2 and Carbot atlases, and each map in SD at 100% the same as `render_map`. |
+| `unit_test` | `unit_test <install> <maps folder>` | Each map's UNIT section writes back byte-identical (it fails only on this); a survey of the default flags against the maps, of the resource amounts and of `checkPlacement` on the maps' own units. |
+| `creep_test` | `creep_test` | Without game data: the creep rules (`src/creep.cpp`) on synthetic maps: the start shapes of the creep makers, a Spawning Pool's footprint, unbuildable tiles, makers that overlap, the edge frames and the variants. |
+| `gen_test` | `gen_test <install> <dir> [era]` | The terrain generator for each tileset: valid ISOM, the same map from the same seed, exact symmetry, the terrain shares, the speed. Writes the generated maps (.chk and .png). |
+| `shadow_test` | `shadow_test <install> <out prefix>` | The renderer, offscreen: a few units with and without their shadows (`<prefix>_plain.png`, `<prefix>_shadows.png`; look at them). It fails only when the renderer does not start. |
 
 Known failures (they come from before 0.5 and are on the list to fix): `editor_test` fails checks that depend on the
 map (on Terran01: 2 about pasting; more on other maps); `tools_test` fails "2.1 sprayed doodads fit" and "2.3 every sprayed unit passes
-checkPlacement".
+checkPlacement". `gen_test` fails "every terrain with a default share of 0.5% or more appears" on Installation
+(Substructure Plating and Substructure Panels do not appear).
 
 Run the tests that a change needs; the whole set when the owner asks for it.
 
@@ -398,9 +403,20 @@ A release is a tag `v<version>`. The owner says when, and approves the scope and
    account works, nothing else is open, the section and its pictures are good, the UI text and the translation tables
    pass, and all targets build (in `build`, the testing build).
 5. `release.py publish <version> --yes` checks again, then commits "Changelog <version>" (the section and its
-   pictures), tags `v<version>`, and pushes `main` and the tag together as `milestone-dev` (gh's active account stays
-   as it is). Then it waits for the tag's run of `.github/workflows/release.yml` (it waits for the build and tests
-   of master's push, then releases in a few minutes) and confirms the release. `--dry-run` shows the commands only.
+   pictures). The preflight: it pushes that commit to the branch `release-check/<version>` and waits for its build.yml
+   run's Windows job; a failure stops the release with its errors before any tag (`--no-preflight` skips it), and the
+   run's other jobs are cancelled. Then it tags `v<version>`, and pushes `master` and the tag together as
+   `milestone-dev` (gh's active account stays as it is). Windows ships first: `RELEASE_MAC` and `RELEASE_LINUX` are
+   off for the tag's run of `.github/workflows/release.yml` (it waits for the Windows build of master's push, then
+   releases in a few minutes), and publish confirms the release. Then the other systems: master's run of the commit;
+   its failed macOS and Linux jobs run again up to `--platform-tries` tries (default 3; a job that waits 30 minutes
+   for a runner is cancelled); each system that passed is turned on and its release run runs again, which adds the
+   .dmg or the AppImage (the zip stays, no second Discord post). Both variables are on again at the end. `--dry-run`
+   shows the commands only.
+6. Tell the users who reported what the release fixes: run a feedback round (the stardraft-feedback skill, step 1
+   gets the latest), then for each item that the release fixed, reply in its #feedback thread (and comment on its
+   GitHub issue) that the fix is in `v<version>` and to get it (Help > Check for updates, or the release link), and
+   tag the post `Implemented`. Only items that the release really fixed; one short reply each.
 
 CI (`.github/workflows/release.yml`) checks the tag first (`release.py ci-check`: a version, its section, its pictures,
 a commit on `main`). Then it takes the files that build.yml built and tested for that commit as that version (see

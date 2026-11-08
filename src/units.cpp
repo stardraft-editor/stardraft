@@ -244,7 +244,6 @@ namespace {
 bool gBuildingSnap = true;
 }
 void setBuildingSnap(bool on) { gBuildingSnap = on; }
-bool buildingSnap() { return gBuildingSnap; }
 
 void snapToGrid(const UnitType& type, uint16_t& x, uint16_t& y) {
     if (!gBuildingSnap || !type.is(UnitFlag::Building)) return;

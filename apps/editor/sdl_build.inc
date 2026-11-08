@@ -5,6 +5,7 @@
 void mapPageFlush() {
     if (!gSdlPage.ready || gSdlPage.ed != gState.ed.get()) return;
     sdlMapPageStopTyping();
+    if (gSdlPage.strings) gSdlPage.strings->flush();  // (Map data's Strings tab: its text editor)
     if (gSdlPage.kind == kSdlProps) sdlPropsAutoApply();
     else sdlMapPageCommit();
 }

@@ -16,7 +16,6 @@ Brush	笔刷
 Spray	喷洒
 Fill	填充
 Replace (click terrain)	替换 (点击地形)
-Select / copy	选择 / 复制
 Place / select	放置 / 选择
 Replace (click unit)	替换 (点击单位)
 Place	放置
@@ -74,8 +73,8 @@ Select the StarCraft: Remastered folder. It contains .build.info.	请选择 Star
 Not a StarCraft: Remastered folder	这不是 StarCraft: Remastered 文件夹
 Could not read the game data in this folder:\r\n	无法读取此文件夹中的游戏数据：\r\n
 StarCraft folder	StarCraft 文件夹
-StarDraft 2 uses this folder after the next start:\r\n	StarDraft 2 将在下次启动时使用此文件夹：\r\n
-\r\nTo use it now, restart StarDraft 2.	\r\n若要立即使用，请重新启动 StarDraft 2。
+The new folder applies after a restart:	新文件夹在重新启动后生效：
+To use it now, restart StarDraft 2.	若要立即使用，请重新启动 StarDraft 2。
 Start	开始
 Untitled 	未命名 
  (project)	 (项目)
@@ -85,7 +84,7 @@ Moved the tab "	已移动标签页 "
 (older lines dropped)\r\n	(较早的行已删除)\r\n
 ERROR  	错误  
 Log	日志
-Build needs an EUD project. Use File > Project > New project or Open project.	构建需要 EUD 项目。请使用 文件 > 项目 > 新建项目 或 打开项目。
+Build needs an EUD project. Use File > Project > New EUD project or Open project.	构建需要 EUD 项目。请使用 文件 > 项目 > 新建 EUD 项目 或 打开项目。
 A build is already running	构建已在运行
 StarCraft will not start this map:\r\n\r\n	StarCraft 无法启动此地图：\r\n\r\n
 \r\nTo set the players, use Players and forces on the Properties page. Build the map anyway?	\r\n若要设置玩家，请使用 “属性”页面中的玩家和势力。仍要构建地图吗？
@@ -103,8 +102,8 @@ the project file	项目文件
 the map you edit here (Brood War format)	在此编辑的地图(Brood War 格式)
 euddraft's build file: Build writes it	euddraft 的构建文件：构建会写入它
 the built map: Build (Ctrl+B) writes it	构建后的地图：构建(Ctrl+B)会写入它
-your code (epScript). To add more, use File > Project > Add script.	你的代码 (epScript)。要添加更多，请使用 文件 > 项目 > 添加脚本。
-StarDraft 2 makes the folder 	StarDraft 2 将创建文件夹 
+your code (epScript). To add more, use File > Project > Add a script.	你的代码 (epScript)。要添加更多，请使用 文件 > 项目 > 添加脚本。
+The project goes into the new folder 	项目将放入新文件夹 
 \\ in the location above:\r\n\r\n	\\ 在上面的位置：\r\n\r\n
 \r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次编译时，StarDraft 2 会从 GitHub 把 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会改动这台电脑上的其他副本。你打开的地图\r\n仍然是普通地图。只能编译项目。
 Name	名称
@@ -159,7 +158,7 @@ Opened 	已打开
 Could not create the map	无法创建地图
 Created a new 	已新建 
  map (	 地图 (
-Save the project (StarDraft 2 makes a folder with its name here)	保存项目 (StarDraft 2 会在此处创建一个以项目名称命名的文件夹)
+Save the project (a new folder with its name goes here)	保存项目 (此处会有一个以项目名称命名的新文件夹)
 The name cannot hold \\ / : * ? " < > |	名称不能包含 \\ / : * ? " < > |
 Save project	保存项目
  is there already and is not empty.	 已存在，且不为空。
@@ -202,13 +201,12 @@ snap to half tiles (16 px)	吸附到半图块 (16 px)
 snap to quarter tiles (8 px)	吸附到四分之一图块 (8 px)
 Grid: 	网格：
 Copied 	已复制 
-First, select an area with the Select tool	请先用选择工具选择一个区域
+Select an area with the Select tool first	请先用选择工具选择一个区域
 Copied the terrain selection	已复制地形选区
-First, select an area with the Select / copy tool	请先用选择 / 复制工具选择一个区域
-First, select doodads	请先选择装饰物
-First, select sprites	请先选择精灵
+Select doodads first	请先选择装饰物
+Select sprites first	请先选择精灵
 Copied the location	已复制地点
-First, select a location	请先选择一个地点
+Select a location first	请先选择一个地点
 Nothing to cut there: make the selection larger	这里没有可剪切的内容: 请扩大选择区域
 Cut the terrain: 	已剪切地形: 
  null tiles in its place (one undo step)	 个空白瓦片放在原位 (一步撤销)
@@ -217,16 +215,16 @@ Deleted 	已删除
 Selected 	已选择 
 StarDraft 2 looks for a newer release on start	StarDraft 2 启动时检查新版本
 StarDraft 2 does not look for a newer release on start	StarDraft 2 启动时不检查新版本
-StarDraft 2 sends an anonymous report when it crashes	StarDraft 2 崩溃时发送匿名报告
-StarDraft 2 does not send crash reports (a report stays on this computer)	StarDraft 2 不发送崩溃报告 (报告留在这台电脑上)
-The last project opens when StarDraft 2 starts	启动 StarDraft 2 时打开上次的项目
-StarDraft 2 starts with no project open	StarDraft 2 启动时不打开任何项目
+Crash reports: send an anonymous report after a crash	崩溃报告：崩溃后发送匿名报告
+Crash reports: do not send (a report stays on this computer)	崩溃报告：不发送 (报告留在这台电脑上)
+At start: open the last project	启动时：打开上次的项目
+At start: open no project	启动时：不打开任何项目
 Units: can be on top of others	单位: 可以叠放在其他单位上
 Units: cannot be on top of others (air units also)	单位: 不能叠放在其他单位上 (包括空中单位)
 Units: place anywhere (terrain edits do not move them)	单位: 可放在任何位置 (修改地形不会移动它们)
 Units: place only where it fits	单位: 只放在能容纳的位置
 Units: move to the nearest place where it fits	单位: 移动到最近的可用位置
-Doodads: place anywhere on the map (StarDraft 2 does not check the terrain)	装饰物: 可放在地图任意位置 (StarDraft 2 不检查地形)
+Doodads: place anywhere on the map (no terrain check)	装饰物: 可放在地图任意位置 (不检查地形)
 Doodads: move to the nearest place where it fits	装饰物: 移动到最近的可用位置
 Doodads: place only where it fits	装饰物: 只放在能容纳的位置
 Carbot (cartooned) graphics	Carbot (卡通风格) 图形
@@ -381,8 +379,8 @@ Inverted on both	两个方向都反转
 Changed the location "	已更改位置 "
 Could not change the location: 	无法更改位置: 
 Location properties	位置属性
-Read only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	此声音为只读。游戏会在地图代码运行前加载带有 Preload 标志的声音，因此更改文件不起作用。
-Read only. StarDraft 2 does not know where the game keeps this value.	只读。StarDraft 2 不知道游戏在哪里保存此值。
+Read-only for this sound. The game loads sounds with the Preload flag before the map's code runs, so a change to the file has no effect.	此声音为只读。游戏会在地图代码运行前加载带有 Preload 标志的声音，因此更改文件不起作用。
+Read-only. The address of this value in the game memory is not known.	只读。此值在游戏内存中的地址未知。
 * Needs verification	* 需要验证
 1 tile: 32 x 32 px	1 瓦片: 32 x 32 像素
 Drag to move the addon	拖动以移动附加组件
@@ -432,7 +430,7 @@ Start again	重新开始
 Play or pause	播放或暂停
 One game tick	一个游戏刻
 Play on as a unit does: attacks repeat, and a script that waits for its order starts again	像单位一样持续播放：攻击会重复，等待命令的脚本会重新开始
-Sounds of the script: on or off	脚本的声音：开或关
+Script sounds: on or off	脚本的声音：开或关
 The code of the script: show or hide	脚本的代码：显示或隐藏
 frame %d  ·  tick %d%s	帧 %d  ·  刻 %d%s
   ·  end	  ·  结束
@@ -499,7 +497,7 @@ Can the player build this unit	玩家能否建造此单位
 Is the technology available to the player	此科技对玩家是否可用
 Does the player start with it researched	玩家开局时是否已研究此科技
 Could not read the .dat file of the game	无法读取游戏的 .dat 文件
-To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. File > Project > Open project opens one.	要编辑 .dat 文件，请使用 EUD 项目。\r\n\r\n文件 > 项目 > 新建项目 会从打开的地图创建项目。文件 > 项目 > 打开项目 会打开一个项目。
+To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. File > Project > Open project opens one.	要编辑 .dat 文件，请使用 EUD 项目。\r\n\r\n文件 > 项目 > 将此地图设为项目 会创建项目。文件 > 项目 > 打开项目 会打开一个项目。
 .dat entry 	.dat 条目 
 Yes (	是 (
 not used by this entry	此条目不使用
@@ -521,8 +519,8 @@ Changed	已更改
 Triggers are in the Triggers workspace of a project.	触发器位于项目的触发器工作区中。
 Not available yet: graphics, sounds, portraits and fonts that you import into the map.	暂不可用：导入到地图中的图形、声音、头像和字体。
 Project: 	项目: 
-No project is open. File > Project > New project makes one from the open map. File > Project > Open project opens one.	没有打开的项目。文件 > 项目 > 新建项目 会从打开的地图创建项目。文件 > 项目 > 打开项目 会打开一个项目。
-Did not save the triggers: a newer StarDraft 2 made triggers.json	未保存触发器：更新版本的 StarDraft 2 创建了 triggers.json
+No project is open. File > Project > Make this map a project makes one. File > Project > Open project opens one.	没有打开的项目。文件 > 项目 > 将此地图设为项目 会创建项目。文件 > 项目 > 打开项目 会打开一个项目。
+Did not save the triggers: triggers.json is from a newer version	未保存触发器：triggers.json 来自更新的版本
   (off)	  (关闭)
 Added a variable. Press F2 to rename it.	已添加变量。按 F2 重命名。
 Added from a template: 	从模板添加: 
@@ -649,11 +647,11 @@ Type a number or an expression…	输入数字或表达式…
 A value from the game…	游戏中的值…
 Groups	群组
 Search unit types	搜索单位类型
-Search the map's locations	搜索地图中的位置
+Search map locations	搜索地图中的位置
 Switch number	开关编号
-Sounds in the map	地图中的声音
+Map sounds	地图中的声音
 The map has no sounds. Type the path of a sound.	地图中没有声音。输入声音的路径。
-Search the map's sounds	搜索地图中的声音
+Search map sounds	搜索地图中的声音
 There is no variable of this kind. Right-click Definitions, then New variable.	没有这种类型的变量。右键单击定义，然后选择新建变量。
 Search variables	搜索变量
 Definitions	定义
@@ -761,7 +759,7 @@ Cut 	剪切
 Duplicated	已创建副本
 Pasted	已粘贴
 This project's map has no classic triggers. Use the Triggers workspace.	本项目的地图没有经典触发器。请使用触发器工作区。
-The map's Data page is for classic maps. In a project, use the Data workspace.	地图的数据页仅用于经典地图。在项目中，请使用数据工作区。
+The Map data page is for classic maps. In a project, use the Data workspace.	地图数据页仅用于经典地图。在项目中，请使用数据工作区。
 This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.	此标签页是经典地图。数据、触发器和项目需要先有一个项目。文件 > 项目 > 将此地图设为项目 即可创建。
 Let go: no change	松开：不做更改
  unit (	 个单位 (
@@ -813,11 +811,8 @@ Brush shape: square	笔刷形状：方形
 Brush shape: circle	笔刷形状：圆形
 One step more	增加一步
 One step less	减少一步
-Brush size: 1 to 32. Click to type a size. - and + and the mouse wheel change it (Alt+wheel on the map too).	笔刷大小：1 至 32。点击可输入大小。- 和 + 以及鼠标滚轮可更改（地图上也可用 Alt+滚轮）。
+Brush size: 1 to 32. Click to type a size. The arrows and the mouse wheel change it (Alt+wheel on the map too).	画笔大小：1 到 32。单击可输入大小。箭头和鼠标滚轮可更改（在地图上也可用 Alt+滚轮）。
 Density	密度
-Density: the number of dabs (Tile: tiles; Rectangle: rects) each spray puts down, 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的点数（图块：图块数；矩形：矩形数），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
-Density: the number of units each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的单位数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
-Density: the number of doodads each spray puts down (where they fit), 1 to 50. Click to type a number. - and + and the mouse wheel change it.	密度：每次喷洒放置的装饰物数（能放下的地方），1 至 50。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
 No symmetry	无对称
 Mirror left and right	左右镜像
 Mirror top and bottom	上下镜像
@@ -848,7 +843,7 @@ Debug mode: Build adds index checks and the trace for epTrace (Project page > Bu
 &Open project…	打开项目(&O)…
 &Make this map a project…	将此地图设为项目(&M)…
 &Build\tCtrl+B	生成(&B)\tCtrl+B
-&Add script…	添加脚本(&A)…
+&Add a script…	添加脚本(&A)…
 Open project &folder	打开项目文件夹(&F)
 Project &settings	项目设置(&S)
 &New project\tCtrl+N	新建项目(&N)\tCtrl+N
@@ -940,7 +935,7 @@ Sent the feedback as #	反馈已发送，编号为 #
 . Thank you.	. 谢谢.
 Sent the feedback. Thank you.	反馈已发送。谢谢。
 This build cannot send feedback. The feedback is in 	此版本无法发送反馈。反馈保存在 
-StarDraft 2 cannot send the feedback now. It sends it at the next start.	StarDraft 2 现在无法发送反馈。将在下次启动时发送。
+Could not send the feedback now. It is sent at the next start.	现在无法发送反馈。将在下次启动时发送。
 Minimap	小地图
 Density: low	密度：低
 Density: medium	密度：中
@@ -973,7 +968,7 @@ Close	关闭
 About StarDraft 2	关于 StarDraft 2
 Force 	势力 
 Nobody	无人
-First, select the players of the briefing	请先选择任务简报的玩家
+Select the players of the briefing first	请先选择任务简报的玩家
 No action	无动作
 Wait	等待
 Play sound	播放声音
@@ -1087,10 +1082,10 @@ The project's map has these classic triggers. The built map keeps them; they run
 Classic triggers: no change	经典触发器：无变化
 Set the classic triggers	设置经典触发器
 the menu item 	菜单项 
-StarDraft 2 stopped because of an error. The crash report is in 	StarDraft 2 因出错而停止。崩溃报告位于 
+An error stopped the program. The crash report is in 	程序因出错而停止。崩溃报告位于 
  (crash reports are off).	 （崩溃报告已关闭）。
 StarDraft 2 stopped	StarDraft 2 已停止
-StarDraft 2 stopped because of an error. StarDraft 2 sends a crash report to the developers so that they can repair the error.	StarDraft 2 因出错而停止。StarDraft 2 会向开发者发送崩溃报告，以便他们修复错误。
+An error stopped the program. A crash report goes to the developers so that they can repair the error.	程序因出错而停止。崩溃报告会发送给开发者，以便他们修复错误。
 Could not read 	无法读取 
 Strings	字符串
 button set	按钮集
@@ -1139,8 +1134,7 @@ The picture inside a transport	运输单位内部的图片
  buttons in this place. The game shows the first whose condition holds. Click again for the next one.	 个按钮在此位置。游戏显示第一个条件满足的按钮。再次点击可查看下一个。
 Add a button here	在此添加按钮
 Shares its place with another button: the game shows the first whose condition holds (the higher one in this list)	与另一按钮共用位置：游戏显示第一个条件满足的按钮（此列表中更靠上的那个）
-Earlier: checked before the one above	提前：先于上方的按钮检查
-Later	延后
+Move up: checked before the one above	上移：先于上方的按钮检查
 Remove the button	删除按钮
 Add a button	添加按钮
 Button	按钮
@@ -1200,7 +1194,6 @@ the code	代码
 Feedback on 	反馈: 
 Feedback is anonymous. Do not include sensitive or private information. Ctrl+Enter sends it.	反馈是匿名的。请勿包含敏感或私人信息。按 Ctrl+Enter 发送。
 Send	发送
-This build cannot send feedback. StarDraft 2 keeps it in 	此版本无法发送反馈。StarDraft 2 将其保存在 
 Sending the feedback…	正在发送反馈…
 Report feedback on 	提交反馈: 
 %zu B	%zu B
@@ -1222,13 +1215,13 @@ The map has it	地图中已有
 Add to the map's sounds, by reference: the game plays its own file, the map does not hold it	按引用添加到地图的声音：游戏播放自己的文件，地图不包含该文件
 The map has no sounds of its own. Import sounds adds WAV or OGG files.	地图没有自己的声音。“导入声音”会添加 WAV 或 OGG 文件。
 Import sounds…	导入声音…
-WAV or OGG files. StarDraft 2 saves them in the map (staredit\\wav\\).	WAV 或 OGG 文件。StarDraft 2 将其保存在地图中（staredit\\wav\\）。
+WAV or OGG files. They go into the map (staredit\\wav\\).	WAV 或 OGG 文件。它们保存在地图中（staredit\\wav\\）。
 Rename	重命名
-Sounds of the game	游戏声音
-StarDraft 2 found no game sounds (Options > Program options: StarCraft folder)	StarDraft 2 未找到游戏声音（选项 > 程序选项：StarCraft 文件夹）
+Game sounds	游戏声音
+No game sounds found. Select the StarCraft folder in Options > Program options.	未找到游戏声音。请在 选项 > 程序选项 中选择 StarCraft 文件夹。
 Briefings	简报
 Open it in the Briefing workspace	在简报工作区中打开
-Search the game's sounds	搜索游戏声音
+Search game sounds	搜索游戏声音
 Controller	控制者
 Race	种族
 Force	队伍
@@ -1320,7 +1313,7 @@ Shape	形状
 Make the project folder and its map	创建项目文件夹和地图
 Make the map in this tab	在此标签页中创建地图
 Removed 	已从列表中移除 
-StarDraft 2 is alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	StarDraft 2 是 alpha 版软件：编辑前请备份您的地图和项目。\n您的反馈很有帮助：在任意内容上右键单击，然后选择 "对…提交反馈"。
+Alpha software: back up your maps and projects before you edit them.\nFeedback helps: right-click anything and select "Report feedback on …".	alpha 版软件：编辑前请备份您的地图和项目。\n您的反馈很有帮助：在任意内容上右键单击，然后选择 "对…提交反馈"。
 Coming later	稍后推出
 Campaign projects come in a later version	战役项目将在之后的版本中推出
 Mod projects come in a later version	模组项目将在之后的版本中推出
@@ -1351,8 +1344,8 @@ The working folder: where new projects go	工作文件夹：新项目的保存�
 New projects go to 	新项目保存到 
 Documents\\StarDraft	Documents\\StarDraft
 Select the StarCraft: Remastered folder	选择 StarCraft: Remastered 文件夹
-From the next start: 	从下次启动开始: 
-A new folder is used from the next start	新文件夹从下次启动时开始使用
+After a restart: 	重新启动后: 
+A new folder is used after a restart	新文件夹在重新启动后使用
 Program options	程序选项
 Expansion	资料片
 Ground path from %s to %s: %.0f tiles (for a %hs)	从 %s 到 %s 的地面路径：%.0f 个图块（单位尺寸：%hs）
@@ -1408,7 +1401,7 @@ Open folder	打开文件夹
 Source map	源地图
 In the project folder	在项目文件夹中
 Where Build writes the map	构建写入地图的位置
-Found by StarDraft 2	由 StarDraft 2 找到
+Found on this computer	在这台电脑上找到
 Change…	更改…
 Downloaded on the first build	在首次构建时下载
 Options	选项
@@ -1450,7 +1443,6 @@ linked  ·  changed 	已关联  ·  已更改
   after the last build	  自上次构建后
 Open in your editor	在编辑器中打开
 Show in folder	在文件夹中显示
-Earlier	更早
 Comes from the Data workspace	来自数据工作区
 New script	新建脚本
 Link a file…	链接文件…
@@ -1524,10 +1516,10 @@ No other data uses this entry	没有其他数据使用此条目
 StarDraft 2 project	StarDraft 2 项目
 Could not get the newest release from GitHub. Make sure that the computer is connected to the internet.	无法从 GitHub 获取最新版本。请确保电脑已连接到互联网。
 Check for updates	检查更新
-StarDraft 2 is up to date (	StarDraft 2 已是最新版本 (
+Up to date (	已是最新版本 (
 .\n\nThis is not a release build. Open the release page?	.\n\n这不是正式发布版本。要打开发布页面吗？
 &Open the release page	打开发布页面(&O)
-.\n\nDownload and install it? StarDraft 2 starts again after it.	.\n\n要下载并安装吗？安装后 StarDraft 2 会重新启动。
+Download and install it, then restart StarDraft 2?	要下载并安装，然后重新启动 StarDraft 2 吗？
 &Install	安装(&I)
 Downloading 	正在下载 
 \n\nThe release page opens: get the zip from there.	\n\n将打开发布页面：请从那里获取 zip 文件。
@@ -1645,7 +1637,7 @@ Player 10	玩家 10
 Player 11	玩家 11
 Player 12	玩家 12
 Show ranges of the selected u&nits	显示所选单位的范围(&N)
-Ranges are hidden	范围已隐藏
+Hid the ranges	已隐藏范围
 Ranges of the selected units: sight (yellow), target acquisition (orange), ground weapon (red), air weapon (blue), detection (green), psi field (purple)	所选单位的范围：视野（黄色）、目标获取（橙色）、地面武器（红色）、空中武器（蓝色）、探测（绿色）、灵能场（紫色）
 Favorites	收藏
 Add to favorites	添加到收藏
@@ -1659,7 +1651,7 @@ Do not send	不发送
 &Always send	始终发送(&A)
 Do &not send	不发送(&N)
 Crash report	崩溃报告
-After a crash, StarDraft 2 asks at the next start if it can send the report (default)	崩溃后，StarDraft 2 在下次启动时询问能否发送报告（默认）
+Ask at the next start after a crash (default)	崩溃后在下次启动时询问（默认）
 The reports stay on this computer	报告保留在这台计算机上
 Show &minimap	显示小地图(&M)
 Hide	隐藏
@@ -1707,34 +1699,32 @@ Make StarDraft 2 the program that opens .scm and .scx maps	将 StarDraft 2 设�
 Maps (.scm, .scx) open with StarDraft 2	地图（.scm, .scx）用 StarDraft 2 打开
 Windows keeps the program that you selected for .scm or .scx maps. In Default apps, search for .scm and .scx and select StarDraft 2.	Windows 会保留您为 .scm 或 .scx 地图选择的程序。在“默认应用”中搜索 .scm 和 .scx，然后选择 StarDraft 2。
 Default apps	默认应用
-StarDraft 2 shows the new language after a restart. Restart now? Your open maps and projects open again.	StarDraft 2 在重新启动后显示新语言。现在重启吗？已打开的地图和项目会再次打开。
-The language changes when StarDraft 2 starts again	语言在 StarDraft 2 再次启动时更改
-StarDraft 2 could not start again. Close it and start it to show the new language.	StarDraft 2 无法再次启动。请关闭后重新启动，以显示新语言。
+The new language shows after a restart. Restart now? Your open maps and projects open again.	重新启动后显示新语言。现在重启吗？已打开的地图和项目会再次打开。
+Could not restart StarDraft 2. Close it and start it again to show the new language.	无法重新启动 StarDraft 2。请关闭后重新启动，以显示新语言。
 Restart now	立即重启
 Start StarDraft 2 again in the new language. Your open maps and projects open again.	以新语言重新启动 StarDraft 2。已打开的地图和项目会再次打开。
 The new language shows after a restart	重新启动后显示新语言
-A new language shows after a restart	重新启动后显示新语言
 Text color	文字颜色
-\r\nOn the first build, StarDraft 2 downloads euddraft from GitHub into its own folder.\r\nStarDraft 2 does not change other copies on this computer. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次构建时，StarDraft 2 会从 GitHub 将 euddraft 下载到它自己的文件夹。\r\nStarDraft 2 不会更改这台计算机上的其他副本。您打开的地图\r\n仍是普通地图。只能构建项目。
+\r\nThe first build downloads euddraft from GitHub into its own folder.\r\nOther copies of euddraft on this computer do not change. A map that you open\r\nstays a regular map. Only a project can be built.	\r\n首次构建会从 GitHub 将 euddraft 下载到它自己的文件夹。\r\n这台计算机上的其他 euddraft 副本不会更改。您打开的地图\r\n仍是普通地图。只能构建项目。
  accepts the current player or Player 1 to Player 12	 接受当前玩家或玩家 1 至 12
  accepts the current player, Player 1 to Player 8, all players, or a force	 接受当前玩家、玩家 1 至 8、所有玩家或一个势力
  are hidden (View > Layers)	 已隐藏（查看 > 图层）
- has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit	 与另一个单位的类型、拥有者和位置相同。请移动其中一个，否则 StarDraft 可能找错单位
+ has the same type, owner and position. Move one of them, or the triggers can find the wrong unit	 与另一个单位的类型、拥有者和位置相同。请移动其中一个，否则触发器可能找错单位
  tiles)	 个图块)
  tiles: Brush, Spray and Fill place one of them at random	 个图块：画笔、喷涂和填充各随机放置其中之一
- units: click to place them, and again to place more. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。右键单击或按 Esc 停止。
- units: the limit (Program options > Map unit limit)	 个单位：上限（程序选项 > 地图单位上限）
+ units: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	 个单位：单击放置，再次单击可继续放置。R 旋转，M 镜像。右键单击或按 Esc 停止。
+ units: the limit (Options > Program options > Map unit limit)	 个单位：上限（选项 > 程序选项 > 地图单位上限）
 &Assets workspace	资源工作区(&A)
 &Briefing workspace	简报工作区(&B)
 &Project page	项目页面(&P)
 . At the next start, StarDraft 2 asks if it can send it.	. 下次启动时，StarDraft 2 会询问能否发送它。
 . The Favorites filter shows them.	. “收藏”筛选会显示它们。
-: StarDraft 2 opens maps (.scm, .scx, .chk) and projects	: StarDraft 2 可打开地图（.scm, .scx, .chk）和项目
-: StarDraft cannot build this block yet	: StarDraft 暂时无法构建此块
+: the file is not a map (.scm, .scx, .chk) or a project	: 该文件不是地图（.scm, .scx, .chk）或项目
+: this block cannot be built yet	: 此块暂时无法构建
 : this layer is hidden. View > Layers shows it again (then you can edit it).	: 此图层已隐藏。查看 > 图层可再次显示它（然后即可编辑）。
 Add a script	添加脚本
 Added to the favorites: 	已加入收藏: 
-After a crash, StarDraft 2 asks at the next start if it can send the report	崩溃后，StarDraft 2 在下次启动时询问能否发送报告
+Crash reports: ask at the next start after a crash	崩溃报告：崩溃后在下次启动时询问
 Automatic (the language of Windows)	自动（Windows 语言）
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. Several tiles selected: each tile one of them at random (a scatter).	画笔：以画笔的大小和形状放置在“图块”列表中选中的图块。选中多个图块时，每个位置随机放置其中之一（散布）。
 Could not write 	无法写入 
@@ -1748,10 +1738,10 @@ Paste terrain: click to place it, and again to place more. Press R to turn it. R
 Paste tiles: click to place them, and again to place more. Right-click or Esc stops.	粘贴图块：单击放置，再次单击可继续放置。右键单击或 Esc 停止。
 Paste: click to place the copy, and again to place more. Right-click or Esc stops.	粘贴：单击放置副本，再次单击可继续放置。右键单击或 Esc 停止。
 Removed from the favorites: 	已移出收藏: 
-Run local block: StarDraft cannot tell what 	运行本地块：StarDraft 无法判断 
+Run local block: it is not known what 	运行本地块：无法判断 
 Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps	崩溃后发送匿名报告：版本、Windows、显卡、崩溃位置和最后的日志行；不包含地图
 StarDraft 2 - v	StarDraft 2 - v
-StarDraft 2 stopped because of an error the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	StarDraft 2 上次因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、操作系统、显卡、崩溃位置和最后的日志行。日志行中可能有地图和文件夹的名称（你的用户文件夹显示为 ~）。报告在 GitHub 上公开。不包含地图。报告位于 
+An error stopped the program the last time. Send the crash report to the developers, so that they can repair the error?\n\nThe report has the version, the operating system, the video card, where it crashed and the last log lines. The log lines can have the names of maps and folders (your user folder shows as ~). The report is public on GitHub. It has no maps. It is in 	上次程序因错误而停止。是否将崩溃报告发送给开发者，以便他们修复该错误？\n\n报告包含版本、操作系统、显卡、崩溃位置和最后的日志行。日志行中可能有地图和文件夹的名称（你的用户文件夹显示为 ~）。报告在 GitHub 上公开。不包含地图。报告位于 
 Terran Marine	人类机枪兵
 The language of the program's texts	程序文本的语言
 The map has 	地图有 
@@ -1768,28 +1758,28 @@ Project settings need a project. Use File > Project > New EUD project or Open pr
 epScript (*.eps)*.epseudplib Python (*.py)*.py	epScript (*.eps)*.epseudplib Python (*.py)*.py
 StarDraft 2 project (*.stardraft)*.stardraft	StarDraft 2 项目 (*.stardraft)*.stardraft
 Could not create the location: all location slots are in use	无法创建位置：所有位置槽位都已占用
-Nothing copied: select terrain with the Select / copy tool and press Ctrl+C	未复制任何内容：请用“选择 / 复制”工具选择地形，然后按 Ctrl+C
+Nothing copied: select terrain with the Select tool and press Ctrl+C	未复制任何内容：请用“选择”工具选择地形，然后按 Ctrl+C
 StarDraft 2 project (*.stardraft;*.eds)*.stardraft;*.eds	StarDraft 2 项目 (*.stardraft;*.eds)*.stardraft;*.eds
 Replace: select the new type in the list. Then click a unit. All units of the clicked unit's type change to the new type. If the clicked unit is one of several selected units, only the selected units of that type change.	替换：先在列表中选择新类型，然后点击一个单位。所有与被点击单位类型相同的单位都会变为新类型。如果被点击的单位是多个已选单位之一，则只有已选中的该类型单位会改变。
 Selected the terrain. Press Ctrl+C to copy it. Replace changes only the selected area.	已选择地形。按 Ctrl+C 复制。替换只改变所选区域。
 Could not move the sprites: the new place is outside the map	无法移动精灵：新位置在地图之外
 Segoe MDL2 Assets	Segoe MDL2 Assets
-Read only. A change to this value has no effect in StarCraft: Remastered.	只读。更改此值在 StarCraft: Remastered 中不起作用。
-The volume of every sound StarDraft 2 plays, from the next sound on	StarDraft 2 播放的每个声音的音量，从下一个声音起生效
+Read-only. A change to this value has no effect in StarCraft: Remastered.	只读。更改此值在 StarCraft: Remastered 中不起作用。
+The volume of all sounds, from the next sound on	所有声音的音量，从下一个声音起生效
 The unit size is rounded up to walk tiles (8 pixels each). Going up or down, the unit needs a gap of %d walk tiles (%d pixels). Going left or right, it needs a gap of %d walk tiles (%d pixels).	单位大小会向上取整为行走格(每格 8 像素)。向上或向下移动时，单位需要 %d 个行走格 (%d 像素) 的间隙。向左或向右移动时，需要 %d 个行走格 (%d 像素) 的间隙。
 Follow the animation's current instruction	跟随动画的当前指令
 Variables, and triggers that a Run a trigger block runs	变量，以及“执行触发器”块运行的触发器
 Build puts this code into generated\\triggers.eps unchanged.	构建时，此代码会原样写入 generated\\triggers.eps。
 The game calculates this value while it runs	游戏在运行时计算此值
 0 means all that match the other values	0 表示所有与其他值匹配的项
-First, select the list. Then the index can be 0 to the number of items minus 1.	先选择列表。然后索引可以是 0 到项数减 1。
+Select the list first. Then the index can be 0 to the number of items minus 1.	先选择列表。然后索引可以是 0 到项数减 1。
 Each text variable reserves space in the map for this many letters. A longer text overwrites other data in the map.	每个文本变量在地图中为这么多个字符预留空间。更长的文本会覆盖地图中的其他数据。
-Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.	选择：拖出图块矩形以复制 (Ctrl+C)。Esc 返回“选择”。
+Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.	选择：拖出图块矩形以复制 (Ctrl+C)。Esc 返回“选择”工具。
 Spray: place the tile at random spots in the brush (Density). Hold the button to spray more.	喷洒：在笔刷范围内的随机位置放置图块 (密度)。按住按钮可喷洒更多。
 Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.	选择：拖出地形矩形以复制 (Ctrl+C) 或移动。Esc 返回“选择”工具。
 Select units: click or drag a box; drag them to move. Esc returns to the Select tool.	选择单位：点击或拖出选框；拖动它们即可移动。Esc 返回“选择”工具。
 Select a doodad: click it; drag it to move. Esc returns to the Select tool.	选择装饰物：点击它；拖动即可移动。Esc 返回“选择”工具。
-Select a sprite: click it; drag it to move. Esc goes to Select.	选择精灵：点击它；拖动即可移动。Esc 返回“选择”。
+Select a sprite: click it; drag it to move. Esc returns to the Select tool.	选择精灵：点击它；拖动即可移动。Esc 返回“选择”工具。
 Debug mode off: Build does not add index checks or the trace for epTrace	调试模式关闭：构建时不添加索引检查和 epTrace 的跟踪信息
 &Quick picker (the mode's units, terrains, doodads, sprites or locations; in Data, any entry)…\tQ	快速选择(&Q) (当前模式的单位、地形、装饰物、精灵或位置；在数据中为任意条目)…\tQ
 Test	测试
@@ -1830,30 +1820,29 @@ The text box shows the string as the game stores it: a button's text starts with
 Size of all strings together. The game has room for at most the number after the slash.	所有字符串的总大小。游戏最多能容纳斜杠后的数字。
 Rename the file in the map. The briefings that play it also use the new name.	在地图中重命名此文件。播放它的简报也会使用新名称。
 No game sound name contains the search text	没有游戏声音名称包含搜索文本
-Discard the changes that are not applied and show the map's values	放弃未应用的更改，并显示地图的值
-Discard the changes that are not applied	放弃未应用的更改
+Revert the changes that are not applied	还原未应用的更改
 Could not read the game data files units.dat, weapons.dat, upgrades.dat and techdata.dat. Select the StarCraft folder in Options > Program options, then restart StarDraft 2.	无法读取游戏数据文件 units.dat、weapons.dat、upgrades.dat 和 techdata.dat。请在 选项 > 程序选项 中选择 StarCraft 文件夹，然后重新启动 StarDraft 2。
 Changed by the test	由测试更改
- tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n	 图块。StarDraft 2 会删除超出新大小的地图部分。\r\n
- terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n	 地形，名称相同或同类(例如水域或高地)。若没有，则成为新地面的地形。StarDraft 2 会删除装饰物，因为每个图块集都有各自的装饰物。\r\n
-The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file.	新地图会获得原地图的大小、图块集、地形和装饰物。StarDraft 2 不会更改地图文件。
-StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.	StarDraft 2 会将地图复制到项目文件夹中。StarDraft 2 不会更改原始文件。
+ tiles. The parts of the map outside the new size are deleted.\r\n	 图块。超出新大小的地图部分会被删除。\r\n
+ terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads are deleted, because each tileset has its own doodads.\r\n	 地形，名称相同或同类(例如水域或高地)。若没有，则成为新地面的地形。装饰物会被删除，因为每个图块集都有各自的装饰物。\r\n
+The new map gets the map's size, tileset, terrain and doodads. The map's file does not change.	新地图会获得原地图的大小、图块集、地形和装饰物。地图文件不会更改。
+The project gets a copy of the map in its folder. The original file does not change.	项目文件夹中会有地图的副本。原始文件不会更改。
 Randomize the tileset, the amounts, the shape and the seed (not the size)	随机设置图块集、数量、形状和种子(不包括大小)
-Select the folder where StarDraft 2 makes new projects	请选择 StarDraft 2 创建新项目的文件夹
-StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.	StarDraft 2 会在此文件夹中创建新项目。它不会移动您从其他文件夹打开的项目。
+Select the folder for new projects	请选择新项目的文件夹
+New projects go into this folder. A project that you open from another folder stays where it is.	新项目会放在此文件夹中。您从其他文件夹打开的项目保持原位。
 %s: %d buildable tiles, %d mineral fields (%u minerals in total), %d geysers (%u gas in total)	%s: %d 个可建造图块，%d 个矿物堆 (共 %u 矿物)，%d 个间歇泉 (共 %u 瓦斯)
 Shaded: units cannot walk there. Each tint marks a ground area that units cannot walk to from the largest area (no tint). 	阴影：单位无法在此行走。每种色调标出一块地面区域，单位无法从最大区域(无色调)走到该区域。 
-. StarDraft 2 does not delete the file.	。StarDraft 2 不会删除该文件。
+. The file stays on the disk.	。文件仍保留在磁盘上。
  from the build. The file is still in the project folder.	 从构建中移除。文件仍在项目文件夹中。
 epScript (*.eps)*.epsScripts (*.eps;*.py)*.eps;*.pyAll files*.*	epScript (*.eps)*.eps脚本 (*.eps;*.py)*.eps;*.py所有文件*.*
 Sounds (*.ogg;*.wav)*.ogg;*.wav	声音 (*.ogg;*.wav)*.ogg;*.wav
 Open the report in Notepad, which shows how often epTrace found each script line running	在记事本中打开报告，其中显示 epTrace 发现每行脚本运行的次数。
-The folder that StarDraft 2 reads game data from	StarDraft 2 读取游戏数据的文件夹
+The folder that the game data comes from	游戏数据所在的文件夹
 All files*.*	所有文件*.*
-A linked file. StarDraft 2 does not copy or change it: 	链接的文件。StarDraft 2 不会复制或更改它: 
-Remove the link. StarDraft 2 does not delete the file.	移除链接。StarDraft 2 不会删除该文件。
+A linked file. It stays where it is and does not change: 	链接的文件。它保持原位，不会更改: 
+Remove the link (the file stays on the disk)	移除链接（文件仍保留在磁盘上）
 Remove from the build (the file stays in the project folder)	从构建中移除(文件仍保留在项目文件夹中)
-Add an .eps or .py file from anywhere on disk to the build. StarDraft 2 does not copy or change it.	将磁盘上任意位置的 .eps 或 .py 文件添加到构建中。StarDraft 2 不会复制或更改它。
+Add an .eps or .py file from anywhere on disk to the build. The file stays where it is and does not change.	将磁盘上任意位置的 .eps 或 .py 文件添加到构建中。文件保持原位，不会更改。
 Sounds (WAV, OGG)*.wav;*.ogg	声音 (WAV, OGG)*.wav;*.ogg
 Select a game sound…	选择游戏声音…
 Inside it, "the unit" is the unit that the loop handles now.	在循环内，“该单位”是循环当前处理的单位。
@@ -1866,9 +1855,9 @@ Accept: 	Accept:
 A value in the text is missing. Insert it again.	文本中缺少一个值。请重新插入。
 Put Pause in a Sequence: outside one, it does nothing. To wait outside a Sequence, use After a delay.	将暂停放入序列中：在序列外，它不起作用。若要在序列外等待，请使用“延迟后”。
 Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill repeats them as a pattern.	填充：点击选区内以填充整个选区。点击其他位置会填充与被点击图块相连且相同的图块。Shift+点击会填充所有匹配的图块(若有选区，则仅限选区内)。若在图块列表中选择了多个图块，填充会将它们作为图案重复。
-Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 程序选项 > 地图 中设置。
+Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in Options > Program options > Maps.	双击 .scm 和 .scx 地图时用 StarDraft 2 打开它们？之后可在 选项 > 程序选项 > 地图 中设置。
 Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.	笔刷：以笔刷的大小和形状放置图块列表中选中的图块。选中多个图块时，笔刷按它们在列表中的排列放置；按住 Shift 可随机放置。
-. At the next start, StarDraft 2 asks if you want to send the crash report.	。下次启动时，StarDraft 2 会询问您是否要发送崩溃报告。
+. At the next start, you can send the crash report.	。下次启动时，您可以发送崩溃报告。
 &Pin to the top	置顶(&P)
 Un&pin	取消置顶(&P)
 player array	玩家数组
@@ -1999,7 +1988,6 @@ Open the Discord server	打开 Discord 服务器
 Sending your feedback…	正在发送反馈…
 Thank you for your feedback.	感谢您的反馈。
 Open it on GitHub (#	在 GitHub 上打开 (#
-StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.	StarDraft 2 现在无法发送。StarDraft 2 下次启动时会发送。
 Bright yellow (Player 10)	亮黄色（玩家 10）
 Pink (Player 11)	粉色（玩家 11）
 Hidden (the game does not show this text)	隐藏（游戏不显示此文本）
@@ -2029,9 +2017,9 @@ Paste	粘贴
 Copy all	全部复制
 Select all	全选
 Could not find StarCraft on your system.	在您的系统上找不到 StarCraft。
-Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).	选择“浏览”查找 StarCraft 文件夹，或选择“加载模组”以使用模组（程序选项 > 插件）。
+Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).	选择“浏览”查找 StarCraft 文件夹，或选择“加载模组”以使用模组（选项 > 程序选项 > 插件）。
 Load mod…	加载模组…
-Program options > Plugins: load a mod, as Cosmonarchy BW	程序选项 > 插件：加载模组，例如 Cosmonarchy BW
+Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)	加载模组，例如 Cosmonarchy BW（选项 > 程序选项 > 插件）
 That folder has no StarCraft game data.	该文件夹中没有 StarCraft 游戏数据。
 Select the StarCraft folder	选择 StarCraft 文件夹
 Services	服务
@@ -2136,7 +2124,7 @@ Open on GitHub	在 GitHub 上打开
 Open the release page in the browser	在浏览器中打开发布页面
 Install	安装
 Download	下载
-Download and install it. StarDraft 2 starts again after it.	下载并安装。之后 StarDraft 2 会重新启动。
+Download and install it, then restart StarDraft 2	下载并安装，然后重新启动 StarDraft 2
 The download opens in the browser	在浏览器中打开下载
 This release has no release notes	此版本没有发行说明
 Getting the release notes from GitHub…	正在从 GitHub 获取发行说明…
@@ -2150,10 +2138,10 @@ At start and one time each hour (release builds only)	启动时以及每小时�
 Previews	预览版
 Pre-releases too, not only the stable releases	也包括预发行版，而不仅是稳定版
 Updates	更新
-StarDraft 2 offers pre-releases too	StarDraft 2 也提供预发行版
-StarDraft 2 offers the stable releases only	StarDraft 2 仅提供稳定版
-StarDraft 2 looks for a newer release at start and each hour	StarDraft 2 在启动时和每小时检查较新版本
-StarDraft 2 does not look for newer releases	StarDraft 2 不检查较新版本
+Updates: offer pre-releases too	更新：也提供预发行版
+Updates: offer the stable releases only	更新：仅提供稳定版
+Updates: look for a newer release at start and each hour	更新：在启动时和每小时检查较新版本
+Updates: do not look for newer releases	更新：不检查较新版本
 &Export map image…\tCtrl+Shift+E	导出地图图像(&E)…\tCtrl+Shift+E
 Export map image	导出地图图像
 Full size in HD (64 pixels a tile)	HD 原始大小（每图块 64 像素）
@@ -2221,7 +2209,7 @@ No pathing problems: %d regions, %d connected areas	没有寻路问题：%d 个�
 Passage that only small units fit through, at tile %d, %d	只有小型单位能通过的通道，位于图块 %d, %d
 Pathing is hidden (View > Overlays)	寻路已隐藏（视图 > 叠加层）
 Pathing region %d: %d tiles, %ls; connected area %d (%d regions)	寻路区域 %d：%d 个图块，%ls；连通区域 %d（%d 个区域）
-Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
+Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map	寻路：%d 个问题（%d 个区域，%d 个连通区域）。选择一个以在地图上显示
 Pathing: each connected area (the ground that units can walk across) has its own color. Dark: units cannot walk here	寻路：每个连通区域（单位可以走遍的地面）各有其颜色。暗处：单位不能在此行走
 Pathing: each pathing region of the game has its own color. Dark: units cannot walk here	寻路：游戏的每个寻路区域各有其颜色。暗处：单位不能在此行走
 Pathing: units cannot walk here	寻路：单位不能在此行走
@@ -2308,20 +2296,20 @@ No tier	无等级
 New palette panel: 	新的调色板面板：
 Could not save the map's settings	无法保存地图设置
 Put Terrain back in the side bar	将地形放回侧栏
-Terrain is in its own window	地形在单独的窗口中
-Terrain is back in the side bar	地形已回到侧栏
+Moved Terrain to its own window	已将地形移到单独的窗口
+Moved Terrain back to the side bar	已将地形放回侧栏
 Put Units back in the side bar	将单位放回侧栏
-Units is in its own window	单位在单独的窗口中
-Units is back in the side bar	单位已回到侧栏
+Moved Units to its own window	已将单位移到单独的窗口
+Moved Units back to the side bar	已将单位放回侧栏
 Put Doodads back in the side bar	将装饰物放回侧栏
-Doodads is in its own window	装饰物在单独的窗口中
-Doodads is back in the side bar	装饰物已回到侧栏
+Moved Doodads to its own window	已将装饰物移到单独的窗口
+Moved Doodads back to the side bar	已将装饰物放回侧栏
 Put Locations back in the side bar	将位置放回侧栏
-Locations is in its own window	位置在单独的窗口中
-Locations is back in the side bar	位置已回到侧栏
+Moved Locations to its own window	已将位置移到单独的窗口
+Moved Locations back to the side bar	已将位置放回侧栏
 Put Sprites back in the side bar	将精灵放回侧栏
-Sprites is in its own window	精灵在单独的窗口中
-Sprites is back in the side bar	精灵已回到侧栏
+Moved Sprites to its own window	已将精灵移到单独的窗口
+Moved Sprites back to the side bar	已将精灵放回侧栏
 &Walkable ground	可行走地面(&W)
 Ground &height	地面高度(&H)
 Ground that blocks the line of &sight	阻挡视线的地面(&S)
@@ -2412,6 +2400,7 @@ Map &revealers	地图揭示器(&R)
 Place &map revealers…	放置地图揭示器(&M)…
 &Remove all map revealers	删除所有地图揭示器(&R)
 Place map revealers	放置地图揭示器
+Place revealers	放置揭示器
 One map revealer on each square of 8 x 8 tiles.	每个 8 x 8 格的方格放置一个地图揭示器。
 Map revealers show	显示地图揭示器
 Map revealers are hidden (View > Layers shows them again)	地图揭示器已隐藏（视图 > 图层可再次显示）
@@ -2431,7 +2420,7 @@ Link selected units	连接所选单位
 Jump to linked unit	跳到连接的单位
  locations	 个位置
 Turns	旋转次数
-Turns: the copies go round the map's middle in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. - and + and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	旋转：副本绕地图中心按相等的步距旋转。1：不旋转，2：半圈，4：四分之一圈，1 到 8。单击可输入数字。- 和 + 以及鼠标滚轮可更改数值。在等距地形上，除保持菱形的旋转（2，以及宽度为高度两倍的地图上的 4）外，每个副本都放在最近的菱形上。
+Turns: the copies go round the symmetry center in equal steps. 1: none, 2: a half turn, 4: quarter turns, 1 to 8. Click to type a number. The arrows and the mouse wheel change it. On isometric terrain, a copy goes to the nearest diamond unless the turn keeps the diamonds (2, and 4 on a map twice as wide as high).	旋转：副本以相等步长绕对称中心旋转。1：无，2：半圈，4：四分之一圈，1 到 8。单击可输入数字。箭头和鼠标滚轮可更改。在等距地形上，除非旋转能保持菱形（2，以及宽度为高度两倍的地图上的 4），否则副本会移到最近的菱形。
 Start locations	起始位置
 &Place them	放置(&P)
 &Save anyway	仍然保存(&S)
@@ -2463,12 +2452,12 @@ Mods	模组
 Cosmonarchy folder	Cosmonarchy 文件夹
 Select the Cosmonarchy BW folder	选择 Cosmonarchy BW 文件夹
 That folder has no Cosmonarchy BW data (mpq\arr\units.datex).	该文件夹没有 Cosmonarchy BW 数据（mpq\arr\units.datex）。
-The Cosmonarchy folder is set	Cosmonarchy 文件夹已设置
+Set the Cosmonarchy folder	已设置 Cosmonarchy 文件夹
 The Prerelease or Release folder	Prerelease 或 Release 文件夹
-The Prerelease or Release folder. A new folder is used from the next start	Prerelease 或 Release 文件夹。新文件夹从下次启动起使用
+The Prerelease or Release folder. A new folder is used after a restart	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用
 The CRIG commands have no problems	CRIG 命令没有问题
 These CRIG commands in the trigger Comments have problems:	触发器注释中的这些 CRIG 命令有问题：
-Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.	实验性模拟，可能尚未与游戏完全一致。这是 StarDraft 自己的模拟，而不是游戏引擎。
+Experimental simulation: the result can differ from the game. It is not the game's engine.	实验性模拟：结果可能与游戏不同。这不是游戏引擎。
 Simulation	模拟
 Simulate mining	模拟采矿
 Simulate combat	模拟战斗
@@ -2526,17 +2515,17 @@ All	全部
 Unit %d	单位 %d
 Player %d	玩家 %d
 The simulation stopped: %ls	模拟已停止: %ls
-Computers (players %ls)	电脑 (玩家 %ls)
-Computer (player %ls)	电脑 (玩家 %ls)
-Humans (players %ls)	人类 (玩家 %ls)
-Humans (player %ls)	人类 (玩家 %ls)
+Computers (Players %ls)	电脑 (玩家 %ls)
+Computer (Player %ls)	电脑 (玩家 %ls)
+Humans (Players %ls)	人类 (玩家 %ls)
+Human (Player %ls)	人类 (玩家 %ls)
 Force %d	队伍 %d
-%ls (players %ls)	%ls (玩家 %ls)
-%ls (player %ls)	%ls (玩家 %ls)
+%ls (Players %ls)	%ls (玩家 %ls)
+%ls (Player %ls)	%ls (玩家 %ls)
 Player %ls	玩家 %ls
 %ls wins	%ls 获胜
 %ls (the others have only units that cannot attack)	%ls (其余玩家只剩无法攻击的单位)
-%ls of player %d is the last unit standing	%ls，玩家 %d 最后剩下的单位
+%ls of Player %d is the last unit standing	%ls，玩家 %d 最后剩下的单位
 No winner: %d unit is out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
 No winner: %d units are out of reach of their enemies	没有胜者: 有 %d 个单位超出敌人的攻击范围
 %ls after %ls game seconds	%ls，共 %ls 游戏秒
@@ -2585,7 +2574,6 @@ Game: Standard. Maps open and are made as StarCraft: Brood War maps (the open ta
 Connected &areas	连通区域(&A)
 Town a&reas	基地区域(&R)
 &Terrain flags	地形属性(&T)
-Copy tile &value	复制图块值(&V)
 Copied: 	已复制：
 Report feedback on the selected terrain…	对所选地形报告反馈…
 The selected terrain (tile x, y):	所选地形（图块 x, y）：
@@ -2596,14 +2584,14 @@ more	更多
 The rest of the command	命令的其余部分
 the values after these, as the command reads them	这些值之后的值，按命令读取的方式
 Plugins	插件
-Early feature preview: please report issues	早期功能预览：请报告问题
-Adjusts StarDraft to work with the CMBW environment when it is loaded	加载后，调整 StarDraft 以适配 CMBW 环境
+Early feature preview: report the issues that you find	早期功能预览：报告您发现的问题
+When loaded, maps open with the CMBW data, and new maps are CMBW maps	加载后，地图使用 CMBW 数据打开，新地图为 CMBW 地图
 Loaded the Cosmonarchy BW plugin: maps open and are made as Cosmonarchy BW maps (the open tabs stay as they are)	已加载 Cosmonarchy BW 插件：地图以 Cosmonarchy BW 地图打开和创建（已打开的标签页不变）
 Unloaded the Cosmonarchy BW plugin: maps open and are made as StarCraft: Brood War maps (the open tabs stay as they are)	已卸载 Cosmonarchy BW 插件：地图以 StarCraft: Brood War 地图打开和创建（已打开的标签页不变）
 Type to search	输入以搜索
-Opening map…	正在打开地图…
-Creating map…	正在创建地图…
-Generating map…	正在生成地图…
+Opening the map…	正在打开地图…
+Creating the map…	正在创建地图…
+Generating the map…	正在生成地图…
 Creating Cosmonarchy map…	正在创建 Cosmonarchy 地图…
 Loading game data (CASC/MPQ)…	正在加载游戏数据 (CASC/MPQ)…
 Extracting scenario.chk from the MPQ…	正在从 MPQ 提取 scenario.chk…
@@ -2619,17 +2607,16 @@ Find a &command…	查找命令(&C)…
 Find a command or an option	查找命令或选项
 Not available now: 	现在不可用：
 Turn &off all overlays	关闭所有叠加层(&O)
-All overlays are hidden	所有叠加层已隐藏
+Hid all overlays	已隐藏所有叠加层
 Terrain &pie palette	地形饼状调色板(&P)
 The pie palette has no terrains for this tileset	饼状调色板中没有此图块集的地形
-Select the StarCraft folder first (Browse, at the top): a new map needs the game's files	请先选择 StarCraft 文件夹（上方的“浏览”）：新地图需要游戏文件
-StarDraft 2 needs StarCraft's game files to open a map. Select the StarCraft folder on the start page (Browse).	StarDraft 2 需要 StarCraft 的游戏文件才能打开地图。请在开始页面选择 StarCraft 文件夹（浏览）。
-Select the StarCraft folder first (the start page: Browse): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面：浏览）：新地图需要游戏文件
+Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files	请先选择 StarCraft 文件夹（开始页面上的“浏览”）：新地图需要游戏文件
+No StarCraft game files found. Select the StarCraft folder on the start page (Browse).	未找到 StarCraft 的游戏文件。请在开始页面选择 StarCraft 文件夹（浏览）。
 Reset all program settings…	重置所有程序设置…
-Every program setting gets its default value, and StarDraft 2 starts again (a question first)	所有程序设置恢复为默认值，然后 StarDraft 2 重新启动（会先询问）
+Give every program setting its default value and restart (a question first)	将所有程序设置恢复为默认值并重新启动（会先询问）
 Your maps, projects and recent lists stay as they are	您的地图、项目和最近列表保持不变
 Reset all program settings	重置所有程序设置
-Every program setting gets its default value, and StarDraft 2 starts again. Your maps, projects and recent lists stay as they are.	所有程序设置将恢复为默认值，StarDraft 2 将重新启动。您的地图、项目和最近列表保持不变。
+Give every program setting its default value, then restart? Your maps, projects and recent lists stay as they are.	将所有程序设置恢复为默认值，然后重新启动？您的地图、项目和最近列表保持不变。
 &Reset and restart	重置并重新启动(&R)
 The program settings have their default values. Close StarDraft 2 and start it again to use them.	程序设置已恢复为默认值。请关闭 StarDraft 2 并重新启动以使用它们。
 Rectangle	矩形
@@ -2694,7 +2681,7 @@ Fill: the connected area of one terrain. Shift+click: every place of that terrai
 Fill: click a place to put units of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	填充：点击一个位置，在该地形相连的地面上随机放置所选类型的单位，仅放在能容纳的地方（密度：数量）。
 Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).	填充：点击一个位置，在该地形相连的地面上随机放置所选类型的装饰物，仅放在能容纳的地方（密度：数量）。
 Mix	混合
-Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. - and + and the mouse wheel change it.	混合：选择多个地形或图块时，填充放置色块的大小，从 1（大色块）到 10（最小：每个图块随机；等距：2 个菱形）。点击可输入数字。- 和 + 以及鼠标滚轮可更改。
+Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.	混合：选择多个地形或图块时，填充如何成块放置，1（大块）到 10（最小：每个图块随机；等距：2 个菱形）。单击可输入数字。箭头和鼠标滚轮可更改。
 New floating 	新建浮动
  panel	面板
 Could not erase: the map has no isometric terrain data	无法擦除：地图没有等距地形数据
@@ -2705,7 +2692,7 @@ Erase: drag the brush over units to delete them (Size: the brush's size)	擦除�
 Erase: drag the brush over doodads to delete them (Size: the brush's size)	擦除：拖动笔刷经过装饰物即可删除它们（大小：笔刷的大小）
 Erase: drag the brush over sprites to delete them (Size: the brush's size)	擦除：拖动笔刷经过精灵即可删除它们（大小：笔刷的大小）
 Erase: drag the brush over locations to delete them (Size: the brush's size)	擦除：拖动笔刷经过地点即可删除它们（大小：笔刷的大小）
- Click again for the next tool of this button; the arrow or a right click lists them.	 再次点击可切换到此按钮的下一个工具；箭头或右键点击可列出它们。
+ A click also shows the tools of this button.	 点击也会列出此按钮的工具。
 The tools of this button	此按钮的工具
 Filled rectangle	填充矩形
 Ellipse	椭圆
@@ -2719,5 +2706,102 @@ Painted the rectangle	已绘制矩形
 Filled the rectangle	已填充矩形
 Painted the ellipse	已绘制椭圆
 Filled the ellipse	已填充椭圆
-Release the button at the other corner. Hold Shift for a square or a circle	在另一个角松开按钮。按住 Shift 为正方形或圆形
-Please describe what the issue is and what you would expect instead.	请描述问题是什么，以及您期望的结果是什么。
+Filled diamond	填充菱形
+Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.	菱形：拖过它所在的方框。松开时以笔刷的大小和形状绘制其边缘。按住 Shift 为地图形状的菱形。
+Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.	填充菱形：拖过它所在的方框。松开时填充它。按住 Shift 为地图形状的菱形。
+Painted the diamond	已绘制菱形
+Filled the diamond	已填充菱形
+Release the button at the other corner. Hold Shift for a square, a circle or a diamond of the map's shape	在另一个角松开按钮。按住 Shift 为正方形、圆形或地图形状的菱形
+Describe the issue and what you expect instead.	描述问题以及您期望的结果。
+Bridge	桥
+Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.	桥：从地面拖过水面到对岸的地面。桥的长度等于水面的宽度；大小设置桥的宽度。
+This tileset has no bridges	此地形集没有桥
+Could not make a bridge. The map has no isometric terrain data.	无法生成桥。地图没有等距地形数据。
+Bridge: drag across the %ls to the %ls on the other side	桥：拖过%ls到对岸的%ls
+Bridge: drag on to the %ls on the other side	桥：继续拖到对岸的%ls
+A bridge goes from land across the %ls to land, along a diagonal of the map	桥沿地图的对角线从陆地跨过%ls到陆地
+The %ls is too narrow for a bridge. Paint it wider.	%ls太窄，无法放桥。请画宽一些。
+The bridge does not fit on the map	桥放不进地图
+Bridge: length %ls, width %ls. Release the button to place it.	桥：长度 %ls，宽度 %ls。松开按钮放置。
+Bridge: drag from the ground across the water to the ground on the other side	桥：从地面拖过水面到对岸的地面
+Stopped the bridge	已停止桥
+The bridge is there already	桥已经在那里
+Placed the bridge	已放置桥
+Part of the bridge is on protected tiles	桥的一部分位于受保护的图块上
+Placed the bridge. Symmetry does not apply to bridges.	已放置桥。对称不适用于桥。
+Placed the bridge. Removed the doodads and units under it that cannot stay there.	已放置桥。已移除其下不能留下的装饰物和单位。
+Could not make the bridge: %ls	无法生成桥：%ls
+Ramp	坡道
+Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.	坡道：沿悬崖边缘绘制。坡道沿边缘延伸到你绘制的位置，并朝向边缘所朝的方向。 按住 Shift 使坡道变回悬崖。
+This tileset has no ramps	此地形集没有坡道
+Could not make a ramp. The map has no isometric terrain data.	无法生成坡道。地图没有等距地形数据。
+Ramp: paint along a cliff edge between %ls and %ls	坡道：沿%ls和%ls之间的悬崖边缘绘制
+Part of the ramp is on protected tiles	坡道的一部分位于受保护的图块上
+Ramp facing %ls, width %ls. Release the button to place it.	坡道朝向 %ls，宽度 %ls。松开按钮放置。
+The ramp is there already	坡道已经在那里
+Placed the ramp. Removed the doodads and units under it that cannot stay there.	已放置坡道。已移除其下不能留下的装饰物和单位。
+Placed the ramp. Symmetry does not apply to ramps.	已放置坡道。对称不适用于坡道。
+Placed the ramp	已放置坡道
+Ramp: paint along a cliff edge	坡道：沿悬崖边缘绘制
+Stopped the ramp	已停止坡道
+%ls ramps. Release the button to place them.	%ls 个坡道。松开按钮放置。
+Ramp with Shift: paint over a ramp to make it the cliff again	按住 Shift 的坡道：在坡道上绘制，使其变回悬崖
+Could not make the cliff again: %ls	无法恢复悬崖：%ls
+Release the button to make the ramp the cliff again	松开按钮，使坡道变回悬崖
+Made the ramp the cliff again	已将坡道变回悬崖
+Could not make the ramp: %ls	无法生成坡道：%ls
+Ramp. Release the button to place it.	坡道。松开按钮即可放置。
+Terrain flags: the ground that units cannot walk on is dark	地形属性：单位无法行走的地面显示为暗色
+Terrain flags: the tiles that the isometric terrain does not give (orange)	地形属性：等距地形不会生成的图块（橙色）
+&Isometric terrain	等距地形(&I)
+Copy as text	复制为文本
+Import from clipboard	从剪贴板导入
+Units: %d	单位: %d
+Start locations: %d	起始位置: %d
+Doodads: %d	装饰物: %d
+Sprites: %d	精灵: %d
+Locations: %d / %d	位置: %d / %d
+Map size: %d x %d	地图大小: %d x %d
+No map sound has the search text	没有含有搜索文字的地图声音
+Cosmonarchy BW and game sounds	Cosmonarchy BW 和游戏声音
+Graphics	图形
+Software	软件
+Direct3D 12	Direct3D 12
+Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)	Vulkan。显卡无法使用时：Direct3D 12，然后是软件绘制（默认）
+Direct3D 12. If the video card cannot use it: Vulkan, then software drawing	Direct3D 12。显卡无法使用时：Vulkan，然后是软件绘制
+Software drawing (WARP): slow, but it does not use the video card	软件绘制（WARP）：较慢，但不使用显卡
+In use	正在使用
+The change applies after a restart	更改在重新启动后生效
+Graphics: Automatic after a restart	图形：重新启动后为自动
+Graphics: Direct3D 12 after a restart	图形：重新启动后为 Direct3D 12
+Graphics: Software after a restart	图形：重新启动后为软件
+The custom terrain on the clipboard is for another tileset: 	剪贴板中的自定义地形属于另一个图块集：
+The custom terrain on the clipboard has no tiles to place	剪贴板中的自定义地形没有可放置的图块
+Turn clockwise what is on the cursor (R)	顺时针旋转光标上的内容 (R)
+Turn back what is on the cursor (Shift+R)	逆时针旋转光标上的内容 (Shift+R)
+Mirror left and right what is on the cursor (M)	左右镜像光标上的内容 (M)
+Mirror top and bottom what is on the cursor (Shift+M)	上下镜像光标上的内容 (Shift+M)
+Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush	没有可旋转的内容：复制地形 (Ctrl+C)，或为画笔选择自定义地形或复制的图块
+Paste tiles: click to place them, and again to place more. R turns them, M mirrors them. Right-click or Esc stops.	粘贴图块：单击放置，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
+Paste terrain: click to place it, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	粘贴地形：单击放置，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
+Turned the tiles: each tile's picture stays as it is, so edges and cliffs may not fit	已旋转图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit	已上下镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit	已左右镜像图块：每个图块的图像保持不变，因此边缘和悬崖可能不吻合
+Moved the symmetry center. Double-click it to put it in the middle of the map	已移动对称中心。双击它可回到地图中央
+The symmetry center is in the middle of the map	对称中心位于地图中央
+Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.	魔棒：单击地形可选择从该处可到达的区域（等距：该地形及其边缘和悬崖；其他工具：该地形相连的图块）。Shift+单击添加，Ctrl+单击移除。
+Magic wand	魔棒
+Nothing to copy there: make the selection larger	那里没有可复制的内容：请扩大选区
+Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)	没有可旋转的内容：请先复制，再粘贴 (Ctrl+C, Ctrl+V)
+Turned the copy (R and Shift+R turn it, M and Shift+M mirror it)	已旋转副本（R 和 Shift+R 旋转，M 和 Shift+M 镜像）
+Mirrored the copy top and bottom	已上下镜像副本
+Mirrored the copy left and right	已左右镜像副本
+Paste: click to place the copy, and again to place more. R turns it, M mirrors it. Right-click or Esc stops.	粘贴：单击放置副本，再次单击放置更多。R 旋转，M 镜像。右键或 Esc 停止。
+Density: how much of the brush each spray paints, 1 to 100%. Click to type a number. The arrows and the mouse wheel change it.	密度：每次喷涂绘制画笔的比例，1 到 100%。单击可输入数字。箭头和鼠标滚轮可更改。
+Density: how much of the brush each spray fills, 1 to 100% (only where things fit); Fill: how much of the ground. Click to type a number. The arrows and the mouse wheel change it.	密度：每次喷涂填充画笔的比例，1 到 100%（仅限能放下的地方）；填充：地面的比例。单击可输入数字。箭头和鼠标滚轮可更改。
+Mask: painting changes only the terrains with an outline. Alt+click takes one out.	蒙版：绘制只更改带轮廓的地形。Alt+单击可移除一个。
+No mask: painting changes all terrains	无蒙版：绘制会更改所有地形
+Mask: painting changes only the tiles with an outline. Alt+click takes one out.	蒙版：绘制只更改带轮廓的图块。Alt+单击可移除一个。
+No mask: painting changes all tiles	无蒙版：绘制会更改所有图块
+Nothing changed: the mask keeps these tiles	没有更改：蒙版保留了这些图块
+Nothing changed: the mask keeps this terrain	没有更改：蒙版保留了此地形

@@ -60,10 +60,12 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+Alt+1 to Ctrl+Alt+4 | Terrain mode with Isometric, Rectangle, Tile or Custom (Mode > Terrain tools) |
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
+| Alt+click in the palette | Add a terrain (Tile: a tile) to the mask, or remove it. It gets an outline. Painting then changes only the terrains (or tiles) in the mask |
 | Shift+click with Fill | Fill every place of the clicked terrain (in the selection, if there is one) |
-| 1 to 9, 0 | Player 1 to 10 for what you place (in Terrain mode, the palette's terrain) |
+| W | Terrain mode's Magic wand: a click selects what is reachable from there. Isometric: that terrain, with its edges and cliffs. Rectangle, Tile and Custom: the connected tiles of that terrain. Shift+click adds, Ctrl+click removes |
+| 1 to 9, 0, and the two keys after 0 | Player 1 to 12 for what you place (in Terrain mode, the palette's terrain). The keys go by their place on the keyboard, so they work on all layouts |
 | G | Show or hide the grid |
-| + and - | Zoom in and out |
+| Ctrl++ and Ctrl+-, or + and - on the number pad | Zoom in and out |
 | Ctrl+0 | Actual size |
 | Ctrl+H | Fit the map in the window |
 | Arrows | Move the selected units by one pixel, else scroll the map |
@@ -71,7 +73,8 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Ctrl+arrows | Move the selected units by 16 pixels, or by a grid cell when units snap |
 | Enter | Properties of the selected location or unit |
 | Esc | Cancel what is under way: a paste, a drag, a selection |
-| R, Shift+R | Turn the terrain that is about to be pasted, the other way |
+| R, Shift+R | Turn what is on the cursor (terrain or tiles to paste, the Brush's copied tiles or custom terrain) clockwise, the other way. Isometric terrain makes its edges again; tiles keep their pictures |
+| M, Shift+M | Mirror what is on the cursor left and right, top and bottom |
 | Space (held) | Terrain mode: the pie palette; let go over a slice to paint with its terrain (View > Terrain pie palette: a click on a slice) |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad; otherwise nothing (it never zooms) |
 
@@ -140,6 +143,18 @@ The box at the top filters the columns by name. **Changed** shows only the colum
 | Alt+Up, Alt+Down | Move the selected action up or down |
 | Del | Delete the selected action |
 
+## Strings of a classic map
+
+The Strings tab of Data shows the map's string table. A string that moves gets a new id, and each use in the map
+changes to the new id. Drag a row to move the string.
+
+| Key | What it does |
+|---|---|
+| Up, Down | The string before or after |
+| Alt+Up, Alt+Down | Move the selected string up or down |
+| Enter | Edit the text of the selected string |
+| Del | Delete the selected string (only a string that the map does not use) |
+
 ## Lists, dropdowns and the help
 
 | Key | What it does |
@@ -171,11 +186,15 @@ Cosmonarchy BW mode.)
 | Ctrl+K, K | View > Graphics > High definition (4x) |
 | Ctrl+K, S | View > Graphics > Standard definition |
 | Ctrl+K, C | View > Graphics > Carbot (cartooned) |
-| Ctrl+K, 1 | View > Grid > Fine (8 pixels) |
-| Ctrl+K, 2 | View > Grid > Small (16 pixels) |
-| Ctrl+K, 3 | View > Grid > Normal (32 pixels) |
-| Ctrl+K, 4 | View > Grid > Large (64 pixels) |
-| Ctrl+K, 5 | View > Grid > Huge (128 pixels) |
+| Ctrl+K, 1 | View > Grid > 8 pixels (quarter tile) |
+| Ctrl+K, 2 | View > Grid > 16 pixels (half tile) |
+| Ctrl+K, 7 | View > Grid > 24 pixels |
+| Ctrl+K, 3 | View > Grid > 32 pixels (tile) |
+| Ctrl+K, 8 | View > Grid > 48 pixels |
+| Ctrl+K, 4 | View > Grid > 64 pixels (2 tiles) |
+| Ctrl+K, 9 | View > Grid > 96 pixels (3 tiles) |
+| Ctrl+K, 5 | View > Grid > 128 pixels (4 tiles) |
+| Ctrl+K, 0 | View > Grid > 256 pixels (8 tiles) |
 | Ctrl+K, 6 | View > Grid > Custom |
 | Ctrl+K, T | View > Overlays > Town areas |
 | Ctrl+K, P | View > Overlays > Pathing > Regions |
@@ -219,10 +238,7 @@ Cosmonarchy BW mode.)
 
 | Keys | Menu command |
 |---|---|
-| Ctrl+J, 1 | Options > Units > Do not snap |
-| Ctrl+J, 2 | Options > Units > Snap to tiles (32 px) |
-| Ctrl+J, 3 | Options > Units > Snap to half tiles (16 px) |
-| Ctrl+J, 4 | Options > Units > Snap to quarter tiles (8 px) |
+| Ctrl+J, 1 | Options > Units > Snap to the grid |
 | Ctrl+J, B | Options > Units > Snap buildings to tile edges |
 | Ctrl+J, F | Options > Units > Place only where it fits |
 | Ctrl+J, N | Options > Units > Move to the nearest place where it fits |
@@ -234,14 +250,8 @@ Cosmonarchy BW mode.)
 | Ctrl+J, P | Options > Doodads > Place only where it fits |
 | Ctrl+J, M | Options > Doodads > Move to the nearest place where it fits |
 | Ctrl+J, Y | Options > Doodads > Place anywhere |
-| Ctrl+J, 5 | Options > Sprites > Do not snap |
-| Ctrl+J, 6 | Options > Sprites > Snap to tiles (32 px) |
-| Ctrl+J, 7 | Options > Sprites > Snap to half tiles (16 px) |
-| Ctrl+J, 8 | Options > Sprites > Snap to quarter tiles (8 px) |
-| Ctrl+J, Z | Options > Locations > Do not snap |
-| Ctrl+J, X | Options > Locations > Snap to tiles (32 px) |
-| Ctrl+J, C | Options > Locations > Snap to half tiles (16 px) |
-| Ctrl+J, V | Options > Locations > Snap to quarter tiles (8 px) |
+| Ctrl+J, 5 | Options > Sprites > Snap to the grid |
+| Ctrl+J, Z | Options > Locations > Snap to the grid |
 | Ctrl+J, L | Options > Locations > Names in lines that fit in the location |
 | Ctrl+J, U | Options > Terrain copy includes units |
 | Ctrl+J, O | Options > Terrain copy includes doodads |
@@ -253,7 +263,7 @@ Cosmonarchy BW mode.)
 | Ctrl+Shift+K, O | File > Project > Open project |
 | Ctrl+Shift+K, M | File > Project > Make this map a project |
 | Ctrl+Shift+K, I | File > Project > Import a project (experimental) |
-| Ctrl+Shift+K, S | File > Project > Add script |
+| Ctrl+Shift+K, S | File > Project > Add a script |
 | Ctrl+Shift+K, F | File > Project > Open project folder |
 | Ctrl+Shift+K, P | File > Project > Project settings |
 | Ctrl+Shift+K, X | File > Exit |

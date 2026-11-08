@@ -27,12 +27,15 @@ void shellViewSize(int& w, int& h) {
     h = shown ? gRoot->map.height() : 0;
 }
 
-// The posted work runs on the UI thread in the frame hook (sdl_main_view.inc: runPosted); the host paints each frame
-// while the editor runs (setAnimating), so the work runs soon.
+// The posted work runs on the UI thread before the next frame (sdl_main_view.inc: runPosted); the loop wakes for it
+// at once, and the windows paint after it as after an event.
 void shellPost(std::function<void()> fn) {
-    PostQueue& q = postQueue();
-    std::lock_guard<std::mutex> lock(q.mutex);
-    q.posted.push_back(std::move(fn));
+    {
+        PostQueue& q = postQueue();
+        std::lock_guard<std::mutex> lock(q.mutex);
+        q.posted.push_back(std::move(fn));
+    }
+    kit_sdl::SdlHost::wake();
 }
 
 // The spray held down: a timer every 25 ms while it is on (the host's timers run on the UI thread).
@@ -132,6 +135,7 @@ void shellPanelsChanged() {
     if (gFloatPalOpen) gFloatPalView.invalidate();
 }
 void shellToolsChanged() {
+    if (gRoot) gRoot->topBar.invalidate();  // (its turn and mirror buttons)
     gToolStripView.invalidate(), gToolStripView2.invalidate(), gToolStripView3.invalidate();
     palettePanelsToolsChanged();
 }
@@ -185,10 +189,11 @@ void shellOwnerSelect(int i) {
     palettePanelsOwner(i);
 }
 void showFeedbackFilledSdl(const std::wstring& on, const std::wstring& text);  // (sdl_options.inc)
-// The text on the system's clipboard (Copy tile value).
-void shellCopyText(const std::wstring& text) {
-    if (gSilent) std::printf("copied:%c%s%c", 10, narrow(text).c_str(), 10);  // (a test's output shows it)
-    if (gHost) gHost->setClipboardText(narrow(text));
+// The text on the system's clipboard; a test run (--clipboard <file>): that file's text, never the system's.
+std::string gClipboardArg;
+std::string shellClipboardText() {
+    if (gSilent) return gClipboardArg;
+    return gHost ? gHost->clipboardText() : std::string();
 }
 // Report feedback on `on`, the box holding `text` already (Report feedback on the selected terrain: its tiles).
 void shellReportFeedback(const std::wstring& on, const std::wstring& text) {
@@ -454,11 +459,6 @@ void shellRendererReloadImages() {
     if (gRenderer) gRenderer->reloadImages();
 }
 void shellRailUpdateNow() {}  // (the rail's items are made each time it paints, and it paints each frame)
-bool shellViewMouse(int& x, int& y) {  // (the map view keeps the mouse in the state: sdl_main_view.inc)
-    if (!gState.mouseIn) return false;
-    x = gState.mouseX, y = gState.mouseY;
-    return true;
-}
 // The map view takes the keyboard focus (the host's focus; the map view is the root's child).
 void floatPaletteKeysToMap();  // (also from a floating palette's window: sdl_palette_float.inc)
 void shellFocusView() {
@@ -584,7 +584,7 @@ void shellChooseInstallFolder() {
     gInstallNext = dir;
     gOptionsView.invalidate();
     msgbox::ask(*gRoot, shellTr(L"StarCraft folder"),
-                shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                shellTr(L"The new folder applies after a restart:") + L"\r\n" + dir.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"StarCraft folder set to " + dir.wstring() + L" (from the next start)");
 }
@@ -611,12 +611,12 @@ void shellChooseCmbwFolder() {
     if (!gCmbwOpening) {  // (the mod's data is not open or opening yet: it opens from this folder)
         stardraft::cmbw::useInstall(in);
         gCmbwNext.clear();
-        setMessage(L"The Cosmonarchy folder is set");
+        setMessage(L"Set the Cosmonarchy folder");
         return;
     }
     gCmbwNext = in;
     msgbox::ask(*gRoot, shellTr(L"Cosmonarchy folder"),
-                shellTr(L"StarDraft 2 uses this folder after the next start:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
+                shellTr(L"The new folder applies after a restart:") + L"\r\n" + in.wstring() + L"\r\n" + shellTr(L"To use it now, restart StarDraft 2."),
                 {L"OK"}, msgbox::Icon::Info);
     shellLogLine(L"Cosmonarchy folder set to " + in.wstring() + L" (from the next start)");
 }
@@ -667,6 +667,7 @@ void sdlPickAnswered(void* data, const char* const* list, int) {
     auto* st = static_cast<SdlPickState*>(data);
     st->picked = list && list[0] ? list[0] : "";
     st->done = true;
+    kit_sdl::SdlHost::wake();  // (the waiting loop sees the answer at once)
 }
 // Waits for the dialog that `show` opens with the state; the picked path, or empty.
 std::filesystem::path sdlPickWait(const std::function<void(SdlPickState*)>& show) {
@@ -714,7 +715,7 @@ std::filesystem::path shellPickFile(const ShellFilePick& pick) {
 bool sdlSaveUnsavedProject() {
     if (!gState.ed || !isUnsavedProject(activeProject())) return false;
     ShellFilePick d;
-    d.title = shellTr(L"Save the project (StarDraft 2 makes a folder with its name here)");
+    d.title = shellTr(L"Save the project (a new folder with its name goes here)");
     d.filters = {{L"StarDraft 2 project (*.stardraft)", L"*.stardraft"}};
     d.defaultExtension = L"stardraft", d.fileName = L"Untitled", d.initialDir = defaultProjectsFolder(), d.save = true;
     std::error_code ec;

@@ -87,6 +87,27 @@ inline std::unique_ptr<draw::Bitmap> tilesBitmap(const stardraft::Tileset& ts, c
     return b;
 }
 
+// A terrain's picture for a list (its solid tile; null: none), as the terrain dropdowns show it (also the Ramp and bridge
+// mapper's).
+inline std::shared_ptr<draw::Bitmap> terrainPicture(const stardraft::Tileset& ts, uint16_t terrain) {
+    if (ts.groups.empty()) return nullptr;
+    if (const stardraft::Tileset::ModTerrain* m = ts.modTerrain(terrain); m && !m->pieces.empty()) {
+        // (a mod's terrain, which the CV5 gives no group: its piece for its stand-in's solid rect (its fill), else its
+        // first piece, as the Terrain palette's picture: previews.cpp)
+        const int fill = stardraft::solidTileGroup(ts, m->standIn, 0);
+        uint16_t v = m->pieces.front()[1];
+        for (const auto& p : m->pieces)
+            if (int(p[0]) == fill) {
+                v = p[1];
+                break;
+            }
+        if (ts.megatileFor(v) > 0) return std::shared_ptr<draw::Bitmap>(tilesBitmap(ts, {v}, 1, 1));
+    }
+    const int g = stardraft::solidTileGroup(ts, terrain);
+    const uint16_t v = g >= 0 ? stardraft::terrainrules::gameTile(ts, uint32_t(g)) : 0;
+    return v ? std::shared_ptr<draw::Bitmap>(tilesBitmap(ts, {v}, 1, 1)) : nullptr;
+}
+
 // The window's worker thread: the tileset loads and the examples paint there, one job after the other (the window stays
 // open and answers meanwhile). It is never stopped: the program's end stops it.
 class Worker {
@@ -214,12 +235,12 @@ class IsomRulesView final : public draw::View {
 public:
     ~IsomRulesView() { *alive_ = false; }
     IsomRulesView()
-        : newTerrain_(L"New Terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
+        : newTerrain_(L"New terrain\x2026", stardraft::kit::Tone::Normal, [this] { newTerrain(); }) {
         std::vector<stardraft::kit::DropdownItem> eras;
         for (int e = 0; e < 8; ++e) eras.push_back({isomrules::tilesetTitle(e)});
         era_.setItems(eras), era_.setValue(0);
         era_.onChange = [this](int e) { openEra(e); };
-        search_.setPlaceholder(L"Search (Name, Family, Draft)");
+        search_.setPlaceholder(L"Search (name, family, draft)");
         search_.onChange = [this] { filter(); };
         sideBar_.onScroll = [this](int pos) { sideScroll_ = pos, invalidate(); };
         ground_.onChange = [this](int i) { setGround(i); };
@@ -229,7 +250,7 @@ public:
             if (!refOn_ && refOf(terrain()) >= 0) refOn_ = true, refShow_.setOn(true);  // (a border picked: the overlay shows it)
             rebuild();
         };
-        refShow_.setLabel(L"Reference Overlay"), refShow_.setPlainLabel(true);
+        refShow_.setLabel(L"Reference overlay"), refShow_.setPlainLabel(true);
         refShow_.onChange = [this](bool) { toggleReference(); };
         refShow_.setTip(L"Render the reference border over the terrain canvas. Key: Ctrl+R");
         refOpacity_.setTip(L"Reference opacity; 100 % shows the reference alone. Keys: Ctrl+Shift+Up, Ctrl+Shift+Down");
@@ -238,10 +259,10 @@ public:
         row_.setTip(L"Scroll the palette to a group (number or terrain name). Ctrl+click a rect: its tile. Ctrl+M: next block of this terrain's groups");
         row_.onChange = [this](int g) { showRow(g, -1); };
         palBar_.onScroll = [this](int pos) { palScroll_ = pos, invalidate(); };
-        pairPick_.setItems({{L"Tile Pair"}, {L"Single Tile"}}), pairPick_.setValue(0);
+        pairPick_.setItems({{L"Tile pair"}, {L"Single tile"}}), pairPick_.setValue(0);
         pairPick_.onChange = [this](int v) { if ((v == 0) != wide_) toggleWidth(); };
         pairPick_.setTip(L"What a slot and a click in Tiles take: a tile pair (both halves: the tile and the next in its row) or a single tile (one half). Key: Ctrl+T");
-        minePick_.setItems({{L"All Tile Groups"}, {L"This Terrain's Groups"}}), minePick_.setValue(0);
+        minePick_.setItems({{L"All tile groups"}, {L"This terrain's groups"}}), minePick_.setValue(0);
         minePick_.onChange = [this](int v) { if ((v == 1) != palMine_) togglePalMine(); };
         minePick_.setTip(L"The tile groups shown: all, or this terrain's (its pieces' rows and the rows its maps use). Key: Ctrl+G");
         for (draw::View* v : std::initializer_list<draw::View*>{&bar_, &era_, &row_, &refPick_, &refShow_, &refOpacity_, &search_,
@@ -314,7 +335,7 @@ public:
     // The window is closing: unsaved changes ask Save, Do not save or Cancel. False: it stays open.
     bool confirmClose() {
         if (!dirty_) return true;
-        const int r = msgbox::ask(*this, L"Custom isom terrain editor", L"Save the changes to the terrain rules?", {L"&Save", L"Do&n't save", L"Cancel"},
+        const int r = msgbox::ask(*this, L"Custom isom terrain editor", L"Save the changes to the terrain rules?", {L"&Save", L"Do &not save", L"Cancel"},
                                   msgbox::Icon::Question);
         if (r == 0) return save(false);
         if (r != 1) return false;
@@ -329,7 +350,9 @@ public:
     void paintSide(draw::Canvas& c);
     bool mouse(const draw::MouseEvent& e) override;
     bool key(const draw::KeyEvent& e) override {
-        if (!e.down || search_.hasFocus()) return false;
+        // (the search box has the keys: its typing and its text keys are its own; the Ctrl keys that it does not take
+        // (Ctrl+E, Ctrl+S...) are the editor's)
+        if (!e.down || (search_.hasFocus() && !(e.mods & draw::kCtrl))) return false;
         const bool ctrl = e.mods == draw::kCtrl;  // (the window's letter keys: Ctrl+ only)
         if (!ctrl || (e.key != draw::Key::Left && e.key != draw::Key::Right && e.key != draw::Key::Up && e.key != draw::Key::Down)) nudgeSlot_ = -1;
         if (e.key == static_cast<draw::Key>('L') && ctrl) return nextNull(), true;
@@ -548,7 +571,7 @@ private:
                 if (!*alive || !file_.empty()) return;
                 if (msgbox::ask(*this, L"Custom isom terrain editor",
                                 L"No terrain rules file (.isom) is open: these are the rules in use. Make a local copy to modify?",
-                                {L"&Make Copy\x2026", L"&Not Now"}, msgbox::Icon::Question) == 0)
+                                {L"&Make a copy\x2026", L"&Not now"}, msgbox::Icon::Question) == 0)
                     save(true);
             });
         }
@@ -700,7 +723,7 @@ private:
         for (int v : shown_)
             if (v < 0 && !isVariantRow(v)) games.push_back(v);
         if (!games.empty()) {
-            header(L"Game Tilesets", int(games.size()));
+            header(L"Game tilesets", int(games.size()));
             for (int v : games) sideRows_.push_back({v, {}, y, scale(30)}), y += scale(30);
         }
         sideTotal_ = y;
@@ -1810,12 +1833,7 @@ private:
     // The game's own tile groups of a tileset (the mod's groups past them: not in a game tileset); 0: unknown.
     static size_t gameGroups(int e) { return stardraft::cmbw::gameTileGroups(e); }
     // A game terrain's tile (its solid group's), as a picture; null: none.
-    static std::shared_ptr<draw::Bitmap> terrainPic(const stardraft::Tileset& ts, uint16_t terrain) {
-        if (ts.groups.empty()) return nullptr;
-        const int g = stardraft::solidTileGroup(ts, terrain);
-        const uint16_t v = g >= 0 ? stardraft::terrainrules::gameTile(ts, uint32_t(g)) : 0;
-        return v ? std::shared_ptr<draw::Bitmap>(isomrules::tilesBitmap(ts, {v}, 1, 1)) : nullptr;
-    }
+    static std::shared_ptr<draw::Bitmap> terrainPic(const stardraft::Tileset& ts, uint16_t terrain) { return isomrules::terrainPicture(ts, terrain); }
     // The other tilesets load on the worker one after the other (a job each: an example waits for one at most); each
     // gives the list its borders' tiles, then goes.
     void loadRefTilesets() {
@@ -2011,25 +2029,25 @@ private:
         setTarget(k, half, false);
         invalidate();
         const uint16_t v = terrain()->t.pieces[size_t(k)][size_t(1 + half)];
-        std::vector<std::wstring> items{L"Make Unique (Unlink From Linked Tiles)", L"Set to NULL"};
-        if (kBrushMode) items.push_back(L"Use as Brush");
+        std::vector<std::wstring> items{L"Make unique (unlink from linked tiles)", L"Set to NULL"};
+        if (kBrushMode) items.push_back(L"Use as brush");
         items.push_back(L"Show in Tiles");
         const bool restore = !shapeKey_.empty() && (!hiddenOf(shapeKey_).empty() || !cutOf(shapeKey_).empty());
         if (place >= 0 || restore) items.push_back(L"-");  // (then the canvas's own: the picture only, not the rules)
-        if (place >= 0) items.push_back(L"Remove From Canvas");
-        if (restore) items.push_back(L"Restore Removed Pieces");
+        if (place >= 0) items.push_back(L"Remove from canvas");
+        if (restore) items.push_back(L"Restore removed pieces");
         const int r = shellContextMenuAt(*this, at, items);
         const std::wstring picked = r >= 1 && r <= int(items.size()) ? items[size_t(r - 1)] : std::wstring();
         if (picked == L"Set to NULL") erase();
-        else if (picked == L"Use as Brush" || picked == L"Show in Tiles") {
+        else if (picked == L"Use as brush" || picked == L"Show in Tiles") {
             if (isomrules::nullHalf(v)) setMessage(L"The slot is NULL");
             else {
-                if (picked == L"Use as Brush") pickBrush(v);
+                if (picked == L"Use as brush") pickBrush(v);
                 showRow(v >> 4, v);
             }
-        } else if (picked == L"Make Unique (Unlink From Linked Tiles)") makeUnique();
-        else if (picked == L"Remove From Canvas") removeFromCanvas(place, half);
-        else if (picked == L"Restore Removed Pieces") restoreRemoved();
+        } else if (picked == L"Make unique (unlink from linked tiles)") makeUnique();
+        else if (picked == L"Remove from canvas") removeFromCanvas(place, half);
+        else if (picked == L"Restore removed pieces") restoreRemoved();
     }
     // The brush goes into the target (pair mode: both halves; single: the target's half). A stroke is one undo step.
     void place(uint16_t value) {
@@ -2040,7 +2058,7 @@ private:
         auto p = m.pieces[size_t(target_)];
         const auto was = p;
         if (wide_) {  // (the tile and the next one in its row)
-            if ((value & 15) == 15 || tileset_.megatileFor(uint16_t(value + 1)) <= 0) return setMessage(L"Pair: subtile k+1 is empty in this row; use Single");
+            if ((value & 15) == 15 || tileset_.megatileFor(uint16_t(value + 1)) <= 0) return setMessage(L"Pair: subtile k+1 is empty in this row; use Single tile");
             p[1] = value, p[2] = uint16_t(value + 1);
         } else {
             p[size_t(1 + targetHalf_)] = value;  // (the half only: the other half's tile is the user's choice too)
@@ -2161,37 +2179,37 @@ private:
         sep.separator = true;
         const auto* t = terrain();
         const bool own = t != nullptr;  // (a terrain of the rules: a game border is read-only)
-        std::vector<Item> file = {item(L"New Terrain\x2026", L"Ctrl+N", [this] { newTerrain(); }), sep,
-                                  item(L"Open\x2026", L"Ctrl+O", [this] { loadFile(); }), item(L"Open Default Rules", L"", [this] { loadDefault(); }), sep,
-                                  item(L"Save", L"Ctrl+S", [this] { save(false); }), item(L"Save As\x2026", L"Ctrl+Shift+S", [this] { save(true); })};
+        std::vector<Item> file = {item(L"New terrain\x2026", L"Ctrl+N", [this] { newTerrain(); }), sep,
+                                  item(L"Open\x2026", L"Ctrl+O", [this] { loadFile(); }), item(L"Open default rules", L"", [this] { loadDefault(); }), sep,
+                                  item(L"Save", L"Ctrl+S", [this] { save(false); }), item(L"Save as\x2026", L"Ctrl+Shift+S", [this] { save(true); })};
         std::vector<Item> edit = {item(L"Undo", L"Ctrl+Z", [this] { undo(false); }, !undo_.empty()),
                                   item(L"Redo", L"Ctrl+Y", [this] { undo(true); }, !redo_.empty()), sep,
-                                  item(L"Set Target to NULL", L"Del", [this] { setNull(); }, own),
-                                  item(L"Clear All Rects", L"", [this] { clearTerrain(); }, own),
-                                  item(L"Copy Tiles From\x2026", L"", [this] { copyFrom(); }, own), sep,
-                                  radio(L"Pick Tile Pair", L"Ctrl+T", wide_, [this] { toggleWidth(); }),
-                                  radio(L"Pick Single Tile", L"Ctrl+T", !wide_, [this] { toggleWidth(); })};
+                                  item(L"Set target to NULL", L"Del", [this] { setNull(); }, own),
+                                  item(L"Clear all rects", L"", [this] { clearTerrain(); }, own),
+                                  item(L"Copy tiles from\x2026", L"", [this] { copyFrom(); }, own), sep,
+                                  radio(L"Select a tile pair", L"Ctrl+T", wide_, [this] { toggleWidth(); }),
+                                  radio(L"Select a single tile", L"Ctrl+T", !wide_, [this] { toggleWidth(); })};
         std::vector<Item> terrainMenu = {radio(L"Draft", L"Ctrl+D", t && t->t.draft, [this] { toggleDraft(); }, own),
                                          radio(L"Verified", L"Ctrl+D", t && !t->t.draft, [this] { toggleDraft(); }, own), sep,
-                                         item(L"Next NULL Rect", L"Ctrl+L", [this] { nextNull(); }, own),
-                                         item(L"Next Group Block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
-                                         item(L"Next Variant", L"Ctrl+]", [this] { stepVariant(1); }, own),
-                                         item(L"Previous Variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
-                                         item(L"Next Unpaired Variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
-                                         item(L"Rename Terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
-                                         item(L"Delete Terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
+                                         item(L"Next NULL rect", L"Ctrl+L", [this] { nextNull(); }, own),
+                                         item(L"Next group block", L"Ctrl+M", [this] { nextMyRows(); }, own), sep,
+                                         item(L"Next variant", L"Ctrl+]", [this] { stepVariant(1); }, own),
+                                         item(L"Previous variant", L"Ctrl+[", [this] { stepVariant(-1); }, own),
+                                         item(L"Next unpaired variant", L"Ctrl+K", [this] { nextDifferingVariant(); }, own), sep,
+                                         item(L"Rename terrain\x2026", L"F2", [this] { renameTerrain(sel_); }, own),
+                                         item(L"Delete terrain\x2026", L"", [this] { deleteTerrain(sel_); }, own)};
         Item ids;
         ids.label = L"Tile IDs";
-        for (int m = 0; m < 3; ++m) ids.sub.push_back(radio(m == 0 ? L"Off" : m == 1 ? L"On Hover" : L"Always", L"", tileIds_ == m, [this, m] { setTileIds(m); }));
+        for (int m = 0; m < 3; ++m) ids.sub.push_back(radio(m == 0 ? L"Off" : m == 1 ? L"On hover" : L"Always", L"", tileIds_ == m, [this, m] { setTileIds(m); }));
         Item cols;
         cols.label = L"Columns";
         for (int c = 0; c < 4; ++c)
             cols.sub.push_back(check(colName(c), L"", colShown_[c], [this, c] { setColumnShown(c, !colShown_[c]), saveColumns(), layout(), invalidate(); }));
-        std::vector<Item> view = {radio(L"All Tile Groups", L"Ctrl+G", !palMine_, [this] { togglePalMine(); }),
-                                  radio(L"This Terrain's Tile Groups", L"Ctrl+G", palMine_, [this] { togglePalMine(); }), sep,
-                                  check(L"Reference Overlay", L"Ctrl+R", refOn_, [this] { toggleReference(); }),
-                                  check(L"Rect Frames", L"Ctrl+H", frames_, [this] { toggleFrames(); }),
-                                  check(L"Height Overlay", L"Ctrl+E", heights_, [this] { toggleHeights(); }), sep, ids, cols};
+        std::vector<Item> view = {radio(L"All tile groups", L"Ctrl+G", !palMine_, [this] { togglePalMine(); }),
+                                  radio(L"This terrain's tile groups", L"Ctrl+G", palMine_, [this] { togglePalMine(); }), sep,
+                                  check(L"Reference overlay", L"Ctrl+R", refOn_, [this] { toggleReference(); }),
+                                  check(L"Rect frames", L"Ctrl+H", frames_, [this] { toggleFrames(); }),
+                                  check(L"Height overlay", L"Ctrl+E", heights_, [this] { toggleHeights(); }), sep, ids, cols};
         bar_.setMenus({{L"File", std::move(file)}, {L"Edit", std::move(edit)}, {L"Terrain", std::move(terrainMenu)}, {L"View", std::move(view)}});
     }
     void setTileIds(int m) {
@@ -2237,7 +2255,7 @@ private:
     // A fresh start for the terrain: each rect of its set and its gaps once, NULL (as a new terrain's); its fill stays.
     void clearTerrain() {
         if (loading_) return;
-        if (sel_ < 0) return setMessage(std_ >= 0 ? L"Standard terrains are read only" : L"Select a terrain first");
+        if (sel_ < 0) return setMessage(std_ >= 0 ? L"Standard terrains are read-only" : L"Select a terrain first");
         auto& m = rules().terrains[size_t(sel_)].t;
         if (!remember()) return;
         std::vector<std::array<uint16_t, 3>> fill(m.pieces.begin() + long(m.setPieces), m.pieces.end() - long(m.gapPieces)), gaps;
@@ -2257,7 +2275,7 @@ private:
     // its template; its own pieces go in (not borrowed ones, not holes).
     void copyFrom() {
         if (loading_) return;
-        if (sel_ < 0) return setMessage(std_ >= 0 ? L"Standard terrains are read only" : L"Select a terrain first");
+        if (sel_ < 0) return setMessage(std_ >= 0 ? L"Standard terrains are read-only" : L"Select a terrain first");
         auto& ts = rules();
         std::vector<ListPickItem> items;
         for (size_t i = 0; i < ts.terrains.size(); ++i) {
@@ -2446,7 +2464,7 @@ private:
         if (!made) return setMessage(L"No templates in this tileset");
         isomrules::NewTerrainDialog& dlg = *made;
         const draw::Point sz = isomrules::NewTerrainDialog::size();
-        host()->runModal(*this, dlg, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect{0, 0, sz.x, sz.y}, L"New Terrain"});
+        host()->runModal(*this, dlg, draw::WindowSpec{draw::WindowKind::Dialog, draw::Rect{0, 0, sz.x, sz.y}, L"New terrain"});
         if (!dlg.created() || dlg.model() < 0 || dlg.ground() < 0) return;
         const int mv = modelOf[size_t(dlg.model())];
         const bool fromStd = mv < 0;
@@ -2537,8 +2555,8 @@ private:
         if (first && !gSettingsOff && !cmbwIsTerrainOverride(f) &&  // (the first save of these rules: the maps can use them)
             msgbox::ask(*this, L"Save terrain rules",
                         L"Use " + f.filename().wstring() + L" as the ISOM terrain rules override? Maps then paint with its rules.\r\n"
-                        L"Program options > Plugins can change this later.",
-                        {L"&Use as Override", L"&Not Now"}, msgbox::Icon::Question) == 0)
+                        L"Options > Program options > Plugins can change this later.",
+                        {L"&Use as override", L"&Not now"}, msgbox::Icon::Question) == 0)
             shellSetTerrainOverride(f);
         if (!gSettingsOff) prefs::setText(L"Layout/IsomRulesFile", f.wstring());  // (the next open opens it)
         // (the file the maps use (ISOM terrain rules override): the open map takes the new rules now)
@@ -2758,7 +2776,7 @@ private:
         keepCut(shapeKey_, cut);
         target_ = -1;
         rebuild();
-        setMessage(L"Removed the tile from the canvas (right-click > Restore Removed Pieces brings it back)");
+        setMessage(L"Removed the tile from the canvas (right-click > Restore removed pieces brings it back)");
     }
     // The snapshot's isomrules:<name>!remove (a run without the window's timers): Remove From Canvas on the left tile of
     // the canvas's lowest place (its right tile stays, a place of its own), then on its right tile, then Restore Removed
@@ -2833,7 +2851,7 @@ private:
     bool wide_ = true;  // (a pick fills both halves: the tile and the next one in its row (the default); off: one tile, the half; Ctrl+T)
     void toggleWidth() {
         wide_ = !wide_, pairPick_.setValue(wide_ ? 0 : 1), invalidate();
-        setMessage(wide_ ? L"Pick: tile pair (both halves)" : L"Pick: single tile (the selected half)");
+        setMessage(wide_ ? L"Tile pair (both halves)" : L"Single tile (the selected half)");
     }
     int palHover_ = -1;  // (the tile under the mouse in the tiles)
     int barEnd_ = 0;  // (the bar's controls end: the file's name after them)
@@ -3283,7 +3301,7 @@ private:
         return -1;
     }
     bool laidOut_ = false;
-    static const wchar_t* colName(int c) { return c == kColTerrains ? L"Terrains" : c == kColRects ? L"Rects" : c == kColExample ? L"Terrain Canvas" : L"Tiles"; }
+    static const wchar_t* colName(int c) { return c == kColTerrains ? L"Terrains" : c == kColRects ? L"Rects" : c == kColExample ? L"Terrain canvas" : L"Tiles"; }
     int colAt(draw::Point p) const {
         for (int c = 0; c < 4; ++c)
             if (colShown_[c] && colHead_[c].contains(p)) return c;
@@ -3332,7 +3350,7 @@ private:
     }
     // A header's right-click menu: move the column, hide it, show a hidden one.
     void columnMenu(int c, draw::Point at) {
-        std::vector<std::wstring> items = {L"Move Left", L"Move Right", L"Hide"};
+        std::vector<std::wstring> items = {L"Move left", L"Move right", L"Hide"};
         std::vector<int> hidden;
         for (int k = 0; k < 4; ++k)
             if (!colShown_[k]) hidden.push_back(k), items.push_back(std::wstring(L"Show ") + colName(k));
@@ -3493,7 +3511,6 @@ void IsomRulesView::layout() {
     }
     {  // (the header buttons: at the header's right)
         const int bw = scale(170), by = top + (headH - barH) / 2;
-        const draw::Rect& r = colHead_[kColRects];
         const draw::Rect& t = colHead_[kColTiles];
         minePick_.setFrame(t.width() > 0 ? draw::Rect{std::max(t.left + scale(60), t.right - pad - bw), by, t.right - pad, by + barH} : draw::Rect{0, 0, 0, 0});
         const int pr = minePick_.frame().left - pad;  // (the pick's width when there is room for it; else in Edit and Ctrl+T only)
@@ -3590,13 +3607,13 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         c.fill(sb, kPanel), c.fill({0, sb.top, W, sb.top + 1}, kBorder);
         const std::wstring file = file_.empty() ? std::wstring(L"Untitled") : file_.filename().wstring();
         // (the file edited: its whole path; its name alone when the path does not fit)
-        std::wstring shown = file_.empty() ? std::wstring(L"Rules in use (no file: Save As to keep them)") : file_.wstring();
+        std::wstring shown = file_.empty() ? std::wstring(L"Rules in use (no file: Save as to keep them)") : file_.wstring();
         if (c.measure(shown) + 2 * pad > W / 2 && !file_.empty()) shown = file;
         shown += cmbwIsTerrainOverride(file_) ? L"  \x00b7  used by maps" : L"";
         const int fw = std::min(W / 2, c.measure(shown) + 2 * pad);
         c.text({sb.right - fw, sb.top, sb.right - pad, sb.bottom}, shown, kText, draw::kMiddle | draw::kRight | draw::kEllipsis);
         // (the title bar, as Windows programs show a file: an asterisk while it has unsaved changes)
-        if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - Custom Isom Terrain Editor"; title != title_) title_ = title, shellSetIsomRulesTitle(title);
+        if (const std::wstring title = (dirty_ ? L"*" : L"") + file + L" - Custom isom terrain editor"; title != title_) title_ = title, shellSetIsomRulesTitle(title);
         c.text({pad, sb.top, sb.right - fw - pad, sb.bottom}, status_.empty() ? std::wstring(L"Ready") : status_, kDim, draw::kMiddle | draw::kEllipsis);
     }
     const auto* t = terrain();
@@ -3619,7 +3636,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
         if (t || std_ >= 0)
             c.text({std::min(puzzle_.right - pad, ground_.frame().right + pad), puzzle_.top - scale(stardraft::kit::kButtonH) - pad, puzzle_.right - pad, puzzle_.top - pad},
                    t ? std::to_wstring(stardraft::terrainrules::completeness(tileset_, t->t).first) + L"/" + std::to_wstring(tmpl_.size()) + (t->t.draft ? L" \x00b7 Draft" : L" \x00b7 Verified")
-                     : std::to_wstring(tmpl_.size()) + L" Rects \x00b7 Game Border",
+                     : std::to_wstring(tmpl_.size()) + L" rects \x00b7 game border",
                    kDim, draw::kMiddle | draw::kRight | draw::kEllipsis);
     }
     // The puzzle: the examples, fit to the area; NULL holes framed red, the target orange, the hovered piece's places.
@@ -3721,7 +3738,7 @@ void IsomRulesView::paintBody(draw::Canvas& c) {
                 const int x = ox + int(float(i % size_t(crop_.width())) * ts), y = oy + int(float(i / size_t(crop_.width())) * ts);
                 const uint16_t v = ids_[i];
                 const std::wstring text = v == kNullId ? std::wstring(L"NULL") : std::to_wstring(v >> 4) + L"." + std::to_wstring(v & 15);
-                const draw::Font big = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+                const draw::Font big = c.setFont(c.font(kitpaint::titleFontDesc()));
                 const int tw = c.measure(text) + scale(16), th = scale(30), cx = x + int(ts) / 2;
                 int ty = y - th - scale(4);
                 if (ty < puzzle_.top) ty = y + int(ts) + scale(4);

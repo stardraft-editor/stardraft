@@ -99,8 +99,7 @@ void Form::place(Canvas* c) {
         case Kind::Row: {
             const int fy = y + (rowH - fieldH) / 2;
             const Rect r{labelW, fy, std::max(labelW, W), fy + fieldH};
-            const Rect cur = it.field->frame();
-            if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) it.field->setFrame(r);
+            it.field->setFrame(r);
             it.h = rowH;
             break;
         }

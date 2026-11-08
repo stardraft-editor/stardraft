@@ -4,6 +4,11 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <zlib.h>
+
+#include <fstream>
+#include <iterator>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -17,8 +22,73 @@ fs::path programFile() {
 
 const char* releaseAssetSuffix() { return "-win64.zip"; }
 
+namespace {
+
+uint32_t le(const unsigned char* p, int n) {
+    uint32_t v = 0;
+    for (int i = n - 1; i >= 0; --i) v = v << 8 | p[i];
+    return v;
+}
+
+// The release's zip unpacked here (its files, stored or deflated; StormLib's zlib): no other program, so no tar.exe
+// (not in Windows 10 before 1803) and no path in the system's code page (a user name in other letters). Only the
+// files at the zip's top level, by their own names.
+bool unzipOwn(const fs::path& zip, const fs::path& dir) {
+    std::ifstream in(zip, std::ios::binary);
+    if (!in) return false;
+    const std::vector<unsigned char> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    if (data.size() < 22) return false;
+    // (the end of the central directory: its signature in the last 64 KiB)
+    size_t end = data.size() - 22;
+    for (;; --end) {
+        if (le(&data[end], 4) == 0x06054b50) break;
+        if (end == 0 || data.size() - end > 65557) return false;
+    }
+    const uint32_t count = le(&data[end + 10], 2), at = le(&data[end + 16], 4);
+    size_t p = at;
+    int written = 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        if (p + 46 > data.size() || le(&data[p], 4) != 0x02014b50) return false;
+        const uint32_t method = le(&data[p + 10], 2), packed = le(&data[p + 20], 4), size = le(&data[p + 24], 4);
+        const uint32_t nameLen = le(&data[p + 28], 2), extraLen = le(&data[p + 30], 2), commentLen = le(&data[p + 32], 2), local = le(&data[p + 42], 4);
+        if (p + 46 + nameLen > data.size()) return false;
+        const std::string name(reinterpret_cast<const char*>(&data[p + 46]), nameLen);
+        p += 46 + nameLen + extraLen + commentLen;
+        if (name.empty() || name.back() == '/' || name.find_first_of("/\\:") != std::string::npos || name == "." || name == "..") continue;
+        if (size_t(local) + 30 > data.size() || le(&data[local], 4) != 0x04034b50) return false;
+        const size_t start = local + 30 + le(&data[local + 26], 2) + le(&data[local + 28], 2);
+        if (start + packed > data.size()) return false;
+        std::vector<unsigned char> out(size);
+        if (method == 0) {
+            if (packed != size) return false;
+            std::copy(data.begin() + std::ptrdiff_t(start), data.begin() + std::ptrdiff_t(start + size), out.begin());
+        } else if (method == 8) {
+            z_stream z{};
+            if (inflateInit2(&z, -MAX_WBITS) != Z_OK) return false;
+            z.next_in = const_cast<unsigned char*>(&data[start]), z.avail_in = packed;
+            z.next_out = out.data(), z.avail_out = size;
+            const int r = inflate(&z, Z_FINISH);
+            inflateEnd(&z);
+            if (r != Z_STREAM_END || z.total_out != size) return false;
+        } else {
+            return false;
+        }
+        // (the name: UTF-8 when the zip says so, else as the zip programs of Windows write ASCII names)
+        const int wlen = MultiByteToWideChar(CP_UTF8, 0, name.data(), int(name.size()), nullptr, 0);
+        std::wstring wname(size_t(wlen), L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, name.data(), int(name.size()), wname.data(), wlen);
+        std::ofstream o(dir / wname, std::ios::binary | std::ios::trunc);
+        if (!o.write(reinterpret_cast<const char*>(out.data()), std::streamsize(out.size()))) return false;
+        ++written;
+    }
+    return written > 0;
+}
+
+}  // namespace
+
 bool unpackArchive(const fs::path& zip, const fs::path& dir) {
-    // tar.exe (in Windows 10 and later) unpacks zip files.
+    if (unzipOwn(zip, dir)) return true;
+    // Else tar.exe (in Windows 10 and later) unpacks zip files.
     wchar_t sys[MAX_PATH] = L"";
     GetSystemDirectoryW(sys, MAX_PATH);
     std::wstring cmd = L"\"" + (fs::path(sys) / L"tar.exe").wstring() + L"\" -xf \"" + zip.wstring() + L"\" -C \"" + dir.wstring() + L"\"";

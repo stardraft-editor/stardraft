@@ -1,5 +1,5 @@
 // Place map revealers (Tools; Discord feedback #125; portable, core.inc): the players that get a map revealer, each
-// (Player 1 to Player 8), or All players, in a kit Dialog (Host::runModal). OK is on while a player is chosen. The host
+// (Player 1 to Player 8), or All players, in a kit Dialog (Host::runModal). Place revealers is on while a player is chosen. The host
 // (sdl_map_dialogs.inc: showMapRevealersDialog) runs it; the command places the revealers (placeMapRevealersCommand).
 
 // The dialog's results (what its buttons return).
@@ -12,7 +12,7 @@ constexpr int kColW = 180, kContentW = 2 * kColW;
 constexpr int kRowH = 24, kPitch = 32;                    // ui::kFieldH, ui::kFormRowH
 constexpr int kChecksY = kPad + 40;                       // 56: the players
 constexpr int kAllY = kChecksY + 4 * kPitch + 8;          // 192: All players
-constexpr int kButtonsY = kAllY + kPitch + 16;            // 256: OK and Cancel (ui::kButtonH, 28 px)
+constexpr int kButtonsY = kAllY + kPitch + 16;            // 256: Place revealers and Cancel (ui::kButtonH, 28 px)
 constexpr int kButtonH = 28;
 constexpr int kWindowH = kButtonsY + kButtonH + kPad;     // 300
 }  // namespace revealersLayout
@@ -41,9 +41,9 @@ public:
         add(all_, {0, 0, 0, 0});
     }
 
-    // The dialog this view is in (its OK follows the choice).
+    // The dialog this view is in (its Place revealers follows the choice).
     void setDialog(stardraft::kit::Dialog* d) { dlg_ = d; }
-    // Whether a player is chosen (OK is on).
+    // Whether a player is chosen (Place revealers is on).
     bool any() const {
         for (const auto& p : players_)
             if (p.on()) return true;
@@ -58,7 +58,7 @@ public:
     }
 
 private:
-    // All players is on while every player is; OK is on while one is.
+    // All players is on while every player is; Place revealers is on while one is.
     void sync() {
         bool all = true;
         for (const auto& p : players_) all = all && p.on();
@@ -85,13 +85,13 @@ private:
     stardraft::kit::CheckBox all_;
 };
 
-// The dialog around `view`: its buttons, the OK rule and the insets. Returns the window's size (the snapshots show it
+// The dialog around `view`: its buttons, the Place revealers rule and the insets. Returns the window's size (the snapshots show it
 // without a window).
 inline draw::Point revealersDialogSetup(stardraft::kit::Dialog& dlg, RevealersView& view) {
     using namespace revealersLayout;
     dlg.setContent(view);
     std::vector<stardraft::kit::DialogButton> buttons;
-    buttons.push_back({tr(L"OK"), kRevealersOk, true, false, false, 0});
+    buttons.push_back({tr(L"Place revealers"), kRevealersOk, true, false, false, 0});
     buttons.push_back({tr(L"Cancel"), kRevealersCancel, false, true, false, 0});
     dlg.setButtons(std::move(buttons));
     dlg.setAllow([&view](int r) { return r != kRevealersOk || view.any(); });
@@ -100,8 +100,8 @@ inline draw::Point revealersDialogSetup(stardraft::kit::Dialog& dlg, RevealersVi
     return draw::Point{scale(kContentW + 2 * kPad), scale(kWindowH)};
 }
 
-// Runs Place map revealers from `from` (the program's anchor view). OK puts the chosen players into `owners`; Cancel and
-// the window's close box leave it as it was. Returns true when OK was pressed.
+// Runs Place map revealers from `from` (the program's anchor view). Place revealers puts the chosen players into `owners`; Cancel and
+// the window's close box leave it as it was. Returns true when Place revealers was pressed.
 inline bool runRevealersDialog(draw::View& from, std::vector<uint8_t>& owners) {
     RevealersView view;
     stardraft::kit::Dialog dlg;

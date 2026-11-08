@@ -12,10 +12,6 @@ using draw::Rect;
 namespace {
 
 // Sets a view's frame only when it changes (a frame change invalidates the view, and paint places the views too).
-void place(draw::View& v, Rect r) {
-    const Rect cur = v.frame();
-    if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) v.setFrame(r);
-}
 
 }  // namespace
 
@@ -54,17 +50,17 @@ void Dialog::placeAll() {
     int x = W - padR, lx = padL;
     for (size_t k = buttons_.size(); k-- > 0;) {
         if (specs_[k].left) continue;
-        place(*buttons_[k], {x - widths_[k], by, x, by + bh});
+        buttons_[k]->setFrame({x - widths_[k], by, x, by + bh});
         x -= widths_[k] + gap;
     }
     for (size_t k = 0; k < buttons_.size(); ++k) {
         if (!specs_[k].left) continue;
-        place(*buttons_[k], {lx, by, lx + widths_[k], by + bh});
+        buttons_[k]->setFrame({lx, by, lx + widths_[k], by + bh});
         lx += widths_[k] + gap;
     }
     if (content_) {
         const int bottom = buttons_.empty() ? H - padB : by - px(insets_.gap);
-        place(*content_, {padL, padT, std::max(padL, W - padR), std::max(padT, bottom)});
+        content_->setFrame({padL, padT, std::max(padL, W - padR), std::max(padT, bottom)});
     }
 }
 

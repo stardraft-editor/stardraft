@@ -302,7 +302,7 @@ inline void DataFormView::paint(draw::Canvas& c) {
     } else if (!tp) {
         c.text({x0, scale(40), rc.right - x0, rc.bottom},
                host_.projectOpen() ? L"Could not read the .dat file of the game" :
-                                     L"To edit .dat files, use an EUD project.\r\n\r\nFile > Project > New project makes one from the open map. "
+                                     L"To edit .dat files, use an EUD project.\r\n\r\nFile > Project > Make this map a project makes one. "
                                      L"File > Project > Open project opens one.",
                kDim, draw::kWrap);
     } else {
@@ -633,17 +633,8 @@ inline bool DataFormView::vscroll(int code, int pos, int track, int page) {
     host_.commitEdit();
     // The window's bar (the SB_* requests): a line is a row, a page is the visible height.
     int s = host_.scroll();
-    switch (code) {
-    case 0: s -= scale(26); break;  // SB_LINEUP
-    case 1: s += scale(26); break;  // SB_LINEDOWN
-    case 2: s -= page; break;       // SB_PAGEUP
-    case 3: s += page; break;       // SB_PAGEDOWN
-    case 4:                         // SB_THUMBPOSITION
-    case 5: s = track; break;       // SB_THUMBTRACK
-    case 6: s = 0; break;           // SB_TOP
-    case 7: s = 1 << 30; break;     // SB_BOTTOM
-    default: (void)pos; break;
-    }
+    kitpaint::scrollRequest(code, s, scale(26), page, track);
+    (void)pos;
     scrollTo(s);
     return true;
 }

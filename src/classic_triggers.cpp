@@ -692,17 +692,18 @@ std::vector<ClassicAiScript> loadClassicAiScripts(const GameData& data) {
         }
     }
     // The header points to the table: id, offset, stat_txt string (1-based), flags (1: needs a location, 2: not shown
-    // in StarEdit, 4: Brood War); an id of 0 ends it.
+    // in StarEdit, which go after the others here, 4: Brood War); an id of 0 ends it.
+    std::vector<ClassicAiScript> hidden;
     for (size_t at = get32(bin.data()); at + 16 <= bin.size(); at += 16) {
         ClassicAiScript s;
         s.id = get32(&bin[at]);
         if (!s.id) break;
         const uint32_t str = get32(&bin[at + 8]), flags = get32(&bin[at + 12]);
-        if (flags & 2) continue;
         s.location = flags & 1, s.broodWar = flags & 4;
         s.name = str >= 1 && str <= names.size() ? names[str - 1] : classicFourCC(s.id);
-        out.push_back(std::move(s));
+        (flags & 2 ? hidden : out).push_back(std::move(s));
     }
+    out.insert(out.end(), std::make_move_iterator(hidden.begin()), std::make_move_iterator(hidden.end()));  // (they work in the game: the shared vision scripts)
     return out;
 }
 

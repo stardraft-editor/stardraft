@@ -41,6 +41,7 @@ struct LayoutInput {
     bool pal3Shown = false;        // ... and was shown before (for "changed")
     Mode pal3Mode = Mode::Terrain; // ... and what it showed before
     bool floats[kModeCount] = {};  // each mode's panel is in a window of its own (no tab, not the other side's list)
+    Mode order[kModeCount] = {Mode::Terrain, Mode::Units, Mode::Doodads, Mode::Sprites, Mode::Locations};  // the tabs' order (dockTabOrder)
 };
 
 // The layout's result: every pane's place and state, and the state the layout sets (the sides' tabs, the splitters,
@@ -97,7 +98,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const bool toolsRight = in.toolsRight[int(in.mode)], miniRight = in.minimapRight;
     const int otherSide = toolsRight ? 0 : 1;
     std::vector<Mode> others;
-    for (Mode m : kModeOrder)
+    for (Mode m : in.order)
         if (in.toolsRight[int(m)] == (otherSide == 1) && !in.floats[int(m)]) others.push_back(m);
     Mode second = in.lastOnSide[otherSide];
     if (std::find(others.begin(), others.end(), second) == others.end()) second = others.empty() ? in.mode : others.front();
@@ -107,7 +108,7 @@ inline MainLayout computeLayout(const LayoutInput& in) {
     const int activeSide = toolsRight ? 1 : 0;
     const bool floated = in.floats[int(in.mode)];
     std::vector<Mode> mine;
-    for (Mode m : kModeOrder)
+    for (Mode m : in.order)
         if (in.toolsRight[int(m)] == toolsRight && !in.floats[int(m)]) mine.push_back(m);
     Mode third = in.lastOnSide[activeSide];
     if (std::find(mine.begin(), mine.end(), third) == mine.end()) third = mine.empty() ? in.mode : mine.front();

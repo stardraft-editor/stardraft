@@ -44,6 +44,9 @@ void setEmbeddedFiles(EmbeddedFile files);
 // unloadIconAtlases() before the device goes.
 bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir);
 void unloadIconAtlases();
+// The UI icon `icon` of the atlas of `size` (atlas-<size>.png in the loadIconAtlases folder) as a cursor's picture: the
+// shape in black with a white edge, so that it shows on light and dark ground. Null when the atlas is not there.
+SDL_Surface* iconCursorSurface(int icon, int size);
 // The size of the atlas cell that Canvas::icon draws `icon` from when it is asked for `px` pixels (0: no atlas has it):
 // a snapshot's check that the icons are sharp at the scale.
 int iconAtlasCell(int icon, int px);
