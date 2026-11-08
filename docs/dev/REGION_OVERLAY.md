@@ -31,7 +31,10 @@ terrain edits/restoration, malformed input and absent groups.
 bottom/right clipping, zero opacity, slider keys, toggling and unchanged map
 bytes/revision. Snapshot scripts can use `regions` for the cache/raster summary.
 The check also covers worker errors without retry loops and frame requests
-while a job is pending. `tools/tests/region_overlay_settings.py` checks loading
+while a job is pending. It compares raster IDs and ordered graph metadata with
+a separate native construction from the original CV5/VF4 byte streams, to check
+the parsed-tileset adapter without calling that adapter again.
+`tools/tests/region_overlay_settings.py` checks loading
 saved display preferences and clamping invalid opacity values in fresh processes;
 snapshots keep those files read-only, following the editor's test policy.
 Run the region workflow cases in `tools/sdl_snapshots.py`, plus the existing

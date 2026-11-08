@@ -184,9 +184,27 @@ bool regionOverlayCheck(const std::string& name,std::string& out) {
     if(data) {
         test(data->width==gState.ed->width()*4&&data->height==gState.ed->height()*4,"raster dimensions");
         test(!data->runs.empty()&&!data->edges.empty(),"geometry missing");
-        regionoverlay::Input input{gState.ed->terrain(),gState.ed->tileset().groups,gState.ed->tileset().minitileFlags};
-        auto expected=regionoverlay::build(input);
-        test(expected.cells==data->cells,"region IDs differ from shared engine");
+        // Compare the parsed-tileset adapter with an independent input path:
+        // the original CV5/VF4 bytes read from the active game-data provider.
+        Bytes cv,vf;std::string error;
+        const auto prefix=std::string("tileset/")+tilesetName(gState.ed->era());
+        const bool raw=gState.ed->gameData().readFile(prefix+".cv5",cv,error)&&gState.ed->gameData().readFile(prefix+".vf4",vf,error);
+        test(raw,"cannot read original terrain tables for comparison");
+        if(raw)try {
+            namespace sim=mapeditor::simulation;
+            sim::Terrain terrain(gState.ed->width(),gState.ed->height(),gState.ed->terrain().tiles,cv,vf);
+            sim::Regions expected(terrain);auto cells=expected.cells();
+            for(auto& id:cells)if(!expected.entries()[size_t(id)].walkable())id=-1;
+            test(cells==data->cells,"region IDs differ from original terrain tables");
+            bool same=expected.entries().size()==data->regions.size();
+            for(size_t i=0;same&&i<data->regions.size();++i) {
+                const auto& a=data->regions[i];const auto& b=expected.entries()[i];
+                same=a.category==b.category&&a.group==b.group&&a.tileCount==b.tileCount&&a.reserved==b.reserved&&
+                    a.center==b.center&&a.bounds.left==b.bounds.left&&a.bounds.top==b.bounds.top&&a.bounds.right==b.bounds.right&&a.bounds.bottom==b.bounds.bottom&&
+                    a.walking==b.walking&&a.blocked==b.blocked;
+            }
+            test(same,"region graph differs from original terrain tables");
+        }catch(const std::exception& e){test(false,e.what());}
         const auto started=gRegionCache.started;gRegionCache.poll(true);test(gRegionCache.started==started,"unchanged terrain rebuilt");
         setRegionOpacity(0);render::Scene hidden;hidden.camera={0,0,1};engineRegionViewport(hidden,960,800);test(hidden.rects.empty(),"zero opacity draws");
         setRegionOpacity(35);render::Scene shown;shown.camera={0,0,.25f};engineRegionViewport(shown,960,800);test(!shown.rects.empty(),"zoomed-out geometry missing");
