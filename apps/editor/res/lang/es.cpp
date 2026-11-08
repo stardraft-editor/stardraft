@@ -3366,6 +3366,9 @@ constexpr UiText kRows[] = {
     {L"Search again for its search time, on from where it stopped", L"Buscar otra vez durante su tiempo de b\u00FAsqueda, desde donde se detuvo"},
     {L"Search now, for its search time", L"Buscar ahora, durante su tiempo de b\u00FAsqueda"},
     {L"Nothing more to search", L"No queda nada por buscar"},
+    {L"%.0f FPS", L"%.0f FPS"},
+    {L"%.0f FPS  \u00B7  %.0f MB", L"%.0f FPS  \u00B7  %.0f MB"},
+    {L"%.0f MB", L"%.0f MB"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

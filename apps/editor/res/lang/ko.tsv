@@ -3397,3 +3397,6 @@ Continue	계속
 Search again for its search time, on from where it stopped	멈춘 곳부터 검색 시간 동안 다시 검색
 Search now, for its search time	지금 검색 시간 동안 검색
 Nothing more to search	더 검색할 것이 없음
+%.0f FPS	%.0f FPS
+%.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
+%.0f MB	%.0f MB

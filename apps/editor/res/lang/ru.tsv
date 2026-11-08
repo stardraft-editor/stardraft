@@ -3367,3 +3367,6 @@ Continue	Продолжить
 Search again for its search time, on from where it stopped	Искать снова в течение времени поиска, с того места, где поиск остановился
 Search now, for its search time	Искать сейчас в течение времени поиска
 Nothing more to search	Больше нечего искать
+%.0f FPS	%.0f FPS
+%.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
+%.0f MB	%.0f MB

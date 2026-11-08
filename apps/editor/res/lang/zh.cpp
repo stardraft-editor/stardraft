@@ -3366,6 +3366,9 @@ constexpr UiText kRows[] = {
     {L"Search again for its search time, on from where it stopped", L"\u4ECE\u505C\u6B62\u5904\u7EE7\u7EED\u641C\u7D22\uFF0C\u65F6\u957F\u4E3A\u5176\u641C\u7D22\u65F6\u95F4"},
     {L"Search now, for its search time", L"\u7ACB\u5373\u641C\u7D22\uFF0C\u65F6\u957F\u4E3A\u5176\u641C\u7D22\u65F6\u95F4"},
     {L"Nothing more to search", L"\u6CA1\u6709\u66F4\u591A\u53EF\u641C\u7D22\u7684\u5185\u5BB9"},
+    {L"%.0f FPS", L"%.0f FPS"},
+    {L"%.0f FPS  \u00B7  %.0f MB", L"%.0f FPS  \u00B7  %.0f MB"},
+    {L"%.0f MB", L"%.0f MB"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

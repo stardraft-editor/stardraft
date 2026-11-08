@@ -3367,3 +3367,6 @@ Continue	Continuer
 Search again for its search time, on from where it stopped	Rechercher à nouveau pendant sa durée de recherche, à partir de là où elle s'est arrêtée
 Search now, for its search time	Rechercher maintenant, pendant sa durée de recherche
 Nothing more to search	Plus rien à rechercher
+%.0f FPS	%.0f FPS
+%.0f FPS  ·  %.0f MB	%.0f FPS  ·  %.0f MB
+%.0f MB	%.0f MB

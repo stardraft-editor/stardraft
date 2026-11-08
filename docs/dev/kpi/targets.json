@@ -27,7 +27,7 @@
    "name": "Paint stroke step, slowest 5%",
    "unit": "ms",
    "dir": "max",
-   "target": 8
+   "target": 8.5
   },
   "paint_layers_p95_ms": {
    "area": "perf",

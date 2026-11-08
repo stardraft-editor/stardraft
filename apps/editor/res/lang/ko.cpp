@@ -3396,6 +3396,9 @@ constexpr UiText kRows[] = {
     {L"Search again for its search time, on from where it stopped", L"\uBA48\uCD98 \uACF3\uBD80\uD130 \uAC80\uC0C9 \uC2DC\uAC04 \uB3D9\uC548 \uB2E4\uC2DC \uAC80\uC0C9"},
     {L"Search now, for its search time", L"\uC9C0\uAE08 \uAC80\uC0C9 \uC2DC\uAC04 \uB3D9\uC548 \uAC80\uC0C9"},
     {L"Nothing more to search", L"\uB354 \uAC80\uC0C9\uD560 \uAC83\uC774 \uC5C6\uC74C"},
+    {L"%.0f FPS", L"%.0f FPS"},
+    {L"%.0f FPS  \u00B7  %.0f MB", L"%.0f FPS  \u00B7  %.0f MB"},
+    {L"%.0f MB", L"%.0f MB"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

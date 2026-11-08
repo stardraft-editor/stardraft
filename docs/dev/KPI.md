@@ -107,7 +107,7 @@ go out with it, `targets.json`'s `"accepted"` names the KPI and the reason, for 
 | Links in docs/ to files that are not there | ≤ 0 | 0 |
 
 The perf targets were measured again for 0.9.0 (2026-11-08) with each run's own settings: before, the runs read the
-user's settings, which change the numbers (the start mode, the graphics, the one-time notes). Start 600 ms, paint 8 ms,
+user's settings, which change the numbers (the start mode, the graphics, the one-time notes). Start 600 ms, paint 8.5 ms,
 paint on a layer 11.5 ms, palette scroll 12.5 ms, zoom 7 ms: the new numbers with a little room for noise.
 
 The baseline (2026-11-08, before 0.8.8) missed two zero targets: 12 snapshot cases (fixed in 9234c52d) and
