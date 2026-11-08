@@ -1191,13 +1191,16 @@ const LayersOutside& mapLayersOutside(const Editor& ed) {
         };
         static std::map<std::pair<const GameData*, uint32_t>, Scratch> scratches;  // (by the game data and era << 16 | ground)
         const auto floorDiv = [](int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); };
-        const uint16_t mapGround = ed.terrainAt(16, 16);
-        for (int cy = y0; !outside.empty() && cy <= y1; cy += kSide - 2 * kMargin)
-            for (int cx = x0; cx <= x1; cx += kSide - 2 * kMargin) {
+        uint16_t mapGround = ed.terrainAt(16, 16);  // (no ISOM: the era's first terrain that has tiles, for placed tiles only)
+        for (uint16_t t = 1; !mapGround && t < 64; ++t)
+            if (solidTileGroup(ed.tileset(), t) >= 0) mapGround = t;
+        constexpr int kStep = kSide - 2 * kMargin - 4;  // (a part's inside: its margin each way, a rect more for the grid's parity)
+        for (int cy = y0; !outside.empty() && cy <= y1; cy += kStep)
+            for (int cx = x0; cx <= x1; cx += kStep) {
                 // (the part's scratch map: rects from rx0, rows from ry0, rx0 + ry0 even)
                 int rx0 = floorDiv(cx - kMargin, 2), ry0 = cy - kMargin;
                 if ((rx0 + ry0) & 1) --rx0;
-                const int ix0 = cx, iy0 = cy, ix1 = std::min(x1, cx + kSide - 2 * kMargin - 1), iy1 = std::min(y1, cy + kSide - 2 * kMargin - 1);
+                const int ix0 = cx, iy0 = cy, ix1 = std::min(x1, cx + kStep - 1), iy1 = std::min(y1, cy + kStep - 1);
                 bool here = false;
                 for (auto it = outside.lower_bound({ix0, INT_MIN}); !here && it != outside.end() && it->first <= ix1; ++it) here = it->second >= iy0 && it->second <= iy1;
                 if (!here) continue;
@@ -1207,7 +1210,7 @@ const LayersOutside& mapLayersOutside(const Editor& ed) {
                     MapLayer c;
                     c.id = l->id;
                     for (const auto& [at, t] : l->corners)
-                        if (at.first >= rx0 && at.first < rx0 + kSide / 2 && at.second >= ry0 && at.second < ry0 + kSide) c.corners[at] = t, ++count[t];
+                        if (at.first >= rx0 && at.first <= rx0 + kSide / 2 && at.second >= ry0 && at.second <= ry0 + kSide) c.corners[at] = t, ++count[t];
                     for (const auto& [at, t] : l->tiles)
                         if (at.first >= 2 * rx0 && at.first < 2 * rx0 + kSide && at.second >= ry0 && at.second < ry0 + kSide) c.tiles[at] = t;
                     if (c.corners.empty() && c.tiles.empty()) continue;

@@ -170,7 +170,7 @@ struct PaletteGridView : draw::View {
             if (app.ed && show >= 0) c.text(f, paletteItemNameOf(mode, show), kText, draw::kMiddle | draw::kEllipsis);  // (the rows' mode: GitHub #101)
             else if (app.ed) {  // (nothing under the mouse or picked: how many the grid has, dim)
                 size_t n = 0;
-                for (const PaletteRow& r : rows) n += r.value >= 0;
+                for (size_t k = 0; k < rows.size(); ++k) n += rows[k].value >= 0 && !(pinned && k >= 1 && k <= size_t(pinned));
                 static const wchar_t* const kinds[] = {L" terrains", L" units", L" doodads", L" locations", L" sprites", L" layers"};
                 c.text(f, std::to_wstring(n) + tr(kinds[std::clamp(int(mode), 0, 5)]), kFaint, draw::kMiddle | draw::kEllipsis);
             }

@@ -220,7 +220,7 @@ void updateStatus(AppState& app) {
     else std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
     // The tile under the mouse: its group and index, its megatile, its terrain (made again only when the map or the
     // mouse's place changed: the status bar is made each frame).
-    if (app.mode == Mode::Terrain && app.ed) {
+    if (app.mode == Mode::Terrain && app.ed && app.mouseIn) {
         static const Editor* forEd = nullptr;
         static uint64_t forRev = ~0ull, forTerrain = ~0ull;
         static int forX = 0, forY = 0;

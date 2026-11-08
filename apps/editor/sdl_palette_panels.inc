@@ -293,6 +293,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
     p->doc = doc;
     PalettePanelView& v = *p->view;
     v.mode = m, v.view = view, v.sort = sort;
+    v.search.setPlaceholder(paletteSearchCue(m));  // (the type's: "Search doodads")
     if (m != Mode::Units) v.view.sprites = false;
     std::vector<kit::DropdownItem> types;
     for (Mode t : kPanelModes) types.push_back({shellTr(kModeNames[int(t)])});
@@ -349,6 +350,7 @@ std::unique_ptr<PanelWindow> palettePanelMake(Mode m, const PaletteView& view, P
             retitle(o);
         }
         pv->mode = to;
+        pv->search.setPlaceholder(paletteSearchCue(to));
         if (!other) {
             pv->section.clear();
             if (pv->mode != Mode::Units) pv->view.sprites = false;

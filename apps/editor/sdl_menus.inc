@@ -1487,8 +1487,13 @@ void commandSdl(int id) {
     case ID_SCEN_PROPS: setWorkspace(Workspace::Properties); return;
     case ID_SCEN_PLAYERS: {  // (Map properties at its Players and forces tab: one place for the page, the rail's Properties on)
         extern int gSdlPropsTab;
+        void sdlPropsTabSync();
+        void gSdlMapPages_scrollTop();
+        const int was = gSdlPropsTab;
         gSdlPropsTab = 1;
         setWorkspace(Workspace::Properties);
+        if (gWorkspace != Workspace::Properties) gSdlPropsTab = was;  // (the page did not show: its tab as it was)
+        else sdlPropsTabSync(), gSdlMapPages_scrollTop();               // (open already: the tab's part shows)
         return;
     }
     case ID_SCEN_CLASSIC: setWorkspace(Workspace::ClassicSettings); return;
