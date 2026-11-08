@@ -324,7 +324,6 @@ void cutMapSelection(AppState& app) {
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
 extern bool gShowDoodadAvailability;
 bool commandMapEdit(AppState& app, int id) {
-
     const bool open = app.ed && app.ed->isOpen();
     auto done = [&app] {
         shellMenusChanged();

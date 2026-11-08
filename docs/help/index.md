@@ -5,13 +5,11 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 
 ## Start here
 
+- [Doodad placement helper](doodad-placement.md): show the full footprints of legal placements.
 - [Getting started](getting-started.md): open a map, edit it, and save it.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
 - [Keyboard shortcuts](keyboard-shortcuts.md): the keys of the menus, the map, the trigger editors and the lists.
 
-## Map editing
-
-- [Doodad placement helper](doodad-placement.md): show the full footprints of legal placements.
 
 ## Triggers
 

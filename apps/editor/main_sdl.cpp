@@ -66,6 +66,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include "stardraft/doodad_coverage.h"
 #include <climits>
 #include <cwctype>
 #include <thread>
@@ -122,7 +123,6 @@
 #include "stardraft/campaign.h"
 #include "stardraft/project_import.h"
 #include "stardraft/editor.h"
-#include "stardraft/doodad_coverage.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/project_build.h"
 #include "stardraft/eptrace.h"  // epTrace's report (core/project_page.inc)
