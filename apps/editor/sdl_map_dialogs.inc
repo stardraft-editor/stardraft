@@ -545,5 +545,5 @@ void sdlResizeCheck() {
 }
 
 void showSymmetryCopiesDialog() {
-    if (gRoot && gState.ed && gState.ed->isOpen() && runSymmetryCopiesDialog(*gRoot, *gState.ed)) shellToolsChanged();
+    if (gRoot && gState.ed && gState.ed->isOpen() && runSymmetryCopiesDialog(*gRoot, *gState.ed)) {gPanelsSaveAt=0;palettePanelsSave();shellToolsChanged();}
 }

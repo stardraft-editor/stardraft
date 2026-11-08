@@ -189,6 +189,7 @@ bool gKeysFromOpener = false;
 #include "sdl_window.inc"  // the main window as the system's document window, the system's look (mac_window.h)
 #include "sdl_options.inc"  // Program options and Report feedback (core/views_options.inc, core/views_feedback.inc)
 #include "sdl_map_dialogs.inc"  // Unit and Location properties, the text prompt, the quick picker and the map's menu
+#include "sdl_symmetry_options.inc"
 #include "sdl_simulation.inc"  // Tools > Simulate mining and combat: a live game run by StarDraft's simulation (experimental)
 #include "sdl_map_image.inc"  // File > Export map image: the picture drawn in parts with the map's renderer (core/map_image.inc)
 #include "sdl_briefing.inc"  // the Briefing workspace's page (the edit model is core/views_briefing.inc)
@@ -961,8 +962,9 @@ int main(int argc, char** argv) {
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
             std::string out;
+            if(symmetryCopiesCheck(c,out)||symmetryOptionsCheck(c,out)||symmetrySourceProfilesCheck(c,out)){std::printf("%s",out.c_str());continue;}
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c == "protect" || c.rfind("drawfuncs:", 0) == 0;
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || symmetryCopiesCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -1046,6 +1048,7 @@ int main(int argc, char** argv) {
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
+            else if (dialogArg == "symmetry-options") {gState.ed->setMirrors(1);gSymmetryOptions.refresh();shown=&gSymmetryOptions;}
             else if (dialogArg == "toolpopout") shown = toolPopoutShot();  // (core/views_toolstrip.inc)
             else if (dialogArg == "blockpick") shown = &blockShot;
             else if (dialogArg.rfind("blockhelp:", 0) == 0) shown = &gSdlBlockHelp, gSdlBlockHelp.setBlock(dialogArg.substr(10));  // a block's help page (--size 460x600)

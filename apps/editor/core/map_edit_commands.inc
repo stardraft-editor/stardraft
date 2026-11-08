@@ -325,6 +325,7 @@ void cutMapSelection(AppState& app) {
 void showSymmetryCopiesDialog();
 bool commandMapEdit(AppState& app, int id) {
     if (id == ID_SYMMETRY_COPIES) { showSymmetryCopiesDialog(); return true; }
+    if (id == ID_SYMMETRY_OPTIONS) { toggleSymmetryOptions(); return true; }
     const bool open = app.ed && app.ed->isOpen();
     auto done = [&app] {
         shellMenusChanged();

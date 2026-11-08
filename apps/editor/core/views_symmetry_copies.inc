@@ -394,6 +394,7 @@ private:
 };
 
 bool runSymmetryCopiesDialog(draw::View& from, Editor& ed) {
+    syncTerrainCopies();
     SymmetryCopiesView content(ed);
     kit::Dialog dlg;
     dlg.setContent(content);
@@ -403,6 +404,7 @@ bool runSymmetryCopiesDialog(draw::View& from, Editor& ed) {
     size.x += scale(32), size.y += scale(80);
     if (dlg.run(from, tr(L"Symmetry copies"), size) != 1) return false;
     ed.setMirrors(content.chosenMirrors()), ed.setTurns(content.chosenTurns()), ed.setCopyOptions(content.chosen());
+    rememberTerrainCopies();
     if (gActivePanel) panelStore(*gActivePanel);
     appState().dirty = true;
     return true;

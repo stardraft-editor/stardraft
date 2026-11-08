@@ -13,7 +13,6 @@ constexpr bool kRampBridgeTools = true;
 // --- Ids -----------------------------------------------------------------------------------------
 
 enum : int {
-    ID_SYMMETRY_COPIES = 1421,
     IDC_TABS = 100, IDC_OWNER, IDC_BRUSH, IDC_FILTER, IDC_LIST, IDC_STATUS, IDC_VIEW, IDC_TOOL, IDC_SHAPE, IDC_SYM, IDC_DENSITY, IDC_UNITSEARCH, IDC_PALVIEW, IDC_PALSECTION,
     ID_EDIT_TERRAINUNITS = 350, ID_EDIT_TERRAINDOODADS, ID_OPT_LOCWRAP,
     ID_FILE_OPEN = 200, ID_FILE_NEW, ID_FILE_SAVE, ID_FILE_SAVEAS, ID_FILE_EXIT, ID_FILE_CLOSE, ID_FILE_CLOSEALL, ID_TAB_NEXT,
@@ -72,6 +71,7 @@ enum : int {
     ID_TERRAIN_KIND = 1130,  // + the place in the tool strip: Mode > Terrain tools > Isometric, Rectangle, Tile, Custom (Ctrl+Alt+1 to 4)
     ID_SHAPE_KEY = 1140,  // + the tool of the keys I, O, P, X, E, H, J, W: Line, Contour, Polygon (core/terrain_shapes.inc), Jumble; Erase (every mode); Bridge, Ramp
     ID_MIRROR_KEY = 1120,  // + n: the tool strip's symmetry: 0 none (Alt+0), 1 left and right (Alt+1), 2 top and bottom, 3 the line from top left to bottom right, 4 the line from top right to bottom left
+    ID_SYMMETRY_COPIES = 1421, ID_SYMMETRY_OPTIONS = 1422,
     ID_VIEW_RANGES = 975,  // View > Ranges > All ranges (of the selected units: GitHub feedback #109)
     ID_GO_TRIGGERS = 1100, ID_GO_BRIEFING, ID_GO_PROPS, ID_GO_ASSETS, ID_GO_DATA,  // Ctrl+Shift+T, B, Enter, A, D: the tab's page or workspace
     ID_VIEW_RANGEKIND = 1090,  // + the kind (modes.inc: kRangeKinds): View > Ranges > Sight, Target acquisition, ...

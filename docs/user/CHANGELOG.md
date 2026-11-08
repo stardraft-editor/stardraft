@@ -975,3 +975,9 @@ StarDraft 2 also opens and saves regular maps (.scm, .scx) without a project.
 - Help > Check for updates gets the newest build. StarDraft 2 also looks for one on start (Options > Program options
   to turn it off).
 
+
+## Unreleased symmetry tools
+
+- Mode > Configure symmetry copies supports per-copy terrain and placement choices.
+- Mode > Show symmetry options keeps compact terrain preview grids available while editing.
+- Each map remembers copy terrain and placement choices for each source terrain.

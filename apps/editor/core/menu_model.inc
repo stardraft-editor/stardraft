@@ -1,6 +1,9 @@
 // The menu bar as data (research/ports/MAC-BUILD-PLAN.md step 5): each menu's items in order, with their texts, ids and
 // flags. main.cpp's buildMenu makes the Win32 menu from it (toHmenu); the kit's MenuBar can show the same model.
 
+bool gSymmetryOptionsVisible = false;
+void toggleSymmetryOptions();
+
 struct MenuItem {
     enum class Kind : uint8_t { Command, Separator, Popup };
     Kind kind = Kind::Command;
@@ -322,6 +325,7 @@ MenuModel buildMenuModel() {
     mode.push_back(menuSeparator());
     mode.push_back(menuPopup(L"Te&rrain tools", terrainTools));
     mode.push_back(menuItem(ID_SYMMETRY_COPIES, L"Configure symmetry copies"));
+    mode.push_back(menuItem(ID_SYMMETRY_OPTIONS, L"Show symmetry options", {}, false, gSymmetryOptionsVisible));
     // (No Scenario menu: Map properties, Players and forces, Map data and Classic triggers are the side bar's items
     // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Tools.)
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is

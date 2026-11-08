@@ -29,6 +29,7 @@ const std::vector<AppSetting>& appSettings() {
         SD_SETTING("DragSnapBack", shellState().dragSnapBack, bool),
         SD_SETTING("RandomFacing", shellState().randomFacing, bool),
         SD_SETTING("Animate", shellState().animate, bool),
+        SD_SETTING("SymmetryOptions", gSymmetryOptionsVisible, bool),
         SD_SETTING("DoodadCheck", shellState().doodadCheck, bool),
         SD_SETTING("DoodadNearest", shellState().doodadNearest, bool),
         SD_SETTING("SnapUnits", shellState().snapUnits, bool),

@@ -105,12 +105,46 @@ void panelCopy(PanelState& to, PanelState& from) {
 
 // --- The side bar's panels: one of each mode for each map tab ---
 
+// Copy placement/terrain choices belong to a map's source terrain, across its
+// palettes. Mirror generators remain the palette's geometry settings.
+struct TerrainCopyProfiles {
+    std::map<std::pair<int,int>,CopyOptions> values;
+    void remember(int era,int source,const CopyOptions& options) {
+        if(source<=0)return;
+        if(options.terrain<0&&options.rawTile<0&&options.choices.empty()){values.erase({era,source});return;}
+        CopyOptions data;
+        data.terrain=options.terrain;data.rawTile=options.rawTile;data.choices=options.choices;
+        values[{era,source}]=std::move(data);
+    }
+    CopyOptions select(int era,int source,CopyOptions geometry) const {
+        const auto at=values.find({era,source});
+        geometry.terrain=at==values.end()?-1:at->second.terrain;
+        geometry.rawTile=at==values.end()?-1:at->second.rawTile;
+        geometry.choices=at==values.end()?std::vector<CopyChoice>{}:at->second.choices;
+        return geometry;
+    }
+    std::vector<std::string> text() const {
+        std::vector<std::string> out;
+        for(const auto& [key,value]:values)out.push_back("terrain-copy\t"+std::to_string(key.first)+"\t"+std::to_string(key.second)+"\t"+copyOptionsText(value));
+        return out;
+    }
+    bool read(const std::vector<std::string>& part) {
+        if(part.empty()||part[0]!="terrain-copy")return false;
+        if(part.size()!=4)return true;
+        auto number=[](const std::string& s,int& out){char* end=nullptr;const long n=std::strtol(s.c_str(),&end,10);if(s.empty()||*end||n<0||n>65535)return false;out=int(n);return true;};
+        int era=0,source=0;
+        if(number(part[1],era)&&era<8&&number(part[2],source)&&source>0)remember(era,source,readCopyOptions(part[3]));
+        return true;
+    }
+};
 struct DockedPanels {
     std::array<PanelState, kModeCount> modes;
     TilesView tiles;  // Terrain's (the side bar's Tiles list shows the active tab's)
     std::array<PanelState*, kModeCount> lastOfMode{};  // the tab's panel of each mode used last (setMode goes to it)
     PanelState* active = nullptr;                      // the tab's active panel while another tab is active
     bool made = false;
+    TerrainCopyProfiles terrainCopies;
+    int terrainCopySource=-1,terrainCopyEra=-1;
 };
 std::map<int, DockedPanels> gDockedPanels;  // (by the tab's key: Doc::key)
 int activeDocKey();
@@ -122,6 +156,22 @@ DockedPanels& dockedPanelsOf(int doc) {
         d.modes[size_t(Mode::Terrain)].tiles = &d.tiles;
     }
     return d;
+}
+void rememberTerrainCopies() {
+    auto& app=appState();
+    if(app.mode!=Mode::Terrain||!app.ed||!app.ed->isOpen()||!activeDocKey())return;
+    auto& d=dockedPanelsOf(activeDocKey());
+    if(d.terrainCopySource>0)d.terrainCopies.remember(d.terrainCopyEra,d.terrainCopySource,app.ed->copyOptions());
+}
+void syncTerrainCopies(bool force=false) {
+    auto& app=appState();
+    if(app.mode!=Mode::Terrain||app.palette<=0||!app.ed||!app.ed->isOpen()||!activeDocKey())return;
+    auto& d=dockedPanelsOf(activeDocKey());
+    if(!force&&d.terrainCopySource==app.palette&&d.terrainCopyEra==app.ed->era())return;
+    if(!force)rememberTerrainCopies();
+    app.ed->setCopyOptions(d.terrainCopies.select(app.ed->era(),app.palette,app.ed->copyOptions()));
+    d.terrainCopySource=app.palette;d.terrainCopyEra=app.ed->era();
+    app.dirty=true;
 }
 TilesGridView* tilesDockGrid();  // (views_tiles.inc: the side bar's Tiles list, showing the active tab's tiles)
 TilesPanelView* tilesDockPanel();
@@ -158,6 +208,7 @@ void panelForget(const PanelState* s) {
 // The tab goes to the back (another one is active): its active panel keeps its state, and comes back with the tab.
 void panelsStash() {
     if (!gActivePanel) return;
+    rememberTerrainCopies();
     panelStore(*gActivePanel);
     dockedPanelsOf(activeDocKey()).active = gActivePanel;
     gActivePanel = nullptr;
@@ -183,9 +234,10 @@ void activatePanel(PanelState* p) {
     if (p != gActivePanel) {
         // (another terrain kind in the same tab: it has its own Select shape, and the selection would change)
         const bool otherKind = gActivePanel && gActivePanel->mode == Mode::Terrain && p->mode == Mode::Terrain && app.terrainRect != p->terrainRect;
-        if (gActivePanel) panelStore(*gActivePanel);
+        if (gActivePanel) {rememberTerrainCopies();panelStore(*gActivePanel);}
         gActivePanel = p;
         panelLoad(*p);
+        syncTerrainCopies(true);
         if (otherKind) app.hasTerrainSel = false, app.terrainSelMask.clear();
     }
     DockedPanels& d = dockedPanelsOf(activeDocKey());

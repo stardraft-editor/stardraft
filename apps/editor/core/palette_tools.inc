@@ -6,6 +6,7 @@
 
 void tilesSync();  // (tiles_view.inc: the Win32 TU until it moves into the core)
 void setMode(Mode m);
+void syncTerrainCopies(bool force);
 // setMode's host parts (shell_win32.inc; the SDL host has no docked palettes yet): the side the mode's tools are docked
 // on, with the palette's view of the mode, and the windows that the mode shows (the Map workspace's).
 void shellModeSide(Mode m);
@@ -442,10 +443,12 @@ bool placePaletteDoodad(AppState& app, float wx, float wy, std::string& why) {
 const std::vector<int>& paletteChosen() { return shellPaletteChosen(); }
 
 int selectPalette(AppState& app, int value) {
+    syncTerrainCopies(false);
     if (app.mode != Mode::Locations) {
         shellPaletteChosen().clear();
         if (value >= 0) shellPaletteChosen().push_back(value);
         app.palette = value;
+        syncTerrainCopies(false);
         shellPaletteChanged();
         return value;
     }
@@ -462,6 +465,7 @@ int selectPalette(AppState& app, int value) {
 // the pick (or removes them) for sprays.
 void pickUnit(AppState& app, int v, bool add) {
     if (!app.ed || v < 0) return;
+    syncTerrainCopies(false);
     if (app.mode == Mode::Terrain || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Terrain: paint with it (leaving Select / copy); doodads and sprites: place it. Ctrl adds it to the picks (or
         // takes it out): Spray and Fill put them at random (#79), the Brush and a click the last one.
@@ -475,6 +479,7 @@ void pickUnit(AppState& app, int v, bool add) {
             app.palette = v;
         }
         app.terrainPasting = false;
+        syncTerrainCopies(false);
         // (Select, and the tools that change the terrain there without the pick: Bridge, Ramp, Jumble: the Brush paints it)
         if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || terrainToolIgnoresPick(currentTool(app)))) {
             app.toolByMode[int(Mode::Terrain)] = TBrush;
