@@ -6,6 +6,12 @@
 
 // Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 int activePage();
+// Program options > Updates > Show system diagnostics: the frames a second and the memory in use, at the right of
+// the status bar in every workspace (the program keeps the text new, once a second).
+bool diagnosticsOn();
+void setDiagnostics(bool on);
+inline std::wstring gDiagnosticsText;
+void diagnosticsRefresh();  // (made again when a second has gone)
 
 // The status bar's view: its texts are the app state's (AppState::statusText, the bar's seven parts).
 struct StatusView final : stardraft::draw::View {
@@ -23,9 +29,20 @@ struct StatusView final : stardraft::draw::View {
         // (a page: Start, the map pages, the New page over a map; no map open: no map parts)
         const bool map = gWorkspace == Workspace::Map && !activePage() && docOpen() && !newPageCovers();
         const int pad = scale(8);
-        auto part = [&](int l, int r, int i, COLORREF col) { c.text({l + pad, 1, r - pad, h}, st.statusText[i], col, kMiddle | kEllipsis); };
+        auto part = [&](int l, int r, int i, COLORREF col) {  // (i -1: the diagnostics)
+            c.text({l + pad, 1, r - pad, h}, i < 0 ? gDiagnosticsText : st.statusText[i], col, kMiddle | kEllipsis);
+        };
         auto sep = [&](int x) { c.fill({x, scale(4), x + 1, h - scale(3)}, kBorder); };
         int x = scale(4), right = w - scale(16);  // room for the size grip
+        if (diagnosticsOn()) diagnosticsRefresh();
+        if (diagnosticsOn() && !gDiagnosticsText.empty()) {
+            const int dw = c.measure(gDiagnosticsText) + 2 * pad;
+            if (right - dw > x + scale(200)) {
+                part(right - dw, right, -1, kDim);
+                sep(right - dw);
+                right -= dw;
+            }
+        }
         if (map) {
             // (mode and tool, the mouse's place, the zoom, the selection, the mode's count)
             const int parts[5] = {0, 1, 2, 3, 6}, mins[5] = {150, 200, 110, 100, 100};

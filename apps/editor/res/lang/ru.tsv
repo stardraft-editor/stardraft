@@ -3351,3 +3351,8 @@ Release to go here	Отпустите, чтобы идти сюда
 The start point (drag it)	Начальная точка (перетащите её)
 The end point (drag it)	Конечная точка (перетащите её)
 Specific players	Отдельные игроки
+Diagnostics	Диагностика
+Show system diagnostics	Показывать диагностику системы
+The frames a second and the memory that StarDraft uses, at the right of the status bar	Кадры в секунду и память, которую использует StarDraft, справа в строке состояния
+Status bar: frames a second and memory	Строка состояния: кадры в секунду и память
+Status bar: no diagnostics	Строка состояния: без диагностики

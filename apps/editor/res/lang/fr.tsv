@@ -3351,3 +3351,8 @@ Release to go here	Relâchez pour aller ici
 The start point (drag it)	Le point de départ (faites-le glisser)
 The end point (drag it)	Le point d'arrivée (faites-le glisser)
 Specific players	Joueurs choisis
+Diagnostics	Diagnostic
+Show system diagnostics	Afficher le diagnostic du système
+The frames a second and the memory that StarDraft uses, at the right of the status bar	Les images par seconde et la mémoire qu'utilise StarDraft, à droite de la barre d'état
+Status bar: frames a second and memory	Barre d'état : images par seconde et mémoire
+Status bar: no diagnostics	Barre d'état : pas de diagnostic

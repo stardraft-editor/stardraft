@@ -68,6 +68,7 @@ enum : int {
     ID_PAL_SORT_DATE = 634,  // ... the newest first (the Custom list's Sort menu)
     ID_PAL_LIST_SPRITES = 635,  // ... List: sprites (units: each row the unit's sprite, not its icon)
     ID_OPT_TINTICONS = 636,  // Program options > Appearance: Unit icons in the accent color (TintIcons)
+    ID_OPT_DIAGNOSTICS = 637,  // Program options > Updates: Show system diagnostics (ShowDiagnostics)
     ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French

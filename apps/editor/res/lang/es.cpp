@@ -3350,6 +3350,11 @@ constexpr UiText kRows[] = {
     {L"The start point (drag it)", L"El punto de inicio (arr\u00E1strelo)"},
     {L"The end point (drag it)", L"El punto final (arr\u00E1strelo)"},
     {L"Specific players", L"Jugadores concretos"},
+    {L"Diagnostics", L"Diagn\u00F3stico"},
+    {L"Show system diagnostics", L"Mostrar diagn\u00F3stico del sistema"},
+    {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"Los fotogramas por segundo y la memoria que usa StarDraft, a la derecha de la barra de estado"},
+    {L"Status bar: frames a second and memory", L"Barra de estado: fotogramas por segundo y memoria"},
+    {L"Status bar: no diagnostics", L"Barra de estado: sin diagn\u00F3stico"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

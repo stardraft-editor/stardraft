@@ -521,7 +521,49 @@ void sdlGpuUnskip(const std::string&) {}
 // pan, the spray, a live game, the map loading, its images or pathing still coming, a build, a sound that plays, the
 // Data pictures that move; the window tests count frames); else the units' idle animations paint the map view at the
 // game's speed; -1: nothing moves (the program draws nothing until the next event).
+int sdlFrameClockOwn();
+// Program options > Updates > Show system diagnostics (the setting ShowDiagnostics; not saved in a test): the status
+// bar's frames a second (the frames that went to the window in the last second: the program paints only when something
+// changes, so few while nothing moves) and the memory in use (the working set). Made again once a second.
+bool& diagnosticsFlag() {
+    static bool v = [] {
+        bool on = false;
+        if (!gSelfTest && !gSettingsOff) prefs::flag(L"ShowDiagnostics", on);
+        return on;
+    }();
+    return v;
+}
+bool diagnosticsOn() { return diagnosticsFlag(); }
+void setDiagnostics(bool on) {
+    diagnosticsFlag() = on;
+    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"ShowDiagnostics", on ? 1 : 0);
+    if (!on) gDiagnosticsText.clear();
+}
+// The diagnostics' text, made again when a second has gone since the last one (the frames since then); the milliseconds
+// until the next one (-1: off).
+uint64_t gDiagnosticsMs = 0;
+int sdlDiagnosticsClock() {
+    static long long lastFrames = 0;
+    uint64_t& lastMs = gDiagnosticsMs;
+    if (!diagnosticsOn() || !gHost || !gRoot) return -1;
+    const uint64_t now = SDL_GetTicks();
+    if (lastMs && now - lastMs < 1000) return int(1000 - (now - lastMs));
+    const long long frames = gHost->presentedFrames();
+    const double fps = lastMs ? double(frames - lastFrames) * 1000.0 / double(now - lastMs) : 0;
+    const SdlMemory m = sdlMemory();
+    wchar_t t[96];
+    if (m.workingSet >= 0) std::swprintf(t, 96, L"%.0f FPS  \x00b7  %.0f MB", fps, m.workingSet);
+    else std::swprintf(t, 96, L"%.0f FPS", fps);
+    if (gDiagnosticsText != t) gDiagnosticsText = t, gRoot->status.invalidate();
+    lastMs = now, lastFrames = frames;
+    return 1000;
+}
+void diagnosticsRefresh() { sdlDiagnosticsClock(); }
 int sdlFrameClock() {
+    const int own = sdlFrameClockOwn(), diag = sdlDiagnosticsClock();
+    return own == 0 || diag < 0 ? own : own < 0 ? diag : std::min(own, diag);
+}
+int sdlFrameClockOwn() {
     if (gFramesArg > 0 || !gWinTestMap.empty()) return 0;
     if (gState.dirty || gState.drag != Drag::None || gSprayOn || simBarShown() || gLoading.on || gBuilding) return 0;
     if (gRoot && gRoot->map.panning) return 0;

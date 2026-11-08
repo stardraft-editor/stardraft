@@ -3381,3 +3381,8 @@ Release to go here	놓으면 여기로 갑니다
 The start point (drag it)	시작 지점 (끌어서 이동)
 The end point (drag it)	끝 지점 (끌어서 이동)
 Specific players	특정 플레이어
+Diagnostics	진단
+Show system diagnostics	시스템 진단 표시
+The frames a second and the memory that StarDraft uses, at the right of the status bar	초당 프레임 수와 StarDraft가 사용하는 메모리, 상태 표시줄 오른쪽에
+Status bar: frames a second and memory	상태 표시줄: 초당 프레임 수와 메모리
+Status bar: no diagnostics	상태 표시줄: 진단 없음

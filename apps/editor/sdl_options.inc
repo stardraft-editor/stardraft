@@ -185,7 +185,7 @@ void showOptionsSdl();
 // The Program options commands this system runs (the menus and the keys ask sdlRuns).
 bool sdlOptionsRuns(int id) {
     return id == ID_THEME_DARK || id == ID_THEME_LIGHT || (id == ID_THEME_SYSTEM && kSystemLook) || (id >= ID_OPT_LANG && id < ID_OPT_LANG + kLanguageChoiceCount) || id == ID_OPT_RESTART || id == ID_OPT_RESETALL ||
-           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_TINTICONS || id == ID_OPT_ASKSTARTLOC || id == ID_OPT_MANYSTARTS || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
+           id == ID_MIDDLE_MODE || id == ID_MIDDLE_MODE + 1 || id == ID_OPT_LASTPROJECT || id == ID_OPT_TINTICONS || id == ID_OPT_DIAGNOSTICS || id == ID_OPT_ASKSTARTLOC || id == ID_OPT_MANYSTARTS || id == ID_GAME_MODE || id == ID_GAME_MODE + 1;
     // (Look for updates on start and Crash reports are the update check's and the crash reports' commands, with them.)
 }
 // Runs one of them (the same settings and messages as the Windows program's); false: not one of them.
@@ -223,6 +223,11 @@ bool sdlOptionsCommand(int id) {
         setTintIcons(!tintIconsOn());
         setMessage(tintIconsOn() ? L"Unit icons: in the accent color" : L"Unit icons: in the game's yellow");
         if (gRoot) gRoot->invalidate();  // (the palettes and the Data workspace: another window than Program options)
+        break;
+    case ID_OPT_DIAGNOSTICS:
+        setDiagnostics(!diagnosticsOn());
+        setMessage(diagnosticsOn() ? L"Status bar: frames a second and memory" : L"Status bar: no diagnostics");
+        if (gRoot) gRoot->invalidate();
         break;
     case ID_OPT_LASTPROJECT:
         prefs::flag(L"OpenLastProject", flag);
@@ -283,6 +288,7 @@ public:
         flag = false;
         prefs::flag(L"OpenLastProject", flag), v.openLast = flag;
         v.tintIcons = tintIconsOn();
+        v.diagnostics = diagnosticsOn();
         flag = true;
         prefs::flag(L"AskStartLocations", flag), v.askStartLocations = flag;
         flag = false;

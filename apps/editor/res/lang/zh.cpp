@@ -3350,6 +3350,11 @@ constexpr UiText kRows[] = {
     {L"The start point (drag it)", L"\u8D77\u70B9\uFF08\u62D6\u52A8\u5B83\uFF09"},
     {L"The end point (drag it)", L"\u7EC8\u70B9\uFF08\u62D6\u52A8\u5B83\uFF09"},
     {L"Specific players", L"\u6307\u5B9A\u73A9\u5BB6"},
+    {L"Diagnostics", L"\u8BCA\u65AD"},
+    {L"Show system diagnostics", L"\u663E\u793A\u7CFB\u7EDF\u8BCA\u65AD"},
+    {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"\u6BCF\u79D2\u5E27\u6570\u548C StarDraft \u4F7F\u7528\u7684\u5185\u5B58\uFF0C\u663E\u793A\u5728\u72B6\u6001\u680F\u53F3\u4FA7"},
+    {L"Status bar: frames a second and memory", L"\u72B6\u6001\u680F\uFF1A\u6BCF\u79D2\u5E27\u6570\u548C\u5185\u5B58"},
+    {L"Status bar: no diagnostics", L"\u72B6\u6001\u680F\uFF1A\u4E0D\u663E\u793A\u8BCA\u65AD"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

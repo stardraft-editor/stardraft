@@ -3351,3 +3351,8 @@ Release to go here	Suelte para ir aquí
 The start point (drag it)	El punto de inicio (arrástrelo)
 The end point (drag it)	El punto final (arrástrelo)
 Specific players	Jugadores concretos
+Diagnostics	Diagnóstico
+Show system diagnostics	Mostrar diagnóstico del sistema
+The frames a second and the memory that StarDraft uses, at the right of the status bar	Los fotogramas por segundo y la memoria que usa StarDraft, a la derecha de la barra de estado
+Status bar: frames a second and memory	Barra de estado: fotogramas por segundo y memoria
+Status bar: no diagnostics	Barra de estado: sin diagnóstico

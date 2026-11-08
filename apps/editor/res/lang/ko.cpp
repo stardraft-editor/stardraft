@@ -3380,6 +3380,11 @@ constexpr UiText kRows[] = {
     {L"The start point (drag it)", L"\uC2DC\uC791 \uC9C0\uC810 (\uB04C\uC5B4\uC11C \uC774\uB3D9)"},
     {L"The end point (drag it)", L"\uB05D \uC9C0\uC810 (\uB04C\uC5B4\uC11C \uC774\uB3D9)"},
     {L"Specific players", L"\uD2B9\uC815 \uD50C\uB808\uC774\uC5B4"},
+    {L"Diagnostics", L"\uC9C4\uB2E8"},
+    {L"Show system diagnostics", L"\uC2DC\uC2A4\uD15C \uC9C4\uB2E8 \uD45C\uC2DC"},
+    {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"\uCD08\uB2F9 \uD504\uB808\uC784 \uC218\uC640 StarDraft\uAC00 \uC0AC\uC6A9\uD558\uB294 \uBA54\uBAA8\uB9AC, \uC0C1\uD0DC \uD45C\uC2DC\uC904 \uC624\uB978\uCABD\uC5D0"},
+    {L"Status bar: frames a second and memory", L"\uC0C1\uD0DC \uD45C\uC2DC\uC904: \uCD08\uB2F9 \uD504\uB808\uC784 \uC218\uC640 \uBA54\uBAA8\uB9AC"},
+    {L"Status bar: no diagnostics", L"\uC0C1\uD0DC \uD45C\uC2DC\uC904: \uC9C4\uB2E8 \uC5C6\uC74C"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

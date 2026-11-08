@@ -3351,3 +3351,8 @@ Release to go here	松开后走到这里
 The start point (drag it)	起点（拖动它）
 The end point (drag it)	终点（拖动它）
 Specific players	指定玩家
+Diagnostics	诊断
+Show system diagnostics	显示系统诊断
+The frames a second and the memory that StarDraft uses, at the right of the status bar	每秒帧数和 StarDraft 使用的内存，显示在状态栏右侧
+Status bar: frames a second and memory	状态栏：每秒帧数和内存
+Status bar: no diagnostics	状态栏：不显示诊断
