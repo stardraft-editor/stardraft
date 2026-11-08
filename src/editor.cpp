@@ -1003,6 +1003,7 @@ Symmetry Editor::symmetry() const {
 // Each carries whether it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
 std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int margin) const {
     std::vector<SymmetricPlace> out{{px, py, false, false}};
+    if (!mirrors_ && turns_ <= 1) return out;  // (symmetry off: the point alone, also with more anchors)
     const int W = width_ * 32, H = height_ * 32;
     // A place is added when it is inside the map and no place is there yet (1 px).
     auto add = [&](int x, int y, bool fx, bool fy) {

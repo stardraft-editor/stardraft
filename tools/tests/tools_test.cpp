@@ -175,6 +175,9 @@ int main(int argc, char** argv) {
         auto has = [&](std::pair<int, int> p) { return std::find(points.begin(), points.end(), p) != points.end(); };
         check(points.size() == 4, "anchors: the point and its mirror image, and both again at the other anchor");
         check(has({1148, 500}) && has({1924, 468}) && has({2172, 468}), "anchors: the mirror round the main one; the pattern moved to the other");
+        ed.setMirrors(0);
+        check(ed.symmetricPoints(900, 500).size() == 1, "anchors: symmetry off, the point alone (no copies at the other anchors)");
+        ed.setMirrors(Mirror::LeftRight);
         ed.setSymmetryAnchor(1, 1536, 992);
         check(ed.symmetryAnchors()[1].first == 1536, "anchors: one moves");
         ed.beginTerrainStroke();
