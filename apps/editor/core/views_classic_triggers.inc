@@ -1028,7 +1028,9 @@ private:
     // A section heading (its name and a line to the right edge); returns the y under it.
     static int sectionHeader(draw::Canvas& c, int y, int w, const wchar_t* name) {
         const int rowH = scale(stardraft::kit::kRowH);
-        c.text({0, y, w, y + rowH}, name, kDim, draw::kMiddle);  // (quiet: dim, no rule)
+        c.text({0, y, w, y + rowH}, name, kDim, draw::kMiddle);  // (dim, then a line to the right edge: as the lists' headings)
+        const int mid = y + rowH / 2;
+        c.fill({c.measure(tr(name)) + scale(8), mid, w, mid + 1}, kBorder);
         return y + rowH;
     }
     // A UI icon, centered in its box.

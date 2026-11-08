@@ -160,6 +160,7 @@ public:
         note_.setText(ctNoteText(m, projectMode()));
         add(side_, {0, 0, 0, 0});
         add(triggersFrame_, {0, 0, 0, 0});
+        triggersFrame_.setBarOnlyWhenScrolls(true);  // (the rows end where the filter ends)
         add(note_, {0, 0, 0, 0});
         add(head_, {0, 0, 0, 0});
         add(entriesFrame_, {0, 0, 0, 0});

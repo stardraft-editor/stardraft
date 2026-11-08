@@ -1494,18 +1494,19 @@ inline void ctEditComment(CtPageHost& h) {
 inline void ctPlaceHead(CtHeadView& hv, int rightW) {
     const int rowH = scale(stardraft::kit::kFieldH), gap = scale(8);
     const int delW = scale(stardraft::kit::kIconBox), turnW = scale(stardraft::kit::kIconBox);
-    const int headW = rightW - delW - turnW - 3 * gap;
+    const int lineW = rightW;  // (the head's right edge: the entries' and the headings' lines end there too)
     auto put = [](draw::View& v, int px, int py, int w, int hh) { v.setFrame({px, py, px + std::max(0, w), py + std::max(0, hh)}); };
-    // (the title, the count, the comment: the comment keeps at least 160 px, the count gives way first)
-    const int titleW = std::min(headW, scale(110)), rest = std::max(0, headW - titleW);
-    const int commentW = std::max(std::min(rest, scale(160)), rest - scale(115)), countW = std::max(0, rest - commentW - scale(5));
+    // (the title, then the comment; at the right edge "Turned off", the on/off box and Delete)
+    const int delX = lineW - delW, turnX = delX - gap - turnW;
+    const int countW = std::min(scale(90), std::max(0, turnX - gap)), countX = turnX - gap - countW;
+    const int titleW = std::min(std::max(0, countX), scale(100));
     put(hv.title, 0, 0, titleW, scale(28));
-    put(hv.count, titleW, scale(6), countW, rowH);
-    put(hv.comment, titleW + countW + (countW ? scale(5) : 0), scale(6), commentW, rowH);
-    put(hv.deleteTrig, rightW - delW, scale(2), delW, rowH);
-    put(hv.turnOff, rightW - delW - gap - turnW, scale(2), turnW, rowH);
-    // The players: one field under the header, as wide as the head (at most 600 px).
-    put(hv.players, 0, scale(40), std::min(rightW, scale(600)), rowH);
+    put(hv.comment, titleW, scale(6), countX - gap - titleW, rowH);
+    put(hv.count, countX, scale(6), countW, rowH);
+    put(hv.deleteTrig, delX, scale(2), delW, rowH);
+    put(hv.turnOff, turnX, scale(2), turnW, rowH);
+    // The players: one field under the header, as wide as the head.
+    put(hv.players, 0, scale(40), lineW, rowH);
 }
 // The head's texts for the selected trigger: its name, its count, the Turn off button and the buttons' states.
 inline void ctUpdateHead(CtHeadView& h, const CtModel& m) {
