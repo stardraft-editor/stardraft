@@ -2,6 +2,58 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## 0.9.0
+
+Video: https://www.youtube.com/watch?v=abPD14vdoU8
+
+### New
+
+- Map layers (experimental): a Layers mode with a list of layers over the Background. Paint, move, hide, lock,
+  duplicate (also linked copies that follow their original) and see-through opacity. A layer can sit outside of the
+  map, as a place to try things out.
+
+  ![Map layers: a layer with Solar Array painted on it, and its linked duplicate moved down the map](images/0.9.0/map-layers.png)
+- File > Import a project (experimental): EUD Editor 3, EUD Editor 2 and euddraft projects become a new EUD project,
+  step by step, with a report of what came in.
+
+  ![File > Import a project: the parts of an EUD Editor 2 project, each with what it holds](images/0.9.0/import-project.png)
+- Assets: Music and Dot images for EUD projects, with trigger blocks to play music tracks and draw dot images.
+
+  ![Assets: the Music and Dot images lists of an EUD project](images/0.9.0/music-dot-images.png)
+- Tools > Simulation (experimental): mining at each base (minerals a minute, round trips, boost searches) and rush
+  distance between start locations or two points you drag on the map, with any unit and the fog of war.
+
+  ![Tools > Simulation: mining with each mineral field's round trip, the cycle boost's numbered commands and the settings](images/0.9.0/simulation-mining.png)
+  ![Rush distance between the start locations: each player's way and its time](images/0.9.0/simulation-rush.png)
+
+### Map
+
+- Terrain: Lasso (K) and a Move tool; tool keys M, N, C, Z (Shift for the filled shapes).
+- A modifier key held on the map shows what it does next to the mouse.
+- Several symmetry anchors, with a right-click menu: the brighter one is the main one, and the others repeat its
+  pattern.
+- The terrain mask works the same in every list and shows on the map, with a button to clear it.
+
+  ![The terrain mask on the map: a chip names the masked terrain, with a button that clears it](images/0.9.0/terrain-mask.png)
+- Custom terrain in folders.
+- A 64 x 32 grid preset.
+- Units with no icon show their sprite in the palettes; Units palette > View has List: icons and List: sprites.
+
+### The program
+
+- Program options by topic: General, Appearance, Mouse and keyboard, Map, Simulation, Plugins, Folders, Updates.
+- Unit icons in the accent color (Program options > Appearance).
+- Show system diagnostics: frames a second and memory in the status bar (Program options > Appearance).
+
+  ![Program options by topic: Appearance with unit icons in the accent color and Show system diagnostics](images/0.9.0/options-appearance.png)
+- Faster: a large map's first frame from 293 to 97 ms, and less memory with no map open.
+- Windows: Automatic graphics tries Direct3D 12 first on video cards that support it.
+
+### Fixes
+
+- A click on a menu item with a submenu opens the submenu.
+- Many small layout and wording fixes across the program.
+
 ## 0.8.7
 
 [Video: the new features of 0.8.7](images/0.8.7/whats-new.mp4)
