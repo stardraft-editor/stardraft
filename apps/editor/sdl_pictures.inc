@@ -16,6 +16,7 @@ struct PaletteArt {
     int hdTilesEra = -1, hdTilesMode = -1;  // (the era and mode of hdTiles: another map of that tileset uses them too)
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
     std::map<std::pair<uint16_t, int>, std::unique_ptr<draw::Bitmap>> pieBitmaps;  // the pie palette's terrains (pieBitmap)
+    std::set<const draw::Bitmap*> blanks;  // the pictures that are the game's placeholder icon (drawPaletteArt: a neutral icon)
 };
 PaletteArt gPaletteArt;
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
@@ -47,7 +48,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
     const bool unitKind = what == Mode::Units && !iconFrame;
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode || gPaletteArt.rulesRev != gTerrainRulesRev) {
-        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
+        gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.blanks.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
         if (gPaletteArt.mode != mode || gPaletteArt.data != &ed.gameData()) {
             gPaletteArt.hdIcons.clear();
             gPaletteArt.data = &ed.gameData();
@@ -120,7 +121,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
         } else if (const DoodadType* d = ed.doodadTypes().find(uint16_t(value))) art = doodadPicture(*d, ed.tileset(), ed.unitSprites(), hd);
         if (art.width) s = &art;
     } else {
-        if (!sprite) {  // the command icon (a sprite view: the unit's picture below)
+        if (!sprite && !ed.unitSprites().hasBlankIcon(uint16_t(value))) {  // the command icon (a sprite view, or the game's placeholder: the unit's picture below)
             if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
             else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
         }
@@ -139,7 +140,8 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
                 if (p->rgba[(size_t(y) * p->width + x) * 4 + 3]) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
         return x1 - x0 >= 3 && y1 - y0 >= 3;
     };
-    if (unitKind && !visible(s)) s = ed.unitSprites().blankIcon();
+    bool blank = false;
+    if (unitKind && !visible(s)) s = ed.unitSprites().blankIcon(), blank = true;
     // Nothing to draw: that is cached too (an empty entry), so the row does not build the picture again on every paint.
     if (!s) return gPaletteArt.bitmaps.emplace(key, nullptr), nullptr;
 
@@ -159,6 +161,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             px[size_t(y) * b->width() + x] = r | (g << 8) | (bl << 16) | (a << 24);
         }
     b->changed();
+    if (blank) gPaletteArt.blanks.insert(b.get());
     return (gPaletteArt.bitmaps[key] = std::move(b)).get();
 }
 
@@ -187,6 +190,8 @@ draw::Bitmap* pieBitmap(uint16_t terrain, int tiles) {
 // Draws a palette picture centered in `box`, shrunk to fit (enlarged at most to the display's scale), as the Win32
 // palette's drawFitted.
 void drawPaletteArt(draw::Canvas& c, draw::Bitmap& b, draw::Rect box) {
+    // (a unit with no picture of its own, the game's yellow "BLANK": a neutral icon of the set, dim)
+    if (gPaletteArt.blanks.count(&b)) return c.icon(box, int(UiIcon::Units), kFaint, std::min(scale(32), std::max(scale(16), std::min(box.width(), box.height()) * 2 / 3)));
     const int bw = box.width(), bh = box.height();
     if (bw <= 0 || bh <= 0 || b.width() <= 0 || b.height() <= 0) return;
     const float k = std::min({float(bw) / b.width(), float(bh) / b.height(), float(gDpi) / 96.0f});
