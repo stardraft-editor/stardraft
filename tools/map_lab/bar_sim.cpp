@@ -124,9 +124,17 @@ public:
                 stopBoosts();
                 std::string first;
                 bool any = false;
+                // Each base's player: a start location's is its player in the map; another base (a placed depot) takes
+                // the first player that no start location has (each base is a world of its own: the players only
+                // name and color the bases, as in the map).
+                std::vector<bool> taken(size_t(kMaxBases), false);
+                for (const sim::MiningBase& b : bases)
+                    if (b.startLocation && b.player >= 0 && b.player < kMaxBases) taken[size_t(b.player)] = true;
                 for (size_t k = 0; k < bases.size(); ++k) {
-                    // (a world's players are 0 to 11: past the 12th base, each base is a world of its own anyway)
-                    const int owner = int(k % size_t(kMaxBases));
+                    int owner = bases[k].startLocation && bases[k].player >= 0 && bases[k].player < kMaxBases ? bases[k].player : -1;
+                    for (int p = 0; owner < 0 && p < kMaxBases; ++p)
+                        if (!taken[size_t(p)]) owner = p, taken[size_t(p)] = true;
+                    if (owner < 0) owner = int(k % size_t(kMaxBases));  // (more bases than players: as before)
                     auto s = std::make_unique<Setup>();
                     s->base = bases[k], s->race = races[k], s->owner = owner;
                     try {

@@ -117,7 +117,9 @@ say (waitrand, randcondjmp, random sounds).
 
 **Mining.** The bases are the start locations, the placed resource depots, the bases in the options, and (with
 `mineralClusters`) a base for each group of 3 or more mineral fields with no base within 12 tiles: a Command Center spot
-on the tile grid, on walkable ground, not within 3 tiles of a resource, the nearest to the fields. Each mineral field
+on the tile grid, on walkable ground, not within 3 tiles of a resource, the nearest to the fields. The simulation bar
+leaves `mineralClusters` off: its bases are the map's start locations and placed depots, each start location's base
+as its player in the map (a placed depot's: the first player that no start location has). Each mineral field
 belongs to its nearest base within 12 tiles. A run is a melee start (a depot of the race, on the tile grid at the base;
 the workers at the nearest free places), then the workers are split over the fields, nearest first. With `gas`, the
 nearest geyser becomes a finished refinery with `gasWorkers` (1 to 3) more workers. The measures start after the

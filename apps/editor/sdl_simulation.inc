@@ -2155,6 +2155,7 @@ sim::MiningOptions simMiningOptions(uint32_t seed) {
     o.races = {kRace[s.races]};
     o.mapRaces = s.races == 0;
     o.seed = seed;
+    o.mineralClusters = false;  // (the bases are the map's: its start locations and placed depots, no new ones)
     return o;
 }
 void simulateMiningCommand() {
