@@ -2457,7 +2457,7 @@ The Prerelease or Release folder	Prerelease 或 Release 文件夹
 The Prerelease or Release folder. A new folder is used after a restart	Prerelease 或 Release 文件夹。新文件夹在重新启动后使用
 The CRIG commands have no problems	CRIG 命令没有问题
 These CRIG commands in the trigger Comments have problems:	触发器注释中的这些 CRIG 命令有问题：
-Experimental simulation: the result can differ from the game. It is not the game's engine.	实验性模拟：结果可能与游戏不同。这不是游戏引擎。
+Experimental: results can differ from the game.	实验性：结果可能与游戏不同。
 Simulation	模拟
 Simulate mining	模拟采矿
 Simulate combat	模拟战斗
@@ -3344,8 +3344,8 @@ Simulation &settings	模拟设置(&S)
 Simulation &options…	模拟选项(&O)…
 &Close the simulation	关闭模拟(&C)
 &Simulation	模拟(&S)
-Select units…	选择单位…
-Rush units	Rush 单位
 What all players see	所有玩家看到的范围
 Fog of war	战争迷雾
 Report feedback on the simulation…	发送关于模拟的反馈…
+Unit: %ls	单位：%ls
+Other units	其他单位

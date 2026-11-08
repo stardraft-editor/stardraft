@@ -2459,7 +2459,7 @@ constexpr UiText kRows[] = {
     {L"The Prerelease or Release folder. A new folder is used after a restart", L"Le dossier Prerelease ou Release. Un nouveau dossier est utilis\u00E9 apr\u00E8s un red\u00E9marrage"},
     {L"The CRIG commands have no problems", L"Les commandes CRIG ne pr\u00E9sentent aucun probl\u00E8me"},
     {L"These CRIG commands in the trigger Comments have problems:", L"Ces commandes CRIG dans les commentaires des d\u00E9clencheurs pr\u00E9sentent des probl\u00E8mes:"},
-    {L"Experimental simulation: the result can differ from the game. It is not the game's engine.", L"Simulation exp\u00E9rimentale: le r\u00E9sultat peut diff\u00E9rer du jeu. Ce n'est pas le moteur du jeu."},
+    {L"Experimental: results can differ from the game.", L"Exp\u00E9rimental : les r\u00E9sultats peuvent diff\u00E9rer du jeu."},
     {L"Simulation", L"Simulation"},
     {L"Simulate mining", L"Simuler la r\u00E9colte"},
     {L"Simulate combat", L"Simuler un combat"},
@@ -3343,11 +3343,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"&Options de simulation\u2026"},
     {L"&Close the simulation", L"&Fermer la simulation"},
     {L"&Simulation", L"&Simulation"},
-    {L"Select units\u2026", L"Choisir les unit\u00E9s\u2026"},
-    {L"Rush units", L"Unit\u00E9s du rush"},
     {L"What all players see", L"Ce que voient tous les joueurs"},
     {L"Fog of war", L"Brouillard de guerre"},
     {L"Report feedback on the simulation\u2026", L"Envoyer un commentaire sur la simulation\u2026"},
+    {L"Unit: %ls", L"Unit\u00E9 : %ls"},
+    {L"Other units", L"Autres unit\u00E9s"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

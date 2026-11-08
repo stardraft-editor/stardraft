@@ -2457,7 +2457,7 @@ The Prerelease or Release folder	La carpeta Prerelease o Release
 The Prerelease or Release folder. A new folder is used after a restart	La carpeta Prerelease o Release. Una carpeta nueva se usa después de reiniciar
 The CRIG commands have no problems	Los comandos CRIG no tienen problemas
 These CRIG commands in the trigger Comments have problems:	Estos comandos CRIG de los comentarios de los disparadores tienen problemas:
-Experimental simulation: the result can differ from the game. It is not the game's engine.	Simulación experimental: el resultado puede diferir del juego. No es el motor del juego.
+Experimental: results can differ from the game.	Experimental: los resultados pueden diferir del juego.
 Simulation	Simulación
 Simulate mining	Simular extracción
 Simulate combat	Simular combate
@@ -3344,8 +3344,8 @@ Simulation &settings	&Ajustes de la simulación
 Simulation &options…	&Opciones de simulación…
 &Close the simulation	&Cerrar la simulación
 &Simulation	&Simulación
-Select units…	Elegir unidades…
-Rush units	Unidades del rush
 What all players see	Lo que ven todos los jugadores
 Fog of war	Niebla de guerra
 Report feedback on the simulation…	Enviar comentarios sobre la simulación…
+Unit: %ls	Unidad: %ls
+Other units	Otras unidades

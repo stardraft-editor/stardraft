@@ -5407,8 +5407,8 @@ wheel 830,700,0,12
 # The gear's panel (the mining's settings, the boost searches); a cycle search of 6 seconds with 1 worker for each
 # mineral field, Protoss ({simboostsettings}), then the game from its start with the boosts: zoomed in on the base at
 # the bottom middle, the cycles' numbered arrows. The rush's fog of war ({rushfogsettings}): what all players see. The rush
-# between two points (Tools > Simulate rush distance between two points: two clicks on the map) with a worker, a
-# Vulture and a Zergling ({rushunitsettings}), the fog of war on (what all players see), at its end; and its report.
+# between two points (Tools > Simulate rush distance between two points: two clicks on the map) with a Vulture
+# ({rushunitsettings}), the fog of war on (what all players see), at its end; and its report.
 SCRIPTS["simpanel"] = """command edit.simulate.mining
 simstep 300
 click 832,128
@@ -5604,12 +5604,12 @@ def main():
         simboostsettings = os.path.join(a.out, "simboost-settings.json")  # {simboostsettings}: 1 worker for each mineral field, Protoss, the cycle boost on (6 s)
         if any("{simboostsettings}" in x for x in args):
             write_once(simboostsettings, write_text(simboostsettings, json.dumps({"SimWorkerKind": 0, "SimWorkersPerField": 1, "SimRaces": 2, "SimSearchSeconds": 6, "SimBoostCycle": 1})))
-        rushunitsettings = os.path.join(a.out, "rushunit-settings.json")  # {rushunitsettings}: the rush's units: a worker (Terran), a Vulture, a Zergling
+        rushunitsettings = os.path.join(a.out, "rushunit-settings.json")  # {rushunitsettings}: the rush's unit: a Vulture (Terran), the fog of war: what all players see
         rushfogsettings = os.path.join(a.out, "rushfog-settings.json")  # {rushfogsettings}: the rush's fog of war: what all players see
         if any("{rushfogsettings}" in x for x in args):
             write_once(rushfogsettings, write_text(rushfogsettings, json.dumps({"SimRushFog": -2})))
         if any("{rushunitsettings}" in x for x in args):
-            write_once(rushunitsettings, write_text(rushunitsettings, json.dumps({"SimRushUnitList": "-1,2,37", "SimRaces": 1, "SimRushFog": -2})))
+            write_once(rushunitsettings, write_text(rushunitsettings, json.dumps({"SimRushUnit": 2, "SimRaces": 1, "SimRushFog": -2})))
         if any("{simfieldsettings}" in x for x in args):
             write_once(simfieldsettings, write_text(simfieldsettings, json.dumps({"SimWorkerKind": 0, "SimWorkersPerField": 1, "SimRaces": 3})))
         if any("{nosnapsettings}" in x for x in args):

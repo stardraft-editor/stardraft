@@ -2457,7 +2457,7 @@ The Prerelease or Release folder	Папка Prerelease или Release
 The Prerelease or Release folder. A new folder is used after a restart	Папка Prerelease или Release. Новая папка используется после перезапуска
 The CRIG commands have no problems	В командах CRIG нет проблем
 These CRIG commands in the trigger Comments have problems:	Эти команды CRIG в комментариях триггеров содержат проблемы:
-Experimental simulation: the result can differ from the game. It is not the game's engine.	Экспериментальное моделирование: результат может отличаться от игры. Это не движок игры.
+Experimental: results can differ from the game.	Экспериментально: результаты могут отличаться от игры.
 Simulation	Моделирование
 Simulate mining	Моделировать добычу
 Simulate combat	Моделировать бой
@@ -3344,8 +3344,8 @@ Simulation &settings	&Настройки симуляции
 Simulation &options…	&Параметры симуляции…
 &Close the simulation	&Закрыть симуляцию
 &Simulation	&Симуляция
-Select units…	Выбрать юниты…
-Rush units	Юниты раша
 What all players see	Что видят все игроки
 Fog of war	Туман войны
 Report feedback on the simulation…	Отправить отзыв о моделировании…
+Unit: %ls	Юнит: %ls
+Other units	Другие юниты

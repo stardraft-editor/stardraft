@@ -170,34 +170,30 @@ const std::vector<sim::LiveImage>& simImages() {
     return gSimLastImages;
 }
 
-// Rush distance's units (the gear's Units; the setting SimRushUnitList: units.dat numbers with commas, -1 the worker of
-// the race; the worker by default). Any unit that can walk or fly: not a building, a turret, a resource or a unit that
-// cannot be hit (a beacon, a start location, Map Revealer).
+// Rush distance's unit (the gear's Unit; the setting SimRushUnit: a units.dat number, -1 the worker of the race, the
+// default). Any unit that can walk or fly: not a building, a turret, a resource or a unit that cannot be hit (a beacon,
+// a start location, Map Revealer).
 bool simRushUnitFits(int type) {
     if (type == -1) return true;
     if (!gState.ed || type < 0 || type >= int(gState.ed->unitTypes().size())) return false;
     const uint32_t no = UnitFlag::Building | UnitFlag::Subunit | UnitFlag::ResourceContainer | UnitFlag::Invincible;
     return !(gState.ed->unitTypes()[uint16_t(type)].flags & no);
 }
-std::vector<int> simRushUnits() {
-    std::vector<int> out;
-    std::wstring t;
-    if (prefs::text(L"SimRushUnitList", t))
-        for (const wchar_t* p = t.c_str(); *p;) {
-            wchar_t* end = nullptr;
-            const long v = std::wcstol(p, &end, 10);
-            if (end == p) break;
-            if (v >= -1 && v < 228 && simRushUnitFits(int(v)) && std::find(out.begin(), out.end(), int(v)) == out.end()) out.push_back(int(v));
-            p = *end == L',' ? end + 1 : end;
-        }
-    if (out.empty()) out.push_back(-1);
-    return out;
+int simRushUnit() {
+    int u = -1;
+    prefs::number(L"SimRushUnit", u, -1, 227);
+    return simRushUnitFits(u) ? u : -1;
 }
-void simSetRushUnits(const std::vector<int>& units) {
-    std::wstring t;
-    for (int u : units) t += (t.empty() ? L"" : L",") + std::to_wstring(u);
-    prefs::setText(L"SimRushUnitList", t);
-}
+// The gear's Unit submenu: each race's units that its players train (as units.dat numbers them), after the worker.
+struct RushRaceUnits {
+    const wchar_t* race;
+    std::vector<int> units;
+};
+const RushRaceUnits kRushRaceUnits[] = {
+    {L"Terran", {0, 32, 34, 1, 2, 3, 5, 8, 11, 9, 58, 12}},       // Marine, Firebat, Medic, Ghost, Vulture, Goliath, Siege Tank, Wraith, Dropship, Science Vessel, Valkyrie, Battlecruiser
+    {L"Protoss", {65, 66, 67, 61, 68, 63, 83, 69, 84, 70, 60, 71, 72}},  // Zealot, Dragoon, High and Dark Templar, Archon, Dark Archon, Reaver, Shuttle, Observer, Scout, Corsair, Arbiter, Carrier
+    {L"Zerg", {37, 38, 103, 39, 46, 42, 43, 47, 44, 62, 45}},       // Zergling, Hydralisk, Lurker, Ultralisk, Defiler, Overlord, Mutalisk, Scourge, Guardian, Devourer, Queen
+};
 // Rush distance between two points (Tools > Simulate rush distance between two points, the gear's Start and end): the
 // points (map pixels) on the map that they were picked on, kept while the rush starts again; on: the rush uses them.
 struct RushPoints {
@@ -1655,7 +1651,7 @@ std::wstring simDiagnostics() {
 
 // The info icon's tip (it shows at once: the icon is there for it; sdl_tips.inc), also the last line of the gear's
 // drop-down (rush distance and combat: no icon).
-const wchar_t* const kSimInfoTip = L"Experimental simulation: the result can differ from the game. It is not the game's engine.";
+const wchar_t* const kSimInfoTip = L"Experimental: results can differ from the game.";
 
 // The end of the gear's drop-down (rush distance and combat, which have no such buttons on the bar): Report feedback,
 // then the info.
@@ -1700,77 +1696,91 @@ void simCombatSettingsMenu() {
 void simulateRushCommand();
 void simRushStart(const RushPoints& p);
 void simRushAgain() { simKeepPlay([] { simRushStart(gRushPoints); }); }  // (the gear's changes: the same start and end)
-// The gear's Select units: the searchable list of all units that can walk or fly (with their icons, as the Data
-// workspace's pickers), the rush's units checked; OK starts the rush again with the checked ones (none: as it was).
+// Whether `unit` is one of another race's units than `races` (SimRaces: 1 Terran, 2 Protoss, 3 Zerg; 0 as in the map:
+// none): its worker or a unit of its list.
+bool simRushOtherRaceUnit(int unit, int races) {
+    static const int kWorkers[3] = {7, 64, 41};  // (SCV, Probe, Drone)
+    for (int r = 0; r < 3 && races != 0; ++r)
+        if (r + 1 != races && (unit == kWorkers[r] || std::find(kRushRaceUnits[r].units.begin(), kRushRaceUnits[r].units.end(), unit) !=
+                                                          kRushRaceUnits[r].units.end()))
+            return true;
+    return false;
+}
+// The rush with `unit` (simRushUnit): it is kept only when the rush starts with it (a map with too many routes for
+// it: the old unit again).
+void simRushSetUnit(int unit) {
+    const int old = simRushUnit();
+    int races = 0;
+    prefs::number(L"SimRaces", races, 0, 3);
+    prefs::setNumber(L"SimRushUnit", unit), prefs::setNumber(L"SimRushUnitRaces", races);  // (another race's unit too: as picked)
+    simRushAgain();
+    if (!gSim.shown || !gSim.rush) prefs::setNumber(L"SimRushUnit", old), simRushAgain();
+}
+// The gear's Unit: the searchable list of the units that can walk or fly, with their icons (as the Data workspace's
+// pickers): the worker, then the race's units (As in the map: each race's), then all other units. A pick starts the
+// rush again with it.
 draw::Image sdlDataImage(DataPicture p);  // (sdl_data.inc)
-void simRushSelectUnits() {
+void simRushPickUnit() {
     if (!gRoot || !gHost || !gState.ed) return;
     dataLoadForProject();
+    int races = 0;
+    prefs::number(L"SimRaces", races, 0, 3);
+    std::map<int, ListPickItem> all;  // (the units.dat entries, by number)
+    for (ListPickItem& it : entryItems("units"))
+        if (const int u = std::atoi(it.value.c_str()); simRushUnitFits(u)) all[u] = std::move(it);
     std::vector<ListPickItem> items;
     items.push_back({tr(L"Worker of the race"), L"", "-1", "", -1});
-    for (ListPickItem& it : entryItems("units"))
-        if (simRushUnitFits(std::atoi(it.value.c_str()))) items.push_back(std::move(it));
-    std::set<std::string> checked;
-    for (int u : simRushUnits()) checked.insert(std::to_string(u));
-    ListPickView v(tr(L"Rush units"), std::move(items), "");
-    v.setMulti(checked, tr(L"OK"));
+    for (int r = 0; r < 3; ++r)
+        if (races == 0 || r + 1 == races)
+            for (int u : kRushRaceUnits[r].units)
+                if (auto it = all.find(u); it != all.end()) items.push_back(it->second), items.back().section = tr(kSimRaceNames[r + 1]), all.erase(it);
+    for (auto& [u, it] : all) items.push_back(std::move(it)), items.back().section = tr(L"Other units");
+    ListPickView v(tr(L"Unit"), std::move(items), std::to_string(simRushUnit()));
     v.iconOf = [](const ListPickItem& it) { return it.iconDat.empty() || it.icon < 0 ? draw::Image{} : sdlDataImage(dataRefPicture(it.iconDat, uint32_t(it.icon))); };
-    if (!runListPick(v, gHost->mouse(*gRoot))) return;
-    std::vector<int> units;
-    for (const std::string& s : v.checked()) units.push_back(std::atoi(s.c_str()));
-    if (units.empty()) return;
-    std::sort(units.begin(), units.end());  // (the worker first, then by units.dat number)
-    // (a list that cannot start, as too many games for the routes, is not kept: the rush starts again with the old one)
-    const std::vector<int> old = simRushUnits();
-    simSetRushUnits(units);
-    simRushAgain();
-    if (!gSim.shown || !gSim.rush) simSetRushUnits(old), simRushAgain();
+    if (!runListPick(v, gHost->mouse(*gRoot)) || v.result().empty()) return;
+    simRushSetUnit(std::atoi(v.result().c_str()));
 }
 void simRushSettingsMenu() {
     if (!gRoot || !gHost) return;
     int races = 0;
     prefs::number(L"SimRaces", races, 0, 3);
-    const std::vector<int> units = simRushUnits();
-    std::vector<stardraft::kit::MenuItem> items;
+    const int unit = simRushUnit();
+    using stardraft::kit::MenuItem;
+    std::vector<MenuItem> items;
     auto header = [&](const wchar_t* t) {
-        if (!items.empty()) items.push_back(stardraft::kit::MenuItem{}), items.back().separator = true;
-        items.push_back(stardraft::kit::MenuItem{}), items.back().label = t, items.back().enabled = false;
+        if (!items.empty()) items.push_back(MenuItem{}), items.back().separator = true;
+        items.push_back(MenuItem{}), items.back().label = t, items.back().enabled = false;
     };
-    // The units: each one that goes on each route, checked (a click takes it out; the last one stays), then the list
-    // of all units.
-    header(L"Units");
-    for (int u : units) {
-        items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = u < 0 ? std::wstring(tr(L"Worker of the race")) : simUnitName(u);
-        items.back().checked = true;
-        items.back().run = [units, u] {
-            if (units.size() < 2) return;
-            std::vector<int> rest = units;
-            std::erase(rest, u);
-            simSetRushUnits(rest);
-            shellPost([] { simRushAgain(); });
-        };
-    }
-    items.push_back(stardraft::kit::MenuItem{});
-    items.back().label = L"Select units\x2026";
-    items.back().run = [] { shellPost([] { simRushSelectUnits(); }); };
-    // Where they go: from the start locations to each other, or between two points of the map.
-    header(L"Start and end");
-    items.push_back(stardraft::kit::MenuItem{});
-    items.back().label = L"Start locations", items.back().checked = !gRushPoints.on;
-    items.back().run = [] { shellPost([] { simulateRushCommand(); }); };
-    items.push_back(stardraft::kit::MenuItem{});
-    items.back().label = L"Two points of the map\x2026", items.back().checked = gRushPoints.on;
-    items.back().run = [] { gRushPick = 1, simRedraw(); };
-    header(L"Worker race");
+    // The race of the units first: the unit's list has that race's units first. A new race that does not have the
+    // picked unit (another race's unit): the worker.
+    header(L"Race");
     for (int k = 0; k < 4; ++k) {
-        items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = kSimRaceNames[k], items.back().checked = k == races;
+        items.push_back(MenuItem{});
+        items.back().label = kSimRaceNames[k], items.back().radio = true, items.back().checked = k == races;
         items.back().run = [k] {
             prefs::setNumber(L"SimRaces", k);
-            shellPost([] { simRushAgain(); });  // (again with the new race)
+            shellPost([] { simRushAgain(); });  // (again with the new race; simRushStart takes its worker for another race's unit)
         };
     }
+    // The unit (its name on the row): a click opens the list of units.
+    items.push_back(MenuItem{}), items.back().separator = true;
+    {
+        static const int kWorkers[4] = {-1, 7, 64, 41};  // (SCV, Probe, Drone)
+        const std::wstring name = unit >= 0 ? simUnitName(unit) : races == 0 ? std::wstring(tr(L"Worker of the race")) : simUnitName(kWorkers[races]);
+        wchar_t t[256];
+        std::swprintf(t, 256, tr(L"Unit: %ls"), name.c_str());
+        items.push_back(MenuItem{});
+        items.back().label = std::wstring(t) + L"\x2026";
+        items.back().run = [] { shellPost([] { simRushPickUnit(); }); };
+    }
+    // Where they go: from the start locations to each other, or between two points of the map.
+    header(L"Start and end");
+    items.push_back(MenuItem{});
+    items.back().label = L"Start locations", items.back().radio = true, items.back().checked = !gRushPoints.on;
+    items.back().run = [] { shellPost([] { simulateRushCommand(); }); };
+    items.push_back(MenuItem{});
+    items.back().label = L"Two points of the map\x2026", items.back().radio = true, items.back().checked = gRushPoints.on;
+    items.back().run = [] { gRushPick = 1, simRedraw(); };
     // The fog of war: off, what all players see, what each player sees.
     header(L"Fog of war");
     std::vector<int> fogs = simFogPlayers();
@@ -1778,7 +1788,7 @@ void simRushSettingsMenu() {
     for (int f : fogs) {
         items.push_back(stardraft::kit::MenuItem{});
         items.back().label = f == -1 ? std::wstring(tr(L"Off")) : f == sim::kAllPlayers ? std::wstring(tr(L"What all players see")) : simPlayer(f);
-        items.back().checked = f == gSim.fog;
+        items.back().radio = true, items.back().checked = f == gSim.fog;
         items.back().run = [f] { gSim.fog = f, prefs::setNumber(L"SimRushFog", f), simRedraw(); };
     }
     simMenuEnd(items);
@@ -2022,7 +2032,15 @@ void simRushStart(const RushPoints& p) {
     o.races = {kRace[races]};
     o.mapRaces = races == 0;
     o.seed = uint32_t(std::chrono::steady_clock::now().time_since_epoch().count());  // (Random: another race each time)
-    o.units = simRushUnits();
+    // A race changed since the unit was picked (the gear's Race, the mining's Races): another race's unit than the new
+    // one's goes, the worker comes (setting SimRushUnitRaces: the race when the unit was picked).
+    int unitRaces = races;
+    prefs::number(L"SimRushUnitRaces", unitRaces, 0, 3);
+    if (unitRaces != races) {
+        if (simRushOtherRaceUnit(simRushUnit(), races)) prefs::setNumber(L"SimRushUnit", -1);
+        prefs::setNumber(L"SimRushUnitRaces", races);
+    }
+    o.units = {simRushUnit()};
     const bool points = p.on && gState.ed && p.ed == gState.ed.get();
     if (points) o.points = true, o.fromX = p.from.first, o.fromY = p.from.second, o.toX = p.to.first, o.toY = p.to.second;
     int fog = -1;  // (the gear's Fog of war, the setting SimRushFog: -1 off, -2 all players, else a player)

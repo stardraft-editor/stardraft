@@ -2459,7 +2459,7 @@ constexpr UiText kRows[] = {
     {L"The Prerelease or Release folder. A new folder is used after a restart", L"La carpeta Prerelease o Release. Una carpeta nueva se usa despu\u00E9s de reiniciar"},
     {L"The CRIG commands have no problems", L"Los comandos CRIG no tienen problemas"},
     {L"These CRIG commands in the trigger Comments have problems:", L"Estos comandos CRIG de los comentarios de los disparadores tienen problemas:"},
-    {L"Experimental simulation: the result can differ from the game. It is not the game's engine.", L"Simulaci\u00F3n experimental: el resultado puede diferir del juego. No es el motor del juego."},
+    {L"Experimental: results can differ from the game.", L"Experimental: los resultados pueden diferir del juego."},
     {L"Simulation", L"Simulaci\u00F3n"},
     {L"Simulate mining", L"Simular extracci\u00F3n"},
     {L"Simulate combat", L"Simular combate"},
@@ -3343,11 +3343,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"&Opciones de simulaci\u00F3n\u2026"},
     {L"&Close the simulation", L"&Cerrar la simulaci\u00F3n"},
     {L"&Simulation", L"&Simulaci\u00F3n"},
-    {L"Select units\u2026", L"Elegir unidades\u2026"},
-    {L"Rush units", L"Unidades del rush"},
     {L"What all players see", L"Lo que ven todos los jugadores"},
     {L"Fog of war", L"Niebla de guerra"},
     {L"Report feedback on the simulation\u2026", L"Enviar comentarios sobre la simulaci\u00F3n\u2026"},
+    {L"Unit: %ls", L"Unidad: %ls"},
+    {L"Other units", L"Otras unidades"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

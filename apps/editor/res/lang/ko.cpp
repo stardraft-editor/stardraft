@@ -2459,7 +2459,7 @@ constexpr UiText kRows[] = {
     {L"The Prerelease or Release folder. A new folder is used after a restart", L"Prerelease \uB610\uB294 Release \uD3F4\uB354\uC785\uB2C8\uB2E4. \uC0C8 \uD3F4\uB354\uB294 \uB2E4\uC2DC \uC2DC\uC791\uD55C \uD6C4 \uC0AC\uC6A9\uB429\uB2C8\uB2E4"},
     {L"The CRIG commands have no problems", L"CRIG \uBA85\uB839\uC5D0 \uBB38\uC81C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4"},
     {L"These CRIG commands in the trigger Comments have problems:", L"\uD2B8\uB9AC\uAC70 \uC8FC\uC11D\uC758 \uB2E4\uC74C CRIG \uBA85\uB839\uC5D0 \uBB38\uC81C\uAC00 \uC788\uC2B5\uB2C8\uB2E4:"},
-    {L"Experimental simulation: the result can differ from the game. It is not the game's engine.", L"\uC2E4\uD5D8\uC801 \uC2DC\uBBAC\uB808\uC774\uC158: \uACB0\uACFC\uAC00 \uAC8C\uC784\uACFC \uB2E4\uB97C \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uAC8C\uC784\uC758 \uC5D4\uC9C4\uC774 \uC544\uB2D9\uB2C8\uB2E4."},
+    {L"Experimental: results can differ from the game.", L"\uC2E4\uD5D8\uC801: \uACB0\uACFC\uAC00 \uAC8C\uC784\uACFC \uB2E4\uB97C \uC218 \uC788\uC2B5\uB2C8\uB2E4."},
     {L"Simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158"},
     {L"Simulate mining", L"\uCC44\uCDE8 \uC2DC\uBBAC\uB808\uC774\uC158"},
     {L"Simulate combat", L"\uC804\uD22C \uC2DC\uBBAC\uB808\uC774\uC158"},
@@ -3373,11 +3373,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uC635\uC158(&O)\u2026"},
     {L"&Close the simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uB2EB\uAE30(&C)"},
     {L"&Simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158(&S)"},
-    {L"Select units\u2026", L"\uC720\uB2DB \uC120\uD0DD\u2026"},
-    {L"Rush units", L"\uB7EC\uC2DC \uC720\uB2DB"},
     {L"What all players see", L"\uBAA8\uB4E0 \uD50C\uB808\uC774\uC5B4\uC758 \uC2DC\uC57C"},
     {L"Fog of war", L"\uC804\uC7A5\uC758 \uC548\uAC1C"},
     {L"Report feedback on the simulation\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158\uC5D0 \uB300\uD55C \uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30\u2026"},
+    {L"Unit: %ls", L"\uC720\uB2DB: %ls"},
+    {L"Other units", L"\uB2E4\uB978 \uC720\uB2DB"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

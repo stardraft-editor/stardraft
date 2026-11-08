@@ -31,11 +31,12 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
-  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The gear's Units
-  sends other units on each route too, or in place of the worker (one or more: the worker of the race and the
-  checked units; a click takes one out. Select units opens the searchable list of all units that can walk or fly, with
-  their icons; setting SimRushUnitList), each in a game of
-  its own. The gear's Start and end, or Tools > Simulate rush distance between two points, takes two points of the map
+  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The gear's Race
+  comes first; its Unit row names the unit that walks each route in place of the worker (setting SimRushUnit), and
+  a click opens the searchable list of the units that can walk or fly, with their icons: the worker, the race's
+  units (As in the map: each race's), then all other units. A race picked after the unit (in the gear or in the
+  mining's Races) whose units do not have it (another race's worker or unit) takes its worker again; a unit of
+  another race picked after the race stays (setting SimRushUnitRaces). The gear's Start and end, or Tools > Simulate rush distance between two points, takes two points of the map
   in place of the start locations: the bar asks for the start point, then the end point (a click on the map each; Esc
   stops; the game waits meanwhile); the map marks them (green, red) while the rush runs, and the report gives their
   tiles. The gear's Fog of war shows the fog of war (off, what all players see, or what one start location's player

@@ -2457,7 +2457,7 @@ The Prerelease or Release folder	Prerelease 또는 Release 폴더입니다
 The Prerelease or Release folder. A new folder is used after a restart	Prerelease 또는 Release 폴더입니다. 새 폴더는 다시 시작한 후 사용됩니다
 The CRIG commands have no problems	CRIG 명령에 문제가 없습니다
 These CRIG commands in the trigger Comments have problems:	트리거 주석의 다음 CRIG 명령에 문제가 있습니다:
-Experimental simulation: the result can differ from the game. It is not the game's engine.	실험적 시뮬레이션: 결과가 게임과 다를 수 있습니다. 게임의 엔진이 아닙니다.
+Experimental: results can differ from the game.	실험적: 결과가 게임과 다를 수 있습니다.
 Simulation	시뮬레이션
 Simulate mining	채취 시뮬레이션
 Simulate combat	전투 시뮬레이션
@@ -3374,8 +3374,8 @@ Simulation &settings	시뮬레이션 설정(&S)
 Simulation &options…	시뮬레이션 옵션(&O)…
 &Close the simulation	시뮬레이션 닫기(&C)
 &Simulation	시뮬레이션(&S)
-Select units…	유닛 선택…
-Rush units	러시 유닛
 What all players see	모든 플레이어의 시야
 Fog of war	전장의 안개
 Report feedback on the simulation…	시뮬레이션에 대한 피드백 보내기…
+Unit: %ls	유닛: %ls
+Other units	다른 유닛

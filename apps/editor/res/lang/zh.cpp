@@ -2459,7 +2459,7 @@ constexpr UiText kRows[] = {
     {L"The Prerelease or Release folder. A new folder is used after a restart", L"Prerelease \u6216 Release \u6587\u4EF6\u5939\u3002\u65B0\u6587\u4EF6\u5939\u5728\u91CD\u65B0\u542F\u52A8\u540E\u4F7F\u7528"},
     {L"The CRIG commands have no problems", L"CRIG \u547D\u4EE4\u6CA1\u6709\u95EE\u9898"},
     {L"These CRIG commands in the trigger Comments have problems:", L"\u89E6\u53D1\u5668\u6CE8\u91CA\u4E2D\u7684\u8FD9\u4E9B CRIG \u547D\u4EE4\u6709\u95EE\u9898\uFF1A"},
-    {L"Experimental simulation: the result can differ from the game. It is not the game's engine.", L"\u5B9E\u9A8C\u6027\u6A21\u62DF\uFF1A\u7ED3\u679C\u53EF\u80FD\u4E0E\u6E38\u620F\u4E0D\u540C\u3002\u8FD9\u4E0D\u662F\u6E38\u620F\u5F15\u64CE\u3002"},
+    {L"Experimental: results can differ from the game.", L"\u5B9E\u9A8C\u6027\uFF1A\u7ED3\u679C\u53EF\u80FD\u4E0E\u6E38\u620F\u4E0D\u540C\u3002"},
     {L"Simulation", L"\u6A21\u62DF"},
     {L"Simulate mining", L"\u6A21\u62DF\u91C7\u77FF"},
     {L"Simulate combat", L"\u6A21\u62DF\u6218\u6597"},
@@ -3343,11 +3343,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"\u6A21\u62DF\u9009\u9879(&O)\u2026"},
     {L"&Close the simulation", L"\u5173\u95ED\u6A21\u62DF(&C)"},
     {L"&Simulation", L"\u6A21\u62DF(&S)"},
-    {L"Select units\u2026", L"\u9009\u62E9\u5355\u4F4D\u2026"},
-    {L"Rush units", L"Rush \u5355\u4F4D"},
     {L"What all players see", L"\u6240\u6709\u73A9\u5BB6\u770B\u5230\u7684\u8303\u56F4"},
     {L"Fog of war", L"\u6218\u4E89\u8FF7\u96FE"},
     {L"Report feedback on the simulation\u2026", L"\u53D1\u9001\u5173\u4E8E\u6A21\u62DF\u7684\u53CD\u9988\u2026"},
+    {L"Unit: %ls", L"\u5355\u4F4D\uFF1A%ls"},
+    {L"Other units", L"\u5176\u4ED6\u5355\u4F4D"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }
