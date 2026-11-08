@@ -25,7 +25,9 @@ python -I tools/kpi.py show
 The measurements use the testing build (`build/Release/stardraft-testing.exe`), with no window
 (`SDL_VIDEODRIVER=offscreen`, `--snapshot`), and the game's own maps as the reference maps: (2)Boxer (96 x 96),
 (2)Bottleneck (128 x 128) and (8)Killing Fields (256 x 256). The program's `--kpi` option prints the start's time and
-each scripted input's time and the frame after it; `stats` prints the memory.
+each scripted input's time and the frame after it; `stats` prints the memory. Each run has a settings file of its own
+(`KPI_SETTINGS` in tools/kpi.py: the default values, with the one-time notes seen), so the numbers do not depend on the
+settings of the computer that measures.
 
 ## The KPIs
 
@@ -103,6 +105,10 @@ go out with it, `targets.json`'s `"accepted"` names the KPI and the reason, for 
 | Compiler warnings in our code (--rebuild) | - |  |
 | Help pages check fails | ≤ 0 | 0 |
 | Links in docs/ to files that are not there | ≤ 0 | 0 |
+
+The perf targets were measured again for 0.9.0 (2026-11-08) with each run's own settings: before, the runs read the
+user's settings, which change the numbers (the start mode, the graphics, the one-time notes). Start 600 ms, paint 8 ms,
+paint on a layer 11.5 ms, palette scroll 12.5 ms, zoom 7 ms: the new numbers with a little room for noise.
 
 The baseline (2026-11-08, before 0.8.8) missed two zero targets: 12 snapshot cases (fixed in 9234c52d) and
 trigger_test (its lock of the file contents is a local file, research/data: --update-lock after a change of the format).
