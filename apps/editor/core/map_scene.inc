@@ -859,7 +859,10 @@ render::Scene buildScene() {
         }();
         for (int anchor = 0; anchor < int(anchors.size()); ++anchor) {
             const float cx = float(anchors[size_t(anchor)].first), cy = float(anchors[size_t(anchor)].second);  // (through the anchor)
-            uint32_t c = 0x80C0FF70u;
+            // The main anchor (0: the mouse is relative to it, the mirrors go round it): bright, with a filled center; the
+            // others (they repeat its pattern): dim.
+            const bool main = anchor == 0;
+            uint32_t c = main ? 0x80C0FF90u : 0x80C0FF40u;
             auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
             auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
             auto diag = [&](bool anti) {  // (one line, cut at the map's edges)
@@ -885,11 +888,15 @@ render::Scene buildScene() {
             };
             const bool handle = anchor == hovered;
             if (!handle) {  // each anchor: a cross with a small ring (with turns only, no axis shows where it is)
-                const float r = float(scale(5)) / app.zoom, arm = float(scale(12)) / app.zoom;
-                const uint32_t mark = 0x80C0FFE0u;
+                const float r = float(scale(main ? 6 : 5)) / app.zoom, arm = float(scale(main ? 14 : 12)) / app.zoom;
+                const uint32_t mark = main ? 0xD8EEFFFFu : 0x80C0FF90u;
                 ring(r, mark);
                 line(cx - arm, cy, cx - r, cy, mark), line(cx + r, cy, cx + arm, cy, mark);
                 line(cx, cy - arm, cx, cy - r, mark), line(cx, cy + r, cx, cy + arm, mark);
+                if (main) {  // (its filled center)
+                    const float d = float(scale(3)) / app.zoom;
+                    s.rects.push_back({cx - d, cy - d, cx + d, cy + d, mark, true});
+                }
             }
             // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
             if (handle) {

@@ -347,8 +347,9 @@ public:
     // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
     void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_, moreAnchors_ = other.moreAnchors_; }
     std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
-    // More anchors: an edit also repeats round each of them, each on its own (its images are not repeated round the
-    // others), at most kMaxSymmetricPlaces places in all. Anchor 0 is the center above; each on the grid as it is.
+    // More anchors: anchor 0 is the main one (the center above), which the mouse is relative to and the mirrors and
+    // turns go round; each other anchor repeats that whole pattern, moved by its offset from the main one. At most
+    // kMaxSymmetricPlaces places in all; each anchor on the grid as it is.
     std::vector<std::pair<int, int>> symmetryAnchors() const;
     int addSymmetryAnchor(int px, int py);  // its index; -1: there are kMaxSymmetryAnchors, or one is at that point
     void setSymmetryAnchor(int index, int px, int py);

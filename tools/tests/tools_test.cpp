@@ -161,7 +161,8 @@ int main(int argc, char** argv) {
         (void)same;
     }
 
-    // Symmetry anchors: each repeats the point on its own, on the grid; the first is the center.
+    // Symmetry anchors: the first is the main one (the center: the mirrors go round it); each other one repeats that
+    // pattern, moved by its offset from the main one; on the grid.
     {
         Editor ed(data);
         ed.newMap(128, 128, 0, Dirt, err);
@@ -171,15 +172,15 @@ int main(int argc, char** argv) {
         check(ed.addSymmetryAnchor(2051, 1000) == 1 && ed.symmetryAnchors()[1] == std::pair(2048, 992), "anchors: a new one, on the grid");
         check(ed.addSymmetryAnchor(2048, 992) == -1, "anchors: not two at one point");
         const auto points = ed.symmetricPoints(900, 500);
-        check(points.size() == 3, "anchors: an image round each, not images of images");
-        check(std::find(points.begin(), points.end(), std::pair(1148, 500)) != points.end() && std::find(points.begin(), points.end(), std::pair(3196, 500)) != points.end(),
-              "anchors: the images are round their anchors");
+        auto has = [&](std::pair<int, int> p) { return std::find(points.begin(), points.end(), p) != points.end(); };
+        check(points.size() == 4, "anchors: the point and its mirror image, and both again at the other anchor");
+        check(has({1148, 500}) && has({1924, 468}) && has({2172, 468}), "anchors: the mirror round the main one; the pattern moved to the other");
         ed.setSymmetryAnchor(1, 1536, 992);
         check(ed.symmetryAnchors()[1].first == 1536, "anchors: one moves");
         ed.beginTerrainStroke();
         ed.paintBrush(900, 496, Water, Brush{Brush::Diamond, 2});
         ed.endTerrainStroke();
-        check(ed.terrainAt(2172, 496) == Water, "anchors: the brush paints round the new one");
+        check(ed.terrainAt(1412, 464) == Water, "anchors: the brush paints the pattern at the other one");
         check(ed.centerSymmetryAnchor(1) && ed.symmetryAnchors()[1] == std::pair(2048, 2048) && !ed.canCenterSymmetryAnchor(1), "anchors: one to the middle");
         check(ed.centerSymmetryAnchor(0) && ed.symmetryAnchors().size() == 1 && ed.symmetryAnchors()[0] == std::pair(2048, 2048) && ed.symmetryCenterSet().first < 0,
               "anchors: the center to the middle, as at first: the two at one point are one");

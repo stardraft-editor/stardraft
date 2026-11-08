@@ -998,8 +998,9 @@ Symmetry Editor::symmetry() const {
 }
 
 // The places a point repeats at: the point, then every place the chosen mirrors and turns reach from it and from
-// each other (their group), at most kMaxSymmetricPlaces. A place outside the map is left out. Each carries whether
-// it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
+// each other (their group) round the main anchor (the center), then that whole pattern again at each other anchor,
+// moved by the anchor's offset from the main one; at most kMaxSymmetricPlaces. A place outside the map is left out.
+// Each carries whether it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
 std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int margin) const {
     std::vector<SymmetricPlace> out{{px, py, false, false}};
     const int W = width_ * 32, H = height_ * 32;
@@ -1016,9 +1017,11 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
         bool fx, fy;
     } mirrorsOf[] = {{Mirror::LeftRight, 0, true, false}, {Mirror::TopBottom, 1, false, true}, {Mirror::Diagonal, 3, false, false},
                      {Mirror::AntiDiagonal, 4, false, false}};
-    // Each anchor on its own: the point's images round it, not the images round the other anchors.
-    for (const auto& center : symmetryAnchors()) {
-        std::vector<SymmetricPlace> own{{px, py, false, false}};
+    // The pattern round the main anchor (the mouse is relative to it), then the same pattern at the other anchors.
+    const std::vector<std::pair<int, int>> anchors = symmetryAnchors();
+    const std::pair<int, int> center = anchors.front();
+    std::vector<SymmetricPlace> own{{px, py, false, false}};
+    {
         auto addOwn = [&](int x, int y, bool fx, bool fy) {
             if (own.size() >= kMaxSymmetricPlaces) return;
             for (const SymmetricPlace& p : own)
@@ -1040,6 +1043,11 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
                 const auto [x, y] = mirror(from.x, from.y, m.which, center);
                 addOwn(x, y, from.flipX != m.fx, from.flipY != m.fy);
             }
+    }
+    // The other anchors: the pattern moved by each one's offset from the main anchor (as it is: not mirrored again).
+    for (size_t a = 1; a < anchors.size(); ++a) {
+        const int dx = anchors[a].first - center.first, dy = anchors[a].second - center.second;
+        for (const SymmetricPlace& p : own) add(p.x + dx, p.y + dy, p.flipX, p.flipY);
     }
     return out;
 }
