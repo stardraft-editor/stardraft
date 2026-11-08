@@ -3271,3 +3271,27 @@ No room: the base has no room for its depot and workers.	没有空间：该基�
 1 worker for each mineral field at each base, %d game minutes at Fastest	每个基地每块矿 1 个农民，最快速度下游戏时间 %d 分钟
 Workers	农民
 Workers on minerals and races	采矿农民和种族
+Fog of war: off	战争迷雾：关闭
+Fog of war: what %ls sees	战争迷雾：%ls 看到的范围
+Cargo	回矿
+Cycle	循环
+Searching… %d s	正在搜索… %d 秒
+None found	未找到
+1 worker faster	1 个农民更快
+%d workers faster	%d 个农民更快
+Boost search time	优化搜索时间
+As in the map	与地图相同
+Boost searches	优化搜索
+Simulation options	模拟选项
+Search for better start places of the workers at each base	为每个基地的农民搜索更好的起始位置
+Search for the places where a worker returns its cargo sooner	搜索农民更早回矿的位置
+Search for trips that go to the next mineral field and back (mineral walking)	搜索先去相邻矿再返回的路线（mineral walking）
+Program options > Simulation	程序选项 > 模拟
+Boost search	优化搜索
+1 worker for each mineral field	每块矿 1 个农民
+Settings and boost searches	设置和优化搜索
+1 for each field	每块矿 1 个
+minute	分钟
+minutes	分钟
+second	秒
+Could not search	无法搜索

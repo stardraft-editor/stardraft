@@ -166,6 +166,7 @@ CASES += [
     ("dialog-options-tab-plugins", ["--dialog", "options:3", "--size", "720x480"], ""),
     ("dialog-options-tab-folders", ["--dialog", "options:4", "--size", "720x480", "--theme", "light"], ""),
     ("dialog-options-tab-updates", ["--dialog", "options:5", "--size", "720x480"], ""),
+    ("dialog-options-tab-simulation", ["--dialog", "options:6", "--size", "720x480"], ""),
     # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
     # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
     # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
@@ -5403,6 +5404,27 @@ SCRIPTS["simminingzoom"] = """command edit.simulate.mining
 simstep 1800
 wheel 830,700,0,12
 """
+# The gear's panel (the mining's settings, the boost searches); a cycle search of 6 seconds with 1 worker for each
+# mineral field, Protoss ({simboostsettings}), then the game from its start with the boosts: zoomed in on the base at
+# the bottom middle, the cycles' numbered arrows. The rush's eye (the fog of war): what Player 1's scout sees.
+SCRIPTS["simpanel"] = """command edit.simulate.mining
+simstep 300
+click 844,128
+"""
+SCRIPTS["simcycle"] = """command edit.simulate.mining
+simstep 60
+click 844,128
+wait 200
+click 830,340
+wait 9000
+simstep 1
+wheel 830,700,0,12
+simstep 1800
+"""
+SCRIPTS["simrushfog"] = """command edit.simulate.rush
+simstep 500
+click 811,128
+"""
 SCRIPTS["simrush"] = """command edit.simulate.rush
 simstep 400
 """
@@ -5411,6 +5433,9 @@ simstep 20000
 """
 CASES += [("map-sim-mining", ["--script", "{script:simmining}"], "map"),
           ("map-sim-mining-zoom", ["--script", "{script:simminingzoom}"], "map"),
+          ("map-sim-mining-panel", ["--script", "{script:simpanel}"], "map"),
+          ("map-sim-mining-cycle", ["--settings", "{simboostsettings}", "--script", "{script:simcycle}"], "map"),
+          ("map-sim-rush-fog", ["--script", "{script:simrushfog}"], "map"),
           ("map-sim-rush", ["--script", "{script:simrush}"], "map"),
           ("map-sim-rush-end", ["--script", "{script:simrushend}"], "map"),
           ("map-simreport-mining", ["--dialog", "simreport:mining"], "map"),
@@ -5429,6 +5454,9 @@ def check_sim_step(want_end):
 CHECKS.update({
     "map-sim-mining": check_sim_step(False),
     "map-sim-mining-zoom": check_sim_step(False),
+    "map-sim-mining-panel": check_sim_step(False),
+    "map-sim-mining-cycle": lambda o: None if "simstep: frame 1800" in o else "the boosted mining did not run",
+    "map-sim-rush-fog": check_sim_step(False),
     "map-sim-rush": check_sim_step(False),
     "map-sim-rush-end": check_sim_step(True),
     "map-simreport-mining": lambda o: None if "simreport: ended" in o else "the mining did not end",
@@ -5560,6 +5588,9 @@ def main():
                  "Layout/UnitPaletteX": 700, "Layout/UnitPaletteY": 220, "Layout/UnitPaletteWidth": 300,
                  "Layout/UnitPaletteHeight": 420})))
         simfieldsettings = os.path.join(a.out, "simfield-settings.json")  # {simfieldsettings}: mining with 1 worker for each mineral field, Zerg
+        simboostsettings = os.path.join(a.out, "simboost-settings.json")  # {simboostsettings}: 1 worker for each mineral field, Protoss, 6 s searches
+        if any("{simboostsettings}" in x for x in args):
+            write_once(simboostsettings, write_text(simboostsettings, json.dumps({"SimWorkers": 0, "SimRaces": 2, "SimSearchSeconds": 6})))
         if any("{simfieldsettings}" in x for x in args):
             write_once(simfieldsettings, write_text(simfieldsettings, json.dumps({"SimWorkers": 0, "SimRaces": 3})))
         if any("{nosnapsettings}" in x for x in args):
@@ -5573,7 +5604,7 @@ def main():
                      if a.install and os.path.isdir(d)), os.path.dirname(a.map or ""))
         paths = dict(maps=maps, map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, musicwav=musicwav, dotpng=dotpng, komusicwav=komusicwav, kodotpng=kodotpng, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, simfieldsettings=simfieldsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, simfieldsettings=simfieldsettings, simboostsettings=simboostsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

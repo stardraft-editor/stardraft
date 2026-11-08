@@ -3271,3 +3271,27 @@ No room: the base has no room for its depot and workers.	Sin espacio: la base no
 1 worker for each mineral field at each base, %d game minutes at Fastest	1 obrero por cada campo de minerales en cada base, %d minutos de juego a la máxima velocidad
 Workers	Obreros
 Workers on minerals and races	Obreros en minerales y razas
+Fog of war: off	Niebla de guerra: desactivada
+Fog of war: what %ls sees	Niebla de guerra: lo que ve %ls
+Cargo	Carga
+Cycle	Ciclo
+Searching… %d s	Buscando… %d s
+None found	No se encontró ninguno
+1 worker faster	1 obrero más rápido
+%d workers faster	%d obreros más rápidos
+Boost search time	Tiempo de búsqueda de mejoras
+As in the map	Como en el mapa
+Boost searches	Búsquedas de mejoras
+Simulation options	Opciones de simulación
+Search for better start places of the workers at each base	Buscar mejores lugares de inicio para los obreros en cada base
+Search for the places where a worker returns its cargo sooner	Buscar los lugares donde un obrero devuelve su carga antes
+Search for trips that go to the next mineral field and back (mineral walking)	Buscar viajes que van al siguiente campo de minerales y vuelven (mineral walking)
+Program options > Simulation	Opciones del programa > Simulación
+Boost search	Búsqueda de mejoras
+1 worker for each mineral field	1 obrero por cada campo de minerales
+Settings and boost searches	Ajustes y búsquedas de mejoras
+1 for each field	1 por campo
+minute	minuto
+minutes	minutos
+second	segundo
+Could not search	No se pudo buscar

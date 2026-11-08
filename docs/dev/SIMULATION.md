@@ -31,10 +31,21 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
-  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length.
+  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The bar's eye
+  shows the fog of war of one player at a time (no fog, then each start location's player in turn): the engine's own
+  vision of that player's scouts (their sight ranges, high ground), black where they have not been, darker where they
+  saw before, clear where they see now; only that player's ways show.
+- **Boost searches** (mining, the gear's panel): the pull request's three searches, at each base at the same time
+  (each base's search gets its share of the processor's threads), for the panel's search time (default 15 seconds;
+  again: that much more, from where it stopped). Position: better start places for the workers. Cargo: where a worker
+  returns its cargo before it gets to the depot's usual place. Cycle: a trip to the next mineral field and back that
+  ends sooner (mineral walking). While a search runs, the game waits at its start; at its end the bases that it made
+  better start again with it. The boosts stay for Restart, the timeline and a new game time; a change of the workers
+  or the races drops them. The map shows them as the pull request's guides: a ring at a worker's start place, a
+  turn-back mark where a worker returns its cargo, and each cycle's two commands as numbered arrows.
 
-The two tests do not use the pull request's searches (position, cargo and cycle boosts), guides, launch intervals or
-its windows: the bar has the same controls for each test. Against the black-box reference results
+The two tests do not use the pull request's launch intervals or its windows: the bar has the same controls for each
+test, and the gear's panel has the mining's settings (step boxes, as Program options > Simulation). Against the black-box reference results
 (`tools/tests/sim-reference/`), with 9 workers: (2)Bottleneck.scm's start location at (3808, 2384) gives 549.4, 546.8
 and 541.4 minerals a minute (Terran, Protoss, Zerg: the reference's numbers), and the held-out (4)Orbital Relay.scm
 runs (12: 4 start locations, 3 races) differ by 0.02% on average (StarDraft's own engine: 3.9%).

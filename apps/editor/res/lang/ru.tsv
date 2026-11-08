@@ -3271,3 +3271,27 @@ No room: the base has no room for its depot and workers.	Нет места: у �
 1 worker for each mineral field at each base, %d game minutes at Fastest	1 рабочий на каждое минеральное поле на каждой базе, %d игровых минут на самой быстрой скорости
 Workers	Рабочие
 Workers on minerals and races	Рабочие на минералах и расы
+Fog of war: off	Туман войны: выключен
+Fog of war: what %ls sees	Туман войны: что видит %ls
+Cargo	Груз
+Cycle	Цикл
+Searching… %d s	Поиск… %d с
+None found	Ничего не найдено
+1 worker faster	1 рабочий быстрее
+%d workers faster	Рабочих быстрее: %d
+Boost search time	Время поиска ускорений
+As in the map	Как на карте
+Boost searches	Поиск ускорений
+Simulation options	Параметры симуляции
+Search for better start places of the workers at each base	Найти лучшие стартовые места рабочих на каждой базе
+Search for the places where a worker returns its cargo sooner	Найти места, где рабочий раньше возвращает груз
+Search for trips that go to the next mineral field and back (mineral walking)	Найти пути к соседнему минеральному полю и обратно (mineral walking)
+Program options > Simulation	Параметры программы > Симуляция
+Boost search	Поиск ускорений
+1 worker for each mineral field	1 рабочий на каждое минеральное поле
+Settings and boost searches	Настройки и поиск ускорений
+1 for each field	1 на поле
+minute	мин
+minutes	мин
+second	секунда
+Could not search	Не удалось выполнить поиск

@@ -4,6 +4,7 @@
 #include "bar_sim.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <map>
 #include <set>
@@ -11,6 +12,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <mapeditor/simulation/mining_position.h>
+#include <mapeditor/simulation/mining_search.h>
+#include <mapeditor/simulation/search_job.h>
 
 #include "native_world.h"
 
@@ -45,8 +50,8 @@ public:
         return classic_ && classic_->init(read, error);
     }
     bool setMap(std::vector<uint8_t> chk, std::string& error) override {
-        stop();
-        if (chk != chk_) seed_.reset();  // (the same map again, as Restart has it: the same world)
+        if (chk != chk_) stop(), seed_.reset();  // (the same map again, as Restart has it: the same world, the same boosts)
+        else stopPlay();
         chk_ = chk;
         return classic_->setMap(std::move(chk), error);
     }
@@ -95,32 +100,42 @@ public:
     bool startMining(const sim::MiningOptions& o, std::string& error) override { return beginMining(o, error, true); }
     // `firstBases`: at most 8 bases (the bar). A base with no room for its depot and workers is in the list, with no
     // numbers (MiningRun::placed false).
+    // The same map and settings again (Restart, the timeline): the bases as they were set up, with their boosts.
     bool beginMining(const sim::MiningOptions& o, std::string& error, bool firstBases) {
-        stop();
+        stopPlay();
         if (o.gas) return error = "The mining simulation has no gas", false;
         std::vector<sim::Race> races;
         std::vector<sim::MiningBase> bases = classic_->miningBases(o, races);
         if (bases.empty()) return error = "The map has no base to mine at", false;
         if (firstBases && bases.size() > size_t(kMaxBases)) bases.resize(size_t(kMaxBases)), races.resize(size_t(kMaxBases));
+        const int count = o.workers.empty() ? 9 : o.workers[0];
+        std::string key = std::to_string(count);
+        for (size_t k = 0; k < bases.size(); ++k)
+            key += "," + std::to_string(bases[k].x) + ":" + std::to_string(bases[k].y) + ":" + std::to_string(int(races[k]));
         try {
             if (!loadSeed(error)) return false;
-            const int count = o.workers.empty() ? 9 : o.workers[0];
-            std::string first;
-            bool any = false;
-            for (size_t k = 0; k < bases.size(); ++k) {
-                // (a world's players are 0 to 11: past the 12th base, each base is a world of its own anyway)
-                const int owner = int(k % size_t(kMaxBases));
-                try {
-                    bases_.push_back(makeBase(bases[k], races[k], owner, count));
-                    any = true;
-                } catch (const std::exception& e) {  // (that base has no numbers: the others still mine)
-                    if (first.empty()) first = e.what();
-                    Base b;
-                    b.base = bases[k], b.race = races[k], b.owner = owner;
-                    bases_.push_back(std::move(b));
+            if (key != setupKey_ || setups_.empty()) {
+                stopBoosts();
+                std::string first;
+                bool any = false;
+                for (size_t k = 0; k < bases.size(); ++k) {
+                    // (a world's players are 0 to 11: past the 12th base, each base is a world of its own anyway)
+                    const int owner = int(k % size_t(kMaxBases));
+                    auto s = std::make_unique<Setup>();
+                    s->base = bases[k], s->race = races[k], s->owner = owner;
+                    try {
+                        makeSetup(*s, count);
+                        any = true;
+                    } catch (const std::exception& e) {  // (that base has no numbers: the others still mine)
+                        if (first.empty()) first = e.what();
+                        s->seed.reset();
+                    }
+                    setups_.push_back(std::move(s));
                 }
+                if (!any) return stopBoosts(), error = first, false;
+                setupKey_ = key;
             }
-            if (!any) return bases_.clear(), error = first, false;
+            for (const auto& s : setups_) bases_.push_back(play(*s));
         } catch (const std::exception& e) {
             bases_.clear();
             return error = e.what(), false;
@@ -128,6 +143,112 @@ public:
         warmup_ = o.warmupFrames, last_ = o.warmupFrames + o.frames;
         mode_ = Mode::Mining;
         return true;
+    }
+
+    // A boost search at each base (kind 0 the workers' start places, 1 cargo returns, 2 cycles), `seconds` long, the
+    // bases at the same time: the PR's Mining Lab searches. Again after one ended: it goes on from where it stopped.
+    // Meanwhile the game waits at its start; at the end the bases that a search made better start again with it.
+    bool startBoost(int kind, double seconds, std::string& error) override {
+        if (mode_ != Mode::Mining || kind < 0 || kind > 2) return error = "A boost search is only for mining", false;
+        if (boosting()) return error = "A boost search runs", false;
+        seconds = std::clamp(std::isfinite(seconds) ? seconds : 15.0, 0.05, 600.0);
+        int placed = 0;
+        for (const auto& s : setups_) placed += s->seed ? 1 : 0;
+        const unsigned threads = std::max(1u, ms::mining_compute::Executor::concurrency() / unsigned(std::max(1, placed)));
+        try {
+            for (const auto& sp : setups_) {
+                Setup& s = *sp;
+                if (!s.seed) continue;
+                std::vector<ms::MiningAssignment> assignments;
+                for (const auto& [w, f] : s.assign) assignments.push_back({w, f});
+                if (kind == 0) {
+                    if (s.positionJob && s.positionJob->exhausted.load()) continue;
+                    if (s.positionJob) s.positionJob->extend(seconds);
+                    else
+                        s.positionJob = std::make_unique<PositionJob>(
+                            *s.seed, [assignments](const ms::World& initial, auto* pool) { return std::make_unique<PositionPlan>(initial, assignments, pool); },
+                            seconds, threads);
+                } else {
+                    auto& job = s.jobs[size_t(kind)];
+                    if (job && job->exhausted.load()) continue;
+                    if (job) {
+                        job->extend(seconds);
+                    } else {
+                        const bool cycle = kind == 2;
+                        const std::vector<Control> background = cycle ? freshControls(s.cargo) : std::vector<Control>{};
+                        job = std::make_unique<SearchJob>(
+                            *s.seed,
+                            [assignments, background, cycle](const ms::World& initial, auto* pool) {
+                                return std::make_unique<SearchPlan>(initial, assignments, background, pool, cycle);
+                            },
+                            seconds, threads);
+                    }
+                }
+                sim::BoostStatus& st = s.status[size_t(kind)];
+                st.running = true, st.finished = false, st.progress = 0;
+            }
+        } catch (const std::exception& e) {
+            return error = e.what(), false;
+        }
+        restartPlay();  // (the game waits at its start while the search runs)
+        return true;
+    }
+    // A boost search's state, all bases together.
+    sim::BoostStatus boostStatus(int kind) const override {
+        sim::BoostStatus out;
+        if (kind < 0 || kind > 2) return out;
+        bool any = false, allDone = true, allExhausted = true;
+        double progress = 1;
+        for (const auto& s : setups_) {
+            if (!s->seed) continue;
+            const sim::BoostStatus& st = s->status[size_t(kind)];
+            if (!st.running && !st.finished) continue;
+            any = true;
+            out.running = out.running || st.running;
+            allDone = allDone && st.finished, allExhausted = allExhausted && st.exhausted;
+            out.found += st.found;
+            out.failed = out.failed || st.failed;
+            out.seconds = std::max(out.seconds, st.seconds);
+            progress = std::min(progress, st.running ? st.progress : 1.0);
+        }
+        if (!any) return out;
+        out.finished = allDone && !out.running, out.exhausted = allExhausted && !out.running;
+        out.progress = progress;
+        return out;
+    }
+    bool boosting() const override {
+        for (const auto& s : setups_)
+            for (const sim::BoostStatus& st : s->status)
+                if (st.running) return true;
+        return false;
+    }
+    // The boosts' guides: the workers' start places (position), where a worker turns back with its cargo, and each
+    // cycle's two commands (the PR's map guides).
+    std::vector<sim::MiningGuide> miningGuides() const override {
+        std::vector<sim::MiningGuide> out;
+        if (mode_ != Mode::Mining) return out;
+        for (size_t k = 0; k < bases_.size() && k < setups_.size(); ++k) {
+            const Base& b = bases_[k];
+            const Setup& s = *setups_[k];
+            out.insert(out.end(), s.fixed.begin(), s.fixed.end());
+            if (!b.world) continue;
+            for (const std::vector<Control>* rules : {&b.cargo, &b.cycle})
+                for (const Control& r : *rules) {
+                    if (!r.enabled || !r.commands) continue;
+                    const ms::UnitState* w = b.world->get(r.worker);
+                    if (!w || !w->visible || w->dead) continue;
+                    const int id = int(k) * 1000 + r.worker.index;
+                    if (!r.cycle) {
+                        out.push_back({r.issuedAt.x, r.issuedAt.y, 0, 0, 1, 0, id});
+                        continue;
+                    }
+                    const ms::UnitState *n = b.world->get(r.neighbor), *f = b.world->get(r.field);
+                    if (!n || !f || !n->visible || !f->visible) continue;
+                    out.push_back({r.firstAt.x, r.firstAt.y, n->position.x, n->position.y, 2, 1, id});
+                    if (r.commands >= 2) out.push_back({r.secondAt.x, r.secondAt.y, f->position.x, f->position.y, 2, 2, id});
+                }
+        }
+        return out;
     }
 
     // Rush distance: from each start location to each other one, a worker of the start location's race (a world for
@@ -175,6 +296,10 @@ public:
         if (mode_ == Mode::Classic) return classic_->step(frames);
         if (mode_ == Mode::None || done_) return false;
         try {
+            if (mode_ == Mode::Mining && boosting()) {  // (the game waits while a boost search runs)
+                pollBoosts();
+                return true;
+            }
             for (int i = 0; i < frames && !done_; ++i) {
                 if (mode_ == Mode::Mining) stepMining();
                 else stepRush();
@@ -282,6 +407,29 @@ public:
         }
         return out;
     }
+    // What the player's scouts see: the vision of the workers that walk from the player's start location (each in its
+    // own game, as the engine's fog of war has it: sight ranges, high ground), together.
+    bool vision(int player, int& width, int& height, std::vector<uint8_t>& tiles) const override {
+        if (mode_ != Mode::Rush) return false;
+        bool any = false;
+        for (const Runner& r : runners_) {
+            if (r.route.from != player) continue;
+            const ms::World& w = *r.world;
+            if (!any) {
+                width = w.map().terrain.width(), height = w.map().terrain.height();
+                tiles.assign(size_t(width) * size_t(height), 0);
+                any = true;
+            }
+            for (int y = 0; y < height; ++y)
+                for (int x = 0; x < width; ++x) {
+                    uint8_t& t = tiles[size_t(y) * size_t(width) + size_t(x)];
+                    if (t == 2) continue;
+                    if (w.visibleAt({x, y}) & 1) t = 2;  // (the scout is player 0 of its game)
+                    else if (w.exploredAt({x, y}) & 1) t = 1;
+                }
+        }
+        return any;
+    }
     std::vector<sim::RushRoute> rushResult() const override {
         std::vector<sim::RushRoute> out;
         for (const Runner& r : runners_) out.push_back(r.route);
@@ -291,6 +439,20 @@ public:
         return classic_->miningBases(o, races);
     }
     void stop() override {
+        stopPlay();
+        stopBoosts();
+    }
+
+private:
+    using Control = ms::MiningControl;
+    using SearchPlan = ms::mining_search::Plan;
+    using SearchJob = ms::mining_compute::Job<SearchPlan>;
+    using PositionPlan = ms::position_search::Plan;
+    using PositionJob = ms::mining_compute::Job<PositionPlan>;
+    enum class Mode { None, Classic, Mining, Rush };
+
+    // The game that runs ends; the bases' setups and their boost searches stay (stop: they end too).
+    void stopPlay() {
         if (classic_) classic_->stop();
         mode_ = Mode::None;
         bases_.clear(), runners_.clear();
@@ -298,9 +460,17 @@ public:
         error_.clear();
         creep_.clear(), ++creepChanges_;
     }
-
-private:
-    enum class Mode { None, Classic, Mining, Rush };
+    void stopBoosts() {
+        setups_.clear();  // (each search's thread ends with it)
+        setupKey_.clear();
+    }
+    // The mining from its start again, with the setups as they are now (a boost search changed them).
+    void restartPlay() {
+        bases_.clear();
+        for (const auto& s : setups_) bases_.push_back(play(*s));
+        frame_ = 0, done_ = false;
+        creep_.clear(), ++creepChanges_;
+    }
     struct Worker {
         ms::UnitHandle unit, patch;
         ms::UnitHandle mined;  // the field it gathers from now (the engine sends a worker to a free field when its own is busy)
@@ -320,6 +490,22 @@ private:
         std::map<int, Trips> trips;           // by the field's unit index: the trips of the workers that mined it
         std::map<int, int> amount, mined;     // by the field's unit index: its minerals in the map, those mined from it
         int measured = -1;                   // the minerals delivered at the warm-up's end
+        std::vector<Control> cargo, cycle;    // the boosts' commands (fresh copies of the setup's)
+    };
+    // A base as it starts (the same each time the mining starts again), its boosts and their searches.
+    struct Setup {
+        sim::MiningBase base;
+        sim::Race race = sim::Terran;
+        int owner = 0;
+        std::unique_ptr<ms::World> seed;  // the world at the start; none: no room at the base for its depot and workers
+        std::vector<std::pair<ms::UnitHandle, ms::UnitHandle>> assign;  // each worker and its field
+        std::vector<ms::UnitHandle> patches;                            // nearest first
+        std::map<int, int> amount;                                      // by the field's unit index: its minerals in the map
+        std::vector<Control> cargo, cycle;                              // the cargo and cycle boosts found
+        std::vector<sim::MiningGuide> fixed;                            // the position boosts' guides
+        std::unique_ptr<PositionJob> positionJob;
+        std::array<std::unique_ptr<SearchJob>, 3> jobs;  // [1] cargo, [2] cycle
+        std::array<sim::BoostStatus, 3> status{};
     };
     struct Runner {
         std::unique_ptr<ms::World> world;
@@ -344,11 +530,12 @@ private:
 
     // A base as the Mining Lab starts it: the melee start of the race at the base, the workers that the start places,
     // more or fewer of them for `count` (0: one for each field), each worker on a field (nearest first, round).
-    Base makeBase(const sim::MiningBase& at, sim::Race race, int owner, int count) {
-        Base b;
-        b.base = at, b.race = race, b.owner = owner;
-        b.world = std::make_unique<ms::World>(*seed_);
-        ms::World& world = *b.world;
+    void makeSetup(Setup& b, int count) {
+        const sim::MiningBase& at = b.base;
+        const sim::Race race = b.race;
+        const int owner = b.owner;
+        b.seed = std::make_unique<ms::World>(*seed_);
+        ms::World& world = *b.seed;
         std::set<int> existing;
         for (int id : world.visibleUnits())
             if (world.units()[size_t(id)]->owner == owner) existing.insert(id);
@@ -390,10 +577,107 @@ private:
             const ms::UnitHandle patch = b.patches[i % b.patches.size()];
             world.setResources(patch, kFieldAmount);
             world.harvest(workers[i], patch);
-            b.workers.push_back({workers[i], patch, patch});
+            b.assign.push_back({workers[i], patch});
         }
         world.prepareNavigation(workers.front());
+    }
+    // The game of a base from its setup.
+    Base play(const Setup& s) const {
+        Base b;
+        b.base = s.base, b.race = s.race, b.owner = s.owner;
+        if (!s.seed) return b;
+        b.world = std::make_unique<ms::World>(*s.seed);
+        b.patches = s.patches, b.amount = s.amount;
+        for (const auto& [w, f] : s.assign) b.workers.push_back({w, f, f});
+        b.cargo = freshControls(s.cargo), b.cycle = freshControls(s.cycle);
         return b;
+    }
+    // A boost's commands as they are before the game (the PR's freshControls).
+    static std::vector<Control> freshControls(const std::vector<Control>& rules) {
+        std::vector<Control> out;
+        for (const Control& r : rules) {
+            Control next = ms::mining_search::makeRule(r.worker, r.field, r.spot, r.enabled);
+            next.cycle = r.cycle, next.neighbor = r.neighbor, next.delay = r.delay, next.detour = r.detour;
+            next.cargoDelay = r.cargoDelay;
+            out.push_back(next);
+        }
+        return out;
+    }
+
+    // The boost searches' state (the PR's NativeMining::poll): a search that found better takes its result into the
+    // setup (a position boost: the workers' start places; it drops the cargo and cycle boosts, which were found for the
+    // places before). When none runs any more and one changed a setup, the mining starts again.
+    void pollBoosts() {
+        bool changed = false;
+        for (const auto& sp : setups_) {
+            Setup& s = *sp;
+            auto progress = [](auto& job, sim::BoostStatus& st) {
+                st.seconds = job.seconds();
+                const double budget = job.sliceLimit.load();
+                st.progress = budget > 0 ? std::min(1.0, job.sliceElapsed.load() / budget) : 0;
+            };
+            auto finish = [](auto& job, sim::BoostStatus& st) {
+                st.running = false, st.finished = true, st.exhausted = job.exhausted.load();
+            };
+            try {
+                if (PositionJob* job = s.positionJob.get(); job && s.status[0].running) {
+                    sim::BoostStatus& st = s.status[0];
+                    progress(*job, st);
+                    if (job->done()) {
+                        finish(*job, st);
+                        if (job->changed.load()) {
+                            const PositionPlan& plan = *job->result;
+                            auto world = std::make_unique<ms::World>(*job->input);
+                            s.jobs[1].reset(), s.jobs[2].reset();
+                            s.cargo.clear(), s.cycle.clear();
+                            s.status[1] = {}, s.status[2] = {};
+                            s.fixed.clear();
+                            st.found = 0;
+                            for (size_t i = 0; i < plan.positions.size(); ++i) {
+                                if (!plan.positions[i].stable) continue;
+                                const auto a = plan.assignments[i];
+                                world->relocateWorkerForSearch(a.worker, plan.positions[i].position);
+                                world->harvest(a.worker, a.field);
+                                if (plan.control[i].mean() - plan.selected[i].mean() > .5 && plan.control[i].mean(1) - plan.selected[i].mean(1) > .1 &&
+                                    plan.control[i].mean(2) - plan.selected[i].mean(2) > .1) {
+                                    ++st.found;
+                                    const ms::UnitState *w = world->get(a.worker), *m = world->get(a.field);
+                                    if (w && m)
+                                        s.fixed.push_back({w->position.x, w->position.y, m->position.x, m->position.y, 0, 0, s.owner * 1000 + w->handle.index});
+                                }
+                            }
+                            s.seed = std::move(world);
+                            changed = true;
+                        }
+                    }
+                }
+                for (int kind : {1, 2}) {
+                    SearchJob* job = s.jobs[size_t(kind)].get();
+                    sim::BoostStatus& st = s.status[size_t(kind)];
+                    if (!job || !st.running) continue;
+                    progress(*job, st);
+                    if (!job->done()) continue;
+                    finish(*job, st);
+                    if (!job->changed.load()) continue;
+                    s.seed = std::make_unique<ms::World>(*job->input);
+                    if (kind == 1) {
+                        s.cargo = freshControls(job->result->chosen);
+                        s.jobs[2].reset(), s.cycle.clear(), s.status[2] = {};
+                        st.found = int(std::count_if(s.cargo.begin(), s.cargo.end(), [](const Control& r) { return r.enabled; }));
+                    } else {
+                        s.cycle = freshControls(job->result->chosen);
+                        s.cargo = freshControls(s.cargo);
+                        st.found = int(std::count_if(s.cycle.begin(), s.cycle.end(), [](const Control& r) { return r.enabled; }));
+                    }
+                    changed = true;
+                }
+            } catch (const std::exception&) {  // (that base's search failed: it ends, the game and the others go on)
+                for (sim::BoostStatus& st : s.status)
+                    if (st.running) st.running = false, st.finished = true, st.failed = true;
+            }
+        }
+        changed_ = changed_ || changed;
+        if (!boosting() && changed_) changed_ = false, restartPlay();
     }
 
     void stepMining() {
@@ -406,6 +690,8 @@ private:
                 w.carrying = u->cargo & 2;
                 if (b.world->get(u->mineral)) w.mined = u->mineral;
             }
+            for (Control& r : b.cargo) r.apply(*b.world);  // (the boosts' commands, as the PR's playback gives them)
+            for (Control& r : b.cycle) r.apply(*b.world);
             b.world->advance();
             const int now = b.world->frame();
             for (Worker& w : b.workers) {
@@ -492,6 +778,9 @@ private:
     std::unique_ptr<ms::World> seed_;
     Mode mode_ = Mode::None;
     std::vector<Base> bases_;
+    std::vector<std::unique_ptr<Setup>> setups_;  // each base's setup (Restart and the timeline start from them)
+    std::string setupKey_;                        // the map's bases and settings that made them
+    bool changed_ = false;                        // a boost search that ended changed a setup
     std::vector<Runner> runners_;
     int frame_ = 0, last_ = 0, warmup_ = 0;
     bool done_ = false;

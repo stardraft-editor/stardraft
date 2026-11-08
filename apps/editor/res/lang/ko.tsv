@@ -3301,3 +3301,27 @@ No room: the base has no room for its depot and workers.	자리 없음: 이 기�
 1 worker for each mineral field at each base, %d game minutes at Fastest	각 기지의 광물 필드마다 일꾼 1명, 가장 빠름으로 게임 시간 %d분
 Workers	일꾼
 Workers on minerals and races	광물 일꾼과 종족
+Fog of war: off	전장의 안개: 끔
+Fog of war: what %ls sees	전장의 안개: %ls의 시야
+Cargo	자원 반납
+Cycle	순환
+Searching… %d s	검색 중… %d초
+None found	찾지 못함
+1 worker faster	일꾼 1명 더 빠름
+%d workers faster	일꾼 %d명 더 빠름
+Boost search time	최적화 검색 시간
+As in the map	맵 설정대로
+Boost searches	최적화 검색
+Simulation options	시뮬레이션 옵션
+Search for better start places of the workers at each base	각 기지에서 일꾼의 더 좋은 시작 위치 검색
+Search for the places where a worker returns its cargo sooner	일꾼이 자원을 더 빨리 반납하는 위치 검색
+Search for trips that go to the next mineral field and back (mineral walking)	옆 광물 필드로 갔다가 돌아오는 이동 검색 (미네랄 워킹)
+Program options > Simulation	프로그램 옵션 > 시뮬레이션
+Boost search	최적화 검색
+1 worker for each mineral field	광물 필드마다 일꾼 1명
+Settings and boost searches	설정과 최적화 검색
+1 for each field	필드마다 1명
+minute	분
+minutes	분
+second	초
+Could not search	검색할 수 없음
