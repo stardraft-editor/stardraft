@@ -166,6 +166,7 @@ CASES += [
     ("dialog-options-tab-plugins", ["--dialog", "options:3", "--size", "720x480"], ""),
     ("dialog-options-tab-folders", ["--dialog", "options:4", "--size", "720x480", "--theme", "light"], ""),
     ("dialog-options-tab-updates", ["--dialog", "options:5", "--size", "720x480"], ""),
+    ("dialog-options-tab-simulation", ["--dialog", "options:6", "--size", "720x480"], ""),
     # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
     # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
     # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
@@ -5392,6 +5393,77 @@ CHECKS.update({
 })
 
 
+# The simulation bar (Tools > Simulate, experimental): mining after 900 game frames (the bar with its timeline, each
+# base's workers), rush distance after 400 frames (the workers on their way, their lines) and at its end (the bar's
+# result: the shortest and longest walk; the lines stay), and the reports of mining and rush distance.
+SCRIPTS["simmining"] = """command edit.simulate.mining
+simstep 900
+"""
+# Zoomed in on the base at the bottom middle (12 wheel notches: about 190%): each mineral field's round trip and minerals.
+SCRIPTS["simminingzoom"] = """command edit.simulate.mining
+simstep 1800
+wheel 830,700,0,12
+"""
+# The gear's panel (the mining's settings, the boost searches); a cycle search of 6 seconds with 1 worker for each
+# mineral field, Protoss ({simboostsettings}), then the game from its start with the boosts: zoomed in on the base at
+# the bottom middle, the cycles' numbered arrows. The rush's eye (the fog of war): what Player 1's scout sees.
+SCRIPTS["simpanel"] = """command edit.simulate.mining
+simstep 300
+click 844,128
+"""
+SCRIPTS["simcycle"] = """command edit.simulate.mining
+simstep 60
+click 844,128
+wait 200
+click 830,340
+wait 9000
+simstep 1
+wheel 830,700,0,12
+simstep 1800
+"""
+SCRIPTS["simrushfog"] = """command edit.simulate.rush
+simstep 500
+click 811,128
+"""
+SCRIPTS["simrush"] = """command edit.simulate.rush
+simstep 400
+"""
+SCRIPTS["simrushend"] = """command edit.simulate.rush
+simstep 20000
+"""
+CASES += [("map-sim-mining", ["--script", "{script:simmining}"], "map"),
+          ("map-sim-mining-zoom", ["--script", "{script:simminingzoom}"], "map"),
+          ("map-sim-mining-panel", ["--script", "{script:simpanel}"], "map"),
+          ("map-sim-mining-cycle", ["--settings", "{simboostsettings}", "--script", "{script:simcycle}"], "map"),
+          ("map-sim-rush-fog", ["--script", "{script:simrushfog}"], "map"),
+          ("map-sim-rush", ["--script", "{script:simrush}"], "map"),
+          ("map-sim-rush-end", ["--script", "{script:simrushend}"], "map"),
+          ("map-simreport-mining", ["--dialog", "simreport:mining"], "map"),
+          # The bar's gear: 1 worker for each mineral field, Zerg (the report's Workers column: each base's own count).
+          ("map-simreport-mining-fields", ["--settings", "{simfieldsettings}", "--dialog", "simreport:mining"], "map"),
+          ("map-simreport-rush", ["--dialog", "simreport:rush"], "map")]
+def check_sim_step(want_end):
+    def check(output):
+        frames = [int(n) for n in re.findall(r"simstep: frame (-?\d+)", output)]
+        if not frames or frames[-1] <= 0:
+            return "the simulation did not start"
+        if want_end and frames[-1] >= 20000:
+            return "the rush did not end"
+        return None
+    return check
+CHECKS.update({
+    "map-sim-mining": check_sim_step(False),
+    "map-sim-mining-zoom": check_sim_step(False),
+    "map-sim-mining-panel": check_sim_step(False),
+    "map-sim-mining-cycle": lambda o: None if "simstep: frame 1800" in o else "the boosted mining did not run",
+    "map-sim-rush-fog": check_sim_step(False),
+    "map-sim-rush": check_sim_step(False),
+    "map-sim-rush-end": check_sim_step(True),
+    "map-simreport-mining": lambda o: None if "simreport: ended" in o else "the mining did not end",
+    "map-simreport-mining-fields": lambda o: None if "simreport: ended" in o else "the mining did not end",
+    "map-simreport-rush": lambda o: None if "simreport: ended" in o else "the rush did not end",
+})
+
 def crig_map(cmbwmap):
     """The mod's map whose trigger 1 has a Comment with CRIGs: in the mod's map folders, above the map --cmbwmap (else that map)."""
     folder = os.path.dirname(cmbwmap)
@@ -5515,6 +5587,12 @@ def main():
                  "Layout/TerrainPaletteWidth": 320, "Layout/TerrainPaletteHeight": 480, "Layout/UnitPaletteFloating": 1,
                  "Layout/UnitPaletteX": 700, "Layout/UnitPaletteY": 220, "Layout/UnitPaletteWidth": 300,
                  "Layout/UnitPaletteHeight": 420})))
+        simfieldsettings = os.path.join(a.out, "simfield-settings.json")  # {simfieldsettings}: mining with 1 worker for each mineral field, Zerg
+        simboostsettings = os.path.join(a.out, "simboost-settings.json")  # {simboostsettings}: 1 worker for each mineral field, Protoss, 6 s searches
+        if any("{simboostsettings}" in x for x in args):
+            write_once(simboostsettings, write_text(simboostsettings, json.dumps({"SimWorkers": 0, "SimRaces": 2, "SimSearchSeconds": 6})))
+        if any("{simfieldsettings}" in x for x in args):
+            write_once(simfieldsettings, write_text(simfieldsettings, json.dumps({"SimWorkers": 0, "SimRaces": 3})))
         if any("{nosnapsettings}" in x for x in args):
             write_once(nosnapsettings, write_text(nosnapsettings, json.dumps({"Settings/SnapBuildings": 0})))
         if any("{oldsettings}" in x for x in args):
@@ -5526,7 +5604,7 @@ def main():
                      if a.install and os.path.isdir(d)), os.path.dirname(a.map or ""))
         paths = dict(maps=maps, map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, musicwav=musicwav, dotpng=dotpng, komusicwav=komusicwav, kodotpng=kodotpng, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, simfieldsettings=simfieldsettings, simboostsettings=simboostsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

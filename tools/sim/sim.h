@@ -37,10 +37,15 @@ struct MiningRun {
     int workers = 0;
     double mineralsPerMinute = 0, gasPerMinute = 0;
     std::vector<double> tripFrames;  // each field's mean round trip (delivery to delivery), 0: no trip measured
+    // Each field's minerals left: its amount in the map less the minerals mined from it (the simulation's fields do not
+    // run out). Empty: not counted.
+    std::vector<int> fieldMinerals;
+    bool placed = true;  // false: the base has no room for its depot and workers (no numbers)
 };
 struct MiningBase {
     int x = 0, y = 0;
     bool startLocation = false;
+    int player = -1;  // a start location's player (0 to 11); -1: not a start location
     std::vector<std::pair<int, int>> fields;  // the mineral fields near it, nearest first
     std::vector<MiningRun> runs;
 };
@@ -103,6 +108,38 @@ struct CombatResult {
     int winnerUnit = -1;            // (placed units) the index in `placed` of the last unit left; -1: none
 };
 
+// A boost search's state (Simulator::boostStatus), all bases together.
+struct BoostStatus {
+    bool running = false, finished = false, exhausted = false;  // exhausted: nothing more to search
+    bool failed = false;                                        // the search stopped on an error (at a base)
+    int found = 0;                                              // the workers that it made faster
+    double seconds = 0, progress = 0;                           // the time it searched; this run's part done (0 to 1)
+};
+// A boost's guide on the map (Simulator::miningGuides). kind 0: a worker's start place (position boost; target: its
+// field); 1: where a worker turns back with its cargo (cargo boost); 2: a cycle's command (cycle boost; stage 1 to the
+// next field, stage 2 back to its own; target: that field). `worker`: an id of the worker (the same for its guides).
+struct MiningGuide {
+    int x = 0, y = 0, targetX = 0, targetY = 0, kind = 0, stage = 0, worker = 0;
+};
+
+// Rush distance (startRush): a worker walks from each start location to each other start location, a game for each
+// route, all at the same time.
+struct RushOptions {
+    std::vector<Race> races = {Terran};  // the workers' race (races[0])
+    // A start location's worker: its player's race in the map (as MiningOptions::mapRaces); off: races[0].
+    bool mapRaces = false;
+    uint32_t seed = 0;
+};
+struct RushRoute {
+    int from = 0, to = 0;  // the players of the two start locations (0 to 11)
+    int fromX = 0, fromY = 0, toX = 0, toY = 0;
+    Race race = Terran;
+    int frames = 0;                             // the game frames of the walk, to its end or to where it stopped
+    double distance = 0;                        // the length of the walk (map pixels)
+    bool reached = false, finished = false;     // at the other start location; the walk ended
+    std::vector<std::pair<int, int>> path;      // the worker's places on the way
+};
+
 // A sound of the live game (sfxdata.dat id) where the game would play it: from the scripts (attacks, deaths, hits).
 struct LiveSound {
     int sfx;
@@ -157,6 +194,11 @@ public:
     virtual bool startCombat(const CombatOptions& o, std::string& error) = 0;
     virtual bool startMining(const MiningOptions& o, std::string& error) = 0;
     virtual bool startMap(const MapRunOptions& o, MapRunInfo& info, std::string& error) = 0;
+    virtual bool startRush(const RushOptions& o, std::string& error) {
+        (void)o;
+        error = "Rush distance is not in this simulation";
+        return false;
+    }
     virtual bool live() const = 0;
     // `frames` more frames; false when the game is over (or an error: liveError).
     virtual bool step(int frames) = 0;
@@ -176,6 +218,31 @@ public:
     virtual CombatResult combatResult() const = 0;
     virtual std::vector<MiningBase> miningResult() const = 0;
     virtual std::vector<PlayerState> players() const = 0;  // (mining and Run the map)
+    virtual std::vector<RushRoute> rushResult() const { return {}; }
+    // Mining's boost searches (kind 0 position, 1 cargo, 2 cycle; `seconds` long; again: on from where it stopped).
+    // While one runs, step() waits at the game's start; at its end the bases that it made better start again.
+    virtual bool startBoost(int kind, double seconds, std::string& error) {
+        (void)kind, (void)seconds;
+        error = "Boost searches are not in this simulation";
+        return false;
+    }
+    virtual BoostStatus boostStatus(int kind) const {
+        (void)kind;
+        return {};
+    }
+    virtual bool boosting() const { return false; }
+    virtual std::vector<MiningGuide> miningGuides() const { return {}; }
+    // Rush distance: what `player` (a start location's player, 0 to 11) sees now, as the game's fog of war: each map
+    // tile (row by row, `width` x `height`) 0 not seen yet, 1 seen before, 2 seen now. False: no such game.
+    virtual bool vision(int player, int& width, int& height, std::vector<uint8_t>& tiles) const {
+        (void)player, (void)width, (void)height, (void)tiles;
+        return false;
+    }
+    // The bases that mining uses (MiningOptions: which kinds of base), with each base's race (mapRaces, races[0]).
+    virtual std::vector<MiningBase> miningBases(const MiningOptions& o, std::vector<Race>& races) const {
+        (void)o, races.clear();
+        return {};
+    }
     virtual void stop() = 0;
 };
 

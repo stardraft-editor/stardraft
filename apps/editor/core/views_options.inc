@@ -52,9 +52,9 @@ struct OptionsValues {
     std::wstring overrideFile;    // ... its file ("": none chosen)
     bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
     std::wstring passagesFile;    // ... its file ("": none chosen)
-    // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
-    // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
-    int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
+    // Tools > Simulate mining (experimental): the workers on minerals at each base (0: 1 for each mineral field), the
+    // measured game minutes, the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg) and a boost search's seconds.
+    int simWorkers = 9, simMinutes = 3, simRace = 0, simSearch = 15;
 };
 
 // The program's part of the options window (options_window.inc): the values, the commands and the pickers.
@@ -74,7 +74,7 @@ public:
     virtual void setVolume(int v) = 0;
     // Painting terrain's Detailed tiles (0 to 100%; GitHub #257).
     virtual void setDetailedTiles(int percent) { (void)percent; }
-    // Simulate mining's settings (which: 0 workers, 1 gas workers, 2 minutes, 3 races; OptionsValues::sim*).
+    // Simulate mining's settings (which: 0 workers, 1 search seconds, 2 minutes, 3 races; OptionsValues::sim*).
     virtual void setSimulation(int which, int value) { (void)which, (void)value; }
     // The working folder: a folder chosen by the user, or the default one.
     virtual void browseWorkingFolder() = 0;
@@ -111,11 +111,81 @@ constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
 // The names of the unit name forms (the dropdown's items).
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
 
-// Simulate mining's choices: the values of each dropdown's items (races: the names).
-inline const int kSimWorkers[] = {4, 6, 8, 9, 12, 16, 18, 20, 24, 27, 30};
-inline const int kSimGas[] = {0, 1, 2, 3};
-inline const int kSimMinutes[] = {1, 2, 3, 5, 10, 15, 20};
+// Simulate mining's races (the dropdown's items).
 const wchar_t* const kSimRaces[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
+// The simulation's numbers: their ranges and default values (the settings SimWorkers, SimMinutes, SimSearchSeconds).
+// Workers 0: 1 for each mineral field.
+constexpr int kSimWorkersMax = 60, kSimMinutesMax = 60, kSimSearchMin = 1, kSimSearchMax = 600, kSimSearchDefault = 15;
+inline std::wstring simWorkersText(int n) { return n ? std::to_wstring(n) : std::wstring(tr(L"1 for each field")); }
+inline std::wstring simMinutesText(int n) { return std::to_wstring(n) + L" " + tr(n == 1 ? L"minute" : L"minutes"); }
+inline std::wstring simSecondsText(int n) { return std::to_wstring(n) + L" " + tr(n == 1 ? L"second" : L"seconds"); }
+
+// A number box with - and + (docs/dev/CONTROLS.md, "Step box"): - at the left end, the value in the middle, + at the
+// right end; a click on - or + (or the mouse wheel on the box) steps the value. `hot`, `down`: 0 none, 1 -, 2 +.
+inline draw::Rect stepBoxMinus(draw::Rect r) { return {r.left, r.top, r.left + (r.bottom - r.top), r.bottom}; }
+inline draw::Rect stepBoxPlus(draw::Rect r) { return {r.right - (r.bottom - r.top), r.top, r.right, r.bottom}; }
+inline void paintStepBox(draw::Canvas& c, draw::Rect r, const std::wstring& text, int hot, int down, bool atMin, bool atMax, bool focus = false) {
+    kitpaint::drawFieldBox(c, r, focus ? kitpaint::Field::Focus : hot ? kitpaint::Field::Hot : kitpaint::Field::Normal);
+    auto end = [&](int part, draw::Rect b, const wchar_t* sign, bool off) {  // (the signs as the simulation bar's speed has them)
+        const draw::Rect in{b.left + scale(2), b.top + scale(2), b.right - scale(2), b.bottom - scale(2)};
+        if (!off && down == part) c.roundBox(in, kCtlDown, draw::kNone, float(scale(stardraft::kit::kRadius)));
+        else if (!off && hot == part) c.roundBox(in, kCtlHot, draw::kNone, float(scale(stardraft::kit::kRadius)));
+        c.text(b, sign, off ? kFaint : hot == part ? kText : kDim, draw::kCenter | draw::kMiddle);
+    };
+    end(1, stepBoxMinus(r), L"\x2212", atMin);
+    end(2, stepBoxPlus(r), L"+", atMax);
+    c.text({stepBoxMinus(r).right, r.top, stepBoxPlus(r).left, r.bottom}, text, kText, draw::kCenter | draw::kMiddle | draw::kEllipsis);
+}
+
+// A step box as a view (Program options > Simulation): the value from `lo` to `hi` in steps of 1; onChange with the
+// new value after each step.
+class StepBox final : public draw::View {
+public:
+    int value = 0, lo = 0, hi = 100;
+    std::function<std::wstring(int)> format;
+    std::function<void(int)> onChange;
+    void set(int v) {
+        if (v != value) value = v, invalidate();
+    }
+    void paint(draw::Canvas& c) override {
+        paintStepBox(c, {0, 0, width(), height()}, format ? format(value) : std::to_wstring(value), hot_, down_, value <= lo, value >= hi, hasFocus());
+    }
+    bool mouse(const draw::MouseEvent& e) override {
+        const draw::Rect r{0, 0, width(), height()};
+        auto in = [&](draw::Rect b) { return e.pt.x >= b.left && e.pt.x < b.right && e.pt.y >= b.top && e.pt.y < b.bottom; };
+        const int part = e.kind == draw::MouseKind::Leave ? 0 : in(stepBoxMinus(r)) ? 1 : in(stepBoxPlus(r)) ? 2 : in(r) ? 3 : 0;
+        if (part != hot_) hot_ = part, invalidate();
+        if (e.kind == draw::MouseKind::Wheel && e.wheel != 0) return step(e.wheel > 0 ? 1 : -1), true;
+        if ((e.kind == draw::MouseKind::Down || e.kind == draw::MouseKind::DoubleClick) && e.button == 0 && (part == 1 || part == 2)) {
+            down_ = part, invalidate();
+            step(part == 1 ? -1 : 1);
+            return true;
+        }
+        if (e.kind == draw::MouseKind::Up) down_ = 0, invalidate();
+        return part != 0;
+    }
+    void captureLost() override { down_ = 0, invalidate(); }
+    // The keyboard: a Tab stop; Up or Right one more, Down or Left one less, Home and End the range's ends.
+    bool focusable() const override { return true; }
+    void focusChanged(bool) override { invalidate(); }
+    bool key(const draw::KeyEvent& e) override {
+        if (!e.down) return false;
+        if (e.key == draw::Key::Up || e.key == draw::Key::Right) return step(1), true;
+        if (e.key == draw::Key::Down || e.key == draw::Key::Left) return step(-1), true;
+        if (e.key == draw::Key::Home) return step(lo - value), true;
+        if (e.key == draw::Key::End) return step(hi - value), true;
+        return false;
+    }
+
+private:
+    int hot_ = 0, down_ = 0;
+    void step(int d) {
+        const int v = std::clamp(value + d, lo, hi);
+        if (v == value) return;
+        value = v, invalidate();
+        if (onChange) onChange(v);
+    }
+};
 
 }  // namespace optionsview
 
@@ -178,24 +248,21 @@ public:
         std::vector<stardraft::kit::DropdownItem> forms;
         for (const wchar_t* n : optionsview::kUnitNameForms) forms.push_back({n});
         unitNames_.setItems(forms);
-        // Simulate mining: a dropdown for each setting.
-        auto simDrop = [this](stardraft::kit::Dropdown& d, const std::vector<std::wstring>& names, int which, const int* values) {
-            std::vector<stardraft::kit::DropdownItem> items;
-            for (const auto& n : names) items.push_back({n});
-            d.setItems(items);
-            d.onChange = [this, which, values](int i) { host_.setSimulation(which, values ? values[i] : i); };
-            add(d, {0, 0, 0, 0}), d.setVisible(false);
+        // Simulate mining: step boxes for the numbers, a dropdown for the races.
+        auto simStep = [this](optionsview::StepBox& b, int which, int lo, int hi, std::wstring (*format)(int)) {
+            b.lo = lo, b.hi = hi, b.format = format;
+            b.onChange = [this, which](int v) { host_.setSimulation(which, v); };
+            add(b, {0, 0, 0, 0}), b.setVisible(false);
         };
+        simStep(simWorkers_, 0, 0, optionsview::kSimWorkersMax, optionsview::simWorkersText);
+        simStep(simMinutes_, 2, 1, optionsview::kSimMinutesMax, optionsview::simMinutesText);
+        simStep(simSearch_, 1, optionsview::kSimSearchMin, optionsview::kSimSearchMax, optionsview::simSecondsText);
         {
-            std::vector<std::wstring> w, g, m, r;
-            for (int n : optionsview::kSimWorkers) w.push_back(std::to_wstring(n));
-            for (int n : optionsview::kSimGas) g.push_back(n ? std::to_wstring(n) : std::wstring(L"0 (no refinery)"));
-            for (int n : optionsview::kSimMinutes) m.push_back(std::to_wstring(n) + (n == 1 ? L" minute" : L" minutes"));
-            for (const wchar_t* n : optionsview::kSimRaces) r.push_back(n);
-            simDrop(simWorkers_, w, 0, optionsview::kSimWorkers);
-            simDrop(simGas_, g, 1, optionsview::kSimGas);
-            simDrop(simMinutes_, m, 2, optionsview::kSimMinutes);
-            simDrop(simRace_, r, 3, nullptr);
+            std::vector<stardraft::kit::DropdownItem> items;
+            for (const wchar_t* n : optionsview::kSimRaces) items.push_back({n});
+            simRace_.setItems(items);
+            simRace_.onChange = [this](int i) { host_.setSimulation(3, i); };
+            add(simRace_, {0, 0, 0, 0}), simRace_.setVisible(false);
         }
         slider_.setRange(0, 100), slider_.setStep(1);
         slider_.onChange = [this](int v) { host_.setVolume(v), invalidate(); };
@@ -435,7 +502,8 @@ private:
     stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
-    stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
+    optionsview::StepBox simWorkers_, simMinutes_, simSearch_;
+    stardraft::kit::Dropdown simRace_{{}, -1};
     stardraft::kit::Slider slider_;
     stardraft::kit::TextField limit_[2], detail_, folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
@@ -521,9 +589,7 @@ void OptionsView::sync(const OptionsValues& v) {
             if (values[i] == value) at = int(i);
         if (d.value() != at) d.setValue(at);
     };
-    pick(simWorkers_, optionsview::kSimWorkers, std::size(optionsview::kSimWorkers), v.simWorkers);
-    pick(simGas_, optionsview::kSimGas, std::size(optionsview::kSimGas), v.simGas);
-    pick(simMinutes_, optionsview::kSimMinutes, std::size(optionsview::kSimMinutes), v.simMinutes);
+    simWorkers_.set(v.simWorkers), simMinutes_.set(v.simMinutes), simSearch_.set(v.simSearch);
     if (simRace_.value() != v.simRace) simRace_.setValue(v.simRace);
     if (folder_.text() != v.projectsFolder) folder_.setText(v.projectsFolder);
     const std::wstring inst = v.installInUse.empty() ? std::wstring(L"\x2014") : v.installInUse;
@@ -797,16 +863,17 @@ void OptionsView::paint(draw::Canvas& c) {
     // Simulate mining (experimental: Tools > Simulate mining).
     if (shown & optionsview::kSimulation) {
         header(L"Simulate mining");
-        const std::pair<const wchar_t*, std::pair<stardraft::kit::Dropdown*, const char*>> rows[] = {
+        const std::pair<const wchar_t*, std::pair<draw::View*, const char*>> rows[] = {
             {L"Workers on minerals at each base", {&simWorkers_, "sim.workers"}},
-            {L"Workers on gas", {&simGas_, "sim.gas"}},
             {L"Measured game time", {&simMinutes_, "sim.minutes"}},
-            {L"Races", {&simRace_, "sim.races"}}};
-        for (const auto& [name, drop] : rows) {
+            {L"Races", {&simRace_, "sim.races"}},
+            {L"Boost search time", {&simSearch_, "sim.search"}}};
+        for (const auto& [name, view] : rows) {
             label(name);
-            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(300)), fieldTop(y) + fieldH};
-            place(*drop.first, box, true);
-            parts_[drop.second] = box;
+            const int w = view.first == &simRace_ ? scale(300) : scale(180);  // (a step box: as wide as its longest value)
+            const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + w), fieldTop(y) + fieldH};
+            place(*view.first, box, true);
+            parts_[view.second] = box;
             y += rowH;
         }
         note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");

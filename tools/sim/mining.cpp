@@ -77,12 +77,12 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
         return false;
     };
     for (auto& p : map.units)
-        if (o.startLocations && isStart(t, p.type)) bases.push_back({p.x, p.y, true, {}, {}});
+        if (o.startLocations && isStart(t, p.type)) bases.push_back({p.x, p.y, true, int(p.owner), {}, {}});
     for (auto& p : map.units)
         if (o.placedDepots && !isStart(t, p.type) && (t.units[p.type].flags & kDepot) &&
             !baseNear(p.x, p.y, t.rules.depotNear))
-            bases.push_back({p.x, p.y, false, {}, {}});
-    for (auto& [x, y] : o.bases) bases.push_back({x, y, false, {}, {}});
+            bases.push_back({p.x, p.y, false, -1, {}, {}});
+    for (auto& [x, y] : o.bases) bases.push_back({x, y, false, -1, {}, {}});
     std::vector<MapInfo::Placed> fields;
     for (auto& p : map.units)
         if (isMinerals(t, p.type)) fields.push_back(p);
@@ -111,7 +111,7 @@ std::vector<MiningBase> miningBases(const Tables& t, const MapInfo& map, const M
             for (size_t i = 0; i < fields.size(); ++i)
                 if (group[i] == g) members.push_back(fields[i]);
             int x = 0, y = 0;
-            if (members.size() >= 3 && clusterSpot(t, map, members, x, y)) bases.push_back({x, y, false, {}, {}});
+            if (members.size() >= 3 && clusterSpot(t, map, members, x, y)) bases.push_back({x, y, false, -1, {}, {}});
         }
     }
     // Each field goes to its nearest base (within 12 tiles), nearest first.
@@ -198,14 +198,15 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
             }
         }
         int gasWorkers = refinery >= 0 ? std::clamp(o.gasWorkers, 1, t.rules.gasWorkersMax) : 0;
-        for (int n = 0; n < workers + gasWorkers; ++n) {
+        const int onMinerals = workers > 0 ? workers : int(b.fields.size());  // (0: 1 for each mineral field)
+        for (int n = 0; n < onMinerals + gasWorkers; ++n) {
             int x = b.x, y = b.y;
             w.freeSpot(t.workerOf[race], x, y);
             int id = w.add(t.workerOf[race], owner, x, y);
             Unit& u = w.units[size_t(id)];
             u.base = owner;
             u.heading = u.velDir = direction(x - dx, y - dy);
-            if (n >= workers) {
+            if (n >= onMinerals) {
                 u.field = refinery;
                 w.setOrder(u, MoveToGas);
             } else {
@@ -222,7 +223,8 @@ void setupMining(World& w, const std::vector<MiningBase>& bases, const std::vect
 MiningRun miningRun(const World& w, int player, Race race, int workers, const MiningOptions& o) {
     MiningRun r;
     r.race = race;
-    r.workers = workers;
+    // (0: 1 for each mineral field of the base)
+    r.workers = workers > 0 || size_t(player) >= w.baseFields.size() ? workers : int(w.baseFields[size_t(player)].size());
     const World::Player& p = w.players[player];
     double minutes =
         (std::min(w.frame, o.warmupFrames + o.frames) - o.warmupFrames) * double(w.t.rules.frameMs) / 60000.0;

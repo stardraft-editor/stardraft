@@ -1,7 +1,8 @@
 // Experimental (branch experimental-simulation, STARDRAFT_SIMULATION): simulate-mining and simulate-combat, the game
-// run by StarDraft's simulation (tools/sim/sim.h). Included by main.cpp.
+// run by the simulation bar's engine (tools/map_lab/bar_sim.h: mining on the Map Simulation engine, combat on
+// StarDraft's own engine). Included by main.cpp.
 //
-//   stardraft-cli simulate-mining <map> [--workers 9,18,27] [--races tpz] [--gas] [--base x,y] [--minutes 3]
+//   stardraft-cli simulate-mining <map> [--workers 9,18,27] [--races tpz] [--base x,y] [--minutes 3]
 //   stardraft-cli simulate-combat <map> --a "Terran Marine:12" --b "Zerg Zergling:24" [--at x,y] [--gap 256] [--minutes 2]
 //
 // A unit is its name (as the game names it: "Terran Marine"; a part of it is enough: "marine") or its number. Several
@@ -9,6 +10,7 @@
 
 #include "../../tools/sim/sim.h"
 #include "../../tools/sim/sim_data.h"
+#include "../../tools/map_lab/bar_sim.h"
 
 // The simulator for the map of `t`, with the game's data as the map plays it (its unit settings: sim_data.h).
 sim::Simulator& simulatorOf(Session& s, const Target& t) {
@@ -18,7 +20,7 @@ sim::Simulator& simulatorOf(Session& s, const Target& t) {
     Bytes chk;
     std::string err;
     if (!readMapChk(t.map, chk, err)) fail(err);
-    made = sim::createSimulator();
+    made = maplab::createBarSimulator();
     if (!made) fail("the simulation engine is not in this build yet");
     // (the simulation keeps the reader and reads more files later, a map's tileset: the reader owns the files)
     auto files = std::make_shared<const std::map<std::string, Bytes>>(sim::dataFilesForMap(s.data, Chk::parse(chk)));
@@ -66,7 +68,7 @@ Json cmdSimulateMining(Session& s) {
         const std::vector<double> b = numbers(s.args.get("base"), 2, "--base");
         o.bases.push_back({int(b[0]), int(b[1])});
     }
-    o.gas = s.args.has("gas");
+    if (s.args.has("gas")) fail("--gas: the mining simulation has no gas");
     o.frames = simMinutesToFrames(s, 3);
     std::vector<sim::MiningBase> bases;
     std::string err;
@@ -84,17 +86,20 @@ Json cmdSimulateMining(Session& s) {
         for (const sim::MiningRun& r : b.runs) {
             Json trips = jarr();
             for (double f : r.tripFrames) trips.items.push_back(jnum(std::round(f * 10) / 10));
+            Json left = jarr();
+            for (int n : r.fieldMinerals) left.items.push_back(jnum(n));
             runs.items.push_back(Obj()
                                      .add("race", kRace[r.race])
+                                     .add("placed", r.placed)
                                      .add("workers", r.workers)
                                      .add("minerals_per_minute", std::round(r.mineralsPerMinute * 10) / 10)
-                                     .add("gas_per_minute", std::round(r.gasPerMinute * 10) / 10)
-                                     .add("field_trip_frames", trips));
+                                     .add("field_trip_frames", trips)
+                                     .add("field_minerals_left", left));
         }
         list.items.push_back(Obj().add("x", b.x).add("y", b.y).add("start_location", b.startLocation).add("fields", fields).add("runs", runs));
     }
     return Obj()
-        .add("engine", "StarDraft (Brood War 1.16.1 rules)")
+        .add("engine", "Map Simulation (Brood War 1.16.1 rules)")
         .add("speed", "Fastest")
         .add("measured_minutes", o.frames * 42.0 / 60000)
         .add("bases", list);

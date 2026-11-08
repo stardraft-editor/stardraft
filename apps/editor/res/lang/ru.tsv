@@ -3214,6 +3214,25 @@ Search technologies	Поиск технологий
 Map layers: terrain outside of map boundaries shows	Слои карты: местность за границами карты показана
 Map layers: terrain outside of map boundaries is hidden	Слои карты: местность за границами карты скрыта
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	Местность можно редактировать только на карте. Чтобы местность была за её пределами, нарисуйте её на слое, затем вынесите слой (Слои карты > Переместить слой)
+Simulate r&ush distance (experimental)	Моделировать расстояние &раша (экспериментально)
+Rush distance	Расстояние раша
+Worker race	Раса рабочего
+Reached	Дошёл
+Not reached	Не дошёл
+From	Откуда
+To	Куда
+Game seconds	Секунды игры
+Distance (pixels)	Расстояние (пиксели)
+Result	Результат
+No worker reached the other start location	Ни один рабочий не дошёл до другой стартовой позиции
+Rush distance: no worker reached the other start location	Расстояние раша: ни один рабочий не дошёл до другой стартовой позиции
+%ls to %ls game seconds	От %ls до %ls секунд игры
+Rush distance: %ls to %ls game seconds	Расстояние раша: от %ls до %ls секунд игры
+A worker walks from each start location to each other start location, at Fastest	Рабочий идёт от каждой стартовой позиции к каждой другой стартовой позиции, на максимальной скорости
+The rush distance simulation is not available for Cosmonarchy BW maps. The mining simulation is.	Моделирование расстояния раша недоступно для карт Cosmonarchy BW. Моделирование добычи доступно.
+Mining: %ls minerals a minute	Добыча: %ls минералов в минуту
+%d workers on minerals at each base, %d game minute at Fastest	%d рабочих на минералах на каждой базе, %d игровая минута на максимальной скорости
+%d workers on minerals at each base, %d game minutes at Fastest	%d рабочих на минералах на каждой базе, %d игровых минут на максимальной скорости
 Select a music track	Выберите музыкальную дорожку
 Select a dot image	Выберите точечное изображение
 The project has no music track "	В проекте нет музыкальной дорожки "
@@ -3256,3 +3275,35 @@ the original	оригинал
 , or Unlink this layer (right-click it in Map layers)	 или отвяжите этот слой (щелчок правой кнопкой в «Слоях карты»)
 Linked duplicate of 	Связанный дубликат слоя 
 : it follows the original's changes. Edit the original, or Unlink this layer	: он повторяет изменения оригинала. Измените оригинал или отвяжите этот слой
+No room	Нет места
+No room: the base has no room for its depot and workers.	Нет места: у базы нет места для главного здания и рабочих.
+
+1 for each mineral field	1 на каждое минеральное поле
+1 worker for each mineral field at each base, %d game minute at Fastest	1 рабочий на каждое минеральное поле на каждой базе, %d игровая минута на самой быстрой скорости
+1 worker for each mineral field at each base, %d game minutes at Fastest	1 рабочий на каждое минеральное поле на каждой базе, %d игровых минут на самой быстрой скорости
+Workers	Рабочие
+Workers on minerals and races	Рабочие на минералах и расы
+Fog of war: off	Туман войны: выключен
+Fog of war: what %ls sees	Туман войны: что видит %ls
+Cargo	Груз
+Cycle	Цикл
+Searching… %d s	Поиск… %d с
+None found	Ничего не найдено
+1 worker faster	1 рабочий быстрее
+%d workers faster	Рабочих быстрее: %d
+Boost search time	Время поиска ускорений
+As in the map	Как на карте
+Boost searches	Поиск ускорений
+Simulation options	Параметры симуляции
+Search for better start places of the workers at each base	Найти лучшие стартовые места рабочих на каждой базе
+Search for the places where a worker returns its cargo sooner	Найти места, где рабочий раньше возвращает груз
+Search for trips that go to the next mineral field and back (mineral walking)	Найти пути к соседнему минеральному полю и обратно (mineral walking)
+Program options > Simulation	Параметры программы > Симуляция
+Boost search	Поиск ускорений
+1 worker for each mineral field	1 рабочий на каждое минеральное поле
+Settings and boost searches	Настройки и поиск ускорений
+1 for each field	1 на поле
+minute	мин
+minutes	мин
+second	секунда
+Could not search	Не удалось выполнить поиск

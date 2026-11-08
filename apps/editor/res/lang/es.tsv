@@ -3214,6 +3214,25 @@ Search technologies	Buscar tecnologías
 Map layers: terrain outside of map boundaries shows	Capas del mapa: se muestra el terreno fuera de los límites del mapa
 Map layers: terrain outside of map boundaries is hidden	Capas del mapa: el terreno fuera de los límites del mapa está oculto
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	El terreno solo se puede editar en el mapa. Para tener terreno fuera de él, píntelo en una capa y luego saque la capa (Capas del mapa > Mover capa)
+Simulate r&ush distance (experimental)	Simular la distancia de &rush (experimental)
+Rush distance	Distancia de rush
+Worker race	Raza del obrero
+Reached	Llegó
+Not reached	No llegó
+From	Desde
+To	Hasta
+Game seconds	Segundos de juego
+Distance (pixels)	Distancia (píxeles)
+Result	Resultado
+No worker reached the other start location	Ningún obrero llegó a la otra ubicación inicial
+Rush distance: no worker reached the other start location	Distancia de rush: ningún obrero llegó a la otra ubicación inicial
+%ls to %ls game seconds	De %ls a %ls segundos de juego
+Rush distance: %ls to %ls game seconds	Distancia de rush: de %ls a %ls segundos de juego
+A worker walks from each start location to each other start location, at Fastest	Un obrero camina desde cada ubicación inicial hasta cada otra ubicación inicial, a la máxima velocidad
+The rush distance simulation is not available for Cosmonarchy BW maps. The mining simulation is.	La simulación de distancia de rush no está disponible para los mapas de Cosmonarchy BW. La simulación de extracción sí.
+Mining: %ls minerals a minute	Extracción: %ls minerales por minuto
+%d workers on minerals at each base, %d game minute at Fastest	%d obreros en minerales en cada base, %d minuto de juego a la máxima velocidad
+%d workers on minerals at each base, %d game minutes at Fastest	%d obreros en minerales en cada base, %d minutos de juego a la máxima velocidad
 Select a music track	Seleccione una pista de música
 Select a dot image	Seleccione una imagen de puntos
 The project has no music track "	El proyecto no tiene la pista de música "
@@ -3256,3 +3275,35 @@ the original	el original
 , or Unlink this layer (right-click it in Map layers)	, o desvincule esta capa (clic derecho en Capas del mapa)
 Linked duplicate of 	Duplicado vinculado de 
 : it follows the original's changes. Edit the original, or Unlink this layer	: sigue los cambios del original. Edite el original o desvincule esta capa
+No room	Sin espacio
+No room: the base has no room for its depot and workers.	Sin espacio: la base no tiene espacio para su base principal y sus obreros.
+
+1 for each mineral field	1 por cada campo de minerales
+1 worker for each mineral field at each base, %d game minute at Fastest	1 obrero por cada campo de minerales en cada base, %d minuto de juego a la máxima velocidad
+1 worker for each mineral field at each base, %d game minutes at Fastest	1 obrero por cada campo de minerales en cada base, %d minutos de juego a la máxima velocidad
+Workers	Obreros
+Workers on minerals and races	Obreros en minerales y razas
+Fog of war: off	Niebla de guerra: desactivada
+Fog of war: what %ls sees	Niebla de guerra: lo que ve %ls
+Cargo	Carga
+Cycle	Ciclo
+Searching… %d s	Buscando… %d s
+None found	No se encontró ninguno
+1 worker faster	1 obrero más rápido
+%d workers faster	%d obreros más rápidos
+Boost search time	Tiempo de búsqueda de mejoras
+As in the map	Como en el mapa
+Boost searches	Búsquedas de mejoras
+Simulation options	Opciones de simulación
+Search for better start places of the workers at each base	Buscar mejores lugares de inicio para los obreros en cada base
+Search for the places where a worker returns its cargo sooner	Buscar los lugares donde un obrero devuelve su carga antes
+Search for trips that go to the next mineral field and back (mineral walking)	Buscar viajes que van al siguiente campo de minerales y vuelven (mineral walking)
+Program options > Simulation	Opciones del programa > Simulación
+Boost search	Búsqueda de mejoras
+1 worker for each mineral field	1 obrero por cada campo de minerales
+Settings and boost searches	Ajustes y búsquedas de mejoras
+1 for each field	1 por campo
+minute	minuto
+minutes	minutos
+second	segundo
+Could not search	No se pudo buscar

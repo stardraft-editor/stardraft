@@ -3244,6 +3244,25 @@ Search technologies	기술 검색
 Map layers: terrain outside of map boundaries shows	지도 레이어: 지도 경계 밖의 지형이 표시됩니다
 Map layers: terrain outside of map boundaries is hidden	지도 레이어: 지도 경계 밖의 지형이 숨겨집니다
 Terrain can be edited only on the map. To have terrain outside of it, paint it on a layer, then move the layer out (Map layers > Move layer)	지형은 지도 위에서만 편집할 수 있습니다. 지도 밖에 지형을 두려면 레이어에 칠한 다음 레이어를 밖으로 옮기세요 (지도 레이어 > 레이어 이동)
+Simulate r&ush distance (experimental)	러시 거리 시뮬레이션(&U) (실험적)
+Rush distance	러시 거리
+Worker race	일꾼 종족
+Reached	도착
+Not reached	도착 못 함
+From	출발
+To	도착지
+Game seconds	게임 초
+Distance (pixels)	거리(픽셀)
+Result	결과
+No worker reached the other start location	다른 시작 위치에 도착한 일꾼이 없습니다
+Rush distance: no worker reached the other start location	러시 거리: 다른 시작 위치에 도착한 일꾼이 없습니다
+%ls to %ls game seconds	게임 시간 %ls~%ls초
+Rush distance: %ls to %ls game seconds	러시 거리: 게임 시간 %ls~%ls초
+A worker walks from each start location to each other start location, at Fastest	일꾼 하나가 각 시작 위치에서 다른 각 시작 위치로 걸어갑니다(최고속)
+The rush distance simulation is not available for Cosmonarchy BW maps. The mining simulation is.	러시 거리 시뮬레이션은 Cosmonarchy BW 맵에서 사용할 수 없습니다. 채취 시뮬레이션은 사용할 수 있습니다.
+Mining: %ls minerals a minute	채취: 분당 미네랄 %ls
+%d workers on minerals at each base, %d game minute at Fastest	기지마다 미네랄 일꾼 %d명, 최고속으로 게임 %d분
+%d workers on minerals at each base, %d game minutes at Fastest	기지마다 미네랄 일꾼 %d명, 최고속으로 게임 %d분
 Select a music track	음악 트랙을 선택하세요
 Select a dot image	점 이미지를 선택하세요
 The project has no music track "	프로젝트에 음악 트랙 "
@@ -3286,3 +3305,35 @@ the original	원본
 , or Unlink this layer (right-click it in Map layers)	, 또는 이 레이어의 연결을 해제하세요 (지도 레이어에서 오른쪽 클릭)
 Linked duplicate of 	연결된 복제 원본: 
 : it follows the original's changes. Edit the original, or Unlink this layer	: 원본의 변경을 따릅니다. 원본을 편집하거나 이 레이어의 연결을 해제하세요
+No room	자리 없음
+No room: the base has no room for its depot and workers.	자리 없음: 이 기지에는 본진 건물과 일꾼을 둘 자리가 없습니다.
+
+1 for each mineral field	광물 필드마다 1명
+1 worker for each mineral field at each base, %d game minute at Fastest	각 기지의 광물 필드마다 일꾼 1명, 가장 빠름으로 게임 시간 %d분
+1 worker for each mineral field at each base, %d game minutes at Fastest	각 기지의 광물 필드마다 일꾼 1명, 가장 빠름으로 게임 시간 %d분
+Workers	일꾼
+Workers on minerals and races	광물 일꾼과 종족
+Fog of war: off	전장의 안개: 끔
+Fog of war: what %ls sees	전장의 안개: %ls의 시야
+Cargo	자원 반납
+Cycle	순환
+Searching… %d s	검색 중… %d초
+None found	찾지 못함
+1 worker faster	일꾼 1명 더 빠름
+%d workers faster	일꾼 %d명 더 빠름
+Boost search time	최적화 검색 시간
+As in the map	맵 설정대로
+Boost searches	최적화 검색
+Simulation options	시뮬레이션 옵션
+Search for better start places of the workers at each base	각 기지에서 일꾼의 더 좋은 시작 위치 검색
+Search for the places where a worker returns its cargo sooner	일꾼이 자원을 더 빨리 반납하는 위치 검색
+Search for trips that go to the next mineral field and back (mineral walking)	옆 광물 필드로 갔다가 돌아오는 이동 검색 (미네랄 워킹)
+Program options > Simulation	프로그램 옵션 > 시뮬레이션
+Boost search	최적화 검색
+1 worker for each mineral field	광물 필드마다 일꾼 1명
+Settings and boost searches	설정과 최적화 검색
+1 for each field	필드마다 1명
+minute	분
+minutes	분
+second	초
+Could not search	검색할 수 없음

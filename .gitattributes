@@ -1,2 +1,5 @@
 # Shell scripts keep LF line ends on every checkout (bash in WSL and on the CI runners reads them).
 *.sh text eol=lf
+# The Map Simulation engine keeps LF line ends on every platform (its SOURCE.json fingerprints the files).
+third_party/map-simulation/** text eol=lf
+tools/map_lab/** text eol=lf

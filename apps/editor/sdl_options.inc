@@ -304,8 +304,9 @@ public:
         }
         v.mapsWithSD2 = sdlMapsOpenWithUs();  // (Windows: .scm and .scx open with StarDraft 2; shell_sdl_win.inc)
         v.projectsFolder = defaultProjectsFolder().make_preferred().wstring();
-        prefs::number(L"SimWorkers", v.simWorkers, 1, 60), prefs::number(L"SimGasWorkers", v.simGas, 0, 3);
+        prefs::number(L"SimWorkers", v.simWorkers, 0, 60);
         prefs::number(L"SimMinutes", v.simMinutes, 1, 60), prefs::number(L"SimRaces", v.simRace, 0, 3);
+        prefs::number(L"SimSearchSeconds", v.simSearch, optionsview::kSimSearchMin, optionsview::kSimSearchMax);
 #ifndef _WIN32
         v.mapsRow = false;  // (the file association is Windows only)
 #endif
@@ -350,7 +351,7 @@ void OptionsProgramSdl::setUnitLimit(int k, int value) {
 }
 // Simulate mining's settings (Tools > Simulate mining reads them when it starts).
 void OptionsProgramSdl::setSimulation(int which, int value) {
-    static const wchar_t* const names[4] = {L"SimWorkers", L"SimGasWorkers", L"SimMinutes", L"SimRaces"};
+    static const wchar_t* const names[4] = {L"SimWorkers", L"SimSearchSeconds", L"SimMinutes", L"SimRaces"};
     if (which < 0 || which > 3) return;
     prefs::setNumber(names[which], value);
     gOptionsView.invalidate();
