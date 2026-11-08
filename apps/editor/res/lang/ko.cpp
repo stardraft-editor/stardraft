@@ -3071,6 +3071,9 @@ constexpr UiText kRows[] = {
     {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"\uC9C0\uB3C4 \uBC16\uC5D0 \uCE60\uD558\uB824\uBA74 \uC9C0\uB3C4 \uB808\uC774\uC5B4 > \uC124\uC815 > \uC9C0\uB3C4 \uACBD\uACC4 \uBC16\uC758 \uC9C0\uD615 \uD45C\uC2DC\uB97C \uCF1C\uC138\uC694"},
     {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"\uC9C0\uB3C4 \uBC16\uC5D0 \uCE60\uD558\uB824\uBA74 \uC9C0\uB3C4 \uB808\uC774\uC5B4\uC5D0\uC11C \uB808\uC774\uC5B4\uB97C \uC120\uD0DD\uD558\uC138\uC694 (\uBC30\uACBD\uC740 \uC9C0\uB3C4\uC5D0 \uB0A8\uC2B5\uB2C8\uB2E4)"},
     {L"The layer is hidden", L"\uB808\uC774\uC5B4\uAC00 \uC228\uACA8\uC838 \uC788\uC2B5\uB2C8\uB2E4"},
+    {L"Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)", L"\uCC44\uC6B0\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4: \uC601\uC5ED\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4. \uBA3C\uC800 \uC8FC\uC704\uC5D0 \uC724\uACFD\uC744 \uADF8\uB9AC\uC138\uC694 (\uC724\uACFD\uC120 \uB610\uB294 \uB2E4\uAC01\uD615)"},
+    {L"Filled the terrain on the layer", L"\uB808\uC774\uC5B4\uC758 \uC9C0\uD615\uC744 \uCC44\uC6E0\uC2B5\uB2C8\uB2E4"},
+    {L"Painted the shape on the layer outside of the map", L"\uC9C0\uB3C4 \uBC16\uC758 \uB808\uC774\uC5B4\uC5D0 \uB3C4\uD615\uC744 \uCE60\uD588\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

@@ -993,11 +993,101 @@ void mapLayersEraseDown(AppState& app, float wx, float wy) {
     app.drag = Drag::LayerTool;
 }
 
-// Terrain's Brush (Isometric) pressed outside of the map: the stroke paints the active layer's corners there (the map's
-// own Brush stops at its edge). Show terrain outside of map boundaries must be on, to see it.
+bool shapeInside(const std::vector<std::pair<int, int>>& pts, double px, double py);  // (terrain_shapes.inc)
+// Whether an ISOM corner has no tile on the map (its tiles 2x-2 to 2x+1, rows y-1 to y).
+static bool cornerOffMap(const Editor& ed, int x, int y) {
+    return 2 * x + 1 < 0 || 2 * x - 2 >= int(ed.width()) || y < 0 || y - 1 >= int(ed.height());
+}
+// The terrain at a corner as it shows: the top visible layer's there, else on the map the map's, else none (0).
+static uint16_t layersTerrainAt(const Editor& ed, int x, int y) {
+    const LayerStack& st = gMapLayers.stack;
+    for (size_t i = st.layers.size(); i-- > 0;)
+        if (st.layers[i].visible)
+            if (auto it = st.layers[i].corners.find({x, y}); it != st.layers[i].corners.end()) return it->second;
+    return cornerOffMap(ed, x, y) ? 0 : ed.isomGrid().terrainAt(x, y);
+}
+// One edit of the active layer's corners (one undo step): each corner of `corners` gets the terrain `t`.
+static bool layersSetCorners(Editor& ed, const std::vector<std::pair<int, int>>& corners, uint16_t t) {
+    MapLayersState& s = gMapLayers;
+    MapLayer& layer = s.stack.layers[size_t(s.active)];
+    ed.beginLayerEdit();
+    bool any = false;
+    for (const auto& at : corners) {
+        auto [it, fresh] = layer.corners.try_emplace(at, t);
+        if (fresh || it->second != t) it->second = t, any = true;
+    }
+    if (any) layersCompose(ed);
+    ed.endLayerEdit(any, any ? layersFiles(false) : std::vector<ArchiveFile>{});
+    if (any && s.ed == &ed) layersRemember(ed);
+    layersPanelChanged();
+    return any;
+}
+// Fill outside of the map: the corners joined to the clicked one that show its terrain (none: the empty ground there),
+// as far as the terrain outside shows (kOutsideReach), get the terrain `t`.
+static void layersFillOutside(Editor& ed, int wx, int wy, uint16_t t) {
+    int sx = int(std::lround(wx / 64.0)), sy = int(std::lround(wy / 32.0));
+    if (!((sx + sy) & 1)) sy += wy >= sy * 32 ? 1 : -1;  // (the nearest corner: x + y odd)
+    const uint16_t from = layersTerrainAt(ed, sx, sy);
+    if (from == t) return setMessage(L"The terrain is the same already");
+    const int W = int(ed.width()), H = int(ed.height());
+    const auto shows = [&](int x, int y) { return 2 * x + 1 >= -kOutsideReach && 2 * x - 2 < W + kOutsideReach && y >= -kOutsideReach && y - 1 < H + kOutsideReach; };
+    constexpr size_t kMost = 120000;  // (corners: a fill of the whole empty ground round the map is too large to keep)
+    std::set<std::pair<int, int>> seen{{sx, sy}};
+    std::vector<std::pair<int, int>> open{{sx, sy}}, out;
+    while (!open.empty()) {
+        const auto [x, y] = open.back();
+        open.pop_back();
+        out.push_back({x, y});
+        if (out.size() > kMost) return setMessage(L"Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)");
+        for (const auto& n : {std::pair{x - 1, y - 1}, {x + 1, y - 1}, {x - 1, y + 1}, {x + 1, y + 1}})
+            if (shows(n.first, n.second) && cornerOffMap(ed, n.first, n.second) && !seen.count(n) && layersTerrainAt(ed, n.first, n.second) == from)
+                seen.insert(n), open.push_back(n);  // (outside of the map only: the map's Fill fills on it)
+    }
+    if (layersSetCorners(ed, out, t)) setMessage(L"Filled the terrain on the layer");
+}
+// A shape (Line, Contour, Polygon, Rectangle, Ellipse, Diamond): its corners outside of the map's grid go into the
+// active layer (one edit); the map's own shape tools paint the rest, with the map's mask, protected tiles and symmetry.
+// 1: the layer took corners; 0: none outside (or no layer to take them); -1: the layer refuses (the message says why).
+int mapLayersPaintShape(Editor& ed, bool stroke, const std::vector<std::pair<int, int>>& geom, const Brush& brush, uint16_t t, bool closed) {
+    MapLayersState& s = gMapLayers;
+    if (!mapLayersShowOutside() || !s.on || s.ed != &ed || s.active < 0 || s.active >= int(s.stack.layers.size()) || geom.empty()) return 0;
+    std::set<std::pair<int, int>> corners;
+    if (stroke) {  // (the brush along each line, a step at most each 16 px)
+        const size_t lines = closed ? geom.size() : std::max<size_t>(1, geom.size() - 1);
+        for (size_t i = 0; i < lines; ++i) {
+            const auto a = geom[i], b = geom[(i + 1) % geom.size()];
+            const int steps = std::max(1, int(std::hypot(double(b.first - a.first), double(b.second - a.second)) / 16));
+            for (int k = 0; k <= steps; ++k)
+                for (const auto& c : layerBrushCorners(ed, a.first + (b.first - a.first) * k / steps, a.second + (b.second - a.second) * k / steps, brush)) corners.insert(c);
+        }
+    } else {  // (the corners in the shape)
+        int l = INT_MAX, tp = INT_MAX, r = INT_MIN, bt = INT_MIN;
+        for (const auto& [x, y] : geom) l = std::min(l, x), tp = std::min(tp, y), r = std::max(r, x), bt = std::max(bt, y);
+        const int W = int(ed.width()), H = int(ed.height());
+        for (int y = tp / 32 - 1; y <= bt / 32 + 1; ++y)
+            for (int x = l / 64 - 1; x <= r / 64 + 1; ++x)
+                if (((x + y) & 1) && 2 * x + 1 >= -kOutsideReach && 2 * x - 2 < W + kOutsideReach && y >= -kOutsideReach && y - 1 < H + kOutsideReach &&
+                    shapeInside(geom, x * 64.0, y * 32.0))
+                    corners.insert({x, y});
+    }
+    std::vector<std::pair<int, int>> off;  // (not the map's grid: IsomGrid::isCorner goes a corner past its edge)
+    for (const auto& [x, y] : corners)
+        if (!ed.isomGrid().isCorner(x, y)) off.push_back({x, y});
+    if (off.empty()) return 0;
+    const MapLayer& layer = s.stack.layers[size_t(s.active)];
+    if (layer.locked) return setMessage(L"The layer is locked"), -1;
+    if (!layer.visible) return setMessage(L"The layer is hidden"), -1;
+    return layersSetCorners(ed, off, t) ? 1 : 0;
+}
+
+// Terrain's Brush or Fill (Isometric) pressed outside of the map: the stroke paints the active layer's corners there,
+// Fill fills the terrain there (the map's own tools stop at its edge). Show terrain outside of map boundaries must be on,
+// to see it.
 bool mapLayersPaintOutsideOn(AppState& app, float wx, float wy, unsigned mods) {
     const MapLayersState& s = gMapLayers;
-    if (app.mode != Mode::Terrain || currentTool(app) != TBrush || app.terrainRect || app.palette <= 0 || !app.ed || (mods & draw::kCtrl)) return false;
+    const int tool = currentTool(app);
+    if (app.mode != Mode::Terrain || (tool != TBrush && tool != TFill) || app.terrainRect || app.palette <= 0 || !app.ed || (mods & (draw::kCtrl | draw::kShift)))
+        return false;
     if (!s.on || s.ed != app.ed.get() || s.active < 0) return false;  // (no layer: the map's Brush, as before)
     // (near the map, the map's own Brush paints its edge corners: IsomGrid::isCorner goes a corner past the edge)
     const float W = app.ed->width() * 32.0f, H = app.ed->height() * 32.0f;
@@ -1022,6 +1112,7 @@ void mapLayersPaintDown(AppState& app, float wx, float wy) {
         return setMessage(L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)");
     if (s.stack.layers[size_t(s.active)].locked) return setMessage(L"The layer is locked");
     if (!s.stack.layers[size_t(s.active)].visible) return setMessage(L"The layer is hidden");
+    if (currentTool(app) == TFill) return layersFillOutside(*app.ed, int(wx), int(wy), uint16_t(app.palette));
     app.selDoodads.clear(), app.selSprites.clear(), app.ed->clearSelection();  // (the lists change in the drag)
     app.ed->beginLayerEdit();
     s.dragEd = app.ed.get();

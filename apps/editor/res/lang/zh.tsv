@@ -3039,3 +3039,6 @@ Map layers: terrain outside of map boundaries is hidden	地图图层：已隐藏
 To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries	要在地图外绘制，请打开 地图图层 > 设置 > 显示地图边界外的地形
 To paint outside of the map, select a layer in Map layers (the Background stays on the map)	要在地图外绘制，请在地图图层中选择一个图层（背景留在地图上）
 The layer is hidden	图层已隐藏
+Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)	未填充：区域太大。请先在其周围画出轮廓（轮廓或多边形）
+Filled the terrain on the layer	已填充图层上的地形
+Painted the shape on the layer outside of the map	已在地图外的图层上绘制形状

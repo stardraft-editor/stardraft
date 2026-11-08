@@ -3041,6 +3041,9 @@ constexpr UiText kRows[] = {
     {L"To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries", L"Para pintar fuera del mapa, active Capas del mapa > Ajustes > Mostrar el terreno fuera de los l\u00EDmites del mapa"},
     {L"To paint outside of the map, select a layer in Map layers (the Background stays on the map)", L"Para pintar fuera del mapa, seleccione una capa en Capas del mapa (el Fondo se queda en el mapa)"},
     {L"The layer is hidden", L"La capa est\u00E1 oculta"},
+    {L"Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)", L"No se rellen\u00F3: el \u00E1rea es demasiado grande. Primero dibuje un contorno a su alrededor (Contorno o Pol\u00EDgono)"},
+    {L"Filled the terrain on the layer", L"Se rellen\u00F3 el terreno en la capa"},
+    {L"Painted the shape on the layer outside of the map", L"Se pint\u00F3 la forma en la capa fuera del mapa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

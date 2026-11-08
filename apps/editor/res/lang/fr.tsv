@@ -3039,3 +3039,6 @@ Map layers: terrain outside of map boundaries is hidden	Calques de la carte : le
 To paint outside of the map, turn on Map layers > Settings > Show terrain outside of map boundaries	Pour peindre hors de la carte, activez Calques de la carte > Paramètres > Afficher le terrain hors des limites de la carte
 To paint outside of the map, select a layer in Map layers (the Background stays on the map)	Pour peindre hors de la carte, sélectionnez un calque dans Calques de la carte (l'Arrière-plan reste sur la carte)
 The layer is hidden	Le calque est masqué
+Did not fill: the area is too large. Draw an outline round it first (Contour or Polygon)	Remplissage non fait : la zone est trop grande. Tracez d'abord un contour autour (Contour ou Polygone)
+Filled the terrain on the layer	Terrain rempli sur le calque
+Painted the shape on the layer outside of the map	Forme peinte sur le calque hors de la carte
