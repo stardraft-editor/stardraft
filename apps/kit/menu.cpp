@@ -52,6 +52,7 @@ struct Chain {
     std::vector<Panel*> live;  // the open menus, the root first
     int hoverTimer = 0, pruneTimer = 0;
     bool closed = false;
+    bool closing = false;  // the chain closes windows itself (closeFrom, closeAll): their closed callbacks do nothing
 
     void cancelHover() {
         if (hoverTimer) host.cancelTimer(hoverTimer), hoverTimer = 0;
@@ -129,11 +130,13 @@ void Chain::scheduleHover(int level, int row) {
 
 void Chain::closeFrom(size_t level) {
     if (live.size() <= level) return;
+    closing = true;
     while (live.size() > level) {
         host.closeWindow(*live.back());
         host.forget(*live.back());
         live.pop_back();
     }
+    closing = false;
     cancelHover();
     prune();
     if (live.empty()) return;
@@ -165,11 +168,13 @@ void Chain::closeAll(bool outside) {
     closed = true;
     if (g_current == this) g_current = nullptr;
     cancelHover();
+    closing = true;
     while (!live.empty()) {
         host.closeWindow(*live.back());
         host.forget(*live.back());
         live.pop_back();
     }
+    closing = false;
     if (!outside && opts.focusFrom && from) host.focus(*from);
     if (opts.closed) {
         auto f = opts.closed;
@@ -295,7 +300,21 @@ void Panel::openSub(int i, bool byKeys) {
     chain_.owned.push_back(std::move(sub));
     chain_.live.push_back(raw);
     const int top = row(i).top - px(kPad), left = width() - px(3);  // (on the parent's edge, as the system's)
-    chain_.host.openWindow(*this, *raw, WindowSpec{WindowKind::Menu, Rect{left, top, left + sl.size.x, top + sl.size.y}, L""}, nullptr);
+    // (the host may close the submenu's window by itself: a click on this menu closes the pop-outs that are not this
+    // menu's chain up, also its open submenu. The chain then forgets the submenu and the ones under it, so that this
+    // menu's row opens it again: a click on the row of a submenu that the mouse's hover opened)
+    std::weak_ptr<bool> alive = chain_.alive;
+    Chain* chain = &chain_;
+    const size_t subLevel = size_t(level_) + 1;
+    chain_.host.openWindow(*this, *raw, WindowSpec{WindowKind::Menu, Rect{left, top, left + sl.size.x, top + sl.size.y}, L""},
+                           [alive, chain, raw, subLevel] {
+                               if (!alive.lock() || chain->closing || chain->closed) return;
+                               if (chain->live.size() <= subLevel || chain->live[subLevel] != raw) return;
+                               while (chain->live.size() > subLevel) chain->host.forget(*chain->live.back()), chain->live.pop_back();
+                               chain->cancelHover();
+                               chain->prune();
+                               if (!chain->live.empty()) chain->live.back()->clearOpen();
+                           });
     if (byKeys) raw->highlightFirst();
     chain_.host.focus(*raw);
 }

@@ -265,6 +265,27 @@ KIT_TEST(menu_hover_opens_submenu_after_a_delay) {
     CHECK(host.windows.size() == 1);
 }
 
+// A submenu that the hover opened, closed by the host (a click on its menu closes the pop-outs outside that menu's
+// chain): the click on its row opens it again.
+KIT_TEST(menu_click_reopens_submenu_the_host_closed) {
+    draw::View root;
+    FakeHost host(root);
+    CloseMenus closeMenus{host};
+    RecordingCanvas c;
+    const std::vector<kit::MenuItem> items = {sub(L"File", {entry(L"New")}), entry(L"Edit")};
+    kit::Menu::popup(root, {10, 10}, items, c);
+    win(host, 0).mouse(ev(MouseKind::Move, 20, 20));  // on File: its submenu opens after the delay
+    host.runTimers();
+    CHECK(host.windows.size() == 2);
+    auto closed = std::move(host.windows[1].closed);  // the host closes it (as SdlHost::dismissPopupsExcept)
+    host.windows.erase(host.windows.begin() + 1);
+    if (closed) closed();
+    win(host, 0).mouse(ev(MouseKind::Down, 20, 20));  // a click on File opens it again
+    CHECK(host.windows.size() == 2);
+    win(host, 0).mouse(ev(MouseKind::Up, 20, 20));
+    CHECK(host.windows.size() == 2);
+}
+
 KIT_TEST(menu_hover_leaving_before_the_delay_opens_nothing) {
     draw::View root;
     FakeHost host(root);
