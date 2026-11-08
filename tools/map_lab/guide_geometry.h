@@ -6,6 +6,14 @@
 #include <cmath>
 
 namespace maplab {
+// Retention concerns completed measurements. A runner still crossing the map
+// must keep its whole trail, regardless of how many runners launched after it.
+inline bool showRushTrail(const RushPath &path, const RushFrame &frame, int keep) {
+    if (!path.finished) return true;
+    return std::count_if(frame.paths.begin(), frame.paths.end(), [&](const auto &other) {
+        return other.finished && other.id > path.id;
+    }) < std::clamp(keep, 1, 50);
+}
 inline std::uint32_t miningGuideColor(int worker) {
     constexpr std::uint32_t colors[]{0xFFB54CFF,0xFFEF75FF,0xFF91D0FF,
                                     0xC7F56BFF,0xFFA88BFF,0xE5ABFFFF};
@@ -92,12 +100,38 @@ void appendMiningGuides(stardraft::render::Scene &scene,
       line(x - 6 * k, y - 13 * k, x - 2 * k, y - 9 * k, 0xFFDA65FF);
     }
     if (guide.kind == 2) {
-      const float dx = float(guide.targetX) - x, dy = float(guide.targetY) - y;
+      float endX = float(guide.targetX), endY = float(guide.targetY);
+      if (guide.stage == 1) {
+        const auto second = std::find_if(frame.guides.begin(), frame.guides.end(),
+            [&](const auto &g) {
+              return g.kind == 2 && g.stage == 2 && g.worker == guide.worker;
+            });
+        if (second != frame.guides.end()) {
+          // Command 2 interrupts command 1 here. Show its untravelled
+          // continuation as screen-sized dots, without another arrowhead.
+          endX = float(second->x);
+          endY = float(second->y);
+          const float dx = float(guide.targetX) - endX;
+          const float dy = float(guide.targetY) - endY;
+          const float length = std::hypot(dx, dy);
+          if (length * zoom > 1) {
+            const float ux = dx / length, uy = dy / length;
+            const float stop = std::max(0.f, length - 9 / zoom);
+            for (float d = 3 / zoom; d < stop; d += 6 / zoom) {
+              const float tail = std::min(d + 1.5f / zoom, stop);
+              line(endX + ux * d, endY + uy * d,
+                   endX + ux * tail, endY + uy * tail, color);
+            }
+          }
+        }
+      }
+      const float dx = endX - x, dy = endY - y;
       const float length = std::hypot(dx, dy);
       if (length * zoom > 1) {
         const float ux = dx / length, uy = dy / length;
-        const float tx = float(guide.targetX) - ux * 9 / zoom;
-        const float ty = float(guide.targetY) - uy * 9 / zoom;
+        const float inset = std::min(9 / zoom, length * .25f);
+        const float tx = endX - ux * inset;
+        const float ty = endY - uy * inset;
         line(x, y, tx, ty, color);
         line(tx, ty, tx - ux * 7 / zoom - uy * 4 / zoom,
              ty - uy * 7 / zoom + ux * 4 / zoom, color);

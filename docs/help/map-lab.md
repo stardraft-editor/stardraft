@@ -31,7 +31,8 @@ cycle searches. Updating an earlier plan clears the later plans.
 - **Position boost:** translucent workers and yellow boxes mark starting positions.
 - **Cargo boost:** translucent workers and yellow return arrows mark cargo commands.
 - **Cycle boost:** translucent workers, colored arrows and numbers show the two
-  command stages. Each worker keeps its own arrow color.
+  command stages. Dots show the cancelled remainder of path 1 after command 2
+  takes over. Each worker keeps its own arrow color.
 
 The check boxes only show or hide guides; they do not turn off an applied plan.
 Cream numbers on dark backplates at mineral fields show the last delivery-to-delivery cycle in game
@@ -48,7 +49,8 @@ Their tooltips show precise coordinates. The markers on the map use matching
 colors. **Measure** also runs the displayed endpoints.
 
 **Launch (s)** sets the interval between workers (0.5 to 60 seconds). **Keep**
-sets how many completed results and recent trails to retain (1 to 50). These
+sets how many completed results and their trails to retain (1 to 50). Trails for
+workers still traveling remain visible until they finish. These
 settings can change while the test runs. Each worker runs in a separate world.
 
 The map shows A/B markers, colored trails, translucent workers and moving timers.

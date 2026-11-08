@@ -110,6 +110,16 @@ using measured rounded backplates and the same camera as the rendered map frame.
 Other scene consumers retain their bitmap-text fallback. Guide coordinates and
 simulation data are unchanged.
 
+Cycle command 1 ends at command 2's position once both commands are available.
+Its cancelled continuation to the first target is dotted, in the same worker
+color with spacing fixed in screen pixels. Pairing uses the worker ID, so guides
+from parallel workers cannot split one another's arrows.
+
+Rush trail drawing and hover share showRushTrail: all active trips remain
+visible, while Keep limits completed trips only. Counting newer completed IDs
+also handles gaps caused by longer-running workers. The guide regression covers
+32 overlapping trips and Keep values of 1, 3 and 10.
+
 Session advances and publishes individual simulation frames, at steady deadlines
 42/speed milliseconds apart, rather than publishing speed-frame bursts every
 42 ms. Pause still polls searches without advancing game time. The game script

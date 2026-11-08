@@ -235,10 +235,9 @@ public:
         }
         if(e.kind==draw::MouseKind::Move&&session_){
             float x,y;toWorld(gState,float(e.pt.x),float(e.pt.y),x,y);
-            double nearest=9/std::max(.01f,gState.zoom);int hover=-1,newest=0;
-            for(const auto& p:latest_.rush.paths)newest=std::max(newest,p.id);
+            double nearest=9/std::max(.01f,gState.zoom);int hover=-1;
             const int keep=std::clamp(int(std::wcstol(retained_.text().c_str(),nullptr,10)),1,50);
-            for(const auto& p:latest_.rush.paths)if(p.id>newest-keep)
+            for(const auto& p:latest_.rush.paths)if(maplab::showRushTrail(p,latest_.rush,keep))
                 for(size_t i=1;i<p.points.size();++i){
                     const auto a=p.points[i-1],b=p.points[i];const double dx=b.x-a.x,dy=b.y-a.y,length=dx*dx+dy*dy;
                     const double t=length?std::clamp(((x-a.x)*dx+(y-a.y)*dy)/length,0.,1.):0;
@@ -262,7 +261,6 @@ public:
                  box.rgba, true, 1.5f, true});
         };
         if(haveStart_)marker(start_,"A");if(haveEnd_)marker(end_,"B");
-        int newest=0;for(const auto& p:latest_.rush.paths)newest=std::max(newest,p.id);
         const int keep=std::clamp(int(std::wcstol(retained_.text().c_str(),nullptr,10)),1,50);
         for(const auto& path:latest_.rush.paths){
             for(const auto& image:path.sprites){
@@ -270,7 +268,7 @@ public:
                 d.owner=uint8_t(image.owner);d.flip=image.flip;d.shadow=image.shadow;d.alpha=.45f;
                 d.drawFunction=gState.ed->unitSprites().drawFunction(image.image);scene.sprites.push_back(d);
             }
-            if(path.id>newest-keep){
+            if(maplab::showRushTrail(path,latest_.rush,keep)){
                 const size_t stride=std::max<size_t>(1,path.points.size()/512);
                 for(size_t i=1;i<path.points.size();i+=stride){
                     const auto a=path.points[i-1],b=path.points[std::min(i+stride-1,path.points.size()-1)];
