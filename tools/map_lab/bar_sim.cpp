@@ -30,9 +30,13 @@ constexpr int kZergHatchery = 131, kTerranCommandCenter = 106, kProtossNexus = 1
 constexpr int kMineralFirst = 176, kMineralLast = 178;
 // Mining: the mineral fields of a base are those within 12 tiles of its depot; they do not run out.
 constexpr int kFieldRange = 384, kFieldAmount = 50000, kMineralsPerTrip = 8;
-// Rush: a worker that has not moved for 480 frames stops; no walk is longer than 24000 frames; the worker is at the
-// end within 1 pixel; it starts within 8 pixels of its start.
-constexpr int kRushStall = 480, kRushMost = 24000, kRushStartSlack = 8, kRushMostGames = 64;
+// Rush: a walk ends when the unit's move ends (its order is no longer Move) or it has come to no new part of the map
+// (a 128 pixel square it was not in yet) for 480 frames (it stands, or it goes back and forth: no way on); no
+// walk is longer than 24000 frames; the unit is at the end when it stops within a tile of it (a fast unit stops a few
+// pixels past the point, and a point where it cannot stand ends its way next to it); it starts within 8 pixels of its
+// start.
+constexpr int kRushStall = 480, kRushCell = 128, kRushMost = 24000, kRushStartSlack = 8, kRushMostGames = 64, kRushArrive = 32,
+              kOrderMove = 6;
 constexpr int kMaxBases = 8;
 
 int workerOf(int race) { return race == sim::Zerg ? kZergDrone : race == sim::Terran ? kTerranScv : kProtossProbe; }
@@ -550,7 +554,9 @@ private:
         ms::UnitHandle worker;
         sim::RushRoute route;
         std::pair<int, int> last;  // the worker's place in the last frame
-        int stalled = 0;
+        int stalled = 0;            // the frames since the unit came to a part of the map that it was not in yet
+        std::set<int> cells;        // those parts (kRushCell squares) of the map it was in
+        bool moving = false;  // the unit's Move order has started
     };
 
     // The game data (once) and the map's world (once a map: Restart copies it again).
@@ -759,14 +765,15 @@ private:
                 continue;
             }
             const std::pair<int, int> at{u->position.x, u->position.y}, before = r.last;
-            if (at != before) {
-                r.route.distance += std::hypot(double(at.first - before.first), double(at.second - before.second));
-                r.last = at, r.stalled = 0;
-            } else {
-                ++r.stalled;
-            }
-            r.route.reached = std::hypot(double(at.first - r.route.toX), double(at.second - r.route.toY)) <= 1;
-            r.route.finished = r.route.reached || r.stalled >= kRushStall || r.route.frames >= kRushMost;
+            if (at != before) r.route.distance += std::hypot(double(at.first - before.first), double(at.second - before.second)), r.last = at;
+            if (r.cells.insert(at.first / kRushCell + at.second / kRushCell * 4096).second) r.stalled = 0;
+            else ++r.stalled;
+            const double away = std::hypot(double(at.first - r.route.toX), double(at.second - r.route.toY));
+            const bool moving = u->order == kOrderMove;
+            const bool stopped = r.moving && !moving;  // (the move ended: the unit is where its way ends)
+            r.moving = r.moving || moving;
+            r.route.reached = away <= 1 || (stopped && away <= kRushArrive);
+            r.route.finished = r.route.reached || stopped || r.stalled >= kRushStall || r.route.frames >= kRushMost;
             const std::pair<int, int> drawn = r.route.path.back();  // (the path keeps a place each 8 pixels, and the end)
             const int dx = at.first - drawn.first, dy = at.second - drawn.second;
             if (at != drawn && (dx * dx + dy * dy >= 64 || r.route.finished)) r.route.path.push_back(at);

@@ -2467,7 +2467,7 @@ Workers on gas	가스에서 채취하는 일꾼 수
 Workers and gas	일꾼과 가스
 Measured game time	측정하는 게임 시간
 Races	종족
-As in the map (Random: a random race)	맵에 따름 (무작위: 임의의 종족)
+As defined in map (Random: a random race)	맵에 따름 (무작위: 임의의 종족)
 0 (no refinery)	0 (정제소 없음)
 The first 30 game seconds are not measured: the workers get to their fields.	처음 30 게임 초는 측정하지 않습니다. 일꾼이 자원 지점에 도착합니다.
 Simulation report	시뮬레이션 보고서
@@ -3320,7 +3320,7 @@ None found	찾지 못함
 1 worker faster	일꾼 1명 더 빠름
 %d workers faster	일꾼 %d명 더 빠름
 Boost search time	최적화 검색 시간
-As in the map	맵 설정대로
+As defined in map	맵 설정대로
 Boost searches	최적화 검색
 Simulation options	시뮬레이션 옵션
 Search for better start places of the workers at each base	각 기지에서 일꾼의 더 좋은 시작 위치 검색
@@ -3371,7 +3371,6 @@ Simulation &settings	시뮬레이션 설정(&S)
 Simulation &options…	시뮬레이션 옵션(&O)…
 &Close the simulation	시뮬레이션 닫기(&C)
 &Simulation	시뮬레이션(&S)
-What all players see	모든 플레이어의 시야
 Fog of war	전장의 안개
 Report feedback on the simulation…	시뮬레이션에 대한 피드백 보내기…
 Unit: %ls	유닛: %ls
@@ -3381,3 +3380,4 @@ Release to start from here	놓으면 여기서 출발합니다
 Release to go here	놓으면 여기로 갑니다
 The start point (drag it)	시작 지점 (끌어서 이동)
 The end point (drag it)	끝 지점 (끌어서 이동)
+Specific players	특정 플레이어

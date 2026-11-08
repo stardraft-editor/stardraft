@@ -2469,7 +2469,7 @@ constexpr UiText kRows[] = {
     {L"Workers and gas", L"\uC77C\uAFBC\uACFC \uAC00\uC2A4"},
     {L"Measured game time", L"\uCE21\uC815\uD558\uB294 \uAC8C\uC784 \uC2DC\uAC04"},
     {L"Races", L"\uC885\uC871"},
-    {L"As in the map (Random: a random race)", L"\uB9F5\uC5D0 \uB530\uB984 (\uBB34\uC791\uC704: \uC784\uC758\uC758 \uC885\uC871)"},
+    {L"As defined in map (Random: a random race)", L"\uB9F5\uC5D0 \uB530\uB984 (\uBB34\uC791\uC704: \uC784\uC758\uC758 \uC885\uC871)"},
     {L"0 (no refinery)", L"0 (\uC815\uC81C\uC18C \uC5C6\uC74C)"},
     {L"The first 30 game seconds are not measured: the workers get to their fields.", L"\uCC98\uC74C 30 \uAC8C\uC784 \uCD08\uB294 \uCE21\uC815\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC77C\uAFBC\uC774 \uC790\uC6D0 \uC9C0\uC810\uC5D0 \uB3C4\uCC29\uD569\uB2C8\uB2E4."},
     {L"Simulation report", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uBCF4\uACE0\uC11C"},
@@ -3319,7 +3319,7 @@ constexpr UiText kRows[] = {
     {L"1 worker faster", L"\uC77C\uAFBC 1\uBA85 \uB354 \uBE60\uB984"},
     {L"%d workers faster", L"\uC77C\uAFBC %d\uBA85 \uB354 \uBE60\uB984"},
     {L"Boost search time", L"\uCD5C\uC801\uD654 \uAC80\uC0C9 \uC2DC\uAC04"},
-    {L"As in the map", L"\uB9F5 \uC124\uC815\uB300\uB85C"},
+    {L"As defined in map", L"\uB9F5 \uC124\uC815\uB300\uB85C"},
     {L"Boost searches", L"\uCD5C\uC801\uD654 \uAC80\uC0C9"},
     {L"Simulation options", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uC635\uC158"},
     {L"Search for better start places of the workers at each base", L"\uAC01 \uAE30\uC9C0\uC5D0\uC11C \uC77C\uAFBC\uC758 \uB354 \uC88B\uC740 \uC2DC\uC791 \uC704\uCE58 \uAC80\uC0C9"},
@@ -3370,7 +3370,6 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uC635\uC158(&O)\u2026"},
     {L"&Close the simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uB2EB\uAE30(&C)"},
     {L"&Simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158(&S)"},
-    {L"What all players see", L"\uBAA8\uB4E0 \uD50C\uB808\uC774\uC5B4\uC758 \uC2DC\uC57C"},
     {L"Fog of war", L"\uC804\uC7A5\uC758 \uC548\uAC1C"},
     {L"Report feedback on the simulation\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158\uC5D0 \uB300\uD55C \uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30\u2026"},
     {L"Unit: %ls", L"\uC720\uB2DB: %ls"},
@@ -3380,6 +3379,7 @@ constexpr UiText kRows[] = {
     {L"Release to go here", L"\uB193\uC73C\uBA74 \uC5EC\uAE30\uB85C \uAC11\uB2C8\uB2E4"},
     {L"The start point (drag it)", L"\uC2DC\uC791 \uC9C0\uC810 (\uB04C\uC5B4\uC11C \uC774\uB3D9)"},
     {L"The end point (drag it)", L"\uB05D \uC9C0\uC810 (\uB04C\uC5B4\uC11C \uC774\uB3D9)"},
+    {L"Specific players", L"\uD2B9\uC815 \uD50C\uB808\uC774\uC5B4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

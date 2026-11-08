@@ -2467,7 +2467,7 @@ Workers on gas	瓦斯上的工人数
 Workers and gas	工人与瓦斯
 Measured game time	计时的游戏时长
 Races	种族
-As in the map (Random: a random race)	与地图相同（随机：随机种族）
+As defined in map (Random: a random race)	与地图相同（随机：随机种族）
 0 (no refinery)	0（无精炼厂）
 The first 30 game seconds are not measured: the workers get to their fields.	前 30 个游戏秒不计入测量：工人会先走到各自的矿区。
 Simulation report	模拟报告
@@ -3290,7 +3290,7 @@ None found	未找到
 1 worker faster	1 个农民更快
 %d workers faster	%d 个农民更快
 Boost search time	优化搜索时间
-As in the map	与地图相同
+As defined in map	与地图相同
 Boost searches	优化搜索
 Simulation options	模拟选项
 Search for better start places of the workers at each base	为每个基地的农民搜索更好的起始位置
@@ -3341,7 +3341,6 @@ Simulation &settings	模拟设置(&S)
 Simulation &options…	模拟选项(&O)…
 &Close the simulation	关闭模拟(&C)
 &Simulation	模拟(&S)
-What all players see	所有玩家看到的范围
 Fog of war	战争迷雾
 Report feedback on the simulation…	发送关于模拟的反馈…
 Unit: %ls	单位：%ls
@@ -3351,3 +3350,4 @@ Release to start from here	松开后从这里出发
 Release to go here	松开后走到这里
 The start point (drag it)	起点（拖动它）
 The end point (drag it)	终点（拖动它）
+Specific players	指定玩家

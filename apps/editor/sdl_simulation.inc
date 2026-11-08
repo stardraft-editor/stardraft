@@ -51,8 +51,9 @@ struct LiveSim {
     bool perField = false;  // mining: `workers` for each mineral field (else for each base)
     int boostFailed = 0;    // mining: the boost searches that could not start (a bit for each kind)
     uint32_t seed = 0;  // mining: the random races' seed (a new game time keeps it)
-    int fog = -1;  // rush distance: the player whose vision the map shows (the fog of war; the gear's Fog of war); -1 none,
-                   // sim::kAllPlayers all
+    int fog = -1;  // rush distance: whose vision the map shows (the fog of war; the gear's Fog of war): -1 none,
+                   // sim::kAllPlayers all, kFogPlayers the players of fogPlayers
+    int fogPlayers = 0;  // rush distance's fog of war, Specific players: a bit for each player (0 to 11) whose vision shows
     std::wstring endText, report;
     std::wstring result;  // the bar's few words at the end (Player 2 wins, 4066 minerals a minute)
     // How the game started (Restart and the timeline start it again: the game is the same each time).
@@ -246,6 +247,7 @@ void simTrails(render::Scene&) {
 // map's renderer draws no smooth lines): each way a 2 pixel line in its player's color with a dark edge under it; A
 // and B as pins, green (the start) and red (the end): a triangle with a flat top, its tip on the point, a white rim
 // and a dark edge. In window pixels, as large at any zoom (a held pin a little larger).
+bool simFogShows(int player);  // (below: the ways that the fog of war in use shows)
 void simPaintRush(draw::Canvas& c, draw::Rect view) {
     if (!gSim.rush || !gState.ed) return;
     using P = draw::Canvas::PointF;
@@ -254,7 +256,7 @@ void simPaintRush(draw::Canvas& c, draw::Rect view) {
     auto color = [](uint32_t rgba) { return draw::rgb(int(rgba >> 24), int(rgba >> 16 & 255), int(rgba >> 8 & 255)); };
     for (const sim::RushRoute& r : gSimRoutes) {
         if (gRushDrag) break;  // (no ways while a point moves)
-        if (r.path.size() < 2 || (gSim.fog >= 0 && r.from != gSim.fog)) continue;
+        if (r.path.size() < 2 || !simFogShows(r.from)) continue;
         // (a start location's route: its player's color; the routes between two points: each unit its own)
         const draw::Color line = color(playerRgba(r.from >= 0 ? std::clamp(r.from, 0, 11) : int(&r - gSimRoutes.data()) % 12, 255));
         // The way's points in the window, at least 2 pixels apart (zoomed out, the path's places each 8 map pixels are
@@ -402,14 +404,34 @@ void simGuides(render::Scene& s) {
     }
 }
 
-// The fog of war of rush distance (the gear's Fog of war): the map as one player's scouts see it, as the game draws it: black
-// where they have not been, darker where they saw before, clear where they see now: off, what all players see, or
-// what one start location's player sees. A copy, kept while a skip runs.
+// The fog of war of rush distance (the gear's Fog of war): the map as the players' scouts see it, as the game draws it:
+// black where they have not been, darker where they saw before, clear where they see now: off, what all players see, or
+// what the checked players see (each tile: the most that one of them sees). None before the game plays (at 0:00 and
+// waiting for Play: the whole map). A copy, kept while a skip runs.
+constexpr int kFogPlayers = -3;  // (LiveSim::fog: the players of LiveSim::fogPlayers)
+// Whether the way of `player` (a start location's) shows with the fog of war in use.
+bool simFogShows(int player) {
+    return gSim.fog == -1 || gSim.fog == sim::kAllPlayers || (gSim.fog == kFogPlayers && player >= 0 && player < 12 && (gSim.fogPlayers >> player & 1));
+}
 std::wstring simPlayer(int player);  // (below: "Player 1")
 std::vector<uint8_t> gSimFog;
 int gSimFogW = 0, gSimFogH = 0;
 void simFog(render::Scene& s) {
-    if (!simSkipRunning() && !simEngine().vision(gSim.fog, gSimFogW, gSimFogH, gSimFog)) gSimFog.clear();
+    if (!simSkipRunning()) {
+        if (gSim.fog != kFogPlayers) {
+            if (!simEngine().vision(gSim.fog, gSimFogW, gSimFogH, gSimFog)) gSimFog.clear();
+        } else {  // (the checked players together: each tile the most one of them sees)
+            gSimFog.clear();
+            std::vector<uint8_t> one;
+            int w = 0, h = 0;
+            for (int pl = 0; pl < 12; ++pl)
+                if ((gSim.fogPlayers >> pl & 1) && simEngine().vision(pl, w, h, one)) {
+                    if (gSimFog.empty()) gSimFog = one, gSimFogW = w, gSimFogH = h;
+                    else if (one.size() == gSimFog.size())
+                        for (size_t i = 0; i < one.size(); ++i) gSimFog[i] = std::max(gSimFog[i], one[i]);
+                }
+        }
+    }
     if (gSimFog.size() != size_t(gSimFogW) * size_t(gSimFogH)) return;
     for (int y = 0; y < gSimFogH; ++y)
         for (int x = 0; x < gSimFogW;) {  // (a row's tiles of the same state: one rectangle)
@@ -464,7 +486,7 @@ void simScene(render::Scene& s) {
         if (li.order == 0 && !d.shadow) addImage(s, d);
         else s.sprites.push_back(d);
     }
-    if (gSim.rush && gSim.fog != -1) simFog(s);
+    if (gSim.rush && gSim.fog != -1 && (gSim.playing || simEngine().frame() > 0)) simFog(s);  // (before Play: the whole map)
     if (gSim.rush) simTrails(s);
     else if (!gSim.combat) simGuides(s), simFieldLabels(s);
 }
@@ -1364,7 +1386,7 @@ void simRushDragLost() {
 }
 
 // The races of Program options > Simulate mining (SimRaces), as the bar's gear lists them.
-const wchar_t* const kSimRaceNames[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
+const wchar_t* const kSimRaceNames[4] = {L"As defined in map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 
 // The mining's settings (the bar's gear): a panel under the bar. The workers on minerals at each base: for each mineral
 // field or in all (a choice of two), and their number (a step box); the races (a list); the measured game time and the
@@ -1477,7 +1499,7 @@ void simPaintPanel(draw::Canvas& c, const SimBarLayout& l, draw::Rect r) {
     }
     const int lo = 1, hi = s.kind == 0 ? optionsview::kSimPerFieldMax : optionsview::kSimWorkersMax;
     step(0, 1, std::to_wstring(s.workers()), s.workers() <= lo, s.workers() >= hi);
-    kitpaint::drawPickFace(c, p.value[1], s.races == 0 ? std::wstring(tr(L"As in the map")) : std::wstring(kSimRaceNames[s.races]), false, gSimPanel.hot == 3);
+    kitpaint::drawPickFace(c, p.value[1], s.races == 0 ? std::wstring(tr(L"As defined in map")) : std::wstring(kSimRaceNames[s.races]), false, gSimPanel.hot == 3);
     step(2, 4, optionsview::simMinutesText(s.minutes), s.minutes <= 1, s.minutes >= optionsview::kSimMinutesMax);
     step(3, 6, optionsview::simSecondsText(s.search), s.search <= optionsview::kSimSearchMin, s.search >= optionsview::kSimSearchMax);
     c.text({p.box.left + pad, p.headY, p.box.right - pad, p.headY + scale(24)}, L"Boost searches", kDim, draw::kMiddle | draw::kEllipsis);
@@ -1787,7 +1809,7 @@ void simRushSetUnit(int unit) {
     if (!gSim.shown || !gSim.rush) prefs::setNumber(L"SimRushUnit", old), simRushAgain();
 }
 // The gear's Unit: the searchable list of the units that can walk or fly, with their icons (as the Data workspace's
-// pickers): the worker, then the race's units (As in the map: each race's), then all other units. A pick starts the
+// pickers): the worker, then the race's units (As defined in map: each race's), then all other units. A pick starts the
 // rush again with it.
 draw::Image sdlDataImage(DataPicture p);  // (sdl_data.inc)
 void simRushPickUnit() {
@@ -1851,16 +1873,32 @@ void simRushSettingsMenu() {
     items.push_back(MenuItem{});
     items.back().label = L"Two points of the map\x2026", items.back().radio = true, items.back().checked = gRushPoints.on;
     items.back().run = [] { shellPost([] { simulateRushPointsCommand(); }); };
-    // The fog of war: off, what all players see, what each player sees.
+    // The fog of war: off, what all players see, or what the checked players see (Specific players: a check for each
+    // player; the last one unchecked: off).
     header(L"Fog of war");
-    std::vector<int> fogs = simFogPlayers();
-    fogs.insert(fogs.begin(), {-1, sim::kAllPlayers});
-    for (int f : fogs) {
-        items.push_back(stardraft::kit::MenuItem{});
-        items.back().label = f == -1 ? std::wstring(tr(L"Off")) : f == sim::kAllPlayers ? std::wstring(tr(L"What all players see")) : simPlayer(f);
+    auto setFog = [](int fog, int players) {
+        gSim.fog = players || fog != kFogPlayers ? fog : -1, gSim.fogPlayers = players;
+        prefs::setNumber(L"SimRushFog", gSim.fog), prefs::setNumber(L"SimRushFogPlayers", players);
+        simRedraw();
+    };
+    for (int f : {-1, int(sim::kAllPlayers)}) {
+        items.push_back(MenuItem{});
+        items.back().label = f == -1 ? std::wstring(tr(L"Off")) : std::wstring(tr(L"All players"));
         items.back().radio = true, items.back().checked = f == gSim.fog;
-        items.back().run = [f] { gSim.fog = f, prefs::setNumber(L"SimRushFog", f), simRedraw(); };
+        items.back().run = [f, setFog] { setFog(f, gSim.fogPlayers); };
     }
+    MenuItem specific;
+    specific.label = L"Specific players", specific.radio = true, specific.checked = gSim.fog == kFogPlayers;
+    for (int pl : simFogPlayers()) {
+        specific.sub.push_back(MenuItem{});
+        specific.sub.back().label = simPlayer(pl);
+        specific.sub.back().checked = gSim.fog == kFogPlayers && (gSim.fogPlayers >> pl & 1);
+        specific.sub.back().run = [pl, setFog] {
+            const int was = gSim.fog == kFogPlayers ? gSim.fogPlayers : 0;
+            setFog(kFogPlayers, was ^ (1 << pl));
+        };
+    }
+    if (!specific.sub.empty()) items.push_back(std::move(specific));
     simMenuEnd(items);
     ImDrawList list(ImGui::GetDrawListSharedData());  // (the menu's text measured with a canvas of its own)
     kit_sdl::ImguiCanvas measure(list, nullptr);
@@ -2117,15 +2155,17 @@ void simRushStart(const RushPoints& p) {
     o.units = {simRushUnit()};
     const bool points = p.on && gState.ed && p.ed == gState.ed.get();
     if (points) o.points = true, o.fromX = p.from.first, o.fromY = p.from.second, o.toX = p.to.first, o.toY = p.to.second;
-    int fog = -1;  // (the gear's Fog of war, the setting SimRushFog: -1 off, -2 all players, else a player)
-    prefs::number(L"SimRushFog", fog, sim::kAllPlayers, 11);
+    int fog = -1, fogPlayers = 0;  // (the gear's Fog of war: SimRushFog -1 off, -2 all players, -3 SimRushFogPlayers' players)
+    prefs::number(L"SimRushFog", fog, kFogPlayers, -1), prefs::number(L"SimRushFogPlayers", fogPlayers, 0, 4095);
     if (!simBegin(false, [o](std::string& err) { return simEngine().startRush(o, err); }, true)) return;
     gRushPoints = p, gRushPoints.on = points;
     if (points) gRushLastPoints = gRushPoints;
     gState.ed->clearSelection();  // (the map's selection does not show over the game)
     gSim.speed = 1;
-    const std::vector<int> players = simFogPlayers();  // (a player of the fog of war that has no routes now: off)
-    gSim.fog = fog == -1 || fog == sim::kAllPlayers || std::find(players.begin(), players.end(), fog) != players.end() ? fog : -1;
+    int routes = 0;  // (the checked players that have no routes now are not shown; none left: off)
+    for (int pl : simFogPlayers()) routes |= 1 << pl;
+    gSim.fogPlayers = fogPlayers & routes;
+    gSim.fog = fog == kFogPlayers && !gSim.fogPlayers ? -1 : fog;
 }
 // Tools > Simulate rush distance: from the start locations.
 void simulateRushCommand() { simRushStart(RushPoints{}); }

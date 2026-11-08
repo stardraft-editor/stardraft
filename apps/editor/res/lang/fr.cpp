@@ -2469,7 +2469,7 @@ constexpr UiText kRows[] = {
     {L"Workers and gas", L"Ouvriers et gaz"},
     {L"Measured game time", L"Temps de jeu mesur\u00E9"},
     {L"Races", L"Races"},
-    {L"As in the map (Random: a random race)", L"Comme dans la carte (Al\u00E9atoire: une race au hasard)"},
+    {L"As defined in map (Random: a random race)", L"Comme dans la carte (Al\u00E9atoire: une race au hasard)"},
     {L"0 (no refinery)", L"0 (pas de raffinerie)"},
     {L"The first 30 game seconds are not measured: the workers get to their fields.", L"Les 30 premi\u00E8res secondes de jeu ne sont pas mesur\u00E9es: les ouvriers rejoignent leurs gisements."},
     {L"Simulation report", L"Rapport de simulation"},
@@ -3289,7 +3289,7 @@ constexpr UiText kRows[] = {
     {L"1 worker faster", L"1 ouvrier plus rapide"},
     {L"%d workers faster", L"%d ouvriers plus rapides"},
     {L"Boost search time", L"Dur\u00E9e de recherche d'optimisations"},
-    {L"As in the map", L"Comme dans la carte"},
+    {L"As defined in map", L"Comme dans la carte"},
     {L"Boost searches", L"Recherches d'optimisations"},
     {L"Simulation options", L"Options de simulation"},
     {L"Search for better start places of the workers at each base", L"Rechercher de meilleures positions de d\u00E9part pour les ouvriers de chaque base"},
@@ -3340,7 +3340,6 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"&Options de simulation\u2026"},
     {L"&Close the simulation", L"&Fermer la simulation"},
     {L"&Simulation", L"&Simulation"},
-    {L"What all players see", L"Ce que voient tous les joueurs"},
     {L"Fog of war", L"Brouillard de guerre"},
     {L"Report feedback on the simulation\u2026", L"Envoyer un commentaire sur la simulation\u2026"},
     {L"Unit: %ls", L"Unit\u00E9 : %ls"},
@@ -3350,6 +3349,7 @@ constexpr UiText kRows[] = {
     {L"Release to go here", L"Rel\u00E2chez pour aller ici"},
     {L"The start point (drag it)", L"Le point de d\u00E9part (faites-le glisser)"},
     {L"The end point (drag it)", L"Le point d'arriv\u00E9e (faites-le glisser)"},
+    {L"Specific players", L"Joueurs choisis"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

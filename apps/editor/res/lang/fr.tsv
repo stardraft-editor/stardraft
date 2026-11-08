@@ -2467,7 +2467,7 @@ Workers on gas	Ouvriers sur le gaz
 Workers and gas	Ouvriers et gaz
 Measured game time	Temps de jeu mesuré
 Races	Races
-As in the map (Random: a random race)	Comme dans la carte (Aléatoire: une race au hasard)
+As defined in map (Random: a random race)	Comme dans la carte (Aléatoire: une race au hasard)
 0 (no refinery)	0 (pas de raffinerie)
 The first 30 game seconds are not measured: the workers get to their fields.	Les 30 premières secondes de jeu ne sont pas mesurées: les ouvriers rejoignent leurs gisements.
 Simulation report	Rapport de simulation
@@ -3290,7 +3290,7 @@ None found	Aucun trouvé
 1 worker faster	1 ouvrier plus rapide
 %d workers faster	%d ouvriers plus rapides
 Boost search time	Durée de recherche d'optimisations
-As in the map	Comme dans la carte
+As defined in map	Comme dans la carte
 Boost searches	Recherches d'optimisations
 Simulation options	Options de simulation
 Search for better start places of the workers at each base	Rechercher de meilleures positions de départ pour les ouvriers de chaque base
@@ -3341,7 +3341,6 @@ Simulation &settings	&Réglages de la simulation
 Simulation &options…	&Options de simulation…
 &Close the simulation	&Fermer la simulation
 &Simulation	&Simulation
-What all players see	Ce que voient tous les joueurs
 Fog of war	Brouillard de guerre
 Report feedback on the simulation…	Envoyer un commentaire sur la simulation…
 Unit: %ls	Unité : %ls
@@ -3351,3 +3350,4 @@ Release to start from here	Relâchez pour partir d'ici
 Release to go here	Relâchez pour aller ici
 The start point (drag it)	Le point de départ (faites-le glisser)
 The end point (drag it)	Le point d'arrivée (faites-le glisser)
+Specific players	Joueurs choisis

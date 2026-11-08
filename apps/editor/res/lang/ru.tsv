@@ -2467,7 +2467,7 @@ Workers on gas	Рабочие на газе
 Workers and gas	Рабочие и газ
 Measured game time	Измеряемое игровое время
 Races	Расы
-As in the map (Random: a random race)	Как на карте (Случайная: случайная раса)
+As defined in map (Random: a random race)	Как на карте (Случайная: случайная раса)
 0 (no refinery)	0 (без экстрактора)
 The first 30 game seconds are not measured: the workers get to their fields.	Первые 30 игровых секунд не измеряются: рабочие доходят до своих месторождений.
 Simulation report	Отчёт о моделировании
@@ -3290,7 +3290,7 @@ None found	Ничего не найдено
 1 worker faster	1 рабочий быстрее
 %d workers faster	Рабочих быстрее: %d
 Boost search time	Время поиска ускорений
-As in the map	Как на карте
+As defined in map	Как на карте
 Boost searches	Поиск ускорений
 Simulation options	Параметры симуляции
 Search for better start places of the workers at each base	Найти лучшие стартовые места рабочих на каждой базе
@@ -3341,7 +3341,6 @@ Simulation &settings	&Настройки симуляции
 Simulation &options…	&Параметры симуляции…
 &Close the simulation	&Закрыть симуляцию
 &Simulation	&Симуляция
-What all players see	Что видят все игроки
 Fog of war	Туман войны
 Report feedback on the simulation…	Отправить отзыв о моделировании…
 Unit: %ls	Юнит: %ls
@@ -3351,3 +3350,4 @@ Release to start from here	Отпустите, чтобы начать отсю�
 Release to go here	Отпустите, чтобы идти сюда
 The start point (drag it)	Начальная точка (перетащите её)
 The end point (drag it)	Конечная точка (перетащите её)
+Specific players	Отдельные игроки

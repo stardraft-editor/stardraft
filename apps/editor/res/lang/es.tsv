@@ -2467,7 +2467,7 @@ Workers on gas	Trabajadores en gas
 Workers and gas	Trabajadores y gas
 Measured game time	Tiempo de juego medido
 Races	Razas
-As in the map (Random: a random race)	Como en el mapa (Aleatoria: una raza al azar)
+As defined in map (Random: a random race)	Como en el mapa (Aleatoria: una raza al azar)
 0 (no refinery)	0 (sin refinería)
 The first 30 game seconds are not measured: the workers get to their fields.	Los primeros 30 segundos de juego no se miden: los trabajadores llegan a sus campos.
 Simulation report	Informe de la simulación
@@ -3290,7 +3290,7 @@ None found	No se encontró ninguno
 1 worker faster	1 obrero más rápido
 %d workers faster	%d obreros más rápidos
 Boost search time	Tiempo de búsqueda de mejoras
-As in the map	Como en el mapa
+As defined in map	Como en el mapa
 Boost searches	Búsquedas de mejoras
 Simulation options	Opciones de simulación
 Search for better start places of the workers at each base	Buscar mejores lugares de inicio para los obreros en cada base
@@ -3341,7 +3341,6 @@ Simulation &settings	&Ajustes de la simulación
 Simulation &options…	&Opciones de simulación…
 &Close the simulation	&Cerrar la simulación
 &Simulation	&Simulación
-What all players see	Lo que ven todos los jugadores
 Fog of war	Niebla de guerra
 Report feedback on the simulation…	Enviar comentarios sobre la simulación…
 Unit: %ls	Unidad: %ls
@@ -3351,3 +3350,4 @@ Release to start from here	Suelte para salir de aquí
 Release to go here	Suelte para ir aquí
 The start point (drag it)	El punto de inicio (arrástrelo)
 The end point (drag it)	El punto final (arrástrelo)
+Specific players	Jugadores concretos

@@ -2469,7 +2469,7 @@ constexpr UiText kRows[] = {
     {L"Workers and gas", L"\u5DE5\u4EBA\u4E0E\u74E6\u65AF"},
     {L"Measured game time", L"\u8BA1\u65F6\u7684\u6E38\u620F\u65F6\u957F"},
     {L"Races", L"\u79CD\u65CF"},
-    {L"As in the map (Random: a random race)", L"\u4E0E\u5730\u56FE\u76F8\u540C\uFF08\u968F\u673A\uFF1A\u968F\u673A\u79CD\u65CF\uFF09"},
+    {L"As defined in map (Random: a random race)", L"\u4E0E\u5730\u56FE\u76F8\u540C\uFF08\u968F\u673A\uFF1A\u968F\u673A\u79CD\u65CF\uFF09"},
     {L"0 (no refinery)", L"0\uFF08\u65E0\u7CBE\u70BC\u5382\uFF09"},
     {L"The first 30 game seconds are not measured: the workers get to their fields.", L"\u524D 30 \u4E2A\u6E38\u620F\u79D2\u4E0D\u8BA1\u5165\u6D4B\u91CF\uFF1A\u5DE5\u4EBA\u4F1A\u5148\u8D70\u5230\u5404\u81EA\u7684\u77FF\u533A\u3002"},
     {L"Simulation report", L"\u6A21\u62DF\u62A5\u544A"},
@@ -3289,7 +3289,7 @@ constexpr UiText kRows[] = {
     {L"1 worker faster", L"1 \u4E2A\u519C\u6C11\u66F4\u5FEB"},
     {L"%d workers faster", L"%d \u4E2A\u519C\u6C11\u66F4\u5FEB"},
     {L"Boost search time", L"\u4F18\u5316\u641C\u7D22\u65F6\u95F4"},
-    {L"As in the map", L"\u4E0E\u5730\u56FE\u76F8\u540C"},
+    {L"As defined in map", L"\u4E0E\u5730\u56FE\u76F8\u540C"},
     {L"Boost searches", L"\u4F18\u5316\u641C\u7D22"},
     {L"Simulation options", L"\u6A21\u62DF\u9009\u9879"},
     {L"Search for better start places of the workers at each base", L"\u4E3A\u6BCF\u4E2A\u57FA\u5730\u7684\u519C\u6C11\u641C\u7D22\u66F4\u597D\u7684\u8D77\u59CB\u4F4D\u7F6E"},
@@ -3340,7 +3340,6 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"\u6A21\u62DF\u9009\u9879(&O)\u2026"},
     {L"&Close the simulation", L"\u5173\u95ED\u6A21\u62DF(&C)"},
     {L"&Simulation", L"\u6A21\u62DF(&S)"},
-    {L"What all players see", L"\u6240\u6709\u73A9\u5BB6\u770B\u5230\u7684\u8303\u56F4"},
     {L"Fog of war", L"\u6218\u4E89\u8FF7\u96FE"},
     {L"Report feedback on the simulation\u2026", L"\u53D1\u9001\u5173\u4E8E\u6A21\u62DF\u7684\u53CD\u9988\u2026"},
     {L"Unit: %ls", L"\u5355\u4F4D\uFF1A%ls"},
@@ -3350,6 +3349,7 @@ constexpr UiText kRows[] = {
     {L"Release to go here", L"\u677E\u5F00\u540E\u8D70\u5230\u8FD9\u91CC"},
     {L"The start point (drag it)", L"\u8D77\u70B9\uFF08\u62D6\u52A8\u5B83\uFF09"},
     {L"The end point (drag it)", L"\u7EC8\u70B9\uFF08\u62D6\u52A8\u5B83\uFF09"},
+    {L"Specific players", L"\u6307\u5B9A\u73A9\u5BB6"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

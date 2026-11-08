@@ -30,19 +30,23 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   stays in the report with no numbers ("No room"). The bar shows at most 8 bases; the command line all of them.
 - **Rush distance.** From each start location to each other start location, a worker of the start location's race
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
-  one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
-  has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The gear's Race
+  one, in a game of its own (the map's neutral units only). It stops when its move ends (it is there when it stops within a tile of the
+  center: a fast unit stops a little past it, and a point where it cannot stand ends its way next to it), when it comes
+  to no new part of the map (a 128 pixel square) for 480 frames (it stands, or goes back and forth: the path search
+  finds no way on), or at 24000 frames. The result is each walk's game time and length. The gear's Race
   comes first; its Unit row names the unit that walks each route in place of the worker (setting SimRushUnit), and
   a click opens the searchable list of the units that can walk or fly, with their icons: the worker, the race's
-  units (As in the map: each race's), then all other units. A race picked after the unit (in the gear or in the
+  units (As defined in map: each race's), then all other units. A race picked after the unit (in the gear or in the
   mining's Races) whose units do not have it (another race's worker or unit) takes its worker again; a unit of
   another race picked after the race stays (setting SimRushUnitRaces). The gear's Start and end (Two points of the map) takes two points of the map
   in place of the start locations: A (green, the start point) and B (red, the end point), at first at two start
   locations (by player), else a quarter of the map's width left and right of its middle. A drag moves either one (the
   move cursor over them; the ways hide and the game waits while one moves); the release starts the rush again from A
-  to B. The points stay while the map is open; the report gives their tiles. The gear's Fog of war shows the fog of war (off, what all players see, or what one start location's player
-  sees; setting SimRushFog): the engine's own vision of the units (their sight ranges, high ground), black where they have not been,
-  darker where they saw before, clear where they see now; with one player, only that player's ways show.
+  to B. The points stay while the map is open; the report gives their tiles. The gear's Fog of war shows the fog of war (Off, All players, or
+  Specific players: a submenu with a check for each start location's player; settings SimRushFog, SimRushFogPlayers):
+  the engine's own vision of the units (their sight ranges, high ground), black where they have not been, darker where
+  they saw before, clear where they see now (with several players, each tile the most one of them sees); only the
+  checked players' ways show. Before the game plays (at 0:00, waiting for Play) the whole map shows, with no fog.
 - **Boost searches** (mining: check boxes in the gear's panel and in Program options > Simulation; settings
   SimBoostPosition, SimBoostCargo, SimBoostCycle): the pull request's three searches, at each base at the same time
   (each base's search gets its share of the processor's threads), for the search time (default 15 seconds). The ones

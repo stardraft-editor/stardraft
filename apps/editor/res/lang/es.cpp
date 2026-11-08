@@ -2469,7 +2469,7 @@ constexpr UiText kRows[] = {
     {L"Workers and gas", L"Trabajadores y gas"},
     {L"Measured game time", L"Tiempo de juego medido"},
     {L"Races", L"Razas"},
-    {L"As in the map (Random: a random race)", L"Como en el mapa (Aleatoria: una raza al azar)"},
+    {L"As defined in map (Random: a random race)", L"Como en el mapa (Aleatoria: una raza al azar)"},
     {L"0 (no refinery)", L"0 (sin refiner\u00EDa)"},
     {L"The first 30 game seconds are not measured: the workers get to their fields.", L"Los primeros 30 segundos de juego no se miden: los trabajadores llegan a sus campos."},
     {L"Simulation report", L"Informe de la simulaci\u00F3n"},
@@ -3289,7 +3289,7 @@ constexpr UiText kRows[] = {
     {L"1 worker faster", L"1 obrero m\u00E1s r\u00E1pido"},
     {L"%d workers faster", L"%d obreros m\u00E1s r\u00E1pidos"},
     {L"Boost search time", L"Tiempo de b\u00FAsqueda de mejoras"},
-    {L"As in the map", L"Como en el mapa"},
+    {L"As defined in map", L"Como en el mapa"},
     {L"Boost searches", L"B\u00FAsquedas de mejoras"},
     {L"Simulation options", L"Opciones de simulaci\u00F3n"},
     {L"Search for better start places of the workers at each base", L"Buscar mejores lugares de inicio para los obreros en cada base"},
@@ -3340,7 +3340,6 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"&Opciones de simulaci\u00F3n\u2026"},
     {L"&Close the simulation", L"&Cerrar la simulaci\u00F3n"},
     {L"&Simulation", L"&Simulaci\u00F3n"},
-    {L"What all players see", L"Lo que ven todos los jugadores"},
     {L"Fog of war", L"Niebla de guerra"},
     {L"Report feedback on the simulation\u2026", L"Enviar comentarios sobre la simulaci\u00F3n\u2026"},
     {L"Unit: %ls", L"Unidad: %ls"},
@@ -3350,6 +3349,7 @@ constexpr UiText kRows[] = {
     {L"Release to go here", L"Suelte para ir aqu\u00ED"},
     {L"The start point (drag it)", L"El punto de inicio (arr\u00E1strelo)"},
     {L"The end point (drag it)", L"El punto final (arr\u00E1strelo)"},
+    {L"Specific players", L"Jugadores concretos"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

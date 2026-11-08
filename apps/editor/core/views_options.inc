@@ -116,7 +116,7 @@ constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
 const wchar_t* const kUnitNameForms[4] = {L"Terran Marine", L"Terran Marine (Custom Name)", L"Custom Name (Terran Marine)", L"Custom Name"};
 
 // Simulate mining's races (the dropdown's items).
-const wchar_t* const kSimRaces[4] = {L"As in the map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
+const wchar_t* const kSimRaces[4] = {L"As defined in map (Random: a random race)", L"Terran", L"Protoss", L"Zerg"};
 // The simulation's numbers: their ranges and default values (the settings SimWorkers, SimMinutes, SimSearchSeconds).
 constexpr int kSimWorkersMax = 60, kSimPerFieldMax = 8, kSimMinutesMax = 60, kSimSearchMin = 1, kSimSearchMax = 600, kSimSearchDefault = 15;
 inline std::wstring simWorkersText(int n) { return std::to_wstring(n); }
