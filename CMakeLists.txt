@@ -120,6 +120,9 @@ add_library(stardraft
     src/campaign.cpp
     src/project_import.cpp
     src/nrbf.cpp
+    src/import_ee2_triggers.cpp
+    src/import_ee3_classic.cpp
+    src/import_ee3_blocks.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
     src/passages.cpp
@@ -170,6 +173,12 @@ add_executable(editor_test tools/tests/editor_test.cpp)
 target_link_libraries(editor_test PRIVATE stardraft)
 add_executable(import_test tools/tests/import_test.cpp)  # File > Import a project: EUD Editor 3 and 2, euddraft
 target_link_libraries(import_test PRIVATE stardraft)
+add_executable(import_ee2_test tools/tests/import_ee2_test.cpp)  # EUD Editor 2's trigger editor to epScript
+target_link_libraries(import_ee2_test PRIVATE stardraft)
+add_executable(import_ee3_classic_test tools/tests/import_ee3_classic_test.cpp)  # EUD Editor 3's classic triggers to epScript
+target_link_libraries(import_ee3_classic_test PRIVATE stardraft)
+add_executable(import_ee3_blocks_test tools/tests/import_ee3_blocks_test.cpp)  # EUD Editor 3's block scripts to code
+target_link_libraries(import_ee3_blocks_test PRIVATE stardraft)
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
 
