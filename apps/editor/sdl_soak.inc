@@ -132,6 +132,26 @@ struct SdlMemory {
                        // shows here, while the private bytes also keep what the heap freed
 };
 
+// The working set (resident memory) only, in MB (-1 when the system does not say): cheap, for the status bar's
+// diagnostics (sdlMemory also asks the heap and the GPU).
+double sdlWorkingSetMb() {
+    [[maybe_unused]] constexpr double kMb = 1024.0 * 1024.0;
+#ifdef _WIN32
+    PROCESS_MEMORY_COUNTERS pmc{};
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof pmc)) return double(pmc.WorkingSetSize) / kMb;
+#elif defined(__APPLE__)
+    mach_task_basic_info_data_t basic{};
+    mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&basic), &count) == KERN_SUCCESS)
+        return double(basic.resident_size) / kMb;
+#elif defined(__linux__)
+    std::ifstream status("/proc/self/status");
+    for (std::string line; std::getline(status, line);)
+        if (line.rfind("VmRSS:", 0) == 0) return std::atof(line.c_str() + 6) / 1024.0;
+#endif
+    return -1;
+}
+
 SdlMemory sdlMemory() {
     SdlMemory m;
     [[maybe_unused]] constexpr double kMb = 1024.0 * 1024.0;

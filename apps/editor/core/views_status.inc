@@ -34,15 +34,6 @@ struct StatusView final : stardraft::draw::View {
         };
         auto sep = [&](int x) { c.fill({x, scale(4), x + 1, h - scale(3)}, kBorder); };
         int x = scale(4), right = w - scale(16);  // room for the size grip
-        if (diagnosticsOn()) diagnosticsRefresh();
-        if (diagnosticsOn() && !gDiagnosticsText.empty()) {
-            const int dw = c.measure(gDiagnosticsText) + 2 * pad;
-            if (right - dw > x + scale(200)) {
-                part(right - dw, right, -1, kDim);
-                sep(right - dw);
-                right -= dw;
-            }
-        }
         if (map) {
             // (mode and tool, the mouse's place, the zoom, the selection, the mode's count)
             const int parts[5] = {0, 1, 2, 3, 6}, mins[5] = {150, 200, 110, 100, 100};
@@ -63,6 +54,16 @@ struct StatusView final : stardraft::draw::View {
                 right -= fw;
             }
 #endif
+        }
+        // (the diagnostics: at the right, in the room that the parts before leave)
+        if (diagnosticsOn()) diagnosticsRefresh();
+        if (diagnosticsOn() && !gDiagnosticsText.empty()) {
+            const int dw = c.measure(gDiagnosticsText) + 2 * pad;
+            if (right - dw >= x) {
+                part(right - dw, right, -1, kDim);
+                sep(right - dw);
+                right -= dw;
+            }
         }
         if (!shellLogOpen() && right > x) part(x, right, 4, kText);
     }

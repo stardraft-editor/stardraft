@@ -534,14 +534,14 @@ bool& diagnosticsFlag() {
     return v;
 }
 bool diagnosticsOn() { return diagnosticsFlag(); }
+uint64_t gDiagnosticsMs = 0;  // (the last text's time; 0: none yet since the option went on)
 void setDiagnostics(bool on) {
     diagnosticsFlag() = on;
     if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"ShowDiagnostics", on ? 1 : 0);
-    if (!on) gDiagnosticsText.clear();
+    gDiagnosticsText.clear(), gDiagnosticsMs = 0;
 }
-// The diagnostics' text, made again when a second has gone since the last one (the frames since then); the milliseconds
-// until the next one (-1: off).
-uint64_t gDiagnosticsMs = 0;
+// The diagnostics' text, made again when a second has gone since the last one (the frames since then; the first one has
+// no frames a second yet); the milliseconds until the next one (-1: off).
 int sdlDiagnosticsClock() {
     static long long lastFrames = 0;
     uint64_t& lastMs = gDiagnosticsMs;
@@ -549,11 +549,13 @@ int sdlDiagnosticsClock() {
     const uint64_t now = SDL_GetTicks();
     if (lastMs && now - lastMs < 1000) return int(1000 - (now - lastMs));
     const long long frames = gHost->presentedFrames();
-    const double fps = lastMs ? double(frames - lastFrames) * 1000.0 / double(now - lastMs) : 0;
-    const SdlMemory m = sdlMemory();
+    const double fps = lastMs ? double(frames - lastFrames) * 1000.0 / double(now - lastMs) : -1;
+    const double mb = sdlWorkingSetMb();
     wchar_t t[96];
-    if (m.workingSet >= 0) std::swprintf(t, 96, L"%.0f FPS  \x00b7  %.0f MB", fps, m.workingSet);
-    else std::swprintf(t, 96, L"%.0f FPS", fps);
+    if (fps >= 0 && mb >= 0) std::swprintf(t, 96, L"%.0f FPS  \x00b7  %.0f MB", fps, mb);
+    else if (fps >= 0) std::swprintf(t, 96, L"%.0f FPS", fps);
+    else if (mb >= 0) std::swprintf(t, 96, L"%.0f MB", mb);
+    else t[0] = 0;
     if (gDiagnosticsText != t) gDiagnosticsText = t, gRoot->status.invalidate();
     lastMs = now, lastFrames = frames;
     return 1000;
