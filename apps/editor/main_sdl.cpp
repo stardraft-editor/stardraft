@@ -553,6 +553,7 @@ int main(int argc, char** argv) {
     if (argc > 2 && std::string(argv[1]) == "--update-test")
         return sdlUpdateTest(fs::path(widen(argv[2])), std::vector<std::string>(argv + 3, argv + argc));
     std::string passagesArg;  // --passages: a passages file the tools use, for a snapshot (Program options' Ramp and bridge mappings)
+    std::string driverArg;  // --driver
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
@@ -675,6 +676,7 @@ int main(int argc, char** argv) {
         else if (a == "--smartzoom") inputArgs.emplace_back('z', next());  // x,y: a trackpad's smart zoom (macOS: a double tap with two fingers) there, for a snapshot
         else if (a == "--swipe") inputArgs.emplace_back('g', next());  // x,y,left|right: a swipe of three fingers there (macOS's Swipe between pages), for a snapshot
         else if (a == "--wait") inputArgs.emplace_back('w', next());  // ms: the time passes for the program's timers (in order with the inputs), for a snapshot
+        else if (a == "--driver") driverArg = next();  // the GPU driver tried first (direct3d12, vulkan, warp), for a test: memory per driver
         else if (a == "--script") { if (!sdlReadScript(next(), inputArgs)) return 1; }  // file[:times]: inputs from a file, times over (sdl_soak.inc), for a snapshot
         else if (a == "--rclick") rclickArgs.push_back(next());  // x,y[:n]: a right click there; the menu's items go to the output, item n runs, for a snapshot
         else if (!a.empty() && a[0] != '-') mapArg = a;
@@ -741,6 +743,7 @@ int main(int argc, char** argv) {
         renderer.setPreferredDriver(drivers[pick]);
     }
 #endif
+    if (!driverArg.empty()) renderer.setPreferredDriver(driverArg);
     if (gFailDeviceArg || !renderer.createDevice(err)) {
         // The window cannot show: a message box says why (the program has no console). After an update, the program
         // before it goes back in its place and starts (core/releases.inc: rollBackUpdate).
