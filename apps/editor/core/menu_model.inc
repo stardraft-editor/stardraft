@@ -165,6 +165,8 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
     }
 }
 
+extern bool gShowDoodadAvailability;
+
 MenuModel buildMenuModel() {
     MenuModel project{menuItem(ID_PROJ_NEW, L"&New EUD project", L"Ctrl+Shift+N"),
                       menuItem(ID_PROJ_OPEN, L"&Open project\x2026"),
@@ -343,6 +345,7 @@ MenuModel buildMenuModel() {
     units.push_back(menuItem(ID_OPT_DRAGBACK, L"Dragged units go &back to the last place where they fit"));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_SNAP, L"Snap to tiles (32 px): always, a doodad is made of tiles", {}, true, true, true));
     doodads.push_back(menuSeparator());
+    doodads.push_back(menuItem(ID_DOODAD_AVAILABILITY, L"Show available placement areas", {}, false, gShowDoodadAvailability));
     append(doodads, placeItems(ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it", {}, true, false, true));
     sprites.push_back(menuItem(ID_SNAP_SPRITES, L"&Snap to the grid"));

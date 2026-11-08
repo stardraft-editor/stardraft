@@ -55,6 +55,7 @@ enum : int {
     ID_OPT_MANYSTARTS,    // Program options > Placing units > Many start locations for each player (a check box)
     // The Options menu: Snap to the grid of units, sprites and locations, the place rule of doodads,
     // and the items that show a rule that does not change (always grayed).
+    ID_DOODAD_AVAILABILITY = 1420,
     ID_SNAP_UNITS = 910, ID_SNAP_SPRITES, ID_SNAP_LOCATIONS, ID_DOODAD_FIT = 922, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE,
     ID_FIXED_DOODAD_SNAP, ID_FIXED_DOODAD_STACK, ID_FIXED_SPRITE_PLACE, ID_FIXED_SPRITE_STACK, ID_FIXED_LOC_PLACE, ID_FIXED_LOC_STACK,
     ID_PAL_LIST = 620, ID_PAL_ICONS, ID_PAL_SPRITES, ID_PAL_NORMAL, ID_PAL_LARGE,

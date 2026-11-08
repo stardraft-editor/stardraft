@@ -66,6 +66,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include "stardraft/doodad_coverage.h"
 #include <climits>
 #include <cwctype>
 #include <thread>
@@ -960,6 +961,7 @@ int main(int argc, char** argv) {
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
         sdlApplyReleaseFixture();  // (--release: the top bar's Update)
         for (const std::string& c : checkArgs) {
+            {std::string coverage;if(doodadAvailabilityCheck(c,coverage)){std::printf("%s",coverage.c_str());continue;}}
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c == "protect" || c.rfind("drawfuncs:", 0) == 0;
             if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";

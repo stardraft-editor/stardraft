@@ -26,6 +26,7 @@
 #include <thread>
 #include <utility>
 #include <vector>
+#include "stardraft/doodad_coverage.h"
 #include <atomic>
 #include <climits>
 #include <thread>

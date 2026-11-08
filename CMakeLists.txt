@@ -162,6 +162,10 @@ target_link_libraries(isomterrain_test PRIVATE stardraft)
 add_executable(unit_test tools/tests/unit_test.cpp)
 target_link_libraries(unit_test PRIVATE stardraft)
 
+# The footprint union is independent of game data; optional arguments generate a synthetic screenshot fixture.
+add_executable(doodad_coverage_test tools/tests/doodad_coverage_test.cpp)
+target_link_libraries(doodad_coverage_test PRIVATE stardraft)
+
 add_executable(hd_test tools/tests/hd_test.cpp)
 target_link_libraries(hd_test PRIVATE stardraft)
 

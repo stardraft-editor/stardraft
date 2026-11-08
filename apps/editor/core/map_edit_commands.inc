@@ -322,6 +322,7 @@ void cutMapSelection(AppState& app) {
 }
 
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
+extern bool gShowDoodadAvailability;
 bool commandMapEdit(AppState& app, int id) {
     const bool open = app.ed && app.ed->isOpen();
     auto done = [&app] {
@@ -379,6 +380,12 @@ bool commandMapEdit(AppState& app, int id) {
         static const wchar_t* kinds[] = {L"Units", L"Sprites", L"Locations"};
         setMessage(std::wstring(kinds[kind]) + (on ? L": snap to the grid" : L": do not snap"));
         return done();
+    }
+    if (id == ID_DOODAD_AVAILABILITY) {
+        gShowDoodadAvailability = !gShowDoodadAvailability;
+        app.dirty = true;
+        shellMenusChanged();
+        return true;
     }
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) {  // View > Grid: a preset
         const GridPreset& g = kGridPresets[id - ID_GRID_SIZE];
