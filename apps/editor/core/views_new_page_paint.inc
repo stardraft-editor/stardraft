@@ -1,40 +1,19 @@
 // The New page's painting and input (views_new_page.inc has the page's choices and the class): the block of the page, its
-// columns and the Create bar, the preview, the generator's sliders, and the mouse, the wheel and the scroll bar.
-
-namespace newpage {
-// The title's and the small text's fonts (the Start page's sizes).
-draw::Font titleFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}); }
-draw::Font smallText(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
-// A text field's box (its ground and its line; hot: the line is brighter; changed and read-only: their own).
-void fieldBox(draw::Canvas& c, draw::Rect r, bool hot, bool changed, bool readOnly) {
-    draw::Color fill = kCtl, line = hot ? kBorderHot : kBorder;
-    if (changed) fill = kGoodFill, line = kGoodLine;
-    if (readOnly) fill = kReadOnly, line = kReadOnlyLine;
-    c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
-}
-}  // namespace newpage
-
-void NewPageView::buttonFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool primary, BtnState s) {
-    draw::Color fill = kCtl, line = kBorder;
-    if (primary) fill = kSel, line = kAccentLine;
-    if (s == BtnState::Hot) fill = primary ? kSelHot : kCtlHot, line = primary ? kAccent : kBorderHot;
-    if (s == BtnState::Down) fill = primary ? kSel : kCtlDown;
-    if (s == BtnState::Disabled) fill = kBg, line = kBorder;
-    c.roundBox(r, fill, line, float(scale(stardraft::kit::kRadius)));
-    c.text(r, text, s == BtnState::Disabled ? kFaint : primary ? kAccent : kText, draw::kMiddle | draw::kCenter | draw::kEllipsis);
-}
+// columns and the Create bar, the preview, the generator's sliders, and the mouse, the wheel and the scroll bar. The faces
+// are the kit's (kit_paint.inc).
 
 void NewPageView::button(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool primary, std::function<void()> click, const std::wstring& tip,
                          bool enabled) {
-    buttonFace(c, r, text, primary, !enabled ? BtnState::Disabled : hot(r) ? BtnState::Hot : BtnState::Normal);
+    using kitpaint::ButtonState;
+    kitpaint::drawButtonFace(c, r, text, primary ? kitpaint::Tone::Primary : kitpaint::Tone::Normal,
+                             !enabled ? ButtonState::Disabled : hot(r) ? ButtonState::Hot : ButtonState::Normal);
     hitAdd(r, enabled ? std::move(click) : nullptr, tip, enabled ? draw::Cursor::Hand : draw::Cursor::Arrow);
 }
 
 // A small button: as wide as its text, in the middle of the row. Returns the right edge.
 int NewPageView::smallButton(draw::Canvas& c, int x, int y, int h, const std::wstring& text, std::function<void()> click, const std::wstring& tip) {
-    const int bh = std::min(h, scale(24)), w = c.measure(text) + scale(20);
-    const draw::Rect r{x, y + (h - bh) / 2, x + w, y + (h - bh) / 2 + bh};
-    buttonFace(c, r, text, false, hot(r) ? BtnState::Hot : BtnState::Normal);
+    const draw::Rect r = kitpaint::smallButtonRect(c, x, y, h, text);
+    kitpaint::drawButtonFace(c, r, text, kitpaint::Tone::Normal, hot(r) ? kitpaint::ButtonState::Hot : kitpaint::ButtonState::Normal);
     hitAdd(r, std::move(click), tip);
     return r.right;
 }
@@ -52,52 +31,6 @@ int NewPageView::paragraph(draw::Canvas& c, draw::Rect r, const std::wstring& te
     return r.bottom;
 }
 
-// A title: big text, and a line under it in the dim color; the icon at the left.
-int NewPageView::titleBlock(draw::Canvas& c, int x, int y, int right, const std::wstring& text, const std::wstring& sub, UiIcon icon) {
-    c.icon({x, y, x + scale(40), y + scale(40)}, int(icon), kDim, scale(32));
-    const int tx = x + scale(52);
-    const draw::Font of = c.setFont(newpage::titleFont(c));
-    c.text({tx, y, right, y + scale(26)}, text.empty() ? L"(empty)" : text, kText, draw::kMiddle | draw::kEllipsis);
-    c.setFont(of);
-    if (sub.empty()) return y + scale(40);
-    c.text({tx, y + scale(24), right, y + scale(42)}, sub, kDim, draw::kMiddle);
-    return y + scale(56);
-}
-
-// A dropdown's face: the box, the text and the chevron.
-void NewPageView::pickBoxFace(draw::Canvas& c, draw::Rect r, const std::wstring& text, bool changed, bool over, bool enabled) {
-    newpage::fieldBox(c, r, enabled && over, enabled && changed, !enabled);
-    const int tx = r.left + scale(8);
-    c.text({tx, r.top, r.right - scale(22), r.bottom}, text, !enabled ? kFaint : changed ? kGood : kText, draw::kMiddle | draw::kEllipsis);
-    if (enabled) c.icon({r.right - scale(20), r.top, r.right - scale(6), r.bottom}, int(UiIcon::Dropdown), over ? kText : kDim, scale(16));
-}
-
-void NewPageView::sliderFace(draw::Canvas& c, int x0, int x1, int cy, float frac, bool over, bool enabled) {
-    kitpaint::drawSliderFace(c, x0, x1, cy, frac, over, enabled);
-}
-
-void NewPageView::radioMark(draw::Canvas& c, draw::Rect b, bool on, bool over) {
-    c.ellipse(b, kCtl, on ? kAccent : over ? kBorderHot : kBorderStrong);
-    if (!on) return;
-    const int in = b.width() * 3 / 10;
-    c.ellipse({b.left + in, b.top + in, b.right - in + 1, b.bottom - in + 1}, kAccent, draw::kNone);
-}
-
-void NewPageView::listRowFace(draw::Canvas& c, draw::Rect r, bool selected, bool over) {
-    if (selected) {
-        c.fill(r, kSel);
-        c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
-    } else if (over) {
-        c.fill(r, kRowHot);
-    }
-}
-
-int NewPageView::sectionHeader(draw::Canvas& c, int x0, int colRight, int y, int rowH, const wchar_t* name) {
-    c.text({x0, y, colRight, y + rowH}, name, kText, draw::kMiddle);
-    c.fill({x0, y + rowH - 1, colRight, y + rowH}, kBorder);
-    return y + rowH + scale(6);
-}
-
 void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int right, const wchar_t* name, uint16_t& value, int which) {
     const int n = int(std::size(kMapSizes)), rowH = scale(stardraft::kit::kFormRowH), cy = y + rowH / 2;
     float at = 0;  // (the thumb: at a stop, or between two for a typed size)
@@ -112,7 +45,7 @@ void NewPageView::paintSizeRow(draw::Canvas& c, int x, int y, int labelW, int ri
         c.fill({tx - hw / 2, cy + scale(9), tx - hw / 2 + hw, cy + scale(13)}, kBorderHot);
     }
     const draw::Rect area{x0 - scale(8), y, right, y + rowH};
-    sliderFace(c, x0, x1, cy, at / float(n - 1), hot(area));
+    kitpaint::drawSliderFace(c, x0, x1, cy, at / float(n - 1), hot(area));
     sizeX0 = x0, sizeX1 = x1, sizeY[which] = cy;
     Hit label;
     label.r = {x, y, area.left, y + rowH}, label.name = name;  // its name and value: feedback on it
@@ -170,7 +103,7 @@ void NewPageView::paintSliderRow(draw::Canvas& c, int x, int y, int labelW, int 
     c.text({x + labelW - scale(56), y, x + labelW - scale(4), y + rowH}, v, kDim, draw::kMiddle | draw::kRight);
     const int x0 = x + labelW + scale(8), x1 = right - scale(8);
     const draw::Rect area{x0 - scale(8), y, right, y + rowH};
-    sliderFace(c, x0, x1, cy, float(sl.value - sl.lo) / float(std::max(1, sl.hi - sl.lo)), hot(area));
+    kitpaint::drawSliderFace(c, x0, x1, cy, float(sl.value - sl.lo) / float(std::max(1, sl.hi - sl.lo)), hot(area));
     Hit label;
     label.r = {x, y, area.left, y + rowH}, label.name = sl.label;
     hits.push_back(label);
@@ -255,12 +188,14 @@ void NewPageView::paint(draw::Canvas& c) {
             const std::wstring map = fromMapText();
             sub = map.empty() ? L"an imported map" : L"imported from " + fs::path(map).filename().wstring();
         }
-        y = titleBlock(c, x1, y, x3 + w3, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0], sub, proj ? UiIcon::NewProject : UiIcon::New);
+        y = kitpaint::drawTitle(c, x1, y, x3 + w3, {}, true, proj ? UiIcon::NewProject : UiIcon::New, cosmonarchy ? kCosmonarchyName : kKindNames[proj ? 1 : 0],
+                                sub, false)
+                .next;
     }
     const int top = y + scale(8);
 
     // Project (only for an EUD project): the name, the folder and the output file.
-    y = proj ? sectionHeader(c, x1, x1 + w1, top, rowH, L"Project") : top;
+    y = proj ? kitpaint::drawSectionHeader(c, x1, x1 + w1, top, rowH, L"Project") : top;
     projectShown = project;
     warning = problem();
     {
@@ -287,8 +222,8 @@ void NewPageView::paint(draw::Canvas& c) {
                 c.icon({x1, fy + scale(2), x1 + scale(16), fy + scale(18)}, int(UiIcon::Warning), kWarn, scale(16));
                 fy = paragraph(c, {x1 + scale(22), fy, x1 + w1, fy + scale(200)}, warning, kWarn) + scale(8);
             } else {
-                const draw::Font of = c.setFont(newpage::smallText(c));
-                fy = paragraph(c, {x1, fy, x1 + w1, fy + scale(100)}, L"StarDraft 2 makes the folder " + projectFolder().make_preferred().wstring(), kDim) +
+                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
+                fy = paragraph(c, {x1, fy, x1 + w1, fy + scale(100)}, L"The project goes into the new folder " + projectFolder().make_preferred().wstring(), kDim) +
                      scale(8);
                 c.setFont(of);
             }
@@ -304,7 +239,7 @@ void NewPageView::paint(draw::Canvas& c) {
     int bottom = y;
 
     // Terrain: the tileset and the size (with Import an existing map, the map has them).
-    y = sectionHeader(c, x2, x2 + w2, top, rowH, L"Terrain");
+    y = kitpaint::drawSectionHeader(c, x2, x2 + w2, top, rowH, L"Terrain");
     if (imp) {
         y = paragraph(c, {x2, y, x2 + w2, y + scale(200)}, L"The tileset, the size and the terrain come from the map.", kDim);
         bottom = std::max(bottom, y);
@@ -313,7 +248,7 @@ void NewPageView::paint(draw::Canvas& c) {
         for (uint16_t e = 0; e < 8; ++e) {
             const draw::Rect r{x2, y, x2 + w2, y + scale(40)};
             const bool on = era == e;
-            listRowFace(c, r, on, hot(r));
+            kitpaint::drawListRow(c, r, on, hot(r));
             const draw::Rect sw{x2 + scale(10), r.top + scale(4), x2 + scale(10) + scale(64), r.bottom - scale(4)};
             if (cosmonarchy) {  // (the name alone)
             } else if (!swatch[e].empty()) {  // the picture, cropped to the middle
@@ -344,7 +279,7 @@ void NewPageView::paint(draw::Canvas& c) {
 
     // Start: a blank map filled with a terrain (the dropdown in its row), generated, or imported: an EUD project copies a
     // map (Import an existing map). The terrain of a map (k 3) is not offered, as in 0.5.
-    y = sectionHeader(c, x3, x3 + w3, top, rowH, L"Start");
+    y = kitpaint::drawSectionHeader(c, x3, x3 + w3, top, rowH, L"Start");
     startOffered.clear();
     for (int k = 0; k < 4; ++k) {
         if (k == 2) continue;  // Import an existing map (an EUD project's): hidden for now
@@ -355,7 +290,7 @@ void NewPageView::paint(draw::Canvas& c) {
         const int hgt = k == 0 ? fieldH + scale(8) : rowH;
         const draw::Rect r{x3, y, x3 + w3, y + hgt};
         const bool over = hot(r);
-        radioMark(c, {x3 + scale(2), r.top + (hgt - scale(14)) / 2, x3 + scale(16), r.top + (hgt - scale(14)) / 2 + scale(14)}, on, over);
+        kitpaint::drawRadioMark(c, {x3 + scale(2), r.top + (hgt - scale(14)) / 2, x3 + scale(16), r.top + (hgt - scale(14)) / 2 + scale(14)}, on, over);
         const wchar_t* text = k == 3 ? L"The terrain of a map" : k == 2 ? L"Import an existing map" : k == 1 ? L"Generate" : L"Blank map filled with";
         const draw::Rect t{x3 + scale(26), r.top, r.right, r.bottom};
         c.text(t, text, on || over ? kText : kDim, draw::kMiddle);
@@ -371,7 +306,7 @@ void NewPageView::paint(draw::Canvas& c) {
             const IsomTerrainTable* table = IsomTerrainTable::forEra(era);
             const int bx = t.left + c.measure(text) + scale(10);
             terrainBox = {bx, r.top + scale(4), std::min(int(r.right), bx + scale(260)), r.top + scale(4) + fieldH};
-            pickBoxFace(c, terrainBox, widen(table ? table->terrainName(terrainId()) : ""), false, hot(terrainBox));
+            kitpaint::drawPickFace(c, terrainBox, widen(table ? table->terrainName(terrainId()) : ""), false, hot(terrainBox));
             hitAdd(terrainBox, [this] { pickTerrain(terrainBox); }, L"The terrain on the whole map");
             hits.back().wheel = [this](int dir) {  // the wheel: the next or the previous terrain of the tileset
                 const IsomTerrainTable* tb = IsomTerrainTable::forEra(era);
@@ -398,10 +333,10 @@ void NewPageView::paint(draw::Canvas& c) {
             if (!file.empty()) setFromMapText(file), changed(false);
         });
         y += scale(stardraft::kit::kFormRowH);
-        const draw::Font of = c.setFont(newpage::smallText(c));
+        const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
         y = paragraph(c, {x3, y, x3 + fw, y + scale(100)},
-                      terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. StarDraft 2 does not change the map's file."
-                                  : L"StarDraft 2 copies the map into the project folder. StarDraft 2 does not change the original file.",
+                      terrainOnly ? L"The new map gets the map's size, tileset, terrain and doodads. The map's file does not change."
+                                  : L"The project gets a copy of the map in its folder. The original file does not change.",
                       kDim) +
             scale(8);
         c.setFont(of);
@@ -429,7 +364,7 @@ void NewPageView::paint(draw::Canvas& c) {
         const int labelW = std::min(scale(210), gw / 2);
         const int gTop = gy;
         // Seed, symmetry.
-        const int bw = buttonWidth(c, L"Randomize seed");
+        const int bw = kitpaint::buttonWidth(c, L"Randomize seed");
         c.text({gx, gy, gx + labelW, gy + scale(stardraft::kit::kFormRowH)}, L"Seed", kDim, draw::kMiddle | draw::kEllipsis);
         placeField(seed_, {gx + labelW, gy + scale(4), gr - bw - scale(8), gy + scale(4) + fieldH}, true, 0, footerTop);
         button(c, {gr - bw, gy + scale(2), gr, gy + scale(2) + scale(stardraft::kit::kButtonH)}, L"Randomize seed", false, [this] { randomizeSeed(); });
@@ -445,10 +380,10 @@ void NewPageView::paint(draw::Canvas& c) {
                         L"Randomize the tileset, the amounts, the shape and the seed (not the size)");
             gy += rowH + scale(8);
         }
-        gy = sectionHeader(c, gx, gr, gy, rowH, L"Amounts");
+        gy = kitpaint::drawSectionHeader(c, gx, gr, gy, rowH, L"Amounts");
         for (auto& sl : shares) paintSliderRow(c, gx, gy, labelW, gr, sl, true), gy += rowH;
         gy += scale(12);
-        gy = sectionHeader(c, gx, gr, gy, rowH, L"Shape");
+        gy = kitpaint::drawSectionHeader(c, gx, gr, gy, rowH, L"Shape");
         for (auto& sl : shape) paintSliderRow(c, gx, gy, labelW, gr, sl, false), gy += rowH;
         // A check box row of the generator; `regenerate`: the preview's map is made again when it changes.
         auto check = [&](bool& on, const wchar_t* label, const wchar_t* tip, bool enabled, bool regenerate) {
@@ -468,7 +403,7 @@ void NewPageView::paint(draw::Canvas& c) {
             gy += rowH;
         };
         gy += scale(12);
-        gy = sectionHeader(c, gx, gr, gy, rowH, L"Rules");  // (roadmap R49)
+        gy = kitpaint::drawSectionHeader(c, gx, gr, gy, rowH, L"Rules");  // (roadmap R49)
         paintSliderRow(c, gx, gy, labelW, gr, bases, false), gy += rowH;
         check(paths, L"Paths between the bases", L"Ground that units can walk joins each base to the next: no water and no cliffs on it",
               bases.value > 0, true);
@@ -498,7 +433,7 @@ void NewPageView::paint(draw::Canvas& c) {
         c.fill({0, bar.top, W, bar.top + 1}, kBorder);
         hitAdd(bar, nullptr, L"", draw::Cursor::Arrow);  // a click on the bar does not go to the columns under it
     }
-    const int right = x3 + w3, cw = buttonWidth(c, L"Cancel"), crw = buttonWidth(c, L"Create"), bgap = scale(stardraft::kit::kButtonGap);
+    const int right = x3 + w3, cw = kitpaint::buttonWidth(c, L"Cancel"), crw = kitpaint::buttonWidth(c, L"Create"), bgap = scale(stardraft::kit::kButtonGap);
     button(c, {right - cw, by, right, by + bh}, L"Cancel", false, [this] { cancelPage(); });
     button(c, {right - cw - bgap - crw, by, right - cw - bgap, by + bh}, L"Create", true, [this] { create(); },
            createEnabled ? (project ? L"Make the project folder and its map" : L"Make the map in this tab") : warning, createEnabled);
@@ -510,8 +445,7 @@ void NewPageView::paint(draw::Canvas& c) {
     if (bar) {
         const int bw2 = scale(stardraft::kit::kScrollBarW);
         const draw::Rect br{W - bw2, 0, W, H};
-        const draw::Rect fr = bar_.frame();
-        if (fr.left != br.left || fr.top != br.top || fr.right != br.right || fr.bottom != br.bottom) bar_.setFrame(br);
+        bar_.setFrame(br);
         bar_.setRange(height_, H);
         bar_.setPos(scroll);
     }
@@ -590,20 +524,10 @@ void NewPageView::captureLost() {
     if (dragging_ >= 0) dragging_ = -1, invalidate();
 }
 
-bool NewPageView::vscroll(int code, int pos, int track, int) {
+bool NewPageView::vscroll(int code, int /*pos*/, int track, int) {
     const int page = height();
     int s = scroll;
-    switch (code) {
-    case 0: s = scroll - scale(32); break;  // SB_LINEUP
-    case 1: s = scroll + scale(32); break;  // SB_LINEDOWN
-    case 2: s = scroll - page; break;       // SB_PAGEUP
-    case 3: s = scroll + page; break;       // SB_PAGEDOWN
-    case 4: s = pos; break;                 // SB_THUMBPOSITION
-    case 5: s = track; break;               // SB_THUMBTRACK
-    case 6: s = 0; break;                   // SB_TOP
-    case 7: s = height_; break;             // SB_BOTTOM
-    default: return false;
-    }
+    if (!kitpaint::scrollRequest(code, s, scale(32), page, track)) return false;
     const int s2 = std::clamp(s, 0, std::max(0, height_ - page));
     if (s2 != scroll) scroll = s2, invalidate();
     return true;

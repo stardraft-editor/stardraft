@@ -38,7 +38,7 @@ public:
         apply_.setTip(L"Set these values in the map (one undo step)");
         apply_.onClick = [this] { host_.apply(); };
         revert_.setText(L"Revert");
-        revert_.setTip(L"Discard the changes that are not applied");
+        revert_.setTip(L"Revert the changes that are not applied");
         revert_.onClick = [this] { host_.revert(); };
         add(apply_, {0, 0, 0, 0});
         add(revert_, {0, 0, 0, 0});
@@ -51,20 +51,12 @@ public:
     }
     int footerH() { return host_.footerH(); }
 
-    // Clicks the bar's button as the mouse would (a test): false when the bar has no such button, or it is off.
-    bool clickBar(bool apply) {
-        stardraft::kit::Button& b = apply ? apply_ : revert_;
-        if (!b.visible() || !b.enabled() || !b.onClick) return false;
-        b.onClick();
-        return true;
-    }
-
     void paint(draw::Canvas& c) override {
         const int pad = scale(stardraft::kit::kDialogPad), headH = headerH(), footH = footerH();
         // The header: the page's title; the tabs under it.
         const std::wstring title = host_.title();
         if (!title.empty()) {
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+            const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
             c.text({pad, 0, width() - pad, scale(56)}, title, kText, draw::kMiddle | draw::kEllipsis);
             c.setFont(of);
         }
@@ -114,8 +106,8 @@ public:
         const int rw = revert_.preferredWidth(c), aw = apply_.preferredWidth(c);
         const draw::Rect rr{width() - pad - rw, by, width() - pad, by + bh};
         const draw::Rect ar{rr.left - scale(stardraft::kit::kButtonGap) - aw, by, rr.left - scale(stardraft::kit::kButtonGap), by + bh};
-        if (apply_.frame().left != ar.left || apply_.frame().top != ar.top || apply_.width() != ar.width()) apply_.setFrame(ar);
-        if (revert_.frame().left != rr.left || revert_.frame().top != rr.top || revert_.width() != rr.width()) revert_.setFrame(rr);
+        apply_.setFrame(ar);
+        revert_.setFrame(rr);
         if (apply_.enabled() != changed) apply_.setEnabled(changed);  // (a set invalidates: only on a change)
         if (revert_.enabled() != changed) revert_.setEnabled(changed);
         apply_.setVisible(true), revert_.setVisible(true);
@@ -218,16 +210,7 @@ private:
     // The bar's request: a line is 32 px, a page is the bar's page, a dragged thumb is where it is.
     void scrollBy(int code, int track, int page, bool vertical) {
         int p = vertical ? y_ : x_;
-        switch (code) {
-        case 0: p -= scale(32); break;  // SB_LINEUP
-        case 1: p += scale(32); break;  // SB_LINEDOWN
-        case 2: p -= page; break;       // SB_PAGEUP
-        case 3: p += page; break;       // SB_PAGEDOWN
-        case 4:                         // SB_THUMBPOSITION
-        case 5: p = track; break;       // SB_THUMBTRACK: the thumb's place, as the old page read it
-        case 6: p = 0; break;           // SB_TOP
-        case 7: p = 1 << 30; break;     // SB_BOTTOM
-        }
+        kitpaint::scrollRequest(code, p, scale(32), page, track);
         vertical ? scrollTo(x_, p) : scrollTo(p, y_);
     }
 

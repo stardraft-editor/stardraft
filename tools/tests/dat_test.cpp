@@ -107,6 +107,19 @@ int main(int argc, char** argv) {
         std::string e;
         check(reqs.editsScript(e).empty() && e.empty(), "no requirement edits: no code");
     }
+    {  // (GitHub #229: every entry of every kind set to Always fits; they share one empty list a kind)
+        Requirements all;
+        for (int k = 0; k < Requirements::kKinds; ++k)
+            for (int e = 0; e < Requirements::kind(k).entries; ++e) {
+                RequirementList l;
+                l.used = true;
+                all.set(k, e, l);
+            }
+        std::string e;
+        const std::string script = all.editsScript(e);
+        check(e.empty() && !script.empty() && all.used() <= Requirements::capacity(),
+              "requirements: every entry Always fits (" + std::to_string(all.used()) + " bytes) " + e);
+    }
     RequirementList marine = reqs.list(0, 0);
     marine.ops.push_back({0xFF03, 112});  // must have an Academy
     reqs.set(0, 0, marine);

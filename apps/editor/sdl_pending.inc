@@ -24,7 +24,7 @@ void setWorkspace(Workspace w) {
     if (!commandInMode(mapPageCommandOf(w))) {
         if (w == Workspace::ClassicTriggers || w == Workspace::ClassicSettings)
             setMessage(w == Workspace::ClassicTriggers ? L"This project's map has no classic triggers. Use the Triggers workspace."
-                                                       : L"The map's Data page is for classic maps. In a project, use the Data workspace.");
+                                                       : L"The Map data page is for classic maps. In a project, use the Data workspace.");
         else setMessage(L"This tab is a classic map. Data, Triggers and Project need a project. File > Project > Make this map a project makes one.");
         w = Workspace::Map;
     }

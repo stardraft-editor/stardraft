@@ -20,6 +20,7 @@ bool gFloatPalClosing = false;   // the program closes the window (another mode)
 bool gFloatPalLines = false;     // a snapshot's input lines have the palette's line (sdlFloatPaletteLine)
 draw::Rect gFloatPalShotAt;      // where the window opened, in the main window's pixels (a snapshot shows it there)
 Uint64 gFloatPalSaveAt = 0;      // the moved or resized window's place is saved then (0: nothing to save)
+std::optional<draw::Rect> gFloatDropAt;  // a tab dropped off the side bars: the window opens there (the main window's pixels)
 
 // The short name of a mode's palette (the end of its command's name: terrain, units, ...).
 std::string floatPaletteShort(Mode m) {
@@ -98,6 +99,7 @@ bool sdlPanelKeepOnScreen(SDL_Window* w, int* x = nullptr, int* y = nullptr) {
 }
 
 void sdlPanelCollapse(PanelStripView& v, bool on, int& fullH);  // (sdl_palette_panels.inc)
+void sdlPanelDragNoSnap(SDL_Window* w);  // (shell_sdl_win.inc)
 
 // The height of a palette window's strip (core/views_palette_float.inc: PanelStripView): 32 px and its line.
 int panelStripH() { return scale(32) + 1; }
@@ -138,6 +140,7 @@ void sdlPanelWindowSetup(PanelStripView& v) {
         v.drawFrame = true;
     }
     SDL_SetWindowHitTest(sw, sdlPanelHitTest, &v);
+    sdlPanelDragNoSnap(sw);  // (Windows: the strip's drag does not snap the window to half of the screen)
 }
 // After a drag (no mouse button down): the window back on its screen.
 void sdlPanelKeepOnScreenAfterDrag(SDL_Window* w) {
@@ -231,7 +234,7 @@ bool locationListSync(bool shown, draw::Rect slot) {
     if (kept.w > 0 && kept.h > 0) w = kept.w, h = kept.h;
     const bool right = slot.left >= map.right;  // (the palette's side bar is on the right of the map)
     const int x = right ? std::max(map.left, map.right - scale(16) - w) : std::max(slot.right, map.left) + scale(16), y = map.top + scale(16);
-    gFloatPalShotAt = draw::Rect(x, y, x + w, y + h);
+    gFloatPalShotAt = gFloatDropAt ? *gFloatDropAt : draw::Rect(x, y, x + w, y + h);
     gHost->openWindow(*gRoot, gFloatPalView, draw::WindowSpec{draw::WindowKind::Tool, gFloatPalShotAt, kModeNames[int(m)]}, [] {
         if (!gFloatPalClosing) floatPaletteClosedByUser();
     });

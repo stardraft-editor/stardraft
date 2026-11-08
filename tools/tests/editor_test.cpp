@@ -4,6 +4,7 @@
 // usage: editor_test <install dir> <map.scm|.scx> <scratch dir>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <bit>
 #include <cstdio>
@@ -280,8 +281,11 @@ static void placementOptions(const GameData& data, const char* map) {
 // checked); never on top of another doodad. Sprites: anywhere on the map.
 static void placementRules(const GameData& data, const char* map) {
     // Snap: the middle of the grid cell (a click), the nearest grid line (a move, a location edge).
-    CHECK(snapToCell(39, 0) == 39 && snapRound(39, 0) == 39, "snap: Do not snap keeps the point");
-    CHECK(snapToCell(39, 32) == 48 && snapToCell(39, 16) == 40 && snapToCell(39, 8) == 36, "snap: tiles, half and quarter tiles put a point in the middle of its cell");
+    CHECK(snapRound(39, 0) == 39 && snapOnMap(39, 0, 0, 2048) == 39, "snap: no grid keeps the point");
+    CHECK(snapRound(39, 32, 16) == 48 && snapRound(38, 24, 3) == 27, "snap: a grid with an offset has its lines at the offset");
+    CHECK(snapOnMap(2040, 32, 0, 2048) == 2016 && snapOnMap(5, 32, 0, 2048) == 0, "snap: a point on the map goes to a line on the map");
+    CHECK(snapOnMap(-5, 32, 0, 2048) == -5 && snapOnMap(2050, 32, 0, 2048) == 2050, "snap: a point outside the map stays, so that placing there is refused");
+    CHECK(snapOnMap(300, 8192, 8191, 2048) == 300, "snap: a side of the map with no line keeps the point");
     CHECK(snapRound(39, 32) == 32 && snapRound(39, 16) == 32 && snapRound(39, 8) == 40 && snapRound(-20, 16) == -16,
           "snap: a move or a location edge goes to the nearest grid line");
     std::string err;
@@ -1071,6 +1075,50 @@ static void rampsStay(const GameData& data, const fs::path& install) {
     CHECK(!has(), "ramps: another terrain painted over a ramp removes it");
 }
 
+// An ellipse's outline (180 lines, as Terrain's Ellipse tool gives them): paintTerrainPath paints it in one pass, with
+// the terrain as the lines one by one give it, in much less time.
+static void ellipseOutlineTest(const GameData& data) {
+    Editor a(data), b(data);
+    std::string err2;
+    if (a.newMap(256, 256, 0, 1, err2) && b.newMap(256, 256, 0, 1, err2) && a.canPaintTerrain()) {
+        const IsomTerrainTable* table = IsomTerrainTable::forEra(a.era());
+        uint16_t terrain = 2;
+        while (!table->isTerrain(terrain)) ++terrain;
+        std::vector<std::pair<int, int>> pts;
+        for (int k = 0; k < 180; ++k) {
+            const double t = 6.2831853 * k / 180;
+            pts.push_back({int(std::lround(4096 + 2400 * std::cos(t))), int(std::lround(4096 + 1600 * std::sin(t)))});
+        }
+        const Brush brush{Brush::Diamond, 2.0f};
+        const std::vector<uint16_t> was = a.terrain().tiles, wasB = b.terrain().tiles;
+        const auto t0 = std::chrono::steady_clock::now();
+        a.beginStroke();
+        for (size_t i = 0; i < pts.size(); ++i) {
+            const auto& p = pts[i];
+            const auto& q = pts[(i + 1) % pts.size()];
+            a.paintTerrainLine(p.first, p.second, q.first, q.second, terrain, brush);
+        }
+        a.endStroke();
+        const auto t1 = std::chrono::steady_clock::now();
+        b.paintTerrainPath(pts, true, terrain, brush);
+        const auto t2 = std::chrono::steady_clock::now();
+        const double lines = std::chrono::duration<double, std::milli>(t1 - t0).count(), path = std::chrono::duration<double, std::milli>(t2 - t1).count();
+        // (a new map's tiles are random: the tiles that each one changed, by their tile group)
+        int differ = 0, changed = 0;
+        for (size_t i = 0; i < was.size(); ++i) {
+            const bool ca = a.terrain().tiles[i] != was[i], cb = b.terrain().tiles[i] != wasB[i];
+            changed += ca;
+            differ += ca != cb || (ca && a.terrain().tiles[i] >> 4 != b.terrain().tiles[i] >> 4);
+        }
+        const int misfitsA = countTileMisfits(a.chk(), a.tileset()), misfitsB = countTileMisfits(b.chk(), b.tileset());
+        std::printf("ellipse outline: lines one by one %.0f ms, one pass %.0f ms; %d tiles changed, %d of them differ; misfits %d and %d\n", lines,
+                    path, changed, differ, misfitsA, misfitsB);
+        CHECK(changed > 0 && differ * 20 <= changed, "an ellipse's outline in one pass paints about the tiles of its lines one by one (5 % may differ)");
+        CHECK(misfitsB <= misfitsA, "an ellipse's outline in one pass leaves no more tiles that do not fit than its lines one by one");
+        CHECK(path * 4 < lines, "an ellipse's outline in one pass takes less than a quarter of the time of its lines one by one");
+    }
+}
+
 // Sound files of the map: import, rename and remove are each one undo step, and undo puts the archive and the
 // briefings back together (no briefing names a sound that the file list does not have).
 static void soundFileSteps(const GameData& data, const char* map) {
@@ -1469,6 +1517,11 @@ int main(int argc, char** argv) {
     }
     if (argc > 4 && std::string(argv[4]) == "sounds") {  // only the sound file checks
         soundFileSteps(data, argv[2]);
+        return failures ? 1 : 0;
+    }
+    if (argc > 4 && std::string(argv[4]) == "ellipse") {  // only the ellipse outline check
+        ellipseOutlineTest(data);
+        std::printf("\n%d failures\n", failures);
         return failures ? 1 : 0;
     }
     if (argc > 4 && std::string(argv[4]) == "mirror") {  // only the terrain symmetry checks (feedback #134)
@@ -2211,6 +2264,110 @@ int main(int argc, char** argv) {
             pc.undo();
             CHECK(sameExcept(original, pc.chk(), {}, &which) && pc.chk().effective("CRGB") == original.effective("CRGB"),
                   ("player colors: undo gives the map back " + which).c_str());
+            // (Discord feedback #227) Back to colors that COLR has: CRGB goes, COLR has them; undo gives it back.
+            pc.setPlayersAndForces(players, forces);
+            const Chk withCrgb = pc.chk();
+            CHECK(withCrgb.find("CRGB"), "player colors: a color that needs CRGB makes it");
+            for (int p = 0; p < 8; ++p) players[size_t(p)].color = {Editor::PlayerColor::Id, uint8_t(7 - p), 0};
+            pc.setPlayersAndForces(players, forces);
+            CHECK(!pc.chk().find("CRGB") && pc.chk().effective("COLR") == Bytes({7, 6, 5, 4, 3, 2, 1, 0}) && pc.player(0).color.id == 7,
+                  "player colors: all in COLR, CRGB goes");
+            pc.undo();
+            CHECK(pc.chk().effective("CRGB") == withCrgb.effective("CRGB"), "player colors: undo gives CRGB back");
+            pc.undo();
+        }
+    }
+    // A slot that OWNR has as Inactive and IOWN as a type: a change on the page keeps IOWN's, a start location gives it.
+    {
+        Editor io(data);
+        std::string e1;
+        if (io.open(argv[2], e1) && io.chk().effective("IOWN").size() >= 12 && io.chk().effective("IOWN")[2] &&
+            io.player(2).controller == Editor::Controller::Inactive) {
+            const uint8_t type = io.chk().effective("IOWN")[2];
+            std::vector<Editor::Player> players;
+            std::vector<Editor::Force> forces;
+            for (int p = 0; p < 8; ++p) players.push_back(io.player(p));
+            for (int f = 0; f < 4; ++f) forces.push_back(io.force(f));
+            players[0].force = 1;
+            io.setPlayersAndForces(players, forces);
+            CHECK(io.chk().effective("IOWN")[2] == type && io.player(2).controller == Editor::Controller::Inactive, "player types: a change elsewhere keeps IOWN's type");
+            io.placeUnit(214, 2, 640, 640);
+            CHECK(uint8_t(io.player(2).controller) == type && io.gameSlots()[2] == type, "player types: a start location gives the slot IOWN's type");
+        }
+    }
+    // Snap selected units to the grid (GitHub #244): each origin on the nearest crossing, the offset too; one undo step.
+    {
+        Editor sn(data);
+        std::string e1;
+        if (sn.newMap(64, 64, 0, 1, e1)) {
+            const uint16_t marine = *sn.unitTypes().findByName("Terran Marine");
+            sn.placeUnit(marine, 0, 333, 341), sn.placeUnit(marine, 0, 700, 701);
+            sn.selectAll();
+            CHECK(sn.snapSelection(32, 32, 0, 0) == 2 && sn.units()[0].x == 320 && sn.units()[0].y == 352 && sn.units()[1].x == 704 && sn.units()[1].y == 704,
+                  "snap to grid: each unit on the nearest crossing");
+            CHECK(sn.snapSelection(32, 32, 0, 0) == 0, "snap to grid: on the grid already");
+            CHECK(sn.snapSelection(16, 64, 8, 4) == 2 && sn.units()[0].x == 328 && sn.units()[0].y == 324, "snap to grid: another grid, with its offset");
+            sn.undo();
+            CHECK(sn.units()[0].x == 320, "snap to grid: undo");
+            CHECK(sn.placeSprite(1, 333, 341, 0) && sn.snapSprites({0}, 32, 32, 0, 0) == 1 && sn.sprites()[0].x == 320 && sn.sprites()[0].y == 352, "snap to grid: a sprite");
+            sn.undo();
+            CHECK(sn.sprites()[0].x == 333, "snap to grid: a sprite's undo");
+            CHECK(sn.placeSprite(1, 2040, 333, 0) && sn.snapSprites({1}, 32, 32, 0, 0) == 1 && sn.sprites()[1].x == 2016, "snap to grid: the crossing on the map");
+            // (two that would come to one place stay apart; a building on a grid between the tiles stays)
+            Editor ov(data);
+            if (ov.newMap(64, 64, 0, 1, e1)) {
+                const uint16_t m = *ov.unitTypes().findByName("Terran Marine"), depot = *ov.unitTypes().findByName("Terran Supply Depot");
+                ov.placeUnit(m, 0, 336, 320), ov.placeUnit(m, 0, 353, 320);
+                ov.selectAll();
+                ov.snapSelection(32, 32, 0, 0);
+                CHECK(std::abs(int(ov.units()[0].x) - int(ov.units()[1].x)) >= 17, "snap to grid: units do not come onto each other");
+                ov.clearSelection();
+                ov.placeUnit(depot, 0, 800, 800);
+                ov.selectUnitsOfType(depot);
+                const Unit before = ov.units().back();
+                ov.snapSelection(32, 32, 16, 16);
+                CHECK(ov.units().back().x == before.x && ov.units().back().y == before.y, "snap to grid: a building stays on a grid between the tiles");
+            }
+            Editor dd(data);
+            if (dd.open(argv[2], e1) && !dd.doodads().empty()) {
+                std::vector<int> all;
+                for (int i = 0; i < int(dd.doodads().size()); ++i) all.push_back(i);
+                CHECK(dd.snapDoodads(all, 32, 32, 0, 0, false) == 0, "snap to grid: doodads on the tiles stay on a tile grid");
+                CHECK(dd.snapDoodads(all, 32, 32, 16, 16, false) == 0, "snap to grid: a grid between the tiles has no place for doodads");
+            }
+        }
+    }
+    // A save keeps each player's type, with a start location or not (Discord feedback #228).
+    {
+        Editor sl(data);
+        std::string e1;
+        if (sl.newMap(64, 64, 0, 1, e1)) {
+            std::vector<Editor::Player> players;
+            std::vector<Editor::Force> forces;
+            for (int p = 0; p < 8; ++p) players.push_back(sl.player(p));
+            for (int f = 0; f < 4; ++f) forces.push_back(sl.force(f));
+            players[0].controller = Editor::Controller::Human;
+            players[1].controller = Editor::Controller::Computer;
+            players[2].controller = Editor::Controller::Inactive;
+            sl.setPlayersAndForces(players, forces);
+            const Bytes slots = sl.gameSlots();
+            CHECK(slots[0] == uint8_t(Editor::Controller::Human) && slots[1] == 0 && slots[2] == uint8_t(Editor::Controller::Inactive) && slots[8] == 0,
+                  "player types: no start location, and a save keeps the type; a Computer with no units is Inactive for the game");
+            const fs::path file = fs::path(argv[3]) / "editor_test_slots.scm";
+            Editor back(data);
+            const bool saved = sl.save(file, e1) && back.open(file, e1);
+            CHECK(saved && back.player(1).controller == Editor::Controller::Computer && back.chk().effective("OWNR")[1] == 0,
+                  "player types: saved and opened again, the page has the Computer and OWNR has Inactive");
+            const fs::path file2 = fs::path(argv[3]) / "editor_test_slots2.scm";  // (Save as with no edit: the same slots)
+            Editor back2(data);
+            CHECK(sl.save(file2, e1) && back2.open(file2, e1) && back2.chk().effective("OWNR")[1] == 0, "player types: a second save has Inactive too");
+            const uint16_t marine = *sl.unitTypes().findByName("Terran Marine");
+            sl.placeUnit(marine, 1, 320, 320);
+            CHECK(sl.gameSlots()[1] == uint8_t(Editor::Controller::Computer), "player types: a Computer with units is a Computer for the game");
+            CHECK(sl.player(1).controller == Editor::Controller::Computer, "player types: the page shows the type the game reads");
+            CHECK(!sl.playabilityProblems(false).empty(), "player types: players with no start location do not count as playing");
+        } else {
+            CHECK(false, ("player types: " + e1).c_str());
         }
     }
     // Terrain by kind through a change of tileset (1.10): water and high ground painted on a new badlands map stay
@@ -2308,6 +2465,7 @@ int main(int argc, char** argv) {
                                  std::to_string(tilesets) + " maps, at most 12)";
         CHECK(tilesets == 8 && misfits <= 12, what.c_str());
     }
+    ellipseOutlineTest(data);
     // Rectangular terrain (N.7): tiles placed as they are, kept by later terrain edits that do not touch their rects,
     // saved and opened again as placed; the ISOM stays valid.
     if (Editor te(data); te.open(argv[2], err) && te.canPaintTerrain()) {

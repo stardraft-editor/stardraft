@@ -109,12 +109,6 @@ int briefTagAt(const std::vector<FlatAction>& flat, int at) {
     return -2;
 }
 
-// The row of a briefing's action in the rows of the briefing shown (briefRows); -1 when it is not there.
-int briefRowOf(int trig, int act) {
-    for (size_t i = 0; i < gBriefRows.size(); ++i)
-        if (gBriefRows[i].trig == trig && gBriefRows[i].act == act) return int(i);
-    return -1;
-}
 // The briefings that use a sound (the Files page's References panel): the first action of each briefing (by its
 // players) that plays it. The names compare without case, as the archive's names do.
 std::vector<FilesUse> soundUsesOf(const std::string& name) {

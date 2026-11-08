@@ -191,7 +191,7 @@ void addPathOverlays(render::Scene& s) {
     makePathShapes(*a);
     Editor& ed = *appState().ed;
     const size_t firstText = s.texts.size();
-    if (gPath.walk) s.rects.insert(s.rects.end(), gPath.walkRects.begin(), gPath.walkRects.end());
+    if (gPath.walk) addRectsInView(s.rects, gPath.walkRects);  // (only those the view shows: core/map_edit.inc)
     auto line = [&](float x0, float y0, float x1, float y1, uint32_t rgba, float thickness) {
         render::RectDraw r;
         r.x0 = x0, r.y0 = y0, r.x1 = x1, r.y1 = y1, r.rgba = rgba, r.thickness = thickness, r.line = true;
@@ -211,7 +211,7 @@ void addPathOverlays(render::Scene& s) {
         return int(labels.size()) - 1;
     };
     if (gPath.towns) {
-        s.rects.insert(s.rects.end(), gPath.townRects.begin(), gPath.townRects.end());
+        addRectsInView(s.rects, gPath.townRects);
         for (const Base& b : a->bases)
             for (int i : b.resources)
                 if (size_t(i) < ed.units().size()) outline(s, ed.unitBox(ed.units()[size_t(i)]), rgbaOf(kWarn, 0xE0), 2);

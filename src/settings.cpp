@@ -32,7 +32,7 @@ void Settings::reload() {
         // A file that is not JSON (a hand edit that left a comma): its values are not known, and the first save keeps
         // a copy of it (readError says where), so that the save does not lose them for good.
         unreadable_ = true;
-        if (readError_.empty()) readError_ = file_.filename().string() + " is not a JSON object: StarDraft 2 uses the default settings";
+        if (readError_.empty()) readError_ = file_.filename().string() + " is not a JSON object: the default settings apply";
     }
 }
 
@@ -91,7 +91,7 @@ bool Settings::save() {
         }
         fs::copy_file(file_, copy, ec);
         if (ec) return error_ = "cannot keep a copy of " + file_.string() + " (" + ec.message() + ")", false;
-        readError_ = file_.filename().string() + " was not a JSON object: StarDraft 2 used the default settings. The file before is " +
+        readError_ = file_.filename().string() + " was not a JSON object: the default settings applied. The file before is " +
                      copy.filename().string();
         unreadable_ = false;
     }

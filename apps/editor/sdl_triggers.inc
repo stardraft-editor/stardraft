@@ -65,6 +65,7 @@ std::string showBlockPicker(bool condition, const std::string& startCategory, co
 
 void sdlTriggersPlace();
 void sdlTrigRevealNow();
+bool sdlTrigRevealWaits();
 extern TrigInfoView gSdlTrigInfo;
 
 struct SdlTrigPaneHost final : TrigPaneHost {
@@ -74,7 +75,7 @@ struct SdlTrigPaneHost final : TrigPaneHost {
     draw::Image entryIcon(const std::string& dat, uint32_t v) override { return datHasIcons(dat) ? sdlDataImage(dataRefPicture(dat, v)) : draw::Image{}; }
     void layoutCheck() override {  // (the pane asks as it paints: the strip is placed after the frame)
         if (gSdlTrigInfo.shown() != (trigInfoHeight() > 0)) shellPost(sdlTriggersPlace);
-        shellPost(sdlTrigRevealNow);  // (trigRevealBlock: after this paint, the pane's lines are the new ones)
+        if (sdlTrigRevealWaits()) shellPost(sdlTrigRevealNow);  // (trigRevealBlock: after this paint, the pane's lines are the new ones)
     }
     void infoChanged() override { trigInfoRepaint(); }
     void paintNow() override {}  // (the window paints every frame: the hit areas are the last frame's)
@@ -201,6 +202,7 @@ void showTriggerCode() {
 // trigShowCodeLine: the pane moves to the block after its next paint (the hit areas and lines are the last paint's).
 std::optional<TrigBlockRef> gSdlTrigReveal;
 void trigRevealBlock(const TrigBlockRef& ref) { gSdlTrigReveal = ref; }
+bool sdlTrigRevealWaits() { return gSdlTrigReveal.has_value(); }
 void sdlTrigRevealNow() {
     if (!gSdlTrigReveal) return;
     const TrigBlockRef ref = *gSdlTrigReveal;

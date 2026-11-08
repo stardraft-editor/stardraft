@@ -734,18 +734,7 @@ public:
     // The window's scroll bar: the content's height, the pane's and the position.
     bool vscroll(int code, int /*pos*/, int track, int page) override {
         int s = gTE.scroll;
-        switch (code) {  // the SB_* requests
-        case 0: s -= scale(30); break;  // SB_LINEUP
-        case 1: s += scale(30); break;  // SB_LINEDOWN
-        case 2: s -= page; break;       // SB_PAGEUP
-        case 3: s += page; break;       // SB_PAGEDOWN
-        case 4:                         // SB_THUMBPOSITION
-        case 5: s = track; break;       // SB_THUMBTRACK
-        case 6: s = 0; break;           // SB_TOP
-        case 7: s = 1 << 30; break;     // SB_BOTTOM
-        default: return true;
-        }
-        scrollTo(s);
+        if (kitpaint::scrollRequest(code, s, scale(30), page, track)) scrollTo(s);
         return true;
     }
     bool windowScrollBar(int& range, int& page, int& pos) override {

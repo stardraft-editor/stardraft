@@ -34,6 +34,7 @@ Section* onlySection(Chk& chk, SectionName name) {
 
 bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, std::string& error) {
     types_.clear();
+    byId_.clear();
     Bytes dd;
     data.readFile(std::string("TileSet\\") + tilesetName(era) + "\\dddata.bin", dd, error);
     error.clear();  // optional: without it doodads simply have no terrain requirements
@@ -71,13 +72,13 @@ bool DoodadTypes::load(const GameData& data, const Tileset& ts, uint16_t era, st
         index[id] = types_.size();
         types_.push_back(std::move(t));
     }
+    byId_.assign(index.empty() ? 0 : size_t(index.rbegin()->first) + 1, kNone);
+    for (const auto& [id, i] : index) byId_[id] = uint32_t(i);
     return true;
 }
 
 const DoodadType* DoodadTypes::find(uint16_t id) const {
-    for (const auto& t : types_)
-        if (t.id == id) return &t;
-    return nullptr;
+    return id < byId_.size() && byId_[id] != kNone ? &types_[byId_[id]] : nullptr;
 }
 
 std::vector<Doodad> readDoodads(const Chk& chk) {

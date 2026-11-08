@@ -119,7 +119,7 @@ bool projectRemoveScript(const std::string& name) {
     }
     pr->removeSection(name);
     triggersSave(*pr, {});
-    setMessage(EudProject::isLinked(name) ? L"Removed the link to " + widen(name) + L". StarDraft 2 does not delete the file."
+    setMessage(EudProject::isLinked(name) ? L"Removed the link to " + widen(name) + L". The file stays on the disk."
                                           : L"Removed " + widen(name) + L" from the build. The file is still in the project folder.");
     return true;
 }
@@ -330,7 +330,7 @@ public:
         f.source = projectRel(*pr, pr->inputMap());
         f.output = projectRel(*pr, pr->outputMap());
         const std::wstring inst = shellInstallFolderText();
-        f.install = inst.empty() ? L"Found by StarDraft 2" : inst;
+        f.install = inst.empty() ? L"Found on this computer" : inst;
         const auto use = euddraft::find({});
         f.euddraft = use ? widen(use->version) + L"   " + fs::path(use->exe).parent_path().make_preferred().wstring() : L"Downloaded on the first build";
         return f;
@@ -592,7 +592,7 @@ void newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain) {
     AppState& app = shellState();
     auto ed = std::make_unique<Editor>(app.data);
     std::string err;
-    loadingStart(tr(L"Creating map\x2026"));
+    loadingStart(tr(L"Creating the map\x2026"));
     shellWaitCursor();
     if (!loadingTimed(tr(L"Creating MTXM and ISOM\x2026"), 0.8f, [&] { return ed->newMap(width, height, era, terrain, err); })) {
         loadingEnd();

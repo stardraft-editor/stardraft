@@ -3,8 +3,8 @@
 // headings made from the names ("Jungle_Bridges_Left": Left under Bridges under Jungle); a click on a heading closes or
 // opens it. The box at the top sorts by name (A to Z) or the newest first; the search under it shows only the custom
 // terrain whose name has the typed text (any case; GitHub #175), its closed headings open. A click on an item makes it the Brush's
-// stamp; a right click: Rename, Delete, Show in folder. With no custom terrain for the tileset, two dim lines say how
-// to make it.
+// stamp. A right click: the View menu as the other palettes have it (List or Grid; Normal, Large, Extra large), on an item
+// Rename, Delete, Show in folder first. With no custom terrain for the tileset, two dim lines say how to make it.
 
 // The picture of custom terrain in `box` (its shape kept, in the middle): its tiles as the Tiles list draws them. A
 // large one draws every n-th tile only, each over the n x n tiles it stands for.
@@ -94,6 +94,9 @@ std::vector<StampRow> stampsRows(std::wstring search = {}) {
 }
 
 class StampsListView;
+// The right click's menu at `at` of `from` (the host: sdl_panels.inc): on an item (`s`) Rename, Delete, Show in folder,
+// then the View items (List, Grid; Normal, Large, Extra large).
+void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s);
 std::vector<StampsListView*> gStampsViews;  // (each panel's list: stampsPanelsRepaint)
 void stampsPanelsRepaint();
 
@@ -124,7 +127,15 @@ public:
 
     TilesScope here() { return {data, grid, panel}; }
     static int topH() { return 2 * scale(24) + 2 * scale(6); }  // (the sort box, the search)
-    static int rowH(bool heading) { return heading ? scale(24) : scale(44); }
+    // An item's height in the list, and a cell's side in the grid, by the size (normal, large, extra large).
+    static int rowH(bool heading) {
+        static const int kRow[] = {44, 72, 112};
+        return heading ? scale(24) : scale(kRow[stampsSize()]);
+    }
+    static int cellW() {
+        static const int kCell[] = {64, 96, 144};
+        return scale(kCell[stampsSize()]);
+    }
     const std::vector<StampRow>& rows() const { return rows_; }
 
     void resized() override {
@@ -135,9 +146,21 @@ public:
     // The rows again (the files, the sort, a heading closed): their places, the scroll kept where it can be.
     void layout() {
         rows_ = stampsRows(search_.text());
-        tops_.clear();
-        int y = 0;
-        for (const StampRow& r : rows_) tops_.push_back(y), y += rowH(r.heading);
+        tops_.clear(), rects_.clear();
+        // (a list: each row under the one before; a grid: the items in rows of cells, each heading on its own row)
+        const int w = std::max(1, width() - barW()), cell = cellW();
+        const int cols = std::max(1, w / cell);
+        int y = 0, col = 0;
+        for (const StampRow& r : rows_) {
+            if (!stampsGrid() || r.heading) {
+                if (col) y += cell, col = 0;
+                tops_.push_back(y), rects_.push_back({0, y, w, y + rowH(r.heading)}), y += rowH(r.heading);
+                continue;
+            }
+            tops_.push_back(y), rects_.push_back({col * cell, y, col * cell + cell, y + cell});
+            if (++col == cols) col = 0, y += cell;
+        }
+        if (col) y += cell;
         contentH_ = y;
         const int viewH = std::max(0, height() - topH());
         bar_.setFrame({width() - barW(), topH(), width(), height()});
@@ -155,14 +178,15 @@ public:
     int rowAt(draw::Point p) const {
         if (p.y < topH() || (bar_.shown() && p.x >= width() - barW())) return -1;
         const int y = p.y - topH() + scroll_;
-        for (size_t i = 0; i < rows_.size(); ++i)
-            if (y >= tops_[i] && y < tops_[i] + rowH(rows_[i].heading)) return int(i);
+        for (size_t i = 0; i < rows_.size() && i < rects_.size(); ++i)
+            if (y >= rects_[i].top && y < rects_[i].bottom && p.x >= rects_[i].left && p.x < rects_[i].right) return int(i);
         return -1;
     }
 
     void paint(draw::Canvas& c) override {
         const TilesScope scope = here();
         if (sortShown_ != stampsSort()) sortShown_ = stampsSort(), sort_.setValue(sortShown_);
+        if (viewShown_ != stampsGrid() * 3 + stampsSize()) viewShown_ = stampsGrid() * 3 + stampsSize(), stale_ = true;
         const auto& list = stampsList();
         if (listShown_ != &list || builtFor_ != gStamps.era || listSize_ != list.size() || stale_) {
             listShown_ = &list, builtFor_ = gStamps.era, listSize_ = list.size(), stale_ = false;
@@ -187,7 +211,7 @@ public:
         glyphs.face = draw::Face::Glyphs, glyphs.px = scale(9);
         for (size_t i = 0; i < rows_.size(); ++i) {
             const StampRow& r = rows_[i];
-            const int top = topH() + tops_[i] - scroll_, bottom = top + rowH(r.heading);
+            const int top = topH() + rects_[i].top - scroll_, bottom = topH() + rects_[i].bottom - scroll_;
             if (bottom < topH() || top > h) continue;
             const int indent = scale(4) + r.depth * scale(14);
             if (r.heading) {  // a chevron (open: down, closed: right), the name, then a line to the right edge
@@ -204,6 +228,17 @@ public:
             if (r.index < 0 || r.index >= int(list.size())) continue;
             const TerrainStamp& s = list[size_t(r.index)];
             const bool picked = !data->stampName.empty() && widen(s.name) == data->stampName;
+            if (stampsGrid()) {  // a cell: the picture, the name under it (medium and large)
+                const draw::Rect f{rects_[i].left + 1, top + 1, rects_[i].right - 1, bottom - 1};
+                if (picked) kitpaint::drawListRow(c, f, true, false);
+                else if (int(i) == hover_) c.fill(f, kRowHot);
+                const int nameH = stampsSize() ? scale(16) : 0;
+                const draw::Rect pic{f.left + scale(3), f.top + scale(3), f.right - scale(3), f.bottom - scale(3) - nameH};
+                c.fill(pic, draw::rgb(6, 6, 10));
+                stampsDrawPicture(c, s, pic);
+                if (nameH) c.text({f.left + scale(3), pic.bottom, f.right - scale(3), f.bottom}, r.label, kText, draw::kCenter | draw::kMiddle | draw::kEllipsis);
+                continue;
+            }
             const draw::Rect f{1, top + 1, w - 1, bottom - 1};
             if (picked) kitpaint::drawListRow(c, f, true, false);
             else if (int(i) == hover_) c.fill(f, kRowHot);
@@ -259,8 +294,8 @@ public:
             if (e.button != 1) return false;
             const int r = rowAt(e.pt);
             const auto& list = stampsList();
-            if (r < 0 || rows_[size_t(r)].heading || rows_[size_t(r)].index >= int(list.size())) return false;
-            stampsItemMenu(list[size_t(rows_[size_t(r)].index)]);
+            const bool item = r >= 0 && !rows_[size_t(r)].heading && rows_[size_t(r)].index >= 0 && rows_[size_t(r)].index < int(list.size());
+            shellStampsMenu(*this, e.pt, item ? &list[size_t(rows_[size_t(r)].index)] : nullptr);
             return true;
         }
         default: return false;
@@ -286,7 +321,7 @@ public:
             const StampRow& r = rows_[i];
             if (r.heading ? r.key != name : (r.index < 0 || r.index >= int(list.size()) || widen(list[size_t(r.index)].name) != name)) continue;
             const draw::Point o = origin();
-            x = o.x + width() / 2, y = o.y + topH() + tops_[i] - scroll_ + rowH(r.heading) / 2;
+            x = o.x + (rects_[i].left + rects_[i].right) / 2, y = o.y + topH() + (rects_[i].top + rects_[i].bottom) / 2 - scroll_;
             return shown() && y - o.y >= topH() && y - o.y < height();
         }
         return false;
@@ -298,7 +333,8 @@ private:
     stardraft::kit::ScrollBar bar_;
     std::vector<StampRow> rows_;
     std::vector<int> tops_;
-    int contentH_ = 0, scroll_ = 0, hover_ = -1, sortShown_ = -1, builtFor_ = -2;
+    std::vector<draw::Rect> rects_;  // (each row's place in the content: a list's row, a grid's cell)
+    int contentH_ = 0, scroll_ = 0, hover_ = -1, sortShown_ = -1, viewShown_ = -1, builtFor_ = -2;
     const std::vector<TerrainStamp>* listShown_ = nullptr;
     size_t listSize_ = 0;
     bool stale_ = true;

@@ -89,6 +89,7 @@
 #include "file_types.h"  // apps/common: the files that open with StarDraft 2 (shell_sdl_win.inc)
 #include <dwmapi.h>      // the dark title bar (shell_sdl_win.inc)
 #include <shellapi.h>    // the elevated start (shell_sdl_win.inc)
+#include <commctrl.h>    // SetWindowSubclass: a palette window's drag (shell_sdl_win.inc)
 #include <psapi.h>       // the working set (sdl_soak.inc: --script stats)
 #include <dxgi1_4.h>     // the GPU memory (sdl_soak.inc: --script stats)
 #else
@@ -143,6 +144,9 @@
 #include "stardraft/creep.h"
 #include "stardraft/terrain_gen.h"  // the generator's settings (core/views_new_page.inc, sdl_new_page.inc)
 #include "stardraft/terrain_stamp.h"  // the user's terrain stamps (core/stamps.inc)
+#include "stardraft/bridges.h"  // the Terrain tool strip's Bridge (core/terrain_shapes.inc)
+#include "stardraft/passages.h"  // Tools > Cosmonarchy > Ramp and bridge mapper (core/views_passages.inc)
+#include "stardraft/ramps.h"    // and its Ramp
 #include "stardraft/tileset.h"
 #include "stardraft/triggers.h"  // the Triggers workspace's model (core/views_triggers_tree.inc)
 #include "stardraft/units.h"
@@ -309,6 +313,14 @@ void fitMainWindow(int w, int h) {
     SDL_SetWindowPosition(win, SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)), SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetDisplayForWindow(win)));
 }
 
+// The game's own data when it is not open (Cosmonarchy mode opens only the mod's): the Ramp and bridge mapper's tileset
+// outside Cosmonarchy mode.
+bool openGameDataNow() {
+    if (gState.data.isOpen()) return true;
+    std::string err;
+    return openInstall("", err);
+}
+
 bool useInstallFolder(const std::string& picked) {
     if (picked.empty()) return false;
     std::string err;
@@ -321,7 +333,7 @@ bool useInstallFolder(const std::string& picked) {
             gStartView.dataError.clear(), gStartView.installMissing = false, gStartView.installNote.clear();
             if (gRoot) gRoot->relayout(), gRoot->invalidate(), gRoot->map.invalidate();
             gStartView.invalidate();
-            setMessage(L"The StarCraft folder is set");
+            setMessage(L"Set the StarCraft folder");
             return true;
         }
     return false;
@@ -360,10 +372,170 @@ bool writeSnapshot(SDL_GPUDevice* device, SDL_GPUTexture* tex, int w, int h, con
 }
 
 }  // namespace
+bool shellOpenGameData() { return openGameDataNow(); }  // (core/views_passages.inc)
 
 void sdlEnsureGameData() { ensureGameData(); }  // (sdl_options.inc)
 
+// The graphics driver and the video card in use, for the Log and Program options > Graphics ("Vulkan, NVIDIA GeForce
+// GTX 770"; "" before the device).
+std::wstring sdlGraphicsInUse() {
+    if (!gRenderer || !gRenderer->device()) return L"";
+    const std::string d = gRenderer->driverTried();
+    std::wstring out = d == "vulkan" ? L"Vulkan" : d == "direct3d12" ? L"Direct3D 12" : d == "warp" ? L"software (WARP)" : d == "metal" ? L"Metal" : widen(d);
+    const char* name = SDL_GetStringProperty(SDL_GetGPUDeviceProperties(gRenderer->device()), SDL_PROP_GPU_DEVICE_NAME_STRING, nullptr);
+    if (name && *name) out += L", " + widen(name);
+    return out;
+}
+
+// Windows: a start whose window did not show (a video card's driver that stopped: an old GeForce's Direct3D 12 stopped
+// the whole computer, 0.8.5): the next starts do not try its driver. gpu-start.txt (next to the crashes folder) names
+// the driver while the start tries it (each try, written to the disk first) and while the window shows its first
+// frames; not while the map loads between them (a long load that the user ends is not the driver's). It goes when the
+// frames show, the program ends, or a crash report is written after the device was made (a crash in a try keeps it:
+// the next start does not try that driver). gpu-skip.txt keeps the drivers left out, one a line (Program options >
+// Graphics takes the chosen one out, Automatic all). Not for test runs, nor when STARDRAFT_GPU_DRIVER asks for one.
+#ifdef _WIN32
+fs::path sdlCrashFolder();  // (shell_sdl_win.inc)
+namespace gpustart {
+bool on = false;
+std::wstring note;   // (the Log's line about a driver left out)
+Uint64 madeAt = 0;
+std::string driver;  // the driver of the device (made)
+HANDLE owner = nullptr;  // the start's mutex while its mark is on (before)
+fs::path folder() {
+    const fs::path c = sdlCrashFolder();
+    return c.empty() ? fs::path() : c.parent_path();
+}
+bool known(const std::string& d) { return d == "direct3d12" || d == "vulkan" || d == "warp"; }
+// (on the disk at once: a computer that stops right after and is reset keeps it)
+void writeNow(const wchar_t* name, const std::string& text) {
+    std::error_code ec;
+    fs::create_directories(folder(), ec);
+    HANDLE f = CreateFileW((folder() / name).c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return;
+    DWORD wrote = 0;
+    WriteFile(f, text.data(), DWORD(text.size()), &wrote, nullptr);
+    FlushFileBuffers(f);
+    CloseHandle(f);
+}
+void mark(const char* d) {
+    if (on) writeNow(L"gpu-start.txt", std::string(d) + "\n");
+}
+void removeMark() {
+    std::error_code ec;
+    fs::remove(folder() / "gpu-start.txt", ec);
+}
+std::vector<std::string> skipList() {
+    std::vector<std::string> out;
+    std::ifstream in(folder() / "gpu-skip.txt");
+    for (std::string line; std::getline(in, line);) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (known(line) && std::find(out.begin(), out.end(), line) == out.end()) out.push_back(line);
+    }
+    return out;
+}
+void writeSkips(const std::vector<std::string>& list) {
+    if (list.empty()) {
+        std::error_code ec;
+        fs::remove(folder() / "gpu-skip.txt", ec);
+        return;
+    }
+    std::string text;
+    for (const std::string& d : list) text += d + "\n";
+    writeNow(L"gpu-skip.txt", text);
+}
+void before(render::Renderer& r) {
+    // (STARDRAFT_GPU_START_TEST: a --noactivate test of this, with its own LOCALAPPDATA)
+    if ((gSilent && !(gNoActivate && std::getenv("STARDRAFT_GPU_START_TEST"))) || std::getenv("STARDRAFT_GPU_DRIVER") || folder().empty()) return;
+    // (one start at a time: a second one while the first starts (a double click again) leaves its mark as it is)
+    owner = CreateMutexW(nullptr, TRUE, L"Local\\StarDraftGpuStart");
+    if (!owner || GetLastError() == ERROR_ALREADY_EXISTS) {
+        if (owner) CloseHandle(owner), owner = nullptr;
+        return;
+    }
+    on = true;
+    std::vector<std::string> skips = skipList();
+    std::string last;
+    {
+        std::ifstream in(folder() / "gpu-start.txt");
+        std::getline(in, last);
+    }
+    if (!last.empty() && last.back() == '\r') last.pop_back();
+    if (known(last) && std::find(skips.begin(), skips.end(), last) == skips.end()) {
+        skips.push_back(last);
+        writeSkips(skips);
+        note = L"The last start with " + widen(last) + L" did not show its window: that driver is not used now (Program options > Graphics)";
+    }
+    std::string skip;
+    for (const std::string& d : skips) skip += (skip.empty() ? "" : ",") + d;
+    r.setSkippedDrivers(skip);
+    r.setTryHook(mark);
+}
+void made(const render::Renderer& r) {  // (the device works: the map loads with no mark)
+    madeAt = SDL_GetTicks(), driver = r.driverTried();
+    if (on) removeMark();
+}
+void presentingNow() {  // (just before the window shows: its first frames)
+    if (on && !driver.empty()) mark(driver.c_str());
+}
+void ended() {  // (the program ends as it should: its driver did not stop the computer)
+    if (!on) return;
+    on = false;
+    removeMark();
+    if (owner) ReleaseMutex(owner), CloseHandle(owner), owner = nullptr;
+}
+void crashed() {  // (a crash report: in a driver's try the mark stays, so the next start does not try that driver)
+    if (on && madeAt != 0) ended();
+}
+void shown(long long frames) {  // (each turn: 60 frames, or 10 and 5 seconds (a start page that waits for events))
+    if (!on || (frames < 60 && (frames < 10 || SDL_GetTicks() - madeAt < 5000))) return;
+    ended();
+    if (!note.empty()) shellLogLine(note);
+}
+}  // namespace gpustart
+void sdlGpuStartCrashed() { gpustart::crashed(); }  // (shell_sdl_win.inc: crashWritten)
+// Program options > Graphics: the chosen driver ("": Automatic, all of them) is no longer left out.
+void sdlGpuUnskip(const std::string& d) {
+    if (gpustart::folder().empty()) return;
+    std::vector<std::string> list = gpustart::skipList();
+    std::erase_if(list, [&](const std::string& s) { return d.empty() || s == d; });
+    gpustart::writeSkips(list);
+}
+#else
+namespace gpustart {
+void before(render::Renderer&) {}
+void made(const render::Renderer&) {}
+void presentingNow() {}
+void shown(long long) {}
+void ended() {}
+}  // namespace gpustart
+void sdlGpuUnskip(const std::string&) {}
+#endif
+
 #include "sdl_window_test.inc"  // --noactivate, --frames, --wintest: tests of the real window
+
+// The window's frames (SdlHost::setFrameClock): after an event, a timer or posted work the windows paint as before; when
+// nothing happens, only what moves by itself gets frames. 0: every window each frame (a press or a drag on the map, a
+// pan, the spray, a live game, the map loading, its images or pathing still coming, a build, a sound that plays, the
+// Data pictures that move; the window tests count frames); else the units' idle animations paint the map view at the
+// game's speed; -1: nothing moves (the program draws nothing until the next event).
+int sdlFrameClock() {
+    if (gFramesArg > 0 || !gWinTestMap.empty()) return 0;
+    if (gState.dirty || gState.drag != Drag::None || gSprayOn || simBarShown() || gLoading.on || gBuilding) return 0;
+    if (gRoot && gRoot->map.panning) return 0;
+    const bool mapShown = gRoot && gWorkspace == Workspace::Map && gState.ed && gState.ed->isOpen();
+    if (mapShown && ((gRenderer && gRenderer->stats().imagesPending > 0) || pathOverlayBusy() || (pathingLayerOn() && gPathing.job.valid())))
+        return 0;
+    if (gSdlPreview.stream && SDL_GetTicks() - gSdlPreview.started < gSdlPreview.ms + 500) return 0;  // (its button: Stop, then Play)
+    if ((gSdlSfx.stream && !gSdlSfx.paused && gWorkspace == Workspace::Data) || gSdlDataMoving) return 0;  // (a sound's bar)
+    if (mapShown && gState.animate && !gAnims.empty()) {  // (one game tick each 42 ms: only the map view paints)
+        const uint64_t gone = animNowMs() - gAnimLast;
+        if (gone < kTickMs) return int(kTickMs - gone);
+        gRoot->map.invalidate();
+        return int(kTickMs);
+    }
+    return -1;
+}
 
 // STARDRAFT_START_TIME=1 prints how long each stage of the start took (for speed work).
 void startLap(const char* stage) {
@@ -381,6 +553,7 @@ int main(int argc, char** argv) {
     // --update-test <zip> [options]: the update's install with a zip on this computer (sdl_updates.inc), then the end.
     if (argc > 2 && std::string(argv[1]) == "--update-test")
         return sdlUpdateTest(fs::path(widen(argv[2])), std::vector<std::string>(argv + 3, argv + argc));
+    std::string passagesArg;  // --passages: a passages file the tools use, for a snapshot (Program options' Ramp and bridge mappings)
     std::string mapArg, snapshot, installArg, modeArg, workspaceArg, newPageArg, dialogArg, dataArg, ctArg, themeArg, langArg, trigArg, trigSelArg, briefArg, dropArg;
     int accentArg = -1;
     gSelfPath = argc > 0 ? argv[0] : "";  // (Restart now starts it again, sdl_options.inc)
@@ -423,6 +596,10 @@ int main(int argc, char** argv) {
         else if (a == "--size") std::sscanf(next().c_str(), "%dx%d", &width, &height), sizeArg = true;
         else if (a == "--scale") scaleArg = float(std::atof(next().c_str()));
         else if (a == "--install") installArg = next();
+        else if (a == "--clipboard") {  // a file: the clipboard's text in a test (shell_sdl.inc shellClipboardText)
+            std::ifstream in(fs::u8path(next()), std::ios::binary);
+            gClipboardArg.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
         else if (a == "--noinstall") noInstallArg = true;  // no StarCraft install is searched for (the start page's banner asks for it), for a snapshot
         else if (a == "--pickinstall") pickInstallArg = next();  // a folder: the start page's Browse picks it (the folder dialog's answer), for a snapshot; "found": the folder that the search finds
         else if (a == "--mode") modeArg = next();  // a mode's name (units, terrain, doodads, sprites, locations), for a snapshot
@@ -470,11 +647,14 @@ int main(int argc, char** argv) {
         else if (a == "--noactivate") gNoActivate = true;  // a real window that never takes the focus (a test: sdl_window_test.inc)
         else if (a == "--frames") gFramesArg = std::atoll(next().c_str());  // with --noactivate: the program ends after that many frames
         else if (a == "--wintest") gWinTestMap = next(), gNoActivate = true;  // a map: the real window's checks (sdl_window_test.inc)
+        else if (a == "--hovertest") gHoverTest = true, gNoActivate = true;  // with a map: the frames while the mouse moves over it (sdl_window_test.inc)
+        else if (a == "--rowkeytest") gRowKeyTest = true, gNoActivate = true;  // with a map: the number row's keys of an AZERTY keyboard pick the players (sdl_window_test.inc)
         else if (a == "--wintest-fullscreen") gWinTestFull = true;  // with --wintest: full screen on and off too (sdl_window_test.inc)
         else if (a == "--palview") palViewArg = next();  // list, icons, sprites, normal, large (comma separated): the palette's view of the mode, for a snapshot
         else if (a == "--loading") loadingArg = true;  // the loading view of the map that opened, with its steps, for a snapshot
         else if (a == "--pie") pieArg = true;  // the pie palette (hold Space in Terrain mode) open, the mouse at a slice, for a snapshot
         else if (a == "--restart") restartPid = std::uint32_t(std::strtoul(next().c_str(), nullptr, 10));  // the old program's process id (sdl_options.inc)
+        else if (a == "--passages") passagesArg = next();  // a passages file (.scpass) for the Ramp brush and the Bridge tool, for a snapshot
         else if (a == "--cmbw") cmbwArg = gCmbwForced = true;  // a new Cosmonarchy BW map (the start page's button) before the map argument opens, for a snapshot
         else if (a == "--untitled") untitledArg = true;  // a new project that is not saved yet (core/documents.inc), for a snapshot
         else if (a == "--midpan") midPanArg = true;  // the middle button's pan and drag of the map as text, after the snapshot
@@ -553,10 +733,20 @@ int main(int argc, char** argv) {
     render::Renderer renderer;
     std::string err;
     if (gFailDeviceArg) err = "a test: no graphics device";  // (--fail-device: as a computer without Direct3D 12 or Vulkan)
+    gpustart::before(renderer);
+#ifdef _WIN32
+    {  // (Program options > Graphics: the driver tried first)
+        int pick = 0;
+        prefs::number(L"GraphicsDriver", pick, 0, 2);
+        static const char* const drivers[] = {"", "direct3d12", "warp"};
+        renderer.setPreferredDriver(drivers[pick]);
+    }
+#endif
     if (gFailDeviceArg || !renderer.createDevice(err)) {
         // The window cannot show: a message box says why (the program has no console). After an update, the program
         // before it goes back in its place and starts (core/releases.inc: rollBackUpdate).
         std::fprintf(stderr, "%s\n", err.c_str());
+        gpustart::ended();  // (no driver stopped the computer: the box says why)
         std::vector<std::string> args;
         for (int i = 1; i < argc; ++i)
             if (std::string(argv[i]) != "--fail-device") args.push_back(argv[i]);
@@ -568,12 +758,13 @@ int main(int argc, char** argv) {
 #else
         const wchar_t* needs = L"Vulkan";
 #endif
-        if (said.empty()) said = L"StarDraft 2 cannot start: it could not use the video card (" + widen(err) + L"). It needs " + needs + L".";
+        if (said.empty()) said = L"Could not start: the video card is not usable (" + widen(err) + L"). " + needs + L" is necessary.";
         std::printf("graphics: %s\n", narrow(said).c_str());
         if (!gNoBoxes) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "StarDraft 2", narrow(said).c_str(), nullptr);
         return 1;
     }
     startLap("graphics device");
+    gpustart::made(renderer);
     sdlRemoveOldProgram();  // (an update's old program file: the new program works here; sdl_updates.inc)
     SDL_GPUDevice* device = renderer.device();
     gRenderer = &renderer;
@@ -657,7 +848,17 @@ int main(int argc, char** argv) {
         gSettingsOff = gSilent && !settingsArg;
         if (loadSettingsTable()) shellRendererGraphics(gState.quality, gState.carbot);  // the menus' options (core/app_settings.inc)
         cmbwKeepSd();  // (Cosmonarchy: SD art only)
-        cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting();  // (Program options' Cosmonarchy folder: core/cmbw.inc)
+        cmbwUseFolderSetting(), cmbwUseTerrainOverrideSetting(), cmbwUsePassagesSetting();
+        stardraft::rampRefitOn() = kRampBridgeTools;  // (the ramps hidden: a terrain edit leaves them as they are)
+        if (!passagesArg.empty()) {  // (--passages: as Program options' Ramp and bridge mappings with that file)
+            stardraft::passages::Passages p;
+            std::string err;
+            if (stardraft::passages::load(fs::u8path(passagesArg), p, err)) {
+                stardraft::passages::use(p), PassagesView::inUseFile() = fs::u8path(passagesArg), PassagesView::inUseOn() = true;
+                std::printf("passages: %zu ramps, %zu bridges\n", p.ramps.size(), p.bridges.size());
+            }
+            else std::printf("passages: %s\n", err.c_str());
+        }  // (Program options' Cosmonarchy folder: core/cmbw.inc)
         gSettingsOff = gSilent;  // (snapshots and tests: the defaults, and nothing saved)
         gMapPrefsOn = !gSilent || settingsArg;  // (the maps' own files: a snapshot's next to its --settings file, core/map_prefs.inc)
         // A settings file that is not JSON (a hand edit): the Log says so; its first save keeps a copy of it.
@@ -694,12 +895,16 @@ int main(int argc, char** argv) {
             sdlDockWatchBuild();  // (macOS: Build's bar and badge on the Dock icon)
             sdlXdgFrame();  // (Linux: the recently used files, Build's notification and progress: sdl_xdg.inc)
             sdlWinTestPump();  // (--frames, --wintest: sdl_window_test.inc)
+            gpustart::shown(gHost ? gHost->presentedFrames() : 0);  // (the driver showed the window)
             sdlFloatPaletteFrame();  // (the floating palette's place as the user moves it: sdl_palette_float.inc)
             sdlIsomRulesFrame();  // (the Custom isom terrain editor's place and size: sdl_options.inc)
+            sdlPassagesFrame();   // (the Ramp and bridge mapper's window place)
             sdlPalettePanelsFrame();  // (the palette panels of the active tab show, and their places: sdl_palette_panels.inc)
             protectedTerrainSync();  // (the active tab's protected terrain kept in its project: core/protected_layer.inc)
+            sdlFollowSystemLook();  // (macOS, Linux: the system's look changed; also while no frame comes: sdl_window.inc)
         });
         host.setFrameHook([](SDL_GPUCommandBuffer* cmd) {
+            gSdlDataMoving = false;  // (this frame's paint says it again: sdl_data.inc)
             drawMapOfRoot(cmd);
             sdlWindowFrame();  // (the title bar's file and edited dot, the system's look: sdl_window.inc)
         });
@@ -751,6 +956,7 @@ int main(int argc, char** argv) {
         if (logArg) gLogPane.setExpanded(true);
         if (!gDataOk) setMessage(widen(gDataError));
         std::printf("stardraft_editor: GPU %s, %s\n", renderer.driver(), gDataOk ? "game data" : gDataError.c_str());
+        shellLogLine(L"Graphics: " + sdlGraphicsInUse());  // (a report's Log says which driver and video card)
         // --check: one list for all the checks. Each part of the program takes its own values (false: not its value);
         // a value that no part takes is WRONG. (A new check: one more "||" here, not one more --check option.) The
         // window's, the menu bar's and the Dock's lines come after the snapshot (hasCheck).
@@ -758,7 +964,8 @@ int main(int argc, char** argv) {
         for (const std::string& c : checkArgs) {
             std::string out;
             const bool afterSnapshot = c == "window" || c == "menus" || c == "dock" || c == "names" || c == "caret" || c == "dataform" || c == "datatable" || c == "resize" || c == "players" || c == "classicrows" || c == "protect" || c.rfind("drawfuncs:", 0) == 0;
-            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || areaMeasureControlsCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
+            if(areaMeasureControlsCheck(c,out)){std::printf("%s",out.c_str());continue;}
+            if (!(sdlDistCheck(c, out) || sdlXdgCheck(c, out) || sdlFloatPaletteCheck(c, out) || sdlUpdateCheck(c, out) || sdlDataCheck(c, out) || sdlHelpCheck(c, out) || creepCheck(c, out) || afterSnapshot)) out = "check: no check \"" + c + "\" (WRONG)\n";
             std::printf("%s", out.c_str());
         }
 
@@ -833,6 +1040,12 @@ int main(int argc, char** argv) {
                 if (name == "*") std::printf("%s", gIsomRulesView.terrainNames().c_str());  // (<era>/*: the list)
                 if (removeTest) std::printf("%s\n", gIsomRulesView.removeStripTest().c_str());
                 std::printf("%s\n", gIsomRulesView.state().c_str());
+            } else if (dialogArg.rfind("passages:", 0) == 0) {  // passages:<file>[|<row>]: the Ramp and bridge mapper with that file, on the tileset of its first mapping (--cmbw: the mod's)
+                std::string f = dialogArg.substr(9);
+                int row = 0;
+                if (const size_t bar = f.rfind('|'); bar != std::string::npos) row = std::atoi(f.c_str() + bar + 1), f.resize(bar);
+                gPassagesView.openForShot(std::filesystem::u8path(f), row);
+                shown = &gPassagesView;
             } else if (dialogArg == "newproject") shown = &projectShot;
             else if (dialogArg == "prompt") shown = &promptShot;
             else if (dialogArg == "listpick") shown = &pickShot;
@@ -1034,6 +1247,7 @@ int main(int argc, char** argv) {
             int showW = width, showH = height;
             if (SDL_Rect area{}; !sizeArg && SDL_GetDisplayUsableBounds(SDL_GetPrimaryDisplay(), &area) && area.w > 0 && area.h > 0)
                 showW = std::min(width, area.w * 9 / 10), showH = std::min(height, area.h * 9 / 10);
+            gpustart::presentingNow();  // (the first frames: the driver may stop there)
             if (!host.show(root, L"StarDraft", showW, showH)) return std::fprintf(stderr, "could not open a window\n"), 1;
             updateTitle();  // (the window exists now: its title is the open map's)
             if (!sizeArg) fitMainWindow(width, height);
@@ -1044,7 +1258,8 @@ int main(int argc, char** argv) {
             if (!testRun) sdlHelpOnlineStart();  // (sdl_help.inc: the help pages from the web)
             if (!testRun) sdlUpdatesAtStart();  // (a release build: a newer release says so in the status bar)
             sendPendingFeedback();  // feedback that could not go before (core/feedback_send.inc)
-            host.setAnimating(true);  // (the map and the posted work need frames; see shellPost)
+            host.setAnimating(true);  // (the frames while something changes or moves: sdlFrameClock)
+            host.setFrameClock(sdlFrameClock);
             host.run();
             if (gWinTestWrong) status = 1;
         }
@@ -1063,6 +1278,7 @@ int main(int argc, char** argv) {
     gRenderer = nullptr;
     gDevice = nullptr;
     renderer.shutdown();
+    gpustart::ended();
     SDL_Quit();
     return status;
 }

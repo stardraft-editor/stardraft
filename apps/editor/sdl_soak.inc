@@ -26,6 +26,9 @@
 //   panel <what>       the palette panels (sdl_palette_panels.inc): "new" (one like the mode's palette), "dup" (the last
 //                      panel's duplicate box), "sort category|name|number", "type terrain|units|doodads|sprites",
 //                      "search <text>", "close" (the last panel's close box), "list"; then a line with the panels
+//   floatmove x,y[:up|:esc]  the floating palette's window is moved by its strip, the mouse at x,y of the main
+//                      window, the button held (up: it goes up there; esc: Esc stops the move); a line with its
+//                      drop target (sdl_palette_panels.inc: sdlFloatMoveShot)
 // "{n}" in a value is the number of the time over (1, 2, ...): roundtrip soak{n}.scx makes a new file each time.
 
 int simStepForShot(int frames);  // (sdl_simulation.inc: simstep)
@@ -90,7 +93,8 @@ bool sdlReadScript(const std::string& spec, std::vector<std::pair<char, std::str
         {"key", 'k'},     {"type", 't'},    {"click", 'c'},     {"drag", 'd'},      {"lostdrag", 'l'},  {"move", 'm'},
         {"wheel", 'h'},   {"pinch", 'p'},   {"wait", 'w'},      {"command", 'C'},   {"mode", 'M'},      {"rect", 'Q'},
         {"workspace", 'W'}, {"open", 'O'},  {"roundtrip", 'R'}, {"undocheck", 'U'}, {"stats", 'S'}, {"minimap", 'P'},
-        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'}};
+        {"history", 'H'}, {"palette", 'F'}, {"pathing", 'G'}, {"panel", 'J'}, {"simstep", 'X'}, {"frame", 'Y'}, {"rclick", 'r'},
+        {"floatmove", 'V'}};
     std::vector<std::pair<char, std::string>> lines;
     int lineNo = 0;
     for (std::string line; std::getline(in, line);) {
@@ -327,6 +331,7 @@ bool sdlScriptStep(char kind, const std::string& value) {
         return true;
     }
     case 'C': sdlCommandShot(value); return true;
+    case 'V': sdlFloatMoveShot(value); return true;
     case 'r': sdlRightClickShot(value, nullptr, {}); return true;  // (x,y[:n]: the map's menu there, item n runs: as --rclick)
     case 'M':
         if (!sdlModeByName(value)) std::printf("mode %s: no such mode (WRONG)\n", value.c_str());

@@ -34,7 +34,7 @@ bool Campaign::load(const fs::path& folderOrFile, std::string& error) {
     JsonParser p{text};
     const Json j = p.value();
     if (!p.ok || j.type != Json::Type::Object) return error = file.string() + " is not a campaign", false;
-    if (j.integer("version", 1) > 1) return error = file.string() + " is from a newer StarDraft", false;
+    if (j.integer("version", 1) > 1) return error = file.string() + " is from a newer version", false;
     folder = file.parent_path(), name = j.str("name"), maps.clear();
     if (const Json* m = j.get("maps"); m && m->type == Json::Type::Array)
         for (const Json& item : m->items)

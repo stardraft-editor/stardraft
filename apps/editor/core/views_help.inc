@@ -251,7 +251,6 @@ private:
     void relayout() {
         const int w = width(), h = height();
         if (w <= 0 || h <= 0) return;
-        const int pad = scale(stardraft::kit::kDialogPad), bh = scale(stardraft::kit::kButtonH), gap = scale(stardraft::kit::kButtonGap);
         const draw::Rect side = sideRect();
         const int sh = scale(30);
         // Back and Forward, then the search, in one row at the top of the side bar.
@@ -281,8 +280,7 @@ private:
         for (stardraft::kit::Button* b : {&close_, &online_, &feedback_}) {
             if (!b->visible()) continue;
             const int bwid = bw(*b);
-            const draw::Rect r{x - bwid, y, x, y + bh}, f = b->frame();
-            if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) b->setFrame(r);
+            b->setFrame({x - bwid, y, x, y + bh});
             x -= bwid + gap;
         }
     }

@@ -12,11 +12,10 @@ namespace {
 
 int clampInt(int v, int lo, int hi) { return std::max(lo, std::min(v, std::max(lo, hi))); }
 
-bool same(const Rect& a, const Rect& b) { return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom; }
 
 // Sets `v`'s frame only when it changes (a frame change invalidates the view).
 void place(draw::View& v, Rect r) {
-    if (!same(v.frame(), r)) v.setFrame(r);
+    v.setFrame(r);
 }
 
 // Where `a`..`b` (a part of the content, `off` into a view `view` long) goes when the view shows it.

@@ -5,7 +5,7 @@
 // in it stay as they are on the map), a click places it, a drag places it again along the way (one undo step), Esc or a
 // right click stops. To make one: select tiles with the Select tool (Shift adds tiles, Ctrl takes them out: any shape),
 // then right-click the selection > Save as custom terrain.
-// Each is a file in the user's folder (shellStampsFolder: <folder>/<tileset>/<name>.sdstamp; the format is
+// Each is a file in the user's folder (shellStampsFolder: <folder>/<tileset>/<name>.scterrain; the format is
 // stardraft/terrain_stamp.h). "_" in a name makes groups in the list: "Jungle_Bridges_Left" is Left in Bridges in Jungle.
 
 // The custom terrain of the open map's tileset, read from the folder when the tileset or the folder changes, or after
@@ -34,6 +34,28 @@ void setStampsSort(int sort) {
     if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"CustomTerrainSort", gStampsSort);
     stampsPanelsRepaint();
 }
+// How the list shows its items (in the settings): 0 a list, 1 a grid of pictures; their size: 0 normal, 1 large, 2 extra
+// large (as the other palettes' View menu has them).
+int gStampsGrid = -1, gStampsSize = -1;
+int stampsGrid() {
+    if (gStampsGrid < 0) {
+        gStampsGrid = 0;
+        if (!gSelfTest && !gSettingsOff) prefs::number(L"CustomTerrainGrid", gStampsGrid, 0, 1);
+    }
+    return gStampsGrid;
+}
+int stampsSize() {
+    if (gStampsSize < 0) {
+        gStampsSize = 0;
+        if (!gSelfTest && !gSettingsOff) prefs::number(L"CustomTerrainSize", gStampsSize, 0, 2);
+    }
+    return gStampsSize;
+}
+void setStampsView(int grid, int size) {
+    gStampsGrid = std::clamp(grid, 0, 1), gStampsSize = std::clamp(size, 0, 2);
+    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"CustomTerrainGrid", gStampsGrid), prefs::setNumber(L"CustomTerrainSize", gStampsSize);
+    stampsPanelsRepaint();
+}
 
 const std::vector<TerrainStamp>& stampsList() {
     static const std::vector<TerrainStamp> none;
@@ -49,12 +71,6 @@ const std::vector<TerrainStamp>& stampsList() {
         gStamps.era = era, gStamps.folder = folder, gStamps.stale = false, gStamps.mod = mod;
     }
     return gStamps.list;
-}
-// The custom terrain of this name in the list (nullptr: none).
-const TerrainStamp* stampsFind(const std::wstring& name) {
-    for (const TerrainStamp& s : stampsList())
-        if (widen(s.name) == name) return &s;
-    return nullptr;
 }
 // The files changed (a save, a rename, a delete): the lists read them again.
 void stampsChanged() {
@@ -121,7 +137,7 @@ void stampsSaveSelection() {
     AppState& app = appState();
     if (!app.ed || !app.ed->isOpen()) return;
     const std::vector<std::pair<int, int>> tiles = terrainSelTiles();
-    if (tiles.empty()) return setMessage(L"First, select tiles with the Select tool");
+    if (tiles.empty()) return setMessage(L"Select tiles with the Select tool first");
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     for (const auto& [x, y] : tiles) x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     TerrainStamp s;
@@ -187,6 +203,63 @@ void stampsDelete(const TerrainStamp& s) {
     stampsRenamedInPanels(s.era, name, L"");  // (a panel's Brush that has it: nothing is picked there now)
     stampsChanged();
     setMessage(tr(L"Deleted the custom terrain ") + name);
+}
+
+// The list's menu: Copy as text (the file's text, JSON, on the clipboard: to give to other people).
+void stampsCopyText(const TerrainStamp& s, draw::Host* host) {
+    if (!host) return;
+    host->setClipboardText(terrainStampText(s));
+    setMessage(tr(L"Copied the custom terrain ") + widen(s.name) + tr(L" as text"));
+}
+
+// The list's menu: Import from clipboard (custom terrain copied as text). It goes to the folder of its tileset, under
+// its name (a name that is there already: Replace?).
+void stampsImportText(const std::string& text) {
+    static const wchar_t* const kTitle = L"Import custom terrain";
+    TerrainStamp s;
+    std::string err;
+    if (!parseTerrainStamp(text, s, err))
+        return shellErrorBox(tr(L"The clipboard has no custom terrain. Copy custom terrain as text first."), tr(kTitle));
+    s.created = int64_t(std::time(nullptr));
+    const std::wstring name = widen(s.name);
+    const fs::path folder = shellStampsFolder();
+    if (!stampsReplaceAsked(terrainStampPath(folder, s.era, s.name), name, kTitle)) return setMessage(L"The custom terrain is not imported");
+    if (!writeTerrainStamp(folder, s, err)) return shellErrorBox(widen(err), tr(kTitle));
+    stampsChanged();
+    AppState& app = appState();
+    const bool here = app.ed && app.ed->isOpen() && (app.ed->era() & 7) == s.era;
+    setMessage(tr(L"Imported the custom terrain ") + name + L" (" + std::to_wstring(s.count()) +
+               tr(here ? L" tiles)" : L" tiles). It is for another tileset: the Custom list shows it on maps of that tileset."));
+}
+
+// Ctrl+V in Terrain mode with custom terrain as text on the clipboard (Copy as text, or text from other people): it
+// is the Brush's stamp in Tile mode, as tiles copied with Ctrl+C are (not imported: Import from clipboard keeps it).
+// When the map's own copy (Ctrl+C) is newer, it pastes: the clipboard's text at that Ctrl+C (gClipboardAtCopy) is the
+// same as now. False: no such text, or the copy is newer.
+std::string shellClipboardText();  // (shell_sdl.inc)
+std::string gClipboardAtCopy;      // (copyMapSelection: the clipboard's text at the map's last Ctrl+C)
+bool gMapCopied = false;
+bool stampsPasteText() {
+    AppState& app = appState();
+    if (!app.ed || !app.ed->isOpen()) return false;
+    const std::string text = shellClipboardText();
+    TerrainStamp s;
+    std::string err;
+    if (text.empty() || text.find('{') == std::string::npos || !parseTerrainStamp(text, s, err)) return false;
+    if (gMapCopied && text == gClipboardAtCopy) return false;  // (the map's Ctrl+C came after the text)
+    if ((app.ed->era() & 7) != s.era) {
+        setMessage(tr(L"The custom terrain on the clipboard is for another tileset: ") + widen(tilesetName(s.era)));
+        return true;
+    }
+    if (terrainKind() != 1) setTerrainKind(1);  // (Tile: the tiles as they are)
+    stampsUse(s);
+    if (gTiles->stamp.empty()) {
+        setMessage(L"The custom terrain on the clipboard has no tiles to place");
+        return true;
+    }
+    gTiles->stampName.clear(), gTiles->stampCopied = true;  // (as a copy: in no list)
+    stampsPanelsRepaint();
+    return true;
 }
 
 // The menu of an item of the list (Rename, Delete, Show in folder).

@@ -127,10 +127,10 @@ void sdlPropsInfo(MapPropsValues& d) {
     std::wstring t;
     const Editor& ed = *gState.ed;
     if (d.w != ed.width() || d.h != ed.height())
-        t += L"The map becomes " + std::to_wstring(d.w) + L" x " + std::to_wstring(d.h) + L" tiles. StarDraft 2 deletes the parts of the map outside the new size.\r\n";
+        t += L"The map becomes " + std::to_wstring(d.w) + L" x " + std::to_wstring(d.h) + L" tiles. The parts of the map outside the new size are deleted.\r\n";
     if (d.era != int(ed.era()))
         t += L"Each terrain becomes the " + std::wstring(kTilesetNames[d.era & 7]) +
-             L" terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. StarDraft 2 deletes the doodads, because each tileset has its own doodads.\r\n";
+             L" terrain of the same name or of the same kind (for example water or high ground). If there is none, it becomes the new ground's terrain. The doodads are deleted, because each tileset has its own doodads.\r\n";
     d.infoText = t;
     sdlPropsInvalidate();
 }
@@ -195,7 +195,7 @@ std::vector<std::wstring> sdlPlayersProblems(const PlayersValues& d) {
     int playing = 0, humans = 0;
     for (int p = 0; p < 8; ++p) {
         const auto c = d.players[size_t(p)].controller;
-        playing += c == Editor::Controller::Human || c == Editor::Controller::Computer;
+        playing += c == Editor::Controller::Human || (c == Editor::Controller::Computer && (units[p] || starts[p]));  // (a Computer with neither: Inactive for the game)
         humans += c == Editor::Controller::Human;
         if (units[p] && !starts[p]) out.push_back(L"Player " + std::to_wstring(p + 1) + L" owns units but has no start location");
     }
@@ -212,7 +212,7 @@ void sdlPlayersRefresh(PlayersValues& d) {
 }
 void sdlPlayersLoad(PlayersValues& d) {
     d = PlayersValues{};
-    for (int p = 0; p < 8; ++p) d.players.push_back(gState.ed->player(p));
+    for (int p = 0; p < 12; ++p) d.players.push_back(gState.ed->player(p));  // (9-12: the type and the race)
     for (int f = 0; f < 4; ++f) d.forces.push_back(gState.ed->force(f));
     sdlPlayersRefresh(d);
     d.baseSet = true, d.basePlayers = d.players, d.baseForces = d.forces;  // (the values the page first shows are the map's)
@@ -345,44 +345,6 @@ private:
     int hot_ = -1;
 };
 
-// The swatches of a color (the Custom color's picker): a click picks it.
-class SdlSwatchGrid final : public draw::View {
-public:
-    explicit SdlSwatchGrid(kit::Dialog& dlg) : dlg_(dlg) {}
-    static constexpr int kCols = 8, kRows = 2;
-    static constexpr uint32_t kColors[kCols * kRows] = {0x000000, 0x404040, 0x808080, 0xC0C0C0, 0xFFFFFF, 0xFF0000, 0xFF8000, 0xFFFF00,
-                                                       0x00FF00, 0x008000, 0x00FFFF, 0x0000FF, 0x000080, 0x800080, 0xFF00FF, 0x804000};
-    int picked = -1;
-    static int cell() { return scale(40); }
-    int preferredWidth() const { return kCols * cell(); }
-    int preferredHeight() const { return kRows * cell(); }
-    void paint(draw::Canvas& c) override {
-        c.fill({0, 0, width(), height()}, kBg);
-        for (int i = 0; i < kCols * kRows; ++i) {
-            const draw::Rect r = cellRect(i);
-            const uint32_t v = kColors[i];
-            c.fill(r, draw::rgb(int(v >> 16) & 255, int(v >> 8) & 255, int(v) & 255));
-            c.fill({r.left, r.top, r.right, r.top + 1}, kBorder), c.fill({r.left, r.bottom - 1, r.right, r.bottom}, kBorder);
-            c.fill({r.left, r.top, r.left + 1, r.bottom}, kBorder), c.fill({r.right - 1, r.top, r.right, r.bottom}, kBorder);
-        }
-    }
-    bool mouse(const draw::MouseEvent& e) override {
-        if (e.kind != draw::MouseKind::Down || e.button != 0) return false;
-        const int col = e.pt.x / cell(), row = e.pt.y / cell();
-        if (col < 0 || col >= kCols || row < 0 || row >= kRows) return false;
-        picked = row * kCols + col;
-        dlg_.close(0);
-        return true;
-    }
-
-private:
-    draw::Rect cellRect(int i) const {
-        const int x = (i % kCols) * cell(), y = (i / kCols) * cell();
-        return {x + scale(3), y + scale(3), x + cell() - scale(3), y + cell() - scale(3)};
-    }
-    kit::Dialog& dlg_;
-};
-
 // The list picker's answer: the row picked, or -1 (Cancel, or the window closed).
 int sdlPickFromList(const std::vector<std::wstring>& rows, int checked, const std::wstring& title) {
     if (!gRoot || rows.empty()) return -1;
@@ -394,20 +356,6 @@ int sdlPickFromList(const std::vector<std::wstring>& rows, int checked, const st
     list.setSize(scale(260), list.preferredHeight());
     dlg.run(*gRoot, title, draw::Point{scale(260) + scale(32), h + scale(96)});
     return list.picked;
-}
-
-// The Custom color's picker: the color picked from the swatches, or false (the color stays).
-bool sdlPickColor(uint32_t& rgb) {
-    if (!gRoot) return false;
-    kit::Dialog dlg;
-    SdlSwatchGrid grid(dlg);
-    dlg.setContent(grid);
-    dlg.setButtons({{shellTr(L"Cancel"), 1, false, true}});
-    grid.setSize(grid.preferredWidth(), grid.preferredHeight());
-    dlg.run(*gRoot, shellTr(L"Custom color"), draw::Point{grid.preferredWidth() + scale(32), grid.preferredHeight() + scale(96)});
-    if (grid.picked < 0) return false;
-    rgb = SdlSwatchGrid::kColors[grid.picked];
-    return true;
 }
 
 // --- The page's views -----------------------------------------------------------------------------------------------
@@ -429,15 +377,11 @@ public:
     }
     void paint(draw::Canvas& c) override {
         MapPropsView::paint(c);
-        place(name_, nameBox());
-        place(desc_, descBox());
+        name_.setFrame(nameBox());
+        desc_.setFrame(descBox());
     }
 
 private:
-    static void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
-    }
     MapPropsValues& val_;
     kit::TextField name_, desc_;
 };
@@ -457,7 +401,6 @@ class SdlPlayersHost final : public PlayersHost {
 public:
     void changed() override;
     void typed() override;
-    bool pickCustomColor(int p, Editor::PlayerColor& c) override;
     int textWidth(const std::wstring& t) override { return sdlTextWidth(t); }
     void fitSize(int w, int h) override;
 };
@@ -500,8 +443,11 @@ struct SdlPageState {
     std::unique_ptr<ClassicPageView> classic[kClassicTabCount];
     DataTableView* classicTable = nullptr;  // Map data's Table view (sdl_classic_table.inc: one view, kept with its selection and scroll when the page is made again)
     std::unique_ptr<SdlClassicTrigPage> classicTrig;
+    std::unique_ptr<MapStringsView> strings;  // Map data's Strings tab (sdl_map_strings.inc)
 };
 SdlPageState gSdlPage;
+#include "sdl_map_strings.inc"
+bool sdlStringsShown() { return gSdlPage.kind == kSdlClassic && gSdlStringsTab && gSdlPage.strings; }
 DataTableView& sdlClassicTableView();  // (sdl_classic_table.inc)
 bool gSdlClassicTableFocus = false;  // the table had the keyboard when the page's views went (an undo: they are made again)
 bool sdlClassicTableShown() { return gSdlPage.kind == kSdlClassic && gClassicTableOn && gSdlPage.classicTable; }
@@ -595,6 +541,7 @@ void sdlDropViews() {
         t->parent()->remove(*t);
     }
     gSdlPage.classicTrig.reset();
+    gSdlPage.strings.reset();
     gClassic = nullptr;
 }
 void sdlShowTab(int k);
@@ -611,7 +558,9 @@ std::vector<draw::View*> sdlParts() {
     } else if (gSdlPage.kind == kSdlPlayers) {
         if (gSdlPage.players) out.push_back(gSdlPage.players.get());
     } else if (gSdlPage.kind == kSdlClassic) {
-        if (sdlClassicTableShown()) {
+        if (sdlStringsShown()) {
+            out.push_back(gSdlPage.strings.get());
+        } else if (sdlClassicTableShown()) {
             out.push_back(gSdlPage.classicTable);
         } else {
             for (auto& v : gSdlPage.classic)
@@ -648,15 +597,18 @@ public:
         std::vector<Tab> out;
         if (gSdlPage.kind == kSdlClassic)
             for (int k : sdlClassicTabsShown()) out.push_back({kClassicTabNames[k], kClassicTabIcons[k]});
+        if (gSdlPage.kind == kSdlClassic) out.push_back({L"Strings", UiIcon::DatStrings});  // (the last: the map's string table)
         return out;
     }
     int tab() override {  // (the tab's place in the ones that show)
         const std::vector<int> shown = sdlClassicTabsShown();
+        if (gSdlStringsTab) return int(shown.size());
         const auto it = std::find(shown.begin(), shown.end(), gClassic ? gClassic->tab : 0);
         return it == shown.end() ? 0 : int(it - shown.begin());
     }
     void showTab(int k) override {
         const std::vector<int> shown = sdlClassicTabsShown();
+        if (k == int(shown.size())) return sdlShowStringsTab();
         if (k >= 0 && k < int(shown.size())) sdlShowTab(shown[size_t(k)]);
     }
     bool changed() override {
@@ -676,6 +628,7 @@ public:
         return {w, h};
     }
     void fitContent(int w, int h) override {  // (Classic triggers fill the view, and are as tall as they need; Map data's table fills it)
+        if (sdlStringsShown()) return gSdlPage.strings->setSize(w, h);
         if (sdlClassicTableShown()) return gSdlPage.classicTable->setSize(w, h);
         if (gSdlPage.kind == kSdlClassic && h != gClassicFitH) {  // Map data: its list goes down to the view's bottom
             gClassicFitH = h;
@@ -693,7 +646,7 @@ public:
             parts[k]->setFrame({-x, top, -x + parts[k]->width(), top + parts[k]->height()});
         }
     }
-    int viewKind() override { return gSdlPage.kind == kSdlClassic ? (gClassicTableOn ? 1 : 0) : -1; }
+    int viewKind() override { return gSdlPage.kind == kSdlClassic && !gSdlStringsTab ? (gClassicTableOn ? 1 : 0) : -1; }
     void setViewKind(int k) override;
     static inline const wchar_t* const kSdlTitles[kSdlPageCount] = {L"Map properties", L"Players and forces", L"Data", L"Classic triggers"};
 };
@@ -716,12 +669,8 @@ struct SdlMapPagesView final : draw::View {
     void paintOver(draw::Canvas&) override { gSdlPageCanvas = nullptr; }
     void place() {
         const int top = std::min(height(), frame.headerH());
-        setRectIfChanged(frame, draw::Rect(0, 0, width(), height()));
-        setRectIfChanged(scrollFrame, draw::Rect(0, top, width(), height()));
-    }
-    static void setRectIfChanged(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
+        frame.setFrame(draw::Rect(0, 0, width(), height()));
+        scrollFrame.setFrame(draw::Rect(0, top, width(), height()));
     }
 };
 SdlMapPagesView gSdlMapPages;
@@ -761,14 +710,6 @@ void SdlPlayersHost::changed() {
     sdlMapPageChanged();
 }
 void SdlPlayersHost::typed() { sdlMapPageTyped(); }
-bool SdlPlayersHost::pickCustomColor(int p, Editor::PlayerColor& c) {
-    uint32_t rgb = 0;
-    if (!sdlPickColor(rgb)) return false;
-    (void)p;
-    c.kind = Editor::PlayerColor::Custom;
-    c.rgb = rgb;
-    return true;
-}
 void SdlPlayersHost::fitSize(int w, int h) {
     if (!gSdlPage.players) return;
     gSdlPage.players->setSize(w, h);
@@ -944,6 +885,7 @@ void sdlMapPageReload() {
 void sdlReloadIfStale() {
     MapPageCopies* all = sdlOpenCopies();
     if (!all || gSdlPage.ed != gState.ed.get() || gSdlPage.typing) return;
+    if (sdlStringsShown()) return;  // (the Strings tab reads the map itself; the other tabs read it again when they show)
     SdlCopy& c = *all->kinds[gSdlPage.kind];
     if (c.revision != gState.ed->revision() && !c.changed) sdlMapPageReload();
 }
@@ -993,7 +935,11 @@ void sdlMakeContent() {
         }
         gSdlPage.classicTable = &sdlClassicTableView();
         scroll.add(*gSdlPage.classicTable, draw::Rect(0, 0, 0, 0));
-        sdlShowTab(gClassic->tab);
+        gMapStringGoTo = sdlStringsGoTo;
+        gSdlPage.strings = std::make_unique<MapStringsView>();
+        scroll.add(*gSdlPage.strings, draw::Rect(0, 0, 0, 0));
+        if (gSdlStringsTab) sdlShowStringsTab();
+        else sdlShowTab(gClassic->tab);
         if (gClassicTableOn && std::exchange(gSdlClassicTableFocus, false)) gSdlPage.classicTable->focus();
         break;
     }
@@ -1016,6 +962,15 @@ void sdlMapDataShowUnit(int type) {
 // Map data: the tab that shows (the others are hidden).
 void sdlShowTab(int k) {
     if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    if (std::exchange(gSdlStringsTab, false)) {
+        if (gSdlPage.strings) gSdlPage.strings->setVisible(false);
+        // The Strings tab changed the map (a name's text or id): the tab shows the map's values again.
+        if (MapPageCopies* all = sdlOpenCopies(); all && all->kinds[kSdlClassic]->revision != gState.ed->revision() && !all->kinds[kSdlClassic]->changed) {
+            gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
+            return shellPost([] { sdlMapPageReload(); });
+        }
+    }
+    if (gSdlPage.strings) gSdlPage.strings->setVisible(false);
     gClassic->tab = std::clamp(k, 0, kClassicTabCount - 1);
     if (gClassic->tab == kClassicUpgrades && modTab()) gClassic->tab = kClassicUnits;  // (not a Cosmonarchy map's)
     for (int t = 0; t < kClassicTabCount; ++t)
@@ -1027,9 +982,20 @@ void sdlShowTab(int k) {
     sdlPageRelayoutParts();
     gSdlMapPages.invalidate();
 }
+// Map data: the Strings tab shows (the other tabs and the Table view are hidden).
+void sdlShowStringsTab() {
+    if (gSdlPage.kind != kSdlClassic || !gClassic || !gSdlPage.strings) return;
+    gSdlStringsTab = true;
+    for (auto& v : gSdlPage.classic)
+        if (v) v->setVisible(false);
+    if (gSdlPage.classicTable) gSdlPage.classicTable->setVisible(false);
+    gSdlPage.strings->setVisible(true);
+    sdlPageRelayoutParts();
+    gSdlMapPages.invalidate();
+}
 // Form | Table (the icons at the tabs' right, Ctrl+E): the selected entry's form, or the tab's Table view.
 void sdlClassicSetTable(bool on) {
-    if (gSdlPage.kind != kSdlClassic || !gClassic) return;
+    if (gSdlPage.kind != kSdlClassic || !gClassic || gSdlStringsTab) return;
     gClassicTableOn = on;
     sdlShowTab(gClassic->tab);
     if (on && gSdlPage.classicTable) gSdlPage.classicTable->focus();
@@ -1041,7 +1007,7 @@ void SdlPageFrameHost::setViewKind(int k) { sdlClassicSetTable(k == 1); }
 // Edit > Copy and Edit > Paste on the Map data page (core/commands_core.inc): the selected entry's values of the tab that
 // shows (the page's own menu has them too).
 ClassicPageView* sdlClassicShownTab() {
-    if (gSdlPage.kind != kSdlClassic || !gSdlPage.ready || !gClassic) return nullptr;
+    if (gSdlPage.kind != kSdlClassic || !gSdlPage.ready || !gClassic || gSdlStringsTab) return nullptr;
     return gSdlPage.classic[gClassic->tab].get();
 }
 void classicCopySelected() {

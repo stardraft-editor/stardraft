@@ -105,19 +105,8 @@ public:
         cats_.selectOnly(i);
         if (cats_.onSelect) cats_.onSelect();
     }
-    void selectCategoryNamed(const std::string& name) {
-        int at = cats_.cursor();
-        for (size_t i = 0; i < categories_.size(); ++i)
-            if (categories_[i] == name) at = int(i);
-        selectCategory(at);
-    }
     void setSearch(const std::wstring& t) { search_.setText(t); }
-    // The self-tests: the middle of block row `i` (the view's coordinates), the selected row (-1: none), closed.
-    draw::Point blockRowCenter(int i) const {
-        const draw::Rect r = blocks_.rowRect(i), f = blocks_.frame();
-        return {f.left + (r.left + r.right) / 2, f.top + (r.top + r.bottom) / 2};
-    }
-    int selectedBlock() const { return selected() ? blocks_.cursor() : -1; }
+    // The self-tests: closed.
     bool closed() const { return closed_; }
 
     void paint(draw::Canvas& c) override {
@@ -278,7 +267,7 @@ private:
         const std::wstring name = cn.empty() ? L"Everything" : cn == kRecentCategory ? L"Recent" : widen(cn);
         c.text(r, name, s.selected ? kAccent : kText, draw::kLeft | draw::kMiddle);
         if (cn != kRecentCategory) {  // how many blocks it has, small and dim at the right
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));
+            const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
             c.text(r, std::to_wstring(counts_[size_t(i)]), kDim, draw::kRight | draw::kMiddle);
             c.setFont(of);
         }

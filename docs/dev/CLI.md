@@ -153,7 +153,7 @@ Each spray takes its random seed (`seed`), so a script gives the same result eac
 
 - `spray_units` (`types`, `player`, `x`, `y`, `radius`, `count`): units at random points in the circle, on valid spots.
 - `spray_doodads` (`doodads`, `x`, `y`, `radius`, `count`, `check_terrain`) and `spray_sprites` (`sprites`, `player`, `x`,
-  `y`, `radius`, `count`, `grid`): the same for doodads and sprites. `grid` is the snap of each sprite in px (0: none).
+  `y`, `radius`, `count`, `grid`): the same for doodads and sprites. `grid` puts each sprite on the lines of a grid of that many px (0: no grid).
 - `spray_terrain` (`terrain`, `x`, `y`, `brush`, `dabs`) and `reroll_terrain` (`x`, `y`, `brush`): the terrain tools.
 - `decorate` (`level`: `few`, `some` or `many`, or the tiles between the doodads as a number or as `spacing`; `doodads`, `area`; `clear_bases`, default true: none within 256 px (each way) of a start location, a mineral field or a geyser; `keep_clear`: areas that no doodad covers): doodads where they fit the
   terrain. Without `doodads`, the palette's doodads that take tiles are used.

@@ -19,6 +19,22 @@
 #include <iterator>
 #include <map>
 #include <tuple>
+#include <unordered_map>
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>  // (the font files mapped: mappedFile)
+#else
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #include "theme.h"
 
@@ -52,6 +68,7 @@ struct Atlas {
 };
 std::vector<Atlas> gAtlases;
 SDL_GPUDevice* gAtlasDevice = nullptr;
+std::string gAtlasDir;  // (loadIconAtlases: iconCursorSurface reads the atlases from there again)
 
 // The program's own pictures (loadResourceIcon): {id, 0} keeps the source pixels; {id, px} a texture made at px.
 struct ResourceIcon {
@@ -215,20 +232,48 @@ std::vector<std::string> wrapLines(const FontEntry& f, const std::string& text, 
 }
 
 // The text cut with "..." to fit `width`: at the end, or (path) in the middle, keeping the start and the end.
+// A binary search on the number of characters kept (the width grows with it); the last results are kept, as the
+// same cells are cut again each frame.
 std::string ellipsize(const FontEntry& f, const std::string& s, float width, bool path) {
     if (textWidth(f, s) <= width) return s;
+    struct Key {
+        const ImFont* face;
+        int px;
+        float width;
+        bool path;
+        std::string s;
+        bool operator==(const Key&) const = default;
+    };
+    struct KeyHash {
+        size_t operator()(const Key& k) const {
+            return std::hash<std::string>()(k.s) ^ (std::hash<const void*>()(k.face) * 31) ^ (size_t(k.px) << 8) ^
+                   std::hash<float>()(k.width) ^ size_t(k.path);
+        }
+    };
+    static std::unordered_map<Key, std::string, KeyHash> cache;
+    Key key{f.face, f.px, width, path, s};
+    if (auto it = cache.find(key); it != cache.end()) return it->second;
+    if (cache.size() > 4096) cache.clear();
     std::vector<size_t> cuts;  // byte index of each character, and the end
     for (size_t i = 0; i < s.size(); i = utf8Next(s, i)) cuts.push_back(i);
     cuts.push_back(s.size());
     const size_t n = cuts.size() - 1;
     const std::string dots = "...";
-    for (size_t kept = n; kept-- > 0;) {
+    auto cut = [&](size_t kept) {
         const size_t head = path ? (kept + 1) / 2 : kept;
         const size_t tail = path ? kept / 2 : 0;
-        const std::string cand = s.substr(0, cuts[head]) + dots + s.substr(cuts[n - tail]);
-        if (textWidth(f, cand) <= width) return cand;
+        return s.substr(0, cuts[head]) + dots + s.substr(cuts[n - tail]);
+    };
+    std::string best = dots;
+    size_t lo = 1, hi = n - 1;  // the most characters kept that fit, in [lo, hi]
+    while (lo <= hi && hi < n) {
+        const size_t mid = lo + (hi - lo) / 2;
+        std::string cand = cut(mid);
+        if (textWidth(f, cand) <= width) best = std::move(cand), lo = mid + 1;
+        else hi = mid - 1;
     }
-    return dots;
+    cache.emplace(std::move(key), best);
+    return best;
 }
 
 // A line or outline through `pts`, solid or dashed (dash: 6 on, 4 off in the width; dot: 1 on, 2 off).
@@ -436,13 +481,54 @@ std::string desktopUiFont() {
 // Emoji and the other characters past U+FFFF (two UTF-16 units) are the fonts' glyphs, not the replacement mark.
 static_assert(sizeof(ImWchar) == 4, "ImGui needs IMGUI_USE_WCHAR32 (CMakeLists.txt) for the characters past U+FFFF");
 
-// A font from a file, or from the program's own bytes (not copied: ImGui only reads them).
+// A font file mapped into memory, once for the program (the same file for two fonts: one map), never unmapped: the
+// fonts are used until the end. The system reads only the pages of the glyphs that are drawn, and they are the file's,
+// not the program's memory (a whole read of the Korean and Chinese fonts was 80 MB at each start). {nullptr, 0}: it
+// cannot be mapped.
+std::pair<const void*, size_t> mappedFile(const std::string& utf8) {
+    static std::unordered_map<std::string, std::pair<const void*, size_t>> maps;
+    if (const auto it = maps.find(utf8); it != maps.end()) return it->second;
+    std::pair<const void*, size_t> out{nullptr, 0};
+#if defined(_WIN32)
+    const int n = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), nullptr, 0);
+    std::wstring wide(size_t(n), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), wide.data(), n);
+    HANDLE f = CreateFileW(wide.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER size{};
+        if (GetFileSizeEx(f, &size) && size.QuadPart > 0 && size.QuadPart < (1ll << 31)) {
+            if (HANDLE m = CreateFileMappingW(f, nullptr, PAGE_READONLY, 0, 0, nullptr)) {
+                if (const void* v = MapViewOfFile(m, FILE_MAP_READ, 0, 0, 0)) out = {v, size_t(size.QuadPart)};
+                CloseHandle(m);  // (the view keeps the mapping)
+            }
+        }
+        CloseHandle(f);
+    }
+#else
+    const int fd = open(utf8.c_str(), O_RDONLY);
+    if (fd >= 0) {
+        struct stat st{};
+        if (fstat(fd, &st) == 0 && st.st_size > 0 && st.st_size < (1ll << 31))
+            if (void* v = mmap(nullptr, size_t(st.st_size), PROT_READ, MAP_PRIVATE, fd, 0); v != MAP_FAILED) out = {v, size_t(st.st_size)};
+        close(fd);  // (the map stays)
+    }
+#endif
+    if (out.first) maps[utf8] = out;
+    return out;
+}
+
+// A font from a file (mapped, not read: mappedFile), or from the program's own bytes (not copied: ImGui only reads them).
 ImFont* addFont(const std::string& path, float size, const ImFontConfig* cfg = nullptr, const ImWchar* ranges = nullptr) {
     ImGuiIO& io = ImGui::GetIO();
     if (const auto e = embeddedFile(path); e.first) {
         ImFontConfig c = cfg ? *cfg : ImFontConfig();
         c.FontDataOwnedByAtlas = false;
         return io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(e.first), int(e.second), size, &c, ranges);
+    }
+    if (const auto m = mappedFile(path); m.first) {
+        ImFontConfig c = cfg ? *cfg : ImFontConfig();
+        c.FontDataOwnedByAtlas = false;
+        return io.Fonts->AddFontFromMemoryTTF(const_cast<void*>(m.first), int(m.second), size, &c, ranges);
     }
     return io.Fonts->AddFontFromFileTTF(path.c_str(), size, cfg, ranges);
 }
@@ -737,7 +823,7 @@ SDL_GPUTexture* uploadRgba(SDL_GPUDevice* device, int w, int h, const uint8_t* r
 
 bool loadIconAtlases(SDL_GPUDevice* device, const std::string& dir) {
     unloadIconAtlases();
-    gAtlasDevice = device;
+    gAtlasDevice = device, gAtlasDir = dir;
     for (int size : {16, 20, 24, 32, 40, 48, 64}) {
         const std::vector<unsigned char> file = readFile(dir + "atlas-" + std::to_string(size) + ".png");
         if (file.empty()) continue;
@@ -759,6 +845,31 @@ void unloadIconAtlases() {
     for (auto& [key, r] : gResourceIcons)
         if (gAtlasDevice && r.tex) SDL_ReleaseGPUTexture(gAtlasDevice, r.tex);
     gResourceIcons.clear();
+}
+
+SDL_Surface* iconCursorSurface(int icon, int size) {
+    const std::vector<unsigned char> file = readFile(gAtlasDir + "atlas-" + std::to_string(size) + ".png");
+    int w = 0, h = 0, n = 0;
+    unsigned char* px = file.empty() ? nullptr : stbi_load_from_memory(file.data(), int(file.size()), &w, &h, &n, 4);
+    if (!px) return nullptr;
+    if ((icon + 1) * size > w || h < size) return stbi_image_free(px), nullptr;
+    SDL_Surface* s = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA32);
+    if (s) {
+        auto alpha = [&](int x, int y) { return x < 0 || y < 0 || x >= size || y >= size ? 0 : int(px[(size_t(y) * w + size_t(icon) * size + x) * 4 + 3]); };
+        for (int y = 0; y < size; ++y) {
+            auto* row = static_cast<unsigned char*>(s->pixels) + size_t(y) * s->pitch;
+            for (int x = 0; x < size; ++x) {
+                int edge = 0;  // (the white edge: the most of the shape within a pixel around)
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dx = -1; dx <= 1; ++dx) edge = std::max(edge, alpha(x + dx, y + dy));
+                const int v = 255 - alpha(x, y);  // (black where the shape is, white in its edge; straight alpha)
+                row[x * 4] = row[x * 4 + 1] = row[x * 4 + 2] = (unsigned char)v;
+                row[x * 4 + 3] = (unsigned char)edge;
+            }
+        }
+    }
+    stbi_image_free(px);
+    return s;
 }
 
 bool loadResourceIcon(int id, const std::string& file) {

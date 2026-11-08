@@ -24,10 +24,10 @@ const wchar_t* const kCosmonarchyCard = L"Make maps with the units of the Cosmon
 // The banner when no StarCraft install was found (the start page's top).
 const wchar_t* const kNoInstallText = L"Could not find StarCraft on your system.";
 // (its second line: the two ways on, its two buttons)
-const wchar_t* const kNoInstallHint = L"Select Browse to find your StarCraft folder, or Load mod to use a mod (Program options > Plugins).";
+const wchar_t* const kNoInstallHint = L"Select Browse to find your StarCraft folder, or Load mod to use a mod (Options > Program options > Plugins).";
 
 // (two lines: what to do first, then how to give feedback)
-const wchar_t* const kStartNotice = L"StarDraft 2 is alpha software: back up your maps and projects before you edit them.\n"
+const wchar_t* const kStartNotice = L"Alpha software: back up your maps and projects before you edit them.\n"
                                     L"Feedback helps: right-click anything and select \"Report feedback on \x2026\".";
 
 // A button of the start page that never takes the keyboard focus (the page's keys are its own: the cards).
@@ -61,7 +61,7 @@ public:
         loadMod_.onClick = [this] {
             if (onLoadMod) onLoadMod();
         };
-        loadMod_.setTip(L"Program options > Plugins: load a mod, as Cosmonarchy BW");
+        loadMod_.setTip(L"Load a mod, as Cosmonarchy BW (Options > Program options > Plugins)");
         add(loadMod_, draw::Rect(0, 0, 0, 0)), loadMod_.setVisible(false);
         open_.onClick = [this] {
             if (onOpen) onOpen();
@@ -149,7 +149,7 @@ public:
         using draw::Face;
         const int w = width(), h = height();
         c.fill({0, 0, w, h}, kBg);
-        hits_.clear();
+        surface_.begin();
         const bool banner = installMissing && !modReady;
         if (!banner && browse_.visible()) {
             if (browse_.hasFocus()) focus();  // (the keys go to the cards again)
@@ -194,12 +194,12 @@ public:
             c.icon({card.left + inPad, card.top + inPad, card.left + inPad + iconS, card.top + inPad + iconS}, int(k == 3 && cmbwCard ? UiIcon::Map : icons[k]), enabled ? kAccent : kFaint, iconS);
             int ty = card.top + inPad + iconS + scale(12);
             {
-                const draw::Font of = c.setFont(titleFont(c));
+                const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
                 c.text({card.left + inPad, ty, card.right - inPad, ty + scale(26)}, cardName(k), enabled ? kText : kFaint, kMiddle | kEllipsis);
                 c.setFont(of);
             }
             if (soon) {  // the "Coming later" mark, at the top right
-                const draw::Font of = c.setFont(smallFont(c));
+                const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));
                 const int lw = c.measure(L"Coming later") + scale(16), lh = scale(20);
                 const Rect mark{card.right - inPad - lw, card.top + inPad, card.right - inPad, card.top + inPad + lh};
                 c.roundBox(mark, kChipDim, kReadOnlyLine, float(scale(stardraft::kit::kRadius)));
@@ -210,15 +210,15 @@ public:
             c.text({card.left + inPad, ty, card.right - inPad, card.bottom - inPad}, cardText(k), enabled ? kDim : kFaint, kWrap | kLeft);
             if (enabled) {
                 ++cardsEnabled_;
-                hits_.push_back({card, [this, k] {
-                                     if (k == 3) {
-                                         if (onCosmonarchy) onCosmonarchy();
-                                     } else if (onCard) onCard(k);
-                                 }, L"", Cursor::Hand, std::wstring(L"the ") + cardName(k) + L" card"});
+                surface_.add({card, nullptr, [this, k] {
+                                  if (k == 3) {
+                                      if (onCosmonarchy) onCosmonarchy();
+                                  } else if (onCard) onCard(k);
+                              }, L"", Cursor::Hand, nullptr, std::wstring(L"the ") + cardName(k) + L" card"});
             } else {
-                hits_.push_back({card, nullptr,
+                surface_.add({card, nullptr, nullptr,
                                  !soon ? (cosmonarchyOnly ? L"Select the Cosmonarchy BW folder first (Options > Program options > Plugins)"
-                                                          : L"Select the StarCraft folder first (Browse, at the top): a new map needs the game's files")
+                                                          : L"Select the StarCraft folder first (Browse, on the start page): a new map needs the game's files")
                                  : k == 2 ? L"Campaign projects come in a later version"
                                           : L"Mod projects come in a later version",
                                  Cursor::No});
@@ -228,7 +228,7 @@ public:
         y += cardH + scale(32);
 
         // The recent projects and maps: a heading, then one row each (projects and maps together, the newest first).
-        y = sectionHeader(c, x1, y, x1 + cw, rowH, L"Recent");
+        y = kitpaint::drawSectionHeader(c, x1, x1 + cw, y, rowH, L"Recent");
         struct Recent {
             bool project;
             size_t index;
@@ -251,10 +251,10 @@ public:
             const Rect r{x1, y, x1 + cw, y + rowH};
             const bool over = hot(r);
             if (over) c.fill(r, kRowHot);  // the list row under the mouse
-            hits_.push_back({r, [this, project, i] {
-                                 if (onOpenRecent) onOpenRecent(project, i);
-                             },
-                             fs::path(it.path).make_preferred().wstring(), Cursor::Hand});
+            surface_.add({r, nullptr, [this, project, i] {
+                              if (onOpenRecent) onOpenRecent(project, i);
+                          },
+                          fs::path(it.path).make_preferred().wstring(), Cursor::Hand});
             c.icon({x1 + scale(8), r.top + (rowH - scale(16)) / 2, x1 + scale(24), r.top + (rowH - scale(16)) / 2 + scale(16)},
                    int(project ? UiIcon::Project : UiIcon::Map), kDim, scale(16));
             // Remove: under the mouse; always where the file is not found (the one thing to do with it).
@@ -262,7 +262,7 @@ public:
             const int bw = scale(stardraft::kit::kIconBox), bhh = std::min(rowH, bw);
             const Rect rmR{r.right - scale(4) - bw, (r.top + r.bottom - bhh) / 2, r.right - scale(4), (r.top + r.bottom - bhh) / 2 + bhh};
             const int actionsLeft = rmR.left;
-            if (!sameRect(rm.frame(), rmR)) rm.setFrame(rmR);
+            rm.setFrame(rmR);
             rm.setVisible(it.date.empty() || over);
             rm.onClick = [this, project, i] {
                 if (onRemoveRecent) onRemoveRecent(project, i);
@@ -283,7 +283,7 @@ public:
         // Open: a project or a map that is not in the list.
         y += scale(12);
         const int ow = std::max(scale(stardraft::kit::kButtonMinW), c.measure(L"Open\x2026") + scale(28));
-        if (!sameRect(open_.frame(), {x1, y, x1 + ow, y + bh})) open_.setFrame({x1, y, x1 + ow, y + bh});
+        open_.setFrame({x1, y, x1 + ow, y + bh});
         y += bh;
 
         // The alpha notice: under the recent list and Open.
@@ -316,25 +316,11 @@ public:
 
     bool mouse(const draw::MouseEvent& e) override {
         switch (e.kind) {
-        case draw::MouseKind::Move:
-        case draw::MouseKind::Leave: {  // a row or a card under the mouse is painted again
-            const int hv = e.kind == draw::MouseKind::Leave ? -1 : hitAt(e.pt);
-            if (hv != hover_) hover_ = hv, invalidate();
-            return false;
-        }
-        case draw::MouseKind::Down:
-            if (e.button != 0) return false;
-            if (const int hi = hitAt(e.pt); hi >= 0 && hits_[size_t(hi)].click) {
-                // A copy: the click may repaint, which clears hits_ (and would destroy the function while it runs).
-                const std::function<void()> run = hits_[size_t(hi)].click;
-                run();
-                return true;
-            }
-            return false;
         case draw::MouseKind::Wheel:
             scrollBy(-int(draw::wheelDistance(e, float(scale(32) * 3))));
             return true;
-        default: return false;
+        case draw::MouseKind::DoubleClick: return true;  // (a card or a row opens once; a quick press on another part is a new press: sameItem)
+        default: return surface_.mouse(*this, e);  // a row or a card under the mouse is painted again
         }
     }
 
@@ -369,19 +355,10 @@ public:
     }
 
     // The scroll bar of the window (the host calls this for its vertical scroll bar).
-    bool vscroll(int code, int pos, int track, int) override {
-        const int page = height();
-        switch (code) {
-        case 0: scrollTo(scroll_ - scale(32)); break;  // SB_LINEUP
-        case 1: scrollTo(scroll_ + scale(32)); break;  // SB_LINEDOWN
-        case 2: scrollTo(scroll_ - page); break;       // SB_PAGEUP
-        case 3: scrollTo(scroll_ + page); break;       // SB_PAGEDOWN
-        case 4: scrollTo(pos); break;                  // SB_THUMBPOSITION
-        case 5: scrollTo(track); break;                // SB_THUMBTRACK
-        case 6: scrollTo(0); break;                    // SB_TOP
-        case 7: scrollTo(height_); break;              // SB_BOTTOM
-        default: return false;
-        }
+    bool vscroll(int code, int /*pos*/, int track, int) override {
+        int s = scroll_;
+        if (!kitpaint::scrollRequest(code, s, scale(32), height(), track)) return false;
+        scrollTo(s);
         return true;
     }
 
@@ -389,40 +366,15 @@ public:
     void focusChanged(bool) override { invalidate(); }
     // The hover tooltip: a recent row shows its path, a disabled card and Open their tips (an enabled card has none).
     bool hoverTip() const override { return true; }
-    draw::Cursor cursor(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        return hi >= 0 ? hits_[size_t(hi)].cursor : draw::Cursor::Arrow;
-    }
-    std::wstring tip(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        return hi >= 0 ? hits_[size_t(hi)].tip : std::wstring();
-    }
+    draw::Cursor cursor(draw::Point pt) override { return surface_.cursor(pt); }
+    std::wstring tip(draw::Point pt) override { return surface_.tip(pt); }
+    bool sameItem(draw::Point a, draw::Point b) const override { return surface_.sameItem(a, b); }
     // Report feedback names what is under the mouse: an enabled card by its name (it has no tip), else the tip.
-    std::wstring feedbackName(draw::Point pt) override {
-        const int hi = hitAt(pt);
-        if (hi < 0) return {};
-        const Hit& h = hits_[size_t(hi)];
-        return h.name.empty() ? h.tip : h.name;
-    }
+    std::wstring feedbackName(draw::Point pt) override { return surface_.feedbackName(pt); }
 
     int scrollPos() const { return scroll_; }  // (how far the page is scrolled down, in pixels)
 
 private:
-    struct Hit {
-        draw::Rect r;
-        std::function<void()> click;
-        std::wstring tip;
-        draw::Cursor cursor = draw::Cursor::Arrow;
-        std::wstring name;  // what Report feedback names here, when it is not the tip (an enabled card)
-    };
-
-    // The last hit under `pt` (the top one), or -1.
-    int hitAt(draw::Point pt) const {
-        for (size_t i = hits_.size(); i-- > 0;)
-            if (hits_[i].r.contains(pt)) return int(i);
-        return -1;
-    }
-    static bool sameRect(draw::Rect a, draw::Rect b) { return a.left == b.left && a.top == b.top && a.right == b.right && a.bottom == b.bottom; }
     // Whether the mouse is in `r` (the host's pointer, in this view's coordinates).
     bool hot(draw::Rect r) const { return host() && r.contains(host()->mouse(*this)); }
 
@@ -466,32 +418,21 @@ private:
         if (noteH)
             c.text({textL, ty + lineH + scale(2), textR, ty + lineH + scale(2) + noteH}, note, installNote.empty() ? kDim : kWarn, draw::kWrap | draw::kLeft);
         const draw::Rect br{x + w - inPad - bw, y + (h - bh) / 2, x + w - inPad, y + (h - bh) / 2 + bh};
-        if (!sameRect(browse_.frame(), br)) browse_.setFrame(br);
+        browse_.setFrame(br);
         browse_.setVisible(true);
         const draw::Rect mr{br.left - mw, br.top, br.left - scale(8), br.bottom};  // (Load mod: left of Browse)
-        if (mw && !sameRect(loadMod_.frame(), mr)) loadMod_.setFrame(mr);
+        if (mw) loadMod_.setFrame(mr);
         loadMod_.setVisible(mw > 0);
         return h;
     }
 
-    // The title's font (the UI font at 3/2 of its height) and the small font (at 5/6), as the Windows program has them.
-    static draw::Font titleFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}); }
-    static draw::Font smallFont(draw::Canvas& c) { return c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}); }
-
-    // A section heading: its name and a line to the column's edge (the form's heading).
-    static int sectionHeader(draw::Canvas& c, int x0, int y, int colRight, int rowH, const wchar_t* name) {
-        c.text({x0, y, colRight, y + rowH}, name, kText, draw::kMiddle);
-        c.fill({x0, y + rowH - 1, colRight, y + rowH}, kBorder);
-        return y + rowH + scale(6);
-    }
 
     StartButton open_;              // (set up in the constructor; it never takes the keyboard)
     StartBrowse browse_;            // the banner's Browse (shown with the banner; a Tab stop)
     StartButton loadMod_;           // the banner's Load mod (shown with the banner, when the host gives onLoadMod)
     bool bannerShown_ = false;
     std::vector<std::unique_ptr<StartRemove>> removes_;
-    std::vector<Hit> hits_;         // what each paint put under the mouse (cleared at each paint)
-    int hover_ = -1;                // the hit under the mouse at the last move
+    kitui::Surface surface_;        // what each paint put under the mouse
     int card_ = 0;
     // The cards the keys reach: the two projects, and Cosmonarchy map (the fourth) when it shows.
     int firstCard() const { return cosmonarchyOnly ? 3 : 0; }

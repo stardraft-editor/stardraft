@@ -136,9 +136,10 @@ place for one feature.
 
 ## UI
 
-**One control kit.** The kit in `apps/editor/ui_kit.inc` draws each control, with the color tokens at the top of
-`main.cpp`. CONTROLS.md lists the controls and where each is used. A new kind of control goes into the kit (and the
-gallery, View > Control kit) first, then into CONTROLS.md.
+**One control kit.** The kit draws each control: the widgets in `apps/kit/`, the painted parts in
+`apps/editor/core/kit_paint.inc` and `kit_surface.inc`, with the color tokens in `apps/editor/core/colors.inc`.
+CONTROLS.md lists the controls and where each is used. A new kind of control goes into the kit (and the gallery,
+View > Control kit) first, then into CONTROLS.md.
 
 **No labels that explain.** A tooltip says what a control does. Empty states stay empty: an empty list or value shows
 only "None" (dim, no full stop).
@@ -276,7 +277,7 @@ browser, runs at once, or opens a page or a workspace. A progress status ends wi
 |---|---|
 | map ("scenario" only for the Scenario menu and the *.chk filter) | scenario |
 | Player 1 to Player 12 (a 0-based number only where people type the raw value) | P1, player 1 |
-| delete (an object); remove (from a list) | erase |
+| delete (an object); remove (from a list) ("Erase" only as the name of the brush tool) | erase |
 | trigger cycle ("frame" only for animation and the game's own frame counts; "tick" only in the image player) | trigger loop |
 | build | compile |
 | technology | tech (in prose) |
@@ -353,7 +354,8 @@ an icon: a text or a tooltip says it too.
 1. Read the text in its place, with its window title, label and section. Delete the words that these already say:
    in "Unit properties", the label is "Name", not "Unit name".
 2. Delete the filler words (see Words) and the words that the reader does not need to do the task.
-3. Put the important word first: "Damage of the weapon", not "The weapon's amount of damage".
+3. Use a noun before a noun in place of "of the", "in the" or "'s": "Game sounds", not "Sounds of the game";
+   "Map sounds", not "Sounds in the map"; "Weapon damage", not "Damage of the weapon".
 4. One sentence, one fact. Split a sentence with "and" when each part is a different fact.
 5. If a label needs an explanation, change the control or put the explanation in the tooltip.
 

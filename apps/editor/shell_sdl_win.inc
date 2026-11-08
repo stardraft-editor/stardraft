@@ -8,6 +8,7 @@
 // Included by main_sdl.cpp after sdl_updates.inc.
 
 fs::path sdlCrashFolder();                 // the crash reports' folder (each system's)
+void sdlGpuStartCrashed();                 // (main_sdl.cpp: Windows; the start's graphics driver did not stop it)
 void sdlInstallCrashHandler(bool quiet);   // the system's crash handler (a test run: the report stays on disk)
 void sdlAskToSendCrashes();                // the question at start about an earlier crash's reports (the end of this file)
 
@@ -44,6 +45,7 @@ fs::path crashFolder() {
 // After the crash's report is written (in the crashed program: little is safe now): send it now (a new process sends
 // it), or say where it is (the next start asks, or crash reports are off). Test runs keep it on disk only.
 void crashWritten(const fs::path& dir) {
+    sdlGpuStartCrashed();  // (a crash: the next start keeps its graphics driver, main_sdl.cpp)
     if (gQuiet) {
         std::ofstream(dir / "sent") << "a test run: not sent";
         return;
@@ -77,6 +79,7 @@ void installCrashHandler(bool quiet) {
     h.log = sdlCrashLogText;
     h.written = crashWritten;
     stardraft::platform::installCrashHandler(std::move(h));
+    stardraft::platform::limitMemory();  // (a runaway ends the program with a report, not the computer)
 }
 
 // --- One program for all maps -----------------------------------------------------------------------------------------
@@ -158,8 +161,8 @@ void askMapsDefault() {
     if (askedMapsDefault() || !gRoot) return;  // (two maps opened at once: one question)
     prefs::setNumber(L"AskedMapsDefault", 1);
     if (msgbox::ask(*gRoot, L"StarDraft 2",
-                        shellTr(L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can make StarDraft 2 open them later in "
-                                L"Program options > Maps."),
+                        shellTr(L"Open .scm and .scx maps with StarDraft 2 when you double-click them? You can change this later in "
+                                L"Options > Program options > Maps."),
                         {shellTr(L"&Yes"), shellTr(L"&No")}, msgbox::Icon::Question) == 0)
         makeMapsDefault();
 }
@@ -308,6 +311,75 @@ bool sdlSendToOpenProgram(const std::string& file, bool testRun) {
 // The title bars follow the theme: the windows open now, and each dialog window before it shows (sdlSetLook calls it
 // again when the theme changes).
 void sdlTitleBarsDark(bool dark) { winsdl::titleBarsDark(dark); }
+// A palette window's strip (the caption of its hit test: sdlPanelHitTest) moves the window with the mouse here, not by
+// the system's move: the system's move snaps a window dragged to a screen's edge to half of the screen or all of it
+// (Snap, and Windows 11's snap layouts at the top). Each mouse move while the button is down puts the window at the
+// mouse, at the place where the strip was pressed.
+namespace winsdl {
+LRESULT CALLBACK panelDragProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
+    static HWND dragging = nullptr;
+    static POINT grab{};  // the mouse in the window when the press came (screen pixels from its top left)
+    static RECT start{};  // the window's place then (Esc puts it back)
+    switch (msg) {
+    case WM_NCLBUTTONDOWN:
+        if (wp == HTCAPTION) {
+            RECT r{};
+            POINT p{};
+            GetWindowRect(hwnd, &r), GetCursorPos(&p);
+            grab = {p.x - r.left, p.y - r.top}, start = r, dragging = hwnd;
+            SetCapture(hwnd);
+            return 0;
+        }
+        break;
+    case WM_MOUSEMOVE:
+        if (dragging == hwnd) {
+            POINT p{};
+            GetCursorPos(&p);
+            SetWindowPos(hwnd, nullptr, p.x - grab.x, p.y - grab.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            return 0;
+        }
+        break;
+    case WM_LBUTTONUP:
+        if (dragging == hwnd) {
+            dragging = nullptr;
+            ReleaseCapture();
+            return 0;
+        }
+        break;
+    case WM_KEYDOWN:
+        if (dragging == hwnd && wp == VK_ESCAPE) {  // (as the system's move: the window goes back, the drag ends)
+            dragging = nullptr;
+            ReleaseCapture();
+            SetWindowPos(hwnd, nullptr, start.left, start.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            return 0;
+        }
+        break;
+    case WM_DPICHANGED:  // (a screen of another scale: the window gets its new size; the mouse keeps its place in it)
+        if (dragging == hwnd) {
+            const RECT* to = reinterpret_cast<const RECT*>(lp);
+            RECT now{};
+            GetWindowRect(hwnd, &now);
+            if (now.right > now.left && now.bottom > now.top) {
+                grab.x = MulDiv(grab.x, to->right - to->left, now.right - now.left);
+                grab.y = MulDiv(grab.y, to->bottom - to->top, now.bottom - now.top);
+            }
+        }
+        break;
+    case WM_CAPTURECHANGED:
+        if (dragging == hwnd) dragging = nullptr;
+        break;
+    case WM_NCDESTROY:
+        if (dragging == hwnd) dragging = nullptr;
+        RemoveWindowSubclass(hwnd, panelDragProc, 1);
+        break;
+    default: break;
+    }
+    return DefSubclassProc(hwnd, msg, wp, lp);
+}
+}  // namespace winsdl
+void sdlPanelDragNoSnap(SDL_Window* w) {
+    if (HWND hwnd = winsdl::windowHandle(w)) SetWindowSubclass(hwnd, winsdl::panelDragProc, 1, 0);
+}
 void sdlNoMinimizeButton(SDL_Window* w) {
     if (HWND hwnd = winsdl::windowHandle(w)) {
         SetWindowLongPtrW(hwnd, GWL_STYLE, GetWindowLongPtrW(hwnd, GWL_STYLE) & ~LONG_PTR(WS_MINIMIZEBOX));
@@ -415,6 +487,7 @@ bool sdlSendToOpenProgram(const std::string&, bool) { return false; }
 #endif
 void sdlTitleBarsDark(bool) {}
 void sdlNoMinimizeButton(SDL_Window*) {}
+void sdlPanelDragNoSnap(SDL_Window*) {}  // (Windows only: Snap)
 #if defined(STARDRAFT_XDG)
 // Each window gets the program's icon (X11: the task bar and Alt+Tab show it also when no .desktop file matches the
 // window, as an AppImage that is not installed).
@@ -521,6 +594,14 @@ int sdlWindowsFirst(int argc, char** argv, bool testRun) {
     prefs::number(L"CrashReports", gSdlCrashReports, 0, 2);
     sdlInstallCrashHandler(testRun || a1 == "--crash-test");
     if (a1 == "--crash-test" && a2 == "stack") return sdlCrashTestDepth(1);
+    if (a1 == "--crash-test" && a2 == "memory") {  // (Windows: past the memory limit; only with STARDRAFT_MEMORY_LIMIT_MB's small one)
+        if (!std::getenv("STARDRAFT_MEMORY_LIMIT_MB")) return 2;
+        std::vector<std::unique_ptr<char[]>> eaten;
+        for (;;) {
+            eaten.push_back(std::make_unique<char[]>(64u << 20));
+            std::memset(eaten.back().get(), 1, 64u << 20);
+        }
+    }
     if (a1 == "--crash-test") *static_cast<volatile int*>(nullptr) = 1;
     return -1;
 }

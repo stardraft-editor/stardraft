@@ -25,9 +25,12 @@ void cmbwKeepSd() {
     if (cmbwMode() && (s.quality != GraphicsQuality::SD || s.carbot)) setGraphics(GraphicsQuality::SD, false);
 }
 void updateTitle();  // (core/title.inc: the window's title names the game when it is a mod's)
+void cmbwUsePassagesSetting();  // (core/views_passages.inc: the setting's passages file for the tools)
 void setGameMode(int mode) {
     gGameMode = mode;
     prefs::setNumber(L"GameMode", mode);
+    if (mode != 1) stardraft::passages::use({});  // (the passages are for the mod's tilesets only)
+    else cmbwUsePassagesSetting();                  // (loaded again: the setting's file, as at the start)
     cmbwKeepSd();
     updateTitle();
 }
@@ -47,6 +50,7 @@ void setMessage(const std::wstring& m);
 // one list.
 void shellWarningBox(const std::wstring& text, const std::wstring& title);
 void isomRulesShow();  // (core/views_isom_rules.inc: Tools > Cosmonarchy > Custom isom terrain editor)
+void passagesShow();   // (core/views_passages.inc: Tools > Cosmonarchy > Ramp and bridge mapper)
 
 void cmbwCheckCommentsCommand() {
     AppState& app = shellState();

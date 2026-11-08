@@ -51,10 +51,6 @@ bool open(GameData& data, const std::filesystem::path& install, std::string& err
 // mod's (the mod's tileset adds groups past them, some with the game's edge codes). 0: not known.
 size_t gameTileGroups(int era);
 
-// Whether a map file is a CMBW map by what it shows: it is in the Cosmonarchy folder (findInstall's parent), or it has
-// units that only the mod has (unit ids 228 and up).
-bool looksLikeModMap(const std::filesystem::path& map);
-
 // A unit's ranges by the mod's tables (units.datex, weapons.datex; its turret's weapons when it has none): weapon ranges in
 // pixels (0: none), target acquisition in tiles; `cliff`: the mod's height advantage applies to it (a ground unit, not one
 // of the units and traps the mod leaves out). False: not a unit of the mod's tables.
@@ -81,11 +77,6 @@ inline int cliffRange(int range, int height, bool cliff) { return cliff && range
 // Starcraft folder's Maps/CMBW-Root/CMBW-editor/brush), as terrain stamps named "Cosmonarchy_<folder>_<name>" (no file:
 // they are the mod's, not the user's). Read once per tileset.
 const std::vector<TerrainStamp>& brushStamps(const std::filesystem::path& install, uint16_t era);
-
-// How well a brush placed with its top left tile at (x0, y0) of `map` joins the tiles around it: the mean difference of
-// the pixels (R, G and B, 0-255) where its tiles meet the map's tiles beside them (each tile's outer row or column against
-// the facing one); -1 where it meets none (all around it is its own, or off the map). Low: it continues them.
-int brushEdgeScore(const Tileset& tileset, const TerrainStamp& brush, const TerrainLayer& map, int x0, int y0);
 
 // The establishing shot (rez\est.txt in a map): pages that Cosmonarchy shows before the map starts, each a picture
 // (BACKGROUND, an 8-bit PCX of 1920 x 1080: the game's screen) with text at a place, for DISPLAYTIME ms, fading in and out

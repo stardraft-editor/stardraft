@@ -105,8 +105,10 @@ public:
     int changedCount() const;
 
     // The lists share one block of memory (all five kinds, end to end): bytes the project's lists take, and the
-    // block's size. A kind's lists may run into the room of the kinds after it.
+    // block's size. A kind's lists may run into the room of the kinds after it, never into the room before its own
+    // start: used() counts that room too (the block as laid out), listBytes() only the lists.
     size_t used() const;
+    size_t listBytes() const;
     static size_t capacity();
 
     bool loadEdits(const std::filesystem::path& file, std::string& error);
@@ -120,7 +122,7 @@ public:
 
 private:
     // The block and the five offset tables as they would be in memory.
-    bool layout(Bytes& block, std::vector<std::vector<uint16_t>>& offsets) const;
+    bool layout(Bytes& block, std::vector<std::vector<uint16_t>>& offsets, size_t* size = nullptr) const;
     std::vector<std::vector<RequirementList>> stock_, lists_;
 };
 

@@ -971,8 +971,7 @@ inline void DataTableView::placeEntry() {
     const draw::Rect a = cellRect(sel_.row, sel_.col);
     const bool hex = sel_.col < int(cols_.size()) && cols_[size_t(sel_.col)].kind == DataCellKind::Flags;  // (a field of flags: over its hex)
     const draw::Rect r{a.left + 1, a.top + 1, hex ? a.left + flagHexW() - 1 : a.right - 1, a.bottom - 1};
-    const draw::Rect cur = entry_.frame();
-    if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) entry_.setFrame(r);
+    entry_.setFrame(r);
 }
 
 inline void DataTableView::commitEdit(bool down) {

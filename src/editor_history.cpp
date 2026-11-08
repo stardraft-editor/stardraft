@@ -73,11 +73,34 @@ int differentEntries(const Bytes* a, const Bytes* b, size_t size) {
     return n;
 }
 
+// A move of a string (Editor::moveMapString): the same texts in other ids (the fields that use them have new ids too).
+bool stringsMoved(const Parts& before, const Parts& after) {
+    auto texts = [](const Parts& p) {
+        Chk c;
+        for (const SectionName n : {SectionName("STR "), SectionName("STRx")})
+            if (const Bytes* b = partOf(p, n)) c.set(n, *b);
+        const StringTable t = StringTable::read(c);
+        std::vector<std::string> out;
+        for (uint32_t i = 1; i <= t.size(); ++i) out.push_back(t.get(i));
+        while (!out.empty() && out.back().empty()) out.pop_back();
+        return out;
+    };
+    std::vector<std::string> a = texts(before), b = texts(after);
+    if (a == b) return false;
+    std::erase(a, std::string()), std::erase(b, std::string());
+    std::sort(a.begin(), a.end()), std::sort(b.begin(), b.end());
+    return a == b;
+}
+
 Editor::StepName nameOf(const Parts& before, const Parts& after, bool files) {
     auto changed = [&](SectionName n) { return !sameData(partOf(before, n), partOf(after, n)); };
     auto anyChanged = [&](std::initializer_list<SectionName> names) {
         return std::any_of(names.begin(), names.end(), [&](SectionName n) { return changed(n); });
     };
+    // (a move renumbers the fields that use the strings; texts swapped in place change STR only)
+    if (anyChanged({"STR ", "STRx"}) && anyChanged({"SPRP", "FORC", "UNIx", "UNIS", "MRGN", "SWNM", "WAV ", "TRIG", "MBRF"}) &&
+        stringsMoved(before, after))
+        return {"Move a string", -1};
     if (changed("DIM ")) return {"Change the map size", -1};
     if (changed("ERA ")) return {"Change the tileset", -1};
     const auto tiles = [&] {

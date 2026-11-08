@@ -16,6 +16,7 @@
 #include "palette_tools.inc"
 #include "kit_paint.inc"
 #include "item_focus.inc"  // the keyboard focus on a view's own parts: Tab between them, Enter and Space, the outline
+#include "kit_surface.inc"  // the kit's controls painted on a view, with their click areas (kitui::Surface)
 #include "views_loading.inc"  // the map's loading view: the file, a progress bar and the steps (openMap)
 #include "documents.inc"
 #include "cmbw.inc"  // Cosmonarchy BW maps: tabs with the mod's data (src/mods/cmbw.cpp)
@@ -97,6 +98,7 @@
 #include "views_palette.inc"  // the palette's list and grid (PaletteGridView) and the pie palette (PieView): the SDL program's
 #include "views_palette_float.inc"  // the floating palettes' window and its note in the side bar
 #include "views_classic_page.inc"
+#include "views_map_strings.inc"  // Data > Strings of a classic map: the map's string table (the move of a string renumbers its uses)
 #include "views_triggers_tree.inc"
 #include "views_triggers_pane.inc"
 #include "views_triggers_pick.inc"
@@ -125,11 +127,11 @@
 #include "views_new_project.inc"
 #include "views_message_box.inc"
 #include "views_isom_rules.inc"  // Tools > Cosmonarchy > Custom isom terrain editor (the mod's terrain rules files)
+#include "views_passages.inc"    // Tools > Cosmonarchy > Ramp and bridge mapper (the mod's passages files)
 #include "views_about.inc"
 #include "views_changelog.inc"  // the release notes window (the top bar's Update, Help > What is new): the HTML view (html_view.h)
 #include "views_help.inc"  // the help window (Help > Documentation, F1): the pages of docs/help in the HTML view
 #include "views_tip.inc"
-#include "kit_surface.inc"
 #include "views_kit_gallery.inc"
 #include "title.inc"
 #include "project_page.inc"  // the Project page's program parts, createProject, newMap, addProjectScript (the host shows the page)

@@ -67,6 +67,8 @@ jobs:
       SCCACHE_CACHE_SIZE: 3G
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true  # (the version name: the newest release tag, CMakeLists.txt)
 
       - name: The compiler cache's folder
         shell: bash
@@ -109,7 +111,7 @@ jobs:
         with:
           arch: x64
 
-      # A release's commit: the program says the tag's version; other builds keep the version in CMakeLists.txt.
+      # A release's commit: the program says the tag's version; other builds say the newest release tag (CMakeLists.txt).
       - name: The version name
         id: version
         shell: bash
@@ -489,6 +491,8 @@ jobs:
       CCACHE_MAXSIZE: 1G
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true  # (the version name: the newest release tag, CMakeLists.txt)
 
       - name: The compiler cache's folder
         run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"
@@ -655,6 +659,8 @@ jobs:
       CCACHE_MAXSIZE: 2G
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true  # (the version name: the newest release tag, CMakeLists.txt)
 
       - name: The compiler cache's folder
         run: echo "CCACHE_DIR=$RUNNER_TEMP/ccache" >> "$GITHUB_ENV"

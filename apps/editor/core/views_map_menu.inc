@@ -63,13 +63,12 @@ enum { ID_MAPMENU_PROPS = 9001, ID_MAPMENU_SELECT, ID_MAPMENU_REPLACE, ID_MAPMEN
        ID_MAPMENU_PROTECT, ID_MAPMENU_UNPROTECT };
 int gMapMenuUnit = -1, gMapMenuLocation = -1, gMapMenuDoodad = -1, gMapMenuSprite = -1;
 std::wstring tileValueText(const Editor& ed, float wx, float wy);  // (palette_tools.inc)
-void shellCopyText(const std::wstring& text);                     // (shell_sdl.inc)
 void shellReportFeedback(const std::wstring& on, const std::wstring& text);
 int protectedInSelection(const Editor& ed);  // (core/protected_layer.inc)
 void protectSelection(bool on);
 std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
 
-// The selected terrain's tiles for a feedback report: each tile value once (as Copy tile value has it) with the places
+// The selected terrain's tiles for a feedback report: each tile value once (as the status bar shows it) with the places
 // it is at; at most 40 values and 6 places each.
 std::wstring selectedTilesText(const Editor& ed) {
     std::map<uint16_t, std::vector<std::pair<int, int>>> at;
@@ -222,11 +221,10 @@ MenuModel mapMenuModel(float wx, float wy) {
     item(ID_EDIT_DELETE, L"&Delete", L"Del", has && !terrain);
     item(ID_MAPMENU_REPLACE, L"&Replace with\x2026", L"", has && (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites));
     if (app.mode == Mode::Doodads) item(ID_MAPMENU_TOTERRAIN, L"Convert to t&errain", L"", has);
+    if (canSnapToGrid(app)) item(ID_EDIT_SNAPGRID, L"Snap to the &grid", L"", true);
     if (terrain && app.terrainRect)  // (#114; Solid: the tiles inside its terrain)
         item(ID_MAPMENU_FILLSEL, gTiles->solid ? L"&Fill selection with the selected terrain" : L"&Fill selection with the selected tiles", L"", has && tilesHavePick());
     if (terrain) item(ID_MAPMENU_SAVESTAMP, L"Save as custom &terrain\x2026", L"", has);  // (core/stamps.inc)
-    // (as the status bar shows it: tileValueText; with a selection, each of its tiles)
-    if (terrain) item(ID_MAPMENU_COPYTILE, has ? L"Copy tile &values" : L"Copy tile &value", L"", true);
     // (the selection's tiles: no terrain edit changes them; core/protected_layer.inc)
     if (terrain && has) {
         const int protectedTiles = protectedInSelection(ed);
@@ -276,21 +274,6 @@ void mapMenuPick(int pick) {
     else if (pick == ID_MAPMENU_SAVESTAMP) stampsSaveSelection();
     else if (pick == ID_MAPMENU_PROTECT || pick == ID_MAPMENU_UNPROTECT) protectSelection(pick == ID_MAPMENU_PROTECT);
     else if (pick == ID_MAPMENU_FEEDBACKSEL && app.ed) shellReportFeedback(L"the selected terrain", selectedTilesText(*app.ed));
-    else if (pick == ID_MAPMENU_COPYTILE && app.ed) {
-        // A terrain selection: each of its tiles, a line each (its place, then its value), row by row; else the tile here.
-        const std::vector<std::pair<int, int>> sel = terrainSelTiles();
-        if (sel.empty()) {
-            const std::wstring t = tileValueText(*app.ed, gMapMenuWX, gMapMenuWY);
-            shellCopyText(t);
-            setMessage(tr(L"Copied: ") + t);
-        } else {
-            std::wstring t;
-            for (auto [x, y] : sel)
-                t += (t.empty() ? L"" : L"\n") + std::to_wstring(x) + L", " + std::to_wstring(y) + L": " + tileValueText(*app.ed, x * 32.0f + 16, y * 32.0f + 16);
-            shellCopyText(t);
-            setMessage(L"Copied the values of " + std::to_wstring(sel.size()) + (sel.size() == 1 ? L" tile" : L" tiles"));
-        }
-    }
     else if (pick == ID_MAPMENU_SAMETYPE || pick == ID_MAPMENU_SAMETYPE_PLAYER) selectSameType(pick == ID_MAPMENU_SAMETYPE_PLAYER);
     else if (pick == ID_MAPMENU_TOTERRAIN && app.ed) {
         // The selected doodads (the one under the mouse is selected by the menu): their tiles stay as plain terrain.

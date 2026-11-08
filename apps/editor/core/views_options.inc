@@ -36,6 +36,9 @@ struct OptionsValues {
     bool checkUpdates = false;
     bool previews = false;    // Updates > Previews: the pre-releases too (else the stable releases only)
     int crashReports = 0;     // 0 ask, 1 send, 2 do not send
+    bool gpuRow = false;      // the Graphics row shows (Windows: its drivers)
+    int gpuDriver = 0;        // Graphics: 0 automatic (Vulkan first), 1 Direct3D 12, 2 software (ID_GPU_DRIVER + it)
+    std::wstring gpuInUse;    // the driver and video card in use ("Vulkan, NVIDIA GeForce GTX 770")
     bool mapsWithSD2 = false; // .scm and .scx open with StarDraft 2
     bool mapsRow = true;      // the Maps row shows (the file association: the Windows program's)
     std::wstring projectsFolder;  // the working folder (the default one when none is set)
@@ -46,6 +49,8 @@ struct OptionsValues {
     bool cmbwOpen = false;        // ... the mod's data is open (a new folder: from the next start; else at once)
     bool overrideOn = false;      // ... ISOM terrain rules override: a terrain rules file over the built-in rules
     std::wstring overrideFile;    // ... its file ("": none chosen)
+    bool passagesOn = false;      // ... Ramp and bridge mappings: a passages file (the Ramp and bridge mapper's) for the tools
+    std::wstring passagesFile;    // ... its file ("": none chosen)
     // Tools > Simulate mining (experimental): the workers on minerals at each base, on gas, the measured game minutes,
     // and the races (0: as in the map, 1 Terran, 2 Protoss, 3 Zerg).
     int simWorkers = 9, simGas = 3, simMinutes = 3, simRace = 0;
@@ -120,7 +125,7 @@ public:
         lightSeg_[2].onClick = [this] { host_.command(ID_THEME_SYSTEM); };
         middleSeg_[0].setText(L"Drag map"), middleSeg_[0].setTip(L"The map moves with the mouse");
         middleSeg_[1].setText(L"Pan map"), middleSeg_[1].setTip(L"The farther the mouse is from where you pressed, the faster the map moves toward it (default)");
-        crashSeg_[0].setText(L"Ask"), crashSeg_[0].setTip(L"After a crash, StarDraft 2 asks at the next start if it can send the report (default)");
+        crashSeg_[0].setText(L"Ask"), crashSeg_[0].setTip(L"Ask at the next start after a crash (default)");
         crashSeg_[1].setText(L"Send"), crashSeg_[1].setTip(L"Send an anonymous report after a crash: the version, Windows, the video card, where it crashed and the last log lines; no maps");
         crashSeg_[2].setText(L"Do not send"), crashSeg_[2].setTip(L"The reports stay on this computer");
         for (int i = 0; i < 2; ++i) {
@@ -128,6 +133,10 @@ public:
             middleSeg_[i].onClick = [this, i] { host_.command(ID_MIDDLE_MODE + (i == 0 ? 1 : 0)); };
         }
         for (int i = 0; i < 3; ++i) crashSeg_[i].onClick = [this, i] { host_.command(ID_CRASH_MODE + i); };
+        gpuSeg_[0].setText(L"Automatic"), gpuSeg_[0].setTip(L"Vulkan. If the video card cannot use it: Direct3D 12, then software drawing (default)");
+        gpuSeg_[1].setText(L"Direct3D 12"), gpuSeg_[1].setTip(L"Direct3D 12. If the video card cannot use it: Vulkan, then software drawing");
+        gpuSeg_[2].setText(L"Software"), gpuSeg_[2].setTip(L"Software drawing (WARP): slow, but it does not use the video card");
+        for (int i = 0; i < 3; ++i) gpuSeg_[i].onClick = [this, i] { host_.command(ID_GPU_DRIVER + i); };
         for (auto* b : allButtons()) add(*b, {0, 0, 0, 0}), b->setVisible(false);
         lastProject_.setLabel(L"Open the last project on start");
         lastProject_.onChange = [this](bool) { host_.command(ID_OPT_LASTPROJECT); };
@@ -143,13 +152,16 @@ public:
         override_.setLabel(L"ISOM terrain rules override");
         override_.setTip(L"Terrain rules from a file (Tools > Cosmonarchy > Custom isom terrain editor) in place of the built-in ones");
         override_.onChange = [this](bool) { host_.command(ID_OPT_TERRAINOVERRIDE); };
+        passages_.setLabel(L"Ramp and bridge mappings");
+        passages_.setTip(L"The mod's ramps and bridges from a file (Tools > Cosmonarchy > Ramp and bridge mapper) for the Ramp brush and the Bridge tool");
+        passages_.onChange = [this](bool) { host_.command(ID_OPT_PASSAGES); };
         updates_.setLabel(L"Look for updates");
         updates_.setTip(L"At start and one time each hour (release builds only)");
         updates_.onChange = [this](bool) { host_.command(ID_OPT_UPDATECHECK); };
         previews_.setLabel(L"Previews");
         previews_.setTip(L"Pre-releases too, not only the stable releases");
         previews_.onChange = [this](bool) { host_.command(ID_OPT_PREVIEWS); };
-        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_),
+        for (auto* c : {static_cast<draw::View*>(&lastProject_), static_cast<draw::View*>(&askStart_), static_cast<draw::View*>(&manyStarts_), static_cast<draw::View*>(&cmbwPlugin_), static_cast<draw::View*>(&override_), static_cast<draw::View*>(&passages_),
                         static_cast<draw::View*>(&updates_), static_cast<draw::View*>(&previews_)})
             add(*c, {0, 0, 0, 0}), c->setVisible(false);
         language_.onChange = [this](int i) {
@@ -207,9 +219,10 @@ public:
         folder_.setReadOnly(true), folder_.setTabStop(false);
         install_.setReadOnly(true), install_.setTabStop(false);
         cmbw_.setReadOnly(true), cmbw_.setTabStop(false), overrideFile_.setReadOnly(true), overrideFile_.setTabStop(false);
-        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0});
-        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false);
-        browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder where StarDraft 2 makes new projects");
+        passagesFile_.setReadOnly(true), passagesFile_.setTabStop(false);
+        add(folder_, {0, 0, 0, 0}), add(install_, {0, 0, 0, 0}), add(cmbw_, {0, 0, 0, 0}), add(overrideFile_, {0, 0, 0, 0}), add(passagesFile_, {0, 0, 0, 0});
+        folder_.setVisible(false), install_.setVisible(false), cmbw_.setVisible(false), overrideFile_.setVisible(false), passagesFile_.setVisible(false);
+        browse_.setText(L"Browse\x2026"), browse_.setTip(L"Select the folder for new projects");
         browse_.onClick = [this] { host_.browseWorkingFolder(); };
         defaultFolder_.setText(L"Default"), defaultFolder_.setTip(L"Documents\\StarDraft");
         defaultFolder_.onClick = [this] { host_.useDefaultWorkingFolder(); };
@@ -219,6 +232,8 @@ public:
         cmbwBrowse_.onClick = [this] { host_.command(ID_OPT_CMBWFOLDER); };
         overrideBrowse_.setText(L"Browse\x2026"), overrideBrowse_.setTip(L"Select a terrain rules file (*.isom)");
         overrideBrowse_.onClick = [this] { host_.command(ID_OPT_TERRAINOVERRIDEFILE); };
+        passagesBrowse_.setText(L"Browse\x2026"), passagesBrowse_.setTip(L"Select a passages file (*.scpass)");
+        passagesBrowse_.onClick = [this] { host_.command(ID_OPT_PASSAGESFILE); };
         check_.setText(L"Check now"), check_.setTip(L"Look for a newer release now");
         check_.onClick = [this] { host_.command(ID_HELP_UPDATES); };
         restart_.setText(L"Restart now"), restart_.setTip(L"Start StarDraft 2 again in the new language. Your open maps and projects open again.");
@@ -227,13 +242,13 @@ public:
         add(bar_, {0, 0, 0, 0});
         bar_.setVisible(false);
         reset_.setText(L"Reset all program settings\x2026"), reset_.setTone(stardraft::kit::Tone::Danger);
-        reset_.setTip(L"Every program setting gets its default value, and StarDraft 2 starts again (a question first)");
+        reset_.setTip(L"Give every program setting its default value and restart (a question first)");
         reset_.onClick = [this] { host_.command(ID_OPT_RESETALL); };
         maps_.setText(L"Open maps with StarDraft 2"), maps_.setTip(L"Make StarDraft 2 the program that opens .scm and .scx maps");
         maps_.onClick = [this] { host_.command(ID_OPT_MAPSDEFAULT); };
         close_.setText(L"Close"), close_.setTone(stardraft::kit::Tone::Primary);
         close_.onClick = [this] { host_.close(); };
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) b->setVisible(false);
         // The tabs (showTabStrip): fixed pages, in the order of kTabs.
         std::vector<stardraft::kit::Tab> tabs;
         for (const optionsview::Tab& t : optionsview::kTabs) tabs.push_back({t.name});
@@ -274,21 +289,6 @@ public:
         return true;
     }
     bool hasPart(const std::string& name) const { return parts_.count(name) != 0; }
-    // A click at the middle of the part (the widget under it gets the press and the release, as a mouse does).
-    bool clickPart(const std::string& name) {
-        draw::Rect r;
-        if (!part(name, r)) return false;
-        const draw::Point c{(r.left + r.right) / 2, (r.top + r.bottom) / 2};
-        draw::Point local;
-        draw::View* v = viewAt(c, local);
-        if (v == this) return false;  // scrolled out of the content: no widget is there
-        draw::MouseEvent d;
-        d.kind = draw::MouseKind::Down, d.pt = local;
-        v->mouse(d);
-        d.kind = draw::MouseKind::Up;
-        v->mouse(d);
-        return true;
-    }
     // Scrolls the content to `s` (the tests scroll a part into view; the wheel and the bar do it too).
     void scrollTo(int s) {
         s = std::clamp(s, 0, maxScroll());
@@ -373,7 +373,8 @@ private:
         for (int i = 0; i < 2; ++i) out.push_back(&lightSeg_[i]), out.push_back(&middleSeg_[i]);
         out.push_back(&lightSeg_[2]);
         for (int i = 0; i < 3; ++i) out.push_back(&crashSeg_[i]);
-        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
+        for (int i = 0; i < 3; ++i) out.push_back(&gpuSeg_[i]);
+        for (auto* b : {&browse_, &defaultFolder_, &installBrowse_, &cmbwBrowse_, &overrideBrowse_, &passagesBrowse_, &check_, &restart_, &reset_, &maps_, &close_}) out.push_back(b);
         return out;
     }
     int maxScroll() const { return std::max(0, height_ - std::max(0, contentBottom_ - contentTop_)); }
@@ -398,7 +399,7 @@ private:
         if (show && &v != &close_ && &v != &strip_) tabOrder_.push_back({&v, r});
         const bool vis = show && r.top >= (bottom < 0 ? contentTop_ : 0) && r.bottom <= (bottom < 0 ? contentBottom_ : bottom);
         if (v.visible() != vis) v.setVisible(vis);
-        if (vis && (v.frame().left != r.left || v.frame().top != r.top || v.frame().right != r.right || v.frame().bottom != r.bottom)) v.setFrame(r);
+        if (vis) v.setFrame(r);
     }
     void hideUnplaced() {
         for (draw::View* ch : children())  // (not the scroll bar: the paint's end shows or hides it)
@@ -408,15 +409,15 @@ private:
     void sync(const OptionsValues& v);
 
     OptionsHost& host_;
-    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
-    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, check_, restart_, reset_, maps_, close_;
+    stardraft::kit::Button lightSeg_[3], middleSeg_[2], crashSeg_[3], gpuSeg_[3];  // (lightSeg_[2]: Automatic, with systemTheme)
+    stardraft::kit::Button browse_, defaultFolder_, installBrowse_, cmbwBrowse_, overrideBrowse_, passagesBrowse_, check_, restart_, reset_, maps_, close_;
     stardraft::kit::ScrollBar bar_;  // at the content's right when it is taller than its room
-    stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, updates_, previews_;
+    stardraft::kit::CheckBox lastProject_, askStart_, manyStarts_, cmbwPlugin_, override_, passages_, updates_, previews_;
     stardraft::kit::TabStrip strip_;
     stardraft::kit::Dropdown language_{{}, -1}, unitNames_{{}, -1};
     stardraft::kit::Dropdown simWorkers_{{}, -1}, simGas_{{}, -1}, simMinutes_{{}, -1}, simRace_{{}, -1};
     stardraft::kit::Slider slider_;
-    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_;
+    stardraft::kit::TextField limit_[2], folder_, install_, cmbw_, overrideFile_, passagesFile_;
     std::vector<int> langChoices_;     // the choice index of each language dropdown item
     std::vector<OptionsAccent> accents_;
     std::vector<draw::Rect> accentRects_;
@@ -426,7 +427,7 @@ private:
     std::vector<std::pair<draw::View*, draw::Rect>> tabOrder_;  // the options shown in this paint, in order, and their places
     int defaultAccent_ = 0;
     int systemThemeShown_ = -1;  // (the Theme buttons' tips were set for systemTheme)
-    int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1;  // the segmented choices' Primary buttons (sync)
+    int lightChosen_ = -1, middleChosen_ = -1, crashChosen_ = -1, gpuChosen_ = -1;  // the segmented choices' Primary buttons (sync)
     int limitValue_[2] = {3400, 1700};
     int tab_ = -1;          // setTab
     bool stripOn_ = false;  // showTabStrip
@@ -462,8 +463,14 @@ void OptionsView::sync(const OptionsValues& v) {
         crashChosen_ = crash;
         for (int i = 0; i < 3; ++i) crashSeg_[i].setTone(i == crash ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
     }
+    if (v.gpuDriver != gpuChosen_) {
+        gpuChosen_ = v.gpuDriver;
+        for (int i = 0; i < 3; ++i) gpuSeg_[i].setTone(i == v.gpuDriver ? stardraft::kit::Tone::Primary : stardraft::kit::Tone::Normal);
+    }
     cmbwPlugin_.setOn(v.gameMode == 1), override_.setOn(v.overrideOn);
     if (const std::wstring f = v.overrideFile.empty() ? std::wstring(L"\x2014") : v.overrideFile; overrideFile_.text() != f) overrideFile_.setText(f);
+    passages_.setOn(v.passagesOn);
+    if (const std::wstring f = v.passagesFile.empty() ? std::wstring(L"\x2014") : v.passagesFile; passagesFile_.text() != f) passagesFile_.setText(f);
     accents_ = v.accents;
     lastProject_.setOn(v.openLast), askStart_.setOn(v.askStartLocations), manyStarts_.setOn(v.manyStartLocations), updates_.setOn(v.checkUpdates), previews_.setOn(v.previews);
     // The languages offered (rebuilt when they change), the chosen one.
@@ -525,9 +532,7 @@ void OptionsView::paint(draw::Canvas& c) {
     auto fieldTop = [&](int rowY) { return rowY + (rowH - fieldH) / 2; };
     auto buttonTop = [&](int rowY) { return rowY + (rowH - btnH) / 2; };
     auto header = [&](const wchar_t* name) {
-        c.text({x0, y, colRight, y + rowH}, name, kText, draw::kMiddle);
-        c.fill({x0, y + rowH - 1, colRight, y + rowH}, kBorder);
-        y += rowH + scale(6);
+        y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, name);
     };
     auto label = [&](const wchar_t* name) { c.text({x0, y, x0 + labelW, y + rowH}, name, kDim, draw::kMiddle | draw::kEllipsis); };
     // A note under a row: the labels' size and color (a smaller font was too small to read).
@@ -604,8 +609,19 @@ void OptionsView::paint(draw::Canvas& c) {
             smallAt(restart_, x, y, "restart");
         }
         y += rowH;
-        note(fx, y - scale(4), v.restartDue ? L"The new language shows after a restart" : L"A new language shows after a restart");
+        note(fx, y - scale(4), L"The new language shows after a restart");
         y += scale(20);
+        // Graphics (Windows): the driver that draws the program (a computer that stopped with an old video card's
+        // Direct3D 12, 0.8.5); the one in use under it.
+        if (v.gpuRow) {
+            label(L"Graphics");
+            segmented(y, gpuSeg_, 3, "graphics");
+            y += rowH;
+            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names)
+            y += scale(20);
+            note(fx, y - scale(4), L"The change applies after a restart");
+            y += scale(20);
+        }
         // The accent: the swatches (a ring around the chosen one and the one under the mouse).
         label(L"Accent color");
         {
@@ -714,7 +730,7 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["workfolder"] = field;
         parts_["browse.workfolder"] = browse_.frame(), parts_["default.workfolder"] = defaultFolder_.frame();
         y += rowH;
-        note(x0, y - scale(4), L"StarDraft 2 makes new projects in this folder. It does not move a project that you open from another folder.");
+        note(x0, y - scale(4), L"New projects go into this folder. A project that you open from another folder stays where it is.");
         y += scale(20) + pad;
     }
 
@@ -729,7 +745,7 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["install"] = {colRight - bw, by, colRight, by + btnH};
         y += rowH;
         note(x0, y - scale(4),
-             !v.installNext.empty() ? L"From the next start: " + v.installNext : std::wstring(L"A new folder is used from the next start"));
+             !v.installNext.empty() ? L"After a restart: " + v.installNext : std::wstring(L"A new folder is used after a restart"));
         y += scale(20) + pad;
     }
 
@@ -776,11 +792,11 @@ void OptionsView::paint(draw::Canvas& c) {
     // mod's) and the mod's folder (core/cmbw.inc).
     if (shown & optionsview::kPlugins) {
         header(L"Plugins");
-        c.text({x0, y, colRight, y + scale(20)}, L"Early feature preview: please report issues", kText, draw::kMiddle | draw::kEllipsis);
+        c.text({x0, y, colRight, y + scale(20)}, L"Early feature preview: report the issues that you find", kText, draw::kMiddle | draw::kEllipsis);
         y += scale(20) + scale(6);
         checkRow(y, cmbwPlugin_, "plugin.cmbw");
         y += rowH;
-        note(x0 + scale(24), y - scale(4), L"Adjusts StarDraft to work with the CMBW environment when it is loaded");
+        note(x0 + scale(24), y - scale(4), L"When loaded, maps open with the CMBW data, and new maps are CMBW maps");
         y += scale(20);
         if (v.gameMode != 1) y += pad;  // (the section's end: no folder row below)
     }
@@ -794,8 +810,8 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["cmbwfolder"] = {colRight - cw, cy, colRight, cy + btnH};
         y += rowH;
         note(fx, y - scale(4),
-             !v.cmbwNext.empty() ? L"From the next start: " + v.cmbwNext
-             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used from the next start")
+             !v.cmbwNext.empty() ? L"After a restart: " + v.cmbwNext
+             : v.cmbwOpen        ? std::wstring(L"The Prerelease or Release folder. A new folder is used after a restart")
                                  : std::wstring(L"The Prerelease or Release folder"));
         y += scale(20);
         // ISOM terrain rules override: a terrain rules file over the built-in rules (the maps opened from then on).
@@ -809,7 +825,25 @@ void OptionsView::paint(draw::Canvas& c) {
         parts_["overridefile"] = {colRight - ow, oy, colRight, oy + btnH};
         y += rowH;
         note(x0 + scale(24), y - scale(4), L"Maps opened after a change use the file's terrain rules");
-        y += scale(20) + pad;
+        y += scale(20);
+        // Ramp and bridge mappings: a passages file for the Ramp brush and the Bridge tool (at once, in the open maps too;
+        // hidden with the tools: ids.inc).
+        if (kRampBridgeTools) {
+            checkRow(y, passages_, "plugin.passages");
+            y += rowH;
+            const int pw = passagesBrowse_.preferredWidth(c);
+            place(passagesFile_, {x0 + scale(24), fieldTop(y), colRight - pw - gap, fieldTop(y) + fieldH}, true);
+            const int py = buttonTop(y);
+            place(passagesBrowse_, {colRight - pw, py, colRight, py + btnH}, true);
+            parts_["passagesfile"] = {colRight - pw, py, colRight, py + btnH};
+            y += rowH;
+            note(x0 + scale(24), y - scale(4), L"The Ramp brush and the Bridge tool use its ramps and bridges at once");
+            y += scale(20);
+        } else {
+            for (draw::View* v : {static_cast<draw::View*>(&passages_), static_cast<draw::View*>(&passagesFile_), static_cast<draw::View*>(&passagesBrowse_)})
+                if (v->visible()) v->setVisible(false);
+        }
+        y += pad;
     }
 
     height_ = y + scroll_ - contentTop_;
@@ -865,19 +899,9 @@ bool OptionsView::mouse(const draw::MouseEvent& e) {
     return false;
 }
 
-bool OptionsView::vscroll(int code, int pos, int track, int page) {
+bool OptionsView::vscroll(int code, int /*pos*/, int track, int page) {
     int s = scroll_;
-    switch (code) {
-    case 0: s = scroll_ - scale(40); break;  // SB_LINEUP
-    case 1: s = scroll_ + scale(40); break;  // SB_LINEDOWN
-    case 2: s = scroll_ - page; break;       // SB_PAGEUP
-    case 3: s = scroll_ + page; break;       // SB_PAGEDOWN
-    case 4: s = pos; break;                  // SB_THUMBPOSITION
-    case 5: s = track; break;                // SB_THUMBTRACK
-    case 6: s = 0; break;                    // SB_TOP
-    case 7: s = height_; break;              // SB_BOTTOM
-    default: return false;
-    }
+    if (!kitpaint::scrollRequest(code, s, scale(40), page, track)) return false;
     scrollTo(s);
     return true;
 }

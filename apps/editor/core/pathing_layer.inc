@@ -414,7 +414,7 @@ void pathingCheckCommand() {
                                          "f:" + std::to_string(i), "", -1});
     }
     if (c->more) items.push_back(ListPickItem{pathingFormat(L"%d more problems are not in the list", int(c->more)), L"", "", "", -1});
-    setMessage(pathingFormat(L"Pathing: %d problems (%d regions, %d connected areas). Pick one to show it on the map",
+    setMessage(pathingFormat(L"Pathing: %d problems (%d regions, %d connected areas). Select one to show it on the map",
                              int(c->problems.size() + c->more), int(r->regions.size()), r->groups));
     std::string picked;
     if (!shellPickPathingProblem(std::move(items), picked) || picked.size() < 3) return;
