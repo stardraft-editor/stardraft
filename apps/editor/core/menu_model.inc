@@ -231,7 +231,6 @@ MenuModel buildMenuModel() {
         MenuModel simulation;
         menuCommand(simulation, "edit.simulate.mining");
         menuCommand(simulation, "edit.simulate.rush");
-        menuCommand(simulation, "edit.simulate.rushpoints");
         menuCommand(simulation, "edit.simulate.combat");
         simulation.push_back(menuSeparator());
         for (const char* id : {"sim.play", "sim.restart", "sim.skip", "sim.slower", "sim.faster"}) menuCommand(simulation, id);

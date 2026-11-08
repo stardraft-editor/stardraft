@@ -194,7 +194,7 @@ const RushRaceUnits kRushRaceUnits[] = {
     {L"Protoss", {65, 66, 67, 61, 68, 63, 83, 69, 84, 70, 60, 71, 72}},  // Zealot, Dragoon, High and Dark Templar, Archon, Dark Archon, Reaver, Shuttle, Observer, Scout, Corsair, Arbiter, Carrier
     {L"Zerg", {37, 38, 103, 39, 46, 42, 43, 47, 44, 62, 45}},       // Zergling, Hydralisk, Lurker, Ultralisk, Defiler, Overlord, Mutalisk, Scourge, Guardian, Devourer, Queen
 };
-// Rush distance between two points (Tools > Simulate rush distance between two points, the gear's Start and end): the
+// Rush distance between two points (the gear's Start and end: Two points of the map): the
 // points (map pixels) on the map that they were picked on, kept while the rush starts again; on: the rush uses them.
 struct RushPoints {
     bool on = false;
@@ -2054,7 +2054,7 @@ void simRushStart(const RushPoints& p) {
 }
 // Tools > Simulate rush distance: from the start locations.
 void simulateRushCommand() { simRushStart(RushPoints{}); }
-// Tools > Simulate rush distance between two points: the rush shows, and the bar asks for its start point, then its
+// The gear's Two points of the map (the command edit.simulate.rushpoints: no menu item): the rush shows, and the bar asks for its start point, then its
 // end point, each a click on the map (Esc stops); then the units go from the one to the other.
 void simulateRushPointsCommand() {
     if (!gSim.shown || !gSim.rush) simRushAgain();

@@ -36,7 +36,7 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   a click opens the searchable list of the units that can walk or fly, with their icons: the worker, the race's
   units (As in the map: each race's), then all other units. A race picked after the unit (in the gear or in the
   mining's Races) whose units do not have it (another race's worker or unit) takes its worker again; a unit of
-  another race picked after the race stays (setting SimRushUnitRaces). The gear's Start and end, or Tools > Simulate rush distance between two points, takes two points of the map
+  another race picked after the race stays (setting SimRushUnitRaces). The gear's Start and end (Two points of the map) takes two points of the map
   in place of the start locations: the bar asks for the start point, then the end point (a click on the map each; Esc
   stops; the game waits meanwhile); the map marks them (green, red) while the rush runs, and the report gives their
   tiles. The gear's Fog of war shows the fog of war (off, what all players see, or what one start location's player
