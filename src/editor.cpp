@@ -25,6 +25,7 @@
 
 #include "stardraft/game_data.h"
 #include "stardraft/new_map.h"
+#include "stardraft/ramps.h"  // (a terrain stroke's end fits the ramps again)
 #include "stardraft/terrain_gen.h"
 
 namespace stardraft {
@@ -41,20 +42,6 @@ std::string lower(std::string s) {
 }
 }  // namespace
 
-const char* symmetryName(Symmetry s) {
-    switch (s) {
-    case Symmetry::None: return "None";
-    case Symmetry::Horizontal: return "Mirror left/right";
-    case Symmetry::Vertical: return "Mirror top/bottom";
-    case Symmetry::Both: return "Mirror both (4-way)";
-    case Symmetry::Rotate180: return "Rotate 180";
-    case Symmetry::Diagonal: return "Mirror diagonal";
-    case Symmetry::AntiDiagonal: return "Mirror anti-diagonal";
-    case Symmetry::Rotate4: return "Rotate 4-way";
-    }
-    return "";
-}
-
 Rect Rect::normalized() const {
     return {std::min(left, right), std::min(top, bottom), std::max(left, right), std::max(top, bottom)};
 }
@@ -65,6 +52,7 @@ Editor::~Editor() = default;
 // --- File --------------------------------------------------------------------------------------
 
 bool Editor::open(const std::filesystem::path& path, std::string& error) {
+    clearMasks();
     openSteps_.clear();
     auto t0 = std::chrono::steady_clock::now();
     auto step = [&](const char* what) {
@@ -133,6 +121,7 @@ bool Editor::open(const std::filesystem::path& path, std::string& error) {
 }
 
 bool Editor::openChk(const Chk& chk, std::string& error) {
+    clearMasks();
     finishFiles();
     uint16_t w = 0, h = 0;
     if (!readDimensions(chk, w, h) || !w || !h) return error = "map has no valid DIM section", false;
@@ -190,6 +179,7 @@ void Editor::finishFiles() const {
 }
 
 bool Editor::newMap(uint16_t width, uint16_t height, uint16_t era, uint16_t terrain, std::string& error) {
+    clearMasks();
     finishFiles();
     Chk chk;
     if (!createNewScenario(chk, data_, width, height, era, terrain, error)) return false;
@@ -265,8 +255,65 @@ bool Editor::generateMap(const TerrainGenParams& params, std::string& error) {
     return true;
 }
 
+// The slots the Players page shows: the ones the game reads (OWNR), with a start location or not (the checks warn about
+// a player with units and no start location); IOWN's when the map has no OWNR.
+// A slot that OWNR has as Inactive and IOWN as a type (StarEdit's way for a player with no start location) has IOWN's
+// type when the player has a start location, when OWNR has no player at all, or when that type is Computer (the pick
+// stays on the page: gameSlots).
+Bytes Editor::editorSlots() const {
+    const Section* iown = chk_.find("IOWN");
+    const Section* ownr = chk_.find("OWNR");
+    const bool hasI = iown && iown->data.size() >= 12, hasO = ownr && ownr->data.size() >= 12;
+    if (!hasO) return hasI ? Bytes(iown->data.begin(), iown->data.begin() + 12) : Bytes(12, 6);
+    Bytes out(ownr->data.begin(), ownr->data.begin() + 12);
+    if (!hasI) return out;
+    const bool none = std::all_of(out.begin(), out.begin() + 8, [](uint8_t v) { return v == 0; });
+    bool starts[8] = {};
+    for (const Unit& u : units_)
+        if (u.type == 214 /* Start Location */ && u.owner < 8) starts[u.owner] = true;
+    for (size_t p = 0; p < 8; ++p)
+        if (!out[p] && (none || starts[p] || iown->data[p] == uint8_t(Controller::Computer))) out[p] = iown->data[p];
+    return out;
+}
+
+Bytes Editor::gameSlots() const {
+    if (!chk_.find("IOWN") && !chk_.find("OWNR")) return Bytes(12, 0);
+    Bytes out = editorSlots();
+    bool used[8] = {};  // (a Computer player with no units, a start location being one, is Inactive for the game)
+    for (const Unit& u : units_)
+        if (u.owner < 8) used[u.owner] = true;
+    for (size_t p = 0; p < 8; ++p)
+        if (out[p] == uint8_t(Controller::Computer) && !used[p]) out[p] = 0;
+    return out;
+}
+
+bool Editor::slotsSaved() const {
+    const Section* ownr = chk_.find("OWNR");
+    const Bytes slots = gameSlots();
+    return (ownr && ownr->data.size() >= 12 && std::equal(slots.begin(), slots.end(), ownr->data.begin())) ||
+           (state_ == savedState_ && savedSlots_ == slots);  // (the file has them)
+}
+
+Bytes Editor::savedChk() const {
+    const Bytes game = gameSlots(), shown = editorSlots();
+    // (not slotsSaved: the file may have the slots while the working copy has the page's)
+    if (const Section* ownr = chk_.find("OWNR"); ownr && ownr->data.size() >= 12 && std::equal(game.begin(), game.end(), ownr->data.begin()))
+        return chk_.serialize();
+    Chk out = chk_;
+    out.set("OWNR", game);
+    Bytes iown = shown;  // (IOWN has the type that the game's slot does not have: the page shows it after a reopen)
+    if (const Section* s = chk_.find("IOWN"); s && s->data.size() >= 12) {
+        iown.assign(s->data.begin(), s->data.begin() + 12);
+        for (size_t p = 0; p < 12; ++p)
+            if (game[p] != shown[p]) iown[p] = shown[p];
+    }
+    out.set("IOWN", std::move(iown));
+    return out.serialize();
+}
+
 bool Editor::save(const std::filesystem::path& path, std::string& error) {
-    const Bytes raw = chk_.serialize();
+    const Bytes raw = savedChk();
+    const Bytes slots = gameSlots();
     bool archive = lower(path.extension().string()) != ".chk";
     if (archive) {
         finishFiles();
@@ -281,6 +328,7 @@ bool Editor::save(const std::filesystem::path& path, std::string& error) {
     path_ = path;
     modified_ = false;
     savedState_ = state_;
+    savedSlots_ = slots;
     return true;
 }
 
@@ -326,6 +374,7 @@ void Editor::buildModTable() {
 }
 
 void Editor::useModTerrains(std::vector<Tileset::ModTerrain> terrains) {
+    clearMasks();  // (its ids are others)
     modTerrainsOverride_ = std::move(terrains);
     if (loadedEra_ == era_ && !tileset_.groups.empty()) {  // (the tileset is loaded: only its mod terrains change)
         tileset_.modTerrains = *modTerrainsOverride_;
@@ -340,6 +389,7 @@ void Editor::reload() {
     readDimensions(chk_, width_, height_);
     era_ = readEra(chk_);
     if (era_ != loadedEra_) {
+        clearMasks();  // (another tileset: the ids mean other terrains and tiles)
         std::string err;
         if (tileset_.load(data_, era_, err)) {
             if (modTerrainsOverride_) tileset_.modTerrains = *modTerrainsOverride_;
@@ -459,6 +509,7 @@ void Editor::dropLastUndo() {
 void Editor::endStrokeStep() {
     const bool took = inStroke_ && strokeStep_;
     inStroke_ = strokeStep_ = false;
+    strokeTilesBefore_.clear();  // (a terrain stroke's: endTerrainStroke used them)
     if (!took || undo_.empty()) return;
     // The map as at the stroke's start (every section the same): the stroke placed or painted nothing.
     const Snapshot& s = undo_.back();
@@ -733,6 +784,8 @@ void Editor::beginTerrainStroke() {
     inStroke_ = strokeStep_ = true;
     strokeAsked_ = strokeVariant_ = 0;
     isom_.beginStroke();
+    strokeTilesBefore_ = terrain_.tiles;
+    if (!terrainMask_.empty()) maskGround_ = isom_;
 }
 
 uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
@@ -756,7 +809,7 @@ uint16_t Editor::brushTerrain(int px, int py, uint16_t terrain) {
 
 void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
     if (!isomOk_) return;
-    if (protectedCount_ || copyOptions_.terrain >= 0 ||
+    if (protectedCount_ || !terrainMask_.empty() || copyOptions_.terrain >= 0 ||
         std::any_of(copyOptions_.choices.begin(), copyOptions_.choices.end(), [](const CopyChoice& c) { return c.terrain >= 0; })) {
         // The common brush path resolves each copy's terrain and keeps protected tiles.
         paintBrush(px, py, terrain, Brush{Brush::Diamond, float(std::max(1, brushSize))});
@@ -791,6 +844,9 @@ void Editor::paintTerrain(int px, int py, uint16_t terrain, int brushSize) {
 }
 
 void Editor::endTerrainStroke() {
+    if (inStroke_ && !strokeTilesBefore_.empty()) refitRamps(*this, strokeTilesBefore_);  // (in the stroke's undo step)
+    strokeTilesBefore_.clear();
+    maskGround_.reset();
     endStrokeStep();
     isom_.beginStroke();  // (a paste or fill after it chooses its own ground)
 }
@@ -806,13 +862,27 @@ void Editor::endStroke() { endStrokeStep(); }
 
 // --- Symmetry ------------------------------------------------------------------------------------
 
-std::pair<int, int> Editor::mirror(int px, int py, int which) const {
+void Editor::setSymmetryCenter(int px, int py) {
+    if (px < 0 || py < 0) return void(symmetryX_ = symmetryY_ = -1);
+    symmetryX_ = std::clamp(int(std::lround(px / 64.0)), 0, width_ / 2) * 64;  // (an odd width: its last grid point inside)
+    symmetryY_ = std::clamp(int(std::lround(py / 32.0)), 0, int(height_)) * 32;
+}
+
+std::pair<int, int> Editor::symmetryCenter() const {
     const int W = width_ * 32, H = height_ * 32;
+    if (symmetryX_ < 0 || symmetryX_ > W || symmetryY_ < 0 || symmetryY_ > H) return {W / 2, H / 2};  // (another map's size: the middle)
+    return {symmetryX_, symmetryY_};
+}
+
+std::pair<int, int> Editor::mirror(int px, int py, int which) const {
+    const double W = width_ * 32.0, H = height_ * 32.0;
+    const auto [cx, cy] = symmetryCenter();
+    const double u = (px - cx) / W, v = (py - cy) / H;  // (the diagonals: in the map's proportions)
     switch (which) {
-    case 0: return {W - px, py};  // left/right
-    case 1: return {px, H - py};  // top/bottom
-    case 3: return {int(std::lround(double(py) / H * W)), int(std::lround(double(px) / W * H))};                  // diagonal
-    case 4: return {int(std::lround((1 - double(py) / H) * W)), int(std::lround((1 - double(px) / W) * H))};    // other diagonal
+    case 0: return {2 * cx - px, py};  // left/right
+    case 1: return {px, 2 * cy - py};  // top/bottom
+    case 3: return {int(std::lround(cx + v * W)), int(std::lround(cy + u * H))};  // diagonal
+    case 4: return {int(std::lround(cx - v * W)), int(std::lround(cy - u * H))};  // other diagonal
     }
     return {px, py};
 }
@@ -821,8 +891,9 @@ std::pair<int, int> Editor::turnPoint(int px, int py, int k) const {
     constexpr double kTau = 6.283185307179586;
     const double W = width_ * 32.0, H = height_ * 32.0;
     const double a = kTau * k / turns_, c = std::cos(a), s = std::sin(a);
-    const double u = px / W - 0.5, v = py / H - 0.5;  // from the middle, in the map's proportions
-    return {int(std::lround((0.5 + u * c - v * s) * W)), int(std::lround((0.5 + u * s + v * c) * H))};
+    const auto [cx, cy] = symmetryCenter();
+    const double u = (px - cx) / W, v = (py - cy) / H;  // from the center, in the map's proportions
+    return {int(std::lround(cx + (u * c - v * s) * W)), int(std::lround(cy + (u * s + v * c) * H))};
 }
 
 void Editor::setSymmetry(Symmetry s) {
@@ -851,7 +922,7 @@ Symmetry Editor::symmetry() const {
 // The places a point repeats at: the point, then every place the chosen mirrors and turns reach from it and from
 // each other (their group), at most kMaxSymmetricPlaces. A place outside the map is left out. Each carries whether
 // it is mirrored across a vertical or horizontal axis (a copy turned half way is turned both ways).
-std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py) const {
+std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int margin) const {
     std::vector<SymmetricPlace> out;
     const double w = width_ * 32.0, h = height_ * 32.0;
     if (!w || !h) return out;
@@ -873,7 +944,7 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py) cons
         const double u = px / w - 0.5, v = py / h - 0.5;
         const int x = int(std::lround((0.5 + t.a * u + t.b * v) * w));
         const int y = int(std::lround((0.5 + t.c * u + t.d * v) * h));
-        if (x < 0 || y < 0 || x > w || y > h) continue;
+        if (x < -margin || y < -margin || x > w + margin || y > h + margin) continue;
         if (std::any_of(out.begin(), out.end(), [&](const SymmetricPlace& p) { return std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1; }))
             continue;
         const bool axial = std::abs(t.b) < 1e-6 && std::abs(t.c) < 1e-6;
@@ -910,7 +981,10 @@ std::vector<std::pair<int, int>> Editor::terrainSymmetricPoints(int px, int py, 
         const auto [x, y] = starEditCenter(px, py, int(brush.size));
         px = x * 64, py = y * 32;
     }
-    return symmetricPoints(px, py);
+    // (a place off the map still paints what reaches the map, with the center away from the middle)
+    std::vector<std::pair<int, int>> out;
+    for (const SymmetricPlace& p : symmetricPlaces(px, py, int(std::max(brush.size, brush.height())) * 64)) out.push_back({p.x, p.y});
+    return out;
 }
 
 // --- Terrain tools -------------------------------------------------------------------------------
@@ -1207,7 +1281,35 @@ bool Editor::moveDoodad(int index, int x, int y, bool checkTerrain, std::string*
     return true;
 }
 
+namespace {
+// The crossing of a grid (cell g, offset o) nearest to v that is inside 0 to size, and how far v is from the nearest line.
+int gridDistance(int v, int g, int o) { return std::abs(v - (int(std::lround(double(v - o) / g)) * g + o)); }
+}  // namespace
+
 bool Editor::moveDoodads(const std::vector<int>& indices, int dx, int dy, bool checkTerrain, std::string* reason) {
+    return moveDoodadsBy(indices, [dx, dy](const Doodad&) { return std::pair(dx, dy); }, checkTerrain, reason);
+}
+
+int Editor::snapDoodads(const std::vector<int>& indices, int gw, int gh, int ox, int oy, bool checkTerrain, std::string* reason) {
+    if (gw <= 0 || gh <= 0) return 0;
+    // (on the tiles, as doodads are; only when that brings the edge nearer to a line: a grid between the tiles has no place for it)
+    auto axis = [](int edge, int g, int o, int size) {
+        const int to = int(std::lround(gridCrossing(edge, g, o, size) / 32.0)) * 32;
+        return gridDistance(to, g, o) < gridDistance(edge, g, o) ? to - edge : 0;
+    };
+    auto delta = [&](const Doodad& d) {
+        const DoodadType* t = doodadTypes_.find(d.id);
+        if (!t) return std::pair(0, 0);
+        return std::pair(axis(int(d.x) - t->width * 16, gw, ox, width_ * 32), axis(int(d.y) - t->height * 16, gh, oy, height_ * 32));
+    };
+    int count = 0;
+    for (int i : indices)
+        if (i >= 0 && i < int(doodads_.size())) count += delta(doodads_[size_t(i)]) != std::pair(0, 0);
+    if (!count || !moveDoodadsBy(indices, delta, checkTerrain, reason)) return 0;
+    return count;
+}
+
+bool Editor::moveDoodadsBy(const std::vector<int>& indices, const std::function<std::pair<int, int>(const Doodad&)>& delta, bool checkTerrain, std::string* reason) {
     std::vector<int> idx;
     for (int i : indices)
         if (i >= 0 && i < int(doodads_.size())) idx.push_back(i);
@@ -1222,6 +1324,7 @@ bool Editor::moveDoodads(const std::vector<int>& indices, int dx, int dy, bool c
     for (const Doodad& d : moving) {
         const DoodadType* t = doodadTypes_.find(d.id);
         if (!t) continue;
+        const auto [dx, dy] = delta(d);
         int tx, ty;
         doodadOrigin(*t, int(d.x) + dx, int(d.y) + dy, tx, ty);
         if (doodadOverlaps(*t, tx, ty)) why = "overlaps another doodad";
@@ -1364,6 +1467,25 @@ bool Editor::moveSprites(const std::vector<int>& indices, int dx, int dy) {
     sprites_ = readSprites(chk_);
     commit(false);
     return true;
+}
+
+int Editor::snapSprites(const std::vector<int>& indices, int gw, int gh, int ox, int oy) {
+    if (gw <= 0 || gh <= 0) return 0;
+    const Chk before = chk_;
+    int count = 0;
+    for (int i : indices) {
+        if (i < 0 || i >= int(sprites_.size())) continue;
+        MapSprite& sp = sprites_[size_t(i)];
+        const int x = gridCrossing(sp.x, gw, ox, width_ * 32), y = gridCrossing(sp.y, gh, oy, height_ * 32);
+        if (x == sp.x && y == sp.y) continue;
+        sp.x = uint16_t(x), sp.y = uint16_t(y), ++count;
+    }
+    if (!count) return 0;
+    writeSprites(chk_, sprites_);
+    pushUndo(before);
+    sprites_ = readSprites(chk_);
+    commit(false);
+    return count;
 }
 
 bool Editor::deleteSprites(const std::vector<int>& indices) {
@@ -1593,16 +1715,63 @@ void Editor::sprinkleModTiles(const TerrainLayer& before) {
     chk_.set("TILE", std::move(t)), chk_.set("MTXM", std::move(m));
 }
 
-bool Editor::retileFromIsom(int tx0, int ty0, int tx1, int ty1) {
-    if (!isomOk_) return false;
-    std::vector<CornerValue> corners;  // (each corner of the area's rects, its own terrain: the edit changes no terrain)
-    for (int y = std::max(0, ty0); y <= std::min(int(height_), ty1 + 1); ++y)
-        for (int x = std::max(0, tx0 / 2); x <= std::min(int(width_) / 2, tx1 / 2 + 1); ++x)
-            if ((x + y) & 1) corners.push_back({x, y, isom_.terrainAt(x, y)});
-    if (corners.empty()) return false;
-    const TerrainLayer before = readTerrain(chk_, "TILE");
-    applyTerrain(corners, true);
-    return readTerrain(chk_, "TILE").tiles != before.tiles;
+void Editor::clearMasks() {
+    terrainMask_.clear(), terrainMaskIds_.clear(), tileMask_.clear();
+    maskGround_.reset();
+}
+
+void Editor::setTerrainMask(std::vector<uint16_t> terrains) {
+    terrainMask_ = std::move(terrains);
+    terrainMaskIds_ = terrainMask_;
+    // (as brushTerrain: a mod terrain's brush can paint the terrains with its set)
+    for (uint16_t t : terrainMask_)
+        if (const Tileset::ModTerrain* own = tileset_.modTerrain(t); own && !own->pieces.empty())
+            for (const Tileset::ModTerrain& m : tileset_.modTerrains)
+                if (m.id != t && !m.pieces.empty() && m.pieces[0] == own->pieces[0] && m.fillKey == own->fillKey) terrainMaskIds_.push_back(m.id);
+}
+
+bool Editor::terrainMaskAllows(uint16_t terrain) const {
+    return terrainMaskIds_.empty() || std::find(terrainMaskIds_.begin(), terrainMaskIds_.end(), terrain) != terrainMaskIds_.end();
+}
+
+void Editor::maskCorners(std::vector<CornerValue>& corners) const {
+    if (terrainMask_.empty()) return;
+    const IsomGrid& ground = maskGround_ ? *maskGround_ : isom_;
+    // (the terrain it paints with stays in: without its corners, the edges would leave thin stripes along it)
+    const IsomTerrainTable* table = modTable_ ? modTable_.get() : IsomTerrainTable::forEra(era_);
+    const int reach = table ? std::min(table->diameter(), int(kProtectMargin)) : 0;
+    std::erase_if(corners, [&](const CornerValue& c) {
+        const uint16_t t = ground.terrainAt(c.x, c.y);
+        if (t != c.terrain && !terrainMaskAllows(t)) return true;
+        // (and room for its edge: a terrain the mask keeps, nearer than the borders between the two need, would be a hard seam)
+        for (int dy = -2 * reach; dy <= 2 * reach; ++dy)
+            for (int dx = -2 * reach; dx <= 2 * reach; ++dx) {
+                const int x = c.x + dx, y = c.y + dy;
+                if (!isom_.isCorner(x, y)) continue;
+                const uint16_t kept = ground.terrainAt(x, y);
+                if (kept != c.terrain && !terrainMaskAllows(kept) && table->isTerrain(kept) && table->distance(c.terrain, kept) > (std::abs(dx) + std::abs(dy) + 1) / 2) return true;
+            }
+        return false;
+    });
+}
+
+void Editor::holdMasked(const std::vector<CornerValue>& corners) {
+    if (terrainMask_.empty() || corners.empty()) return;
+    const IsomGrid& ground = maskGround_ ? *maskGround_ : isom_;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    std::set<std::pair<int, int>> listed;
+    for (const auto& c : corners) {
+        listed.insert({c.x, c.y});
+        x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
+    }
+    const uint16_t painted = corners.front().terrain;  // (the edit's own come first: pinProtected)
+    std::vector<std::pair<int, int>> hold;
+    for (int cy = std::max(-1, y0 - kProtectMargin); cy <= std::min(isom_.rectRows() + 1, y1 + kProtectMargin); ++cy)
+        for (int cx = std::max(-1, x0 - kProtectMargin); cx <= std::min(isom_.rectCols() + 1, x1 + kProtectMargin); ++cx) {
+            if (!isom_.isCorner(cx, cy) || listed.contains({cx, cy})) continue;
+            if (const uint16_t was = ground.terrainAt(cx, cy); was != painted && !terrainMaskAllows(was)) hold.push_back({cx, cy});
+        }
+    isom_.holdNextApply(std::move(hold));
 }
 
 bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced) {
@@ -1610,6 +1779,8 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced
     // Protected tiles near the edit: their rects' corners stay as they are (the old engine locks them, and the repair
     // fits the terrain around them); the edit's corners on them go.
     std::vector<CornerValue> corners = asked;
+    maskCorners(corners);
+    if (corners.empty()) return false;
     if (const int kept = pinProtected(corners, kProtectMargin); kept >= 0) {
         if (!kept) return false;
         int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
@@ -1623,7 +1794,7 @@ bool Editor::applyTerrain(const std::vector<CornerValue>& asked, bool overPlaced
     // Whole diamonds of one terrain: the terrain core paints them as StarEdit's brush would.
     // The core makes the tiles of each diamond it paints again: other edits than the brush's (fill, replace) give it only
     // the diamonds whose terrain changes, so that the tiles placed in Rectangle mode stay where the terrain stays.
-    if (useCore()) {
+    if (useCore() && terrainMask_.empty()) {
         auto diamonds = wholeDiamonds(isom_, corners);
         const uint16_t terrain = corners.front().terrain;
         if (!overPlaced)
@@ -1644,6 +1815,7 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     const std::vector<uint8_t> intact = doodadsIntact();
     const TerrainLayer before = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
     const std::optional<ProtectedBefore> kept = protectedBefore();
+    holdMasked(corners);  // (the mask: the repair changes only what it lets change)
     if (!isom_.apply(corners)) return false;
     if (overPlaced)  // (the edit's own corners: not the protected ones it keeps)
         markPlacedTilesDirty(own < corners.size() ? std::vector<CornerValue>(corners.begin(), corners.begin() + long(own)) : corners);
@@ -1655,6 +1827,40 @@ bool Editor::applyOld(const std::vector<CornerValue>& corners, int x0, int y0, i
     pruneDoodads(intact, &before);
     pruneUnits(watch);
     return true;
+}
+
+std::vector<uint8_t> Editor::tilesNotFromIsom() const {
+    std::vector<uint8_t> out(size_t(width_) * height_, 1);
+    if (!isomOk_) return out;
+    const TerrainLayer tile = readTerrain(chk_, chk_.has("TILE") ? "TILE" : "MTXM");
+    for (int ty = 0; ty < int(height_); ++ty)
+        for (int tx = 0; tx < int(width_); ++tx)
+            if (size_t(ty) * width_ + tx < tile.tiles.size()) out[size_t(ty) * width_ + tx] = !isom_.tileFromIsom(chk_, tile, tx, ty);
+    return out;
+}
+
+int Editor::remakeTilesFromIsom(const std::vector<std::pair<int, int>>& tiles) {
+    if (!isomOk_ || tiles.empty()) return 0;
+    // (the ISOM corners of the tiles' rects, as they are: the edit changes no corner; its rects whose tiles are not the
+    // ISOM's are made again)
+    std::set<std::pair<int, int>> points;
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (const auto& [tx, ty] : tiles) {
+        if (tx < 0 || ty < 0 || tx >= int(width_) || ty >= int(height_)) continue;
+        const int rx = tx / 2;
+        for (const auto& [cx, cy] : {std::pair{rx, ty}, {rx + 1, ty}, {rx, ty + 1}, {rx + 1, ty + 1}})
+            if ((cx + cy) & 1) points.insert({cx, cy}), x0 = std::min(x0, cx), y0 = std::min(y0, cy), x1 = std::max(x1, cx), y1 = std::max(y1, cy);
+    }
+    std::vector<CornerValue> corners;
+    for (const auto& [cx, cy] : points)
+        if (const uint16_t t = isom_.terrainAt(cx, cy)) corners.push_back({cx, cy, t});
+    if (corners.empty()) return 0;
+    const std::vector<uint16_t> before = readTerrain(chk_, "MTXM").tiles;
+    if (!applyOld(corners, x0, y0, x1, y1, true)) return 0;
+    const std::vector<uint16_t> after = readTerrain(chk_, "MTXM").tiles;
+    int changed = 0;
+    for (size_t i = 0; i < before.size() && i < after.size(); ++i) changed += before[i] != after[i];
+    return changed;
 }
 
 void Editor::markPlacedTilesDirty(const std::vector<CornerValue>& corners) {
@@ -1682,9 +1888,15 @@ uint16_t Editor::terrainAt(int px, int py) const {
 uint16_t Editor::paletteTerrainAt(int px, int py) const {
     const uint16_t t = terrainAt(px, py);
     if (tileset_.modTerrains.empty() || px < 0 || py < 0 || px >= width_ * 32 || py >= height_ * 32) return t;
-    const TerrainLayer tile = readTerrain(chk_, "TILE");
+    // The TILE value of the one tile (as readTerrain reads it: 0 past the section's end); the whole layer only for the
+    // ISOM's tile below.
     const size_t k = size_t(py / 32) * width_ + size_t(px / 32);
-    if (k >= tile.tiles.size()) return t;
+    uint16_t dw = 0, dh = 0;
+    readDimensions(chk_, dw, dh);
+    if (k >= size_t(dw) * size_t(dh)) return t;
+    uint16_t value = 0;
+    for (const auto& s : chk_.sections)
+        if (s.name == "TILE" && s.data.size() >= 2 * k + 2) value = uint16_t(s.data[2 * k] | s.data[2 * k + 1] << 8);
     // The ISOM: a mod terrain at the nearest corner, else at a corner of the tile's rect (on an edge the nearest corner may
     // be the ground); among those, one whose pieces the tile is (mod terrains may share tiles: the game's asphalt is the
     // fill of several). No ISOM of a mod terrain there: the first whose pieces the tile is (placed in Rectangle mode).
@@ -1699,15 +1911,15 @@ uint16_t Editor::paletteTerrainAt(int px, int py) const {
             }
     auto isPiece = [&](const Tileset::ModTerrain& m) {
         for (const auto& p : m.pieces)
-            if (p[1] == tile.tiles[k] || p[2] == tile.tiles[k]) return true;
+            if (p[1] == value || p[2] == value) return true;
         return false;
     };
     for (uint16_t c : near)
         if (isPiece(*tileset_.modTerrain(c))) return c;
     // (a tile the ISOM's own terrain gives there, as the game's asphalt in plain Asphalt: that terrain, not a mod terrain
     // whose fill it is too)
-    if (isom_.tileFromIsom(chk_, tile, px / 32, py / 32)) return t;
-    if (tile.tiles[k] < 2) return t;  // (the null tile, black: a mod terrain's fill (Chasm) only where its corners say so)
+    if (isom_.tileFromIsom(chk_, readTerrain(chk_, "TILE"), px / 32, py / 32)) return t;
+    if (value < 2) return t;  // (the null tile, black: a mod terrain's fill (Chasm) only where its corners say so)
     for (const Tileset::ModTerrain& m : tileset_.modTerrains)
         if (isPiece(m)) return m.id;
     return t;
@@ -1797,7 +2009,7 @@ bool Editor::paintBrush(int px, int py, uint16_t terrain, const Brush& brush, bo
         for (const auto& c : corners) x0 = std::min(x0, c.x), y0 = std::min(y0, c.y), x1 = std::max(x1, c.x), y1 = std::max(y1, c.y);
         nearProtected = protectedNear(x0, y0, x1, y1, kProtectMargin);
     }
-    if (useCore() && brush.starEdit() && !nearProtected) ok = applyCoreBrush(px, py, terrain, int(brush.size));
+    if (useCore() && brush.starEdit() && !nearProtected && terrainMask_.empty()) ok = applyCoreBrush(px, py, terrain, int(brush.size));
     else ok = applyTerrain(corners, true);
     if (own) endTerrainStroke();
     return ok;
@@ -1830,10 +2042,14 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         if (tx < 0 || ty < 0 || tx >= w || ty >= h) return nullptr;
         return tileset_.groupFor(tile.tiles[size_t(ty) * w + tx]);
     };
+    // A terrain group: below 1024 in the game's tilesets (doodads after); a mod's terrains have groups after 1024 too
+    // (Temple (Ruins)), so there the ISOM's own tile counts (tileFromIsom, below), not the group's number (GitHub #234).
+    const bool mod = !tileset_.groupTerrains.empty();
+    auto terrainGroup = [&](uint16_t v) { return mod || (v >> 4) < 1024; };
     // CV5 field 8 (extra[1]) is a tile's top stack connection, field 10 (extra[3]) its bottom one.
     auto stacked = [&](int tx, int ty) {  // does (tx, ty) sit in a stack under (tx, ty - 1)?
         const TileGroup *up = group(tx, ty - 1), *me = group(tx, ty);
-        return up && me && (tile.tiles[size_t(ty - 1) * w + tx] >> 4) < 1024 && up->extra[3] && me->extra[1];
+        return up && me && terrainGroup(tile.tiles[size_t(ty - 1) * w + tx]) && up->extra[3] && me->extra[1];
     };
     auto hasSub = [&](int tx, int ty, int sub) {
         const TileGroup* g = group(tx, ty);
@@ -1857,7 +2073,8 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
         const TileGroup* g = group(rx * 2, top);
         if (rectProtected(rx, top)) continue;  // (a protected stack top: the stack keeps its variant)
         // Doodads keep their tiles: a doodad's tile is in MTXM (TILE has the terrain under it).
-        if (!g || (tile.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024 || (mtxm.tiles[size_t(top) * w + rx * 2] >> 4) >= 1024) continue;
+        const size_t at = size_t(top) * w + rx * 2;
+        if (!g || !terrainGroup(tile.tiles[at]) || !terrainGroup(mtxm.tiles[at]) || (mod && mtxm.tiles[at] != tile.tiles[at])) continue;
         if (!isom_.tileFromIsom(chk_, tile, rx * 2, top)) continue;                       // and placed tiles theirs
         // (the new variant as the brush picks one (IsomTerrain's getRandomSubtile, as StarEdit): a common one (before the
         // group's first empty megatile) most of the time, a rare one (after it) 1 time in 20; not the one there now. Each
@@ -1881,7 +2098,7 @@ int Editor::rerollTerrain(int px, int py, const Brush& brush, uint32_t seed) {
                 if (!hasSub(tx, ty, sub)) continue;
                 if ((tx != rx * 2 || ty != top) && !isom_.tileFromIsom(chk_, tile, tx, ty)) continue;  // placed tiles stay
                 size_t i = size_t(ty) * w + tx;
-                if ((mtxm.tiles[i] >> 4) >= 1024) continue;  // under a doodad: the doodad's tile stays
+                if (!terrainGroup(mtxm.tiles[i]) || (mod && mtxm.tiles[i] != tile.tiles[i])) continue;  // under a doodad: the doodad's tile stays
                 if (tileProtected(tx, ty)) continue;
                 uint16_t v = uint16_t((tile.tiles[i] & 0xFFF0) | sub);
                 if (tile.tiles[i] != v) tile.tiles[i] = mtxm.tiles[i] = v, ++changed;
@@ -2044,6 +2261,34 @@ void Editor::sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, 
     if (own) endTerrainStroke();
 }
 
+void Editor::sprayTerrainPart(int px, int py, const std::vector<uint16_t>& terrains, const Brush& brush, int percent, uint32_t seed) {
+    if (!isomOk_ || terrains.empty()) return;
+    bool own = !inStroke_;
+    if (own) beginTerrainStroke();
+    std::vector<std::pair<int, int>> all = isom_.brushCorners(px, py, brush);
+    std::mt19937 rng(seed);
+    std::shuffle(all.begin(), all.end(), rng);
+    const size_t n = std::min(all.size(), size_t(std::max(1, int(std::ceil(double(all.size()) * std::clamp(percent, 1, 100) / 100.0)))));
+    // (a corner that is the image of one sprayed already: not again, so that a brush on a mirror's line keeps the share;
+    // each terrain's corners by themselves, as Fill's mix: an edit fits the ground around one terrain)
+    std::vector<std::vector<CornerValue>> each(terrains.size());
+    std::set<std::pair<int, int>> taken;
+    size_t done = 0;
+    for (const auto& [ax, ay] : all) {
+        if (done >= n) break;
+        if (taken.count({ax, ay})) continue;
+        const size_t k = done % terrains.size();
+        const uint16_t t = brushTerrain(px, py, terrains[k]);
+        for (auto [x, y] : symmetricPoints(ax * 64, ay * 32))
+            for (auto [cx, cy] : isom_.brushCorners(x, y, Brush{Brush::Diamond, 0.5f}))
+                if (taken.insert({cx, cy}).second) each[k].push_back({cx, cy, t});
+        ++done;
+    }
+    for (const std::vector<CornerValue>& corners : each)
+        if (!corners.empty()) applyTerrain(corners);
+    if (own) endTerrainStroke();
+}
+
 bool Editor::fillTerrain(int px, int py, uint16_t terrain) {
     if (!isomOk_) return false;
     if (protectedCount_) {  // (a fill that starts on protected terrain: nothing)
@@ -2145,6 +2390,15 @@ int Editor::jumbleTerrain(int px, int py, const Brush& brush, uint32_t seed) {
 bool Editor::fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed) {
     if (terrains.size() < 2) return !terrains.empty() && fillTerrain(px, py, terrains[0]);
     if (!isomOk_) return false;
+    // (the mask's ground: as before the fill, also for the patches on what the fill's first pass paints)
+    struct MaskGround {
+        std::optional<IsomGrid>& ground;
+        bool own;
+        ~MaskGround() {
+            if (own) ground.reset();
+        }
+    } maskGround{maskGround_, !maskGround_ && !terrainMask_.empty()};
+    if (maskGround.own) maskGround_ = isom_;
     if (protectedCount_) {  // (a fill that starts on protected terrain: nothing)
         int cx, cy;
         isom_.cornerAtPixel(px, py, cx, cy);
@@ -2207,11 +2461,15 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
     const std::optional<ProtectedBefore> kept = protectedBefore();
     int changed = 0;
     for (std::vector<CornerValue> dab : dabs) {
+        maskCorners(dab);
+        if (dab.empty()) continue;
         bool same = true;
         for (const auto& c : dab) same = same && isom_.terrainAt(c.x, c.y) == c.terrain;
         if (same) continue;
         const int mine = pinProtected(dab, kProtectMargin);  // (near protected tiles: their corners stay; -1: none near)
-        if (mine == 0 || !isom_.apply(dab)) continue;
+        if (mine == 0) continue;
+        holdMasked(dab);
+        if (!isom_.apply(dab)) continue;
         markPlacedTilesDirty(std::vector<CornerValue>(dab.begin(), mine > 0 ? dab.begin() + mine : dab.end()));
         std::string err;
         isom_.store(chk_, err);
@@ -2227,36 +2485,42 @@ int Editor::applyDabs(const std::vector<std::vector<CornerValue>>& dabs) {
 }
 
 bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush) {
-    if (!isomOk_) return false;
+    return paintTerrainPath({{x0, y0}, {x1, y1}}, false, terrain, brush);
+}
+
+bool Editor::paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool closed, uint16_t terrain, const Brush& brush) {
+    if (!isomOk_ || pts.empty()) return false;
+    const float step = std::max(8.0f, std::min(brush.size, brush.height()) * 16);
+    // The brush's points: along each line, at most `step` apart (a line's last point is the next line's first).
+    std::vector<std::pair<int, int>> spots;
+    const size_t lines = pts.size() < 2 ? 0 : closed ? pts.size() : pts.size() - 1;
+    for (size_t i = 0; i < std::max<size_t>(lines, 1); ++i) {
+        const auto [x0, y0] = pts[i];
+        const auto [x1, y1] = lines ? pts[(i + 1) % pts.size()] : pts[i];
+        const float dx = float(x1 - x0), dy = float(y1 - y0);
+        const int n = int(std::ceil(std::hypot(dx, dy) / step));
+        for (int k = i ? 1 : 0; k <= n; ++k) spots.push_back({int(x0 + (n ? dx * k / n : 0)), int(y0 + (n ? dy * k / n : 0))});
+    }
+    const bool own = !inStroke_;
     if (copyOptions_.terrain >= 0 ||
         std::any_of(copyOptions_.choices.begin(), copyOptions_.choices.end(), [](const CopyChoice& c) { return c.terrain >= 0; })) {
-        const bool own = !inStroke_;
         if (own) beginTerrainStroke();
-        const int steps = std::max(
-            1, int(std::ceil(std::hypot(double(x1 - x0), double(y1 - y0)) / std::max(8.0f, std::min(brush.size, brush.height()) * 16))));
         bool changed = false;
-        for (int k = 0; k <= steps; ++k)
-            changed =
-                paintBrush(x0 + int((int64_t(x1) - x0) * k / steps), y0 + int((int64_t(y1) - y0) * k / steps), terrain, brush) || changed;
+        for (const auto& [x, y] : spots) changed = paintBrush(x, y, terrain, brush) || changed;
         if (own) endTerrainStroke();
         return changed;
     }
-    const float dx = float(x1 - x0), dy = float(y1 - y0);
-    const float step = std::max(8.0f, std::min(brush.size, brush.height()) * 16);
-    const int n = int(std::ceil(std::hypot(dx, dy) / step));
-    const bool own = !inStroke_;
     if (own) isom_.beginStroke();  // (the line chooses its own ground, as a new stroke of the brush)
-    terrain = brushTerrain(x0, y0, terrain);
+    terrain = brushTerrain(pts.front().first, pts.front().second, terrain);
     // The corners of each step; with StarEdit's brush, also each step's block of diamonds for the terrain core. The core
     // paints the line (as the brush paints each step: applyCoreBrush) unless a step is near protected tiles or has no
     // block (at the map's edge); then the corner path paints all of it (applyTerrain).
-    const bool core = useCore() && brush.starEdit();
+    const bool core = useCore() && brush.starEdit() && terrainMask_.empty();
     bool coreOk = core;
     std::set<std::pair<int, int>> taken, takenDiamonds;
     std::vector<CornerValue> corners;
     std::vector<std::pair<int, int>> diamonds;
-    for (int k = 0; k <= n; ++k) {
-        const int px = int(x0 + (n ? dx * k / n : 0)), py = int(y0 + (n ? dy * k / n : 0));
+    for (const auto& [px, py] : spots) {
         int bx0 = INT_MAX, by0 = INT_MAX, bx1 = INT_MIN, by1 = INT_MIN;
         for (auto [x, y] : terrainSymmetricPoints(px, py, brush)) {
             for (auto [cx, cy] : isom_.brushCorners(x, y, brush)) {
@@ -2292,12 +2556,19 @@ bool Editor::paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, 
     return true;
 }
 
-int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int areaShape) {
+int Editor::replaceTerrain(uint16_t from, uint16_t to, const Rect* area, int areaShape, const std::function<bool(int, int)>& tileIn) {
     if (!isomOk_ || from == to) return 0;
     Rect r = area ? area->normalized() : Rect{-64, -32, width_ * 32 + 64, height_ * 32 + 64};
     std::vector<CornerValue> corners;
     for (auto [x, y] : isom_.cornersInRect(r.left, r.top, r.right, r.bottom))
         if (isom_.terrainAt(x, y) == from && (!area || inSelectShape(r, SelectShape(areaShape), x * 64, y * 32))) corners.push_back({x, y, to});
+    if (tileIn)
+        std::erase_if(corners, [&](const CornerValue& c) {
+            for (int y = c.y - 1; y <= c.y; ++y)
+                for (int x = 2 * c.x - 2; x <= 2 * c.x + 1; ++x)
+                    if (x >= 0 && y >= 0 && x < width_ && y < height_ && !tileIn(x, y)) return true;
+            return false;
+        });
     if (corners.empty()) return 0;
     beginEdit();
     if (!applyTerrain(corners)) {
@@ -2333,10 +2604,17 @@ std::vector<std::pair<int, int>> Editor::cornersInShape(const Rect& area, Select
     return cs;
 }
 
-bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape) {
+bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape, const std::function<bool(int, int)>& tileIn) {
     if (!isomOk_) return false;
     Rect r = area.normalized();
     auto cs = cornersInShape(r, shape);
+    if (tileIn)  // (a corner: the tiles of the four rects round it, those on the map)
+        std::erase_if(cs, [&](const std::pair<int, int>& c) {
+            for (int y = c.second - 1; y <= c.second; ++y)
+                for (int x = 2 * c.first - 2; x <= 2 * c.first + 1; ++x)
+                    if (x >= 0 && y >= 0 && x < width_ && y < height_ && !tileIn(x, y)) return true;
+            return false;
+        });
     if (cs.empty()) return false;
     // Origin: the top-left-most corner; offsets keep the corner lattice parity.
     int ox = cs.front().first, oy = cs.front().second;
@@ -2348,14 +2626,14 @@ bool Editor::copyTerrain(const Rect& area, bool withUnits, bool withDoodads, Sel
     const int opx = ox * 64, opy = oy * 32;
     if (withUnits)
         for (Unit u : units_)
-            if (inSelectShape(r, shape, u.x, u.y)) {
+            if (inSelectShape(r, shape, u.x, u.y) && (!tileIn || tileIn(u.x / 32, u.y / 32))) {
                 u.x = uint16_t(int(u.x) - opx), u.y = uint16_t(int(u.y) - opy);  // signed offsets
                 u.relatedSerial = 0, u.links = 0;
                 clip.units.push_back(u);
             }
     if (withDoodads)
         for (Doodad d : doodads_)
-            if (inSelectShape(r, shape, d.x, d.y)) {
+            if (inSelectShape(r, shape, d.x, d.y) && (!tileIn || tileIn(d.x / 32, d.y / 32))) {
                 d.x = uint16_t(int(d.x) - opx), d.y = uint16_t(int(d.y) - opy);
                 clip.doodads.push_back(d);
             }
@@ -2386,6 +2664,24 @@ int Editor::rotateTerrainClipboard() {
     return dropped;
 }
 
+int Editor::mirrorTerrainClipboard(bool upDown) {
+    TerrainClip& c = terrainClip_;
+    if (c.corners.empty()) return 0;
+    for (auto& v : c.corners) (upDown ? v.y : v.x) = -(upDown ? v.y : v.x);
+    int ox = c.corners.front().x, oy = c.corners.front().y;  // (the top-left-most corner: the origin again, as rotate)
+    for (const auto& v : c.corners)
+        if (v.y < oy || (v.y == oy && v.x < ox)) ox = v.x, oy = v.y;
+    for (auto& v : c.corners) v.x -= ox, v.y -= oy;
+    for (Unit& u : c.units) {  // (pixel offsets from the origin: mirrored and shifted the same way)
+        const int px = int16_t(u.x), py = int16_t(u.y);
+        const int nx = (upDown ? px : -px) - ox * 64, ny = (upDown ? -py : py) - oy * 32;
+        u.x = uint16_t(int16_t(nx)), u.y = uint16_t(int16_t(ny));
+    }
+    const int dropped = int(c.doodads.size());
+    c.doodads.clear();
+    return dropped;
+}
+
 std::vector<std::pair<int, int>> Editor::terrainPasteCorners(int px, int py) const {
     std::vector<std::pair<int, int>> out;
     if (!isomOk_) return out;
@@ -2403,7 +2699,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
     beginEdit();
     std::vector<std::pair<int, int>> origins;  // corner-lattice origin of each (mirrored) copy
     std::vector<std::pair<int, int>> flips;    // (flipX, flipY) per copy
-    const auto places = symmetricPlaces(px, py);
+    const auto places = symmetricPlaces(px, py, std::max(terrainClip_.width, terrainClip_.height));  // (off the map: what reaches it)
     std::vector<std::pair<int, int>> pts;
     for (const auto& p : places) pts.push_back({p.x, p.y});
     for (size_t k = 0; k < pts.size(); ++k) {
@@ -2411,16 +2707,14 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         // only move it.
         const int fx = places[k].flipX ? 1 : 0, fy = places[k].flipY ? 1 : 0;
         int x, y;
-        isom_.cornerAtPixel(pts[k].first - (fx ? terrainClip_.width : 0), pts[k].second - (fy ? terrainClip_.height : 0), x, y);
+        isom_.cornerAtPixel(pts[k].first, pts[k].second, x, y);
         origins.push_back({x, y});
         flips.push_back({fx, fy});
     }
     std::vector<CornerValue> corners;
-    int spanX = 0, spanY = 0;
-    for (const auto& c : terrainClip_.corners) spanX = std::max(spanX, c.x), spanY = std::max(spanY, c.y);
     for (size_t k = 0; k < origins.size(); ++k)
         for (const auto& c : terrainClip_.corners) {
-            int dx = flips[k].first ? spanX - c.x : c.x, dy = flips[k].second ? spanY - c.y : c.y;
+            int dx = flips[k].first ? -c.x : c.x, dy = flips[k].second ? -c.y : c.y;  // (from the image of the mouse)
             int x = origins[k].first + dx, y = origins[k].second + dy;
             if (!((x + y) & 1)) ++x;  // corners have x + y odd; a flip can break that
             corners.push_back({x, y, c.terrain});
@@ -2443,7 +2737,8 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         const int opx = origins[k].first * 64, opy = origins[k].second * 32;
         for (const Doodad& d : terrainClip_.doodads)
             if (const DoodadType* t = doodadTypes_.find(d.id)) {
-                int cx = opx + int16_t(d.x), cy = opy + int16_t(d.y);
+                int cx = opx + (flips[k].first ? -int16_t(d.x) : int16_t(d.x)), cy = opy + (flips[k].second ? -int16_t(d.y) : int16_t(d.y));
+                if (cx < 0 || cy < 0 || cx >= width_ * 32 || cy >= height_ * 32) continue;
                 int tx, ty;
                 doodadOrigin(*t, cx, cy, tx, ty);
                 bool onProtected = false;  // (a doodad's tiles go into MTXM: not over protected tiles)
@@ -2457,7 +2752,7 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
         const int opx = origins[k].first * 64, opy = origins[k].second * 32;
         for (Unit u : terrainClip_.units) {
             if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
-            int ux = opx + int16_t(u.x), uy = opy + int16_t(u.y);
+            int ux = opx + (flips[k].first ? -int16_t(u.x) : int16_t(u.x)), uy = opy + (flips[k].second ? -int16_t(u.y) : int16_t(u.y));
             if (ux < 0 || uy < 0 || ux >= width_ * 32 || uy >= height_ * 32) continue;
             u.x = uint16_t(ux), u.y = uint16_t(uy);
             std::optional<Unit> f = fitted(u, correct, units_);
@@ -2565,7 +2860,7 @@ void Editor::resizeShift(int& shiftX, int& shiftY) {
 }
 
 bool Editor::resizeMap(uint16_t width, uint16_t height, uint16_t era, int shiftX, int shiftY, uint16_t fill, std::string& error) {
-    if (!isomOk_) return error = "the map's terrain has no ISOM data, so StarDraft cannot rebuild it", false;
+    if (!isomOk_) return error = "the map's terrain has no ISOM data, so the size and tileset cannot change", false;
     if (width < 16 || height < 16 || width > 256 || height > 256) return error = "the size must be 16 to 256 tiles", false;
     const IsomTerrainTable* oldTable = IsomTerrainTable::forEra(era_);
     const IsomTerrainTable* newTable = IsomTerrainTable::forEra(era);
@@ -2698,10 +2993,12 @@ std::optional<std::pair<uint16_t, uint16_t>> Editor::findValidPosition(const Uni
     const UnitType& t = types_[unit.type];
     const bool building = t.is(UnitFlag::Building);
     const int step = building ? 32 : 8;
-    PlacementContext ctx = placementContext(units);
     Unit u = unit;
     uint16_t sx = unit.x, sy = unit.y;
     snapToGrid(t, sx, sy);
+    // (only the units near the spots tried can block them: within the radius, a step and the reach of a check of each)
+    const NearUnits near = unitsNear(units ? *units : units_, Rect{sx, sy, sx, sy}, radius + step + 32 + 2 * types_.boxReach() + 96 + 2);
+    PlacementContext ctx = placementContext(&near.units);
     const int maxX = width_ * 32 - 1, maxY = height_ * 32 - 1;
     // Rings of increasing Chebyshev radius; within a ring, nearest first.
     for (int r = 0; r * step <= radius; ++r) {
@@ -2819,18 +3116,19 @@ int Editor::replaceUnits(uint16_t from, uint16_t to, bool selectionOnly) {
     return int(targets.size());
 }
 
-int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid) {
+int Editor::spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int gw, int gh, int ox, int oy) {
     if (ids.empty() || count <= 0) return 0;
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     const float r = float(radius);
-    int n = 0;
+    std::vector<ItemAt> items;  // (one write of the list for the spray: a large brush places hundreds)
     for (int k = 0; k < count; ++k) {
         const float a = unit(rng) * 6.2831853f, d = r * std::sqrt(unit(rng));
         const uint16_t id = ids[size_t(rng() % ids.size())];
-        n += placeSprite(id, int(snapToCell(x + d * std::cos(a), grid)), int(snapToCell(y + d * std::sin(a), grid)), owner);
+        for (auto [px, py] : symmetricPoints(snapOnMap(x + d * std::cos(a), gw, ox, width_ * 32), snapOnMap(y + d * std::sin(a), gh, oy, height_ * 32)))
+            items.push_back({id, px, py, owner});
     }
-    return n;
+    return placeSprites(items);
 }
 
 int Editor::sprayUnits(const std::vector<uint16_t>& types, uint8_t owner, int x, int y, int radius, int count, uint32_t seed) {
@@ -3284,6 +3582,80 @@ int Editor::moveSelection(int dx, int dy, bool correct) {
     return count;
 }
 
+int Editor::snapSelection(int gw, int gh, int ox, int oy) {
+    if (selection_.empty() || gw <= 0 || gh <= 0) return 0;
+    std::vector<int> sel = withLinkedAddons(selection_);  // a building's add-on goes with it
+    std::sort(sel.begin(), sel.end());
+    std::vector<bool> selected(units_.size(), false);
+    for (int i : sel) selected[size_t(i)] = true;
+    std::vector<Unit> others;  // the units that do not move
+    for (size_t i = 0; i < units_.size(); ++i)
+        if (!selected[i]) others.push_back(units_[i]);
+    std::vector<Unit> now, to;
+    for (int i : sel) now.push_back(units_[size_t(i)]);
+    to = now;
+    std::vector<std::vector<size_t>> groups;  // (a building and its linked add-on go together, or stay together)
+    std::vector<size_t> addons;
+    for (size_t k = 0; k < sel.size(); ++k) {
+        Unit& u = to[k];
+        if ((u.links & UnitLink::Addon) && addonParent(u.type) >= 0) {
+            addons.push_back(k);
+            continue;
+        }
+        groups.push_back({k});
+        if (u.type >= types_.size() || !types_[u.type].is(UnitFlag::Building)) {
+            u.x = uint16_t(gridCrossing(u.x, gw, ox, width_ * 32)), u.y = uint16_t(gridCrossing(u.y, gh, oy, height_ * 32));
+            continue;
+        }
+        // A building: the edges of its box on the grid's lines, on the tiles; only when that brings them nearer to a line
+        // (a grid between the tiles has no place for it: it stays, also when snapped again).
+        const int halfW = types_[u.type].placementWidth / 2, halfH = types_[u.type].placementHeight / 2;
+        Unit t = u;
+        t.x = uint16_t(std::clamp(gridCrossing(u.x - halfW, gw, ox, width_ * 32) + halfW, 0, width_ * 32 - 1));
+        t.y = uint16_t(std::clamp(gridCrossing(u.y - halfH, gh, oy, height_ * 32) + halfH, 0, height_ * 32 - 1));
+        snapToGrid(types_[u.type], t.x, t.y);
+        if (gridDistance(t.x - halfW, gw, ox) < gridDistance(u.x - halfW, gw, ox)) u.x = t.x;
+        if (gridDistance(t.y - halfH, gh, oy) < gridDistance(u.y - halfH, gh, oy)) u.y = t.y;
+    }
+    for (size_t k : addons)  // (with its building in the selection; alone it stays, and it stays linked)
+        for (size_t j = 0; j < sel.size(); ++j)
+            if (now[j].serial == now[k].relatedSerial && to[j].type < types_.size() && now[k].type < types_.size()) {
+                const auto [ax, ay] = addonSpot(types_[to[j].type], to[j], types_[now[k].type]);
+                to[k].x = uint16_t(std::clamp(ax, 0, width_ * 32 - 1)), to[k].y = uint16_t(std::clamp(ay, 0, height_ * 32 - 1));
+                for (std::vector<size_t>& g : groups)
+                    if (g[0] == j) g.push_back(k);
+            }
+    // Each one goes when it fits among all the others as they are then, so that no snap makes units overlap. Twice: one
+    // may leave the place that another one wants.
+    for (int pass = 0; pass < 2; ++pass)
+        for (const std::vector<size_t>& g : groups) {
+            bool differs = false;
+            for (size_t k : g) differs = differs || to[k].x != now[k].x || to[k].y != now[k].y;
+            if (!differs) continue;
+            bool fits = true;
+            if (!allowIllegalUnits_) {
+                std::vector<Unit> against = others;
+                for (size_t k = 0; k < now.size(); ++k)
+                    if (std::find(g.begin(), g.end(), k) == g.end()) against.push_back(now[k]);
+                for (size_t k : g) {
+                    fits = fits && placementOk(placementContext(&against), to[k]);
+                    against.push_back(to[k]);
+                }
+            }
+            if (fits)
+                for (size_t k : g) now[k] = to[k];
+        }
+    int count = 0;
+    for (size_t k = 0; k < sel.size(); ++k) count += now[k].x != units_[size_t(sel[k])].x || now[k].y != units_[size_t(sel[k])].y;
+    if (!count) return 0;
+    beginEdit();
+    for (size_t k = 0; k < sel.size(); ++k) units_[size_t(sel[k])] = now[k];
+    fixAddonLinks();  // an add-on that did not keep its place on its building is not linked any more
+    writeUnits(chk_, units_);
+    commit(false);
+    return count;
+}
+
 void Editor::copySelection() {
     if (selection_.empty()) return;
     clipboard_.clear();
@@ -3299,6 +3671,14 @@ void Editor::copySelection() {
         u.relatedSerial = 0;
         u.links = 0;
         clipboard_.push_back(u);
+    }
+}
+
+void Editor::turnUnitClipboard(int turn, bool upDown) {
+    for (Unit& u : clipboard_) {
+        const int x = int16_t(u.x), y = int16_t(u.y);
+        const int nx = turn > 0 ? -y : turn < 0 ? y : upDown ? x : -x, ny = turn > 0 ? x : turn < 0 ? -x : upDown ? -y : y;
+        u.x = uint16_t(int16_t(nx)), u.y = uint16_t(int16_t(ny));
     }
 }
 
@@ -3897,10 +4277,12 @@ void Editor::syncColorRows() {
 
 Editor::Player Editor::player(int p) const {
     Player out;
-    if (p < 0 || p >= 8) return out;
-    const Bytes ownr = sectionOr(chk_, "OWNR", 12, 6), side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
+    if (p < 0 || p >= 12) return out;
+    const Bytes ownr = editorSlots();
+    const Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
     out.controller = Controller(ownr[size_t(p)]);
     out.race = Race(side[size_t(p)]);
+    if (p >= 8) return out;  // (players 9-12: no force, no color)
     out.force = std::min<int>(forc[size_t(p)], 3);
     if (const Section* crgb = chk_.find("CRGB"); crgb && crgb->data.size() >= 32) {
         const uint8_t* d = crgb->data.data();
@@ -3929,28 +4311,32 @@ Editor::Force Editor::force(int f) const {
 }
 
 void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces) {
-    // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is made
-    // only when a color needs it (random, the player's choice, RGB, or ids 12 and up).
+    // Colors: COLR and CRGB change only when a color changes (a map saved unchanged keeps its bytes); CRGB is there
+    // only when a color needs it (random, the player's choice, RGB, or ids 12 and up): else it goes, and the lobby has
+    // the map's colors again.
     // (a mod's colors, more than 12 by number: COLR holds them, the game it runs on reads COLR only)
+    // An id past the named colors (colorCount: a byte typed as a number, as an old map's black) goes into COLR as it is.
     const bool modColors = data_.unitDataLoader() && data_.unitDataLoader()->colorNames;
-    const int colrIds = modColors ? colorCount() : 12;
-    bool colorsChanged = false, needCrgb = chk_.find("CRGB") != nullptr;
+    const int colrIds = modColors ? colorCount() : 12, named = colorCount();
+    auto inColr = [&](const PlayerColor& c) { return c.kind == PlayerColor::Id && (c.id < colrIds || c.id >= named); };
+    bool colorsChanged = false, needCrgb = players.size() < 8 && chk_.find("CRGB");  // (a player not given keeps its color)
     for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
         const PlayerColor& c = players[p].color;
         colorsChanged |= !(c == player(int(p)).color);
-        needCrgb |= c.kind != PlayerColor::Id || c.id >= colrIds;
+        needCrgb |= !inColr(c);
     }
     Bytes colr, crgb;
     if (colorsChanged) {
         colr = colorSection(chk_);
-        if (const Section* s = chk_.find("CRGB"); s && s->data.size() >= 32) crgb.assign(s->data.begin(), s->data.begin() + 32);
+        const Section* s = chk_.find("CRGB");
+        if (needCrgb && s && s->data.size() >= 32) crgb.assign(s->data.begin(), s->data.begin() + 32);
         else if (needCrgb) {  // made from COLR: each player its COLR color by id
             crgb.assign(32, 0);
             for (size_t p = 0; p < 8; ++p) crgb[3 * p + 2] = colr[p], crgb[24 + p] = PlayerColor::Id;
         }
         for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
             const PlayerColor& c = players[p].color;
-            if (c.kind == PlayerColor::Id && c.id < colrIds) colr[p] = c.id;  // the leaderboard's color too
+            if (inColr(c)) colr[p] = c.id;  // the leaderboard's color too
             if (crgb.empty()) continue;
             crgb[24 + p] = c.kind;
             if (c.kind == PlayerColor::Custom)
@@ -3963,12 +4349,15 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
     if (colorsChanged) {
         chk_.set("COLR", std::move(colr));
         if (!crgb.empty()) chk_.set("CRGB", std::move(crgb));
+        else chk_.remove("CRGB");
     }
-    Bytes ownr = sectionOr(chk_, "OWNR", 12, 6), side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
-    for (size_t p = 0; p < std::min<size_t>(players.size(), 8); ++p) {
+    const Bytes slotsBefore = editorSlots();
+    Bytes ownr = slotsBefore;
+    Bytes side = sectionOr(chk_, "SIDE", 12, 5), forc = sectionOr(chk_, "FORC", 20, 0);
+    for (size_t p = 0; p < std::min<size_t>(players.size(), 12); ++p) {
         ownr[p] = uint8_t(players[p].controller);
         side[p] = uint8_t(players[p].race);
-        forc[p] = uint8_t(std::clamp(players[p].force, 0, 3));
+        if (p < 8) forc[p] = uint8_t(std::clamp(players[p].force, 0, 3));
     }
     for (size_t f = 0; f < std::min<size_t>(forces.size(), 4); ++f) {
         uint16_t str = uint16_t(forc[8 + 2 * f] | forc[9 + 2 * f] << 8);
@@ -3978,7 +4367,13 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
         forc[16 + f] = forces[f].flags;
     }
     strings_.write(chk_);
-    chk_.set("IOWN", ownr);  // the editor's copy of the slots; StarEdit keeps it equal to OWNR
+    Bytes iown = ownr;  // (IOWN keeps its type for a player whose slot did not change: editorSlots)
+    if (const Section* s = chk_.find("IOWN"); s && s->data.size() >= 12) {
+        iown.assign(s->data.begin(), s->data.begin() + 12);
+        for (size_t p = 0; p < 12; ++p)
+            if (ownr[p] != slotsBefore[p]) iown[p] = ownr[p];
+    }
+    chk_.set("IOWN", std::move(iown));
     chk_.set("OWNR", std::move(ownr));
     chk_.set("SIDE", std::move(side));
     chk_.set("FORC", std::move(forc));
@@ -3986,10 +4381,10 @@ void Editor::setPlayersAndForces(const std::vector<Player>& players, const std::
 }
 
 void Editor::setPlayer(int p, const Player& pl) {
-    if (p < 0 || p >= 8) return;
+    if (p < 0 || p >= 12) return;
     std::vector<Player> players;
     std::vector<Force> forces;
-    for (int i = 0; i < 8; ++i) players.push_back(i == p ? pl : player(i));
+    for (int i = 0; i < 12; ++i) players.push_back(i == p ? pl : player(i));
     for (int i = 0; i < 4; ++i) forces.push_back(force(i));
     setPlayersAndForces(players, forces);
 }
@@ -4173,6 +4568,60 @@ bool Editor::setMapString(uint32_t id, const std::string& text) {
     return true;
 }
 
+std::vector<StringUse> Editor::mapStringUses() const { return stardraft::mapStringUses(chk_); }
+
+uint32_t Editor::addMapString(const std::string& text) {
+    if (text.empty()) return 0;
+    std::vector<bool> used(strings_.size() + 1, false);
+    for (const StringUse& u : mapStringUses())
+        if (u.id < used.size()) used[u.id] = true;
+    uint32_t id = 0;
+    for (uint32_t i = 1; i <= strings_.size() && !id; ++i)
+        if (strings_.get(i).empty() && !used[i]) id = i;  // (an empty string that a field holds stays that field's)
+    if (!id) id = uint32_t(strings_.size() + 1);
+    beginEdit();
+    strings_.set(id, text);
+    strings_.write(chk_);
+    commit(false);
+    return id;
+}
+
+bool Editor::deleteMapString(uint32_t id) {
+    if (id < 1 || id > strings_.size() || strings_.get(id).empty()) return false;
+    for (const StringUse& u : mapStringUses())
+        if (u.id == id) return false;
+    beginEdit();
+    strings_.set(id, "");
+    strings_.write(chk_);
+    commit(false);
+    return true;
+}
+
+bool Editor::moveMapString(uint32_t from, uint32_t to) {
+    const size_t n = strings_.size();
+    if (from == to || from < 1 || to < 1 || from > n || to > n) return false;
+    std::vector<uint32_t> order;  // order[k]: the string that gets id k + 1
+    order.reserve(n);
+    for (uint32_t i = 1; i <= n; ++i)
+        if (i != from) order.push_back(i);
+    order.insert(order.begin() + std::ptrdiff_t(to - 1), from);
+    std::vector<uint32_t> newId(n + 1, 0);
+    for (size_t k = 0; k < n; ++k) newId[order[k]] = uint32_t(k + 1);
+    StringTable moved = strings_;
+    if (!moved.reorder(order)) return false;
+    if (n > 0xFFFF) {  // (STRx only: a new id may not fit a u16 field; the check on a copy changes nothing)
+        Chk trial = chk_;
+        if (!renumberMapStrings(trial, newId)) return false;
+    }
+    beginEdit();
+    renumberMapStrings(chk_, newId);
+    strings_ = std::move(moved);
+    strings_.write(chk_);
+    if (chk_.has("MRGN")) locations_ = readLocations(chk_);  // (the names' ids)
+    commit(false);
+    return true;
+}
+
 std::vector<uint32_t> Editor::soundStrings() const {
     std::vector<uint32_t> out;
     const Bytes wav = chk_.effective("WAV ");
@@ -4199,12 +4648,6 @@ const ArchiveFile* Editor::archiveFile(const std::string& name) const {
             }))
             return &f;
     return nullptr;
-}
-
-void Editor::setArchiveFile(const std::string& name, Bytes data) {
-    std::vector<ArchiveFile> one;
-    one.push_back({name, std::move(data)});
-    setArchiveFiles(std::move(one));
 }
 
 void Editor::setArchiveFiles(std::vector<ArchiveFile> files) {
@@ -4322,10 +4765,14 @@ std::vector<std::string> Editor::startLocationProblems() const {
 std::vector<std::string> Editor::playabilityProblems(bool startLocations) const {
     std::vector<std::string> out = startLocations ? startLocationProblems() : std::vector<std::string>{};
     int playing = 0, humans = 0;
-    for (int p = 0; p < 8; ++p) {
-        const Controller c = player(p).controller;
-        playing += c == Controller::Human || c == Controller::Computer;
-        humans += c == Controller::Human;
+    const Bytes slots = gameSlots();
+    bool starts[8] = {};
+    for (const Unit& u : units_)
+        if (u.type == kStartLocationUnit && u.owner < 8) starts[u.owner] = true;
+    for (int p = 0; p < 8; ++p) {  // (a player with no start location does not play, whatever the slot's type)
+        const Controller c = Controller(slots[size_t(p)]);
+        playing += starts[p] && (c == Controller::Human || c == Controller::Computer);
+        humans += starts[p] && c == Controller::Human;
     }
     if (playing < 2) out.push_back("At least two players must be human or computer (" + std::to_string(playing) + " now)");
     if (!humans) out.push_back("At least one player must be human");

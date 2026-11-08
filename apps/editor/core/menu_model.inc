@@ -22,11 +22,6 @@ int nativeCommandId(const std::string& id) {
     return 0;
 }
 
-// The menu item's text: the label, then a tab and the shortcut.
-std::wstring commandMenuText(const stardraft::Command& c) {
-    return widen(c.label) + (c.shortcut.empty() ? L"" : L"\t" + widen(c.shortcut));
-}
-
 // The menu bar as data: each menu's items in order (core/menu_model.inc). The Mode menu and the View items come from the
 // command table (commands.inc); the recent lists, the feedback glyph and the icons are the Win32 menu's own (buildMenu).
 void menuCommand(MenuModel& m, const char* id) {
@@ -72,7 +67,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"File/Project/Open project", L"Ctrl+Shift+K, O"},
         {L"File/Project/Make this map a project", L"Ctrl+Shift+K, M"},
         {L"File/Project/Import a project (experimental)", L"Ctrl+Shift+K, I"},
-        {L"File/Project/Add script", L"Ctrl+Shift+K, S"},
+        {L"File/Project/Add a script", L"Ctrl+Shift+K, S"},
         {L"File/Project/Open project folder", L"Ctrl+Shift+K, F"},
         {L"File/Project/Project settings", L"Ctrl+Shift+K, P"},
         {L"File/Exit", L"Ctrl+Shift+K, X"},
@@ -80,11 +75,15 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Graphics/High definition (4x)", L"Ctrl+K, K"},
         {L"View/Graphics/Standard definition", L"Ctrl+K, S"},
         {L"View/Graphics/Carbot (cartooned)", L"Ctrl+K, C"},
-        {L"View/Grid/Fine (8 pixels)", L"Ctrl+K, 1"},
-        {L"View/Grid/Small (16 pixels)", L"Ctrl+K, 2"},
-        {L"View/Grid/Normal (32 pixels)", L"Ctrl+K, 3"},
-        {L"View/Grid/Large (64 pixels)", L"Ctrl+K, 4"},
-        {L"View/Grid/Huge (128 pixels)", L"Ctrl+K, 5"},
+        {L"View/Grid/8 pixels (quarter tile)", L"Ctrl+K, 1"},
+        {L"View/Grid/16 pixels (half tile)", L"Ctrl+K, 2"},
+        {L"View/Grid/32 pixels (tile)", L"Ctrl+K, 3"},
+        {L"View/Grid/64 pixels (2 tiles)", L"Ctrl+K, 4"},
+        {L"View/Grid/128 pixels (4 tiles)", L"Ctrl+K, 5"},
+        {L"View/Grid/24 pixels", L"Ctrl+K, 7"},
+        {L"View/Grid/48 pixels", L"Ctrl+K, 8"},
+        {L"View/Grid/96 pixels (3 tiles)", L"Ctrl+K, 9"},
+        {L"View/Grid/256 pixels (8 tiles)", L"Ctrl+K, 0"},
         {L"View/Grid/Custom", L"Ctrl+K, 6"},
         {L"View/Overlays/Town areas", L"Ctrl+K, T"},
         {L"View/Overlays/Pathing/Regions", L"Ctrl+K, P"},
@@ -93,6 +92,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"View/Overlays/Terrain flags/Ground height", L"Ctrl+K, H"},
         {L"View/Overlays/Terrain flags/Ground that blocks the line of sight", L"Ctrl+K, B"},
         {L"View/Overlays/Terrain flags/Buildable ground", L"Ctrl+K, G"},
+        {L"View/Overlays/Terrain flags/Isometric terrain", L"Ctrl+K, F"},
         {L"View/Overlays/Unit vision and ranges/All ranges", L"Ctrl+K, R"},
         {L"View/Overlays/Unit vision and ranges/Sight", L"Ctrl+K, V"},
         {L"View/Overlays/Unit vision and ranges/Target acquisition", L"Ctrl+K, Q"},
@@ -129,10 +129,7 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"Tools/Cosmonarchy/Try to repair the ISOM", L"Ctrl+Shift+K, Y"},
         {L"Tools/Cosmonarchy/Check the CRIG commands", L"Ctrl+Shift+K, K"},
         {L"Tools/Cosmonarchy/Custom isom terrain editor", L"Ctrl+Shift+K, T"},
-        {L"Options/Units/Do not snap", L"Ctrl+J, 1"},
-        {L"Options/Units/Snap to tiles (32 px)", L"Ctrl+J, 2"},
-        {L"Options/Units/Snap to half tiles (16 px)", L"Ctrl+J, 3"},
-        {L"Options/Units/Snap to quarter tiles (8 px)", L"Ctrl+J, 4"},
+        {L"Options/Units/Snap to the grid", L"Ctrl+J, 1"},
         {L"Options/Units/Snap buildings to tile edges", L"Ctrl+J, B"},
         {L"Options/Units/Place only where it fits", L"Ctrl+J, F"},
         {L"Options/Units/Move to the nearest place where it fits", L"Ctrl+J, N"},
@@ -144,14 +141,8 @@ void assignMenuSequences(MenuModel& items, const std::wstring& path = {}) {
         {L"Options/Doodads/Place only where it fits", L"Ctrl+J, P"},
         {L"Options/Doodads/Move to the nearest place where it fits", L"Ctrl+J, M"},
         {L"Options/Doodads/Place anywhere", L"Ctrl+J, Y"},
-        {L"Options/Sprites/Do not snap", L"Ctrl+J, 5"},
-        {L"Options/Sprites/Snap to tiles (32 px)", L"Ctrl+J, 6"},
-        {L"Options/Sprites/Snap to half tiles (16 px)", L"Ctrl+J, 7"},
-        {L"Options/Sprites/Snap to quarter tiles (8 px)", L"Ctrl+J, 8"},
-        {L"Options/Locations/Do not snap", L"Ctrl+J, Z"},
-        {L"Options/Locations/Snap to tiles (32 px)", L"Ctrl+J, X"},
-        {L"Options/Locations/Snap to half tiles (16 px)", L"Ctrl+J, C"},
-        {L"Options/Locations/Snap to quarter tiles (8 px)", L"Ctrl+J, V"},
+        {L"Options/Sprites/Snap to the grid", L"Ctrl+J, 5"},
+        {L"Options/Locations/Snap to the grid", L"Ctrl+J, Z"},
         {L"Options/Locations/Names in lines that fit in the location", L"Ctrl+J, L"},
         {L"Options/Terrain copy includes units", L"Ctrl+J, U"},
         {L"Options/Terrain copy includes doodads", L"Ctrl+J, O"},
@@ -181,7 +172,7 @@ MenuModel buildMenuModel() {
                       menuItem(ID_PROJ_IMPORT, L"&Import a project (experimental)\x2026"),  // EUD Editor 2, euddraft (roadmap R52)
                       menuSeparator(),
                       menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
-                      menuItem(ID_PROJ_ADDSCRIPT, L"&Add script\x2026"),
+                      menuItem(ID_PROJ_ADDSCRIPT, L"&Add a script\x2026"),
                       menuItem(ID_PROJ_FOLDER, L"Open project &folder"),
                       menuSeparator(),
                       menuItem(ID_PROJ_SETTINGS, L"Project &settings")};
@@ -218,6 +209,7 @@ MenuModel buildMenuModel() {
                    menuItem(ID_EDIT_DELETE, L"&Delete", L"Del"),
                    menuItem(ID_EDIT_SELECTALL, L"Select &all", L"Ctrl+A"),
                    menuItem(ID_EDIT_RENAME, L"Re&name location", L"F2")};
+    menuCommand(edit, "edit.snapToGrid");
     // The Tools menu: the checks of the map, doodads where they fit (roadmap R37), the map revealers and the simulation.
     MenuModel tools{menuItem(ID_SCEN_CHECK, L"&Check that StarCraft can start the map")};
     {
@@ -249,7 +241,8 @@ MenuModel buildMenuModel() {
         menuCommand(grid, "view.grid");
         grid.push_back(menuSeparator());
         for (int k = 0; k < int(std::size(kGridPresets)); ++k)
-            grid.push_back(menuItem(ID_GRID_SIZE + k, std::wstring(kGridPresets[k].name) + L" (" + std::to_wstring(kGridPresets[k].px) + L" pixels)"));
+            grid.push_back(menuItem(ID_GRID_SIZE + k, std::to_wstring(kGridPresets[k].px) + L" pixels" +
+                                                          (*kGridPresets[k].tiles ? L" (" + std::wstring(kGridPresets[k].tiles) + L")" : std::wstring())));
         grid.push_back(menuSeparator());
         grid.push_back(menuItem(ID_GRID_CUSTOM, L"&Custom\x2026"));
         view.push_back(menuPopup(L"&Grid", grid));
@@ -333,10 +326,6 @@ MenuModel buildMenuModel() {
     // (their keys: Ctrl+1 to Ctrl+9; Players and forces is part of Properties), and the checks are in Tools.)
     // Options: the snap and placement rules of each kind (the same items for each; a rule that does not change is
     // grayed), the terrain copy, then the program options (the window).
-    auto snapItems = [](int first) {
-        return MenuModel{menuItem(first, L"&Do not snap"), menuItem(first + 1, L"Snap to &tiles (32 px)"),
-                         menuItem(first + 2, L"Snap to &half tiles (16 px)"), menuItem(first + 3, L"Snap to &quarter tiles (8 px)"), menuSeparator()};
-    };
     auto placeItems = [](int fit, int nearest, int anywhere) {
         return MenuModel{menuItem(fit, L"Place &only where it fits"), menuItem(nearest, L"&Move to the nearest place where it fits"),
                          menuItem(anywhere, L"Place &anywhere"), menuSeparator()};
@@ -345,8 +334,7 @@ MenuModel buildMenuModel() {
         for (MenuItem& it : from) to.push_back(std::move(it));
     };
     MenuModel units, doodads, sprites, locations;
-    append(units, snapItems(ID_SNAP_UNITS));
-    units.pop_back();  // (the separator goes after the buildings' snap)
+    units.push_back(menuItem(ID_SNAP_UNITS, L"&Snap to the grid"));
     units.push_back(menuItem(ID_OPT_SNAPBUILDINGS, L"Snap &buildings to tile edges"));
     units.push_back(menuSeparator());
     append(units, placeItems(ID_OPT_STRICT, ID_OPT_SNAPVALID, ID_OPT_ILLEGAL));
@@ -358,11 +346,13 @@ MenuModel buildMenuModel() {
     doodads.push_back(menuSeparator());
     append(doodads, placeItems(ID_DOODAD_FIT, ID_DOODAD_NEAREST, ID_DOODAD_ANYWHERE));
     doodads.push_back(menuItem(ID_FIXED_DOODAD_STACK, L"Can be on top of others: no, a doodad replaces the tiles under it", {}, true, false, true));
-    append(sprites, snapItems(ID_SNAP_SPRITES));
+    sprites.push_back(menuItem(ID_SNAP_SPRITES, L"&Snap to the grid"));
+    sprites.push_back(menuSeparator());
     sprites.push_back(menuItem(ID_FIXED_SPRITE_PLACE, L"Place anywhere: always", {}, true, true, true));
     sprites.push_back(menuSeparator());
     sprites.push_back(menuItem(ID_FIXED_SPRITE_STACK, L"Can be on top of others: always", {}, true, true, true));
-    append(locations, snapItems(ID_SNAP_LOCATIONS));
+    locations.push_back(menuItem(ID_SNAP_LOCATIONS, L"&Snap to the grid"));
+    locations.push_back(menuSeparator());
     locations.push_back(menuItem(ID_FIXED_LOC_PLACE, L"Place anywhere: always", {}, true, true, true));
     locations.push_back(menuSeparator());
     locations.push_back(menuItem(ID_FIXED_LOC_STACK, L"Can be on top of others: always", {}, true, true, true));
@@ -392,6 +382,7 @@ MenuModel buildMenuModel() {
         menuCommand(cosmonarchy, "edit.cmbw.repairIsom");
         menuCommand(cosmonarchy, "scen.cmbw.checkComments");
         menuCommand(cosmonarchy, "tools.cmbw.isomRules");
+        if (kRampBridgeTools) menuCommand(cosmonarchy, "tools.cmbw.passages");
         tools.push_back(menuSeparator());
         tools.push_back(menuPopup(L"&Cosmonarchy", cosmonarchy));
     }

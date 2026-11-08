@@ -30,11 +30,11 @@ int currentTool(const AppState& app) { return app.toolByMode[int(app.mode)]; }
 
 // The brush's height: its Height (GitHub #113), or when linked (0) the same as the size. A linked Diamond keeps the
 // shape of the map's diamonds (GitHub #138): 2 to 1 in pixels, as the ISOM cells: in diamonds (Isometric) its height is
-// the size; in tiles (Rectangle) half the size, rounded up; in ISOM rects (Solid: 2 to 1 already) the size.
+// the size; in tiles (the Rectangle tools) half the size, rounded up.
 bool tilesSolidOn();  // (tiles_edit.inc)
 float brushHeightOf(const AppState& app) {
     if (app.brushHeight > 0) return app.brushHeight;
-    if (app.brushShape == Brush::Diamond && app.terrainRect && !tilesSolidOn()) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
+    if (app.brushShape == Brush::Diamond && app.terrainRect) return float((std::max(1L, std::lround(app.brushSize)) + 1) / 2);
     return app.brushSize;
 }
 
@@ -43,16 +43,19 @@ Brush currentBrush(const AppState& app) {
 }
 
 // The terrain selection's shape: the Select tool's own (diamond, square, circle; a square at first), kept apart from the
-// brushes' so that a painting brush's shape does not change how Select selects.
+// brushes' so that a painting brush's shape does not change how Select selects; Isometric and Rectangle have one each.
 Editor::SelectShape selectShape(const AppState& app) {
-    // (the diamond: the area along the map's diamonds between the drag's two corners, so that it starts where the drag does)
-    if (app.selectShape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
-    return app.selectShape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
+    // (the diamond: Isometric's fills the drag's box, its points at the middle of the box's sides, as the circle fills it;
+    // Rectangle's is the area along the map's diamonds between the drag's two corners)
+    const Brush::Shape shape = app.selectShapes[app.terrainRect];
+    if (shape == Brush::Diamond && !app.terrainRect) return Editor::SelectShape::Diamond;
+    if (shape == Brush::Diamond) return app.terrainSelFlip ? Editor::SelectShape::IsoRectFlip : Editor::SelectShape::IsoRect;
+    return shape == Brush::Circle ? Editor::SelectShape::Ellipse : Editor::SelectShape::Rect;
 }
 // The shape the tool strip's shape box shows and changes: the Select tool's while it is the terrain's tool, else the
 // brushes'.
 Brush::Shape& shapeOf(AppState& app) {
-    return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShape : app.brushShape;
+    return app.mode == Mode::Terrain && currentTool(app) == TSelect ? app.selectShapes[app.terrainRect] : app.brushShape;
 }
 
 void setStatusPart(AppState& app, int i, const wchar_t* text) {
@@ -67,12 +70,24 @@ size_t unitStackCount(const AppState& app) {
     if (app.mode != Mode::Units || !app.mouseIn || !app.ed || !app.ed->isOpen() || app.palette >= 0 || app.pasting) return 0;
     float wx, wy;
     toWorld(app, app.mouseX, app.mouseY, wx, wy);
-    return app.ed->unitsAt(int(wx), int(wy)).size();
+    // (the status bar asks each frame: counted again only when the map or the mouse's place changed)
+    static const Editor* forEd = nullptr;
+    static uint64_t forRev = ~0ull;
+    static int forX = 0, forY = 0;
+    static size_t count = 0;
+    const int x = int(wx), y = int(wy);
+    if (forEd != app.ed.get() || forRev != app.ed->revision() || forX != x || forY != y) {
+        forEd = app.ed.get(), forRev = app.ed->revision(), forX = x, forY = y;
+        count = 0;
+        for (size_t i = 0; i < app.ed->units().size(); ++i)
+            if (app.ed->pickable(int(i)) && app.ed->unitBox(app.ed->units()[i]).contains(x, y)) ++count;
+    }
+    return count;
 }
 
 bool docOpen();  // (documents.inc)
 // The tile at map point (wx, wy) as text: its CV5 group and index, its VX4 megatile, its terrain, and the tile value
-// (the status bar; the map menu's Copy tile value). "" outside the map.
+// (the status bar; Report feedback on the selected terrain). "" outside the map.
 std::wstring tileValueText(const Editor& ed, float wx, float wy) {
     const int tx = int(wx) / 32, ty = int(wy) / 32;
     if (wx < 0 || wy < 0 || tx >= ed.width() || ty >= ed.height() || size_t(ty) * ed.width() + tx >= ed.terrain().tiles.size()) return L"";
@@ -87,10 +102,20 @@ std::wstring unitsListOwner(int owner);  // (units_list.inc)
 std::wstring unitRangesText(const Unit& u);  // (map_scene.inc)
 // The status bar's selection: one unit or doodad, what it is (its name, owner, place, and a unit's hit points, shields
 // and energy where they are not full, a resource's amount, its ranges); more: how many.
+std::vector<std::pair<int, int>> terrainSelTiles();  // (map_edit.inc)
 std::wstring selectionStatus(const AppState& app) {
     if (!app.ed) return L"";
     const Editor& ed = *app.ed;
     wchar_t buf[256];
+    // (Terrain: the terrain selection's box, and the tiles in it when it is not a whole box; GitHub #240)
+    if (app.mode == Mode::Terrain) {
+        if (!app.hasTerrainSel) return tr(L"Nothing selected");
+        const Rect& r = app.terrainSel;
+        const int w = int(r.right - r.left) / 32, h = int(r.bottom - r.top) / 32;
+        std::wstring out = std::to_wstring(w) + L" x " + std::to_wstring(h) + tr(L" tiles selected");
+        if (!app.terrainSelMask.empty()) out += L"  \x00b7  " + std::to_wstring(terrainSelTiles().size()) + tr(L" in the selection");
+        return out;
+    }
     const bool doodads = app.mode == Mode::Doodads || (ed.selection().empty() && !app.selDoodads.empty());
     if (doodads && !app.selDoodads.empty()) {
         if (app.selDoodads.size() > 1) return std::to_wstring(app.selDoodads.size()) + tr(L" doodads selected");
@@ -121,10 +146,59 @@ std::wstring selectionStatus(const AppState& app) {
         out += L"  \x00b7  " + r;
     return out;
 }
+// The status bar's count of the mode's things: Units, the units with no start locations (the Units list gives them no
+// Index) and then the start locations; Doodads, the doodads; Sprites, the sprites with no doodad overlays (they go with
+// their doodads); Locations, the used locations of the slots the map has (with no Anywhere); Terrain, the map's size.
+// Made again only when the map or the mode changed: the status bar is made on each mouse move.
+std::wstring modeCountStatus(const AppState& app) {
+    if (!app.ed || !app.ed->isOpen()) return L"";
+    const Editor& ed = *app.ed;
+    static const Editor* forEd = nullptr;
+    static uint64_t forRev = ~0ull;
+    static int forMode = -1;
+    static std::wstring text;
+    if (forEd == &ed && forRev == ed.revision() && forMode == int(app.mode)) return text;
+    forEd = &ed, forRev = ed.revision(), forMode = int(app.mode);
+    wchar_t buf[128];
+    switch (app.mode) {
+    case Mode::Units: {
+        int starts = 0;
+        for (const Unit& u : ed.units()) starts += u.type == 214 /* Start Location */;
+        std::swprintf(buf, 128, tr(L"Units: %d"), int(ed.units().size()) - starts);
+        text = buf;
+        if (starts) {
+            std::swprintf(buf, 128, tr(L"Start locations: %d"), starts);
+            text += L"  \x00b7  " + std::wstring(buf);
+        }
+        break;
+    }
+    case Mode::Doodads: std::swprintf(buf, 128, tr(L"Doodads: %d"), int(ed.doodads().size())), text = buf; break;
+    case Mode::Sprites: {
+        // (a doodad's overlay: its overlay sprite at the doodad's place, as Editor::spriteIsDoodadOverlay finds it)
+        auto key = [](uint16_t id, uint16_t x, uint16_t y) { return uint64_t(id) << 32 | uint64_t(x) << 16 | y; };
+        std::set<uint64_t> overlays;
+        for (const Doodad& d : ed.doodads())
+            if (const DoodadType* t = ed.doodadTypes().find(d.id)) overlays.insert(key(t->overlaySprite, d.x, d.y));
+        int n = 0;
+        for (const MapSprite& s : ed.sprites()) n += !overlays.count(key(s.id, s.x, s.y));
+        std::swprintf(buf, 128, tr(L"Sprites: %d"), n), text = buf;
+        break;
+    }
+    case Mode::Locations: {
+        int used = 0;
+        for (int i = 0; i < ed.locationCount(); ++i) used += ed.locationUsed(i);
+        const int slots = ed.locationCount() - (ed.locationCount() > kAnywhereLocation ? 1 : 0);
+        std::swprintf(buf, 128, tr(L"Locations: %d / %d"), used, slots), text = buf;
+        break;
+    }
+    case Mode::Terrain: std::swprintf(buf, 128, tr(L"Map size: %d x %d"), ed.width(), ed.height()), text = buf; break;
+    }
+    return text;
+}
 void updateStatus(AppState& app) {
     if (!shellHasStatusBar()) return;
     if (!docOpen()) {  // no map shows (the start page, the New page): no part of a map's status
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < int(std::size(app.statusText)); ++i)
             if (!app.statusText[i].empty()) setStatusPart(app, i, L"");
         return;
     }
@@ -137,8 +211,19 @@ void updateStatus(AppState& app) {
                   : app.mode == Mode::Sprites ? (app.palette >= 0 ? L"Place" : L"Select") : L"Edit");
     setStatusPart(app, 0, buf);
     std::swprintf(buf, 256, L"%d, %d  (tile %d, %d)", int(wx), int(wy), int(wx) / 32, int(wy) / 32);
-    if (app.mode == Mode::Terrain && app.ed)  // the tile under the mouse: its group and index, its megatile, its terrain
-        if (const std::wstring t = tileValueText(*app.ed, wx, wy); !t.empty()) std::wcsncat(buf, (L"   " + t).c_str(), 255 - std::wcslen(buf));
+    // The tile under the mouse: its group and index, its megatile, its terrain (made again only when the map or the
+    // mouse's place changed: the status bar is made each frame).
+    if (app.mode == Mode::Terrain && app.ed) {
+        static const Editor* forEd = nullptr;
+        static uint64_t forRev = ~0ull, forTerrain = ~0ull;
+        static int forX = 0, forY = 0;
+        static std::wstring text;
+        if (forEd != app.ed.get() || forRev != app.ed->revision() || forTerrain != app.ed->terrainRevision() || forX != int(std::floor(wx)) || forY != int(std::floor(wy))) {
+            forEd = app.ed.get(), forRev = app.ed->revision(), forTerrain = app.ed->terrainRevision(), forX = int(std::floor(wx)), forY = int(std::floor(wy));
+            text = tileValueText(*app.ed, wx, wy);
+        }
+        if (!text.empty()) std::wcsncat(buf, (L"   " + text).c_str(), 255 - std::wcslen(buf));
+    }
     // Units mode: two or more units under the mouse (a stack) say how many, and how to see them.
     if (const size_t n = unitStackCount(app); n > 1) {
         wchar_t more[128];
@@ -151,6 +236,7 @@ void updateStatus(AppState& app) {
     setStatusPart(app, 2, buf);
     setStatusPart(app, 3, selectionStatus(app).c_str());
     setStatusPart(app, 4, app.message.c_str());
+    setStatusPart(app, 6, modeCountStatus(app).c_str());
     const int sprites = shellSpriteCount();
     // Frames drawn in the last second (the map draws when something changes, so this is low when nothing moves).
     const auto now = std::chrono::steady_clock::now();
@@ -319,6 +405,11 @@ void fillToolCombo(AppState& app) {
     tilesSync();
 }
 
+// The players that units can be placed for: 12, and on a Cosmonarchy BW map 249 (the mod reads start locations of players
+// 9 and up as the places of its resource areas, and its table has 249 of them: players 9 to 249).
+bool modTab();  // (core/cmbw.inc)
+int ownerChoices() { return modTab() ? 249 : 12; }
+
 void setPlayer(AppState& app, int i) {
     app.playerOwner = i;
     shellOwnerSelect(i);
@@ -384,7 +475,8 @@ void pickUnit(AppState& app, int v, bool add) {
             app.palette = v;
         }
         app.terrainPasting = false;
-        if (app.mode == Mode::Terrain && currentTool(app) == TSelect) {
+        // (Select, and the tools that change the terrain there without the pick: Bridge, Ramp, Jumble: the Brush paints it)
+        if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || terrainToolIgnoresPick(currentTool(app)))) {
             app.toolByMode[int(Mode::Terrain)] = TBrush;
             fillToolCombo(app);
         }
@@ -430,7 +522,7 @@ struct StripItem {
     const wchar_t* tip;
     int tool;     // the mode's tool it sets
     bool select;  // the Select button: the tool with nothing picked
-    // A group's button (1: Spray and Jumble; 2: Line, Contour and Polygon): it is the tool of the group in use, else the
+    // A group's button (1: Spray and Jumble; 2: Line, Contour and Polygon; 3: Bridge and Ramp): it is the tool of the group in use, else the
     // one used last (AppState::lastInGroup); a click on it while it is the tool goes to the next of them, its corner's
     // arrow and a right click list them (core/views_toolstrip.inc).
     int group = 0;
@@ -456,7 +548,33 @@ constexpr const wchar_t* kRectTip = L"Rectangle: drag from one corner to the oth
 constexpr const wchar_t* kRectFillTip = L"Filled rectangle: drag from one corner to the other. The release fills it. Hold Shift for a square.";
 constexpr const wchar_t* kEllipseTip = L"Ellipse: drag across the box it fits in. The release paints its edge, with the brush's size and shape. Hold Shift for a circle.";
 constexpr const wchar_t* kEllipseFillTip = L"Filled ellipse: drag across the box it fits in. The release fills it. Hold Shift for a circle.";
+constexpr const wchar_t* kDiamondTip = L"Diamond: drag across the box it fits in. The release paints its edges, with the brush's size and shape. Hold Shift for a diamond of the map's shape.";
+constexpr const wchar_t* kDiamondFillTip = L"Filled diamond: drag across the box it fits in. The release fills it. Hold Shift for a diamond of the map's shape.";
 constexpr const wchar_t* kPolygonTip = L"Polygon: click to add points. Double-click to close the polygon and fill it. Esc stops the polygon.";
+constexpr const wchar_t* kBridgeTip = L"Bridge: drag from the ground across the water to the ground on the other side. The bridge is as long as the water is wide; Size sets its width.";
+constexpr const wchar_t* kRampTip = L"Ramp: paint along a cliff edge. The ramp goes into the edge as far as you paint, and faces the way the edge faces. Hold Shift to make a ramp the cliff again.";
+// The Terrain tools with the Bridge and the Ramp at their end, where the map's tileset has them (src/bridges.cpp,
+// src/ramps.cpp): one group's button when it has both.
+std::vector<StripItem> withBridge(std::vector<StripItem> tools) {
+    AppState& app = appState();
+    std::vector<StripItem> group;
+    if (!kRampBridgeTools) {  // (hidden: ids.inc)
+        int& tool = app.toolByMode[int(Mode::Terrain)];
+        if (tool == TBridge || tool == TRamp) tool = TBrush;
+        return tools;
+    }
+    if (app.ed && bridgesAvailable(*app.ed)) group.push_back({UiIcon::Bridge, kBridgeTip, TBridge, false});
+    else if (app.toolByMode[int(Mode::Terrain)] == TBridge) app.toolByMode[int(Mode::Terrain)] = TBrush;  // (a map of another tileset)
+    if (app.ed && rampsAvailable(*app.ed)) group.push_back({UiIcon::Ramp, kRampTip, TRamp, false});
+    else if (app.toolByMode[int(Mode::Terrain)] == TRamp) app.toolByMode[int(Mode::Terrain)] = TBrush;
+    if (group.size() == 1) tools.push_back(group.front());
+    else if (group.size() == 2) tools.push_back(stripGroup(3, std::move(group)));
+    return tools;
+}
+// Terrain's Select and Magic wand: one group's button (4). Select stays the mode's selection (select: true).
+StripItem selectGroup(StripItem select) {
+    return stripGroup(4, {std::move(select), {UiIcon::Wand, L"Magic wand: click terrain to select what is reachable from there (Isometric: that terrain with its edges and cliffs; the other tools: the connected tiles of that terrain). Shift+click adds, Ctrl+click removes.", TWand, false}});
+}
 // Every mode's tools, Select first. Select is the mode's tool with nothing picked (Terrain has a Select tool of its
 // own); Place is the same tool with a pick from the list.
 std::vector<StripItem> stripTools(Mode m) {
@@ -464,24 +582,26 @@ std::vector<StripItem> stripTools(Mode m) {
     switch (m) {
     case Mode::Terrain:
         if (app.terrainRect && tilesSolidOn())  // Solid: Rectangle's tools with the tiles inside the terrain selected in the list
-            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
+            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
                     {UiIcon::Brush, L"Brush: place the tiles inside the terrain selected in the list, in rects of 2 x 1 tiles, with the brush's size and shape", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tiles inside the terrain in random rects of the brush (Density). With several terrains selected (Ctrl+click), each rect gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles of the clicked tile's terrain. Shift+click fills every tile of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                     stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
-                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
         if (app.terrainRect)  // Rectangle: the same tools on tiles as they are
-            return {{UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to Select.", TSelect, true},
+            return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of tiles to copy (Ctrl+C). Esc returns to the Select tool.", TSelect, true}),
                     {UiIcon::Brush, L"Brush: place the tile selected in the Tiles list, with the brush's size and shape. With several tiles selected, the Brush places them as they are in the list; hold Shift to place them at random.", TBrush, false},
                     {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                     {UiIcon::Spray, L"Spray: place the tile at random spots in the brush (Density). With several tiles selected, each spot gets one of them at random. Hold the button to spray more.", TSpray, false},
                     {UiIcon::Fill, L"Fill: click in the selection to fill the whole selection. Click elsewhere to fill the connected tiles that match the clicked tile. Shift+click fills every matching tile (in the selection, if there is one). With several tiles selected in the Tiles list, Fill puts them in patches at random (Mix).", TFill, false},
                     stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
-                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
-        return {{UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true},
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
+        return withBridge({selectGroup({UiIcon::Select, L"Select: drag a rectangle of terrain to copy (Ctrl+C) or move. Esc returns to the Select tool.", TSelect, true}),
                 {UiIcon::Brush, L"Brush: paint the terrain selected in the list", TBrush, false},
                 {UiIcon::Erase, L"Erase: the brush makes the terrain under it Dirt (where the tileset has no Dirt: its first terrain), with the brush's size and shape. Drag to erase more.", TErase, false},
                 stripGroup(1, {{UiIcon::Spray, L"Spray: random dabs of the terrain (Density). With several terrains selected (Ctrl+click), each dab is one of them at random. Hold the button to spray more.", TSpray, false},
@@ -489,7 +609,8 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Fill, L"Fill: the connected area of one terrain. Shift+click: every place of that terrain (in the selection, if there is one). With several terrains selected (Ctrl+click), Fill puts them in patches at random (Mix).", TFill, false},
                 stripGroup(2, {{UiIcon::Line, kLineTip, TLine, false}, {UiIcon::Contour, kContourTip, TContour, false}, {UiIcon::Polygon, kPolygonTip, TPolygon, false},
                                    {UiIcon::Rect, kRectTip, TRect, false}, {UiIcon::RectFill, kRectFillTip, TRectFill, false},
-                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false}})};
+                                   {UiIcon::Ellipse, kEllipseTip, TEllipse, false}, {UiIcon::EllipseFill, kEllipseFillTip, TEllipseFill, false},
+                                   {UiIcon::Diamond, kDiamondTip, TDiamond, false}, {UiIcon::DiamondFill, kDiamondFillTip, TDiamondFill, false}})});
     case Mode::Units:
         return {{UiIcon::Select, L"Select units: click or drag a box; drag them to move. Esc returns to the Select tool.", UPlace, true},
                 {UiIcon::Add, L"Place the unit selected in the list", UPlace, false},
@@ -503,7 +624,7 @@ std::vector<StripItem> stripTools(Mode m) {
                 {UiIcon::Spray, L"Spray: random doodads of the selected kinds (Density). Hold the button to spray more.", DSpray, false},
                 {UiIcon::Fill, L"Fill: click a place to put doodads of the selected kinds at random on the connected ground of its terrain, where they fit (Density: how many).", DFill, false}};
     case Mode::Sprites:
-        return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc goes to Select.", SPlace, true},
+        return {{UiIcon::Select, L"Select a sprite: click it; drag it to move. Esc returns to the Select tool.", SPlace, true},
                 {UiIcon::Add, L"Place the sprites selected in the list (several: each one at random); drag to place more", SPlace, false},
                 {UiIcon::Erase, L"Erase: drag the brush over sprites to delete them (Size: the brush's size)", SErase, false},
                 {UiIcon::Spray, L"Spray: random sprites of the selected kinds (Density). Hold the button to spray more.", SSpray, false}};
@@ -514,7 +635,7 @@ std::vector<StripItem> stripTools(Mode m) {
     return {};
 }
 // The key of a strip tool (ID_TOOL_KEY + it): 0 V select, 1 B brush or place, 2 A spray, 3 F fill; (ID_SHAPE_KEY + it - 4)
-// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase; -1 none.
+// 4 I line, 5 O contour, 6 P polygon, 7 X jumble, 8 E erase, 9 H bridge, 10 J ramp, 11 W magic wand; -1 none.
 int stripToolKey(const StripItem& it) {
     if (it.select) return 0;
     if (it.icon == UiIcon::Spray) return 2;
@@ -525,23 +646,32 @@ int stripToolKey(const StripItem& it) {
     if (it.icon == UiIcon::Polygon) return 6;
     if (it.icon == UiIcon::Jumble) return 7;
     if (it.icon == UiIcon::Erase) return 8;
+    if (it.icon == UiIcon::Bridge) return 9;
+    if (it.icon == UiIcon::Ramp) return 10;
+    if (it.icon == UiIcon::Wand) return 11;
     return -1;
 }
 
 // Whether the active mode is in its selection: its Select tool with nothing picked.
 bool inSelection() {
     AppState& app = appState();
-    for (const StripItem& it : stripTools(app.mode))
-        if (it.select)
-            return currentTool(app) == it.tool && (app.mode == Mode::Terrain || app.palette < 0) && !app.pasting && !app.terrainPasting && !app.pastingItems;
+    for (const StripItem& it : stripTools(app.mode)) {
+        if (it.select || (!it.members.empty() && it.members.front().select)) {  // (Terrain: the first of its group)
+            const int tool = it.select ? it.tool : it.members.front().tool;
+            return currentTool(app) == tool && (app.mode == Mode::Terrain || app.palette < 0) && !app.pasting && !app.terrainPasting && !app.pastingItems;
+        }
+    }
     return true;
 }
 // To the active mode's selection: its Select tool, nothing picked, no paste following the mouse (Esc, the Select
 // button, entering a mode).
 void enterSelection() {
     AppState& app = appState();
-    for (const StripItem& it : stripTools(app.mode))
+    for (const StripItem& it : stripTools(app.mode)) {
         if (it.select) app.toolByMode[int(app.mode)] = it.tool;
+        else if (!it.members.empty() && it.members.front().select) app.toolByMode[int(app.mode)] = it.members.front().tool;  // (Terrain's group)
+    }
+    if (app.mode == Mode::Terrain) app.lastInGroup[4] = TSelect;
     app.pasting = app.terrainPasting = app.pastingItems = false;
     app.palette = -1;
     if (app.mode != Mode::Locations) shellPaletteChosen().clear(), shellPaletteChanged();

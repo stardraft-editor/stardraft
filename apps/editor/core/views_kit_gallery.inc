@@ -48,7 +48,7 @@ public:
         auto click = [this] { ++clicks, invalidate(); };
         auto section = [&](const wchar_t* name) { y = kitpaint::drawSectionHeader(c, x0, colRight, y, formRowH, name); };
 
-        y = kitui::title(c, s_, x0, y, colRight, {}, L"Control kit", L"apps/editor/ui_kit.inc  \x00B7  where each is used: docs/dev/CONTROLS.md");
+        y = kitui::title(c, s_, x0, y, colRight, {}, L"Control kit", L"apps/kit, apps/editor/core/kit_paint.inc  \x00B7  where each is used: docs/dev/CONTROLS.md");
 
         // Colors.
         section(L"Colors");
@@ -163,7 +163,7 @@ public:
                     kitui::rowActions(c, s_, r,
                                       {{L"\xE7E8", L"Turn off", click, Tone::Quiet},
                                        {UiIcon::Duplicate, L"Duplicate", click},
-                                       {UiIcon::MoveUp, L"Earlier", click, Tone::Normal, false, false},
+                                       {UiIcon::MoveUp, L"Move up", click, Tone::Normal, false, false},
                                        {UiIcon::Close, L"Remove", click, Tone::Danger}},
                                       kind == 3);
                 y += scale(stardraft::kit::kRowH);
@@ -228,8 +228,8 @@ public:
                     invalidate();
                 }, !fixed);
                 kitui::rowActions(c, s_, r,
-                                  {{UiIcon::MoveUp, L"Earlier", click, Tone::Normal, false, i > 1},
-                                   {UiIcon::MoveDown, L"Later", click, Tone::Normal, false, i > 0 && i + 1 < order.size()}},
+                                  {{UiIcon::MoveUp, L"Move up", click, Tone::Normal, false, i > 1},
+                                   {UiIcon::MoveDown, L"Move down", click, Tone::Normal, false, i > 0 && i + 1 < order.size()}},
                                   false);
                 y += scale(stardraft::kit::kRowH);
             }
@@ -261,7 +261,7 @@ public:
             using kitpaint::Field;
             label(L"Field");
             const std::pair<const wchar_t*, Field> fields[] = {{L"rest", Field::Normal}, {L"under the mouse", Field::Hot}, {L"focus", Field::Focus},
-                                                               {L"changed", Field::Changed}, {L"read only", Field::ReadOnly}};
+                                                               {L"changed", Field::Changed}, {L"read-only", Field::ReadOnly}};
             int x = col;
             for (const auto& [name, f] : fields) {
                 const Rect r{x, y + scale(4), x + scale(110), y + scale(30)};
@@ -357,7 +357,7 @@ public:
             y = kitui::title(c, s_, x0, y, x0 + scale(500), icon("units", 0), L"Terran Marine", L"units.dat entry 0", true, click);
             y = kitpaint::drawSectionHeader(c, x0, x0 + scale(500), y, formRowH, L"Combat");
             const int lw = scale(200);
-            kitpaint::drawFieldLabel(c, {x0, y, x0 + lw, y + formRowH}, L"Hit Points", false);
+            kitpaint::drawFieldLabel(c, {x0, y, x0 + lw, y + formRowH}, L"Hit points", false);
             kitpaint::drawFieldLabel(c, {x0 + scale(200), y, x0 + scale(200) + lw, y + formRowH}, L"Armor (changed)", true);
             y += formRowH;
             kitpaint::drawFieldLabel(c, {x0, y, x0 + lw, y + formRowH}, L"Infestation (not usable)", false, false);
@@ -403,20 +403,8 @@ public:
         return true;
     }
     bool vscroll(int code, int /*pos*/, int track, int page) override {
-        enum { kLineUp = 0, kLineDown = 1, kPageUp = 2, kPageDown = 3, kThumbPosition = 4, kThumbTrack = 5, kTop = 6, kBottom = 7 };  // SB_*
         int s = scroll;
-        switch (code) {
-        case kLineUp: s -= scale(40); break;
-        case kLineDown: s += scale(40); break;
-        case kPageUp: s -= page; break;
-        case kPageDown: s += page; break;
-        case kThumbTrack:
-        case kThumbPosition: s = track; break;
-        case kTop: s = 0; break;
-        case kBottom: s = 1 << 30; break;
-        default: return true;
-        }
-        setScroll(s);
+        if (kitpaint::scrollRequest(code, s, scale(40), page, track)) setScroll(s);
         return true;
     }
 

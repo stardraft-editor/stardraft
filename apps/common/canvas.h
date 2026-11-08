@@ -30,6 +30,7 @@ struct Rect {
     int height() const { return bottom - top; }
     bool empty() const { return right <= left || bottom <= top; }
     bool contains(Point p) const { return p.x >= left && p.x < right && p.y >= top && p.y < bottom; }
+    bool operator==(const Rect&) const = default;
 };
 
 // A font of the surface (the canvas makes and keeps them). Empty: none.

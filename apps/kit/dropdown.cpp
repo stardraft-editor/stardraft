@@ -2,9 +2,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cwctype>
 #include <memory>
+#include <utility>
 
+#include "scroll_bar.h"
 #include "text_model.h"
 #include "theme.h"
 
@@ -34,10 +37,15 @@ int gOpenLists = 0;  // the dropdowns whose list is open (Dropdown::anyListOpen)
 // The list under the field: one row per item, the current value highlighted. Its callbacks pick a row or cancel. With
 // `search` it has a search row at its top: the typed text shows only the items whose name (or number) has it; Backspace
 // takes a letter off, Esc empties it (then closes the list). The rows are the shown items (shown_: their indices).
+// More rows than it shows: a scroll bar (scroll_bar.h) at the right of the rows, which the mouse drags and clicks.
 class Dropdown::List final : public View {
 public:
     List(std::vector<DropdownItem> items, int current, bool search, std::function<void(int)> pick, std::function<void()> cancel)
-        : items_(std::move(items)), current_(current), search_(search), pick_(std::move(pick)), cancel_(std::move(cancel)) {
+        : items_(std::move(items)), base_(int(items_.size())), current_(current), search_(search), pick_(std::move(pick)), cancel_(std::move(cancel)) {
+        add(bar_, Rect{});
+        bar_.onScroll = [this](int pos) {  // (the bar's position: the top row)
+            if (pos != top_) top_ = pos, invalidate();
+        };
         refilter();
     }
 
@@ -46,7 +54,8 @@ public:
         c.roundBox({0, 0, width(), height()}, th.ctl, th.border, px(kRadius));
         if (search_) {  // (the search row: what is typed, or what to do; a line under it)
             const Rect r{px(2), px(2), width() - px(2), px(2) + rowH()};
-            c.text({r.left + px(10), r.top, r.right - px(10), r.bottom}, query_.empty() ? std::wstring(L"Type to search") : query_ + L"|",
+            c.text({r.left + px(10), r.top, r.right - px(10), r.bottom},
+                   query_.empty() ? std::wstring(L"Type to search") : query_ + L"|",
                    query_.empty() ? th.dim : th.text, draw::kMiddle | draw::kEllipsis);
             c.fill({r.left, r.bottom - px(1), r.right, r.bottom}, th.border);
             if (shown_.empty())
@@ -79,16 +88,13 @@ public:
                 const int s = px(12), sx = r.left + px(10), sy = (r.top + r.bottom - s) / 2;
                 c.fill({sx, sy, sx + s, sy + s}, it.swatch);
             }
-            const bool hasNumber = it.number >= 0;
+            const bool hasNumber = it.number >= 0 && !it.numberHidden;
             c.text({r.left + px(32), r.top, r.right - (hasNumber ? px(56) : px(10)), r.bottom}, it.label, fg, draw::kMiddle | draw::kEllipsis);
             if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(10), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
         }
-        if (const int n = int(shown_.size()); n > visible()) {  // (more rows than it shows: where the shown ones are)
-            const int y0 = px(2) + headH(), h = visible() * rowH();
-            const int th0 = std::max(px(16), h * visible() / n), ty = y0 + (h - th0) * top_ / std::max(1, maxTop());
-            c.fill({width() - px(6), ty, width() - px(3), ty + th0}, th.thumb);
-        }
     }
+
+    void resized() override { syncBar(); }
 
     bool mouse(const MouseEvent& e) override {
         switch (e.kind) {
@@ -99,13 +105,20 @@ public:
             }
             return true;
         case MouseKind::Leave:
+            if (host()) {  // (onto the scroll bar, which is in the list: the hot row stays, for Enter)
+                const Point p = host()->mouse(*this);
+                if (p.x >= 0 && p.y >= 0 && p.x < width() && p.y < height()) return true;
+            }
             if (hot_ != -1) hot_ = -1, invalidate();
             return true;
         case MouseKind::Down:
-        case MouseKind::DoubleClick: return e.button == 0;
+        case MouseKind::DoubleClick:
+            if (e.button == 0) barPress_ = false;
+            return e.button == 0;
         case MouseKind::Up:
+            if (e.button == 0 && std::exchange(barPress_, false)) return true;  // (the press was on the scroll bar: no pick)
             if (e.button == 0)
-                if (const int k = rowAt(e.pt); k >= 0 && !items_[size_t(shown_[size_t(k)])].heading) pick_(shown_[size_t(k)]);
+                if (const int k = rowAt(e.pt); k >= 0 && !items_[size_t(shown_[size_t(k)])].heading) choose(shown_[size_t(k)]);
             return e.button == 0;
         case MouseKind::Wheel: {  // positive: away from the user, the list scrolls up; a part of a notch waits
             int notches = 0;
@@ -117,7 +130,7 @@ public:
             }
             const int before = top_;
             top_ = std::clamp(top_ - notches, 0, maxTop());
-            if (top_ != before) invalidate();
+            if (top_ != before) bar_.setPos(top_), invalidate();
             return true;
         }
         default: return false;
@@ -169,7 +182,7 @@ public:
         case Key::End: setHot(item(n - 1, -1)); return true;
         case Key::Enter:
         case Key::Space:
-            if (hot_ >= 0 && hot_ < n && !items_[size_t(shown_[size_t(hot_)])].heading) pick_(shown_[size_t(hot_)]);
+            if (hot_ >= 0 && hot_ < n && !items_[size_t(shown_[size_t(hot_)])].heading) choose(shown_[size_t(hot_)]);
             return true;
         case Key::Backspace:
             if (!search_ || query_.empty()) return search_;
@@ -189,8 +202,19 @@ public:
         }
     }
 
+    // A value typed as its number (Dropdown::onNumber): the row of a typed number that is no item's, and its pick.
+    void setNumberPick(std::function<DropdownItem(int)> item, int most, std::function<void(int)> pick) {
+        numberItem_ = std::move(item), numberMax_ = most, numberPick_ = std::move(pick);
+        refilter();
+    }
+
     // The rows it shows at most (the room in the window: fewer than kVisibleRows; it scrolls).
-    void setMaxRows(int n) { maxRows_ = std::max(1, n); }
+    void setMaxRows(int n) {
+        maxRows_ = std::max(1, n);
+        top_ = std::min(top_, maxTop());
+        show(hot_);  // (the current value in view in the fewer rows)
+        syncBar();
+    }
 
 private:
     int maxRows_ = kVisibleRows;
@@ -198,9 +222,19 @@ private:
     int headH() const { return search_ ? rowH() : 0; }
     int visible() const { return std::min(int(shown_.size()), maxRows_); }
     int maxTop() const { return std::max(0, int(shown_.size()) - visible()); }
+    // The scroll bar's width when it shows (the rows end at its left edge: a click on it picks no row).
+    int barW() const { return int(shown_.size()) > visible() ? px(kScrollBarW) : 0; }
     Rect row(int k) const {
         const int y = px(2) + headH() + (k - top_) * rowH();
-        return {px(2), y, width() - px(2), y + rowH()};
+        return {px(2), y, width() - px(2) - barW(), y + rowH()};
+    }
+    // The scroll bar: beside the rows (not the search row), its range the shown rows, its position the top row.
+    void syncBar() {
+        const int y0 = px(2) + headH();
+        bar_.setFrame({width() - px(2) - px(kScrollBarW), y0, width() - px(2), y0 + visible() * rowH()});
+        bar_.setRange(int(shown_.size()), visible());
+        bar_.setPos(top_);
+        bar_.setVisible(barW() > 0);
     }
     int rowAt(Point p) const {
         for (int k = top_; k < std::min(int(shown_.size()), top_ + visible()); ++k)
@@ -211,6 +245,7 @@ private:
         if (k < 0) return;
         if (k < top_) top_ = k;
         else if (k >= top_ + visible()) top_ = k - visible() + 1;
+        bar_.setPos(top_);
     }
     // The row k, or the next one in `dir` that is an item (not a heading); else the nearest one the other way; -1: none.
     int item(int k, int dir) const {
@@ -226,21 +261,41 @@ private:
         show(k);
         invalidate();
     }
+    // A pick of item i: the typed number's row (numberPick_), else the item.
+    void choose(int i) {
+        if (i >= base_ && numberPick_) numberPick_(typedNumber_);
+        else if (i < base_) pick_(i);
+    }
     // The shown items: those whose name or number has the search (any case); the current value hot, else the first.
+    // A search that is a number: the item with that number hot; no such item (and numberPick_): the number's own row
+    // first, hot.
     void refilter() {
         auto lower = [](std::wstring s) {
             for (wchar_t& ch : s) ch = wchar_t(std::towlower(ch));
             return s;
         };
         const std::wstring q = lower(query_);
+        items_.resize(size_t(base_));  // (the typed number's row of the search before goes)
+        typedNumber_ = -1;
+        if (!q.empty() && q.size() <= 6 && std::all_of(q.begin(), q.end(), [](wchar_t ch) { return ch >= L'0' && ch <= L'9'; }))
+            typedNumber_ = std::stoi(q);
+        int exact = -1;  // (the item whose number is the typed number)
+        for (int i = 0; i < base_ && typedNumber_ >= 0; ++i)
+            if (!items_[size_t(i)].heading && items_[size_t(i)].number == typedNumber_) exact = i;
         shown_.clear();
+        if (numberPick_ && exact < 0 && typedNumber_ >= 0 && typedNumber_ <= numberMax_) {
+            items_.push_back(numberItem_ ? numberItem_(typedNumber_) : DropdownItem{std::to_wstring(typedNumber_), -1, typedNumber_});
+            items_.back().heading = false;
+            shown_.push_back(base_);
+            exact = base_;
+        }
         int heading = -1;  // (the section's heading, shown once over its first match)
-        for (int i = 0; i < int(items_.size()); ++i) {
+        for (int i = 0; i < base_; ++i) {
             if (items_[size_t(i)].heading) {
                 heading = i;
                 continue;
             }
-            if (q.empty() || lower(items_[size_t(i)].label).find(q) != std::wstring::npos ||
+            if (q.empty() || i == exact || lower(items_[size_t(i)].label).find(q) != std::wstring::npos ||  // (exact: "07" too)
                 (items_[size_t(i)].number >= 0 && std::to_wstring(items_[size_t(i)].number).find(q) != std::wstring::npos)) {
                 if (heading >= 0) shown_.push_back(heading), heading = -1;
                 shown_.push_back(i);
@@ -249,15 +304,20 @@ private:
         hot_ = -1;
         hot_ = item(0, 1);
         for (int k = 0; k < int(shown_.size()); ++k)
-            if (shown_[size_t(k)] == current_) hot_ = k;
+            if (shown_[size_t(k)] == (exact >= 0 ? exact : current_)) hot_ = k;
         top_ = 0;
         show(hot_);
+        syncBar();
         invalidate();
     }
 
-    std::vector<DropdownItem> items_;
+    std::vector<DropdownItem> items_;  // the field's items (base_), then the typed number's row when it shows
+    int base_ = 0;
     std::vector<int> shown_;  // the items the rows show (all, or the search's)
     int current_ = -1, hot_ = -1, top_ = 0;  // (hot_ and top_: rows of shown_)
+    std::function<DropdownItem(int)> numberItem_;
+    std::function<void(int)> numberPick_;
+    int numberMax_ = 255, typedNumber_ = -1;  // (typedNumber_: the search as a number; -1: it is not one)
     bool search_ = false;
     std::wstring query_;  // the search's text
     float wheelAcc_ = 0;  // the wheel's notches that are not a whole one yet
@@ -265,6 +325,18 @@ private:
     std::chrono::steady_clock::time_point typedAt_;
     std::function<void(int)> pick_;
     std::function<void()> cancel_;
+    // The scroll bar; a press on it is kept, so that its release (on a row too, after a click on the track) picks no row.
+    struct Bar final : ScrollBar {
+        explicit Bar(bool& pressed) : ScrollBar(Axis::Vertical), pressed_(pressed) {}
+        bool mouse(const MouseEvent& e) override {
+            const bool taken = ScrollBar::mouse(e);
+            if (taken && e.button == 0 && (e.kind == MouseKind::Down || e.kind == MouseKind::DoubleClick)) pressed_ = true;
+            return taken;
+        }
+        bool& pressed_;
+    };
+    bool barPress_ = false;  // the last press was on the scroll bar
+    Bar bar_{barPress_};
 };
 
 Dropdown::Dropdown() = default;
@@ -339,6 +411,7 @@ void Dropdown::openList() {
     retireList();  // the list made before (closed) goes now
     list_ = std::make_unique<List>(
         items_, value_, searchable, [this](int i) { pick(i); }, [this] { closeList(); });
+    if (searchable && onNumber) list_->setNumberPick(numberItem, numberMax, [this](int n) { pickNumber(n); });
     listHost_ = h;
     // (the list stays in the window: under the field, or over it when there is more room there; fewer rows when
     // neither has room for all: it scrolls)
@@ -379,13 +452,16 @@ void Dropdown::closeList() {
 void Dropdown::pick(int i) {
     closeList();
     if (i < 0 || i >= int(items_.size())) return;
-    if (i == value_) {
-        if (onSame) onSame(i);
-        return;
-    }
+    if (i == value_) return;
     value_ = i;
     invalidate();
     if (onChange) onChange(i);
+}
+
+void Dropdown::pickNumber(int n) {
+    closeList();
+    invalidate();
+    if (onNumber) onNumber(n);  // (the host sets the items and the value that show the number)
 }
 
 // Up and Down: the next or the previous item (from none: the first or the last). No wrap.
@@ -430,7 +506,7 @@ void Dropdown::paint(Canvas& c) {
             c.fill({sx, sy, sx + s, sy + s}, it.swatch);
         }
         if (squares) tx = r.left + px(8) + c.measure(L"       ");
-        const bool hasNumber = it.number >= 0;
+        const bool hasNumber = it.number >= 0 && !it.numberHidden;
         c.text({tx, r.top, r.right - (hasNumber ? px(56) : px(22)), r.bottom}, it.label, !enabled_ ? th.faint : changed_ ? th.good : th.text,
                draw::kMiddle | draw::kEllipsis);
         if (hasNumber) c.text({r.right - px(64), r.top, r.right - px(22), r.bottom}, std::to_wstring(it.number), th.dim, draw::kMiddle | draw::kRight);
@@ -442,9 +518,11 @@ bool Dropdown::mouse(const MouseEvent& e) {
     switch (e.kind) {
     case MouseKind::Move:
         justClosed_ = false;
+        wheelRest_.moved(e.pt, px(6));
         if (!hover_) hover_ = true, invalidate();
         return true;
     case MouseKind::Leave:
+        wheelRest_.left();
         if (hover_) hover_ = false, invalidate();
         return true;
     case MouseKind::Down:
@@ -458,7 +536,10 @@ bool Dropdown::mouse(const MouseEvent& e) {
         return true;
     case MouseKind::DoubleClick: return enabled_;  // the press has opened (or closed) the list already
     case MouseKind::Wheel: {
+        // A field without the focus steps only after a rest (draw::WheelRest); else the wheel scrolls the page under it,
+        // so that a scroll past a field changes nothing.
         if (!enabled_ || listOpen_ || items_.empty() || !wheelSteps) return false;
+        if (!hasFocus() && !wheelRest_.allows(e)) return wheelAcc_ = 0, false;
         wheelAcc_ += e.wheel;
         while (wheelAcc_ >= 1) wheelAcc_ -= 1, step(-1);
         while (wheelAcc_ <= -1) wheelAcc_ += 1, step(1);

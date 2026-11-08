@@ -696,7 +696,7 @@ inline int volumeRow(draw::Canvas& c, DataPicturesHost& host, int x, int y, int 
                          const int v = std::clamp(int(std::lround(float(pt.x - x0) * 100.0f / float(std::max(1, x1 - x0)))), 0, 100);
                          if (v != gDock.volume) gDock.volume = v, saveDock(), hp->pictureRepaint();
                      },
-                     L"The volume of every sound StarDraft 2 plays, from the next sound on", draw::Cursor::Hand);
+                     L"The volume of all sounds, from the next sound on", draw::Cursor::Hand);
     return rowH;
 }
 

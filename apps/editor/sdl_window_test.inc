@@ -119,7 +119,124 @@ void winTestLayout(const char* when, SDL_Window* w) {
     winTestLine(fits && inside && gMapW == m.width() && gMapH == m.height(), buf);
 }
 
+// --hovertest (with a map): the frames of the real window while the mouse moves with no button down. The units'
+// animations are off (their frames are not the mouse's). Each phase is a second: still (after three seconds with no
+// event), moving over the map (4 moves each turn of the loop), still again, then moving over the workspace rail. It
+// prints each phase's frames to the windows, the map's frames and the program's processor time: a move over the map
+// gives at most one frame of the display, the frames stop with the moves, and a move over the rail draws no map.
+bool gHoverTest = false;
+struct HoverTest {
+    int phase = 0;
+    Uint64 since = 0;
+    long long framesAt = 0, moves = 0;
+    double cpuAt = 0;
+} gHover;
+
+double hoverCpuMs() {  // (the process's processor time, all its threads)
+#ifdef _WIN32
+    FILETIME made, ended, kernel, user;
+    if (!GetProcessTimes(GetCurrentProcess(), &made, &ended, &kernel, &user)) return 0;
+    auto ms = [](FILETIME f) { return double((uint64_t(f.dwHighDateTime) << 32) | f.dwLowDateTime) / 1e4; };
+    return ms(kernel) + ms(user);
+#else
+    return 1000.0 * double(std::clock()) / CLOCKS_PER_SEC;
+#endif
+}
+
+void hoverTestPump() {
+    HoverTest& t = gHover;
+    SDL_Window* w = gHost->mainWindow();
+    const Uint64 now = SDL_GetTicks();
+    if (t.phase == 0) {  // (the map opens: then three seconds with no event, as its pictures come)
+        if (!winTestMapOpen() || gMapW <= 0 || !gRoot) return;
+        gState.animate = false;
+        t.phase = 1, t.since = now;
+        return;
+    }
+    if (t.phase == 1 && now - t.since < 3000) return;
+    static const char* const kPhases[] = {"", "still", "over the map", "still again", "over the rail"};
+    if (t.phase >= 2 && now - t.since >= 1000) {
+        const auto clock = std::chrono::steady_clock::now();
+        const long long mapFrames = std::count_if(gState.frameTimes.begin(), gState.frameTimes.end(),
+                                                  [&](auto at) { return clock - at <= std::chrono::seconds(1); });
+        std::printf("hovertest: %-13s %3lld frames presented, %3lld map frames, %4lld moves, %5.0f ms processor time\n",
+                    kPhases[t.phase - 1], gHost->presentedFrames() - t.framesAt, mapFrames, t.moves, hoverCpuMs() - t.cpuAt);
+        if (t.phase == 5) return gHost->quit();
+    }
+    if (t.phase == 1 || now - t.since >= 1000)
+        ++t.phase, t.since = now, t.framesAt = gHost->presentedFrames(), t.moves = 0, t.cpuAt = hoverCpuMs();
+    if ((t.phase != 3 && t.phase != 5) || !w) return;
+    const float d = SDL_GetWindowPixelDensity(w) > 0 ? SDL_GetWindowPixelDensity(w) : 1.0f;
+    const draw::View& over = t.phase == 3 ? static_cast<const draw::View&>(gRoot->map) : gRoot->rail;
+    const draw::Point o = over.origin();
+    for (int i = 0; i < 4; ++i, ++t.moves) {  // (a circle in the view, as a fast mouse sends its moves)
+        const float a = float(t.moves) * 0.05f;
+        SDL_Event e{};
+        e.type = SDL_EVENT_MOUSE_MOTION;
+        e.motion.windowID = SDL_GetWindowID(w);
+        e.motion.x = (float(o.x + over.width() / 2) + std::cos(a) * float(over.width()) / 4) / d;
+        e.motion.y = (float(o.y + over.height() / 2) + std::sin(a) * float(over.height()) / 4) / d;
+        SDL_PushEvent(&e);
+    }
+}
+
+// --rowkeytest (with a map): the number row's keys as an AZERTY keyboard gives them (SDL's events with the scan codes
+// of a US keyboard's places and the AZERTY keys & é " ' ( - è _ ç à ) =), while a unit is picked to place in Units
+// mode: each picks the players 1 to 12. Then the number pad's - and +, and Ctrl with ) and =, zoom; a Swedish + (the
+// key after 0) picks player 11, and with Ctrl it zooms in. Each key prints a line ("(WRONG)" when it is not right);
+// the program then ends.
+bool gRowKeyTest = false;
+int gRowKeyStep = -2;
+float gRowKeyZoom = 0;
+
+void rowKeyTestPump() {
+    SDL_Window* w = gHost->mainWindow();
+    if (!w || !winTestMapOpen() || gMapW <= 0) return;
+    struct Step { SDL_Scancode sc; SDL_Keycode key; bool ctrl; int player; int zoom; const char* name; };
+    static const Step kSteps[] = {
+        {SDL_SCANCODE_1, '&', false, 0, 0, "&"}, {SDL_SCANCODE_2, 0xE9, false, 1, 0, "e acute"}, {SDL_SCANCODE_3, '"', false, 2, 0, "\""},
+        {SDL_SCANCODE_4, '\'', false, 3, 0, "'"}, {SDL_SCANCODE_5, '(', false, 4, 0, "("}, {SDL_SCANCODE_6, '-', false, 5, 0, "- (6)"},
+        {SDL_SCANCODE_7, 0xE8, false, 6, 0, "e grave"}, {SDL_SCANCODE_8, '_', false, 7, 0, "_"}, {SDL_SCANCODE_9, 0xE7, false, 8, 0, "c cedilla"},
+        {SDL_SCANCODE_0, 0xE0, false, 9, 0, "a grave"}, {SDL_SCANCODE_MINUS, ')', false, 10, 0, ")"}, {SDL_SCANCODE_EQUALS, '=', false, 11, 0, "="},
+        {SDL_SCANCODE_KP_MINUS, SDLK_KP_MINUS, false, -1, -1, "number pad -"}, {SDL_SCANCODE_KP_PLUS, SDLK_KP_PLUS, false, -1, 1, "number pad +"},
+        {SDL_SCANCODE_MINUS, ')', true, -1, -1, "Ctrl+)"}, {SDL_SCANCODE_EQUALS, '=', true, -1, 1, "Ctrl+="},
+        {SDL_SCANCODE_MINUS, SDLK_PLUS, false, 10, 0, "Swedish +"}, {SDL_SCANCODE_MINUS, SDLK_PLUS, true, -1, 1, "Ctrl and Swedish +"},
+    };
+    if (gRowKeyStep == -2) return setMode(Mode::Units), void(++gRowKeyStep);  // (its palette lists the units on the next turn)
+    if (gRowKeyStep == -1) {  // (a Marine picked: placing)
+        pickUnit(gState, 0, false);
+        std::printf("rowkeytest: Units mode %s, placing unit %d\n", gState.mode == Mode::Units ? "yes" : "no", gState.palette);
+    } else {  // the last key's result
+        const Step& s = kSteps[gRowKeyStep];
+        const bool zoomed = s.zoom > 0 ? gState.zoom > gRowKeyZoom : s.zoom < 0 ? gState.zoom < gRowKeyZoom : gState.zoom == gRowKeyZoom;
+        const bool ok = gState.palette >= 0 && (s.player < 0 || gState.playerOwner == s.player) && zoomed;
+        winTestLine(ok, std::string("number row key ") + s.name + ": player " + std::to_string(gState.playerOwner + 1) + ", zoom " +
+                            std::to_string(gRowKeyZoom) + " -> " + std::to_string(gState.zoom));
+    }
+    if (++gRowKeyStep >= int(std::size(kSteps))) {
+        std::printf("rowkeytest: %d checks, %d wrong\n", gWinTestChecks, gWinTestWrong);
+        return gHost->quit();
+    }
+    const Step& s = kSteps[gRowKeyStep];
+    gRowKeyZoom = gState.zoom;
+#ifdef __APPLE__
+    const SDL_Keymod ctrl = SDL_KMOD_LGUI;
+#else
+    const SDL_Keymod ctrl = SDL_KMOD_LCTRL;
+#endif
+    for (const bool down : {true, false}) {
+        SDL_Event e{};
+        e.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        e.key.windowID = SDL_GetWindowID(w);
+        e.key.scancode = s.sc, e.key.key = s.key, e.key.down = down;
+        e.key.mod = SDL_Keymod((s.ctrl ? ctrl : 0) | (s.sc == SDL_SCANCODE_KP_MINUS || s.sc == SDL_SCANCODE_KP_PLUS ? SDL_KMOD_NUM : 0));
+        SDL_PushEvent(&e);
+    }
+}
+
 void sdlWinTestPump() {
+    if (gHoverTest && gHost) return hoverTestPump();
+    if (gRowKeyTest && gHost) return rowKeyTestPump();
     if (gFramesArg > 0 && gHost && gHost->presentedFrames() >= gFramesArg && gWinTestMap.empty()) {
         std::printf("frames: %lld presented, %lld turns without a swapchain texture\n", gHost->presentedFrames(), gHost->missedFrames());
         gHost->quit();

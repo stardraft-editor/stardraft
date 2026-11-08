@@ -227,20 +227,16 @@ public:
     void place() {
         const int step = scale(stardraft::kit::kFormRowH), gap = scale(8);
         const CtPageRects L = ctPageLayout(width(), height(), !note_.text().empty(), entries_.contentHeight(), ctEditorHeight(m_, step, gap));
-        setRect(side_, L.side);
-        setRect(triggersFrame_, L.list);
-        setRect(note_, L.note);
-        setRect(head_, L.head);
+        side_.setFrame(L.side);
+        triggersFrame_.setFrame(L.list);
+        note_.setFrame(L.note);
+        head_.setFrame(L.head);
         ctPlaceHead(head_, L.rightW);
-        setRect(entriesFrame_, L.entries);
-        setRect(editor_, L.editor);
+        entriesFrame_.setFrame(L.entries);
+        editor_.setFrame(L.editor);
     }
 
 private:
-    static void setRect(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
-    }
     static std::vector<std::wstring> filterNames(const SdlClassicTrigModel& m) {
         std::vector<std::wstring> names;
         std::vector<int> groups;

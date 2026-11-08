@@ -8,8 +8,11 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <tuple>
+#include <unordered_map>
+#include <vector>
 
 #include "stardraft/game_data.h"
 #include "stardraft/sprites.h"
@@ -140,6 +143,10 @@ uint32_t mipCount(uint32_t w, uint32_t h) {
 struct Renderer::Impl {
     SDL_Window* window = nullptr;
     SDL_GPUDevice* device = nullptr;
+    std::string skipped;           // setSkippedDrivers
+    const char* tried = "";        // driverTried
+    std::string preferred;         // setPreferredDriver
+    void (*tryHook)(const char*) = nullptr;  // setTryHook
     SDL_GPUTextureFormat colorFormat = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
     bool pipelinesReady = false;  // made for colorFormat
     SDL_GPUTexture* offscreen = nullptr;
@@ -172,11 +179,21 @@ struct Renderer::Impl {
     float hdAtlasW = 0, hdAtlasH = 0, hdTile = 0, hdCols = 1;
     SDL_GPUTexture* sdAtlas = nullptr;
     float sdAtlasW = 0, sdAtlasH = 0, sdCols = 1;
-    std::vector<uint16_t> pendingTerrain;
-    bool terrainDirty = false;
+    std::vector<uint16_t> pendingTerrain;  // what the tile index shows: baseTerrain with the preview's cells
+    bool terrainDirty = false;  // the tile index needs pendingTerrain: all of it (terrainAll), else terrainBox's tiles
+    bool terrainAll = true;
+    int terrainBox[4] = {};  // (left, top, right, bottom: tiles, right and bottom past the box)
     std::vector<uint16_t> baseTerrain;                      // megatile per map tile, from updateTerrain
     std::vector<std::pair<int, uint16_t>> terrainPreview;  // (tile, megatile) shown instead
+    std::vector<std::pair<int, uint16_t>> previewNext;     // (setTerrainPreview's: its memory kept)
     void applyTerrainPreview();
+    void terrainCellChanged(int i) {
+        const int x = mapW ? i % mapW : 0, y = mapW ? i / mapW : 0;
+        if (!terrainDirty) terrainDirty = true, terrainAll = false, terrainBox[0] = x, terrainBox[1] = y, terrainBox[2] = x + 1, terrainBox[3] = y + 1;
+        else if (!terrainAll)
+            terrainBox[0] = std::min(terrainBox[0], x), terrainBox[1] = std::min(terrainBox[1], y), terrainBox[2] = std::max(terrainBox[2], x + 1),
+            terrainBox[3] = std::max(terrainBox[3], y + 1);
+    }
 
     // Sources
     const GameData* data = nullptr;
@@ -191,8 +208,31 @@ struct Renderer::Impl {
     bool carbot = false, loadedCarbot = false;
     bool tilesetDirty = true;
 
-    std::map<int, ImageTex> images;
-    std::map<std::pair<int, int>, ImageTex> teamImages;  // (setExactTeamColors: an image in a color row's shades)
+    // The images by id: images.dat's, and UnitSprites::extraImage's (from kExtraImages). (A deque: an image's place
+    // stays when more come, as draw keeps pointers to them while it asks for others.)
+    std::deque<ImageTex> images, extraImages;
+    ImageTex& imageSlot(int id) {
+        std::deque<ImageTex>& list = id >= UnitSprites::kExtraImages ? extraImages : images;
+        const size_t at = size_t(id >= UnitSprites::kExtraImages ? id - UnitSprites::kExtraImages : id);
+        if (at >= list.size()) list.resize(at + 1);
+        return list[at];
+    }
+    int imagesResident = 0;  // (the images with a texture or SD frames: Stats)
+    // (setExactTeamColors: an image in a color row's shades; the key: the image's id << 16 | the row)
+    std::unordered_map<uint64_t, ImageTex> teamImages;
+    // The frame's lists, kept from frame to frame (their memory too).
+    struct Raw {
+        SDL_GPUTexture* diffuse;
+        SDL_GPUTexture* mask;
+        SDL_GPUTexture* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
+        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows, 3 those that bend what is under them
+        GpuInstance in;
+    };
+    struct Batch { SDL_GPUTexture* diffuse; SDL_GPUTexture* mask; SDL_GPUTexture* warp; uint32_t first, count; int order; };
+    std::vector<Raw> raw;
+    std::vector<uint32_t> rawOrder;  // (raw's indexes by batch)
+    std::vector<Batch> batches;
+    std::vector<GpuRect> rects;
     uint16_t exactTeam = 0;  // (a bit per owner)
     std::vector<AtlasPage> pages;
     bool pagesFull = false;  // (the next frame starts them again)
@@ -260,9 +300,11 @@ static SDL_PropertiesID deviceProperties() {
 }
 
 bool Renderer::Impl::createDevice(std::string& err) {
-    // Windows: Direct3D 12 on the video card, else Vulkan, else Direct3D 12 on WARP (the software device of Windows:
-    // slow, but the program starts on video cards that have neither). STARDRAFT_GPU_DRIVER "direct3d12", "vulkan" or
-    // "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
+    // Windows: Vulkan, else Direct3D 12 on the video card, else Direct3D 12 on WARP (the software device of Windows:
+    // slow, but the program starts on video cards that have neither). Vulkan first: an old video card's Direct3D 12
+    // (feature level 11_0, as the GeForce GTX 770's) stopped the whole computer (0.8.5). setPreferredDriver (Program
+    // options) goes first; the skipped drivers go only when no other is left. STARDRAFT_GPU_DRIVER "direct3d12",
+    // "vulkan" or "warp" asks for only that one. Elsewhere SDL picks Metal or Vulkan.
 #ifdef STARDRAFT_SHADERS_DXIL
     const char* asked = std::getenv("STARDRAFT_GPU_DRIVER");
     std::string only = asked ? asked : "";
@@ -284,8 +326,16 @@ bool Renderer::Impl::createDevice(std::string& err) {
         },
         &reasons);
     std::string errors;
-    for (const char* driver : {"direct3d12", "vulkan", "warp"}) {
+    std::vector<const char*> order = {"vulkan", "direct3d12", "warp"};
+    for (size_t i = 1; i < order.size(); ++i)
+        if (preferred == order[i]) std::rotate(order.begin(), order.begin() + std::ptrdiff_t(i), order.begin() + std::ptrdiff_t(i + 1));
+    std::vector<const char*> tries;
+    for (const char* d : order)
+        if (!only.empty() || ("," + skipped + ",").find(std::string(",") + d + ",") == std::string::npos) tries.push_back(d);
+    if (tries.empty()) tries = order;
+    for (const char* driver : tries) {
         if (!only.empty() && only != driver) continue;
+        if (tryHook) tryHook(driver);
         const bool vulkan = std::string(driver) == "vulkan";
         SDL_SetHint("STARDRAFT_D3D12_WARP", std::string(driver) == "warp" ? "1" : "0");  // (cmake/patch_sdl.cmake)
         SDL_PropertiesID props = deviceProperties();
@@ -295,7 +345,10 @@ bool Renderer::Impl::createDevice(std::string& err) {
         reasons.text.clear();
         device = SDL_CreateGPUDeviceWithProperties(props);
         SDL_DestroyProperties(props);
-        if (device) break;
+        if (device) {
+            tried = driver;
+            break;
+        }
         errors += std::string(errors.empty() ? "" : "; ") + driver + ": " + (reasons.text.empty() ? SDL_GetError() : reasons.text);
     }
     SDL_SetLogOutputFunction(reasons.next, reasons.nextData);
@@ -315,6 +368,7 @@ bool Renderer::Impl::createDevice(std::string& err) {
         err = std::string("SDL_CreateGPUDevice: ") + SDL_GetError();
         return false;
     }
+    tried = SDL_GetGPUDeviceDriver(device);
 #endif
     const SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(device);
     shaderFormat = formats & SDL_GPU_SHADERFORMAT_DXIL    ? SDL_GPU_SHADERFORMAT_DXIL
@@ -475,15 +529,15 @@ bool Renderer::initOffscreen(int width, int height, std::string& error) {
 }
 
 void Renderer::Impl::freeImages() {
-    for (auto& [id, t] : images) {
+    auto release = [&](ImageTex& t) {
         if (t.diffuse) SDL_ReleaseGPUTexture(device, t.diffuse);
         if (t.mask) SDL_ReleaseGPUTexture(device, t.mask);
-    }
-    for (auto& [key, t] : teamImages) {
-        if (t.diffuse) SDL_ReleaseGPUTexture(device, t.diffuse);
-        if (t.mask) SDL_ReleaseGPUTexture(device, t.mask);
-    }
-    images.clear(), teamImages.clear();
+    };
+    for (ImageTex& t : images) release(t);
+    for (ImageTex& t : extraImages) release(t);
+    for (auto& [key, t] : teamImages) release(t);
+    images.clear(), extraImages.clear(), teamImages.clear();
+    imagesResident = 0;
     freePages();
 }
 
@@ -494,8 +548,8 @@ void Renderer::Impl::freePages() {
         if (pg.mask) SDL_ReleaseGPUTexture(device, pg.mask);
     }
     pages.clear(), pageUploads.clear(), pagesFull = false;
-    for (auto* list : {&images})
-        for (auto& [id, t] : *list)
+    for (auto* list : {&images, &extraImages})
+        for (ImageTex& t : *list)
             for (ImageTex::Frame& f : t.frames) f.page = -1;
     for (auto& [key, t] : teamImages)
         for (ImageTex::Frame& f : t.frames) f.page = -1;
@@ -749,7 +803,7 @@ void Renderer::Impl::reloadTileset() {
     loadedQuality = quality;
     loadedCarbot = carbot;
     tilesetDirty = false;
-    terrainDirty = !pendingTerrain.empty();
+    terrainDirty = !pendingTerrain.empty(), terrainAll = true;
 }
 
 void Renderer::setQuality(GraphicsQuality q) {
@@ -758,6 +812,10 @@ void Renderer::setQuality(GraphicsQuality q) {
 GraphicsQuality Renderer::quality() const { return impl_->quality; }
 bool Renderer::hdArt() const { return impl_->bcTextures; }
 const char* Renderer::driver() const { return impl_->device ? SDL_GetGPUDeviceDriver(impl_->device) : ""; }
+void Renderer::setSkippedDrivers(const std::string& drivers) { impl_->skipped = drivers; }
+const char* Renderer::driverTried() const { return impl_->tried; }
+void Renderer::setTryHook(void (*hook)(const char*)) { impl_->tryHook = hook; }
+void Renderer::setPreferredDriver(const std::string& driver) { impl_->preferred = driver; }
 
 void Renderer::setCarbot(bool carbot) {
     if (impl_->carbot != carbot) impl_->carbot = carbot, impl_->tilesetDirty = true;
@@ -796,19 +854,27 @@ void Renderer::Impl::applyTerrainPreview() {
     pendingTerrain = baseTerrain;
     for (auto [i, mega] : terrainPreview)
         if (i >= 0 && size_t(i) < pendingTerrain.size()) pendingTerrain[size_t(i)] = mega;
-    terrainDirty = !pendingTerrain.empty();
+    terrainDirty = !pendingTerrain.empty(), terrainAll = true;
 }
 
+// A new preview: its old cells show the terrain again and its new cells the preview; only the box of these cells goes
+// to the tile index (not the whole map at each move of a doodad or a shape).
 void Renderer::setTerrainPreview(const std::vector<std::pair<int, uint16_t>>& cells) {
     Impl& r = *impl_;
-    std::vector<std::pair<int, uint16_t>> megas;
+    std::vector<std::pair<int, uint16_t>>& megas = r.previewNext;
+    megas.clear();
     for (auto [i, tile] : cells) {
         const int mega = r.tileset ? r.tileset->megatileFor(tile) : -1;
         if (mega > 0) megas.push_back({i, uint16_t(mega)});
     }
     if (megas == r.terrainPreview) return;
-    r.terrainPreview = std::move(megas);
-    r.applyTerrainPreview();
+    std::swap(r.terrainPreview, megas);
+    if (r.pendingTerrain.size() != r.baseTerrain.size()) return r.applyTerrainPreview();
+    const size_t n = r.pendingTerrain.size();
+    for (auto [i, mega] : megas)  // (the old preview)
+        if (i >= 0 && size_t(i) < n) r.pendingTerrain[size_t(i)] = r.baseTerrain[size_t(i)], r.terrainCellChanged(i);
+    for (auto [i, mega] : r.terrainPreview)
+        if (i >= 0 && size_t(i) < n) r.pendingTerrain[size_t(i)] = mega, r.terrainCellChanged(i);
 }
 
 void Renderer::Impl::ensureDepth(uint32_t w, uint32_t h) {
@@ -895,13 +961,14 @@ void Renderer::Impl::loadImage(int id, ImageTex& t, int row) {
 ImageTex* Renderer::Impl::image(int id, Clock::time_point frameStart, bool& pending) {
     pending = false;
     if (id < 0) return nullptr;
-    ImageTex& t = images[id];
+    ImageTex& t = imageSlot(id);
     if (!t.loaded) {
         if (msSince(frameStart) > loadBudgetMs) {
             pending = true;
             return nullptr;
         }
         loadImage(id, t);
+        imagesResident += t.diffuse != nullptr || t.sd;
     }
     return t.failed || (!t.diffuse && !t.sd) ? nullptr : &t;
 }
@@ -918,14 +985,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     const float mapPxH = std::max<float>(mapH * 32.0f, 1);
 
     // Build sprite instances bucketed by image (one draw per image; depth handles the order).
-    struct Raw {
-        SDL_GPUTexture* diffuse;
-        SDL_GPUTexture* mask;
-        SDL_GPUTexture* warp;  // the Warp Texture image (draw function 12), bound in the team mask's place
-        int order;  // 0 the terrain's (creep edges), 1 the others, 2 glows, 3 those that bend what is under them
-        GpuInstance in;
-    };
-    std::vector<Raw> raw;
+    raw.clear();
     raw.reserve(scene.sprites.size());
     const float viewL = cam.x, viewT = cam.y, viewR = cam.x + w / cam.zoom, viewB = cam.y + h / cam.zoom;
     for (const SpriteDraw& s : scene.sprites) {
@@ -969,7 +1029,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         // The owner's color row's own shades (the same GRP: the same box and frames, other places on the pages).
         if ((exactTeam >> std::min<int>(s.owner, 11) & 1) && t->sd && t->frames[fi].team && unitSprites && !s.ground && !s.terrain) {
             const int row = unitSprites->colorRow(s.owner);
-            ImageTex& e = teamImages[{s.image, row}];
+            ImageTex& e = teamImages[uint64_t(uint32_t(s.image)) << 16 | uint16_t(row)];
             if (!e.loaded) loadImage(s.image, e, row);
             // (the tinted picture until it is there)
             if (!e.failed && e.frames.size() == t->frames.size() && onPage(e, s.image, fi)) t = &e;
@@ -1020,22 +1080,26 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     // The terrain's sprites first (else the depth that they write would hide the shadows and circles over them), then
     // the others, then the sprites that bend what is under them (cloaks, the EMP shockwave: they read the picture of the
     // others), then glows in their own batches (additive pipeline; drawn last, as they write no depth).
-    std::map<std::tuple<int, SDL_GPUTexture*, SDL_GPUTexture*, SDL_GPUTexture*>, std::vector<GpuInstance>> buckets;
-    for (auto& [diffuse, mask, warp, order, in] : raw) buckets[{order, diffuse, mask, warp}].push_back(in);
-    std::vector<GpuInstance> instances;
-    instances.reserve(raw.size());
-    struct Batch { SDL_GPUTexture* diffuse; SDL_GPUTexture* mask; SDL_GPUTexture* warp; uint32_t first, count; int order; };
-    std::vector<Batch> batches;
-    for (auto& [key, list] : buckets) {
-        batches.push_back({std::get<1>(key), std::get<2>(key), std::get<3>(key), uint32_t(instances.size()), uint32_t(list.size()), std::get<0>(key)});
-        instances.insert(instances.end(), list.begin(), list.end());
+    // (raw's indexes sorted by batch, in the order the sprites came within one; the instances go to the upload in this
+    // order)
+    rawOrder.resize(raw.size());
+    for (size_t i = 0; i < raw.size(); ++i) rawOrder[i] = uint32_t(i);
+    auto key = [&](uint32_t i) { return std::make_tuple(raw[i].order, raw[i].diffuse, raw[i].mask, raw[i].warp, i); };
+    std::sort(rawOrder.begin(), rawOrder.end(), [&](uint32_t a, uint32_t b) { return key(a) < key(b); });
+    batches.clear();
+    for (uint32_t k = 0; k < uint32_t(rawOrder.size()); ++k) {
+        const Raw& r = raw[rawOrder[k]];
+        if (batches.empty() || batches.back().order != r.order || batches.back().diffuse != r.diffuse || batches.back().mask != r.mask ||
+            batches.back().warp != r.warp)
+            batches.push_back({r.diffuse, r.mask, r.warp, k, 0, r.order});
+        ++batches.back().count;
     }
     // Only a scene with such sprites draws into the backdrop first (and then copies it to the target).
     const bool bends = !batches.empty() && batches.back().order == 3 && ensureBackdrop(w, h);
-    stats.sprites = int(instances.size());
+    stats.sprites = int(raw.size());
 
     // Overlays -> screen-space rects (outlines become 4 thin rects, text becomes glyph quads).
-    std::vector<GpuRect> rects;
+    rects.clear();
     auto toScreen = [&](float x, float y, bool world, float& sx, float& sy) {
         sx = world ? (x - cam.x) * cam.zoom : x;
         sy = world ? (y - cam.y) * cam.zoom : y;
@@ -1082,6 +1146,8 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
         float sx, sy;
         toScreen(td.x, td.y, td.world, sx, sy);
         if (sx > w || sy > h) continue;
+        char* text = const_cast<char*>(td.text.c_str());
+        if (sx + (stb_easy_font_width(text) + 1) * td.scale + 1 < 0 || sy + (stb_easy_font_height(text) + 1) * td.scale + 1 < 0) continue;  // (and its shadow)
         int quads = stb_easy_font_print(0, 0, const_cast<char*>(td.text.c_str()), nullptr, glyphBuf.data(), int(glyphBuf.size()));
         // Shadow first, then the text.
         for (int pass = 0; pass < 2; ++pass)
@@ -1095,22 +1161,33 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     }
 
     // Uploads: terrain indices (if changed), instances, rects.
-    uint32_t instBytes = uint32_t(instances.size() * sizeof(GpuInstance));
+    uint32_t instBytes = uint32_t(raw.size() * sizeof(GpuInstance));
     uint32_t rectBytes = uint32_t(rects.size() * sizeof(GpuRect));
-    uint32_t terrainBytes = terrainDirty ? uint32_t(pendingTerrain.size() * 2) : 0;
     if (terrainDirty && (!tileIndex || tileIndexW != mapW || tileIndexH != mapH)) {  // the map's size changed
         if (tileIndex) SDL_ReleaseGPUTexture(device, tileIndex);
         tileIndex = createTexture(SDL_GPU_TEXTUREFORMAT_R16_UINT, mapW, mapH, 1, SDL_GPU_TEXTUREUSAGE_SAMPLER);
         tileIndexW = mapW, tileIndexH = mapH;
+        terrainAll = true;
     }
+    // (the whole map, or only the box of the tiles that changed: a preview's cells)
+    const bool part = terrainDirty && !terrainAll && pendingTerrain.size() == size_t(mapW) * mapH;
+    const int tx0 = part ? std::clamp(terrainBox[0], 0, int(mapW)) : 0, ty0 = part ? std::clamp(terrainBox[1], 0, int(mapH)) : 0;
+    const int tw = part ? std::clamp(terrainBox[2], tx0, int(mapW)) - tx0 : mapW, th = part ? std::clamp(terrainBox[3], ty0, int(mapH)) - ty0 : mapH;
+    uint32_t terrainBytes = !terrainDirty ? 0 : part ? uint32_t(tw * th * 2) : uint32_t(pendingTerrain.size() * 2);
+    if (terrainDirty && terrainBytes == 0) terrainDirty = false;  // (an empty box)
     if (instBytes) ensureBuffer(instanceBuf, instanceCap, instBytes);
     if (rectBytes) ensureBuffer(rectBuf, rectCap, rectBytes);
     uint32_t total = instBytes + rectBytes + terrainBytes;
     if (total && ensureUpload(total)) {
         uint8_t* p = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(device, uploadBuf, true));
-        std::memcpy(p, instances.data(), instBytes);
+        GpuInstance* inst = reinterpret_cast<GpuInstance*>(p);
+        for (uint32_t i : rawOrder) std::memcpy(inst++, &raw[i].in, sizeof(GpuInstance));  // (batch by batch)
         std::memcpy(p + instBytes, rects.data(), rectBytes);
-        if (terrainBytes) std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
+        if (terrainBytes && part)
+            for (int y = 0; y < th; ++y)
+                std::memcpy(p + instBytes + rectBytes + size_t(y) * tw * 2, pendingTerrain.data() + size_t(ty0 + y) * mapW + tx0, size_t(tw) * 2);
+        else if (terrainBytes)
+            std::memcpy(p + instBytes + rectBytes, pendingTerrain.data(), terrainBytes);
         SDL_UnmapGPUTransferBuffer(device, uploadBuf);
         SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
         if (instBytes) {
@@ -1127,11 +1204,12 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
             SDL_GPUTextureTransferInfo src{};
             src.transfer_buffer = uploadBuf;
             src.offset = instBytes + rectBytes;
+            src.pixels_per_row = uint32_t(tw), src.rows_per_layer = uint32_t(th);
             SDL_GPUTextureRegion dst{};
             dst.texture = tileIndex;
-            dst.w = mapW, dst.h = mapH, dst.d = 1;
+            dst.x = uint32_t(tx0), dst.y = uint32_t(ty0), dst.w = uint32_t(tw), dst.h = uint32_t(th), dst.d = 1;
             SDL_UploadToGPUTexture(copy, &src, &dst, false);
-            terrainDirty = false;
+            terrainDirty = false, terrainAll = false;
         }
         SDL_EndGPUCopyPass(copy);
     }
@@ -1236,8 +1314,7 @@ bool Renderer::Impl::draw(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, uin
     }
     SDL_EndGPURenderPass(pass);
 
-    stats.imagesResident = 0;
-    for (auto& [id, t] : images) stats.imagesResident += t.diffuse != nullptr || t.sd;
+    stats.imagesResident = imagesResident;
     stats.cpuMs = msSince(frameStart);
     return true;
 }

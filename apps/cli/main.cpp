@@ -407,6 +407,9 @@ std::string doodadName(const Editor& ed, const DoodadType& t) {
 const char* controllerName(Editor::Controller c) {
     switch (c) {
     case Editor::Controller::Inactive: return "inactive";
+    case Editor::Controller::GameComputer: return "game_computer";
+    case Editor::Controller::Occupied: return "occupied";
+    case Editor::Controller::Unused: return "unused";
     case Editor::Controller::Rescue: return "rescue";
     case Editor::Controller::Computer: return "computer";
     case Editor::Controller::Human: return "human";
@@ -420,8 +423,11 @@ const char* raceName(Editor::Race r) {
     case Editor::Race::Zerg: return "zerg";
     case Editor::Race::Terran: return "terran";
     case Editor::Race::Protoss: return "protoss";
+    case Editor::Race::Independent: return "independent";
+    case Editor::Race::Neutral: return "neutral";
     case Editor::Race::UserSelect: return "user_select";
     case Editor::Race::Random: return "random";
+    case Editor::Race::Inactive: return "inactive";
     }
     return "unknown";
 }
@@ -431,7 +437,15 @@ const char* raceName(Editor::Race r) {
 Json playerJson(const Editor& ed, int p) {
     const Editor::Player pl = ed.player(p);
     Obj o;
-    o.add("player", p + 1).add("controller", controllerName(pl.controller)).add("race", raceName(pl.race)).add("force", pl.force + 1);
+    // (a byte with no name: its number)
+    const std::string ctrl = controllerName(pl.controller), race = raceName(pl.race);
+    o.add("player", p + 1);
+    if (ctrl == "unknown") o.add("controller", int(pl.controller));
+    else o.add("controller", ctrl);
+    if (race == "unknown") o.add("race", int(pl.race));
+    else o.add("race", race);
+    if (p >= 8) return o;  // (players 9-12: no force, no color)
+    o.add("force", pl.force + 1);
     switch (pl.color.kind) {
     case Editor::PlayerColor::Random: o.add("color", "random"); break;
     case Editor::PlayerColor::Choice: o.add("color", "choice"); break;
@@ -441,7 +455,10 @@ Json playerJson(const Editor& ed, int p) {
         o.add("color", b);
         break;
     }
-    case Editor::PlayerColor::Id: o.add("color", Editor::colorIdName(pl.color.id)); break;
+    case Editor::PlayerColor::Id:
+        if (pl.color.id < Editor::kColorIds) o.add("color", Editor::colorIdName(pl.color.id));
+        else o.add("color", int(pl.color.id));
+        break;
     }
     return o;
 }
@@ -859,30 +876,36 @@ Json applyOp(Editor& ed, const Json& op, const std::vector<ClassicAiScript>& ai)
         return r;
     }
     if (name == "set_player") {
-        const int p = player(op, "player", 8);
+        const int p = player(op, "player", 12);
         Editor::Player pl = ed.player(p);
+        // (a number 0-255: the byte as it is, as the Players page's typed value)
+        auto byteOf = [](const Json& c, const char* what) {
+            if (c.n < 0 || c.n > 255 || c.n != double(int(c.n))) fail(std::string(what) + " must be a number from 0 to 255");
+            return uint8_t(c.n);
+        };
         if (const Json* c = op.get("controller")) {
             const std::string s = lower(c->s);
             bool ok = false;
-            for (auto v : {Editor::Controller::Inactive, Editor::Controller::Rescue, Editor::Controller::Computer, Editor::Controller::Human,
-                           Editor::Controller::Neutral, Editor::Controller::Closed})
-                if (s == controllerName(v)) pl.controller = v, ok = true;
-            if (!ok) fail("controller must be human, computer, rescue, neutral, closed or inactive");
+            if (c->type == Json::Type::Number) pl.controller = Editor::Controller(byteOf(*c, "controller")), ok = true;
+            for (int v = 0; v <= 8 && !ok; ++v)
+                if (s == controllerName(Editor::Controller(v))) pl.controller = Editor::Controller(v), ok = true;
+            if (!ok) fail("controller must be human, computer, rescue, neutral, closed, inactive, game_computer, occupied, unused or 0-255");
         }
         if (const Json* c = op.get("race")) {
             const std::string s = lower(c->s);
             bool ok = false;
-            for (auto v : {Editor::Race::Zerg, Editor::Race::Terran, Editor::Race::Protoss, Editor::Race::UserSelect, Editor::Race::Random})
-                if (s == raceName(v)) pl.race = v, ok = true;
-            if (!ok) fail("race must be zerg, terran, protoss, user_select or random");
+            if (c->type == Json::Type::Number) pl.race = Editor::Race(byteOf(*c, "race")), ok = true;
+            for (int v = 0; v <= 7 && !ok; ++v)
+                if (s == raceName(Editor::Race(v))) pl.race = Editor::Race(v), ok = true;
+            if (!ok) fail("race must be zerg, terran, protoss, independent, neutral, user_select, random, inactive or 0-255");
         }
+        if (p >= 8 && (op.get("force") || op.get("color"))) fail("players 9-12 have no force and no color");
         if (op.get("force")) pl.force = player(op, "force", 4);
         if (const Json* c = op.get("color")) {
             const std::string s = lower(c->s);
-            if (c->type == Json::Type::Number) pl.color = {Editor::PlayerColor::Id, uint8_t(std::clamp(int(c->n), 0, Editor::kColorIds - 1)), 0};
+            if (c->type == Json::Type::Number) pl.color = {Editor::PlayerColor::Id, byteOf(*c, "color"), 0};
             else if (s == "random") pl.color.kind = Editor::PlayerColor::Random;
             else if (s == "choice") pl.color.kind = Editor::PlayerColor::Choice;
-            else if (s.size() == 7 && s[0] == '#') pl.color = {Editor::PlayerColor::Custom, 0, uint32_t(std::strtoul(s.c_str() + 1, nullptr, 16))};
             else {
                 bool ok = false;
                 for (int id = 0; id < Editor::kColorIds; ++id)
@@ -1514,13 +1537,14 @@ void checkStartLocations(Session& s, const Editor& ed) {
 Json cmdSave(Session& s) {
     const Target t = resolve(s.args.positional.at(0));
     Work w = loadWork(t);  // (first: a map that is not open gives that error)
-    checkStartLocations(s, s.load(t));
+    Editor& ed = s.load(t);
+    checkStartLocations(s, ed);
     const fs::path dst = s.args.has("to") ? fs::absolute(upath(s.args.get("to"))) : w.source;
     const bool toSource = samePath(dst, w.source);
     if (toSource && fileStamp(w.source) != w.stamp && !s.args.has("force"))
         fail(ustr(w.source) + " changed after `open` (another program saved it): `save --force` writes over it, or `save --to` "
              "writes another file");
-    const Bytes chk = readBytes(w.current());
+    const Bytes chk = ed.savedChk();  // (the working copy, with the slots the game reads: Editor::gameSlots)
     if (isChk(dst)) {
         writeBytes(dst, chk);
     } else {
@@ -1630,7 +1654,7 @@ const char* kOps = R"OPS([
   {"op": "create_location", "params": {"area": "[left, top, right, bottom] px", "name": "text"}, "result": {"location": "its number"}},
   {"op": "set_location", "params": {"location": "number", "name": "text", "area": "[left, top, right, bottom] px", "excluded_elevations": "bits: 1 low, 2 medium, 4 high ground, 8 low, 16 medium, 32 high air"}},
   {"op": "delete_location", "params": {"location": "number"}},
-  {"op": "set_player", "params": {"player": "1-8", "controller": "human | computer | rescue | neutral | closed | inactive", "race": "zerg | terran | protoss | user_select | random", "force": "1-4", "color": "a color name, 0-21, random, choice or #RRGGBB"}},
+  {"op": "set_player", "params": {"player": "1-12", "controller": "human | computer | rescue | neutral | closed | inactive | 0-255", "race": "zerg | terran | protoss | user_select | random | 0-255", "force": "1-4 (players 1-8)", "color": "a color name, 0-255, random or choice (players 1-8)"}},
   {"op": "set_force", "params": {"force": "1-4", "name": "text", "allies": "bool", "allied_victory": "bool", "shared_vision": "bool", "random_start": "bool"}},
   {"op": "set_scenario", "params": {"name": "text", "description": "text"}},
   {"op": "add_trigger", "params": {"trigger": {"players": "[1-8 or group names]", "conditions": "[{type, ...params}] (see trigger-types; none: Always)", "actions": "[{type, ...params}]", "disabled": "bool"}, "at": "index (default: the end)"}, "result": {"index": "its index"}},

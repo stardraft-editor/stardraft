@@ -89,28 +89,57 @@ void drawMapFrame(SDL_GPUCommandBuffer* cmd, int w, int h) {
     gRenderer->setPlayerColors(team);
     {  // (the palette's player list: each player's color square)
         extern kit::Dropdown gOwnerBox;  // (sdl_panels.inc)
-        std::vector<kit::DropdownItem> owners;
-        for (int i = 0; i < 12; ++i)
-            owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
-                              draw::rgb(int(team[i] >> 16 & 255), int(team[i] >> 8 & 255), int(team[i] & 255))});
+        void palettePanelsOwnerItems(const std::vector<kit::DropdownItem>& owners);  // (sdl_palette_panels.inc)
+        // (a Cosmonarchy map: more players, core/palette_tools.inc ownerChoices; made again only when a color or the
+        // number of players changed)
+        static std::vector<kit::DropdownItem> owners;
+        static uint32_t ownersTeam[12] = {};
+        static int ownersCount = -1;
+        if (const int count = ownerChoices(); count != ownersCount || !std::equal(team, team + 12, ownersTeam)) {
+            ownersCount = count, std::copy(team, team + 12, ownersTeam);
+            owners.clear();
+            for (int i = 0; i < count; ++i) {
+                const uint32_t c = team[std::min(i, 11)];
+                owners.push_back({L"Player " + std::to_wstring(i + 1) + (i == 11 ? L" (neutral)" : L""), -1, -1,
+                                  draw::rgb(int(c >> 16 & 255), int(c >> 8 & 255), int(c & 255))});
+            }
+        }
+        if (gState.playerOwner >= int(owners.size())) {  // (a standard map's tab: back to 12; the active panel keeps it)
+            gState.playerOwner = 11;
+            if (gActivePanel) gActivePanel->owner = 11;
+        }
+        palettePanelsOwnerItems(owners);
         bool same = gOwnerBox.items().size() == owners.size();
         for (size_t i = 0; same && i < owners.size(); ++i) same = gOwnerBox.items()[i].swatch == owners[i].swatch;
         if (!same) {  // (setItems closes an open list: only when a color changed)
-            const int v = gOwnerBox.value();
-            gOwnerBox.setItems(std::move(owners));
-            gOwnerBox.setValue(v);
+            gOwnerBox.setItems(owners);
+            gOwnerBox.setValue(gState.playerOwner);
         }
     }
     // (a mod's colors: their own shades, Rainbow as the game shows it; a custom RGB color has no row: tinted)
     uint16_t exact = 0;
-    if (modTab())
-        for (int i = 0; i < 12; ++i) exact |= uint16_t((i >= 8 || ed.player(i).color.kind != Editor::PlayerColor::Custom) << i);
+    if (modTab()) {  // (the players' colors of the map's revision)
+        static const Editor* exactFor = nullptr;
+        static uint64_t exactRev = ~0ull;
+        static uint16_t exactBits = 0;
+        if (exactFor != &ed || exactRev != ed.revision()) {
+            exactFor = &ed, exactRev = ed.revision(), exactBits = 0;
+            for (int i = 0; i < 12; ++i) exactBits |= uint16_t((i >= 8 || ed.player(i).color.kind != Editor::PlayerColor::Custom) << i);
+        }
+        exact = exactBits;
+    }
     gRenderer->setExactTeamColors(exact);
     // The scene (core/map_scene.inc), with the units' idle animations at the game's speed (View > Animate units).
     if (gState.animate) advanceAnims();
     const render::Scene scene = buildScene();
-    gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : std::vector<std::pair<int, uint16_t>>{});
+    static const std::vector<std::pair<int, uint16_t>> kNoTiles;
+    gRenderer->setTerrainPreview(gState.mouseIn ? ghostTiles : kNoTiles);  // (both lists by reference: no copy each frame)
     gRenderer->drawTo(cmd, gMapTex, uint32_t(w), uint32_t(h), scene);
+    {  // (the map's frames of the last second: the debug build's status bar shows them as fps)
+        const auto now = std::chrono::steady_clock::now();
+        gState.frameTimes.push_back(now);
+        while (now - gState.frameTimes.front() > std::chrono::seconds(1)) gState.frameTimes.pop_front();
+    }
     mapFrameDone(gState);  // the title, the Locations list and the status bar (core/map_scene.inc)
 }
 
@@ -316,7 +345,9 @@ struct MapView final : draw::View {
     // the resize cursors on the selected location's edges and corners), as the Windows map view's mapCursorAt.
     draw::Cursor cursor(draw::Point pt) override {
         if (panning) return draw::Cursor::SizeAll;
-        return open() ? mapCursorAt(gState, pt.x, pt.y) : draw::Cursor::Arrow;
+        if (!open()) return draw::Cursor::Arrow;
+        const draw::Cursor c = mapCursorAt(gState, pt.x, pt.y);
+        return c == draw::Cursor::Fill && simBarShown() ? draw::Cursor::Arrow : c;  // (a live game: left clicks do not fill)
     }
     // Each frame (drawMapOfRoot): Pan map moves the camera toward the mouse (core/map_input.inc). `dt`: the seconds
     // since the last step (a test gives them; else the clock's).
@@ -361,6 +392,7 @@ struct MapView final : draw::View {
 
 // The shortcuts and the menus (sdl_menus.inc).
 bool shortcutRun(const draw::KeyEvent& e);
+bool sdlEnabled(int id);  // (sdl_menus.inc)
 bool sequenceKey(const draw::KeyEvent& e);
 void menusIfDirty();
 bool sdlNativeMenuBar();  // (sdl_native_menus.inc: the menus are in the system's menu bar, macOS)
@@ -375,7 +407,9 @@ LogPaneView gLogPane;
 bool floatPaletteSync(Mode m, bool shown, bool alt, draw::Rect slot);
 void palettePanelsSync();  // (sdl_palette_panels.inc: the active tab's panels show in the Map workspace)
 
-// The main window: the menu bar, the top tool bar under it (core/views_topbar.inc), the document tabs, the workspace rail, the status bar, the map view with its minimap and
+void paintTabDrag(draw::Canvas& c);  // (sdl_palette_panels.inc: a side bar tab's drag, over the main window)
+
+// The main window: the menu bar, the document tabs under it, the top tool bar (core/views_topbar.inc), the workspace rail, the status bar, the map view with its minimap and
 // the panes that are not on this system yet, placed by computeLayout.
 struct MainView final : draw::View {
     kit::MenuBar menus;
@@ -440,7 +474,7 @@ struct MainView final : draw::View {
     // the workspace rail, the left side bar from the top down, the map (or the workspace's view), the right side bar from
     // the top down, then the Log's bar. (The status bar has nothing to click.)
     std::vector<View*> tabChildren() const override {
-        std::vector<View*> first{const_cast<kit::MenuBar*>(&menus), const_cast<TopBarView*>(&topBar), const_cast<TabsView*>(&tabs),
+        std::vector<View*> first{const_cast<kit::MenuBar*>(&menus), const_cast<TabsView*>(&tabs), const_cast<TopBarView*>(&topBar),
                                  const_cast<RailView*>(&rail)};
         std::vector<View*> rest;
         for (View* c : children())
@@ -522,6 +556,22 @@ struct MainView final : draw::View {
             if (!e.repeat) pieOpen();
             return pie.shown();
         }
+        // The number row in the Map workspace, by the key's place for any keyboard layout: 1 to 0 and the two keys
+        // after 0 (- and = on a US keyboard) are the players 1 to 12 (also with Shift: AZERTY's digits), before the
+        // zoom keys + and -; Ctrl (macOS: Cmd) with - zooms out, with + or = in (the layout's keys). The number pad's
+        // + and - still zoom. While a field types, a number row key that it does not take runs no shortcut (German ß
+        // or a dead key at those places).
+        const bool ctrl = (e.mods & (draw::kCtrl | draw::kSuper)) != 0;
+        const bool padZoom = !e.numberRow && !ctrl && (e.key == draw::Key::Minus || e.key == draw::Key::Plus);  // (the number pad's)
+        const bool zoomKey = padZoom || (ctrl && (e.key == draw::Key::Minus || e.key == draw::Key::Plus || e.key == draw::Key::Equals));
+        if (typing && e.numberRow && !ctrl && !(e.mods & draw::kAlt)) return false;
+        if ((e.numberRow || zoomKey) && e.down && !typing && gWorkspace == Workspace::Map && !(e.mods & draw::kAlt)) {
+            const int id = zoomKey ? (e.key == draw::Key::Minus ? ID_VIEW_ZOOMOUT : ID_VIEW_ZOOMIN) : !ctrl ? ID_PLAYER_1 + e.numberRow - 1 : 0;
+            if (id && sdlEnabled(id)) {
+                if (!e.repeat) command(id);  // (as the shortcuts: a held key runs once)
+                return true;
+            }
+        }
         if (shortcutRun(e)) return true;  // (the menus' keys first, as the Windows accelerators run before the map's keys)
         // The map's keys (Esc, R, the arrows) run only when the map has the keyboard, or no view has it (as the Windows
         // map window's WM_KEYDOWN): Left or Right in a list does not move the selected units.
@@ -579,6 +629,8 @@ struct MainView final : draw::View {
     // The minimap's bottom edge (splitter 2): the height cursor; a drag changes its height (more room for the panel
     // under it, or a bigger minimap); a double click gives it the map's shape again.
     draw::Rect splitters[3] = {};
+    draw::Rect docks[2], mapAt;  // the side bars' columns (empty: the side takes no room) and the map, in the Map workspace
+    void paintOver(draw::Canvas& c) override { paintTabDrag(c); }  // (a tab's drag: its drop target and its ghost)
     int splitDrag = -1, splitGrab = 0;
     int splitAt(draw::Point pt) const {
         for (int i = 0; i < 3; ++i)
@@ -648,7 +700,8 @@ struct MainView final : draw::View {
     }
 
     // The map's own keys (the Windows map's WM_KEYDOWN; the core's functions, core/map_input.inc): Esc stops the step
-    // or clears the selection, R and Shift+R turn the terrain to paste, the arrows move the selected units or the view.
+    // or clears the selection, R and Shift+R turn what is on the cursor (M and Shift+M mirror it), the arrows move the
+    // selected units or the view.
     bool mapKey(const draw::KeyEvent& e) {
         const bool arrow = e.key == draw::Key::Left || e.key == draw::Key::Right || e.key == draw::Key::Up || e.key == draw::Key::Down;
         if (!map.open() || (e.mods & draw::kAlt) || ((e.mods & draw::kCtrl) && !arrow)) return false;
@@ -658,7 +711,14 @@ struct MainView final : draw::View {
             if (mapCancelStep(gState))
                 if (draw::Host* h = host()) h->capture(map, false);
             break;
-        case draw::Key('R'): mapTurnPaste(gState, shift); break;
+        case draw::Key('R'):  // (turn what is on the cursor; Terrain mode: or say what can be)
+            if (gState.mode != Mode::Terrain && !cursorTurnable(gState)) return false;
+            mapTurnPaste(gState, shift);
+            break;
+        case draw::Key('M'):  // (mirror what is on the cursor; else the key is not the map's)
+            if (!cursorTurnable(gState)) return false;
+            mapMirrorPaste(gState, shift);
+            break;
         case draw::Key::Left:
         case draw::Key::Right:
         case draw::Key::Up:
@@ -704,10 +764,11 @@ struct MainView final : draw::View {
     // The menu bar's height; the top tool bar is under it (as the Windows menu and its top bar).
     // macOS: none, the menus are in the system's menu bar (sdl_native_menus.inc).
     static int menuBarHeight() { return sdlNativeMenuBar() ? 0 : scale(28); }
-    // The modes' bar: in the top tool bar, after its icons (core/views_topbar.inc), in the window's coordinates.
+    // The modes' bar: in the top tool bar, after its icons (core/views_topbar.inc), in the window's coordinates (the tool
+    // bar is under the menus and the tabs).
     RECT modeBarRect() const {
         RECT r = topBarModesRect();
-        r.top += menuBarHeight(), r.bottom += menuBarHeight();
+        r.top += menuBarHeight() + tabStripHeight(), r.bottom += menuBarHeight() + tabStripHeight();
         return r;
     }
 
@@ -749,8 +810,12 @@ struct MainView final : draw::View {
         in.hasPal3 = true;
         in.pal3Shown = gPal3Shown, in.pal3Mode = gPal3Mode;
         for (int k = 0; k < kModeCount; ++k) in.floats[k] = paletteFloats(Mode(k));  // (a floating panel has no tab)
+        const std::vector<Mode> order = dockTabOrder(gDock);
+        std::copy(order.begin(), order.end(), in.order);
         const MainLayout L = computeLayout(in);
         for (int i = 0; i < 3; ++i) splitters[i] = mapWs ? draw::Rect(L.splitters[i]) : draw::Rect{};
+        for (int i = 0; i < 2; ++i) docks[i] = mapWs ? draw::Rect(L.dockRects[i]) : draw::Rect{};
+        mapAt = mapWs ? draw::Rect(L.view.rc) : draw::Rect{};
         // The state the layout sets (as the Win32 layout): the sides' tabs, the second palette's mode and its shown state.
         gPanelTab[0] = L.panelTab[0], gPanelTab[1] = L.panelTab[1];
         gPal2Shown = L.palette2.visible;
@@ -776,12 +841,14 @@ struct MainView final : draw::View {
         if (owners) gOwnerBox.setValue(panelFresh(dockedPanel(m)).owner);  // (its panel's player)
         const bool sections = m == Mode::Units || m == Mode::Doodads || m == Mode::Sprites;
         const bool toolsRight = gDock.toolsRight[int(m)];
-        PaneSlot menuSlot = L.topBar, barSlot = L.topBar;  // the menus, then the tool bar under them
+        // The top, down: the menus, the tabs, the tool bar (the layout gives the three one height: L.topBar and L.tabs).
+        PaneSlot menuSlot = L.topBar, tabsSlot = L.tabs, barSlot = L.topBar;
         menuSlot.rc.bottom = menuSlot.rc.top + menuBarHeight();
-        barSlot.rc.top = menuSlot.rc.bottom;
+        tabsSlot.rc.top = menuSlot.rc.bottom, tabsSlot.rc.bottom = tabsSlot.rc.top + (L.tabs.rc.bottom - L.tabs.rc.top);
+        barSlot.rc.top = tabsSlot.rc.bottom, barSlot.rc.bottom = L.tabs.rc.bottom;
         apply(menus, menuSlot, !sdlNativeMenuBar());
+        apply(tabs, tabsSlot, true);
         apply(topBar, barSlot, true);
-        apply(tabs, L.tabs, true);
         apply(rail, L.wsRail, shellHasRail());
         apply(status, L.status, true);
         apply(gLogPane, L.log, true);
@@ -1080,6 +1147,7 @@ void registerWorkspaceView(Workspace w, draw::View& v) {
 
 // The frame hook's map work (the window's map view size, in pixels).
 void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
+    gState.dirty = false;  // (a change that sets it gets this frame; one in this frame, the next: sdlFrameClock)
     if (!gRoot) return;
     menusIfDirty();
     const int w = gRoot->map.width(), h = gRoot->map.height();
@@ -1087,5 +1155,7 @@ void drawMapOfRoot(SDL_GPUCommandBuffer* cmd) {
     if (gCenterUnitPending >= 0 && w > 0 && h > 0) unitsListCenter(gCenterUnitPending), gCenterUnitPending = -1;
     simFrame();  // (a live game: its frames for the time that went by)
     gRoot->map.panStep();  // (Options > Middle mouse click and hold > Pan map: the map moves toward the mouse)
-    if (gWorkspace == Workspace::Map) drawMapFrame(cmd, w, h);  // (the other workspaces hide the map: no frame)
+    // (the other workspaces hide the map: no frame; nor when only other views paint, as a hover over the side bar or
+    // a palette window: SdlHost::paintsNow)
+    if (gWorkspace == Workspace::Map && (!gHost || gHost->paintsNow(gRoot->map))) drawMapFrame(cmd, w, h);
 }

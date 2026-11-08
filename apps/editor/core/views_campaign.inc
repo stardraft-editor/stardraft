@@ -22,7 +22,7 @@ public:
           open_(L"Open", stardraft::kit::Tone::Primary, [this] { openSelected(); }),
           copyData_(L"Copy its data into the open map", stardraft::kit::Tone::Normal, [this] { copyInto(false); }),
           copyTerrain_(L"Copy its terrain into the open map", stardraft::kit::Tone::Normal, [this] { copyInto(true); }) {
-        title_.setFont({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)});
+        title_.setFont(kitpaint::titleFontDesc());
         note_.setTone(stardraft::kit::LabelTone::Dim);
         note_.setWrap(true);
         list_.label = [](int i) {

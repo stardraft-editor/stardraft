@@ -193,6 +193,7 @@ void sdlSetLook(bool light, int accent) {
 void sdlFollowSystemLook() {
     if (!sdlSystemLookChanged()) return;
     applyThemeSdl(gLightTheme, gAccentIndex, false);
+    kit_sdl::SdlHost::wake();  // (every window paints in the new look, as after an event)
 }
 
 // --- The window ------------------------------------------------------------------------------------------------------

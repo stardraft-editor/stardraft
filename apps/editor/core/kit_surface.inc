@@ -19,6 +19,7 @@ struct Hit {
     std::wstring tip;
     draw::Cursor cursor = draw::Cursor::Hand;
     std::function<void()> release;  // after a drag, when the mouse goes up
+    std::wstring name;              // what Report feedback names here, when it is not the tip
 };
 
 // A list being reordered (reorderRow): which list, the row taken and where it goes now.
@@ -117,7 +118,7 @@ public:
         case draw::MouseKind::DoubleClick: {
             if (e.button != 0) return false;
             mouse_ = e.pt, in_ = true;
-            v.focus();
+            if (v.focusable()) v.focus();
             const Hit* h = at(e.pt);
             focus.pressed();  // (no outline after a click; Tab goes on from the part clicked)
             const auto s = stops();
@@ -156,6 +157,14 @@ public:
         for (const Hit& h : hits)
             if (!h.tip.empty() && h.r.contains(pt)) return h.tip;
         return {};
+    }
+    // Whether two points are on the same part that acts (a view's sameItem: a quick press on another part is a new press).
+    bool sameItem(draw::Point a, draw::Point b) const { return at(a) == at(b); }
+    // What Report feedback names at `pt`: the part's name, else its tip.
+    std::wstring feedbackName(draw::Point pt) const {
+        for (auto it = hits.rbegin(); it != hits.rend(); ++it)
+            if (it->r.contains(pt) && !it->name.empty()) return it->name;
+        return tip(pt);
     }
 
 private:
@@ -288,16 +297,7 @@ inline void reorderRow(draw::Canvas& c, Surface& s, const std::string& list, dra
     if (!can) return;
     Surface* sp = &s;
     s.add({g,
-           [sp, list, index](draw::Point pt) {
-               const auto& rs = sp->reorderRows[list];
-               int to = int(rs.size());
-               for (size_t i = 0; i < rs.size(); ++i)
-                   if (pt.y < (rs[i].top + rs[i].bottom) / 2) {
-                       to = int(i);
-                       break;
-                   }
-               sp->reorder = {list, index, to};
-           },
+           [sp, list, index](draw::Point pt) { sp->reorder = {list, index, kitpaint::dropIndex(sp->reorderRows[list], pt.y)}; },
            nullptr, L"Drag to move", draw::Cursor::SizeAll,
            [sp, moved] {
                const Reorder r = std::exchange(sp->reorder, {});

@@ -87,19 +87,6 @@ inline ListPickRows listPickRows(const std::vector<ListPickItem>& items, const s
     return out;
 }
 
-// The mouse wheel over a dropdown: the item next to the current one (step 1) or the one before (-1), with no list. False
-// when there is none (the end of the list, or no items).
-inline bool listPickWheelStep(const std::vector<ListPickItem>& items, const std::string& current, int step, std::string& out) {
-    if (items.empty()) return false;
-    int k = -1;
-    for (int i = 0; i < int(items.size()); ++i)
-        if (items[size_t(i)].value == current) k = i;
-    const int next = k < 0 ? 0 : std::clamp(k + step, 0, int(items.size()) - 1);
-    if (next == k) return false;
-    out = items[size_t(next)].value;
-    return true;
-}
-
 // The layout is the native picker's, in pixels at 100 % (scaled), from the window's outer top left corner (the window
 // has a 1 px border: the view's coordinates are the client area's, 1 px in, as the native child windows' were).
 namespace listPickLayout {
@@ -394,7 +381,7 @@ private:
             return;
         }
         if (idx < 0) {
-            const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 5 / 6)}));  // (ui::smallFont)
+            const draw::Font of = c.setFont(c.font(kitpaint::smallFontDesc()));  // (ui::smallFont)
             c.text({r.left + scale(10), r.top + scale(6), r.right - scale(10), r.bottom}, rows_.headings[size_t(-idx - 1)], kDim, draw::kMiddle | draw::kEllipsis);
             c.setFont(of);
             return;

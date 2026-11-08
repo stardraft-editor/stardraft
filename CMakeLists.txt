@@ -100,6 +100,8 @@ add_library(stardraft
     src/strings.cpp
     src/locations.cpp
     src/doodads.cpp
+    src/bridges.cpp
+    src/ramps.cpp
     src/hd_assets.cpp
     src/hd_preview.cpp
     src/png_writer.cpp
@@ -120,6 +122,7 @@ add_library(stardraft
     src/project_import.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
+    src/passages.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp
@@ -141,17 +144,14 @@ else()
     target_compile_options(stardraft PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
 endif()
 
-add_executable(chk_survey tools/chk_survey.cpp)
-target_link_libraries(chk_survey PRIVATE stardraft)
-
-add_executable(casc_ls tools/casc_ls.cpp)
-target_link_libraries(casc_ls PRIVATE stardraft)
-
 add_executable(render_map tools/render_map.cpp)
 target_link_libraries(render_map PRIVATE stardraft)
 
 add_executable(terrain_check tools/probes/terrain_check.cpp)
 target_link_libraries(terrain_check PRIVATE stardraft)
+
+add_executable(chk_sections tools/probes/chk_sections.cpp)  # the scenario.chk sections of a map, or the differences of two maps
+target_link_libraries(chk_sections PRIVATE stardraft)
 
 add_executable(isom_test tools/tests/isom_test.cpp)
 target_link_libraries(isom_test PRIVATE stardraft)
@@ -160,19 +160,8 @@ add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
 target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)
 target_link_libraries(isomterrain_test PRIVATE stardraft)
 
-add_executable(isom_core_probe tools/probes/isom_core_probe.cpp)
-target_link_libraries(isom_core_probe PRIVATE stardraft)
-add_executable(isom_paint tools/probes/isom_paint.cpp)
-target_link_libraries(isom_paint PRIVATE stardraft)
-
 add_executable(unit_test tools/tests/unit_test.cpp)
 target_link_libraries(unit_test PRIVATE stardraft)
-
-add_executable(isom_demo tools/probes/isom_demo.cpp)
-target_link_libraries(isom_demo PRIVATE stardraft)
-
-add_executable(unit_gallery tools/probes/unit_gallery.cpp)
-target_link_libraries(unit_gallery PRIVATE stardraft)
 
 add_executable(hd_test tools/tests/hd_test.cpp)
 target_link_libraries(hd_test PRIVATE stardraft)
@@ -181,6 +170,9 @@ add_executable(editor_test tools/tests/editor_test.cpp)
 target_link_libraries(editor_test PRIVATE stardraft)
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
+
+add_executable(strings_test tools/tests/strings_test.cpp)  # the map string table's editor: moves renumber every use
+target_link_libraries(strings_test PRIVATE stardraft)
 
 add_executable(classic_trigger_test tools/tests/classic_trigger_test.cpp)
 target_link_libraries(classic_trigger_test PRIVATE stardraft storm)  # storm: reading the protected maps euddraft writes
@@ -193,21 +185,16 @@ target_link_libraries(paint_stress PRIVATE stardraft)
 add_executable(save_check tools/tests/save_check.cpp)
 target_link_libraries(save_check PRIVATE stardraft)
 
+add_executable(bridge_test tools/tests/bridge_test.cpp)  # the Bridge tool: drags across the example maps' rivers
+target_link_libraries(bridge_test PRIVATE stardraft)
+add_executable(ramp_test tools/tests/ramp_test.cpp)  # the Ramp brush: strokes along the example maps' cliffs
+target_link_libraries(ramp_test PRIVATE stardraft)
+
 add_executable(tools_test tools/tests/tools_test.cpp)
 target_link_libraries(tools_test PRIVATE stardraft)
 
 add_executable(gen_test tools/tests/gen_test.cpp)
 target_link_libraries(gen_test PRIVATE stardraft)
-add_executable(tile_swatch tools/probes/tile_swatch.cpp)
-target_link_libraries(tile_swatch PRIVATE stardraft)
-add_executable(thin_probe tools/probes/thin_probe.cpp)
-target_link_libraries(thin_probe PRIVATE stardraft)
-add_executable(connect_probe tools/probes/connect_probe.cpp)
-target_link_libraries(connect_probe PRIVATE stardraft)
-add_executable(preview_gallery tools/probes/preview_gallery.cpp)
-target_link_libraries(preview_gallery PRIVATE stardraft)
-add_executable(tbl_probe tools/probes/tbl_probe.cpp)
-target_link_libraries(tbl_probe PRIVATE stardraft)
 # The Cosmonarchy BW probes: studies of the mod's data and maps (terrain, scripts, CRIG commands, pictures), for
 # developers (tools/plugins/cmbw/cmbw_report.py runs cmbw_report). -Dcmbw_probes=ON builds them.
 option(cmbw_probes "Build the Cosmonarchy BW probes (tools/plugins/cmbw/probes)" OFF)
@@ -399,8 +386,10 @@ endif()
 
 # --- What the shells ask of the system (apps/common): HTTPS, dialogs (Windows), crash reports, updates -------
 if(WIN32)
-    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/dialogs_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp apps/common/instance_win32.cpp)
+    add_library(stardraft_platform STATIC apps/common/http_win32.cpp apps/common/crash_win32.cpp apps/common/crash_report.cpp apps/common/update_win32.cpp apps/common/install_win32.cpp apps/common/file_types_win32.cpp apps/common/instance_win32.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft winhttp comdlg32 ole32 dbghelp advapi32 shell32)
+    # (update_win32.cpp unpacks the release's zip with StormLib's own zlib: no tar.exe)
+    target_include_directories(stardraft_platform PRIVATE ${stormlib_SOURCE_DIR}/src/zlib)
 else()
     add_library(stardraft_platform STATIC apps/common/http_curl.cpp apps/common/crash_report.cpp apps/common/crash_posix.cpp apps/common/update_posix.cpp)
     target_link_libraries(stardraft_platform PUBLIC stardraft)
@@ -545,10 +534,32 @@ if(STARDRAFT_RENDERER)
 endif()
 
 # The version name that the editors say: a release build gets it from its tag (-DSTARDRAFT_VERSION_NAME=0.5.0.1, see
-# .github/workflows/build.yml); other builds say this one.
-if(NOT STARDRAFT_VERSION_NAME)
-    set(STARDRAFT_VERSION_NAME "0.5 Alpha")
+# .github/workflows/build.yml); other builds say the newest release tag before their commit (v0.8.2: "0.8.2"), or the
+# newest release tag of the checkout (a shallow one: CI's checkout gets the tags only), else "dev".
+# A public build: a release's (CI gives its version name, -DSTARDRAFT_VERSION_NAME); the others are not (built here,
+# master's builds, the hidden test build). The tools that wait for a review are only in the others (core/ids.inc).
+if(STARDRAFT_VERSION_NAME)
+    set(publicBuild 1)
+else()
+    set(publicBuild 0)
 endif()
+if(NOT STARDRAFT_VERSION_NAME)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0 --match "v[0-9]*" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                        OUTPUT_VARIABLE versionTag OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(NOT versionTag)
+            execute_process(COMMAND ${GIT_EXECUTABLE} tag --list "v[0-9]*" --sort=-version:refname WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                            OUTPUT_VARIABLE versionTags OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+            string(REGEX MATCH "^[^\n]+" versionTag "${versionTags}")
+        endif()
+        string(REGEX REPLACE "^v" "" STARDRAFT_VERSION_NAME "${versionTag}")
+    endif()
+    if(NOT STARDRAFT_VERSION_NAME)
+        set(STARDRAFT_VERSION_NAME "dev")
+    endif()
+endif()
+message(STATUS "Version name: ${STARDRAFT_VERSION_NAME}")
 
 # stardraft-cli's version, commit and issues token (`stardraft-cli feedback` files an issue, as the editor's feedback),
 # its requests (http_win32.cpp, or http_curl.cpp: the curl program), and its skill: apps/cli/SKILL.md, which
@@ -646,7 +657,8 @@ if(STARDRAFT_RENDERER)
     set(sdlEditorName "${STARDRAFT_EXE_NAME}")
     add_executable(${sdlEditor} WIN32 MACOSX_BUNDLE apps/editor/main_sdl.cpp apps/editor/core/html_view.cpp apps/editor/vorbis.c apps/editor/res/lang/ko.cpp apps/editor/res/lang/es.cpp
                    apps/editor/res/lang/ru.cpp apps/editor/res/lang/zh.cpp apps/editor/res/lang/fr.cpp apps/common/build_stamp.cpp apps/editor/build_time.cpp ${STARDRAFT_BUILD_TIME})
-    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}")
+    target_compile_definitions(${sdlEditor} PRIVATE STARDRAFT_VERSION_NAME="${STARDRAFT_VERSION_NAME}" STARDRAFT_ISSUES_TOKEN="${STARDRAFT_ISSUES_TOKEN}"
+                               STARDRAFT_PUBLIC_BUILD=${publicBuild})
     target_include_directories(${sdlEditor} PRIVATE apps/common apps/kit apps/kit_sdl apps/editor include src ${stb_SOURCE_DIR} ${CMAKE_BINARY_DIR}/generated)
     add_dependencies(${sdlEditor} stardraft_build_info)  # (build_info.h: the commit that Check for updates compares)
     # Edit > Tools > Simulate (experimental: apps/editor/sdl_simulation.inc)
@@ -673,7 +685,7 @@ if(STARDRAFT_RENDERER)
         set_source_files_properties(${editorFiles} PROPERTIES OBJECT_DEPENDS "${STARDRAFT_ATLASES};${editorFonts}")
         target_sources(${sdlEditor} PRIVATE apps/editor/res/stardraft_sdl.rc apps/editor/stardraft_sdl.manifest ${editorFiles})
         stardraft_version_rc(${sdlEditor} "${sdlEditorName}" "StarDraft 2")
-        target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32 advapi32)
+        target_link_libraries(${sdlEditor} PRIVATE dwmapi shell32 ole32 advapi32 comctl32)
     endif()
     target_link_libraries(${sdlEditor} PRIVATE stardraft_kit_sdl stardraft_render stardraft_platform stardraft_kit stardraft_map_preview stardraft litehtml)
     set_target_properties(${sdlEditor} PROPERTIES OUTPUT_NAME "${sdlEditorName}" MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/apps/editor/Info.plist.in)

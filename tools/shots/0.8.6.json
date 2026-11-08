@@ -1,0 +1,19 @@
+{
+  "runs": [
+    {
+      "map": "Maps/(2)Bottleneck.scm",
+      "cases": [
+        "dialog-options-tab-general"
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "run": 0,
+      "from": "dialog-options-tab-general.png",
+      "to": "graphics.png",
+      "crop": [0, 188, 720, 190],
+      "alt": "Program options > General > Graphics: Automatic, Direct3D 12 or Software, with the driver and video card in use"
+    }
+  ]
+}

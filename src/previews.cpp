@@ -134,6 +134,4 @@ Sprite doodadPicture(const DoodadType& d, const Tileset& ts, UnitSprites& sprite
     return s;
 }
 
-Sprite tilesSprite(const Tileset& ts, int w, int h, const std::vector<uint16_t>& tiles, const HdTiles* hd) { return tilesPicture(ts, w, h, tiles, hd); }
-
 }  // namespace stardraft

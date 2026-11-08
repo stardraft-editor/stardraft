@@ -141,7 +141,7 @@ bool tilesStampOn() { return !gTiles->solid && (gTiles->stamp.size() > 1 || (!gT
 void tilesToBrush() {
     AppState& app = appState();
     app.terrainPasting = false;
-    if (app.mode == Mode::Terrain && currentTool(app) == TSelect) {
+    if (app.mode == Mode::Terrain && (currentTool(app) == TSelect || currentTool(app) == TWand)) {
         app.toolByMode[int(Mode::Terrain)] = TBrush;
         fillToolCombo(app);
     }
@@ -225,6 +225,16 @@ void tilesStampFromCopy() {
     tilesPanelRepaint();
 }
 
+// The Brush's stamp (copied tiles, custom terrain) turned or mirrored (map_input.inc mapTurnOrMirror): its tiles in
+// their new places; a custom terrain becomes a copy (its name: not the turned one).
+void turnTileBox(std::vector<uint16_t>& v, int& w, int& h, int turn, bool upDown);  // (map_input.inc)
+void tilesStampTurned(int turn, bool upDown) {
+    if (gTiles->stamp.empty() || gTiles->stamp.size() == 1) return;  // (one tile: the same after it; it stays the Brush's)
+    turnTileBox(gTiles->stamp, gTiles->stampW, gTiles->stampH, turn, upDown);
+    if (!gTiles->stampName.empty()) gTiles->stampName.clear(), gTiles->stampCopied = true;
+    tilesPanelRepaint();
+}
+
 void tilesPick(int value, bool fromMap) {
     gTiles->picked = value, gTiles->stampCopied = false;
     gTiles->stamp.clear(), gTiles->stampW = gTiles->stampH = 0, gTiles->stampName.clear();
@@ -265,6 +275,13 @@ void tilesFresh() {
 void tilesAt(float wx, float wy, int& tx, int& ty) {
     tx = std::clamp(int(std::floor(wx / 32)), 0, std::max(0, int(appState().ed->width()) - 1));
     ty = std::clamp(int(std::floor(wy / 32)), 0, std::max(0, int(appState().ed->height()) - 1));
+}
+// The tile where a paste of the copied tiles puts its top left tile: also past the map's edge (the part of the copy that
+// is off the map is left out), up to the copy's size.
+void tilesPasteAt(float wx, float wy, int& tx, int& ty) {
+    const Editor& ed = *appState().ed;
+    tx = std::clamp(int(std::floor(wx / 32)), 1 - ed.tileClipboardWidth(), std::max(0, int(ed.width()) - 1));
+    ty = std::clamp(int(std::floor(wy / 32)), 1 - ed.tileClipboardHeight(), std::max(0, int(ed.height()) - 1));
 }
 
 // The tool strip's mirrors and turns in Rectangle mode, as Isometric's brush has them: each tile is placed at the images of
@@ -329,11 +346,33 @@ std::vector<Editor::TileAt> solidMirrored(const std::vector<Editor::TileAt>& cel
 }
 // (Rectangle with a game terrain: on a mod's tileset, the mod's own tiles of that terrain too, as the isometric brush puts
 // them; a mod terrain's fill stays as it is, as the isometric brush keeps it)
+// The mask (Alt+click in the lists; none for Custom): only the cells it lets change. Rectangle: a tile of a masked terrain
+// (its group's; a mod's terrains have no groups of their own: the terrain there); Tile: a tile of a masked value.
+const std::vector<std::array<uint16_t, 2>>& solidGroupTerrains();
+bool tilesMaskLets(int x, int y, uint16_t value) {
+    const Editor& ed = *appState().ed;
+    const std::vector<uint16_t>& mask = gTiles->solid ? ed.terrainMask() : ed.tileMask();
+    if (mask.empty() || gTiles->stamps) return true;
+    if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return false;
+    const auto in = [&](uint16_t v) { return std::find(mask.begin(), mask.end(), v) != mask.end(); };
+    const uint16_t v = ed.terrain().tiles[size_t(y) * ed.width() + x];
+    if (v >> 4 == value >> 4) return true;  // (what it paints with is always in the mask)
+    if (!gTiles->solid) return in(v);
+    if (!ed.tileset().modTerrains.empty()) return ed.terrainMaskAllows(ed.terrainAt(x * 32 + 16, y * 32 + 16));
+    const auto& gt = solidGroupTerrains();
+    const size_t g = v >> 4;
+    return g < gt.size() && (in(gt[g][0]) || in(gt[g][1]));
+}
+std::vector<Editor::TileAt> tilesMasked(std::vector<Editor::TileAt> cells) {
+    std::erase_if(cells, [](const Editor::TileAt& c) { return !tilesMaskLets(c.x, c.y, c.value); });
+    return cells;
+}
+
 int tilesPut(const std::vector<Editor::TileAt>& cells) {
     Editor& ed = *appState().ed;
-    if (!gTiles->solid) return ed.placeTileValues(tilesMirrored(cells));
+    if (!gTiles->solid) return ed.placeTileValues(tilesMasked(tilesMirrored(cells)));
     const Tileset::ModTerrain* m = ed.tileset().modTerrain(uint16_t(std::max(0, appState().palette)));
-    return ed.placeTileValues(solidMirrored(cells), !m || !m->fill);  // (no fill of its own: its stand-in's tiles, as a game terrain's)
+    return ed.placeTileValues(tilesMasked(solidMirrored(cells)), !m || !m->fill);  // (no fill of its own: its stand-in's tiles, as a game terrain's)
 }
 int tilesPutCells(const std::vector<std::pair<int, int>>& cells, uint16_t value) {
     std::vector<Editor::TileAt> v;
@@ -370,13 +409,15 @@ std::vector<std::pair<int, int>> tilesFootprint(int cx, int cy) {
 }
 
 int gTilesStrokePlaced = 0;
+bool gTilesPasteDrag = false;           // (a drag with the copied tiles on the mouse: tilesMouseMove pastes them along it)
+int gTilesPasteX = 0, gTilesPasteY = 0;  // (its first copy's top left: the grid of the copies along the drag)
 
 // The message after tiles went down: how many, and the doodads and units that went with them.
 void tilesPlacedMessage(int n, const wchar_t* verb) {
     Editor& ed = *appState().ed;
     const int doodads = ed.takeDoodadsRemovedByTerrain(), units = ed.takeUnitsRemovedByTerrain();
     std::wstring m = std::wstring(verb) + (n == 1 ? L" 1 tile" : L" " + std::to_wstring(n) + L" tiles");
-    if (!n) m = L"The tiles are the same already";
+    if (!n) m = !gTiles->stamps && !(gTiles->solid ? ed.terrainMask() : ed.tileMask()).empty() ? L"Nothing changed: the mask keeps these tiles" : L"The tiles are the same already";
     if (doodads) m += L". Removed " + std::to_wstring(doodads) + (doodads == 1 ? L" doodad under them" : L" doodads under them");
     if (units) m += L". Removed " + std::to_wstring(units) + (units == 1 ? L" unit that cannot stand there" : L" units that cannot stand there");
     if (doodads || units) m += L".";
@@ -385,11 +426,26 @@ void tilesPlacedMessage(int n, const wchar_t* verb) {
 
 // --- Solid (docs/dev/solid-terrain-brush.md): the tiles inside a terrain, in ISOM rects of 2 x 1 tiles ---------------
 
-// The brush's rects (rx, ry: tiles 2rx and 2rx + 1 of row ry) around the rect that has tile (tx, ty): the footprint's
-// shape on the rect grid (size n: n rects wide; a rect is 2 to 1, so a linked Diamond keeps the map's diamonds).
-std::vector<std::pair<int, int>> solidFootprint(int tx, int ty) { return tilesFootprint(tx / 2, ty); }
+// The brush's rects (rx, ry: tiles 2rx and 2rx + 1 of row ry) around tile (tx, ty): the rects of its tiles (the
+// footprint in tiles, as the other Rectangle tools': size 1 and Height 1 is one tile). The shapes and the spray use
+// whole rects; the Brush gives only the footprint's tiles (a rect it covers half of keeps its other tile).
+// The Brush's tiles in Solid: the footprint in tiles; an even width on whole rects (2 x 1: the rect at the mouse), so
+// that only an odd width gives a rect's half (its edge's: the other half keeps its tile).
+std::vector<std::pair<int, int>> solidBrushTiles(int tx, int ty) {
+    std::vector<std::pair<int, int>> out = tilesFootprint(tx, ty);
+    const int n = std::max(1, int(std::lround(appState().brushSize)));
+    if (n % 2 == 0 && ((tx - (n - 1) / 2) & 1))  // (its left edge in the middle of a rect: one tile left)
+        for (auto& c : out) --c.first;
+    return out;
+}
+std::vector<std::pair<int, int>> solidFootprint(int tx, int ty) {
+    std::vector<std::pair<int, int>> out;
+    for (const auto& [x, y] : solidBrushTiles(tx, ty))
+        if (std::find(out.begin(), out.end(), std::pair{x >> 1, y}) == out.end()) out.push_back({x >> 1, y});
+    return out;
+}
 
-// The rects that the Brush stroke under way gave tiles: a drag over them does not make them again.
+// The tiles that the Brush stroke under way gave: a drag over them does not make them again.
 std::set<std::pair<int, int>> gSolidStrokeRects;
 
 // One of n picks for cell (x, y), in patches of about `size` cells (Fill's Mix): the pick of the nearest of random points,
@@ -468,8 +524,11 @@ void tilesSprayAt(float wx, float wy) {
         const auto foot = solidFootprint(tx, ty);
         if (foot.empty()) return;
         std::mt19937 rng(appState().spraySeed++);
-        std::vector<std::pair<int, int>> rects;
-        for (int i = 0; i < sprayDabs(); ++i) rects.push_back(foot[rng() % foot.size()]);
+        std::vector<std::pair<int, int>> rects = foot;  // (that part of the brush's rects on the map, each once)
+        std::erase_if(rects, [](const std::pair<int, int>& q) { return q.first < 0 || q.second < 0 || q.first * 2 >= appState().ed->width() || q.second >= appState().ed->height(); });
+        if (rects.empty()) return;
+        std::shuffle(rects.begin(), rects.end(), rng);
+        rects.resize(size_t(std::min(sprayShare(rects.size()), int(rects.size()))));
         const std::vector<int> picks = selectedPalette();  // (several terrains: each rect one of them at random)
         const uint32_t seed = uint32_t(rng());
         gTilesStrokePlaced += tilesPut(solidTiles(rects, nullptr, [&](int rx, int ry) {
@@ -477,14 +536,16 @@ void tilesSprayAt(float wx, float wy) {
         }));
         return;
     }
-    const auto foot = tilesFootprint(tx, ty);
+    auto foot = tilesFootprint(tx, ty);
+    std::erase_if(foot, [](const std::pair<int, int>& q) { return q.first < 0 || q.second < 0 || q.first >= appState().ed->width() || q.second >= appState().ed->height(); });
     if (foot.empty()) return;
     std::mt19937 rng(appState().spraySeed++);
-    // Each dab: one of the selected tiles, at random (one tile: that tile).
+    std::shuffle(foot.begin(), foot.end(), rng);
+    // That part of the brush's tiles on the map, each once: one of the selected tiles, at random (one tile: that tile).
     std::vector<Editor::TileAt> cells;
-    for (int i = 0; i < sprayDabs(); ++i) {
+    for (int i = 0; i < std::min(sprayShare(foot.size()), int(foot.size())); ++i) {
         const uint16_t v = gTiles->chosen.size() > 1 ? gTiles->chosen[rng() % gTiles->chosen.size()] : uint16_t(gTiles->picked);
-        const auto [x, y] = foot[rng() % foot.size()];
+        const auto [x, y] = foot[size_t(i)];
         cells.push_back({x, y, v});
     }
     gTilesStrokePlaced += tilesPut(cells);
@@ -583,10 +644,27 @@ void tilesFillSelection() {
 // a scatter: each tile of the footprint one of them at random (GitHub feedback #120).
 int tilesBrushAt(int tx, int ty) {
     if (gTiles->solid) {  // Solid: the terrain's tiles in the footprint's rects that the stroke has not given tiles yet
-        std::vector<std::pair<int, int>> fresh;
-        for (const auto& rc : solidFootprint(tx, ty))
-            if (gSolidStrokeRects.insert(rc).second) fresh.push_back(rc);
-        return tilesPut(solidTiles(fresh));
+        // (a rect the stroke gave tiles stays as it is while both are wholly the terrain; one that no tile fitted yet, by
+        // the tiles round it, or that took an edge's tile, is made again when the stroke comes back over it)
+        const Editor& ed = *appState().ed;
+        const auto& gt = solidGroupTerrains();
+        const auto whole = [&](int x, int y) {
+            if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return true;
+            const size_t g = ed.terrain().tiles[size_t(y) * ed.width() + x] >> 4;
+            const int p = appState().palette;
+            if (ed.tileset().modTerrain(uint16_t(p))) return true;  // (a mod's terrain: its tiles are its stand-in's groups)
+            return g < gt.size() && gt[g][0] == p && (gt[g][1] == 0 || gt[g][1] == p);
+        };
+        std::set<std::pair<int, int>> fresh;  // (the footprint's tiles that go, and their rects)
+        std::vector<std::pair<int, int>> rects;
+        for (const auto& [x, y] : solidBrushTiles(tx, ty))
+            if (!gSolidStrokeRects.count({x, y}) || !whole(x, y)) {
+                fresh.insert({x, y}), rects.push_back({x >> 1, y});
+                if (gSolidStrokeRects.count({x ^ 1, y})) fresh.insert({x ^ 1, y});  // (its other half, by this stroke: a pair again)
+            }
+        const std::vector<Editor::TileAt> cells = solidTiles(rects, &fresh);
+        for (const Editor::TileAt& c : cells) gSolidStrokeRects.insert({c.x, c.y});
+        return tilesPut(cells);
     }
     if (tilesStampOn() && !gTiles->scatter) {  // the stamp: its block of the pattern at the mouse
         int x0, y0;
@@ -622,9 +700,15 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
     if (tool == TSelect) {
         if (appState().terrainPasting && ed.hasTileClipboard()) {
             ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
-            tilesPlacedMessage(ed.pasteTiles(tx, ty), L"Pasted");
+            tilesPasteAt(wx, wy, tx, ty);  // (it may hang over the map's edge)
             // The copy stays on the mouse, as a brush: click again to paste again; right-click or Esc stops (GitHub feedback #123).
-            appState().drag = Drag::None;
+            // A drag pastes it again along the way, each copy next to the last (on a grid of its size from the first),
+            // all in one undo step (GitHub #237).
+            ed.beginStroke();
+            gTilesStrokePlaced = ed.pasteTiles(tx, ty);
+            gTilesPasteDrag = true, gTilesPasteX = tx, gTilesPasteY = ty;
+            gTiles->lastX = tx, gTiles->lastY = ty;
+            appState().drag = Drag::Tiles;
         } else {
             // Shift adds the drag's tiles to the selection, Ctrl takes them out (they need not touch): a stamp of any shape.
             appState().terrainSelOp = (mods & draw::kShift) ? 1 : (mods & draw::kCtrl) ? 2 : 0;
@@ -640,7 +724,7 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
         return true;
     }
     if (!tilesHavePick()) {
-        setMessage(gTiles->stamps  ? L"First, select custom terrain in the Custom list"
+        setMessage(gTiles->stamps  ? L"Select custom terrain in the Custom list first"
                    : gTiles->solid ? (ed.canPaintTerrain() ? L"Select a terrain in the list first (or Ctrl+click the map)" : L"Select a terrain in the list first")
                                    : L"Select a tile in the Tiles list first (or Ctrl+click a tile on the map)");
         appState().drag = Drag::None;
@@ -658,7 +742,7 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
     }
     ed.takeDoodadsRemovedByTerrain(), ed.takeUnitsRemovedByTerrain();
     ed.beginStroke();
-    gTilesStrokePlaced = 0;
+    gTilesStrokePlaced = 0, gTilesPasteDrag = false;
     if (tool == TSpray) {
         tilesSprayAt(wx, wy);
         appState().drag = Drag::Spray;
@@ -676,7 +760,18 @@ bool tilesMouseDown(float wx, float wy, unsigned mods) {
 // The drag: the footprint at the mouse; the stamp: each block of its pattern along the way from the last tile (a fast
 // drag leaves no gaps).
 void tilesMouseMove(float wx, float wy) {
-    if (!appState().ed || !tilesHavePick()) return;
+    if (!appState().ed) return;
+    if (gTilesPasteDrag) {  // (a drag with the copy on the mouse: the copies on its grid from the first, each once)
+        Editor& ed = *appState().ed;
+        int tx, ty;
+        tilesPasteAt(wx, wy, tx, ty);
+        const int w = std::max(1, ed.tileClipboardWidth()), h = std::max(1, ed.tileClipboardHeight());
+        const auto cell = [](int v, int at, int n) { return at + int(std::floor(double(v - at) / n)) * n; };
+        const int cx = cell(tx, gTilesPasteX, w), cy = cell(ty, gTilesPasteY, h);
+        if (cx != gTiles->lastX || cy != gTiles->lastY) gTilesStrokePlaced += ed.pasteTiles(cx, cy), gTiles->lastX = cx, gTiles->lastY = cy;
+        return;
+    }
+    if (!tilesHavePick()) return;
     int tx, ty;
     tilesAt(wx, wy, tx, ty);
     if (tilesStampOn() && !gTiles->scatter) {
@@ -688,8 +783,8 @@ void tilesMouseMove(float wx, float wy) {
             tilesStampOrigin(x, y, x0, y0);
             if (x0 != bx || y0 != by) bx = x0, by = y0, gTilesStrokePlaced += tilesPut(tilesStampCells(x0, y0));
         }
-    } else if (gTiles->solid) {  // each rect along the way from the last tile (a fast drag leaves no gaps)
-        const int steps = std::max(std::abs(tx / 2 - gTiles->lastX / 2), std::abs(ty - gTiles->lastY));
+    } else if (gTiles->solid) {  // each tile along the way from the last one (a fast drag leaves no gaps)
+        const int steps = std::max(std::abs(tx - gTiles->lastX), std::abs(ty - gTiles->lastY));
         for (int i = 1; i <= steps; ++i)
             gTilesStrokePlaced += tilesBrushAt(gTiles->lastX + (tx - gTiles->lastX) * i / steps, gTiles->lastY + (ty - gTiles->lastY) * i / steps);
     } else {
@@ -702,6 +797,9 @@ void tilesMouseMove(float wx, float wy) {
 void tilesMouseUp(float, float) {
     if (!appState().ed) return;
     appState().ed->endStroke();
-    tilesPlacedMessage(gTilesStrokePlaced, L"Placed");
+    tilesPlacedMessage(gTilesStrokePlaced, gTilesPasteDrag ? L"Pasted" : L"Placed");
+    gTilesPasteDrag = false;
 }
+// The stroke ended another way (Esc): no paste goes on along a later drag.
+void tilesStrokeCancelled() { gTilesPasteDrag = false; }
 

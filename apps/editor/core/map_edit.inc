@@ -27,17 +27,6 @@ void toWorld(int sx, int sy, float& wx, float& wy) {
 
 int currentTool() { return appState().toolByMode[int(appState().mode)]; }
 
-// After Undo or Redo: the selected doodads and sprites that are not on the map now (an Undo of a placed one) leave the
-// selection, so that the status bar, Delete and a drag do not count them.
-void dropGoneItems(AppState& app) {
-    if (!app.ed) return;
-    auto drop = [](std::vector<int>& sel, size_t n) {
-        sel.erase(std::remove_if(sel.begin(), sel.end(), [n](int i) { return i < 0 || size_t(i) >= n; }), sel.end());
-    };
-    drop(app.selDoodads, app.ed->doodads().size());
-    drop(app.selSprites, app.ed->sprites().size());
-}
-
 // After an undo or redo: the doodads and sprites that were selected (`doodads`, `sprites`: the map's before it) stay
 // selected where the same ones are now (the same kind, place and owner); with as many as before, one of the same kind
 // and owner in its place (a move taken back) stays too. One that is not there is no longer selected, so a selection
@@ -67,14 +56,20 @@ void keepItemSelection(AppState& app, const std::vector<Doodad>& doodads, const 
     });
 }
 
-// The spray's density: the number of things one spray puts down in the brush (each tick of a held spray too), 1 to
-// kDensityMax. Units or doodads (sprayCount; only where they fit, so fewer can land) and terrain dabs or tiles
-// (sprayDabs). The defaults: 5 dabs for terrain, 10 units or doodads (about the earlier "medium").
-constexpr int kDensityMax = 50;
+// The spray's density: how much of the brush one spray puts down (each tick of a held spray too), 1 to 100%. Terrain:
+// that part of the brush's diamonds, tiles or rects (sprayShare), each once. Units, doodads and sprites: that part of the
+// brush's tiles, one thing for each (sprayCount; only where they fit, so fewer can land). The defaults: 25% for terrain,
+// 10% for the others.
+constexpr int kDensityMax = 100;
 
-int sprayCount() { return std::clamp(appState().sprayDensity, 1, kDensityMax); }
+// `whole` things of the brush at the density: at least one.
+int sprayShare(size_t whole) { return std::max(1, int(std::ceil(double(whole) * std::clamp(appState().sprayDensity, 1, kDensityMax) / 100.0))); }
 
-int sprayDabs() { return std::clamp(appState().sprayDensity, 1, kDensityMax); }
+int sprayRadius();
+int sprayCount() {
+    const double tiles = 3.14159265 * sprayRadius() * sprayRadius() / (32.0 * 32.0);
+    return std::min(sprayShare(size_t(std::max(1.0, tiles))), 500);
+}
 
 int sprayRadius() { return int(appState().brushSize * 64); }
 
@@ -83,31 +78,84 @@ Brush currentBrush() { return currentBrush(appState()); }
 // The terrain selection's shape: the Select tool's own (palette_tools.inc).
 Editor::SelectShape selectShape() { return selectShape(appState()); }
 
+// The grid of View > Grid: what Options > Units, Sprites and Locations > Snap to the grid use.
+float snapGridX(float v, bool on) { return on ? snapRound(v, gDock.gridW, gDock.gridX) : v; }
+float snapGridY(float v, bool on) { return on ? snapRound(v, gDock.gridH, gDock.gridY) : v; }
+
+// A location's edge (Options > Locations > Snap to the grid): the nearest line from the map's edge to its other edge. A
+// grid larger than the map has no lines to use.
+int locationEdge(float v, int g, int o, int size) {
+    if (!appState().snapLocations || g >= size) return int(v);
+    int c = int(snapRound(v, g, o));
+    if (c > size) c -= g;
+    if (c < 0) c += g;
+    return c >= 0 && c <= size ? c : int(v);
+}
+int locationEdgeX(float v) { return locationEdge(v, gDock.gridW, gDock.gridX, appState().ed->width() * 32); }
+int locationEdgeY(float v) { return locationEdge(v, gDock.gridH, gDock.gridY, appState().ed->height() * 32); }
+// A drag inside one grid cell: the side is one cell long, in the direction of the drag (a click stays a click).
+void locationSideAtLeastACell(int& lo, int& hi, float from, float to, int g, int size) {
+    if (!appState().snapLocations || lo != hi || std::abs(to - from) < 8) return;
+    if (to > from ? lo + g <= size : lo - g < 0) hi = lo + g;
+    else lo -= g;
+}
+
 Rect previewLocationRect(float wx, float wy) {
     Rect r = appState().locStart;
     float dx = wx - appState().dragWX, dy = wy - appState().dragWY;
-    auto sn = [](float v) { return int(snapRound(v, appState().locationGrid)); };
+    auto snx = [](float v) { return locationEdgeX(v); };
+    auto sny = [](float v) { return locationEdgeY(v); };
     if (appState().drag == Drag::LocCreate) {
-        r = Rect{sn(appState().dragWX), sn(appState().dragWY), sn(wx), sn(wy)}.normalized();
+        r = Rect{snx(appState().dragWX), sny(appState().dragWY), snx(wx), sny(wy)}.normalized();
+        locationSideAtLeastACell(r.left, r.right, appState().dragWX, wx, gDock.gridW, appState().ed->width() * 32);
+        locationSideAtLeastACell(r.top, r.bottom, appState().dragWY, wy, gDock.gridH, appState().ed->height() * 32);
     } else if (appState().drag == Drag::LocMove) {
-        int mx = sn(r.left + dx) - r.left, my = sn(r.top + dy) - r.top;
+        // (a line where the whole location stays on the map)
+        auto place = [](int to, int len, int g, int size) { return appState().snapLocations && g < size && to + len > size ? to - (to + len - size + g - 1) / g * g : to; };
+        int mx = place(snx(r.left + dx), r.right - r.left, gDock.gridW, appState().ed->width() * 32) - r.left,
+            my = place(sny(r.top + dy), r.bottom - r.top, gDock.gridH, appState().ed->height() * 32) - r.top;
         r = {r.left + mx, r.top + my, r.right + mx, r.bottom + my};
     } else if (appState().drag == Drag::LocResize) {
-        if (appState().locEdges & 1) r.left = sn(r.left + dx);
-        if (appState().locEdges & 2) r.top = sn(r.top + dy);
-        if (appState().locEdges & 4) r.right = sn(r.right + dx);
-        if (appState().locEdges & 8) r.bottom = sn(r.bottom + dy);
+        if (appState().locEdges & 1) r.left = snx(r.left + dx);
+        if (appState().locEdges & 2) r.top = sny(r.top + dy);
+        if (appState().locEdges & 4) r.right = snx(r.right + dx);
+        if (appState().locEdges & 8) r.bottom = sny(r.bottom + dy);
         r = r.normalized();
     }
     return r;
 }
 
-// Unit snap (Options > Units): placement in the middle of a grid cell, moves in whole cells.
+// Unit snap (Options > Units > Snap to the grid): the grid of View > Grid. Placement with the unit's origin on the grid
+// lines; a drag puts the first selected unit on the lines, and the others keep their places around it.
 // Buildings snap to tile edges (snapToGrid) while Options > Units > Snap buildings to tile edges is on (the default, as in
 // StarEdit); with it off they go where they are placed, as other units (setBuildingSnap: core/views_tabs.inc, the command).
-void snapUnitPoint(float& x, float& y) { x = snapToCell(x, appState().unitGrid), y = snapToCell(y, appState().unitGrid); }
+void snapUnitPoint(float& x, float& y) {
+    if (!appState().snapUnits || !appState().ed) return;
+    // (the map's edge is a line, but a unit does not fit on it: the first line inside; no line inside: the point stays)
+    auto inside = [](float v, int g, int o, int size) {
+        v = std::clamp(v, 0.0f, float(size - 1));
+        int c = int(snapRound(v, g, o));
+        if (c <= 0) c += g;
+        if (c >= size) c -= g;
+        return c > 0 && c < size ? float(c) : v;
+    };
+    x = inside(x, gDock.gridW, gDock.gridX, appState().ed->width() * 32);
+    y = inside(y, gDock.gridH, gDock.gridY, appState().ed->height() * 32);
+}
 
-float snapUnitDelta(float d) { return snapRound(d, appState().unitGrid); }
+// Options > Sprites > Snap to the grid: where a sprite goes for a point on the map, and how far a drag of the selected
+// sprites goes (the first one ends on the lines, the others keep their places around it).
+int spriteSnapX(float x) { return appState().snapSprites ? snapOnMap(x, gDock.gridW, gDock.gridX, appState().ed->width() * 32) : int(x); }
+int spriteSnapY(float y) { return appState().snapSprites ? snapOnMap(y, gDock.gridH, gDock.gridY, appState().ed->height() * 32) : int(y); }
+void spriteDragDelta(float wx, float wy, int& dx, int& dy) {
+    const AppState& app = appState();
+    float fx = wx - app.dragWX, fy = wy - app.dragWY;
+    if (app.snapSprites && !app.selSprites.empty() && size_t(app.selSprites.front()) < app.ed->sprites().size()) {
+        const MapSprite& sp = app.ed->sprites()[size_t(app.selSprites.front())];
+        fx = float(spriteSnapX(sp.x + fx) - sp.x), fy = float(spriteSnapY(sp.y + fy) - sp.y);
+    }
+    dx = int(fx), dy = int(fy);
+}
 
 // Pasting locations: how far the copied locations move so that the copy's middle is at the mouse (its top left snapped:
 // Options > Locations snap), each location where it was in the copy.
@@ -118,20 +166,49 @@ void locationPasteShift(const AppState& app, float wx, float wy, int& dx, int& d
     for (const auto& c : app.locationClip)
         box = {std::min(box.left, c.rect.left), std::min(box.top, c.rect.top), std::max(box.right, c.rect.right), std::max(box.bottom, c.rect.bottom)};
     const int w = box.right - box.left, hgt = box.bottom - box.top;
-    dx = int(snapRound(wx - w / 2.0f, app.locationGrid)) - box.left, dy = int(snapRound(wy - hgt / 2.0f, app.locationGrid)) - box.top;
+    dx = locationEdgeX(wx - w / 2.0f) - box.left, dy = locationEdgeY(wy - hgt / 2.0f) - box.top;
+}
+
+// The selection and its buildings' add-ons (a building's add-on goes with it): the units a drag moves, by index.
+std::vector<bool> movingUnits() {
+    Editor& ed = *appState().ed;
+    std::vector<bool> moving(ed.units().size(), false);
+    for (int i : ed.withLinkedAddons(ed.selection()))
+        if (i >= 0 && size_t(i) < moving.size()) moving[size_t(i)] = true;
+    return moving;
+}
+
+// The units that stay while the `moving` ones move by (dx, dy), and are near where those go: the others are too far away
+// to block them (checkPlacement looks at the units within twice UnitTypes::boxReach and the resource distance).
+std::vector<Unit> unitsNearMoved(const std::vector<bool>& moving, float dx, float dy) {
+    Editor& ed = *appState().ed;
+    const auto& units = ed.units();
+    int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
+    for (size_t i = 0; i < units.size(); ++i)
+        if (moving[i]) {
+            const int x = std::clamp(int(std::lround(units[i].x + dx)), 0, ed.width() * 32 - 1), y = std::clamp(int(std::lround(units[i].y + dy)), 0, ed.height() * 32 - 1);
+            x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
+        }
+    std::vector<Unit> nearby;
+    if (x0 > x1) return nearby;
+    const int grow = 2 * ed.unitTypes().boxReach() + 96 + 32 + 2;  // (32: a building's snap to the tile edges)
+    for (size_t i = 0; i < units.size(); ++i) {
+        const Unit& u = units[i];
+        if (!moving[i] && u.x >= x0 - grow && u.x <= x1 + grow && u.y >= y0 - grow && u.y <= y1 + grow) nearby.push_back(u);
+    }
+    return nearby;
 }
 
 // Would the selected units all be placeable moved by (dx, dy)?
 bool selectionFitsAt(float dx, float dy) {
     Editor& ed = *appState().ed;
     const auto& units = ed.units();
-    const std::vector<int> moving = ed.withLinkedAddons(ed.selection());  // a building's add-on goes with it
-    std::vector<Unit> others;
-    for (size_t i = 0; i < units.size(); ++i)
-        if (std::find(moving.begin(), moving.end(), int(i)) == moving.end()) others.push_back(units[i]);
+    const std::vector<bool> moving = movingUnits();
+    const std::vector<Unit> others = unitsNearMoved(moving, dx, dy);
     const PlacementContext ctx = ed.placementContext(&others);
-    for (int i : moving) {
-        Unit m = units[size_t(i)];
+    for (size_t i = 0; i < units.size(); ++i) {
+        if (!moving[i]) continue;
+        Unit m = units[i];
         m.x = uint16_t(std::clamp(int(std::lround(m.x + dx)), 0, ed.width() * 32 - 1));
         m.y = uint16_t(std::clamp(int(std::lround(m.y + dy)), 0, ed.height() * 32 - 1));
         if (m.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[m.type], m.x, m.y);
@@ -143,7 +220,19 @@ bool selectionFitsAt(float dx, float dy) {
 // Offset of a unit drag with the cursor at (wx, wy). With "snap back" on, a spot where the units do
 // not fit holds them at the last spot along the drag where they did.
 void dragMoveDelta(float wx, float wy, float& dx, float& dy) {
-    dx = snapUnitDelta(wx - appState().dragWX), dy = snapUnitDelta(wy - appState().dragWY);
+    dx = wx - appState().dragWX, dy = wy - appState().dragWY;
+    if (appState().snapUnits) {  // (the first unit that has no snap of its own: a building on the tile grid has one)
+        const Editor& ed = *appState().ed;
+        const Unit* first = nullptr;
+        for (int i : ed.selection()) {
+            if (i < 0 || size_t(i) >= ed.units().size()) continue;
+            const Unit& u = ed.units()[size_t(i)];
+            if (appState().snapBuildings && u.type < ed.unitTypes().size() && ed.unitTypes()[u.type].is(UnitFlag::Building)) continue;
+            first = &u;
+            break;
+        }
+        if (first) dx = snapGridX(first->x + dx, true) - first->x, dy = snapGridY(first->y + dy, true) - first->y;
+    }
     if (!appState().dragSnapBack || appState().allowIllegalUnits) return;
     if (selectionFitsAt(dx, dy)) appState().lastValidDX = dx, appState().lastValidDY = dy;
     else dx = appState().lastValidDX, dy = appState().lastValidDY;
@@ -193,6 +282,14 @@ Rect terrainSelectRect(float wx, float wy) {
     // (Rectangle, and the square in Isometric: whole tiles; the diamond and the circle: as dragged)
     if ((!appState().terrainRect && selectShape() != Editor::SelectShape::Rect) || !appState().ed) return r;
     const int w = appState().ed->width(), h = appState().ed->height();
+    if (!appState().terrainRect) {  // Isometric's square: its sides on the tile lines nearest the press and the mouse (it
+                                    // starts where the press was, not a tile up and left of it)
+        auto line = [](float v, int most) { return std::clamp(int(std::lround(v / 32.0f)), 0, most) * 32; };
+        Rect q = Rect{line(appState().dragWX, w), line(appState().dragWY, h), line(wx, w), line(wy, h)}.normalized();
+        if (q.right == q.left) q.right = std::min(w * 32, q.left + 32), q.left = q.right - 32;  // (at least a tile)
+        if (q.bottom == q.top) q.bottom = std::min(h * 32, q.top + 32), q.top = q.bottom - 32;
+        return q;
+    }
     const int x0 = std::clamp(r.left / 32, 0, w - 1), y0 = std::clamp(r.top / 32, 0, h - 1);
     const int x1 = std::clamp((r.right - 1) / 32, x0, w - 1), y1 = std::clamp((r.bottom - 1) / 32, y0, h - 1);
     return Rect{x0 * 32, y0 * 32, (x1 + 1) * 32, (y1 + 1) * 32};
@@ -285,7 +382,7 @@ void deleteSelectedLocations() {
     AppState& app = appState();
     Editor& ed = *app.ed;
     const std::vector<int> locs = ed.selectedLocations();
-    if (locs.empty()) return setMessage(L"First, select a location");
+    if (locs.empty()) return setMessage(L"Select a location first");
     const std::wstring what = locationsText(ed, locs);
     ed.beginStroke();
     for (int l : locs) ed.deleteLocation(l);
@@ -323,7 +420,7 @@ bool atUnitLimit(const Editor& ed) { return ed.unitLimit() > 0 && int(ed.units()
 
 std::wstring unitLimitText(const Editor& ed) {
     if (modTab()) return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit of Cosmonarchy BW";
-    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Program options > Map unit limit)";
+    return L"The map has " + std::to_wstring(ed.unitLimit()) + L" units: the limit (Options > Program options > Map unit limit)";
 }
 
 // Moves the selected doodads by (dx, dy) by the same rule: with Move to the nearest place where it fits, a move that does
@@ -363,7 +460,7 @@ bool strokePlace(float x, float y) {
     const RECT box = strokeBox(x, y);
     RECT overlap;
     if (appState().mode == Mode::Sprites) {  // sprites: one at each new place of the mouse (feedback #54, #78), with no gaps
-        const int px = int(snapToCell(x, appState().spriteGrid)), py = int(snapToCell(y, appState().spriteGrid));
+        const int px = spriteSnapX(x), py = spriteSnapY(y);
         if (appState().placedInStroke && px == appState().lastPlacedBox.left && py == appState().lastPlacedBox.top) return false;  // the same place again
         const bool placed = ed.placeSprite(uint16_t(appState().palette), px, py, uint8_t(appState().playerOwner));
         if (placed) {
@@ -384,7 +481,7 @@ bool strokePlace(float x, float y) {
             appState().palette = paletteChosen()[std::uniform_int_distribution<size_t>(0, paletteChosen().size() - 1)(rng)];
         }
     } else if (appState().mode == Mode::Sprites) {
-        placed = ed.placeSprite(uint16_t(appState().palette), int(snapToCell(x, appState().spriteGrid)), int(snapToCell(y, appState().spriteGrid)), uint8_t(appState().playerOwner));
+        placed = ed.placeSprite(uint16_t(appState().palette), spriteSnapX(x), spriteSnapY(y), uint8_t(appState().playerOwner));
     }
     if (placed) appState().lastPlacedBox = box;
     return placed;
@@ -395,7 +492,7 @@ bool strokePlace(float x, float y) {
 // they do not touch the last one). A place that does not fit now is tried again as the mouse moves on.
 void strokeMove(float wx, float wy) {
     if (appState().mode == Mode::Sprites) {  // sprites: one at each place on the path, one pixel (or one snap cell) apart (#78)
-        const float step = float(std::max(1, appState().spriteGrid));
+        const float step = appState().snapSprites ? float(std::min(gDock.gridW, gDock.gridH)) : 1.0f;
         const float dx = wx - appState().lastPlaceX, dy = wy - appState().lastPlaceY, len = std::hypot(dx, dy);
         if (!appState().placedInStroke || len < step) {
             if (strokePlace(wx, wy)) ++appState().placedInStroke;
@@ -427,13 +524,21 @@ void strokeMove(float wx, float wy) {
     if (appState().mode != Mode::Units) appState().lastPlaceX = wx, appState().lastPlaceY = wy;  // boxes decide the room: follow the mouse
 }
 
-// Distance between units placed while dragging: the unit's footprint; with a snap, a tile (32 px snap) or the footprint
-// in whole grid cells.
+// Edit > Snap to the grid: units, doodads or sprites are selected in their mode, and that layer shows.
+bool modeLayerHidden();
+bool canSnapToGrid(const AppState& app) {
+    if (!app.ed || !app.ed->isOpen() || app.pasting || app.pastingItems || modeLayerHidden()) return false;
+    return (app.mode == Mode::Units && !app.ed->selection().empty()) || (app.mode == Mode::Doodads && !app.selDoodads.empty()) ||
+           (app.mode == Mode::Sprites && !app.selSprites.empty());
+}
+
+// Distance between units placed while dragging: the unit's footprint; with a snap, the footprint in whole grid cells.
 float placeSpacing() {
-    if (appState().unitGrid == 32) return 32;
     const UnitType& t = appState().ed->unitTypes()[uint16_t(appState().palette)];
     const int foot = std::max({int(t.placementWidth), int(t.placementHeight), 16});
-    return appState().unitGrid > 0 ? float((foot + appState().unitGrid - 1) / appState().unitGrid * appState().unitGrid) : float(foot);
+    if (!appState().snapUnits) return float(foot);
+    const int g = std::max(gDock.gridW, gDock.gridH);
+    return float((foot + g - 1) / g * g);
 }
 
 // Places the palette unit at a map point (grid-snapped if on, corrected if on) and reports it.
@@ -603,11 +708,7 @@ int sprayAt(float wx, float wy) {
             for (int v : selectedPalette())
                 if (v > 0) picks.push_back(uint16_t(v));
             if (picks.empty()) picks.push_back(uint16_t(appState().palette));
-            const int dabs = sprayDabs(), n = int(picks.size());
-            const uint32_t first = appState().spraySeed++;
-            for (int i = 0; i < n; ++i)
-                if (const int share = dabs / n + ((int(first % uint32_t(n)) + i) % n < dabs % n ? 1 : 0); share > 0)
-                    ed.sprayTerrain(int(wx), int(wy), picks[(first + uint32_t(i)) % uint32_t(n)], currentBrush(), share, appState().spraySeed++);
+            ed.sprayTerrainPart(int(wx), int(wy), picks, currentBrush(), std::clamp(appState().sprayDensity, 1, kDensityMax), appState().spraySeed++);
         }
         return 0;
     }
@@ -622,7 +723,8 @@ int sprayAt(float wx, float wy) {
     }
     if (appState().mode == Mode::Doodads) return ed.sprayDoodads(picks, int(wx), int(wy), sprayRadius(), sprayCount(), appState().spraySeed++, appState().doodadCheck);
     if (appState().mode == Mode::Sprites && !picks.empty())  // random sprites of the selected kinds in the circle
-        return ed.spraySprites(picks, uint8_t(appState().playerOwner), wx, wy, sprayRadius(), sprayCount(), appState().spraySeed++, appState().spriteGrid);
+        return ed.spraySprites(picks, uint8_t(appState().playerOwner), wx, wy, sprayRadius(), sprayCount(), appState().spraySeed++, appState().snapSprites ? gDock.gridW : 0,
+                               appState().snapSprites ? gDock.gridH : 0, gDock.gridX, gDock.gridY);
     return 0;
 }
 
@@ -675,6 +777,25 @@ void outline(render::Scene& s, const Rect& r, uint32_t rgba, float thickness = 1
 }
 
 void viewSize(int& w, int& h) { shellViewSize(w, h); }
+
+// The part of the map that the map view shows (map pixels), `margin` map pixels more on each side. False: the view has
+// no size yet (the caller then keeps all).
+bool mapViewBox(float& x0, float& y0, float& x1, float& y1, float margin = 0) {
+    int vw, vh;
+    viewSize(vw, vh);
+    const AppState& app = appState();
+    if (vw <= 0 || vh <= 0 || app.zoom <= 0) return false;
+    x0 = app.camX - margin, y0 = app.camY - margin, x1 = app.camX + vw / app.zoom + margin, y1 = app.camY + vh / app.zoom + margin;
+    return true;
+}
+
+// The rectangles of a kept list (an overlay's) that the map view shows, added to `out` (all when the view has no size).
+void addRectsInView(std::vector<render::RectDraw>& out, const std::vector<render::RectDraw>& in) {
+    float x0, y0, x1, y1;
+    if (!mapViewBox(x0, y0, x1, y1, 1)) return (void)out.insert(out.end(), in.begin(), in.end());
+    for (const render::RectDraw& d : in)
+        if (std::max(d.x0, d.x1) >= x0 && std::min(d.x0, d.x1) <= x1 && std::max(d.y0, d.y1) >= y0 && std::min(d.y0, d.y1) <= y1) out.push_back(d);
+}
 
 // A status-bar hint (what is under the mouse): not worth a log line.
 void setHint(const std::wstring& m) {

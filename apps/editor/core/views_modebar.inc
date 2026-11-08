@@ -32,7 +32,7 @@ struct ModeBarView final : stardraft::draw::View {
         return {k * bw, 0, k + 1 == kModeCount ? width() : (k + 1) * bw, height()};
     }
     void paint(Canvas& c) override {
-        const int w = width(), h = height(), bw = width() / kModeCount;
+        const int w = width(), h = height();
         static const UiIcon icons[kModeCount] = {UiIcon::Terrain, UiIcon::Units, UiIcon::Doodads, UiIcon::Locations, UiIcon::DatSprites};
         c.fill({0, 0, w, h}, kPanel);  // they sit on the top tool bar
         const stardraft::draw::Font prev = c.setFont(c.font({stardraft::draw::Face::Ui, 0}));  // the UI font (the message font)

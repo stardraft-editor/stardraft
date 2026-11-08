@@ -153,6 +153,8 @@ void installCrashHandler(CrashHandler handler) {
     });
 }
 
+void limitMemory() {}  // (Windows only: the job object)
+
 std::string systemName() {
 #ifdef __APPLE__
     char v[64] = "";

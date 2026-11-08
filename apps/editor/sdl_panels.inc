@@ -159,6 +159,43 @@ void paletteMenuSdl(PaletteGridView& pal, draw::View& from, draw::Point at, int 
     }), on);
 }
 
+// The Custom list's right click (core/views_stamps.inc): on an item Rename, Delete, Show in folder; then the View items
+// as the other palettes have them (List, Grid; Normal, Large, Extra large), kept in the settings.
+void shellStampsMenu(draw::View& from, draw::Point at, const TerrainStamp* s) {
+    enum { kRename = 1, kDelete, kReveal, kCopyText, kImportText };
+    MenuModel m;
+    const bool own = s && !s->file.empty();  // (a mod's brush: not the user's file)
+    if (own) {
+        m.push_back(menuItem(kRename, L"Rename\x2026"));
+        m.push_back(menuItem(kDelete, L"Delete\x2026"));
+        m.push_back(menuItem(kReveal, L"Show in folder"));
+        m.push_back(menuSeparator());
+    }
+    if (s) m.push_back(menuItem(kCopyText, L"Copy as text"));
+    m.push_back(menuItem(kImportText, L"Import from clipboard"));
+    m.push_back(menuSeparator());
+    m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !stampsGrid()));
+    m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, stampsGrid() != 0));
+    m.push_back(menuSeparator());
+    m.push_back(menuItem(ID_PAL_NORMAL, L"&Normal", {}, false, stampsSize() == 0));
+    m.push_back(menuItem(ID_PAL_LARGE, L"L&arge", {}, false, stampsSize() == 1));
+    m.push_back(menuItem(ID_PAL_XLARGE, L"E&xtra large", {}, false, stampsSize() == 2));
+    const TerrainStamp copy = s ? *s : TerrainStamp{};  // (a menu's run reads the list again)
+    draw::Host* host = from.host();
+    sdlPopupMenu(from, at, sdlModelItems(m, [copy, host](int id) {
+        if (id == kCopyText) return stampsCopyText(copy, host);
+        if (id == kImportText) {
+            const std::string text = host ? host->clipboardText() : std::string();
+            return shellPost([text] { stampsImportText(text); });
+        }
+        if (id == kRename) return shellPost([copy] { stampsRename(copy); });
+        if (id == kDelete) return shellPost([copy] { stampsDelete(copy); });
+        if (id == kReveal) return shellRevealFile(copy.file);
+        if (id == ID_PAL_LIST || id == ID_PAL_ICONS) return setStampsView(id == ID_PAL_ICONS, stampsSize());
+        if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) return setStampsView(stampsGrid(), id == ID_PAL_NORMAL ? 0 : id == ID_PAL_LARGE ? 1 : 2);
+    }), sdlFeedbackOn(from, at, L"the Custom list"));
+}
+
 // The Sort button's menu (core/palette_view.inc: paletteSortMenuModel) under `from`: the order of the list of `mode`, or
 // of a palette panel's own list. The side bar's order is saved in the settings.
 void paletteSortMenuSdl(Mode mode, draw::View& from, PalettePanelView* panel) {
@@ -331,6 +368,11 @@ void initPanels() {
     // SetFocus on the view), so the map's keys and undo run.
     gPalList.picked = [](int row, unsigned mods) {
         const int v = gPalList.rows[size_t(row)].value;
+        if ((mods & draw::kAlt) && gPalList.mode == Mode::Terrain) {  // (the mask; the pick stays)
+            paletteMaskToggle(gState, v);
+            gPalList.invalidate();
+            return invalidateMapView();
+        }
         const bool ctrl = (mods & draw::kCtrl) != 0;
         // (isometric terrain: Shift+click with no pick before adds it, as Ctrl+click)
         const bool second = (mods & draw::kShift) && gState.mode == Mode::Terrain && !gState.terrainRect;
@@ -340,6 +382,11 @@ void initPanels() {
     };
     gPal2List.picked = [](int row, unsigned mods) {
         const int v = gPal2List.rows[size_t(row)].value;
+        if ((mods & draw::kAlt) && gPal2List.mode == Mode::Terrain) {  // (the mask)
+            paletteMaskToggle(gState, v);
+            gPal2List.invalidate();
+            return invalidateMapView();
+        }
         pickInOtherMode(gPal2List.state, v, (mods & draw::kCtrl) != 0);
         gPal2List.invalidate();
         invalidateMapView();
@@ -349,6 +396,11 @@ void initPanels() {
     gPal2List.context = [](int row, draw::Point pt) { paletteMenuSdl(gPal2List, gPal2List, pt, row); };
     gPal3List.picked = [](int row, unsigned mods) {
         const int v = gPal3List.rows[size_t(row)].value;
+        if ((mods & draw::kAlt) && gPal3List.mode == Mode::Terrain) {  // (the mask)
+            paletteMaskToggle(gState, v);
+            gPal3List.invalidate();
+            return invalidateMapView();
+        }
         pickInOtherMode(gPal3List.state, v, (mods & draw::kCtrl) != 0);
         gPal3List.invalidate();
         invalidateMapView();

@@ -194,6 +194,9 @@ struct SdlSfxSound {
     int sfx = -1, total = 0;
     bool paused = false;
 } gSdlSfx;
+// The Data pictures that the last frame painted move (the image plays, a portrait shows): the next frames paint them again
+// (main_sdl.cpp: the frame clock; the frame hook clears it before each frame).
+bool gSdlDataMoving = false;
 void sdlSfxStop() {
     closeStreamSdl(gSdlSfx.stream);
     gSdlSfx = {};
@@ -511,10 +514,12 @@ public:
     std::wstring fieldNote(const DatField& f, uint32_t v) override { return ::fieldNote(f, v); }
     std::wstring readOnlyWhy(const DatField& f) override { return datFieldReadOnly(dat(), f, gSdlDataState.entry); }
     draw::Image refIcon(const std::string& d, uint32_t v) override { return sdlDataImage(dataRefPicture(d, v)); }
-    int widgets(draw::Canvas& c, int section, int x, int y, int w) override {  // (the window paints each frame: the image plays on)
+    int widgets(draw::Canvas& c, int section, int x, int y, int w) override {  // (the window paints each frame while they move: the image plays on)
         if (dat() == "images") imagePlayerTick();
         bool moving = false;
-        return paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
+        const int bottom = paintDataPictures(c, *this, dat(), section, gSdlDataState.entry, x, y, w, moving);
+        gSdlDataMoving |= moving;
+        return bottom;
     }
     void soundButton(draw::Canvas& c, draw::Rect r, int sfx) override {  // a play / pause button for a sound (main.cpp: soundButton)
         bool playing = false;
@@ -607,8 +612,7 @@ public:
         for (const DataFormHit& h : gSdlDataForm.hits())
             if (h.bit == -1 && h.field == gSdlDataState.editing) {
                 const draw::Rect r{h.r.left + scale(2), h.r.top + scale(3), h.r.right - scale(2), h.r.bottom - scale(3)};
-                const draw::Rect cur = gSdlDataEntry.frame();
-                if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) gSdlDataEntry.setFrame(r);
+                gSdlDataEntry.setFrame(r);
                 return;
             }
     }
@@ -676,7 +680,7 @@ public:
                   std::function<void(const std::string&, bool, std::set<std::string>&)> toggle) override {
         ListPickView v(title, std::move(items), "");
         if (toggle) v.setLive(checked, shellTr(L"Close"), std::move(toggle)), v.setGroups(true);  // (Columns…: a heading toggles its group)
-        else v.setMulti(checked, shellTr(L"OK"));
+        else v.setMulti(checked, shellTr(L"Set"));
         const draw::Point o = gSdlDataTable.origin();
         if (!runListPick(v, {o.x + pt.x, o.y + pt.y})) return false;
         checked = v.checked();
@@ -741,7 +745,7 @@ void sdlTableImportCsv(DatTable& t, const fs::path& folder, const std::wstring& 
     }
     auto count = [](int n, const wchar_t* one, const wchar_t* more) { return std::to_wstring(n) + shellTr(n == 1 ? one : more) + L"\n"; };
     if (res.notValues) problems += count(res.notValues, L" cell is not a value of its column.", L" cells are not values of their columns.");
-    if (res.locked) problems += count(res.locked, L" cell cannot change (read only, or not used by the entry).", L" cells cannot change (read only, or not used by the entry).");
+    if (res.locked) problems += count(res.locked, L" cell cannot change (read-only, or not used by the entry).", L" cells cannot change (read-only, or not used by the entry).");
     if (res.noEntry) problems += count(res.noEntry, L" row has an id that is not an entry.", L" rows have an id that is not an entry.");
     if (!res.firstProblem.empty()) problems += L"\n" + shellTr(L"First cell not imported: ") + res.firstProblem;
     if (!problems.empty()) shellWarningBox(done + L".\n\n" + problems, shellTr(L"Import CSV"));
@@ -863,14 +867,10 @@ struct SdlDataView final : draw::View {
 SdlDataView gSdlData;
 
 void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Rect refs) {
-    auto place = [](draw::View& v, draw::Rect r) {
-        const draw::Rect cur = v.frame();
-        if (cur.left != r.left || cur.top != r.top || cur.right != r.right || cur.bottom != r.bottom) v.setFrame(r);
-    };
-    place(gSdlData.listFrame, list);
+    gSdlData.listFrame.setFrame(list);
     // The Table view: in the form's and the References panel's place.
     if (gSdlDataState.table && sdlDataTableTab(gSdlDataState.datTab)) {
-        place(gSdlDataTable, {form.left, form.top, std::max(form.right, refs.right), form.bottom});
+        gSdlDataTable.setFrame({form.left, form.top, std::max(form.right, refs.right), form.bottom});
         gSdlDataTable.setVisible(true);
         if (gSdlData.formFrame.visible()) {
             const bool focused = sdlDataFocusIn(gSdlData.formFrame);  // (the keyboard goes to the table, not to the hidden form)
@@ -883,8 +883,8 @@ void SdlDataWorkspaceHost::placeLists(draw::Rect list, draw::Rect form, draw::Re
     if (gSdlDataTable.visible()) sdlDataHide(gSdlDataTable);
     gSdlData.formFrame.setVisible(true);
     gSdlData.refsFrame.setVisible(true);
-    place(gSdlData.formFrame, form);
-    place(gSdlData.refsFrame, refs);
+    gSdlData.formFrame.setFrame(form);
+    gSdlData.refsFrame.setFrame(refs);
 }
 
 void sdlDataRepaint() {

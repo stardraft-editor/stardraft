@@ -312,18 +312,6 @@ const Sprite* warpTexture(int, int frame) {
     return &t;
 }
 
-// One frame of an image in HD2 art, on a canvas of its frame box (texture pixels); empty when there is no HD art.
-Sprite hdImagePicture(int image, int frame) {
-    Sprite s;
-    if (image < 0) return s;
-    const HdFrame& f = hdFrame(image, frame);
-    if (!f.ok) return s;
-    s.width = f.boxW, s.height = f.boxH, s.originX = f.boxW / 2, s.originY = f.boxH / 2;
-    s.rgba.assign(size_t(s.width) * s.height * 4, 0);
-    if (!drawImageHd(s, image, frame, false, 0, 0, 0, 0)) s = {};
-    return s;
-}
-
 struct ImagePlayer {
     int image = -1, anim = 0, dir = 12;
     bool playing = true, loop = true, muted = true;  // the script's sounds: off until turned on

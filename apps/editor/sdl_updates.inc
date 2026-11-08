@@ -68,7 +68,7 @@ void sdlCheckForUpdates() {
     using releases::UpdateWay;
     const UpdateWay way = sdlUpdateWay(r);
     if (way == UpdateWay::UpToDate) {
-        updatesBox(shellTr(L"StarDraft 2 is up to date (") + title + L").", {L"OK"}, msgbox::Icon::Info);
+        updatesBox(shellTr(L"Up to date (") + title + L")", {L"OK"}, msgbox::Icon::Info);
         return;
     }
     // The browser gets this system's download: an AppImage, the new AppImage (the user puts it in place of the old
@@ -95,7 +95,7 @@ void sdlCheckForUpdates() {
             openReleasePage(r);
         return;
     }
-    if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download and install it? StarDraft 2 starts again after it."),
+    if (updatesBox(shellTr(L"A newer release is available: ") + title + L".\n\n" + shellTr(L"Download and install it, then restart StarDraft 2?"),
                    {shellTr(L"&Install"), shellTr(L"Cancel")}, msgbox::Icon::Question) != 0)
         return;
     sdlInstallUpdate(r);
@@ -230,7 +230,7 @@ void sdlChangelogShow(const releases::Release& r, bool kept) {
     using releases::UpdateWay;
     std::wstring label, tip, note;
     switch (sdlUpdateWay(r)) {
-    case UpdateWay::Install: label = L"Install", tip = tr(L"Download and install it. StarDraft 2 starts again after it."); break;
+    case UpdateWay::Install: label = L"Install", tip = tr(L"Download and install it, then restart StarDraft 2"); break;
     case UpdateWay::Download: label = L"Download", tip = tr(L"The download opens in the browser"); break;
     case UpdateWay::Package: note = tr(L"Update StarDraft 2 in your software center."); break;
     default: break;
@@ -323,6 +323,7 @@ void sdlApplyReleaseFixture() {
 bool sdlUpdatesRuns(int id) {
 #ifdef _WIN32
     if (id == ID_OPT_MAPSDEFAULT) return true;  // (the map files are Windows only)
+    if (id >= ID_GPU_DRIVER && id <= ID_GPU_DRIVER + 2) return true;  // (Graphics: the drivers are Windows' choice)
 #endif
     return id == ID_OPT_UPDATECHECK || id == ID_OPT_PREVIEWS || id == ID_HELP_WHATSNEW || id == ID_UPDATE_NOTES ||
            (id >= ID_CRASH_MODE && id <= ID_CRASH_MODE + 2);
@@ -338,7 +339,7 @@ bool sdlUpdatesCommand(int id) {
     case ID_OPT_PREVIEWS: {
         const bool on = !sdlUpdatePreviews();
         if (!gSilent) prefs::setNumber(L"UpdatePreviews", on ? 1 : 0);  // (tests never change the user's settings)
-        setMessage(on ? L"StarDraft 2 offers pre-releases too" : L"StarDraft 2 offers the stable releases only");
+        setMessage(on ? L"Updates: offer pre-releases too" : L"Updates: offer the stable releases only");
         gOptionsView.invalidate();
         sdlLookForUpdate();  // (the newest release of the track now)
         return true;
@@ -361,6 +362,20 @@ bool sdlUpdatesCommand(int id) {
         gOptionsView.invalidate();
         return true;
     case ID_OPT_MAPSDEFAULT: return sdlMakeMapsDefault();
+    case ID_GPU_DRIVER:
+    case ID_GPU_DRIVER + 1:
+    case ID_GPU_DRIVER + 2: {
+        static const wchar_t* const said[] = {L"Graphics: Automatic after a restart", L"Graphics: Direct3D 12 after a restart",
+                                               L"Graphics: Software after a restart"};
+        static const char* const drivers[] = {"", "direct3d12", "warp"};
+        if (!gSilent) {  // (tests never change the user's settings)
+            prefs::setNumber(L"GraphicsDriver", id - ID_GPU_DRIVER);
+            sdlGpuUnskip(drivers[id - ID_GPU_DRIVER]);  // (the chosen one is tried again after a start that it stopped)
+        }
+        setMessage(said[id - ID_GPU_DRIVER]);
+        gOptionsView.invalidate();
+        return true;
+    }
     default: return false;
     }
 }

@@ -562,20 +562,20 @@ public:
         const Rows l = rows();
         if (width() != l.width || height() != l.height) host_.fitSize(tab_, l.width, l.height);  // (its own size: a paint again)
         const int fb = l.rowH, fx = l.pad + l.listW - fb;  // the Changed filter's button: a square at the search box's right
-        place(search_, {l.pad, l.pad, fx - scale(6), l.pad + l.rowH});
-        place(changed_, {fx, l.pad, fx + fb, l.pad + fb});
-        place(list_, listRect(l.pad, l.listTop, l.listW, l.listH));
+        search_.setFrame({l.pad, l.pad, fx - scale(6), l.pad + l.rowH});
+        changed_.setFrame({fx, l.pad, fx + fb, l.pad + fb});
+        list_.setFrame(listRect(l.pad, l.listTop, l.listW, l.listH));
         if (scrollToRow_ >= 0 && list_.height() > 0) {  // the selected row: in view, once the list has its size
             list_.ensureVisible(scrollToRow_);
             scrollToRow_ = -1;
         }
         // The title (the page's title font), and the rename button after its text.
-        const draw::Font of = c.setFont(c.font({draw::Face::Ui, -(shellUiFontLfHeight() * 3 / 2)}));
+        const draw::Font of = c.setFont(c.font(kitpaint::titleFontDesc()));
         c.text({l.x0, l.pad, l.right, l.pad + l.titleH}, title(), kText, draw::kEllipsis);
         if (renameShown()) {
             const int bs = scale(26), tw = c.measure(title());
             const int left = std::min(l.x0 + tw + scale(10), l.right - bs), top = l.pad + (l.titleH - bs) / 2;
-            place(rename_, {left, top, left + bs, top + bs});
+            rename_.setFrame({left, top, left + bs, top + bs});
         }
         c.setFont(of);
         // The dim headings (kText) and the labels (kDim), each heading with a line under it.
@@ -592,33 +592,33 @@ public:
         // The fields and the check boxes: where the rows put them.
         for (int f = 0; f < classicFieldCount(tab_); ++f) {
             const int y = l.formTop + f * l.step;
-            place(fields_[size_t(f)].field, {l.x0 + l.labelW, y, l.x0 + l.labelW + l.numW, y + l.rowH});
+            fields_[size_t(f)].field.setFrame({l.x0 + l.labelW, y, l.x0 + l.labelW + l.numW, y + l.rowH});
         }
         for (int k = 0; k < kCsWeaponRows && tab_ == kClassicUnits; ++k) {
             const int y = l.weaponTop + k * l.step, dx = l.x0 + l.labelW + scale(140);
-            place(weaponDamage_[size_t(k)].field, {dx, y, dx + l.numW, y + l.rowH});
-            place(weaponBonus_[size_t(k)].field, {dx + l.numW + l.pad, y, dx + l.numW * 2 + l.pad, y + l.rowH});
+            weaponDamage_[size_t(k)].field.setFrame({dx, y, dx + l.numW, y + l.rowH});
+            weaponBonus_[size_t(k)].field.setFrame({dx + l.numW + l.pad, y, dx + l.numW * 2 + l.pad, y + l.rowH});
         }
         const int ax = l.x1 + l.nameColW + l.defColW + (tab_ == kClassicUpgrades ? l.aColW : 0);
         const int bx = l.x1 + l.nameColW + l.defColW + (tab_ == kClassicUpgrades ? 0 : l.aColW);
         for (int p = 0; p < kClassicPlayers; ++p) {
             const int y = l.playersTop + p * l.step;
-            place(pDefault_[size_t(p)], {l.x1 + l.nameColW, y, l.x1 + l.nameColW + l.defColW, y + l.rowH});
+            pDefault_[size_t(p)].setFrame({l.x1 + l.nameColW, y, l.x1 + l.nameColW + l.defColW, y + l.rowH});
             if (tab_ == kClassicUpgrades) {
-                place(pA_[size_t(p)].field, {ax, y, ax + scale(60), y + l.rowH});
-                place(pB_[size_t(p)].field, {bx, y, bx + scale(60), y + l.rowH});
+                pA_[size_t(p)].field.setFrame({ax, y, ax + scale(60), y + l.rowH});
+                pB_[size_t(p)].field.setFrame({bx, y, bx + scale(60), y + l.rowH});
             } else {
-                place(pCheckA_[size_t(p)], {ax, y, ax + l.aColW, y + l.rowH});
-                place(pCheckB_[size_t(p)], {bx, y, bx + l.aColW, y + l.rowH});
+                pCheckA_[size_t(p)].setFrame({ax, y, ax + l.aColW, y + l.rowH});
+                pCheckB_[size_t(p)].setFrame({bx, y, bx + l.aColW, y + l.rowH});
             }
         }
         const int gy = l.playersTop - l.step;
         if (tab_ == kClassicUpgrades) {
-            place(globalA_.field, {ax, gy, ax + scale(60), gy + l.rowH});
-            place(globalB_.field, {bx, gy, bx + scale(60), gy + l.rowH});
+            globalA_.field.setFrame({ax, gy, ax + scale(60), gy + l.rowH});
+            globalB_.field.setFrame({bx, gy, bx + scale(60), gy + l.rowH});
         } else {
-            place(globalCheckA_, {ax, gy, ax + l.aColW, gy + l.rowH});
-            place(globalCheckB_, {bx, gy, bx + l.aColW, gy + l.rowH});
+            globalCheckA_.setFrame({ax, gy, ax + l.aColW, gy + l.rowH});
+            globalCheckB_.setFrame({bx, gy, bx + l.aColW, gy + l.rowH});
         }
         syncLooks();
     }
@@ -687,10 +687,6 @@ private:
         return out;
     }
     // A child's frame, set only when it differs (a set repaints).
-    void place(draw::View& v, draw::Rect r) {
-        const draw::Rect f = v.frame();
-        if (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom) v.setFrame(r);
-    }
     static bool isDigit(wchar_t c) { return c >= L'0' && c <= L'9'; }
     void setNumberLook(ClassicNumber& n) {
         n.field.setAlignRight(true), n.field.setFont({draw::Face::Mono, 0}), n.field.setFilter(isDigit);
@@ -953,8 +949,7 @@ private:
         const int ring = scale(1) + 1;
         c.fill(r, kCtl);
         if (sel) {
-            c.fill(r, kSel);
-            c.fill({r.left, r.top, r.left + scale(2), r.bottom}, kAccent);
+            kitpaint::drawListRow(c, r, true, false);
             c.fill({r.left + ring, r.top, r.left + ring + scale(2), r.bottom}, kAccent);
         }
         const draw::Rect box{r.left + scale(6), r.top + scale(2), r.left + scale(30), r.bottom - scale(2)};

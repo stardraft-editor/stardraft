@@ -76,7 +76,7 @@ public:
             page_ = page;
             issue_ = number > 0 ? tr(L"Open it on GitHub (#") + std::to_wstring(number) + L")" : std::wstring();
         } else {
-            status_ = L"StarDraft 2 could not send it now. It sends it when StarDraft 2 starts the next time.";
+            status_ = L"Could not send the feedback now. It is sent at the next start.";
         }
         cancel_.setText(L"Close");
         invalidate();
@@ -155,8 +155,7 @@ private:
     // A link's stop at its place (only when it moved: a frame change paints again).
     static void placeStop(PartStop& s, draw::Rect r, bool shown) {
         if (s.visible() != shown) s.setVisible(shown);
-        const draw::Rect f = s.frame();
-        if (shown && (f.left != r.left || f.top != r.top || f.right != r.right || f.bottom != r.bottom)) s.setFrame(r);
+        if (shown) s.setFrame(r);
     }
 };
 
@@ -170,7 +169,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     c.text({pad + scale(26), pad + scale(1), pad + w, pad + scale(21)}, tr(L"Feedback on ") + on_, kText, draw::kMiddle | draw::kEllipsis);
     int y = pad + scale(24);
     if (stage_ == 0) {  // what to write (the box's height less its line: the dialog keeps its size)
-        c.text({pad, y, pad + w, y + scale(20)}, tr(L"Please describe what the issue is and what you would expect instead."), kText, draw::kMiddle | draw::kEllipsis);
+        c.text({pad, y, pad + w, y + scale(20)}, tr(L"Describe the issue and what you expect instead."), kText, draw::kMiddle | draw::kEllipsis);
         y += scale(24);
     } else {
         y += scale(24);
@@ -179,8 +178,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     const bool typing = stage_ == 0;
     if (typing) {
         if (text_.visible() != true) text_.setVisible(true);
-        if (text_.frame().left != editR.left || text_.frame().top != editR.top || text_.frame().right != editR.right || text_.frame().bottom != editR.bottom)
-            text_.setFrame(editR);
+        text_.setFrame(editR);
     } else if (text_.visible()) {
         text_.setVisible(false);
     }
@@ -226,9 +224,7 @@ void FeedbackView::paint(draw::Canvas& c) {
     const draw::Rect sr{cr.left - gap - sw, y, cr.left - gap, y + bh};
     send_.setVisible(stage_ == 0), cancel_.setVisible(true);
     if (stage_ == 0) {
-        if (send_.frame().left != sr.left || send_.frame().top != sr.top || send_.frame().right != sr.right || send_.frame().bottom != sr.bottom)
-            send_.setFrame(sr);
+        send_.setFrame(sr);
     }
-    if (cancel_.frame().left != cr.left || cancel_.frame().top != cr.top || cancel_.frame().right != cr.right || cancel_.frame().bottom != cr.bottom)
-        cancel_.setFrame(cr);
+    cancel_.setFrame(cr);
 }

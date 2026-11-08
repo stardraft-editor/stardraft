@@ -49,6 +49,17 @@ public:
     // init in two parts, so the GPU device can be made on another thread while the program loads other things:
     // createDevice (any thread), then attach (the window's thread).
     bool createDevice(std::string& error);
+    // Windows: the drivers that createDevice does not try ("direct3d12", "vulkan", "warp", comma separated): those of a
+    // start whose window did not show. When it leaves out all of them, it tries all. STARDRAFT_GPU_DRIVER goes first.
+    void setSkippedDrivers(const std::string& drivers);
+    // The driver that createDevice made the device with, as setSkippedDrivers names it; "" before.
+    const char* driverTried() const;
+    // Windows: called with each driver's name before createDevice tries it, so that a computer that stops in a try is
+    // known at the next start.
+    void setTryHook(void (*hook)(const char* driver));
+    // Windows: the driver that createDevice tries first ("vulkan", "direct3d12", "warp"; "": Vulkan, the default); the
+    // others follow when it cannot be used.
+    void setPreferredDriver(const std::string& driver);
     bool attach(SDL_Window* window, std::string& error);
     bool initOffscreen(int width, int height, std::string& error);
     void shutdown();

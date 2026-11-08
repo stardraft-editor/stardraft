@@ -508,8 +508,7 @@ void TextField::syncHBar() {
     if (!hbarShown_) return;
     const draw::Rect in = inner();
     const draw::Rect place{in.left, in.bottom + px(2), in.right, in.bottom + px(8)};
-    const draw::Rect cur = hbar_.frame();
-    if (cur.left != place.left || cur.top != place.top || cur.right != place.right || cur.bottom != place.bottom) hbar_.setFrame(place);
+    hbar_.setFrame(place);
     const int total = contentW_ + 2, page = in.width();
     if (total != hbarTotal_ || page != hbarPage_) {
         hbarTotal_ = total, hbarPage_ = page;
@@ -523,8 +522,7 @@ void TextField::syncBar() {
     if (!barShown_) return;
     const draw::Rect in = inner();
     const draw::Rect place{width() - px(8), in.top, width() - px(2), in.bottom};
-    const draw::Rect cur = bar_.frame();
-    if (cur.left != place.left || cur.top != place.top || cur.right != place.right || cur.bottom != place.bottom) bar_.setFrame(place);
+    bar_.setFrame(place);
     const int total = int(lines_.size()) * lineH_, page = in.height();
     if (total != barTotal_ || page != barPage_) {
         barTotal_ = total, barPage_ = page;

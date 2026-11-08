@@ -319,7 +319,7 @@ public:
         const int w = width(), h = height(), pad = scale(stardraft::kit::kDialogPad);
         c.fill({0, 0, w, h}, kPanel);
         draw::FontDesc td;
-        td.px = -shellUiFontLfHeight() * 3 / 2, td.weight = 600;
+        td = kitpaint::titleFontDesc(), td.weight = 600;
         const draw::Font of = c.setFont(c.font(td));
         c.text({pad, pad, w - pad, pad + scale(30)}, title_, kText, draw::kMiddle | draw::kEllipsis);
         c.setFont(c.font({}));
@@ -438,11 +438,11 @@ void simEnd() {
             const bool many = t.players.size() > 1;
             wchar_t b[256];
             if (t.team == kTeamComputers) {
-                if (many) std::swprintf(b, 256, tr(L"Computers (players %ls)"), n.c_str());
-                else std::swprintf(b, 256, tr(L"Computer (player %ls)"), n.c_str());
+                if (many) std::swprintf(b, 256, tr(L"Computers (Players %ls)"), n.c_str());
+                else std::swprintf(b, 256, tr(L"Computer (Player %ls)"), n.c_str());
             } else if (t.team == kTeamHumans) {
-                if (many) std::swprintf(b, 256, tr(L"Humans (players %ls)"), n.c_str());
-                else std::swprintf(b, 256, tr(L"Humans (player %ls)"), n.c_str());
+                if (many) std::swprintf(b, 256, tr(L"Humans (Players %ls)"), n.c_str());
+                else std::swprintf(b, 256, tr(L"Human (Player %ls)"), n.c_str());
             } else if (t.team >= kTeamForce && t.team < kTeamForce + 4) {
                 const std::string fn = gState.ed ? gState.ed->force(t.team - kTeamForce).name : std::string();
                 std::wstring label;
@@ -453,8 +453,8 @@ void simEnd() {
                 } else {
                     label = widen(fn);  // (the force's name, from the map)
                 }
-                if (many) std::swprintf(b, 256, tr(L"%ls (players %ls)"), label.c_str(), n.c_str());
-                else std::swprintf(b, 256, tr(L"%ls (player %ls)"), label.c_str(), n.c_str());
+                if (many) std::swprintf(b, 256, tr(L"%ls (Players %ls)"), label.c_str(), n.c_str());
+                else std::swprintf(b, 256, tr(L"%ls (Player %ls)"), label.c_str(), n.c_str());
             } else {
                 std::swprintf(b, 256, tr(L"Player %ls"), n.c_str());
             }
@@ -476,7 +476,7 @@ void simEnd() {
         if (simAlliances() == kUnitFreeForAll && r.winnerUnit >= 0 && size_t(r.winnerUnit) < gSimCombatPlaced.size()) {
             const auto [type, owner] = gSimCombatPlaced[size_t(r.winnerUnit)];
             wchar_t b[1024];
-            std::swprintf(b, 1024, tr(L"%ls of player %d is the last unit standing"), simUnitName(type).c_str(), int(owner) + 1);
+            std::swprintf(b, 1024, tr(L"%ls of Player %d is the last unit standing"), simUnitName(type).c_str(), int(owner) + 1);
             winner = b;
         }
         int unreachable = 0;
@@ -1195,7 +1195,7 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
 }
 
 // The info icon's tip (it shows at once: the icon is there for it; sdl_tips.inc).
-const wchar_t* const kSimInfoTip = L"Experimental simulation, might not fully match the game yet. It is StarDraft's own simulation, not the game's engine.";
+const wchar_t* const kSimInfoTip = L"Experimental simulation: the result can differ from the game. It is not the game's engine.";
 bool simTipIsQuick(const std::wstring& tip) { return tip == kSimInfoTip; }
 
 // The bar's tooltips: the info icon (what the simulation is) and the buttons.

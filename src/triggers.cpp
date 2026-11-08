@@ -247,7 +247,7 @@ std::optional<TriggerType> familyType(const std::string& name) {
     if (family == "Unclear") {
         t.picker = TriggerPicker::Unclear;
         t.label = humanize(arg);
-        t.help = "StarDraft does not know these values yet (" + arg + "): typed as a number.";
+        t.help = "The values are not known yet (" + arg + "): type the number.";
         return t;
     }
     return std::nullopt;
@@ -1201,7 +1201,7 @@ std::string TriggerSet::text() const {
 
 bool TriggerSet::save(const fs::path& file, std::string& error) const {
     if (newerFormat()) {
-        error = file.string() + " was made by a newer StarDraft (format " + std::to_string(fileVersion) + "): not saved, so nothing in it is lost";
+        error = file.string() + " is from a newer version (format " + std::to_string(fileVersion) + "): not saved, so nothing in it is lost";
         return false;
     }
     if (loadFailed) {
@@ -1624,7 +1624,7 @@ struct Gen {
             return "sqrt(" + dx + " * " + dx + " + " + dy + " * " + dy + ")";
         }
         if (d->code.empty()) {
-            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": StarDraft cannot build this block yet");
+            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": this block cannot be built yet");
             return "0";
         }
         return fill(c, *d, d->code);
@@ -1837,7 +1837,7 @@ struct Gen {
         for (const auto& u : map.units)
             if (u.serial != serial && u.type == it->type && u.owner == it->owner && u.x == it->x && u.y == it->y) {
                 issue(TriggerIssue::Level::Warning, c, i,
-                      "Unit #" + std::to_string(u.serial) + " has the same type, owner and position. Move one of them, or StarDraft can find the wrong unit");
+                      "Unit #" + std::to_string(u.serial) + " has the same type, owner and position. Move one of them, or the triggers can find the wrong unit");
                 return;
             }
     }
@@ -2021,6 +2021,11 @@ struct Gen {
                 alive = "(" + u + " != 0 && " + u + ".order != 0 && " + u + ".uniquenessIdentifier == " + gen + ")";
             }
             return d->id == "cond.unitalive" ? alive : "!" + alive;
+        }
+        if (d->id == "cond.unitkilledby") {  // dying, the same unit as kept (a variable), and its last attacker
+            const std::string v = raw(c, *d, "unit"), u = unitRef(c, d->param("unit"), v), gen = unitGen(v);
+            const std::string same = gen.empty() ? "" : u + " != 0 && " + u + ".uniquenessIdentifier == " + gen + " && ";
+            return "(" + same + u + ".order == 0 && " + u + ".lastAttackingPlayer == " + arg(c, *d, "player") + ")";
         }
         if (d->id == "cond.listitem") return "(" + listItem(c, *d) + " " + arg(c, *d, "cmp") + " " + arg(c, *d, "value") + ")";
         if (d->id == "cond.chatstarts" || d->id == "cond.chatcontains") {  // chatEvent's patterns (roadmap R51)
@@ -2447,6 +2452,11 @@ struct Gen {
             const std::string t = arg(c, *d, "var"), lo = arg(c, *d, "lo"), hi = arg(c, *d, "hi");
             return t + " = " + lo + " + rand() % (" + hi + " - " + lo + " + 1);" + tag + "\n";
         }
+        if (id == "act.setunitvartarget") {  // the unit its order is on (CUnit 0x5C), or no unit
+            const std::string var = arg(c, *d, "var"), u = unitRef(c, d->param("unit"), raw(c, *d, "unit"));
+            return "{" + tag + "\n    const ot = dwread(" + u + ".ptr + 0x5C);\n    if (ot == 0) {\n        " + var + " = 0;\n        " + var +
+                   "_gen = 0;\n    } else {\n        " + var + " = CUnit.from_ptr(ot);\n        " + var + "_gen = " + var + ".uniquenessIdentifier;\n    }\n}\n";
+        }
         if (id == "act.setunitvar") {
             const std::string var = arg(c, *d, "var"), from = raw(c, *d, "unit");
             std::string gen;
@@ -2575,7 +2585,7 @@ struct Gen {
             static const std::set<std::string> safe = {"act.comment", "act.donothing", "act.break",   "act.stop",
                                                        "act.unitcolor", "act.wireframe", "act.prop.image", "act.playername",
                                                        "act.btnreplace", "act.unitbuttons", "act.settbl", "act.share"};
-            static const std::set<std::string> variables = {"act.setvar", "act.setflag", "act.listset", "act.setunitvar"};
+            static const std::set<std::string> variables = {"act.setvar", "act.setflag", "act.listset", "act.setunitvar", "act.setunitvartarget"};
             static const std::set<std::string> unknown = {"act.setmemory", "act.setmemoryx", "act.raw", "act.runtrigger"};
             // A random number moves the game's random numbers: on one computer only, they are no longer the same.
             std::function<bool(const TriggerCall&)> random = [&](const TriggerCall& x) {
@@ -2609,7 +2619,7 @@ struct Gen {
                               "Run local block: the value changes on this computer only. Use it only for what this player sees: if a trigger that changes the game reads it, the game desyncs");
                     else if (unknown.count(id2->id))
                         issue(TriggerIssue::Level::Warning, &in, -1,
-                              "Run local block: StarDraft cannot tell what " + id2->title + " changes. Change only what this player sees, or the game desyncs");
+                              "Run local block: it is not known what " + id2->title + " changes. Change only what this player sees, or the game desyncs");
                     else
                         issue(TriggerIssue::Level::Error, &in, -1,
                               "Run local block: " + id2->title + " changes the game on this computer only: the other computers do not do it, and the game desyncs. Put it outside");
@@ -2711,12 +2721,12 @@ struct Gen {
             const unsigned long long addr = a.empty() ? 0 : std::strtoull(a.c_str(), &end, 0);
             if (end && *end == 0 && !knownMemory(uint32_t(addr))) {
                 char m[200];
-                std::snprintf(m, sizeof m, "0x%06llX is outside the tables StarDraft knows (.dat data, deaths, locations, units, strings). A wrong address can crash the game", addr);
+                std::snprintf(m, sizeof m, "0x%06llX is outside the known tables (.dat data, deaths, locations, units, strings). A wrong address can crash the game", addr);
                 issue(TriggerIssue::Level::Warning, &c, d->param("addr"), m);
             }
         }
         if (d->code.empty()) {
-            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": StarDraft cannot build this block yet");
+            issue(TriggerIssue::Level::Error, &c, -1, d->title + ": this block cannot be built yet");
             return "";
         }
         return fill(c, *d, d->code) + ";" + tag + "\n";

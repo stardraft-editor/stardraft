@@ -498,8 +498,9 @@ std::optional<Json> applyMoreOp(Editor& ed, const std::string& name, const Json&
     if (name == "spray_sprites") {
         std::vector<uint16_t> ids;
         for (double v : nums(need(op, "sprites"), "sprites")) ids.push_back(spriteId(v, "sprites"));
+        const int grid = int(num(op, "grid", 0));
         const int n = ed.spraySprites(ids, uint8_t(player(op, "player", 12)), float(num(op, "x")), float(num(op, "y")), int(num(op, "radius")),
-                                      int(num(op, "count")), uint32_t(num(op, "seed", 1)), int(num(op, "grid", 0)));
+                                      int(num(op, "count")), uint32_t(num(op, "seed", 1)), grid, grid, 0, 0);
         return r.add("placed", n);
     }
     if (name == "spray_terrain") {

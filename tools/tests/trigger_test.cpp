@@ -648,7 +648,7 @@ int main(int argc, char** argv) {
             std::vector<TriggerIssue> is;
             mem.generate({}, is);
             int warn = 0;
-            for (const auto& i : is) warn += i.level == TriggerIssue::Level::Warning && i.message.find("outside the tables") != std::string::npos;
+            for (const auto& i : is) warn += i.level == TriggerIssue::Level::Warning && i.message.find("outside the known tables") != std::string::npos;
             check(warn == 1, "a memory write outside the known tables is a warning (" + std::to_string(warn) + " of 1), deaths are not");
         }
         TriggerCall mine = block("act.foreachunit", {"0", "P1"});
@@ -711,8 +711,9 @@ int main(int argc, char** argv) {
     more.actions.push_back(block("act.unitcolor", {"the next created unit", "P3"}));
     TriggerCall bossDead = block("cond.unitdead", {"boss"});
     TriggerCall ifDead = make("act.if");
-    ifDead.lists[0] = {bossDead, block("cond.unitalive", {"boss"})};
+    ifDead.lists[0] = {bossDead, block("cond.unitalive", {"boss"}), block("cond.unitordertarget", {"boss", "10", "boss"}), block("cond.unitkilledby", {"boss", "P2"})};
     more.actions.push_back(ifDead);
+    more.actions.push_back(block("act.setunitvartarget", {"boss", "boss"}));
     set.roots[2].children.push_back(more);
 
     std::vector<TriggerIssue> issues;
@@ -789,6 +790,10 @@ int main(int argc, char** argv) {
               "a picked unit with a twin at the same position is reported");
     }
     check(code.find("v_waves[rp1] = (rp1 * 10);") != std::string::npos, "Repeat's counter in an expression and an array target");
+    check(code.find("(v_boss.order == EncodeUnitOrder(\"Attack Unit\") && dwread(v_boss.ptr + 0x5C) == v_boss.ptr)") != std::string::npos, "a unit's order and its order target");
+    check(code.find("v_boss != 0 && v_boss.uniquenessIdentifier == v_boss_gen && v_boss.order == 0 && v_boss.lastAttackingPlayer == P2)") != std::string::npos &&
+              code.find("const ot = dwread(v_boss.ptr + 0x5C);") != std::string::npos && code.find("v_boss = CUnit.from_ptr(ot);") != std::string::npos,
+          "a unit killed by a player; a unit variable set to a unit's order target");
     check(code.find("(v_boss.hp <= 5120)") != std::string::npos && code.find("v_boss.hp += (v_gold) * 256;") != std::string::npos,
           "a unit's hit points: compared and changed in 1/256ths");
     check(code.find("v_boss.statusFlags.Invincible = 1;") != std::string::npos && code.find("v_boss.owner = P2;") != std::string::npos,
@@ -903,7 +908,7 @@ int main(int argc, char** argv) {
           "a unit is dead / alive: its order, and the same unit in its slot (generation)");
     check(code.find("v_boss_gen = v_boss.uniquenessIdentifier;") != std::string::npos && code.find("var v_boss: CUnit = 0;") != std::string::npos,
           "a kept unit keeps its slot's generation");
-    check(code.find("v_boss = CUnit.from_next();\n") != std::string::npos && code.find("CreateUnit(1, $U(\"Jim Raynor (Marine)\"), 64, P1);  // Create a unit and keep it") != std::string::npos &&
+    check(code.find("v_boss = CUnit.from_next();\n") != std::string::npos && code.find("CreateUnit(1, $U(\"Jim Raynor (Marine)\"), 64, P1);  // Create a unit and set a unit variable") != std::string::npos &&
               code.find("CUnit.from_next().set_color(P3);") != std::string::npos,
           "create a unit and keep it in a variable; the next created unit as a value");
     check(code.find("function onPluginStart()") != std::string::npos && code.find("function afterTriggerExec()") != std::string::npos,
@@ -1032,7 +1037,7 @@ int main(int argc, char** argv) {
              [&](TriggerNode& t) { t.actions = {block("act.setdeaths", {"Add", "1", "106", "P1"})}; }, "also go up when a Terran Command Center dies",
              TriggerIssue::Level::Warning},
             {"a memory write outside the known tables", [&](TriggerNode& t) { t.actions = {block("act.setmemory", {"SetTo", "1", "0x12345678"})}; },
-             "outside the tables StarDraft knows", TriggerIssue::Level::Warning},
+             "outside the known tables", TriggerIssue::Level::Warning},
             {"what changes the game in Run local block",
              [&](TriggerNode& t) {
                  TriggerCall l = make("act.local");

@@ -29,7 +29,6 @@ bool inSelection();
 int sprayRadius();
 int brushSizeIndex(float size);
 const std::vector<float>& brushSizes();
-int sprayDabs();
 void dragMoveDelta(float wx, float wy, float& dx, float& dy);
 Rect terrainSelectRect(float wx, float wy);
 bool moveSelectedDoodads(int dx, int dy, std::string& why);
@@ -124,6 +123,15 @@ void selectItemAt(AppState& app, std::vector<int>& sel, int hit, unsigned mods, 
 constexpr UINT_PTR kSprayTimer = 78;
 float gRerollX = -1e9f, gRerollY = -1e9f;  // where the brush last redrew its own terrain (new variants) in this stroke
 float gPaintX = 0, gPaintY = 0;             // where the brush last painted in this stroke (a fast move paints the way between)
+std::vector<std::pair<int, int>> gPaintCorners;  // the ISOM corners the brush last painted (a move that keeps them paints nothing)
+uint16_t gPaintTerrain = 0;                      // and the terrain it painted there
+// The ISOM corners that the brush covers at the map point (wx, wy), at each symmetric position: the brush's place.
+std::vector<std::pair<int, int>> brushPlace(const Editor& ed, float wx, float wy, const Brush& brush) {
+    std::vector<std::pair<int, int>> corners;
+    for (auto [x, y] : ed.terrainSymmetricPoints(int(wx), int(wy), brush))
+        for (auto c : ed.brushCorners(x, y, brush)) corners.push_back(c);
+    return corners;
+}
 // Jumble at the map point (wx, wy): the terrains under the brush mixed at random (Editor::jumbleTerrain).
 void jumbleAt(AppState& app, float wx, float wy) {
     const int n = app.ed->jumbleTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
@@ -183,7 +191,7 @@ bool pipette(AppState& app, float wx, float wy) {
     case Mode::Units:
         if (const int u = ed.unitAt(int(wx), int(wy)); u >= 0) {
             const Unit& un = ed.units()[size_t(u)];
-            if (un.owner < 12) setPlayer(app, un.owner);
+            if (un.owner < ownerChoices()) setPlayer(app, un.owner);
             pickUnit(app, un.type, false);
             return true;
         }
@@ -229,6 +237,20 @@ int stackUnitAt(const Editor& ed, float wx, float wy) {
     return stack.empty() ? -1 : stack.front();
 }
 
+std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom);  // (below)
+std::chrono::steady_clock::time_point gSymmetryPressAt{};  // the handle's last click (a drag is not one: a double click's)
+std::pair<int, int> gSymmetryFrom{-1, -1};                  // the center when its drag began (Esc puts it back)
+// The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
+bool symmetryHandleAt(const AppState& app, int sx, int sy) {
+    if (!app.ed || !app.ed->isOpen() || app.mode != Mode::Terrain || currentTool(app) != TSelect || app.terrainPasting ||
+        (!app.ed->mirrors() && app.ed->turns() <= 1))
+        return false;
+    float wx, wy;
+    toWorld(app, sx, sy, wx, wy);
+    const auto [cx, cy] = app.ed->symmetryCenter();
+    return std::hypot(wx - cx, wy - cy) * app.zoom <= float(scale(10));
+}
+
 void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
@@ -254,7 +276,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
         // Paste mode stays on (another click pastes again) until a right click or Escape; the pasted
         // units are not selected, so the next paste does not move them.
         float pwx = wx, pwy = wy;
-        snapUnitPoint(pwx, pwy);  // Options > Units snap: the middle of the copy in the middle of a grid cell
+        snapUnitPoint(pwx, pwy);  // Options > Units > Snap to the grid: the middle of the copy on the grid lines
         applyUnitLimit(ed);
         const int copied = int(ed.pasteUnits(int(pwx), int(pwy)).size());  // (the symmetric copies too)
         const int pasted = ed.paste(int(pwx), int(pwy), app.correction);
@@ -268,6 +290,20 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     }
     app.dragWX = wx, app.dragWY = wy, app.dragSX = sx, app.dragSY = sy, app.dragMoved = false;
     app.terrainSelOp = 0;  // (Rectangle's Select sets it: tilesMouseDown)
+    if (!(mods & (draw::kShift | draw::kCtrl)) && symmetryHandleAt(app, sx, sy)) {  // the symmetry center: a drag moves it; a double click puts it in the map's middle
+        const auto now = std::chrono::steady_clock::now();
+        if (now - gSymmetryPressAt < std::chrono::milliseconds(400)) {
+            ed.setSymmetryCenter(-1, -1);
+            setMessage(app, L"The symmetry center is in the middle of the map");
+            gSymmetryPressAt = {};
+        } else {
+            gSymmetryPressAt = now;
+            gSymmetryFrom = ed.symmetryCenterSet();
+            app.drag = Drag::SymmetryCenter;
+        }
+        app.dirty = true;
+        return;
+    }
     bool shift = mods & draw::kShift, ctrl = mods & draw::kCtrl;
     if (objectEraseOn() && !app.pastingItems && !app.pasting) {  // Erase: the brush's circle; a drag erases along the way (one undo step)
         ed.beginStroke();
@@ -341,11 +377,31 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             ed.beginTerrainStroke();
             ed.paintBrush(int(wx), int(wy), eraseTerrain(ed), currentBrush(app), false);
             gPaintX = wx, gPaintY = wy, gRerollX = wx, gRerollY = wy;
+            gPaintCorners = brushPlace(ed, wx, wy, currentBrush(app)), gPaintTerrain = eraseTerrain(ed);
             app.drag = Drag::Paint;
             break;
         }
         if (isShapeTool(currentTool(app)) && !(ctrl && !gTiles->stamps)) {  // Line, Contour, Polygon (Ctrl+click picks the terrain or tile, below)
             shapeMouseDown(wx, wy, (mods & draw::kShift) != 0);
+            break;
+        }
+        if (currentTool(app) == TWand) {  // the Magic wand: a click selects what is reachable; Shift adds, Ctrl removes
+            const std::vector<std::pair<int, int>> more = terrainReachable(ed, wx, wy, !app.terrainRect);
+            std::vector<std::pair<int, int>> tiles;
+            if (shift || ctrl) tiles = terrainSelTiles();
+            if (ctrl) {
+                const std::set<std::pair<int, int>> out(more.begin(), more.end());
+                std::erase_if(tiles, [&](const std::pair<int, int>& t) { return out.count(t) != 0; });
+            } else {
+                tiles.insert(tiles.end(), more.begin(), more.end());
+                std::sort(tiles.begin(), tiles.end());
+                tiles.erase(std::unique(tiles.begin(), tiles.end()), tiles.end());
+            }
+            setTerrainSelTiles(tiles);
+            setMessage(app, tiles.empty() ? std::wstring(L"Cleared the terrain selection")
+                                          : L"Selected " + std::to_wstring(tiles.size()) + (tiles.size() == 1 ? L" tile" : L" tiles") +
+                                                L". Shift+click adds. Ctrl+click removes.");
+            app.drag = Drag::None;
             break;
         }
         // Rectangle: tiles as they are, no ISOM needed. (Solid's Ctrl+click picks the terrain, as Isometric's below.)
@@ -412,13 +468,14 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             // Painting a terrain onto itself redraws its tiles with new variants (a click, and on along the drag); the
             // stroke is one undo step.
             ed.beginTerrainStroke();
-            if (ed.brushAllTerrain(int(wx), int(wy), currentBrush(app), t)) {
+            if (ed.terrainMask().empty() && ed.brushAllTerrain(int(wx), int(wy), currentBrush(app), t)) {
                 int n = ed.rerollTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
                 setMessage(app, L"New variants for " + std::to_wstring(n) + L" tiles");
             }
             gRerollX = wx, gRerollY = wy;
             ed.paintBrush(int(wx), int(wy), t, currentBrush(app));
             gPaintX = wx, gPaintY = wy;
+            gPaintCorners = brushPlace(ed, wx, wy, currentBrush(app)), gPaintTerrain = t;
             app.drag = Drag::Paint;
         } else if (tool == TSpray) {
             ed.beginTerrainStroke();
@@ -432,10 +489,15 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
                 if (v > 0) picks.push_back(uint16_t(v));
             if (picks.size() > 1 ? ed.fillTerrainMix(int(wx), int(wy), picks, fillPatch(), app.spraySeed++) : ed.fillTerrain(int(wx), int(wy), t))
                 setMessage(app, picks.size() > 1 ? L"Filled with " + std::to_wstring(picks.size()) + L" terrains" : L"Filled with " + itemLabel(app, app.palette));
+            else if (!ed.terrainMask().empty())
+                setMessage(app, L"Nothing changed: the mask keeps this terrain");
         } else if (tool == TReplace || tool == TFill) {  // Fill with Shift: every place of that terrain
             uint16_t from = ed.terrainAt(int(wx), int(wy));
             const Rect* area = app.hasTerrainSel ? &app.terrainSel : nullptr;
-            int n = ed.replaceTerrain(from, t, area, int(selectShape(app)));  // (in the selection's shape)
+            // (in the selection's shape, or its tiles: a selection of any form)
+            int n = app.hasTerrainSel && !app.terrainSelMask.empty()
+                        ? ed.replaceTerrain(from, t, area, int(Editor::SelectShape::Rect), [](int x, int y) { return terrainSelHas(x, y); })
+                        : ed.replaceTerrain(from, t, area, int(selectShape(app)));
             // (the clicked terrain by the map's isometric data: a mod's tiles drawn over another terrain count as that one)
             if (from == t) setMessage(app, L"Did not fill: the clicked terrain is " + widen(ed.terrainName(from)) + L" already");
             else setMessage(app, L"Replaced " + widen(ed.terrainName(from)) + L" with " + itemLabel(app, app.palette) + L" (" +
@@ -465,7 +527,7 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
             app.drag = Drag::PlaceStroke;
         } else if (app.pastingItems) {
             std::vector<Editor::ItemAt> items = app.spriteClip;
-            for (auto& it : items) it.x += int(snapToCell(wx, app.spriteGrid)), it.y += int(snapToCell(wy, app.spriteGrid));
+            for (auto& it : items) it.x += spriteSnapX(wx), it.y += spriteSnapY(wy);
             const int n = ed.placeSprites(items);
             setMessage(app, L"Pasted " + std::to_wstring(n) + L" sprites");
             // (the copy stays on the mouse: click again to paste again; right-click or Esc stops; GitHub feedback #123)
@@ -564,11 +626,21 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) app.dragMoved = true;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.drag == Drag::SymmetryCenter && app.ed) {
+        if (app.dragMoved) app.ed->setSymmetryCenter(std::max(0, int(wx)), std::max(0, int(wy)));
+        updateStatus(app);
+        app.dirty = true;
+        return;
+    }
+    {  // (the handle shows while the mouse is on it)
+        static bool onHandle = false;
+        if (const bool on = symmetryHandleAt(app, sx, sy); on != onHandle) onHandle = on, app.dirty = true;
+    }
     if (app.drag == Drag::Paint && app.ed) {
         const uint16_t paint = currentTool(app) == TErase ? eraseTerrain(*app.ed) : uint16_t(app.palette);  // (Erase: Dirt)
         // Over the same terrain: new variants each half brush along the drag (not on every small move).
         const float extent = std::min(app.brushSize, currentBrush(app).height());  // a flat brush: its smaller side
-        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) &&
+        if (std::hypot(wx - gRerollX, wy - gRerollY) >= std::max(16.0f, extent * 32) && app.ed->terrainMask().empty() &&
             app.ed->brushAllTerrain(int(wx), int(wy), currentBrush(app), paint)) {
             app.ed->rerollTerrain(int(wx), int(wy), currentBrush(app), app.spraySeed++);
             gRerollX = wx, gRerollY = wy;
@@ -576,10 +648,17 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         // A fast move skips ground: paint the way from the last point too, at most half a brush apart, and at most 8
         // more steps a move (zoomed far out, one move crosses much of the map; the next moves paint the rest).
         const float step = std::max(32.0f, extent * 32), dx = wx - gPaintX, dy = wy - gPaintY, len = std::hypot(dx, dy);
+        // A point where the brush covers the corners it last painted paints nothing: a held brush that moves a little
+        // keeps its tiles (each paint makes them again); a move away and back paints again.
         const int n = std::clamp(int(len / step), 0, 8);
-        for (int k = 1; k <= n; ++k)
-            app.ed->paintBrush(int(gPaintX + dx * k / (n + 1)), int(gPaintY + dy * k / (n + 1)), paint, currentBrush(app), currentTool(app) != TErase);
-        app.ed->paintBrush(int(wx), int(wy), paint, currentBrush(app), currentTool(app) != TErase);
+        auto paintAt = [&](float x, float y) {
+            std::vector<std::pair<int, int>> place = brushPlace(*app.ed, x, y, currentBrush(app));
+            if (place == gPaintCorners && paint == gPaintTerrain) return;
+            app.ed->paintBrush(int(x), int(y), paint, currentBrush(app), currentTool(app) != TErase);
+            gPaintCorners = std::move(place), gPaintTerrain = paint;
+        };
+        for (int k = 1; k <= n; ++k) paintAt(gPaintX + dx * k / (n + 1), gPaintY + dy * k / (n + 1));
+        paintAt(wx, wy);
         gPaintX = wx, gPaintY = wy;
     }
     if (app.drag == Drag::Jumble && app.ed &&
@@ -592,6 +671,11 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         const int n = int(std::hypot(dx, dy) / step);
         for (int k = 1; k <= n; ++k) app.sprayPlaced += eraseAt(gPaintX + dx * k / n, gPaintY + dy * k / n);
         if (n > 0) gPaintX = wx, gPaintY = wy;
+    }
+    if (app.drag == Drag::TerrainSelect && app.dragMoved) {  // (the box's size while it is dragged, GitHub #240)
+        const Rect r = terrainSelectRect(wx, wy);
+        setHint(L"Selecting " + std::to_wstring(std::max(0, int(r.right - r.left) / 32)) + L" x " +
+                            std::to_wstring(std::max(0, int(r.bottom - r.top) / 32)) + L" tiles");
     }
     if (app.drag == Drag::Tiles) tilesMouseMove(wx, wy);
     if (app.mode == Mode::Terrain && gShape.tool >= 0) shapeMouseMove(wx, wy, (mods & draw::kShift) != 0);
@@ -609,9 +693,47 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
             app.lastPlaceX = wx, app.lastPlaceY = wy;
         }
     }
-    app.dirty = true;
+    // (a move with no drag changes only the map's picture and the status bar, which the map view paints again; the
+    // other windows paint only for a drag)
+    if (app.drag != Drag::None) app.dirty = true;
     updateStatus(app);
     if (app.ed && app.drag == Drag::None) pathOverlayMouseMove(wx, wy), pathingLayerMouseMove(wx, wy);
+}
+
+// The Magic wand: what is reachable from the click. Isometric: the corners of that terrain along the diamonds' edges,
+// and the tiles round them (so its cliffs and edges too). The Rectangle tools: the tiles next to each other of the same
+// tile or the same terrain (Fill's match, for any kind).
+std::vector<std::pair<int, int>> terrainReachable(const Editor& ed, float wx, float wy, bool isom) {
+    const int w = ed.width(), h = ed.height();
+    std::set<std::pair<int, int>> out;
+    if (isom) {
+        for (const auto& [cx, cy] : ed.terrainRegionCorners(int(wx), int(wy)))
+            for (int y = cy - 1; y <= cy; ++y)
+                for (int x = 2 * cx - 2; x <= 2 * cx + 1; ++x)
+                    if (x >= 0 && y >= 0 && x < w && y < h) out.insert({x, y});
+        if (!out.empty()) return {out.begin(), out.end()};
+    }
+    const int tx = int(wx) / 32, ty = int(wy) / 32;
+    if (wx < 0 || wy < 0 || tx >= w || ty >= h) return {};
+    const std::vector<uint16_t>& t = ed.terrain().tiles;
+    const auto& gt = solidGroupTerrains();
+    const uint16_t from = t[size_t(ty) * w + tx];
+    auto same = [&](uint16_t v) {
+        if (v == from) return true;
+        const size_t a = v >> 4, b = from >> 4;
+        return a < gt.size() && b < gt.size() && gt[b][0] && gt[a] == gt[b];
+    };
+    std::vector<std::pair<int, int>> todo{{tx, ty}};
+    out.insert({tx, ty});
+    while (!todo.empty()) {
+        const auto [x, y] = todo.back();
+        todo.pop_back();
+        const int nx[4] = {x - 1, x + 1, x, x}, ny[4] = {y, y, y - 1, y + 1};
+        for (int k = 0; k < 4; ++k)
+            if (nx[k] >= 0 && ny[k] >= 0 && nx[k] < w && ny[k] < h && same(t[size_t(ny[k]) * w + nx[k]]) && out.insert({nx[k], ny[k]}).second)
+                todo.push_back({nx[k], ny[k]});
+    }
+    return {out.begin(), out.end()};
 }
 
 void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
@@ -623,6 +745,12 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
     bool shift = mods & draw::kShift;
+    if (app.drag == Drag::SymmetryCenter) {
+        app.drag = Drag::None;
+        if (app.dragMoved) gSymmetryPressAt = {}, setMessage(app, L"Moved the symmetry center. Double-click it to put it in the middle of the map");
+        app.dirty = true;
+        return;
+    }
     switch (app.drag) {
     case Drag::MoveUnits:
         if (!app.dragMoved && gStackNext >= 0 && gStackNext < int(ed.units().size())) {  // a click again on a stack: the next unit
@@ -716,7 +844,8 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     case Drag::Spray:
         sprayHoldStop();
         if (app.mode == Mode::Terrain && app.terrainRect) tilesMouseUp(wx, wy);
-        else ed.endStroke();  // the terrain's stroke, or the units' and doodads' (the press and hold: one undo step)
+        else if (app.mode == Mode::Terrain) ed.endTerrainStroke();  // (its ramps fit the new cliffs)
+        else ed.endStroke();  // the units' and doodads' stroke (the press and hold: one undo step)
         if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites)
             setMessage(app, L"Sprayed " + std::to_wstring(app.sprayPlaced) + (app.mode == Mode::Units ? L" units" : app.mode == Mode::Doodads ? L" doodads" : L" sprites"));
         break;
@@ -796,9 +925,13 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
         break;
     case Drag::MoveSprite:
         if (app.dragMoved && !app.selSprites.empty()) {
-            if (ed.moveSprites(app.selSprites, int(snapRound(wx - app.dragWX, app.spriteGrid)), int(snapRound(wy - app.dragWY, app.spriteGrid))))
-                setMessage(app, L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
-            else setMessage(app, L"Could not move the sprites: the new place is outside the map");
+            int sdx, sdy;
+            spriteDragDelta(wx, wy, sdx, sdy);
+            if (sdx || sdy) {  // (a drag that stays on the same grid line changes nothing)
+                if (ed.moveSprites(app.selSprites, sdx, sdy))
+                    setMessage(app, L"Moved " + std::to_wstring(app.selSprites.size()) + L" sprites");
+                else setMessage(app, L"Could not move the sprites: the new place is outside the map");
+            }
         }
         break;
     default: break;
@@ -810,11 +943,25 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
 
 // The map view's cursor at a point of the view (both programs): the resize cursors on the selected location's edges and
 // corners (GitHub feedback #76), the move cursor while the camera moves and over a selected unit, doodad or sprite that
-// a press would move (and during that move), else the arrow.
+// a press would move (and during that move), the paint bucket while a click would fill (fillClickFills), else the arrow.
 bool trigUnitPickActive();
+// A Fill tool is on and a click on the map fills: Units' and Doodads' with a pick in the list (or Ctrl+click picks),
+// Terrain's with a pick (Rectangle: the list's; Isometric: a terrain, and the map has isometric data); the mode's layer
+// shown; nothing pasting or picking.
+bool fillClickFills(AppState& app) {
+    if (app.drag != Drag::None || !app.ed || !app.ed->isOpen() || app.pasting || app.pastingItems || trigUnitPickActive() ||
+        modeLayerHidden())
+        return false;
+    if (app.mode == Mode::Units) return currentTool() == UFill && !selectedPalette().empty();
+    if (app.mode == Mode::Doodads) return currentTool() == DFill && !selectedPalette().empty();
+    if (app.mode != Mode::Terrain || currentTool() != TFill) return false;
+    return app.terrainRect ? tilesHavePick() : app.ed->canPaintTerrain() && app.palette > 0;
+}
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
-    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan) return Cursor::SizeAll;
+    if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;
+    if (app.drag == Drag::None && symmetryHandleAt(app, x, y)) return Cursor::SizeAll;
+    if (fillClickFills(app)) return Cursor::Fill;
     if (app.mode == Mode::Units || app.mode == Mode::Doodads || app.mode == Mode::Sprites) {
         // Over one that is not selected: the arrow (a click selects it).
         if (app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite) return Cursor::SizeAll;
@@ -857,10 +1004,18 @@ void trigCancelUnitPick();
 // a stroke ended (the host lets the mouse go).
 bool mapCancelStep(AppState& app) {
     trigCancelUnitPick();
+    if (app.drag == Drag::SymmetryCenter) {  // (the center's drag: it goes back; the selection stays)
+        if (app.ed) app.ed->setSymmetryCenter(gSymmetryFrom.first, gSymmetryFrom.second);
+        app.drag = Drag::None;
+        app.dirty = true;
+        return true;
+    }
     if (const bool pressed = app.drag == Drag::Shape; shapeCancel()) return pressed;  // (Line, Contour, Polygon: the shape only)
     bool stroke = false;
     if (app.ed && (app.drag == Drag::PlaceStroke || app.drag == Drag::Spray || app.drag == Drag::PasteStroke || app.drag == Drag::Paint ||
-                   app.drag == Drag::Jumble || app.drag == Drag::Erase)) {
+                   app.drag == Drag::Jumble || app.drag == Drag::Erase || app.drag == Drag::Tiles)) {
+        void tilesStrokeCancelled();  // (tiles_edit.inc)
+        if (app.drag == Drag::Tiles) tilesStrokeCancelled();
         sprayHoldStop();
         // (the press so far is one undo step; later edits are steps of their own; a terrain stroke's ground is chosen anew)
         if (app.mode == Mode::Terrain && (app.drag == Drag::Paint || app.drag == Drag::Spray || app.drag == Drag::Jumble)) app.ed->endTerrainStroke();
@@ -887,24 +1042,100 @@ bool mapCancelStep(AppState& app) {
 
 void shareTerrainCopy(const Editor& ed);  // (map_edit_commands.inc)
 
-// R (back: Shift+R) while terrain is about to be pasted: the copy turns clockwise (back: the other way). Tiles
-// (Rectangle) do not turn.
-void mapTurnPaste(AppState& app, bool back) {
-    if (!app.terrainPasting || app.terrainRect || !app.ed || !app.ed->hasTerrainClipboard()) return;
-    int dropped = 0;
-    for (int k = back ? 3 : 1; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
-    shareTerrainCopy(*app.ed);
-    setMessage(app, dropped ? L"Turned the terrain; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
-                            : L"Turned the terrain (R turns clockwise, Shift+R turns back)");
+// What is on the cursor to turn or mirror: 1 isometric terrain to paste (its corners: the edges are made again), 2
+// tiles to paste (Tile), 3 the Brush's tiles (copied tiles, custom terrain), 4 units, 5 doodads, 6 sprites to paste; 0 nothing.
+bool tilesStampOn();  // (tiles_edit.inc)
+int cursorTurnable(const AppState& app) {
+    if (!app.ed || !app.ed->isOpen()) return 0;
+    if (app.mode == Mode::Units) return app.pasting && app.ed->canPaste() ? 4 : 0;
+    if (app.mode == Mode::Doodads) return app.pastingItems && !app.doodadClip.empty() ? 5 : 0;
+    if (app.mode == Mode::Sprites) return app.pastingItems && !app.spriteClip.empty() ? 6 : 0;
+    if (app.mode != Mode::Terrain) return 0;
+    if (app.terrainPasting) return !app.terrainRect ? (app.ed->hasTerrainClipboard() ? 1 : 0) : app.ed->hasTileClipboard() ? 2 : 0;
+    return app.terrainRect && currentTool(app) == TBrush && tilesStampOn() ? 3 : 0;
 }
+// A box of tiles (w x h, row by row) turned a quarter clockwise (back: the other way), or mirrored left and right
+// (turn 0, upDown false) or top and bottom; w and h follow.
+void turnTileBox(std::vector<uint16_t>& v, int& w, int& h, int turn, bool upDown) {
+    if (w <= 0 || h <= 0 || v.size() != size_t(w) * size_t(h)) return;
+    std::vector<uint16_t> out(v.size());
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            const uint16_t t = v[size_t(y) * size_t(w) + size_t(x)];
+            if (turn > 0) out[size_t(x) * size_t(h) + size_t(h - 1 - y)] = t;        // clockwise: (x, y) -> (h - 1 - y, x)
+            else if (turn < 0) out[size_t(w - 1 - x) * size_t(h) + size_t(y)] = t;   // back: (x, y) -> (y, w - 1 - x)
+            else if (upDown) out[size_t(h - 1 - y) * size_t(w) + size_t(x)] = t;
+            else out[size_t(y) * size_t(w) + size_t(w - 1 - x)] = t;
+        }
+    v = std::move(out);
+    if (turn) std::swap(w, h);
+}
+void tilesStampTurned(int turn, bool upDown);  // (tiles_edit.inc: the Brush's stamp)
+// R (back: Shift+R): what is on the cursor turns a quarter clockwise (back: the other way). Isometric terrain turns
+// its corners (the edges are made again); tiles move to their turned places, each tile's picture as it is.
+// M (Shift+M): it mirrors left and right (top and bottom).
+void mapTurnOrMirror(AppState& app, int turn, bool upDown) {
+    const int what = cursorTurnable(app);
+    if (!what)
+        return setMessage(app, app.mode == Mode::Terrain ? L"Nothing to turn: copy terrain (Ctrl+C), or pick custom terrain or copied tiles for the Brush"
+                                                         : L"Nothing to turn: copy first, then paste (Ctrl+C, Ctrl+V)");
+    if (what >= 4) {  // units, doodads, sprites: their places round the group's middle (their pictures do not turn)
+        if (what == 4) {
+            app.ed->turnUnitClipboard(turn, upDown);
+        } else {
+            for (Editor::ItemAt& it : what == 5 ? app.doodadClip : app.spriteClip) {
+                const int x = it.x, y = it.y;
+                it.x = turn > 0 ? -y : turn < 0 ? y : upDown ? x : -x, it.y = turn > 0 ? x : turn < 0 ? -x : upDown ? -y : y;
+            }
+        }
+        setMessage(app, turn ? L"Turned the copy, experimental (R and Shift+R turn it, M and Shift+M mirror it)"
+                             : upDown ? L"Mirrored the copy top and bottom" : L"Mirrored the copy left and right");
+        app.dirty = true;
+        return;
+    }
+    if (what == 1) {
+        int dropped = 0;
+        if (turn) {
+            for (int k = turn > 0 ? 1 : 3; k > 0; --k) dropped += app.ed->rotateTerrainClipboard();
+        } else {
+            dropped = app.ed->mirrorTerrainClipboard(upDown);
+        }
+        shareTerrainCopy(*app.ed);
+        const std::wstring done = turn ? L"Turned the terrain, experimental" : upDown ? L"Mirrored the terrain top and bottom" : L"Mirrored the terrain left and right";
+        setMessage(app, dropped ? done + L"; its " + std::to_wstring(dropped) + L" doodads cannot turn, so they are not included"
+                                : done + L" (R and Shift+R turn it, M and Shift+M mirror it)");
+    } else if (what == 2) {
+        Editor::TerrainCopies c = app.ed->terrainCopies();
+        turnTileBox(c.tiles.values, c.tiles.width, c.tiles.height, turn, upDown);
+        app.ed->setTerrainCopies(c);
+        shareTerrainCopy(*app.ed);
+    } else {
+        tilesStampTurned(turn, upDown);
+    }
+    if (what != 1)
+        setMessage(app, turn     ? L"Turned the tiles, experimental: each tile's picture stays as it is, so edges and cliffs may not fit"
+                        : upDown ? L"Mirrored the tiles top and bottom: each tile's picture stays as it is, so edges and cliffs may not fit"
+                                 : L"Mirrored the tiles left and right: each tile's picture stays as it is, so edges and cliffs may not fit");
+    app.dirty = true;
+}
+void mapTurnPaste(AppState& app, bool back) { mapTurnOrMirror(app, back ? -1 : 1, false); }
+void mapMirrorPaste(AppState& app, bool upDown) { mapTurnOrMirror(app, 0, upDown); }
 
-// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units snap a
-// grid cell; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
+// An arrow key (dx, dy: -1, 0 or 1): selected units move (1 pixel, Shift: 8, Ctrl: 16, with Options > Units > Snap to the grid a
+// grid cell; a building that snaps to the tiles: a tile at least; a unit that does not fit there makes the move refused, unless "Units anywhere" is on); else the view moves.
 // False: Ctrl and no units to move (the key is not the map's).
 bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
     if (app.mode == Mode::Units && app.ed && !app.ed->selection().empty() && !app.pasting) {
-        const int d = app.unitGrid ? app.unitGrid : ctrl ? 16 : big ? 8 : 1;
-        const int moved = app.ed->moveSelection(dx * d, dy * d, false);
+        const int free = ctrl ? 16 : big ? 8 : 1;
+        int dw = app.snapUnits ? gDock.gridW : free, dh = app.snapUnits ? gDock.gridH : free;
+        // (a building on the tile grid moves a whole tile: a smaller step snaps back to the nearest tile edge, so up and
+        // left did not move it at all, GitHub #227)
+        if (app.snapBuildings)
+            for (int i : app.ed->selection())
+                if (i >= 0 && size_t(i) < app.ed->units().size() && app.ed->units()[size_t(i)].type < app.ed->unitTypes().size() &&
+                    app.ed->unitTypes()[app.ed->units()[size_t(i)].type].is(UnitFlag::Building))
+                    dw = (dw + 31) / 32 * 32, dh = (dh + 31) / 32 * 32;
+        const int moved = app.ed->moveSelection(dx * dw, dy * dh, false);
         setMessage(app, moved ? L"Moved " + std::to_wstring(moved) + L" units" : L"The units do not fit there. They stay where they were.");
         return true;
     }
@@ -914,11 +1145,11 @@ bool mapArrowKey(AppState& app, int dx, int dy, bool big, bool ctrl) {
     return true;
 }
 
-// Alt + wheel on the map: the active brush (the terrain brush or spray, the unit and doodad spray) one size up or down
-// (brushSizes). False when no brush is active.
+// Alt + wheel on the map: the active brush (the terrain brush or spray, Ramp's brush, Bridge's width, the unit and doodad
+// spray) one size up or down (brushSizes). False when no brush is active.
 bool mapBrushActive(const AppState& app) {
     return (app.mode == Mode::Terrain && (currentTool() == TBrush || currentTool() == TSpray || isStrokeShape(currentTool()) ||
-                                          (currentTool() == TJumble && !app.terrainRect))) ||
+                                          currentTool() == TBridge || currentTool() == TRamp || (currentTool() == TJumble && !app.terrainRect))) ||
            objectSprayOn() || objectEraseOn() || (app.mode == Mode::Terrain && currentTool() == TErase);
 }
 bool mapBrushWheel(AppState& app, bool up) {

@@ -66,7 +66,11 @@ struct PaletteGridView : draw::View {
     int rowAt(draw::Point p) const {
         if (p.y >= height() - paletteFooterHeight(view()) || (bar_.shown() && p.x >= bar_.frame().left)) return -1;
         const draw::Point at{p.x, p.y + scroll_};
-        for (size_t i = 0; i < rows.size() && i < rects_.size(); ++i)
+        // (paletteLayout's rows go down: their tops and bottoms do not get smaller; the first row under the point, then
+        // the cells of its line)
+        const size_t n = std::min(rows.size(), rects_.size());
+        const auto first = std::partition_point(rects_.begin(), rects_.begin() + std::ptrdiff_t(n), [&](const draw::Rect& r) { return r.bottom <= at.y; });
+        for (size_t i = size_t(first - rects_.begin()); i < n && rects_[i].top <= at.y; ++i)
             if (rows[i].value >= 0 && rects_[i].contains(at)) return int(i);
         return -1;
     }
@@ -85,11 +89,12 @@ struct PaletteGridView : draw::View {
         c.pushClip({0, 0, width(), viewH});
         const bool units = app.ed && mode != Mode::Locations;  // the picked item shows
         const int pick = second && !own ? -1 : app.palette;
-        std::vector<std::wstring> words;
-        {
+        if (wordsOf_ != searchWords) {  // (the search's words: once for each search, not at each paint)
+            wordsOf_ = searchWords, words_.clear();
             std::wistringstream in(searchWords);
-            for (std::wstring w; in >> w;) words.push_back(w);
+            for (std::wstring w; in >> w;) words_.push_back(w);
         }
+        const std::vector<std::wstring>& words = words_;
         for (size_t i = 0; app.ed && i < rows.size() && i < rects_.size(); ++i) {
             const PaletteRow& e = rows[i];
             draw::Rect r = rects_[i];
@@ -107,7 +112,13 @@ struct PaletteGridView : draw::View {
             const bool isPick = (units && e.value == pick) || (locs && e.value == app.ed->selectedLocation());
             const bool isChosen = (units && chosen && std::find(chosen->begin(), chosen->end(), e.value) != chosen->end()) ||
                                   (locs && app.ed->locationSelected(e.value));
-            if (isPick || isChosen || int(i) == hover_) {
+            // (a tool that does not use the pick, Bridge, Ramp, Jumble: the pick shows faded, a frame only)
+            const bool faded = mode == Mode::Terrain && terrainToolIgnoresPick(app.toolByMode[int(Mode::Terrain)]) && (isPick || isChosen);
+            if (faded) {
+                const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
+                if (int(i) == hover_) c.fill(f, kRowHot);
+                c.frame(f, kBorder, scale(1));
+            } else if (isPick || isChosen || int(i) == hover_) {
                 const draw::Rect f{r.left + 1, r.top + 1, r.right - 1, r.bottom - 1};
                 if (isPick) kitpaint::drawListRow(c, f, true, false);
                 else c.fill(f, isChosen ? kSel : kRowHot);
@@ -134,6 +145,8 @@ struct PaletteGridView : draw::View {
                 if (words.empty()) c.text(t, e.label, kText, draw::kMiddle | draw::kEllipsis);
                 else drawMatched(c, t, e.label, words, kText);
             }
+            if (mode == Mode::Terrain && app.ed && std::ranges::find(app.ed->terrainMask(), uint16_t(e.value)) != app.ed->terrainMask().end())
+                maskMarker(c, r);  // (in the mask: paletteMaskToggle)
         }
         if (app.ed && rows.empty())  // nothing agrees with the search: only None, dim, where the first row goes
             c.text({scale(6), 0, width() - scale(6), scale(30)}, L"None", kDim, draw::kMiddle);
@@ -271,6 +284,8 @@ private:
     kit::ScrollBar bar_{kit::Axis::Vertical};
     std::vector<draw::Rect> rects_;
     int scroll_ = 0, contentH_ = 0, hover_ = -1;
+    std::wstring wordsOf_;  // (paint: the search that words_ has the words of)
+    std::vector<std::wstring> words_;
 };
 
 // The pie palette's ring (core/palette_view.inc: pieTerrains, pieSliceAt): ringSize() px wide, the ring at the top

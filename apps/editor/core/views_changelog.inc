@@ -145,7 +145,7 @@ public:
         const int w = width(), h = height(), pad = scale(stardraft::kit::kDialogPad);
         c.fill({0, 0, w, h}, kPanel);
         draw::FontDesc td;
-        td.px = -shellUiFontLfHeight() * 3 / 2, td.weight = 600;
+        td = kitpaint::titleFontDesc(), td.weight = 600;
         const draw::Font of = c.setFont(c.font(td));
         const std::wstring title = state_ == State::Shown || state_ == State::Kept ? widen(release_.title) : std::wstring(L"StarDraft 2");
         c.text({pad, pad, w - pad, pad + scale(30)}, title, kText, draw::kMiddle | draw::kEllipsis);

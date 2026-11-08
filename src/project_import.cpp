@@ -287,7 +287,7 @@ bool importProject(const fs::path& file, const fs::path& parent, const std::stri
     const std::string kind = importKind(file);
     if (kind == "e2s") return importE2s(file, parent, name, data, out, report, error);
     if (kind == "eds") return importEds(file, parent, name, out, report, error);
-    return error = file.filename().string() + " is not a project that StarDraft imports (.e2s, .eds, .edd)", false;
+    return error = file.filename().string() + " is not an .e2s, .eds or .edd project", false;
 }
 
 }  // namespace stardraft

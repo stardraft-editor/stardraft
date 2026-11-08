@@ -62,6 +62,37 @@ std::string wrapLocationName(const std::string& name, float w, float h) {
     return out;
 }
 
+// A location's name as the map shows it: in lines that fit in w x h screen pixels with Options > Locations > Wrap names
+// (wrapLocationName), and its size in screen pixels. Kept for each location until its name, its size or the map font's
+// size changes (the wrap measures each word).
+struct LocationLabel {
+    std::string raw;  // (the name as the map has it)
+    bool wrap = false;
+    float w = 0, h = 0, unit = 0;
+    std::string text;
+    float width = 0, height = 0;
+};
+const LocationLabel& locationLabel(int i, const std::string& raw, bool wrap, float w, float h) {
+    static std::vector<LocationLabel> labels;
+    if (i < 0) i = 0;
+    if (labels.size() <= size_t(i)) labels.resize(size_t(i) + 1);
+    LocationLabel& l = labels[size_t(i)];
+    const float unit = mapTextScale();
+    if (!l.raw.empty() && l.raw == raw && l.wrap == wrap && l.unit == unit && (!wrap || (l.w == w && l.h == h))) return l;
+    l.raw = raw, l.wrap = wrap, l.w = w, l.h = h, l.unit = unit;
+    l.text = narrow(widen(raw));
+    if (wrap) l.text = wrapLocationName(l.text, w, h);
+    int widest = 0, lines = 0;
+    for (size_t from = 0;; ++lines) {
+        const size_t to = l.text.find('\n', from);
+        widest = std::max(widest, render::textWidth(l.text.substr(from, to == std::string::npos ? std::string::npos : to - from)));
+        if (to == std::string::npos) break;
+        from = to + 1;
+    }
+    l.width = float(widest) * unit, l.height = float(lines + 1) * 12 * unit;
+    return l;
+}
+
 uint32_t playerRgba(int owner, uint8_t alpha) {
     AppState& app = shellState();
     // Players 1-8 in the map's own colors (Map properties > Players and forces).
@@ -159,12 +190,14 @@ uint64_t animNowMs() {
 uint64_t gAnimLast = 0;
 constexpr uint64_t kTickMs = 42;
 
+// (the key has the graphics too: a unit that the remake plan makes or keeps after another unit's change gets the
+// animation of its new image)
+uint64_t unitAnimKey(const Unit& u) { return uint64_t(keepsGameGraphics(u)) << 63 | uint64_t(u.serial) << 16 | u.type; }
+
 UnitAnim& unitAnim(const Unit& u) {
     AppState& app = shellState();
     UnitSprites& sp = app.ed->unitSprites();
-    // (the key has the graphics too: a unit that the remake plan makes or keeps after another unit's change gets the
-    // animation of its new image)
-    auto [it, fresh] = gAnims.try_emplace(uint64_t(keepsGameGraphics(u)) << 63 | uint64_t(u.serial) << 16 | u.type);
+    auto [it, fresh] = gAnims.try_emplace(unitAnimKey(u));
     if (fresh) {
         const bool building = u.type < app.ed->unitTypes().size() && app.ed->unitTypes()[u.type].is(UnitFlag::Building);
         const int image = mapUnitImage(sp, u), sub = mapSubunitImage(sp, u), era = app.ed->tileset().era;
@@ -407,7 +440,32 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
     }
     if (dragging || (app.mode == Mode::Terrain && app.hasTerrainSel)) {
         const Rect r = dragging ? terrainSelectRect(wx, wy) : app.terrainSel;
-        if (selectShape() == Editor::SelectShape::Rect) outline(s, r, 0xFFD040FFu, 1.5f);
+        // Isometric while dragging: the shape exactly from the press to the mouse (bright), over what it selects (faint,
+        // as it is once the button is up)
+        const bool exact = dragging && !app.terrainRect;
+        const uint32_t col = exact ? 0xFFD04070u : 0xFFD040FFu;
+        if (exact) {
+            const float x0 = std::min(app.dragWX, wx), x1 = std::max(app.dragWX, wx), y0 = std::min(app.dragWY, wy), y1 = std::max(app.dragWY, wy);
+            const float mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+            auto line = [&](float ax, float ay, float bx, float by) {
+                render::RectDraw l;
+                l.x0 = ax, l.y0 = ay, l.x1 = bx, l.y1 = by, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
+                s.rects.push_back(l);
+            };
+            if (selectShape() == Editor::SelectShape::Rect) {
+                line(x0, y0, x1, y0), line(x1, y0, x1, y1), line(x1, y1, x0, y1), line(x0, y1, x0, y0);
+            } else if (selectShape() == Editor::SelectShape::Ellipse) {
+                const float rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+                const int n = std::clamp(int(6.2831853f * std::max(rx, ry) * app.zoom / 4), 24, 360);
+                for (int k = 0; k < n; ++k) {
+                    const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
+                    line(mx + rx * std::cos(a0), my + ry * std::sin(a0), mx + rx * std::cos(a1), my + ry * std::sin(a1));
+                }
+            } else {  // the diamond in the box (its points at the middle of its sides)
+                line(mx, y0, x1, my), line(x1, my, mx, y1), line(mx, y1, x0, my), line(x0, my, mx, y0);
+            }
+        }
+        if (selectShape() == Editor::SelectShape::Rect) outline(s, r, col, 1.5f);
         else if (app.terrainRect) {  // a diamond or an ellipse: the outline of the tiles in it (on the tile edges)
             std::vector<std::pair<int, int>> tiles;
             for (int y = r.top / 32; y * 32 < r.bottom; ++y)
@@ -416,17 +474,41 @@ size_t terrainSelScene(render::Scene& s, float wx, float wy) {
             tileOutline(s, tiles, 0xFFD040FFu);
         } else {  // the outline of the diamonds whose corners are in it (on the diamonds' edges)
             const auto corners = ed.cornersInShape(r, selectShape());
-            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0xFFD040FFu);
+            diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), col);
         }
     }
     return s.rects.size() - from;
 }
 
+// The Ramp brush's and the Bridge's outline at a point (map pixels): the brush as the paint brush shows it (its shape and size: Alt + wheel),
+// with no trail along the stroke.
+std::set<std::pair<int, int>> rampBrushCorners(std::pair<int, int> at) {
+    const std::vector<std::pair<int, int>> c = appState().ed->brushCorners(at.first, at.second, currentBrush());
+    return std::set<std::pair<int, int>>(c.begin(), c.end());
+}
+
 // The shape under way (core/terrain_shapes.inc): its tiles over the terrain (ghostTiles), its lines between its points,
-// and Polygon's points.
+// and Polygon's points. Ramp: its brush where the mouse is, in place of the lines.
 void shapeScene(render::Scene& s) {
     shapeUpdate();
     ghostTiles = gShape.ghost;
+    for (const auto& [x, y] : gShape.red)  // (Bridge: no bridge fits there yet; Ramp: on protected tiles)
+        s.rects.push_back({x * 32.f, y * 32.f, x * 32.f + 32, y * 32.f + 32, 0xE0303058u, true});
+    if (gShape.tool == TRamp) {  // (the brush where the mouse is, as the paint brush shows it)
+        if (!gShape.points.empty()) diamondOutline(s, rampBrushCorners(gShape.points.back()), gShape.unramp ? 0xFF6060F0u : 0xFFFFFFF0u);
+        return;
+    }
+    if (gShape.tool == TBridge) {  // (the drag as an isometric line of the brush (its size: the bridge's width), over the bridge's tiles)
+        if (gShape.points.empty()) return;
+        const auto [x0, y0] = gShape.points.front();
+        const auto [x1, y1] = gShape.points.back();
+        const int n = std::max(1, int(std::hypot(x1 - x0, y1 - y0) / 16));
+        std::set<std::pair<int, int>> line;
+        for (int k = 0; k <= n; ++k)
+            for (const auto& c : rampBrushCorners({x0 + (x1 - x0) * k / n, y0 + (y1 - y0) * k / n})) line.insert(c);
+        diamondOutline(s, line, gShape.red.empty() ? 0xFFFFFFF0u : 0xFF6060F0u);
+        return;
+    }
     const std::vector<std::pair<int, int>> pts = shapeGeometry(shapePath());  // (Rectangle, Ellipse: their outline)
     const size_t lines = pts.size() < 2 ? 0 : gShape.tool == TLine || pts.size() < 3 ? pts.size() - 1 : pts.size();
     for (size_t i = 0; i < lines; ++i) {
@@ -446,7 +528,73 @@ void shapeScene(render::Scene& s) {
 // sdl_simulation.inc): it adds its images to the scene. nullptr: the map's own.
 void (*gLiveScene)(render::Scene& s) = nullptr;
 
+// The unit to place at the mouse (Units mode, a unit picked): whether it fits where it is (ok), where correction moves it
+// (fix: only when it does not fit), and its copies at the mirror images and turns, each where a click puts it. The checks
+// look through the map's units (and correction tries up to 81 x 81 spots): the answer is kept until the unit, its place
+// (gx, gy: the mouse's point before the snap to the unit's grid), the map or the placement options change.
+struct PlaceGhost {
+    bool ok = false;
+    std::optional<std::pair<uint16_t, uint16_t>> fix;
+    std::vector<Unit> copies;
+};
+const PlaceGhost& placeGhost(const Unit& u, float gx, float gy) {
+    const AppState& app = appState();
+    const Editor& ed = *app.ed;
+    struct Key {
+        const Editor* ed = nullptr;
+        uint64_t revision = 0;
+        uint16_t type = 0, x = 0, y = 0;
+        uint8_t owner = 0;
+        int gx = 0, gy = 0, mirrors = 0, turns = 0, limit = 0;
+        bool illegal = false, correction = false, stacking = false, resourceDistance = false, snapBuildings = false;
+        bool operator==(const Key&) const = default;
+    };
+    static Key cachedKey;
+    static PlaceGhost cached;
+    const PlacementContext ctx = ed.placementContext();
+    const Key key{&ed, ed.revision(), u.type, u.x, u.y, u.owner, int(gx), int(gy), ed.mirrors(), ed.turns(), ed.unitLimit(),
+                  app.allowIllegalUnits, app.correction, ctx.stacking, ctx.resourceDistance, app.snapBuildings};
+    if (key == cachedKey) return cached;
+    cachedKey = key;
+    PlaceGhost& g = cached;
+    g = {};
+    g.ok = app.allowIllegalUnits || checkPlacement(ctx, u).empty();
+    // The main unit's place as a click puts it (where it fits, or where correction moves it). Without one, a click
+    // places no copies either, so none are drawn.
+    Unit main = u;
+    bool placed = g.ok;
+    if (!g.ok && app.correction)
+        if ((g.fix = ed.findValidPosition(u))) main.x = g.fix->first, main.y = g.fix->second, placed = true;
+    if (ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit()) placed = false;
+    // The copies at the mirror images and turns, each checked against the units placed before it (as placeUnit does).
+    const auto points = placed ? ed.symmetricPoints(int(gx), int(gy)) : std::vector<std::pair<int, int>>{};
+    if (points.size() > 1) {
+        const UnitType& t = ed.unitTypes()[u.type];
+        std::vector<Unit> placedSoFar = ed.units();
+        placedSoFar.push_back(main);
+        for (size_t k = 1; k < points.size(); ++k) {
+            if (ed.unitLimit() > 0 && int(placedSoFar.size()) >= ed.unitLimit()) break;
+            uint16_t mx = uint16_t(std::clamp(points[k].first, 0, ed.width() * 32 - 1)), my = uint16_t(std::clamp(points[k].second, 0, ed.height() * 32 - 1));
+            snapToGrid(t, mx, my);
+            Unit m = makeUnit(t, u.owner, mx, my);
+            if (!app.allowIllegalUnits && !checkPlacement(ed.placementContext(&placedSoFar), m).empty()) {
+                if (!app.correction) continue;
+                auto p = ed.findValidPosition(m);
+                if (!p) continue;
+                m.x = p->first, m.y = p->second;
+            }
+            g.copies.push_back(m);
+            placedSoFar.push_back(m);
+        }
+    }
+    return g;
+}
+
+int cursorTurnable(const AppState& app);  // (map_input.inc)
 render::Scene buildScene() {
+    // (the top bar's turn and mirror buttons: as soon as something comes onto the cursor or goes)
+    static int turnable = -1;
+    if (const int now = cursorTurnable(appState()) != 0; now != turnable) turnable = now, shellToolsChanged();
     AppState& app = shellState();
     syncMapUnitGraphics();  // before the animations: they hold the images of the unit types
     render::Scene s;
@@ -480,13 +628,36 @@ render::Scene buildScene() {
     addCreepEdges(ed, s);  // (View > Layers > Creep: core/creep_layer.inc)
     addProtectedLayer(ed, s);  // (View > Layers > Protected terrain: core/protected_layer.inc)
 
+    // Only what can show in the view is drawn: the map's sprites and units whose point is in the view or less than
+    // kSpriteReach map pixels out of it. (A picture reaches at most 256 pixels from its point: a GRP frame's place and
+    // size in its box are bytes, in the game's data at most 128; its overlays and turret are at most 128 more each:
+    // iscript's offsets are signed bytes.)
+    constexpr float kSpriteReach = 512;
+    int viewW, viewH;
+    viewSize(viewW, viewH);
+    const float viewZoom = std::max(app.zoom, 0.001f);
+    const float viewX0 = app.camX - kSpriteReach, viewY0 = app.camY - kSpriteReach;
+    const float viewX1 = app.camX + float(viewW) / viewZoom + kSpriteReach, viewY1 = app.camY + float(viewH) / viewZoom + kSpriteReach;
+    const float viewLeft = app.camX, viewTop = app.camY, viewRight = app.camX + float(viewW) / viewZoom, viewBottom = app.camY + float(viewH) / viewZoom;
+    auto inView = [&](float x, float y) { return x >= viewX0 && x <= viewX1 && y >= viewY0 && y <= viewY1; };
+
     // Doodad overlays and other map sprites (THG2). View > Layers: a doodad's overlay goes with the doodads, the rest with
     // the sprites.
-    std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;  // (x, y, sprite) of the doodads' overlays
-    if (gLayers.doodads != gLayers.sprites)
-        for (const Doodad& dd : ed.doodads())
-            if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
-    for (const MapSprite& m : gLiveScene ? std::vector<MapSprite>{} : ed.sprites()) {
+    // (x, y, sprite) of the doodads' overlays: made again when the map changes
+    static std::set<std::tuple<uint16_t, uint16_t, uint16_t>> overlays;
+    static std::tuple<const Editor*, uint64_t, const DoodadTypes*, size_t> overlaysFor{};
+    if (gLayers.doodads != gLayers.sprites) {
+        const std::tuple<const Editor*, uint64_t, const DoodadTypes*, size_t> key{&ed, ed.revision(), &ed.doodadTypes(), ed.doodadTypes().all().size()};
+        if (key != overlaysFor) {
+            overlaysFor = key;
+            overlays.clear();
+            for (const Doodad& dd : ed.doodads())
+                if (const DoodadType* t = ed.doodadTypes().find(dd.id); t && t->overlaySprite) overlays.insert({dd.x, dd.y, t->overlaySprite});
+        }
+    }
+    for (const MapSprite& m : ed.sprites()) {
+        if (gLiveScene) break;
+        if (!inView(m.x, m.y)) continue;
         if (!gLayers.doodads || !gLayers.sprites) {
             const bool overlay = (m.flags & SpriteFlag::DrawAsSprite) && overlays.count({m.x, m.y, m.id});
             if (overlay ? !gLayers.doodads : !gLayers.sprites) continue;
@@ -505,14 +676,15 @@ render::Scene buildScene() {
     }
     // Units (selected ones follow the cursor while being dragged).
     const auto& units = ed.units();
-    std::vector<Unit> others;  // unselected units, to check dragged ones against
-    std::vector<bool> moving(units.size(), false);  // the selection and its buildings' add-ons
-    if (moveDX || moveDY) {
-        for (int i : ed.withLinkedAddons(ed.selection())) moving[size_t(i)] = true;
-        for (size_t i = 0; i < units.size(); ++i)
-            if (!moving[i]) others.push_back(units[i]);
-    }
+    std::vector<Unit> others;  // the units that stay near the dragged ones, to check those against
+    std::vector<bool> moving;  // the selection and its buildings' add-ons
+    if (moveDX || moveDY) moving = movingUnits(), others = unitsNearMoved(moving, moveDX, moveDY);
     ed.setMapRevealersHidden(!gLayers.revealers);  // (the layer's state: the revealers are not picked while hidden)
+    // (a unit out of the view keeps its idle animation: it goes on where it was when the unit comes into the view)
+    auto keepAnim = [&](const Unit& u) {
+        if (gAnims.empty()) return;
+        if (const auto it = gAnims.find(unitAnimKey(u)); it != gAnims.end()) it->second.seen = gSceneNo;
+    };
     for (size_t i = 0; i < units.size() && gLayers.units && !gLiveScene; ++i) {
         if (!gLayers.revealers && units[i].type == kMapRevealerUnit) continue;
         bool sel = (moveDX || moveDY) && moving[i];
@@ -522,8 +694,16 @@ render::Scene buildScene() {
             moved.x = uint16_t(std::clamp(int(std::lround(moved.x + moveDX)), 0, ed.width() * 32 - 1));
             moved.y = uint16_t(std::clamp(int(std::lround(moved.y + moveDY)), 0, ed.height() * 32 - 1));
             if (moved.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[moved.type], moved.x, moved.y);
+            if (!inView(moved.x, moved.y)) {
+                keepAnim(moved);
+                continue;
+            }
             red = !app.allowIllegalUnits && !checkPlacement(ed.placementContext(&others), moved).empty();
             addUnitSprites(s, moved, 0, 0, 1, red, true);
+            continue;
+        }
+        if (!inView(units[i].x, units[i].y)) {
+            keepAnim(units[i]);
             continue;
         }
         addUnitSprites(s, units[i], 0, 0, 1, false, true);
@@ -546,12 +726,21 @@ render::Scene buildScene() {
             const bool sel = active && ed.locationSelected(i), main = sel && ed.selectedLocation() == i;
             if (sel && app.drag == Drag::LocMove) r = {r.left + moveX, r.top + moveY, r.right + moveX, r.bottom + moveY};
             if (main && app.drag == Drag::LocResize) r = previewLocationRect(wx, wy);
+            // (not in the view: no box and no edges; its name starts in it and goes right and down, and can come out of it)
+            const float edge = 8 / viewZoom;  // (the resize handles and the outline: a few screen pixels out of the box)
+            const bool boxShows = float(r.right) + edge >= viewLeft && float(r.left) - edge <= viewRight && float(r.bottom) + edge >= viewTop &&
+                                  float(r.top) - edge <= viewBottom;
+            if (!boxShows && (float(r.left) > viewRight || float(r.top) > viewBottom)) continue;
+            const LocationLabel& label = locationLabel(i, ed.locationName(i), app.locationWrap, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
+            const float textX = float(r.left) + 3 / app.zoom, textY = float(r.top) + 3 / app.zoom;
+            const bool textShows = textX + label.width / viewZoom >= viewLeft && textY + label.height / viewZoom >= viewTop;
+            if (!boxShows && !textShows) continue;
             const bool inv = ed.locationInverted(i);  // inverted (holds air units only): red, not blue
-            s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
-            outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
-            std::string name = narrow(widen(ed.locationName(i)));
-            if (app.locationWrap) name = wrapLocationName(name, float(r.right - r.left) * app.zoom - 6, float(r.bottom - r.top) * app.zoom - 6);
-            s.texts.push_back({float(r.left) + 3 / app.zoom, float(r.top) + 3 / app.zoom, name, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
+            if (boxShows) {
+                s.rects.push_back({float(r.left), float(r.top), float(r.right), float(r.bottom), inv ? (active ? 0xFF404030u : 0xFF404018u) : active ? 0x2060FF30u : 0x2060FF18u, true});
+                outline(s, r, sel ? 0xFFD040FFu : inv ? (active ? 0xFF5050E0u : 0xFF505080u) : (active ? 0x5080FFE0u : 0x5080FF80u), sel ? 2.0f : 1.0f);
+            }
+            if (textShows) s.texts.push_back({textX, textY, label.text, active ? 0xFFFFFFFFu : 0xFFFFFFA0u, true, mapTextScale()});
             if (main)  // (the edges of the selected one resize)
                 for (int c = 0; c < 4; ++c) {
                     float hx = (c & 1) ? float(r.right) : float(r.left), hy = (c & 2) ? float(r.bottom) : float(r.top);
@@ -575,6 +764,7 @@ render::Scene buildScene() {
     // Selection boxes.
     // Selected units: the game's selection circle under the unit (the box where a unit has none).
     for (int i : ed.selection()) {
+        if (!inView(units[i].x + moveDX, units[i].y + moveDY)) continue;
         int img, off;
         if (sp.selectionCircle(units[i].type, img, off)) {
             // Where the unit is drawn: while dragging, its moved position snapped like the unit itself
@@ -604,13 +794,14 @@ render::Scene buildScene() {
     // Symmetry axes.
     if (const int mm = ed.mirrors(); mm || ed.turns() > 1 || ed.copyOptions().opposite) {
         float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
+        const float cx = float(ed.symmetryCenter().first), cy = float(ed.symmetryCenter().second);  // (through the center)
         uint32_t c = 0x80C0FF70u;
-        auto vline = [&] { s.rects.push_back({W / 2 - t, 0, W / 2 + t, H, c, true}); };
-        auto hline = [&] { s.rects.push_back({0, H / 2 - t, W, H / 2 + t, c, true}); };
+        auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
+        auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
         auto diag = [&](bool anti) {
-            for (int k = 0; k <= 200; ++k) {
-                float f = k / 200.0f, x = f * W, y = anti ? (1 - f) * H : f * H;
-                s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
+            for (int k = -200; k <= 200; ++k) {
+                const float f = k / 200.0f, x = cx + f * W, y = anti ? cy - f * H : cy + f * H;
+                if (x >= 0 && x <= W && y >= 0 && y <= H) s.rects.push_back({x - t * 2, y - t * 2, x + t * 2, y + t * 2, c, true});
             }
         };
         if (mm & Mirror::LeftRight) vline();
@@ -619,11 +810,38 @@ render::Scene buildScene() {
         if (mm & Mirror::AntiDiagonal) diag(true);
         if (ed.turns() > 1 || ed.copyOptions().opposite) {  // a turn: a mark at the middle
             const float r = 10 / app.zoom;
-            s.rects.push_back({W / 2 - r, H / 2 - r, W / 2 + r, H / 2 + r, c, true});
+            s.rects.push_back({cx - r, cy - r, cx + r, cy + r, c, true});
+        }
+        // The center's handle: under the mouse (Terrain's Select tool) or while it is dragged: a ring and a cross.
+        if (app.drag == Drag::SymmetryCenter || (app.mouseIn && app.drag == Drag::None && symmetryHandleAt(app, app.mouseX, app.mouseY))) {
+            const float r = float(scale(10)) / app.zoom;
+            auto line = [&](float x0, float y0, float x1, float y1) {
+                render::RectDraw l;
+                l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = 0xFFD040FFu, l.thickness = 2, l.line = true;
+                s.rects.push_back(l);
+            };
+            for (int k = 0; k < 32; ++k) {
+                const float a0 = k * 6.2831853f / 32, a1 = (k + 1) * 6.2831853f / 32;
+                line(cx + r * std::cos(a0), cy + r * std::sin(a0), cx + r * std::cos(a1), cy + r * std::sin(a1));
+            }
+            line(cx - r * 0.6f, cy, cx + r * 0.6f, cy), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f);
         }
     }
 
-    if (!app.mouseIn) return s;
+    if (!app.mouseIn) {  // (on a menu or a panel: the selected sprites and doodads keep their boxes, as the units do)
+        if (app.mode == Mode::Sprites) {
+            for (int i : app.selSprites)
+                if (i >= 0 && i < int(ed.sprites().size())) outline(s, mapSpriteBox(ed, ed.sprites()[size_t(i)]), 0x40FF40FFu, 2);
+        } else if (app.mode == Mode::Doodads && app.palette < 0) {
+            for (int i : app.selDoodads)
+                if (i >= 0 && i < int(ed.doodads().size())) {
+                    const Doodad& sd = ed.doodads()[size_t(i)];
+                    if (const DoodadType* t = ed.doodadTypes().find(sd.id))
+                        outline(s, {sd.x - t->width * 16, sd.y - t->height * 16, sd.x + t->width * 16, sd.y + t->height * 16}, 0x40FF40FFu, 2);
+                }
+        }
+        return s;
+    }
     if (app.pasting && ed.canPaste()) {
         // Ghost of the clipboard at the cursor; red where a unit could not be placed as is.
         for (const PasteGhostUnit& g : unitPasteGhost(wx, wy)) {
@@ -644,44 +862,20 @@ render::Scene buildScene() {
             snapToGrid(t, ux, uy);
             uint8_t who = (t.availability & UnitAvail::NonNeutral) ? uint8_t(app.playerOwner) : uint8_t(11);
             Unit u = makeUnit(t, who, ux, uy);
-            bool ok = app.allowIllegalUnits || checkPlacement(ed.placementContext(), u).empty();
-            // The main unit's place as a click puts it (where it fits, or where correction moves it). Without one, a click
-            // places no copies either, so none are drawn.
-            Unit main = u;
-            bool placed = ok;
-            if (!ok && app.correction)
-                if (auto p = ed.findValidPosition(u)) main.x = p->first, main.y = p->second, placed = true;
-            if (ed.unitLimit() > 0 && int(ed.units().size()) >= ed.unitLimit()) placed = false;
-            // The copies at the mirror images and turns, each checked against the units placed before it (as placeUnit does).
-            if (placed) {
-                std::vector<Unit> placedSoFar = ed.units();
-                placedSoFar.push_back(main);
-                const auto copies = ed.symmetricPoints(int(gx), int(gy));
-                for (size_t k = 1; k < copies.size(); ++k) {
-                    if (ed.unitLimit() > 0 && int(placedSoFar.size()) >= ed.unitLimit()) break;
-                    uint16_t mx = uint16_t(std::clamp(copies[k].first, 0, ed.width() * 32 - 1)), my = uint16_t(std::clamp(copies[k].second, 0, ed.height() * 32 - 1));
-                    snapToGrid(t, mx, my);
-                    Unit m = makeUnit(t, who, mx, my);
-                    if (!app.allowIllegalUnits && !checkPlacement(ed.placementContext(&placedSoFar), m).empty()) {
-                        if (!app.correction) continue;
-                        auto p = ed.findValidPosition(m);
-                        if (!p) continue;
-                        m.x = p->first, m.y = p->second;
-                    }
-                    addUnitSprites(s, m, 0, 0, 0.55f);
-                    outline(s, ed.unitBox(m), 0x40FF40C0u);
-                    placedSoFar.push_back(m);
-                }
+            const PlaceGhost& g = placeGhost(u, gx, gy);
+            for (const Unit& m : g.copies) {
+                addUnitSprites(s, m, 0, 0, 0.55f);
+                outline(s, ed.unitBox(m), 0x40FF40C0u);
             }
-            if (!ok && app.correction)
-                if (auto p = ed.findValidPosition(u)) {
-                    Unit c = u;
-                    c.x = p->first, c.y = p->second;
-                    addUnitSprites(s, c, 0, 0, 0.55f);
-                    outline(s, ed.unitBox(c), 0x40FF40C0u);
-                    outline(s, ed.unitBox(u), 0xFF4040A0u);
-                    return s;
-                }
+            const bool ok = g.ok;
+            if (g.fix) {
+                Unit c = u;
+                c.x = g.fix->first, c.y = g.fix->second;
+                addUnitSprites(s, c, 0, 0, 0.55f);
+                outline(s, ed.unitBox(c), 0x40FF40C0u);
+                outline(s, ed.unitBox(u), 0xFF4040A0u);
+                return s;
+            }
             addUnitSprites(s, u, 0, 0, 0.55f);
             outline(s, ed.unitBox(u), ok ? 0x40FF40C0u : 0xFF4040C0u);
         }
@@ -690,10 +884,10 @@ render::Scene buildScene() {
                 s.rects.push_back({app.dragWX, app.dragWY, wx, wy, 0x40FF4020u, true, 1, true});
     } else if (app.mode == Mode::Sprites) {
         // The selected sprites (where a drag puts them); the copy being pasted; the box of a box selection.
-        // Options > Sprites snap: a click (or a paste) goes to the middle of a grid cell, a drag moves in whole cells.
-        const int ddx = app.drag == Drag::MoveSprite && app.dragMoved ? int(snapRound(wx - app.dragWX, app.spriteGrid)) : 0,
-                  ddy = app.drag == Drag::MoveSprite && app.dragMoved ? int(snapRound(wy - app.dragWY, app.spriteGrid)) : 0;
-        const float cx = snapToCell(wx, app.spriteGrid), cy = snapToCell(wy, app.spriteGrid);
+        // Options > Sprites > Snap to the grid: a click (or a paste) goes on the grid lines, and so does a drag.
+        int ddx = 0, ddy = 0;
+        if (app.drag == Drag::MoveSprite && app.dragMoved) spriteDragDelta(wx, wy, ddx, ddy);
+        const float cx = float(spriteSnapX(wx)), cy = float(spriteSnapY(wy));
         for (int i : app.selSprites)
             if (i >= 0 && i < int(ed.sprites().size())) {
                 const MapSprite& sp = ed.sprites()[size_t(i)];
@@ -802,6 +996,8 @@ render::Scene buildScene() {
         }
     } else if (app.mode == Mode::Terrain && shapeOn()) {
         shapeScene(s);
+    } else if (app.mode == Mode::Terrain && (currentTool() == TRamp || currentTool() == TBridge)) {  // Ramp, Bridge: the brush, a diamond (any kind of terrain)
+        diamondOutline(s, rampBrushCorners({int(wx), int(wy)}), 0xFFFFFFF0u);
     } else if (app.mode == Mode::Terrain && currentTool() == TErase) {  // Erase: the isometric brush's diamonds (any kind), in red
         std::set<std::pair<int, int>> set;
         for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
@@ -814,8 +1010,44 @@ render::Scene buildScene() {
             Rect b = ed.terrainClipboardBox();
             const auto pts = ed.symmetricPoints(int(wx), int(wy));
             const auto corners = ed.terrainPasteCorners(int(wx), int(wy));
+            // (the pasted terrain itself, as the map would have it: the paste on a copy of the map, its changed tiles
+            // over the terrain; made again only when the paste's place, the map or the copy changes; GitHub #238)
+            // The key: the map and its change, the copy (each copy and turn: gTerrainCopyRevision), the paste's places
+            // (also the mirrors'), Correction. A large map's paste is made at most every 2 times its last time (as the
+            // shapes' preview), the last one when the mouse rests.
+            extern uint64_t gTerrainCopyRevision;  // (map_edit_commands.inc)
+            struct PasteGhost {
+                std::vector<int64_t> key;
+                std::vector<std::pair<int, uint16_t>> cells;
+                double cost = 0;
+                std::chrono::steady_clock::time_point last{};
+            };
+            static PasteGhost g;
+            std::vector<int64_t> key = {int64_t(reinterpret_cast<uintptr_t>(&ed)), int64_t(ed.revision()), int64_t(gTerrainCopyRevision), int64_t(app.correction),
+                                        int64_t(corners.size())};
+            if (!corners.empty()) key.push_back(corners.front().first), key.push_back(corners.front().second);
+            for (const auto& [px, py] : pts) key.push_back(px / 64), key.push_back(py / 32);
+            const auto now = std::chrono::steady_clock::now();
+            const bool soon = g.cost > 12 && std::chrono::duration<double, std::milli>(now - g.last).count() < 2 * g.cost;
+            if (g.key != key && soon) appState().dirty = true;  // (again on a later frame)
+            else if (g.key != key) {
+                g.key = std::move(key), g.cells.clear();
+                Editor& copy = shapeCopy(ed.gameData());
+                std::string error;
+                if (copy.openChk(ed.chk(), error)) {
+                    shapeCopySettings(copy, ed);
+                    copy.setTerrainCopies(ed.terrainCopies());
+                    copy.pasteTerrain(int(wx), int(wy), app.correction);
+                    const std::vector<uint16_t>&a = ed.terrain().tiles, &c = copy.terrain().tiles;
+                    if (a.size() == c.size())
+                        for (size_t i = 0; i < a.size(); ++i)
+                            if (a[i] != c[i]) g.cells.push_back({int(i), c[i]});
+                }
+                g.last = std::chrono::steady_clock::now();
+                g.cost = std::chrono::duration<double, std::milli>(g.last - now).count();
+            }
+            ghostTiles = g.cells;
             diamondOutline(s, std::set<std::pair<int, int>>(corners.begin(), corners.end()), 0x40FF40FFu);
-            for (size_t k = 1; k < pts.size(); ++k) outline(s, {pts[k].first, pts[k].second, pts[k].first + b.right, pts[k].second + b.bottom}, 0x40FF40FFu, 2);
         }
     } else if (app.mode == Mode::Terrain && (app.palette > 0 || (currentTool() == TJumble && !app.terrainRect))) {  // (Jumble: no pick)
         // Brush footprint as diamonds: the outline of the diamonds whose four corners the brush sets, at
@@ -825,6 +1057,30 @@ render::Scene buildScene() {
             for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), currentBrush()))
                 for (auto c : ed.brushCorners(px, py, currentBrush())) set.insert(c);
             diamondOutline(s, set, currentTool() == TSpray ? 0xFFD040E0u : 0xFFFFFFF0u);
+            // The Square and the Circle: their own shape too (a thin line, as IsomGrid::brushCorners measures it: half
+            // extents of size x 64 and height x 32 pixels), round the diamonds that they paint.
+            const Brush b = currentBrush();
+            if (b.shape != Brush::Diamond && !b.starEdit()) {
+                const float hw = std::max(0.5f, float(b.size)) * 64, hh = std::max(0.5f, float(b.height())) * 32;
+                const uint32_t rgba = currentTool() == TSpray ? 0xFFD040A0u : 0xFFFFFFA0u;
+                auto line = [&](float x0, float y0, float x1, float y1) {
+                    render::RectDraw l;
+                    l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = 1, l.line = true;
+                    s.rects.push_back(l);
+                };
+                for (auto [px, py] : ed.terrainSymmetricPoints(int(wx), int(wy), b)) {
+                    if (b.shape == Brush::Square) {
+                        line(px - hw, py - hh, px + hw, py - hh), line(px + hw, py - hh, px + hw, py + hh);
+                        line(px + hw, py + hh, px - hw, py + hh), line(px - hw, py + hh, px - hw, py - hh);
+                        continue;
+                    }
+                    const int n = std::clamp(int(6.2831853f * std::max(hw, hh) * app.zoom / 4), 24, 360);  // (about 4 screen pixels a part)
+                    for (int k = 0; k < n; ++k) {
+                        const float a0 = k * 6.2831853f / n, a1 = (k + 1) * 6.2831853f / n;
+                        line(px + hw * std::cos(a0), py + hh * std::sin(a0), px + hw * std::cos(a1), py + hh * std::sin(a1));
+                    }
+                }
+            }
         }
     }
     if (objectSprayOn() || objectEraseOn()) {
@@ -899,9 +1155,15 @@ std::wstring unitRangesText(const Unit& unit) {
     const DatTable* units = rangeTable("units");
     const DatTable* weapons = rangeTable("weapons");
     if (!units || !weapons || ut < 0 || ut >= 228) return L"";
-    const DatField *sight = units->field("Sight Range"), *acqF = units->field("Target Acquisition Range"), *ground = units->field("Ground Weapon"),
-                   *air = units->field("Air Weapon"), *sub = units->field("Subunit 1"), *range = weapons->field("Maximum Range"),
-                   *flags = units->field("Special Ability Flags");
+    // (the fields by name once for the tables' schemas: the status bar asks each frame)
+    static const DatSchema *unitsSchema = nullptr, *weaponsSchema = nullptr;
+    static const DatField *sight = nullptr, *acqF = nullptr, *ground = nullptr, *air = nullptr, *sub = nullptr, *range = nullptr, *flags = nullptr;
+    if (unitsSchema != &units->schema() || weaponsSchema != &weapons->schema()) {
+        unitsSchema = &units->schema(), weaponsSchema = &weapons->schema();
+        sight = units->field("Sight Range"), acqF = units->field("Target Acquisition Range"), ground = units->field("Ground Weapon");
+        air = units->field("Air Weapon"), sub = units->field("Subunit 1"), range = weapons->field("Maximum Range");
+        flags = units->field("Special Ability Flags");
+    }
     if (!sight || !acqF || !ground || !air || !sub || !range || !flags) return L"";
     auto weaponRange = [&](const DatField& f) {  // (pixels; as rangesScene's)
         int w = int(units->value(f, ut));
@@ -932,26 +1194,18 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     const DatTable* units = mod ? nullptr : rangeTable("units");
     const DatTable* weapons = mod ? nullptr : rangeTable("weapons");
     if (!mod && (!units || !weapons)) return;
-    auto field = [](const DatTable* t, const char* name) { return t ? t->field(name) : nullptr; };
-    const DatField *sight = field(units, "Sight Range"), *acqF = field(units, "Target Acquisition Range"), *ground = field(units, "Ground Weapon"),
-                   *air = field(units, "Air Weapon"), *sub = field(units, "Subunit 1"), *range = field(weapons, "Maximum Range"),
-                   *sl = field(units, "Unit Size Left"), *su = field(units, "Unit Size Up"), *sr = field(units, "Unit Size Right"),
-                   *sd = field(units, "Unit Size Down"), *flags = field(units, "Special Ability Flags");
+    // (the fields by name once for the tables' schemas: the map asks each frame)
+    static const DatSchema *unitsSchema = nullptr, *weaponsSchema = nullptr;
+    static const DatField *sight = nullptr, *acqF = nullptr, *ground = nullptr, *air = nullptr, *sub = nullptr, *range = nullptr, *sl = nullptr,
+                          *su = nullptr, *sr = nullptr, *sd = nullptr, *flags = nullptr;
+    if (!mod && (unitsSchema != &units->schema() || weaponsSchema != &weapons->schema())) {
+        unitsSchema = &units->schema(), weaponsSchema = &weapons->schema();
+        sight = units->field("Sight Range"), acqF = units->field("Target Acquisition Range"), ground = units->field("Ground Weapon");
+        air = units->field("Air Weapon"), sub = units->field("Subunit 1"), range = weapons->field("Maximum Range");
+        sl = units->field("Unit Size Left"), su = units->field("Unit Size Up"), sr = units->field("Unit Size Right");
+        sd = units->field("Unit Size Down"), flags = units->field("Special Ability Flags");
+    }
     if (!mod && (!sight || !acqF || !ground || !air || !sub || !range || !sl || !su || !sr || !sd || !flags)) return;
-    auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
-        if (r <= 0) return;
-        // (a line about every 6 screen pixels: many units' shapes zoomed out are cheap)
-        const double around = 6.2832 * (r + (box.right - box.left + box.bottom - box.top) / 4.0) * app.zoom;
-        const int steps = std::clamp(int(around / 6) / 8 * 8, 16, 256);  // (a multiple of 8: the dashes)
-        const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r), steps);
-        for (size_t k = 1; k < pts.size(); ++k) {
-            if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
-            render::RectDraw l;
-            l.x0 = float(pts[k - 1].x), l.y0 = float(pts[k - 1].y), l.x1 = float(pts[k].x), l.y1 = float(pts[k].y);
-            l.rgba = color, l.thickness = width, l.line = true;
-            s.rects.push_back(l);
-        }
-    };
     auto weaponRange = [&](int ut, const DatField& f) {
         int w = int(units->value(f, ut));
         const int turret = int(units->value(*sub, ut));
@@ -970,11 +1224,10 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         if (tx < 0 || ty < 0 || tx >= mtxm.width || ty >= mtxm.height || size_t(ty) * mtxm.width + tx >= mtxm.tiles.size()) return 0;
         return cmbw::tileHeight(ed.tileset(), mtxm.tiles[size_t(ty) * mtxm.width + tx]);
     };
-    std::vector<uint8_t> seen;  // the map's tiles that a selected unit sees (one area, so many units do not stack)
-    std::vector<uint8_t> psi;   // the map's tiles in the psi field of a selected Pylon
     // The ranges of the selected units in the view (or near it: a range reaches into it), nearest its middle first; a
     // very big selection: the first 2000 of them.
-    std::vector<std::pair<float, int>> closest;  // (distance to the view's middle, the unit)
+    static std::vector<std::pair<float, int>> closest;  // (distance to the view's middle, the unit)
+    closest.clear();
     {
         int vw, vh;
         viewSize(vw, vh);
@@ -989,6 +1242,14 @@ void rangesScene(render::Scene& s, float dx, float dy) {
         std::sort(closest.begin(), closest.end());
         if (closest.size() > 2000) closest.resize(2000);
     }
+    // Each unit's values for the overlay (each kind only when it shows: gRangeKinds). The same values as the last
+    // frame's (and the same kinds, zoom and map size): the last frame's lines and tiles again.
+    struct Item {
+        int cx, cy, sight, acq, g, a, detect, l, t, r, b;
+        bool pylon;
+    };
+    static std::vector<Item> items;
+    items.clear();
     for (const auto& [distance, i] : closest) {
         Unit u = list[size_t(i)];
         const int ut = u.type;
@@ -999,70 +1260,134 @@ void rangesScene(render::Scene& s, float dx, float dy) {
             u.y = uint16_t(std::clamp(int(std::lround(u.y + dy)), 0, mh * 32 - 1));
             if (u.type < ed.unitTypes().size()) snapToGrid(ed.unitTypes()[u.type], u.x, u.y);
         }
-        const int cx = u.x, cy = u.y;
-        // Sight: the tiles of the sight mask around the unit's tile. (Each kind only when it shows: gRangeKinds.)
-        if (const int tiles = mod ? mr.sight : int(units->value(*sight, ut)); tiles > 0 && rangeShown(0)) {
-            int n = 0;
-            const auto mask = sightMask(tiles, n);
-            const int tx0 = cx / 32 - n / 2, ty0 = cy / 32 - n / 2;
-            if (seen.empty()) seen.assign(size_t(mw) * size_t(mh), 0);
-            for (int y = 0; y < n; ++y)
-                for (int x = 0; x < n; ++x)
-                    if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
-                        seen[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
-        }
-        RECT box{LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)};
+        Item it{};
+        it.cx = u.x, it.cy = u.y;
+        const int tiles = mod ? mr.sight : int(units->value(*sight, ut));
+        it.sight = rangeShown(0) ? tiles : 0;
+        RECT box{LONG(it.cx), LONG(it.cy), LONG(it.cx + 1), LONG(it.cy + 1)};
         if (mod) {  // (the tab's unit types: the mod's sizes)
             if (size_t(ut) < ed.unitTypes().size()) {
                 const UnitType& t = ed.unitTypes()[size_t(ut)];
-                box = {LONG(cx - t.sizeLeft), LONG(cy - t.sizeUp), LONG(cx + t.sizeRight + 1), LONG(cy + t.sizeDown + 1)};
+                box = {LONG(it.cx - t.sizeLeft), LONG(it.cy - t.sizeUp), LONG(it.cx + t.sizeRight + 1), LONG(it.cy + t.sizeDown + 1)};
             }
         } else
-            box = {LONG(cx - int(units->value(*sl, ut))), LONG(cy - int(units->value(*su, ut))), LONG(cx + int(units->value(*sr, ut)) + 1),
-                   LONG(cy + int(units->value(*sd, ut)) + 1)};
+            box = {LONG(it.cx - int(units->value(*sl, ut))), LONG(it.cy - int(units->value(*su, ut))), LONG(it.cx + int(units->value(*sr, ut)) + 1),
+                   LONG(it.cy + int(units->value(*sd, ut)) + 1)};
+        it.l = int(box.left), it.t = int(box.top), it.r = int(box.right), it.b = int(box.bottom);
         int acq = 0, g = 0, a = 0;
         if (mod) {
-            const int h = heightAt(cx, cy);
+            const int h = heightAt(it.cx, it.cy);
             g = cmbw::cliffRange(mr.ground, h, mr.cliff), a = mr.air;
             acq = (mr.seek + (mr.cliff && h > 0 && mr.ground > 32 ? h : 0)) * 32;
         } else
             acq = int(units->value(*acqF, ut)) * 32, g = weaponRange(ut, *ground), a = weaponRange(ut, *air);
-        if (rangeShown(1)) shape(box, acq, 0xF0B446D0u, 1, false);
-        if (rangeShown(2)) shape(box, g, 0xEB5A50F0u, 2, false);
-        if (rangeShown(3)) shape(box, a, 0x5AAAF0F0u, 2, a == g && rangeShown(2));  // the same range as the ground weapon: blue dashes over the red line
+        it.acq = rangeShown(1) ? acq : 0, it.g = rangeShown(2) ? g : 0, it.a = rangeShown(3) ? a : 0;
         // Detection (green): a detector finds cloaked and burrowed units in its sight range; a detector building only
         // in 7 tiles (the game's rule). The game measures it from the unit's center.
         const uint32_t f = mod ? mr.flags : uint32_t(units->value(*flags, ut));
-        if ((f & 0x8000u) && rangeShown(4))
-            shape({LONG(cx), LONG(cy), LONG(cx + 1), LONG(cy + 1)}, (f & 1u) ? 7 * 32 : (mod ? mr.sight : int(units->value(*sight, ut))) * 32, 0x50E070F0u, 2, true);
+        it.detect = (f & 0x8000u) && rangeShown(4) ? ((f & 1u) ? 7 * 32 : tiles * 32) : 0;
+        it.pylon = ut == 156 && rangeShown(5);
+        items.push_back(it);
+    }
+    static std::vector<Item> lastItems;
+    static std::vector<render::RectDraw> lastRects;
+    static int lastKinds = -1, lastW = -1, lastH = -1;
+    static float lastZoom = 0;
+    static bool lastMod = false;
+    auto same = [](const Item& p, const Item& q) {
+        return p.cx == q.cx && p.cy == q.cy && p.sight == q.sight && p.acq == q.acq && p.g == q.g && p.a == q.a && p.detect == q.detect &&
+               p.l == q.l && p.t == q.t && p.r == q.r && p.b == q.b && p.pylon == q.pylon;
+    };
+    if (lastKinds == int(gRangeKinds) && lastW == mw && lastH == mh && lastZoom == app.zoom && lastMod == mod &&
+        std::equal(items.begin(), items.end(), lastItems.begin(), lastItems.end(), same)) {
+        s.rects.insert(s.rects.end(), lastRects.begin(), lastRects.end());
+        return;
+    }
+    lastKinds = int(gRangeKinds), lastW = mw, lastH = mh, lastZoom = app.zoom, lastMod = mod;
+    lastItems = items;
+    std::vector<render::RectDraw>& out = lastRects;
+    out.clear();
+    auto shape = [&](RECT box, int r, uint32_t color, float width, bool dashed) {
+        if (r <= 0) return;
+        // (a line about every 6 screen pixels: many units' shapes zoomed out are cheap)
+        const double around = 6.2832 * (r + (box.right - box.left + box.bottom - box.top) / 4.0) * app.zoom;
+        const int steps = std::clamp(int(around / 6) / 8 * 8, 16, 256);  // (a multiple of 8: the dashes)
+        const auto pts = rangeShapeAround({int(box.left), int(box.top), int(box.right), int(box.bottom)}, double(r), steps);
+        for (size_t k = 1; k < pts.size(); ++k) {
+            if (dashed && (k / 4) % 2) continue;  // dashes of 4 segments
+            render::RectDraw l;
+            l.x0 = float(pts[k - 1].x), l.y0 = float(pts[k - 1].y), l.x1 = float(pts[k].x), l.y1 = float(pts[k].y);
+            l.rgba = color, l.thickness = width, l.line = true;
+            out.push_back(l);
+        }
+    };
+    // The sight masks by range (0..11 tiles; sightMask clamps to these), made once.
+    static std::vector<bool> masks[12];
+    static int maskSize[12] = {};
+    // The tiles that a selected unit sees (one area, so many units do not stack) and the tiles in the psi field of a
+    // selected Pylon: only in the box of the tiles that the units' masks touch (not the whole map).
+    int bx0 = mw, by0 = mh, bx1 = 0, by1 = 0;  // (the box: bx0 <= x < bx1)
+    auto grow = [&](int x0, int y0, int x1, int y1) {
+        bx0 = std::min(bx0, std::max(0, x0)), by0 = std::min(by0, std::max(0, y0));
+        bx1 = std::max(bx1, std::min(mw, x1)), by1 = std::max(by1, std::min(mh, y1));
+    };
+    for (Item& it : items) {
+        if (it.sight > 0) {
+            const int r = std::clamp(it.sight, 0, 11);
+            if (masks[r].empty()) masks[r] = sightMask(r, maskSize[r]);
+            const int n = maskSize[r];
+            grow(it.cx / 32 - n / 2, it.cy / 32 - n / 2, it.cx / 32 - n / 2 + n, it.cy / 32 - n / 2 + n);
+        }
+        if (it.pylon) grow(it.cx / 32 - 8, it.cy / 32 - 5, it.cx / 32 + 8, it.cy / 32 + 5);
+    }
+    const int bw = std::max(0, bx1 - bx0), bh = std::max(0, by1 - by0);
+    static std::vector<uint8_t> seen, psi;
+    seen.clear(), psi.clear();
+    for (const Item& it : items) {
+        const RECT box{LONG(it.l), LONG(it.t), LONG(it.r), LONG(it.b)};
+        // Sight: the tiles of the sight mask around the unit's tile.
+        if (it.sight > 0) {
+            const int r = std::clamp(it.sight, 0, 11), n = maskSize[r];
+            const std::vector<bool>& mask = masks[r];
+            const int tx0 = it.cx / 32 - n / 2, ty0 = it.cy / 32 - n / 2;
+            if (seen.empty()) seen.assign(size_t(bw) * size_t(bh), 0);
+            for (int y = 0; y < n; ++y)
+                for (int x = 0; x < n; ++x)
+                    if (mask[size_t(y * n + x)] && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
+                        seen[size_t(ty0 + y - by0) * size_t(bw) + size_t(tx0 + x - bx0)] = 1;
+        }
+        shape(box, it.acq, 0xF0B446D0u, 1, false);
+        shape(box, it.g, 0xEB5A50F0u, 2, false);
+        shape(box, it.a, 0x5AAAF0F0u, 2, it.a == it.g);  // the same range as the ground weapon: blue dashes over the red line
+        shape({LONG(it.cx), LONG(it.cy), LONG(it.cx + 1), LONG(it.cy + 1)}, it.detect, 0x50E070F0u, 2, true);
         // Psi field (purple): the tiles where a Pylon gives power, 16 by 10 tiles around its center (the game's mask).
-        if (ut == 156 && rangeShown(5)) {
+        if (it.pylon) {
             static const char* const kPsi[10] = {"0000011111100000", "0011111111111100", "0111111111111110", "1111111111111111", "1111111111111111",
                                                  "1111111111111111", "1111111111111111", "0111111111111110", "0011111111111100", "0000011111100000"};
-            if (psi.empty()) psi.assign(size_t(mw) * size_t(mh), 0);
-            const int tx0 = cx / 32 - 8, ty0 = cy / 32 - 5;  // (the Pylon's center is on a tile corner)
+            if (psi.empty()) psi.assign(size_t(bw) * size_t(bh), 0);
+            const int tx0 = it.cx / 32 - 8, ty0 = it.cy / 32 - 5;  // (the Pylon's center is on a tile corner)
             for (int y = 0; y < 10; ++y)
                 for (int x = 0; x < 16; ++x)
                     if (kPsi[y][x] == '1' && tx0 + x >= 0 && ty0 + y >= 0 && tx0 + x < mw && ty0 + y < mh)
-                        psi[size_t(ty0 + y) * size_t(mw) + size_t(tx0 + x)] = 1;
+                        psi[size_t(ty0 + y - by0) * size_t(bw) + size_t(tx0 + x - bx0)] = 1;
         }
     }
     // An area of tiles (the sight, the psi field): its tiles faintly filled (rows of tiles as one rectangle each) and
     // its outline.
     auto area = [&](const std::vector<uint8_t>& tiles, uint32_t fill, uint32_t line) {
         if (tiles.empty()) return;
-        auto at = [&](int x, int y) { return x >= 0 && y >= 0 && x < mw && y < mh && tiles[size_t(y) * size_t(mw) + size_t(x)]; };
+        auto at = [&](int x, int y) { return x >= bx0 && y >= by0 && x < bx1 && y < by1 && tiles[size_t(y - by0) * size_t(bw) + size_t(x - bx0)]; };
         auto edge = [&](float x0, float y0, float x1, float y1) {
             render::RectDraw l;
             l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = line, l.thickness = 1, l.line = true;
-            s.rects.push_back(l);
+            out.push_back(l);
         };
-        for (int y = 0; y < mh; ++y)
-            for (int x = 0; x < mw; ++x) {
+        for (int y = by0; y < by1; ++y)
+            for (int x = bx0; x < bx1; ++x) {
                 if (!at(x, y)) continue;
                 int run = x;
                 while (at(run + 1, y)) ++run;
-                s.rects.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), fill, true});
+                out.push_back({float(x * 32), float(y * 32), float((run + 1) * 32), float(y * 32 + 32), fill, true});
                 for (int k = x; k <= run; ++k) {
                     const float X = float(k * 32), Y = float(y * 32);
                     if (!at(k, y - 1)) edge(X, Y, X + 32, Y);
@@ -1075,6 +1400,7 @@ void rangesScene(render::Scene& s, float dx, float dy) {
     };
     area(psi, 0xA070FF1Cu, 0xB080FFC0u);
     area(seen, 0xE0E0F014u, 0xFFE040C0u);
+    s.rects.insert(s.rects.end(), out.begin(), out.end());
 }
 
 
@@ -1135,17 +1461,20 @@ void tilesScene(render::Scene& s, float wx, float wy) {
     int x0 = INT_MAX, y0 = INT_MAX, x1 = INT_MIN, y1 = INT_MIN;
     auto add = [&](int x, int y, uint16_t v) {
         if (x < 0 || y < 0 || x >= ed.width() || y >= ed.height()) return;
-        cells.push_back({y * ed.width() + x, v});
+        if (app.terrainPasting || tilesMaskLets(x, y, v)) cells.push_back({y * ed.width() + x, v});  // (the mask, not for a paste: what a click would place; the frame stays the brush's)
         x0 = std::min(x0, x), y0 = std::min(y0, y), x1 = std::max(x1, x), y1 = std::max(y1, y);
     };
     // The mirrors' images of the brush's tiles (tilesMirrored): ghosts too, outside the brush's frame.
     auto addMirrors = [&](const std::vector<Editor::TileAt>& brush) {
         const std::vector<Editor::TileAt> all = tilesMirrored(brush);
-        for (size_t i = brush.size(); i < all.size(); ++i) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
+        for (size_t i = brush.size(); i < all.size(); ++i)
+            if (app.terrainPasting || tilesMaskLets(all[i].x, all[i].y, all[i].value)) cells.push_back({all[i].y * ed.width() + all[i].x, all[i].value});
     };
     const int tool = currentTool();
+    if (tool == TWand) return;  // (its selection only)
     if (tool == TSelect) {
         if (!app.terrainPasting || !ed.hasTileClipboard()) return;
+        tilesPasteAt(wx, wy, cx, cy);  // (it may hang over the map's edge: the tiles on the map show)
         const int cw = ed.tileClipboardWidth();
         for (int y = 0; y < ed.tileClipboardHeight(); ++y)
             for (int x = 0; x < cw; ++x) add(cx + x, cy + y, ed.tileClipboard()[size_t(y) * cw + x]);
@@ -1158,9 +1487,12 @@ void tilesScene(render::Scene& s, float wx, float wy) {
     } else if (gTiles->solid && (tool == TBrush || tool == TSpray)) {  // Solid: the outline of the brush's rects (each rect at random)
         if (app.palette <= 0) return;
         std::vector<Editor::TileAt> foot;
-        for (auto [rx, ry] : solidFootprint(cx, cy))
-            for (int x = 2 * rx; x <= 2 * rx + 1; ++x)
-                if (x >= 0 && ry >= 0 && x < ed.width() && ry < ed.height()) foot.push_back({x, ry, 0});
+        for (auto [x, y] : solidBrushTiles(cx, cy))  // (the Brush's tiles; the spray's rects are whole)
+            if (tool == TBrush && x >= 0 && y >= 0 && x < ed.width() && y < ed.height()) foot.push_back({x, y, 0});
+        if (tool == TSpray)
+            for (auto [rx, ry] : solidFootprint(cx, cy))
+                for (int x = 2 * rx; x <= 2 * rx + 1; ++x)
+                    if (x >= 0 && ry >= 0 && x < ed.width() && ry < ed.height()) foot.push_back({x, ry, 0});
         std::vector<std::pair<int, int>> tiles;
         for (const auto& t : solidMirrored(foot)) tiles.push_back({t.x, t.y});  // (and the mirrors' images)
         ghostTiles.clear();

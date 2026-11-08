@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -38,18 +39,27 @@ namespace stardraft {
 
 class GameData;
 
-// Snap (Options > Units, Sprites, Locations): `grid` is the grid in px (0: no snap; 32 a tile, 16 a half tile, 8 a
-// quarter tile). snapToCell gives the middle of the grid cell that `v` is in (where a unit or sprite goes);
-// snapRound gives the nearest grid line (a move, a location edge).
-inline float snapToCell(float v, int grid) {
+// Snap to a grid of `grid` px (0: no snap) with its lines at `offset`: snapRound gives the nearest grid line.
+inline float snapRound(float v, int grid, int offset = 0) {
     if (grid <= 0) return v;
-    const float g = float(grid);
-    return float(int(v >= 0 ? v / g : v / g - 1)) * g + g / 2;
+    const float g = float(grid), q = (v - offset) / g;
+    return float(int(q >= 0 ? q + 0.5f : q - 0.5f)) * g + offset;
 }
-inline float snapRound(float v, int grid) {
-    if (grid <= 0) return v;
-    const float g = float(grid), q = v / g;
-    return float(int(q >= 0 ? q + 0.5f : q - 0.5f)) * g;
+// The nearest grid line on a side of the map, `size` px: a line past the map's edge gives the line before it.
+inline int gridCrossing(int v, int g, int o, int size) {
+    int c = int(std::lround(double(v - o) / g)) * g + o;
+    if (c >= size) c -= g;
+    if (c < 0) c += g;
+    return std::clamp(c, 0, size - 1);
+}
+// A point on the map goes to its grid line. A point outside the map stays, so that placing there is refused, and so does
+// a point on a side of the map with no line.
+inline int snapOnMap(float v, int g, int o, int size) {
+    if (g <= 0 || v < 0 || v >= size) return int(v);
+    int c = int(std::lround(double(int(v) - o) / g)) * g + o;
+    if (c >= size) c -= g;
+    if (c < 0) c += g;
+    return c >= 0 && c < size ? c : int(v);
 }
 
 struct Rect {
@@ -145,7 +155,8 @@ public:
     // The terrain core (IsomCore) paints the brush where it can (on unless STARDRAFT_TERRAIN_CORE=0: the old engine
     // only, to compare them while the core takes over; docs/dev/isom-terrain-plan.md).
     static bool terrainCoreOn();
-    // A brush stroke: begin once (one undo step), paint any number of times, end.
+    // A brush stroke: begin once (one undo step), paint any number of times, end. The end fits the ramps that the
+    // stroke touched to the cliffs again (src/ramps.cpp, refitRamps), in the same undo step.
     void beginTerrainStroke();
     // The terrain a brush of the given terrain paints at a map pixel: a mod terrain's variant for the ground there
     // (Tileset::ModTerrain::variantOf), the same one for the whole stroke; else the terrain itself.
@@ -175,6 +186,9 @@ public:
     // Is every corner under the brush (at every symmetric position) already this terrain?
     bool brushAllTerrain(int px, int py, const Brush& brush, uint16_t terrain) const;
     void sprayTerrain(int px, int py, uint16_t terrain, const Brush& brush, int dabs, uint32_t seed);
+    // One spray: `percent` of the brush's corners at the pixel, chosen at random, each once; with several terrains, each
+    // corner one of them in turn (at least one corner).
+    void sprayTerrainPart(int px, int py, const std::vector<uint16_t>& terrains, const Brush& brush, int percent, uint32_t seed);
     bool fillTerrain(int px, int py, uint16_t terrain);
     // The ISOM corners inside the polygon `points` (map pixels; the last point joins the first) get the terrain, at every
     // symmetric position, and the terrain around them is fitted to it (as the brush's). One undo step, or part of an
@@ -184,6 +198,18 @@ public:
     // most half its size apart) get the terrain, at every symmetric position, in one pass (as fillTerrainPolygon). One
     // undo step, or part of an open stroke. False: nothing changed.
     bool paintTerrainLine(int x0, int y0, int x1, int y1, uint16_t terrain, const Brush& brush);
+    // As paintTerrainLine along each line from a point to the next (closed: also from the last to the first), all lines
+    // in one pass (Rectangle and Ellipse's outlines).
+    bool paintTerrainPath(const std::vector<std::pair<int, int>>& pts, bool closed, uint16_t terrain, const Brush& brush);
+    // These ISOM corners get their terrains (all of one terrain), and the terrain round them is fitted to them: one edit
+    // (the Bridge tool's shore: src/bridges.cpp).
+    bool setTerrainCorners(const std::vector<CornerValue>& corners) { return applyTerrain(corners); }
+    // These tiles (tile x, y) made again from the ISOM under them: tiles placed over the terrain there (a ramp's, in
+    // Rectangle mode) go back to the ISOM's own (a cliff edge's). Returns the tiles that changed; one undo step.
+    int remakeTilesFromIsom(const std::vector<std::pair<int, int>>& tiles);
+    // Per tile (MTXM order): 1 where the ISOM does not give the tile there (placed as it is: Rectangle, Tile, a stamp, a
+    // mod's piece the ISOM has no rule for), else 0. All 1 when the map has no ISOM.
+    std::vector<uint8_t> tilesNotFromIsom() const;
     // Jumble: each ISOM corner under the brush, in random order, gets one of the terrains under the brush at random (a
     // dab of one corner, at every symmetric position), and the terrain around each dab is fitted to it, so the ISOM stays
     // valid. One undo step, or part of an open stroke. Returns the dabs that changed the terrain (-1: fewer than two
@@ -194,7 +220,8 @@ public:
     // (2 at the least: finer loses a terrain's edges; 10: large), each terrain's patches fitted together. One undo step.
     // False: nothing changed. One terrain: fillTerrain.
     bool fillTerrainMix(int px, int py, const std::vector<uint16_t>& terrains, int patch, uint32_t seed);
-    int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0);  // corners replaced; areaShape: SelectShape
+    // corners replaced; areaShape: SelectShape; tileIn: a selection of any form (as copyTerrain's)
+    int replaceTerrain(uint16_t from, uint16_t to, const Rect* area = nullptr, int areaShape = 0, const std::function<bool(int, int)>& tileIn = nullptr);
     // A selection's shape in its box (feedback #31, #33, #52): the whole box, the diamond in it, or the ellipse in it.
     // Rect, Diamond and Ellipse: in the box. IsoRect: the area along the map's diamonds (its sides run as the diamonds'
     // edges) whose opposite corners are the box's top left and bottom right; IsoRectFlip: its top right and bottom left
@@ -204,7 +231,11 @@ public:
     // The ISOM corners (rect-grid points) in the shape of `area` (map pixels): those copyTerrain copies.
     std::vector<std::pair<int, int>> cornersInShape(const Rect& area, SelectShape shape) const;
     // Terrain clipboard: the ISOM corners of `area` (in its shape) plus (optionally) the units and doodads in it.
-    bool copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape = SelectShape::Rect);
+    // tileIn: a selection of any form: only the corners whose tiles round them are all in it, and what stands on its tiles.
+    bool copyTerrain(const Rect& area, bool withUnits, bool withDoodads, SelectShape shape = SelectShape::Rect,
+                     const std::function<bool(int, int)>& tileIn = nullptr);
+    // The ISOM corners of the terrain at the pixel that are reachable from it along the diamonds' edges (one terrain).
+    std::vector<std::pair<int, int>> terrainRegionCorners(int px, int py) const { return isomOk_ ? isom_.floodCorners(px, py) : std::vector<std::pair<int, int>>{}; }
     bool hasTerrainClipboard() const { return !terrainClip_.corners.empty(); }
     Rect terrainClipboardBox() const { return {0, 0, terrainClip_.width, terrainClip_.height}; }
     // Turn the terrain clipboard a quarter turn clockwise as seen in the game (corner (x, y) goes to
@@ -212,6 +243,10 @@ public:
     // Units turn with it; doodads cannot (their tiles face one way) and are dropped. Returns how many
     // doodads were dropped.
     int rotateTerrainClipboard();
+    // The terrain clipboard mirrored left and right ((x, y) -> (-x, y)), or (upDown) top and bottom ((x, -y)): the
+    // diamond grid mirrors onto itself (x + y keeps its parity), so the terrain stays valid ISOM. Units mirror with
+    // it; doodads cannot (their tiles face one way) and are dropped. Returns how many doodads were dropped.
+    int mirrorTerrainClipboard(bool upDown);
     // Corners a terrain paste at (px, py) would set (the unmirrored copy), for previews.
     std::vector<std::pair<int, int>> terrainPasteCorners(int px, int py) const;
     // Paste with the clipboard's top-left corner snapped near (px, py). The clipboard's units obey the placement
@@ -280,9 +315,6 @@ public:
     // modTiles: on a mod's tileset, the mod's pieces of a border go in as the isometric brush puts them
     // (sprinkleModTiles; tiles of one terrain alone stay the game's), for a brush of a terrain's tiles (Terrain's Rectangle).
     int placeTileValues(const std::vector<TileAt>& cells, bool modTiles = false);
-    // The tiles of tiles (tx0, ty0)-(tx1, ty1) (inclusive) made again from the ISOM, as its terrains give them (the
-    // tiles placed by hand there go: a Cosmonarchy doodad brush taken away). One undo step. False: nothing changed.
-    bool retileFromIsom(int tx0, int ty0, int tx1, int ty1);
     // The tile clipboard (Rectangle mode): the tiles of a rectangle (inclusive, in tiles) as they are.
     // (shape: the tiles whose middle is in it; the others are not pasted)
     bool copyTiles(int tx0, int ty0, int tx1, int ty1, SelectShape shape = SelectShape::Rect);
@@ -308,6 +340,21 @@ public:
     // turns, 3: a third of a turn...), 1 to kMaxTurns. With the mirrors, each turned copy is mirrored too.
     void setTurns(int n) { turns_ = std::clamp(n, 1, kMaxTurns); }
     int turns() const { return turns_; }
+    // The point that the mirrors and the turns go round, in pixels: the map's middle at first. setSymmetryCenter puts it
+    // on the nearest point of the diamonds' grid (x: 64 pixels, y: 32), so that the mirror images of the diamonds are
+    // diamonds; inside the map. A value below 0: the map's middle again.
+    void setSymmetryCenter(int px, int py);
+    std::pair<int, int> symmetryCenter() const;
+    // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
+    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_; }
+    std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
+    // The masks (Alt+click in the lists): painting changes only the corners of these terrains (Isometric; the tool strip's
+    // Rectangle checks its tiles' terrains) and the tiles of these values (Tile). Empty: all. Not in the map: a new map has none.
+    const std::vector<uint16_t>& terrainMask() const { return terrainMask_; }
+    void setTerrainMask(std::vector<uint16_t> terrains);
+    bool terrainMaskAllows(uint16_t terrain) const;  // (the mask lets this terrain change; a mod terrain's variants with it)
+    const std::vector<uint16_t>& tileMask() const { return tileMask_; }
+    void setTileMask(std::vector<uint16_t> tiles) { tileMask_ = std::move(tiles); }
     // The point itself followed by its mirror images (duplicates removed).
     std::vector<std::pair<int, int>> symmetricPoints(int px, int py) const;
     struct SymmetryTarget {
@@ -373,8 +420,9 @@ public:
     int sprayUnitsAt(const std::vector<uint16_t>& types, uint8_t owner, const std::vector<std::pair<int, int>>& points, uint32_t seed,
                      const std::vector<uint16_t>* typeOfPoint = nullptr);
     // Spray `count` sprites of the given kinds (random pick) at random points within `radius` px of (x, y), each point
-    // snapped to a grid of `grid` px (snapToCell). Only spots where the sprite can go are used. Returns sprites placed.
-    int spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int grid);
+    // on a line of a grid of gw x gh px at offset (ox, oy); gw or gh 0: not on that grid. Only spots where the sprite can go
+    // are used. Returns sprites placed.
+    int spraySprites(const std::vector<uint16_t>& ids, uint8_t owner, float x, float y, int radius, int count, uint32_t seed, int gw, int gh, int ox, int oy);
 
     // --- Selection ------------------------------------------------------------------------------
     const std::vector<int>& selection() const { return selection_; }
@@ -392,6 +440,11 @@ public:
     // Else, with `correct`, each unit goes to the nearest spot where it fits (a unit with no spot stays); without
     // it, the move is refused and no unit moves. Returns how many units moved (0: refused, no undo step).
     int moveSelection(int dx, int dy, bool correct = true);
+    // Move each selected unit's origin to the nearest crossing of a grid (cell size gw x gh, offset ox, oy, map pixels) on
+    // the map; a building's box to the grid's lines, on the tiles, with its linked add-on. A unit that does not fit among the
+    // others stays where it is (with "units anywhere": it goes).
+    // Returns how many moved. One undo step.
+    int snapSelection(int gw, int gh, int ox, int oy);
     // Terran add-ons: the selected buildings' linked add-ons (they move with them), and the links that are no longer
     // true (a partner deleted, or an add-on off its building's add-on spot) cleared on both sides.
     std::vector<int> withLinkedAddons(std::vector<int> sel) const;
@@ -406,6 +459,9 @@ public:
     // The units a paste at (x, y) puts down, before the placement checks: the copy, then its symmetric copies.
     std::vector<Unit> pasteUnits(int x, int y) const;
     const std::vector<Unit>& clipboard() const { return clipboard_; }  // positions relative to group center
+    // The copied units' places round their middle: a quarter turn clockwise (turn 1) or back (-1), or (turn 0) mirrored
+    // left and right, or top and bottom (upDown).
+    void turnUnitClipboard(int turn, bool upDown);
     // The copied units go to `owner` when pasted (those that can have an owner: not resources or critters). Returns how
     // many of them changed; the map does not change.
     int setClipboardOwner(uint8_t owner);
@@ -498,6 +554,11 @@ public:
     int placeDoodads(const std::vector<ItemAt>& items, bool checkTerrain, bool nearest = false);
     // Sprites: move by (dx, dy) (those that stay on the map), delete, place.
     bool moveSprites(const std::vector<int>& indices, int dx, int dy);
+    // To a grid (cell size gw x gh, offset ox, oy, map pixels), one undo step. Returns how many moved. Doodads: the edges of
+    // each box on the grid's lines, on the tiles; all or none, as moveDoodads (after it they are the last doodads()). Sprites:
+    // each origin on the nearest crossing that is on the map.
+    int snapDoodads(const std::vector<int>& indices, int gw, int gh, int ox, int oy, bool checkTerrain, std::string* reason = nullptr);
+    int snapSprites(const std::vector<int>& indices, int gw, int gh, int ox, int oy);
     bool deleteSprites(const std::vector<int>& indices);
     // Replace with another type (Replace with...), one undo step each. Doodads: each where it was, when the new one
     // fits there (else it stays as it was); returns how many changed. Sprites: the same places.
@@ -578,12 +639,23 @@ public:
     void removeLocationSelection(int i);  // (the selected location: another of them, or none)
 
     // --- Players and forces ---------------------------------------------------------------------
-    // Players 1-8 (index 0-7): who controls the slot (OWNR, mirrored to IOWN), the race (SIDE) and the
-    // force (FORC). Forces 1-4: a name (a map string) and their properties.
-    enum class Controller : uint8_t { Inactive = 0, Rescue = 3, Computer = 5, Human = 6, Neutral = 7, Closed = 8 };
-    enum class Race : uint8_t { Zerg = 0, Terran = 1, Protoss = 2, UserSelect = 5, Random = 6 };
+    // The slots the game reads (OWNR), as a save writes them: the ones the Players page shows, with a start location or
+    // not, but a Computer player with no units and no start location is Inactive (its type stays in IOWN).
+    Bytes gameSlots() const;
+    Bytes editorSlots() const;  // the slots the Players page shows (OWNR; IOWN's when the map has none, and its Computer)
+    bool slotsSaved() const;    // whether the map's OWNR is gameSlots already
+    Bytes savedChk() const;  // the scenario.chk that a save writes (OWNR: gameSlots)
+    // Players 1-8 (index 0-7): who controls the slot (IOWN, the editor's copy; OWNR when the map has no IOWN), the race (SIDE) and the
+    // force (FORC). Players 9-12 (index 8-11): the slot and the race only (no force, no color). Forces 1-4: a name (a
+    // map string) and their properties. A byte with no name here stays as it is (Controller(9), Race(69)).
+    // (GameComputer, Occupied and Unused: the values the game sets while it runs.)
+    enum class Controller : uint8_t {
+        Inactive = 0, GameComputer = 1, Occupied = 2, Rescue = 3, Unused = 4, Computer = 5, Human = 6, Neutral = 7, Closed = 8
+    };
+    enum class Race : uint8_t { Zerg = 0, Terran = 1, Protoss = 2, Independent = 3, Neutral = 4, UserSelect = 5, Random = 6, Inactive = 7 };
     // A player's color (COLR; Remastered's CRGB when the map has it): random, the player's choice, one of the game's
-    // colors (0-21; 12 and up only through CRGB), or any RGB.
+    // colors (0-21; 12 and up only through CRGB), or any RGB. An id past the named colors (a byte of COLR, as an old
+    // map's black) goes into COLR as it is (and CRGB's id when the map has CRGB).
     struct PlayerColor {
         enum Kind : uint8_t { Random = 0, Choice = 1, Custom = 2, Id = 3 };
         Kind kind = Id;
@@ -611,11 +683,12 @@ public:
         std::string name;
         uint8_t flags = 0;
     };
-    Player player(int p) const;
+    Player player(int p) const;  // p 0-11 (8-11: the controller and the race)
     Force force(int f) const;
-    void setPlayer(int p, const Player& player);  // one undo step
+    void setPlayer(int p, const Player& player);  // p 0-11; one undo step
     void setForce(int f, const Force& force);     // one undo step
-    void setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces);  // 8 and 4; one undo step
+    // 8 or 12 players (9-12: the controller and the race) and 4 forces; one undo step.
+    void setPlayersAndForces(const std::vector<Player>& players, const std::vector<Force>& forces);
     // --- Mission briefings (MBRF) ---------------------------------------------------------------
     std::vector<BriefingTrigger> briefings() const;
     void setBriefings(const std::vector<BriefingTrigger>& briefings);  // one undo step
@@ -646,9 +719,8 @@ public:
     bool takeScenario(const Editor& edited, int shiftX = 0, int shiftY = 0);
     // A file of the map archive by its path (a briefing's sound), or nullptr.
     const ArchiveFile* archiveFile(const std::string& name) const;
-    // Adds (or replaces) a file in the map archive, such as a briefing's sound; saved with the map. One undo step.
-    void setArchiveFile(const std::string& name, Bytes data);
-    void setArchiveFiles(std::vector<ArchiveFile> files);  // likewise, all in one undo step
+    // Adds (or replaces) files in the map archive, such as a briefing's sound; saved with the map. One undo step.
+    void setArchiveFiles(std::vector<ArchiveFile> files);
     bool removeArchiveFile(const std::string& name);      // one undo step
     bool removeArchiveFiles(const std::vector<std::string>& names);  // the ones that are there, all in one undo step
     // A new path for a file; the briefings that play it use the new path. One undo step. False: no such file, or
@@ -705,6 +777,16 @@ public:
     // One text of the map string table (id 1 and up; `get strings`). One undo step; false when nothing changed.
     bool setMapString(uint32_t id, const std::string& text);
     std::vector<uint32_t> soundStrings() const;
+    // The map string table's own edits (Data > Strings of a classic map). Each is one undo step. The uses come from
+    // strings.h (mapStringUses): the same fields that a move renumbers.
+    std::vector<StringUse> mapStringUses() const;
+    // A new string in the first empty id that nothing uses (else after the last); its id, 0 for an empty text.
+    uint32_t addMapString(const std::string& text);
+    // Empties a string that nothing uses; false when it is used or empty.
+    bool deleteMapString(uint32_t id);
+    // String `from` goes to id `to` and the strings between move one id to fill its place; every use in the map follows
+    // its string. False (no undo step) when nothing moves, an id is not in the table, or a new id does not fit its field.
+    bool moveMapString(uint32_t from, uint32_t to);
 
     // --- Undo -----------------------------------------------------------------------------------
     bool canUndo() const { return !undo_.empty(); }
@@ -792,6 +874,13 @@ private:
     TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
+    int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
+    std::vector<uint16_t> terrainMask_, tileMask_;  // setTerrainMask, setTileMask
+    std::vector<uint16_t> terrainMaskIds_;          // (terrainMask_ with the mod terrains' variants)
+    std::optional<IsomGrid> maskGround_;            // (a stroke's ground when it began: what it paints round does not join the mask)
+    void clearMasks();
+    void maskCorners(std::vector<CornerValue>& corners) const;  // (only the corners that the mask lets change)
+    void holdMasked(const std::vector<CornerValue>& corners);  // (the corners near them that the mask keeps: for the next isom_.apply)
     struct SymmetricPlace {
         int x, y;
         CopyTransform transform;
@@ -801,7 +890,8 @@ private:
     };
     CopyOptions copyOptions_;
     bool symmetrySuppressed_ = false;
-    std::vector<SymmetricPlace> symmetricPlaces(int px, int py) const;
+    // margin: how far past the map's edges a place may be (terrain: a brush or a copy there still reaches the map).
+    std::vector<SymmetricPlace> symmetricPlaces(int px, int py, int margin = 0) const;
 
     // Protected terrain (protectTiles): the mask, its count of protected tiles and its revision.
     std::vector<uint8_t> protected_;
@@ -871,6 +961,7 @@ private:
     Chk chk_;
     uint16_t width_ = 0, height_ = 0, era_ = 0;
     TerrainLayer terrain_;
+    std::vector<uint16_t> strokeTilesBefore_;  // the tiles at a terrain stroke's begin (its end refits the ramps)
     IsomGrid isom_;
     bool isomOk_ = false;
     bool isomRebuilt_ = false;  // the map had no ISOM: reload() made it from the tiles
@@ -901,6 +992,7 @@ private:
     // tiles) are made again from the ISOM on the next store (GitHub #143).
     void markPlacedTilesDirty(const std::vector<CornerValue>& corners);
     void removeDoodads(const std::vector<int>& indices);  // DD2, overlay sprites, tiles back to TILE
+    bool moveDoodadsBy(const std::vector<int>& indices, const std::function<std::pair<int, int>(const Doodad&)>& delta, bool checkTerrain, std::string* reason);
     std::vector<int> placeableUnitsIn(const Rect& area) const;
     void pruneUnits(const std::vector<int>& wasPlaceable);
     int removedByTerrain_ = 0;
@@ -965,6 +1057,7 @@ private:
     // The map's state: a new number at each change (an undo or redo gives the number of the state it restores), and the
     // state at the last open or save. Undo or Redo back to that state: the map is not modified.
     uint64_t state_ = nextRevision(), savedState_ = state_;
+    Bytes savedSlots_;  // the OWNR that the last save wrote (slotsSaved)
     std::vector<int> selectionAfterRestore(const std::vector<Unit>& before) const;  // the same units selected (by serial)
     std::vector<std::pair<const char*, double>> openSteps_;
     mutable std::unique_ptr<SettingDefaults> settingDefaults_;
