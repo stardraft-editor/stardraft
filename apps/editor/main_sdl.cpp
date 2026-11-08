@@ -751,8 +751,10 @@ int main(int argc, char** argv) {
     if (!snapshot.empty()) gSilent = true, gNoBoxes = true, gShotDialogs = true;  // (a snapshot shows no file dialog: --pick answers)
     if (!gShotBoxes.empty()) msgbox::hostBox() = sdlShotBox;
     if (gNoActivate) gSilent = true, gNoBoxes = true;  // (a test: no sound, the default settings, no question waits)
-    // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types.
+    // A test run (a snapshot, --silent) asks nothing, sends nothing and leaves the user's file types; with no settings file
+    // of its own (--settings) it has the default settings: set before anything reads them (core/prefs.inc).
     const bool testRun = gSilent;
+    gSettingsOff = gSilent && !settingsArg;
     // Windows: a crash's sender ends here, the crash handler goes in, and a map for the open program goes to it.
     if (const int sent = sdlWindowsFirst(argc, argv, testRun); sent >= 0) return sent;
     if (restartPid) restartWaitFor(restartPid);  // (before the pipe: the old program still listens; core/documents.inc)
@@ -793,7 +795,6 @@ int main(int argc, char** argv) {
     prefs::text(L"StarCraftFolder", settingsRead);
     // (the Cosmonarchy BW plugin loaded: its maps use the mod's files, so no StarCraft install is looked for; it is when
     // the plugin is unloaded, sdlEnsureGameData)
-    gSettingsOff = gSilent && !settingsArg;  // (as the start reads the settings below: a snapshot's run has the defaults)
     const bool modOnly = cmbwMode();
     std::future<bool> dataOpening = std::async(std::launch::async, [&] { return !noInstallArg && !modOnly && openInstall(installArg, dataErr); });
 

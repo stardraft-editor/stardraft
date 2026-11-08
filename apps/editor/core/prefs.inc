@@ -5,10 +5,15 @@
 //
 // A name is "Value" (the key Software\StarDraft) or "Key/Value" (the subkey Key).
 
+extern bool gSettingsOff;        // (core/recent.inc)
+bool shellSettingsFileGiven();  // (the shell: --settings or STARDRAFT_SETTINGS gave a file)
+
 namespace prefs {
 
+// Tests and snapshot runs with no settings file of their own (gSettingsOff): no file at all, so every setting has its
+// default value and a change stays in this run (the user's settings file is neither read nor written).
 stardraft::Settings& store() {
-    static stardraft::Settings s(shellSettingsFile());
+    static stardraft::Settings s(gSettingsOff && !shellSettingsFileGiven() ? std::filesystem::path() : shellSettingsFile());
     return s;
 }
 
