@@ -449,6 +449,10 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.size = revealersDialogSetup(s.dlg, *s.revealers), s.view = &s.dlg;
         return true;
     }
+    if (name == "area-measure") {
+        s.view = areaMeasureShot(s.size);
+        return s.view != nullptr;
+    }
     if (name == "resize") {
         ResizeValues v;
         v.w = ed.width(), v.h = ed.height(), v.fill = mapPropsFirstTerrain(ed.era());
@@ -456,10 +460,6 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.size = resizeDialogSetup(s.dlg, *s.resize), s.view = &s.dlg;
         gResizeShown = s.resize.get();  // (the ui line; the snapshot's views go at its end)
         return true;
-    }
-    if (name == "area-measure") {
-        s.view = areaMeasureShot(s.size);
-        return s.view != nullptr;
     }
     if (name == "mapimage") {  // (--mapimage: its first options)
         Rect sel{};
