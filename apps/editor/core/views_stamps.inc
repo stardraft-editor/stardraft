@@ -153,15 +153,18 @@ public:
         tops_.clear(), rects_.clear();
         // (a list: each row under the one before; a grid: the items in rows of cells, each heading on its own row)
         const int w = std::max(1, width() - barW()), cell = cellW();
-        const int cols = std::max(1, w / cell);
-        int y = 0, col = 0;
+        int y = 0, col = 0, depth = -1;
         for (const StampRow& r : rows_) {
             if (!viewGrid() || r.heading) {
                 if (col) y += cell, col = 0;
                 tops_.push_back(y), rects_.push_back({0, y, w, y + rowH(r.heading)}), y += rowH(r.heading);
                 continue;
             }
-            tops_.push_back(y), rects_.push_back({col * cell, y, col * cell + cell, y + cell});
+            // (a folder's cells start under its name, as the list's rows: its depth's indent; another depth, another row)
+            if (col && r.depth != depth) y += cell, col = 0;
+            depth = r.depth;
+            const int indent = r.depth * scale(14), cols = std::max(1, (w - indent) / cell);
+            tops_.push_back(y), rects_.push_back({indent + col * cell, y, indent + col * cell + cell, y + cell});
             if (++col == cols) col = 0, y += cell;
         }
         if (col) y += cell;

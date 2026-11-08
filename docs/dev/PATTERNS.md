@@ -98,6 +98,19 @@ On the map, outside the area selection tools:
 - **A button** is a kit widget (kit::Button, kit::IconButton). A painted area that acts as a button (a StripHit, a hit
   rectangle) is only for a surface that the kit cannot make yet. Then it has the kit's hover, focus and tooltip.
 - **An action** is a button, **an entity** is a link (PRINCIPLES.md, "Buttons for actions, links for entities").
+- **A segmented choice** (a few values, one chosen) is joined: the segments touch, with a line between them
+  (kit::Button::setJoined; the tool strip's Isometric | Rectangle | Tile | Custom). Not buttons with gaps.
+
+## Pages and forms
+
+- **Page tabs** (Map properties, Map data, the Data workspace, Program options, Assets): the name (and its icon), and
+  the chosen tab has a line under it. No fill; a hovered tab has the hover fill. The panels' icon tabs (the Map
+  panel's Terrain, Doodads, ...) are another control: a box of icons, the chosen one filled.
+- **A section heading** in a page or a form: the name in the text color, and a line under it to the section's right
+  edge. All the lines of a page end at one edge (the widest field of the column).
+- **A number field in a form** uses the UI font, right-aligned. A table's number cells use the digits' font
+  (Face::Mono), so that their columns line up.
+- **Units go in parentheses** after the label: "X (pixels)", "Hit points (%)".
 
 ## Messages and questions
 
@@ -152,6 +165,9 @@ Places that do not follow a pattern yet. Each has a reason, or it is work to do.
 - Data table, Units list: sort by a click on a column header (correct for a table: a table is not a list).
 - Quick picker: its own S, M, L buttons for the view (kept: it is a keyboard window, Ctrl+L and Ctrl+G change it; a
   View menu there would take the keyboard from its search).
+- Data workspace: a Filter button (a funnel) in place of Sort, and Form | Table at the tab strip's right (kept: the
+  entries are in the game's order, the number is the entry; the filter picks which entries show. Form | Table changes
+  the whole page, not the list, so it is not the list's View button).
 
 **Settings**
 
