@@ -3307,3 +3307,11 @@ minute	分钟
 minutes	分钟
 second	秒
 Could not search	无法搜索
+List: s&prites	列表：精灵(&P)
+&List: icons	列表：图标(&L)
+In the accent color	使用强调色
+The units' icons in the palettes and the Data workspace: in the accent color, not the game's yellow	调色板和“数据”工作区中的单位图标：使用强调色，而不是游戏的黄色
+Unit icons	单位图标
+Unit icons: in the accent color	单位图标：强调色
+Unit icons: in the game's yellow	单位图标：游戏的黄色
+Duplicate &linked	链接复制(&L)

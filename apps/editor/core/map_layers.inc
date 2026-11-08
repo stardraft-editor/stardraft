@@ -744,6 +744,9 @@ void mapLayersToggleVisible(int row) {
 }
 
 void mapLayersToggleLock(int row) {
+    // (a linked duplicate is always locked: it follows its original)
+    if (row >= 0 && row < int(gMapLayers.stack.layers.size()) && gMapLayers.stack.layers[size_t(row)].linkedTo)
+        return setMessage(linkedRefusal(gMapLayers.stack.layers[size_t(row)]));
     layersEdit([row](Editor& ed) {
         MapLayersState& s = gMapLayers;
         if (row >= int(s.stack.layers.size())) return false;
@@ -754,13 +757,26 @@ void mapLayersToggleLock(int row) {
     });
 }
 
+// A new layer's name: `base` (without the same word and number at its end: "Hills copy 2" copies as "Hills copy 3") and
+// the word with the first number that no layer has ("Hills copy 1", "Hills copy 2"; "Hills link 1").
+static std::string layerNumberedName(std::string base, const char* word) {
+    const std::string w = std::string(" ") + word + " ";
+    if (const size_t at = base.rfind(w); at != std::string::npos && at > 0 && at + w.size() < base.size() &&
+                                         base.find_first_not_of("0123456789", at + w.size()) == std::string::npos)
+        base.resize(at);
+    std::set<std::string> names;
+    for (const MapLayer& l : gMapLayers.stack.layers) names.insert(l.name);
+    for (int n = 1;; ++n)
+        if (std::string name = base + " " + word + " " + std::to_string(n); !names.count(name)) return name;
+}
+
 void mapLayersDuplicate(int row) {
     layersEdit([row](Editor&) {
         MapLayersState& s = gMapLayers;
         if (row < 0 || row >= int(s.stack.layers.size())) return false;
         MapLayer copy = s.stack.layers[size_t(row)];
         copy.id = s.stack.nextId++;
-        copy.name += " copy";
+        copy.name = layerNumberedName(copy.name, "copy");
         copy.locked = false;
         copy.linkedTo = 0, copy.linkDx = copy.linkDy = 0;  // (of a linked duplicate: a layer of its own, with what it shows)
         // (new serials, as a paste's; its links only inside the copy)
@@ -792,8 +808,11 @@ void mapLayersDuplicateLinked(int row) {
         const MapLayer& from = s.stack.layers[size_t(row)];
         MapLayer copy;
         copy.id = s.stack.nextId++;
-        copy.name = (from.name.size() > 7 && from.name.ends_with(" linked") ? from.name : from.name + " linked");
         copy.linkedTo = from.linkedTo ? from.linkedTo : from.id;
+        std::string original = from.name;  // ("<original> link 1", "<original> link 2": of a link, its original's)
+        for (const MapLayer& o : s.stack.layers)
+            if (o.id == copy.linkedTo) original = o.name;
+        copy.name = layerNumberedName(original, "link");
         copy.linkDx = from.linkedTo ? from.linkDx : 0, copy.linkDy = from.linkedTo ? from.linkDy : 0;
         s.stack.layers.insert(s.stack.layers.begin() + row + 1, std::move(copy));
         s.active = row + 1, s.picked = {row + 1};
@@ -954,6 +973,9 @@ void mapLayersCurrentRename() {
 }
 void mapLayersCurrentDuplicate() {
     if (layersHaveCurrent()) mapLayersDuplicate(gMapLayers.active);
+}
+void mapLayersCurrentDuplicateLinked() {
+    if (layersHaveCurrent()) mapLayersDuplicateLinked(gMapLayers.active);
 }
 void mapLayersMergeDown(int row);
 void mapLayersCurrentMergeDown() {

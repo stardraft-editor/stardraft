@@ -3306,6 +3306,14 @@ constexpr UiText kRows[] = {
     {L"minutes", L"\u5206\u949F"},
     {L"second", L"\u79D2"},
     {L"Could not search", L"\u65E0\u6CD5\u641C\u7D22"},
+    {L"List: s&prites", L"\u5217\u8868\uFF1A\u7CBE\u7075(&P)"},
+    {L"&List: icons", L"\u5217\u8868\uFF1A\u56FE\u6807(&L)"},
+    {L"In the accent color", L"\u4F7F\u7528\u5F3A\u8C03\u8272"},
+    {L"The units' icons in the palettes and the Data workspace: in the accent color, not the game's yellow", L"\u8C03\u8272\u677F\u548C\u201C\u6570\u636E\u201D\u5DE5\u4F5C\u533A\u4E2D\u7684\u5355\u4F4D\u56FE\u6807\uFF1A\u4F7F\u7528\u5F3A\u8C03\u8272\uFF0C\u800C\u4E0D\u662F\u6E38\u620F\u7684\u9EC4\u8272"},
+    {L"Unit icons", L"\u5355\u4F4D\u56FE\u6807"},
+    {L"Unit icons: in the accent color", L"\u5355\u4F4D\u56FE\u6807\uFF1A\u5F3A\u8C03\u8272"},
+    {L"Unit icons: in the game's yellow", L"\u5355\u4F4D\u56FE\u6807\uFF1A\u6E38\u620F\u7684\u9EC4\u8272"},
+    {L"Duplicate &linked", L"\u94FE\u63A5\u590D\u5236(&L)"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

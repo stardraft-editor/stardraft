@@ -3306,6 +3306,14 @@ constexpr UiText kRows[] = {
     {L"minutes", L"minutos"},
     {L"second", L"segundo"},
     {L"Could not search", L"No se pudo buscar"},
+    {L"List: s&prites", L"Lista: s&prites"},
+    {L"&List: icons", L"&Lista: iconos"},
+    {L"In the accent color", L"Con el color de acento"},
+    {L"The units' icons in the palettes and the Data workspace: in the accent color, not the game's yellow", L"Los iconos de las unidades en las paletas y en el espacio de trabajo Datos: con el color de acento, no con el amarillo del juego"},
+    {L"Unit icons", L"Iconos de unidades"},
+    {L"Unit icons: in the accent color", L"Iconos de unidades: con el color de acento"},
+    {L"Unit icons: in the game's yellow", L"Iconos de unidades: con el amarillo del juego"},
+    {L"Duplicate &linked", L"Duplicar &vinculada"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

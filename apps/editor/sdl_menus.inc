@@ -1237,7 +1237,8 @@ void sdlCommandShot(const std::string& name) {
                                                          {"project.open", ID_PROJ_OPEN}, {"project.addscript", ID_PROJ_ADDSCRIPT}, {"project.addmusic", ID_PROJ_ADDMUSIC}, {"project.adddots", ID_PROJ_ADDDOTS},
                                                          {"file.exit", ID_FILE_EXIT}, {"options.restart", ID_OPT_RESTART},
                                                          {"options.unitsnap", ID_SNAP_UNITS},  // (Options > Units > Snap to the grid)
-                                                         {"options.stack", ID_OPT_STACK}};  // (Options > Units > Can be on top of others)
+                                                         {"options.stack", ID_OPT_STACK},  // (Options > Units > Can be on top of others)
+                                                         {"options.tinticons", ID_OPT_TINTICONS}};  // (Program options > Appearance > Unit icons)
     int id = -1;
     for (const auto& [native, cmd] : gCommandIds)
         if (cmd == name) id = native;

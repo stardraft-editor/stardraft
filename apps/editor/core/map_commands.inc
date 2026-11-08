@@ -102,6 +102,7 @@ void mapLayersNew();  // (core/map_layers.inc)
 void mapLayersCurrentHide();
 void mapLayersSelectAll();
 void mapLayersCurrentLock();
+void mapLayersCurrentDuplicateLinked();
 void mapLayersCurrentMergeDown();
 void mapLayersSelectStep(int step);
 void mapLayersMoveStep(int step);
@@ -283,6 +284,7 @@ void registerMapCommands() {
     addCommand(ID_LAYER_CMD + 1, "layer.hide", L"&Hide or show", "Mode/Layer", L"Ctrl+Alt+H", [] { mapLayersCurrentHide(); });
     addCommand(ID_LAYER_CMD + 2, "layer.lock", L"&Lock or unlock", "Mode/Layer", L"Ctrl+Alt+L", [] { mapLayersCurrentLock(); });
     addCommand(ID_LAYER_CMD + 3, "layer.merge", L"&Merge down", "Mode/Layer", L"Ctrl+Alt+E", [] { mapLayersCurrentMergeDown(); });
+    addCommand(ID_LAYER_CMD + 9, "layer.duplicatelinked", L"Duplicate &linked", "Mode/Layer", L"Ctrl+Alt+D", [] { mapLayersCurrentDuplicateLinked(); });
     addCommand(ID_LAYER_CMD + 8, "layer.selectall", L"&Select all layers", "Mode/Layer", L"Ctrl+Alt+A", [] { mapLayersSelectAll(); });
     addCommand(ID_LAYER_CMD + 4, "layer.up", L"The layer &above", "Mode/Layer", L"Alt+PgUp", [] { mapLayersSelectStep(1); });
     addCommand(ID_LAYER_CMD + 5, "layer.down", L"The layer &below", "Mode/Layer", L"Alt+PgDn", [] { mapLayersSelectStep(-1); });

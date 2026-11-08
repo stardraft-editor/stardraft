@@ -51,6 +51,7 @@ void setPaletteViewBits(int v) {
 // units have sprites: a grid of another mode is a grid of pictures. False: not a view item.
 bool applyPaletteViewCommand(Mode mode, int id, PaletteView& v, PaletteSort& sort) {
     if (id == ID_PAL_LIST) v.grid = v.sprites = false;
+    else if (id == ID_PAL_LIST_SPRITES) v.grid = false, v.sprites = true;
     else if (id == ID_PAL_ICONS) v.grid = true, v.sprites = false;
     else if (id == ID_PAL_SPRITES) v.grid = v.sprites = true;
     else if (id == ID_PAL_NORMAL || id == ID_PAL_LARGE || id == ID_PAL_XLARGE) v.large = id != ID_PAL_NORMAL, v.xl = id == ID_PAL_XLARGE;
@@ -148,11 +149,13 @@ MenuModel paletteMenuModel(Mode mode, const PaletteView& v, int pin, PaletteSort
         }
         m.push_back(menuSeparator());
     }
-    m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !v.grid));
-    if (mode == Mode::Units) {
+    if (mode == Mode::Units) {  // (icons or sprites, in a list or a grid)
+        m.push_back(menuItem(ID_PAL_LIST, L"&List: icons", {}, false, !v.grid && !v.sprites));
+        m.push_back(menuItem(ID_PAL_LIST_SPRITES, L"List: s&prites", {}, false, !v.grid && v.sprites));
         m.push_back(menuItem(ID_PAL_ICONS, L"&Grid: icons", {}, false, v.grid && !v.sprites));
         m.push_back(menuItem(ID_PAL_SPRITES, L"Grid: &sprites", {}, false, v.grid && v.sprites));
     } else {
+        m.push_back(menuItem(ID_PAL_LIST, L"&List", {}, false, !v.grid));
         m.push_back(menuItem(ID_PAL_ICONS, L"&Grid", {}, false, v.grid));
     }
     m.push_back(menuSeparator());

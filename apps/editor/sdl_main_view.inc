@@ -1279,7 +1279,7 @@ void sdlMidPanCheck() {
 void sdlPaletteViewShot(const std::string& spec) {
     std::stringstream in(spec);
     for (std::string w; std::getline(in, w, ',');) {
-        const int id = w == "list" ? ID_PAL_LIST : w == "icons" ? ID_PAL_ICONS : w == "sprites" ? ID_PAL_SPRITES : w == "normal" ? ID_PAL_NORMAL
+        const int id = w == "list" ? ID_PAL_LIST : w == "listsprites" ? ID_PAL_LIST_SPRITES : w == "icons" ? ID_PAL_ICONS : w == "sprites" ? ID_PAL_SPRITES : w == "normal" ? ID_PAL_NORMAL
                                                                                                   : w == "large" ? ID_PAL_LARGE : w == "xlarge" ? ID_PAL_XLARGE
                        : w == "category" ? ID_PAL_SORT_CATEGORY : w == "name" ? ID_PAL_SORT_NAME : w == "number" ? ID_PAL_SORT_NUMBER
                        : w == "tier" ? ID_PAL_SORT_TIER : w == "name-down" ? ID_PAL_SORT_NAME_DOWN : w == "number-down" ? ID_PAL_SORT_NUMBER_DOWN : 0;

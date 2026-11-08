@@ -34,12 +34,17 @@ constexpr UiIcon kFeedbackIcon = UiIcon::Feedback;
 struct MutedAccent {
     COLORREF accent = kAccent, bright = kAccentBright, line = kAccentLine, sel = kSel, selHot = kSelHot;
     bool on;
+    static inline int depth = 0;           // (muted paints under way)
+    static inline COLORREF themeAccent_;  // the accent before the first of them
     explicit MutedAccent(bool mute) : on(mute) {
+        if (on && depth++ == 0) themeAccent_ = kAccent;
         if (on) kAccent = kDim, kAccentBright = kText, kAccentLine = kBorderStrong, kSel = kCtlHot, kSelHot = kBorderHot;
     }
     ~MutedAccent() {
-        if (on) kAccent = accent, kAccentBright = bright, kAccentLine = line, kSel = sel, kSelHot = selHot;
+        if (on) --depth, kAccent = accent, kAccentBright = bright, kAccentLine = line, kSel = sel, kSelHot = selHot;
     }
+    // The theme's accent, also in a muted paint (what is cached across panels: the unit icons' color).
+    static COLORREF themeAccent() { return depth ? themeAccent_ : kAccent; }
     MutedAccent(const MutedAccent&) = delete;
     MutedAccent& operator=(const MutedAccent&) = delete;
 };

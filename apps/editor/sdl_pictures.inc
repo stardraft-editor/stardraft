@@ -18,6 +18,7 @@ struct PaletteArt {
     std::map<std::tuple<int, int, int, bool>, std::unique_ptr<draw::Bitmap>> bitmaps;  // (mode of the row, value, owner, sprite)
     std::map<std::pair<uint16_t, int>, std::unique_ptr<draw::Bitmap>> pieBitmaps;  // the pie palette's terrains (pieBitmap)
     std::set<const draw::Bitmap*> blanks;  // the pictures that are the game's placeholder icon (drawPaletteArt: a neutral icon)
+    uint32_t iconTint = 0;  // the icons' color the pictures have: 0 the game's; else 0x1000000 | the accent (0x00BBGGRR)
     // The HD pictures of units with no command icon (hdUnitPicture: 5 to 15 ms each), made on workers while a palette
     // paints; by the key of `bitmaps`.
     std::map<std::tuple<int, int, int, bool>, std::future<Sprite>> unitPictures;
@@ -28,6 +29,21 @@ struct PaletteArt {
     }
 };
 PaletteArt gPaletteArt;
+
+// Program options > Appearance > Unit icons: in the accent color (the setting TintIcons; not saved in a test).
+bool& tintIconsFlag() {
+    static bool on = [] {
+        bool v = false;
+        if (!gSelfTest && !gSettingsOff) prefs::flag(L"TintIcons", v);
+        return v;
+    }();
+    return on;
+}
+bool tintIconsOn() { return tintIconsFlag(); }
+void setTintIcons(bool on) {
+    tintIconsFlag() = on;
+    if (!gSelfTest && !gSettingsOff) prefs::setNumber(L"TintIcons", on ? 1 : 0);
+}
 // The pictures' textures go before the GPU device does (main_sdl.cpp's shutdown); a later release would use a freed device.
 void releasePaletteArt() { gPaletteArt.waitUnitPictures(), gPaletteArt = PaletteArt{}; }
 // No map is open: the HD icons and tiles go (the pictures' textures stay until the next map's: the GPU may still draw
@@ -74,6 +90,11 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     Editor& ed = *gState.ed;
     const int mode = gState.carbot ? 2 : gState.quality == GraphicsQuality::SD ? 0 : 1;
     const bool unitKind = what == Mode::Units && !iconFrame;
+    // (the icons' color: the game's yellow, or the accent: its pictures again when it changes)
+    if (const uint32_t tint = tintIconsOn() ? (MutedAccent::themeAccent() & 0xFFFFFF) | 0x1000000 : 0; tint != gPaletteArt.iconTint) {
+        gPaletteArt.waitUnitPictures();
+        gPaletteArt.bitmaps.clear(), gPaletteArt.blanks.clear(), gPaletteArt.iconTint = tint;
+    }
     if (gPaletteArt.ed != &ed || gPaletteArt.era != int(ed.era()) || gPaletteArt.mode != mode || gPaletteArt.rulesRev != gTerrainRulesRev) {
         gPaletteArt.waitUnitPictures();  // (of the map before, or another mode)
         gPaletteArt.bitmaps.clear(), gPaletteArt.pieBitmaps.clear(), gPaletteArt.blanks.clear(), gPaletteArt.rulesRev = gTerrainRulesRev;
@@ -133,6 +154,7 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
     if (iconFrame) {
         if (!mode) s = ed.unitSprites().commandIcon(uint16_t(value));
         else if (value < int(gPaletteArt.hdIcons.size()) && gPaletteArt.hdIcons[size_t(value)].width) s = &gPaletteArt.hdIcons[size_t(value)];
+        if (!s) s = ed.unitSprites().blankIcon();  // (a frame with no picture: the game's BLANK, as the game shows it)
     } else if (!unitKind) {
         if (mode && !gPaletteArt.hdTilesLoaded) {
             std::string err;
@@ -197,6 +219,47 @@ draw::Bitmap* paletteBitmap(Mode what, int value, int owner, bool iconFrame = fa
             if (art.width) s = &art;
         }
         if (!s) s = ed.unitSprites().unitSprite(uint16_t(value), uint8_t(owner), ed.tileset());
+        // The icons' view with no icon of the unit's own: its picture as an icon is drawn: in the icons' color (their
+        // brightest color, scaled by the picture's gray: as the HD icons take the SD icons'), without its shadow (the
+        // see-through pixels; an air unit's shadow is far under it: the crop below then has the unit alone).
+        if (!sprite && s && s != ed.unitSprites().commandIcon(uint16_t(value)) &&
+            !(value < int(gPaletteArt.hdIcons.size()) && s == &gPaletteArt.hdIcons[size_t(value)])) {
+            static uint8_t tint[3] = {0, 0, 0};
+            if (!tint[0] && !tint[1] && !tint[2])
+                if (const Sprite* sd = ed.unitSprites().commandIcon(0)) {
+                    int best = -1;
+                    for (size_t i = 0; i + 3 < sd->rgba.size(); i += 4)
+                        if (sd->rgba[i + 3] && sd->rgba[i] + sd->rgba[i + 1] + sd->rgba[i + 2] > best)
+                            best = sd->rgba[i] + sd->rgba[i + 1] + sd->rgba[i + 2], std::copy_n(&sd->rgba[i], 3, tint);
+                }
+            if (s != &art) art = *s;
+            for (size_t i = 0; i + 3 < art.rgba.size(); i += 4) {
+                uint8_t* px = &art.rgba[i];
+                const int gray = std::max({px[0], px[1], px[2]});
+                if (px[3] < 200 && gray < 96) {  // (a shadow: dark and see-through; not in an icon)
+                    px[0] = px[1] = px[2] = px[3] = 0;
+                    continue;
+                }
+                for (int k = 0; k < 3; ++k) px[k] = uint8_t((tint[k] ? tint[k] : 255) * gray / 255);
+            }
+            s = &art;
+        }
+    }
+    // The icons in the accent color (Program options > Appearance > Unit icons): each pixel gets the accent's hue and
+    // keeps its own saturation and brightness (a hue shift: the icon stays as light as the game's).
+    if (gPaletteArt.iconTint && s && (iconFrame || (unitKind && !sprite))) {
+        if (s != &art) art = *s;
+        const float ar = float(gPaletteArt.iconTint & 255), ag = float(gPaletteArt.iconTint >> 8 & 255), ab = float(gPaletteArt.iconTint >> 16 & 255);
+        const float amax = std::max({ar, ag, ab}), amin = std::min({ar, ag, ab});
+        // (the accent's color at full saturation and brightness: 0..1 in each channel)
+        const float span = std::max(amax - amin, 1.0f), hr = (ar - amin) / span, hg = (ag - amin) / span, hb = (ab - amin) / span;
+        for (size_t i = 0; i + 3 < art.rgba.size(); i += 4) {
+            uint8_t* px = &art.rgba[i];
+            const float v = float(std::max({px[0], px[1], px[2]})), lo = float(std::min({px[0], px[1], px[2]}));
+            const float c = v - lo;  // (the chroma: v at full saturation, 0 for a gray)
+            px[0] = uint8_t(std::lround(lo + c * hr)), px[1] = uint8_t(std::lround(lo + c * hg)), px[2] = uint8_t(std::lround(lo + c * hb));
+        }
+        s = &art;
     }
     // Nothing to show (no icon, no visible sprite): the game's blank icon, for units only.
     auto visible = [](const Sprite* p) {  // at least a few pixels across: a stray dot is not a picture

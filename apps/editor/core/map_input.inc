@@ -24,6 +24,7 @@ struct LayersLiveAfter {  // (when the mouse's event ends: what it painted is un
 void moveSelectedTerrain(AppState& app, int dx, int dy);  // (core/map_edit_commands.inc)
 bool mapLayersOnLayer();
 bool mapLayersActiveRefuses();
+bool mapLayersActiveLocked();
 std::vector<std::pair<float, float>> gLassoPoints;  // Lasso: the line drawn so far
 bool gLassoAdd = false, gLassoRemove = false;      // (Shift, Ctrl at its press)
 int gTerrainMoveDX = 0, gTerrainMoveDY = 0;  // Terrain's Move: the drag so far
@@ -1121,6 +1122,8 @@ void terrainEditBlockedMessage() {
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
     if (float wx, wy; toWorld(app, x, y, wx, wy), terrainEditBlockedAt(app, wx, wy)) return Cursor::No;  // (off the map)
+    // (a locked layer, or a linked duplicate, which is always locked: no terrain tool paints on it)
+    if (app.mode == Mode::Terrain && app.drag == Drag::None && mapLayersActiveLocked() && terrainEditBlockedAt(app, -1, -1)) return Cursor::No;
     if (app.mode == Mode::Layers && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;  // (Move Layer)
     if (app.mode == Mode::Terrain && currentTool(app) == TMoveSel && app.drag != Drag::Pan && app.drag != Drag::AutoPan) return Cursor::SizeAll;
     if (app.drag == Drag::Pan || app.drag == Drag::AutoPan || app.drag == Drag::SymmetryCenter) return Cursor::SizeAll;

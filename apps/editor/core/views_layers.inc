@@ -57,7 +57,9 @@ public:
             const std::wstring name = r >= 0 ? widen(layer->name) : tr(L"Background");
             c.text({nameLeft, y, nameRight, y + rowH}, name, !layer->visible || layer->linkedTo ? kDim : r == s.active ? kOnText : kText,
                    draw::kMiddle | draw::kEllipsis);
-            if (layer->locked || over)
+            if (layer->linkedTo)  // (a linked duplicate: always locked, it follows its original)
+                kitpaint::drawIconFace(c, lock, UiIcon::Lock, kitpaint::Tone::Quiet, false, false);
+            else if (layer->locked || over)
                 kitpaint::drawIconFace(c, lock, layer->locked ? UiIcon::Lock : UiIcon::Unlock, layer->locked ? kitpaint::Tone::Primary : kitpaint::Tone::Quiet, false, over && lock.contains(pointer_));
             // The grip: the row can be dragged. Under the mouse, or while it is dragged.
             if (r >= 0 && (over || r == dragRow())) {
@@ -154,7 +156,9 @@ public:
         for (const Row& rw : rows_)
             if (rw.r.contains(p)) {
                 if (eyeRect(rw.r.top).contains(p)) return L"Show or hide (Ctrl+Alt+H). With nothing showing, the map is black";
-                if (lockRect(rw.r.top).contains(p)) return L"Lock or unlock: a locked layer does not change (Ctrl+Alt+L)";
+                if (lockRect(rw.r.top).contains(p) &&
+                    !(rw.index >= 0 && rw.index < int(gMapLayers.stack.layers.size()) && gMapLayers.stack.layers[size_t(rw.index)].linkedTo))
+                    return L"Lock or unlock: a locked layer does not change (Ctrl+Alt+L)";
                 if (rw.index >= 0 && gripRect(rw.r.top).contains(p)) return L"Drag to move the layer in the list";
                 if (rw.index >= 0 && rw.index < int(gMapLayers.stack.layers.size()))
                     if (const MapLayer& l = gMapLayers.stack.layers[size_t(rw.index)]; l.linkedTo)
@@ -206,12 +210,13 @@ private:
         if (index >= 0) {
             add(say(L"Rename\x2026") + L"\tF2", [index] { mapLayersRename(index); });
             add(say(L"Duplicate") + L"\tCtrl+D", [index] { mapLayersDuplicate(index); });
-            add(say(L"Duplicate linked"), [index] { mapLayersDuplicateLinked(index); });
+            add(say(L"Duplicate linked") + L"\tCtrl+Alt+D", [index] { mapLayersDuplicateLinked(index); });
             if (s.stack.layers[size_t(index)].linkedTo) add(say(L"Unlink"), [index] { mapLayersUnlink(index); });
             add(say(L"Delete") + L"\tDel", [] { mapLayersDelete(); });
         }
         if (index >= -1) add(say((index >= 0 ? s.stack.layers[size_t(index)] : s.stack.background).visible ? L"Hide" : L"Show") + L"\tCtrl+Alt+H", [index] { mapLayersToggleVisible(index); });
-        if (index >= -1) add(say((index >= 0 ? s.stack.layers[size_t(index)] : s.stack.background).locked ? L"Unlock" : L"Lock") + L"\tCtrl+Alt+L", [index] { mapLayersToggleLock(index); });
+        if (index >= -1 && !(index >= 0 && s.stack.layers[size_t(index)].linkedTo))  // (a linked duplicate: always locked)
+            add(say((index >= 0 ? s.stack.layers[size_t(index)] : s.stack.background).locked ? L"Unlock" : L"Lock") + L"\tCtrl+Alt+L", [index] { mapLayersToggleLock(index); });
         if (s.picked.size() > 1 && index >= -1) add(say(L"Merge the selected layers"), [] { mapLayersMerge(); });
         else if (index >= 0) add(say(L"Merge down") + L"\tCtrl+Alt+E", [index] { mapLayersMergeDown(index); });
         if (index == -2) add(say(L"New layer") + L"\tCtrl+Alt+N", [] { mapLayersNew(); });

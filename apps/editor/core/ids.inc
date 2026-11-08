@@ -66,6 +66,8 @@ enum : int {
     ID_PAL_SORT_TIER = 631,  // ... Sort by tier (a mod's units with tiers: Cosmonarchy BW)
     ID_PAL_SORT_NAME_DOWN = 632, ID_PAL_SORT_NUMBER_DOWN,  // ... the names Z to A, the numbers high to low
     ID_PAL_SORT_DATE = 634,  // ... the newest first (the Custom list's Sort menu)
+    ID_PAL_LIST_SPRITES = 635,  // ... List: sprites (units: each row the unit's sprite, not its icon)
+    ID_OPT_TINTICONS = 636,  // Program options > Appearance: Unit icons in the accent color (TintIcons)
     ID_GRID_SIZE = 1160,  // + the preset (kGridPresets); View > Grid (16 places)
     ID_GRID_CUSTOM = 958,
     ID_OPT_LANG = 960,  // + the choice of Program options > Language: 0 automatic, 1 English, 2 Korean, 3 Spanish, 4 Russian, 5 Chinese, 6 French
@@ -109,7 +111,7 @@ enum : int {
     ID_OPT_RESETALL = 1045,    // Program options > General > Reset all program settings (a question, then a restart)
     ID_FILE_EXPORTMAP = 231,  // File > Export map: the layers flattened (core/views_layers.inc)
     ID_MODE_LAYERS = 233,     // Mode > Map Layers
-    ID_LAYER_CMD = 234,       // + 0 to 8: Mode > Layer (core/map_layers.inc)
+    ID_LAYER_CMD = 234,       // + 0 to 9: Mode > Layer (core/map_layers.inc)
     ID_FILE_EXPORTIMAGE = 230,  // File > Export map image (core/map_image.inc)
     ID_DATA_TABLE = 1080,  // View > Data > Table view (Ctrl+E: the table, or the entry's form again; core/views_data_table.inc)
     ID_DATA_ENTRY = 1081,  // View > Data > Entry view: the form of the open entry

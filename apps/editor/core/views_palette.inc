@@ -164,7 +164,7 @@ struct PaletteGridView : draw::View {
             }
             if (v.grid && !(isPick || isChosen || int(i) == hover_))  // (a grid: each cell a quiet tile, so the pictures of any shape sit in a grid)
                 c.roundBox({r.left + scale(2), r.top + scale(2), r.right - scale(2), r.bottom - scale(2)}, kCtl, draw::kNone, float(scale(4)));
-            const bool drawn = picture && picture(c, mode, e.value, v.grid && v.sprites, box);
+            const bool drawn = picture && picture(c, mode, e.value, v.sprites, box);  // (sprites: units only, a list or a grid)
             if (!drawn && mode == Mode::Terrain) c.roundBox(box, draw::rgb(6, 6, 10), kBorder, float(scale(3)));  // nothing to show (Space): an empty swatch
             if (!v.grid) {
                 const draw::Rect t{box.right + scale(8), r.top, r.right - scale(4), r.bottom};
@@ -203,8 +203,13 @@ struct PaletteGridView : draw::View {
     }
     bool mouse(const draw::MouseEvent& e) override {
         // A press makes its panel the active one (another mode's list in the side bar: its pick does, as the side bar's
-        // layout follows the mode).
-        if (e.kind == draw::MouseKind::Down && state && state != gActivePanel && (state->mode == appState().mode || !isDockedPanel(state))) activatePanel(state);
+        // layout follows the mode). A left press under its items, where no pick is, does it too, and ends there: the
+        // side bar's lists then show other modes, so the press would pick in the list that is now here.
+        if (e.kind == draw::MouseKind::Down && state && state != gActivePanel) {
+            if (state->mode == appState().mode || !isDockedPanel(state)) activatePanel(state);
+            else if (e.button == 0 && (rows.empty() || e.pt.y + scroll_ >= rowRect(int(rows.size()) - 1).bottom))
+                return activatePanel(state), invalidate(), true;
+        }
         switch (e.kind) {
         case draw::MouseKind::Move: {
             const int h = rowAt(e.pt);
