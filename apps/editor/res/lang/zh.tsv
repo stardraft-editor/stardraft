@@ -3283,8 +3283,6 @@ No room: the base has no room for its depot and workers.	没有空间：该基�
 1 worker for each mineral field at each base, %d game minutes at Fastest	每个基地每块矿 1 个农民，最快速度下游戏时间 %d 分钟
 Workers	农民
 Workers on minerals and races	采矿农民和种族
-Fog of war: off	战争迷雾：关闭
-Fog of war: what %ls sees	战争迷雾：%ls 看到的范围
 Cargo	回矿
 Cycle	循环
 Searching… %d s	正在搜索… %d 秒
@@ -3315,7 +3313,6 @@ Unit icons	单位图标
 Unit icons: in the accent color	单位图标：强调色
 Unit icons: in the game's yellow	单位图标：游戏的黄色
 Duplicate &linked	链接复制(&L)
-Fog of war: what all players see	战争迷雾：所有玩家看到的范围
 No unit reached its end	没有单位到达终点
 Rush distance: no unit reached its end	Rush 距离：没有单位到达终点
 Each unit goes from the start point to the end point, at Fastest	每个单位从起点走到终点，最快速度
@@ -3347,3 +3344,8 @@ Simulation &settings	模拟设置(&S)
 Simulation &options…	模拟选项(&O)…
 &Close the simulation	关闭模拟(&C)
 &Simulation	模拟(&S)
+Select units…	选择单位…
+Rush units	Rush 单位
+What all players see	所有玩家看到的范围
+Fog of war	战争迷雾
+Report feedback on the simulation…	发送关于模拟的反馈…

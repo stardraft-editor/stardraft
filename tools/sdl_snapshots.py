@@ -5406,9 +5406,9 @@ wheel 830,700,0,12
 """
 # The gear's panel (the mining's settings, the boost searches); a cycle search of 6 seconds with 1 worker for each
 # mineral field, Protoss ({simboostsettings}), then the game from its start with the boosts: zoomed in on the base at
-# the bottom middle, the cycles' numbered arrows. The rush's eye (the fog of war): what all players see. The rush
+# the bottom middle, the cycles' numbered arrows. The rush's fog of war ({rushfogsettings}): what all players see. The rush
 # between two points (Tools > Simulate rush distance between two points: two clicks on the map) with a worker, a
-# Vulture and a Zergling ({rushunitsettings}), the eye on, at its end; and its report.
+# Vulture and a Zergling ({rushunitsettings}), the fog of war on (what all players see), at its end; and its report.
 SCRIPTS["simpanel"] = """command edit.simulate.mining
 simstep 300
 click 832,128
@@ -5426,14 +5426,12 @@ simstep 1800
 """
 SCRIPTS["simrushfog"] = """command edit.simulate.rush
 simstep 500
-click 800,128
 """
 SCRIPTS["simrushpoints"] = """command edit.simulate.rushpoints
 click 470,640
 click 1180,250
 wait 300
 simstep 300
-click 800,128
 simstep 3000
 """
 SCRIPTS["simrush"] = """command edit.simulate.rush
@@ -5447,7 +5445,7 @@ CASES += [("map-sim-mining", ["--script", "{script:simmining}"], "map"),
           ("map-sim-mining-panel", ["--script", "{script:simpanel}"], "map"),
           ("map-sim-waits", ["--script", "{script:simwaits}"], "map"),
           ("map-sim-mining-cycle", ["--settings", "{simboostsettings}", "--script", "{script:simcycle}"], "map"),
-          ("map-sim-rush-fog", ["--script", "{script:simrushfog}"], "map"),
+          ("map-sim-rush-fog", ["--settings", "{rushfogsettings}", "--script", "{script:simrushfog}"], "map"),
           ("map-sim-rush-points", ["--settings", "{rushunitsettings}", "--script", "{script:simrushpoints}"], "map"),
           ("map-sim-rush", ["--script", "{script:simrush}"], "map"),
           ("map-sim-rush-end", ["--script", "{script:simrushend}"], "map"),
@@ -5607,8 +5605,11 @@ def main():
         if any("{simboostsettings}" in x for x in args):
             write_once(simboostsettings, write_text(simboostsettings, json.dumps({"SimWorkerKind": 0, "SimWorkersPerField": 1, "SimRaces": 2, "SimSearchSeconds": 6, "SimBoostCycle": 1})))
         rushunitsettings = os.path.join(a.out, "rushunit-settings.json")  # {rushunitsettings}: the rush's units: a worker (Terran), a Vulture, a Zergling
+        rushfogsettings = os.path.join(a.out, "rushfog-settings.json")  # {rushfogsettings}: the rush's fog of war: what all players see
+        if any("{rushfogsettings}" in x for x in args):
+            write_once(rushfogsettings, write_text(rushfogsettings, json.dumps({"SimRushFog": -2})))
         if any("{rushunitsettings}" in x for x in args):
-            write_once(rushunitsettings, write_text(rushunitsettings, json.dumps({"SimRushUnits": 133, "SimRaces": 1})))
+            write_once(rushunitsettings, write_text(rushunitsettings, json.dumps({"SimRushUnitList": "-1,2,37", "SimRaces": 1, "SimRushFog": -2})))
         if any("{simfieldsettings}" in x for x in args):
             write_once(simfieldsettings, write_text(simfieldsettings, json.dumps({"SimWorkerKind": 0, "SimWorkersPerField": 1, "SimRaces": 3})))
         if any("{nosnapsettings}" in x for x in args):
@@ -5622,7 +5623,7 @@ def main():
                      if a.install and os.path.isdir(d)), os.path.dirname(a.map or ""))
         paths = dict(maps=maps, map=a.map or "", cmbwmap=a.cmbwmap or "", crigmap=crig_map(a.cmbwmap or ""), project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
                      kodir=kodir, wav=wav, musicwav=musicwav, dotpng=dotpng, komusicwav=komusicwav, kodotpng=kodotpng, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
-                     releaseold=releaseold, nosnapsettings=nosnapsettings, simfieldsettings=simfieldsettings, simboostsettings=simboostsettings, rushunitsettings=rushunitsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
+                     releaseold=releaseold, nosnapsettings=nosnapsettings, simfieldsettings=simfieldsettings, simboostsettings=simboostsettings, rushunitsettings=rushunitsettings, rushfogsettings=rushfogsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out
             path = os.path.join(a.out, f"{name}-{m.group(1)}.txt")

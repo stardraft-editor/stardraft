@@ -3312,8 +3312,6 @@ constexpr UiText kRows[] = {
     {L"1 worker for each mineral field at each base, %d game minutes at Fastest", L"\uAC01 \uAE30\uC9C0\uC758 \uAD11\uBB3C \uD544\uB4DC\uB9C8\uB2E4 \uC77C\uAFBC 1\uBA85, \uAC00\uC7A5 \uBE60\uB984\uC73C\uB85C \uAC8C\uC784 \uC2DC\uAC04 %d\uBD84"},
     {L"Workers", L"\uC77C\uAFBC"},
     {L"Workers on minerals and races", L"\uAD11\uBB3C \uC77C\uAFBC\uACFC \uC885\uC871"},
-    {L"Fog of war: off", L"\uC804\uC7A5\uC758 \uC548\uAC1C: \uB054"},
-    {L"Fog of war: what %ls sees", L"\uC804\uC7A5\uC758 \uC548\uAC1C: %ls\uC758 \uC2DC\uC57C"},
     {L"Cargo", L"\uC790\uC6D0 \uBC18\uB0A9"},
     {L"Cycle", L"\uC21C\uD658"},
     {L"Searching\u2026 %d s", L"\uAC80\uC0C9 \uC911\u2026 %d\uCD08"},
@@ -3344,7 +3342,6 @@ constexpr UiText kRows[] = {
     {L"Unit icons: in the accent color", L"\uC720\uB2DB \uC544\uC774\uCF58: \uAC15\uC870 \uC0C9"},
     {L"Unit icons: in the game's yellow", L"\uC720\uB2DB \uC544\uC774\uCF58: \uAC8C\uC784\uC758 \uB178\uB780\uC0C9"},
     {L"Duplicate &linked", L"\uC5F0\uACB0 \uBCF5\uC81C(&L)"},
-    {L"Fog of war: what all players see", L"\uC804\uC7A5\uC758 \uC548\uAC1C: \uBAA8\uB4E0 \uD50C\uB808\uC774\uC5B4\uC758 \uC2DC\uC57C"},
     {L"No unit reached its end", L"\uB3C4\uCC29\uD55C \uC720\uB2DB \uC5C6\uC74C"},
     {L"Rush distance: no unit reached its end", L"\uB7EC\uC2DC \uAC70\uB9AC: \uB3C4\uCC29\uD55C \uC720\uB2DB \uC5C6\uC74C"},
     {L"Each unit goes from the start point to the end point, at Fastest", L"\uAC01 \uC720\uB2DB\uC774 \uC2DC\uC791 \uC9C0\uC810\uC5D0\uC11C \uB05D \uC9C0\uC810\uAE4C\uC9C0 \uC774\uB3D9, \uAC00\uC7A5 \uBE60\uB984"},
@@ -3376,6 +3373,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uC635\uC158(&O)\u2026"},
     {L"&Close the simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158 \uB2EB\uAE30(&C)"},
     {L"&Simulation", L"\uC2DC\uBBAC\uB808\uC774\uC158(&S)"},
+    {L"Select units\u2026", L"\uC720\uB2DB \uC120\uD0DD\u2026"},
+    {L"Rush units", L"\uB7EC\uC2DC \uC720\uB2DB"},
+    {L"What all players see", L"\uBAA8\uB4E0 \uD50C\uB808\uC774\uC5B4\uC758 \uC2DC\uC57C"},
+    {L"Fog of war", L"\uC804\uC7A5\uC758 \uC548\uAC1C"},
+    {L"Report feedback on the simulation\u2026", L"\uC2DC\uBBAC\uB808\uC774\uC158\uC5D0 \uB300\uD55C \uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

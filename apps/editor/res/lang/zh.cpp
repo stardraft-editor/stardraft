@@ -3282,8 +3282,6 @@ constexpr UiText kRows[] = {
     {L"1 worker for each mineral field at each base, %d game minutes at Fastest", L"\u6BCF\u4E2A\u57FA\u5730\u6BCF\u5757\u77FF 1 \u4E2A\u519C\u6C11\uFF0C\u6700\u5FEB\u901F\u5EA6\u4E0B\u6E38\u620F\u65F6\u95F4 %d \u5206\u949F"},
     {L"Workers", L"\u519C\u6C11"},
     {L"Workers on minerals and races", L"\u91C7\u77FF\u519C\u6C11\u548C\u79CD\u65CF"},
-    {L"Fog of war: off", L"\u6218\u4E89\u8FF7\u96FE\uFF1A\u5173\u95ED"},
-    {L"Fog of war: what %ls sees", L"\u6218\u4E89\u8FF7\u96FE\uFF1A%ls \u770B\u5230\u7684\u8303\u56F4"},
     {L"Cargo", L"\u56DE\u77FF"},
     {L"Cycle", L"\u5FAA\u73AF"},
     {L"Searching\u2026 %d s", L"\u6B63\u5728\u641C\u7D22\u2026 %d \u79D2"},
@@ -3314,7 +3312,6 @@ constexpr UiText kRows[] = {
     {L"Unit icons: in the accent color", L"\u5355\u4F4D\u56FE\u6807\uFF1A\u5F3A\u8C03\u8272"},
     {L"Unit icons: in the game's yellow", L"\u5355\u4F4D\u56FE\u6807\uFF1A\u6E38\u620F\u7684\u9EC4\u8272"},
     {L"Duplicate &linked", L"\u94FE\u63A5\u590D\u5236(&L)"},
-    {L"Fog of war: what all players see", L"\u6218\u4E89\u8FF7\u96FE\uFF1A\u6240\u6709\u73A9\u5BB6\u770B\u5230\u7684\u8303\u56F4"},
     {L"No unit reached its end", L"\u6CA1\u6709\u5355\u4F4D\u5230\u8FBE\u7EC8\u70B9"},
     {L"Rush distance: no unit reached its end", L"Rush \u8DDD\u79BB\uFF1A\u6CA1\u6709\u5355\u4F4D\u5230\u8FBE\u7EC8\u70B9"},
     {L"Each unit goes from the start point to the end point, at Fastest", L"\u6BCF\u4E2A\u5355\u4F4D\u4ECE\u8D77\u70B9\u8D70\u5230\u7EC8\u70B9\uFF0C\u6700\u5FEB\u901F\u5EA6"},
@@ -3346,6 +3343,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"\u6A21\u62DF\u9009\u9879(&O)\u2026"},
     {L"&Close the simulation", L"\u5173\u95ED\u6A21\u62DF(&C)"},
     {L"&Simulation", L"\u6A21\u62DF(&S)"},
+    {L"Select units\u2026", L"\u9009\u62E9\u5355\u4F4D\u2026"},
+    {L"Rush units", L"Rush \u5355\u4F4D"},
+    {L"What all players see", L"\u6240\u6709\u73A9\u5BB6\u770B\u5230\u7684\u8303\u56F4"},
+    {L"Fog of war", L"\u6218\u4E89\u8FF7\u96FE"},
+    {L"Report feedback on the simulation\u2026", L"\u53D1\u9001\u5173\u4E8E\u6A21\u62DF\u7684\u53CD\u9988\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

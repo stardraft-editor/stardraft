@@ -3282,8 +3282,6 @@ constexpr UiText kRows[] = {
     {L"1 worker for each mineral field at each base, %d game minutes at Fastest", L"1 obrero por cada campo de minerales en cada base, %d minutos de juego a la m\u00E1xima velocidad"},
     {L"Workers", L"Obreros"},
     {L"Workers on minerals and races", L"Obreros en minerales y razas"},
-    {L"Fog of war: off", L"Niebla de guerra: desactivada"},
-    {L"Fog of war: what %ls sees", L"Niebla de guerra: lo que ve %ls"},
     {L"Cargo", L"Carga"},
     {L"Cycle", L"Ciclo"},
     {L"Searching\u2026 %d s", L"Buscando\u2026 %d s"},
@@ -3314,7 +3312,6 @@ constexpr UiText kRows[] = {
     {L"Unit icons: in the accent color", L"Iconos de unidades: con el color de acento"},
     {L"Unit icons: in the game's yellow", L"Iconos de unidades: con el amarillo del juego"},
     {L"Duplicate &linked", L"Duplicar &vinculada"},
-    {L"Fog of war: what all players see", L"Niebla de guerra: lo que ven todos los jugadores"},
     {L"No unit reached its end", L"Ninguna unidad lleg\u00F3 a su destino"},
     {L"Rush distance: no unit reached its end", L"Distancia de rush: ninguna unidad lleg\u00F3 a su destino"},
     {L"Each unit goes from the start point to the end point, at Fastest", L"Cada unidad va del punto de inicio al punto final, a la m\u00E1xima velocidad"},
@@ -3346,6 +3343,11 @@ constexpr UiText kRows[] = {
     {L"Simulation &options\u2026", L"&Opciones de simulaci\u00F3n\u2026"},
     {L"&Close the simulation", L"&Cerrar la simulaci\u00F3n"},
     {L"&Simulation", L"&Simulaci\u00F3n"},
+    {L"Select units\u2026", L"Elegir unidades\u2026"},
+    {L"Rush units", L"Unidades del rush"},
+    {L"What all players see", L"Lo que ven todos los jugadores"},
+    {L"Fog of war", L"Niebla de guerra"},
+    {L"Report feedback on the simulation\u2026", L"Enviar comentarios sobre la simulaci\u00F3n\u2026"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

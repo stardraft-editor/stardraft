@@ -32,13 +32,14 @@ left of it). The editor and the command line use one engine for them, `maplab::c
   (its player's race in the map, or the race of the bar's gear) walks from the start location's center to the other
   one, in a game of its own (the map's neutral units only). It stops at the other center (within 1 pixel), when it
   has not moved for 480 frames, or at 24000 frames. The result is each walk's game time and length. The gear's Units
-  sends other units on each route too, or in place of the worker (one or more of: the worker of the race, Marine,
-  Vulture, Firebat, Zealot, Dragoon, Corsair, Zergling, Hydralisk, Overlord; setting SimRushUnits), each in a game of
+  sends other units on each route too, or in place of the worker (one or more: the worker of the race and the
+  checked units; a click takes one out. Select units opens the searchable list of all units that can walk or fly, with
+  their icons; setting SimRushUnitList), each in a game of
   its own. The gear's Start and end, or Tools > Simulate rush distance between two points, takes two points of the map
   in place of the start locations: the bar asks for the start point, then the end point (a click on the map each; Esc
   stops; the game waits meanwhile); the map marks them (green, red) while the rush runs, and the report gives their
-  tiles. The bar's eye shows the fog of war (no fog, then all players together, then each start location's player in
-  turn): the engine's own vision of the units (their sight ranges, high ground), black where they have not been,
+  tiles. The gear's Fog of war shows the fog of war (off, what all players see, or what one start location's player
+  sees; setting SimRushFog): the engine's own vision of the units (their sight ranges, high ground), black where they have not been,
   darker where they saw before, clear where they see now; with one player, only that player's ways show.
 - **Boost searches** (mining: check boxes in the gear's panel and in Program options > Simulation; settings
   SimBoostPosition, SimBoostCargo, SimBoostCycle): the pull request's three searches, at each base at the same time
@@ -55,7 +56,8 @@ left of it). The editor and the command line use one engine for them, `maplab::c
 - **The bar**: a new game waits at its start until Play (the Play button has a ring: Space plays it, and pauses it);
   a new game of the bar's own settings keeps the play as it was. Tools > Simulation has each simulation and the bar's
   commands (Play or pause, Restart, Skip to the end, Slower, Faster, Simulation settings, Simulation options, Close
-  the simulation). The map shows them as the pull request's guides: a ring at a worker's start place, a
+  the simulation). Rush distance's and combat's gear opens a drop-down, which also has Report feedback and the
+  experimental notice (mining has them on the bar: its gear opens a panel). The map shows them as the pull request's guides: a ring at a worker's start place, a
   turn-back mark where a worker returns its cargo, and each cycle's two commands as numbered arrows.
 
 The two tests do not use the pull request's launch intervals or its windows: the bar has the same controls for each

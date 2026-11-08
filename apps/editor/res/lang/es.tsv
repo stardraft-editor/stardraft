@@ -3283,8 +3283,6 @@ No room: the base has no room for its depot and workers.	Sin espacio: la base no
 1 worker for each mineral field at each base, %d game minutes at Fastest	1 obrero por cada campo de minerales en cada base, %d minutos de juego a la máxima velocidad
 Workers	Obreros
 Workers on minerals and races	Obreros en minerales y razas
-Fog of war: off	Niebla de guerra: desactivada
-Fog of war: what %ls sees	Niebla de guerra: lo que ve %ls
 Cargo	Carga
 Cycle	Ciclo
 Searching… %d s	Buscando… %d s
@@ -3315,7 +3313,6 @@ Unit icons	Iconos de unidades
 Unit icons: in the accent color	Iconos de unidades: con el color de acento
 Unit icons: in the game's yellow	Iconos de unidades: con el amarillo del juego
 Duplicate &linked	Duplicar &vinculada
-Fog of war: what all players see	Niebla de guerra: lo que ven todos los jugadores
 No unit reached its end	Ninguna unidad llegó a su destino
 Rush distance: no unit reached its end	Distancia de rush: ninguna unidad llegó a su destino
 Each unit goes from the start point to the end point, at Fastest	Cada unidad va del punto de inicio al punto final, a la máxima velocidad
@@ -3347,3 +3344,8 @@ Simulation &settings	&Ajustes de la simulación
 Simulation &options…	&Opciones de simulación…
 &Close the simulation	&Cerrar la simulación
 &Simulation	&Simulación
+Select units…	Elegir unidades…
+Rush units	Unidades del rush
+What all players see	Lo que ven todos los jugadores
+Fog of war	Niebla de guerra
+Report feedback on the simulation…	Enviar comentarios sobre la simulación…
