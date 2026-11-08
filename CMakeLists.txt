@@ -168,6 +168,11 @@ target_link_libraries(hd_test PRIVATE stardraft)
 
 add_executable(editor_test tools/tests/editor_test.cpp)
 target_link_libraries(editor_test PRIVATE stardraft)
+
+add_executable(symmetry_copies_test tools/tests/symmetry_copies_test.cpp)
+target_link_libraries(symmetry_copies_test PRIVATE stardraft)
+add_executable(symmetry_editor_test tools/tests/symmetry_editor_test.cpp)
+target_link_libraries(symmetry_editor_test PRIVATE stardraft)
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
 
@@ -859,8 +864,3 @@ if(WIN32 AND STARDRAFT_RENDERER)
     endif()
     add_dependencies(stardraft_editor stardraft_latest)  # built with the editor
 endif()
-
-add_executable(symmetry_copies_test tools/tests/symmetry_copies_test.cpp)
-target_link_libraries(symmetry_copies_test PRIVATE stardraft)
-add_executable(symmetry_editor_test tools/tests/symmetry_editor_test.cpp)
-target_link_libraries(symmetry_editor_test PRIVATE stardraft)
