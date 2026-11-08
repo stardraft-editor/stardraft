@@ -339,4 +339,3 @@ restart test uses an empty output directory and locally supplied Twilight map:
 ```
 python -I tools/tests/symmetry_source_persistence.py --exe <editor> --install <game> --map <Twilight.scx> --out <empty-directory>
 ```
-

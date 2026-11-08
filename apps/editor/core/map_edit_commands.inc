@@ -322,10 +322,7 @@ void cutMapSelection(AppState& app) {
 }
 
 // The commands above. True when `id` is one of them (it ran); the menus follow and the map is drawn again then.
-void showSymmetryCopiesDialog();
 bool commandMapEdit(AppState& app, int id) {
-    if (id == ID_SYMMETRY_COPIES) { showSymmetryCopiesDialog(); return true; }
-    if (id == ID_SYMMETRY_OPTIONS) { toggleSymmetryOptions(); return true; }
     const bool open = app.ed && app.ed->isOpen();
     auto done = [&app] {
         shellMenusChanged();
@@ -391,6 +388,8 @@ bool commandMapEdit(AppState& app, int id) {
         setMessage(L"Grid: " + std::to_wstring(g.px) + L" pixels");
         return done();
     }
+    if (id == ID_SYMMETRY_COPIES) { void showSymmetryCopiesDialog(); showSymmetryCopiesDialog(); return true; }
+    if (id == ID_SYMMETRY_OPTIONS) { toggleSymmetryOptions(); return true; }
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
         if (!app.ed || !app.ed->isOpen() || !stripHasMirrors()) return done();
         static const int kFlags[5] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::Diagonal, Mirror::AntiDiagonal};

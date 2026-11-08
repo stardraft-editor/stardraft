@@ -6,11 +6,11 @@
 
 void tilesSync();  // (tiles_view.inc: the Win32 TU until it moves into the core)
 void setMode(Mode m);
-void syncTerrainCopies(bool force);
 // setMode's host parts (shell_win32.inc; the SDL host has no docked palettes yet): the side the mode's tools are docked
 // on, with the palette's view of the mode, and the windows that the mode shows (the Map workspace's).
 void shellModeSide(Mode m);
 void shellModeWindows(Mode m);
+void syncTerrainCopies(bool force);
 std::wstring paletteItemNameOf(Mode mode, int v);
 std::wstring paletteItemName(int v);  // (main.cpp: the palette entry's name; entryName is in the Win32 TU)
 
