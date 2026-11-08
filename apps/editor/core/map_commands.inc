@@ -253,6 +253,7 @@ std::string mapSaveRoundTrip(const fs::path& path) {
 void shellFloatPalette(Mode m, bool on);
 
 bool commandMapEdit(AppState&, int);
+
 void registerMapCommands() {
     // Mode
     addCommand(ID_SYMMETRY_COPIES, "mode.symmetry.copies", L"Configure symmetry copies", "Mode", L"", [] { commandMapEdit(appState(), ID_SYMMETRY_COPIES); });

@@ -6,10 +6,10 @@ The same pages are in the program (Help > Documentation, or F1) and on the web.
 ## Start here
 
 - [Getting started](getting-started.md): open a map, edit it, and save it.
+- [Symmetry copies](symmetry-copies.md): choose copies and terrain for symmetric editing.
 - [Values and units](values-and-units.md): frames, pixels, tiles and the other units of the game's data.
 - [Keyboard shortcuts](keyboard-shortcuts.md): the keys of the menus, the map, the trigger editors and the lists.
 
-- [Symmetry copies](symmetry-copies.md): choose copies and terrain for symmetric editing.
 
 ## Triggers
 
