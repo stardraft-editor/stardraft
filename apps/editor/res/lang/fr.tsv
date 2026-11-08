@@ -3362,3 +3362,5 @@ Search for trips that go to the next mineral field and back (mineral walking). T
 Boost searches: they run before the game starts	Recherches d'optimisation : elles se font avant le début de la partie
 Each boost search runs before the game starts, for up to the boost search time.	Chaque recherche d'optimisation se fait avant le début de la partie, au plus pendant la durée de recherche.
 Play again from the start	Rejouer depuis le début
+Language and sound	Langue et son
+Graphics and diagnostics	Graphismes et diagnostic

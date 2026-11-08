@@ -31,7 +31,7 @@ struct OptionsValues {
     int unitLimit[2] = {3400, 1700};  // standard maps, EUD projects
     bool openLast = false;
     bool tintIcons = false;   // Appearance: the units' icons in the accent color, not the game's yellow (TintIcons)
-    bool diagnostics = false; // Updates and crash reports: the frames a second and the memory in use in the status bar (ShowDiagnostics)
+    bool diagnostics = false; // Graphics and diagnostics: the frames a second and the memory in use in the status bar (ShowDiagnostics)
     bool askStartLocations = true;  // Saving maps: a save asks when the map has no start locations (AskStartLocations)
     bool manyStartLocations = false;  // Placing units: more than one start location for each player (ManyStartLocations)
     int detailedTiles = 5;    // Painting terrain: the chance (0 to 100%) of a detailed tile variant (stardraft/isom.h)
@@ -96,20 +96,23 @@ namespace optionsview {
 enum Section : unsigned {
     kStart = 1u << 0, kAppearance = 1u << 1, kMouse = 1u << 2, kUnitNames = 1u << 3, kUnitLimit = 1u << 4,
     kWorkingFolder = 1u << 5, kStarCraftFolder = 1u << 6, kUpdates = 1u << 7, kSimulation = 1u << 8, kPlugins = 1u << 9,
-    kKeyboard = 1u << 10, kReset = 1u << 11, kAllSections = (1u << 12) - 1,
+    kKeyboard = 1u << 10, kReset = 1u << 11, kLanguage = 1u << 12, kGraphics = 1u << 13, kAllSections = (1u << 14) - 1,
 };
 struct Tab {
     const wchar_t* name;  // the tab's name (macOS: the toolbar item's label and the window's title)
     unsigned sections;
 };
+// (by what they are about: the program's start, language and sound; how it looks and draws; the input; the maps; the
+// simulation; the plugins; the folders; the updates and crash reports)
 inline const Tab kTabs[] = {
-    {L"General", kStart | kAppearance | kReset},
+    {L"General", kStart | kLanguage | kReset},
+    {L"Appearance", kAppearance | kGraphics},
     {L"Mouse and keyboard", kMouse | kKeyboard},
     {L"Map", kUnitNames | kUnitLimit},
+    {L"Simulation", kSimulation},
     {L"Plugins", kPlugins},
     {L"Folders", kWorkingFolder | kStarCraftFolder},
     {L"Updates", kUpdates},
-    {L"Simulation", kSimulation},
 };
 constexpr int kTabCount = int(sizeof kTabs / sizeof kTabs[0]);
 
@@ -714,13 +717,10 @@ void OptionsView::paint(draw::Canvas& c) {
         y += pad;
     }
 
-    // Appearance.
-    if (shown & optionsview::kAppearance) {
-        header(L"Appearance");
-        label(L"Theme");
-        segmented(y, lightSeg_, v.systemTheme ? 3 : 2, "theme");
-        y += rowH;
-        // The language: a choice that applies at the next start (the names of the languages are in their own language).
+    // Language and sound: the language (a choice that applies at the next start; the names of the languages are in
+    // their own language) and the volume.
+    if (shown & optionsview::kLanguage) {
+        header(L"Language and sound");
         label(L"Language");
         {
             const draw::Rect box{fx, fieldTop(y), std::min<int>(colRight, fx + scale(260)), fieldTop(y) + fieldH};
@@ -736,15 +736,27 @@ void OptionsView::paint(draw::Canvas& c) {
             note(fx, y - scale(4), L"The new language shows after a restart");
             y += scale(20);
         }
-        // Graphics (Windows): the driver that draws the program (a computer that stopped with an old video card's
-        // Direct3D 12, 0.8.5); the one in use under it.
-        if (v.gpuRow) {
-            label(L"Graphics");
-            segmented(y, gpuSeg_, 4, "graphics");
+        // The volume: its name and value, a slider.
+        {
+            const int rowH = scale(stardraft::kit::kRowH);  // a dense row, as the Data form's volume row
+            const int right = std::min<int>(colRight, fx + scale(260));
+            c.text({x0, y, x0 + labelW - scale(48), y + rowH}, L"Volume", kDim, draw::kMiddle);
+            c.text({x0 + labelW - scale(56), y, x0 + labelW - scale(4), y + rowH}, std::to_wstring(v.volume) + L"%", kText, draw::kMiddle | draw::kRight);
+            const int x1 = std::max(fx + scale(8) + scale(60), right - scale(8));
+            const draw::Rect area{fx + scale(8) - scale(8), y, x1 + scale(8), y + rowH};
+            place(slider_, area, true);
+            parts_["volume"] = area;
             y += rowH;
-            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names; a new choice shows here after a restart)
-            y += scale(20);
         }
+        y += pad;
+    }
+
+    // Appearance: the theme, the accent color, the units' icons.
+    if (shown & optionsview::kAppearance) {
+        header(L"Appearance");
+        label(L"Theme");
+        segmented(y, lightSeg_, v.systemTheme ? 3 : 2, "theme");
+        y += rowH;
         // The accent: the swatches (a ring around the chosen one and the one under the mouse).
         label(L"Accent color");
         {
@@ -776,19 +788,27 @@ void OptionsView::paint(draw::Canvas& c) {
             parts_["tinticons"] = cr;
         }
         y += rowH;
-        // The volume: its name and value, a slider.
-        {
-            const int rowH = scale(stardraft::kit::kRowH);  // a dense row, as the Data form's volume row
-            const int right = std::min<int>(colRight, fx + scale(260));
-            c.text({x0, y, x0 + labelW - scale(48), y + rowH}, L"Volume", kDim, draw::kMiddle);
-            c.text({x0 + labelW - scale(56), y, x0 + labelW - scale(4), y + rowH}, std::to_wstring(v.volume) + L"%", kText, draw::kMiddle | draw::kRight);
-            const int x1 = std::max(fx + scale(8) + scale(60), right - scale(8));
-            const draw::Rect area{fx + scale(8) - scale(8), y, x1 + scale(8), y + rowH};
-            place(slider_, area, true);
-            parts_["volume"] = area;
-            y += rowH;
-        }
         y += pad;
+    }
+
+    // Graphics and diagnostics: the driver that draws the program (Windows: a computer that stopped with an old video
+    // card's Direct3D 12, 0.8.5; the one in use under it), and the status bar's frames a second and memory.
+    if (shown & optionsview::kGraphics) {
+        header(L"Graphics and diagnostics");
+        if (v.gpuRow) {
+            label(L"Graphics");
+            segmented(y, gpuSeg_, 4, "graphics");
+            y += rowH;
+            note(fx, y - scale(4), shellTr(L"In use") + L": " + v.gpuInUse);  // (the driver and card: their names; a new choice shows here after a restart)
+            y += scale(20);
+        }
+        label(L"Diagnostics");
+        {
+            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(diagnostics_.label()), y + rowH};
+            place(diagnostics_, cr, true);
+            parts_["diagnostics"] = cr;
+        }
+        y += rowH + pad;
     }
 
     // Reset: every program setting back to its default value, then StarDraft 2 starts again (a question first).
@@ -891,13 +911,6 @@ void OptionsView::paint(draw::Canvas& c) {
         // Crash reports (GitHub feedback #45): a crash always keeps its report on this computer; ask, send or not.
         label(L"Crash reports");
         segmented(y, crashSeg_, 3, "crashreports");
-        y += rowH;
-        label(L"Diagnostics");
-        {
-            const draw::Rect cr{fx, y, fx + scale(24) + c.measure(diagnostics_.label()), y + rowH};
-            place(diagnostics_, cr, true);
-            parts_["diagnostics"] = cr;
-        }
         y += rowH;
         y += pad;
     }

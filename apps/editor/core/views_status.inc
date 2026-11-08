@@ -6,7 +6,7 @@
 
 // Defined by the program (main_sdl.cpp and its sdl_*.inc files) until they move into the core.
 int activePage();
-// Program options > Updates > Show system diagnostics: the frames a second and the memory in use, at the right of
+// Program options > Appearance > Show system diagnostics: the frames a second and the memory in use, at the right of
 // the status bar in every workspace (the program keeps the text new, once a second).
 bool diagnosticsOn();
 void setDiagnostics(bool on);

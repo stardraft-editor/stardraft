@@ -3362,3 +3362,5 @@ Search for trips that go to the next mineral field and back (mineral walking). T
 Boost searches: they run before the game starts	Поиск ускорений: выполняется до начала игры
 Each boost search runs before the game starts, for up to the boost search time.	Каждый поиск ускорения выполняется до начала игры, не дольше времени поиска.
 Play again from the start	Воспроизвести снова с начала
+Language and sound	Язык и звук
+Graphics and diagnostics	Графика и диагностика

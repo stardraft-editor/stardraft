@@ -3361,6 +3361,8 @@ constexpr UiText kRows[] = {
     {L"Boost searches: they run before the game starts", L"\u52A0\u901F\u641C\u7D22\uFF1A\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C"},
     {L"Each boost search runs before the game starts, for up to the boost search time.", L"\u6BCF\u9879\u52A0\u901F\u641C\u7D22\u90FD\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\uFF0C\u6700\u957F\u4E3A\u52A0\u901F\u641C\u7D22\u65F6\u95F4\u3002"},
     {L"Play again from the start", L"\u4ECE\u5934\u518D\u6B21\u64AD\u653E"},
+    {L"Language and sound", L"\u8BED\u8A00\u548C\u58F0\u97F3"},
+    {L"Graphics and diagnostics", L"\u56FE\u5F62\u548C\u8BCA\u65AD"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

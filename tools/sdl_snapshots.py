@@ -161,12 +161,13 @@ CASES += [
     # Dock's lines. Program options' tabs as macOS's Settings window shows them.
     ("check-dock", ["--check", "dock", "--check", "bundle"], ""),
     ("dialog-options-tab-general", ["--dialog", "options:0", "--size", "720x480"], ""),
-    ("dialog-options-tab-keyboard", ["--dialog", "options:1", "--size", "720x480"], ""),
-    ("dialog-options-tab-map", ["--dialog", "options:2", "--size", "720x480"], ""),
-    ("dialog-options-tab-plugins", ["--dialog", "options:3", "--size", "720x480"], ""),
-    ("dialog-options-tab-folders", ["--dialog", "options:4", "--size", "720x480", "--theme", "light"], ""),
-    ("dialog-options-tab-updates", ["--dialog", "options:5", "--size", "720x480"], ""),
-    ("dialog-options-tab-simulation", ["--dialog", "options:6", "--size", "720x480"], ""),
+    ("dialog-options-tab-appearance", ["--dialog", "options:1", "--size", "720x480"], ""),
+    ("dialog-options-tab-keyboard", ["--dialog", "options:2", "--size", "720x480"], ""),
+    ("dialog-options-tab-map", ["--dialog", "options:3", "--size", "720x480"], ""),
+    ("dialog-options-tab-simulation", ["--dialog", "options:4", "--size", "720x480"], ""),
+    ("dialog-options-tab-plugins", ["--dialog", "options:5", "--size", "720x480"], ""),
+    ("dialog-options-tab-folders", ["--dialog", "options:6", "--size", "720x480", "--theme", "light"], ""),
+    ("dialog-options-tab-updates", ["--dialog", "options:7", "--size", "720x480"], ""),
     # What the program sets up for the system (--check, sdl_dist.inc). bundle: on macOS the app's document types,
     # exported types, Quick Look extensions and signatures (elsewhere "not macOS"). preview: the map's Quick Look
     # picture (every system), its terrain the same as the minimap's. spotlight: on macOS the map's Spotlight entry,
@@ -1274,7 +1275,7 @@ def check_message_tab(output):
 def check_options_ctrltab(output):
     """None when Ctrl+Tab and Ctrl+Shift+Tab put the keyboard on the tab strip at the next tab and back."""
     got = {inp: (kind, text) for inp, kind, text, _, _ in focus_lines(output)}
-    for key, tab in (("key Ctrl+Tab", "Mouse and keyboard"), ("key Ctrl+Shift+Tab", "General")):
+    for key, tab in (("key Ctrl+Tab", "Appearance"), ("key Ctrl+Shift+Tab", "General")):
         if got.get(key) != ("tab strip", tab):
             return f"{key}: focus {got.get(key)}, not the tab strip at {tab!r}"
     return None
@@ -3475,8 +3476,8 @@ def check_dock(output):
              "applicationDockMenu: yes; 4 items: \"(2)Bottleneck.scm\" \"(4)Lost Temple.scx\" | "
              "\"AshenCrown\"", "dock: build running: tile shows the bar, timer on",
              "dock: build ended with 3 errors: badge \"3\", tile is the icon, timer off",
-             "settings: toolbar style preference; 7 items: \"General\" \"Mouse and keyboard\" \"Map\" \"Plugins\" \"Folders\" "
-             "\"Updates\" \"Simulation\"; selected"]
+             "settings: toolbar style preference; 8 items: \"General\" \"Appearance\" \"Mouse and keyboard\" \"Map\" \"Simulation\" "
+             "\"Plugins\" \"Folders\" \"Updates\"; selected"]
     for w in wants:
         if w not in output:
             return f"no {w!r}"
@@ -4767,7 +4768,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "check-bundle": check_bundle,
           "map-check-preview": check_preview, "map-check-spotlight": check_spotlight,
-          "dialog-options-tab-general": check_options_tab, "dialog-options-tab-map": check_options_tab,
+          "dialog-options-tab-general": check_options_tab, "dialog-options-tab-appearance": check_options_tab, "dialog-options-tab-map": check_options_tab,
           "dialog-options-tab-keyboard": check_options_tab, "dialog-options-tab-folders": check_options_tab,
           "dialog-options-tab-updates": check_options_tab, "dialog-options-tab-plugins": check_options_tab,
           "update-settings": check_update_settings, "update-checks": check_update_checks, "update-release": check_release,
@@ -4785,7 +4786,7 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "cmbw-isom-canvas-wall": check_isom_canvas,
           "cmbw-isom-canvas-field": check_isom_canvas,
           "cmbw-isom-canvas-remove": check_isom_canvas_remove,
-          "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Dark", "Accent color", "Close"]),
+          "map-options-cycle": check_dialog_cycle(["General", "Open the last project on start", "Reset all program settings…", "Close"]),
           "map-feedback-cycle": check_dialog_cycle(["StarDraft Discord server", "Cancel"], skip=39),
           "data-tree-typeahead": check_tree_typeahead, "data-file-dialogs": check_file_dialogs,
           "map-script-session": check_session, "map-script-dialogs": check_dialogs, "project-script-reopen": check_reopen,

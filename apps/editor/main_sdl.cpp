@@ -522,7 +522,7 @@ void sdlGpuUnskip(const std::string&) {}
 // Data pictures that move; the window tests count frames); else the units' idle animations paint the map view at the
 // game's speed; -1: nothing moves (the program draws nothing until the next event).
 int sdlFrameClockOwn();
-// Program options > Updates > Show system diagnostics (the setting ShowDiagnostics; not saved in a test): the status
+// Program options > Appearance > Show system diagnostics (the setting ShowDiagnostics; not saved in a test): the status
 // bar's frames a second (the frames that went to the window in the last second: the program paints only when something
 // changes, so few while nothing moves) and the memory in use (the working set). Made again once a second.
 bool& diagnosticsFlag() {

@@ -3361,6 +3361,8 @@ constexpr UiText kRows[] = {
     {L"Boost searches: they run before the game starts", L"B\u00FAsquedas de mejora: se hacen antes de que empiece la partida"},
     {L"Each boost search runs before the game starts, for up to the boost search time.", L"Cada b\u00FAsqueda de mejora se hace antes de que empiece la partida, durante como m\u00E1ximo el tiempo de b\u00FAsqueda."},
     {L"Play again from the start", L"Volver a jugar desde el principio"},
+    {L"Language and sound", L"Idioma y sonido"},
+    {L"Graphics and diagnostics", L"Gr\u00E1ficos y diagn\u00F3stico"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

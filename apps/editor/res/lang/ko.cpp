@@ -3391,6 +3391,8 @@ constexpr UiText kRows[] = {
     {L"Boost searches: they run before the game starts", L"\uBD80\uC2A4\uD2B8 \uAC80\uC0C9: \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uC2E4\uD589\uB429\uB2C8\uB2E4"},
     {L"Each boost search runs before the game starts, for up to the boost search time.", L"\uAC01 \uBD80\uC2A4\uD2B8 \uAC80\uC0C9\uC740 \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uCD5C\uB300 \uBD80\uC2A4\uD2B8 \uAC80\uC0C9 \uC2DC\uAC04 \uB3D9\uC548 \uC2E4\uD589\uB429\uB2C8\uB2E4."},
     {L"Play again from the start", L"\uCC98\uC74C\uBD80\uD130 \uB2E4\uC2DC \uC7AC\uC0DD"},
+    {L"Language and sound", L"\uC5B8\uC5B4\uC640 \uC18C\uB9AC"},
+    {L"Graphics and diagnostics", L"\uADF8\uB798\uD53D\uACFC \uC9C4\uB2E8"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

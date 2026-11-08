@@ -3392,3 +3392,5 @@ Search for trips that go to the next mineral field and back (mineral walking). T
 Boost searches: they run before the game starts	부스트 검색: 게임이 시작되기 전에 실행됩니다
 Each boost search runs before the game starts, for up to the boost search time.	각 부스트 검색은 게임이 시작되기 전에 최대 부스트 검색 시간 동안 실행됩니다.
 Play again from the start	처음부터 다시 재생
+Language and sound	언어와 소리
+Graphics and diagnostics	그래픽과 진단
