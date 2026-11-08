@@ -81,6 +81,7 @@ enum : int {
     ID_LAYER_CREEP = 989,  // View > Layers > Creep (the start creep of the map's Zerg buildings: core/creep_layer.inc)
     ID_LAYER_PROTECTED = 1048,  // View > Layers > Protected terrain (the tiles no terrain edit changes: core/protected_layer.inc)
     ID_LAYER_REVEALERS = 988,  // View > Layers > Map revealers (the map's Map Revealer units: drawn and picked, or not)
+    ID_MEASURE_AREA = 1400, ID_MEASURE_AREA_ALL, ID_MEASURE_AREA_WALK, ID_MEASURE_AREA_BUILD, ID_MEASURE_AREA_CLEAR,
     ID_REVEAL_PLACE = 1050, ID_REVEAL_REMOVE,  // Tools > Place map revealers, Remove all map revealers (Discord feedback #125)
     ID_SIM_MINING = 1070, ID_SIM_COMBAT,  // Tools > Simulate mining, Simulate combat (experimental: STARDRAFT_SIMULATION)
     ID_CMBW_REPAIRISOM = 1099,  // Tools > Cosmonarchy > Try to repair the ISOM (a Cosmonarchy map's tab only: core/cmbw.inc)

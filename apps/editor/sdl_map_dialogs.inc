@@ -118,6 +118,7 @@ void showLocationEdit(int loc) {
 // one when it is under the mouse, else the smallest there); in Units, with nothing to place, the unit's. True when it
 // opens one (after the click's event: the dialog's loop does not run inside the map's mouse event).
 bool mapDoubleClickSdl(int x, int y) {
+    if (areaMeasureKey(draw::Key::Enter)) return true;
     if (!gState.ed || !gState.ed->isOpen()) return false;
     if (shapeDoubleClick()) return true;  // (Terrain's Polygon: it closes and is filled)
     float wx, wy;
@@ -143,6 +144,7 @@ bool mapDoubleClickSdl(int x, int y) {
 
 // Enter on the map (the Windows map's VK_RETURN): the selected location's or unit's properties. True when it opens one.
 bool mapEnterSdl() {
+    if (areaMeasureKey(draw::Key::Enter)) return true;
     if (!gState.ed || !gState.ed->isOpen() || gState.drag != Drag::None) return false;
     Editor& ed = *gState.ed;
     if (gState.mode == Mode::Locations && ed.locationUsed(ed.selectedLocation())) {
@@ -212,6 +214,7 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
 // The right button let go on the map (the Windows map's WM_RBUTTONUP): placing, pasting or painting stops (back to the
 // mode's selection); else the map's menu opens at the mouse for what is under it.
 void mapRightClickSdl(draw::View& map, draw::Point at) {
+    if (areaMeasureRight()) return;
     if (!gState.ed || !gState.ed->isOpen() || gState.drag != Drag::None) return;
     if (trigUnitPickActive()) return trigCancelUnitPick();  // (cancelStep: a unit pick for a trigger stops first)
     if (!inSelection()) {  // (the Windows program's cancelStep: no stroke is going on here)
@@ -355,6 +358,8 @@ void showQuickPickerSdl(bool replace, bool open) {
 // A dialog's view as the snapshot shows it: the dialog (its content and its buttons) at its own size, without a window.
 // unitprops: the first unit of the map; locprops: the first location in use (else Anywhere); prompt: Rename location
 // with the location's name; quick: the quick picker of the mode (--mode); resize: Crop or extend at the map's size.
+draw::View* areaMeasureShot(draw::Point&);
+
 struct MapDialogShot {
     std::unique_ptr<UnitPropsView> unit;
     std::unique_ptr<LocationPropsView> loc;
@@ -443,6 +448,10 @@ bool mapDialogShot(const std::string& name, MapDialogShot& s) {
         s.revealers = std::make_unique<RevealersView>();
         s.size = revealersDialogSetup(s.dlg, *s.revealers), s.view = &s.dlg;
         return true;
+    }
+    if (name == "area-measure") {
+        s.view = areaMeasureShot(s.size);
+        return s.view != nullptr;
     }
     if (name == "resize") {
         ResizeValues v;

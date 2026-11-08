@@ -253,6 +253,15 @@ std::string mapSaveRoundTrip(const fs::path& path) {
 void shellFloatPalette(Mode m, bool on);
 
 void registerMapCommands() {
+    const struct { int id; const char* name; const wchar_t* text; } areaCommands[] = {
+        {ID_MEASURE_AREA, "area.draw", L"Measure area"},
+        {ID_MEASURE_AREA_ALL, "area.all", L"Show all area"},
+        {ID_MEASURE_AREA_WALK, "area.walkable", L"Show walkable area"},
+        {ID_MEASURE_AREA_BUILD, "area.buildable", L"Show buildable area"},
+        {ID_MEASURE_AREA_CLEAR, "area.clear", L"Clear measured area"}};
+    for (const auto& c : areaCommands)
+        addCommand(c.id, c.name, c.text, "Tools/Measure area", L"", [id=c.id] { areaMeasureCommand(id); });
+
     // Mode
     addCommand(ID_MODE_TERRAIN, "mode.terrain", L"&Terrain", "Mode", L"T", [] { setMode(Mode::Terrain); });
     addCommand(ID_MODE_UNITS, "mode.units", L"&Units", "Mode", L"U", [] { setMode(Mode::Units); });

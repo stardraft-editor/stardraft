@@ -36,3 +36,5 @@ Each page has "Send feedback about this page". Tell us when a page is not correc
 ## Credits
 
 - [Credits](credits.md): the people and the communities whose work these pages draw on, and the sources.
+
+- [Measure terrain area](area-measurement.md)

@@ -828,6 +828,7 @@ render::Scene buildScene() {
         }
     }
 
+    areaMeasureScene(s);
     if (!app.mouseIn) {  // (on a menu or a panel: the selected sprites and doodads keep their boxes, as the units do)
         if (app.mode == Mode::Sprites) {
             for (int i : app.selSprites)

@@ -122,6 +122,7 @@ add_library(stardraft
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
     src/passages.cpp
+    src/area_measurement.cpp
     src/pathing.cpp
     src/pathing_regions.cpp
     src/pathing_check.cpp
@@ -158,6 +159,9 @@ target_link_libraries(isom_test PRIVATE stardraft)
 add_executable(isomterrain_test tools/tests/isomterrain_test.cpp)
 target_include_directories(isomterrain_test PRIVATE third_party/IsomTerrain/IsomTerrain)
 target_link_libraries(isomterrain_test PRIVATE stardraft)
+
+add_executable(area_measurement_test tools/tests/area_measurement_test.cpp)
+target_link_libraries(area_measurement_test PRIVATE stardraft)
 
 add_executable(unit_test tools/tests/unit_test.cpp)
 target_link_libraries(unit_test PRIVATE stardraft)
