@@ -3356,3 +3356,9 @@ Show system diagnostics	Показывать диагностику систем
 The frames a second and the memory that StarDraft uses, at the right of the status bar	Кадры в секунду и память, которую использует StarDraft, справа в строке состояния
 Status bar: frames a second and memory	Строка состояния: кадры в секунду и память
 Status bar: no diagnostics	Строка состояния: без диагностики
+Search for better start places of the workers at each base. The search runs before the game starts.	Найти лучшие стартовые места рабочих на каждой базе. Поиск выполняется до начала игры.
+Search for the places where a worker returns its cargo sooner. The search runs before the game starts.	Найти места, где рабочий раньше возвращает груз. Поиск выполняется до начала игры.
+Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.	Найти пути к соседнему минеральному полю и обратно (mineral walking). Поиск выполняется до начала игры.
+Boost searches: they run before the game starts	Поиск ускорений: выполняется до начала игры
+Each boost search runs before the game starts, for up to the boost search time.	Каждый поиск ускорения выполняется до начала игры, не дольше времени поиска.
+Play again from the start	Воспроизвести снова с начала

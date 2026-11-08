@@ -931,6 +931,8 @@ void OptionsView::paint(draw::Canvas& c) {
             checkRow(y, simBoost_[k], "sim.boost" + std::to_string(k));
             y += rowH;
         }
+        note(x0, y - scale(4), L"Each boost search runs before the game starts, for up to the boost search time.");
+        y += scale(20);
         note(x0, y - scale(4), L"The first 30 game seconds are not measured: the workers get to their fields.");
         y += scale(20) + pad;
     }

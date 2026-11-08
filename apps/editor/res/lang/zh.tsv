@@ -3356,3 +3356,9 @@ Show system diagnostics	显示系统诊断
 The frames a second and the memory that StarDraft uses, at the right of the status bar	每秒帧数和 StarDraft 使用的内存，显示在状态栏右侧
 Status bar: frames a second and memory	状态栏：每秒帧数和内存
 Status bar: no diagnostics	状态栏：不显示诊断
+Search for better start places of the workers at each base. The search runs before the game starts.	为每个基地的农民搜索更好的起始位置。搜索在游戏开始前进行。
+Search for the places where a worker returns its cargo sooner. The search runs before the game starts.	搜索农民更早回矿的位置。搜索在游戏开始前进行。
+Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.	搜索先去相邻矿再返回的路线（mineral walking）。搜索在游戏开始前进行。
+Boost searches: they run before the game starts	加速搜索：在游戏开始前进行
+Each boost search runs before the game starts, for up to the boost search time.	每项加速搜索都在游戏开始前进行，最长为加速搜索时间。
+Play again from the start	从头再次播放

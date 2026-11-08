@@ -3355,6 +3355,12 @@ constexpr UiText kRows[] = {
     {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"\u6BCF\u79D2\u5E27\u6570\u548C StarDraft \u4F7F\u7528\u7684\u5185\u5B58\uFF0C\u663E\u793A\u5728\u72B6\u6001\u680F\u53F3\u4FA7"},
     {L"Status bar: frames a second and memory", L"\u72B6\u6001\u680F\uFF1A\u6BCF\u79D2\u5E27\u6570\u548C\u5185\u5B58"},
     {L"Status bar: no diagnostics", L"\u72B6\u6001\u680F\uFF1A\u4E0D\u663E\u793A\u8BCA\u65AD"},
+    {L"Search for better start places of the workers at each base. The search runs before the game starts.", L"\u4E3A\u6BCF\u4E2A\u57FA\u5730\u7684\u519C\u6C11\u641C\u7D22\u66F4\u597D\u7684\u8D77\u59CB\u4F4D\u7F6E\u3002\u641C\u7D22\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\u3002"},
+    {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"\u641C\u7D22\u519C\u6C11\u66F4\u65E9\u56DE\u77FF\u7684\u4F4D\u7F6E\u3002\u641C\u7D22\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\u3002"},
+    {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"\u641C\u7D22\u5148\u53BB\u76F8\u90BB\u77FF\u518D\u8FD4\u56DE\u7684\u8DEF\u7EBF\uFF08mineral walking\uFF09\u3002\u641C\u7D22\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\u3002"},
+    {L"Boost searches: they run before the game starts", L"\u52A0\u901F\u641C\u7D22\uFF1A\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C"},
+    {L"Each boost search runs before the game starts, for up to the boost search time.", L"\u6BCF\u9879\u52A0\u901F\u641C\u7D22\u90FD\u5728\u6E38\u620F\u5F00\u59CB\u524D\u8FDB\u884C\uFF0C\u6700\u957F\u4E3A\u52A0\u901F\u641C\u7D22\u65F6\u95F4\u3002"},
+    {L"Play again from the start", L"\u4ECE\u5934\u518D\u6B21\u64AD\u653E"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

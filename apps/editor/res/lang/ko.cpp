@@ -3385,6 +3385,12 @@ constexpr UiText kRows[] = {
     {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"\uCD08\uB2F9 \uD504\uB808\uC784 \uC218\uC640 StarDraft\uAC00 \uC0AC\uC6A9\uD558\uB294 \uBA54\uBAA8\uB9AC, \uC0C1\uD0DC \uD45C\uC2DC\uC904 \uC624\uB978\uCABD\uC5D0"},
     {L"Status bar: frames a second and memory", L"\uC0C1\uD0DC \uD45C\uC2DC\uC904: \uCD08\uB2F9 \uD504\uB808\uC784 \uC218\uC640 \uBA54\uBAA8\uB9AC"},
     {L"Status bar: no diagnostics", L"\uC0C1\uD0DC \uD45C\uC2DC\uC904: \uC9C4\uB2E8 \uC5C6\uC74C"},
+    {L"Search for better start places of the workers at each base. The search runs before the game starts.", L"\uAC01 \uAE30\uC9C0\uC5D0\uC11C \uC77C\uAFBC\uC758 \uB354 \uC88B\uC740 \uC2DC\uC791 \uC704\uCE58 \uAC80\uC0C9. \uAC80\uC0C9\uC740 \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uC2E4\uD589\uB429\uB2C8\uB2E4."},
+    {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"\uC77C\uAFBC\uC774 \uC790\uC6D0\uC744 \uB354 \uBE68\uB9AC \uBC18\uB0A9\uD558\uB294 \uC704\uCE58 \uAC80\uC0C9. \uAC80\uC0C9\uC740 \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uC2E4\uD589\uB429\uB2C8\uB2E4."},
+    {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"\uC606 \uAD11\uBB3C \uD544\uB4DC\uB85C \uAC14\uB2E4\uAC00 \uB3CC\uC544\uC624\uB294 \uC774\uB3D9 \uAC80\uC0C9 (\uBBF8\uB124\uB784 \uC6CC\uD0B9). \uAC80\uC0C9\uC740 \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uC2E4\uD589\uB429\uB2C8\uB2E4."},
+    {L"Boost searches: they run before the game starts", L"\uBD80\uC2A4\uD2B8 \uAC80\uC0C9: \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uC2E4\uD589\uB429\uB2C8\uB2E4"},
+    {L"Each boost search runs before the game starts, for up to the boost search time.", L"\uAC01 \uBD80\uC2A4\uD2B8 \uAC80\uC0C9\uC740 \uAC8C\uC784\uC774 \uC2DC\uC791\uB418\uAE30 \uC804\uC5D0 \uCD5C\uB300 \uBD80\uC2A4\uD2B8 \uAC80\uC0C9 \uC2DC\uAC04 \uB3D9\uC548 \uC2E4\uD589\uB429\uB2C8\uB2E4."},
+    {L"Play again from the start", L"\uCC98\uC74C\uBD80\uD130 \uB2E4\uC2DC \uC7AC\uC0DD"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

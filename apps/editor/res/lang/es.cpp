@@ -3355,6 +3355,12 @@ constexpr UiText kRows[] = {
     {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"Los fotogramas por segundo y la memoria que usa StarDraft, a la derecha de la barra de estado"},
     {L"Status bar: frames a second and memory", L"Barra de estado: fotogramas por segundo y memoria"},
     {L"Status bar: no diagnostics", L"Barra de estado: sin diagn\u00F3stico"},
+    {L"Search for better start places of the workers at each base. The search runs before the game starts.", L"Buscar mejores lugares de inicio para los obreros en cada base. La b\u00FAsqueda se hace antes de que empiece la partida."},
+    {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"Buscar los lugares donde un obrero devuelve su carga antes. La b\u00FAsqueda se hace antes de que empiece la partida."},
+    {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"Buscar viajes que van al siguiente campo de minerales y vuelven (mineral walking). La b\u00FAsqueda se hace antes de que empiece la partida."},
+    {L"Boost searches: they run before the game starts", L"B\u00FAsquedas de mejora: se hacen antes de que empiece la partida"},
+    {L"Each boost search runs before the game starts, for up to the boost search time.", L"Cada b\u00FAsqueda de mejora se hace antes de que empiece la partida, durante como m\u00E1ximo el tiempo de b\u00FAsqueda."},
+    {L"Play again from the start", L"Volver a jugar desde el principio"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

@@ -1502,7 +1502,9 @@ void simPaintPanel(draw::Canvas& c, const SimBarLayout& l, draw::Rect r) {
     kitpaint::drawPickFace(c, p.value[1], s.races == 0 ? std::wstring(tr(L"As defined in map")) : std::wstring(kSimRaceNames[s.races]), false, gSimPanel.hot == 3);
     step(2, 4, optionsview::simMinutesText(s.minutes), s.minutes <= 1, s.minutes >= optionsview::kSimMinutesMax);
     step(3, 6, optionsview::simSecondsText(s.search), s.search <= optionsview::kSimSearchMin, s.search >= optionsview::kSimSearchMax);
-    c.text({p.box.left + pad, p.headY, p.box.right - pad, p.headY + scale(24)}, L"Boost searches", kDim, draw::kMiddle | draw::kEllipsis);
+    // (each search that is on runs before the game starts, for up to the boost search time)
+    c.text({p.box.left + pad, p.headY, p.box.right - pad, p.headY + scale(24)}, L"Boost searches: they run before the game starts", kDim,
+           draw::kMiddle | draw::kEllipsis);
     for (int k = 0; k < 3; ++k) {
         const draw::Rect b = p.check[k];
         const int cs = scale(16), cy = (b.top + b.bottom - cs) / 2;
@@ -1617,9 +1619,9 @@ bool simPanelMouse(const draw::MouseEvent& e, const SimBarLayout& l, draw::Rect 
 std::wstring simPanelTip(const SimBarLayout& l, draw::Rect r, draw::Point pt) {
     if (!gSimPanel.open || gSim.combat || gSim.rush) return {};
     switch (simPanelPart(simPanelLayout(l, r), pt)) {
-    case 8: return L"Search for better start places of the workers at each base";
-    case 9: return L"Search for the places where a worker returns its cargo sooner";
-    case 10: return L"Search for trips that go to the next mineral field and back (mineral walking)";
+    case 8: return L"Search for better start places of the workers at each base. The search runs before the game starts.";
+    case 9: return L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.";
+    case 10: return L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.";
     case 13: return L"A number of workers for each mineral field of a base";
     case 14: return L"A number of workers for each base";
     case 11: return L"Program options > Simulation";
@@ -1686,7 +1688,7 @@ void simPaintBar(draw::Canvas& c, draw::Rect r) {
         const bool lit = face(id, b, primary);
         c.text(b, label, primary ? draw::rgb(255, 255, 255) : lit ? kText : kDim, draw::kCenter | draw::kMiddle);
     };
-    iconButton(2, l.third, UiIcon::ToStart);
+    iconButton(2, l.third, gSim.done ? UiIcon::Play : UiIcon::ToStart);  // (at the end: Play runs it again from the start)
     if (!l.feedback.empty()) iconButton(8, l.feedback, UiIcon::Feedback);
     iconButton(7, l.gear, UiIcon::Settings);
     if (gSim.done) {
@@ -1962,7 +1964,11 @@ bool simBarMouse(const draw::MouseEvent& e, draw::Rect r) {
         gSim.pressed = -1;
         simRedraw();
         if (was != over || was == 3) return true;  // (let go elsewhere, or on the info icon: nothing)
-        if (was == 2) simSeek(0);
+        if (was == 2) {
+            const bool again = gSim.done;
+            simSeek(0);
+            if (again) gSim.playing = true, gSim.due = 0, gSim.last = std::chrono::steady_clock::now();  // (Play again: it plays)
+        }
         else if (was == 10) simPlayPause();
         else if (was == 0) gSimPanel.open = false, simClose();
         else if (was == 1) shellPost([] { simShowReport(); });
@@ -2000,7 +2006,7 @@ std::wstring simBarTip(draw::Point pt, draw::Rect r) {
     if (std::wstring t = simPanelTip(l, r, pt); !t.empty()) return t;
     if (in(l.chip)) return kSimInfoTip;
     if (const int n = in(l.bar) ? 0 : simRushMarkerAt(pt.x, pt.y)) return n == 1 ? L"The start point (drag it)" : L"The end point (drag it)";
-    if (in(l.third)) return L"Restart";
+    if (in(l.third)) return gSim.done ? L"Play again from the start" : L"Restart";
     if (in(l.play)) return gSim.playing ? L"Pause (Space)" : L"Play (Space)";
     if (in(l.minus)) return L"Slower";
     if (in(l.plus)) return L"Faster";

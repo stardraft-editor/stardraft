@@ -3355,6 +3355,12 @@ constexpr UiText kRows[] = {
     {L"The frames a second and the memory that StarDraft uses, at the right of the status bar", L"Les images par seconde et la m\u00E9moire qu'utilise StarDraft, \u00E0 droite de la barre d'\u00E9tat"},
     {L"Status bar: frames a second and memory", L"Barre d'\u00E9tat : images par seconde et m\u00E9moire"},
     {L"Status bar: no diagnostics", L"Barre d'\u00E9tat : pas de diagnostic"},
+    {L"Search for better start places of the workers at each base. The search runs before the game starts.", L"Rechercher de meilleures positions de d\u00E9part pour les ouvriers de chaque base. La recherche se fait avant le d\u00E9but de la partie."},
+    {L"Search for the places where a worker returns its cargo sooner. The search runs before the game starts.", L"Rechercher les endroits o\u00F9 un ouvrier rapporte sa cargaison plus t\u00F4t. La recherche se fait avant le d\u00E9but de la partie."},
+    {L"Search for trips that go to the next mineral field and back (mineral walking). The search runs before the game starts.", L"Rechercher les trajets qui passent par le champ de minerai voisin et reviennent (mineral walking). La recherche se fait avant le d\u00E9but de la partie."},
+    {L"Boost searches: they run before the game starts", L"Recherches d'optimisation : elles se font avant le d\u00E9but de la partie"},
+    {L"Each boost search runs before the game starts, for up to the boost search time.", L"Chaque recherche d'optimisation se fait avant le d\u00E9but de la partie, au plus pendant la dur\u00E9e de recherche."},
+    {L"Play again from the start", L"Rejouer depuis le d\u00E9but"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }
