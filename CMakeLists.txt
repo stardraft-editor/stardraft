@@ -59,6 +59,58 @@ else()
     target_compile_options(vpx PRIVATE -w)
 endif()
 
+# Lua 5.1.5 (MIT): runs EUD Editor 3's Lua macros in File > Import a project (src/import_ee3_macros.cpp). EUD Editor 3
+# runs them with KopiLua, a port of Lua 5.1, and its macro files use 5.1's `arg` table in vararg functions. Built as
+# C++ (Lua's errors are then C++ exceptions, and the C++ functions that the Lua calls unwind cleanly), from the core
+# and the base, string, table and math libraries only: no io, os, package or debug library, no lua.c or luac.c.
+# lstrlib.c is a copy with changes for the sandbox: the pattern matcher (each match call, each pattern item, and the
+# loops of a bracket class, %b and the longest repetition) and the plain find call back into StarDraft
+# (stardraft_lua_match_step, stardraft_lua_find_step), which stop a pattern that takes too long or that goes too deep
+# into the C stack.
+FetchContent_Declare(lua
+    URL https://www.lua.org/ftp/lua-5.1.5.tar.gz
+    URL_HASH SHA256=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(lua)  # no CMakeLists of its own: only fetched
+file(READ ${lua_SOURCE_DIR}/src/lstrlib.c LUA_STRLIB)
+set(LUA_PATCH_OLD1 "static const char *match (MatchState *ms, const char *s, const char *p) {\n  init:")
+set(LUA_PATCH_NEW1 "int stardraft_lua_match_step (void);\nint stardraft_lua_find_step (size_t n);\nstatic const char *match_sd (MatchState *ms, const char *s, const char *p);\nstatic const char *match (MatchState *ms, const char *s, const char *p) {\n  if (!stardraft_lua_match_step()) luaL_error(ms->L, \"pattern too complex or too slow\");\n  return match_sd(ms, s, p);\n}\nstatic const char *match_sd (MatchState *ms, const char *s, const char *p) {\n  init:")
+set(LUA_PATCH_OLD2 "      init++;   /* 1st char is already checked */")
+set(LUA_PATCH_NEW2 "      if (!stardraft_lua_find_step(l2 + 1)) return NULL;\n      init++;   /* 1st char is already checked */")
+set(LUA_PATCH_OLD3 "static int matchbracketclass (int c, const char *p, const char *ec) {")
+set(LUA_PATCH_NEW3 "int stardraft_lua_find_step (size_t n);\nstatic int matchbracketclass (int c, const char *p, const char *ec) {")
+set(LUA_PATCH_OLD4 "  while (++p < ec) {\n    if (*p == L_ESC) {")
+set(LUA_PATCH_NEW4 "  while (++p < ec) {\n    if (!stardraft_lua_find_step(0)) return !sig;\n    if (*p == L_ESC) {")
+set(LUA_PATCH_OLD5 "    while (++s < ms->src_end) {\n      if (*s == e) {")
+set(LUA_PATCH_NEW5 "    while (++s < ms->src_end) {\n      if (!stardraft_lua_find_step(0)) return NULL;\n      if (*s == e) {")
+set(LUA_PATCH_OLD6 "  while ((s+i)<ms->src_end && singlematch(uchar(*(s+i)), p, ep))")
+set(LUA_PATCH_NEW6 "  while ((s+i)<ms->src_end && stardraft_lua_find_step(0) && singlematch(uchar(*(s+i)), p, ep))")
+set(LUA_PATCH_OLD7 "  init: /* using goto's to optimize tail recursion */")
+set(LUA_PATCH_NEW7 "  init: /* using goto's to optimize tail recursion */\n  if (!stardraft_lua_find_step(0)) return NULL;")
+foreach(n 1 2 3 4 5 6 7)
+    string(FIND "${LUA_STRLIB}" "${LUA_PATCH_OLD${n}}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "Lua: lstrlib.c does not have the text that the sandbox changes (change ${n})")
+    endif()
+    string(REPLACE "${LUA_PATCH_OLD${n}}" "${LUA_PATCH_NEW${n}}" LUA_STRLIB "${LUA_STRLIB}")
+endforeach()
+file(WRITE ${CMAKE_BINARY_DIR}/generated/lua/lstrlib.c.new "${LUA_STRLIB}")
+configure_file(${CMAKE_BINARY_DIR}/generated/lua/lstrlib.c.new ${CMAKE_BINARY_DIR}/generated/lua/lstrlib.c COPYONLY)
+set(LUA_SOURCES ${CMAKE_BINARY_DIR}/generated/lua/lstrlib.c)
+foreach(f lapi lcode ldebug ldo ldump lfunc lgc llex lmem lobject lopcodes lparser lstate lstring ltable ltm lundump lvm
+          lzio lauxlib lbaselib lmathlib ltablib)
+    list(APPEND LUA_SOURCES ${lua_SOURCE_DIR}/src/${f}.c)
+endforeach()
+set_source_files_properties(${LUA_SOURCES} PROPERTIES LANGUAGE CXX)
+add_library(lua51 STATIC ${LUA_SOURCES})
+set_target_properties(lua51 PROPERTIES LINKER_LANGUAGE CXX)
+target_include_directories(lua51 PUBLIC ${lua_SOURCE_DIR}/src)
+if(MSVC)
+    target_compile_options(lua51 PRIVATE /W0)
+else()
+    target_compile_options(lua51 PRIVATE -w)
+endif()
+
 # libogg and libvorbis (BSD-3-Clause): the Ogg Vorbis encoder for music tracks that are WAV or MP3 files (src/media.cpp).
 # Built from their C sources only (SOURCE_SUBDIR: their own CMakeLists are not used); ogg's config_types.h, which its
 # configure step makes, is third_party/ogg/ogg/config_types.h.
@@ -178,7 +230,7 @@ target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR
 # (src/isom_core.cpp); its includes find StarDraft's stand-ins for Chkdraft's headers beside it.
 target_include_directories(stardraft PRIVATE third_party/IsomTerrain/IsomTerrain)
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
-target_link_libraries(stardraft PRIVATE storm casc_static vpx ogg_vorbis PUBLIC Threads::Threads)
+target_link_libraries(stardraft PRIVATE storm casc_static vpx ogg_vorbis lua51 PUBLIC Threads::Threads)
 if(WIN32)  # wide-char paths, as StormLib and CascLib are built on Windows (TCHAR = wchar_t)
     target_compile_definitions(stardraft PRIVATE UNICODE _UNICODE)
 endif()

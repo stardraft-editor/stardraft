@@ -198,7 +198,7 @@ static void e3sTest(const GameData& data, const char* map, const fs::path& dir) 
     CHECK(scanImport(dir / "Old.e3s", data, scan, err), ("e3s: the scan reads the file " + err).c_str());
     CHECK(scan.kind == "e3s" && scan.version == "0.19.6.0" && scan.mapFound, "e3s: the kind, the version and the map");
     const ImportPart* gen = scan.part("generated");
-    CHECK(gen && gen->needsBuild && has(gen->details, "lib/keys.eps (macros)"), "e3s: the macro script needs the build, and none is found");
+    CHECK(!gen || !has(gen->details, "lib/keys.eps (macros)"), "e3s: the macro script is expanded here: it needs no build");
     CHECK(scan.part("dat") && scan.part("dat")->count == 1 && scan.part("strings") && scan.part("buttons") && scan.part("requirements") && scan.part("looks"),
           "e3s: the data parts");
     CHECK(scan.part("labels") && scan.part("labels")->count == 1, "e3s: the user's own note (not the empty ones)");
@@ -235,10 +235,15 @@ static void e3sTest(const GameData& data, const char* map, const fs::path& dir) 
     CHECK(!fs::exists(pr.folder() / "scripts" / "main.eps"), "e3s: no new main.eps beside the old project's own main");
     const auto names = pr.scripts();
     CHECK(std::find(names.begin(), names.end(), "TriggerEditor/main.eps") != names.end() && names.size() == 1, "e3s: only the main script is in the .eds");
-    CHECK(pr.plugin("unlimiter") && pr.sectionLines("MSQC") == std::vector<std::string>{"E : Map Revealer, 1"} && !pr.plugin("eudTurbo"),
-          "e3s: the user's plugins; no EUD Turbo that the project did not have");
+    CHECK(pr.plugin("unlimiter") && has(pr.sectionLines("MSQC"), "E : Map Revealer, 1") && has(pr.sectionLines("MSQC"), "VKeyDown_A") &&
+              !pr.plugin("eudTurbo"),
+          "e3s: the user's plugins and MSQC line, the macro's MSQC line; no EUD Turbo that the project did not have");
     CHECK(pr.outputMap() == fs::path("C:\\out\\built.scx"), "e3s: the output map is kept when the user selects it");
-    CHECK(has(rep.notImported, "lib/keys.eps: its macros need EUD Editor 3's build"), "e3s: the report says the macro script needs the build");
+    CHECK(!has(rep.notImported, "need EUD Editor 3's build") && has(rep.imported, "Lua macros, expanded"), "e3s: the report says the macros are expanded");
+    CHECK(readFile(pr.folder() / "TriggerEditor" / "lib" / "keys.eps").find("msqcvar.VKeyDown_A") != std::string::npos &&
+              readFile(pr.folder() / "TriggerEditor" / "lib" / "keys.eps").find("@KeyDown") == std::string::npos &&
+              fs::exists(pr.folder() / "TriggerEditor" / "PluginVariables.py"),
+          "e3s: the macro script as EUD Editor 3 builds it, with PluginVariables.py");
     CHECK(fs::exists(pr.folder() / "notes" / "EUD Editor 3 notes.txt") && readFile(pr.folder() / "notes" / "EUD Editor 3 notes.txt").find("my note") != std::string::npos,
           "e3s: the user's note in the notes file");
 
@@ -252,7 +257,8 @@ static void e3sTest(const GameData& data, const char* map, const fs::path& dir) 
     ImportScan scan2;
     CHECK(scanImport(dir / "Old.e3s", data, scan2, err) && scan2.buildFolder == build && scan2.buildMatches, "e3s: the build folder is found beside the file");
     ImportChoices c2 = defaultChoices(scan2);
-    CHECK(c2.scriptsFromBuild && scan2.part("generated") && !scan2.part("generated")->needsBuild, "e3s: with the build, the scripts come from it");
+    CHECK(!c2.scriptsFromBuild, "e3s: with a build folder, the scripts are still made here by default");
+    c2.scriptsFromBuild = true;  // (the user's choice: the scripts as the build made them)
     EudProject pb;
     ImportReport rb;
     const bool ok2 = importProject(scan2, c2, dir, "FromE3sBuild", data, pb, rb, err);

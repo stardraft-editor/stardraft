@@ -513,8 +513,9 @@ private:
         buildText_.setText(scan_.kind == "e2s"
                                ? tr(L"EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in "
                                     L"the folder of EUD Editor 2.")
-                               : tr(L"EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build "
-                                    L"folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3."));
+                               : tr(L"EUD Editor 3's build folder has the sound parts of its BGM player, and the code of a script that StarDraft "
+                                    L"cannot make. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the "
+                                    L"folder of EUD Editor 3."));
         // 3
         for (auto& r : rows_)
             if (const stardraft::ImportPart* p = scan_.part(r->id)) {

@@ -1,0 +1,295 @@
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.UnitsDat
+비교할 파라미터입니다.
+@param.Index.TrgUnit
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.UnitsDat
+Parameter to compare.
+@param.Index.TrgUnit
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function UnitsDat(DatType, Index, Value, Comparison) --DatFile/UnitsDat,TrgUnit,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Unit = ParseUnit(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("units", DatType, Unit, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.WeaponsDat
+비교할 파라미터입니다.
+@param.Index.Weapon
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.WeaponsDat
+Parameter to compare.
+@param.Index.Weapon
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function WeaponsDat(DatType, Index, Value, Comparison) --DatFile/WeaponsDat,Weapon,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Weapon = ParseWeapon(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("weapons", DatType, Weapon, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.FlingyDat
+비교할 파라미터입니다.
+@param.Index.Flingy
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.FlingyDat
+Parameter to compare.
+@param.Index.Flingy
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function FlingyDat(DatType, Index, Value, Comparison) --DatFile/FlingyDat,Flingy,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Flingy = ParseFlingy(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("flingy", DatType, Flingy, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.SpritesDat
+비교할 파라미터입니다.
+@param.Index.Sprite
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.SpritesDat
+Parameter to compare.
+@param.Index.Sprite
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function SpritesDat(DatType, Index, Value, Comparison) --DatFile/SpritesDat,Sprite,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Sprite = ParseSprites(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("sprites", DatType, Sprite, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.ImagesDat
+비교할 파라미터입니다.
+@param.Index.Image
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.ImagesDat
+Parameter to compare.
+@param.Index.Image
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function ImagesDat(DatType, Index, Value, Comparison) --DatFile/ImagesDat,Image,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Image = ParseImages(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("images", DatType, Image, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.UpgradesDat
+비교할 파라미터입니다.
+@param.Index.Upgrade
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.UpgradesDat
+Parameter to compare.
+@param.Index.Upgrade
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function UpgradesDat(DatType, Index, Value, Comparison) --DatFile/UpgradesDat,Upgrade,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Upgrade = ParseUpgrades(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("upgrades", DatType, Upgrade, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.TechdataDat
+비교할 파라미터입니다.
+@param.Index.Tech
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.TechdataDat
+Parameter to compare.
+@param.Index.Tech
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function TechdataDat(DatType, Index, Value, Comparison) --DatFile/TechdataDat,Tech,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Tech = ParseTechData(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("techdata", DatType, Tech, Value, Comparison)
+	echo(str)
+end
+
+--[================================[
+@Language.ko-KR
+@Summary
+[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+@Group
+DatFile
+@param.DatType.OrdersDat
+비교할 파라미터입니다.
+@param.Index.Order
+비교경할 오브젝트입니다.
+@param.Value.Number
+값입니다.
+@param.Comparison.TrgComparison
+비교 방식입니다.
+
+
+@Language.en-US
+@Summary
+Checks if [Index]'s [DatType] value is [Comparison] [Value].
+@Group
+DatFile
+@param.DatType.OrdersDat
+Parameter to compare.
+@param.Index.Order
+Object to compare.
+@param.Value.Number
+Value.
+@param.Comparison.TrgComparison
+Comparison method.
+]================================]
+function OrdersDat(DatType, Index, Value, Comparison) --DatFile/OrdersDat,Order,Number,TrgComparison/[Index]의 [DatType]의 값이 [Comparison] [Value]인지 판단합니다.
+	Order = ParseOrder(Index)
+	Comparison = ParseComparison(Comparison)
+    str = ConditionDatFile("orders", DatType, Order, Value, Comparison)
+	echo(str)
+end

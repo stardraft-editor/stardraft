@@ -2947,7 +2947,7 @@ Select the build folder…	빌드 폴더 선택…
 the tileset edits: a feature of the original StarCraft, not of StarCraft: Remastered	타일셋 편집: StarCraft: Remastered가 아닌 원래 StarCraft의 기능
 the dialog (.bin) edits: a feature of the original StarCraft, not of StarCraft: Remastered	대화 상자(.bin) 편집: StarCraft: Remastered가 아닌 원래 StarCraft의 기능
 EUD Editor 2 writes the code of some plugins only when it builds. Its build folder is Data\\eudplibdata in the folder of EUD Editor 2.	EUD Editor 2는 빌드할 때만 일부 플러그인의 코드를 씁니다. 빌드 폴더는 EUD Editor 2 폴더 안의 Data\\eudplibdata입니다.
-EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images only when it builds. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3는 빌드할 때만 Lua 매크로, BGM 플레이어, 도트 이미지의 코드를 씁니다. 빌드 폴더는 맵이나 프로젝트 파일 옆, 또는 EUD Editor 3 폴더 안의 Data\\temp에 있는 BuildData_<name>입니다.
+EUD Editor 3's build folder has the sound parts of its BGM player, and the code of a script that StarDraft cannot make. Its build folder is BuildData_<name>, beside the map, the project file, or in Data\\temp in the folder of EUD Editor 3.	EUD Editor 3의 빌드 폴더에는 BGM 플레이어의 사운드 조각과 StarDraft가 만들 수 없는 스크립트의 코드가 있습니다. 빌드 폴더는 BuildData_<name>이며, 맵이나 프로젝트 파일 옆, 또는 EUD Editor 3 폴더의 Data\\temp에 있습니다.
 The build folder is not used: the scripts with macros come in as text that euddraft cannot build	빌드 폴더를 사용하지 않습니다: 매크로가 있는 스크립트는 euddraft가 빌드할 수 없는 텍스트로 들어옵니다
 thing to do	할 일
 things to do	할 일
