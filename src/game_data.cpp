@@ -119,8 +119,6 @@ bool GameData::readFile(const std::string& name, Bytes& out, std::string& error)
     return readCasc(impl_->storage, name, out, error);
 }
 
-void GameData::releaseWorkerHandle() { impl_->closeWorker(); }
-
 bool GameData::readFileOffThread(const std::string& name, Bytes& out, std::string& error) const {
     {
         std::lock_guard<std::mutex> lock(impl_->workerReading);

@@ -918,7 +918,6 @@ void Renderer::reloadImages() { impl_->freeImages(); }
 void Renderer::releaseMapData() {
     Impl& r = *impl_;
     if (!r.device) return;
-    r.stopImageWorker();  // (its read ends first: the game data's handle for workers can go after this)
     if (r.hdReading.valid()) r.hdReading.wait();
     r.hdReading = {};
     r.freeImages();

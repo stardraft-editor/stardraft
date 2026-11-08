@@ -59,8 +59,6 @@ public:
     // The same for a worker thread: CASC through a handle of its own (opened at the first read, about 60 ms), so the
     // program's reads do not wait for the worker's. Another source (a mod's files): readFile.
     bool readFileOffThread(const std::string& name, Bytes& out, std::string& error) const;
-    // The worker's handle goes (its memory; no map is open): the next readFileOffThread opens it again.
-    void releaseWorkerHandle();
     // Whether the storage has the file (and its size), without reading it.
     bool hasFile(const std::string& name, uint64_t* size = nullptr) const;
 
