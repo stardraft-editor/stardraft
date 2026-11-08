@@ -76,7 +76,7 @@ a title. Numbers in fields are right-aligned in the monospace font (the Data for
 | Icon button | `ui::iconButton` (Bare or Boxed), `ui::iconFace` | Boxed: players and tool bars (the image player, the sound player, briefing playback, damage steps). Bare: beside fields (open an entry, another string), in table rows (play). |
 | Row actions | `ui::rowActions`, `ui::rowActionRect` + `ui::iconFace` | On the row under the mouse (or the selected one), at its right edge: Classic triggers (a trigger: turn off, duplicate, delete; a condition or action: turn off, move out, move in, duplicate, delete; a block: edit the block), trigger blocks (turn off, duplicate, delete), briefing actions (the same), buttons of a set (earlier, later, remove), scripts (open in your editor, show in folder, earlier, later, remove; a linked file: Remove link), files in memory, requirements and map sounds (remove), game sounds (add), Classic triggers (triggers: duplicate, delete; conditions and actions: turn off, duplicate, delete). Each has a tooltip. |
 | List row | `ui::listRow`, `ui::ownerRow`, `ui::rowText`, `ui::changedDot` | Every list: Data entries, the map palette, the quick picker, the list picker, the block picker, value suggestions, the image player's animations, briefing owners, buttons of a set, sound tables, scripts, the Map data lists, the Classic triggers lists. Selected: `kSel` and a 2 px accent bar; under the mouse: `kRowHot`. |
-| Table | `ui::Column`, `ui::tableHeader`, `ui::tableRow`, `ui::tableCell`, `ui::tableText`, `ui::tableFrame` | The Files workspace's sound tables. A header (names dim), rows with hairlines, a frame; columns are fixed widths or share what is left. |
+| Table | `ui::Column`, `ui::tableHeader`, `ui::tableRow`, `ui::tableCell`, `ui::tableText`, `ui::tableFrame` | The Files workspace's tables (map sounds, music tracks, dot images, game sounds). A header (names dim), rows with hairlines, a frame; columns are fixed widths or share what is left. |
 | List that can be reordered | `ui::reorderRow`, `ui::reorderDropLine`; `ui::grip`, `ui::dropLine` | Drag a row by its grip (shown on the row under the mouse); the taken row is tinted and a line shows where it goes. Buttons of a set, scripts on the Project page, Classic triggers (triggers, conditions, actions). Trigger blocks and briefing actions (they move groups and nest) keep their own drag, with the kit's grip and line. Earlier and Later row actions move a row too. |
 | Multi-pick list | `showListPickerMulti` (the list picker in multi mode): the searchable list with check marks; OK and Cancel under it | Classic triggers: the values of a block (its dialog: Add values), the forces of a trigger (Forces). A click or Space checks a row and the list stays open; Enter or OK keeps the checks; Esc, Cancel and a click outside keep the old ones; Tab does nothing (the keys in the search box). |
 | Check box | `ui::check`, `ui::checkMark`, `ui::radioMark` | Painted: .dat flags, Build options on the Project page. Native (painted by the kit): Players' force flags, Map data (use default, players), Classic triggers (players, Turn off, Always show), Unit properties' states, Location properties' elevations. Radio marks: the New page's Type and Start. |
@@ -139,6 +139,22 @@ another edit). On a page, Tab moves between the fields; the shortcuts that are n
 
 The `mappages:` test run captures each page of the tab's mode (`mappage_<page>.png`, and `_changed` with a change not
 applied; `_light` in the light theme) and checks Apply, Revert and leaving the page with changes (mappages.txt).
+
+## The Assets workspace's music tracks and dot images
+
+In an EUD project, the Assets workspace (`core/views_files.inc`) has two more tables between Map sounds and Game sounds,
+each under its section heading. Their lists are the project's (`media.json`, `core/media_model.inc`), and the blocks
+Play music track and Draw dot image select from them.
+
+- *Music*: the same columns as the sound tables (Play, name, kind, length, size); the remove cross on the row under the
+  mouse. Under the table: Add music… (Normal) and, with a track selected, Rename (Quiet). File > Project > Add music…
+  runs the same command.
+- *Dot images*: a taller row with a preview of the picture in EUD Editor 3's 21 dot colors (white is the background:
+  the row shows through), the name, the size (16 x 12) and the remove cross. Under the table: Add dot images… and
+  Rename. File > Project > Add dot images… runs the same command.
+- An empty table shows None. F2 renames the selected item, Del removes it, Space plays the selected track, a double
+  click plays a track or renames a dot image. Each edit is one undo step of the lists: in the Assets workspace, Undo
+  takes the newest step, the lists' or the map's.
 
 ## The Project page's scripts
 

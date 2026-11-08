@@ -384,6 +384,8 @@ std::wstring trigValueText(const std::string& type, const std::string& v) {
     case TriggerPicker::UnitRef: return v.empty() ? L"(a unit)" : !v.empty() && v[0] == '@' ? trigPickedUnitName(v) : widen(v);
     case TriggerPicker::Variable: return v.empty() ? L"(a variable)" : widen(v);
     case TriggerPicker::Sound: return v.empty() ? L"(a sound)" : widen(fs::path(v).filename().string());
+    case TriggerPicker::MusicTrack: return v.empty() ? L"(a music track)" : L"\"" + widen(v) + L"\"";
+    case TriggerPicker::DotImage: return v.empty() ? L"(a dot image)" : L"\"" + widen(v) + L"\"";
     case TriggerPicker::Trigger: return v.empty() ? L"(a trigger)" : widen(v);
     case TriggerPicker::Code: {  // several lines: on one row, with a mark between them
         if (v.empty()) return L"(code)";

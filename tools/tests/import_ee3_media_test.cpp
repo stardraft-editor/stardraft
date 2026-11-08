@@ -360,8 +360,8 @@ void testBgm(const fs::path& dir) {
         std::vector<std::string> problems;
         check(ee3BgmPlayer(g, g.root(), folder, files, problems), "BGM: made");
         checkProblems(problems,
-                      {"the sound 0 (\"Theme\"): its sample rate stays 8000 Hz. EUD Editor 3 converts it to 22050 Hz with ffmpeg; the import has no Ogg "
-                       "Vorbis encoder"},
+                      {"the sound 0 (\"Theme\"): its sample rate stays 8000 Hz. EUD Editor 3 converts it to 22050 Hz with ffmpeg; the import keeps the "
+                       "file's rate"},
                       "BGM: the problems");
         // 2.28 seconds at 8000 Hz: 18240 samples. The parts start at the packets with 18432 and 36992 samples before
         // them (packets 19 and 38): 3 parts, the last number 2 ("@@@B": 0x42404040).
@@ -417,9 +417,7 @@ void testBgm(const fs::path& dir) {
                            u8((dir / "music/none.ogg").lexically_normal()) + ")",
                        "the sound 1 (\"Net\"): its file \\\\server\\share\\a.ogg is on a network path, which the import does not open",
                        "the sound 2 (\"Net2\"): its file //server/share/a.ogg is on a network path, which the import does not open",
-                       "the sound 3 (\"Wave\"): its file " + wav +
-                           " is a WAV file. EUD Editor 3 converts it to Ogg Vorbis with ffmpeg; the import has no Ogg Vorbis encoder. Convert the file "
-                           "to .ogg and import again, or use EUD Editor 3's build folder",
+                       "the sound 3 (\"Wave\"): its file " + wav + ": it is a WAV file that cannot be read",
                        "the sound 4 (\"Text\"): its file " + u8((dir / "music" / "notes.txt").lexically_normal()) + " is not an OGG, MP3 or WAV file"},
                       "BGM (bad): the problems");
         check(files.size() == 4, "BGM (bad): BGMFlexible.eps and the 3 parts of the last sound");
@@ -428,6 +426,45 @@ void testBgm(const fs::path& dir) {
                       bgmEps("0x40404040, 0x40404040, 0x40404040, 0x40404040, 0x40404040, 0x42404040",
                              {add("@@@E@@@@", "sound/.._x__y/st0.ogg"), add("@@@E@@@A", "sound/.._x__y/st1.ogg"), add("@@@E@@@B", "sound/.._x__y/st2.ogg")}),
                       "BGM (bad): BGMFlexible.eps");
+    }
+    {  // A WAV sound: encoded to Ogg Vorbis (media.h), then cut (1 second: one part).
+        std::string pcm;
+        for (int i = 0; i < 8000; ++i) pcm += char(i * 7), pcm += char((i * 13) % 64);
+        auto u32 = [](uint32_t v) { return std::string{char(v), char(v >> 8), char(v >> 16), char(v >> 24)}; };
+        writeFile(dir / "music" / "good.wav", "RIFF" + u32(uint32_t(36 + pcm.size())) + "WAVEfmt " + u32(16) + std::string("\1\0\1\0", 4) + u32(8000) +
+                                                   u32(16000) + std::string("\2\0\x10\0", 4) + "data" + u32(uint32_t(pcm.size())) + pcm);
+        nrbf::Graph g;
+        if (!graphOf(triggerEditor({}, {bgmFile("Good", u8(dir / "music" / "good.wav"), "")}), g)) return;
+        std::vector<ImportFile> files;
+        std::vector<std::string> problems;
+        check(ee3BgmPlayer(g, g.root(), folder, files, problems) && files.size() == 2 && files[1].path == "sound/Good/st0.ogg" &&
+                  files[1].bytes.compare(0, 4, "OggS") == 0,
+              "BGM (WAV): encoded to Ogg Vorbis, one part");
+        checkProblems(problems, {}, "BGM (WAV): no problems");
+    }
+    {  // The lists of the Assets workspace (ee3Media): the sounds' files as they are, the pictures cut to their size.
+        const std::string pic = png(3, 2, {0xf70400, 0xffffff, 0x000000, 0x808080, 0x3c0000, 0xfa8280});
+        nrbf::Graph g;
+        if (!graphOf(triggerEditor({dotData("heart", 2, 1, pic), dotData("big", 40, 25, pic)},
+                                   {bgmFile("Theme", u8(dir / "music" / "theme.ogg"), ""), bgmFile("Good.wav", u8(dir / "music" / "good.wav"), ""),
+                                    bgmFile("Missing", u8(dir / "none.ogg"), "")}),
+                     g))
+            return;
+        ProjectMedia media;
+        std::vector<ImportFile> files;
+        std::vector<std::string> problems;
+        check(!ee3Media(g, g.root(), folder, media, files, problems), "media: not all came over");
+        check(media.tracks.size() == 2 && media.tracks[0].name == "Theme" && media.tracks[0].file == "music/Theme.ogg" && media.tracks[0].ms > 0 &&
+                  media.tracks[1].name == "Good.wav" && media.tracks[1].file == "music/Good.wav" && media.tracks[1].ms == 1000,
+              "media: the music tracks (their names, files and lengths)");
+        check(media.images.size() == 1 && media.images[0].name == "heart" && media.images[0].file == "dots/heart.png" && media.images[0].width == 2 &&
+                  media.images[0].height == 1,
+              "media: the dot image");
+        check(files.size() == 3 && files[0].bytes.empty() && pathOf(files[0].from) == (dir / "music" / "theme.ogg").lexically_normal() && files[2].path == "dots/heart.png" && files[2].width == 2 && files[2].height == 1 &&
+                  files[2].bytes == std::string("\xf7\x04\x00\xff\xff\xff\xff\xff", 8),
+              "media: the files (a sound by its path, copied at import time; a picture cut to its size)");
+        check(problems.size() == 2 && problems[0].find("Missing") != std::string::npos && problems[1].find("big") != std::string::npos,
+              "media: a problem line for the missing sound and the picture that is too large");
     }
     {  // A damaged sound file.
         std::string bad = ogg;

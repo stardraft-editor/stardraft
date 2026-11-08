@@ -250,6 +250,14 @@ struct Model {
     std::vector<std::string> macroMsqc, macroChat;
     std::string pluginVariables;
     std::vector<ImportFile> mediaFiles;
+    // EUD Editor 3's BGM list and dot images as the project's music tracks and dot images (the Assets workspace), and the
+    // files to copy for them (import_ee3_extras.h: ee3Media).
+    ProjectMedia media;
+    std::vector<ImportFile> mediaCopies;
+    // The scripts call EUD Editor 3's BGM player or dot painter by name, and all the sounds and pictures came over: Build
+    // makes their modules from the lists (media.ee3Folder). When the user leaves the lists out, mediaFiles (the code made
+    // from the project file) goes in their place.
+    bool mediaForScripts = false;
     std::vector<Script> e2Partial;           // EUD Editor 2's TriggerEditor.eps and modules, made in part (for when there is no build)
     std::vector<std::string> e2PartialProblems;
 };
@@ -619,21 +627,46 @@ bool readE3s(const fs::path& file, const GameData& data, Model& m, std::string& 
     std::stable_partition(m.scripts.begin(), m.scripts.end(), [](const Script& s) { return s.main; });
     for (const Script& s : m.scripts)
         if (!s.generated.empty()) m.generated.push_back(s.path + " (" + s.generated + ")");
-    // BGM and dot images: their code and files, made here (import_ee3_extras.h); the build folder's when they cannot be.
-    if (const nrbf::Object* bgm = g.get(te, "BGMData"))
+    // BGM and dot images: the project's music tracks and dot images (the Assets workspace), which Build makes the code of.
+    // The scripts that call EUD Editor 3's BGMPlayer or dotTool by name keep its module names: Build then also writes
+    // BGMFlexible.eps and dotData.eps into TriggerEditor (media.h: ee3Folder), from the lists, so they still build. When a
+    // sound or a picture cannot come over, those scripts get the code made here from the project file (or the build's) as
+    // before, so that their numbers stay the same.
+    const bool ee3Calls = std::any_of(m.scripts.begin(), m.scripts.end(), [](const Script& s) {
+        return s.text.find("BGMPlayer") != std::string::npos || s.text.find("dotTool") != std::string::npos;
+    });
+    bool allMedia = true;
+    {
+        std::vector<std::string> probs;
+        allMedia = ee3Media(g, te, u8(file.parent_path()), m.media, m.mediaCopies, probs);
+        for (const std::string& pl : probs) m.codeProblems.push_back("the music tracks and dot images: " + pl);
+        if (allMedia && ee3Calls && !m.media.empty()) m.media.ee3Folder = "TriggerEditor", m.mediaForScripts = true;
+        if (ee3Calls && !allMedia && !m.media.empty()) {
+            // Not all came over: the scripts keep the code made from the project file, with all the sounds in their
+            // places and its own MPQ names. Lists with fewer items would give other numbers and add the same names.
+            m.media = {}, m.mediaCopies.clear();
+            m.codeProblems.push_back("the music tracks and dot images: not all came over, so they stay in EUD Editor 3's code "
+                                     "(BGMFlexible.eps, dotData.eps) that its scripts call, and the Assets workspace's lists are empty");
+        }
+    }
+    // The code made from the project file, for the scripts that call EUD Editor 3's BGM player or dot painter (when the
+    // lists do not take its place).
+    if (const nrbf::Object* bgm = g.get(te, "BGMData"); bgm && ee3Calls)
         if (const size_t n = g.items(g.get(bgm, "BGMList")).size()) {
             std::vector<ImportFile> files;
             std::vector<std::string> probs;
             if (ee3BgmPlayer(g, te, u8(file.parent_path()), files, probs)) m.mediaFiles.insert(m.mediaFiles.end(), files.begin(), files.end());
-            else m.generated.push_back("the BGM player (" + std::to_string(n) + (n == 1 ? " sound)" : " sounds)"));
-            for (const std::string& pl : probs) m.codeProblems.push_back("the BGM player: " + pl);
+            else if (!allMedia) m.generated.push_back("the BGM player (" + std::to_string(n) + (n == 1 ? " sound)" : " sounds)"));
+            if (!allMedia)
+                for (const std::string& pl : probs) m.codeProblems.push_back("the BGM player: " + pl);
         }
-    if (const size_t n = g.items(g.get(te, "DotDatas")).size()) {
+    if (const size_t n = g.items(g.get(te, "DotDatas")).size(); n && ee3Calls) {
         std::vector<ImportFile> files;
         std::vector<std::string> probs;
         if (ee3DotImages(g, te, files, probs)) m.mediaFiles.insert(m.mediaFiles.end(), files.begin(), files.end());
-        else m.generated.push_back("the dot images (" + std::to_string(n) + ")");
-        for (const std::string& pl : probs) m.codeProblems.push_back("the dot images: " + pl);
+        else if (!allMedia) m.generated.push_back("the dot images (" + std::to_string(n) + ")");
+        if (!allMedia)
+            for (const std::string& pl : probs) m.codeProblems.push_back("the dot images: " + pl);
     }
     if (const nrbf::Object* sca = g.get(te, "SCArchive"); sca && g.value(sca, "IsUsed").asBool())
         m.unsupported.push_back("SC Archive (its online save and load): StarDraft has no online service");
@@ -1005,6 +1038,12 @@ void describe(const Model& m, const fs::path& build, bool buildOk, ImportScan& o
         for (const Script& s : m.scripts) p.details.push_back(s.path);
         add(p);
     }
+    if (!m.media.empty()) {
+        ImportPart p{"media", int(m.media.tracks.size() + m.media.images.size())};
+        for (const MusicTrack& t : m.media.tracks) p.details.push_back("music: " + t.name);
+        for (const DotImage& d : m.media.images) p.details.push_back("dot image: " + d.name);
+        add(p);
+    }
     if (!m.generated.empty()) {
         ImportPart p{"generated", int(m.generated.size()), m.generated, ImportPart::Way::Build};
         p.needsBuild = build.empty() || !buildOk;
@@ -1181,7 +1220,7 @@ bool applyScripts(const Model& m, const ImportChoices& c, const fs::path& build,
                 if (!writeText(dir / "TriggerEditor" / "PluginVariables.py", m.pluginVariables.empty() ? std::string(kPluginVariables) : m.pluginVariables, error))
                     return false;
             if (m.macrosExpanded) rep.imported.push_back("EUD Editor 3's Lua macros, expanded as its build expands them");
-            if (on("generated"))
+            if (on("generated") && !(m.mediaForScripts && on("media")))  // (the lists' modules take their place)
                 for (const ImportFile& f : m.mediaFiles) {
                     if (!writeText(dir / pathOf(f.path), f.bytes, error)) return false;
                     rep.imported.push_back("the file " + f.path + " (the dot images or the BGM player)");
@@ -1378,6 +1417,27 @@ bool importProject(const ImportScan& scan, const ImportChoices& c, const fs::pat
     if (!applyData(m, c, data, pr, rep, error)) return false;
     if (!applyScripts(m, c, build, pr, rep, error)) return false;
     if (!applyPlugins(m, c, build, pr, rep)) return false;
+    if (!c.skip.count("media") && !m.media.empty()) {  // the music tracks and dot images (the Assets workspace)
+        for (const ImportFile& f : m.mediaCopies) {
+            const fs::path to = pr.folder() / pathOf(f.path);
+            std::error_code ec;
+            if (!f.from.empty()) {  // (a sound: copied now, from its file, not kept in memory since the scan)
+                fs::create_directories(to.parent_path(), ec);
+                if (!fs::copy_file(pathOf(f.from), to, fs::copy_options::overwrite_existing, ec))
+                    return error = "could not copy " + f.from + " to " + u8(to) + (ec ? ": " + ec.message() : std::string()), false;
+                continue;
+            }
+            std::vector<uint8_t> rgba(f.bytes.begin(), f.bytes.end());
+            if (f.width > 0 ? !writePngFile(to, f.width, f.height, rgba) : !writeText(to, f.bytes, error))
+                return error = error.empty() ? "could not write " + u8(to) : error, false;
+        }
+        if (!m.media.save(mediaFileOf(pr), error)) return false;
+        rep.imported.push_back(count(m.media.tracks.size(), "music track", "music tracks") + " and " + count(m.media.images.size(), "dot image", "dot images") +
+                               ", in the Assets workspace (Build makes their code)");
+        if (!m.media.ee3Folder.empty())
+            rep.imported.push_back("EUD Editor 3's BGMFlexible.eps and dotData.eps for the scripts that call its BGM player or dot painter: Build makes them in "
+                                   "the folder TriggerEditor from the Assets workspace's lists");
+    }
     for (const std::string& u : m.unsupported) rep.notImported.push_back(u);
     for (const std::string& pl : m.codeProblems) rep.notImported.push_back(pl);
     for (const ImportPart& p : scan.parts)

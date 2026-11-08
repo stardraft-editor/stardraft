@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "stardraft/import_codegen.h"
+#include "stardraft/media.h"
 #include "stardraft/nrbf.h"
 
 namespace stardraft {
@@ -42,6 +43,8 @@ private:
 struct ImportFile {
     std::string path;
     std::string bytes;
+    int width = 0, height = 0;  // > 0: `bytes` are RGBA pixels, which the import writes as a PNG file
+    std::string from;           // not empty: the file to copy (UTF-8 path; `bytes` is empty), read when the import writes
 };
 
 // EUD Editor 3's dot images: dotData.eps (WriteDotData), empty when the project has none.
@@ -50,5 +53,13 @@ bool ee3DotImages(const nrbf::Graph& g, const nrbf::Object* te, std::vector<Impo
 // `projectFolder`: the folder of the .e3s (the BGM files' relative paths start there).
 bool ee3BgmPlayer(const nrbf::Graph& g, const nrbf::Object* te, const std::string& projectFolder, std::vector<ImportFile>& files,
                   std::vector<std::string>& problems);
+
+// EUD Editor 3's BGM list and dot images as the project's music tracks and dot images (media.h), for the Assets
+// workspace: `media` gets the lists; `files` the sound files to copy (music/<name>.<ext>, as they are: their paths, in
+// `from`) and the pictures
+// (dots/<name>.png, cut to the image's size; RGBA). False when a sound or a picture cannot come over (a problem line
+// each); the others are in the lists.
+bool ee3Media(const nrbf::Graph& g, const nrbf::Object* te, const std::string& projectFolder, ProjectMedia& media, std::vector<ImportFile>& files,
+              std::vector<std::string>& problems);
 
 }  // namespace stardraft

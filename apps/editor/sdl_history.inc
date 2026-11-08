@@ -23,6 +23,11 @@ void sdlUndoSteps(bool redo, size_t steps) {
         if (trigUndo(redo, steps)) setMessage(historyMessage(redo, std::min(steps, can), name));
         return;
     }
+    if (gWorkspace == Workspace::Files && mediaUndoFirst(redo)) {  // the music tracks' and dot images' steps (core/media_model.inc)
+        for (size_t k = 0; k < steps && mediaUndoFirst(redo); ++k) mediaUndo(redo);
+        gFilesPage.invalidate();
+        return;
+    }
     if (!gState.ed || !gState.ed->isOpen()) return;
     if (gState.ed->inStroke()) return setMessage(L"Release the mouse button to undo or redo");
     typingFlush();  // a text being typed on a map page is a step of its own first: Undo takes it back

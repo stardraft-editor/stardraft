@@ -76,6 +76,7 @@
 #include "views_tiles.inc"
 #include "views_data_entry.inc"
 #include "sound_lists.inc"
+#include "media_model.inc"  // the project's music tracks and dot images (the Assets workspace), with their undo steps
 #include "views_files.inc"
 #include "views_data_refs.inc"
 #include "views_data_list.inc"

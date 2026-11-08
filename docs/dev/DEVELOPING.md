@@ -38,7 +38,7 @@ Start or the taskbar. It also makes project.stardraft files open with it:
     StarDraft-latest.exe [map or project]
 
 The window title shows when the build was made.
-The first build takes long: CMake fetches SDL3, StormLib, CascLib, stb, libvpx and Dear ImGui, and the fonts.
+The first build takes long: CMake fetches SDL3, StormLib, CascLib, stb, libvpx, libogg, libvorbis, dr_libs and Dear ImGui, and the fonts.
 
 ### Snapshots
 
@@ -167,6 +167,7 @@ Give each test a new, empty scratch folder.
 | `editor_test` | `editor_test <install> <map> <dir> [sounds]` | The editor document: placement, selection, copy and paste, undo, save and reopen. |
 | `import_test` | `import_test <install> <map.scx> <dir> [samples folder]` | File > Import a project: the .NET BinaryFormatter reader on streams it writes (also cut and damaged ones), then imports of an EUD Editor 3 project that it writes (each part, the script folders, macros from a build folder), an EUD Editor 2 project and a euddraft project. With a samples folder (real .e3s and .e2s files, not in the repository), each one scans and imports. |
 | `import_ee2_test` | `import_ee2_test [<install> <samples folder> [<out folder>]]` | Without arguments, no game data: EUD Editor 2's trigger editor trees (written by the test) to TriggerEditor.eps, line by line, and damaged trees. With a samples folder: each .e2s makes code (its problems printed; the out folder gets each .eps). |
+| `media_test` | `media_test <dir> [<install> <map.scx>]` | The project's music tracks and dot images (`stardraft/media.h`): the lists saved and loaded, a WAV decoded, encoded to Ogg Vorbis and cut into parts of 2.28 seconds, the dot colors, the generated modules, the blocks' code and checks. With the game: euddraft builds a project with tracks, a dot image and the blocks, also with EUD Editor 3's BGMPlayer and dotTool. |
 | `import_ee3_classic_test` | `import_ee3_classic_test` | Without game data: EUD Editor 3's classic triggers (BinaryFormatter graphs written by the test) to epScript, the whole text and the problems, with and without the map's forces. |
 | `import_ee3_blocks_test` | `import_ee3_blocks_test` | Without game data: EUD Editor 3's block scripts (graphs written by the test) to epScript: each block kind, values, EUD Editor 3's own faults as problems, shared and cyclic graphs. |
 | `tools_test` | `tools_test <install> <badlands map> <dir>` | The terrain, doodad and unit tools. |

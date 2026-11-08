@@ -2952,3 +2952,60 @@ EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images on
 The build folder is not used: the scripts with macros come in as text that euddraft cannot build	빌드 폴더를 사용하지 않습니다: 매크로가 있는 스크립트는 euddraft가 빌드할 수 없는 텍스트로 들어옵니다
 thing to do	할 일
 things to do	할 일
+# The project's music tracks and dot images (the Assets workspace)
+Add music…	음악 추가…
+Add dot images…	도트 이미지 추가…
+OGG, WAV or MP3 files. They go into the project (music\\). Build makes Ogg Vorbis parts of 2.28 seconds.	OGG, WAV 또는 MP3 파일. 프로젝트(music\\)에 들어갑니다. 빌드는 2.28초 길이의 Ogg Vorbis 조각을 만듭니다.
+Rename the music track (F2). The blocks that play it also use the new name.	음악 트랙 이름 바꾸기 (F2). 이 트랙을 재생하는 블록도 새 이름을 씁니다.
+Pictures of fewer than 1000 pixels. They go into the project (dots\\) and show in EUD Editor 3's 21 dot colors.	1000픽셀 미만의 그림. 프로젝트(dots\\)에 들어가고 EUD Editor 3의 도트 색 21가지로 보입니다.
+Rename the dot image (F2). The blocks that draw it also use the new name.	도트 이미지 이름 바꾸기 (F2). 이 이미지를 그리는 블록도 새 이름을 씁니다.
+Music	음악
+Dot images	도트 이미지
+Rename the music track	음악 트랙 이름 바꾸기
+Rename the dot image	도트 이미지 이름 바꾸기
+The project lists this file, but the file is not in the project folder	프로젝트 목록에 이 파일이 있지만 파일이 프로젝트 폴더에 없습니다
+Remove the music track (Del)	음악 트랙 제거 (Del)
+Remove the dot image (Del)	도트 이미지 제거 (Del)
+The picture in EUD Editor 3's dot colors. White is the background: the drawing has no unit there.	EUD Editor 3의 도트 색으로 본 그림. 흰색은 배경입니다: 그 자리에는 유닛을 그리지 않습니다.
+Open an EUD project first: the music tracks go into the project	먼저 EUD 프로젝트를 여세요: 음악 트랙은 프로젝트에 들어갑니다
+Open an EUD project first: the dot images go into the project	먼저 EUD 프로젝트를 여세요: 도트 이미지는 프로젝트에 들어갑니다
+Could not read %s	%s을(를) 읽을 수 없습니다
+Did not add %s: a music track is an OGG, WAV or MP3 file	%s을(를) 추가하지 않았습니다: 음악 트랙은 OGG, WAV 또는 MP3 파일입니다
+Could not read the sound %s	소리 %s을(를) 읽을 수 없습니다
+Could not write %s	%s을(를) 쓸 수 없습니다
+Added the music track %s	음악 트랙 %s을(를) 추가했습니다
+Added %d music tracks	음악 트랙 %d개를 추가했습니다
+Could not read the picture %s	그림 %s을(를) 읽을 수 없습니다
+Did not add %ls: a dot image has fewer than 1000 pixels (this picture is %d x %d)	%ls을(를) 추가하지 않았습니다: 도트 이미지는 1000픽셀 미만입니다 (이 그림은 %d x %d)
+Added the dot image %s	도트 이미지 %s을(를) 추가했습니다
+Added %d dot images	도트 이미지 %d개를 추가했습니다
+A music track of that name is in the project already	그 이름의 음악 트랙이 이미 프로젝트에 있습니다
+A dot image of that name is in the project already	그 이름의 도트 이미지가 이미 프로젝트에 있습니다
+Renamed the music track to %s	음악 트랙 이름을 %s(으)로 바꿨습니다
+Renamed the dot image to %s	도트 이미지 이름을 %s(으)로 바꿨습니다
+Removed the music track %s	음악 트랙 %s을(를) 제거했습니다
+Removed the dot image %s	도트 이미지 %s을(를) 제거했습니다
+Add a music track	음악 트랙 추가
+Add music tracks	음악 트랙들 추가
+Add a dot image	도트 이미지 추가
+Add dot images	도트 이미지들 추가
+Remove the music track	음악 트랙 제거
+Remove the dot image	도트 이미지 제거
+Did not change the lists: media.json cannot be read (%s)	목록을 바꾸지 않았습니다: media.json을 읽을 수 없습니다 (%s)
+No project is open	열린 프로젝트가 없습니다
+Could not save the lists: %s	목록을 저장할 수 없습니다: %s
+The project changed while you selected the files: nothing was added	파일을 고르는 동안 프로젝트가 바뀌었습니다: 아무것도 추가하지 않았습니다
+The project has no music tracks. Add them in the Assets workspace.	프로젝트에 음악 트랙이 없습니다. 에셋 작업 공간에서 추가하세요.
+The project has no dot images. Add them in the Assets workspace.	프로젝트에 도트 이미지가 없습니다. 에셋 작업 공간에서 추가하세요.
+Search music tracks	음악 트랙 검색
+Search dot images	도트 이미지 검색
+(a music track)	(음악 트랙)
+(a dot image)	(도트 이미지)
+Music and dot images	음악과 도트 이미지
+1 music track	음악 트랙 1개
+%s music tracks	음악 트랙 %s개
+1 dot image	도트 이미지 1개
+%s dot images	도트 이미지 %s개
+, in the Assets workspace	, 에셋 작업 공간에
+Add m&usic…	음악 추가(&U)…
+Add do&t images…	도트 이미지 추가(&T)…

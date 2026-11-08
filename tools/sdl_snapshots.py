@@ -18,7 +18,7 @@ one that needs a project, only with --project. The others run everywhere (CI has
 To add a case: add a line to CASES. Pass only options that main_sdl.cpp reads (its argument loop in main()). In a
 case's options, {map}, {project}, {install} (the --install folder), {root} (the repository), {out} (the --out folder),
 {newdir} (a new empty folder in --out), {kodir} (a new empty folder in --out with Korean letters and spaces in its
-name), {wav} (a short sound that the script writes in --out), {e2s} (an EUD Editor 2 project of --map: IMPORT_E2S), {release} (GitHub's answer for the newest release, with a
+name), {wav} (a short sound that the script writes in --out), {musicwav} and {dotpng} (a music track and a dot image for the Assets cases), {e2s} (an EUD Editor 2 project of --map: IMPORT_E2S), {release} (GitHub's answer for the newest release, with a
 download for each system: RELEASE_JSON), {htmlpage} (the HTML view's test page HTML_PAGE, with its image), {oldsettings} (the settings file of an older release), {nosnapsettings} (a settings file with
 Options > Units > Snap buildings to tile edges off)
 and {legacyhive} (Windows: a registry file with the settings of the releases before the settings file) are paths, and
@@ -903,6 +903,24 @@ CASES += [
     # save dialog in the project's scripts folder, new.eps) and Open project (in the projects' folder, its path ending
     # with a separator: else the dialogs of Windows and macOS take the folder's name as the file's).
     ("data-file-dialogs", ["--newproject", "{newdir}", "--command", "project.addscript", "--command", "project.open"], "data"),
+    # The Assets workspace in an EUD project: the Music and Dot images lists empty, then with a track ({musicwav}, a WAV of
+    # 3 seconds) and a dot image ({dotpng}, 16 x 12 pixels in the dot colors) that File > Project > Add music and Add dot
+    # images bring in, the same in the light theme and at 200 %; then Edit > Undo takes the dot image out again (the lists'
+    # own undo step), and Edit > Redo puts it back.
+    ("assets-media-empty", ["--newproject", "{newdir}", "--workspace", "files"], "data"),
+    ("assets-media-lists", ["--newproject", "{newdir}", "--command", "project.addmusic", "--pick", "{musicwav}", "--command", "project.adddots",
+                            "--pick", "{dotpng}"], "data"),
+    ("assets-media-lists-light", ["--newproject", "{newdir}", "--theme", "light", "--command", "project.addmusic", "--pick", "{musicwav}",
+                                  "--command", "project.adddots", "--pick", "{dotpng}"], "data"),
+    ("assets-media-lists-scale2", ["--newproject", "{newdir}", "--scale", "2", "--size", "3200x2000", "--command", "project.addmusic", "--pick",
+                                   "{musicwav}", "--command", "project.adddots", "--pick", "{dotpng}"], "data"),
+    # Files with Korean names (UTF-8 paths, {komusicwav} and {kodotpng}): the rows and the preview, with no narrow path.
+    ("assets-media-korean", ["--newproject", "{newdir}", "--command", "project.addmusic", "--pick", "{komusicwav}", "--command", "project.adddots",
+                             "--pick", "{kodotpng}"], "data"),
+    ("assets-media-undo", ["--newproject", "{newdir}", "--command", "project.addmusic", "--pick", "{musicwav}", "--command", "project.adddots",
+                           "--pick", "{dotpng}", "--command", "edit.undo"], "data"),
+    ("assets-media-redo", ["--newproject", "{newdir}", "--command", "project.addmusic", "--pick", "{musicwav}", "--command", "project.adddots",
+                           "--pick", "{dotpng}", "--command", "edit.undo", "--command", "edit.redo"], "data"),
 ]
 
 
@@ -3398,6 +3416,20 @@ def check_menubar(output):
     return None
 
 
+def check_media(messages, _selected):
+    """The Assets workspace's music tracks and dot images: the dialogs' answers came in (two open dialogs, for music and
+    for pictures), and the output has each of `messages` (the status bar)."""
+    def check(output):
+        dialogs = re.findall(r'^dialog: open, title "(.*?)", filters (.*?), starts at', output, re.M)
+        if len(dialogs) != 2 or "ogg;wav;mp3" not in dialogs[0][1] or "(png)" not in dialogs[1][1]:
+            return f"the dialogs: {dialogs}"
+        for m in messages:
+            if m not in output:
+                return f"no \"{m}\" in the output"
+        return None
+    return check
+
+
 def check_drop(want):
     """A check that the drop's line ("drop: <the status bar>") has `want`."""
     def check(output):
@@ -4690,6 +4722,9 @@ CHECKS = {"map-revealers-place": lambda o: None if "command edit.revealers.place
           "map-pinch": check_zoom_at("pinch 700,500,1.5", 1.5), "map-brush-pinch": check_brush_pinch, "start-menubar": check_menubar, "map-locations-paste": check_locations_paste,
           "check-window": check_window(False), "check-window-system": check_window(True), "start": check_start,
           "start-trackpad-scroll": check_trackpad_scroll, "map-smartzoom": check_smartzoom, "map-swipe": check_swipe,
+          "assets-media-lists": check_media(["Added the dot image Logo"], ["music:music/Theme.wav", "dots:dots/Logo.png"]),
+          "assets-media-korean": check_media(["Added the dot image \ub85c\uace0"], []),
+          "assets-media-undo": check_media(["Undo: Add a dot image"], []), "assets-media-redo": check_media(["Redo: Add a dot image"], []),
           "drop-sound-assets": check_drop("Imported 1 sounds"), "drop-image-assets": check_drop("Did not import atlas-16.png"),
           "check-dock": check_dock, "map-check-desktop": check_desktop, "check-bundle": check_bundle,
           "map-check-preview": check_preview, "map-check-spotlight": check_spotlight,
@@ -5155,6 +5190,34 @@ def write_wav(path):
         w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / 22050))) for i in range(2205)))
 
 
+def write_music_wav(path):
+    """A music track for the Assets cases ({musicwav}): 3 seconds of a 440 Hz tone, 16-bit mono at 22050 Hz."""
+    import math
+    import wave
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(22050)
+        w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(2 * math.pi * 440 * i / 22050))) for i in range(3 * 22050)))
+
+
+def write_dot_png(path):
+    """A dot image for the Assets cases ({dotpng}): 16 x 12 pixels, bands of EUD Editor 3's dot colors on white."""
+    colors = [0xf70400, 0x3a57cc, 0x249824, 0x982e66, 0x8d4e12, 0x808080]
+    rows = b""
+    for y in range(12):
+        rows += b"\0"
+        for x in range(16):
+            c = 0xffffff if (x + y) % 5 == 0 else colors[(x // 3 + y // 4) % len(colors)]
+            rows += bytes([c >> 16, (c >> 8) & 0xFF, c & 0xFF])
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 16, 12, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(rows)) +
+                chunk(b"IEND", b""))
+
+
 def write_old_settings(path, out):
     """The settings file of StarDraft 0.5.0.8, the last Win32 release, as its code wrote it ({oldsettings}): values that
     are not the defaults, so that each one read shows."""
@@ -5366,6 +5429,16 @@ def main():
         wav = os.path.join(a.out, "drop-sound.wav")
         if any("{wav}" in x for x in args) and not os.path.exists(wav):
             write_wav(wav)
+        musicwav, dotpng = os.path.join(a.out, "Theme.wav"), os.path.join(a.out, "Logo.png")
+        komusicwav, kodotpng = os.path.join(a.out, "\ud14c\ub9c8.wav"), os.path.join(a.out, "\ub85c\uace0.png")
+        if any("{komusicwav}" in x for x in args):
+            write_once(komusicwav, lambda: write_music_wav(komusicwav))
+        if any("{kodotpng}" in x for x in args):
+            write_once(kodotpng, lambda: write_dot_png(kodotpng))
+        if any("{musicwav}" in x for x in args):
+            write_once(musicwav, lambda: write_music_wav(musicwav))
+        if any("{dotpng}" in x for x in args):
+            write_once(dotpng, lambda: write_dot_png(dotpng))
         release = os.path.join(a.out, "release-latest.json")
         e2s = os.path.join(a.out, "import-sample.e2s")
 
@@ -5400,7 +5473,7 @@ def main():
         if any("{legacyhive}" in x for x in args):
             write_once(legacyhive, lambda: write_legacy_hive(legacyhive))
         paths = dict(map=a.map or "", cmbwmap=a.cmbwmap or "", project=a.project or "", install=a.install or "", root=ROOT, out=a.out, newdir=newdir,
-                     kodir=kodir, wav=wav, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
+                     kodir=kodir, wav=wav, musicwav=musicwav, dotpng=dotpng, komusicwav=komusicwav, kodotpng=kodotpng, release=release, oldsettings=oldsettings, legacyhive=legacyhive, pfdir=pfdir,
                      releaseold=releaseold, nosnapsettings=nosnapsettings, floatpalsettings=floatpalsettings, htmlpage=htmlpage, e2s=e2s)
 
         def script(m):  # {script:<name>}: SCRIPTS[name] with the paths, as a file in --out

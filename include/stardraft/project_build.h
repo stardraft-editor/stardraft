@@ -16,6 +16,7 @@
 #include "stardraft/dat_extras.h"
 #include "stardraft/eud_project.h"
 #include "stardraft/euddraft.h"
+#include "stardraft/media.h"
 #include "stardraft/triggers.h"
 
 namespace stardraft {
@@ -43,7 +44,7 @@ struct RemakeCounts {
 
 // What the steps before euddraft found and made.
 struct BuildReport {
-    std::string failedStep;                     // "triggers", "dat", "remake", "save" or "map" when prepareBuild failed
+    std::string failedStep;                     // "media", "triggers", "dat", "remake", "save" or "map" when prepareBuild failed
     std::vector<std::string> triggerErrors;     // "Trigger \"name\": message" for each error of the checker
     bool codeGenerated = false;                 // the triggers' code was made: triggerSet and triggerLines are set
     TriggerSet triggerSet;                      // the triggers the code is made from (triggerLines point into its nodes: keep the report where it is)
@@ -54,15 +55,19 @@ struct BuildReport {
     RemakeCounts remake;
     int freeProperties = 0;                     // the free unit properties the remake plan used
     std::vector<size_t> leaveOut;               // the UNIT indexes the remake code makes (not in the map euddraft gets)
+    MediaBuildReport media;                     // the music tracks' sound parts (media.h)
 };
 
 // The map's triggers as the checker and the code need them (its locations, sounds, units and players).
 TriggerMapInfo triggerMapInfo(const Editor& ed);
+// The same, with the project's music tracks and dot images (media.json).
+TriggerMapInfo triggerMapInfo(const Editor& ed, const ProjectMedia& media);
 
 // The project's triggers file (triggers.json).
 std::filesystem::path triggersFileOf(const EudProject& pr);
 
-// The steps before euddraft, in the order Build runs them: the triggers' code, the .dat edits, the remake code, the map
+// The steps before euddraft, in the order Build runs them: the music tracks' and dot images' code (media.h), the
+// triggers' code, the .dat edits, the remake code, the map
 // saved into the project (when changed or elsewhere), and the map that euddraft gets. False with `error` on the first step
 // that fails (report.failedStep says which).
 bool prepareBuild(EudProject& pr, Editor& ed, const GameData& data, const BuildOpen& open, BuildReport& report, std::string& error);

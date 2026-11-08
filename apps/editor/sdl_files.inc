@@ -150,6 +150,72 @@ void previewToggleSdl(const std::string& name) {
     gSdlPreview.stream = s, gSdlPreview.name = name, gSdlPreview.started = SDL_GetTicks(), gSdlPreview.ms = d->ms;
 }
 
+// A file of the project to listen to (a music track: core/media_model.inc), as previewToggleSdl: `key` is its name for
+// previewPlayingSdl. An MP3 file is decoded by the library (stardraft/media.h), the others as the map's sounds.
+void previewToggleFileSdl(const std::string& key, const fs::path& file) {
+    ++gSoundAsks, gSoundAsked = key;
+    const bool same = previewPlayingSdl(key);
+    previewStopSdl();
+    if (same) return;
+    // The decoded sounds of the last 2 files (a decoded track is large: about 10 MB a minute).
+    static std::map<std::pair<std::wstring, uintmax_t>, std::unique_ptr<SdlSound>> cache;
+    static std::deque<std::pair<std::wstring, uintmax_t>> order;
+    std::error_code ec;
+    const uintmax_t size = fs::file_size(file, ec);
+    if (ec) return setMessage(L"Could not read the sound");
+    const std::pair<std::wstring, uintmax_t> fileKey{file.wstring(), size};
+    auto [it, fresh] = cache.try_emplace(fileKey);
+    if (fresh) {
+        order.push_back(fileKey);
+        while (order.size() > 2) cache.erase(order.front()), order.pop_front();
+    }
+    if (fresh) {
+        std::ifstream in(file, std::ios::binary);
+        const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        auto d = std::make_unique<SdlSound>();
+        stardraft::Pcm pcm;
+        std::string why;
+        const auto ext = file.extension().u8string();
+        if (stardraft::soundKind(bytes, std::string(ext.begin(), ext.end())) == stardraft::SoundKind::Mp3) {
+            if (stardraft::decodeSound(bytes, std::string(ext.begin(), ext.end()), pcm, why)) {
+                d->spec = {SDL_AUDIO_S16, pcm.channels, int(pcm.rate)};
+                d->pcm.assign(reinterpret_cast<const uint8_t*>(pcm.samples.data()), reinterpret_cast<const uint8_t*>(pcm.samples.data() + pcm.samples.size()));
+                d->ms = uint32_t(pcm.frames() * 1000 / std::max<uint32_t>(pcm.rate, 1));
+                it->second = std::move(d);
+            }
+        } else if (decodeSdlSound(Bytes(bytes.begin(), bytes.end()), *d)) {
+            it->second = std::move(d);
+        }
+    }
+    const SdlSound* d = it->second.get();
+    if (!d) return setMessage(L"Could not read the sound");
+    SDL_AudioStream* s = openPlaybackSdl(&d->spec);
+    if (!s) {
+        if (!gSilent) setMessage(L"No sound device is available");
+        return;
+    }
+    SDL_PutAudioStreamData(s, d->pcm.data(), int(d->pcm.size()));
+    SDL_FlushAudioStream(s);
+    playStreamSdl(s);
+    gSdlPreview.stream = s, gSdlPreview.name = key, gSdlPreview.started = SDL_GetTicks(), gSdlPreview.ms = d->ms;
+}
+
+// The files of the dialogs for the project's music tracks and dot images (SDL's thread): the UI thread adds them, when
+// the same project is still open (core/media_model.inc).
+void mediaFilesPicked(void* userdata, const char* const* list, int, bool tracks) {
+    std::vector<fs::path> files;
+    for (int i = 0; list && list[i]; ++i) files.push_back(fs::path(widen(list[i])));  // (UTF-8)
+    if (files.empty()) return;
+    const EudProject* target = static_cast<const EudProject*>(userdata);
+    shellPost([files, target, tracks] {
+        if (activeProject() != target) return setMessage(L"The project changed while you selected the files: nothing was added");
+        const auto added = tracks ? mediaAddTracks(files) : mediaAddImages(files);
+        if (!added.empty()) gFilesPage.setSelected((tracks ? "music:" : "dots:") + added.front());
+    });
+}
+void musicFilesPicked(void* userdata, const char* const* list, int filter) { mediaFilesPicked(userdata, list, filter, true); }
+void dotFilesPicked(void* userdata, const char* const* list, int filter) { mediaFilesPicked(userdata, list, filter, false); }
+
 // Imports the sound files of the dialog into the map (staredit\wav\<file name>), as one undo step; a file that does not
 // decode is named in the status bar. The first one that came in is selected.
 // The map the dialog was opened for (target): when another map is open now, nothing is imported into it.
@@ -208,6 +274,15 @@ public:
     std::vector<FilesUse> soundUses(const std::string& name) override { return soundUsesOf(name); }
     void showUse(const FilesUse& use) override { briefingShowUseSdl(use.trig, use.act); }
     void soundsChanged() override;
+    void addMusic() override {
+        static const SDL_DialogFileFilter kMusic[] = {{"Music (OGG, WAV, MP3)", "ogg;wav;mp3"}};
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, musicFilesPicked, activeProject(), kMusic, 1, "", "", true);
+    }
+    void addDotImages() override {
+        static const SDL_DialogFileFilter kPictures[] = {{"Pictures (PNG)", "png"}, {"Other pictures (BMP, GIF, JPEG)", "bmp;gif;jpg;jpeg"}};
+        sdlFileDialog(SDL_FILEDIALOG_OPENFILE, dotFilesPicked, activeProject(), kPictures, 2, "", "", true);
+    }
+    void toggleFilePreview(const std::string& key, const std::filesystem::path& file) override { previewToggleFileSdl(key, file); }
 };
 
 SdlFilesHost gFilesHost;

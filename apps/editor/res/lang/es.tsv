@@ -2922,3 +2922,60 @@ EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images on
 The build folder is not used: the scripts with macros come in as text that euddraft cannot build	La carpeta de compilación no se usa: los scripts con macros llegan como texto que euddraft no puede compilar
 thing to do	tarea
 things to do	tareas
+# The project's music tracks and dot images (the Assets workspace)
+Add music…	Añadir música…
+Add dot images…	Añadir imágenes de puntos…
+OGG, WAV or MP3 files. They go into the project (music\\). Build makes Ogg Vorbis parts of 2.28 seconds.	Archivos OGG, WAV o MP3. Van al proyecto (music\\). La compilación hace partes Ogg Vorbis de 2,28 segundos.
+Rename the music track (F2). The blocks that play it also use the new name.	Cambiar el nombre de la pista de música (F2). Los bloques que la reproducen también usan el nuevo nombre.
+Pictures of fewer than 1000 pixels. They go into the project (dots\\) and show in EUD Editor 3's 21 dot colors.	Imágenes de menos de 1000 píxeles. Van al proyecto (dots\\) y se muestran con los 21 colores de puntos de EUD Editor 3.
+Rename the dot image (F2). The blocks that draw it also use the new name.	Cambiar el nombre de la imagen de puntos (F2). Los bloques que la dibujan también usan el nuevo nombre.
+Music	Música
+Dot images	Imágenes de puntos
+Rename the music track	Cambiar el nombre de la pista de música
+Rename the dot image	Cambiar el nombre de la imagen de puntos
+The project lists this file, but the file is not in the project folder	El proyecto tiene este archivo en su lista, pero el archivo no está en la carpeta del proyecto
+Remove the music track (Del)	Quitar la pista de música (Supr)
+Remove the dot image (Del)	Quitar la imagen de puntos (Supr)
+The picture in EUD Editor 3's dot colors. White is the background: the drawing has no unit there.	La imagen con los colores de puntos de EUD Editor 3. El blanco es el fondo: el dibujo no pone una unidad allí.
+Open an EUD project first: the music tracks go into the project	Abra primero un proyecto EUD: las pistas de música van al proyecto
+Open an EUD project first: the dot images go into the project	Abra primero un proyecto EUD: las imágenes de puntos van al proyecto
+Could not read %s	No se pudo leer %s
+Did not add %s: a music track is an OGG, WAV or MP3 file	No se añadió %s: una pista de música es un archivo OGG, WAV o MP3
+Could not read the sound %s	No se pudo leer el sonido %s
+Could not write %s	No se pudo escribir %s
+Added the music track %s	Se añadió la pista de música %s
+Added %d music tracks	Se añadieron %d pistas de música
+Could not read the picture %s	No se pudo leer la imagen %s
+Did not add %ls: a dot image has fewer than 1000 pixels (this picture is %d x %d)	No se añadió %ls: una imagen de puntos tiene menos de 1000 píxeles (esta imagen es de %d x %d)
+Added the dot image %s	Se añadió la imagen de puntos %s
+Added %d dot images	Se añadieron %d imágenes de puntos
+A music track of that name is in the project already	Ya hay una pista de música con ese nombre en el proyecto
+A dot image of that name is in the project already	Ya hay una imagen de puntos con ese nombre en el proyecto
+Renamed the music track to %s	Se cambió el nombre de la pista de música a %s
+Renamed the dot image to %s	Se cambió el nombre de la imagen de puntos a %s
+Removed the music track %s	Se quitó la pista de música %s
+Removed the dot image %s	Se quitó la imagen de puntos %s
+Add a music track	Añadir una pista de música
+Add music tracks	Añadir pistas de música
+Add a dot image	Añadir una imagen de puntos
+Add dot images	Añadir imágenes de puntos
+Remove the music track	Quitar la pista de música
+Remove the dot image	Quitar la imagen de puntos
+Did not change the lists: media.json cannot be read (%s)	No se cambiaron las listas: no se puede leer media.json (%s)
+No project is open	No hay ningún proyecto abierto
+Could not save the lists: %s	No se pudieron guardar las listas: %s
+The project changed while you selected the files: nothing was added	El proyecto cambió mientras seleccionaba los archivos: no se añadió nada
+The project has no music tracks. Add them in the Assets workspace.	El proyecto no tiene pistas de música. Añádalas en el espacio de trabajo Recursos.
+The project has no dot images. Add them in the Assets workspace.	El proyecto no tiene imágenes de puntos. Añádalas en el espacio de trabajo Recursos.
+Search music tracks	Buscar pistas de música
+Search dot images	Buscar imágenes de puntos
+(a music track)	(una pista de música)
+(a dot image)	(una imagen de puntos)
+Music and dot images	Música e imágenes de puntos
+1 music track	1 pista de música
+%s music tracks	%s pistas de música
+1 dot image	1 imagen de puntos
+%s dot images	%s imágenes de puntos
+, in the Assets workspace	, en el espacio de trabajo Recursos
+Add m&usic…	Añadir &música…
+Add do&t images…	Añadir imágenes de pun&tos…

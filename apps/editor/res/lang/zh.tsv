@@ -2922,3 +2922,60 @@ EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images on
 The build folder is not used: the scripts with macros come in as text that euddraft cannot build	未使用构建文件夹：带宏的脚本以 euddraft 无法构建的文本导入
 thing to do	项待办
 things to do	项待办
+# The project's music tracks and dot images (the Assets workspace)
+Add music…	添加音乐…
+Add dot images…	添加点阵图像…
+OGG, WAV or MP3 files. They go into the project (music\\). Build makes Ogg Vorbis parts of 2.28 seconds.	OGG、WAV 或 MP3 文件。它们放入项目 (music\\)。构建时会做成每段 2.28 秒的 Ogg Vorbis。
+Rename the music track (F2). The blocks that play it also use the new name.	重命名音乐曲目 (F2)。播放它的积木也使用新名称。
+Pictures of fewer than 1000 pixels. They go into the project (dots\\) and show in EUD Editor 3's 21 dot colors.	少于 1000 像素的图片。它们放入项目 (dots\\)，以 EUD Editor 3 的 21 种点颜色显示。
+Rename the dot image (F2). The blocks that draw it also use the new name.	重命名点阵图像 (F2)。绘制它的积木也使用新名称。
+Music	音乐
+Dot images	点阵图像
+Rename the music track	重命名音乐曲目
+Rename the dot image	重命名点阵图像
+The project lists this file, but the file is not in the project folder	项目列出了此文件，但项目文件夹中没有该文件
+Remove the music track (Del)	移除音乐曲目 (Del)
+Remove the dot image (Del)	移除点阵图像 (Del)
+The picture in EUD Editor 3's dot colors. White is the background: the drawing has no unit there.	以 EUD Editor 3 点颜色显示的图片。白色是背景：绘制时那里没有单位。
+Open an EUD project first: the music tracks go into the project	请先打开一个 EUD 项目：音乐曲目放入项目中
+Open an EUD project first: the dot images go into the project	请先打开一个 EUD 项目：点阵图像放入项目中
+Could not read %s	无法读取 %s
+Did not add %s: a music track is an OGG, WAV or MP3 file	未添加 %s：音乐曲目是 OGG、WAV 或 MP3 文件
+Could not read the sound %s	无法读取声音 %s
+Could not write %s	无法写入 %s
+Added the music track %s	已添加音乐曲目 %s
+Added %d music tracks	已添加 %d 个音乐曲目
+Could not read the picture %s	无法读取图片 %s
+Did not add %ls: a dot image has fewer than 1000 pixels (this picture is %d x %d)	未添加 %ls：点阵图像少于 1000 像素（此图片为 %d x %d）
+Added the dot image %s	已添加点阵图像 %s
+Added %d dot images	已添加 %d 个点阵图像
+A music track of that name is in the project already	项目中已有同名的音乐曲目
+A dot image of that name is in the project already	项目中已有同名的点阵图像
+Renamed the music track to %s	已将音乐曲目重命名为 %s
+Renamed the dot image to %s	已将点阵图像重命名为 %s
+Removed the music track %s	已移除音乐曲目 %s
+Removed the dot image %s	已移除点阵图像 %s
+Add a music track	添加音乐曲目
+Add music tracks	添加多个音乐曲目
+Add a dot image	添加点阵图像
+Add dot images	添加多个点阵图像
+Remove the music track	移除音乐曲目
+Remove the dot image	移除点阵图像
+Did not change the lists: media.json cannot be read (%s)	未更改列表：无法读取 media.json (%s)
+No project is open	没有打开的项目
+Could not save the lists: %s	无法保存列表：%s
+The project changed while you selected the files: nothing was added	选择文件时项目已更改：未添加任何内容
+The project has no music tracks. Add them in the Assets workspace.	项目没有音乐曲目。请在素材工作区中添加。
+The project has no dot images. Add them in the Assets workspace.	项目没有点阵图像。请在素材工作区中添加。
+Search music tracks	搜索音乐曲目
+Search dot images	搜索点阵图像
+(a music track)	（音乐曲目）
+(a dot image)	（点阵图像）
+Music and dot images	音乐和点阵图像
+1 music track	1 个音乐曲目
+%s music tracks	%s 个音乐曲目
+1 dot image	1 个点阵图像
+%s dot images	%s 个点阵图像
+, in the Assets workspace	，位于素材工作区
+Add m&usic…	添加音乐(&U)…
+Add do&t images…	添加点阵图像(&T)…

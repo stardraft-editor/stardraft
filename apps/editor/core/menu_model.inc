@@ -172,6 +172,8 @@ MenuModel buildMenuModel() {
                       menuSeparator(),
                       menuItem(ID_PROJ_COMPILE, L"&Build", L"Ctrl+B"),
                       menuItem(ID_PROJ_ADDSCRIPT, L"&Add a script\x2026"),
+                      menuItem(ID_PROJ_ADDMUSIC, L"Add m&usic\x2026"),
+                      menuItem(ID_PROJ_ADDDOTS, L"Add do&t images\x2026"),
                       menuItem(ID_PROJ_FOLDER, L"Open project &folder"),
                       menuSeparator(),
                       menuItem(ID_PROJ_SETTINGS, L"Project &settings")};

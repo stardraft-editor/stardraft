@@ -2922,3 +2922,60 @@ EUD Editor 3 writes the code of its Lua macros, the BGM player and dot images on
 The build folder is not used: the scripts with macros come in as text that euddraft cannot build	Папка сборки не используется: скрипты с макросами приходят как текст, который euddraft не может собрать
 thing to do	дело
 things to do	дел
+# The project's music tracks and dot images (the Assets workspace)
+Add music…	Добавить музыку…
+Add dot images…	Добавить точечные изображения…
+OGG, WAV or MP3 files. They go into the project (music\\). Build makes Ogg Vorbis parts of 2.28 seconds.	Файлы OGG, WAV или MP3. Они попадают в проект (music\\). Сборка делает из них части Ogg Vorbis по 2,28 секунды.
+Rename the music track (F2). The blocks that play it also use the new name.	Переименовать музыкальную дорожку (F2). Блоки, которые её играют, тоже получают новое имя.
+Pictures of fewer than 1000 pixels. They go into the project (dots\\) and show in EUD Editor 3's 21 dot colors.	Изображения меньше 1000 пикселей. Они попадают в проект (dots\\) и показываются в 21 цвете точек EUD Editor 3.
+Rename the dot image (F2). The blocks that draw it also use the new name.	Переименовать точечное изображение (F2). Блоки, которые его рисуют, тоже получают новое имя.
+Music	Музыка
+Dot images	Точечные изображения
+Rename the music track	Переименовать музыкальную дорожку
+Rename the dot image	Переименовать точечное изображение
+The project lists this file, but the file is not in the project folder	Этот файл есть в списке проекта, но его нет в папке проекта
+Remove the music track (Del)	Убрать музыкальную дорожку (Del)
+Remove the dot image (Del)	Убрать точечное изображение (Del)
+The picture in EUD Editor 3's dot colors. White is the background: the drawing has no unit there.	Изображение в цветах точек EUD Editor 3. Белый цвет — это фон: там рисунок не ставит юнит.
+Open an EUD project first: the music tracks go into the project	Сначала откройте проект EUD: музыкальные дорожки попадают в проект
+Open an EUD project first: the dot images go into the project	Сначала откройте проект EUD: точечные изображения попадают в проект
+Could not read %s	Не удалось прочитать %s
+Did not add %s: a music track is an OGG, WAV or MP3 file	%s не добавлен: музыкальная дорожка — это файл OGG, WAV или MP3
+Could not read the sound %s	Не удалось прочитать звук %s
+Could not write %s	Не удалось записать %s
+Added the music track %s	Добавлена музыкальная дорожка %s
+Added %d music tracks	Добавлено музыкальных дорожек: %d
+Could not read the picture %s	Не удалось прочитать изображение %s
+Did not add %ls: a dot image has fewer than 1000 pixels (this picture is %d x %d)	%ls не добавлено: в точечном изображении меньше 1000 пикселей (это изображение %d x %d)
+Added the dot image %s	Добавлено точечное изображение %s
+Added %d dot images	Добавлено точечных изображений: %d
+A music track of that name is in the project already	В проекте уже есть музыкальная дорожка с таким именем
+A dot image of that name is in the project already	В проекте уже есть точечное изображение с таким именем
+Renamed the music track to %s	Музыкальная дорожка переименована в %s
+Renamed the dot image to %s	Точечное изображение переименовано в %s
+Removed the music track %s	Музыкальная дорожка %s убрана
+Removed the dot image %s	Точечное изображение %s убрано
+Add a music track	Добавить музыкальную дорожку
+Add music tracks	Добавить музыкальные дорожки
+Add a dot image	Добавить точечное изображение
+Add dot images	Добавить точечные изображения
+Remove the music track	Убрать музыкальную дорожку
+Remove the dot image	Убрать точечное изображение
+Did not change the lists: media.json cannot be read (%s)	Списки не изменены: не удаётся прочитать media.json (%s)
+No project is open	Нет открытого проекта
+Could not save the lists: %s	Не удалось сохранить списки: %s
+The project changed while you selected the files: nothing was added	Проект изменился, пока вы выбирали файлы: ничего не добавлено
+The project has no music tracks. Add them in the Assets workspace.	В проекте нет музыкальных дорожек. Добавьте их в рабочей области «Ассеты».
+The project has no dot images. Add them in the Assets workspace.	В проекте нет точечных изображений. Добавьте их в рабочей области «Ассеты».
+Search music tracks	Поиск музыкальных дорожек
+Search dot images	Поиск точечных изображений
+(a music track)	(музыкальная дорожка)
+(a dot image)	(точечное изображение)
+Music and dot images	Музыка и точечные изображения
+1 music track	1 музыкальная дорожка
+%s music tracks	Музыкальных дорожек: %s
+1 dot image	1 точечное изображение
+%s dot images	Точечных изображений: %s
+, in the Assets workspace	, в рабочей области «Ассеты»
+Add m&usic…	Добавить &музыку…
+Add do&t images…	Добавить &точечные изображения…

@@ -1,6 +1,8 @@
 // The Files workspace (portable, core.inc): the map's sound files, to import (WAV, OGG), play, rename and remove; and
 // the game's sounds, to listen to, which the briefings can name without the map holding them. The References panel on
-// the right lists the briefings that use the selected sound.
+// the right lists the briefings that use the selected sound. In an EUD project, also the project's music tracks (to add,
+// play, rename and remove) and dot images (to add, rename and remove, with a preview in the dot colors): the lists of
+// core/media_model.inc, which the blocks Play music track and Draw dot image name.
 //
 // The page is one view (apps/common/view.h) in a view window; the window's vertical bar is the native one, and the
 // window's host sets it from scrollBar(). The program's parts (the audio, the file dialog, the briefings) come in
@@ -24,6 +26,11 @@ public:
     virtual std::vector<FilesUse> soundUses(const std::string& name) = 0;
     virtual void showUse(const FilesUse& use) = 0;  // the Briefing workspace, at the action
     virtual void soundsChanged() = 0;               // the other views that show sounds repaint
+    // The project's music tracks and dot images: the file dialogs (they answer later: mediaAddTracks, mediaAddImages), and
+    // a track's file to play, as togglePreview (`key`: its name for previewPlaying).
+    virtual void addMusic() = 0;
+    virtual void addDotImages() = 0;
+    virtual void toggleFilePreview(const std::string& key, const std::filesystem::path& file) = 0;
 };
 
 class FilesPage final : public draw::View {
@@ -34,7 +41,11 @@ public:
           renameBtn_(L"Rename", stardraft::kit::Tone::Quiet, [this] {
               const std::string from = selected_;
               renameSound(from);
-          }) {
+          }),
+          addMusicBtn_(L"Add music\x2026", stardraft::kit::Tone::Normal, [this] { svc().addMusic(); }),
+          renameMusicBtn_(L"Rename", stardraft::kit::Tone::Quiet, [this] { renameMedia(selected_); }),
+          addDotBtn_(L"Add dot images\x2026", stardraft::kit::Tone::Normal, [this] { svc().addDotImages(); }),
+          renameDotBtn_(L"Rename", stardraft::kit::Tone::Quiet, [this] { renameMedia(selected_); }) {
         search_.onChange = [this] {
             filter_ = search_.text();
             scroll_ = 0;
@@ -54,6 +65,14 @@ public:
         add(renameBtn_, {0, 0, 0, 0});
         importBtn_.setVisible(false);
         renameBtn_.setVisible(false);
+        addMusicBtn_.setTip(L"OGG, WAV or MP3 files. They go into the project (music\\). Build makes Ogg Vorbis parts of 2.28 seconds.");
+        renameMusicBtn_.setTip(L"Rename the music track (F2). The blocks that play it also use the new name.");
+        addDotBtn_.setTip(L"Pictures of fewer than 1000 pixels. They go into the project (dots\\) and show in EUD Editor 3's 21 dot colors.");
+        renameDotBtn_.setTip(L"Rename the dot image (F2). The blocks that draw it also use the new name.");
+        for (stardraft::kit::Button* b : {&addMusicBtn_, &renameMusicBtn_, &addDotBtn_, &renameDotBtn_}) {
+            add(*b, {0, 0, 0, 0});
+            b->setVisible(false);
+        }
     }
 
     // The program sets the search text and the selection (the self-tests' "files:" steps).
@@ -101,9 +120,12 @@ private:
     }
     // A row of the table as the last paint drew it (the mouse and the tips work from these).
     struct Row {
-        draw::Rect r, kindCell, last, play, add;
+        draw::Rect r, kindCell, last, play, add, preview;
         std::string name;
-        int kind = 0;  // 0 a file in the map, 1 a game sound the map names, 2 a game sound (the list to add from)
+        // 0 a file in the map, 1 a game sound the map names, 2 a game sound (the list to add from); 3 a music track, 4 a
+        // dot image of the project (`name`: its key, mediaKey; `index`: its place in the list)
+        int kind = 0;
+        size_t index = 0;
         size_t size = 0;
         bool on = false, missing = false, over = false, playing = false, hasCheck = false, canAdd = false;
     };
@@ -218,9 +240,51 @@ private:
         invalidate();
     }
 
+    // The project's music tracks and dot images (core/media_model.inc): a row's key ("music:" or "dots:" and its file).
+    static std::string mediaKey(bool track, const std::string& file) { return (track ? "music:" : "dots:") + file; }
+    // The item of a key: true with its list and place; false when no item has it.
+    static bool mediaItem(const std::string& key, bool& track, size_t& index) {
+        const stardraft::ProjectMedia& m = projectMedia();
+        for (size_t i = 0; i < m.tracks.size(); ++i)
+            if (key == mediaKey(true, m.tracks[i].file)) return track = true, index = i, true;
+        for (size_t i = 0; i < m.images.size(); ++i)
+            if (key == mediaKey(false, m.images[i].file)) return track = false, index = i, true;
+        return false;
+    }
+    void renameMedia(const std::string& key) {
+        bool track = false;
+        size_t i = 0;
+        if (!mediaItem(key, track, i)) return;
+        const stardraft::ProjectMedia& m = projectMedia();
+        std::wstring name = widen(track ? m.tracks[i].name : m.images[i].name);
+        if (!svc().askName(track ? L"Rename the music track" : L"Rename the dot image", name) || name.empty()) return;
+        mediaRename(track, i, narrow(name));
+        invalidate();
+    }
+    void removeMedia(const std::string& key) {
+        bool track = false;
+        size_t i = 0;
+        if (!mediaItem(key, track, i)) return;
+        if (track && svc().previewPlaying(key)) svc().previewStop();
+        if (mediaRemove(track, i) && selected_ == key) selected_.clear();
+        invalidate();
+    }
+    void togglePlayTrack(const std::string& key) {
+        bool track = false;
+        size_t i = 0;
+        if (!mediaItem(key, track, i) || !track) return;
+        selected_ = key;
+        const std::filesystem::path file = mediaPath(projectMedia().tracks[i].file);
+        if (file.empty()) return;
+        svc().toggleFilePreview(key, file);
+        armPreviewTimer();
+        invalidate();
+    }
+
     FilesHost& host_;
     SearchBox search_, mapSearch_;  // (the game's sounds, the map's sounds)
     stardraft::kit::Button importBtn_, renameBtn_;
+    stardraft::kit::Button addMusicBtn_, renameMusicBtn_, addDotBtn_, renameDotBtn_;  // (the project's music tracks and dot images)
     std::wstring filter_;   // the search text (the game's sounds it keeps)
     std::wstring mapFilter_;  // the map's sounds' search text
     std::string selected_;  // a path: a map file or a game sound
@@ -348,6 +412,132 @@ void FilesPage::paint(draw::Canvas& c) {
     }
     y += rowH + scale(18);
 
+    // The project's music tracks and dot images (an EUD project only).
+    if (activeProject()) {
+        const stardraft::ProjectMedia& media = projectMedia();
+        // Music: the Play button, the name, the kind, the length, the file's size and the remove cross.
+        y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, L"Music");
+        kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, cols);
+        y += rowH;
+        for (size_t i = 0; i < media.tracks.size(); ++i) {
+            const stardraft::MusicTrack& t = media.tracks[i];
+            Row rw;
+            rw.r = {x0, y, colRight, y + rowH};
+            rw.name = mediaKey(true, t.file), rw.kind = 3, rw.index = i;
+            y += rowH;
+            if (rw.r.bottom < 0 || rw.r.top > h) continue;
+            rw.on = rw.name == selected_;
+            rw.over = over(rw.r);
+            rw.playing = svc().previewPlaying(rw.name);
+            std::error_code ec;
+            const uintmax_t size = std::filesystem::file_size(mediaPath(t.file), ec);
+            rw.missing = bool(ec);
+            kitpaint::drawTableRow(c, rw.r, rw.on, rw.over);
+            rw.play = kitpaint::square({x0 + scale(8), rw.r.top + scale(1), x0 + scale(8 + stardraft::kit::kIconBox), rw.r.bottom - scale(1)});
+            kitpaint::drawIconFace(c, rw.play, rw.playing ? UiIcon::Stop : UiIcon::Play, kitpaint::Tone::Primary, rw.playing, over(rw.play));
+            draw::Rect nt = kitpaint::tableCell(rw.r, cols, 1);
+            nt.left += scale(4), nt.right -= scale(4);
+            c.text(nt, widen(t.name), rw.on ? kAccent : kText, draw::kEllipsis | draw::kMiddle);
+            draw::Rect kt = kitpaint::tableCell(rw.r, cols, 2);
+            kt.left += scale(4), kt.right -= scale(4);
+            rw.kindCell = kt;
+            const size_t dot = t.file.rfind('.');  // (the extension from the UTF-8 name: no narrow path conversion)
+            std::string ext = dot == std::string::npos || t.file.find('/', dot) != std::string::npos ? std::string() : t.file.substr(dot + 1);
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return char(std::toupper(ch)); });
+            c.text(kt, rw.missing ? std::wstring(L"Missing") : widen(ext), rw.missing ? kBad : kDim, draw::kMiddle);
+            draw::Rect lt = kitpaint::tableCell(rw.r, cols, 3);
+            lt.left += scale(4), lt.right -= scale(4);
+            c.text(lt, lengthText(t.ms), kDim, draw::kRight | draw::kMiddle);
+            draw::Rect st = kitpaint::tableCell(rw.r, cols, 4);
+            st.left += scale(4), st.right -= scale(4);
+            c.text(st, rw.missing ? std::wstring(L"\x2014") : sizeText(size_t(size)), kDim, draw::kRight | draw::kMiddle);
+            rw.last = kitpaint::square({cEnd, rw.r.top, colRight, rw.r.bottom});
+            if (rw.over) kitpaint::drawIconFace(c, rw.last, UiIcon::Close, kitpaint::Tone::Danger, false, over(rw.last));
+            rows_.push_back(rw);
+        }
+        if (media.tracks.empty()) {
+            c.text({x0 + scale(50), y, colRight, y + rowH}, L"None", kDim, draw::kMiddle);
+            y += rowH;
+        }
+        y += scale(8);
+        bool track = false;
+        size_t at = 0;
+        const bool selTrack = mediaItem(selected_, track, at) && track;
+        {
+            const int bh = std::min(rowH, scale(24)), top = y + (rowH - bh) / 2;
+            const int ax = x0 + c.measure(L"Add music\x2026") + scale(20);
+            place(addMusicBtn_, {x0, top, ax, top + bh});
+            if (selTrack) place(renameMusicBtn_, {ax + scale(8), top, ax + scale(8) + c.measure(L"Rename") + scale(20), top + bh});
+            else hide(renameMusicBtn_);
+        }
+        y += rowH + scale(18);
+
+        // Dot images: the picture in the dot colors, the name, the size and the remove cross.
+        const std::vector<kitpaint::Column> dotCols = {{L"", 64, draw::kLeft}, {L"Name", 0, draw::kLeft}, {L"Size", 100, draw::kRight}, {L"", 30, draw::kLeft}};
+        const int dotEnd = kitpaint::tableCell({x0, 0, colRight, 1}, dotCols, 3).left;
+        const int dotH = scale(44);
+        y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, L"Dot images");
+        kitpaint::drawTableHeader(c, {x0, y, colRight, y + rowH}, dotCols);
+        y += rowH;
+        for (size_t i = 0; i < media.images.size(); ++i) {
+            const stardraft::DotImage& d = media.images[i];
+            Row rw;
+            rw.r = {x0, y, colRight, y + dotH};
+            rw.name = mediaKey(false, d.file), rw.kind = 4, rw.index = i;
+            y += dotH;
+            if (rw.r.bottom < 0 || rw.r.top > h) continue;
+            rw.on = rw.name == selected_;
+            rw.over = over(rw.r);
+            kitpaint::drawTableRow(c, rw.r, rw.on, rw.over);
+            const DotPreview* pv = mediaDotPreview(d.file);
+            rw.missing = !pv;
+            draw::Rect pc = kitpaint::tableCell(rw.r, dotCols, 0);
+            pc = {pc.left + scale(8), pc.top + scale(4), pc.right - scale(4), pc.bottom - scale(4)};
+            rw.preview = pc;
+            if (pv && pv->width > 0 && pv->height > 0) {
+                // Each dot a square of the cell's size; white is the background (the drawing has no unit there).
+                const double cell = std::min(double(pc.width()) / pv->width, double(pc.height()) / pv->height);
+                const int ox = pc.left + int((pc.width() - cell * pv->width) / 2), oy = pc.top + int((pc.height() - cell * pv->height) / 2);
+                c.fill({ox, oy, ox + int(cell * pv->width + 0.5), oy + int(cell * pv->height + 0.5)}, kPanel);
+                for (int py = 0; py < pv->height; ++py)
+                    for (int px = 0; px < pv->width; ++px) {
+                        const uint8_t ci = pv->colors[size_t(py) * size_t(pv->width) + size_t(px)];
+                        if (ci == 11) continue;  // (white: the background)
+                        const uint32_t rgb = stardraft::kDotColors[ci];
+                        c.fill({ox + int(px * cell), oy + int(py * cell), ox + int((px + 1) * cell + 0.5), oy + int((py + 1) * cell + 0.5)},
+                               RGB(rgb >> 16, (rgb >> 8) & 0xFF, rgb & 0xFF));
+                    }
+            }
+            draw::Rect nt = kitpaint::tableCell(rw.r, dotCols, 1);
+            nt.left += scale(4), nt.right -= scale(4);
+            c.text(nt, widen(d.name), rw.on ? kAccent : kText, draw::kEllipsis | draw::kMiddle);
+            draw::Rect st = kitpaint::tableCell(rw.r, dotCols, 2);
+            st.left += scale(4), st.right -= scale(4);
+            rw.kindCell = st;
+            c.text(st, rw.missing ? std::wstring(L"Missing") : std::to_wstring(pv->width) + L" x " + std::to_wstring(pv->height), rw.missing ? kBad : kDim,
+                   draw::kRight | draw::kMiddle);
+            rw.last = kitpaint::square({dotEnd, rw.r.top + (dotH - rowH) / 2, colRight, rw.r.top + (dotH + rowH) / 2});
+            if (rw.over) kitpaint::drawIconFace(c, rw.last, UiIcon::Close, kitpaint::Tone::Danger, false, over(rw.last));
+            rows_.push_back(rw);
+        }
+        if (media.images.empty()) {
+            c.text({x0 + scale(50), y, colRight, y + rowH}, L"None", kDim, draw::kMiddle);
+            y += rowH;
+        }
+        y += scale(8);
+        const bool selDot = mediaItem(selected_, track, at) && !track;
+        {
+            const int bh = std::min(rowH, scale(24)), top = y + (rowH - bh) / 2;
+            const int ax = x0 + c.measure(L"Add dot images\x2026") + scale(20);
+            place(addDotBtn_, {x0, top, ax, top + bh});
+            if (selDot) place(renameDotBtn_, {ax + scale(8), top, ax + scale(8) + c.measure(L"Rename") + scale(20), top + bh});
+            else hide(renameDotBtn_);
+        }
+        y += rowH + scale(18);
+    } else {
+        for (stardraft::kit::Button* b : {&addMusicBtn_, &renameMusicBtn_, &addDotBtn_, &renameDotBtn_}) hide(*b);
+    }
+
     // The game's sounds: the search, then the list the search keeps.
     y = kitpaint::drawSectionHeader(c, x0, colRight, y, rowH, modTab() ? L"Cosmonarchy BW and game sounds" : L"Game sounds");
     place(search_, {x0, y, x0 + std::min(scale(320), colW), y + scale(24)});
@@ -409,7 +599,11 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
         for (size_t i = 0; i < rows_.size(); ++i) {
             const Row rw = rows_[i];
             if (!rw.r.contains(e.pt)) continue;
-            if (rw.play.contains(e.pt)) {
+            if (rw.kind >= 3) {  // a music track or a dot image of the project
+                if (rw.kind == 3 && rw.play.contains(e.pt)) togglePlayTrack(rw.name);
+                else if (rw.over && rw.last.contains(e.pt)) removeMedia(rw.name);
+                else selected_ = rw.name, invalidate();
+            } else if (rw.play.contains(e.pt)) {
                 togglePlay(rw.name);
             } else if (rw.over && rw.canAdd && rw.add.contains(e.pt)) {
                 addReference(rw.name);
@@ -431,9 +625,15 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
     }
     case MouseKind::DoubleClick: {  // a sound's row (not its Play button): the sound plays; Rename is its button
         const Row* rw = rowAt(e.pt);
+        if (rw && rw->kind == 4) {  // a dot image: rename it (it has nothing to play)
+            const std::string key = rw->name;
+            renameMedia(key);
+            return true;
+        }
         if (rw && e.pt.x > rw->r.left + scale(8 + stardraft::kit::kIconBox)) {
             const std::string name = rw->name;
-            togglePlay(name);
+            if (rw->kind == 3) togglePlayTrack(name);
+            else togglePlay(name);
             return true;
         }
         return false;
@@ -443,14 +643,38 @@ bool FilesPage::mouse(const draw::MouseEvent& e) {
 }
 
 bool FilesPage::key(const draw::KeyEvent& e) {
-    if (!e.down || e.key != draw::Key::Space || selected_.empty()) return false;
-    if (typing() || importBtn_.hasFocus() || renameBtn_.hasFocus()) return false;  // the field takes the space; a button its own press
-    togglePlay(selected_);  // Space: the selected sound plays, or stops
+    if (!e.down || selected_.empty() || typing()) return false;
+    bool track = false;
+    size_t at = 0;
+    const bool media = mediaItem(selected_, track, at);
+    if (media && e.key == draw::Key::F2) {  // F2: rename the selected music track or dot image
+        const std::string key = selected_;
+        renameMedia(key);
+        return true;
+    }
+    if (media && e.key == draw::Key::Delete) {  // Del: remove it (Undo puts it back)
+        const std::string key = selected_;
+        removeMedia(key);
+        return true;
+    }
+    if (e.key != draw::Key::Space) return false;
+    for (stardraft::kit::Button* b : {&importBtn_, &renameBtn_, &addMusicBtn_, &renameMusicBtn_, &addDotBtn_, &renameDotBtn_})
+        if (b->hasFocus()) return false;  // a button takes its own press
+    if (media && !track) return false;
+    if (media) togglePlayTrack(selected_);
+    else togglePlay(selected_);  // Space: the selected sound plays, or stops
     return true;
 }
 
 std::wstring FilesPage::tip(draw::Point pt) {
     for (const auto& rw : rows_) {
+        if (rw.kind >= 3) {  // the project's music tracks and dot images
+            if (rw.missing && rw.kindCell.contains(pt)) return L"The project lists this file, but the file is not in the project folder";
+            if (rw.kind == 3 && rw.play.contains(pt)) return rw.playing ? L"Stop" : L"Play";
+            if (rw.over && rw.last.contains(pt)) return rw.kind == 3 ? L"Remove the music track (Del)" : L"Remove the dot image (Del)";
+            if (rw.kind == 4 && rw.preview.contains(pt)) return L"The picture in EUD Editor 3's dot colors. White is the background: the drawing has no unit there.";
+            continue;
+        }
         if (rw.missing && rw.kindCell.contains(pt)) return L"The map names this sound, but neither the map nor the game has the file";
         if (rw.r.contains(pt) && rw.play.contains(pt)) return rw.playing ? L"Stop" : L"Play";
         if (rw.over && rw.last.contains(pt)) {

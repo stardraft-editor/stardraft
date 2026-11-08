@@ -4,6 +4,7 @@
 #include "stardraft/dat_extras.h"
 #include "file_write.h"
 #include "json.h"
+#include "stardraft/media.h"
 #include "stardraft/msqc.h"
 
 #include <algorithm>
@@ -127,6 +128,8 @@ std::map<std::string, TriggerType> makeTypes() {
     add("Text", "text", TriggerPicker::Text, {}, "Text shown in the game.");
     add("Code", "epScript", TriggerPicker::Code);
     add("Sound", "sound file", TriggerPicker::Sound, {}, "A sound file stored in the map.");
+    add("MusicTrack", "music track", TriggerPicker::MusicTrack, {}, "A music track of the project (Assets > Music).");
+    add("DotImage", "dot image", TriggerPicker::DotImage, {}, "A dot image of the project (Assets > Dot images).");
     add("Switch", "switch", TriggerPicker::Switch, {}, "One of the 256 switches.");
     add("Location", "location", TriggerPicker::Location, {}, "One of the map's locations.");
     add("UnitType", "unit type", TriggerPicker::UnitType, {}, "A kind of unit (Terran Marine), not one unit.");
@@ -279,6 +282,8 @@ std::string triggerTypeDefault(const std::string& name) {
     case TriggerPicker::Text:
     case TriggerPicker::Code:
     case TriggerPicker::Sound:
+    case TriggerPicker::MusicTrack:
+    case TriggerPicker::DotImage:
     case TriggerPicker::Trigger:
     case TriggerPicker::Variable: return "";
     default: return "0";
@@ -1488,6 +1493,8 @@ struct Gen {
     std::map<std::string, int> chatPatterns;  // chatEvent's patterns (^start.*middle.*end$), and the number each sets (R51)
     bool chatLine = false;                     // the chat line itself is read (the number after a text): chatEvent's pointer
     bool music = false;                        // Play music: the music's player in afterTriggerExec
+    bool musicTracks = false;                  // Play music track and the others: generated/sdmusic.eps (media.h)
+    bool dotImages = false;                    // Draw dot image: generated/sddots.eps
     int chatWords = 0, musics = 0;
     int shares = 0;                    // shared values (MSQC sends them): msqc_share<n>_...
     std::string perCycle;              // code for afterTriggerExec, every cycle
@@ -1730,6 +1737,18 @@ struct Gen {
             else if (map.known && std::find(map.sounds.begin(), map.sounds.end(), v) == map.sounds.end())
                 issue(TriggerIssue::Level::Warning, &c, i, "The map has no sound " + v);
             return quote(v);
+        case TriggerPicker::MusicTrack:
+        case TriggerPicker::DotImage: {  // the item's place in the project's list (the generated modules list them in that order)
+            const bool track = t->picker == TriggerPicker::MusicTrack;
+            const std::vector<std::string>& names = track ? map.musicTracks : map.dotImages;
+            const auto it = std::find(names.begin(), names.end(), v);
+            if (v.empty()) issue(TriggerIssue::Level::Error, &c, i, track ? "Select a music track" : "Select a dot image");
+            else if (it == names.end())
+                issue(TriggerIssue::Level::Error, &c, i,
+                      std::string(track ? "The project has no music track \"" : "The project has no dot image \"") + v + "\". Add it in the Assets workspace");
+            else return std::to_string(it - names.begin());
+            return "0";
+        }
         case TriggerPicker::Trigger: {
             const auto it = definitions.find(v);
             if (v.empty()) issue(TriggerIssue::Level::Error, &c, i, "Select a trigger");
@@ -2246,6 +2265,25 @@ struct Gen {
                 globals += "var sd_bgm = 0;\nvar sd_bgmNext = 0;\nvar sd_bgmFor = 0;\nvar sd_bgmLen = 0;\n";
             }
             return "sd_bgm = 0;" + tag + "\n";
+        }
+        // The project's music tracks (media.h: generated/sdmusic.eps): the players' values change on every computer; each
+        // computer plays only its own player's track, so the blocks are local (they change only what a player hears).
+        if (id == "act.trackplay" || id == "act.trackstop" || id == "act.trackpause" || id == "act.trackresume") {
+            musicTracks = true;
+            if (map.musicTracks.empty() && id != "act.trackplay")  // (Build makes the player only for a project with tracks)
+                issue(TriggerIssue::Level::Error, &c, -1, "The project has no music tracks. Add one in the Assets workspace, or remove this block");
+            const std::string mask = all ? "0xFF" : "(1 << getcurpl())";
+            if (id == "act.trackplay") {
+                const std::string n = arg(c, *d, "track");
+                return "sd_music.sd_musicPlay(" + n + ", " + ee3SoundIndex(std::atoi(n.c_str()), true) + ", " + mask + ");" + tag + "\n";
+            }
+            if (id == "act.trackstop") return "sd_music.sd_musicStop(" + mask + ");" + tag + "\n";
+            return "sd_music.sd_musicPause(" + mask + ", " + (id == "act.trackresume" ? "1" : "0") + ");" + tag + "\n";
+        }
+        if (id == "act.dotdraw") {  // the dots are units: every computer makes them (media.h: generated/sddots.eps)
+            dotImages = true;
+            return "sd_dots.sd_dotDraw(" + arg(c, *d, "image") + ", " + arg(c, *d, "unit") + ", " + arg(c, *d, "player") + ", " + arg(c, *d, "where") +
+                   ", " + arg(c, *d, "px") + ");" + tag + "\n";
         }
         if (id == "act.scrolllock") {  // the scroll speeds of this computer (each computer keeps its own copy)
             helpers.insert("scroll");
@@ -3308,6 +3346,12 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
                 for (std::string n; in >> n;) imports += "import .sdlib.f_" + n + ";\n";  // a function of the file next to this one (epScript's name: f_ + its name)
             }
         if (!imports.empty()) out += "// Helpers (generated/sdlib.eps)\n" + imports + "\n";
+        if (g.musicTracks || g.dotImages) {  // the project's music tracks and dot images (Assets): Build makes their modules
+            out += "// Music tracks and dot images (the Assets workspace; generated/sdmusic.eps, generated/sddots.eps)\n";
+            if (g.musicTracks) out += "import .sdmusic as sd_music;\n";
+            if (g.dotImages) out += "import .sddots as sd_dots;\n";
+            out += "\n";
+        }
     }
     if (!constDecls.empty()) out += "// Constants\n" + constDecls + "\n";
     if (!decls.empty()) out += "// Variables\n" + decls + "\n";
@@ -3348,9 +3392,10 @@ std::string TriggerSet::generate(const TriggerMapInfo& map, std::vector<TriggerI
     if (!picked.empty()) out += "    foreach (cu : EUDLoopCUnit()) {\n" + picked + "    }\n";
     if (!textStarts.empty())  // StringBuffer changes only the current player's copy: as each player, on their own computer
         out += "    const sd_cp = getcurpl();\n    setcurpl(getuserplayerid());\n" + textStarts + "    setcurpl(sd_cp);\n";
-    out += unitStarts + calls[1] + "}\n\n";
+    out += std::string(g.musicTracks ? "    sd_music.sd_musicLoad();\n" : "") + unitStarts + calls[1] + "}\n\n";
     const bool mouse = (functions + calls[1] + calls[2]).find("msqc_Mouse") != std::string::npos;
-    out += "function afterTriggerExec() {\n" + std::string(mouse ? "    msqc_keepMouse();\n" : "") + g.perCycle + calls[2] + "}\n";
+    out += "function afterTriggerExec() {\n" + std::string(mouse ? "    msqc_keepMouse();\n" : "") + g.perCycle +
+           (g.musicTracks ? "    sd_music.sd_musicCycle();\n" : "") + calls[2] + "}\n";
     std::string code = stripMarks(out, g.marks, lines);
     unwrapNameCalls(code);
     return code;

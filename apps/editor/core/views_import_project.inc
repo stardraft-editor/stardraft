@@ -247,6 +247,7 @@ private:
         if (id == "requirements") return L"Requirements";
         if (id == "looks") return L"Status panels and wireframes";
         if (id == "scripts") return L"Scripts";
+        if (id == "media") return L"Music and dot images";
         if (id == "generated") return kind == "e2s" ? L"Code that only EUD Editor 2 makes" : L"Code that only EUD Editor 3 makes";
         if (id == "files") return L"Other files";
         if (id == "plugins") return L"euddraft plugins";
@@ -262,6 +263,7 @@ private:
         if (id == "looks") return UiIcon::DatPortraits;
         if (id == "scripts" || id == "generated") return UiIcon::Code;
         if (id == "files") return UiIcon::Folder;
+        if (id == "media") return UiIcon::Assets;
         if (id == "plugins") return UiIcon::Build;
         if (id == "labels") return UiIcon::Tag;
         if (id == "settings") return UiIcon::Settings;
@@ -288,6 +290,14 @@ private:
         if (p.id == "scripts")
             return p.count == 1 ? importFmt(tr(L"1 file: %s"), {joined(4)}) : importFmt(tr(L"%s files, in their folders: %s"), {importNum(p.count), joined(4)});
         if (p.id == "plugins") return joined(8);
+        if (p.id == "media") {  // the music tracks, then the dot images (the details: "music: <name>", "dot image: <name>")
+            const int tracks = int(std::count_if(p.details.begin(), p.details.end(), [](const std::string& d) { return d.rfind("music: ", 0) == 0; }));
+            const int dots = int(p.details.size()) - tracks;
+            std::wstring s;
+            if (tracks) s = importFmt(tr(tracks == 1 ? L"1 music track" : L"%s music tracks"), {importNum(tracks)});
+            if (dots) s += (s.empty() ? L"" : L", ") + importFmt(tr(dots == 1 ? L"1 dot image" : L"%s dot images"), {importNum(dots)});
+            return s + tr(L", in the Assets workspace");
+        }
         if (p.id == "labels") return importFmt(tr(p.count == 1 ? L"1 note, kept in notes\\EUD Editor 3 notes.txt" : L"%s notes, kept in notes\\EUD Editor 3 notes.txt"), {importNum(p.count)});
         if (p.id == "generated" || p.id == "settings" || p.id == "unsupported") {  // (sentences of the library: each on its own)
             std::wstring s;

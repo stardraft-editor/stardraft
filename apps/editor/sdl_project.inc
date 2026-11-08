@@ -78,6 +78,13 @@ bool sdlProjectCommand(int id) {
         if (gRoot) projectImportWizard(*gRoot);
         return true;
     case ID_PROJ_ADDSCRIPT: addProjectScript(); return true;
+    case ID_PROJ_ADDMUSIC:  // the Assets workspace's Music and Dot images (core/views_files.inc), then the file dialog
+    case ID_PROJ_ADDDOTS:
+        if (!activeProject()) return true;
+        setWorkspace(Workspace::Files);
+        if (id == ID_PROJ_ADDMUSIC) gFilesHost.addMusic();
+        else gFilesHost.addDotImages();
+        return true;
     case ID_PROJ_FOLDER:
         if (EudProject* pr = activeProject()) shellOpenFolder(pr->folder());
         return true;

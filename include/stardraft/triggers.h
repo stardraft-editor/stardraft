@@ -25,6 +25,8 @@ enum class TriggerPicker {
     Location,    // one of the map's locations
     Switch,      // 1-256
     Sound,       // a sound file in the map
+    MusicTrack,  // a music track of the project (Assets > Music), by name
+    DotImage,    // a dot image of the project (Assets > Dot images), by name
     Variable,    // a variable of a kind (an assignment's target, a flag)
     Code,        // epScript, typed
     Property,    // a property of a game structure (a unit's hit points, a weapon's cooldown): TriggerType::of
@@ -201,6 +203,8 @@ struct TriggerNode {
 struct TriggerMapInfo {
     std::vector<std::string> locations;  // names of the used locations (Anywhere included)
     std::vector<std::string> sounds;     // sound files in the map archive
+    std::vector<std::string> musicTracks;  // the project's music tracks and dot images, by name, in their order (media.h)
+    std::vector<std::string> dotImages;
     struct PlacedUnit {
         uint32_t serial = 0;
         int type = 0, owner = 0, x = 0, y = 0;

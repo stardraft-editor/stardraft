@@ -53,7 +53,7 @@ std::filesystem::path triggersFile(const EudProject& pr) { return stardraft::tri
 TriggerMapInfo trigMapInfo() {
     AppState& st = appState();
     if (!st.ed || !st.ed->isOpen()) return TriggerMapInfo{};
-    return stardraft::triggerMapInfo(*st.ed);
+    return stardraft::triggerMapInfo(*st.ed, projectMedia());  // (with the project's music tracks and dot images)
 }
 
 void trigRecheck() { gTE.issues = gTE.set.check(trigMapInfo()); }
@@ -722,4 +722,39 @@ void trigCancelUnitPick() {
     gUnitPick.active = false;
     setWorkspace(Workspace::Triggers);
     trigRefreshTree(gUnitPick.node);
+}
+
+// A music track or a dot image got a new name in the Assets workspace (core/media_model.inc): the blocks that name it
+// by its old name get the new one. The triggers of the open project change (a step of the Triggers workspace), else
+// its triggers.json.
+void trigRenameMedia(bool track, const std::string& from, const std::string& to) {
+    EudProject* pr = activeProject();
+    if (!pr) return;
+    const char* type = track ? "MusicTrack" : "DotImage";
+    int changed = 0;
+    std::function<void(std::vector<TriggerCall>&)> list;
+    std::function<void(TriggerCall&)> call = [&](TriggerCall& c) {
+        if (const TriggerDef* d = TriggerDef::find(c.def))
+            for (size_t i = 0; i < d->params.size() && i < c.args.size(); ++i)
+                if (d->params[i].type == type && c.args[i] == from) c.args[i] = to, ++changed;
+        for (auto& l : c.lists) list(l);
+        for (auto& l : c.argBlocks) list(l);
+    };
+    list = [&](std::vector<TriggerCall>& l) {
+        for (TriggerCall& c : l) call(c);
+    };
+    std::function<void(TriggerNode&)> node = [&](TriggerNode& n) {
+        list(n.conditions), list(n.actions);
+        for (TriggerNode& k : n.children) node(k);
+    };
+    if (gTE.project == pr && !gTE.set.loadFailed) {
+        for (TriggerNode& r : gTE.set.roots) node(r);
+        if (changed) trigSave();
+        return;
+    }
+    TriggerSet set;
+    std::string err;
+    if (!std::filesystem::exists(triggersFile(*pr)) || !set.load(triggersFile(*pr), err)) return;
+    for (TriggerNode& r : set.roots) node(r);
+    if (changed && !set.save(triggersFile(*pr), err)) shellLogError(widen(err));
 }

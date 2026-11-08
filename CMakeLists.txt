@@ -59,6 +59,43 @@ else()
     target_compile_options(vpx PRIVATE -w)
 endif()
 
+# libogg and libvorbis (BSD-3-Clause): the Ogg Vorbis encoder for music tracks that are WAV or MP3 files (src/media.cpp).
+# Built from their C sources only (SOURCE_SUBDIR: their own CMakeLists are not used); ogg's config_types.h, which its
+# configure step makes, is third_party/ogg/ogg/config_types.h.
+FetchContent_Declare(libogg
+    URL https://github.com/xiph/ogg/archive/refs/tags/v1.3.5.tar.gz
+    URL_HASH SHA256=f6f1b04cfa4e98b70ffe775d5e302d9c6b98541f05159af6de2d6617817ed7d6
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR none)
+FetchContent_Declare(libvorbis
+    URL https://github.com/xiph/vorbis/archive/refs/tags/v1.3.7.tar.gz
+    URL_HASH SHA256=270c76933d0934e42c5ee0a54a36280e2d87af1de3cc3e584806357e237afd13
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR none)
+# dr_wav and dr_mp3 (public domain or MIT-0): the WAV and MP3 decoders for those tracks (single headers).
+FetchContent_Declare(dr_libs
+    URL https://github.com/mackron/dr_libs/archive/35b5c392cc15456736c440a68dbe073178bbffe0.tar.gz
+    URL_HASH SHA256=d46fa0a831a65b16fcf2b169e6b739c66536437ee78049893788582eb93e39de
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR none)
+FetchContent_MakeAvailable(libogg libvorbis dr_libs)
+add_library(ogg_vorbis STATIC ${libogg_SOURCE_DIR}/src/bitwise.c ${libogg_SOURCE_DIR}/src/framing.c
+    ${libvorbis_SOURCE_DIR}/lib/analysis.c ${libvorbis_SOURCE_DIR}/lib/bitrate.c ${libvorbis_SOURCE_DIR}/lib/block.c
+    ${libvorbis_SOURCE_DIR}/lib/codebook.c ${libvorbis_SOURCE_DIR}/lib/envelope.c ${libvorbis_SOURCE_DIR}/lib/floor0.c
+    ${libvorbis_SOURCE_DIR}/lib/floor1.c ${libvorbis_SOURCE_DIR}/lib/info.c ${libvorbis_SOURCE_DIR}/lib/lookup.c
+    ${libvorbis_SOURCE_DIR}/lib/lpc.c ${libvorbis_SOURCE_DIR}/lib/lsp.c ${libvorbis_SOURCE_DIR}/lib/mapping0.c
+    ${libvorbis_SOURCE_DIR}/lib/mdct.c ${libvorbis_SOURCE_DIR}/lib/psy.c ${libvorbis_SOURCE_DIR}/lib/registry.c
+    ${libvorbis_SOURCE_DIR}/lib/res0.c ${libvorbis_SOURCE_DIR}/lib/sharedbook.c ${libvorbis_SOURCE_DIR}/lib/smallft.c
+    ${libvorbis_SOURCE_DIR}/lib/synthesis.c ${libvorbis_SOURCE_DIR}/lib/vorbisenc.c ${libvorbis_SOURCE_DIR}/lib/window.c)
+target_include_directories(ogg_vorbis PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/ogg ${libogg_SOURCE_DIR}/include ${libvorbis_SOURCE_DIR}/include
+                           PRIVATE ${libvorbis_SOURCE_DIR}/lib)
+if(MSVC)
+    target_compile_options(ogg_vorbis PRIVATE /W0)
+else()
+    target_compile_options(ogg_vorbis PRIVATE -w)
+    target_link_libraries(ogg_vorbis PRIVATE m)
+endif()
+
 # The help pages (docs/help/*.md) in the program: tools/help_build.py makes generated/help_pages.cpp from them (and
 # checks their links: a broken link stops the build). With no Python the program has no pages (Help > Documentation
 # then opens the web pages).
@@ -125,6 +162,7 @@ add_library(stardraft
     src/import_ee3_blocks.cpp
     src/import_ee3_macros.cpp
     src/import_ee3_media.cpp
+    src/media.cpp
     src/terrain_gen.cpp
     src/terrain_stamp.cpp
     src/passages.cpp
@@ -134,12 +172,12 @@ add_library(stardraft
     src/settings.cpp
     src/commands.cpp
     src/process.cpp)
-target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR})
+target_include_directories(stardraft PUBLIC include PRIVATE src ${stb_SOURCE_DIR} ${dr_libs_SOURCE_DIR})
 # IsomTerrain (third_party/IsomTerrain, MIT): its IsomApi.h, unchanged, is the isometric terrain core
 # (src/isom_core.cpp); its includes find StarDraft's stand-ins for Chkdraft's headers beside it.
 target_include_directories(stardraft PRIVATE third_party/IsomTerrain/IsomTerrain)
 find_package(Threads REQUIRED)  # std::async; older glibc needs -pthread for it
-target_link_libraries(stardraft PRIVATE storm casc_static vpx PUBLIC Threads::Threads)
+target_link_libraries(stardraft PRIVATE storm casc_static vpx ogg_vorbis PUBLIC Threads::Threads)
 if(WIN32)  # wide-char paths, as StormLib and CascLib are built on Windows (TCHAR = wchar_t)
     target_compile_definitions(stardraft PRIVATE UNICODE _UNICODE)
 endif()
@@ -185,6 +223,9 @@ add_executable(import_ee3_macros_test tools/tests/import_ee3_macros_test.cpp)  #
 target_link_libraries(import_ee3_macros_test PRIVATE stardraft)
 add_executable(import_ee3_media_test tools/tests/import_ee3_media_test.cpp)  # EUD Editor 3's dot images and BGM player
 target_link_libraries(import_ee3_media_test PRIVATE stardraft)
+add_executable(media_test tools/tests/media_test.cpp)  # the project's music tracks and dot images (media.h)
+target_link_libraries(media_test PRIVATE stardraft)
+target_compile_definitions(media_test PRIVATE STARDRAFT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_executable(cmbw_test tools/plugins/cmbw/tests/cmbw_test.cpp)  # Cosmonarchy maps: learned tile terrains, the brush, CRIG words, races
 target_link_libraries(cmbw_test PRIVATE stardraft)
 

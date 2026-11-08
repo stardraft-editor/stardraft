@@ -46,7 +46,7 @@ std::vector<std::unique_ptr<DatTable>> loadProjectTables(const GameData& data, c
 }
 
 // The triggers as the build has them: the editor's (when given and loaded), else the file's (`report.triggersFromFile`).
-bool writeTriggerCode(EudProject& pr, const Editor& ed, const TriggerSet* inMemory, BuildReport& report, std::string& err) {
+bool writeTriggerCode(EudProject& pr, const Editor& ed, const ProjectMedia& media, const TriggerSet* inMemory, BuildReport& report, std::string& err) {
     // The set lives in the report: the code's lines point into its nodes, so it is generated from here and never copied
     // afterwards (the editor's code map reads those pointers, with this set).
     TriggerSet& set = report.triggerSet;
@@ -75,7 +75,7 @@ bool writeTriggerCode(EudProject& pr, const Editor& ed, const TriggerSet* inMemo
     if (!any) return pr.writeGeneratedScript("triggers.eps", "", err) && setInputs("");
     std::vector<TriggerIssue> issues;
     std::vector<TriggerCodeLine> lines;
-    const std::string code = set.generate(triggerMapInfo(ed), issues, TriggerBuildOptions{pr.debugBuild()}, &lines);
+    const std::string code = set.generate(triggerMapInfo(ed, media), issues, TriggerBuildOptions{pr.debugBuild()}, &lines);
     report.codeGenerated = true;
     report.triggerLines = lines;  // (the caller keeps the code map: a euddraft error in a line selects its block)
     int errors = 0;
@@ -220,6 +220,13 @@ TriggerMapInfo triggerMapInfo(const Editor& ed) {
     return m;
 }
 
+TriggerMapInfo triggerMapInfo(const Editor& ed, const ProjectMedia& media) {
+    TriggerMapInfo m = triggerMapInfo(ed);
+    for (const MusicTrack& t : media.tracks) m.musicTracks.push_back(t.name);
+    for (const DotImage& d : media.images) m.dotImages.push_back(d.name);
+    return m;
+}
+
 std::filesystem::path triggersFileOf(const EudProject& pr) { return pr.folder() / "triggers.json"; }
 
 int freeUnitProperties(const EudProject& pr, const Editor& ed) {
@@ -274,7 +281,9 @@ std::vector<uint16_t> projectRemakeUnitTypes(const GameData& data, const BuildOp
 
 bool prepareBuild(EudProject& pr, Editor& ed, const GameData& data, const BuildOpen& open, BuildReport& report, std::string& error) {
     report = BuildReport{};
-    if (!writeTriggerCode(pr, ed, open.triggers, report, error)) return report.failedStep = "triggers", false;
+    ProjectMedia media;
+    if (!media.load(mediaFileOf(pr), error) || !writeMediaCode(pr, media, report.media, error)) return report.failedStep = "media", false;
+    if (!writeTriggerCode(pr, ed, media, open.triggers, report, error)) return report.failedStep = "triggers", false;
     if (!writeDatEdits(pr, data, open, report, error)) return report.failedStep = "dat", false;
     if (!writeRemakeCode(pr, ed, data, open, report, error)) return report.failedStep = "remake", false;
     if ((ed.modified() || ed.path() != pr.inputMap() || !ed.slotsSaved()) && !ed.save(pr.inputMap(), error)) return report.failedStep = "save", false;

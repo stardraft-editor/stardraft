@@ -69,6 +69,8 @@ bool projectOnlyCommand(int id) {
     case ID_PROJ_COMPILE:
     case ID_PROJ_FOLDER:
     case ID_PROJ_ADDSCRIPT:
+    case ID_PROJ_ADDMUSIC:
+    case ID_PROJ_ADDDOTS:
     case ID_PROJ_SETTINGS:
     case ID_WS_DATA:
     case ID_WS_TRIGGERS:
@@ -92,7 +94,7 @@ bool commandInMode(int id) {
 }
 
 // The menu commands that updateMenus enables or grays by mode. A classic-only command goes here too.
-constexpr int kModeCommands[] = {ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_SETTINGS,
+constexpr int kModeCommands[] = {ID_PROJ_COMPILE, ID_PROJ_FOLDER, ID_PROJ_ADDSCRIPT, ID_PROJ_ADDMUSIC, ID_PROJ_ADDDOTS, ID_PROJ_SETTINGS,
                                  ID_WS_DATA,      ID_WS_TRIGGERS, ID_WS_PROJECT,     ID_VIEW_TRIGCODE, ID_DATA_TABLE,   ID_DATA_ENTRY,  ID_SCEN_CLASSIC, ID_SCEN_CLASSICTRIG};
 // Is the command enabled in a tab of that mode (the self-test checks the menus with it)?
 bool commandForMode(int id, bool project) { return classicOnlyCommand(id) ? !project : !projectOnlyCommand(id) || project; }

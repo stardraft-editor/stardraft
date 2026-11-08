@@ -273,6 +273,21 @@ void trigEditParam(TrigParamHit h) {
         got = trigPopList(L"Search map sounds", items, value, at, picked);
         break;
     }
+    case TriggerPicker::MusicTrack:
+    case TriggerPicker::DotImage: {  // the project's music tracks or dot images (the Assets workspace), by name
+        const bool track = type->picker == TriggerPicker::MusicTrack;
+        std::vector<ListPickItem> items;
+        if (track)
+            for (const auto& m : projectMedia().tracks) items.push_back({widen(m.name), L"", m.name});
+        else
+            for (const auto& m : projectMedia().images) items.push_back({widen(m.name), L"", m.name});
+        if (items.empty()) {
+            setMessage(track ? L"The project has no music tracks. Add them in the Assets workspace." : L"The project has no dot images. Add them in the Assets workspace.");
+            return;
+        }
+        got = trigPopList(track ? L"Search music tracks" : L"Search dot images", items, value, at, picked);
+        break;
+    }
     case TriggerPicker::Variable: {
         auto items = trigVariableItems(typeName);
         if (items.empty()) {

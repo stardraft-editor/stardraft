@@ -630,12 +630,14 @@ int mapMenuCheck(int id) {
 // (Triggers, Briefing, Data and Map data paste their own copies), and the drag back of units when units go anywhere.
 bool trigCanUndo(bool redo);  // core/views_triggers_pane.inc
 bool dataCanUndo(bool redo);  // core/data_model.inc
+bool mediaCanUndo(bool redo);  // core/media_model.inc
 bool mapMenuGrayed(int id) {
     const AppState& app = shellState();
     if (id == ID_EDIT_UNDO || id == ID_EDIT_REDO) {  // a step to undo (or redo) in the workspace that shows
         const bool redo = id == ID_EDIT_REDO;
         if (gWorkspace == Workspace::Triggers) return !trigCanUndo(redo);
         if (gWorkspace == Workspace::Data) return !dataCanUndo(redo);
+        if (gWorkspace == Workspace::Files && mediaCanUndo(redo)) return false;  // (the music tracks' and dot images' steps)
         return !(app.ed && app.ed->isOpen() && (redo ? app.ed->canRedo() : app.ed->canUndo()));
     }
     if (id == ID_EDIT_HISTORY) return mapMenuGrayed(ID_EDIT_UNDO) && mapMenuGrayed(ID_EDIT_REDO);  // (no step either way)
