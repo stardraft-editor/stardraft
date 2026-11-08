@@ -48,9 +48,15 @@ public:
             const MapLayer* layer = r >= 0 ? &s.stack.layers[size_t(r)] : &s.stack.background;
             const draw::Rect eye = eyeRect(y), lock = lockRect(y);
             kitpaint::drawIconFace(c, eye, layer->visible ? UiIcon::Show : UiIcon::ShowOff, kitpaint::Tone::Quiet, false, over && eye.contains(pointer_));
-            const int nameLeft = eye.right + scale(6), nameRight = lock.left - scale(4);
+            int nameLeft = eye.right + scale(6);
+            const int nameRight = lock.left - scale(4);
+            if (layer->linkedTo) {  // (a linked duplicate: the link before its name, and its name in italics' place: dim)
+                kitpaint::drawIconFace(c, {nameLeft - scale(2), y + scale(5), nameLeft + scale(16), y + scale(23)}, UiIcon::Link, kitpaint::Tone::Quiet, false, false);
+                nameLeft += scale(18);
+            }
             const std::wstring name = r >= 0 ? widen(layer->name) : tr(L"Background");
-            c.text({nameLeft, y, nameRight, y + rowH}, name, !layer->visible ? kDim : r == s.active ? kOnText : kText, draw::kMiddle | draw::kEllipsis);
+            c.text({nameLeft, y, nameRight, y + rowH}, name, !layer->visible || layer->linkedTo ? kDim : r == s.active ? kOnText : kText,
+                   draw::kMiddle | draw::kEllipsis);
             if (layer->locked || over)
                 kitpaint::drawIconFace(c, lock, layer->locked ? UiIcon::Lock : UiIcon::Unlock, layer->locked ? kitpaint::Tone::Primary : kitpaint::Tone::Quiet, false, over && lock.contains(pointer_));
             // The grip: the row can be dragged. Under the mouse, or while it is dragged.
@@ -150,6 +156,12 @@ public:
                 if (eyeRect(rw.r.top).contains(p)) return L"Show or hide (Ctrl+Alt+H). With nothing showing, the map is black";
                 if (lockRect(rw.r.top).contains(p)) return L"Lock or unlock: a locked layer does not change (Ctrl+Alt+L)";
                 if (rw.index >= 0 && gripRect(rw.r.top).contains(p)) return L"Drag to move the layer in the list";
+                if (rw.index >= 0 && rw.index < int(gMapLayers.stack.layers.size()))
+                    if (const MapLayer& l = gMapLayers.stack.layers[size_t(rw.index)]; l.linkedTo)
+                        for (const MapLayer& o : gMapLayers.stack.layers)
+                            if (o.id == l.linkedTo)
+                                return std::wstring(tr(L"Linked duplicate of ")) + L"\"" + widen(o.name) + L"\"" +
+                                       tr(L": it follows the original's changes. Edit the original, or Unlink this layer");
             }
         return {};
     }
@@ -194,6 +206,8 @@ private:
         if (index >= 0) {
             add(say(L"Rename\x2026") + L"\tF2", [index] { mapLayersRename(index); });
             add(say(L"Duplicate") + L"\tCtrl+D", [index] { mapLayersDuplicate(index); });
+            add(say(L"Duplicate linked"), [index] { mapLayersDuplicateLinked(index); });
+            if (s.stack.layers[size_t(index)].linkedTo) add(say(L"Unlink"), [index] { mapLayersUnlink(index); });
             add(say(L"Delete") + L"\tDel", [] { mapLayersDelete(); });
         }
         if (index >= -1) add(say((index >= 0 ? s.stack.layers[size_t(index)] : s.stack.background).visible ? L"Hide" : L"Show") + L"\tCtrl+Alt+H", [index] { mapLayersToggleVisible(index); });

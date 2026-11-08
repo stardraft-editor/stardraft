@@ -3247,6 +3247,15 @@ constexpr UiText kRows[] = {
     {L"Opacity of the selected layer in this view: what is under it shows through. The map does not change", L"Opacit\u00E9 du calque s\u00E9lectionn\u00E9 dans cette vue : ce qui est dessous se voit \u00E0 travers. La carte ne change pas"},
     {L"Map layers (experimental)", L"Calques de la carte (exp\u00E9rimental)"},
     {L"Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n", L"Les calques de la carte sont exp\u00E9rimentaux. Gardez une copie de votre carte et signalez ce qui ne fonctionne pas (Envoyer un commentaire).\n\n"},
+    {L"Duplicate linked", L"Dupliquer li\u00E9"},
+    {L"Unlink", L"D\u00E9lier"},
+    {L"Linked duplicate: it follows the changes of the original. Move it with Move layer", L"Duplicata li\u00E9e : elle suit les modifications de l'original. D\u00E9placez-la avec D\u00E9placer le calque"},
+    {L"Unlinked: the layer is one of its own now", L"D\u00E9li\u00E9e : le calque est maintenant ind\u00E9pendant"},
+    {L"A linked duplicate follows its original: edit ", L"Une duplicata li\u00E9e suit son original : modifiez "},
+    {L"the original", L"l'original"},
+    {L", or Unlink this layer (right-click it in Map layers)", L", ou d\u00E9liez ce calque (clic droit dans Calques de la carte)"},
+    {L"Linked duplicate of ", L"Duplicata li\u00E9e de "},
+    {L": it follows the original's changes. Edit the original, or Unlink this layer", L" : elle suit les modifications de l'original. Modifiez l'original, ou d\u00E9liez ce calque"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

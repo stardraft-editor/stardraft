@@ -11,6 +11,7 @@ namespace stardraft {
 namespace {
 
 constexpr uint32_t kMagic = 0x3259414C;  // "LAY2"
+constexpr uint32_t kLinksMark = 0x4B4E494C;  // "LINK": the linked duplicates, after the layers
 
 struct Writer {
     Bytes& out;
@@ -189,6 +190,15 @@ Bytes LayerStack::serialize() const {
     writeLayer(w, background);
     w.u32(uint32_t(layers.size()));
     for (const MapLayer& l : layers) writeLayer(w, l);
+    // The links (after the layers: a file without them has none): each linked duplicate's index, original and place.
+    uint32_t links = 0;
+    for (const MapLayer& l : layers) links += l.linkedTo != 0;
+    if (links) {
+        w.u32(kLinksMark);
+        w.u32(links);
+        for (size_t i = 0; i < layers.size(); ++i)
+            if (layers[i].linkedTo) w.u32(uint32_t(i)), w.u32(layers[i].linkedTo), w.i32(layers[i].linkDx), w.i32(layers[i].linkDy);
+    }
     return out;
 }
 
@@ -203,6 +213,14 @@ bool LayerStack::parse(const Bytes& data, LayerStack& out) {
         MapLayer l;
         if (!readLayer(r, l)) return false;
         s.layers.push_back(std::move(l));
+    }
+    if (r.ok && r.in.size() - r.at >= 8 && r.u32() == kLinksMark) {
+        const uint32_t links = r.count(16);
+        for (uint32_t k = 0; r.ok && k < links; ++k) {
+            const uint32_t i = r.u32(), to = r.u32();
+            const int dx = r.i32(), dy = r.i32();
+            if (r.ok && i < s.layers.size()) s.layers[i].linkedTo = to, s.layers[i].linkDx = dx, s.layers[i].linkDy = dy;
+        }
     }
     if (!r.ok) return false;
     out = std::move(s);
@@ -261,6 +279,52 @@ void moveLayerContents(MapLayer& layer, int dx, int dy) {
     moveObjects(layer.units, px, py);
     moveObjects(layer.doodads, px, py);
     moveObjects(layer.sprites, px, py);
+}
+
+bool syncLinkedLayers(LayerStack& stack) {
+    bool any = false;
+    // (the duplicates' units: serials after all the others', the background's and the layers' of their own, so that no
+    // two units share one; made again each time, in the duplicates' order)
+    uint32_t next = 0;
+    const auto above = [&next](const MapLayer& l) {
+        for (const auto& o : l.units) next = std::max(next, o.item.serial + 1);
+    };
+    above(stack.background);
+    for (const MapLayer& l : stack.layers)
+        if (!l.linkedTo) above(l);
+    const auto find = [&](uint32_t id) -> const MapLayer* {
+        for (const MapLayer& l : stack.layers)
+            if (l.id == id) return &l;
+        return nullptr;
+    };
+    for (MapLayer& l : stack.layers) {
+        if (!l.linkedTo) continue;
+        const MapLayer* from = find(l.linkedTo);
+        for (int hops = 0; from && from->linkedTo && hops < 64; ++hops) {  // (a duplicate of a duplicate: of the first original)
+            l.linkDx += from->linkDx, l.linkDy += from->linkDy, l.linkedTo = from->linkedTo;
+            from = find(l.linkedTo);
+        }
+        if (!from || from == &l) {  // (the original is gone: a layer of its own)
+            l.linkedTo = 0, l.linkDx = l.linkDy = 0, any = true;
+            continue;
+        }
+        MapLayer copy = *from;
+        moveLayerContents(copy, l.linkDx, l.linkDy);
+        // (the units' serials: new ones; a link between two of the original's units: between their copies)
+        std::map<uint32_t, uint32_t> serials;
+        for (auto& o : copy.units) serials[o.item.serial] = next, o.item.serial = next++;
+        for (auto& o : copy.units)
+            if (o.item.relatedSerial) {
+                const auto it = serials.find(o.item.relatedSerial);
+                o.item.relatedSerial = it != serials.end() ? it->second : 0;
+            }
+        if (copy.corners != l.corners || copy.tiles != l.tiles || copy.units.size() != l.units.size() || copy.doodads.size() != l.doodads.size() ||
+            copy.sprites.size() != l.sprites.size())
+            any = true;
+        l.corners = std::move(copy.corners), l.tiles = std::move(copy.tiles);
+        l.units = std::move(copy.units), l.doodads = std::move(copy.doodads), l.sprites = std::move(copy.sprites);
+    }
+    return any;
 }
 
 void snapLayerMove(int px, int py, int& dx, int& dy) {

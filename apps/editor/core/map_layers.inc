@@ -129,6 +129,7 @@ static void layersRead(Editor& ed) {
 // The map from the Background and the layers.
 static void layersCompose(Editor& ed) {
     MapLayersState& s = gMapLayers;
+    syncLinkedLayers(s.stack);  // (the linked duplicates: their originals' contents, at their places)
     ed.composeLayers(s.base, s.stack, nullptr, false, s.ed == &ed ? &s.tileSection : nullptr, s.active);  // (the tiles as they were before this edit)
     shellState().terrainRev = 0;
     shellState().dirty = true;
@@ -196,6 +197,7 @@ static void layersFlattenForResize(Editor& ed) {
     if (s.resized.on && s.resized.w == ed.width() && s.resized.h == ed.height() && ed.era() == s.era) {
         s.resized.on = false;
         s.base = std::move(s.resized.base), s.stack = std::move(s.resized.stack);
+        syncLinkedLayers(s.stack);
         ed.composeLayers(s.base, s.stack);  // (no tiles to keep: the last ones are of the old places)
         shellState().terrainRev = 0;
         shellState().dirty = true;
@@ -211,12 +213,21 @@ static void layersFlattenForResize(Editor& ed) {
     setMessage(L"The map's size or tileset changed: the layers are flattened. Undo brings them back");
 }
 
+// What an edit on a linked duplicate says: edit its original, or unlink it.
+static std::wstring linkedRefusal(const MapLayer& l) {
+    std::wstring original;
+    for (const MapLayer& o : gMapLayers.stack.layers)
+        if (o.id == l.linkedTo) original = L"\"" + widen(o.name) + L"\"";
+    return std::wstring(tr(L"A linked duplicate follows its original: edit ")) + (original.empty() ? std::wstring(tr(L"the original")) : original) +
+           tr(L", or Unlink this layer (right-click it in Map layers)");
+}
+
 // The contents of the layers that are locked, to compare them.
 static Bytes layerLockedBytes(const LayerStack& stack) {
     LayerStack only;
     if (stack.background.locked) only.background = stack.background;
     for (const MapLayer& l : stack.layers)
-        if (l.locked) only.layers.push_back(l);
+        if (l.locked || l.linkedTo) only.layers.push_back(l);  // (a linked duplicate follows its original only)
     // (each object with its place in it, in one order: a move and a capture leave them differently)
     const auto even = [](auto& list, auto key) {
         for (auto& o : list) o.item.x = uint16_t(o.x), o.item.y = uint16_t(o.y), o.shown = false;
@@ -331,7 +342,7 @@ void mapLayersLiveStroke(AppState& app) {
     if (ed.revision() == s.revision) return;
     if (s.active >= int(s.stack.layers.size())) return;
     const MapLayer& active = s.active >= 0 ? s.stack.layers[size_t(s.active)] : s.stack.background;
-    if (active.locked || !active.visible) return;  // (its end refuses it)
+    if (active.locked || !active.visible || active.linkedTo) return;  // (its end refuses it)
     bool others = false;  // (they stay as they are on the map)
     for (int r = 0; r < int(s.stack.layers.size()); ++r) others = others || (r != s.active && s.stack.layers[size_t(r)].visible && !s.stack.layers[size_t(r)].corners.empty());
     if (!others) return;
@@ -424,6 +435,13 @@ static void layersCapture(Editor& ed, bool live) {
             return;
         }
     }
+    // A linked duplicate follows its original: an edit on it goes back.
+    if (s.active >= 0 && s.active < int(s.stack.layers.size()) && s.stack.layers[size_t(s.active)].linkedTo && !live &&
+        (!changed.empty() || !placed.empty())) {  // (its objects: layerLockedBytes below)
+        if (stepTaken) ed.refuseLastEdit();
+        setMessage(linkedRefusal(s.stack.layers[size_t(s.active)]));
+        return;
+    }
     // A locked layer does not change: the edit goes back.
     if (const MapLayer& activeLayer = s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background;
         !live && (activeLayer.locked || (s.active < 0 && !activeLayer.visible)) && (!changed.empty() || !placed.empty())) {
@@ -501,6 +519,8 @@ bool mapLayersOnLayer() { return gMapLayers.on && gMapLayers.active >= 0; }
 // Whether the active layer refuses an edit (locked or hidden); the message says so.
 bool mapLayersActiveRefuses() {
     const MapLayersState& s = gMapLayers;
+    if (s.on && s.active >= 0 && s.active < int(s.stack.layers.size()) && s.stack.layers[size_t(s.active)].linkedTo)
+        return setMessage(linkedRefusal(s.stack.layers[size_t(s.active)])), true;
     if (mapLayersActiveLocked()) return setMessage(L"The layer is locked: nothing changed"), true;
     if (!s.on) return false;
     const MapLayer& active = s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background;
@@ -642,7 +662,9 @@ bool mapLayersMoveTerrain(Editor& ed, const std::vector<std::pair<int, int>>& ce
 
 bool mapLayersActiveLocked() {
     const MapLayersState& s = gMapLayers;
-    return s.on && (s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background).locked;
+    // (a linked duplicate too: it follows its original only)
+    const MapLayer& l = s.active >= 0 && s.active < int(s.stack.layers.size()) ? s.stack.layers[size_t(s.active)] : s.stack.background;
+    return s.on && (l.locked || l.linkedTo);
 }
 
 void mapLayersFrame() {
@@ -740,6 +762,7 @@ void mapLayersDuplicate(int row) {
         copy.id = s.stack.nextId++;
         copy.name += " copy";
         copy.locked = false;
+        copy.linkedTo = 0, copy.linkDx = copy.linkDy = 0;  // (of a linked duplicate: a layer of its own, with what it shows)
         // (new serials, as a paste's; its links only inside the copy)
         uint32_t next = 1;
         const auto seen = [&next](const MapLayer& l) {
@@ -760,11 +783,44 @@ void mapLayersDuplicate(int row) {
     });
 }
 
+// A linked duplicate of the layer: over it in the list, at the same place (Move layer takes it elsewhere); it follows
+// the original's changes. Of a linked duplicate: one more of its original.
+void mapLayersDuplicateLinked(int row) {
+    layersEdit([row](Editor&) {
+        MapLayersState& s = gMapLayers;
+        if (row < 0 || row >= int(s.stack.layers.size())) return false;
+        const MapLayer& from = s.stack.layers[size_t(row)];
+        MapLayer copy;
+        copy.id = s.stack.nextId++;
+        copy.name = (from.name.size() > 7 && from.name.ends_with(" linked") ? from.name : from.name + " linked");
+        copy.linkedTo = from.linkedTo ? from.linkedTo : from.id;
+        copy.linkDx = from.linkedTo ? from.linkDx : 0, copy.linkDy = from.linkedTo ? from.linkDy : 0;
+        s.stack.layers.insert(s.stack.layers.begin() + row + 1, std::move(copy));
+        s.active = row + 1, s.picked = {row + 1};
+        s.opacity.erase(s.stack.layers[size_t(row + 1)].id);
+        setMessage(L"Linked duplicate: it follows the changes of the original. Move it with Move layer");
+        return true;  // (layersEdit makes the map again: its contents come from the original then)
+    });
+}
+
+// The linked duplicate becomes a layer of its own, with what it shows now.
+void mapLayersUnlink(int row) {
+    layersEdit([row](Editor&) {
+        MapLayersState& s = gMapLayers;
+        if (row < 0 || row >= int(s.stack.layers.size()) || !s.stack.layers[size_t(row)].linkedTo) return false;
+        MapLayer& l = s.stack.layers[size_t(row)];
+        l.linkedTo = 0, l.linkDx = l.linkDy = 0;
+        setMessage(L"Unlinked: the layer is one of its own now");
+        return true;
+    });
+}
+
 // The selection's tiles of the active layer become NULL (Delete in Terrain mode). False: not on a layer.
 bool mapLayersDeleteSelection(const std::vector<std::pair<int, int>>& tiles) {
     MapLayersState& s = gMapLayers;
     if (!s.on || s.active < 0 || s.active >= int(s.stack.layers.size()) || tiles.empty()) return false;
     if (s.stack.layers[size_t(s.active)].locked) return setMessage(L"The layer is locked: nothing changed"), true;
+    if (s.stack.layers[size_t(s.active)].linkedTo) return setMessage(linkedRefusal(s.stack.layers[size_t(s.active)])), true;
     layersEdit([&tiles](Editor&) {
         MapLayersState& m = gMapLayers;
         if (m.active < 0 || m.active >= int(m.stack.layers.size())) return false;
@@ -839,6 +895,11 @@ void mapLayersMerge() {
         for (int r : rows)
             if (s.stack.layers[size_t(r)].locked) return setMessage(L"A locked layer cannot be merged"), false;
         if ((intoBase && s.stack.background.locked)) return setMessage(L"A locked layer cannot be merged"), false;
+        for (int r : rows) {
+            s.stack.layers[size_t(r)].linkedTo = 0;  // (merged: a layer of its own, with what it showed)
+            for (MapLayer& d : s.stack.layers)  // (the duplicates of a merged layer: on their own, as they are)
+                if (d.linkedTo == s.stack.layers[size_t(r)].id) d.linkedTo = 0, d.linkDx = d.linkDy = 0;
+        }
         if (intoBase) {
             LayerStack terrain;
             // (what shows: a hidden layer and what is outside of the map go, as Flatten's)
@@ -981,6 +1042,7 @@ void mapLayersEraseDown(AppState& app, float wx, float wy) {
     mapLayersSync();
     if (s.active < 0 || s.active >= int(s.stack.layers.size())) return;  // (the sync read an undo: no layer now)
     if (s.stack.layers[size_t(s.active)].locked) return setMessage(L"The layer is locked");
+    if (s.stack.layers[size_t(s.active)].linkedTo) return setMessage(linkedRefusal(s.stack.layers[size_t(s.active)]));
     app.selDoodads.clear(), app.selSprites.clear(), app.ed->clearSelection();  // (the lists change in the drag)
     app.ed->beginLayerEdit();
     s.dragEd = app.ed.get();
@@ -1067,6 +1129,16 @@ void mapLayersDragMove(AppState& app, float wx, float wy) {
         for (const auto& [r, from] : s.moveFrom) {
             s.stack.layers[size_t(r)] = from;
             moveLayerContents(s.stack.layers[size_t(r)], dx, dy);
+            bool withOriginal = false;  // (its original moves too: the link stays, the copy moves with it)
+            for (const auto& [r2, from2] : s.moveFrom) withOriginal = withOriginal || (from.linkedTo && from2.id == from.linkedTo);
+            if (from.linkedTo && !withOriginal) s.stack.layers[size_t(r)].linkDx = from.linkDx + dx, s.stack.layers[size_t(r)].linkDy = from.linkDy + dy;
+        }
+        // (a linked duplicate of a moved original, not moved itself: its place from the original goes back by the move)
+        for (size_t i = 0; s.dragStart && i < s.stack.layers.size() && i < s.dragStart->layers.size(); ++i) {
+            MapLayer& l = s.stack.layers[i];
+            if (!l.linkedTo || s.moveFrom.count(int(i))) continue;
+            for (const auto& [r, from] : s.moveFrom)
+                if (from.id == l.linkedTo) l.linkDx = s.dragStart->layers[i].linkDx - dx, l.linkDy = s.dragStart->layers[i].linkDy - dy;
         }
         s.dragChanged = true;  // (also back at its start: the map was made again)
         layersCompose(*app.ed);

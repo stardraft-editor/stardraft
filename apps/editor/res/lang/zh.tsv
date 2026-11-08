@@ -3247,3 +3247,12 @@ draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apa
 Opacity of the selected layer in this view: what is under it shows through. The map does not change	所选图层在此视图中的不透明度：下面的内容会透出来。地图不会改变
 Map layers (experimental)	地图图层（实验性）
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	地图图层是实验性功能。请保留地图的副本，并报告无法正常工作的地方（提交反馈）。\n\n
+Duplicate linked	链接复制
+Unlink	取消链接
+Linked duplicate: it follows the changes of the original. Move it with Move layer	链接副本：它会跟随原图层的更改。用“移动图层”移动它
+Unlinked: the layer is one of its own now	已取消链接：该图层现在是独立的
+A linked duplicate follows its original: edit 	链接副本跟随其原图层：请编辑 
+the original	原图层
+, or Unlink this layer (right-click it in Map layers)	，或取消此图层的链接（在地图图层中右键单击）
+Linked duplicate of 	链接副本，原图层 
+: it follows the original's changes. Edit the original, or Unlink this layer	：它会跟随原图层的更改。请编辑原图层，或取消此图层的链接

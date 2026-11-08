@@ -45,6 +45,10 @@ struct MapLayer {
     std::vector<LayerObject<Unit>> units;
     std::vector<LayerObject<Doodad>> doodads;
     std::vector<LayerObject<MapSprite>> sprites;
+    // A linked duplicate: the contents of the layer whose id is linkedTo, moved by (linkDx, linkDy) rects (64 x 32 px;
+    // linkDx + linkDy even), made again from it by syncLinkedLayers. Its own: its id, name, eye, lock and place. 0: none.
+    uint32_t linkedTo = 0;
+    int linkDx = 0, linkDy = 0;
     bool empty() const { return corners.empty() && tiles.empty() && units.empty() && doodads.empty() && sprites.empty(); }
 };
 
@@ -84,6 +88,10 @@ struct LayerStack {
 // The contents of the layer move by (dx, dy) rects (64 x 32 px). The grid of ISOM corners moves
 // onto itself: dx + dy must be even.
 void moveLayerContents(MapLayer& layer, int dx, int dy);
+// Each linked duplicate of the stack made again from its original (its contents, moved to its place; its units get
+// serials of their own). A duplicate whose original is gone (deleted, merged into another) keeps its contents and is a
+// layer of its own then. A duplicate of a duplicate is one of the first original. True: a layer changed.
+bool syncLinkedLayers(LayerStack& stack);
 // The nearest move in rects (dx + dy even) for a drag in pixels.
 void snapLayerMove(int px, int py, int& dx, int& dy);
 LayerBounds layerBounds(const MapLayer& layer);

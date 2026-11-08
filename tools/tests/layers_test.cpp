@@ -65,6 +65,37 @@ int main(int argc, char** argv) {
         check(l.units[0].x == 192 - 256 && l.units[0].y == 128, "the units move with them");
     }
 
+    // Linked duplicates: the original's contents at their own place; in the file; on their own when the original goes.
+    {
+        LayerStack s;
+        MapLayer& a = s.add("a", 0);
+        a.corners[{3, 2}] = 2;
+        Unit u{};
+        u.serial = 7, u.relatedSerial = 8;
+        a.units.push_back({u, 192, 64, false});
+        MapLayer& d = s.add("a linked", 1);
+        d.linkedTo = s.layers[0].id, d.linkDx = 2, d.linkDy = 2;
+        check(syncLinkedLayers(s), "a new duplicate changes");
+        check(s.layers[1].corners.size() == 1 && s.layers[1].corners.count({5, 4}), "the original's corners, at the duplicate's place");
+        check(s.layers[1].units.size() == 1 && s.layers[1].units[0].x == 192 + 128 && s.layers[1].units[0].y == 128, "its units too");
+        check(s.layers[1].units[0].item.serial == 8 && s.layers[1].units[0].item.relatedSerial == 0,
+              "serials after the others' (a link to a unit that is not in it: none)");
+        s.layers[0].corners[{9, 10}] = 3;
+        check(syncLinkedLayers(s) && s.layers[1].corners.count({11, 12}), "a change of the original goes to the duplicate");
+        check(!syncLinkedLayers(s), "no change: nothing to do");
+        LayerStack back;
+        check(LayerStack::parse(s.serialize(), back) && back.layers[1].linkedTo == s.layers[0].id && back.layers[1].linkDx == 2 &&
+                  back.layers[1].linkDy == 2 && back.layers[0].linkedTo == 0,
+              "the links are in the file");
+        MapLayer& dd = s.add("a linked 2", 2);
+        dd.linkedTo = s.layers[1].id, dd.linkDx = 0, dd.linkDy = 2;
+        syncLinkedLayers(s);
+        check(s.layers[2].linkedTo == s.layers[0].id && s.layers[2].linkDx == 2 && s.layers[2].linkDy == 4, "a duplicate of a duplicate: of the original");
+        s.layers.erase(s.layers.begin());
+        syncLinkedLayers(s);
+        check(s.layers[0].linkedTo == 0 && s.layers[0].corners.count({5, 4}), "the original gone: a layer of its own, with what it showed");
+    }
+
     // A merge: the upper layer wins.
     {
         LayerStack s;

@@ -3247,3 +3247,12 @@ draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apa
 Opacity of the selected layer in this view: what is under it shows through. The map does not change	Opacidad de la capa seleccionada en esta vista: lo que hay debajo se ve a través. El mapa no cambia
 Map layers (experimental)	Capas del mapa (experimental)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	Las capas del mapa son experimentales. Guarde una copia de su mapa e informe de lo que no funcione (Enviar comentarios).\n\n
+Duplicate linked	Duplicar vinculada
+Unlink	Desvincular
+Linked duplicate: it follows the changes of the original. Move it with Move layer	Duplicado vinculado: sigue los cambios del original. Muévalo con Mover capa
+Unlinked: the layer is one of its own now	Desvinculada: ahora la capa es independiente
+A linked duplicate follows its original: edit 	Un duplicado vinculado sigue a su original: edite 
+the original	el original
+, or Unlink this layer (right-click it in Map layers)	, o desvincule esta capa (clic derecho en Capas del mapa)
+Linked duplicate of 	Duplicado vinculado de 
+: it follows the original's changes. Edit the original, or Unlink this layer	: sigue los cambios del original. Edite el original o desvincule esta capa

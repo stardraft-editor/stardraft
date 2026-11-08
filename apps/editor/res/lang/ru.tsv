@@ -3247,3 +3247,12 @@ draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apa
 Opacity of the selected layer in this view: what is under it shows through. The map does not change	Непрозрачность выбранного слоя в этом виде: то, что под ним, видно сквозь него. Карта не меняется
 Map layers (experimental)	Слои карты (экспериментально)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	Слои карты — экспериментальная функция. Сохраните копию карты и сообщите о том, что не работает (Отправить отзыв).\n\n
+Duplicate linked	Дублировать со связью
+Unlink	Отвязать
+Linked duplicate: it follows the changes of the original. Move it with Move layer	Связанный дубликат: он повторяет изменения оригинала. Перемещайте его инструментом «Переместить слой»
+Unlinked: the layer is one of its own now	Отвязан: теперь это отдельный слой
+A linked duplicate follows its original: edit 	Связанный дубликат повторяет оригинал: измените 
+the original	оригинал
+, or Unlink this layer (right-click it in Map layers)	 или отвяжите этот слой (щелчок правой кнопкой в «Слоях карты»)
+Linked duplicate of 	Связанный дубликат слоя 
+: it follows the original's changes. Edit the original, or Unlink this layer	: он повторяет изменения оригинала. Измените оригинал или отвяжите этот слой

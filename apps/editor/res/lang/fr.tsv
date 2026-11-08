@@ -3247,3 +3247,12 @@ draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apa
 Opacity of the selected layer in this view: what is under it shows through. The map does not change	Opacité du calque sélectionné dans cette vue : ce qui est dessous se voit à travers. La carte ne change pas
 Map layers (experimental)	Calques de la carte (expérimental)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	Les calques de la carte sont expérimentaux. Gardez une copie de votre carte et signalez ce qui ne fonctionne pas (Envoyer un commentaire).\n\n
+Duplicate linked	Dupliquer lié
+Unlink	Délier
+Linked duplicate: it follows the changes of the original. Move it with Move layer	Duplicata liée : elle suit les modifications de l'original. Déplacez-la avec Déplacer le calque
+Unlinked: the layer is one of its own now	Déliée : le calque est maintenant indépendant
+A linked duplicate follows its original: edit 	Une duplicata liée suit son original : modifiez 
+the original	l'original
+, or Unlink this layer (right-click it in Map layers)	, ou déliez ce calque (clic droit dans Calques de la carte)
+Linked duplicate of 	Duplicata liée de 
+: it follows the original's changes. Edit the original, or Unlink this layer	 : elle suit les modifications de l'original. Modifiez l'original, ou déliez ce calque

@@ -3247,6 +3247,15 @@ constexpr UiText kRows[] = {
     {L"Opacity of the selected layer in this view: what is under it shows through. The map does not change", L"Opacidad de la capa seleccionada en esta vista: lo que hay debajo se ve a trav\u00E9s. El mapa no cambia"},
     {L"Map layers (experimental)", L"Capas del mapa (experimental)"},
     {L"Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n", L"Las capas del mapa son experimentales. Guarde una copia de su mapa e informe de lo que no funcione (Enviar comentarios).\n\n"},
+    {L"Duplicate linked", L"Duplicar vinculada"},
+    {L"Unlink", L"Desvincular"},
+    {L"Linked duplicate: it follows the changes of the original. Move it with Move layer", L"Duplicado vinculado: sigue los cambios del original. Mu\u00E9valo con Mover capa"},
+    {L"Unlinked: the layer is one of its own now", L"Desvinculada: ahora la capa es independiente"},
+    {L"A linked duplicate follows its original: edit ", L"Un duplicado vinculado sigue a su original: edite "},
+    {L"the original", L"el original"},
+    {L", or Unlink this layer (right-click it in Map layers)", L", o desvincule esta capa (clic derecho en Capas del mapa)"},
+    {L"Linked duplicate of ", L"Duplicado vinculado de "},
+    {L": it follows the original's changes. Edit the original, or Unlink this layer", L": sigue los cambios del original. Edite el original o desvincule esta capa"},
 };
 }  // namespace
 std::span<const UiText> langTableEs() { return kRows; }

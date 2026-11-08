@@ -3247,6 +3247,15 @@ constexpr UiText kRows[] = {
     {L"Opacity of the selected layer in this view: what is under it shows through. The map does not change", L"\u6240\u9009\u56FE\u5C42\u5728\u6B64\u89C6\u56FE\u4E2D\u7684\u4E0D\u900F\u660E\u5EA6\uFF1A\u4E0B\u9762\u7684\u5185\u5BB9\u4F1A\u900F\u51FA\u6765\u3002\u5730\u56FE\u4E0D\u4F1A\u6539\u53D8"},
     {L"Map layers (experimental)", L"\u5730\u56FE\u56FE\u5C42\uFF08\u5B9E\u9A8C\u6027\uFF09"},
     {L"Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n", L"\u5730\u56FE\u56FE\u5C42\u662F\u5B9E\u9A8C\u6027\u529F\u80FD\u3002\u8BF7\u4FDD\u7559\u5730\u56FE\u7684\u526F\u672C\uFF0C\u5E76\u62A5\u544A\u65E0\u6CD5\u6B63\u5E38\u5DE5\u4F5C\u7684\u5730\u65B9\uFF08\u63D0\u4EA4\u53CD\u9988\uFF09\u3002\n\n"},
+    {L"Duplicate linked", L"\u94FE\u63A5\u590D\u5236"},
+    {L"Unlink", L"\u53D6\u6D88\u94FE\u63A5"},
+    {L"Linked duplicate: it follows the changes of the original. Move it with Move layer", L"\u94FE\u63A5\u526F\u672C\uFF1A\u5B83\u4F1A\u8DDF\u968F\u539F\u56FE\u5C42\u7684\u66F4\u6539\u3002\u7528\u201C\u79FB\u52A8\u56FE\u5C42\u201D\u79FB\u52A8\u5B83"},
+    {L"Unlinked: the layer is one of its own now", L"\u5DF2\u53D6\u6D88\u94FE\u63A5\uFF1A\u8BE5\u56FE\u5C42\u73B0\u5728\u662F\u72EC\u7ACB\u7684"},
+    {L"A linked duplicate follows its original: edit ", L"\u94FE\u63A5\u526F\u672C\u8DDF\u968F\u5176\u539F\u56FE\u5C42\uFF1A\u8BF7\u7F16\u8F91 "},
+    {L"the original", L"\u539F\u56FE\u5C42"},
+    {L", or Unlink this layer (right-click it in Map layers)", L"\uFF0C\u6216\u53D6\u6D88\u6B64\u56FE\u5C42\u7684\u94FE\u63A5\uFF08\u5728\u5730\u56FE\u56FE\u5C42\u4E2D\u53F3\u952E\u5355\u51FB\uFF09"},
+    {L"Linked duplicate of ", L"\u94FE\u63A5\u526F\u672C\uFF0C\u539F\u56FE\u5C42 "},
+    {L": it follows the original's changes. Edit the original, or Unlink this layer", L"\uFF1A\u5B83\u4F1A\u8DDF\u968F\u539F\u56FE\u5C42\u7684\u66F4\u6539\u3002\u8BF7\u7F16\u8F91\u539F\u56FE\u5C42\uFF0C\u6216\u53D6\u6D88\u6B64\u56FE\u5C42\u7684\u94FE\u63A5"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

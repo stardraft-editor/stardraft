@@ -3277,6 +3277,15 @@ constexpr UiText kRows[] = {
     {L"Opacity of the selected layer in this view: what is under it shows through. The map does not change", L"\uC774 \uBCF4\uAE30\uC5D0\uC11C \uC120\uD0DD\uD55C \uB808\uC774\uC5B4\uC758 \uBD88\uD22C\uBA85\uB3C4: \uC544\uB798\uC5D0 \uC788\uB294 \uAC83\uC774 \uBE44\uCCD0 \uBCF4\uC785\uB2C8\uB2E4. \uB9F5\uC740 \uBC14\uB00C\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4"},
     {L"Map layers (experimental)", L"\uC9C0\uB3C4 \uB808\uC774\uC5B4 (\uC2E4\uD5D8\uC801)"},
     {L"Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n", L"\uC9C0\uB3C4 \uB808\uC774\uC5B4\uB294 \uC2E4\uD5D8\uC801\uC778 \uAE30\uB2A5\uC785\uB2C8\uB2E4. \uB9F5\uC758 \uC0AC\uBCF8\uC744 \uBCF4\uAD00\uD558\uACE0, \uC791\uB3D9\uD558\uC9C0 \uC54A\uB294 \uAC83\uC744 \uC54C\uB824 \uC8FC\uC138\uC694 (\uD53C\uB4DC\uBC31 \uBCF4\uB0B4\uAE30).\n\n"},
+    {L"Duplicate linked", L"\uC5F0\uACB0\uB41C \uBCF5\uC81C"},
+    {L"Unlink", L"\uC5F0\uACB0 \uD574\uC81C"},
+    {L"Linked duplicate: it follows the changes of the original. Move it with Move layer", L"\uC5F0\uACB0\uB41C \uBCF5\uC81C: \uC6D0\uBCF8\uC758 \uBCC0\uACBD\uC744 \uB530\uB985\uB2C8\uB2E4. \uB808\uC774\uC5B4 \uC774\uB3D9\uC73C\uB85C \uC62E\uAE30\uC138\uC694"},
+    {L"Unlinked: the layer is one of its own now", L"\uC5F0\uACB0 \uD574\uC81C\uB428: \uC774\uC81C \uB3C5\uB9BD\uB41C \uB808\uC774\uC5B4\uC785\uB2C8\uB2E4"},
+    {L"A linked duplicate follows its original: edit ", L"\uC5F0\uACB0\uB41C \uBCF5\uC81C\uB294 \uC6D0\uBCF8\uC744 \uB530\uB985\uB2C8\uB2E4. \uD3B8\uC9D1\uD560 \uACF3: "},
+    {L"the original", L"\uC6D0\uBCF8"},
+    {L", or Unlink this layer (right-click it in Map layers)", L", \uB610\uB294 \uC774 \uB808\uC774\uC5B4\uC758 \uC5F0\uACB0\uC744 \uD574\uC81C\uD558\uC138\uC694 (\uC9C0\uB3C4 \uB808\uC774\uC5B4\uC5D0\uC11C \uC624\uB978\uCABD \uD074\uB9AD)"},
+    {L"Linked duplicate of ", L"\uC5F0\uACB0\uB41C \uBCF5\uC81C \uC6D0\uBCF8: "},
+    {L": it follows the original's changes. Edit the original, or Unlink this layer", L": \uC6D0\uBCF8\uC758 \uBCC0\uACBD\uC744 \uB530\uB985\uB2C8\uB2E4. \uC6D0\uBCF8\uC744 \uD3B8\uC9D1\uD558\uAC70\uB098 \uC774 \uB808\uC774\uC5B4\uC758 \uC5F0\uACB0\uC744 \uD574\uC81C\uD558\uC138\uC694"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

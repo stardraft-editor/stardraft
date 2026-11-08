@@ -3277,3 +3277,12 @@ draw the dot image "Logo" at Title for Player 8 with Terran Marine, 8 pixels apa
 Opacity of the selected layer in this view: what is under it shows through. The map does not change	이 보기에서 선택한 레이어의 불투명도: 아래에 있는 것이 비쳐 보입니다. 맵은 바뀌지 않습니다
 Map layers (experimental)	지도 레이어 (실험적)
 Map layers are experimental. Keep a copy of your map, and report what does not work (Report feedback).\n\n	지도 레이어는 실험적인 기능입니다. 맵의 사본을 보관하고, 작동하지 않는 것을 알려 주세요 (피드백 보내기).\n\n
+Duplicate linked	연결된 복제
+Unlink	연결 해제
+Linked duplicate: it follows the changes of the original. Move it with Move layer	연결된 복제: 원본의 변경을 따릅니다. 레이어 이동으로 옮기세요
+Unlinked: the layer is one of its own now	연결 해제됨: 이제 독립된 레이어입니다
+A linked duplicate follows its original: edit 	연결된 복제는 원본을 따릅니다. 편집할 곳: 
+the original	원본
+, or Unlink this layer (right-click it in Map layers)	, 또는 이 레이어의 연결을 해제하세요 (지도 레이어에서 오른쪽 클릭)
+Linked duplicate of 	연결된 복제 원본: 
+: it follows the original's changes. Edit the original, or Unlink this layer	: 원본의 변경을 따릅니다. 원본을 편집하거나 이 레이어의 연결을 해제하세요
