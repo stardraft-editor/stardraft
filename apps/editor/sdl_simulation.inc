@@ -239,46 +239,57 @@ std::wstring simUnitName(int type);  // (below: the unit's name in the map)
 // Rush distance: each worker's way so far (a place each 8 pixels), a line in its player's color (a copy, kept while a
 // skip runs).
 std::vector<sim::RushRoute> gSimRoutes;
-void simTrails(render::Scene& s) {
-    if (!simSkipRunning()) gSimRoutes = simEngine().rushResult();
-    const float k = 1 / std::max(0.01f, gState.zoom);
-    // A and B (the two points): pins, green (the start) and red (the end): a triangle with a flat top, its tip on the
-    // point, with a white rim and a soft shadow. In screen pixels, as large at any zoom (a held one a little larger).
-    // Filled shapes are rows of 1 pixel lines.
-    auto marker = [&](std::pair<int, int> at, uint32_t rgba, bool held) {
-        const float px = float(scale(100)) / 100 * k * (held ? 1.15f : 1.0f);  // a screen pixel in map pixels
-        const float x = float(at.first), y = float(at.second);
-        // (the triangle grown by `grow` pixels, moved by (dx, dy): rows from its flat top down to the tip)
-        auto pin = [&](float dx, float dy, float grow, uint32_t c) {
-            const float half = (kRushPinHalf + grow) * px, top = y + dy - (kRushPinHeight + grow) * px, tip = y + dy + grow * px;
-            for (float t = top; t <= tip; t += px) {
-                render::RectDraw d;
-                const float w = half * (tip - t) / std::max(px, tip - top);
-                d.x0 = x + dx - w, d.y0 = t, d.x1 = x + dx + w, d.y1 = t, d.rgba = c, d.line = true, d.thickness = 1.5f;
-                s.rects.push_back(d);
-            }
-        };
-        pin(px, 2 * px, 2, 0x00000050u);  // (the shadow)
-        pin(0, 0, 1.5f, 0xFFFFFFFFu);     // (the rim)
-        pin(0, 0, 0, rgba);
-    };
-    const bool points = gRushPoints.on && gRushPoints.ed == gState.ed.get();
+void simTrails(render::Scene&) {
+    if (!simSkipRunning()) gSimRoutes = simEngine().rushResult();  // (drawn over the map by simPaintRush)
+}
+// The ways and the two points over the map, smoothed (antialiased) as the UI's icons, on the map view's canvas (the
+// map's renderer draws no smooth lines): each way a 2 pixel line in its player's color with a dark edge under it; A
+// and B as pins, green (the start) and red (the end): a triangle with a flat top, its tip on the point, a white rim
+// and a dark edge. In window pixels, as large at any zoom (a held pin a little larger).
+void simPaintRush(draw::Canvas& c, draw::Rect view) {
+    if (!gSim.rush || !gState.ed) return;
+    using P = draw::Canvas::PointF;
+    const float zoom = std::max(0.01f, gState.zoom), u = float(scale(100)) / 100;
+    auto at = [&](std::pair<int, int> w) { return P{(float(w.first) - gState.camX) * zoom, (float(w.second) - gState.camY) * zoom}; };
+    auto color = [](uint32_t rgba) { return draw::rgb(int(rgba >> 24), int(rgba >> 16 & 255), int(rgba >> 8 & 255)); };
     for (const sim::RushRoute& r : gSimRoutes) {
         if (gRushDrag) break;  // (no ways while a point moves)
-        if (r.path.empty() || (gSim.fog >= 0 && r.from != gSim.fog)) continue;
+        if (r.path.size() < 2 || (gSim.fog >= 0 && r.from != gSim.fog)) continue;
         // (a start location's route: its player's color; the routes between two points: each unit its own)
-        const uint32_t color = playerRgba(r.from >= 0 ? std::clamp(r.from, 0, 11) : int(&r - gSimRoutes.data()) % 12, 230);
-        std::pair<int, int> from = r.path.front();
-        for (size_t k = 1; k < r.path.size(); ++k) {
-            const std::pair<int, int>& to = r.path[k];
-            render::RectDraw line;
-            line.x0 = float(from.first), line.y0 = float(from.second), line.x1 = float(to.first), line.y1 = float(to.second);
-            line.rgba = color, line.line = true, line.thickness = 2;
-            s.rects.push_back(line);
-            from = to;
+        const draw::Color line = color(playerRgba(r.from >= 0 ? std::clamp(r.from, 0, 11) : int(&r - gSimRoutes.data()) % 12, 255));
+        // The way's points in the window, at least 2 pixels apart (zoomed out, the path's places each 8 map pixels are
+        // closer), and only the parts in the view: a large map's 56 ways stay a few thousand lines.
+        std::vector<P> pts;
+        pts.reserve(r.path.size());
+        for (size_t k = 0; k < r.path.size(); ++k) {
+            const P q = at(r.path[k]);
+            if (!pts.empty() && k + 1 < r.path.size() && std::abs(q.x - pts.back().x) < 2 * u && std::abs(q.y - pts.back().y) < 2 * u) continue;
+            pts.push_back(q);
         }
+        const float m = 4 * u;  // (the edge's width)
+        auto shown = [&](P a, P b) {
+            return std::max(a.x, b.x) >= float(view.left) - m && std::min(a.x, b.x) <= float(view.right) + m &&
+                   std::max(a.y, b.y) >= float(view.top) - m && std::min(a.y, b.y) <= float(view.bottom) + m;
+        };
+        for (int pass = 0; pass < 2; ++pass)  // (the dark edge first, then the color over it)
+            for (size_t k = 1; k < pts.size(); ++k)
+                if (shown(pts[k - 1], pts[k])) c.smoothLine(pts[k - 1], pts[k], pass ? line : draw::rgb(16, 16, 20), (pass ? 2.0f : 4.0f) * u, pass ? 255 : 110);
     }
-    if (points) marker(gRushPoints.from, 0x34C759FFu, gRushDrag == 1), marker(gRushPoints.to, 0xFF453AFFu, gRushDrag == 2);
+    if (!gRushPoints.on || gRushPoints.ed != gState.ed.get()) return;
+    auto pin = [&](std::pair<int, int> point, draw::Color fill, bool held) {
+        const P tip = at(point);
+        const float g = held ? 1.15f : 1.0f, half = kRushPinHalf * u * g, height = kRushPinHeight * u * g;
+        auto tri = [&](float grow, float dy) {
+            return std::array<P, 3>{P{tip.x - half - grow * 1.6f, tip.y - height - grow + dy}, P{tip.x + half + grow * 1.6f, tip.y - height - grow + dy},
+                                    P{tip.x, tip.y + grow * 1.8f + dy}};
+        };
+        const auto edge = tri(3 * u, 1 * u), rim = tri(1.6f * u, 0), body = tri(0, 0);
+        c.smoothPolygon(edge.data(), 3, draw::rgb(16, 16, 20));
+        c.smoothPolygon(rim.data(), 3, draw::rgb(255, 255, 255));
+        c.smoothPolygon(body.data(), 3, fill);
+    };
+    pin(gRushPoints.from, draw::rgb(52, 199, 89), gRushDrag == 1);
+    pin(gRushPoints.to, draw::rgb(255, 69, 58), gRushDrag == 2);
 }
 
 // Mining: at each base's mineral fields, two lines over the field: its mean round trip in frames (after the warm-up;
@@ -1595,6 +1606,7 @@ std::wstring simPanelTip(const SimBarLayout& l, draw::Rect r, draw::Point pt) {
 }
 
 void simPaintBar(draw::Canvas& c, draw::Rect r) {
+    simPaintRush(c, r);  // (the rush's ways and points over the map, under the bar)
     const SimBarLayout l = simLayout(r);
     const float round = float((l.bar.bottom - l.bar.top) / 2);
     c.roundBox(l.bar, kPanel, kBorder, round);
